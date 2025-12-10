@@ -1,7 +1,20 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { setupTestDb, cleanupTestDb, createTestTool, createTestGuideline, createTestKnowledge } from '../fixtures/test-helpers.js';
-import { backfillEmbeddings, getBackfillStats, type BackfillProgress } from '../../src/services/backfill.service.js';
-import { getEmbeddingService, resetEmbeddingService } from '../../src/services/embedding.service.js';
+import {
+  setupTestDb,
+  cleanupTestDb,
+  createTestTool,
+  createTestGuideline,
+  createTestKnowledge,
+} from '../fixtures/test-helpers.js';
+import {
+  backfillEmbeddings,
+  getBackfillStats,
+  type BackfillProgress,
+} from '../../src/services/backfill.service.js';
+import {
+  getEmbeddingService,
+  resetEmbeddingService,
+} from '../../src/services/embedding.service.js';
 import { getVectorService, resetVectorService } from '../../src/services/vector.service.js';
 import * as schema from '../../src/db/schema.js';
 import { entryEmbeddings } from '../../src/db/schema.js';
@@ -34,19 +47,26 @@ describe.skipIf(!getEmbeddingService().isAvailable())('Backfill Service', () => 
       sqlite.close();
     }
     cleanupTestDb(TEST_DB_PATH);
-    
+
     const vectorService = getVectorService();
     await vectorService.close();
-    
+
     resetEmbeddingService();
     resetVectorService();
   });
 
   it('should process all entry types by default', async () => {
-
     // Create one of each type
     createTestTool(db, 'test-tool', 'global', undefined, 'function', 'Test tool description');
-    createTestGuideline(db, 'test-guideline', 'global', undefined, 'testing', 50, 'Test guideline content');
+    createTestGuideline(
+      db,
+      'test-guideline',
+      'global',
+      undefined,
+      'testing',
+      50,
+      'Test guideline content'
+    );
     createTestKnowledge(db, 'test-knowledge', 'global', undefined, 'Test knowledge content');
 
     const progress = await backfillEmbeddings({
@@ -93,12 +113,11 @@ describe.skipIf(!getEmbeddingService().isAvailable())('Backfill Service', () => 
   });
 
   it('should track progress with callback', async () => {
-
     createTestTool(db, 'progress-tool-1', 'global');
     createTestTool(db, 'progress-tool-2', 'global');
 
     const progressUpdates: BackfillProgress[] = [];
-    
+
     const progress = await backfillEmbeddings({
       entryTypes: ['tool'],
       batchSize: 1,
@@ -110,7 +129,7 @@ describe.skipIf(!getEmbeddingService().isAvailable())('Backfill Service', () => 
 
     // Should have received progress updates
     expect(progressUpdates.length).toBeGreaterThan(0);
-    
+
     // Final update should show completion
     const finalUpdate = progressUpdates[progressUpdates.length - 1];
     expect(finalUpdate.inProgress).toBe(false);
@@ -120,7 +139,7 @@ describe.skipIf(!getEmbeddingService().isAvailable())('Backfill Service', () => 
   it('should track succeeded and failed counts', async () => {
     // Create valid tools
     createTestTool(db, 'valid-tool', 'global', undefined, 'function', 'Valid description');
-    
+
     const progress = await backfillEmbeddings({
       entryTypes: ['tool'],
       batchSize: 10,
@@ -132,7 +151,6 @@ describe.skipIf(!getEmbeddingService().isAvailable())('Backfill Service', () => 
   });
 
   it('should skip entries that already have embeddings', async () => {
-
     createTestTool(db, 'existing-tool', 'global');
 
     // Run backfill first time
@@ -162,7 +180,7 @@ describe.skipIf(!getEmbeddingService().isAvailable())('Backfill Service', () => 
     }
 
     const startTime = Date.now();
-    
+
     await backfillEmbeddings({
       entryTypes: ['tool'],
       batchSize: 2, // 2 batches needed
@@ -170,14 +188,13 @@ describe.skipIf(!getEmbeddingService().isAvailable())('Backfill Service', () => 
     });
 
     const elapsed = Date.now() - startTime;
-    
+
     // Should have at least one delay (100ms) between batches
     // Being lenient with timing to avoid flaky tests
     expect(elapsed).toBeGreaterThan(50);
   });
 
   it('should get backfill statistics', async () => {
-
     // Create entries
     createTestTool(db, 'stats-tool', 'global');
     createTestGuideline(db, 'stats-guideline', 'global');
@@ -206,7 +223,7 @@ describe.skipIf(!getEmbeddingService().isAvailable())('Backfill Service', () => 
   it('should handle entries without current version', async () => {
     // Create a tool without version (edge case)
     const { tool } = createTestTool(db, 'no-version-tool', 'global');
-    
+
     // Remove the current version reference
     db.update(schema.tools)
       .set({ currentVersionId: null })
@@ -225,7 +242,6 @@ describe.skipIf(!getEmbeddingService().isAvailable())('Backfill Service', () => 
   });
 
   it('should store embedding tracking records', async () => {
-
     const { tool } = createTestTool(db, 'tracked-tool', 'global');
 
     await backfillEmbeddings({
@@ -276,14 +292,10 @@ describe.skipIf(!getEmbeddingService().isAvailable())('Backfill Service', () => 
   });
 
   it('should process inactive entries as not included', async () => {
-
     const { tool } = createTestTool(db, 'inactive-tool', 'global');
-    
+
     // Mark as inactive
-    db.update(schema.tools)
-      .set({ isActive: false })
-      .where(eq(schema.tools.id, tool.id))
-      .run();
+    db.update(schema.tools).set({ isActive: false }).where(eq(schema.tools.id, tool.id)).run();
 
     const progress = await backfillEmbeddings({
       entryTypes: ['tool'],
@@ -299,7 +311,15 @@ describe.skipIf(!getEmbeddingService().isAvailable())('Backfill Service', () => 
   it('should extract text correctly for different entry types', async () => {
     // Create entries with specific content
     createTestTool(db, 'text-tool', 'global', undefined, 'function', 'Tool description text');
-    createTestGuideline(db, 'text-guideline', 'global', undefined, 'testing', 50, 'Guideline content text');
+    createTestGuideline(
+      db,
+      'text-guideline',
+      'global',
+      undefined,
+      'testing',
+      50,
+      'Guideline content text'
+    );
     createTestKnowledge(db, 'text-knowledge', 'global', undefined, 'Knowledge content text');
 
     const progress = await backfillEmbeddings({
@@ -312,13 +332,12 @@ describe.skipIf(!getEmbeddingService().isAvailable())('Backfill Service', () => 
   });
 
   it('should handle progress updates incrementally', async () => {
-
     createTestTool(db, 'incremental-1', 'global');
     createTestTool(db, 'incremental-2', 'global');
     createTestTool(db, 'incremental-3', 'global');
 
     const progressUpdates: number[] = [];
-    
+
     await backfillEmbeddings({
       entryTypes: ['tool'],
       batchSize: 1,
@@ -330,7 +349,7 @@ describe.skipIf(!getEmbeddingService().isAvailable())('Backfill Service', () => 
 
     // Progress should increase incrementally
     expect(progressUpdates.length).toBeGreaterThan(0);
-    
+
     for (let i = 1; i < progressUpdates.length; i++) {
       expect(progressUpdates[i]).toBeGreaterThanOrEqual(progressUpdates[i - 1]);
     }

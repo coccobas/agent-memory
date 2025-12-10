@@ -16,12 +16,12 @@ describe('Vector Service', () => {
   afterEach(async () => {
     const service = getVectorService();
     await service.close();
-    
+
     // Clean up test vector DB
     if (existsSync(TEST_VECTOR_DB_PATH)) {
       rmSync(TEST_VECTOR_DB_PATH, { recursive: true, force: true });
     }
-    
+
     resetVectorService();
   });
 
@@ -33,10 +33,10 @@ describe('Vector Service', () => {
 
   it('should initialize vector database', async () => {
     const service = getVectorService();
-    
+
     // Should not throw
     await expect(service.initialize()).resolves.not.toThrow();
-    
+
     // Calling initialize again should be safe (idempotent)
     await expect(service.initialize()).resolves.not.toThrow();
   });
@@ -45,8 +45,10 @@ describe('Vector Service', () => {
     const service = getVectorService();
     await service.initialize();
 
-    const embedding = Array(384).fill(0).map(() => Math.random());
-    
+    const embedding = Array(384)
+      .fill(0)
+      .map(() => Math.random());
+
     await expect(
       service.storeEmbedding(
         'tool',
@@ -63,8 +65,12 @@ describe('Vector Service', () => {
     const service = getVectorService();
     await service.initialize();
 
-    const embedding1 = Array(384).fill(0).map(() => Math.random());
-    const embedding2 = Array(384).fill(0).map(() => Math.random());
+    const embedding1 = Array(384)
+      .fill(0)
+      .map(() => Math.random());
+    const embedding2 = Array(384)
+      .fill(0)
+      .map(() => Math.random());
 
     await service.storeEmbedding(
       'tool',
@@ -92,8 +98,12 @@ describe('Vector Service', () => {
     const service = getVectorService();
     await service.initialize();
 
-    const embedding1 = Array(384).fill(0).map(() => Math.random());
-    const embedding2 = Array(384).fill(0).map(() => Math.random());
+    const embedding1 = Array(384)
+      .fill(0)
+      .map(() => Math.random());
+    const embedding2 = Array(384)
+      .fill(0)
+      .map(() => Math.random());
 
     // Get initial count
     const initialCount = await service.getCount();
@@ -137,7 +147,9 @@ describe('Vector Service', () => {
 
     // Create similar embeddings (all values close to 0.5)
     const baseEmbedding = Array(384).fill(0.5);
-    const similarEmbedding = Array(384).fill(0).map(() => 0.5 + (Math.random() - 0.5) * 0.1);
+    const similarEmbedding = Array(384)
+      .fill(0)
+      .map(() => 0.5 + (Math.random() - 0.5) * 0.1);
 
     await service.storeEmbedding(
       'tool',
@@ -153,7 +165,7 @@ describe('Vector Service', () => {
 
     expect(results).toBeDefined();
     expect(Array.isArray(results)).toBe(true);
-    
+
     if (results.length > 0) {
       expect(results[0].entryType).toBe('tool');
       expect(results[0].entryId).toBe('tool-1');
@@ -166,17 +178,37 @@ describe('Vector Service', () => {
     const service = getVectorService();
     await service.initialize();
 
-    const embedding1 = Array(384).fill(0).map(() => Math.random());
-    const embedding2 = Array(384).fill(0).map(() => Math.random());
-    const embedding3 = Array(384).fill(0).map(() => Math.random());
+    const embedding1 = Array(384)
+      .fill(0)
+      .map(() => Math.random());
+    const embedding2 = Array(384)
+      .fill(0)
+      .map(() => Math.random());
+    const embedding3 = Array(384)
+      .fill(0)
+      .map(() => Math.random());
 
     await service.storeEmbedding('tool', 'tool-1', 'v1', 'Tool', embedding1, 'model');
-    await service.storeEmbedding('guideline', 'guideline-1', 'v1', 'Guideline', embedding2, 'model');
-    await service.storeEmbedding('knowledge', 'knowledge-1', 'v1', 'Knowledge', embedding3, 'model');
+    await service.storeEmbedding(
+      'guideline',
+      'guideline-1',
+      'v1',
+      'Guideline',
+      embedding2,
+      'model'
+    );
+    await service.storeEmbedding(
+      'knowledge',
+      'knowledge-1',
+      'v1',
+      'Knowledge',
+      embedding3,
+      'model'
+    );
 
     // Search for only tools
     const toolResults = await service.searchSimilar(embedding1, ['tool'], 10);
-    
+
     if (toolResults.length > 0) {
       toolResults.forEach((result) => {
         expect(result.entryType).toBe('tool');
@@ -185,7 +217,7 @@ describe('Vector Service', () => {
 
     // Search for multiple types
     const multiResults = await service.searchSimilar(embedding1, ['tool', 'guideline'], 10);
-    
+
     if (multiResults.length > 0) {
       multiResults.forEach((result) => {
         expect(['tool', 'guideline']).toContain(result.entryType);
@@ -199,7 +231,9 @@ describe('Vector Service', () => {
 
     // Store multiple embeddings
     for (let i = 0; i < 10; i++) {
-      const embedding = Array(384).fill(0).map(() => Math.random());
+      const embedding = Array(384)
+        .fill(0)
+        .map(() => Math.random());
       await service.storeEmbedding(
         'tool',
         `tool-${i}`,
@@ -210,8 +244,10 @@ describe('Vector Service', () => {
       );
     }
 
-    const queryEmbedding = Array(384).fill(0).map(() => Math.random());
-    
+    const queryEmbedding = Array(384)
+      .fill(0)
+      .map(() => Math.random());
+
     // Search with limit of 5
     const results = await service.searchSimilar(queryEmbedding, ['tool'], 5);
 
@@ -223,7 +259,7 @@ describe('Vector Service', () => {
     await service.initialize();
 
     const baseEmbedding = Array(384).fill(0.5);
-    
+
     // Store the base embedding
     await service.storeEmbedding(
       'tool',
@@ -235,7 +271,9 @@ describe('Vector Service', () => {
     );
 
     // Store a very different embedding
-    const differentEmbedding = Array(384).fill(0).map(() => Math.random());
+    const differentEmbedding = Array(384)
+      .fill(0)
+      .map(() => Math.random());
     await service.storeEmbedding(
       'tool',
       'tool-2',
@@ -246,7 +284,9 @@ describe('Vector Service', () => {
     );
 
     // Search with embedding similar to base
-    const similarQuery = Array(384).fill(0).map(() => 0.5 + (Math.random() - 0.5) * 0.05);
+    const similarQuery = Array(384)
+      .fill(0)
+      .map(() => 0.5 + (Math.random() - 0.5) * 0.05);
     const results = await service.searchSimilar(similarQuery, ['tool'], 10);
 
     if (results.length > 1) {
@@ -265,14 +305,25 @@ describe('Vector Service', () => {
     const initialCount = await service.getCount();
 
     // Add embeddings
-    const embedding1 = Array(384).fill(0).map(() => Math.random());
+    const embedding1 = Array(384)
+      .fill(0)
+      .map(() => Math.random());
     await service.storeEmbedding('tool', 'tool-count-1', 'v1', 'Tool', embedding1, 'model');
 
     let count = await service.getCount();
     expect(count).toBe(initialCount + 1);
 
-    const embedding2 = Array(384).fill(0).map(() => Math.random());
-    await service.storeEmbedding('guideline', 'guideline-count-1', 'v1', 'Guideline', embedding2, 'model');
+    const embedding2 = Array(384)
+      .fill(0)
+      .map(() => Math.random());
+    await service.storeEmbedding(
+      'guideline',
+      'guideline-count-1',
+      'v1',
+      'Guideline',
+      embedding2,
+      'model'
+    );
 
     count = await service.getCount();
     expect(count).toBe(initialCount + 2);
@@ -282,8 +333,10 @@ describe('Vector Service', () => {
     const service = getVectorService();
     await service.initialize();
 
-    const queryEmbedding = Array(384).fill(0).map(() => Math.random());
-    
+    const queryEmbedding = Array(384)
+      .fill(0)
+      .map(() => Math.random());
+
     // Search when database is empty
     const results = await service.searchSimilar(queryEmbedding, ['tool'], 10);
 
@@ -296,11 +349,15 @@ describe('Vector Service', () => {
     const service = getVectorService();
     await service.initialize();
 
-    const embedding = Array(384).fill(0).map(() => Math.random());
+    const embedding = Array(384)
+      .fill(0)
+      .map(() => Math.random());
     await service.storeEmbedding('tool', 'tool-1', 'v1', 'Tool', embedding, 'model');
 
-    const queryEmbedding = Array(384).fill(0).map(() => Math.random());
-    
+    const queryEmbedding = Array(384)
+      .fill(0)
+      .map(() => Math.random());
+
     // Search with empty types array should return all types
     const results = await service.searchSimilar(queryEmbedding, [], 10);
 
@@ -313,10 +370,10 @@ describe('Vector Service', () => {
     await service.initialize();
 
     // Should not throw
-    await expect(service.close()).resolves.not.toThrow();
-    
+    expect(() => service.close()).not.toThrow();
+
     // Closing again should be safe
-    await expect(service.close()).resolves.not.toThrow();
+    expect(() => service.close()).not.toThrow();
   });
 
   it('should handle initialization errors gracefully', async () => {
@@ -330,10 +387,14 @@ describe('Vector Service', () => {
     const service = getVectorService();
     await service.initialize();
 
-    const embedding = Array(384).fill(0).map(() => Math.random());
+    const embedding = Array(384)
+      .fill(0)
+      .map(() => Math.random());
     await service.storeEmbedding('tool', 'tool-1', 'v1', 'Tool', embedding, 'model');
 
-    const queryEmbedding = Array(384).fill(0).map(() => Math.random());
+    const queryEmbedding = Array(384)
+      .fill(0)
+      .map(() => Math.random());
     const results = await service.searchSimilar(queryEmbedding, ['tool'], 10);
 
     results.forEach((result) => {
@@ -346,12 +407,16 @@ describe('Vector Service', () => {
     const service = getVectorService();
     await service.initialize();
 
-    const embedding = Array(384).fill(0).map(() => Math.random());
+    const embedding = Array(384)
+      .fill(0)
+      .map(() => Math.random());
     const text = 'Test tool for authentication';
-    
+
     await service.storeEmbedding('tool', 'tool-1', 'v1', text, embedding, 'model');
 
-    const queryEmbedding = Array(384).fill(0).map(() => Math.random());
+    const queryEmbedding = Array(384)
+      .fill(0)
+      .map(() => Math.random());
     const results = await service.searchSimilar(queryEmbedding, ['tool'], 10);
 
     if (results.length > 0) {
@@ -363,8 +428,10 @@ describe('Vector Service', () => {
     const service = getVectorService();
     await service.initialize();
 
-    const embedding = Array(384).fill(0).map(() => Math.random());
-    
+    const embedding = Array(384)
+      .fill(0)
+      .map(() => Math.random());
+
     await service.storeEmbedding(
       'tool',
       'tool-1',
@@ -374,7 +441,9 @@ describe('Vector Service', () => {
       'model'
     );
 
-    const queryEmbedding = Array(384).fill(0).map(() => Math.random());
+    const queryEmbedding = Array(384)
+      .fill(0)
+      .map(() => Math.random());
     const results = await service.searchSimilar(queryEmbedding, ['tool'], 10);
 
     if (results.length > 0) {

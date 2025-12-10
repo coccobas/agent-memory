@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { getEmbeddingService, resetEmbeddingService } from '../../src/services/embedding.service.js';
+import {
+  getEmbeddingService,
+  resetEmbeddingService,
+} from '../../src/services/embedding.service.js';
 
 describe('Embedding Service', () => {
   beforeEach(() => {
@@ -27,7 +30,7 @@ describe('Embedding Service', () => {
     const service = getEmbeddingService();
     const available = service.isAvailable();
     const provider = service.getProvider();
-    
+
     if (provider === 'disabled') {
       expect(available).toBe(false);
     } else {
@@ -38,7 +41,7 @@ describe('Embedding Service', () => {
   it('should return correct embedding dimensions', () => {
     const service = getEmbeddingService();
     const dimensions = service.getEmbeddingDimension();
-    
+
     if (service.getProvider() === 'openai') {
       expect(dimensions).toBe(1536); // text-embedding-3-small
     } else if (service.getProvider() === 'local') {
@@ -52,12 +55,12 @@ describe('Embedding Service', () => {
     // Force disabled mode by setting env var
     const originalProvider = process.env.AGENT_MEMORY_EMBEDDING_PROVIDER;
     process.env.AGENT_MEMORY_EMBEDDING_PROVIDER = 'disabled';
-    
+
     resetEmbeddingService();
     const service = getEmbeddingService();
-    
+
     await expect(service.embed('test')).rejects.toThrow('Embeddings are disabled');
-    
+
     // Restore
     if (originalProvider) {
       process.env.AGENT_MEMORY_EMBEDDING_PROVIDER = originalProvider;
@@ -68,7 +71,7 @@ describe('Embedding Service', () => {
 
   it('should reject empty text', async () => {
     const service = getEmbeddingService();
-    
+
     if (service.isAvailable()) {
       await expect(service.embed('')).rejects.toThrow('Cannot embed empty text');
       await expect(service.embed('   ')).rejects.toThrow('Cannot embed empty text');

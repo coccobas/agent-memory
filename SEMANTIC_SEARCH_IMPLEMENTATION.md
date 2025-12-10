@@ -9,6 +9,7 @@ Successfully implemented semantic/vector search capabilities for the Agent Memor
 ### 1. Core Services
 
 #### Embedding Service (`src/services/embedding.service.ts`)
+
 - Configurable embedding providers:
   - **OpenAI**: Using `text-embedding-3-small` (1536 dimensions)
   - **Local**: Using `@xenova/transformers` with `all-MiniLM-L6-v2` (384 dimensions)
@@ -18,12 +19,14 @@ Successfully implemented semantic/vector search capabilities for the Agent Memor
 - Batch embedding support for efficiency
 
 #### Vector Service (`src/services/vector.service.ts`)
+
 - LanceDB integration for vector similarity search
 - Efficient storage and retrieval of embeddings
 - Distance-to-similarity score conversion
 - Support for filtering by entry types
 
 #### Backfill Service (`src/services/backfill.service.ts`)
+
 - Batch processing of existing entries
 - Rate limiting support (configurable delays)
 - Progress tracking and callbacks
@@ -32,22 +35,26 @@ Successfully implemented semantic/vector search capabilities for the Agent Memor
 ### 2. Database Changes
 
 #### Migration (`src/db/migrations/0002_add_embeddings_tracking.sql`)
+
 - New `entry_embeddings` table to track embedding status
 - Indexes for efficient querying
 - Unique constraints on (entry_type, entry_id, version_id)
 
 #### Schema Updates (`src/db/schema.ts`)
+
 - Added `entryEmbeddings` table definition
 - Type exports for `EntryEmbedding` and `NewEntryEmbedding`
 
 ### 3. Repository Integration
 
 #### Embedding Hooks (`src/db/repositories/embedding-hooks.ts`)
+
 - Automatic embedding generation on entry creation/update
 - Fire-and-forget async execution (non-blocking)
 - Text extraction utilities for different entry types
 
 #### Updated Repositories
+
 - `tools.ts`: Generates embeddings for tool descriptions
 - `guidelines.ts`: Generates embeddings for guideline content
 - `knowledge.ts`: Generates embeddings for knowledge entries
@@ -55,6 +62,7 @@ Successfully implemented semantic/vector search capabilities for the Agent Memor
 ### 4. Query Enhancement
 
 #### Query Service (`src/services/query.service.ts`)
+
 - New `executeMemoryQueryAsync` function with semantic search
 - Hybrid scoring: 70% semantic similarity + 30% traditional factors
 - Configurable similarity threshold (default: 0.7)
@@ -62,6 +70,7 @@ Successfully implemented semantic/vector search capabilities for the Agent Memor
 - Updated `computeScore` to incorporate semantic similarity
 
 #### Query Handler (`src/mcp/handlers/query.handler.ts`)
+
 - Made `query` handler async
 - Automatic selection of sync/async based on parameters
 - Backward compatible with existing queries
@@ -69,6 +78,7 @@ Successfully implemented semantic/vector search capabilities for the Agent Memor
 ### 5. API Updates
 
 #### MCP Types (`src/mcp/types.ts`)
+
 - Added `semanticSearch?: boolean` parameter
 - Added `semanticThreshold?: number` parameter
 - Default: semantic search enabled if embeddings available
@@ -76,6 +86,7 @@ Successfully implemented semantic/vector search capabilities for the Agent Memor
 ### 6. Configuration
 
 #### Environment Variables
+
 ```bash
 AGENT_MEMORY_EMBEDDING_PROVIDER=openai|local|disabled
 AGENT_MEMORY_OPENAI_API_KEY=your-key
@@ -87,12 +98,14 @@ AGENT_MEMORY_SEMANTIC_THRESHOLD=0.7
 ### 7. Testing
 
 #### Unit Tests (`tests/unit/embedding.service.test.ts`)
+
 - Provider detection and availability
 - Configuration validation
 - Error handling
 - Embedding dimension verification
 
 #### Integration Tests (`tests/integration/semantic-search.test.ts`)
+
 - End-to-end semantic search queries
 - Fallback behavior
 - Threshold parameter validation
@@ -101,6 +114,7 @@ AGENT_MEMORY_SEMANTIC_THRESHOLD=0.7
 ### 8. Documentation
 
 #### Updated Files
+
 - `docs/getting-started.md`: Added semantic search configuration section
 - `docs/api-reference.md`: Added semantic search parameters
 - `src/db/connection.ts`: Documented environment variables
@@ -158,7 +172,7 @@ Finds entries about "login", "auth", "credentials" even without exact match.
   "action": "search",
   "search": "database queries",
   "semanticSearch": true,
-  "semanticThreshold": 0.8  // Stricter matching
+  "semanticThreshold": 0.8 // Stricter matching
 }
 ```
 
@@ -168,7 +182,7 @@ Finds entries about "login", "auth", "credentials" even without exact match.
 {
   "action": "search",
   "search": "exact phrase",
-  "semanticSearch": false  // Text only
+  "semanticSearch": false // Text only
 }
 ```
 
@@ -180,22 +194,25 @@ import { backfillEmbeddings } from './src/services/backfill.service.js';
 const progress = await backfillEmbeddings({
   batchSize: 50,
   delayMs: 1000,
-  onProgress: (p) => console.log(`${p.processed}/${p.total}`)
+  onProgress: (p) => console.log(`${p.processed}/${p.total}`),
 });
 ```
 
 ## Performance Characteristics
 
 ### Embedding Generation
+
 - OpenAI API: ~100-200ms per text
 - Local model: ~50-500ms per text (first load: ~5s)
 - Batching: Up to 100 texts at once (OpenAI)
 
 ### Vector Search
+
 - Query time: ~5-50ms for 1000s of entries
 - Scales well with LanceDB indexing
 
 ### Memory Usage
+
 - Base: ~10MB (Node.js + SQLite)
 - OpenAI: Minimal (API-based)
 - Local model: ~90MB (model cache)

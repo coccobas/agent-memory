@@ -464,7 +464,7 @@ function computeScore(params: {
 
     // Other factors contribute 30%
     let otherFactors = 0;
-    
+
     if (params.hasExplicitRelation) {
       otherFactors += 5;
     }
@@ -947,14 +947,16 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
 
 /**
  * Async version of executeMemoryQuery with semantic search support
- * 
+ *
  * This function extends the synchronous query with vector similarity search.
  * If semantic search is enabled and embeddings are available, it will:
  * 1. Generate an embedding for the search query
  * 2. Find similar entries using vector search
  * 3. Boost scores of semantically similar entries
  */
-export async function executeMemoryQueryAsync(params: MemoryQueryParams): Promise<MemoryQueryResult> {
+export async function executeMemoryQueryAsync(
+  params: MemoryQueryParams
+): Promise<MemoryQueryResult> {
   const search = params.search?.trim();
   const semanticSearchEnabled = params.semanticSearch !== false; // Default true
   const semanticThreshold = params.semanticThreshold ?? 0.7;
@@ -966,32 +968,33 @@ export async function executeMemoryQueryAsync(params: MemoryQueryParams): Promis
 
   // Try semantic search
   let semanticResults: Map<string, number> | null = null;
-  
+
   try {
     const embeddingService = getEmbeddingService();
     if (embeddingService.isAvailable()) {
       // Generate embedding for search query
       const embeddingResult = await embeddingService.embed(search);
-      
+
       // Search vector database
       const vectorService = getVectorService();
-      const types = params.types && params.types.length > 0
-        ? params.types
-        : (['tools', 'guidelines', 'knowledge'] as const);
-      
+      const types =
+        params.types && params.types.length > 0
+          ? params.types
+          : (['tools', 'guidelines', 'knowledge'] as const);
+
       const entryTypes = types.map((t) => {
         if (t === 'tools') return 'tool';
         if (t === 'guidelines') return 'guideline';
         return 'knowledge';
       });
-      
+
       const limit = params.limit && params.limit > 0 ? params.limit : 20;
       const similarEntries = await vectorService.searchSimilar(
         embeddingResult.embedding,
         entryTypes,
         limit * 3 // Get more results to account for filtering
       );
-      
+
       // Filter by threshold and create map of entry -> similarity score
       semanticResults = new Map();
       for (const entry of similarEntries) {
@@ -1023,16 +1026,21 @@ export async function executeMemoryQueryAsync(params: MemoryQueryParams): Promis
   }
 
   // Enhance results with semantic similarity scores
+  // At this point semanticResults is guaranteed to be non-null
+  const semanticResultsMap = semanticResults;
   const enhancedResults = baseResults.results.map((result) => {
     const key = `${result.type}:${result.id}`;
-    const semanticSimilarity = semanticResults!.get(key);
-    
+    const semanticSimilarity = semanticResultsMap.get(key);
+
     if (semanticSimilarity !== undefined) {
       // Recompute score with semantic similarity
-      const base = result.type === 'tool' ? result.tool : 
-                   result.type === 'guideline' ? result.guideline : 
-                   result.knowledge;
-      
+      const base =
+        result.type === 'tool'
+          ? result.tool
+          : result.type === 'guideline'
+            ? result.guideline
+            : result.knowledge;
+
       const newScore = computeScore({
         hasExplicitRelation: false, // Would need to recalculate
         matchingTagCount: result.tags.length,

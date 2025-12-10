@@ -1,11 +1,11 @@
 /**
  * Embedding service for generating text embeddings using various providers
- * 
+ *
  * Supports:
  * - OpenAI API (text-embedding-3-small)
  * - Local models via @xenova/transformers
  * - Disabled mode (falls back to text search only)
- * 
+ *
  * Environment Variables:
  * - AGENT_MEMORY_EMBEDDING_PROVIDER: 'openai' | 'local' | 'disabled' (default: 'openai')
  * - AGENT_MEMORY_OPENAI_API_KEY: OpenAI API key (required for OpenAI provider)
@@ -36,7 +36,8 @@ class EmbeddingService {
   private provider: EmbeddingProvider;
   private openaiClient: OpenAI | null = null;
   private openaiModel: string;
-  private localPipeline: any | null = null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private localPipeline: any = null;
   private localModelName = 'Xenova/all-MiniLM-L6-v2'; // 384-dim embeddings
   private embeddingCache = new Map<string, number[]>();
   private maxCacheSize = 1000;
@@ -44,7 +45,7 @@ class EmbeddingService {
   constructor() {
     // Determine provider from environment
     const providerEnv = process.env.AGENT_MEMORY_EMBEDDING_PROVIDER?.toLowerCase();
-    
+
     if (providerEnv === 'disabled') {
       this.provider = 'disabled';
     } else if (providerEnv === 'local') {
@@ -129,7 +130,7 @@ class EmbeddingService {
 
     // Generate embedding
     let embedding: number[];
-    
+
     if (this.provider === 'openai') {
       embedding = await this.embedOpenAI(normalized);
     } else {
@@ -172,7 +173,7 @@ class EmbeddingService {
 
     // Generate embeddings
     let embeddings: number[][];
-    
+
     if (this.provider === 'openai') {
       embeddings = await this.embedBatchOpenAI(normalized);
     } else {
@@ -224,7 +225,9 @@ class EmbeddingService {
       }
       return embedding;
     } catch (error) {
-      throw new Error(`OpenAI embedding failed: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(
+        `OpenAI embedding failed: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 
@@ -244,7 +247,9 @@ class EmbeddingService {
 
       return response.data.map((d) => d.embedding);
     } catch (error) {
-      throw new Error(`OpenAI batch embedding failed: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(
+        `OpenAI batch embedding failed: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 
@@ -260,14 +265,18 @@ class EmbeddingService {
     }
 
     try {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-non-null-assertion
       const output = await this.localPipeline!(text, { pooling: 'mean', normalize: true });
-      
+
       // Convert to regular array
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       const embedding = Array.from((output.data || output) as Float32Array);
-      
+
       return embedding;
     } catch (error) {
-      throw new Error(`Local embedding failed: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(
+        `Local embedding failed: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 }

@@ -1,6 +1,6 @@
 /**
  * Backfill service for generating embeddings for existing entries
- * 
+ *
  * This service processes existing tool, guideline, and knowledge entries
  * and generates embeddings for them in batches.
  */
@@ -49,7 +49,7 @@ export async function backfillEmbeddings(options: BackfillOptions = {}): Promise
   } = options;
 
   const embeddingService = getEmbeddingService();
-  
+
   if (!embeddingService.isAvailable()) {
     throw new Error('Embeddings are not available. Please configure an embedding provider.');
   }
@@ -72,11 +72,19 @@ export async function backfillEmbeddings(options: BackfillOptions = {}): Promise
     progress.total += toolCount;
   }
   if (entryTypes.includes('guideline')) {
-    const guidelineCount = db.select().from(guidelines).where(eq(guidelines.isActive, true)).all().length;
+    const guidelineCount = db
+      .select()
+      .from(guidelines)
+      .where(eq(guidelines.isActive, true))
+      .all().length;
     progress.total += guidelineCount;
   }
   if (entryTypes.includes('knowledge')) {
-    const knowledgeCount = db.select().from(knowledge).where(eq(knowledge.isActive, true)).all().length;
+    const knowledgeCount = db
+      .select()
+      .from(knowledge)
+      .where(eq(knowledge.isActive, true))
+      .all().length;
     progress.total += knowledgeCount;
   }
 
@@ -113,7 +121,7 @@ async function backfillEntryType(
 
   // Get all active entries
   let entries: Array<{ id: string; name: string; currentVersionId: string | null }> = [];
-  
+
   if (entryType === 'tool') {
     entries = db
       .select({ id: tools.id, name: tools.name, currentVersionId: tools.currentVersionId })
@@ -122,13 +130,21 @@ async function backfillEntryType(
       .all();
   } else if (entryType === 'guideline') {
     entries = db
-      .select({ id: guidelines.id, name: guidelines.name, currentVersionId: guidelines.currentVersionId })
+      .select({
+        id: guidelines.id,
+        name: guidelines.name,
+        currentVersionId: guidelines.currentVersionId,
+      })
       .from(guidelines)
       .where(eq(guidelines.isActive, true))
       .all();
   } else if (entryType === 'knowledge') {
     entries = db
-      .select({ id: knowledge.id, name: knowledge.title, currentVersionId: knowledge.currentVersionId })
+      .select({
+        id: knowledge.id,
+        name: knowledge.title,
+        currentVersionId: knowledge.currentVersionId,
+      })
       .from(knowledge)
       .where(eq(knowledge.isActive, true))
       .all() as Array<{ id: string; name: string; currentVersionId: string | null }>;
@@ -137,7 +153,7 @@ async function backfillEntryType(
   // Process in batches
   for (let i = 0; i < entries.length; i += batchSize) {
     const batch = entries.slice(i, Math.min(i + batchSize, entries.length));
-    
+
     await Promise.all(
       batch.map(async (entry) => {
         try {
@@ -168,6 +184,7 @@ async function backfillEntryType(
           }
 
           // Get version data
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           let versionData: any = null;
           if (entryType === 'tool') {
             versionData = db
@@ -196,6 +213,7 @@ async function backfillEntryType(
           }
 
           // Extract text for embedding
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
           const text = extractTextForEmbedding(entryType, entry.name, versionData);
 
           // Generate embedding
@@ -263,14 +281,22 @@ export function getBackfillStats(): {
     .where(and(eq(entryEmbeddings.entryType, 'tool'), eq(entryEmbeddings.hasEmbedding, true)))
     .all().length;
 
-  const guidelinesTotal = db.select().from(guidelines).where(eq(guidelines.isActive, true)).all().length;
+  const guidelinesTotal = db
+    .select()
+    .from(guidelines)
+    .where(eq(guidelines.isActive, true))
+    .all().length;
   const guidelinesWithEmbeddings = db
     .select()
     .from(entryEmbeddings)
     .where(and(eq(entryEmbeddings.entryType, 'guideline'), eq(entryEmbeddings.hasEmbedding, true)))
     .all().length;
 
-  const knowledgeTotal = db.select().from(knowledge).where(eq(knowledge.isActive, true)).all().length;
+  const knowledgeTotal = db
+    .select()
+    .from(knowledge)
+    .where(eq(knowledge.isActive, true))
+    .all().length;
   const knowledgeWithEmbeddings = db
     .select()
     .from(entryEmbeddings)

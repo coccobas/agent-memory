@@ -17,8 +17,8 @@ export const queryHandlers = {
 
     // Use async version if semantic search is requested (or default enabled)
     const useAsync = queryParams.semanticSearch !== false && queryParams.search;
-    
-    const result = useAsync 
+
+    const result = useAsync
       ? await executeMemoryQueryAsync(queryParams)
       : executeMemoryQuery(queryParams);
 

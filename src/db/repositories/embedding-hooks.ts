@@ -1,6 +1,6 @@
 /**
  * Embedding generation hooks for repository operations
- * 
+ *
  * This module provides functions to generate and store embeddings
  * when creating or updating memory entries.
  */
@@ -23,7 +23,7 @@ interface EmbeddingInput {
 
 /**
  * Generate and store embedding for a version asynchronously
- * 
+ *
  * This function is fire-and-forget to avoid blocking repository operations.
  * Errors are logged but don't fail the operation.
  */
@@ -32,7 +32,7 @@ export function generateEmbeddingAsync(input: EmbeddingInput): void {
   void (async () => {
     try {
       const embeddingService = getEmbeddingService();
-      
+
       // Skip if embeddings are disabled
       if (!embeddingService.isAvailable()) {
         return;
@@ -40,7 +40,7 @@ export function generateEmbeddingAsync(input: EmbeddingInput): void {
 
       // Generate embedding
       const result = await embeddingService.embed(input.text);
-      
+
       // Store in vector database
       const vectorService = getVectorService();
       await vectorService.storeEmbedding(
