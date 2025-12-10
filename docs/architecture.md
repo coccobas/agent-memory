@@ -2,7 +2,7 @@
 
 > **Version:** 0.1.0 (Implementation Phase)
 > **Last Updated:** 2024-12-10
-> **Status:** Milestone 3 Complete - MCP Server Implemented
+> **Status:** Milestone 4 Complete - Advanced Querying & Context
 
 ## Overview
 
@@ -766,7 +766,7 @@ CREATE INDEX idx_guidelines_content_trgm ON guideline_versions USING gin(content
 - [x] Tag management (hybrid taxonomy)
 - [x] Unit tests (8 passing)
 
-### Milestone 3: MCP Server ✅ (Current)
+### Milestone 3: MCP Server ✅
 - [x] MCP server setup with @modelcontextprotocol/sdk
 - [x] 35 MCP tool definitions
 - [x] Scope handlers (org, project, session)
@@ -777,17 +777,19 @@ CREATE INDEX idx_guidelines_content_trgm ON guideline_versions USING gin(content
 - [x] Relation handlers (create, list, delete)
 - [x] Main entry point and CLI support
 
-### Milestone 4: Advanced Features
-- [ ] Cross-reference query (`memory_query`)
-- [ ] Conflict detection and resolution
-- [ ] Session lifecycle management
-- [ ] Scope inheritance in queries
+### Milestone 4: Advanced Features ✅
+- [x] Cross-reference query (`memory_query`) with relevance scoring
+- [x] Context aggregation (`memory_context`)
+- [x] Conflict detection and resolution
+- [x] File locks for multi-agent coordination
+- [x] Scope inheritance in queries
+- [x] Comprehensive integration tests (173 passing)
 
-### Milestone 5: Polish
-- [ ] Integration tests
-- [ ] Performance optimization
-- [ ] Example workflows
-- [ ] MCP client testing
+### Milestone 5: Polish (Remaining)
+- [ ] Performance optimization (indexes, query caching)
+- [ ] MCP client manual testing with Claude Desktop
+- [ ] Bootstrap sample data script
+- [ ] CLI commands for database management
 
 ---
 

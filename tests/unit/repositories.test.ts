@@ -6,8 +6,8 @@ import { existsSync, mkdirSync, unlinkSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as schema from '../../src/db/schema.js';
 
-// Test database setup
-const TEST_DB_PATH = './data/test-memory.db';
+// Test database setup (use in-memory DB to avoid disk I/O issues)
+const TEST_DB_PATH = ':memory:';
 let sqlite: Database.Database;
 let db: ReturnType<typeof drizzle>;
 

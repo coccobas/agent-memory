@@ -347,6 +347,8 @@ Hybrid tag taxonomy (predefined + custom).
 
 **Categories:** `language`, `domain`, `meta`, `custom`
 
+**Related MCP tools:** see `memory_tag_create`, `memory_tag_list`, `memory_tag_attach`, `memory_tag_detach`, and `memory_tags_for_entry` in [API Reference](./api-reference.md#tags).
+
 **Predefined Tags:**
 - Languages: `python`, `typescript`, `javascript`, `rust`, `go`, `java`, `sql`, `bash`, `markdown`
 - Domains: `web`, `cli`, `api`, `database`, `ml`, `devops`, `security`, `testing`, `documentation`
@@ -379,6 +381,8 @@ Polymorphic tag assignments.
 **Constraints:**
 - Unique on `(entry_type, entry_id, tag_id)`
 
+**Related MCP tools:** tag operations under [Tags](./api-reference.md#tags).
+
 ---
 
 ### entry_relations
@@ -410,6 +414,8 @@ Explicit links between entries.
 **Constraints:**
 - Unique on `(source_type, source_id, target_type, target_id, relation_type)`
 
+**Related MCP tools:** `memory_relation_create`, `memory_relation_list`, `memory_relation_delete` in [API Reference](./api-reference.md#relations).
+
 ---
 
 ### conflict_log
@@ -432,6 +438,8 @@ Concurrent write conflict tracking.
 **Indexes:**
 - Primary key on `id`
 - `idx_conflicts_unresolved` on `(entry_type, entry_id)` where `resolved = 0`
+
+**Related MCP tools:** `memory_conflicts` and `memory_conflict_resolve` in [API Reference](./api-reference.md#cross-reference--conflicts).
 
 ---
 

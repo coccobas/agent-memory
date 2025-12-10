@@ -2,9 +2,15 @@ import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import * as schema from './schema.js';
 import { existsSync, mkdirSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const DEFAULT_DB_PATH = './data/memory.db';
+// Get the directory of the current module (works in both src and dist)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+// Resolve data path relative to project root (go up from src/db or dist/db to project root)
+const projectRoot = resolve(__dirname, '../..');
+const DEFAULT_DB_PATH = resolve(projectRoot, 'data/memory.db');
 
 let dbInstance: ReturnType<typeof drizzle> | null = null;
 let sqliteInstance: Database.Database | null = null;

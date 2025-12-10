@@ -339,6 +339,18 @@ export interface MemoryQueryParams {
 }
 
 // =============================================================================
+// CONTEXT PARAMS (Aggregated context for a scope)
+// =============================================================================
+
+export interface MemoryContextParams {
+  scopeType: ScopeType;
+  scopeId?: string;
+  inherit?: boolean;
+  compact?: boolean;
+  limitPerType?: number;
+}
+
+// =============================================================================
 // CONFLICT PARAMS
 // =============================================================================
 
@@ -351,4 +363,38 @@ export interface ConflictResolveParams {
   id: string;
   resolution: string;
   resolvedBy?: string;
+}
+
+// =============================================================================
+// FILE LOCK PARAMS
+// =============================================================================
+
+export interface FileCheckoutParams {
+  file_path: string;
+  agent_id: string;
+  session_id?: string;
+  project_id?: string;
+  expires_in?: number; // seconds, default 3600
+  metadata?: Record<string, unknown>;
+}
+
+export interface FileCheckinParams {
+  file_path: string;
+  agent_id: string;
+}
+
+export interface FileLockStatusParams {
+  file_path: string;
+}
+
+export interface FileLockListParams {
+  project_id?: string;
+  session_id?: string;
+  agent_id?: string;
+}
+
+export interface FileLockForceUnlockParams {
+  file_path: string;
+  agent_id: string;
+  reason?: string;
 }

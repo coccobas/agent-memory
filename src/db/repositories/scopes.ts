@@ -1,4 +1,4 @@
-import { eq, and, isNull } from 'drizzle-orm';
+import { eq, and, isNull, sql } from 'drizzle-orm';
 import { getDb } from '../connection.js';
 import {
   organizations,
@@ -154,7 +154,7 @@ export const projectRepo = {
   },
 
   /**
-   * Get project by name within an org
+   * Get project by name within an org (case-insensitive)
    */
   getByName(name: string, orgId?: string): Project | undefined {
     const db = getDb();
@@ -163,14 +163,14 @@ export const projectRepo = {
       return db
         .select()
         .from(projects)
-        .where(and(eq(projects.orgId, orgId), eq(projects.name, name)))
+        .where(and(eq(projects.orgId, orgId), sql`lower(${projects.name}) = lower(${name})`))
         .get();
     }
 
     return db
       .select()
       .from(projects)
-      .where(and(isNull(projects.orgId), eq(projects.name, name)))
+      .where(and(isNull(projects.orgId), sql`lower(${projects.name}) = lower(${name})`))
       .get();
   },
 

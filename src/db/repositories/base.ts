@@ -61,3 +61,13 @@ export const MAX_LIMIT = 100;
  * Conflict detection window in milliseconds
  */
 export const CONFLICT_WINDOW_MS = 5000;
+
+/**
+ * Default file lock timeout in seconds (1 hour)
+ */
+export const DEFAULT_LOCK_TIMEOUT_SECONDS = 3600;
+
+/**
+ * Maximum file lock timeout in seconds (24 hours)
+ */
+export const MAX_LOCK_TIMEOUT_SECONDS = 86400;

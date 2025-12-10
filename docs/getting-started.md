@@ -258,6 +258,47 @@ Parameters: {
 }
 ```
 
+---
+
+## Using Agent Memory Inside an AI Agent
+
+When integrating an agent (e.g., Claude or a custom MCP client), a typical loop is:
+
+1. **Determine scope** from the current workspace or task (org → project → session).
+2. **Fetch guidelines and knowledge** relevant to the file or feature:
+
+```json
+{
+  "name": "memory_query",
+  "arguments": {
+    "types": ["guidelines", "knowledge"],
+    "scope": { "type": "project", "id": "<project-id>", "inherit": true },
+    "search": "authentication",
+    "tags": { "include": ["security"] },
+    "limit": 20
+  }
+}
+```
+
+3. **Summarize context** for the current session using:
+
+```json
+{
+  "name": "memory_context",
+  "arguments": {
+    "scopeType": "session",
+    "scopeId": "<session-id>",
+    "inherit": true,
+    "compact": true
+  }
+}
+```
+
+4. **Write back learnings** as the agent discovers new tools or decisions:
+   - Use `memory_tool_add` / `memory_tool_update` for new capabilities.
+   - Use `memory_guideline_add` for new rules or patterns.
+   - Use `memory_knowledge_add` for important facts and decisions.
+
 ## Scope Hierarchy
 
 Understanding scope is key to effective use:

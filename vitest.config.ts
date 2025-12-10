@@ -1,6 +1,13 @@
 import { defineConfig } from 'vitest/config';
+import { resolve } from 'path';
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      // Resolve .js imports to .ts source files for tests
+      '../../src': resolve(__dirname, './src'),
+    },
+  },
   test: {
     globals: true,
     environment: 'node',
@@ -10,6 +17,12 @@ export default defineConfig({
       reporter: ['text', 'json', 'html'],
       include: ['src/**/*.ts'],
       exclude: ['src/db/migrations/**'],
+      thresholds: {
+        lines: 80,
+        functions: 80,
+        branches: 80,
+        statements: 80,
+      },
     },
     setupFiles: ['tests/fixtures/setup.ts'],
   },

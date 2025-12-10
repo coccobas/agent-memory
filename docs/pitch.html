@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agent Memory - Persistent Memory for AI Agents</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, sans-serif; line-height: 1.6; color: #1a1a1a; background: #fafafa; }
+    .container { max-width: 800px; margin: 0 auto; padding: 2rem; }
+    header { text-align: center; padding: 3rem 0; }
+    h1 { font-size: 2.5rem; margin-bottom: 0.5rem; }
+    .tagline { font-size: 1.25rem; color: #666; margin-bottom: 2rem; }
+    .problem, .solution, .features, .cta { margin-bottom: 2.5rem; }
+    h2 { font-size: 1.5rem; margin-bottom: 1rem; color: #333; border-bottom: 2px solid #e0e0e0; padding-bottom: 0.5rem; }
+    .highlight { background: linear-gradient(120deg, #ffd700 0%, #ffec80 100%); padding: 0.1rem 0.3rem; border-radius: 3px; }
+    ul { list-style: none; }
+    li { padding: 0.5rem 0; padding-left: 1.5rem; position: relative; }
+    li::before { content: "→"; position: absolute; left: 0; color: #666; }
+    .stats { display: flex; justify-content: space-around; text-align: center; margin: 2rem 0; flex-wrap: wrap; gap: 1rem; }
+    .stat { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); min-width: 150px; }
+    .stat-num { font-size: 2rem; font-weight: bold; color: #2563eb; }
+    .stat-label { font-size: 0.875rem; color: #666; }
+    code { background: #f0f0f0; padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.9rem; }
+    .install { background: #1a1a1a; color: #fff; padding: 1rem 1.5rem; border-radius: 8px; font-family: monospace; margin: 1rem 0; }
+    .cta { text-align: center; padding: 2rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; color: white; }
+    .cta h2 { color: white; border: none; }
+    .cta a { color: #ffd700; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Agent Memory</h1>
+      <p class="tagline">Persistent, scoped memory for AI coding agents via MCP</p>
+    </header>
+
+    <section class="problem">
+      <h2>The Problem</h2>
+      <p>AI coding agents forget everything between sessions. They re-learn your codebase conventions, repeat mistakes, and lose context about decisions made yesterday.</p>
+    </section>
+
+    <section class="solution">
+      <h2>The Solution</h2>
+      <p>Agent Memory gives your AI agents a <span class="highlight">persistent brain</span>. Store tools, guidelines, and knowledge at any scope level&mdash;from global defaults down to session-specific context. Agents remember what works, avoid what doesn't, and build on previous decisions.</p>
+    </section>
+
+    <section class="features">
+      <h2>Key Features</h2>
+      <ul>
+        <li><strong>Hierarchical Scopes</strong> &mdash; Global → Org → Project → Session inheritance</li>
+        <li><strong>Version History</strong> &mdash; Track changes with full audit trail</li>
+        <li><strong>Cross-Reference Query</strong> &mdash; Find related context with relevance scoring</li>
+        <li><strong>File Locks</strong> &mdash; Multi-agent coordination without conflicts</li>
+        <li><strong>Tags &amp; Relations</strong> &mdash; Rich metadata for intelligent retrieval</li>
+        <li><strong>MCP Native</strong> &mdash; Works with Claude Desktop, Cursor, and any MCP client</li>
+      </ul>
+    </section>
+
+    <div class="stats">
+      <div class="stat"><div class="stat-num">11</div><div class="stat-label">Bundled Tools</div></div>
+      <div class="stat"><div class="stat-num">4</div><div class="stat-label">Scope Levels</div></div>
+      <div class="stat"><div class="stat-num">173</div><div class="stat-label">Tests Passing</div></div>
+      <div class="stat"><div class="stat-num">0</div><div class="stat-label">Dependencies*</div></div>
+    </div>
+    <p style="text-align: center; color: #888; font-size: 0.8rem;">*SQLite via better-sqlite3, no cloud services required</p>
+
+    <section class="install">
+      npx agent-memory start
+    </section>
+
+    <section class="cta">
+      <h2>Give Your Agents Memory</h2>
+      <p>Open source. Local-first. Privacy-friendly.</p>
+      <p style="margin-top: 1rem;"><a href="https://github.com/anthropics/agent-memory">GitHub</a></p>
+    </section>
+  </div>
+</body>
+</html>
