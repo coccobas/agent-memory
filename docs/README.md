@@ -187,6 +187,7 @@ Add to `~/.config/claude/claude_desktop_config.json`:
 - [API Reference](./api-reference.md) - Complete MCP tool documentation
 - [Data Model](./data-model.md) - Entity relationships and scoping
 - [Testing Guide](./testing-guide.md) - Testing guidelines and examples
+- [Feature Gaps](./FEATURE_GAPS.md) - Missing features compared to similar projects
 
 ### Examples
 - [Example Workflows](../examples/workflows/) - Practical usage examples
