@@ -18,6 +18,7 @@ import {
   MAX_LIMIT,
 } from './base.js';
 import { transaction } from '../connection.js';
+import { generateEmbeddingAsync, extractTextForEmbedding } from './embedding-hooks.js';
 
 // =============================================================================
 // TYPES
@@ -108,6 +109,19 @@ export const knowledgeRepo = {
       if (!result) {
         throw new Error(`Failed to create knowledge entry ${knowledgeId}`);
       }
+
+      // Generate embedding asynchronously (fire-and-forget)
+      const text = extractTextForEmbedding('knowledge', input.title, {
+        content: input.content,
+        source: input.source,
+      });
+      generateEmbeddingAsync({
+        entryType: 'knowledge',
+        entryId: knowledgeId,
+        versionId: versionId,
+        text,
+      });
+
       return result;
     });
   },
@@ -346,6 +360,18 @@ export const knowledgeRepo = {
         .set({ currentVersionId: newVersionId })
         .where(eq(knowledge.id, id))
         .run();
+
+      // Generate embedding asynchronously (fire-and-forget)
+      const text = extractTextForEmbedding('knowledge', existing.title, {
+        content: newVersion.content,
+        source: newVersion.source ?? undefined,
+      });
+      generateEmbeddingAsync({
+        entryType: 'knowledge',
+        entryId: id,
+        versionId: newVersionId,
+        text,
+      });
 
       return this.getById(id);
     });

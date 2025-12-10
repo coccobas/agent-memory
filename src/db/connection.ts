@@ -6,6 +6,13 @@
  * - AGENT_MEMORY_PERF: Enable performance logging (set to '1' to enable)
  * - AGENT_MEMORY_CACHE: Enable query result caching (set to '0' to disable, enabled by default)
  * - AGENT_MEMORY_SKIP_INIT: Skip automatic database initialization (set to '1' to skip)
+ * 
+ * Semantic Search Environment Variables:
+ * - AGENT_MEMORY_EMBEDDING_PROVIDER: 'openai' | 'local' | 'disabled' (default: 'openai')
+ * - AGENT_MEMORY_OPENAI_API_KEY: OpenAI API key (required for OpenAI provider)
+ * - AGENT_MEMORY_OPENAI_MODEL: OpenAI embedding model (default: 'text-embedding-3-small')
+ * - AGENT_MEMORY_VECTOR_DB_PATH: Path to vector database (default: 'data/vectors.lance')
+ * - AGENT_MEMORY_SEMANTIC_THRESHOLD: Default similarity threshold 0-1 (default: 0.7)
  */
 /* eslint-disable no-console */
 

@@ -18,6 +18,7 @@ import {
   MAX_LIMIT,
 } from './base.js';
 import { transaction } from '../connection.js';
+import { generateEmbeddingAsync, extractTextForEmbedding } from './embedding-hooks.js';
 
 // =============================================================================
 // TYPES
@@ -107,6 +108,19 @@ export const toolRepo = {
       if (!result) {
         throw new Error(`Failed to create tool ${toolId}`);
       }
+
+      // Generate embedding asynchronously (fire-and-forget)
+      const text = extractTextForEmbedding('tool', input.name, {
+        description: input.description,
+        constraints: input.constraints,
+      });
+      generateEmbeddingAsync({
+        entryType: 'tool',
+        entryId: toolId,
+        versionId: versionId,
+        text,
+      });
+
       return result;
     });
   },
@@ -331,6 +345,18 @@ export const toolRepo = {
 
       // Update tool's current version pointer
       db.update(tools).set({ currentVersionId: newVersionId }).where(eq(tools.id, id)).run();
+
+      // Generate embedding asynchronously (fire-and-forget)
+      const text = extractTextForEmbedding('tool', existing.name, {
+        description: newVersion.description ?? undefined,
+        constraints: newVersion.constraints ?? undefined,
+      });
+      generateEmbeddingAsync({
+        entryType: 'tool',
+        entryId: id,
+        versionId: newVersionId,
+        text,
+      });
 
       return this.getById(id);
     });

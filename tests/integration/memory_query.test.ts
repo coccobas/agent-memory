@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import {
   setupTestDb,
   cleanupTestDb,
@@ -95,8 +95,8 @@ describe('memory_query integration', () => {
   });
 
   describe('Basic queries', () => {
-    it('should query guidelines by type', () => {
-      const response = queryHandlers.query({
+    it('should query guidelines by type', async () => {
+      const response = await queryHandlers.query({
         types: ['guidelines'],
         scope: { type: 'global', inherit: true },
         limit: 10,
@@ -106,8 +106,8 @@ describe('memory_query integration', () => {
       expect(response.results.every((r) => r.type === 'guideline')).toBe(true);
     });
 
-    it('should query tools by type', () => {
-      const response = queryHandlers.query({
+    it('should query tools by type', async () => {
+      const response = await queryHandlers.query({
         types: ['tools'],
         scope: { type: 'global', inherit: true },
         limit: 10,
@@ -117,8 +117,8 @@ describe('memory_query integration', () => {
       expect(response.results.every((r) => r.type === 'tool')).toBe(true);
     });
 
-    it('should query multiple types', () => {
-      const response = queryHandlers.query({
+    it('should query multiple types', async () => {
+      const response = await queryHandlers.query({
         types: ['tools', 'guidelines'],
         scope: { type: 'global', inherit: true },
         limit: 10,
@@ -132,8 +132,8 @@ describe('memory_query integration', () => {
   });
 
   describe('Scope inheritance', () => {
-    it('should inherit from session to project to org to global', () => {
-      const response = queryHandlers.query({
+    it('should inherit from session to project to org to global', async () => {
+      const response = await queryHandlers.query({
         types: ['guidelines'],
         scope: { type: 'session', id: sessionId, inherit: true },
         limit: 10,
@@ -148,8 +148,8 @@ describe('memory_query integration', () => {
       expect(hasGlobal || hasProject).toBe(true);
     });
 
-    it('should not inherit when inherit is false', () => {
-      const response = queryHandlers.query({
+    it('should not inherit when inherit is false', async () => {
+      const response = await queryHandlers.query({
         types: ['guidelines'],
         scope: { type: 'session', id: sessionId, inherit: false },
         limit: 10,
@@ -164,8 +164,8 @@ describe('memory_query integration', () => {
   });
 
   describe('Tag filtering', () => {
-    it('should filter by require tags', () => {
-      const response = queryHandlers.query({
+    it('should filter by require tags', async () => {
+      const response = await queryHandlers.query({
         types: ['guidelines'],
         scope: { type: 'global', inherit: true },
         tags: { require: ['security'] },
@@ -181,8 +181,8 @@ describe('memory_query integration', () => {
       });
     });
 
-    it('should filter by include tags', () => {
-      const response = queryHandlers.query({
+    it('should filter by include tags', async () => {
+      const response = await queryHandlers.query({
         types: ['guidelines'],
         scope: { type: 'global', inherit: true },
         tags: { include: ['security', 'required'] },
@@ -198,12 +198,12 @@ describe('memory_query integration', () => {
       });
     });
 
-    it('should filter by exclude tags', () => {
+    it('should filter by exclude tags', async () => {
       // First attach deprecated tag to a guideline
       const { guideline } = createTestGuideline(db, 'deprecated_guideline');
       tagHandlers.attach({ entryType: 'guideline', entryId: guideline.id, tagName: 'deprecated' });
 
-      const response = queryHandlers.query({
+      const response = await queryHandlers.query({
         types: ['guidelines'],
         scope: { type: 'global', inherit: true },
         tags: { exclude: ['deprecated'] },
@@ -220,8 +220,8 @@ describe('memory_query integration', () => {
   });
 
   describe('Text search', () => {
-    it('should search by text in content', () => {
-      const response = queryHandlers.query({
+    it('should search by text in content', async () => {
+      const response = await queryHandlers.query({
         types: ['guidelines'],
         scope: { type: 'global', inherit: true },
         search: 'parameterized',
@@ -235,8 +235,8 @@ describe('memory_query integration', () => {
       expect(found).toBeDefined();
     });
 
-    it('should search by name', () => {
-      const response = queryHandlers.query({
+    it('should search by name', async () => {
+      const response = await queryHandlers.query({
         types: ['tools'],
         scope: { type: 'global', inherit: true },
         search: 'sql',
@@ -250,8 +250,8 @@ describe('memory_query integration', () => {
   });
 
   describe('Relation-based queries', () => {
-    it('should find related entries', () => {
-      const response = queryHandlers.query({
+    it('should find related entries', async () => {
+      const response = await queryHandlers.query({
         types: ['guidelines'],
         relatedTo: {
           type: 'tool',
@@ -270,8 +270,8 @@ describe('memory_query integration', () => {
   });
 
   describe('Compact mode', () => {
-    it('should return minimal data in compact mode', () => {
-      const response = queryHandlers.query({
+    it('should return minimal data in compact mode', async () => {
+      const response = await queryHandlers.query({
         types: ['guidelines'],
         scope: { type: 'global', inherit: true },
         compact: true,
@@ -292,8 +292,8 @@ describe('memory_query integration', () => {
   });
 
   describe('Pagination', () => {
-    it('should respect limit', () => {
-      const response = queryHandlers.query({
+    it('should respect limit', async () => {
+      const response = await queryHandlers.query({
         types: ['guidelines'],
         scope: { type: 'global', inherit: true },
         limit: 2,
@@ -303,8 +303,8 @@ describe('memory_query integration', () => {
       expect(response.meta.returnedCount).toBeLessThanOrEqual(2);
     });
 
-    it('should provide pagination metadata', () => {
-      const response = queryHandlers.query({
+    it('should provide pagination metadata', async () => {
+      const response = await queryHandlers.query({
         types: ['guidelines'],
         scope: { type: 'global', inherit: true },
         limit: 10,
@@ -317,8 +317,8 @@ describe('memory_query integration', () => {
   });
 
   describe('Relevance scoring', () => {
-    it('should return results with scores', () => {
-      const response = queryHandlers.query({
+    it('should return results with scores', async () => {
+      const response = await queryHandlers.query({
         types: ['guidelines'],
         scope: { type: 'global', inherit: true },
         limit: 10,
@@ -331,8 +331,8 @@ describe('memory_query integration', () => {
       });
     });
 
-    it('should order results by relevance score', () => {
-      const response = queryHandlers.query({
+    it('should order results by relevance score', async () => {
+      const response = await queryHandlers.query({
         types: ['guidelines'],
         scope: { type: 'global', inherit: true },
         limit: 10,

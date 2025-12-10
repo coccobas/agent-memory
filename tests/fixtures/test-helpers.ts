@@ -40,7 +40,7 @@ export function setupTestDb(dbPath: string): TestDb {
   const db = drizzle(sqlite, { schema });
 
   // Run migrations
-  const migrations = ['0000_lying_the_hand.sql', '0001_add_file_locks.sql'];
+  const migrations = ['0000_lying_the_hand.sql', '0001_add_file_locks.sql', '0002_add_embeddings_tracking.sql'];
   for (const migrationFile of migrations) {
     const migrationPath = join(process.cwd(), 'src/db/migrations', migrationFile);
     if (existsSync(migrationPath)) {

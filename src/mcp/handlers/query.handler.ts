@@ -2,7 +2,7 @@
  * Cross-reference query handler
  */
 
-import { executeMemoryQuery } from '../../services/query.service.js';
+import { executeMemoryQuery, executeMemoryQueryAsync } from '../../services/query.service.js';
 
 import type { MemoryQueryParams, MemoryContextParams } from '../types.js';
 
@@ -12,10 +12,15 @@ function cast<T>(params: Record<string, unknown>): T {
 }
 
 export const queryHandlers = {
-  query(params: Record<string, unknown>) {
+  async query(params: Record<string, unknown>) {
     const queryParams = cast<MemoryQueryParams>(params);
 
-    const result = executeMemoryQuery(queryParams);
+    // Use async version if semantic search is requested (or default enabled)
+    const useAsync = queryParams.semanticSearch !== false && queryParams.search;
+    
+    const result = useAsync 
+      ? await executeMemoryQueryAsync(queryParams)
+      : executeMemoryQuery(queryParams);
 
     return {
       results: result.results,

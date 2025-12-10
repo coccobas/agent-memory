@@ -1,6 +1,6 @@
 # API Reference
 
-Complete documentation for the 15 bundled MCP tools provided by Agent Memory (v0.2.0).
+Complete documentation for the 15 bundled MCP tools provided by Agent Memory (v0.3.0).
 
 ## Tool Bundling
 
@@ -845,6 +845,8 @@ Cross-reference search across tools, guidelines, and knowledge.
 | `includeVersions` | boolean | No | Include version history |
 | `includeInactive` | boolean | No | Include deactivated entries |
 | `compact` | boolean | No | Return compact results |
+| `semanticSearch` | boolean | No | Enable semantic/vector search (default: true if embeddings available) |
+| `semanticThreshold` | number | No | Minimum similarity score 0-1 (default: 0.7) |
 
 **Response:**
 ```json
@@ -1004,7 +1006,7 @@ This tool has no parameters and returns server version, database stats, and cach
 **Response:**
 ```json
 {
-  "serverVersion": "0.2.0",
+  "serverVersion": "0.3.0",
   "status": "healthy",
   "database": {
     "type": "SQLite",

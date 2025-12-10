@@ -18,6 +18,7 @@ import {
   MAX_LIMIT,
 } from './base.js';
 import { transaction } from '../connection.js';
+import { generateEmbeddingAsync, extractTextForEmbedding } from './embedding-hooks.js';
 
 // =============================================================================
 // TYPES
@@ -108,6 +109,19 @@ export const guidelineRepo = {
       if (!result) {
         throw new Error(`Failed to create guideline ${guidelineId}`);
       }
+
+      // Generate embedding asynchronously (fire-and-forget)
+      const text = extractTextForEmbedding('guideline', input.name, {
+        content: input.content,
+        rationale: input.rationale,
+      });
+      generateEmbeddingAsync({
+        entryType: 'guideline',
+        entryId: guidelineId,
+        versionId: versionId,
+        text,
+      });
+
       return result;
     });
   },
@@ -355,6 +369,18 @@ export const guidelineRepo = {
         .set({ currentVersionId: newVersionId })
         .where(eq(guidelines.id, id))
         .run();
+
+      // Generate embedding asynchronously (fire-and-forget)
+      const text = extractTextForEmbedding('guideline', existing.name, {
+        content: newVersion.content,
+        rationale: newVersion.rationale ?? undefined,
+      });
+      generateEmbeddingAsync({
+        entryType: 'guideline',
+        entryId: id,
+        versionId: newVersionId,
+        text,
+      });
 
       return this.getById(id);
     });

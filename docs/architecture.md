@@ -1,6 +1,6 @@
 # Agent Memory Database - Architecture
 
-> **Version:** 0.2.0 (Implementation Phase)
+> **Version:** 0.3.0 (Implementation Phase)
 > **Last Updated:** 2024-12-10
 > **Status:** Milestone 4 Complete - Advanced Querying & Context
 

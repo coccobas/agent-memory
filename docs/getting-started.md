@@ -434,6 +434,84 @@ Parameters: {
 }
 ```
 
+## Semantic Search (Optional)
+
+Agent Memory supports semantic/vector search for finding conceptually similar entries, not just exact text matches.
+
+### Enabling Semantic Search
+
+Semantic search works with two providers:
+
+#### Option 1: OpenAI (Recommended)
+
+```bash
+# Set environment variables
+export AGENT_MEMORY_EMBEDDING_PROVIDER=openai
+export AGENT_MEMORY_OPENAI_API_KEY=your-api-key
+
+# Optional: specify model (default: text-embedding-3-small)
+export AGENT_MEMORY_OPENAI_MODEL=text-embedding-3-small
+```
+
+#### Option 2: Local Model (No API Key Required)
+
+```bash
+# Use local embeddings (slower, but free)
+export AGENT_MEMORY_EMBEDDING_PROVIDER=local
+```
+
+The first run will download the model (~90MB).
+
+#### Disable Semantic Search
+
+```bash
+export AGENT_MEMORY_EMBEDDING_PROVIDER=disabled
+```
+
+### Backfilling Embeddings
+
+After enabling semantic search, generate embeddings for existing entries:
+
+```typescript
+// Via MCP tool or programmatically
+import { backfillEmbeddings } from './src/services/backfill.service.js';
+
+await backfillEmbeddings({
+  batchSize: 50,
+  delayMs: 1000, // Respect rate limits
+  onProgress: (progress) => {
+    console.log(`${progress.processed}/${progress.total} processed`);
+  }
+});
+```
+
+### Using Semantic Search
+
+Once configured, semantic search is enabled by default:
+
+```json
+{
+  "action": "search",
+  "search": "user authentication",
+  "semanticSearch": true,
+  "semanticThreshold": 0.7
+}
+```
+
+This will find entries about "login", "credentials", "auth tokens" even if they don't contain the exact words "user authentication".
+
+### Configuration Options
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `AGENT_MEMORY_EMBEDDING_PROVIDER` | `openai` | `openai`, `local`, or `disabled` |
+| `AGENT_MEMORY_OPENAI_API_KEY` | - | Required for OpenAI provider |
+| `AGENT_MEMORY_OPENAI_MODEL` | `text-embedding-3-small` | OpenAI embedding model |
+| `AGENT_MEMORY_VECTOR_DB_PATH` | `data/vectors.lance` | Vector database location |
+| `AGENT_MEMORY_SEMANTIC_THRESHOLD` | `0.7` | Minimum similarity score (0-1) |
+
+---
+
 ## Troubleshooting
 
 ### Server Won't Start

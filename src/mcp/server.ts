@@ -720,7 +720,7 @@ const bundledHandlers: Record<string, (params: Record<string, unknown>) => unkno
       cache: ReturnType<typeof getQueryCacheStats>;
       tables: Record<string, number>;
     } = {
-      serverVersion: '0.2.0',
+      serverVersion: '0.3.0',
       status: 'healthy',
       database: {
         type: 'SQLite',
@@ -820,7 +820,7 @@ export function createServer(): Server {
   const server = new Server(
     {
       name: 'agent-memory',
-      version: '0.2.0', // Bumped for bundled tools
+      version: '0.3.0', // Semantic search and enhanced test coverage
     },
     {
       capabilities: {
@@ -841,7 +841,7 @@ export function createServer(): Server {
   });
 
   // Call tool handler
-  server.setRequestHandler(CallToolRequestSchema, (request) => {
+  server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
 
     const handler = bundledHandlers[name];
@@ -861,7 +861,7 @@ export function createServer(): Server {
     }
 
     try {
-      const result = handler(args ?? {});
+      const result = await handler(args ?? {});
       return {
         content: [
           {

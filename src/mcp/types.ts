@@ -336,6 +336,8 @@ export interface MemoryQueryParams {
   includeVersions?: boolean;
   includeInactive?: boolean;
   compact?: boolean;
+  semanticSearch?: boolean; // Enable semantic/vector search (default: true if embeddings available)
+  semanticThreshold?: number; // Minimum similarity score for semantic results (0-1, default: 0.7)
 }
 
 // =============================================================================
