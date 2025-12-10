@@ -27,6 +27,12 @@ export interface ListLocksFilter {
 export const fileLockRepo = {
   /**
    * Checkout a file (create a lock)
+   * 
+   * @param filePath - Absolute path to the file to lock
+   * @param agentId - Identifier of the agent checking out the file
+   * @param options - Optional checkout configuration
+   * @returns The created file lock
+   * @throws Error if file is already locked or timeout exceeds maximum
    */
   checkout(filePath: string, agentId: string, options: CheckoutOptions = {}): FileLock {
     const db = getDb();
@@ -70,6 +76,10 @@ export const fileLockRepo = {
 
   /**
    * Check in a file (remove lock if owned by agent)
+   * 
+   * @param filePath - Absolute path to the file to check in
+   * @param agentId - Identifier of the agent checking in the file
+   * @throws Error if file is not locked or locked by a different agent
    */
   checkin(filePath: string, agentId: string): void {
     const db = getDb();
@@ -91,6 +101,11 @@ export const fileLockRepo = {
 
   /**
    * Force unlock a file (remove lock regardless of owner)
+   * 
+   * @param filePath - Absolute path to the file to unlock
+   * @param agentId - Identifier of the agent performing the force unlock
+   * @param reason - Optional reason for forcing the unlock
+   * @throws Error if file is not locked
    */
   forceUnlock(filePath: string, agentId: string, reason?: string): void {
     const db = getDb();
@@ -104,12 +119,12 @@ export const fileLockRepo = {
     }
 
     // Update metadata with force unlock info before deleting
-    const metadata = lock.metadata || {};
-    metadata.forceUnlockedBy = agentId;
-    metadata.forceUnlockedAt = now();
-    if (reason) {
-      metadata.forceUnlockReason = reason;
-    }
+    const metadata = {
+      ...(lock.metadata || {}),
+      forceUnlockedBy: agentId,
+      forceUnlockedAt: now(),
+      ...(reason ? { forceUnlockReason: reason } : {}),
+    };
 
     db.update(fileLocks)
       .set({ metadata })
@@ -122,6 +137,9 @@ export const fileLockRepo = {
 
   /**
    * Check if a file is currently locked (not expired)
+   * 
+   * @param filePath - Absolute path to the file to check
+   * @returns True if the file is currently locked
    */
   isLocked(filePath: string): boolean {
     this.cleanupExpiredLocks();
@@ -130,6 +148,9 @@ export const fileLockRepo = {
 
   /**
    * Get lock information for a file
+   * 
+   * @param filePath - Absolute path to the file
+   * @returns The file lock if it exists and is not expired, null otherwise
    */
   getLock(filePath: string): FileLock | null {
     const db = getDb();
@@ -152,6 +173,9 @@ export const fileLockRepo = {
 
   /**
    * List active locks with optional filtering
+   * 
+   * @param filter - Optional filters for projectId, sessionId, or agentId
+   * @returns Array of active file locks matching the filter criteria
    */
   listLocks(filter: ListLocksFilter = {}): FileLock[] {
     const db = getDb();
@@ -190,7 +214,8 @@ export const fileLockRepo = {
 
   /**
    * Clean up expired locks
-   * Returns the number of locks removed
+   * 
+   * @returns The number of locks removed
    */
   cleanupExpiredLocks(): number {
     const db = getDb();

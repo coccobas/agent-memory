@@ -1,6 +1,39 @@
 # Agent Memory Database
 
+[![Node.js Version](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen)](https://nodejs.org/)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](../LICENSE)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue)](https://www.typescriptlang.org/)
+
 A structured memory backend for AI agents exposed via the Model Context Protocol (MCP). Instead of loading entire knowledge bases into context, agents query specific memory segments on-demand.
+
+## 🚀 Quick Start
+
+```bash
+# Clone and install
+git clone <repository-url>
+cd Memory
+npm install
+
+# Build
+npm run build
+
+# Start the MCP server
+npm start
+```
+
+Add to Claude Desktop (`~/.config/claude/claude_desktop_config.json`):
+```json
+{
+  "mcpServers": {
+    "agent-memory": {
+      "command": "node",
+      "args": ["/absolute/path/to/Memory/dist/index.js"]
+    }
+  }
+}
+```
+
+That's it! The database initializes automatically on first run. See [Getting Started](./getting-started.md) for detailed setup.
 
 ## What Problem Does This Solve?
 
@@ -67,12 +100,11 @@ All changes are tracked with append-only versioning:
 cd agent-memory
 npm install
 
-# Run migrations
-npm run db:migrate
-
 # Build
 npm run build
 ```
+
+**Note:** Database initialization happens automatically on first startup - no manual migration required!
 
 ### Running the Server
 
@@ -101,8 +133,9 @@ Add to `~/.config/claude/claude_desktop_config.json`:
 ### Store a Guideline
 
 ```typescript
-// Via MCP tool: memory_guideline_add
+// Via MCP tool: memory_guideline
 {
+  "action": "add",
   "scopeType": "project",
   "scopeId": "my-project-id",
   "name": "python-imports",
@@ -116,8 +149,9 @@ Add to `~/.config/claude/claude_desktop_config.json`:
 ### Query Relevant Context
 
 ```typescript
-// Via MCP tool: memory_guideline_list
+// Via MCP tool: memory_guideline
 {
+  "action": "list",
   "scopeType": "project",
   "scopeId": "my-project-id",
   "category": "code_style"
@@ -128,8 +162,9 @@ Add to `~/.config/claude/claude_desktop_config.json`:
 ### Track a Decision
 
 ```typescript
-// Via MCP tool: memory_knowledge_add
+// Via MCP tool: memory_knowledge
 {
+  "action": "add",
   "scopeType": "project",
   "scopeId": "my-project-id",
   "title": "Database Choice",
@@ -139,12 +174,24 @@ Add to `~/.config/claude/claude_desktop_config.json`:
 }
 ```
 
-## Documentation
+## 📚 Documentation
 
+### Getting Started
+- [Getting Started Guide](./getting-started.md) - Detailed setup and usage
+- [Development Guide](./development.md) - Local development setup
+- [Contributing](./contributing.md) - How to contribute
+- [Initialization](./initialization.md) - Database setup and migrations
+
+### Reference
 - [Architecture](./architecture.md) - System design and database schema
 - [API Reference](./api-reference.md) - Complete MCP tool documentation
-- [Getting Started](./getting-started.md) - Detailed setup and usage guide
 - [Data Model](./data-model.md) - Entity relationships and scoping
+- [Testing Guide](./testing-guide.md) - Testing guidelines and examples
+
+### Examples
+- [Example Workflows](../examples/workflows/) - Practical usage examples
+- [Common Tasks](../examples/workflows/common-tasks.md) - Recipe book
+- [Debugging](../examples/workflows/debugging.md) - Troubleshooting guide
 
 ## Project Structure
 
@@ -167,14 +214,123 @@ agent-memory/
 └── docs/                       # Documentation
 ```
 
-## Technology Stack
+## 🛠️ Technology Stack
 
 - **TypeScript** - Type-safe development
 - **MCP SDK** - Model Context Protocol integration
 - **SQLite** - Portable, zero-config database
 - **Drizzle ORM** - Type-safe queries and migrations
-- **Vitest** - Fast testing
+- **Vitest** - Fast testing with 74% coverage
 
-## License
+## 🔧 Development
 
-MIT
+```bash
+# Install dependencies
+npm install
+
+# Run tests
+npm test
+
+# Run tests with coverage
+npm run test:coverage
+
+# Lint and format
+npm run lint
+npm run format
+
+# Type check
+npm run typecheck
+
+# Run all checks
+npm run validate
+
+# Database studio
+npm run db:studio
+```
+
+See [Development Guide](./development.md) for more details.
+
+## 🐛 Troubleshooting
+
+### Database Locked Error
+
+```bash
+# Kill zombie processes
+pkill -f agent-memory
+
+# Remove lock files
+rm data/*.db-shm data/*.db-wal
+```
+
+### Slow Queries
+
+Enable performance logging:
+```bash
+export AGENT_MEMORY_PERF=1
+npm start
+```
+
+### Database Issues
+
+```bash
+# Backup database
+npm run db:backup
+
+# Check health
+# Use memory_health tool via MCP
+
+# Reset (WARNING: deletes all data)
+# Use memory_init tool with action: 'reset', confirm: true
+```
+
+See [Debugging Guide](../examples/workflows/debugging.md) for more solutions.
+
+## 🤝 Contributing
+
+We welcome contributions! Please read:
+
+1. [Contributing Guide](./contributing.md) - Guidelines and process
+2. [Development Guide](./development.md) - Setup and workflow
+3. Run `npm run validate` before submitting PRs
+4. Add tests for new features
+
+Quick setup:
+```bash
+./scripts/dev-setup.sh
+```
+
+## 📊 Project Status
+
+- ✅ Core CRUD operations
+- ✅ MCP server with 13 bundled tools
+- ✅ Query and context aggregation
+- ✅ File locks for multi-agent coordination
+- ✅ Conflict detection and resolution
+- ✅ Query caching (50-90% improvement for global queries)
+- ✅ 189 passing tests with 74% coverage
+- 🔄 In active development
+
+## 🌟 Features
+
+- **Hierarchical Scoping** - Global → Org → Project → Session
+- **Version History** - Full append-only versioning with conflict detection
+- **Multi-Agent Safe** - File locks and concurrent write handling
+- **Query Caching** - Automatic caching for frequently accessed data
+- **Tag System** - Predefined + custom tags for organization
+- **Relations** - Link related entries across memory sections
+- **Type-Safe** - Full TypeScript with strict mode
+
+## 📝 License
+
+MIT - see [LICENSE](../LICENSE) for details
+
+## 🔗 Links
+
+- [Documentation](./README.md)
+- [Example Workflows](../examples/workflows/)
+- [Architecture Deep Dive](./architecture.md)
+- [API Reference](./api-reference.md)
+
+---
+
+**Need help?** Open an issue with the `question` label or check the [Debugging Guide](../examples/workflows/debugging.md).

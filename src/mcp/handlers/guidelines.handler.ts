@@ -16,6 +16,7 @@ import type {
   GuidelineHistoryParams,
   GuidelineDeactivateParams,
 } from '../types.js';
+import { createValidationError, createNotFoundError } from '../errors.js';
 
 // Helper to safely cast params
 function cast<T>(params: Record<string, unknown>): T {
@@ -37,16 +38,16 @@ export const guidelineHandlers = {
     } = cast<GuidelineAddParams>(params);
 
     if (!scopeType) {
-      throw new Error('scopeType is required');
+      throw createValidationError('scopeType', 'is required', "Specify 'global', 'org', 'project', or 'session'");
     }
     if (!name) {
-      throw new Error('name is required');
+      throw createValidationError('name', 'is required', 'Provide a unique name for the guideline');
     }
     if (!content) {
-      throw new Error('content is required');
+      throw createValidationError('content', 'is required', 'Provide the guideline text');
     }
     if (scopeType !== 'global' && !scopeId) {
-      throw new Error('scopeId is required for non-global scope');
+      throw createValidationError('scopeId', `is required for ${scopeType} scope`, 'Provide the ID of the parent scope');
     }
 
     const input: CreateGuidelineInput = {
@@ -92,7 +93,7 @@ export const guidelineHandlers = {
 
     const guideline = guidelineRepo.update(id, input);
     if (!guideline) {
-      throw new Error('Guideline not found');
+      throw createNotFoundError('Guideline', id);
     }
 
     return { success: true, guideline };

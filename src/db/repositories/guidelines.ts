@@ -58,6 +58,10 @@ export interface GuidelineWithVersion extends Guideline {
 export const guidelineRepo = {
   /**
    * Create a new guideline with initial version
+   * 
+   * @param input - Guideline creation parameters including scope, name, priority, and initial content
+   * @returns The created guideline with its current version
+   * @throws Error if a guideline with the same name already exists in the scope
    */
   create(input: CreateGuidelineInput): GuidelineWithVersion {
     return transaction(() => {
@@ -100,6 +104,9 @@ export const guidelineRepo = {
 
   /**
    * Get guideline by ID with current version
+   * 
+   * @param id - The guideline ID
+   * @returns The guideline with its current version, or undefined if not found
    */
   getById(id: string): GuidelineWithVersion | undefined {
     const db = getDb();
@@ -116,6 +123,12 @@ export const guidelineRepo = {
 
   /**
    * Get guideline by name within a scope (with optional inheritance)
+   * 
+   * @param name - The guideline name
+   * @param scopeType - The scope type to search in
+   * @param scopeId - The scope ID (required for non-global scopes)
+   * @param inherit - Whether to search parent scopes if not found (default: true)
+   * @returns The guideline with its current version, or undefined if not found
    */
   getByName(name: string, scopeType: ScopeType, scopeId?: string, inherit = true): GuidelineWithVersion | undefined {
     const db = getDb();
@@ -170,6 +183,10 @@ export const guidelineRepo = {
 
   /**
    * List guidelines with filtering (ordered by priority desc)
+   * 
+   * @param filter - Optional filters for scope, category, and active status
+   * @param options - Optional pagination parameters (limit, offset)
+   * @returns Array of guidelines matching the filter criteria, ordered by priority (highest first)
    */
   list(filter: ListGuidelinesFilter = {}, options: PaginationOptions = {}): GuidelineWithVersion[] {
     const db = getDb();
@@ -219,6 +236,11 @@ export const guidelineRepo = {
 
   /**
    * Update a guideline (creates new version)
+   * 
+   * @param id - The guideline ID to update
+   * @param input - Update parameters (fields not provided inherit from previous version)
+   * @returns The updated guideline with its new current version, or undefined if guideline not found
+   * @remarks Creates a new version and detects conflicts if another update happened within 5 seconds
    */
   update(id: string, input: UpdateGuidelineInput): GuidelineWithVersion | undefined {
     return transaction(() => {
@@ -294,6 +316,9 @@ export const guidelineRepo = {
 
   /**
    * Get version history for a guideline
+   * 
+   * @param guidelineId - The guideline ID
+   * @returns Array of all versions for the guideline, ordered by version number (newest first)
    */
   getHistory(guidelineId: string): GuidelineVersion[] {
     const db = getDb();
@@ -306,6 +331,9 @@ export const guidelineRepo = {
 
   /**
    * Deactivate a guideline (soft delete)
+   * 
+   * @param id - The guideline ID to deactivate
+   * @returns True if the guideline was successfully deactivated
    */
   deactivate(id: string): boolean {
     const db = getDb();

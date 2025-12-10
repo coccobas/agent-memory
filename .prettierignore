@@ -1,0 +1,24 @@
+# Build outputs
+dist/
+coverage/
+*.tsbuildinfo
+
+# Dependencies
+node_modules/
+
+# Database
+data/*.db
+data/*.db-shm
+data/*.db-wal
+
+# Migrations (don't auto-format SQL)
+src/db/migrations/*.sql
+
+# Generated files
+*.d.ts
+
+# Documentation
+docs/pitch.html
+
+# Lock files
+package-lock.json

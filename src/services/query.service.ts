@@ -22,6 +22,127 @@ import type { MemoryQueryParams, ResponseMeta } from '../mcp/types.js';
 
 type QueryEntryType = 'tool' | 'guideline' | 'knowledge';
 
+// =============================================================================
+// QUERY RESULT CACHE
+// =============================================================================
+
+interface CacheEntry<T> {
+  value: T;
+  timestamp: number;
+}
+
+/**
+ * Simple in-memory cache for global scope queries
+ * Cache is only used for global scope queries (which rarely change)
+ * TTL: 5 minutes (300000ms)
+ */
+class QueryCache {
+  private cache = new Map<string, CacheEntry<unknown>>();
+  private readonly ttl = 5 * 60 * 1000; // 5 minutes
+  private readonly enabled = process.env.AGENT_MEMORY_CACHE !== '0';
+
+  /**
+   * Generate a cache key from query parameters
+   */
+  private getCacheKey(params: MemoryQueryParams): string | null {
+    // Only cache global scope queries without relatedTo filter
+    if (params.scope?.type !== 'global' && params.scope?.type !== undefined) {
+      return null;
+    }
+    if (params.relatedTo) {
+      return null;
+    }
+
+    // Create a deterministic key from query parameters
+    const key = JSON.stringify({
+      types: params.types?.sort() || ['tools', 'guidelines', 'knowledge'].sort(),
+      tags: params.tags,
+      search: params.search,
+      compact: params.compact,
+      limit: params.limit || 20,
+      includeVersions: params.includeVersions,
+    });
+
+    return `global:${key}`;
+  }
+
+  /**
+   * Get cached result if available and not expired
+   */
+  get<T>(params: MemoryQueryParams): T | null {
+    if (!this.enabled) return null;
+
+    const key = this.getCacheKey(params);
+    if (!key) return null;
+
+    const entry = this.cache.get(key) as CacheEntry<T> | undefined;
+    if (!entry) return null;
+
+    const age = Date.now() - entry.timestamp;
+    if (age > this.ttl) {
+      this.cache.delete(key);
+      return null;
+    }
+
+    return entry.value;
+  }
+
+  /**
+   * Store result in cache
+   */
+  set<T>(params: MemoryQueryParams, value: T): void {
+    if (!this.enabled) return;
+
+    const key = this.getCacheKey(params);
+    if (!key) return;
+
+    this.cache.set(key, {
+      value,
+      timestamp: Date.now(),
+    });
+
+    // Limit cache size to 100 entries
+    if (this.cache.size > 100) {
+      const firstKey = this.cache.keys().next().value;
+      if (firstKey) this.cache.delete(firstKey);
+    }
+  }
+
+  /**
+   * Clear all cached entries
+   */
+  clear(): void {
+    this.cache.clear();
+  }
+
+  /**
+   * Get cache statistics
+   */
+  getStats() {
+    return {
+      size: this.cache.size,
+      enabled: this.enabled,
+      ttl: this.ttl,
+    };
+  }
+}
+
+const queryCache = new QueryCache();
+
+/**
+ * Clear the query cache (useful for testing or after bulk updates)
+ */
+export function clearQueryCache(): void {
+  queryCache.clear();
+}
+
+/**
+ * Get query cache statistics
+ */
+export function getQueryCacheStats() {
+  return queryCache.getStats();
+}
+
 interface ScopeDescriptor {
   scopeType: ScopeType;
   scopeId: string | null;
@@ -401,6 +522,18 @@ function computeScore(params: {
 const PERF_LOG = process.env.AGENT_MEMORY_PERF === '1';
 
 export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult {
+  // Check cache first
+  const cached = queryCache.get<MemoryQueryResult>(params);
+  if (cached) {
+    if (PERF_LOG) {
+      // eslint-disable-next-line no-console
+      console.error(
+        `[agent-memory] memory_query CACHE_HIT scope=${params.scope?.type ?? 'none'} results=${cached.results.length}`,
+      );
+    }
+    return cached;
+  }
+
   const db = getDb();
 
   const startMs = PERF_LOG ? Date.now() : 0;
@@ -771,10 +904,15 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
     );
   }
 
-  return {
+  const result = {
     results: limited,
     meta,
   };
+
+  // Cache the result (only caches global scope queries)
+  queryCache.set(params, result);
+
+  return result;
 }
 
 

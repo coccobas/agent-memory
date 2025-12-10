@@ -58,6 +58,10 @@ export interface KnowledgeWithVersion extends Knowledge {
 export const knowledgeRepo = {
   /**
    * Create a new knowledge entry with initial version
+   * 
+   * @param input - Knowledge creation parameters including scope, title, and initial content
+   * @returns The created knowledge entry with its current version
+   * @throws Error if a knowledge entry with the same title already exists in the scope
    */
   create(input: CreateKnowledgeInput): KnowledgeWithVersion {
     return transaction(() => {
@@ -100,6 +104,9 @@ export const knowledgeRepo = {
 
   /**
    * Get knowledge entry by ID with current version
+   * 
+   * @param id - The knowledge entry ID
+   * @returns The knowledge entry with its current version, or undefined if not found
    */
   getById(id: string): KnowledgeWithVersion | undefined {
     const db = getDb();
@@ -116,6 +123,12 @@ export const knowledgeRepo = {
 
   /**
    * Get knowledge by title within a scope (with optional inheritance)
+   * 
+   * @param title - The knowledge entry title
+   * @param scopeType - The scope type to search in
+   * @param scopeId - The scope ID (required for non-global scopes)
+   * @param inherit - Whether to search parent scopes if not found (default: true)
+   * @returns The knowledge entry with its current version, or undefined if not found
    */
   getByTitle(title: string, scopeType: ScopeType, scopeId?: string, inherit = true): KnowledgeWithVersion | undefined {
     const db = getDb();
@@ -169,7 +182,11 @@ export const knowledgeRepo = {
   },
 
   /**
-   * List knowledge entries with filtering
+   * List knowledge entries with filtering and pagination
+   * 
+   * @param filter - Optional filters for scope, category, and active status
+   * @param options - Optional pagination parameters (limit, offset)
+   * @returns Array of knowledge entries matching the filter criteria
    */
   list(filter: ListKnowledgeFilter = {}, options: PaginationOptions = {}): KnowledgeWithVersion[] {
     const db = getDb();
@@ -215,6 +232,11 @@ export const knowledgeRepo = {
 
   /**
    * Update a knowledge entry (creates new version)
+   * 
+   * @param id - The knowledge entry ID to update
+   * @param input - Update parameters (fields not provided inherit from previous version)
+   * @returns The updated knowledge entry with its new current version, or undefined if entry not found
+   * @remarks Creates a new version and detects conflicts if another update happened within 5 seconds
    */
   update(id: string, input: UpdateKnowledgeInput): KnowledgeWithVersion | undefined {
     return transaction(() => {

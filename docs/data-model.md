@@ -347,7 +347,7 @@ Hybrid tag taxonomy (predefined + custom).
 
 **Categories:** `language`, `domain`, `meta`, `custom`
 
-**Related MCP tools:** see `memory_tag_create`, `memory_tag_list`, `memory_tag_attach`, `memory_tag_detach`, and `memory_tags_for_entry` in [API Reference](./api-reference.md#tags).
+**Related MCP tools:** see `memory_tag` with actions `create`, `list`, `attach`, `detach`, and `for_entry` in [API Reference](./api-reference.md#memory_tag).
 
 **Predefined Tags:**
 - Languages: `python`, `typescript`, `javascript`, `rust`, `go`, `java`, `sql`, `bash`, `markdown`
@@ -414,7 +414,7 @@ Explicit links between entries.
 **Constraints:**
 - Unique on `(source_type, source_id, target_type, target_id, relation_type)`
 
-**Related MCP tools:** `memory_relation_create`, `memory_relation_list`, `memory_relation_delete` in [API Reference](./api-reference.md#relations).
+**Related MCP tools:** `memory_relation` with actions `create`, `list`, `delete` in [API Reference](./api-reference.md#memory_relation).
 
 ---
 
@@ -439,7 +439,7 @@ Concurrent write conflict tracking.
 - Primary key on `id`
 - `idx_conflicts_unresolved` on `(entry_type, entry_id)` where `resolved = 0`
 
-**Related MCP tools:** `memory_conflicts` and `memory_conflict_resolve` in [API Reference](./api-reference.md#cross-reference--conflicts).
+**Related MCP tools:** `memory_conflict` with actions `list` and `resolve` in [API Reference](./api-reference.md#memory_conflict).
 
 ---
 

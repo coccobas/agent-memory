@@ -1,13 +1,13 @@
 # API Reference
 
-Complete documentation for the 11 bundled MCP tools provided by Agent Memory (v0.2.0).
+Complete documentation for the 13 bundled MCP tools provided by Agent Memory (v0.2.0).
 
 ## Tool Bundling
 
-Agent Memory uses action-based tool bundling to reduce LLM decision fatigue. Instead of 45 individual tools, the server exposes 11 bundled tools with an `action` parameter to specify the operation.
+Agent Memory uses action-based tool bundling to reduce LLM decision fatigue. Instead of 45 individual tools, the server exposes 13 bundled tools with an `action` parameter to specify the operation.
 
 **Benefits:**
-- Reduced tool count (45 → 11) for faster LLM decisions
+- Reduced tool count (45 → 13) for faster LLM decisions
 - Consistent interface pattern across all tools
 - Easier to discover related operations
 
@@ -24,6 +24,8 @@ Agent Memory uses action-based tool bundling to reduce LLM decision fatigue. Ins
 - [memory_file_lock](#memory_file_lock) - File locks for multi-agent coordination
 - [memory_query](#memory_query) - Cross-reference query and context
 - [memory_conflict](#memory_conflict) - Conflict management
+- [memory_health](#memory_health) - Health check and server status
+- [memory_init](#memory_init) - Database initialization and migrations
 
 ---
 
@@ -981,6 +983,143 @@ Common error scenarios:
 - Duplicate entry (unique constraint violated)
 - Invalid scope configuration
 - File already locked (for file lock operations)
+
+---
+
+## memory_health
+
+Check server health and database status.
+
+This tool has no parameters and returns server version, database stats, and cache information.
+
+**Example:**
+```json
+{
+  "name": "memory_health"
+}
+```
+
+**Response:**
+```json
+{
+  "serverVersion": "0.2.0",
+  "status": "healthy",
+  "database": {
+    "type": "SQLite",
+    "inMemory": false,
+    "walEnabled": true
+  },
+  "cache": {
+    "enabled": true,
+    "size": 42,
+    "hits": 1234,
+    "misses": 567
+  },
+  "tables": {
+    "organizations": 2,
+    "projects": 5,
+    "sessions": 10,
+    "tools": 45,
+    "guidelines": 32,
+    "knowledge": 28,
+    "tags": 18,
+    "fileLocks": 0,
+    "conflicts": 0
+  }
+}
+```
+
+---
+
+## memory_init
+
+Manage database initialization and migrations.
+
+**Actions:** `init`, `status`, `reset`
+
+### Action: init
+
+Initialize the database or apply pending migrations.
+
+```json
+{
+  "action": "init",
+  "force": false,
+  "verbose": false
+}
+```
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `action` | string | Yes | `init` |
+| `force` | boolean | No | Force re-initialization even if already initialized |
+| `verbose` | boolean | No | Enable verbose output |
+
+**Response:**
+```json
+{
+  "success": true,
+  "initialized": true,
+  "migrationsApplied": ["0000_lying_the_hand", "0001_add_file_locks"],
+  "totalMigrations": 2,
+  "pendingMigrations": []
+}
+```
+
+### Action: status
+
+Check database initialization status.
+
+```json
+{
+  "action": "status"
+}
+```
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `action` | string | Yes | `status` |
+
+**Response:**
+```json
+{
+  "initialized": true,
+  "totalMigrations": 2,
+  "appliedMigrations": ["0000_lying_the_hand", "0001_add_file_locks"],
+  "pendingMigrations": []
+}
+```
+
+### Action: reset
+
+**WARNING:** This will delete all data in the database. Use with extreme caution.
+
+Reset the database by dropping all tables and re-initializing.
+
+```json
+{
+  "action": "reset",
+  "confirm": true,
+  "verbose": false
+}
+```
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `action` | string | Yes | `reset` |
+| `confirm` | boolean | Yes | Must be `true` to confirm reset |
+| `verbose` | boolean | No | Enable verbose output |
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Database reset successfully"
+}
+```
 
 ---
 

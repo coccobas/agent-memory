@@ -1,0 +1,53 @@
+[
+  {
+    "name": "memory_tool_add",
+    "arguments": {
+      "scopeType": "global",
+      "name": "conflict_demo_tool",
+      "category": "cli",
+      "description": "Tool used to demonstrate conflict handling"
+    }
+  },
+  {
+    "name": "memory_tool_update",
+    "arguments": {
+      "id": "<tool-id>",
+      "description": "First update to conflict_demo_tool",
+      "changeReason": "Initial edit"
+    }
+  },
+  {
+    "name": "memory_tool_update",
+    "arguments": {
+      "id": "<tool-id>",
+      "description": "Second rapid update to conflict_demo_tool",
+      "changeReason": "Simulated concurrent edit"
+    }
+  },
+  {
+    "name": "memory_conflicts",
+    "arguments": {
+      "entryType": "tool",
+      "resolved": false,
+      "limit": 10
+    }
+  },
+  {
+    "name": "memory_conflict_resolve",
+    "arguments": {
+      "id": "<conflict-id>",
+      "resolution": "Kept latest version as canonical",
+      "resolvedBy": "example-user"
+    }
+  },
+  {
+    "name": "memory_conflicts",
+    "arguments": {
+      "entryType": "tool",
+      "resolved": true,
+      "limit": 10
+    }
+  }
+]
+
+

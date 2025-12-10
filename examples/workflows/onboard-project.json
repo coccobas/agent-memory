@@ -1,0 +1,79 @@
+[
+  {
+    "name": "memory_org_create",
+    "arguments": {
+      "name": "Example Org"
+    }
+  },
+  {
+    "name": "memory_project_create",
+    "arguments": {
+      "orgId": "<org-id>",
+      "name": "example-project",
+      "description": "Example project for onboarding workflow"
+    }
+  },
+  {
+    "name": "memory_session_start",
+    "arguments": {
+      "projectId": "<project-id>",
+      "name": "Onboarding Session",
+      "purpose": "Populate initial memory for project"
+    }
+  },
+  {
+    "name": "memory_tool_add",
+    "arguments": {
+      "scopeType": "project",
+      "scopeId": "<project-id>",
+      "name": "npm_run_dev",
+      "category": "cli",
+      "description": "Start development server with hot reload"
+    }
+  },
+  {
+    "name": "memory_guideline_add",
+    "arguments": {
+      "scopeType": "project",
+      "scopeId": "<project-id>",
+      "name": "typescript_style",
+      "category": "code_style",
+      "priority": 80,
+      "content": "Use strict TypeScript, prefer explicit types at module boundaries."
+    }
+  },
+  {
+    "name": "memory_knowledge_add",
+    "arguments": {
+      "scopeType": "project",
+      "scopeId": "<project-id>",
+      "title": "Tech Stack Decision",
+      "category": "decision",
+      "content": "React + TypeScript, Vite for bundling.",
+      "source": "Architecture discussion"
+    }
+  },
+  {
+    "name": "memory_query",
+    "arguments": {
+      "types": ["tools", "guidelines", "knowledge"],
+      "scope": {
+        "type": "project",
+        "id": "<project-id>",
+        "inherit": true
+      },
+      "limit": 50
+    }
+  },
+  {
+    "name": "memory_context",
+    "arguments": {
+      "scopeType": "session",
+      "scopeId": "<session-id>",
+      "inherit": true,
+      "compact": true
+    }
+  }
+]
+
+

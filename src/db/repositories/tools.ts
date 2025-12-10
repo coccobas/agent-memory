@@ -57,6 +57,10 @@ export interface ToolWithVersion extends Tool {
 export const toolRepo = {
   /**
    * Create a new tool with initial version
+   * 
+   * @param input - Tool creation parameters including scope, name, and initial version content
+   * @returns The created tool with its current version
+   * @throws Error if a tool with the same name already exists in the scope
    */
   create(input: CreateToolInput): ToolWithVersion {
     return transaction(() => {
@@ -99,6 +103,9 @@ export const toolRepo = {
 
   /**
    * Get tool by ID with current version
+   * 
+   * @param id - The tool ID
+   * @returns The tool with its current version, or undefined if not found
    */
   getById(id: string): ToolWithVersion | undefined {
     const db = getDb();
@@ -115,6 +122,12 @@ export const toolRepo = {
 
   /**
    * Get tool by name within a scope (with optional inheritance)
+   * 
+   * @param name - The tool name
+   * @param scopeType - The scope type to search in
+   * @param scopeId - The scope ID (required for non-global scopes)
+   * @param inherit - Whether to search parent scopes if not found (default: true)
+   * @returns The tool with its current version, or undefined if not found
    */
   getByName(name: string, scopeType: ScopeType, scopeId?: string, inherit = true): ToolWithVersion | undefined {
     const db = getDb();
@@ -169,7 +182,11 @@ export const toolRepo = {
   },
 
   /**
-   * List tools with filtering
+   * List tools with filtering and pagination
+   * 
+   * @param filter - Optional filters for scope, category, and active status
+   * @param options - Optional pagination parameters (limit, offset)
+   * @returns Array of tools matching the filter criteria, each with its current version
    */
   list(filter: ListToolsFilter = {}, options: PaginationOptions = {}): ToolWithVersion[] {
     const db = getDb();
@@ -215,6 +232,11 @@ export const toolRepo = {
 
   /**
    * Update a tool (creates new version)
+   * 
+   * @param id - The tool ID to update
+   * @param input - Update parameters (fields not provided inherit from previous version)
+   * @returns The updated tool with its new current version, or undefined if tool not found
+   * @remarks Creates a new version and detects conflicts if another update happened within 5 seconds
    */
   update(id: string, input: UpdateToolInput): ToolWithVersion | undefined {
     return transaction(() => {
@@ -281,6 +303,9 @@ export const toolRepo = {
 
   /**
    * Get version history for a tool
+   * 
+   * @param toolId - The tool ID
+   * @returns Array of all versions for the tool, ordered by version number (newest first)
    */
   getHistory(toolId: string): ToolVersion[] {
     const db = getDb();
@@ -293,6 +318,9 @@ export const toolRepo = {
 
   /**
    * Deactivate a tool (soft delete)
+   * 
+   * @param id - The tool ID to deactivate
+   * @returns True if the tool was successfully deactivated
    */
   deactivate(id: string): boolean {
     const db = getDb();
@@ -305,6 +333,9 @@ export const toolRepo = {
 
   /**
    * Reactivate a tool
+   * 
+   * @param id - The tool ID to reactivate
+   * @returns True if the tool was successfully reactivated
    */
   reactivate(id: string): boolean {
     const db = getDb();

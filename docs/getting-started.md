@@ -26,14 +26,24 @@ npm run build
 
 This compiles TypeScript to JavaScript in the `dist/` directory.
 
-### 3. Initialize the Database
+### 3. Database Initialization
 
-The database is automatically created on first run at `./data/memory.db`.
+**The database is automatically initialized on first run** - no manual setup required!
+
+On first startup, the server will:
+- Create the database file at `./data/memory.db`
+- Apply all schema migrations automatically
+- Track applied migrations in a `_migrations` table
+
+You can verify initialization works:
 
 ```bash
-# Optional: Run migrations explicitly
-npm run db:migrate
+# Run the initialization test
+npm run build
+node dist/test-init.js
 ```
+
+For manual control, use the `memory_init` MCP tool (see [Initialization Guide](./initialization.md)).
 
 ### 4. Verify Installation
 
@@ -87,15 +97,19 @@ Once the server is running, you can interact with it through your MCP client.
 Organizations group projects for team scenarios.
 
 ```
-Use tool: memory_org_create
-Parameters: { "name": "My Team" }
+Use tool: memory_org
+Parameters: {
+  "action": "create",
+  "name": "My Team"
+}
 ```
 
 ### 2. Create a Project
 
 ```
-Use tool: memory_project_create
+Use tool: memory_project
 Parameters: {
+  "action": "create",
   "name": "my-web-app",
   "description": "React web application",
   "rootPath": "/Users/me/projects/my-web-app"
@@ -107,8 +121,9 @@ Save the returned `project.id` - you'll need it for scoped entries.
 ### 3. Add Your First Guideline
 
 ```
-Use tool: memory_guideline_add
+Use tool: memory_guideline
 Parameters: {
+  "action": "add",
   "scopeType": "project",
   "scopeId": "<your-project-id>",
   "name": "typescript-strict",
@@ -122,8 +137,9 @@ Parameters: {
 ### 4. Query Guidelines
 
 ```
-Use tool: memory_guideline_list
+Use tool: memory_guideline
 Parameters: {
+  "action": "list",
   "scopeType": "project",
   "scopeId": "<your-project-id>"
 }
@@ -134,8 +150,9 @@ This returns your project guidelines plus any inherited from parent scopes.
 ### 5. Add Knowledge
 
 ```
-Use tool: memory_knowledge_add
+Use tool: memory_knowledge
 Parameters: {
+  "action": "add",
   "scopeType": "project",
   "scopeId": "<your-project-id>",
   "title": "Tech Stack Decision",
@@ -148,8 +165,9 @@ Parameters: {
 ### 6. Tag Entries
 
 ```
-Use tool: memory_tag_attach
+Use tool: memory_tag
 Parameters: {
+  "action": "attach",
   "entryType": "guideline",
   "entryId": "<guideline-id>",
   "tagName": "typescript"
@@ -163,8 +181,9 @@ Sessions track temporary working context.
 ### Start a Session
 
 ```
-Use tool: memory_session_start
+Use tool: memory_session
 Parameters: {
+  "action": "start",
   "projectId": "<your-project-id>",
   "name": "Feature: User Auth",
   "purpose": "Implementing user authentication flow"
@@ -174,8 +193,9 @@ Parameters: {
 ### Add Session-Scoped Knowledge
 
 ```
-Use tool: memory_knowledge_add
+Use tool: memory_knowledge
 Parameters: {
+  "action": "add",
   "scopeType": "session",
   "scopeId": "<session-id>",
   "title": "Auth Implementation Notes",
@@ -187,8 +207,9 @@ Parameters: {
 ### End the Session
 
 ```
-Use tool: memory_session_end
+Use tool: memory_session
 Parameters: {
+  "action": "end",
   "id": "<session-id>",
   "status": "completed"
 }
@@ -201,8 +222,9 @@ Parameters: {
 When starting work on a file or feature, query for relevant guidelines:
 
 ```
-Use tool: memory_guideline_list
+Use tool: memory_guideline
 Parameters: {
+  "action": "list",
   "scopeType": "project",
   "scopeId": "<project-id>",
   "category": "code_style"
@@ -214,8 +236,9 @@ Parameters: {
 When you make an architectural or design decision:
 
 ```
-Use tool: memory_knowledge_add
+Use tool: memory_knowledge
 Parameters: {
+  "action": "add",
   "scopeType": "project",
   "scopeId": "<project-id>",
   "title": "Database Choice",
@@ -230,8 +253,9 @@ Parameters: {
 When you discover or create a useful tool:
 
 ```
-Use tool: memory_tool_add
+Use tool: memory_tool
 Parameters: {
+  "action": "add",
   "scopeType": "project",
   "scopeId": "<project-id>",
   "name": "npm run dev",
@@ -248,8 +272,9 @@ Parameters: {
 Connect related guidelines and knowledge:
 
 ```
-Use tool: memory_relation_create
+Use tool: memory_relation
 Parameters: {
+  "action": "create",
   "sourceType": "guideline",
   "sourceId": "<guideline-id>",
   "targetType": "knowledge",
@@ -295,9 +320,9 @@ When integrating an agent (e.g., Claude or a custom MCP client), a typical loop 
 ```
 
 4. **Write back learnings** as the agent discovers new tools or decisions:
-   - Use `memory_tool_add` / `memory_tool_update` for new capabilities.
-   - Use `memory_guideline_add` for new rules or patterns.
-   - Use `memory_knowledge_add` for important facts and decisions.
+   - Use `memory_tool` with `action: "add"` / `action: "update"` for new capabilities.
+   - Use `memory_guideline` with `action: "add"` for new rules or patterns.
+   - Use `memory_knowledge` with `action: "add"` for important facts and decisions.
 
 ## Scope Hierarchy
 
@@ -333,8 +358,9 @@ Global (applies everywhere)
 All updates create new versions:
 
 ```
-Use tool: memory_guideline_update
+Use tool: memory_guideline
 Parameters: {
+  "action": "update",
   "id": "<guideline-id>",
   "content": "Updated guideline text...",
   "changeReason": "Clarified edge case handling"
@@ -344,8 +370,9 @@ Parameters: {
 View history:
 
 ```
-Use tool: memory_guideline_history
+Use tool: memory_guideline
 Parameters: {
+  "action": "history",
   "id": "<guideline-id>"
 }
 ```
@@ -381,8 +408,9 @@ Stick to a defined set of categories:
 Tags enable cross-cutting queries:
 
 ```
-Use tool: memory_tag_attach
+Use tool: memory_tag
 Parameters: {
+  "action": "attach",
   "entryType": "guideline",
   "entryId": "<id>",
   "tagName": "python"
@@ -394,8 +422,9 @@ Parameters: {
 Don't wait - capture decisions when they're made:
 
 ```
-Use tool: memory_knowledge_add
+Use tool: memory_knowledge
 Parameters: {
+  "action": "add",
   "scopeType": "project",
   "scopeId": "<id>",
   "title": "API Versioning Strategy",
@@ -416,8 +445,9 @@ Parameters: {
 ### Database Errors
 
 1. Ensure `data/` directory exists and is writable
-2. Delete `data/memory.db` to reset (loses all data)
-3. Run migrations: `npm run db:migrate`
+2. Check initialization status with `memory_init` tool: `{"action": "status"}`
+3. Reset database if needed: Delete `data/memory.db` (server will auto-reinitialize)
+4. See [Initialization Guide](./initialization.md) for advanced troubleshooting
 
 ### MCP Connection Issues
 

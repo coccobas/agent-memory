@@ -1,7 +1,7 @@
 /**
  * MCP Server for Agent Memory Database
  *
- * Tool Bundling: 45 individual tools consolidated into 11 action-based tools:
+ * Tool Bundling: 45 individual tools consolidated into 12 action-based tools:
  * - memory_org (create, list)
  * - memory_project (create, list, get, update)
  * - memory_session (start, end, list)
@@ -13,6 +13,7 @@
  * - memory_file_lock (checkout, checkin, status, list, force_unlock)
  * - memory_query (search, context)
  * - memory_conflict (list, resolve)
+ * - memory_init (init, status, reset)
  */
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
@@ -23,10 +24,12 @@ import {
   type Tool,
 } from '@modelcontextprotocol/sdk/types.js';
 
-import { getDb, closeDb } from '../db/connection.js';
+import { getDb, closeDb, getSqlite } from '../db/connection.js';
 import { tagRepo } from '../db/repositories/tags.js';
 import { queryHandlers } from './handlers/query.handler.js';
 import { conflictHandlers } from './handlers/conflicts.handler.js';
+import { getQueryCacheStats } from '../services/query.service.js';
+import { formatError, createInvalidActionError } from './errors.js';
 
 // Import handlers
 import { scopeHandlers } from './handlers/scopes.handler.js';
@@ -36,9 +39,10 @@ import { knowledgeHandlers } from './handlers/knowledge.handler.js';
 import { tagHandlers } from './handlers/tags.handler.js';
 import { relationHandlers } from './handlers/relations.handler.js';
 import { fileLockHandlers } from './handlers/file_locks.handler.js';
+import { initHandlers } from './handlers/init.handler.js';
 
 // =============================================================================
-// BUNDLED TOOL DEFINITIONS (11 tools instead of 45)
+// BUNDLED TOOL DEFINITIONS (12 tools instead of 45)
 // =============================================================================
 
 const TOOLS: Tool[] = [
@@ -428,6 +432,42 @@ const TOOLS: Tool[] = [
       required: ['action'],
     },
   },
+
+  // -------------------------------------------------------------------------
+  // HEALTH CHECK
+  // -------------------------------------------------------------------------
+  {
+    name: 'memory_health',
+    description: 'Check server health and database status. Returns server version, database stats, and cache info.',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+  },
+
+  // -------------------------------------------------------------------------
+  // DATABASE INITIALIZATION
+  // -------------------------------------------------------------------------
+  {
+    name: 'memory_init',
+    description: 'Manage database initialization and migrations. Actions: init (initialize/migrate), status (check migration status), reset (reset database - WARNING: deletes all data)',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: {
+          type: 'string',
+          enum: ['init', 'status', 'reset'],
+          description: 'Action to perform',
+        },
+        // init params
+        force: { type: 'boolean', description: 'Force re-initialization even if already initialized (init)' },
+        verbose: { type: 'boolean', description: 'Enable verbose output (init, reset)' },
+        // reset params
+        confirm: { type: 'boolean', description: 'Confirm database reset - required for reset action. WARNING: This deletes all data!' },
+      },
+      required: ['action'],
+    },
+  },
 ];
 
 // =============================================================================
@@ -564,6 +604,65 @@ const bundledHandlers: Record<string, (params: Record<string, unknown>) => unkno
       default: throw new Error(`Unknown action for memory_conflict: ${action}`);
     }
   },
+
+  memory_health: () => {
+    const sqlite = getSqlite();
+    const cacheStats = getQueryCacheStats();
+    
+    // Get database stats
+    const stats: {
+      serverVersion: string;
+      status: string;
+      database: {
+        type: string;
+        inMemory: boolean;
+        walEnabled: boolean;
+        error?: string;
+      };
+      cache: ReturnType<typeof getQueryCacheStats>;
+      tables: Record<string, number>;
+    } = {
+      serverVersion: '0.2.0',
+      status: 'healthy',
+      database: {
+        type: 'SQLite',
+        inMemory: false,
+        walEnabled: true,
+      },
+      cache: cacheStats,
+      tables: {},
+    };
+
+    // Count entries in each table
+    try {
+      stats.tables = {
+        organizations: (sqlite.prepare('SELECT COUNT(*) as count FROM organizations').get() as { count: number }).count,
+        projects: (sqlite.prepare('SELECT COUNT(*) as count FROM projects').get() as { count: number }).count,
+        sessions: (sqlite.prepare('SELECT COUNT(*) as count FROM sessions').get() as { count: number }).count,
+        tools: (sqlite.prepare('SELECT COUNT(*) as count FROM tools WHERE is_active = 1').get() as { count: number }).count,
+        guidelines: (sqlite.prepare('SELECT COUNT(*) as count FROM guidelines WHERE is_active = 1').get() as { count: number }).count,
+        knowledge: (sqlite.prepare('SELECT COUNT(*) as count FROM knowledge WHERE is_active = 1').get() as { count: number }).count,
+        tags: (sqlite.prepare('SELECT COUNT(*) as count FROM tags').get() as { count: number }).count,
+        fileLocks: (sqlite.prepare('SELECT COUNT(*) as count FROM file_locks').get() as { count: number }).count,
+        conflicts: (sqlite.prepare('SELECT COUNT(*) as count FROM conflict_log WHERE resolved = 0').get() as { count: number }).count,
+      };
+    } catch (error) {
+      stats.status = 'error';
+      stats.database.error = error instanceof Error ? error.message : 'Unknown error';
+    }
+
+    return stats;
+  },
+
+  memory_init: (params) => {
+    const { action, ...rest } = params;
+    switch (action) {
+      case 'init': return initHandlers.init(rest);
+      case 'status': return initHandlers.status(rest);
+      case 'reset': return initHandlers.reset(rest);
+      default: throw new Error(`Unknown action for memory_init: ${action}`);
+    }
+  },
 };
 
 // =============================================================================
@@ -600,7 +699,18 @@ export async function createServer(): Promise<Server> {
 
     const handler = bundledHandlers[name];
     if (!handler) {
-      throw new Error(`Unknown tool: ${name}`);
+      const errorResponse = formatError(
+        createInvalidActionError('MCP', name, Object.keys(bundledHandlers))
+      );
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(errorResponse, null, 2),
+          },
+        ],
+        isError: true,
+      };
     }
 
     try {
@@ -614,12 +724,12 @@ export async function createServer(): Promise<Server> {
         ],
       };
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
+      const errorResponse = formatError(error);
       return {
         content: [
           {
             type: 'text',
-            text: JSON.stringify({ error: message }),
+            text: JSON.stringify(errorResponse, null, 2),
           },
         ],
         isError: true,

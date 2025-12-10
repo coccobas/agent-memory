@@ -2,6 +2,7 @@
  * File lock handlers
  */
 
+import { isAbsolute } from 'node:path';
 import { fileLockRepo } from '../../db/repositories/file_locks.js';
 import type {
   FileCheckoutParams,
@@ -10,10 +11,34 @@ import type {
   FileLockListParams,
   FileLockForceUnlockParams,
 } from '../types.js';
+import { createValidationError } from '../errors.js';
 
 // Helper to safely cast params
 function cast<T>(params: Record<string, unknown>): T {
   return params as unknown as T;
+}
+
+/**
+ * Validate that a file path is absolute and safe
+ * @param filePath - The file path to validate
+ * @throws Error if path is not absolute or contains suspicious patterns
+ */
+function validateFilePath(filePath: string): void {
+  if (!filePath || typeof filePath !== 'string') {
+    throw createValidationError('file_path', 'must be a non-empty string', 'Provide an absolute path to the file');
+  }
+
+  if (!isAbsolute(filePath)) {
+    throw createValidationError('file_path', 'must be an absolute path', `Use an absolute path like '/Users/project/file.ts' instead of '${filePath}'`);
+  }
+
+  // Check for suspicious patterns that might indicate path traversal attempts
+  const suspicious = ['..', '\0', '\r', '\n'];
+  for (const pattern of suspicious) {
+    if (filePath.includes(pattern)) {
+      throw createValidationError('file_path', `contains invalid pattern: ${pattern}`, 'File path should not contain path traversal or special characters');
+    }
+  }
 }
 
 export const fileLockHandlers = {
@@ -30,6 +55,8 @@ export const fileLockHandlers = {
     if (!file_path) {
       throw new Error('file_path is required');
     }
+    validateFilePath(file_path);
+    
     if (!agent_id) {
       throw new Error('agent_id is required');
     }
@@ -50,6 +77,8 @@ export const fileLockHandlers = {
     if (!file_path) {
       throw new Error('file_path is required');
     }
+    validateFilePath(file_path);
+    
     if (!agent_id) {
       throw new Error('agent_id is required');
     }
@@ -65,6 +94,7 @@ export const fileLockHandlers = {
     if (!file_path) {
       throw new Error('file_path is required');
     }
+    validateFilePath(file_path);
 
     const lock = fileLockRepo.getLock(file_path);
     const isLocked = lock !== null;
@@ -98,6 +128,8 @@ export const fileLockHandlers = {
     if (!file_path) {
       throw new Error('file_path is required');
     }
+    validateFilePath(file_path);
+    
     if (!agent_id) {
       throw new Error('agent_id is required');
     }

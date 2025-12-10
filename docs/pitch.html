@@ -3,77 +3,686 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Agent Memory - Persistent Memory for AI Agents</title>
+  <title>Agent Memory - Give Your AI Agents a Persistent Brain</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: system-ui, -apple-system, sans-serif; line-height: 1.6; color: #1a1a1a; background: #fafafa; }
-    .container { max-width: 800px; margin: 0 auto; padding: 2rem; }
-    header { text-align: center; padding: 3rem 0; }
-    h1 { font-size: 2.5rem; margin-bottom: 0.5rem; }
-    .tagline { font-size: 1.25rem; color: #666; margin-bottom: 2rem; }
-    .problem, .solution, .features, .cta { margin-bottom: 2.5rem; }
-    h2 { font-size: 1.5rem; margin-bottom: 1rem; color: #333; border-bottom: 2px solid #e0e0e0; padding-bottom: 0.5rem; }
-    .highlight { background: linear-gradient(120deg, #ffd700 0%, #ffec80 100%); padding: 0.1rem 0.3rem; border-radius: 3px; }
-    ul { list-style: none; }
-    li { padding: 0.5rem 0; padding-left: 1.5rem; position: relative; }
-    li::before { content: "→"; position: absolute; left: 0; color: #666; }
-    .stats { display: flex; justify-content: space-around; text-align: center; margin: 2rem 0; flex-wrap: wrap; gap: 1rem; }
-    .stat { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); min-width: 150px; }
-    .stat-num { font-size: 2rem; font-weight: bold; color: #2563eb; }
-    .stat-label { font-size: 0.875rem; color: #666; }
-    code { background: #f0f0f0; padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.9rem; }
-    .install { background: #1a1a1a; color: #fff; padding: 1rem 1.5rem; border-radius: 8px; font-family: monospace; margin: 1rem 0; }
-    .cta { text-align: center; padding: 2rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; color: white; }
-    .cta h2 { color: white; border: none; }
-    .cta a { color: #ffd700; }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --primary: #6366f1;
+      --primary-dark: #4f46e5;
+      --secondary: #8b5cf6;
+      --accent: #ec4899;
+      --success: #10b981;
+      --text: #1f2937;
+      --text-light: #6b7280;
+      --bg: #ffffff;
+      --bg-alt: #f9fafb;
+      --border: #e5e7eb;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+      line-height: 1.6;
+      color: var(--text);
+      background: var(--bg);
+      overflow-x: hidden;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 1.5rem;
+    }
+
+    /* Hero Section */
+    .hero {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 4rem 0 6rem;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      right: -20%;
+      width: 600px;
+      height: 600px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 50%;
+      filter: blur(80px);
+    }
+
+    .hero h1 {
+      font-size: clamp(2.5rem, 5vw, 4rem);
+      font-weight: 800;
+      margin-bottom: 1rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero .tagline {
+      font-size: clamp(1.25rem, 2.5vw, 1.75rem);
+      opacity: 0.95;
+      margin-bottom: 2rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero .highlight {
+      background: rgba(255, 255, 255, 0.2);
+      padding: 0.2rem 0.6rem;
+      border-radius: 6px;
+      backdrop-filter: blur(10px);
+    }
+
+    /* Problem/Solution */
+    .problem-solution {
+      padding: 4rem 0;
+      background: var(--bg-alt);
+    }
+
+    .problem-solution .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 2rem;
+      margin-top: 2rem;
+    }
+
+    .card {
+      background: white;
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+      border: 1px solid var(--border);
+    }
+
+    .card h3 {
+      font-size: 1.5rem;
+      margin-bottom: 1rem;
+      color: var(--text);
+    }
+
+    .card.problem h3 {
+      color: #ef4444;
+    }
+
+    .card.solution h3 {
+      color: var(--success);
+    }
+
+    .card ul {
+      list-style: none;
+      margin-top: 1rem;
+    }
+
+    .card li {
+      padding: 0.5rem 0;
+      padding-left: 1.5rem;
+      position: relative;
+      color: var(--text-light);
+    }
+
+    .card li::before {
+      content: "→";
+      position: absolute;
+      left: 0;
+      color: var(--primary);
+      font-weight: bold;
+    }
+
+    /* Mockup Section */
+    .mockup {
+      padding: 4rem 0;
+      background: white;
+    }
+
+    .mockup-header {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+
+    .mockup-header h2 {
+      font-size: clamp(2rem, 4vw, 2.5rem);
+      margin-bottom: 1rem;
+      color: var(--text);
+    }
+
+    .mockup-header p {
+      font-size: 1.125rem;
+      color: var(--text-light);
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .agent-interface {
+      background: #1e1e1e;
+      border-radius: 16px;
+      padding: 1.5rem;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      max-width: 900px;
+      margin: 0 auto;
+      font-family: 'Monaco', 'Menlo', monospace;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .terminal-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid #333;
+    }
+
+    .terminal-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #ff5f56;
+    }
+
+    .terminal-dot:nth-child(2) {
+      background: #ffbd2e;
+    }
+
+    .terminal-dot:nth-child(3) {
+      background: #27c93f;
+    }
+
+    .terminal-line {
+      margin: 0.5rem 0;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+    }
+
+    .prompt {
+      color: #4ec9b0;
+      flex-shrink: 0;
+    }
+
+    .user-input {
+      color: #d4d4d4;
+    }
+
+    .agent-response {
+      color: #9cdcfe;
+      margin-left: 1.5rem;
+      padding-left: 1rem;
+      border-left: 2px solid #3e3e3e;
+    }
+
+    .memory-query {
+      background: rgba(99, 102, 241, 0.1);
+      border-left: 3px solid var(--primary);
+      padding: 0.75rem 1rem;
+      margin: 1rem 0;
+      border-radius: 4px;
+    }
+
+    .memory-query .label {
+      color: #a78bfa;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 0.5rem;
+    }
+
+    .memory-query .query {
+      color: #c4b5fd;
+      font-size: 13px;
+    }
+
+    .result {
+      background: rgba(16, 185, 129, 0.1);
+      border-left: 3px solid var(--success);
+      padding: 0.75rem 1rem;
+      margin: 1rem 0;
+      border-radius: 4px;
+    }
+
+    .result .label {
+      color: #6ee7b7;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 0.5rem;
+    }
+
+    .result .content {
+      color: #a7f3d0;
+      font-size: 13px;
+    }
+
+    .code-block {
+      background: #252526;
+      padding: 1rem;
+      border-radius: 6px;
+      margin: 1rem 0;
+      overflow-x: auto;
+    }
+
+    .code-block code {
+      color: #ce9178;
+    }
+
+    /* Value Props */
+    .value-props {
+      padding: 4rem 0;
+      background: var(--bg-alt);
+    }
+
+    .value-props-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 2rem;
+      margin-top: 2rem;
+    }
+
+    .value-card {
+      background: white;
+      padding: 2rem;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .value-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+    }
+
+    .value-card .icon {
+      width: 48px;
+      height: 48px;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      margin-bottom: 1rem;
+    }
+
+    .value-card h3 {
+      font-size: 1.25rem;
+      margin-bottom: 0.75rem;
+      color: var(--text);
+    }
+
+    .value-card p {
+      color: var(--text-light);
+      font-size: 0.95rem;
+    }
+
+    /* Stats */
+    .stats {
+      padding: 4rem 0;
+      background: white;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 2rem;
+      text-align: center;
+    }
+
+    .stat {
+      padding: 1.5rem;
+    }
+
+    .stat-number {
+      font-size: 3rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 0.5rem;
+    }
+
+    .stat-label {
+      color: var(--text-light);
+      font-size: 0.95rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* CTA */
+    .cta {
+      padding: 4rem 0;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+      color: white;
+      text-align: center;
+    }
+
+    .cta h2 {
+      font-size: clamp(2rem, 4vw, 2.5rem);
+      margin-bottom: 1rem;
+    }
+
+    .cta p {
+      font-size: 1.25rem;
+      opacity: 0.95;
+      margin-bottom: 2rem;
+    }
+
+    .cta-buttons {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      padding: 1rem 2rem;
+      border-radius: 8px;
+      font-weight: 600;
+      text-decoration: none;
+      display: inline-block;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .btn-primary {
+      background: white;
+      color: var(--primary);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+      border: 2px solid white;
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    /* Section Headers */
+    section h2 {
+      font-size: clamp(2rem, 4vw, 2.5rem);
+      text-align: center;
+      margin-bottom: 1rem;
+      color: var(--text);
+    }
+
+    section p {
+      text-align: center;
+      color: var(--text-light);
+      max-width: 700px;
+      margin: 0 auto 2rem;
+      font-size: 1.125rem;
+    }
+
+    /* Mobile Optimizations */
+    @media (max-width: 768px) {
+      .hero {
+        padding: 3rem 0 4rem;
+      }
+
+      .container {
+        padding: 0 1rem;
+      }
+
+      .agent-interface {
+        font-size: 12px;
+        padding: 1rem;
+      }
+
+      .value-props-grid,
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .cta-buttons {
+        flex-direction: column;
+      }
+
+      .btn {
+        width: 100%;
+      }
+    }
+
+    /* Animations */
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .card,
+    .value-card,
+    .agent-interface {
+      animation: fadeIn 0.6s ease-out;
+    }
   </style>
 </head>
 <body>
-  <div class="container">
-    <header>
+  <!-- Hero Section -->
+  <section class="hero">
+    <div class="container">
       <h1>Agent Memory</h1>
-      <p class="tagline">Persistent, scoped memory for AI coding agents via MCP</p>
-    </header>
-
-    <section class="problem">
-      <h2>The Problem</h2>
-      <p>AI coding agents forget everything between sessions. They re-learn your codebase conventions, repeat mistakes, and lose context about decisions made yesterday.</p>
-    </section>
-
-    <section class="solution">
-      <h2>The Solution</h2>
-      <p>Agent Memory gives your AI agents a <span class="highlight">persistent brain</span>. Store tools, guidelines, and knowledge at any scope level&mdash;from global defaults down to session-specific context. Agents remember what works, avoid what doesn't, and build on previous decisions.</p>
-    </section>
-
-    <section class="features">
-      <h2>Key Features</h2>
-      <ul>
-        <li><strong>Hierarchical Scopes</strong> &mdash; Global → Org → Project → Session inheritance</li>
-        <li><strong>Version History</strong> &mdash; Track changes with full audit trail</li>
-        <li><strong>Cross-Reference Query</strong> &mdash; Find related context with relevance scoring</li>
-        <li><strong>File Locks</strong> &mdash; Multi-agent coordination without conflicts</li>
-        <li><strong>Tags &amp; Relations</strong> &mdash; Rich metadata for intelligent retrieval</li>
-        <li><strong>MCP Native</strong> &mdash; Works with Claude Desktop, Cursor, and any MCP client</li>
-      </ul>
-    </section>
-
-    <div class="stats">
-      <div class="stat"><div class="stat-num">11</div><div class="stat-label">Bundled Tools</div></div>
-      <div class="stat"><div class="stat-num">4</div><div class="stat-label">Scope Levels</div></div>
-      <div class="stat"><div class="stat-num">173</div><div class="stat-label">Tests Passing</div></div>
-      <div class="stat"><div class="stat-num">0</div><div class="stat-label">Dependencies*</div></div>
+      <p class="tagline">Give your AI agents a <span class="highlight">persistent brain</span> that remembers across sessions</p>
     </div>
-    <p style="text-align: center; color: #888; font-size: 0.8rem;">*SQLite via better-sqlite3, no cloud services required</p>
+  </section>
 
-    <section class="install">
-      npx agent-memory start
-    </section>
+  <!-- Problem/Solution -->
+  <section class="problem-solution">
+    <div class="container">
+      <h2>The Problem</h2>
+      <div class="grid">
+        <div class="card problem">
+          <h3>❌ Without Agent Memory</h3>
+          <ul>
+            <li>Agents forget everything between sessions</li>
+            <li>Re-learn codebase conventions repeatedly</li>
+            <li>Repeat the same mistakes</li>
+            <li>Lose context about decisions</li>
+            <li>Can't share learnings across agents</li>
+          </ul>
+        </div>
+        <div class="card solution">
+          <h3>✅ With Agent Memory</h3>
+          <ul>
+            <li>Persistent memory across all sessions</li>
+            <li>Remembers your project guidelines</li>
+            <li>Learns from past decisions</li>
+            <li>Builds on previous context</li>
+            <li>Multi-agent knowledge sharing</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
 
-    <section class="cta">
-      <h2>Give Your Agents Memory</h2>
-      <p>Open source. Local-first. Privacy-friendly.</p>
-      <p style="margin-top: 1rem;"><a href="https://github.com/anthropics/agent-memory">GitHub</a></p>
-    </section>
-  </div>
+  <!-- Mockup -->
+  <section class="mockup">
+    <div class="container">
+      <div class="mockup-header">
+        <h2>See It In Action</h2>
+        <p>Watch how an agent uses memory to work smarter, not harder</p>
+      </div>
+
+      <div class="agent-interface">
+        <div class="terminal-header">
+          <div class="terminal-dot"></div>
+          <div class="terminal-dot"></div>
+          <div class="terminal-dot"></div>
+          <span style="margin-left: 1rem; color: #888; font-size: 12px;">Claude Agent - Project: my-web-app</span>
+        </div>
+
+        <div class="terminal-line">
+          <span class="prompt">user@dev</span>
+          <span class="user-input">Add authentication to the login page</span>
+        </div>
+
+        <div class="agent-response">
+          <div>Let me check the project guidelines for authentication...</div>
+          
+          <div class="memory-query">
+            <div class="label">🔍 Querying Memory</div>
+            <div class="query">memory_query({<br>
+              &nbsp;&nbsp;action: "search",<br>
+              &nbsp;&nbsp;types: ["guidelines", "knowledge"],<br>
+              &nbsp;&nbsp;scope: { type: "project", id: "proj_123" },<br>
+              &nbsp;&nbsp;search: "authentication security"<br>
+            })</div>
+          </div>
+
+          <div class="result">
+            <div class="label">✅ Found 3 Relevant Guidelines</div>
+            <div class="content">
+              <strong>1. auth-jwt-storage</strong><br>
+              "Store JWTs in httpOnly cookies, never localStorage"<br><br>
+              <strong>2. password-hashing</strong><br>
+              "Always use bcrypt with 12+ rounds"<br><br>
+              <strong>3. session-timeout</strong><br>
+              "15-minute access token expiry, refresh token rotation"
+            </div>
+          </div>
+
+          <div style="margin-top: 1rem;">Perfect! I'll implement authentication following these guidelines:</div>
+          
+          <div class="code-block">
+            <code>
+// Using JWT in httpOnly cookies<br>
+// bcrypt with 12 rounds for password hashing<br>
+// 15-minute access token, refresh rotation<br>
+// ... implementing now
+            </code>
+          </div>
+
+          <div style="margin-top: 1rem; color: #4ec9b0;">✓ Implementation complete. Following all project security guidelines.</div>
+        </div>
+
+        <div class="terminal-line" style="margin-top: 2rem;">
+          <span class="prompt">user@dev</span>
+          <span class="user-input">What tools do we use for testing?</span>
+        </div>
+
+        <div class="agent-response">
+          <div class="memory-query">
+            <div class="label">🔍 Querying Memory</div>
+            <div class="query">memory_query({<br>
+              &nbsp;&nbsp;action: "search",<br>
+              &nbsp;&nbsp;types: ["tools"],<br>
+              &nbsp;&nbsp;tags: { include: ["testing"] }<br>
+            })</div>
+          </div>
+
+          <div class="result">
+            <div class="label">✅ Found Tools</div>
+            <div class="content">
+              <strong>vitest</strong> - Unit testing framework<br>
+              <strong>playwright</strong> - E2E testing<br>
+              <strong>npm run test:coverage</strong> - Run with coverage
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Value Propositions -->
+  <section class="value-props">
+    <div class="container">
+      <h2>Why Agent Memory?</h2>
+      <p>Stop wasting tokens and time. Give your agents the context they need, when they need it.</p>
+      
+      <div class="value-props-grid">
+        <div class="value-card">
+          <div class="icon">🎯</div>
+          <h3>Precise Context</h3>
+          <p>Agents query only relevant guidelines, tools, and knowledge. No more loading entire codebases into context.</p>
+        </div>
+
+        <div class="value-card">
+          <div class="icon">🧠</div>
+          <h3>Persistent Learning</h3>
+          <p>Agents remember decisions, learn from mistakes, and build on previous work across all sessions.</p>
+        </div>
+
+        <div class="value-card">
+          <div class="icon">👥</div>
+          <h3>Team Knowledge</h3>
+          <p>Multiple agents share learnings. One agent's discovery becomes available to all.</p>
+        </div>
+
+        <div class="value-card">
+          <div class="icon">📊</div>
+          <h3>Hierarchical Scoping</h3>
+          <p>Global → Organization → Project → Session. Context flows down, specificity flows up.</p>
+        </div>
+
+        <div class="value-card">
+          <div class="icon">🔒</div>
+          <h3>Local-First</h3>
+          <p>Your data stays on your machine. SQLite database, zero cloud dependencies, complete privacy.</p>
+        </div>
+
+        <div class="value-card">
+          <div class="icon">⚡</div>
+          <h3>MCP Native</h3>
+          <p>Works seamlessly with Claude Desktop, Cursor, and any MCP-compatible client. Zero configuration.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Stats -->
+  <section class="stats">
+    <div class="container">
+      <div class="stats-grid">
+        <div class="stat">
+          <div class="stat-number">12</div>
+          <div class="stat-label">Bundled Tools</div>
+        </div>
+        <div class="stat">
+          <div class="stat-number">4</div>
+          <div class="stat-label">Scope Levels</div>
+        </div>
+        <div class="stat">
+          <div class="stat-number">0</div>
+          <div class="stat-label">Cloud Dependencies</div>
+        </div>
+        <div class="stat">
+          <div class="stat-number">100%</div>
+          <div class="stat-label">Local & Private</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="cta">
+    <div class="container">
+      <h2>Ready to Give Your Agents Memory?</h2>
+      <p>Open source. Local-first. Privacy-friendly. Zero configuration.</p>
+      <div class="cta-buttons">
+        <a href="https://github.com/your-org/agent-memory" class="btn btn-primary">Get Started</a>
+        <a href="https://github.com/your-org/agent-memory" class="btn btn-secondary">View on GitHub</a>
+      </div>
+    </div>
+  </section>
 </body>
 </html>

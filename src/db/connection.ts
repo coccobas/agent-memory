@@ -1,23 +1,36 @@
+/**
+ * Database connection module for Agent Memory
+ * 
+ * Environment Variables:
+ * - AGENT_MEMORY_DB_PATH: Custom database file path (optional, defaults to data/memory.db)
+ * - AGENT_MEMORY_PERF: Enable performance logging (set to '1' to enable)
+ * - AGENT_MEMORY_CACHE: Enable query result caching (set to '0' to disable, enabled by default)
+ * - AGENT_MEMORY_SKIP_INIT: Skip automatic database initialization (set to '1' to skip)
+ */
+
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import * as schema from './schema.js';
 import { existsSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { initializeDatabase } from './init.js';
 
 // Get the directory of the current module (works in both src and dist)
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 // Resolve data path relative to project root (go up from src/db or dist/db to project root)
 const projectRoot = resolve(__dirname, '../..');
-const DEFAULT_DB_PATH = resolve(projectRoot, 'data/memory.db');
+const DEFAULT_DB_PATH = process.env.AGENT_MEMORY_DB_PATH || resolve(projectRoot, 'data/memory.db');
 
 let dbInstance: ReturnType<typeof drizzle> | null = null;
 let sqliteInstance: Database.Database | null = null;
+let isInitialized = false;
 
 export interface ConnectionOptions {
   dbPath?: string;
   readonly?: boolean;
+  skipInit?: boolean;
 }
 
 /**
@@ -46,6 +59,24 @@ export function getDb(options: ConnectionOptions = {}): ReturnType<typeof drizzl
 
   // Enable foreign keys
   sqliteInstance.pragma('foreign_keys = ON');
+
+  // Auto-initialize database schema if not already done
+  const shouldSkipInit = options.skipInit ?? process.env.AGENT_MEMORY_SKIP_INIT === '1';
+  if (!shouldSkipInit && !isInitialized && !options.readonly) {
+    const verbose = process.env.AGENT_MEMORY_PERF === '1';
+    const result = initializeDatabase(sqliteInstance, { verbose });
+    
+    if (!result.success) {
+      console.error('[db] Database initialization failed:', result.errors);
+      throw new Error(`Database initialization failed: ${result.errors.join(', ')}`);
+    }
+    
+    if (verbose && result.migrationsApplied.length > 0) {
+      console.log(`[db] Applied ${result.migrationsApplied.length} migration(s):`, result.migrationsApplied);
+    }
+    
+    isInitialized = true;
+  }
 
   // Create Drizzle instance with schema
   dbInstance = drizzle(sqliteInstance, { schema });
