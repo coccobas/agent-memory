@@ -122,7 +122,11 @@ const TOOLS: Tool[] = [
         metadata: { type: 'object', description: 'Session metadata (start)' },
         // end params
         id: { type: 'string', description: 'Session ID (end)' },
-        status: { type: 'string', enum: ['completed', 'discarded', 'active', 'paused'], description: 'End status (end) or filter (list)' },
+        status: {
+          type: 'string',
+          enum: ['completed', 'discarded', 'active', 'paused'],
+          description: 'End status (end) or filter (list)',
+        },
         // list params
         limit: { type: 'number' },
         offset: { type: 'number' },
@@ -148,7 +152,11 @@ const TOOLS: Tool[] = [
         // common params
         id: { type: 'string', description: 'Tool ID' },
         name: { type: 'string', description: 'Tool name' },
-        scopeType: { type: 'string', enum: ['global', 'org', 'project', 'session'], description: 'Scope level' },
+        scopeType: {
+          type: 'string',
+          enum: ['global', 'org', 'project', 'session'],
+          description: 'Scope level',
+        },
         scopeId: { type: 'string', description: 'Scope ID' },
         // add/update params
         category: { type: 'string', enum: ['mcp', 'cli', 'function', 'api'] },
@@ -174,7 +182,8 @@ const TOOLS: Tool[] = [
   // -------------------------------------------------------------------------
   {
     name: 'memory_guideline',
-    description: 'Manage behavioral guidelines. Actions: add, update, get, list, history, deactivate',
+    description:
+      'Manage behavioral guidelines. Actions: add, update, get, list, history, deactivate',
     inputSchema: {
       type: 'object',
       properties: {
@@ -303,7 +312,10 @@ const TOOLS: Tool[] = [
         sourceId: { type: 'string' },
         targetType: { type: 'string', enum: ['tool', 'guideline', 'knowledge', 'project'] },
         targetId: { type: 'string' },
-        relationType: { type: 'string', enum: ['applies_to', 'depends_on', 'conflicts_with', 'related_to'] },
+        relationType: {
+          type: 'string',
+          enum: ['applies_to', 'depends_on', 'conflicts_with', 'related_to'],
+        },
         createdBy: { type: 'string' },
         // list params
         limit: { type: 'number' },
@@ -318,7 +330,8 @@ const TOOLS: Tool[] = [
   // -------------------------------------------------------------------------
   {
     name: 'memory_file_lock',
-    description: 'Manage file locks for multi-agent coordination. Actions: checkout, checkin, status, list, force_unlock',
+    description:
+      'Manage file locks for multi-agent coordination. Actions: checkout, checkin, status, list, force_unlock',
     inputSchema: {
       type: 'object',
       properties: {
@@ -347,7 +360,8 @@ const TOOLS: Tool[] = [
   // -------------------------------------------------------------------------
   {
     name: 'memory_query',
-    description: 'Query and aggregate memory. Actions: search (cross-reference search), context (aggregated context for scope)',
+    description:
+      'Query and aggregate memory. Actions: search (cross-reference search), context (aggregated context for scope)',
     inputSchema: {
       type: 'object',
       properties: {
@@ -386,19 +400,29 @@ const TOOLS: Tool[] = [
           properties: {
             type: { type: 'string', enum: ['tool', 'guideline', 'knowledge', 'project'] },
             id: { type: 'string' },
-            relation: { type: 'string', enum: ['applies_to', 'depends_on', 'conflicts_with', 'related_to'] },
+            relation: {
+              type: 'string',
+              enum: ['applies_to', 'depends_on', 'conflicts_with', 'related_to'],
+            },
           },
           description: 'Find related entries (search)',
         },
         includeVersions: { type: 'boolean', description: 'Include version history (search)' },
         includeInactive: { type: 'boolean', description: 'Include inactive entries (search)' },
         // context params
-        scopeType: { type: 'string', enum: ['global', 'org', 'project', 'session'], description: 'Scope type (context)' },
+        scopeType: {
+          type: 'string',
+          enum: ['global', 'org', 'project', 'session'],
+          description: 'Scope type (context)',
+        },
         scopeId: { type: 'string', description: 'Scope ID (context)' },
         inherit: { type: 'boolean', description: 'Include parent scopes (context, default true)' },
         // common params
         compact: { type: 'boolean', description: 'Return compact results' },
-        limit: { type: 'number', description: 'Max results (search) or per type (context as limitPerType)' },
+        limit: {
+          type: 'number',
+          description: 'Max results (search) or per type (context as limitPerType)',
+        },
       },
       required: ['action'],
     },
@@ -419,8 +443,15 @@ const TOOLS: Tool[] = [
           description: 'Action to perform',
         },
         // list params
-        entryType: { type: 'string', enum: ['tool', 'guideline', 'knowledge'], description: 'Filter by entry type (list)' },
-        resolved: { type: 'boolean', description: 'Filter by resolved status (list, default: unresolved only)' },
+        entryType: {
+          type: 'string',
+          enum: ['tool', 'guideline', 'knowledge'],
+          description: 'Filter by entry type (list)',
+        },
+        resolved: {
+          type: 'boolean',
+          description: 'Filter by resolved status (list, default: unresolved only)',
+        },
         // resolve params
         id: { type: 'string', description: 'Conflict ID (resolve)' },
         resolution: { type: 'string', description: 'Resolution description (resolve)' },
@@ -438,7 +469,8 @@ const TOOLS: Tool[] = [
   // -------------------------------------------------------------------------
   {
     name: 'memory_health',
-    description: 'Check server health and database status. Returns server version, database stats, and cache info.',
+    description:
+      'Check server health and database status. Returns server version, database stats, and cache info.',
     inputSchema: {
       type: 'object',
       properties: {},
@@ -450,7 +482,8 @@ const TOOLS: Tool[] = [
   // -------------------------------------------------------------------------
   {
     name: 'memory_init',
-    description: 'Manage database initialization and migrations. Actions: init (initialize/migrate), status (check migration status), reset (reset database - WARNING: deletes all data)',
+    description:
+      'Manage database initialization and migrations. Actions: init (initialize/migrate), status (check migration status), reset (reset database - WARNING: deletes all data)',
     inputSchema: {
       type: 'object',
       properties: {
@@ -460,10 +493,17 @@ const TOOLS: Tool[] = [
           description: 'Action to perform',
         },
         // init params
-        force: { type: 'boolean', description: 'Force re-initialization even if already initialized (init)' },
+        force: {
+          type: 'boolean',
+          description: 'Force re-initialization even if already initialized (init)',
+        },
         verbose: { type: 'boolean', description: 'Enable verbose output (init, reset)' },
         // reset params
-        confirm: { type: 'boolean', description: 'Confirm database reset - required for reset action. WARNING: This deletes all data!' },
+        confirm: {
+          type: 'boolean',
+          description:
+            'Confirm database reset - required for reset action. WARNING: This deletes all data!',
+        },
       },
       required: ['action'],
     },
@@ -479,110 +519,160 @@ const bundledHandlers: Record<string, (params: Record<string, unknown>) => unkno
   memory_org: (params) => {
     const { action, ...rest } = params;
     switch (action) {
-      case 'create': return scopeHandlers.orgCreate(rest);
-      case 'list': return scopeHandlers.orgList(rest);
-      default: throw new Error(`Unknown action for memory_org: ${action}`);
+      case 'create':
+        return scopeHandlers.orgCreate(rest);
+      case 'list':
+        return scopeHandlers.orgList(rest);
+      default:
+        throw new Error(`Unknown action for memory_org: ${String(action)}`);
     }
   },
 
   memory_project: (params) => {
     const { action, ...rest } = params;
     switch (action) {
-      case 'create': return scopeHandlers.projectCreate(rest);
-      case 'list': return scopeHandlers.projectList(rest);
-      case 'get': return scopeHandlers.projectGet(rest);
-      case 'update': return scopeHandlers.projectUpdate(rest);
-      default: throw new Error(`Unknown action for memory_project: ${action}`);
+      case 'create':
+        return scopeHandlers.projectCreate(rest);
+      case 'list':
+        return scopeHandlers.projectList(rest);
+      case 'get':
+        return scopeHandlers.projectGet(rest);
+      case 'update':
+        return scopeHandlers.projectUpdate(rest);
+      default:
+        throw new Error(`Unknown action for memory_project: ${String(action)}`);
     }
   },
 
   memory_session: (params) => {
     const { action, ...rest } = params;
     switch (action) {
-      case 'start': return scopeHandlers.sessionStart(rest);
-      case 'end': return scopeHandlers.sessionEnd(rest);
-      case 'list': return scopeHandlers.sessionList(rest);
-      default: throw new Error(`Unknown action for memory_session: ${action}`);
+      case 'start':
+        return scopeHandlers.sessionStart(rest);
+      case 'end':
+        return scopeHandlers.sessionEnd(rest);
+      case 'list':
+        return scopeHandlers.sessionList(rest);
+      default:
+        throw new Error(`Unknown action for memory_session: ${String(action)}`);
     }
   },
 
   memory_tool: (params) => {
     const { action, ...rest } = params;
     switch (action) {
-      case 'add': return toolHandlers.add(rest);
-      case 'update': return toolHandlers.update(rest);
-      case 'get': return toolHandlers.get(rest);
-      case 'list': return toolHandlers.list(rest);
-      case 'history': return toolHandlers.history(rest);
-      case 'deactivate': return toolHandlers.deactivate(rest);
-      default: throw new Error(`Unknown action for memory_tool: ${action}`);
+      case 'add':
+        return toolHandlers.add(rest);
+      case 'update':
+        return toolHandlers.update(rest);
+      case 'get':
+        return toolHandlers.get(rest);
+      case 'list':
+        return toolHandlers.list(rest);
+      case 'history':
+        return toolHandlers.history(rest);
+      case 'deactivate':
+        return toolHandlers.deactivate(rest);
+      default:
+        throw new Error(`Unknown action for memory_tool: ${String(action)}`);
     }
   },
 
   memory_guideline: (params) => {
     const { action, ...rest } = params;
     switch (action) {
-      case 'add': return guidelineHandlers.add(rest);
-      case 'update': return guidelineHandlers.update(rest);
-      case 'get': return guidelineHandlers.get(rest);
-      case 'list': return guidelineHandlers.list(rest);
-      case 'history': return guidelineHandlers.history(rest);
-      case 'deactivate': return guidelineHandlers.deactivate(rest);
-      default: throw new Error(`Unknown action for memory_guideline: ${action}`);
+      case 'add':
+        return guidelineHandlers.add(rest);
+      case 'update':
+        return guidelineHandlers.update(rest);
+      case 'get':
+        return guidelineHandlers.get(rest);
+      case 'list':
+        return guidelineHandlers.list(rest);
+      case 'history':
+        return guidelineHandlers.history(rest);
+      case 'deactivate':
+        return guidelineHandlers.deactivate(rest);
+      default:
+        throw new Error(`Unknown action for memory_guideline: ${String(action)}`);
     }
   },
 
   memory_knowledge: (params) => {
     const { action, ...rest } = params;
     switch (action) {
-      case 'add': return knowledgeHandlers.add(rest);
-      case 'update': return knowledgeHandlers.update(rest);
-      case 'get': return knowledgeHandlers.get(rest);
-      case 'list': return knowledgeHandlers.list(rest);
-      case 'history': return knowledgeHandlers.history(rest);
-      case 'deactivate': return knowledgeHandlers.deactivate(rest);
-      default: throw new Error(`Unknown action for memory_knowledge: ${action}`);
+      case 'add':
+        return knowledgeHandlers.add(rest);
+      case 'update':
+        return knowledgeHandlers.update(rest);
+      case 'get':
+        return knowledgeHandlers.get(rest);
+      case 'list':
+        return knowledgeHandlers.list(rest);
+      case 'history':
+        return knowledgeHandlers.history(rest);
+      case 'deactivate':
+        return knowledgeHandlers.deactivate(rest);
+      default:
+        throw new Error(`Unknown action for memory_knowledge: ${String(action)}`);
     }
   },
 
   memory_tag: (params) => {
     const { action, ...rest } = params;
     switch (action) {
-      case 'create': return tagHandlers.create(rest);
-      case 'list': return tagHandlers.list(rest);
-      case 'attach': return tagHandlers.attach(rest);
-      case 'detach': return tagHandlers.detach(rest);
-      case 'for_entry': return tagHandlers.forEntry(rest);
-      default: throw new Error(`Unknown action for memory_tag: ${action}`);
+      case 'create':
+        return tagHandlers.create(rest);
+      case 'list':
+        return tagHandlers.list(rest);
+      case 'attach':
+        return tagHandlers.attach(rest);
+      case 'detach':
+        return tagHandlers.detach(rest);
+      case 'for_entry':
+        return tagHandlers.forEntry(rest);
+      default:
+        throw new Error(`Unknown action for memory_tag: ${String(action)}`);
     }
   },
 
   memory_relation: (params) => {
     const { action, ...rest } = params;
     switch (action) {
-      case 'create': return relationHandlers.create(rest);
-      case 'list': return relationHandlers.list(rest);
-      case 'delete': return relationHandlers.delete(rest);
-      default: throw new Error(`Unknown action for memory_relation: ${action}`);
+      case 'create':
+        return relationHandlers.create(rest);
+      case 'list':
+        return relationHandlers.list(rest);
+      case 'delete':
+        return relationHandlers.delete(rest);
+      default:
+        throw new Error(`Unknown action for memory_relation: ${String(action)}`);
     }
   },
 
   memory_file_lock: (params) => {
     const { action, ...rest } = params;
     switch (action) {
-      case 'checkout': return fileLockHandlers.checkout(rest);
-      case 'checkin': return fileLockHandlers.checkin(rest);
-      case 'status': return fileLockHandlers.status(rest);
-      case 'list': return fileLockHandlers.list(rest);
-      case 'force_unlock': return fileLockHandlers.forceUnlock(rest);
-      default: throw new Error(`Unknown action for memory_file_lock: ${action}`);
+      case 'checkout':
+        return fileLockHandlers.checkout(rest);
+      case 'checkin':
+        return fileLockHandlers.checkin(rest);
+      case 'status':
+        return fileLockHandlers.status(rest);
+      case 'list':
+        return fileLockHandlers.list(rest);
+      case 'force_unlock':
+        return fileLockHandlers.forceUnlock(rest);
+      default:
+        throw new Error(`Unknown action for memory_file_lock: ${String(action)}`);
     }
   },
 
   memory_query: (params) => {
     const { action, ...rest } = params;
     switch (action) {
-      case 'search': return queryHandlers.query(rest);
+      case 'search':
+        return queryHandlers.query(rest);
       case 'context': {
         // Map limit to limitPerType for context action
         const contextParams = { ...rest };
@@ -592,23 +682,27 @@ const bundledHandlers: Record<string, (params: Record<string, unknown>) => unkno
         }
         return queryHandlers.context(contextParams);
       }
-      default: throw new Error(`Unknown action for memory_query: ${action}`);
+      default:
+        throw new Error(`Unknown action for memory_query: ${String(action)}`);
     }
   },
 
   memory_conflict: (params) => {
     const { action, ...rest } = params;
     switch (action) {
-      case 'list': return conflictHandlers.list(rest);
-      case 'resolve': return conflictHandlers.resolve(rest);
-      default: throw new Error(`Unknown action for memory_conflict: ${action}`);
+      case 'list':
+        return conflictHandlers.list(rest);
+      case 'resolve':
+        return conflictHandlers.resolve(rest);
+      default:
+        throw new Error(`Unknown action for memory_conflict: ${String(action)}`);
     }
   },
 
   memory_health: () => {
     const sqlite = getSqlite();
     const cacheStats = getQueryCacheStats();
-    
+
     // Get database stats
     const stats: {
       serverVersion: string;
@@ -636,15 +730,40 @@ const bundledHandlers: Record<string, (params: Record<string, unknown>) => unkno
     // Count entries in each table
     try {
       stats.tables = {
-        organizations: (sqlite.prepare('SELECT COUNT(*) as count FROM organizations').get() as { count: number }).count,
-        projects: (sqlite.prepare('SELECT COUNT(*) as count FROM projects').get() as { count: number }).count,
-        sessions: (sqlite.prepare('SELECT COUNT(*) as count FROM sessions').get() as { count: number }).count,
-        tools: (sqlite.prepare('SELECT COUNT(*) as count FROM tools WHERE is_active = 1').get() as { count: number }).count,
-        guidelines: (sqlite.prepare('SELECT COUNT(*) as count FROM guidelines WHERE is_active = 1').get() as { count: number }).count,
-        knowledge: (sqlite.prepare('SELECT COUNT(*) as count FROM knowledge WHERE is_active = 1').get() as { count: number }).count,
-        tags: (sqlite.prepare('SELECT COUNT(*) as count FROM tags').get() as { count: number }).count,
-        fileLocks: (sqlite.prepare('SELECT COUNT(*) as count FROM file_locks').get() as { count: number }).count,
-        conflicts: (sqlite.prepare('SELECT COUNT(*) as count FROM conflict_log WHERE resolved = 0').get() as { count: number }).count,
+        organizations: (
+          sqlite.prepare('SELECT COUNT(*) as count FROM organizations').get() as { count: number }
+        ).count,
+        projects: (
+          sqlite.prepare('SELECT COUNT(*) as count FROM projects').get() as { count: number }
+        ).count,
+        sessions: (
+          sqlite.prepare('SELECT COUNT(*) as count FROM sessions').get() as { count: number }
+        ).count,
+        tools: (
+          sqlite.prepare('SELECT COUNT(*) as count FROM tools WHERE is_active = 1').get() as {
+            count: number;
+          }
+        ).count,
+        guidelines: (
+          sqlite.prepare('SELECT COUNT(*) as count FROM guidelines WHERE is_active = 1').get() as {
+            count: number;
+          }
+        ).count,
+        knowledge: (
+          sqlite.prepare('SELECT COUNT(*) as count FROM knowledge WHERE is_active = 1').get() as {
+            count: number;
+          }
+        ).count,
+        tags: (sqlite.prepare('SELECT COUNT(*) as count FROM tags').get() as { count: number })
+          .count,
+        fileLocks: (
+          sqlite.prepare('SELECT COUNT(*) as count FROM file_locks').get() as { count: number }
+        ).count,
+        conflicts: (
+          sqlite.prepare('SELECT COUNT(*) as count FROM conflict_log WHERE resolved = 0').get() as {
+            count: number;
+          }
+        ).count,
       };
     } catch (error) {
       stats.status = 'error';
@@ -657,10 +776,14 @@ const bundledHandlers: Record<string, (params: Record<string, unknown>) => unkno
   memory_init: (params) => {
     const { action, ...rest } = params;
     switch (action) {
-      case 'init': return initHandlers.init(rest);
-      case 'status': return initHandlers.status(rest);
-      case 'reset': return initHandlers.reset(rest);
-      default: throw new Error(`Unknown action for memory_init: ${action}`);
+      case 'init':
+        return initHandlers.init(rest);
+      case 'status':
+        return initHandlers.status(rest);
+      case 'reset':
+        return initHandlers.reset(rest);
+      default:
+        throw new Error(`Unknown action for memory_init: ${String(action)}`);
     }
   },
 };
@@ -669,7 +792,7 @@ const bundledHandlers: Record<string, (params: Record<string, unknown>) => unkno
 // SERVER SETUP
 // =============================================================================
 
-export async function createServer(): Promise<Server> {
+export function createServer(): Server {
   const server = new Server(
     {
       name: 'agent-memory',
@@ -689,12 +812,12 @@ export async function createServer(): Promise<Server> {
   tagRepo.seedPredefined();
 
   // List tools handler
-  server.setRequestHandler(ListToolsRequestSchema, async () => {
+  server.setRequestHandler(ListToolsRequestSchema, () => {
     return { tools: TOOLS };
   });
 
   // Call tool handler
-  server.setRequestHandler(CallToolRequestSchema, async (request) => {
+  server.setRequestHandler(CallToolRequestSchema, (request) => {
     const { name, arguments: args } = request.params;
 
     const handler = bundledHandlers[name];
@@ -741,7 +864,7 @@ export async function createServer(): Promise<Server> {
 }
 
 export async function runServer(): Promise<void> {
-  const server = await createServer();
+  const server = createServer();
   const transport = new StdioServerTransport();
 
   await server.connect(transport);

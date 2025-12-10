@@ -1,5 +1,10 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { setupTestDb, cleanupTestDb, createTestProject, createTestGuideline } from '../fixtures/test-helpers.js';
+import {
+  setupTestDb,
+  cleanupTestDb,
+  createTestProject,
+  createTestGuideline,
+} from '../fixtures/test-helpers.js';
 
 const TEST_DB_PATH = './data/test-guidelines.db';
 
@@ -8,7 +13,7 @@ let db: ReturnType<typeof setupTestDb>['db'];
 
 vi.mock('../../src/db/connection.js', async () => {
   const actual = await vi.importActual<typeof import('../../src/db/connection.js')>(
-    '../../src/db/connection.js',
+    '../../src/db/connection.js'
   );
   return {
     ...actual,
@@ -67,25 +72,32 @@ describe('Guidelines Integration', () => {
     it('should require scopeType', () => {
       expect(() => {
         guidelineHandlers.add({ name: 'test', content: 'content' });
-      }).toThrow('scopeType is required');
+      }).toThrow(/scopeType.*required/i);
     });
 
     it('should require name', () => {
       expect(() => {
         guidelineHandlers.add({ scopeType: 'global', content: 'content' });
-      }).toThrow('name is required');
+      }).toThrow(/name.*required/i);
     });
 
     it('should require content', () => {
       expect(() => {
         guidelineHandlers.add({ scopeType: 'global', name: 'test' });
-      }).toThrow('content is required');
+      }).toThrow(/content.*required/i);
     });
   });
 
   describe('memory_guideline_update', () => {
     it('should update guideline and create new version', () => {
-      const { guideline } = createTestGuideline(db, 'update_test', 'global', undefined, 'security', 90);
+      const { guideline } = createTestGuideline(
+        db,
+        'update_test',
+        'global',
+        undefined,
+        'security',
+        90
+      );
       const originalVersionId = guideline.currentVersionId;
 
       const result = guidelineHandlers.update({
@@ -172,7 +184,11 @@ describe('Guidelines Integration', () => {
     it('should return version history', () => {
       const { guideline } = createTestGuideline(db, 'history_test');
       guidelineHandlers.update({ id: guideline.id, content: 'Version 2', changeReason: 'Update' });
-      guidelineHandlers.update({ id: guideline.id, content: 'Version 3', changeReason: 'Another update' });
+      guidelineHandlers.update({
+        id: guideline.id,
+        content: 'Version 3',
+        changeReason: 'Another update',
+      });
 
       const result = guidelineHandlers.history({ id: guideline.id });
       expect(result.versions.length).toBeGreaterThanOrEqual(3);
@@ -191,4 +207,3 @@ describe('Guidelines Integration', () => {
     });
   });
 });
-

@@ -1,6 +1,6 @@
 /**
  * Database connection module for Agent Memory
- * 
+ *
  * Environment Variables:
  * - AGENT_MEMORY_DB_PATH: Custom database file path (optional, defaults to data/memory.db)
  * - AGENT_MEMORY_PERF: Enable performance logging (set to '1' to enable)
@@ -65,16 +65,19 @@ export function getDb(options: ConnectionOptions = {}): ReturnType<typeof drizzl
   if (!shouldSkipInit && !isInitialized && !options.readonly) {
     const verbose = process.env.AGENT_MEMORY_PERF === '1';
     const result = initializeDatabase(sqliteInstance, { verbose });
-    
+
     if (!result.success) {
       console.error('[db] Database initialization failed:', result.errors);
       throw new Error(`Database initialization failed: ${result.errors.join(', ')}`);
     }
-    
+
     if (verbose && result.migrationsApplied.length > 0) {
-      console.log(`[db] Applied ${result.migrationsApplied.length} migration(s):`, result.migrationsApplied);
+      console.log(
+        `[db] Applied ${result.migrationsApplied.length} migration(s):`,
+        result.migrationsApplied
+      );
     }
-    
+
     isInitialized = true;
   }
 

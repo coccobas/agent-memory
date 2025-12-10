@@ -66,16 +66,8 @@ export const knowledgeHandlers = {
   },
 
   update(params: Record<string, unknown>) {
-    const {
-      id,
-      category,
-      content,
-      source,
-      confidence,
-      validUntil,
-      changeReason,
-      updatedBy,
-    } = cast<KnowledgeUpdateParams>(params);
+    const { id, category, content, source, confidence, validUntil, changeReason, updatedBy } =
+      cast<KnowledgeUpdateParams>(params);
 
     if (!id) {
       throw new Error('id is required');
@@ -122,7 +114,8 @@ export const knowledgeHandlers = {
   },
 
   list(params: Record<string, unknown>) {
-    const { scopeType, scopeId, category, includeInactive, limit, offset } = cast<KnowledgeListParams>(params);
+    const { scopeType, scopeId, category, includeInactive, limit, offset } =
+      cast<KnowledgeListParams>(params);
 
     const entries = knowledgeRepo.list(
       { scopeType, scopeId, category, includeInactive },

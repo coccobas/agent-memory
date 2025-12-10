@@ -4,10 +4,7 @@
 
 import { conflictRepo } from '../../db/repositories/conflicts.js';
 
-import type {
-  ConflictListParams,
-  ConflictResolveParams,
-} from '../types.js';
+import type { ConflictListParams, ConflictResolveParams } from '../types.js';
 
 // Helper to safely cast params
 function cast<T>(params: Record<string, unknown>): T {
@@ -18,10 +15,7 @@ export const conflictHandlers = {
   list(params: Record<string, unknown>) {
     const { entryType, resolved, limit, offset } = cast<ConflictListParams>(params);
 
-    const conflicts = conflictRepo.list(
-      { entryType, resolved },
-      { limit, offset },
-    );
+    const conflicts = conflictRepo.list({ entryType, resolved }, { limit, offset });
 
     return {
       conflicts,
@@ -52,5 +46,3 @@ export const conflictHandlers = {
     };
   },
 };
-
-

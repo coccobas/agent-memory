@@ -10,7 +10,13 @@ import {
   type NewToolVersion,
   type ScopeType,
 } from '../schema.js';
-import { generateId, CONFLICT_WINDOW_MS, type PaginationOptions, DEFAULT_LIMIT, MAX_LIMIT } from './base.js';
+import {
+  generateId,
+  CONFLICT_WINDOW_MS,
+  type PaginationOptions,
+  DEFAULT_LIMIT,
+  MAX_LIMIT,
+} from './base.js';
 import { transaction } from '../connection.js';
 
 // =============================================================================
@@ -57,7 +63,7 @@ export interface ToolWithVersion extends Tool {
 export const toolRepo = {
   /**
    * Create a new tool with initial version
-   * 
+   *
    * @param input - Tool creation parameters including scope, name, and initial version content
    * @returns The created tool with its current version
    * @throws Error if a tool with the same name already exists in the scope
@@ -103,7 +109,7 @@ export const toolRepo = {
 
   /**
    * Get tool by ID with current version
-   * 
+   *
    * @param id - The tool ID
    * @returns The tool with its current version, or undefined if not found
    */
@@ -122,38 +128,55 @@ export const toolRepo = {
 
   /**
    * Get tool by name within a scope (with optional inheritance)
-   * 
+   *
    * @param name - The tool name
    * @param scopeType - The scope type to search in
    * @param scopeId - The scope ID (required for non-global scopes)
    * @param inherit - Whether to search parent scopes if not found (default: true)
    * @returns The tool with its current version, or undefined if not found
    */
-  getByName(name: string, scopeType: ScopeType, scopeId?: string, inherit = true): ToolWithVersion | undefined {
+  getByName(
+    name: string,
+    scopeType: ScopeType,
+    scopeId?: string,
+    inherit = true
+  ): ToolWithVersion | undefined {
     const db = getDb();
 
     // First, try exact scope match
     const exactMatch = scopeId
-      ? db.select().from(tools)
-          .where(and(
-            eq(tools.name, name),
-            eq(tools.scopeType, scopeType),
-            eq(tools.scopeId, scopeId),
-            eq(tools.isActive, true)
-          ))
+      ? db
+          .select()
+          .from(tools)
+          .where(
+            and(
+              eq(tools.name, name),
+              eq(tools.scopeType, scopeType),
+              eq(tools.scopeId, scopeId),
+              eq(tools.isActive, true)
+            )
+          )
           .get()
-      : db.select().from(tools)
-          .where(and(
-            eq(tools.name, name),
-            eq(tools.scopeType, scopeType),
-            isNull(tools.scopeId),
-            eq(tools.isActive, true)
-          ))
+      : db
+          .select()
+          .from(tools)
+          .where(
+            and(
+              eq(tools.name, name),
+              eq(tools.scopeType, scopeType),
+              isNull(tools.scopeId),
+              eq(tools.isActive, true)
+            )
+          )
           .get();
 
     if (exactMatch) {
       const currentVersion = exactMatch.currentVersionId
-        ? db.select().from(toolVersions).where(eq(toolVersions.id, exactMatch.currentVersionId)).get()
+        ? db
+            .select()
+            .from(toolVersions)
+            .where(eq(toolVersions.id, exactMatch.currentVersionId))
+            .get()
         : undefined;
       return { ...exactMatch, currentVersion };
     }
@@ -161,18 +184,26 @@ export const toolRepo = {
     // If not found and inherit is true, search parent scopes
     if (inherit && scopeType !== 'global') {
       // For now, just try global scope
-      const globalMatch = db.select().from(tools)
-        .where(and(
-          eq(tools.name, name),
-          eq(tools.scopeType, 'global'),
-          isNull(tools.scopeId),
-          eq(tools.isActive, true)
-        ))
+      const globalMatch = db
+        .select()
+        .from(tools)
+        .where(
+          and(
+            eq(tools.name, name),
+            eq(tools.scopeType, 'global'),
+            isNull(tools.scopeId),
+            eq(tools.isActive, true)
+          )
+        )
         .get();
 
       if (globalMatch) {
         const currentVersion = globalMatch.currentVersionId
-          ? db.select().from(toolVersions).where(eq(toolVersions.id, globalMatch.currentVersionId)).get()
+          ? db
+              .select()
+              .from(toolVersions)
+              .where(eq(toolVersions.id, globalMatch.currentVersionId))
+              .get()
           : undefined;
         return { ...globalMatch, currentVersion };
       }
@@ -183,7 +214,7 @@ export const toolRepo = {
 
   /**
    * List tools with filtering and pagination
-   * 
+   *
    * @param filter - Optional filters for scope, category, and active status
    * @param options - Optional pagination parameters (limit, offset)
    * @returns Array of tools matching the filter criteria, each with its current version
@@ -232,7 +263,7 @@ export const toolRepo = {
 
   /**
    * Update a tool (creates new version)
-   * 
+   *
    * @param id - The tool ID to update
    * @param input - Update parameters (fields not provided inherit from previous version)
    * @returns The updated tool with its new current version, or undefined if tool not found
@@ -246,7 +277,8 @@ export const toolRepo = {
       if (!existing) return undefined;
 
       // Get current version number
-      const latestVersion = db.select()
+      const latestVersion = db
+        .select()
         .from(toolVersions)
         .where(eq(toolVersions.toolId, id))
         .orderBy(desc(toolVersions.versionNum))
@@ -264,13 +296,15 @@ export const toolRepo = {
           conflictFlag = true;
 
           // Log the conflict
-          db.insert(conflictLog).values({
-            id: generateId(),
-            entryType: 'tool',
-            entryId: id,
-            versionAId: latestVersion.id,
-            versionBId: newVersionId,
-          }).run();
+          db.insert(conflictLog)
+            .values({
+              id: generateId(),
+              entryType: 'tool',
+              entryId: id,
+              versionAId: latestVersion.id,
+              versionBId: newVersionId,
+            })
+            .run();
         }
       }
 
@@ -292,10 +326,7 @@ export const toolRepo = {
       db.insert(toolVersions).values(newVersion).run();
 
       // Update tool's current version pointer
-      db.update(tools)
-        .set({ currentVersionId: newVersionId })
-        .where(eq(tools.id, id))
-        .run();
+      db.update(tools).set({ currentVersionId: newVersionId }).where(eq(tools.id, id)).run();
 
       return this.getById(id);
     });
@@ -303,13 +334,14 @@ export const toolRepo = {
 
   /**
    * Get version history for a tool
-   * 
+   *
    * @param toolId - The tool ID
    * @returns Array of all versions for the tool, ordered by version number (newest first)
    */
   getHistory(toolId: string): ToolVersion[] {
     const db = getDb();
-    return db.select()
+    return db
+      .select()
       .from(toolVersions)
       .where(eq(toolVersions.toolId, toolId))
       .orderBy(desc(toolVersions.versionNum))
@@ -318,31 +350,25 @@ export const toolRepo = {
 
   /**
    * Deactivate a tool (soft delete)
-   * 
+   *
    * @param id - The tool ID to deactivate
    * @returns True if the tool was successfully deactivated
    */
   deactivate(id: string): boolean {
     const db = getDb();
-    const result = db.update(tools)
-      .set({ isActive: false })
-      .where(eq(tools.id, id))
-      .run();
+    const result = db.update(tools).set({ isActive: false }).where(eq(tools.id, id)).run();
     return result.changes > 0;
   },
 
   /**
    * Reactivate a tool
-   * 
+   *
    * @param id - The tool ID to reactivate
    * @returns True if the tool was successfully reactivated
    */
   reactivate(id: string): boolean {
     const db = getDb();
-    const result = db.update(tools)
-      .set({ isActive: true })
-      .where(eq(tools.id, id))
-      .run();
+    const result = db.update(tools).set({ isActive: true }).where(eq(tools.id, id)).run();
     return result.changes > 0;
   },
 

@@ -2,11 +2,7 @@
  * Tag handlers
  */
 
-import {
-  tagRepo,
-  entryTagRepo,
-  type CreateTagInput,
-} from '../../db/repositories/tags.js';
+import { tagRepo, entryTagRepo, type CreateTagInput } from '../../db/repositories/tags.js';
 
 import type {
   TagCreateParams,

@@ -72,7 +72,10 @@ export const tagRepo = {
   /**
    * Get or create tag by name
    */
-  getOrCreate(name: string, category: 'language' | 'domain' | 'category' | 'meta' | 'custom' = 'custom'): Tag {
+  getOrCreate(
+    name: string,
+    category: 'language' | 'domain' | 'category' | 'meta' | 'custom' = 'custom'
+  ): Tag {
     const existing = this.getByName(name);
     if (existing) return existing;
 
@@ -128,38 +131,138 @@ export const tagRepo = {
   seedPredefined(): void {
     const predefinedTags: CreateTagInput[] = [
       // Languages
-      { name: 'python', category: 'language', isPredefined: true, description: 'Python programming language' },
-      { name: 'typescript', category: 'language', isPredefined: true, description: 'TypeScript programming language' },
-      { name: 'javascript', category: 'language', isPredefined: true, description: 'JavaScript programming language' },
-      { name: 'rust', category: 'language', isPredefined: true, description: 'Rust programming language' },
-      { name: 'go', category: 'language', isPredefined: true, description: 'Go programming language' },
+      {
+        name: 'python',
+        category: 'language',
+        isPredefined: true,
+        description: 'Python programming language',
+      },
+      {
+        name: 'typescript',
+        category: 'language',
+        isPredefined: true,
+        description: 'TypeScript programming language',
+      },
+      {
+        name: 'javascript',
+        category: 'language',
+        isPredefined: true,
+        description: 'JavaScript programming language',
+      },
+      {
+        name: 'rust',
+        category: 'language',
+        isPredefined: true,
+        description: 'Rust programming language',
+      },
+      {
+        name: 'go',
+        category: 'language',
+        isPredefined: true,
+        description: 'Go programming language',
+      },
       { name: 'sql', category: 'language', isPredefined: true, description: 'SQL query language' },
-      { name: 'bash', category: 'language', isPredefined: true, description: 'Bash shell scripting' },
+      {
+        name: 'bash',
+        category: 'language',
+        isPredefined: true,
+        description: 'Bash shell scripting',
+      },
 
       // Domains
       { name: 'web', category: 'domain', isPredefined: true, description: 'Web development' },
-      { name: 'cli', category: 'domain', isPredefined: true, description: 'Command-line interfaces' },
+      {
+        name: 'cli',
+        category: 'domain',
+        isPredefined: true,
+        description: 'Command-line interfaces',
+      },
       { name: 'api', category: 'domain', isPredefined: true, description: 'API development' },
-      { name: 'database', category: 'domain', isPredefined: true, description: 'Database design and operations' },
+      {
+        name: 'database',
+        category: 'domain',
+        isPredefined: true,
+        description: 'Database design and operations',
+      },
       { name: 'ml', category: 'domain', isPredefined: true, description: 'Machine learning' },
-      { name: 'devops', category: 'domain', isPredefined: true, description: 'DevOps and infrastructure' },
-      { name: 'security', category: 'domain', isPredefined: true, description: 'Security practices' },
+      {
+        name: 'devops',
+        category: 'domain',
+        isPredefined: true,
+        description: 'DevOps and infrastructure',
+      },
+      {
+        name: 'security',
+        category: 'domain',
+        isPredefined: true,
+        description: 'Security practices',
+      },
       { name: 'testing', category: 'domain', isPredefined: true, description: 'Testing and QA' },
 
       // Categories
-      { name: 'code_style', category: 'category', isPredefined: true, description: 'Code formatting and style' },
-      { name: 'architecture', category: 'category', isPredefined: true, description: 'System architecture' },
-      { name: 'behavior', category: 'category', isPredefined: true, description: 'Agent behavior rules' },
-      { name: 'performance', category: 'category', isPredefined: true, description: 'Performance optimization' },
-      { name: 'error_handling', category: 'category', isPredefined: true, description: 'Error handling patterns' },
-      { name: 'logging', category: 'category', isPredefined: true, description: 'Logging practices' },
+      {
+        name: 'code_style',
+        category: 'category',
+        isPredefined: true,
+        description: 'Code formatting and style',
+      },
+      {
+        name: 'architecture',
+        category: 'category',
+        isPredefined: true,
+        description: 'System architecture',
+      },
+      {
+        name: 'behavior',
+        category: 'category',
+        isPredefined: true,
+        description: 'Agent behavior rules',
+      },
+      {
+        name: 'performance',
+        category: 'category',
+        isPredefined: true,
+        description: 'Performance optimization',
+      },
+      {
+        name: 'error_handling',
+        category: 'category',
+        isPredefined: true,
+        description: 'Error handling patterns',
+      },
+      {
+        name: 'logging',
+        category: 'category',
+        isPredefined: true,
+        description: 'Logging practices',
+      },
 
       // Meta
-      { name: 'deprecated', category: 'meta', isPredefined: true, description: 'Deprecated, should not be used' },
-      { name: 'experimental', category: 'meta', isPredefined: true, description: 'Experimental, may change' },
-      { name: 'stable', category: 'meta', isPredefined: true, description: 'Stable and production-ready' },
+      {
+        name: 'deprecated',
+        category: 'meta',
+        isPredefined: true,
+        description: 'Deprecated, should not be used',
+      },
+      {
+        name: 'experimental',
+        category: 'meta',
+        isPredefined: true,
+        description: 'Experimental, may change',
+      },
+      {
+        name: 'stable',
+        category: 'meta',
+        isPredefined: true,
+        description: 'Stable and production-ready',
+      },
       { name: 'required', category: 'meta', isPredefined: true, description: 'Required/mandatory' },
-      { name: 'optional', category: 'meta', isPredefined: true, description: 'Optional/nice-to-have' },
+      {
+        name: 'optional',
+        category: 'meta',
+        isPredefined: true,
+        description: 'Optional/nice-to-have',
+      },
     ];
 
     for (const tag of predefinedTags) {
@@ -201,12 +304,16 @@ export const entryTagRepo = {
     }
 
     // Check if already attached
-    const existing = db.select().from(entryTags)
-      .where(and(
-        eq(entryTags.entryType, input.entryType),
-        eq(entryTags.entryId, input.entryId),
-        eq(entryTags.tagId, tagId)
-      ))
+    const existing = db
+      .select()
+      .from(entryTags)
+      .where(
+        and(
+          eq(entryTags.entryType, input.entryType),
+          eq(entryTags.entryId, input.entryId),
+          eq(entryTags.tagId, tagId)
+        )
+      )
       .get();
 
     if (existing) return existing;
@@ -230,12 +337,15 @@ export const entryTagRepo = {
    */
   detach(entryType: EntryType, entryId: string, tagId: string): boolean {
     const db = getDb();
-    const result = db.delete(entryTags)
-      .where(and(
-        eq(entryTags.entryType, entryType),
-        eq(entryTags.entryId, entryId),
-        eq(entryTags.tagId, tagId)
-      ))
+    const result = db
+      .delete(entryTags)
+      .where(
+        and(
+          eq(entryTags.entryType, entryType),
+          eq(entryTags.entryId, entryId),
+          eq(entryTags.tagId, tagId)
+        )
+      )
       .run();
     return result.changes > 0;
   },
@@ -246,17 +356,15 @@ export const entryTagRepo = {
   getTagsForEntry(entryType: EntryType, entryId: string): Tag[] {
     const db = getDb();
 
-    const associations = db.select()
+    const associations = db
+      .select()
       .from(entryTags)
-      .where(and(
-        eq(entryTags.entryType, entryType),
-        eq(entryTags.entryId, entryId)
-      ))
+      .where(and(eq(entryTags.entryType, entryType), eq(entryTags.entryId, entryId)))
       .all();
 
     if (associations.length === 0) return [];
 
-    const tagIds = associations.map(a => a.tagId);
+    const tagIds = associations.map((a) => a.tagId);
     return db.select().from(tags).where(inArray(tags.id, tagIds)).all();
   },
 
@@ -267,7 +375,9 @@ export const entryTagRepo = {
     const db = getDb();
 
     if (entryType) {
-      return db.select().from(entryTags)
+      return db
+        .select()
+        .from(entryTags)
         .where(and(eq(entryTags.tagId, tagId), eq(entryTags.entryType, entryType)))
         .all();
     }
@@ -280,11 +390,9 @@ export const entryTagRepo = {
    */
   removeAllFromEntry(entryType: EntryType, entryId: string): number {
     const db = getDb();
-    const result = db.delete(entryTags)
-      .where(and(
-        eq(entryTags.entryType, entryType),
-        eq(entryTags.entryId, entryId)
-      ))
+    const result = db
+      .delete(entryTags)
+      .where(and(eq(entryTags.entryType, entryType), eq(entryTags.entryId, entryId)))
       .run();
     return result.changes;
   },
@@ -319,14 +427,18 @@ export const entryRelationRepo = {
     const db = getDb();
 
     // Check if already exists
-    const existing = db.select().from(entryRelations)
-      .where(and(
-        eq(entryRelations.sourceType, input.sourceType),
-        eq(entryRelations.sourceId, input.sourceId),
-        eq(entryRelations.targetType, input.targetType),
-        eq(entryRelations.targetId, input.targetId),
-        eq(entryRelations.relationType, input.relationType)
-      ))
+    const existing = db
+      .select()
+      .from(entryRelations)
+      .where(
+        and(
+          eq(entryRelations.sourceType, input.sourceType),
+          eq(entryRelations.sourceId, input.sourceId),
+          eq(entryRelations.targetType, input.targetType),
+          eq(entryRelations.targetId, input.targetId),
+          eq(entryRelations.relationType, input.relationType)
+        )
+      )
       .get();
 
     if (existing) return existing;
@@ -395,11 +507,10 @@ export const entryRelationRepo = {
    */
   getFromEntry(entryType: EntryType, entryId: string): EntryRelation[] {
     const db = getDb();
-    return db.select().from(entryRelations)
-      .where(and(
-        eq(entryRelations.sourceType, entryType),
-        eq(entryRelations.sourceId, entryId)
-      ))
+    return db
+      .select()
+      .from(entryRelations)
+      .where(and(eq(entryRelations.sourceType, entryType), eq(entryRelations.sourceId, entryId)))
       .all();
   },
 
@@ -408,11 +519,10 @@ export const entryRelationRepo = {
    */
   getToEntry(entryType: EntryType, entryId: string): EntryRelation[] {
     const db = getDb();
-    return db.select().from(entryRelations)
-      .where(and(
-        eq(entryRelations.targetType, entryType),
-        eq(entryRelations.targetId, entryId)
-      ))
+    return db
+      .select()
+      .from(entryRelations)
+      .where(and(eq(entryRelations.targetType, entryType), eq(entryRelations.targetId, entryId)))
       .all();
   },
 
@@ -436,14 +546,17 @@ export const entryRelationRepo = {
     relationType: RelationType
   ): boolean {
     const db = getDb();
-    const result = db.delete(entryRelations)
-      .where(and(
-        eq(entryRelations.sourceType, sourceType),
-        eq(entryRelations.sourceId, sourceId),
-        eq(entryRelations.targetType, targetType),
-        eq(entryRelations.targetId, targetId),
-        eq(entryRelations.relationType, relationType)
-      ))
+    const result = db
+      .delete(entryRelations)
+      .where(
+        and(
+          eq(entryRelations.sourceType, sourceType),
+          eq(entryRelations.sourceId, sourceId),
+          eq(entryRelations.targetType, targetType),
+          eq(entryRelations.targetId, targetId),
+          eq(entryRelations.relationType, relationType)
+        )
+      )
       .run();
     return result.changes > 0;
   },
@@ -454,18 +567,14 @@ export const entryRelationRepo = {
   removeAllForEntry(entryType: EntryType, entryId: string): number {
     const db = getDb();
 
-    const fromResult = db.delete(entryRelations)
-      .where(and(
-        eq(entryRelations.sourceType, entryType),
-        eq(entryRelations.sourceId, entryId)
-      ))
+    const fromResult = db
+      .delete(entryRelations)
+      .where(and(eq(entryRelations.sourceType, entryType), eq(entryRelations.sourceId, entryId)))
       .run();
 
-    const toResult = db.delete(entryRelations)
-      .where(and(
-        eq(entryRelations.targetType, entryType),
-        eq(entryRelations.targetId, entryId)
-      ))
+    const toResult = db
+      .delete(entryRelations)
+      .where(and(eq(entryRelations.targetType, entryType), eq(entryRelations.targetId, entryId)))
       .run();
 
     return fromResult.changes + toResult.changes;

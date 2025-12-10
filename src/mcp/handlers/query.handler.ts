@@ -29,8 +29,13 @@ export const queryHandlers = {
    * and groups results by type.
    */
   context(params: Record<string, unknown>) {
-    const { scopeType, scopeId, inherit = true, compact = false, limitPerType }: MemoryContextParams =
-      cast<MemoryContextParams>(params);
+    const {
+      scopeType,
+      scopeId,
+      inherit = true,
+      compact = false,
+      limitPerType,
+    }: MemoryContextParams = cast<MemoryContextParams>(params);
 
     if (!scopeType) {
       throw new Error('scopeType is required');
@@ -63,5 +68,3 @@ export const queryHandlers = {
     };
   },
 };
-
-

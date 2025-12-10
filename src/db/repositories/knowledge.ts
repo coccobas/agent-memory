@@ -10,7 +10,13 @@ import {
   type NewKnowledgeVersion,
   type ScopeType,
 } from '../schema.js';
-import { generateId, CONFLICT_WINDOW_MS, type PaginationOptions, DEFAULT_LIMIT, MAX_LIMIT } from './base.js';
+import {
+  generateId,
+  CONFLICT_WINDOW_MS,
+  type PaginationOptions,
+  DEFAULT_LIMIT,
+  MAX_LIMIT,
+} from './base.js';
 import { transaction } from '../connection.js';
 
 // =============================================================================
@@ -58,7 +64,7 @@ export interface KnowledgeWithVersion extends Knowledge {
 export const knowledgeRepo = {
   /**
    * Create a new knowledge entry with initial version
-   * 
+   *
    * @param input - Knowledge creation parameters including scope, title, and initial content
    * @returns The created knowledge entry with its current version
    * @throws Error if a knowledge entry with the same title already exists in the scope
@@ -104,7 +110,7 @@ export const knowledgeRepo = {
 
   /**
    * Get knowledge entry by ID with current version
-   * 
+   *
    * @param id - The knowledge entry ID
    * @returns The knowledge entry with its current version, or undefined if not found
    */
@@ -115,7 +121,11 @@ export const knowledgeRepo = {
     if (!entry) return undefined;
 
     const currentVersion = entry.currentVersionId
-      ? db.select().from(knowledgeVersions).where(eq(knowledgeVersions.id, entry.currentVersionId)).get()
+      ? db
+          .select()
+          .from(knowledgeVersions)
+          .where(eq(knowledgeVersions.id, entry.currentVersionId))
+          .get()
       : undefined;
 
     return { ...entry, currentVersion };
@@ -123,56 +133,81 @@ export const knowledgeRepo = {
 
   /**
    * Get knowledge by title within a scope (with optional inheritance)
-   * 
+   *
    * @param title - The knowledge entry title
    * @param scopeType - The scope type to search in
    * @param scopeId - The scope ID (required for non-global scopes)
    * @param inherit - Whether to search parent scopes if not found (default: true)
    * @returns The knowledge entry with its current version, or undefined if not found
    */
-  getByTitle(title: string, scopeType: ScopeType, scopeId?: string, inherit = true): KnowledgeWithVersion | undefined {
+  getByTitle(
+    title: string,
+    scopeType: ScopeType,
+    scopeId?: string,
+    inherit = true
+  ): KnowledgeWithVersion | undefined {
     const db = getDb();
 
     // First, try exact scope match
     const exactMatch = scopeId
-      ? db.select().from(knowledge)
-          .where(and(
-            eq(knowledge.title, title),
-            eq(knowledge.scopeType, scopeType),
-            eq(knowledge.scopeId, scopeId),
-            eq(knowledge.isActive, true)
-          ))
+      ? db
+          .select()
+          .from(knowledge)
+          .where(
+            and(
+              eq(knowledge.title, title),
+              eq(knowledge.scopeType, scopeType),
+              eq(knowledge.scopeId, scopeId),
+              eq(knowledge.isActive, true)
+            )
+          )
           .get()
-      : db.select().from(knowledge)
-          .where(and(
-            eq(knowledge.title, title),
-            eq(knowledge.scopeType, scopeType),
-            isNull(knowledge.scopeId),
-            eq(knowledge.isActive, true)
-          ))
+      : db
+          .select()
+          .from(knowledge)
+          .where(
+            and(
+              eq(knowledge.title, title),
+              eq(knowledge.scopeType, scopeType),
+              isNull(knowledge.scopeId),
+              eq(knowledge.isActive, true)
+            )
+          )
           .get();
 
     if (exactMatch) {
       const currentVersion = exactMatch.currentVersionId
-        ? db.select().from(knowledgeVersions).where(eq(knowledgeVersions.id, exactMatch.currentVersionId)).get()
+        ? db
+            .select()
+            .from(knowledgeVersions)
+            .where(eq(knowledgeVersions.id, exactMatch.currentVersionId))
+            .get()
         : undefined;
       return { ...exactMatch, currentVersion };
     }
 
     // If not found and inherit is true, search parent scopes
     if (inherit && scopeType !== 'global') {
-      const globalMatch = db.select().from(knowledge)
-        .where(and(
-          eq(knowledge.title, title),
-          eq(knowledge.scopeType, 'global'),
-          isNull(knowledge.scopeId),
-          eq(knowledge.isActive, true)
-        ))
+      const globalMatch = db
+        .select()
+        .from(knowledge)
+        .where(
+          and(
+            eq(knowledge.title, title),
+            eq(knowledge.scopeType, 'global'),
+            isNull(knowledge.scopeId),
+            eq(knowledge.isActive, true)
+          )
+        )
         .get();
 
       if (globalMatch) {
         const currentVersion = globalMatch.currentVersionId
-          ? db.select().from(knowledgeVersions).where(eq(knowledgeVersions.id, globalMatch.currentVersionId)).get()
+          ? db
+              .select()
+              .from(knowledgeVersions)
+              .where(eq(knowledgeVersions.id, globalMatch.currentVersionId))
+              .get()
           : undefined;
         return { ...globalMatch, currentVersion };
       }
@@ -183,7 +218,7 @@ export const knowledgeRepo = {
 
   /**
    * List knowledge entries with filtering and pagination
-   * 
+   *
    * @param filter - Optional filters for scope, category, and active status
    * @param options - Optional pagination parameters (limit, offset)
    * @returns Array of knowledge entries matching the filter criteria
@@ -224,7 +259,11 @@ export const knowledgeRepo = {
     // Fetch current versions
     return entries.map((entry) => {
       const currentVersion = entry.currentVersionId
-        ? db.select().from(knowledgeVersions).where(eq(knowledgeVersions.id, entry.currentVersionId)).get()
+        ? db
+            .select()
+            .from(knowledgeVersions)
+            .where(eq(knowledgeVersions.id, entry.currentVersionId))
+            .get()
         : undefined;
       return { ...entry, currentVersion };
     });
@@ -232,7 +271,7 @@ export const knowledgeRepo = {
 
   /**
    * Update a knowledge entry (creates new version)
-   * 
+   *
    * @param id - The knowledge entry ID to update
    * @param input - Update parameters (fields not provided inherit from previous version)
    * @returns The updated knowledge entry with its new current version, or undefined if entry not found
@@ -246,7 +285,8 @@ export const knowledgeRepo = {
       if (!existing) return undefined;
 
       // Get current version number
-      const latestVersion = db.select()
+      const latestVersion = db
+        .select()
         .from(knowledgeVersions)
         .where(eq(knowledgeVersions.knowledgeId, id))
         .orderBy(desc(knowledgeVersions.versionNum))
@@ -263,22 +303,21 @@ export const knowledgeRepo = {
         if (currentTime - lastWriteTime < CONFLICT_WINDOW_MS) {
           conflictFlag = true;
 
-          db.insert(conflictLog).values({
-            id: generateId(),
-            entryType: 'knowledge',
-            entryId: id,
-            versionAId: latestVersion.id,
-            versionBId: newVersionId,
-          }).run();
+          db.insert(conflictLog)
+            .values({
+              id: generateId(),
+              entryType: 'knowledge',
+              entryId: id,
+              versionAId: latestVersion.id,
+              versionBId: newVersionId,
+            })
+            .run();
         }
       }
 
       // Update knowledge metadata if needed
       if (input.category !== undefined) {
-        db.update(knowledge)
-          .set({ category: input.category })
-          .where(eq(knowledge.id, id))
-          .run();
+        db.update(knowledge).set({ category: input.category }).where(eq(knowledge.id, id)).run();
       }
 
       // Create new version
@@ -313,7 +352,8 @@ export const knowledgeRepo = {
    */
   getHistory(knowledgeId: string): KnowledgeVersion[] {
     const db = getDb();
-    return db.select()
+    return db
+      .select()
       .from(knowledgeVersions)
       .where(eq(knowledgeVersions.knowledgeId, knowledgeId))
       .orderBy(desc(knowledgeVersions.versionNum))
@@ -325,10 +365,7 @@ export const knowledgeRepo = {
    */
   deactivate(id: string): boolean {
     const db = getDb();
-    const result = db.update(knowledge)
-      .set({ isActive: false })
-      .where(eq(knowledge.id, id))
-      .run();
+    const result = db.update(knowledge).set({ isActive: false }).where(eq(knowledge.id, id)).run();
     return result.changes > 0;
   },
 
@@ -337,10 +374,7 @@ export const knowledgeRepo = {
    */
   reactivate(id: string): boolean {
     const db = getDb();
-    const result = db.update(knowledge)
-      .set({ isActive: true })
-      .where(eq(knowledge.id, id))
-      .run();
+    const result = db.update(knowledge).set({ isActive: true }).where(eq(knowledge.id, id)).run();
     return result.changes > 0;
   },
 

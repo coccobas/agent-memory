@@ -52,8 +52,8 @@ export const toolHandlers = {
       name,
       category,
       description,
-      parameters: parameters as Record<string, unknown> | undefined,
-      examples: examples as Array<Record<string, unknown>> | undefined,
+      parameters: parameters,
+      examples: examples,
       constraints,
       createdBy,
     };
@@ -63,15 +63,8 @@ export const toolHandlers = {
   },
 
   update(params: Record<string, unknown>) {
-    const {
-      id,
-      description,
-      parameters,
-      examples,
-      constraints,
-      changeReason,
-      updatedBy,
-    } = cast<ToolUpdateParams>(params);
+    const { id, description, parameters, examples, constraints, changeReason, updatedBy } =
+      cast<ToolUpdateParams>(params);
 
     if (!id) {
       throw new Error('id is required');
@@ -79,8 +72,8 @@ export const toolHandlers = {
 
     const input: UpdateToolInput = {};
     if (description !== undefined) input.description = description;
-    if (parameters !== undefined) input.parameters = parameters as Record<string, unknown>;
-    if (examples !== undefined) input.examples = examples as Array<Record<string, unknown>>;
+    if (parameters !== undefined) input.parameters = parameters;
+    if (examples !== undefined) input.examples = examples;
     if (constraints !== undefined) input.constraints = constraints;
     if (changeReason !== undefined) input.changeReason = changeReason;
     if (updatedBy !== undefined) input.updatedBy = updatedBy;
@@ -117,7 +110,8 @@ export const toolHandlers = {
   },
 
   list(params: Record<string, unknown>) {
-    const { scopeType, scopeId, category, includeInactive, limit, offset } = cast<ToolListParams>(params);
+    const { scopeType, scopeId, category, includeInactive, limit, offset } =
+      cast<ToolListParams>(params);
 
     const tools = toolRepo.list(
       { scopeType, scopeId, category, includeInactive },

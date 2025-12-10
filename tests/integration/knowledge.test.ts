@@ -1,5 +1,10 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { setupTestDb, cleanupTestDb, createTestProject, createTestKnowledge } from '../fixtures/test-helpers.js';
+import {
+  setupTestDb,
+  cleanupTestDb,
+  createTestProject,
+  createTestKnowledge,
+} from '../fixtures/test-helpers.js';
 
 const TEST_DB_PATH = './data/test-knowledge.db';
 
@@ -8,7 +13,7 @@ let db: ReturnType<typeof setupTestDb>['db'];
 
 vi.mock('../../src/db/connection.js', async () => {
   const actual = await vi.importActual<typeof import('../../src/db/connection.js')>(
-    '../../src/db/connection.js',
+    '../../src/db/connection.js'
   );
   return {
     ...actual,
@@ -168,7 +173,11 @@ describe('Knowledge Integration', () => {
     it('should return version history', () => {
       const { knowledge } = createTestKnowledge(db, 'history_test');
       knowledgeHandlers.update({ id: knowledge.id, content: 'Version 2', changeReason: 'Update' });
-      knowledgeHandlers.update({ id: knowledge.id, content: 'Version 3', changeReason: 'Another update' });
+      knowledgeHandlers.update({
+        id: knowledge.id,
+        content: 'Version 3',
+        changeReason: 'Another update',
+      });
 
       const result = knowledgeHandlers.history({ id: knowledge.id });
       expect(result.versions.length).toBeGreaterThanOrEqual(3);
@@ -186,4 +195,3 @@ describe('Knowledge Integration', () => {
     });
   });
 });
-

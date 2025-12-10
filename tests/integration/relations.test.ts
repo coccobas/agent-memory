@@ -1,5 +1,10 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { setupTestDb, cleanupTestDb, createTestTool, createTestGuideline } from '../fixtures/test-helpers.js';
+import {
+  setupTestDb,
+  cleanupTestDb,
+  createTestTool,
+  createTestGuideline,
+} from '../fixtures/test-helpers.js';
 
 const TEST_DB_PATH = './data/test-relations.db';
 
@@ -8,7 +13,7 @@ let db: ReturnType<typeof setupTestDb>['db'];
 
 vi.mock('../../src/db/connection.js', async () => {
   const actual = await vi.importActual<typeof import('../../src/db/connection.js')>(
-    '../../src/db/connection.js',
+    '../../src/db/connection.js'
   );
   return {
     ...actual,
@@ -213,9 +218,8 @@ describe('Relations Integration', () => {
       expect(() => {
         relationHandlers.delete({});
       }).toThrow(
-        'Either id or all of (sourceType, sourceId, targetType, targetId, relationType) are required',
+        'Either id or all of (sourceType, sourceId, targetType, targetId, relationType) are required'
       );
     });
   });
 });
-

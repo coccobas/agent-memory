@@ -1,6 +1,6 @@
 /**
  * Initialization Handler
- * 
+ *
  * Handles database initialization, migration status, and reset operations
  */
 
@@ -75,7 +75,8 @@ function reset(params: ResetParams) {
   if (!params.confirm) {
     return {
       success: false,
-      error: 'Reset requires confirmation. Set confirm=true to proceed. WARNING: This will delete all data!',
+      error:
+        'Reset requires confirmation. Set confirm=true to proceed. WARNING: This will delete all data!',
     };
   }
 

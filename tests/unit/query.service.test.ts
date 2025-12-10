@@ -12,7 +12,7 @@ let db: ReturnType<typeof drizzle>;
 
 vi.mock('../../src/db/connection.js', async () => {
   const actual = await vi.importActual<typeof import('../../src/db/connection.js')>(
-    '../../src/db/connection.js',
+    '../../src/db/connection.js'
   );
   return {
     ...actual,
@@ -21,10 +21,7 @@ vi.mock('../../src/db/connection.js', async () => {
 });
 
 // Import after mocking connection
-import {
-  resolveScopeChain,
-  executeMemoryQuery,
-} from '../../src/services/query.service.js';
+import { resolveScopeChain, executeMemoryQuery } from '../../src/services/query.service.js';
 
 describe('query.service', () => {
   beforeAll(() => {
@@ -76,23 +73,29 @@ describe('query.service', () => {
     const projectId = 'proj-test';
     const sessionId = 'sess-test';
 
-    db.insert(schema.organizations).values({
-      id: orgId,
-      name: 'Test Org',
-    }).run();
+    db.insert(schema.organizations)
+      .values({
+        id: orgId,
+        name: 'Test Org',
+      })
+      .run();
 
-    db.insert(schema.projects).values({
-      id: projectId,
-      orgId,
-      name: 'Test Project',
-    }).run();
+    db.insert(schema.projects)
+      .values({
+        id: projectId,
+        orgId,
+        name: 'Test Project',
+      })
+      .run();
 
-    db.insert(schema.sessions).values({
-      id: sessionId,
-      projectId,
-      name: 'Test Session',
-      status: 'active',
-    }).run();
+    db.insert(schema.sessions)
+      .values({
+        id: sessionId,
+        projectId,
+        name: 'Test Session',
+        status: 'active',
+      })
+      .run();
 
     const chain = resolveScopeChain({
       type: 'session',
@@ -112,66 +115,82 @@ describe('query.service', () => {
     const projectId = 'proj-query';
     const sessionId = 'sess-query';
 
-    db.insert(schema.projects).values({
-      id: projectId,
-      name: 'Query Project',
-    }).run();
+    db.insert(schema.projects)
+      .values({
+        id: projectId,
+        name: 'Query Project',
+      })
+      .run();
 
-    db.insert(schema.sessions).values({
-      id: sessionId,
-      projectId,
-      name: 'Query Session',
-      status: 'active',
-    }).run();
+    db.insert(schema.sessions)
+      .values({
+        id: sessionId,
+        projectId,
+        name: 'Query Session',
+        status: 'active',
+      })
+      .run();
 
     // Global guideline
-    db.insert(schema.guidelines).values({
-      id: 'guide-global',
-      scopeType: 'global',
-      name: 'global_guideline',
-      priority: 50,
-      isActive: true,
-    }).run();
+    db.insert(schema.guidelines)
+      .values({
+        id: 'guide-global',
+        scopeType: 'global',
+        name: 'global_guideline',
+        priority: 50,
+        isActive: true,
+      })
+      .run();
 
-    db.insert(schema.guidelineVersions).values({
-      id: 'gv-global-1',
-      guidelineId: 'guide-global',
-      versionNum: 1,
-      content: 'Global content',
-    }).run();
+    db.insert(schema.guidelineVersions)
+      .values({
+        id: 'gv-global-1',
+        guidelineId: 'guide-global',
+        versionNum: 1,
+        content: 'Global content',
+      })
+      .run();
 
     // Project guideline with higher priority
-    db.insert(schema.guidelines).values({
-      id: 'guide-project',
-      scopeType: 'project',
-      scopeId: projectId,
-      name: 'project_guideline',
-      category: 'security',
-      priority: 90,
-      isActive: true,
-    }).run();
+    db.insert(schema.guidelines)
+      .values({
+        id: 'guide-project',
+        scopeType: 'project',
+        scopeId: projectId,
+        name: 'project_guideline',
+        category: 'security',
+        priority: 90,
+        isActive: true,
+      })
+      .run();
 
-    db.insert(schema.guidelineVersions).values({
-      id: 'gv-project-1',
-      guidelineId: 'guide-project',
-      versionNum: 1,
-      content: 'Project-specific content about authentication',
-    }).run();
+    db.insert(schema.guidelineVersions)
+      .values({
+        id: 'gv-project-1',
+        guidelineId: 'guide-project',
+        versionNum: 1,
+        content: 'Project-specific content about authentication',
+      })
+      .run();
 
     // Tag the project guideline as security
-    db.insert(schema.tags).values({
-      id: 'tag-security',
-      name: 'security',
-      category: 'domain',
-      isPredefined: false,
-    }).run();
+    db.insert(schema.tags)
+      .values({
+        id: 'tag-security',
+        name: 'security',
+        category: 'domain',
+        isPredefined: false,
+      })
+      .run();
 
-    db.insert(schema.entryTags).values({
-      id: 'et-guide-project-security',
-      entryType: 'guideline',
-      entryId: 'guide-project',
-      tagId: 'tag-security',
-    }).run();
+    db.insert(schema.entryTags)
+      .values({
+        id: 'et-guide-project-security',
+        entryType: 'guideline',
+        entryId: 'guide-project',
+        tagId: 'tag-security',
+      })
+      .run();
 
     const result = executeMemoryQuery({
       types: ['guidelines'],
@@ -189,5 +208,3 @@ describe('query.service', () => {
     expect(first.scopeId).toBe(projectId);
   });
 });
-
-

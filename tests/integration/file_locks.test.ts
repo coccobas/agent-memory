@@ -1,5 +1,11 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
-import { setupTestDb, cleanupTestDb, schema, createTestProject, createTestSession } from '../fixtures/test-helpers.js';
+import {
+  setupTestDb,
+  cleanupTestDb,
+  schema,
+  createTestProject,
+  createTestSession,
+} from '../fixtures/test-helpers.js';
 
 const TEST_DB_PATH = './data/test-file-locks-integration.db';
 
@@ -10,7 +16,7 @@ let testSessionId: string;
 
 vi.mock('../../src/db/connection.js', async () => {
   const actual = await vi.importActual<typeof import('../../src/db/connection.js')>(
-    '../../src/db/connection.js',
+    '../../src/db/connection.js'
   );
   return {
     ...actual,
@@ -265,7 +271,7 @@ describe('File Locks Integration', () => {
 
       expect(result.success).toBe(true);
       expect(result.locks.length).toBe(2);
-      expect(result.locks.every(lock => lock.checkedOutBy === 'agent-1')).toBe(true);
+      expect(result.locks.every((lock) => lock.checkedOutBy === 'agent-1')).toBe(true);
     });
   });
 
@@ -348,9 +354,3 @@ describe('File Locks Integration', () => {
     });
   });
 });
-
-
-
-
-
-

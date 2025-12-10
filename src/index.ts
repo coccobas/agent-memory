@@ -8,9 +8,10 @@ export { createServer, runServer } from './mcp/server.js';
 import { runServer } from './mcp/server.js';
 
 // Run server if this is the main module
-const isMainModule = process.argv[1]?.endsWith('index.js') ||
-                     process.argv[1]?.endsWith('index.ts') ||
-                     process.argv[1]?.includes('agent-memory');
+const isMainModule =
+  process.argv[1]?.endsWith('index.js') ||
+  process.argv[1]?.endsWith('index.ts') ||
+  process.argv[1]?.includes('agent-memory');
 
 if (isMainModule) {
   runServer().catch((error) => {

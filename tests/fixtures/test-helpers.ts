@@ -76,30 +76,87 @@ export function cleanupTestDb(dbPath: string): void {
 export function seedPredefinedTags(db: ReturnType<typeof drizzle>): void {
   const predefinedTags = [
     // Languages
-    { id: 'tag-lang-python', name: 'python', category: 'language' as const, description: 'Python programming language' },
-    { id: 'tag-lang-typescript', name: 'typescript', category: 'language' as const, description: 'TypeScript programming language' },
-    { id: 'tag-lang-javascript', name: 'javascript', category: 'language' as const, description: 'JavaScript programming language' },
-    { id: 'tag-lang-sql', name: 'sql', category: 'language' as const, description: 'SQL query language' },
+    {
+      id: 'tag-lang-python',
+      name: 'python',
+      category: 'language' as const,
+      description: 'Python programming language',
+    },
+    {
+      id: 'tag-lang-typescript',
+      name: 'typescript',
+      category: 'language' as const,
+      description: 'TypeScript programming language',
+    },
+    {
+      id: 'tag-lang-javascript',
+      name: 'javascript',
+      category: 'language' as const,
+      description: 'JavaScript programming language',
+    },
+    {
+      id: 'tag-lang-sql',
+      name: 'sql',
+      category: 'language' as const,
+      description: 'SQL query language',
+    },
     // Domains
-    { id: 'tag-domain-web', name: 'web', category: 'domain' as const, description: 'Web development' },
-    { id: 'tag-domain-cli', name: 'cli', category: 'domain' as const, description: 'Command-line interfaces' },
-    { id: 'tag-domain-database', name: 'database', category: 'domain' as const, description: 'Database design and operations' },
-    { id: 'tag-domain-security', name: 'security', category: 'domain' as const, description: 'Security practices' },
+    {
+      id: 'tag-domain-web',
+      name: 'web',
+      category: 'domain' as const,
+      description: 'Web development',
+    },
+    {
+      id: 'tag-domain-cli',
+      name: 'cli',
+      category: 'domain' as const,
+      description: 'Command-line interfaces',
+    },
+    {
+      id: 'tag-domain-database',
+      name: 'database',
+      category: 'domain' as const,
+      description: 'Database design and operations',
+    },
+    {
+      id: 'tag-domain-security',
+      name: 'security',
+      category: 'domain' as const,
+      description: 'Security practices',
+    },
     // Categories
-    { id: 'tag-cat-behavior', name: 'behavior', category: 'category' as const, description: 'Agent behavior rules' },
+    {
+      id: 'tag-cat-behavior',
+      name: 'behavior',
+      category: 'category' as const,
+      description: 'Agent behavior rules',
+    },
     // Meta
-    { id: 'tag-meta-required', name: 'required', category: 'meta' as const, description: 'Required/mandatory' },
-    { id: 'tag-meta-deprecated', name: 'deprecated', category: 'meta' as const, description: 'Deprecated, should not be used' },
+    {
+      id: 'tag-meta-required',
+      name: 'required',
+      category: 'meta' as const,
+      description: 'Required/mandatory',
+    },
+    {
+      id: 'tag-meta-deprecated',
+      name: 'deprecated',
+      category: 'meta' as const,
+      description: 'Deprecated, should not be used',
+    },
   ];
 
   for (const tag of predefinedTags) {
-    db.insert(schema.tags).values({
-      id: tag.id,
-      name: tag.name,
-      category: tag.category,
-      isPredefined: true,
-      description: tag.description,
-    }).run();
+    db.insert(schema.tags)
+      .values({
+        id: tag.id,
+        name: tag.name,
+        category: tag.category,
+        isPredefined: true,
+        description: tag.description,
+      })
+      .run();
   }
 }
 
@@ -112,11 +169,13 @@ export function createTestOrg(
   metadata?: Record<string, unknown>
 ): schema.Organization {
   const id = generateId();
-  db.insert(schema.organizations).values({
-    id,
-    name,
-    metadata,
-  }).run();
+  db.insert(schema.organizations)
+    .values({
+      id,
+      name,
+      metadata,
+    })
+    .run();
   return db.select().from(schema.organizations).where(eq(schema.organizations.id, id)).get()!;
 }
 
@@ -132,14 +191,16 @@ export function createTestProject(
   metadata?: Record<string, unknown>
 ): schema.Project {
   const id = generateId();
-  db.insert(schema.projects).values({
-    id,
-    orgId,
-    name,
-    description,
-    rootPath,
-    metadata,
-  }).run();
+  db.insert(schema.projects)
+    .values({
+      id,
+      orgId,
+      name,
+      description,
+      rootPath,
+      metadata,
+    })
+    .run();
   return db.select().from(schema.projects).where(eq(schema.projects.id, id)).get()!;
 }
 
@@ -155,15 +216,17 @@ export function createTestSession(
   metadata?: Record<string, unknown>
 ): schema.Session {
   const id = generateId();
-  db.insert(schema.sessions).values({
-    id,
-    projectId,
-    name,
-    purpose,
-    agentId,
-    status: 'active',
-    metadata,
-  }).run();
+  db.insert(schema.sessions)
+    .values({
+      id,
+      projectId,
+      name,
+      purpose,
+      agentId,
+      status: 'active',
+      metadata,
+    })
+    .run();
   return db.select().from(schema.sessions).where(eq(schema.sessions.id, id)).get()!;
 }
 
@@ -181,22 +244,26 @@ export function createTestTool(
   const toolId = generateId();
   const versionId = generateId();
 
-  db.insert(schema.tools).values({
-    id: toolId,
-    scopeType,
-    scopeId,
-    name,
-    category,
-    isActive: true,
-  }).run();
+  db.insert(schema.tools)
+    .values({
+      id: toolId,
+      scopeType,
+      scopeId,
+      name,
+      category,
+      isActive: true,
+    })
+    .run();
 
-  db.insert(schema.toolVersions).values({
-    id: versionId,
-    toolId,
-    versionNum: 1,
-    description: description || `Test tool: ${name}`,
-    changeReason: 'Initial version',
-  }).run();
+  db.insert(schema.toolVersions)
+    .values({
+      id: versionId,
+      toolId,
+      versionNum: 1,
+      description: description || `Test tool: ${name}`,
+      changeReason: 'Initial version',
+    })
+    .run();
 
   db.update(schema.tools)
     .set({ currentVersionId: versionId })
@@ -205,7 +272,11 @@ export function createTestTool(
 
   return {
     tool: db.select().from(schema.tools).where(eq(schema.tools.id, toolId)).get()!,
-    version: db.select().from(schema.toolVersions).where(eq(schema.toolVersions.id, versionId)).get()!,
+    version: db
+      .select()
+      .from(schema.toolVersions)
+      .where(eq(schema.toolVersions.id, versionId))
+      .get()!,
   };
 }
 
@@ -224,23 +295,27 @@ export function createTestGuideline(
   const guidelineId = generateId();
   const versionId = generateId();
 
-  db.insert(schema.guidelines).values({
-    id: guidelineId,
-    scopeType,
-    scopeId,
-    name,
-    category,
-    priority,
-    isActive: true,
-  }).run();
+  db.insert(schema.guidelines)
+    .values({
+      id: guidelineId,
+      scopeType,
+      scopeId,
+      name,
+      category,
+      priority,
+      isActive: true,
+    })
+    .run();
 
-  db.insert(schema.guidelineVersions).values({
-    id: versionId,
-    guidelineId,
-    versionNum: 1,
-    content: content || `Test guideline: ${name}`,
-    changeReason: 'Initial version',
-  }).run();
+  db.insert(schema.guidelineVersions)
+    .values({
+      id: versionId,
+      guidelineId,
+      versionNum: 1,
+      content: content || `Test guideline: ${name}`,
+      changeReason: 'Initial version',
+    })
+    .run();
 
   db.update(schema.guidelines)
     .set({ currentVersionId: versionId })
@@ -248,8 +323,16 @@ export function createTestGuideline(
     .run();
 
   return {
-    guideline: db.select().from(schema.guidelines).where(eq(schema.guidelines.id, guidelineId)).get()!,
-    version: db.select().from(schema.guidelineVersions).where(eq(schema.guidelineVersions.id, versionId)).get()!,
+    guideline: db
+      .select()
+      .from(schema.guidelines)
+      .where(eq(schema.guidelines.id, guidelineId))
+      .get()!,
+    version: db
+      .select()
+      .from(schema.guidelineVersions)
+      .where(eq(schema.guidelineVersions.id, versionId))
+      .get()!,
   };
 }
 
@@ -267,22 +350,26 @@ export function createTestKnowledge(
   const knowledgeId = generateId();
   const versionId = generateId();
 
-  db.insert(schema.knowledge).values({
-    id: knowledgeId,
-    scopeType,
-    scopeId,
-    title,
-    source,
-    isActive: true,
-  }).run();
+  db.insert(schema.knowledge)
+    .values({
+      id: knowledgeId,
+      scopeType,
+      scopeId,
+      title,
+      source,
+      isActive: true,
+    })
+    .run();
 
-  db.insert(schema.knowledgeVersions).values({
-    id: versionId,
-    knowledgeId,
-    versionNum: 1,
-    content: content || `Test knowledge: ${title}`,
-    changeReason: 'Initial version',
-  }).run();
+  db.insert(schema.knowledgeVersions)
+    .values({
+      id: versionId,
+      knowledgeId,
+      versionNum: 1,
+      content: content || `Test knowledge: ${title}`,
+      changeReason: 'Initial version',
+    })
+    .run();
 
   db.update(schema.knowledge)
     .set({ currentVersionId: versionId })
@@ -290,8 +377,15 @@ export function createTestKnowledge(
     .run();
 
   return {
-    knowledge: db.select().from(schema.knowledge).where(eq(schema.knowledge.id, knowledgeId)).get()!,
-    version: db.select().from(schema.knowledgeVersions).where(eq(schema.knowledgeVersions.id, versionId)).get()!,
+    knowledge: db
+      .select()
+      .from(schema.knowledge)
+      .where(eq(schema.knowledge.id, knowledgeId))
+      .get()!,
+    version: db
+      .select()
+      .from(schema.knowledgeVersions)
+      .where(eq(schema.knowledgeVersions.id, versionId))
+      .get()!,
   };
 }
-

@@ -1,6 +1,12 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { eq } from 'drizzle-orm';
-import { setupTestDb, cleanupTestDb, seedPredefinedTags, createTestTool, createTestGuideline } from '../fixtures/test-helpers.js';
+import {
+  setupTestDb,
+  cleanupTestDb,
+  seedPredefinedTags,
+  createTestTool,
+  createTestGuideline,
+} from '../fixtures/test-helpers.js';
 import * as schema from '../../src/db/schema.js';
 
 const TEST_DB_PATH = './data/test-tags.db';
@@ -10,7 +16,7 @@ let db: ReturnType<typeof setupTestDb>['db'];
 
 vi.mock('../../src/db/connection.js', async () => {
   const actual = await vi.importActual<typeof import('../../src/db/connection.js')>(
-    '../../src/db/connection.js',
+    '../../src/db/connection.js'
   );
   return {
     ...actual,
@@ -95,7 +101,11 @@ describe('Tags Integration', () => {
   describe('memory_tag_attach', () => {
     it('should attach tag to a tool', () => {
       const { tool } = createTestTool(db, 'tagged_tool');
-      const securityTag = db.select().from(schema.tags).where(eq(schema.tags.name, 'security')).get()!;
+      const securityTag = db
+        .select()
+        .from(schema.tags)
+        .where(eq(schema.tags.name, 'security'))
+        .get()!;
 
       const result = tagHandlers.attach({
         entryType: 'tool',
@@ -146,8 +156,16 @@ describe('Tags Integration', () => {
   describe('memory_tag_detach', () => {
     it('should detach tag from entry', () => {
       const { tool } = createTestTool(db, 'detach_test');
-      const attachResult = tagHandlers.attach({ entryType: 'tool', entryId: tool.id, tagName: 'security' });
-      const securityTag = db.select().from(schema.tags).where(eq(schema.tags.name, 'security')).get()!;
+      const attachResult = tagHandlers.attach({
+        entryType: 'tool',
+        entryId: tool.id,
+        tagName: 'security',
+      });
+      const securityTag = db
+        .select()
+        .from(schema.tags)
+        .where(eq(schema.tags.name, 'security'))
+        .get()!;
 
       const result = tagHandlers.detach({
         entryType: 'tool',
@@ -202,4 +220,3 @@ describe('Tags Integration', () => {
     });
   });
 });
-

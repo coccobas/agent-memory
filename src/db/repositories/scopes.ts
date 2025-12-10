@@ -62,12 +62,7 @@ export const organizationRepo = {
     const limit = Math.min(options.limit ?? DEFAULT_LIMIT, MAX_LIMIT);
     const offset = options.offset ?? 0;
 
-    return db
-      .select()
-      .from(organizations)
-      .limit(limit)
-      .offset(offset)
-      .all();
+    return db.select().from(organizations).limit(limit).offset(offset).all();
   },
 
   /**
@@ -313,7 +308,8 @@ export const sessionRepo = {
     const existing = this.getById(id);
     if (!existing) return undefined;
 
-    const endedAt = input.status === 'completed' || input.status === 'discarded' ? now() : undefined;
+    const endedAt =
+      input.status === 'completed' || input.status === 'discarded' ? now() : undefined;
 
     db.update(sessions)
       .set({

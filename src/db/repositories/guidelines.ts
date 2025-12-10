@@ -10,7 +10,13 @@ import {
   type NewGuidelineVersion,
   type ScopeType,
 } from '../schema.js';
-import { generateId, CONFLICT_WINDOW_MS, type PaginationOptions, DEFAULT_LIMIT, MAX_LIMIT } from './base.js';
+import {
+  generateId,
+  CONFLICT_WINDOW_MS,
+  type PaginationOptions,
+  DEFAULT_LIMIT,
+  MAX_LIMIT,
+} from './base.js';
 import { transaction } from '../connection.js';
 
 // =============================================================================
@@ -58,7 +64,7 @@ export interface GuidelineWithVersion extends Guideline {
 export const guidelineRepo = {
   /**
    * Create a new guideline with initial version
-   * 
+   *
    * @param input - Guideline creation parameters including scope, name, priority, and initial content
    * @returns The created guideline with its current version
    * @throws Error if a guideline with the same name already exists in the scope
@@ -104,7 +110,7 @@ export const guidelineRepo = {
 
   /**
    * Get guideline by ID with current version
-   * 
+   *
    * @param id - The guideline ID
    * @returns The guideline with its current version, or undefined if not found
    */
@@ -115,7 +121,11 @@ export const guidelineRepo = {
     if (!guideline) return undefined;
 
     const currentVersion = guideline.currentVersionId
-      ? db.select().from(guidelineVersions).where(eq(guidelineVersions.id, guideline.currentVersionId)).get()
+      ? db
+          .select()
+          .from(guidelineVersions)
+          .where(eq(guidelineVersions.id, guideline.currentVersionId))
+          .get()
       : undefined;
 
     return { ...guideline, currentVersion };
@@ -123,56 +133,81 @@ export const guidelineRepo = {
 
   /**
    * Get guideline by name within a scope (with optional inheritance)
-   * 
+   *
    * @param name - The guideline name
    * @param scopeType - The scope type to search in
    * @param scopeId - The scope ID (required for non-global scopes)
    * @param inherit - Whether to search parent scopes if not found (default: true)
    * @returns The guideline with its current version, or undefined if not found
    */
-  getByName(name: string, scopeType: ScopeType, scopeId?: string, inherit = true): GuidelineWithVersion | undefined {
+  getByName(
+    name: string,
+    scopeType: ScopeType,
+    scopeId?: string,
+    inherit = true
+  ): GuidelineWithVersion | undefined {
     const db = getDb();
 
     // First, try exact scope match
     const exactMatch = scopeId
-      ? db.select().from(guidelines)
-          .where(and(
-            eq(guidelines.name, name),
-            eq(guidelines.scopeType, scopeType),
-            eq(guidelines.scopeId, scopeId),
-            eq(guidelines.isActive, true)
-          ))
+      ? db
+          .select()
+          .from(guidelines)
+          .where(
+            and(
+              eq(guidelines.name, name),
+              eq(guidelines.scopeType, scopeType),
+              eq(guidelines.scopeId, scopeId),
+              eq(guidelines.isActive, true)
+            )
+          )
           .get()
-      : db.select().from(guidelines)
-          .where(and(
-            eq(guidelines.name, name),
-            eq(guidelines.scopeType, scopeType),
-            isNull(guidelines.scopeId),
-            eq(guidelines.isActive, true)
-          ))
+      : db
+          .select()
+          .from(guidelines)
+          .where(
+            and(
+              eq(guidelines.name, name),
+              eq(guidelines.scopeType, scopeType),
+              isNull(guidelines.scopeId),
+              eq(guidelines.isActive, true)
+            )
+          )
           .get();
 
     if (exactMatch) {
       const currentVersion = exactMatch.currentVersionId
-        ? db.select().from(guidelineVersions).where(eq(guidelineVersions.id, exactMatch.currentVersionId)).get()
+        ? db
+            .select()
+            .from(guidelineVersions)
+            .where(eq(guidelineVersions.id, exactMatch.currentVersionId))
+            .get()
         : undefined;
       return { ...exactMatch, currentVersion };
     }
 
     // If not found and inherit is true, search parent scopes
     if (inherit && scopeType !== 'global') {
-      const globalMatch = db.select().from(guidelines)
-        .where(and(
-          eq(guidelines.name, name),
-          eq(guidelines.scopeType, 'global'),
-          isNull(guidelines.scopeId),
-          eq(guidelines.isActive, true)
-        ))
+      const globalMatch = db
+        .select()
+        .from(guidelines)
+        .where(
+          and(
+            eq(guidelines.name, name),
+            eq(guidelines.scopeType, 'global'),
+            isNull(guidelines.scopeId),
+            eq(guidelines.isActive, true)
+          )
+        )
         .get();
 
       if (globalMatch) {
         const currentVersion = globalMatch.currentVersionId
-          ? db.select().from(guidelineVersions).where(eq(guidelineVersions.id, globalMatch.currentVersionId)).get()
+          ? db
+              .select()
+              .from(guidelineVersions)
+              .where(eq(guidelineVersions.id, globalMatch.currentVersionId))
+              .get()
           : undefined;
         return { ...globalMatch, currentVersion };
       }
@@ -183,7 +218,7 @@ export const guidelineRepo = {
 
   /**
    * List guidelines with filtering (ordered by priority desc)
-   * 
+   *
    * @param filter - Optional filters for scope, category, and active status
    * @param options - Optional pagination parameters (limit, offset)
    * @returns Array of guidelines matching the filter criteria, ordered by priority (highest first)
@@ -228,7 +263,11 @@ export const guidelineRepo = {
     // Fetch current versions
     return guidelinesList.map((guideline) => {
       const currentVersion = guideline.currentVersionId
-        ? db.select().from(guidelineVersions).where(eq(guidelineVersions.id, guideline.currentVersionId)).get()
+        ? db
+            .select()
+            .from(guidelineVersions)
+            .where(eq(guidelineVersions.id, guideline.currentVersionId))
+            .get()
         : undefined;
       return { ...guideline, currentVersion };
     });
@@ -236,7 +275,7 @@ export const guidelineRepo = {
 
   /**
    * Update a guideline (creates new version)
-   * 
+   *
    * @param id - The guideline ID to update
    * @param input - Update parameters (fields not provided inherit from previous version)
    * @returns The updated guideline with its new current version, or undefined if guideline not found
@@ -250,7 +289,8 @@ export const guidelineRepo = {
       if (!existing) return undefined;
 
       // Get current version number
-      const latestVersion = db.select()
+      const latestVersion = db
+        .select()
         .from(guidelineVersions)
         .where(eq(guidelineVersions.guidelineId, id))
         .orderBy(desc(guidelineVersions.versionNum))
@@ -267,13 +307,15 @@ export const guidelineRepo = {
         if (currentTime - lastWriteTime < CONFLICT_WINDOW_MS) {
           conflictFlag = true;
 
-          db.insert(conflictLog).values({
-            id: generateId(),
-            entryType: 'guideline',
-            entryId: id,
-            versionAId: latestVersion.id,
-            versionBId: newVersionId,
-          }).run();
+          db.insert(conflictLog)
+            .values({
+              id: generateId(),
+              entryType: 'guideline',
+              entryId: id,
+              versionAId: latestVersion.id,
+              versionBId: newVersionId,
+            })
+            .run();
         }
       }
 
@@ -316,13 +358,14 @@ export const guidelineRepo = {
 
   /**
    * Get version history for a guideline
-   * 
+   *
    * @param guidelineId - The guideline ID
    * @returns Array of all versions for the guideline, ordered by version number (newest first)
    */
   getHistory(guidelineId: string): GuidelineVersion[] {
     const db = getDb();
-    return db.select()
+    return db
+      .select()
       .from(guidelineVersions)
       .where(eq(guidelineVersions.guidelineId, guidelineId))
       .orderBy(desc(guidelineVersions.versionNum))
@@ -331,13 +374,14 @@ export const guidelineRepo = {
 
   /**
    * Deactivate a guideline (soft delete)
-   * 
+   *
    * @param id - The guideline ID to deactivate
    * @returns True if the guideline was successfully deactivated
    */
   deactivate(id: string): boolean {
     const db = getDb();
-    const result = db.update(guidelines)
+    const result = db
+      .update(guidelines)
       .set({ isActive: false })
       .where(eq(guidelines.id, id))
       .run();
@@ -349,10 +393,7 @@ export const guidelineRepo = {
    */
   reactivate(id: string): boolean {
     const db = getDb();
-    const result = db.update(guidelines)
-      .set({ isActive: true })
-      .where(eq(guidelines.id, id))
-      .run();
+    const result = db.update(guidelines).set({ isActive: true }).where(eq(guidelines.id, id)).run();
     return result.changes > 0;
   },
 

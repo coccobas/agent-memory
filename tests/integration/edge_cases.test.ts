@@ -4,7 +4,13 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
-import { setupTestDb, cleanupTestDb, schema, createTestProject, createTestOrg } from '../fixtures/test-helpers.js';
+import {
+  setupTestDb,
+  cleanupTestDb,
+  schema,
+  createTestProject,
+  createTestOrg,
+} from '../fixtures/test-helpers.js';
 
 const TEST_DB_PATH = './data/test-edge-cases.db';
 
@@ -15,7 +21,7 @@ let testProjectId: string;
 
 vi.mock('../../src/db/connection.js', async () => {
   const actual = await vi.importActual<typeof import('../../src/db/connection.js')>(
-    '../../src/db/connection.js',
+    '../../src/db/connection.js'
   );
   return {
     ...actual,
@@ -57,16 +63,19 @@ describe('Edge Cases', () => {
       const pastTime = new Date(Date.now() - 10000).toISOString();
       const expiredTime = new Date(Date.now() - 5000).toISOString();
 
-      db.insert(schema.fileLocks).values({
-        id: 'lock-expired',
-        filePath: '/path/to/expired.ts',
-        checkedOutBy: 'agent-old',
-        checkedOutAt: pastTime,
-        expiresAt: expiredTime,
-      }).run();
+      db.insert(schema.fileLocks)
+        .values({
+          id: 'lock-expired',
+          filePath: '/path/to/expired.ts',
+          checkedOutBy: 'agent-old',
+          checkedOutAt: pastTime,
+          expiresAt: expiredTime,
+        })
+        .run();
 
       // Verify lock exists initially
-      const lockBefore = db.select()
+      const lockBefore = db
+        .select()
         .from(schema.fileLocks)
         .where(schema.fileLocks.filePath === '/path/to/expired.ts')
         .get();
@@ -82,7 +91,8 @@ describe('Edge Cases', () => {
       expect(newLock.checkedOutBy).toBe('agent-new');
 
       // Old lock should be gone, new lock should exist
-      const afterLocks = db.select()
+      const afterLocks = db
+        .select()
         .from(schema.fileLocks)
         .where(schema.fileLocks.filePath === '/path/to/expired.ts')
         .all();
@@ -95,13 +105,15 @@ describe('Edge Cases', () => {
       const pastTime = new Date(Date.now() - 10000).toISOString();
       const expiredTime = new Date(Date.now() - 1000).toISOString();
 
-      db.insert(schema.fileLocks).values({
-        id: 'lock-expired-2',
-        filePath: '/path/to/expired2.ts',
-        checkedOutBy: 'agent-old',
-        checkedOutAt: pastTime,
-        expiresAt: expiredTime,
-      }).run();
+      db.insert(schema.fileLocks)
+        .values({
+          id: 'lock-expired-2',
+          filePath: '/path/to/expired2.ts',
+          checkedOutBy: 'agent-old',
+          checkedOutAt: pastTime,
+          expiresAt: expiredTime,
+        })
+        .run();
 
       const lock = fileLockRepo.getLock('/path/to/expired2.ts');
       expect(lock).toBeNull();
@@ -112,22 +124,24 @@ describe('Edge Cases', () => {
       const pastTime = new Date(now - 10000).toISOString();
 
       // Create one expired and one active lock
-      db.insert(schema.fileLocks).values([
-        {
-          id: 'lock-expired-3',
-          filePath: '/path/to/expired3.ts',
-          checkedOutBy: 'agent-old',
-          checkedOutAt: pastTime,
-          expiresAt: new Date(now - 1000).toISOString(), // expired
-        },
-        {
-          id: 'lock-active',
-          filePath: '/path/to/active.ts',
-          checkedOutBy: 'agent-new',
-          checkedOutAt: new Date(now).toISOString(),
-          expiresAt: new Date(now + 60000).toISOString(), // expires in future
-        },
-      ]).run();
+      db.insert(schema.fileLocks)
+        .values([
+          {
+            id: 'lock-expired-3',
+            filePath: '/path/to/expired3.ts',
+            checkedOutBy: 'agent-old',
+            checkedOutAt: pastTime,
+            expiresAt: new Date(now - 1000).toISOString(), // expired
+          },
+          {
+            id: 'lock-active',
+            filePath: '/path/to/active.ts',
+            checkedOutBy: 'agent-new',
+            checkedOutAt: new Date(now).toISOString(),
+            expiresAt: new Date(now + 60000).toISOString(), // expires in future
+          },
+        ])
+        .run();
 
       const locks = fileLockRepo.listLocks();
       expect(locks).toHaveLength(1);
@@ -356,7 +370,3 @@ describe('Edge Cases', () => {
     });
   });
 });
-
-
-
-

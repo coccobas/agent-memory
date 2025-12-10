@@ -1,5 +1,14 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { setupTestDb, cleanupTestDb, seedPredefinedTags, createTestOrg, createTestProject, createTestSession, createTestTool, createTestGuideline } from '../fixtures/test-helpers.js';
+import {
+  setupTestDb,
+  cleanupTestDb,
+  seedPredefinedTags,
+  createTestOrg,
+  createTestProject,
+  createTestSession,
+  createTestTool,
+  createTestGuideline,
+} from '../fixtures/test-helpers.js';
 import * as schema from '../../src/db/schema.js';
 
 const TEST_DB_PATH = './data/test-memory-query-int.db';
@@ -9,7 +18,7 @@ let db: ReturnType<typeof setupTestDb>['db'];
 
 vi.mock('../../src/db/connection.js', async () => {
   const actual = await vi.importActual<typeof import('../../src/db/connection.js')>(
-    '../../src/db/connection.js',
+    '../../src/db/connection.js'
   );
   return {
     ...actual,
@@ -45,11 +54,27 @@ describe('memory_query integration', () => {
     // Create entries at different scopes
     const tool = createTestTool(db, 'sql_query', 'global');
     toolId = tool.tool.id;
-    const guideline = createTestGuideline(db, 'parameterized_sql', 'global', undefined, 'security', 95, 'Always use parameterized SQL queries.');
+    const guideline = createTestGuideline(
+      db,
+      'parameterized_sql',
+      'global',
+      undefined,
+      'security',
+      95,
+      'Always use parameterized SQL queries.'
+    );
     guidelineId = guideline.guideline.id;
 
     // Create project-level guideline
-    createTestGuideline(db, 'project_guideline', 'project', projectId, 'testing', 80, 'This is a project-level guideline');
+    createTestGuideline(
+      db,
+      'project_guideline',
+      'project',
+      projectId,
+      'testing',
+      80,
+      'This is a project-level guideline'
+    );
 
     // Create relation
     relationHandlers.create({
@@ -117,7 +142,9 @@ describe('memory_query integration', () => {
       // Should find both global and project-level guidelines
       expect(response.results.length).toBeGreaterThan(0);
       const hasGlobal = response.results.some((r) => r.scopeType === 'global');
-      const hasProject = response.results.some((r) => r.scopeType === 'project' && r.scopeId === projectId);
+      const hasProject = response.results.some(
+        (r) => r.scopeType === 'project' && r.scopeId === projectId
+      );
       expect(hasGlobal || hasProject).toBe(true);
     });
 
@@ -129,7 +156,9 @@ describe('memory_query integration', () => {
       });
 
       // Should only find session-level (none in this case)
-      const sessionLevel = response.results.filter((r) => r.scopeType === 'session' && r.scopeId === sessionId);
+      const sessionLevel = response.results.filter(
+        (r) => r.scopeType === 'session' && r.scopeId === sessionId
+      );
       expect(sessionLevel.length).toBe(0);
     });
   });
@@ -200,7 +229,9 @@ describe('memory_query integration', () => {
       });
 
       expect(response.results.length).toBeGreaterThan(0);
-      const found = response.results.find((r) => r.type === 'guideline' && r.guideline.id === guidelineId);
+      const found = response.results.find(
+        (r) => r.type === 'guideline' && r.guideline.id === guidelineId
+      );
       expect(found).toBeDefined();
     });
 
@@ -231,7 +262,9 @@ describe('memory_query integration', () => {
       });
 
       expect(response.results.length).toBeGreaterThan(0);
-      const found = response.results.find((r) => r.type === 'guideline' && r.guideline.id === guidelineId);
+      const found = response.results.find(
+        (r) => r.type === 'guideline' && r.guideline.id === guidelineId
+      );
       expect(found).toBeDefined();
     });
   });
@@ -313,5 +346,3 @@ describe('memory_query integration', () => {
     });
   });
 });
-
-

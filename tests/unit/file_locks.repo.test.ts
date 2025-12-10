@@ -1,5 +1,11 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
-import { setupTestDb, cleanupTestDb, schema, createTestProject, createTestSession } from '../fixtures/test-helpers.js';
+import {
+  setupTestDb,
+  cleanupTestDb,
+  schema,
+  createTestProject,
+  createTestSession,
+} from '../fixtures/test-helpers.js';
 import { fileLockRepo } from '../../src/db/repositories/file_locks.js';
 import { DEFAULT_LOCK_TIMEOUT_SECONDS } from '../../src/db/repositories/base.js';
 
@@ -12,7 +18,7 @@ let testSessionId: string;
 
 vi.mock('../../src/db/connection.js', async () => {
   const actual = await vi.importActual<typeof import('../../src/db/connection.js')>(
-    '../../src/db/connection.js',
+    '../../src/db/connection.js'
   );
   return {
     ...actual,
@@ -196,7 +202,7 @@ describe('File Locks Repository', () => {
       fileLockRepo.checkout(filePath, agentId, { expiresIn: 0.1 }); // 100ms
 
       // Wait for expiration
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await new Promise((resolve) => setTimeout(resolve, 200));
 
       expect(fileLockRepo.isLocked(filePath)).toBe(false);
     });
@@ -263,7 +269,7 @@ describe('File Locks Repository', () => {
       const locks = fileLockRepo.listLocks({ agentId: 'agent-1' });
 
       expect(locks.length).toBe(2);
-      expect(locks.every(lock => lock.checkedOutBy === 'agent-1')).toBe(true);
+      expect(locks.every((lock) => lock.checkedOutBy === 'agent-1')).toBe(true);
     });
   });
 
@@ -273,7 +279,7 @@ describe('File Locks Repository', () => {
       fileLockRepo.checkout('/file2.ts', 'agent-2', { expiresIn: 1000 });
 
       // Wait for first lock to expire
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await new Promise((resolve) => setTimeout(resolve, 200));
 
       const cleaned = fileLockRepo.cleanupExpiredLocks();
 
@@ -291,9 +297,3 @@ describe('File Locks Repository', () => {
     });
   });
 });
-
-
-
-
-
-

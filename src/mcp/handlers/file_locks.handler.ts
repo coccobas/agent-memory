@@ -25,38 +25,44 @@ function cast<T>(params: Record<string, unknown>): T {
  */
 function validateFilePath(filePath: string): void {
   if (!filePath || typeof filePath !== 'string') {
-    throw createValidationError('file_path', 'must be a non-empty string', 'Provide an absolute path to the file');
+    throw createValidationError(
+      'file_path',
+      'must be a non-empty string',
+      'Provide an absolute path to the file'
+    );
   }
 
   if (!isAbsolute(filePath)) {
-    throw createValidationError('file_path', 'must be an absolute path', `Use an absolute path like '/Users/project/file.ts' instead of '${filePath}'`);
+    throw createValidationError(
+      'file_path',
+      'must be an absolute path',
+      `Use an absolute path like '/Users/project/file.ts' instead of '${filePath}'`
+    );
   }
 
   // Check for suspicious patterns that might indicate path traversal attempts
   const suspicious = ['..', '\0', '\r', '\n'];
   for (const pattern of suspicious) {
     if (filePath.includes(pattern)) {
-      throw createValidationError('file_path', `contains invalid pattern: ${pattern}`, 'File path should not contain path traversal or special characters');
+      throw createValidationError(
+        'file_path',
+        `contains invalid pattern: ${pattern}`,
+        'File path should not contain path traversal or special characters'
+      );
     }
   }
 }
 
 export const fileLockHandlers = {
   checkout(params: Record<string, unknown>) {
-    const {
-      file_path,
-      agent_id,
-      session_id,
-      project_id,
-      expires_in,
-      metadata,
-    } = cast<FileCheckoutParams>(params);
+    const { file_path, agent_id, session_id, project_id, expires_in, metadata } =
+      cast<FileCheckoutParams>(params);
 
     if (!file_path) {
       throw new Error('file_path is required');
     }
     validateFilePath(file_path);
-    
+
     if (!agent_id) {
       throw new Error('agent_id is required');
     }
@@ -78,7 +84,7 @@ export const fileLockHandlers = {
       throw new Error('file_path is required');
     }
     validateFilePath(file_path);
-    
+
     if (!agent_id) {
       throw new Error('agent_id is required');
     }
@@ -129,7 +135,7 @@ export const fileLockHandlers = {
       throw new Error('file_path is required');
     }
     validateFilePath(file_path);
-    
+
     if (!agent_id) {
       throw new Error('agent_id is required');
     }
@@ -142,5 +148,3 @@ export const fileLockHandlers = {
     };
   },
 };
-
-

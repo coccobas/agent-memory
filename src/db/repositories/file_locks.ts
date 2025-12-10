@@ -1,10 +1,6 @@
 import { eq, and, sql } from 'drizzle-orm';
 import { getDb } from '../connection.js';
-import {
-  fileLocks,
-  type FileLock,
-  type NewFileLock,
-} from '../schema.js';
+import { fileLocks, type FileLock, type NewFileLock } from '../schema.js';
 import { generateId, now, DEFAULT_LOCK_TIMEOUT_SECONDS, MAX_LOCK_TIMEOUT_SECONDS } from './base.js';
 
 // =============================================================================
@@ -27,7 +23,7 @@ export interface ListLocksFilter {
 export const fileLockRepo = {
   /**
    * Checkout a file (create a lock)
-   * 
+   *
    * @param filePath - Absolute path to the file to lock
    * @param agentId - Identifier of the agent checking out the file
    * @param options - Optional checkout configuration
@@ -53,9 +49,8 @@ export const fileLockRepo = {
     }
 
     const checkedOutAt = now();
-    const expiresAt = expiresIn > 0
-      ? new Date(Date.parse(checkedOutAt) + expiresIn * 1000).toISOString()
-      : null;
+    const expiresAt =
+      expiresIn > 0 ? new Date(Date.parse(checkedOutAt) + expiresIn * 1000).toISOString() : null;
 
     const id = generateId();
     const lock: NewFileLock = {
@@ -76,7 +71,7 @@ export const fileLockRepo = {
 
   /**
    * Check in a file (remove lock if owned by agent)
-   * 
+   *
    * @param filePath - Absolute path to the file to check in
    * @param agentId - Identifier of the agent checking in the file
    * @throws Error if file is not locked or locked by a different agent
@@ -101,7 +96,7 @@ export const fileLockRepo = {
 
   /**
    * Force unlock a file (remove lock regardless of owner)
-   * 
+   *
    * @param filePath - Absolute path to the file to unlock
    * @param agentId - Identifier of the agent performing the force unlock
    * @param reason - Optional reason for forcing the unlock
@@ -126,10 +121,7 @@ export const fileLockRepo = {
       ...(reason ? { forceUnlockReason: reason } : {}),
     };
 
-    db.update(fileLocks)
-      .set({ metadata })
-      .where(eq(fileLocks.filePath, filePath))
-      .run();
+    db.update(fileLocks).set({ metadata }).where(eq(fileLocks.filePath, filePath)).run();
 
     // Delete the lock
     db.delete(fileLocks).where(eq(fileLocks.filePath, filePath)).run();
@@ -137,7 +129,7 @@ export const fileLockRepo = {
 
   /**
    * Check if a file is currently locked (not expired)
-   * 
+   *
    * @param filePath - Absolute path to the file to check
    * @returns True if the file is currently locked
    */
@@ -148,7 +140,7 @@ export const fileLockRepo = {
 
   /**
    * Get lock information for a file
-   * 
+   *
    * @param filePath - Absolute path to the file
    * @returns The file lock if it exists and is not expired, null otherwise
    */
@@ -157,9 +149,7 @@ export const fileLockRepo = {
     const nowTime = new Date().toISOString();
 
     // Get lock for this file
-    const lock = db.select().from(fileLocks)
-      .where(eq(fileLocks.filePath, filePath))
-      .get();
+    const lock = db.select().from(fileLocks).where(eq(fileLocks.filePath, filePath)).get();
 
     if (!lock) return null;
 
@@ -173,7 +163,7 @@ export const fileLockRepo = {
 
   /**
    * List active locks with optional filtering
-   * 
+   *
    * @param filter - Optional filters for projectId, sessionId, or agentId
    * @returns Array of active file locks matching the filter criteria
    */
@@ -206,7 +196,7 @@ export const fileLockRepo = {
     const locks = query.all();
 
     // Filter out expired locks
-    return locks.filter(lock => {
+    return locks.filter((lock) => {
       if (!lock.expiresAt) return true;
       return lock.expiresAt > nowTime;
     });
@@ -214,7 +204,7 @@ export const fileLockRepo = {
 
   /**
    * Clean up expired locks
-   * 
+   *
    * @returns The number of locks removed
    */
   cleanupExpiredLocks(): number {
@@ -222,7 +212,9 @@ export const fileLockRepo = {
     const nowTime = new Date().toISOString();
 
     // Get all locks with expiration
-    const locks = db.select().from(fileLocks)
+    const locks = db
+      .select()
+      .from(fileLocks)
       .where(sql`${fileLocks.expiresAt} IS NOT NULL`)
       .all();
 
@@ -238,5 +230,3 @@ export const fileLockRepo = {
     return deleted;
   },
 };
-
-

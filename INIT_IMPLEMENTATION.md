@@ -23,6 +23,7 @@ Created a robust initialization system with:
 - **Status Reporting**: Detailed feedback on initialization state
 
 Key Functions:
+
 - `initializeDatabase()` - Apply pending migrations
 - `getMigrationStatus()` - Check what's applied/pending
 - `resetDatabase()` - Drop all tables and reinitialize (with confirmation)
@@ -42,6 +43,7 @@ Integrated auto-init into the database connection:
 Added a new MCP tool with three actions:
 
 **`init`** - Initialize or re-apply migrations
+
 ```json
 {
   "action": "init",
@@ -51,6 +53,7 @@ Added a new MCP tool with three actions:
 ```
 
 **`status`** - Check migration state
+
 ```json
 {
   "action": "status"
@@ -58,6 +61,7 @@ Added a new MCP tool with three actions:
 ```
 
 **`reset`** - Reset database (requires confirmation)
+
 ```json
 {
   "action": "reset",
@@ -69,6 +73,7 @@ Added a new MCP tool with three actions:
 ### 4. Handler Implementation (`src/mcp/handlers/init.handler.ts`)
 
 Created handlers that:
+
 - Provide user-friendly responses
 - Include safety checks (reset requires confirmation)
 - Return detailed status information
@@ -77,12 +82,14 @@ Created handlers that:
 ### 5. Testing
 
 Created `test-init.ts` script that verifies:
+
 - Database connection establishes successfully
 - All migrations are applied
 - All expected tables exist
 - Migration tracking works correctly
 
 Run with:
+
 ```bash
 npm run build && node dist/test-init.js
 ```
@@ -92,6 +99,7 @@ npm run build && node dist/test-init.js
 Created comprehensive documentation:
 
 **`docs/initialization.md`** - Complete initialization guide covering:
+
 - How automatic initialization works
 - Manual control via MCP tool
 - Environment variables
@@ -101,52 +109,60 @@ Created comprehensive documentation:
 - Architecture details
 
 **Updated existing docs:**
+
 - `docs/getting-started.md` - Simplified setup, emphasized auto-init
 - `docs/README.md` - Added initialization docs link, updated quick start
 
 ## Features
 
 ### ✅ Automatic Schema Setup
+
 - Creates database file if missing
 - Applies all migrations on first run
 - No manual `npm run db:migrate` needed
 
 ### ✅ Migration Tracking
+
 - Tracks which migrations have been applied
 - Prevents duplicate application
 - Maintains audit trail with timestamps
 
 ### ✅ Idempotent & Safe
+
 - Safe to restart server multiple times
 - Transactions ensure partial failures don't corrupt database
 - Clear error messages if something goes wrong
 
 ### ✅ Developer-Friendly
+
 - Works in both development (`src/`) and production (`dist/`)
 - Verbose logging available for debugging
 - Test script for validation
 - Can be disabled if needed
 
 ### ✅ Manual Override
+
 - MCP tool for checking status
 - Force re-initialization option
 - Database reset capability (with safeguards)
 
 ## Environment Variables
 
-| Variable | Purpose | Default |
-|----------|---------|---------|
-| `AGENT_MEMORY_DB_PATH` | Database file location | `./data/memory.db` |
-| `AGENT_MEMORY_SKIP_INIT` | Skip auto-initialization | `false` |
-| `AGENT_MEMORY_PERF` | Verbose logging | `false` |
+| Variable                 | Purpose                  | Default            |
+| ------------------------ | ------------------------ | ------------------ |
+| `AGENT_MEMORY_DB_PATH`   | Database file location   | `./data/memory.db` |
+| `AGENT_MEMORY_SKIP_INIT` | Skip auto-initialization | `false`            |
+| `AGENT_MEMORY_PERF`      | Verbose logging          | `false`            |
 
 ## Migration Files
 
 Two migrations currently tracked:
+
 1. `0000_lying_the_hand.sql` - Base schema
 2. `0001_add_file_locks.sql` - File locks table
 
 The `_migrations` table stores:
+
 ```sql
 CREATE TABLE _migrations (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -197,6 +213,7 @@ Applied migrations:
 ## Files Created/Modified
 
 ### Created
+
 - `src/db/init.ts` - Core initialization logic
 - `src/mcp/handlers/init.handler.ts` - MCP tool handlers
 - `docs/initialization.md` - Complete initialization guide
@@ -204,6 +221,7 @@ Applied migrations:
 - `INIT_IMPLEMENTATION.md` - This summary
 
 ### Modified
+
 - `src/db/connection.ts` - Added auto-init integration
 - `src/mcp/server.ts` - Added memory_init tool
 - `src/mcp/handlers/index.ts` - Exported init handlers
@@ -226,7 +244,7 @@ After restart, test the new functionality:
 
 ```javascript
 // Check initialization status
-memory_init({ action: "status" })
+memory_init({ action: 'status' });
 
 // Should show:
 // - initialized: true
@@ -239,7 +257,7 @@ memory_init({ action: "status" })
 The `memory_health` tool should now work without errors:
 
 ```javascript
-memory_health()
+memory_health();
 
 // Should show all tables with counts
 // No "no such table" errors

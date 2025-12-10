@@ -1,15 +1,7 @@
 import { and, eq } from 'drizzle-orm';
 import { getDb } from '../connection.js';
-import {
-  conflictLog,
-  type ConflictLog,
-} from '../schema.js';
-import {
-  now,
-  type PaginationOptions,
-  DEFAULT_LIMIT,
-  MAX_LIMIT,
-} from './base.js';
+import { conflictLog, type ConflictLog } from '../schema.js';
+import { now, type PaginationOptions, DEFAULT_LIMIT, MAX_LIMIT } from './base.js';
 
 // =============================================================================
 // TYPES
@@ -49,11 +41,7 @@ export const conflictRepo = {
       query = query.where(and(...conditions)) as typeof query;
     }
 
-    return query
-      .orderBy(conflictLog.detectedAt)
-      .limit(limit)
-      .offset(offset)
-      .all();
+    return query.orderBy(conflictLog.detectedAt).limit(limit).offset(offset).all();
   },
 
   /**
@@ -61,11 +49,7 @@ export const conflictRepo = {
    */
   getById(id: string): ConflictLog | undefined {
     const db = getDb();
-    return db
-      .select()
-      .from(conflictLog)
-      .where(eq(conflictLog.id, id))
-      .get();
+    return db.select().from(conflictLog).where(eq(conflictLog.id, id)).get();
   },
 
   /**
@@ -94,5 +78,3 @@ export const conflictRepo = {
     return this.getById(id) ?? undefined;
   },
 };
-
-

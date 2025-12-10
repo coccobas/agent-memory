@@ -2,16 +2,9 @@
  * Relation handlers
  */
 
-import {
-  entryRelationRepo,
-  type CreateRelationInput,
-} from '../../db/repositories/tags.js';
+import { entryRelationRepo, type CreateRelationInput } from '../../db/repositories/tags.js';
 
-import type {
-  RelationCreateParams,
-  RelationListParams,
-  RelationDeleteParams,
-} from '../types.js';
+import type { RelationCreateParams, RelationListParams, RelationDeleteParams } from '../types.js';
 
 // Helper to safely cast params
 function cast<T>(params: Record<string, unknown>): T {
@@ -20,14 +13,8 @@ function cast<T>(params: Record<string, unknown>): T {
 
 export const relationHandlers = {
   create(params: Record<string, unknown>) {
-    const {
-      sourceType,
-      sourceId,
-      targetType,
-      targetId,
-      relationType,
-      createdBy,
-    } = cast<RelationCreateParams>(params);
+    const { sourceType, sourceId, targetType, targetId, relationType, createdBy } =
+      cast<RelationCreateParams>(params);
 
     if (!sourceType) throw new Error('sourceType is required');
     if (!sourceId) throw new Error('sourceId is required');
@@ -49,15 +36,8 @@ export const relationHandlers = {
   },
 
   list(params: Record<string, unknown>) {
-    const {
-      sourceType,
-      sourceId,
-      targetType,
-      targetId,
-      relationType,
-      limit,
-      offset,
-    } = cast<RelationListParams>(params);
+    const { sourceType, sourceId, targetType, targetId, relationType, limit, offset } =
+      cast<RelationListParams>(params);
 
     const relations = entryRelationRepo.list(
       { sourceType, sourceId, targetType, targetId, relationType },
@@ -73,14 +53,8 @@ export const relationHandlers = {
   },
 
   delete(params: Record<string, unknown>) {
-    const {
-      id,
-      sourceType,
-      sourceId,
-      targetType,
-      targetId,
-      relationType,
-    } = cast<RelationDeleteParams>(params);
+    const { id, sourceType, sourceId, targetType, targetId, relationType } =
+      cast<RelationDeleteParams>(params);
 
     let success = false;
 
@@ -95,7 +69,9 @@ export const relationHandlers = {
         relationType
       );
     } else {
-      throw new Error('Either id or all of (sourceType, sourceId, targetType, targetId, relationType) are required');
+      throw new Error(
+        'Either id or all of (sourceType, sourceId, targetType, targetId, relationType) are required'
+      );
     }
 
     return { success };

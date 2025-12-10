@@ -1,6 +1,6 @@
 /**
  * Database initialization and migration module
- * 
+ *
  * Handles automatic schema setup and migration tracking to ensure
  * the database is always in a valid state when the server starts.
  */
@@ -44,9 +44,11 @@ function ensureMigrationTable(sqlite: Database.Database): void {
  */
 function getAppliedMigrations(sqlite: Database.Database): Set<string> {
   ensureMigrationTable(sqlite);
-  
-  const rows = sqlite.prepare('SELECT name FROM _migrations ORDER BY id').all() as { name: string }[];
-  return new Set(rows.map(r => r.name));
+
+  const rows = sqlite.prepare('SELECT name FROM _migrations ORDER BY id').all() as {
+    name: string;
+  }[];
+  return new Set(rows.map((r) => r.name));
 }
 
 /**
@@ -82,12 +84,12 @@ function getMigrationFiles(): Array<{ name: string; path: string; order: number 
   }
 
   const files = readdirSync(migrationsDir)
-    .filter(f => f.endsWith('.sql') && !f.includes('snapshot'))
+    .filter((f) => f.endsWith('.sql') && !f.includes('snapshot'))
     .sort(); // Natural sort ensures 0000_, 0001_, etc. are in order
 
   return files.map((file, idx) => ({
     name: file,
-    path: resolve(migrationsDir!, file),
+    path: resolve(migrationsDir, file),
     order: idx,
   }));
 }
@@ -97,13 +99,17 @@ function getMigrationFiles(): Array<{ name: string; path: string; order: number 
  */
 function isDatabaseInitialized(sqlite: Database.Database): boolean {
   try {
-    const tables = sqlite.prepare(`
+    const tables = sqlite
+      .prepare(
+        `
       SELECT name FROM sqlite_master 
       WHERE type='table' 
       AND name NOT LIKE 'sqlite_%' 
       AND name != '_migrations'
-    `).all() as { name: string }[];
-    
+    `
+      )
+      .all() as { name: string }[];
+
     return tables.length > 0;
   } catch (error) {
     return false;
@@ -115,12 +121,12 @@ function isDatabaseInitialized(sqlite: Database.Database): boolean {
  */
 function applyMigration(sqlite: Database.Database, name: string, path: string): void {
   const sql = readFileSync(path, 'utf-8');
-  
+
   // Split by statement-breakpoint comments that drizzle-kit generates
   const statements = sql
     .split(/-->\s*statement-breakpoint/i)
-    .map(s => s.trim())
-    .filter(s => s.length > 0 && !s.startsWith('--'));
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0 && !s.startsWith('--'));
 
   // Execute each statement
   for (const statement of statements) {
@@ -134,7 +140,7 @@ function applyMigration(sqlite: Database.Database, name: string, path: string): 
 
 /**
  * Initialize the database with all pending migrations
- * 
+ *
  * This function is idempotent and safe to call multiple times.
  * It will only apply migrations that haven't been applied yet.
  */
@@ -166,7 +172,7 @@ export function initializeDatabase(
     // Filter to only pending migrations
     const pendingMigrations = options.force
       ? migrationFiles
-      : migrationFiles.filter(m => !appliedMigrations.has(m.name));
+      : migrationFiles.filter((m) => !appliedMigrations.has(m.name));
 
     if (pendingMigrations.length === 0 && wasInitialized) {
       if (options.verbose) {
@@ -183,22 +189,23 @@ export function initializeDatabase(
         if (options.verbose) {
           console.log(`[init] Applying migration: ${migration.name}`);
         }
-        
+
         applyMigration(sqlite, migration.name, migration.path);
         result.migrationsApplied.push(migration.name);
       }
     })();
 
     result.success = true;
-    
-    if (options.verbose) {
-      console.log(`[init] Database initialized successfully. Applied ${result.migrationsApplied.length} migration(s)`);
-    }
 
+    if (options.verbose) {
+      console.log(
+        `[init] Database initialized successfully. Applied ${result.migrationsApplied.length} migration(s)`
+      );
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     result.errors.push(message);
-    
+
     if (options.verbose) {
       console.error('[init] Database initialization failed:', message);
     }
@@ -218,8 +225,8 @@ export function getMigrationStatus(sqlite: Database.Database): {
 } {
   const initialized = isDatabaseInitialized(sqlite);
   const appliedMigrations = Array.from(getAppliedMigrations(sqlite));
-  const allMigrations = getMigrationFiles().map(m => m.name);
-  const pendingMigrations = allMigrations.filter(m => !appliedMigrations.includes(m));
+  const allMigrations = getMigrationFiles().map((m) => m.name);
+  const pendingMigrations = allMigrations.filter((m) => !appliedMigrations.includes(m));
 
   return {
     initialized,
@@ -233,18 +240,25 @@ export function getMigrationStatus(sqlite: Database.Database): {
  * Reset database (drops all tables and re-initializes)
  * USE WITH CAUTION - This will delete all data!
  */
-export function resetDatabase(sqlite: Database.Database, options: { verbose?: boolean } = {}): InitResult {
+export function resetDatabase(
+  sqlite: Database.Database,
+  options: { verbose?: boolean } = {}
+): InitResult {
   try {
     if (options.verbose) {
       console.log('[init] Resetting database...');
     }
 
     // Get all tables
-    const tables = sqlite.prepare(`
+    const tables = sqlite
+      .prepare(
+        `
       SELECT name FROM sqlite_master 
       WHERE type='table' 
       AND name NOT LIKE 'sqlite_%'
-    `).all() as { name: string }[];
+    `
+      )
+      .all() as { name: string }[];
 
     // Drop all tables
     for (const table of tables) {

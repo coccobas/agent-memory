@@ -1,5 +1,11 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { setupTestDb, cleanupTestDb, createTestOrg, createTestProject, createTestTool } from '../fixtures/test-helpers.js';
+import {
+  setupTestDb,
+  cleanupTestDb,
+  createTestOrg,
+  createTestProject,
+  createTestTool,
+} from '../fixtures/test-helpers.js';
 
 const TEST_DB_PATH = './data/test-tools.db';
 
@@ -8,7 +14,7 @@ let db: ReturnType<typeof setupTestDb>['db'];
 
 vi.mock('../../src/db/connection.js', async () => {
   const actual = await vi.importActual<typeof import('../../src/db/connection.js')>(
-    '../../src/db/connection.js',
+    '../../src/db/connection.js'
   );
   return {
     ...actual,
@@ -179,7 +185,11 @@ describe('Tools Integration', () => {
     it('should return version history', () => {
       const { tool } = createTestTool(db, 'history_tool');
       toolHandlers.update({ id: tool.id, description: 'Version 2', changeReason: 'Update' });
-      toolHandlers.update({ id: tool.id, description: 'Version 3', changeReason: 'Another update' });
+      toolHandlers.update({
+        id: tool.id,
+        description: 'Version 3',
+        changeReason: 'Another update',
+      });
 
       const result = toolHandlers.history({ id: tool.id });
       expect(result.versions.length).toBeGreaterThanOrEqual(3);
@@ -210,4 +220,3 @@ describe('Tools Integration', () => {
     });
   });
 });
-

@@ -1,3 +1,8 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { getDb } from '../db/connection.js';
 import {
@@ -161,27 +166,24 @@ export interface ToolQueryResult extends QueryResultItemBase {
   type: 'tool';
   tool: Tool;
   version?: typeof toolVersions.$inferSelect;
-  versions?: typeof toolVersions.$inferSelect[];
+  versions?: (typeof toolVersions.$inferSelect)[];
 }
 
 export interface GuidelineQueryResult extends QueryResultItemBase {
   type: 'guideline';
   guideline: Guideline;
   version?: typeof guidelineVersions.$inferSelect;
-  versions?: typeof guidelineVersions.$inferSelect[];
+  versions?: (typeof guidelineVersions.$inferSelect)[];
 }
 
 export interface KnowledgeQueryResult extends QueryResultItemBase {
   type: 'knowledge';
   knowledge: Knowledge;
   version?: typeof knowledgeVersions.$inferSelect;
-  versions?: typeof knowledgeVersions.$inferSelect[];
+  versions?: (typeof knowledgeVersions.$inferSelect)[];
 }
 
-export type QueryResultItem =
-  | ToolQueryResult
-  | GuidelineQueryResult
-  | KnowledgeQueryResult;
+export type QueryResultItem = ToolQueryResult | GuidelineQueryResult | KnowledgeQueryResult;
 
 export interface MemoryQueryResult {
   results: QueryResultItem[];
@@ -222,9 +224,7 @@ export function resolveScopeChain(input?: {
 
     if (!inherit) return;
 
-    const exists = chain.some(
-      (s) => s.scopeType === scopeType && s.scopeId === scopeId,
-    );
+    const exists = chain.some((s) => s.scopeType === scopeType && s.scopeId === scopeId);
     if (!exists) {
       chain.push({ scopeType, scopeId });
     }
@@ -250,11 +250,7 @@ export function resolveScopeChain(input?: {
 
       if (inherit) {
         if (projectId) {
-          const project = db
-            .select()
-            .from(projects)
-            .where(eq(projects.id, projectId))
-            .get();
+          const project = db.select().from(projects).where(eq(projects.id, projectId)).get();
           if (project?.orgId) {
             pushUnique('org', project.orgId);
           }
@@ -268,11 +264,7 @@ export function resolveScopeChain(input?: {
       pushUnique('session', sessionId);
 
       if (inherit && sessionId) {
-        const session = db
-          .select()
-          .from(sessions)
-          .where(eq(sessions.id, sessionId))
-          .get();
+        const session = db.select().from(sessions).where(eq(sessions.id, sessionId)).get();
         if (session?.projectId) {
           pushUnique('project', session.projectId);
 
@@ -306,22 +298,14 @@ export function resolveScopeChain(input?: {
 // TAG & RELATION HELPERS
 // =============================================================================
 
-function getTagsForEntries(
-  entryType: QueryEntryType,
-  entryIds: string[],
-): Record<string, Tag[]> {
+function getTagsForEntries(entryType: QueryEntryType, entryIds: string[]): Record<string, Tag[]> {
   if (entryIds.length === 0) return {};
   const db = getDb();
 
   const entryTagRows = db
     .select()
     .from(entryTags)
-    .where(
-      and(
-        eq(entryTags.entryType, entryType),
-        inArray(entryTags.entryId, entryIds),
-      ),
-    )
+    .where(and(eq(entryTags.entryType, entryType), inArray(entryTags.entryId, entryIds)))
     .all();
 
   if (entryTagRows.length === 0) return {};
@@ -344,7 +328,7 @@ function getTagsForEntries(
 
 function filterByTags(
   tagsByEntry: Record<string, Tag[]>,
-  tagFilter: MemoryQueryParams['tags'],
+  tagFilter: MemoryQueryParams['tags']
 ): Set<string> {
   const include = new Set((tagFilter?.include ?? []).map((t) => t.toLowerCase()));
   const require = new Set((tagFilter?.require ?? []).map((t) => t.toLowerCase()));
@@ -396,7 +380,7 @@ function filterByTags(
 }
 
 function getRelatedEntryIds(
-  relatedTo: MemoryQueryParams['relatedTo'],
+  relatedTo: MemoryQueryParams['relatedTo']
 ): Record<QueryEntryType, Set<string>> {
   const result: Record<QueryEntryType, Set<string>> = {
     tool: new Set<string>(),
@@ -413,38 +397,33 @@ function getRelatedEntryIds(
     .from(entryRelations)
     .where(
       and(
-        inArray(entryRelations.sourceType, [
-          'tool',
-          'guideline',
-          'knowledge',
-          'project',
-        ]),
-        inArray(entryRelations.targetType, [
-          'tool',
-          'guideline',
-          'knowledge',
-          'project',
-        ]),
-      ),
+        inArray(entryRelations.sourceType, ['tool', 'guideline', 'knowledge', 'project']),
+        inArray(entryRelations.targetType, ['tool', 'guideline', 'knowledge', 'project'])
+      )
     )
     .all()
     .filter((rel) => {
-      const matchesSource =
-        rel.sourceType === relatedTo.type && rel.sourceId === relatedTo.id;
-      const matchesTarget =
-        rel.targetType === relatedTo.type && rel.targetId === relatedTo.id;
-      const matchesRelation =
-        !relatedTo.relation || rel.relationType === relatedTo.relation;
+      const matchesSource = rel.sourceType === relatedTo.type && rel.sourceId === relatedTo.id;
+      const matchesTarget = rel.targetType === relatedTo.type && rel.targetId === relatedTo.id;
+      const matchesRelation = !relatedTo.relation || rel.relationType === relatedTo.relation;
       return matchesRelation && (matchesSource || matchesTarget);
     });
 
   for (const rel of rows) {
-    if (rel.sourceType === 'tool' || rel.sourceType === 'guideline' || rel.sourceType === 'knowledge') {
+    if (
+      rel.sourceType === 'tool' ||
+      rel.sourceType === 'guideline' ||
+      rel.sourceType === 'knowledge'
+    ) {
       if (rel.sourceType === 'tool') result.tool.add(rel.sourceId);
       if (rel.sourceType === 'guideline') result.guideline.add(rel.sourceId);
       if (rel.sourceType === 'knowledge') result.knowledge.add(rel.sourceId);
     }
-    if (rel.targetType === 'tool' || rel.targetType === 'guideline' || rel.targetType === 'knowledge') {
+    if (
+      rel.targetType === 'tool' ||
+      rel.targetType === 'guideline' ||
+      rel.targetType === 'knowledge'
+    ) {
       if (rel.targetType === 'tool') result.tool.add(rel.targetId);
       if (rel.targetType === 'guideline') result.guideline.add(rel.targetId);
       if (rel.targetType === 'knowledge') result.knowledge.add(rel.targetId);
@@ -483,16 +462,15 @@ function computeScore(params: {
   }
 
   // Scope proximity: closer scopes get higher score
-  const scopeWeight = params.totalScopes > 0
-    ? (params.totalScopes - params.scopeIndex) / params.totalScopes
-    : 1;
+  const scopeWeight =
+    params.totalScopes > 0 ? (params.totalScopes - params.scopeIndex) / params.totalScopes : 1;
   score += 2 * scopeWeight;
 
   if (params.textMatched) {
     score += 1;
   }
 
-  if (params.priority != null) {
+  if (params.priority !== null && params.priority !== undefined) {
     score += (params.priority / 100) * 1.5;
   }
 
@@ -528,7 +506,7 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
     if (PERF_LOG) {
       // eslint-disable-next-line no-console
       console.error(
-        `[agent-memory] memory_query CACHE_HIT scope=${params.scope?.type ?? 'none'} results=${cached.results.length}`,
+        `[agent-memory] memory_query CACHE_HIT scope=${params.scope?.type ?? 'none'} results=${cached.results.length}`
       );
     }
     return cached;
@@ -538,9 +516,10 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
 
   const startMs = PERF_LOG ? Date.now() : 0;
 
-  const types = params.types && params.types.length > 0
-    ? params.types
-    : (['tools', 'guidelines', 'knowledge'] as const);
+  const types =
+    params.types && params.types.length > 0
+      ? params.types
+      : (['tools', 'guidelines', 'knowledge'] as const);
 
   const scopeChain = resolveScopeChain(params.scope);
   const limit = params.limit && params.limit > 0 ? params.limit : 20;
@@ -571,8 +550,8 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
             and(
               eq(tools.scopeType, scope.scopeType),
               scope.scopeId === null ? isNull(tools.scopeId) : eq(tools.scopeId, scope.scopeId),
-              eq(tools.isActive, true),
-            ),
+              eq(tools.isActive, true)
+            )
           )
           .all();
         for (const row of rows) {
@@ -588,8 +567,8 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
               scope.scopeId === null
                 ? isNull(guidelines.scopeId)
                 : eq(guidelines.scopeId, scope.scopeId),
-              eq(guidelines.isActive, true),
-            ),
+              eq(guidelines.isActive, true)
+            )
           )
           .all();
         for (const row of rows) {
@@ -605,8 +584,8 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
               scope.scopeId === null
                 ? isNull(knowledge.scopeId)
                 : eq(knowledge.scopeId, scope.scopeId),
-              eq(knowledge.isActive, true),
-            ),
+              eq(knowledge.isActive, true)
+            )
           )
           .all();
         for (const row of rows) {
@@ -619,16 +598,19 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
 
     // Deduplicate by (scopeType, scopeId, name/title)
     const dedupMap = new Map<string, { entry: Tool | Guideline | Knowledge; scopeIndex: number }>();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
     for (const item of entriesByScope) {
       const e = item.entry as any;
       const keyName = type === 'knowledge' ? e.title : e.name;
       const key = `${e.scopeType}:${e.scopeId ?? ''}:${keyName}`;
-      if (!dedupMap.has(key) || item.scopeIndex < dedupMap.get(key)!.scopeIndex) {
+      const existing = dedupMap.get(key);
+      if (!existing || item.scopeIndex < existing.scopeIndex) {
         dedupMap.set(key, item);
       }
     }
 
     const deduped = Array.from(dedupMap.values());
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
     const entryIds = deduped.map((d) => (d.entry as any).id as string);
 
     // Tags
@@ -647,15 +629,17 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
         entryType === 'tool'
           ? relatedIds.tool
           : entryType === 'guideline'
-          ? relatedIds.guideline
-          : relatedIds.knowledge;
+            ? relatedIds.guideline
+            : relatedIds.knowledge;
       allowedByRelation = relSet;
     }
 
     // Load current versions and optionally history
     const includeVersions = params.includeVersions ?? false;
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const versionMap = new Map<string, any>();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const historyMap = new Map<string, any[]>();
 
     if (type === 'tools') {
@@ -670,8 +654,10 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
         historyMap.set(v.toolId, list);
       }
       for (const [toolId, list] of historyMap) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         list.sort((a, b) => b.versionNum - a.versionNum);
-        versionMap.set(toolId, list[0]);
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+        versionMap.set(toolId, list[0] as (typeof list)[number]);
       }
     } else if (type === 'guidelines') {
       const versionRows = db
@@ -685,8 +671,10 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
         historyMap.set(v.guidelineId, list);
       }
       for (const [guidelineId, list] of historyMap) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         list.sort((a, b) => b.versionNum - a.versionNum);
-        versionMap.set(guidelineId, list[0]);
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+        versionMap.set(guidelineId, list[0] as (typeof list)[number]);
       }
     } else {
       const versionRows = db
@@ -700,11 +688,14 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
         historyMap.set(v.knowledgeId, list);
       }
       for (const [knowledgeId, list] of historyMap) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         list.sort((a, b) => b.versionNum - a.versionNum);
-        versionMap.set(knowledgeId, list[0]);
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+        versionMap.set(knowledgeId, list[0] as (typeof list)[number]);
       }
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument
     for (const { entry, scopeIndex } of deduped) {
       const base = entry as any;
       const id = base.id as string;
@@ -719,9 +710,7 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
       if (search) {
         if (type === 'tools') {
           const v = versionMap.get(id);
-          textMatched =
-            textMatches(base.name, search) ||
-            textMatches(v?.description, search);
+          textMatched = textMatches(base.name, search) || textMatches(v?.description, search);
         } else if (type === 'guidelines') {
           const v = versionMap.get(id);
           textMatched =
@@ -746,9 +735,7 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
         if (!params.tags || !params.tags.include || params.tags.include.length === 0) {
           return 0;
         }
-        const includeNames = new Set(
-          params.tags.include.map((t) => t.toLowerCase()),
-        );
+        const includeNames = new Set(params.tags.include.map((t) => t.toLowerCase()));
         const names = entryTags.map((t) => t.name.toLowerCase());
         let count = 0;
         for (const n of names) {
@@ -771,6 +758,7 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
         scopeIndex,
         totalScopes: scopeChain.length,
         textMatched: !!textMatched,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         priority: type === 'guidelines' ? (base.priority as number | null) : null,
         createdAt: base.createdAt as string | null | undefined,
       });
@@ -783,9 +771,9 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
           scopeId: base.scopeId ?? null,
           tags: entryTags,
           score,
-          tool: base,
+          tool: base as Tool,
           version: currentVersion,
-          versions: includeVersions ? historyMap.get(id) ?? [] : undefined,
+          versions: includeVersions ? (historyMap.get(id) ?? []) : undefined,
         };
         results.push(item);
       } else if (type === 'guidelines') {
@@ -796,9 +784,9 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
           scopeId: base.scopeId ?? null,
           tags: entryTags,
           score,
-          guideline: base,
+          guideline: base as Guideline,
           version: currentVersion,
-          versions: includeVersions ? historyMap.get(id) ?? [] : undefined,
+          versions: includeVersions ? (historyMap.get(id) ?? []) : undefined,
         };
         results.push(item);
       } else {
@@ -809,9 +797,9 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
           scopeId: base.scopeId ?? null,
           tags: entryTags,
           score,
-          knowledge: base,
+          knowledge: base as Knowledge,
           version: currentVersion,
-          versions: includeVersions ? historyMap.get(id) ?? [] : undefined,
+          versions: includeVersions ? (historyMap.get(id) ?? []) : undefined,
         };
         results.push(item);
       }
@@ -829,20 +817,21 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
   }
 
   // Sort by score desc then recency (createdAt desc)
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
   results.sort((a, b) => {
     if (b.score !== a.score) return b.score - a.score;
     const aCreated =
       (a.type === 'tool'
-        ? (a.tool.createdAt as string)
+        ? a.tool.createdAt
         : a.type === 'guideline'
-        ? (a.guideline.createdAt as string)
-        : (a.knowledge.createdAt as string)) ?? '';
+          ? a.guideline.createdAt
+          : a.knowledge.createdAt) ?? '';
     const bCreated =
       (b.type === 'tool'
-        ? (b.tool.createdAt as string)
+        ? b.tool.createdAt
         : b.type === 'guideline'
-        ? (b.guideline.createdAt as string)
-        : (b.knowledge.createdAt as string)) ?? '';
+          ? b.guideline.createdAt
+          : b.knowledge.createdAt) ?? '';
     return bCreated.localeCompare(aCreated);
   });
 
@@ -863,9 +852,11 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
         };
       } else if (item.type === 'guideline') {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const anyItem = item as any;
         delete anyItem.version;
         delete anyItem.versions;
+        // eslint-disable-next-line @typescript-eslint/await-thenable
         anyItem.guideline = {
           id: item.guideline.id,
           name: item.guideline.name,
@@ -899,8 +890,8 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
     // eslint-disable-next-line no-console
     console.error(
       `[agent-memory] memory_query scope=${params.scope?.type ?? 'none'} types=${types.join(
-        ',',
-      )} results=${limited.length}/${results.length} durationMs=${durationMs}`,
+        ','
+      )} results=${limited.length}/${results.length} durationMs=${durationMs}`
     );
   }
 
@@ -914,5 +905,3 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
 
   return result;
 }
-
-

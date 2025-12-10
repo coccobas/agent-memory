@@ -69,13 +69,8 @@ export function createValidationError(
 /**
  * Create a not found error with resource details
  */
-export function createNotFoundError(
-  resource: string,
-  identifier?: string
-): AgentMemoryError {
-  const message = identifier
-    ? `${resource} not found: ${identifier}`
-    : `${resource} not found`;
+export function createNotFoundError(resource: string, identifier?: string): AgentMemoryError {
+  const message = identifier ? `${resource} not found: ${identifier}` : `${resource} not found`;
 
   return new AgentMemoryError(message, ErrorCodes.NOT_FOUND, {
     resource,
@@ -87,28 +82,17 @@ export function createNotFoundError(
 /**
  * Create a conflict error with version details
  */
-export function createConflictError(
-  resource: string,
-  details: string
-): AgentMemoryError {
-  return new AgentMemoryError(
-    `Conflict detected: ${resource} - ${details}`,
-    ErrorCodes.CONFLICT,
-    {
-      resource,
-      suggestion:
-        'Check for recent updates and resolve the conflict using memory_conflict tool',
-    }
-  );
+export function createConflictError(resource: string, details: string): AgentMemoryError {
+  return new AgentMemoryError(`Conflict detected: ${resource} - ${details}`, ErrorCodes.CONFLICT, {
+    resource,
+    suggestion: 'Check for recent updates and resolve the conflict using memory_conflict tool',
+  });
 }
 
 /**
  * Create a file lock error
  */
-export function createFileLockError(
-  filePath: string,
-  lockedBy?: string
-): AgentMemoryError {
+export function createFileLockError(filePath: string, lockedBy?: string): AgentMemoryError {
   const message = lockedBy
     ? `File is locked: ${filePath} (locked by: ${lockedBy})`
     : `File is locked: ${filePath}`;
@@ -116,8 +100,7 @@ export function createFileLockError(
   return new AgentMemoryError(message, ErrorCodes.FILE_LOCKED, {
     filePath,
     lockedBy,
-    suggestion:
-      'Wait for the lock to be released or use force_unlock if the lock is stale',
+    suggestion: 'Wait for the lock to be released or use force_unlock if the lock is stale',
   });
 }
 
@@ -144,7 +127,11 @@ export function createInvalidActionError(
 /**
  * Format error for MCP response
  */
-export function formatError(error: unknown): { error: string; code?: string; context?: Record<string, unknown> } {
+export function formatError(error: unknown): {
+  error: string;
+  code?: string;
+  context?: Record<string, unknown>;
+} {
   if (error instanceof AgentMemoryError) {
     return error.toJSON();
   }

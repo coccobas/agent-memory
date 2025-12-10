@@ -12,7 +12,7 @@ let db: ReturnType<typeof drizzle>;
 
 vi.mock('../../src/db/connection.js', async () => {
   const actual = await vi.importActual<typeof import('../../src/db/connection.js')>(
-    '../../src/db/connection.js',
+    '../../src/db/connection.js'
   );
   return {
     ...actual,
@@ -64,15 +64,17 @@ describe('conflictRepo', () => {
 
   it('lists and resolves conflicts', () => {
     // Seed a conflict row
-    db.insert(schema.conflictLog).values({
-      id: 'conf-test-1',
-      entryType: 'tool',
-      entryId: 'tool-test',
-      versionAId: 'ver-a',
-      versionBId: 'ver-b',
-      detectedAt: '2024-12-10T00:00:00.000Z',
-      resolved: false,
-    }).run();
+    db.insert(schema.conflictLog)
+      .values({
+        id: 'conf-test-1',
+        entryType: 'tool',
+        entryId: 'tool-test',
+        versionAId: 'ver-a',
+        versionBId: 'ver-b',
+        detectedAt: '2024-12-10T00:00:00.000Z',
+        resolved: false,
+      })
+      .run();
 
     const unresolved = conflictRepo.list({ entryType: 'tool', resolved: false }, { limit: 10 });
     expect(unresolved.length).toBeGreaterThan(0);
@@ -92,5 +94,3 @@ describe('conflictRepo', () => {
     expect(resolvedRow?.resolved).toBe(true);
   });
 });
-
-

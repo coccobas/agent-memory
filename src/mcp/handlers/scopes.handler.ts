@@ -43,7 +43,7 @@ export const scopeHandlers = {
 
     const input: CreateOrganizationInput = {
       name,
-      metadata: metadata as Record<string, unknown> | undefined,
+      metadata: metadata,
     };
 
     const org = organizationRepo.create(input);
@@ -78,7 +78,7 @@ export const scopeHandlers = {
       orgId,
       description,
       rootPath,
-      metadata: metadata as Record<string, unknown> | undefined,
+      metadata: metadata,
     };
 
     const project = projectRepo.create(input);
@@ -129,7 +129,7 @@ export const scopeHandlers = {
     if (name !== undefined) input.name = name;
     if (description !== undefined) input.description = description;
     if (rootPath !== undefined) input.rootPath = rootPath;
-    if (metadata !== undefined) input.metadata = metadata as Record<string, unknown>;
+    if (metadata !== undefined) input.metadata = metadata;
 
     const project = projectRepo.update(id, input);
     if (!project) {
@@ -151,7 +151,7 @@ export const scopeHandlers = {
       name,
       purpose,
       agentId,
-      metadata: metadata as Record<string, unknown> | undefined,
+      metadata: metadata,
     };
 
     const session = sessionRepo.create(input);

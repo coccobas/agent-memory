@@ -1,5 +1,11 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { setupTestDb, cleanupTestDb, createTestOrg, createTestProject, createTestSession } from '../fixtures/test-helpers.js';
+import {
+  setupTestDb,
+  cleanupTestDb,
+  createTestOrg,
+  createTestProject,
+  createTestSession,
+} from '../fixtures/test-helpers.js';
 import * as schema from '../../src/db/schema.js';
 
 const TEST_DB_PATH = './data/test-scopes.db';
@@ -9,7 +15,7 @@ let db: ReturnType<typeof setupTestDb>['db'];
 
 vi.mock('../../src/db/connection.js', async () => {
   const actual = await vi.importActual<typeof import('../../src/db/connection.js')>(
-    '../../src/db/connection.js',
+    '../../src/db/connection.js'
   );
   return {
     ...actual,
@@ -123,10 +129,18 @@ describe('Scope Management Integration', () => {
       const project = createTestProject(db, 'Case-Sensitive-Test', orgId);
 
       // Test different case variations
-      expect(scopeHandlers.projectGet({ name: 'Case-Sensitive-Test', orgId }).project.id).toBe(project.id);
-      expect(scopeHandlers.projectGet({ name: 'case-sensitive-test', orgId }).project.id).toBe(project.id);
-      expect(scopeHandlers.projectGet({ name: 'CASE-SENSITIVE-TEST', orgId }).project.id).toBe(project.id);
-      expect(scopeHandlers.projectGet({ name: 'CaSe-SeNsItIvE-TeSt', orgId }).project.id).toBe(project.id);
+      expect(scopeHandlers.projectGet({ name: 'Case-Sensitive-Test', orgId }).project.id).toBe(
+        project.id
+      );
+      expect(scopeHandlers.projectGet({ name: 'case-sensitive-test', orgId }).project.id).toBe(
+        project.id
+      );
+      expect(scopeHandlers.projectGet({ name: 'CASE-SENSITIVE-TEST', orgId }).project.id).toBe(
+        project.id
+      );
+      expect(scopeHandlers.projectGet({ name: 'CaSe-SeNsItIvE-TeSt', orgId }).project.id).toBe(
+        project.id
+      );
     });
 
     it('should get project by name without orgId', () => {
@@ -273,4 +287,3 @@ describe('Scope Management Integration', () => {
     });
   });
 });
-

@@ -38,7 +38,11 @@ export const guidelineHandlers = {
     } = cast<GuidelineAddParams>(params);
 
     if (!scopeType) {
-      throw createValidationError('scopeType', 'is required', "Specify 'global', 'org', 'project', or 'session'");
+      throw createValidationError(
+        'scopeType',
+        'is required',
+        "Specify 'global', 'org', 'project', or 'session'"
+      );
     }
     if (!name) {
       throw createValidationError('name', 'is required', 'Provide a unique name for the guideline');
@@ -47,7 +51,11 @@ export const guidelineHandlers = {
       throw createValidationError('content', 'is required', 'Provide the guideline text');
     }
     if (scopeType !== 'global' && !scopeId) {
-      throw createValidationError('scopeId', `is required for ${scopeType} scope`, 'Provide the ID of the parent scope');
+      throw createValidationError(
+        'scopeId',
+        `is required for ${scopeType} scope`,
+        'Provide the ID of the parent scope'
+      );
     }
 
     const input: CreateGuidelineInput = {
@@ -67,16 +75,8 @@ export const guidelineHandlers = {
   },
 
   update(params: Record<string, unknown>) {
-    const {
-      id,
-      category,
-      priority,
-      content,
-      rationale,
-      examples,
-      changeReason,
-      updatedBy,
-    } = cast<GuidelineUpdateParams>(params);
+    const { id, category, priority, content, rationale, examples, changeReason, updatedBy } =
+      cast<GuidelineUpdateParams>(params);
 
     if (!id) {
       throw new Error('id is required');
@@ -123,7 +123,8 @@ export const guidelineHandlers = {
   },
 
   list(params: Record<string, unknown>) {
-    const { scopeType, scopeId, category, includeInactive, limit, offset } = cast<GuidelineListParams>(params);
+    const { scopeType, scopeId, category, includeInactive, limit, offset } =
+      cast<GuidelineListParams>(params);
 
     const guidelines = guidelineRepo.list(
       { scopeType, scopeId, category, includeInactive },
