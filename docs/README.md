@@ -220,7 +220,7 @@ agent-memory/
 - **MCP SDK** - Model Context Protocol integration
 - **SQLite** - Portable, zero-config database
 - **Drizzle ORM** - Type-safe queries and migrations
-- **Vitest** - Fast testing with 74% coverage
+- **Vitest** - Fast testing with ~78% coverage
 
 ## 🔧 Development
 
@@ -307,7 +307,7 @@ Quick setup:
 - ✅ File locks for multi-agent coordination
 - ✅ Conflict detection and resolution
 - ✅ Query caching (50-90% improvement for global queries)
-- ✅ 189 passing tests with 74% coverage
+- ✅ 228 passing tests with ~78% coverage (see [Testing Notes](./development.md#test-coverage))
 - 🔄 In active development
 
 ## 🌟 Features

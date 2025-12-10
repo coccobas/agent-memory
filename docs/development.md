@@ -224,9 +224,44 @@ describe('My Feature', () => {
 
 ### Coverage Goals
 
-- Aim for >80% statement coverage
+- Current: ~78% statement coverage
+- Target: >80% (not yet achieved due to testing limitations - see below)
 - Test edge cases and error conditions
 - Integration tests for critical paths
+
+#### Test Coverage Details
+
+**Current Coverage (228 tests passing):**
+- Statements: ~77%
+- Functions: ~77%
+- Branches: ~67%
+- Lines: ~79%
+
+**Coverage Limitations:**
+
+The project aims for >80% coverage, but currently sits at ~78% due to challenges testing MCP server handlers:
+
+1. **MCP Server Handler Testing** (`src/mcp/server.ts`):
+   - The MCP SDK's `Server` class manages handlers internally and doesn't expose them for direct testing
+   - Handler logic requires transport connection which complicates unit testing
+   - **Solution**: Individual handler logic is thoroughly tested through integration tests for each tool (memory_org, memory_query, etc.)
+   - The server's `createServer()` function is tested, but the internal `CallToolRequest` handler dispatch logic has limited coverage
+
+2. **Entry Point Testing** (`src/index.ts`):
+   - The CLI entry point runs server startup which is tested through integration tests
+   - Direct testing would require mocking process.argv and process.exit
+
+**What IS Well Tested:**
+- ✅ All database repositories (79-98% coverage)
+- ✅ All handler business logic (85-96% coverage)
+- ✅ Error handling utilities (80%+ coverage)
+- ✅ Query service (88-91% coverage)
+- ✅ Database initialization (86% coverage)
+
+**Strategy:**
+- Focus on testing business logic and handlers (well covered)
+- Accept limitation on server transport/handler dispatch layer
+- Individual tool handlers are fully tested through integration tests
 
 ## Debugging
 
