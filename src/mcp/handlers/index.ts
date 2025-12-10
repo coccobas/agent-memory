@@ -8,3 +8,5 @@ export * from './query.handler.js';
 export * from './conflicts.handler.js';
 export * from './file_locks.handler.js';
 export * from './init.handler.js';
+export * from './export.handler.js';
+export * from './import.handler.js';

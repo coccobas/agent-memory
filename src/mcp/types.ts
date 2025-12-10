@@ -398,3 +398,26 @@ export interface FileLockForceUnlockParams {
   agent_id: string;
   reason?: string;
 }
+
+// =============================================================================
+// EXPORT/IMPORT PARAMS
+// =============================================================================
+
+export interface ExportParams {
+  types?: ('tools' | 'guidelines' | 'knowledge')[];
+  scopeType?: ScopeType;
+  scopeId?: string;
+  tags?: string[];
+  format?: 'json' | 'markdown' | 'yaml';
+  includeVersions?: boolean;
+  includeInactive?: boolean;
+}
+
+export interface ImportParams {
+  content: string;
+  format?: 'json' | 'yaml' | 'markdown';
+  conflictStrategy?: 'skip' | 'update' | 'replace' | 'error';
+  scopeMapping?: Record<string, { type: ScopeType; id?: string }>;
+  generateNewIds?: boolean;
+  importedBy?: string;
+}

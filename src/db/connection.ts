@@ -96,6 +96,7 @@ export function closeDb(): void {
     sqliteInstance.close();
     sqliteInstance = null;
     dbInstance = null;
+    isInitialized = false; // Reset initialization flag
   }
 }
 

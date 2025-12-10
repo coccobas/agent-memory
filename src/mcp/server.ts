@@ -1,7 +1,7 @@
 /**
  * MCP Server for Agent Memory Database
  *
- * Tool Bundling: 45 individual tools consolidated into 12 action-based tools:
+ * Tool Bundling: 45+ individual tools consolidated into 15 action-based tools:
  * - memory_org (create, list)
  * - memory_project (create, list, get, update)
  * - memory_session (start, end, list)
@@ -14,6 +14,8 @@
  * - memory_query (search, context)
  * - memory_conflict (list, resolve)
  * - memory_init (init, status, reset)
+ * - memory_export (export) - NEW
+ * - memory_import (import) - NEW
  */
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
@@ -40,9 +42,11 @@ import { tagHandlers } from './handlers/tags.handler.js';
 import { relationHandlers } from './handlers/relations.handler.js';
 import { fileLockHandlers } from './handlers/file_locks.handler.js';
 import { initHandlers } from './handlers/init.handler.js';
+import { exportHandlers } from './handlers/export.handler.js';
+import { importHandlers } from './handlers/import.handler.js';
 
 // =============================================================================
-// BUNDLED TOOL DEFINITIONS (12 tools instead of 45)
+// BUNDLED TOOL DEFINITIONS (15 tools)
 // =============================================================================
 
 const TOOLS: Tool[] = [
@@ -784,6 +788,26 @@ const bundledHandlers: Record<string, (params: Record<string, unknown>) => unkno
         return initHandlers.reset(rest);
       default:
         throw new Error(`Unknown action for memory_init: ${String(action)}`);
+    }
+  },
+
+  memory_export: (params) => {
+    const { action, ...rest } = params;
+    switch (action) {
+      case 'export':
+        return exportHandlers.export(rest as Record<string, unknown>);
+      default:
+        throw new Error(`Unknown action for memory_export: ${String(action)}`);
+    }
+  },
+
+  memory_import: (params) => {
+    const { action, ...rest } = params;
+    switch (action) {
+      case 'import':
+        return importHandlers.import(rest as Record<string, unknown>);
+      default:
+        throw new Error(`Unknown action for memory_import: ${String(action)}`);
     }
   },
 };

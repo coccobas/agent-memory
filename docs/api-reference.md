@@ -1,13 +1,13 @@
 # API Reference
 
-Complete documentation for the 13 bundled MCP tools provided by Agent Memory (v0.2.0).
+Complete documentation for the 15 bundled MCP tools provided by Agent Memory (v0.2.0).
 
 ## Tool Bundling
 
-Agent Memory uses action-based tool bundling to reduce LLM decision fatigue. Instead of 45 individual tools, the server exposes 13 bundled tools with an `action` parameter to specify the operation.
+Agent Memory uses action-based tool bundling to reduce LLM decision fatigue. Instead of 45+ individual tools, the server exposes 15 bundled tools with an `action` parameter to specify the operation.
 
 **Benefits:**
-- Reduced tool count (45 → 13) for faster LLM decisions
+- Reduced tool count for faster LLM decisions
 - Consistent interface pattern across all tools
 - Easier to discover related operations
 
@@ -26,6 +26,8 @@ Agent Memory uses action-based tool bundling to reduce LLM decision fatigue. Ins
 - [memory_conflict](#memory_conflict) - Conflict management
 - [memory_health](#memory_health) - Health check and server status
 - [memory_init](#memory_init) - Database initialization and migrations
+- [memory_export](#memory_export) - Export entries to JSON/Markdown/YAML
+- [memory_import](#memory_import) - Import entries from JSON
 
 ---
 
@@ -1028,6 +1030,148 @@ This tool has no parameters and returns server version, database stats, and cach
   }
 }
 ```
+
+---
+
+## memory_export
+
+Export memory entries to JSON, Markdown, or YAML formats for backup, documentation, or migration.
+
+**Actions:** `export`
+
+### Action: export
+
+Export entries with optional filtering.
+
+```json
+{
+  "action": "export",
+  "types": ["tools", "guidelines"],
+  "scopeType": "project",
+  "scopeId": "proj_123",
+  "format": "json",
+  "includeVersions": true
+}
+```
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `action` | string | Yes | `export` |
+| `types` | array | No | Entry types to export: `tools`, `guidelines`, `knowledge` (default: all) |
+| `scopeType` | string | No | Filter by scope type: `global`, `org`, `project`, `session` |
+| `scopeId` | string | No | Filter by scope ID |
+| `tags` | array | No | Filter by tags (entries must have any of these tags) |
+| `format` | string | No | Export format: `json`, `markdown`, or `yaml` (default: json) |
+| `includeVersions` | boolean | No | Include full version history (default: false) |
+| `includeInactive` | boolean | No | Include inactive entries (default: false) |
+
+**Response:**
+```json
+{
+  "success": true,
+  "format": "json",
+  "content": "{\"version\":\"1.0\",\"exportedAt\":\"2024-12-10T...\",\"entries\":{...}}",
+  "metadata": {
+    "exportedAt": "2024-12-10T21:52:00.000Z",
+    "entryCount": 25,
+    "types": ["tools", "guidelines"],
+    "scopeType": "project",
+    "scopeId": "proj_123"
+  }
+}
+```
+
+**Export Formats:**
+
+- **JSON:** Full structured data with all metadata, tags, relations, and optionally version history
+- **Markdown:** Human-readable documentation format with headings and formatting
+- **YAML:** Structured, readable format (export only)
+
+**Use Cases:**
+- Backup knowledge bases to Git repositories
+- Generate documentation from memory entries
+- Share knowledge between projects or teams
+- Archive project-specific guidelines
+
+---
+
+## memory_import
+
+Import memory entries from JSON format with intelligent conflict resolution.
+
+**Actions:** `import`
+
+### Action: import
+
+Import entries with configurable conflict handling.
+
+```json
+{
+  "action": "import",
+  "content": "{\"version\":\"1.0\",\"entries\":{...}}",
+  "format": "json",
+  "conflictStrategy": "update",
+  "importedBy": "admin-user"
+}
+```
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `action` | string | Yes | `import` |
+| `content` | string | Yes | Content to import (JSON string from export) |
+| `format` | string | No | Import format: `json` (default: json) |
+| `conflictStrategy` | string | No | Conflict resolution: `skip`, `update`, `replace`, `error` (default: update) |
+| `scopeMapping` | object | No | Map old scopes to new: `{"global:": {"type": "project", "id": "proj_123"}}` |
+| `generateNewIds` | boolean | No | Generate new IDs for imported entries (default: false) |
+| `importedBy` | string | No | User/agent performing the import |
+
+**Conflict Strategies:**
+- **`update`** - Update existing entries, create new ones (default, safest for merging)
+- **`skip`** - Skip existing entries, only create new ones (preserves existing)
+- **`replace`** - Replace existing entries completely (overwrites)
+- **`error`** - Throw error if any entry already exists (strict, no modifications)
+
+**Response:**
+```json
+{
+  "success": true,
+  "created": 15,
+  "updated": 10,
+  "skipped": 0,
+  "errors": [],
+  "details": {
+    "tools": { "created": 5, "updated": 3, "skipped": 0 },
+    "guidelines": { "created": 7, "updated": 5, "skipped": 0 },
+    "knowledge": { "created": 3, "updated": 2, "skipped": 0 }
+  }
+}
+```
+
+**Scope Mapping Example:**
+
+When importing entries from one project to another:
+
+```json
+{
+  "action": "import",
+  "content": "...",
+  "scopeMapping": {
+    "project:old-proj-id": {
+      "type": "project",
+      "id": "new-proj-id"
+    }
+  }
+}
+```
+
+**Notes:**
+- Currently only JSON import is fully supported
+- YAML and Markdown import will return an error (export-only formats)
+- Tags are automatically created if they don't exist
+- Relations are preserved when IDs match
+- Use `conflictStrategy: "error"` for dry-run validation
 
 ---
 
