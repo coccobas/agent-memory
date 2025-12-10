@@ -456,14 +456,109 @@ CREATE VIRTUAL TABLE tools_fts USING fts5(
 
 ---
 
-## 🔗 References
+## 🔗 Real-World Project Comparisons
 
-- **LangGraph Memory:** Vector-based semantic search with embeddings
-- **Chroma/LanceDB:** Vector database systems with similarity search
-- **Knowledge Graphs:** Entity-relationship queries and graph traversal
-- **RAG Systems:** Hybrid retrieval (vector + structured)
-- **GitBook/Notion:** Rich export/import, templates, advanced search
+### Anthropic Memory MCP Server
+
+**Features they have:**
+
+- Knowledge graph with entities and relations
+- Persistent memory across conversations
+- Observation storage (facts about entities)
+
+**Gaps in our project:**
+
+- No entity-centric model (we have entries, but not a graph-first approach)
+- No "observation" concept (facts stored separately from entities)
+
+### Mem0
+
+**Features they have:**
+
+- Semantic search with embeddings (core feature)
+- Memory auto-improvement (updates memories based on usage)
+- User-specific memory scoping
+- Memory importance scoring
+
+**Gaps in our project:**
+
+- No semantic/vector search
+- No automatic memory improvement/refinement
+- No user-specific memory (we have scope but not user identity)
+
+### Agentic Tools MCP
+
+**Features they have:**
+
+- Task management integration
+- Time tracking
+- Task dependencies (we have relations, but not task-specific)
+- Unlimited hierarchical organization
+
+**Gaps in our project:**
+
+- Not focused on tasks (we're more knowledge-focused)
+
+### LangGraph Memory
+
+**Features they have:**
+
+- Semantic memory (vector embeddings)
+- Integration with vector stores (Chroma, MongoDB Atlas)
+- Memory summarization
+- Conversation memory
+
+**Gaps in our project:**
+
+- No conversation history tracking
+- No memory summarization
+- No vector store integration
+
+### Literature Memory MCP
+
+**Features they have:**
+
+- Academic paper management
+- Source analysis
+- Entity linking across materials
+- Note-taking integration
+
+**Gaps in our project:**
+
+- No document/file management
+- No source citation tracking
+- No note-taking capabilities
+
+---
+
+## 📊 Feature Matrix Comparison
+
+| Feature              | Agent Memory | Mem0 | LangGraph | Anthropic Memory |
+| -------------------- | ------------ | ---- | --------- | ---------------- |
+| Structured Storage   | ✅           | ✅   | ✅        | ✅               |
+| Hierarchical Scoping | ✅           | ✅   | ❌        | ❌               |
+| Version History      | ✅           | ❌   | ❌        | ❌               |
+| Semantic Search      | ❌           | ✅   | ✅        | ✅               |
+| Export/Import        | ❌           | ✅   | ✅        | ❌               |
+| Tag System           | ✅           | ❌   | ❌        | ❌               |
+| Relations            | ✅           | ✅   | ❌        | ✅               |
+| Conflict Detection   | ✅           | ❌   | ❌        | ❌               |
+| File Locks           | ✅           | ❌   | ❌        | ❌               |
+| Query Caching        | ✅           | ❌   | ❌        | ❌               |
+
+---
+
+## 🎯 Most Critical Missing Features
+
+Based on comparison with similar projects, these are the **most commonly found** features we're missing:
+
+1. **Semantic/Vector Search** - Present in Mem0, LangGraph, Anthropic Memory
+2. **Export/Import** - Standard feature for data portability
+3. **Full-Text Search (FTS5)** - Better search than simple LIKE queries
+4. **Conversation/Interaction History** - Track what agents queried/learned
 
 ---
 
 **Note:** This analysis focuses on feature gaps. The current system is well-designed and production-ready. These features would enhance it further, but aren't blockers for current use cases.
+
+**Recommendation:** Prioritize semantic search and export/import as these are the most common features in similar systems and provide the most value.
