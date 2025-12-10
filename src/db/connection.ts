@@ -7,6 +7,7 @@
  * - AGENT_MEMORY_CACHE: Enable query result caching (set to '0' to disable, enabled by default)
  * - AGENT_MEMORY_SKIP_INIT: Skip automatic database initialization (set to '1' to skip)
  */
+/* eslint-disable no-console */
 
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
@@ -105,7 +106,10 @@ export function getSqlite(): Database.Database {
   if (!sqliteInstance) {
     getDb(); // Initialize if not already done
   }
-  return sqliteInstance!;
+  if (!sqliteInstance) {
+    throw new Error('Failed to initialize database connection');
+  }
+  return sqliteInstance;
 }
 
 /**

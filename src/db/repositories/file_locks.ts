@@ -66,7 +66,11 @@ export const fileLockRepo = {
 
     db.insert(fileLocks).values(lock).run();
 
-    return this.getLock(filePath)!;
+    const result = this.getLock(filePath);
+    if (!result) {
+      throw new Error(`Failed to create lock for ${filePath}`);
+    }
+    return result;
   },
 
   /**

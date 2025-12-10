@@ -1,6 +1,7 @@
 /**
  * Test script for database initialization
  */
+/* eslint-disable no-console */
 
 import { getDb, closeDb, getSqlite } from './db/connection.js';
 import { getMigrationStatus } from './db/init.js';

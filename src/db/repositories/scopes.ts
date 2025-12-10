@@ -43,7 +43,11 @@ export const organizationRepo = {
 
     db.insert(organizations).values(org).run();
 
-    return this.getById(id)!;
+    const result = this.getById(id);
+    if (!result) {
+      throw new Error(`Failed to create organization ${id}`);
+    }
+    return result;
   },
 
   /**
@@ -137,7 +141,11 @@ export const projectRepo = {
 
     db.insert(projects).values(project).run();
 
-    return this.getById(id)!;
+    const result = this.getById(id);
+    if (!result) {
+      throw new Error(`Failed to create project ${id}`);
+    }
+    return result;
   },
 
   /**
@@ -263,7 +271,11 @@ export const sessionRepo = {
 
     db.insert(sessions).values(session).run();
 
-    return this.getById(id)!;
+    const result = this.getById(id);
+    if (!result) {
+      throw new Error(`Failed to create session ${id}`);
+    }
+    return result;
   },
 
   /**

@@ -104,7 +104,11 @@ export const knowledgeRepo = {
 
       db.insert(knowledgeVersions).values(version).run();
 
-      return this.getById(knowledgeId)!;
+      const result = this.getById(knowledgeId);
+      if (!result) {
+        throw new Error(`Failed to create knowledge entry ${knowledgeId}`);
+      }
+      return result;
     });
   },
 

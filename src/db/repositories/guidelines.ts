@@ -104,7 +104,11 @@ export const guidelineRepo = {
 
       db.insert(guidelineVersions).values(version).run();
 
-      return this.getById(guidelineId)!;
+      const result = this.getById(guidelineId);
+      if (!result) {
+        throw new Error(`Failed to create guideline ${guidelineId}`);
+      }
+      return result;
     });
   },
 

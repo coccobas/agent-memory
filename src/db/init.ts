@@ -4,6 +4,7 @@
  * Handles automatic schema setup and migration tracking to ensure
  * the database is always in a valid state when the server starts.
  */
+/* eslint-disable no-console */
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';

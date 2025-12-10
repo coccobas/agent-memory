@@ -103,7 +103,11 @@ export const toolRepo = {
 
       db.insert(toolVersions).values(version).run();
 
-      return this.getById(toolId)!;
+      const result = this.getById(toolId);
+      if (!result) {
+        throw new Error(`Failed to create tool ${toolId}`);
+      }
+      return result;
     });
   },
 

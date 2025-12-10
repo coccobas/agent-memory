@@ -50,7 +50,11 @@ export const tagRepo = {
 
     db.insert(tags).values(tag).run();
 
-    return this.getById(id)!;
+    const result = this.getById(id);
+    if (!result) {
+      throw new Error(`Failed to create tag ${id}`);
+    }
+    return result;
   },
 
   /**
@@ -329,7 +333,11 @@ export const entryTagRepo = {
 
     db.insert(entryTags).values(entryTag).run();
 
-    return db.select().from(entryTags).where(eq(entryTags.id, id)).get()!;
+    const result = db.select().from(entryTags).where(eq(entryTags.id, id)).get();
+    if (!result) {
+      throw new Error(`Failed to create entry tag ${id}`);
+    }
+    return result;
   },
 
   /**
@@ -456,7 +464,11 @@ export const entryRelationRepo = {
 
     db.insert(entryRelations).values(relation).run();
 
-    return db.select().from(entryRelations).where(eq(entryRelations.id, id)).get()!;
+    const result = db.select().from(entryRelations).where(eq(entryRelations.id, id)).get();
+    if (!result) {
+      throw new Error(`Failed to create entry relation ${id}`);
+    }
+    return result;
   },
 
   /**
