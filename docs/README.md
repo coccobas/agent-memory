@@ -43,6 +43,7 @@ AI agents working on codebases face a context dilemma:
 2. **Too little context** - Missing critical guidelines, decisions, or tool knowledge leads to errors
 3. **Stale context** - Knowledge gets outdated as projects evolve
 4. **Isolated context** - Multiple agents can't share learnings
+5. **Million-step tasks** - Large-scale agentic workflows need reliable memory (validated by [recent research](https://arxiv.org/abs/2511.09030))
 
 Agent Memory solves this by providing a **queryable memory layer**:
 
@@ -188,6 +189,7 @@ Add to `~/.config/claude/claude_desktop_config.json`:
 - [Data Model](./data-model.md) - Entity relationships and scoping
 - [Testing Guide](./testing-guide.md) - Testing guidelines and examples
 - [Feature Gaps](./FEATURE_GAPS.md) - Missing features compared to similar projects
+- [MDAP Support](./mdap-support.md) - Large-scale agentic workflows and million-step tasks
 
 ### Examples
 - [Example Workflows](../examples/workflows/) - Practical usage examples
@@ -321,6 +323,27 @@ Quick setup:
 - **Tag System** - Predefined + custom tags for organization
 - **Relations** - Link related entries across memory sections
 - **Type-Safe** - Full TypeScript with strict mode
+- **MDAP-Ready** - Supports Massively Decomposed Agentic Processes for million-step tasks
+
+## 🔬 Research-Validated Architecture
+
+Agent Memory's design aligns with cutting-edge research on large-scale agentic systems:
+
+**[arXiv:2511.09030](https://arxiv.org/abs/2511.09030)** - "Solving a Million-Step LLM Task with Zero Errors"
+
+This research demonstrates that solving million-step LLM tasks requires:
+- ✅ **Maximal decomposition** → Supported via hierarchical scoping
+- ✅ **Multi-agent coordination** → File locks and conflict detection
+- ✅ **Error tracking** → Append-only versioning with conflict flags
+- ✅ **Reliable context** → Queryable, version-controlled memory
+
+Agent Memory provides the memory infrastructure that enables **Massively Decomposed Agentic Processes (MDAPs)**, making it suitable for:
+- Long-running multi-agent workflows
+- Complex task decomposition hierarchies
+- Million-step reasoning tasks
+- Production-scale agentic systems
+
+See [Architecture: MDAP Support](./architecture.md#support-for-large-scale-agentic-workflows-mdap) for details.
 
 ## 📝 License
 

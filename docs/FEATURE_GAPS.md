@@ -596,3 +596,285 @@ Based on comparison with similar projects, these are the **most commonly found**
 
 **Note:** This analysis focuses on feature gaps. The current system is well-designed and production-ready. Major gaps (semantic search, export/import) have been addressed. Remaining features would enhance it further, but aren't blockers for current use cases.
 
+---
+
+## 🔬 Research Validation & Large-Scale Agentic Workflows
+
+### Massively Decomposed Agentic Processes (MDAP) Alignment
+
+Recent academic research ([arXiv:2511.09030](https://arxiv.org/abs/2511.09030) - "Solving a Million-Step LLM Task with Zero Errors") demonstrates that solving large-scale LLM tasks (1M+ steps) requires:
+
+1. **Maximal Task Decomposition** - Breaking tasks into minimal subtasks
+2. **Multi-Agent Error Correction** - Voting schemes across multiple agents
+3. **Red-Flagging** - Identifying and discarding unreliable responses
+4. **Decorrelated Errors** - Ensuring agents don't make the same mistakes
+
+### How Agent Memory Supports MDAP Workflows
+
+Agent Memory's architecture aligns well with MDAP requirements:
+
+| MDAP Requirement | Agent Memory Feature | Status |
+|------------------|---------------------|--------|
+| **Task Decomposition** | Hierarchical scoping (Session → Project → Org → Global) | ✅ Implemented |
+| **Multi-Agent Coordination** | File locks, concurrent write handling | ✅ Implemented |
+| **Error Detection** | Conflict detection, version history | ✅ Implemented |
+| **Reliability Tracking** | Version history with conflict flags | ✅ Implemented |
+| **Context Inheritance** | Scope inheritance in queries | ✅ Implemented |
+
+### 🆕 MDAP-Inspired Features (Future)
+
+Based on MDAP research findings, these features would further enhance large-scale agentic workflows:
+
+---
+
+### 23. Task Decomposition & Execution Tracking ⭐ HIGH PRIORITY
+
+**Current State:** Sessions exist but don't explicitly track task hierarchies
+
+**Gap:** No structured way to represent task decomposition trees
+
+**Proposed Implementation:**
+
+```typescript
+{
+  "action": "add",
+  "taskType": "decomposition",
+  "parentTask": "task-id",
+  "subtasks": ["subtask-1", "subtask-2"],
+  "decompositionStrategy": "maximal" | "balanced" | "minimal"
+}
+```
+
+**Features:**
+
+- Store task decomposition hierarchies
+- Track subtask dependencies using entry relations
+- Record decomposition depth and branching factor
+- Analyze optimal decomposition strategies
+
+**MDAP Connection:** Directly supports Maximal Agentic Decomposition principle
+
+**Priority:** HIGH - Critical for 1M+ step task support
+
+---
+
+### 24. Multi-Agent Consensus & Voting ⭐ HIGH PRIORITY
+
+**Current State:** Multiple agents can work, but no voting/consensus mechanism
+
+**Gap:** No way to store agent votes or consensus results
+
+**Proposed Implementation:**
+
+```sql
+CREATE TABLE agent_votes (
+  id TEXT PRIMARY KEY,
+  task_id TEXT,
+  agent_id TEXT,
+  vote_value TEXT, -- Agent's answer/decision
+  confidence REAL, -- 0-1 confidence score
+  reasoning TEXT,  -- Why this vote
+  created_at TEXT
+);
+```
+
+**Features:**
+
+- Record votes from multiple agents on same subtask
+- Calculate consensus using first-to-ahead-by-k algorithm
+- Track voting patterns per agent (reliability scoring)
+- Store dissenting opinions for analysis
+
+**MDAP Connection:** Implements First-to-Ahead-by-k Voting scheme
+
+**Priority:** HIGH - Essential for error correction at scale
+
+---
+
+### 25. Red-Flag Pattern Library ⭐ MEDIUM PRIORITY
+
+**Current State:** No systematic tracking of failure patterns
+
+**Gap:** Can't learn from past failures to prevent future ones
+
+**Proposed Implementation:**
+
+- **Guideline category:** `red_flag` or `failure_pattern`
+- Store patterns that indicate unreliable responses:
+  - Formatting issues (malformed JSON, missing fields)
+  - Overly long reasoning (> N tokens)
+  - Inconsistent outputs (changing answers frequently)
+  - Confidence mismatches (high confidence but wrong)
+
+**Features:**
+
+- Detect red-flag patterns automatically
+- Score entries by red-flag risk
+- Track which patterns correlate with errors
+- Update patterns based on outcomes
+
+**MDAP Connection:** Implements Red-Flagging for reliability
+
+**Priority:** MEDIUM - Improves reliability over time
+
+---
+
+### 26. Subtask Execution Analytics ⭐ MEDIUM PRIORITY
+
+**Current State:** Basic analytics exist, but not subtask-focused
+
+**Gap:** No analysis of subtask success rates, execution times, or error patterns
+
+**Proposed Metrics:**
+
+- Success rate per subtask type
+- Average execution time per subtask
+- Error correlation (which subtasks fail together)
+- Agent reliability per subtask type
+- Decomposition efficiency (depth vs. success rate)
+
+**Features:**
+
+- Track every subtask execution
+- Calculate failure probabilities
+- Identify bottleneck subtasks
+- Predict total execution cost
+- Optimize decomposition strategies
+
+**MDAP Connection:** Enables scaling law predictions (success probability vs. decomposition depth)
+
+**Priority:** MEDIUM - Data-driven optimization
+
+---
+
+### 27. Decorrelated Error Detection ⭐ MEDIUM PRIORITY
+
+**Current State:** Duplicate detection exists but doesn't analyze error correlation
+
+**Gap:** Can't detect when multiple agents make the same systematic error
+
+**Proposed Implementation:**
+
+- Track error patterns across agents
+- Measure error correlation between agents
+- Flag when errors are too correlated (agents not diverse enough)
+- Suggest agent configuration changes
+
+**Features:**
+
+- Correlation coefficient for errors between agent pairs
+- Alert when correlation exceeds threshold (e.g., > 0.7)
+- Recommend diversification strategies
+- Track which agent combinations have low error correlation
+
+**MDAP Connection:** Ensures benefits of multi-agent voting (decorrelated errors)
+
+**Priority:** MEDIUM - Maximizes multi-agent benefits
+
+---
+
+### 28. Subtask Templates & Patterns ⭐ LOW PRIORITY
+
+**Current State:** No predefined subtask patterns
+
+**Gap:** Agents must rediscover common decomposition patterns
+
+**Proposed Implementation:**
+
+- Library of proven subtask decompositions
+- Templates for common task types
+- Success rate tracking per template
+- Automatic template suggestion
+
+**Features:**
+
+- Store successful decomposition patterns
+- Tag by domain (coding, analysis, planning)
+- Track historical success rates
+- Version templates as they improve
+
+**MDAP Connection:** Accelerates decomposition with proven patterns
+
+**Priority:** LOW - Convenience feature, builds over time
+
+---
+
+## 📊 Updated Feature Matrix: MDAP Support
+
+| Capability | Agent Memory | MDAP Research | Gap |
+|-----------|--------------|---------------|-----|
+| **Task Decomposition** | Hierarchical scoping | Maximal decomposition | Need explicit task trees |
+| **Multi-Agent Coordination** | File locks, conflicts | Concurrent execution | ✅ Adequate |
+| **Error Correction** | Conflict detection | Voting schemes | Need voting storage |
+| **Failure Pattern Recognition** | No | Red-flagging | Need pattern library |
+| **Reliability Scoring** | Basic (confidence field) | Agent reliability metrics | Need comprehensive scoring |
+| **Execution Analytics** | Basic counts | Scaling laws, cost prediction | Need detailed tracking |
+| **Decorrelated Errors** | No | Critical for voting | Need correlation analysis |
+| **Version History** | ✅ Full append-only | Required for 1M+ steps | ✅ Complete |
+| **Scope Inheritance** | ✅ Implemented | Enables decomposition | ✅ Complete |
+
+---
+
+## 🎯 Revised Implementation Priority (MDAP-Enhanced)
+
+### Phase 1: Core Gaps + MDAP Foundation
+1. ❌ **Full-Text Search (FTS5)** - 2-3 days
+2. ❌ **Fine-Grained Permissions** - 1 week
+3. ❌ **Task Decomposition Tracking** (New #23) - 3-4 days
+4. ❌ **Multi-Agent Voting** (New #24) - 3-4 days
+
+### Phase 2: MDAP-Specific + Medium Priority
+5. ❌ **Red-Flag Pattern Library** (New #25) - 2-3 days
+6. ❌ **Audit Log** (Enhanced with subtask tracking) - 3-5 days
+7. ❌ **Subtask Execution Analytics** (New #26) - 3-4 days
+8. ❌ **Decorrelated Error Detection** (New #27) - 2-3 days
+9. ❌ **Advanced Filtering** - 2-3 days
+10. ❌ **Batch Operations** - 2-3 days
+
+### Phase 3: Remaining Features
+- All other medium/low priority features as originally planned
+
+---
+
+## 💡 Key Insights from MDAP Research
+
+1. **Decomposition Depth Matters:**
+   - Extreme decomposition (minimal subtasks) enables reliable scaling
+   - Agent Memory should explicitly support and track decomposition depth
+
+2. **Multi-Agent Voting is Essential:**
+   - Single-agent reliability is insufficient for million-step tasks
+   - Consensus mechanisms dramatically improve success rates
+   - Agent Memory needs voting infrastructure
+
+3. **Red-Flagging Prevents Cascading Failures:**
+   - Early detection of unreliable responses prevents error propagation
+   - Pattern libraries should be version-controlled and sharable
+
+4. **Version History is Critical:**
+   - Every step must be traceable for debugging 1M+ step processes
+   - Agent Memory's append-only versioning already supports this ✅
+
+5. **Decorrelated Errors Enable Voting:**
+   - Voting only helps if agents make independent errors
+   - Need to measure and maintain error decorrelation
+
+---
+
+## 📈 Academic Validation
+
+The MDAP research validates several design decisions in Agent Memory:
+
+✅ **Hierarchical Scoping** - Enables task decomposition at multiple levels
+✅ **Version History** - Essential for reliability in long processes  
+✅ **Multi-Agent Coordination** - File locks and conflict detection already implemented
+✅ **Structured Storage** - Queryable memory is critical (vs. context stuffing)
+
+**Future Work:** Enhance with explicit MDAP-specific features (voting, red-flags, subtask analytics)
+
+---
+
+**References:**
+- [arXiv:2511.09030](https://arxiv.org/abs/2511.09030) - "Solving a Million-Step LLM Task with Zero Errors"
+- MAKER Framework: Maximal Agentic decomposition, first-to-ahead-by-K Error correction, Red-flagging
+
