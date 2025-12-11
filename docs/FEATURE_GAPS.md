@@ -6,7 +6,7 @@ Comparison of Agent Memory with similar projects and identification of potential
 
 Agent Memory is a well-architected knowledge management system for AI agents with strong fundamentals. Based on comparison with similar systems (LangGraph, vector databases, knowledge graphs, RAG systems), here are identified gaps and enhancement opportunities.
 
-**Recent Updates (v0.3.0):**
+**Recent Updates (v0.4.0):**
 - ✅ Semantic/Vector Search - Fully implemented with LanceDB and hybrid scoring
 - ✅ Export/Import System - Complete with JSON, Markdown, YAML support
 
@@ -35,7 +35,7 @@ Agent Memory is a well-architected knowledge management system for AI agents wit
 - Configurable similarity threshold (default: 0.7)
 - Vector DB stored in `data/vectors.lance`
 
-**Status:** ✅ Complete - Ready for production use (v0.3.0)
+**Status:** ✅ Complete - Ready for production use (v0.4.0)
 
 ---
 
@@ -58,7 +58,7 @@ Agent Memory is a well-architected knowledge management system for AI agents wit
 
 **Usage:** Set `useFts5: true` in `memory_query` search action
 
-**Status:** ✅ Complete - Ready for production use (v0.3.0)
+**Status:** ✅ Complete - Ready for production use (v0.4.0)
 
 ---
 
@@ -415,10 +415,10 @@ Agent Memory is a well-architected knowledge management system for AI agents wit
 
 ### HIGH PRIORITY (Core Features)
 
-1. ✅ **Semantic/Vector Search** - ✅ IMPLEMENTED (v0.3.0)
-2. ✅ **Full-Text Search (FTS5)** - ✅ IMPLEMENTED (v0.3.0)
+1. ✅ **Semantic/Vector Search** - ✅ IMPLEMENTED (v0.4.0)
+2. ✅ **Full-Text Search (FTS5)** - ✅ IMPLEMENTED (v0.4.0)
 3. ✅ **Export/Import Functionality** - ✅ IMPLEMENTED
-4. ✅ **Fine-Grained Permissions** - ✅ IMPLEMENTED (v0.3.0)
+4. ✅ **Fine-Grained Permissions** - ✅ IMPLEMENTED (v0.4.0)
 
 ### MEDIUM PRIORITY (Nice to Have)
 
@@ -450,12 +450,12 @@ Agent Memory is a well-architected knowledge management system for AI agents wit
 
 **Phase 1 (Quick Wins):**
 
-- ✅ 1. Full-Text Search (FTS5) - **COMPLETED** (v0.3.0)
+- ✅ 1. Full-Text Search (FTS5) - **COMPLETED** (v0.4.0)
 - ✅ 2. Export/Import - **COMPLETED**
-- ✅ 3. Advanced Filtering - **COMPLETED** (v0.3.0)
+- ✅ 3. Advanced Filtering - **COMPLETED** (v0.4.0)
 
 **Phase 2 (Core Features):** 
-- ✅ 4. Semantic/Vector Search - **COMPLETED** (v0.3.0)
+- ✅ 4. Semantic/Vector Search - **COMPLETED** (v0.4.0)
 - ❌ 5. Fine-Grained Permissions - 1 week (not started)
 
 **Phase 3 (Enhancements):** 6. Batch Operations 7. Duplicate Detection 8. Audit Log 9. Usage Analytics
@@ -518,7 +518,7 @@ Agent Memory is a well-architected knowledge management system for AI agents wit
 
 **Gaps in our project:**
 
-- ✅ Conversation history tracking - **IMPLEMENTED** (v0.3.0)
+- ✅ Conversation history tracking - **IMPLEMENTED** (v0.4.0)
 - ❌ No memory summarization
 - ✅ Vector store integration - **IMPLEMENTED** (LanceDB)
 
@@ -562,8 +562,8 @@ Based on comparison with similar projects, these are the **most commonly found**
 
 1. ✅ **Semantic/Vector Search** - ✅ **IMPLEMENTED** (was missing, now complete)
 2. ✅ **Export/Import** - ✅ **IMPLEMENTED** (was missing, now complete)
-3. ✅ **Full-Text Search (FTS5)** - Better search than simple LIKE queries - **✅ IMPLEMENTED** (v0.3.0)
-4. ✅ **Conversation/Interaction History** - Track what agents queried/learned - **✅ IMPLEMENTED** (v0.3.0)
+3. ✅ **Full-Text Search (FTS5)** - Better search than simple LIKE queries - **✅ IMPLEMENTED** (v0.4.0)
+4. ✅ **Conversation/Interaction History** - Track what agents queried/learned - **✅ IMPLEMENTED** (v0.4.0)
 5. ❌ **Fine-Grained Permissions** - Essential for multi-tenant/multi-agent scenarios - **STILL MISSING**
 6. ❌ **Memory Auto-Improvement** - Automatic refinement based on usage (Mem0 feature) - **STILL MISSING**
 
@@ -573,7 +573,7 @@ Based on comparison with similar projects, these are the **most commonly found**
 
 ### ✅ Recently Completed
 
-1. **Semantic/Vector Search (v0.3.0)** - Full implementation with:
+1. **Semantic/Vector Search (v0.4.0)** - Full implementation with:
    - OpenAI and local model support
    - LanceDB vector database
    - Hybrid scoring algorithm
@@ -818,8 +818,8 @@ CREATE TABLE agent_votes (
 ## 🎯 Revised Implementation Priority (MDAP-Enhanced)
 
 ### Phase 1: Core Gaps + MDAP Foundation
-1. ✅ **Full-Text Search (FTS5)** - ✅ COMPLETED (v0.3.0)
-2. ✅ **Fine-Grained Permissions** - ✅ COMPLETED (v0.3.0)
+1. ✅ **Full-Text Search (FTS5)** - ✅ COMPLETED (v0.4.0)
+2. ✅ **Fine-Grained Permissions** - ✅ COMPLETED (v0.4.0)
 3. ❌ **Task Decomposition Tracking** (New #23) - 3-4 days
 4. ❌ **Multi-Agent Voting** (New #24) - 3-4 days
 
