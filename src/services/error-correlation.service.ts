@@ -196,8 +196,9 @@ export function detectLowDiversity(projectId: string): LowDiversityResult {
 
   for (let i = 0; i < agentIds.length; i++) {
     for (let j = i + 1; j < agentIds.length; j++) {
-      const agentA = agentIds[i]!;
-      const agentB = agentIds[j]!;
+      const agentA = agentIds[i];
+      const agentB = agentIds[j];
+      if (!agentA || !agentB) continue;
 
       const correlation = calculateErrorCorrelation({ agentA, agentB });
       agentPairs.push({
@@ -235,8 +236,3 @@ export function detectLowDiversity(projectId: string): LowDiversityResult {
     recommendations,
   };
 }
-
-
-
-
-

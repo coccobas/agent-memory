@@ -492,4 +492,3 @@ export const conversationRepo = {
     return query.orderBy(desc(conversations.startedAt)).limit(limit).offset(offset).all();
   },
 };
-

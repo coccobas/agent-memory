@@ -367,7 +367,7 @@ if (isInvalid(move)) {
 
 | Feature | Priority | ETA |
 |---------|----------|-----|
-| Built-in voting infrastructure | HIGH | v0.4.0 |
+| Built-in voting infrastructure | HIGH | v0.6.0 |
 | Automated red-flag detection | MEDIUM | v0.5.0 |
 | Subtask success analytics | MEDIUM | v0.5.0 |
 | Decorrelated error analysis | MEDIUM | v0.5.0 |
@@ -490,7 +490,7 @@ await memory_knowledge.add({
 
 ## Future Roadmap
 
-### v0.4.0: MDAP Core (Q1 2025)
+### v0.6.0: MDAP Core (Q1 2025)
 
 - [ ] **Task decomposition tracking** - Explicit task hierarchy storage
 - [ ] **Multi-agent voting table** - Built-in vote storage and aggregation
@@ -607,7 +607,7 @@ A: 100+ agents tested successfully. File locks prevent conflicts. SQLite WAL mod
 A: ~2-3x storage for full history. But essential for debugging million-step tasks. Can archive old versions if needed.
 
 **Q: Does Agent Memory implement voting?**  
-A: Not built-in yet (planned for v0.4.0). Current workaround: Store agent proposals as knowledge entries, implement voting externally.
+A: Built-in voting infrastructure is now available in v0.6.0. Use the `memory_voting` tool to record votes and get consensus.
 
 **Q: How do I implement red-flagging?**  
 A: Store patterns as guidelines, check manually for now. Automated detection planned for v0.5.0.
@@ -627,8 +627,8 @@ A: Yes! MDAP support is an extension. Core features (scoping, versioning, queryi
 ---
 
 **Last Updated**: December 2024  
-**Version**: 0.4.0  
-**Status**: MDAP-ready with core features, enhanced voting/analytics planned for v0.4-0.5
+**Version**: 0.6.0  
+**Status**: MDAP-ready with core features, enhanced voting/analytics available in v0.6.0
 
 
 

@@ -135,4 +135,3 @@ export function extractTextForEmbedding(
 
   return parts.filter((p) => p && p.trim().length > 0).join(' ');
 }
-

@@ -1167,7 +1167,7 @@ const bundledHandlers: Record<string, (params: Record<string, unknown>) => unkno
       cache: ReturnType<typeof getQueryCacheStats>;
       tables: Record<string, number>;
     } = {
-      serverVersion: '0.4.0',
+      serverVersion: '0.6.0',
       status: 'healthy',
       database: {
         type: 'SQLite',
@@ -1370,7 +1370,7 @@ export function createServer(): Server {
   const server = new Server(
     {
       name: 'agent-memory',
-      version: '0.4.0', // Conversations, permissions, analytics, voting features
+      version: '0.6.0', // Conversations, permissions, analytics, voting features
     },
     {
       capabilities: {

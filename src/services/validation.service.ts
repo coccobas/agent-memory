@@ -340,8 +340,3 @@ export function validateEntry(
     errors,
   };
 }
-
-
-
-
-

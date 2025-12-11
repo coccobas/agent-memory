@@ -249,8 +249,3 @@ export function isFTSAvailable(): boolean {
     return false;
   }
 }
-
-
-
-
-

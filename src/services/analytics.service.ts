@@ -6,7 +6,7 @@
 
 import { getDb } from '../db/connection.js';
 import { auditLog, entryTags, tags } from '../db/schema.js';
-import { eq, and, gte, lte, sql, desc, count, isNotNull } from 'drizzle-orm';
+import { eq, and, gte, lte, sql, desc, count, isNotNull, type SQL } from 'drizzle-orm';
 import type { ScopeType, EntryType } from '../db/schema.js';
 
 export interface UsageStatsParams {
@@ -72,9 +72,10 @@ export function getUsageStats(params: UsageStatsParams = {}): UsageStats {
     .orderBy(desc(count()))
     .limit(20)
     .all()
+    .filter((row) => row.entryId !== null && row.entryType !== null)
     .map((row) => ({
-      entryId: row.entryId!,
-      entryType: row.entryType!,
+      entryId: row.entryId as string,
+      entryType: row.entryType as EntryType,
       queryCount: row.queryCount,
     }));
 
@@ -153,13 +154,17 @@ export function getUsageStats(params: UsageStatsParams = {}): UsageStats {
   for (const row of searchQueriesRaw) {
     if (row.queryParams) {
       try {
-        const params =
+        const paramsRaw: unknown =
           typeof row.queryParams === 'string' ? JSON.parse(row.queryParams) : row.queryParams;
-        const search = params.search || params.query || '';
-        if (search && typeof search === 'string') {
-          const normalized = search.trim().toLowerCase();
-          if (normalized) {
-            searchQueryMap.set(normalized, (searchQueryMap.get(normalized) || 0) + 1);
+        if (paramsRaw && typeof paramsRaw === 'object' && !Array.isArray(paramsRaw)) {
+          const params = paramsRaw as Record<string, unknown>;
+          const search =
+            (params.search as string | undefined) || (params.query as string | undefined) || '';
+          if (search && typeof search === 'string') {
+            const normalized = search.trim().toLowerCase();
+            if (normalized) {
+              searchQueryMap.set(normalized, (searchQueryMap.get(normalized) || 0) + 1);
+            }
           }
         }
       } catch {
@@ -319,7 +324,7 @@ export function getSubtaskStats(params: {
 
   if (params.projectId) {
     conditions.push(
-      and(eq(auditLog.scopeType, 'project'), eq(auditLog.scopeId, params.projectId)) as any
+      and(eq(auditLog.scopeType, 'project'), eq(auditLog.scopeId, params.projectId)) as SQL<unknown>
     );
   }
 
@@ -344,7 +349,7 @@ export function getSubtaskStats(params: {
 
   // Calculate overall stats
   const totalSubtasks = subtasks.length;
-  const successful = subtasks.filter((s) => s.success === true || s.success === (1 as any)).length;
+  const successful = subtasks.filter((s) => s.success === true).length;
   const successRate = totalSubtasks > 0 ? successful / totalSubtasks : 0;
 
   const executionTimes = subtasks
@@ -361,7 +366,7 @@ export function getSubtaskStats(params: {
     if (!task.agentId) continue;
     const stats = agentMap.get(task.agentId) || { success: 0, total: 0 };
     stats.total++;
-    if (task.success === true || (task.success as any) === 1) stats.success++;
+    if (task.success === true) stats.success++;
     agentMap.set(task.agentId, stats);
   }
 
@@ -380,7 +385,7 @@ export function getSubtaskStats(params: {
     const depth = task.parentTaskId ? 1 : 0; // Simplified depth calculation
     const stats = depthMap.get(depth) || { success: 0, total: 0, totalTime: 0 };
     stats.total++;
-    if (task.success === true || (task.success as any) === 1) stats.success++;
+    if (task.success === true) stats.success++;
     if (task.executionTime) stats.totalTime += task.executionTime;
     depthMap.set(depth, stats);
   }
@@ -402,4 +407,3 @@ export function getSubtaskStats(params: {
     decompositionEfficiency,
   };
 }
-

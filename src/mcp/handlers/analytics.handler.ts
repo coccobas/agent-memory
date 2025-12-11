@@ -153,4 +153,3 @@ export const analyticsHandlers = {
   get_error_correlation: getErrorCorrelationHandler,
   get_low_diversity: getLowDiversityHandler,
 };
-

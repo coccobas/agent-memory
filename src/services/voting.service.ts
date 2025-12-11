@@ -43,14 +43,17 @@ export function recordVote(params: RecordVoteParams): void {
 
   if (existingVote.length > 0) {
     // Update existing vote
-    db.update(agentVotes)
-      .set({
-        voteValue: JSON.stringify(params.voteValue),
-        confidence: params.confidence ?? 1.0,
-        reasoning: params.reasoning ?? null,
-      })
-      .where(eq(agentVotes.id, existingVote[0]!.id))
-      .run();
+    const vote = existingVote[0];
+    if (vote) {
+      db.update(agentVotes)
+        .set({
+          voteValue: JSON.stringify(params.voteValue),
+          confidence: params.confidence ?? 1.0,
+          reasoning: params.reasoning ?? null,
+        })
+        .where(eq(agentVotes.id, vote.id))
+        .run();
+    }
   } else {
     // Insert new vote
     db.insert(agentVotes)
@@ -226,4 +229,3 @@ export function getVotingStats(taskId: string): {
     k: 1,
   };
 }
-

@@ -11,6 +11,8 @@
  */
 
 import { guidelineRepo } from '../db/repositories/guidelines.js';
+import { knowledgeRepo } from '../db/repositories/knowledge.js';
+import { toolRepo } from '../db/repositories/tools.js';
 import type { EntryType } from '../db/schema.js';
 
 export type RedFlagSeverity = 'low' | 'medium' | 'high';
@@ -125,11 +127,11 @@ export function scoreRedFlagRisk(entryId: string, entryType: EntryType): number 
   let metadata: Record<string, unknown> | undefined;
 
   if (entryType === 'tool') {
-    const toolRepo = require('../db/repositories/tools.js').toolRepo;
     const tool = toolRepo.getById(entryId);
     if (tool) {
       content = tool.currentVersion?.description || '';
-      metadata = tool.metadata as Record<string, unknown> | undefined;
+      // Tools don't have metadata field in schema
+      metadata = undefined;
     }
   } else if (entryType === 'guideline') {
     const guideline = guidelineRepo.getById(entryId);
@@ -139,11 +141,11 @@ export function scoreRedFlagRisk(entryId: string, entryType: EntryType): number 
       metadata = undefined;
     }
   } else {
-    const knowledgeRepo = require('../db/repositories/knowledge.js').knowledgeRepo;
     const knowledge = knowledgeRepo.getById(entryId);
     if (knowledge) {
       content = knowledge.currentVersion?.content || '';
-      metadata = knowledge.metadata as Record<string, unknown> | undefined;
+      // Knowledge doesn't have metadata field in schema
+      metadata = undefined;
     }
   }
 
@@ -166,8 +168,3 @@ export function scoreRedFlagRisk(entryId: string, entryType: EntryType): number 
   // Cap at 1.0
   return Math.min(riskScore, 1.0);
 }
-
-
-
-
-

@@ -146,4 +146,3 @@ export const votingHandlers = {
   list_votes: listVotesHandler,
   get_stats: getStatsHandler,
 };
-

@@ -10,6 +10,7 @@
 **Status:** ✅ RESOLVED - Both tools are now registered in the TOOLS array
 
 **Location:**
+
 - Handlers exist: `src/mcp/handlers/export.handler.ts` and `src/mcp/handlers/import.handler.ts`
 - Handlers registered: Lines 1153-1171 in `server.ts`
 - ✅ **Added to TOOLS array** (lines 720-810)
@@ -75,6 +76,7 @@ Add both tools to the `TOOLS` array before line 713:
 **Status:** ✅ RESOLVED - All comments updated to reflect 19 tools
 
 **Current Tools in TOOLS Array (19):**
+
 1. memory_org
 2. memory_project
 3. memory_session
@@ -96,6 +98,7 @@ Add both tools to the `TOOLS` array before line 713:
 19. ✅ memory_import (ADDED)
 
 **Fixed:**
+
 - ✅ Updated line 4 comment to "19 action-based tools"
 - ✅ Updated line 56 comment to "BUNDLED TOOL DEFINITIONS (19 tools)"
 
@@ -108,6 +111,7 @@ Add both tools to the `TOOLS` array before line 713:
 **Status:** Partially addressed but needs completion
 
 **Current State:**
+
 - Guidelines handler correctly uses `createValidationError()`
 - Tools and knowledge handlers use `throw new Error()` in many places
 - 90 instances of `throw new Error()` vs 77 instances of proper error handling
@@ -115,6 +119,7 @@ Add both tools to the `TOOLS` array before line 713:
 **Impact:** Inconsistent error responses, harder to handle errors programmatically.
 
 **Files Needing Updates:**
+
 - `src/mcp/handlers/tools.handler.ts` - 9 instances
 - `src/mcp/handlers/knowledge.handler.ts` - 9 instances
 - Other handlers have fewer instances
@@ -128,16 +133,18 @@ Add both tools to the `TOOLS` array before line 713:
 **Status:** Pino is installed but not consistently used
 
 **Current State:**
+
 - `pino` and `pino-pretty` are in dependencies (package.json)
 - Logger utility exists: `src/utils/logger.ts` with `createComponentLogger()`
 - Many files still use `console.log`, `console.warn`, `console.error`
 
 **Impact:**
+
 - No structured logging
 - Difficult to filter logs by level
 - No log aggregation support
 
-**Recommendation:** Migrate all console.* calls to use the logger utility.
+**Recommendation:** Migrate all console.\* calls to use the logger utility.
 
 ---
 
@@ -148,6 +155,7 @@ Add both tools to the `TOOLS` array before line 713:
 **Status:** `CODE_REVIEW.md` mentions `memory_permission` as missing, but it's actually registered.
 
 **Fix:** Update CODE_REVIEW.md to reflect current state:
+
 - ✅ memory_permission is registered (line 592)
 - ❌ memory_export and memory_import are missing from TOOLS array
 
@@ -156,15 +164,18 @@ Add both tools to the `TOOLS` array before line 713:
 ## Summary Priority
 
 ### ✅ Must Fix Before Shipping - COMPLETED:
+
 1. ✅ **Add `memory_export` to TOOLS array** - FIXED
 2. ✅ **Add `memory_import` to TOOLS array** - FIXED
 3. ✅ **Fix tool count comments** - FIXED
 
 ### Should Fix for Production (Non-blocking):
+
 4. ⚠️ **Standardize error handling** - Consistency and better error responses
 5. ⚠️ **Migrate to structured logging** - Better observability
 
 ### Nice to Have:
+
 6. Documentation updates
 7. Additional validation enhancements
 
@@ -173,17 +184,10 @@ Add both tools to the `TOOLS` array before line 713:
 ## Verification Checklist
 
 ✅ All Critical Items Completed:
+
 - [x] `memory_export` tool appears in MCP tool list
 - [x] `memory_import` tool appears in MCP tool list
 - [x] Tool count comments match actual count (19 tools)
 - [x] All tests pass (297 passing, 9 skipped)
 - [x] TypeScript compilation succeeds
 - [ ] Error messages are consistent across handlers (non-blocking)
-
-
-
-
-
-
-
-

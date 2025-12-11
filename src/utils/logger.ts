@@ -37,8 +37,3 @@ export const logger = pino({
 export function createComponentLogger(component: string): pino.Logger {
   return logger.child({ component });
 }
-
-
-
-
-
