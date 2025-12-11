@@ -506,10 +506,16 @@ WHERE id = ?;
 | Tool | Actions | Description |
 |------|---------|-------------|
 | `memory_query` | `search`, `context` | Cross-reference search and context aggregation |
+| `memory_task` | `add`, `get`, `list` | Task decomposition for MDAP workflows |
+| `memory_voting` | `record_vote`, `get_consensus`, `list_votes`, `get_stats` | Multi-agent voting and consensus |
+| `memory_analytics` | `get_stats`, `get_trends`, `get_subtask_stats`, `get_error_correlation`, `get_low_diversity` | Usage analytics and trends |
+| `memory_permission` | `grant`, `revoke`, `check`, `list` | Permission management |
 | `memory_conflict` | `list`, `resolve` | Conflict management |
 | `memory_file_lock` | `checkout`, `checkin`, `status`, `list`, `force_unlock` | File locks for multi-agent coordination |
 | `memory_health` | (no actions) | Health check and server status |
 | `memory_init` | `init`, `status`, `reset` | Database initialization and migrations |
+| `memory_export` | `export` | Export entries to JSON/Markdown/YAML/OpenAPI |
+| `memory_import` | `import` | Import entries from JSON/YAML/Markdown/OpenAPI |
 
 ---
 
@@ -874,7 +880,7 @@ CREATE INDEX idx_guidelines_content_trgm ON guideline_versions USING gin(content
 
 ### Milestone 4: Advanced Features ✅
 - [x] Cross-reference query (`memory_query`) with relevance scoring
-- [x] Context aggregation (`memory_context`)
+- [x] Context aggregation (`memory_query` with `action: "context"`)
 - [x] Conflict detection and resolution
 - [x] File locks for multi-agent coordination
 - [x] Scope inheritance in queries
@@ -1118,6 +1124,107 @@ For a million-step task with maximal decomposition:
 - Archive completed subtasks to separate tables
 - Implement FTS5 for faster subtask lookup
 - Cache frequent decomposition patterns
+
+---
+
+## Conversation History System
+
+### Purpose and Use Cases
+
+The conversation history system tracks multi-turn interactions between agents and users, enabling:
+
+1. **Context Continuity** - "What did we discuss about authentication last week?"
+2. **Learning** - "What memory entries are most useful in conversations?"
+3. **Pattern Recognition** - "What topics come up frequently?"
+4. **Debugging** - "Why did the agent give this answer? What context did it use?"
+5. **Knowledge Extraction** - "What new insights can we extract from conversations?"
+
+### Architecture Overview
+
+The conversation system consists of three main tables:
+
+1. **`conversations`** - Conversation threads with metadata
+2. **`conversation_messages`** - Individual messages in conversations
+3. **`conversation_context`** - Links between conversations and memory entries
+
+### Integration with Query System
+
+When using `memory_query` with a `conversationId`, query results are automatically linked to the conversation:
+
+```typescript
+// Query with auto-linking
+await memory_query({
+  search: "authentication",
+  conversationId: "conv_123",
+  messageId: "msg_456",  // Optional: link to specific message
+  autoLinkContext: true   // Default: true if conversationId provided
+});
+```
+
+This enables:
+- Automatic tracking of which memory entries were used
+- Relevance score preservation from query results
+- Message-level context tracking
+
+### Integration with Audit System
+
+All conversation operations are logged to the audit log:
+- `action: 'create'` for conversation start
+- `action: 'update'` for messages and updates
+- `action: 'read'` for queries and retrievals
+
+### Performance Considerations
+
+- **Indexes**: All foreign keys and common query paths are indexed
+- **Pagination**: Messages support pagination for large conversations
+- **JSON Storage**: Metadata stored as JSON (efficient for flexible data)
+- **Search**: Full-text search across titles and message content
+
+### Storage Considerations
+
+- **Conversation Size**: No hard limits, but consider archiving old conversations
+- **Message Count**: Typical conversations have 10-100 messages
+- **Context Links**: Each conversation may link to 5-50 memory entries
+- **Archiving**: Completed/archived conversations can be moved to separate storage
+
+### Example Workflow
+
+```typescript
+// 1. Start conversation
+const { conversation } = await memory_conversation.start({
+  projectId: "proj_123",
+  title: "Authentication Discussion"
+});
+
+// 2. Add user message
+await memory_conversation.add_message({
+  conversationId: conversation.id,
+  role: "user",
+  content: "What guidelines apply to authentication?"
+});
+
+// 3. Query memory (auto-links results)
+await memory_query({
+  search: "authentication",
+  conversationId: conversation.id,
+  types: ["guidelines"]
+});
+
+// 4. Add agent response
+await memory_conversation.add_message({
+  conversationId: conversation.id,
+  role: "agent",
+  content: "Based on the guidelines...",
+  contextEntries: [...],  // From query results
+  toolsUsed: ["memory_query", "memory_guideline"]
+});
+
+// 5. End conversation
+await memory_conversation.end({
+  id: conversation.id,
+  generateSummary: true
+});
+```
 
 ---
 

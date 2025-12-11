@@ -2,7 +2,7 @@
  * MCP Type definitions for agent-memory
  */
 
-import type { ScopeType, EntryType, RelationType } from '../db/schema.js';
+import type { ScopeType, EntryType, PermissionEntryType, RelationType } from '../db/schema.js';
 
 // =============================================================================
 // COMMON TYPES
@@ -338,6 +338,19 @@ export interface MemoryQueryParams {
   compact?: boolean;
   semanticSearch?: boolean; // Enable semantic/vector search (default: true if embeddings available)
   semanticThreshold?: number; // Minimum similarity score for semantic results (0-1, default: 0.7)
+  useFts5?: boolean; // Use FTS5 full-text search instead of LIKE queries (default: false for backward compatibility)
+  // Advanced filtering options
+  fields?: string[]; // Field-specific search: ['name', 'description']
+  fuzzy?: boolean; // Typo tolerance (Levenshtein distance)
+  createdAfter?: string; // ISO timestamp
+  createdBefore?: string; // ISO timestamp
+  updatedAfter?: string; // ISO timestamp
+  updatedBefore?: string; // ISO timestamp
+  priority?: { min?: number; max?: number }; // For guidelines
+  regex?: boolean; // Use regex instead of simple match
+  conversationId?: string; // Link query results to conversation
+  messageId?: string; // Link query results to specific message
+  autoLinkContext?: boolean; // Auto-link results to conversation (default: true if conversationId provided)
 }
 
 // =============================================================================
@@ -410,16 +423,94 @@ export interface ExportParams {
   scopeType?: ScopeType;
   scopeId?: string;
   tags?: string[];
-  format?: 'json' | 'markdown' | 'yaml';
+  format?: 'json' | 'markdown' | 'yaml' | 'openapi';
   includeVersions?: boolean;
   includeInactive?: boolean;
 }
 
 export interface ImportParams {
   content: string;
-  format?: 'json' | 'yaml' | 'markdown';
+  format?: 'json' | 'yaml' | 'markdown' | 'openapi';
   conflictStrategy?: 'skip' | 'update' | 'replace' | 'error';
   scopeMapping?: Record<string, { type: ScopeType; id?: string }>;
   generateNewIds?: boolean;
   importedBy?: string;
+}
+
+// =============================================================================
+// CONVERSATION PARAMS
+// =============================================================================
+
+export interface ConversationStartParams {
+  sessionId?: string;
+  projectId?: string;
+  agentId?: string;
+  title?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ConversationAddMessageParams {
+  conversationId: string;
+  role: 'user' | 'agent' | 'system';
+  content: string;
+  contextEntries?: Array<{ type: PermissionEntryType; id: string }>;
+  toolsUsed?: string[];
+  metadata?: Record<string, unknown>;
+  agentId?: string;
+}
+
+export interface ConversationGetParams {
+  id: string;
+  includeMessages?: boolean;
+  includeContext?: boolean;
+  agentId?: string;
+}
+
+export interface ConversationListParams extends PaginationParams {
+  sessionId?: string;
+  projectId?: string;
+  agentId?: string;
+  status?: 'active' | 'completed' | 'archived';
+}
+
+export interface ConversationUpdateParams {
+  id: string;
+  title?: string;
+  status?: 'active' | 'completed' | 'archived';
+  metadata?: Record<string, unknown>;
+  agentId?: string;
+}
+
+export interface ConversationLinkContextParams {
+  conversationId: string;
+  messageId?: string;
+  entryType: PermissionEntryType;
+  entryId: string;
+  relevanceScore?: number;
+  agentId?: string;
+}
+
+export interface ConversationGetContextParams {
+  conversationId?: string;
+  entryType?: PermissionEntryType;
+  entryId?: string;
+  agentId?: string;
+}
+
+export interface ConversationSearchParams extends PaginationParams {
+  search: string;
+  sessionId?: string;
+  projectId?: string;
+  agentId?: string;
+}
+
+export interface ConversationEndParams {
+  id: string;
+  generateSummary?: boolean;
+  agentId?: string;
+}
+
+export interface ConversationArchiveParams {
+  id: string;
+  agentId?: string;
 }

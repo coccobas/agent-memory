@@ -69,19 +69,19 @@ describe('Tools Integration', () => {
     it('should require scopeType', () => {
       expect(() => {
         toolHandlers.add({ name: 'test' });
-      }).toThrow('scopeType is required');
+      }).toThrow(/scopeType.*required/i);
     });
 
     it('should require name', () => {
       expect(() => {
         toolHandlers.add({ scopeType: 'global' });
-      }).toThrow('name is required');
+      }).toThrow(/name.*required/i);
     });
 
     it('should require scopeId for non-global scope', () => {
       expect(() => {
         toolHandlers.add({ scopeType: 'project', name: 'test' });
-      }).toThrow('scopeId is required for non-global scope');
+      }).toThrow(/scopeId.*required/i);
     });
   });
 
@@ -103,13 +103,13 @@ describe('Tools Integration', () => {
     it('should require id', () => {
       expect(() => {
         toolHandlers.update({});
-      }).toThrow('id is required');
+      }).toThrow(/id.*required/i);
     });
 
     it('should throw error when tool not found', () => {
       expect(() => {
         toolHandlers.update({ id: 'non-existent' });
-      }).toThrow('Tool not found');
+      }).toThrow(/tool.*not found/i);
     });
   });
 
@@ -139,7 +139,7 @@ describe('Tools Integration', () => {
     it('should require id or name', () => {
       expect(() => {
         toolHandlers.get({});
-      }).toThrow('Either id or name is required');
+      }).toThrow(/id or name.*required/i);
     });
   });
 
@@ -199,7 +199,7 @@ describe('Tools Integration', () => {
     it('should require id', () => {
       expect(() => {
         toolHandlers.history({});
-      }).toThrow('id is required');
+      }).toThrow(/id.*required/i);
     });
   });
 
@@ -216,7 +216,7 @@ describe('Tools Integration', () => {
     it('should require id', () => {
       expect(() => {
         toolHandlers.deactivate({});
-      }).toThrow('id is required');
+      }).toThrow(/id.*required/i);
     });
   });
 });

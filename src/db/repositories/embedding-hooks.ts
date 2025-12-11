@@ -11,6 +11,9 @@ import { entryEmbeddings, type NewEntryEmbedding } from '../schema.js';
 import { getEmbeddingService } from '../../services/embedding.service.js';
 import { getVectorService } from '../../services/vector.service.js';
 import { generateId } from './base.js';
+import { createComponentLogger } from '../../utils/logger.js';
+
+const logger = createComponentLogger('embedding-hook');
 
 export type EntryType = 'tool' | 'guideline' | 'knowledge';
 
@@ -94,8 +97,10 @@ export function generateEmbeddingAsync(input: EmbeddingInput): void {
       }
     } catch (error) {
       // Log error but don't throw (fire-and-forget)
-      // eslint-disable-next-line no-console
-      console.error('[embedding-hook] Failed to generate embedding:', error);
+      logger.error(
+        { error: error instanceof Error ? error.message : String(error) },
+        'Failed to generate embedding'
+      );
     }
   })();
 }
@@ -130,3 +135,5 @@ export function extractTextForEmbedding(
 
   return parts.filter((p) => p && p.trim().length > 0).join(' ');
 }
+
+

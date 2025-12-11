@@ -13,3 +13,6 @@ CREATE TABLE `entry_embeddings` (
 CREATE INDEX `idx_entry_embeddings_entry` ON `entry_embeddings` (`entry_type`, `entry_id`);--> statement-breakpoint
 CREATE INDEX `idx_entry_embeddings_status` ON `entry_embeddings` (`has_embedding`);--> statement-breakpoint
 CREATE UNIQUE INDEX `idx_entry_embeddings_version` ON `entry_embeddings` (`entry_type`, `entry_id`, `version_id`);
+
+
+

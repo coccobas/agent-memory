@@ -492,3 +492,207 @@ export function importFromMarkdown(_content: string, _options: ImportOptions = {
     },
   };
 }
+
+/**
+ * Import from OpenAPI/Swagger format
+ *
+ * Converts OpenAPI 3.0 specification to tool definitions.
+ */
+export function importFromOpenAPI(content: string, options: ImportOptions = {}): ImportResult {
+  const conflictStrategy = options.conflictStrategy || 'update';
+  const result: ImportResult = {
+    success: true,
+    created: 0,
+    updated: 0,
+    skipped: 0,
+    errors: [],
+    details: {
+      tools: { created: 0, updated: 0, skipped: 0 },
+      guidelines: { created: 0, updated: 0, skipped: 0 },
+      knowledge: { created: 0, updated: 0, skipped: 0 },
+    },
+  };
+
+  let openApiSpec: {
+    openapi?: string;
+    swagger?: string;
+    info?: { title?: string; version?: string };
+    paths?: Record<string, Record<string, unknown>>;
+  };
+
+  try {
+    openApiSpec = JSON.parse(content) as typeof openApiSpec;
+  } catch (error) {
+    result.success = false;
+    result.errors.push({
+      entry: 'parsing',
+      error: error instanceof Error ? error.message : 'Invalid JSON',
+    });
+    return result;
+  }
+
+  // Validate OpenAPI structure
+  if (!openApiSpec.paths) {
+    result.success = false;
+    result.errors.push({ entry: 'structure', error: 'Missing paths object in OpenAPI spec' });
+    return result;
+  }
+
+  // Default scope (can be overridden by options)
+  const defaultScopeType: ScopeType = 'global';
+  const defaultScopeId: string | undefined = undefined;
+
+  // Convert each path/operation to a tool
+  for (const [path, pathItem] of Object.entries(openApiSpec.paths)) {
+    if (typeof pathItem !== 'object' || pathItem === null) continue;
+
+    // Process each HTTP method (post, get, put, delete, etc.)
+    for (const [_method, operation] of Object.entries(pathItem)) {
+      if (typeof operation !== 'object' || operation === null) continue;
+
+      const op = operation as {
+        operationId?: string;
+        summary?: string;
+        description?: string;
+        requestBody?: {
+          content?: {
+            'application/json'?: {
+              schema?: {
+                type?: string;
+                properties?: Record<string, unknown>;
+                required?: string[];
+              };
+            };
+          };
+        };
+        parameters?: Array<{
+          name: string;
+          in: string;
+          schema?: { type?: string; description?: string };
+          required?: boolean;
+        }>;
+        tags?: string[];
+      };
+
+      try {
+        // Extract tool name from operationId or summary or path
+        const toolName =
+          op.operationId || op.summary || path.replace(/^\//, '').replace(/[^a-zA-Z0-9]/g, '_');
+
+        if (!toolName) {
+          result.errors.push({
+            entry: path,
+            error: 'Cannot determine tool name from OpenAPI operation',
+          });
+          continue;
+        }
+
+        // Extract parameters from requestBody or parameters
+        const parameters: Record<string, unknown> = {};
+
+        if (op.requestBody?.content?.['application/json']?.schema?.properties) {
+          const schema = op.requestBody.content['application/json'].schema;
+          if (schema.properties) {
+            for (const [key, prop] of Object.entries(schema.properties)) {
+              if (typeof prop === 'object' && prop !== null) {
+                const propObj = prop as Record<string, unknown>;
+                parameters[key] = {
+                  type: propObj.type || 'string',
+                  description: propObj.description || '',
+                  required: schema.required?.includes(key) || false,
+                  ...(propObj.default !== undefined && { default: propObj.default }),
+                };
+              }
+            }
+          }
+        } else if (op.parameters) {
+          // Use parameters array
+          for (const param of op.parameters) {
+            if (param.in === 'body' || param.in === 'query' || param.in === 'path') {
+              parameters[param.name] = {
+                type: param.schema?.type || 'string',
+                description: param.schema?.description || '',
+                required: param.required || false,
+              };
+            }
+          }
+        }
+
+        // Check if tool exists
+        const existing = toolRepo.getByName(toolName, defaultScopeType, defaultScopeId);
+
+        if (existing) {
+          if (conflictStrategy === 'skip') {
+            result.skipped++;
+            result.details.tools.skipped++;
+            continue;
+          } else if (conflictStrategy === 'error') {
+            result.errors.push({
+              entry: toolName,
+              error: 'Tool already exists',
+            });
+            continue;
+          } else if (conflictStrategy === 'update' || conflictStrategy === 'replace') {
+            // Update existing
+            const updateInput: UpdateToolInput = {
+              description: op.description || op.summary || '',
+              parameters: Object.keys(parameters).length > 0 ? parameters : undefined,
+              changeReason: 'Imported from OpenAPI',
+              updatedBy: options.importedBy,
+            };
+            toolRepo.update(existing.id, updateInput);
+            result.updated++;
+            result.details.tools.updated++;
+
+            // Update tags
+            if (op.tags) {
+              for (const tagName of op.tags) {
+                const tag = tagRepo.getOrCreate(tagName);
+                entryTagRepo.attach({
+                  entryType: 'tool',
+                  entryId: existing.id,
+                  tagId: tag.id,
+                });
+              }
+            }
+          }
+        } else {
+          // Create new tool
+          const createInput: CreateToolInput = {
+            scopeType: defaultScopeType,
+            scopeId: defaultScopeId,
+            name: toolName,
+            category: 'api',
+            description: op.description || op.summary || '',
+            parameters: Object.keys(parameters).length > 0 ? parameters : undefined,
+            createdBy: options.importedBy,
+          };
+          const created = toolRepo.create(createInput);
+          result.created++;
+          result.details.tools.created++;
+
+          // Attach tags
+          if (op.tags) {
+            for (const tagName of op.tags) {
+              const tag = tagRepo.getOrCreate(tagName);
+              entryTagRepo.attach({
+                entryType: 'tool',
+                entryId: created.id,
+                tagId: tag.id,
+              });
+            }
+          }
+        }
+      } catch (error) {
+        result.errors.push({
+          entry: path,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
+    }
+  }
+
+  return result;
+}
+
+

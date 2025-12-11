@@ -70,7 +70,7 @@ This will:
 Once the inspector opens:
 
 1. **View Available Tools**: The left sidebar shows all registered MCP tools
-   - Look for `memory_query`, `memory_conflicts`, `memory_conflict_resolve`
+   - Look for `memory_query`, `memory_conflict` (with `action: "list"`), `memory_conflict` (with `action: "resolve"`)
    - Plus all other tools (scope management, CRUD operations, etc.)
 
 2. **Call Tools**: Click on any tool to:
@@ -85,8 +85,8 @@ Once the inspector opens:
    - Test tag filtering, text search, and relation-based queries
 
 4. **Test Conflict Management**:
-   - Use `memory_conflicts` to list conflicts
-   - Use `memory_conflict_resolve` to mark conflicts as resolved
+   - Use `memory_conflict` with `action: "list"` to list conflicts
+   - Use `memory_conflict` with `action: "resolve"` to mark conflicts as resolved
 
 ## Manual Testing Scenarios
 
@@ -123,8 +123,9 @@ Call `memory_query` with:
 
 ```json
 {
-  "name": "memory_project_create",
+  "name": "memory_project",
   "arguments": {
+    "action": "create",
     "name": "test-project",
     "description": "Test project for scope inheritance"
   }
@@ -137,8 +138,9 @@ Save the returned `project.id`.
 
 ```json
 {
-  "name": "memory_session_start",
+  "name": "memory_session",
   "arguments": {
+    "action": "start",
     "projectId": "<project-id-from-step-1>",
     "name": "test-session",
     "purpose": "Testing scope inheritance"
@@ -152,8 +154,9 @@ Save the returned `session.id`.
 
 ```json
 {
-  "name": "memory_guideline_add",
+  "name": "memory_guideline",
   "arguments": {
+    "action": "add",
     "scopeType": "project",
     "scopeId": "<project-id>",
     "name": "project_guideline",
@@ -194,8 +197,9 @@ Save the returned `session.id`.
 
 ```json
 {
-  "name": "memory_guideline_add",
+  "name": "memory_guideline",
   "arguments": {
+    "action": "add",
     "scopeType": "global",
     "name": "security_rule",
     "content": "Always use parameterized queries",
@@ -211,8 +215,9 @@ Save the `guideline.id`.
 
 ```json
 {
-  "name": "memory_tag_attach",
+  "name": "memory_tag",
   "arguments": {
+    "action": "attach",
     "entryType": "guideline",
     "entryId": "<guideline-id>",
     "tagName": "security"
@@ -242,9 +247,9 @@ Save the `guideline.id`.
 
 ---
 
-### Scenario 6: Test `memory_context` (Aggregated Context)
+### Scenario 6: Test `memory_query` with `action: "context"` (Aggregated Context)
 
-**Goal**: Verify that `memory_context` returns aggregated context for a scope, with scope inheritance.
+**Goal**: Verify that `memory_query` with `action: "context"` returns aggregated context for a scope, with scope inheritance.
 
 **Steps**:
 
@@ -253,8 +258,9 @@ Save the `guideline.id`.
 
 ```json
 {
-  "name": "memory_tool_add",
+  "name": "memory_tool",
   "arguments": {
+    "action": "add",
     "scopeType": "global",
     "name": "global_tool",
     "category": "cli"
@@ -264,8 +270,9 @@ Save the `guideline.id`.
 
 ```json
 {
-  "name": "memory_guideline_add",
+  "name": "memory_guideline",
   "arguments": {
+    "action": "add",
     "scopeType": "project",
     "scopeId": "<project-id>",
     "name": "project_guideline",
@@ -277,8 +284,9 @@ Save the `guideline.id`.
 
 ```json
 {
-  "name": "memory_knowledge_add",
+  "name": "memory_knowledge",
   "arguments": {
+    "action": "add",
     "scopeType": "session",
     "scopeId": "<session-id>",
     "title": "session_note",
@@ -287,12 +295,13 @@ Save the `guideline.id`.
 }
 ```
 
-3. **Call `memory_context` for the session**:
+3. **Call `memory_query` with `action: "context"` for the session**:
 
 ```json
 {
-  "name": "memory_context",
+  "name": "memory_query",
   "arguments": {
+    "action": "context",
     "scopeType": "session",
     "scopeId": "<session-id>",
     "inherit": true,
@@ -315,9 +324,9 @@ Save the `guideline.id`.
 
 This workflow demonstrates creating a new project, adding initial memory, and querying it.
 
-1. **Create organization and project** using `memory_org_create` and `memory_project_create`.
-2. **Start a session** with `memory_session_start`.
-3. **Add tools, guidelines, and knowledge** at project scope (`memory_tool_add`, `memory_guideline_add`, `memory_knowledge_add`).
+1. **Create organization and project** using `memory_org` with `action: "create"` and `memory_project` with `action: "create"`.
+2. **Start a session** with `memory_session` with `action: "start"`.
+3. **Add tools, guidelines, and knowledge** at project scope (`memory_tool` with `action: "add"`, `memory_guideline` with `action: "add"`, `memory_knowledge` with `action: "add"`).
 4. **Query relevant context** with:
 
 ```json
@@ -335,8 +344,9 @@ This workflow demonstrates creating a new project, adding initial memory, and qu
 
 ```json
 {
-  "name": "memory_context",
+  "name": "memory_query",
   "arguments": {
+    "action": "context",
     "scopeType": "session",
     "scopeId": "<session-id>",
     "inherit": true,
@@ -353,14 +363,15 @@ You can see a full JSON example in `examples/workflows/onboard-project.json`.
 
 This workflow demonstrates creating a conflict via rapid updates and resolving it.
 
-1. **Create a global tool** with `memory_tool_add`.
-2. **Perform two rapid updates** with `memory_tool_update` on the same tool ID.
+1. **Create a global tool** with `memory_tool` and `action: "add"`.
+2. **Perform two rapid updates** with `memory_tool` and `action: "update"` on the same tool ID.
 3. **List unresolved conflicts**:
 
 ```json
 {
-  "name": "memory_conflicts",
+  "name": "memory_conflict",
   "arguments": {
+    "action": "list",
     "entryType": "tool",
     "resolved": false,
     "limit": 10
@@ -372,8 +383,9 @@ This workflow demonstrates creating a conflict via rapid updates and resolving i
 
 ```json
 {
-  "name": "memory_conflict_resolve",
+  "name": "memory_conflict",
   "arguments": {
+    "action": "resolve",
     "id": "<conflict-id>",
     "resolution": "Kept latest version as canonical",
     "resolvedBy": "test-user"
@@ -381,7 +393,7 @@ This workflow demonstrates creating a conflict via rapid updates and resolving i
 }
 ```
 
-5. **Verify resolution** by calling `memory_conflicts` again with `resolved: true`.
+5. **Verify resolution** by calling `memory_conflict` with `action: "list"` again with `resolved: true`.
 
 See `examples/workflows/handle-conflict.json` for a full payload sequence.
 
@@ -399,8 +411,9 @@ See `examples/workflows/handle-conflict.json` for a full payload sequence.
 
 ```json
 {
-  "name": "memory_relation_create",
+  "name": "memory_relation",
   "arguments": {
+    "action": "create",
     "sourceType": "guideline",
     "sourceId": "<guideline-id>",
     "targetType": "tool",
@@ -440,8 +453,9 @@ See `examples/workflows/handle-conflict.json` for a full payload sequence.
 
 ```json
 {
-  "name": "memory_tool_add",
+  "name": "memory_tool",
   "arguments": {
+    "action": "add",
     "scopeType": "global",
     "name": "test_tool",
     "description": "A test tool",
@@ -456,8 +470,9 @@ Save the `tool.id`.
 
 ```json
 {
-  "name": "memory_tool_update",
+  "name": "memory_tool",
   "arguments": {
+    "action": "update",
     "id": "<tool-id>",
     "description": "Updated description",
     "changeReason": "First update"
@@ -469,8 +484,9 @@ Save the `tool.id`.
 
 ```json
 {
-  "name": "memory_tool_update",
+  "name": "memory_tool",
   "arguments": {
+    "action": "update",
     "id": "<tool-id>",
     "description": "Another update",
     "changeReason": "Second update (conflict)"
@@ -482,8 +498,9 @@ Save the `tool.id`.
 
 ```json
 {
-  "name": "memory_conflicts",
+  "name": "memory_conflict",
   "arguments": {
+    "action": "list",
     "entryType": "tool",
     "resolved": false,
     "limit": 20
@@ -497,8 +514,9 @@ Save the `tool.id`.
 
 ```json
 {
-  "name": "memory_conflict_resolve",
+  "name": "memory_conflict",
   "arguments": {
+    "action": "resolve",
     "id": "<conflict-id>",
     "resolution": "Kept the second version as canonical",
     "resolvedBy": "test-user"
@@ -510,8 +528,9 @@ Save the `tool.id`.
 
 ```json
 {
-  "name": "memory_conflicts",
+  "name": "memory_conflict",
   "arguments": {
+    "action": "list",
     "resolved": true
   }
 }

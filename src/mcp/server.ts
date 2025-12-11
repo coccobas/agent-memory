@@ -1,7 +1,7 @@
 /**
  * MCP Server for Agent Memory Database
  *
- * Tool Bundling: 45+ individual tools consolidated into 15 action-based tools:
+ * Tool Bundling: 45+ individual tools consolidated into 19 action-based tools:
  * - memory_org (create, list)
  * - memory_project (create, list, get, update)
  * - memory_session (start, end, list)
@@ -14,8 +14,13 @@
  * - memory_query (search, context)
  * - memory_conflict (list, resolve)
  * - memory_init (init, status, reset)
- * - memory_export (export) - NEW
- * - memory_import (import) - NEW
+ * - memory_export (export)
+ * - memory_import (import)
+ * - memory_task (add, get, list)
+ * - memory_voting (record_vote, get_consensus, list_votes, get_stats)
+ * - memory_analytics (get_stats, get_trends)
+ * - memory_permission (grant, revoke, check, list)
+ * - memory_health (health check)
  */
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
@@ -44,9 +49,19 @@ import { fileLockHandlers } from './handlers/file_locks.handler.js';
 import { initHandlers } from './handlers/init.handler.js';
 import { exportHandlers } from './handlers/export.handler.js';
 import { importHandlers } from './handlers/import.handler.js';
+import {
+  taskHandlers,
+  type TaskAddParams,
+  type TaskGetParams,
+  type TaskListParams,
+} from './handlers/tasks.handler.js';
+import { votingHandlers } from './handlers/voting.handler.js';
+import { analyticsHandlers } from './handlers/analytics.handler.js';
+import { permissionHandlers } from './handlers/permissions.handler.js';
+import { conversationHandlers } from './handlers/conversations.handler.js';
 
 // =============================================================================
-// BUNDLED TOOL DEFINITIONS (15 tools)
+// BUNDLED TOOL DEFINITIONS (19 tools)
 // =============================================================================
 
 const TOOLS: Tool[] = [
@@ -150,7 +165,17 @@ const TOOLS: Tool[] = [
       properties: {
         action: {
           type: 'string',
-          enum: ['add', 'update', 'get', 'list', 'history', 'deactivate'],
+          enum: [
+            'add',
+            'update',
+            'get',
+            'list',
+            'history',
+            'deactivate',
+            'bulk_add',
+            'bulk_update',
+            'bulk_delete',
+          ],
           description: 'Action to perform',
         },
         // common params
@@ -193,7 +218,17 @@ const TOOLS: Tool[] = [
       properties: {
         action: {
           type: 'string',
-          enum: ['add', 'update', 'get', 'list', 'history', 'deactivate'],
+          enum: [
+            'add',
+            'update',
+            'get',
+            'list',
+            'history',
+            'deactivate',
+            'bulk_add',
+            'bulk_update',
+            'bulk_delete',
+          ],
           description: 'Action to perform',
         },
         // common params
@@ -237,7 +272,17 @@ const TOOLS: Tool[] = [
       properties: {
         action: {
           type: 'string',
-          enum: ['add', 'update', 'get', 'list', 'history', 'deactivate'],
+          enum: [
+            'add',
+            'update',
+            'get',
+            'list',
+            'history',
+            'deactivate',
+            'bulk_add',
+            'bulk_update',
+            'bulk_delete',
+          ],
           description: 'Action to perform',
         },
         // common params
@@ -318,7 +363,14 @@ const TOOLS: Tool[] = [
         targetId: { type: 'string' },
         relationType: {
           type: 'string',
-          enum: ['applies_to', 'depends_on', 'conflicts_with', 'related_to'],
+          enum: [
+            'applies_to',
+            'depends_on',
+            'conflicts_with',
+            'related_to',
+            'parent_task',
+            'subtask_of',
+          ],
         },
         createdBy: { type: 'string' },
         // list params
@@ -413,6 +465,38 @@ const TOOLS: Tool[] = [
         },
         includeVersions: { type: 'boolean', description: 'Include version history (search)' },
         includeInactive: { type: 'boolean', description: 'Include inactive entries (search)' },
+        // FTS5 and advanced filtering params
+        useFts5: {
+          type: 'boolean',
+          description: 'Use FTS5 full-text search instead of LIKE queries (default: false)',
+        },
+        fields: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Field-specific search: ["name", "description"]',
+        },
+        fuzzy: { type: 'boolean', description: 'Enable typo tolerance (Levenshtein distance)' },
+        createdAfter: { type: 'string', description: 'Filter by creation date (ISO timestamp)' },
+        createdBefore: { type: 'string', description: 'Filter by creation date (ISO timestamp)' },
+        updatedAfter: { type: 'string', description: 'Filter by update date (ISO timestamp)' },
+        updatedBefore: { type: 'string', description: 'Filter by update date (ISO timestamp)' },
+        priority: {
+          type: 'object',
+          properties: {
+            min: { type: 'number' },
+            max: { type: 'number' },
+          },
+          description: 'Filter guidelines by priority range (0-100)',
+        },
+        regex: { type: 'boolean', description: 'Use regex instead of simple match' },
+        semanticSearch: {
+          type: 'boolean',
+          description: 'Enable semantic/vector search (default: true if embeddings available)',
+        },
+        semanticThreshold: {
+          type: 'number',
+          description: 'Minimum similarity score for semantic results (0-1, default: 0.7)',
+        },
         // context params
         scopeType: {
           type: 'string',
@@ -427,6 +511,172 @@ const TOOLS: Tool[] = [
           type: 'number',
           description: 'Max results (search) or per type (context as limitPerType)',
         },
+      },
+      required: ['action'],
+    },
+  },
+
+  // -------------------------------------------------------------------------
+  // TASK DECOMPOSITION
+  // -------------------------------------------------------------------------
+  {
+    name: 'memory_task',
+    description: 'Manage task decomposition. Actions: add, get, list',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: {
+          type: 'string',
+          enum: ['add', 'get', 'list'],
+          description: 'Action to perform',
+        },
+        // add params
+        parentTask: { type: 'string', description: 'ID of parent task (add)' },
+        subtasks: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Array of subtask descriptions/names (add)',
+        },
+        decompositionStrategy: {
+          type: 'string',
+          enum: ['maximal', 'balanced', 'minimal'],
+          description: 'Decomposition strategy (add)',
+        },
+        scopeType: { type: 'string', enum: ['global', 'org', 'project', 'session'] },
+        scopeId: { type: 'string' },
+        projectId: { type: 'string', description: 'For storing decomposition metadata (add)' },
+        createdBy: { type: 'string' },
+        // get params
+        taskId: { type: 'string', description: 'Task ID (get)' },
+        // list params
+        parentTaskId: { type: 'string', description: 'Filter by parent task ID (list)' },
+        limit: { type: 'number' },
+        offset: { type: 'number' },
+      },
+      required: ['action'],
+    },
+  },
+
+  // -------------------------------------------------------------------------
+  // MULTI-AGENT VOTING
+  // -------------------------------------------------------------------------
+  {
+    name: 'memory_voting',
+    description:
+      'Manage multi-agent voting and consensus. Actions: record_vote, get_consensus, list_votes, get_stats',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: {
+          type: 'string',
+          enum: ['record_vote', 'get_consensus', 'list_votes', 'get_stats'],
+          description: 'Action to perform',
+        },
+        // record_vote params
+        taskId: { type: 'string', description: 'Task ID (references knowledge/tool entry)' },
+        agentId: { type: 'string', description: 'Agent identifier' },
+        voteValue: {
+          type: 'object',
+          description: 'Agent vote value (any JSON-serializable value)',
+        },
+        confidence: { type: 'number', description: 'Confidence level 0-1 (default: 1.0)' },
+        reasoning: { type: 'string', description: 'Reasoning for this vote' },
+        // get_consensus params
+        k: {
+          type: 'number',
+          description: 'Number of votes ahead required for consensus (default: 1)',
+        },
+        // list_votes and get_stats use taskId
+      },
+      required: ['action'],
+    },
+  },
+
+  // -------------------------------------------------------------------------
+  // USAGE ANALYTICS
+  // -------------------------------------------------------------------------
+  {
+    name: 'memory_analytics',
+    description:
+      'Get usage analytics and trends from audit log. Actions: get_stats, get_trends, get_subtask_stats, get_error_correlation, get_low_diversity',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: {
+          type: 'string',
+          enum: [
+            'get_stats',
+            'get_trends',
+            'get_subtask_stats',
+            'get_error_correlation',
+            'get_low_diversity',
+          ],
+          description: 'Action to perform',
+        },
+        // Filter params (get_stats, get_trends)
+        scopeType: { type: 'string', enum: ['global', 'org', 'project', 'session'] },
+        scopeId: { type: 'string', description: 'Scope ID to filter by' },
+        startDate: { type: 'string', description: 'Start date filter (ISO timestamp)' },
+        endDate: { type: 'string', description: 'End date filter (ISO timestamp)' },
+        // get_subtask_stats params
+        projectId: { type: 'string', description: 'Project ID for subtask stats' },
+        subtaskType: { type: 'string', description: 'Filter by subtask type' },
+        // get_error_correlation params
+        agentA: { type: 'string', description: 'First agent ID for correlation' },
+        agentB: { type: 'string', description: 'Second agent ID for correlation' },
+        timeWindow: {
+          type: 'object',
+          description: 'Time window for correlation analysis',
+          properties: {
+            start: { type: 'string' },
+            end: { type: 'string' },
+          },
+        },
+      },
+      required: ['action'],
+    },
+  },
+
+  // -------------------------------------------------------------------------
+  // PERMISSIONS
+  // -------------------------------------------------------------------------
+  {
+    name: 'memory_permission',
+    description: 'Manage permissions. Actions: grant, revoke, check, list',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: {
+          type: 'string',
+          enum: ['grant', 'revoke', 'check', 'list'],
+          description: 'Action to perform',
+        },
+        // grant params
+        agent_id: { type: 'string', description: 'Agent identifier (grant, revoke, check, list)' },
+        scope_type: {
+          type: 'string',
+          enum: ['global', 'org', 'project', 'session'],
+          description: 'Scope type (grant, revoke, check, list)',
+        },
+        scope_id: { type: 'string', description: 'Scope ID (grant, revoke, check, list)' },
+        entry_type: {
+          type: 'string',
+          enum: ['tool', 'guideline', 'knowledge'],
+          description: 'Entry type (grant, revoke, check, list)',
+        },
+        permission: {
+          type: 'string',
+          enum: ['read', 'write', 'admin'],
+          description: 'Permission level (grant)',
+        },
+        created_by: { type: 'string', description: 'Creator identifier (grant)' },
+        // revoke params
+        permission_id: { type: 'string', description: 'Permission ID (revoke)' },
+        // check params - 'action' field here refers to the permission action to check (read/write)
+        // Note: The tool action is 'check', but the handler also uses 'action' for the permission action
+        // list params
+        limit: { type: 'number', description: 'Max results (list, default: all)' },
+        offset: { type: 'number', description: 'Skip N results (list)' },
       },
       required: ['action'],
     },
@@ -512,6 +762,185 @@ const TOOLS: Tool[] = [
       required: ['action'],
     },
   },
+
+  // -------------------------------------------------------------------------
+  // EXPORT
+  // -------------------------------------------------------------------------
+  {
+    name: 'memory_export',
+    description: 'Export memory entries to various formats. Actions: export',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: {
+          type: 'string',
+          enum: ['export'],
+          description: 'Action to perform',
+        },
+        format: {
+          type: 'string',
+          enum: ['json', 'markdown', 'yaml', 'openapi'],
+          description: 'Export format (default: json)',
+        },
+        types: {
+          type: 'array',
+          items: { type: 'string', enum: ['tools', 'guidelines', 'knowledge'] },
+          description: 'Entry types to export (default: all)',
+        },
+        scopeType: {
+          type: 'string',
+          enum: ['global', 'org', 'project', 'session'],
+          description: 'Scope type to export from',
+        },
+        scopeId: { type: 'string', description: 'Scope ID (required if scopeType specified)' },
+        tags: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Filter by tags (include entries with any of these tags)',
+        },
+        includeVersions: {
+          type: 'boolean',
+          description: 'Include version history in export (default: false)',
+        },
+        includeInactive: {
+          type: 'boolean',
+          description: 'Include inactive/deleted entries (default: false)',
+        },
+      },
+      required: ['action'],
+    },
+  },
+
+  // -------------------------------------------------------------------------
+  // IMPORT
+  // -------------------------------------------------------------------------
+  {
+    name: 'memory_import',
+    description: 'Import memory entries from various formats. Actions: import',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: {
+          type: 'string',
+          enum: ['import'],
+          description: 'Action to perform',
+        },
+        content: {
+          type: 'string',
+          description: 'Content to import (JSON string, YAML string, Markdown, or OpenAPI spec)',
+        },
+        format: {
+          type: 'string',
+          enum: ['json', 'yaml', 'markdown', 'openapi'],
+          description: 'Import format (default: json, auto-detected if possible)',
+        },
+        conflictStrategy: {
+          type: 'string',
+          enum: ['skip', 'update', 'replace', 'error'],
+          description: 'How to handle conflicts with existing entries (default: update)',
+        },
+        scopeMapping: {
+          type: 'object',
+          description:
+            'Map scope IDs from import to target scopes: { "oldScopeId": { "type": "org|project|session", "id": "newScopeId" } }',
+        },
+        generateNewIds: {
+          type: 'boolean',
+          description:
+            'Generate new IDs for imported entries instead of preserving originals (default: false)',
+        },
+        importedBy: { type: 'string', description: 'Agent ID or identifier for audit trail' },
+      },
+      required: ['action', 'content'],
+    },
+  },
+
+  // -------------------------------------------------------------------------
+  // CONVERSATION HISTORY
+  // -------------------------------------------------------------------------
+  {
+    name: 'memory_conversation',
+    description:
+      'Manage conversation history. Actions: start, add_message, get, list, update, link_context, get_context, search, end, archive',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: {
+          type: 'string',
+          enum: [
+            'start',
+            'add_message',
+            'get',
+            'list',
+            'update',
+            'link_context',
+            'get_context',
+            'search',
+            'end',
+            'archive',
+          ],
+          description: 'Action to perform',
+        },
+        // start params
+        sessionId: { type: 'string', description: 'Session ID (start)' },
+        projectId: { type: 'string', description: 'Project ID (start)' },
+        agentId: {
+          type: 'string',
+          description: 'Agent ID (start, add_message, etc.)',
+        },
+        title: { type: 'string', description: 'Conversation title (start, update)' },
+        metadata: { type: 'object', description: 'Optional metadata (start, update)' },
+        // add_message params
+        conversationId: {
+          type: 'string',
+          description: 'Conversation ID (add_message, get, update, etc.)',
+        },
+        role: {
+          type: 'string',
+          enum: ['user', 'agent', 'system'],
+          description: 'Message role (add_message)',
+        },
+        content: { type: 'string', description: 'Message content (add_message)' },
+        contextEntries: {
+          type: 'array',
+          description: 'Memory entries used (add_message)',
+        },
+        toolsUsed: { type: 'array', description: 'Tools invoked (add_message)' },
+        // get params
+        includeMessages: { type: 'boolean', description: 'Include messages (get)' },
+        includeContext: { type: 'boolean', description: 'Include context links (get)' },
+        // list params
+        status: {
+          type: 'string',
+          enum: ['active', 'completed', 'archived'],
+          description: 'Filter by status (list)',
+        },
+        // link_context params
+        messageId: { type: 'string', description: 'Message ID (link_context)' },
+        entryType: {
+          type: 'string',
+          enum: ['tool', 'guideline', 'knowledge'],
+          description: 'Entry type (link_context, get_context)',
+        },
+        entryId: { type: 'string', description: 'Entry ID (link_context, get_context)' },
+        relevanceScore: {
+          type: 'number',
+          description: 'Relevance score 0-1 (link_context)',
+        },
+        // search params
+        search: { type: 'string', description: 'Search query (search)' },
+        // end params
+        generateSummary: {
+          type: 'boolean',
+          description: 'Generate summary when ending (end)',
+        },
+        // common params
+        limit: { type: 'number' },
+        offset: { type: 'number' },
+      },
+      required: ['action'],
+    },
+  },
 ];
 
 // =============================================================================
@@ -577,6 +1006,12 @@ const bundledHandlers: Record<string, (params: Record<string, unknown>) => unkno
         return toolHandlers.history(rest);
       case 'deactivate':
         return toolHandlers.deactivate(rest);
+      case 'bulk_add':
+        return toolHandlers.bulk_add(rest);
+      case 'bulk_update':
+        return toolHandlers.bulk_update(rest);
+      case 'bulk_delete':
+        return toolHandlers.bulk_delete(rest);
       default:
         throw new Error(`Unknown action for memory_tool: ${String(action)}`);
     }
@@ -597,6 +1032,12 @@ const bundledHandlers: Record<string, (params: Record<string, unknown>) => unkno
         return guidelineHandlers.history(rest);
       case 'deactivate':
         return guidelineHandlers.deactivate(rest);
+      case 'bulk_add':
+        return guidelineHandlers.bulk_add(rest);
+      case 'bulk_update':
+        return guidelineHandlers.bulk_update(rest);
+      case 'bulk_delete':
+        return guidelineHandlers.bulk_delete(rest);
       default:
         throw new Error(`Unknown action for memory_guideline: ${String(action)}`);
     }
@@ -617,6 +1058,12 @@ const bundledHandlers: Record<string, (params: Record<string, unknown>) => unkno
         return knowledgeHandlers.history(rest);
       case 'deactivate':
         return knowledgeHandlers.deactivate(rest);
+      case 'bulk_add':
+        return knowledgeHandlers.bulk_add(rest);
+      case 'bulk_update':
+        return knowledgeHandlers.bulk_update(rest);
+      case 'bulk_delete':
+        return knowledgeHandlers.bulk_delete(rest);
       default:
         throw new Error(`Unknown action for memory_knowledge: ${String(action)}`);
     }
@@ -797,7 +1244,7 @@ const bundledHandlers: Record<string, (params: Record<string, unknown>) => unkno
       case 'export':
         return exportHandlers.export(rest as Record<string, unknown>);
       default:
-        throw new Error(`Unknown action for memory_export: ${String(action)}`);
+        throw createInvalidActionError('memory_export', String(action), ['export']);
     }
   },
 
@@ -807,7 +1254,110 @@ const bundledHandlers: Record<string, (params: Record<string, unknown>) => unkno
       case 'import':
         return importHandlers.import(rest as Record<string, unknown>);
       default:
-        throw new Error(`Unknown action for memory_import: ${String(action)}`);
+        throw createInvalidActionError('memory_import', String(action), ['import']);
+    }
+  },
+
+  memory_task: (params) => {
+    const { action, ...rest } = params;
+    switch (action) {
+      case 'add':
+        return taskHandlers.add(rest as unknown as TaskAddParams);
+      case 'get':
+        return taskHandlers.get(rest as unknown as TaskGetParams);
+      case 'list':
+        return taskHandlers.list(rest as unknown as TaskListParams);
+      default:
+        throw new Error(`Unknown action for memory_task: ${String(action)}`);
+    }
+  },
+
+  memory_voting: (params) => {
+    const { action, ...rest } = params;
+    switch (action) {
+      case 'record_vote':
+        return votingHandlers.record_vote(rest as Record<string, unknown>);
+      case 'get_consensus':
+        return votingHandlers.get_consensus(rest as Record<string, unknown>);
+      case 'list_votes':
+        return votingHandlers.list_votes(rest as Record<string, unknown>);
+      case 'get_stats':
+        return votingHandlers.get_stats(rest as Record<string, unknown>);
+      default:
+        throw new Error(`Unknown action for memory_voting: ${String(action)}`);
+    }
+  },
+
+  memory_analytics: (params) => {
+    const { action, ...rest } = params;
+    switch (action) {
+      case 'get_stats':
+        return analyticsHandlers.get_stats(rest);
+      case 'get_trends':
+        return analyticsHandlers.get_trends(rest);
+      case 'get_subtask_stats':
+        return analyticsHandlers.get_subtask_stats(rest);
+      case 'get_error_correlation':
+        return analyticsHandlers.get_error_correlation(rest);
+      case 'get_low_diversity':
+        return analyticsHandlers.get_low_diversity(rest);
+      default:
+        throw new Error(`Unknown action for memory_analytics: ${String(action)}`);
+    }
+  },
+
+  memory_permission: (params) => {
+    const { action, ...rest } = params;
+    switch (action) {
+      case 'grant':
+        return permissionHandlers.grant(rest);
+      case 'revoke':
+        return permissionHandlers.revoke(rest);
+      case 'check':
+        return permissionHandlers.check(rest);
+      case 'list':
+        return permissionHandlers.list(rest);
+      default:
+        throw new Error(`Unknown action for memory_permission: ${String(action)}`);
+    }
+  },
+
+  memory_conversation: (params) => {
+    const { action, ...rest } = params;
+    switch (action) {
+      case 'start':
+        return conversationHandlers.start(rest);
+      case 'add_message':
+        return conversationHandlers.addMessage(rest);
+      case 'get':
+        return conversationHandlers.get(rest);
+      case 'list':
+        return conversationHandlers.list(rest);
+      case 'update':
+        return conversationHandlers.update(rest);
+      case 'link_context':
+        return conversationHandlers.linkContext(rest);
+      case 'get_context':
+        return conversationHandlers.getContext(rest);
+      case 'search':
+        return conversationHandlers.search(rest);
+      case 'end':
+        return conversationHandlers.end(rest);
+      case 'archive':
+        return conversationHandlers.archive(rest);
+      default:
+        throw createInvalidActionError('memory_conversation', String(action), [
+          'start',
+          'add_message',
+          'get',
+          'list',
+          'update',
+          'link_context',
+          'get_context',
+          'search',
+          'end',
+          'archive',
+        ]);
     }
   },
 };

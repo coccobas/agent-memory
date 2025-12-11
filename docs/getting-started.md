@@ -309,8 +309,9 @@ When integrating an agent (e.g., Claude or a custom MCP client), a typical loop 
 
 ```json
 {
-  "name": "memory_context",
+  "name": "memory_query",
   "arguments": {
+    "action": "context",
     "scopeType": "session",
     "scopeId": "<session-id>",
     "inherit": true,
@@ -509,6 +510,146 @@ This will find entries about "login", "credentials", "auth tokens" even if they 
 | `AGENT_MEMORY_OPENAI_MODEL` | `text-embedding-3-small` | OpenAI embedding model |
 | `AGENT_MEMORY_VECTOR_DB_PATH` | `data/vectors.lance` | Vector database location |
 | `AGENT_MEMORY_SEMANTIC_THRESHOLD` | `0.7` | Minimum similarity score (0-1) |
+
+---
+
+## Using Conversation History
+
+Conversation history tracks multi-turn interactions between agents and users, linking them to memory entries for learning and context continuity.
+
+### Quick Start
+
+```json
+// 1. Start a conversation
+{
+  "action": "start",
+  "projectId": "proj_123",
+  "title": "Authentication Discussion",
+  "agentId": "agent-1"
+}
+
+// 2. Add messages
+{
+  "action": "add_message",
+  "conversationId": "conv_abc123",
+  "role": "user",
+  "content": "What guidelines apply to authentication?"
+}
+
+// 3. Query with auto-linking
+{
+  "action": "query",
+  "search": "authentication",
+  "conversationId": "conv_abc123",
+  "types": ["guidelines"]
+}
+
+// 4. Add agent response with context
+{
+  "action": "add_message",
+  "conversationId": "conv_abc123",
+  "role": "agent",
+  "content": "Based on the guidelines...",
+  "contextEntries": [
+    { "type": "guideline", "id": "guideline_123" }
+  ],
+  "toolsUsed": ["memory_query"]
+}
+
+// 5. End conversation
+{
+  "action": "end",
+  "id": "conv_abc123",
+  "generateSummary": true
+}
+```
+
+### Common Patterns
+
+#### Pattern 1: Track Query Context
+
+Automatically link memory entries used in queries:
+
+```json
+{
+  "action": "query",
+  "search": "security",
+  "conversationId": "conv_123",
+  "autoLinkContext": true
+}
+```
+
+This creates context links for all query results, enabling:
+- "What conversations used this guideline?"
+- "Which memory entries are most useful?"
+
+#### Pattern 2: Message-Level Context
+
+Link entries to specific messages:
+
+```json
+{
+  "action": "add_message",
+  "conversationId": "conv_123",
+  "role": "agent",
+  "content": "Response",
+  "contextEntries": [
+    { "type": "knowledge", "id": "knowledge_456" }
+  ]
+}
+```
+
+#### Pattern 3: Search Past Conversations
+
+Find conversations about specific topics:
+
+```json
+{
+  "action": "search",
+  "search": "authentication",
+  "projectId": "proj_123"
+}
+```
+
+### Best Practices
+
+1. **Start conversations at project or session scope** - Enables proper scoping and filtering
+2. **Use auto-linking in queries** - Automatically tracks which entries are used
+3. **Include context in agent messages** - Document which memory entries informed the response
+4. **End conversations when complete** - Enables proper status tracking and archiving
+5. **Generate summaries for long conversations** - Helps with review and knowledge extraction
+
+### Integration Examples
+
+#### With Query Handler
+
+```typescript
+// Query automatically links results to conversation
+const queryResult = await memory_query({
+  search: "authentication",
+  conversationId: conversation.id,
+  messageId: currentMessage.id,
+  types: ["guidelines", "knowledge"]
+});
+
+// Results are automatically linked via conversation_context table
+```
+
+#### With Analytics
+
+```typescript
+// Get analytics for a conversation
+const analytics = getConversationAnalytics(conversationId);
+// Returns: message counts, duration, most used entries, tools used
+```
+
+#### Knowledge Extraction
+
+```typescript
+// Extract knowledge from completed conversations
+const knowledgeEntries = extractKnowledgeFromConversation(conversationId);
+// Returns: Array of knowledge entries to create from conversation
+```
 
 ---
 

@@ -3,6 +3,8 @@
  */
 
 import { executeMemoryQuery, executeMemoryQueryAsync } from '../../services/query.service.js';
+import { logAction } from '../../services/audit.service.js';
+import { autoLinkContextFromQuery } from '../../services/conversation.service.js';
 
 import type { MemoryQueryParams, MemoryContextParams } from '../types.js';
 
@@ -13,14 +15,36 @@ function cast<T>(params: Record<string, unknown>): T {
 
 export const queryHandlers = {
   async query(params: Record<string, unknown>) {
-    const queryParams = cast<MemoryQueryParams>(params);
+    const queryParams = cast<MemoryQueryParams & { agentId?: string }>(params);
+    const { agentId, conversationId, messageId, autoLinkContext, ...queryParamsWithoutAgent } =
+      queryParams;
 
     // Use async version if semantic search is requested (or default enabled)
+    // Note: FTS5 and semantic search can work together - FTS5 for fast text filtering,
+    // semantic search for similarity scoring
     const useAsync = queryParams.semanticSearch !== false && queryParams.search;
 
     const result = useAsync
-      ? await executeMemoryQueryAsync(queryParams)
-      : executeMemoryQuery(queryParams);
+      ? await executeMemoryQueryAsync(queryParamsWithoutAgent)
+      : executeMemoryQuery(queryParamsWithoutAgent);
+
+    // Auto-link results to conversation if conversationId provided
+    if (conversationId && autoLinkContext !== false) {
+      try {
+        autoLinkContextFromQuery(conversationId, messageId, result);
+      } catch (error) {
+        // Silently ignore errors in auto-linking (fire-and-forget)
+        // This shouldn't break the query response
+      }
+    }
+
+    // Log audit
+    logAction({
+      agentId,
+      action: 'query',
+      queryParams: queryParamsWithoutAgent,
+      resultCount: result.results.length,
+    });
 
     return {
       results: result.results,

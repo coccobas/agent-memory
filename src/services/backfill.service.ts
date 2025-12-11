@@ -21,6 +21,9 @@ import { getEmbeddingService } from './embedding.service.js';
 import { getVectorService } from './vector.service.js';
 import { extractTextForEmbedding, type EntryType } from '../db/repositories/embedding-hooks.js';
 import { generateId } from '../db/repositories/base.js';
+import { createComponentLogger } from '../utils/logger.js';
+
+const logger = createComponentLogger('backfill');
 
 export interface BackfillProgress {
   total: number;
@@ -246,7 +249,7 @@ async function backfillEntryType(
           progress.succeeded++;
         } catch (error) {
           // eslint-disable-next-line no-console
-          console.error(`[backfill] Failed to process ${entryType} ${entry.id}:`, error);
+          logger.error({ entryType, entryId: entry.id, error }, 'Failed to process entry');
           progress.processed++;
           progress.failed++;
         }
@@ -309,3 +312,5 @@ export function getBackfillStats(): {
     knowledge: { total: knowledgeTotal, withEmbeddings: knowledgeWithEmbeddings },
   };
 }
+
+

@@ -6,6 +6,9 @@ export { createServer, runServer } from './mcp/server.js';
 
 // CLI entry point
 import { runServer } from './mcp/server.js';
+import { createComponentLogger } from './utils/logger.js';
+
+const logger = createComponentLogger('server');
 
 // Run server if this is the main module
 const isMainModule =
@@ -15,7 +18,10 @@ const isMainModule =
 
 if (isMainModule) {
   runServer().catch((error) => {
-    console.error('Failed to start server:', error);
+    logger.error(
+      { error: error instanceof Error ? error.message : String(error) },
+      'Failed to start server'
+    );
     process.exit(1);
   });
 }

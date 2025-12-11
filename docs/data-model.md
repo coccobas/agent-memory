@@ -345,7 +345,7 @@ Hybrid tag taxonomy (predefined + custom).
 | `description` | TEXT | Yes | - | Tag description |
 | `created_at` | TEXT | No | now() | ISO timestamp |
 
-**Categories:** `language`, `domain`, `meta`, `custom`
+**Categories:** `language`, `domain`, `category`, `meta`, `custom`
 
 **Related MCP tools:** see `memory_tag` with actions `create`, `list`, `attach`, `detach`, and `for_entry` in [API Reference](./api-reference.md#memory_tag).
 
@@ -405,6 +405,8 @@ Explicit links between entries.
 - `depends_on` - Source depends on target
 - `conflicts_with` - Mutually exclusive
 - `related_to` - General association
+- `parent_task` - Source is parent task of target (for task decomposition)
+- `subtask_of` - Source is subtask of target (inverse of parent_task)
 
 **Indexes:**
 - Primary key on `id`
@@ -440,6 +442,220 @@ Concurrent write conflict tracking.
 - `idx_conflicts_unresolved` on `(entry_type, entry_id)` where `resolved = 0`
 
 **Related MCP tools:** `memory_conflict` with actions `list` and `resolve` in [API Reference](./api-reference.md#memory_conflict).
+
+---
+
+### file_locks
+
+File locks for multi-agent coordination.
+
+| Column | Type | Nullable | Default | Description |
+|--------|------|----------|---------|-------------|
+| `id` | TEXT | No | - | Primary key (UUID) |
+| `file_path` | TEXT | No | - | Absolute filesystem path |
+| `checked_out_by` | TEXT | No | - | Agent/IDE identifier |
+| `session_id` | TEXT | Yes | - | FK to sessions |
+| `project_id` | TEXT | Yes | - | FK to projects |
+| `checked_out_at` | TEXT | No | now() | Lock timestamp |
+| `expires_at` | TEXT | Yes | - | Expiration timestamp |
+| `metadata` | TEXT | Yes | - | JSON metadata |
+
+**Indexes:**
+- Primary key on `id`
+- Unique index on `file_path`
+- `idx_file_locks_agent` on `checked_out_by`
+- `idx_file_locks_expires` on `expires_at`
+- `idx_file_locks_project` on `project_id`
+
+**Related MCP tools:** `memory_file_lock` with actions `checkout`, `checkin`, `status`, `list`, `force_unlock` in [API Reference](./api-reference.md#memory_file_lock).
+
+---
+
+### entry_embeddings
+
+Tracks which entries have embeddings generated for semantic search.
+
+| Column | Type | Nullable | Default | Description |
+|--------|------|----------|---------|-------------|
+| `id` | TEXT | No | - | Primary key (UUID) |
+| `entry_type` | TEXT | No | - | Entity type: `tool`, `guideline`, `knowledge` |
+| `entry_id` | TEXT | No | - | Entity ID |
+| `version_id` | TEXT | No | - | Version ID |
+| `has_embedding` | INTEGER | No | 0 | Whether embedding exists |
+| `embedding_model` | TEXT | Yes | - | Model used for embedding |
+| `embedding_provider` | TEXT | Yes | - | Provider: `openai`, `local`, `disabled` |
+| `created_at` | TEXT | No | now() | ISO timestamp |
+| `updated_at` | TEXT | No | now() | ISO timestamp |
+
+**Indexes:**
+- Primary key on `id`
+- `idx_entry_embeddings_entry` on `(entry_type, entry_id)`
+- `idx_entry_embeddings_status` on `has_embedding`
+- Unique index on `(entry_type, entry_id, version_id)`
+
+---
+
+### permissions
+
+Fine-grained access control for agents/users.
+
+| Column | Type | Nullable | Default | Description |
+|--------|------|----------|---------|-------------|
+| `id` | TEXT | No | - | Primary key (UUID) |
+| `agent_id` | TEXT | No | - | Agent/user identifier |
+| `scope_type` | TEXT | Yes | - | Scope type: `global`, `org`, `project`, `session` |
+| `scope_id` | TEXT | Yes | - | Scope ID (NULL = all scopes of this type) |
+| `entry_type` | TEXT | Yes | - | Entry type: `tool`, `guideline`, `knowledge` |
+| `entry_id` | TEXT | Yes | - | Entry ID (NULL = all entries in scope) |
+| `permission` | TEXT | No | - | Permission level: `read`, `write`, `admin` |
+| `created_at` | TEXT | No | now() | ISO timestamp |
+
+**Indexes:**
+- Primary key on `id`
+- `idx_permissions_agent` on `agent_id`
+- `idx_permissions_scope` on `(scope_type, scope_id)`
+- `idx_permissions_entry` on `(entry_type, entry_id)`
+- Unique index on `(agent_id, scope_type, scope_id, entry_type, entry_id, permission)`
+
+**Related MCP tools:** `memory_permission` with actions `grant`, `revoke`, `check`, `list` in [API Reference](./api-reference.md#memory_permission).
+
+---
+
+### audit_log
+
+Tracks all actions for compliance and debugging.
+
+| Column | Type | Nullable | Default | Description |
+|--------|------|----------|---------|-------------|
+| `id` | TEXT | No | - | Primary key (UUID) |
+| `agent_id` | TEXT | Yes | - | Agent identifier |
+| `action` | TEXT | No | - | Action type: `query`, `create`, `update`, `delete` |
+| `entry_type` | TEXT | Yes | - | Entry type: `tool`, `guideline`, `knowledge` |
+| `entry_id` | TEXT | Yes | - | Entry ID |
+| `scope_type` | TEXT | Yes | - | Scope type: `global`, `org`, `project`, `session` |
+| `scope_id` | TEXT | Yes | - | Scope ID |
+| `query_params` | TEXT | Yes | - | JSON query parameters (for queries) |
+| `result_count` | INTEGER | Yes | - | Result count (for queries) |
+| `execution_time` | INTEGER | Yes | - | Execution time in milliseconds |
+| `success` | INTEGER | No | 1 | Success flag (1 = success, 0 = failure) |
+| `error_message` | TEXT | Yes | - | Error message if failed |
+| `subtask_type` | TEXT | Yes | - | Subtask type (for execution tracking) |
+| `parent_task_id` | TEXT | Yes | - | Parent task ID (for subtask tracking) |
+| `created_at` | TEXT | No | now() | ISO timestamp |
+
+**Indexes:**
+- Primary key on `id`
+- `idx_audit_agent` on `agent_id`
+- `idx_audit_action` on `action`
+- `idx_audit_entry` on `(entry_type, entry_id)`
+- `idx_audit_created` on `created_at`
+- `idx_audit_execution` on `(success, subtask_type)`
+- `idx_audit_parent_task` on `parent_task_id`
+
+**Related MCP tools:** `memory_analytics` with actions `get_stats`, `get_trends`, `get_subtask_stats`, `get_error_correlation`, `get_low_diversity` in [API Reference](./api-reference.md#memory_analytics).
+
+---
+
+### agent_votes
+
+Tracks votes from multiple agents for consensus (MDAP support).
+
+| Column | Type | Nullable | Default | Description |
+|--------|------|----------|---------|-------------|
+| `id` | TEXT | No | - | Primary key (UUID) |
+| `task_id` | TEXT | No | - | Task ID (references knowledge/tool entry) |
+| `agent_id` | TEXT | No | - | Agent identifier |
+| `vote_value` | TEXT | No | - | JSON string of agent's vote |
+| `confidence` | REAL | No | 1.0 | Confidence level (0-1) |
+| `reasoning` | TEXT | Yes | - | Reasoning for this vote |
+| `created_at` | TEXT | No | now() | ISO timestamp |
+
+**Indexes:**
+- Primary key on `id`
+- `idx_votes_task` on `task_id`
+- `idx_votes_agent` on `agent_id`
+- Unique index on `(task_id, agent_id)`
+
+**Related MCP tools:** `memory_voting` with actions `record_vote`, `get_consensus`, `list_votes`, `get_stats` in [API Reference](./api-reference.md#memory_voting).
+
+---
+
+### conversations
+
+Tracks conversation threads between agents and users.
+
+| Column | Type | Nullable | Default | Description |
+|--------|------|----------|---------|-------------|
+| `id` | TEXT | No | - | Primary key (UUID) |
+| `session_id` | TEXT | Yes | - | FK to sessions |
+| `project_id` | TEXT | Yes | - | FK to projects |
+| `agent_id` | TEXT | Yes | - | Agent identifier |
+| `title` | TEXT | Yes | - | Conversation title |
+| `status` | TEXT | No | `active` | Status: `active`, `completed`, `archived` |
+| `started_at` | TEXT | No | now() | ISO timestamp |
+| `ended_at` | TEXT | Yes | - | ISO timestamp (set when completed/archived) |
+| `metadata` | TEXT | Yes | - | JSON metadata (tags, summary, etc.) |
+
+**Indexes:**
+- Primary key on `id`
+- `idx_conversations_session` on `session_id`
+- `idx_conversations_project` on `project_id`
+- `idx_conversations_agent` on `agent_id`
+- `idx_conversations_status` on `status`
+- `idx_conversations_started` on `started_at`
+
+**Related MCP tools:** `memory_conversation` with actions `start`, `add_message`, `get`, `list`, `update`, `link_context`, `get_context`, `search`, `end`, `archive` in [API Reference](./api-reference.md#memory_conversation).
+
+---
+
+### conversation_messages
+
+Individual messages in conversations.
+
+| Column | Type | Nullable | Default | Description |
+|--------|------|----------|---------|-------------|
+| `id` | TEXT | No | - | Primary key (UUID) |
+| `conversation_id` | TEXT | No | - | FK to conversations |
+| `role` | TEXT | No | - | Message role: `user`, `agent`, `system` |
+| `content` | TEXT | No | - | Message content |
+| `message_index` | INTEGER | No | - | Order within conversation (0-based) |
+| `context_entries` | TEXT | Yes | - | JSON array: `[{type: "tool"|"guideline"|"knowledge", id: string}]` |
+| `tools_used` | TEXT | Yes | - | JSON array: `["memory_query", ...]` |
+| `created_at` | TEXT | No | now() | ISO timestamp |
+| `metadata` | TEXT | Yes | - | JSON metadata (tokens, model, confidence, etc.) |
+
+**Indexes:**
+- Primary key on `id`
+- `idx_messages_conversation` on `conversation_id`
+- `idx_messages_index` on `(conversation_id, message_index)`
+- `idx_messages_role` on `(conversation_id, role)`
+
+**Related MCP tools:** `memory_conversation` with action `add_message` in [API Reference](./api-reference.md#memory_conversation).
+
+---
+
+### conversation_context
+
+Links memory entries to conversations/messages.
+
+| Column | Type | Nullable | Default | Description |
+|--------|------|----------|---------|-------------|
+| `id` | TEXT | No | - | Primary key (UUID) |
+| `conversation_id` | TEXT | No | - | FK to conversations |
+| `message_id` | TEXT | Yes | - | FK to conversation_messages (optional) |
+| `entry_type` | TEXT | No | - | Entry type: `tool`, `guideline`, `knowledge` |
+| `entry_id` | TEXT | No | - | Entry ID |
+| `relevance_score` | REAL | Yes | - | Relevance score 0-1 |
+| `created_at` | TEXT | No | now() | ISO timestamp |
+
+**Indexes:**
+- Primary key on `id`
+- `idx_context_conversation` on `conversation_id`
+- `idx_context_message` on `message_id`
+- `idx_context_entry` on `(entry_type, entry_id)`
+- Unique index on `(conversation_id, message_id, entry_type, entry_id)`
+
+**Related MCP tools:** `memory_conversation` with actions `link_context`, `get_context` in [API Reference](./api-reference.md#memory_conversation).
 
 ---
 

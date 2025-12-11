@@ -305,7 +305,7 @@ Quick setup:
 ## 📊 Project Status
 
 - ✅ Core CRUD operations
-- ✅ MCP server with 15 bundled tools
+- ✅ MCP server with 19 bundled tools
 - ✅ Query and context aggregation
 - ✅ Export/Import (JSON, Markdown, YAML)
 - ✅ File locks for multi-agent coordination

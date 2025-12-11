@@ -25,13 +25,13 @@ export interface ExportOptions {
   scopeType?: ScopeType;
   scopeId?: string;
   tags?: string[];
-  format?: 'json' | 'markdown' | 'yaml';
+  format?: 'json' | 'markdown' | 'yaml' | 'openapi';
   includeVersions?: boolean;
   includeInactive?: boolean;
 }
 
 export interface ExportResult {
-  format: 'json' | 'markdown' | 'yaml';
+  format: 'json' | 'markdown' | 'yaml' | 'openapi';
   content: string;
   metadata: {
     exportedAt: string;
@@ -547,3 +547,140 @@ export function exportToYaml(options: ExportOptions = {}): ExportResult {
     },
   };
 }
+
+/**
+ * Export tools to OpenAPI/Swagger format
+ *
+ * Converts tool definitions to OpenAPI 3.0 specification format.
+ * Only exports tools (guidelines and knowledge are not applicable to OpenAPI).
+ */
+export function exportToOpenAPI(options: ExportOptions = {}): ExportResult {
+  const data = queryEntries({ ...options, types: ['tools'] }); // Only tools for OpenAPI
+  const entryCount = data.entries.tools.length;
+
+  // Build OpenAPI 3.0 specification
+  const openApiSpec: {
+    openapi: string;
+    info: {
+      title: string;
+      version: string;
+      description?: string;
+    };
+    paths: Record<string, unknown>;
+    components?: {
+      schemas?: Record<string, unknown>;
+    };
+  } = {
+    openapi: '3.0.0',
+    info: {
+      title: 'Agent Memory Tools',
+      version: '1.0.0',
+      description: `Exported from Agent Memory at ${data.exportedAt}`,
+    },
+    paths: {},
+    components: {
+      schemas: {},
+    },
+  };
+
+  // Convert each tool to OpenAPI path/operation
+  for (const tool of data.entries.tools) {
+    if (!tool.currentVersion) continue;
+
+    // Use tool name as path (sanitized)
+    const path = `/${tool.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+    const operationId = tool.name.replace(/[^a-zA-Z0-9]/g, '_');
+
+    // Build request body schema from parameters
+    const requestBody: {
+      description?: string;
+      required?: boolean;
+      content?: {
+        'application/json': {
+          schema: {
+            type: string;
+            properties?: Record<string, unknown>;
+            required?: string[];
+          };
+        };
+      };
+    } = {};
+
+    if (tool.currentVersion.parameters) {
+      const properties: Record<string, unknown> = {};
+      const required: string[] = [];
+
+      for (const [key, param] of Object.entries(tool.currentVersion.parameters)) {
+        if (typeof param === 'object' && param !== null) {
+          const paramObj = param as Record<string, unknown>;
+          properties[key] = {
+            type: paramObj.type || 'string',
+            description: paramObj.description || '',
+            ...(paramObj.default !== undefined && { default: paramObj.default }),
+          };
+
+          if (paramObj.required === true) {
+            required.push(key);
+          }
+        } else {
+          properties[key] = {
+            type: 'string',
+            description: '',
+          };
+        }
+      }
+
+      requestBody.description = tool.currentVersion.description || '';
+      requestBody.content = {
+        'application/json': {
+          schema: {
+            type: 'object',
+            properties,
+            ...(required.length > 0 && { required }),
+          },
+        },
+      };
+    }
+
+    // Build response schema
+    const responses: Record<string, unknown> = {
+      '200': {
+        description: 'Success',
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              description: tool.currentVersion.description || 'Tool response',
+            },
+          },
+        },
+      },
+    };
+
+    // Add operation to paths
+    openApiSpec.paths[path] = {
+      post: {
+        operationId,
+        summary: tool.name,
+        description: tool.currentVersion.description || '',
+        ...(Object.keys(requestBody).length > 0 && { requestBody }),
+        responses,
+        tags: tool.tags.length > 0 ? tool.tags : undefined,
+      },
+    };
+  }
+
+  return {
+    format: 'openapi',
+    content: JSON.stringify(openApiSpec, null, 2),
+    metadata: {
+      exportedAt: data.exportedAt,
+      entryCount,
+      types: ['tools'],
+      scopeType: data.metadata.scopeType,
+      scopeId: data.metadata.scopeId,
+    },
+  };
+}
+
+

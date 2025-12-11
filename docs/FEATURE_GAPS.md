@@ -39,26 +39,26 @@ Agent Memory is a well-architected knowledge management system for AI agents wit
 
 ---
 
-### 2. Full-Text Search (FTS5) ⭐ HIGH PRIORITY
+### 2. Full-Text Search (FTS5) ✅ IMPLEMENTED
 
-**Current State:** Simple LIKE queries for text search
-
-**Gap:** SQLite FTS5 would provide better search with:
-
-- Ranking by relevance
-- Phrase matching
-- Prefix matching
-- Boolean operators
+**Current State:** ✅ Fully implemented with FTS5 virtual tables
 
 **Implementation:**
 
-```sql
-CREATE VIRTUAL TABLE tools_fts USING fts5(
-  name, description, content, content='tools'
-);
-```
+- ✅ FTS5 virtual tables for tools, guidelines, and knowledge
+- ✅ Automatic synchronization via triggers
+- ✅ Ranking by relevance (BM25)
+- ✅ Phrase matching support
+- ✅ Prefix matching support
+- ✅ Boolean operators support
+- ✅ `useFts5` parameter in `memory_query` tool
+- ✅ Field-specific search support
 
-**Priority:** HIGH - Low effort, high impact
+**Migration:** `0003_add_fts5_tables.sql` creates virtual tables and triggers
+
+**Usage:** Set `useFts5: true` in `memory_query` search action
+
+**Status:** ✅ Complete - Ready for production use (v0.3.0)
 
 ---
 
@@ -416,9 +416,9 @@ CREATE VIRTUAL TABLE tools_fts USING fts5(
 ### HIGH PRIORITY (Core Features)
 
 1. ✅ **Semantic/Vector Search** - ✅ IMPLEMENTED (v0.3.0)
-2. ❌ Full-Text Search (FTS5) - Still using LIKE queries
+2. ✅ **Full-Text Search (FTS5)** - ✅ IMPLEMENTED (v0.3.0)
 3. ✅ **Export/Import Functionality** - ✅ IMPLEMENTED
-4. ❌ Fine-Grained Permissions - No access control system
+4. ✅ **Fine-Grained Permissions** - ✅ IMPLEMENTED (v0.3.0)
 
 ### MEDIUM PRIORITY (Nice to Have)
 
@@ -450,9 +450,9 @@ CREATE VIRTUAL TABLE tools_fts USING fts5(
 
 **Phase 1 (Quick Wins):**
 
-- ❌ 1. Full-Text Search (FTS5) - 2-3 days (not started)
+- ✅ 1. Full-Text Search (FTS5) - **COMPLETED** (v0.3.0)
 - ✅ 2. Export/Import - **COMPLETED**
-- ❌ 3. Advanced Filtering - 2-3 days (not started)
+- ✅ 3. Advanced Filtering - **COMPLETED** (v0.3.0)
 
 **Phase 2 (Core Features):** 
 - ✅ 4. Semantic/Vector Search - **COMPLETED** (v0.3.0)
@@ -518,7 +518,7 @@ CREATE VIRTUAL TABLE tools_fts USING fts5(
 
 **Gaps in our project:**
 
-- ❌ No conversation history tracking
+- ✅ Conversation history tracking - **IMPLEMENTED** (v0.3.0)
 - ❌ No memory summarization
 - ✅ Vector store integration - **IMPLEMENTED** (LanceDB)
 
@@ -562,8 +562,8 @@ Based on comparison with similar projects, these are the **most commonly found**
 
 1. ✅ **Semantic/Vector Search** - ✅ **IMPLEMENTED** (was missing, now complete)
 2. ✅ **Export/Import** - ✅ **IMPLEMENTED** (was missing, now complete)
-3. ❌ **Full-Text Search (FTS5)** - Better search than simple LIKE queries - **STILL MISSING**
-4. ❌ **Conversation/Interaction History** - Track what agents queried/learned - **STILL MISSING**
+3. ✅ **Full-Text Search (FTS5)** - Better search than simple LIKE queries - **✅ IMPLEMENTED** (v0.3.0)
+4. ✅ **Conversation/Interaction History** - Track what agents queried/learned - **✅ IMPLEMENTED** (v0.3.0)
 5. ❌ **Fine-Grained Permissions** - Essential for multi-tenant/multi-agent scenarios - **STILL MISSING**
 6. ❌ **Memory Auto-Improvement** - Automatic refinement based on usage (Mem0 feature) - **STILL MISSING**
 
@@ -818,8 +818,8 @@ CREATE TABLE agent_votes (
 ## 🎯 Revised Implementation Priority (MDAP-Enhanced)
 
 ### Phase 1: Core Gaps + MDAP Foundation
-1. ❌ **Full-Text Search (FTS5)** - 2-3 days
-2. ❌ **Fine-Grained Permissions** - 1 week
+1. ✅ **Full-Text Search (FTS5)** - ✅ COMPLETED (v0.3.0)
+2. ✅ **Fine-Grained Permissions** - ✅ COMPLETED (v0.3.0)
 3. ❌ **Task Decomposition Tracking** (New #23) - 3-4 days
 4. ❌ **Multi-Agent Voting** (New #24) - 3-4 days
 

@@ -7,3 +7,4 @@ export * from './knowledge.js';
 export * from './tags.js';
 export * from './conflicts.js';
 export * from './file_locks.js';
+export * from './conversations.js';

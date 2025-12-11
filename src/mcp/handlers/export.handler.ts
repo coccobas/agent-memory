@@ -8,6 +8,7 @@ import {
   exportToJson,
   exportToMarkdown,
   exportToYaml,
+  exportToOpenAPI,
   type ExportOptions,
 } from '../../services/export.service.js';
 import { createValidationError } from '../errors.js';
@@ -17,7 +18,7 @@ interface ExportParams {
   scopeType?: 'global' | 'org' | 'project' | 'session';
   scopeId?: string;
   tags?: string[];
-  format?: 'json' | 'markdown' | 'yaml';
+  format?: 'json' | 'markdown' | 'yaml' | 'openapi';
   includeVersions?: boolean;
   includeInactive?: boolean;
 }
@@ -30,8 +31,8 @@ function exportEntries(params: Record<string, unknown>) {
   const format = exportParams.format || 'json';
 
   // Validate format
-  if (!['json', 'markdown', 'yaml'].includes(format)) {
-    throw createValidationError('format', 'must be json, markdown, or yaml');
+  if (!['json', 'markdown', 'yaml', 'openapi'].includes(format)) {
+    throw createValidationError('format', 'must be json, markdown, yaml, or openapi');
   }
 
   const options: ExportOptions = {
@@ -46,6 +47,9 @@ function exportEntries(params: Record<string, unknown>) {
 
   let result;
   switch (format) {
+    case 'openapi':
+      result = exportToOpenAPI(options);
+      break;
     case 'markdown':
       result = exportToMarkdown(options);
       break;
@@ -69,3 +73,5 @@ function exportEntries(params: Record<string, unknown>) {
 export const exportHandlers = {
   export: exportEntries,
 };
+
+

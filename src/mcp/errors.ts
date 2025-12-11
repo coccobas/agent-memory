@@ -49,6 +49,9 @@ export const ErrorCodes = {
   // System errors (5000-5999)
   UNKNOWN_ERROR: 'E5000',
   INTERNAL_ERROR: 'E5001',
+
+  // Permission errors (6000-6999)
+  PERMISSION_DENIED: 'E6000',
 } as const;
 
 /**
@@ -122,6 +125,26 @@ export function createInvalidActionError(
       suggestion: `Valid actions are: ${validActions.join(', ')}`,
     }
   );
+}
+
+/**
+ * Create a permission denied error
+ */
+export function createPermissionError(
+  action: string,
+  resource: string,
+  identifier?: string
+): AgentMemoryError {
+  const message = identifier
+    ? `Permission denied: ${action} access required for ${resource} ${identifier}`
+    : `Permission denied: ${action} access required`;
+
+  return new AgentMemoryError(message, ErrorCodes.PERMISSION_DENIED, {
+    action,
+    resource,
+    identifier,
+    suggestion: `Ensure you have ${action} permissions for this ${resource}`,
+  });
 }
 
 /**

@@ -261,6 +261,11 @@ export const tags = sqliteTable(
 export type EntryType = 'tool' | 'guideline' | 'knowledge' | 'project';
 
 /**
+ * Permission entry type (subset of EntryType - excludes 'project')
+ */
+export type PermissionEntryType = 'tool' | 'guideline' | 'knowledge';
+
+/**
  * Entry tags - polymorphic many-to-many between entries and tags
  */
 export const entryTags = sqliteTable(
@@ -288,7 +293,13 @@ export const entryTags = sqliteTable(
 /**
  * Relation type enum for entry relations
  */
-export type RelationType = 'applies_to' | 'depends_on' | 'conflicts_with' | 'related_to';
+export type RelationType =
+  | 'applies_to'
+  | 'depends_on'
+  | 'conflicts_with'
+  | 'related_to'
+  | 'parent_task' // NEW: for task decomposition
+  | 'subtask_of'; // NEW: inverse of parent_task
 
 /**
  * Entry relations - explicit links between entries
@@ -306,7 +317,14 @@ export const entryRelations = sqliteTable(
     }).notNull(),
     targetId: text('target_id').notNull(),
     relationType: text('relation_type', {
-      enum: ['applies_to', 'depends_on', 'conflicts_with', 'related_to'],
+      enum: [
+        'applies_to',
+        'depends_on',
+        'conflicts_with',
+        'related_to',
+        'parent_task',
+        'subtask_of',
+      ],
     }).notNull(),
     createdAt: text('created_at')
       .default(sql`CURRENT_TIMESTAMP`)
@@ -414,6 +432,42 @@ export const entryEmbeddings = sqliteTable(
 );
 
 // =============================================================================
+// PERMISSIONS TABLES
+// =============================================================================
+
+/**
+ * Permissions - fine-grained access control for agents/users
+ */
+export const permissions = sqliteTable(
+  'permissions',
+  {
+    id: text('id').primaryKey(),
+    agentId: text('agent_id').notNull(), // or userId for multi-user
+    scopeType: text('scope_type', { enum: ['global', 'org', 'project', 'session'] }),
+    scopeId: text('scope_id'), // NULL = all scopes of this type
+    entryType: text('entry_type', { enum: ['tool', 'guideline', 'knowledge'] }),
+    entryId: text('entry_id'), // NULL = all entries in scope
+    permission: text('permission', { enum: ['read', 'write', 'admin'] }).notNull(),
+    createdAt: text('created_at')
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+  },
+  (table) => [
+    index('idx_permissions_agent').on(table.agentId),
+    index('idx_permissions_scope').on(table.scopeType, table.scopeId),
+    index('idx_permissions_entry').on(table.entryType, table.entryId),
+    uniqueIndex('idx_permissions_unique').on(
+      table.agentId,
+      table.scopeType,
+      table.scopeId,
+      table.entryType,
+      table.entryId,
+      table.permission
+    ),
+  ]
+);
+
+// =============================================================================
 // TYPE EXPORTS
 // =============================================================================
 
@@ -461,3 +515,189 @@ export type NewFileLock = typeof fileLocks.$inferInsert;
 
 export type EntryEmbedding = typeof entryEmbeddings.$inferSelect;
 export type NewEntryEmbedding = typeof entryEmbeddings.$inferInsert;
+
+export type Permission = typeof permissions.$inferSelect;
+export type NewPermission = typeof permissions.$inferInsert;
+
+// =============================================================================
+// AUDIT LOG TABLES
+// =============================================================================
+
+/**
+ * Audit log - tracks all actions for compliance and debugging
+ */
+export const auditLog = sqliteTable(
+  'audit_log',
+  {
+    id: text('id').primaryKey(),
+    agentId: text('agent_id'),
+    action: text('action').notNull(), // 'query', 'create', 'update', 'delete'
+    entryType: text('entry_type', { enum: ['tool', 'guideline', 'knowledge'] }),
+    entryId: text('entry_id'),
+    scopeType: text('scope_type', { enum: ['global', 'org', 'project', 'session'] }),
+    scopeId: text('scope_id'),
+    queryParams: text('query_params', { mode: 'json' }), // For queries
+    resultCount: integer('result_count'), // For queries
+    executionTime: integer('execution_time'), // milliseconds
+    success: integer('success', { mode: 'boolean' }).default(true), // boolean
+    errorMessage: text('error_message'),
+    subtaskType: text('subtask_type'),
+    parentTaskId: text('parent_task_id'), // References parent task
+    createdAt: text('created_at')
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+  },
+  (table) => [
+    index('idx_audit_agent').on(table.agentId),
+    index('idx_audit_action').on(table.action),
+    index('idx_audit_entry').on(table.entryType, table.entryId),
+    index('idx_audit_created').on(table.createdAt),
+    index('idx_audit_execution').on(table.success, table.subtaskType),
+    index('idx_audit_parent_task').on(table.parentTaskId),
+  ]
+);
+
+export type AuditLog = typeof auditLog.$inferSelect;
+export type NewAuditLog = typeof auditLog.$inferInsert;
+
+// =============================================================================
+// MULTI-AGENT VOTING TABLES
+// =============================================================================
+
+/**
+ * Agent votes - tracks votes from multiple agents for consensus
+ */
+export const agentVotes = sqliteTable(
+  'agent_votes',
+  {
+    id: text('id').primaryKey(),
+    taskId: text('task_id').notNull(), // References knowledge/tool entry
+    agentId: text('agent_id').notNull(),
+    voteValue: text('vote_value').notNull(), // JSON string of agent's answer
+    confidence: real('confidence').default(1.0).notNull(), // 0-1
+    reasoning: text('reasoning'), // Why this vote
+    createdAt: text('created_at')
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+  },
+  (table) => [
+    index('idx_votes_task').on(table.taskId),
+    index('idx_votes_agent').on(table.agentId),
+    uniqueIndex('idx_votes_unique').on(table.taskId, table.agentId),
+  ]
+);
+
+export type AgentVote = typeof agentVotes.$inferSelect;
+export type NewAgentVote = typeof agentVotes.$inferInsert;
+
+// =============================================================================
+// CONVERSATION HISTORY TABLES
+// =============================================================================
+
+/**
+ * Conversation status enum
+ */
+export type ConversationStatus = 'active' | 'completed' | 'archived';
+
+/**
+ * Message role enum
+ */
+export type MessageRole = 'user' | 'agent' | 'system';
+
+/**
+ * Conversations - tracks conversation threads between agents and users
+ */
+export const conversations = sqliteTable(
+  'conversations',
+  {
+    id: text('id').primaryKey(),
+    sessionId: text('session_id').references(() => sessions.id),
+    projectId: text('project_id').references(() => projects.id),
+    agentId: text('agent_id'),
+    title: text('title'),
+    status: text('status', { enum: ['active', 'completed', 'archived'] })
+      .default('active')
+      .notNull(),
+    startedAt: text('started_at')
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+    endedAt: text('ended_at'),
+    metadata: text('metadata', { mode: 'json' }).$type<Record<string, unknown>>(),
+  },
+  (table) => [
+    index('idx_conversations_session').on(table.sessionId),
+    index('idx_conversations_project').on(table.projectId),
+    index('idx_conversations_agent').on(table.agentId),
+    index('idx_conversations_status').on(table.status),
+    index('idx_conversations_started').on(table.startedAt),
+  ]
+);
+
+/**
+ * Conversation messages - individual messages in conversations
+ */
+export const conversationMessages = sqliteTable(
+  'conversation_messages',
+  {
+    id: text('id').primaryKey(),
+    conversationId: text('conversation_id')
+      .references(() => conversations.id)
+      .notNull(),
+    role: text('role', { enum: ['user', 'agent', 'system'] }).notNull(),
+    content: text('content').notNull(),
+    messageIndex: integer('message_index').notNull(),
+    contextEntries: text('context_entries', {
+      mode: 'json',
+    }).$type<Array<{ type: EntryType; id: string }>>(),
+    toolsUsed: text('tools_used', { mode: 'json' }).$type<string[]>(),
+    createdAt: text('created_at')
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+    metadata: text('metadata', { mode: 'json' }).$type<Record<string, unknown>>(),
+  },
+  (table) => [
+    index('idx_messages_conversation').on(table.conversationId),
+    index('idx_messages_index').on(table.conversationId, table.messageIndex),
+    index('idx_messages_role').on(table.conversationId, table.role),
+  ]
+);
+
+/**
+ * Conversation context - links memory entries to conversations/messages
+ */
+export const conversationContext = sqliteTable(
+  'conversation_context',
+  {
+    id: text('id').primaryKey(),
+    conversationId: text('conversation_id')
+      .references(() => conversations.id)
+      .notNull(),
+    messageId: text('message_id').references(() => conversationMessages.id),
+    entryType: text('entry_type', {
+      enum: ['tool', 'guideline', 'knowledge'],
+    }).notNull(),
+    entryId: text('entry_id').notNull(),
+    relevanceScore: real('relevance_score'),
+    createdAt: text('created_at')
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+  },
+  (table) => [
+    index('idx_context_conversation').on(table.conversationId),
+    index('idx_context_message').on(table.messageId),
+    index('idx_context_entry').on(table.entryType, table.entryId),
+    uniqueIndex('idx_context_unique').on(
+      table.conversationId,
+      table.messageId,
+      table.entryType,
+      table.entryId
+    ),
+  ]
+);
+
+export type Conversation = typeof conversations.$inferSelect;
+export type NewConversation = typeof conversations.$inferInsert;
+export type ConversationMessage = typeof conversationMessages.$inferSelect;
+export type NewConversationMessage = typeof conversationMessages.$inferInsert;
+export type ConversationContext = typeof conversationContext.$inferSelect;
+export type NewConversationContext = typeof conversationContext.$inferInsert;

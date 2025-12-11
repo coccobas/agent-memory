@@ -4,12 +4,14 @@
  * Handles automatic schema setup and migration tracking to ensure
  * the database is always in a valid state when the server starts.
  */
-/* eslint-disable no-console */
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type Database from 'better-sqlite3';
+import { createComponentLogger } from '../utils/logger.js';
+
+const logger = createComponentLogger('init');
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -124,10 +126,34 @@ function applyMigration(sqlite: Database.Database, name: string, path: string): 
   const sql = readFileSync(path, 'utf-8');
 
   // Split by statement-breakpoint comments that drizzle-kit generates
-  const statements = sql
-    .split(/-->\s*statement-breakpoint/i)
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0 && !s.startsWith('--'));
+  const rawStatements = sql.split(/-->\s*statement-breakpoint/i);
+
+  // Process each statement: remove leading comments but keep the SQL
+  const statements: string[] = [];
+  for (const rawStmt of rawStatements) {
+    const trimmed = rawStmt.trim();
+    if (!trimmed) continue;
+
+    // Remove leading comment lines but keep the actual SQL
+    const lines = trimmed.split('\n');
+    const sqlLines: string[] = [];
+    let foundSql = false;
+
+    for (const line of lines) {
+      const trimmedLine = line.trim();
+      if (trimmedLine.startsWith('--') && !foundSql) {
+        // Skip leading comments
+        continue;
+      }
+      foundSql = true;
+      sqlLines.push(line);
+    }
+
+    const finalStatement = sqlLines.join('\n').trim();
+    if (finalStatement) {
+      statements.push(finalStatement);
+    }
+  }
 
   // Execute each statement
   for (const statement of statements) {
@@ -177,7 +203,7 @@ export function initializeDatabase(
 
     if (pendingMigrations.length === 0 && wasInitialized) {
       if (options.verbose) {
-        console.log('[init] Database already initialized, no pending migrations');
+        logger.info('Database already initialized, no pending migrations');
       }
       result.success = true;
       result.alreadyInitialized = true;
@@ -188,7 +214,7 @@ export function initializeDatabase(
     sqlite.transaction(() => {
       for (const migration of pendingMigrations) {
         if (options.verbose) {
-          console.log(`[init] Applying migration: ${migration.name}`);
+          logger.info({ migration: migration.name }, 'Applying migration');
         }
 
         applyMigration(sqlite, migration.name, migration.path);
@@ -199,16 +225,14 @@ export function initializeDatabase(
     result.success = true;
 
     if (options.verbose) {
-      console.log(
-        `[init] Database initialized successfully. Applied ${result.migrationsApplied.length} migration(s)`
-      );
+      logger.info({ count: result.migrationsApplied.length }, 'Database initialized successfully');
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     result.errors.push(message);
 
     if (options.verbose) {
-      console.error('[init] Database initialization failed:', message);
+      logger.error({ error: message }, 'Database initialization failed');
     }
   }
 
@@ -247,7 +271,7 @@ export function resetDatabase(
 ): InitResult {
   try {
     if (options.verbose) {
-      console.log('[init] Resetting database...');
+      logger.info('Resetting database...');
     }
 
     // Get all tables

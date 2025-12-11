@@ -10,3 +10,8 @@ export * from './file_locks.handler.js';
 export * from './init.handler.js';
 export * from './export.handler.js';
 export * from './import.handler.js';
+export * from './tasks.handler.js';
+export * from './voting.handler.js';
+export * from './analytics.handler.js';
+export * from './permissions.handler.js';
+export * from './conversations.handler.js';

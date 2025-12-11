@@ -44,6 +44,13 @@ export function setupTestDb(dbPath: string): TestDb {
     '0000_lying_the_hand.sql',
     '0001_add_file_locks.sql',
     '0002_add_embeddings_tracking.sql',
+    '0003_add_fts5_tables.sql',
+    '0004_add_permissions.sql',
+    '0005_add_task_decomposition.sql',
+    '0006_add_audit_log.sql',
+    '0007_add_execution_tracking.sql',
+    '0008_add_agent_votes.sql',
+    '0009_add_conversation_history.sql',
   ];
   for (const migrationFile of migrations) {
     const migrationPath = join(process.cwd(), 'src/db/migrations', migrationFile);
@@ -392,4 +399,93 @@ export function createTestKnowledge(
       .where(eq(schema.knowledgeVersions.id, versionId))
       .get()!,
   };
+}
+
+/**
+ * Create a test conversation
+ */
+export function createTestConversation(
+  db: ReturnType<typeof drizzle>,
+  sessionId?: string,
+  projectId?: string,
+  agentId?: string,
+  title?: string,
+  status: 'active' | 'completed' | 'archived' = 'active',
+  metadata?: Record<string, unknown>
+): schema.Conversation {
+  const id = generateId();
+  db.insert(schema.conversations)
+    .values({
+      id,
+      sessionId,
+      projectId,
+      agentId,
+      title: title || 'Test Conversation',
+      status,
+      metadata,
+    })
+    .run();
+  return db.select().from(schema.conversations).where(eq(schema.conversations.id, id)).get()!;
+}
+
+/**
+ * Create a test conversation message
+ */
+export function createTestMessage(
+  db: ReturnType<typeof drizzle>,
+  conversationId: string,
+  role: 'user' | 'agent' | 'system' = 'user',
+  content: string = 'Test message',
+  messageIndex: number = 0,
+  contextEntries?: Array<{ type: 'tool' | 'guideline' | 'knowledge'; id: string }>,
+  toolsUsed?: string[],
+  metadata?: Record<string, unknown>
+): schema.ConversationMessage {
+  const id = generateId();
+  db.insert(schema.conversationMessages)
+    .values({
+      id,
+      conversationId,
+      role,
+      content,
+      messageIndex,
+      contextEntries,
+      toolsUsed,
+      metadata,
+    })
+    .run();
+  return db
+    .select()
+    .from(schema.conversationMessages)
+    .where(eq(schema.conversationMessages.id, id))
+    .get()!;
+}
+
+/**
+ * Create a test conversation context link
+ */
+export function createTestContextLink(
+  db: ReturnType<typeof drizzle>,
+  conversationId: string,
+  entryType: 'tool' | 'guideline' | 'knowledge',
+  entryId: string,
+  messageId?: string,
+  relevanceScore?: number
+): schema.ConversationContext {
+  const id = generateId();
+  db.insert(schema.conversationContext)
+    .values({
+      id,
+      conversationId,
+      messageId,
+      entryType,
+      entryId,
+      relevanceScore,
+    })
+    .run();
+  return db
+    .select()
+    .from(schema.conversationContext)
+    .where(eq(schema.conversationContext.id, id))
+    .get()!;
 }

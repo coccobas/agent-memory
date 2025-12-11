@@ -14,6 +14,9 @@
 
 import { OpenAI } from 'openai';
 import { pipeline } from '@xenova/transformers';
+import { createComponentLogger } from '../utils/logger.js';
+
+const logger = createComponentLogger('embedding');
 
 export type EmbeddingProvider = 'openai' | 'local' | 'disabled';
 
@@ -32,6 +35,9 @@ interface EmbeddingBatchResult {
 /**
  * Embedding service with configurable providers
  */
+// Track if we've already warned about missing OpenAI key (avoid spam in tests)
+let hasWarnedAboutOpenAI = false;
+
 class EmbeddingService {
   private provider: EmbeddingProvider;
   private openaiClient: OpenAI | null = null;
@@ -41,6 +47,7 @@ class EmbeddingService {
   private localModelName = 'Xenova/all-MiniLM-L6-v2'; // 384-dim embeddings
   private embeddingCache = new Map<string, number[]>();
   private maxCacheSize = 1000;
+  public static hasLoggedModelLoad = false; // Public for test reset access
 
   constructor() {
     // Determine provider from environment
@@ -56,8 +63,11 @@ class EmbeddingService {
       if (apiKey) {
         this.provider = 'openai';
       } else {
-        // eslint-disable-next-line no-console
-        console.warn('[embedding] No OpenAI API key found, falling back to local model');
+        // Only warn once to avoid spam in tests
+        if (!hasWarnedAboutOpenAI) {
+          logger.warn('No OpenAI API key found, falling back to local model');
+          hasWarnedAboutOpenAI = true;
+        }
         this.provider = 'local';
       }
     }
@@ -259,8 +269,11 @@ class EmbeddingService {
   private async embedLocal(text: string): Promise<number[]> {
     // Lazy load the pipeline
     if (!this.localPipeline) {
-      // eslint-disable-next-line no-console
-      console.log('[embedding] Loading local model (first use may take time)...');
+      // Only log once to avoid spam in tests
+      if (!EmbeddingService.hasLoggedModelLoad) {
+        logger.info('Loading local model (first use may take time)');
+        EmbeddingService.hasLoggedModelLoad = true;
+      }
       this.localPipeline = await pipeline('feature-extraction', this.localModelName);
     }
 
@@ -299,4 +312,7 @@ export function getEmbeddingService(): EmbeddingService {
  */
 export function resetEmbeddingService(): void {
   embeddingService = null;
+  // Reset warning flag for tests
+  hasWarnedAboutOpenAI = false;
+  EmbeddingService.hasLoggedModelLoad = false;
 }

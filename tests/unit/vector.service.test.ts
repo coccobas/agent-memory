@@ -1,11 +1,15 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { getVectorService, resetVectorService } from '../../src/services/vector.service.js';
 import { existsSync, rmSync } from 'node:fs';
+import { resolve } from 'node:path';
 
-const TEST_VECTOR_DB_PATH = './data/test-vectors.lance';
+const TEST_VECTOR_DB_PATH = resolve(process.cwd(), 'data/test-vectors.lance');
 
 describe('Vector Service', () => {
   beforeEach(() => {
+    // Set environment variable to use test database path
+    process.env.AGENT_MEMORY_VECTOR_DB_PATH = TEST_VECTOR_DB_PATH;
+
     // Clean up any existing test vector DB
     if (existsSync(TEST_VECTOR_DB_PATH)) {
       rmSync(TEST_VECTOR_DB_PATH, { recursive: true, force: true });
@@ -23,6 +27,9 @@ describe('Vector Service', () => {
     }
 
     resetVectorService();
+
+    // Clear environment variable
+    delete process.env.AGENT_MEMORY_VECTOR_DB_PATH;
   });
 
   it('should create singleton instance', () => {

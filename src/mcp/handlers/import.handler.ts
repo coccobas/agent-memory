@@ -8,6 +8,7 @@ import {
   importFromJson,
   importFromYaml,
   importFromMarkdown,
+  importFromOpenAPI,
   type ImportOptions,
 } from '../../services/import.service.js';
 import { createValidationError } from '../errors.js';
@@ -15,7 +16,7 @@ import type { ScopeType } from '../../db/schema.js';
 
 interface ImportParams {
   content: string;
-  format?: 'json' | 'yaml' | 'markdown';
+  format?: 'json' | 'yaml' | 'markdown' | 'openapi';
   conflictStrategy?: 'skip' | 'update' | 'replace' | 'error';
   scopeMapping?: Record<string, { type: ScopeType; id?: string }>;
   generateNewIds?: boolean;
@@ -35,8 +36,8 @@ function importEntries(params: Record<string, unknown>) {
   const format = importParams.format || 'json';
 
   // Validate format
-  if (!['json', 'yaml', 'markdown'].includes(format)) {
-    throw createValidationError('format', 'must be json, yaml, or markdown');
+  if (!['json', 'yaml', 'markdown', 'openapi'].includes(format)) {
+    throw createValidationError('format', 'must be json, yaml, markdown, or openapi');
   }
 
   const options: ImportOptions = {
@@ -48,6 +49,9 @@ function importEntries(params: Record<string, unknown>) {
 
   let result;
   switch (format) {
+    case 'openapi':
+      result = importFromOpenAPI(importParams.content, options);
+      break;
     case 'yaml':
       result = importFromYaml(importParams.content, options);
       break;
@@ -73,3 +77,5 @@ function importEntries(params: Record<string, unknown>) {
 export const importHandlers = {
   import: importEntries,
 };
+
+

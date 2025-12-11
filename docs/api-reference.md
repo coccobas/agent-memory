@@ -1,10 +1,10 @@
 # API Reference
 
-Complete documentation for the 15 bundled MCP tools provided by Agent Memory (v0.3.0).
+Complete documentation for the 19 bundled MCP tools provided by Agent Memory (v0.3.0).
 
 ## Tool Bundling
 
-Agent Memory uses action-based tool bundling to reduce LLM decision fatigue. Instead of 45+ individual tools, the server exposes 15 bundled tools with an `action` parameter to specify the operation.
+Agent Memory uses action-based tool bundling to reduce LLM decision fatigue. Instead of 45+ individual tools, the server exposes 19 bundled tools with an `action` parameter to specify the operation.
 
 **Benefits:**
 - Reduced tool count for faster LLM decisions
@@ -23,6 +23,11 @@ Agent Memory uses action-based tool bundling to reduce LLM decision fatigue. Ins
 - [memory_relation](#memory_relation) - Entry relations
 - [memory_file_lock](#memory_file_lock) - File locks for multi-agent coordination
 - [memory_query](#memory_query) - Cross-reference query and context
+- [memory_conversation](#memory_conversation) - Conversation history
+- [memory_task](#memory_task) - Task decomposition
+- [memory_voting](#memory_voting) - Multi-agent voting and consensus
+- [memory_analytics](#memory_analytics) - Usage analytics and trends
+- [memory_permission](#memory_permission) - Permission management
 - [memory_conflict](#memory_conflict) - Conflict management
 - [memory_health](#memory_health) - Health check and server status
 - [memory_init](#memory_init) - Database initialization and migrations
@@ -236,7 +241,7 @@ List sessions for a project.
 
 Manage tool definitions with versioning.
 
-**Actions:** `add`, `update`, `get`, `list`, `history`, `deactivate`
+**Actions:** `add`, `update`, `get`, `list`, `history`, `deactivate`, `bulk_add`, `bulk_update`, `bulk_delete`
 
 ### Action: add
 
@@ -334,13 +339,107 @@ Soft-delete a tool (preserves history).
 }
 ```
 
+### Action: bulk_add
+
+Add multiple tools in a single transaction.
+
+```json
+{
+  "action": "bulk_add",
+  "entries": [
+    {
+      "scopeType": "global",
+      "name": "tool1",
+      "category": "cli",
+      "description": "First tool"
+    },
+    {
+      "scopeType": "global",
+      "name": "tool2",
+      "category": "cli",
+      "description": "Second tool"
+    }
+  ]
+}
+```
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `action` | string | Yes | `bulk_add` |
+| `entries` | array | Yes | Array of tool entries (same structure as `add` action) |
+
+**Response:**
+```json
+{
+  "success": true,
+  "tools": [...],
+  "count": 2
+}
+```
+
+### Action: bulk_update
+
+Update multiple tools in a single transaction.
+
+```json
+{
+  "action": "bulk_update",
+  "updates": [
+    {
+      "id": "tool_abc123",
+      "description": "Updated description 1"
+    },
+    {
+      "id": "tool_xyz789",
+      "description": "Updated description 2"
+    }
+  ]
+}
+```
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `action` | string | Yes | `bulk_update` |
+| `updates` | array | Yes | Array of update objects with `id` and update fields |
+
+### Action: bulk_delete
+
+Deactivate multiple tools in a single transaction.
+
+```json
+{
+  "action": "bulk_delete",
+  "ids": ["tool_abc123", "tool_xyz789"]
+}
+```
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `action` | string | Yes | `bulk_delete` |
+| `ids` | array | Yes | Array of tool IDs to deactivate |
+
+**Response:**
+```json
+{
+  "success": true,
+  "deleted": [
+    { "id": "tool_abc123", "success": true },
+    { "id": "tool_xyz789", "success": true }
+  ],
+  "count": 2
+}
+```
+
 ---
 
 ## memory_guideline
 
 Manage behavioral guidelines with versioning.
 
-**Actions:** `add`, `update`, `get`, `list`, `history`, `deactivate`
+**Actions:** `add`, `update`, `get`, `list`, `history`, `deactivate`, `bulk_add`, `bulk_update`, `bulk_delete`
 
 ### Action: add
 
@@ -436,13 +535,25 @@ Soft-delete a guideline.
 }
 ```
 
+### Action: bulk_add
+
+Add multiple guidelines in a single transaction. Same structure as `bulk_add` for tools.
+
+### Action: bulk_update
+
+Update multiple guidelines in a single transaction. Same structure as `bulk_update` for tools.
+
+### Action: bulk_delete
+
+Deactivate multiple guidelines in a single transaction. Same structure as `bulk_delete` for tools.
+
 ---
 
 ## memory_knowledge
 
 Manage knowledge entries (facts, decisions, context) with versioning.
 
-**Actions:** `add`, `update`, `get`, `list`, `history`, `deactivate`
+**Actions:** `add`, `update`, `get`, `list`, `history`, `deactivate`, `bulk_add`, `bulk_update`, `bulk_delete`
 
 ### Action: add
 
@@ -536,6 +647,18 @@ Soft-delete a knowledge entry.
   "id": "kn_abc123"
 }
 ```
+
+### Action: bulk_add
+
+Add multiple knowledge entries in a single transaction. Same structure as `bulk_add` for tools.
+
+### Action: bulk_update
+
+Update multiple knowledge entries in a single transaction. Same structure as `bulk_update` for tools.
+
+### Action: bulk_delete
+
+Deactivate multiple knowledge entries in a single transaction. Same structure as `bulk_delete` for tools.
 
 ---
 
@@ -655,6 +778,8 @@ Create a relation between two entries.
 - `depends_on` - Entry depends on another
 - `conflicts_with` - Entries are mutually exclusive
 - `related_to` - General association
+- `parent_task` - Source is parent task of target (for task decomposition)
+- `subtask_of` - Source is subtask of target (inverse of parent_task)
 
 ### Action: list
 
@@ -791,6 +916,169 @@ Force unlock a file (admin operation).
 
 ---
 
+## memory_permission
+
+Manage fine-grained permissions for agents.
+
+**Actions:** `grant`, `revoke`, `check`, `list`
+
+### Action: grant
+
+Grant a permission to an agent.
+
+```json
+{
+  "action": "grant",
+  "agent_id": "agent_123",
+  "scope_type": "project",
+  "scope_id": "proj_xyz789",
+  "entry_type": "tool",
+  "permission": "write",
+  "created_by": "admin_001"
+}
+```
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `action` | string | Yes | `grant` |
+| `agent_id` | string | Yes | Agent identifier |
+| `scope_type` | string | No | `global`, `org`, `project`, `session` |
+| `scope_id` | string | No | Scope ID (required for non-global scopes) |
+| `entry_type` | string | No | `tool`, `guideline`, `knowledge` |
+| `permission` | string | Yes | `read`, `write`, `admin` |
+| `created_by` | string | No | Creator identifier |
+
+**Response:**
+```json
+{
+  "permission": {
+    "id": "perm_abc123",
+    "agentId": "agent_123",
+    "scopeType": "project",
+    "scopeId": "proj_xyz789",
+    "entryType": "tool",
+    "permission": "write"
+  },
+  "message": "Permission granted successfully"
+}
+```
+
+### Action: revoke
+
+Revoke a permission from an agent.
+
+```json
+{
+  "action": "revoke",
+  "agent_id": "agent_123",
+  "scope_type": "project",
+  "scope_id": "proj_xyz789",
+  "entry_type": "tool"
+}
+```
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `action` | string | Yes | `revoke` |
+| `agent_id` | string | Yes | Agent identifier |
+| `scope_type` | string | No | Scope type to revoke |
+| `scope_id` | string | No | Scope ID to revoke |
+| `entry_type` | string | No | Entry type to revoke |
+| `permission_id` | string | No | Specific permission ID to revoke |
+
+**Response:**
+```json
+{
+  "message": "Permission revoked successfully"
+}
+```
+
+### Action: check
+
+Check if an agent has permission to perform an action.
+
+```json
+{
+  "action": "check",
+  "agent_id": "agent_123",
+  "action": "write",
+  "scope_type": "project",
+  "scope_id": "proj_xyz789",
+  "entry_type": "tool"
+}
+```
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `action` | string | Yes | `check` |
+| `agent_id` | string | Yes | Agent identifier |
+| `action` | string | Yes | Permission action: `read` or `write` |
+| `scope_type` | string | Yes | Scope type |
+| `scope_id` | string | No | Scope ID |
+| `entry_type` | string | No | Entry type |
+
+**Response:**
+```json
+{
+  "has_permission": true,
+  "agent_id": "agent_123",
+  "action": "write",
+  "scope_type": "project",
+  "scope_id": "proj_xyz789",
+  "entry_type": "tool"
+}
+```
+
+### Action: list
+
+List all permissions, optionally filtered.
+
+```json
+{
+  "action": "list",
+  "agent_id": "agent_123",
+  "scope_type": "project",
+  "limit": 20,
+  "offset": 0
+}
+```
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `action` | string | Yes | `list` |
+| `agent_id` | string | No | Filter by agent |
+| `scope_type` | string | No | Filter by scope type |
+| `scope_id` | string | No | Filter by scope ID |
+| `entry_type` | string | No | Filter by entry type |
+| `limit` | number | No | Max results |
+| `offset` | number | No | Pagination offset |
+
+**Response:**
+```json
+{
+  "permissions": [
+    {
+      "id": "perm_abc123",
+      "agentId": "agent_123",
+      "scopeType": "project",
+      "scopeId": "proj_xyz789",
+      "entryType": "tool",
+      "entryId": null,
+      "permission": "write"
+    }
+  ],
+  "total": 1,
+  "limit": 20,
+  "offset": 0
+}
+```
+
+---
+
 ## memory_query
 
 Cross-reference search and context aggregation.
@@ -801,6 +1089,7 @@ Cross-reference search and context aggregation.
 
 Cross-reference search across tools, guidelines, and knowledge.
 
+**Basic Search:**
 ```json
 {
   "action": "search",
@@ -845,8 +1134,53 @@ Cross-reference search across tools, guidelines, and knowledge.
 | `includeVersions` | boolean | No | Include version history |
 | `includeInactive` | boolean | No | Include deactivated entries |
 | `compact` | boolean | No | Return compact results |
+| `useFts5` | boolean | No | Use FTS5 full-text search instead of LIKE queries (default: false) |
+| `fields` | string[] | No | Field-specific search: `["name", "description"]` (only with FTS5) |
+| `fuzzy` | boolean | No | Enable typo tolerance (Levenshtein distance) |
+| `regex` | boolean | No | Use regex instead of simple match |
+| `createdAfter` | string | No | Filter by creation date (ISO timestamp) |
+| `createdBefore` | string | No | Filter by creation date (ISO timestamp) |
+| `updatedAfter` | string | No | Filter by update date (ISO timestamp) |
+| `updatedBefore` | string | No | Filter by update date (ISO timestamp) |
+| `priority.min` | number | No | Filter guidelines by minimum priority (0-100) |
+| `priority.max` | number | No | Filter guidelines by maximum priority (0-100) |
 | `semanticSearch` | boolean | No | Enable semantic/vector search (default: true if embeddings available) |
 | `semanticThreshold` | number | No | Minimum similarity score 0-1 (default: 0.7) |
+
+**FTS5 Full-Text Search:**
+
+FTS5 provides better search capabilities than simple LIKE queries:
+
+- **Relevance ranking** - Results ranked by BM25 relevance score
+- **Phrase matching** - Use quotes: `"exact phrase"`
+- **Prefix matching** - Use asterisk: `auth*` matches "authentication", "authorization"
+- **Boolean operators** - Use AND, OR, NOT: `auth AND security`
+
+Example with FTS5:
+```json
+{
+  "action": "search",
+  "types": ["tools", "guidelines"],
+  "search": "authentication OR auth",
+  "useFts5": true,
+  "fields": ["name", "description"],
+  "limit": 20
+}
+```
+
+**Advanced Filtering:**
+
+Example with date ranges and priority:
+```json
+{
+  "action": "search",
+  "types": ["guidelines"],
+  "createdAfter": "2024-01-01T00:00:00Z",
+  "priority": { "min": 70, "max": 100 },
+  "fuzzy": true,
+  "limit": 20
+}
+```
 
 **Response:**
 ```json
@@ -917,7 +1251,913 @@ Get aggregated context for a scope.
 
 ---
 
-## memory_conflict
+## memory_conversation
+
+Manage conversation history for tracking agent-user and agent-agent interactions.
+
+**Actions:** `start`, `add_message`, `get`, `list`, `update`, `link_context`, `get_context`, `search`, `end`, `archive`
+
+### Action: start
+
+Start a new conversation thread.
+
+```json
+{
+  "action": "start",
+  "projectId": "proj_xyz789",
+  "agentId": "agent-1",
+  "title": "Authentication Discussion",
+  "metadata": { "tags": ["auth", "security"] }
+}
+```
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `action` | string | Yes | `start` |
+| `sessionId` | string | No | Session ID (either sessionId or projectId required) |
+| `projectId` | string | No | Project ID (either sessionId or projectId required) |
+| `agentId` | string | No | Agent identifier |
+| `title` | string | No | Conversation title |
+| `metadata` | object | No | Additional metadata |
+
+**Response:**
+```json
+{
+  "success": true,
+  "conversation": {
+    "id": "conv_abc123",
+    "projectId": "proj_xyz789",
+    "agentId": "agent-1",
+    "title": "Authentication Discussion",
+    "status": "active",
+    "startedAt": "2024-12-10T10:00:00Z"
+  }
+}
+```
+
+### Action: add_message
+
+Add a message to a conversation.
+
+```json
+{
+  "action": "add_message",
+  "conversationId": "conv_abc123",
+  "role": "user",
+  "content": "What guidelines apply to authentication?",
+  "contextEntries": [
+    { "type": "guideline", "id": "guideline_123" }
+  ],
+  "toolsUsed": ["memory_query", "memory_guideline"]
+}
+```
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `action` | string | Yes | `add_message` |
+| `conversationId` | string | Yes | Conversation ID |
+| `role` | string | Yes | `user`, `agent`, or `system` |
+| `content` | string | Yes | Message content |
+| `contextEntries` | array | No | Memory entries used: `[{type: "tool"|"guideline"|"knowledge", id: string}]` |
+| `toolsUsed` | array | No | Tools invoked: `["memory_query", ...]` |
+| `metadata` | object | No | Additional metadata (tokens, model, etc.) |
+| `agentId` | string | No | Agent identifier for permissions |
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": {
+    "id": "msg_abc123",
+    "conversationId": "conv_abc123",
+    "role": "user",
+    "content": "What guidelines apply to authentication?",
+    "messageIndex": 0,
+    "contextEntries": [...],
+    "toolsUsed": ["memory_query"],
+    "createdAt": "2024-12-10T10:01:00Z"
+  }
+}
+```
+
+### Action: get
+
+Get a conversation with optional messages and context.
+
+```json
+{
+  "action": "get",
+  "id": "conv_abc123",
+  "includeMessages": true,
+  "includeContext": true
+}
+```
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `action` | string | Yes | `get` |
+| `id` | string | Yes | Conversation ID |
+| `includeMessages` | boolean | No | Include all messages (default: false) |
+| `includeContext` | boolean | No | Include context links (default: false) |
+| `agentId` | string | No | Agent identifier for permissions |
+
+**Response:**
+```json
+{
+  "success": true,
+  "conversation": {
+    "id": "conv_abc123",
+    "title": "Authentication Discussion",
+    "status": "active",
+    "messages": [
+      {
+        "id": "msg_1",
+        "role": "user",
+        "content": "What guidelines apply?",
+        "messageIndex": 0
+      },
+      {
+        "id": "msg_2",
+        "role": "agent",
+        "content": "Based on the guidelines...",
+        "messageIndex": 1
+      }
+    ],
+    "context": [
+      {
+        "id": "ctx_1",
+        "entryType": "guideline",
+        "entryId": "guideline_123",
+        "relevanceScore": 0.95
+      }
+    ]
+  }
+}
+```
+
+### Action: list
+
+List conversations with filtering.
+
+```json
+{
+  "action": "list",
+  "projectId": "proj_xyz789",
+  "status": "active",
+  "limit": 20,
+  "offset": 0
+}
+```
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `action` | string | Yes | `list` |
+| `sessionId` | string | No | Filter by session ID |
+| `projectId` | string | No | Filter by project ID |
+| `agentId` | string | No | Filter by agent ID |
+| `status` | string | No | Filter by status: `active`, `completed`, `archived` |
+| `limit` | number | No | Max results (default: 20) |
+| `offset` | number | No | Pagination offset |
+| `agentId` | string | No | Agent identifier for permissions |
+
+**Response:**
+```json
+{
+  "success": true,
+  "conversations": [
+    {
+      "id": "conv_abc123",
+      "title": "Authentication Discussion",
+      "status": "active",
+      "startedAt": "2024-12-10T10:00:00Z"
+    }
+  ],
+  "meta": {
+    "totalCount": 1,
+    "returnedCount": 1,
+    "truncated": false,
+    "hasMore": false
+  }
+}
+```
+
+### Action: update
+
+Update conversation metadata.
+
+```json
+{
+  "action": "update",
+  "id": "conv_abc123",
+  "title": "Updated Title",
+  "status": "completed"
+}
+```
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `action` | string | Yes | `update` |
+| `id` | string | Yes | Conversation ID |
+| `title` | string | No | New title |
+| `status` | string | No | New status: `active`, `completed`, `archived` |
+| `metadata` | object | No | Updated metadata |
+| `agentId` | string | No | Agent identifier for permissions |
+
+**Response:**
+```json
+{
+  "success": true,
+  "conversation": {
+    "id": "conv_abc123",
+    "title": "Updated Title",
+    "status": "completed",
+    "endedAt": "2024-12-10T11:00:00Z"
+  }
+}
+```
+
+### Action: link_context
+
+Link a memory entry to a conversation or message.
+
+```json
+{
+  "action": "link_context",
+  "conversationId": "conv_abc123",
+  "messageId": "msg_abc123",
+  "entryType": "guideline",
+  "entryId": "guideline_123",
+  "relevanceScore": 0.95
+}
+```
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `action` | string | Yes | `link_context` |
+| `conversationId` | string | Yes | Conversation ID |
+| `messageId` | string | No | Message ID (to link to specific message) |
+| `entryType` | string | Yes | `tool`, `guideline`, or `knowledge` |
+| `entryId` | string | Yes | Entry ID |
+| `relevanceScore` | number | No | Relevance score 0-1 |
+| `agentId` | string | No | Agent identifier for permissions |
+
+**Response:**
+```json
+{
+  "success": true,
+  "context": {
+    "id": "ctx_abc123",
+    "conversationId": "conv_abc123",
+    "messageId": "msg_abc123",
+    "entryType": "guideline",
+    "entryId": "guideline_123",
+    "relevanceScore": 0.95,
+    "createdAt": "2024-12-10T10:02:00Z"
+  }
+}
+```
+
+### Action: get_context
+
+Get context links for an entry or conversation.
+
+```json
+{
+  "action": "get_context",
+  "entryType": "guideline",
+  "entryId": "guideline_123"
+}
+```
+
+Or get context for a conversation:
+
+```json
+{
+  "action": "get_context",
+  "conversationId": "conv_abc123"
+}
+```
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `action` | string | Yes | `get_context` |
+| `conversationId` | string | No | Get context for conversation (either conversationId OR entryType+entryId required) |
+| `entryType` | string | No | Get conversations using entry (either conversationId OR entryType+entryId required) |
+| `entryId` | string | No | Entry ID |
+| `agentId` | string | No | Agent identifier for permissions |
+
+**Response:**
+```json
+{
+  "success": true,
+  "contexts": [
+    {
+      "id": "ctx_abc123",
+      "conversationId": "conv_abc123",
+      "entryType": "guideline",
+      "entryId": "guideline_123",
+      "relevanceScore": 0.95
+    }
+  ]
+}
+```
+
+### Action: search
+
+Search conversations by title and message content.
+
+```json
+{
+  "action": "search",
+  "search": "authentication",
+  "projectId": "proj_xyz789",
+  "limit": 20
+}
+```
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `action` | string | Yes | `search` |
+| `search` | string | Yes | Search query string |
+| `sessionId` | string | No | Filter by session ID |
+| `projectId` | string | No | Filter by project ID |
+| `agentId` | string | No | Filter by agent ID |
+| `limit` | number | No | Max results (default: 20) |
+| `offset` | number | No | Pagination offset |
+| `agentId` | string | No | Agent identifier for permissions |
+
+**Response:**
+```json
+{
+  "success": true,
+  "conversations": [
+    {
+      "id": "conv_abc123",
+      "title": "Authentication Discussion",
+      "status": "active"
+    }
+  ],
+  "meta": {
+    "totalCount": 1,
+    "returnedCount": 1,
+    "truncated": false,
+    "hasMore": false
+  }
+}
+```
+
+### Action: end
+
+End/complete a conversation.
+
+```json
+{
+  "action": "end",
+  "id": "conv_abc123",
+  "generateSummary": true
+}
+```
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `action` | string | Yes | `end` |
+| `id` | string | Yes | Conversation ID |
+| `generateSummary` | boolean | No | Generate conversation summary (default: false) |
+| `agentId` | string | No | Agent identifier for permissions |
+
+**Response:**
+```json
+{
+  "success": true,
+  "conversation": {
+    "id": "conv_abc123",
+    "status": "completed",
+    "endedAt": "2024-12-10T11:00:00Z"
+  },
+  "summary": "Conversation: Authentication Discussion\nStatus: completed\nMessages: 5 total (3 user, 2 agent)\nDuration: 60 minutes\nMemory entries used: 3"
+}
+```
+
+### Action: archive
+
+Archive a conversation.
+
+```json
+{
+  "action": "archive",
+  "id": "conv_abc123"
+}
+```
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `action` | string | Yes | `archive` |
+| `id` | string | Yes | Conversation ID |
+| `agentId` | string | No | Agent identifier for permissions |
+
+**Response:**
+```json
+{
+  "success": true,
+  "conversation": {
+    "id": "conv_abc123",
+    "status": "archived"
+  }
+}
+```
+
+### Integration with memory_query
+
+When using `memory_query`, you can automatically link query results to conversations:
+
+```json
+{
+  "action": "query",
+  "search": "authentication",
+  "conversationId": "conv_abc123",
+  "messageId": "msg_abc123",
+  "autoLinkContext": true
+}
+```
+
+This will:
+- Execute the query as normal
+- Automatically link all result entries to the conversation
+- Optionally link to a specific message if `messageId` is provided
+- Extract relevance scores from query results
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `conversationId` | string | No | Conversation ID to link results to |
+| `messageId` | string | No | Message ID to link results to (requires conversationId) |
+| `autoLinkContext` | boolean | No | Auto-link results (default: true if conversationId provided) |
+
+---
+
+## memory_task
+
+Manage task decomposition for MDAP workflows.
+
+**Actions:** `add`, `get`, `list`
+
+### Action: add
+
+Create a task with subtasks, establishing decomposition relationships.
+
+```json
+{
+  "action": "add",
+  "parentTask": "task_parent_123",
+  "subtasks": ["Subtask 1", "Subtask 2", "Subtask 3"],
+  "decompositionStrategy": "maximal",
+  "scopeType": "project",
+  "scopeId": "proj_xyz789",
+  "projectId": "proj_xyz789",
+  "createdBy": "agent-1"
+}
+```
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `action` | string | Yes | `add` |
+| `parentTask` | string | No | ID of parent task (knowledge entry) |
+| `subtasks` | array | Yes | Array of subtask descriptions/names |
+| `decompositionStrategy` | string | No | `maximal`, `balanced`, or `minimal` (default: `balanced`) |
+| `scopeType` | string | Yes | `global`, `org`, `project`, `session` |
+| `scopeId` | string | Conditional | Required for non-global scopes |
+| `projectId` | string | No | For storing decomposition metadata |
+| `createdBy` | string | No | Creator identifier |
+
+**Response:**
+```json
+{
+  "success": true,
+  "task": {
+    "id": "task_abc123",
+    "title": "Task with 3 subtask(s)"
+  },
+  "subtasks": [
+    { "id": "subtask_1", "title": "Subtask 1" },
+    { "id": "subtask_2", "title": "Subtask 2" },
+    { "id": "subtask_3", "title": "Subtask 3" }
+  ]
+}
+```
+
+### Action: get
+
+Get a task by ID with its subtasks.
+
+```json
+{
+  "action": "get",
+  "taskId": "task_abc123"
+}
+```
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `action` | string | Yes | `get` |
+| `taskId` | string | Yes | Task ID |
+
+**Response:**
+```json
+{
+  "task": {
+    "id": "task_abc123",
+    "title": "Task with 3 subtask(s)",
+    "content": "Decomposition strategy: maximal\nSubtasks: Subtask 1, Subtask 2, Subtask 3"
+  },
+  "subtasks": [
+    { "id": "subtask_1", "title": "Subtask 1" },
+    { "id": "subtask_2", "title": "Subtask 2" },
+    { "id": "subtask_3", "title": "Subtask 3" }
+  ]
+}
+```
+
+### Action: list
+
+List tasks, optionally filtered by parent task.
+
+```json
+{
+  "action": "list",
+  "parentTaskId": "task_parent_123",
+  "scopeType": "project",
+  "scopeId": "proj_xyz789",
+  "limit": 20,
+  "offset": 0
+}
+```
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `action` | string | Yes | `list` |
+| `parentTaskId` | string | No | Filter by parent task ID |
+| `scopeType` | string | No | Filter by scope type |
+| `scopeId` | string | No | Filter by scope ID |
+| `limit` | number | No | Max results |
+| `offset` | number | No | Pagination offset |
+
+---
+
+## memory_voting
+
+Manage multi-agent voting and consensus for MDAP workflows.
+
+**Actions:** `record_vote`, `get_consensus`, `list_votes`, `get_stats`
+
+### Action: record_vote
+
+Record a vote from an agent for a task.
+
+```json
+{
+  "action": "record_vote",
+  "taskId": "task_abc123",
+  "agentId": "agent-1",
+  "voteValue": { "move": { "disk": 1, "from": "A", "to": "C" } },
+  "confidence": 0.95,
+  "reasoning": "Move smallest disk to target"
+}
+```
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `action` | string | Yes | `record_vote` |
+| `taskId` | string | Yes | Task ID (references knowledge/tool entry) |
+| `agentId` | string | Yes | Agent identifier |
+| `voteValue` | object | Yes | Agent vote value (any JSON-serializable value) |
+| `confidence` | number | No | Confidence level 0-1 (default: 1.0) |
+| `reasoning` | string | No | Reasoning for this vote |
+
+**Response:**
+```json
+{
+  "success": true,
+  "taskId": "task_abc123",
+  "agentId": "agent-1",
+  "message": "Vote recorded successfully"
+}
+```
+
+### Action: get_consensus
+
+Get consensus for a task using First-to-Ahead-by-k algorithm.
+
+```json
+{
+  "action": "get_consensus",
+  "taskId": "task_abc123",
+  "k": 1
+}
+```
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `action` | string | Yes | `get_consensus` |
+| `taskId` | string | Yes | Task ID |
+| `k` | number | No | Number of votes ahead required for consensus (default: 1) |
+
+**Response:**
+```json
+{
+  "consensus": { "move": { "disk": 1, "from": "A", "to": "C" } },
+  "voteCount": 5,
+  "confidence": 0.98,
+  "dissentingVotes": [],
+  "voteDistribution": [
+    {
+      "voteValue": { "move": { "disk": 1, "from": "A", "to": "C" } },
+      "count": 5,
+      "agents": ["agent-1", "agent-2", "agent-3", "agent-4", "agent-5"]
+    }
+  ],
+  "k": 1
+}
+```
+
+### Action: list_votes
+
+List all votes for a task.
+
+```json
+{
+  "action": "list_votes",
+  "taskId": "task_abc123"
+}
+```
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `action` | string | Yes | `list_votes` |
+| `taskId` | string | Yes | Task ID |
+
+**Response:**
+```json
+{
+  "votes": [
+    {
+      "id": "vote_1",
+      "agentId": "agent-1",
+      "voteValue": { "move": { "disk": 1, "from": "A", "to": "C" } },
+      "confidence": 0.95,
+      "reasoning": "Move smallest disk to target",
+      "createdAt": "2024-12-10T10:00:00Z"
+    }
+  ],
+  "total": 5
+}
+```
+
+### Action: get_stats
+
+Get voting statistics for a task.
+
+```json
+{
+  "action": "get_stats",
+  "taskId": "task_abc123"
+}
+```
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `action` | string | Yes | `get_stats` |
+| `taskId` | string | Yes | Task ID |
+
+**Response:**
+```json
+{
+  "totalVotes": 5,
+  "uniqueVoteValues": 1,
+  "averageConfidence": 0.96,
+  "consensusReached": true,
+  "consensusValue": { "move": { "disk": 1, "from": "A", "to": "C" } }
+}
+```
+
+---
+
+## memory_analytics
+
+Get usage analytics and trends from audit log.
+
+**Actions:** `get_stats`, `get_trends`, `get_subtask_stats`, `get_error_correlation`, `get_low_diversity`
+
+### Action: get_stats
+
+Get usage statistics.
+
+```json
+{
+  "action": "get_stats",
+  "scopeType": "project",
+  "scopeId": "proj_xyz789",
+  "startDate": "2024-12-01T00:00:00Z",
+  "endDate": "2024-12-10T23:59:59Z"
+}
+```
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `action` | string | Yes | `get_stats` |
+| `scopeType` | string | No | Filter by scope type |
+| `scopeId` | string | No | Filter by scope ID |
+| `startDate` | string | No | Start date filter (ISO timestamp) |
+| `endDate` | string | No | End date filter (ISO timestamp) |
+
+**Response:**
+```json
+{
+  "stats": {
+    "totalActions": 1250,
+    "actionsByType": {
+      "create": 450,
+      "update": 320,
+      "query": 480
+    },
+    "successRate": 0.98,
+    "averageExecutionTime": 12.5
+  },
+  "filters": {
+    "scopeType": "project",
+    "scopeId": "proj_xyz789",
+    "startDate": "2024-12-01T00:00:00Z",
+    "endDate": "2024-12-10T23:59:59Z"
+  }
+}
+```
+
+### Action: get_trends
+
+Get trend data over time.
+
+```json
+{
+  "action": "get_trends",
+  "scopeType": "project",
+  "scopeId": "proj_xyz789",
+  "startDate": "2024-12-01T00:00:00Z",
+  "endDate": "2024-12-10T23:59:59Z"
+}
+```
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `action` | string | Yes | `get_trends` |
+| `scopeType` | string | No | Filter by scope type |
+| `scopeId` | string | No | Filter by scope ID |
+| `startDate` | string | No | Start date filter (ISO timestamp) |
+| `endDate` | string | No | End date filter (ISO timestamp) |
+
+**Response:**
+```json
+{
+  "trends": {
+    "daily": [
+      { "date": "2024-12-01", "actions": 120, "successRate": 0.97 },
+      { "date": "2024-12-02", "actions": 135, "successRate": 0.98 }
+    ]
+  },
+  "filters": {
+    "scopeType": "project",
+    "scopeId": "proj_xyz789"
+  }
+}
+```
+
+### Action: get_subtask_stats
+
+Get subtask execution analytics.
+
+```json
+{
+  "action": "get_subtask_stats",
+  "projectId": "proj_xyz789",
+  "subtaskType": "move-disk"
+}
+```
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `action` | string | Yes | `get_subtask_stats` |
+| `projectId` | string | No | Project ID for subtask stats |
+| `subtaskType` | string | No | Filter by subtask type |
+
+**Response:**
+```json
+{
+  "subtaskStats": {
+    "totalExecutions": 1000,
+    "successRate": 0.99,
+    "averageExecutionTime": 5.2,
+    "byType": {
+      "move-disk": { "count": 1000, "successRate": 0.99, "avgTime": 5.2 }
+    }
+  }
+}
+```
+
+### Action: get_error_correlation
+
+Calculate error correlation between two agents.
+
+```json
+{
+  "action": "get_error_correlation",
+  "agentA": "agent-1",
+  "agentB": "agent-2",
+  "timeWindow": {
+    "start": "2024-12-01T00:00:00Z",
+    "end": "2024-12-10T23:59:59Z"
+  }
+}
+```
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `action` | string | Yes | `get_error_correlation` |
+| `agentA` | string | Yes | First agent ID for correlation |
+| `agentB` | string | Yes | Second agent ID for correlation |
+| `timeWindow` | object | No | Time window for correlation analysis |
+| `timeWindow.start` | string | No | Start timestamp |
+| `timeWindow.end` | string | No | End timestamp |
+
+**Response:**
+```json
+{
+  "correlation": 0.15,
+  "interpretation": "Low correlation - agents are decorrelated",
+  "agentA": "agent-1",
+  "agentB": "agent-2",
+  "timeWindow": {
+    "start": "2024-12-01T00:00:00Z",
+    "end": "2024-12-10T23:59:59Z"
+  }
+}
+```
+
+### Action: get_low_diversity
+
+Detect when agents have low diversity (high correlation).
+
+```json
+{
+  "action": "get_low_diversity",
+  "projectId": "proj_xyz789"
+}
+```
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `action` | string | Yes | `get_low_diversity` |
+| `projectId` | string | No | Project ID to analyze |
+
+**Response:**
+```json
+{
+  "lowDiversityPairs": [
+    {
+      "agentA": "agent-1",
+      "agentB": "agent-2",
+      "correlation": 0.85,
+      "warning": "High correlation detected - agents may be too similar"
+    }
+  ],
+  "recommendations": [
+    "Consider diversifying agent prompts or models"
+  ]
+}
+```
+
+---
+
+## memory_permission
 
 Manage version conflicts.
 
@@ -1064,7 +2304,7 @@ Export entries with optional filtering.
 | `scopeType` | string | No | Filter by scope type: `global`, `org`, `project`, `session` |
 | `scopeId` | string | No | Filter by scope ID |
 | `tags` | array | No | Filter by tags (entries must have any of these tags) |
-| `format` | string | No | Export format: `json`, `markdown`, or `yaml` (default: json) |
+| `format` | string | No | Export format: `json`, `markdown`, `yaml`, or `openapi` (default: json) |
 | `includeVersions` | boolean | No | Include full version history (default: false) |
 | `includeInactive` | boolean | No | Include inactive entries (default: false) |
 
@@ -1088,7 +2328,8 @@ Export entries with optional filtering.
 
 - **JSON:** Full structured data with all metadata, tags, relations, and optionally version history
 - **Markdown:** Human-readable documentation format with headings and formatting
-- **YAML:** Structured, readable format (export only)
+- **YAML:** Structured, readable format
+- **OpenAPI:** OpenAPI specification format for API documentation
 
 **Use Cases:**
 - Backup knowledge bases to Git repositories
@@ -1123,7 +2364,7 @@ Import entries with configurable conflict handling.
 |------|------|----------|-------------|
 | `action` | string | Yes | `import` |
 | `content` | string | Yes | Content to import (JSON string from export) |
-| `format` | string | No | Import format: `json` (default: json) |
+| `format` | string | No | Import format: `json`, `yaml`, `markdown`, or `openapi` (default: json, auto-detected if possible) |
 | `conflictStrategy` | string | No | Conflict resolution: `skip`, `update`, `replace`, `error` (default: update) |
 | `scopeMapping` | object | No | Map old scopes to new: `{"global:": {"type": "project", "id": "proj_123"}}` |
 | `generateNewIds` | boolean | No | Generate new IDs for imported entries (default: false) |
@@ -1169,8 +2410,8 @@ When importing entries from one project to another:
 ```
 
 **Notes:**
-- Currently only JSON import is fully supported
-- YAML and Markdown import will return an error (export-only formats)
+- JSON, YAML, Markdown, and OpenAPI formats are supported for import
+- Format is auto-detected if not specified
 - Tags are automatically created if they don't exist
 - Relations are preserved when IDs match
 - Use `conflictStrategy: "error"` for dry-run validation
@@ -1307,5 +2548,8 @@ If you were using the individual tools (v0.1.0), here's how to migrate:
 | `memory_file_lock_force_unlock` | `memory_file_lock` + `action: "force_unlock"` |
 | `memory_query` | `memory_query` + `action: "search"` |
 | `memory_context` | `memory_query` + `action: "context"` |
+| `memory_task` | `memory_task` + `action: "add"`, `"get"`, `"list"` |
+| `memory_voting` | `memory_voting` + `action: "record_vote"`, `"get_consensus"`, `"list_votes"`, `"get_stats"` |
+| `memory_analytics` | `memory_analytics` + `action: "get_stats"`, `"get_trends"`, `"get_subtask_stats"`, `"get_error_correlation"`, `"get_low_diversity"` |
 | `memory_conflicts` | `memory_conflict` + `action: "list"` |
 | `memory_conflict_resolve` | `memory_conflict` + `action: "resolve"` |

@@ -12,6 +12,9 @@ import { dirname } from 'node:path';
 import { existsSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createComponentLogger } from '../utils/logger.js';
+
+const logger = createComponentLogger('vector');
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -219,7 +222,7 @@ class VectorService {
     } catch (error) {
       // If table is empty or query fails, return empty results
       // eslint-disable-next-line no-console
-      console.warn('[vector] Search failed, returning empty results:', error);
+      logger.warn({ error }, 'Search failed, returning empty results');
       return [];
     }
   }
@@ -239,12 +242,10 @@ class VectorService {
       // For a production system, you'd want to implement proper deletion or versioning
 
       // eslint-disable-next-line no-console
-      console.warn(
-        '[vector] Delete operation not fully implemented, embedding will remain until backfill'
-      );
+      logger.warn('Delete operation not fully implemented, embedding will remain until backfill');
     } catch (error) {
       // eslint-disable-next-line no-console
-      console.error('[vector] Failed to remove embedding:', error);
+      logger.error({ error }, 'Failed to remove embedding');
     }
   }
 
@@ -306,7 +307,11 @@ let vectorService: VectorService | null = null;
  */
 export function getVectorService(): VectorService {
   if (!vectorService) {
-    vectorService = new VectorService();
+    // Read environment variable at runtime (not module load time) to support test isolation
+    // If env var is set, use it; otherwise use the default resolved path
+    const dbPath =
+      process.env.AGENT_MEMORY_VECTOR_DB_PATH || resolve(projectRoot, 'data/vectors.lance');
+    vectorService = new VectorService(dbPath);
   }
   return vectorService;
 }

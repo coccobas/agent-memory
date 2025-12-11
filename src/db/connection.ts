@@ -14,7 +14,6 @@
  * - AGENT_MEMORY_VECTOR_DB_PATH: Path to vector database (default: 'data/vectors.lance')
  * - AGENT_MEMORY_SEMANTIC_THRESHOLD: Default similarity threshold 0-1 (default: 0.7)
  */
-/* eslint-disable no-console */
 
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
@@ -23,6 +22,9 @@ import { existsSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { initializeDatabase } from './init.js';
+import { createComponentLogger } from '../utils/logger.js';
+
+const logger = createComponentLogger('db');
 
 // Get the directory of the current module (works in both src and dist)
 const __filename = fileURLToPath(import.meta.url);
@@ -75,14 +77,14 @@ export function getDb(options: ConnectionOptions = {}): ReturnType<typeof drizzl
     const result = initializeDatabase(sqliteInstance, { verbose });
 
     if (!result.success) {
-      console.error('[db] Database initialization failed:', result.errors);
+      logger.error({ errors: result.errors }, 'Database initialization failed');
       throw new Error(`Database initialization failed: ${result.errors.join(', ')}`);
     }
 
     if (verbose && result.migrationsApplied.length > 0) {
-      console.log(
-        `[db] Applied ${result.migrationsApplied.length} migration(s):`,
-        result.migrationsApplied
+      logger.info(
+        { migrations: result.migrationsApplied, count: result.migrationsApplied.length },
+        'Applied migrations'
       );
     }
 

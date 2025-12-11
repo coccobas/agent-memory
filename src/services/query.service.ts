@@ -3,8 +3,8 @@
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { and, eq, inArray, isNull } from 'drizzle-orm';
-import { getDb } from '../db/connection.js';
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { getDb, getSqlite } from '../db/connection.js';
 import {
   tools,
   toolVersions,
@@ -26,6 +26,9 @@ import {
 import type { MemoryQueryParams, ResponseMeta } from '../mcp/types.js';
 import { getEmbeddingService } from './embedding.service.js';
 import { getVectorService } from './vector.service.js';
+import { createComponentLogger } from '../utils/logger.js';
+
+const logger = createComponentLogger('query');
 
 type QueryEntryType = 'tool' | 'guideline' | 'knowledge';
 
@@ -43,10 +46,14 @@ interface CacheEntry<T> {
  * Cache is only used for global scope queries (which rarely change)
  * TTL: 5 minutes (300000ms)
  */
+type CacheStrategy = 'aggressive' | 'conservative' | 'disabled';
+
 class QueryCache {
   private cache = new Map<string, CacheEntry<unknown>>();
-  private readonly ttl = 5 * 60 * 1000; // 5 minutes
+  private ttl = 5 * 60 * 1000; // 5 minutes (default)
   private readonly enabled = process.env.AGENT_MEMORY_CACHE !== '0';
+  private strategy: CacheStrategy = 'conservative';
+  private maxSize = 100; // Default max cache size
 
   /**
    * Generate a cache key from query parameters
@@ -77,7 +84,7 @@ class QueryCache {
    * Get cached result if available and not expired
    */
   get<T>(params: MemoryQueryParams): T | null {
-    if (!this.enabled) return null;
+    if (!this.enabled || this.strategy === 'disabled') return null;
 
     const key = this.getCacheKey(params);
     if (!key) return null;
@@ -98,7 +105,7 @@ class QueryCache {
    * Store result in cache
    */
   set<T>(params: MemoryQueryParams, value: T): void {
-    if (!this.enabled) return;
+    if (!this.enabled || this.strategy === 'disabled') return;
 
     const key = this.getCacheKey(params);
     if (!key) return;
@@ -108,8 +115,8 @@ class QueryCache {
       timestamp: Date.now(),
     });
 
-    // Limit cache size to 100 entries
-    if (this.cache.size > 100) {
+    // Limit cache size based on strategy
+    if (this.cache.size > this.maxSize) {
       const firstKey = this.cache.keys().next().value;
       if (firstKey) this.cache.delete(firstKey);
     }
@@ -123,6 +130,55 @@ class QueryCache {
   }
 
   /**
+   * Invalidate cache entries for a specific scope
+   */
+  invalidateScope(scopeType: ScopeType, _scopeId?: string | null): void {
+    if (!this.enabled) return;
+
+    // For now, we only cache global scope queries, so invalidating
+    // any scope clears the cache. This can be enhanced to be more selective.
+    if (scopeType === 'global') {
+      this.clear();
+    } else {
+      // Non-global scope changes invalidate all global cache
+      this.clear();
+    }
+  }
+
+  /**
+   * Invalidate cache entries that might include a specific entry
+   */
+  invalidateEntry(_entryType: QueryEntryType, _entryId: string): void {
+    if (!this.enabled) return;
+
+    // Since we cache queries that might include this entry,
+    // we clear all cache entries. This can be enhanced to be more selective
+    // by checking cache keys for matching entry types.
+    this.clear();
+  }
+
+  /**
+   * Set cache strategy (aggressive, conservative, or disabled)
+   */
+  setStrategy(strategy: CacheStrategy): void {
+    this.strategy = strategy;
+
+    switch (strategy) {
+      case 'aggressive':
+        this.ttl = 10 * 60 * 1000; // 10 minutes
+        this.maxSize = 200; // Larger cache
+        break;
+      case 'conservative':
+        this.ttl = 5 * 60 * 1000; // 5 minutes
+        this.maxSize = 100; // Default cache
+        break;
+      case 'disabled':
+        this.clear();
+        break;
+    }
+  }
+
+  /**
    * Get cache statistics
    */
   getStats() {
@@ -130,6 +186,8 @@ class QueryCache {
       size: this.cache.size,
       enabled: this.enabled,
       ttl: this.ttl,
+      strategy: this.strategy,
+      maxSize: this.maxSize,
     };
   }
 }
@@ -148,6 +206,27 @@ export function clearQueryCache(): void {
  */
 export function getQueryCacheStats() {
   return queryCache.getStats();
+}
+
+/**
+ * Invalidate cache entries for a specific scope
+ */
+export function invalidateCacheScope(scopeType: ScopeType, scopeId?: string | null): void {
+  queryCache.invalidateScope(scopeType, scopeId);
+}
+
+/**
+ * Invalidate cache entries that might include a specific entry
+ */
+export function invalidateCacheEntry(entryType: QueryEntryType, entryId: string): void {
+  queryCache.invalidateEntry(entryType, entryId);
+}
+
+/**
+ * Set cache strategy (aggressive, conservative, or disabled)
+ */
+export function setCacheStrategy(strategy: 'aggressive' | 'conservative' | 'disabled'): void {
+  queryCache.setStrategy(strategy);
 }
 
 interface ScopeDescriptor {
@@ -436,6 +515,218 @@ function getRelatedEntryIds(
 }
 
 // =============================================================================
+// FTS5 FULL-TEXT SEARCH
+// =============================================================================
+
+/**
+ * Execute FTS5 query for a specific entry type
+ * Returns a Set of rowids that match the search query
+ */
+export function executeFts5Query(
+  entryType: QueryEntryType,
+  searchQuery: string,
+  fields?: string[]
+): Set<number> {
+  const sqlite = getSqlite();
+  const matchingRowids = new Set<number>();
+  let ftsQuery = searchQuery; // Declare outside try block for error logging
+
+  try {
+    // Escape special FTS5 characters and build query
+    // FTS5 uses a simple syntax: "term1 term2" for AND, "term1 OR term2" for OR
+    const escapedQuery = searchQuery.replace(/"/g, '""');
+
+    let ftsTable: string;
+    let ftsColumns: string[];
+
+    if (entryType === 'tool') {
+      ftsTable = 'tools_fts';
+      ftsColumns = ['name', 'description'];
+    } else if (entryType === 'guideline') {
+      ftsTable = 'guidelines_fts';
+      ftsColumns = ['name', 'content', 'rationale'];
+    } else {
+      ftsTable = 'knowledge_fts';
+      ftsColumns = ['title', 'content', 'source'];
+    }
+
+    // Build FTS5 query - if fields specified, search only those columns
+    ftsQuery = escapedQuery;
+    if (fields && fields.length > 0) {
+      // FTS5 column-specific search: column:term
+      const columnMap: Record<string, string> = {
+        name: 'name',
+        title: 'title',
+        description: 'description',
+        content: 'content',
+        rationale: 'rationale',
+        source: 'source',
+      };
+
+      const validFields = fields
+        .map((f) => columnMap[f.toLowerCase()])
+        .filter((f): f is string => !!f && ftsColumns.includes(f));
+
+      if (validFields.length > 0) {
+        // Search in specific columns
+        const columnQueries = validFields.map((col) => `${col}:${escapedQuery}`);
+        ftsQuery = columnQueries.join(' OR ');
+      }
+    }
+
+    // Query FTS5 table
+    const query = sqlite.prepare(`
+      SELECT rowid FROM ${ftsTable}
+      WHERE ${ftsTable} MATCH ?
+    `);
+
+    const results = query.all(ftsQuery) as Array<{ rowid: number }>;
+    for (const row of results) {
+      matchingRowids.add(row.rowid);
+    }
+  } catch (error) {
+    // If FTS5 fails (e.g., table doesn't exist), fall back to regular search
+    // eslint-disable-next-line no-console
+    if (PERF_LOG) {
+      logger.error({ entryType, ftsQuery, error }, 'FTS5 query failed, falling back to LIKE');
+    }
+  }
+
+  return matchingRowids;
+}
+
+// =============================================================================
+// ADVANCED FILTERING HELPERS
+// =============================================================================
+
+/**
+ * Check if a date string is within the specified range
+ */
+function dateInRange(dateStr: string | null | undefined, after?: string, before?: string): boolean {
+  if (!dateStr) return true; // If no date, don't filter out
+
+  try {
+    const date = new Date(dateStr).getTime();
+    if (Number.isNaN(date)) return true;
+
+    if (after) {
+      const afterDate = new Date(after).getTime();
+      if (Number.isNaN(afterDate) || date < afterDate) return false;
+    }
+
+    if (before) {
+      const beforeDate = new Date(before).getTime();
+      if (Number.isNaN(beforeDate) || date > beforeDate) return false;
+    }
+
+    return true;
+  } catch {
+    return true; // On error, don't filter out
+  }
+}
+
+/**
+ * Check if priority is within range
+ */
+function priorityInRange(priority: number | null | undefined, min?: number, max?: number): boolean {
+  if (priority === null || priority === undefined) return true; // No priority = don't filter
+
+  if (min !== undefined && priority < min) return false;
+  if (max !== undefined && priority > max) return false;
+
+  return true;
+}
+
+/**
+ * Calculate Levenshtein distance (for fuzzy matching)
+ */
+function levenshteinDistance(str1: string, str2: string): number {
+  const len1 = str1.length;
+  const len2 = str2.length;
+  const matrix: number[][] = [];
+
+  for (let i = 0; i <= len1; i++) {
+    matrix[i] = [i];
+  }
+
+  for (let j = 0; j <= len2; j++) {
+    const row0 = matrix[0];
+    if (row0) {
+      row0[j] = j;
+    }
+  }
+
+  for (let i = 1; i <= len1; i++) {
+    const row = matrix[i];
+    if (!row) continue;
+    for (let j = 1; j <= len2; j++) {
+      if (str1[i - 1] === str2[j - 1]) {
+        const prevRow = matrix[i - 1];
+        const prevVal = prevRow?.[j - 1];
+        if (prevVal !== undefined) {
+          row[j] = prevVal;
+        }
+      } else {
+        const prevRow = matrix[i - 1];
+        const currentRow = matrix[i];
+        const val1 = prevRow?.[j];
+        const val2 = currentRow?.[j - 1];
+        const val3 = prevRow?.[j - 1];
+        if (val1 !== undefined && val2 !== undefined && val3 !== undefined) {
+          row[j] = Math.min(
+            val1 + 1, // deletion
+            val2 + 1, // insertion
+            val3 + 1 // substitution
+          );
+        }
+      }
+    }
+  }
+
+  const finalRow = matrix[len1];
+  const finalVal = finalRow?.[len2];
+  return finalVal ?? 0;
+}
+
+/**
+ * Check if text matches with fuzzy matching
+ */
+function fuzzyTextMatches(haystack: string | null | undefined, needle: string): boolean {
+  if (!haystack) return false;
+
+  const haystackLower = haystack.toLowerCase();
+  const needleLower = needle.toLowerCase();
+
+  // First try exact substring match
+  if (haystackLower.includes(needleLower)) return true;
+
+  // Calculate similarity (1 - normalized distance)
+  const maxLen = Math.max(haystackLower.length, needleLower.length);
+  if (maxLen === 0) return true;
+
+  const distance = levenshteinDistance(haystackLower, needleLower);
+  const similarity = 1 - distance / maxLen;
+
+  // Threshold: 0.7 similarity (allow ~30% difference)
+  return similarity >= 0.7;
+}
+
+/**
+ * Check if text matches using regex
+ */
+function regexTextMatches(haystack: string | null | undefined, pattern: string): boolean {
+  if (!haystack) return false;
+
+  try {
+    const regex = new RegExp(pattern, 'i'); // Case-insensitive
+    return regex.test(haystack);
+  } catch {
+    // Invalid regex, fall back to simple match
+    return haystack.toLowerCase().includes(pattern.toLowerCase());
+  }
+}
+
+// =============================================================================
 // SCORING
 // =============================================================================
 
@@ -538,14 +829,69 @@ function computeScore(params: {
 
 const PERF_LOG = process.env.AGENT_MEMORY_PERF === '1';
 
+/**
+ * Execute FTS5 full-text search for better performance
+ * Returns entry IDs that match the search query
+ */
+function executeFts5Search(
+  search: string,
+  types: ('tools' | 'guidelines' | 'knowledge')[]
+): Record<QueryEntryType, Set<string>> {
+  const result: Record<QueryEntryType, Set<string>> = {
+    tool: new Set(),
+    guideline: new Set(),
+    knowledge: new Set(),
+  };
+
+  // Escape special FTS5 characters
+  const escapedSearch = search.replace(/["*]/g, '').trim();
+  if (!escapedSearch) return result;
+
+  // Search tools
+  if (types.includes('tools')) {
+    const toolRows = getSqlite()
+      .prepare(`SELECT tool_id FROM tools_fts WHERE tools_fts MATCH ? ORDER BY rank`)
+      .all(escapedSearch) as Array<{ tool_id: string }>;
+    for (const row of toolRows) {
+      result.tool.add(row.tool_id);
+    }
+  }
+
+  // Search guidelines
+  if (types.includes('guidelines')) {
+    const guidelineRows = getSqlite()
+      .prepare(`SELECT guideline_id FROM guidelines_fts WHERE guidelines_fts MATCH ? ORDER BY rank`)
+      .all(escapedSearch) as Array<{ guideline_id: string }>;
+    for (const row of guidelineRows) {
+      result.guideline.add(row.guideline_id);
+    }
+  }
+
+  // Search knowledge
+  if (types.includes('knowledge')) {
+    const knowledgeRows = getSqlite()
+      .prepare(`SELECT knowledge_id FROM knowledge_fts WHERE knowledge_fts MATCH ? ORDER BY rank`)
+      .all(escapedSearch) as Array<{ knowledge_id: string }>;
+    for (const row of knowledgeRows) {
+      result.knowledge.add(row.knowledge_id);
+    }
+  }
+
+  return result;
+}
+
 export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult {
   // Check cache first
   const cached = queryCache.get<MemoryQueryResult>(params);
   if (cached) {
     if (PERF_LOG) {
       // eslint-disable-next-line no-console
-      console.error(
-        `[agent-memory] memory_query CACHE_HIT scope=${params.scope?.type ?? 'none'} results=${cached.results.length}`
+      logger.debug(
+        {
+          scopeType: params.scope?.type ?? 'none',
+          resultsCount: cached.results.length,
+        },
+        'memory_query CACHE_HIT'
       );
     }
     return cached;
@@ -566,6 +912,10 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
   const relatedIds = getRelatedEntryIds(params.relatedTo);
   const search = params.search?.trim();
 
+  // Use FTS5 if enabled and search query provided
+  const useFts5 = params.useFts5 === true && search;
+  const fts5Results = useFts5 ? executeFts5Search(search, [...types]) : null;
+
   const results: QueryResultItem[] = [];
 
   // Helper to process one type at a time
@@ -582,50 +932,82 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
       }
 
       if (type === 'tools') {
+        const conditions = [
+          eq(tools.scopeType, scope.scopeType),
+          scope.scopeId === null ? isNull(tools.scopeId) : eq(tools.scopeId, scope.scopeId),
+          eq(tools.isActive, true),
+        ];
+
+        // Add date filters
+        if (params.createdAfter) {
+          conditions.push(sql`${tools.createdAt} >= ${params.createdAfter}`);
+        }
+        if (params.createdBefore) {
+          conditions.push(sql`${tools.createdAt} <= ${params.createdBefore}`);
+        }
+
         const rows = db
           .select()
           .from(tools)
-          .where(
-            and(
-              eq(tools.scopeType, scope.scopeType),
-              scope.scopeId === null ? isNull(tools.scopeId) : eq(tools.scopeId, scope.scopeId),
-              eq(tools.isActive, true)
-            )
-          )
+          .where(and(...conditions))
           .all();
         for (const row of rows) {
           entriesByScope.push({ entry: row, scopeIndex: index });
         }
       } else if (type === 'guidelines') {
+        const conditions = [
+          eq(guidelines.scopeType, scope.scopeType),
+          scope.scopeId === null
+            ? isNull(guidelines.scopeId)
+            : eq(guidelines.scopeId, scope.scopeId),
+          eq(guidelines.isActive, true),
+        ];
+
+        // Add date filters
+        if (params.createdAfter) {
+          conditions.push(sql`${guidelines.createdAt} >= ${params.createdAfter}`);
+        }
+        if (params.createdBefore) {
+          conditions.push(sql`${guidelines.createdAt} <= ${params.createdBefore}`);
+        }
+
+        // Add priority filters
+        if (params.priority) {
+          if (params.priority.min !== undefined) {
+            conditions.push(sql`${guidelines.priority} >= ${params.priority.min}`);
+          }
+          if (params.priority.max !== undefined) {
+            conditions.push(sql`${guidelines.priority} <= ${params.priority.max}`);
+          }
+        }
+
         const rows = db
           .select()
           .from(guidelines)
-          .where(
-            and(
-              eq(guidelines.scopeType, scope.scopeType),
-              scope.scopeId === null
-                ? isNull(guidelines.scopeId)
-                : eq(guidelines.scopeId, scope.scopeId),
-              eq(guidelines.isActive, true)
-            )
-          )
+          .where(and(...conditions))
           .all();
         for (const row of rows) {
           entriesByScope.push({ entry: row, scopeIndex: index });
         }
       } else {
+        const conditions = [
+          eq(knowledge.scopeType, scope.scopeType),
+          scope.scopeId === null ? isNull(knowledge.scopeId) : eq(knowledge.scopeId, scope.scopeId),
+          eq(knowledge.isActive, true),
+        ];
+
+        // Add date filters
+        if (params.createdAfter) {
+          conditions.push(sql`${knowledge.createdAt} >= ${params.createdAfter}`);
+        }
+        if (params.createdBefore) {
+          conditions.push(sql`${knowledge.createdAt} <= ${params.createdBefore}`);
+        }
+
         const rows = db
           .select()
           .from(knowledge)
-          .where(
-            and(
-              eq(knowledge.scopeType, scope.scopeType),
-              scope.scopeId === null
-                ? isNull(knowledge.scopeId)
-                : eq(knowledge.scopeId, scope.scopeId),
-              eq(knowledge.isActive, true)
-            )
-          )
+          .where(and(...conditions))
           .all();
         for (const row of rows) {
           entriesByScope.push({ entry: row, scopeIndex: index });
@@ -671,6 +1053,17 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
             ? relatedIds.guideline
             : relatedIds.knowledge;
       allowedByRelation = relSet;
+    }
+
+    // FTS5 filtering (if FTS5 enabled, only include entries that matched FTS5 search)
+    let allowedByFts5: Set<string> | null = null;
+    if (fts5Results) {
+      allowedByFts5 =
+        entryType === 'tool'
+          ? fts5Results.tool
+          : entryType === 'guideline'
+            ? fts5Results.guideline
+            : fts5Results.knowledge;
     }
 
     // Load current versions and optionally history
@@ -734,6 +1127,13 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
       }
     }
 
+    // Get FTS5 matching rowids if FTS5 is enabled and search query exists
+    const useFts5 = params.useFts5 === true && search;
+    let fts5MatchingRowids: Set<number> | null = null;
+    if (useFts5) {
+      fts5MatchingRowids = executeFts5Query(entryType, search, params.fields);
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument
     for (const { entry, scopeIndex } of deduped) {
       const base = entry as any;
@@ -743,31 +1143,121 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
 
       if (allowedByTags && !allowedByTags.has(id)) continue;
       if (allowedByRelation && !allowedByRelation.has(id)) continue;
+      if (allowedByFts5 && !allowedByFts5.has(id)) continue;
 
-      // Text search
+      // Advanced filtering: Date ranges
+      if (
+        params.createdAfter ||
+        params.createdBefore ||
+        params.updatedAfter ||
+        params.updatedBefore
+      ) {
+        const createdAt = base.createdAt as string | null | undefined;
+        if (!dateInRange(createdAt, params.createdAfter, params.createdBefore)) {
+          continue;
+        }
+
+        // For updated date, check version timestamps
+        const currentVersion = versionMap.get(id);
+        if (params.updatedAfter || params.updatedBefore) {
+          const updatedAt = currentVersion?.createdAt as string | null | undefined;
+          if (!dateInRange(updatedAt, params.updatedAfter, params.updatedBefore)) {
+            continue;
+          }
+        }
+      }
+
+      // Advanced filtering: Priority range (for guidelines)
+      if (type === 'guidelines' && params.priority) {
+        const priority = base.priority as number | null | undefined;
+        if (!priorityInRange(priority, params.priority.min, params.priority.max)) {
+          continue;
+        }
+      }
+
+      // Text search - use FTS5 if enabled, otherwise use regular matching
       let textMatched = false;
       if (search) {
-        if (type === 'tools') {
-          const v = versionMap.get(id);
-          textMatched = textMatches(base.name, search) || textMatches(v?.description, search);
-        } else if (type === 'guidelines') {
-          const v = versionMap.get(id);
-          textMatched =
-            textMatches(base.name, search) ||
-            textMatches(v?.content, search) ||
-            textMatches(v?.rationale, search);
+        if (useFts5 && fts5MatchingRowids) {
+          // Use FTS5 results - check if this entry's rowid is in the matching set
+          const sqlite = getSqlite();
+          const rowidQuery = sqlite.prepare(
+            `SELECT rowid FROM ${type === 'tools' ? 'tools' : type === 'guidelines' ? 'guidelines' : 'knowledge'} WHERE id = ?`
+          );
+          const rowidResult = rowidQuery.get(id) as { rowid: number } | undefined;
+          if (rowidResult && fts5MatchingRowids.has(rowidResult.rowid)) {
+            textMatched = true;
+          }
         } else {
-          const v = versionMap.get(id);
-          textMatched =
-            textMatches(base.title, search) ||
-            textMatches(v?.content, search) ||
-            textMatches(v?.source, search);
+          // Regular text matching with optional fuzzy/regex support
+          const matchFunc = params.regex
+            ? regexTextMatches
+            : params.fuzzy
+              ? fuzzyTextMatches
+              : textMatches;
+
+          if (type === 'tools') {
+            const v = versionMap.get(id);
+            // Field-specific search if specified
+            if (params.fields && params.fields.length > 0) {
+              const fields = params.fields.map((f) => f.toLowerCase());
+              if (fields.includes('name')) {
+                textMatched = textMatched || matchFunc(base.name, search);
+              }
+              if (fields.includes('description')) {
+                textMatched = textMatched || matchFunc(v?.description, search);
+              }
+            } else {
+              textMatched = matchFunc(base.name, search) || matchFunc(v?.description, search);
+            }
+          } else if (type === 'guidelines') {
+            const v = versionMap.get(id);
+            if (params.fields && params.fields.length > 0) {
+              const fields = params.fields.map((f) => f.toLowerCase());
+              if (fields.includes('name')) {
+                textMatched = textMatched || matchFunc(base.name, search);
+              }
+              if (fields.includes('content')) {
+                textMatched = textMatched || matchFunc(v?.content, search);
+              }
+              if (fields.includes('rationale')) {
+                textMatched = textMatched || matchFunc(v?.rationale, search);
+              }
+            } else {
+              textMatched =
+                matchFunc(base.name, search) ||
+                matchFunc(v?.content, search) ||
+                matchFunc(v?.rationale, search);
+            }
+          } else {
+            const v = versionMap.get(id);
+            if (params.fields && params.fields.length > 0) {
+              const fields = params.fields.map((f) => f.toLowerCase());
+              if (fields.includes('title')) {
+                textMatched = textMatched || matchFunc(base.title, search);
+              }
+              if (fields.includes('content')) {
+                textMatched = textMatched || matchFunc(v?.content, search);
+              }
+              if (fields.includes('source')) {
+                textMatched = textMatched || matchFunc(v?.source, search);
+              }
+            } else {
+              textMatched =
+                matchFunc(base.title, search) ||
+                matchFunc(v?.content, search) ||
+                matchFunc(v?.source, search);
+            }
+          }
         }
 
         if (!textMatched) {
           // If search is provided, filter out non-matching entries
           continue;
         }
+      } else if (useFts5 && search) {
+        // If using FTS5, all entries here already matched, so mark as matched
+        textMatched = true;
       }
 
       const matchingTagCount = (() => {
@@ -926,11 +1416,15 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
 
   if (PERF_LOG) {
     const durationMs = Date.now() - startMs;
-    // eslint-disable-next-line no-console
-    console.error(
-      `[agent-memory] memory_query scope=${params.scope?.type ?? 'none'} types=${types.join(
-        ','
-      )} results=${limited.length}/${results.length} durationMs=${durationMs}`
+    logger.info(
+      {
+        scopeType: params.scope?.type ?? 'none',
+        types: types.join(','),
+        resultsCount: limited.length,
+        totalCount: results.length,
+        durationMs,
+      },
+      'memory_query performance'
     );
   }
 
@@ -1006,15 +1500,19 @@ export async function executeMemoryQueryAsync(
 
       if (PERF_LOG) {
         // eslint-disable-next-line no-console
-        console.error(
-          `[agent-memory] semantic_search found ${semanticResults.size} similar entries (threshold: ${semanticThreshold})`
+        logger.debug(
+          {
+            similarEntriesCount: semanticResults.size,
+            threshold: semanticThreshold,
+          },
+          'semantic_search found similar entries'
         );
       }
     }
   } catch (error) {
     // Log error but don't fail the query - fall back to text search
     // eslint-disable-next-line no-console
-    console.error('[query] Semantic search failed, falling back to text search:', error);
+    logger.error({ error }, 'Semantic search failed, falling back to text search');
   }
 
   // Get regular query results

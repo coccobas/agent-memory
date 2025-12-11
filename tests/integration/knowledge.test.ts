@@ -70,19 +70,19 @@ describe('Knowledge Integration', () => {
     it('should require scopeType', () => {
       expect(() => {
         knowledgeHandlers.add({ title: 'test', content: 'content' });
-      }).toThrow('scopeType is required');
+      }).toThrow(/scopeType.*required/i);
     });
 
     it('should require title', () => {
       expect(() => {
         knowledgeHandlers.add({ scopeType: 'global', content: 'content' });
-      }).toThrow('title is required');
+      }).toThrow(/title.*required/i);
     });
 
     it('should require content', () => {
       expect(() => {
         knowledgeHandlers.add({ scopeType: 'global', title: 'test' });
-      }).toThrow('content is required');
+      }).toThrow(/content.*required/i);
     });
   });
 
@@ -104,7 +104,7 @@ describe('Knowledge Integration', () => {
     it('should require id', () => {
       expect(() => {
         knowledgeHandlers.update({});
-      }).toThrow('id is required');
+      }).toThrow(/id.*required/i);
     });
   });
 
