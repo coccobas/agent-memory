@@ -1255,9 +1255,6 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
           // If search is provided, filter out non-matching entries
           continue;
         }
-      } else if (useFts5 && search) {
-        // If using FTS5, all entries here already matched, so mark as matched
-        textMatched = true;
       }
 
       const matchingTagCount = (() => {

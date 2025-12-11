@@ -19,7 +19,7 @@ export interface RecordVoteParams {
 }
 
 export interface ConsensusResult {
-  consensus: unknown | null;
+  consensus: unknown;
   voteCount: number;
   confidence: number;
   dissentingVotes: Array<{ agentId: string; vote: unknown; confidence: number }>;
@@ -214,7 +214,7 @@ export function getVotingStats(taskId: string): {
   totalVotes: number;
   uniqueOptions: number;
   consensusReached: boolean;
-  consensusValue: unknown | null;
+  consensusValue: unknown;
   k: number;
 } {
   const consensus = calculateConsensus(taskId, 1);
@@ -226,5 +226,4 @@ export function getVotingStats(taskId: string): {
     k: 1,
   };
 }
-
 

@@ -68,7 +68,7 @@ export function recordVoteHandler(params: Record<string, unknown>): {
  * Get consensus for a task using First-to-Ahead-by-k algorithm
  */
 export function getConsensusHandler(params: Record<string, unknown>): {
-  consensus: unknown | null;
+  consensus: unknown;
   voteCount: number;
   confidence: number;
   dissentingVotes: Array<{ agentId: string; vote: unknown; confidence: number }>;
@@ -128,7 +128,7 @@ export function getStatsHandler(params: Record<string, unknown>): {
   totalVotes: number;
   uniqueOptions: number;
   consensusReached: boolean;
-  consensusValue: unknown | null;
+  consensusValue: unknown;
   k: number;
 } {
   const { taskId } = params as unknown as VotingGetStatsParams;
@@ -146,5 +146,4 @@ export const votingHandlers = {
   list_votes: listVotesHandler,
   get_stats: getStatsHandler,
 };
-
 

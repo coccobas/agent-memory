@@ -17,3 +17,9 @@ CREATE UNIQUE INDEX `idx_permissions_unique` ON `permissions` (`agent_id`, `scop
 
 
 
+
+
+
+
+
+

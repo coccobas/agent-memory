@@ -122,7 +122,7 @@ function isDatabaseInitialized(sqlite: Database.Database): boolean {
 /**
  * Apply a single migration file
  */
-function applyMigration(sqlite: Database.Database, name: string, path: string): void {
+function applyMigration(sqlite: Database.Database, name: string, path: string, options: { force?: boolean; verbose?: boolean } = {}): void {
   const sql = readFileSync(path, 'utf-8');
 
   // Split by statement-breakpoint comments that drizzle-kit generates
@@ -155,14 +155,62 @@ function applyMigration(sqlite: Database.Database, name: string, path: string): 
     }
   }
 
-  // Execute each statement
-  for (const statement of statements) {
-    if (statement.trim()) {
+  // Execute each statement with error handling
+  for (let i = 0; i < statements.length; i++) {
+    const statement = statements[i];
+    if (!statement || !statement.trim()) continue;
+
+    try {
       sqlite.exec(statement);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      
+      // Check if it's an "already exists" error that we can safely ignore
+      const isAlreadyExistsError = 
+        errorMessage.includes('already exists') ||
+        errorMessage.includes('duplicate column name') ||
+        errorMessage.includes('UNIQUE constraint failed: _migrations.name');
+      
+      // Check if it's a "table doesn't exist" error for DROP/ALTER operations
+      const isTableNotExistsError = 
+        errorMessage.includes('no such table') ||
+        errorMessage.includes('no such column');
+      
+      // For DROP TABLE, INSERT INTO, or ALTER operations, "table doesn't exist" might be okay
+      const isDropOrInsert = statement.trim().toUpperCase().startsWith('DROP') ||
+                            statement.trim().toUpperCase().startsWith('INSERT') ||
+                            statement.trim().toUpperCase().startsWith('ALTER');
+      
+      if (isAlreadyExistsError || (isTableNotExistsError && isDropOrInsert)) {
+        // Log but continue - this is expected in some scenarios (force mode, partial migrations)
+        if (options.verbose) {
+          logger.warn({ migration: name, statement: i, error: errorMessage }, 'Skipping statement (object already exists or doesn\'t exist)');
+        }
+        continue;
+      }
+      
+      // For other errors, re-throw
+      throw error;
     }
   }
 
-  recordMigration(sqlite, name);
+  // Record migration, but handle the case where it's already recorded
+  // This can happen if a migration was partially applied before
+  try {
+    recordMigration(sqlite, name);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    // If migration is already recorded, that's okay - skip silently
+    if (errorMessage.includes('UNIQUE constraint failed: _migrations.name')) {
+      if (options.verbose) {
+        logger.warn({ migration: name }, 'Migration already recorded, skipping');
+      }
+      // Migration already recorded, which is fine
+      return;
+    }
+    // For other errors, re-throw
+    throw error;
+  }
 }
 
 /**
@@ -217,7 +265,7 @@ export function initializeDatabase(
           logger.info({ migration: migration.name }, 'Applying migration');
         }
 
-        applyMigration(sqlite, migration.name, migration.path);
+        applyMigration(sqlite, migration.name, migration.path, options);
         result.migrationsApplied.push(migration.name);
       }
     })();
@@ -285,10 +333,16 @@ export function resetDatabase(
       )
       .all() as { name: string }[];
 
+    // Disable foreign key checks temporarily to allow dropping tables in any order
+    sqlite.pragma('foreign_keys = OFF');
+
     // Drop all tables
     for (const table of tables) {
       sqlite.exec(`DROP TABLE IF EXISTS ${table.name}`);
     }
+
+    // Re-enable foreign key checks
+    sqlite.pragma('foreign_keys = ON');
 
     // Re-initialize
     return initializeDatabase(sqlite, { ...options, force: true });

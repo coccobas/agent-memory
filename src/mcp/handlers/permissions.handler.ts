@@ -160,7 +160,7 @@ export const permissionHandlers = {
     const paginated = permissionsList.slice(start, end);
 
     return {
-      permissions: paginated.map((p: any) => ({
+      permissions: paginated.map((p) => ({
         id: p.id,
         agentId: p.agentId,
         scopeType: p.scopeType,

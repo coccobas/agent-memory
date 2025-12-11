@@ -47,3 +47,9 @@ CREATE INDEX `idx_context_entry` ON `conversation_context` (`entry_type`, `entry
 CREATE UNIQUE INDEX `idx_context_unique` ON `conversation_context` (`conversation_id`, `message_id`, `entry_type`, `entry_id`);
 
 
+
+
+
+
+
+

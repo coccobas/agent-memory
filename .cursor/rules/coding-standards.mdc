@@ -351,3 +351,9 @@ feat: add file lock timeout validation
 - **Format**: `[agent-memory] memory_query scope=project types=tools,guidelines results=15/42 durationMs=8`
 
 
+
+
+
+
+
+

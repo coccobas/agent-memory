@@ -348,7 +348,7 @@ export function getSubtaskStats(params: {
   const successRate = totalSubtasks > 0 ? successful / totalSubtasks : 0;
 
   const executionTimes = subtasks
-    .filter((s) => s.executionTime != null)
+    .filter((s) => s.executionTime !== null)
     .map((s) => s.executionTime || 0);
   const avgExecutionTime =
     executionTimes.length > 0
@@ -402,5 +402,4 @@ export function getSubtaskStats(params: {
     decompositionEfficiency,
   };
 }
-
 
