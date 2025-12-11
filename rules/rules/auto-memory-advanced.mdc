@@ -1,0 +1,519 @@
+---
+description: Advanced Agent Memory features - additional tools, conflict resolution, maintenance, and error handling
+globs: ["**/*"]
+alwaysApply: false
+related_docs: [
+  ".cursor/rules/auto-memory-core.mdc",
+  ".cursor/rules/auto-memory-reference.mdc",
+  ".cursor/rules/auto-memory-strategies.mdc"
+]
+---
+
+@context {
+    "type": "guidelines",
+    "purpose": "cursor_rules",
+    "format_version": "1.0.0",
+    "supported_content_types": [
+        "guidelines",
+        "examples",
+        "implementations"
+    ]
+}
+
+@structure {
+    "required_sections": [
+        "frontmatter",
+        "title",
+        "additional_tools",
+        "conflict_resolution",
+        "maintenance",
+        "error_handling"
+    ]
+}
+
+# Advanced Agent Memory Features
+
+This document covers advanced features beyond the core workflow. See `auto-memory-core.mdc` for essential operations.
+
+## Additional Memory Tools Usage
+
+### Organization Management (memory_org)
+
+**When to use:**
+- Setting up team-wide standards
+- Creating organization-level guidelines
+- Multi-project scenarios
+
+**Create organization:**
+
+```json
+{
+  "tool": "memory_org",
+  "arguments": {
+    "action": "create",
+    "name": "<organization-name>",
+    "metadata": {
+      "description": "<org-description>",
+      "team_size": 10
+    }
+  }
+}
+```
+
+### File Locking (memory_file_lock)
+
+**ALWAYS** check file locks before editing files in multi-agent scenarios:
+
+```json
+{
+  "tool": "memory_file_lock",
+  "arguments": {
+    "action": "status",
+    "file_path": "/absolute/path/to/file.ts"
+  }
+}
+```
+
+**Checkout lock before editing:**
+
+```json
+{
+  "tool": "memory_file_lock",
+  "arguments": {
+    "action": "checkout",
+    "file_path": "/absolute/path/to/file.ts",
+    "agent_id": "cursor-ai",
+    "session_id": "<session-id>",
+    "project_id": "<project-id>",
+    "expires_in": 3600,
+    "metadata": {
+      "purpose": "refactoring authentication"
+    }
+  }
+}
+```
+
+**Checkin lock when done:**
+
+```json
+{
+  "tool": "memory_file_lock",
+  "arguments": {
+    "action": "checkin",
+    "file_path": "/absolute/path/to/file.ts",
+    "agent_id": "cursor-ai"
+  }
+}
+```
+
+### Task Decomposition (memory_task)
+
+**Use for complex features that need decomposition:**
+
+```json
+{
+  "tool": "memory_task",
+  "arguments": {
+    "action": "add",
+    "subtasks": ["Subtask 1", "Subtask 2", "Subtask 3"],
+    "decompositionStrategy": "maximal",
+    "scopeType": "project",
+    "scopeId": "<project-id>",
+    "projectId": "<project-id>",
+    "createdBy": "cursor-ai"
+  }
+}
+```
+
+**Query task hierarchy:**
+
+```json
+{
+  "tool": "memory_task",
+  "arguments": {
+    "action": "get",
+    "taskId": "<task-id>"
+  }
+}
+```
+
+### Multi-Agent Voting (memory_voting)
+
+**When multiple agents work on same task, record votes:**
+
+```json
+{
+  "tool": "memory_voting",
+  "arguments": {
+    "action": "record_vote",
+    "taskId": "<task-id>",
+    "agentId": "cursor-ai",
+    "voteValue": {"decision": "use-postgresql"},
+    "confidence": 0.95,
+    "reasoning": "Better JSONB support"
+  }
+}
+```
+
+**Get consensus:**
+
+```json
+{
+  "tool": "memory_voting",
+  "arguments": {
+    "action": "get_consensus",
+    "taskId": "<task-id>",
+    "k": 1
+  }
+}
+```
+
+### Usage Analytics (memory_analytics)
+
+**Periodically check analytics to learn from patterns:**
+
+```json
+{
+  "tool": "memory_analytics",
+  "arguments": {
+    "action": "get_stats",
+    "scopeType": "project",
+    "scopeId": "<project-id>"
+  }
+}
+```
+
+**Get trends:**
+
+```json
+{
+  "tool": "memory_analytics",
+  "arguments": {
+    "action": "get_trends",
+    "scopeType": "project",
+    "scopeId": "<project-id>",
+    "startDate": "<iso-timestamp>",
+    "endDate": "<iso-timestamp>"
+  }
+}
+```
+
+**Use analytics to:**
+- Identify frequently accessed entries (promote to higher priority)
+- Find unused entries (consider cleanup)
+- Learn from error patterns
+- Improve query strategies
+
+### Permission Management (memory_permission)
+
+**Check permissions before operations:**
+
+```json
+{
+  "tool": "memory_permission",
+  "arguments": {
+    "action": "check",
+    "agent_id": "cursor-ai",
+    "action": "write",
+    "scope_type": "project",
+    "scope_id": "<project-id>",
+    "entry_type": "guideline"
+  }
+}
+```
+
+**Grant permissions when needed:**
+
+```json
+{
+  "tool": "memory_permission",
+  "arguments": {
+    "action": "grant",
+    "agent_id": "cursor-ai",
+    "scope_type": "project",
+    "scope_id": "<project-id>",
+    "entry_type": "guideline",
+    "permission": "write",
+    "created_by": "admin"
+  }
+}
+```
+
+### Health Checks (memory_health)
+
+**Periodically check system health:**
+
+```json
+{
+  "tool": "memory_health",
+  "arguments": {}
+}
+```
+
+Use this to:
+- Verify database connectivity
+- Check cache status
+- Monitor table sizes
+- Detect issues early
+
+### Database Initialization (memory_init)
+
+**Check initialization status:**
+
+```json
+{
+  "tool": "memory_init",
+  "arguments": {
+    "action": "status"
+  }
+}
+```
+
+**Initialize if needed:**
+
+```json
+{
+  "tool": "memory_init",
+  "arguments": {
+    "action": "init",
+    "verbose": true
+  }
+}
+```
+
+### Export Memory (memory_export)
+
+**Periodically export memory for backup:**
+
+```json
+{
+  "tool": "memory_export",
+  "arguments": {
+    "action": "export",
+    "format": "markdown",
+    "scopeType": "project",
+    "scopeId": "<project-id>",
+    "includeVersions": false
+  }
+}
+```
+
+**Export formats:** `json`, `markdown`, `yaml`, `openapi`
+
+### Import Memory (memory_import)
+
+**Import from external sources:**
+
+```json
+{
+  "tool": "memory_import",
+  "arguments": {
+    "action": "import",
+    "content": "<json-or-yaml-content>",
+    "format": "json",
+    "conflictStrategy": "update",
+    "importedBy": "cursor-ai"
+  }
+}
+```
+
+**Conflict strategies:** `skip`, `update`, `replace`, `error`
+
+## Conflict Resolution
+
+### Automatic Conflict Detection
+
+Agent Memory automatically detects conflicts when:
+- Two writes to the same entry happen within 5 seconds
+- Both writes have the same base version number
+
+When conflicts are detected:
+- Both versions are stored
+- Later version is flagged with `conflictFlag: true`
+- Conflict is logged in `conflict_log` table
+
+### Handling Detected Conflicts
+
+**ALWAYS check for unresolved conflicts periodically:**
+
+```json
+{
+  "tool": "memory_conflict",
+  "arguments": {
+    "action": "list",
+    "resolved": false,
+    "limit": 20
+  }
+}
+```
+
+**When conflicts are found:**
+
+1. **Review both versions:**
+   - Get version A details
+   - Get version B details
+   - Compare content and timestamps
+
+2. **Determine resolution:**
+   - If version B is clearly better: Resolve as "kept_version_b"
+   - If version A is better: Resolve as "kept_version_a"
+   - If both have value: Merge them into a new version, then resolve
+   - If unclear: Ask user for guidance
+
+3. **Resolve the conflict:**
+
+```json
+{
+  "tool": "memory_conflict",
+  "arguments": {
+    "action": "resolve",
+    "id": "<conflict-id>",
+    "resolution": "<explanation of resolution>",
+    "resolvedBy": "cursor-ai"
+  }
+}
+```
+
+### Semantic Conflict Detection
+
+**Before storing, check for semantic conflicts:**
+
+1. **Query for similar entries** (as described in core workflow)
+2. **Compare semantically:**
+   - If content contradicts existing entry → Conflict detected
+   - If content complements existing entry → Update existing
+   - If content is duplicate → Skip storing
+
+3. **When semantic conflict detected:**
+   - Present both versions to user
+   - Ask for resolution preference
+   - Store resolution as knowledge entry
+
+### Conflict Resolution Strategy
+
+**Priority order for resolving conflicts:**
+
+1. **User preference** (if user provides guidance)
+2. **Recency** (newer information generally preferred)
+3. **Source authority** (higher confidence sources preferred)
+4. **Scope specificity** (more specific scope overrides general)
+5. **Completeness** (more complete information preferred)
+
+**Always document resolution:**
+
+When resolving conflicts, **ALWAYS** store the resolution as knowledge:
+
+```json
+{
+  "tool": "memory_knowledge",
+  "arguments": {
+    "action": "add",
+    "scopeType": "project",
+    "scopeId": "<project-id>",
+    "title": "Conflict Resolution: <topic>",
+    "category": "decision",
+    "content": "Resolved conflict between [old] and [new]. Chose [resolution] because [reason].",
+    "source": "Conflict resolution"
+  }
+}
+```
+
+## Periodic Maintenance Tasks
+
+### Daily/Weekly Tasks
+
+**1. Check for unresolved conflicts:**
+
+```json
+{
+  "tool": "memory_conflict",
+  "arguments": {
+    "action": "list",
+    "resolved": false,
+    "limit": 50
+  }
+}
+```
+
+Resolve conflicts found.
+
+**2. Review analytics:**
+
+```json
+{
+  "tool": "memory_analytics",
+  "arguments": {
+    "action": "get_stats",
+    "scopeType": "project",
+    "scopeId": "<project-id>"
+  }
+}
+```
+
+Use insights to improve memory quality.
+
+**3. Export memory for backup:**
+
+```json
+{
+  "tool": "memory_export",
+  "arguments": {
+    "action": "export",
+    "format": "markdown",
+    "scopeType": "project",
+    "scopeId": "<project-id>"
+  }
+}
+```
+
+**4. Check health:**
+
+```json
+{
+  "tool": "memory_health",
+  "arguments": {}
+}
+```
+
+### Monthly Tasks
+
+**1. Review unused entries:**
+- Use analytics to find rarely accessed entries
+- Archive or update stale knowledge
+- Clean up inactive entries
+
+**2. Review permissions:**
+- Check permission list
+- Revoke unnecessary permissions
+- Grant permissions as needed
+
+**3. Review file locks:**
+- List all active locks
+- Clean up expired locks
+- Force unlock if needed
+
+## Error Handling
+
+If memory operations fail:
+- Log the error but continue with the task
+- Try to use memory again on next interaction
+- Don't block the user's workflow
+- Check health if persistent failures
+
+If conflicts are detected:
+- Don't panic - both versions are preserved
+- Review and resolve systematically
+- Document resolution for future reference
+
+If permissions denied:
+- Check permissions using `memory_permission`
+- Request permission if needed
+- Use appropriate scope for operations
+
+If file locked:
+- Wait for lock to expire
+- Check lock status periodically
+- Use `force_unlock` only if necessary and authorized
+
+@version "1.0.0"
+@last_updated "2024-12-19"
