@@ -37,6 +37,47 @@ Practical examples of using Agent Memory tools. See `auto-memory-core.mdc` for t
 
 Automatically populate memory in these situations:
 
+### Comprehensive Extraction Patterns
+
+**Extract Guidelines when user says:**
+- "We always/never do X"
+- "Our standard is..."
+- "The convention is..."
+- "We follow this pattern..."
+- "This is how we handle..."
+- Mentions code style, architecture patterns, error handling approaches
+- "We prefer X over Y"
+- "We avoid doing X"
+- "The pattern we use is..."
+
+**Extract Knowledge when user says:**
+- "We chose X because..."
+- "The reason we..."
+- "We decided to..."
+- "This was done because..."
+- "We use X for Y because..."
+- Explains architecture, decisions, trade-offs, context
+- "We considered X but chose Y because..."
+- "The trade-off we made was..."
+- "This is important because..."
+
+**Extract Tools when user says:**
+- "We have a script/command for..."
+- "Use this tool/command..."
+- "Run X to do Y"
+- Mentions CLI commands, build scripts, deployment tools
+- "To do X, run..."
+- "We use this tool for..."
+- "The command is..."
+
+**Extract from code patterns:**
+- Repeated patterns in code → Store as guideline
+- Architecture decisions visible in code → Store as knowledge
+- Custom utilities/functions → Store as tool
+- Consistent error handling → Store as guideline
+- Repeated data structures → Store as knowledge
+- Common helper functions → Store as tool
+
 ### When User Says:
 - "We always do X" → Store as guideline
 - "We use Y because..." → Store as knowledge (decision)
@@ -101,22 +142,64 @@ For team scenarios, create organization first:
 }
 ```
 
-### Step 3: Create Project
+### Step 3: Smart Project Detection and Creation
 
-If no project exists, **ALWAYS** create one:
+**ALWAYS check for existing project first:**
+
+1. Query existing projects matching workspace:
+```json
+{
+  "tool": "memory_project",
+  "arguments": {
+    "action": "list",
+    "limit": 10
+  }
+}
+```
+
+2. Check workspace path against project rootPath
+3. Check project name against workspace directory name
+
+**Auto-create project when:**
+- No matching project exists AND
+- Clear project context detected (package.json, git repo, workspace structure) AND
+- Project name can be inferred from workspace directory or package.json
+
+**Prompt user when:**
+- Project context is ambiguous
+- Multiple potential project names detected
+- User explicitly asks about project setup
+
+**Extract project metadata from context:**
+- Name: from package.json "name" or workspace directory
+- Description: from package.json "description" or README.md
+- Root path: current workspace path
+- Language: from package.json dependencies or file extensions
+- Framework: from package.json dependencies or config files
+
+**If no project exists and context is clear, create automatically:**
 
 ```json
 {
   "tool": "memory_project",
   "arguments": {
     "action": "create",
-    "name": "<project-name>",
-    "description": "<project-description>",
+    "name": "<inferred-project-name>",
+    "description": "<extracted-description>",
     "rootPath": "<absolute-path-to-project>",
-    "orgId": "<org-id-if-created>"
+    "orgId": "<org-id-if-created>",
+    "metadata": {
+      "language": "<detected-language>",
+      "framework": "<detected-framework>",
+      "detectedFrom": "workspace-context"
+    }
   }
 }
 ```
+
+**If context is ambiguous, prompt user:**
+
+"I detected a project but need confirmation. Name: [inferred], Path: [workspace]. Should I create this project?"
 
 Save the project ID and use it for all subsequent operations.
 
@@ -381,6 +464,147 @@ You should:
 ```json
 {"tool": "memory_session", "arguments": {"action": "end", "id": "<session-id>", "status": "completed"}}
 ```
+
+### Example 12: Automatic Project Creation with Smart Detection
+
+**Scenario:** Starting work in a new workspace
+
+1. **Detect workspace context:**
+   - Read package.json for project name/description
+   - Check git remote for project identifier
+   - Infer from workspace directory name
+
+2. **Check for existing project:**
+   ```json
+   {"tool": "memory_project", "arguments": {"action": "list"}}
+   ```
+
+3. **If no match found and context is clear:**
+   - Auto-create project with extracted metadata:
+   ```json
+   {
+     "tool": "memory_project",
+     "arguments": {
+       "action": "create",
+       "name": "my-web-app",
+       "description": "Web application built with React and TypeScript",
+       "rootPath": "/Users/dev/my-web-app",
+       "metadata": {
+         "language": "typescript",
+         "framework": "react",
+         "detectedFrom": "workspace-context"
+       }
+     }
+   }
+   ```
+   - Store project ID for session
+
+4. **If context is ambiguous:**
+   - Prompt user: "I detected a project but need confirmation. Name: [inferred], Path: [workspace]. Should I create this project?"
+
+### Example 13: Comprehensive Extraction During Session
+
+**Scenario:** User explains architecture during conversation
+
+User: "We use PostgreSQL because it has better JSONB support and we need that for our flexible schema"
+
+You should automatically:
+1. Extract as knowledge (decision category):
+   ```json
+   {
+     "tool": "memory_knowledge",
+     "arguments": {
+       "action": "add",
+       "scopeType": "project",
+       "scopeId": "<project-id>",
+       "title": "Database choice: PostgreSQL",
+       "content": "PostgreSQL chosen for JSONB support and flexible schema requirements",
+       "category": "decision",
+       "confidence": 0.95,
+       "source": "user-conversation"
+     }
+   }
+   ```
+
+2. Extract as guideline if pattern emerges:
+   ```json
+   {
+     "tool": "memory_guideline",
+     "arguments": {
+       "action": "add",
+       "scopeType": "project",
+       "scopeId": "<project-id>",
+       "name": "Use PostgreSQL JSONB for flexible schemas",
+       "content": "When flexible schema is required, use PostgreSQL JSONB columns",
+       "category": "architecture",
+       "priority": 80
+     }
+   }
+   ```
+
+3. Link both to conversation:
+   ```json
+   {
+     "tool": "memory_conversation",
+     "arguments": {
+       "action": "link_context",
+       "conversationId": "<conversation-id>",
+       "entryType": "knowledge",
+       "entryId": "<knowledge-id>",
+       "relevanceScore": 0.95
+     }
+   }
+   ```
+
+4. Tag appropriately (database, architecture, decision)
+
+### Example 14: Pattern Extraction from Code
+
+**Scenario:** User shows code pattern repeatedly
+
+You notice: All API endpoints follow same error handling pattern
+
+You should:
+1. Extract pattern as guideline:
+   ```json
+   {
+     "tool": "memory_guideline",
+     "arguments": {
+       "action": "add",
+       "scopeType": "project",
+       "scopeId": "<project-id>",
+       "name": "API error handling pattern",
+       "content": "All API endpoints must use try-catch blocks and return standardized error responses with status codes",
+       "category": "error_handling",
+       "priority": 85,
+       "examples": {
+         "good": [
+           "try { const result = await service.call(); return res.status(200).json(result); } catch (error) { return res.status(500).json({ error: error.message }); }"
+         ],
+         "bad": [
+           "const result = await service.call(); return res.json(result);"
+         ]
+       }
+     }
+   }
+   ```
+
+2. Create relations to all related API tools/guidelines:
+   ```json
+   {
+     "tool": "memory_relation",
+     "arguments": {
+       "action": "create",
+       "sourceType": "guideline",
+       "sourceId": "<guideline-id>",
+       "targetType": "tool",
+       "targetId": "<api-tool-id>",
+       "relationType": "applies_to"
+     }
+   }
+   ```
+
+3. Tag with "api", "error_handling", "pattern"
 
 @version "1.0.0"
 @last_updated "2024-12-19"

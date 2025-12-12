@@ -2,6 +2,8 @@
 
 This guide walks you through setting up and using Agent Memory.
 
+> **Windows users:** For Windows-specific setup instructions, see the [Windows Setup Guide](./windows-setup.md).
+
 ## Prerequisites
 
 - Node.js 20.x or later
@@ -67,6 +69,7 @@ The server runs using stdio transport, expecting MCP protocol messages on stdin/
 
 ### With Claude Desktop
 
+**Unix/Linux/macOS:**
 Add to your Claude Desktop configuration (`~/.config/claude/claude_desktop_config.json`):
 
 ```json
@@ -80,12 +83,41 @@ Add to your Claude Desktop configuration (`~/.config/claude/claude_desktop_confi
 }
 ```
 
+**Windows:**
+Add to your Claude Desktop configuration (`%APPDATA%\Claude\claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "agent-memory": {
+      "command": "node",
+      "args": ["C:/path/to/agent-memory/dist/index.js"]
+    }
+  }
+}
+```
+
+**Note:** On Windows, you can use forward slashes (`/`) or escaped backslashes (`\\`) in paths. Both work with Node.js.
+
 Restart Claude Desktop to load the server.
+
+> **Windows users:** See [Windows Setup Guide](./windows-setup.md) for detailed Windows-specific instructions.
 
 ### With Claude Code
 
+**Unix/Linux/macOS:**
 ```bash
 claude mcp add agent-memory node /absolute/path/to/agent-memory/dist/index.js
+```
+
+**Windows (PowerShell/CMD):**
+```powershell
+claude mcp add agent-memory node C:\path\to\agent-memory\dist\index.js
+```
+
+Or with forward slashes:
+```powershell
+claude mcp add agent-memory node C:/path/to/agent-memory/dist/index.js
 ```
 
 ## First Steps
@@ -653,7 +685,66 @@ const knowledgeEntries = extractKnowledgeFromConversation(conversationId);
 
 ---
 
+## Syncing Rules to IDEs
+
+Agent Memory can automatically sync guidelines to IDE-specific rule formats, making it easy to set up rules in any IDE.
+
+### Quick Sync
+
+```bash
+# Auto-detect your IDE and sync rules
+npm run sync-rules --auto-detect
+
+# Sync to specific IDE
+npm run sync-rules --ide cursor --scope project --scope-id <project-id>
+```
+
+### Supported IDEs
+
+- **Cursor** - `.cursor/rules/*.mdc` files
+- **VS Code** - `.vscode/rules/*.md` files  
+- **IntelliJ/IDEA** - `.idea/codeStyles/` XML files
+- **Sublime Text** - `.sublime-project` JSON
+- **Neovim** - `.nvim/agent-memory-rules.lua`
+- **Emacs** - `.emacs.d/agent-memory-rules.el`
+- **Generic** - `.ide-rules/*.md` (works with any IDE)
+
+### Watch Mode
+
+Keep rules in sync automatically:
+
+```bash
+npm run sync-rules:watch
+```
+
+### Git Integration
+
+Install pre-commit hook to auto-sync before commits:
+
+**Unix/Linux/macOS:**
+```bash
+ln -s ../../scripts/pre-commit-sync.sh .git/hooks/pre-commit
+```
+
+**Windows (Git Bash):**
+```bash
+ln -s ../../scripts/pre-commit-sync.sh .git/hooks/pre-commit
+```
+
+**Windows (PowerShell):**
+```powershell
+New-Item -ItemType SymbolicLink -Path .git\hooks\pre-commit -Target ..\..\scripts\pre-commit-sync.sh
+```
+
+**Note:** On Windows, shell scripts require Git Bash or WSL. Alternatively, use the TypeScript scripts (`npm run sync-rules`) which work on all platforms.
+
+For detailed documentation, see [Rules Sync Guide](./rules-sync.md).
+
+---
+
 ## Troubleshooting
+
+> **Windows users:** See [Windows Setup Guide - Troubleshooting](./windows-setup.md#troubleshooting) for Windows-specific troubleshooting tips.
 
 ### Server Won't Start
 

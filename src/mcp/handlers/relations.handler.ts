@@ -3,24 +3,23 @@
  */
 
 import { entryRelationRepo, type CreateRelationInput } from '../../db/repositories/tags.js';
-
-import type { RelationCreateParams, RelationListParams, RelationDeleteParams } from '../types.js';
-
-// Helper to safely cast params
-function cast<T>(params: Record<string, unknown>): T {
-  return params as unknown as T;
-}
+import {
+  getRequiredParam,
+  getOptionalParam,
+  isString,
+  isEntryType,
+  isRelationType,
+  isNumber,
+} from '../../utils/type-guards.js';
 
 export const relationHandlers = {
   create(params: Record<string, unknown>) {
-    const { sourceType, sourceId, targetType, targetId, relationType, createdBy } =
-      cast<RelationCreateParams>(params);
-
-    if (!sourceType) throw new Error('sourceType is required');
-    if (!sourceId) throw new Error('sourceId is required');
-    if (!targetType) throw new Error('targetType is required');
-    if (!targetId) throw new Error('targetId is required');
-    if (!relationType) throw new Error('relationType is required');
+    const sourceType = getRequiredParam(params, 'sourceType', isEntryType);
+    const sourceId = getRequiredParam(params, 'sourceId', isString);
+    const targetType = getRequiredParam(params, 'targetType', isEntryType);
+    const targetId = getRequiredParam(params, 'targetId', isString);
+    const relationType = getRequiredParam(params, 'relationType', isRelationType);
+    const createdBy = getOptionalParam(params, 'createdBy', isString);
 
     const input: CreateRelationInput = {
       sourceType,
@@ -36,8 +35,13 @@ export const relationHandlers = {
   },
 
   list(params: Record<string, unknown>) {
-    const { sourceType, sourceId, targetType, targetId, relationType, limit, offset } =
-      cast<RelationListParams>(params);
+    const sourceType = getOptionalParam(params, 'sourceType', isEntryType);
+    const sourceId = getOptionalParam(params, 'sourceId', isString);
+    const targetType = getOptionalParam(params, 'targetType', isEntryType);
+    const targetId = getOptionalParam(params, 'targetId', isString);
+    const relationType = getOptionalParam(params, 'relationType', isRelationType);
+    const limit = getOptionalParam(params, 'limit', isNumber);
+    const offset = getOptionalParam(params, 'offset', isNumber);
 
     const relations = entryRelationRepo.list(
       { sourceType, sourceId, targetType, targetId, relationType },
@@ -53,8 +57,12 @@ export const relationHandlers = {
   },
 
   delete(params: Record<string, unknown>) {
-    const { id, sourceType, sourceId, targetType, targetId, relationType } =
-      cast<RelationDeleteParams>(params);
+    const id = getOptionalParam(params, 'id', isString);
+    const sourceType = getOptionalParam(params, 'sourceType', isEntryType);
+    const sourceId = getOptionalParam(params, 'sourceId', isString);
+    const targetType = getOptionalParam(params, 'targetType', isEntryType);
+    const targetId = getOptionalParam(params, 'targetId', isString);
+    const relationType = getOptionalParam(params, 'relationType', isRelationType);
 
     let success = false;
 

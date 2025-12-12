@@ -197,6 +197,12 @@ class VectorService {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       const results = await query.execute();
 
+      // Check if results is an array - handle gracefully if not
+      if (!Array.isArray(results)) {
+        logger.warn({ resultsType: typeof results }, 'Vector search returned non-array result, treating as empty');
+        return [];
+      }
+
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       const mappedResults = results.map(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
@@ -220,10 +226,23 @@ class VectorService {
       ) as SearchResult[];
       return mappedResults;
     } catch (error) {
-      // If table is empty or query fails, return empty results
-      // eslint-disable-next-line no-console
-      logger.warn({ error }, 'Search failed, returning empty results');
-      return [];
+      // Check if this is an expected error (table not initialized or empty)
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const isExpectedError =
+        errorMessage.includes('not initialized') ||
+        errorMessage.includes('empty') ||
+        errorMessage.includes('does not exist') ||
+        errorMessage.includes('no such table');
+
+      if (isExpectedError) {
+        // Expected error (table not initialized/empty) - return empty results
+        logger.debug({ error: errorMessage }, 'Search returned empty (table not initialized or empty)');
+        return [];
+      }
+
+      // Unexpected error - log and propagate
+      logger.error({ error }, 'Unexpected error during vector search');
+      throw error;
     }
   }
 

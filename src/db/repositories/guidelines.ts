@@ -1,4 +1,4 @@
-import { eq, and, isNull, desc } from 'drizzle-orm';
+import { eq, and, isNull, desc, asc } from 'drizzle-orm';
 import { getDb } from '../connection.js';
 import {
   guidelines,
@@ -390,7 +390,7 @@ export const guidelineRepo = {
    * Get version history for a guideline
    *
    * @param guidelineId - The guideline ID
-   * @returns Array of all versions for the guideline, ordered by version number (newest first)
+   * @returns Array of all versions for the guideline, ordered by version number (oldest first)
    */
   getHistory(guidelineId: string): GuidelineVersion[] {
     const db = getDb();
@@ -398,7 +398,7 @@ export const guidelineRepo = {
       .select()
       .from(guidelineVersions)
       .where(eq(guidelineVersions.guidelineId, guidelineId))
-      .orderBy(desc(guidelineVersions.versionNum))
+      .orderBy(asc(guidelineVersions.versionNum))
       .all();
   },
 

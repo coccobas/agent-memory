@@ -16,60 +16,39 @@ import { invalidateCacheEntry } from '../../services/query.service.js';
 import { validateEntry } from '../../services/validation.service.js';
 import { createValidationError, createNotFoundError, createPermissionError } from '../errors.js';
 import { createComponentLogger } from '../../utils/logger.js';
+import {
+  getRequiredParam,
+  getOptionalParam,
+  isString,
+  isScopeType,
+  isObject,
+  isArray,
+  isNumber,
+  isBoolean,
+  isToolCategory,
+  isArrayOfObjects,
+} from '../../utils/type-guards.js';
 
 const logger = createComponentLogger('tools');
 
 import type {
   ToolAddParams,
   ToolUpdateParams,
-  ToolGetParams,
-  ToolListParams,
-  ToolHistoryParams,
-  ToolDeactivateParams,
 } from '../types.js';
-
-// Type-safe parameter validation
-// Note: For now, we keep the cast function for backward compatibility
-// but add JSDoc explaining that validation happens in handlers
-/**
- * Cast parameters to expected type
- *
- * @deprecated This function bypasses type checking. Validation should be done
- * explicitly in handlers using type guards from utils/type-guards.ts
- *
- * @param params - Parameters to cast
- * @returns Cast parameters (unsafe - no runtime validation)
- */
-function cast<T>(params: Record<string, unknown>): T {
-  // TODO: Replace with type guards for better type safety
-  return params as unknown as T;
-}
 
 export const toolHandlers = {
   add(params: Record<string, unknown>) {
-    const {
-      scopeType,
-      scopeId,
-      name,
-      category,
-      description,
-      parameters,
-      examples,
-      constraints,
-      createdBy,
-      agentId, // Optional agentId for permission checks
-    } = cast<ToolAddParams & { agentId?: string }>(params);
+    const scopeType = getRequiredParam(params, 'scopeType', isScopeType);
+    const scopeId = getOptionalParam(params, 'scopeId', isString);
+    const name = getRequiredParam(params, 'name', isString);
+    const category = getOptionalParam(params, 'category', isToolCategory);
+    const description = getOptionalParam(params, 'description', isString);
+    const parameters = getOptionalParam(params, 'parameters', isObject);
+    const examples = getOptionalParam(params, 'examples', isArrayOfObjects);
+    const constraints = getOptionalParam(params, 'constraints', isString);
+    const createdBy = getOptionalParam(params, 'createdBy', isString);
+    const agentId = getOptionalParam(params, 'agentId', isString);
 
-    if (!scopeType) {
-      throw createValidationError(
-        'scopeType',
-        'is required',
-        "Specify 'global', 'org', 'project', or 'session'"
-      );
-    }
-    if (!name) {
-      throw createValidationError('name', 'is required', 'Provide a unique name for the tool');
-    }
     if (scopeType !== 'global' && !scopeId) {
       throw createValidationError(
         'scopeId',
@@ -163,12 +142,14 @@ export const toolHandlers = {
   },
 
   update(params: Record<string, unknown>) {
-    const { id, description, parameters, examples, constraints, changeReason, updatedBy, agentId } =
-      cast<ToolUpdateParams & { agentId?: string }>(params);
-
-    if (!id) {
-      throw createValidationError('id', 'is required', 'Provide the tool ID to update');
-    }
+    const id = getRequiredParam(params, 'id', isString);
+    const description = getOptionalParam(params, 'description', isString);
+    const parameters = getOptionalParam(params, 'parameters', isObject);
+    const examples = getOptionalParam(params, 'examples', isArrayOfObjects);
+    const constraints = getOptionalParam(params, 'constraints', isString);
+    const changeReason = getOptionalParam(params, 'changeReason', isString);
+    const updatedBy = getOptionalParam(params, 'updatedBy', isString);
+    const agentId = getOptionalParam(params, 'agentId', isString);
 
     // Get tool to check scope and permission
     const existingTool = toolRepo.getById(id);
@@ -236,9 +217,12 @@ export const toolHandlers = {
   },
 
   get(params: Record<string, unknown>) {
-    const { id, name, scopeType, scopeId, inherit, agentId } = cast<
-      ToolGetParams & { agentId?: string }
-    >(params);
+    const id = getOptionalParam(params, 'id', isString);
+    const name = getOptionalParam(params, 'name', isString);
+    const scopeType = getOptionalParam(params, 'scopeType', isScopeType);
+    const scopeId = getOptionalParam(params, 'scopeId', isString);
+    const inherit = getOptionalParam(params, 'inherit', isBoolean);
+    const agentId = getOptionalParam(params, 'agentId', isString);
 
     if (!id && !name) {
       throw createValidationError(
@@ -287,8 +271,12 @@ export const toolHandlers = {
   },
 
   list(params: Record<string, unknown>) {
-    const { scopeType, scopeId, category, includeInactive, limit, offset } =
-      cast<ToolListParams>(params);
+    const scopeType = getOptionalParam(params, 'scopeType', isScopeType);
+    const scopeId = getOptionalParam(params, 'scopeId', isString);
+    const category = getOptionalParam(params, 'category', isToolCategory);
+    const includeInactive = getOptionalParam(params, 'includeInactive', isBoolean);
+    const limit = getOptionalParam(params, 'limit', isNumber);
+    const offset = getOptionalParam(params, 'offset', isNumber);
 
     const tools = toolRepo.list(
       { scopeType, scopeId, category, includeInactive },
@@ -304,22 +292,15 @@ export const toolHandlers = {
   },
 
   history(params: Record<string, unknown>) {
-    const { id } = cast<ToolHistoryParams>(params);
-
-    if (!id) {
-      throw createValidationError('id', 'is required', 'Provide the tool ID to get history');
-    }
+    const id = getRequiredParam(params, 'id', isString);
 
     const versions = toolRepo.getHistory(id);
     return { versions };
   },
 
   deactivate(params: Record<string, unknown>) {
-    const { id, agentId } = cast<ToolDeactivateParams & { agentId?: string }>(params);
-
-    if (!id) {
-      throw createValidationError('id', 'is required', 'Provide the tool ID to deactivate');
-    }
+    const id = getRequiredParam(params, 'id', isString);
+    const agentId = getOptionalParam(params, 'agentId', isString);
 
     // Get tool to check scope and permission
     const existingTool = toolRepo.getById(id);
@@ -361,12 +342,13 @@ export const toolHandlers = {
   },
 
   bulk_add(params: Record<string, unknown>) {
-    const { entries, agentId } = cast<{ entries: ToolAddParams[]; agentId?: string }>(params);
+    const entries = getRequiredParam(params, 'entries', isArrayOfObjects);
+    const agentId = getOptionalParam(params, 'agentId', isString);
 
-    if (!entries || !Array.isArray(entries) || entries.length === 0) {
+    if (entries.length === 0) {
       throw createValidationError(
         'entries',
-        'is required and must be a non-empty array',
+        'must be a non-empty array',
         'Provide an array of tool entries to add'
       );
     }
@@ -374,8 +356,10 @@ export const toolHandlers = {
     // Check permissions for all entries
     if (agentId) {
       for (const entry of entries) {
+        if (!isObject(entry)) continue;
+        const entryObj = entry as unknown as ToolAddParams;
         if (
-          !checkPermission(agentId, 'write', 'tool', null, entry.scopeType, entry.scopeId ?? null)
+          !checkPermission(agentId, 'write', 'tool', null, entryObj.scopeType, entryObj.scopeId ?? null)
         ) {
           throw createPermissionError(
             'write',
@@ -389,17 +373,33 @@ export const toolHandlers = {
     // Execute in transaction for atomicity
     const results = transaction(() => {
       return entries.map((entry) => {
-        const {
-          scopeType,
-          scopeId,
-          name,
-          category,
-          description,
-          parameters,
-          examples,
-          constraints,
-          createdBy,
-        } = entry;
+        // Validate entry structure
+        if (!isObject(entry)) {
+          throw createValidationError('entry', 'must be an object', 'Each entry must be a valid object');
+        }
+
+        const entryObj = entry as unknown as ToolAddParams;
+        const scopeType = isScopeType(entryObj.scopeType)
+          ? entryObj.scopeType
+          : (() => {
+              throw createValidationError(
+                'scopeType',
+                'is required and must be a valid scope type',
+                "Specify 'global', 'org', 'project', or 'session'"
+              );
+            })();
+        const scopeId = entryObj.scopeId;
+        const name = isString(entryObj.name)
+          ? entryObj.name
+          : (() => {
+              throw createValidationError('name', 'is required', 'Provide a unique name for the tool');
+            })();
+        const category = entryObj.category;
+        const description = entryObj.description;
+        const parameters = entryObj.parameters;
+        const examples = entryObj.examples;
+        const constraints = entryObj.constraints;
+        const createdBy = entryObj.createdBy;
 
         if (!scopeType) {
           throw createValidationError(
@@ -439,15 +439,13 @@ export const toolHandlers = {
   },
 
   bulk_update(params: Record<string, unknown>) {
-    const { updates, agentId } = cast<{
-      updates: Array<{ id: string } & ToolUpdateParams>;
-      agentId?: string;
-    }>(params);
+    const updates = getRequiredParam(params, 'updates', isArrayOfObjects);
+    const agentId = getOptionalParam(params, 'agentId', isString);
 
-    if (!updates || !Array.isArray(updates) || updates.length === 0) {
+    if (updates.length === 0) {
       throw createValidationError(
         'updates',
-        'is required and must be a non-empty array',
+        'must be a non-empty array',
         'Provide an array of tool updates'
       );
     }
@@ -455,21 +453,23 @@ export const toolHandlers = {
     // Check permissions for all entries
     if (agentId) {
       for (const update of updates) {
-        const existingTool = toolRepo.getById(update.id);
+        if (!isObject(update)) continue;
+        const updateObj = update as unknown as { id: string } & ToolUpdateParams;
+        const existingTool = toolRepo.getById(updateObj.id);
         if (!existingTool) {
-          throw createNotFoundError('tool', update.id);
+          throw createNotFoundError('tool', updateObj.id);
         }
         if (
           !checkPermission(
             agentId,
             'write',
             'tool',
-            update.id,
+            updateObj.id,
             existingTool.scopeType,
             existingTool.scopeId ?? null
           )
         ) {
-          throw createPermissionError('write', 'tool', update.id);
+          throw createPermissionError('write', 'tool', updateObj.id);
         }
       }
     }
@@ -477,12 +477,24 @@ export const toolHandlers = {
     // Execute in transaction
     const results = transaction(() => {
       return updates.map((update) => {
-        const { id, description, parameters, examples, constraints, changeReason, updatedBy } =
-          update;
-
-        if (!id) {
-          throw createValidationError('id', 'is required', 'Provide the tool ID to update');
+        // Validate update structure
+        if (!isObject(update)) {
+          throw createValidationError('update', 'must be an object', 'Each update must be a valid object');
         }
+
+        const updateObj = update as unknown as { id: string } & ToolUpdateParams;
+        const id = isString(updateObj.id)
+          ? updateObj.id
+          : (() => {
+              throw createValidationError('id', 'is required', 'Provide the tool ID to update');
+            })();
+        const description = updateObj.description;
+        const parameters = updateObj.parameters;
+        const examples = updateObj.examples;
+        const constraints = updateObj.constraints;
+        const changeReason = updateObj.changeReason;
+        const updatedBy = updateObj.updatedBy;
+
 
         const input: UpdateToolInput = {};
         if (description !== undefined) input.description = description;
@@ -505,12 +517,27 @@ export const toolHandlers = {
   },
 
   bulk_delete(params: Record<string, unknown>) {
-    const { ids, agentId } = cast<{ ids: string[]; agentId?: string }>(params);
+    const idsParam = getRequiredParam(params, 'ids', isArray);
+    const agentId = getOptionalParam(params, 'agentId', isString);
 
-    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+    // Validate all IDs are strings
+    const ids: string[] = [];
+    for (let i = 0; i < idsParam.length; i++) {
+      const id = idsParam[i];
+      if (!isString(id)) {
+        throw createValidationError(
+          'ids',
+          `element at index ${i} is not a string`,
+          'All IDs must be strings'
+        );
+      }
+      ids.push(id);
+    }
+
+    if (ids.length === 0) {
       throw createValidationError(
         'ids',
-        'is required and must be a non-empty array',
+        'must be a non-empty array',
         'Provide an array of tool IDs to delete'
       );
     }

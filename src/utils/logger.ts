@@ -11,7 +11,16 @@
 import pino from 'pino';
 
 // Determine log level from environment variable (default: info)
-const logLevel = process.env.LOG_LEVEL || (process.env.NODE_ENV === 'production' ? 'info' : 'info');
+// Ensure it's always a valid string, never undefined
+function getLogLevel(): pino.Level {
+  const envLevel = process.env.LOG_LEVEL;
+  if (envLevel && typeof envLevel === 'string' && ['fatal', 'error', 'warn', 'info', 'debug', 'trace'].includes(envLevel)) {
+    return envLevel as pino.Level;
+  }
+  return 'info';
+}
+
+const logLevel = getLogLevel();
 
 // Create logger instance
 export const logger = pino({
@@ -37,3 +46,7 @@ export const logger = pino({
 export function createComponentLogger(component: string): pino.Logger {
   return logger.child({ component });
 }
+
+
+
+

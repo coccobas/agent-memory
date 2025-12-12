@@ -219,6 +219,7 @@ export function getVotingStats(taskId: string): {
   consensusReached: boolean;
   consensusValue: unknown;
   k: number;
+  voteDistribution: Array<{ voteValue: unknown; count: number; agents: string[] }>;
 } {
   const consensus = calculateConsensus(taskId, 1);
   return {
@@ -227,5 +228,6 @@ export function getVotingStats(taskId: string): {
     consensusReached: consensus.consensus !== null,
     consensusValue: consensus.consensus,
     k: 1,
+    voteDistribution: consensus.voteDistribution,
   };
 }

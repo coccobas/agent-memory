@@ -3,27 +3,21 @@
  */
 
 import { tagRepo, entryTagRepo, type CreateTagInput } from '../../db/repositories/tags.js';
-
-import type {
-  TagCreateParams,
-  TagListParams,
-  TagAttachParams,
-  TagDetachParams,
-  TagsForEntryParams,
-} from '../types.js';
-
-// Helper to safely cast params
-function cast<T>(params: Record<string, unknown>): T {
-  return params as unknown as T;
-}
+import {
+  getRequiredParam,
+  getOptionalParam,
+  isString,
+  isEntryType,
+  isBoolean,
+  isNumber,
+  isTagCategory,
+} from '../../utils/type-guards.js';
 
 export const tagHandlers = {
   create(params: Record<string, unknown>) {
-    const { name, category, description } = cast<TagCreateParams>(params);
-
-    if (!name) {
-      throw new Error('name is required');
-    }
+    const name = getRequiredParam(params, 'name', isString);
+    const category = getOptionalParam(params, 'category', isTagCategory);
+    const description = getOptionalParam(params, 'description', isString);
 
     // Check if tag already exists
     const existing = tagRepo.getByName(name);
@@ -42,7 +36,10 @@ export const tagHandlers = {
   },
 
   list(params: Record<string, unknown>) {
-    const { category, isPredefined, limit, offset } = cast<TagListParams>(params);
+    const category = getOptionalParam(params, 'category', isTagCategory);
+    const isPredefined = getOptionalParam(params, 'isPredefined', isBoolean);
+    const limit = getOptionalParam(params, 'limit', isNumber);
+    const offset = getOptionalParam(params, 'offset', isNumber);
 
     const tags = tagRepo.list({ category, isPredefined }, { limit, offset });
     return {
@@ -54,14 +51,12 @@ export const tagHandlers = {
   },
 
   attach(params: Record<string, unknown>) {
-    const { entryType, entryId, tagId, tagName } = cast<TagAttachParams>(params);
+    const entryType = getRequiredParam(params, 'entryType', isEntryType);
+    const entryId = getRequiredParam(params, 'entryId', isString);
 
-    if (!entryType) {
-      throw new Error('entryType is required');
-    }
-    if (!entryId) {
-      throw new Error('entryId is required');
-    }
+    const tagId = getOptionalParam(params, 'tagId', isString);
+    const tagName = getOptionalParam(params, 'tagName', isString);
+
     if (!tagId && !tagName) {
       throw new Error('Either tagId or tagName is required');
     }
@@ -77,31 +72,17 @@ export const tagHandlers = {
   },
 
   detach(params: Record<string, unknown>) {
-    const { entryType, entryId, tagId } = cast<TagDetachParams>(params);
-
-    if (!entryType) {
-      throw new Error('entryType is required');
-    }
-    if (!entryId) {
-      throw new Error('entryId is required');
-    }
-    if (!tagId) {
-      throw new Error('tagId is required');
-    }
+    const entryType = getRequiredParam(params, 'entryType', isEntryType);
+    const entryId = getRequiredParam(params, 'entryId', isString);
+    const tagId = getRequiredParam(params, 'tagId', isString);
 
     const success = entryTagRepo.detach(entryType, entryId, tagId);
     return { success };
   },
 
   forEntry(params: Record<string, unknown>) {
-    const { entryType, entryId } = cast<TagsForEntryParams>(params);
-
-    if (!entryType) {
-      throw new Error('entryType is required');
-    }
-    if (!entryId) {
-      throw new Error('entryId is required');
-    }
+    const entryType = getRequiredParam(params, 'entryType', isEntryType);
+    const entryId = getRequiredParam(params, 'entryId', isString);
 
     const tags = entryTagRepo.getTagsForEntry(entryType, entryId);
     return { tags };

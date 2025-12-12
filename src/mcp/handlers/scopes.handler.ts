@@ -11,22 +11,23 @@ import {
   type UpdateProjectInput,
   type CreateSessionInput,
 } from '../../db/repositories/scopes.js';
+import {
+  getRequiredParam,
+  getOptionalParam,
+  isString,
+  isNumber,
+  isObject,
+} from '../../utils/type-guards.js';
 
-import type {
-  OrgCreateParams,
-  OrgListParams,
-  ProjectCreateParams,
-  ProjectUpdateParams,
-  ProjectListParams,
-  ProjectGetParams,
-  SessionStartParams,
-  SessionEndParams,
-  SessionListParams,
-} from '../types.js';
-
-// Helper to safely cast params
-function cast<T>(params: Record<string, unknown>): T {
-  return params as unknown as T;
+/**
+ * Type guard to check if a value is a valid session status
+ */
+function isSessionStatus(
+  value: unknown
+): value is 'active' | 'paused' | 'completed' | 'discarded' {
+  return (
+    isString(value) && ['active', 'paused', 'completed', 'discarded'].includes(value)
+  );
 }
 
 export const scopeHandlers = {
@@ -35,15 +36,12 @@ export const scopeHandlers = {
   // ===========================================================================
 
   orgCreate(params: Record<string, unknown>) {
-    const { name, metadata } = cast<OrgCreateParams>(params);
-
-    if (!name) {
-      throw new Error('name is required');
-    }
+    const name = getRequiredParam(params, 'name', isString);
+    const metadata = getOptionalParam(params, 'metadata', isObject);
 
     const input: CreateOrganizationInput = {
       name,
-      metadata: metadata,
+      metadata,
     };
 
     const org = organizationRepo.create(input);
@@ -51,7 +49,8 @@ export const scopeHandlers = {
   },
 
   orgList(params: Record<string, unknown>) {
-    const { limit, offset } = cast<OrgListParams>(params);
+    const limit = getOptionalParam(params, 'limit', isNumber);
+    const offset = getOptionalParam(params, 'offset', isNumber);
 
     const organizations = organizationRepo.list({ limit, offset });
     return {
@@ -67,18 +66,18 @@ export const scopeHandlers = {
   // ===========================================================================
 
   projectCreate(params: Record<string, unknown>) {
-    const { name, orgId, description, rootPath, metadata } = cast<ProjectCreateParams>(params);
-
-    if (!name) {
-      throw new Error('name is required');
-    }
+    const name = getRequiredParam(params, 'name', isString);
+    const orgId = getOptionalParam(params, 'orgId', isString);
+    const description = getOptionalParam(params, 'description', isString);
+    const rootPath = getOptionalParam(params, 'rootPath', isString);
+    const metadata = getOptionalParam(params, 'metadata', isObject);
 
     const input: CreateProjectInput = {
       name,
       orgId,
       description,
       rootPath,
-      metadata: metadata,
+      metadata,
     };
 
     const project = projectRepo.create(input);
@@ -86,7 +85,9 @@ export const scopeHandlers = {
   },
 
   projectList(params: Record<string, unknown>) {
-    const { orgId, limit, offset } = cast<ProjectListParams>(params);
+    const orgId = getOptionalParam(params, 'orgId', isString);
+    const limit = getOptionalParam(params, 'limit', isNumber);
+    const offset = getOptionalParam(params, 'offset', isNumber);
 
     const projects = projectRepo.list({ orgId }, { limit, offset });
     return {
@@ -98,7 +99,9 @@ export const scopeHandlers = {
   },
 
   projectGet(params: Record<string, unknown>) {
-    const { id, name, orgId } = cast<ProjectGetParams>(params);
+    const id = getOptionalParam(params, 'id', isString);
+    const name = getOptionalParam(params, 'name', isString);
+    const orgId = getOptionalParam(params, 'orgId', isString);
 
     if (!id && !name) {
       throw new Error('Either id or name is required');
@@ -119,11 +122,11 @@ export const scopeHandlers = {
   },
 
   projectUpdate(params: Record<string, unknown>) {
-    const { id, name, description, rootPath, metadata } = cast<ProjectUpdateParams>(params);
-
-    if (!id) {
-      throw new Error('id is required');
-    }
+    const id = getRequiredParam(params, 'id', isString);
+    const name = getOptionalParam(params, 'name', isString);
+    const description = getOptionalParam(params, 'description', isString);
+    const rootPath = getOptionalParam(params, 'rootPath', isString);
+    const metadata = getOptionalParam(params, 'metadata', isObject);
 
     const input: UpdateProjectInput = {};
     if (name !== undefined) input.name = name;
@@ -144,14 +147,18 @@ export const scopeHandlers = {
   // ===========================================================================
 
   sessionStart(params: Record<string, unknown>) {
-    const { projectId, name, purpose, agentId, metadata } = cast<SessionStartParams>(params);
+    const projectId = getOptionalParam(params, 'projectId', isString);
+    const name = getOptionalParam(params, 'name', isString);
+    const purpose = getOptionalParam(params, 'purpose', isString);
+    const agentId = getOptionalParam(params, 'agentId', isString);
+    const metadata = getOptionalParam(params, 'metadata', isObject);
 
     const input: CreateSessionInput = {
       projectId,
       name,
       purpose,
       agentId,
-      metadata: metadata,
+      metadata,
     };
 
     const session = sessionRepo.create(input);
@@ -159,13 +166,10 @@ export const scopeHandlers = {
   },
 
   sessionEnd(params: Record<string, unknown>) {
-    const { id, status } = cast<SessionEndParams>(params);
+    const id = getRequiredParam(params, 'id', isString);
+    const status = getOptionalParam(params, 'status', isSessionStatus);
 
-    if (!id) {
-      throw new Error('id is required');
-    }
-
-    const session = sessionRepo.end(id, status ?? 'completed');
+    const session = sessionRepo.end(id, (status ?? 'completed') as 'completed' | 'discarded');
     if (!session) {
       throw new Error('Session not found');
     }
@@ -174,7 +178,10 @@ export const scopeHandlers = {
   },
 
   sessionList(params: Record<string, unknown>) {
-    const { projectId, status, limit, offset } = cast<SessionListParams>(params);
+    const projectId = getOptionalParam(params, 'projectId', isString);
+    const status = getOptionalParam(params, 'status', isSessionStatus);
+    const limit = getOptionalParam(params, 'limit', isNumber);
+    const offset = getOptionalParam(params, 'offset', isNumber);
 
     const sessions = sessionRepo.list({ projectId, status }, { limit, offset });
     return {

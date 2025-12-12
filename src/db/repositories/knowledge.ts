@@ -1,4 +1,4 @@
-import { eq, and, isNull, desc } from 'drizzle-orm';
+import { eq, and, isNull, desc, asc } from 'drizzle-orm';
 import { getDb } from '../connection.js';
 import {
   knowledge,
@@ -386,7 +386,7 @@ export const knowledgeRepo = {
       .select()
       .from(knowledgeVersions)
       .where(eq(knowledgeVersions.knowledgeId, knowledgeId))
-      .orderBy(desc(knowledgeVersions.versionNum))
+      .orderBy(asc(knowledgeVersions.versionNum))
       .all();
   },
 

@@ -4,19 +4,14 @@
 
 import { isAbsolute } from 'node:path';
 import { fileLockRepo } from '../../db/repositories/file_locks.js';
-import type {
-  FileCheckoutParams,
-  FileCheckinParams,
-  FileLockStatusParams,
-  FileLockListParams,
-  FileLockForceUnlockParams,
-} from '../types.js';
 import { createValidationError } from '../errors.js';
-
-// Helper to safely cast params
-function cast<T>(params: Record<string, unknown>): T {
-  return params as unknown as T;
-}
+import {
+  getRequiredParam,
+  getOptionalParam,
+  isString,
+  isNumber,
+  isObject,
+} from '../../utils/type-guards.js';
 
 /**
  * Validate that a file path is absolute and safe
@@ -55,17 +50,14 @@ function validateFilePath(filePath: string): void {
 
 export const fileLockHandlers = {
   checkout(params: Record<string, unknown>) {
-    const { file_path, agent_id, session_id, project_id, expires_in, metadata } =
-      cast<FileCheckoutParams>(params);
+    const file_path = getRequiredParam(params, 'file_path', isString);
+    const agent_id = getRequiredParam(params, 'agent_id', isString);
+    const session_id = getOptionalParam(params, 'session_id', isString);
+    const project_id = getOptionalParam(params, 'project_id', isString);
+    const expires_in = getOptionalParam(params, 'expires_in', isNumber);
+    const metadata = getOptionalParam(params, 'metadata', isObject);
 
-    if (!file_path) {
-      throw new Error('file_path is required');
-    }
     validateFilePath(file_path);
-
-    if (!agent_id) {
-      throw new Error('agent_id is required');
-    }
 
     const lock = fileLockRepo.checkout(file_path, agent_id, {
       sessionId: session_id,
@@ -78,16 +70,10 @@ export const fileLockHandlers = {
   },
 
   checkin(params: Record<string, unknown>) {
-    const { file_path, agent_id } = cast<FileCheckinParams>(params);
+    const file_path = getRequiredParam(params, 'file_path', isString);
+    const agent_id = getRequiredParam(params, 'agent_id', isString);
 
-    if (!file_path) {
-      throw new Error('file_path is required');
-    }
     validateFilePath(file_path);
-
-    if (!agent_id) {
-      throw new Error('agent_id is required');
-    }
 
     fileLockRepo.checkin(file_path, agent_id);
 
@@ -95,11 +81,8 @@ export const fileLockHandlers = {
   },
 
   status(params: Record<string, unknown>) {
-    const { file_path } = cast<FileLockStatusParams>(params);
+    const file_path = getRequiredParam(params, 'file_path', isString);
 
-    if (!file_path) {
-      throw new Error('file_path is required');
-    }
     validateFilePath(file_path);
 
     const lock = fileLockRepo.getLock(file_path);
@@ -113,7 +96,9 @@ export const fileLockHandlers = {
   },
 
   list(params: Record<string, unknown>) {
-    const { project_id, session_id, agent_id } = cast<FileLockListParams>(params);
+    const project_id = getOptionalParam(params, 'project_id', isString);
+    const session_id = getOptionalParam(params, 'session_id', isString);
+    const agent_id = getOptionalParam(params, 'agent_id', isString);
 
     const locks = fileLockRepo.listLocks({
       projectId: project_id,
@@ -129,16 +114,11 @@ export const fileLockHandlers = {
   },
 
   forceUnlock(params: Record<string, unknown>) {
-    const { file_path, agent_id, reason } = cast<FileLockForceUnlockParams>(params);
+    const file_path = getRequiredParam(params, 'file_path', isString);
+    const agent_id = getRequiredParam(params, 'agent_id', isString);
+    const reason = getOptionalParam(params, 'reason', isString);
 
-    if (!file_path) {
-      throw new Error('file_path is required');
-    }
     validateFilePath(file_path);
-
-    if (!agent_id) {
-      throw new Error('agent_id is required');
-    }
 
     fileLockRepo.forceUnlock(file_path, agent_id, reason);
 

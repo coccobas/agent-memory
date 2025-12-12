@@ -130,6 +130,7 @@ export function getStatsHandler(params: Record<string, unknown>): {
   consensusReached: boolean;
   consensusValue: unknown;
   k: number;
+  voteDistribution: Array<{ voteValue: unknown; count: number; agents: string[] }>;
 } {
   const { taskId } = params as unknown as VotingGetStatsParams;
 

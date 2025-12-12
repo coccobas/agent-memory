@@ -3,17 +3,21 @@
  */
 
 import { conflictRepo } from '../../db/repositories/conflicts.js';
-
-import type { ConflictListParams, ConflictResolveParams } from '../types.js';
-
-// Helper to safely cast params
-function cast<T>(params: Record<string, unknown>): T {
-  return params as unknown as T;
-}
+import {
+  getRequiredParam,
+  getOptionalParam,
+  isEntryType,
+  isBoolean,
+  isNumber,
+  isString,
+} from '../../utils/type-guards.js';
 
 export const conflictHandlers = {
   list(params: Record<string, unknown>) {
-    const { entryType, resolved, limit, offset } = cast<ConflictListParams>(params);
+    const entryType = getOptionalParam(params, 'entryType', isEntryType);
+    const resolved = getOptionalParam(params, 'resolved', isBoolean);
+    const limit = getOptionalParam(params, 'limit', isNumber);
+    const offset = getOptionalParam(params, 'offset', isNumber);
 
     const conflicts = conflictRepo.list({ entryType, resolved }, { limit, offset });
 
@@ -26,14 +30,9 @@ export const conflictHandlers = {
   },
 
   resolve(params: Record<string, unknown>) {
-    const { id, resolution, resolvedBy } = cast<ConflictResolveParams>(params);
-
-    if (!id) {
-      throw new Error('id is required');
-    }
-    if (!resolution) {
-      throw new Error('resolution is required');
-    }
+    const id = getRequiredParam(params, 'id', isString);
+    const resolution = getRequiredParam(params, 'resolution', isString);
+    const resolvedBy = getOptionalParam(params, 'resolvedBy', isString);
 
     const conflict = conflictRepo.resolve(id, resolution, resolvedBy);
     if (!conflict) {

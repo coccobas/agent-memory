@@ -6,7 +6,7 @@ Comparison of Agent Memory with similar projects and identification of potential
 
 Agent Memory is a well-architected knowledge management system for AI agents with strong fundamentals. Based on comparison with similar systems (LangGraph, vector databases, knowledge graphs, RAG systems), here are identified gaps and enhancement opportunities.
 
-**Recent Updates (v0.6.0):**
+**Recent Updates (v0.7.0):**
 - ✅ Semantic/Vector Search - Fully implemented with LanceDB and hybrid scoring
 - ✅ Export/Import System - Complete with JSON, Markdown, YAML support
 

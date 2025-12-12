@@ -7,30 +7,28 @@ import { checkPermission } from '../../services/permission.service.js';
 import { logAction } from '../../services/audit.service.js';
 import { generateConversationSummary } from '../../services/conversation.service.js';
 import { createValidationError, createNotFoundError, createPermissionError } from '../errors.js';
-import type {
-  ConversationStartParams,
-  ConversationAddMessageParams,
-  ConversationGetParams,
-  ConversationListParams,
-  ConversationUpdateParams,
-  ConversationLinkContextParams,
-  ConversationGetContextParams,
-  ConversationSearchParams,
-  ConversationEndParams,
-  ConversationArchiveParams,
-} from '../types.js';
 import type { ConversationContext } from '../../db/schema.js';
-
-// Helper to safely cast params
-function cast<T>(params: Record<string, unknown>): T {
-  return params as unknown as T;
-}
+import {
+  getRequiredParam,
+  getOptionalParam,
+  isString,
+  isBoolean,
+  isNumber,
+  isObject,
+  isArray,
+  isConversationRole,
+  isConversationStatus,
+  isEntryType,
+} from '../../utils/type-guards.js';
+import type { PermissionEntryType } from '../../db/schema.js';
 
 export const conversationHandlers = {
   start(params: Record<string, unknown>) {
-    const { sessionId, projectId, agentId, title, metadata } = cast<
-      ConversationStartParams & { agentId?: string }
-    >(params);
+    const sessionId = getOptionalParam(params, 'sessionId', isString);
+    const projectId = getOptionalParam(params, 'projectId', isString);
+    const agentId = getOptionalParam(params, 'agentId', isString);
+    const title = getOptionalParam(params, 'title', isString);
+    const metadata = getOptionalParam(params, 'metadata', isObject);
 
     if (!sessionId && !projectId) {
       throw createValidationError(
@@ -74,22 +72,61 @@ export const conversationHandlers = {
   },
 
   addMessage(params: Record<string, unknown>) {
-    const { conversationId, role, content, contextEntries, toolsUsed, metadata, agentId } =
-      cast<ConversationAddMessageParams>(params);
+    const conversationId = getRequiredParam(params, 'conversationId', isString);
+    const role = getRequiredParam(params, 'role', isConversationRole);
+    const content = getRequiredParam(params, 'content', isString);
+    const contextEntriesParam = getOptionalParam(params, 'contextEntries', isArray);
+    const toolsUsedParam = getOptionalParam(params, 'toolsUsed', isArray);
+    const metadata = getOptionalParam(params, 'metadata', isObject);
+    const agentId = getOptionalParam(params, 'agentId', isString);
 
-    if (!conversationId) {
-      throw createValidationError(
-        'conversationId',
-        'is required',
-        'Provide the ID of the conversation to add a message to'
-      );
-    }
-    if (!role) {
-      throw createValidationError('role', 'is required', "Specify 'user', 'agent', or 'system'");
-    }
-    if (!content) {
-      throw createValidationError('content', 'is required', 'Provide the message content');
-    }
+    // Validate contextEntries structure
+    const contextEntries: Array<{ type: PermissionEntryType; id: string }> | undefined =
+      contextEntriesParam
+        ? contextEntriesParam.map((entry) => {
+            if (!isObject(entry)) {
+              throw createValidationError(
+                'contextEntries',
+                'each entry must be an object',
+                'Context entries must have type and id properties'
+              );
+            }
+            const entryObj = entry as Record<string, unknown>;
+            const type = isEntryType(entryObj.type)
+              ? (entryObj.type as PermissionEntryType)
+              : (() => {
+                  throw createValidationError(
+                    'contextEntries[].type',
+                    'must be a valid entry type',
+                    "Specify 'tool', 'guideline', or 'knowledge'"
+                  );
+                })();
+            const id = isString(entryObj.id)
+              ? entryObj.id
+              : (() => {
+                  throw createValidationError(
+                    'contextEntries[].id',
+                    'must be a string',
+                    'Provide the entry ID'
+                  );
+                })();
+            return { type, id };
+          })
+        : undefined;
+
+    // Validate toolsUsed structure
+    const toolsUsed: string[] | undefined = toolsUsedParam
+      ? toolsUsedParam.map((tool, index) => {
+          if (!isString(tool)) {
+            throw createValidationError(
+              'toolsUsed',
+              `element at index ${index} must be a string`,
+              'All tool names must be strings'
+            );
+          }
+          return tool;
+        })
+      : undefined;
 
     // Check conversation exists and is active
     const conversation = conversationRepo.getById(conversationId);
@@ -139,11 +176,10 @@ export const conversationHandlers = {
   },
 
   get(params: Record<string, unknown>) {
-    const { id, includeMessages, includeContext, agentId } = cast<ConversationGetParams>(params);
-
-    if (!id) {
-      throw createValidationError('id', 'is required', 'Provide the conversation ID');
-    }
+    const id = getRequiredParam(params, 'id', isString);
+    const includeMessages = getOptionalParam(params, 'includeMessages', isBoolean);
+    const includeContext = getOptionalParam(params, 'includeContext', isBoolean);
+    const agentId = getOptionalParam(params, 'agentId', isString);
 
     const conversation = conversationRepo.getById(id, includeMessages, includeContext);
     if (!conversation) {
@@ -176,15 +212,14 @@ export const conversationHandlers = {
   },
 
   list(params: Record<string, unknown>) {
-    const {
-      sessionId,
-      projectId,
-      agentId: filterAgentId,
-      status,
-      limit,
-      offset,
-      agentId, // For permission check
-    } = cast<ConversationListParams & { agentId?: string }>(params);
+    const sessionId = getOptionalParam(params, 'sessionId', isString);
+    const projectId = getOptionalParam(params, 'projectId', isString);
+    const filterAgentId = getOptionalParam(params, 'agentId', isString);
+    const status = getOptionalParam(params, 'status', isConversationStatus);
+    const limit = getOptionalParam(params, 'limit', isNumber);
+    const offset = getOptionalParam(params, 'offset', isNumber);
+    // Note: agentId in ConversationListParams is for filtering, permission check uses filterAgentId
+    const agentId = filterAgentId;
 
     // Check permission (read required)
     if (agentId) {
@@ -228,11 +263,11 @@ export const conversationHandlers = {
   },
 
   update(params: Record<string, unknown>) {
-    const { id, title, status, metadata, agentId } = cast<ConversationUpdateParams>(params);
-
-    if (!id) {
-      throw createValidationError('id', 'is required', 'Provide the conversation ID');
-    }
+    const id = getRequiredParam(params, 'id', isString);
+    const title = getOptionalParam(params, 'title', isString);
+    const status = getOptionalParam(params, 'status', isConversationStatus);
+    const metadata = getOptionalParam(params, 'metadata', isObject);
+    const agentId = getOptionalParam(params, 'agentId', isString);
 
     if (title === undefined && status === undefined && metadata === undefined) {
       throw createValidationError(
@@ -284,22 +319,12 @@ export const conversationHandlers = {
   },
 
   linkContext(params: Record<string, unknown>) {
-    const { conversationId, messageId, entryType, entryId, relevanceScore, agentId } =
-      cast<ConversationLinkContextParams>(params);
-
-    if (!conversationId) {
-      throw createValidationError('conversationId', 'is required', 'Provide the conversation ID');
-    }
-    if (!entryType) {
-      throw createValidationError(
-        'entryType',
-        'is required',
-        "Specify 'tool', 'guideline', or 'knowledge'"
-      );
-    }
-    if (!entryId) {
-      throw createValidationError('entryId', 'is required', 'Provide the entry ID');
-    }
+    const conversationId = getRequiredParam(params, 'conversationId', isString);
+    const messageId = getOptionalParam(params, 'messageId', isString);
+    const entryType = getRequiredParam(params, 'entryType', isEntryType);
+    const entryId = getRequiredParam(params, 'entryId', isString);
+    const relevanceScore = getOptionalParam(params, 'relevanceScore', isNumber);
+    const agentId = getOptionalParam(params, 'agentId', isString);
 
     // Check conversation exists
     const conversation = conversationRepo.getById(conversationId);
@@ -344,8 +369,10 @@ export const conversationHandlers = {
   },
 
   getContext(params: Record<string, unknown>) {
-    const { conversationId, entryType, entryId, agentId } =
-      cast<ConversationGetContextParams>(params);
+    const conversationId = getOptionalParam(params, 'conversationId', isString);
+    const entryType = getOptionalParam(params, 'entryType', isEntryType);
+    const entryId = getOptionalParam(params, 'entryId', isString);
+    const agentId = getOptionalParam(params, 'agentId', isString);
 
     if (!conversationId && (!entryType || !entryId)) {
       throw createValidationError(
@@ -408,19 +435,14 @@ export const conversationHandlers = {
   },
 
   search(params: Record<string, unknown>) {
-    const {
-      search: searchQuery,
-      sessionId,
-      projectId,
-      agentId: filterAgentId,
-      limit,
-      offset,
-      agentId,
-    } = cast<ConversationSearchParams & { agentId?: string }>(params);
-
-    if (!searchQuery) {
-      throw createValidationError('search', 'is required', 'Provide a search query string');
-    }
+    const searchQuery = getRequiredParam(params, 'search', isString);
+    const sessionId = getOptionalParam(params, 'sessionId', isString);
+    const projectId = getOptionalParam(params, 'projectId', isString);
+    const filterAgentId = getOptionalParam(params, 'agentId', isString);
+    const limit = getOptionalParam(params, 'limit', isNumber);
+    const offset = getOptionalParam(params, 'offset', isNumber);
+    // Note: agentId in ConversationSearchParams is for filtering, permission check uses filterAgentId
+    const agentId = filterAgentId;
 
     // Check permission (read required)
     if (agentId) {
@@ -463,11 +485,9 @@ export const conversationHandlers = {
   },
 
   end(params: Record<string, unknown>) {
-    const { id, generateSummary, agentId } = cast<ConversationEndParams>(params);
-
-    if (!id) {
-      throw createValidationError('id', 'is required', 'Provide the conversation ID');
-    }
+    const id = getRequiredParam(params, 'id', isString);
+    const generateSummary = getOptionalParam(params, 'generateSummary', isBoolean);
+    const agentId = getOptionalParam(params, 'agentId', isString);
 
     // Check conversation exists
     const existing = conversationRepo.getById(id);
@@ -516,11 +536,8 @@ export const conversationHandlers = {
   },
 
   archive(params: Record<string, unknown>) {
-    const { id, agentId } = cast<ConversationArchiveParams>(params);
-
-    if (!id) {
-      throw createValidationError('id', 'is required', 'Provide the conversation ID');
-    }
+    const id = getRequiredParam(params, 'id', isString);
+    const agentId = getOptionalParam(params, 'agentId', isString);
 
     // Check conversation exists
     const existing = conversationRepo.getById(id);

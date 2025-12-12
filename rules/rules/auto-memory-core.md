@@ -162,10 +162,20 @@ If file is locked, wait or use `force_unlock` if appropriate.
     "projectId": "<project-id>",
     "name": "<descriptive-task-name>",
     "purpose": "<what-you-are-doing>",
-    "agentId": "cursor-ai"
+    "agentId": "cursor-ai",
+    "metadata": {
+      "autoPopulate": true  // Enable automatic population (default: true)
+    }
   }
 }
 ```
+
+**To enable/disable auto-population:**
+
+- **Enable auto-population** (default): Set `metadata.autoPopulate: true` when starting session
+- **Disable auto-population**: Set `metadata.autoPopulate: false` when starting session
+
+When auto-population is enabled, the agent will automatically extract and store findings from conversations. When disabled, the agent will only store entries when explicitly instructed.
 
 **ALWAYS** start a conversation for the session:
 
@@ -450,6 +460,13 @@ Before implementing something, **ALWAYS** query for related knowledge:
 }
 ```
 
+**When `autoLinkContext: true` is used, automatically extract findings:**
+
+1. Extract findings from linked conversation messages
+2. Store as appropriate entry type (guideline/knowledge/tool)
+3. Link back to conversation for traceability
+4. Tag with conversation context automatically
+
 **ALWAYS** add messages to track context:
 
 ```json
@@ -535,6 +552,63 @@ Before implementing something, **ALWAYS** query for related knowledge:
   }
 }
 ```
+
+### 9.1. Continuous Extraction During Active Sessions
+
+**Auto-population is controlled by session metadata:**
+
+- Check session metadata: `metadata.autoPopulate === true` (default: true)
+- If `autoPopulate` is `false` or not set, skip automatic extraction
+- Only extract when explicitly instructed by user
+
+**When auto-population is active in a session (`metadata.autoPopulate === true`):**
+
+1. **After each user message:**
+   - Analyze message for extractable findings
+   - Check for guidelines, knowledge, tools, patterns
+   - Extract immediately without prompting
+
+2. **After code changes:**
+   - Analyze code patterns introduced
+   - Extract new conventions, patterns, utilities
+   - Store as appropriate entry type
+
+3. **During conversation:**
+   - Link extracted entries to conversation automatically
+   - Tag entries with conversation context
+   - Create relations between related findings
+
+4. **Extraction workflow:**
+   ```
+   For each finding:
+   1. Check if similar entry exists (semantic search)
+   2. If duplicate (>0.90 similarity): Skip, link to existing
+   3. If similar (0.85-0.90): Update existing or create relation
+   4. If new (<0.85): Store as new entry
+   5. Tag with conversation context
+   6. Link to conversation
+   ```
+
+5. **What to extract comprehensively:**
+   - All explicit statements about standards/conventions
+   - All architecture decisions and rationale
+   - All tool/command mentions
+   - All patterns visible in code
+   - All important context about why/how
+   - All domain-specific knowledge
+
+**ALWAYS analyze conversation messages for extraction:**
+
+When `autoLinkContext: true` is used in queries, automatically:
+1. Extract findings from linked conversation messages
+2. Store as appropriate entry type (guideline/knowledge/tool)
+3. Link back to conversation for traceability
+
+**Extraction patterns:**
+- User statements → Extract as guidelines/knowledge
+- Code examples → Extract patterns as guidelines
+- Tool mentions → Extract as tools
+- Decisions → Extract as knowledge (decision category)
 
 ### 10. End Sessions Properly
 

@@ -21,6 +21,7 @@ npm run build
 npm start
 ```
 
+**Unix/Linux/macOS:**
 Add to Claude Desktop (`~/.config/claude/claude_desktop_config.json`):
 ```json
 {
@@ -33,7 +34,20 @@ Add to Claude Desktop (`~/.config/claude/claude_desktop_config.json`):
 }
 ```
 
-That's it! The database initializes automatically on first run. See [Getting Started](./getting-started.md) for detailed setup.
+**Windows:**
+Add to Claude Desktop (`%APPDATA%\Claude\claude_desktop_config.json`):
+```json
+{
+  "mcpServers": {
+    "agent-memory": {
+      "command": "node",
+      "args": ["C:/path/to/Memory/dist/index.js"]
+    }
+  }
+}
+```
+
+That's it! The database initializes automatically on first run. See [Getting Started](./getting-started.md) for detailed setup. **Windows users:** See [Windows Setup Guide](./windows-setup.md) for Windows-specific instructions.
 
 ## What Problem Does This Solve?
 
@@ -116,6 +130,7 @@ node dist/index.js
 
 ### Adding to Claude Desktop
 
+**Unix/Linux/macOS:**
 Add to `~/.config/claude/claude_desktop_config.json`:
 
 ```json
@@ -128,6 +143,40 @@ Add to `~/.config/claude/claude_desktop_config.json`:
   }
 }
 ```
+
+**Windows:**
+Add to `%APPDATA%\Claude\claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "agent-memory": {
+      "command": "node",
+      "args": ["C:/path/to/agent-memory/dist/index.js"]
+    }
+  }
+}
+```
+
+> **Windows users:** See [Windows Setup Guide](./windows-setup.md) for detailed Windows-specific instructions.
+
+## Syncing Rules to IDEs
+
+Sync guidelines to IDE-specific formats for easy setup:
+
+```bash
+# Auto-detect IDE and sync
+npm run sync-rules --auto-detect
+
+# Sync to specific IDE
+npm run sync-rules --ide cursor --scope project --scope-id <project-id>
+```
+
+**Supported IDEs:** Cursor, VS Code, IntelliJ, Sublime, Neovim, Emacs, Generic
+
+**Watch Mode:** `npm run sync-rules:watch` - Auto-sync as you work
+
+See [Rules Sync Guide](./rules-sync.md) for detailed documentation.
 
 ## Example Usage
 
@@ -179,6 +228,7 @@ Add to `~/.config/claude/claude_desktop_config.json`:
 
 ### Getting Started
 - [Getting Started Guide](./getting-started.md) - Detailed setup and usage
+- [Windows Setup Guide](./windows-setup.md) - Windows-specific setup instructions
 - [Development Guide](./development.md) - Local development setup
 - [Contributing](./contributing.md) - How to contribute
 - [Initialization](./initialization.md) - Database setup and migrations

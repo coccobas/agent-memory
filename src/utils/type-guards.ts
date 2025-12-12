@@ -131,3 +131,131 @@ export function getOptionalParam<T>(
   }
   return value;
 }
+
+/**
+ * Type guard to check if a value is a valid tool category
+ */
+export function isToolCategory(value: unknown): value is 'mcp' | 'cli' | 'function' | 'api' {
+  return isString(value) && ['mcp', 'cli', 'function', 'api'].includes(value);
+}
+
+/**
+ * Type guard to check if a value is an array of objects
+ */
+export function isArrayOfObjects(value: unknown): value is Array<Record<string, unknown>> {
+  if (!isArray(value)) return false;
+  return value.every((item) => isObject(item));
+}
+
+/**
+ * Type guard to check if a value is an array of strings
+ */
+export function isArrayOfStrings(value: unknown): value is string[] {
+  if (!isArray(value)) return false;
+  return value.every((item) => isString(item));
+}
+
+/**
+ * Type guard to check if a value is a guideline/knowledge examples object
+ */
+export function isExamplesObject(
+  value: unknown
+): value is { bad?: string[]; good?: string[] } {
+  if (!isObject(value)) return false;
+  const obj = value as Record<string, unknown>;
+  if (obj.bad !== undefined && !isArrayOfStrings(obj.bad)) return false;
+  if (obj.good !== undefined && !isArrayOfStrings(obj.good)) return false;
+  return true;
+}
+
+/**
+ * Type guard to check if a value is a valid knowledge category
+ */
+export function isKnowledgeCategory(
+  value: unknown
+): value is 'decision' | 'fact' | 'context' | 'reference' {
+  return isString(value) && ['decision', 'fact', 'context', 'reference'].includes(value);
+}
+
+/**
+ * Type guard to check if a value is a valid tag category
+ */
+export function isTagCategory(
+  value: unknown
+): value is 'language' | 'domain' | 'category' | 'meta' | 'custom' {
+  return isString(value) && ['language', 'domain', 'category', 'meta', 'custom'].includes(value);
+}
+
+/**
+ * Type guard to check if a value is a valid relation type
+ */
+export function isRelationType(
+  value: unknown
+): value is 'applies_to' | 'depends_on' | 'conflicts_with' | 'related_to' | 'parent_task' | 'subtask_of' {
+  return (
+    isString(value) &&
+    ['applies_to', 'depends_on', 'conflicts_with', 'related_to', 'parent_task', 'subtask_of'].includes(
+      value
+    )
+  );
+}
+
+/**
+ * Type guard to check if a value is a valid permission level
+ */
+export function isPermissionLevel(value: unknown): value is 'read' | 'write' | 'admin' {
+  return isString(value) && ['read', 'write', 'admin'].includes(value);
+}
+
+/**
+ * Type guard to check if a value is a valid permission action
+ */
+export function isPermissionAction(value: unknown): value is 'read' | 'write' | 'delete' {
+  return isString(value) && ['read', 'write', 'delete'].includes(value);
+}
+
+/**
+ * Type guard to check if a value is a valid conversation role
+ */
+export function isConversationRole(value: unknown): value is 'user' | 'agent' | 'system' {
+  return isString(value) && ['user', 'agent', 'system'].includes(value);
+}
+
+/**
+ * Type guard to check if a value is a valid conversation status
+ */
+export function isConversationStatus(
+  value: unknown
+): value is 'active' | 'completed' | 'archived' {
+  return isString(value) && ['active', 'completed', 'archived'].includes(value);
+}
+
+/**
+ * Get required parameter with type checking and custom error message
+ * This version throws errors in the old format for backward compatibility
+ *
+ * @param params - Parameters object
+ * @param key - Parameter key
+ * @param typeGuard - Type guard function
+ * @param customError - Optional custom error message (defaults to "{key} is required")
+ * @returns Validated value
+ */
+export function getRequiredParam<T>(
+  params: Record<string, unknown>,
+  key: string,
+  typeGuard: (value: unknown) => value is T,
+  customError?: string
+): T {
+  const value = params[key];
+  if (value === undefined) {
+    throw new Error(customError || `${key} is required`);
+  }
+  if (!typeGuard(value)) {
+    throw new Error(`${key} has invalid type`);
+  }
+  return value;
+}
+
+
+
+

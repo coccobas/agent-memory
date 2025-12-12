@@ -15,52 +15,37 @@ import { detectRedFlags } from '../../services/redflag.service.js';
 import { invalidateCacheEntry } from '../../services/query.service.js';
 import { validateEntry } from '../../services/validation.service.js';
 
-import type {
-  GuidelineAddParams,
-  GuidelineUpdateParams,
-  GuidelineGetParams,
-  GuidelineListParams,
-  GuidelineHistoryParams,
-  GuidelineDeactivateParams,
-} from '../types.js';
 import { createValidationError, createNotFoundError } from '../errors.js';
 import { createComponentLogger } from '../../utils/logger.js';
+import {
+  getRequiredParam,
+  getOptionalParam,
+  isString,
+  isScopeType,
+  isNumber,
+  isBoolean,
+  isArray,
+  isArrayOfObjects,
+  isExamplesObject,
+  isObject,
+} from '../../utils/type-guards.js';
+import type { GuidelineAddParams, GuidelineUpdateParams } from '../types.js';
 
 const logger = createComponentLogger('guidelines');
 
-// Helper to safely cast params
-function cast<T>(params: Record<string, unknown>): T {
-  return params as unknown as T;
-}
-
 export const guidelineHandlers = {
   add(params: Record<string, unknown>) {
-    const {
-      scopeType,
-      scopeId,
-      name,
-      category,
-      priority,
-      content,
-      rationale,
-      examples,
-      createdBy,
-      agentId,
-    } = cast<GuidelineAddParams & { agentId?: string }>(params);
+    const scopeType = getRequiredParam(params, 'scopeType', isScopeType);
+    const scopeId = getOptionalParam(params, 'scopeId', isString);
+    const name = getRequiredParam(params, 'name', isString);
+    const category = getOptionalParam(params, 'category', isString);
+    const priority = getOptionalParam(params, 'priority', isNumber);
+    const content = getRequiredParam(params, 'content', isString);
+    const rationale = getOptionalParam(params, 'rationale', isString);
+    const examples = getOptionalParam(params, 'examples', isExamplesObject);
+    const createdBy = getOptionalParam(params, 'createdBy', isString);
+    const agentId = getOptionalParam(params, 'agentId', isString);
 
-    if (!scopeType) {
-      throw createValidationError(
-        'scopeType',
-        'is required',
-        "Specify 'global', 'org', 'project', or 'session'"
-      );
-    }
-    if (!name) {
-      throw createValidationError('name', 'is required', 'Provide a unique name for the guideline');
-    }
-    if (!content) {
-      throw createValidationError('content', 'is required', 'Provide the guideline text');
-    }
     if (scopeType !== 'global' && !scopeId) {
       throw createValidationError(
         'scopeId',
@@ -113,7 +98,7 @@ export const guidelineHandlers = {
       priority,
       content,
       rationale,
-      examples: examples as { bad?: string[]; good?: string[] } | undefined,
+      examples,
       createdBy,
     };
 
@@ -153,21 +138,15 @@ export const guidelineHandlers = {
   },
 
   update(params: Record<string, unknown>) {
-    const {
-      id,
-      category,
-      priority,
-      content,
-      rationale,
-      examples,
-      changeReason,
-      updatedBy,
-      agentId,
-    } = cast<GuidelineUpdateParams & { agentId?: string }>(params);
-
-    if (!id) {
-      throw new Error('id is required');
-    }
+    const id = getRequiredParam(params, 'id', isString);
+    const category = getOptionalParam(params, 'category', isString);
+    const priority = getOptionalParam(params, 'priority', isNumber);
+    const content = getOptionalParam(params, 'content', isString);
+    const rationale = getOptionalParam(params, 'rationale', isString);
+    const examples = getOptionalParam(params, 'examples', isExamplesObject);
+    const changeReason = getOptionalParam(params, 'changeReason', isString);
+    const updatedBy = getOptionalParam(params, 'updatedBy', isString);
+    const agentId = getOptionalParam(params, 'agentId', isString);
 
     // Get guideline to check scope and permission
     const existingGuideline = guidelineRepo.getById(id);
@@ -232,9 +211,12 @@ export const guidelineHandlers = {
   },
 
   get(params: Record<string, unknown>) {
-    const { id, name, scopeType, scopeId, inherit, agentId } = cast<
-      GuidelineGetParams & { agentId?: string }
-    >(params);
+    const id = getOptionalParam(params, 'id', isString);
+    const name = getOptionalParam(params, 'name', isString);
+    const scopeType = getOptionalParam(params, 'scopeType', isScopeType);
+    const scopeId = getOptionalParam(params, 'scopeId', isString);
+    const inherit = getOptionalParam(params, 'inherit', isBoolean);
+    const agentId = getOptionalParam(params, 'agentId', isString);
 
     if (!id && !name) {
       throw new Error('Either id or name is required');
@@ -282,8 +264,12 @@ export const guidelineHandlers = {
   },
 
   list(params: Record<string, unknown>) {
-    const { scopeType, scopeId, category, includeInactive, limit, offset } =
-      cast<GuidelineListParams>(params);
+    const scopeType = getOptionalParam(params, 'scopeType', isScopeType);
+    const scopeId = getOptionalParam(params, 'scopeId', isString);
+    const category = getOptionalParam(params, 'category', isString);
+    const includeInactive = getOptionalParam(params, 'includeInactive', isBoolean);
+    const limit = getOptionalParam(params, 'limit', isNumber);
+    const offset = getOptionalParam(params, 'offset', isNumber);
 
     const guidelines = guidelineRepo.list(
       { scopeType, scopeId, category, includeInactive },
@@ -299,22 +285,15 @@ export const guidelineHandlers = {
   },
 
   history(params: Record<string, unknown>) {
-    const { id } = cast<GuidelineHistoryParams>(params);
-
-    if (!id) {
-      throw new Error('id is required');
-    }
+    const id = getRequiredParam(params, 'id', isString);
 
     const versions = guidelineRepo.getHistory(id);
     return { versions };
   },
 
   deactivate(params: Record<string, unknown>) {
-    const { id, agentId } = cast<GuidelineDeactivateParams & { agentId?: string }>(params);
-
-    if (!id) {
-      throw new Error('id is required');
-    }
+    const id = getRequiredParam(params, 'id', isString);
+    const agentId = getOptionalParam(params, 'agentId', isString);
 
     // Get guideline to check scope and permission
     const existingGuideline = guidelineRepo.getById(id);
@@ -356,23 +335,26 @@ export const guidelineHandlers = {
   },
 
   bulk_add(params: Record<string, unknown>) {
-    const { entries, agentId } = cast<{ entries: GuidelineAddParams[]; agentId?: string }>(params);
+    const entries = getRequiredParam(params, 'entries', isArrayOfObjects);
+    const agentId = getOptionalParam(params, 'agentId', isString);
 
-    if (!entries || !Array.isArray(entries) || entries.length === 0) {
-      throw new Error('entries array is required and must not be empty');
+    if (entries.length === 0) {
+      throw new Error('entries array must not be empty');
     }
 
     // Check permissions for all entries
     if (agentId) {
       for (const entry of entries) {
+        if (!isObject(entry)) continue;
+        const entryObj = entry as unknown as GuidelineAddParams;
         if (
           !checkPermission(
             agentId,
             'write',
             'guideline',
             null,
-            entry.scopeType,
-            entry.scopeId ?? null
+            entryObj.scopeType,
+            entryObj.scopeId ?? null
           )
         ) {
           throw new Error(
@@ -385,27 +367,34 @@ export const guidelineHandlers = {
     // Execute in transaction
     const results = transaction(() => {
       return entries.map((entry) => {
-        const {
-          scopeType,
-          scopeId,
-          name,
-          category,
-          priority,
-          content,
-          rationale,
-          examples,
-          createdBy,
-        } = entry;
+        // Validate entry structure
+        if (!isObject(entry)) {
+          throw createValidationError('entry', 'must be an object', 'Each entry must be a valid object');
+        }
 
-        if (!scopeType) {
-          throw createValidationError('scopeType', 'is required', 'Specify scope type');
-        }
-        if (!name) {
-          throw createValidationError('name', 'is required', 'Provide a unique name');
-        }
-        if (!content) {
-          throw createValidationError('content', 'is required', 'Provide the guideline text');
-        }
+        const entryObj = entry as unknown as GuidelineAddParams;
+        const scopeType = isScopeType(entryObj.scopeType)
+          ? entryObj.scopeType
+          : (() => {
+              throw createValidationError('scopeType', 'is required', 'Specify scope type');
+            })();
+        const scopeId = entryObj.scopeId;
+        const name = isString(entryObj.name)
+          ? entryObj.name
+          : (() => {
+              throw createValidationError('name', 'is required', 'Provide a unique name');
+            })();
+        const category = entryObj.category;
+        const priority = entryObj.priority;
+        const content = isString(entryObj.content)
+          ? entryObj.content
+          : (() => {
+              throw createValidationError('content', 'is required', 'Provide the guideline text');
+            })();
+        const rationale = entryObj.rationale;
+        const examples = entryObj.examples;
+        const createdBy = entryObj.createdBy;
+
         if (scopeType !== 'global' && !scopeId) {
           throw createValidationError(
             'scopeId',
@@ -422,7 +411,7 @@ export const guidelineHandlers = {
           priority,
           content,
           rationale,
-          examples: examples as { bad?: string[]; good?: string[] } | undefined,
+          examples,
           createdBy,
         };
 
@@ -434,33 +423,33 @@ export const guidelineHandlers = {
   },
 
   bulk_update(params: Record<string, unknown>) {
-    const { updates, agentId } = cast<{
-      updates: Array<{ id: string } & GuidelineUpdateParams>;
-      agentId?: string;
-    }>(params);
+    const updates = getRequiredParam(params, 'updates', isArrayOfObjects);
+    const agentId = getOptionalParam(params, 'agentId', isString);
 
-    if (!updates || !Array.isArray(updates) || updates.length === 0) {
-      throw new Error('updates array is required and must not be empty');
+    if (updates.length === 0) {
+      throw new Error('updates array must not be empty');
     }
 
     // Check permissions for all entries
     if (agentId) {
       for (const update of updates) {
-        const existingGuideline = guidelineRepo.getById(update.id);
+        if (!isObject(update)) continue;
+        const updateObj = update as unknown as { id: string } & GuidelineUpdateParams;
+        const existingGuideline = guidelineRepo.getById(updateObj.id);
         if (!existingGuideline) {
-          throw createNotFoundError('Guideline', update.id);
+          throw createNotFoundError('Guideline', updateObj.id);
         }
         if (
           !checkPermission(
             agentId,
             'write',
             'guideline',
-            update.id,
+            updateObj.id,
             existingGuideline.scopeType,
             existingGuideline.scopeId ?? null
           )
         ) {
-          throw new Error(`Permission denied: write access required for guideline ${update.id}`);
+          throw new Error(`Permission denied: write access required for guideline ${updateObj.id}`);
         }
       }
     }
@@ -468,12 +457,24 @@ export const guidelineHandlers = {
     // Execute in transaction
     const results = transaction(() => {
       return updates.map((update) => {
-        const { id, category, priority, content, rationale, examples, changeReason, updatedBy } =
-          update;
-
-        if (!id) {
-          throw new Error('id is required');
+        // Validate update structure
+        if (!isObject(update)) {
+          throw createValidationError('update', 'must be an object', 'Each update must be a valid object');
         }
+
+        const updateObj = update as unknown as { id: string } & GuidelineUpdateParams;
+        const id = isString(updateObj.id)
+          ? updateObj.id
+          : (() => {
+              throw new Error('id is required');
+            })();
+        const category = updateObj.category;
+        const priority = updateObj.priority;
+        const content = updateObj.content;
+        const rationale = updateObj.rationale;
+        const examples = updateObj.examples;
+        const changeReason = updateObj.changeReason;
+        const updatedBy = updateObj.updatedBy;
 
         const input: UpdateGuidelineInput = {};
         if (category !== undefined) input.category = category;
@@ -481,7 +482,7 @@ export const guidelineHandlers = {
         if (content !== undefined) input.content = content;
         if (rationale !== undefined) input.rationale = rationale;
         if (examples !== undefined)
-          input.examples = examples as { bad?: string[]; good?: string[] };
+          input.examples = examples;
         if (changeReason !== undefined) input.changeReason = changeReason;
         if (updatedBy !== undefined) input.updatedBy = updatedBy;
 
@@ -501,10 +502,25 @@ export const guidelineHandlers = {
   },
 
   bulk_delete(params: Record<string, unknown>) {
-    const { ids, agentId } = cast<{ ids: string[]; agentId?: string }>(params);
+    const idsParam = getRequiredParam(params, 'ids', isArray);
+    const agentId = getOptionalParam(params, 'agentId', isString);
 
-    if (!ids || !Array.isArray(ids) || ids.length === 0) {
-      throw new Error('ids array is required and must not be empty');
+    // Validate all IDs are strings
+    const ids: string[] = [];
+    for (let i = 0; i < idsParam.length; i++) {
+      const id = idsParam[i];
+      if (!isString(id)) {
+        throw createValidationError(
+          'ids',
+          `element at index ${i} is not a string`,
+          'All IDs must be strings'
+        );
+      }
+      ids.push(id);
+    }
+
+    if (ids.length === 0) {
+      throw new Error('ids array must not be empty');
     }
 
     // Check permissions for all entries

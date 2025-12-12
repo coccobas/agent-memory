@@ -22,6 +22,9 @@ import {
   type Guideline,
   type Knowledge,
   type Tag,
+  type ToolVersion,
+  type GuidelineVersion,
+  type KnowledgeVersion,
 } from '../db/schema.js';
 import type { MemoryQueryParams, ResponseMeta } from '../mcp/types.js';
 import { getEmbeddingService } from './embedding.service.js';
@@ -31,6 +34,62 @@ import { createComponentLogger } from '../utils/logger.js';
 const logger = createComponentLogger('query');
 
 type QueryEntryType = 'tool' | 'guideline' | 'knowledge';
+
+// =============================================================================
+// TYPE DEFINITIONS FOR TYPE SAFETY
+// =============================================================================
+
+/**
+ * Union type for all entry types
+ */
+type EntryUnion = Tool | Guideline | Knowledge;
+
+/**
+ * Union type for all entry version types
+ */
+type EntryVersionUnion = ToolVersion | GuidelineVersion | KnowledgeVersion;
+
+/**
+ * Type guard to check if entry is a Tool
+ */
+function isTool(entry: EntryUnion): entry is Tool {
+  return 'name' in entry && !('title' in entry);
+}
+
+/**
+ * Type guard to check if entry is a Guideline
+ */
+function isGuideline(entry: EntryUnion): entry is Guideline {
+  return 'name' in entry && 'priority' in entry && !('title' in entry);
+}
+
+/**
+ * Type guard to check if entry is Knowledge
+ */
+function isKnowledge(entry: EntryUnion): entry is Knowledge {
+  return 'title' in entry;
+}
+
+/**
+ * Helper to get entry ID regardless of type
+ */
+function getEntryId(entry: EntryUnion): string {
+  return entry.id;
+}
+
+/**
+ * Helper to get entry name/title for deduplication key
+ */
+function getEntryKeyName(entry: EntryUnion, type: 'tools' | 'guidelines' | 'knowledge'): string {
+  if (type === 'knowledge' && isKnowledge(entry)) {
+    return entry.title;
+  }
+  if ((type === 'tools' && isTool(entry)) || (type === 'guidelines' && isGuideline(entry))) {
+    return entry.name;
+  }
+  // Fallback (should not happen)
+  return entry.id;
+}
 
 // =============================================================================
 // QUERY RESULT CACHE
@@ -1018,12 +1077,11 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
     if (entriesByScope.length === 0) return;
 
     // Deduplicate by (scopeType, scopeId, name/title)
-    const dedupMap = new Map<string, { entry: Tool | Guideline | Knowledge; scopeIndex: number }>();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
+    const dedupMap = new Map<string, { entry: EntryUnion; scopeIndex: number }>();
     for (const item of entriesByScope) {
-      const e = item.entry as any;
-      const keyName = type === 'knowledge' ? e.title : e.name;
-      const key = `${e.scopeType}:${e.scopeId ?? ''}:${keyName}`;
+      const entry = item.entry;
+      const keyName = getEntryKeyName(entry, type);
+      const key = `${entry.scopeType}:${entry.scopeId ?? ''}:${keyName}`;
       const existing = dedupMap.get(key);
       if (!existing || item.scopeIndex < existing.scopeIndex) {
         dedupMap.set(key, item);
@@ -1031,8 +1089,7 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
     }
 
     const deduped = Array.from(dedupMap.values());
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
-    const entryIds = deduped.map((d) => (d.entry as any).id as string);
+    const entryIds = deduped.map((d) => getEntryId(d.entry));
 
     // Tags
     const tagsByEntry = getTagsForEntries(entryType, entryIds);
@@ -1069,10 +1126,8 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
     // Load current versions and optionally history
     const includeVersions = params.includeVersions ?? false;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const versionMap = new Map<string, any>();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const historyMap = new Map<string, any[]>();
+    const versionMap = new Map<string, EntryVersionUnion>();
+    const historyMap = new Map<string, EntryVersionUnion[]>();
 
     if (type === 'tools') {
       const versionRows = db
@@ -1086,10 +1141,11 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
         historyMap.set(v.toolId, list);
       }
       for (const [toolId, list] of historyMap) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         list.sort((a, b) => b.versionNum - a.versionNum);
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-        versionMap.set(toolId, list[0] as (typeof list)[number]);
+        const latestVersion = list[0];
+        if (latestVersion) {
+          versionMap.set(toolId, latestVersion);
+        }
       }
     } else if (type === 'guidelines') {
       const versionRows = db
@@ -1103,10 +1159,11 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
         historyMap.set(v.guidelineId, list);
       }
       for (const [guidelineId, list] of historyMap) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         list.sort((a, b) => b.versionNum - a.versionNum);
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-        versionMap.set(guidelineId, list[0] as (typeof list)[number]);
+        const latestVersion = list[0];
+        if (latestVersion) {
+          versionMap.set(guidelineId, latestVersion);
+        }
       }
     } else {
       const versionRows = db
@@ -1120,10 +1177,11 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
         historyMap.set(v.knowledgeId, list);
       }
       for (const [knowledgeId, list] of historyMap) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         list.sort((a, b) => b.versionNum - a.versionNum);
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-        versionMap.set(knowledgeId, list[0] as (typeof list)[number]);
+        const latestVersion = list[0];
+        if (latestVersion) {
+          versionMap.set(knowledgeId, latestVersion);
+        }
       }
     }
 
@@ -1134,10 +1192,8 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
       fts5MatchingRowids = executeFts5Query(entryType, search, params.fields);
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument
     for (const { entry, scopeIndex } of deduped) {
-      const base = entry as any;
-      const id = base.id as string;
+      const id = getEntryId(entry);
 
       const entryTags = tagsByEntry[id] ?? [];
 
@@ -1152,7 +1208,7 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
         params.updatedAfter ||
         params.updatedBefore
       ) {
-        const createdAt = base.createdAt as string | null | undefined;
+        const createdAt = entry.createdAt;
         if (!dateInRange(createdAt, params.createdAfter, params.createdBefore)) {
           continue;
         }
@@ -1160,7 +1216,7 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
         // For updated date, check version timestamps
         const currentVersion = versionMap.get(id);
         if (params.updatedAfter || params.updatedBefore) {
-          const updatedAt = currentVersion?.createdAt as string | null | undefined;
+          const updatedAt = currentVersion?.createdAt;
           if (!dateInRange(updatedAt, params.updatedAfter, params.updatedBefore)) {
             continue;
           }
@@ -1168,8 +1224,8 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
       }
 
       // Advanced filtering: Priority range (for guidelines)
-      if (type === 'guidelines' && params.priority) {
-        const priority = base.priority as number | null | undefined;
+      if (type === 'guidelines' && params.priority && isGuideline(entry)) {
+        const priority = entry.priority;
         if (!priorityInRange(priority, params.priority.min, params.priority.max)) {
           continue;
         }
@@ -1196,57 +1252,57 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
               ? fuzzyTextMatches
               : textMatches;
 
-          if (type === 'tools') {
-            const v = versionMap.get(id);
+          if (type === 'tools' && isTool(entry)) {
+            const v = versionMap.get(id) as ToolVersion | undefined;
             // Field-specific search if specified
             if (params.fields && params.fields.length > 0) {
               const fields = params.fields.map((f) => f.toLowerCase());
               if (fields.includes('name')) {
-                textMatched = textMatched || matchFunc(base.name, search);
+                textMatched = textMatched || matchFunc(entry.name, search);
               }
               if (fields.includes('description')) {
-                textMatched = textMatched || matchFunc(v?.description, search);
+                textMatched = textMatched || matchFunc(v?.description ?? null, search);
               }
             } else {
-              textMatched = matchFunc(base.name, search) || matchFunc(v?.description, search);
+              textMatched = matchFunc(entry.name, search) || matchFunc(v?.description ?? null, search);
             }
-          } else if (type === 'guidelines') {
-            const v = versionMap.get(id);
+          } else if (type === 'guidelines' && isGuideline(entry)) {
+            const v = versionMap.get(id) as GuidelineVersion | undefined;
             if (params.fields && params.fields.length > 0) {
               const fields = params.fields.map((f) => f.toLowerCase());
               if (fields.includes('name')) {
-                textMatched = textMatched || matchFunc(base.name, search);
+                textMatched = textMatched || matchFunc(entry.name, search);
               }
               if (fields.includes('content')) {
-                textMatched = textMatched || matchFunc(v?.content, search);
+                textMatched = textMatched || matchFunc(v?.content ?? null, search);
               }
               if (fields.includes('rationale')) {
-                textMatched = textMatched || matchFunc(v?.rationale, search);
+                textMatched = textMatched || matchFunc(v?.rationale ?? null, search);
               }
             } else {
               textMatched =
-                matchFunc(base.name, search) ||
-                matchFunc(v?.content, search) ||
-                matchFunc(v?.rationale, search);
+                matchFunc(entry.name, search) ||
+                matchFunc(v?.content ?? null, search) ||
+                matchFunc(v?.rationale ?? null, search);
             }
-          } else {
-            const v = versionMap.get(id);
+          } else if (type === 'knowledge' && isKnowledge(entry)) {
+            const v = versionMap.get(id) as KnowledgeVersion | undefined;
             if (params.fields && params.fields.length > 0) {
               const fields = params.fields.map((f) => f.toLowerCase());
               if (fields.includes('title')) {
-                textMatched = textMatched || matchFunc(base.title, search);
+                textMatched = textMatched || matchFunc(entry.title, search);
               }
               if (fields.includes('content')) {
-                textMatched = textMatched || matchFunc(v?.content, search);
+                textMatched = textMatched || matchFunc(v?.content ?? null, search);
               }
               if (fields.includes('source')) {
-                textMatched = textMatched || matchFunc(v?.source, search);
+                textMatched = textMatched || matchFunc(v?.source ?? null, search);
               }
             } else {
               textMatched =
-                matchFunc(base.title, search) ||
-                matchFunc(v?.content, search) ||
-                matchFunc(v?.source, search);
+                matchFunc(entry.title, search) ||
+                matchFunc(v?.content ?? null, search) ||
+                matchFunc(v?.source ?? null, search);
             }
           }
         }
@@ -1284,48 +1340,47 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
         scopeIndex,
         totalScopes: scopeChain.length,
         textMatched: !!textMatched,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        priority: type === 'guidelines' ? (base.priority as number | null) : null,
-        createdAt: base.createdAt as string | null | undefined,
+        priority: type === 'guidelines' && isGuideline(entry) ? entry.priority : null,
+        createdAt: entry.createdAt,
       });
 
-      if (type === 'tools') {
+      if (type === 'tools' && isTool(entry)) {
         const item: ToolQueryResult = {
           type: 'tool',
           id,
-          scopeType: base.scopeType,
-          scopeId: base.scopeId ?? null,
+          scopeType: entry.scopeType,
+          scopeId: entry.scopeId ?? null,
           tags: entryTags,
           score,
-          tool: base as Tool,
-          version: currentVersion,
-          versions: includeVersions ? (historyMap.get(id) ?? []) : undefined,
+          tool: entry,
+          version: currentVersion as ToolVersion | undefined,
+          versions: includeVersions ? (historyMap.get(id) as ToolVersion[] | undefined) ?? [] : undefined,
         };
         results.push(item);
-      } else if (type === 'guidelines') {
+      } else if (type === 'guidelines' && isGuideline(entry)) {
         const item: GuidelineQueryResult = {
           type: 'guideline',
           id,
-          scopeType: base.scopeType,
-          scopeId: base.scopeId ?? null,
+          scopeType: entry.scopeType,
+          scopeId: entry.scopeId ?? null,
           tags: entryTags,
           score,
-          guideline: base as Guideline,
-          version: currentVersion,
-          versions: includeVersions ? (historyMap.get(id) ?? []) : undefined,
+          guideline: entry,
+          version: currentVersion as GuidelineVersion | undefined,
+          versions: includeVersions ? (historyMap.get(id) as GuidelineVersion[] | undefined) ?? [] : undefined,
         };
         results.push(item);
-      } else {
+      } else if (type === 'knowledge' && isKnowledge(entry)) {
         const item: KnowledgeQueryResult = {
           type: 'knowledge',
           id,
-          scopeType: base.scopeType,
-          scopeId: base.scopeId ?? null,
+          scopeType: entry.scopeType,
+          scopeId: entry.scopeId ?? null,
           tags: entryTags,
           score,
-          knowledge: base as Knowledge,
-          version: currentVersion,
-          versions: includeVersions ? (historyMap.get(id) ?? []) : undefined,
+          knowledge: entry,
+          version: currentVersion as KnowledgeVersion | undefined,
+          versions: includeVersions ? (historyMap.get(id) as KnowledgeVersion[] | undefined) ?? [] : undefined,
         };
         results.push(item);
       }
@@ -1363,50 +1418,51 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
 
   const limited = results.slice(0, limit);
 
-  // Compact mode: strip heavy fields
-  if (params.compact) {
-    for (const item of limited) {
-      if (item.type === 'tool') {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const anyItem = item as any;
-        delete anyItem.version;
-        delete anyItem.versions;
-        anyItem.tool = {
-          id: item.tool.id,
-          name: item.tool.name,
-          category: item.tool.category,
-        };
-      } else if (item.type === 'guideline') {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const anyItem = item as any;
-        delete anyItem.version;
-        delete anyItem.versions;
-        // eslint-disable-next-line @typescript-eslint/await-thenable
-        anyItem.guideline = {
-          id: item.guideline.id,
-          name: item.guideline.name,
-          category: item.guideline.category,
-          priority: item.guideline.priority,
-        };
-      } else {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const anyItem = item as any;
-        delete anyItem.version;
-        delete anyItem.versions;
-        anyItem.knowledge = {
-          id: item.knowledge.id,
-          title: item.knowledge.title,
-          category: item.knowledge.category,
-        };
-      }
-    }
-  }
+  // Compact mode: create new objects with only essential fields
+  const compacted = params.compact
+    ? limited.map((item): QueryResultItem => {
+        if (item.type === 'tool') {
+          return {
+            ...item,
+            version: undefined,
+            versions: undefined,
+            tool: {
+              id: item.tool.id,
+              name: item.tool.name,
+              category: item.tool.category,
+            } as Tool,
+          };
+        } else if (item.type === 'guideline') {
+          return {
+            ...item,
+            version: undefined,
+            versions: undefined,
+            guideline: {
+              id: item.guideline.id,
+              name: item.guideline.name,
+              category: item.guideline.category,
+              priority: item.guideline.priority,
+            } as Guideline,
+          };
+        } else {
+          return {
+            ...item,
+            version: undefined,
+            versions: undefined,
+            knowledge: {
+              id: item.knowledge.id,
+              title: item.knowledge.title,
+              category: item.knowledge.category,
+            } as Knowledge,
+          };
+        }
+      })
+    : limited;
 
   const meta: ResponseMeta = {
     totalCount: results.length,
-    returnedCount: limited.length,
-    truncated: results.length > limited.length,
+    returnedCount: compacted.length,
+    truncated: results.length > compacted.length,
     hasMore: results.length > limited.length,
     nextCursor: undefined,
   };
@@ -1426,7 +1482,7 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
   }
 
   const result = {
-    results: limited,
+    results: compacted,
     meta,
   };
 

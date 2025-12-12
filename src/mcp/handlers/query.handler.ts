@@ -6,23 +6,72 @@ import { executeMemoryQuery, executeMemoryQueryAsync } from '../../services/quer
 import { logAction } from '../../services/audit.service.js';
 import { autoLinkContextFromQuery } from '../../services/conversation.service.js';
 
-import type { MemoryQueryParams, MemoryContextParams } from '../types.js';
-
-// Helper to safely cast params
-function cast<T>(params: Record<string, unknown>): T {
-  return params as unknown as T;
-}
+import type { MemoryQueryParams } from '../types.js';
+import {
+  getRequiredParam,
+  getOptionalParam,
+  isScopeType,
+  isString,
+  isBoolean,
+  isNumber,
+  isArray,
+  isObject,
+  isEntryType,
+  isRelationType,
+} from '../../utils/type-guards.js';
 
 export const queryHandlers = {
   async query(params: Record<string, unknown>) {
-    const queryParams = cast<MemoryQueryParams & { agentId?: string }>(params);
-    const { agentId, conversationId, messageId, autoLinkContext, ...queryParamsWithoutAgent } =
-      queryParams;
+    // Extract agent-specific params
+    const agentId = getOptionalParam(params, 'agentId', isString);
+    const conversationId = getOptionalParam(params, 'conversationId', isString);
+    const messageId = getOptionalParam(params, 'messageId', isString);
+    const autoLinkContext = getOptionalParam(params, 'autoLinkContext', isBoolean);
+
+    // Helper to validate scope object
+    function isValidScope(
+      v: unknown
+    ): v is { type: 'global' | 'org' | 'project' | 'session'; id?: string; inherit?: boolean } {
+      if (!isObject(v)) return false;
+      const obj = v as Record<string, unknown>;
+      return (
+        isScopeType(obj.type) &&
+        (obj.id === undefined || isString(obj.id)) &&
+        (obj.inherit === undefined || isBoolean(obj.inherit))
+      );
+    }
+
+    // Build query params object (excluding agent-specific fields)
+    const queryParamsWithoutAgent: MemoryQueryParams = {
+      types: getOptionalParam(params, 'types', isArray) as
+        | Array<'tools' | 'guidelines' | 'knowledge'>
+        | undefined,
+      scope: getOptionalParam(params, 'scope', isValidScope),
+      search: getOptionalParam(params, 'search', isString),
+      tags: getOptionalParam(params, 'tags', isObject),
+      relatedTo: (() => {
+        const relatedToParam = getOptionalParam(params, 'relatedTo', isObject);
+        if (!relatedToParam) return undefined;
+        // Validate relatedTo structure
+        const type = getOptionalParam(relatedToParam, 'type', isEntryType);
+        const id = getOptionalParam(relatedToParam, 'id', isString);
+        const relation = getOptionalParam(relatedToParam, 'relation', isRelationType);
+        if (type && id) {
+          return { type, id, relation };
+        }
+        return undefined;
+      })(),
+      limit: getOptionalParam(params, 'limit', isNumber),
+      compact: getOptionalParam(params, 'compact', isBoolean),
+      semanticSearch: getOptionalParam(params, 'semanticSearch', isBoolean),
+      semanticThreshold: getOptionalParam(params, 'semanticThreshold', isNumber),
+    };
 
     // Use async version if semantic search is requested (or default enabled)
     // Note: FTS5 and semantic search can work together - FTS5 for fast text filtering,
     // semantic search for similarity scoring
-    const useAsync = queryParams.semanticSearch !== false && queryParams.search;
+    const useAsync =
+      queryParamsWithoutAgent.semanticSearch !== false && queryParamsWithoutAgent.search;
 
     const result = useAsync
       ? await executeMemoryQueryAsync(queryParamsWithoutAgent)
@@ -58,17 +107,11 @@ export const queryHandlers = {
    * and groups results by type.
    */
   context(params: Record<string, unknown>) {
-    const {
-      scopeType,
-      scopeId,
-      inherit = true,
-      compact = false,
-      limitPerType,
-    }: MemoryContextParams = cast<MemoryContextParams>(params);
-
-    if (!scopeType) {
-      throw new Error('scopeType is required');
-    }
+    const scopeType = getRequiredParam(params, 'scopeType', isScopeType);
+    const scopeId = getOptionalParam(params, 'scopeId', isString);
+    const inherit = getOptionalParam(params, 'inherit', isBoolean) ?? true;
+    const compact = getOptionalParam(params, 'compact', isBoolean) ?? false;
+    const limitPerType = getOptionalParam(params, 'limitPerType', isNumber);
 
     const result = executeMemoryQuery({
       types: ['tools', 'guidelines', 'knowledge'],

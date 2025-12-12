@@ -16,55 +16,45 @@ import { invalidateCacheEntry } from '../../services/query.service.js';
 import { validateEntry } from '../../services/validation.service.js';
 import { createValidationError, createNotFoundError, createPermissionError } from '../errors.js';
 import { createComponentLogger } from '../../utils/logger.js';
+import {
+  getRequiredParam,
+  getOptionalParam,
+  isString,
+  isScopeType,
+  isNumber,
+  isBoolean,
+  isArray,
+  isArrayOfObjects,
+  isISODateString,
+  isObject,
+} from '../../utils/type-guards.js';
 
 const logger = createComponentLogger('knowledge');
 
 import type {
   KnowledgeAddParams,
   KnowledgeUpdateParams,
-  KnowledgeGetParams,
-  KnowledgeListParams,
-  KnowledgeHistoryParams,
-  KnowledgeDeactivateParams,
 } from '../types.js';
-
-// Helper to safely cast params
-function cast<T>(params: Record<string, unknown>): T {
-  return params as unknown as T;
-}
 
 export const knowledgeHandlers = {
   add(params: Record<string, unknown>) {
-    const {
-      scopeType,
-      scopeId,
-      title,
-      category,
-      content,
-      source,
-      confidence,
-      validUntil,
-      createdBy,
-      agentId,
-    } = cast<KnowledgeAddParams & { agentId?: string }>(params);
+    const scopeType = getRequiredParam(params, 'scopeType', isScopeType);
+    const scopeId = getOptionalParam(params, 'scopeId', isString);
+    const title = getRequiredParam(params, 'title', isString);
+    // Category can be any string (SQLite doesn't strictly enforce enum)
+    const category = getOptionalParam(params, 'category', isString) as
+      | 'decision'
+      | 'fact'
+      | 'context'
+      | 'reference'
+      | undefined;
+    const content = getRequiredParam(params, 'content', isString);
+    const source = getOptionalParam(params, 'source', isString);
+    const confidence = getOptionalParam(params, 'confidence', isNumber);
+    const validUntil = getOptionalParam(params, 'validUntil', isISODateString);
+    const createdBy = getOptionalParam(params, 'createdBy', isString);
+    const agentId = getOptionalParam(params, 'agentId', isString);
 
-    if (!scopeType) {
-      throw createValidationError(
-        'scopeType',
-        'is required',
-        "Specify 'global', 'org', 'project', or 'session'"
-      );
-    }
-    if (!title) {
-      throw createValidationError(
-        'title',
-        'is required',
-        'Provide a unique title for the knowledge entry'
-      );
-    }
-    if (!content) {
-      throw createValidationError('content', 'is required', 'Provide the knowledge content');
-    }
     if (scopeType !== 'global' && !scopeId) {
       throw createValidationError(
         'scopeId',
@@ -161,21 +151,21 @@ export const knowledgeHandlers = {
   },
 
   update(params: Record<string, unknown>) {
-    const {
-      id,
-      category,
-      content,
-      source,
-      confidence,
-      validUntil,
-      changeReason,
-      updatedBy,
-      agentId,
-    } = cast<KnowledgeUpdateParams & { agentId?: string }>(params);
-
-    if (!id) {
-      throw createValidationError('id', 'is required', 'Provide the knowledge entry ID to update');
-    }
+    const id = getRequiredParam(params, 'id', isString);
+    // Category can be any string (SQLite doesn't strictly enforce enum)
+    const category = getOptionalParam(params, 'category', isString) as
+      | 'decision'
+      | 'fact'
+      | 'context'
+      | 'reference'
+      | undefined;
+    const content = getOptionalParam(params, 'content', isString);
+    const source = getOptionalParam(params, 'source', isString);
+    const confidence = getOptionalParam(params, 'confidence', isNumber);
+    const validUntil = getOptionalParam(params, 'validUntil', isISODateString);
+    const changeReason = getOptionalParam(params, 'changeReason', isString);
+    const updatedBy = getOptionalParam(params, 'updatedBy', isString);
+    const agentId = getOptionalParam(params, 'agentId', isString);
 
     // Get knowledge to check scope and permission
     const existingKnowledge = knowledgeRepo.getById(id);
@@ -244,9 +234,12 @@ export const knowledgeHandlers = {
   },
 
   get(params: Record<string, unknown>) {
-    const { id, title, scopeType, scopeId, inherit, agentId } = cast<
-      KnowledgeGetParams & { agentId?: string }
-    >(params);
+    const id = getOptionalParam(params, 'id', isString);
+    const title = getOptionalParam(params, 'title', isString);
+    const scopeType = getOptionalParam(params, 'scopeType', isScopeType);
+    const scopeId = getOptionalParam(params, 'scopeId', isString);
+    const inherit = getOptionalParam(params, 'inherit', isBoolean);
+    const agentId = getOptionalParam(params, 'agentId', isString);
 
     if (!id && !title) {
       throw createValidationError(
@@ -302,8 +295,18 @@ export const knowledgeHandlers = {
   },
 
   list(params: Record<string, unknown>) {
-    const { scopeType, scopeId, category, includeInactive, limit, offset } =
-      cast<KnowledgeListParams>(params);
+    const scopeType = getOptionalParam(params, 'scopeType', isScopeType);
+    const scopeId = getOptionalParam(params, 'scopeId', isString);
+    // Category can be any string (SQLite doesn't strictly enforce enum)
+    const category = getOptionalParam(params, 'category', isString) as
+      | 'decision'
+      | 'fact'
+      | 'context'
+      | 'reference'
+      | undefined;
+    const includeInactive = getOptionalParam(params, 'includeInactive', isBoolean);
+    const limit = getOptionalParam(params, 'limit', isNumber);
+    const offset = getOptionalParam(params, 'offset', isNumber);
 
     const entries = knowledgeRepo.list(
       { scopeType, scopeId, category, includeInactive },
@@ -319,30 +322,15 @@ export const knowledgeHandlers = {
   },
 
   history(params: Record<string, unknown>) {
-    const { id } = cast<KnowledgeHistoryParams>(params);
-
-    if (!id) {
-      throw createValidationError(
-        'id',
-        'is required',
-        'Provide the knowledge entry ID to get history'
-      );
-    }
+    const id = getRequiredParam(params, 'id', isString);
 
     const versions = knowledgeRepo.getHistory(id);
     return { versions };
   },
 
   deactivate(params: Record<string, unknown>) {
-    const { id, agentId } = cast<KnowledgeDeactivateParams & { agentId?: string }>(params);
-
-    if (!id) {
-      throw createValidationError(
-        'id',
-        'is required',
-        'Provide the knowledge entry ID to deactivate'
-      );
-    }
+    const id = getRequiredParam(params, 'id', isString);
+    const agentId = getOptionalParam(params, 'agentId', isString);
 
     // Get knowledge to check scope and permission
     const existingKnowledge = knowledgeRepo.getById(id);
@@ -384,12 +372,13 @@ export const knowledgeHandlers = {
   },
 
   bulk_add(params: Record<string, unknown>) {
-    const { entries, agentId } = cast<{ entries: KnowledgeAddParams[]; agentId?: string }>(params);
+    const entries = getRequiredParam(params, 'entries', isArrayOfObjects);
+    const agentId = getOptionalParam(params, 'agentId', isString);
 
-    if (!entries || !Array.isArray(entries) || entries.length === 0) {
+    if (entries.length === 0) {
       throw createValidationError(
         'entries',
-        'is required and must be a non-empty array',
+        'must be a non-empty array',
         'Provide an array of knowledge entries to add'
       );
     }
@@ -397,14 +386,16 @@ export const knowledgeHandlers = {
     // Check permissions for all entries
     if (agentId) {
       for (const entry of entries) {
+        if (!isObject(entry)) continue;
+        const entryObj = entry as unknown as KnowledgeAddParams;
         if (
           !checkPermission(
             agentId,
             'write',
             'knowledge',
             null,
-            entry.scopeType,
-            entry.scopeId ?? null
+            entryObj.scopeType,
+            entryObj.scopeId ?? null
           )
         ) {
           throw createPermissionError(
@@ -419,35 +410,42 @@ export const knowledgeHandlers = {
     // Execute in transaction
     const results = transaction(() => {
       return entries.map((entry) => {
-        const {
-          scopeType,
-          scopeId,
-          title,
-          category,
-          content,
-          source,
-          confidence,
-          validUntil,
-          createdBy,
-        } = entry;
+        // Validate entry structure
+        if (!isObject(entry)) {
+          throw createValidationError('entry', 'must be an object', 'Each entry must be a valid object');
+        }
 
-        if (!scopeType) {
-          throw createValidationError(
-            'scopeType',
-            'is required',
-            "Specify 'global', 'org', 'project', or 'session'"
-          );
-        }
-        if (!title) {
-          throw createValidationError(
-            'title',
-            'is required',
-            'Provide a unique title for the knowledge entry'
-          );
-        }
-        if (!content) {
-          throw createValidationError('content', 'is required', 'Provide the knowledge content');
-        }
+        const entryObj = entry as unknown as KnowledgeAddParams;
+        const scopeType = isScopeType(entryObj.scopeType)
+          ? entryObj.scopeType
+          : (() => {
+              throw createValidationError(
+                'scopeType',
+                'is required',
+                "Specify 'global', 'org', 'project', or 'session'"
+              );
+            })();
+        const scopeId = entryObj.scopeId;
+        const title = isString(entryObj.title)
+          ? entryObj.title
+          : (() => {
+              throw createValidationError(
+                'title',
+                'is required',
+                'Provide a unique title for the knowledge entry'
+              );
+            })();
+        const category = entryObj.category;
+        const content = isString(entryObj.content)
+          ? entryObj.content
+          : (() => {
+              throw createValidationError('content', 'is required', 'Provide the knowledge content');
+            })();
+        const source = entryObj.source;
+        const confidence = entryObj.confidence;
+        const validUntil = entryObj.validUntil;
+        const createdBy = entryObj.createdBy;
+
         if (scopeType !== 'global' && !scopeId) {
           throw createValidationError(
             'scopeId',
@@ -476,15 +474,13 @@ export const knowledgeHandlers = {
   },
 
   bulk_update(params: Record<string, unknown>) {
-    const { updates, agentId } = cast<{
-      updates: Array<{ id: string } & KnowledgeUpdateParams>;
-      agentId?: string;
-    }>(params);
+    const updates = getRequiredParam(params, 'updates', isArrayOfObjects);
+    const agentId = getOptionalParam(params, 'agentId', isString);
 
-    if (!updates || !Array.isArray(updates) || updates.length === 0) {
+    if (updates.length === 0) {
       throw createValidationError(
         'updates',
-        'is required and must be a non-empty array',
+        'must be a non-empty array',
         'Provide an array of knowledge updates'
       );
     }
@@ -492,38 +488,52 @@ export const knowledgeHandlers = {
     // Check permissions for all entries
     if (agentId) {
       for (const update of updates) {
-        const existingKnowledge = knowledgeRepo.getById(update.id);
+        if (!isObject(update)) continue;
+        const updateObj = update as unknown as { id: string } & KnowledgeUpdateParams;
+        const existingKnowledge = knowledgeRepo.getById(updateObj.id);
         if (!existingKnowledge) {
-          throw createNotFoundError('knowledge', update.id);
+          throw createNotFoundError('knowledge', updateObj.id);
         }
         if (
           !checkPermission(
             agentId,
             'write',
             'knowledge',
-            update.id,
+            updateObj.id,
             existingKnowledge.scopeType,
             existingKnowledge.scopeId ?? null
           )
         ) {
-          throw createPermissionError('write', 'knowledge', update.id);
+          throw createPermissionError('write', 'knowledge', updateObj.id);
         }
       }
     }
 
     // Execute in transaction
     const results = transaction(() => {
-      return updates.map((update) => {
-        const { id, category, content, source, confidence, validUntil, changeReason, updatedBy } =
-          update;
-
-        if (!id) {
-          throw createValidationError(
-            'id',
-            'is required',
-            'Provide the knowledge entry ID to update'
-          );
+      return updates.map((update: Record<string, unknown>) => {
+        // Validate update structure
+        if (!isObject(update)) {
+          throw createValidationError('update', 'must be an object', 'Each update must be a valid object');
         }
+
+        const updateObj = update as unknown as { id: string } & KnowledgeUpdateParams;
+        const id = isString(updateObj.id)
+          ? updateObj.id
+          : (() => {
+              throw createValidationError(
+                'id',
+                'is required',
+                'Provide the knowledge entry ID to update'
+              );
+            })();
+        const category = updateObj.category;
+        const content = updateObj.content;
+        const source = updateObj.source;
+        const confidence = updateObj.confidence;
+        const validUntil = updateObj.validUntil;
+        const changeReason = updateObj.changeReason;
+        const updatedBy = updateObj.updatedBy;
 
         const input: UpdateKnowledgeInput = {};
         if (category !== undefined) input.category = category;
@@ -550,12 +560,27 @@ export const knowledgeHandlers = {
   },
 
   bulk_delete(params: Record<string, unknown>) {
-    const { ids, agentId } = cast<{ ids: string[]; agentId?: string }>(params);
+    const idsParam = getRequiredParam(params, 'ids', isArray);
+    const agentId = getOptionalParam(params, 'agentId', isString);
 
-    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+    // Validate all IDs are strings
+    const ids: string[] = [];
+    for (let i = 0; i < idsParam.length; i++) {
+      const id = idsParam[i];
+      if (!isString(id)) {
+        throw createValidationError(
+          'ids',
+          `element at index ${i} is not a string`,
+          'All IDs must be strings'
+        );
+      }
+      ids.push(id);
+    }
+
+    if (ids.length === 0) {
       throw createValidationError(
         'ids',
-        'is required and must be a non-empty array',
+        'must be a non-empty array',
         'Provide an array of knowledge entry IDs to delete'
       );
     }

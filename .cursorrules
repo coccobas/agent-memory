@@ -1,0 +1,51 @@
+# Cursor Rules for Agent Memory
+
+This project uses rules stored in `.cursor/rules/` directory.
+
+Cursor automatically loads all `.mdc` files from `.cursor/rules/` - no additional configuration needed.
+
+Rules are synced from `rules/rules/` directory. To sync rules to any project:
+
+**From any project directory:**
+
+```bash
+# Option 1: Using the wrapper script (easiest - add to PATH)
+cd /path/to/your/project
+sync-rules --auto-detect
+
+# Option 2: Using the wrapper script directly
+cd /path/to/your/project
+/path/to/Memory/scripts/sync-rules.sh --auto-detect
+
+# Option 3: Using tsx directly
+cd /path/to/your/project
+/path/to/Memory/node_modules/.bin/tsx /path/to/Memory/scripts/sync-rules.ts --auto-detect
+
+# Option 4: From Memory project directory
+cd /path/to/Memory
+npm run sync-rules -- --auto-detect
+```
+
+Or specify the IDE explicitly:
+
+```bash
+sync-rules --ide cursor
+```
+
+The script automatically finds the Memory project root and syncs rules to the current working directory.
+
+**To add the wrapper script to your PATH:**
+
+```bash
+# Add to ~/.zshrc or ~/.bashrc
+export PATH="$PATH:/path/to/Memory/scripts"
+```
+
+For more information, see:
+- `.cursor/rules/README.md` - Rule documentation
+- `docs/rules-sync.md` - Rules sync guide
+
+
+
+
+

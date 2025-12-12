@@ -310,12 +310,10 @@ export function getSubtaskStats(params: {
   startDate?: string;
   endDate?: string;
 }): {
-  successRate: number;
-  avgExecutionTime: number;
+  subtasks: Array<{ subtaskType: string; total: number; completed: number; failed: number; successRate: number }>;
   totalSubtasks: number;
-  errorCorrelation: Array<{ subtaskA: string; subtaskB: string; correlation: number }>;
-  agentReliability: Array<{ agentId: string; successRate: number; taskCount: number }>;
-  decompositionEfficiency: Array<{ depth: number; successRate: number; avgTime: number }>;
+  completedSubtasks: number;
+  failedSubtasks: number;
 } {
   const db = getDb();
 
@@ -347,63 +345,40 @@ export function getSubtaskStats(params: {
     .where(and(...conditions))
     .all();
 
-  // Calculate overall stats
+  // Group by subtaskType
+  const subtaskTypeMap = new Map<string, { total: number; completed: number; failed: number }>();
+  for (const task of subtasks) {
+    if (!task.subtaskType) continue;
+    const stats = subtaskTypeMap.get(task.subtaskType) || { total: 0, completed: 0, failed: 0 };
+    stats.total++;
+    if (task.success === true) {
+      stats.completed++;
+    } else if (task.success === false) {
+      stats.failed++;
+    }
+    subtaskTypeMap.set(task.subtaskType, stats);
+  }
+
+  // Convert to array format
+  const subtasksArray = Array.from(subtaskTypeMap.entries())
+    .map(([subtaskType, stats]) => ({
+      subtaskType,
+      total: stats.total,
+      completed: stats.completed,
+      failed: stats.failed,
+      successRate: stats.total > 0 ? stats.completed / stats.total : 0,
+    }))
+    .sort((a, b) => b.total - a.total);
+
+  // Calculate totals
   const totalSubtasks = subtasks.length;
-  const successful = subtasks.filter((s) => s.success === true).length;
-  const successRate = totalSubtasks > 0 ? successful / totalSubtasks : 0;
-
-  const executionTimes = subtasks
-    .filter((s) => s.executionTime !== null)
-    .map((s) => s.executionTime || 0);
-  const avgExecutionTime =
-    executionTimes.length > 0
-      ? executionTimes.reduce((a, b) => a + b, 0) / executionTimes.length
-      : 0;
-
-  // Agent reliability
-  const agentMap = new Map<string, { success: number; total: number }>();
-  for (const task of subtasks) {
-    if (!task.agentId) continue;
-    const stats = agentMap.get(task.agentId) || { success: 0, total: 0 };
-    stats.total++;
-    if (task.success === true) stats.success++;
-    agentMap.set(task.agentId, stats);
-  }
-
-  const agentReliability = Array.from(agentMap.entries())
-    .map(([agentId, stats]) => ({
-      agentId,
-      taskCount: stats.total,
-      successRate: stats.total > 0 ? stats.success / stats.total : 0,
-    }))
-    .sort((a, b) => b.taskCount - a.taskCount)
-    .slice(0, 10);
-
-  // Decomposition efficiency by depth (0 = root task, 1+ = nested)
-  const depthMap = new Map<number, { success: number; total: number; totalTime: number }>();
-  for (const task of subtasks) {
-    const depth = task.parentTaskId ? 1 : 0; // Simplified depth calculation
-    const stats = depthMap.get(depth) || { success: 0, total: 0, totalTime: 0 };
-    stats.total++;
-    if (task.success === true) stats.success++;
-    if (task.executionTime) stats.totalTime += task.executionTime;
-    depthMap.set(depth, stats);
-  }
-
-  const decompositionEfficiency = Array.from(depthMap.entries())
-    .map(([depth, stats]) => ({
-      depth,
-      successRate: stats.total > 0 ? stats.success / stats.total : 0,
-      avgTime: stats.total > 0 ? stats.totalTime / stats.total : 0,
-    }))
-    .sort((a, b) => a.depth - b.depth);
+  const completedSubtasks = subtasks.filter((s) => s.success === true).length;
+  const failedSubtasks = subtasks.filter((s) => s.success === false).length;
 
   return {
-    successRate,
-    avgExecutionTime,
+    subtasks: subtasksArray,
     totalSubtasks,
-    errorCorrelation: [], // Simplified - would require more complex correlation analysis
-    agentReliability,
-    decompositionEfficiency,
+    completedSubtasks,
+    failedSubtasks,
   };
 }

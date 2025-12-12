@@ -10,11 +10,16 @@ import {
   type PermissionLevel,
 } from '../../services/permission.service.js';
 import type { ScopeType, EntryType } from '../../db/schema.js';
-
-// Helper to safely cast params
-function cast<T>(params: Record<string, unknown>): T {
-  return params as unknown as T;
-}
+import {
+  getRequiredParam,
+  getOptionalParam,
+  isString,
+  isScopeType,
+  isEntryType,
+  isNumber,
+  isPermissionLevel,
+  isPermissionAction,
+} from '../../utils/type-guards.js';
 
 export interface PermissionGrantParams {
   agent_id: string;
@@ -55,16 +60,11 @@ export const permissionHandlers = {
    * Grant a permission to an agent
    */
   grant(params: Record<string, unknown>) {
-    const { agent_id, scope_type, scope_id, entry_type, permission } =
-      cast<PermissionGrantParams>(params);
-
-    if (!agent_id) {
-      throw new Error('agent_id is required');
-    }
-
-    if (!permission) {
-      throw new Error('permission is required');
-    }
+    const agent_id = getRequiredParam(params, 'agent_id', isString);
+    const scope_type = getOptionalParam(params, 'scope_type', isScopeType);
+    const scope_id = getOptionalParam(params, 'scope_id', isString);
+    const entry_type = getOptionalParam(params, 'entry_type', isEntryType);
+    const permission = getRequiredParam(params, 'permission', isPermissionLevel);
 
     const perm = grantPermission({
       agentId: agent_id,
@@ -83,11 +83,19 @@ export const permissionHandlers = {
   /**
    * Revoke a permission
    */
-  revoke(params: Record<string, unknown>) {
-    const { agent_id, scope_type, scope_id, entry_type } = cast<PermissionRevokeParams>(params);
+    revoke(params: Record<string, unknown>) {
+    const permission_id = getOptionalParam(params, 'permission_id', isString);
+    const agent_id = getOptionalParam(params, 'agent_id', isString);
+    const scope_type = getOptionalParam(params, 'scope_type', isScopeType);
+    const scope_id = getOptionalParam(params, 'scope_id', isString);
+    const entry_type = getOptionalParam(params, 'entry_type', isEntryType);
+
+    if (!permission_id && !agent_id) {
+      throw new Error('Either permission_id or agent_id is required');
+    }
 
     if (!agent_id) {
-      throw new Error('agent_id is required');
+      throw new Error('agent_id is required when not using permission_id');
     }
 
     revokePermission({
@@ -106,20 +114,11 @@ export const permissionHandlers = {
    * Check if an agent has permission
    */
   check(params: Record<string, unknown>) {
-    const { agent_id, action, scope_type, scope_id, entry_type } =
-      cast<PermissionCheckParams>(params);
-
-    if (!agent_id) {
-      throw new Error('agent_id is required');
-    }
-
-    if (!action) {
-      throw new Error('action is required');
-    }
-
-    if (!scope_type) {
-      throw new Error('scope_type is required');
-    }
+    const agent_id = getRequiredParam(params, 'agent_id', isString);
+    const action = getRequiredParam(params, 'action', isPermissionAction);
+    const scope_type = getRequiredParam(params, 'scope_type', isScopeType);
+    const scope_id = getOptionalParam(params, 'scope_id', isString);
+    const entry_type = getOptionalParam(params, 'entry_type', isEntryType);
 
     const hasPermission = checkPermission(
       agent_id,
@@ -144,14 +143,18 @@ export const permissionHandlers = {
    * List permissions
    */
   list(params: Record<string, unknown>) {
-    const { agent_id, scope_type, scope_id, entry_type, limit, offset } =
-      cast<PermissionListParams>(params);
+    const agent_id = getOptionalParam(params, 'agent_id', isString);
+    const scope_type = getOptionalParam(params, 'scope_type', isScopeType);
+    const scope_id = getOptionalParam(params, 'scope_id', isString);
+    const entry_type = getOptionalParam(params, 'entry_type', isEntryType);
+    const limit = getOptionalParam(params, 'limit', isNumber);
+    const offset = getOptionalParam(params, 'offset', isNumber);
 
     const permissionsList = listPermissionsFromService({
       agentId: agent_id,
       scopeType: scope_type ?? undefined,
       scopeId: scope_id ?? undefined,
-      entryType: entry_type === 'project' ? undefined : (entry_type ?? undefined),
+      entryType: entry_type && isEntryType(entry_type) ? entry_type : undefined,
     });
 
     // Apply pagination
