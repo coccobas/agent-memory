@@ -70,23 +70,6 @@ export function getDb(options: ConnectionOptions = {}): ReturnType<typeof drizzl
   // Enable foreign keys
   sqliteInstance.pragma('foreign_keys = ON');
 
-  // #region agent log
-  const fkCheck = sqliteInstance.pragma('foreign_keys', { simple: true });
-  fetch('http://127.0.0.1:7242/ingest/ed4dad30-4ac8-4940-ab0c-6f851ddd4464', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      location: 'connection.ts:71',
-      message: 'Foreign keys check',
-      data: { foreignKeysEnabled: fkCheck, dbPath: dbPath },
-      timestamp: Date.now(),
-      sessionId: 'debug-session',
-      runId: 'run1',
-      hypothesisId: 'E',
-    }),
-  }).catch(() => {});
-  // #endregion
-
   // Auto-initialize database schema if not already done
   const shouldSkipInit = options.skipInit ?? process.env.AGENT_MEMORY_SKIP_INIT === '1';
   if (!shouldSkipInit && !isInitialized && !options.readonly) {
