@@ -80,6 +80,16 @@ See `auto-memory-reference.mdc` for detailed tool usage.
 
 ### 1. On Every Conversation Start
 
+**CRITICAL: Do this FIRST - Query Project Context**
+
+**ALWAYS** query project context first before any other memory operations. This is the FIRST step that must not be skipped.
+
+**Why this is critical:**
+- Loads existing guidelines, knowledge, and tools to avoid duplicates
+- Ensures awareness of existing decisions and rules
+- Prevents creating conflicting or duplicate entries
+- Provides full context for the conversation
+
 **ALWAYS** query project context first:
 
 ```json
@@ -193,6 +203,35 @@ When auto-population is enabled, the agent will automatically extract and store 
 ```
 
 Use the session ID for all session-scoped entries. Use conversation ID to link all memory queries.
+
+### 3.1. Scope Selection Strategy
+
+**Default strategy**: Start at project scope, promote to global only if truly universal.
+
+**Scope hierarchy and when to use each:**
+
+- **Project scope** (default): Project-specific decisions, patterns, and conventions
+  - Use for: Project-specific coding standards, architecture decisions, domain knowledge
+  - Example: "This project uses PostgreSQL" (project-specific database choice)
+
+- **Global scope**: Universal standards that apply everywhere
+  - Use for: Security best practices, universal coding standards, tool conventions that apply across all projects
+  - Example: "Always validate user input" (universal security practice)
+  - **Only promote to global if**: The guideline/knowledge applies universally across ALL projects
+
+- **Session scope**: Temporary working context, experimental rules
+  - Use for: Temporary rules during a specific task, experimental patterns being tested
+  - Example: "For this session, try using a different error handling approach"
+
+**Avoid duplication:**
+- Check for existing entries at higher scopes before creating at lower scopes
+- If a guideline exists at global scope, don't duplicate it at project scope
+- If promoting from project to global, deactivate the project-scoped version
+
+**Promotion strategy:**
+- Start entries at project scope by default
+- Only promote to global if you're certain it applies universally
+- When promoting, update the existing entry's scope rather than creating a duplicate
 
 ### 4. Automatically Store Guidelines
 
@@ -322,6 +361,29 @@ Before storing knowledge, **ALWAYS** check if similar knowledge exists:
 }
 ```
 
+**Knowledge Category Classification:**
+
+- **`decision`**: Actual decisions that were made
+  - Examples: "We chose PostgreSQL over MySQL because of JSONB support", "We decided to use React for the frontend", "We selected AWS for cloud hosting"
+  - Use when: Documenting a choice that was made, explaining why something was selected
+  - Format: "We chose X because Y" or "Decision: X, Reason: Y"
+
+- **`context`**: Current state, status, or situation
+  - Examples: "Current design focus is on plenum and dock", "System currently uses version 2.1", "The team is working on authentication feature"
+  - Use when: Describing current state, status, or situation (not historical decisions)
+  - Format: "Current state is X" or "Currently using X"
+  - Note: Use "context" for current state, not historical decisions (use "decision" for those)
+
+- **`fact`**: Objective facts about the system/project
+  - Examples: "The system uses component X", "There are 4 boxes arranged side-by-side", "The database has 10 tables", "The API has 5 endpoints"
+  - Use when: Stating objective, verifiable facts about the system
+  - Format: Simple factual statements
+
+- **`reference`**: Links to external documentation, APIs, or resources
+  - Examples: "API documentation: https://api.example.com/docs", "See README.md for setup instructions", "Reference: PostgreSQL JSONB documentation"
+  - Use when: Pointing to external resources, documentation, or related materials
+  - Format: Include URL or path to resource
+
 **Store knowledge when:**
 - User explains architecture decisions
 - You discover why something was done a certain way
@@ -329,6 +391,46 @@ Before storing knowledge, **ALWAYS** check if similar knowledge exists:
 - API contracts or conventions
 - Known issues and workarounds
 - Domain-specific information
+
+### 5.1. Classification Guidance: Knowledge vs Guidelines
+
+**Key distinction**: If it affects how the agent should work → Guideline. If it describes what exists or was decided → Knowledge.
+
+**Guidelines** are rules, standards, behaviors the agent should follow:
+- **Examples**: 
+  - "Don't create CAD files"
+  - "Always use both agent-memory and markdown"
+  - "Check for existing guidelines before storing"
+  - "Always query project context at conversation start"
+- **Characteristics**:
+  - Affects actions and decisions
+  - Workflow standards
+  - Behavioral rules
+  - Tells the agent what to do or how to work
+
+**Knowledge** are facts, decisions, context, information about the project/domain:
+- **Examples**:
+  - "The system uses a 9733 blower"
+  - "4 boxes arranged side-by-side"
+  - "User uses Fusion 360"
+  - "PostgreSQL was chosen for JSONB support"
+- **Characteristics**:
+  - Describes what is, not what should be done
+  - Project facts and context
+  - Architecture decisions and rationale
+  - Historical information about choices made
+
+**Decision tree:**
+1. Does this tell me how I should work or behave? → **Guideline**
+2. Does this describe what exists, what was decided, or current state? → **Knowledge**
+3. Is this a rule I need to follow? → **Guideline**
+4. Is this information about the project/system? → **Knowledge**
+
+**Common mistakes to avoid:**
+- ❌ Storing "User uses Fusion 360" as knowledge when it should be guideline "Don't create CAD files"
+- ❌ Storing "Always check for existing entries" as knowledge when it should be guideline
+- ✅ Storing "The system uses PostgreSQL" as knowledge (fact about the system)
+- ✅ Storing "Don't create CAD files" as guideline (rule about behavior)
 
 ### 6. Automatically Store Tools
 
@@ -383,9 +485,11 @@ Before storing a tool, **ALWAYS** check if a tool with the same name exists in t
 }
 ```
 
-### 7. Tag Everything
+### 7. Tag Everything (REQUIRED)
 
-**ALWAYS** tag entries appropriately:
+**REQUIRED**: All entries MUST be tagged. Entries without tags are incomplete and harder to discover.
+
+**ALWAYS** tag entries immediately after storing them:
 
 ```json
 {
@@ -399,10 +503,97 @@ Before storing a tool, **ALWAYS** check if a tool with the same name exists in t
 }
 ```
 
-**Common tags:**
-- Languages: `typescript`, `python`, `javascript`, `rust`, `go`
-- Domains: `frontend`, `backend`, `api`, `database`, `security`, `testing`
-- Categories: `code_style`, `architecture`, `error_handling`
+**Tag taxonomy - Use these categories:**
+
+- **Languages**: `typescript`, `python`, `javascript`, `rust`, `go`, `java`, `csharp`
+  - Infer from file extensions, package.json, or explicit mentions
+
+- **Domains**: `frontend`, `backend`, `api`, `database`, `security`, `testing`, `cad`, `design`, `hardware`, `devops`, `infrastructure`
+  - Infer from file paths, task descriptions, or user mentions
+
+- **Categories**: 
+  - For guidelines: `code_style`, `architecture`, `error_handling`, `workflow`, `agent-memory`, `security`, `performance`
+  - For knowledge: `decision`, `fact`, `context`, `reference`, `architecture`, `domain`
+  - For tools: `mcp`, `cli`, `function`, `api`, `script`
+
+- **Task-specific**: `authentication`, `plenum`, `airflow`, `heating`, `user-management`, `data-processing`
+  - Use for specific features, components, or domain concepts
+
+**Inferring tags from context:**
+
+- **File paths**: `/src/api/auth.ts` → `["typescript", "api", "authentication"]`
+- **Task descriptions**: "Implement user authentication" → `["authentication", "security"]`
+- **User mentions**: "We use PostgreSQL" → `["database", "postgresql"]`
+- **Module context**: "database layer" → `["database", "backend"]`
+
+**Tagging workflow:**
+1. Store entry (guideline/knowledge/tool)
+2. Immediately attach relevant tags (at least 2-3 tags per entry)
+3. Use tags from multiple categories (language + domain + category)
+4. Tag based on what the entry is about, not just what it mentions
+
+### 7.1. Link Related Entries
+
+**ALWAYS** create relations between related entries to build a knowledge graph and improve discoverability.
+
+**When to create relations:**
+
+- **Guidelines that reference each other**: 
+  - Example: "Check for Existing Guidelines" ↔ "Ask About Guidelines"
+  - Example: "Use Both Agent-Memory and Markdown" ↔ "CAD File Creation"
+
+- **Knowledge entries that build on each other**:
+  - Example: Design entries linked (plenum/dock, airflow/heating, box arrangement)
+  - Example: Architecture decisions that depend on each other
+
+- **Guidelines based on knowledge entries**:
+  - Example: Guideline "Use PostgreSQL JSONB" → Knowledge "PostgreSQL chosen for JSONB support"
+
+- **Related entries discovered during queries**:
+  - When querying returns related entries, create relations to link them
+
+**Relation types to use:**
+
+- **`related_to`**: General relationship between entries
+  - Use for: General connections, entries that are related but not dependent
+
+- **`depends_on`**: One entry depends on another
+  - Use for: Guidelines that depend on knowledge, tools that depend on guidelines
+
+- **`applies_to`**: Guideline applies to specific knowledge/context
+  - Use for: Guidelines that apply to specific tools, knowledge, or contexts
+
+- **`conflicts_with`**: Entries that conflict with each other
+  - Use for: Documenting known conflicts (rare, usually resolved)
+
+**How to create relations:**
+
+```json
+{
+  "tool": "memory_relation",
+  "arguments": {
+    "action": "create",
+    "sourceType": "guideline",
+    "sourceId": "<entry-id>",
+    "targetType": "guideline",
+    "targetId": "<related-entry-id>",
+    "relationType": "related_to"
+  }
+}
+```
+
+**Relation creation workflow:**
+1. Store entry (guideline/knowledge/tool)
+2. Tag the entry
+3. Query for related entries using tags or semantic search
+4. Create relations to related entries found
+5. Use appropriate relation type based on the relationship
+
+**Example workflow:**
+1. Store guideline "Check for Existing Guidelines Before Storing"
+2. Query for related guidelines: `search: "guidelines" tags: ["workflow", "agent-memory"]`
+3. Find "Ask About Guidelines When User Answers Options"
+4. Create relation: `related_to` between the two guidelines
 
 ### 8. Query Before Making Decisions
 
@@ -640,5 +831,5 @@ When completing a task, **ALWAYS** end the session:
 
 For advanced conflict resolution, see `auto-memory-advanced.mdc`.
 
-@version "1.0.0"
-@last_updated "2024-12-19"
+@version "1.1.0"
+@last_updated "2025-01-13"

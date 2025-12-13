@@ -60,6 +60,70 @@ This document covers advanced features beyond the core workflow. See `auto-memor
 }
 ```
 
+### Scope Selection Strategy
+
+**Detailed guidance on when to use each scope level:**
+
+**Global Scope:**
+- **Use for**: Universal standards that apply across ALL projects
+- **Examples**: 
+  - Security best practices ("Always validate user input")
+  - Universal coding standards ("Use strict TypeScript mode")
+  - Tool conventions that apply everywhere
+- **Criteria**: If it applies to every project regardless of context, use global
+- **Promotion**: Only promote from project to global if you're certain it's universal
+
+**Organization Scope:**
+- **Use for**: Team-wide standards within an organization
+- **Examples**:
+  - Organization-specific coding conventions
+  - Team-wide tool preferences
+  - Cross-project architectural patterns
+- **Criteria**: Applies to all projects within the organization but not necessarily outside
+
+**Project Scope (Default):**
+- **Use for**: Project-specific decisions, patterns, and conventions
+- **Examples**:
+  - Project-specific database choices ("This project uses PostgreSQL")
+  - Domain-specific knowledge ("The system uses a 9733 blower")
+  - Project architecture decisions
+- **Criteria**: Specific to this project, not universal
+- **Default**: Start here unless you're certain it's universal
+
+**Session Scope:**
+- **Use for**: Temporary working context, experimental rules
+- **Examples**:
+  - Temporary rules during a specific task
+  - Experimental patterns being tested
+  - Session-specific context
+- **Criteria**: Temporary, experimental, or task-specific
+
+**Promotion Strategy:**
+- **From project to global**: 
+  1. Verify it truly applies universally
+  2. Update existing entry's scope (don't duplicate)
+  3. Deactivate project-scoped version if promoting
+  4. Document promotion reason
+
+- **From session to project**:
+  1. Verify it's a stable pattern, not experimental
+  2. Update entry scope
+  3. Consider if it should be global instead
+
+**Deduplication Considerations:**
+- **Always check higher scopes first**: Before creating at project scope, check global scope
+- **Inheritance**: Use `inherit: true` in queries to get entries from parent scopes
+- **Avoid duplication**: If entry exists at global, don't create duplicate at project
+- **Scope specificity**: More specific scope (project) can override general scope (global) for that project
+
+**Example promotion workflow:**
+1. Store guideline at project scope: "Use async/await for promises"
+2. Later discover it's used in multiple projects
+3. Check if it exists at global scope (no)
+4. Verify it's truly universal (yes - good practice everywhere)
+5. Update entry to global scope with changeReason: "Promoted from project to global - universal best practice"
+6. Deactivate project-scoped version
+
 ### File Locking (memory_file_lock)
 
 **ALWAYS** check file locks before editing files in multi-agent scenarios:
@@ -515,5 +579,5 @@ If file locked:
 - Check lock status periodically
 - Use `force_unlock` only if necessary and authorized
 
-@version "1.0.0"
-@last_updated "2024-12-19"
+@version "1.1.0"
+@last_updated "2025-01-13"

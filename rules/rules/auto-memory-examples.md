@@ -606,5 +606,293 @@ You should:
 
 3. Tag with "api", "error_handling", "pattern"
 
-@version "1.0.0"
-@last_updated "2024-12-19"
+### Example 15: Knowledge vs Guideline Classification
+
+**Scenario:** User says "I use Fusion 360 for CAD work"
+
+**Incorrect classification (as knowledge):**
+```json
+{
+  "tool": "memory_knowledge",
+  "arguments": {
+    "action": "add",
+    "title": "CAD Software Preference",
+    "content": "User uses Fusion 360",
+    "category": "fact"
+  }
+}
+```
+❌ This is wrong because it's actually a behavioral rule, not just information.
+
+**Correct classification (as guideline):**
+```json
+{
+  "tool": "memory_guideline",
+  "arguments": {
+    "action": "add",
+    "name": "CAD File Creation - User Creates Files",
+    "content": "Do not create CAD files. User creates CAD files using Fusion 360.",
+    "category": "workflow",
+    "priority": 85
+  }
+}
+```
+✅ This is correct because it tells the agent how to behave (don't create CAD files).
+
+**Another example:**
+
+User: "The system uses a 9733 blower"
+
+**Correct (as knowledge):**
+```json
+{
+  "tool": "memory_knowledge",
+  "arguments": {
+    "action": "add",
+    "title": "Blower Component",
+    "content": "The system uses a 9733 blower",
+    "category": "fact"
+  }
+}
+```
+✅ This is correct because it describes what exists (a fact about the system).
+
+### Example 16: Comprehensive Tagging Taxonomy
+
+**Scenario:** Storing a guideline about TypeScript error handling in an API
+
+**Step 1: Store the guideline:**
+```json
+{
+  "tool": "memory_guideline",
+  "arguments": {
+    "action": "add",
+    "name": "API Error Handling Pattern",
+    "content": "All API endpoints must use try-catch blocks and return standardized error responses",
+    "category": "error_handling",
+    "priority": 85
+  }
+}
+```
+
+**Step 2: Tag immediately with multiple categories:**
+```json
+// Language tag
+{
+  "tool": "memory_tag",
+  "arguments": {
+    "action": "attach",
+    "entryType": "guideline",
+    "entryId": "<guideline-id>",
+    "tagName": "typescript"
+  }
+}
+
+// Domain tag
+{
+  "tool": "memory_tag",
+  "arguments": {
+    "action": "attach",
+    "entryType": "guideline",
+    "entryId": "<guideline-id>",
+    "tagName": "api"
+  }
+}
+
+// Category tag
+{
+  "tool": "memory_tag",
+  "arguments": {
+    "action": "attach",
+    "entryType": "guideline",
+    "entryId": "<guideline-id>",
+    "tagName": "error_handling"
+  }
+}
+
+// Task-specific tag
+{
+  "tool": "memory_tag",
+  "arguments": {
+    "action": "attach",
+    "entryType": "guideline",
+    "entryId": "<guideline-id>",
+    "tagName": "backend"
+  }
+}
+```
+
+**Result:** Guideline is tagged with `["typescript", "api", "error_handling", "backend"]` making it easily discoverable.
+
+### Example 17: Creating Relations Between Entries
+
+**Scenario:** You've stored two related guidelines and want to link them
+
+**Step 1: Store first guideline:**
+```json
+{
+  "tool": "memory_guideline",
+  "arguments": {
+    "action": "add",
+    "name": "Check for Existing Guidelines Before Storing",
+    "content": "Always check for similar existing guidelines before storing new ones",
+    "category": "workflow"
+  }
+}
+```
+Returns: `guideline-id-1`
+
+**Step 2: Store second guideline:**
+```json
+{
+  "tool": "memory_guideline",
+  "arguments": {
+    "action": "add",
+    "name": "Ask About Guidelines When User Answers Options",
+    "content": "When user provides multiple options, ask which guideline to follow",
+    "category": "workflow"
+  }
+}
+```
+Returns: `guideline-id-2`
+
+**Step 3: Query for related guidelines:**
+```json
+{
+  "tool": "memory_query",
+  "arguments": {
+    "action": "search",
+    "types": ["guidelines"],
+    "tags": {
+      "include": ["workflow", "agent-memory"]
+    },
+    "scope": {
+      "type": "project",
+      "id": "<project-id>",
+      "inherit": true
+    }
+  }
+}
+```
+
+**Step 4: Create bidirectional relation:**
+```json
+// Relation from guideline-1 to guideline-2
+{
+  "tool": "memory_relation",
+  "arguments": {
+    "action": "create",
+    "sourceType": "guideline",
+    "sourceId": "guideline-id-1",
+    "targetType": "guideline",
+    "targetId": "guideline-id-2",
+    "relationType": "related_to"
+  }
+}
+
+// Relation from guideline-2 to guideline-1 (bidirectional)
+{
+  "tool": "memory_relation",
+  "arguments": {
+    "action": "create",
+    "sourceType": "guideline",
+    "sourceId": "guideline-id-2",
+    "targetType": "guideline",
+    "targetId": "guideline-id-1",
+    "relationType": "related_to"
+  }
+}
+```
+
+**Result:** The two guidelines are now linked, making it easier to discover related workflow guidelines.
+
+### Example 18: Scope Selection Decision-Making
+
+**Scenario:** Deciding where to store a new guideline
+
+**User says:** "We always validate user input"
+
+**Step 1: Check if it exists at global scope (universal practice):**
+```json
+{
+  "tool": "memory_query",
+  "arguments": {
+    "action": "search",
+    "types": ["guidelines"],
+    "search": "validate user input",
+    "scope": {
+      "type": "global",
+      "inherit": false
+    }
+  }
+}
+```
+
+**If found at global:** Use existing, don't duplicate.
+
+**If not found:**
+
+**Step 2: Determine scope:**
+- Is this universal? (Yes - input validation applies everywhere)
+- Should it be global? (Yes - security best practice)
+
+**Step 3: Store at global scope:**
+```json
+{
+  "tool": "memory_guideline",
+  "arguments": {
+    "action": "add",
+    "scopeType": "global",
+    "name": "Always Validate User Input",
+    "content": "Always validate and sanitize all user input to prevent security vulnerabilities",
+    "category": "security",
+    "priority": 95
+  }
+}
+```
+
+**Another scenario:**
+
+**User says:** "This project uses PostgreSQL for JSONB support"
+
+**Step 1: Check for existing knowledge:**
+```json
+{
+  "tool": "memory_query",
+  "arguments": {
+    "action": "search",
+    "types": ["knowledge"],
+    "search": "PostgreSQL database choice",
+    "scope": {
+      "type": "project",
+      "id": "<project-id>",
+      "inherit": true
+    }
+  }
+}
+```
+
+**Step 2: Determine scope:**
+- Is this universal? (No - project-specific database choice)
+- Should it be project scope? (Yes - project-specific decision)
+
+**Step 3: Store at project scope:**
+```json
+{
+  "tool": "memory_knowledge",
+  "arguments": {
+    "action": "add",
+    "scopeType": "project",
+    "scopeId": "<project-id>",
+    "title": "Database Choice: PostgreSQL",
+    "content": "PostgreSQL was chosen for JSONB support and flexible schema requirements",
+    "category": "decision",
+    "confidence": 0.95
+  }
+}
+```
+
+**Result:** Project-specific knowledge stored at project scope, universal guideline stored at global scope.
+
+@version "1.1.0"
+@last_updated "2025-01-13"
