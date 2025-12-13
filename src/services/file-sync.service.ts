@@ -18,7 +18,7 @@ export const IDE_DESTINATIONS: Record<string, string> = {
   sublime: '.sublime',
   neovim: '.nvim',
   emacs: '.emacs.d',
-  antigravity: '.antigravity/rules',
+  antigravity: '.agent/rules',
   generic: '.ide-rules',
 };
 
@@ -30,7 +30,7 @@ export const USER_DESTINATIONS: Record<string, string> = {
   sublime: '.sublime',
   neovim: '.config/nvim',
   emacs: '.emacs.d',
-  antigravity: '.antigravity/rules',
+  antigravity: '.agent/rules',
   generic: '.ide-rules',
 };
 

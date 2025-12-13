@@ -19,7 +19,7 @@ The sync-rules script copies `.md` files from `rules/rules/` to IDE-specific dir
 - **Sublime Text** - `.sublime/*.md` files
 - **Neovim** - `.nvim/*.md` files
 - **Emacs** - `.emacs.d/*.md` files
-- **Antigravity** - `.antigravity/rules/*.md` files
+- **Antigravity** - `.agent/rules/*.md` files
 - **Generic** - `.ide-rules/*.md` files (IDE-agnostic format)
 
 ## Quick Start
@@ -267,7 +267,7 @@ The sync tool automatically detects your IDE by checking for:
    - `.idea/` → IntelliJ
    - `.nvim/` or `.config/nvim/` → Neovim
    - `.emacs.d/` → Emacs
-   - `.antigravity/` → Antigravity
+   - `.agent/` → Antigravity
 
 2. **IDE-specific files**:
    - `.sublime-project` → Sublime Text

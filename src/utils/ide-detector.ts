@@ -52,7 +52,7 @@ const IDE_SIGNATURES: Array<{
   },
   {
     ide: 'antigravity',
-    paths: ['.antigravity', '.antigravity/rules', '.antigravity/config.json'],
+    paths: ['.agent', '.agent/rules', '.agent/config.json'],
     confidence: 0.9,
   },
 ];
@@ -237,7 +237,7 @@ export function detectIDE(workspacePath: string): IDEDetectionResult {
       configPath = join(resolvedPath, '.emacs.d');
       break;
     case 'antigravity':
-      configPath = join(resolvedPath, '.antigravity', 'rules');
+      configPath = join(resolvedPath, '.agent', 'rules');
       break;
   }
 

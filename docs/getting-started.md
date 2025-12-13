@@ -707,7 +707,7 @@ npm run sync-rules --ide cursor --scope project --scope-id <project-id>
 - **Sublime Text** - `.sublime-project` JSON
 - **Neovim** - `.nvim/agent-memory-rules.lua`
 - **Emacs** - `.emacs.d/agent-memory-rules.el`
-- **Antigravity** - `.antigravity/rules/*.md` files
+- **Antigravity** - `.agent/rules/*.md` files
 - **Generic** - `.ide-rules/*.md` (works with any IDE)
 
 ### Watch Mode
