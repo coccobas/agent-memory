@@ -310,7 +310,13 @@ export function getSubtaskStats(params: {
   startDate?: string;
   endDate?: string;
 }): {
-  subtasks: Array<{ subtaskType: string; total: number; completed: number; failed: number; successRate: number }>;
+  subtasks: Array<{
+    subtaskType: string;
+    total: number;
+    completed: number;
+    failed: number;
+    successRate: number;
+  }>;
   totalSubtasks: number;
   completedSubtasks: number;
   failedSubtasks: number;

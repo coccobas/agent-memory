@@ -3,7 +3,12 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
-import { setupTestDb, cleanupTestDb, createTestOrg, createTestProject } from '../fixtures/test-helpers.js';
+import {
+  setupTestDb,
+  cleanupTestDb,
+  createTestOrg,
+  createTestProject,
+} from '../fixtures/test-helpers.js';
 import { toolRepo } from '../../src/db/repositories/tools.js';
 
 const TEST_DB_PATH = './data/test-tools-repo.db';

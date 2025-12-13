@@ -4,7 +4,12 @@
 
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { eq } from 'drizzle-orm';
-import { setupTestDb, cleanupTestDb, createTestOrg, createTestProject } from '../fixtures/test-helpers.js';
+import {
+  setupTestDb,
+  cleanupTestDb,
+  createTestOrg,
+  createTestProject,
+} from '../fixtures/test-helpers.js';
 import * as schema from '../../src/db/schema.js';
 import {
   checkPermission,
@@ -81,7 +86,11 @@ describe('permission.service', () => {
       });
 
       // Wait for permission to be in DB (flush any async operations)
-      const perms = db.select().from(schema.permissions).where(eq(schema.permissions.agentId, 'agent-1')).all();
+      const perms = db
+        .select()
+        .from(schema.permissions)
+        .where(eq(schema.permissions.agentId, 'agent-1'))
+        .all();
 
       expect(checkPermission('agent-1', 'read', 'tool', null, 'global', null)).toBe(true);
       expect(checkPermission('agent-1', 'write', 'tool', null, 'global', null)).toBe(true);

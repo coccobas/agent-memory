@@ -45,7 +45,7 @@ describe('analytics.service', () => {
   describe('getUsageStats', () => {
     it('should return usage statistics structure', () => {
       const stats = getUsageStats();
-      
+
       expect(stats).toBeDefined();
       expect(stats.mostQueriedEntries).toBeDefined();
       expect(Array.isArray(stats.mostQueriedEntries)).toBe(true);
@@ -59,23 +59,23 @@ describe('analytics.service', () => {
 
     it('should filter by scopeType', () => {
       const stats = getUsageStats({ scopeType: 'global' });
-      
+
       expect(stats).toBeDefined();
       expect(typeof stats.scopeUsage).toBe('object');
     });
 
     it('should filter by scopeId', () => {
       const stats = getUsageStats({ scopeId: 'test-scope-id' });
-      
+
       expect(stats).toBeDefined();
     });
 
     it('should filter by date range', () => {
       const startDate = new Date('2024-01-01').toISOString();
       const endDate = new Date('2024-12-31').toISOString();
-      
+
       const stats = getUsageStats({ startDate, endDate });
-      
+
       expect(stats).toBeDefined();
     });
 
@@ -91,7 +91,7 @@ describe('analytics.service', () => {
       return new Promise<void>((resolve) => {
         setImmediate(() => {
           const stats = getUsageStats();
-          
+
           expect(stats.mostQueriedEntries).toBeDefined();
           expect(Array.isArray(stats.mostQueriedEntries)).toBe(true);
           resolve();
@@ -107,7 +107,7 @@ describe('analytics.service', () => {
       return new Promise<void>((resolve) => {
         setImmediate(() => {
           const stats = getUsageStats();
-          
+
           expect(stats.queryFrequency).toBeDefined();
           expect(Array.isArray(stats.queryFrequency)).toBe(true);
           resolve();
@@ -124,7 +124,7 @@ describe('analytics.service', () => {
       return new Promise<void>((resolve) => {
         setImmediate(() => {
           const stats = getUsageStats();
-          
+
           expect(stats.scopeUsage).toBeDefined();
           expect(stats.scopeUsage.global).toBeDefined();
           expect(stats.scopeUsage.org).toBeDefined();
@@ -144,7 +144,7 @@ describe('analytics.service', () => {
       return new Promise<void>((resolve) => {
         setImmediate(() => {
           const stats = getUsageStats();
-          
+
           expect(stats.actionBreakdown).toBeDefined();
           expect(Array.isArray(stats.actionBreakdown)).toBe(true);
           resolve();
@@ -161,7 +161,7 @@ describe('analytics.service', () => {
       return new Promise<void>((resolve) => {
         setImmediate(() => {
           const stats = getUsageStats();
-          
+
           expect(stats.entryTypeBreakdown).toBeDefined();
           expect(Array.isArray(stats.entryTypeBreakdown)).toBe(true);
           resolve();
@@ -173,7 +173,7 @@ describe('analytics.service', () => {
   describe('getTrends', () => {
     it('should return trend data structure', () => {
       const trends = getTrends();
-      
+
       expect(Array.isArray(trends)).toBe(true);
       if (trends.length > 0) {
         const trend = trends[0];
@@ -189,16 +189,16 @@ describe('analytics.service', () => {
 
     it('should filter trends by scopeType', () => {
       const trends = getTrends({ scopeType: 'global' });
-      
+
       expect(Array.isArray(trends)).toBe(true);
     });
 
     it('should filter trends by date range', () => {
       const startDate = new Date('2024-01-01').toISOString();
       const endDate = new Date('2024-12-31').toISOString();
-      
+
       const trends = getTrends({ startDate, endDate });
-      
+
       expect(Array.isArray(trends)).toBe(true);
     });
 
@@ -210,7 +210,7 @@ describe('analytics.service', () => {
       return new Promise<void>((resolve) => {
         setImmediate(() => {
           const trends = getTrends();
-          
+
           expect(Array.isArray(trends)).toBe(true);
           // Trends should aggregate actions by date
           resolve();
@@ -222,7 +222,7 @@ describe('analytics.service', () => {
   describe('getSubtaskStats', () => {
     it('should return subtask statistics structure', () => {
       const stats = getSubtaskStats({ projectId: 'test-project' });
-      
+
       expect(stats).toBeDefined();
       expect(Array.isArray(stats.subtasks)).toBe(true);
       expect(typeof stats.totalSubtasks).toBe('number');
@@ -231,17 +231,17 @@ describe('analytics.service', () => {
     });
 
     it('should filter by subtaskType', () => {
-      const stats = getSubtaskStats({ 
+      const stats = getSubtaskStats({
         projectId: 'test-project',
-        subtaskType: 'test-type'
+        subtaskType: 'test-type',
       });
-      
+
       expect(stats).toBeDefined();
     });
 
     it('should calculate completion statistics', () => {
       const stats = getSubtaskStats({ projectId: 'test-project' });
-      
+
       expect(stats.totalSubtasks).toBeGreaterThanOrEqual(0);
       expect(stats.completedSubtasks).toBeGreaterThanOrEqual(0);
       expect(stats.failedSubtasks).toBeGreaterThanOrEqual(0);
@@ -249,7 +249,7 @@ describe('analytics.service', () => {
 
     it('should return subtask details', () => {
       const stats = getSubtaskStats({ projectId: 'test-project' });
-      
+
       stats.subtasks.forEach((subtask) => {
         expect(subtask.subtaskType).toBeDefined();
         expect(typeof subtask.total).toBe('number');

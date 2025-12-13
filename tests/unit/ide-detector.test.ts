@@ -84,11 +84,7 @@ describe('IDE Detector', () => {
 
     it('should detect Neovim IDE', () => {
       mockExistsSync.mockImplementation((path: string) => {
-        return (
-          path.includes('.nvim') ||
-          path.includes('.config/nvim') ||
-          path.includes('init.lua')
-        );
+        return path.includes('.nvim') || path.includes('.config/nvim') || path.includes('init.lua');
       });
 
       const result = detectIDE('/test/workspace');
@@ -98,7 +94,9 @@ describe('IDE Detector', () => {
 
     it('should detect Emacs IDE', () => {
       mockExistsSync.mockImplementation((path: string) => {
-        return path.includes('.emacs.d') || path.includes('.emacs') || path.includes('.dir-locals.el');
+        return (
+          path.includes('.emacs.d') || path.includes('.emacs') || path.includes('.dir-locals.el')
+        );
       });
 
       const result = detectIDE('/test/workspace');
@@ -153,7 +151,7 @@ describe('IDE Detector', () => {
         if (path.includes('package.json')) {
           return JSON.stringify({
             devDependencies: {
-              'vscode': '1.0.0',
+              vscode: '1.0.0',
             },
           });
         }

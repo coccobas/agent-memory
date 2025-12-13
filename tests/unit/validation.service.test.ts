@@ -62,7 +62,9 @@ describe('validation.service', () => {
       );
 
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.field === 'name' && e.message.includes('required'))).toBe(true);
+      expect(result.errors.some((e) => e.field === 'name' && e.message.includes('required'))).toBe(
+        true
+      );
     });
 
     it('should reject empty tool name', () => {
@@ -92,7 +94,9 @@ describe('validation.service', () => {
 
       expect(result.valid).toBe(false);
       expect(
-        result.errors.some((e) => e.field === 'name' && e.message.includes('at most 255 characters'))
+        result.errors.some(
+          (e) => e.field === 'name' && e.message.includes('at most 255 characters')
+        )
       ).toBe(true);
     });
 
@@ -139,7 +143,9 @@ describe('validation.service', () => {
       );
 
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.field === 'name' && e.message.includes('required'))).toBe(true);
+      expect(result.errors.some((e) => e.field === 'name' && e.message.includes('required'))).toBe(
+        true
+      );
     });
 
     it('should require guideline content', () => {
@@ -152,9 +158,9 @@ describe('validation.service', () => {
       );
 
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.field === 'content' && e.message.includes('required'))).toBe(
-        true
-      );
+      expect(
+        result.errors.some((e) => e.field === 'content' && e.message.includes('required'))
+      ).toBe(true);
     });
 
     it('should reject content exceeding max length', () => {
@@ -169,9 +175,9 @@ describe('validation.service', () => {
       );
 
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.field === 'content' && e.message.includes('at most'))).toBe(
-        true
-      );
+      expect(
+        result.errors.some((e) => e.field === 'content' && e.message.includes('at most'))
+      ).toBe(true);
     });
   });
 
@@ -215,9 +221,9 @@ describe('validation.service', () => {
       );
 
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.field === 'content' && e.message.includes('required'))).toBe(
-        true
-      );
+      expect(
+        result.errors.some((e) => e.field === 'content' && e.message.includes('required'))
+      ).toBe(true);
     });
   });
 
@@ -246,9 +252,9 @@ describe('validation.service', () => {
       );
 
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.field === 'validUntil' && e.message.includes('ISO 8601'))).toBe(
-        true
-      );
+      expect(
+        result.errors.some((e) => e.field === 'validUntil' && e.message.includes('ISO 8601'))
+      ).toBe(true);
     });
 
     it('should reject non-string date values', () => {
@@ -262,9 +268,9 @@ describe('validation.service', () => {
       );
 
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.field === 'validUntil' && e.message.includes('string'))).toBe(
-        true
-      );
+      expect(
+        result.errors.some((e) => e.field === 'validUntil' && e.message.includes('string'))
+      ).toBe(true);
     });
 
     it('should validate multiple date fields', () => {
@@ -321,9 +327,9 @@ describe('validation.service', () => {
       );
 
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.field === 'metadata' && e.message.includes('valid JSON'))).toBe(
-        true
-      );
+      expect(
+        result.errors.some((e) => e.field === 'metadata' && e.message.includes('valid JSON'))
+      ).toBe(true);
     });
 
     it('should reject arrays for metadata field', () => {
@@ -337,9 +343,9 @@ describe('validation.service', () => {
       );
 
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.field === 'metadata' && e.message.includes('object'))).toBe(
-        true
-      );
+      expect(
+        result.errors.some((e) => e.field === 'metadata' && e.message.includes('object'))
+      ).toBe(true);
     });
   });
 

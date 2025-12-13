@@ -141,7 +141,3 @@ describe('Conversation-Query Integration', () => {
     expect(contexts.some((c) => c.entryId === knowledge.id)).toBe(false);
   });
 });
-
-
-
-

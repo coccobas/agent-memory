@@ -31,10 +31,7 @@ import {
 
 const logger = createComponentLogger('knowledge');
 
-import type {
-  KnowledgeAddParams,
-  KnowledgeUpdateParams,
-} from '../types.js';
+import type { KnowledgeAddParams, KnowledgeUpdateParams } from '../types.js';
 
 export const knowledgeHandlers = {
   add(params: Record<string, unknown>) {
@@ -401,7 +398,7 @@ export const knowledgeHandlers = {
           throw createPermissionError(
             'write',
             'knowledge',
-            `scope ${entry.scopeType}:${entry.scopeId ?? ''}`
+            `scope ${String(entry.scopeType)}:${String(entry.scopeId ?? '')}`
           );
         }
       }
@@ -412,7 +409,11 @@ export const knowledgeHandlers = {
       return entries.map((entry) => {
         // Validate entry structure
         if (!isObject(entry)) {
-          throw createValidationError('entry', 'must be an object', 'Each entry must be a valid object');
+          throw createValidationError(
+            'entry',
+            'must be an object',
+            'Each entry must be a valid object'
+          );
         }
 
         const entryObj = entry as unknown as KnowledgeAddParams;
@@ -439,7 +440,11 @@ export const knowledgeHandlers = {
         const content = isString(entryObj.content)
           ? entryObj.content
           : (() => {
-              throw createValidationError('content', 'is required', 'Provide the knowledge content');
+              throw createValidationError(
+                'content',
+                'is required',
+                'Provide the knowledge content'
+              );
             })();
         const source = entryObj.source;
         const confidence = entryObj.confidence;
@@ -514,7 +519,11 @@ export const knowledgeHandlers = {
       return updates.map((update: Record<string, unknown>) => {
         // Validate update structure
         if (!isObject(update)) {
-          throw createValidationError('update', 'must be an object', 'Each update must be a valid object');
+          throw createValidationError(
+            'update',
+            'must be an object',
+            'Each update must be a valid object'
+          );
         }
 
         const updateObj = update as unknown as { id: string } & KnowledgeUpdateParams;

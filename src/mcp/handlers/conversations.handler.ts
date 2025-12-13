@@ -91,9 +91,9 @@ export const conversationHandlers = {
                 'Context entries must have type and id properties'
               );
             }
-            const entryObj = entry as Record<string, unknown>;
+            const entryObj = entry;
             const type = isEntryType(entryObj.type)
-              ? (entryObj.type as PermissionEntryType)
+              ? entryObj.type
               : (() => {
                   throw createValidationError(
                     'contextEntries[].type',

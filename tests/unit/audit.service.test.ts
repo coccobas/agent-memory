@@ -7,7 +7,11 @@ import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { setupTestDb, cleanupTestDb } from '../fixtures/test-helpers.js';
 import * as schema from '../../src/db/schema.js';
-import { logAction, withAuditLogging, type AuditLogParams } from '../../src/services/audit.service.js';
+import {
+  logAction,
+  withAuditLogging,
+  type AuditLogParams,
+} from '../../src/services/audit.service.js';
 
 const TEST_DB_PATH = './data/test-audit.db';
 let sqlite: ReturnType<typeof setupTestDb>['sqlite'];

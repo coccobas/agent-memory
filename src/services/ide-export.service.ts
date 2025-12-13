@@ -189,7 +189,7 @@ export function prepareGuidelinesForExport(options: IDEExportOptions): Guideline
     guidelines = guidelines.filter((guideline) => {
       const tags = entryTagRepo.getTagsForEntry('guideline', guideline.id);
       const tagNames = tags.map((t) => t.name.toLowerCase());
-      return options.tags!.some((tag) => tagNames.includes(tag.toLowerCase()));
+      return options.tags?.some((tag) => tagNames.includes(tag.toLowerCase())) ?? false;
     });
   }
 
@@ -443,7 +443,7 @@ export function exportToSublime(
   if (existsSync(filePath)) {
     try {
       const existing = readFileSync(filePath, 'utf-8');
-      projectData = JSON.parse(existing);
+      projectData = JSON.parse(existing) as Record<string, unknown>;
     } catch {
       // Invalid JSON, use default
     }
@@ -713,7 +713,3 @@ export function exportGuidelinesToIDE(options: IDEExportOptions): IDEExportResul
 
   return exportForIDE(ide, guidelines, options);
 }
-
-
-
-

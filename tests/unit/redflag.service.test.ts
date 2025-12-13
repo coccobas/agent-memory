@@ -3,7 +3,14 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
-import { setupTestDb, cleanupTestDb, createTestTool, createTestGuideline, createTestKnowledge, createTestGuideline as createRedFlagGuideline } from '../fixtures/test-helpers.js';
+import {
+  setupTestDb,
+  cleanupTestDb,
+  createTestTool,
+  createTestGuideline,
+  createTestKnowledge,
+  createTestGuideline as createRedFlagGuideline,
+} from '../fixtures/test-helpers.js';
 import { detectRedFlags, scoreRedFlagRisk } from '../../src/services/redflag.service.js';
 
 const TEST_DB_PATH = './data/test-redflag.db';
@@ -64,7 +71,7 @@ describe('redflag.service', () => {
       // Should detect malformed JSON pattern
       const hasJsonFlag = flags.some((f) => f.pattern === 'malformed_json');
       expect(hasJsonFlag).toBe(true);
-      
+
       if (hasJsonFlag) {
         const jsonFlag = flags.find((f) => f.pattern === 'malformed_json');
         expect(jsonFlag?.severity).toBe('high');
@@ -73,7 +80,7 @@ describe('redflag.service', () => {
 
     it('should detect overly long content', () => {
       const longContent = 'a'.repeat(10001); // > 10k characters
-      
+
       const flags = detectRedFlags({
         type: 'tool',
         content: longContent,
@@ -81,7 +88,7 @@ describe('redflag.service', () => {
 
       const hasLongFlag = flags.some((f) => f.pattern === 'overly_long_content');
       expect(hasLongFlag).toBe(true);
-      
+
       if (hasLongFlag) {
         const longFlag = flags.find((f) => f.pattern === 'overly_long_content');
         expect(longFlag?.severity).toBe('medium');
@@ -92,7 +99,7 @@ describe('redflag.service', () => {
       // Create content with very long lines
       const longLine = 'a'.repeat(300);
       const content = Array(15).fill(longLine).join('\n');
-      
+
       const flags = detectRedFlags({
         type: 'tool',
         content,
@@ -100,7 +107,7 @@ describe('redflag.service', () => {
 
       const hasFormatFlag = flags.some((f) => f.pattern === 'inconsistent_formatting');
       expect(hasFormatFlag).toBe(true);
-      
+
       if (hasFormatFlag) {
         const formatFlag = flags.find((f) => f.pattern === 'inconsistent_formatting');
         expect(formatFlag?.severity).toBe('low');
@@ -150,7 +157,7 @@ describe('redflag.service', () => {
 
     it('should detect multiple red flags', () => {
       const content = 'a'.repeat(10001) + ' { invalid json }';
-      
+
       const flags = detectRedFlags({
         type: 'tool',
         content,
@@ -171,10 +178,16 @@ describe('redflag.service', () => {
 
   describe('scoreRedFlagRisk', () => {
     it('should calculate risk score for tool', () => {
-      const { tool } = createTestTool(db, 'risk-test-tool', 'global', undefined, 'Normal description');
+      const { tool } = createTestTool(
+        db,
+        'risk-test-tool',
+        'global',
+        undefined,
+        'Normal description'
+      );
 
       const score = scoreRedFlagRisk(tool.id, 'tool');
-      
+
       expect(typeof score).toBe('number');
       expect(score).toBeGreaterThanOrEqual(0);
       expect(score).toBeLessThanOrEqual(1);
@@ -192,7 +205,7 @@ describe('redflag.service', () => {
       );
 
       const score = scoreRedFlagRisk(guideline.guideline.id, 'guideline');
-      
+
       expect(typeof score).toBe('number');
       expect(score).toBeGreaterThanOrEqual(0);
       expect(score).toBeLessThanOrEqual(1);
@@ -202,7 +215,7 @@ describe('redflag.service', () => {
       const { knowledge } = createTestKnowledge(db, 'Risk Test Knowledge', 'Normal content');
 
       const score = scoreRedFlagRisk(knowledge.id, 'knowledge');
-      
+
       expect(typeof score).toBe('number');
       expect(score).toBeGreaterThanOrEqual(0);
       expect(score).toBeLessThanOrEqual(1);
@@ -210,7 +223,7 @@ describe('redflag.service', () => {
 
     it('should return 0 for non-existent entry', () => {
       const score = scoreRedFlagRisk('nonexistent-id', 'tool');
-      
+
       expect(score).toBe(0);
     });
 
@@ -225,16 +238,22 @@ describe('redflag.service', () => {
       );
 
       const score = scoreRedFlagRisk(tool.id, 'tool');
-      
+
       expect(score).toBeLessThanOrEqual(1.0);
     });
 
     it('should weight high severity flags more', () => {
       // Create tool with high-severity flag (malformed JSON)
-      const { tool } = createTestTool(db, 'high-severity-tool', 'global', undefined, '{ invalid json }');
+      const { tool } = createTestTool(
+        db,
+        'high-severity-tool',
+        'global',
+        undefined,
+        '{ invalid json }'
+      );
 
       const score = scoreRedFlagRisk(tool.id, 'tool');
-      
+
       // High severity flags contribute 0.4 each
       expect(score).toBeGreaterThanOrEqual(0);
     });

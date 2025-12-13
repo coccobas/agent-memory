@@ -158,11 +158,9 @@ export function isArrayOfStrings(value: unknown): value is string[] {
 /**
  * Type guard to check if a value is a guideline/knowledge examples object
  */
-export function isExamplesObject(
-  value: unknown
-): value is { bad?: string[]; good?: string[] } {
+export function isExamplesObject(value: unknown): value is { bad?: string[]; good?: string[] } {
   if (!isObject(value)) return false;
-  const obj = value as Record<string, unknown>;
+  const obj = value;
   if (obj.bad !== undefined && !isArrayOfStrings(obj.bad)) return false;
   if (obj.good !== undefined && !isArrayOfStrings(obj.good)) return false;
   return true;
@@ -191,12 +189,23 @@ export function isTagCategory(
  */
 export function isRelationType(
   value: unknown
-): value is 'applies_to' | 'depends_on' | 'conflicts_with' | 'related_to' | 'parent_task' | 'subtask_of' {
+): value is
+  | 'applies_to'
+  | 'depends_on'
+  | 'conflicts_with'
+  | 'related_to'
+  | 'parent_task'
+  | 'subtask_of' {
   return (
     isString(value) &&
-    ['applies_to', 'depends_on', 'conflicts_with', 'related_to', 'parent_task', 'subtask_of'].includes(
-      value
-    )
+    [
+      'applies_to',
+      'depends_on',
+      'conflicts_with',
+      'related_to',
+      'parent_task',
+      'subtask_of',
+    ].includes(value)
   );
 }
 
@@ -224,9 +233,7 @@ export function isConversationRole(value: unknown): value is 'user' | 'agent' | 
 /**
  * Type guard to check if a value is a valid conversation status
  */
-export function isConversationStatus(
-  value: unknown
-): value is 'active' | 'completed' | 'archived' {
+export function isConversationStatus(value: unknown): value is 'active' | 'completed' | 'archived' {
   return isString(value) && ['active', 'completed', 'archived'].includes(value);
 }
 
@@ -255,7 +262,3 @@ export function getRequiredParam<T>(
   }
   return value;
 }
-
-
-
-

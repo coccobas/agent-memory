@@ -199,7 +199,10 @@ class VectorService {
 
       // Check if results is an array - handle gracefully if not
       if (!Array.isArray(results)) {
-        logger.warn({ resultsType: typeof results }, 'Vector search returned non-array result, treating as empty');
+        logger.warn(
+          { resultsType: typeof results },
+          'Vector search returned non-array result, treating as empty'
+        );
         return [];
       }
 
@@ -236,7 +239,10 @@ class VectorService {
 
       if (isExpectedError) {
         // Expected error (table not initialized/empty) - return empty results
-        logger.debug({ error: errorMessage }, 'Search returned empty (table not initialized or empty)');
+        logger.debug(
+          { error: errorMessage },
+          'Search returned empty (table not initialized or empty)'
+        );
         return [];
       }
 

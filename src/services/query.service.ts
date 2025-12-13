@@ -1264,7 +1264,8 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
                 textMatched = textMatched || matchFunc(v?.description ?? null, search);
               }
             } else {
-              textMatched = matchFunc(entry.name, search) || matchFunc(v?.description ?? null, search);
+              textMatched =
+                matchFunc(entry.name, search) || matchFunc(v?.description ?? null, search);
             }
           } else if (type === 'guidelines' && isGuideline(entry)) {
             const v = versionMap.get(id) as GuidelineVersion | undefined;
@@ -1354,7 +1355,9 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
           score,
           tool: entry,
           version: currentVersion as ToolVersion | undefined,
-          versions: includeVersions ? (historyMap.get(id) as ToolVersion[] | undefined) ?? [] : undefined,
+          versions: includeVersions
+            ? ((historyMap.get(id) as ToolVersion[] | undefined) ?? [])
+            : undefined,
         };
         results.push(item);
       } else if (type === 'guidelines' && isGuideline(entry)) {
@@ -1367,7 +1370,9 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
           score,
           guideline: entry,
           version: currentVersion as GuidelineVersion | undefined,
-          versions: includeVersions ? (historyMap.get(id) as GuidelineVersion[] | undefined) ?? [] : undefined,
+          versions: includeVersions
+            ? ((historyMap.get(id) as GuidelineVersion[] | undefined) ?? [])
+            : undefined,
         };
         results.push(item);
       } else if (type === 'knowledge' && isKnowledge(entry)) {
@@ -1380,7 +1385,9 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
           score,
           knowledge: entry,
           version: currentVersion as KnowledgeVersion | undefined,
-          versions: includeVersions ? (historyMap.get(id) as KnowledgeVersion[] | undefined) ?? [] : undefined,
+          versions: includeVersions
+            ? ((historyMap.get(id) as KnowledgeVersion[] | undefined) ?? [])
+            : undefined,
         };
         results.push(item);
       }

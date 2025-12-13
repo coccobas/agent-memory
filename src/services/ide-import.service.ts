@@ -86,7 +86,10 @@ function parseMDCFile(filePath: string): ParsedRule | null {
       // Parse JSON values
       if (value.startsWith('[') || value.startsWith('{')) {
         try {
-          value = JSON.parse(value);
+          const parsed = JSON.parse(value) as string | boolean | string[];
+          if (typeof parsed === 'string' || typeof parsed === 'boolean' || Array.isArray(parsed)) {
+            value = parsed;
+          }
         } catch {
           // Keep as string
         }
@@ -585,7 +588,3 @@ export function importFromFiles(files: string[], options: IDEImportOptions): IDE
 
   return result;
 }
-
-
-
-

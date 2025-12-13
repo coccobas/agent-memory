@@ -33,7 +33,7 @@ export const queryHandlers = {
       v: unknown
     ): v is { type: 'global' | 'org' | 'project' | 'session'; id?: string; inherit?: boolean } {
       if (!isObject(v)) return false;
-      const obj = v as Record<string, unknown>;
+      const obj = v;
       return (
         isScopeType(obj.type) &&
         (obj.id === undefined || isString(obj.id)) &&

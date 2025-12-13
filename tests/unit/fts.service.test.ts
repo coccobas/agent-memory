@@ -3,8 +3,19 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
-import { setupTestDb, cleanupTestDb, createTestTool, createTestGuideline, createTestKnowledge } from '../fixtures/test-helpers.js';
-import { searchFTS, rebuildFTSIndex, isFTSAvailable, syncFTSForEntry } from '../../src/services/fts.service.js';
+import {
+  setupTestDb,
+  cleanupTestDb,
+  createTestTool,
+  createTestGuideline,
+  createTestKnowledge,
+} from '../fixtures/test-helpers.js';
+import {
+  searchFTS,
+  rebuildFTSIndex,
+  isFTSAvailable,
+  syncFTSForEntry,
+} from '../../src/services/fts.service.js';
 
 const TEST_DB_PATH = './data/test-fts.db';
 let sqlite: ReturnType<typeof setupTestDb>['sqlite'];
@@ -46,7 +57,7 @@ describe('fts.service', () => {
       createTestTool(db, 'search-test-tool', 'global', undefined, 'A tool for testing search');
 
       const results = searchFTS('search test', ['tool']);
-      
+
       // May return results if FTS is set up, or empty array if not
       expect(Array.isArray(results)).toBe(true);
       results.forEach((result) => {
@@ -69,7 +80,7 @@ describe('fts.service', () => {
       );
 
       const results = searchFTS('search test', ['guideline']);
-      
+
       expect(Array.isArray(results)).toBe(true);
       results.forEach((result) => {
         expect(result.entryType).toBe('guideline');
@@ -80,7 +91,7 @@ describe('fts.service', () => {
       createTestKnowledge(db, 'Search Test Knowledge', 'This is knowledge for testing search');
 
       const results = searchFTS('search test', ['knowledge']);
-      
+
       expect(Array.isArray(results)).toBe(true);
       results.forEach((result) => {
         expect(result.entryType).toBe('knowledge');
@@ -100,7 +111,7 @@ describe('fts.service', () => {
       );
 
       const results = searchFTS('multi search', ['tool', 'guideline']);
-      
+
       expect(Array.isArray(results)).toBe(true);
       // Should potentially return results from both types
       const types = results.map((r) => r.entryType);
@@ -114,15 +125,21 @@ describe('fts.service', () => {
       }
 
       const results = searchFTS('limit test', ['tool'], { limit: 2 });
-      
+
       expect(results.length).toBeLessThanOrEqual(2);
     });
 
     it('should generate snippets when highlight option is enabled', () => {
-      createTestTool(db, 'highlight-test-tool', 'global', undefined, 'This is a description with test keyword');
+      createTestTool(
+        db,
+        'highlight-test-tool',
+        'global',
+        undefined,
+        'This is a description with test keyword'
+      );
 
       const results = searchFTS('test', ['tool'], { highlight: true });
-      
+
       expect(Array.isArray(results)).toBe(true);
       // If snippets are generated, they should be strings
       results.forEach((result) => {
@@ -136,19 +153,19 @@ describe('fts.service', () => {
       createTestTool(db, 'prefix-matching-tool', 'global');
 
       const results = searchFTS('prefix', ['tool'], { prefix: true });
-      
+
       expect(Array.isArray(results)).toBe(true);
     });
 
     it('should return empty array for no matches', () => {
       const results = searchFTS('nonexistent-query-xyz-123', ['tool', 'guideline', 'knowledge']);
-      
+
       expect(results).toEqual([]);
     });
 
     it('should handle empty query gracefully', () => {
       const results = searchFTS('', ['tool']);
-      
+
       expect(Array.isArray(results)).toBe(true);
     });
 
@@ -157,7 +174,7 @@ describe('fts.service', () => {
       createTestTool(db, 'rank-test-2', 'global');
 
       const results = searchFTS('rank test', ['tool']);
-      
+
       if (results.length > 1) {
         // Higher rank should come first
         expect(results[0]?.rank).toBeGreaterThanOrEqual(results[1]?.rank || 0);
@@ -168,7 +185,7 @@ describe('fts.service', () => {
   describe('rebuildFTSIndex', () => {
     it('should rebuild index for specific entry type', () => {
       createTestTool(db, 'rebuild-test-tool', 'global');
-      
+
       // Should not throw
       expect(() => {
         rebuildFTSIndex('tool');
@@ -178,7 +195,7 @@ describe('fts.service', () => {
     it('should rebuild index for all types when no type specified', () => {
       createTestTool(db, 'rebuild-all-tool', 'global');
       createTestGuideline(db, 'rebuild-all-guideline', 'global', undefined, 'testing', 80, 'Test');
-      
+
       // Should not throw
       expect(() => {
         rebuildFTSIndex();
@@ -196,7 +213,7 @@ describe('fts.service', () => {
   describe('syncFTSForEntry', () => {
     it('should sync FTS for specific entry', () => {
       const { tool } = createTestTool(db, 'sync-test-tool', 'global');
-      
+
       // Should not throw (triggers handle this automatically)
       expect(() => {
         syncFTSForEntry('tool', tool.id);
@@ -213,13 +230,13 @@ describe('fts.service', () => {
         80,
         'Test'
       );
-      
+
       expect(() => {
         syncFTSForEntry('guideline', guideline.guideline.id);
       }).not.toThrow();
 
       const { knowledge } = createTestKnowledge(db, 'Sync Test Knowledge');
-      
+
       expect(() => {
         syncFTSForEntry('knowledge', knowledge.id);
       }).not.toThrow();

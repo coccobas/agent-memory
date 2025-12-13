@@ -90,7 +90,11 @@ describe('File Sync Service', () => {
 
     it('should filter out comments and empty lines', () => {
       const ignoreFile = join(TEST_PROJECT_ROOT, '.rulesignore');
-      writeFileSync(ignoreFile, '# This is a comment\n\npattern1.md\n# Another comment\npattern2.md\n', 'utf-8');
+      writeFileSync(
+        ignoreFile,
+        '# This is a comment\n\npattern1.md\n# Another comment\npattern2.md\n',
+        'utf-8'
+      );
 
       const patterns = loadIgnorePatterns(TEST_PROJECT_ROOT);
 
@@ -497,7 +501,13 @@ Content here.`;
       writeFileSync(sourceFile, '# Test Rule v2', 'utf-8');
       const destPath = getDestinationPath(sourceFile, TEST_SOURCE_DIR, 'cursor', TEST_OUTPUT_DIR);
 
-      const result = await syncForIDE('cursor', TEST_SOURCE_DIR, TEST_OUTPUT_DIR, { backup: true }, []);
+      const result = await syncForIDE(
+        'cursor',
+        TEST_SOURCE_DIR,
+        TEST_OUTPUT_DIR,
+        { backup: true },
+        []
+      );
 
       expect(result.stats.updated).toBe(1);
 
@@ -520,7 +530,13 @@ Content here.`;
       const sourceFile = join(TEST_SOURCE_DIR, 'test-rule.md');
       writeFileSync(sourceFile, '# Test Rule', 'utf-8');
 
-      const result = await syncForIDE('cursor', TEST_SOURCE_DIR, TEST_OUTPUT_DIR, { verify: true }, []);
+      const result = await syncForIDE(
+        'cursor',
+        TEST_SOURCE_DIR,
+        TEST_OUTPUT_DIR,
+        { verify: true },
+        []
+      );
 
       expect(result.stats.added).toBe(1);
       expect(result.operations[0].message).toContain('Would add');
@@ -541,13 +557,35 @@ Content here.`;
 
       const selectedFiles = new Set(['file1.md', 'file2.md']);
 
-      const result = await syncForIDE('cursor', TEST_SOURCE_DIR, TEST_OUTPUT_DIR, {}, [], selectedFiles);
+      const result = await syncForIDE(
+        'cursor',
+        TEST_SOURCE_DIR,
+        TEST_OUTPUT_DIR,
+        {},
+        [],
+        selectedFiles
+      );
 
       expect(result.stats.added).toBe(2);
 
-      const dest1 = getDestinationPath(join(TEST_SOURCE_DIR, 'file1.md'), TEST_SOURCE_DIR, 'cursor', TEST_OUTPUT_DIR);
-      const dest2 = getDestinationPath(join(TEST_SOURCE_DIR, 'file2.md'), TEST_SOURCE_DIR, 'cursor', TEST_OUTPUT_DIR);
-      const dest3 = getDestinationPath(join(TEST_SOURCE_DIR, 'file3.md'), TEST_SOURCE_DIR, 'cursor', TEST_OUTPUT_DIR);
+      const dest1 = getDestinationPath(
+        join(TEST_SOURCE_DIR, 'file1.md'),
+        TEST_SOURCE_DIR,
+        'cursor',
+        TEST_OUTPUT_DIR
+      );
+      const dest2 = getDestinationPath(
+        join(TEST_SOURCE_DIR, 'file2.md'),
+        TEST_SOURCE_DIR,
+        'cursor',
+        TEST_OUTPUT_DIR
+      );
+      const dest3 = getDestinationPath(
+        join(TEST_SOURCE_DIR, 'file3.md'),
+        TEST_SOURCE_DIR,
+        'cursor',
+        TEST_OUTPUT_DIR
+      );
 
       expect(existsSync(dest1)).toBe(true);
       expect(existsSync(dest2)).toBe(true);
@@ -588,12 +626,28 @@ Content here.`;
 
       const ignorePatterns = ['ignore.md'];
 
-      const result = await syncForIDE('cursor', TEST_SOURCE_DIR, TEST_OUTPUT_DIR, {}, ignorePatterns);
+      const result = await syncForIDE(
+        'cursor',
+        TEST_SOURCE_DIR,
+        TEST_OUTPUT_DIR,
+        {},
+        ignorePatterns
+      );
 
       expect(result.stats.added).toBe(1);
 
-      const destKeep = getDestinationPath(join(TEST_SOURCE_DIR, 'keep.md'), TEST_SOURCE_DIR, 'cursor', TEST_OUTPUT_DIR);
-      const destIgnore = getDestinationPath(join(TEST_SOURCE_DIR, 'ignore.md'), TEST_SOURCE_DIR, 'cursor', TEST_OUTPUT_DIR);
+      const destKeep = getDestinationPath(
+        join(TEST_SOURCE_DIR, 'keep.md'),
+        TEST_SOURCE_DIR,
+        'cursor',
+        TEST_OUTPUT_DIR
+      );
+      const destIgnore = getDestinationPath(
+        join(TEST_SOURCE_DIR, 'ignore.md'),
+        TEST_SOURCE_DIR,
+        'cursor',
+        TEST_OUTPUT_DIR
+      );
 
       expect(existsSync(destKeep)).toBe(true);
       expect(existsSync(destIgnore)).toBe(false);
@@ -618,7 +672,14 @@ Content here.`;
 
       // Selective sync - should not delete the first file
       const selectedFiles = new Set(['test-rule2.md']);
-      const result = await syncForIDE('cursor', TEST_SOURCE_DIR, TEST_OUTPUT_DIR, {}, [], selectedFiles);
+      const result = await syncForIDE(
+        'cursor',
+        TEST_SOURCE_DIR,
+        TEST_OUTPUT_DIR,
+        {},
+        [],
+        selectedFiles
+      );
 
       expect(result.stats.added).toBe(1);
       expect(result.stats.deleted).toBe(0);
@@ -687,7 +748,13 @@ Content here.`;
   describe('getDestinationPath with userLevel', () => {
     it('should return user-level path when userLevel is true', () => {
       const sourcePath = join(TEST_SOURCE_DIR, 'test.md');
-      const result = getDestinationPath(sourcePath, TEST_SOURCE_DIR, 'cursor', TEST_OUTPUT_DIR, true);
+      const result = getDestinationPath(
+        sourcePath,
+        TEST_SOURCE_DIR,
+        'cursor',
+        TEST_OUTPUT_DIR,
+        true
+      );
 
       expect(result).toContain(getUserHomeDir());
       expect(result).toContain('.cursor/rules');
@@ -713,7 +780,13 @@ Content here.`;
 
     it('should return project-level path when userLevel is false', () => {
       const sourcePath = join(TEST_SOURCE_DIR, 'test.md');
-      const result = getDestinationPath(sourcePath, TEST_SOURCE_DIR, 'cursor', TEST_OUTPUT_DIR, false);
+      const result = getDestinationPath(
+        sourcePath,
+        TEST_SOURCE_DIR,
+        'cursor',
+        TEST_OUTPUT_DIR,
+        false
+      );
 
       // Resolve both for comparison (paths might be relative)
       const resolvedResult = resolve(result);
@@ -730,12 +803,24 @@ Content here.`;
       const sourceFile = join(TEST_SOURCE_DIR, 'test-rule.md');
       writeFileSync(sourceFile, '# Test Rule\n\nContent', 'utf-8');
 
-      const result = await syncForIDE('cursor', TEST_SOURCE_DIR, TEST_OUTPUT_DIR, { userLevel: true }, []);
+      const result = await syncForIDE(
+        'cursor',
+        TEST_SOURCE_DIR,
+        TEST_OUTPUT_DIR,
+        { userLevel: true },
+        []
+      );
 
       expect(result.stats.added).toBe(1);
       expect(result.stats.errors).toBe(0);
 
-      const destPath = getDestinationPath(sourceFile, TEST_SOURCE_DIR, 'cursor', TEST_OUTPUT_DIR, true);
+      const destPath = getDestinationPath(
+        sourceFile,
+        TEST_SOURCE_DIR,
+        'cursor',
+        TEST_OUTPUT_DIR,
+        true
+      );
       expect(existsSync(destPath)).toBe(true);
       expect(destPath).toContain(getUserHomeDir());
       expect(destPath).toContain('.cursor/rules');
@@ -830,7 +915,8 @@ This is the actual content.
 
   describe('syncToCursorInternalDatabase', () => {
     it('should handle non-existent directory gracefully', async () => {
-      const { syncToCursorInternalDatabase } = await import('../../src/services/file-sync.service.js');
+      const { syncToCursorInternalDatabase } =
+        await import('../../src/services/file-sync.service.js');
 
       // Use a non-existent directory - should return error about not being able to read directory
       const result = await syncToCursorInternalDatabase('/nonexistent/dir');
@@ -840,7 +926,8 @@ This is the actual content.
     });
 
     it('should handle directory with no .mdc files', async () => {
-      const { syncToCursorInternalDatabase } = await import('../../src/services/file-sync.service.js');
+      const { syncToCursorInternalDatabase } =
+        await import('../../src/services/file-sync.service.js');
       const emptyDir = join(TEST_OUTPUT_DIR, 'empty-rules');
       mkdirSync(emptyDir, { recursive: true });
 
@@ -854,7 +941,3 @@ This is the actual content.
     });
   });
 });
-
-
-
-

@@ -31,10 +31,7 @@ import {
 
 const logger = createComponentLogger('tools');
 
-import type {
-  ToolAddParams,
-  ToolUpdateParams,
-} from '../types.js';
+import type { ToolAddParams, ToolUpdateParams } from '../types.js';
 
 export const toolHandlers = {
   add(params: Record<string, unknown>) {
@@ -359,12 +356,19 @@ export const toolHandlers = {
         if (!isObject(entry)) continue;
         const entryObj = entry as unknown as ToolAddParams;
         if (
-          !checkPermission(agentId, 'write', 'tool', null, entryObj.scopeType, entryObj.scopeId ?? null)
+          !checkPermission(
+            agentId,
+            'write',
+            'tool',
+            null,
+            entryObj.scopeType,
+            entryObj.scopeId ?? null
+          )
         ) {
           throw createPermissionError(
             'write',
             'tool',
-            `scope ${entry.scopeType}:${entry.scopeId ?? ''}`
+            `scope ${String(entry.scopeType)}:${String(entry.scopeId ?? '')}`
           );
         }
       }
@@ -375,7 +379,11 @@ export const toolHandlers = {
       return entries.map((entry) => {
         // Validate entry structure
         if (!isObject(entry)) {
-          throw createValidationError('entry', 'must be an object', 'Each entry must be a valid object');
+          throw createValidationError(
+            'entry',
+            'must be an object',
+            'Each entry must be a valid object'
+          );
         }
 
         const entryObj = entry as unknown as ToolAddParams;
@@ -392,7 +400,11 @@ export const toolHandlers = {
         const name = isString(entryObj.name)
           ? entryObj.name
           : (() => {
-              throw createValidationError('name', 'is required', 'Provide a unique name for the tool');
+              throw createValidationError(
+                'name',
+                'is required',
+                'Provide a unique name for the tool'
+              );
             })();
         const category = entryObj.category;
         const description = entryObj.description;
@@ -479,7 +491,11 @@ export const toolHandlers = {
       return updates.map((update) => {
         // Validate update structure
         if (!isObject(update)) {
-          throw createValidationError('update', 'must be an object', 'Each update must be a valid object');
+          throw createValidationError(
+            'update',
+            'must be an object',
+            'Each update must be a valid object'
+          );
         }
 
         const updateObj = update as unknown as { id: string } & ToolUpdateParams;
@@ -494,7 +510,6 @@ export const toolHandlers = {
         const constraints = updateObj.constraints;
         const changeReason = updateObj.changeReason;
         const updatedBy = updateObj.updatedBy;
-
 
         const input: UpdateToolInput = {};
         if (description !== undefined) input.description = description;

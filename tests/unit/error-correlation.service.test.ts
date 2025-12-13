@@ -5,7 +5,10 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { setupTestDb, cleanupTestDb } from '../fixtures/test-helpers.js';
 import { logAction } from '../../src/services/audit.service.js';
-import { calculateErrorCorrelation, detectLowDiversity } from '../../src/services/error-correlation.service.js';
+import {
+  calculateErrorCorrelation,
+  detectLowDiversity,
+} from '../../src/services/error-correlation.service.js';
 
 const TEST_DB_PATH = './data/test-error-correlation.db';
 let sqlite: ReturnType<typeof setupTestDb>['sqlite'];
@@ -138,7 +141,7 @@ describe('error-correlation.service', () => {
 
       expect(result.recommendations).toBeDefined();
       expect(Array.isArray(result.recommendations)).toBe(true);
-      
+
       result.recommendations.forEach((rec) => {
         expect(typeof rec).toBe('string');
       });

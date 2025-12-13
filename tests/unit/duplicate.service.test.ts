@@ -3,7 +3,14 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
-import { setupTestDb, cleanupTestDb, createTestTool, createTestGuideline, createTestKnowledge, schema } from '../fixtures/test-helpers.js';
+import {
+  setupTestDb,
+  cleanupTestDb,
+  createTestTool,
+  createTestGuideline,
+  createTestKnowledge,
+  schema,
+} from '../fixtures/test-helpers.js';
 import { findSimilarEntries, checkForDuplicates } from '../../src/services/duplicate.service.js';
 import { eq } from 'drizzle-orm';
 
@@ -100,7 +107,7 @@ describe('duplicate.service', () => {
       const project = db.select().from(schema.projects).limit(1).get();
       if (project) {
         createTestTool(db, 'scoped-tool', 'project', project.id);
-        
+
         // Should find in project scope
         const similar = findSimilarEntries('tool', 'scoped tool', 'project', project.id, 0.7);
         expect(similar.length).toBeGreaterThan(0);
@@ -117,7 +124,7 @@ describe('duplicate.service', () => {
       createTestTool(db, 'test-tool-two', 'global');
 
       const similar = findSimilarEntries('tool', 'test tool one', 'global', null, 0.5);
-      
+
       if (similar.length > 1) {
         // First should have higher similarity than second
         expect(similar[0]?.similarity).toBeGreaterThanOrEqual(similar[1]?.similarity || 0);
@@ -130,12 +137,12 @@ describe('duplicate.service', () => {
       const tool = createTestTool(db, 'existing-tool', 'global');
 
       const result = checkForDuplicates('tool', 'existing-tool', 'global', null);
-      
+
       // Should detect duplicate if similarity >= 0.9
       // Note: FTS5 might not be available in test environment, so we check if entries exist
       // If FTS5 finds the entry, it should have similarity >= 0.9 (exact match = 1.0)
       if (result.similarEntries.length > 0) {
-        expect(result.similarEntries.some(e => e.similarity >= 0.9)).toBe(true);
+        expect(result.similarEntries.some((e) => e.similarity >= 0.9)).toBe(true);
         expect(result.isDuplicate).toBe(true);
       } else {
         // If FTS5 is not available, at least verify the function doesn't crash
@@ -148,7 +155,7 @@ describe('duplicate.service', () => {
       createTestTool(db, 'different-tool', 'global');
 
       const result = checkForDuplicates('tool', 'completely-different-name', 'global', null);
-      
+
       // May have similar entries but not duplicates
       expect(result.isDuplicate).toBe(false);
     });
@@ -157,7 +164,7 @@ describe('duplicate.service', () => {
       createTestTool(db, 'similar-tool', 'global');
 
       const result = checkForDuplicates('tool', 'similar tool name', 'global', null);
-      
+
       expect(result.similarEntries).toBeDefined();
       expect(Array.isArray(result.similarEntries)).toBe(true);
     });

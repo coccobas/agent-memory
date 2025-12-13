@@ -358,7 +358,7 @@ export const guidelineHandlers = {
           )
         ) {
           throw new Error(
-            `Permission denied: write access required for scope ${entry.scopeType}:${entry.scopeId ?? ''}`
+            `Permission denied: write access required for scope ${String(entry.scopeType)}:${String(entry.scopeId ?? '')}`
           );
         }
       }
@@ -369,7 +369,11 @@ export const guidelineHandlers = {
       return entries.map((entry) => {
         // Validate entry structure
         if (!isObject(entry)) {
-          throw createValidationError('entry', 'must be an object', 'Each entry must be a valid object');
+          throw createValidationError(
+            'entry',
+            'must be an object',
+            'Each entry must be a valid object'
+          );
         }
 
         const entryObj = entry as unknown as GuidelineAddParams;
@@ -459,7 +463,11 @@ export const guidelineHandlers = {
       return updates.map((update) => {
         // Validate update structure
         if (!isObject(update)) {
-          throw createValidationError('update', 'must be an object', 'Each update must be a valid object');
+          throw createValidationError(
+            'update',
+            'must be an object',
+            'Each update must be a valid object'
+          );
         }
 
         const updateObj = update as unknown as { id: string } & GuidelineUpdateParams;
@@ -481,8 +489,7 @@ export const guidelineHandlers = {
         if (priority !== undefined) input.priority = priority;
         if (content !== undefined) input.content = content;
         if (rationale !== undefined) input.rationale = rationale;
-        if (examples !== undefined)
-          input.examples = examples;
+        if (examples !== undefined) input.examples = examples;
         if (changeReason !== undefined) input.changeReason = changeReason;
         if (updatedBy !== undefined) input.updatedBy = updatedBy;
 

@@ -93,7 +93,10 @@ export function detectIDE(workspacePath: string): IDEDetectionResult {
   const packageJsonPath = join(resolvedPath, 'package.json');
   if (existsSync(packageJsonPath)) {
     try {
-      const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
+      const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8')) as {
+        keywords?: string[];
+        devDependencies?: Record<string, string>;
+      };
       const ideHints: Record<string, string> = {
         cursor: 'cursor',
         vscode: 'vscode',
@@ -109,26 +112,30 @@ export function detectIDE(workspacePath: string): IDEDetectionResult {
       };
 
       // Check keywords
-      if (packageJson.keywords) {
+      if (packageJson.keywords && Array.isArray(packageJson.keywords)) {
         for (const keyword of packageJson.keywords) {
-          const lowerKeyword = keyword.toLowerCase();
-          if (ideHints[lowerKeyword]) {
-            results.push({
-              ide: ideHints[lowerKeyword],
-              confidence: 0.5,
-              paths: [`package.json keyword: ${keyword}`],
-            });
+          if (typeof keyword === 'string') {
+            const lowerKeyword = keyword.toLowerCase();
+            const matchedIde = ideHints[lowerKeyword];
+            if (matchedIde) {
+              results.push({
+                ide: matchedIde,
+                confidence: 0.5,
+                paths: [`package.json keyword: ${keyword}`],
+              });
+            }
           }
         }
       }
 
       // Check devDependencies for IDE-specific packages
-      if (packageJson.devDependencies) {
+      if (packageJson.devDependencies && typeof packageJson.devDependencies === 'object') {
         for (const dep of Object.keys(packageJson.devDependencies)) {
           const lowerDep = dep.toLowerCase();
-          if (ideHints[lowerDep]) {
+          const matchedIde = ideHints[lowerDep];
+          if (matchedIde) {
             results.push({
-              ide: ideHints[lowerDep],
+              ide: matchedIde,
               confidence: 0.6,
               paths: [`package.json devDependency: ${dep}`],
             });
@@ -248,9 +255,3 @@ export function detectIDE(workspacePath: string): IDEDetectionResult {
 export function getSupportedIDEs(): string[] {
   return IDE_SIGNATURES.map((s) => s.ide);
 }
-
-
-
-
-
-

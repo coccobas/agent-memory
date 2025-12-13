@@ -83,7 +83,7 @@ export const permissionHandlers = {
   /**
    * Revoke a permission
    */
-    revoke(params: Record<string, unknown>) {
+  revoke(params: Record<string, unknown>) {
     const permission_id = getOptionalParam(params, 'permission_id', isString);
     const agent_id = getOptionalParam(params, 'agent_id', isString);
     const scope_type = getOptionalParam(params, 'scope_type', isScopeType);

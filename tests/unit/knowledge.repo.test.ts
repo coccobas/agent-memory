@@ -3,7 +3,12 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
-import { setupTestDb, cleanupTestDb, createTestOrg, createTestProject } from '../fixtures/test-helpers.js';
+import {
+  setupTestDb,
+  cleanupTestDb,
+  createTestOrg,
+  createTestProject,
+} from '../fixtures/test-helpers.js';
 import { knowledgeRepo } from '../../src/db/repositories/knowledge.js';
 
 const TEST_DB_PATH = './data/test-knowledge-repo.db';
@@ -120,7 +125,10 @@ describe('knowledgeRepo', () => {
         category: 'decision',
       });
 
-      const entries = knowledgeRepo.list({ scopeType: 'global', category: 'decision' }, { limit: 10 });
+      const entries = knowledgeRepo.list(
+        { scopeType: 'global', category: 'decision' },
+        { limit: 10 }
+      );
 
       entries.forEach((e) => {
         expect(e.category).toBe('decision');

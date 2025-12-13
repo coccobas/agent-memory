@@ -3,7 +3,12 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
-import { setupTestDb, cleanupTestDb, createTestOrg, createTestProject } from '../fixtures/test-helpers.js';
+import {
+  setupTestDb,
+  cleanupTestDb,
+  createTestOrg,
+  createTestProject,
+} from '../fixtures/test-helpers.js';
 import { taskHandlers } from '../../src/mcp/handlers/tasks.handler.js';
 
 const TEST_DB_PATH = './data/test-tasks-handler.db';
@@ -63,7 +68,11 @@ describe('Tasks Handler Integration', () => {
     });
 
     it('should support decomposition strategies', () => {
-      const strategies: Array<'maximal' | 'balanced' | 'minimal'> = ['maximal', 'balanced', 'minimal'];
+      const strategies: Array<'maximal' | 'balanced' | 'minimal'> = [
+        'maximal',
+        'balanced',
+        'minimal',
+      ];
 
       strategies.forEach((strategy) => {
         const result = taskHandlers.add({

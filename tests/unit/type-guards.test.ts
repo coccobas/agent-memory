@@ -375,7 +375,9 @@ describe('Parameter Helpers', () => {
 
     it('should throw with custom error when provided', () => {
       const params = {};
-      expect(() => getRequiredParam(params, 'name', isString, 'Custom error')).toThrow('Custom error');
+      expect(() => getRequiredParam(params, 'name', isString, 'Custom error')).toThrow(
+        'Custom error'
+      );
     });
 
     it('should throw when type is invalid', () => {
@@ -397,12 +399,16 @@ describe('Parameter Helpers', () => {
 
     it('should throw when type is invalid', () => {
       const params = { name: 123 };
-      expect(() => getOptionalParam(params, 'name', isString)).toThrow("Parameter 'name' has invalid type");
+      expect(() => getOptionalParam(params, 'name', isString)).toThrow(
+        "Parameter 'name' has invalid type"
+      );
     });
   });
 
   describe('validateParams', () => {
-    const validator = (params: Record<string, unknown>): params is { name: string; age: number } => {
+    const validator = (
+      params: Record<string, unknown>
+    ): params is { name: string; age: number } => {
       return isString(params.name) && isNumber(params.age);
     };
 

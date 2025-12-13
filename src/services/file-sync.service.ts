@@ -126,12 +126,7 @@ export function shouldIgnore(filePath: string, patterns: string[]): boolean {
   for (const pattern of patterns) {
     // Simple glob pattern matching
     const regex = new RegExp(
-      '^' +
-        pattern
-          .replace(/\./g, '\\.')
-          .replace(/\*/g, '.*')
-          .replace(/\?/g, '.') +
-        '$'
+      '^' + pattern.replace(/\./g, '\\.').replace(/\*/g, '.*').replace(/\?/g, '.') + '$'
     );
 
     if (regex.test(fileName) || regex.test(relativePath)) {
@@ -351,7 +346,8 @@ export async function syncForIDE(
       }
 
       const sourceContent = await readFile(sourceFile, 'utf-8');
-      const destContent = ide === 'cursor' ? convertToMdc(sourceContent, sourceFile) : sourceContent;
+      const destContent =
+        ide === 'cursor' ? convertToMdc(sourceContent, sourceFile) : sourceContent;
 
       const destExists = existsSync(destPath);
 
@@ -424,36 +420,39 @@ export async function syncForIDE(
     }
   }
 
+  // Find all files in destination directory (both .md and .mdc)
+  async function findAllFiles(dir: string, baseDir: string = dir): Promise<string[]> {
+    const files: string[] = [];
+
+    try {
+      const entries = await readdir(dir, { withFileTypes: true });
+
+      for (const entry of entries) {
+        const fullPath = join(dir, entry.name);
+
+        if (entry.isDirectory()) {
+          const subFiles = await findAllFiles(fullPath, baseDir);
+          files.push(...subFiles);
+        } else if (
+          entry.isFile() &&
+          (extname(entry.name) === '.md' || extname(entry.name) === '.mdc')
+        ) {
+          files.push(fullPath);
+        }
+      }
+    } catch {
+      // Ignore errors
+    }
+
+    return files;
+  }
+
   // Full sync: delete orphaned files
   if (!selectedFiles) {
     try {
       if (!existsSync(destDir)) {
         // Destination doesn't exist yet, nothing to delete
         return { stats, operations };
-      }
-
-      // Find all files in destination directory (both .md and .mdc)
-      async function findAllFiles(dir: string, baseDir: string = dir): Promise<string[]> {
-        const files: string[] = [];
-
-        try {
-          const entries = await readdir(dir, { withFileTypes: true });
-
-          for (const entry of entries) {
-            const fullPath = join(dir, entry.name);
-
-            if (entry.isDirectory()) {
-              const subFiles = await findAllFiles(fullPath, baseDir);
-              files.push(...subFiles);
-            } else if (entry.isFile() && (extname(entry.name) === '.md' || extname(entry.name) === '.mdc')) {
-              files.push(fullPath);
-            }
-          }
-        } catch {
-          // Ignore errors
-        }
-
-        return files;
       }
 
       const allDestFiles = await findAllFiles(destDir, destDir);
@@ -518,9 +517,17 @@ export function extractContentFromMdc(content: string): string {
  */
 export function getCursorDatabasePath(): string {
   const homeDir = getUserHomeDir();
-  
+
   if (platform() === 'darwin') {
-    return join(homeDir, 'Library', 'Application Support', 'Cursor', 'User', 'globalStorage', 'state.vscdb');
+    return join(
+      homeDir,
+      'Library',
+      'Application Support',
+      'Cursor',
+      'User',
+      'globalStorage',
+      'state.vscdb'
+    );
   } else if (platform() === 'win32') {
     const appData = process.env.APPDATA || join(homeDir, 'AppData', 'Roaming');
     return join(appData, 'Cursor', 'User', 'globalStorage', 'state.vscdb');
@@ -541,7 +548,7 @@ export async function syncToCursorInternalDatabase(
 ): Promise<{ success: boolean; message: string }> {
   try {
     const dbPath = getCursorDatabasePath();
-    
+
     if (!existsSync(dbPath)) {
       return {
         success: false,
@@ -551,7 +558,7 @@ export async function syncToCursorInternalDatabase(
 
     // Check if Cursor is running (basic check - database might be locked)
     // We'll let the database operations fail if it's locked
-    
+
     // Read all .mdc files from rules directory (not .md - these are already converted)
     const mdcFiles: string[] = [];
     try {
@@ -568,7 +575,7 @@ export async function syncToCursorInternalDatabase(
         message: `Cannot read directory ${rulesDir}: ${error instanceof Error ? error.message : String(error)}`,
       };
     }
-    
+
     if (mdcFiles.length === 0) {
       return {
         success: false,
@@ -609,15 +616,15 @@ export async function syncToCursorInternalDatabase(
 
     // Open database and update
     const db = new Database(dbPath);
-    
+
     try {
       // Update or insert the user rules
       db.prepare(
         `INSERT OR REPLACE INTO ItemTable (key, value) VALUES ('aicontext.personalContext', ?)`
       ).run(combinedRules);
-      
+
       db.close();
-      
+
       return {
         success: true,
         message: `Successfully updated Cursor user rules with ${rulesContents.length} rule(s). Restart Cursor to see changes.`,
@@ -634,9 +641,3 @@ export async function syncToCursorInternalDatabase(
     };
   }
 }
-
-
-
-
-
-
