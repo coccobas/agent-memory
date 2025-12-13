@@ -4,7 +4,7 @@
 
 This document outlines a comprehensive plan to make the Agent Memory MCP server fully compatible across all operating systems (Windows, macOS, Linux) and IDEs (Cursor, VSCode, IntelliJ, Antigravity, Neovim, Emacs, Sublime, and others).
 
-**Project**: Agent Memory v0.7.3
+**Project**: Agent Memory v0.7.4
 **Goal**: Universal IDE and OS compatibility
 **Estimated Impact**: 50+ code locations across 15+ files
 

@@ -1,6 +1,6 @@
 {
   "name": "agent-memory",
-  "version": "0.7.3",
+  "version": "0.7.4",
   "description": "MCP server providing structured memory backend for AI agents",
   "type": "module",
   "main": "dist/index.js",
@@ -28,7 +28,8 @@
     "validate": "npm run lint && npm run format:check && npm run typecheck && npm run test:run",
     "ci:test": "npm run build && npm run lint && npm run format:check && npm run typecheck && npm run test:run",
     "sync-rules": "tsx scripts/sync-rules.ts",
-    "sync-rules:watch": "tsx scripts/watch-rules.ts"
+    "sync-rules:watch": "tsx scripts/watch-rules.ts",
+    "setup-cursor": "tsx scripts/setup-cursor-mcp.ts"
   },
   "dependencies": {
     "@lancedb/lancedb": "^0.14.0",
