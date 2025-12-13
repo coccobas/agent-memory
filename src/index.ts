@@ -17,7 +17,12 @@ const isMainModule =
   process.argv[1]?.includes('agent-memory');
 
 if (isMainModule) {
+  console.error('[MCP] Entry point reached');
+  console.error('[MCP] Script:', process.argv[1]);
+  console.error('[MCP] Args:', process.argv.slice(2));
+
   runServer().catch((error) => {
+    console.error('[MCP] Server startup failed with error:', error);
     logger.error(
       { error: error instanceof Error ? error.message : String(error) },
       'Failed to start server'

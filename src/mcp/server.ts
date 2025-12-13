@@ -1387,6 +1387,8 @@ const bundledHandlers: Record<string, (params: Record<string, unknown>) => unkno
 // =============================================================================
 
 export function createServer(): Server {
+  console.error('[MCP] Creating server...');
+
   const server = new Server(
     {
       name: 'agent-memory',
@@ -1399,11 +1401,29 @@ export function createServer(): Server {
     }
   );
 
+  console.error('[MCP] Server instance created');
+
   // Initialize database
-  getDb();
+  try {
+    console.error('[MCP] Initializing database...');
+    getDb();
+    console.error('[MCP] Database initialized successfully');
+  } catch (error) {
+    console.error('[MCP] FATAL: Database initialization failed:', error);
+    throw error;
+  }
 
   // Seed predefined tags
-  tagRepo.seedPredefined();
+  try {
+    console.error('[MCP] Seeding predefined tags...');
+    tagRepo.seedPredefined();
+    console.error('[MCP] Tags seeded successfully');
+  } catch (error) {
+    console.error('[MCP] ERROR: Failed to seed tags:', error);
+    // Continue anyway - tags aren't critical
+  }
+
+  console.error('[MCP] Setting up request handlers...');
 
   // List tools handler
   server.setRequestHandler(ListToolsRequestSchema, () => {
@@ -1477,23 +1497,56 @@ export function createServer(): Server {
     }
   });
 
+  console.error('[MCP] Request handlers configured');
+  console.error('[MCP] Server creation complete');
+
   return server;
 }
 
 export async function runServer(): Promise<void> {
-  const server = createServer();
-  const transport = new StdioServerTransport();
+  console.error('[MCP] Starting MCP server...');
+  console.error('[MCP] Node version:', process.version);
+  console.error('[MCP] Platform:', process.platform);
+  console.error('[MCP] CWD:', process.cwd());
 
-  await server.connect(transport);
+  try {
+    const server = createServer();
+    console.error('[MCP] Server created successfully');
 
-  // Handle graceful shutdown
-  process.on('SIGINT', () => {
-    closeDb();
-    process.exit(0);
-  });
+    const transport = new StdioServerTransport();
+    console.error('[MCP] Transport created');
 
-  process.on('SIGTERM', () => {
-    closeDb();
-    process.exit(0);
-  });
+    console.error('[MCP] Connecting to transport...');
+    await server.connect(transport);
+    console.error('[MCP] Connected successfully - server is ready');
+
+    // Handle graceful shutdown
+    process.on('SIGINT', () => {
+      console.error('[MCP] Received SIGINT, shutting down...');
+      closeDb();
+      process.exit(0);
+    });
+
+    process.on('SIGTERM', () => {
+      console.error('[MCP] Received SIGTERM, shutting down...');
+      closeDb();
+      process.exit(0);
+    });
+
+    // Log unhandled errors
+    process.on('uncaughtException', (error) => {
+      console.error('[MCP] UNCAUGHT EXCEPTION:', error);
+      process.exit(1);
+    });
+
+    process.on('unhandledRejection', (reason) => {
+      console.error('[MCP] UNHANDLED REJECTION:', reason);
+      process.exit(1);
+    });
+
+    console.error('[MCP] Server is now listening for requests');
+  } catch (error) {
+    console.error('[MCP] FATAL ERROR during startup:', error);
+    process.exit(1);
+  }
 }
