@@ -172,7 +172,7 @@ npm run sync-rules --auto-detect
 npm run sync-rules --ide cursor --scope project --scope-id <project-id>
 ```
 
-**Supported IDEs:** Cursor, VS Code, IntelliJ, Sublime, Neovim, Emacs, Generic
+**Supported IDEs:** Cursor, VS Code, IntelliJ, Sublime, Neovim, Emacs, Antigravity, Generic
 
 **Watch Mode:** `npm run sync-rules:watch` - Auto-sync as you work
 

@@ -9,10 +9,11 @@
  *   tsx scripts/watch-rules.ts [options]
  */
 
-import { watch, readdir } from 'node:fs';
-import { resolve, join } from 'node:path';
+import { watch, readdir, readFileSync } from 'node:fs';
+import { resolve, join, dirname } from 'node:path';
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 interface WatchOptions {
   ide?: string;
@@ -55,6 +56,46 @@ function parseArgs(): WatchOptions {
   return options;
 }
 
+/**
+ * Find the Memory project root by walking up from the script's location
+ * until we find package.json with name "agent-memory"
+ */
+function findMemoryProjectRoot(): string {
+  // Get the directory where this script is located
+  const scriptDir = dirname(fileURLToPath(import.meta.url));
+  
+  // Start from the script directory and walk up
+  let currentDir = resolve(scriptDir);
+  const root = resolve('/');
+  
+  while (currentDir !== root) {
+    const packageJsonPath = join(currentDir, 'package.json');
+    if (existsSync(packageJsonPath)) {
+      try {
+        const packageJson = JSON.parse(
+          readFileSync(packageJsonPath, 'utf-8')
+        );
+        if (packageJson.name === 'agent-memory') {
+          return currentDir;
+        }
+      } catch {
+        // Continue searching if package.json is invalid
+      }
+    }
+    
+    // Move up one directory
+    const parentDir = dirname(currentDir);
+    if (parentDir === currentDir) {
+      break; // Reached filesystem root
+    }
+    currentDir = parentDir;
+  }
+  
+  // Fallback: if we can't find it, assume the script is in the project root
+  // (walk up from scripts/ to project root)
+  return resolve(scriptDir, '..');
+}
+
 function printHelp() {
   console.log(`
 Usage: watch-rules [options]
@@ -80,11 +121,10 @@ Examples:
 /**
  * Run sync-rules script
  */
-function runSync(options: WatchOptions): Promise<void> {
+function runSync(memoryProjectRoot: string, options: WatchOptions): Promise<void> {
   return new Promise((resolve, reject) => {
-    const workspacePath = process.cwd();
-    const scriptPath = resolve(workspacePath, 'scripts', 'sync-rules.ts');
-    const builtScriptPath = resolve(workspacePath, 'dist', 'scripts', 'sync-rules.js');
+    const scriptPath = join(memoryProjectRoot, 'scripts', 'sync-rules.ts');
+    const builtScriptPath = join(memoryProjectRoot, 'dist', 'scripts', 'sync-rules.js');
 
     // Determine which script to run
     const scriptToRun = existsSync(builtScriptPath) ? builtScriptPath : scriptPath;
@@ -107,8 +147,9 @@ function runSync(options: WatchOptions): Promise<void> {
       args.push('--quiet');
     }
 
+    // Use Memory project root as cwd for proper module resolution
     const child = spawn(command, args, {
-      cwd: workspacePath,
+      cwd: memoryProjectRoot,
       stdio: options.quiet ? 'pipe' : 'inherit',
     });
 
@@ -199,19 +240,25 @@ function watchDirectory(
 async function main() {
   const options = parseArgs();
 
+  // Find the Memory project root (where rules/rules/ is located)
+  const memoryProjectRoot = findMemoryProjectRoot();
+  const sourceDir = join(memoryProjectRoot, 'rules', 'rules');
+  
+  // Use current working directory as output (where user runs the command)
   const workspacePath = process.cwd();
-  const sourceDir = resolve(workspacePath, 'rules', 'rules');
 
   // Validate source directory exists
   if (!existsSync(sourceDir)) {
     console.error(`Error: Source directory not found: ${sourceDir}`);
-    console.error('Please ensure rules/rules/ directory exists.');
+    console.error(`Memory project root: ${memoryProjectRoot}`);
+    console.error(`Current working directory: ${workspacePath}`);
     process.exit(1);
   }
 
   if (!options.quiet) {
     console.log('Watching rules/rules/ for file changes...');
-    console.log(`Source: ${sourceDir}`);
+    console.log(`Source (Memory project): ${sourceDir}`);
+    console.log(`Target (current project): ${workspacePath}`);
     console.log(`IDE: ${options.ide || 'auto-detect'}`);
     if (options.output) {
       console.log(`Output: ${options.output}`);
@@ -225,7 +272,7 @@ async function main() {
     if (!options.quiet) {
       console.log('Performing initial sync...');
     }
-    await runSync(options);
+    await runSync(memoryProjectRoot, options);
     if (!options.quiet) {
       console.log('Initial sync complete. Watching for changes...\n');
     }
@@ -243,7 +290,7 @@ async function main() {
       }
 
       try {
-        await runSync(options);
+        await runSync(memoryProjectRoot, options);
         if (!options.quiet) {
           console.log(`[${new Date().toISOString()}] Sync complete\n`);
         }
@@ -271,6 +318,8 @@ main().catch((error) => {
   console.error('Fatal error:', error);
   process.exit(1);
 });
+
+
 
 
 

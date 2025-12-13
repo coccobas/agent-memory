@@ -50,6 +50,11 @@ const IDE_SIGNATURES: Array<{
     paths: ['.emacs.d', '.emacs', '.dir-locals.el'],
     confidence: 0.8,
   },
+  {
+    ide: 'antigravity',
+    paths: ['.antigravity', '.antigravity/rules', '.antigravity/config.json'],
+    confidence: 0.9,
+  },
 ];
 
 /**
@@ -100,6 +105,7 @@ export function detectIDE(workspacePath: string): IDEDetectionResult {
         neovim: 'neovim',
         nvim: 'neovim',
         emacs: 'emacs',
+        antigravity: 'antigravity',
       };
 
       // Check keywords
@@ -144,6 +150,7 @@ export function detectIDE(workspacePath: string): IDEDetectionResult {
     SUBLIME: 'sublime',
     NVIM: 'neovim',
     EMACS: 'emacs',
+    ANTIGRAVITY: 'antigravity',
   };
 
   for (const [envVar, ide] of Object.entries(envHints)) {
@@ -222,6 +229,9 @@ export function detectIDE(workspacePath: string): IDEDetectionResult {
     case 'emacs':
       configPath = join(resolvedPath, '.emacs.d');
       break;
+    case 'antigravity':
+      configPath = join(resolvedPath, '.antigravity', 'rules');
+      break;
   }
 
   return {
@@ -238,6 +248,8 @@ export function detectIDE(workspacePath: string): IDEDetectionResult {
 export function getSupportedIDEs(): string[] {
   return IDE_SIGNATURES.map((s) => s.ide);
 }
+
+
 
 
 

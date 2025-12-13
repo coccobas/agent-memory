@@ -19,6 +19,7 @@ The sync-rules script copies `.md` files from `rules/rules/` to IDE-specific dir
 - **Sublime Text** - `.sublime/*.md` files
 - **Neovim** - `.nvim/*.md` files
 - **Emacs** - `.emacs.d/*.md` files
+- **Antigravity** - `.antigravity/rules/*.md` files
 - **Generic** - `.ide-rules/*.md` files (IDE-agnostic format)
 
 ## Quick Start
@@ -91,7 +92,7 @@ npm run sync-rules --ide cursor --log-file sync.log
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `--ide <ide>` | IDE to sync to (cursor, vscode, intellij, sublime, neovim, emacs, generic, all) | auto-detect |
+| `--ide <ide>` | IDE to sync to (cursor, vscode, intellij, sublime, neovim, emacs, antigravity, generic, all) | auto-detect |
 | `--output <dir>` | Output directory | current directory |
 | `--auto-detect` | Auto-detect IDE from workspace | false |
 | `--quiet, -q` | Suppress output except errors | false |
@@ -266,6 +267,7 @@ The sync tool automatically detects your IDE by checking for:
    - `.idea/` → IntelliJ
    - `.nvim/` or `.config/nvim/` → Neovim
    - `.emacs.d/` → Emacs
+   - `.antigravity/` → Antigravity
 
 2. **IDE-specific files**:
    - `.sublime-project` → Sublime Text
@@ -274,7 +276,7 @@ The sync tool automatically detects your IDE by checking for:
    - Keywords and devDependencies
 
 4. **Environment variables**:
-   - `CURSOR`, `VSCODE`, `INTELLIJ_IDEA`, etc.
+   - `CURSOR`, `VSCODE`, `INTELLIJ_IDEA`, `ANTIGRAVITY`, etc.
 
 ## Git Integration
 

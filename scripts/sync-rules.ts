@@ -140,7 +140,7 @@ Note: When using npm run, use -- to separate npm options from script options:
   npm run sync-rules -- [options]
 
 Options:
-  --ide <ide>              IDE to sync to (cursor, vscode, intellij, sublime, neovim, emacs, generic, all)
+  --ide <ide>              IDE to sync to (cursor, vscode, intellij, sublime, neovim, emacs, antigravity, generic, all)
   --output <dir>           Output directory (default: current working directory)
   --auto-detect            Auto-detect IDE from workspace
   --quiet, -q              Suppress output except errors
