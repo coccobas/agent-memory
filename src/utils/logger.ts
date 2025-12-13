@@ -90,3 +90,4 @@ export const logger = isMcpServer
 export function createComponentLogger(component: string): pino.Logger {
   return logger.child({ component });
 }
+

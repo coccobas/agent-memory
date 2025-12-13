@@ -191,3 +191,4 @@ Add both tools to the `TOOLS` array before line 713:
 - [x] All tests pass (297 passing, 9 skipped)
 - [x] TypeScript compilation succeeds
 - [ ] Error messages are consistent across handlers (non-blocking)
+

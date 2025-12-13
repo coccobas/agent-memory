@@ -641,3 +641,4 @@ export async function syncToCursorInternalDatabase(
     };
   }
 }
+
