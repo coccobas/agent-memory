@@ -547,6 +547,32 @@ export async function syncToCursorInternalDatabase(
   options: { backup?: boolean } = {}
 ): Promise<{ success: boolean; message: string }> {
   try {
+    // Read all .mdc files from rules directory FIRST (before checking Cursor database)
+    // This allows proper error handling for directory issues
+    const mdcFiles: string[] = [];
+    try {
+      const entries = await readdir(rulesDir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isFile() && extname(entry.name) === '.mdc') {
+          mdcFiles.push(join(rulesDir, entry.name));
+        }
+      }
+    } catch (error) {
+      // Directory might not exist - return error immediately
+      return {
+        success: false,
+        message: `Cannot read directory ${rulesDir}: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
+
+    if (mdcFiles.length === 0) {
+      return {
+        success: false,
+        message: `No .mdc files found in ${rulesDir}`,
+      };
+    }
+
+    // Now check Cursor database path (only after directory validation)
     const dbPath = getCursorDatabasePath();
 
     if (!existsSync(dbPath)) {
@@ -558,23 +584,6 @@ export async function syncToCursorInternalDatabase(
 
     // Check if Cursor is running (basic check - database might be locked)
     // We'll let the database operations fail if it's locked
-
-    // Read all .mdc files from rules directory (not .md - these are already converted)
-    const mdcFiles: string[] = [];
-    try {
-      const entries = await readdir(rulesDir, { withFileTypes: true });
-      for (const entry of entries) {
-        if (entry.isFile() && extname(entry.name) === '.mdc') {
-          mdcFiles.push(join(rulesDir, entry.name));
-        }
-      }
-    } catch (error) {
-      // Directory might not exist
-      return {
-        success: false,
-        message: `Cannot read directory ${rulesDir}: ${error instanceof Error ? error.message : String(error)}`,
-      };
-    }
 
     if (mdcFiles.length === 0) {
       return {

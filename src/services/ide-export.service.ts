@@ -593,6 +593,65 @@ export function exportToEmacs(
 }
 
 /**
+ * Export guidelines to Antigravity format (.md files in .agent/rules)
+ */
+export function exportToAntigravity(
+  guidelines: GuidelineExportData[],
+  outputDir: string
+): IDEExportResult {
+  const rulesDir = join(outputDir, '.agent', 'rules');
+  const filesCreated: string[] = [];
+
+  // Ensure directory exists
+  if (!existsSync(rulesDir)) {
+    mkdirSync(rulesDir, { recursive: true });
+  }
+
+  // Write markdown files with YAML frontmatter (similar to generic format)
+  for (const guideline of guidelines) {
+    const filename = `${sanitizeFilename(guideline.name)}.md`;
+    const filePath = join(rulesDir, filename);
+
+    const frontmatter = `---
+id: ${guideline.id}
+name: ${guideline.name}
+category: ${guideline.category || 'uncategorized'}
+priority: ${guideline.priority}
+globs: ${JSON.stringify(guideline.globs)}
+alwaysApply: ${guideline.alwaysApply}
+tags: ${JSON.stringify(guideline.tags)}
+scopeType: ${guideline.scopeType}
+scopeId: ${guideline.scopeId || 'null'}
+source: agent-memory
+---
+
+<!-- agent-memory:${guideline.id} -->
+
+# ${guideline.name}
+
+${guideline.content}
+
+${guideline.rationale ? `## Rationale\n\n${guideline.rationale}\n\n` : ''}
+${guideline.examples ? `## Examples\n\n${formatExamples(guideline.examples)}\n\n` : ''}
+`;
+
+    writeFileSync(filePath, frontmatter, 'utf-8');
+    filesCreated.push(filePath);
+  }
+
+  return {
+    ide: 'antigravity',
+    outputPath: rulesDir,
+    filesCreated,
+    entryCount: guidelines.length,
+    format: 'markdown',
+    metadata: {
+      exportedAt: new Date().toISOString(),
+    },
+  };
+}
+
+/**
  * Export guidelines to generic/IDE-agnostic format
  */
 export function exportToGeneric(
@@ -673,6 +732,7 @@ export function exportForIDE(
     sublime: exportToSublime,
     neovim: exportToNeovim,
     emacs: exportToEmacs,
+    antigravity: exportToAntigravity,
     generic: exportToGeneric,
   };
 

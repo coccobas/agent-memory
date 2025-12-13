@@ -107,6 +107,7 @@ function exportRules(params: Record<string, unknown>) {
     'sublime',
     'neovim',
     'emacs',
+    'antigravity',
     'generic',
     'all',
   ];
