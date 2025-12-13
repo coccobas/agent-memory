@@ -10,6 +10,7 @@ import { join, resolve } from 'node:path';
 import type { ScopeType } from '../db/schema.js';
 import { guidelineRepo } from '../db/repositories/guidelines.js';
 import { entryTagRepo } from '../db/repositories/tags.js';
+import { logger } from '../utils/logger.js';
 
 export interface IDEImportOptions {
   scopeType: ScopeType;
@@ -166,7 +167,7 @@ function parseMDCFile(filePath: string): ParsedRule | null {
         : undefined,
     };
   } catch (error) {
-    console.error(`Error parsing MDC file ${filePath}:`, error);
+    logger.warn({ filePath, error }, 'Error parsing MDC file');
     return null;
   }
 }
@@ -276,7 +277,7 @@ function parseMarkdownFile(filePath: string): ParsedRule | null {
       tags: (frontmatter.tags as string[]) || [],
     };
   } catch (error) {
-    console.error(`Error parsing markdown file ${filePath}:`, error);
+    logger.warn({ filePath, error }, 'Error parsing markdown file');
     return null;
   }
 }
@@ -588,4 +589,3 @@ export function importFromFiles(files: string[], options: IDEImportOptions): IDE
 
   return result;
 }
-

@@ -7,25 +7,18 @@ export { createServer, runServer } from './mcp/server.js';
 // CLI entry point
 import { runServer } from './mcp/server.js';
 import { createComponentLogger } from './utils/logger.js';
+import { isMainModule } from './utils/runtime.js';
 
 const logger = createComponentLogger('server');
 
-// Run server if this is the main module
-const isMainModule =
-  process.argv[1]?.endsWith('index.js') ||
-  process.argv[1]?.endsWith('index.ts') ||
-  process.argv[1]?.includes('agent-memory');
-
-if (isMainModule) {
-  console.error('[MCP] Entry point reached');
-  console.error('[MCP] Script:', process.argv[1]);
-  console.error('[MCP] Args:', process.argv.slice(2));
+if (isMainModule()) {
+  logger.info('Entry point reached');
+  logger.debug({ script: process.argv[1], args: process.argv.slice(2) }, 'Runtime arguments');
 
   runServer().catch((error) => {
-    console.error('[MCP] Server startup failed with error:', error);
-    logger.error(
+    logger.fatal(
       { error: error instanceof Error ? error.message : String(error) },
-      'Failed to start server'
+      'Server startup failed'
     );
     process.exit(1);
   });

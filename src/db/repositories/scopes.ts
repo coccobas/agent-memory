@@ -256,55 +256,8 @@ export const sessionRepo = {
    * Create a new session
    */
   create(input: CreateSessionInput): Session {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/ed4dad30-4ac8-4940-ab0c-6f851ddd4464', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        location: 'scopes.ts:258',
-        message: 'sessionRepo.create entry',
-        data: { input: input },
-        timestamp: Date.now(),
-        sessionId: 'debug-session',
-        runId: 'run1',
-        hypothesisId: 'D',
-      }),
-    }).catch(() => {});
-    // #endregion
     const db = getDb();
     const id = generateId();
-
-    // #region agent log
-    if (input.projectId) {
-      fetch('http://127.0.0.1:7242/ingest/ed4dad30-4ac8-4940-ab0c-6f851ddd4464', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          location: 'scopes.ts:264',
-          message: 'Checking project exists before insert',
-          data: { projectId: input.projectId },
-          timestamp: Date.now(),
-          sessionId: 'debug-session',
-          runId: 'run1',
-          hypothesisId: 'B',
-        }),
-      }).catch(() => {});
-      const project = db.select().from(projects).where(eq(projects.id, input.projectId)).get();
-      fetch('http://127.0.0.1:7242/ingest/ed4dad30-4ac8-4940-ab0c-6f851ddd4464', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          location: 'scopes.ts:266',
-          message: 'Project lookup in create',
-          data: { projectId: input.projectId, projectExists: !!project },
-          timestamp: Date.now(),
-          sessionId: 'debug-session',
-          runId: 'run1',
-          hypothesisId: 'B',
-        }),
-      }).catch(() => {});
-    }
-    // #endregion
 
     const session: NewSession = {
       id,
@@ -316,78 +269,9 @@ export const sessionRepo = {
       metadata: input.metadata,
     };
 
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/ed4dad30-4ac8-4940-ab0c-6f851ddd4464', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        location: 'scopes.ts:277',
-        message: 'Before db.insert',
-        data: { session: session },
-        timestamp: Date.now(),
-        sessionId: 'debug-session',
-        runId: 'run1',
-        hypothesisId: 'C',
-      }),
-    }).catch(() => {});
-    // #endregion
-    try {
-      db.insert(sessions).values(session).run();
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/ed4dad30-4ac8-4940-ab0c-6f851ddd4464', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          location: 'scopes.ts:280',
-          message: 'db.insert succeeded',
-          data: { sessionId: id },
-          timestamp: Date.now(),
-          sessionId: 'debug-session',
-          runId: 'run1',
-          hypothesisId: 'C',
-        }),
-      }).catch(() => {});
-      // #endregion
-    } catch (error) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/ed4dad30-4ac8-4940-ab0c-6f851ddd4464', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          location: 'scopes.ts:283',
-          message: 'db.insert failed',
-          data: {
-            errorMessage: error instanceof Error ? error.message : String(error),
-            errorName: error instanceof Error ? error.name : 'unknown',
-            errorStack: error instanceof Error ? error.stack : undefined,
-            session: session,
-          },
-          timestamp: Date.now(),
-          sessionId: 'debug-session',
-          runId: 'run1',
-          hypothesisId: 'C',
-        }),
-      }).catch(() => {});
-      // #endregion
-      throw error;
-    }
+    db.insert(sessions).values(session).run();
 
     const result = this.getById(id);
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/ed4dad30-4ac8-4940-ab0c-6f851ddd4464', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        location: 'scopes.ts:290',
-        message: 'After getById',
-        data: { sessionId: id, resultExists: !!result },
-        timestamp: Date.now(),
-        sessionId: 'debug-session',
-        runId: 'run1',
-        hypothesisId: 'D',
-      }),
-    }).catch(() => {});
-    // #endregion
     if (!result) {
       throw new Error(`Failed to create session ${id}`);
     }

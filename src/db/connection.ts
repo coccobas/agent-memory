@@ -60,9 +60,31 @@ export function getDb(options: ConnectionOptions = {}): ReturnType<typeof drizzl
   }
 
   // Create SQLite connection with WAL mode for better concurrency
-  sqliteInstance = new Database(dbPath, {
-    readonly: options.readonly ?? false,
-  });
+  try {
+    sqliteInstance = new Database(dbPath, {
+      readonly: options.readonly ?? false,
+    });
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+
+    // Check for common native module errors
+    if (errorMessage.includes('MODULE_NOT_FOUND') || errorMessage.includes('Cannot find module')) {
+      throw new Error(
+        `Failed to load better-sqlite3 native module.\n` +
+          `Error: ${errorMessage}\n\n` +
+          `This is usually caused by:\n` +
+          `1. Missing native bindings for your platform (${process.platform}/${process.arch})\n` +
+          `2. Node.js version mismatch (currently ${process.version})\n` +
+          `3. Architecture mismatch\n\n` +
+          `Solutions:\n` +
+          `- Run: npm rebuild better-sqlite3\n` +
+          `- Or reinstall: npm install --force better-sqlite3`
+      );
+    }
+
+    // Re-throw with additional context
+    throw new Error(`Failed to create database connection: ${errorMessage}`);
+  }
 
   // Enable WAL mode for better concurrent access
   sqliteInstance.pragma('journal_mode = WAL');

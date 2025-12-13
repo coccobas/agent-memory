@@ -1,6 +1,7 @@
 # Troubleshooting Antigravity IDE Integration
 
 ## Current Status
+
 - ✅ MCP server connects successfully to Antigravity
 - ✅ All 20 tools are detected and shown
 - ❌ **Agent stops working BEFORE tools can be called**
@@ -8,7 +9,9 @@
 - ✅ Server works perfectly when tested directly (via test-mcp.js)
 
 ## KEY FINDING
+
 The agent fails **during initialization**, not when calling tools. This means the issue occurs when:
+
 1. Antigravity starts the MCP server process, OR
 2. The agent tries to use the server for the first time, OR
 3. Something in the startup sequence crashes the agent
@@ -16,13 +19,17 @@ The agent fails **during initialization**, not when calling tools. This means th
 ## What We've Done So Far
 
 ### 1. Removed Debug Logging (commit d870bf5)
+
 Removed HTTP fetch() calls to localhost:7242 that were interfering with MCP communication.
 
 ### 2. Added Tool Call Logging (commit 58bba00)
+
 Added stderr logging for tool execution diagnostics
 
 ### 3. Added Startup Logging (commit 7f261be)
+
 Added comprehensive startup/initialization logging:
+
 - Entry point detection
 - Database initialization
 - Transport connection
@@ -34,7 +41,9 @@ Added comprehensive startup/initialization logging:
 ## Next Steps: Finding the Root Cause
 
 ### Step 1: Restart Antigravity IDE
+
 The IDE needs to reload the updated MCP server:
+
 1. Quit Antigravity completely
 2. Restart it
 3. Verify MCP connection still shows as "Enabled"
@@ -46,6 +55,7 @@ The IDE needs to reload the updated MCP server:
 ### Step 3: Look for Startup Sequence
 
 You should see a **complete startup sequence** like this:
+
 ```
 [MCP] Entry point reached
 [MCP] Script: /path/to/dist/index.js
@@ -73,6 +83,7 @@ You should see a **complete startup sequence** like this:
 **If the sequence is incomplete, that's where it crashes!**
 
 For example, if you see:
+
 ```
 [MCP] Entry point reached
 [MCP] Script: /path/to/dist/index.js
@@ -85,6 +96,7 @@ That tells us the database can't be initialized.
 ### Where to Find Logs in Antigravity
 
 Common locations for MCP server logs:
+
 1. **Output Panel**: Usually `View` → `Output` → Select "MCP" or "agent-memory" from dropdown
 2. **Debug Console**: `View` → `Debug Console`
 3. **Terminal**: Look for a terminal tab showing MCP server output
@@ -93,6 +105,7 @@ Common locations for MCP server logs:
 ### Step 4: Share the Logs
 
 Once you find the logs, look for:
+
 1. **Any `[MCP]` prefixed lines** - these are from our diagnostic logging
 2. **The exact error message** - what happens when a tool is called
 3. **Any stack traces** - these show where the error originates
@@ -102,26 +115,31 @@ Once you find the logs, look for:
 Based on what we know:
 
 ### Theory 1: JSON Serialization Issue
+
 **Evidence**: Server works in tests but fails in Antigravity
 **Fix Added**: Safe JSON serialization with error catching
 **Check**: Look for `[MCP] JSON serialization error` in logs
 
 ### Theory 2: Async/Promise Handling
+
 **Evidence**: MCP protocol timing differences between IDEs
 **Possibility**: Antigravity might timeout or handle promises differently
 **Check**: Look for timeout errors or "Promise rejection" messages
 
 ### Theory 3: Database Lock/Permission Issue
+
 **Evidence**: Database operations work in tests
 **Possibility**: Antigravity process doesn't have write access to `data/memory.db`
-**Check**: Look for "SQLITE_" errors or "database is locked" messages
+**Check**: Look for "SQLITE\_" errors or "database is locked" messages
 
 ### Theory 4: MCP Protocol Version Mismatch
+
 **Evidence**: Tools load but execution fails
 **Possibility**: Antigravity uses different MCP protocol version
 **Check**: Look at the initialize handshake in logs
 
 ### Theory 5: Content-Type or Encoding Issue
+
 **Evidence**: Response structure works in tests
 **Possibility**: Antigravity expects different content encoding
 **Check**: Look for parsing or encoding errors
@@ -143,11 +161,13 @@ Based on what we know:
 Try these commands in order and note which one fails:
 
 1. **Health Check** (no database writes):
+
    ```
    Check the memory server health
    ```
 
 2. **List Organizations** (database read):
+
    ```
    List all organizations
    ```
@@ -167,6 +187,7 @@ node dist/index.js
 ```
 
 Then in another terminal, use the test script:
+
 ```bash
 node test-mcp.js
 ```
@@ -185,6 +206,7 @@ Once you have the logs, please share:
 ## Expected Behavior
 
 When working correctly, you should see:
+
 ```
 [MCP] Tool call: memory_health
 [MCP] Args: {}
@@ -196,6 +218,7 @@ And the agent should respond with server health information.
 ## Contact
 
 If the logs reveal a specific error, we can:
+
 1. Fix the exact issue causing the failure
 2. Add workarounds for Antigravity-specific behaviors
 3. Improve error handling for better compatibility

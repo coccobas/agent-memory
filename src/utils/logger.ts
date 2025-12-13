@@ -9,8 +9,13 @@
  */
 
 import pino from 'pino';
-import { appendFileSync } from 'fs';
-import { join } from 'path';
+import { tmpdir } from 'node:os';
+import { appendFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { isMcpServerMode } from './runtime.js';
+
+// Only write debug logs if explicitly enabled
+const DEBUG_ENABLED = process.env.AGENT_MEMORY_DEBUG === '1';
 
 // Determine log level from environment variable (default: info)
 // Ensure it's always a valid string, never undefined
@@ -30,37 +35,24 @@ const logLevel = getLogLevel();
 
 // Check if running as MCP server (stdio mode)
 // MCP servers use stdin/stdout for protocol, so we must not output anything to stdout
-// Detection: stdin is not a TTY (piped/stdio mode) OR running index.js/ts
-const isMcpServer =
-  process.stdin.isTTY === false ||
-  process.argv[1]?.endsWith('index.js') ||
-  process.argv[1]?.endsWith('index.ts') ||
-  process.argv[1]?.includes('/dist/index.js');
+const isMcpServer = isMcpServerMode();
 
-// #region agent log
-try {
-  const logEntry =
-    JSON.stringify({
-      location: 'logger.ts:32',
-      message: 'Logger initialization',
-      data: {
-        isMcpServer: isMcpServer,
+// Conditional debug logging to temp file (only if AGENT_MEMORY_DEBUG=1)
+if (DEBUG_ENABLED) {
+  try {
+    const debugLogPath = join(tmpdir(), 'agent-memory-debug.log');
+    const logEntry =
+      JSON.stringify({
+        timestamp: Date.now(),
+        isMcpServer,
         argv1: process.argv[1],
-        stdinIsTTY: process.stdin.isTTY,
-        nodeEnv: process.env.NODE_ENV,
-      },
-      timestamp: Date.now(),
-      sessionId: 'debug-session',
-      runId: 'run1',
-      hypothesisId: 'A',
-    }) + '\n';
-  // Use IDE-agnostic debug log path (project root, not IDE-specific)
-  const debugLogPath = join(process.cwd(), '.ide-debug.log');
-  appendFileSync(debugLogPath, logEntry);
-} catch {
-  // Ignore debug log errors
+        platform: process.platform,
+      }) + '\n';
+    appendFileSync(debugLogPath, logEntry);
+  } catch {
+    // Ignore debug log errors
+  }
 }
-// #endregion
 
 // Create logger instance
 // CRITICAL: When running as MCP server, ALL logs must go to stderr, never stdout
@@ -93,4 +85,3 @@ export const logger = isMcpServer
 export function createComponentLogger(component: string): pino.Logger {
   return logger.child({ component });
 }
-

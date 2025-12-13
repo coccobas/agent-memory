@@ -37,6 +37,7 @@ import { queryHandlers } from './handlers/query.handler.js';
 import { conflictHandlers } from './handlers/conflicts.handler.js';
 import { getQueryCacheStats } from '../services/query.service.js';
 import { formatError, createInvalidActionError } from './errors.js';
+import { logger } from '../utils/logger.js';
 
 // Import handlers
 import { scopeHandlers } from './handlers/scopes.handler.js';
@@ -1387,7 +1388,7 @@ const bundledHandlers: Record<string, (params: Record<string, unknown>) => unkno
 // =============================================================================
 
 export function createServer(): Server {
-  console.error('[MCP] Creating server...');
+  logger.debug('Creating server...');
 
   const server = new Server(
     {
@@ -1401,29 +1402,29 @@ export function createServer(): Server {
     }
   );
 
-  console.error('[MCP] Server instance created');
+  logger.debug('Server instance created');
 
   // Initialize database
   try {
-    console.error('[MCP] Initializing database...');
+    logger.info('Initializing database...');
     getDb();
-    console.error('[MCP] Database initialized successfully');
+    logger.info('Database initialized successfully');
   } catch (error) {
-    console.error('[MCP] FATAL: Database initialization failed:', error);
+    logger.fatal({ error }, 'Database initialization failed');
     throw error;
   }
 
   // Seed predefined tags
   try {
-    console.error('[MCP] Seeding predefined tags...');
+    logger.debug('Seeding predefined tags...');
     tagRepo.seedPredefined();
-    console.error('[MCP] Tags seeded successfully');
+    logger.debug('Tags seeded successfully');
   } catch (error) {
-    console.error('[MCP] ERROR: Failed to seed tags:', error);
+    logger.warn({ error }, 'Failed to seed tags');
     // Continue anyway - tags aren't critical
   }
 
-  console.error('[MCP] Setting up request handlers...');
+  logger.debug('Setting up request handlers...');
 
   // List tools handler
   server.setRequestHandler(ListToolsRequestSchema, () => {
@@ -1434,13 +1435,14 @@ export function createServer(): Server {
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
 
-    // Log to stderr for debugging (visible in IDE logs)
-    console.error(`[MCP] Tool call: ${name}`);
-    console.error(`[MCP] Args: ${JSON.stringify(args, null, 2)}`);
+    logger.debug({ tool: name, args }, 'Tool call');
 
     const handler = bundledHandlers[name];
     if (!handler) {
-      console.error(`[MCP] ERROR: Handler not found for tool: ${name}`);
+      logger.error(
+        { tool: name, availableTools: Object.keys(bundledHandlers) },
+        'Handler not found for tool'
+      );
       const errorResponse = formatError(
         createInvalidActionError('MCP', name, Object.keys(bundledHandlers))
       );
@@ -1457,20 +1459,24 @@ export function createServer(): Server {
 
     try {
       const result = await handler(args ?? {});
-      console.error(`[MCP] SUCCESS: ${name}`);
+      logger.debug({ tool: name }, 'Tool call successful');
 
       // Safely serialize result, catching any JSON errors
       let serializedResult: string;
       try {
         serializedResult = JSON.stringify(result, null, 2);
       } catch (jsonError) {
-        console.error(`[MCP] JSON serialization error for ${name}:`, jsonError);
+        logger.error({ tool: name, error: jsonError }, 'JSON serialization error');
         // Attempt safe serialization
-        serializedResult = JSON.stringify({
-          error: 'Failed to serialize result',
-          message: jsonError instanceof Error ? jsonError.message : String(jsonError),
-          resultType: typeof result,
-        }, null, 2);
+        serializedResult = JSON.stringify(
+          {
+            error: 'Failed to serialize result',
+            message: jsonError instanceof Error ? jsonError.message : String(jsonError),
+            resultType: typeof result,
+          },
+          null,
+          2
+        );
       }
 
       return {
@@ -1482,8 +1488,14 @@ export function createServer(): Server {
         ],
       };
     } catch (error) {
-      console.error(`[MCP] ERROR in ${name}:`, error instanceof Error ? error.message : String(error));
-      console.error(`[MCP] Stack:`, error instanceof Error ? error.stack : 'N/A');
+      logger.error(
+        {
+          tool: name,
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        },
+        'Tool call error'
+      );
       const errorResponse = formatError(error);
       return {
         content: [
@@ -1497,56 +1509,72 @@ export function createServer(): Server {
     }
   });
 
-  console.error('[MCP] Request handlers configured');
-  console.error('[MCP] Server creation complete');
+  logger.debug('Request handlers configured');
+  logger.debug('Server creation complete');
 
   return server;
 }
 
 export async function runServer(): Promise<void> {
-  console.error('[MCP] Starting MCP server...');
-  console.error('[MCP] Node version:', process.version);
-  console.error('[MCP] Platform:', process.platform);
-  console.error('[MCP] CWD:', process.cwd());
+  logger.info('Starting MCP server...');
+  logger.info(
+    { nodeVersion: process.version, platform: process.platform, cwd: process.cwd() },
+    'Runtime environment'
+  );
 
   try {
     const server = createServer();
-    console.error('[MCP] Server created successfully');
+    logger.info('Server created successfully');
 
     const transport = new StdioServerTransport();
-    console.error('[MCP] Transport created');
+    logger.debug('Transport created');
 
-    console.error('[MCP] Connecting to transport...');
+    logger.debug('Connecting to transport...');
     await server.connect(transport);
-    console.error('[MCP] Connected successfully - server is ready');
+    logger.info('Connected successfully - server is ready');
 
     // Handle graceful shutdown
     process.on('SIGINT', () => {
-      console.error('[MCP] Received SIGINT, shutting down...');
+      logger.info('Received SIGINT, shutting down...');
       closeDb();
       process.exit(0);
     });
 
     process.on('SIGTERM', () => {
-      console.error('[MCP] Received SIGTERM, shutting down...');
+      logger.info('Received SIGTERM, shutting down...');
       closeDb();
       process.exit(0);
     });
 
     // Log unhandled errors
     process.on('uncaughtException', (error) => {
-      console.error('[MCP] UNCAUGHT EXCEPTION:', error);
+      logger.fatal({ error }, 'Uncaught exception');
+      try {
+        closeDb();
+      } catch (dbError) {
+        logger.error({ dbError }, 'Error closing database');
+      }
       process.exit(1);
     });
 
     process.on('unhandledRejection', (reason) => {
-      console.error('[MCP] UNHANDLED REJECTION:', reason);
+      logger.fatal({ reason }, 'Unhandled rejection');
+      try {
+        closeDb();
+      } catch (dbError) {
+        logger.error({ dbError }, 'Error closing database');
+      }
       process.exit(1);
     });
 
-    console.error('[MCP] Server is now listening for requests');
+    logger.info('Server is now listening for requests');
   } catch (error) {
-    console.error('[MCP] FATAL ERROR during startup:', error);
+    logger.fatal({ error }, 'Fatal error during startup');
+    try {
+      closeDb();
+    } catch (dbError) {
+      logger.error({ dbError }, 'Error closing database');
+    }
     process.exit(1);
   }
 }

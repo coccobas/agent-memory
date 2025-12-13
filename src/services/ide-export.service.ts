@@ -11,6 +11,7 @@ import type { ScopeType } from '../db/schema.js';
 import type { GuidelineWithVersion } from '../db/repositories/guidelines.js';
 import { guidelineRepo } from '../db/repositories/guidelines.js';
 import { entryTagRepo } from '../db/repositories/tags.js';
+import { logger } from '../utils/logger.js';
 
 export interface IDEExportOptions {
   scopeType?: ScopeType;
@@ -608,18 +609,27 @@ export function exportToAntigravity(
   }
 
   // Write markdown files with YAML frontmatter (similar to generic format)
+  // Format arrays as YAML lists for better Antigravity compatibility
   for (const guideline of guidelines) {
     const filename = `${sanitizeFilename(guideline.name)}.md`;
     const filePath = join(rulesDir, filename);
+
+    // Format arrays as YAML lists for better compatibility
+    const globsYaml =
+      guideline.globs.length > 0 ? guideline.globs.map((g) => `  - ${g}`).join('\n') : '  []';
+    const tagsYaml =
+      guideline.tags.length > 0 ? guideline.tags.map((t) => `  - ${t}`).join('\n') : '  []';
 
     const frontmatter = `---
 id: ${guideline.id}
 name: ${guideline.name}
 category: ${guideline.category || 'uncategorized'}
 priority: ${guideline.priority}
-globs: ${JSON.stringify(guideline.globs)}
+globs:
+${globsYaml}
 alwaysApply: ${guideline.alwaysApply}
-tags: ${JSON.stringify(guideline.tags)}
+tags:
+${tagsYaml}
 scopeType: ${guideline.scopeType}
 scopeId: ${guideline.scopeId || 'null'}
 source: agent-memory
@@ -746,7 +756,7 @@ export function exportForIDE(
         results.push(result);
       } catch (error) {
         // Continue with other IDEs if one fails
-        console.error(`Failed to export to ${ideName}:`, error);
+        logger.warn({ ide: ideName, error }, 'Failed to export to IDE');
       }
     }
   } else {
@@ -773,4 +783,3 @@ export function exportGuidelinesToIDE(options: IDEExportOptions): IDEExportResul
 
   return exportForIDE(ide, guidelines, options);
 }
-

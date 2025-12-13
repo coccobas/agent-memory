@@ -143,80 +143,11 @@ export const scopeHandlers = {
   // ===========================================================================
 
   sessionStart(params: Record<string, unknown>) {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/ed4dad30-4ac8-4940-ab0c-6f851ddd4464', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        location: 'scopes.handler.ts:149',
-        message: 'sessionStart entry',
-        data: { params: params },
-        timestamp: Date.now(),
-        sessionId: 'debug-session',
-        runId: 'run1',
-        hypothesisId: 'A',
-      }),
-    }).catch(() => {});
-    // #endregion
     const projectId = getOptionalParam(params, 'projectId', isString);
     const name = getOptionalParam(params, 'name', isString);
     const purpose = getOptionalParam(params, 'purpose', isString);
     const agentId = getOptionalParam(params, 'agentId', isString);
     const metadata = getOptionalParam(params, 'metadata', isObject);
-
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/ed4dad30-4ac8-4940-ab0c-6f851ddd4464', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        location: 'scopes.handler.ts:156',
-        message: 'Parameters extracted',
-        data: {
-          projectId: projectId,
-          name: name,
-          purpose: purpose,
-          agentId: agentId,
-          hasMetadata: !!metadata,
-        },
-        timestamp: Date.now(),
-        sessionId: 'debug-session',
-        runId: 'run1',
-        hypothesisId: 'A',
-      }),
-    }).catch(() => {});
-    // #endregion
-
-    // #region agent log
-    if (projectId) {
-      fetch('http://127.0.0.1:7242/ingest/ed4dad30-4ac8-4940-ab0c-6f851ddd4464', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          location: 'scopes.handler.ts:160',
-          message: 'Checking if project exists',
-          data: { projectId: projectId },
-          timestamp: Date.now(),
-          sessionId: 'debug-session',
-          runId: 'run1',
-          hypothesisId: 'B',
-        }),
-      }).catch(() => {});
-      const project = projectRepo.getById(projectId);
-      fetch('http://127.0.0.1:7242/ingest/ed4dad30-4ac8-4940-ab0c-6f851ddd4464', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          location: 'scopes.handler.ts:163',
-          message: 'Project lookup result',
-          data: { projectId: projectId, projectExists: !!project, projectData: project },
-          timestamp: Date.now(),
-          sessionId: 'debug-session',
-          runId: 'run1',
-          hypothesisId: 'B',
-        }),
-      }).catch(() => {});
-    }
-    // #endregion
 
     const input: CreateSessionInput = {
       projectId,
@@ -226,62 +157,8 @@ export const scopeHandlers = {
       metadata,
     };
 
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/ed4dad30-4ac8-4940-ab0c-6f851ddd4464', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        location: 'scopes.handler.ts:172',
-        message: 'Before sessionRepo.create',
-        data: { input: input },
-        timestamp: Date.now(),
-        sessionId: 'debug-session',
-        runId: 'run1',
-        hypothesisId: 'C',
-      }),
-    }).catch(() => {});
-    // #endregion
-    try {
-      const session = sessionRepo.create(input);
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/ed4dad30-4ac8-4940-ab0c-6f851ddd4464', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          location: 'scopes.handler.ts:175',
-          message: 'sessionRepo.create succeeded',
-          data: { sessionId: session?.id },
-          timestamp: Date.now(),
-          sessionId: 'debug-session',
-          runId: 'run1',
-          hypothesisId: 'C',
-        }),
-      }).catch(() => {});
-      // #endregion
-      return { success: true, session };
-    } catch (error) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/ed4dad30-4ac8-4940-ab0c-6f851ddd4464', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          location: 'scopes.handler.ts:178',
-          message: 'sessionRepo.create failed',
-          data: {
-            errorMessage: error instanceof Error ? error.message : String(error),
-            errorName: error instanceof Error ? error.name : 'unknown',
-            errorStack: error instanceof Error ? error.stack : undefined,
-            input: input,
-          },
-          timestamp: Date.now(),
-          sessionId: 'debug-session',
-          runId: 'run1',
-          hypothesisId: 'C',
-        }),
-      }).catch(() => {});
-      // #endregion
-      throw error;
-    }
+    const session = sessionRepo.create(input);
+    return { success: true, session };
   },
 
   sessionEnd(params: Record<string, unknown>) {

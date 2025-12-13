@@ -650,4 +650,3 @@ export async function syncToCursorInternalDatabase(
     };
   }
 }
-
