@@ -60,6 +60,12 @@ This document covers advanced features beyond the core workflow. See `auto-memor
 }
 ```
 
+### Scope Selection Strategy
+
+**Global:** Universal standards (security, universal coding standards). **Organization:** Team-wide standards. **Project (default):** Project-specific decisions. **Session:** Temporary/experimental.
+
+**Promotion:** Verify universal → Update scope (don't duplicate) → Deactivate old version. **Deduplication:** Check higher scopes first, use `inherit: true` in queries.
+
 ### File Locking (memory_file_lock)
 
 **ALWAYS** check file locks before editing files in multi-agent scenarios:
@@ -515,5 +521,5 @@ If file locked:
 - Check lock status periodically
 - Use `force_unlock` only if necessary and authorized
 
-@version "1.0.0"
-@last_updated "2024-12-19"
+@version "1.1.0"
+@last_updated "2025-01-13"

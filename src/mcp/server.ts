@@ -1384,14 +1384,23 @@ export function createServer(): Server {
 
   logger.debug('Server instance created');
 
-  // Initialize database
+  // Initialize database (with more defensive error handling)
   try {
     logger.info('Initializing database...');
     getDb();
     logger.info('Database initialized successfully');
   } catch (error) {
-    logger.fatal({ error }, 'Database initialization failed');
-    throw error;
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.fatal(
+      {
+        error: errorMessage,
+        stack: error instanceof Error ? error.stack : undefined,
+      },
+      'Database initialization failed'
+    );
+    // Don't throw - let the server start anyway, tools will handle errors gracefully
+    // This prevents Antigravity from seeing the server as crashed
+    logger.warn('Continuing server startup despite database initialization error');
   }
 
   // Seed predefined tags
@@ -1438,6 +1447,30 @@ export function createServer(): Server {
     }
 
     try {
+      // Ensure database is available before processing tool calls
+      try {
+        getDb();
+      } catch (dbError) {
+        logger.error({ error: dbError }, 'Database not available for tool call');
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                formatError(
+                  new Error(
+                    'Database not available. Please check database initialization or run memory_init.'
+                  )
+                ),
+                null,
+                2
+              ),
+            },
+          ],
+          isError: true,
+        };
+      }
+
       const result = await handler(args ?? {});
       logger.debug({ tool: name }, 'Tool call successful');
 
@@ -1502,10 +1535,54 @@ export async function runServer(): Promise<void> {
     'Runtime environment'
   );
 
+  let server: Server;
   try {
-    const server = createServer();
+    server = createServer();
     logger.info('Server created successfully');
+  } catch (error) {
+    logger.fatal(
+      {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      },
+      'Failed to create server'
+    );
+    // Don't exit - try to continue with a minimal server
+    // This prevents Antigravity from seeing immediate crash
+    logger.warn('Attempting to create minimal server despite errors');
+    server = new Server(
+      {
+        name: 'agent-memory',
+        version: '0.7.3',
+      },
+      {
+        capabilities: {
+          tools: {},
+        },
+      }
+    );
+    // Set up minimal handlers
+    server.setRequestHandler(ListToolsRequestSchema, () => {
+      return { tools: [] };
+    });
+    server.setRequestHandler(CallToolRequestSchema, async () => {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
+              formatError(new Error('Server initialization incomplete. Please check logs.')),
+              null,
+              2
+            ),
+          },
+        ],
+        isError: true,
+      };
+    });
+  }
 
+  try {
     const transport = new StdioServerTransport();
     logger.debug('Transport created');
 
