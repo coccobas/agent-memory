@@ -1,6 +1,6 @@
 # API Reference
 
-Complete documentation for the 19 bundled MCP tools provided by Agent Memory (v0.7.1).
+Complete documentation for the 19 bundled MCP tools provided by Agent Memory (v0.7.2).
 
 ## Tool Bundling
 
@@ -2246,7 +2246,7 @@ This tool has no parameters and returns server version, database stats, and cach
 **Response:**
 ```json
 {
-  "serverVersion": "0.7.1",
+  "serverVersion": "0.7.2",
   "status": "healthy",
   "database": {
     "type": "SQLite",

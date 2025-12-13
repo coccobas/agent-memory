@@ -1185,7 +1185,7 @@ const bundledHandlers: Record<string, (params: Record<string, unknown>) => unkno
       cache: ReturnType<typeof getQueryCacheStats>;
       tables: Record<string, number>;
     } = {
-      serverVersion: '0.7.1',
+      serverVersion: '0.7.2',
       status: 'healthy',
       database: {
         type: 'SQLite',
@@ -1390,7 +1390,7 @@ export function createServer(): Server {
   const server = new Server(
     {
       name: 'agent-memory',
-      version: '0.7.1', // Antigravity IDE support, watch-rules fix
+      version: '0.7.2', // Linting fixes, CI improvements
     },
     {
       capabilities: {
