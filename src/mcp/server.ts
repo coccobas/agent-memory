@@ -769,13 +769,13 @@ const TOOLS: Tool[] = [
   // -------------------------------------------------------------------------
   {
     name: 'memory_export',
-    description: 'Export memory entries to various formats. Actions: export, export_rules',
+    description: 'Export memory entries to various formats. Actions: export',
     inputSchema: {
       type: 'object',
       properties: {
         action: {
           type: 'string',
-          enum: ['export', 'export_rules'],
+          enum: ['export'],
           description: 'Action to perform',
         },
         format: {
@@ -806,24 +806,6 @@ const TOOLS: Tool[] = [
         includeInactive: {
           type: 'boolean',
           description: 'Include inactive/deleted entries (default: false)',
-        },
-        // export_rules params
-        ide: {
-          type: 'string',
-          enum: ['cursor', 'vscode', 'intellij', 'sublime', 'neovim', 'emacs', 'generic', 'all'],
-          description: 'IDE to export to (export_rules action)',
-        },
-        outputDir: {
-          type: 'string',
-          description: 'Output directory (export_rules action, default: current working directory)',
-        },
-        autoDetect: {
-          type: 'boolean',
-          description: 'Auto-detect IDE from workspace (export_rules action)',
-        },
-        inherit: {
-          type: 'boolean',
-          description: 'Include guidelines from parent scopes (export_rules action)',
         },
       },
       required: ['action'],
@@ -1262,10 +1244,8 @@ const bundledHandlers: Record<string, (params: Record<string, unknown>) => unkno
     switch (action) {
       case 'export':
         return exportHandlers.export(rest as Record<string, unknown>);
-      case 'export_rules':
-        return exportHandlers.export_rules(rest as Record<string, unknown>);
       default:
-        throw createInvalidActionError('memory_export', String(action), ['export', 'export_rules']);
+        throw createInvalidActionError('memory_export', String(action), ['export']);
     }
   },
 
