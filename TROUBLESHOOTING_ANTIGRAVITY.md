@@ -3,20 +3,33 @@
 ## Current Status
 - ✅ MCP server connects successfully to Antigravity
 - ✅ All 20 tools are detected and shown
-- ❌ Agent execution fails with "Agent execution terminated due to error"
+- ❌ **Agent stops working BEFORE tools can be called**
+- ❌ "Agent execution terminated due to error" appears immediately
 - ✅ Server works perfectly when tested directly (via test-mcp.js)
+
+## KEY FINDING
+The agent fails **during initialization**, not when calling tools. This means the issue occurs when:
+1. Antigravity starts the MCP server process, OR
+2. The agent tries to use the server for the first time, OR
+3. Something in the startup sequence crashes the agent
 
 ## What We've Done So Far
 
 ### 1. Removed Debug Logging (commit d870bf5)
 Removed HTTP fetch() calls to localhost:7242 that were interfering with MCP communication.
 
-### 2. Added Comprehensive Logging (commit 58bba00)
-Added stderr logging with `[MCP]` prefix to diagnose exactly what's happening:
-- Tool calls and arguments
-- Success/failure status
-- JSON serialization errors
-- Full stack traces
+### 2. Added Tool Call Logging (commit 58bba00)
+Added stderr logging for tool execution diagnostics
+
+### 3. Added Startup Logging (commit 7f261be)
+Added comprehensive startup/initialization logging:
+- Entry point detection
+- Database initialization
+- Transport connection
+- Uncaught exceptions and unhandled rejections
+- Every step of server startup
+
+**This will show exactly where the server crashes during initialization!**
 
 ## Next Steps: Finding the Root Cause
 
@@ -26,34 +39,48 @@ The IDE needs to reload the updated MCP server:
 2. Restart it
 3. Verify MCP connection still shows as "Enabled"
 
-### Step 2: Try a Simple Command
-Ask the agent to do something simple:
+### Step 2: Check the Logs IMMEDIATELY
+
+**Don't try to use the agent yet!** The logs will appear as soon as Antigravity starts the MCP server.
+
+### Step 3: Look for Startup Sequence
+
+You should see a **complete startup sequence** like this:
 ```
-Check the health of the memory server
+[MCP] Entry point reached
+[MCP] Script: /path/to/dist/index.js
+[MCP] Args: []
+[MCP] Starting MCP server...
+[MCP] Node version: v25.x.x
+[MCP] Platform: darwin
+[MCP] CWD: /path/to/Memory
+[MCP] Creating server...
+[MCP] Server instance created
+[MCP] Initializing database...
+[MCP] Database initialized successfully
+[MCP] Seeding predefined tags...
+[MCP] Tags seeded successfully
+[MCP] Setting up request handlers...
+[MCP] Request handlers configured
+[MCP] Server creation complete
+[MCP] Server created successfully
+[MCP] Transport created
+[MCP] Connecting to transport...
+[MCP] Connected successfully - server is ready
+[MCP] Server is now listening for requests
 ```
 
-or
+**If the sequence is incomplete, that's where it crashes!**
 
+For example, if you see:
 ```
-List all organizations
-```
-
-### Step 3: Check the Logs
-
-Antigravity should have a console/output panel where stderr logs appear. Look for lines like:
-```
-[MCP] Tool call: memory_health
-[MCP] Args: {}
-[MCP] SUCCESS: memory_health
+[MCP] Entry point reached
+[MCP] Script: /path/to/dist/index.js
+[MCP] Initializing database...
+[MCP] FATAL: Database initialization failed: ...
 ```
 
-Or if there's an error:
-```
-[MCP] Tool call: memory_org
-[MCP] Args: { "action": "list" }
-[MCP] ERROR in memory_org: <error message here>
-[MCP] Stack: <stack trace here>
-```
+That tells us the database can't be initialized.
 
 ### Where to Find Logs in Antigravity
 
