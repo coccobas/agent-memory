@@ -10,6 +10,7 @@
 
 import pino from 'pino';
 import { appendFileSync } from 'fs';
+import { join } from 'path';
 
 // Determine log level from environment variable (default: info)
 // Ensure it's always a valid string, never undefined
@@ -53,7 +54,9 @@ try {
       runId: 'run1',
       hypothesisId: 'A',
     }) + '\n';
-  appendFileSync('/Users/b.cocco/coccobas/Memory/.cursor/debug.log', logEntry);
+  // Use IDE-agnostic debug log path (project root, not IDE-specific)
+  const debugLogPath = join(process.cwd(), '.ide-debug.log');
+  appendFileSync(debugLogPath, logEntry);
 } catch {
   // Ignore debug log errors
 }
