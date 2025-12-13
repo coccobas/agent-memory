@@ -1185,7 +1185,7 @@ const bundledHandlers: Record<string, (params: Record<string, unknown>) => unkno
       cache: ReturnType<typeof getQueryCacheStats>;
       tables: Record<string, number>;
     } = {
-      serverVersion: '0.7.0',
+      serverVersion: '0.7.1',
       status: 'healthy',
       database: {
         type: 'SQLite',
@@ -1390,7 +1390,7 @@ export function createServer(): Server {
   const server = new Server(
     {
       name: 'agent-memory',
-      version: '0.7.0', // Type safety improvements, error handling enhancements
+      version: '0.7.1', // Antigravity IDE support, watch-rules fix
     },
     {
       capabilities: {
@@ -1414,8 +1414,15 @@ export function createServer(): Server {
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
 
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/ed4dad30-4ac8-4940-ab0c-6f851ddd4464',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'server.ts:1414',message:'Tool call received',data:{toolName:name,args:args},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+
     const handler = bundledHandlers[name];
     if (!handler) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/ed4dad30-4ac8-4940-ab0c-6f851ddd4464',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'server.ts:1420',message:'Handler not found',data:{toolName:name,availableHandlers:Object.keys(bundledHandlers)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
       const errorResponse = formatError(
         createInvalidActionError('MCP', name, Object.keys(bundledHandlers))
       );
@@ -1431,7 +1438,13 @@ export function createServer(): Server {
     }
 
     try {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/ed4dad30-4ac8-4940-ab0c-6f851ddd4464',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'server.ts:1433',message:'Calling handler',data:{toolName:name,args:args},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
       const result = await handler(args ?? {});
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/ed4dad30-4ac8-4940-ab0c-6f851ddd4464',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'server.ts:1436',message:'Handler succeeded',data:{toolName:name,resultType:typeof result},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
       return {
         content: [
           {
@@ -1441,7 +1454,13 @@ export function createServer(): Server {
         ],
       };
     } catch (error) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/ed4dad30-4ac8-4940-ab0c-6f851ddd4464',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'server.ts:1443',message:'Handler error caught',data:{toolName:name,errorMessage:error instanceof Error?error.message:String(error),errorName:error instanceof Error?error.name:'unknown',errorStack:error instanceof Error?error.stack:undefined,args:args},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
       const errorResponse = formatError(error);
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/ed4dad30-4ac8-4940-ab0c-6f851ddd4464',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'server.ts:1445',message:'Error formatted',data:{toolName:name,formattedError:errorResponse},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
       return {
         content: [
           {
