@@ -1414,8 +1414,13 @@ export function createServer(): Server {
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
 
+    // Log to stderr for debugging (visible in IDE logs)
+    console.error(`[MCP] Tool call: ${name}`);
+    console.error(`[MCP] Args: ${JSON.stringify(args, null, 2)}`);
+
     const handler = bundledHandlers[name];
     if (!handler) {
+      console.error(`[MCP] ERROR: Handler not found for tool: ${name}`);
       const errorResponse = formatError(
         createInvalidActionError('MCP', name, Object.keys(bundledHandlers))
       );
@@ -1432,15 +1437,33 @@ export function createServer(): Server {
 
     try {
       const result = await handler(args ?? {});
+      console.error(`[MCP] SUCCESS: ${name}`);
+
+      // Safely serialize result, catching any JSON errors
+      let serializedResult: string;
+      try {
+        serializedResult = JSON.stringify(result, null, 2);
+      } catch (jsonError) {
+        console.error(`[MCP] JSON serialization error for ${name}:`, jsonError);
+        // Attempt safe serialization
+        serializedResult = JSON.stringify({
+          error: 'Failed to serialize result',
+          message: jsonError instanceof Error ? jsonError.message : String(jsonError),
+          resultType: typeof result,
+        }, null, 2);
+      }
+
       return {
         content: [
           {
             type: 'text',
-            text: JSON.stringify(result, null, 2),
+            text: serializedResult,
           },
         ],
       };
     } catch (error) {
+      console.error(`[MCP] ERROR in ${name}:`, error instanceof Error ? error.message : String(error));
+      console.error(`[MCP] Stack:`, error instanceof Error ? error.stack : 'N/A');
       const errorResponse = formatError(error);
       return {
         content: [
