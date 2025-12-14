@@ -1383,7 +1383,7 @@ export async function createServer(): Promise<Server> {
   const server = new Server(
     {
       name: 'agent-memory',
-      version: '0.8.3',
+      version: '0.8.4',
     },
     {
       capabilities: {
@@ -1613,7 +1613,7 @@ export async function runServer(): Promise<void> {
     server = new Server(
       {
         name: 'agent-memory',
-        version: '0.8.3',
+        version: '0.8.4',
       },
       {
         capabilities: {
