@@ -68,5 +68,8 @@
     "memory",
     "sqlite"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "overrides": {
+    "esbuild": "^0.25.0"
+  }
 }

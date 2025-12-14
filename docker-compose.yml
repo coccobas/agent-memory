@@ -28,6 +28,19 @@ services:
 
     # Restart policy
     restart: unless-stopped
+
+    # Logging configuration
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: '10m'
+        max-file: '3'
+
+    # Labels for organization
+    labels:
+      - 'com.agent-memory.version=0.8.4'
+      - 'com.agent-memory.environment=production'
+
     # Optional: Resource limits
     # deploy:
     #   resources:

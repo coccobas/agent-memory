@@ -1,9 +1,14 @@
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
 
 WORKDIR /app
 
 # Install build dependencies for native modules (better-sqlite3)
-RUN apk add --no-cache python3 make g++ sqlite-dev
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    make \
+    g++ \
+    libsqlite3-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy package files
 COPY package*.json ./
@@ -18,17 +23,24 @@ COPY . .
 RUN npm run build
 
 # Production stage
-FROM node:20-alpine
+FROM node:20-slim
 
 WORKDIR /app
 
 # Install runtime dependencies for better-sqlite3
-RUN apk add --no-cache sqlite-libs
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libsqlite3-0 \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copy built files and production dependencies
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
+# Copy package files for production install
 COPY --from=builder /app/package.json ./
+COPY --from=builder /app/package-lock.json ./
+
+# Install only production dependencies and clean cache
+RUN npm ci --omit=dev && npm cache clean --force
+
+# Copy built files
+COPY --from=builder /app/dist ./dist
 
 # Create data directory with proper permissions
 RUN mkdir -p /app/data && chown -R node:node /app/data
@@ -37,12 +49,20 @@ RUN mkdir -p /app/data && chown -R node:node /app/data
 RUN mkdir -p /app/src/db/migrations
 COPY --from=builder /app/src/db/migrations ./src/db/migrations
 
+# Copy health check script and set permissions
+COPY healthcheck.js ./
+RUN chown node:node healthcheck.js
+
 # Switch to non-root user
 USER node
 
 # Set environment variables
 ENV NODE_ENV=production
 ENV AGENT_MEMORY_DB_PATH=/app/data/memory.db
+
+# Health check - verifies database is accessible
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+  CMD ["node", "/app/healthcheck.js"]
 
 # The MCP server uses stdio, no port exposure needed
 # Run with: docker run -i agent-memory

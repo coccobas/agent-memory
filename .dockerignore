@@ -27,6 +27,7 @@ docs/
 # IDE
 .vscode/
 .idea/
+.cursor/
 *.swp
 *.swo
 *~
@@ -48,3 +49,8 @@ Thumbs.db
 data/*.db
 data/*.db-wal
 data/*.db-shm
+
+# Agent-specific
+.agent/
+.swarm/
+.claude-flow/
