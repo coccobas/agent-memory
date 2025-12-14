@@ -160,3 +160,126 @@ Implement hybrid differential versioning that:
 **See full plan:** [FUTURE_DIFFERENTIAL_VERSIONING.md](./FUTURE_DIFFERENTIAL_VERSIONING.md)
 
 
+## Unified Data Access Layer
+
+**Status:** Proposed (Not Implemented)
+
+**Goal:** Establish consistent data access patterns by routing all repository access through a unified service layer.
+
+### Problem
+
+Currently, the codebase uses mixed data access patterns:
+- MCP handlers sometimes access repositories directly (`toolRepo.create(...)`)
+- MCP handlers sometimes go through services (`checkPermission(...)`, `logAction(...)`)
+- Services access repositories directly
+
+This inconsistency makes it harder to:
+- Add cross-cutting concerns (logging, caching, transactions) uniformly
+- Maintain consistent business rules across all data operations
+- Test components in isolation
+- Refactor data access without touching multiple layers
+
+### Current Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                     MCP Handlers                        │
+└─────────────────────────────────────────────────────────┘
+        │                              │
+        │ (Direct access)              │ (Through services)
+        ▼                              ▼
+┌───────────────┐              ┌───────────────┐
+│  Repositories │◄─────────────│   Services    │
+└───────────────┘              └───────────────┘
+```
+
+### Proposed Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                     MCP Handlers                        │
+└─────────────────────────────────────────────────────────┘
+                           │
+                           ▼
+              ┌─────────────────────────┐
+              │   Unified Data Service  │
+              │   (facade/coordinator)  │
+              └─────────────────────────┘
+                           │
+          ┌────────────────┼────────────────┐
+          ▼                ▼                ▼
+   ┌───────────┐    ┌───────────┐    ┌───────────┐
+   │  toolRepo │    │ guideRepo │    │ knowRepo  │
+   └───────────┘    └───────────┘    └───────────┘
+```
+
+### Solution Overview
+
+Create a unified `DataService` facade that:
+1. Provides single entry point for all data operations
+2. Automatically applies cross-cutting concerns (permissions, audit, validation)
+3. Handles transactions consistently
+4. Enables easier testing through dependency injection
+
+### Key Features
+
+1. **Unified Interface**: Single service for tools, guidelines, knowledge CRUD
+2. **Automatic Cross-Cutting**: Permissions, audit logging, validation applied automatically
+3. **Transaction Support**: Wrap multi-step operations in transactions
+4. **Consistent Error Handling**: Uniform error types and messages
+5. **Testability**: Easy to mock for unit testing
+
+### Example API
+
+```typescript
+// Before (mixed patterns)
+await checkPermission(agentId, scopeType, scopeId, 'write');
+const tool = toolRepo.create({ name, description, ... });
+await logAction({ operation: 'create', ... });
+
+// After (unified)
+const tool = await dataService.tools.create({
+  data: { name, description, ... },
+  context: { agentId, scopeType, scopeId }
+});
+// Permissions, audit, validation handled internally
+```
+
+### Implementation Phases
+
+1. Create `DataService` facade with tool operations
+2. Add guideline and knowledge operations
+3. Migrate handlers to use `DataService`
+4. Add transaction support
+5. Remove direct repository imports from handlers
+6. Update tests
+
+### Success Metrics
+
+- All handlers use `DataService` exclusively (no direct repo imports)
+- Cross-cutting concerns applied uniformly
+- Easier to add new cross-cutting features
+- Improved test coverage through mocking
+- Backward compatible: existing behavior unchanged
+
+### Files to Modify
+
+- `src/services/data.service.ts` (NEW)
+- `src/mcp/handlers/tools.handler.ts`
+- `src/mcp/handlers/guidelines.handler.ts`
+- `src/mcp/handlers/knowledge.handler.ts`
+- All other handlers using direct repository access
+
+### Trade-offs
+
+| Aspect | Consideration |
+|--------|---------------|
+| **Pros** | Consistency, testability, single place for cross-cutting concerns |
+| **Cons** | Additional abstraction layer, slight overhead, more boilerplate |
+| **When to implement** | When adding new cross-cutting features becomes painful |
+
+### Priority
+
+**LOW** - Current architecture works well for the project's scale. This becomes more valuable as the codebase grows or when needing to add features that touch all data operations.
+
+
