@@ -518,4 +518,3 @@ describe('Conversations Repository', () => {
     });
   });
 });
-

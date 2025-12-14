@@ -259,4 +259,3 @@ describe('redflag.service', () => {
     });
   });
 });
-

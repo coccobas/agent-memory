@@ -589,4 +589,3 @@ export function importFromFiles(files: string[], options: IDEImportOptions): IDE
 
   return result;
 }
-
