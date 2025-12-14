@@ -14,6 +14,7 @@ data/vectors.lance/
 # IDE
 .vscode/
 .idea/
+.cursor/
 *.swp
 *.swo
 *~
@@ -48,4 +49,7 @@ coverage/
 .claude-flow/
 .swarm/
 .agent/
+
+# CI/CD (locally managed)
+.github/workflows/
 
