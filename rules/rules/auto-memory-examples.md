@@ -1,11 +1,12 @@
 ---
 description: Agent Memory usage examples and common workflows
-globs: ["**/*"]
+globs: []
 alwaysApply: false
 related_docs: [
-  ".cursor/rules/auto-memory-core.mdc",
-  ".cursor/rules/auto-memory-advanced.mdc",
-  ".cursor/rules/auto-memory-reference.mdc"
+  "auto-memory-core.md",
+  "auto-memory-advanced.md",
+  "auto-memory-reference.md",
+  "auto-memory-strategies.md"
 ]
 ---
 
@@ -31,7 +32,7 @@ related_docs: [
 
 # Agent Memory Examples
 
-Practical examples of using Agent Memory tools. See `auto-memory-core.mdc` for the core workflow.
+Practical examples of using Agent Memory tools. See `@auto-memory-core` for the core workflow.
 
 ## Memory Population Triggers
 

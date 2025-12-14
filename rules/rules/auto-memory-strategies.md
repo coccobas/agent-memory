@@ -1,11 +1,12 @@
 ---
 description: Advanced Agent Memory strategies - context-aware querying, semantic similarity, proactive loading, and optimization techniques
-globs: ["**/*"]
+globs: []
 alwaysApply: false
 related_docs: [
-  ".cursor/rules/auto-memory-core.mdc",
-  ".cursor/rules/auto-memory-advanced.mdc",
-  ".cursor/rules/auto-memory-examples.mdc"
+  "auto-memory-core.md",
+  "auto-memory-advanced.md",
+  "auto-memory-examples.md",
+  "auto-memory-reference.md"
 ]
 ---
 
@@ -38,7 +39,7 @@ related_docs: [
 
 # Advanced Agent Memory Strategies
 
-Advanced strategies for optimizing memory usage, improving query effectiveness, and building knowledge graphs. See `auto-memory-core.mdc` for essential operations.
+Advanced strategies for optimizing memory usage, improving query effectiveness, and building knowledge graphs. See `@auto-memory-core` for essential operations.
 
 ## Context-Aware Querying
 

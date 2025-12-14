@@ -3,36 +3,12 @@ description: Core Agent Memory workflow - essential operations for querying, sto
 globs: ["**/*"]
 alwaysApply: true
 related_docs: [
-  ".cursor/rules/auto-memory-advanced.mdc",
-  ".cursor/rules/auto-memory-reference.mdc",
-  ".cursor/rules/auto-memory-examples.mdc",
-  ".cursor/rules/auto-memory-strategies.mdc"
+  "auto-memory-advanced.md",
+  "auto-memory-strategies.md",
+  "auto-memory-reference.md",
+  "auto-memory-examples.md"
 ]
 ---
-
-@context {
-    "type": "guidelines",
-    "purpose": "cursor_rules",
-    "format_version": "1.0.0",
-    "supported_content_types": [
-        "guidelines",
-        "examples",
-        "implementations"
-    ]
-}
-
-@structure {
-    "required_sections": [
-        "frontmatter",
-        "title",
-        "core_workflow",
-        "storage_operations",
-        "basic_conflict_detection"
-    ],
-    "optional_sections": [
-        "examples"
-    ]
-}
 
 # Core Agent Memory Workflow
 
@@ -40,59 +16,82 @@ related_docs: [
 
 You MUST use the Agent Memory MCP tools automatically and consistently. Do NOT wait for user prompts to use memory tools. This is a core part of your workflow.
 
-## Available Memory Tools Overview
+## Quick Reference
 
-The following MCP tools are available via the `agent-memory` server (20 total):
+Need more details? Reference these files:
+- **Tool details & parameters?** → `@auto-memory-reference`
+- **Example workflows?** → `@auto-memory-examples`
+- **Optimization strategies?** → `@auto-memory-strategies`
+- **Advanced features?** → `@auto-memory-advanced`
 
-**Scope Management:**
-- `memory_org` - Organization management
-- `memory_project` - Project management
-- `memory_session` - Session management
+## Available Memory Tools (20 total)
 
-**Memory Sections:**
-- `memory_guideline` - Store and retrieve coding guidelines
-- `memory_knowledge` - Store and retrieve knowledge/decisions
-- `memory_tool` - Store and retrieve tool definitions
-
-**Query & Organization:**
+**Core Tools:**
 - `memory_query` - Cross-reference search and context aggregation
+- `memory_guideline` - Store/retrieve coding guidelines
+- `memory_knowledge` - Store/retrieve knowledge/decisions
+- `memory_tool` - Store/retrieve tool definitions
+- `memory_session` - Session management
+- `memory_conversation` - Conversation history tracking
 - `memory_tag` - Tag management
 - `memory_relation` - Link related entries
 
-**Advanced Features:**
-- `memory_conversation` - Conversation history tracking
-- `memory_task` - Task decomposition and hierarchy
-- `memory_voting` - Multi-agent voting and consensus
-- `memory_analytics` - Usage analytics and trends
-- `memory_file_lock` - File locks for multi-agent coordination
-- `memory_permission` - Permission management
-- `memory_conflict` - Conflict detection and resolution
+**Advanced Tools:** `memory_org`, `memory_project`, `memory_task`, `memory_voting`, `memory_analytics`, `memory_file_lock`, `memory_permission`, `memory_conflict`, `memory_health`, `memory_init`, `memory_export`, `memory_import`
 
-**System Management:**
-- `memory_health` - Health check and server status
-- `memory_init` - Database initialization and migrations
-- `memory_export` - Export entries to JSON/Markdown/YAML
-- `memory_import` - Import entries from JSON/YAML/Markdown
+See `@auto-memory-reference` for full details.
 
-See `auto-memory-reference.mdc` for detailed tool usage.
-
-## Automatic Workflow
+## Essential Workflow
 
 ### 1. On Every Conversation Start
 
-**CRITICAL: Query Project Context FIRST**
+**ALWAYS query project context FIRST:**
 
-**ALWAYS** query project context first: `memory_query` with `action: "context"`, `scopeType: "project"`, `inherit: true`. If project ID unknown, use `memory_project` with `action: "list"` to find it.
+```json
+{
+  "tool": "memory_query",
+  "arguments": {
+    "action": "context",
+    "scopeType": "project",
+    "inherit": true
+  }
+}
+```
+
+If project ID unknown, use `memory_project` with `action: "list"` first.
 
 ### 2. Before Starting Any Coding Task
 
-**ALWAYS** query relevant guidelines with context-aware tags. Infer tags from file paths, features, modules. Use `memory_query` with `action: "search"`, `types: ["guidelines"]`, inferred tags, `conversationId`, `autoLinkContext: true`.
+**ALWAYS check file locks:**
 
-**ALWAYS** check file locks before editing: `memory_file_lock` with `action: "status"`. If locked, wait or use `force_unlock` if appropriate.
+```json
+{
+  "tool": "memory_file_lock",
+  "arguments": {
+    "action": "status",
+    "file_path": "/absolute/path/to/file"
+  }
+}
+```
+
+**ALWAYS query relevant guidelines** - Infer tags from file paths/features:
+
+```json
+{
+  "tool": "memory_query",
+  "arguments": {
+    "action": "search",
+    "types": ["guidelines"],
+    "tags": {"include": ["<inferred-tags>"]},
+    "scope": {"type": "project", "inherit": true},
+    "conversationId": "<conversation-id>",
+    "autoLinkContext": true
+  }
+}
+```
 
 ### 3. Start a Session for Each Task
 
-**ALWAYS** start a session when beginning work:
+**ALWAYS start a session:**
 
 ```json
 {
@@ -100,24 +99,15 @@ See `auto-memory-reference.mdc` for detailed tool usage.
   "arguments": {
     "action": "start",
     "projectId": "<project-id>",
-    "name": "<descriptive-task-name>",
+    "name": "<task-name>",
     "purpose": "<what-you-are-doing>",
     "agentId": "cursor-ai",
-    "metadata": {
-      "autoPopulate": true  // Enable automatic population (default: true)
-    }
+    "metadata": {"autoPopulate": true}
   }
 }
 ```
 
-**To enable/disable auto-population:**
-
-- **Enable auto-population** (default): Set `metadata.autoPopulate: true` when starting session
-- **Disable auto-population**: Set `metadata.autoPopulate: false` when starting session
-
-When auto-population is enabled, the agent will automatically extract and store findings from conversations. When disabled, the agent will only store entries when explicitly instructed.
-
-**ALWAYS** start a conversation for the session:
+**ALWAYS start a conversation:**
 
 ```json
 {
@@ -132,71 +122,84 @@ When auto-population is enabled, the agent will automatically extract and store 
 }
 ```
 
-Use the session ID for all session-scoped entries. Use conversation ID to link all memory queries.
+Use session ID for session-scoped entries. Use conversation ID to link all queries.
 
-### 3.1. Scope Selection Strategy
+### 4. Check Before Storing (CRITICAL)
 
-**Default:** Start at project scope, promote to global only if truly universal.
-
-**Scopes:** Project (default, project-specific), Global (universal standards), Session (temporary/experimental).
-
-**Rules:** Check higher scopes first to avoid duplication. When promoting, update scope rather than duplicating.
-
-### 4. Automatically Store Guidelines
-
-**CRITICAL: Check for existing guidelines before storing new ones**
-
-Before storing a guideline, **ALWAYS** check if a similar one exists:
+**Before storing ANY entry, ALWAYS check if similar exists:**
 
 ```json
 {
   "tool": "memory_query",
   "arguments": {
     "action": "search",
-    "types": ["guidelines"],
-    "search": "<guideline-topic>",
-    "scope": {
-      "type": "project",
-      "id": "<project-id>",
-      "inherit": true
-    },
+    "types": ["<entry-type>"],
+    "search": "<topic>",
+    "scope": {"type": "project", "id": "<project-id>", "inherit": true},
     "limit": 10
   }
 }
 ```
 
-**Conflict Detection:** If similar exists → compare semantically. Complementary → update. Contradictory → ask user to update or create new. Exact duplicate → skip. No conflict → store new.
+**Conflict Detection Rules:**
+- Similar exists + complementary → Update existing
+- Similar exists + contradictory → Ask user
+- Exact duplicate → Skip storing
+- No conflict → Store new
 
-**When storing:** Use `memory_guideline` with `action: "add"` (or `"update"`), `scopeType`, `scopeId`, `name`, `category`, `priority`, `content`, `rationale`, `examples`. **When updating:** Both `content` and `changeReason` are REQUIRED.
+### 5. Store Guidelines
 
-**Store when:** User mentions standards, you notice patterns, you create conventions, code review reveals standards.
+**When to store:**
+- User mentions standards or best practices
+- You notice repeated patterns
+- Code review reveals conventions
+- User establishes a rule
 
-### 5. Automatically Store Knowledge
-
-**CRITICAL: Check for existing knowledge before storing**
-
-Before storing knowledge, **ALWAYS** check if similar knowledge exists:
+**Check first, then store:**
 
 ```json
 {
-  "tool": "memory_query",
+  "tool": "memory_guideline",
   "arguments": {
-    "action": "search",
-    "types": ["knowledge"],
-    "search": "<knowledge-topic>",
-    "scope": {
-      "type": "project",
-      "id": "<project-id>",
-      "inherit": true
-    },
-    "limit": 10
+    "action": "add",
+    "scopeType": "project",
+    "scopeId": "<project-id>",
+    "name": "<guideline-name>",
+    "category": "<code_style|workflow|security|architecture>",
+    "priority": 5,
+    "content": "<the guideline>",
+    "rationale": "<why this guideline>",
+    "examples": ["<usage example>"]
   }
 }
 ```
 
-**Conflict Detection:** If similar exists → compare semantically. Supplementary → update. Contradictory → ask user. Exact duplicate → skip. No conflict → store new.
+**When updating (both fields REQUIRED):**
 
-**When storing knowledge:**
+```json
+{
+  "tool": "memory_guideline",
+  "arguments": {
+    "action": "update",
+    "id": "<id>",
+    "content": "<full updated content>",
+    "changeReason": "<why updating>"
+  }
+}
+```
+
+### 6. Store Knowledge
+
+**When to store:**
+- Architecture decisions
+- Why something was done a certain way
+- API contracts or conventions
+- Known issues and workarounds
+- Domain-specific information
+
+**Categories:** `decision`, `fact`, `context`, `reference`
+
+**Check first, then store:**
 
 ```json
 {
@@ -205,183 +208,180 @@ Before storing knowledge, **ALWAYS** check if similar knowledge exists:
     "action": "add",
     "scopeType": "project",
     "scopeId": "<project-id>",
-    "title": "<descriptive-title>",
+    "title": "<title>",
     "category": "<decision|fact|context|reference>",
-    "content": "<the knowledge content>",
-    "source": "<where this came from>",
+    "content": "<knowledge content>",
+    "source": "<where from>",
     "confidence": 1.0
   }
 }
 ```
 
-**When updating knowledge (CRITICAL: Both `content` and `changeReason` are REQUIRED):**
+**When updating (both fields REQUIRED):**
 
 ```json
 {
   "tool": "memory_knowledge",
   "arguments": {
     "action": "update",
-    "id": "<knowledge-entry-id>",
-    "content": "<updated knowledge content>",  // REQUIRED: Must provide full updated content
-    "changeReason": "<reason for the update>",  // REQUIRED: Must explain why updating
-    // Optional fields that can also be updated:
-    // "title": "<updated-title>",
-    // "category": "<updated-category>",
-    // "source": "<updated-source>",
-    // "confidence": 0.9
+    "id": "<id>",
+    "content": "<full updated content>",
+    "changeReason": "<why updating>"
   }
 }
 ```
 
-**Note:** When updating, you must provide the complete updated `content` (not just the changes). To update an entry:
-1. First retrieve it using `memory_knowledge` with `action: "get"` and `id`
-2. Modify the content as needed
-3. Call `memory_knowledge` with `action: "update"`, providing both the complete updated `content` and a `changeReason`
+### 7. Store Tools
 
-**Knowledge Categories:** `decision` (choices made), `context` (current state), `fact` (objective facts), `reference` (external links).
-
-**Store knowledge when:**
-- User explains architecture decisions
-- You discover why something was done a certain way
-- Important context about the codebase
-- API contracts or conventions
-- Known issues and workarounds
-- Domain-specific information
-
-### 5.1. Classification: Knowledge vs Guidelines
-
-**Rule:** Affects how agent works → Guideline. Describes what exists/was decided → Knowledge.
-
-**Guidelines:** Rules, standards, behaviors ("Don't create CAD files", "Always query project context").
-
-**Knowledge:** Facts, decisions, context ("System uses 9733 blower", "PostgreSQL chosen for JSONB").
-
-**Decision:** How should I work? → Guideline. What exists/was decided? → Knowledge.
-
-### 6. Automatically Store Tools
-
-**CRITICAL: Check for existing tools before storing**
-
-Before storing a tool, **ALWAYS** check if a tool with the same name exists in the scope:
+**Check if tool exists, then store:**
 
 ```json
 {
   "tool": "memory_tool",
   "arguments": {
-    "action": "list",
-    "scopeType": "project",
-    "scopeId": "<project-id>",
-    "inherit": true
-  }
-}
-```
-
-**Conflict Detection:** If tool with same name exists → compare functionality. Same → skip. Different → ask user to update or use different name. No conflict → store new.
-
-**When storing tools:**
-
-```json
-{
-  "tool": "memory_tool",
-  "arguments": {
-    "action": "add",  // or "update" if updating existing
+    "action": "add",
     "scopeType": "project",
     "scopeId": "<project-id>",
     "name": "<tool-name>",
     "category": "<mcp|cli|function|api>",
-    "description": "<what this tool does>",
-    "parameters": {
-      "<param>": "<description>"
-    },
-    "examples": ["<usage example>"],
-    "constraints": "<any constraints>"
+    "description": "<what it does>",
+    "parameters": {"<param>": "<description>"},
+    "examples": ["<example>"]
   }
 }
 ```
 
-**When updating tools (CRITICAL: Both `description`/`content` and `changeReason` are REQUIRED):**
+### 8. Tag Everything (REQUIRED)
+
+**REQUIRED:** All entries MUST be tagged immediately after storing.
 
 ```json
 {
-  "tool": "memory_tool",
+  "tool": "memory_tag",
   "arguments": {
-    "action": "update",
-    "id": "<tool-entry-id>",
-    "description": "<updated description>",  // REQUIRED: Must provide updated description
-    "changeReason": "<reason for the update>",  // REQUIRED: Must explain why updating
-    // Other fields can also be updated as needed
+    "action": "attach",
+    "entryType": "<tools|guidelines|knowledge>",
+    "entryId": "<entry-id>",
+    "tagName": "<tag>"
   }
 }
 ```
 
-### 7. Tag Everything (REQUIRED)
+**Tag categories:**
+- Languages: `typescript`, `python`, `javascript`
+- Domains: `frontend`, `backend`, `api`, `database`
+- Categories: `code_style`, `workflow`, `security`
+- Task-specific: Infer from context
 
-**REQUIRED**: All entries MUST be tagged. Entries without tags are incomplete and harder to discover.
+**Minimum:** 2-3 tags from multiple categories
 
-**ALWAYS** tag entries immediately after storing: Use `memory_tag` with `action: "attach"`, `entryType`, `entryId`, `tagName`.
+### 9. Link Related Entries
 
-**Tag categories:** Languages (`typescript`, `python`, etc.), Domains (`frontend`, `backend`, `api`, etc.), Categories (`code_style`, `workflow`, etc.), Task-specific (`authentication`, `plenum`, etc.)
-
-**Infer tags from:** File paths, task descriptions, user mentions, module context. Use 2-3 tags minimum from multiple categories.
-
-### 7.1. Link Related Entries
-
-**ALWAYS** create relations between related entries using `memory_relation`. Link guidelines that reference each other, knowledge entries that build on each other, and entries discovered during queries.
-
-**Relation types:** `related_to` (general), `depends_on` (dependency), `applies_to` (guideline applies to context), `conflicts_with` (rare).
-
-**Workflow:** Store entry → Tag → Query for related entries → Create relations.
-
-### 8. Query Before Making Decisions
-
-Before implementing, **ALWAYS** query for related knowledge: Use `memory_query` with `action: "search"`, `types: ["knowledge", "guidelines"]`, `search`, `scope` with `inherit: true`.
-
-### 9. Start and Track Conversations
-
-**ALWAYS** start a conversation when starting a session:
+**ALWAYS create relations between related entries:**
 
 ```json
 {
-  "tool": "memory_conversation",
+  "tool": "memory_relation",
   "arguments": {
-    "action": "start",
-    "projectId": "<project-id>",
-    "sessionId": "<session-id>",
-    "title": "<conversation-title>",
-    "agentId": "cursor-ai",
-    "metadata": {
-      "purpose": "<conversation-purpose>"
-    }
+    "action": "create",
+    "sourceType": "<entry-type>",
+    "sourceId": "<source-id>",
+    "targetType": "<entry-type>",
+    "targetId": "<target-id>",
+    "relationType": "<related_to|depends_on|applies_to>",
+    "createdBy": "cursor-ai"
   }
 }
 ```
 
-**Link queries to conversations:** Use `conversationId` and `autoLinkContext: true` in queries. When `autoLinkContext: true`, automatically extract findings → Store → Link to conversation → Tag.
+**Workflow:** Store → Tag → Query related → Create relations
 
-**Track context:** Use `add_message` to log agent actions. Use `link_context` to link entries. Use `get_context` to retrieve conversation context. Use `search` to find conversations. Use `end` with `generateSummary: true` when done. Use `archive` for old conversations.
+### 10. Query Before Decisions
 
-### 9.1. Continuous Extraction During Active Sessions
+**Before implementing, ALWAYS query:**
 
-**Auto-population:** Controlled by `metadata.autoPopulate` (default: true). When active: Extract findings from user messages and code changes immediately. Check for duplicates (semantic search), update if similar, store if new. Tag and link to conversation.
+```json
+{
+  "tool": "memory_query",
+  "arguments": {
+    "action": "search",
+    "types": ["knowledge", "guidelines"],
+    "search": "<topic>",
+    "scope": {"type": "project", "inherit": true}
+  }
+}
+```
 
-### 10. End Sessions Properly
+### 11. End Sessions Properly
 
-When completing a task, **ALWAYS** end the session: Use `memory_session` with `action: "end"`, `id`, `status: "completed"`.
+**When completing task:**
+
+```json
+{
+  "tool": "memory_session",
+  "arguments": {
+    "action": "end",
+    "id": "<session-id>",
+    "status": "completed"
+  }
+}
+```
+
+## Scope Selection Strategy
+
+**Default:** Start at project scope, promote to global only if truly universal.
+
+**Scopes:**
+- **Project** (default) - Project-specific
+- **Global** - Universal standards
+- **Session** - Temporary/experimental
+- **Organization** - Team-wide (see `@auto-memory-advanced`)
+
+**Rules:**
+- Check higher scopes first to avoid duplication
+- When promoting, update scope (don't duplicate)
+- Always use `inherit: true` in queries
+
+## Classification: Knowledge vs Guidelines
+
+**Rule:** Affects how agent works → Guideline. Describes what exists → Knowledge.
+
+**Guidelines:** Rules, standards, behaviors
+- "Don't create CAD files"
+- "Always query project context first"
+
+**Knowledge:** Facts, decisions, context
+- "System uses PostgreSQL for JSONB support"
+- "Authentication uses JWT tokens"
+
+**Decision:** How should I work? → Guideline. What exists/was decided? → Knowledge.
 
 ## Important Rules
 
 1. **NEVER skip memory queries** - Always check memory before coding
-2. **ALWAYS check for existing entries** - Query before storing to avoid duplicates/conflicts
+2. **ALWAYS check for existing entries** - Query before storing
 3. **ALWAYS store new information** - Don't let knowledge slip away
 4. **ALWAYS use sessions** - Track your work properly
-5. **ALWAYS use conversations** - Link all queries to conversations for tracking
-6. **ALWAYS tag entries** - Makes querying easier
+5. **ALWAYS use conversations** - Link queries for tracking
+6. **ALWAYS tag entries** - Makes querying easier (2-3 tags minimum)
 7. **ALWAYS query before decisions** - Check if similar decisions exist
 8. **ALWAYS inherit scope** - Use `inherit: true` to get full context
 9. **ALWAYS end sessions** - Clean up when done
-10. **ALWAYS resolve conflicts** - Check for and resolve conflicts periodically
+10. **ALWAYS resolve conflicts** - See `@auto-memory-advanced` for conflict resolution
 
-For advanced conflict resolution, see `auto-memory-advanced.mdc`.
+## Auto-Population
 
-@version "1.2.0"
+Controlled by `metadata.autoPopulate` (default: true).
+
+**When enabled:** Automatically extract and store findings from conversations, checking for duplicates first.
+
+**When disabled:** Only store entries when explicitly instructed.
+
+Set when starting session: `"metadata": {"autoPopulate": true}`
+
+---
+
+**For advanced features, optimization strategies, and detailed examples, reference the related documentation files using `@` mentions.**
+
+@version "2.0.0"
 @last_updated "2025-12-14"

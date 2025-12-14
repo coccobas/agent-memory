@@ -1,11 +1,12 @@
 ---
 description: Complete reference for all Agent Memory MCP tools and query patterns
-globs: ["**/*"]
+globs: []
 alwaysApply: false
 related_docs: [
-  ".cursor/rules/auto-memory-core.mdc",
-  ".cursor/rules/auto-memory-advanced.mdc",
-  ".cursor/rules/auto-memory-examples.mdc"
+  "auto-memory-core.md",
+  "auto-memory-advanced.md",
+  "auto-memory-examples.md",
+  "auto-memory-strategies.md"
 ]
 ---
 
@@ -30,7 +31,7 @@ related_docs: [
 
 # Agent Memory Tool Reference
 
-Complete reference for all 20 Agent Memory MCP tools. See `auto-memory-core.mdc` for usage workflows.
+Complete reference for all 20 Agent Memory MCP tools. See `@auto-memory-core` for usage workflows.
 
 ## Available Memory Tools
 

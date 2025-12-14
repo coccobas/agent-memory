@@ -1,11 +1,12 @@
 ---
 description: Advanced Agent Memory features - additional tools, conflict resolution, maintenance, and error handling
-globs: ["**/*"]
+globs: []
 alwaysApply: false
 related_docs: [
-  ".cursor/rules/auto-memory-core.mdc",
-  ".cursor/rules/auto-memory-reference.mdc",
-  ".cursor/rules/auto-memory-strategies.mdc"
+  "auto-memory-core.mdc",
+  "auto-memory-reference.mdc",
+  "auto-memory-strategies.mdc",
+  "auto-memory-examples.mdc"
 ]
 ---
 
@@ -33,7 +34,7 @@ related_docs: [
 
 # Advanced Agent Memory Features
 
-This document covers advanced features beyond the core workflow. See `auto-memory-core.mdc` for essential operations.
+This document covers advanced features beyond the core workflow. See `@auto-memory-core` for essential operations.
 
 ## Additional Memory Tools Usage
 
