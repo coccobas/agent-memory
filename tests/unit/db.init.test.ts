@@ -236,7 +236,9 @@ describe('db/init', () => {
       expect(res2.integrityVerified).toBe(true);
 
       // Check if backfilled
-      const row = sqlite.prepare('SELECT checksum FROM _migrations LIMIT 1').get() as { checksum: string };
+      const row = sqlite.prepare('SELECT checksum FROM _migrations LIMIT 1').get() as {
+        checksum: string;
+      };
       expect(row.checksum).not.toBeNull();
 
       sqlite.close();

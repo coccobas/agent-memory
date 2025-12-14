@@ -179,13 +179,19 @@ const RECONNECT_MAX_DELAY_MS = 5000;
  */
 export async function attemptReconnect(options: ConnectionOptions = {}): Promise<boolean> {
   for (let attempt = 1; attempt <= MAX_RECONNECT_ATTEMPTS; attempt++) {
-    logger.info({ attempt, maxAttempts: MAX_RECONNECT_ATTEMPTS }, 'Attempting to reconnect to database...');
+    logger.info(
+      { attempt, maxAttempts: MAX_RECONNECT_ATTEMPTS },
+      'Attempting to reconnect to database...'
+    );
 
     try {
       closeDb();
 
       // Wait briefly before reconnecting (exponential backoff)
-      const delay = Math.min(RECONNECT_BASE_DELAY_MS * Math.pow(2, attempt - 1), RECONNECT_MAX_DELAY_MS);
+      const delay = Math.min(
+        RECONNECT_BASE_DELAY_MS * Math.pow(2, attempt - 1),
+        RECONNECT_MAX_DELAY_MS
+      );
       await new Promise((resolve) => setTimeout(resolve, delay));
 
       getDb(options);
@@ -201,7 +207,10 @@ export async function attemptReconnect(options: ConnectionOptions = {}): Promise
     }
   }
 
-  logger.error({ maxAttempts: MAX_RECONNECT_ATTEMPTS }, 'Max reconnect attempts reached, giving up');
+  logger.error(
+    { maxAttempts: MAX_RECONNECT_ATTEMPTS },
+    'Max reconnect attempts reached, giving up'
+  );
   return false;
 }
 

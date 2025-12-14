@@ -2,115 +2,369 @@ import { describe, it, expect, vi } from 'vitest';
 import { LRUCache } from '../../src/utils/lru-cache.js';
 
 describe('LRUCache', () => {
-    it('should store and retrieve values', () => {
-        const cache = new LRUCache<string>({ maxSize: 10 });
-        cache.set('key1', 'value1');
-        expect(cache.get('key1')).toBe('value1');
+  it('should store and retrieve values', () => {
+    const cache = new LRUCache<string>({ maxSize: 10 });
+    cache.set('key1', 'value1');
+    expect(cache.get('key1')).toBe('value1');
+  });
+
+  it('should return undefined for missing keys', () => {
+    const cache = new LRUCache<string>({ maxSize: 10 });
+    expect(cache.get('missing')).toBeUndefined();
+  });
+
+  it('should enforce maxSize with LRU eviction', () => {
+    const cache = new LRUCache<string>({ maxSize: 3 });
+    cache.set('a', '1');
+    cache.set('b', '2');
+    cache.set('c', '3');
+
+    // Access 'a' to make it most recently used
+    cache.get('a'); // Order: b, c, a
+
+    // Add 'd', should evict 'b' (LRU)
+    cache.set('d', '4'); // Order: c, a, d
+
+    expect(cache.has('b')).toBe(false);
+    expect(cache.has('a')).toBe(true);
+    expect(cache.has('c')).toBe(true);
+    expect(cache.has('d')).toBe(true);
+  });
+
+  it('should respect TTL', async () => {
+    vi.useFakeTimers();
+    const cache = new LRUCache<string>({ maxSize: 10, ttlMs: 1000 });
+
+    cache.set('key', 'value');
+    expect(cache.get('key')).toBe('value');
+
+    // Advance time past TTL
+    vi.advanceTimersByTime(1100);
+
+    expect(cache.get('key')).toBeUndefined();
+    expect(cache.has('key')).toBe(false);
+    vi.useRealTimers();
+  });
+
+  it('should call onEvict callback', () => {
+    const onEvict = vi.fn();
+    const cache = new LRUCache<string>({ maxSize: 2, onEvict });
+
+    cache.set('a', '1');
+    cache.set('b', '2');
+    cache.set('c', '3'); // Evicts 'a'
+
+    expect(onEvict).toHaveBeenCalledWith('a', '1');
+  });
+
+  it('should clear cache', () => {
+    const onEvict = vi.fn();
+    const cache = new LRUCache<string>({ maxSize: 10, onEvict });
+    cache.set('a', '1');
+    cache.clear();
+    expect(cache.size).toBe(0);
+    expect(onEvict).toHaveBeenCalledWith('a', '1');
+  });
+
+  it('should evict on memory pressure if implemented', () => {
+    const memorySpy = vi.spyOn(process, 'memoryUsage');
+
+    // Low pressure first
+    memorySpy.mockReturnValue({
+      heapUsed: 100 * 1024 * 1024,
+      heapTotal: 1000 * 1024 * 1024,
+      external: 0,
+      rss: 0,
+      arrayBuffers: 0,
     });
 
-    it('should return undefined for missing keys', () => {
-        const cache = new LRUCache<string>({ maxSize: 10 });
-        expect(cache.get('missing')).toBeUndefined();
+    const cache = new LRUCache<string>({ maxSize: 100 });
+    // Fill 10 items
+    for (let i = 0; i < 10; i++) cache.set(String(i), 'val');
+
+    expect(cache.size).toBe(10);
+
+    // High pressure
+    memorySpy.mockReturnValue({
+      heapUsed: 900 * 1024 * 1024,
+      heapTotal: 1000 * 1024 * 1024,
+      external: 0,
+      rss: 0,
+      arrayBuffers: 0,
     });
 
-    it('should enforce maxSize with LRU eviction', () => {
-        const cache = new LRUCache<string>({ maxSize: 3 });
-        cache.set('a', '1');
-        cache.set('b', '2');
-        cache.set('c', '3');
+    // Trigger set which should check pressure and evict
+    cache.set('new', 'val');
 
-        // Access 'a' to make it most recently used
-        cache.get('a'); // Order: b, c, a
+    // Should have evicted batch
+    // Batch is 10%. Size was 10. Target 9. Evicts 1. Size 9. Adds 1. Size 10.
+    // Wait? If it evicts 1, then adds 1, size is 10.
+    // If I didn't evict, size would be 11.
+    // So expect size to be 10.
+    // But if implementation was strict 10% of TOTAL including new...
+    // My implementation: evicts BEFORE set.
+    // (10 * 0.9) = 9. Loop while > 9.
+    // 10 is > 9. Evicts 1. Size 9.
+    // Sets 'new'. Size 10.
 
-        // Add 'd', should evict 'b' (LRU)
-        cache.set('d', '4'); // Order: c, a, d
+    expect(cache.size).toBe(10);
+    expect(cache.has('0')).toBe(false); // First one should be evicted
+    expect(cache.has('new')).toBe(true);
 
-        expect(cache.has('b')).toBe(false);
-        expect(cache.has('a')).toBe(true);
-        expect(cache.has('c')).toBe(true);
-        expect(cache.has('d')).toBe(true);
-    });
+    memorySpy.mockRestore();
+  });
 
-    it('should respect TTL', async () => {
-        vi.useFakeTimers();
-        const cache = new LRUCache<string>({ maxSize: 10, ttlMs: 1000 });
+  it('should handle updating existing keys', () => {
+    const cache = new LRUCache<string>({ maxSize: 3 });
+    cache.set('a', 'value1');
+    cache.set('b', 'value2');
+    cache.set('a', 'value1-updated'); // Update existing
 
-        cache.set('key', 'value');
-        expect(cache.get('key')).toBe('value');
+    expect(cache.get('a')).toBe('value1-updated');
+    expect(cache.size).toBe(2); // Still only 2 entries
+  });
 
-        // Advance time past TTL
-        vi.advanceTimersByTime(1100);
+  it('should expose keys() method', () => {
+    const cache = new LRUCache<string>({ maxSize: 10 });
+    cache.set('a', '1');
+    cache.set('b', '2');
+    cache.set('c', '3');
 
-        expect(cache.get('key')).toBeUndefined();
-        expect(cache.has('key')).toBe(false);
-        vi.useRealTimers();
-    });
+    const keys = Array.from(cache.keys());
+    expect(keys).toEqual(['a', 'b', 'c']);
+  });
 
-    it('should call onEvict callback', () => {
-        const onEvict = vi.fn();
-        const cache = new LRUCache<string>({ maxSize: 2, onEvict });
+  it('should deleteMatching with predicate', () => {
+    const cache = new LRUCache<string>({ maxSize: 10 });
+    cache.set('user:1', 'data1');
+    cache.set('user:2', 'data2');
+    cache.set('session:1', 'sess1');
+    cache.set('session:2', 'sess2');
 
-        cache.set('a', '1');
-        cache.set('b', '2');
-        cache.set('c', '3'); // Evicts 'a'
+    const deleted = cache.deleteMatching((key) => key.startsWith('user:'));
 
-        expect(onEvict).toHaveBeenCalledWith('a', '1');
-    });
+    expect(deleted).toBe(2);
+    expect(cache.has('user:1')).toBe(false);
+    expect(cache.has('user:2')).toBe(false);
+    expect(cache.has('session:1')).toBe(true);
+    expect(cache.has('session:2')).toBe(true);
+  });
 
-    it('should clear cache', () => {
-        const onEvict = vi.fn();
-        const cache = new LRUCache<string>({ maxSize: 10, onEvict });
-        cache.set('a', '1');
-        cache.clear();
-        expect(cache.size).toBe(0);
-        expect(onEvict).toHaveBeenCalledWith('a', '1');
-    });
+  it('should return 0 for deleteMatching when no matches', () => {
+    const cache = new LRUCache<string>({ maxSize: 10 });
+    cache.set('a', '1');
 
-    it('should evict on memory pressure if implemented', () => {
-        const memorySpy = vi.spyOn(process, 'memoryUsage');
+    const deleted = cache.deleteMatching((key) => key.startsWith('nonexistent'));
+    expect(deleted).toBe(0);
+  });
 
-        // Low pressure first
-        memorySpy.mockReturnValue({
-            heapUsed: 100 * 1024 * 1024,
-            heapTotal: 1000 * 1024 * 1024,
-            external: 0,
-            rss: 0,
-            arrayBuffers: 0
-        });
+  it('should evictOldest specified number of entries', () => {
+    const cache = new LRUCache<string>({ maxSize: 10 });
+    cache.set('a', '1');
+    cache.set('b', '2');
+    cache.set('c', '3');
+    cache.set('d', '4');
 
-        const cache = new LRUCache<string>({ maxSize: 100 });
-        // Fill 10 items
-        for (let i = 0; i < 10; i++) cache.set(String(i), 'val');
+    const evicted = cache.evictOldest(2);
 
-        expect(cache.size).toBe(10);
+    expect(evicted).toBe(2);
+    expect(cache.size).toBe(2);
+    expect(cache.has('a')).toBe(false);
+    expect(cache.has('b')).toBe(false);
+    expect(cache.has('c')).toBe(true);
+    expect(cache.has('d')).toBe(true);
+  });
 
-        // High pressure
-        memorySpy.mockReturnValue({
-            heapUsed: 900 * 1024 * 1024,
-            heapTotal: 1000 * 1024 * 1024,
-            external: 0,
-            rss: 0,
-            arrayBuffers: 0
-        });
+  it('should evictOldest all entries if count exceeds size', () => {
+    const cache = new LRUCache<string>({ maxSize: 10 });
+    cache.set('a', '1');
+    cache.set('b', '2');
 
-        // Trigger set which should check pressure and evict
-        cache.set('new', 'val');
+    const evicted = cache.evictOldest(10);
 
-        // Should have evicted batch
-        // Batch is 10%. Size was 10. Target 9. Evicts 1. Size 9. Adds 1. Size 10.
-        // Wait? If it evicts 1, then adds 1, size is 10.
-        // If I didn't evict, size would be 11.
-        // So expect size to be 10.
-        // But if implementation was strict 10% of TOTAL including new...
-        // My implementation: evicts BEFORE set.
-        // (10 * 0.9) = 9. Loop while > 9.
-        // 10 is > 9. Evicts 1. Size 9.
-        // Sets 'new'. Size 10.
+    expect(evicted).toBe(2);
+    expect(cache.size).toBe(0);
+  });
 
-        expect(cache.size).toBe(10);
-        expect(cache.has('0')).toBe(false); // First one should be evicted
-        expect(cache.has('new')).toBe(true);
+  it('should evictOldest zero entries when cache is empty', () => {
+    const cache = new LRUCache<string>({ maxSize: 10 });
+    const evicted = cache.evictOldest(5);
 
-        memorySpy.mockRestore();
-    });
+    expect(evicted).toBe(0);
+  });
+
+  it('should evictUntilMemory to reach target', () => {
+    const cache = new LRUCache<string>({ maxSize: 100 });
+
+    // Add some large string values
+    for (let i = 0; i < 10; i++) {
+      cache.set(`key${i}`, 'x'.repeat(100000)); // ~100KB each
+    }
+
+    const result = cache.evictUntilMemory(0.5); // Target 0.5MB
+
+    expect(result.evicted).toBeGreaterThan(0);
+    expect(result.finalMemoryMB).toBeLessThanOrEqual(0.5);
+  });
+
+  it('should evictUntilMemory return 0 when already below target', () => {
+    const cache = new LRUCache<string>({ maxSize: 10 });
+    cache.set('a', 'small');
+
+    const result = cache.evictUntilMemory(10); // 10MB target, cache is tiny
+
+    expect(result.evicted).toBe(0);
+    expect(result.finalMemoryMB).toBeLessThan(10);
+  });
+
+  it('should delete return false for non-existent key', () => {
+    const cache = new LRUCache<string>({ maxSize: 10 });
+    const deleted = cache.delete('nonexistent');
+
+    expect(deleted).toBe(false);
+  });
+
+  it('should delete return true for existing key', () => {
+    const cache = new LRUCache<string>({ maxSize: 10 });
+    cache.set('key', 'value');
+    const deleted = cache.delete('key');
+
+    expect(deleted).toBe(true);
+    expect(cache.has('key')).toBe(false);
+  });
+
+  it('should expose stats getter', () => {
+    const cache = new LRUCache<string>({ maxSize: 10 });
+    cache.set('a', '1');
+    cache.set('b', '2');
+
+    const stats = cache.stats;
+
+    expect(stats.size).toBe(2);
+    expect(typeof stats.memoryMB).toBe('number');
+    expect(stats.memoryMB).toBeGreaterThan(0);
+  });
+
+  it('should respect maxMemoryMB option', () => {
+    const cache = new LRUCache<string>({ maxSize: 100, maxMemoryMB: 0.001 }); // 1KB
+
+    // Add entries that exceed memory limit
+    for (let i = 0; i < 10; i++) {
+      cache.set(`key${i}`, 'x'.repeat(1000)); // ~1KB each
+    }
+
+    // Cache should have evicted to stay under memory limit
+    const stats = cache.stats;
+    expect(stats.memoryMB).toBeLessThanOrEqual(0.001);
+  });
+
+  it('should estimate size for strings', () => {
+    const cache = new LRUCache<string>({ maxSize: 10 });
+    cache.set('str', 'hello');
+
+    const stats = cache.stats;
+    expect(stats.memoryMB).toBeGreaterThan(0);
+  });
+
+  it('should estimate size for numbers', () => {
+    const cache = new LRUCache<number>({ maxSize: 10 });
+    cache.set('num', 42);
+
+    const stats = cache.stats;
+    expect(stats.memoryMB).toBeGreaterThan(0);
+  });
+
+  it('should estimate size for booleans', () => {
+    const cache = new LRUCache<boolean>({ maxSize: 10 });
+    cache.set('bool', true);
+
+    const stats = cache.stats;
+    expect(stats.memoryMB).toBeGreaterThan(0);
+  });
+
+  it('should estimate size for null', () => {
+    const cache = new LRUCache<null>({ maxSize: 10 });
+    cache.set('null', null);
+
+    const stats = cache.stats;
+    // null has size 0, but cache overhead still exists
+    expect(typeof stats.memoryMB).toBe('number');
+  });
+
+  it('should estimate size for undefined', () => {
+    const cache = new LRUCache<undefined>({ maxSize: 10 });
+    cache.set('undef', undefined);
+
+    const stats = cache.stats;
+    expect(typeof stats.memoryMB).toBe('number');
+  });
+
+  it('should estimate size for objects', () => {
+    const cache = new LRUCache<object>({ maxSize: 10 });
+    cache.set('obj', { foo: 'bar', nested: { value: 123 } });
+
+    const stats = cache.stats;
+    expect(stats.memoryMB).toBeGreaterThan(0);
+  });
+
+  it('should estimate size for arrays', () => {
+    const cache = new LRUCache<unknown[]>({ maxSize: 10 });
+    cache.set('arr', [1, 2, 3, 'test']);
+
+    const stats = cache.stats;
+    expect(stats.memoryMB).toBeGreaterThan(0);
+  });
+
+  it('should handle circular references in estimateSize', () => {
+    const cache = new LRUCache<any>({ maxSize: 10 });
+    const circular: any = { a: 1 };
+    circular.self = circular;
+
+    // Should not throw, uses fallback size
+    cache.set('circular', circular);
+
+    const stats = cache.stats;
+    expect(stats.memoryMB).toBeGreaterThan(0);
+  });
+
+  it('should evict oldest entries when memory limit exceeded', () => {
+    const cache = new LRUCache<string>({ maxSize: 100, maxMemoryMB: 0.003 }); // 3KB
+
+    cache.set('a', 'x'.repeat(1000)); // ~2KB (UTF-16)
+    cache.set('b', 'x'.repeat(1000)); // ~2KB
+    cache.set('c', 'x'.repeat(1000)); // ~2KB - should trigger eviction
+
+    // Cache should have evicted to stay under memory limit
+    // At least one entry should have been evicted
+    const hasA = cache.has('a');
+    const hasB = cache.has('b');
+    const hasC = cache.has('c');
+
+    // At least one should be evicted
+    expect(hasA && hasB && hasC).toBe(false);
+    // Memory should be under limit
+    expect(cache.stats.memoryMB).toBeLessThanOrEqual(0.003);
+  });
+
+  it('should handle empty cache operations', () => {
+    const cache = new LRUCache<string>({ maxSize: 10 });
+
+    expect(cache.size).toBe(0);
+    expect(cache.get('missing')).toBeUndefined();
+    expect(cache.has('missing')).toBe(false);
+    expect(Array.from(cache.keys())).toEqual([]);
+
+    cache.clear(); // Should not throw
+    expect(cache.size).toBe(0);
+  });
+
+  it('should call onEvict when updating existing key', () => {
+    const onEvict = vi.fn();
+    const cache = new LRUCache<string>({ maxSize: 10, onEvict });
+
+    cache.set('key', 'value1');
+    cache.set('key', 'value2'); // Update
+
+    expect(onEvict).toHaveBeenCalledWith('key', 'value1');
+  });
 });

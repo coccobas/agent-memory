@@ -24,7 +24,7 @@ const DEFAULT_OPTIONS: Required<RetryOptions> = {
 
 export async function withRetry<T>(fn: () => Promise<T>, options: RetryOptions = {}): Promise<T> {
   const opts = { ...DEFAULT_OPTIONS, ...options };
-  let lastError: Error;
+  let lastError: Error = new Error('Retry failed');
   let delay = opts.initialDelayMs;
 
   for (let attempt = 1; attempt <= opts.maxAttempts; attempt++) {
@@ -45,7 +45,7 @@ export async function withRetry<T>(fn: () => Promise<T>, options: RetryOptions =
     }
   }
 
-  throw lastError!;
+  throw lastError;
 }
 
 /**

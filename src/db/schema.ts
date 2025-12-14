@@ -672,7 +672,9 @@ export const conversationContext = sqliteTable(
     conversationId: text('conversation_id')
       .references(() => conversations.id, { onDelete: 'cascade' })
       .notNull(),
-    messageId: text('message_id').references(() => conversationMessages.id, { onDelete: 'cascade' }),
+    messageId: text('message_id').references(() => conversationMessages.id, {
+      onDelete: 'cascade',
+    }),
     entryType: text('entry_type', {
       enum: ['tool', 'guideline', 'knowledge'],
     }).notNull(),

@@ -53,7 +53,7 @@ const API_KEY_PATTERNS = [
   /ya29\.[a-zA-Z0-9\-_]+/g,
 
   // Slack tokens: xoxb-..., xoxp-..., xoxa-..., xoxs-...
-  /xox[bpas]-[a-zA-Z0-9\-]{10,}/g,
+  /xox[bpas]-[a-zA-Z0-9-]{10,}/g,
 
   // Discord tokens and webhooks
   /[MN][A-Za-z\d]{23,}\.[\w-]{6}\.[\w-]{27}/g,
@@ -194,7 +194,7 @@ export function createSafeLogger<T extends Record<string, (...args: unknown[]) =
   for (const [method, fn] of Object.entries(logger)) {
     if (typeof fn === 'function') {
       // Wrap each logging method to sanitize arguments
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
       (safeLogger as any)[method] = (...args: unknown[]) => {
         const sanitizedArgs = args.map((arg) => {
           // Special handling for error objects
@@ -207,7 +207,7 @@ export function createSafeLogger<T extends Record<string, (...args: unknown[]) =
         return fn.apply(logger, sanitizedArgs);
       };
     } else {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
       (safeLogger as any)[method] = fn;
     }
   }

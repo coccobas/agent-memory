@@ -341,7 +341,9 @@ class VectorService {
               {
                 resultType: typeof result,
                 hasKeys:
-                  result && typeof result === 'object' ? Object.keys(result).length > 0 : false,
+                  result && typeof result === 'object'
+                    ? Object.keys(result as Record<string, unknown>).length > 0
+                    : false,
               },
               'Invalid search result format, skipping'
             );

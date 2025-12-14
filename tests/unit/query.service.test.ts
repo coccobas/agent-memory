@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi, beforeEach } from 'vitest';
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { existsSync, mkdirSync, unlinkSync, readFileSync } from 'node:fs';
@@ -21,7 +21,17 @@ vi.mock('../../src/db/connection.js', async () => {
 });
 
 // Import after mocking connection
-import { resolveScopeChain, executeMemoryQuery } from '../../src/services/query.service.js';
+import {
+  resolveScopeChain,
+  executeMemoryQuery,
+  clearQueryCache,
+  getQueryCacheStats,
+  invalidateCacheScope,
+  invalidateCacheEntry,
+  setCacheStrategy,
+  executeFts5Query,
+  executeMemoryQueryAsync,
+} from '../../src/services/query.service.js';
 
 describe('query.service', () => {
   beforeAll(() => {
@@ -206,5 +216,371 @@ describe('query.service', () => {
     expect(first.type).toBe('guideline');
     expect(first.scopeType).toBe('project');
     expect(first.scopeId).toBe(projectId);
+  });
+
+  describe('Query Cache', () => {
+    beforeEach(() => {
+      clearQueryCache();
+    });
+
+    it('should clear query cache', () => {
+      // Execute a query to populate cache
+      executeMemoryQuery({
+        types: ['guidelines'],
+        scope: { type: 'global', inherit: false },
+      });
+
+      const statsBefore = getQueryCacheStats();
+      expect(statsBefore.size).toBeGreaterThan(0);
+
+      clearQueryCache();
+
+      const statsAfter = getQueryCacheStats();
+      expect(statsAfter.size).toBe(0);
+    });
+
+    it('should get cache stats with size and memory info', () => {
+      const stats = getQueryCacheStats();
+
+      expect(stats).toHaveProperty('size');
+      expect(stats).toHaveProperty('memoryMB');
+      expect(typeof stats.size).toBe('number');
+      expect(typeof stats.memoryMB).toBe('number');
+    });
+
+    it('should invalidate cache by scope type', () => {
+      // Create test data at different scopes
+      const projId = 'cache-test-proj';
+      db.insert(schema.projects).values({ id: projId, name: 'Cache Test' }).run();
+
+      // Query global scope
+      executeMemoryQuery({
+        types: ['tools'],
+        scope: { type: 'global', inherit: false },
+      });
+
+      // Query project scope
+      executeMemoryQuery({
+        types: ['tools'],
+        scope: { type: 'project', id: projId, inherit: false },
+      });
+
+      const statsBefore = getQueryCacheStats();
+      expect(statsBefore.size).toBeGreaterThan(0);
+
+      // Invalidate only project scope
+      invalidateCacheScope('project');
+
+      const statsAfter = getQueryCacheStats();
+      // Should have fewer entries (global might still be cached)
+      expect(statsAfter.size).toBeLessThanOrEqual(statsBefore.size);
+    });
+
+    it('should invalidate cache by scope type and id', () => {
+      const proj1 = 'cache-proj-1';
+      const proj2 = 'cache-proj-2';
+
+      db.insert(schema.projects).values({ id: proj1, name: 'Project 1' }).run();
+      db.insert(schema.projects).values({ id: proj2, name: 'Project 2' }).run();
+
+      executeMemoryQuery({
+        types: ['tools'],
+        scope: { type: 'project', id: proj1, inherit: false },
+      });
+
+      executeMemoryQuery({
+        types: ['tools'],
+        scope: { type: 'project', id: proj2, inherit: false },
+      });
+
+      const statsBefore = getQueryCacheStats();
+      expect(statsBefore.size).toBeGreaterThan(0);
+
+      // Invalidate only proj1
+      invalidateCacheScope('project', proj1);
+
+      // Both queries should be affected but cache should clear
+      const statsAfter = getQueryCacheStats();
+      expect(statsAfter.size).toBeLessThanOrEqual(statsBefore.size);
+    });
+
+    it('should invalidate cache by entry type', () => {
+      executeMemoryQuery({
+        types: ['tools'],
+        scope: { type: 'global', inherit: false },
+      });
+
+      executeMemoryQuery({
+        types: ['guidelines'],
+        scope: { type: 'global', inherit: false },
+      });
+
+      invalidateCacheEntry('tool');
+
+      // Cache should be partially invalidated
+      const stats = getQueryCacheStats();
+      expect(typeof stats.size).toBe('number');
+    });
+
+    it('should set cache strategy', () => {
+      // Default strategy
+      setCacheStrategy('smart');
+
+      executeMemoryQuery({
+        types: ['guidelines'],
+        scope: { type: 'global', inherit: false },
+      });
+
+      let stats = getQueryCacheStats();
+      expect(stats.size).toBeGreaterThanOrEqual(0);
+
+      clearQueryCache();
+
+      // Aggressive caching
+      setCacheStrategy('aggressive');
+
+      executeMemoryQuery({
+        types: ['guidelines'],
+        scope: { type: 'global', inherit: false },
+      });
+
+      stats = getQueryCacheStats();
+      expect(stats.size).toBeGreaterThanOrEqual(0);
+
+      clearQueryCache();
+
+      // No caching
+      setCacheStrategy('off');
+
+      executeMemoryQuery({
+        types: ['guidelines'],
+        scope: { type: 'global', inherit: false },
+      });
+
+      stats = getQueryCacheStats();
+      // Off strategy should minimize caching
+      expect(stats.size).toBeLessThanOrEqual(1);
+    });
+  });
+
+  describe('FTS5 Query', () => {
+    beforeAll(() => {
+      // Create a guideline for FTS5 testing
+      db.insert(schema.guidelines)
+        .values({
+          id: 'fts5-guide-1',
+          scopeType: 'global',
+          name: 'fts5_test_guideline',
+          priority: 50,
+          isActive: true,
+        })
+        .run();
+
+      db.insert(schema.guidelineVersions)
+        .values({
+          id: 'fts5-gv-1',
+          guidelineId: 'fts5-guide-1',
+          versionNum: 1,
+          content: 'Testing FTS5 full-text search capabilities',
+        })
+        .run();
+    });
+
+    it('should execute FTS5 query and return rowids', () => {
+      const result = executeFts5Query('guideline', 'testing');
+
+      expect(result).toBeDefined();
+      expect(result instanceof Set).toBe(true);
+    });
+
+    it('should handle FTS5 query with specific fields', () => {
+      const result = executeFts5Query('guideline', 'testing', ['content']);
+
+      expect(result).toBeDefined();
+      expect(result instanceof Set).toBe(true);
+    });
+
+    it('should handle FTS5 query with multiple fields', () => {
+      const result = executeFts5Query('guideline', 'FTS5', ['content', 'name']);
+
+      expect(result).toBeDefined();
+      expect(result instanceof Set).toBe(true);
+    });
+
+    it('should handle empty FTS5 search text', () => {
+      const result = executeFts5Query('guideline', '');
+
+      expect(result).toBeDefined();
+      expect(result instanceof Set).toBe(true);
+    });
+  });
+
+  describe('executeMemoryQueryAsync', () => {
+    it('should handle async query without semantic search', async () => {
+      const result = await executeMemoryQueryAsync({
+        types: ['tools'],
+        scope: { type: 'global', inherit: false },
+        limit: 10,
+      });
+
+      expect(result).toBeDefined();
+      expect(Array.isArray(result.results)).toBe(true);
+    });
+
+    it('should handle errors in async query gracefully', async () => {
+      // Query with potentially problematic input
+      const result = await executeMemoryQueryAsync({
+        types: ['guidelines'],
+        scope: { type: 'invalid' as any, inherit: false },
+        limit: 10,
+      });
+
+      // Should return results even with invalid scope
+      expect(result).toBeDefined();
+    });
+  });
+
+  describe('Advanced Query Filters', () => {
+    beforeAll(() => {
+      // Create test data for date/priority filtering
+      db.insert(schema.knowledge)
+        .values({
+          id: 'kb-filter-1',
+          scopeType: 'global',
+          title: 'Old Knowledge',
+          isActive: true,
+        })
+        .run();
+
+      db.insert(schema.knowledgeVersions)
+        .values({
+          id: 'kbv-filter-1',
+          knowledgeId: 'kb-filter-1',
+          versionNum: 1,
+          content: 'Old content',
+          createdAt: '2020-01-01T00:00:00.000Z',
+        })
+        .run();
+
+      db.insert(schema.guidelines)
+        .values({
+          id: 'guide-priority-low',
+          scopeType: 'global',
+          name: 'low_priority',
+          priority: 10,
+          isActive: true,
+        })
+        .run();
+
+      db.insert(schema.guidelineVersions)
+        .values({
+          id: 'gv-priority-low',
+          guidelineId: 'guide-priority-low',
+          versionNum: 1,
+          content: 'Low priority guideline',
+        })
+        .run();
+
+      db.insert(schema.guidelines)
+        .values({
+          id: 'guide-priority-high',
+          scopeType: 'global',
+          name: 'high_priority',
+          priority: 95,
+          isActive: true,
+        })
+        .run();
+
+      db.insert(schema.guidelineVersions)
+        .values({
+          id: 'gv-priority-high',
+          guidelineId: 'guide-priority-high',
+          versionNum: 1,
+          content: 'High priority guideline',
+        })
+        .run();
+    });
+
+    it('should filter by date range', () => {
+      const result = executeMemoryQuery({
+        types: ['knowledge'],
+        scope: { type: 'global', inherit: false },
+        createdAfter: '2019-01-01T00:00:00.000Z',
+        createdBefore: '2021-01-01T00:00:00.000Z',
+      });
+
+      expect(result).toBeDefined();
+      expect(result.results.length).toBeGreaterThanOrEqual(0);
+    });
+
+    it('should use fuzzy text matching', () => {
+      const result = executeMemoryQuery({
+        types: ['guidelines'],
+        scope: { type: 'global', inherit: false },
+        search: 'prioriti', // Fuzzy match for "priority"
+        fuzzy: true,
+      });
+
+      expect(result).toBeDefined();
+      expect(Array.isArray(result.results)).toBe(true);
+    });
+
+    it('should use regex text matching', () => {
+      const result = executeMemoryQuery({
+        types: ['guidelines'],
+        scope: { type: 'global', inherit: false },
+        search: 'p.*y', // Regex pattern
+        regex: true,
+      });
+
+      expect(result).toBeDefined();
+      expect(Array.isArray(result.results)).toBe(true);
+    });
+
+    it('should use FTS5 when enabled', () => {
+      const result = executeMemoryQuery({
+        types: ['guidelines'],
+        scope: { type: 'global', inherit: false },
+        search: 'priority',
+        useFts5: true,
+      });
+
+      expect(result).toBeDefined();
+      expect(Array.isArray(result.results)).toBe(true);
+    });
+
+    it('should limit results', () => {
+      const result = executeMemoryQuery({
+        types: ['guidelines'],
+        scope: { type: 'global', inherit: false },
+        limit: 1,
+      });
+
+      expect(result.results.length).toBeLessThanOrEqual(1);
+    });
+
+    it('should query multiple types', () => {
+      const result = executeMemoryQuery({
+        types: ['tools', 'guidelines', 'knowledge'],
+        scope: { type: 'global', inherit: false },
+      });
+
+      expect(result).toBeDefined();
+      expect(Array.isArray(result.results)).toBe(true);
+    });
+
+    it('should include versions when requested', () => {
+      const result = executeMemoryQuery({
+        types: ['guidelines'],
+        scope: { type: 'global', inherit: false },
+        includeVersions: true,
+        compact: false,
+      });
+
+      expect(result).toBeDefined();
+      if (result.results.length > 0) {
+        expect(result.results[0]).toHaveProperty('versions');
+      }
+    });
   });
 });

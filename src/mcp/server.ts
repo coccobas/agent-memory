@@ -1454,16 +1454,11 @@ export async function createServer(): Promise<Server> {
     // Rate limiting check
     // Extract agentId from args if available for per-agent limiting
     const agentId =
-      args && typeof args === 'object' && 'agentId' in args
-        ? String((args as Record<string, unknown>).agentId)
-        : undefined;
+      args && typeof args === 'object' && 'agentId' in args ? String(args.agentId) : undefined;
 
     const rateLimitResult = checkRateLimits(agentId);
     if (!rateLimitResult.allowed) {
-      logger.warn(
-        { tool: name, agentId, reason: rateLimitResult.reason },
-        'Rate limit exceeded'
-      );
+      logger.warn({ tool: name, agentId, reason: rateLimitResult.reason }, 'Rate limit exceeded');
       return {
         content: [
           {
@@ -1625,7 +1620,7 @@ export async function runServer(): Promise<void> {
     server.setRequestHandler(ListToolsRequestSchema, () => {
       return { tools: [] };
     });
-    server.setRequestHandler(CallToolRequestSchema, async () => {
+    server.setRequestHandler(CallToolRequestSchema, () => {
       return {
         content: [
           {
@@ -1642,28 +1637,28 @@ export async function runServer(): Promise<void> {
     });
   }
 
+  // =============================================================================
+  // SHUTDOWN HANDLING
+  // =============================================================================
+
+  function shutdown(signal: string): void {
+    logger.info({ signal }, 'Shutdown signal received');
+
+    try {
+      // Close database connection
+      closeDb();
+
+      logger.info('Shutdown complete');
+      process.exit(0);
+    } catch (error) {
+      logger.error({ error }, 'Error during shutdown');
+      process.exit(1);
+    }
+  }
+
   try {
     const transport = new StdioServerTransport();
     logger.debug('Transport created');
-
-    // =============================================================================
-    // SHUTDOWN HANDLING
-    // =============================================================================
-
-    function shutdown(signal: string): void {
-      logger.info({ signal }, 'Shutdown signal received');
-
-      try {
-        // Close database connection
-        closeDb();
-
-        logger.info('Shutdown complete');
-        process.exit(0);
-      } catch (error) {
-        logger.error({ error }, 'Error during shutdown');
-        process.exit(1);
-      }
-    }
 
     // Unix/macOS signals
     process.on('SIGINT', () => shutdown('SIGINT'));

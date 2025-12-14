@@ -595,7 +595,7 @@ function executeLikeSearch(
       WHERE ${conditions} AND is_active = 1
     `);
 
-    const params = Array(searchColumns.length).fill(likePattern);
+    const params: string[] = Array(searchColumns.length).fill(likePattern) as string[];
     const results = query.all(...params) as Array<{ rowid: number }>;
 
     for (const row of results) {
@@ -681,10 +681,7 @@ export function executeFts5Query(
     return matchingRowids;
   } catch (error) {
     // If FTS5 fails (e.g., table doesn't exist), fall back to LIKE search
-    logger.warn(
-      { entryType, ftsQuery, error },
-      'FTS5 query failed, falling back to LIKE search'
-    );
+    logger.warn({ entryType, ftsQuery, error }, 'FTS5 query failed, falling back to LIKE search');
     return executeLikeSearch(entryType, searchQuery, fields);
   }
 }
