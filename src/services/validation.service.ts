@@ -28,13 +28,13 @@ export const SIZE_LIMITS = {
   NAME_MAX_LENGTH: 500,
   TITLE_MAX_LENGTH: 1000,
   DESCRIPTION_MAX_LENGTH: 10000,
-  CONTENT_MAX_LENGTH: 100000,  // 100KB
+  CONTENT_MAX_LENGTH: 100000, // 100KB
   RATIONALE_MAX_LENGTH: 5000,
 
   // JSON field limits (bytes when serialized)
-  METADATA_MAX_BYTES: 50000,    // 50KB
-  PARAMETERS_MAX_BYTES: 50000,  // 50KB
-  EXAMPLES_MAX_BYTES: 100000,   // 100KB
+  METADATA_MAX_BYTES: 50000, // 50KB
+  PARAMETERS_MAX_BYTES: 50000, // 50KB
+  EXAMPLES_MAX_BYTES: 100000, // 100KB
 
   // Array limits
   TAGS_MAX_COUNT: 50,
@@ -65,11 +65,7 @@ export function validateTextLength(
 /**
  * Validate JSON field size
  */
-export function validateJsonSize(
-  value: unknown,
-  fieldName: string,
-  maxBytes: number
-): void {
+export function validateJsonSize(value: unknown, fieldName: string, maxBytes: number): void {
   if (value === undefined || value === null) return;
 
   const serialized = JSON.stringify(value);

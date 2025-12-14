@@ -128,10 +128,13 @@ class EmbeddingService {
       throw new Error('Cannot embed empty text');
     }
 
-    // Check cache
+    // Check cache - use LRU pattern by deleting and re-inserting on access
     const cacheKey = `${this.provider}:${normalized}`;
     const cached = this.embeddingCache.get(cacheKey);
     if (cached) {
+      // Move to end of Map (most recently used) by deleting and re-inserting
+      this.embeddingCache.delete(cacheKey);
+      this.embeddingCache.set(cacheKey, cached);
       return {
         embedding: cached,
         model: this.provider === 'openai' ? this.openaiModel : this.localModelName,
@@ -151,7 +154,9 @@ class EmbeddingService {
     // Cache result
     this.embeddingCache.set(cacheKey, embedding);
     if (this.embeddingCache.size > this.maxCacheSize) {
-      // Remove oldest entry
+      // Remove least recently used entry (first in Map iteration order)
+      // Map maintains insertion order, and we move accessed items to the end,
+      // so the first item is the least recently used
       const firstKey = this.embeddingCache.keys().next().value;
       if (firstKey) this.embeddingCache.delete(firstKey);
     }

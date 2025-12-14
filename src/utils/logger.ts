@@ -13,6 +13,7 @@ import { tmpdir } from 'node:os';
 import { appendFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { isMcpServerMode } from './runtime.js';
+import { sanitizeForLogging } from './sanitize.js';
 
 // Only write debug logs if explicitly enabled
 const DEBUG_ENABLED = process.env.AGENT_MEMORY_DEBUG === '1';
@@ -54,16 +55,54 @@ if (DEBUG_ENABLED) {
   }
 }
 
+/**
+ * Pino serializer that sanitizes sensitive data
+ */
+const sanitizingSerializer = (obj: unknown) => sanitizeForLogging(obj);
+
+/**
+ * Common pino options with security redaction
+ */
+const pinoOptions: pino.LoggerOptions = {
+  level: logLevel,
+  // Redact sensitive field paths
+  redact: {
+    paths: [
+      'apiKey',
+      'api_key',
+      'OPENAI_API_KEY',
+      'openaiApiKey',
+      'token',
+      'access_token',
+      'accessToken',
+      'secret',
+      'password',
+      'authorization',
+      'Authorization',
+      '*.apiKey',
+      '*.api_key',
+      '*.token',
+      '*.secret',
+      '*.password',
+      'req.headers.authorization',
+      'req.headers.Authorization',
+    ],
+    censor: '***REDACTED***',
+  },
+  // Custom serializers for complex objects
+  serializers: {
+    err: pino.stdSerializers.err,
+    error: sanitizingSerializer,
+  },
+};
+
 // Create logger instance
 // CRITICAL: When running as MCP server, ALL logs must go to stderr, never stdout
 // This prevents pino JSON logs from corrupting the MCP protocol JSON-RPC stream
 export const logger = isMcpServer
-  ? pino(
-      { level: logLevel },
-      pino.destination({ dest: 2, sync: false }) // File descriptor 2 = stderr, async for performance
-    )
+  ? pino(pinoOptions, pino.destination({ dest: 2, sync: false })) // File descriptor 2 = stderr, async for performance
   : pino({
-      level: logLevel,
+      ...pinoOptions,
       ...(process.env.NODE_ENV !== 'production' && {
         transport: {
           target: 'pino-pretty',

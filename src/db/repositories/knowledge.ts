@@ -19,6 +19,7 @@ import {
 } from './base.js';
 import { transaction } from '../connection.js';
 import { generateEmbeddingAsync, extractTextForEmbedding } from './embedding-hooks.js';
+import { getVectorService } from '../../services/vector.service.js';
 
 // =============================================================================
 // TYPES
@@ -412,11 +413,25 @@ export const knowledgeRepo = {
    * Hard delete a knowledge entry and all versions
    */
   delete(id: string): boolean {
-    return transaction(() => {
+    const result = transaction(() => {
       const db = getDb();
       db.delete(knowledgeVersions).where(eq(knowledgeVersions.knowledgeId, id)).run();
-      const result = db.delete(knowledge).where(eq(knowledge.id, id)).run();
-      return result.changes > 0;
+      const deleteResult = db.delete(knowledge).where(eq(knowledge.id, id)).run();
+      return deleteResult.changes > 0;
     });
+
+    // Clean up vector embeddings asynchronously (fire-and-forget)
+    if (result) {
+      void (async () => {
+        try {
+          const vectorService = getVectorService();
+          await vectorService.removeEmbedding(id);
+        } catch (error) {
+          // Error already logged in vector service
+        }
+      })();
+    }
+
+    return result;
   },
 };

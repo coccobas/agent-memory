@@ -63,7 +63,7 @@ function verify(_params: StatusParams = {}) {
     migrationsApplied: result.migrationsApplied, // Should be empty if just verifying
     message: result.integrityVerified
       ? 'Database integrity verifed'
-      : `Integrity check failed: ${result.integrityErrors.join('; ')}`
+      : `Integrity check failed: ${result.integrityErrors.join('; ')}`,
   };
 }
 

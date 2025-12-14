@@ -27,6 +27,13 @@ import { getVectorService } from './vector.service.js';
 import { createComponentLogger } from '../utils/logger.js';
 import { LRUCache } from '../utils/lru-cache.js';
 import { getMemoryCoordinator } from '../utils/memory-coordinator.js';
+import {
+  DEFAULT_SEMANTIC_THRESHOLD,
+  SEMANTIC_SCORE_WEIGHT,
+  QUERY_CACHE_TTL_MS,
+  DEFAULT_QUERY_CACHE_SIZE,
+  DEFAULT_QUERY_CACHE_MEMORY_MB,
+} from '../utils/constants.js';
 
 const logger = createComponentLogger('query');
 
@@ -121,9 +128,9 @@ function getQueryCacheKey(params: MemoryQueryParams): string | null {
 }
 
 const queryCache = new LRUCache<MemoryQueryResult>({
-  maxSize: 200,
-  maxMemoryMB: 50,
-  ttlMs: 5 * 60 * 1000, // 5 minutes
+  maxSize: DEFAULT_QUERY_CACHE_SIZE,
+  maxMemoryMB: DEFAULT_QUERY_CACHE_MEMORY_MB,
+  ttlMs: QUERY_CACHE_TTL_MS,
 });
 
 // Register with global memory coordinator
@@ -794,8 +801,8 @@ function fuzzyTextMatches(haystack: string | null | undefined, needle: string): 
   const distance = levenshteinDistance(haystackLower, needleLower);
   const similarity = 1 - distance / maxLen;
 
-  // Threshold: 0.7 similarity (allow ~30% difference)
-  return similarity >= 0.7;
+  // Allow ~30% difference in fuzzy matching
+  return similarity >= DEFAULT_SEMANTIC_THRESHOLD;
 }
 
 /**
@@ -836,9 +843,9 @@ function computeScore(params: {
 
   // If semantic similarity is available, use hybrid scoring
   if (params.semanticSimilarity !== undefined) {
-    // Hybrid scoring: 70% semantic, 30% other factors
+    // Hybrid scoring: semantic weight vs other factors
     const semanticScore = params.semanticSimilarity * 10; // Scale to 0-10
-    score = semanticScore * 0.7;
+    score = semanticScore * SEMANTIC_SCORE_WEIGHT;
 
     // Other factors contribute 30%
     let otherFactors = 0;
@@ -1608,7 +1615,7 @@ export async function executeMemoryQueryAsync(
 ): Promise<MemoryQueryResult> {
   const search = params.search?.trim();
   const semanticSearchEnabled = params.semanticSearch !== false; // Default true
-  const semanticThreshold = params.semanticThreshold ?? 0.7;
+  const semanticThreshold = params.semanticThreshold ?? DEFAULT_SEMANTIC_THRESHOLD;
 
   // If semantic search is disabled or no search query, use sync version
   if (!semanticSearchEnabled || !search) {

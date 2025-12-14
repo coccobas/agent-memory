@@ -410,22 +410,22 @@ export const toolHandlers = {
         const scopeType = isScopeType(entryObj.scopeType)
           ? entryObj.scopeType
           : (() => {
-            throw createValidationError(
-              'scopeType',
-              'is required and must be a valid scope type',
-              "Specify 'global', 'org', 'project', or 'session'"
-            );
-          })();
+              throw createValidationError(
+                'scopeType',
+                'is required and must be a valid scope type',
+                "Specify 'global', 'org', 'project', or 'session'"
+              );
+            })();
         const scopeId = entryObj.scopeId;
         const name = isString(entryObj.name)
           ? entryObj.name
           : (() => {
-            throw createValidationError(
-              'name',
-              'is required',
-              'Provide a unique name for the tool'
-            );
-          })();
+              throw createValidationError(
+                'name',
+                'is required',
+                'Provide a unique name for the tool'
+              );
+            })();
         const category = entryObj.category;
         const description = entryObj.description;
         const parameters = entryObj.parameters;
@@ -525,8 +525,8 @@ export const toolHandlers = {
         const id = isString(updateObj.id)
           ? updateObj.id
           : (() => {
-            throw createValidationError('id', 'is required', 'Provide the tool ID to update');
-          })();
+              throw createValidationError('id', 'is required', 'Provide the tool ID to update');
+            })();
         const description = updateObj.description;
         const parameters = updateObj.parameters;
         const examples = updateObj.examples;

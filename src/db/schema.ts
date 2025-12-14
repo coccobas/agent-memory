@@ -24,7 +24,7 @@ export const projects = sqliteTable(
   'projects',
   {
     id: text('id').primaryKey(),
-    orgId: text('org_id').references(() => organizations.id),
+    orgId: text('org_id').references(() => organizations.id, { onDelete: 'set null' }),
     name: text('name').notNull(),
     description: text('description'),
     rootPath: text('root_path'),
@@ -49,7 +49,7 @@ export const sessions = sqliteTable(
   'sessions',
   {
     id: text('id').primaryKey(),
-    projectId: text('project_id').references(() => projects.id),
+    projectId: text('project_id').references(() => projects.id, { onDelete: 'cascade' }),
     name: text('name'),
     purpose: text('purpose'),
     agentId: text('agent_id'),
@@ -109,7 +109,7 @@ export const toolVersions = sqliteTable(
   {
     id: text('id').primaryKey(),
     toolId: text('tool_id')
-      .references(() => tools.id)
+      .references(() => tools.id, { onDelete: 'cascade' })
       .notNull(),
     versionNum: integer('version_num').notNull(),
     description: text('description'),
@@ -162,7 +162,7 @@ export const guidelineVersions = sqliteTable(
   {
     id: text('id').primaryKey(),
     guidelineId: text('guideline_id')
-      .references(() => guidelines.id)
+      .references(() => guidelines.id, { onDelete: 'cascade' })
       .notNull(),
     versionNum: integer('version_num').notNull(),
     content: text('content').notNull(),
@@ -213,7 +213,7 @@ export const knowledgeVersions = sqliteTable(
   {
     id: text('id').primaryKey(),
     knowledgeId: text('knowledge_id')
-      .references(() => knowledge.id)
+      .references(() => knowledge.id, { onDelete: 'cascade' })
       .notNull(),
     versionNum: integer('version_num').notNull(),
     content: text('content').notNull(),
@@ -277,7 +277,7 @@ export const entryTags = sqliteTable(
     }).notNull(),
     entryId: text('entry_id').notNull(),
     tagId: text('tag_id')
-      .references(() => tags.id)
+      .references(() => tags.id, { onDelete: 'cascade' })
       .notNull(),
     createdAt: text('created_at')
       .default(sql`CURRENT_TIMESTAMP`)
@@ -384,8 +384,8 @@ export const fileLocks = sqliteTable(
     id: text('id').primaryKey(),
     filePath: text('file_path').notNull(),
     checkedOutBy: text('checked_out_by').notNull(),
-    sessionId: text('session_id').references(() => sessions.id),
-    projectId: text('project_id').references(() => projects.id),
+    sessionId: text('session_id').references(() => sessions.id, { onDelete: 'set null' }),
+    projectId: text('project_id').references(() => projects.id, { onDelete: 'set null' }),
     checkedOutAt: text('checked_out_at')
       .default(sql`CURRENT_TIMESTAMP`)
       .notNull(),
@@ -611,8 +611,8 @@ export const conversations = sqliteTable(
   'conversations',
   {
     id: text('id').primaryKey(),
-    sessionId: text('session_id').references(() => sessions.id),
-    projectId: text('project_id').references(() => projects.id),
+    sessionId: text('session_id').references(() => sessions.id, { onDelete: 'set null' }),
+    projectId: text('project_id').references(() => projects.id, { onDelete: 'set null' }),
     agentId: text('agent_id'),
     title: text('title'),
     status: text('status', { enum: ['active', 'completed', 'archived'] })
@@ -641,7 +641,7 @@ export const conversationMessages = sqliteTable(
   {
     id: text('id').primaryKey(),
     conversationId: text('conversation_id')
-      .references(() => conversations.id)
+      .references(() => conversations.id, { onDelete: 'cascade' })
       .notNull(),
     role: text('role', { enum: ['user', 'agent', 'system'] }).notNull(),
     content: text('content').notNull(),
@@ -670,9 +670,9 @@ export const conversationContext = sqliteTable(
   {
     id: text('id').primaryKey(),
     conversationId: text('conversation_id')
-      .references(() => conversations.id)
+      .references(() => conversations.id, { onDelete: 'cascade' })
       .notNull(),
-    messageId: text('message_id').references(() => conversationMessages.id),
+    messageId: text('message_id').references(() => conversationMessages.id, { onDelete: 'cascade' }),
     entryType: text('entry_type', {
       enum: ['tool', 'guideline', 'knowledge'],
     }).notNull(),

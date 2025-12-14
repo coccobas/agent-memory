@@ -15,14 +15,14 @@ const IS_WINDOWS = process.platform === 'win32';
  * - Handles case insensitivity on Windows
  */
 export function normalizePath(inputPath: string): string {
-    let normalized = normalize(resolve(inputPath));
+  let normalized = normalize(resolve(inputPath));
 
-    // Windows: convert to lowercase for consistent comparison
-    if (IS_WINDOWS) {
-        normalized = normalized.toLowerCase();
-    }
+  // Windows: convert to lowercase for consistent comparison
+  if (IS_WINDOWS) {
+    normalized = normalized.toLowerCase();
+  }
 
-    return normalized;
+  return normalized;
 }
 
 /**
@@ -30,24 +30,24 @@ export function normalizePath(inputPath: string): string {
  * Paths > 260 chars need \\?\ prefix on Windows
  */
 export function toLongPath(inputPath: string): string {
-    if (!IS_WINDOWS) return inputPath;
+  if (!IS_WINDOWS) return inputPath;
 
-    const resolved = resolve(inputPath);
-    if (resolved.length > 260 && !resolved.startsWith('\\\\?\\')) {
-        return '\\\\?\\' + resolved;
-    }
-    return resolved;
+  const resolved = resolve(inputPath);
+  if (resolved.length > 260 && !resolved.startsWith('\\\\?\\')) {
+    return '\\\\?\\' + resolved;
+  }
+  return resolved;
 }
 
 /**
  * Get canonical path (resolved symlinks)
  */
 export function getCanonicalPath(inputPath: string): string {
-    try {
-        return realpathSync(inputPath);
-    } catch {
-        return resolve(inputPath);
-    }
+  try {
+    return realpathSync(inputPath);
+  } catch {
+    return resolve(inputPath);
+  }
 }
 
 /**
@@ -55,9 +55,9 @@ export function getCanonicalPath(inputPath: string): string {
  * Handles case-insensitivity on Windows
  */
 export function pathsEqual(path1: string, path2: string): boolean {
-    const norm1 = normalizePath(path1);
-    const norm2 = normalizePath(path2);
-    return norm1 === norm2;
+  const norm1 = normalizePath(path1);
+  const norm2 = normalizePath(path2);
+  return norm1 === norm2;
 }
 
 /**
@@ -65,30 +65,30 @@ export function pathsEqual(path1: string, path2: string): boolean {
  * Always uses forward slashes for consistency
  */
 export function getRelativePath(from: string, to: string): string {
-    const rel = relative(from, to);
-    // Use forward slashes for consistency (works on all platforms)
-    return rel.split(sep).join('/');
+  const rel = relative(from, to);
+  // Use forward slashes for consistency (works on all platforms)
+  return rel.split(sep).join('/');
 }
 
 /**
  * Validate path is safe (no directory traversal, etc.)
  */
 export function isPathSafe(inputPath: string, allowedRoot?: string): boolean {
-    // Check for null bytes (security issue)
-    if (inputPath.includes('\0')) return false;
+  // Check for null bytes (security issue)
+  if (inputPath.includes('\0')) return false;
 
-    try {
-        const resolved = resolve(inputPath);
+  try {
+    const resolved = resolve(inputPath);
 
-        // If root specified, ensure path is within it
-        if (allowedRoot) {
-            const normalizedRoot = normalizePath(allowedRoot);
-            const normalizedPath = normalizePath(resolved);
-            return normalizedPath.startsWith(normalizedRoot);
-        }
-
-        return true;
-    } catch {
-        return false;
+    // If root specified, ensure path is within it
+    if (allowedRoot) {
+      const normalizedRoot = normalizePath(allowedRoot);
+      const normalizedPath = normalizePath(resolved);
+      return normalizedPath.startsWith(normalizedRoot);
     }
+
+    return true;
+  } catch {
+    return false;
+  }
 }

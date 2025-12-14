@@ -16,6 +16,11 @@
 | 2025-12-14 | Full cache clear on memory pressure | Implemented partial LRU eviction in `memory-coordinator.ts` |
 | 2025-12-14 | No rate limiting on MCP handlers | Added sliding window rate limiter (`rate-limiter.ts`) with per-agent and global limits |
 | 2025-12-14 | Limited API key pattern detection | Expanded patterns to cover AWS, GitHub, Stripe, Google, Slack, Discord, and 15+ services |
+| 2025-12-14 | Hardcoded distance metric | Made configurable via `AGENT_MEMORY_DISTANCE_METRIC` env var in `vector.service.ts` |
+| 2025-12-14 | Size estimation fallback | Improved from 100 bytes to 2KB with type-specific handling in `lru-cache.ts` |
+| 2025-12-14 | Recursive reconnection | Converted to iterative approach with for-loop in `connection.ts` |
+| 2025-12-14 | Magic number thresholds | Extracted to `src/utils/constants.ts` with named constants |
+| 2025-12-14 | No cascade delete policies | Added explicit `onDelete: 'cascade'` and `onDelete: 'set null'` to foreign keys in `schema.ts` |
 
 ---
 
@@ -392,23 +397,23 @@ None identified - the code is production-ready.
 | N+1 query in FTS5 path | `query.service.ts:1317-1321` | Batch rowid lookups | **FIXED** |
 | Complete cache clear on pressure | `memory-coordinator.ts:159` | Implement partial eviction | **FIXED** |
 
-### Medium Priority Improvements (5) - 2 FIXED
+### Medium Priority Improvements (5) - ALL FIXED
 
 | Issue | Location | Recommendation | Status |
 |-------|----------|----------------|--------|
 | Duplicate comments | `query.service.ts:95-97` | Remove duplicate | **FIXED** |
-| Hardcoded distance metric | `vector.service.ts:77` | Make configurable | Open |
-| Size estimation fallback | `lru-cache.ts:136` | Use more accurate default | Open |
+| Hardcoded distance metric | `vector.service.ts:77` | Make configurable | **FIXED** |
+| Size estimation fallback | `lru-cache.ts:136` | Use more accurate default | **FIXED** |
 | No rate limiting | MCP handlers | Add request throttling | **FIXED** |
-| Cascade delete policy | `schema.ts` | Define explicit cascade behavior | Open |
+| Cascade delete policy | `schema.ts` | Define explicit cascade behavior | **FIXED** |
 
-### Low Priority Improvements (4) - 1 FIXED
+### Low Priority Improvements (4) - ALL FIXED
 
 | Issue | Recommendation | Status |
 |-------|----------------|--------|
 | Additional API key patterns | Add AWS, GitHub, Stripe patterns to sanitize.ts | **FIXED** |
-| Recursive reconnection | Convert to iterative approach | Open |
-| Magic number thresholds | Extract to constants/config | Open |
+| Recursive reconnection | Convert to iterative approach | **FIXED** |
+| Magic number thresholds | Extract to constants/config | **FIXED** |
 | Comment style consistency | Standardize section headers | Open |
 
 ---

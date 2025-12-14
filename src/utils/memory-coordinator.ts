@@ -7,6 +7,12 @@
 
 import type { LRUCache } from './lru-cache.js';
 import { createComponentLogger } from './logger.js';
+import {
+  CACHE_PRESSURE_THRESHOLD,
+  CACHE_EVICTION_TARGET,
+  DEFAULT_MEMORY_CHECK_INTERVAL_MS,
+  DEFAULT_TOTAL_CACHE_LIMIT_MB,
+} from './constants.js';
 
 const logger = createComponentLogger('memory-coordinator');
 
@@ -43,9 +49,9 @@ class MemoryCoordinator {
 
   constructor(config?: Partial<MemoryCoordinatorConfig>) {
     this.config = {
-      totalLimitMB: config?.totalLimitMB ?? 100,
-      pressureThreshold: config?.pressureThreshold ?? 0.8,
-      checkIntervalMs: config?.checkIntervalMs ?? 30000, // 30 seconds
+      totalLimitMB: config?.totalLimitMB ?? DEFAULT_TOTAL_CACHE_LIMIT_MB,
+      pressureThreshold: config?.pressureThreshold ?? CACHE_PRESSURE_THRESHOLD,
+      checkIntervalMs: config?.checkIntervalMs ?? DEFAULT_MEMORY_CHECK_INTERVAL_MS,
     };
 
     // Start periodic memory check
@@ -134,8 +140,8 @@ class MemoryCoordinator {
       'Memory limit exceeded, starting eviction'
     );
 
-    // Target: reduce to 80% of limit to avoid frequent evictions
-    const targetMemoryMB = this.config.totalLimitMB * 0.8;
+    // Target: reduce to configured threshold to avoid frequent evictions
+    const targetMemoryMB = this.config.totalLimitMB * CACHE_EVICTION_TARGET;
     const memoryToFree = totalMemory - targetMemoryMB;
 
     // Sort caches by priority (lowest first) and size (largest first for efficiency)
@@ -301,12 +307,12 @@ export function getMemoryCoordinator(): MemoryCoordinator {
     // Read configuration from environment variables
     const totalLimitMB = process.env.AGENT_MEMORY_CACHE_LIMIT_MB
       ? parseInt(process.env.AGENT_MEMORY_CACHE_LIMIT_MB, 10)
-      : 100;
+      : DEFAULT_TOTAL_CACHE_LIMIT_MB;
 
     coordinator = new MemoryCoordinator({
       totalLimitMB,
-      pressureThreshold: 0.8,
-      checkIntervalMs: 30000,
+      pressureThreshold: CACHE_PRESSURE_THRESHOLD,
+      checkIntervalMs: DEFAULT_MEMORY_CHECK_INTERVAL_MS,
     });
   }
   return coordinator;

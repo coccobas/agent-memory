@@ -249,7 +249,15 @@ async function backfillEntryType(
           progress.succeeded++;
         } catch (error) {
           // eslint-disable-next-line no-console
-          logger.error({ entryType, entryId: entry.id, error }, 'Failed to process entry');
+          logger.error(
+            {
+              entryType,
+              entryId: entry.id,
+              errorMessage: error instanceof Error ? error.message : String(error),
+              errorStack: error instanceof Error ? error.stack : undefined,
+            },
+            'Failed to process entry'
+          );
           progress.processed++;
           progress.failed++;
         }

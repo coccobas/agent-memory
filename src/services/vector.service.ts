@@ -23,6 +23,38 @@ const projectRoot = resolve(__dirname, '../..');
 const DEFAULT_VECTOR_DB_PATH =
   process.env.AGENT_MEMORY_VECTOR_DB_PATH || resolve(projectRoot, 'data/vectors.lance');
 
+/**
+ * Get the distance metric from environment variable
+ * Supported values: 'cosine', 'l2', 'dot'
+ * Default: 'cosine' (best for semantic similarity with normalized embeddings)
+ */
+function getDefaultDistanceMetric(): DistanceMetric {
+  const envMetric = process.env.AGENT_MEMORY_DISTANCE_METRIC?.toLowerCase();
+  if (envMetric === 'l2' || envMetric === 'cosine' || envMetric === 'dot') {
+    return envMetric;
+  }
+  return 'cosine';
+}
+
+/**
+ * Validate and sanitize identifier for use in LanceDB filter queries
+ * Uses whitelist approach to prevent SQL injection
+ * @throws Error if identifier contains invalid characters
+ */
+function validateIdentifier(input: string, fieldName: string): string {
+  // Allow alphanumeric, hyphens, underscores (common in UUIDs and IDs)
+  if (!/^[a-zA-Z0-9_-]+$/.test(input)) {
+    throw new Error(
+      `Invalid ${fieldName}: contains disallowed characters. Only alphanumeric, hyphens, and underscores are allowed.`
+    );
+  }
+  // Additional length check to prevent abuse
+  if (input.length > 200) {
+    throw new Error(`Invalid ${fieldName}: exceeds maximum length of 200 characters`);
+  }
+  return input;
+}
+
 export interface VectorRecord extends Record<string, unknown> {
   entryType: string;
   entryId: string;
@@ -43,8 +75,11 @@ export interface SearchResult {
 
 /**
  * Distance metric used by LanceDB
+ * - cosine: Cosine similarity (default, best for normalized embeddings)
+ * - l2: Euclidean distance
+ * - dot: Dot product
  */
-type DistanceMetric = 'l2' | 'cosine' | 'dot';
+export type DistanceMetric = 'l2' | 'cosine' | 'dot';
 
 /**
  * Vector database service using LanceDB
@@ -55,10 +90,18 @@ class VectorService {
   private tableName = 'embeddings';
   private dbPath: string;
   private expectedDimension: number | null = null;
-  private distanceMetric: DistanceMetric = 'cosine'; // LanceDB default
+  private distanceMetric: DistanceMetric;
 
-  constructor(dbPath?: string) {
+  constructor(dbPath?: string, distanceMetric?: DistanceMetric) {
     this.dbPath = dbPath || DEFAULT_VECTOR_DB_PATH;
+    this.distanceMetric = distanceMetric || getDefaultDistanceMetric();
+  }
+
+  /**
+   * Get the current distance metric being used
+   */
+  getDistanceMetric(): DistanceMetric {
+    return this.distanceMetric;
   }
 
   /**
@@ -206,12 +249,12 @@ class VectorService {
       // Check if record already exists
       // Create a dummy vector with the same dimensionality as the actual embedding
       const dummyVector = Array(embedding.length).fill(0);
-      // Sanitize inputs to prevent SQL injection - escape single quotes
-      const sanitizedEntryId = entryId.replace(/'/g, "''");
-      const sanitizedVersionId = versionId.replace(/'/g, "''");
+      // Validate inputs to prevent SQL injection
+      const validatedEntryId = validateIdentifier(entryId, 'entryId');
+      const validatedVersionId = validateIdentifier(versionId, 'versionId');
       const existing = await this.table
         .search(dummyVector) // Dummy vector for filter-only query
-        .filter(`"entryId" = '${sanitizedEntryId}' AND "versionId" = '${sanitizedVersionId}'`)
+        .filter(`"entryId" = '${validatedEntryId}' AND "versionId" = '${validatedVersionId}'`)
         .limit(1)
         .toArray();
 
@@ -260,11 +303,11 @@ class VectorService {
       query = query.limit(limit);
 
       if (entryTypes.length > 0) {
-        // Sanitize entry types to prevent SQL injection
+        // Validate entry types to prevent SQL injection
         const typeFilter = entryTypes
           .map((t) => {
-            const sanitized = t.replace(/'/g, "''");
-            return `"entryType" = '${sanitized}'`;
+            const validated = validateIdentifier(t, 'entryType');
+            return `"entryType" = '${validated}'`;
           })
           .join(' OR ');
         query = query.filter(`(${typeFilter})`);
@@ -355,17 +398,17 @@ class VectorService {
     }
 
     try {
-      // Sanitize inputs to prevent SQL injection
-      const sanitizedEntryId = entryId.replace(/'/g, "''");
+      // Validate inputs to prevent SQL injection
+      const validatedEntryId = validateIdentifier(entryId, 'entryId');
 
       // Build the filter predicate
       let filterPredicate: string;
       if (versionId) {
-        const sanitizedVersionId = versionId.replace(/'/g, "''");
-        filterPredicate = `"entryId" = '${sanitizedEntryId}' AND "versionId" = '${sanitizedVersionId}'`;
+        const validatedVersionId = validateIdentifier(versionId, 'versionId');
+        filterPredicate = `"entryId" = '${validatedEntryId}' AND "versionId" = '${validatedVersionId}'`;
       } else {
         // Delete all versions for this entry
-        filterPredicate = `"entryId" = '${sanitizedEntryId}'`;
+        filterPredicate = `"entryId" = '${validatedEntryId}'`;
       }
 
       // LanceDB supports delete operations via the delete method

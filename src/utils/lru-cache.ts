@@ -1,3 +1,5 @@
+import { HEAP_PRESSURE_THRESHOLD } from './constants.js';
+
 export interface LRUCacheOptions {
   maxSize: number;
   maxMemoryMB?: number; // Optional memory limit
@@ -172,11 +174,35 @@ export class LRUCache<T> {
     };
   }
 
+  /**
+   * Estimate the size of a value in bytes
+   * Uses JSON.stringify for serializable objects, with fallbacks for edge cases
+   */
   private estimateSize(value: unknown): number {
     try {
-      return JSON.stringify(value).length;
+      // For strings, use length directly (more efficient)
+      if (typeof value === 'string') {
+        return value.length * 2; // UTF-16 encoding
+      }
+
+      // For numbers/booleans, use fixed small size
+      if (typeof value === 'number' || typeof value === 'boolean') {
+        return 8;
+      }
+
+      // For null/undefined
+      if (value === null || value === undefined) {
+        return 0;
+      }
+
+      // For objects/arrays, use JSON.stringify
+      const json = JSON.stringify(value);
+      return json.length * 2; // UTF-16 encoding approximation
     } catch {
-      return 100; // Fallback estimate
+      // Fallback for circular references or other non-serializable objects
+      // Use a conservative estimate based on common query result sizes
+      // Average query result is typically 1-5KB
+      return 2048;
     }
   }
 
@@ -210,7 +236,7 @@ export class LRUCache<T> {
     const usage = process.memoryUsage();
     const heapUsedMB = usage.heapUsed / 1024 / 1024;
     const heapTotalMB = usage.heapTotal / 1024 / 1024;
-    return heapUsedMB / heapTotalMB > 0.85; // 85% threshold
+    return heapUsedMB / heapTotalMB > HEAP_PRESSURE_THRESHOLD;
   }
 
   private evictBatch(percentage: number): void {

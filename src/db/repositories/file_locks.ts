@@ -263,7 +263,7 @@ export const fileLockRepo = {
    */
   cleanupStaleLocks(maxAgeHours = 24): number {
     return cleanupStaleLocks(maxAgeHours).cleaned;
-  }
+  },
 };
 
 export function cleanupExpiredLocks(): { cleaned: number; errors: string[] } {
@@ -295,9 +295,7 @@ export function cleanupStaleLocks(maxAgeHours = 24): { cleaned: number; errors: 
     // Guide says: IS NULL AND checkedOutAt < cutoff.
     const result = db
       .delete(fileLocks)
-      .where(
-        sql`${fileLocks.expiresAt} IS NULL AND ${fileLocks.checkedOutAt} < ${cutoff}`
-      )
+      .where(sql`${fileLocks.expiresAt} IS NULL AND ${fileLocks.checkedOutAt} < ${cutoff}`)
       .run();
 
     return { cleaned: result.changes, errors };

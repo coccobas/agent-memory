@@ -18,6 +18,7 @@ import { dirname, resolve } from 'node:path';
 import { initializeDatabase } from './init.js';
 import { createComponentLogger } from '../utils/logger.js';
 import { toLongPath, normalizePath } from '../utils/paths.js';
+import { MAX_PREPARED_STATEMENTS, DEFAULT_HEALTH_CHECK_INTERVAL_MS } from '../utils/constants.js';
 
 const logger = createComponentLogger('connection');
 
@@ -40,7 +41,7 @@ let dbInstance: ReturnType<typeof drizzle> | null = null;
 let sqliteInstance: Database.Database | null = null;
 let isInitialized = false;
 
-// Cache for prepared statements
+// Cache for prepared statements with LRU eviction
 const preparedStatementCache = new Map<string, Database.Statement>();
 
 export interface ConnectionOptions {
@@ -77,14 +78,14 @@ export function getDb(options: ConnectionOptions = {}): ReturnType<typeof drizzl
     if (errorMessage.includes('MODULE_NOT_FOUND') || errorMessage.includes('Cannot find module')) {
       throw new Error(
         `Failed to load better-sqlite3 native module.\n` +
-        `Error: ${errorMessage}\n\n` +
-        `This is usually caused by:\n` +
-        `1. Missing native bindings for your platform (${process.platform}/${process.arch})\n` +
-        `2. Node.js version mismatch (currently ${process.version})\n` +
-        `3. Architecture mismatch\n\n` +
-        `Solutions:\n` +
-        `- Run: npm rebuild better-sqlite3\n` +
-        `- Or reinstall: npm install --force better-sqlite3`
+          `Error: ${errorMessage}\n\n` +
+          `This is usually caused by:\n` +
+          `1. Missing native bindings for your platform (${process.platform}/${process.arch})\n` +
+          `2. Node.js version mismatch (currently ${process.version})\n` +
+          `3. Architecture mismatch\n\n` +
+          `Solutions:\n` +
+          `- Run: npm rebuild better-sqlite3\n` +
+          `- Or reinstall: npm install --force better-sqlite3`
       );
     }
 
@@ -133,8 +134,6 @@ export function closeDb(): void {
     sqliteInstance.close();
     sqliteInstance = null;
     dbInstance = null;
-    sqliteInstance = null;
-    dbInstance = null;
     isInitialized = false; // Reset initialization flag
     preparedStatementCache.clear();
     stopHealthCheckInterval();
@@ -170,50 +169,48 @@ export function isDbHealthy(): boolean {
   }
 }
 
-let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 3;
+const RECONNECT_BASE_DELAY_MS = 1000;
+const RECONNECT_MAX_DELAY_MS = 5000;
 
 /**
- * Attempt to reconnect to the database
+ * Attempt to reconnect to the database with exponential backoff
+ * Uses iterative approach to avoid stack overflow risk
  */
 export async function attemptReconnect(options: ConnectionOptions = {}): Promise<boolean> {
-  if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-    logger.error('Max reconnect attempts reached');
-    return false;
+  for (let attempt = 1; attempt <= MAX_RECONNECT_ATTEMPTS; attempt++) {
+    logger.info({ attempt, maxAttempts: MAX_RECONNECT_ATTEMPTS }, 'Attempting to reconnect to database...');
+
+    try {
+      closeDb();
+
+      // Wait briefly before reconnecting (exponential backoff)
+      const delay = Math.min(RECONNECT_BASE_DELAY_MS * Math.pow(2, attempt - 1), RECONNECT_MAX_DELAY_MS);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+
+      getDb(options);
+
+      if (isDbHealthy()) {
+        logger.info({ attempt }, 'Successfully reconnected to database');
+        return true;
+      }
+
+      logger.warn({ attempt }, 'Reconnect succeeded but health check failed');
+    } catch (error) {
+      logger.error({ error, attempt }, 'Reconnect attempt failed');
+    }
   }
 
-  reconnectAttempts++;
-  logger.info({ attempt: reconnectAttempts }, 'Attempting to reconnect to database...');
-
-  try {
-    closeDb();
-
-    // Wait briefly before reconnecting (exponential backoff)
-    const delay = Math.min(1000 * Math.pow(2, reconnectAttempts - 1), 5000);
-    await new Promise((resolve) => setTimeout(resolve, delay));
-
-    getDb(options);
-
-    if (isDbHealthy()) {
-      logger.info('Successfully reconnected to database');
-      reconnectAttempts = 0;
-      return true;
-    }
-    return false;
-  } catch (error) {
-    logger.error({ error, attempt: reconnectAttempts }, 'Reconnect failed');
-    // Recursive attempt if we haven't hit max
-    if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-      return attemptReconnect(options);
-    }
-    return false;
-  }
+  logger.error({ maxAttempts: MAX_RECONNECT_ATTEMPTS }, 'Max reconnect attempts reached, giving up');
+  return false;
 }
 
 /**
  * Get DB instance ensuring it is healthy
  */
-export async function getDbWithHealthCheck(options: ConnectionOptions = {}): Promise<ReturnType<typeof drizzle>> {
+export async function getDbWithHealthCheck(
+  options: ConnectionOptions = {}
+): Promise<ReturnType<typeof drizzle>> {
   if (!isDbHealthy()) {
     const reconnected = await attemptReconnect(options);
     if (!reconnected) {
@@ -225,13 +222,13 @@ export async function getDbWithHealthCheck(options: ConnectionOptions = {}): Pro
 
 let healthCheckInterval: NodeJS.Timeout | null = null;
 
-export function startHealthCheckInterval(intervalMs = 30000): void {
+export function startHealthCheckInterval(intervalMs = DEFAULT_HEALTH_CHECK_INTERVAL_MS): void {
   if (healthCheckInterval) return;
 
   healthCheckInterval = setInterval(() => {
     if (!isDbHealthy()) {
       logger.warn('Background health check failed, triggering reconnect');
-      attemptReconnect().catch(err => {
+      attemptReconnect().catch((err) => {
         logger.error({ error: err }, 'Background reconnect failed');
       });
     }
@@ -250,16 +247,34 @@ export function stopHealthCheckInterval(): void {
 
 /**
  * Get a cached prepared statement or create a new one
+ * Implements LRU eviction when cache exceeds MAX_PREPARED_STATEMENTS
  */
 export function getPreparedStatement(sql: string): Database.Statement {
   const sqlite = getSqlite();
 
   let stmt = preparedStatementCache.get(sql);
-  if (!stmt) {
-    stmt = sqlite.prepare(sql);
+  if (stmt) {
+    // Move to end of Map to mark as recently used (LRU)
+    preparedStatementCache.delete(sql);
     preparedStatementCache.set(sql, stmt);
+    return stmt;
   }
 
+  // Create new prepared statement
+  stmt = sqlite.prepare(sql);
+
+  // Evict oldest entry if cache is full (LRU eviction)
+  if (preparedStatementCache.size >= MAX_PREPARED_STATEMENTS) {
+    // First entry in Map is the least recently used
+    const firstKey = preparedStatementCache.keys().next().value;
+    if (firstKey) {
+      preparedStatementCache.delete(firstKey);
+      // Note: better-sqlite3 statements don't need explicit cleanup
+      // They are cleaned up when the database connection closes
+    }
+  }
+
+  preparedStatementCache.set(sql, stmt);
   return stmt;
 }
 
