@@ -36,12 +36,34 @@ function init(params: InitParams) {
     alreadyInitialized: result.alreadyInitialized,
     migrationsApplied: result.migrationsApplied,
     migrationCount: result.migrationsApplied.length,
+    integrityVerified: result.integrityVerified,
+    integrityErrors: result.integrityErrors,
     errors: result.errors.length > 0 ? result.errors : undefined,
     message: result.success
       ? result.alreadyInitialized
         ? 'Database already initialized'
         : `Successfully applied ${result.migrationsApplied.length} migration(s)`
       : 'Initialization failed',
+  };
+}
+
+/**
+ * Verify database integrity
+ */
+function verify(_params: StatusParams = {}) {
+  const sqlite = getSqlite();
+  // Initialize with verbose=false to just check integrity (and backfill if needed)
+  // Logic in initializeDatabase will perform checks
+  const result = initializeDatabase(sqlite, { verbose: false, force: false });
+
+  return {
+    success: result.success,
+    integrityVerified: result.integrityVerified,
+    integrityErrors: result.integrityErrors,
+    migrationsApplied: result.migrationsApplied, // Should be empty if just verifying
+    message: result.integrityVerified
+      ? 'Database integrity verifed'
+      : `Integrity check failed: ${result.integrityErrors.join('; ')}`
   };
 }
 
@@ -100,4 +122,5 @@ export const initHandlers = {
   init,
   status,
   reset,
+  verify,
 };

@@ -82,20 +82,13 @@ describe('validation.service', () => {
     });
 
     it('should reject tool name exceeding max length', () => {
-      const longName = 'a'.repeat(256); // MAX_NAME_LENGTH is 255
-      const result = validateEntry(
-        'tool',
-        {
-          name: longName,
-          description: 'Test description',
-        },
-        'global'
-      );
+      const longName = 'a'.repeat(501); // Exceeds new limit of 500
+      const result = validateEntry('tool', { name: longName }, 'global');
 
       expect(result.valid).toBe(false);
       expect(
         result.errors.some(
-          (e) => e.field === 'name' && e.message.includes('at most 255 characters')
+          (e) => e.field === 'name' && e.message.includes('at most 500 characters')
         )
       ).toBe(true);
     });

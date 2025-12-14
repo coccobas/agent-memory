@@ -15,6 +15,7 @@
 import { OpenAI } from 'openai';
 import { pipeline } from '@xenova/transformers';
 import { createComponentLogger } from '../utils/logger.js';
+import { withRetry, isRetryableNetworkError } from '../utils/retry.js';
 
 const logger = createComponentLogger('embedding');
 
@@ -223,22 +224,27 @@ class EmbeddingService {
       throw new Error('OpenAI client not initialized');
     }
 
-    try {
-      const response = await this.openaiClient.embeddings.create({
-        model: this.openaiModel,
-        input: text,
-      });
+    return withRetry(
+      async () => {
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        const response = await this.openaiClient!.embeddings.create({
+          model: this.openaiModel,
+          input: text,
+        });
 
-      const embedding = response.data[0]?.embedding;
-      if (!embedding) {
-        throw new Error('No embedding returned from OpenAI');
+        const embedding = response.data[0]?.embedding;
+        if (!embedding) {
+          throw new Error('No embedding returned from OpenAI');
+        }
+        return embedding;
+      },
+      {
+        retryableErrors: isRetryableNetworkError,
+        onRetry: (error, attempt) => {
+          logger.warn({ error: error.message, attempt }, 'Retrying OpenAI embedding');
+        },
       }
-      return embedding;
-    } catch (error) {
-      throw new Error(
-        `OpenAI embedding failed: ${error instanceof Error ? error.message : String(error)}`
-      );
-    }
+    );
   }
 
   /**
@@ -249,18 +255,23 @@ class EmbeddingService {
       throw new Error('OpenAI client not initialized');
     }
 
-    try {
-      const response = await this.openaiClient.embeddings.create({
-        model: this.openaiModel,
-        input: texts,
-      });
+    return withRetry(
+      async () => {
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        const response = await this.openaiClient!.embeddings.create({
+          model: this.openaiModel,
+          input: texts,
+        });
 
-      return response.data.map((d) => d.embedding);
-    } catch (error) {
-      throw new Error(
-        `OpenAI batch embedding failed: ${error instanceof Error ? error.message : String(error)}`
-      );
-    }
+        return response.data.map((d) => d.embedding);
+      },
+      {
+        retryableErrors: isRetryableNetworkError,
+        onRetry: (error, attempt) => {
+          logger.warn({ error: error.message, attempt }, 'Retrying OpenAI batch embedding');
+        },
+      }
+    );
   }
 
   /**

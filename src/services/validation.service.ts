@@ -22,10 +22,78 @@ export interface ValidationResult {
   errors: ValidationError[];
 }
 
-// Validation constants
-const MAX_NAME_LENGTH = 255;
-const MAX_DESCRIPTION_LENGTH = 10 * 1024; // 10KB
-const MAX_CONTENT_LENGTH = 1024 * 1024; // 1MB
+// Size limit constants
+export const SIZE_LIMITS = {
+  // Text field limits (characters)
+  NAME_MAX_LENGTH: 500,
+  TITLE_MAX_LENGTH: 1000,
+  DESCRIPTION_MAX_LENGTH: 10000,
+  CONTENT_MAX_LENGTH: 100000,  // 100KB
+  RATIONALE_MAX_LENGTH: 5000,
+
+  // JSON field limits (bytes when serialized)
+  METADATA_MAX_BYTES: 50000,    // 50KB
+  PARAMETERS_MAX_BYTES: 50000,  // 50KB
+  EXAMPLES_MAX_BYTES: 100000,   // 100KB
+
+  // Array limits
+  TAGS_MAX_COUNT: 50,
+  EXAMPLES_MAX_COUNT: 20,
+  BULK_OPERATION_MAX: 100,
+} as const;
+
+// Legacy constants for backward compatibility
+const MAX_NAME_LENGTH = SIZE_LIMITS.NAME_MAX_LENGTH;
+const MAX_DESCRIPTION_LENGTH = SIZE_LIMITS.DESCRIPTION_MAX_LENGTH;
+const MAX_CONTENT_LENGTH = SIZE_LIMITS.CONTENT_MAX_LENGTH;
+
+/**
+ * Validate text field length
+ */
+export function validateTextLength(
+  value: string | undefined | null,
+  fieldName: string,
+  maxLength: number
+): void {
+  if (value && value.length > maxLength) {
+    throw new Error(
+      `${fieldName} exceeds maximum length of ${maxLength} characters (got ${value.length})`
+    );
+  }
+}
+
+/**
+ * Validate JSON field size
+ */
+export function validateJsonSize(
+  value: unknown,
+  fieldName: string,
+  maxBytes: number
+): void {
+  if (value === undefined || value === null) return;
+
+  const serialized = JSON.stringify(value);
+  if (serialized.length > maxBytes) {
+    throw new Error(
+      `${fieldName} exceeds maximum size of ${maxBytes} bytes (got ${serialized.length})`
+    );
+  }
+}
+
+/**
+ * Validate array length
+ */
+export function validateArrayLength(
+  value: unknown[] | undefined | null,
+  fieldName: string,
+  maxCount: number
+): void {
+  if (value && value.length > maxCount) {
+    throw new Error(
+      `${fieldName} exceeds maximum count of ${maxCount} items (got ${value.length})`
+    );
+  }
+}
 
 /**
  * Validate an entry against validation rules

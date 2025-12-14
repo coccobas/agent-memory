@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  agent-memory:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: agent-memory
+    volumes:
+      # Persist database and data
+      - agent-memory-data:/app/data
+    environment:
+      # Database configuration
+      - AGENT_MEMORY_DB_PATH=/app/data/memory.db
+
+      # Logging
+      - LOG_LEVEL=info
+      - AGENT_MEMORY_PERF=0
+      # Optional: Embedding configuration
+      # - AGENT_MEMORY_EMBEDDING_PROVIDER=openai
+      # - AGENT_MEMORY_OPENAI_API_KEY=your-api-key
+      # - AGENT_MEMORY_OPENAI_MODEL=text-embedding-3-small
+      # - AGENT_MEMORY_VECTOR_DB_PATH=/app/data/vectors.lance
+
+      # MCP uses stdio - keep stdin open and allocate TTY
+    stdin_open: true
+    tty: true
+
+    # Restart policy
+    restart: unless-stopped
+    # Optional: Resource limits
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: '2'
+    #       memory: 2G
+    #     reservations:
+    #       cpus: '1'
+    #       memory: 512M
+
+volumes:
+  agent-memory-data:
+    driver: local

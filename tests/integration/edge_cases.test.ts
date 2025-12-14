@@ -279,18 +279,21 @@ describe('Edge Cases', () => {
 
   describe('File Path Operations', () => {
     it('should accept relative paths at repo level', () => {
-      // Repository doesn't validate paths - that's done at handler level
+      // Repository doesn't validate paths    it('should accept relative paths at repo level', () => {
       const lock = fileLockRepo.checkout('relative/path/file.ts', 'agent-1');
       expect(lock).toBeDefined();
-      expect(lock.filePath).toBe('relative/path/file.ts');
+      // Path normalization converts relative to absolute
+      expect(lock.filePath).toContain('relative/path/file.ts');
+      expect(lock.filePath).toMatch(/.*relative\/path\/file\.ts$/);
     });
 
     it('should accept paths with .. at repo level', () => {
       // Repository doesn't validate paths - that's done at handler level
-      // Handler validation is tested separately in handler tests
+      // Handler validation    it('should accept paths with .. at repo level', () => {
       const lock = fileLockRepo.checkout('/path/../file.ts', 'agent-1');
       expect(lock).toBeDefined();
-      expect(lock.filePath).toBe('/path/../file.ts');
+      // Path normalization resolves .. segments
+      expect(lock.filePath).toBe('/file.ts');
     });
 
     it('should accept valid absolute paths', () => {

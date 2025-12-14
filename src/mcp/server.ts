@@ -31,7 +31,14 @@ import {
   type Tool,
 } from '@modelcontextprotocol/sdk/types.js';
 
-import { getDb, closeDb, getSqlite } from '../db/connection.js';
+import {
+  getDb,
+  closeDb,
+  getSqlite,
+  getDbWithHealthCheck,
+  startHealthCheckInterval,
+} from '../db/connection.js';
+import { cleanupExpiredLocks, cleanupStaleLocks } from '../db/repositories/file_locks.js';
 import { tagRepo } from '../db/repositories/tags.js';
 import { queryHandlers } from './handlers/query.handler.js';
 import { conflictHandlers } from './handlers/conflicts.handler.js';
@@ -744,7 +751,7 @@ const TOOLS: Tool[] = [
       properties: {
         action: {
           type: 'string',
-          enum: ['init', 'status', 'reset'],
+          enum: ['init', 'status', 'reset', 'verify'],
           description: 'Action to perform',
         },
         // init params
@@ -1234,6 +1241,8 @@ const bundledHandlers: Record<string, (params: Record<string, unknown>) => unkno
         return initHandlers.status(rest);
       case 'reset':
         return initHandlers.reset(rest);
+      case 'verify':
+        return initHandlers.verify(rest);
       default:
         throw new Error(`Unknown action for memory_init: ${String(action)}`);
     }
@@ -1367,13 +1376,13 @@ const bundledHandlers: Record<string, (params: Record<string, unknown>) => unkno
 // SERVER SETUP
 // =============================================================================
 
-export function createServer(): Server {
+export async function createServer(): Promise<Server> {
   logger.debug('Creating server...');
 
   const server = new Server(
     {
       name: 'agent-memory',
-      version: '0.8.0', // Antigravity .agent/rules support
+      version: '0.8.1', // Antigravity .agent/rules support
     },
     {
       capabilities: {
@@ -1387,7 +1396,10 @@ export function createServer(): Server {
   // Initialize database (with more defensive error handling)
   try {
     logger.info('Initializing database...');
-    getDb();
+    logger.info('Initializing database...');
+    // P2-T1: Use health check aware connection
+    await getDbWithHealthCheck();
+    startHealthCheckInterval();
     logger.info('Database initialized successfully');
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -1411,6 +1423,20 @@ export function createServer(): Server {
   } catch (error) {
     logger.warn({ error }, 'Failed to seed tags');
     // Continue anyway - tags aren't critical
+  }
+
+  // Cleanup stale file locks
+  try {
+    const expired = cleanupExpiredLocks();
+    const stale = cleanupStaleLocks();
+    if (expired.cleaned > 0 || stale.cleaned > 0) {
+      logger.info(
+        { expired: expired.cleaned, stale: stale.cleaned },
+        'Cleaned up stale file locks'
+      );
+    }
+  } catch (error) {
+    logger.warn({ error }, 'Failed to cleanup file locks');
   }
 
   logger.debug('Setting up request handlers...');
@@ -1537,7 +1563,7 @@ export async function runServer(): Promise<void> {
 
   let server: Server;
   try {
-    server = createServer();
+    server = await createServer();
     logger.info('Server created successfully');
   } catch (error) {
     logger.fatal(
@@ -1553,7 +1579,7 @@ export async function runServer(): Promise<void> {
     server = new Server(
       {
         name: 'agent-memory',
-        version: '0.7.4',
+        version: '0.8.1',
       },
       {
         capabilities: {
@@ -1586,22 +1612,42 @@ export async function runServer(): Promise<void> {
     const transport = new StdioServerTransport();
     logger.debug('Transport created');
 
-    logger.debug('Connecting to transport...');
-    await server.connect(transport);
-    logger.info('Connected successfully - server is ready');
+    // =============================================================================
+    // SHUTDOWN HANDLING
+    // =============================================================================
 
-    // Handle graceful shutdown
-    process.on('SIGINT', () => {
-      logger.info('Received SIGINT, shutting down...');
-      closeDb();
-      process.exit(0);
-    });
+    function shutdown(signal: string): void {
+      logger.info({ signal }, 'Shutdown signal received');
 
-    process.on('SIGTERM', () => {
-      logger.info('Received SIGTERM, shutting down...');
-      closeDb();
-      process.exit(0);
-    });
+      try {
+        // Close database connection
+        closeDb();
+
+        logger.info('Shutdown complete');
+        process.exit(0);
+      } catch (error) {
+        logger.error({ error }, 'Error during shutdown');
+        process.exit(1);
+      }
+    }
+
+    // Unix/macOS signals
+    process.on('SIGINT', () => shutdown('SIGINT'));
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+
+    // Windows: handle Ctrl+C via readline
+    if (process.platform === 'win32') {
+      // Note: On Windows, SIGINT is partially supported but we add readline as backup
+      const readline = await import('node:readline');
+      if (process.stdin.isTTY) {
+        readline.createInterface({
+          input: process.stdin,
+          output: process.stdout,
+        }).on('SIGINT', () => {
+          shutdown('SIGINT (Windows)');
+        });
+      }
+    }
 
     // Log unhandled errors
     process.on('uncaughtException', (error) => {
@@ -1624,6 +1670,10 @@ export async function runServer(): Promise<void> {
       process.exit(1);
     });
 
+    // Connect to transport
+    logger.debug('Connecting to transport...');
+    await server.connect(transport);
+    logger.info('Connected successfully - server is ready');
     logger.info('Server is now listening for requests');
   } catch (error) {
     logger.fatal({ error }, 'Fatal error during startup');

@@ -13,7 +13,13 @@ import { checkForDuplicates } from '../../services/duplicate.service.js';
 import { logAction } from '../../services/audit.service.js';
 import { detectRedFlags } from '../../services/redflag.service.js';
 import { invalidateCacheEntry } from '../../services/query.service.js';
-import { validateEntry } from '../../services/validation.service.js';
+import {
+  validateEntry,
+  validateTextLength,
+  validateJsonSize,
+  validateArrayLength,
+  SIZE_LIMITS,
+} from '../../services/validation.service.js';
 import { createValidationError, createNotFoundError, createPermissionError } from '../errors.js';
 import { createComponentLogger } from '../../utils/logger.js';
 import {
@@ -53,6 +59,12 @@ export const toolHandlers = {
         'Provide the ID of the parent scope'
       );
     }
+
+    // Validate input sizes
+    validateTextLength(name, 'name', SIZE_LIMITS.NAME_MAX_LENGTH);
+    validateTextLength(description, 'description', SIZE_LIMITS.DESCRIPTION_MAX_LENGTH);
+    validateJsonSize(parameters, 'parameters', SIZE_LIMITS.PARAMETERS_MAX_BYTES);
+    validateJsonSize(examples, 'examples', SIZE_LIMITS.EXAMPLES_MAX_BYTES);
 
     // Check permission (write required for add)
     if (agentId && !checkPermission(agentId, 'write', 'tool', null, scopeType, scopeId ?? null)) {
@@ -153,6 +165,11 @@ export const toolHandlers = {
     if (!existingTool) {
       throw createNotFoundError('tool', id);
     }
+
+    // Validate input sizes
+    validateTextLength(description, 'description', SIZE_LIMITS.DESCRIPTION_MAX_LENGTH);
+    validateJsonSize(parameters, 'parameters', SIZE_LIMITS.PARAMETERS_MAX_BYTES);
+    validateJsonSize(examples, 'examples', SIZE_LIMITS.EXAMPLES_MAX_BYTES);
 
     // Check permission (write required for update)
     if (
@@ -342,6 +359,9 @@ export const toolHandlers = {
     const entries = getRequiredParam(params, 'entries', isArrayOfObjects);
     const agentId = getOptionalParam(params, 'agentId', isString);
 
+    // Validate bulk operation size
+    validateArrayLength(entries, 'entries', SIZE_LIMITS.BULK_OPERATION_MAX);
+
     if (entries.length === 0) {
       throw createValidationError(
         'entries',
@@ -390,22 +410,22 @@ export const toolHandlers = {
         const scopeType = isScopeType(entryObj.scopeType)
           ? entryObj.scopeType
           : (() => {
-              throw createValidationError(
-                'scopeType',
-                'is required and must be a valid scope type',
-                "Specify 'global', 'org', 'project', or 'session'"
-              );
-            })();
+            throw createValidationError(
+              'scopeType',
+              'is required and must be a valid scope type',
+              "Specify 'global', 'org', 'project', or 'session'"
+            );
+          })();
         const scopeId = entryObj.scopeId;
         const name = isString(entryObj.name)
           ? entryObj.name
           : (() => {
-              throw createValidationError(
-                'name',
-                'is required',
-                'Provide a unique name for the tool'
-              );
-            })();
+            throw createValidationError(
+              'name',
+              'is required',
+              'Provide a unique name for the tool'
+            );
+          })();
         const category = entryObj.category;
         const description = entryObj.description;
         const parameters = entryObj.parameters;
@@ -453,6 +473,9 @@ export const toolHandlers = {
   bulk_update(params: Record<string, unknown>) {
     const updates = getRequiredParam(params, 'updates', isArrayOfObjects);
     const agentId = getOptionalParam(params, 'agentId', isString);
+
+    // Validate bulk operation size
+    validateArrayLength(updates, 'updates', SIZE_LIMITS.BULK_OPERATION_MAX);
 
     if (updates.length === 0) {
       throw createValidationError(
@@ -502,8 +525,8 @@ export const toolHandlers = {
         const id = isString(updateObj.id)
           ? updateObj.id
           : (() => {
-              throw createValidationError('id', 'is required', 'Provide the tool ID to update');
-            })();
+            throw createValidationError('id', 'is required', 'Provide the tool ID to update');
+          })();
         const description = updateObj.description;
         const parameters = updateObj.parameters;
         const examples = updateObj.examples;

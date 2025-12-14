@@ -8,6 +8,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
 import type Database from 'better-sqlite3';
 import { createComponentLogger } from '../utils/logger.js';
 
@@ -19,6 +20,7 @@ const __dirname = dirname(__filename);
 export interface MigrationRecord {
   id: number;
   name: string;
+  checksum: string | null;
   applied_at: string;
 }
 
@@ -26,39 +28,66 @@ export interface InitResult {
   success: boolean;
   alreadyInitialized: boolean;
   migrationsApplied: string[];
+  integrityVerified: boolean;
+  integrityErrors: string[]; // Specific integrity validation errors
   errors: string[];
 }
 
 /**
+ * Calculate SHA-256 checksum of file content
+ */
+function calculateChecksum(content: string): string {
+  return createHash('sha256').update(content).digest('hex');
+}
+
+/**
  * Create the migrations tracking table if it doesn't exist
+ * and ensure checksum column exists
  */
 function ensureMigrationTable(sqlite: Database.Database): void {
+  // Create table if not exists
   sqlite.exec(`
     CREATE TABLE IF NOT EXISTS _migrations (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL UNIQUE,
+      checksum TEXT,
       applied_at TEXT DEFAULT CURRENT_TIMESTAMP NOT NULL
     )
   `);
+
+  // Check if checksum column exists (for upgrades)
+  try {
+    const columns = sqlite.prepare('PRAGMA table_info(_migrations)').all() as { name: string }[];
+    const hasChecksum = columns.some((c) => c.name === 'checksum');
+
+    if (!hasChecksum) {
+      logger.info('Adding checksum column to _migrations table');
+      sqlite.exec('ALTER TABLE _migrations ADD COLUMN checksum TEXT');
+    }
+  } catch (error) {
+    logger.warn({ error }, 'Failed to check/add checksum column');
+  }
 }
 
 /**
- * Get list of applied migrations
+ * Get list of applied migrations with their checksums
  */
-function getAppliedMigrations(sqlite: Database.Database): Set<string> {
+function getAppliedMigrations(sqlite: Database.Database): Map<string, string | null> {
   ensureMigrationTable(sqlite);
 
-  const rows = sqlite.prepare('SELECT name FROM _migrations ORDER BY id').all() as {
+  const rows = sqlite.prepare('SELECT name, checksum FROM _migrations ORDER BY id').all() as {
     name: string;
+    checksum: string | null;
   }[];
-  return new Set(rows.map((r) => r.name));
+
+  return new Map(rows.map((r) => [r.name, r.checksum]));
 }
 
 /**
  * Mark a migration as applied
  */
-function recordMigration(sqlite: Database.Database, name: string): void {
-  sqlite.prepare('INSERT INTO _migrations (name) VALUES (?)').run(name);
+function recordMigration(sqlite: Database.Database, name: string, checksum: string): void {
+  sqlite.prepare('INSERT INTO _migrations (name, checksum) VALUES (?, ?)').run(name, checksum);
 }
 
 /**
@@ -129,6 +158,7 @@ function applyMigration(
   options: { force?: boolean; verbose?: boolean } = {}
 ): void {
   const sql = readFileSync(path, 'utf-8');
+  const checksum = calculateChecksum(sql);
 
   // Split by statement-breakpoint comments that drizzle-kit generates
   const rawStatements = sql.split(/-->\s*statement-breakpoint/i);
@@ -205,7 +235,7 @@ function applyMigration(
   // Record migration, but handle the case where it's already recorded
   // This can happen if a migration was partially applied before
   try {
-    recordMigration(sqlite, name);
+    recordMigration(sqlite, name, checksum);
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     // If migration is already recorded, that's okay - skip silently
@@ -235,6 +265,8 @@ export function initializeDatabase(
     success: false,
     alreadyInitialized: false,
     migrationsApplied: [],
+    integrityVerified: true,
+    integrityErrors: [],
     errors: [],
   };
 
@@ -250,6 +282,42 @@ export function initializeDatabase(
     if (migrationFiles.length === 0) {
       result.errors.push('No migration files found in src/db/migrations/');
       return result;
+    }
+
+    // Verify integrity of applied migrations
+    for (const file of migrationFiles) {
+      if (appliedMigrations.has(file.name)) {
+        const storedChecksum = appliedMigrations.get(file.name);
+        const content = readFileSync(file.path, 'utf-8');
+        const currentChecksum = calculateChecksum(content);
+
+        // If checksum is missing (legacy migration), backfill it
+        if (!storedChecksum) {
+          if (options.verbose) {
+            logger.info({ migration: file.name }, 'Backfilling missing checksum');
+          }
+          sqlite
+            .prepare('UPDATE _migrations SET checksum = ? WHERE name = ?')
+            .run(currentChecksum, file.name);
+          continue;
+        }
+
+        // Verify checksum match
+        if (storedChecksum !== currentChecksum) {
+          const error = `Migration integrity error: ${file.name} has been modified. Stored checksum: ${storedChecksum}, Current checksum: ${currentChecksum}`;
+          result.integrityErrors.push(error);
+          result.integrityVerified = false;
+        }
+      }
+    }
+
+    // Fail if integrity check failed
+    if (!result.integrityVerified) {
+      result.errors.push(...result.integrityErrors);
+      // Unless forced, stop here
+      if (!options.force) {
+        return result;
+      }
     }
 
     // Filter to only pending migrations
@@ -305,15 +373,17 @@ export function getMigrationStatus(sqlite: Database.Database): {
   totalMigrations: number;
 } {
   const initialized = isDatabaseInitialized(sqlite);
-  const appliedMigrations = Array.from(getAppliedMigrations(sqlite));
+  const appliedMigrationsMap = getAppliedMigrations(sqlite);
+  const appliedMigrations = Array.from(appliedMigrationsMap.keys());
   const allMigrations = getMigrationFiles().map((m) => m.name);
-  const pendingMigrations = allMigrations.filter((m) => !appliedMigrations.includes(m));
+  const pendingMigrations = allMigrations.filter((m) => !appliedMigrationsMap.has(m));
 
   return {
     initialized,
     appliedMigrations,
     pendingMigrations,
     totalMigrations: allMigrations.length,
+    // Note: We could expose checksum status here too but for now keeping interface simpler
   };
 }
 
@@ -360,6 +430,8 @@ export function resetDatabase(
       success: false,
       alreadyInitialized: false,
       migrationsApplied: [],
+      integrityVerified: false,
+      integrityErrors: [],
       errors: [message],
     };
   }

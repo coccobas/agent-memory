@@ -6,13 +6,8 @@
  * - AGENT_MEMORY_PERF: Enable performance logging (set to '1' to enable)
  * - AGENT_MEMORY_CACHE: Enable query result caching (set to '0' to disable, enabled by default)
  * - AGENT_MEMORY_SKIP_INIT: Skip automatic database initialization (set to '1' to skip)
- *
- * Semantic Search Environment Variables:
- * - AGENT_MEMORY_EMBEDDING_PROVIDER: 'openai' | 'local' | 'disabled' (default: 'openai')
- * - AGENT_MEMORY_OPENAI_API_KEY: OpenAI API key (required for OpenAI provider)
- * - AGENT_MEMORY_OPENAI_MODEL: OpenAI embedding model (default: 'text-embedding-3-small')
- * - AGENT_MEMORY_VECTOR_DB_PATH: Path to vector database (default: 'data/vectors.lance')
- * - AGENT_MEMORY_SEMANTIC_THRESHOLD: Default similarity threshold 0-1 (default: 0.7)
+ * Database connection management
+ * Manages SQLite connection singleton with health checks
  */
 
 import Database from 'better-sqlite3';
@@ -20,18 +15,26 @@ import { drizzle } from 'drizzle-orm/better-sqlite3';
 import * as schema from './schema.js';
 import { existsSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { initializeDatabase } from './init.js';
 import { createComponentLogger } from '../utils/logger.js';
+import { toLongPath, normalizePath } from '../utils/paths.js';
 
-const logger = createComponentLogger('db');
+const logger = createComponentLogger('connection');
 
-// Get the directory of the current module (works in both src and dist)
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-// Resolve data path relative to project root (go up from src/db or dist/db to project root)
-const projectRoot = resolve(__dirname, '../..');
-const DEFAULT_DB_PATH = process.env.AGENT_MEMORY_DB_PATH || resolve(projectRoot, 'data/memory.db');
+// =============================================================================
+// CONSTANTS
+// =============================================================================
+
+const projectRoot = resolve(new URL('.', import.meta.url).pathname, '../..');
+
+const DEFAULT_DB_PATH = (() => {
+  const envPath = process.env.AGENT_MEMORY_DB_PATH;
+  if (envPath) {
+    // Normalize and apply long path support for Windows
+    return toLongPath(normalizePath(envPath));
+  }
+  return toLongPath(normalizePath(resolve(projectRoot, 'data/memory.db')));
+})();
 
 let dbInstance: ReturnType<typeof drizzle> | null = null;
 let sqliteInstance: Database.Database | null = null;
@@ -134,6 +137,7 @@ export function closeDb(): void {
     dbInstance = null;
     isInitialized = false; // Reset initialization flag
     preparedStatementCache.clear();
+    stopHealthCheckInterval();
   }
 }
 
@@ -148,6 +152,100 @@ export function getSqlite(): Database.Database {
     throw new Error('Failed to initialize database connection');
   }
   return sqliteInstance;
+}
+
+/**
+ * Check if the database connection is healthy
+ */
+export function isDbHealthy(): boolean {
+  if (!sqliteInstance || !sqliteInstance.open) {
+    return false;
+  }
+  try {
+    sqliteInstance.prepare('SELECT 1').get();
+    return true;
+  } catch (error) {
+    logger.warn({ error }, 'Database health check failed');
+    return false;
+  }
+}
+
+let reconnectAttempts = 0;
+const MAX_RECONNECT_ATTEMPTS = 3;
+
+/**
+ * Attempt to reconnect to the database
+ */
+export async function attemptReconnect(options: ConnectionOptions = {}): Promise<boolean> {
+  if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+    logger.error('Max reconnect attempts reached');
+    return false;
+  }
+
+  reconnectAttempts++;
+  logger.info({ attempt: reconnectAttempts }, 'Attempting to reconnect to database...');
+
+  try {
+    closeDb();
+
+    // Wait briefly before reconnecting (exponential backoff)
+    const delay = Math.min(1000 * Math.pow(2, reconnectAttempts - 1), 5000);
+    await new Promise((resolve) => setTimeout(resolve, delay));
+
+    getDb(options);
+
+    if (isDbHealthy()) {
+      logger.info('Successfully reconnected to database');
+      reconnectAttempts = 0;
+      return true;
+    }
+    return false;
+  } catch (error) {
+    logger.error({ error, attempt: reconnectAttempts }, 'Reconnect failed');
+    // Recursive attempt if we haven't hit max
+    if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+      return attemptReconnect(options);
+    }
+    return false;
+  }
+}
+
+/**
+ * Get DB instance ensuring it is healthy
+ */
+export async function getDbWithHealthCheck(options: ConnectionOptions = {}): Promise<ReturnType<typeof drizzle>> {
+  if (!isDbHealthy()) {
+    const reconnected = await attemptReconnect(options);
+    if (!reconnected) {
+      throw new Error('Database connection failed and could not reconnect');
+    }
+  }
+  return getDb(options);
+}
+
+let healthCheckInterval: NodeJS.Timeout | null = null;
+
+export function startHealthCheckInterval(intervalMs = 30000): void {
+  if (healthCheckInterval) return;
+
+  healthCheckInterval = setInterval(() => {
+    if (!isDbHealthy()) {
+      logger.warn('Background health check failed, triggering reconnect');
+      attemptReconnect().catch(err => {
+        logger.error({ error: err }, 'Background reconnect failed');
+      });
+    }
+  }, intervalMs);
+
+  // Do not keep process alive just for this interval
+  healthCheckInterval.unref();
+}
+
+export function stopHealthCheckInterval(): void {
+  if (healthCheckInterval) {
+    clearInterval(healthCheckInterval);
+    healthCheckInterval = null;
+  }
 }
 
 /**

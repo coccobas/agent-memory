@@ -202,4 +202,62 @@ describe('db/init', () => {
       sqlite.close();
     });
   });
+  describe('integrity verification', () => {
+    it('should backfill checksums for existing migrations', () => {
+      const sqlite = new Database(testDbPath);
+      // Initialize with old schema (no checksum)
+      sqlite.exec(`
+        CREATE TABLE _migrations (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL UNIQUE,
+          applied_at TEXT DEFAULT CURRENT_TIMESTAMP NOT NULL
+        )
+      `);
+      // Simulate applied migration without checksum
+      const migrationName = '0001_initial.sql'; // Assuming this exists in fixtures/migrations or logic uses actual files
+      // We need to use a real migration file name that exists in implementation
+      // For this test to work with actual files, we need to know what files are in getMigrationFiles
+      // But getMigrationFiles relies on file system.
+      // Let's rely on the fact that the test environment has some migrations or mock them.
+      // Since we can't easily mock fs here without affecting logic, let's skip checking specific names
+      // and rely on creating a situation where we can test the logic path.
+
+      // Allow logical check:
+      // 1. Init DB
+      const res1 = initializeDatabase(sqlite, { verbose: false });
+      expect(res1.success).toBe(true);
+
+      // 2. Clear checksums manually to simulate legacy state
+      sqlite.exec('UPDATE _migrations SET checksum = NULL');
+
+      // 3. Verify integrity (should backfill)
+      const res2 = initializeDatabase(sqlite, { verbose: false });
+      expect(res2.success).toBe(true);
+      expect(res2.integrityVerified).toBe(true);
+
+      // Check if backfilled
+      const row = sqlite.prepare('SELECT checksum FROM _migrations LIMIT 1').get() as { checksum: string };
+      expect(row.checksum).not.toBeNull();
+
+      sqlite.close();
+    });
+
+    it('should detect modified migration files', () => {
+      const sqlite = new Database(testDbPath);
+      initializeDatabase(sqlite, { verbose: false });
+
+      // Manually tamper with the checksum in DB to simulate file change
+      // (Changing the file on disk is harder/riskier in test, so we invert the check:
+      // change the stored checksum to something that won't match the valid file)
+      sqlite.prepare('UPDATE _migrations SET checksum = ?').run('fake-checksum');
+
+      const result = initializeDatabase(sqlite, { verbose: false });
+
+      expect(result.integrityVerified).toBe(false);
+      expect(result.integrityErrors.length).toBeGreaterThan(0);
+      expect(result.integrityErrors[0]).toContain('Migration integrity error');
+
+      sqlite.close();
+    });
+  });
 });
