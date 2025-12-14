@@ -1,8 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { getDb, getPreparedStatement } from '../db/connection.js';
 import {
@@ -31,6 +26,7 @@ import { getEmbeddingService } from './embedding.service.js';
 import { getVectorService } from './vector.service.js';
 import { createComponentLogger } from '../utils/logger.js';
 import { LRUCache } from '../utils/lru-cache.js';
+import { getMemoryCoordinator } from '../utils/memory-coordinator.js';
 
 const logger = createComponentLogger('query');
 
@@ -96,21 +92,20 @@ function getEntryKeyName(entry: EntryUnion, type: 'tools' | 'guidelines' | 'know
 // QUERY RESULT CACHE
 // =============================================================================
 
-// =============================================================================
-// QUERY RESULT CACHE
-// =============================================================================
-
 /**
  * Generate a cache key from query parameters
+ * Now includes scope information to enable selective invalidation
  */
 function getQueryCacheKey(params: MemoryQueryParams): string | null {
-  // Only cache global scope queries without relatedTo filter
-  if (params.scope?.type !== 'global' && params.scope?.type !== undefined) {
-    return null;
-  }
+  // Don't cache queries with relatedTo filter (too specific)
   if (params.relatedTo) {
     return null;
   }
+
+  // Build scope prefix for cache key
+  const scopeType = params.scope?.type ?? 'global';
+  const scopeId = params.scope?.id ?? 'null';
+  const scopePrefix = `${scopeType}:${scopeId}`;
 
   // Create a deterministic key from query parameters
   const key = JSON.stringify({
@@ -122,7 +117,7 @@ function getQueryCacheKey(params: MemoryQueryParams): string | null {
     includeVersions: params.includeVersions,
   });
 
-  return `global:${key}`;
+  return `${scopePrefix}:${key}`;
 }
 
 const queryCache = new LRUCache<MemoryQueryResult>({
@@ -130,6 +125,9 @@ const queryCache = new LRUCache<MemoryQueryResult>({
   maxMemoryMB: 50,
   ttlMs: 5 * 60 * 1000, // 5 minutes
 });
+
+// Register with global memory coordinator
+getMemoryCoordinator().register('query', queryCache, 7); // High priority
 
 /**
  * Clear the query cache (useful for testing or after bulk updates)
@@ -147,17 +145,97 @@ export function getQueryCacheStats() {
 
 /**
  * Invalidate cache entries for a specific scope
+ * Performs selective invalidation based on scope type and id
  */
-export function invalidateCacheScope(_scopeType: ScopeType, _scopeId?: string | null): void {
-  // Simple invalidation for now as we don't track scopes in cache keys deeply yet
-  queryCache.clear();
+export function invalidateCacheScope(scopeType: ScopeType, scopeId?: string | null): void {
+  // Build set of scope prefixes that need invalidation
+  // Due to inheritance, modifying a scope affects queries at that scope and child scopes
+  const prefixesToInvalidate = new Set<string>();
+
+  // The affected scope's prefix
+  const scopePrefix = `${scopeType}:${scopeId ?? 'null'}:`;
+  prefixesToInvalidate.add(scopePrefix);
+
+  // Changes to parent scopes affect child scope queries due to inheritance
+  // So we invalidate queries at this scope and all more specific scopes
+  switch (scopeType) {
+    case 'global':
+      // Global changes affect all scopes
+      prefixesToInvalidate.add('global:');
+      prefixesToInvalidate.add('org:');
+      prefixesToInvalidate.add('project:');
+      prefixesToInvalidate.add('session:');
+      break;
+    case 'org':
+      // Org changes affect org, project, and session scopes
+      prefixesToInvalidate.add(`org:${scopeId ?? 'null'}:`);
+      prefixesToInvalidate.add('project:');
+      prefixesToInvalidate.add('session:');
+      break;
+    case 'project':
+      // Project changes affect project and session scopes
+      prefixesToInvalidate.add(`project:${scopeId ?? 'null'}:`);
+      prefixesToInvalidate.add('session:');
+      break;
+    case 'session':
+      // Session changes only affect this session's scope
+      prefixesToInvalidate.add(`session:${scopeId ?? 'null'}:`);
+      break;
+  }
+
+  // Use selective deletion instead of full clear
+  const deletedCount = queryCache.deleteMatching((key) => {
+    for (const prefix of prefixesToInvalidate) {
+      if (key.startsWith(prefix)) {
+        return true;
+      }
+    }
+    return false;
+  });
+
+  logger.debug(
+    { scopeType, scopeId, prefixCount: prefixesToInvalidate.size, deletedCount },
+    'Selectively invalidated cache entries for scope'
+  );
 }
 
 /**
- * Invalidate cache entries that might include a specific entry
+ * Invalidate cache entries that might include a specific entry type
+ * Uses selective invalidation to only clear entries that could contain results for the given type
  */
-export function invalidateCacheEntry(_entryType: QueryEntryType, _entryId: string): void {
-  queryCache.clear();
+export function invalidateCacheEntry(entryType: QueryEntryType, entryId: string): void {
+  // Map entry type to the type string used in cache keys
+  const typeMapping: Record<QueryEntryType, string> = {
+    tool: 'tools',
+    guideline: 'guidelines',
+    knowledge: 'knowledge',
+  };
+  const typeStr = typeMapping[entryType];
+
+  // Delete cache entries whose types array includes this entry type
+  // Cache keys contain a JSON object with types array
+  const deletedCount = queryCache.deleteMatching((key) => {
+    // Extract the JSON part from the key (after scope prefix)
+    const jsonStart = key.indexOf('{');
+    if (jsonStart === -1) return true; // Invalid key format, delete it
+
+    try {
+      const jsonPart = key.substring(jsonStart);
+      const params = JSON.parse(jsonPart) as { types?: string[] };
+      // If types is not specified, it defaults to all types, so always invalidate
+      if (!params.types) return true;
+      // Only invalidate if this entry type is in the query's types
+      return params.types.includes(typeStr);
+    } catch {
+      // Can't parse, safer to invalidate
+      return true;
+    }
+  });
+
+  logger.debug(
+    { entryType, entryId, deletedCount },
+    'Selectively invalidated cache entries for entry modification'
+  );
 }
 
 /**
@@ -221,7 +299,14 @@ const scopeChainCache = new LRUCache<ScopeDescriptor[]>({
   ttlMs: 10 * 60 * 1000, // 10 minutes
 });
 
-function getScopeChainCacheKey(input?: { type: ScopeType; id?: string; inherit?: boolean }): string {
+// Register with global memory coordinator
+getMemoryCoordinator().register('scopeChain', scopeChainCache, 8); // Higher priority - metadata cache
+
+function getScopeChainCacheKey(input?: {
+  type: ScopeType;
+  id?: string;
+  inherit?: boolean;
+}): string {
   if (!input) return 'global:inherit';
   return `${input.type}:${input.id ?? 'null'}:${input.inherit ?? true}`;
 }
@@ -466,8 +551,63 @@ function getRelatedEntryIds(
 // =============================================================================
 
 /**
+ * Fallback search using LIKE queries when FTS5 is unavailable
+ * Returns a Set of rowids that match the search query
+ */
+function executeLikeSearch(
+  entryType: QueryEntryType,
+  searchQuery: string,
+  fields?: string[]
+): Set<number> {
+  const matchingRowids = new Set<number>();
+
+  // Escape special characters for LIKE (% and _)
+  const escapedQuery = searchQuery.replace(/[%_]/g, '\\$&');
+  const likePattern = `%${escapedQuery}%`;
+
+  try {
+    let tableName: string;
+    let searchColumns: string[];
+
+    if (entryType === 'tool') {
+      tableName = 'tools';
+      searchColumns = fields && fields.length > 0 ? fields : ['name'];
+    } else if (entryType === 'guideline') {
+      tableName = 'guidelines';
+      searchColumns = fields && fields.length > 0 ? fields : ['name'];
+    } else {
+      tableName = 'knowledge';
+      searchColumns = fields && fields.length > 0 ? fields : ['title'];
+    }
+
+    // Build LIKE query for each column
+    const conditions = searchColumns.map((col) => `${col} LIKE ?`).join(' OR ');
+
+    const query = getPreparedStatement(`
+      SELECT rowid FROM ${tableName}
+      WHERE ${conditions} AND is_active = 1
+    `);
+
+    const params = Array(searchColumns.length).fill(likePattern);
+    const results = query.all(...params) as Array<{ rowid: number }>;
+
+    for (const row of results) {
+      matchingRowids.add(row.rowid);
+    }
+  } catch (error) {
+    logger.error(
+      { entryType, searchQuery, error },
+      'LIKE search fallback failed - returning empty results'
+    );
+  }
+
+  return matchingRowids;
+}
+
+/**
  * Execute FTS5 query for a specific entry type
  * Returns a Set of rowids that match the search query
+ * Falls back to LIKE search if FTS5 is unavailable
  */
 export function executeFts5Query(
   entryType: QueryEntryType,
@@ -521,7 +661,6 @@ export function executeFts5Query(
     }
 
     // Query FTS5 table
-    // Query FTS5 table
     const query = getPreparedStatement(`
       SELECT rowid FROM ${ftsTable}
       WHERE ${ftsTable} MATCH ?
@@ -531,15 +670,16 @@ export function executeFts5Query(
     for (const row of results) {
       matchingRowids.add(row.rowid);
     }
-  } catch (error) {
-    // If FTS5 fails (e.g., table doesn't exist), fall back to regular search
-    // eslint-disable-next-line no-console
-    if (PERF_LOG) {
-      logger.error({ entryType, ftsQuery, error }, 'FTS5 query failed, falling back to LIKE');
-    }
-  }
 
-  return matchingRowids;
+    return matchingRowids;
+  } catch (error) {
+    // If FTS5 fails (e.g., table doesn't exist), fall back to LIKE search
+    logger.warn(
+      { entryType, ftsQuery, error },
+      'FTS5 query failed, falling back to LIKE search'
+    );
+    return executeLikeSearch(entryType, searchQuery, fields);
+  }
 }
 
 // =============================================================================
@@ -796,7 +936,9 @@ function executeFts5Search(
 
   // Search tools
   if (types.includes('tools')) {
-    const query = getPreparedStatement(`SELECT tool_id FROM tools_fts WHERE tools_fts MATCH ? ORDER BY rank`);
+    const query = getPreparedStatement(
+      `SELECT tool_id FROM tools_fts WHERE tools_fts MATCH ? ORDER BY rank`
+    );
     const toolRows = query.all(escapedSearch) as Array<{ tool_id: string }>;
     for (const row of toolRows) {
       result.tool.add(row.tool_id);
@@ -805,7 +947,9 @@ function executeFts5Search(
 
   // Search guidelines
   if (types.includes('guidelines')) {
-    const query = getPreparedStatement(`SELECT guideline_id FROM guidelines_fts WHERE guidelines_fts MATCH ? ORDER BY rank`);
+    const query = getPreparedStatement(
+      `SELECT guideline_id FROM guidelines_fts WHERE guidelines_fts MATCH ? ORDER BY rank`
+    );
     const guidelineRows = query.all(escapedSearch) as Array<{ guideline_id: string }>;
     for (const row of guidelineRows) {
       result.guideline.add(row.guideline_id);
@@ -814,7 +958,9 @@ function executeFts5Search(
 
   // Search knowledge
   if (types.includes('knowledge')) {
-    const query = getPreparedStatement(`SELECT knowledge_id FROM knowledge_fts WHERE knowledge_fts MATCH ? ORDER BY rank`);
+    const query = getPreparedStatement(
+      `SELECT knowledge_id FROM knowledge_fts WHERE knowledge_fts MATCH ? ORDER BY rank`
+    );
     const knowledgeRows = query.all(escapedSearch) as Array<{ knowledge_id: string }>;
     for (const row of knowledgeRows) {
       result.knowledge.add(row.knowledge_id);
@@ -1106,10 +1252,25 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
     const batchedVersions = loadVersionsBatched(batchToolIds, batchGuidelineIds, batchKnowledgeIds);
 
     // Get FTS5 matching rowids if FTS5 is enabled and search query exists
-    const useFts5 = params.useFts5 === true && search;
+    // Note: useFts5 is defined in the outer scope of executeMemoryQuery
     let fts5MatchingRowids: Set<number> | null = null;
     if (useFts5) {
       fts5MatchingRowids = executeFts5Query(entryType, search, params.fields);
+    }
+
+    // Batch fetch rowids for FTS5 matching (fixes N+1 query pattern)
+    // This fetches all rowids in a single query instead of one per entry
+    let rowidMap: Map<string, number> | null = null;
+    if (useFts5 && fts5MatchingRowids && fts5MatchingRowids.size > 0 && entryIds.length > 0) {
+      const tableName =
+        type === 'tools' ? 'tools' : type === 'guidelines' ? 'guidelines' : 'knowledge';
+      // Use parameterized query with placeholders for safety
+      const placeholders = entryIds.map(() => '?').join(',');
+      const batchRowidQuery = getPreparedStatement(
+        `SELECT id, rowid FROM ${tableName} WHERE id IN (${placeholders})`
+      );
+      const rowidResults = batchRowidQuery.all(...entryIds) as Array<{ id: string; rowid: number }>;
+      rowidMap = new Map(rowidResults.map((r) => [r.id, r.rowid]));
     }
 
     for (const { entry, scopeIndex } of deduped) {
@@ -1162,13 +1323,11 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
       // Text search - use FTS5 if enabled, otherwise use regular matching
       let textMatched = false;
       if (search) {
-        if (useFts5 && fts5MatchingRowids) {
+        if (useFts5 && fts5MatchingRowids && rowidMap) {
           // Use FTS5 results - check if this entry's rowid is in the matching set
-          const rowidQuery = getPreparedStatement(
-            `SELECT rowid FROM ${type === 'tools' ? 'tools' : type === 'guidelines' ? 'guidelines' : 'knowledge'} WHERE id = ?`
-          );
-          const rowidResult = rowidQuery.get(id) as { rowid: number } | undefined;
-          if (rowidResult && fts5MatchingRowids.has(rowidResult.rowid)) {
+          // Uses batch-fetched rowidMap instead of per-entry query (fixes N+1)
+          const rowid = rowidMap.get(id);
+          if (rowid !== undefined && fts5MatchingRowids.has(rowid)) {
             textMatched = true;
           }
         } else {
@@ -1263,16 +1422,19 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
       const includeVersions = params.includeVersions ?? false;
 
       const currentVersion =
-        type === 'tools' ? batchedVersions.tools.get(id)?.current
-          : type === 'guidelines' ? batchedVersions.guidelines.get(id)?.current
+        type === 'tools'
+          ? batchedVersions.tools.get(id)?.current
+          : type === 'guidelines'
+            ? batchedVersions.guidelines.get(id)?.current
             : batchedVersions.knowledge.get(id)?.current;
 
-      const history =
-        includeVersions ? (
-          type === 'tools' ? batchedVersions.tools.get(id)?.history
-            : type === 'guidelines' ? batchedVersions.guidelines.get(id)?.history
-              : batchedVersions.knowledge.get(id)?.history
-        ) : undefined;
+      const history = includeVersions
+        ? type === 'tools'
+          ? batchedVersions.tools.get(id)?.history
+          : type === 'guidelines'
+            ? batchedVersions.guidelines.get(id)?.history
+            : batchedVersions.knowledge.get(id)?.history
+        : undefined;
 
       const score = computeScore({
         hasExplicitRelation,
@@ -1361,42 +1523,42 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
   // Compact mode: create new objects with only essential fields
   const compacted = params.compact
     ? limited.map((item): QueryResultItem => {
-      if (item.type === 'tool') {
-        return {
-          ...item,
-          version: undefined,
-          versions: undefined,
-          tool: {
-            id: item.tool.id,
-            name: item.tool.name,
-            category: item.tool.category,
-          } as Tool,
-        };
-      } else if (item.type === 'guideline') {
-        return {
-          ...item,
-          version: undefined,
-          versions: undefined,
-          guideline: {
-            id: item.guideline.id,
-            name: item.guideline.name,
-            category: item.guideline.category,
-            priority: item.guideline.priority,
-          } as Guideline,
-        };
-      } else {
-        return {
-          ...item,
-          version: undefined,
-          versions: undefined,
-          knowledge: {
-            id: item.knowledge.id,
-            title: item.knowledge.title,
-            category: item.knowledge.category,
-          } as Knowledge,
-        };
-      }
-    })
+        if (item.type === 'tool') {
+          return {
+            ...item,
+            version: undefined,
+            versions: undefined,
+            tool: {
+              id: item.tool.id,
+              name: item.tool.name,
+              category: item.tool.category,
+            } as Tool,
+          };
+        } else if (item.type === 'guideline') {
+          return {
+            ...item,
+            version: undefined,
+            versions: undefined,
+            guideline: {
+              id: item.guideline.id,
+              name: item.guideline.name,
+              category: item.guideline.category,
+              priority: item.guideline.priority,
+            } as Guideline,
+          };
+        } else {
+          return {
+            ...item,
+            version: undefined,
+            versions: undefined,
+            knowledge: {
+              id: item.knowledge.id,
+              title: item.knowledge.title,
+              category: item.knowledge.category,
+            } as Knowledge,
+          };
+        }
+      })
     : limited;
 
   const meta: ResponseMeta = {

@@ -67,6 +67,7 @@ import { votingHandlers } from './handlers/voting.handler.js';
 import { analyticsHandlers } from './handlers/analytics.handler.js';
 import { permissionHandlers } from './handlers/permissions.handler.js';
 import { conversationHandlers } from './handlers/conversations.handler.js';
+import { checkRateLimits } from '../utils/rate-limiter.js';
 
 // =============================================================================
 // BUNDLED TOOL DEFINITIONS (19 tools)
@@ -1382,7 +1383,7 @@ export async function createServer(): Promise<Server> {
   const server = new Server(
     {
       name: 'agent-memory',
-      version: '0.8.1', // Antigravity .agent/rules support
+      version: '0.8.3',
     },
     {
       capabilities: {
@@ -1449,6 +1450,39 @@ export async function createServer(): Promise<Server> {
   // Call tool handler
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
+
+    // Rate limiting check
+    // Extract agentId from args if available for per-agent limiting
+    const agentId =
+      args && typeof args === 'object' && 'agentId' in args
+        ? String((args as Record<string, unknown>).agentId)
+        : undefined;
+
+    const rateLimitResult = checkRateLimits(agentId);
+    if (!rateLimitResult.allowed) {
+      logger.warn(
+        { tool: name, agentId, reason: rateLimitResult.reason },
+        'Rate limit exceeded'
+      );
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
+              {
+                success: false,
+                error: rateLimitResult.reason,
+                retryAfterMs: rateLimitResult.retryAfterMs,
+                code: 'RATE_LIMIT_EXCEEDED',
+              },
+              null,
+              2
+            ),
+          },
+        ],
+        isError: true,
+      };
+    }
 
     logger.debug({ tool: name, args }, 'Tool call');
 
@@ -1579,7 +1613,7 @@ export async function runServer(): Promise<void> {
     server = new Server(
       {
         name: 'agent-memory',
-        version: '0.8.1',
+        version: '0.8.3',
       },
       {
         capabilities: {
@@ -1640,12 +1674,14 @@ export async function runServer(): Promise<void> {
       // Note: On Windows, SIGINT is partially supported but we add readline as backup
       const readline = await import('node:readline');
       if (process.stdin.isTTY) {
-        readline.createInterface({
-          input: process.stdin,
-          output: process.stdout,
-        }).on('SIGINT', () => {
-          shutdown('SIGINT (Windows)');
-        });
+        readline
+          .createInterface({
+            input: process.stdin,
+            output: process.stdout,
+          })
+          .on('SIGINT', () => {
+            shutdown('SIGINT (Windows)');
+          });
       }
     }
 
