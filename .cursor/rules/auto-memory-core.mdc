@@ -383,5 +383,5 @@ Set when starting session: `"metadata": {"autoPopulate": true}`
 
 **For advanced features, optimization strategies, and detailed examples, reference the related documentation files using `@` mentions.**
 
-@version "2.0.0"
+@version "0.2.0"
 @last_updated "2025-12-14"

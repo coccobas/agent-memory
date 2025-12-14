@@ -407,5 +407,5 @@ The following MCP tools are available via the `agent-memory` server (20 total):
 }
 ```
 
-@version "1.1.0"
+@version "0.2.0"
 @last_updated "2025-12-14"

@@ -101,5 +101,5 @@ After storing related entries, use `memory_relation` with `relationType: "relate
 
 **Project-specific:** "This project uses PostgreSQL" → Store at `project` scope (project decision)
 
-@version "1.1.0"
-@last_updated "2025-01-13"
+@version "0.2.0"
+@last_updated "2025-12-14"

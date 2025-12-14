@@ -441,5 +441,5 @@ Infer project structure from file paths:
 - **Create relations** - Build knowledge graph automatically
 - **Refresh context** - Don't let context get stale during long sessions
 
-@version "1.0.0"
-@last_updated "2024-12-19"
+@version "0.2.0"
+@last_updated "2025-12-14"

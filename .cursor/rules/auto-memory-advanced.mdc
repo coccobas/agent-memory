@@ -522,5 +522,5 @@ If file locked:
 - Check lock status periodically
 - Use `force_unlock` only if necessary and authorized
 
-@version "1.1.0"
-@last_updated "2025-01-13"
+@version "0.2.0"
+@last_updated "2025-12-14"
