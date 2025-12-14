@@ -41,3 +41,6 @@ coverage/
 *.tmp
 *.temp
 
+# Ignore markdown files in main directory
+/*.md
+
