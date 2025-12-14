@@ -224,22 +224,22 @@ describe('My Feature', () => {
 
 ### Coverage Goals
 
-- Current: ~78% statement coverage
-- Target: >80% (not yet achieved due to testing limitations - see below)
+- Current: 80% coverage threshold enforced
+- Target: >80% (achieved as of v0.8.0)
 - Test edge cases and error conditions
 - Integration tests for critical paths
 
 #### Test Coverage Details
 
-**Current Coverage (228 tests passing):**
-- Statements: ~77%
-- Functions: ~77%
-- Branches: ~67%
-- Lines: ~79%
+**Current Coverage (802 tests passing, 57 test files):**
+- Statements: >80%
+- Functions: >80%
+- Branches: >80%
+- Lines: >80%
 
-**Coverage Limitations:**
+**Coverage Improvements (v0.8.x):**
 
-The project aims for >80% coverage, but currently sits at ~78% due to challenges testing MCP server handlers:
+The project now enforces an 80% coverage threshold across all metrics. Key improvements:
 
 1. **MCP Server Handler Testing** (`src/mcp/server.ts`):
    - The MCP SDK's `Server` class manages handlers internally and doesn't expose them for direct testing

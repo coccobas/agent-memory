@@ -626,9 +626,9 @@ A: Yes! MDAP support is an extension. Core features (scoping, versioning, queryi
 
 ---
 
-**Last Updated**: December 2024  
-**Version**: 0.7.4
-**Status**: MDAP-ready with core features, enhanced voting/analytics available in v0.7.4
+**Last Updated**: December 2025
+**Version**: 0.8.3
+**Status**: MDAP-ready with full production features including rate limiting, permissions, and comprehensive analytics
 
 
 

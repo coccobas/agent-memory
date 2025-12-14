@@ -1,8 +1,8 @@
 # Agent Memory Database - Architecture
 
-> **Version:** 0.7.4 (Implementation Phase)
-> **Last Updated:** 2024-12-10
-> **Status:** Milestone 4 Complete - Advanced Querying & Context
+> **Version:** 0.8.3
+> **Last Updated:** 2025-12-14
+> **Status:** Production Ready - Performance Optimizations & Security
 
 ## Overview
 
@@ -99,41 +99,57 @@ This architecture enables Massively Decomposed Agentic Processes (MDAPs) by prov
 /agent-memory/
 ├── src/
 │   ├── db/
-│   │   ├── schema.ts           # Drizzle table definitions
+│   │   ├── schema.ts           # Drizzle table definitions (21 tables)
 │   │   ├── migrations/         # SQL migration files
-│   │   ├── connection.ts       # Database connection
-│   │   └── repositories/       # Data access layer
+│   │   ├── connection.ts       # Database connection with health checks
+│   │   ├── init.ts             # Database initialization
+│   │   └── repositories/       # Data access layer (12 repositories)
 │   │       ├── tools.ts
 │   │       ├── guidelines.ts
 │   │       ├── knowledge.ts
 │   │       ├── scopes.ts
-│   │       └── tags.ts
-│   ├── services/
-│   │   ├── tools.service.ts    # Business logic
-│   │   ├── guidelines.service.ts
-│   │   ├── knowledge.service.ts
-│   │   ├── query.service.ts    # Cross-reference search
-│   │   └── conflict.service.ts # Conflict detection
+│   │       ├── tags.ts
+│   │       ├── file_locks.ts
+│   │       ├── permissions.ts
+│   │       ├── conflicts.ts
+│   │       ├── conversations.ts
+│   │       └── embedding-hooks.ts
+│   ├── services/               # Business logic (20+ services)
+│   │   ├── query.service.ts    # Cross-reference search with LRU caching
+│   │   ├── vector.service.ts   # Semantic search with LanceDB
+│   │   ├── embedding.service.ts # Embedding generation (OpenAI/local)
+│   │   ├── validation.service.ts # Input validation
+│   │   ├── permission.service.ts # Access control
+│   │   ├── analytics.service.ts # Usage analytics
+│   │   ├── audit.service.ts    # Audit logging
+│   │   ├── voting.service.ts   # Multi-agent consensus
+│   │   ├── duplicate.service.ts # Duplicate detection
+│   │   ├── file-sync.service.ts # IDE rules synchronization
+│   │   ├── import.service.ts   # Data import
+│   │   └── export.service.ts   # Data export
 │   ├── mcp/
-│   │   ├── server.ts           # MCP server setup
-│   │   ├── handlers/           # Tool handlers
-│   │   │   ├── tools.handler.ts
-│   │   │   ├── guidelines.handler.ts
-│   │   │   ├── knowledge.handler.ts
-│   │   │   ├── scopes.handler.ts
-│   │   │   └── query.handler.ts
-│   │   └── types.ts            # MCP type definitions
+│   │   ├── server.ts           # MCP server with 19 bundled tools
+│   │   ├── handlers/           # Tool handlers (20 handlers)
+│   │   ├── types.ts            # MCP type definitions
+│   │   └── errors.ts           # Error formatting
+│   ├── utils/
+│   │   ├── lru-cache.ts        # LRU cache with TTL and partial eviction
+│   │   ├── rate-limiter.ts     # Sliding window rate limiting
+│   │   ├── memory-coordinator.ts # Global cache memory management
+│   │   ├── sanitize.ts         # Sensitive data redaction (20+ patterns)
+│   │   ├── logger.ts           # Pino-based structured logging
+│   │   ├── retry.ts            # Exponential backoff retry
+│   │   ├── type-guards.ts      # Runtime type validation
+│   │   └── paths.ts            # Path normalization
 │   └── index.ts                # Entry point
 ├── data/
-│   └── memory.db               # SQLite database
+│   ├── memory.db               # SQLite database
+│   └── vectors.lance/          # LanceDB vector storage
 ├── tests/
-│   ├── unit/
-│   ├── integration/
-│   └── fixtures/
-├── examples/
-│   └── bootstrap-data.sql      # Sample data
-├── docs/
-│   └── architecture.md         # This document
+│   ├── unit/                   # Unit tests (57 files, 802 tests)
+│   ├── integration/            # Integration tests
+│   └── fixtures/               # Test data
+├── docs/                       # Documentation (17 files)
 ├── drizzle.config.ts           # Drizzle configuration
 ├── package.json
 ├── tsconfig.json
@@ -884,13 +900,26 @@ CREATE INDEX idx_guidelines_content_trgm ON guideline_versions USING gin(content
 - [x] Conflict detection and resolution
 - [x] File locks for multi-agent coordination
 - [x] Scope inheritance in queries
-- [x] Comprehensive integration tests (173 passing)
+- [x] Semantic search with vector embeddings (LanceDB)
+- [x] Fine-grained permissions system
+- [x] Comprehensive integration tests
 
-### Milestone 5: Polish (Remaining)
-- [ ] Performance optimization (indexes, query caching)
-- [ ] MCP client manual testing with Claude Desktop
-- [ ] Bootstrap sample data script
-- [ ] CLI commands for database management
+### Milestone 5: Performance & Security ✅ (v0.8.x)
+- [x] LRU query caching with selective invalidation
+- [x] Partial cache eviction (memory pressure handling)
+- [x] Rate limiting (per-agent and global)
+- [x] Sensitive data redaction in logs (20+ API key patterns)
+- [x] N+1 query fixes (batch rowid lookups)
+- [x] Scope chain caching
+- [x] 802 passing tests with 80% coverage threshold
+- [x] IDE rules synchronization (8 IDEs supported)
+
+### Future Enhancements (Planned)
+- [ ] Event sourcing for enhanced audit trails
+- [ ] Redis caching for distributed deployments
+- [ ] OpenTelemetry instrumentation
+- [ ] PostgreSQL migration path
+- [ ] Webhook notifications
 
 ---
 

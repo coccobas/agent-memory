@@ -252,18 +252,28 @@ See [Rules Sync Guide](./rules-sync.md) for detailed documentation.
 agent-memory/
 ├── src/
 │   ├── db/
-│   │   ├── schema.ts           # Drizzle table definitions
-│   │   ├── connection.ts       # Database setup
-│   │   └── repositories/       # Data access layer
+│   │   ├── schema.ts           # Drizzle table definitions (21 tables)
+│   │   ├── connection.ts       # Database connection with health checks
+│   │   └── repositories/       # Data access layer (12 repos)
 │   ├── mcp/
-│   │   ├── server.ts           # MCP server setup
-│   │   ├── handlers/           # Tool handlers
+│   │   ├── server.ts           # MCP server with 19 bundled tools
+│   │   ├── handlers/           # Tool handlers (20 handlers)
 │   │   └── types.ts            # Type definitions
+│   ├── services/               # Business logic (20+ services)
+│   │   ├── query.service.ts    # Advanced search with caching
+│   │   ├── vector.service.ts   # Semantic search
+│   │   └── ...                 # Analytics, permissions, etc.
+│   ├── utils/
+│   │   ├── lru-cache.ts        # LRU cache with partial eviction
+│   │   ├── rate-limiter.ts     # Sliding window rate limiting
+│   │   ├── memory-coordinator.ts # Global cache management
+│   │   └── sanitize.ts         # Sensitive data redaction
 │   └── index.ts                # Entry point
 ├── data/
 │   └── memory.db               # SQLite database
 ├── tests/
-│   └── unit/                   # Unit tests
+│   ├── unit/                   # Unit tests (57 files)
+│   └── integration/            # Integration tests
 └── docs/                       # Documentation
 ```
 
@@ -271,9 +281,10 @@ agent-memory/
 
 - **TypeScript** - Type-safe development
 - **MCP SDK** - Model Context Protocol integration
-- **SQLite** - Portable, zero-config database
+- **SQLite** - Portable, zero-config database (WAL mode for concurrency)
 - **Drizzle ORM** - Type-safe queries and migrations
-- **Vitest** - Fast testing with ~78% coverage
+- **LanceDB** - Vector database for semantic search
+- **Vitest** - Fast testing with 80% coverage threshold (802 tests)
 
 ## 🔧 Development
 
@@ -354,14 +365,21 @@ Quick setup:
 
 ## 📊 Project Status
 
+**Current Version: 0.8.3**
+
 - ✅ Core CRUD operations
 - ✅ MCP server with 19 bundled tools
 - ✅ Query and context aggregation
 - ✅ Export/Import (JSON, Markdown, YAML)
 - ✅ File locks for multi-agent coordination
 - ✅ Conflict detection and resolution
-- ✅ Query caching (50-90% improvement for global queries)
-- ✅ 228 passing tests with ~78% coverage (see [Testing Notes](./development.md#test-coverage))
+- ✅ Query caching with LRU and partial eviction
+- ✅ Rate limiting (per-agent and global)
+- ✅ Semantic search with vector embeddings
+- ✅ Advanced filtering (fuzzy, regex, date ranges, priority)
+- ✅ Fine-grained permissions system
+- ✅ Comprehensive audit logging
+- ✅ 802 passing tests with 80% coverage threshold
 - 🔄 In active development
 
 ## 🌟 Features
@@ -369,9 +387,15 @@ Quick setup:
 - **Hierarchical Scoping** - Global → Org → Project → Session
 - **Version History** - Full append-only versioning with conflict detection
 - **Multi-Agent Safe** - File locks and concurrent write handling
-- **Query Caching** - Automatic caching for frequently accessed data
+- **Query Caching** - LRU cache with partial eviction and memory coordination
+- **Rate Limiting** - Per-agent and global rate limits with sliding window
+- **Semantic Search** - Vector embeddings with hybrid scoring (semantic + traditional)
+- **Advanced Filtering** - Fuzzy search, regex, date ranges, priority filtering
 - **Tag System** - Predefined + custom tags for organization
 - **Relations** - Link related entries across memory sections
+- **Permissions** - Fine-grained access control (read/write/admin)
+- **Audit Logging** - Complete audit trail of all operations
+- **Security** - API key detection and sensitive data redaction in logs
 - **Type-Safe** - Full TypeScript with strict mode
 - **MDAP-Ready** - Supports Massively Decomposed Agentic Processes for million-step tasks
 
