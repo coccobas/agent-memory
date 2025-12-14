@@ -24,3 +24,4 @@ exec "$TSX" "$MEMORY_ROOT/scripts/sync-rules.ts" "$@"
 
 
 
+

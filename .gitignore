@@ -44,3 +44,8 @@ coverage/
 # Ignore markdown files in main directory
 /*.md
 
+# Agent-specific generated files
+.claude-flow/
+.swarm/
+.agent/
+
