@@ -130,4 +130,33 @@ Implement a configuration file system that:
 - `examples/config.example.yaml` (NEW)
 
 
+## Differential Versioning
+
+**Status:** Proposed (Not Implemented)
+
+**Goal:** Storage optimization AND clear change visibility for version history.
+
+### Problem
+
+Current append-only versioning stores complete content for every version, even when only small changes are made. This leads to:
+- Increased storage usage
+- No clear visibility into what changed between versions
+- Manual comparison needed for auditing
+
+### Solution Overview
+
+Implement hybrid differential versioning that:
+1. Stores full snapshots every N versions (e.g., every 10)
+2. Stores only diffs between snapshots
+3. Uses JSON Patch (RFC 6902) for structured data
+4. Provides clear change history with diffs
+
+### Expected Benefits
+
+- **Storage:** ~60-80% reduction
+- **Audit Trail:** Clear diffs showing exactly what changed
+- **Read Performance:** Fast for recent versions, reasonable for historical
+
+**See full plan:** [FUTURE_DIFFERENTIAL_VERSIONING.md](./FUTURE_DIFFERENTIAL_VERSIONING.md)
+
 
