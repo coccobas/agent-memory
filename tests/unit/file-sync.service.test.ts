@@ -803,6 +803,18 @@ Content here.`;
       const sourceFile = join(TEST_SOURCE_DIR, 'test-rule.md');
       writeFileSync(sourceFile, '# Test Rule\n\nContent', 'utf-8');
 
+      // Calculate destination path and clean up any existing file from previous test runs
+      const destPath = getDestinationPath(
+        sourceFile,
+        TEST_SOURCE_DIR,
+        'cursor',
+        TEST_OUTPUT_DIR,
+        true
+      );
+      if (existsSync(destPath)) {
+        rmSync(destPath);
+      }
+
       const result = await syncForIDE(
         'cursor',
         TEST_SOURCE_DIR,
@@ -814,13 +826,6 @@ Content here.`;
       expect(result.stats.added).toBe(1);
       expect(result.stats.errors).toBe(0);
 
-      const destPath = getDestinationPath(
-        sourceFile,
-        TEST_SOURCE_DIR,
-        'cursor',
-        TEST_OUTPUT_DIR,
-        true
-      );
       expect(existsSync(destPath)).toBe(true);
       expect(destPath).toContain(getUserHomeDir());
       expect(destPath).toContain('.cursor/rules');

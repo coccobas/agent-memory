@@ -7,7 +7,7 @@
  * - AGENT_MEMORY_VECTOR_DB_PATH: Path to vector database (default: data/vectors.lance)
  */
 
-import { connect } from '@lancedb/lancedb';
+import { connect, type Connection, type Table } from '@lancedb/lancedb';
 import { dirname } from 'node:path';
 import { existsSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -23,7 +23,7 @@ const projectRoot = resolve(__dirname, '../..');
 const DEFAULT_VECTOR_DB_PATH =
   process.env.AGENT_MEMORY_VECTOR_DB_PATH || resolve(projectRoot, 'data/vectors.lance');
 
-export interface VectorRecord {
+export interface VectorRecord extends Record<string, unknown> {
   entryType: string;
   entryId: string;
   versionId: string;
@@ -42,18 +42,65 @@ export interface SearchResult {
 }
 
 /**
+ * Distance metric used by LanceDB
+ */
+type DistanceMetric = 'l2' | 'cosine' | 'dot';
+
+/**
  * Vector database service using LanceDB
  */
 class VectorService {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private connection: any = null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private table: any = null;
+  private connection: Connection | null = null;
+  private table: Table | null = null;
   private tableName = 'embeddings';
   private dbPath: string;
+  private expectedDimension: number | null = null;
+  private distanceMetric: DistanceMetric = 'cosine'; // LanceDB default
 
   constructor(dbPath?: string) {
     this.dbPath = dbPath || DEFAULT_VECTOR_DB_PATH;
+  }
+
+  /**
+   * Get the expected embedding dimension for this vector database
+   * Returns null if no embeddings have been stored yet
+   */
+  getExpectedDimension(): number | null {
+    return this.expectedDimension;
+  }
+
+  /**
+   * Set the expected embedding dimension (used when first embedding is stored)
+   */
+  setExpectedDimension(dimension: number): void {
+    if (this.expectedDimension !== null && this.expectedDimension !== dimension) {
+      logger.warn(
+        { existingDimension: this.expectedDimension, newDimension: dimension },
+        'Embedding dimension mismatch detected. This may cause search issues.'
+      );
+    }
+    this.expectedDimension = dimension;
+  }
+
+  /**
+   * Validate embedding dimension matches expected dimension
+   * @throws Error if dimensions don't match
+   */
+  private validateDimension(embedding: number[], context: string): void {
+    if (this.expectedDimension === null) {
+      // First embedding, set the expected dimension
+      this.expectedDimension = embedding.length;
+      logger.info({ dimension: embedding.length }, 'Vector database dimension set');
+      return;
+    }
+
+    if (embedding.length !== this.expectedDimension) {
+      throw new Error(
+        `Embedding dimension mismatch in ${context}: expected ${this.expectedDimension}, got ${embedding.length}. ` +
+          `This may happen when switching between embedding providers (OpenAI uses 1536d, local model uses 384d). ` +
+          `Consider clearing the vector database or using consistent embedding providers.`
+      );
+    }
   }
 
   /**
@@ -70,26 +117,27 @@ class VectorService {
       mkdirSync(dir, { recursive: true });
     }
 
-    try {
-      // Connect to LanceDB
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-      this.connection = await connect(this.dbPath);
+    // Connect to LanceDB
+    this.connection = await connect(this.dbPath);
 
-      // Check if table exists
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    // Check if table exists - errors here are OK, table will be created on first use
+    try {
       const tableNames = await this.connection.tableNames();
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       if (tableNames.includes(this.tableName)) {
         // Open existing table
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-non-null-assertion
         this.table = await this.connection.openTable(this.tableName);
       }
       // Table will be created on first storeEmbedding call
     } catch (error) {
-      throw new Error(
-        `Failed to initialize vector database: ${error instanceof Error ? error.message : String(error)}`
+      // If error is about table not found, it's ok - table will be created later
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.debug(
+        { error: errorMessage },
+        'Could not list/open vector table, will create on first embedding'
       );
+      // Connection succeeded, just can't access tables yet - this is fine
+      // Table will be created on first storeEmbedding call
     }
   }
 
@@ -105,6 +153,9 @@ class VectorService {
     model: string
   ): Promise<void> {
     await this.ensureInitialized();
+
+    // Validate embedding dimension
+    this.validateDimension(embedding, 'storeEmbedding');
 
     const record: VectorRecord = {
       entryType,
@@ -122,16 +173,31 @@ class VectorService {
         if (!this.connection) {
           throw new Error('Vector database connection not initialized');
         }
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-        const tableNames = await this.connection.tableNames();
 
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-        if (tableNames.includes(this.tableName)) {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-          this.table = await this.connection.openTable(this.tableName);
+        // Try to check if table exists, but if this fails just try to create it
+        let tableExists = false;
+        try {
+          const tableNames = await this.connection.tableNames();
+          tableExists = tableNames.includes(this.tableName);
+        } catch (error) {
+          // tableNames() might fail if database is empty - that's OK
+          logger.debug({ error }, 'Could not list tables, will try to create table');
+        }
+
+        if (tableExists) {
+          try {
+            this.table = await this.connection.openTable(this.tableName);
+          } catch (error) {
+            // Table might not actually exist (e.g., database was reset), try to create it
+            logger.debug(
+              { error: error instanceof Error ? error.message : String(error) },
+              'Failed to open existing table, will try to create it'
+            );
+            this.table = await this.connection.createTable(this.tableName, [record]);
+            return; // Record already added during table creation
+          }
         } else {
           // Create table with first record
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
           this.table = await this.connection.createTable(this.tableName, [record]);
           return; // Record already added during table creation
         }
@@ -140,25 +206,22 @@ class VectorService {
       // Check if record already exists
       // Create a dummy vector with the same dimensionality as the actual embedding
       const dummyVector = Array(embedding.length).fill(0);
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-non-null-assertion
-      const existing = await this.table! // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+      // Sanitize inputs to prevent SQL injection - escape single quotes
+      const sanitizedEntryId = entryId.replace(/'/g, "''");
+      const sanitizedVersionId = versionId.replace(/'/g, "''");
+      const existing = await this.table
         .search(dummyVector) // Dummy vector for filter-only query
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-        .filter(`"entryId" = '${entryId}' AND "versionId" = '${versionId}'`)
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+        .filter(`"entryId" = '${sanitizedEntryId}' AND "versionId" = '${sanitizedVersionId}'`)
         .limit(1)
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-        .execute();
+        .toArray();
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      if (existing.length > 0) {
+      if (Array.isArray(existing) && existing.length > 0) {
         // Delete existing record
         await this.removeEmbedding(entryId, versionId);
       }
 
       // Add new record
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-non-null-assertion
-      await this.table!.add([record]);
+      await this.table.add([record]);
     } catch (error) {
       throw new Error(
         `Failed to store embedding: ${error instanceof Error ? error.message : String(error)}`
@@ -181,21 +244,33 @@ class VectorService {
       return [];
     }
 
+    // Validate embedding dimension matches stored embeddings
+    if (this.expectedDimension !== null && embedding.length !== this.expectedDimension) {
+      logger.warn(
+        { queryDimension: embedding.length, storedDimension: this.expectedDimension },
+        'Search embedding dimension does not match stored embeddings. Results may be inaccurate.'
+      );
+      // Return empty results instead of potentially incorrect matches
+      return [];
+    }
+
     try {
       // Build filter for entry types
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-non-null-assertion
-      let query = this.table!.search(embedding);
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+      let query = this.table.search(embedding);
       query = query.limit(limit);
 
       if (entryTypes.length > 0) {
-        const typeFilter = entryTypes.map((t) => `"entryType" = '${t}'`).join(' OR ');
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+        // Sanitize entry types to prevent SQL injection
+        const typeFilter = entryTypes
+          .map((t) => {
+            const sanitized = t.replace(/'/g, "''");
+            return `"entryType" = '${sanitized}'`;
+          })
+          .join(' OR ');
         query = query.filter(`(${typeFilter})`);
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-      const results = await query.execute();
+      const results = await query.toArray();
 
       // Check if results is an array - handle gracefully if not
       if (!Array.isArray(results)) {
@@ -206,27 +281,44 @@ class VectorService {
         return [];
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-      const mappedResults = results.map(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
-        (result: any) => ({
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-          entryType: result.entryType,
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-          entryId: result.entryId,
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-          versionId: result.versionId,
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
-          score:
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            result._distance !== undefined
-              ? // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
-                this.distanceToSimilarity(result._distance)
-              : 0,
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-          text: result.text,
+      // Map results to SearchResult format
+      // LanceDB returns unknown[] - we need to validate and map
+      const mappedResults = results
+        .map((result): SearchResult | null => {
+          // Type guard - ensure result is an object with required fields
+          if (
+            typeof result !== 'object' ||
+            result === null ||
+            !('entryType' in result) ||
+            !('entryId' in result) ||
+            !('versionId' in result) ||
+            !('text' in result)
+          ) {
+            logger.warn(
+              {
+                resultType: typeof result,
+                hasKeys:
+                  result && typeof result === 'object' ? Object.keys(result).length > 0 : false,
+              },
+              'Invalid search result format, skipping'
+            );
+            return null;
+          }
+
+          const record = result as Record<string, unknown>;
+          return {
+            entryType: String(record.entryType),
+            entryId: String(record.entryId),
+            versionId: String(record.versionId),
+            score:
+              typeof record._distance === 'number'
+                ? this.distanceToSimilarity(record._distance)
+                : 0,
+            text: String(record.text),
+          };
         })
-      ) as SearchResult[];
+        .filter((result): result is SearchResult => result !== null);
+
       return mappedResults;
     } catch (error) {
       // Check if this is an expected error (table not initialized or empty)
@@ -255,22 +347,40 @@ class VectorService {
   /**
    * Remove embeddings for an entry (optionally specific version)
    */
-  async removeEmbedding(_entryId: string, _versionId?: string): Promise<void> {
+  async removeEmbedding(entryId: string, versionId?: string): Promise<void> {
     await this.ensureInitialized();
 
+    if (!this.table) {
+      return; // No table means no embeddings to delete
+    }
+
     try {
-      // LanceDB doesn't have direct delete, so we need to filter and recreate
-      // For now, we'll accept this limitation and handle cleanup during backfill
-      // In production, you might want to implement a more sophisticated cleanup strategy
+      // Sanitize inputs to prevent SQL injection
+      const sanitizedEntryId = entryId.replace(/'/g, "''");
 
-      // Note: This is a simplified implementation
-      // For a production system, you'd want to implement proper deletion or versioning
+      // Build the filter predicate
+      let filterPredicate: string;
+      if (versionId) {
+        const sanitizedVersionId = versionId.replace(/'/g, "''");
+        filterPredicate = `"entryId" = '${sanitizedEntryId}' AND "versionId" = '${sanitizedVersionId}'`;
+      } else {
+        // Delete all versions for this entry
+        filterPredicate = `"entryId" = '${sanitizedEntryId}'`;
+      }
 
-      // eslint-disable-next-line no-console
-      logger.warn('Delete operation not fully implemented, embedding will remain until backfill');
+      // LanceDB supports delete operations via the delete method
+      await this.table.delete(filterPredicate);
+
+      logger.debug(
+        { entryId, versionId },
+        'Successfully deleted embedding(s) from vector database'
+      );
     } catch (error) {
-      // eslint-disable-next-line no-console
-      logger.error({ error }, 'Failed to remove embedding');
+      // Log error but don't throw - deletion failure shouldn't break the app
+      logger.error(
+        { error, entryId, versionId },
+        'Failed to remove embedding from vector database'
+      );
     }
   }
 
@@ -286,10 +396,8 @@ class VectorService {
     }
 
     try {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       const result = await this.table.countRows();
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-      return result as number;
+      return typeof result === 'number' ? result : 0;
     } catch (error) {
       return 0;
     }
@@ -306,11 +414,28 @@ class VectorService {
 
   /**
    * Convert distance metric to similarity score (0-1, higher is better)
+   * Uses the correct formula based on the distance metric in use
    */
   private distanceToSimilarity(distance: number): number {
-    // LanceDB typically uses L2 (Euclidean) distance
-    // Convert to similarity: similarity = 1 / (1 + distance)
-    // This gives a score between 0 and 1, where 1 is identical
+    if (this.distanceMetric === 'cosine') {
+      // Cosine distance is defined as: 1 - cosine_similarity
+      // Therefore: cosine_similarity = 1 - cosine_distance
+      // Returns value in [0, 1] where 1 means identical vectors
+      return Math.max(0, Math.min(1, 1 - distance));
+    } else if (this.distanceMetric === 'l2') {
+      // L2 (Euclidean) distance for normalized vectors is in range [0, 2]
+      // Convert to similarity score [0, 1] where 1 is identical
+      // Formula: similarity = max(0, 1 - distance/2)
+      return Math.max(0, 1 - distance / 2);
+    } else if (this.distanceMetric === 'dot') {
+      // Dot product distance (negative dot product for normalized vectors)
+      // For normalized vectors: dot product is in [-1, 1]
+      // Distance is typically -dot_product, so convert back
+      // similarity = (1 + (-distance)) / 2 to map to [0, 1]
+      return Math.max(0, Math.min(1, (1 - distance) / 2));
+    }
+
+    // Fallback for unknown metrics - use simple normalization
     return 1 / (1 + distance);
   }
 
@@ -318,7 +443,7 @@ class VectorService {
    * Ensure the database is initialized
    */
   private async ensureInitialized(): Promise<void> {
-    if (!this.connection || !this.table) {
+    if (!this.connection) {
       await this.initialize();
     }
   }
