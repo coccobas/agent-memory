@@ -26,6 +26,7 @@ vi.mock('../../src/db/connection.js', async () => {
     ...actual,
     getDb: () => db,
     getSqlite: () => sqlite,
+    getPreparedStatement: (sql: string) => sqlite.prepare(sql),
   };
 });
 

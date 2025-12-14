@@ -37,6 +37,9 @@ let dbInstance: ReturnType<typeof drizzle> | null = null;
 let sqliteInstance: Database.Database | null = null;
 let isInitialized = false;
 
+// Cache for prepared statements
+const preparedStatementCache = new Map<string, Database.Statement>();
+
 export interface ConnectionOptions {
   dbPath?: string;
   readonly?: boolean;
@@ -71,14 +74,14 @@ export function getDb(options: ConnectionOptions = {}): ReturnType<typeof drizzl
     if (errorMessage.includes('MODULE_NOT_FOUND') || errorMessage.includes('Cannot find module')) {
       throw new Error(
         `Failed to load better-sqlite3 native module.\n` +
-          `Error: ${errorMessage}\n\n` +
-          `This is usually caused by:\n` +
-          `1. Missing native bindings for your platform (${process.platform}/${process.arch})\n` +
-          `2. Node.js version mismatch (currently ${process.version})\n` +
-          `3. Architecture mismatch\n\n` +
-          `Solutions:\n` +
-          `- Run: npm rebuild better-sqlite3\n` +
-          `- Or reinstall: npm install --force better-sqlite3`
+        `Error: ${errorMessage}\n\n` +
+        `This is usually caused by:\n` +
+        `1. Missing native bindings for your platform (${process.platform}/${process.arch})\n` +
+        `2. Node.js version mismatch (currently ${process.version})\n` +
+        `3. Architecture mismatch\n\n` +
+        `Solutions:\n` +
+        `- Run: npm rebuild better-sqlite3\n` +
+        `- Or reinstall: npm install --force better-sqlite3`
       );
     }
 
@@ -127,7 +130,10 @@ export function closeDb(): void {
     sqliteInstance.close();
     sqliteInstance = null;
     dbInstance = null;
+    sqliteInstance = null;
+    dbInstance = null;
     isInitialized = false; // Reset initialization flag
+    preparedStatementCache.clear();
   }
 }
 
@@ -142,6 +148,21 @@ export function getSqlite(): Database.Database {
     throw new Error('Failed to initialize database connection');
   }
   return sqliteInstance;
+}
+
+/**
+ * Get a cached prepared statement or create a new one
+ */
+export function getPreparedStatement(sql: string): Database.Statement {
+  const sqlite = getSqlite();
+
+  let stmt = preparedStatementCache.get(sql);
+  if (!stmt) {
+    stmt = sqlite.prepare(sql);
+    preparedStatementCache.set(sql, stmt);
+  }
+
+  return stmt;
 }
 
 /**

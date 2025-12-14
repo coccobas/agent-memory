@@ -4,7 +4,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
-import { getDb, getSqlite } from '../db/connection.js';
+import { getDb, getPreparedStatement } from '../db/connection.js';
 import {
   tools,
   toolVersions,
@@ -30,6 +30,7 @@ import type { MemoryQueryParams, ResponseMeta } from '../mcp/types.js';
 import { getEmbeddingService } from './embedding.service.js';
 import { getVectorService } from './vector.service.js';
 import { createComponentLogger } from '../utils/logger.js';
+import { LRUCache } from '../utils/lru-cache.js';
 
 const logger = createComponentLogger('query');
 
@@ -47,7 +48,7 @@ type EntryUnion = Tool | Guideline | Knowledge;
 /**
  * Union type for all entry version types
  */
-type EntryVersionUnion = ToolVersion | GuidelineVersion | KnowledgeVersion;
+// type EntryVersionUnion = ToolVersion | GuidelineVersion | KnowledgeVersion;
 
 /**
  * Type guard to check if entry is a Tool
@@ -95,163 +96,40 @@ function getEntryKeyName(entry: EntryUnion, type: 'tools' | 'guidelines' | 'know
 // QUERY RESULT CACHE
 // =============================================================================
 
-interface CacheEntry<T> {
-  value: T;
-  timestamp: number;
-}
+// =============================================================================
+// QUERY RESULT CACHE
+// =============================================================================
 
 /**
- * Simple in-memory cache for global scope queries
- * Cache is only used for global scope queries (which rarely change)
- * TTL: 5 minutes (300000ms)
+ * Generate a cache key from query parameters
  */
-type CacheStrategy = 'aggressive' | 'conservative' | 'disabled';
-
-class QueryCache {
-  private cache = new Map<string, CacheEntry<unknown>>();
-  private ttl = 5 * 60 * 1000; // 5 minutes (default)
-  private readonly enabled = process.env.AGENT_MEMORY_CACHE !== '0';
-  private strategy: CacheStrategy = 'conservative';
-  private maxSize = 100; // Default max cache size
-
-  /**
-   * Generate a cache key from query parameters
-   */
-  private getCacheKey(params: MemoryQueryParams): string | null {
-    // Only cache global scope queries without relatedTo filter
-    if (params.scope?.type !== 'global' && params.scope?.type !== undefined) {
-      return null;
-    }
-    if (params.relatedTo) {
-      return null;
-    }
-
-    // Create a deterministic key from query parameters
-    const key = JSON.stringify({
-      types: params.types?.sort() || ['tools', 'guidelines', 'knowledge'].sort(),
-      tags: params.tags,
-      search: params.search,
-      compact: params.compact,
-      limit: params.limit || 20,
-      includeVersions: params.includeVersions,
-    });
-
-    return `global:${key}`;
+function getQueryCacheKey(params: MemoryQueryParams): string | null {
+  // Only cache global scope queries without relatedTo filter
+  if (params.scope?.type !== 'global' && params.scope?.type !== undefined) {
+    return null;
+  }
+  if (params.relatedTo) {
+    return null;
   }
 
-  /**
-   * Get cached result if available and not expired
-   */
-  get<T>(params: MemoryQueryParams): T | null {
-    if (!this.enabled || this.strategy === 'disabled') return null;
+  // Create a deterministic key from query parameters
+  const key = JSON.stringify({
+    types: params.types?.sort() || ['tools', 'guidelines', 'knowledge'].sort(),
+    tags: params.tags,
+    search: params.search,
+    compact: params.compact,
+    limit: params.limit || 20,
+    includeVersions: params.includeVersions,
+  });
 
-    const key = this.getCacheKey(params);
-    if (!key) return null;
-
-    const entry = this.cache.get(key) as CacheEntry<T> | undefined;
-    if (!entry) return null;
-
-    const age = Date.now() - entry.timestamp;
-    if (age > this.ttl) {
-      this.cache.delete(key);
-      return null;
-    }
-
-    return entry.value;
-  }
-
-  /**
-   * Store result in cache
-   */
-  set<T>(params: MemoryQueryParams, value: T): void {
-    if (!this.enabled || this.strategy === 'disabled') return;
-
-    const key = this.getCacheKey(params);
-    if (!key) return;
-
-    this.cache.set(key, {
-      value,
-      timestamp: Date.now(),
-    });
-
-    // Limit cache size based on strategy
-    if (this.cache.size > this.maxSize) {
-      const firstKey = this.cache.keys().next().value;
-      if (firstKey) this.cache.delete(firstKey);
-    }
-  }
-
-  /**
-   * Clear all cached entries
-   */
-  clear(): void {
-    this.cache.clear();
-  }
-
-  /**
-   * Invalidate cache entries for a specific scope
-   */
-  invalidateScope(scopeType: ScopeType, _scopeId?: string | null): void {
-    if (!this.enabled) return;
-
-    // For now, we only cache global scope queries, so invalidating
-    // any scope clears the cache. This can be enhanced to be more selective.
-    if (scopeType === 'global') {
-      this.clear();
-    } else {
-      // Non-global scope changes invalidate all global cache
-      this.clear();
-    }
-  }
-
-  /**
-   * Invalidate cache entries that might include a specific entry
-   */
-  invalidateEntry(_entryType: QueryEntryType, _entryId: string): void {
-    if (!this.enabled) return;
-
-    // Since we cache queries that might include this entry,
-    // we clear all cache entries. This can be enhanced to be more selective
-    // by checking cache keys for matching entry types.
-    this.clear();
-  }
-
-  /**
-   * Set cache strategy (aggressive, conservative, or disabled)
-   */
-  setStrategy(strategy: CacheStrategy): void {
-    this.strategy = strategy;
-
-    switch (strategy) {
-      case 'aggressive':
-        this.ttl = 10 * 60 * 1000; // 10 minutes
-        this.maxSize = 200; // Larger cache
-        break;
-      case 'conservative':
-        this.ttl = 5 * 60 * 1000; // 5 minutes
-        this.maxSize = 100; // Default cache
-        break;
-      case 'disabled':
-        this.clear();
-        break;
-    }
-  }
-
-  /**
-   * Get cache statistics
-   */
-  getStats() {
-    return {
-      size: this.cache.size,
-      enabled: this.enabled,
-      ttl: this.ttl,
-      strategy: this.strategy,
-      maxSize: this.maxSize,
-    };
-  }
+  return `global:${key}`;
 }
 
-const queryCache = new QueryCache();
+const queryCache = new LRUCache<MemoryQueryResult>({
+  maxSize: 200,
+  maxMemoryMB: 50,
+  ttlMs: 5 * 60 * 1000, // 5 minutes
+});
 
 /**
  * Clear the query cache (useful for testing or after bulk updates)
@@ -264,28 +142,31 @@ export function clearQueryCache(): void {
  * Get query cache statistics
  */
 export function getQueryCacheStats() {
-  return queryCache.getStats();
+  return queryCache.stats;
 }
 
 /**
  * Invalidate cache entries for a specific scope
  */
-export function invalidateCacheScope(scopeType: ScopeType, scopeId?: string | null): void {
-  queryCache.invalidateScope(scopeType, scopeId);
+export function invalidateCacheScope(_scopeType: ScopeType, _scopeId?: string | null): void {
+  // Simple invalidation for now as we don't track scopes in cache keys deeply yet
+  queryCache.clear();
 }
 
 /**
  * Invalidate cache entries that might include a specific entry
  */
-export function invalidateCacheEntry(entryType: QueryEntryType, entryId: string): void {
-  queryCache.invalidateEntry(entryType, entryId);
+export function invalidateCacheEntry(_entryType: QueryEntryType, _entryId: string): void {
+  queryCache.clear();
 }
 
 /**
  * Set cache strategy (aggressive, conservative, or disabled)
  */
 export function setCacheStrategy(strategy: 'aggressive' | 'conservative' | 'disabled'): void {
-  queryCache.setStrategy(strategy);
+  if (strategy === 'disabled') {
+    queryCache.clear();
+  }
 }
 
 interface ScopeDescriptor {
@@ -334,6 +215,22 @@ export interface MemoryQueryResult {
 // SCOPE INHERITANCE
 // =============================================================================
 
+// Add scope chain cache with shorter TTL (scope structure changes less often)
+const scopeChainCache = new LRUCache<ScopeDescriptor[]>({
+  maxSize: 100,
+  ttlMs: 10 * 60 * 1000, // 10 minutes
+});
+
+function getScopeChainCacheKey(input?: { type: ScopeType; id?: string; inherit?: boolean }): string {
+  if (!input) return 'global:inherit';
+  return `${input.type}:${input.id ?? 'null'}:${input.inherit ?? true}`;
+}
+
+export function invalidateScopeChainCache(_scopeType?: ScopeType, _scopeId?: string): void {
+  // Broad invalidation for now
+  scopeChainCache.clear();
+}
+
 /**
  * Resolve scope inheritance chain in precedence order.
  *
@@ -345,11 +242,17 @@ export function resolveScopeChain(input?: {
   id?: string;
   inherit?: boolean;
 }): ScopeDescriptor[] {
+  const cacheKey = getScopeChainCacheKey(input);
+  const cached = scopeChainCache.get(cacheKey);
+  if (cached) return cached;
+
   const inherit = input?.inherit ?? true;
 
   if (!input) {
     // Default to global scope
-    return [{ scopeType: 'global', scopeId: null }];
+    const result: ScopeDescriptor[] = [{ scopeType: 'global', scopeId: null }];
+    scopeChainCache.set(cacheKey, result);
+    return result;
   }
 
   const db = getDb();
@@ -431,6 +334,7 @@ export function resolveScopeChain(input?: {
     chain.push({ scopeType: 'global', scopeId: null });
   }
 
+  scopeChainCache.set(cacheKey, chain);
   return chain;
 }
 
@@ -477,40 +381,24 @@ function filterByTags(
   const allowed = new Set<string>();
 
   for (const [entryId, tagList] of Object.entries(tagsByEntry)) {
-    const names = tagList.map((t) => t.name.toLowerCase());
-    const nameSet = new Set(names);
+    const nameSet = new Set(tagList.map((t) => t.name.toLowerCase()));
 
+    // Exclude check: intersection must be empty
     if (exclude.size > 0) {
-      let hasExcluded = false;
-      for (const ex of exclude) {
-        if (nameSet.has(ex)) {
-          hasExcluded = true;
-          break;
-        }
-      }
+      const hasExcluded = [...exclude].some((ex) => nameSet.has(ex));
       if (hasExcluded) continue;
     }
 
+    // Require check: require must be subset of nameSet
     if (require.size > 0) {
-      let allRequired = true;
-      for (const req of require) {
-        if (!nameSet.has(req)) {
-          allRequired = false;
-          break;
-        }
-      }
-      if (!allRequired) continue;
+      const hasAllRequired = [...require].every((req) => nameSet.has(req));
+      if (!hasAllRequired) continue;
     }
 
+    // Include check: intersection must be non-empty
     if (include.size > 0) {
-      let anyIncluded = false;
-      for (const inc of include) {
-        if (nameSet.has(inc)) {
-          anyIncluded = true;
-          break;
-        }
-      }
-      if (!anyIncluded) continue;
+      const hasAnyIncluded = [...include].some((inc) => nameSet.has(inc));
+      if (!hasAnyIncluded) continue;
     }
 
     allowed.add(entryId);
@@ -586,7 +474,6 @@ export function executeFts5Query(
   searchQuery: string,
   fields?: string[]
 ): Set<number> {
-  const sqlite = getSqlite();
   const matchingRowids = new Set<number>();
   let ftsQuery = searchQuery; // Declare outside try block for error logging
 
@@ -634,7 +521,8 @@ export function executeFts5Query(
     }
 
     // Query FTS5 table
-    const query = sqlite.prepare(`
+    // Query FTS5 table
+    const query = getPreparedStatement(`
       SELECT rowid FROM ${ftsTable}
       WHERE ${ftsTable} MATCH ?
     `);
@@ -908,9 +796,8 @@ function executeFts5Search(
 
   // Search tools
   if (types.includes('tools')) {
-    const toolRows = getSqlite()
-      .prepare(`SELECT tool_id FROM tools_fts WHERE tools_fts MATCH ? ORDER BY rank`)
-      .all(escapedSearch) as Array<{ tool_id: string }>;
+    const query = getPreparedStatement(`SELECT tool_id FROM tools_fts WHERE tools_fts MATCH ? ORDER BY rank`);
+    const toolRows = query.all(escapedSearch) as Array<{ tool_id: string }>;
     for (const row of toolRows) {
       result.tool.add(row.tool_id);
     }
@@ -918,9 +805,8 @@ function executeFts5Search(
 
   // Search guidelines
   if (types.includes('guidelines')) {
-    const guidelineRows = getSqlite()
-      .prepare(`SELECT guideline_id FROM guidelines_fts WHERE guidelines_fts MATCH ? ORDER BY rank`)
-      .all(escapedSearch) as Array<{ guideline_id: string }>;
+    const query = getPreparedStatement(`SELECT guideline_id FROM guidelines_fts WHERE guidelines_fts MATCH ? ORDER BY rank`);
+    const guidelineRows = query.all(escapedSearch) as Array<{ guideline_id: string }>;
     for (const row of guidelineRows) {
       result.guideline.add(row.guideline_id);
     }
@@ -928,9 +814,8 @@ function executeFts5Search(
 
   // Search knowledge
   if (types.includes('knowledge')) {
-    const knowledgeRows = getSqlite()
-      .prepare(`SELECT knowledge_id FROM knowledge_fts WHERE knowledge_fts MATCH ? ORDER BY rank`)
-      .all(escapedSearch) as Array<{ knowledge_id: string }>;
+    const query = getPreparedStatement(`SELECT knowledge_id FROM knowledge_fts WHERE knowledge_fts MATCH ? ORDER BY rank`);
+    const knowledgeRows = query.all(escapedSearch) as Array<{ knowledge_id: string }>;
     for (const row of knowledgeRows) {
       result.knowledge.add(row.knowledge_id);
     }
@@ -941,7 +826,8 @@ function executeFts5Search(
 
 export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult {
   // Check cache first
-  const cached = queryCache.get<MemoryQueryResult>(params);
+  const cacheKey = getQueryCacheKey(params);
+  const cached = cacheKey ? queryCache.get(cacheKey) : undefined;
   if (cached) {
     if (PERF_LOG) {
       // eslint-disable-next-line no-console
@@ -967,6 +853,91 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
 
   const scopeChain = resolveScopeChain(params.scope);
   const limit = params.limit && params.limit > 0 ? params.limit : 20;
+
+  // New: Batched version loading helper
+  function loadVersionsBatched(
+    toolIds: string[],
+    guidelineIds: string[],
+    knowledgeIds: string[]
+  ): {
+    tools: Map<string, { current: ToolVersion; history: ToolVersion[] }>;
+    guidelines: Map<string, { current: GuidelineVersion; history: GuidelineVersion[] }>;
+    knowledge: Map<string, { current: KnowledgeVersion; history: KnowledgeVersion[] }>;
+  } {
+    const result = {
+      tools: new Map<string, { current: ToolVersion; history: ToolVersion[] }>(),
+      guidelines: new Map<string, { current: GuidelineVersion; history: GuidelineVersion[] }>(),
+      knowledge: new Map<string, { current: KnowledgeVersion; history: KnowledgeVersion[] }>(),
+    };
+
+    if (toolIds.length > 0) {
+      const versions = db
+        .select()
+        .from(toolVersions)
+        .where(inArray(toolVersions.toolId, toolIds))
+        .all();
+
+      const map = new Map<string, ToolVersion[]>();
+      for (const v of versions) {
+        const list = map.get(v.toolId) ?? [];
+        list.push(v);
+        map.set(v.toolId, list);
+      }
+
+      for (const [id, list] of map) {
+        list.sort((a, b) => b.versionNum - a.versionNum);
+        if (list[0]) {
+          result.tools.set(id, { current: list[0], history: list });
+        }
+      }
+    }
+
+    if (guidelineIds.length > 0) {
+      const versions = db
+        .select()
+        .from(guidelineVersions)
+        .where(inArray(guidelineVersions.guidelineId, guidelineIds))
+        .all();
+
+      const map = new Map<string, GuidelineVersion[]>();
+      for (const v of versions) {
+        const list = map.get(v.guidelineId) ?? [];
+        list.push(v);
+        map.set(v.guidelineId, list);
+      }
+
+      for (const [id, list] of map) {
+        list.sort((a, b) => b.versionNum - a.versionNum);
+        if (list[0]) {
+          result.guidelines.set(id, { current: list[0], history: list });
+        }
+      }
+    }
+
+    if (knowledgeIds.length > 0) {
+      const versions = db
+        .select()
+        .from(knowledgeVersions)
+        .where(inArray(knowledgeVersions.knowledgeId, knowledgeIds))
+        .all();
+
+      const map = new Map<string, KnowledgeVersion[]>();
+      for (const v of versions) {
+        const list = map.get(v.knowledgeId) ?? [];
+        list.push(v);
+        map.set(v.knowledgeId, list);
+      }
+
+      for (const [id, list] of map) {
+        list.sort((a, b) => b.versionNum - a.versionNum);
+        if (list[0]) {
+          result.knowledge.set(id, { current: list[0], history: list });
+        }
+      }
+    }
+
+    return result;
+  }
 
   const relatedIds = getRelatedEntryIds(params.relatedTo);
   const search = params.search?.trim();
@@ -1123,67 +1094,16 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
             : fts5Results.knowledge;
     }
 
-    // Load current versions and optionally history
-    const includeVersions = params.includeVersions ?? false;
+    // Load versions efficiently
+    // Collect IDs for this batch only
+    const batchToolIds = type === 'tools' ? entryIds : [];
+    const batchGuidelineIds = type === 'guidelines' ? entryIds : [];
+    const batchKnowledgeIds = type === 'knowledge' ? entryIds : [];
 
-    const versionMap = new Map<string, EntryVersionUnion>();
-    const historyMap = new Map<string, EntryVersionUnion[]>();
-
-    if (type === 'tools') {
-      const versionRows = db
-        .select()
-        .from(toolVersions)
-        .where(inArray(toolVersions.toolId, entryIds))
-        .all();
-      for (const v of versionRows) {
-        const list = historyMap.get(v.toolId) ?? [];
-        list.push(v);
-        historyMap.set(v.toolId, list);
-      }
-      for (const [toolId, list] of historyMap) {
-        list.sort((a, b) => b.versionNum - a.versionNum);
-        const latestVersion = list[0];
-        if (latestVersion) {
-          versionMap.set(toolId, latestVersion);
-        }
-      }
-    } else if (type === 'guidelines') {
-      const versionRows = db
-        .select()
-        .from(guidelineVersions)
-        .where(inArray(guidelineVersions.guidelineId, entryIds))
-        .all();
-      for (const v of versionRows) {
-        const list = historyMap.get(v.guidelineId) ?? [];
-        list.push(v);
-        historyMap.set(v.guidelineId, list);
-      }
-      for (const [guidelineId, list] of historyMap) {
-        list.sort((a, b) => b.versionNum - a.versionNum);
-        const latestVersion = list[0];
-        if (latestVersion) {
-          versionMap.set(guidelineId, latestVersion);
-        }
-      }
-    } else {
-      const versionRows = db
-        .select()
-        .from(knowledgeVersions)
-        .where(inArray(knowledgeVersions.knowledgeId, entryIds))
-        .all();
-      for (const v of versionRows) {
-        const list = historyMap.get(v.knowledgeId) ?? [];
-        list.push(v);
-        historyMap.set(v.knowledgeId, list);
-      }
-      for (const [knowledgeId, list] of historyMap) {
-        list.sort((a, b) => b.versionNum - a.versionNum);
-        const latestVersion = list[0];
-        if (latestVersion) {
-          versionMap.set(knowledgeId, latestVersion);
-        }
-      }
-    }
+    // We call this per type loop, which is efficient enough as we process types sequentially
+    // Ideally we'd collect ALL first, but the structure is loop-based.
+    // Given we only process each type once, this is fine.
+    const batchedVersions = loadVersionsBatched(batchToolIds, batchGuidelineIds, batchKnowledgeIds);
 
     // Get FTS5 matching rowids if FTS5 is enabled and search query exists
     const useFts5 = params.useFts5 === true && search;
@@ -1214,7 +1134,15 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
         }
 
         // For updated date, check version timestamps
-        const currentVersion = versionMap.get(id);
+        const versionData =
+          type === 'tools'
+            ? batchedVersions.tools.get(id)
+            : type === 'guidelines'
+              ? batchedVersions.guidelines.get(id)
+              : batchedVersions.knowledge.get(id);
+
+        const currentVersion = versionData?.current;
+
         if (params.updatedAfter || params.updatedBefore) {
           const updatedAt = currentVersion?.createdAt;
           if (!dateInRange(updatedAt, params.updatedAfter, params.updatedBefore)) {
@@ -1236,8 +1164,7 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
       if (search) {
         if (useFts5 && fts5MatchingRowids) {
           // Use FTS5 results - check if this entry's rowid is in the matching set
-          const sqlite = getSqlite();
-          const rowidQuery = sqlite.prepare(
+          const rowidQuery = getPreparedStatement(
             `SELECT rowid FROM ${type === 'tools' ? 'tools' : type === 'guidelines' ? 'guidelines' : 'knowledge'} WHERE id = ?`
           );
           const rowidResult = rowidQuery.get(id) as { rowid: number } | undefined;
@@ -1253,7 +1180,7 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
               : textMatches;
 
           if (type === 'tools' && isTool(entry)) {
-            const v = versionMap.get(id) as ToolVersion | undefined;
+            const v = batchedVersions.tools.get(id)?.current;
             // Field-specific search if specified
             if (params.fields && params.fields.length > 0) {
               const fields = params.fields.map((f) => f.toLowerCase());
@@ -1268,7 +1195,7 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
                 matchFunc(entry.name, search) || matchFunc(v?.description ?? null, search);
             }
           } else if (type === 'guidelines' && isGuideline(entry)) {
-            const v = versionMap.get(id) as GuidelineVersion | undefined;
+            const v = batchedVersions.guidelines.get(id)?.current;
             if (params.fields && params.fields.length > 0) {
               const fields = params.fields.map((f) => f.toLowerCase());
               if (fields.includes('name')) {
@@ -1287,7 +1214,7 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
                 matchFunc(v?.rationale ?? null, search);
             }
           } else if (type === 'knowledge' && isKnowledge(entry)) {
-            const v = versionMap.get(id) as KnowledgeVersion | undefined;
+            const v = batchedVersions.knowledge.get(id)?.current;
             if (params.fields && params.fields.length > 0) {
               const fields = params.fields.map((f) => f.toLowerCase());
               if (fields.includes('title')) {
@@ -1333,7 +1260,19 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
           (entryType === 'guideline' && relatedIds.guideline.has(id)) ||
           (entryType === 'knowledge' && relatedIds.knowledge.has(id)));
 
-      const currentVersion = versionMap.get(id);
+      const includeVersions = params.includeVersions ?? false;
+
+      const currentVersion =
+        type === 'tools' ? batchedVersions.tools.get(id)?.current
+          : type === 'guidelines' ? batchedVersions.guidelines.get(id)?.current
+            : batchedVersions.knowledge.get(id)?.current;
+
+      const history =
+        includeVersions ? (
+          type === 'tools' ? batchedVersions.tools.get(id)?.history
+            : type === 'guidelines' ? batchedVersions.guidelines.get(id)?.history
+              : batchedVersions.knowledge.get(id)?.history
+        ) : undefined;
 
       const score = computeScore({
         hasExplicitRelation,
@@ -1355,9 +1294,7 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
           score,
           tool: entry,
           version: currentVersion as ToolVersion | undefined,
-          versions: includeVersions
-            ? ((historyMap.get(id) as ToolVersion[] | undefined) ?? [])
-            : undefined,
+          versions: history as ToolVersion[] | undefined,
         };
         results.push(item);
       } else if (type === 'guidelines' && isGuideline(entry)) {
@@ -1370,9 +1307,7 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
           score,
           guideline: entry,
           version: currentVersion as GuidelineVersion | undefined,
-          versions: includeVersions
-            ? ((historyMap.get(id) as GuidelineVersion[] | undefined) ?? [])
-            : undefined,
+          versions: history as GuidelineVersion[] | undefined,
         };
         results.push(item);
       } else if (type === 'knowledge' && isKnowledge(entry)) {
@@ -1385,9 +1320,7 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
           score,
           knowledge: entry,
           version: currentVersion as KnowledgeVersion | undefined,
-          versions: includeVersions
-            ? ((historyMap.get(id) as KnowledgeVersion[] | undefined) ?? [])
-            : undefined,
+          versions: history as KnowledgeVersion[] | undefined,
         };
         results.push(item);
       }
@@ -1428,42 +1361,42 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
   // Compact mode: create new objects with only essential fields
   const compacted = params.compact
     ? limited.map((item): QueryResultItem => {
-        if (item.type === 'tool') {
-          return {
-            ...item,
-            version: undefined,
-            versions: undefined,
-            tool: {
-              id: item.tool.id,
-              name: item.tool.name,
-              category: item.tool.category,
-            } as Tool,
-          };
-        } else if (item.type === 'guideline') {
-          return {
-            ...item,
-            version: undefined,
-            versions: undefined,
-            guideline: {
-              id: item.guideline.id,
-              name: item.guideline.name,
-              category: item.guideline.category,
-              priority: item.guideline.priority,
-            } as Guideline,
-          };
-        } else {
-          return {
-            ...item,
-            version: undefined,
-            versions: undefined,
-            knowledge: {
-              id: item.knowledge.id,
-              title: item.knowledge.title,
-              category: item.knowledge.category,
-            } as Knowledge,
-          };
-        }
-      })
+      if (item.type === 'tool') {
+        return {
+          ...item,
+          version: undefined,
+          versions: undefined,
+          tool: {
+            id: item.tool.id,
+            name: item.tool.name,
+            category: item.tool.category,
+          } as Tool,
+        };
+      } else if (item.type === 'guideline') {
+        return {
+          ...item,
+          version: undefined,
+          versions: undefined,
+          guideline: {
+            id: item.guideline.id,
+            name: item.guideline.name,
+            category: item.guideline.category,
+            priority: item.guideline.priority,
+          } as Guideline,
+        };
+      } else {
+        return {
+          ...item,
+          version: undefined,
+          versions: undefined,
+          knowledge: {
+            id: item.knowledge.id,
+            title: item.knowledge.title,
+            category: item.knowledge.category,
+          } as Knowledge,
+        };
+      }
+    })
     : limited;
 
   const meta: ResponseMeta = {
@@ -1494,7 +1427,7 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
   };
 
   // Cache the result (only caches global scope queries)
-  queryCache.set(params, result);
+  if (cacheKey) queryCache.set(cacheKey, result);
 
   return result;
 }

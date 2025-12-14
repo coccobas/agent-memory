@@ -5,7 +5,7 @@
  * Helps prevent creating duplicate entries.
  */
 
-import { getDb, getSqlite } from '../db/connection.js';
+import { getDb, getPreparedStatement } from '../db/connection.js';
 import { tools, guidelines, knowledge } from '../db/schema.js';
 import { eq, and, isNull } from 'drizzle-orm';
 import type { ScopeType, EntryType } from '../db/schema.js';
@@ -100,7 +100,6 @@ export function findSimilarEntries(
   threshold: number = 0.8
 ): SimilarEntry[] {
   const db = getDb();
-  const sqlite = getSqlite();
 
   // Use FTS5 for fast text search
   const queryEntryType: QueryEntryType =
@@ -129,7 +128,7 @@ export function findSimilarEntries(
 
     // Filter by rowids from FTS5
     for (const tool of allTools) {
-      const rowidQuery = sqlite.prepare('SELECT rowid FROM tools WHERE id = ?');
+      const rowidQuery = getPreparedStatement('SELECT rowid FROM tools WHERE id = ?');
       const rowidResult = rowidQuery.get(tool.id) as { rowid: number } | undefined;
       if (rowidResult && fts5Rowids.has(rowidResult.rowid)) {
         entries.push({ id: tool.id, name: tool.name });
@@ -149,7 +148,7 @@ export function findSimilarEntries(
       .all();
 
     for (const guideline of allGuidelines) {
-      const rowidQuery = sqlite.prepare('SELECT rowid FROM guidelines WHERE id = ?');
+      const rowidQuery = getPreparedStatement('SELECT rowid FROM guidelines WHERE id = ?');
       const rowidResult = rowidQuery.get(guideline.id) as { rowid: number } | undefined;
       if (rowidResult && fts5Rowids.has(rowidResult.rowid)) {
         entries.push({ id: guideline.id, name: guideline.name });
@@ -169,7 +168,7 @@ export function findSimilarEntries(
       .all();
 
     for (const k of allKnowledge) {
-      const rowidQuery = sqlite.prepare('SELECT rowid FROM knowledge WHERE id = ?');
+      const rowidQuery = getPreparedStatement('SELECT rowid FROM knowledge WHERE id = ?');
       const rowidResult = rowidQuery.get(k.id) as { rowid: number } | undefined;
       if (rowidResult && fts5Rowids.has(rowidResult.rowid)) {
         entries.push({ id: k.id, name: k.title });

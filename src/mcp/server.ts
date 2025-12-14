@@ -1373,7 +1373,7 @@ export function createServer(): Server {
   const server = new Server(
     {
       name: 'agent-memory',
-      version: '0.7.4', // Antigravity .agent/rules support
+      version: '0.8.0', // Antigravity .agent/rules support
     },
     {
       capabilities: {

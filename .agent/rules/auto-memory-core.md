@@ -167,7 +167,7 @@ Before storing a guideline, **ALWAYS** check if a similar one exists:
 
 **Conflict Detection:** If similar exists → compare semantically. Complementary → update. Contradictory → ask user to update or create new. Exact duplicate → skip. No conflict → store new.
 
-**When storing:** Use `memory_guideline` with `action: "add"` (or `"update"`), `scopeType`, `scopeId`, `name`, `category`, `priority`, `content`, `rationale`, `examples`. **When updating:** Both `content` and `changeReason` are REQUIRED.
+**When storing:** Use `memory_guideline` with `action: "add"` (or `"update"`), `scopeType`, `scopeId`, `name`, `category`, `priority`, `content`, `rationale`, `examples`, `changeReason` (required for updates).
 
 **Store when:** User mentions standards, you notice patterns, you create conventions, code review reveals standards.
 
@@ -202,41 +202,18 @@ Before storing knowledge, **ALWAYS** check if similar knowledge exists:
 {
   "tool": "memory_knowledge",
   "arguments": {
-    "action": "add",
+    "action": "add",  // or "update" if updating existing
     "scopeType": "project",
     "scopeId": "<project-id>",
     "title": "<descriptive-title>",
     "category": "<decision|fact|context|reference>",
     "content": "<the knowledge content>",
     "source": "<where this came from>",
-    "confidence": 1.0
+    "confidence": 1.0,
+    "changeReason": "<reason if updating>"  // Required for updates
   }
 }
 ```
-
-**When updating knowledge (CRITICAL: Both `content` and `changeReason` are REQUIRED):**
-
-```json
-{
-  "tool": "memory_knowledge",
-  "arguments": {
-    "action": "update",
-    "id": "<knowledge-entry-id>",
-    "content": "<updated knowledge content>",  // REQUIRED: Must provide full updated content
-    "changeReason": "<reason for the update>",  // REQUIRED: Must explain why updating
-    // Optional fields that can also be updated:
-    // "title": "<updated-title>",
-    // "category": "<updated-category>",
-    // "source": "<updated-source>",
-    // "confidence": 0.9
-  }
-}
-```
-
-**Note:** When updating, you must provide the complete updated `content` (not just the changes). To update an entry:
-1. First retrieve it using `memory_knowledge` with `action: "get"` and `id`
-2. Modify the content as needed
-3. Call `memory_knowledge` with `action: "update"`, providing both the complete updated `content` and a `changeReason`
 
 **Knowledge Categories:** `decision` (choices made), `context` (current state), `fact` (objective facts), `reference` (external links).
 
@@ -294,22 +271,8 @@ Before storing a tool, **ALWAYS** check if a tool with the same name exists in t
       "<param>": "<description>"
     },
     "examples": ["<usage example>"],
-    "constraints": "<any constraints>"
-  }
-}
-```
-
-**When updating tools (CRITICAL: Both `description`/`content` and `changeReason` are REQUIRED):**
-
-```json
-{
-  "tool": "memory_tool",
-  "arguments": {
-    "action": "update",
-    "id": "<tool-entry-id>",
-    "description": "<updated description>",  // REQUIRED: Must provide updated description
-    "changeReason": "<reason for the update>",  // REQUIRED: Must explain why updating
-    // Other fields can also be updated as needed
+    "constraints": "<any constraints>",
+    "changeReason": "<reason if updating>"  // Required for updates
   }
 }
 ```
@@ -383,5 +346,5 @@ When completing a task, **ALWAYS** end the session: Use `memory_session` with `a
 
 For advanced conflict resolution, see `auto-memory-advanced.mdc`.
 
-@version "1.2.0"
-@last_updated "2025-12-14"
+@version "1.1.0"
+@last_updated "2025-01-13"

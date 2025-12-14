@@ -279,24 +279,6 @@ The following MCP tools are available via the `agent-memory` server (20 total):
 }
 ```
 
-### Update Guideline (CRITICAL: Both `content` and `changeReason` are REQUIRED)
-
-```json
-{
-  "tool": "memory_guideline",
-  "arguments": {
-    "action": "update",
-    "id": "<guideline-entry-id>",
-    "content": "<updated guideline text>",  // REQUIRED: Must provide full updated content
-    "changeReason": "<reason for the update>",  // REQUIRED: Must explain why updating
-    // Other fields can also be updated as needed:
-    // "priority": 90,
-    // "rationale": "<updated rationale>",
-    // "examples": { "good": [...], "bad": [...] }
-  }
-}
-```
-
 ### Store Knowledge
 
 ```json
@@ -315,30 +297,6 @@ The following MCP tools are available via the `agent-memory` server (20 total):
 }
 ```
 
-### Update Knowledge (CRITICAL: Both `content` and `changeReason` are REQUIRED)
-
-```json
-{
-  "tool": "memory_knowledge",
-  "arguments": {
-    "action": "update",
-    "id": "<knowledge-entry-id>",
-    "content": "<updated knowledge content>",  // REQUIRED: Must provide full updated content
-    "changeReason": "<reason for the update>",  // REQUIRED: Must explain why updating
-    // Other fields can also be updated as needed:
-    // "title": "<updated-title>",
-    // "category": "<updated-category>",
-    // "source": "<updated-source>",
-    // "confidence": 0.9
-  }
-}
-```
-
-**Note:** When updating, you must provide the complete updated `content` (not just the changes). To update an entry:
-1. First retrieve it using `memory_knowledge` with `action: "get"` and `id`
-2. Modify the content as needed
-3. Call `memory_knowledge` with `action: "update"`, providing both the complete updated `content` and a `changeReason`
-
 ### Store Tool
 
 ```json
@@ -355,23 +313,6 @@ The following MCP tools are available via the `agent-memory` server (20 total):
       "<param>": "<description>"
     },
     "examples": ["<usage example>"]
-  }
-}
-```
-
-### Update Tool (CRITICAL: Both `description` and `changeReason` are REQUIRED)
-
-```json
-{
-  "tool": "memory_tool",
-  "arguments": {
-    "action": "update",
-    "id": "<tool-entry-id>",
-    "description": "<updated description>",  // REQUIRED: Must provide updated description
-    "changeReason": "<reason for the update>",  // REQUIRED: Must explain why updating
-    // Other fields can also be updated as needed:
-    // "parameters": { "<param>": "<updated description>" },
-    // "examples": ["<updated example>"]
   }
 }
 ```
@@ -406,5 +347,5 @@ The following MCP tools are available via the `agent-memory` server (20 total):
 }
 ```
 
-@version "1.1.0"
-@last_updated "2025-12-14"
+@version "1.0.0"
+@last_updated "2024-12-19"

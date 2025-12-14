@@ -12,6 +12,7 @@ import {
   type NewSession,
 } from '../schema.js';
 import { generateId, now, type PaginationOptions, DEFAULT_LIMIT, MAX_LIMIT } from './base.js';
+import { invalidateScopeChainCache } from '../../services/query.service.js';
 
 // =============================================================================
 // ORGANIZATION REPOSITORY
@@ -47,6 +48,7 @@ export const organizationRepo = {
     if (!result) {
       throw new Error(`Failed to create organization ${id}`);
     }
+    invalidateScopeChainCache('org', id);
     return result;
   },
 
@@ -86,7 +88,11 @@ export const organizationRepo = {
       .where(eq(organizations.id, id))
       .run();
 
-    return this.getById(id);
+    const result = this.getById(id);
+    if (result) {
+      invalidateScopeChainCache('org', id);
+    }
+    return result;
   },
 
   /**
@@ -95,6 +101,9 @@ export const organizationRepo = {
   delete(id: string): boolean {
     const db = getDb();
     const result = db.delete(organizations).where(eq(organizations.id, id)).run();
+    if (result.changes > 0) {
+      invalidateScopeChainCache('org', id);
+    }
     return result.changes > 0;
   },
 };
@@ -145,6 +154,7 @@ export const projectRepo = {
     if (!result) {
       throw new Error(`Failed to create project ${id}`);
     }
+    invalidateScopeChainCache('project', id);
     return result;
   },
 
@@ -214,7 +224,11 @@ export const projectRepo = {
       .where(eq(projects.id, id))
       .run();
 
-    return this.getById(id);
+    const result = this.getById(id);
+    if (result) {
+      invalidateScopeChainCache('project', id);
+    }
+    return result;
   },
 
   /**
@@ -223,6 +237,9 @@ export const projectRepo = {
   delete(id: string): boolean {
     const db = getDb();
     const result = db.delete(projects).where(eq(projects.id, id)).run();
+    if (result.changes > 0) {
+      invalidateScopeChainCache('project', id);
+    }
     return result.changes > 0;
   },
 };
@@ -275,6 +292,7 @@ export const sessionRepo = {
     if (!result) {
       throw new Error(`Failed to create session ${id}`);
     }
+    invalidateScopeChainCache('session', id);
     return result;
   },
 
@@ -334,7 +352,11 @@ export const sessionRepo = {
       .where(eq(sessions.id, id))
       .run();
 
-    return this.getById(id);
+    const result = this.getById(id);
+    if (result) {
+      invalidateScopeChainCache('session', id);
+    }
+    return result;
   },
 
   /**
@@ -350,6 +372,9 @@ export const sessionRepo = {
   delete(id: string): boolean {
     const db = getDb();
     const result = db.delete(sessions).where(eq(sessions.id, id)).run();
+    if (result.changes > 0) {
+      invalidateScopeChainCache('session', id);
+    }
     return result.changes > 0;
   },
 };
