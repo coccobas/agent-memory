@@ -1,124 +1,73 @@
-# Cursor Rules for Agent Memory
+# Agent Memory Rules
 
-This directory contains Cursor rules that document how the Agent Memory software works and how we write software.
+This directory contains rules that are synced to IDE-specific destinations.
 
-## Rule Files
+## Directory Structure
 
-### `architecture.mdc` (Always Applied)
-**Description**: Agent Memory architecture and how the software works
+```
+rules/
+├── auto-memory-*.md      # Consumer rules - synced to all projects
+├── README.md             # This file - not synced
+└── developer/            # Developer rules - not synced by default
+    ├── architecture.md
+    ├── coding-standards.md
+    ├── patterns.md
+    └── testing.md
+```
 
-Covers:
-- System overview and design principles
-- Technology stack
-- Architecture layers (MCP Server, Handlers, Services, Repositories, Database)
-- Memory sections (Tools, Guidelines, Knowledge)
-- Hierarchical scoping system
-- Versioning and conflict resolution
-- Query system and semantic search
-- Multi-agent coordination
-- Error handling
-- Performance characteristics
-- MDAP support
+## Consumer Rules (Synced)
 
-**When to reference**: Understanding the overall system architecture, how components interact, and design decisions.
+These files are synced to IDE destinations and are relevant for **any project using Agent Memory**:
 
-### `coding-standards.mdc` (Always Applied)
-**Description**: Coding standards and how we write software
+| File | Purpose |
+|------|---------|
+| `auto-memory-core.md` | Essential Agent Memory workflow |
+| `auto-memory-advanced.md` | Advanced features, conflict resolution, maintenance |
+| `auto-memory-examples.md` | Practical usage examples and triggers |
+| `auto-memory-reference.md` | Complete reference for all 20 MCP tools |
+| `auto-memory-strategies.md` | Optimization strategies |
 
-Covers:
-- TypeScript configuration and strict mode
-- Code style (formatting, naming conventions)
-- Project structure and file organization
-- Design patterns (Repository, Service, Handler)
-- Error handling patterns
-- Transaction management
-- Parameter validation
-- Documentation standards (JSDoc)
-- Code quality (linting, type checking)
-- Testing guidelines
-- Version control (commit messages)
-- Performance considerations
+## Developer Rules (Not Synced)
 
-**When to reference**: Writing new code, refactoring, understanding code style and conventions.
+These files in `developer/` are only relevant when **working on the Agent Memory project itself**:
 
-### `patterns.mdc` (Auto-Attached to TypeScript files)
-**Description**: Design patterns and conventions used in the codebase
+| File | Purpose |
+|------|---------|
+| `developer/architecture.md` | Agent Memory internal architecture |
+| `developer/coding-standards.md` | TypeScript config, naming, project structure |
+| `developer/patterns.md` | Design patterns and conventions |
+| `developer/testing.md` | Testing guidelines and patterns |
 
-Covers:
-- Action-based routing pattern
-- Append-only versioning pattern
-- Scope inheritance pattern
-- Permission check pattern
-- Audit logging pattern
-- Duplicate detection pattern
-- Red flag detection pattern
-- Query caching pattern
-- Embedding generation pattern
-- Type casting pattern
+These are excluded from sync via `.rulesignore` but are still loaded into `CLAUDE.md` for AI context when working on this project.
 
-**When to reference**: Implementing new features, understanding existing patterns, maintaining consistency.
+## Sync Destinations
 
-### `testing.mdc` (Auto-Attached to test files)
-**Description**: Testing guidelines and patterns
+When you run `npm run sync-rules`, consumer rules are synced to:
 
-Covers:
-- Testing framework (Vitest)
-- Test structure and organization
-- Test helpers and fixtures
-- Unit tests (repositories, services)
-- Integration tests (handlers, MCP tools)
-- Test coverage goals
-- Test best practices
-- Running and debugging tests
+| IDE | Destination | Format |
+|-----|-------------|--------|
+| Cursor | `.cursor/rules/` | `.mdc` (with YAML frontmatter) |
+| VS Code | `.vscode/rules/` | `.md` |
+| Others | Various | `.md` |
 
-**When to reference**: Writing tests, understanding test patterns, debugging test issues.
+## Commands
 
-## How Cursor Uses These Rules
+```bash
+# Sync rules to auto-detected IDE
+npm run sync-rules
 
-- **Always Applied**: `architecture.mdc` and `coding-standards.mdc` are always included in context
-- **Auto-Attached**: `patterns.mdc` is included when TypeScript files are referenced, `testing.mdc` when test files are referenced
-- **Manual**: You can reference specific rules using `@ruleName` in chat
+# Sync to specific IDE
+npm run sync-rules -- --ide cursor
 
-## Quick Reference
+# Watch for changes and auto-sync
+npm run sync-rules:watch
 
-### When Writing New Code
-1. Check `coding-standards.mdc` for style and conventions
-2. Check `patterns.mdc` for applicable design patterns
-3. Check `architecture.mdc` for system understanding
-
-### When Adding Tests
-1. Check `testing.mdc` for test structure and patterns
-2. Check `coding-standards.mdc` for test organization
-
-### When Understanding the System
-1. Start with `architecture.mdc` for high-level overview
-2. Check `patterns.mdc` for specific implementation patterns
-3. Reference `coding-standards.mdc` for code organization
+# Verify without making changes
+npm run sync-rules -- --verify
+```
 
 ## Updating Rules
 
-When the codebase evolves:
-1. Update relevant rule files to reflect changes
-2. Keep examples current with actual code
-3. Document new patterns as they emerge
-4. Update architecture docs when system changes
-
-## Rule Format
-
-Rules use MDC (Markdown with frontmatter) format:
-
-```mdc
----
-description: Brief description
-globs: ["**/*.ts"]  # Files this rule applies to
-alwaysApply: true   # Always include in context
----
-
-# Content
-
-Markdown content here...
-```
-
-See [Cursor Rules Documentation](https://docs.cursor.com/context/rules) for more details.
-
-
+1. Edit files in this directory
+2. Consumer rules (`auto-memory-*.md`) - changes sync to all projects
+3. Developer rules (`developer/*.md`) - changes only affect this project's CLAUDE.md

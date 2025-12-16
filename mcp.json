@@ -1,9 +1,0 @@
-{
-  "servers": {
-    "teamsnip": {
-      "type": "stdio",
-      "command": "node",
-      "args": ["/Users/b.cocco/Claude Code/TeamSnip/mcp-server/dist/index.js"]
-    }
-  }
-}
