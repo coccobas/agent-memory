@@ -17,6 +17,7 @@ import {
   isString,
   isNumber,
   isObject,
+  isBoolean,
 } from '../../utils/type-guards.js';
 
 /**
@@ -136,6 +137,24 @@ export const scopeHandlers = {
     }
 
     return { success: true, project };
+  },
+
+  projectDelete(params: Record<string, unknown>) {
+    const id = getRequiredParam(params, 'id', isString);
+    const confirm = getOptionalParam(params, 'confirm', isBoolean);
+
+    if (!confirm) {
+      throw new Error(
+        'Delete requires confirmation. Set confirm: true to proceed. WARNING: This will permanently delete the project and cannot be undone.'
+      );
+    }
+
+    const deleted = projectRepo.delete(id);
+    if (!deleted) {
+      throw new Error('Project not found or already deleted');
+    }
+
+    return { success: true, message: `Project ${id} deleted` };
   },
 
   // ===========================================================================

@@ -1006,6 +1006,8 @@ const bundledHandlers: Record<string, (params: Record<string, unknown>) => unkno
         return scopeHandlers.projectGet(rest);
       case 'update':
         return scopeHandlers.projectUpdate(rest);
+      case 'delete':
+        return scopeHandlers.projectDelete(rest);
       default:
         throw new Error(`Unknown action for memory_project: ${String(action)}`);
     }

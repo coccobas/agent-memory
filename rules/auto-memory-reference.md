@@ -44,7 +44,7 @@ The following MCP tools are available via the `agent-memory` server (20 total):
 - Multi-project team scenarios
 
 **memory_project** - Project management
-- Actions: `create`, `list`, `get`, `update` (NOT "add")
+- Actions: `create`, `list`, `get`, `update`, `delete` (NOT "add")
 - Link projects to organizations
 
 **memory_session** - Session management
