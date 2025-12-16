@@ -40,15 +40,15 @@ The following MCP tools are available via the `agent-memory` server (20 total):
 ### Scope Management
 
 **memory_org** - Organization management
-- Create, list, update organizations
+- Actions: `create`, `list`, `get`, `update` (NOT "add")
 - Multi-project team scenarios
 
 **memory_project** - Project management
-- Create, list, update projects
+- Actions: `create`, `list`, `get`, `update` (NOT "add")
 - Link projects to organizations
 
 **memory_session** - Session management
-- Start, end, list sessions
+- Actions: `start`, `end`, `list`
 - Track work sessions
 
 ### Memory Sections
@@ -257,6 +257,23 @@ The following MCP tools are available via the `agent-memory` server (20 total):
 ```
 
 ## Common Tool Operations
+
+### Create Project
+
+```json
+{
+  "tool": "memory_project",
+  "arguments": {
+    "action": "create",
+    "name": "<project-name>",
+    "organizationId": "<org-id-optional>",
+    "path": "<workspace-path-optional>",
+    "metadata": {}
+  }
+}
+```
+
+**Note:** Use `action: "create"` for projects and orgs, NOT `action: "add"`.
 
 ### Store Guideline
 
