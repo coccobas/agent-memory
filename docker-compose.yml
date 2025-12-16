@@ -5,6 +5,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    image: agent-memory:latest
     container_name: agent-memory
     volumes:
       # Persist database and data
