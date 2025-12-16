@@ -4,7 +4,7 @@ This project uses rules stored in `.cursor/rules/` directory.
 
 Cursor automatically loads all `.mdc` files from `.cursor/rules/` - no additional configuration needed.
 
-Rules are synced from `rules/rules/` directory. To sync rules to any project:
+Rules are synced from `rules/` directory. To sync rules to any project:
 
 **From any project directory:**
 
@@ -44,6 +44,8 @@ export PATH="$PATH:/path/to/Memory/scripts"
 For more information, see:
 - `.cursor/rules/README.md` - Rule documentation
 - `docs/rules-sync.md` - Rules sync guide
+
+
 
 
 

@@ -129,11 +129,11 @@ function printHelp() {
   console.log(`
 Usage: sync-rules [options]
 
-Sync rule files from Memory project's rules/rules/ to current project's IDE-specific directories.
+Sync rule files from Memory project's rules/ to current project's IDE-specific directories.
 
 This script can be run from any directory. It will:
 - Find the Memory project root (where the script is located)
-- Sync rules from Memory project's rules/rules/ directory
+- Sync rules from Memory project's rules/ directory
 - Output to the current working directory's IDE-specific directories
 
 Note: When using npm run, use -- to separate npm options from script options:
@@ -209,9 +209,9 @@ async function main() {
   const options = parseArgs();
 
   try {
-    // Find the Memory project root (where rules/rules/ is located)
+    // Find the Memory project root (where rules/ is located)
     const memoryProjectRoot = findMemoryProjectRoot();
-    const sourceDir = join(memoryProjectRoot, 'rules', 'rules');
+    const sourceDir = join(memoryProjectRoot, 'rules');
     
     // Use current working directory as output (where user runs the command)
     const workspacePath = process.cwd();

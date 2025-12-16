@@ -2,7 +2,7 @@
 /**
  * Watch Rules Script
  *
- * Watches rules/rules/ directory for file changes and auto-syncs to IDE formats
+ * Watches rules/ directory for file changes and auto-syncs to IDE formats
  *
  * Usage:
  *   npm run sync-rules:watch
@@ -100,7 +100,7 @@ function printHelp() {
   console.log(`
 Usage: watch-rules [options]
 
-Watch rules/rules/ directory for file changes and auto-sync to IDE formats.
+Watch rules/ directory for file changes and auto-sync to IDE formats.
 
 Options:
   --ide <ide>              IDE to export to (default: auto-detect)
@@ -240,9 +240,9 @@ function watchDirectory(
 async function main() {
   const options = parseArgs();
 
-  // Find the Memory project root (where rules/rules/ is located)
+  // Find the Memory project root (where rules/ is located)
   const memoryProjectRoot = findMemoryProjectRoot();
-  const sourceDir = join(memoryProjectRoot, 'rules', 'rules');
+  const sourceDir = join(memoryProjectRoot, 'rules');
   
   // Use current working directory as output (where user runs the command)
   const workspacePath = process.cwd();
@@ -256,7 +256,7 @@ async function main() {
   }
 
   if (!options.quiet) {
-    console.log('Watching rules/rules/ for file changes...');
+    console.log('Watching rules/ for file changes...');
     console.log(`Source (Memory project): ${sourceDir}`);
     console.log(`Target (current project): ${workspacePath}`);
     console.log(`IDE: ${options.ide || 'auto-detect'}`);
@@ -318,6 +318,8 @@ main().catch((error) => {
   console.error('Fatal error:', error);
   process.exit(1);
 });
+
+
 
 
 

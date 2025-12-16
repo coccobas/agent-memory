@@ -2,7 +2,7 @@
 #
 # Git Pre-commit Hook for Syncing Rules
 #
-# This hook syncs rule files from rules/rules/ to IDE formats before committing.
+# This hook syncs rule files from rules/ to IDE formats before committing.
 # Install by copying to .git/hooks/pre-commit or running:
 #   ln -s ../../scripts/pre-commit-sync.sh .git/hooks/pre-commit
 #
@@ -45,6 +45,8 @@ if [ -n "$(git diff --cached --name-only)" ]; then
 fi
 
 exit 0
+
+
 
 
 

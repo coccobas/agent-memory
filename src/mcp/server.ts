@@ -133,7 +133,12 @@ const TOOLS: Tool[] = [
   // -------------------------------------------------------------------------
   {
     name: 'memory_session',
-    description: 'Manage working sessions. Actions: start, end, list',
+    description: `Manage working sessions (group related work together).
+
+Actions: start, end, list
+
+Workflow: Start a session at beginning of a task, end when complete. Sessions group related memory entries.
+Example: {"action":"start","projectId":"proj-123","name":"Add auth feature","purpose":"Implement user authentication"}`,
     inputSchema: {
       type: 'object',
       properties: {
@@ -168,7 +173,12 @@ const TOOLS: Tool[] = [
   // -------------------------------------------------------------------------
   {
     name: 'memory_tool',
-    description: 'Manage tool definitions. Actions: add, update, get, list, history, deactivate',
+    description: `Manage tool definitions (store reusable tool patterns for future reference).
+
+Actions: add, update, get, list, history, deactivate, bulk_add, bulk_update, bulk_delete
+
+When to store: After successfully using a tool/command that could be reused.
+Example: {"action":"add","name":"docker-build","description":"Build Docker image","scopeType":"project","category":"cli"}`,
     inputSchema: {
       type: 'object',
       properties: {
@@ -220,8 +230,12 @@ const TOOLS: Tool[] = [
   // -------------------------------------------------------------------------
   {
     name: 'memory_guideline',
-    description:
-      'Manage behavioral guidelines. Actions: add, update, get, list, history, deactivate',
+    description: `Manage coding/behavioral guidelines (rules the AI should follow).
+
+Actions: add, update, get, list, history, deactivate, bulk_add, bulk_update, bulk_delete
+
+When to store: When user establishes a coding standard, pattern preference, or rule.
+Example: {"action":"add","name":"no-any","content":"Never use 'any' type","scopeType":"project","category":"code_style","priority":90}`,
     inputSchema: {
       type: 'object',
       properties: {
@@ -275,7 +289,12 @@ const TOOLS: Tool[] = [
   // -------------------------------------------------------------------------
   {
     name: 'memory_knowledge',
-    description: 'Manage knowledge entries. Actions: add, update, get, list, history, deactivate',
+    description: `Manage knowledge entries (facts, decisions, context to remember).
+
+Actions: add, update, get, list, history, deactivate, bulk_add, bulk_update, bulk_delete
+
+When to store: After making a decision, learning a fact, or establishing context worth remembering.
+Example: {"action":"add","title":"API uses REST","content":"This project uses REST API, not GraphQL","scopeType":"project","category":"decision"}`,
     inputSchema: {
       type: 'object',
       properties: {
@@ -425,8 +444,13 @@ const TOOLS: Tool[] = [
   // -------------------------------------------------------------------------
   {
     name: 'memory_query',
-    description:
-      'Query and aggregate memory. Actions: search (cross-reference search), context (aggregated context for scope)',
+    description: `Query and aggregate memory. **IMPORTANT: Call this FIRST at conversation start with action:"context" to load project context.**
+
+Actions:
+- context: Get aggregated context for a scope (RECOMMENDED FIRST CALL)
+- search: Cross-reference search with filters
+
+Quick start: {"action":"context","scopeType":"project","inherit":true}`,
     inputSchema: {
       type: 'object',
       properties: {
@@ -732,8 +756,9 @@ const TOOLS: Tool[] = [
   // -------------------------------------------------------------------------
   {
     name: 'memory_health',
-    description:
-      'Check server health and database status. Returns server version, database stats, and cache info.',
+    description: `Check server health and database status. Returns version, database stats, and cache info.
+
+Use this to verify the memory server is working or to get entry counts.`,
     inputSchema: {
       type: 'object',
       properties: {},
@@ -1176,7 +1201,7 @@ const bundledHandlers: Record<string, (params: Record<string, unknown>) => unkno
       cache: ReturnType<typeof getQueryCacheStats>;
       tables: Record<string, number>;
     } = {
-      serverVersion: '0.7.4',
+      serverVersion: '0.8.5',
       status: 'healthy',
       database: {
         type: 'SQLite',
@@ -1383,7 +1408,7 @@ export async function createServer(): Promise<Server> {
   const server = new Server(
     {
       name: 'agent-memory',
-      version: '0.8.4',
+      version: '0.8.5',
     },
     {
       capabilities: {
@@ -1608,7 +1633,7 @@ export async function runServer(): Promise<void> {
     server = new Server(
       {
         name: 'agent-memory',
-        version: '0.8.4',
+        version: '0.8.5',
       },
       {
         capabilities: {

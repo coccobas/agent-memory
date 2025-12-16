@@ -121,7 +121,7 @@ export function loadIgnorePatterns(projectRoot: string): string[] {
  */
 export function shouldIgnore(filePath: string, patterns: string[]): boolean {
   const fileName = basename(filePath);
-  const relativePath = filePath.replace(/^.*rules\/rules\//, '');
+  const relativePath = filePath.replace(/^.*rules\//, '');
 
   for (const pattern of patterns) {
     // Simple glob pattern matching

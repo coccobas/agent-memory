@@ -23,9 +23,14 @@ npm version major --no-git-tag-version
 
 After running `npm version`, you must manually update these additional files:
 
-### 1. `src/mcp/server.ts` (2 locations)
+### 1. `src/mcp/server.ts` (3 locations)
 
-**Location 1:** Main server initialization (~line 1386)
+**Location 1:** Health check response (~line 1204)
+```typescript
+serverVersion: 'X.Y.Z',  // <-- UPDATE THIS
+```
+
+**Location 2:** Main server initialization (~line 1411)
 ```typescript
 const server = new Server(
   {
@@ -36,7 +41,7 @@ const server = new Server(
 );
 ```
 
-**Location 2:** Fallback minimal server (~line 1616)
+**Location 3:** Fallback minimal server (~line 1636)
 ```typescript
 server = new Server(
   {
@@ -47,7 +52,15 @@ server = new Server(
 );
 ```
 
-### 2. `CODE_REVIEW.md` (if exists)
+### 2. `docker-compose.yml` (~line 41)
+
+Update the version label:
+```yaml
+labels:
+  - 'com.agent-memory.version=X.Y.Z'  # <-- UPDATE THIS
+```
+
+### 3. `CODE_REVIEW.md` (if exists)
 
 Update the version in the header:
 ```markdown
@@ -66,10 +79,12 @@ These files are automatically updated by `npm version`:
 ## Version Update Checklist
 
 - [ ] Run `npm version <patch|minor|major> --no-git-tag-version`
-- [ ] Update `src/mcp/server.ts` (both locations)
+- [ ] Update `src/mcp/server.ts` (3 locations: lines ~1204, ~1411, ~1636)
+- [ ] Update `docker-compose.yml` label (line ~41)
 - [ ] Update `CODE_REVIEW.md` version (if applicable)
 - [ ] Run `npm run build` to verify no errors
 - [ ] Run `npm test` to verify tests pass
+- [ ] Rebuild Docker: `docker-compose build`
 - [ ] Commit with message: `chore: bump version to X.Y.Z`
 - [ ] Create git tag: `git tag vX.Y.Z`
 - [ ] Push: `git push && git push --tags`
@@ -90,4 +105,4 @@ grep -rn "0\.8\." --include="*.ts" --include="*.json" --include="*.md" | grep -v
 
 ---
 
-*Last updated: 2025-12-14 for version 0.8.3*
+*Last updated: 2025-12-16 for version 0.8.5*

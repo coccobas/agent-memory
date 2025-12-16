@@ -1,12 +1,12 @@
 # Rules Sync Guide
 
-This guide explains how to sync rule files from `rules/rules/` to IDE-specific directories, enabling easy setup of rules across different IDEs.
+This guide explains how to sync rule files from `rules/` to IDE-specific directories, enabling easy setup of rules across different IDEs.
 
 > **Windows users:** For Windows-specific setup instructions, see the [Windows Setup Guide](./windows-setup.md).
 
 ## Overview
 
-The sync-rules script copies `.md` files from `rules/rules/` to IDE-specific directories with format conversion, making it easy to:
+The sync-rules script copies `.md` files from `rules/` to IDE-specific directories with format conversion, making it easy to:
 - Share coding standards across team members using different IDEs
 - Keep IDE-specific rule files in sync with your centralized rule files
 - Use version control to manage rule changes
@@ -26,7 +26,7 @@ The sync-rules script copies `.md` files from `rules/rules/` to IDE-specific dir
 
 ### 1. Create Rule Files
 
-Create `.md` files in the `rules/rules/` directory:
+Create `.md` files in the `rules/` directory:
 
 **Unix/Linux/macOS/Windows (PowerShell):**
 ```powershell
@@ -35,14 +35,14 @@ Create `.md` files in the `rules/rules/` directory:
 # TypeScript Strict Mode
 
 All TypeScript files must use strict mode. Enable 'strict: true' in tsconfig.json.
-"@ | Out-File -FilePath rules\rules\typescript-strict.md -Encoding utf8
+"@ | Out-File -FilePath rules\typescript-strict.md -Encoding utf8
 ```
 
 **Windows (CMD):**
 ```cmd
-echo # TypeScript Strict Mode > rules\rules\typescript-strict.md
-echo. >> rules\rules\typescript-strict.md
-echo All TypeScript files must use strict mode. Enable 'strict: true' in tsconfig.json. >> rules\rules\typescript-strict.md
+echo # TypeScript Strict Mode > rules\typescript-strict.md
+echo. >> rules\typescript-strict.md
+echo All TypeScript files must use strict mode. Enable 'strict: true' in tsconfig.json. >> rules\typescript-strict.md
 ```
 
 ### 2. Sync to Your IDE
@@ -113,7 +113,7 @@ npm run sync-rules:watch
 npm run sync-rules:watch --interval 1000
 ```
 
-The watcher monitors the `rules/rules/` directory for file changes and automatically syncs when files are created, modified, or deleted.
+The watcher monitors the `rules/` directory for file changes and automatically syncs when files are created, modified, or deleted.
 
 ### Watch Options
 
@@ -145,7 +145,7 @@ Patterns support glob syntax:
 
 For Cursor IDE, `.md` files are automatically converted to `.mdc` format with frontmatter:
 
-**Source** (`rules/rules/typescript-strict.md`):
+**Source** (`rules/typescript-strict.md`):
 ```markdown
 # TypeScript Strict Mode
 
@@ -172,7 +172,7 @@ For other IDEs, files are copied as-is without format conversion.
 ## Full Sync (Deletion)
 
 By default, the sync script performs a "full sync":
-- Files in source (`rules/rules/`) are copied to destination
+- Files in source (`rules/`) are copied to destination
 - Files in destination that don't exist in source are deleted (orphaned files)
 
 This ensures the destination directory exactly matches the source (minus ignored files).
@@ -240,7 +240,7 @@ The log file contains:
 The sync script preserves directory structure:
 
 ```
-rules/rules/
+rules/
   ├── architecture.mdc
   ├── patterns.mdc
   └── subdir/
@@ -315,7 +315,7 @@ Copy-Item scripts\pre-commit-sync.sh .git\hooks\pre-commit
 **Note:** On Windows, shell scripts require Git Bash or WSL. The TypeScript scripts (`npm run sync-rules`) work on all platforms and can be used as an alternative.
 
 The hook will:
-1. Sync rules from `rules/rules/` to IDE formats
+1. Sync rules from `rules/` to IDE formats
 2. Automatically stage any modified rule files
 3. Run silently (won't add noise to commit process)
 
@@ -365,7 +365,7 @@ priority: 90
 globs: ["**/*.ts", "**/*.tsx"]
 alwaysApply: true
 tags: ["typescript", "code_style"]
-source: rules/rules
+source: rules
 ---
 
 # typescript-strict
@@ -375,7 +375,7 @@ All TypeScript files must use strict mode...
 
 ## Best Practices
 
-1. **Use Version Control**: Commit rule files in `rules/rules/` to version control
+1. **Use Version Control**: Commit rule files in `rules/` to version control
 2. **Organize with Subdirectories**: Use subdirectories to organize related rules
 3. **Use Ignore File**: Add `.rulesignore` to exclude temporary or documentation files
 4. **Use Watch Mode**: For active development, use watch mode to keep rules in sync
@@ -402,7 +402,7 @@ You can also verify by:
 
 ### Rules Not Syncing
 
-1. Check source directory exists: Ensure `rules/rules/` directory exists
+1. Check source directory exists: Ensure `rules/` directory exists
 2. Verify files are `.md` format: Only `.md` files are synced
 3. Check ignore file: Files matching `.rulesignore` patterns are excluded
 4. Check permissions: Ensure write permissions for output directory
@@ -436,7 +436,7 @@ alwaysApply: true
 
 ### Watch Mode Not Working
 
-1. Check source directory: Ensure `rules/rules/` directory exists
+1. Check source directory: Ensure `rules/` directory exists
 2. Check file system events: Some file systems don't support recursive watching
 3. Increase debounce: Use `--interval` to adjust debounce time
 4. Check permissions: Ensure read permissions for source directory
@@ -490,7 +490,7 @@ Add to your CI pipeline to ensure rule files are always up to date:
 If you were previously using database-based syncing:
 
 1. **Export existing rules**: Use `memory_export` tool to export guidelines to files
-2. **Organize files**: Place exported files in `rules/rules/` directory
+2. **Organize files**: Place exported files in `rules/` directory
 3. **Update scripts**: Remove old database-based options from CI/CD scripts
 4. **Test sync**: Run `npm run sync-rules --verify` to check sync works
 

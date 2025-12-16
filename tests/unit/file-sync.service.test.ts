@@ -22,7 +22,7 @@ import {
   USER_DESTINATIONS,
 } from '../../src/services/file-sync.service.js';
 
-const TEST_SOURCE_DIR = './data/test-file-sync/rules/rules';
+const TEST_SOURCE_DIR = './data/test-file-sync/rules';
 const TEST_OUTPUT_DIR = './data/test-file-sync/output';
 const TEST_PROJECT_ROOT = './data/test-file-sync';
 
@@ -112,32 +112,32 @@ describe('File Sync Service', () => {
   describe('shouldIgnore', () => {
     it('should match exact filenames', () => {
       const patterns = ['README.md', 'test.md'];
-      expect(shouldIgnore('/path/to/rules/rules/README.md', patterns)).toBe(true);
-      expect(shouldIgnore('/path/to/rules/rules/test.md', patterns)).toBe(true);
-      expect(shouldIgnore('/path/to/rules/rules/other.md', patterns)).toBe(false);
+      expect(shouldIgnore('/path/to/rules/README.md', patterns)).toBe(true);
+      expect(shouldIgnore('/path/to/rules/test.md', patterns)).toBe(true);
+      expect(shouldIgnore('/path/to/rules/other.md', patterns)).toBe(false);
     });
 
     it('should match glob patterns with *', () => {
       const patterns = ['*.tmp', 'test-*.md'];
-      expect(shouldIgnore('/path/to/rules/rules/file.tmp', patterns)).toBe(true);
-      expect(shouldIgnore('/path/to/rules/rules/test-123.md', patterns)).toBe(true);
-      expect(shouldIgnore('/path/to/rules/rules/other-123.md', patterns)).toBe(false);
+      expect(shouldIgnore('/path/to/rules/file.tmp', patterns)).toBe(true);
+      expect(shouldIgnore('/path/to/rules/test-123.md', patterns)).toBe(true);
+      expect(shouldIgnore('/path/to/rules/other-123.md', patterns)).toBe(false);
     });
 
     it('should match relative paths', () => {
       const patterns = ['subdir/*.md'];
-      expect(shouldIgnore('/path/to/rules/rules/subdir/file.md', patterns)).toBe(true);
+      expect(shouldIgnore('/path/to/rules/subdir/file.md', patterns)).toBe(true);
     });
 
     it('should handle special regex characters in patterns', () => {
       const patterns = ['file.extension', 'file*.md'];
-      expect(shouldIgnore('/path/to/rules/rules/file.extension', patterns)).toBe(true);
-      expect(shouldIgnore('/path/to/rules/rules/file123.md', patterns)).toBe(true);
+      expect(shouldIgnore('/path/to/rules/file.extension', patterns)).toBe(true);
+      expect(shouldIgnore('/path/to/rules/file123.md', patterns)).toBe(true);
     });
 
     it('should return false if no patterns match', () => {
       const patterns = ['*.tmp'];
-      expect(shouldIgnore('/path/to/rules/rules/test.md', patterns)).toBe(false);
+      expect(shouldIgnore('/path/to/rules/test.md', patterns)).toBe(false);
     });
   });
 
@@ -946,3 +946,5 @@ This is the actual content.
     });
   });
 });
+
+
