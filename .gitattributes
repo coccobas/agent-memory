@@ -1,0 +1,5 @@
+# Ensure consistent line endings
+* text=auto eol=lf
+
+# Prevent any modification to migration files
+src/db/migrations/*.sql binary
