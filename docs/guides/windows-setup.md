@@ -46,7 +46,7 @@ npm run build
 node dist/test-init.js
 ```
 
-For manual control, use the `memory_init` MCP tool (see [Initialization Guide](./initialization.md)).
+For manual control, use the `memory_init` MCP tool (see [Initialization Guide](../reference/initialization.md)).
 
 ## Running the Server
 
@@ -375,13 +375,13 @@ git config core.autocrlf true
 
 ## Additional Resources
 
-- [Getting Started Guide](./getting-started.md) - General setup (Unix/Windows)
+- [Getting Started Guide](../getting-started.md) - General setup (Unix/Windows)
 - [Rules Sync Guide](./rules-sync.md) - Syncing rules to IDEs
-- [API Reference](./api-reference.md) - Complete MCP tool documentation
+- [API Reference](../api-reference.md) - Complete MCP tool documentation
 
 ## Need Help?
 
 If you encounter Windows-specific issues not covered here:
-1. Check the main [Troubleshooting](./getting-started.md#troubleshooting) section
+1. Check the main [Troubleshooting](../getting-started.md#troubleshooting) section
 2. Open an issue with the `windows` and `question` labels
 3. Include your Windows version and Node.js version in the issue

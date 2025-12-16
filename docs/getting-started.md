@@ -2,7 +2,7 @@
 
 This guide walks you through setting up and using Agent Memory.
 
-> **Windows users:** For Windows-specific setup instructions, see the [Windows Setup Guide](./windows-setup.md).
+> **Windows users:** For Windows-specific setup instructions, see the [Windows Setup Guide](./guides/windows-setup.md).
 
 ## Prerequisites
 
@@ -45,7 +45,7 @@ npm run build
 node dist/test-init.js
 ```
 
-For manual control, use the `memory_init` MCP tool (see [Initialization Guide](./initialization.md)).
+For manual control, use the `memory_init` MCP tool (see [Initialization Guide](./reference/initialization.md)).
 
 ### 4. Verify Installation
 
@@ -101,7 +101,7 @@ Add to your Claude Desktop configuration (`%APPDATA%\Claude\claude_desktop_confi
 
 Restart Claude Desktop to load the server.
 
-> **Windows users:** See [Windows Setup Guide](./windows-setup.md) for detailed Windows-specific instructions.
+> **Windows users:** See [Windows Setup Guide](./guides/windows-setup.md) for detailed Windows-specific instructions.
 
 ### With Claude Code
 
@@ -739,13 +739,13 @@ New-Item -ItemType SymbolicLink -Path .git\hooks\pre-commit -Target ..\..\script
 
 **Note:** On Windows, shell scripts require Git Bash or WSL. Alternatively, use the TypeScript scripts (`npm run sync-rules`) which work on all platforms.
 
-For detailed documentation, see [Rules Sync Guide](./rules-sync.md).
+For detailed documentation, see [Rules Sync Guide](./guides/rules-sync.md).
 
 ---
 
 ## Troubleshooting
 
-> **Windows users:** See [Windows Setup Guide - Troubleshooting](./windows-setup.md#troubleshooting) for Windows-specific troubleshooting tips.
+> **Windows users:** See [Windows Setup Guide - Troubleshooting](./guides/windows-setup.md#troubleshooting) for Windows-specific troubleshooting tips.
 
 ### Server Won't Start
 
@@ -758,7 +758,7 @@ For detailed documentation, see [Rules Sync Guide](./rules-sync.md).
 1. Ensure `data/` directory exists and is writable
 2. Check initialization status with `memory_init` tool: `{"action": "status"}`
 3. Reset database if needed: Delete `data/memory.db` (server will auto-reinitialize)
-4. See [Initialization Guide](./initialization.md) for advanced troubleshooting
+4. See [Initialization Guide](./reference/initialization.md) for advanced troubleshooting
 
 ### MCP Connection Issues
 

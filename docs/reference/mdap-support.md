@@ -619,7 +619,7 @@ A: Yes! MDAP support is an extension. Core features (scoping, versioning, queryi
 
 ## Getting Help
 
-- **Documentation**: See [Architecture](./architecture.md) for technical details
+- **Documentation**: See [Architecture](../architecture.md) for technical details
 - **Examples**: See [Example Workflows](../examples/workflows/) for practical guides
 - **Issues**: Open a GitHub issue with the `mdap` label
 - **Research Questions**: Reference [arXiv:2511.09030](https://arxiv.org/abs/2511.09030)

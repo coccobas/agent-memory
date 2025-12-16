@@ -20,7 +20,7 @@ Thank you for your interest in contributing to Agent Memory! This document provi
 
 ## Development Setup
 
-See [Development Guide](./development.md) for detailed setup instructions.
+See [Development Guide](./guides/development.md) for detailed setup instructions.
 
 Quick start:
 ```bash
@@ -84,7 +84,7 @@ npm run validate
 #### Testing
 
 - Add tests for new features
-- Maintain or improve test coverage (current: ~78%, see [Test Coverage](./development.md#test-coverage) for details)
+- Maintain or improve test coverage (current: ~78%, see [Test Coverage](./guides/development.md#test-coverage) for details)
 - Test edge cases and error conditions
 - Integration tests for MCP tool handlers
 - Unit tests for repositories and services

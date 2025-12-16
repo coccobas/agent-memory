@@ -496,9 +496,9 @@ If you were previously using database-based syncing:
 
 ## See Also
 
-- [Getting Started Guide](./getting-started.md) - Initial setup
-- [API Reference](./api-reference.md) - Full API documentation
-- [Architecture Guide](./architecture.md) - System architecture
+- [Getting Started Guide](../getting-started.md) - Initial setup
+- [API Reference](../api-reference.md) - Full API documentation
+- [Architecture Guide](../architecture.md) - System architecture
 
 
 

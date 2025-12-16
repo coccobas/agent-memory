@@ -352,8 +352,8 @@ See [CONTRIBUTING.md](../CONTRIBUTING.md) for more details.
 
 ## Resources
 
-- [Architecture Documentation](./architecture.md)
-- [API Reference](./api-reference.md)
-- [Testing Guide](./testing-guide.md)
-- [Data Model](./data-model.md)
+- [Architecture Documentation](../architecture.md)
+- [API Reference](../api-reference.md)
+- [Testing Guide](./testing.md)
+- [Data Model](../data-model.md)
 - [Example Workflows](../examples/workflows/)
