@@ -12,7 +12,8 @@ data/*.db-wal
 data/vectors.lance/
 
 # IDE
-.vscode/
+.vscode/*
+!.vscode/settings.json
 .idea/
 .cursor/
 *.swp
@@ -53,3 +54,4 @@ coverage/
 # CI/CD (locally managed)
 .github/workflows/
 
+strategy docs/
