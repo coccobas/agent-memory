@@ -47,7 +47,7 @@ Add to Claude Desktop (`%APPDATA%\Claude\claude_desktop_config.json`):
 }
 ```
 
-That's it! The database initializes automatically on first run. See [Getting Started](./getting-started.md) for detailed setup. **Windows users:** See [Windows Setup Guide](./windows-setup.md) for Windows-specific instructions.
+That's it! The database initializes automatically on first run. See [Getting Started](./getting-started.md) for detailed setup. **Windows users:** See [Windows Setup Guide](./guides/windows-setup.md) for Windows-specific instructions.
 
 ## What Problem Does This Solve?
 
@@ -158,7 +158,7 @@ Add to `%APPDATA%\Claude\claude_desktop_config.json`:
 }
 ```
 
-> **Windows users:** See [Windows Setup Guide](./windows-setup.md) for detailed Windows-specific instructions.
+> **Windows users:** See [Windows Setup Guide](./guides/windows-setup.md) for detailed Windows-specific instructions.
 
 ## Syncing Rules to IDEs
 
@@ -176,7 +176,7 @@ npm run sync-rules --ide cursor --scope project --scope-id <project-id>
 
 **Watch Mode:** `npm run sync-rules:watch` - Auto-sync as you work
 
-See [Rules Sync Guide](./rules-sync.md) for detailed documentation.
+See [Rules Sync Guide](./guides/rules-sync.md) for detailed documentation.
 
 ## Example Usage
 
@@ -226,20 +226,22 @@ See [Rules Sync Guide](./rules-sync.md) for detailed documentation.
 
 ## 📚 Documentation
 
-### Getting Started
+### Core Documentation
 - [Getting Started Guide](./getting-started.md) - Detailed setup and usage
-- [Windows Setup Guide](./windows-setup.md) - Windows-specific setup instructions
-- [Development Guide](./development.md) - Local development setup
+- [API Reference](./api-reference.md) - Complete MCP tool documentation
+- [Architecture](./architecture.md) - System design and database schema
+- [Data Model](./data-model.md) - Entity relationships and scoping
 - [Contributing](./contributing.md) - How to contribute
-- [Initialization](./initialization.md) - Database setup and migrations
+
+### Guides
+- [Development Guide](./guides/development.md) - Local development setup
+- [Testing Guide](./guides/testing.md) - Testing guidelines and examples
+- [Windows Setup](./guides/windows-setup.md) - Windows-specific setup
+- [Rules Sync](./guides/rules-sync.md) - Syncing rules to IDEs
 
 ### Reference
-- [Architecture](./architecture.md) - System design and database schema
-- [API Reference](./api-reference.md) - Complete MCP tool documentation
-- [Data Model](./data-model.md) - Entity relationships and scoping
-- [Testing Guide](./testing-guide.md) - Testing guidelines and examples
-- [Feature Gaps](./FEATURE_GAPS.md) - Missing features compared to similar projects
-- [MDAP Support](./mdap-support.md) - Large-scale agentic workflows and million-step tasks
+- [Database Initialization](./reference/initialization.md) - Database setup and migrations
+- [MDAP Support](./reference/mdap-support.md) - Large-scale agentic workflows
 
 ### Examples
 - [Example Workflows](../examples/workflows/) - Practical usage examples
@@ -312,7 +314,7 @@ npm run validate
 npm run db:studio
 ```
 
-See [Development Guide](./development.md) for more details.
+See [Development Guide](./guides/development.md) for more details.
 
 ## 🐛 Troubleshooting
 
@@ -354,7 +356,7 @@ See [Debugging Guide](../examples/workflows/debugging.md) for more solutions.
 We welcome contributions! Please read:
 
 1. [Contributing Guide](./contributing.md) - Guidelines and process
-2. [Development Guide](./development.md) - Setup and workflow
+2. [Development Guide](./guides/development.md) - Setup and workflow
 3. Run `npm run validate` before submitting PRs
 4. Add tests for new features
 
