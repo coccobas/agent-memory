@@ -12,8 +12,7 @@ data/*.db-wal
 data/vectors.lance/
 
 # IDE
-.vscode/*
-!.vscode/settings.json
+.vscode/
 .idea/
 .cursor/
 *.swp

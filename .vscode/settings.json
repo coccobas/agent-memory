@@ -1,9 +1,0 @@
-{
-  "[sql]": {
-    "editor.formatOnSave": false,
-    "editor.formatOnPaste": false
-  },
-  "files.associations": {
-    "*.sql": "sql"
-  }
-}
