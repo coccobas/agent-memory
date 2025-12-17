@@ -1,4 +1,4 @@
-FROM node:20-slim AS builder
+FROM node:25-slim AS builder
 
 WORKDIR /app
 
@@ -23,7 +23,7 @@ COPY . .
 RUN npm run build
 
 # Production stage
-FROM node:20-slim
+FROM node:25-slim
 
 WORKDIR /app
 
@@ -32,15 +32,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libsqlite3-0 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy package files for production install
+# Copy package.json for runtime reference
 COPY --from=builder /app/package.json ./
-COPY --from=builder /app/package-lock.json ./
 
-# Install only production dependencies and clean cache
-RUN npm ci --omit=dev && npm cache clean --force
-
-# Copy built files
+# Copy built files and node_modules from builder
+# (better-sqlite3 has no prebuilt binaries for Node 25, so we use the compiled version)
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/node_modules ./node_modules
 
 # Create data directory at /data (will be bind-mounted from host)
 RUN mkdir -p /data && chown -R node:node /data
