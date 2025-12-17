@@ -1,6 +1,6 @@
 # API Reference
 
-Complete documentation for the 19 bundled MCP tools provided by Agent Memory (v0.8.3).
+Complete documentation for the 19 bundled MCP tools provided by Agent Memory (v0.8.5).
 
 ## Tool Bundling
 

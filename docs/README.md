@@ -106,60 +106,6 @@ All changes are tracked with append-only versioning:
 - **Relations** - Link related entries
 - **Queries** - Find relevant context across all sections
 
-## Quick Start
-
-### Installation
-
-```bash
-# Clone and install
-cd agent-memory
-npm install
-
-# Build
-npm run build
-```
-
-**Note:** Database initialization happens automatically on first startup - no manual migration required!
-
-### Running the Server
-
-```bash
-# Start MCP server
-node dist/index.js
-```
-
-### Adding to Claude Desktop
-
-**Unix/Linux/macOS:**
-Add to `~/.config/claude/claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "agent-memory": {
-      "command": "node",
-      "args": ["/path/to/agent-memory/dist/index.js"]
-    }
-  }
-}
-```
-
-**Windows:**
-Add to `%APPDATA%\Claude\claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "agent-memory": {
-      "command": "node",
-      "args": ["C:/path/to/agent-memory/dist/index.js"]
-    }
-  }
-}
-```
-
-> **Windows users:** See [Windows Setup Guide](./guides/windows-setup.md) for detailed Windows-specific instructions.
-
 ## Syncing Rules to IDEs
 
 Sync guidelines to IDE-specific formats for easy setup:
@@ -242,6 +188,11 @@ See [Rules Sync Guide](./guides/rules-sync.md) for detailed documentation.
 ### Reference
 - [Database Initialization](./reference/initialization.md) - Database setup and migrations
 - [MDAP Support](./reference/mdap-support.md) - Large-scale agentic workflows
+- [Environment Variables](./reference/environment-variables.md) - Configuration options
+- [Error Codes](./reference/error-codes.md) - Error reference
+
+### Security
+- [Security Guide](./security.md) - Security features and best practices
 
 ### Examples
 - [Example Workflows](../examples/workflows/) - Practical usage examples
@@ -274,7 +225,7 @@ agent-memory/
 ├── data/
 │   └── memory.db               # SQLite database
 ├── tests/
-│   ├── unit/                   # Unit tests (57 files)
+│   ├── unit/                   # Unit tests (59 files)
 │   └── integration/            # Integration tests
 └── docs/                       # Documentation
 ```
@@ -286,7 +237,7 @@ agent-memory/
 - **SQLite** - Portable, zero-config database (WAL mode for concurrency)
 - **Drizzle ORM** - Type-safe queries and migrations
 - **LanceDB** - Vector database for semantic search
-- **Vitest** - Fast testing with 80% coverage threshold (802 tests)
+- **Vitest** - Fast testing with 80% coverage threshold (1079 tests)
 
 ## 🔧 Development
 
@@ -367,7 +318,7 @@ Quick setup:
 
 ## 📊 Project Status
 
-**Current Version: 0.8.3**
+**Current Version: 0.8.5**
 
 - ✅ Core CRUD operations
 - ✅ MCP server with 19 bundled tools
@@ -381,7 +332,7 @@ Quick setup:
 - ✅ Advanced filtering (fuzzy, regex, date ranges, priority)
 - ✅ Fine-grained permissions system
 - ✅ Comprehensive audit logging
-- ✅ 802 passing tests with 80% coverage threshold
+- ✅ 1079 passing tests with 80% coverage threshold
 - 🔄 In active development
 
 ## 🌟 Features

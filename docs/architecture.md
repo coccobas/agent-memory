@@ -1,8 +1,30 @@
 # Agent Memory Database - Architecture
 
-> **Version:** 0.8.3
-> **Last Updated:** 2025-12-14
+> **Version:** 0.8.5
+> **Last Updated:** 2024-12-17
 > **Status:** Production Ready - Performance Optimizations & Security
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Technology Stack](#technology-stack)
+- [Database Schema](#database-schema)
+- [Conflict Resolution System](#conflict-resolution-system)
+- [MCP Tool Interface](#mcp-tool-interface)
+- [Query System](#query-system)
+- [Relevance Ranking](#relevance-ranking)
+- [Predefined Tags](#predefined-tags-initial-set)
+- [Session Modes](#session-modes)
+- [Token Budget Awareness](#token-budget-awareness)
+- [Performance Characteristics](#performance-characteristics)
+- [Migration Path: SQLite → PostgreSQL](#migration-path-sqlite--postgresql)
+- [Implementation Roadmap](#implementation-roadmap)
+- [Design Decisions Log](#design-decisions-log)
+- [Support for Large-Scale Agentic Workflows (MDAP)](#support-for-large-scale-agentic-workflows-mdap)
+- [Conversation History System](#conversation-history-system)
+- [References](#references)
+
+---
 
 ## Overview
 

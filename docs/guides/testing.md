@@ -2,6 +2,23 @@
 
 This guide walks you through testing the Agent Memory MCP server from the command line, including using the MCP Inspector for interactive testing.
 
+## Table of Contents
+
+- [Prerequisites](#prerequisites)
+- [Quick Start](#quick-start)
+- [Testing with MCP Inspector](#testing-with-mcp-inspector)
+- [Manual Testing Scenarios](#manual-testing-scenarios)
+- [End-to-End Workflows](#end-to-end-workflows)
+- [Testing Text Search](#testing-text-search)
+- [Testing Compact Mode](#testing-compact-mode)
+- [Testing Version History](#testing-version-history)
+- [Direct Database Verification](#direct-database-verification)
+- [Troubleshooting](#troubleshooting)
+- [Running Automated Tests](#running-automated-tests)
+- [Next Steps](#next-steps)
+
+---
+
 ## Prerequisites
 
 - Node.js 20.x or later
@@ -13,7 +30,7 @@ This guide walks you through testing the Agent Memory MCP server from the comman
 ### 1. Build the Project
 
 ```bash
-cd /Users/b.cocco/coccobas/Memory
+cd agent-memory
 npm install
 npm run build
 ```

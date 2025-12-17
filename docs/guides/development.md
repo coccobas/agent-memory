@@ -231,7 +231,7 @@ describe('My Feature', () => {
 
 #### Test Coverage Details
 
-**Current Coverage (802 tests passing, 57 test files):**
+**Current Coverage (1079 tests passing, 59 test files):**
 - Statements: >80%
 - Functions: >80%
 - Branches: >80%
@@ -340,7 +340,7 @@ Before submitting a PR:
 4. Follow the code style guidelines
 5. Write clear commit messages
 
-See [CONTRIBUTING.md](../CONTRIBUTING.md) for more details.
+See [Contributing Guide](../contributing.md) for more details.
 
 ## Environment Variables
 

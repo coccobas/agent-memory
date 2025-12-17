@@ -42,8 +42,10 @@ coverage/
 *.tmp
 *.temp
 
-# Ignore markdown files in main directory
+# Ignore markdown files in main directory (except core project files)
 /*.md
+!README.md
+!CHANGELOG.md
 
 # Agent-specific generated files
 .claude-flow/

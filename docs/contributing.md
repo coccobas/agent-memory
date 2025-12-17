@@ -84,7 +84,7 @@ npm run validate
 #### Testing
 
 - Add tests for new features
-- Maintain or improve test coverage (current: ~78%, see [Test Coverage](./guides/development.md#test-coverage) for details)
+- Maintain or improve test coverage (current: 80%, see [Test Coverage](./guides/development.md#test-coverage) for details)
 - Test edge cases and error conditions
 - Integration tests for MCP tool handlers
 - Unit tests for repositories and services
