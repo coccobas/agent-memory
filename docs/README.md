@@ -186,6 +186,7 @@ See [Rules Sync Guide](./guides/rules-sync.md) for detailed documentation.
 
 ### Guides
 - [Development Guide](./guides/development.md) - Local development setup
+- [Docker Setup](./guides/docker-setup.md) - Docker installation and deployment
 - [Testing Guide](./guides/testing.md) - Testing guidelines and examples
 - [Windows Setup](./guides/windows-setup.md) - Windows-specific setup
 - [Rules Sync](./guides/rules-sync.md) - Syncing rules to IDEs

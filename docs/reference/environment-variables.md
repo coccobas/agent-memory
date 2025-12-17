@@ -49,6 +49,8 @@ $env:AGENT_MEMORY_DB_PATH = "C:\data\agent-memory\memory.db"
 - Database uses WAL mode for better concurrency
 - If you run from multiple IDEs (Cursor/Claude Code/Docker), prefer a shared absolute path (example: `~/.agent-memory/memory.db`)
 
+> **Docker Note:** This variable is **ignored** when running in Docker. The container hardcodes the path to `/data/memory.db` internally. Control the host location via the volume mount (`-v ~/.agent-memory:/data`). See the [Docker Setup Guide](../guides/docker-setup.md) for details.
+
 ---
 
 ### AGENT_MEMORY_VECTOR_DB_PATH
@@ -67,6 +69,8 @@ export AGENT_MEMORY_VECTOR_DB_PATH=/var/lib/agent-memory/vectors.lance
 **Notes:**
 - Used for semantic search embeddings
 - Created automatically on first embedding generation
+
+> **Docker Note:** This variable is **ignored** when running in Docker. The container hardcodes the path to `/data/vectors.lance` internally. Control the host location via the volume mount (`-v ~/.agent-memory:/data`). See the [Docker Setup Guide](../guides/docker-setup.md) for details.
 
 </details>
 
@@ -347,6 +351,7 @@ export AGENT_MEMORY_QUERY_CACHE_SIZE=0
 ## See Also
 
 - [Getting Started](../getting-started.md) - Initial setup guide
+- [Docker Setup](../guides/docker-setup.md) - Docker installation and configuration
 - [Development Guide](../guides/development.md) - Development setup
 - [Windows Setup](../guides/windows-setup.md) - Windows-specific configuration
 - [Architecture](../architecture.md) - System design details

@@ -6,8 +6,8 @@ This guide walks you through setting up and using Agent Memory.
 
 ## Prerequisites
 
-- Node.js 20.x or later
-- npm 10.x or later
+- Node.js 20.x or later (or Docker 20.x+ for containerized deployment)
+- npm 10.x or later (not needed for Docker)
 - An MCP-compatible client (Claude Desktop, Claude Code, etc.)
 
 ## Installation
@@ -121,6 +121,25 @@ Or with forward slashes:
 ```powershell
 claude mcp add agent-memory node C:/path/to/agent-memory/dist/index.js
 ```
+
+### With Docker
+
+For containerized deployment, build and run the Docker image:
+
+```bash
+# Build the image
+cd agent-memory
+docker build -t agent-memory:latest .
+
+# Add to Claude Code
+claude mcp add agent-memory docker -- run -i --rm \
+  -v ~/.agent-memory:/data \
+  agent-memory:latest
+```
+
+Data is stored in `~/.agent-memory` on the host. The container uses hardcoded paths internally (`/data/memory.db`, `/data/vectors.lance`), so `AGENT_MEMORY_DB_PATH` and `AGENT_MEMORY_VECTOR_DB_PATH` from `.env` are **not used** in Docker.
+
+> For detailed Docker configuration including docker-compose, environment variables, and troubleshooting, see the [Docker Setup Guide](./guides/docker-setup.md).
 
 ## First Steps
 
