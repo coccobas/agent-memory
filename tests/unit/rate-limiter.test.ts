@@ -393,14 +393,18 @@ describe('RateLimiter', () => {
 });
 
 describe('Singleton Rate Limiters', () => {
-  beforeEach(() => {
-    resetRateLimiters();
+  beforeEach(async () => {
     delete process.env.AGENT_MEMORY_RATE_LIMIT;
+    const { reloadConfig } = await import('../../src/config/index.js');
+    reloadConfig();
+    resetRateLimiters();
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     resetRateLimiters();
     delete process.env.AGENT_MEMORY_RATE_LIMIT;
+    const { reloadConfig } = await import('../../src/config/index.js');
+    reloadConfig();
   });
 
   describe('getPerAgentLimiter', () => {
@@ -424,8 +428,10 @@ describe('Singleton Rate Limiters', () => {
       expect(limiter.isEnabled()).toBe(true);
     });
 
-    it('should be disabled when env var is set to 0', () => {
+    it('should be disabled when env var is set to 0', async () => {
       process.env.AGENT_MEMORY_RATE_LIMIT = '0';
+      const { reloadConfig } = await import('../../src/config/index.js');
+      reloadConfig();
       resetRateLimiters();
 
       const limiter = getPerAgentLimiter();
@@ -449,8 +455,10 @@ describe('Singleton Rate Limiters', () => {
       expect(stats.windowMs).toBe(DEFAULT_RATE_LIMITS.global.windowMs);
     });
 
-    it('should be disabled when env var is set to 0', () => {
+    it('should be disabled when env var is set to 0', async () => {
       process.env.AGENT_MEMORY_RATE_LIMIT = '0';
+      const { reloadConfig } = await import('../../src/config/index.js');
+      reloadConfig();
       resetRateLimiters();
 
       const limiter = getGlobalLimiter();
@@ -474,8 +482,10 @@ describe('Singleton Rate Limiters', () => {
       expect(stats.windowMs).toBe(DEFAULT_RATE_LIMITS.burst.windowMs);
     });
 
-    it('should be disabled when env var is set to 0', () => {
+    it('should be disabled when env var is set to 0', async () => {
       process.env.AGENT_MEMORY_RATE_LIMIT = '0';
+      const { reloadConfig } = await import('../../src/config/index.js');
+      reloadConfig();
       resetRateLimiters();
 
       const limiter = getBurstLimiter();
@@ -485,13 +495,18 @@ describe('Singleton Rate Limiters', () => {
 });
 
 describe('checkRateLimits', () => {
-  beforeEach(() => {
-    resetRateLimiters();
+  beforeEach(async () => {
     delete process.env.AGENT_MEMORY_RATE_LIMIT;
+    const { reloadConfig } = await import('../../src/config/index.js');
+    reloadConfig();
+    resetRateLimiters();
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     resetRateLimiters();
+    delete process.env.AGENT_MEMORY_RATE_LIMIT;
+    const { reloadConfig } = await import('../../src/config/index.js');
+    reloadConfig();
   });
 
   it('should allow request when all limits are satisfied', () => {

@@ -1,5 +1,8 @@
 // Main entry point for agent-memory MCP server
 
+// Load configuration first (imports .env)
+import './config/index.js';
+
 export * from './db/index.js';
 // Re-export MCP server
 export { createServer, runServer } from './mcp/server.js';

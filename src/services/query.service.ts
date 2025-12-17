@@ -27,6 +27,7 @@ import { getVectorService } from './vector.service.js';
 import { createComponentLogger } from '../utils/logger.js';
 import { LRUCache } from '../utils/lru-cache.js';
 import { getMemoryCoordinator } from '../utils/memory-coordinator.js';
+import { config } from '../config/index.js';
 import {
   DEFAULT_SEMANTIC_THRESHOLD,
   SEMANTIC_SCORE_WEIGHT,
@@ -918,7 +919,7 @@ function computeScore(params: {
 // MAIN QUERY
 // =============================================================================
 
-const PERF_LOG = process.env.AGENT_MEMORY_PERF === '1';
+const PERF_LOG = config.logging.performance;
 
 /**
  * Execute FTS5 full-text search for better performance

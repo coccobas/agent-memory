@@ -8,6 +8,7 @@
 import { guidelineRepo } from '../db/repositories/guidelines.js';
 import type { ScopeType, EntryType } from '../db/schema.js';
 import { createComponentLogger } from '../utils/logger.js';
+import { config } from '../config/index.js';
 
 const logger = createComponentLogger('validation');
 
@@ -22,24 +23,24 @@ export interface ValidationResult {
   errors: ValidationError[];
 }
 
-// Size limit constants
+// Size limit constants from config
 export const SIZE_LIMITS = {
   // Text field limits (characters)
-  NAME_MAX_LENGTH: 500,
-  TITLE_MAX_LENGTH: 1000,
-  DESCRIPTION_MAX_LENGTH: 10000,
-  CONTENT_MAX_LENGTH: 100000, // 100KB
-  RATIONALE_MAX_LENGTH: 5000,
+  NAME_MAX_LENGTH: config.validation.nameMaxLength,
+  TITLE_MAX_LENGTH: config.validation.titleMaxLength,
+  DESCRIPTION_MAX_LENGTH: config.validation.descriptionMaxLength,
+  CONTENT_MAX_LENGTH: config.validation.contentMaxLength,
+  RATIONALE_MAX_LENGTH: config.validation.rationaleMaxLength,
 
   // JSON field limits (bytes when serialized)
-  METADATA_MAX_BYTES: 50000, // 50KB
-  PARAMETERS_MAX_BYTES: 50000, // 50KB
-  EXAMPLES_MAX_BYTES: 100000, // 100KB
+  METADATA_MAX_BYTES: config.validation.metadataMaxBytes,
+  PARAMETERS_MAX_BYTES: config.validation.parametersMaxBytes,
+  EXAMPLES_MAX_BYTES: config.validation.examplesMaxBytes,
 
   // Array limits
-  TAGS_MAX_COUNT: 50,
-  EXAMPLES_MAX_COUNT: 20,
-  BULK_OPERATION_MAX: 100,
+  TAGS_MAX_COUNT: config.validation.tagsMaxCount,
+  EXAMPLES_MAX_COUNT: config.validation.examplesMaxCount,
+  BULK_OPERATION_MAX: config.validation.bulkOperationMax,
 } as const;
 
 // Legacy constants for backward compatibility
@@ -248,8 +249,7 @@ export function validateEntry(
       }
     } catch (error) {
       // Skip invalid rules
-      // eslint-disable-next-line no-console
-      if (process.env.AGENT_MEMORY_PERF === '1') {
+      if (config.logging.performance) {
         logger.error({ ruleName: rule.name, error }, 'Error applying validation rule');
       }
     }
@@ -404,3 +404,4 @@ export function validateEntry(
     errors,
   };
 }
+

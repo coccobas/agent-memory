@@ -6,6 +6,7 @@
  */
 
 import { createComponentLogger } from './logger.js';
+import { config } from '../config/index.js';
 
 const logger = createComponentLogger('rate-limiter');
 
@@ -219,23 +220,14 @@ export class RateLimiter {
   }
 }
 
-// Default rate limiter configurations
+// Default rate limiter configurations from config
 export const DEFAULT_RATE_LIMITS = {
   // Per-agent limits
-  perAgent: {
-    maxRequests: 100, // 100 requests
-    windowMs: 60000, // per minute
-  },
+  perAgent: config.rateLimit.perAgent,
   // Global limits (across all agents)
-  global: {
-    maxRequests: 1000, // 1000 requests
-    windowMs: 60000, // per minute
-  },
+  global: config.rateLimit.global,
   // Burst protection (short window)
-  burst: {
-    maxRequests: 20, // 20 requests
-    windowMs: 1000, // per second
-  },
+  burst: config.rateLimit.burst,
 } as const;
 
 // Singleton instances
@@ -248,10 +240,9 @@ let burstLimiter: RateLimiter | null = null;
  */
 export function getPerAgentLimiter(): RateLimiter {
   if (!perAgentLimiter) {
-    const enabled = process.env.AGENT_MEMORY_RATE_LIMIT !== '0';
     perAgentLimiter = new RateLimiter({
       ...DEFAULT_RATE_LIMITS.perAgent,
-      enabled,
+      enabled: config.rateLimit.enabled,
     });
   }
   return perAgentLimiter;
@@ -262,10 +253,9 @@ export function getPerAgentLimiter(): RateLimiter {
  */
 export function getGlobalLimiter(): RateLimiter {
   if (!globalLimiter) {
-    const enabled = process.env.AGENT_MEMORY_RATE_LIMIT !== '0';
     globalLimiter = new RateLimiter({
       ...DEFAULT_RATE_LIMITS.global,
-      enabled,
+      enabled: config.rateLimit.enabled,
     });
   }
   return globalLimiter;
@@ -276,10 +266,9 @@ export function getGlobalLimiter(): RateLimiter {
  */
 export function getBurstLimiter(): RateLimiter {
   if (!burstLimiter) {
-    const enabled = process.env.AGENT_MEMORY_RATE_LIMIT !== '0';
     burstLimiter = new RateLimiter({
       ...DEFAULT_RATE_LIMITS.burst,
-      enabled,
+      enabled: config.rateLimit.enabled,
     });
   }
   return burstLimiter;

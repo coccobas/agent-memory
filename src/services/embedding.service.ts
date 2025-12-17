@@ -5,17 +5,13 @@
  * - OpenAI API (text-embedding-3-small)
  * - Local models via @xenova/transformers
  * - Disabled mode (falls back to text search only)
- *
- * Environment Variables:
- * - AGENT_MEMORY_EMBEDDING_PROVIDER: 'openai' | 'local' | 'disabled' (default: 'openai')
- * - AGENT_MEMORY_OPENAI_API_KEY: OpenAI API key (required for OpenAI provider)
- * - AGENT_MEMORY_OPENAI_MODEL: Embedding model name (default: 'text-embedding-3-small')
  */
 
 import { OpenAI } from 'openai';
 import { pipeline } from '@xenova/transformers';
 import { createComponentLogger } from '../utils/logger.js';
 import { withRetry, isRetryableNetworkError } from '../utils/retry.js';
+import { config } from '../config/index.js';
 
 const logger = createComponentLogger('embedding');
 
@@ -51,36 +47,20 @@ class EmbeddingService {
   public static hasLoggedModelLoad = false; // Public for test reset access
 
   constructor() {
-    // Determine provider from environment
-    const providerEnv = process.env.AGENT_MEMORY_EMBEDDING_PROVIDER?.toLowerCase();
+    // Get provider from centralized config
+    this.provider = config.embedding.provider;
 
-    if (providerEnv === 'disabled') {
-      this.provider = 'disabled';
-    } else if (providerEnv === 'local') {
-      this.provider = 'local';
-    } else {
-      // Default to OpenAI, but fall back to local if no API key
-      const apiKey = process.env.AGENT_MEMORY_OPENAI_API_KEY;
-      if (apiKey) {
-        this.provider = 'openai';
-      } else {
-        // Only warn once to avoid spam in tests
-        if (!hasWarnedAboutOpenAI) {
-          logger.warn('No OpenAI API key found, falling back to local model');
-          hasWarnedAboutOpenAI = true;
-        }
-        this.provider = 'local';
-      }
+    // Warn once if falling back to local (no API key)
+    if (this.provider === 'local' && !config.embedding.openaiApiKey && !hasWarnedAboutOpenAI) {
+      logger.warn('No OpenAI API key found, using local model');
+      hasWarnedAboutOpenAI = true;
     }
 
-    this.openaiModel = process.env.AGENT_MEMORY_OPENAI_MODEL || 'text-embedding-3-small';
+    this.openaiModel = config.embedding.openaiModel;
 
     // Initialize OpenAI client if using OpenAI
-    if (this.provider === 'openai') {
-      const apiKey = process.env.AGENT_MEMORY_OPENAI_API_KEY;
-      if (apiKey) {
-        this.openaiClient = new OpenAI({ apiKey });
-      }
+    if (this.provider === 'openai' && config.embedding.openaiApiKey) {
+      this.openaiClient = new OpenAI({ apiKey: config.embedding.openaiApiKey });
     }
   }
 

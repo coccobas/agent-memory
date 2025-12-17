@@ -56,6 +56,10 @@ describe('Embedding Service', () => {
     const originalProvider = process.env.AGENT_MEMORY_EMBEDDING_PROVIDER;
     process.env.AGENT_MEMORY_EMBEDDING_PROVIDER = 'disabled';
 
+    // Reload config to pick up the new env var
+    const { reloadConfig } = await import('../../src/config/index.js');
+    reloadConfig();
+
     resetEmbeddingService();
     const service = getEmbeddingService();
 
@@ -67,6 +71,7 @@ describe('Embedding Service', () => {
     } else {
       delete process.env.AGENT_MEMORY_EMBEDDING_PROVIDER;
     }
+    reloadConfig();
   });
 
   it('should reject empty text', async () => {
@@ -81,3 +86,4 @@ describe('Embedding Service', () => {
   // Note: Actual embedding generation tests would require API keys or local model setup
   // Those are integration tests rather than unit tests
 });
+

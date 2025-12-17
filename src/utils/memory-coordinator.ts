@@ -7,14 +7,15 @@
 
 import type { LRUCache } from './lru-cache.js';
 import { createComponentLogger } from './logger.js';
-import {
-  CACHE_PRESSURE_THRESHOLD,
-  CACHE_EVICTION_TARGET,
-  DEFAULT_MEMORY_CHECK_INTERVAL_MS,
-  DEFAULT_TOTAL_CACHE_LIMIT_MB,
-} from './constants.js';
+import { config } from '../config/index.js';
 
 const logger = createComponentLogger('memory-coordinator');
+
+// Constants from config (for backward compatibility with existing code)
+const CACHE_PRESSURE_THRESHOLD = config.cache.pressureThreshold;
+const CACHE_EVICTION_TARGET = config.cache.evictionTarget;
+const DEFAULT_MEMORY_CHECK_INTERVAL_MS = config.memory.checkIntervalMs;
+const DEFAULT_TOTAL_CACHE_LIMIT_MB = config.cache.totalLimitMB;
 
 /**
  * Cache registry entry
@@ -304,15 +305,10 @@ let coordinator: MemoryCoordinator | null = null;
  */
 export function getMemoryCoordinator(): MemoryCoordinator {
   if (!coordinator) {
-    // Read configuration from environment variables
-    const totalLimitMB = process.env.AGENT_MEMORY_CACHE_LIMIT_MB
-      ? parseInt(process.env.AGENT_MEMORY_CACHE_LIMIT_MB, 10)
-      : DEFAULT_TOTAL_CACHE_LIMIT_MB;
-
     coordinator = new MemoryCoordinator({
-      totalLimitMB,
-      pressureThreshold: CACHE_PRESSURE_THRESHOLD,
-      checkIntervalMs: DEFAULT_MEMORY_CHECK_INTERVAL_MS,
+      totalLimitMB: config.cache.totalLimitMB,
+      pressureThreshold: config.cache.pressureThreshold,
+      checkIntervalMs: config.memory.checkIntervalMs,
     });
   }
   return coordinator;

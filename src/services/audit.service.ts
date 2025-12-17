@@ -10,6 +10,7 @@ import { auditLog } from '../db/schema.js';
 import { generateId } from '../db/repositories/base.js';
 import type { ScopeType, EntryType } from '../db/schema.js';
 import { createComponentLogger } from '../utils/logger.js';
+import { config } from '../config/index.js';
 
 const logger = createComponentLogger('audit');
 
@@ -60,8 +61,7 @@ export function logAction(params: AuditLogParams): void {
         .run();
     } catch (error) {
       // Silently ignore audit logging errors to prevent breaking the application
-      // eslint-disable-next-line no-console
-      if (process.env.AGENT_MEMORY_PERF === '1') {
+      if (config.logging.performance) {
         logger.error({ error }, 'Failed to log action');
       }
     }
@@ -82,3 +82,4 @@ export function withAuditLogging<T extends unknown[]>(
     return result;
   };
 }
+

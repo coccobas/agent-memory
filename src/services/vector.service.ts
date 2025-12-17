@@ -2,39 +2,18 @@
  * Vector database service for storing and searching embeddings
  *
  * Uses LanceDB for vector similarity search
- *
- * Environment Variables:
- * - AGENT_MEMORY_VECTOR_DB_PATH: Path to vector database (default: data/vectors.lance)
  */
 
 import { connect, type Connection, type Table } from '@lancedb/lancedb';
 import { dirname } from 'node:path';
 import { existsSync, mkdirSync } from 'node:fs';
-import { resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { createComponentLogger } from '../utils/logger.js';
+import { config } from '../config/index.js';
 
 const logger = createComponentLogger('vector');
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const projectRoot = resolve(__dirname, '../..');
-
-const DEFAULT_VECTOR_DB_PATH =
-  process.env.AGENT_MEMORY_VECTOR_DB_PATH || resolve(projectRoot, 'data/vectors.lance');
-
-/**
- * Get the distance metric from environment variable
- * Supported values: 'cosine', 'l2', 'dot'
- * Default: 'cosine' (best for semantic similarity with normalized embeddings)
- */
-function getDefaultDistanceMetric(): DistanceMetric {
-  const envMetric = process.env.AGENT_MEMORY_DISTANCE_METRIC?.toLowerCase();
-  if (envMetric === 'l2' || envMetric === 'cosine' || envMetric === 'dot') {
-    return envMetric;
-  }
-  return 'cosine';
-}
+// Configuration from centralized config
+const DEFAULT_VECTOR_DB_PATH = config.vectorDb.path;
 
 /**
  * Validate and sanitize identifier for use in LanceDB filter queries
@@ -94,7 +73,7 @@ class VectorService {
 
   constructor(dbPath?: string, distanceMetric?: DistanceMetric) {
     this.dbPath = dbPath || DEFAULT_VECTOR_DB_PATH;
-    this.distanceMetric = distanceMetric || getDefaultDistanceMetric();
+    this.distanceMetric = distanceMetric || config.vectorDb.distanceMetric;
   }
 
   /**
@@ -502,11 +481,7 @@ let vectorService: VectorService | null = null;
  */
 export function getVectorService(): VectorService {
   if (!vectorService) {
-    // Read environment variable at runtime (not module load time) to support test isolation
-    // If env var is set, use it; otherwise use the default resolved path
-    const dbPath =
-      process.env.AGENT_MEMORY_VECTOR_DB_PATH || resolve(projectRoot, 'data/vectors.lance');
-    vectorService = new VectorService(dbPath);
+    vectorService = new VectorService(config.vectorDb.path);
   }
   return vectorService;
 }

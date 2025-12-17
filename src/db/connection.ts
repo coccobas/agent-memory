@@ -1,11 +1,6 @@
 /**
  * Database connection module for Agent Memory
  *
- * Environment Variables:
- * - AGENT_MEMORY_DB_PATH: Custom database file path (optional, defaults to data/memory.db)
- * - AGENT_MEMORY_PERF: Enable performance logging (set to '1' to enable)
- * - AGENT_MEMORY_CACHE: Enable query result caching (set to '0' to disable, enabled by default)
- * - AGENT_MEMORY_SKIP_INIT: Skip automatic database initialization (set to '1' to skip)
  * Database connection management
  * Manages SQLite connection singleton with health checks
  */
@@ -14,28 +9,21 @@ import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import * as schema from './schema.js';
 import { existsSync, mkdirSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { dirname } from 'node:path';
 import { initializeDatabase } from './init.js';
 import { createComponentLogger } from '../utils/logger.js';
 import { toLongPath, normalizePath } from '../utils/paths.js';
-import { MAX_PREPARED_STATEMENTS, DEFAULT_HEALTH_CHECK_INTERVAL_MS } from '../utils/constants.js';
+import { config } from '../config/index.js';
 
 const logger = createComponentLogger('connection');
 
 // =============================================================================
-// CONSTANTS
+// CONSTANTS FROM CONFIG
 // =============================================================================
 
-const projectRoot = resolve(new URL('.', import.meta.url).pathname, '../..');
-
-const DEFAULT_DB_PATH = (() => {
-  const envPath = process.env.AGENT_MEMORY_DB_PATH;
-  if (envPath) {
-    // Normalize and apply long path support for Windows
-    return toLongPath(normalizePath(envPath));
-  }
-  return toLongPath(normalizePath(resolve(projectRoot, 'data/memory.db')));
-})();
+const MAX_PREPARED_STATEMENTS = config.cache.maxPreparedStatements;
+const DEFAULT_HEALTH_CHECK_INTERVAL_MS = config.health.checkIntervalMs;
+const DEFAULT_DB_PATH = toLongPath(normalizePath(config.database.path));
 
 let dbInstance: ReturnType<typeof drizzle> | null = null;
 let sqliteInstance: Database.Database | null = null;
@@ -100,17 +88,16 @@ export function getDb(options: ConnectionOptions = {}): ReturnType<typeof drizzl
   sqliteInstance.pragma('foreign_keys = ON');
 
   // Auto-initialize database schema if not already done
-  const shouldSkipInit = options.skipInit ?? process.env.AGENT_MEMORY_SKIP_INIT === '1';
+  const shouldSkipInit = options.skipInit ?? config.database.skipInit;
   if (!shouldSkipInit && !isInitialized && !options.readonly) {
-    const verbose = process.env.AGENT_MEMORY_PERF === '1';
-    const result = initializeDatabase(sqliteInstance, { verbose });
+    const result = initializeDatabase(sqliteInstance, { verbose: config.database.verbose });
 
     if (!result.success) {
       logger.error({ errors: result.errors }, 'Database initialization failed');
       throw new Error(`Database initialization failed: ${result.errors.join(', ')}`);
     }
 
-    if (verbose && result.migrationsApplied.length > 0) {
+    if (config.database.verbose && result.migrationsApplied.length > 0) {
       logger.info(
         { migrations: result.migrationsApplied, count: result.migrationsApplied.length },
         'Applied migrations'
@@ -169,9 +156,9 @@ export function isDbHealthy(): boolean {
   }
 }
 
-const MAX_RECONNECT_ATTEMPTS = 3;
-const RECONNECT_BASE_DELAY_MS = 1000;
-const RECONNECT_MAX_DELAY_MS = 5000;
+const MAX_RECONNECT_ATTEMPTS = config.health.maxReconnectAttempts;
+const RECONNECT_BASE_DELAY_MS = config.health.reconnectBaseDelayMs;
+const RECONNECT_MAX_DELAY_MS = config.health.reconnectMaxDelayMs;
 
 /**
  * Attempt to reconnect to the database with exponential backoff

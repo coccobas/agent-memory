@@ -14,25 +14,11 @@ import { appendFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { isMcpServerMode } from './runtime.js';
 import { sanitizeForLogging } from './sanitize.js';
+import { config } from '../config/index.js';
 
-// Only write debug logs if explicitly enabled
-const DEBUG_ENABLED = process.env.AGENT_MEMORY_DEBUG === '1';
-
-// Determine log level from environment variable (default: info)
-// Ensure it's always a valid string, never undefined
-function getLogLevel(): pino.Level {
-  const envLevel = process.env.LOG_LEVEL;
-  if (
-    envLevel &&
-    typeof envLevel === 'string' &&
-    ['fatal', 'error', 'warn', 'info', 'debug', 'trace'].includes(envLevel)
-  ) {
-    return envLevel as pino.Level;
-  }
-  return 'info';
-}
-
-const logLevel = getLogLevel();
+// Configuration from centralized config
+const DEBUG_ENABLED = config.logging.debug;
+const logLevel = config.logging.level;
 
 // Check if running as MCP server (stdio mode)
 // MCP servers use stdin/stdout for protocol, so we must not output anything to stdout
@@ -103,7 +89,7 @@ export const logger = isMcpServer
   ? pino(pinoOptions, pino.destination({ dest: 2, sync: false })) // File descriptor 2 = stderr, async for performance
   : pino({
       ...pinoOptions,
-      ...(process.env.NODE_ENV !== 'production' && {
+      ...(config.runtime.nodeEnv !== 'production' && {
         transport: {
           target: 'pino-pretty',
           options: {
