@@ -2157,7 +2157,7 @@ Detect when agents have low diversity (high correlation).
 
 ---
 
-## memory_permission
+## memory_conflict
 
 Manage version conflicts.
 

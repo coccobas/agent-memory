@@ -22,7 +22,7 @@ npm start
 ```
 
 **Unix/Linux/macOS:**
-Add to Claude Desktop (`~/.config/claude/claude_desktop_config.json`):
+Add to Claude Desktop (`~/.config/claude/claude_desktop_config.json`; some macOS installs use `~/Library/Application Support/Claude/claude_desktop_config.json`):
 ```json
 {
   "mcpServers": {

@@ -34,7 +34,7 @@ This compiles TypeScript to JavaScript in the `dist/` directory.
 **The database is automatically initialized on first run** - no manual setup required!
 
 On first startup, the server will:
-- Create the database file at `.\data\memory.db` (or `./data/memory.db` - both work)
+- Create the database file at `data\\memory.db` relative to the Agent Memory project root
 - Apply all schema migrations automatically
 - Track applied migrations in a `_migrations` table
 
@@ -129,7 +129,9 @@ The database is created at:
 .\data\memory.db
 ```
 
-Relative to the project root. Both `.\data\memory.db` and `./data/memory.db` work on Windows.
+Relative to the Agent Memory project root (repo root when running from source). Both `.\data\memory.db` and `./data/memory.db` work on Windows.
+
+If you install `agent-memory` from npm, the default resolves relative to the module directory. For a stable location, set `AGENT_MEMORY_DB_PATH` to an absolute path.
 
 ### Custom Database Path
 
@@ -216,12 +218,12 @@ set AGENT_MEMORY_OPENAI_API_KEY=your-api-key
 |----------|---------|-------------|
 | `AGENT_MEMORY_DB_PATH` | `data/memory.db` | Database file path |
 | `AGENT_MEMORY_VECTOR_DB_PATH` | `data/vectors.lance` | Vector database path |
-| `AGENT_MEMORY_EMBEDDING_PROVIDER` | `openai` | `openai`, `local`, or `disabled` |
+| `AGENT_MEMORY_EMBEDDING_PROVIDER` | `auto` | `openai`, `local`, or `disabled` (unset = auto) |
 | `AGENT_MEMORY_OPENAI_API_KEY` | - | Required for OpenAI provider |
 | `AGENT_MEMORY_OPENAI_MODEL` | `text-embedding-3-small` | OpenAI embedding model |
 | `AGENT_MEMORY_SEMANTIC_THRESHOLD` | `0.7` | Minimum similarity score (0-1) |
 | `AGENT_MEMORY_PERF` | - | Set to `1` to enable performance logging |
-| `AGENT_MEMORY_CACHE` | `1` | Set to `0` to disable query caching |
+| `AGENT_MEMORY_QUERY_CACHE_SIZE` | `200` | Query cache max entries (set to `0` to disable caching) |
 | `AGENT_MEMORY_SKIP_INIT` | - | Set to `1` to skip auto-initialization |
 
 ## Path Format Notes

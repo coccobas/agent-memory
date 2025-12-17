@@ -33,9 +33,11 @@ This compiles TypeScript to JavaScript in the `dist/` directory.
 **The database is automatically initialized on first run** - no manual setup required!
 
 On first startup, the server will:
-- Create the database file at `./data/memory.db`
+- Create the database file at `data/memory.db` (relative to the Agent Memory project root)
 - Apply all schema migrations automatically
 - Track applied migrations in a `_migrations` table
+
+For a stable location across IDEs and installs, set `AGENT_MEMORY_DB_PATH` to an absolute path (for example `~/.agent-memory/memory.db`).
 
 You can verify initialization works:
 
@@ -70,7 +72,7 @@ The server runs using stdio transport, expecting MCP protocol messages on stdin/
 ### With Claude Desktop
 
 **Unix/Linux/macOS:**
-Add to your Claude Desktop configuration (`~/.config/claude/claude_desktop_config.json`):
+Add to your Claude Desktop configuration (`~/.config/claude/claude_desktop_config.json`; some macOS installs use `~/Library/Application Support/Claude/claude_desktop_config.json`):
 
 ```json
 {
@@ -537,7 +539,7 @@ This will find entries about "login", "credentials", "auth tokens" even if they 
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `AGENT_MEMORY_EMBEDDING_PROVIDER` | `openai` | `openai`, `local`, or `disabled` |
+| `AGENT_MEMORY_EMBEDDING_PROVIDER` | `auto` | `openai`, `local`, or `disabled` (unset = auto) |
 | `AGENT_MEMORY_OPENAI_API_KEY` | - | Required for OpenAI provider |
 | `AGENT_MEMORY_OPENAI_MODEL` | `text-embedding-3-small` | OpenAI embedding model |
 | `AGENT_MEMORY_VECTOR_DB_PATH` | `data/vectors.lance` | Vector database location |

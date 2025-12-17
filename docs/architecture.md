@@ -180,15 +180,18 @@ This architecture enables Massively Decomposed Agentic Processes (MDAPs) by prov
 
 ### Configuration
 
-Database location: `/data/memory.db`
+Database location depends on how you run the server:
+
+- **Source / npm install:** defaults to `data/memory.db` under the Agent Memory project root (use `AGENT_MEMORY_DB_PATH` to override)
+- **Docker image:** defaults to `/data/memory.db` (intended to be a bind-mounted volume)
 
 ```typescript
-// src/db/connection.ts
-import Database from 'better-sqlite3';
-import { drizzle } from 'drizzle-orm/better-sqlite3';
-
-const sqlite = new Database('./data/memory.db');
-export const db = drizzle(sqlite);
+// src/config/index.ts (simplified)
+export const config = {
+  database: {
+    path: process.env.AGENT_MEMORY_DB_PATH ?? 'data/memory.db',
+  },
+};
 ```
 
 ---

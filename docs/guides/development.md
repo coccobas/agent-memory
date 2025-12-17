@@ -99,7 +99,7 @@ This runs linting, formatting check, type checking, and tests.
 
 #### Database Location
 
-By default, the database is stored at `data/memory.db`. You can customize this with the `AGENT_MEMORY_DB_PATH` environment variable:
+By default, the database is stored at `data/memory.db` relative to the Agent Memory project root. For a stable shared location across IDEs/installs, set `AGENT_MEMORY_DB_PATH` to an absolute path (for example `~/.agent-memory/memory.db`):
 
 ```bash
 export AGENT_MEMORY_DB_PATH=/custom/path/to/memory.db
@@ -274,10 +274,10 @@ npm run dev
 
 ### Enable Query Caching Statistics
 
-Query caching is enabled by default. To disable:
+Query caching is enabled by default. To disable it (useful for debugging):
 
 ```bash
-export AGENT_MEMORY_CACHE=0
+export AGENT_MEMORY_QUERY_CACHE_SIZE=0
 npm run dev
 ```
 
@@ -322,7 +322,7 @@ If migrations fail:
 - Use indexes for frequently queried fields
 - Limit result sets with `limit` parameter (default: 20, max: 100)
 - Use `compact` mode to reduce payload size
-- Enable query caching for global scope queries (enabled by default)
+- Enable query caching for repeated queries (enabled by default; cache keys include scope type + scope id)
 
 ### Database Performance
 
@@ -348,7 +348,7 @@ See [Contributing Guide](../contributing.md) for more details.
 |----------|---------|-------------|
 | `AGENT_MEMORY_DB_PATH` | `data/memory.db` | Custom database file path |
 | `AGENT_MEMORY_PERF` | `0` | Enable performance logging (set to `1`) |
-| `AGENT_MEMORY_CACHE` | `1` | Enable query caching (set to `0` to disable) |
+| `AGENT_MEMORY_QUERY_CACHE_SIZE` | `200` | Query cache max entries (set to `0` to disable caching) |
 
 ## Resources
 

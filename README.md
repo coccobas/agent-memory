@@ -29,7 +29,7 @@ npm install agent-memory
 
 Add to your Claude Desktop configuration:
 
-**macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+**macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json` (some installs use `~/.config/claude/claude_desktop_config.json`)
 **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
 
 ```json

@@ -97,7 +97,9 @@ Override the default database location:
 AGENT_MEMORY_DB_PATH=/custom/path/memory.db
 ```
 
-Default: `./data/memory.db`
+Default: `data/memory.db` (resolved relative to the Agent Memory project root; for npm installs this is the `agent-memory` module directory)
+
+On Unix/macOS you can also use `~` to reference your home directory (example: `AGENT_MEMORY_DB_PATH=~/.agent-memory/memory.db`).
 
 ### AGENT_MEMORY_PERF
 
