@@ -210,6 +210,9 @@ Parameters: {
 
 ## Working with Sessions
 
+<details>
+<summary><strong>Show details</strong></summary>
+
 Sessions track temporary working context.
 
 ### Start a Session
@@ -249,7 +252,12 @@ Parameters: {
 }
 ```
 
+</details>
+
 ## Common Workflows
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### Finding Relevant Context
 
@@ -319,7 +327,12 @@ Parameters: {
 
 ---
 
+</details>
+
 ## Using Agent Memory Inside an AI Agent
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 When integrating an agent (e.g., Claude or a custom MCP client), a typical loop is:
 
@@ -359,7 +372,12 @@ When integrating an agent (e.g., Claude or a custom MCP client), a typical loop 
    - Use `memory_guideline` with `action: "add"` for new rules or patterns.
    - Use `memory_knowledge` with `action: "add"` for important facts and decisions.
 
+</details>
+
 ## Scope Hierarchy
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 Understanding scope is key to effective use:
 
@@ -388,7 +406,12 @@ Global (applies everywhere)
 | Project | Project-specific patterns, decisions |
 | Session | Temporary context, experimental ideas |
 
+</details>
+
 ## Updating Entries
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 All updates create new versions:
 
@@ -412,7 +435,12 @@ Parameters: {
 }
 ```
 
+</details>
+
 ## Best Practices
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### 1. Use Meaningful Names
 
@@ -469,7 +497,12 @@ Parameters: {
 }
 ```
 
+</details>
+
 ## Semantic Search (Optional)
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 Agent Memory supports semantic/vector search for finding conceptually similar entries, not just exact text matches.
 
@@ -547,7 +580,12 @@ This will find entries about "login", "credentials", "auth tokens" even if they 
 
 ---
 
+</details>
+
 ## Using Conversation History
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 Conversation history tracks multi-turn interactions between agents and users, linking them to memory entries for learning and context continuity.
 
@@ -687,7 +725,12 @@ const knowledgeEntries = extractKnowledgeFromConversation(conversationId);
 
 ---
 
+</details>
+
 ## Syncing Rules to IDEs
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 Agent Memory can automatically sync guidelines to IDE-specific rule formats, making it easy to set up rules in any IDE.
 
@@ -745,7 +788,12 @@ For detailed documentation, see [Rules Sync Guide](./guides/rules-sync.md).
 
 ---
 
+</details>
+
 ## Troubleshooting
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 > **Windows users:** See [Windows Setup Guide - Troubleshooting](./guides/windows-setup.md#troubleshooting) for Windows-specific troubleshooting tips.
 
@@ -773,3 +821,5 @@ For detailed documentation, see [Rules Sync Guide](./guides/rules-sync.md).
 1. Check scope: entries are scoped and may not appear in wrong context
 2. Verify `inherit: true` to include parent scopes
 3. Check `includeInactive` if entry was deactivated
+
+</details>

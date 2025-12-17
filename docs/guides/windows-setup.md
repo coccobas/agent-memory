@@ -228,6 +228,9 @@ set AGENT_MEMORY_OPENAI_API_KEY=your-api-key
 
 ## Path Format Notes
 
+<details>
+<summary><strong>Show details</strong></summary>
+
 ### Forward Slashes vs Backslashes
 
 Node.js and the Agent Memory codebase use the `path` module which handles both formats:
@@ -245,7 +248,12 @@ Node.js and the Agent Memory codebase use the `path` module which handles both f
 
 For Claude Desktop configuration, use **absolute paths** to ensure the server can be found regardless of working directory.
 
+</details>
+
 ## Git Integration
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### Pre-commit Hook (Windows)
 
@@ -270,7 +278,12 @@ Copy-Item scripts\pre-commit-sync.sh .git\hooks\pre-commit
 **Option 4: Use TypeScript Alternative**
 The pre-commit hook functionality can be replaced with a Node.js script if needed.
 
+</details>
+
 ## Troubleshooting
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### Server Won't Start
 
@@ -349,7 +362,12 @@ The pre-commit hook functionality can be replaced with a Node.js script if neede
 - Install Git Bash for shell script support
 - Use WSL for full Linux compatibility
 
+</details>
+
 ## Common Windows-Specific Issues
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### Antivirus Interference
 
@@ -374,6 +392,8 @@ Git may change line endings between Windows (`CRLF`) and Unix (`LF`).
 ```powershell
 git config core.autocrlf true
 ```
+
+</details>
 
 ## Additional Resources
 

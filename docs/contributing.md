@@ -46,6 +46,9 @@ Look for issues labeled `good-first-issue` - these are great for newcomers!
 
 ## Contribution Guidelines
 
+<details>
+<summary><strong>Show details</strong></summary>
+
 ### Before You Start
 
 For **major changes** (new features, breaking changes):
@@ -160,7 +163,12 @@ Examples:
 - `docs: improve getting started guide`
 - `test: add integration tests for file locks`
 
+</details>
+
 ## Specific Contribution Areas
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### Adding a New MCP Tool
 
@@ -194,6 +202,8 @@ Examples:
 3. Implement the optimization
 4. Measure the improvement
 5. Document the change in the architecture docs
+
+</details>
 
 ## Review Process
 

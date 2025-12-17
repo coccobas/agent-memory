@@ -4,6 +4,9 @@ Complete reference for the Agent Memory database schema.
 
 ## Entity Relationship Diagram
 
+<details>
+<summary><strong>Show details</strong></summary>
+
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                              SCOPE HIERARCHY                                 │
@@ -98,7 +101,12 @@ Complete reference for the Agent Memory database schema.
 
 ---
 
+</details>
+
 ## Table Definitions
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### organizations
 
@@ -353,6 +361,8 @@ Hybrid tag taxonomy (predefined + custom).
 - Languages: `python`, `typescript`, `javascript`, `rust`, `go`, `java`, `sql`, `bash`, `markdown`
 - Domains: `web`, `cli`, `api`, `database`, `ml`, `devops`, `security`, `testing`, `documentation`
 - Meta: `deprecated`, `experimental`, `stable`, `required`, `optional`
+
+</details>
 
 **Constraints:**
 - Unique on `name`
@@ -659,6 +669,8 @@ Links memory entries to conversations/messages.
 
 ---
 
+</details>
+
 ## Scope Inheritance
 
 The scope system enables hierarchical organization:
@@ -696,6 +708,9 @@ When querying with inheritance enabled:
 
 ## Versioning System
 
+<details>
+<summary><strong>Show details</strong></summary>
+
 ### Append-Only Updates
 
 All changes create new versions:
@@ -730,7 +745,12 @@ When two updates occur within 5 seconds:
 
 ---
 
+</details>
+
 ## JSON Fields
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 Several columns store JSON data:
 

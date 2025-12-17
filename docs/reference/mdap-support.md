@@ -155,6 +155,9 @@ const dependents = await memory_query({
 
 ## Practical Example: Million-Step Task
 
+<details>
+<summary><strong>Show details</strong></summary>
+
 ### Scenario: Solving 20-Disk Towers of Hanoi
 
 The 20-disk Towers of Hanoi requires **1,048,575 moves** (2^20 - 1). Here's how to use Agent Memory:
@@ -340,7 +343,12 @@ if (isInvalid(move)) {
 
 ---
 
+</details>
+
 ## Current Capabilities vs. Full MDAP
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### ✅ Ready Now
 
@@ -375,7 +383,12 @@ if (isInvalid(move)) {
 
 ---
 
+</details>
+
 ## Performance Considerations
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### Scaling to 1M+ Subtasks
 
@@ -433,7 +446,12 @@ const pattern = await memory_guideline.get({
 
 ---
 
+</details>
+
 ## Best Practices
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### 1. Scope Assignment
 
@@ -488,7 +506,12 @@ await memory_knowledge.add({
 
 ---
 
+</details>
+
 ## Future Roadmap
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### v0.6.0: MDAP Core (Q1 2025)
 
@@ -512,6 +535,8 @@ await memory_knowledge.add({
 - [ ] **Resource optimization** - Minimize storage for completed tasks
 
 ---
+
+</details>
 
 ## Research References
 
@@ -537,6 +562,9 @@ https://arxiv.org/abs/2511.09030
 ---
 
 ## Examples & Case Studies
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### Example 1: Multiplication of Large Numbers
 
@@ -595,7 +623,12 @@ for (const file of files) {
 
 ---
 
+</details>
+
 ## FAQ
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 **Q: Can Agent Memory handle 1M entries?**  
 A: Yes. Current benchmarks show <50ms query time with 1M entries (with proper indexes). Storage: ~500MB-5GB depending on versioning depth.
@@ -617,6 +650,8 @@ A: Yes! MDAP support is an extension. Core features (scoping, versioning, queryi
 
 ---
 
+</details>
+
 ## Getting Help
 
 - **Documentation**: See [Architecture](../architecture.md) for technical details
@@ -629,12 +664,5 @@ A: Yes! MDAP support is an extension. Core features (scoping, versioning, queryi
 **Last Updated**: December 2024
 **Version**: 0.8.5
 **Status**: MDAP-ready with full production features including rate limiting, permissions, and comprehensive analytics
-
-
-
-
-
-
-
 
 

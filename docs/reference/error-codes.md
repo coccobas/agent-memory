@@ -17,6 +17,9 @@ Agent Memory uses structured error codes for programmatic error handling. All er
 
 ## Validation Errors (E1000-E1999)
 
+<details>
+<summary><strong>Show details</strong></summary>
+
 ### E1000 - MISSING_REQUIRED_FIELD
 
 **Description:** A required field was not provided in the request.
@@ -108,7 +111,12 @@ Agent Memory uses structured error codes for programmatic error handling. All er
 
 ---
 
+</details>
+
 ## Resource Errors (E2000-E2999)
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### E2000 - NOT_FOUND
 
@@ -167,7 +175,12 @@ Agent Memory uses structured error codes for programmatic error handling. All er
 
 ---
 
+</details>
+
 ## Lock Errors (E3000-E3999)
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### E3000 - FILE_LOCKED
 
@@ -222,7 +235,12 @@ Agent Memory uses structured error codes for programmatic error handling. All er
 
 ---
 
+</details>
+
 ## Database Errors (E4000-E4999)
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### E4000 - DATABASE_ERROR
 
@@ -256,7 +274,12 @@ Agent Memory uses structured error codes for programmatic error handling. All er
 
 ---
 
+</details>
+
 ## System Errors (E5000-E5999)
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### E5000 - UNKNOWN_ERROR
 
@@ -290,7 +313,12 @@ Agent Memory uses structured error codes for programmatic error handling. All er
 
 ---
 
+</details>
+
 ## Permission Errors (E6000-E6999)
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### E6000 - PERMISSION_DENIED
 
@@ -314,7 +342,12 @@ Agent Memory uses structured error codes for programmatic error handling. All er
 
 ---
 
+</details>
+
 ## Error Handling Best Practices
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### 1. Check Error Codes Programmatically
 
@@ -355,6 +388,8 @@ async function withRetry(fn, maxRetries = 3) {
   }
 }
 ```
+
+</details>
 
 ## See Also
 

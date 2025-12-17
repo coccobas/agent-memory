@@ -321,6 +321,9 @@ The hook will:
 
 ## IDE-Specific Formats
 
+<details>
+<summary><strong>Show details</strong></summary>
+
 ### Cursor (.mdc)
 
 Exports to `.cursor/rules/*.mdc` files with frontmatter. **Cursor automatically loads all `.mdc` files from `.cursor/rules/`** - no additional configuration needed.
@@ -373,6 +376,8 @@ source: rules
 All TypeScript files must use strict mode...
 ```
 
+</details>
+
 ## Best Practices
 
 1. **Use Version Control**: Commit rule files in `rules/` to version control
@@ -399,6 +404,9 @@ You can also verify by:
 - Looking at the rules panel in Cursor (if available)
 
 ## Troubleshooting
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### Rules Not Syncing
 
@@ -441,7 +449,12 @@ alwaysApply: true
 3. Increase debounce: Use `--interval` to adjust debounce time
 4. Check permissions: Ensure read permissions for source directory
 
+</details>
+
 ## Advanced Usage
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### Custom Output Directory
 
@@ -472,6 +485,8 @@ npm run sync-rules --ide cursor
 npm run sync-rules --ide cursor --backup
 ```
 
+</details>
+
 ## Integration with CI/CD
 
 Add to your CI pipeline to ensure rule files are always up to date:
@@ -487,6 +502,9 @@ Add to your CI pipeline to ensure rule files are always up to date:
 
 ## Migration from Database-Based Syncing
 
+<details>
+<summary><strong>Show details</strong></summary>
+
 If you were previously using database-based syncing:
 
 1. **Export existing rules**: Use `memory_export` tool to export guidelines to files
@@ -494,12 +512,10 @@ If you were previously using database-based syncing:
 3. **Update scripts**: Remove old database-based options from CI/CD scripts
 4. **Test sync**: Run `npm run sync-rules --verify` to check sync works
 
+</details>
+
 ## See Also
 
 - [Getting Started Guide](../getting-started.md) - Initial setup
 - [API Reference](../api-reference.md) - Full API documentation
 - [Architecture Guide](../architecture.md) - System architecture
-
-
-
-

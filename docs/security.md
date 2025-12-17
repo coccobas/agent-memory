@@ -14,6 +14,9 @@ Agent Memory provides multiple layers of security for multi-agent environments:
 
 ## Permission System
 
+<details>
+<summary><strong>Show details</strong></summary>
+
 ### How It Works
 
 Agent Memory uses a permission system to control access to memory entries. Permissions are checked at the handler level before any operation is performed.
@@ -78,6 +81,8 @@ To enable permission enforcement:
 3. **Audit regularly** - Review permission grants periodically
 4. **Use agent IDs** - Always identify agents for permission tracking
 
+</details>
+
 ## File Locks
 
 ### Purpose
@@ -132,6 +137,9 @@ Use with caution - only when a lock is clearly stale:
 
 ## Audit Logging
 
+<details>
+<summary><strong>Show details</strong></summary>
+
 ### What's Logged
 
 All operations are logged with:
@@ -160,6 +168,8 @@ Audit logs are stored in the `audit_log` table and can be queried using the `mem
 ### Retention
 
 Audit logs are retained indefinitely by default. Consider implementing a cleanup strategy for production environments.
+
+</details>
 
 ## Rate Limiting
 
@@ -233,6 +243,9 @@ When conflicts are detected:
 
 ## Security Checklist
 
+<details>
+<summary><strong>Show details</strong></summary>
+
 ### For Production Deployments
 
 - [ ] Configure explicit permissions (don't rely on default full access)
@@ -250,6 +263,8 @@ When conflicts are detected:
 - [ ] Set up permission hierarchies
 - [ ] Configure conflict notification/alerting
 - [ ] Document agent responsibilities and access levels
+
+</details>
 
 ## Environment Variables
 

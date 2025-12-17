@@ -107,6 +107,9 @@ Once the inspector opens:
 
 ## Manual Testing Scenarios
 
+<details>
+<summary><strong>Show details</strong></summary>
+
 ### Scenario 1: Test Basic Query
 
 **Goal**: Verify `memory_query` returns results from global scope.
@@ -335,7 +338,12 @@ Save the `guideline.id`.
 
 ---
 
+</details>
+
 ## End-to-End Workflows
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### Onboard a New Project
 
@@ -557,6 +565,8 @@ Save the `tool.id`.
 
 ---
 
+</details>
+
 ## Testing Text Search
 
 **Goal**: Verify full-text search across entry content.
@@ -626,6 +636,9 @@ Save the `tool.id`.
 
 ## Direct Database Verification
 
+<details>
+<summary><strong>Show details</strong></summary>
+
 You can also verify data directly in SQLite:
 
 ```bash
@@ -657,7 +670,12 @@ LIMIT 10;
 
 ---
 
+</details>
+
 ## Troubleshooting
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### Server Won't Start
 
@@ -684,6 +702,8 @@ LIMIT 10;
 - **Verify version creation**: Ensure tool updates are creating new versions.
 
 ---
+
+</details>
 
 ## Running Automated Tests
 
@@ -715,5 +735,3 @@ After testing:
 - Explore all tools in `docs/api-reference.md`.
 - Review architecture in `docs/architecture.md`.
 - Check schema details in `docs/data-model.md`.
-
-

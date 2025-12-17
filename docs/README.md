@@ -51,6 +51,9 @@ That's it! The database initializes automatically on first run. See [Getting Sta
 
 ## What Problem Does This Solve?
 
+<details>
+<summary><strong>Show details</strong></summary>
+
 AI agents working on codebases face a context dilemma:
 
 1. **Too much context** - Loading entire project knowledge consumes tokens and dilutes focus
@@ -77,6 +80,8 @@ Agent Memory solves this by providing a **queryable memory layer**:
 │  Scoped: Global → Org → Project → Session                   │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+</details>
 
 ## Key Features
 
@@ -202,6 +207,9 @@ See [Rules Sync Guide](./guides/rules-sync.md) for detailed documentation.
 
 ## Project Structure
 
+<details>
+<summary><strong>Show details</strong></summary>
+
 ```
 agent-memory/
 ├── src/
@@ -230,6 +238,8 @@ agent-memory/
 │   └── integration/            # Integration tests
 └── docs/                       # Documentation
 ```
+
+</details>
 
 ## 🛠️ Technology Stack
 
@@ -270,6 +280,9 @@ See [Development Guide](./guides/development.md) for more details.
 
 ## 🐛 Troubleshooting
 
+<details>
+<summary><strong>Show details</strong></summary>
+
 ### Database Locked Error
 
 ```bash
@@ -302,6 +315,8 @@ npm run db:backup
 ```
 
 See [Debugging Guide](../examples/workflows/debugging.md) for more solutions.
+
+</details>
 
 ## 🤝 Contributing
 
@@ -355,6 +370,9 @@ Quick setup:
 
 ## 🔬 Research-Validated Architecture
 
+<details>
+<summary><strong>Show details</strong></summary>
+
 Agent Memory's design aligns with cutting-edge research on large-scale agentic systems:
 
 **[arXiv:2511.09030](https://arxiv.org/abs/2511.09030)** - "Solving a Million-Step LLM Task with Zero Errors"
@@ -372,6 +390,8 @@ Agent Memory provides the memory infrastructure that enables **Massively Decompo
 - Production-scale agentic systems
 
 See [Architecture: MDAP Support](./architecture.md#support-for-large-scale-agentic-workflows-mdap) for details.
+
+</details>
 
 ## 📝 License
 

@@ -156,6 +156,9 @@ This verifies:
 
 ## Troubleshooting
 
+<details>
+<summary><strong>Show details</strong></summary>
+
 ### "No migration files found"
 
 The migrations directory couldn't be located. Ensure:
@@ -193,6 +196,8 @@ rm -rf data/memory.db*
 # Restart the server (auto-initializes)
 ```
 
+</details>
+
 ## Best Practices
 
 1. **Never edit applied migrations** - Create a new migration instead
@@ -202,6 +207,9 @@ rm -rf data/memory.db*
 5. **Document breaking changes** - Add comments in migration files
 
 ## Architecture
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 The initialization system consists of three main components:
 
@@ -226,7 +234,12 @@ MCP tool handlers for manual control:
 - Provides user-friendly responses
 - Includes safety checks (e.g., confirm for reset)
 
+</details>
+
 ## Examples
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### Check if Database Needs Migration
 
@@ -268,7 +281,12 @@ const db = getDb({ skipInit: true });
 // ... your logic here ...
 ```
 
+</details>
+
 ## Future Enhancements
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 Potential improvements:
 
@@ -277,3 +295,5 @@ Potential improvements:
 - **Migration validation** - Lint SQL before applying
 - **Migration dry-run** - Preview changes without applying
 - **Migration dependencies** - Declare inter-migration dependencies
+
+</details>

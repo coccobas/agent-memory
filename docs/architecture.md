@@ -53,6 +53,9 @@ This architecture enables Massively Decomposed Agentic Processes (MDAPs) by prov
 
 ## Technology Stack
 
+<details>
+<summary><strong>Show details</strong></summary>
+
 ### Core Technologies
 
 | Component | Technology | Version | Rationale |
@@ -196,7 +199,12 @@ export const config = {
 
 ---
 
+</details>
+
 ## Database Schema
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### Core Entities
 
@@ -458,7 +466,12 @@ CREATE INDEX idx_conflicts_unresolved ON conflict_log(entry_type, entry_id) WHER
 
 ---
 
+</details>
+
 ## Conflict Resolution System
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### Write Flow
 
@@ -505,7 +518,12 @@ WHERE id = ?;
 
 ---
 
+</details>
+
 ## MCP Tool Interface
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### Scope Management
 
@@ -560,7 +578,12 @@ WHERE id = ?;
 
 ---
 
+</details>
+
 ## Query System
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### `memory_query` - The Power Tool
 
@@ -648,7 +671,12 @@ Results are merged with scope priority (session overrides project, etc.).
 
 ---
 
+</details>
+
 ## Relevance Ranking
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 Results are scored by:
 
@@ -672,7 +700,12 @@ Results are scored by:
 
 ---
 
+</details>
+
 ## Predefined Tags (Initial Set)
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### Languages
 `python`, `typescript`, `javascript`, `rust`, `go`, `java`, `sql`, `bash`, `markdown`
@@ -688,7 +721,12 @@ Results are scored by:
 
 ---
 
+</details>
+
 ## Session Modes
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 Sessions serve dual purposes based on configuration:
 
@@ -715,7 +753,12 @@ metadata: {
 
 ---
 
+</details>
+
 ## Token Budget Awareness
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### Response Truncation
 
@@ -756,7 +799,12 @@ For minimal token usage:
 
 ---
 
+</details>
+
 ## Performance Characteristics
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### Query Performance
 
@@ -862,7 +910,12 @@ Based on a database with 1,000 entries (500 tools, 300 guidelines, 200 knowledge
 
 ---
 
+</details>
+
 ## Migration Path: SQLite → PostgreSQL
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### SQLite (Development/Single-User)
 
@@ -889,7 +942,12 @@ CREATE INDEX idx_guidelines_content_trgm ON guideline_versions USING gin(content
 
 ---
 
+</details>
+
 ## Implementation Roadmap
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### Milestone 1: Foundation ✅
 - [x] Architecture design
@@ -948,7 +1006,12 @@ CREATE INDEX idx_guidelines_content_trgm ON guideline_versions USING gin(content
 
 ---
 
+</details>
+
 ## Design Decisions Log
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 | Date | Decision | Rationale |
 |------|----------|-----------|
@@ -965,7 +1028,12 @@ CREATE INDEX idx_guidelines_content_trgm ON guideline_versions USING gin(content
 
 ---
 
+</details>
+
 ## Support for Large-Scale Agentic Workflows (MDAP)
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### Massively Decomposed Agentic Processes
 
@@ -1181,7 +1249,12 @@ For a million-step task with maximal decomposition:
 
 ---
 
+</details>
+
 ## Conversation History System
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### Purpose and Use Cases
 
@@ -1281,6 +1354,8 @@ await memory_conversation.end({
 ```
 
 ---
+
+</details>
 
 ## References
 

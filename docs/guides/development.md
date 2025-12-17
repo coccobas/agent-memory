@@ -160,6 +160,9 @@ agent-memory/
 
 ## Code Style Guidelines
 
+<details>
+<summary><strong>Show details</strong></summary>
+
 ### TypeScript
 
 - Use TypeScript strict mode (already configured)
@@ -193,7 +196,12 @@ agent-memory/
 - Avoid obvious comments
 - Explain "why" not "what" in comments
 
+</details>
+
 ## Testing Guidelines
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### Test Structure
 
@@ -263,7 +271,12 @@ The project now enforces an 80% coverage threshold across all metrics. Key impro
 - Accept limitation on server transport/handler dispatch layer
 - Individual tool handlers are fully tested through integration tests
 
+</details>
+
 ## Debugging
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### Enable Performance Logging
 
@@ -315,7 +328,12 @@ If migrations fail:
 2. The database might be in an inconsistent state - use `npm run db:backup` first
 3. You can reset the database with the `memory_init` tool (action: 'reset')
 
+</details>
+
 ## Performance Optimization
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### Query Performance
 
@@ -329,6 +347,8 @@ If migrations fail:
 - WAL mode is enabled by default for better concurrency
 - Keep the database file on SSD for best performance
 - Regular VACUUM operations can improve performance (run via Drizzle Studio)
+
+</details>
 
 ## Contributing
 

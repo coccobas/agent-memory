@@ -42,6 +42,9 @@ Manage organizations (top-level grouping).
 
 **Actions:** `create`, `list`
 
+<details>
+<summary><strong>Show details</strong></summary>
+
 ### Action: create
 
 Create a new organization.
@@ -92,6 +95,8 @@ List all organizations.
 | `limit` | number | No | Max results (default: 50) |
 | `offset` | number | No | Pagination offset |
 
+</details>
+
 ---
 
 ## memory_project
@@ -99,6 +104,9 @@ List all organizations.
 Manage projects within organizations.
 
 **Actions:** `create`, `list`, `get`, `update`
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### Action: create
 
@@ -171,6 +179,8 @@ Update a project.
 }
 ```
 
+</details>
+
 ---
 
 ## memory_session
@@ -178,6 +188,9 @@ Update a project.
 Manage working sessions within projects.
 
 **Actions:** `start`, `end`, `list`
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### Action: start
 
@@ -235,6 +248,8 @@ List sessions for a project.
 }
 ```
 
+</details>
+
 ---
 
 ## memory_tool
@@ -242,6 +257,9 @@ List sessions for a project.
 Manage tool definitions with versioning.
 
 **Actions:** `add`, `update`, `get`, `list`, `history`, `deactivate`, `bulk_add`, `bulk_update`, `bulk_delete`
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### Action: add
 
@@ -433,6 +451,8 @@ Deactivate multiple tools in a single transaction.
 }
 ```
 
+</details>
+
 ---
 
 ## memory_guideline
@@ -440,6 +460,9 @@ Deactivate multiple tools in a single transaction.
 Manage behavioral guidelines with versioning.
 
 **Actions:** `add`, `update`, `get`, `list`, `history`, `deactivate`, `bulk_add`, `bulk_update`, `bulk_delete`
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### Action: add
 
@@ -547,6 +570,8 @@ Update multiple guidelines in a single transaction. Same structure as `bulk_upda
 
 Deactivate multiple guidelines in a single transaction. Same structure as `bulk_delete` for tools.
 
+</details>
+
 ---
 
 ## memory_knowledge
@@ -554,6 +579,9 @@ Deactivate multiple guidelines in a single transaction. Same structure as `bulk_
 Manage knowledge entries (facts, decisions, context) with versioning.
 
 **Actions:** `add`, `update`, `get`, `list`, `history`, `deactivate`, `bulk_add`, `bulk_update`, `bulk_delete`
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### Action: add
 
@@ -660,6 +688,8 @@ Update multiple knowledge entries in a single transaction. Same structure as `bu
 
 Deactivate multiple knowledge entries in a single transaction. Same structure as `bulk_delete` for tools.
 
+</details>
+
 ---
 
 ## memory_tag
@@ -667,6 +697,9 @@ Deactivate multiple knowledge entries in a single transaction. Same structure as
 Manage tags for categorizing entries.
 
 **Actions:** `create`, `list`, `attach`, `detach`, `for_entry`
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### Action: create
 
@@ -750,6 +783,8 @@ Get all tags for an entry.
 }
 ```
 
+</details>
+
 ---
 
 ## memory_relation
@@ -757,6 +792,9 @@ Get all tags for an entry.
 Create explicit links between entries.
 
 **Actions:** `create`, `list`, `delete`
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### Action: create
 
@@ -817,6 +855,8 @@ or by fields:
 }
 ```
 
+</details>
+
 ---
 
 ## memory_file_lock
@@ -824,6 +864,9 @@ or by fields:
 Manage file locks for multi-agent coordination.
 
 **Actions:** `checkout`, `checkin`, `status`, `list`, `force_unlock`
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### Action: checkout
 
@@ -914,6 +957,8 @@ Force unlock a file (admin operation).
 }
 ```
 
+</details>
+
 ---
 
 ## memory_permission
@@ -921,6 +966,9 @@ Force unlock a file (admin operation).
 Manage fine-grained permissions for agents.
 
 **Actions:** `grant`, `revoke`, `check`, `list`
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### Action: grant
 
@@ -1077,6 +1125,8 @@ List all permissions, optionally filtered.
 }
 ```
 
+</details>
+
 ---
 
 ## memory_query
@@ -1084,6 +1134,9 @@ List all permissions, optionally filtered.
 Cross-reference search and context aggregation.
 
 **Actions:** `search`, `context`
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### Action: search
 
@@ -1249,6 +1302,8 @@ Get aggregated context for a scope.
 }
 ```
 
+</details>
+
 ---
 
 ## memory_conversation
@@ -1256,6 +1311,9 @@ Get aggregated context for a scope.
 Manage conversation history for tracking agent-user and agent-agent interactions.
 
 **Actions:** `start`, `add_message`, `get`, `list`, `update`, `link_context`, `get_context`, `search`, `end`, `archive`
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### Action: start
 
@@ -1703,6 +1761,8 @@ This will:
 | `messageId` | string | No | Message ID to link results to (requires conversationId) |
 | `autoLinkContext` | boolean | No | Auto-link results (default: true if conversationId provided) |
 
+</details>
+
 ---
 
 ## memory_task
@@ -1710,6 +1770,9 @@ This will:
 Manage task decomposition for MDAP workflows.
 
 **Actions:** `add`, `get`, `list`
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### Action: add
 
@@ -1814,6 +1877,8 @@ List tasks, optionally filtered by parent task.
 | `limit` | number | No | Max results |
 | `offset` | number | No | Pagination offset |
 
+</details>
+
 ---
 
 ## memory_voting
@@ -1821,6 +1886,9 @@ List tasks, optionally filtered by parent task.
 Manage multi-agent voting and consensus for MDAP workflows.
 
 **Actions:** `record_vote`, `get_consensus`, `list_votes`, `get_stats`
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### Action: record_vote
 
@@ -1956,6 +2024,8 @@ Get voting statistics for a task.
 }
 ```
 
+</details>
+
 ---
 
 ## memory_analytics
@@ -1963,6 +2033,9 @@ Get voting statistics for a task.
 Get usage analytics and trends from audit log.
 
 **Actions:** `get_stats`, `get_trends`, `get_subtask_stats`, `get_error_correlation`, `get_low_diversity`
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### Action: get_stats
 
@@ -2155,6 +2228,8 @@ Detect when agents have low diversity (high correlation).
 }
 ```
 
+</details>
+
 ---
 
 ## memory_conflict
@@ -2162,6 +2237,9 @@ Detect when agents have low diversity (high correlation).
 Manage version conflicts.
 
 **Actions:** `list`, `resolve`
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### Action: list
 
@@ -2207,9 +2285,14 @@ Mark a conflict as resolved.
 }
 ```
 
+</details>
+
 ---
 
 ## Error Handling
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 All tools return errors in a consistent format:
 
@@ -2228,9 +2311,14 @@ Common error scenarios:
 - Invalid scope configuration
 - File already locked (for file lock operations)
 
+</details>
+
 ---
 
 ## memory_health
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 Check server health and database status.
 
@@ -2273,6 +2361,8 @@ This tool has no parameters and returns server version, database stats, and cach
 }
 ```
 
+</details>
+
 ---
 
 ## memory_export
@@ -2280,6 +2370,9 @@ This tool has no parameters and returns server version, database stats, and cach
 Export memory entries to JSON, Markdown, or YAML formats for backup, documentation, or migration.
 
 **Actions:** `export`
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### Action: export
 
@@ -2337,6 +2430,8 @@ Export entries with optional filtering.
 - Share knowledge between projects or teams
 - Archive project-specific guidelines
 
+</details>
+
 ---
 
 ## memory_import
@@ -2344,6 +2439,9 @@ Export entries with optional filtering.
 Import memory entries from JSON format with intelligent conflict resolution.
 
 **Actions:** `import`
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### Action: import
 
@@ -2416,6 +2514,8 @@ When importing entries from one project to another:
 - Relations are preserved when IDs match
 - Use `conflictStrategy: "error"` for dry-run validation
 
+</details>
+
 ---
 
 ## memory_init
@@ -2423,6 +2523,9 @@ When importing entries from one project to another:
 Manage database initialization and migrations.
 
 **Actions:** `init`, `status`, `reset`
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 ### Action: init
 
@@ -2508,9 +2611,14 @@ Reset the database by dropping all tables and re-initializing.
 }
 ```
 
+</details>
+
 ---
 
 ## Migration from v0.1.0
+
+<details>
+<summary><strong>Show details</strong></summary>
 
 If you were using the individual tools (v0.1.0), here's how to migrate:
 
@@ -2553,3 +2661,5 @@ If you were using the individual tools (v0.1.0), here's how to migrate:
 | `memory_analytics` | `memory_analytics` + `action: "get_stats"`, `"get_trends"`, `"get_subtask_stats"`, `"get_error_correlation"`, `"get_low_diversity"` |
 | `memory_conflicts` | `memory_conflict` + `action: "list"` |
 | `memory_conflict_resolve` | `memory_conflict` + `action: "resolve"` |
+
+</details>
