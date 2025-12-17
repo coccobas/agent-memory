@@ -320,12 +320,3 @@ export function getBackfillStats(): {
     knowledge: { total: knowledgeTotal, withEmbeddings: knowledgeWithEmbeddings },
   };
 }
-
-
-
-
-
-
-
-
-

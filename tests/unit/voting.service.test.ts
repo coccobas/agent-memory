@@ -303,12 +303,3 @@ describe('voting.service', () => {
     });
   });
 });
-
-
-
-
-
-
-
-
-

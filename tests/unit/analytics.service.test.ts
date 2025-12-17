@@ -260,12 +260,3 @@ describe('analytics.service', () => {
     });
   });
 });
-
-
-
-
-
-
-
-
-

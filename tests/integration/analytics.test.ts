@@ -186,12 +186,3 @@ describe('Analytics Handler Integration', () => {
     });
   });
 });
-
-
-
-
-
-
-
-
-

@@ -268,12 +268,3 @@ describe('Voting Handler Integration', () => {
     });
   });
 });
-
-
-
-
-
-
-
-
-
