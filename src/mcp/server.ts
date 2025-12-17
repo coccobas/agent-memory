@@ -1,7 +1,7 @@
 /**
  * MCP Server for Agent Memory Database
  *
- * Tool Bundling: 45+ individual tools consolidated into 19 action-based tools:
+ * Tool Bundling: 45+ individual tools consolidated into 20 action-based tools:
  * - memory_org (create, list)
  * - memory_project (create, list, get, update)
  * - memory_session (start, end, list)
@@ -21,6 +21,7 @@
  * - memory_analytics (get_stats, get_trends)
  * - memory_permission (grant, revoke, check, list)
  * - memory_health (health check)
+ * - memory_backup (create, list, cleanup, restore)
  */
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
@@ -67,10 +68,11 @@ import { votingHandlers } from './handlers/voting.handler.js';
 import { analyticsHandlers } from './handlers/analytics.handler.js';
 import { permissionHandlers } from './handlers/permissions.handler.js';
 import { conversationHandlers } from './handlers/conversations.handler.js';
+import { backupHandlers } from './handlers/backup.handler.js';
 import { checkRateLimits } from '../utils/rate-limiter.js';
 
 // =============================================================================
-// BUNDLED TOOL DEFINITIONS (19 tools)
+// BUNDLED TOOL DEFINITIONS (20 tools)
 // =============================================================================
 
 const TOOLS: Tool[] = [
@@ -766,6 +768,41 @@ Use this to verify the memory server is working or to get entry counts.`,
   },
 
   // -------------------------------------------------------------------------
+  // DATABASE BACKUP
+  // -------------------------------------------------------------------------
+  {
+    name: 'memory_backup',
+    description:
+      'Manage database backups. Actions: create (create backup), list (list all backups), cleanup (remove old backups), restore (restore from backup)',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: {
+          type: 'string',
+          enum: ['create', 'list', 'cleanup', 'restore'],
+          description: 'Action to perform',
+        },
+        // create params
+        name: {
+          type: 'string',
+          description: 'Custom backup name (create, optional)',
+        },
+        // cleanup params
+        keepCount: {
+          type: 'number',
+          description: 'Number of backups to keep (cleanup, default: 5)',
+        },
+        // restore params
+        filename: {
+          type: 'string',
+          description: 'Backup filename to restore (restore)',
+        },
+      },
+      required: ['action'],
+    },
+  },
+
+  // -------------------------------------------------------------------------
   // DATABASE INITIALIZATION
   // -------------------------------------------------------------------------
   {
@@ -839,6 +876,11 @@ Use this to verify the memory server is working or to get entry counts.`,
         includeInactive: {
           type: 'boolean',
           description: 'Include inactive/deleted entries (default: false)',
+        },
+        filename: {
+          type: 'string',
+          description:
+            'Optional filename to save export to configured export directory. If not provided, content is returned in response only.',
         },
       },
       required: ['action'],
@@ -1258,6 +1300,27 @@ const bundledHandlers: Record<string, (params: Record<string, unknown>) => unkno
     }
 
     return stats;
+  },
+
+  memory_backup: (params) => {
+    const { action, ...rest } = params;
+    switch (action) {
+      case 'create':
+        return backupHandlers.create(rest as { name?: string });
+      case 'list':
+        return backupHandlers.list();
+      case 'cleanup':
+        return backupHandlers.cleanup(rest as { keepCount?: number });
+      case 'restore':
+        return backupHandlers.restore(rest as { filename: string });
+      default:
+        throw createInvalidActionError('memory_backup', String(action), [
+          'create',
+          'list',
+          'cleanup',
+          'restore',
+        ]);
+    }
   },
 
   memory_init: (params) => {

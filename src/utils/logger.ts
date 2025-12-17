@@ -9,7 +9,6 @@
  */
 
 import pino from 'pino';
-import { tmpdir } from 'node:os';
 import { appendFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { isMcpServerMode } from './runtime.js';
@@ -24,10 +23,12 @@ const logLevel = config.logging.level;
 // MCP servers use stdin/stdout for protocol, so we must not output anything to stdout
 const isMcpServer = isMcpServerMode();
 
-// Conditional debug logging to temp file (only if AGENT_MEMORY_DEBUG=1)
+// Conditional debug logging to log directory (only if AGENT_MEMORY_DEBUG=1)
 if (DEBUG_ENABLED) {
   try {
-    const debugLogPath = join(tmpdir(), 'agent-memory-debug.log');
+    // Use configured log path, fallback to tmpdir
+    const logDir = config.paths.log;
+    const debugLogPath = join(logDir, 'agent-memory-debug.log');
     const logEntry =
       JSON.stringify({
         timestamp: Date.now(),
@@ -37,7 +38,7 @@ if (DEBUG_ENABLED) {
       }) + '\n';
     appendFileSync(debugLogPath, logEntry);
   } catch {
-    // Ignore debug log errors
+    // Ignore debug log errors - directory may not exist yet
   }
 }
 

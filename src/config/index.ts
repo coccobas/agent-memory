@@ -81,6 +81,8 @@ export interface Config {
     path: string;
     skipInit: boolean;
     verbose: boolean;
+    devMode: boolean;
+    autoFixChecksums: boolean;
   };
 
   // Vector Database
@@ -189,6 +191,13 @@ export interface Config {
   timestamps: {
     displayTimezone: string; // 'local' | 'utc' | IANA timezone (e.g., 'Europe/Rome')
   };
+
+  // Directory Paths
+  paths: {
+    backup: string;
+    export: string;
+    log: string;
+  };
 }
 
 // =============================================================================
@@ -210,15 +219,22 @@ export const config: Config = {
     path: expandTilde(process.env.AGENT_MEMORY_DB_PATH || resolve(projectRoot, 'data/memory.db')),
     skipInit: parseBoolean(process.env.AGENT_MEMORY_SKIP_INIT, false),
     verbose: parseBoolean(process.env.AGENT_MEMORY_PERF, false),
+    devMode: parseBoolean(process.env.AGENT_MEMORY_DEV_MODE, false),
+    autoFixChecksums: parseBoolean(
+      process.env.AGENT_MEMORY_AUTO_FIX_CHECKSUMS,
+      parseBoolean(process.env.AGENT_MEMORY_DEV_MODE, false)
+    ),
   },
 
   vectorDb: {
-    path: expandTilde(process.env.AGENT_MEMORY_VECTOR_DB_PATH || resolve(projectRoot, 'data/vectors.lance')),
-    distanceMetric: parseString(
-      process.env.AGENT_MEMORY_DISTANCE_METRIC,
-      'cosine',
-      ['cosine', 'l2', 'dot'] as const
+    path: expandTilde(
+      process.env.AGENT_MEMORY_VECTOR_DB_PATH || resolve(projectRoot, 'data/vectors.lance')
     ),
+    distanceMetric: parseString(process.env.AGENT_MEMORY_DISTANCE_METRIC, 'cosine', [
+      'cosine',
+      'l2',
+      'dot',
+    ] as const),
   },
 
   embedding: {
@@ -228,11 +244,14 @@ export const config: Config = {
   },
 
   logging: {
-    level: parseString(
-      process.env.LOG_LEVEL,
+    level: parseString(process.env.LOG_LEVEL, 'info', [
+      'fatal',
+      'error',
+      'warn',
       'info',
-      ['fatal', 'error', 'warn', 'info', 'debug', 'trace'] as const
-    ),
+      'debug',
+      'trace',
+    ] as const),
     debug: parseBoolean(process.env.AGENT_MEMORY_DEBUG, false),
     performance: parseBoolean(process.env.AGENT_MEMORY_PERF, false),
   },
@@ -324,6 +343,16 @@ export const config: Config = {
   timestamps: {
     displayTimezone: process.env.AGENT_MEMORY_TIMEZONE || 'local',
   },
+
+  paths: {
+    backup: expandTilde(
+      process.env.AGENT_MEMORY_BACKUP_PATH || resolve(projectRoot, 'data/backups')
+    ),
+    export: expandTilde(
+      process.env.AGENT_MEMORY_EXPORT_PATH || resolve(projectRoot, 'data/exports')
+    ),
+    log: expandTilde(process.env.AGENT_MEMORY_LOG_PATH || resolve(projectRoot, 'data/logs')),
+  },
 };
 
 /**
@@ -336,15 +365,22 @@ function buildConfig(): Config {
       path: expandTilde(process.env.AGENT_MEMORY_DB_PATH || resolve(projectRoot, 'data/memory.db')),
       skipInit: parseBoolean(process.env.AGENT_MEMORY_SKIP_INIT, false),
       verbose: parseBoolean(process.env.AGENT_MEMORY_PERF, false),
+      devMode: parseBoolean(process.env.AGENT_MEMORY_DEV_MODE, false),
+      autoFixChecksums: parseBoolean(
+        process.env.AGENT_MEMORY_AUTO_FIX_CHECKSUMS,
+        parseBoolean(process.env.AGENT_MEMORY_DEV_MODE, false)
+      ),
     },
 
     vectorDb: {
-      path: expandTilde(process.env.AGENT_MEMORY_VECTOR_DB_PATH || resolve(projectRoot, 'data/vectors.lance')),
-      distanceMetric: parseString(
-        process.env.AGENT_MEMORY_DISTANCE_METRIC,
-        'cosine',
-        ['cosine', 'l2', 'dot'] as const
+      path: expandTilde(
+        process.env.AGENT_MEMORY_VECTOR_DB_PATH || resolve(projectRoot, 'data/vectors.lance')
       ),
+      distanceMetric: parseString(process.env.AGENT_MEMORY_DISTANCE_METRIC, 'cosine', [
+        'cosine',
+        'l2',
+        'dot',
+      ] as const),
     },
 
     embedding: {
@@ -354,11 +390,14 @@ function buildConfig(): Config {
     },
 
     logging: {
-      level: parseString(
-        process.env.LOG_LEVEL,
+      level: parseString(process.env.LOG_LEVEL, 'info', [
+        'fatal',
+        'error',
+        'warn',
         'info',
-        ['fatal', 'error', 'warn', 'info', 'debug', 'trace'] as const
-      ),
+        'debug',
+        'trace',
+      ] as const),
       debug: parseBoolean(process.env.AGENT_MEMORY_DEBUG, false),
       performance: parseBoolean(process.env.AGENT_MEMORY_PERF, false),
     },
@@ -449,6 +488,16 @@ function buildConfig(): Config {
 
     timestamps: {
       displayTimezone: process.env.AGENT_MEMORY_TIMEZONE || 'local',
+    },
+
+    paths: {
+      backup: expandTilde(
+        process.env.AGENT_MEMORY_BACKUP_PATH || resolve(projectRoot, 'data/backups')
+      ),
+      export: expandTilde(
+        process.env.AGENT_MEMORY_EXPORT_PATH || resolve(projectRoot, 'data/exports')
+      ),
+      log: expandTilde(process.env.AGENT_MEMORY_LOG_PATH || resolve(projectRoot, 'data/logs')),
     },
   };
 }
