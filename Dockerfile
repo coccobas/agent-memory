@@ -22,6 +22,9 @@ COPY . .
 # Build TypeScript
 RUN npm run build
 
+# Remove dev dependencies to reduce image size and vulnerabilities
+RUN npm prune --production
+
 # Production stage
 FROM node:25-slim
 
@@ -35,7 +38,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy package.json for runtime reference
 COPY --from=builder /app/package.json ./
 
-# Copy built files and node_modules from builder
+# Copy built files and production-only node_modules from builder
 # (better-sqlite3 has no prebuilt binaries for Node 25, so we use the compiled version)
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
