@@ -2,6 +2,9 @@ FROM node:25-slim AS builder
 
 WORKDIR /app
 
+# Update npm to fix glob vulnerability (CVE-2025-64756)
+RUN npm install -g npm@latest
+
 # Install build dependencies for native modules (better-sqlite3)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
@@ -30,8 +33,9 @@ FROM node:25-slim
 
 WORKDIR /app
 
-# Install runtime dependencies for better-sqlite3
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Update npm to fix glob vulnerability (CVE-2025-64756) and install runtime deps
+RUN npm install -g npm@latest && npm cache clean --force && \
+    apt-get update && apt-get install -y --no-install-recommends \
     libsqlite3-0 \
     && rm -rf /var/lib/apt/lists/*
 
