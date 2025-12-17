@@ -107,7 +107,8 @@ Queries inherit from parent scopes automatically.
 
 - [Initialization](docs/reference/initialization.md) - Database setup
 - [MDAP Support](docs/reference/mdap-support.md) - Large-scale agentic workflows
-- [Environment Variables](docs/reference/environment-variables.md) - Configuration options
+- [Environment Variables](docs/reference/environment-variables.md) - Common configuration options
+- [Advanced Environment Variables](docs/reference/environment-variables-advanced.md) - Full tuning reference
 - [Error Codes](docs/reference/error-codes.md) - Error reference
 - [Security](docs/security.md) - Security features and best practices
 

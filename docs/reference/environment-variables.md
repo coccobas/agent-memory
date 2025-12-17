@@ -2,6 +2,11 @@
 
 Complete reference for Agent Memory environment variables. For a copy/paste template, see `.env.example`.
 
+Most users only need:
+- `AGENT_MEMORY_DB_PATH` (set a stable absolute path if you use multiple IDEs/install methods)
+- `AGENT_MEMORY_EMBEDDING_PROVIDER` + `AGENT_MEMORY_OPENAI_API_KEY` (if using OpenAI embeddings)
+- `AGENT_MEMORY_QUERY_CACHE_SIZE` (set to `0` to disable caching)
+
 ## Quick Reference
 
 | Variable | Default | Description |
@@ -18,9 +23,8 @@ Complete reference for Agent Memory environment variables. For a copy/paste temp
 | `AGENT_MEMORY_QUERY_CACHE_TTL_MS` | `300000` | Query cache TTL (ms) |
 | `AGENT_MEMORY_SKIP_INIT` | `0` | Skip auto-initialization |
 
----
-
-## Database Configuration
+<details>
+<summary><strong>Database Configuration</strong></summary>
 
 ### AGENT_MEMORY_DB_PATH
 
@@ -64,9 +68,10 @@ export AGENT_MEMORY_VECTOR_DB_PATH=/var/lib/agent-memory/vectors.lance
 - Used for semantic search embeddings
 - Created automatically on first embedding generation
 
----
+</details>
 
-## Embedding Configuration
+<details>
+<summary><strong>Embedding Configuration</strong></summary>
 
 ### AGENT_MEMORY_EMBEDDING_PROVIDER
 
@@ -150,7 +155,10 @@ export AGENT_MEMORY_SEMANTIC_THRESHOLD=0.5
 
 ---
 
-## Performance Configuration
+</details>
+
+<details>
+<summary><strong>Performance & Debug Logging</strong></summary>
 
 ### AGENT_MEMORY_PERF
 
@@ -196,7 +204,10 @@ export AGENT_MEMORY_DEBUG=1
 
 ---
 
-## Cache Configuration
+</details>
+
+<details>
+<summary><strong>Cache Configuration</strong></summary>
 
 Agent Memory maintains an in-memory query cache. Caching applies per-scope (cache keys include scope type + scope id).
 
@@ -223,109 +234,14 @@ export AGENT_MEMORY_QUERY_CACHE_TTL_MS=60000
 
 ---
 
+</details>
+
 ## Advanced Configuration
 
-These variables provide finer control over caching, rate limiting, retries, and validation. Defaults shown here match the runtime configuration.
+For rate limiting, retries, validation limits, memory pressure tuning, and the rest of the knobs, see [Advanced Environment Variables](./environment-variables-advanced.md).
 
-### Vector Similarity
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `AGENT_MEMORY_DISTANCE_METRIC` | `cosine` | Vector distance metric (`cosine`, `l2`, `dot`) |
-
-### Cache Limits
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `AGENT_MEMORY_CACHE_LIMIT_MB` | `100` | Total cache memory budget (MB) |
-| `AGENT_MEMORY_SCOPE_CACHE_TTL_MS` | `600000` | Scope chain cache TTL (ms) |
-| `AGENT_MEMORY_MAX_PREPARED_STATEMENTS` | `100` | Prepared statement cache size |
-| `AGENT_MEMORY_QUERY_CACHE_MEMORY_MB` | `50` | Query cache memory cap (MB) |
-| `AGENT_MEMORY_CACHE_PRESSURE_THRESHOLD` | `0.8` | Eviction starts above this fraction of the memory budget |
-| `AGENT_MEMORY_CACHE_EVICTION_TARGET` | `0.8` | Eviction continues until below this fraction |
-
-### Memory Coordinator
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `AGENT_MEMORY_HEAP_PRESSURE_THRESHOLD` | `0.85` | Proactive eviction threshold (fraction of heap) |
-| `AGENT_MEMORY_MEMORY_CHECK_INTERVAL_MS` | `30000` | Memory coordinator check interval (ms) |
-
-### Rate Limiting
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `AGENT_MEMORY_RATE_LIMIT` | `1` | Set to `0` to disable all rate limiting |
-| `AGENT_MEMORY_RATE_LIMIT_PER_AGENT_MAX` | `100` | Per-agent max requests per window |
-| `AGENT_MEMORY_RATE_LIMIT_PER_AGENT_WINDOW_MS` | `60000` | Per-agent window (ms) |
-| `AGENT_MEMORY_RATE_LIMIT_GLOBAL_MAX` | `1000` | Global max requests per window |
-| `AGENT_MEMORY_RATE_LIMIT_GLOBAL_WINDOW_MS` | `60000` | Global window (ms) |
-| `AGENT_MEMORY_RATE_LIMIT_BURST_MAX` | `20` | Burst max requests per window |
-| `AGENT_MEMORY_RATE_LIMIT_BURST_WINDOW_MS` | `1000` | Burst window (ms) |
-
-### Semantic Search Tuning
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `AGENT_MEMORY_SEMANTIC_SCORE_WEIGHT` | `0.7` | Hybrid scoring weight for semantic similarity |
-| `AGENT_MEMORY_DUPLICATE_THRESHOLD` | `0.8` | Duplicate-detection similarity threshold |
-
-### Validation Limits
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `AGENT_MEMORY_NAME_MAX_LENGTH` | `500` | Max characters |
-| `AGENT_MEMORY_TITLE_MAX_LENGTH` | `1000` | Max characters |
-| `AGENT_MEMORY_DESCRIPTION_MAX_LENGTH` | `10000` | Max characters |
-| `AGENT_MEMORY_CONTENT_MAX_LENGTH` | `100000` | Max characters |
-| `AGENT_MEMORY_RATIONALE_MAX_LENGTH` | `5000` | Max characters |
-| `AGENT_MEMORY_METADATA_MAX_BYTES` | `50000` | Max JSON bytes |
-| `AGENT_MEMORY_PARAMETERS_MAX_BYTES` | `50000` | Max JSON bytes |
-| `AGENT_MEMORY_EXAMPLES_MAX_BYTES` | `100000` | Max JSON bytes |
-| `AGENT_MEMORY_TAGS_MAX_COUNT` | `50` | Max tags per entry |
-| `AGENT_MEMORY_EXAMPLES_MAX_COUNT` | `20` | Max examples per tool/guideline |
-| `AGENT_MEMORY_BULK_OPERATION_MAX` | `100` | Max items per bulk request |
-
-### Pagination Defaults
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `AGENT_MEMORY_DEFAULT_QUERY_LIMIT` | `20` | Default result limit |
-| `AGENT_MEMORY_MAX_QUERY_LIMIT` | `100` | Maximum allowed limit |
-
-### Health & Reconnection
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `AGENT_MEMORY_HEALTH_CHECK_INTERVAL_MS` | `30000` | Health check interval (ms) |
-| `AGENT_MEMORY_MAX_RECONNECT_ATTEMPTS` | `3` | Max reconnection attempts |
-| `AGENT_MEMORY_RECONNECT_BASE_DELAY_MS` | `1000` | Reconnect base delay (ms) |
-| `AGENT_MEMORY_RECONNECT_MAX_DELAY_MS` | `5000` | Reconnect max delay (ms) |
-
-### Retry Behavior
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `AGENT_MEMORY_RETRY_MAX_ATTEMPTS` | `3` | Max retries |
-| `AGENT_MEMORY_RETRY_INITIAL_DELAY_MS` | `100` | Initial delay (ms) |
-| `AGENT_MEMORY_RETRY_MAX_DELAY_MS` | `5000` | Max delay (ms) |
-| `AGENT_MEMORY_RETRY_BACKOFF_MULTIPLIER` | `2` | Exponential backoff multiplier |
-
-### Conflict Detection
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `AGENT_MEMORY_CONFLICT_WINDOW_MS` | `5000` | Conflict window (ms) |
-| `AGENT_MEMORY_HIGH_ERROR_CORRELATION_THRESHOLD` | `0.7` | High correlation threshold |
-
-### Logging / Runtime
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `LOG_LEVEL` | `info` | `fatal`, `error`, `warn`, `info`, `debug`, `trace` |
-| `NODE_ENV` | - | Environment name (`development`, `production`, etc.) |
-
-## Initialization Configuration
+<details>
+<summary><strong>Initialization</strong></summary>
 
 ### AGENT_MEMORY_SKIP_INIT
 
@@ -347,66 +263,49 @@ export AGENT_MEMORY_SKIP_INIT=1
 
 ---
 
-## Setting Environment Variables
+</details>
 
-### Unix/Linux/macOS
+<details>
+<summary><strong>Examples</strong></summary>
 
-**Temporary (current session):**
+### Unix/macOS
+
 ```bash
-export AGENT_MEMORY_DB_PATH=/custom/path/memory.db
+export AGENT_MEMORY_DB_PATH=~/.agent-memory/memory.db
+export AGENT_MEMORY_VECTOR_DB_PATH=~/.agent-memory/vectors.lance
+export AGENT_MEMORY_EMBEDDING_PROVIDER=local
 ```
 
-**Permanent (add to ~/.bashrc or ~/.zshrc):**
-```bash
-echo 'export AGENT_MEMORY_DB_PATH=/custom/path/memory.db' >> ~/.bashrc
-source ~/.bashrc
-```
+### Windows (PowerShell)
 
-### Windows PowerShell
-
-**Temporary (current session):**
 ```powershell
-$env:AGENT_MEMORY_DB_PATH = "C:\data\memory.db"
+$env:AGENT_MEMORY_DB_PATH = "$HOME\\.agent-memory\\memory.db"
+$env:AGENT_MEMORY_VECTOR_DB_PATH = "$HOME\\.agent-memory\\vectors.lance"
+$env:AGENT_MEMORY_EMBEDDING_PROVIDER = "local"
 ```
 
-**Permanent (user level):**
-```powershell
-[Environment]::SetEnvironmentVariable("AGENT_MEMORY_DB_PATH", "C:\data\memory.db", "User")
-```
+### Docker (bind mount)
 
-### Windows Command Prompt
-
-**Temporary (current session):**
-```cmd
-set AGENT_MEMORY_DB_PATH=C:\data\memory.db
-```
-
-### Docker
-
-```dockerfile
-ENV AGENT_MEMORY_DB_PATH=/data/memory.db
-ENV AGENT_MEMORY_VECTOR_DB_PATH=/data/vectors.lance
-ENV AGENT_MEMORY_EMBEDDING_PROVIDER=local
-```
-
-Or via docker-compose:
+Mount a host folder to `/data` and point the server to `/data/*`:
 
 ```yaml
 services:
   agent-memory:
     volumes:
-      - ./data:/data
+      - ${HOME}/.agent-memory:/data
     environment:
       - AGENT_MEMORY_DB_PATH=/data/memory.db
       - AGENT_MEMORY_VECTOR_DB_PATH=/data/vectors.lance
-      - AGENT_MEMORY_EMBEDDING_PROVIDER=local
 ```
 
-**Tip:** Avoid `~` in `docker-compose.yml` volume paths (Compose may not expand it). Use an absolute path or `${HOME}`.
+Avoid `~` in `docker-compose.yml` volume paths (Compose may not expand it).
 
 ---
 
-## Configuration for Common Scenarios
+</details>
+
+<details>
+<summary><strong>Common Scenarios</strong></summary>
 
 ### Development Setup
 
@@ -442,6 +341,8 @@ export AGENT_MEMORY_QUERY_CACHE_SIZE=0
 ```
 
 ---
+
+</details>
 
 ## See Also
 

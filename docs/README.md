@@ -188,7 +188,8 @@ See [Rules Sync Guide](./guides/rules-sync.md) for detailed documentation.
 ### Reference
 - [Database Initialization](./reference/initialization.md) - Database setup and migrations
 - [MDAP Support](./reference/mdap-support.md) - Large-scale agentic workflows
-- [Environment Variables](./reference/environment-variables.md) - Configuration options
+- [Environment Variables](./reference/environment-variables.md) - Common configuration options
+- [Advanced Environment Variables](./reference/environment-variables-advanced.md) - Full tuning reference
 - [Error Codes](./reference/error-codes.md) - Error reference
 
 ### Security

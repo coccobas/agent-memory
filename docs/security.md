@@ -260,7 +260,7 @@ Security-related environment variables:
 | `AGENT_MEMORY_DB_PATH` | Database file location (secure this path) |
 | `AGENT_MEMORY_OPENAI_API_KEY` | API key for embeddings (keep secret) |
 
-See [Environment Variables](./reference/environment-variables.md) for complete list.
+See [Environment Variables](./reference/environment-variables.md) for common options and [Advanced Environment Variables](./reference/environment-variables-advanced.md) for the full list.
 
 ## Reporting Security Issues
 
