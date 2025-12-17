@@ -56,3 +56,6 @@ coverage/
 .github/workflows/
 
 strategy docs/
+
+# Findings and analysis documents (not tracked)
+docs/findings/

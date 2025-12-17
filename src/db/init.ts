@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import type Database from 'better-sqlite3';
 import { createComponentLogger } from '../utils/logger.js';
+import { config } from '../config/index.js';
 
 const logger = createComponentLogger('init');
 
@@ -304,6 +305,18 @@ export function initializeDatabase(
 
         // Verify checksum match
         if (storedChecksum !== currentChecksum) {
+          // In dev mode with autoFixChecksums enabled, auto-update the checksum
+          if (config.database.autoFixChecksums) {
+            logger.warn(
+              { migration: file.name, stored: storedChecksum, current: currentChecksum },
+              'Migration file modified - auto-updating checksum (dev mode)'
+            );
+            sqlite
+              .prepare('UPDATE _migrations SET checksum = ? WHERE name = ?')
+              .run(currentChecksum, file.name);
+            continue; // Skip adding to integrity errors
+          }
+
           const error = `Migration integrity error: ${file.name} has been modified. Stored checksum: ${storedChecksum}, Current checksum: ${currentChecksum}`;
           result.integrityErrors.push(error);
           result.integrityVerified = false;

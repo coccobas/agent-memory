@@ -73,4 +73,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
 # The MCP server uses stdio, no port exposure needed
 # Run with: docker run -i agent-memory
 
-CMD ["node", "dist/index.js"]
+CMD ["node", "dist/cli.js"]

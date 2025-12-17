@@ -148,7 +148,11 @@ export const toolHandlers = {
       scopeId: scopeId ?? null,
     });
 
-    return formatTimestamps({ success: true, tool, redFlags: redFlags.length > 0 ? redFlags : undefined });
+    return formatTimestamps({
+      success: true,
+      tool,
+      redFlags: redFlags.length > 0 ? redFlags : undefined,
+    });
   },
 
   update(params: Record<string, unknown>) {

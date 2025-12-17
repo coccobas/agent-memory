@@ -12,6 +12,7 @@ import {
   type InitResult,
 } from '../../src/db/init.js';
 import { getDb, closeDb } from '../../src/db/connection.js';
+import { config } from '../../src/config/index.js';
 
 describe('db/init', () => {
   const testDbPath = './data/test-init.db';
@@ -245,21 +246,56 @@ describe('db/init', () => {
     });
 
     it('should detect modified migration files', () => {
-      const sqlite = new Database(testDbPath);
-      initializeDatabase(sqlite, { verbose: false });
+      // Temporarily disable dev mode to test strict validation
+      const originalAutoFix = config.database.autoFixChecksums;
+      config.database.autoFixChecksums = false;
 
-      // Manually tamper with the checksum in DB to simulate file change
-      // (Changing the file on disk is harder/riskier in test, so we invert the check:
-      // change the stored checksum to something that won't match the valid file)
-      sqlite.prepare('UPDATE _migrations SET checksum = ?').run('fake-checksum');
+      try {
+        const sqlite = new Database(testDbPath);
+        initializeDatabase(sqlite, { verbose: false });
 
-      const result = initializeDatabase(sqlite, { verbose: false });
+        // Manually tamper with the checksum in DB to simulate file change
+        // (Changing the file on disk is harder/riskier in test, so we invert the check:
+        // change the stored checksum to something that won't match the valid file)
+        sqlite.prepare('UPDATE _migrations SET checksum = ?').run('fake-checksum');
 
-      expect(result.integrityVerified).toBe(false);
-      expect(result.integrityErrors.length).toBeGreaterThan(0);
-      expect(result.integrityErrors[0]).toContain('Migration integrity error');
+        const result = initializeDatabase(sqlite, { verbose: false });
 
-      sqlite.close();
+        expect(result.integrityVerified).toBe(false);
+        expect(result.integrityErrors.length).toBeGreaterThan(0);
+        expect(result.integrityErrors[0]).toContain('Migration integrity error');
+
+        sqlite.close();
+      } finally {
+        // Restore original setting
+        config.database.autoFixChecksums = originalAutoFix;
+      }
+    });
+
+    it('should auto-fix checksums in dev mode', () => {
+      // Ensure dev mode is enabled (should already be by vitest.config.ts)
+      const originalAutoFix = config.database.autoFixChecksums;
+      config.database.autoFixChecksums = true;
+
+      try {
+        const sqlite = new Database(testDbPath);
+        initializeDatabase(sqlite, { verbose: false });
+
+        // Manually tamper with the checksum in DB to simulate file change
+        sqlite.prepare('UPDATE _migrations SET checksum = ?').run('fake-checksum');
+
+        const result = initializeDatabase(sqlite, { verbose: false });
+
+        // In dev mode, checksums should be auto-fixed
+        expect(result.integrityVerified).toBe(true);
+        expect(result.integrityErrors.length).toBe(0);
+        expect(result.success).toBe(true);
+
+        sqlite.close();
+      } finally {
+        // Restore original setting
+        config.database.autoFixChecksums = originalAutoFix;
+      }
     });
   });
 });

@@ -48,8 +48,7 @@ export function formatTimestamp(isoString: string | null | undefined): string | 
     const formatter = new Intl.DateTimeFormat('en-CA', options);
     const parts = formatter.formatToParts(date);
 
-    const getPart = (type: string): string =>
-      parts.find((p) => p.type === type)?.value ?? '';
+    const getPart = (type: string): string => parts.find((p) => p.type === type)?.value ?? '';
 
     return `${getPart('year')}-${getPart('month')}-${getPart('day')} ${getPart('hour')}:${getPart('minute')}:${getPart('second')}`;
   } catch {
@@ -85,7 +84,8 @@ export function formatTimestamps<T>(obj: T): T {
 
   // Handle arrays
   if (Array.isArray(obj)) {
-    return obj.map((item) => formatTimestamps(item)) as T;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return obj.map((item: unknown) => formatTimestamps(item)) as T;
   }
 
   // Handle objects

@@ -18,7 +18,8 @@ function normalizePath(path: string | undefined): string {
  */
 export function isMcpServerMode(): boolean {
   // stdin not a TTY means piped/stdio mode
-  if (process.stdin.isTTY === false) {
+  // Note: isTTY is undefined (not false) when stdin is piped
+  if (!process.stdin.isTTY) {
     return true;
   }
 

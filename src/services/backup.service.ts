@@ -46,9 +46,7 @@ export function createDatabaseBackup(customName?: string): BackupResult {
     // Generate backup filename
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const dbBasename = basename(dbPath, '.db');
-    const backupFilename = customName
-      ? `${customName}.db`
-      : `${dbBasename}-backup-${timestamp}.db`;
+    const backupFilename = customName ? `${customName}.db` : `${dbBasename}-backup-${timestamp}.db`;
     const backupPath = join(backupDir, backupFilename);
 
     // Copy database file

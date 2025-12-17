@@ -12,6 +12,10 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['tests/**/*.test.ts'],
+    // Enable dev mode for tests to auto-fix migration checksum mismatches
+    env: {
+      AGENT_MEMORY_DEV_MODE: '1',
+    },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

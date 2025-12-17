@@ -20,9 +20,11 @@ const __dirname = dirname(__filename);
 const projectRoot = resolve(__dirname, '../..');
 
 // Load .env file (if exists) - environment variables take precedence
+// CRITICAL: Use debug: false to prevent dotenv from outputting to stdout
+// This would break MCP protocol which uses stdout for JSON-RPC
 const envPath = resolve(projectRoot, '.env');
 if (existsSync(envPath)) {
-  dotenvConfig({ path: envPath });
+  dotenvConfig({ path: envPath, debug: false });
 }
 
 // =============================================================================
@@ -69,6 +71,33 @@ function expandTilde(filePath: string): string {
     return filePath.replace(/^~/, home);
   }
   return filePath;
+}
+
+/**
+ * Get the base data directory.
+ * Priority: AGENT_MEMORY_DATA_DIR > projectRoot/data
+ */
+function getDataDir(): string {
+  const dataDir = process.env.AGENT_MEMORY_DATA_DIR;
+  if (dataDir) {
+    return expandTilde(dataDir);
+  }
+  return resolve(projectRoot, 'data');
+}
+
+/**
+ * Resolve a data path with priority:
+ * 1. Specific env var override (highest priority)
+ * 2. AGENT_MEMORY_DATA_DIR + relative path
+ * 3. projectRoot/data + relative path (default)
+ */
+function resolveDataPath(envVar: string | undefined, relativePath: string): string {
+  // If specific env var is set, use it (highest priority)
+  if (envVar) {
+    return expandTilde(envVar);
+  }
+  // Otherwise use data dir + relative path
+  return resolve(getDataDir(), relativePath);
 }
 
 // =============================================================================
@@ -194,6 +223,7 @@ export interface Config {
 
   // Directory Paths
   paths: {
+    dataDir: string;
     backup: string;
     export: string;
     log: string;
@@ -216,7 +246,7 @@ function getEmbeddingProvider(): 'openai' | 'local' | 'disabled' {
 
 export const config: Config = {
   database: {
-    path: expandTilde(process.env.AGENT_MEMORY_DB_PATH || resolve(projectRoot, 'data/memory.db')),
+    path: resolveDataPath(process.env.AGENT_MEMORY_DB_PATH, 'memory.db'),
     skipInit: parseBoolean(process.env.AGENT_MEMORY_SKIP_INIT, false),
     verbose: parseBoolean(process.env.AGENT_MEMORY_PERF, false),
     devMode: parseBoolean(process.env.AGENT_MEMORY_DEV_MODE, false),
@@ -227,9 +257,7 @@ export const config: Config = {
   },
 
   vectorDb: {
-    path: expandTilde(
-      process.env.AGENT_MEMORY_VECTOR_DB_PATH || resolve(projectRoot, 'data/vectors.lance')
-    ),
+    path: resolveDataPath(process.env.AGENT_MEMORY_VECTOR_DB_PATH, 'vectors.lance'),
     distanceMetric: parseString(process.env.AGENT_MEMORY_DISTANCE_METRIC, 'cosine', [
       'cosine',
       'l2',
@@ -345,13 +373,10 @@ export const config: Config = {
   },
 
   paths: {
-    backup: expandTilde(
-      process.env.AGENT_MEMORY_BACKUP_PATH || resolve(projectRoot, 'data/backups')
-    ),
-    export: expandTilde(
-      process.env.AGENT_MEMORY_EXPORT_PATH || resolve(projectRoot, 'data/exports')
-    ),
-    log: expandTilde(process.env.AGENT_MEMORY_LOG_PATH || resolve(projectRoot, 'data/logs')),
+    dataDir: getDataDir(),
+    backup: resolveDataPath(process.env.AGENT_MEMORY_BACKUP_PATH, 'backups'),
+    export: resolveDataPath(process.env.AGENT_MEMORY_EXPORT_PATH, 'exports'),
+    log: resolveDataPath(process.env.AGENT_MEMORY_LOG_PATH, 'logs'),
   },
 };
 
@@ -362,7 +387,7 @@ export const config: Config = {
 function buildConfig(): Config {
   return {
     database: {
-      path: expandTilde(process.env.AGENT_MEMORY_DB_PATH || resolve(projectRoot, 'data/memory.db')),
+      path: resolveDataPath(process.env.AGENT_MEMORY_DB_PATH, 'memory.db'),
       skipInit: parseBoolean(process.env.AGENT_MEMORY_SKIP_INIT, false),
       verbose: parseBoolean(process.env.AGENT_MEMORY_PERF, false),
       devMode: parseBoolean(process.env.AGENT_MEMORY_DEV_MODE, false),
@@ -373,9 +398,7 @@ function buildConfig(): Config {
     },
 
     vectorDb: {
-      path: expandTilde(
-        process.env.AGENT_MEMORY_VECTOR_DB_PATH || resolve(projectRoot, 'data/vectors.lance')
-      ),
+      path: resolveDataPath(process.env.AGENT_MEMORY_VECTOR_DB_PATH, 'vectors.lance'),
       distanceMetric: parseString(process.env.AGENT_MEMORY_DISTANCE_METRIC, 'cosine', [
         'cosine',
         'l2',
@@ -491,13 +514,10 @@ function buildConfig(): Config {
     },
 
     paths: {
-      backup: expandTilde(
-        process.env.AGENT_MEMORY_BACKUP_PATH || resolve(projectRoot, 'data/backups')
-      ),
-      export: expandTilde(
-        process.env.AGENT_MEMORY_EXPORT_PATH || resolve(projectRoot, 'data/exports')
-      ),
-      log: expandTilde(process.env.AGENT_MEMORY_LOG_PATH || resolve(projectRoot, 'data/logs')),
+      dataDir: getDataDir(),
+      backup: resolveDataPath(process.env.AGENT_MEMORY_BACKUP_PATH, 'backups'),
+      export: resolveDataPath(process.env.AGENT_MEMORY_EXPORT_PATH, 'exports'),
+      log: resolveDataPath(process.env.AGENT_MEMORY_LOG_PATH, 'logs'),
     },
   };
 }

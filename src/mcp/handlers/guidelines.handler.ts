@@ -135,7 +135,11 @@ export const guidelineHandlers = {
       scopeId: scopeId ?? null,
     });
 
-    return formatTimestamps({ success: true, guideline, redFlags: redFlags.length > 0 ? redFlags : undefined });
+    return formatTimestamps({
+      success: true,
+      guideline,
+      redFlags: redFlags.length > 0 ? redFlags : undefined,
+    });
   },
 
   update(params: Record<string, unknown>) {
