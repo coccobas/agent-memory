@@ -7,7 +7,7 @@
 import Database from 'better-sqlite3';
 import { existsSync } from 'fs';
 
-const dbPath = process.env.AGENT_MEMORY_DB_PATH || '/app/data/memory.db';
+const dbPath = process.env.AGENT_MEMORY_DB_PATH || '/data/memory.db';
 
 try {
   // Check if database file exists

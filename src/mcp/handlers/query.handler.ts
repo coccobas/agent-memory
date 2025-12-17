@@ -19,6 +19,7 @@ import {
   isEntryType,
   isRelationType,
 } from '../../utils/type-guards.js';
+import { formatTimestamps } from '../../utils/timestamp-formatter.js';
 
 export const queryHandlers = {
   async query(params: Record<string, unknown>) {
@@ -95,10 +96,10 @@ export const queryHandlers = {
       resultCount: result.results.length,
     });
 
-    return {
+    return formatTimestamps({
       results: result.results,
       meta: result.meta,
-    };
+    });
   },
 
   /**
@@ -128,7 +129,7 @@ export const queryHandlers = {
     const guidelines = result.results.filter((r) => r.type === 'guideline');
     const knowledge = result.results.filter((r) => r.type === 'knowledge');
 
-    return {
+    return formatTimestamps({
       scope: {
         type: scopeType,
         id: scopeId ?? null,
@@ -137,6 +138,6 @@ export const queryHandlers = {
       guidelines,
       knowledge,
       meta: result.meta,
-    };
+    });
   },
 };

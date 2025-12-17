@@ -34,6 +34,7 @@ import {
   isToolCategory,
   isArrayOfObjects,
 } from '../../utils/type-guards.js';
+import { formatTimestamps } from '../../utils/timestamp-formatter.js';
 
 const logger = createComponentLogger('tools');
 
@@ -147,7 +148,7 @@ export const toolHandlers = {
       scopeId: scopeId ?? null,
     });
 
-    return { success: true, tool, redFlags: redFlags.length > 0 ? redFlags : undefined };
+    return formatTimestamps({ success: true, tool, redFlags: redFlags.length > 0 ? redFlags : undefined });
   },
 
   update(params: Record<string, unknown>) {
@@ -227,7 +228,7 @@ export const toolHandlers = {
       scopeId: existingTool.scopeId ?? null,
     });
 
-    return { success: true, tool };
+    return formatTimestamps({ success: true, tool });
   },
 
   get(params: Record<string, unknown>) {
@@ -281,7 +282,7 @@ export const toolHandlers = {
       scopeId: tool.scopeId ?? null,
     });
 
-    return { tool };
+    return formatTimestamps({ tool });
   },
 
   list(params: Record<string, unknown>) {
@@ -297,19 +298,19 @@ export const toolHandlers = {
       { limit, offset }
     );
 
-    return {
+    return formatTimestamps({
       tools,
       meta: {
         returnedCount: tools.length,
       },
-    };
+    });
   },
 
   history(params: Record<string, unknown>) {
     const id = getRequiredParam(params, 'id', isString);
 
     const versions = toolRepo.getHistory(id);
-    return { versions };
+    return formatTimestamps({ versions });
   },
 
   deactivate(params: Record<string, unknown>) {
@@ -467,7 +468,7 @@ export const toolHandlers = {
       });
     });
 
-    return { success: true, tools: results, count: results.length };
+    return formatTimestamps({ success: true, tools: results, count: results.length });
   },
 
   bulk_update(params: Record<string, unknown>) {
@@ -551,7 +552,7 @@ export const toolHandlers = {
       });
     });
 
-    return { success: true, tools: results, count: results.length };
+    return formatTimestamps({ success: true, tools: results, count: results.length });
   },
 
   bulk_delete(params: Record<string, unknown>) {
@@ -613,6 +614,6 @@ export const toolHandlers = {
       });
     });
 
-    return { success: true, deleted: results, count: results.length };
+    return formatTimestamps({ success: true, deleted: results, count: results.length });
   },
 };

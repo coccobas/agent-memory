@@ -28,6 +28,7 @@ import {
   isISODateString,
   isObject,
 } from '../../utils/type-guards.js';
+import { formatTimestamps } from '../../utils/timestamp-formatter.js';
 
 const logger = createComponentLogger('knowledge');
 
@@ -144,7 +145,7 @@ export const knowledgeHandlers = {
       scopeId: scopeId ?? null,
     });
 
-    return { success: true, knowledge, redFlags: redFlags.length > 0 ? redFlags : undefined };
+    return formatTimestamps({ success: true, knowledge, redFlags: redFlags.length > 0 ? redFlags : undefined });
   },
 
   update(params: Record<string, unknown>) {
@@ -227,7 +228,7 @@ export const knowledgeHandlers = {
       scopeId: existingKnowledge.scopeId ?? null,
     });
 
-    return { success: true, knowledge };
+    return formatTimestamps({ success: true, knowledge });
   },
 
   get(params: Record<string, unknown>) {
@@ -288,7 +289,7 @@ export const knowledgeHandlers = {
       scopeId: knowledge.scopeId ?? null,
     });
 
-    return { knowledge };
+    return formatTimestamps({ knowledge });
   },
 
   list(params: Record<string, unknown>) {
@@ -310,19 +311,19 @@ export const knowledgeHandlers = {
       { limit, offset }
     );
 
-    return {
+    return formatTimestamps({
       knowledge: entries,
       meta: {
         returnedCount: entries.length,
       },
-    };
+    });
   },
 
   history(params: Record<string, unknown>) {
     const id = getRequiredParam(params, 'id', isString);
 
     const versions = knowledgeRepo.getHistory(id);
-    return { versions };
+    return formatTimestamps({ versions });
   },
 
   deactivate(params: Record<string, unknown>) {
@@ -475,7 +476,7 @@ export const knowledgeHandlers = {
       });
     });
 
-    return { success: true, knowledge: results, count: results.length };
+    return formatTimestamps({ success: true, knowledge: results, count: results.length });
   },
 
   bulk_update(params: Record<string, unknown>) {
@@ -565,7 +566,7 @@ export const knowledgeHandlers = {
       });
     });
 
-    return { success: true, knowledge: results, count: results.length };
+    return formatTimestamps({ success: true, knowledge: results, count: results.length });
   },
 
   bulk_delete(params: Record<string, unknown>) {
@@ -627,6 +628,6 @@ export const knowledgeHandlers = {
       });
     });
 
-    return { success: true, deleted: results, count: results.length };
+    return formatTimestamps({ success: true, deleted: results, count: results.length });
   },
 };

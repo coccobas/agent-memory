@@ -255,3 +255,5 @@ export function detectIDE(workspacePath: string): IDEDetectionResult {
 export function getSupportedIDEs(): string[] {
   return IDE_SIGNATURES.map((s) => s.ide);
 }
+
+

@@ -29,6 +29,7 @@ import {
   isExamplesObject,
   isObject,
 } from '../../utils/type-guards.js';
+import { formatTimestamps } from '../../utils/timestamp-formatter.js';
 import type { GuidelineAddParams, GuidelineUpdateParams } from '../types.js';
 
 const logger = createComponentLogger('guidelines');
@@ -134,7 +135,7 @@ export const guidelineHandlers = {
       scopeId: scopeId ?? null,
     });
 
-    return { success: true, guideline, redFlags: redFlags.length > 0 ? redFlags : undefined };
+    return formatTimestamps({ success: true, guideline, redFlags: redFlags.length > 0 ? redFlags : undefined });
   },
 
   update(params: Record<string, unknown>) {
@@ -207,7 +208,7 @@ export const guidelineHandlers = {
       scopeId: existingGuideline.scopeId ?? null,
     });
 
-    return { success: true, guideline };
+    return formatTimestamps({ success: true, guideline });
   },
 
   get(params: Record<string, unknown>) {
@@ -260,7 +261,7 @@ export const guidelineHandlers = {
       scopeId: guideline.scopeId ?? null,
     });
 
-    return { guideline };
+    return formatTimestamps({ guideline });
   },
 
   list(params: Record<string, unknown>) {
@@ -276,19 +277,19 @@ export const guidelineHandlers = {
       { limit, offset }
     );
 
-    return {
+    return formatTimestamps({
       guidelines,
       meta: {
         returnedCount: guidelines.length,
       },
-    };
+    });
   },
 
   history(params: Record<string, unknown>) {
     const id = getRequiredParam(params, 'id', isString);
 
     const versions = guidelineRepo.getHistory(id);
-    return { versions };
+    return formatTimestamps({ versions });
   },
 
   deactivate(params: Record<string, unknown>) {
@@ -423,7 +424,7 @@ export const guidelineHandlers = {
       });
     });
 
-    return { success: true, guidelines: results, count: results.length };
+    return formatTimestamps({ success: true, guidelines: results, count: results.length });
   },
 
   bulk_update(params: Record<string, unknown>) {
@@ -505,7 +506,7 @@ export const guidelineHandlers = {
       });
     });
 
-    return { success: true, guidelines: results, count: results.length };
+    return formatTimestamps({ success: true, guidelines: results, count: results.length });
   },
 
   bulk_delete(params: Record<string, unknown>) {
@@ -563,6 +564,6 @@ export const guidelineHandlers = {
       });
     });
 
-    return { success: true, deleted: results, count: results.length };
+    return formatTimestamps({ success: true, deleted: results, count: results.length });
   },
 };

@@ -8,20 +8,20 @@ services:
     image: agent-memory:latest
     container_name: agent-memory
     volumes:
-      # Persist database and data
-      - agent-memory-data:/app/data
+      # Bind mount to shared data directory
+      # Override AGENT_MEMORY_DATA_DIR to use a different host location
+      - ${AGENT_MEMORY_DATA_DIR:-~/.agent-memory}:/data
+    # Load environment variables from .env file (for non-path settings)
+    env_file:
+      - .env
     environment:
-      # Database configuration
-      - AGENT_MEMORY_DB_PATH=/app/data/memory.db
-
-      # Logging
-      - LOG_LEVEL=info
-      - AGENT_MEMORY_PERF=0
-      # Optional: Embedding configuration
-      # - AGENT_MEMORY_EMBEDDING_PROVIDER=openai
-      # - AGENT_MEMORY_OPENAI_API_KEY=your-api-key
-      # - AGENT_MEMORY_OPENAI_MODEL=text-embedding-3-small
-      # - AGENT_MEMORY_VECTOR_DB_PATH=/app/data/vectors.lance
+      # Container paths are hardcoded - do not read from .env
+      # The bind mount maps host's ~/.agent-memory to container's /data
+      - AGENT_MEMORY_DB_PATH=/data/memory.db
+      - AGENT_MEMORY_VECTOR_DB_PATH=/data/vectors.lance
+      # Logging (can be overridden in .env)
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - AGENT_MEMORY_PERF=${AGENT_MEMORY_PERF:-0}
 
       # MCP uses stdio - keep stdin open and allocate TTY
     stdin_open: true
@@ -52,6 +52,8 @@ services:
     #       cpus: '1'
     #       memory: 512M
 
-volumes:
-  agent-memory-data:
-    driver: local
+# Named volume (optional - only needed if not using shared bind mount)
+# Uncomment to use isolated Docker volume instead of shared directory
+# volumes:
+#   agent-memory-data:
+#     driver: local

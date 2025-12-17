@@ -311,3 +311,5 @@ describe('IDE Detector', () => {
     });
   });
 });
+
+

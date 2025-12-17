@@ -20,6 +20,7 @@ import {
   isConversationStatus,
   isEntryType,
 } from '../../utils/type-guards.js';
+import { formatTimestamps } from '../../utils/timestamp-formatter.js';
 import type { PermissionEntryType } from '../../db/schema.js';
 
 export const conversationHandlers = {
@@ -65,10 +66,10 @@ export const conversationHandlers = {
       scopeId: sessionId || projectId || null,
     });
 
-    return {
+    return formatTimestamps({
       success: true,
       conversation,
-    };
+    });
   },
 
   addMessage(params: Record<string, unknown>) {
@@ -169,10 +170,10 @@ export const conversationHandlers = {
       scopeId: conversation.sessionId || conversation.projectId || null,
     });
 
-    return {
+    return formatTimestamps({
       success: true,
       message,
-    };
+    });
   },
 
   get(params: Record<string, unknown>) {
@@ -205,10 +206,10 @@ export const conversationHandlers = {
       scopeId: conversation.sessionId || conversation.projectId || null,
     });
 
-    return {
+    return formatTimestamps({
       success: true,
       conversation,
-    };
+    });
   },
 
   list(params: Record<string, unknown>) {
@@ -250,7 +251,7 @@ export const conversationHandlers = {
       resultCount: conversations.length,
     });
 
-    return {
+    return formatTimestamps({
       success: true,
       conversations,
       meta: {
@@ -259,7 +260,7 @@ export const conversationHandlers = {
         truncated: false,
         hasMore: false,
       },
-    };
+    });
   },
 
   update(params: Record<string, unknown>) {
@@ -312,10 +313,10 @@ export const conversationHandlers = {
       scopeId: conversation.sessionId || conversation.projectId || null,
     });
 
-    return {
+    return formatTimestamps({
       success: true,
       conversation,
-    };
+    });
   },
 
   linkContext(params: Record<string, unknown>) {
@@ -362,10 +363,10 @@ export const conversationHandlers = {
       scopeId: conversation.sessionId || conversation.projectId || null,
     });
 
-    return {
+    return formatTimestamps({
       success: true,
       context,
-    };
+    });
   },
 
   getContext(params: Record<string, unknown>) {
@@ -428,10 +429,10 @@ export const conversationHandlers = {
       resultCount: contexts.length,
     });
 
-    return {
+    return formatTimestamps({
       success: true,
       contexts,
-    };
+    });
   },
 
   search(params: Record<string, unknown>) {
@@ -472,7 +473,7 @@ export const conversationHandlers = {
       resultCount: results.length,
     });
 
-    return {
+    return formatTimestamps({
       success: true,
       conversations: results,
       meta: {
@@ -481,7 +482,7 @@ export const conversationHandlers = {
         truncated: false,
         hasMore: false,
       },
-    };
+    });
   },
 
   end(params: Record<string, unknown>) {
@@ -528,11 +529,11 @@ export const conversationHandlers = {
       scopeId: conversation.sessionId || conversation.projectId || null,
     });
 
-    return {
+    return formatTimestamps({
       success: true,
       conversation,
       summary,
-    };
+    });
   },
 
   archive(params: Record<string, unknown>) {
@@ -572,9 +573,9 @@ export const conversationHandlers = {
       scopeId: conversation.sessionId || conversation.projectId || null,
     });
 
-    return {
+    return formatTimestamps({
       success: true,
       conversation,
-    };
+    });
   },
 };

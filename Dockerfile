@@ -42,8 +42,8 @@ RUN npm ci --omit=dev && npm cache clean --force
 # Copy built files
 COPY --from=builder /app/dist ./dist
 
-# Create data directory with proper permissions
-RUN mkdir -p /app/data && chown -R node:node /app/data
+# Create data directory at /data (will be bind-mounted from host)
+RUN mkdir -p /data && chown -R node:node /data
 
 # Create migrations directory
 RUN mkdir -p /app/src/db/migrations
@@ -58,7 +58,8 @@ USER node
 
 # Set environment variables
 ENV NODE_ENV=production
-ENV AGENT_MEMORY_DB_PATH=/app/data/memory.db
+ENV AGENT_MEMORY_DB_PATH=/data/memory.db
+ENV AGENT_MEMORY_VECTOR_DB_PATH=/data/vectors.lance
 
 # Health check - verifies database is accessible
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \

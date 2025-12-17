@@ -19,6 +19,7 @@ import {
   isObject,
   isBoolean,
 } from '../../utils/type-guards.js';
+import { formatTimestamps } from '../../utils/timestamp-formatter.js';
 
 /**
  * Type guard to check if a value is a valid session status
@@ -42,7 +43,7 @@ export const scopeHandlers = {
     };
 
     const org = organizationRepo.create(input);
-    return { success: true, organization: org };
+    return formatTimestamps({ success: true, organization: org });
   },
 
   orgList(params: Record<string, unknown>) {
@@ -50,12 +51,12 @@ export const scopeHandlers = {
     const offset = getOptionalParam(params, 'offset', isNumber);
 
     const organizations = organizationRepo.list({ limit, offset });
-    return {
+    return formatTimestamps({
       organizations,
       meta: {
         returnedCount: organizations.length,
       },
-    };
+    });
   },
 
   // ===========================================================================
@@ -78,7 +79,7 @@ export const scopeHandlers = {
     };
 
     const project = projectRepo.create(input);
-    return { success: true, project };
+    return formatTimestamps({ success: true, project });
   },
 
   projectList(params: Record<string, unknown>) {
@@ -87,12 +88,12 @@ export const scopeHandlers = {
     const offset = getOptionalParam(params, 'offset', isNumber);
 
     const projects = projectRepo.list({ orgId }, { limit, offset });
-    return {
+    return formatTimestamps({
       projects,
       meta: {
         returnedCount: projects.length,
       },
-    };
+    });
   },
 
   projectGet(params: Record<string, unknown>) {
@@ -115,7 +116,7 @@ export const scopeHandlers = {
       throw new Error('Project not found');
     }
 
-    return { project };
+    return formatTimestamps({ project });
   },
 
   projectUpdate(params: Record<string, unknown>) {
@@ -136,7 +137,7 @@ export const scopeHandlers = {
       throw new Error('Project not found');
     }
 
-    return { success: true, project };
+    return formatTimestamps({ success: true, project });
   },
 
   projectDelete(params: Record<string, unknown>) {
@@ -177,7 +178,7 @@ export const scopeHandlers = {
     };
 
     const session = sessionRepo.create(input);
-    return { success: true, session };
+    return formatTimestamps({ success: true, session });
   },
 
   sessionEnd(params: Record<string, unknown>) {
@@ -189,7 +190,7 @@ export const scopeHandlers = {
       throw new Error('Session not found');
     }
 
-    return { success: true, session };
+    return formatTimestamps({ success: true, session });
   },
 
   sessionList(params: Record<string, unknown>) {
@@ -199,11 +200,11 @@ export const scopeHandlers = {
     const offset = getOptionalParam(params, 'offset', isNumber);
 
     const sessions = sessionRepo.list({ projectId, status }, { limit, offset });
-    return {
+    return formatTimestamps({
       sessions,
       meta: {
         returnedCount: sessions.length,
       },
-    };
+    });
   },
 };

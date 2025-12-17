@@ -59,6 +59,18 @@ function parseString<T extends string>(
   return lower;
 }
 
+/**
+ * Expand tilde (~) to home directory in file paths.
+ * Supports both Unix-style HOME and Windows-style USERPROFILE.
+ */
+function expandTilde(filePath: string): string {
+  if (filePath.startsWith('~/') || filePath === '~') {
+    const home = process.env.HOME || process.env.USERPROFILE || '';
+    return filePath.replace(/^~/, home);
+  }
+  return filePath;
+}
+
 // =============================================================================
 // CONFIGURATION INTERFACE
 // =============================================================================
@@ -172,6 +184,11 @@ export interface Config {
     nodeEnv: string;
     projectRoot: string;
   };
+
+  // Timestamps
+  timestamps: {
+    displayTimezone: string; // 'local' | 'utc' | IANA timezone (e.g., 'Europe/Rome')
+  };
 }
 
 // =============================================================================
@@ -190,13 +207,13 @@ function getEmbeddingProvider(): 'openai' | 'local' | 'disabled' {
 
 export const config: Config = {
   database: {
-    path: process.env.AGENT_MEMORY_DB_PATH || resolve(projectRoot, 'data/memory.db'),
+    path: expandTilde(process.env.AGENT_MEMORY_DB_PATH || resolve(projectRoot, 'data/memory.db')),
     skipInit: parseBoolean(process.env.AGENT_MEMORY_SKIP_INIT, false),
     verbose: parseBoolean(process.env.AGENT_MEMORY_PERF, false),
   },
 
   vectorDb: {
-    path: process.env.AGENT_MEMORY_VECTOR_DB_PATH || resolve(projectRoot, 'data/vectors.lance'),
+    path: expandTilde(process.env.AGENT_MEMORY_VECTOR_DB_PATH || resolve(projectRoot, 'data/vectors.lance')),
     distanceMetric: parseString(
       process.env.AGENT_MEMORY_DISTANCE_METRIC,
       'cosine',
@@ -303,6 +320,10 @@ export const config: Config = {
     nodeEnv: process.env.NODE_ENV || 'development',
     projectRoot,
   },
+
+  timestamps: {
+    displayTimezone: process.env.AGENT_MEMORY_TIMEZONE || 'local',
+  },
 };
 
 /**
@@ -312,13 +333,13 @@ export const config: Config = {
 function buildConfig(): Config {
   return {
     database: {
-      path: process.env.AGENT_MEMORY_DB_PATH || resolve(projectRoot, 'data/memory.db'),
+      path: expandTilde(process.env.AGENT_MEMORY_DB_PATH || resolve(projectRoot, 'data/memory.db')),
       skipInit: parseBoolean(process.env.AGENT_MEMORY_SKIP_INIT, false),
       verbose: parseBoolean(process.env.AGENT_MEMORY_PERF, false),
     },
 
     vectorDb: {
-      path: process.env.AGENT_MEMORY_VECTOR_DB_PATH || resolve(projectRoot, 'data/vectors.lance'),
+      path: expandTilde(process.env.AGENT_MEMORY_VECTOR_DB_PATH || resolve(projectRoot, 'data/vectors.lance')),
       distanceMetric: parseString(
         process.env.AGENT_MEMORY_DISTANCE_METRIC,
         'cosine',
@@ -424,6 +445,10 @@ function buildConfig(): Config {
     runtime: {
       nodeEnv: process.env.NODE_ENV || 'development',
       projectRoot,
+    },
+
+    timestamps: {
+      displayTimezone: process.env.AGENT_MEMORY_TIMEZONE || 'local',
     },
   };
 }
