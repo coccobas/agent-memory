@@ -107,19 +107,94 @@ Restart Claude Desktop to load the server.
 
 ### With Claude Code
 
+Agent Memory can be configured at three different scopes in Claude Code:
+
+#### User-Level (Global)
+Available across all projects. Add to `~/.claude.json` (Windows: `%USERPROFILE%\.claude.json`):
+
+**NPM Package (Recommended):**
+```json
+{
+  "mcpServers": {
+    "agent-memory": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "agent-memory@latest", "mcp"],
+      "env": {}
+    }
+  }
+}
+```
+
+**Docker:**
+```json
+{
+  "mcpServers": {
+    "agent-memory": {
+      "type": "stdio",
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "-v",
+        "~/.agent-memory:/data",
+        "-e",
+        "AGENT_MEMORY_DATA_DIR=/data",
+        "ghcr.io/coccobas/agent-memory:latest"
+      ],
+      "env": {}
+    }
+  }
+}
+```
+
+**Local Development:**
+```json
+{
+  "mcpServers": {
+    "agent-memory": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["/absolute/path/to/agent-memory/dist/cli.js"],
+      "env": {}
+    }
+  }
+}
+```
+
+#### Project-Level (Shared)
+Committed to repository for team collaboration. Create `.mcp.json` in project root:
+
+```json
+{
+  "mcpServers": {
+    "agent-memory": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "agent-memory@latest", "mcp"],
+      "env": {}
+    }
+  }
+}
+```
+
+#### Local Project (Private)
+Project-specific but not shared. Automatically created in `~/.claude.json` when using CLI:
+
 **Unix/Linux/macOS:**
 ```bash
-claude mcp add agent-memory node /absolute/path/to/agent-memory/dist/index.js
+claude mcp add agent-memory node /absolute/path/to/agent-memory/dist/cli.js
 ```
 
 **Windows (PowerShell/CMD):**
 ```powershell
-claude mcp add agent-memory node C:\path\to\agent-memory\dist\index.js
+claude mcp add agent-memory node C:\path\to\agent-memory\dist\cli.js
 ```
 
 Or with forward slashes:
 ```powershell
-claude mcp add agent-memory node C:/path/to/agent-memory/dist/index.js
+claude mcp add agent-memory node C:/path/to/agent-memory/dist/cli.js
 ```
 
 ### With Docker
