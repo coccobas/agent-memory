@@ -42,6 +42,11 @@ export const queryHandlers = {
       );
     }
 
+    // Helper to validate direction
+    function isTraversalDirection(v: unknown): v is 'forward' | 'backward' | 'both' {
+      return v === 'forward' || v === 'backward' || v === 'both';
+    }
+
     // Build query params object (excluding agent-specific fields)
     const queryParamsWithoutAgent: MemoryQueryParams = {
       types: getOptionalParam(params, 'types', isArray) as
@@ -57,11 +62,16 @@ export const queryHandlers = {
         const type = getOptionalParam(relatedToParam, 'type', isEntryType);
         const id = getOptionalParam(relatedToParam, 'id', isString);
         const relation = getOptionalParam(relatedToParam, 'relation', isRelationType);
+        // Graph traversal options
+        const depth = getOptionalParam(relatedToParam, 'depth', isNumber);
+        const direction = getOptionalParam(relatedToParam, 'direction', isTraversalDirection);
+        const maxResults = getOptionalParam(relatedToParam, 'maxResults', isNumber);
         if (type && id) {
-          return { type, id, relation };
+          return { type, id, relation, depth, direction, maxResults };
         }
         return undefined;
       })(),
+      followRelations: getOptionalParam(params, 'followRelations', isBoolean),
       limit: getOptionalParam(params, 'limit', isNumber),
       compact: getOptionalParam(params, 'compact', isBoolean),
       semanticSearch: getOptionalParam(params, 'semanticSearch', isBoolean),

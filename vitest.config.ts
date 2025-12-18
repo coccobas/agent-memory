@@ -12,9 +12,11 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['tests/**/*.test.ts'],
+    exclude: ['tests/benchmarks/**'],
     // Enable dev mode for tests to auto-fix migration checksum mismatches
     env: {
       AGENT_MEMORY_DEV_MODE: '1',
+      AGENT_MEMORY_DATA_DIR: './data/test', // Isolate tests from production database
     },
     coverage: {
       provider: 'v8',
@@ -29,5 +31,16 @@ export default defineConfig({
       },
     },
     setupFiles: ['tests/fixtures/setup.ts'],
+  },
+  // Benchmark configuration
+  bench: {
+    globals: true,
+    environment: 'node',
+    include: ['tests/benchmarks/**/*.bench.ts'],
+    env: {
+      AGENT_MEMORY_DEV_MODE: '1',
+      AGENT_MEMORY_DATA_DIR: './data/benchmark', // Isolate benchmarks from production
+    },
+    reporters: ['default'],
   },
 });

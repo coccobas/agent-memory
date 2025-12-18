@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "src/cli.ts",
+    "src/index.ts",
+    "src/config/**/*",
+    "src/core/**/*",
+    "src/db/**/*",
+    "src/services/**/*",
+    "src/utils/**/*",
+    "src/mcp/**/*"
+  ]
+}
+

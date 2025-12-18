@@ -10,6 +10,7 @@ data/*.db
 data/*.db-shm
 data/*.db-wal
 data/vectors.lance/
+data/test/
 
 # IDE
 .vscode/
@@ -32,6 +33,10 @@ yarn-error.log*
 # Testing
 coverage/
 .nyc_output/
+
+# Benchmarks
+data/benchmark/
+benchmarks/results.json
 
 # Environment
 .env

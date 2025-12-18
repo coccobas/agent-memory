@@ -127,6 +127,21 @@ export interface Config {
     openaiModel: string;
   };
 
+  // Extraction (LLM-based auto-capture)
+  extraction: {
+    provider: 'openai' | 'anthropic' | 'ollama' | 'disabled';
+    openaiApiKey: string | undefined;
+    openaiBaseUrl: string | undefined; // For LM Studio, LocalAI, etc.
+    openaiModel: string;
+    anthropicApiKey: string | undefined;
+    anthropicModel: string;
+    ollamaBaseUrl: string;
+    ollamaModel: string;
+    maxTokens: number;
+    temperature: number;
+    confidenceThreshold: number;
+  };
+
   // Logging
   logging: {
     level: 'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'trace';
@@ -165,6 +180,14 @@ export interface Config {
     defaultThreshold: number;
     scoreWeight: number;
     duplicateThreshold: number;
+  };
+
+  // Recency/Decay Scoring
+  recency: {
+    defaultDecayHalfLifeDays: number;
+    defaultRecencyWeight: number;
+    maxRecencyBoost: number;
+    useUpdatedAt: boolean;
   };
 
   // Validation Limits
@@ -244,6 +267,19 @@ function getEmbeddingProvider(): 'openai' | 'local' | 'disabled' {
   return process.env.AGENT_MEMORY_OPENAI_API_KEY ? 'openai' : 'local';
 }
 
+// Determine extraction provider with fallback logic
+function getExtractionProvider(): 'openai' | 'anthropic' | 'ollama' | 'disabled' {
+  const providerEnv = process.env.AGENT_MEMORY_EXTRACTION_PROVIDER?.toLowerCase();
+  if (providerEnv === 'disabled') return 'disabled';
+  if (providerEnv === 'ollama') return 'ollama';
+  if (providerEnv === 'anthropic') return 'anthropic';
+  if (providerEnv === 'openai') return 'openai';
+  // Default: check for API keys in order of preference
+  if (process.env.AGENT_MEMORY_OPENAI_API_KEY) return 'openai';
+  if (process.env.AGENT_MEMORY_ANTHROPIC_API_KEY) return 'anthropic';
+  return 'disabled';
+}
+
 export const config: Config = {
   database: {
     path: resolveDataPath(process.env.AGENT_MEMORY_DB_PATH, 'memory.db'),
@@ -269,6 +305,21 @@ export const config: Config = {
     provider: getEmbeddingProvider(),
     openaiApiKey: process.env.AGENT_MEMORY_OPENAI_API_KEY,
     openaiModel: process.env.AGENT_MEMORY_OPENAI_MODEL || 'text-embedding-3-small',
+  },
+
+  extraction: {
+    provider: getExtractionProvider(),
+    openaiApiKey: process.env.AGENT_MEMORY_OPENAI_API_KEY,
+    openaiBaseUrl: process.env.AGENT_MEMORY_EXTRACTION_OPENAI_BASE_URL, // For LM Studio, LocalAI
+    openaiModel: process.env.AGENT_MEMORY_EXTRACTION_OPENAI_MODEL || 'gpt-4o-mini',
+    anthropicApiKey: process.env.AGENT_MEMORY_ANTHROPIC_API_KEY,
+    anthropicModel:
+      process.env.AGENT_MEMORY_EXTRACTION_ANTHROPIC_MODEL || 'claude-3-5-sonnet-20241022',
+    ollamaBaseUrl: process.env.AGENT_MEMORY_OLLAMA_BASE_URL || 'http://localhost:11434',
+    ollamaModel: process.env.AGENT_MEMORY_OLLAMA_MODEL || 'llama3.2',
+    maxTokens: parseInt_(process.env.AGENT_MEMORY_EXTRACTION_MAX_TOKENS, 4096),
+    temperature: parseNumber(process.env.AGENT_MEMORY_EXTRACTION_TEMPERATURE, 0.2),
+    confidenceThreshold: parseNumber(process.env.AGENT_MEMORY_EXTRACTION_CONFIDENCE_THRESHOLD, 0.7),
   },
 
   logging: {
@@ -320,6 +371,13 @@ export const config: Config = {
     defaultThreshold: parseNumber(process.env.AGENT_MEMORY_SEMANTIC_THRESHOLD, 0.7),
     scoreWeight: parseNumber(process.env.AGENT_MEMORY_SEMANTIC_SCORE_WEIGHT, 0.7),
     duplicateThreshold: parseNumber(process.env.AGENT_MEMORY_DUPLICATE_THRESHOLD, 0.8),
+  },
+
+  recency: {
+    defaultDecayHalfLifeDays: parseInt_(process.env.AGENT_MEMORY_DECAY_HALF_LIFE_DAYS, 14),
+    defaultRecencyWeight: parseNumber(process.env.AGENT_MEMORY_RECENCY_WEIGHT, 0.5),
+    maxRecencyBoost: parseNumber(process.env.AGENT_MEMORY_MAX_RECENCY_BOOST, 2.0),
+    useUpdatedAt: parseBoolean(process.env.AGENT_MEMORY_USE_UPDATED_AT, true),
   },
 
   validation: {
@@ -412,6 +470,24 @@ function buildConfig(): Config {
       openaiModel: process.env.AGENT_MEMORY_OPENAI_MODEL || 'text-embedding-3-small',
     },
 
+    extraction: {
+      provider: getExtractionProvider(),
+      openaiApiKey: process.env.AGENT_MEMORY_OPENAI_API_KEY,
+      openaiBaseUrl: process.env.AGENT_MEMORY_EXTRACTION_OPENAI_BASE_URL,
+      openaiModel: process.env.AGENT_MEMORY_EXTRACTION_OPENAI_MODEL || 'gpt-4o-mini',
+      anthropicApiKey: process.env.AGENT_MEMORY_ANTHROPIC_API_KEY,
+      anthropicModel:
+        process.env.AGENT_MEMORY_EXTRACTION_ANTHROPIC_MODEL || 'claude-3-5-sonnet-20241022',
+      ollamaBaseUrl: process.env.AGENT_MEMORY_OLLAMA_BASE_URL || 'http://localhost:11434',
+      ollamaModel: process.env.AGENT_MEMORY_OLLAMA_MODEL || 'llama3.2',
+      maxTokens: parseInt_(process.env.AGENT_MEMORY_EXTRACTION_MAX_TOKENS, 4096),
+      temperature: parseNumber(process.env.AGENT_MEMORY_EXTRACTION_TEMPERATURE, 0.2),
+      confidenceThreshold: parseNumber(
+        process.env.AGENT_MEMORY_EXTRACTION_CONFIDENCE_THRESHOLD,
+        0.7
+      ),
+    },
+
     logging: {
       level: parseString(process.env.LOG_LEVEL, 'info', [
         'fatal',
@@ -461,6 +537,13 @@ function buildConfig(): Config {
       defaultThreshold: parseNumber(process.env.AGENT_MEMORY_SEMANTIC_THRESHOLD, 0.7),
       scoreWeight: parseNumber(process.env.AGENT_MEMORY_SEMANTIC_SCORE_WEIGHT, 0.7),
       duplicateThreshold: parseNumber(process.env.AGENT_MEMORY_DUPLICATE_THRESHOLD, 0.8),
+    },
+
+    recency: {
+      defaultDecayHalfLifeDays: parseInt_(process.env.AGENT_MEMORY_DECAY_HALF_LIFE_DAYS, 14),
+      defaultRecencyWeight: parseNumber(process.env.AGENT_MEMORY_RECENCY_WEIGHT, 0.5),
+      maxRecencyBoost: parseNumber(process.env.AGENT_MEMORY_MAX_RECENCY_BOOST, 2.0),
+      useUpdatedAt: parseBoolean(process.env.AGENT_MEMORY_USE_UPDATED_AT, true),
     },
 
     validation: {

@@ -3,6 +3,7 @@
  */
 
 import type { ScopeType, EntryType, PermissionEntryType, RelationType } from '../db/schema.js';
+export type { MemoryContextParams, MemoryQueryParams, ResponseMeta } from '../core/types.js';
 
 // =============================================================================
 // COMMON TYPES
@@ -19,13 +20,7 @@ export interface PaginationParams {
   cursor?: string;
 }
 
-export interface ResponseMeta {
-  totalCount: number;
-  returnedCount: number;
-  truncated: boolean;
-  hasMore: boolean;
-  nextCursor?: string;
-}
+// ResponseMeta is exported from ../core/types.js
 
 // =============================================================================
 // ORGANIZATION PARAMS
@@ -310,60 +305,7 @@ export interface RelationDeleteParams {
   relationType?: RelationType;
 }
 
-// =============================================================================
-// QUERY PARAMS (Advanced cross-reference search)
-// =============================================================================
-
-export interface MemoryQueryParams {
-  types?: ('tools' | 'guidelines' | 'knowledge')[];
-  scope?: {
-    type: ScopeType;
-    id?: string;
-    inherit?: boolean;
-  };
-  tags?: {
-    include?: string[];
-    require?: string[];
-    exclude?: string[];
-  };
-  search?: string;
-  relatedTo?: {
-    type: EntryType;
-    id: string;
-    relation?: RelationType;
-  };
-  limit?: number;
-  includeVersions?: boolean;
-  includeInactive?: boolean;
-  compact?: boolean;
-  semanticSearch?: boolean; // Enable semantic/vector search (default: true if embeddings available)
-  semanticThreshold?: number; // Minimum similarity score for semantic results (0-1, default: 0.7)
-  useFts5?: boolean; // Use FTS5 full-text search instead of LIKE queries (default: false for backward compatibility)
-  // Advanced filtering options
-  fields?: string[]; // Field-specific search: ['name', 'description']
-  fuzzy?: boolean; // Typo tolerance (Levenshtein distance)
-  createdAfter?: string; // ISO timestamp
-  createdBefore?: string; // ISO timestamp
-  updatedAfter?: string; // ISO timestamp
-  updatedBefore?: string; // ISO timestamp
-  priority?: { min?: number; max?: number }; // For guidelines
-  regex?: boolean; // Use regex instead of simple match
-  conversationId?: string; // Link query results to conversation
-  messageId?: string; // Link query results to specific message
-  autoLinkContext?: boolean; // Auto-link results to conversation (default: true if conversationId provided)
-}
-
-// =============================================================================
-// CONTEXT PARAMS (Aggregated context for a scope)
-// =============================================================================
-
-export interface MemoryContextParams {
-  scopeType: ScopeType;
-  scopeId?: string;
-  inherit?: boolean;
-  compact?: boolean;
-  limitPerType?: number;
-}
+// MemoryQueryParams and MemoryContextParams are exported from ../core/types.js
 
 // =============================================================================
 // CONFLICT PARAMS
@@ -514,3 +456,25 @@ export interface ConversationArchiveParams {
   id: string;
   agentId?: string;
 }
+
+// =============================================================================
+// OBSERVE PARAMS (Auto-capture extraction)
+// =============================================================================
+
+export interface ObserveExtractParams {
+  context: string;
+  contextType?: 'conversation' | 'code' | 'mixed';
+  scopeType?: ScopeType;
+  scopeId?: string;
+  autoStore?: boolean;
+  confidenceThreshold?: number;
+  focusAreas?: ('decisions' | 'facts' | 'rules' | 'tools')[];
+  agentId?: string;
+}
+
+export interface ObserveStatusParams {
+  // No params needed
+}
+
+// Re-export common types for convenience
+export type { ScopeType, EntryType, PermissionEntryType, RelationType };

@@ -52,6 +52,12 @@ export const ErrorCodes = {
 
   // Permission errors (6000-6999)
   PERMISSION_DENIED: 'E6000',
+
+  // Extraction errors (7000-7999)
+  EXTRACTION_UNAVAILABLE: 'E7000',
+  EXTRACTION_FAILED: 'E7001',
+  EXTRACTION_PARSE_ERROR: 'E7002',
+  EXTRACTION_TIMEOUT: 'E7003',
 } as const;
 
 /**
@@ -145,6 +151,39 @@ export function createPermissionError(
     identifier,
     suggestion: `Ensure you have ${action} permissions for this ${resource}`,
   });
+}
+
+/**
+ * Create an extraction error
+ */
+export function createExtractionError(
+  provider: string,
+  message: string,
+  details?: Record<string, unknown>
+): AgentMemoryError {
+  return new AgentMemoryError(
+    `Extraction failed (${provider}): ${message}`,
+    ErrorCodes.EXTRACTION_FAILED,
+    {
+      provider,
+      ...details,
+      suggestion: 'Check LLM provider configuration and API keys',
+    }
+  );
+}
+
+/**
+ * Create an extraction unavailable error
+ */
+export function createExtractionUnavailableError(): AgentMemoryError {
+  return new AgentMemoryError(
+    'Extraction service not available. Configure AGENT_MEMORY_EXTRACTION_PROVIDER.',
+    ErrorCodes.EXTRACTION_UNAVAILABLE,
+    {
+      suggestion:
+        'Set AGENT_MEMORY_EXTRACTION_PROVIDER to openai, anthropic, or ollama and provide the necessary API key',
+    }
+  );
 }
 
 /**

@@ -22,7 +22,7 @@ import {
   type KnowledgeVersion,
   type RelationType,
 } from '../db/schema.js';
-import type { MemoryQueryParams, ResponseMeta } from '../mcp/types.js';
+import type { MemoryQueryParams, ResponseMeta } from '../core/types.js';
 import { getEmbeddingService } from './embedding.service.js';
 import { getVectorService } from './vector.service.js';
 import { createComponentLogger } from '../utils/logger.js';

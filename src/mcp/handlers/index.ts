@@ -16,3 +16,4 @@ export * from './analytics.handler.js';
 export * from './permissions.handler.js';
 export * from './conversations.handler.js';
 export * from './backup.handler.js';
+export * from './observe.handler.js';

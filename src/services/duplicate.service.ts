@@ -7,12 +7,19 @@
 
 import { getDb, getPreparedStatement } from '../db/connection.js';
 import { tools, guidelines, knowledge } from '../db/schema.js';
-import { eq, and, isNull } from 'drizzle-orm';
+import { eq, and, isNull, inArray } from 'drizzle-orm';
 import type { ScopeType, EntryType } from '../db/schema.js';
-import { executeFts5Query } from './query.service.js';
 
-// Map EntryType to QueryEntryType for FTS5
-type QueryEntryType = 'tool' | 'guideline' | 'knowledge';
+function escapeFts5Query(input: string): string {
+  // Keep this conservative: remove characters that have special meaning in MATCH syntax.
+  // This aligns with executeFts5Search() in query.service.ts.
+  return input
+    .replace(/["*]/g, '')
+    // Normalize kebab/snake/camel-ish identifiers into tokens.
+    // FTS5 MATCH has its own query syntax; reducing to plain tokens avoids parse errors.
+    .replace(/[^a-zA-Z0-9]+/g, ' ')
+    .trim();
+}
 
 /**
  * Calculate Levenshtein distance between two strings
@@ -101,98 +108,86 @@ export function findSimilarEntries(
 ): SimilarEntry[] {
   const db = getDb();
 
-  // Use FTS5 for fast text search
-  const queryEntryType: QueryEntryType =
-    entryType === 'tool' ? 'tool' : entryType === 'guideline' ? 'guideline' : 'knowledge';
-  const fts5Rowids = executeFts5Query(queryEntryType, name, ['name', 'title']);
-
-  if (fts5Rowids.size === 0) {
-    return [];
-  }
-
-  // Get entries matching the rowids and scope
-  const entries: Array<{ id: string; name: string }> = [];
+  const ftsQuery = escapeFts5Query(name);
+  if (!ftsQuery) return [];
 
   if (entryType === 'tool') {
-    const allTools = db
-      .select()
+    const idQuery = getPreparedStatement(`SELECT tool_id AS id FROM tools_fts WHERE tools_fts MATCH ?`);
+    const idRows = idQuery.all(ftsQuery) as Array<{ id: string }>;
+    const ids = idRows.map((r) => r.id).filter(Boolean);
+    if (ids.length === 0) return [];
+
+    const entries = db
+      .select({ id: tools.id, name: tools.name })
       .from(tools)
       .where(
         and(
           eq(tools.scopeType, scopeType),
           scopeId === null ? isNull(tools.scopeId) : eq(tools.scopeId, scopeId),
-          eq(tools.isActive, true)
+          eq(tools.isActive, true),
+          inArray(tools.id, ids)
         )
       )
       .all();
 
-    // Filter by rowids from FTS5
-    for (const tool of allTools) {
-      const rowidQuery = getPreparedStatement('SELECT rowid FROM tools WHERE id = ?');
-      const rowidResult = rowidQuery.get(tool.id) as { rowid: number } | undefined;
-      if (rowidResult && fts5Rowids.has(rowidResult.rowid)) {
-        entries.push({ id: tool.id, name: tool.name });
-      }
-    }
+    return entries
+      .map((entry) => ({ ...entry, similarity: calculateSimilarity(name, entry.name) }))
+      .filter((e) => e.similarity >= threshold)
+      .sort((a, b) => b.similarity - a.similarity)
+      .map(({ id, name: entryName, similarity }) => ({ id, name: entryName, similarity }));
   } else if (entryType === 'guideline') {
-    const allGuidelines = db
-      .select()
+    const idQuery = getPreparedStatement(
+      `SELECT guideline_id AS id FROM guidelines_fts WHERE guidelines_fts MATCH ?`
+    );
+    const idRows = idQuery.all(ftsQuery) as Array<{ id: string }>;
+    const ids = idRows.map((r) => r.id).filter(Boolean);
+    if (ids.length === 0) return [];
+
+    const entries = db
+      .select({ id: guidelines.id, name: guidelines.name })
       .from(guidelines)
       .where(
         and(
           eq(guidelines.scopeType, scopeType),
           scopeId === null ? isNull(guidelines.scopeId) : eq(guidelines.scopeId, scopeId),
-          eq(guidelines.isActive, true)
+          eq(guidelines.isActive, true),
+          inArray(guidelines.id, ids)
         )
       )
       .all();
 
-    for (const guideline of allGuidelines) {
-      const rowidQuery = getPreparedStatement('SELECT rowid FROM guidelines WHERE id = ?');
-      const rowidResult = rowidQuery.get(guideline.id) as { rowid: number } | undefined;
-      if (rowidResult && fts5Rowids.has(rowidResult.rowid)) {
-        entries.push({ id: guideline.id, name: guideline.name });
-      }
-    }
+    return entries
+      .map((entry) => ({ ...entry, similarity: calculateSimilarity(name, entry.name) }))
+      .filter((e) => e.similarity >= threshold)
+      .sort((a, b) => b.similarity - a.similarity)
+      .map(({ id, name: entryName, similarity }) => ({ id, name: entryName, similarity }));
   } else {
-    const allKnowledge = db
-      .select()
+    const idQuery = getPreparedStatement(
+      `SELECT knowledge_id AS id FROM knowledge_fts WHERE knowledge_fts MATCH ?`
+    );
+    const idRows = idQuery.all(ftsQuery) as Array<{ id: string }>;
+    const ids = idRows.map((r) => r.id).filter(Boolean);
+    if (ids.length === 0) return [];
+
+    const entries = db
+      .select({ id: knowledge.id, name: knowledge.title })
       .from(knowledge)
       .where(
         and(
           eq(knowledge.scopeType, scopeType),
           scopeId === null ? isNull(knowledge.scopeId) : eq(knowledge.scopeId, scopeId),
-          eq(knowledge.isActive, true)
+          eq(knowledge.isActive, true),
+          inArray(knowledge.id, ids)
         )
       )
       .all();
 
-    for (const k of allKnowledge) {
-      const rowidQuery = getPreparedStatement('SELECT rowid FROM knowledge WHERE id = ?');
-      const rowidResult = rowidQuery.get(k.id) as { rowid: number } | undefined;
-      if (rowidResult && fts5Rowids.has(rowidResult.rowid)) {
-        entries.push({ id: k.id, name: k.title });
-      }
-    }
+    return entries
+      .map((entry) => ({ ...entry, similarity: calculateSimilarity(name, entry.name) }))
+      .filter((e) => e.similarity >= threshold)
+      .sort((a, b) => b.similarity - a.similarity)
+      .map(({ id, name: entryName, similarity }) => ({ id, name: entryName, similarity }));
   }
-
-  // Calculate similarity scores
-  const similar: SimilarEntry[] = [];
-  for (const entry of entries) {
-    const similarity = calculateSimilarity(name, entry.name);
-    if (similarity >= threshold) {
-      similar.push({
-        id: entry.id,
-        name: entry.name,
-        similarity,
-      });
-    }
-  }
-
-  // Sort by similarity (highest first)
-  similar.sort((a, b) => b.similarity - a.similarity);
-
-  return similar;
 }
 
 /**
@@ -220,7 +215,6 @@ export function checkForDuplicates(
     similarEntries: similar,
   };
 }
-
 
 
 
