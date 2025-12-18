@@ -1,18 +1,37 @@
 {
   "name": "agent-memory",
-  "version": "0.9.2",
+  "version": "0.9.3",
   "description": "MCP server providing structured memory backend for AI agents",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./mcp": {
+      "types": "./dist/mcp/index.d.ts",
+      "default": "./dist/mcp/index.js"
+    },
+    "./restapi": {
+      "types": "./dist/restapi/index.d.ts",
+      "default": "./dist/restapi/index.js"
+    }
+  },
   "bin": {
     "agent-memory": "dist/cli.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "npm run build:all",
+    "build:all": "npm run clean && tsc -p tsconfig.all.json",
+    "build:mcp": "npm run clean && tsc -p tsconfig.mcp.json",
+    "build:rest": "npm run clean && tsc -p tsconfig.rest.json",
     "dev": "tsx watch src/cli.ts",
     "dev:watch": "tsx watch src/cli.ts",
     "start": "node dist/cli.js",
+    "start:rest": "node dist/cli.js rest",
+    "start:both": "node dist/cli.js both",
     "restore-migrations": "git checkout HEAD -- src/db/migrations/",
     "pretest": "npm run restore-migrations",
     "test": "vitest",
@@ -52,6 +71,7 @@
     "dotenv": "^17.2.3",
     "drizzle-orm": "^0.38.0",
     "@anthropic-ai/sdk": "^0.32.1",
+    "fastify": "^5.2.1",
     "openai": "^4.67.0",
     "pino": "^10.1.0",
     "pino-pretty": "^13.1.3",

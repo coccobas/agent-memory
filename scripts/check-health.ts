@@ -5,6 +5,7 @@
 
 import { getSqlite } from '../src/db/connection.js';
 import { getQueryCacheStats } from '../src/services/query.service.js';
+import { VERSION } from '../src/version.js';
 
 function checkHealth() {
   try {
@@ -24,7 +25,7 @@ function checkHealth() {
       cache: ReturnType<typeof getQueryCacheStats>;
       tables: Record<string, number>;
     } = {
-      serverVersion: '0.8.5',
+      serverVersion: VERSION,
       status: 'healthy',
       database: {
         type: 'SQLite',
@@ -115,6 +116,7 @@ function checkHealth() {
 }
 
 checkHealth();
+
 
 
 

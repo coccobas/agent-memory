@@ -71,7 +71,9 @@ import { conversationHandlers } from './handlers/conversations.handler.js';
 import { backupHandlers } from './handlers/backup.handler.js';
 import { verificationHandlers } from './handlers/verification.handler.js';
 import { hooksHandlers } from './handlers/hooks.handler.js';
+import { observeHandlers } from './handlers/observe.handler.js';
 import { checkRateLimits } from '../utils/rate-limiter.js';
+import { VERSION } from '../version.js';
 
 // =============================================================================
 // BUNDLED TOOL DEFINITIONS (20 tools)
@@ -497,8 +499,25 @@ Quick start: {"action":"context","scopeType":"project","inherit":true}`,
               type: 'string',
               enum: ['applies_to', 'depends_on', 'conflicts_with', 'related_to'],
             },
+            depth: {
+              type: 'number',
+              description: 'Max traversal depth 1-5 (default: 1)',
+            },
+            direction: {
+              type: 'string',
+              enum: ['forward', 'backward', 'both'],
+              description: 'Traversal direction (default: both)',
+            },
+            maxResults: {
+              type: 'number',
+              description: 'Limit results from traversal (default: 100)',
+            },
           },
           description: 'Find related entries (search)',
+        },
+        followRelations: {
+          type: 'boolean',
+          description: 'Expand search results to include related entries',
         },
         includeVersions: { type: 'boolean', description: 'Include version history (search)' },
         includeInactive: { type: 'boolean', description: 'Include inactive entries (search)' },
@@ -1132,6 +1151,69 @@ Supported IDEs: claude (Claude Code), cursor (Cursor), vscode (VS Code)`,
       required: ['action', 'ide', 'projectPath'],
     },
   },
+
+  // -------------------------------------------------------------------------
+  // AUTO-CAPTURE OBSERVATION
+  // -------------------------------------------------------------------------
+  {
+    name: 'memory_observe',
+    description: `Extract memory entries from conversation/code context using LLM analysis.
+
+Actions:
+- extract: Analyze context and extract guidelines, knowledge, and tool patterns
+- status: Check extraction service availability
+
+When to use: After meaningful conversations or code reviews to capture decisions, facts, and patterns.
+Example: {"action":"extract","context":"User said we should always use TypeScript strict mode...","scopeType":"project","scopeId":"proj-123","autoStore":true}
+
+Returns extracted entries with confidence scores and duplicate detection.`,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: {
+          type: 'string',
+          enum: ['extract', 'status'],
+          description: 'Action to perform',
+        },
+        context: {
+          type: 'string',
+          description: 'Raw conversation or code context to analyze',
+        },
+        contextType: {
+          type: 'string',
+          enum: ['conversation', 'code', 'mixed'],
+          description: 'Type of context (default: mixed)',
+        },
+        scopeType: {
+          type: 'string',
+          enum: ['global', 'org', 'project', 'session'],
+          description: 'Scope for extracted entries (default: project)',
+        },
+        scopeId: {
+          type: 'string',
+          description: 'Scope ID (required for non-global scopes)',
+        },
+        autoStore: {
+          type: 'boolean',
+          description: 'Automatically store entries above confidence threshold (default: false)',
+        },
+        confidenceThreshold: {
+          type: 'number',
+          description: 'Minimum confidence to auto-store (0-1, default: 0.7)',
+        },
+        focusAreas: {
+          type: 'array',
+          items: { type: 'string', enum: ['decisions', 'facts', 'rules', 'tools'] },
+          description: 'Focus extraction on specific types',
+        },
+        agentId: {
+          type: 'string',
+          description: 'Agent identifier for audit',
+        },
+      },
+      required: ['action'],
+    },
+  },
 ];
 
 // =============================================================================
@@ -1360,7 +1442,7 @@ const bundledHandlers: Record<string, (params: Record<string, unknown>) => unkno
       cache: ReturnType<typeof getQueryCacheStats>;
       tables: Record<string, number>;
     } = {
-      serverVersion: '0.8.5',
+      serverVersion: VERSION,
       status: 'healthy',
       database: {
         type: 'SQLite',
@@ -1618,6 +1700,18 @@ const bundledHandlers: Record<string, (params: Record<string, unknown>) => unkno
         ]);
     }
   },
+
+  memory_observe: (params) => {
+    const { action, ...rest } = params;
+    switch (action) {
+      case 'extract':
+        return observeHandlers.extract(rest);
+      case 'status':
+        return observeHandlers.status();
+      default:
+        throw createInvalidActionError('memory_observe', String(action), ['extract', 'status']);
+    }
+  },
 };
 
 // =============================================================================
@@ -1630,7 +1724,7 @@ export async function createServer(): Promise<Server> {
   const server = new Server(
     {
       name: 'agent-memory',
-      version: '0.8.5',
+      version: VERSION,
     },
     {
       capabilities: {
@@ -1855,7 +1949,7 @@ export async function runServer(): Promise<void> {
     server = new Server(
       {
         name: 'agent-memory',
-        version: '0.8.5',
+        version: VERSION,
       },
       {
         capabilities: {
