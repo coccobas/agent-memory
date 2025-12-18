@@ -69,6 +69,8 @@ import { analyticsHandlers } from './handlers/analytics.handler.js';
 import { permissionHandlers } from './handlers/permissions.handler.js';
 import { conversationHandlers } from './handlers/conversations.handler.js';
 import { backupHandlers } from './handlers/backup.handler.js';
+import { verificationHandlers } from './handlers/verification.handler.js';
+import { hooksHandlers } from './handlers/hooks.handler.js';
 import { checkRateLimits } from '../utils/rate-limiter.js';
 
 // =============================================================================
@@ -1017,6 +1019,119 @@ Use this to verify the memory server is working or to get entry counts.`,
       required: ['action'],
     },
   },
+
+  // -------------------------------------------------------------------------
+  // VERIFICATION
+  // -------------------------------------------------------------------------
+  {
+    name: 'memory_verify',
+    description: `Verify actions against critical guidelines with active intervention.
+
+Actions:
+- pre_check: REQUIRED before file modifications or code generation. Returns {blocked: true} if violation detected.
+- post_check: Log completed action for compliance tracking
+- acknowledge: Acknowledge critical guidelines for session
+- status: Get verification status for a session
+
+IMPORTANT: Agents MUST call pre_check before significant actions.
+If blocked=true is returned, DO NOT proceed with the action.`,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: {
+          type: 'string',
+          enum: ['pre_check', 'post_check', 'acknowledge', 'status'],
+          description: 'Verification action to perform',
+        },
+        sessionId: {
+          type: 'string',
+          description: 'Current session ID',
+        },
+        projectId: {
+          type: 'string',
+          description: 'Project ID (optional, derived from session if not provided)',
+        },
+        proposedAction: {
+          type: 'object',
+          description: 'Action to verify (pre_check)',
+          properties: {
+            type: {
+              type: 'string',
+              enum: ['file_write', 'code_generate', 'api_call', 'command', 'other'],
+              description: 'Type of action',
+            },
+            description: { type: 'string', description: 'Description of action' },
+            filePath: { type: 'string', description: 'File path (if applicable)' },
+            content: { type: 'string', description: 'Content being created/modified' },
+            metadata: { type: 'object', description: 'Additional metadata' },
+          },
+          required: ['type'],
+        },
+        completedAction: {
+          type: 'object',
+          description: 'Completed action to log (post_check)',
+        },
+        content: {
+          type: 'string',
+          description: 'Response content to verify (post_check alternative)',
+        },
+        guidelineIds: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Guideline IDs to acknowledge (acknowledge)',
+        },
+        agentId: {
+          type: 'string',
+          description: 'Agent identifier',
+        },
+      },
+      required: ['action'],
+    },
+  },
+
+  // -------------------------------------------------------------------------
+  // HOOK MANAGEMENT
+  // -------------------------------------------------------------------------
+  {
+    name: 'memory_hook',
+    description: `Generate and manage IDE verification hooks.
+
+Actions:
+- generate: Generate hook files without installing (returns content and instructions)
+- install: Generate and install hooks to the filesystem
+- status: Check if hooks are installed for a project
+- uninstall: Remove installed hooks
+
+Supported IDEs: claude (Claude Code), cursor (Cursor), vscode (VS Code)`,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: {
+          type: 'string',
+          enum: ['generate', 'install', 'status', 'uninstall'],
+          description: 'Action to perform',
+        },
+        ide: {
+          type: 'string',
+          enum: ['claude', 'cursor', 'vscode'],
+          description: 'Target IDE',
+        },
+        projectPath: {
+          type: 'string',
+          description: 'Absolute path to the project directory',
+        },
+        projectId: {
+          type: 'string',
+          description: 'Project ID for loading guidelines (optional)',
+        },
+        sessionId: {
+          type: 'string',
+          description: 'Session ID for loading guidelines (optional)',
+        },
+      },
+      required: ['action', 'ide', 'projectPath'],
+    },
+  },
 ];
 
 // =============================================================================
@@ -1458,6 +1573,48 @@ const bundledHandlers: Record<string, (params: Record<string, unknown>) => unkno
           'search',
           'end',
           'archive',
+        ]);
+    }
+  },
+
+  memory_verify: (params) => {
+    const { action, ...rest } = params;
+    switch (action) {
+      case 'pre_check':
+        return verificationHandlers.preCheck(rest);
+      case 'post_check':
+        return verificationHandlers.postCheck(rest);
+      case 'acknowledge':
+        return verificationHandlers.acknowledge(rest);
+      case 'status':
+        return verificationHandlers.status(rest);
+      default:
+        throw createInvalidActionError('memory_verify', String(action), [
+          'pre_check',
+          'post_check',
+          'acknowledge',
+          'status',
+        ]);
+    }
+  },
+
+  memory_hook: (params) => {
+    const { action, ...rest } = params;
+    switch (action) {
+      case 'generate':
+        return hooksHandlers.generate(rest);
+      case 'install':
+        return hooksHandlers.install(rest);
+      case 'status':
+        return hooksHandlers.status(rest);
+      case 'uninstall':
+        return hooksHandlers.uninstall(rest);
+      default:
+        throw createInvalidActionError('memory_hook', String(action), [
+          'generate',
+          'install',
+          'status',
+          'uninstall',
         ]);
     }
   },

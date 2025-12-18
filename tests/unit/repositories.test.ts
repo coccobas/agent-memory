@@ -43,16 +43,31 @@ describe('Database Schema', () => {
 
     db = drizzle(sqlite, { schema });
 
-    // Run migrations manually by reading the SQL file
-    const migrationPath = join(process.cwd(), 'src/db/migrations/0000_lying_the_hand.sql');
-    const migrationSql = readFileSync(migrationPath, 'utf-8');
-
-    // Split by statement breakpoint and execute each statement
-    const statements = migrationSql.split('--> statement-breakpoint');
-    for (const statement of statements) {
-      const trimmed = statement.trim();
-      if (trimmed) {
-        sqlite.exec(trimmed);
+    // Run all migrations
+    const migrations = [
+      '0000_lying_the_hand.sql',
+      '0001_add_file_locks.sql',
+      '0002_add_embeddings_tracking.sql',
+      '0003_add_fts5_tables.sql',
+      '0004_add_permissions.sql',
+      '0005_add_task_decomposition.sql',
+      '0006_add_audit_log.sql',
+      '0007_add_execution_tracking.sql',
+      '0008_add_agent_votes.sql',
+      '0009_add_conversation_history.sql',
+      '0010_add_verification_rules.sql',
+    ];
+    for (const migrationFile of migrations) {
+      const migrationPath = join(process.cwd(), 'src/db/migrations', migrationFile);
+      if (existsSync(migrationPath)) {
+        const migrationSql = readFileSync(migrationPath, 'utf-8');
+        const statements = migrationSql.split('--> statement-breakpoint');
+        for (const statement of statements) {
+          const trimmed = statement.trim();
+          if (trimmed) {
+            sqlite.exec(trimmed);
+          }
+        }
       }
     }
   });

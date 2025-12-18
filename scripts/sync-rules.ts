@@ -14,6 +14,8 @@ import { fileURLToPath } from 'node:url';
 import { detectIDE } from '../src/utils/ide-detector.js';
 import {
   IDE_DESTINATIONS,
+  USER_DESTINATIONS,
+  getUserHomeDir,
   loadIgnorePatterns,
   syncForIDE,
   type SyncStats,
@@ -30,6 +32,7 @@ interface CLIOptions {
   backup?: boolean;
   files?: string;
   logFile?: string;
+  project?: boolean;
 }
 
 // Supported IDEs
@@ -108,6 +111,10 @@ function parseArgs(): CLIOptions {
       case '--log-file':
         options.logFile = args[++i];
         break;
+      case '--project':
+      case '-p':
+        options.project = true;
+        break;
       case '--help':
       case '-h':
         printHelp();
@@ -129,19 +136,18 @@ function printHelp() {
   console.log(`
 Usage: sync-rules [options]
 
-Sync rule files from Memory project's rules/ to current project's IDE-specific directories.
+Sync rule files from Memory project's rules/ to IDE-specific directories.
 
-This script can be run from any directory. It will:
-- Find the Memory project root (where the script is located)
-- Sync rules from Memory project's rules/ directory
-- Output to the current working directory's IDE-specific directories
+By default, syncs to user-level directories (e.g., ~/.claude/, ~/.cursor/rules/).
+Use --project to sync to the current project directory instead.
 
 Note: When using npm run, use -- to separate npm options from script options:
   npm run sync-rules -- [options]
 
 Options:
-  --ide <ide>              IDE to sync to (cursor, vscode, intellij, sublime, neovim, emacs, antigravity, generic, all)
-  --output <dir>           Output directory (default: current working directory)
+  --ide <ide>              IDE to sync to (cursor, claude, vscode, intellij, sublime, neovim, emacs, antigravity, generic, all)
+  --project, -p            Sync to current project instead of user-level (global)
+  --output <dir>           Output directory (overrides default destination)
   --auto-detect            Auto-detect IDE from workspace
   --quiet, -q              Suppress output except errors
   --verify                 Verification mode (show differences, don't modify)
@@ -265,7 +271,11 @@ async function main() {
     if (!options.quiet) {
       console.log('Syncing rules from files...');
       console.log(`Source (Memory project): ${sourceDir}`);
-      console.log(`Target (current project): ${outputDir}`);
+      if (options.project) {
+        console.log(`Target (project): ${outputDir}`);
+      } else {
+        console.log(`Target (user-level): ${getUserHomeDir()}`);
+      }
       console.log(`IDEs: ${idesToSync.join(', ')}`);
       if (options.verify) {
         console.log('Mode: VERIFICATION (no changes will be made)');
@@ -288,7 +298,8 @@ async function main() {
       errors: 0,
     };
 
-    // Sync for each IDE to project-level
+    // Sync for each IDE (user-level by default, project-level with --project flag)
+    const userLevel = !options.project;
     for (const targetIDE of idesToSync) {
       if (!options.quiet && idesToSync.length > 1) {
         console.log(`\n${targetIDE.toUpperCase()}:`);
@@ -297,7 +308,7 @@ async function main() {
       const syncOptions: SyncOptions = {
         verify: options.verify,
         backup: options.backup,
-        userLevel: false,
+        userLevel,
       };
 
       const { stats, operations } = await syncForIDE(

@@ -1,0 +1,33 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/b.cocco/coccobas/Memory/.claude/hooks/verify-response.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/b.cocco/coccobas/Memory/.claude/hooks/verify-response.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/b.cocco/coccobas/Memory/.claude/hooks/verify-response.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -26,6 +26,11 @@ const IDE_SIGNATURES: Array<{
     confidence: 0.9,
   },
   {
+    ide: 'claude',
+    paths: ['.claude', 'CLAUDE.md'],
+    confidence: 0.9,
+  },
+  {
     ide: 'vscode',
     paths: ['.vscode', '.vscode/settings.json', '.vscode/launch.json'],
     confidence: 0.9,
@@ -99,6 +104,9 @@ export function detectIDE(workspacePath: string): IDEDetectionResult {
       };
       const ideHints: Record<string, string> = {
         cursor: 'cursor',
+        claude: 'claude',
+        'claude-code': 'claude',
+        claudecode: 'claude',
         vscode: 'vscode',
         'visual-studio-code': 'vscode',
         intellij: 'intellij',
@@ -150,6 +158,7 @@ export function detectIDE(workspacePath: string): IDEDetectionResult {
   // Check environment variables
   const envHints: Record<string, string> = {
     CURSOR: 'cursor',
+    CLAUDE_CODE: 'claude',
     VSCODE: 'vscode',
     INTELLIJ_IDEA: 'intellij',
     WEBSTORM: 'intellij',
@@ -221,6 +230,9 @@ export function detectIDE(workspacePath: string): IDEDetectionResult {
     case 'cursor':
       configPath = join(resolvedPath, '.cursor', 'rules');
       break;
+    case 'claude':
+      configPath = join(resolvedPath, '.claude');
+      break;
     case 'vscode':
       configPath = join(resolvedPath, '.vscode');
       break;
@@ -255,6 +267,10 @@ export function detectIDE(workspacePath: string): IDEDetectionResult {
 export function getSupportedIDEs(): string[] {
   return IDE_SIGNATURES.map((s) => s.ide);
 }
+
+
+
+
 
 
 

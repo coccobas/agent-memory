@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.1] - 2025-12-18
+
+### Added
+- Verification system with pre/post-check blocking for critical guidelines
+- Hook generator for Claude Code, Cursor, and VS Code integration
+- Critical guidelines service for priority-based enforcement
+- Session-level guideline acknowledgments
+
+### Changed
+- Enhanced validation service with improved input sanitization
+- Improved type guards across the codebase
+- Better IDE detection utilities
+
+### Documentation
+- Added competitive analysis document
+- Added improvement recommendations document
+
 ## [0.9.0] - 2025-12-18
 
 ### Added
@@ -78,6 +95,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[0.9.1]: https://github.com/user/agent-memory/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/user/agent-memory/compare/v0.8.5...v0.9.0
 [0.8.5]: https://github.com/user/agent-memory/compare/v0.8.0...v0.8.5
 [0.8.0]: https://github.com/user/agent-memory/compare/v0.7.0...v0.8.0

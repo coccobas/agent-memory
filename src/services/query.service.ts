@@ -255,7 +255,7 @@ export function setCacheStrategy(strategy: 'aggressive' | 'conservative' | 'disa
   }
 }
 
-interface ScopeDescriptor {
+export interface ScopeDescriptor {
   scopeType: ScopeType;
   scopeId: string | null;
 }

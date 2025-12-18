@@ -14,7 +14,15 @@ import { config } from '../config/index.js';
 
 const logger = createComponentLogger('audit');
 
-export type AuditAction = 'query' | 'create' | 'update' | 'delete' | 'read';
+export type AuditAction =
+  | 'query'
+  | 'create'
+  | 'update'
+  | 'delete'
+  | 'read'
+  | 'verify_pre'
+  | 'verify_post'
+  | 'acknowledge';
 
 export interface AuditLogParams {
   agentId?: string;
@@ -82,6 +90,10 @@ export function withAuditLogging<T extends unknown[]>(
     return result;
   };
 }
+
+
+
+
 
 
 

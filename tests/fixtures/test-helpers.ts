@@ -51,6 +51,7 @@ export function setupTestDb(dbPath: string): TestDb {
     '0007_add_execution_tracking.sql',
     '0008_add_agent_votes.sql',
     '0009_add_conversation_history.sql',
+    '0010_add_verification_rules.sql',
   ];
   for (const migrationFile of migrations) {
     const migrationPath = join(process.cwd(), 'src/db/migrations', migrationFile);

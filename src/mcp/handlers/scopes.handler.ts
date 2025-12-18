@@ -20,6 +20,7 @@ import {
   isBoolean,
 } from '../../utils/type-guards.js';
 import { formatTimestamps } from '../../utils/timestamp-formatter.js';
+import { getCriticalGuidelinesForSession } from '../../services/critical-guidelines.service.js';
 
 /**
  * Type guard to check if a value is a valid session status
@@ -178,7 +179,15 @@ export const scopeHandlers = {
     };
 
     const session = sessionRepo.create(input);
-    return formatTimestamps({ success: true, session });
+
+    // Fetch critical guidelines for the session's scope
+    const criticalGuidelines = getCriticalGuidelinesForSession(projectId ?? null, session.id);
+
+    return formatTimestamps({
+      success: true,
+      session,
+      criticalGuidelines,
+    });
   },
 
   sessionEnd(params: Record<string, unknown>) {
