@@ -1,105 +1,107 @@
 ---
-description: Agent Memory usage examples and common workflows
+description: Agent Memory usage examples - consult for workflow patterns
 globs: []
 alwaysApply: false
-related_docs: [
-  "auto-memory-core.md",
-  "auto-memory-advanced.md",
-  "auto-memory-reference.md",
-  "auto-memory-strategies.md"
-]
 ---
-
-@context {
-    "type": "examples",
-    "purpose": "cursor_rules",
-    "format_version": "1.0.0",
-    "supported_content_types": [
-        "examples",
-        "workflows"
-    ]
-}
-
-@structure {
-    "required_sections": [
-        "frontmatter",
-        "title",
-        "examples",
-        "triggers",
-        "setup"
-    ]
-}
 
 # Agent Memory Examples
 
-Practical examples of using Agent Memory tools. See `@auto-memory-core` for the core workflow.
+## Triggers for Storing
 
-## Memory Population Triggers
+| User Says | Store As | Example Entry |
+|-----------|----------|---------------|
+| "We always/never do X" | Guideline | `{name: "no-any-types", content: "Never use any type"}` |
+| "Our standard is..." | Guideline | `{name: "naming-convention", content: "Use camelCase"}` |
+| "We chose X because..." | Knowledge | `{title: "DB choice", category: "decision"}` |
+| "The system uses..." | Knowledge | `{title: "Auth method", category: "fact"}` |
+| "Run this command..." | Tool | `{name: "build-docker", category: "cli"}` |
 
-**Extract Guidelines:** "We always/never do X", "Our standard is...", "The convention is...", code style/architecture patterns.
+## Common Workflows
 
-**Extract Knowledge:** "We chose X because...", "The reason we...", "We decided to...", architecture decisions, trade-offs.
+### Starting a Feature
+1. Query context → 2. Start session → 3. Query related guidelines → 4. Implement → 5. Store patterns → 6. End session
 
-**Extract Tools:** "We have a script/command for...", "Use this tool...", CLI commands, build scripts.
+### Storing User Preference
+User: "We always use try-catch" → Store guideline → Tag: `error_handling`, `typescript`
 
-**From code:** Repeated patterns → guideline, architecture decisions → knowledge, utilities → tool.
+### Discovering Architecture
+Notice PostgreSQL → Query if documented → If new: store as knowledge (decision)
 
-## Project Setup
+### Handling Conflicts
+Similar entry found → Ask user which to keep → Update existing OR create new → Store resolution as knowledge
 
-1. Check initialization: `memory_init` with `action: "status"`. If not initialized, use `action: "init"`.
-2. Create organization (optional): `memory_org` with `action: "create"`.
-3. Smart project detection: Query existing projects → Check workspace path/name → Auto-create if context clear → Prompt if ambiguous.
-4. Verify: `memory_health` to check everything works.
+### Creating Relations
+Store guideline → Query related tools → Create `applies_to` relations with `memory_relation`
 
-## Examples
+## Classification Guide
 
-**Example 1:** Starting feature → Query context → Start session → Query related guidelines → Implement → Store patterns → End session.
+| Question | If Yes → |
+|----------|----------|
+| Does it tell agent HOW to work? | Guideline |
+| Does it describe WHAT exists? | Knowledge |
+| Is it a command/script? | Tool |
 
-**Example 2:** User: "We always use try-catch" → Store as guideline → Tag with "error_handling", "async".
+**Examples:**
+- "Don't create CAD files" → Guideline (behavioral instruction)
+- "System uses PostgreSQL" → Knowledge (architecture fact)
+- "Build with `npm run build`" → Tool (CLI command)
 
-**Example 3:** Discover PostgreSQL → Query if documented → Store as knowledge (decision) if new.
+## Scope Selection
 
-**Example 4:** Conflict detected → Ask user which to keep → Update or create new → Store resolution.
+| Content Type | Scope |
+|--------------|-------|
+| Security best practices | `global` |
+| Universal coding standards | `global` |
+| Project decisions | `project` |
+| Team conventions | `org` |
+| Experimental ideas | `session` |
 
-**Example 5:** Semantic conflict → Detect contradiction → Ask user to update or create new entry.
+## Tagging Strategy
 
-**Example 6:** Check analytics → Promote high-usage guidelines → Review low-usage ones.
+Always tag with 2-3 tags from different categories:
+- **Language:** typescript, python, go
+- **Domain:** api, frontend, database
+- **Category:** security, workflow, code_style
 
-**Example 7:** "This guideline applies to all API endpoints" → Store → Query API tools → Create `applies_to` relations.
+Example: API error handling guideline → `typescript`, `api`, `error_handling`
 
-**Example 8:** Working on `/src/api/users.ts` → Infer tags → Query automatically → Use results.
+## Bulk Operations
 
-**Example 9:** "I think we might use Redis" → Store with confidence 0.6 → Update to 0.95 when confirmed.
+### When to Use bulk_add
 
-**Example 10:** "Implement authentication" → Decompose into subtasks → Track completion → Link with relations.
+Use `bulk_add` when storing **3+ related entries** at once:
+- Importing multiple coding standards
+- Storing a set of related decisions
+- Adding multiple CLI commands
 
-**Example 11:** Complete workflow: Health → Context → Session/Conversation → File lock → Query → Implement → Store → Relations → End.
+### Bulk Add Workflow
 
-**Example 12:** New workspace → Detect context → Check existing → Auto-create if clear → Prompt if ambiguous.
+1. Prepare entries array with `scopeType` and `scopeId` in each entry
+2. Call `bulk_add` with the entries array
+3. Tag each returned entry by ID
 
-**Example 13:** User explains architecture → Extract as knowledge (decision) → Extract pattern as guideline → Link to conversation → Tag.
+```
+User: "Our API standards: always validate input, use camelCase, return JSON errors"
 
-**Example 14:** Notice repeated pattern → Extract as guideline with examples → Create relations → Tag.
+→ memory_guideline bulk_add:
+{"action": "bulk_add", "entries": [
+  {"scopeType": "project", "scopeId": "proj-123", "name": "validate-input", "content": "Always validate API input", "category": "security"},
+  {"scopeType": "project", "scopeId": "proj-123", "name": "camelcase-api", "content": "Use camelCase for API fields", "category": "code_style"},
+  {"scopeType": "project", "scopeId": "proj-123", "name": "json-errors", "content": "Return errors in JSON format", "category": "api"}
+]}
 
-### Example 15: Knowledge vs Guideline Classification
+→ Response: {entries: [{id: "g-1", ...}, {id: "g-2", ...}, {id: "g-3", ...}], count: 3}
 
-**Guideline (behavioral rule):** "I use Fusion 360" → Store as guideline: "Do not create CAD files. User creates CAD files using Fusion 360."
+→ Tag each: memory_tag attach for g-1, g-2, g-3 with "api", "typescript"
+```
 
-**Knowledge (fact):** "The system uses a 9733 blower" → Store as knowledge: "The system uses a 9733 blower" (category: fact)
+### Single vs Bulk
 
-### Example 16: Tagging Workflow
+| Scenario | Use |
+|----------|-----|
+| 1-2 entries | Individual `add` |
+| 3+ related entries | `bulk_add` |
+| Entries need different scopes | Either works (bulk supports mixed scopes) |
 
-Store guideline → Tag with language (`typescript`), domain (`api`), category (`error_handling`), task (`backend`). Use 2-3 tags minimum.
-
-### Example 17: Creating Relations
-
-After storing related entries, use `memory_relation` with `relationType: "related_to"` to link them. Query first to find related entries, then create bidirectional relations.
-
-### Example 18: Scope Selection
-
-**Universal:** "Always validate user input" → Store at `global` scope (security best practice)
-
-**Project-specific:** "This project uses PostgreSQL" → Store at `project` scope (project decision)
-
-@version "0.2.0"
-@last_updated "2025-12-14"
+@version "1.0.0"
+@last_updated "2025-12-18"

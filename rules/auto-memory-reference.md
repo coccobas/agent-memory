@@ -1,428 +1,322 @@
 ---
-description: Complete reference for all Agent Memory MCP tools and query patterns
+description: Agent Memory tool parameters - consult when needing parameter details
 globs: []
 alwaysApply: false
-related_docs: [
-  "auto-memory-core.md",
-  "auto-memory-advanced.md",
-  "auto-memory-examples.md",
-  "auto-memory-strategies.md"
-]
 ---
 
-@context {
-    "type": "reference",
-    "purpose": "cursor_rules",
-    "format_version": "1.0.0",
-    "supported_content_types": [
-        "api_docs",
-        "reference"
-    ]
-}
+# Agent Memory Parameter Reference
 
-@structure {
-    "required_sections": [
-        "frontmatter",
-        "title",
-        "available_tools",
-        "query_patterns"
-    ]
-}
+## Required Parameters by Tool
 
-# Agent Memory Tool Reference
+### memory_query
 
-Complete reference for all 20 Agent Memory MCP tools. See `@auto-memory-core` for usage workflows.
+| Action | Required | Optional |
+|--------|----------|----------|
+| `context` | action | scopeType, scopeId, inherit, limit |
+| `search` | action | types[], search, scope{}, tags{}, semanticSearch, limit |
 
-## Available Memory Tools
+**scope object:** `{"type": "project", "id": "<id>", "inherit": true}`
+**tags object:** `{"include": [], "exclude": [], "require": []}`
+**types array:** `["guidelines", "knowledge", "tools"]`
 
-The following MCP tools are available via the `agent-memory` server (20 total):
+---
 
-### Scope Management
+### memory_guideline
 
-**memory_org** - Organization management
-- Actions: `create`, `list`, `get`, `update` (NOT "add")
-- Multi-project team scenarios
+| Action | Required | Optional |
+|--------|----------|----------|
+| `add` | action, scopeType, scopeId*, name, content | category, priority, rationale, examples{} |
+| `update` | action, id | content, category, priority, rationale, examples{}, changeReason |
+| `get` | action, (id OR name+scopeType) | scopeId, inherit |
+| `list` | action | scopeType, scopeId, category, includeInactive, limit, offset |
+| `deactivate` | action, id | - |
+| `bulk_add` | action, entries[] | - |
 
-**memory_project** - Project management
-- Actions: `create`, `list`, `get`, `update`, `delete` (NOT "add")
-- Link projects to organizations
+*scopeId required unless scopeType is `global`
 
-**memory_session** - Session management
-- Actions: `start`, `end`, `list`
-- Track work sessions
+**examples object:** `{"good": ["..."], "bad": ["..."]}`
+**category values:** `code_style`, `workflow`, `security`, `architecture`, `error_handling`
+**priority:** 0-100 (default 50)
 
-### Memory Sections
+---
 
-**memory_guideline** - Store and retrieve coding guidelines
-- Add, update, list, search guidelines
-- Conflict detection and resolution
-- Priority and categorization
+### memory_knowledge
 
-**memory_knowledge** - Store and retrieve knowledge/decisions
-- Add, update, list, search knowledge
-- Confidence scoring
-- Categories: decision, fact, context, reference
+| Action | Required | Optional |
+|--------|----------|----------|
+| `add` | action, scopeType, scopeId*, title, content | category, source, confidence, validUntil |
+| `update` | action, id | content, category, source, confidence, validUntil, changeReason |
+| `get` | action, (id OR title+scopeType) | scopeId, inherit |
+| `list` | action | scopeType, scopeId, category, includeInactive, limit, offset |
+| `deactivate` | action, id | - |
+| `bulk_add` | action, entries[] | - |
 
-**memory_tool** - Store and retrieve tool definitions
-- Add, update, list tools
-- Parameter documentation
-- Usage examples
+*scopeId required unless scopeType is `global`
 
-### Query & Organization
+**category values:** `decision`, `fact`, `context`, `reference`
+**confidence:** 0-1 (default 1.0)
+**validUntil:** ISO date string
 
-**memory_query** - Cross-reference search and context aggregation
-- Context queries
-- Semantic search
-- Tag-based filtering
-- Multi-type queries
+---
 
-**memory_tag** - Tag management
-- Attach, detach, list tags
-- Tag-based organization
+### memory_tool
 
-**memory_relation** - Link related entries
-- Create, list, delete relations
-- Relation types: applies_to, depends_on, conflicts_with, related_to, parent_task, subtask_of
+| Action | Required | Optional |
+|--------|----------|----------|
+| `add` | action, scopeType, scopeId*, name | category, description, parameters{}, examples[], constraints |
+| `update` | action, id | description, parameters{}, examples[], constraints, changeReason |
+| `get` | action, (id OR name+scopeType) | scopeId, inherit |
+| `list` | action | scopeType, scopeId, category, includeInactive, limit, offset |
+| `deactivate` | action, id | - |
+| `bulk_add` | action, entries[] | - |
 
-### Advanced Features
+*scopeId required unless scopeType is `global`
 
-**memory_conversation** - Conversation history tracking
-- Start, end, archive conversations
-- Add messages
-- Link context entries
-- Search conversations
+**category values:** `mcp`, `cli`, `function`, `api`
 
-**memory_task** - Task decomposition and hierarchy
-- Add tasks with subtasks
-- Query task hierarchy
-- Track task completion
+---
 
-**memory_voting** - Multi-agent voting and consensus
-- Record votes
-- Get consensus
-- Confidence-based decisions
+### memory_project
 
-**memory_analytics** - Usage analytics and trends
-- Get statistics
-- Get trends
-- Error correlation analysis
+| Action | Required | Optional |
+|--------|----------|----------|
+| `create` | action, name | orgId, description, rootPath, metadata{} |
+| `list` | action | orgId, limit, offset |
+| `get` | action, (id OR name) | orgId |
+| `update` | action, id | name, description, rootPath, metadata{} |
+| `delete` | action, id, confirm=true | - |
 
-**memory_file_lock** - File locks for multi-agent coordination
-- Checkout, checkin locks
-- Status checks
-- Force unlock
+**NOTE:** Use `create` not `add`
 
-**memory_permission** - Permission management
-- Check permissions
-- Grant permissions
-- Scope-based access control
+---
 
-**memory_conflict** - Conflict detection and resolution
-- List conflicts
-- Resolve conflicts
-- Conflict history
+### memory_org
 
-### System Management
+| Action | Required | Optional |
+|--------|----------|----------|
+| `create` | action, name | metadata{} |
+| `list` | action | limit, offset |
 
-**memory_health** - Health check and server status
-- Database connectivity
-- Cache status
-- Table sizes
+**NOTE:** Use `create` not `add`
 
-**memory_init** - Database initialization and migrations
-- Check initialization status
-- Initialize database
-- Run migrations
+---
 
-**memory_export** - Export entries to JSON/Markdown/YAML
-- Export by scope
-- Multiple formats
-- Version control
+### memory_session
 
-**memory_import** - Import entries from JSON/YAML/Markdown
-- Import from external sources
-- Conflict strategies
-- Batch imports
+| Action | Required | Optional |
+|--------|----------|----------|
+| `start` | action | projectId, name, purpose, agentId, metadata{} |
+| `end` | action, id | status |
+| `list` | action | projectId, status, limit, offset |
 
-## Query Patterns
+**status values:** `active`, `paused`, `completed`, `discarded`
 
-### Get Full Context
+---
 
-```json
-{
-  "tool": "memory_query",
-  "arguments": {
-    "action": "context",
-    "scopeType": "project",
-    "scopeId": "<project-id>",
-    "inherit": true
-  }
-}
-```
+### memory_tag
 
-### Search by Topic
+| Action | Required | Optional |
+|--------|----------|----------|
+| `attach` | action, entryType, entryId, (tagId OR tagName) | - |
+| `detach` | action, entryType, entryId, tagId | - |
+| `create` | action, name | category, description |
+| `list` | action | category, isPredefined, limit, offset |
+| `for_entry` | action, entryType, entryId | - |
 
-```json
-{
-  "tool": "memory_query",
-  "arguments": {
-    "action": "search",
-    "types": ["guidelines", "knowledge"],
-    "search": "<topic>",
-    "scope": {
-      "type": "project",
-      "id": "<project-id>",
-      "inherit": true
-    }
-  }
-}
-```
+**entryType values:** `guideline`, `tool`, `knowledge` (SINGULAR!)
+**tag category values:** `language`, `domain`, `category`, `meta`, `custom`
 
-### Filter by Tags
+---
 
-```json
-{
-  "tool": "memory_query",
-  "arguments": {
-    "action": "search",
-    "types": ["guidelines"],
-    "tags": {
-      "require": ["typescript", "error_handling"]
-    },
-    "scope": {
-      "type": "project",
-      "id": "<project-id>",
-      "inherit": true
-    }
-  }
-}
-```
+### memory_relation
 
-### Semantic Search
+| Action | Required | Optional |
+|--------|----------|----------|
+| `create` | action, sourceType, sourceId, targetType, targetId, relationType | createdBy |
+| `list` | action | limit, offset |
+| `delete` | action, id | - |
 
-```json
-{
-  "tool": "memory_query",
-  "arguments": {
-    "action": "search",
-    "types": ["guidelines", "knowledge"],
-    "search": "<search-query>",
-    "semanticSearch": true,
-    "semanticThreshold": 0.85,
-    "scope": {
-      "type": "project",
-      "id": "<project-id>",
-      "inherit": true
-    }
-  }
-}
-```
+**sourceType/targetType:** `guideline`, `tool`, `knowledge`, `project`
+**relationType:** `applies_to`, `depends_on`, `conflicts_with`, `related_to`, `parent_task`, `subtask_of`
 
-### Multi-Type Query
+---
 
-```json
-{
-  "tool": "memory_query",
-  "arguments": {
-    "action": "search",
-    "types": ["guidelines", "knowledge", "tools"],
-    "search": "<topic>",
-    "scope": {
-      "type": "project",
-      "id": "<project-id>",
-      "inherit": true
-    },
-    "limit": 20
-  }
-}
-```
+### memory_file_lock
 
-### Query with Conversation Linking
+| Action | Required | Optional |
+|--------|----------|----------|
+| `checkout` | action, file_path, agent_id | session_id, project_id, expires_in, metadata{} |
+| `checkin` | action, file_path, agent_id | - |
+| `status` | action, file_path | - |
+| `list` | action | - |
+| `force_unlock` | action, file_path | reason |
 
-```json
-{
-  "tool": "memory_query",
-  "arguments": {
-    "action": "search",
-    "types": ["guidelines"],
-    "conversationId": "<conversation-id>",
-    "autoLinkContext": true,
-    "scope": {
-      "type": "project",
-      "id": "<project-id>",
-      "inherit": true
-    }
-  }
-}
-```
+**file_path:** MUST be absolute path
 
-## Common Tool Operations
+---
 
-### Create Project
+### memory_conversation
 
-```json
-{
-  "tool": "memory_project",
-  "arguments": {
-    "action": "create",
-    "name": "<project-name>",
-    "organizationId": "<org-id-optional>",
-    "path": "<workspace-path-optional>",
-    "metadata": {}
-  }
-}
-```
+| Action | Required | Optional |
+|--------|----------|----------|
+| `start` | action | projectId, sessionId, title, agentId, metadata{} |
+| `add_message` | action, conversationId, role, content | agentId, contextEntries[], toolsUsed[] |
+| `get` | action, conversationId | includeMessages, includeContext |
+| `list` | action | status, limit, offset |
+| `end` | action, conversationId | generateSummary |
 
-**Note:** Use `action: "create"` for projects and orgs, NOT `action: "add"`.
+**role values:** `user`, `agent`, `system`
 
-### Store Guideline
+---
 
-```json
-{
-  "tool": "memory_guideline",
-  "arguments": {
-    "action": "add",
-    "scopeType": "project",
-    "scopeId": "<project-id>",
-    "name": "<descriptive-name>",
-    "category": "<code_style|security|error_handling|etc>",
-    "priority": 80,
-    "content": "<the guideline text>",
-    "rationale": "<why this guideline exists>",
-    "examples": {
-      "good": ["<good example>"],
-      "bad": ["<bad example>"]
-    }
-  }
-}
-```
+### memory_task
 
-### Update Guideline (CRITICAL: Both `content` and `changeReason` are REQUIRED)
+| Action | Required | Optional |
+|--------|----------|----------|
+| `add` | action, subtasks[] | parentTask, decompositionStrategy, scopeType, scopeId, projectId |
+| `get` | action, taskId | - |
+| `list` | action | parentTaskId, scopeType, scopeId, limit, offset |
+
+**decompositionStrategy:** `maximal`, `balanced`, `minimal`
+
+---
+
+### memory_voting
+
+| Action | Required | Optional |
+|--------|----------|----------|
+| `record_vote` | action, taskId, agentId, voteValue | confidence, reasoning |
+| `get_consensus` | action, taskId | k |
+| `list_votes` | action, taskId | limit, offset |
+| `get_stats` | action | - |
+
+---
+
+### memory_analytics
+
+| Action | Required | Optional |
+|--------|----------|----------|
+| `get_stats` | action | scopeType, scopeId, startDate, endDate |
+| `get_trends` | action | scopeType, scopeId, startDate, endDate |
+| `get_error_correlation` | action | agentA, agentB, timeWindow{} |
+
+---
+
+### memory_conflict
+
+| Action | Required | Optional |
+|--------|----------|----------|
+| `list` | action | resolved, entryType, limit, offset |
+| `resolve` | action, id, resolution | resolvedBy |
+
+---
+
+### memory_permission
+
+| Action | Required | Optional |
+|--------|----------|----------|
+| `check` | action, agent_id, scope_type, entry_type | scope_id |
+| `grant` | action, agent_id, scope_type, entry_type, permission | scope_id, created_by |
+| `revoke` | action, permission_id | - |
+| `list` | action | agent_id, scope_type, entry_type, limit, offset |
+
+**permission values:** `read`, `write`, `admin`
+
+---
+
+### memory_health
+
+No parameters required. Returns server status.
+
+---
+
+### memory_init
+
+| Action | Required | Optional |
+|--------|----------|----------|
+| `status` | action | - |
+| `init` | action | force, verbose |
+| `reset` | action, confirm=true | verbose |
+| `verify` | action | - |
+
+---
+
+### memory_export
+
+| Action | Required | Optional |
+|--------|----------|----------|
+| `export` | action | format, scopeType, scopeId, types[], tags[], includeVersions, filename |
+
+**format values:** `json`, `markdown`, `yaml`, `openapi`
+
+---
+
+### memory_import
+
+| Action | Required | Optional |
+|--------|----------|----------|
+| `import` | action, content | format, conflictStrategy, importedBy, generateNewIds, scopeMapping{} |
+
+**conflictStrategy values:** `skip`, `update`, `replace`, `error`
+
+---
+
+### memory_backup
+
+| Action | Required | Optional |
+|--------|----------|----------|
+| `create` | action | name |
+| `list` | action | - |
+| `cleanup` | action | keepCount |
+| `restore` | action, filename | - |
+
+---
+
+## Scope Types
+
+| Type | scopeId Required | Use Case |
+|------|------------------|----------|
+| `global` | No | Universal standards |
+| `org` | Yes | Team-wide standards |
+| `project` | Yes | Project-specific (default) |
+| `session` | Yes | Temporary/experimental |
+
+---
+
+## bulk_add Entry Format
+
+**IMPORTANT:** Each entry in `entries[]` must include its own `scopeType` and `scopeId`. Entries support all optional fields from regular `add`.
+
+### Guideline bulk_add
 
 ```json
-{
-  "tool": "memory_guideline",
-  "arguments": {
-    "action": "update",
-    "id": "<guideline-entry-id>",
-    "content": "<updated guideline text>",  // REQUIRED: Must provide full updated content
-    "changeReason": "<reason for the update>",  // REQUIRED: Must explain why updating
-    // Other fields can also be updated as needed:
-    // "priority": 90,
-    // "rationale": "<updated rationale>",
-    // "examples": { "good": [...], "bad": [...] }
-  }
-}
+{"action": "bulk_add", "entries": [
+  {"scopeType": "project", "scopeId": "<id>", "name": "rule-1", "content": "...", "priority": 90, "category": "security"},
+  {"scopeType": "project", "scopeId": "<id>", "name": "rule-2", "content": "...", "rationale": "..."}
+]}
 ```
 
-### Store Knowledge
+### Knowledge bulk_add
 
 ```json
-{
-  "tool": "memory_knowledge",
-  "arguments": {
-    "action": "add",
-    "scopeType": "project",
-    "scopeId": "<project-id>",
-    "title": "<descriptive-title>",
-    "category": "<decision|fact|context|reference>",
-    "content": "<the knowledge content>",
-    "source": "<where this came from>",
-    "confidence": 1.0
-  }
-}
+{"action": "bulk_add", "entries": [
+  {"scopeType": "project", "scopeId": "<id>", "title": "fact-1", "content": "...", "category": "decision"},
+  {"scopeType": "project", "scopeId": "<id>", "title": "fact-2", "content": "...", "confidence": 0.9}
+]}
 ```
 
-### Update Knowledge (CRITICAL: Both `content` and `changeReason` are REQUIRED)
+### Tool bulk_add
 
 ```json
-{
-  "tool": "memory_knowledge",
-  "arguments": {
-    "action": "update",
-    "id": "<knowledge-entry-id>",
-    "content": "<updated knowledge content>",  // REQUIRED: Must provide full updated content
-    "changeReason": "<reason for the update>",  // REQUIRED: Must explain why updating
-    // Other fields can also be updated as needed:
-    // "title": "<updated-title>",
-    // "category": "<updated-category>",
-    // "source": "<updated-source>",
-    // "confidence": 0.9
-  }
-}
+{"action": "bulk_add", "entries": [
+  {"scopeType": "project", "scopeId": "<id>", "name": "cmd-1", "description": "...", "category": "cli"},
+  {"scopeType": "project", "scopeId": "<id>", "name": "cmd-2", "description": "...", "constraints": "..."}
+]}
 ```
 
-**Note:** When updating, you must provide the complete updated `content` (not just the changes). To update an entry:
-1. First retrieve it using `memory_knowledge` with `action: "get"` and `id`
-2. Modify the content as needed
-3. Call `memory_knowledge` with `action: "update"`, providing both the complete updated `content` and a `changeReason`
+### Response Format
 
-### Store Tool
+Returns `{entries: [...], count: N}` with created entry objects including their IDs for tagging.
 
-```json
-{
-  "tool": "memory_tool",
-  "arguments": {
-    "action": "add",
-    "scopeType": "project",
-    "scopeId": "<project-id>",
-    "name": "<tool-name>",
-    "category": "<mcp|cli|function|api>",
-    "description": "<what this tool does>",
-    "parameters": {
-      "<param>": "<description>"
-    },
-    "examples": ["<usage example>"]
-  }
-}
-```
-
-### Update Tool (CRITICAL: Both `description` and `changeReason` are REQUIRED)
-
-```json
-{
-  "tool": "memory_tool",
-  "arguments": {
-    "action": "update",
-    "id": "<tool-entry-id>",
-    "description": "<updated description>",  // REQUIRED: Must provide updated description
-    "changeReason": "<reason for the update>",  // REQUIRED: Must explain why updating
-    // Other fields can also be updated as needed:
-    // "parameters": { "<param>": "<updated description>" },
-    // "examples": ["<updated example>"]
-  }
-}
-```
-
-### Create Relation
-
-```json
-{
-  "tool": "memory_relation",
-  "arguments": {
-    "action": "create",
-    "sourceType": "guideline",
-    "sourceId": "<guideline-id>",
-    "targetType": "tool",
-    "targetId": "<tool-id>",
-    "relationType": "applies_to"
-  }
-}
-```
-
-### Attach Tag
-
-```json
-{
-  "tool": "memory_tag",
-  "arguments": {
-    "action": "attach",
-    "entryType": "guideline",
-    "entryId": "<entry-id>",
-    "tagName": "typescript"
-  }
-}
-```
-
-@version "0.2.0"
-@last_updated "2025-12-14"
+@version "1.0.0"
+@last_updated "2025-12-18"
