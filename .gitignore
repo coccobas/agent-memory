@@ -57,8 +57,8 @@ coverage/
 
 strategy docs/
 
-# Findings and analysis documents (not tracked)
-docs/findings/
+# Findings and analysis documents
+# docs/findings/
 
 # Prompts (not tracked)
 prompts/
