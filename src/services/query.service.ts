@@ -20,6 +20,7 @@ import {
   type ToolVersion,
   type GuidelineVersion,
   type KnowledgeVersion,
+  type RelationType,
 } from '../db/schema.js';
 import type { MemoryQueryParams, ResponseMeta } from '../mcp/types.js';
 import { getEmbeddingService } from './embedding.service.js';
@@ -500,8 +501,112 @@ function filterByTags(
   return allowed;
 }
 
-function getRelatedEntryIds(
-  relatedTo: MemoryQueryParams['relatedTo']
+// =============================================================================
+// GRAPH TRAVERSAL (Multi-hop relation queries)
+// =============================================================================
+
+type GraphNodeType = 'tool' | 'guideline' | 'knowledge' | 'project';
+type TraversalDirection = 'forward' | 'backward' | 'both';
+
+interface GraphNode {
+  type: GraphNodeType;
+  id: string;
+}
+
+interface AdjacentNode extends GraphNode {
+  relationType: string;
+}
+
+/**
+ * Get adjacent nodes from a given node using indexed queries
+ * Uses idx_relations_source and idx_relations_target for efficiency
+ */
+function getAdjacentNodes(
+  node: GraphNode,
+  direction: TraversalDirection,
+  relationType?: RelationType
+): AdjacentNode[] {
+  const db = getDb();
+  const adjacent: AdjacentNode[] = [];
+
+  // Forward: node is source, find targets
+  if (direction === 'forward' || direction === 'both') {
+    const conditions = [
+      eq(entryRelations.sourceType, node.type),
+      eq(entryRelations.sourceId, node.id),
+    ];
+    if (relationType) {
+      conditions.push(eq(entryRelations.relationType, relationType));
+    }
+
+    const forwardRows = db
+      .select({
+        targetType: entryRelations.targetType,
+        targetId: entryRelations.targetId,
+        relationType: entryRelations.relationType,
+      })
+      .from(entryRelations)
+      .where(and(...conditions))
+      .all();
+
+    for (const row of forwardRows) {
+      adjacent.push({
+        type: row.targetType as GraphNodeType,
+        id: row.targetId,
+        relationType: row.relationType,
+      });
+    }
+  }
+
+  // Backward: node is target, find sources
+  if (direction === 'backward' || direction === 'both') {
+    const conditions = [
+      eq(entryRelations.targetType, node.type),
+      eq(entryRelations.targetId, node.id),
+    ];
+    if (relationType) {
+      conditions.push(eq(entryRelations.relationType, relationType));
+    }
+
+    const backwardRows = db
+      .select({
+        sourceType: entryRelations.sourceType,
+        sourceId: entryRelations.sourceId,
+        relationType: entryRelations.relationType,
+      })
+      .from(entryRelations)
+      .where(and(...conditions))
+      .all();
+
+    for (const row of backwardRows) {
+      adjacent.push({
+        type: row.sourceType as GraphNodeType,
+        id: row.sourceId,
+        relationType: row.relationType,
+      });
+    }
+  }
+
+  return adjacent;
+}
+
+/**
+ * Traverse the relation graph using BFS with cycle detection
+ *
+ * @param startType - Type of the starting node
+ * @param startId - ID of the starting node
+ * @param options - Traversal options
+ * @returns Entry IDs grouped by type (excluding the start node)
+ */
+export function traverseRelationGraph(
+  startType: GraphNodeType,
+  startId: string,
+  options: {
+    depth?: number;
+    direction?: TraversalDirection;
+    relationType?: RelationType;
+    maxResults?: number;
+  } = {}
 ): Record<QueryEntryType, Set<string>> {
   const result: Record<QueryEntryType, Set<string>> = {
     tool: new Set<string>(),
@@ -509,49 +614,82 @@ function getRelatedEntryIds(
     knowledge: new Set<string>(),
   };
 
-  if (!relatedTo) return result;
+  // Clamp depth to 1-5 range
+  const maxDepth = Math.min(Math.max(options.depth ?? 1, 1), 5);
+  const direction = options.direction ?? 'both';
+  const maxResults = options.maxResults ?? 100;
 
-  const db = getDb();
+  // BFS queue: [node, currentDepth]
+  const queue: Array<[GraphNode, number]> = [[{ type: startType, id: startId }, 0]];
 
-  const rows = db
-    .select()
-    .from(entryRelations)
-    .where(
-      and(
-        inArray(entryRelations.sourceType, ['tool', 'guideline', 'knowledge', 'project']),
-        inArray(entryRelations.targetType, ['tool', 'guideline', 'knowledge', 'project'])
-      )
-    )
-    .all()
-    .filter((rel) => {
-      const matchesSource = rel.sourceType === relatedTo.type && rel.sourceId === relatedTo.id;
-      const matchesTarget = rel.targetType === relatedTo.type && rel.targetId === relatedTo.id;
-      const matchesRelation = !relatedTo.relation || rel.relationType === relatedTo.relation;
-      return matchesRelation && (matchesSource || matchesTarget);
-    });
+  // Track visited nodes to prevent cycles: "type:id"
+  const visited = new Set<string>();
+  visited.add(`${startType}:${startId}`);
 
-  for (const rel of rows) {
-    if (
-      rel.sourceType === 'tool' ||
-      rel.sourceType === 'guideline' ||
-      rel.sourceType === 'knowledge'
-    ) {
-      if (rel.sourceType === 'tool') result.tool.add(rel.sourceId);
-      if (rel.sourceType === 'guideline') result.guideline.add(rel.sourceId);
-      if (rel.sourceType === 'knowledge') result.knowledge.add(rel.sourceId);
+  let resultCount = 0;
+
+  while (queue.length > 0 && resultCount < maxResults) {
+    const item = queue.shift();
+    if (!item) break;
+
+    const [currentNode, currentDepth] = item;
+
+    // Skip the start node from results (we want related entries, not the start)
+    const isStartNode = currentNode.type === startType && currentNode.id === startId;
+
+    // Add to results if not start node and is a query entry type
+    if (!isStartNode) {
+      const entryType = currentNode.type as QueryEntryType;
+      if (entryType === 'tool' || entryType === 'guideline' || entryType === 'knowledge') {
+        result[entryType].add(currentNode.id);
+        resultCount++;
+
+        if (resultCount >= maxResults) break;
+      }
     }
-    if (
-      rel.targetType === 'tool' ||
-      rel.targetType === 'guideline' ||
-      rel.targetType === 'knowledge'
-    ) {
-      if (rel.targetType === 'tool') result.tool.add(rel.targetId);
-      if (rel.targetType === 'guideline') result.guideline.add(rel.targetId);
-      if (rel.targetType === 'knowledge') result.knowledge.add(rel.targetId);
+
+    // Stop expanding if we've reached max depth
+    if (currentDepth >= maxDepth) continue;
+
+    // Get adjacent nodes
+    const neighbors = getAdjacentNodes(currentNode, direction, options.relationType);
+
+    for (const neighbor of neighbors) {
+      const neighborKey = `${neighbor.type}:${neighbor.id}`;
+
+      // Skip if already visited (cycle detection)
+      if (visited.has(neighborKey)) continue;
+
+      visited.add(neighborKey);
+      queue.push([{ type: neighbor.type, id: neighbor.id }, currentDepth + 1]);
     }
   }
 
   return result;
+}
+
+/**
+ * Get related entry IDs with graph traversal support
+ * Extends getRelatedEntryIds with depth-based traversal
+ */
+function getRelatedEntryIdsWithTraversal(
+  relatedTo: MemoryQueryParams['relatedTo']
+): Record<QueryEntryType, Set<string>> {
+  if (!relatedTo) {
+    return {
+      tool: new Set<string>(),
+      guideline: new Set<string>(),
+      knowledge: new Set<string>(),
+    };
+  }
+
+  // Use graph traversal with new parameters
+  return traverseRelationGraph(relatedTo.type, relatedTo.id, {
+    depth: relatedTo.depth,
+    direction: relatedTo.direction,
+    relationType: relatedTo.relation,
+    maxResults: relatedTo.maxResults,
+  });
 }
 
 // =============================================================================
@@ -827,6 +965,92 @@ function textMatches(haystack: string | null | undefined, needle: string): boole
   return haystack.toLowerCase().includes(needle.toLowerCase());
 }
 
+// =============================================================================
+// DECAY FUNCTIONS
+// =============================================================================
+
+export type DecayFunction = 'linear' | 'exponential' | 'step';
+
+/**
+ * Linear decay: score decreases linearly with age
+ * Returns value between 0-1
+ */
+export function linearDecay(ageDays: number, windowDays: number): number {
+  if (ageDays <= 0) return 1;
+  if (ageDays >= windowDays) return 0;
+  return 1 - ageDays / windowDays;
+}
+
+/**
+ * Exponential decay with half-life
+ * Returns value between 0-1 (approaches but never reaches 0)
+ */
+export function exponentialDecay(ageDays: number, halfLifeDays: number): number {
+  if (ageDays <= 0) return 1;
+  // Formula: 0.5^(age/halfLife) = e^(-ln(2) * age / halfLife)
+  return Math.pow(0.5, ageDays / halfLifeDays);
+}
+
+/**
+ * Step decay: full score within window, zero outside
+ * Returns 1 or 0
+ */
+export function stepDecay(ageDays: number, windowDays: number): number {
+  return ageDays <= windowDays ? 1 : 0;
+}
+
+/**
+ * Calculate age in days from ISO timestamp
+ */
+function calculateAgeDays(timestamp: string | null | undefined): number | null {
+  if (!timestamp) return null;
+  try {
+    const ts = new Date(timestamp).getTime();
+    if (Number.isNaN(ts)) return null;
+    const ageMs = Math.max(Date.now() - ts, 0);
+    return ageMs / (1000 * 60 * 60 * 24);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Compute recency score using configurable decay
+ */
+export function computeRecencyScore(params: {
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  decayFunction: DecayFunction;
+  decayHalfLifeDays: number;
+  recencyWeight: number;
+  maxBoost: number;
+  useUpdatedAt: boolean;
+}): number {
+  // Use the most recent timestamp (updated or created)
+  const timestamp =
+    params.useUpdatedAt && params.updatedAt ? params.updatedAt : params.createdAt;
+
+  const ageDays = calculateAgeDays(timestamp);
+  if (ageDays === null) return 0;
+
+  let decayScore: number;
+  switch (params.decayFunction) {
+    case 'exponential':
+      decayScore = exponentialDecay(ageDays, params.decayHalfLifeDays);
+      break;
+    case 'step':
+      decayScore = stepDecay(ageDays, params.decayHalfLifeDays);
+      break;
+    case 'linear':
+    default:
+      // For linear, use halfLife * 2 as the window (so halfLife is 50% mark)
+      decayScore = linearDecay(ageDays, params.decayHalfLifeDays * 2);
+      break;
+  }
+
+  return params.maxBoost * params.recencyWeight * decayScore;
+}
+
 function computeScore(params: {
   hasExplicitRelation: boolean;
   matchingTagCount: number;
@@ -835,7 +1059,13 @@ function computeScore(params: {
   textMatched: boolean;
   priority?: number | null;
   createdAt?: string | null;
+  updatedAt?: string | null;
   semanticSimilarity?: number; // 0-1, from vector search
+  // Recency scoring options
+  recencyWeight?: number;
+  decayHalfLifeDays?: number;
+  decayFunction?: DecayFunction;
+  useUpdatedAt?: boolean;
 }): number {
   let score = 0;
 
@@ -896,20 +1126,18 @@ function computeScore(params: {
     }
   }
 
-  // Simple recency boost: more recent createdAt gets a small bump
-  if (params.createdAt) {
-    try {
-      const ts = new Date(params.createdAt).getTime();
-      if (!Number.isNaN(ts)) {
-        const now = Date.now();
-        const ageMs = Math.max(now - ts, 0);
-        const ageDays = ageMs / (1000 * 60 * 60 * 24);
-        const recency = Math.max(0, 30 - Math.min(ageDays, 30)) / 30; // 0-1 for up to 30 days
-        score += 0.5 * recency;
-      }
-    } catch {
-      // ignore parse errors
-    }
+  // Recency boost using configurable decay function
+  const recencyWeight = params.recencyWeight ?? config.recency.defaultRecencyWeight;
+  if (recencyWeight > 0) {
+    score += computeRecencyScore({
+      createdAt: params.createdAt,
+      updatedAt: params.updatedAt,
+      decayFunction: params.decayFunction ?? 'exponential',
+      decayHalfLifeDays: params.decayHalfLifeDays ?? config.recency.defaultDecayHalfLifeDays,
+      recencyWeight: recencyWeight,
+      maxBoost: config.recency.maxRecencyBoost,
+      useUpdatedAt: params.useUpdatedAt ?? config.recency.useUpdatedAt,
+    });
   }
 
   return score;
@@ -1090,7 +1318,8 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
     return result;
   }
 
-  const relatedIds = getRelatedEntryIds(params.relatedTo);
+  // Use graph traversal for relatedTo queries (supports depth, direction, maxResults)
+  const relatedIds = getRelatedEntryIdsWithTraversal(params.relatedTo);
   const search = params.search?.trim();
 
   // Use FTS5 if enabled and search query provided
@@ -1449,6 +1678,12 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
         textMatched: !!textMatched,
         priority: type === 'guidelines' && isGuideline(entry) ? entry.priority : null,
         createdAt: entry.createdAt,
+        updatedAt: currentVersion?.createdAt, // Version createdAt = entry's last update time
+        // Pass recency parameters from query
+        recencyWeight: params.recencyWeight,
+        decayHalfLifeDays: params.decayHalfLifeDays,
+        decayFunction: params.decayFunction,
+        useUpdatedAt: params.useUpdatedAt,
       });
 
       if (type === 'tools' && isTool(entry)) {
@@ -1523,7 +1758,113 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
     return bCreated.localeCompare(aCreated);
   });
 
-  const limited = results.slice(0, limit);
+  // followRelations: expand results to include entries related to matched entries
+  let expandedResults = results;
+  if (params.followRelations && results.length > 0) {
+    const existingIds = new Set(results.map((r) => `${r.type}:${r.id}`));
+    const relatedToAdd: QueryResultItem[] = [];
+
+    // Limit expansion to first 20 results, 10 relations each
+    const expansionLimit = Math.min(results.length, 20);
+    const maxRelationsPerEntry = 10;
+
+    for (let i = 0; i < expansionLimit; i++) {
+      const result = results[i];
+      if (!result) continue;
+
+      // Traverse 1 hop from this result
+      const relatedIds = traverseRelationGraph(result.type, result.id, {
+        depth: 1,
+        direction: 'both',
+        maxResults: maxRelationsPerEntry,
+      });
+
+      // Fetch related entries that aren't already in results
+      for (const [entryType, idSet] of Object.entries(relatedIds)) {
+        for (const entryId of idSet) {
+          const key = `${entryType}:${entryId}`;
+          if (existingIds.has(key)) continue;
+          existingIds.add(key);
+
+          // Fetch the entry (simplified - we fetch basic info)
+          if (entryType === 'tool') {
+            const tool = db.select().from(tools).where(eq(tools.id, entryId)).get();
+            if (tool && tool.isActive) {
+              const entryTags = getTagsForEntries('tool', [entryId])[entryId] ?? [];
+              relatedToAdd.push({
+                type: 'tool',
+                id: entryId,
+                scopeType: tool.scopeType,
+                scopeId: tool.scopeId ?? null,
+                tags: entryTags,
+                score: 0.5, // Lower score for related entries
+                tool,
+              });
+            }
+          } else if (entryType === 'guideline') {
+            const guideline = db
+              .select()
+              .from(guidelines)
+              .where(eq(guidelines.id, entryId))
+              .get();
+            if (guideline && guideline.isActive) {
+              const entryTags = getTagsForEntries('guideline', [entryId])[entryId] ?? [];
+              relatedToAdd.push({
+                type: 'guideline',
+                id: entryId,
+                scopeType: guideline.scopeType,
+                scopeId: guideline.scopeId ?? null,
+                tags: entryTags,
+                score: 0.5, // Lower score for related entries
+                guideline,
+              });
+            }
+          } else if (entryType === 'knowledge') {
+            const knowledgeEntry = db
+              .select()
+              .from(knowledge)
+              .where(eq(knowledge.id, entryId))
+              .get();
+            if (knowledgeEntry && knowledgeEntry.isActive) {
+              const entryTags = getTagsForEntries('knowledge', [entryId])[entryId] ?? [];
+              relatedToAdd.push({
+                type: 'knowledge',
+                id: entryId,
+                scopeType: knowledgeEntry.scopeType,
+                scopeId: knowledgeEntry.scopeId ?? null,
+                tags: entryTags,
+                score: 0.5, // Lower score for related entries
+                knowledge: knowledgeEntry,
+              });
+            }
+          }
+        }
+      }
+    }
+
+    // Merge and re-sort if we found related entries
+    if (relatedToAdd.length > 0) {
+      expandedResults = [...results, ...relatedToAdd];
+      expandedResults.sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        const aCreated =
+          (a.type === 'tool'
+            ? a.tool.createdAt
+            : a.type === 'guideline'
+              ? a.guideline.createdAt
+              : a.knowledge.createdAt) ?? '';
+        const bCreated =
+          (b.type === 'tool'
+            ? b.tool.createdAt
+            : b.type === 'guideline'
+              ? b.guideline.createdAt
+              : b.knowledge.createdAt) ?? '';
+        return bCreated.localeCompare(aCreated);
+      });
+    }
+  }
+
+  const limited = expandedResults.slice(0, limit);
 
   // Compact mode: create new objects with only essential fields
   const compacted = params.compact
@@ -1567,10 +1908,10 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
     : limited;
 
   const meta: ResponseMeta = {
-    totalCount: results.length,
+    totalCount: expandedResults.length,
     returnedCount: compacted.length,
-    truncated: results.length > compacted.length,
-    hasMore: results.length > limited.length,
+    truncated: expandedResults.length > compacted.length,
+    hasMore: expandedResults.length > limited.length,
     nextCursor: undefined,
   };
 
@@ -1581,7 +1922,8 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
         scopeType: params.scope?.type ?? 'none',
         types: types.join(','),
         resultsCount: limited.length,
-        totalCount: results.length,
+        totalCount: expandedResults.length,
+        followRelationsExpanded: params.followRelations ? expandedResults.length - results.length : 0,
         durationMs,
       },
       'memory_query performance'
@@ -1699,6 +2041,14 @@ export async function executeMemoryQueryAsync(
             ? result.guideline
             : result.knowledge;
 
+      // Get version's createdAt as the entry's updatedAt
+      const versionCreatedAt =
+        result.type === 'tool'
+          ? result.version?.createdAt
+          : result.type === 'guideline'
+            ? result.version?.createdAt
+            : result.version?.createdAt;
+
       const newScore = computeScore({
         hasExplicitRelation: false, // Would need to recalculate
         matchingTagCount: result.tags.length,
@@ -1707,7 +2057,13 @@ export async function executeMemoryQueryAsync(
         textMatched: true,
         priority: result.type === 'guideline' ? result.guideline.priority : null,
         createdAt: base.createdAt,
+        updatedAt: versionCreatedAt,
         semanticSimilarity,
+        // Pass recency parameters from query
+        recencyWeight: params.recencyWeight,
+        decayHalfLifeDays: params.decayHalfLifeDays,
+        decayFunction: params.decayFunction,
+        useUpdatedAt: params.useUpdatedAt,
       });
 
       return { ...result, score: newScore };

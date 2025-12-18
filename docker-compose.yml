@@ -37,7 +37,7 @@ services:
 
     # Labels for organization
     labels:
-      - 'com.agent-memory.version=0.9.1'
+      - 'com.agent-memory.version=0.9.2'
       - 'com.agent-memory.environment=production'
 
     # Optional: Resource limits
