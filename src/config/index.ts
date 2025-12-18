@@ -20,11 +20,10 @@ const __dirname = dirname(__filename);
 const projectRoot = resolve(__dirname, '../..');
 
 // Load .env file (if exists) - environment variables take precedence
-// CRITICAL: Use debug: false to prevent dotenv from outputting to stdout
-// This would break MCP protocol which uses stdout for JSON-RPC
+// CRITICAL: Suppress dotenv output to stdout (MCP uses stdout for JSON-RPC)
 const envPath = resolve(projectRoot, '.env');
 if (existsSync(envPath)) {
-  dotenvConfig({ path: envPath, debug: false });
+  dotenvConfig({ path: envPath, debug: false, quiet: true });
 }
 
 // =============================================================================

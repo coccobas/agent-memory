@@ -134,7 +134,7 @@ Add to your `~/.config/claude/claude_desktop_config.json`:
   "mcpServers": {
     "agent-memory": {
       "command": "node",
-      "args": ["/path/to/agent-memory/dist/index.js"]
+      "args": ["/path/to/agent-memory/dist/cli.js", "mcp"]
     }
   }
 }

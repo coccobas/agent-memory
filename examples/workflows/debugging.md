@@ -10,7 +10,7 @@ Enable performance logging to see query times and cache hits:
 
 ```bash
 export AGENT_MEMORY_PERF=1
-node dist/index.js
+node dist/cli.js mcp
 ```
 
 Output example:
@@ -25,7 +25,7 @@ If you suspect caching issues:
 
 ```bash
 export AGENT_MEMORY_CACHE=0
-node dist/index.js
+node dist/cli.js mcp
 ```
 
 ### Custom Database Location
@@ -34,7 +34,7 @@ Use a test database for debugging:
 
 ```bash
 export AGENT_MEMORY_DB_PATH=/tmp/test-memory.db
-node dist/index.js
+node dist/cli.js mcp
 ```
 
 ## Common Issues and Solutions
@@ -402,10 +402,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 ```bash
 # Start server with stdio
-node dist/index.js
+node dist/cli.js mcp
 
 # In another terminal, send JSON-RPC requests
-echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | node dist/index.js
+echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | node dist/cli.js mcp
 ```
 
 ## Getting Help

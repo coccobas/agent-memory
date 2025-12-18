@@ -73,7 +73,7 @@ npx @modelcontextprotocol/inspector
 
 ```bash
 # From the project root
-npx @modelcontextprotocol/inspector node dist/index.js
+npx @modelcontextprotocol/inspector node dist/cli.js mcp
 ```
 
 This will:

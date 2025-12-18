@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.3] - 2025-12-18
+
+### Added
+- Centralized version module (`src/version.ts`) - single source of truth
+- REST API server with Fastify (`src/restapi/`)
+- Memory extraction service for LLM-powered auto-capture (`memory_observe`)
+- Performance benchmarks suite (`tests/benchmarks/`)
+- Server mode utility for MCP/REST/both modes
+- QUICKSTART.md for rapid onboarding
+
+### Changed
+- Version now read from `package.json` everywhere (no more hardcoded versions)
+- Documentation updated with performance metrics and roadmap
+- Updated all docs to reflect current version and features
+
+### Performance
+- Documented benchmark results: 4.5M ops/sec for simple queries
+- Sub-millisecond p99 latency (< 0.5ms) for most operations
+
 ## [0.9.2] - 2025-12-18
 
 ### Fixed

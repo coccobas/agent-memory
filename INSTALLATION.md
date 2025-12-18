@@ -23,7 +23,7 @@ Add to your Cursor MCP settings (`~/.cursor/mcp.json` or project-level `.cursor/
   "mcpServers": {
     "agent-memory": {
       "command": "node",
-      "args": ["/absolute/path/to/Memory/dist/index.js"]
+      "args": ["/absolute/path/to/Memory/dist/cli.js", "mcp"]
     }
   }
 }
@@ -36,7 +36,7 @@ Add to your Cursor MCP settings (`~/.cursor/mcp.json` or project-level `.cursor/
   "mcpServers": {
     "agent-memory": {
       "command": "node",
-      "args": ["/absolute/path/to/Memory/dist/index.js"],
+      "args": ["/absolute/path/to/Memory/dist/cli.js", "mcp"],
       "env": {
         "AGENT_MEMORY_DB_PATH": "/custom/path/memory.db",
         "AGENT_MEMORY_EMBEDDING_PROVIDER": "local"
@@ -53,12 +53,12 @@ Add to your Cursor MCP settings (`~/.cursor/mcp.json` or project-level `.cursor/
 ### Using CLI Command
 
 ```bash
-claude mcp add agent-memory node /absolute/path/to/Memory/dist/index.js
+claude mcp add agent-memory node /absolute/path/to/Memory/dist/cli.js
 ```
 
 If your `claude` CLI requires `--` to separate arguments, use:
 ```bash
-claude mcp add agent-memory -- node /absolute/path/to/Memory/dist/index.js
+claude mcp add agent-memory -- node /absolute/path/to/Memory/dist/cli.js
 ```
 
 ### Manual Configuration
@@ -74,7 +74,7 @@ Claude Desktop uses a JSON config file with an `mcpServers` section. Depending o
   "mcpServers": {
     "agent-memory": {
       "command": "node",
-      "args": ["/absolute/path/to/Memory/dist/index.js"]
+      "args": ["/absolute/path/to/Memory/dist/cli.js", "mcp"]
     }
   }
 }
@@ -86,7 +86,7 @@ Claude Desktop uses a JSON config file with an `mcpServers` section. Depending o
   "mcpServers": {
     "agent-memory": {
       "command": "node",
-      "args": ["C:/path/to/Memory/dist/index.js"]
+      "args": ["C:/path/to/Memory/dist/cli.js", "mcp"]
     }
   }
 }
@@ -106,7 +106,7 @@ Add to Claude Desktop configuration:
   "mcpServers": {
     "agent-memory": {
       "command": "node",
-      "args": ["/absolute/path/to/Memory/dist/index.js"]
+      "args": ["/absolute/path/to/Memory/dist/cli.js", "mcp"]
     }
   }
 }
@@ -126,7 +126,7 @@ If using an MCP-compatible extension, add to your VS Code settings (`settings.js
     "servers": {
       "agent-memory": {
         "command": "node",
-        "args": ["/absolute/path/to/Memory/dist/index.js"]
+        "args": ["/absolute/path/to/Memory/dist/cli.js", "mcp"]
       }
     }
   }
@@ -143,7 +143,7 @@ For project-specific configuration, add to `.vscode/settings.json`:
     "servers": {
       "agent-memory": {
         "command": "node",
-        "args": ["${workspaceFolder}/dist/index.js"]
+        "args": ["${workspaceFolder}/dist/cli.js", "mcp"]
       }
     }
   }
@@ -161,7 +161,7 @@ Add to Windsurf MCP configuration:
   "mcpServers": {
     "agent-memory": {
       "command": "node",
-      "args": ["/absolute/path/to/Memory/dist/index.js"]
+      "args": ["/absolute/path/to/Memory/dist/cli.js", "mcp"]
     }
   }
 }
@@ -179,7 +179,7 @@ Add to Zed settings (`~/.config/zed/settings.json`):
     "mcp_servers": {
       "agent-memory": {
         "command": "node",
-        "args": ["/absolute/path/to/Memory/dist/index.js"]
+        "args": ["/absolute/path/to/Memory/dist/cli.js", "mcp"]
       }
     }
   }
@@ -195,7 +195,7 @@ For any MCP-compatible client, use:
 ```json
 {
   "command": "node",
-  "args": ["/absolute/path/to/Memory/dist/index.js"],
+  "args": ["/absolute/path/to/Memory/dist/cli.js", "mcp"],
   "env": {
     "AGENT_MEMORY_DB_PATH": "data/memory.db",
     "AGENT_MEMORY_EMBEDDING_PROVIDER": "local"
@@ -224,7 +224,7 @@ All IDEs support passing environment variables. Common options:
   "mcpServers": {
     "agent-memory": {
       "command": "node",
-      "args": ["/absolute/path/to/Memory/dist/index.js"],
+      "args": ["/absolute/path/to/Memory/dist/cli.js", "mcp"],
       "env": {
         "AGENT_MEMORY_DB_PATH": "/var/data/memory.db",
         "AGENT_MEMORY_EMBEDDING_PROVIDER": "local",

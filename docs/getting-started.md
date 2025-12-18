@@ -64,7 +64,7 @@ npm run typecheck
 ### Standalone Mode
 
 ```bash
-node dist/index.js
+node dist/cli.js mcp
 ```
 
 The server runs using stdio transport, expecting MCP protocol messages on stdin/stdout.
@@ -79,7 +79,7 @@ Add to your Claude Desktop configuration (`~/.config/claude/claude_desktop_confi
   "mcpServers": {
     "agent-memory": {
       "command": "node",
-      "args": ["/absolute/path/to/agent-memory/dist/index.js"]
+      "args": ["/absolute/path/to/agent-memory/dist/cli.js", "mcp"]
     }
   }
 }
@@ -93,7 +93,7 @@ Add to your Claude Desktop configuration (`%APPDATA%\Claude\claude_desktop_confi
   "mcpServers": {
     "agent-memory": {
       "command": "node",
-      "args": ["C:/path/to/agent-memory/dist/index.js"]
+      "args": ["C:/path/to/agent-memory/dist/cli.js", "mcp"]
     }
   }
 }

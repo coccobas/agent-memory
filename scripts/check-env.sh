@@ -81,17 +81,17 @@ fi
 # Check if dist exists
 echo ""
 echo "Checking build..."
-if [ -d "dist" ]; then
-    print_status "ok" "dist directory exists"
-    
-    if [ -f "dist/index.js" ]; then
-        print_status "ok" "Project is built"
-    else
-        print_status "warn" "dist/index.js not found - run 'npm run build'"
-    fi
-else
-    print_status "warn" "Project not built - run 'npm run build'"
-fi
+	if [ -d "dist" ]; then
+	    print_status "ok" "dist directory exists"
+	    
+	    if [ -f "dist/cli.js" ] || [ -f "dist/index.js" ]; then
+	        print_status "ok" "Project is built"
+	    else
+	        print_status "warn" "dist/cli.js not found - run 'npm run build'"
+	    fi
+	else
+	    print_status "warn" "Project not built - run 'npm run build'"
+	fi
 
 # Check database
 echo ""

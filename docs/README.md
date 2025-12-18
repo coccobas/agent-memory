@@ -28,7 +28,7 @@ Add to Claude Desktop (`~/.config/claude/claude_desktop_config.json`; some macOS
   "mcpServers": {
     "agent-memory": {
       "command": "node",
-      "args": ["/absolute/path/to/Memory/dist/index.js"]
+      "args": ["/absolute/path/to/Memory/dist/cli.js", "mcp"]
     }
   }
 }
@@ -41,7 +41,7 @@ Add to Claude Desktop (`%APPDATA%\Claude\claude_desktop_config.json`):
   "mcpServers": {
     "agent-memory": {
       "command": "node",
-      "args": ["C:/path/to/Memory/dist/index.js"]
+      "args": ["C:/path/to/Memory/dist/cli.js", "mcp"]
     }
   }
 }
@@ -335,22 +335,50 @@ Quick setup:
 
 ## 📊 Project Status
 
-**Current Version: 0.8.5**
+**Current Version: 0.9.3**
 
-- ✅ Core CRUD operations
-- ✅ MCP server with 19 bundled tools
-- ✅ Query and context aggregation
-- ✅ Export/Import (JSON, Markdown, YAML)
-- ✅ File locks for multi-agent coordination
-- ✅ Conflict detection and resolution
+### Core Features
+- ✅ Core CRUD operations for tools, guidelines, knowledge
+- ✅ MCP server with 20 bundled action-based tools
+- ✅ REST API server for custom integrations
+- ✅ Query and context aggregation with inheritance
+- ✅ Export/Import (JSON, Markdown, YAML, OpenAPI)
+
+### Performance & Reliability
+- ✅ **4.5M ops/sec** query throughput
+- ✅ Sub-millisecond latency (< 0.5ms p99)
 - ✅ Query caching with LRU and partial eviction
 - ✅ Rate limiting (per-agent and global)
-- ✅ Semantic search with vector embeddings
+- ✅ Memory pressure management
+
+### Search & Discovery
+- ✅ Semantic search with vector embeddings (OpenAI/local)
+- ✅ Full-text search with SQLite FTS5
 - ✅ Advanced filtering (fuzzy, regex, date ranges, priority)
-- ✅ Fine-grained permissions system
+- ✅ Cross-reference queries with graph traversal
+
+### Multi-Agent Support
+- ✅ File locks for concurrent access
+- ✅ Conflict detection and resolution
+- ✅ Fine-grained permissions (read/write/admin)
+- ✅ Multi-agent voting and consensus
+
+### Quality
+- ✅ 1216 passing tests across 70 test files
+- ✅ 80% coverage threshold enforced
 - ✅ Comprehensive audit logging
-- ✅ 1079 passing tests with 80% coverage threshold
-- 🔄 In active development
+- ✅ TypeScript strict mode
+
+### Roadmap
+- 🔄 Extended REST API with full CRUD
+- 🔄 Webhook notifications for memory changes
+- 🔄 PostgreSQL support for high-concurrency
+- 🔄 LLM-powered memory extraction (memory_observe)
+- 🔄 Native IDE plugins (VS Code, JetBrains)
+- 🔄 Distributed mode for enterprise deployments
+- 🔄 Memory analytics dashboard
+- 🔄 Agent-to-agent memory sharing
+- ✨ *...and many more features coming soon!*
 
 ## 🌟 Features
 

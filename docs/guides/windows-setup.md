@@ -53,7 +53,7 @@ For manual control, use the `memory_init` MCP tool (see [Initialization Guide](.
 ### Standalone Mode
 
 ```powershell
-node dist/index.js
+node dist/cli.js mcp
 ```
 
 The server runs using stdio transport, expecting MCP protocol messages on stdin/stdout.
@@ -84,15 +84,15 @@ C:\Users\<YourUsername>\AppData\Roaming\Claude\claude_desktop_config.json
   "mcpServers": {
     "agent-memory": {
       "command": "node",
-      "args": ["C:\\path\\to\\agent-memory\\dist\\index.js"]
+      "args": ["C:\\path\\to\\agent-memory\\dist\\cli.js", "mcp"]
     }
   }
 }
 ```
 
 **Path Format Notes:**
-- You can use forward slashes: `C:/path/to/agent-memory/dist/index.js`
-- Or escaped backslashes: `C:\\path\\to\\agent-memory\\dist\\index.js`
+- You can use forward slashes: `C:/path/to/agent-memory/dist/cli.js`
+- Or escaped backslashes: `C:\\path\\to\\agent-memory\\dist\\cli.js`
 - Both formats work with Node.js on Windows
 
 **Example with actual path:**
@@ -101,7 +101,7 @@ C:\Users\<YourUsername>\AppData\Roaming\Claude\claude_desktop_config.json
   "mcpServers": {
     "agent-memory": {
       "command": "node",
-      "args": ["C:/Users/John/Documents/agent-memory/dist/index.js"]
+      "args": ["C:/Users/John/Documents/agent-memory/dist/cli.js", "mcp"]
     }
   }
 }
@@ -112,12 +112,12 @@ Restart Claude Desktop to load the server.
 ### With Claude Code
 
 ```powershell
-claude mcp add agent-memory node C:\path\to\agent-memory\dist\index.js
+claude mcp add agent-memory node C:\path\to\agent-memory\dist\cli.js
 ```
 
 Or with forward slashes:
 ```powershell
-claude mcp add agent-memory node C:/path/to/agent-memory/dist/index.js
+claude mcp add agent-memory node C:/path/to/agent-memory/dist/cli.js
 ```
 
 ## Database Path Configuration
@@ -235,16 +235,16 @@ set AGENT_MEMORY_OPENAI_API_KEY=your-api-key
 
 Node.js and the Agent Memory codebase use the `path` module which handles both formats:
 
-- **Forward slashes work:** `C:/Users/John/Documents/agent-memory/dist/index.js`
-- **Backslashes work:** `C:\Users\John\Documents\agent-memory\dist\index.js`
+- **Forward slashes work:** `C:/Users/John/Documents/agent-memory/dist/cli.js`
+- **Backslashes work:** `C:\Users\John\Documents\agent-memory\dist\cli.js`
 - **In JSON configs:** Use forward slashes or escaped backslashes (`\\`)
 
 **Recommendation:** Use forward slashes in configuration files for consistency across platforms.
 
 ### Absolute vs Relative Paths
 
-- **Absolute paths:** `C:\Users\John\Documents\agent-memory\dist\index.js`
-- **Relative paths:** `.\dist\index.js` or `./dist/index.js` (relative to current directory)
+- **Absolute paths:** `C:\Users\John\Documents\agent-memory\dist\cli.js`
+- **Relative paths:** `.\dist\cli.js` or `./dist/cli.js` (relative to current directory)
 
 For Claude Desktop configuration, use **absolute paths** to ensure the server can be found regardless of working directory.
 

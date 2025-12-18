@@ -25,14 +25,22 @@ export function isMcpServerMode(): boolean {
 
   const scriptPath = normalizePath(process.argv[1]);
 
-  // Check for index.js or index.ts entry point
-  if (scriptPath.endsWith('index.js') || scriptPath.endsWith('index.ts')) {
+  // Check for common entry points
+  if (
+    scriptPath.endsWith('index.js') ||
+    scriptPath.endsWith('index.ts') ||
+    scriptPath.endsWith('cli.js') ||
+    scriptPath.endsWith('cli.ts')
+  ) {
     return true;
   }
 
   // Check for dist directory pattern (cross-platform)
   const distPattern = `${sep}dist${sep}`.toLowerCase();
-  if (scriptPath.includes(distPattern) && scriptPath.endsWith('index.js')) {
+  if (
+    scriptPath.includes(distPattern) &&
+    (scriptPath.endsWith('index.js') || scriptPath.endsWith('cli.js'))
+  ) {
     return true;
   }
 
@@ -48,6 +56,8 @@ export function isMainModule(): boolean {
   return (
     scriptPath.endsWith('index.js') ||
     scriptPath.endsWith('index.ts') ||
+    scriptPath.endsWith('cli.js') ||
+    scriptPath.endsWith('cli.ts') ||
     scriptPath.includes('agent-memory')
   );
 }

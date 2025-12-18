@@ -49,8 +49,41 @@ describe('runtime utilities', () => {
       expect(isMcpServerMode()).toBe(true);
     });
 
+    it('should return true for cli.js entry point', () => {
+      process.argv = ['node', '/path/to/cli.js'];
+      Object.defineProperty(process, 'stdin', {
+        value: { isTTY: true },
+        writable: true,
+        configurable: true,
+      });
+
+      expect(isMcpServerMode()).toBe(true);
+    });
+
+    it('should return true for cli.ts entry point', () => {
+      process.argv = ['node', '/path/to/cli.ts'];
+      Object.defineProperty(process, 'stdin', {
+        value: { isTTY: true },
+        writable: true,
+        configurable: true,
+      });
+
+      expect(isMcpServerMode()).toBe(true);
+    });
+
     it('should return true for dist/index.js pattern', () => {
       process.argv = ['node', `/path/to${sep}dist${sep}index.js`];
+      Object.defineProperty(process, 'stdin', {
+        value: { isTTY: true },
+        writable: true,
+        configurable: true,
+      });
+
+      expect(isMcpServerMode()).toBe(true);
+    });
+
+    it('should return true for dist/cli.js pattern', () => {
+      process.argv = ['node', `/path/to${sep}dist${sep}cli.js`];
       Object.defineProperty(process, 'stdin', {
         value: { isTTY: true },
         writable: true,
@@ -137,6 +170,11 @@ describe('runtime utilities', () => {
 
     it('should return true for index.ts', () => {
       process.argv = ['node', '/path/to/index.ts'];
+      expect(isMainModule()).toBe(true);
+    });
+
+    it('should return true for cli.js', () => {
+      process.argv = ['node', '/path/to/cli.js'];
       expect(isMainModule()).toBe(true);
     });
 
