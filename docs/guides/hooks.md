@@ -68,13 +68,16 @@ npx agent-memory hook uninstall --ide claude --project-path /path/to/project
 
 ## Supported IDEs
 
-| IDE | Hook Support | Installation Location |
-|:----|:-------------|:----------------------|
-| Claude Code | Full (4 hooks) | `.claude/hooks/` |
-| Cursor | Rules only | `.cursor/rules/` |
-| VS Code | Rules only | `.vscode/rules/` |
+| IDE | Hook Support | Status |
+|:----|:-------------|:-------|
+| Claude Code | Full (4 hooks) | Supported |
+| Cursor | — | In development |
+| VS Code | — | In development |
+| Other IDEs | — | Planned |
 
-Claude Code has native hook support. Cursor and VS Code use rules files instead.
+Currently, only **Claude Code** supports native hooks. Hooks are installed to `.claude/hooks/`.
+
+For Cursor, VS Code, and other IDEs, use [Rules Sync](rules-sync.md) to sync guidelines (documentation for agents, not runtime enforcement).
 
 ---
 
