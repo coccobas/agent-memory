@@ -164,6 +164,66 @@ Built for speed. SQLite WAL mode + intelligent caching.
 
 ---
 
+## 🪝 IDE Hooks
+
+Runtime enforcement via pre/post tool call checks. Hooks intercept MCP tool execution and validate against critical guidelines.
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Agent tries to edit file                                       │
+│         ↓                                                       │
+│  PreToolUse hook fires → Checks critical guidelines             │
+│         ↓                                                       │
+│  Violation? → ❌ BLOCKED with explanation                       │
+│  Clean?     → ✅ Proceed with edit                              │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+| Hook | Trigger | Purpose |
+|:-----|:--------|:--------|
+| **PreToolUse** | Before Edit/Write/Bash | Block unsafe actions before execution |
+| **Stop** | Session end attempt | Enforce memory review workflow |
+| **UserPromptSubmit** | User sends message | Parse `!am` commands for session control |
+| **SessionEnd** | Session terminates | Auto-ingest transcript to memory |
+
+**Install hooks for Claude Code:**
+
+```bash
+npx agent-memory hook install --ide claude --project-path .
+```
+
+[→ Hooks Guide](docs/guides/hooks.md)
+
+---
+
+## 📐 Rules Sync
+
+Agent guidelines for interacting with the MCP server. Rules teach AI assistants the memory workflow — synced directly to your IDE.
+
+```bash
+# Sync to Claude Code (writes to ~/.claude/CLAUDE.md)
+npm run sync-rules -- --ide claude
+
+# Sync to Cursor (writes .mdc files to .cursor/rules/)
+npm run sync-rules -- --ide cursor
+
+# Watch mode — auto-sync on changes
+npm run sync-rules:watch
+```
+
+**What gets synced:**
+
+| Rule File | Content |
+|:----------|:--------|
+| `auto-memory-core.md` | Essential workflow (query → store → tag) |
+| `auto-memory-reference.md` | All 20+ MCP tools with parameters |
+| `auto-memory-examples.md` | Real-world usage patterns |
+| `auto-memory-strategies.md` | Optimization and best practices |
+
+[→ Rules Sync Guide](docs/guides/rules-sync.md)
+
+---
+
 ## 🔌 Server Modes
 
 ```bash
@@ -214,6 +274,8 @@ AGENT_MEMORY_PERMISSIONS_MODE=permissive
 | [Installation](docs/installation.md) | npm, Docker, source |
 | [Getting Started](docs/getting-started.md) | Full setup guide |
 | [API Reference](docs/api-reference.md) | All 20+ tools documented |
+| [Hooks Guide](docs/guides/hooks.md) | IDE hooks for enforcement |
+| [Rules Sync](docs/guides/rules-sync.md) | Sync guidelines to IDEs |
 | [IDE Setup](docs/guides/ide-setup.md) | Claude, Cursor, VS Code |
 | [Troubleshooting](docs/guides/troubleshooting.md) | Common issues |
 

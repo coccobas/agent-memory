@@ -12,6 +12,32 @@ Complete documentation for Agent Memory MCP server.
 
 ---
 
+## Key Features
+
+### IDE Hooks
+
+Runtime enforcement via pre/post tool call checks. Validate actions against critical guidelines before execution.
+
+| Guide | Description |
+|-------|-------------|
+| [Hooks Guide](guides/hooks.md) | Install and configure IDE hooks |
+| [IDE Setup](guides/ide-setup.md) | Full IDE integration setup |
+
+**Supported hooks:** PreToolUse (pre-call validation), Stop (enforce review), UserPromptSubmit (command parsing), SessionEnd (context capture)
+
+### Rules Sync
+
+Agent guidelines for interacting with the MCP server. Teach AI assistants the memory workflow.
+
+| Guide | Description |
+|-------|-------------|
+| [Rules Sync](guides/rules-sync.md) | Sync rules to Claude, Cursor, VS Code |
+| [Examples](guides/examples.md) | Real-world rule examples |
+
+**Supported IDEs:** Claude Code (`CLAUDE.md`), Cursor (`.mdc` files), VS Code, and more.
+
+---
+
 ## Guides
 
 ### Setup & Configuration
@@ -34,6 +60,7 @@ Complete documentation for Agent Memory MCP server.
 
 ### Integration
 
+- [Hooks Guide](guides/hooks.md) - IDE hooks for runtime enforcement
 - [Rules Sync](guides/rules-sync.md) - Sync IDE rules with memory
 
 ---
@@ -91,6 +118,7 @@ Complete documentation for Agent Memory MCP server.
 |------|-------------|
 | [workflows.md](guides/workflows.md) | Usage patterns |
 | [examples.md](guides/examples.md) | Real-world examples |
+| [hooks.md](guides/hooks.md) | IDE hooks for enforcement |
 | [ide-setup.md](guides/ide-setup.md) | IDE configuration |
 | [semantic-search.md](guides/semantic-search.md) | Vector search |
 | [performance.md](guides/performance.md) | Performance tuning |
