@@ -177,7 +177,9 @@ exec "\${AM_CMD[@]}" hook stop${projectId ? ` --project-id "${projectId}"` : ''}
 /**
  * Generate the Claude Code UserPromptSubmit hook script (session controls)
  */
-export function generateClaudeCodeUserPromptSubmitHookScript(params?: { projectId?: string }): string {
+export function generateClaudeCodeUserPromptSubmitHookScript(params?: {
+  projectId?: string;
+}): string {
   const projectId = params?.projectId || '';
   return `#!/bin/bash
 # Claude Code UserPromptSubmit hook
@@ -509,7 +511,8 @@ export function generateHooks(config: HookConfig): HookGenerationResult {
         hooks.push({
           filePath: path.join(config.projectPath, '.vscode', 'critical-guidelines.md'),
           content: generateCursorRulesFile(config.projectId ?? null, config.sessionId),
-          instructions: 'VSCode does not support native hooks. This file contains critical guidelines for reference.',
+          instructions:
+            'VSCode does not support native hooks. This file contains critical guidelines for reference.',
         });
 
         break;
@@ -519,7 +522,7 @@ export function generateHooks(config: HookConfig): HookGenerationResult {
         return {
           success: false,
           hooks: [],
-          message: `Unsupported IDE: ${config.ide}`,
+          message: `Unsupported IDE: ${String(config.ide)}`,
         };
     }
 
@@ -543,7 +546,11 @@ export function generateHooks(config: HookConfig): HookGenerationResult {
 /**
  * Install generated hooks to the filesystem
  */
-export function installHooks(hooks: GeneratedHook[]): { success: boolean; installed: string[]; errors: string[] } {
+export function installHooks(hooks: GeneratedHook[]): {
+  success: boolean;
+  installed: string[];
+  errors: string[];
+} {
   const installed: string[] = [];
   const errors: string[] = [];
 
@@ -592,7 +599,12 @@ export function getHookStatus(
     case 'claude': {
       const preToolUseScript = path.join(projectPath, '.claude', 'hooks', 'pretooluse.sh');
       const stopScript = path.join(projectPath, '.claude', 'hooks', 'stop.sh');
-      const userPromptSubmitScript = path.join(projectPath, '.claude', 'hooks', 'userpromptsubmit.sh');
+      const userPromptSubmitScript = path.join(
+        projectPath,
+        '.claude',
+        'hooks',
+        'userpromptsubmit.sh'
+      );
       const sessionEndScript = path.join(projectPath, '.claude', 'hooks', 'session-end.sh');
       const settings = path.join(projectPath, '.claude', 'settings.json');
       files.push(

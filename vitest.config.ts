@@ -14,9 +14,11 @@ export default defineConfig({
     include: ['tests/**/*.test.ts'],
     exclude: ['tests/benchmarks/**'],
     // Enable dev mode for tests to auto-fix migration checksum mismatches
+    // Enable permissive mode for tests to allow full access without explicit permissions
     env: {
       AGENT_MEMORY_DEV_MODE: '1',
       AGENT_MEMORY_DATA_DIR: './data/test', // Isolate tests from production database
+      AGENT_MEMORY_PERMISSIONS_MODE: 'permissive',
     },
     coverage: {
       provider: 'v8',

@@ -373,9 +373,58 @@ export const knowledgeHandlers = {
     return { success: true };
   },
 
+  delete(params: Record<string, unknown>) {
+    const id = getRequiredParam(params, 'id', isString);
+    const agentId = getOptionalParam(params, 'agentId', isString);
+
+    // Get knowledge to check scope and permission
+    const existingKnowledge = knowledgeRepo.getById(id);
+    if (!existingKnowledge) {
+      throw createNotFoundError('knowledge', id);
+    }
+
+    // Check permission (delete required for hard delete)
+    if (
+      agentId &&
+      !checkPermission(
+        agentId,
+        'delete',
+        'knowledge',
+        id,
+        existingKnowledge.scopeType,
+        existingKnowledge.scopeId ?? null
+      )
+    ) {
+      throw createPermissionError('delete', 'knowledge', id);
+    }
+
+    const success = knowledgeRepo.delete(id);
+    if (!success) {
+      throw createNotFoundError('knowledge', id);
+    }
+
+    // Invalidate cache for this entry
+    invalidateCacheEntry('knowledge', id);
+
+    // Log audit
+    logAction({
+      agentId,
+      action: 'delete',
+      entryType: 'knowledge',
+      entryId: id,
+      scopeType: existingKnowledge.scopeType,
+      scopeId: existingKnowledge.scopeId ?? null,
+    });
+
+    return { success: true, message: 'Knowledge entry permanently deleted' };
+  },
+
   bulk_add(params: Record<string, unknown>) {
     const entries = getRequiredParam(params, 'entries', isArrayOfObjects);
     const agentId = getOptionalParam(params, 'agentId', isString);
+    // Allow top-level scopeType/scopeId as defaults for all entries
+    const defaultScopeType = getOptionalParam(params, 'scopeType', isScopeType);
+    const defaultScopeId = getOptionalParam(params, 'scopeId', isString);
 
     if (entries.length === 0) {
       throw createValidationError(
@@ -390,20 +439,22 @@ export const knowledgeHandlers = {
       for (const entry of entries) {
         if (!isObject(entry)) continue;
         const entryObj = entry as unknown as KnowledgeAddParams;
+        const entryScopeType = entryObj.scopeType ?? defaultScopeType;
+        const entryScopeId = entryObj.scopeId ?? defaultScopeId;
         if (
           !checkPermission(
             agentId,
             'write',
             'knowledge',
             null,
-            entryObj.scopeType,
-            entryObj.scopeId ?? null
+            entryScopeType,
+            entryScopeId ?? null
           )
         ) {
           throw createPermissionError(
             'write',
             'knowledge',
-            `scope ${String(entry.scopeType)}:${String(entry.scopeId ?? '')}`
+            `scope ${String(entryScopeType)}:${String(entryScopeId ?? '')}`
           );
         }
       }
@@ -422,16 +473,19 @@ export const knowledgeHandlers = {
         }
 
         const entryObj = entry as unknown as KnowledgeAddParams;
+        // Use entry-level scope if provided, otherwise fall back to top-level defaults
         const scopeType = isScopeType(entryObj.scopeType)
           ? entryObj.scopeType
-          : (() => {
-              throw createValidationError(
-                'scopeType',
-                'is required',
-                "Specify 'global', 'org', 'project', or 'session'"
-              );
-            })();
-        const scopeId = entryObj.scopeId;
+          : defaultScopeType
+            ? defaultScopeType
+            : (() => {
+                throw createValidationError(
+                  'scopeType',
+                  'is required',
+                  "Specify 'global', 'org', 'project', or 'session' at entry or top level"
+                );
+              })();
+        const scopeId = entryObj.scopeId ?? defaultScopeId;
         const title = isString(entryObj.title)
           ? entryObj.title
           : (() => {

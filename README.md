@@ -116,9 +116,14 @@ AGENT_MEMORY_DATA_DIR=~/.agent-memory
 # Semantic search (optional)
 AGENT_MEMORY_OPENAI_API_KEY=sk-...
 
-# REST API (optional)
+# REST API (disabled by default for security)
+AGENT_MEMORY_REST_ENABLED=true      # Enable REST API
 AGENT_MEMORY_REST_PORT=8787
 AGENT_MEMORY_REST_HOST=127.0.0.1
+
+# Permissions (secure by default)
+# Set to 'permissive' for single-agent setups or development
+AGENT_MEMORY_PERMISSIONS_MODE=permissive
 ```
 
 ## Test Coverage

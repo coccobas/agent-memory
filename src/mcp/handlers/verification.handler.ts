@@ -43,7 +43,7 @@ function isActionType(value: unknown): value is ProposedActionType {
  */
 function isProposedAction(value: unknown): value is ProposedAction {
   if (!isObject(value)) return false;
-  const obj = value as Record<string, unknown>;
+  const obj = value;
   if (!obj.type || !isActionType(obj.type)) return false;
   return true;
 }

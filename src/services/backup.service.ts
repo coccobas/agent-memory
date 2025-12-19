@@ -5,7 +5,7 @@
  */
 
 import { copyFileSync, mkdirSync, existsSync, readdirSync, unlinkSync, statSync } from 'node:fs';
-import { join, basename } from 'node:path';
+import { join, basename, resolve, relative, isAbsolute } from 'node:path';
 import { config } from '../config/index.js';
 
 export interface BackupResult {
@@ -46,6 +46,19 @@ export function createDatabaseBackup(customName?: string): BackupResult {
     // Generate backup filename
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const dbBasename = basename(dbPath, '.db');
+
+    // Security: Validate customName if provided
+    if (customName) {
+      // Only allow alphanumeric, dots, hyphens, underscores
+      const sanitized = customName.replace(/[^a-zA-Z0-9._-]/g, '');
+      if (!sanitized || sanitized !== customName || customName.includes('..')) {
+        return {
+          success: false,
+          message: 'Invalid backup name: only alphanumeric, dots, hyphens, and underscores allowed',
+        };
+      }
+    }
+
     const backupFilename = customName ? `${customName}.db` : `${dbBasename}-backup-${timestamp}.db`;
     const backupPath = join(backupDir, backupFilename);
 
@@ -130,13 +143,34 @@ export function restoreFromBackup(backupFilename: string): BackupResult {
   try {
     const backupDir = config.paths.backup;
     const dbPath = config.database.path;
-    const backupPath = join(backupDir, backupFilename);
+
+    // Security: Validate backupFilename to prevent path traversal
+    const safeFilename = basename(backupFilename);
+    if (safeFilename !== backupFilename || backupFilename.includes('..')) {
+      return {
+        success: false,
+        message: 'Invalid backup filename: path traversal not allowed',
+      };
+    }
+
+    const backupPath = join(backupDir, safeFilename);
+
+    // Double-check resolved path stays within backupDir
+    const resolvedPath = resolve(backupPath);
+    const resolvedBackupDir = resolve(backupDir);
+    const relPath = relative(resolvedBackupDir, resolvedPath);
+    if (relPath.startsWith('..') || isAbsolute(relPath)) {
+      return {
+        success: false,
+        message: 'Invalid backup filename: path traversal not allowed',
+      };
+    }
 
     // Verify backup exists
     if (!existsSync(backupPath)) {
       return {
         success: false,
-        message: `Backup not found: ${backupFilename}`,
+        message: `Backup not found: ${safeFilename}`,
       };
     }
 

@@ -3,7 +3,13 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, vi, beforeEach } from 'vitest';
-import { setupTestDb, cleanupTestDb, createTestGuideline, createTestProject, createTestSession } from '../fixtures/test-helpers.js';
+import {
+  setupTestDb,
+  cleanupTestDb,
+  createTestGuideline,
+  createTestProject,
+  createTestSession,
+} from '../fixtures/test-helpers.js';
 
 const TEST_DB_PATH = './data/test-verification.db';
 let sqlite: ReturnType<typeof setupTestDb>['sqlite'];
@@ -75,7 +81,9 @@ describe('verification.service', () => {
       );
 
       // Add verification rules with forbidden action
-      sqlite.exec(`UPDATE guideline_versions SET verification_rules = '{"forbiddenActions": ["file_write"]}' WHERE id = '${version.id}'`);
+      sqlite.exec(
+        `UPDATE guideline_versions SET verification_rules = '{"forbiddenActions": ["file_write"]}' WHERE id = '${version.id}'`
+      );
 
       const result = verifyAction(null, null, {
         type: 'file_write',
@@ -101,7 +109,9 @@ describe('verification.service', () => {
       );
 
       // Add verification rules with file patterns
-      sqlite.exec(`UPDATE guideline_versions SET verification_rules = '{"filePatterns": [".env", ".env.*"]}' WHERE id = '${version.id}'`);
+      sqlite.exec(
+        `UPDATE guideline_versions SET verification_rules = '{"filePatterns": [".env", ".env.*"]}' WHERE id = '${version.id}'`
+      );
 
       const result = verifyAction(null, null, {
         type: 'file_write',
@@ -126,7 +136,9 @@ describe('verification.service', () => {
       );
 
       // Add verification rules with content patterns
-      sqlite.exec(`UPDATE guideline_versions SET verification_rules = '{"contentPatterns": ["sk-[a-zA-Z0-9]+"]}' WHERE id = '${version.id}'`);
+      sqlite.exec(
+        `UPDATE guideline_versions SET verification_rules = '{"contentPatterns": ["sk-[a-zA-Z0-9]+"]}' WHERE id = '${version.id}'`
+      );
 
       const result = verifyAction(null, null, {
         type: 'code_generate',
@@ -150,7 +162,9 @@ describe('verification.service', () => {
       );
 
       // Add bad examples
-      sqlite.exec(`UPDATE guideline_versions SET examples = '{"bad": ["eval(", "new Function("], "good": ["JSON.parse("]}' WHERE id = '${version.id}'`);
+      sqlite.exec(
+        `UPDATE guideline_versions SET examples = '{"bad": ["eval(", "new Function("], "good": ["JSON.parse("]}' WHERE id = '${version.id}'`
+      );
 
       const result = verifyAction(null, null, {
         type: 'code_generate',
@@ -199,7 +213,9 @@ describe('verification.service', () => {
         filePath: '/path/to/file.ts',
       });
 
-      const logs = sqlite.prepare('SELECT * FROM verification_log WHERE action_type = ?').all('pre_check');
+      const logs = sqlite
+        .prepare('SELECT * FROM verification_log WHERE action_type = ?')
+        .all('pre_check');
       expect(logs.length).toBeGreaterThan(0);
     });
   });
@@ -217,7 +233,9 @@ describe('verification.service', () => {
       );
 
       // Use simple string pattern to avoid JSON escaping issues
-      sqlite.exec(`UPDATE guideline_versions SET verification_rules = '{"contentPatterns": ["password"]}' WHERE id = '${version.id}'`);
+      sqlite.exec(
+        `UPDATE guideline_versions SET verification_rules = '{"contentPatterns": ["password"]}' WHERE id = '${version.id}'`
+      );
 
       const result = logCompletedAction(null, {
         type: 'code_generate',
@@ -228,7 +246,9 @@ describe('verification.service', () => {
       expect(result.blocked).toBe(false);
       expect(result.violations.length).toBeGreaterThanOrEqual(0);
 
-      const logs = sqlite.prepare('SELECT * FROM verification_log WHERE action_type = ?').all('post_check');
+      const logs = sqlite
+        .prepare('SELECT * FROM verification_log WHERE action_type = ?')
+        .all('post_check');
       expect(logs.length).toBeGreaterThan(0);
     });
   });
@@ -251,8 +271,24 @@ describe('verification.service', () => {
       const project = createTestProject(db, 'Test Project');
       const session = createTestSession(db, project.id, 'Test Session');
 
-      const { guideline: g1 } = createTestGuideline(db, 'critical-1', 'global', undefined, 'security', 95, 'Content 1');
-      const { guideline: g2 } = createTestGuideline(db, 'critical-2', 'global', undefined, 'security', 92, 'Content 2');
+      const { guideline: g1 } = createTestGuideline(
+        db,
+        'critical-1',
+        'global',
+        undefined,
+        'security',
+        95,
+        'Content 1'
+      );
+      const { guideline: g2 } = createTestGuideline(
+        db,
+        'critical-2',
+        'global',
+        undefined,
+        'security',
+        92,
+        'Content 2'
+      );
 
       const result = acknowledgeGuidelines(session.id, [g1.id], 'test-agent');
 
@@ -265,7 +301,15 @@ describe('verification.service', () => {
       const project = createTestProject(db, 'Test Project');
       const session = createTestSession(db, project.id, 'Test Session');
 
-      const { guideline } = createTestGuideline(db, 'critical-1', 'global', undefined, 'security', 95, 'Content');
+      const { guideline } = createTestGuideline(
+        db,
+        'critical-1',
+        'global',
+        undefined,
+        'security',
+        95,
+        'Content'
+      );
 
       // Acknowledge twice
       acknowledgeGuidelines(session.id, [guideline.id], 'test-agent');
@@ -274,7 +318,9 @@ describe('verification.service', () => {
       // Should still succeed (upsert/ignore behavior)
       expect(result.acknowledged).toBe(1);
 
-      const acks = sqlite.prepare('SELECT * FROM session_guideline_acknowledgments WHERE session_id = ?').all(session.id);
+      const acks = sqlite
+        .prepare('SELECT * FROM session_guideline_acknowledgments WHERE session_id = ?')
+        .all(session.id);
       expect(acks).toHaveLength(1);
     });
   });
@@ -284,8 +330,24 @@ describe('verification.service', () => {
       const project = createTestProject(db, 'Test Project');
       const session = createTestSession(db, project.id, 'Test Session');
 
-      const { guideline: g1 } = createTestGuideline(db, 'critical-1', 'global', undefined, 'security', 95, 'Content');
-      const { guideline: g2 } = createTestGuideline(db, 'critical-2', 'global', undefined, 'security', 92, 'Content');
+      const { guideline: g1 } = createTestGuideline(
+        db,
+        'critical-1',
+        'global',
+        undefined,
+        'security',
+        95,
+        'Content'
+      );
+      const { guideline: g2 } = createTestGuideline(
+        db,
+        'critical-2',
+        'global',
+        undefined,
+        'security',
+        92,
+        'Content'
+      );
 
       acknowledgeGuidelines(session.id, [g1.id], 'test-agent');
 
@@ -327,7 +389,15 @@ describe('verification.service', () => {
       const project = createTestProject(db, 'Test Project');
       const session = createTestSession(db, project.id, 'Test Session');
 
-      const { guideline: g1 } = createTestGuideline(db, 'critical-1', 'global', undefined, 'security', 95, 'Content');
+      const { guideline: g1 } = createTestGuideline(
+        db,
+        'critical-1',
+        'global',
+        undefined,
+        'security',
+        95,
+        'Content'
+      );
       createTestGuideline(db, 'critical-2', 'global', undefined, 'security', 92, 'Content');
 
       // Only acknowledge one

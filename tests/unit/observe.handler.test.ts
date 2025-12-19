@@ -54,9 +54,7 @@ describe('observe handler', () => {
 
   describe('extract action validation', () => {
     it('should require context parameter', async () => {
-      await expect(
-        observeHandlers.extract({ scopeType: 'global' })
-      ).rejects.toThrow();
+      await expect(observeHandlers.extract({ scopeType: 'global' })).rejects.toThrow();
     });
 
     it('should require scopeId for non-global scope', async () => {

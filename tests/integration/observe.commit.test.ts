@@ -114,4 +114,3 @@ describe('memory_observe.commit integration', () => {
     expect(observe.reviewedAt).toBeUndefined();
   });
 });
-

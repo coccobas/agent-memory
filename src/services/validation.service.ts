@@ -404,11 +404,3 @@ export function validateEntry(
     errors,
   };
 }
-
-
-
-
-
-
-
-

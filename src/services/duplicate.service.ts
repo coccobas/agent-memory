@@ -13,12 +13,14 @@ import type { ScopeType, EntryType } from '../db/schema.js';
 function escapeFts5Query(input: string): string {
   // Keep this conservative: remove characters that have special meaning in MATCH syntax.
   // This aligns with executeFts5Search() in query.service.ts.
-  return input
-    .replace(/["*]/g, '')
-    // Normalize kebab/snake/camel-ish identifiers into tokens.
-    // FTS5 MATCH has its own query syntax; reducing to plain tokens avoids parse errors.
-    .replace(/[^a-zA-Z0-9]+/g, ' ')
-    .trim();
+  return (
+    input
+      .replace(/["*]/g, '')
+      // Normalize kebab/snake/camel-ish identifiers into tokens.
+      // FTS5 MATCH has its own query syntax; reducing to plain tokens avoids parse errors.
+      .replace(/[^a-zA-Z0-9]+/g, ' ')
+      .trim()
+  );
 }
 
 /**
@@ -112,7 +114,9 @@ export function findSimilarEntries(
   if (!ftsQuery) return [];
 
   if (entryType === 'tool') {
-    const idQuery = getPreparedStatement(`SELECT tool_id AS id FROM tools_fts WHERE tools_fts MATCH ?`);
+    const idQuery = getPreparedStatement(
+      `SELECT tool_id AS id FROM tools_fts WHERE tools_fts MATCH ?`
+    );
     const idRows = idQuery.all(ftsQuery) as Array<{ id: string }>;
     const ids = idRows.map((r) => r.id).filter(Boolean);
     if (ids.length === 0) return [];
@@ -215,9 +219,3 @@ export function checkForDuplicates(
     similarEntries: similar,
   };
 }
-
-
-
-
-
-

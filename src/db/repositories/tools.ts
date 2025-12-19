@@ -32,7 +32,7 @@ export interface CreateToolInput {
   category?: 'mcp' | 'cli' | 'function' | 'api';
   description?: string;
   parameters?: Record<string, unknown>;
-  examples?: Array<Record<string, unknown>>;
+  examples?: unknown[]; // Allow strings or objects
   constraints?: string;
   createdBy?: string;
 }
@@ -40,7 +40,7 @@ export interface CreateToolInput {
 export interface UpdateToolInput {
   description?: string;
   parameters?: Record<string, unknown>;
-  examples?: Array<Record<string, unknown>>;
+  examples?: unknown[]; // Allow strings or objects
   constraints?: string;
   changeReason?: string;
   updatedBy?: string;

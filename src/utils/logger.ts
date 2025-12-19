@@ -17,14 +17,18 @@ import { config } from '../config/index.js';
 
 // Configuration from centralized config
 const DEBUG_ENABLED = config.logging.debug;
+
+// Detect test environment and suppress logs to keep test output clean
+const isTest = process.env.NODE_ENV === 'test' || process.env.VITEST !== undefined;
 const logLevel = config.logging.level;
+const loggingEnabled = !isTest;
 
 // Check if running as MCP server (stdio mode)
 // MCP servers use stdin/stdout for protocol, so we must not output anything to stdout
 const isMcpServer = isMcpServerMode();
 
 // Conditional debug logging to log directory (only if AGENT_MEMORY_DEBUG=1)
-if (DEBUG_ENABLED) {
+if (DEBUG_ENABLED && !isTest) {
   try {
     // Use configured log path, fallback to tmpdir
     const logDir = config.paths.log;
@@ -52,6 +56,7 @@ const sanitizingSerializer = (obj: unknown) => sanitizeForLogging(obj);
  */
 const pinoOptions: pino.LoggerOptions = {
   level: logLevel,
+  enabled: loggingEnabled,
   // Redact sensitive field paths
   redact: {
     paths: [

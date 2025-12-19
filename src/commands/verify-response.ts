@@ -26,7 +26,7 @@ interface CLIOptions {
 
 function printHelp(): void {
   // Intentionally minimal; this is also used by Claude hooks.
-  console.log(`
+  writeStdout(`
 verify-response
 
 Checks content against critical guidelines stored in Agent Memory.
@@ -46,6 +46,14 @@ Options:
   --quiet, -q              Suppress output (exit code only)
   --help, -h               Show this help
 `);
+}
+
+function writeStdout(message: string): void {
+  process.stdout.write(message.endsWith('\n') ? message : `${message}\n`);
+}
+
+function writeStderr(message: string): void {
+  process.stderr.write(message.endsWith('\n') ? message : `${message}\n`);
 }
 
 function parseArgs(argv: string[]): CLIOptions {
@@ -96,7 +104,7 @@ function parseArgs(argv: string[]): CLIOptions {
     } else if (arg.startsWith('--description=')) {
       options.description = arg.slice('--description='.length);
     } else if (arg.startsWith('-')) {
-      console.error(`Unknown option: ${arg}`);
+      writeStderr(`Unknown option: ${arg}`);
       process.exit(2);
     }
   }
@@ -112,7 +120,7 @@ async function readStdin(): Promise<string | undefined> {
     process.stdin.setEncoding('utf8');
     process.stdin.on('readable', () => {
       let chunk: string | null;
-      // eslint-disable-next-line no-cond-assign
+      // eslint-disable-next-line no-cond-assign, @typescript-eslint/no-unsafe-assignment
       while ((chunk = process.stdin.read()) !== null) {
         data += chunk;
       }
@@ -132,7 +140,7 @@ export async function runVerifyResponseCommand(argv: string[]): Promise<void> {
 
   if (!content && options.filePath) {
     if (!existsSync(options.filePath)) {
-      console.error(`File not found: ${options.filePath}`);
+      writeStderr(`File not found: ${options.filePath}`);
       process.exit(2);
     }
     content = readFileSync(options.filePath, 'utf-8');
@@ -143,7 +151,7 @@ export async function runVerifyResponseCommand(argv: string[]): Promise<void> {
   }
 
   if (!content) {
-    console.error('No content provided. Use --content, --file, or pipe through stdin.');
+    writeStderr('No content provided. Use --content, --file, or pipe through stdin.');
     printHelp();
     process.exit(2);
   }
@@ -156,25 +164,29 @@ export async function runVerifyResponseCommand(argv: string[]): Promise<void> {
   };
 
   try {
-    const result = verifyAction(options.sessionId || null, options.projectId || null, proposedAction);
+    const result = verifyAction(
+      options.sessionId || null,
+      options.projectId || null,
+      proposedAction
+    );
 
     if (options.outputFormat === 'json') {
       if (!options.quiet) {
-        console.log(JSON.stringify(result, null, 2));
+        writeStdout(JSON.stringify(result, null, 2));
       }
     } else if (!options.quiet) {
       const status = result.blocked ? 'BLOCKED' : 'OK';
-      console.log(status);
+      writeStdout(status);
       if (result.blocked) {
         for (const v of result.violations ?? []) {
-          console.log(`- ${v.message}`);
+          writeStdout(`- ${v.message}`);
         }
       }
     }
 
     process.exit(result.blocked ? 1 : 0);
   } catch (error) {
-    console.error(error instanceof Error ? error.message : String(error));
+    writeStderr(error instanceof Error ? error.message : String(error));
     process.exit(2);
   }
 }

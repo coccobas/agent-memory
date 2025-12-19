@@ -206,10 +206,7 @@ ${content}`;
  * Concatenate multiple markdown files into a single file for Claude Code
  * Only includes the core file content to keep it lean
  */
-export function concatenateForSingleMd(
-  files: Map<string, string>,
-  _ide: string
-): string {
+export function concatenateForSingleMd(files: Map<string, string>, _ide: string): string {
   const parts: string[] = [
     '# Agent Memory Rules',
     '',

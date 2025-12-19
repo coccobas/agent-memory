@@ -339,9 +339,58 @@ export const guidelineHandlers = {
     return { success: true };
   },
 
+  delete(params: Record<string, unknown>) {
+    const id = getRequiredParam(params, 'id', isString);
+    const agentId = getOptionalParam(params, 'agentId', isString);
+
+    // Get guideline to check scope and permission
+    const existingGuideline = guidelineRepo.getById(id);
+    if (!existingGuideline) {
+      throw createNotFoundError('Guideline', id);
+    }
+
+    // Check permission (delete required for hard delete)
+    if (
+      agentId &&
+      !checkPermission(
+        agentId,
+        'delete',
+        'guideline',
+        id,
+        existingGuideline.scopeType,
+        existingGuideline.scopeId ?? null
+      )
+    ) {
+      throw new Error('Permission denied: delete access required');
+    }
+
+    const success = guidelineRepo.delete(id);
+    if (!success) {
+      throw createNotFoundError('Guideline', id);
+    }
+
+    // Invalidate cache for this entry
+    invalidateCacheEntry('guideline', id);
+
+    // Log audit
+    logAction({
+      agentId,
+      action: 'delete',
+      entryType: 'guideline',
+      entryId: id,
+      scopeType: existingGuideline.scopeType,
+      scopeId: existingGuideline.scopeId ?? null,
+    });
+
+    return { success: true, message: 'Guideline permanently deleted' };
+  },
+
   bulk_add(params: Record<string, unknown>) {
     const entries = getRequiredParam(params, 'entries', isArrayOfObjects);
     const agentId = getOptionalParam(params, 'agentId', isString);
+    // Allow top-level scopeType/scopeId as defaults for all entries
+    const defaultScopeType = getOptionalParam(params, 'scopeType', isScopeType);
+    const defaultScopeId = getOptionalParam(params, 'scopeId', isString);
 
     if (entries.length === 0) {
       throw new Error('entries array must not be empty');
@@ -352,18 +401,20 @@ export const guidelineHandlers = {
       for (const entry of entries) {
         if (!isObject(entry)) continue;
         const entryObj = entry as unknown as GuidelineAddParams;
+        const entryScopeType = entryObj.scopeType ?? defaultScopeType;
+        const entryScopeId = entryObj.scopeId ?? defaultScopeId;
         if (
           !checkPermission(
             agentId,
             'write',
             'guideline',
             null,
-            entryObj.scopeType,
-            entryObj.scopeId ?? null
+            entryScopeType,
+            entryScopeId ?? null
           )
         ) {
           throw new Error(
-            `Permission denied: write access required for scope ${String(entry.scopeType)}:${String(entry.scopeId ?? '')}`
+            `Permission denied: write access required for scope ${String(entryScopeType)}:${String(entryScopeId ?? '')}`
           );
         }
       }
@@ -382,12 +433,19 @@ export const guidelineHandlers = {
         }
 
         const entryObj = entry as unknown as GuidelineAddParams;
+        // Use entry-level scope if provided, otherwise fall back to top-level defaults
         const scopeType = isScopeType(entryObj.scopeType)
           ? entryObj.scopeType
-          : (() => {
-              throw createValidationError('scopeType', 'is required', 'Specify scope type');
-            })();
-        const scopeId = entryObj.scopeId;
+          : defaultScopeType
+            ? defaultScopeType
+            : (() => {
+                throw createValidationError(
+                  'scopeType',
+                  'is required',
+                  "Specify 'global', 'org', 'project', or 'session' at entry or top level"
+                );
+              })();
+        const scopeId = entryObj.scopeId ?? defaultScopeId;
         const name = isString(entryObj.name)
           ? entryObj.name
           : (() => {

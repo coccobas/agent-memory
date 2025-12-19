@@ -268,6 +268,8 @@ export interface QueryResultItemBase {
   scopeId: string | null;
   tags: Tag[];
   score: number;
+  recencyScore?: number; // Separate recency component (0-1 decay value)
+  ageDays?: number; // Age of entry in days since last update
 }
 
 export interface ToolQueryResult extends QueryResultItemBase {
@@ -1027,8 +1029,7 @@ export function computeRecencyScore(params: {
   useUpdatedAt: boolean;
 }): number {
   // Use the most recent timestamp (updated or created)
-  const timestamp =
-    params.useUpdatedAt && params.updatedAt ? params.updatedAt : params.createdAt;
+  const timestamp = params.useUpdatedAt && params.updatedAt ? params.updatedAt : params.createdAt;
 
   const ageDays = calculateAgeDays(timestamp);
   if (ageDays === null) return 0;
@@ -1051,6 +1052,12 @@ export function computeRecencyScore(params: {
   return params.maxBoost * params.recencyWeight * decayScore;
 }
 
+interface ScoreResult {
+  score: number;
+  recencyScore: number; // 0-1 decay value
+  ageDays: number | null;
+}
+
 function computeScore(params: {
   hasExplicitRelation: boolean;
   matchingTagCount: number;
@@ -1066,7 +1073,7 @@ function computeScore(params: {
   decayHalfLifeDays?: number;
   decayFunction?: DecayFunction;
   useUpdatedAt?: boolean;
-}): number {
+}): ScoreResult {
   let score = 0;
 
   // If semantic similarity is available, use hybrid scoring
@@ -1126,21 +1133,37 @@ function computeScore(params: {
     }
   }
 
-  // Recency boost using configurable decay function
-  const recencyWeight = params.recencyWeight ?? config.recency.defaultRecencyWeight;
-  if (recencyWeight > 0) {
-    score += computeRecencyScore({
-      createdAt: params.createdAt,
-      updatedAt: params.updatedAt,
-      decayFunction: params.decayFunction ?? 'exponential',
-      decayHalfLifeDays: params.decayHalfLifeDays ?? config.recency.defaultDecayHalfLifeDays,
-      recencyWeight: recencyWeight,
-      maxBoost: config.recency.maxRecencyBoost,
-      useUpdatedAt: params.useUpdatedAt ?? config.recency.useUpdatedAt,
-    });
+  // Calculate age and recency score
+  const useUpdatedAt = params.useUpdatedAt ?? config.recency.useUpdatedAt;
+  const timestamp = useUpdatedAt ? (params.updatedAt ?? params.createdAt) : params.createdAt;
+  const ageDays = calculateAgeDays(timestamp);
+  const decayHalfLifeDays = params.decayHalfLifeDays ?? config.recency.defaultDecayHalfLifeDays;
+  const decayFunction = params.decayFunction ?? 'exponential';
+
+  // Calculate raw recency score (0-1 decay value)
+  let recencyScore = 0;
+  if (ageDays !== null) {
+    switch (decayFunction) {
+      case 'exponential':
+        recencyScore = exponentialDecay(ageDays, decayHalfLifeDays);
+        break;
+      case 'step':
+        recencyScore = stepDecay(ageDays, decayHalfLifeDays);
+        break;
+      case 'linear':
+      default:
+        recencyScore = linearDecay(ageDays, decayHalfLifeDays * 2);
+        break;
+    }
   }
 
-  return score;
+  // Recency boost using configurable decay function
+  const recencyWeight = params.recencyWeight ?? config.recency.defaultRecencyWeight;
+  if (recencyWeight > 0 && ageDays !== null) {
+    score += config.recency.maxRecencyBoost * recencyWeight * recencyScore;
+  }
+
+  return { score, recencyScore, ageDays };
 }
 
 // =============================================================================
@@ -1670,7 +1693,7 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
             : batchedVersions.knowledge.get(id)?.history
         : undefined;
 
-      const score = computeScore({
+      const { score, recencyScore, ageDays } = computeScore({
         hasExplicitRelation,
         matchingTagCount,
         scopeIndex,
@@ -1694,6 +1717,8 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
           scopeId: entry.scopeId ?? null,
           tags: entryTags,
           score,
+          recencyScore,
+          ageDays: ageDays ?? undefined,
           tool: entry,
           version: currentVersion as ToolVersion | undefined,
           versions: history as ToolVersion[] | undefined,
@@ -1707,6 +1732,8 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
           scopeId: entry.scopeId ?? null,
           tags: entryTags,
           score,
+          recencyScore,
+          ageDays: ageDays ?? undefined,
           guideline: entry,
           version: currentVersion as GuidelineVersion | undefined,
           versions: history as GuidelineVersion[] | undefined,
@@ -1720,6 +1747,8 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
           scopeId: entry.scopeId ?? null,
           tags: entryTags,
           score,
+          recencyScore,
+          ageDays: ageDays ?? undefined,
           knowledge: entry,
           version: currentVersion as KnowledgeVersion | undefined,
           versions: history as KnowledgeVersion[] | undefined,
@@ -1802,11 +1831,7 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
               });
             }
           } else if (entryType === 'guideline') {
-            const guideline = db
-              .select()
-              .from(guidelines)
-              .where(eq(guidelines.id, entryId))
-              .get();
+            const guideline = db.select().from(guidelines).where(eq(guidelines.id, entryId)).get();
             if (guideline && guideline.isActive) {
               const entryTags = getTagsForEntries('guideline', [entryId])[entryId] ?? [];
               relatedToAdd.push({
@@ -1923,7 +1948,9 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
         types: types.join(','),
         resultsCount: limited.length,
         totalCount: expandedResults.length,
-        followRelationsExpanded: params.followRelations ? expandedResults.length - results.length : 0,
+        followRelationsExpanded: params.followRelations
+          ? expandedResults.length - results.length
+          : 0,
         durationMs,
       },
       'memory_query performance'
@@ -2049,7 +2076,11 @@ export async function executeMemoryQueryAsync(
             ? result.version?.createdAt
             : result.version?.createdAt;
 
-      const newScore = computeScore({
+      const {
+        score: newScore,
+        recencyScore,
+        ageDays,
+      } = computeScore({
         hasExplicitRelation: false, // Would need to recalculate
         matchingTagCount: result.tags.length,
         scopeIndex: 0, // Simplified
@@ -2066,7 +2097,7 @@ export async function executeMemoryQueryAsync(
         useUpdatedAt: params.useUpdatedAt,
       });
 
-      return { ...result, score: newScore };
+      return { ...result, score: newScore, recencyScore, ageDays: ageDays ?? undefined };
     }
 
     return result;

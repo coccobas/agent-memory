@@ -30,7 +30,7 @@ alwaysApply: false
 | `get` | action, (id OR name+scopeType) | scopeId, inherit |
 | `list` | action | scopeType, scopeId, category, includeInactive, limit, offset |
 | `deactivate` | action, id | - |
-| `bulk_add` | action, entries[] | - |
+| `bulk_add` | action, entries[] | scopeType, scopeId (defaults for all entries) |
 
 *scopeId required unless scopeType is `global`
 
@@ -49,7 +49,7 @@ alwaysApply: false
 | `get` | action, (id OR title+scopeType) | scopeId, inherit |
 | `list` | action | scopeType, scopeId, category, includeInactive, limit, offset |
 | `deactivate` | action, id | - |
-| `bulk_add` | action, entries[] | - |
+| `bulk_add` | action, entries[] | scopeType, scopeId (defaults for all entries) |
 
 *scopeId required unless scopeType is `global`
 
@@ -68,7 +68,7 @@ alwaysApply: false
 | `get` | action, (id OR name+scopeType) | scopeId, inherit |
 | `list` | action | scopeType, scopeId, category, includeInactive, limit, offset |
 | `deactivate` | action, id | - |
-| `bulk_add` | action, entries[] | - |
+| `bulk_add` | action, entries[] | scopeType, scopeId (defaults for all entries) |
 
 *scopeId required unless scopeType is `global`
 
@@ -285,32 +285,32 @@ No parameters required. Returns server status.
 
 ## bulk_add Entry Format
 
-**IMPORTANT:** Each entry in `entries[]` must include its own `scopeType` and `scopeId`. Entries support all optional fields from regular `add`.
+**Top-level `scopeType` and `scopeId` apply to all entries.** Entries can override if needed. Entries support all optional fields from regular `add`.
 
 ### Guideline bulk_add
 
 ```json
-{"action": "bulk_add", "entries": [
-  {"scopeType": "project", "scopeId": "<id>", "name": "rule-1", "content": "...", "priority": 90, "category": "security"},
-  {"scopeType": "project", "scopeId": "<id>", "name": "rule-2", "content": "...", "rationale": "..."}
+{"action": "bulk_add", "scopeType": "project", "scopeId": "<id>", "entries": [
+  {"name": "rule-1", "content": "...", "priority": 90, "category": "security"},
+  {"name": "rule-2", "content": "...", "rationale": "..."}
 ]}
 ```
 
 ### Knowledge bulk_add
 
 ```json
-{"action": "bulk_add", "entries": [
-  {"scopeType": "project", "scopeId": "<id>", "title": "fact-1", "content": "...", "category": "decision"},
-  {"scopeType": "project", "scopeId": "<id>", "title": "fact-2", "content": "...", "confidence": 0.9}
+{"action": "bulk_add", "scopeType": "project", "scopeId": "<id>", "entries": [
+  {"title": "fact-1", "content": "...", "category": "decision"},
+  {"title": "fact-2", "content": "...", "confidence": 0.9}
 ]}
 ```
 
 ### Tool bulk_add
 
 ```json
-{"action": "bulk_add", "entries": [
-  {"scopeType": "project", "scopeId": "<id>", "name": "cmd-1", "description": "...", "category": "cli"},
-  {"scopeType": "project", "scopeId": "<id>", "name": "cmd-2", "description": "...", "constraints": "..."}
+{"action": "bulk_add", "scopeType": "project", "scopeId": "<id>", "entries": [
+  {"name": "cmd-1", "description": "...", "category": "cli"},
+  {"name": "cmd-2", "description": "...", "constraints": "..."}
 ]}
 ```
 

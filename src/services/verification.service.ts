@@ -28,12 +28,7 @@ const logger = createComponentLogger('verification');
 // TYPES
 // =============================================================================
 
-export type ProposedActionType =
-  | 'file_write'
-  | 'code_generate'
-  | 'api_call'
-  | 'command'
-  | 'other';
+export type ProposedActionType = 'file_write' | 'code_generate' | 'api_call' | 'command' | 'other';
 
 export interface ProposedAction {
   type: ProposedActionType;
@@ -78,10 +73,7 @@ export interface VerificationRules {
 function matchesFilePattern(filePath: string, patterns: string[]): boolean {
   for (const pattern of patterns) {
     // Convert glob pattern to regex
-    const regexPattern = pattern
-      .replace(/\./g, '\\.')
-      .replace(/\*/g, '.*')
-      .replace(/\?/g, '.');
+    const regexPattern = pattern.replace(/\./g, '\\.').replace(/\*/g, '.*').replace(/\?/g, '.');
 
     const regex = new RegExp(`^${regexPattern}$`, 'i');
     if (regex.test(filePath)) {
@@ -395,9 +387,7 @@ export function areAllCriticalGuidelinesAcknowledged(
   const criticalGuidelines = getCriticalGuidelinesForScope(projectId, sessionId);
   const acknowledgedIds = new Set(getAcknowledgedGuidelineIds(sessionId));
 
-  const missing = criticalGuidelines
-    .filter((g) => !acknowledgedIds.has(g.id))
-    .map((g) => g.name);
+  const missing = criticalGuidelines.filter((g) => !acknowledgedIds.has(g.id)).map((g) => g.name);
 
   return {
     acknowledged: missing.length === 0,

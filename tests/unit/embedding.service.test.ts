@@ -86,11 +86,3 @@ describe('Embedding Service', () => {
   // Note: Actual embedding generation tests would require API keys or local model setup
   // Those are integration tests rather than unit tests
 });
-
-
-
-
-
-
-
-

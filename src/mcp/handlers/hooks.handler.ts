@@ -13,11 +13,7 @@ import {
   type SupportedIDE,
 } from '../../services/hook-generator.service.js';
 import { createComponentLogger } from '../../utils/logger.js';
-import {
-  getRequiredParam,
-  getOptionalParam,
-  isString,
-} from '../../utils/type-guards.js';
+import { getRequiredParam, getOptionalParam, isString } from '../../utils/type-guards.js';
 import { formatTimestamps } from '../../utils/timestamp-formatter.js';
 
 const logger = createComponentLogger('hooks');

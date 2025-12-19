@@ -1,30 +1,42 @@
 {
   "hooks": {
-    "PostToolUse": [
+    "PreToolUse": [
       {
-        "matcher": "Edit",
+        "matcher": "Edit|Write|Bash",
         "hooks": [
           {
             "type": "command",
-            "command": "/Users/b.cocco/coccobas/Memory/.claude/hooks/verify-response.sh"
+            "command": "/Users/b.cocco/coccobas/Memory/.claude/hooks/pretooluse.sh"
           }
         ]
-      },
+      }
+    ],
+    "Stop": [
       {
-        "matcher": "Write",
         "hooks": [
           {
             "type": "command",
-            "command": "/Users/b.cocco/coccobas/Memory/.claude/hooks/verify-response.sh"
+            "command": "/Users/b.cocco/coccobas/Memory/.claude/hooks/stop.sh"
           }
         ]
-      },
+      }
+    ],
+    "UserPromptSubmit": [
       {
-        "matcher": "Bash",
         "hooks": [
           {
             "type": "command",
-            "command": "/Users/b.cocco/coccobas/Memory/.claude/hooks/verify-response.sh"
+            "command": "/Users/b.cocco/coccobas/Memory/.claude/hooks/userpromptsubmit.sh"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/b.cocco/coccobas/Memory/.claude/hooks/session-end.sh"
           }
         ]
       }

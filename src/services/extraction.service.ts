@@ -30,8 +30,30 @@ export interface ExtractedEntry {
   suggestedTags?: string[];
 }
 
+export type EntityType = 'person' | 'technology' | 'component' | 'concept' | 'organization';
+
+export interface ExtractedEntity {
+  name: string;
+  entityType: EntityType;
+  description?: string;
+  confidence: number; // 0-1
+}
+
+export type ExtractedRelationType = 'depends_on' | 'related_to' | 'applies_to' | 'conflicts_with';
+
+export interface ExtractedRelationship {
+  sourceRef: string; // Name reference to extracted entry/entity
+  sourceType: 'guideline' | 'knowledge' | 'tool' | 'entity';
+  targetRef: string;
+  targetType: 'guideline' | 'knowledge' | 'tool' | 'entity';
+  relationType: ExtractedRelationType;
+  confidence: number; // 0-1
+}
+
 export interface ExtractionResult {
   entries: ExtractedEntry[];
+  entities: ExtractedEntity[];
+  relationships: ExtractedRelationship[];
   model: string;
   provider: ExtractionProvider;
   tokensUsed?: number;
@@ -55,25 +77,41 @@ export interface ExtractionInput {
 // EXTRACTION PROMPTS
 // =============================================================================
 
-const EXTRACTION_SYSTEM_PROMPT = `You are an AI memory extraction assistant. Your job is to analyze conversation or code context and extract structured memory entries.
+const EXTRACTION_SYSTEM_PROMPT = `You are an AI memory extraction assistant. Your job is to analyze conversation or code context and extract structured memory entries, entities, and relationships.
 
-Extract the following types of entries:
+Extract the following types:
+
 1. **Guidelines** - Rules, standards, or patterns that should be followed (e.g., "always use TypeScript strict mode", "never commit secrets")
+
 2. **Knowledge** - Facts, decisions, or context worth remembering (e.g., "We chose PostgreSQL because...", "The API uses REST not GraphQL")
+
 3. **Tools** - Commands, scripts, or tool patterns that could be reused (e.g., "npm run build", "docker compose up")
+
+4. **Entities** - Named things referenced in the context:
+   - **technology**: libraries, frameworks, databases, APIs, languages (e.g., PostgreSQL, React, REST)
+   - **component**: services, modules, classes, functions (e.g., UserService, AuthMiddleware)
+   - **person**: team members, authors if relevant to the project
+   - **organization**: companies, teams, departments
+   - **concept**: patterns, architectures, methodologies (e.g., microservices, event-driven)
+
+5. **Relationships** - How extracted items relate to each other:
+   - **depends_on**: X requires/uses Y (e.g., "UserService depends_on PostgreSQL")
+   - **related_to**: X is associated with Y
+   - **applies_to**: guideline/rule X applies to entity/tool Y
+   - **conflicts_with**: X contradicts Y
 
 For each extraction:
 - Assign a confidence score (0-1) based on how clearly the information was stated
 - Use kebab-case for names/identifiers
 - Be specific and actionable
 - Include rationale when the "why" is mentioned
-- Suggest 2-3 relevant tags
 
 Only extract genuinely useful information. Skip:
 - Temporary debugging steps
 - One-off commands that won't be reused
 - Information already commonly known
 - Vague or ambiguous statements
+- Generic entities (e.g., "the database" without a specific name)
 
 Return your response as a JSON object with this exact structure:
 {
@@ -106,13 +144,33 @@ Return your response as a JSON object with this exact structure:
       "confidence": "number (0-1)",
       "suggestedTags": ["string"]
     }
+  ],
+  "entities": [
+    {
+      "name": "string (the entity name, e.g., PostgreSQL, UserService)",
+      "entityType": "string (one of: person, technology, component, concept, organization)",
+      "description": "string (brief description of what this entity is)",
+      "confidence": "number (0-1)"
+    }
+  ],
+  "relationships": [
+    {
+      "sourceRef": "string (name of source entry/entity)",
+      "sourceType": "string (one of: guideline, knowledge, tool, entity)",
+      "targetRef": "string (name of target entry/entity)",
+      "targetType": "string (one of: guideline, knowledge, tool, entity)",
+      "relationType": "string (one of: depends_on, related_to, applies_to, conflicts_with)",
+      "confidence": "number (0-1)"
+    }
   ]
 }`;
 
 function buildUserPrompt(input: ExtractionInput): string {
   const parts: string[] = [];
 
-  parts.push(`Analyze the following ${input.contextType || 'mixed'} context and extract memory entries.`);
+  parts.push(
+    `Analyze the following ${input.contextType || 'mixed'} context and extract memory entries.`
+  );
   parts.push('');
 
   if (input.scopeHint?.projectName) {
@@ -139,7 +197,9 @@ function buildUserPrompt(input: ExtractionInput): string {
   parts.push(input.context);
   parts.push('"""');
   parts.push('');
-  parts.push('Return a JSON object with arrays for "guidelines", "knowledge", and "tools".');
+  parts.push(
+    'Return a JSON object with arrays for "guidelines", "knowledge", "tools", "entities", and "relationships".'
+  );
   parts.push('If no entries of a particular type are found, return an empty array for that type.');
 
   return parts.join('\n');
@@ -167,7 +227,9 @@ class ExtractionService {
 
     // Warn once if disabled
     if (this.provider === 'disabled' && !hasWarnedAboutProvider) {
-      logger.warn('Extraction provider is disabled. Set AGENT_MEMORY_EXTRACTION_PROVIDER to enable.');
+      logger.warn(
+        'Extraction provider is disabled. Set AGENT_MEMORY_EXTRACTION_PROVIDER to enable.'
+      );
       hasWarnedAboutProvider = true;
     }
 
@@ -215,6 +277,8 @@ class ExtractionService {
     if (this.provider === 'disabled') {
       return {
         entries: [],
+        entities: [],
+        relationships: [],
         model: 'disabled',
         provider: 'disabled',
         processingTimeMs: 0,
@@ -242,7 +306,7 @@ class ExtractionService {
           result = await this.extractOllama(input);
           break;
         default:
-          throw new Error(`Unknown extraction provider: ${this.provider}`);
+          throw new Error(`Unknown extraction provider: ${String(this.provider)}`);
       }
 
       result.processingTimeMs = Date.now() - startTime;
@@ -274,13 +338,14 @@ class ExtractionService {
    * Extract using OpenAI API
    */
   private async extractOpenAI(input: ExtractionInput): Promise<ExtractionResult> {
-    if (!this.openaiClient) {
+    const client = this.openaiClient;
+    if (!client) {
       throw new Error('OpenAI client not initialized. Check AGENT_MEMORY_OPENAI_API_KEY.');
     }
 
     return withRetry(
       async () => {
-        const response = await this.openaiClient!.chat.completions.create({
+        const response = await client.chat.completions.create({
           model: this.openaiModel,
           messages: [
             { role: 'system', content: EXTRACTION_SYSTEM_PROMPT },
@@ -299,7 +364,9 @@ class ExtractionService {
         const parsed = this.parseExtractionResponse(content);
 
         return {
-          entries: parsed,
+          entries: parsed.entries,
+          entities: parsed.entities,
+          relationships: parsed.relationships,
           model: this.openaiModel,
           provider: 'openai' as const,
           tokensUsed: response.usage?.total_tokens,
@@ -319,13 +386,14 @@ class ExtractionService {
    * Extract using Anthropic API
    */
   private async extractAnthropic(input: ExtractionInput): Promise<ExtractionResult> {
-    if (!this.anthropicClient) {
+    const client = this.anthropicClient;
+    if (!client) {
       throw new Error('Anthropic client not initialized. Check AGENT_MEMORY_ANTHROPIC_API_KEY.');
     }
 
     return withRetry(
       async () => {
-        const response = await this.anthropicClient!.messages.create({
+        const response = await client.messages.create({
           model: this.anthropicModel,
           max_tokens: config.extraction.maxTokens,
           system: EXTRACTION_SYSTEM_PROMPT,
@@ -341,7 +409,9 @@ class ExtractionService {
         const parsed = this.parseExtractionResponse(textBlock.text);
 
         return {
-          entries: parsed,
+          entries: parsed.entries,
+          entities: parsed.entities,
+          relationships: parsed.relationships,
           model: this.anthropicModel,
           provider: 'anthropic' as const,
           tokensUsed: response.usage.input_tokens + response.usage.output_tokens,
@@ -392,7 +462,9 @@ class ExtractionService {
         const parsed = this.parseExtractionResponse(data.response);
 
         return {
-          entries: parsed,
+          entries: parsed.entries,
+          entities: parsed.entities,
+          relationships: parsed.relationships,
           model: this.ollamaModel,
           provider: 'ollama' as const,
           processingTimeMs: 0, // Will be set by caller
@@ -417,7 +489,11 @@ class ExtractionService {
   /**
    * Parse and normalize extraction response from LLM
    */
-  private parseExtractionResponse(content: string): ExtractedEntry[] {
+  private parseExtractionResponse(content: string): {
+    entries: ExtractedEntry[];
+    entities: ExtractedEntity[];
+    relationships: ExtractedRelationship[];
+  } {
     // Try to extract JSON from the response (handle markdown code blocks)
     let jsonContent = content.trim();
 
@@ -453,16 +529,35 @@ class ExtractionService {
         confidence?: number;
         suggestedTags?: string[];
       }>;
+      entities?: Array<{
+        name?: string;
+        entityType?: string;
+        description?: string;
+        confidence?: number;
+      }>;
+      relationships?: Array<{
+        sourceRef?: string;
+        sourceType?: string;
+        targetRef?: string;
+        targetType?: string;
+        relationType?: string;
+        confidence?: number;
+      }>;
     };
 
     try {
       parsed = JSON.parse(jsonContent) as typeof parsed;
     } catch (error) {
-      logger.warn({ content: jsonContent.slice(0, 200) }, 'Failed to parse extraction response as JSON');
-      return [];
+      logger.warn(
+        { content: jsonContent.slice(0, 200) },
+        'Failed to parse extraction response as JSON'
+      );
+      return { entries: [], entities: [], relationships: [] };
     }
 
     const entries: ExtractedEntry[] = [];
+    const entities: ExtractedEntity[] = [];
+    const relationships: ExtractedRelationship[] = [];
 
     // Normalize guidelines
     if (Array.isArray(parsed.guidelines)) {
@@ -473,8 +568,10 @@ class ExtractionService {
             name: this.toKebabCase(g.name),
             content: g.content,
             category: g.category,
-            priority: typeof g.priority === 'number' ? Math.min(100, Math.max(0, g.priority)) : undefined,
-            confidence: typeof g.confidence === 'number' ? Math.min(1, Math.max(0, g.confidence)) : 0.5,
+            priority:
+              typeof g.priority === 'number' ? Math.min(100, Math.max(0, g.priority)) : undefined,
+            confidence:
+              typeof g.confidence === 'number' ? Math.min(1, Math.max(0, g.confidence)) : 0.5,
             rationale: g.rationale,
             suggestedTags: g.suggestedTags,
           });
@@ -491,7 +588,8 @@ class ExtractionService {
             title: k.title,
             content: k.content,
             category: k.category,
-            confidence: typeof k.confidence === 'number' ? Math.min(1, Math.max(0, k.confidence)) : 0.5,
+            confidence:
+              typeof k.confidence === 'number' ? Math.min(1, Math.max(0, k.confidence)) : 0.5,
             rationale: k.source, // Map source to rationale for consistency
             suggestedTags: k.suggestedTags,
           });
@@ -508,14 +606,70 @@ class ExtractionService {
             name: this.toKebabCase(t.name),
             content: t.description,
             category: t.category,
-            confidence: typeof t.confidence === 'number' ? Math.min(1, Math.max(0, t.confidence)) : 0.5,
+            confidence:
+              typeof t.confidence === 'number' ? Math.min(1, Math.max(0, t.confidence)) : 0.5,
             suggestedTags: t.suggestedTags,
           });
         }
       }
     }
 
-    return entries;
+    // Normalize entities
+    if (Array.isArray(parsed.entities)) {
+      const validEntityTypes: EntityType[] = [
+        'person',
+        'technology',
+        'component',
+        'concept',
+        'organization',
+      ];
+      for (const e of parsed.entities) {
+        if (e.name && e.entityType && validEntityTypes.includes(e.entityType as EntityType)) {
+          entities.push({
+            name: e.name,
+            entityType: e.entityType as EntityType,
+            description: e.description,
+            confidence:
+              typeof e.confidence === 'number' ? Math.min(1, Math.max(0, e.confidence)) : 0.5,
+          });
+        }
+      }
+    }
+
+    // Normalize relationships
+    if (Array.isArray(parsed.relationships)) {
+      const validRelationTypes: ExtractedRelationType[] = [
+        'depends_on',
+        'related_to',
+        'applies_to',
+        'conflicts_with',
+      ];
+      const validSourceTypes = ['guideline', 'knowledge', 'tool', 'entity'];
+      for (const r of parsed.relationships) {
+        if (
+          r.sourceRef &&
+          r.sourceType &&
+          r.targetRef &&
+          r.targetType &&
+          r.relationType &&
+          validSourceTypes.includes(r.sourceType) &&
+          validSourceTypes.includes(r.targetType) &&
+          validRelationTypes.includes(r.relationType as ExtractedRelationType)
+        ) {
+          relationships.push({
+            sourceRef: r.sourceRef,
+            sourceType: r.sourceType as 'guideline' | 'knowledge' | 'tool' | 'entity',
+            targetRef: r.targetRef,
+            targetType: r.targetType as 'guideline' | 'knowledge' | 'tool' | 'entity',
+            relationType: r.relationType as ExtractedRelationType,
+            confidence:
+              typeof r.confidence === 'number' ? Math.min(1, Math.max(0, r.confidence)) : 0.5,
+          });
+        }
+      }
+    }
+
+    return { entries, entities, relationships };
   }
 
   /**

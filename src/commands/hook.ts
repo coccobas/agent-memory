@@ -18,6 +18,17 @@ import { sessionRepo } from '../db/repositories/scopes.js';
 import { sessions } from '../db/schema.js';
 import { getDb } from '../db/connection.js';
 import { verifyAction, type ProposedAction } from '../services/verification.service.js';
+import { createComponentLogger } from '../utils/logger.js';
+
+const logger = createComponentLogger('hook');
+
+function writeStdout(message: string): void {
+  process.stdout.write(message.endsWith('\n') ? message : `${message}\n`);
+}
+
+function writeStderr(message: string): void {
+  process.stderr.write(message.endsWith('\n') ? message : `${message}\n`);
+}
 
 type ClaudeHookRole = 'user' | 'agent' | 'system';
 
@@ -59,7 +70,7 @@ function parseArgs(argv: string[]): {
     } else if (arg === '--auto-extract') {
       autoExtract = true;
     } else if (arg.startsWith('-')) {
-      console.error(`Unknown option: ${arg}`);
+      writeStderr(`Unknown option: ${arg}`);
       process.exit(2);
     }
   }
@@ -69,7 +80,7 @@ function parseArgs(argv: string[]): {
 
 async function readStdinJson(): Promise<ClaudeHookInput> {
   if (process.stdin.isTTY) {
-    console.error('Hook commands expect JSON on stdin');
+    writeStderr('Hook commands expect JSON on stdin');
     process.exit(2);
   }
 
@@ -78,7 +89,7 @@ async function readStdinJson(): Promise<ClaudeHookInput> {
     process.stdin.setEncoding('utf8');
     process.stdin.on('readable', () => {
       let chunk: string | null;
-      // eslint-disable-next-line no-cond-assign
+      // eslint-disable-next-line no-cond-assign, @typescript-eslint/no-unsafe-assignment
       while ((chunk = process.stdin.read()) !== null) {
         buf += chunk;
       }
@@ -89,7 +100,7 @@ async function readStdinJson(): Promise<ClaudeHookInput> {
   try {
     return JSON.parse(data) as ClaudeHookInput;
   } catch {
-    console.error('Invalid JSON hook input');
+    writeStderr('Invalid JSON hook input');
     process.exit(2);
   }
 }
@@ -144,7 +155,9 @@ function extractProposedActionFromTool(
           ? inputObj.filePath
           : undefined;
     const content =
-      inputObj && typeof inputObj.content === 'string' ? inputObj.content : stringifyUnknown(toolInput);
+      inputObj && typeof inputObj.content === 'string'
+        ? inputObj.content
+        : stringifyUnknown(toolInput);
     return {
       actionType: 'file_write',
       filePath,
@@ -191,7 +204,9 @@ function saveState(statePath: string, state: Record<string, unknown>): void {
   writeFileSync(statePath, JSON.stringify(state, null, 2));
 }
 
-function extractMessageFromTranscriptEntry(entry: unknown): { role: ClaudeHookRole; content: string } | null {
+function extractMessageFromTranscriptEntry(
+  entry: unknown
+): { role: ClaudeHookRole; content: string } | null {
   if (!entry || typeof entry !== 'object') return null;
   const obj = entry as Record<string, unknown>;
 
@@ -204,7 +219,11 @@ function extractMessageFromTranscriptEntry(entry: unknown): { role: ClaudeHookRo
   let role: ClaudeHookRole | null = null;
   const roleLower = roleRaw.toLowerCase();
   if (roleLower.includes('user')) role = 'user';
-  else if (roleLower.includes('assistant') || roleLower.includes('agent') || roleLower.includes('claude'))
+  else if (
+    roleLower.includes('assistant') ||
+    roleLower.includes('agent') ||
+    roleLower.includes('claude')
+  )
     role = 'agent';
   else if (roleLower.includes('system')) role = 'system';
 
@@ -215,7 +234,11 @@ function extractMessageFromTranscriptEntry(entry: unknown): { role: ClaudeHookRo
         ? obj.content
             .map((c) => {
               if (typeof c === 'string') return c;
-              if (c && typeof c === 'object' && typeof (c as Record<string, unknown>).text === 'string') {
+              if (
+                c &&
+                typeof c === 'object' &&
+                typeof (c as Record<string, unknown>).text === 'string'
+              ) {
                 return (c as Record<string, unknown>).text as string;
               }
               return '';
@@ -244,13 +267,16 @@ function ingestTranscript(params: {
   const statePath = resolve(process.cwd(), '.claude', 'hooks', '.agent-memory-state.json');
   const state = loadState(statePath);
   const key = `claude:${sessionId}:${transcriptPath}`;
-  const lastLine = typeof state[key] === 'number' ? (state[key] as number) : 0;
+  const lastLine = typeof state[key] === 'number' ? state[key] : 0;
 
   const lines = readTranscriptLines(transcriptPath);
   const newLines = lines.slice(lastLine);
   if (newLines.length === 0) return { appended: 0, totalLines: lines.length };
 
-  const existing = conversationRepo.list({ sessionId, status: 'active' }, { limit: 1, offset: 0 })[0];
+  const existing = conversationRepo.list(
+    { sessionId, status: 'active' },
+    { limit: 1, offset: 0 }
+  )[0];
   const conversation = existing
     ? existing
     : conversationRepo.create({
@@ -307,18 +333,19 @@ function getObserveState(sessionId: string): {
   needsReviewCount?: number;
 } {
   const session = sessionRepo.getById(sessionId);
-  const meta = (session?.metadata ?? {}) as Record<string, unknown>;
+  const meta = session?.metadata ?? {};
   const observe = (meta.observe ?? {}) as Record<string, unknown>;
   return {
     committedAt: typeof observe.committedAt === 'string' ? observe.committedAt : undefined,
     reviewedAt: typeof observe.reviewedAt === 'string' ? observe.reviewedAt : undefined,
-    needsReviewCount: typeof observe.needsReviewCount === 'number' ? observe.needsReviewCount : undefined,
+    needsReviewCount:
+      typeof observe.needsReviewCount === 'number' ? observe.needsReviewCount : undefined,
   };
 }
 
 function setObserveReviewedAt(sessionId: string, reviewedAt: string): void {
   const session = sessionRepo.getById(sessionId);
-  const meta = (session?.metadata ?? {}) as Record<string, unknown>;
+  const meta = session?.metadata ?? {};
   const observe = (meta.observe ?? {}) as Record<string, unknown>;
   const nextMeta: Record<string, unknown> = {
     ...meta,
@@ -367,11 +394,11 @@ async function runStop(projectId?: string, agentId?: string): Promise<void> {
   const transcriptPath = input.transcript_path;
 
   if (!sessionId) {
-    console.error('Missing session_id in hook input');
+    writeStderr('Missing session_id in hook input');
     process.exit(2);
   }
   if (!transcriptPath) {
-    console.error('Missing transcript_path in hook input');
+    writeStderr('Missing transcript_path in hook input');
     process.exit(2);
   }
 
@@ -398,7 +425,9 @@ async function runStop(projectId?: string, agentId?: string): Promise<void> {
         'Agent Memory: end-of-session review is required before stopping.',
         '',
         `Next step (recommended): call memory_observe draft, then commit for sessionId=${sessionId}.`,
-        projectId ? `Use projectId=${projectId} to allow auto-promote to project scope.` : undefined,
+        projectId
+          ? `Use projectId=${projectId} to allow auto-promote to project scope.`
+          : undefined,
         '',
         'To suspend enforcement for this session, type: !am review off',
       ]
@@ -528,7 +557,7 @@ export async function runHookCommand(argv: string[]): Promise<void> {
 
   const sub = (subcommand || '').toLowerCase();
   if (!sub || sub === '--help' || sub === '-h') {
-    console.log(
+    writeStdout(
       'Usage: agent-memory hook <pretooluse|stop|userpromptsubmit|session-end> [--project-id <id>] [--agent-id <id>]'
     );
     process.exit(0);
@@ -554,6 +583,7 @@ export async function runHookCommand(argv: string[]): Promise<void> {
     return;
   }
 
-  console.error(`Unknown hook subcommand: ${subcommand}`);
+  logger.warn({ subcommand }, 'Unknown hook subcommand');
+  writeStderr(`Unknown hook subcommand: ${subcommand}`);
   process.exit(2);
 }

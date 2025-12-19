@@ -36,4 +36,3 @@ describe('parseServerMode', () => {
     expect(() => parseServerMode([], 'wat')).toThrow(/Unknown mode/i);
   });
 });
-

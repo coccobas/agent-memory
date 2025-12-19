@@ -48,7 +48,7 @@ export const toolHandlers = {
     const category = getOptionalParam(params, 'category', isToolCategory);
     const description = getOptionalParam(params, 'description', isString);
     const parameters = getOptionalParam(params, 'parameters', isObject);
-    const examples = getOptionalParam(params, 'examples', isArrayOfObjects);
+    const examples = getOptionalParam(params, 'examples', isArray);
     const constraints = getOptionalParam(params, 'constraints', isString);
     const createdBy = getOptionalParam(params, 'createdBy', isString);
     const agentId = getOptionalParam(params, 'agentId', isString);
@@ -159,7 +159,7 @@ export const toolHandlers = {
     const id = getRequiredParam(params, 'id', isString);
     const description = getOptionalParam(params, 'description', isString);
     const parameters = getOptionalParam(params, 'parameters', isObject);
-    const examples = getOptionalParam(params, 'examples', isArrayOfObjects);
+    const examples = getOptionalParam(params, 'examples', isArray);
     const constraints = getOptionalParam(params, 'constraints', isString);
     const changeReason = getOptionalParam(params, 'changeReason', isString);
     const updatedBy = getOptionalParam(params, 'updatedBy', isString);
@@ -360,9 +360,58 @@ export const toolHandlers = {
     return { success: true };
   },
 
+  delete(params: Record<string, unknown>) {
+    const id = getRequiredParam(params, 'id', isString);
+    const agentId = getOptionalParam(params, 'agentId', isString);
+
+    // Get tool to check scope and permission
+    const existingTool = toolRepo.getById(id);
+    if (!existingTool) {
+      throw createNotFoundError('tool', id);
+    }
+
+    // Check permission (delete required for hard delete)
+    if (
+      agentId &&
+      !checkPermission(
+        agentId,
+        'delete',
+        'tool',
+        id,
+        existingTool.scopeType,
+        existingTool.scopeId ?? null
+      )
+    ) {
+      throw createPermissionError('delete', 'tool', id);
+    }
+
+    const success = toolRepo.delete(id);
+    if (!success) {
+      throw createNotFoundError('tool', id);
+    }
+
+    // Invalidate cache for this entry
+    invalidateCacheEntry('tool', id);
+
+    // Log audit
+    logAction({
+      agentId,
+      action: 'delete',
+      entryType: 'tool',
+      entryId: id,
+      scopeType: existingTool.scopeType,
+      scopeId: existingTool.scopeId ?? null,
+    });
+
+    return { success: true, message: 'Tool permanently deleted' };
+  },
+
   bulk_add(params: Record<string, unknown>) {
     const entries = getRequiredParam(params, 'entries', isArrayOfObjects);
     const agentId = getOptionalParam(params, 'agentId', isString);
+    // Allow top-level scopeType/scopeId as defaults for all entries
+    const defaultScopeType = getOptionalParam(params, 'scopeType', isScopeType);
+    const defaultScopeId = getOptionalParam(params, 'scopeId', isString);
 
     // Validate bulk operation size
     validateArrayLength(entries, 'entries', SIZE_LIMITS.BULK_OPERATION_MAX);
@@ -380,20 +429,15 @@ export const toolHandlers = {
       for (const entry of entries) {
         if (!isObject(entry)) continue;
         const entryObj = entry as unknown as ToolAddParams;
+        const entryScopeType = entryObj.scopeType ?? defaultScopeType;
+        const entryScopeId = entryObj.scopeId ?? defaultScopeId;
         if (
-          !checkPermission(
-            agentId,
-            'write',
-            'tool',
-            null,
-            entryObj.scopeType,
-            entryObj.scopeId ?? null
-          )
+          !checkPermission(agentId, 'write', 'tool', null, entryScopeType, entryScopeId ?? null)
         ) {
           throw createPermissionError(
             'write',
             'tool',
-            `scope ${String(entry.scopeType)}:${String(entry.scopeId ?? '')}`
+            `scope ${String(entryScopeType)}:${String(entryScopeId ?? '')}`
           );
         }
       }
@@ -412,16 +456,19 @@ export const toolHandlers = {
         }
 
         const entryObj = entry as unknown as ToolAddParams;
+        // Use entry-level scope if provided, otherwise fall back to top-level defaults
         const scopeType = isScopeType(entryObj.scopeType)
           ? entryObj.scopeType
-          : (() => {
-              throw createValidationError(
-                'scopeType',
-                'is required and must be a valid scope type',
-                "Specify 'global', 'org', 'project', or 'session'"
-              );
-            })();
-        const scopeId = entryObj.scopeId;
+          : defaultScopeType
+            ? defaultScopeType
+            : (() => {
+                throw createValidationError(
+                  'scopeType',
+                  'is required and must be a valid scope type',
+                  "Specify 'global', 'org', 'project', or 'session' at entry or top level"
+                );
+              })();
+        const scopeId = entryObj.scopeId ?? defaultScopeId;
         const name = isString(entryObj.name)
           ? entryObj.name
           : (() => {

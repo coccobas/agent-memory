@@ -6,7 +6,7 @@
  */
 
 import { writeFileSync, mkdirSync, existsSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join, basename, resolve, relative, isAbsolute } from 'node:path';
 import {
   exportToJson,
   exportToMarkdown,
@@ -92,12 +92,29 @@ function exportEntries(params: Record<string, unknown>) {
       ? exportParams.filename
       : `${exportParams.filename}${ext}`;
 
-    filePath = join(exportDir, filename);
+    // Security: Prevent path traversal attacks
+    // Only allow basename - reject paths with directory separators or traversal sequences
+    const safeFilename = basename(filename);
+    if (safeFilename !== filename || filename.includes('..')) {
+      throw createValidationError(
+        'filename',
+        'contains invalid path characters',
+        'Use a simple filename without directory separators'
+      );
+    }
 
-    // Ensure parent directory exists (in case filename includes subdirectory)
-    const parentDir = dirname(filePath);
-    if (!existsSync(parentDir)) {
-      mkdirSync(parentDir, { recursive: true });
+    filePath = join(exportDir, safeFilename);
+
+    // Double-check resolved path stays within exportDir
+    const resolvedPath = resolve(filePath);
+    const resolvedExportDir = resolve(exportDir);
+    const relPath = relative(resolvedExportDir, resolvedPath);
+    if (relPath.startsWith('..') || isAbsolute(relPath)) {
+      throw createValidationError(
+        'filename',
+        'would escape export directory',
+        'Use a simple filename without directory separators'
+      );
     }
 
     writeFileSync(filePath, result.content, 'utf-8');

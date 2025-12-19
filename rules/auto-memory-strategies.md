@@ -86,15 +86,15 @@ When switching features:
 
 ## Batch Operations
 
-For multiple related entries, use `bulk_add`:
+For multiple related entries, use `bulk_add` with top-level scope defaults:
 ```json
-{"action": "bulk_add", "entries": [
-  {"scopeType": "project", "scopeId": "<id>", "name": "...", "content": "..."},
-  {"scopeType": "project", "scopeId": "<id>", "name": "...", "content": "..."}
+{"action": "bulk_add", "scopeType": "project", "scopeId": "<id>", "entries": [
+  {"name": "...", "content": "..."},
+  {"name": "...", "content": "..."}
 ]}
 ```
 
-Each entry needs its own `scopeType` and `scopeId`.
+Top-level `scopeType` and `scopeId` apply to all entries (entries can override if needed).
 
 ---
 

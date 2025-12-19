@@ -114,7 +114,7 @@ export const toolVersions = sqliteTable(
     versionNum: integer('version_num').notNull(),
     description: text('description'),
     parameters: text('parameters', { mode: 'json' }).$type<Record<string, unknown>>(),
-    examples: text('examples', { mode: 'json' }).$type<Array<Record<string, unknown>>>(),
+    examples: text('examples', { mode: 'json' }).$type<unknown[]>(),
     constraints: text('constraints'),
     createdAt: text('created_at')
       .default(sql`CURRENT_TIMESTAMP`)

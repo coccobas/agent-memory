@@ -23,6 +23,8 @@
     "agent-memory": "dist/cli.js"
   },
   "scripts": {
+    "prepare": "npm run build",
+    "prepublishOnly": "npm run validate",
     "build": "npm run build:all",
     "build:all": "npm run clean && tsc -p tsconfig.all.json",
     "build:mcp": "npm run clean && tsc -p tsconfig.mcp.json",

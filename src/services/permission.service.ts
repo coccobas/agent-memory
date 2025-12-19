@@ -1,13 +1,17 @@
 /**
  * Permission service for fine-grained access control
  *
- * Default behavior: If no permissions are configured, all agents have full access (backward compatible)
+ * Default behavior: If no permissions are configured, access is DENIED (secure by default).
+ * Set AGENT_MEMORY_PERMISSIONS_MODE=permissive for legacy backward-compatible behavior.
  */
 
 import { getDb } from '../db/connection.js';
 import { permissions } from '../db/schema.js';
 import { eq, and, or, isNull } from 'drizzle-orm';
 import type { ScopeType, PermissionEntryType, EntryType } from '../db/schema.js';
+import { createComponentLogger } from '../utils/logger.js';
+
+const logger = createComponentLogger('permission');
 
 export type PermissionLevel = 'read' | 'write' | 'admin';
 export type Action = 'read' | 'write' | 'delete';
@@ -52,18 +56,33 @@ export function checkPermission(
 
   const db = getDb();
 
-  // Check if any permissions exist - if not, default to full access (backward compatible)
+  // Check if any permissions exist
   // Handle case where permissions table doesn't exist yet (during migration)
   try {
     const permCount = db.select().from(permissions).limit(1).all().length;
     if (permCount === 0) {
-      return true; // No permissions configured = full access for backward compatibility
+      // No permissions configured - check for permissive mode
+      const permissiveMode = process.env.AGENT_MEMORY_PERMISSIONS_MODE === 'permissive';
+      if (!permissiveMode) {
+        logger.debug('No permissions configured and permissive mode not enabled: denying access');
+        return false; // Secure by default: deny access
+      }
+      logger.warn('Permissive permission mode enabled: all agents have full access');
+      return true;
     }
   } catch (error) {
-    // If permissions table doesn't exist yet (during migration), default to allow
+    // If permissions table doesn't exist yet (during migration)
     const errorMessage = error instanceof Error ? error.message : String(error);
     if (errorMessage.includes('no such table') || errorMessage.includes('permissions')) {
-      return true; // Table doesn't exist yet, default to allow
+      // During migration, check for permissive mode
+      const permissiveMode = process.env.AGENT_MEMORY_PERMISSIONS_MODE === 'permissive';
+      if (!permissiveMode) {
+        logger.debug(
+          'Permissions table does not exist and permissive mode not enabled: denying access'
+        );
+        return false;
+      }
+      return true;
     }
     throw error; // Re-throw other errors
   }

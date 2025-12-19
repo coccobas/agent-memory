@@ -8,7 +8,21 @@ alwaysApply: true
 
 <critical>
 Use Agent Memory MCP tools automatically. Do NOT wait for user prompts.
+ALWAYS query memory BEFORE exploring the filesystem.
 </critical>
+
+## Memory-First Principle
+
+**Memory is the primary source of truth.** Before reading files or exploring the codebase:
+
+1. **Search memory** for relevant knowledge
+2. **If found** → Use stored knowledge, don't re-explore files
+3. **If not found** → Explore filesystem, then store new findings
+
+```
+User asks question → Search memory → Found? → Use it
+                                   → Not found? → Explore files → Store findings
+```
 
 ## Essential Flow
 
@@ -22,6 +36,14 @@ Use Agent Memory MCP tools automatically. Do NOT wait for user prompts.
 {"action": "context", "scopeType": "project", "inherit": true}
 ```
 Tool: `memory_query`. If project unknown, use `memory_project` action `list` first.
+
+### 1b. Search Before Exploring (When Answering Questions)
+
+**Before using Grep, Glob, Read, or Task tools**, search memory:
+```json
+{"action": "search", "search": "<topic>", "types": ["knowledge", "guidelines", "tools"], "scope": {"type": "project", "inherit": true}}
+```
+Only explore the filesystem if memory doesn't have the answer.
 
 ### 2. Start Session
 
@@ -62,29 +84,29 @@ Tool: `memory_query`
 
 #### Bulk Store (Multiple Entries)
 
-For multiple entries, use `bulk_add`. **Each entry must include its own `scopeType` and `scopeId`:**
+For multiple entries, use `bulk_add`. **Top-level `scopeType` and `scopeId` apply to all entries** (entries can override):
 
 **Bulk Guidelines:** `memory_guideline` action `bulk_add`
 ```json
-{"action": "bulk_add", "entries": [
-  {"scopeType": "project", "scopeId": "<id>", "name": "rule-1", "content": "...", "priority": 90},
-  {"scopeType": "project", "scopeId": "<id>", "name": "rule-2", "content": "...", "category": "security"}
+{"action": "bulk_add", "scopeType": "project", "scopeId": "<id>", "entries": [
+  {"name": "rule-1", "content": "...", "priority": 90},
+  {"name": "rule-2", "content": "...", "category": "security"}
 ]}
 ```
 
 **Bulk Knowledge:** `memory_knowledge` action `bulk_add`
 ```json
-{"action": "bulk_add", "entries": [
-  {"scopeType": "project", "scopeId": "<id>", "title": "fact-1", "content": "...", "category": "decision"},
-  {"scopeType": "project", "scopeId": "<id>", "title": "fact-2", "content": "..."}
+{"action": "bulk_add", "scopeType": "project", "scopeId": "<id>", "entries": [
+  {"title": "fact-1", "content": "...", "category": "decision"},
+  {"title": "fact-2", "content": "..."}
 ]}
 ```
 
 **Bulk Tools:** `memory_tool` action `bulk_add`
 ```json
-{"action": "bulk_add", "entries": [
-  {"scopeType": "project", "scopeId": "<id>", "name": "cmd-1", "description": "...", "category": "cli"},
-  {"scopeType": "project", "scopeId": "<id>", "name": "cmd-2", "description": "..."}
+{"action": "bulk_add", "scopeType": "project", "scopeId": "<id>", "entries": [
+  {"name": "cmd-1", "description": "...", "category": "cli"},
+  {"name": "cmd-2", "description": "..."}
 ]}
 ```
 

@@ -3,7 +3,13 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, vi, beforeEach } from 'vitest';
-import { setupTestDb, cleanupTestDb, createTestGuideline, createTestProject, createTestSession } from '../fixtures/test-helpers.js';
+import {
+  setupTestDb,
+  cleanupTestDb,
+  createTestGuideline,
+  createTestProject,
+  createTestSession,
+} from '../fixtures/test-helpers.js';
 
 const TEST_DB_PATH = './data/test-verification-integration.db';
 let sqlite: ReturnType<typeof setupTestDb>['sqlite'];
@@ -72,7 +78,9 @@ describe('verification.handler (integration)', () => {
       );
 
       // Add verification rules
-      sqlite.exec(`UPDATE guideline_versions SET verification_rules = '{"forbiddenActions": ["file_write"]}' WHERE id = '${version.id}'`);
+      sqlite.exec(
+        `UPDATE guideline_versions SET verification_rules = '{"forbiddenActions": ["file_write"]}' WHERE id = '${version.id}'`
+      );
 
       const result = verificationHandlers.preCheck({
         proposedAction: {
@@ -102,7 +110,9 @@ describe('verification.handler (integration)', () => {
         'Project-specific rule'
       );
 
-      sqlite.exec(`UPDATE guideline_versions SET verification_rules = '{"contentPatterns": ["forbidden_word"]}' WHERE id = '${version.id}'`);
+      sqlite.exec(
+        `UPDATE guideline_versions SET verification_rules = '{"contentPatterns": ["forbidden_word"]}' WHERE id = '${version.id}'`
+      );
 
       const result = verificationHandlers.preCheck({
         sessionId: session.id,
@@ -158,7 +168,9 @@ describe('verification.handler (integration)', () => {
         'Never expose secrets'
       );
 
-      sqlite.exec(`UPDATE guideline_versions SET verification_rules = '{"contentPatterns": ["password\\\\s*="]}' WHERE id = '${version.id}'`);
+      sqlite.exec(
+        `UPDATE guideline_versions SET verification_rules = '{"contentPatterns": ["password\\\\s*="]}' WHERE id = '${version.id}'`
+      );
 
       const result = verificationHandlers.postCheck({
         completedAction: {
@@ -202,7 +214,15 @@ describe('verification.handler (integration)', () => {
       const project = createTestProject(db, 'Test Project');
       const session = createTestSession(db, project.id, 'Test Session');
 
-      const { guideline: g1 } = createTestGuideline(db, 'critical-1', 'global', undefined, 'security', 95, 'Content 1');
+      const { guideline: g1 } = createTestGuideline(
+        db,
+        'critical-1',
+        'global',
+        undefined,
+        'security',
+        95,
+        'Content 1'
+      );
       createTestGuideline(db, 'critical-2', 'global', undefined, 'security', 92, 'Content 2');
 
       const result = verificationHandlers.acknowledge({
@@ -230,7 +250,9 @@ describe('verification.handler (integration)', () => {
       expect(result.success).toBe(true);
 
       // Verify agentId was stored
-      const acks = sqlite.prepare('SELECT * FROM session_guideline_acknowledgments WHERE session_id = ?').all(session.id) as any[];
+      const acks = sqlite
+        .prepare('SELECT * FROM session_guideline_acknowledgments WHERE session_id = ?')
+        .all(session.id) as any[];
       expect(acks[0].acknowledged_by).toBe('test-agent-123');
     });
 
@@ -265,7 +287,15 @@ describe('verification.handler (integration)', () => {
       const project = createTestProject(db, 'Test Project');
       const session = createTestSession(db, project.id, 'Test Session');
 
-      const { guideline: g1 } = createTestGuideline(db, 'critical-1', 'global', undefined, 'security', 95, 'Content 1');
+      const { guideline: g1 } = createTestGuideline(
+        db,
+        'critical-1',
+        'global',
+        undefined,
+        'security',
+        95,
+        'Content 1'
+      );
       createTestGuideline(db, 'critical-2', 'global', undefined, 'security', 92, 'Content 2');
 
       // Acknowledge one guideline

@@ -102,6 +102,8 @@ describe('memory_observe.extract integration', () => {
           suggestedTags: ['rest', 'fastify'],
         },
       ],
+      entities: [],
+      relationships: [],
       model: 'mock-model',
       provider: 'openai',
       tokensUsed: 123,
@@ -142,14 +144,14 @@ describe('memory_observe.extract integration', () => {
     expect(knowledge?.shouldStore).toBe(false);
 
     expect(result.stored).toBeDefined();
-    expect(result.stored).toEqual(
+    expect(result.stored?.entries).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ type: 'tool', name: 'new-tool' }),
         expect.objectContaining({ type: 'guideline', name: 'bind-localhost-by-default' }),
       ])
     );
-    expect(result.stored?.some((e) => e.name === 'dup-tool')).toBe(false);
-    expect(result.stored?.some((e) => e.name === 'Fastify chosen')).toBe(false);
+    expect(result.stored?.entries?.some((e) => e.name === 'dup-tool')).toBe(false);
+    expect(result.stored?.entries?.some((e) => e.name === 'Fastify chosen')).toBe(false);
 
     const storedTool = db
       .select()
@@ -188,6 +190,8 @@ describe('memory_observe.extract integration', () => {
           confidence: 0.95,
         },
       ],
+      entities: [],
+      relationships: [],
       model: 'mock-model',
       provider: 'openai',
       processingTimeMs: 1,
@@ -206,11 +210,7 @@ describe('memory_observe.extract integration', () => {
     expect(result.extraction.entries[0]?.shouldStore).toBe(true);
     expect(result.stored).toBeUndefined();
 
-    const tool = db
-      .select()
-      .from(schema.tools)
-      .where(eq(schema.tools.name, 'tool-no-store'))
-      .get();
+    const tool = db.select().from(schema.tools).where(eq(schema.tools.name, 'tool-no-store')).get();
     expect(tool).toBeUndefined();
   });
 });

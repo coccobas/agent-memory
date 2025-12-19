@@ -68,4 +68,3 @@ export interface MemoryContextParams {
   compact?: boolean;
   limitPerType?: number;
 }
-

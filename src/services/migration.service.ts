@@ -169,11 +169,3 @@ export function migrateScope(
 
   return result;
 }
-
-
-
-
-
-
-
-

@@ -74,12 +74,22 @@ function expandTilde(filePath: string): string {
 
 /**
  * Get the base data directory.
- * Priority: AGENT_MEMORY_DATA_DIR > projectRoot/data
+ * Priority:
+ * 1. AGENT_MEMORY_DATA_DIR environment variable (highest)
+ * 2. ~/.agent-memory/data (when installed as package via node_modules)
+ * 3. projectRoot/data (development mode)
  */
 function getDataDir(): string {
   const dataDir = process.env.AGENT_MEMORY_DATA_DIR;
   if (dataDir) {
     return expandTilde(dataDir);
+  }
+  // Check if running from node_modules (installed as package)
+  if (__dirname.includes('node_modules')) {
+    const home = process.env.HOME || process.env.USERPROFILE || '';
+    if (home) {
+      return resolve(home, '.agent-memory', 'data');
+    }
   }
   return resolve(projectRoot, 'data');
 }
@@ -139,6 +149,14 @@ export interface Config {
     maxTokens: number;
     temperature: number;
     confidenceThreshold: number;
+    // Per-entry-type confidence thresholds (override default)
+    confidenceThresholds: {
+      guideline: number;
+      knowledge: number;
+      tool: number;
+      entity: number;
+      relationship: number;
+    };
   };
 
   // Logging
@@ -187,6 +205,12 @@ export interface Config {
     defaultRecencyWeight: number;
     maxRecencyBoost: number;
     useUpdatedAt: boolean;
+    // Per-entry-type decay half-life (in days)
+    decayHalfLifeDays: {
+      guideline: number;
+      knowledge: number;
+      tool: number;
+    };
   };
 
   // Validation Limits
@@ -319,6 +343,14 @@ export const config: Config = {
     maxTokens: parseInt_(process.env.AGENT_MEMORY_EXTRACTION_MAX_TOKENS, 4096),
     temperature: parseNumber(process.env.AGENT_MEMORY_EXTRACTION_TEMPERATURE, 0.2),
     confidenceThreshold: parseNumber(process.env.AGENT_MEMORY_EXTRACTION_CONFIDENCE_THRESHOLD, 0.7),
+    // Per-entry-type thresholds: guidelines need higher confidence (critical), tools lower (low-risk)
+    confidenceThresholds: {
+      guideline: parseNumber(process.env.AGENT_MEMORY_EXTRACTION_CONFIDENCE_GUIDELINE, 0.75),
+      knowledge: parseNumber(process.env.AGENT_MEMORY_EXTRACTION_CONFIDENCE_KNOWLEDGE, 0.7),
+      tool: parseNumber(process.env.AGENT_MEMORY_EXTRACTION_CONFIDENCE_TOOL, 0.65),
+      entity: parseNumber(process.env.AGENT_MEMORY_EXTRACTION_CONFIDENCE_ENTITY, 0.7),
+      relationship: parseNumber(process.env.AGENT_MEMORY_EXTRACTION_CONFIDENCE_RELATIONSHIP, 0.75),
+    },
   },
 
   logging: {
@@ -377,6 +409,12 @@ export const config: Config = {
     defaultRecencyWeight: parseNumber(process.env.AGENT_MEMORY_RECENCY_WEIGHT, 0.5),
     maxRecencyBoost: parseNumber(process.env.AGENT_MEMORY_MAX_RECENCY_BOOST, 2.0),
     useUpdatedAt: parseBoolean(process.env.AGENT_MEMORY_USE_UPDATED_AT, true),
+    // Per-entry-type decay: guidelines persist longer (30d), knowledge medium (14d), tools decay faster (7d)
+    decayHalfLifeDays: {
+      guideline: parseInt_(process.env.AGENT_MEMORY_DECAY_HALF_LIFE_GUIDELINE, 30),
+      knowledge: parseInt_(process.env.AGENT_MEMORY_DECAY_HALF_LIFE_KNOWLEDGE, 14),
+      tool: parseInt_(process.env.AGENT_MEMORY_DECAY_HALF_LIFE_TOOL, 7),
+    },
   },
 
   validation: {
@@ -485,6 +523,16 @@ function buildConfig(): Config {
         process.env.AGENT_MEMORY_EXTRACTION_CONFIDENCE_THRESHOLD,
         0.7
       ),
+      confidenceThresholds: {
+        guideline: parseNumber(process.env.AGENT_MEMORY_EXTRACTION_CONFIDENCE_GUIDELINE, 0.75),
+        knowledge: parseNumber(process.env.AGENT_MEMORY_EXTRACTION_CONFIDENCE_KNOWLEDGE, 0.7),
+        tool: parseNumber(process.env.AGENT_MEMORY_EXTRACTION_CONFIDENCE_TOOL, 0.65),
+        entity: parseNumber(process.env.AGENT_MEMORY_EXTRACTION_CONFIDENCE_ENTITY, 0.7),
+        relationship: parseNumber(
+          process.env.AGENT_MEMORY_EXTRACTION_CONFIDENCE_RELATIONSHIP,
+          0.75
+        ),
+      },
     },
 
     logging: {
@@ -543,6 +591,11 @@ function buildConfig(): Config {
       defaultRecencyWeight: parseNumber(process.env.AGENT_MEMORY_RECENCY_WEIGHT, 0.5),
       maxRecencyBoost: parseNumber(process.env.AGENT_MEMORY_MAX_RECENCY_BOOST, 2.0),
       useUpdatedAt: parseBoolean(process.env.AGENT_MEMORY_USE_UPDATED_AT, true),
+      decayHalfLifeDays: {
+        guideline: parseInt_(process.env.AGENT_MEMORY_DECAY_HALF_LIFE_GUIDELINE, 30),
+        knowledge: parseInt_(process.env.AGENT_MEMORY_DECAY_HALF_LIFE_KNOWLEDGE, 14),
+        tool: parseInt_(process.env.AGENT_MEMORY_DECAY_HALF_LIFE_TOOL, 7),
+      },
     },
 
     validation: {

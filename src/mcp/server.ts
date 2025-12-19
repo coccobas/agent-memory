@@ -5,9 +5,9 @@
  * - memory_org (create, list)
  * - memory_project (create, list, get, update)
  * - memory_session (start, end, list)
- * - memory_tool (add, update, get, list, history, deactivate)
- * - memory_guideline (add, update, get, list, history, deactivate)
- * - memory_knowledge (add, update, get, list, history, deactivate)
+ * - memory_tool (add, update, get, list, history, deactivate, delete)
+ * - memory_guideline (add, update, get, list, history, deactivate, delete)
+ * - memory_knowledge (add, update, get, list, history, deactivate, delete)
  * - memory_tag (create, list, attach, detach, for_entry)
  * - memory_relation (create, list, delete)
  * - memory_file_lock (checkout, checkin, status, list, force_unlock)
@@ -72,6 +72,7 @@ import { backupHandlers } from './handlers/backup.handler.js';
 import { verificationHandlers } from './handlers/verification.handler.js';
 import { hooksHandlers } from './handlers/hooks.handler.js';
 import { observeHandlers } from './handlers/observe.handler.js';
+import { handleConsolidation, consolidationTool } from './handlers/consolidation.handler.js';
 import { checkRateLimits } from '../utils/rate-limiter.js';
 import { VERSION } from '../version.js';
 
@@ -181,7 +182,7 @@ Example: {"action":"start","projectId":"proj-123","name":"Add auth feature","pur
     name: 'memory_tool',
     description: `Manage tool definitions (store reusable tool patterns for future reference).
 
-Actions: add, update, get, list, history, deactivate, bulk_add, bulk_update, bulk_delete
+Actions: add, update, get, list, history, deactivate, delete, bulk_add, bulk_update, bulk_delete
 
 When to store: After successfully using a tool/command that could be reused.
 Example: {"action":"add","name":"docker-build","description":"Build Docker image","scopeType":"project","category":"cli"}`,
@@ -197,6 +198,7 @@ Example: {"action":"add","name":"docker-build","description":"Build Docker image
             'list',
             'history',
             'deactivate',
+            'delete',
             'bulk_add',
             'bulk_update',
             'bulk_delete',
@@ -238,7 +240,7 @@ Example: {"action":"add","name":"docker-build","description":"Build Docker image
     name: 'memory_guideline',
     description: `Manage coding/behavioral guidelines (rules the AI should follow).
 
-Actions: add, update, get, list, history, deactivate, bulk_add, bulk_update, bulk_delete
+Actions: add, update, get, list, history, deactivate, delete, bulk_add, bulk_update, bulk_delete
 
 When to store: When user establishes a coding standard, pattern preference, or rule.
 Example: {"action":"add","name":"no-any","content":"Never use 'any' type","scopeType":"project","category":"code_style","priority":90}`,
@@ -254,6 +256,7 @@ Example: {"action":"add","name":"no-any","content":"Never use 'any' type","scope
             'list',
             'history',
             'deactivate',
+            'delete',
             'bulk_add',
             'bulk_update',
             'bulk_delete',
@@ -297,7 +300,7 @@ Example: {"action":"add","name":"no-any","content":"Never use 'any' type","scope
     name: 'memory_knowledge',
     description: `Manage knowledge entries (facts, decisions, context to remember).
 
-Actions: add, update, get, list, history, deactivate, bulk_add, bulk_update, bulk_delete
+Actions: add, update, get, list, history, deactivate, delete, bulk_add, bulk_update, bulk_delete
 
 When to store: After making a decision, learning a fact, or establishing context worth remembering.
 Example: {"action":"add","title":"API uses REST","content":"This project uses REST API, not GraphQL","scopeType":"project","category":"decision"}`,
@@ -313,6 +316,7 @@ Example: {"action":"add","title":"API uses REST","content":"This project uses RE
             'list',
             'history',
             'deactivate',
+            'delete',
             'bulk_add',
             'bulk_update',
             'bulk_delete',
@@ -1252,6 +1256,11 @@ Returns extracted entries with confidence scores and duplicate detection.`,
       required: ['action'],
     },
   },
+
+  // -------------------------------------------------------------------------
+  // MEMORY CONSOLIDATION
+  // -------------------------------------------------------------------------
+  consolidationTool,
 ];
 
 // =============================================================================
@@ -1319,6 +1328,8 @@ const bundledHandlers: Record<string, (params: Record<string, unknown>) => unkno
         return toolHandlers.history(rest);
       case 'deactivate':
         return toolHandlers.deactivate(rest);
+      case 'delete':
+        return toolHandlers.delete(rest);
       case 'bulk_add':
         return toolHandlers.bulk_add(rest);
       case 'bulk_update':
@@ -1345,6 +1356,8 @@ const bundledHandlers: Record<string, (params: Record<string, unknown>) => unkno
         return guidelineHandlers.history(rest);
       case 'deactivate':
         return guidelineHandlers.deactivate(rest);
+      case 'delete':
+        return guidelineHandlers.delete(rest);
       case 'bulk_add':
         return guidelineHandlers.bulk_add(rest);
       case 'bulk_update':
@@ -1371,6 +1384,8 @@ const bundledHandlers: Record<string, (params: Record<string, unknown>) => unkno
         return knowledgeHandlers.history(rest);
       case 'deactivate':
         return knowledgeHandlers.deactivate(rest);
+      case 'delete':
+        return knowledgeHandlers.delete(rest);
       case 'bulk_add':
         return knowledgeHandlers.bulk_add(rest);
       case 'bulk_update':
@@ -1758,6 +1773,10 @@ const bundledHandlers: Record<string, (params: Record<string, unknown>) => unkno
           'status',
         ]);
     }
+  },
+
+  memory_consolidate: (params) => {
+    return handleConsolidation(params);
   },
 };
 

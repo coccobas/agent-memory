@@ -69,8 +69,12 @@ describe('Extraction Service', () => {
 
     // Only test if service is available
     if (service.isAvailable()) {
-      await expect(service.extract({ context: '' })).rejects.toThrow('Cannot extract from empty context');
-      await expect(service.extract({ context: '   ' })).rejects.toThrow('Cannot extract from empty context');
+      await expect(service.extract({ context: '' })).rejects.toThrow(
+        'Cannot extract from empty context'
+      );
+      await expect(service.extract({ context: '   ' })).rejects.toThrow(
+        'Cannot extract from empty context'
+      );
     }
   });
 

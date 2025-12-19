@@ -3,7 +3,13 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, vi, beforeEach } from 'vitest';
-import { setupTestDb, cleanupTestDb, createTestGuideline, createTestProject, createTestSession } from '../fixtures/test-helpers.js';
+import {
+  setupTestDb,
+  cleanupTestDb,
+  createTestGuideline,
+  createTestProject,
+  createTestSession,
+} from '../fixtures/test-helpers.js';
 
 const TEST_DB_PATH = './data/test-critical-guidelines.db';
 let sqlite: ReturnType<typeof setupTestDb>['sqlite'];
@@ -20,9 +26,11 @@ vi.mock('../../src/db/connection.js', async () => {
 });
 
 // Import after mock setup
-const { getCriticalGuidelinesForScope, getCriticalGuidelinesForSession, CRITICAL_PRIORITY_THRESHOLD } = await import(
-  '../../src/services/critical-guidelines.service.js'
-);
+const {
+  getCriticalGuidelinesForScope,
+  getCriticalGuidelinesForSession,
+  CRITICAL_PRIORITY_THRESHOLD,
+} = await import('../../src/services/critical-guidelines.service.js');
 
 describe('critical-guidelines.service', () => {
   beforeAll(() => {
@@ -52,10 +60,42 @@ describe('critical-guidelines.service', () => {
 
     it('should return only guidelines with priority >= 90', () => {
       // Create guidelines with different priorities
-      createTestGuideline(db, 'low-priority', 'global', undefined, 'security', 50, 'Low priority content');
-      createTestGuideline(db, 'medium-priority', 'global', undefined, 'security', 80, 'Medium priority content');
-      createTestGuideline(db, 'critical-priority', 'global', undefined, 'security', 90, 'Critical priority content');
-      createTestGuideline(db, 'highest-priority', 'global', undefined, 'security', 100, 'Highest priority content');
+      createTestGuideline(
+        db,
+        'low-priority',
+        'global',
+        undefined,
+        'security',
+        50,
+        'Low priority content'
+      );
+      createTestGuideline(
+        db,
+        'medium-priority',
+        'global',
+        undefined,
+        'security',
+        80,
+        'Medium priority content'
+      );
+      createTestGuideline(
+        db,
+        'critical-priority',
+        'global',
+        undefined,
+        'security',
+        90,
+        'Critical priority content'
+      );
+      createTestGuideline(
+        db,
+        'highest-priority',
+        'global',
+        undefined,
+        'security',
+        100,
+        'Highest priority content'
+      );
 
       const result = getCriticalGuidelinesForScope(null, null);
 
@@ -67,28 +107,60 @@ describe('critical-guidelines.service', () => {
     it('should include guidelines from project scope', () => {
       const project = createTestProject(db, 'Test Project');
 
-      createTestGuideline(db, 'global-critical', 'global', undefined, 'security', 95, 'Global critical');
-      createTestGuideline(db, 'project-critical', 'project', project.id, 'security', 92, 'Project critical');
+      createTestGuideline(
+        db,
+        'global-critical',
+        'global',
+        undefined,
+        'security',
+        95,
+        'Global critical'
+      );
+      createTestGuideline(
+        db,
+        'project-critical',
+        'project',
+        project.id,
+        'security',
+        92,
+        'Project critical'
+      );
 
       const result = getCriticalGuidelinesForScope(project.id, null);
 
       expect(result).toHaveLength(2);
-      expect(result.some(g => g.name === 'global-critical')).toBe(true);
-      expect(result.some(g => g.name === 'project-critical')).toBe(true);
+      expect(result.some((g) => g.name === 'global-critical')).toBe(true);
+      expect(result.some((g) => g.name === 'project-critical')).toBe(true);
     });
 
     it('should include guidelines from session scope', () => {
       const project = createTestProject(db, 'Test Project');
       const session = createTestSession(db, project.id, 'Test Session');
 
-      createTestGuideline(db, 'global-critical', 'global', undefined, 'security', 95, 'Global critical');
-      createTestGuideline(db, 'session-critical', 'session', session.id, 'security', 91, 'Session critical');
+      createTestGuideline(
+        db,
+        'global-critical',
+        'global',
+        undefined,
+        'security',
+        95,
+        'Global critical'
+      );
+      createTestGuideline(
+        db,
+        'session-critical',
+        'session',
+        session.id,
+        'security',
+        91,
+        'Session critical'
+      );
 
       const result = getCriticalGuidelinesForScope(project.id, session.id);
 
       expect(result).toHaveLength(2);
-      expect(result.some(g => g.name === 'global-critical')).toBe(true);
-      expect(result.some(g => g.name === 'session-critical')).toBe(true);
+      expect(result.some((g) => g.name === 'global-critical')).toBe(true);
+      expect(result.some((g) => g.name === 'session-critical')).toBe(true);
     });
 
     it('should sort by priority descending', () => {
@@ -105,7 +177,15 @@ describe('critical-guidelines.service', () => {
     });
 
     it('should not return inactive guidelines', () => {
-      const { guideline } = createTestGuideline(db, 'inactive-critical', 'global', undefined, 'security', 95, 'Content');
+      const { guideline } = createTestGuideline(
+        db,
+        'inactive-critical',
+        'global',
+        undefined,
+        'security',
+        95,
+        'Content'
+      );
 
       // Deactivate the guideline
       sqlite.exec(`UPDATE guidelines SET is_active = 0 WHERE id = '${guideline.id}'`);
@@ -116,10 +196,20 @@ describe('critical-guidelines.service', () => {
     });
 
     it('should include guideline content, rationale, and examples', () => {
-      const { guideline, version } = createTestGuideline(db, 'detailed-guideline', 'global', undefined, 'security', 95, 'Test content');
+      const { guideline, version } = createTestGuideline(
+        db,
+        'detailed-guideline',
+        'global',
+        undefined,
+        'security',
+        95,
+        'Test content'
+      );
 
       // Update version with rationale and examples
-      sqlite.exec(`UPDATE guideline_versions SET rationale = 'Test rationale', examples = '{"bad": ["bad1"], "good": ["good1"]}' WHERE id = '${version.id}'`);
+      sqlite.exec(
+        `UPDATE guideline_versions SET rationale = 'Test rationale', examples = '{"bad": ["bad1"], "good": ["good1"]}' WHERE id = '${version.id}'`
+      );
 
       const result = getCriticalGuidelinesForScope(null, null);
 

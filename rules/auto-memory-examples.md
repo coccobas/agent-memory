@@ -76,7 +76,7 @@ Use `bulk_add` when storing **3+ related entries** at once:
 
 ### Bulk Add Workflow
 
-1. Prepare entries array with `scopeType` and `scopeId` in each entry
+1. Set top-level `scopeType` and `scopeId` (applies to all entries)
 2. Call `bulk_add` with the entries array
 3. Tag each returned entry by ID
 
@@ -84,10 +84,10 @@ Use `bulk_add` when storing **3+ related entries** at once:
 User: "Our API standards: always validate input, use camelCase, return JSON errors"
 
 → memory_guideline bulk_add:
-{"action": "bulk_add", "entries": [
-  {"scopeType": "project", "scopeId": "proj-123", "name": "validate-input", "content": "Always validate API input", "category": "security"},
-  {"scopeType": "project", "scopeId": "proj-123", "name": "camelcase-api", "content": "Use camelCase for API fields", "category": "code_style"},
-  {"scopeType": "project", "scopeId": "proj-123", "name": "json-errors", "content": "Return errors in JSON format", "category": "api"}
+{"action": "bulk_add", "scopeType": "project", "scopeId": "proj-123", "entries": [
+  {"name": "validate-input", "content": "Always validate API input", "category": "security"},
+  {"name": "camelcase-api", "content": "Use camelCase for API fields", "category": "code_style"},
+  {"name": "json-errors", "content": "Return errors in JSON format", "category": "api"}
 ]}
 
 → Response: {entries: [{id: "g-1", ...}, {id: "g-2", ...}, {id: "g-3", ...}], count: 3}
@@ -101,7 +101,7 @@ User: "Our API standards: always validate input, use camelCase, return JSON erro
 |----------|-----|
 | 1-2 entries | Individual `add` |
 | 3+ related entries | `bulk_add` |
-| Entries need different scopes | Either works (bulk supports mixed scopes) |
+| Entries need different scopes | Entries can override top-level scope |
 
 @version "1.0.0"
 @last_updated "2025-12-18"

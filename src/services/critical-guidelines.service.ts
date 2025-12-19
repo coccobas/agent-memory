@@ -7,11 +7,7 @@
 
 import { eq, and, isNull, desc, gte, or, inArray } from 'drizzle-orm';
 import { getDb } from '../db/connection.js';
-import {
-  guidelines,
-  guidelineVersions,
-  type ScopeType,
-} from '../db/schema.js';
+import { guidelines, guidelineVersions, type ScopeType } from '../db/schema.js';
 import { resolveScopeChain, type ScopeDescriptor } from './query.service.js';
 import { createComponentLogger } from '../utils/logger.js';
 

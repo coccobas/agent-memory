@@ -211,13 +211,13 @@ function applyMigration(
       const isTableNotExistsError =
         errorMessage.includes('no such table') || errorMessage.includes('no such column');
 
-      // For DROP TABLE, INSERT INTO, or ALTER operations, "table doesn't exist" might be okay
-      const isDropOrInsert =
+      // For DROP TABLE or ALTER operations, "table doesn't exist" might be okay
+      // Note: INSERT with missing table should fail loudly - that's a real error
+      const isDropOrAlter =
         statement.trim().toUpperCase().startsWith('DROP') ||
-        statement.trim().toUpperCase().startsWith('INSERT') ||
         statement.trim().toUpperCase().startsWith('ALTER');
 
-      if (isAlreadyExistsError || (isTableNotExistsError && isDropOrInsert)) {
+      if (isAlreadyExistsError || (isTableNotExistsError && isDropOrAlter)) {
         // Log but continue - this is expected in some scenarios (force mode, partial migrations)
         if (options.verbose) {
           logger.warn(

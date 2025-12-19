@@ -239,11 +239,3 @@ describe('Permissions Handler Integration', () => {
     });
   });
 });
-
-
-
-
-
-
-
-

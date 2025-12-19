@@ -282,7 +282,9 @@ describe('hook-generator.service', () => {
       // Verify files were created
       expect(existsSync(join(TEST_PROJECT_PATH, '.claude', 'hooks', 'pretooluse.sh'))).toBe(true);
       expect(existsSync(join(TEST_PROJECT_PATH, '.claude', 'hooks', 'stop.sh'))).toBe(true);
-      expect(existsSync(join(TEST_PROJECT_PATH, '.claude', 'hooks', 'userpromptsubmit.sh'))).toBe(true);
+      expect(existsSync(join(TEST_PROJECT_PATH, '.claude', 'hooks', 'userpromptsubmit.sh'))).toBe(
+        true
+      );
       expect(existsSync(join(TEST_PROJECT_PATH, '.claude', 'hooks', 'session-end.sh'))).toBe(true);
       expect(existsSync(join(TEST_PROJECT_PATH, '.claude', 'settings.json'))).toBe(true);
     });
@@ -297,7 +299,12 @@ describe('hook-generator.service', () => {
 
       const preToolUsePath = join(TEST_PROJECT_PATH, '.claude', 'hooks', 'pretooluse.sh');
       const stopPath = join(TEST_PROJECT_PATH, '.claude', 'hooks', 'stop.sh');
-      const userPromptSubmitPath = join(TEST_PROJECT_PATH, '.claude', 'hooks', 'userpromptsubmit.sh');
+      const userPromptSubmitPath = join(
+        TEST_PROJECT_PATH,
+        '.claude',
+        'hooks',
+        'userpromptsubmit.sh'
+      );
       const sessionEndPath = join(TEST_PROJECT_PATH, '.claude', 'hooks', 'session-end.sh');
       expect(readFileSync(preToolUsePath, 'utf-8')).toContain('#!/bin/bash');
       expect(readFileSync(stopPath, 'utf-8')).toContain('#!/bin/bash');
@@ -323,7 +330,7 @@ describe('hook-generator.service', () => {
       const status = getHookStatus(TEST_PROJECT_PATH, 'claude');
 
       expect(status.installed).toBe(false);
-      expect(status.files.every(f => !f.exists)).toBe(true);
+      expect(status.files.every((f) => !f.exists)).toBe(true);
     });
 
     it('should return installed when hooks exist', () => {
@@ -337,18 +344,18 @@ describe('hook-generator.service', () => {
       const status = getHookStatus(TEST_PROJECT_PATH, 'claude');
 
       expect(status.installed).toBe(true);
-      expect(status.files.some(f => f.exists)).toBe(true);
+      expect(status.files.some((f) => f.exists)).toBe(true);
     });
 
     it('should return correct file paths for each IDE', () => {
       const claudeStatus = getHookStatus(TEST_PROJECT_PATH, 'claude');
-      expect(claudeStatus.files.some(f => f.path.includes('.claude'))).toBe(true);
+      expect(claudeStatus.files.some((f) => f.path.includes('.claude'))).toBe(true);
 
       const cursorStatus = getHookStatus(TEST_PROJECT_PATH, 'cursor');
-      expect(cursorStatus.files.some(f => f.path.includes('.cursor'))).toBe(true);
+      expect(cursorStatus.files.some((f) => f.path.includes('.cursor'))).toBe(true);
 
       const vscodeStatus = getHookStatus(TEST_PROJECT_PATH, 'vscode');
-      expect(vscodeStatus.files.some(f => f.path.includes('.vscode'))).toBe(true);
+      expect(vscodeStatus.files.some((f) => f.path.includes('.vscode'))).toBe(true);
     });
   });
 

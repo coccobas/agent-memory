@@ -12,9 +12,13 @@ import {
 import { and, eq } from 'drizzle-orm';
 
 const TEST_DB_PATH = './data/test-restapi.db';
+const REST_API_KEY = 'test-rest-api-key';
+const REST_AGENT_ID = 'rest-test-agent';
 
 let sqlite: ReturnType<typeof setupTestDb>['sqlite'];
 let db: ReturnType<typeof setupTestDb>['db'];
+let previousApiKey: string | undefined;
+let previousPermMode: string | undefined;
 
 vi.mock('../../src/db/connection.js', async () => {
   const actual = await vi.importActual<typeof import('../../src/db/connection.js')>(
@@ -30,6 +34,10 @@ import { createServer } from '../../src/restapi/server.js';
 
 describe('REST API Integration', () => {
   beforeAll(() => {
+    previousApiKey = process.env.AGENT_MEMORY_REST_API_KEY;
+    previousPermMode = process.env.AGENT_MEMORY_PERMISSIONS_MODE;
+    process.env.AGENT_MEMORY_REST_API_KEY = REST_API_KEY;
+    process.env.AGENT_MEMORY_PERMISSIONS_MODE = 'permissive';
     const testDb = setupTestDb(TEST_DB_PATH);
     sqlite = testDb.sqlite;
     db = testDb.db;
@@ -38,6 +46,8 @@ describe('REST API Integration', () => {
   afterAll(() => {
     sqlite.close();
     cleanupTestDb(TEST_DB_PATH);
+    process.env.AGENT_MEMORY_REST_API_KEY = previousApiKey;
+    process.env.AGENT_MEMORY_PERMISSIONS_MODE = previousPermMode;
   });
 
   it('GET /health returns ok', async () => {
@@ -50,11 +60,23 @@ describe('REST API Integration', () => {
     await app.close();
   });
 
+  it('POST /v1/query rejects unauthorized requests', async () => {
+    const app = createServer();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/query',
+      payload: {},
+    });
+    expect(res.statusCode).toBe(401);
+    await app.close();
+  });
+
   it('POST /v1/query returns 400 for non-object body', async () => {
     const app = createServer();
     const res = await app.inject({
       method: 'POST',
       url: '/v1/query',
+      headers: { authorization: `Bearer ${REST_API_KEY}` },
       payload: [],
     });
     expect(res.statusCode).toBe(400);
@@ -67,7 +89,8 @@ describe('REST API Integration', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/v1/context',
-      payload: {},
+      headers: { authorization: `Bearer ${REST_API_KEY}` },
+      payload: { agentId: REST_AGENT_ID },
     });
     expect(res.statusCode).toBe(400);
     const body = res.json() as { error: string };
@@ -82,7 +105,9 @@ describe('REST API Integration', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/v1/query',
+      headers: { authorization: `Bearer ${REST_API_KEY}` },
       payload: {
+        agentId: REST_AGENT_ID,
         types: ['tools'],
         search: 'rest_tool_alpha',
         semanticSearch: false,
@@ -112,7 +137,8 @@ describe('REST API Integration', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/v1/context',
-      payload: { scopeType: 'project', scopeId: project.id },
+      headers: { authorization: `Bearer ${REST_API_KEY}` },
+      payload: { agentId: REST_AGENT_ID, scopeType: 'project', scopeId: project.id },
     });
 
     expect(res.statusCode).toBe(200);
@@ -144,7 +170,9 @@ describe('REST API Integration', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/v1/query',
+      headers: { authorization: `Bearer ${REST_API_KEY}` },
       payload: {
+        agentId: REST_AGENT_ID,
         types: ['knowledge'],
         scope: { type: 'project', id: project.id, inherit: true },
         search: 'REST Linkable Knowledge',
