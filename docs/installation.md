@@ -9,9 +9,9 @@
 
 | Platform | Status | Notes |
 |----------|--------|-------|
-| macOS (Intel/Apple Silicon) | Supported | Primary development platform |
-| Linux (x64/arm64) | Supported | Tested on Ubuntu 22.04+ |
-| Windows (x64) | Supported | See [Windows setup](guides/windows-setup.md) |
+| macOS (Intel/Apple Silicon) | ✅ Supported | Primary development platform |
+| Linux (x64/arm64) | 🧪 Not tested | Should work, feedback welcome |
+| Windows (x64) | 🧪 Not tested | See [Windows setup](guides/windows-setup.md) |
 
 ## Installation Methods
 

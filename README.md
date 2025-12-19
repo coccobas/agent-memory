@@ -285,6 +285,9 @@ AGENT_MEMORY_PERMISSIONS_MODE=permissive
 
 | Feature | Status |
 |:--------|:-------|
+| macOS | ✅ Supported |
+| Windows | 🧪 Not tested |
+| Linux | 🧪 Not tested |
 | Claude Code hooks | ✅ Supported |
 | Cursor hooks | 🚧 In development |
 | VS Code hooks | 🚧 In development |
