@@ -1450,7 +1450,7 @@ AGENT_MEMORY_PERMISSIONS_MODE=permissive
 
 ## See Also
 
-- [Getting Started](getting-started.md) - First workflow walkthrough
-- [Environment Variables](reference/environment-variables.md) - All configuration options
-- [Workflows Guide](guides/workflows.md) - Common usage patterns
-- [Architecture](architecture.md) - System design
+- [Getting Started](../getting-started.md) - First workflow walkthrough
+- [Environment Variables](environment-variables.md) - All configuration options
+- [Workflows Guide](../guides/workflows.md) - Common usage patterns
+- [Architecture](../concepts/architecture.md) - System design

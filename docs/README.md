@@ -6,7 +6,7 @@
 |:---------|:------------|
 | [Quickstart](quickstart.md) | Get running in 2 minutes |
 | [Getting Started](getting-started.md) | Concepts and first workflow |
-| [API Reference](api-reference.md) | All MCP tools documented |
+| [MCP Tools](reference/mcp-tools.md) | All MCP tools documented |
 
 ---
 
@@ -15,9 +15,9 @@
 ### Setup
 
 - [Installation](installation.md) — npm, Docker, from source
-- [IDE Setup](guides/ide-setup.md) — Claude, Cursor, VS Code configuration
-- [Docker Setup](guides/docker-setup.md) — Container deployment
-- [Windows Setup](guides/windows-setup.md) — Windows-specific notes
+- [IDE Setup](guides/ide-setup.md) — Claude, Cursor, VS Code
+- [Docker](guides/docker.md) — Container deployment
+- [Windows](guides/windows.md) — Windows-specific notes
 
 ### Integration
 
@@ -39,26 +39,23 @@
 
 ## Reference
 
-### Core
-
-- [Architecture](architecture.md) — System design
-- [Data Model](data-model.md) — Entry types, scopes, inheritance
-- [Security](security.md) — Security model
-
-### Configuration
-
-- [Environment Variables](reference/environment-variables.md) — All options
-- [Initialization](reference/initialization.md) — Database setup
-
-### Advanced
-
-- [Multi-Agent](reference/mdap-support.md) — Coordination, voting, file locks
+- [MCP Tools](reference/mcp-tools.md) — Complete tool reference
+- [Environment Variables](reference/environment-variables.md) — Configuration options
 - [Error Codes](reference/error-codes.md) — Error reference
+- [Multi-Agent](reference/mdap-support.md) — Coordination, voting, file locks
+
+---
+
+## Concepts
+
+- [Architecture](concepts/architecture.md) — System design
+- [Data Model](concepts/data-model.md) — Entry types, scopes, inheritance
+- [Security](concepts/security.md) — Security model
 
 ---
 
 ## Contributing
 
-- [Contributing](contributing.md) — How to contribute
-- [Development](guides/development.md) — Dev setup
-- [Testing](guides/testing.md) — Test suite
+- [Contributing](contributing/CONTRIBUTING.md) — How to contribute
+- [Development](contributing/development.md) — Dev setup
+- [Testing](contributing/testing.md) — Test suite

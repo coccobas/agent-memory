@@ -260,7 +260,7 @@ Error: Invalid JSON-RPC request
 { "action": "add" }  // for memory_guideline
 ```
 
-See [API Reference](../api-reference.md) for correct action names.
+See [MCP Tools](../reference/mcp-tools.md) for correct action names.
 
 ---
 

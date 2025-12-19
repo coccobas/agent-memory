@@ -543,4 +543,4 @@ Regularly check for unresolved conflicts:
 
 - [Workflows Guide](../guides/workflows.md) - Multi-agent workflows
 - [Performance Guide](../guides/performance.md) - Optimization
-- [API Reference](../api-reference.md) - Complete tool docs
+- [MCP Tools](mcp-tools.md) - Complete tool docs

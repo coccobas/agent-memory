@@ -16,7 +16,7 @@ Query specific memory on-demand with **sub-millisecond latency**.
 
 <br />
 
-[Get Started](#-quick-start) · [Documentation](docs/README.md) · [API Reference](docs/api-reference.md)
+[Get Started](#-quick-start) · [Documentation](docs/README.md) · [MCP Tools](docs/reference/mcp-tools.md)
 
 ---
 
@@ -273,7 +273,7 @@ AGENT_MEMORY_PERMISSIONS_MODE=permissive
 | [Quickstart](docs/quickstart.md) | Get running in 2 minutes |
 | [Installation](docs/installation.md) | npm, Docker, source |
 | [Getting Started](docs/getting-started.md) | Full setup guide |
-| [API Reference](docs/api-reference.md) | All 20+ tools documented |
+| [MCP Tools](docs/reference/mcp-tools.md) | All 20+ tools documented |
 | [Hooks Guide](docs/guides/hooks.md) | IDE hooks for enforcement |
 | [Rules Sync](docs/guides/rules-sync.md) | Sync guidelines to IDEs |
 | [IDE Setup](docs/guides/ide-setup.md) | Claude, Cursor, VS Code |

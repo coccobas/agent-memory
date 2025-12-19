@@ -440,5 +440,5 @@ OpenAI embeddings cost money. Monitor usage:
 ## See Also
 
 - [Performance Guide](performance.md) - Optimization tips
-- [API Reference](../api-reference.md) - Query parameters
+- [MCP Tools](../reference/mcp-tools.md) - Query parameters
 - [Troubleshooting](troubleshooting.md) - Common issues

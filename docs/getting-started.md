@@ -214,7 +214,7 @@ Tool: `memory_guideline`, `memory_knowledge`, or `memory_tool`
 
 ## Next Steps
 
-- [API Reference](api-reference.md) — Complete tool documentation
+- [MCP Tools](reference/mcp-tools.md) — Complete tool documentation
 - [Workflows](guides/workflows.md) — Common usage patterns
 - [Hooks](guides/hooks.md) — Runtime enforcement
 - [Rules Sync](guides/rules-sync.md) — Sync guidelines to IDE

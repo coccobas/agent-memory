@@ -13,8 +13,8 @@ This directory contains example workflows and practical guides for using Agent M
 
 ### For Developers
 
-- **[Development Guide](../../docs/development.md)** - Setting up a development environment
-- **[Contributing](../../docs/contributing.md)** - How to contribute to the project
+- **[Development Guide](../../docs/contributing/development.md)** - Setting up a development environment
+- **[Contributing](../../docs/contributing/CONTRIBUTING.md)** - How to contribute to the project
 
 ## Quick Examples
 
@@ -217,7 +217,7 @@ Browse the JSON workflow files in this directory for complete, working examples:
 
 ## Need Help?
 
-- Check the [API Reference](../../docs/api-reference.md) for tool details
+- Check the [MCP Tools Reference](../../docs/reference/mcp-tools.md) for tool details
 - See [Getting Started](../../docs/getting-started.md) for basics
-- Read [Architecture](../../docs/architecture.md) for system design
+- Read [Architecture](../../docs/concepts/architecture.md) for system design
 - Ask in issues with the `question` label

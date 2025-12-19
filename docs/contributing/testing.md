@@ -634,5 +634,5 @@ afterAll(async () => {
 ## See Also
 
 - [Development Guide](development.md) - Development setup
-- [Contributing](../contributing.md) - Contribution guidelines
-- [Architecture](../architecture.md) - System design
+- [Contributing](CONTRIBUTING.md) - Contribution guidelines
+- [Architecture](../concepts/architecture.md) - System design

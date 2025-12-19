@@ -15,16 +15,16 @@ This inventory maps product surface area to documentation coverage.
 
 | Area | Primary Docs |
 | --- | --- |
-| MCP tools | `docs/api-reference.md` |
-| REST API | `docs/api-reference.md` |
-| CLI | `docs/api-reference.md` |
-| Config / env | `docs/reference/environment-variables.md`, `docs/reference/environment-variables-advanced.md` |
-| Data model | `docs/data-model.md` |
-| Architecture | `docs/architecture.md` |
-| Security | `docs/security.md` |
+| MCP tools | `docs/reference/mcp-tools.md` |
+| REST API | `docs/reference/mcp-tools.md` |
+| CLI | `docs/reference/mcp-tools.md` |
+| Config / env | `docs/reference/environment-variables.md` |
+| Data model | `docs/concepts/data-model.md` |
+| Architecture | `docs/concepts/architecture.md` |
+| Security | `docs/concepts/security.md` |
 | Initialization | `docs/reference/initialization.md` |
-| Development | `docs/guides/development.md` |
-| Testing | `docs/guides/testing.md` |
-| Docker | `docs/guides/docker-setup.md` |
-| Windows | `docs/guides/windows-setup.md` |
+| Development | `docs/contributing/development.md` |
+| Testing | `docs/contributing/testing.md` |
+| Docker | `docs/guides/docker.md` |
+| Windows | `docs/guides/windows.md` |
 | Rules sync | `docs/guides/rules-sync.md` |
