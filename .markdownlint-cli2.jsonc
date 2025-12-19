@@ -1,0 +1,28 @@
+{
+  "globs": [
+    "README.md",
+    "QUICKSTART.md",
+    "INSTALLATION.md",
+    "IDE_SETUP_EXAMPLES.md",
+    "docs/**/*.md"
+  ],
+  "ignores": [
+    "node_modules/**",
+    "dist/**",
+    "coverage/**",
+    "data/**",
+    "docs/findings/**",
+    "docs/review/**"
+  ],
+  "config": {
+    "MD013": {
+      "line_length": 160,
+      "tables": false
+    },
+    "MD031": false,
+    "MD040": false,
+    "MD033": false,
+    "MD041": false,
+    "MD060": false
+  }
+}
