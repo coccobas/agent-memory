@@ -143,7 +143,7 @@ Real-world examples of storing and querying memory.
   "scopeType": "project",
   "scopeId": "proj-def456",
   "title": "Database Selection: PostgreSQL",
-  "content": "Selected PostgreSQL over MySQL for the following reasons:\n\n1. **ACID Compliance**: Full transaction support with strong consistency\n2. **JSON Support**: Native JSONB type for flexible schema parts\n3. **Advanced Features**: Window functions, CTEs, full-text search\n4. **Scaling**: Read replicas and logical replication for future scaling\n\nDecision made: 2024-01-15\nParticipants: Backend team leads\nAlternatives considered: MySQL, MongoDB, DynamoDB",
+  "content": "PostgreSQL selected: ACID compliance, native JSONB, window functions, read replicas. Decision: 2024-01-15",
   "category": "decision",
   "confidence": 0.95,
   "source": "Architecture review meeting"
@@ -159,7 +159,7 @@ Real-world examples of storing and querying memory.
   "scopeType": "project",
   "scopeId": "proj-def456",
   "title": "Authentication: JWT with Refresh Tokens",
-  "content": "JWT-based authentication with the following configuration:\n\n**Access Tokens**\n- Expiry: 1 hour\n- Contains: userId, roles, permissions\n- Signed with: RS256\n\n**Refresh Tokens**\n- Expiry: 7 days\n- Stored in: HttpOnly cookie + database\n- Single use: Rotated on each use\n\n**Security**\n- Tokens are invalidated on password change\n- Refresh token reuse detection enabled\n- Rate limiting on auth endpoints\n\nDecision made: 2024-01-20",
+  "content": "JWT auth: access tokens 1hr/RS256, refresh tokens 7 days in HttpOnly cookie. Reuse detection enabled.",
   "category": "decision",
   "confidence": 0.95
 }
@@ -174,7 +174,7 @@ Real-world examples of storing and querying memory.
   "scopeType": "project",
   "scopeId": "proj-def456",
   "title": "Architecture: Modular Monolith",
-  "content": "Chose modular monolith over microservices:\n\n**Rationale**\n- Team size (5 developers) too small for microservices overhead\n- Clear module boundaries enable future extraction\n- Simpler deployment and debugging\n- Lower infrastructure costs\n\n**Structure**\n```\nsrc/\n  modules/\n    users/\n    orders/\n    payments/\n    notifications/\n  shared/\n    database/\n    logging/\n    auth/\n```\n\n**Rules**\n- Modules communicate only through defined interfaces\n- No direct database access across modules\n- Each module owns its database tables",
+  "content": "Modular monolith: small team, clear boundaries, simpler deployment. Modules communicate via interfaces only.",
   "category": "decision",
   "confidence": 0.9
 }
@@ -379,7 +379,7 @@ Real-world examples of storing and querying memory.
   "scopeType": "project",
   "scopeId": "proj-def456",
   "title": "Codebase Structure",
-  "content": "```\nsrc/\n├── api/              # Route handlers and controllers\n│   ├── routes/       # Express route definitions\n│   ├── controllers/  # Request handlers\n│   └── middleware/   # Express middleware\n├── services/         # Business logic layer\n├── models/           # Database models (Sequelize)\n├── utils/            # Utility functions\n├── config/           # Configuration loaders\n└── types/            # TypeScript type definitions\n\ntests/\n├── unit/             # Unit tests (*.test.ts)\n├── integration/      # Integration tests\n└── fixtures/         # Test data and mocks\n```",
+  "content": "src/ has api/, services/, models/, utils/, config/, types/. tests/ has unit/, integration/, fixtures/.",
   "category": "fact"
 }
 ```
@@ -428,7 +428,7 @@ Real-world examples of storing and querying memory.
     },
     {
       "title": "Gotcha: Soft Deletes",
-      "content": "User and Order models use soft deletes (deletedAt column). Always use model.destroy() which sets deletedAt. Queries automatically filter deleted records unless paranoid: false is passed.",
+      "content": "User and Order models use soft deletes (deletedAt column). Use model.destroy() to set deletedAt. Queries filter deleted records unless paranoid:false.",
       "category": "context"
     },
     {

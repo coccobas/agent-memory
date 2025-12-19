@@ -252,17 +252,19 @@ AGENT_MEMORY_VECTOR_DB_PATH=/custom/path/vectors.lance
 
 If embeddings become stale or you change providers:
 
-1. Delete vector database:
+Delete vector database:
+
 ```bash
 rm -rf ~/.agent-memory/data/vectors.lance/
 ```
 
-2. Restart server:
+Restart server:
+
 ```bash
 agent-memory mcp
 ```
 
-3. Re-index existing entries (embeddings generated on access)
+Re-index existing entries (embeddings generated on access).
 
 ---
 
@@ -280,6 +282,7 @@ AGENT_MEMORY_DUPLICATE_THRESHOLD=0.8
 ### Behavior
 
 When adding new entries, if an entry with similarity > threshold exists:
+
 - Warning is logged
 - Original entry is returned for comparison
 - You can choose to update existing or create new

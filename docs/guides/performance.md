@@ -350,6 +350,7 @@ AGENT_MEMORY_PERF=1 agent-memory mcp
 ```
 
 Logs include:
+
 - Query execution time
 - Cache hit/miss ratios
 - Memory usage trends

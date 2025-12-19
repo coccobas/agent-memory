@@ -42,6 +42,7 @@ Each agent should have a unique identifier:
 ```
 
 Agent IDs are used for:
+
 - Permission checks
 - Rate limiting
 - Audit logging
@@ -262,6 +263,7 @@ Detect when agents create conflicting memory entries.
 ### Automatic Detection
 
 Conflicts are automatically detected when:
+
 - Multiple agents update the same entry within a time window
 - Entries with contradictory content are created
 
@@ -319,6 +321,7 @@ Control which agents can access which scopes.
 ```
 
 Permission levels:
+
 - `read` - Can query entries
 - `write` - Can create/update entries
 - `admin` - Can delete entries and manage permissions
@@ -518,6 +521,7 @@ When lock acquisition fails:
 ```
 
 Options:
+
 - Wait and retry
 - Skip this file
 - Request force unlock (with proper authorization)

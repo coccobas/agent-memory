@@ -91,7 +91,7 @@ Configure Agent Memory with your IDE and MCP client.
 
 ## Claude Code
 
-### Configuration Location
+### Claude Code Configuration Location
 
 `~/.claude/claude_code_config.json`
 
@@ -166,9 +166,10 @@ Hooks read JSON from stdin and can validate against memory guidelines.
 
 ## Cursor
 
-### Configuration Location
+### Cursor Configuration Location
 
 Create `.cursor/mcp.json` in:
+
 - Project root (project-specific)
 - Home directory (global)
 
@@ -381,18 +382,21 @@ agent-memory hook session-end --project-id proj-123
 Error: Failed to connect to MCP server
 ```
 
-1. Test command directly:
+Test command directly:
+
 ```bash
 npx -y agent-memory@latest mcp
 # Should output nothing and wait for JSON-RPC
 ```
 
-2. Check Node.js version:
+Check Node.js version:
+
 ```bash
 node --version  # Must be >= 20
 ```
 
-3. Try global install:
+Try global install:
+
 ```bash
 npm install -g agent-memory
 ```
@@ -403,8 +407,8 @@ npm install -g agent-memory
 Error: EACCES permission denied
 ```
 
-1. Don't use sudo with npx
-2. Fix npm permissions:
+Don't use sudo with npx. Fix npm permissions:
+
 ```bash
 mkdir ~/.npm-global
 npm config set prefix '~/.npm-global'
@@ -413,10 +417,8 @@ export PATH=~/.npm-global/bin:$PATH
 
 ### Slow Startup
 
-If startup is slow:
+If startup is slow, use global install instead of npx. Pre-download the package:
 
-1. Use global install instead of npx
-2. Pre-download the package:
 ```bash
 npm install -g agent-memory
 ```

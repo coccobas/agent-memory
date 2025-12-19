@@ -537,6 +537,7 @@ Import from JSON:
 ```
 
 Conflict strategies:
+
 - `skip` - Don't import if exists
 - `update` - Update existing entries
 - `replace` - Delete and recreate

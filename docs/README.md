@@ -85,7 +85,7 @@ Complete documentation for Agent Memory MCP server.
 | [architecture.md](architecture.md) | System architecture |
 | [data-model.md](data-model.md) | Data structures |
 
-### Guides
+### Guide Files
 
 | File | Description |
 |------|-------------|
@@ -101,7 +101,7 @@ Complete documentation for Agent Memory MCP server.
 | [development.md](guides/development.md) | Development |
 | [rules-sync.md](guides/rules-sync.md) | Rules synchronization |
 
-### Reference
+### Reference Files
 
 | File | Description |
 |------|-------------|

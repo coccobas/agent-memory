@@ -99,7 +99,7 @@ AGENT_MEMORY_DATA_DIR=/custom/path agent-memory mcp
 
 ## Upgrading
 
-### npm
+### Upgrade via npm
 
 ```bash
 npm update -g agent-memory
@@ -121,7 +121,7 @@ docker pull ghcr.io/anthropics/agent-memory:latest
 
 ## Uninstalling
 
-### npm
+### Uninstall via npm
 
 ```bash
 npm uninstall -g agent-memory

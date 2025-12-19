@@ -97,17 +97,20 @@ Error: SQLITE_BUSY: database is locked
 ```
 
 **Causes:**
+
 - Multiple processes accessing the database
 - Unfinished transactions
 
 **Solutions:**
 
-1. Check for other processes:
+Check for other processes:
+
 ```bash
 lsof ~/.agent-memory/data/memory.db
 ```
 
-2. Kill stuck processes:
+Kill stuck processes:
+
 ```bash
 # Find process
 ps aux | grep agent-memory
@@ -115,7 +118,8 @@ ps aux | grep agent-memory
 kill <PID>
 ```
 
-3. If using multiple agents, enable WAL mode (should be automatic):
+If using multiple agents, enable WAL mode (should be automatic):
+
 ```bash
 sqlite3 ~/.agent-memory/data/memory.db "PRAGMA journal_mode=WAL;"
 ```
@@ -152,17 +156,20 @@ Error: Migration checksum mismatch
 
 **Solutions:**
 
-1. Enable dev mode (auto-fixes checksums):
+Enable dev mode (auto-fixes checksums):
+
 ```bash
 AGENT_MEMORY_DEV_MODE=1 agent-memory mcp
 ```
 
-2. Or manually fix:
+Or manually fix:
+
 ```bash
 AGENT_MEMORY_AUTO_FIX_CHECKSUMS=1 agent-memory mcp
 ```
 
-3. Reset database (WARNING: deletes all data):
+Reset database (WARNING: deletes all data):
+
 ```json
 // Tool: memory_init
 { "action": "reset", "confirm": true }
@@ -192,15 +199,17 @@ AGENT_MEMORY_SKIP_INIT=0 agent-memory mcp
 
 ### Client Can't Connect
 
-**Claude Desktop shows no tools available**
+**Symptom:** Claude Desktop shows no tools available
 
 **Solutions:**
 
-1. Check config file location:
-   - macOS: `~/.claude.json`
-   - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+Check config file location:
 
-2. Verify JSON syntax:
+- macOS: `~/.claude.json`
+- Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+
+Verify JSON syntax:
+
 ```json
 {
   "mcpServers": {
@@ -212,9 +221,10 @@ AGENT_MEMORY_SKIP_INIT=0 agent-memory mcp
 }
 ```
 
-3. Restart Claude Desktop completely (quit and reopen)
+Restart Claude Desktop completely (quit and reopen).
 
-4. Check if npx is available:
+Check if npx is available:
+
 ```bash
 which npx
 npx --version
@@ -263,25 +273,29 @@ curl: (7) Failed to connect to 127.0.0.1 port 8787
 ```
 
 **Causes:**
+
 - REST API not enabled
 - Server not running
 - Wrong port
 
 **Solutions:**
 
-1. Enable REST API:
+Enable REST API:
+
 ```bash
 AGENT_MEMORY_REST_ENABLED=true \
 AGENT_MEMORY_REST_API_KEY=your-secret \
 agent-memory rest
 ```
 
-2. Check if server is running:
+Check if server is running:
+
 ```bash
 curl http://127.0.0.1:8787/health
 ```
 
-3. Check port configuration:
+Check port configuration:
+
 ```bash
 AGENT_MEMORY_REST_PORT=8888 agent-memory rest
 ```
@@ -294,14 +308,16 @@ AGENT_MEMORY_REST_PORT=8888 agent-memory rest
 
 **Solutions:**
 
-1. Include API key in request:
+Include API key in request:
+
 ```bash
 curl -H "Authorization: Bearer your-secret-key" http://127.0.0.1:8787/v1/query
 # or
 curl -H "X-API-Key: your-secret-key" http://127.0.0.1:8787/v1/query
 ```
 
-2. Verify API key matches:
+Verify API key matches:
+
 ```bash
 # Server started with:
 AGENT_MEMORY_REST_API_KEY=my-key agent-memory rest
@@ -318,12 +334,13 @@ curl -H "Authorization: Bearer my-key" ...
 
 **Solutions:**
 
-1. Enable permissive mode:
+Enable permissive mode:
+
 ```bash
 AGENT_MEMORY_PERMISSIONS_MODE=permissive agent-memory rest
 ```
 
-2. Grant permissions to agent:
+Grant permissions to agent:
 ```json
 // Tool: memory_permission
 {
@@ -344,16 +361,18 @@ AGENT_MEMORY_PERMISSIONS_MODE=permissive agent-memory rest
 
 **Solutions:**
 
-1. Wait and retry with exponential backoff
+Wait and retry with exponential backoff.
 
-2. Increase rate limits:
+Increase rate limits:
+
 ```bash
 AGENT_MEMORY_RATE_LIMIT_PER_AGENT_MAX=1000 \
 AGENT_MEMORY_RATE_LIMIT_GLOBAL_MAX=10000 \
 agent-memory rest
 ```
 
-3. Disable rate limiting (not recommended for production):
+Disable rate limiting (not recommended for production):
+
 ```bash
 AGENT_MEMORY_RATE_LIMIT=0 agent-memory rest
 ```
@@ -365,23 +384,26 @@ AGENT_MEMORY_RATE_LIMIT=0 agent-memory rest
 ### No Results from Semantic Search
 
 **Causes:**
+
 - OpenAI API key not configured
 - Embeddings not generated
 - Threshold too high
 
 **Solutions:**
 
-1. Configure OpenAI key:
+Configure OpenAI key:
+
 ```bash
 AGENT_MEMORY_OPENAI_API_KEY=sk-... agent-memory mcp
 ```
 
-2. Check if embeddings exist:
+Check if embeddings exist:
+
 ```bash
 ls ~/.agent-memory/data/vectors.lance/
 ```
 
-3. Lower similarity threshold:
+Lower similarity threshold:
 ```json
 {
   "action": "search",
@@ -399,26 +421,28 @@ Error: OpenAI API request failed: 401
 
 **Solutions:**
 
-1. Verify API key is valid:
+Verify API key is valid:
+
 ```bash
 curl https://api.openai.com/v1/models \
   -H "Authorization: Bearer $AGENT_MEMORY_OPENAI_API_KEY"
 ```
 
-2. Check API key has embeddings access
+Check API key has embeddings access.
 
-3. Verify billing is active on OpenAI account
+Verify billing is active on OpenAI account.
 
 ### Embedding Generation Slow
 
 **Solutions:**
 
-1. Use local embeddings:
+Use local embeddings:
+
 ```bash
 AGENT_MEMORY_EMBEDDING_PROVIDER=local agent-memory mcp
 ```
 
-2. Batch operations:
+Batch operations:
 ```json
 // Use bulk_add instead of multiple add calls
 {
@@ -439,12 +463,14 @@ Error: Agent does not have permission to access this entry
 
 **Solutions:**
 
-1. Enable permissive mode (single-agent setups):
+Enable permissive mode (single-agent setups):
+
 ```bash
 AGENT_MEMORY_PERMISSIONS_MODE=permissive agent-memory mcp
 ```
 
-2. Grant explicit permissions:
+Grant explicit permissions:
+
 ```json
 // Tool: memory_permission
 {
@@ -457,7 +483,7 @@ AGENT_MEMORY_PERMISSIONS_MODE=permissive agent-memory mcp
 }
 ```
 
-3. Check current permissions:
+Check current permissions:
 ```json
 // Tool: memory_permission
 {
@@ -477,18 +503,21 @@ EACCES: permission denied, open '/path/to/memory.db'
 
 **Solutions:**
 
-1. Check file ownership:
+Check file ownership:
+
 ```bash
 ls -la ~/.agent-memory/
 ```
 
-2. Fix permissions:
+Fix permissions:
+
 ```bash
 chmod -R 755 ~/.agent-memory/
 chown -R $(whoami) ~/.agent-memory/
 ```
 
-3. Use a different data directory:
+Use a different data directory:
+
 ```bash
 AGENT_MEMORY_DATA_DIR=/tmp/agent-memory agent-memory mcp
 ```
@@ -501,12 +530,14 @@ AGENT_MEMORY_DATA_DIR=/tmp/agent-memory agent-memory mcp
 
 **Solutions:**
 
-1. Enable query caching:
+Enable query caching:
+
 ```bash
 AGENT_MEMORY_QUERY_CACHE_TTL_MS=300000 agent-memory mcp
 ```
 
-2. Limit query results:
+Limit query results:
+
 ```json
 {
   "action": "search",
@@ -514,7 +545,7 @@ AGENT_MEMORY_QUERY_CACHE_TTL_MS=300000 agent-memory mcp
 }
 ```
 
-3. Use specific scope:
+Use specific scope:
 ```json
 {
   "action": "context",
@@ -528,17 +559,20 @@ AGENT_MEMORY_QUERY_CACHE_TTL_MS=300000 agent-memory mcp
 
 **Solutions:**
 
-1. Reduce cache size:
+Reduce cache size:
+
 ```bash
 AGENT_MEMORY_CACHE_LIMIT_MB=50 agent-memory mcp
 ```
 
-2. Lower query cache entries:
+Lower query cache entries:
+
 ```bash
 AGENT_MEMORY_QUERY_CACHE_SIZE=100 agent-memory mcp
 ```
 
-3. Enable memory pressure management:
+Enable memory pressure management:
+
 ```bash
 AGENT_MEMORY_HEAP_PRESSURE_THRESHOLD=0.7 agent-memory mcp
 ```
@@ -547,7 +581,8 @@ AGENT_MEMORY_HEAP_PRESSURE_THRESHOLD=0.7 agent-memory mcp
 
 **Solutions:**
 
-1. Consolidate similar entries:
+Consolidate similar entries:
+
 ```json
 // Tool: memory_consolidate
 {
@@ -558,7 +593,8 @@ AGENT_MEMORY_HEAP_PRESSURE_THRESHOLD=0.7 agent-memory mcp
 }
 ```
 
-2. Archive stale entries:
+Archive stale entries:
+
 ```json
 // Tool: memory_consolidate
 {
@@ -567,7 +603,8 @@ AGENT_MEMORY_HEAP_PRESSURE_THRESHOLD=0.7 agent-memory mcp
 }
 ```
 
-3. Vacuum database:
+Vacuum database:
+
 ```bash
 sqlite3 ~/.agent-memory/data/memory.db "VACUUM;"
 ```

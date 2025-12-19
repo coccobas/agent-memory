@@ -41,7 +41,7 @@ All MCP tools use action-based requests:
 
 Manage organizations (top-level grouping).
 
-#### create
+#### Org create
 
 ```json
 // Request
@@ -60,7 +60,7 @@ Manage organizations (top-level grouping).
 }
 ```
 
-#### list
+#### Org list
 
 ```json
 // Request
@@ -81,7 +81,7 @@ Manage organizations (top-level grouping).
 
 Manage projects within organizations.
 
-#### create
+#### Project create
 
 ```json
 // Request
@@ -105,7 +105,7 @@ Manage projects within organizations.
 }
 ```
 
-#### list
+#### Project list
 
 ```json
 // Request
@@ -196,7 +196,7 @@ Manage working sessions.
 }
 ```
 
-#### list
+#### Session list
 
 ```json
 // Request
@@ -224,7 +224,7 @@ Manage working sessions.
 
 Store rules and standards.
 
-#### add
+#### Guideline add
 
 ```json
 // Request
@@ -255,7 +255,7 @@ Store rules and standards.
 }
 ```
 
-#### update
+#### Guideline update
 
 ```json
 // Request
@@ -275,7 +275,7 @@ Store rules and standards.
 }
 ```
 
-#### get
+#### Guideline get
 
 ```json
 // Request
@@ -293,7 +293,7 @@ Store rules and standards.
 }
 ```
 
-#### list
+#### Guideline list
 
 ```json
 // Request
@@ -371,7 +371,7 @@ Store rules and standards.
 
 Store facts and decisions.
 
-#### add
+#### Knowledge add
 
 ```json
 // Request
@@ -398,7 +398,7 @@ Store facts and decisions.
 }
 ```
 
-#### Categories
+#### Knowledge Categories
 
 | Category | Use For |
 |----------|---------|
@@ -407,7 +407,7 @@ Store facts and decisions.
 | `context` | Background information |
 | `reference` | External documentation links |
 
-#### bulk_add
+#### Knowledge bulk_add
 
 ```json
 // Request
@@ -437,7 +437,7 @@ Store facts and decisions.
 
 Store command and script registry.
 
-#### add
+#### Tool add
 
 ```json
 // Request
@@ -472,7 +472,7 @@ Store command and script registry.
 }
 ```
 
-#### Categories
+#### Tool Categories
 
 | Category | Use For |
 |----------|---------|
@@ -521,7 +521,7 @@ Organize entries with tags.
 { "success": true }
 ```
 
-#### create
+#### Tag create
 
 ```json
 // Request
@@ -540,7 +540,7 @@ Organize entries with tags.
 }
 ```
 
-#### list
+#### Tag list
 
 ```json
 // Request
@@ -581,7 +581,7 @@ Organize entries with tags.
 
 Link related entries.
 
-#### create
+#### Relation create
 
 ```json
 // Request
@@ -808,7 +808,7 @@ Coordinate multi-agent file access.
 
 Decompose work into subtasks.
 
-#### add
+#### Task add
 
 ```json
 // Request
@@ -968,7 +968,7 @@ Check system status.
 
 Database backup operations.
 
-#### create
+#### Backup create
 
 ```json
 // Request
@@ -982,7 +982,7 @@ Database backup operations.
 }
 ```
 
-#### list
+#### Backup list
 
 ```json
 // Request
@@ -1012,7 +1012,7 @@ Database backup operations.
 
 Database initialization.
 
-#### status
+#### Init status
 
 ```json
 // Request

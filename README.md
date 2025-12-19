@@ -7,7 +7,9 @@
 
 **High-performance MCP server providing structured memory for AI agents.**
 
-Agent Memory gives AI agents persistent, queryable memory across conversations. Instead of loading entire knowledge bases into context, agents query specific memory segments on-demand with sub-millisecond latency.
+Agent Memory gives AI agents persistent, queryable memory across conversations.
+Instead of loading entire knowledge bases into context, agents query specific memory
+segments on-demand with sub-millisecond latency.
 
 ## Quick Start
 
