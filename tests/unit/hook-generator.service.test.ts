@@ -7,6 +7,9 @@ import { existsSync, mkdirSync, rmSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   generateClaudeCodeHookScript,
+  generateClaudeCodeStopHookScript,
+  generateClaudeCodeUserPromptSubmitHookScript,
+  generateClaudeCodeSessionEndHookScript,
   generateClaudeCodeSettings,
   generateCursorRulesFile,
   generateHooks,
@@ -73,24 +76,63 @@ describe('hook-generator.service', () => {
       const script = generateClaudeCodeHookScript();
 
       expect(script).toContain('#!/bin/bash');
-      expect(script).toContain('Claude Code post-response verification hook');
-      expect(script).toContain('TOOL_OUTPUT=$(cat)');
+      expect(script).toContain('Claude Code PreToolUse hook');
       expect(script).toContain('exit 0');
     });
 
-    it('should include tool type checking', () => {
+    it('should include safe defaults and command invocation', () => {
       const script = generateClaudeCodeHookScript();
 
-      expect(script).toContain('Edit|Write|Bash');
-      expect(script).toContain('TOOL_NAME');
+      expect(script).toContain('AGENT_MEMORY_DB_PATH');
+      expect(script).toContain('agent-memory@latest');
+      expect(script).toContain('hook pretooluse');
     });
 
-    it('should include verification logic', () => {
-      const script = generateClaudeCodeHookScript();
+    it('should embed projectId when provided', () => {
+      const script = generateClaudeCodeHookScript({ projectId: 'proj-123' });
+      expect(script).toContain('--project-id "proj-123"');
+    });
+  });
 
-      expect(script).toContain('memory_verify');
-      expect(script).toContain('blocked');
-      expect(script).toContain('exit 1');
+  describe('generateClaudeCodeSessionEndHookScript', () => {
+    it('should generate a valid bash script', () => {
+      const script = generateClaudeCodeSessionEndHookScript();
+      expect(script).toContain('#!/bin/bash');
+      expect(script).toContain('Claude Code SessionEnd hook');
+      expect(script).toContain('hook session-end');
+    });
+
+    it('should embed projectId when provided', () => {
+      const script = generateClaudeCodeSessionEndHookScript({ projectId: 'proj-123' });
+      expect(script).toContain('--project-id "proj-123"');
+    });
+  });
+
+  describe('generateClaudeCodeStopHookScript', () => {
+    it('should generate a valid bash script', () => {
+      const script = generateClaudeCodeStopHookScript();
+      expect(script).toContain('#!/bin/bash');
+      expect(script).toContain('Claude Code Stop hook');
+      expect(script).toContain('hook stop');
+    });
+
+    it('should embed projectId when provided', () => {
+      const script = generateClaudeCodeStopHookScript({ projectId: 'proj-123' });
+      expect(script).toContain('--project-id "proj-123"');
+    });
+  });
+
+  describe('generateClaudeCodeUserPromptSubmitHookScript', () => {
+    it('should generate a valid bash script', () => {
+      const script = generateClaudeCodeUserPromptSubmitHookScript();
+      expect(script).toContain('#!/bin/bash');
+      expect(script).toContain('Claude Code UserPromptSubmit hook');
+      expect(script).toContain('hook userpromptsubmit');
+    });
+
+    it('should embed projectId when provided', () => {
+      const script = generateClaudeCodeUserPromptSubmitHookScript({ projectId: 'proj-123' });
+      expect(script).toContain('--project-id "proj-123"');
     });
   });
 
@@ -100,18 +142,24 @@ describe('hook-generator.service', () => {
 
       const parsed = JSON.parse(settings);
       expect(parsed).toHaveProperty('hooks');
-      expect(parsed.hooks).toHaveProperty('PostToolUse');
-      expect(parsed.hooks.PostToolUse).toHaveLength(1);
-      expect(parsed.hooks.PostToolUse[0]).toHaveProperty('matcher');
-      expect(parsed.hooks.PostToolUse[0]).toHaveProperty('command');
+      expect(parsed.hooks).toHaveProperty('PreToolUse');
+      expect(parsed.hooks).toHaveProperty('Stop');
+      expect(parsed.hooks).toHaveProperty('UserPromptSubmit');
+      expect(parsed.hooks).toHaveProperty('SessionEnd');
+      expect(parsed.hooks.PreToolUse).toHaveLength(1);
+      expect(parsed.hooks.PreToolUse[0]).toHaveProperty('matcher');
+      expect(parsed.hooks.PreToolUse[0]).toHaveProperty('hooks');
+      expect(parsed.hooks.PreToolUse[0].hooks[0]).toHaveProperty('command');
     });
 
     it('should include correct hook path', () => {
       const settings = generateClaudeCodeSettings(TEST_PROJECT_PATH);
 
       const parsed = JSON.parse(settings);
-      expect(parsed.hooks.PostToolUse[0].command).toContain('test-hook-project');
-      expect(parsed.hooks.PostToolUse[0].command).toContain('verify-response.sh');
+      expect(parsed.hooks.PreToolUse[0].hooks[0].command).toContain('test-hook-project');
+      expect(parsed.hooks.PreToolUse[0].hooks[0].command).toContain('pretooluse.sh');
+      expect(parsed.hooks.Stop[0].hooks[0].command).toContain('stop.sh');
+      expect(parsed.hooks.UserPromptSubmit[0].hooks[0].command).toContain('userpromptsubmit.sh');
     });
   });
 
@@ -165,9 +213,12 @@ describe('hook-generator.service', () => {
       });
 
       expect(result.success).toBe(true);
-      expect(result.hooks).toHaveLength(2); // Script + settings
-      expect(result.hooks.some(h => h.filePath.includes('verify-response.sh'))).toBe(true);
-      expect(result.hooks.some(h => h.filePath.includes('settings-hook.json'))).toBe(true);
+      expect(result.hooks).toHaveLength(5); // PreToolUse + Stop + UserPromptSubmit + SessionEnd + settings
+      expect(result.hooks.some((h) => h.filePath.includes('pretooluse.sh'))).toBe(true);
+      expect(result.hooks.some((h) => h.filePath.includes('stop.sh'))).toBe(true);
+      expect(result.hooks.some((h) => h.filePath.includes('userpromptsubmit.sh'))).toBe(true);
+      expect(result.hooks.some((h) => h.filePath.includes('session-end.sh'))).toBe(true);
+      expect(result.hooks.some((h) => h.filePath.endsWith('.claude/settings.json'))).toBe(true);
     });
 
     it('should generate Cursor rules', () => {
@@ -225,12 +276,15 @@ describe('hook-generator.service', () => {
       const installResult = installHooks(result.hooks);
 
       expect(installResult.success).toBe(true);
-      expect(installResult.installed).toHaveLength(2);
+      expect(installResult.installed).toHaveLength(5);
       expect(installResult.errors).toHaveLength(0);
 
       // Verify files were created
-      const hookPath = join(TEST_PROJECT_PATH, '.claude', 'hooks', 'verify-response.sh');
-      expect(existsSync(hookPath)).toBe(true);
+      expect(existsSync(join(TEST_PROJECT_PATH, '.claude', 'hooks', 'pretooluse.sh'))).toBe(true);
+      expect(existsSync(join(TEST_PROJECT_PATH, '.claude', 'hooks', 'stop.sh'))).toBe(true);
+      expect(existsSync(join(TEST_PROJECT_PATH, '.claude', 'hooks', 'userpromptsubmit.sh'))).toBe(true);
+      expect(existsSync(join(TEST_PROJECT_PATH, '.claude', 'hooks', 'session-end.sh'))).toBe(true);
+      expect(existsSync(join(TEST_PROJECT_PATH, '.claude', 'settings.json'))).toBe(true);
     });
 
     it('should make shell scripts executable', () => {
@@ -241,9 +295,14 @@ describe('hook-generator.service', () => {
 
       installHooks(result.hooks);
 
-      const hookPath = join(TEST_PROJECT_PATH, '.claude', 'hooks', 'verify-response.sh');
-      const content = readFileSync(hookPath, 'utf-8');
-      expect(content).toContain('#!/bin/bash');
+      const preToolUsePath = join(TEST_PROJECT_PATH, '.claude', 'hooks', 'pretooluse.sh');
+      const stopPath = join(TEST_PROJECT_PATH, '.claude', 'hooks', 'stop.sh');
+      const userPromptSubmitPath = join(TEST_PROJECT_PATH, '.claude', 'hooks', 'userpromptsubmit.sh');
+      const sessionEndPath = join(TEST_PROJECT_PATH, '.claude', 'hooks', 'session-end.sh');
+      expect(readFileSync(preToolUsePath, 'utf-8')).toContain('#!/bin/bash');
+      expect(readFileSync(stopPath, 'utf-8')).toContain('#!/bin/bash');
+      expect(readFileSync(userPromptSubmitPath, 'utf-8')).toContain('#!/bin/bash');
+      expect(readFileSync(sessionEndPath, 'utf-8')).toContain('#!/bin/bash');
     });
 
     it('should create directories if needed', () => {

@@ -19,13 +19,31 @@ async function importAndRun(modulePath: string): Promise<void> {
 
 // Now dynamically import the selected mode
 async function main() {
+  const argv = process.argv.slice(2);
+
+  // ---------------------------------------------------------------------------
+  // Command mode (non-server)
+  // ---------------------------------------------------------------------------
+  const command = (argv[0] || '').toLowerCase();
+  if (command === 'verify-response') {
+    const { runVerifyResponseCommand } = await import('./commands/verify-response.js');
+    await runVerifyResponseCommand(argv.slice(1));
+    return;
+  }
+
+  if (command === 'hook') {
+    const { runHookCommand } = await import('./commands/hook.js');
+    await runHookCommand(argv.slice(1));
+    return;
+  }
+
   // Load config first (which loads dotenv)
   await import('./config/index.js');
 
   const { createComponentLogger } = await import('./utils/logger.js');
 
   const logger = createComponentLogger('server');
-  const mode = parseServerMode(process.argv.slice(2), process.env.AGENT_MEMORY_MODE);
+  const mode = parseServerMode(argv, process.env.AGENT_MEMORY_MODE);
   logger.info({ mode }, 'Entry point reached');
 
   try {

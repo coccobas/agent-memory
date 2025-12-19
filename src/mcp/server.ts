@@ -1161,6 +1161,8 @@ Supported IDEs: claude (Claude Code), cursor (Cursor), vscode (VS Code)`,
 
 Actions:
 - extract: Analyze context and extract guidelines, knowledge, and tool patterns
+- draft: Return strict schema + prompt template for client-assisted extraction
+- commit: Store client-extracted entries (supports auto-promote)
 - status: Check extraction service availability
 
 When to use: After meaningful conversations or code reviews to capture decisions, facts, and patterns.
@@ -1172,7 +1174,7 @@ Returns extracted entries with confidence scores and duplicate detection.`,
       properties: {
         action: {
           type: 'string',
-          enum: ['extract', 'status'],
+          enum: ['extract', 'draft', 'commit', 'status'],
           description: 'Action to perform',
         },
         context: {
@@ -1209,6 +1211,42 @@ Returns extracted entries with confidence scores and duplicate detection.`,
         agentId: {
           type: 'string',
           description: 'Agent identifier for audit',
+        },
+        sessionId: {
+          type: 'string',
+          description: 'Session ID (required for draft/commit)',
+        },
+        projectId: {
+          type: 'string',
+          description: 'Project ID (optional, enables project auto-promote)',
+        },
+        entries: {
+          type: 'array',
+          description: 'Client-extracted entries (required for commit)',
+          items: {
+            type: 'object',
+            properties: {
+              type: { type: 'string', enum: ['guideline', 'knowledge', 'tool'] },
+              name: { type: 'string' },
+              title: { type: 'string' },
+              content: { type: 'string' },
+              category: { type: 'string' },
+              priority: { type: 'number' },
+              confidence: { type: 'number' },
+              rationale: { type: 'string' },
+              suggestedTags: { type: 'array', items: { type: 'string' } },
+            },
+            required: ['type', 'content', 'confidence'],
+          },
+        },
+        autoPromote: {
+          type: 'boolean',
+          description:
+            'If true, entries above threshold can be stored at project scope when projectId is provided (default: on)',
+        },
+        autoPromoteThreshold: {
+          type: 'number',
+          description: 'Confidence threshold for auto-promotion (0-1, default: 0.85)',
         },
       },
       required: ['action'],
@@ -1706,10 +1744,19 @@ const bundledHandlers: Record<string, (params: Record<string, unknown>) => unkno
     switch (action) {
       case 'extract':
         return observeHandlers.extract(rest);
+      case 'draft':
+        return observeHandlers.draft(rest);
+      case 'commit':
+        return observeHandlers.commit(rest);
       case 'status':
         return observeHandlers.status();
       default:
-        throw createInvalidActionError('memory_observe', String(action), ['extract', 'status']);
+        throw createInvalidActionError('memory_observe', String(action), [
+          'extract',
+          'draft',
+          'commit',
+          'status',
+        ]);
     }
   },
 };

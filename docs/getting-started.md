@@ -197,6 +197,36 @@ Or with forward slashes:
 claude mcp add agent-memory node C:/path/to/agent-memory/dist/cli.js
 ```
 
+### Claude Code Hooks (Recommended)
+
+Claude Code supports hooks that can enforce safety checks and automatically ingest your session transcript.
+
+Agent Memory can install these for you via the `memory_hook` tool:
+
+```json
+{
+  "name": "memory_hook",
+  "arguments": {
+    "action": "install",
+    "ide": "claude",
+    "projectPath": "/absolute/path/to/your/project",
+    "projectId": "<optional-project-id>"
+  }
+}
+```
+
+What gets installed:
+
+- `.claude/settings.json` with:
+  - `PreToolUse` hook for `Edit|Write|Bash` (can block unsafe tool calls)
+  - `Stop` hook (blocks stopping until an observe/review step is completed or suspended)
+  - `UserPromptSubmit` hook (supports `!am ...` session commands)
+  - `SessionEnd` hook (ingests Claude transcript into `memory_conversation`)
+- `.claude/hooks/pretooluse.sh`
+- `.claude/hooks/stop.sh`
+- `.claude/hooks/userpromptsubmit.sh`
+- `.claude/hooks/session-end.sh`
+
 ### With Docker
 
 For containerized deployment, build and run the Docker image:
