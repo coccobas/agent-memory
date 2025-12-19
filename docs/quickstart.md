@@ -4,8 +4,17 @@ Get Agent Memory running in 2 minutes.
 
 ## 1. Start the Server
 
+**Option A: npx (no install)**
+
 ```bash
 npx agent-memory@latest mcp
+```
+
+**Option B: Docker**
+
+```bash
+docker pull ghcr.io/anthropics/agent-memory:latest
+docker run -v ~/.agent-memory:/data ghcr.io/anthropics/agent-memory:latest mcp
 ```
 
 ## 2. Configure Your IDE

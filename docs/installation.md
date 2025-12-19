@@ -58,10 +58,16 @@ Best for: Development, customization, contributing.
 ### Option 5: Docker
 
 ```bash
-# Pull and run
-docker run -v ~/.agent-memory:/data ghcr.io/anthropics/agent-memory:latest mcp
+# Pull the image
+docker pull ghcr.io/anthropics/agent-memory:latest
 
-# Or build locally
+# Run
+docker run -v ~/.agent-memory:/data ghcr.io/anthropics/agent-memory:latest mcp
+```
+
+Or build locally:
+
+```bash
 docker build -t agent-memory .
 docker run -v ~/.agent-memory:/data agent-memory mcp
 ```
