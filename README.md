@@ -289,7 +289,6 @@ AGENT_MEMORY_PERMISSIONS_MODE=permissive
 | Cursor hooks | 🚧 In development |
 | VS Code hooks | 🚧 In development |
 | Other IDE hooks | 📋 Planned |
-| Web dashboard | 📋 Planned |
 
 [Request a feature](https://github.com/anthropics/agent-memory/issues)
 
