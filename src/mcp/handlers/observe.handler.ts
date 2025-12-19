@@ -156,7 +156,24 @@ function normalizeCommitEntry(raw: unknown, index: number): ObserveCommitEntry {
     );
   }
 
-  return obj as ObserveCommitEntry;
+  const category = typeof obj.category === 'string' ? obj.category : undefined;
+  const priority = typeof obj.priority === 'number' ? obj.priority : undefined;
+  const rationale = typeof obj.rationale === 'string' ? obj.rationale : undefined;
+  const suggestedTags = Array.isArray(obj.suggestedTags)
+    ? (obj.suggestedTags.filter((t) => typeof t === 'string') as string[])
+    : undefined;
+
+  return {
+    type,
+    name,
+    title,
+    content,
+    category,
+    priority,
+    confidence,
+    rationale,
+    suggestedTags,
+  };
 }
 
 export const observeHandlers = {

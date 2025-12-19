@@ -335,7 +335,7 @@ Quick setup:
 
 ## 📊 Project Status
 
-**Current Version: 0.9.3**
+**Current Version: 0.9.4**
 
 ### Core Features
 - ✅ Core CRUD operations for tools, guidelines, knowledge

@@ -1,6 +1,6 @@
 # Agent Memory Database - Architecture
 
-> **Version:** 0.9.3
+> **Version:** 0.9.4
 > **Last Updated:** 2025-12-18
 > **Status:** Production Ready - Performance Optimized
 
