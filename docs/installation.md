@@ -11,7 +11,7 @@
 |----------|--------|-------|
 | macOS (Intel/Apple Silicon) | Supported | Primary development platform |
 | Linux (x64/arm64) | Supported | Tested on Ubuntu 22.04+ |
-| Windows (x64) | Supported | See [Windows setup](docs/guides/windows-setup.md) |
+| Windows (x64) | Supported | See [Windows setup](guides/windows-setup.md) |
 
 ## Installation Methods
 
@@ -68,7 +68,7 @@ docker run -v ~/.agent-memory:/data agent-memory mcp
 
 Best for: Containerized deployments, isolation.
 
-See [Docker setup guide](docs/guides/docker-setup.md) for detailed configuration.
+See [Docker setup guide](guides/docker-setup.md) for detailed configuration.
 
 ## Verify Installation
 

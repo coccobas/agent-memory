@@ -1,31 +1,16 @@
 # Quickstart
 
-Get Agent Memory running in under 2 minutes.
+Get Agent Memory running in 2 minutes.
 
-## Option 1: npx (Fastest)
+## 1. Start the Server
 
 ```bash
 npx agent-memory@latest mcp
 ```
 
-## Option 2: Global Install
+## 2. Configure Your IDE
 
-```bash
-npm install -g agent-memory
-agent-memory mcp
-```
-
-## Option 3: Docker
-
-```bash
-docker run -v ~/.agent-memory:/data ghcr.io/anthropics/agent-memory:latest mcp
-```
-
-## Configure Your MCP Client
-
-### Claude Desktop
-
-Add to `~/.claude.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows):
+Add to your MCP client config:
 
 ```json
 {
@@ -38,91 +23,41 @@ Add to `~/.claude.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json`
 }
 ```
 
-### Claude Code
+**Config locations:**
 
-Add to `~/.claude/claude_code_config.json`:
+| IDE | Config File |
+|:----|:------------|
+| Claude Desktop | `~/.claude.json` |
+| Claude Code | `~/.claude/settings.json` |
+| Cursor | `.cursor/mcp.json` |
+| VS Code | `.vscode/settings.json` |
 
-```json
-{
-  "mcpServers": {
-    "agent-memory": {
-      "command": "npx",
-      "args": ["-y", "agent-memory@latest", "mcp"]
-    }
-  }
-}
+See [IDE Setup](guides/ide-setup.md) for detailed configuration per IDE.
+
+## 3. Verify
+
+Restart your IDE and ask the agent:
+
+```
+Check the agent memory health status
 ```
 
-### Cursor
+## 4. First Memory
 
-Create `.cursor/mcp.json` in your project or home directory:
-
-```json
-{
-  "mcpServers": {
-    "agent-memory": {
-      "command": "npx",
-      "args": ["-y", "agent-memory@latest", "mcp"]
-    }
-  }
-}
+```
+Remember that this project uses TypeScript with strict mode enabled
 ```
 
-## Verify It Works
+Then query:
 
-After configuring your client, restart it and try:
-
-1. Ask the agent to check memory health:
-   ```
-   Check the agent memory health status
-   ```
-
-2. Store your first memory:
-   ```
-   Remember that this project uses TypeScript with strict mode enabled
-   ```
-
-3. Query memory:
-   ```
-   What do you remember about this project?
-   ```
-
-## Enable REST API (Optional)
-
-For custom integrations via HTTP:
-
-```bash
-AGENT_MEMORY_REST_ENABLED=true \
-AGENT_MEMORY_REST_API_KEY=your-secret-key \
-npx agent-memory rest
+```
+What do you remember about this project?
 ```
 
-Test it:
-
-```bash
-# Health check (no auth required)
-curl http://127.0.0.1:8787/health
-
-# Query (auth required)
-curl -X POST http://127.0.0.1:8787/v1/context \
-  -H "Authorization: Bearer your-secret-key" \
-  -H "Content-Type: application/json" \
-  -d '{"scopeType": "global", "agentId": "test"}'
-```
-
-## Key Environment Variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `AGENT_MEMORY_DATA_DIR` | `~/.agent-memory` | Data storage location |
-| `AGENT_MEMORY_OPENAI_API_KEY` | - | Enable semantic search |
-| `AGENT_MEMORY_REST_ENABLED` | `false` | Enable REST API |
-| `AGENT_MEMORY_REST_API_KEY` | - | REST API authentication |
-| `AGENT_MEMORY_PERMISSIONS_MODE` | `strict` | Set to `permissive` for single-agent |
+---
 
 ## Next Steps
 
-- [Installation](installation.md) - Detailed installation options
-- [Getting Started](getting-started.md) - Full setup guide
-- [API Reference](api-reference.md) - Complete API documentation
-- [Workflows](guides/workflows.md) - Common usage patterns
+- [Getting Started](getting-started.md) — Full setup and first workflow
+- [IDE Setup](guides/ide-setup.md) — Detailed IDE configuration
+- [Installation](installation.md) — Docker, global install, from source

@@ -368,4 +368,3 @@ AGENT_MEMORY_LOG_LEVEL=debug agent-memory hook pretooluse --project-id proj-123
 - [Rules Sync](rules-sync.md) — Sync guidelines to IDE rule files
 - [IDE Setup](ide-setup.md) — Complete IDE configuration
 - [API Reference](../api-reference.md) — All MCP tools
-- [Verification System](../reference/verification.md) — How verification works
