@@ -509,7 +509,7 @@ If running multiple IDEs:
 
 ## See Also
 
-- [Quickstart](../../QUICKSTART.md) - Get running in 2 minutes
-- [Installation](../../INSTALLATION.md) - Detailed installation
+- [Quickstart](../quickstart.md) - Get running in 2 minutes
+- [Installation](../installation.md) - Detailed installation
 - [Troubleshooting](troubleshooting.md) - Common issues
 - [Getting Started](../getting-started.md) - First workflow

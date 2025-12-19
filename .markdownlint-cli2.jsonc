@@ -1,9 +1,7 @@
 {
   "globs": [
     "README.md",
-    "QUICKSTART.md",
-    "INSTALLATION.md",
-    "IDE_SETUP_EXAMPLES.md",
+    "CHANGELOG.md",
     "docs/**/*.md"
   ],
   "ignores": [

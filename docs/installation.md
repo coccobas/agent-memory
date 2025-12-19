@@ -187,6 +187,6 @@ npm install --global windows-build-tools
 
 ## Next Steps
 
-- [QUICKSTART.md](QUICKSTART.md) - Get running in 2 minutes
-- [docs/getting-started.md](docs/getting-started.md) - Full setup guide
-- [docs/guides/troubleshooting.md](docs/guides/troubleshooting.md) - More solutions
+- [Quickstart](quickstart.md) - Get running in 2 minutes
+- [Getting Started](getting-started.md) - Full setup guide
+- [Troubleshooting](guides/troubleshooting.md) - More solutions

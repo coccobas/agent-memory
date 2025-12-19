@@ -32,7 +32,7 @@ npm run build
 node dist/cli.js mcp
 ```
 
-See [INSTALLATION.md](../INSTALLATION.md) for Docker and other options.
+See [Installation](installation.md) for Docker and other options.
 
 ## Server Modes
 

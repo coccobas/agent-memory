@@ -66,7 +66,7 @@
     "verify-response": "tsx scripts/verify-response.ts",
     "docs:lint": "npm run docs:lint:md && npm run docs:lint:vale",
     "docs:lint:md": "markdownlint-cli2",
-    "docs:lint:vale": "vale README.md QUICKSTART.md INSTALLATION.md IDE_SETUP_EXAMPLES.md docs/README.md docs/getting-started.md docs/api-reference.md docs/architecture.md docs/data-model.md docs/contributing.md docs/security.md docs/DOC_INVENTORY.md docs/MAINTENANCE.md docs/guides docs/reference"
+    "docs:lint:vale": "vale README.md docs/"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",

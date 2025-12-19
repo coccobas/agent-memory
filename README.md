@@ -210,8 +210,8 @@ AGENT_MEMORY_PERMISSIONS_MODE=permissive
 
 | Resource | Description |
 |:---------|:------------|
-| [Quickstart](QUICKSTART.md) | Get running in 2 minutes |
-| [Installation](INSTALLATION.md) | npm, Docker, source |
+| [Quickstart](docs/quickstart.md) | Get running in 2 minutes |
+| [Installation](docs/installation.md) | npm, Docker, source |
 | [Getting Started](docs/getting-started.md) | Full setup guide |
 | [API Reference](docs/api-reference.md) | All 20+ tools documented |
 | [IDE Setup](docs/guides/ide-setup.md) | Claude, Cursor, VS Code |

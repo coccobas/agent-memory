@@ -703,6 +703,6 @@ If these solutions don't resolve your issue:
 
 ## See Also
 
-- [Installation](../../INSTALLATION.md) - Detailed installation options
+- [Installation](../installation.md) - Detailed installation options
 - [Performance Guide](performance.md) - Performance optimization
 - [Configuration](../reference/environment-variables.md) - All environment variables

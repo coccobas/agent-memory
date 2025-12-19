@@ -8,7 +8,7 @@ Complete documentation for Agent Memory MCP server.
 |----------|-------------|
 | [Getting Started](getting-started.md) | Installation, configuration, first workflow |
 | [API Reference](api-reference.md) | MCP tools, REST API, CLI commands |
-| [Quickstart](../QUICKSTART.md) | Get running in 2 minutes |
+| [Quickstart](quickstart.md) | Get running in 2 minutes |
 
 ---
 
@@ -74,8 +74,8 @@ Complete documentation for Agent Memory MCP server.
 | File | Description |
 |------|-------------|
 | [README.md](../README.md) | Project overview |
-| [QUICKSTART.md](../QUICKSTART.md) | 2-minute setup |
-| [INSTALLATION.md](../INSTALLATION.md) | Detailed installation |
+| [quickstart.md](quickstart.md) | 2-minute setup |
+| [installation.md](installation.md) | Detailed installation |
 
 ### API & Reference
 
