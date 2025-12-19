@@ -64,6 +64,7 @@ strategy docs/
 
 # Findings and analysis documents (not tracked)
 docs/findings/
+docs/review/
 
 # Prompts (not tracked)
 prompts/
