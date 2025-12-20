@@ -24,13 +24,22 @@ vi.mock('../../src/db/connection.js', async () => {
 import { knowledgeHandlers } from '../../src/mcp/handlers/knowledge.handler.js';
 
 describe('Knowledge Integration', () => {
+  const AGENT_ID = 'agent-1';
+  let previousPermMode: string | undefined;
   beforeAll(() => {
+    previousPermMode = process.env.AGENT_MEMORY_PERMISSIONS_MODE;
+    process.env.AGENT_MEMORY_PERMISSIONS_MODE = 'permissive';
     const testDb = setupTestDb(TEST_DB_PATH);
     sqlite = testDb.sqlite;
     db = testDb.db;
   });
 
   afterAll(() => {
+    if (previousPermMode === undefined) {
+      delete process.env.AGENT_MEMORY_PERMISSIONS_MODE;
+    } else {
+      process.env.AGENT_MEMORY_PERMISSIONS_MODE = previousPermMode;
+    }
     sqlite.close();
     cleanupTestDb(TEST_DB_PATH);
   });
@@ -38,6 +47,7 @@ describe('Knowledge Integration', () => {
   describe('memory_knowledge_add', () => {
     it('should add a knowledge entry with all fields', () => {
       const result = knowledgeHandlers.add({
+        agentId: AGENT_ID,
         scopeType: 'global',
         title: 'Test Knowledge',
         category: 'documentation',
@@ -56,6 +66,7 @@ describe('Knowledge Integration', () => {
     it('should add knowledge at project scope', () => {
       const project = createTestProject(db);
       const result = knowledgeHandlers.add({
+        agentId: AGENT_ID,
         scopeType: 'project',
         scopeId: project.id,
         title: 'Project Knowledge',
@@ -69,19 +80,19 @@ describe('Knowledge Integration', () => {
 
     it('should require scopeType', () => {
       expect(() => {
-        knowledgeHandlers.add({ title: 'test', content: 'content' });
+        knowledgeHandlers.add({ agentId: AGENT_ID, title: 'test', content: 'content' });
       }).toThrow(/scopeType.*required/i);
     });
 
     it('should require title', () => {
       expect(() => {
-        knowledgeHandlers.add({ scopeType: 'global', content: 'content' });
+        knowledgeHandlers.add({ agentId: AGENT_ID, scopeType: 'global', content: 'content' });
       }).toThrow(/title.*required/i);
     });
 
     it('should require content', () => {
       expect(() => {
-        knowledgeHandlers.add({ scopeType: 'global', title: 'test' });
+        knowledgeHandlers.add({ agentId: AGENT_ID, scopeType: 'global', title: 'test' });
       }).toThrow(/content.*required/i);
     });
   });
@@ -92,6 +103,7 @@ describe('Knowledge Integration', () => {
       const originalVersionId = knowledge.currentVersionId;
 
       const result = knowledgeHandlers.update({
+        agentId: AGENT_ID,
         id: knowledge.id,
         content: 'Updated content',
         changeReason: 'Testing updates',
@@ -111,7 +123,7 @@ describe('Knowledge Integration', () => {
   describe('memory_knowledge_get', () => {
     it('should get knowledge by ID', () => {
       const { knowledge } = createTestKnowledge(db, 'get_test');
-      const result = knowledgeHandlers.get({ id: knowledge.id });
+      const result = knowledgeHandlers.get({ agentId: AGENT_ID, id: knowledge.id });
 
       expect(result.knowledge).toBeDefined();
       expect(result.knowledge.id).toBe(knowledge.id);
@@ -122,6 +134,7 @@ describe('Knowledge Integration', () => {
       const { knowledge } = createTestKnowledge(db, 'get_by_title', 'project', project.id);
 
       const result = knowledgeHandlers.get({
+        agentId: AGENT_ID,
         title: 'get_by_title',
         scopeType: 'project',
         scopeId: project.id,
@@ -139,6 +152,7 @@ describe('Knowledge Integration', () => {
       createTestKnowledge(db, 'knowledge3', 'project', project.id);
 
       const result = knowledgeHandlers.list({
+        agentId: AGENT_ID,
         scopeType: 'project',
         scopeId: project.id,
         limit: 10,
@@ -157,6 +171,7 @@ describe('Knowledge Integration', () => {
       createTestKnowledge(db, 'api1', 'global', undefined, 'api');
 
       const result = knowledgeHandlers.list({
+        agentId: AGENT_ID,
         scopeType: 'global',
         category: 'documentation',
         limit: 10,
@@ -172,14 +187,15 @@ describe('Knowledge Integration', () => {
   describe('memory_knowledge_history', () => {
     it('should return version history', () => {
       const { knowledge } = createTestKnowledge(db, 'history_test');
-      knowledgeHandlers.update({ id: knowledge.id, content: 'Version 2', changeReason: 'Update' });
+      knowledgeHandlers.update({ agentId: AGENT_ID, id: knowledge.id, content: 'Version 2', changeReason: 'Update' });
       knowledgeHandlers.update({
+        agentId: AGENT_ID,
         id: knowledge.id,
         content: 'Version 3',
         changeReason: 'Another update',
       });
 
-      const result = knowledgeHandlers.history({ id: knowledge.id });
+      const result = knowledgeHandlers.history({ agentId: AGENT_ID, id: knowledge.id });
       expect(result.versions.length).toBeGreaterThanOrEqual(3);
     });
   });
@@ -187,10 +203,10 @@ describe('Knowledge Integration', () => {
   describe('memory_knowledge_deactivate', () => {
     it('should deactivate a knowledge entry', () => {
       const { knowledge } = createTestKnowledge(db, 'deactivate_test');
-      const result = knowledgeHandlers.deactivate({ id: knowledge.id });
+      const result = knowledgeHandlers.deactivate({ agentId: AGENT_ID, id: knowledge.id });
 
       expect(result.success).toBe(true);
-      const fetched = knowledgeHandlers.get({ id: knowledge.id });
+      const fetched = knowledgeHandlers.get({ agentId: AGENT_ID, id: knowledge.id });
       expect(fetched.knowledge.isActive).toBe(false);
     });
   });

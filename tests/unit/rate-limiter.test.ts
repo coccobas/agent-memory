@@ -605,17 +605,20 @@ describe('resetRateLimiters', () => {
 
 describe('DEFAULT_RATE_LIMITS', () => {
   it('should have correct per-agent limits', () => {
-    expect(DEFAULT_RATE_LIMITS.perAgent.maxRequests).toBe(100);
+    // Production-optimized: 500 req/min (increased from 100)
+    expect(DEFAULT_RATE_LIMITS.perAgent.maxRequests).toBe(500);
     expect(DEFAULT_RATE_LIMITS.perAgent.windowMs).toBe(60000);
   });
 
   it('should have correct global limits', () => {
-    expect(DEFAULT_RATE_LIMITS.global.maxRequests).toBe(1000);
+    // Production-optimized: 5000 req/min (increased from 1000)
+    expect(DEFAULT_RATE_LIMITS.global.maxRequests).toBe(5000);
     expect(DEFAULT_RATE_LIMITS.global.windowMs).toBe(60000);
   });
 
   it('should have correct burst limits', () => {
-    expect(DEFAULT_RATE_LIMITS.burst.maxRequests).toBe(20);
+    // Production-optimized: 50 peak RPS (increased from 20)
+    expect(DEFAULT_RATE_LIMITS.burst.maxRequests).toBe(50);
     expect(DEFAULT_RATE_LIMITS.burst.windowMs).toBe(1000);
   });
 });

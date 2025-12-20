@@ -28,13 +28,31 @@ import { exportHandlers } from '../../src/mcp/handlers/export.handler.js';
 import { importHandlers } from '../../src/mcp/handlers/import.handler.js';
 
 describe('Export/Import Handlers', () => {
+  const AGENT_ID = 'agent-1';
+  const ADMIN_KEY = 'test-admin-key';
+  let previousPermMode: string | undefined;
+  let previousAdminKey: string | undefined;
   beforeAll(() => {
+    previousPermMode = process.env.AGENT_MEMORY_PERMISSIONS_MODE;
+    previousAdminKey = process.env.AGENT_MEMORY_ADMIN_KEY;
+    process.env.AGENT_MEMORY_PERMISSIONS_MODE = 'permissive';
+    process.env.AGENT_MEMORY_ADMIN_KEY = ADMIN_KEY;
     const testDb = setupTestDb(TEST_DB_PATH);
     sqlite = testDb.sqlite;
     db = testDb.db;
   });
 
   afterAll(() => {
+    if (previousPermMode === undefined) {
+      delete process.env.AGENT_MEMORY_PERMISSIONS_MODE;
+    } else {
+      process.env.AGENT_MEMORY_PERMISSIONS_MODE = previousPermMode;
+    }
+    if (previousAdminKey === undefined) {
+      delete process.env.AGENT_MEMORY_ADMIN_KEY;
+    } else {
+      process.env.AGENT_MEMORY_ADMIN_KEY = previousAdminKey;
+    }
     sqlite.close();
     cleanupTestDb(TEST_DB_PATH);
   });
@@ -48,6 +66,7 @@ describe('Export/Import Handlers', () => {
       });
 
       const result = exportHandlers.export({
+        agentId: AGENT_ID,
         types: ['tools'],
         format: 'json',
       });
@@ -70,6 +89,7 @@ describe('Export/Import Handlers', () => {
       });
 
       const result = exportHandlers.export({
+        agentId: AGENT_ID,
         types: ['guidelines'],
         format: 'markdown',
       });
@@ -94,6 +114,7 @@ describe('Export/Import Handlers', () => {
       });
 
       const result = exportHandlers.export({
+        agentId: AGENT_ID,
         types: ['tools'],
         scopeType: 'project',
         scopeId: 'proj-123',
@@ -126,6 +147,7 @@ describe('Export/Import Handlers', () => {
       };
 
       const result = importHandlers.import({
+        admin_key: ADMIN_KEY,
         content: JSON.stringify(exportData),
         format: 'json',
         conflictStrategy: 'update',
@@ -143,6 +165,7 @@ describe('Export/Import Handlers', () => {
     it('should handle missing content parameter', () => {
       expect(() => {
         importHandlers.import({
+          admin_key: ADMIN_KEY,
           format: 'json',
         });
       }).toThrow(/content.*required/i);
@@ -151,6 +174,7 @@ describe('Export/Import Handlers', () => {
     it('should validate format parameter', () => {
       expect(() => {
         importHandlers.import({
+          admin_key: ADMIN_KEY,
           content: '{}',
           format: 'invalid',
         });
@@ -178,6 +202,7 @@ describe('Export/Import Handlers', () => {
 
       // Export
       const exportResult = exportHandlers.export({
+        agentId: AGENT_ID,
         types: ['tools'],
         format: 'json',
       });
@@ -189,6 +214,7 @@ describe('Export/Import Handlers', () => {
 
       // Import
       const importResult = importHandlers.import({
+        admin_key: ADMIN_KEY,
         content: exportResult.content,
         format: 'json',
         conflictStrategy: 'update',
@@ -223,6 +249,7 @@ describe('Export/Import Handlers', () => {
 
       // Export all types
       const exportResult = exportHandlers.export({
+        agentId: AGENT_ID,
         types: ['tools', 'guidelines', 'knowledge'],
         format: 'json',
       });

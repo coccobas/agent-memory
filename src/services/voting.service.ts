@@ -8,7 +8,7 @@
 import { getDb } from '../db/connection.js';
 import { agentVotes } from '../db/schema.js';
 import { generateId } from '../db/repositories/base.js';
-import { eq, and } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 
 export interface RecordVoteParams {
   taskId: string;
@@ -28,45 +28,34 @@ export interface ConsensusResult {
 
 /**
  * Record a vote from an agent for a task
+ *
+ * Uses atomic upsert to avoid race conditions when the same agent
+ * votes multiple times in quick succession.
  */
 export function recordVote(params: RecordVoteParams): void {
   const db = getDb();
   const id = generateId();
 
-  // Check if agent already voted for this task
-  const existingVote = db
-    .select()
-    .from(agentVotes)
-    .where(and(eq(agentVotes.taskId, params.taskId), eq(agentVotes.agentId, params.agentId)))
-    .limit(1)
-    .all();
-
-  if (existingVote.length > 0) {
-    // Update existing vote
-    const vote = existingVote[0];
-    if (vote) {
-      db.update(agentVotes)
-        .set({
-          voteValue: JSON.stringify(params.voteValue),
-          confidence: params.confidence ?? 1.0,
-          reasoning: params.reasoning ?? null,
-        })
-        .where(eq(agentVotes.id, vote.id))
-        .run();
-    }
-  } else {
-    // Insert new vote
-    db.insert(agentVotes)
-      .values({
-        id,
-        taskId: params.taskId,
-        agentId: params.agentId,
+  // Atomic upsert: insert new vote or update existing one
+  // Uses the unique index on (taskId, agentId) for conflict detection
+  db.insert(agentVotes)
+    .values({
+      id,
+      taskId: params.taskId,
+      agentId: params.agentId,
+      voteValue: JSON.stringify(params.voteValue),
+      confidence: params.confidence ?? 1.0,
+      reasoning: params.reasoning ?? null,
+    })
+    .onConflictDoUpdate({
+      target: [agentVotes.taskId, agentVotes.agentId],
+      set: {
         voteValue: JSON.stringify(params.voteValue),
         confidence: params.confidence ?? 1.0,
         reasoning: params.reasoning ?? null,
-      })
-      .run();
-  }
+      },
+    })
+    .run();
 }
 
 /**
@@ -135,12 +124,22 @@ export function calculateConsensus(taskId: string, k: number = 1): ConsensusResu
     };
   }
 
+  // Safe access - we've already verified voteDistribution.length > 0 above
   const topVote = voteDistribution[0];
+  if (!topVote) {
+    // Defensive guard - should never happen given the length check above
+    return {
+      consensus: null,
+      voteCount: votes.length,
+      confidence: 0,
+      dissentingVotes: [],
+      voteDistribution: [],
+    };
+  }
   const secondVote = voteDistribution.length > 1 ? voteDistribution[1] : null;
 
   // Check if top vote is k votes ahead
-  const isConsensus =
-    secondVote === null || (topVote && topVote.count - (secondVote?.count ?? 0) >= k);
+  const isConsensus = secondVote === null || topVote.count - (secondVote?.count ?? 0) >= k;
 
   // Calculate overall confidence (weighted average of top vote's confidence)
   const consensusConfidence = isConsensus && topVote ? topVote.avgConfidence : 0;

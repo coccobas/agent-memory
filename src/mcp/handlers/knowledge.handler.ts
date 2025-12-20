@@ -51,7 +51,7 @@ export const knowledgeHandlers = {
     const confidence = getOptionalParam(params, 'confidence', isNumber);
     const validUntil = getOptionalParam(params, 'validUntil', isISODateString);
     const createdBy = getOptionalParam(params, 'createdBy', isString);
-    const agentId = getOptionalParam(params, 'agentId', isString);
+    const agentId = getRequiredParam(params, 'agentId', isString);
 
     if (scopeType !== 'global' && !scopeId) {
       throw createValidationError(
@@ -62,10 +62,7 @@ export const knowledgeHandlers = {
     }
 
     // Check permission (write required for add)
-    if (
-      agentId &&
-      !checkPermission(agentId, 'write', 'knowledge', null, scopeType, scopeId ?? null)
-    ) {
+    if (!checkPermission(agentId, 'write', 'knowledge', null, scopeType, scopeId ?? null)) {
       throw createPermissionError('write', 'knowledge');
     }
 
@@ -167,7 +164,7 @@ export const knowledgeHandlers = {
     const validUntil = getOptionalParam(params, 'validUntil', isISODateString);
     const changeReason = getOptionalParam(params, 'changeReason', isString);
     const updatedBy = getOptionalParam(params, 'updatedBy', isString);
-    const agentId = getOptionalParam(params, 'agentId', isString);
+    const agentId = getRequiredParam(params, 'agentId', isString);
 
     // Get knowledge to check scope and permission
     const existingKnowledge = knowledgeRepo.getById(id);
@@ -177,7 +174,6 @@ export const knowledgeHandlers = {
 
     // Check permission (write required for update)
     if (
-      agentId &&
       !checkPermission(
         agentId,
         'write',
@@ -241,7 +237,7 @@ export const knowledgeHandlers = {
     const scopeType = getOptionalParam(params, 'scopeType', isScopeType);
     const scopeId = getOptionalParam(params, 'scopeId', isString);
     const inherit = getOptionalParam(params, 'inherit', isBoolean);
-    const agentId = getOptionalParam(params, 'agentId', isString);
+    const agentId = getRequiredParam(params, 'agentId', isString);
 
     if (!id && !title) {
       throw createValidationError(
@@ -270,7 +266,6 @@ export const knowledgeHandlers = {
 
     // Check permission (read required for get)
     if (
-      agentId &&
       !checkPermission(
         agentId,
         'read',
@@ -297,6 +292,7 @@ export const knowledgeHandlers = {
   },
 
   list(params: Record<string, unknown>) {
+    const agentId = getRequiredParam(params, 'agentId', isString);
     const scopeType = getOptionalParam(params, 'scopeType', isScopeType);
     const scopeId = getOptionalParam(params, 'scopeId', isString);
     // Category can be any string (SQLite doesn't strictly enforce enum)
@@ -310,9 +306,12 @@ export const knowledgeHandlers = {
     const limit = getOptionalParam(params, 'limit', isNumber);
     const offset = getOptionalParam(params, 'offset', isNumber);
 
-    const entries = knowledgeRepo.list(
+    const all = knowledgeRepo.list(
       { scopeType, scopeId, category, includeInactive },
       { limit, offset }
+    );
+    const entries = all.filter((k) =>
+      checkPermission(agentId, 'read', 'knowledge', k.id, k.scopeType, k.scopeId ?? null)
     );
 
     return formatTimestamps({
@@ -325,6 +324,15 @@ export const knowledgeHandlers = {
 
   history(params: Record<string, unknown>) {
     const id = getRequiredParam(params, 'id', isString);
+    const agentId = getRequiredParam(params, 'agentId', isString);
+
+    const knowledge = knowledgeRepo.getById(id);
+    if (!knowledge) {
+      throw createNotFoundError('knowledge', id);
+    }
+    if (!checkPermission(agentId, 'read', 'knowledge', id, knowledge.scopeType, knowledge.scopeId ?? null)) {
+      throw createPermissionError('read', 'knowledge', id);
+    }
 
     const versions = knowledgeRepo.getHistory(id);
     return formatTimestamps({ versions });
@@ -332,7 +340,7 @@ export const knowledgeHandlers = {
 
   deactivate(params: Record<string, unknown>) {
     const id = getRequiredParam(params, 'id', isString);
-    const agentId = getOptionalParam(params, 'agentId', isString);
+    const agentId = getRequiredParam(params, 'agentId', isString);
 
     // Get knowledge to check scope and permission
     const existingKnowledge = knowledgeRepo.getById(id);
@@ -342,7 +350,6 @@ export const knowledgeHandlers = {
 
     // Check permission (delete/write required for deactivate)
     if (
-      agentId &&
       !checkPermission(
         agentId,
         'delete',
@@ -375,7 +382,7 @@ export const knowledgeHandlers = {
 
   delete(params: Record<string, unknown>) {
     const id = getRequiredParam(params, 'id', isString);
-    const agentId = getOptionalParam(params, 'agentId', isString);
+    const agentId = getRequiredParam(params, 'agentId', isString);
 
     // Get knowledge to check scope and permission
     const existingKnowledge = knowledgeRepo.getById(id);
@@ -385,7 +392,6 @@ export const knowledgeHandlers = {
 
     // Check permission (delete required for hard delete)
     if (
-      agentId &&
       !checkPermission(
         agentId,
         'delete',
@@ -421,7 +427,7 @@ export const knowledgeHandlers = {
 
   bulk_add(params: Record<string, unknown>) {
     const entries = getRequiredParam(params, 'entries', isArrayOfObjects);
-    const agentId = getOptionalParam(params, 'agentId', isString);
+    const agentId = getRequiredParam(params, 'agentId', isString);
     // Allow top-level scopeType/scopeId as defaults for all entries
     const defaultScopeType = getOptionalParam(params, 'scopeType', isScopeType);
     const defaultScopeId = getOptionalParam(params, 'scopeId', isString);
@@ -435,28 +441,13 @@ export const knowledgeHandlers = {
     }
 
     // Check permissions for all entries
-    if (agentId) {
-      for (const entry of entries) {
-        if (!isObject(entry)) continue;
-        const entryObj = entry as unknown as KnowledgeAddParams;
-        const entryScopeType = entryObj.scopeType ?? defaultScopeType;
-        const entryScopeId = entryObj.scopeId ?? defaultScopeId;
-        if (
-          !checkPermission(
-            agentId,
-            'write',
-            'knowledge',
-            null,
-            entryScopeType,
-            entryScopeId ?? null
-          )
-        ) {
-          throw createPermissionError(
-            'write',
-            'knowledge',
-            `scope ${String(entryScopeType)}:${String(entryScopeId ?? '')}`
-          );
-        }
+    for (const entry of entries) {
+      if (!isObject(entry)) continue;
+      const entryObj = entry as unknown as KnowledgeAddParams;
+      const entryScopeType = entryObj.scopeType ?? defaultScopeType;
+      const entryScopeId = entryObj.scopeId ?? defaultScopeId;
+      if (!checkPermission(agentId, 'write', 'knowledge', null, entryScopeType, entryScopeId ?? null)) {
+        throw createPermissionError('write', 'knowledge');
       }
     }
 
@@ -539,7 +530,7 @@ export const knowledgeHandlers = {
 
   bulk_update(params: Record<string, unknown>) {
     const updates = getRequiredParam(params, 'updates', isArrayOfObjects);
-    const agentId = getOptionalParam(params, 'agentId', isString);
+    const agentId = getRequiredParam(params, 'agentId', isString);
 
     if (updates.length === 0) {
       throw createValidationError(
@@ -550,26 +541,24 @@ export const knowledgeHandlers = {
     }
 
     // Check permissions for all entries
-    if (agentId) {
-      for (const update of updates) {
-        if (!isObject(update)) continue;
-        const updateObj = update as unknown as { id: string } & KnowledgeUpdateParams;
-        const existingKnowledge = knowledgeRepo.getById(updateObj.id);
-        if (!existingKnowledge) {
-          throw createNotFoundError('knowledge', updateObj.id);
-        }
-        if (
-          !checkPermission(
-            agentId,
-            'write',
-            'knowledge',
-            updateObj.id,
-            existingKnowledge.scopeType,
-            existingKnowledge.scopeId ?? null
-          )
-        ) {
-          throw createPermissionError('write', 'knowledge', updateObj.id);
-        }
+    for (const update of updates) {
+      if (!isObject(update)) continue;
+      const updateObj = update as unknown as { id: string } & KnowledgeUpdateParams;
+      const existingKnowledge = knowledgeRepo.getById(updateObj.id);
+      if (!existingKnowledge) {
+        throw createNotFoundError('knowledge', updateObj.id);
+      }
+      if (
+        !checkPermission(
+          agentId,
+          'write',
+          'knowledge',
+          updateObj.id,
+          existingKnowledge.scopeType,
+          existingKnowledge.scopeId ?? null
+        )
+      ) {
+        throw createPermissionError('write', 'knowledge', updateObj.id);
       }
     }
 
@@ -629,7 +618,7 @@ export const knowledgeHandlers = {
 
   bulk_delete(params: Record<string, unknown>) {
     const idsParam = getRequiredParam(params, 'ids', isArray);
-    const agentId = getOptionalParam(params, 'agentId', isString);
+    const agentId = getRequiredParam(params, 'agentId', isString);
 
     // Validate all IDs are strings
     const ids: string[] = [];
@@ -654,24 +643,22 @@ export const knowledgeHandlers = {
     }
 
     // Check permissions for all entries
-    if (agentId) {
-      for (const id of ids) {
-        const existingKnowledge = knowledgeRepo.getById(id);
-        if (!existingKnowledge) {
-          throw createNotFoundError('knowledge', id);
-        }
-        if (
-          !checkPermission(
-            agentId,
-            'delete',
-            'knowledge',
-            id,
-            existingKnowledge.scopeType,
-            existingKnowledge.scopeId ?? null
-          )
-        ) {
-          throw createPermissionError('delete', 'knowledge', id);
-        }
+    for (const id of ids) {
+      const existingKnowledge = knowledgeRepo.getById(id);
+      if (!existingKnowledge) {
+        throw createNotFoundError('knowledge', id);
+      }
+      if (
+        !checkPermission(
+          agentId,
+          'delete',
+          'knowledge',
+          id,
+          existingKnowledge.scopeType,
+          existingKnowledge.scopeId ?? null
+        )
+      ) {
+        throw createPermissionError('delete', 'knowledge', id);
       }
     }
 

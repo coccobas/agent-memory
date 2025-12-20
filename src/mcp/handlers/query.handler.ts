@@ -5,6 +5,7 @@
 import { executeMemoryQuery, executeMemoryQueryAsync } from '../../services/query.service.js';
 import { logAction } from '../../services/audit.service.js';
 import { autoLinkContextFromQuery } from '../../services/conversation.service.js';
+import { checkPermission } from '../../services/permission.service.js';
 
 import type { MemoryQueryParams } from '../types.js';
 import {
@@ -14,17 +15,28 @@ import {
   isString,
   isBoolean,
   isNumber,
-  isArray,
   isObject,
   isEntryType,
   isRelationType,
+  isArrayOfStrings,
 } from '../../utils/type-guards.js';
 import { formatTimestamps } from '../../utils/timestamp-formatter.js';
+import { createPermissionError, createValidationError } from '../errors.js';
+
+const queryTypeToEntryType = {
+  tools: 'tool',
+  guidelines: 'guideline',
+  knowledge: 'knowledge',
+} as const;
+
+function isQueryType(value: string): value is keyof typeof queryTypeToEntryType {
+  return value === 'tools' || value === 'guidelines' || value === 'knowledge';
+}
 
 export const queryHandlers = {
   async query(params: Record<string, unknown>) {
     // Extract agent-specific params
-    const agentId = getOptionalParam(params, 'agentId', isString);
+    const agentId = getRequiredParam(params, 'agentId', isString);
     const conversationId = getOptionalParam(params, 'conversationId', isString);
     const messageId = getOptionalParam(params, 'messageId', isString);
     const autoLinkContext = getOptionalParam(params, 'autoLinkContext', isBoolean);
@@ -48,10 +60,16 @@ export const queryHandlers = {
     }
 
     // Build query params object (excluding agent-specific fields)
+    const requestedTypesRaw = getOptionalParam(params, 'types', isArrayOfStrings);
+    const requestedTypes = requestedTypesRaw
+      ? requestedTypesRaw.filter(isQueryType)
+      : undefined;
+    if (requestedTypesRaw && (!requestedTypes || requestedTypes.length !== requestedTypesRaw.length)) {
+      throw createValidationError('types', 'contains invalid values', 'Use tools, guidelines, knowledge');
+    }
+
     const queryParamsWithoutAgent: MemoryQueryParams = {
-      types: getOptionalParam(params, 'types', isArray) as
-        | Array<'tools' | 'guidelines' | 'knowledge'>
-        | undefined,
+      types: requestedTypes,
       scope: getOptionalParam(params, 'scope', isValidScope),
       search: getOptionalParam(params, 'search', isString),
       tags: getOptionalParam(params, 'tags', isObject),
@@ -77,6 +95,36 @@ export const queryHandlers = {
       semanticSearch: getOptionalParam(params, 'semanticSearch', isBoolean),
       semanticThreshold: getOptionalParam(params, 'semanticThreshold', isNumber),
     };
+
+    // Permissions: deny by default, allow per requested type/scope
+    const scopeType = queryParamsWithoutAgent.scope?.type ?? 'global';
+    const scopeId = queryParamsWithoutAgent.scope?.id;
+
+    const typesToCheck = requestedTypes ?? (['tools', 'guidelines', 'knowledge'] as const);
+    const deniedTypes = typesToCheck.filter(
+      (type) =>
+        !checkPermission(
+          agentId,
+          'read',
+          queryTypeToEntryType[type],
+          null,
+          scopeType,
+          scopeId ?? null
+        )
+    );
+
+    if (requestedTypes && deniedTypes.length > 0) {
+      throw createPermissionError('read', deniedTypes.map((t) => queryTypeToEntryType[t]).join(','));
+    }
+
+    // If types omitted, filter to allowed ones
+    if (!requestedTypes) {
+      const allowedTypes = typesToCheck.filter((t) => !deniedTypes.includes(t));
+      if (allowedTypes.length === 0) {
+        throw createPermissionError('read', 'memory');
+      }
+      queryParamsWithoutAgent.types = [...allowedTypes];
+    }
 
     // Use async version if semantic search is requested (or default enabled)
     // Note: FTS5 and semantic search can work together - FTS5 for fast text filtering,
@@ -123,9 +171,18 @@ export const queryHandlers = {
     const inherit = getOptionalParam(params, 'inherit', isBoolean) ?? true;
     const compact = getOptionalParam(params, 'compact', isBoolean) ?? false;
     const limitPerType = getOptionalParam(params, 'limitPerType', isNumber);
+    const agentId = getRequiredParam(params, 'agentId', isString);
+
+    const allowedTypes = (['tools', 'guidelines', 'knowledge'] as const).filter((type) =>
+      checkPermission(agentId, 'read', queryTypeToEntryType[type], null, scopeType, scopeId ?? null)
+    );
+
+    if (allowedTypes.length === 0) {
+      throw createPermissionError('read', 'memory');
+    }
 
     const result = executeMemoryQuery({
-      types: ['tools', 'guidelines', 'knowledge'],
+      types: [...allowedTypes],
       scope: {
         type: scopeType,
         id: scopeId,

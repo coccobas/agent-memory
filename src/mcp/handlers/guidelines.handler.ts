@@ -15,7 +15,7 @@ import { detectRedFlags } from '../../services/redflag.service.js';
 import { invalidateCacheEntry } from '../../services/query.service.js';
 import { validateEntry } from '../../services/validation.service.js';
 
-import { createValidationError, createNotFoundError } from '../errors.js';
+import { createValidationError, createNotFoundError, createPermissionError } from '../errors.js';
 import { createComponentLogger } from '../../utils/logger.js';
 import {
   getRequiredParam,
@@ -45,7 +45,7 @@ export const guidelineHandlers = {
     const rationale = getOptionalParam(params, 'rationale', isString);
     const examples = getOptionalParam(params, 'examples', isExamplesObject);
     const createdBy = getOptionalParam(params, 'createdBy', isString);
-    const agentId = getOptionalParam(params, 'agentId', isString);
+    const agentId = getRequiredParam(params, 'agentId', isString);
 
     if (scopeType !== 'global' && !scopeId) {
       throw createValidationError(
@@ -56,11 +56,8 @@ export const guidelineHandlers = {
     }
 
     // Check permission (write required for add)
-    if (
-      agentId &&
-      !checkPermission(agentId, 'write', 'guideline', null, scopeType, scopeId ?? null)
-    ) {
-      throw new Error('Permission denied: write access required');
+    if (!checkPermission(agentId, 'write', 'guideline', null, scopeType, scopeId ?? null)) {
+      throw createPermissionError('write', 'guideline');
     }
 
     // Check for duplicates (warn but don't block)
@@ -151,7 +148,7 @@ export const guidelineHandlers = {
     const examples = getOptionalParam(params, 'examples', isExamplesObject);
     const changeReason = getOptionalParam(params, 'changeReason', isString);
     const updatedBy = getOptionalParam(params, 'updatedBy', isString);
-    const agentId = getOptionalParam(params, 'agentId', isString);
+    const agentId = getRequiredParam(params, 'agentId', isString);
 
     // Get guideline to check scope and permission
     const existingGuideline = guidelineRepo.getById(id);
@@ -161,7 +158,6 @@ export const guidelineHandlers = {
 
     // Check permission (write required for update)
     if (
-      agentId &&
       !checkPermission(
         agentId,
         'write',
@@ -171,7 +167,7 @@ export const guidelineHandlers = {
         existingGuideline.scopeId ?? null
       )
     ) {
-      throw new Error('Permission denied: write access required');
+      throw createPermissionError('write', 'guideline', id);
     }
 
     const input: UpdateGuidelineInput = {};
@@ -221,7 +217,7 @@ export const guidelineHandlers = {
     const scopeType = getOptionalParam(params, 'scopeType', isScopeType);
     const scopeId = getOptionalParam(params, 'scopeId', isString);
     const inherit = getOptionalParam(params, 'inherit', isBoolean);
-    const agentId = getOptionalParam(params, 'agentId', isString);
+    const agentId = getRequiredParam(params, 'agentId', isString);
 
     if (!id && !name) {
       throw new Error('Either id or name is required');
@@ -242,7 +238,6 @@ export const guidelineHandlers = {
 
     // Check permission (read required for get)
     if (
-      agentId &&
       !checkPermission(
         agentId,
         'read',
@@ -252,7 +247,7 @@ export const guidelineHandlers = {
         guideline.scopeId ?? null
       )
     ) {
-      throw new Error('Permission denied: read access required');
+      throw createPermissionError('read', 'guideline', guideline.id);
     }
 
     // Log audit
@@ -269,6 +264,7 @@ export const guidelineHandlers = {
   },
 
   list(params: Record<string, unknown>) {
+    const agentId = getRequiredParam(params, 'agentId', isString);
     const scopeType = getOptionalParam(params, 'scopeType', isScopeType);
     const scopeId = getOptionalParam(params, 'scopeId', isString);
     const category = getOptionalParam(params, 'category', isString);
@@ -276,9 +272,12 @@ export const guidelineHandlers = {
     const limit = getOptionalParam(params, 'limit', isNumber);
     const offset = getOptionalParam(params, 'offset', isNumber);
 
-    const guidelines = guidelineRepo.list(
+    const all = guidelineRepo.list(
       { scopeType, scopeId, category, includeInactive },
       { limit, offset }
+    );
+    const guidelines = all.filter((g) =>
+      checkPermission(agentId, 'read', 'guideline', g.id, g.scopeType, g.scopeId ?? null)
     );
 
     return formatTimestamps({
@@ -291,6 +290,15 @@ export const guidelineHandlers = {
 
   history(params: Record<string, unknown>) {
     const id = getRequiredParam(params, 'id', isString);
+    const agentId = getRequiredParam(params, 'agentId', isString);
+
+    const guideline = guidelineRepo.getById(id);
+    if (!guideline) {
+      throw createNotFoundError('Guideline', id);
+    }
+    if (!checkPermission(agentId, 'read', 'guideline', id, guideline.scopeType, guideline.scopeId ?? null)) {
+      throw createPermissionError('read', 'guideline', id);
+    }
 
     const versions = guidelineRepo.getHistory(id);
     return formatTimestamps({ versions });
@@ -298,7 +306,7 @@ export const guidelineHandlers = {
 
   deactivate(params: Record<string, unknown>) {
     const id = getRequiredParam(params, 'id', isString);
-    const agentId = getOptionalParam(params, 'agentId', isString);
+    const agentId = getRequiredParam(params, 'agentId', isString);
 
     // Get guideline to check scope and permission
     const existingGuideline = guidelineRepo.getById(id);
@@ -308,7 +316,6 @@ export const guidelineHandlers = {
 
     // Check permission (delete/write required for deactivate)
     if (
-      agentId &&
       !checkPermission(
         agentId,
         'delete',
@@ -318,7 +325,7 @@ export const guidelineHandlers = {
         existingGuideline.scopeId ?? null
       )
     ) {
-      throw new Error('Permission denied: delete access required');
+      throw createPermissionError('delete', 'guideline', id);
     }
 
     const success = guidelineRepo.deactivate(id);
@@ -341,7 +348,7 @@ export const guidelineHandlers = {
 
   delete(params: Record<string, unknown>) {
     const id = getRequiredParam(params, 'id', isString);
-    const agentId = getOptionalParam(params, 'agentId', isString);
+    const agentId = getRequiredParam(params, 'agentId', isString);
 
     // Get guideline to check scope and permission
     const existingGuideline = guidelineRepo.getById(id);
@@ -351,7 +358,6 @@ export const guidelineHandlers = {
 
     // Check permission (delete required for hard delete)
     if (
-      agentId &&
       !checkPermission(
         agentId,
         'delete',
@@ -361,7 +367,7 @@ export const guidelineHandlers = {
         existingGuideline.scopeId ?? null
       )
     ) {
-      throw new Error('Permission denied: delete access required');
+      throw createPermissionError('delete', 'guideline', id);
     }
 
     const success = guidelineRepo.delete(id);
@@ -387,7 +393,7 @@ export const guidelineHandlers = {
 
   bulk_add(params: Record<string, unknown>) {
     const entries = getRequiredParam(params, 'entries', isArrayOfObjects);
-    const agentId = getOptionalParam(params, 'agentId', isString);
+    const agentId = getRequiredParam(params, 'agentId', isString);
     // Allow top-level scopeType/scopeId as defaults for all entries
     const defaultScopeType = getOptionalParam(params, 'scopeType', isScopeType);
     const defaultScopeId = getOptionalParam(params, 'scopeId', isString);
@@ -397,26 +403,13 @@ export const guidelineHandlers = {
     }
 
     // Check permissions for all entries
-    if (agentId) {
-      for (const entry of entries) {
-        if (!isObject(entry)) continue;
-        const entryObj = entry as unknown as GuidelineAddParams;
-        const entryScopeType = entryObj.scopeType ?? defaultScopeType;
-        const entryScopeId = entryObj.scopeId ?? defaultScopeId;
-        if (
-          !checkPermission(
-            agentId,
-            'write',
-            'guideline',
-            null,
-            entryScopeType,
-            entryScopeId ?? null
-          )
-        ) {
-          throw new Error(
-            `Permission denied: write access required for scope ${String(entryScopeType)}:${String(entryScopeId ?? '')}`
-          );
-        }
+    for (const entry of entries) {
+      if (!isObject(entry)) continue;
+      const entryObj = entry as unknown as GuidelineAddParams;
+      const entryScopeType = entryObj.scopeType ?? defaultScopeType;
+      const entryScopeId = entryObj.scopeId ?? defaultScopeId;
+      if (!checkPermission(agentId, 'write', 'guideline', null, entryScopeType, entryScopeId ?? null)) {
+        throw createPermissionError('write', 'guideline');
       }
     }
 
@@ -491,33 +484,31 @@ export const guidelineHandlers = {
 
   bulk_update(params: Record<string, unknown>) {
     const updates = getRequiredParam(params, 'updates', isArrayOfObjects);
-    const agentId = getOptionalParam(params, 'agentId', isString);
+    const agentId = getRequiredParam(params, 'agentId', isString);
 
     if (updates.length === 0) {
       throw new Error('updates array must not be empty');
     }
 
     // Check permissions for all entries
-    if (agentId) {
-      for (const update of updates) {
-        if (!isObject(update)) continue;
-        const updateObj = update as unknown as { id: string } & GuidelineUpdateParams;
-        const existingGuideline = guidelineRepo.getById(updateObj.id);
-        if (!existingGuideline) {
-          throw createNotFoundError('Guideline', updateObj.id);
-        }
-        if (
-          !checkPermission(
-            agentId,
-            'write',
-            'guideline',
-            updateObj.id,
-            existingGuideline.scopeType,
-            existingGuideline.scopeId ?? null
-          )
-        ) {
-          throw new Error(`Permission denied: write access required for guideline ${updateObj.id}`);
-        }
+    for (const update of updates) {
+      if (!isObject(update)) continue;
+      const updateObj = update as unknown as { id: string } & GuidelineUpdateParams;
+      const existingGuideline = guidelineRepo.getById(updateObj.id);
+      if (!existingGuideline) {
+        throw createNotFoundError('Guideline', updateObj.id);
+      }
+      if (
+        !checkPermission(
+          agentId,
+          'write',
+          'guideline',
+          updateObj.id,
+          existingGuideline.scopeType,
+          existingGuideline.scopeId ?? null
+        )
+      ) {
+        throw createPermissionError('write', 'guideline', updateObj.id);
       }
     }
 
@@ -573,7 +564,7 @@ export const guidelineHandlers = {
 
   bulk_delete(params: Record<string, unknown>) {
     const idsParam = getRequiredParam(params, 'ids', isArray);
-    const agentId = getOptionalParam(params, 'agentId', isString);
+    const agentId = getRequiredParam(params, 'agentId', isString);
 
     // Validate all IDs are strings
     const ids: string[] = [];
@@ -594,24 +585,22 @@ export const guidelineHandlers = {
     }
 
     // Check permissions for all entries
-    if (agentId) {
-      for (const id of ids) {
-        const existingGuideline = guidelineRepo.getById(id);
-        if (!existingGuideline) {
-          throw new Error(`Guideline not found: ${id}`);
-        }
-        if (
-          !checkPermission(
-            agentId,
-            'delete',
-            'guideline',
-            id,
-            existingGuideline.scopeType,
-            existingGuideline.scopeId ?? null
-          )
-        ) {
-          throw new Error(`Permission denied: delete access required for guideline ${id}`);
-        }
+    for (const id of ids) {
+      const existingGuideline = guidelineRepo.getById(id);
+      if (!existingGuideline) {
+        throw createNotFoundError('Guideline', id);
+      }
+      if (
+        !checkPermission(
+          agentId,
+          'delete',
+          'guideline',
+          id,
+          existingGuideline.scopeType,
+          existingGuideline.scopeId ?? null
+        )
+      ) {
+        throw createPermissionError('delete', 'guideline', id);
       }
     }
 

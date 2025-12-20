@@ -28,13 +28,22 @@ import { queryHandlers } from '../../src/mcp/handlers/query.handler.js';
 import { conversationHandlers } from '../../src/mcp/handlers/conversations.handler.js';
 
 describe('Conversation-Query Integration', () => {
+  const AGENT_ID = 'agent-1';
+  let previousPermMode: string | undefined;
   beforeAll(() => {
+    previousPermMode = process.env.AGENT_MEMORY_PERMISSIONS_MODE;
+    process.env.AGENT_MEMORY_PERMISSIONS_MODE = 'permissive';
     const testDb = setupTestDb(TEST_DB_PATH);
     sqlite = testDb.sqlite;
     db = testDb.db;
   });
 
   afterAll(() => {
+    if (previousPermMode === undefined) {
+      delete process.env.AGENT_MEMORY_PERMISSIONS_MODE;
+    } else {
+      process.env.AGENT_MEMORY_PERMISSIONS_MODE = previousPermMode;
+    }
     sqlite.close();
     cleanupTestDb(TEST_DB_PATH);
   });
@@ -44,11 +53,12 @@ describe('Conversation-Query Integration', () => {
     const { knowledge } = createTestKnowledge(db, 'Test Knowledge for Linking');
     const { conversation } = conversationHandlers.start({
       projectId: project.id,
-      agentId: 'agent-1',
+      agentId: AGENT_ID,
     });
 
     // Query with conversationId - should auto-link
     await queryHandlers.query({
+      agentId: AGENT_ID,
       search: 'Test Knowledge',
       conversationId: conversation.id,
       types: ['knowledge'],
@@ -70,9 +80,10 @@ describe('Conversation-Query Integration', () => {
     const { knowledge } = createTestKnowledge(db, 'Message-Specific Knowledge');
     const { conversation } = conversationHandlers.start({
       projectId: project.id,
-      agentId: 'agent-1',
+      agentId: AGENT_ID,
     });
     const { message } = conversationHandlers.addMessage({
+      agentId: AGENT_ID,
       conversationId: conversation.id,
       role: 'user',
       content: 'What do you know about this?',
@@ -80,6 +91,7 @@ describe('Conversation-Query Integration', () => {
 
     // Query with conversationId and messageId
     await queryHandlers.query({
+      agentId: AGENT_ID,
       search: 'Message-Specific',
       conversationId: conversation.id,
       messageId: message.id,
@@ -103,6 +115,7 @@ describe('Conversation-Query Integration', () => {
 
     // Query without conversationId
     await queryHandlers.query({
+      agentId: AGENT_ID,
       search: 'Unlinked',
       types: ['knowledge'],
     });
@@ -119,11 +132,12 @@ describe('Conversation-Query Integration', () => {
     const { knowledge } = createTestKnowledge(db, 'Skip Link Knowledge');
     const { conversation } = conversationHandlers.start({
       projectId: project.id,
-      agentId: 'agent-1',
+      agentId: AGENT_ID,
     });
 
     // Query with conversationId but autoLinkContext=false
     await queryHandlers.query({
+      agentId: AGENT_ID,
       search: 'Skip Link',
       conversationId: conversation.id,
       autoLinkContext: false,

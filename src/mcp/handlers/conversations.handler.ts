@@ -3,10 +3,9 @@
  */
 
 import { conversationRepo } from '../../db/repositories/conversations.js';
-import { checkPermission } from '../../services/permission.service.js';
 import { logAction } from '../../services/audit.service.js';
 import { generateConversationSummary } from '../../services/conversation.service.js';
-import { createValidationError, createNotFoundError, createPermissionError } from '../errors.js';
+import { createValidationError, createNotFoundError } from '../errors.js';
 import type { ConversationContext } from '../../db/schema.js';
 import {
   getRequiredParam,
@@ -22,12 +21,14 @@ import {
 } from '../../utils/type-guards.js';
 import { formatTimestamps } from '../../utils/timestamp-formatter.js';
 import type { PermissionEntryType } from '../../db/schema.js';
+import { requirePermission } from '../helpers/permissions.js';
 
 export const conversationHandlers = {
   start(params: Record<string, unknown>) {
     const sessionId = getOptionalParam(params, 'sessionId', isString);
     const projectId = getOptionalParam(params, 'projectId', isString);
-    const agentId = getOptionalParam(params, 'agentId', isString);
+    // Security: agentId required for audit trail on write operations
+    const agentId = getRequiredParam(params, 'agentId', isString);
     const title = getOptionalParam(params, 'title', isString);
     const metadata = getOptionalParam(params, 'metadata', isObject);
 
@@ -40,13 +41,9 @@ export const conversationHandlers = {
     }
 
     // Check permission (write required for create)
-    if (agentId) {
-      const scopeType = sessionId ? 'session' : 'project';
-      const scopeId = sessionId || projectId || null;
-      if (!checkPermission(agentId, 'write', 'knowledge', null, scopeType, scopeId)) {
-        throw createPermissionError('write', 'conversation');
-      }
-    }
+    const scopeType = sessionId ? 'session' : 'project';
+    const scopeId = sessionId || projectId || null;
+    requirePermission(agentId, 'write', scopeType, scopeId, 'knowledge');
 
     const conversation = conversationRepo.create({
       sessionId,
@@ -79,7 +76,8 @@ export const conversationHandlers = {
     const contextEntriesParam = getOptionalParam(params, 'contextEntries', isArray);
     const toolsUsedParam = getOptionalParam(params, 'toolsUsed', isArray);
     const metadata = getOptionalParam(params, 'metadata', isObject);
-    const agentId = getOptionalParam(params, 'agentId', isString);
+    // Security: agentId required for audit trail on write operations
+    const agentId = getRequiredParam(params, 'agentId', isString);
 
     // Validate contextEntries structure
     const contextEntries: Array<{ type: PermissionEntryType; id: string }> | undefined =
@@ -143,13 +141,9 @@ export const conversationHandlers = {
     }
 
     // Check permission (write required)
-    if (agentId) {
-      const scopeType = conversation.sessionId ? 'session' : 'project';
-      const scopeId = conversation.sessionId || conversation.projectId || null;
-      if (!checkPermission(agentId, 'write', 'knowledge', null, scopeType, scopeId)) {
-        throw createPermissionError('write', 'conversation');
-      }
-    }
+    const addMsgScopeType = conversation.sessionId ? 'session' : 'project';
+    const addMsgScopeId = conversation.sessionId || conversation.projectId || null;
+    requirePermission(agentId, 'write', addMsgScopeType, addMsgScopeId, 'knowledge');
 
     const message = conversationRepo.addMessage({
       conversationId,
@@ -188,13 +182,9 @@ export const conversationHandlers = {
     }
 
     // Check permission (read required)
-    if (agentId) {
-      const scopeType = conversation.sessionId ? 'session' : 'project';
-      const scopeId = conversation.sessionId || conversation.projectId || null;
-      if (!checkPermission(agentId, 'read', 'knowledge', null, scopeType, scopeId)) {
-        throw createPermissionError('read', 'conversation');
-      }
-    }
+    const getScopeType = conversation.sessionId ? 'session' : 'project';
+    const getScopeId = conversation.sessionId || conversation.projectId || null;
+    requirePermission(agentId, 'read', getScopeType, getScopeId, 'knowledge');
 
     // Log audit event
     logAction({
@@ -223,13 +213,9 @@ export const conversationHandlers = {
     const agentId = filterAgentId;
 
     // Check permission (read required)
-    if (agentId) {
-      const scopeType = sessionId ? 'session' : projectId ? 'project' : 'global';
-      const scopeId = sessionId || projectId || null;
-      if (!checkPermission(agentId, 'read', 'knowledge', null, scopeType, scopeId)) {
-        throw createPermissionError('read', 'conversation');
-      }
-    }
+    const listScopeType = sessionId ? 'session' : projectId ? 'project' : 'global';
+    const listScopeId = sessionId || projectId || null;
+    requirePermission(agentId, 'read', listScopeType, listScopeId, 'knowledge');
 
     const conversations = conversationRepo.list(
       {
@@ -268,7 +254,8 @@ export const conversationHandlers = {
     const title = getOptionalParam(params, 'title', isString);
     const status = getOptionalParam(params, 'status', isConversationStatus);
     const metadata = getOptionalParam(params, 'metadata', isObject);
-    const agentId = getOptionalParam(params, 'agentId', isString);
+    // Security: agentId required for audit trail on write operations
+    const agentId = getRequiredParam(params, 'agentId', isString);
 
     if (title === undefined && status === undefined && metadata === undefined) {
       throw createValidationError(
@@ -285,13 +272,9 @@ export const conversationHandlers = {
     }
 
     // Check permission (write required)
-    if (agentId) {
-      const scopeType = existing.sessionId ? 'session' : 'project';
-      const scopeId = existing.sessionId || existing.projectId || null;
-      if (!checkPermission(agentId, 'write', 'knowledge', null, scopeType, scopeId)) {
-        throw createPermissionError('write', 'conversation');
-      }
-    }
+    const updateScopeType = existing.sessionId ? 'session' : 'project';
+    const updateScopeId = existing.sessionId || existing.projectId || null;
+    requirePermission(agentId, 'write', updateScopeType, updateScopeId, 'knowledge');
 
     const conversation = conversationRepo.update(id, {
       title,
@@ -325,7 +308,8 @@ export const conversationHandlers = {
     const entryType = getRequiredParam(params, 'entryType', isEntryType);
     const entryId = getRequiredParam(params, 'entryId', isString);
     const relevanceScore = getOptionalParam(params, 'relevanceScore', isNumber);
-    const agentId = getOptionalParam(params, 'agentId', isString);
+    // Security: agentId required for audit trail on write operations
+    const agentId = getRequiredParam(params, 'agentId', isString);
 
     // Check conversation exists
     const conversation = conversationRepo.getById(conversationId);
@@ -334,16 +318,10 @@ export const conversationHandlers = {
     }
 
     // Check permission (read required for entry, write for conversation)
-    if (agentId) {
-      const scopeType = conversation.sessionId ? 'session' : 'project';
-      const scopeId = conversation.sessionId || conversation.projectId || null;
-      if (!checkPermission(agentId, 'read', entryType, entryId, scopeType, scopeId)) {
-        throw createPermissionError('read', entryType);
-      }
-      if (!checkPermission(agentId, 'write', 'knowledge', null, scopeType, scopeId)) {
-        throw createPermissionError('write', 'conversation');
-      }
-    }
+    const linkScopeType = conversation.sessionId ? 'session' : 'project';
+    const linkScopeId = conversation.sessionId || conversation.projectId || null;
+    requirePermission(agentId, 'read', linkScopeType, linkScopeId, entryType);
+    requirePermission(agentId, 'write', linkScopeType, linkScopeId, 'knowledge');
 
     const context = conversationRepo.linkContext({
       conversationId,
@@ -393,13 +371,9 @@ export const conversationHandlers = {
       }
 
       // Check permission (read required)
-      if (agentId) {
-        const scopeType = conversation.sessionId ? 'session' : 'project';
-        const scopeId = conversation.sessionId || conversation.projectId || null;
-        if (!checkPermission(agentId, 'read', 'knowledge', null, scopeType, scopeId)) {
-          throw createPermissionError('read', 'conversation');
-        }
-      }
+      const ctxScopeType = conversation.sessionId ? 'session' : 'project';
+      const ctxScopeId = conversation.sessionId || conversation.projectId || null;
+      requirePermission(agentId, 'read', ctxScopeType, ctxScopeId, 'knowledge');
 
       contexts = conversationRepo.getContextForConversation(conversationId);
     } else {
@@ -413,9 +387,7 @@ export const conversationHandlers = {
       }
 
       // Check permission (read required)
-      if (agentId && !checkPermission(agentId, 'read', entryType, entryId, 'global', null)) {
-        throw createPermissionError('read', entryType);
-      }
+      requirePermission(agentId, 'read', 'global', null, entryType);
 
       contexts = conversationRepo.getContextForEntry(entryType, entryId);
     }
@@ -446,13 +418,9 @@ export const conversationHandlers = {
     const agentId = filterAgentId;
 
     // Check permission (read required)
-    if (agentId) {
-      const scopeType = sessionId ? 'session' : projectId ? 'project' : 'global';
-      const scopeId = sessionId || projectId || null;
-      if (!checkPermission(agentId, 'read', 'knowledge', null, scopeType, scopeId)) {
-        throw createPermissionError('read', 'conversation');
-      }
-    }
+    const searchScopeType = sessionId ? 'session' : projectId ? 'project' : 'global';
+    const searchScopeId = sessionId || projectId || null;
+    requirePermission(agentId, 'read', searchScopeType, searchScopeId, 'knowledge');
 
     const results = conversationRepo.search(searchQuery, {
       sessionId,
@@ -488,7 +456,8 @@ export const conversationHandlers = {
   end(params: Record<string, unknown>) {
     const id = getRequiredParam(params, 'id', isString);
     const generateSummary = getOptionalParam(params, 'generateSummary', isBoolean);
-    const agentId = getOptionalParam(params, 'agentId', isString);
+    // Security: agentId required for audit trail on write operations
+    const agentId = getRequiredParam(params, 'agentId', isString);
 
     // Check conversation exists
     const existing = conversationRepo.getById(id);
@@ -497,13 +466,9 @@ export const conversationHandlers = {
     }
 
     // Check permission (write required)
-    if (agentId) {
-      const scopeType = existing.sessionId ? 'session' : 'project';
-      const scopeId = existing.sessionId || existing.projectId || null;
-      if (!checkPermission(agentId, 'write', 'knowledge', null, scopeType, scopeId)) {
-        throw createPermissionError('write', 'conversation');
-      }
-    }
+    const endScopeType = existing.sessionId ? 'session' : 'project';
+    const endScopeId = existing.sessionId || existing.projectId || null;
+    requirePermission(agentId, 'write', endScopeType, endScopeId, 'knowledge');
 
     const conversation = conversationRepo.update(id, {
       status: 'completed',
@@ -538,7 +503,8 @@ export const conversationHandlers = {
 
   archive(params: Record<string, unknown>) {
     const id = getRequiredParam(params, 'id', isString);
-    const agentId = getOptionalParam(params, 'agentId', isString);
+    // Security: agentId required for audit trail on write operations
+    const agentId = getRequiredParam(params, 'agentId', isString);
 
     // Check conversation exists
     const existing = conversationRepo.getById(id);
@@ -547,13 +513,9 @@ export const conversationHandlers = {
     }
 
     // Check permission (write required)
-    if (agentId) {
-      const scopeType = existing.sessionId ? 'session' : 'project';
-      const scopeId = existing.sessionId || existing.projectId || null;
-      if (!checkPermission(agentId, 'write', 'knowledge', null, scopeType, scopeId)) {
-        throw createPermissionError('write', 'conversation');
-      }
-    }
+    const archiveScopeType = existing.sessionId ? 'session' : 'project';
+    const archiveScopeId = existing.sessionId || existing.projectId || null;
+    requirePermission(agentId, 'write', archiveScopeType, archiveScopeId, 'knowledge');
 
     const conversation = conversationRepo.update(id, {
       status: 'archived',

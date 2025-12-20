@@ -27,8 +27,33 @@ User asks question → Search memory → Found? → Use it
 ## Essential Flow
 
 ```
-1. QUERY CONTEXT → 2. START SESSION → 3. CHECK DUPLICATES → 4. STORE → 5. TAG → 6. END SESSION
+0. SETUP PERMISSIONS → 1. QUERY CONTEXT → 2. START SESSION → 3. CHECK DUPLICATES → 4. STORE → 5. TAG → 6. END SESSION
 ```
+
+### 0. Prerequisites: Permission Setup (One-Time Admin Task)
+
+The system uses **deny-by-default permissions**. Before agents can write data, an admin must grant access.
+
+**Option A: Permissive mode (development)**
+```bash
+export AGENT_MEMORY_PERMISSIONS_MODE=permissive
+```
+
+**Option B: Grant permissions (production)**
+Tool: `memory_permission`
+```json
+{"action": "grant", "agent_id": "<agent-id>", "scope_type": "project", "scope_id": "<project-id>", "entry_type": "knowledge", "permission": "write", "admin_key": "<admin-key>"}
+```
+
+Grant for each entry type (`knowledge`, `guideline`, `tool`) the agent needs to write.
+
+**Common permission errors:**
+| Error Code | Meaning | Fix |
+|------------|---------|-----|
+| E5001 | `agentId` parameter missing | Add `"agentId": "<your-agent-id>"` to request |
+| E6000 | Permission denied | Grant write permission or use permissive mode |
+
+---
 
 ### 1. Query Context FIRST (Every Conversation)
 
@@ -132,12 +157,14 @@ Tool: `memory_session`
 
 | Error | Wrong | Correct |
 |-------|-------|---------|
+| Missing agentId | `{"action": "add", ...}` | `{"action": "add", "agentId": "<id>", ...}` |
 | Missing scopeId | `{"scopeType": "project"}` | `{"scopeType": "project", "scopeId": "<id>"}` |
 | Plural entryType | `"entryType": "guidelines"` | `"entryType": "guideline"` |
 | Wrong action | `memory_project` action `add` | `memory_project` action `create` |
 | Wrong action | `memory_guideline` action `create` | `memory_guideline` action `add` |
 | Missing tag params | `{"action": "attach", "entryId": "x"}` | `{"action": "attach", "entryType": "guideline", "entryId": "x", "tagName": "y"}` |
 
+**agentId is REQUIRED** for all write operations (add, update, deactivate).
 **scopeId is REQUIRED** when scopeType is `project`, `org`, or `session`. Only `global` scope needs no scopeId.
 
 ---
@@ -189,16 +216,18 @@ Always use `inherit: true` in queries.
 
 ## Rules Summary
 
-1. **Query context FIRST** - Every conversation
-2. **Check before storing** - Prevent duplicates
-3. **Tag everything** - 2-3 tags minimum
-4. **Use correct action** - `add` for entries, `create` for scopes
-5. **Include scopeId** - Required for non-global scopes
-6. **Use singular entryType** - `guideline` not `guidelines`
+1. **Setup permissions FIRST** - One-time admin task (Step 0)
+2. **Query context FIRST** - Every conversation
+3. **Include agentId** - Required for all write operations
+4. **Check before storing** - Prevent duplicates
+5. **Tag everything** - 2-3 tags minimum
+6. **Use correct action** - `add` for entries, `create` for scopes
+7. **Include scopeId** - Required for non-global scopes
+8. **Use singular entryType** - `guideline` not `guidelines`
 
 ---
 
 **Details:** `@auto-memory-reference` | **Examples:** `@auto-memory-examples` | **Advanced:** `@auto-memory-advanced`
 
 @version "1.0.0"
-@last_updated "2025-12-18"
+@last_updated "2025-12-20"

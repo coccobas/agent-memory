@@ -11,6 +11,7 @@ import { generateId } from '../db/repositories/base.js';
 import type { ScopeType, EntryType } from '../db/schema.js';
 import { createComponentLogger } from '../utils/logger.js';
 import { config } from '../config/index.js';
+import { sanitizeForLogging } from '../utils/sanitize.js';
 
 const logger = createComponentLogger('audit');
 
@@ -52,6 +53,21 @@ export function logAction(params: AuditLogParams): void {
       // Filter out 'project' from entryType as it's not supported in audit log schema
       const entryType = params.entryType === 'project' ? null : (params.entryType ?? null);
 
+      // Sanitize and size-limit queryParams to avoid persisting secrets or unbounded payloads
+      let queryParams: unknown = null;
+      if (params.queryParams) {
+        const sanitized = sanitizeForLogging(params.queryParams);
+        const serialized = JSON.stringify(sanitized);
+        if (serialized.length <= config.validation.metadataMaxBytes) {
+          queryParams = sanitized;
+        } else {
+          queryParams = {
+            truncated: true,
+            originalBytes: serialized.length,
+          };
+        }
+      }
+
       db.insert(auditLog)
         .values({
           id,
@@ -61,9 +77,7 @@ export function logAction(params: AuditLogParams): void {
           entryId: params.entryId ?? null,
           scopeType: params.scopeType ?? null,
           scopeId: params.scopeId ?? null,
-          queryParams: params.queryParams
-            ? (JSON.stringify(params.queryParams) as unknown as Record<string, unknown>)
-            : null,
+          queryParams: queryParams as Record<string, unknown> | null,
           resultCount: params.resultCount ?? null,
         })
         .run();

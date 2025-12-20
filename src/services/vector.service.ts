@@ -141,8 +141,23 @@ class VectorService {
       mkdirSync(dir, { recursive: true });
     }
 
-    // Connect to LanceDB
-    this.connection = await connect(this.dbPath);
+    // Connect to LanceDB with timeout to prevent indefinite hangs
+    const CONNECTION_TIMEOUT_MS = 30000; // 30 seconds
+    const connectionPromise = connect(this.dbPath);
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(
+        () => reject(new Error(`Vector DB connection timeout after ${CONNECTION_TIMEOUT_MS}ms`)),
+        CONNECTION_TIMEOUT_MS
+      )
+    );
+
+    try {
+      this.connection = await Promise.race([connectionPromise, timeoutPromise]);
+    } catch (error) {
+      throw new Error(
+        `Failed to connect to vector database: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
 
     // Check if table exists - errors here are OK, table will be created on first use
     try {
@@ -236,6 +251,9 @@ class VectorService {
 
   /**
    * Store an embedding in the vector database
+   *
+   * IMPORTANT: We add the new embedding FIRST, then delete old versions.
+   * This ensures that if the add fails, we don't lose the existing embedding.
    */
   async storeEmbedding(
     entryType: string,
@@ -265,18 +283,60 @@ class VectorService {
       if (createdWithRecord) return;
       if (!this.table) return;
 
-      // Delete any existing embeddings for this entry (all versions)
-      // This ensures we only keep the latest version and avoids stale semantic matches.
-      // Single delete is more efficient than search + conditional delete.
-      await this.removeEmbedding(entryType, entryId);
-
-      // Add new record
+      // Add new record FIRST to ensure we don't lose data if this fails
       await this.table.add([record]);
+
+      // Now delete old versions (not the one we just added)
+      // This ensures we only keep the latest version and avoids stale semantic matches.
+      await this.removeOldVersions(entryType, entryId, versionId);
     } catch (error) {
       throw new Error(
         `Failed to store embedding: ${error instanceof Error ? error.message : String(error)}`
       );
     }
+  }
+
+  /**
+   * Remove old version embeddings for an entry, keeping the specified version
+   */
+  private async removeOldVersions(
+    entryType: string,
+    entryId: string,
+    keepVersionId: string
+  ): Promise<void> {
+    if (!this.table) return;
+
+    try {
+      // Validate inputs to prevent SQL injection
+      const validatedEntryType = this.validateIdentifierInternal(entryType, 'entryType');
+      const validatedEntryId = this.validateIdentifierInternal(entryId, 'entryId');
+      const validatedKeepVersionId = this.validateIdentifierInternal(keepVersionId, 'keepVersionId');
+
+      // Delete all versions for this entry EXCEPT the one we want to keep
+      const filterPredicate = `"entryType" = '${validatedEntryType}' AND "entryId" = '${validatedEntryId}' AND "versionId" != '${validatedKeepVersionId}'`;
+      await this.table.delete(filterPredicate);
+    } catch (error) {
+      // Log but don't throw - old version cleanup failure shouldn't break the operation
+      logger.warn(
+        { error, entryType, entryId, keepVersionId },
+        'Failed to remove old embedding versions'
+      );
+    }
+  }
+
+  /**
+   * Internal identifier validation (reuses the module-level function logic)
+   */
+  private validateIdentifierInternal(input: string, fieldName: string): string {
+    if (!/^[a-zA-Z0-9_-]+$/.test(input)) {
+      throw new Error(
+        `Invalid ${fieldName}: contains disallowed characters. Only alphanumeric, hyphens, and underscores are allowed.`
+      );
+    }
+    if (input.length > 200) {
+      throw new Error(`Invalid ${fieldName}: exceeds maximum length of 200 characters`);
+    }
+    return input;
   }
 
   /**
@@ -296,12 +356,17 @@ class VectorService {
 
     // Validate embedding dimension matches stored embeddings
     if (this.expectedDimension !== null && embedding.length !== this.expectedDimension) {
-      logger.warn(
-        { queryDimension: embedding.length, storedDimension: this.expectedDimension },
-        'Search embedding dimension does not match stored embeddings. Results may be inaccurate.'
+      const error = new Error(
+        `Embedding dimension mismatch in searchSimilar: query has ${embedding.length} dimensions, ` +
+          `but stored embeddings have ${this.expectedDimension} dimensions. ` +
+          `This may happen when switching between embedding providers (OpenAI uses 1536d, local model uses 384d). ` +
+          `Consider clearing the vector database or using consistent embedding providers.`
       );
-      // Return empty results instead of potentially incorrect matches
-      return [];
+      logger.error(
+        { queryDimension: embedding.length, storedDimension: this.expectedDimension, error },
+        'Search embedding dimension mismatch'
+      );
+      throw error;
     }
 
     try {

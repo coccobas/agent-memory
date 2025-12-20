@@ -17,6 +17,11 @@ export interface RateLimiterConfig {
   windowMs: number;
   /** Whether to enable rate limiting (default: true) */
   enabled?: boolean;
+  /**
+   * Minimum burst protection - applies even when rate limiting is disabled
+   * Prevents DoS by limiting max requests per second (default: 100)
+   */
+  minBurstProtection?: number;
 }
 
 interface WindowEntry {
@@ -31,14 +36,19 @@ interface WindowEntry {
  */
 export class RateLimiter {
   private windows = new Map<string, WindowEntry>();
+  private burstWindows = new Map<string, WindowEntry>(); // Separate window for burst protection
   private config: Required<RateLimiterConfig>;
   private cleanupInterval: NodeJS.Timeout | null = null;
+
+  // Default minimum burst protection: 100 requests per second even when disabled
+  private static readonly DEFAULT_MIN_BURST_PROTECTION = 100;
 
   constructor(config: RateLimiterConfig) {
     this.config = {
       maxRequests: config.maxRequests,
       windowMs: config.windowMs,
       enabled: config.enabled ?? true,
+      minBurstProtection: config.minBurstProtection ?? RateLimiter.DEFAULT_MIN_BURST_PROTECTION,
     };
 
     // Start cleanup interval to prevent memory leaks
@@ -57,6 +67,47 @@ export class RateLimiter {
     resetMs: number;
     retryAfterMs?: number;
   } {
+    const now = Date.now();
+
+    // Always enforce minimum burst protection (even when rate limiting is disabled)
+    // This prevents DoS attacks by limiting max requests per second
+    const burstWindowStart = now - 1000; // 1 second window for burst protection
+    let burstEntry = this.burstWindows.get(key);
+    if (!burstEntry) {
+      burstEntry = { timestamps: [] };
+      this.burstWindows.set(key, burstEntry);
+    }
+
+    // Remove timestamps outside the burst window
+    burstEntry.timestamps = burstEntry.timestamps.filter((ts) => ts > burstWindowStart);
+
+    // Check burst protection
+    if (burstEntry.timestamps.length >= this.config.minBurstProtection) {
+      const oldestTimestamp = burstEntry.timestamps[0] ?? now;
+      const retryAfterMs = Math.max(0, oldestTimestamp + 1000 - now);
+
+      logger.warn(
+        {
+          key,
+          currentCount: burstEntry.timestamps.length,
+          minBurstProtection: this.config.minBurstProtection,
+          retryAfterMs,
+        },
+        'Minimum burst protection triggered (rate limiting may be disabled but DoS protection active)'
+      );
+
+      return {
+        allowed: false,
+        remaining: 0,
+        resetMs: retryAfterMs,
+        retryAfterMs,
+      };
+    }
+
+    // Record this request in burst window
+    burstEntry.timestamps.push(now);
+
+    // If rate limiting is disabled (but burst protection passed), allow the request
     if (!this.config.enabled) {
       return {
         allowed: true,
@@ -65,7 +116,6 @@ export class RateLimiter {
       };
     }
 
-    const now = Date.now();
     const windowStart = now - this.config.windowMs;
 
     // Get or create window for this key
@@ -153,6 +203,7 @@ export class RateLimiter {
    */
   reset(key: string): void {
     this.windows.delete(key);
+    this.burstWindows.delete(key);
   }
 
   /**
@@ -160,6 +211,7 @@ export class RateLimiter {
    */
   resetAll(): void {
     this.windows.clear();
+    this.burstWindows.clear();
   }
 
   /**
@@ -192,6 +244,7 @@ export class RateLimiter {
     this.cleanupInterval = setInterval(() => {
       const now = Date.now();
       const windowStart = now - this.config.windowMs;
+      const burstWindowStart = now - 1000; // 1 second for burst protection
 
       for (const [key, entry] of this.windows) {
         // Remove expired timestamps
@@ -200,6 +253,15 @@ export class RateLimiter {
         // Remove empty entries
         if (entry.timestamps.length === 0) {
           this.windows.delete(key);
+        }
+      }
+
+      // Clean up burst windows
+      for (const [key, entry] of this.burstWindows) {
+        entry.timestamps = entry.timestamps.filter((ts) => ts > burstWindowStart);
+
+        if (entry.timestamps.length === 0) {
+          this.burstWindows.delete(key);
         }
       }
     }, 60000);
@@ -217,6 +279,7 @@ export class RateLimiter {
       this.cleanupInterval = null;
     }
     this.windows.clear();
+    this.burstWindows.clear();
   }
 }
 

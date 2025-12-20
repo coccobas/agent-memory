@@ -2,6 +2,9 @@ import { conversationRepo } from '../db/repositories/conversations.js';
 import type { PermissionEntryType } from '../db/schema.js';
 import type { MemoryQueryResult } from './query.service.js';
 import type { CreateKnowledgeInput } from '../db/repositories/knowledge.js';
+import { createComponentLogger } from '../utils/logger.js';
+
+const logger = createComponentLogger('ConversationService');
 
 /**
  * Conversation analytics
@@ -19,6 +22,9 @@ export interface ConversationAnalytics {
 /**
  * Automatically link memory entries from query results to conversation
  *
+ * This is a fire-and-forget operation - errors are silently ignored to prevent
+ * disrupting the main query flow.
+ *
  * @param conversationId - The conversation ID
  * @param messageId - Optional message ID to link to specific message
  * @param queryResult - The query result containing entries to link
@@ -28,12 +34,23 @@ export function autoLinkContextFromQuery(
   messageId: string | undefined,
   queryResult: MemoryQueryResult
 ): void {
+  // Defensive null checks - this is fire-and-forget, so fail silently
+  if (!queryResult || !Array.isArray(queryResult.results)) {
+    return;
+  }
+
   for (const item of queryResult.results) {
+    // Skip null/undefined items
+    if (!item || !item.type || !item.id) {
+      continue;
+    }
+
     // Only link tool, guideline, and knowledge entries (not projects)
     if (item.type === 'tool' || item.type === 'guideline' || item.type === 'knowledge') {
       const entryType = item.type as PermissionEntryType;
       const entryId = item.id;
-      const relevanceScore = item.score > 1 ? item.score / 100 : item.score; // Normalize score to 0-1 range
+      const relevanceScore =
+        typeof item.score === 'number' ? (item.score > 1 ? item.score / 100 : item.score) : 0;
 
       try {
         conversationRepo.linkContext({
@@ -44,8 +61,17 @@ export function autoLinkContextFromQuery(
           relevanceScore,
         });
       } catch (error) {
-        // Silently ignore errors (e.g., duplicate links)
-        // This is fire-and-forget operation
+        // Log error but don't throw - this is fire-and-forget operation
+        // Common expected errors: duplicate links (UNIQUE constraint)
+        const message = error instanceof Error ? error.message : String(error);
+        const isDuplicate = message.includes('UNIQUE constraint');
+        if (!isDuplicate) {
+          // Only log unexpected errors to avoid noise from expected duplicates
+          logger.debug(
+            { conversationId, entryType, entryId, error: message },
+            'Failed to link context entry'
+          );
+        }
       }
     }
   }

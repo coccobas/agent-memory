@@ -2,6 +2,35 @@
  * Error utilities for consistent error handling and messaging
  */
 
+import { config } from '../config/index.js';
+
+// Security: Check if running in production mode
+const isProduction = config.runtime.nodeEnv === 'production';
+
+/**
+ * Sanitize error messages to remove sensitive information in production.
+ * This prevents exposure of internal paths, stack traces, and system details.
+ *
+ * Security: Prevents information disclosure attacks.
+ */
+function sanitizeErrorMessage(message: string): string {
+  if (!isProduction) {
+    return message; // Show full details in development
+  }
+
+  // Redact file system paths (Unix and Windows)
+  let sanitized = message
+    // Unix paths: /Users/..., /home/..., /var/..., /etc/...
+    .replace(/\/(?:Users|home|var|tmp|etc|opt|usr|private)\/[^\s:,)'"]+/gi, '[REDACTED_PATH]')
+    // Windows paths: C:\Users\..., D:\...
+    .replace(/[A-Z]:\\[^\s:,)'"]+/gi, '[REDACTED_PATH]')
+    // Stack trace lines
+    .replace(/at\s+[\w.<>]+\s+\([^)]+\)/g, '[REDACTED_STACK]')
+    .replace(/at\s+[^\s]+:[0-9]+:[0-9]+/g, '[REDACTED_STACK]');
+
+  return sanitized;
+}
+
 export class AgentMemoryError extends Error {
   constructor(
     message: string,
@@ -188,6 +217,9 @@ export function createExtractionUnavailableError(): AgentMemoryError {
 
 /**
  * Format error for MCP response
+ *
+ * Security: Sanitizes error messages in production to prevent
+ * information disclosure (file paths, stack traces, system details).
  */
 export function formatError(error: unknown): {
   error: string;
@@ -195,18 +227,31 @@ export function formatError(error: unknown): {
   context?: Record<string, unknown>;
 } {
   if (error instanceof AgentMemoryError) {
-    return error.toJSON();
+    const json = error.toJSON();
+    return {
+      ...json,
+      error: sanitizeErrorMessage(json.error),
+      // Also sanitize any context fields that might contain paths
+      context: json.context
+        ? Object.fromEntries(
+            Object.entries(json.context).map(([k, v]) => [
+              k,
+              typeof v === 'string' ? sanitizeErrorMessage(v) : v,
+            ])
+          )
+        : undefined,
+    };
   }
 
   if (error instanceof Error) {
     return {
-      error: error.message,
+      error: sanitizeErrorMessage(error.message),
       code: ErrorCodes.INTERNAL_ERROR,
     };
   }
 
   return {
-    error: String(error),
+    error: sanitizeErrorMessage(String(error)),
     code: ErrorCodes.UNKNOWN_ERROR,
   };
 }

@@ -31,13 +31,17 @@ import { tagHandlers } from '../../src/mcp/handlers/tags.handler.js';
 import { relationHandlers } from '../../src/mcp/handlers/relations.handler.js';
 
 describe('memory_query integration', () => {
+  const AGENT_ID = 'agent-1';
   let orgId: string;
   let projectId: string;
   let sessionId: string;
   let toolId: string;
   let guidelineId: string;
+  let previousPermMode: string | undefined;
 
   beforeAll(() => {
+    previousPermMode = process.env.AGENT_MEMORY_PERMISSIONS_MODE;
+    process.env.AGENT_MEMORY_PERMISSIONS_MODE = 'permissive';
     const testDb = setupTestDb(TEST_DB_PATH);
     sqlite = testDb.sqlite;
     db = testDb.db;
@@ -78,6 +82,7 @@ describe('memory_query integration', () => {
 
     // Create relation
     relationHandlers.create({
+      agentId: AGENT_ID,
       sourceType: 'tool',
       sourceId: toolId,
       targetType: 'guideline',
@@ -86,10 +91,15 @@ describe('memory_query integration', () => {
     });
 
     // Attach tags
-    tagHandlers.attach({ entryType: 'guideline', entryId: guidelineId, tagName: 'security' });
+    tagHandlers.attach({ agentId: AGENT_ID, entryType: 'guideline', entryId: guidelineId, tagName: 'security' });
   });
 
   afterAll(() => {
+    if (previousPermMode === undefined) {
+      delete process.env.AGENT_MEMORY_PERMISSIONS_MODE;
+    } else {
+      process.env.AGENT_MEMORY_PERMISSIONS_MODE = previousPermMode;
+    }
     sqlite.close();
     cleanupTestDb(TEST_DB_PATH);
   });
@@ -97,6 +107,7 @@ describe('memory_query integration', () => {
   describe('Basic queries', () => {
     it('should query guidelines by type', async () => {
       const response = await queryHandlers.query({
+        agentId: AGENT_ID,
         types: ['guidelines'],
         scope: { type: 'global', inherit: true },
         limit: 10,
@@ -108,6 +119,7 @@ describe('memory_query integration', () => {
 
     it('should query tools by type', async () => {
       const response = await queryHandlers.query({
+        agentId: AGENT_ID,
         types: ['tools'],
         scope: { type: 'global', inherit: true },
         limit: 10,
@@ -119,6 +131,7 @@ describe('memory_query integration', () => {
 
     it('should query multiple types', async () => {
       const response = await queryHandlers.query({
+        agentId: AGENT_ID,
         types: ['tools', 'guidelines'],
         scope: { type: 'global', inherit: true },
         limit: 10,
@@ -132,12 +145,13 @@ describe('memory_query integration', () => {
   });
 
   describe('Scope inheritance', () => {
-    it('should inherit from session to project to org to global', async () => {
-      const response = await queryHandlers.query({
-        types: ['guidelines'],
-        scope: { type: 'session', id: sessionId, inherit: true },
-        limit: 10,
-      });
+	    it('should inherit from session to project to org to global', async () => {
+	      const response = await queryHandlers.query({
+	        agentId: AGENT_ID,
+	        types: ['guidelines'],
+	        scope: { type: 'session', id: sessionId, inherit: true },
+	        limit: 10,
+	      });
 
       // Should find both global and project-level guidelines
       expect(response.results.length).toBeGreaterThan(0);
@@ -148,12 +162,13 @@ describe('memory_query integration', () => {
       expect(hasGlobal || hasProject).toBe(true);
     });
 
-    it('should not inherit when inherit is false', async () => {
-      const response = await queryHandlers.query({
-        types: ['guidelines'],
-        scope: { type: 'session', id: sessionId, inherit: false },
-        limit: 10,
-      });
+	    it('should not inherit when inherit is false', async () => {
+	      const response = await queryHandlers.query({
+	        agentId: AGENT_ID,
+	        types: ['guidelines'],
+	        scope: { type: 'session', id: sessionId, inherit: false },
+	        limit: 10,
+	      });
 
       // Should only find session-level (none in this case)
       const sessionLevel = response.results.filter(
@@ -164,13 +179,14 @@ describe('memory_query integration', () => {
   });
 
   describe('Tag filtering', () => {
-    it('should filter by require tags', async () => {
-      const response = await queryHandlers.query({
-        types: ['guidelines'],
-        scope: { type: 'global', inherit: true },
-        tags: { require: ['security'] },
-        limit: 10,
-      });
+	    it('should filter by require tags', async () => {
+	      const response = await queryHandlers.query({
+	        agentId: AGENT_ID,
+	        types: ['guidelines'],
+	        scope: { type: 'global', inherit: true },
+	        tags: { require: ['security'] },
+	        limit: 10,
+	      });
 
       expect(response.results.length).toBeGreaterThan(0);
       response.results.forEach((r) => {
@@ -181,13 +197,14 @@ describe('memory_query integration', () => {
       });
     });
 
-    it('should filter by include tags', async () => {
-      const response = await queryHandlers.query({
-        types: ['guidelines'],
-        scope: { type: 'global', inherit: true },
-        tags: { include: ['security', 'required'] },
-        limit: 10,
-      });
+	    it('should filter by include tags', async () => {
+	      const response = await queryHandlers.query({
+	        agentId: AGENT_ID,
+	        types: ['guidelines'],
+	        scope: { type: 'global', inherit: true },
+	        tags: { include: ['security', 'required'] },
+	        limit: 10,
+	      });
 
       expect(response.results.length).toBeGreaterThan(0);
       response.results.forEach((r) => {
@@ -201,14 +218,15 @@ describe('memory_query integration', () => {
     it('should filter by exclude tags', async () => {
       // First attach deprecated tag to a guideline
       const { guideline } = createTestGuideline(db, 'deprecated_guideline');
-      tagHandlers.attach({ entryType: 'guideline', entryId: guideline.id, tagName: 'deprecated' });
+      tagHandlers.attach({ agentId: AGENT_ID, entryType: 'guideline', entryId: guideline.id, tagName: 'deprecated' });
 
-      const response = await queryHandlers.query({
-        types: ['guidelines'],
-        scope: { type: 'global', inherit: true },
-        tags: { exclude: ['deprecated'] },
-        limit: 10,
-      });
+	      const response = await queryHandlers.query({
+	        agentId: AGENT_ID,
+	        types: ['guidelines'],
+	        scope: { type: 'global', inherit: true },
+	        tags: { exclude: ['deprecated'] },
+	        limit: 10,
+	      });
 
       response.results.forEach((r) => {
         if (r.type === 'guideline') {
@@ -220,13 +238,14 @@ describe('memory_query integration', () => {
   });
 
   describe('Text search', () => {
-    it('should search by text in content', async () => {
-      const response = await queryHandlers.query({
-        types: ['guidelines'],
-        scope: { type: 'global', inherit: true },
-        search: 'parameterized',
-        limit: 10,
-      });
+	    it('should search by text in content', async () => {
+	      const response = await queryHandlers.query({
+	        agentId: AGENT_ID,
+	        types: ['guidelines'],
+	        scope: { type: 'global', inherit: true },
+	        search: 'parameterized',
+	        limit: 10,
+	      });
 
       expect(response.results.length).toBeGreaterThan(0);
       const found = response.results.find(
@@ -235,13 +254,14 @@ describe('memory_query integration', () => {
       expect(found).toBeDefined();
     });
 
-    it('should search by name', async () => {
-      const response = await queryHandlers.query({
-        types: ['tools'],
-        scope: { type: 'global', inherit: true },
-        search: 'sql',
-        limit: 10,
-      });
+	    it('should search by name', async () => {
+	      const response = await queryHandlers.query({
+	        agentId: AGENT_ID,
+	        types: ['tools'],
+	        scope: { type: 'global', inherit: true },
+	        search: 'sql',
+	        limit: 10,
+	      });
 
       expect(response.results.length).toBeGreaterThan(0);
       const found = response.results.find((r) => r.type === 'tool' && r.tool.id === toolId);
@@ -250,12 +270,13 @@ describe('memory_query integration', () => {
   });
 
   describe('Relation-based queries', () => {
-    it('should find related entries', async () => {
-      const response = await queryHandlers.query({
-        types: ['guidelines'],
-        relatedTo: {
-          type: 'tool',
-          id: toolId,
+	    it('should find related entries', async () => {
+	      const response = await queryHandlers.query({
+	        agentId: AGENT_ID,
+	        types: ['guidelines'],
+	        relatedTo: {
+	          type: 'tool',
+	          id: toolId,
           relation: 'applies_to',
         },
         limit: 10,
@@ -270,12 +291,13 @@ describe('memory_query integration', () => {
   });
 
   describe('Compact mode', () => {
-    it('should return minimal data in compact mode', async () => {
-      const response = await queryHandlers.query({
-        types: ['guidelines'],
-        scope: { type: 'global', inherit: true },
-        compact: true,
-        limit: 10,
+	    it('should return minimal data in compact mode', async () => {
+	      const response = await queryHandlers.query({
+	        agentId: AGENT_ID,
+	        types: ['guidelines'],
+	        scope: { type: 'global', inherit: true },
+	        compact: true,
+	        limit: 10,
       });
 
       expect(response.results.length).toBeGreaterThan(0);
@@ -292,23 +314,25 @@ describe('memory_query integration', () => {
   });
 
   describe('Pagination', () => {
-    it('should respect limit', async () => {
-      const response = await queryHandlers.query({
-        types: ['guidelines'],
-        scope: { type: 'global', inherit: true },
-        limit: 2,
-      });
+	    it('should respect limit', async () => {
+	      const response = await queryHandlers.query({
+	        agentId: AGENT_ID,
+	        types: ['guidelines'],
+	        scope: { type: 'global', inherit: true },
+	        limit: 2,
+	      });
 
       expect(response.results.length).toBeLessThanOrEqual(2);
       expect(response.meta.returnedCount).toBeLessThanOrEqual(2);
     });
 
-    it('should provide pagination metadata', async () => {
-      const response = await queryHandlers.query({
-        types: ['guidelines'],
-        scope: { type: 'global', inherit: true },
-        limit: 10,
-      });
+	    it('should provide pagination metadata', async () => {
+	      const response = await queryHandlers.query({
+	        agentId: AGENT_ID,
+	        types: ['guidelines'],
+	        scope: { type: 'global', inherit: true },
+	        limit: 10,
+	      });
 
       expect(response.meta).toBeDefined();
       expect(response.meta.returnedCount).toBeDefined();
@@ -317,12 +341,13 @@ describe('memory_query integration', () => {
   });
 
   describe('Relevance scoring', () => {
-    it('should return results with scores', async () => {
-      const response = await queryHandlers.query({
-        types: ['guidelines'],
-        scope: { type: 'global', inherit: true },
-        limit: 10,
-      });
+	    it('should return results with scores', async () => {
+	      const response = await queryHandlers.query({
+	        agentId: AGENT_ID,
+	        types: ['guidelines'],
+	        scope: { type: 'global', inherit: true },
+	        limit: 10,
+	      });
 
       expect(response.results.length).toBeGreaterThan(0);
       response.results.forEach((r) => {
@@ -331,12 +356,13 @@ describe('memory_query integration', () => {
       });
     });
 
-    it('should order results by relevance score', async () => {
-      const response = await queryHandlers.query({
-        types: ['guidelines'],
-        scope: { type: 'global', inherit: true },
-        limit: 10,
-      });
+	    it('should order results by relevance score', async () => {
+	      const response = await queryHandlers.query({
+	        agentId: AGENT_ID,
+	        types: ['guidelines'],
+	        scope: { type: 'global', inherit: true },
+	        limit: 10,
+	      });
 
       if (response.results.length > 1) {
         for (let i = 0; i < response.results.length - 1; i++) {

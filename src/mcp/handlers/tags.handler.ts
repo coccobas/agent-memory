@@ -12,9 +12,12 @@ import {
   isNumber,
   isTagCategory,
 } from '../../utils/type-guards.js';
+import { requireEntryPermission } from '../../utils/entry-access.js';
 
 export const tagHandlers = {
   create(params: Record<string, unknown>) {
+    // Require caller identity for auditing consistency (even though tags aren't permissioned directly)
+    getRequiredParam(params, 'agentId', isString);
     const name = getRequiredParam(params, 'name', isString);
     const category = getOptionalParam(params, 'category', isTagCategory);
     const description = getOptionalParam(params, 'description', isString);
@@ -36,6 +39,7 @@ export const tagHandlers = {
   },
 
   list(params: Record<string, unknown>) {
+    getRequiredParam(params, 'agentId', isString);
     const category = getOptionalParam(params, 'category', isTagCategory);
     const isPredefined = getOptionalParam(params, 'isPredefined', isBoolean);
     const limit = getOptionalParam(params, 'limit', isNumber);
@@ -51,8 +55,11 @@ export const tagHandlers = {
   },
 
   attach(params: Record<string, unknown>) {
+    const agentId = getRequiredParam(params, 'agentId', isString);
     const entryType = getRequiredParam(params, 'entryType', isEntryType);
     const entryId = getRequiredParam(params, 'entryId', isString);
+
+    requireEntryPermission({ agentId, action: 'write', entryType, entryId });
 
     const tagId = getOptionalParam(params, 'tagId', isString);
     const tagName = getOptionalParam(params, 'tagName', isString);
@@ -72,17 +79,23 @@ export const tagHandlers = {
   },
 
   detach(params: Record<string, unknown>) {
+    const agentId = getRequiredParam(params, 'agentId', isString);
     const entryType = getRequiredParam(params, 'entryType', isEntryType);
     const entryId = getRequiredParam(params, 'entryId', isString);
     const tagId = getRequiredParam(params, 'tagId', isString);
+
+    requireEntryPermission({ agentId, action: 'write', entryType, entryId });
 
     const success = entryTagRepo.detach(entryType, entryId, tagId);
     return { success };
   },
 
   forEntry(params: Record<string, unknown>) {
+    const agentId = getRequiredParam(params, 'agentId', isString);
     const entryType = getRequiredParam(params, 'entryType', isEntryType);
     const entryId = getRequiredParam(params, 'entryId', isString);
+
+    requireEntryPermission({ agentId, action: 'read', entryType, entryId });
 
     const tags = entryTagRepo.getTagsForEntry(entryType, entryId);
     return { tags };

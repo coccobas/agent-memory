@@ -24,64 +24,91 @@ function escapeFts5Query(input: string): string {
 }
 
 /**
- * Calculate Levenshtein distance between two strings
+ * Calculate Levenshtein distance with early termination optimization
+ *
+ * When maxDistance is provided, the algorithm exits early if the minimum
+ * possible distance in the current row exceeds the threshold. This reduces
+ * time complexity from O(n×m) to O(n×k) where k is the distance threshold.
+ *
+ * @param str1 - First string
+ * @param str2 - Second string
+ * @param maxDistance - Optional maximum distance threshold for early termination
+ * @returns The Levenshtein distance, or maxDistance+1 if threshold exceeded
  */
-function levenshteinDistance(str1: string, str2: string): number {
-  const len1 = str1.length;
-  const len2 = str2.length;
-  const matrix: number[][] = [];
-
-  for (let i = 0; i <= len1; i++) {
-    matrix[i] = [i];
+function levenshteinDistance(str1: string, str2: string, maxDistance?: number): number {
+  // Iterative swap to ensure str1 is shorter (avoids tail recursion)
+  let s1 = str1;
+  let s2 = str2;
+  if (s1.length > s2.length) {
+    [s1, s2] = [s2, s1];
   }
 
-  for (let j = 0; j <= len2; j++) {
-    const row0 = matrix[0];
-    if (row0) {
-      row0[j] = j;
-    }
+  const len1 = s1.length;
+  const len2 = s2.length;
+
+  // Early termination: if length difference exceeds maxDistance, no need to compute
+  if (maxDistance !== undefined && len2 - len1 > maxDistance) {
+    return maxDistance + 1;
   }
 
-  for (let i = 1; i <= len1; i++) {
-    const row = matrix[i];
-    if (!row) continue;
-    for (let j = 1; j <= len2; j++) {
-      if (str1[i - 1] === str2[j - 1]) {
-        const prevRow = matrix[i - 1];
-        const prevVal = prevRow?.[j - 1];
-        if (prevVal !== undefined) {
-          row[j] = prevVal;
-        }
-      } else {
-        const prevRow = matrix[i - 1];
-        const currentRow = matrix[i];
-        const val1 = prevRow?.[j];
-        const val2 = currentRow?.[j - 1];
-        const val3 = prevRow?.[j - 1];
-        if (val1 !== undefined && val2 !== undefined && val3 !== undefined) {
-          row[j] = Math.min(
-            val1 + 1, // deletion
-            val2 + 1, // insertion
-            val3 + 1 // substitution
-          );
-        }
+  // Use single row optimization (O(min(m,n)) space instead of O(m×n))
+  let prevRow: number[] = Array(len1 + 1)
+    .fill(0)
+    .map((_, i) => i);
+  let currRow: number[] = Array(len1 + 1).fill(0);
+
+  for (let j = 1; j <= len2; j++) {
+    currRow[0] = j;
+    let rowMin = j; // Track minimum value in current row for early termination
+
+    for (let i = 1; i <= len1; i++) {
+      const cost = s1[i - 1] === s2[j - 1] ? 0 : 1;
+
+      currRow[i] = Math.min(
+        (prevRow[i] ?? 0) + 1, // deletion
+        (currRow[i - 1] ?? 0) + 1, // insertion
+        (prevRow[i - 1] ?? 0) + cost // substitution
+      );
+
+      if (currRow[i]! < rowMin) {
+        rowMin = currRow[i]!;
       }
     }
+
+    // Early termination: if minimum possible distance exceeds threshold, abort
+    if (maxDistance !== undefined && rowMin > maxDistance) {
+      return maxDistance + 1;
+    }
+
+    // Swap rows
+    [prevRow, currRow] = [currRow, prevRow];
   }
 
-  const finalRow = matrix[len1];
-  const finalVal = finalRow?.[len2];
-  return finalVal ?? 0;
+  return prevRow[len1] ?? 0;
 }
 
 /**
  * Calculate similarity score (0-1) between two strings
+ * Uses early termination for efficiency when checking against a threshold
+ *
+ * @param str1 - First string
+ * @param str2 - Second string
+ * @param minSimilarity - Optional minimum similarity for early termination (default: 0.8)
  */
-function calculateSimilarity(str1: string, str2: string): number {
+function calculateSimilarity(str1: string, str2: string, minSimilarity: number = 0.8): number {
   const maxLen = Math.max(str1.length, str2.length);
   if (maxLen === 0) return 1.0;
 
-  const distance = levenshteinDistance(str1.toLowerCase(), str2.toLowerCase());
+  // Calculate max allowed distance for early termination
+  const maxAllowedDistance = Math.floor(maxLen * (1 - minSimilarity));
+
+  const distance = levenshteinDistance(str1.toLowerCase(), str2.toLowerCase(), maxAllowedDistance);
+
+  // If distance exceeded threshold, return low similarity
+  if (distance > maxAllowedDistance) {
+    return 1 - distance / maxLen;
+  }
+
   return 1 - distance / maxLen;
 }
 

@@ -20,13 +20,22 @@ import { conflictHandlers } from '../../src/mcp/handlers/conflicts.handler.js';
 import { toolHandlers } from '../../src/mcp/handlers/tools.handler.js';
 
 describe('Conflicts Integration', () => {
+  const AGENT_ID = 'agent-1';
+  let previousPermMode: string | undefined;
   beforeAll(() => {
+    previousPermMode = process.env.AGENT_MEMORY_PERMISSIONS_MODE;
+    process.env.AGENT_MEMORY_PERMISSIONS_MODE = 'permissive';
     const testDb = setupTestDb(TEST_DB_PATH);
     sqlite = testDb.sqlite;
     db = testDb.db;
   });
 
   afterAll(() => {
+    if (previousPermMode === undefined) {
+      delete process.env.AGENT_MEMORY_PERMISSIONS_MODE;
+    } else {
+      process.env.AGENT_MEMORY_PERMISSIONS_MODE = previousPermMode;
+    }
     sqlite.close();
     cleanupTestDb(TEST_DB_PATH);
   });
@@ -83,6 +92,7 @@ describe('Conflicts Integration', () => {
 
       // First update
       toolHandlers.update({
+        agentId: AGENT_ID,
         id: tool.id,
         description: 'First update',
         changeReason: 'First change',

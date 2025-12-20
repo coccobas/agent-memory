@@ -4,7 +4,11 @@
  * Supports importing entries from JSON, YAML, and Markdown formats
  */
 
+import { config } from '../config/index.js';
 import { toolRepo, type CreateToolInput, type UpdateToolInput } from '../db/repositories/tools.js';
+
+// Security: Maximum import content size to prevent DoS attacks
+const MAX_IMPORT_CONTENT_SIZE = config.validation.contentMaxLength * 10; // 10x content limit (~500KB default)
 import {
   guidelineRepo,
   type CreateGuidelineInput,
@@ -98,6 +102,16 @@ export function importFromJson(content: string, options: ImportOptions = {}): Im
       knowledge: { created: 0, updated: 0, skipped: 0 },
     },
   };
+
+  // Security: Limit import content size to prevent DoS
+  if (content.length > MAX_IMPORT_CONTENT_SIZE) {
+    result.success = false;
+    result.errors.push({
+      entry: 'import',
+      error: `Import content exceeds maximum size of ${MAX_IMPORT_CONTENT_SIZE} bytes (got ${content.length})`,
+    });
+    return result;
+  }
 
   let data: ImportData;
   try {
@@ -512,6 +526,16 @@ export function importFromOpenAPI(content: string, options: ImportOptions = {}):
       knowledge: { created: 0, updated: 0, skipped: 0 },
     },
   };
+
+  // Security: Limit import content size to prevent DoS
+  if (content.length > MAX_IMPORT_CONTENT_SIZE) {
+    result.success = false;
+    result.errors.push({
+      entry: 'import',
+      error: `Import content exceeds maximum size of ${MAX_IMPORT_CONTENT_SIZE} bytes (got ${content.length})`,
+    });
+    return result;
+  }
 
   let openApiSpec: {
     openapi?: string;

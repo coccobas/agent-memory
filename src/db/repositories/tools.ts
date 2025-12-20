@@ -1,9 +1,13 @@
-import { eq, and, isNull, desc } from 'drizzle-orm';
+import { eq, and, isNull, desc, asc, inArray, or } from 'drizzle-orm';
 import { getDb } from '../connection.js';
 import {
   tools,
   toolVersions,
   conflictLog,
+  entryTags,
+  entryRelations,
+  entryEmbeddings,
+  permissions,
   type Tool,
   type NewTool,
   type ToolVersion,
@@ -271,13 +275,27 @@ export const toolRepo = {
 
     const toolsList = query.limit(limit).offset(offset).all();
 
-    // Fetch current versions
-    return toolsList.map((tool) => {
-      const currentVersion = tool.currentVersionId
-        ? db.select().from(toolVersions).where(eq(toolVersions.id, tool.currentVersionId)).get()
-        : undefined;
-      return { ...tool, currentVersion };
-    });
+    // Batch fetch current versions to avoid N+1 queries
+    const versionIds = toolsList
+      .map((t) => t.currentVersionId)
+      .filter((id): id is string => id !== null && id !== undefined);
+
+    const versionsMap = new Map<string, ToolVersion>();
+    if (versionIds.length > 0) {
+      const versionsList = db
+        .select()
+        .from(toolVersions)
+        .where(inArray(toolVersions.id, versionIds))
+        .all();
+      for (const v of versionsList) {
+        versionsMap.set(v.id, v);
+      }
+    }
+
+    return toolsList.map((tool) => ({
+      ...tool,
+      currentVersion: tool.currentVersionId ? versionsMap.get(tool.currentVersionId) : undefined,
+    }));
   },
 
   /**
@@ -367,7 +385,7 @@ export const toolRepo = {
    * Get version history for a tool
    *
    * @param toolId - The tool ID
-   * @returns Array of all versions for the tool, ordered by version number (newest first)
+   * @returns Array of all versions for the tool, ordered by version number (oldest first)
    */
   getHistory(toolId: string): ToolVersion[] {
     const db = getDb();
@@ -375,7 +393,7 @@ export const toolRepo = {
       .select()
       .from(toolVersions)
       .where(eq(toolVersions.toolId, toolId))
-      .orderBy(desc(toolVersions.versionNum))
+      .orderBy(asc(toolVersions.versionNum))
       .all();
   },
 
@@ -388,7 +406,21 @@ export const toolRepo = {
   deactivate(id: string): boolean {
     const db = getDb();
     const result = db.update(tools).set({ isActive: false }).where(eq(tools.id, id)).run();
-    return result.changes > 0;
+    const success = result.changes > 0;
+
+    // Remove from vector search when deactivated (async, fire-and-forget)
+    if (success) {
+      void (async () => {
+        try {
+          const vectorService = getVectorService();
+          await vectorService.removeEmbedding('tool', id);
+        } catch {
+          // Error already logged in vector service
+        }
+      })();
+    }
+
+    return success;
   },
 
   /**
@@ -404,16 +436,42 @@ export const toolRepo = {
   },
 
   /**
-   * Hard delete a tool and all versions
+   * Hard delete a tool and all related records (versions, tags, relations, embeddings, permissions)
    */
   delete(id: string): boolean {
     const result = transaction(() => {
       const db = getDb();
 
-      // Delete versions first
+      // Delete related records first (cascade cleanup)
+      // 1. Delete tags associated with this entry
+      db.delete(entryTags)
+        .where(and(eq(entryTags.entryType, 'tool'), eq(entryTags.entryId, id)))
+        .run();
+
+      // 2. Delete relations where this entry is source or target
+      db.delete(entryRelations)
+        .where(
+          or(
+            and(eq(entryRelations.sourceType, 'tool'), eq(entryRelations.sourceId, id)),
+            and(eq(entryRelations.targetType, 'tool'), eq(entryRelations.targetId, id))
+          )
+        )
+        .run();
+
+      // 3. Delete embedding tracking records
+      db.delete(entryEmbeddings)
+        .where(and(eq(entryEmbeddings.entryType, 'tool'), eq(entryEmbeddings.entryId, id)))
+        .run();
+
+      // 4. Delete entry-specific permissions
+      db.delete(permissions)
+        .where(and(eq(permissions.entryType, 'tool'), eq(permissions.entryId, id)))
+        .run();
+
+      // 5. Delete versions
       db.delete(toolVersions).where(eq(toolVersions.toolId, id)).run();
 
-      // Delete tool
+      // 6. Delete tool
       const deleteResult = db.delete(tools).where(eq(tools.id, id)).run();
       return deleteResult.changes > 0;
     });

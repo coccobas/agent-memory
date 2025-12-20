@@ -13,6 +13,7 @@ import {
 } from '../../services/import.service.js';
 import { createValidationError } from '../errors.js';
 import type { ScopeType } from '../../db/schema.js';
+import { requireAdminKey } from '../../utils/admin.js';
 
 interface ImportParams {
   content: string;
@@ -27,6 +28,7 @@ interface ImportParams {
  * Import entries from specified format
  */
 function importEntries(params: Record<string, unknown>) {
+  requireAdminKey(params);
   const importParams = params as unknown as ImportParams;
 
   if (!importParams.content) {

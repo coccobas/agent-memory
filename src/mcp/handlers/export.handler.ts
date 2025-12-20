@@ -14,8 +14,11 @@ import {
   exportToOpenAPI,
   type ExportOptions,
 } from '../../services/export.service.js';
-import { createValidationError } from '../errors.js';
+import { createPermissionError, createValidationError } from '../errors.js';
 import { config } from '../../config/index.js';
+import { checkPermission } from '../../services/permission.service.js';
+import { getRequiredParam, isString } from '../../utils/type-guards.js';
+import { requireAdminKey } from '../../utils/admin.js';
 
 interface ExportParams {
   types?: ('tools' | 'guidelines' | 'knowledge')[];
@@ -35,10 +38,28 @@ interface ExportParams {
 function exportEntries(params: Record<string, unknown>) {
   const exportParams = params as unknown as ExportParams;
   const format = exportParams.format || 'json';
+  const agentId = getRequiredParam(params, 'agentId', isString);
 
   // Validate format
   if (!['json', 'markdown', 'yaml', 'openapi'].includes(format)) {
     throw createValidationError('format', 'must be json, markdown, yaml, or openapi');
+  }
+
+  // Permission check (read)
+  const scopeType = exportParams.scopeType ?? 'global';
+  const scopeId = exportParams.scopeId;
+  const requestedTypes = exportParams.types ?? (['tools', 'guidelines', 'knowledge'] as const);
+  const typeToEntryType = {
+    tools: 'tool',
+    guidelines: 'guideline',
+    knowledge: 'knowledge',
+  } as const;
+
+  const denied = requestedTypes.filter(
+    (t) => !checkPermission(agentId, 'read', typeToEntryType[t], null, scopeType, scopeId ?? null)
+  );
+  if (denied.length > 0) {
+    throw createPermissionError('read', 'export', denied.join(','));
   }
 
   const options: ExportOptions = {
@@ -71,6 +92,8 @@ function exportEntries(params: Record<string, unknown>) {
   // If filename provided, save to export directory
   let filePath: string | undefined;
   if (exportParams.filename) {
+    // Writing exports to disk is a high-impact operation; require admin key.
+    requireAdminKey(params);
     const exportDir = config.paths.export;
 
     // Ensure export directory exists

@@ -6,6 +6,7 @@
 
 import { getSqlite } from '../../db/connection.js';
 import { initializeDatabase, getMigrationStatus, resetDatabase } from '../../db/init.js';
+import { requireAdminKey } from '../../utils/admin.js';
 
 interface InitParams {
   force?: boolean;
@@ -25,6 +26,7 @@ interface ResetParams {
  * Initialize or re-initialize the database
  */
 function init(params: InitParams) {
+  requireAdminKey(params as unknown as Record<string, unknown>);
   const sqlite = getSqlite();
   const result = initializeDatabase(sqlite, {
     force: params.force ?? false,
@@ -94,6 +96,7 @@ function status(_params: StatusParams) {
  * WARNING: This deletes all data!
  */
 function reset(params: ResetParams) {
+  requireAdminKey(params as unknown as Record<string, unknown>);
   if (!params.confirm) {
     return {
       success: false,

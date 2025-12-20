@@ -24,13 +24,22 @@ vi.mock('../../src/db/connection.js', async () => {
 import { guidelineHandlers } from '../../src/mcp/handlers/guidelines.handler.js';
 
 describe('Guidelines Integration', () => {
+  const AGENT_ID = 'agent-1';
+  let previousPermMode: string | undefined;
   beforeAll(() => {
+    previousPermMode = process.env.AGENT_MEMORY_PERMISSIONS_MODE;
+    process.env.AGENT_MEMORY_PERMISSIONS_MODE = 'permissive';
     const testDb = setupTestDb(TEST_DB_PATH);
     sqlite = testDb.sqlite;
     db = testDb.db;
   });
 
   afterAll(() => {
+    if (previousPermMode === undefined) {
+      delete process.env.AGENT_MEMORY_PERMISSIONS_MODE;
+    } else {
+      process.env.AGENT_MEMORY_PERMISSIONS_MODE = previousPermMode;
+    }
     sqlite.close();
     cleanupTestDb(TEST_DB_PATH);
   });
@@ -38,6 +47,7 @@ describe('Guidelines Integration', () => {
   describe('memory_guideline_add', () => {
     it('should add a guideline with all fields', () => {
       const result = guidelineHandlers.add({
+        agentId: AGENT_ID,
         scopeType: 'global',
         name: 'test_guideline',
         category: 'security',
@@ -57,6 +67,7 @@ describe('Guidelines Integration', () => {
     it('should add guideline at project scope', () => {
       const project = createTestProject(db);
       const result = guidelineHandlers.add({
+        agentId: AGENT_ID,
         scopeType: 'project',
         scopeId: project.id,
         name: 'project_guideline',
@@ -71,19 +82,19 @@ describe('Guidelines Integration', () => {
 
     it('should require scopeType', () => {
       expect(() => {
-        guidelineHandlers.add({ name: 'test', content: 'content' });
+        guidelineHandlers.add({ agentId: AGENT_ID, name: 'test', content: 'content' });
       }).toThrow(/scopeType.*required/i);
     });
 
     it('should require name', () => {
       expect(() => {
-        guidelineHandlers.add({ scopeType: 'global', content: 'content' });
+        guidelineHandlers.add({ agentId: AGENT_ID, scopeType: 'global', content: 'content' });
       }).toThrow(/name.*required/i);
     });
 
     it('should require content', () => {
       expect(() => {
-        guidelineHandlers.add({ scopeType: 'global', name: 'test' });
+        guidelineHandlers.add({ agentId: AGENT_ID, scopeType: 'global', name: 'test' });
       }).toThrow(/content.*required/i);
     });
   });
@@ -101,6 +112,7 @@ describe('Guidelines Integration', () => {
       const originalVersionId = guideline.currentVersionId;
 
       const result = guidelineHandlers.update({
+        agentId: AGENT_ID,
         id: guideline.id,
         content: 'Updated content',
         priority: 95,
@@ -122,7 +134,7 @@ describe('Guidelines Integration', () => {
   describe('memory_guideline_get', () => {
     it('should get guideline by ID', () => {
       const { guideline } = createTestGuideline(db, 'get_test');
-      const result = guidelineHandlers.get({ id: guideline.id });
+      const result = guidelineHandlers.get({ agentId: AGENT_ID, id: guideline.id });
 
       expect(result.guideline).toBeDefined();
       expect(result.guideline.id).toBe(guideline.id);
@@ -133,6 +145,7 @@ describe('Guidelines Integration', () => {
       const { guideline } = createTestGuideline(db, 'get_by_name', 'project', project.id);
 
       const result = guidelineHandlers.get({
+        agentId: AGENT_ID,
         name: 'get_by_name',
         scopeType: 'project',
         scopeId: project.id,
@@ -150,6 +163,7 @@ describe('Guidelines Integration', () => {
       createTestGuideline(db, 'guideline3', 'project', project.id);
 
       const result = guidelineHandlers.list({
+        agentId: AGENT_ID,
         scopeType: 'project',
         scopeId: project.id,
         limit: 10,
@@ -168,6 +182,7 @@ describe('Guidelines Integration', () => {
       createTestGuideline(db, 'behavior1', 'global', undefined, 'behavior');
 
       const result = guidelineHandlers.list({
+        agentId: AGENT_ID,
         scopeType: 'global',
         category: 'security',
         limit: 10,
@@ -183,14 +198,15 @@ describe('Guidelines Integration', () => {
   describe('memory_guideline_history', () => {
     it('should return version history', () => {
       const { guideline } = createTestGuideline(db, 'history_test');
-      guidelineHandlers.update({ id: guideline.id, content: 'Version 2', changeReason: 'Update' });
+      guidelineHandlers.update({ agentId: AGENT_ID, id: guideline.id, content: 'Version 2', changeReason: 'Update' });
       guidelineHandlers.update({
+        agentId: AGENT_ID,
         id: guideline.id,
         content: 'Version 3',
         changeReason: 'Another update',
       });
 
-      const result = guidelineHandlers.history({ id: guideline.id });
+      const result = guidelineHandlers.history({ agentId: AGENT_ID, id: guideline.id });
       expect(result.versions.length).toBeGreaterThanOrEqual(3);
     });
   });
@@ -198,11 +214,11 @@ describe('Guidelines Integration', () => {
   describe('memory_guideline_deactivate', () => {
     it('should deactivate a guideline', () => {
       const { guideline } = createTestGuideline(db, 'deactivate_test');
-      const result = guidelineHandlers.deactivate({ id: guideline.id });
+      const result = guidelineHandlers.deactivate({ agentId: AGENT_ID, id: guideline.id });
 
       expect(result.success).toBe(true);
 
-      const fetched = guidelineHandlers.get({ id: guideline.id });
+      const fetched = guidelineHandlers.get({ agentId: AGENT_ID, id: guideline.id });
       expect(fetched.guideline.isActive).toBe(false);
     });
   });

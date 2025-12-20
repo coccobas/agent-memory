@@ -61,7 +61,11 @@ class EmbeddingService {
 
     // Initialize OpenAI client if using OpenAI
     if (this.provider === 'openai' && config.embedding.openaiApiKey) {
-      this.openaiClient = new OpenAI({ apiKey: config.embedding.openaiApiKey });
+      this.openaiClient = new OpenAI({
+        apiKey: config.embedding.openaiApiKey,
+        timeout: 60000, // 60 second timeout to prevent indefinite hangs
+        maxRetries: 0, // Disable SDK retry - we handle retries with withRetry
+      });
     }
   }
 
@@ -117,7 +121,7 @@ class EmbeddingService {
       this.embeddingCache.delete(cacheKey);
       this.embeddingCache.set(cacheKey, cached);
       return {
-        embedding: cached,
+        embedding: [...cached], // Return a copy to prevent cache corruption
         model: this.provider === 'openai' ? this.openaiModel : this.localModelName,
         provider: this.provider,
       };
@@ -187,6 +191,13 @@ class EmbeddingService {
         this.embeddingCache.set(cacheKey, embedding);
       }
     });
+
+    // Evict excess entries after batch insert (critical fix for memory leak)
+    while (this.embeddingCache.size > this.maxCacheSize) {
+      const firstKey = this.embeddingCache.keys().next().value;
+      if (firstKey) this.embeddingCache.delete(firstKey);
+      else break;
+    }
 
     return {
       embeddings,
@@ -299,6 +310,25 @@ class EmbeddingService {
       );
     }
   }
+
+  /**
+   * Cleanup resources (unload local pipeline, clear cache)
+   * Call this when shutting down to prevent memory leaks
+   */
+  cleanup(): void {
+    // Clear embedding cache
+    this.embeddingCache.clear();
+
+    // Unload local pipeline if loaded
+    if (this.localPipeline) {
+      // The pipeline doesn't have an explicit unload, but setting to null
+      // allows garbage collection. For @xenova/transformers, the model
+      // will be garbage collected when no references remain.
+      this.localPipeline = null;
+      this.localPipelinePromise = null;
+      logger.debug('Local embedding pipeline unloaded');
+    }
+  }
 }
 
 // Singleton instance
@@ -316,8 +346,13 @@ export function getEmbeddingService(): EmbeddingService {
 
 /**
  * Reset the embedding service (useful for testing)
+ * Also cleans up resources before resetting
  */
 export function resetEmbeddingService(): void {
+  // Cleanup resources before resetting
+  if (embeddingService) {
+    embeddingService.cleanup();
+  }
   embeddingService = null;
   // Reset warning flag for tests
   hasWarnedAboutOpenAI = false;

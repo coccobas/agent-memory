@@ -69,7 +69,7 @@ describe('Conversations Integration', () => {
         agentId: 'agent-1',
       });
 
-      const result = conversationHandlers.addMessage({
+      const result = conversationHandlers.addMessage({ agentId: 'test-agent',
         conversationId: conversation.id,
         role: 'user',
         content: 'Hello, world!',
@@ -89,7 +89,7 @@ describe('Conversations Integration', () => {
         agentId: 'agent-1',
       });
 
-      const result = conversationHandlers.addMessage({
+      const result = conversationHandlers.addMessage({ agentId: 'test-agent',
         conversationId: conversation.id,
         role: 'agent',
         content: 'Response',
@@ -110,19 +110,19 @@ describe('Conversations Integration', () => {
 
     it('should require role', () => {
       const project = createTestProject(db);
-      const { conversation } = conversationHandlers.start({ projectId: project.id });
+      const { conversation } = conversationHandlers.start({ projectId: project.id, agentId: 'test-agent' });
 
       expect(() => {
-        conversationHandlers.addMessage({ conversationId: conversation.id, content: 'Hello' });
+        conversationHandlers.addMessage({ conversationId: conversation.id, content: 'Hello', agentId: 'test-agent' });
       }).toThrow(/role.*required/i);
     });
 
     it('should require content', () => {
       const project = createTestProject(db);
-      const { conversation } = conversationHandlers.start({ projectId: project.id });
+      const { conversation } = conversationHandlers.start({ projectId: project.id, agentId: 'test-agent' });
 
       expect(() => {
-        conversationHandlers.addMessage({ conversationId: conversation.id, role: 'user' });
+        conversationHandlers.addMessage({ conversationId: conversation.id, role: 'user', agentId: 'test-agent' });
       }).toThrow(/content.*required/i);
     });
   });
@@ -132,6 +132,7 @@ describe('Conversations Integration', () => {
       const project = createTestProject(db);
       const { conversation: created } = conversationHandlers.start({
         projectId: project.id,
+        agentId: 'test-agent',
         title: 'Get Test',
       });
 
@@ -144,8 +145,8 @@ describe('Conversations Integration', () => {
 
     it('should get with messages', () => {
       const project = createTestProject(db);
-      const { conversation } = conversationHandlers.start({ projectId: project.id });
-      conversationHandlers.addMessage({
+      const { conversation } = conversationHandlers.start({ projectId: project.id, agentId: 'test-agent' });
+      conversationHandlers.addMessage({ agentId: 'test-agent',
         conversationId: conversation.id,
         role: 'user',
         content: 'Message 1',
@@ -160,8 +161,8 @@ describe('Conversations Integration', () => {
     it('should get with context', () => {
       const project = createTestProject(db);
       const { knowledge } = createTestKnowledge(db, 'Test Knowledge');
-      const { conversation } = conversationHandlers.start({ projectId: project.id });
-      conversationHandlers.linkContext({
+      const { conversation } = conversationHandlers.start({ projectId: project.id, agentId: 'test-agent' });
+      conversationHandlers.linkContext({ agentId: 'test-agent',
         conversationId: conversation.id,
         entryType: 'knowledge',
         entryId: knowledge.id,
@@ -183,8 +184,8 @@ describe('Conversations Integration', () => {
   describe('memory_conversation_list', () => {
     it('should list conversations', () => {
       const project = createTestProject(db);
-      conversationHandlers.start({ projectId: project.id, title: 'Conv 1' });
-      conversationHandlers.start({ projectId: project.id, title: 'Conv 2' });
+      conversationHandlers.start({ projectId: project.id, agentId: 'test-agent', title: 'Conv 1' });
+      conversationHandlers.start({ projectId: project.id, agentId: 'test-agent', title: 'Conv 2' });
 
       const result = conversationHandlers.list({ projectId: project.id });
 
@@ -194,8 +195,8 @@ describe('Conversations Integration', () => {
 
     it('should filter by status', () => {
       const project = createTestProject(db);
-      const { conversation } = conversationHandlers.start({ projectId: project.id });
-      conversationHandlers.update({ id: conversation.id, status: 'completed' });
+      const { conversation } = conversationHandlers.start({ projectId: project.id, agentId: 'test-agent' });
+      conversationHandlers.update({ agentId: 'test-agent', id: conversation.id, status: 'completed' });
 
       const active = conversationHandlers.list({ projectId: project.id, status: 'active' });
       const completed = conversationHandlers.list({ projectId: project.id, status: 'completed' });
@@ -209,10 +210,12 @@ describe('Conversations Integration', () => {
       const project = createTestProject(db);
       const { conversation } = conversationHandlers.start({
         projectId: project.id,
+        agentId: 'test-agent',
         title: 'Original Title',
       });
 
       const result = conversationHandlers.update({
+        agentId: 'test-agent',
         id: conversation.id,
         title: 'Updated Title',
       });
@@ -232,9 +235,9 @@ describe('Conversations Integration', () => {
     it('should link entry', () => {
       const project = createTestProject(db);
       const { knowledge } = createTestKnowledge(db, 'Test Knowledge');
-      const { conversation } = conversationHandlers.start({ projectId: project.id });
+      const { conversation } = conversationHandlers.start({ projectId: project.id, agentId: 'test-agent' });
 
-      const result = conversationHandlers.linkContext({
+      const result = conversationHandlers.linkContext({ agentId: 'test-agent',
         conversationId: conversation.id,
         entryType: 'knowledge',
         entryId: knowledge.id,
@@ -257,8 +260,8 @@ describe('Conversations Integration', () => {
     it('should get context for entry', () => {
       const project = createTestProject(db);
       const { knowledge } = createTestKnowledge(db, 'Test Knowledge');
-      const { conversation } = conversationHandlers.start({ projectId: project.id });
-      conversationHandlers.linkContext({
+      const { conversation } = conversationHandlers.start({ projectId: project.id, agentId: 'test-agent' });
+      conversationHandlers.linkContext({ agentId: 'test-agent',
         conversationId: conversation.id,
         entryType: 'knowledge',
         entryId: knowledge.id,
@@ -277,8 +280,8 @@ describe('Conversations Integration', () => {
     it('should get context for conversation', () => {
       const project = createTestProject(db);
       const { knowledge } = createTestKnowledge(db, 'Test Knowledge');
-      const { conversation } = conversationHandlers.start({ projectId: project.id });
-      conversationHandlers.linkContext({
+      const { conversation } = conversationHandlers.start({ projectId: project.id, agentId: 'test-agent' });
+      conversationHandlers.linkContext({ agentId: 'test-agent',
         conversationId: conversation.id,
         entryType: 'knowledge',
         entryId: knowledge.id,
@@ -298,9 +301,10 @@ describe('Conversations Integration', () => {
       const project = createTestProject(db);
       const { conversation } = conversationHandlers.start({
         projectId: project.id,
+        agentId: 'test-agent',
         title: 'Searchable Title',
       });
-      conversationHandlers.addMessage({
+      conversationHandlers.addMessage({ agentId: 'test-agent',
         conversationId: conversation.id,
         role: 'user',
         content: 'This is about authentication',
@@ -325,9 +329,9 @@ describe('Conversations Integration', () => {
   describe('memory_conversation_end', () => {
     it('should end conversation', () => {
       const project = createTestProject(db);
-      const { conversation } = conversationHandlers.start({ projectId: project.id });
+      const { conversation } = conversationHandlers.start({ projectId: project.id, agentId: 'test-agent' });
 
-      const result = conversationHandlers.end({ id: conversation.id });
+      const result = conversationHandlers.end({ agentId: 'test-agent', id: conversation.id });
 
       expect(result.success).toBe(true);
       expect(result.conversation.status).toBe('completed');
@@ -336,14 +340,15 @@ describe('Conversations Integration', () => {
 
     it('should generate summary if requested', () => {
       const project = createTestProject(db);
-      const { conversation } = conversationHandlers.start({ projectId: project.id });
-      conversationHandlers.addMessage({
+      const { conversation } = conversationHandlers.start({ projectId: project.id, agentId: 'test-agent' });
+      conversationHandlers.addMessage({ agentId: 'test-agent',
         conversationId: conversation.id,
         role: 'user',
         content: 'Hello',
       });
 
       const result = conversationHandlers.end({
+        agentId: 'test-agent',
         id: conversation.id,
         generateSummary: true,
       });
@@ -356,9 +361,9 @@ describe('Conversations Integration', () => {
   describe('memory_conversation_archive', () => {
     it('should archive conversation', () => {
       const project = createTestProject(db);
-      const { conversation } = conversationHandlers.start({ projectId: project.id });
+      const { conversation } = conversationHandlers.start({ projectId: project.id, agentId: 'test-agent' });
 
-      const result = conversationHandlers.archive({ id: conversation.id });
+      const result = conversationHandlers.archive({ agentId: 'test-agent', id: conversation.id });
 
       expect(result.success).toBe(true);
       expect(result.conversation.status).toBe('archived');

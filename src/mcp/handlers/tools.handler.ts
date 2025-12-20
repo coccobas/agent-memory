@@ -7,7 +7,7 @@ import {
   type CreateToolInput,
   type UpdateToolInput,
 } from '../../db/repositories/tools.js';
-import { checkPermission } from '../../services/permission.service.js';
+import { requirePermission, checkPermissionForFilter } from '../helpers/permissions.js';
 import { transaction } from '../../db/connection.js';
 import { checkForDuplicates } from '../../services/duplicate.service.js';
 import { logAction } from '../../services/audit.service.js';
@@ -20,7 +20,7 @@ import {
   validateArrayLength,
   SIZE_LIMITS,
 } from '../../services/validation.service.js';
-import { createValidationError, createNotFoundError, createPermissionError } from '../errors.js';
+import { createValidationError, createNotFoundError } from '../errors.js';
 import { createComponentLogger } from '../../utils/logger.js';
 import {
   getRequiredParam,
@@ -51,7 +51,7 @@ export const toolHandlers = {
     const examples = getOptionalParam(params, 'examples', isArray);
     const constraints = getOptionalParam(params, 'constraints', isString);
     const createdBy = getOptionalParam(params, 'createdBy', isString);
-    const agentId = getOptionalParam(params, 'agentId', isString);
+    const agentId = getRequiredParam(params, 'agentId', isString);
 
     if (scopeType !== 'global' && !scopeId) {
       throw createValidationError(
@@ -68,9 +68,7 @@ export const toolHandlers = {
     validateJsonSize(examples, 'examples', SIZE_LIMITS.EXAMPLES_MAX_BYTES);
 
     // Check permission (write required for add)
-    if (agentId && !checkPermission(agentId, 'write', 'tool', null, scopeType, scopeId ?? null)) {
-      throw createPermissionError('write', 'tool');
-    }
+    requirePermission(agentId, 'write', scopeType, scopeId, 'tool');
 
     // Check for duplicates (warn but don't block)
     const duplicateCheck = checkForDuplicates('tool', name, scopeType, scopeId ?? null);
@@ -163,7 +161,7 @@ export const toolHandlers = {
     const constraints = getOptionalParam(params, 'constraints', isString);
     const changeReason = getOptionalParam(params, 'changeReason', isString);
     const updatedBy = getOptionalParam(params, 'updatedBy', isString);
-    const agentId = getOptionalParam(params, 'agentId', isString);
+    const agentId = getRequiredParam(params, 'agentId', isString);
 
     // Get tool to check scope and permission
     const existingTool = toolRepo.getById(id);
@@ -177,19 +175,7 @@ export const toolHandlers = {
     validateJsonSize(examples, 'examples', SIZE_LIMITS.EXAMPLES_MAX_BYTES);
 
     // Check permission (write required for update)
-    if (
-      agentId &&
-      !checkPermission(
-        agentId,
-        'write',
-        'tool',
-        id,
-        existingTool.scopeType,
-        existingTool.scopeId ?? null
-      )
-    ) {
-      throw createPermissionError('write', 'tool', id);
-    }
+    requirePermission(agentId, 'write', existingTool.scopeType, existingTool.scopeId, 'tool');
 
     const input: UpdateToolInput = {};
     if (description !== undefined) input.description = description;
@@ -241,7 +227,7 @@ export const toolHandlers = {
     const scopeType = getOptionalParam(params, 'scopeType', isScopeType);
     const scopeId = getOptionalParam(params, 'scopeId', isString);
     const inherit = getOptionalParam(params, 'inherit', isBoolean);
-    const agentId = getOptionalParam(params, 'agentId', isString);
+    const agentId = getRequiredParam(params, 'agentId', isString);
 
     if (!id && !name) {
       throw createValidationError(
@@ -269,12 +255,7 @@ export const toolHandlers = {
     }
 
     // Check permission (read required for get)
-    if (
-      agentId &&
-      !checkPermission(agentId, 'read', 'tool', tool.id, tool.scopeType, tool.scopeId ?? null)
-    ) {
-      throw createPermissionError('read', 'tool', tool.id);
-    }
+    requirePermission(agentId, 'read', tool.scopeType, tool.scopeId, 'tool');
 
     // Log audit
     logAction({
@@ -290,6 +271,7 @@ export const toolHandlers = {
   },
 
   list(params: Record<string, unknown>) {
+    const agentId = getRequiredParam(params, 'agentId', isString);
     const scopeType = getOptionalParam(params, 'scopeType', isScopeType);
     const scopeId = getOptionalParam(params, 'scopeId', isString);
     const category = getOptionalParam(params, 'category', isToolCategory);
@@ -297,9 +279,12 @@ export const toolHandlers = {
     const limit = getOptionalParam(params, 'limit', isNumber);
     const offset = getOptionalParam(params, 'offset', isNumber);
 
-    const tools = toolRepo.list(
+    const all = toolRepo.list(
       { scopeType, scopeId, category, includeInactive },
       { limit, offset }
+    );
+    const tools = all.filter((t) =>
+      checkPermissionForFilter(agentId, 'read', 'tool', t.id, t.scopeType, t.scopeId ?? null)
     );
 
     return formatTimestamps({
@@ -312,6 +297,13 @@ export const toolHandlers = {
 
   history(params: Record<string, unknown>) {
     const id = getRequiredParam(params, 'id', isString);
+    const agentId = getRequiredParam(params, 'agentId', isString);
+
+    const tool = toolRepo.getById(id);
+    if (!tool) {
+      throw createNotFoundError('tool', id);
+    }
+    requirePermission(agentId, 'read', tool.scopeType, tool.scopeId, 'tool');
 
     const versions = toolRepo.getHistory(id);
     return formatTimestamps({ versions });
@@ -319,7 +311,7 @@ export const toolHandlers = {
 
   deactivate(params: Record<string, unknown>) {
     const id = getRequiredParam(params, 'id', isString);
-    const agentId = getOptionalParam(params, 'agentId', isString);
+    const agentId = getRequiredParam(params, 'agentId', isString);
 
     // Get tool to check scope and permission
     const existingTool = toolRepo.getById(id);
@@ -328,19 +320,7 @@ export const toolHandlers = {
     }
 
     // Check permission (delete/write required for deactivate)
-    if (
-      agentId &&
-      !checkPermission(
-        agentId,
-        'delete',
-        'tool',
-        id,
-        existingTool.scopeType,
-        existingTool.scopeId ?? null
-      )
-    ) {
-      throw createPermissionError('delete', 'tool', id);
-    }
+    requirePermission(agentId, 'write', existingTool.scopeType, existingTool.scopeId, 'tool');
 
     const success = toolRepo.deactivate(id);
     if (!success) {
@@ -362,7 +342,7 @@ export const toolHandlers = {
 
   delete(params: Record<string, unknown>) {
     const id = getRequiredParam(params, 'id', isString);
-    const agentId = getOptionalParam(params, 'agentId', isString);
+    const agentId = getRequiredParam(params, 'agentId', isString);
 
     // Get tool to check scope and permission
     const existingTool = toolRepo.getById(id);
@@ -371,19 +351,7 @@ export const toolHandlers = {
     }
 
     // Check permission (delete required for hard delete)
-    if (
-      agentId &&
-      !checkPermission(
-        agentId,
-        'delete',
-        'tool',
-        id,
-        existingTool.scopeType,
-        existingTool.scopeId ?? null
-      )
-    ) {
-      throw createPermissionError('delete', 'tool', id);
-    }
+    requirePermission(agentId, 'write', existingTool.scopeType, existingTool.scopeId, 'tool');
 
     const success = toolRepo.delete(id);
     if (!success) {
@@ -408,7 +376,7 @@ export const toolHandlers = {
 
   bulk_add(params: Record<string, unknown>) {
     const entries = getRequiredParam(params, 'entries', isArrayOfObjects);
-    const agentId = getOptionalParam(params, 'agentId', isString);
+    const agentId = getRequiredParam(params, 'agentId', isString);
     // Allow top-level scopeType/scopeId as defaults for all entries
     const defaultScopeType = getOptionalParam(params, 'scopeType', isScopeType);
     const defaultScopeId = getOptionalParam(params, 'scopeId', isString);
@@ -425,22 +393,12 @@ export const toolHandlers = {
     }
 
     // Check permissions for all entries
-    if (agentId) {
-      for (const entry of entries) {
-        if (!isObject(entry)) continue;
-        const entryObj = entry as unknown as ToolAddParams;
-        const entryScopeType = entryObj.scopeType ?? defaultScopeType;
-        const entryScopeId = entryObj.scopeId ?? defaultScopeId;
-        if (
-          !checkPermission(agentId, 'write', 'tool', null, entryScopeType, entryScopeId ?? null)
-        ) {
-          throw createPermissionError(
-            'write',
-            'tool',
-            `scope ${String(entryScopeType)}:${String(entryScopeId ?? '')}`
-          );
-        }
-      }
+    for (const entry of entries) {
+      if (!isObject(entry)) continue;
+      const entryObj = entry as unknown as ToolAddParams;
+      const entryScopeType = entryObj.scopeType ?? defaultScopeType;
+      const entryScopeId = entryObj.scopeId ?? defaultScopeId;
+      requirePermission(agentId, 'write', entryScopeType, entryScopeId, 'tool');
     }
 
     // Execute in transaction for atomicity
@@ -524,7 +482,7 @@ export const toolHandlers = {
 
   bulk_update(params: Record<string, unknown>) {
     const updates = getRequiredParam(params, 'updates', isArrayOfObjects);
-    const agentId = getOptionalParam(params, 'agentId', isString);
+    const agentId = getRequiredParam(params, 'agentId', isString);
 
     // Validate bulk operation size
     validateArrayLength(updates, 'updates', SIZE_LIMITS.BULK_OPERATION_MAX);
@@ -538,27 +496,14 @@ export const toolHandlers = {
     }
 
     // Check permissions for all entries
-    if (agentId) {
-      for (const update of updates) {
-        if (!isObject(update)) continue;
-        const updateObj = update as unknown as { id: string } & ToolUpdateParams;
-        const existingTool = toolRepo.getById(updateObj.id);
-        if (!existingTool) {
-          throw createNotFoundError('tool', updateObj.id);
-        }
-        if (
-          !checkPermission(
-            agentId,
-            'write',
-            'tool',
-            updateObj.id,
-            existingTool.scopeType,
-            existingTool.scopeId ?? null
-          )
-        ) {
-          throw createPermissionError('write', 'tool', updateObj.id);
-        }
+    for (const update of updates) {
+      if (!isObject(update)) continue;
+      const updateObj = update as unknown as { id: string } & ToolUpdateParams;
+      const existingTool = toolRepo.getById(updateObj.id);
+      if (!existingTool) {
+        throw createNotFoundError('tool', updateObj.id);
       }
+      requirePermission(agentId, 'write', existingTool.scopeType, existingTool.scopeId, 'tool');
     }
 
     // Execute in transaction
@@ -608,7 +553,7 @@ export const toolHandlers = {
 
   bulk_delete(params: Record<string, unknown>) {
     const idsParam = getRequiredParam(params, 'ids', isArray);
-    const agentId = getOptionalParam(params, 'agentId', isString);
+    const agentId = getRequiredParam(params, 'agentId', isString);
 
     // Validate all IDs are strings
     const ids: string[] = [];
@@ -633,25 +578,12 @@ export const toolHandlers = {
     }
 
     // Check permissions for all entries
-    if (agentId) {
-      for (const id of ids) {
-        const existingTool = toolRepo.getById(id);
-        if (!existingTool) {
-          throw createNotFoundError('tool', id);
-        }
-        if (
-          !checkPermission(
-            agentId,
-            'delete',
-            'tool',
-            id,
-            existingTool.scopeType,
-            existingTool.scopeId ?? null
-          )
-        ) {
-          throw createPermissionError('delete', 'tool', id);
-        }
+    for (const id of ids) {
+      const existingTool = toolRepo.getById(id);
+      if (!existingTool) {
+        throw createNotFoundError('tool', id);
       }
+      requirePermission(agentId, 'write', existingTool.scopeType, existingTool.scopeId, 'tool');
     }
 
     // Execute in transaction

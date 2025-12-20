@@ -34,13 +34,23 @@ vi.mock('../../src/db/connection.js', async () => {
 });
 
 describe('permission.service', () => {
+  let previousPermMode: string | undefined;
+
   beforeAll(() => {
+    // Disable permissive mode for permission tests
+    previousPermMode = process.env.AGENT_MEMORY_PERMISSIONS_MODE;
+    delete process.env.AGENT_MEMORY_PERMISSIONS_MODE;
+
     const testDb = setupTestDb(TEST_DB_PATH);
     sqlite = testDb.sqlite;
     db = testDb.db;
   });
 
   afterAll(() => {
+    // Restore previous permission mode
+    if (previousPermMode !== undefined) {
+      process.env.AGENT_MEMORY_PERMISSIONS_MODE = previousPermMode;
+    }
     sqlite.close();
     cleanupTestDb(TEST_DB_PATH);
   });
@@ -51,10 +61,10 @@ describe('permission.service', () => {
       expect(result).toBe(false);
     });
 
-    it('should allow access by default when no permissions configured', () => {
-      // No permissions in database = backward compatible full access
+    it('should deny access when no permissions configured (secure by default)', () => {
+      // No permissions in database = deny access (unless permissive mode enabled)
       const result = checkPermission('agent-1', 'read', 'tool', null, 'global', null);
-      expect(result).toBe(true);
+      expect(result).toBe(false);
     });
 
     it('should allow project entryType by default', () => {

@@ -262,3 +262,49 @@ export function getRequiredParam<T>(
   }
   return value;
 }
+
+// =============================================================================
+// NUMERIC VALIDATION TYPE GUARDS
+// =============================================================================
+
+/**
+ * Type guard for valid limit parameter (1-1000, integer)
+ */
+export function isValidLimit(value: unknown): value is number {
+  return isNumber(value) && Number.isInteger(value) && value >= 1 && value <= 1000;
+}
+
+/**
+ * Type guard for valid offset parameter (non-negative integer)
+ */
+export function isValidOffset(value: unknown): value is number {
+  return isNumber(value) && Number.isInteger(value) && value >= 0;
+}
+
+/**
+ * Type guard for valid priority parameter (0-100, finite)
+ */
+export function isValidPriority(value: unknown): value is number {
+  return isNumber(value) && Number.isFinite(value) && value >= 0 && value <= 100;
+}
+
+/**
+ * Type guard for valid confidence/threshold parameter (0-1, finite)
+ */
+export function isValidConfidence(value: unknown): value is number {
+  return isNumber(value) && Number.isFinite(value) && value >= 0 && value <= 1;
+}
+
+/**
+ * Type guard for positive integer (useful for counts, keepCount, etc.)
+ */
+export function isPositiveInteger(value: unknown): value is number {
+  return isNumber(value) && Number.isInteger(value) && value >= 1;
+}
+
+/**
+ * Type guard for non-negative integer (useful for staleDays, etc.)
+ */
+export function isNonNegativeInteger(value: unknown): value is number {
+  return isNumber(value) && Number.isInteger(value) && value >= 0;
+}

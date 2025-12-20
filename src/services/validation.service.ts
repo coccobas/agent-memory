@@ -48,6 +48,38 @@ const MAX_NAME_LENGTH = SIZE_LIMITS.NAME_MAX_LENGTH;
 const MAX_DESCRIPTION_LENGTH = SIZE_LIMITS.DESCRIPTION_MAX_LENGTH;
 const MAX_CONTENT_LENGTH = SIZE_LIMITS.CONTENT_MAX_LENGTH;
 
+// Maximum length for regex patterns to prevent DoS
+const MAX_REGEX_PATTERN_LENGTH = 500;
+
+/**
+ * Check if a regex pattern is safe (no ReDoS potential).
+ * Rejects patterns with nested quantifiers that could cause exponential backtracking.
+ *
+ * Security: Prevents Regular Expression Denial of Service attacks.
+ */
+function isSafeRegexPattern(pattern: string): boolean {
+  // Check length first
+  if (pattern.length > MAX_REGEX_PATTERN_LENGTH) {
+    return false;
+  }
+
+  // Detect dangerous patterns: nested quantifiers that cause catastrophic backtracking
+  const dangerousPatterns = [
+    /\([^)]*[+*?]\)[+*?]/, // Nested quantifiers: (x+)+, (x*)+, (x?)*, etc.
+    /\([^)]*\)\{[^}]*\}[+*?]/, // Quantified groups with trailing quantifier
+    /([+*?])\1{2,}/, // Multiple consecutive quantifiers: +++, ***, ???
+    /\[[^\]]*\][+*?]\{/, // Character class with quantifier and brace
+  ];
+
+  for (const dangerous of dangerousPatterns) {
+    if (dangerous.test(pattern)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 /**
  * Validate text field length
  */
@@ -219,19 +251,28 @@ export function validateEntry(
             });
           }
 
-          // Pattern check (regex)
+          // Pattern check (regex) with ReDoS protection
           if (ruleConfig.pattern) {
-            try {
-              const regex = new RegExp(ruleConfig.pattern);
-              if (!regex.test(fieldValue)) {
-                errors.push({
-                  field: fieldName,
-                  rule: rule.name,
-                  message: ruleConfig.message || `${fieldName} does not match required pattern`,
-                });
+            // Security: Validate pattern before creating RegExp to prevent ReDoS
+            if (!isSafeRegexPattern(ruleConfig.pattern)) {
+              logger.warn(
+                { pattern: ruleConfig.pattern, rule: rule.name },
+                'Rejected potentially dangerous regex pattern (ReDoS risk)'
+              );
+              // Skip unsafe patterns - don't validate with them
+            } else {
+              try {
+                const regex = new RegExp(ruleConfig.pattern);
+                if (!regex.test(fieldValue)) {
+                  errors.push({
+                    field: fieldName,
+                    rule: rule.name,
+                    message: ruleConfig.message || `${fieldName} does not match required pattern`,
+                  });
+                }
+              } catch {
+                // Invalid regex pattern, skip
               }
-            } catch {
-              // Invalid regex pattern, skip
             }
           }
         }

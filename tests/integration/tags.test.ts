@@ -27,7 +27,11 @@ vi.mock('../../src/db/connection.js', async () => {
 import { tagHandlers } from '../../src/mcp/handlers/tags.handler.js';
 
 describe('Tags Integration', () => {
+  const AGENT_ID = 'agent-1';
+  let previousPermMode: string | undefined;
   beforeAll(() => {
+    previousPermMode = process.env.AGENT_MEMORY_PERMISSIONS_MODE;
+    process.env.AGENT_MEMORY_PERMISSIONS_MODE = 'permissive';
     const testDb = setupTestDb(TEST_DB_PATH);
     sqlite = testDb.sqlite;
     db = testDb.db;
@@ -35,6 +39,11 @@ describe('Tags Integration', () => {
   });
 
   afterAll(() => {
+    if (previousPermMode === undefined) {
+      delete process.env.AGENT_MEMORY_PERMISSIONS_MODE;
+    } else {
+      process.env.AGENT_MEMORY_PERMISSIONS_MODE = previousPermMode;
+    }
     sqlite.close();
     cleanupTestDb(TEST_DB_PATH);
   });
@@ -42,6 +51,7 @@ describe('Tags Integration', () => {
   describe('memory_tag_create', () => {
     it('should create a custom tag', () => {
       const result = tagHandlers.create({
+        agentId: AGENT_ID,
         name: 'custom_tag',
         category: 'custom',
         description: 'A custom tag',
@@ -56,8 +66,8 @@ describe('Tags Integration', () => {
     });
 
     it('should return existing tag if already exists', () => {
-      tagHandlers.create({ name: 'existing_tag' });
-      const result = tagHandlers.create({ name: 'existing_tag' });
+      tagHandlers.create({ agentId: AGENT_ID, name: 'existing_tag' });
+      const result = tagHandlers.create({ agentId: AGENT_ID, name: 'existing_tag' });
 
       expect(result.success).toBe(true);
       expect(result.existed).toBe(true);
@@ -65,19 +75,19 @@ describe('Tags Integration', () => {
 
     it('should require name', () => {
       expect(() => {
-        tagHandlers.create({});
+        tagHandlers.create({ agentId: AGENT_ID });
       }).toThrow('name is required');
     });
   });
 
   describe('memory_tag_list', () => {
     it('should list all tags', () => {
-      const result = tagHandlers.list({ limit: 10 });
+      const result = tagHandlers.list({ agentId: AGENT_ID, limit: 10 });
       expect(result.tags.length).toBeGreaterThan(0);
     });
 
     it('should filter by category', () => {
-      const result = tagHandlers.list({ category: 'language', limit: 10 });
+      const result = tagHandlers.list({ agentId: AGENT_ID, category: 'language', limit: 10 });
       expect(result.tags.length).toBeGreaterThan(0);
       result.tags.forEach((tag) => {
         expect(tag.category).toBe('language');
@@ -85,7 +95,7 @@ describe('Tags Integration', () => {
     });
 
     it('should filter by isPredefined', () => {
-      const result = tagHandlers.list({ isPredefined: true, limit: 10 });
+      const result = tagHandlers.list({ agentId: AGENT_ID, isPredefined: true, limit: 10 });
       expect(result.tags.length).toBeGreaterThan(0);
       result.tags.forEach((tag) => {
         expect(tag.isPredefined).toBe(true);
@@ -93,7 +103,7 @@ describe('Tags Integration', () => {
     });
 
     it('should support pagination', () => {
-      const result = tagHandlers.list({ limit: 2, offset: 0 });
+      const result = tagHandlers.list({ agentId: AGENT_ID, limit: 2, offset: 0 });
       expect(result.tags.length).toBeLessThanOrEqual(2);
     });
   });
@@ -108,6 +118,7 @@ describe('Tags Integration', () => {
         .get()!;
 
       const result = tagHandlers.attach({
+        agentId: AGENT_ID,
         entryType: 'tool',
         entryId: tool.id,
         tagName: 'security',
@@ -124,6 +135,7 @@ describe('Tags Integration', () => {
       const { guideline } = createTestGuideline(db, 'tagged_guideline');
 
       const result = tagHandlers.attach({
+        agentId: AGENT_ID,
         entryType: 'guideline',
         entryId: guideline.id,
         tagName: 'security',
@@ -136,6 +148,7 @@ describe('Tags Integration', () => {
     it('should create tag if it does not exist', () => {
       const { tool } = createTestTool(db, 'auto_tag_tool');
       const result = tagHandlers.attach({
+        agentId: AGENT_ID,
         entryType: 'tool',
         entryId: tool.id,
         tagName: 'new_auto_tag',
@@ -148,7 +161,7 @@ describe('Tags Integration', () => {
 
     it('should require entryType', () => {
       expect(() => {
-        tagHandlers.attach({ entryId: 'test', tagName: 'test' });
+        tagHandlers.attach({ agentId: AGENT_ID, entryId: 'test', tagName: 'test' });
       }).toThrow('entryType is required');
     });
   });
@@ -157,6 +170,7 @@ describe('Tags Integration', () => {
     it('should detach tag from entry', () => {
       const { tool } = createTestTool(db, 'detach_test');
       const attachResult = tagHandlers.attach({
+        agentId: AGENT_ID,
         entryType: 'tool',
         entryId: tool.id,
         tagName: 'security',
@@ -168,6 +182,7 @@ describe('Tags Integration', () => {
         .get()!;
 
       const result = tagHandlers.detach({
+        agentId: AGENT_ID,
         entryType: 'tool',
         entryId: tool.id,
         tagId: securityTag.id,
@@ -176,13 +191,13 @@ describe('Tags Integration', () => {
       expect(result.success).toBe(true);
 
       // Verify tag is detached
-      const tags = tagHandlers.forEntry({ entryType: 'tool', entryId: tool.id });
+      const tags = tagHandlers.forEntry({ agentId: AGENT_ID, entryType: 'tool', entryId: tool.id });
       expect(tags.tags.find((t) => t.name === 'security')).toBeUndefined();
     });
 
     it('should require entryType', () => {
       expect(() => {
-        tagHandlers.detach({ entryId: 'test', tagId: 'test' });
+        tagHandlers.detach({ agentId: AGENT_ID, entryId: 'test', tagId: 'test' });
       }).toThrow('entryType is required');
     });
   });
@@ -190,10 +205,11 @@ describe('Tags Integration', () => {
   describe('memory_tags_for_entry', () => {
     it('should return all tags for an entry', () => {
       const { tool } = createTestTool(db, 'multi_tag_tool');
-      tagHandlers.attach({ entryType: 'tool', entryId: tool.id, tagName: 'security' });
-      tagHandlers.attach({ entryType: 'tool', entryId: tool.id, tagName: 'required' });
+      tagHandlers.attach({ agentId: AGENT_ID, entryType: 'tool', entryId: tool.id, tagName: 'security' });
+      tagHandlers.attach({ agentId: AGENT_ID, entryType: 'tool', entryId: tool.id, tagName: 'required' });
 
       const result = tagHandlers.forEntry({
+        agentId: AGENT_ID,
         entryType: 'tool',
         entryId: tool.id,
       });
@@ -206,6 +222,7 @@ describe('Tags Integration', () => {
     it('should return empty array for entry with no tags', () => {
       const { tool } = createTestTool(db, 'no_tags_tool');
       const result = tagHandlers.forEntry({
+        agentId: AGENT_ID,
         entryType: 'tool',
         entryId: tool.id,
       });
@@ -215,7 +232,7 @@ describe('Tags Integration', () => {
 
     it('should require entryType', () => {
       expect(() => {
-        tagHandlers.forEntry({ entryId: 'test' });
+        tagHandlers.forEntry({ agentId: AGENT_ID, entryId: 'test' });
       }).toThrow('entryType is required');
     });
   });

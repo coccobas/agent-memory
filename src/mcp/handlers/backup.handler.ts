@@ -11,24 +11,15 @@ import {
   restoreFromBackup,
 } from '../../services/backup.service.js';
 import { config } from '../../config/index.js';
-
-interface BackupCreateParams {
-  name?: string;
-}
-
-interface BackupCleanupParams {
-  keepCount?: number;
-}
-
-interface BackupRestoreParams {
-  filename: string;
-}
+import { requireAdminKey } from '../../utils/admin.js';
 
 /**
  * Create a database backup
  */
-function create(params: BackupCreateParams) {
-  const result = createDatabaseBackup(params.name);
+function create(params: Record<string, unknown>) {
+  requireAdminKey(params);
+  const name = typeof params.name === 'string' ? params.name : undefined;
+  const result = createDatabaseBackup(name);
   return {
     success: result.success,
     message: result.message,
@@ -41,7 +32,8 @@ function create(params: BackupCreateParams) {
 /**
  * List all backups
  */
-function list() {
+function list(params: Record<string, unknown>) {
+  requireAdminKey(params);
   const backups = listBackups();
   return {
     success: true,
@@ -60,8 +52,9 @@ function list() {
 /**
  * Cleanup old backups
  */
-function cleanup(params: BackupCleanupParams) {
-  const keepCount = params.keepCount ?? 5;
+function cleanup(params: Record<string, unknown>) {
+  requireAdminKey(params);
+  const keepCount = typeof params.keepCount === 'number' ? params.keepCount : 5;
   const result = cleanupBackups(keepCount);
   return {
     success: true,
@@ -75,15 +68,17 @@ function cleanup(params: BackupCleanupParams) {
 /**
  * Restore from a backup
  */
-function restore(params: BackupRestoreParams) {
-  if (!params.filename) {
+function restore(params: Record<string, unknown>) {
+  requireAdminKey(params);
+  const filename = typeof params.filename === 'string' ? params.filename : '';
+  if (!filename) {
     return {
       success: false,
       message: 'filename is required',
     };
   }
 
-  const result = restoreFromBackup(params.filename);
+  const result = restoreFromBackup(filename);
   return {
     success: result.success,
     message: result.message,

@@ -26,13 +26,21 @@ vi.mock('../../src/db/connection.js', async () => {
 });
 
 describe('Permissions Handler Integration', () => {
+  let previousAdminKey: string | undefined;
   beforeAll(() => {
+    previousAdminKey = process.env.AGENT_MEMORY_ADMIN_KEY;
+    process.env.AGENT_MEMORY_ADMIN_KEY = 'test-admin-key';
     const testDb = setupTestDb(TEST_DB_PATH);
     sqlite = testDb.sqlite;
     db = testDb.db;
   });
 
   afterAll(() => {
+    if (previousAdminKey === undefined) {
+      delete process.env.AGENT_MEMORY_ADMIN_KEY;
+    } else {
+      process.env.AGENT_MEMORY_ADMIN_KEY = previousAdminKey;
+    }
     sqlite.close();
     cleanupTestDb(TEST_DB_PATH);
   });
@@ -40,6 +48,7 @@ describe('Permissions Handler Integration', () => {
   describe('grant', () => {
     it('should grant permission', () => {
       const result = permissionHandlers.grant({
+        admin_key: 'test-admin-key',
         agent_id: 'agent-1',
         permission: 'read',
         scope_type: 'global',
@@ -52,19 +61,20 @@ describe('Permissions Handler Integration', () => {
 
     it('should require agent_id', () => {
       expect(() => {
-        permissionHandlers.grant({ permission: 'read' });
+        permissionHandlers.grant({ admin_key: 'test-admin-key', permission: 'read' });
       }).toThrow();
     });
 
     it('should require permission', () => {
       expect(() => {
-        permissionHandlers.grant({ agent_id: 'agent-1' });
+        permissionHandlers.grant({ admin_key: 'test-admin-key', agent_id: 'agent-1' });
       }).toThrow();
     });
 
     it('should validate permission level', () => {
       expect(() => {
         permissionHandlers.grant({
+          admin_key: 'test-admin-key',
           agent_id: 'agent-1',
           permission: 'invalid',
         });
@@ -76,6 +86,7 @@ describe('Permissions Handler Integration', () => {
       const project = createTestProject(db, 'Test Project', org.id);
 
       const result = permissionHandlers.grant({
+        admin_key: 'test-admin-key',
         agent_id: 'agent-2',
         permission: 'write',
         scope_type: 'project',
@@ -92,6 +103,7 @@ describe('Permissions Handler Integration', () => {
     it('should revoke permission by permission_id', () => {
       // First grant a permission
       permissionHandlers.grant({
+        admin_key: 'test-admin-key',
         agent_id: 'agent-revoke-1',
         permission: 'read',
         entry_type: 'tool',
@@ -99,6 +111,7 @@ describe('Permissions Handler Integration', () => {
 
       // Get permission ID (would need to list first, simplified for test)
       const result = permissionHandlers.revoke({
+        admin_key: 'test-admin-key',
         agent_id: 'agent-revoke-1',
         entry_type: 'tool',
       });
@@ -108,12 +121,13 @@ describe('Permissions Handler Integration', () => {
 
     it('should require agent_id when not using permission_id', () => {
       expect(() => {
-        permissionHandlers.revoke({});
+        permissionHandlers.revoke({ admin_key: 'test-admin-key' });
       }).toThrow('Either permission_id or agent_id is required');
     });
 
     it('should revoke permission with filters', () => {
       permissionHandlers.grant({
+        admin_key: 'test-admin-key',
         agent_id: 'agent-revoke-2',
         permission: 'write',
         scope_type: 'global',
@@ -121,6 +135,7 @@ describe('Permissions Handler Integration', () => {
       });
 
       const result = permissionHandlers.revoke({
+        admin_key: 'test-admin-key',
         agent_id: 'agent-revoke-2',
         scope_type: 'global',
         entry_type: 'knowledge',
@@ -133,6 +148,7 @@ describe('Permissions Handler Integration', () => {
   describe('check', () => {
     it('should check permission', () => {
       permissionHandlers.grant({
+        admin_key: 'test-admin-key',
         agent_id: 'agent-check-1',
         permission: 'read',
         entry_type: 'tool',
@@ -183,12 +199,13 @@ describe('Permissions Handler Integration', () => {
   describe('list', () => {
     it('should list all permissions', () => {
       permissionHandlers.grant({
+        admin_key: 'test-admin-key',
         agent_id: 'agent-list-1',
         permission: 'read',
         entry_type: 'tool',
       });
 
-      const result = permissionHandlers.list({});
+      const result = permissionHandlers.list({ admin_key: 'test-admin-key' });
 
       expect(result).toBeDefined();
       expect(Array.isArray(result.permissions)).toBe(true);
@@ -196,12 +213,13 @@ describe('Permissions Handler Integration', () => {
 
     it('should filter by agent_id', () => {
       permissionHandlers.grant({
+        admin_key: 'test-admin-key',
         agent_id: 'agent-list-2',
         permission: 'write',
         entry_type: 'guideline',
       });
 
-      const result = permissionHandlers.list({ agent_id: 'agent-list-2' });
+      const result = permissionHandlers.list({ admin_key: 'test-admin-key', agent_id: 'agent-list-2' });
 
       expect(result.permissions.length).toBeGreaterThan(0);
       result.permissions.forEach((perm) => {
@@ -214,6 +232,7 @@ describe('Permissions Handler Integration', () => {
       const project = createTestProject(db, 'Test Project', org.id);
 
       permissionHandlers.grant({
+        admin_key: 'test-admin-key',
         agent_id: 'agent-list-3',
         permission: 'read',
         scope_type: 'project',
@@ -221,19 +240,20 @@ describe('Permissions Handler Integration', () => {
         entry_type: 'tool',
       });
 
-      const result = permissionHandlers.list({ scope_type: 'project' });
+      const result = permissionHandlers.list({ admin_key: 'test-admin-key', scope_type: 'project' });
 
       expect(Array.isArray(result.permissions)).toBe(true);
     });
 
     it('should filter by entry_type', () => {
       permissionHandlers.grant({
+        admin_key: 'test-admin-key',
         agent_id: 'agent-list-4',
         permission: 'read',
         entry_type: 'knowledge',
       });
 
-      const result = permissionHandlers.list({ entry_type: 'knowledge' });
+      const result = permissionHandlers.list({ admin_key: 'test-admin-key', entry_type: 'knowledge' });
 
       expect(Array.isArray(result.permissions)).toBe(true);
     });

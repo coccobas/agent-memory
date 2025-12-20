@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import {
   setupTestDb,
   cleanupTestDb,
@@ -9,6 +9,7 @@ import {
 import * as schema from '../../src/db/schema.js';
 
 const TEST_DB_PATH = './data/test-scopes.db';
+const TEST_ADMIN_KEY = 'test-admin-key-12345';
 
 let sqlite: ReturnType<typeof setupTestDb>['sqlite'];
 let db: ReturnType<typeof setupTestDb>['db'];
@@ -27,6 +28,8 @@ import { scopeHandlers } from '../../src/mcp/handlers/scopes.handler.js';
 
 describe('Scope Management Integration', () => {
   beforeAll(() => {
+    // Set admin key for tests that require admin authentication
+    process.env.AGENT_MEMORY_ADMIN_KEY = TEST_ADMIN_KEY;
     const testDb = setupTestDb(TEST_DB_PATH);
     sqlite = testDb.sqlite;
     db = testDb.db;
@@ -39,7 +42,7 @@ describe('Scope Management Integration', () => {
 
   describe('Organizations', () => {
     it('should create an organization', () => {
-      const result = scopeHandlers.orgCreate({
+      const result = scopeHandlers.orgCreate({ adminKey: TEST_ADMIN_KEY,
         name: 'Test Organization',
         metadata: { description: 'A test org' },
       });
@@ -51,7 +54,7 @@ describe('Scope Management Integration', () => {
     });
 
     it('should create organization without metadata', () => {
-      const result = scopeHandlers.orgCreate({
+      const result = scopeHandlers.orgCreate({ adminKey: TEST_ADMIN_KEY,
         name: 'Simple Org',
       });
 
@@ -61,15 +64,15 @@ describe('Scope Management Integration', () => {
 
     it('should require name', () => {
       expect(() => {
-        scopeHandlers.orgCreate({});
+        scopeHandlers.orgCreate({ adminKey: TEST_ADMIN_KEY,});
       }).toThrow('name is required');
     });
 
     it('should list organizations with pagination', () => {
       // Create multiple orgs
-      scopeHandlers.orgCreate({ name: 'Org 1' });
-      scopeHandlers.orgCreate({ name: 'Org 2' });
-      scopeHandlers.orgCreate({ name: 'Org 3' });
+      scopeHandlers.orgCreate({ adminKey: TEST_ADMIN_KEY, name: 'Org 1' });
+      scopeHandlers.orgCreate({ adminKey: TEST_ADMIN_KEY, name: 'Org 2' });
+      scopeHandlers.orgCreate({ adminKey: TEST_ADMIN_KEY, name: 'Org 3' });
 
       const result = scopeHandlers.orgList({ limit: 2, offset: 0 });
       expect(result.organizations.length).toBeLessThanOrEqual(2);
@@ -86,7 +89,7 @@ describe('Scope Management Integration', () => {
     });
 
     it('should create a project with org', () => {
-      const result = scopeHandlers.projectCreate({
+      const result = scopeHandlers.projectCreate({ adminKey: TEST_ADMIN_KEY,
         name: 'Test Project',
         orgId,
         description: 'A test project',
@@ -102,7 +105,7 @@ describe('Scope Management Integration', () => {
     });
 
     it('should create a project without org', () => {
-      const result = scopeHandlers.projectCreate({
+      const result = scopeHandlers.projectCreate({ adminKey: TEST_ADMIN_KEY,
         name: 'Standalone Project',
       });
 
@@ -112,7 +115,7 @@ describe('Scope Management Integration', () => {
 
     it('should require name', () => {
       expect(() => {
-        scopeHandlers.projectCreate({});
+        scopeHandlers.projectCreate({ adminKey: TEST_ADMIN_KEY,});
       }).toThrow('name is required');
     });
 
@@ -177,7 +180,7 @@ describe('Scope Management Integration', () => {
 
     it('should update project', () => {
       const project = createTestProject(db, 'Update Test', orgId);
-      const result = scopeHandlers.projectUpdate({
+      const result = scopeHandlers.projectUpdate({ adminKey: TEST_ADMIN_KEY,
         id: project.id,
         name: 'Updated Name',
         description: 'Updated description',
@@ -190,7 +193,7 @@ describe('Scope Management Integration', () => {
 
     it('should require id for update', () => {
       expect(() => {
-        scopeHandlers.projectUpdate({});
+        scopeHandlers.projectUpdate({ adminKey: TEST_ADMIN_KEY,});
       }).toThrow('id is required');
     });
   });

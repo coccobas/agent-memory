@@ -5,6 +5,9 @@
  */
 
 import { getDb } from '../db/connection.js';
+
+// Security: Maximum entries to export per type to prevent memory exhaustion
+const MAX_EXPORT_ENTRIES_PER_TYPE = 5000;
 import {
   tools,
   guidelines,
@@ -215,7 +218,8 @@ function queryEntries(options: ExportOptions): ExportData {
       query = query.where(and(...conditions)) as typeof query;
     }
 
-    const toolList = query.all();
+    // Security: Limit number of entries to prevent memory exhaustion
+    const toolList = query.limit(MAX_EXPORT_ENTRIES_PER_TYPE).all();
     const toolIds = toolList.map((t) => t.id);
 
     // Batch fetch all versions for all tools
@@ -293,7 +297,8 @@ function queryEntries(options: ExportOptions): ExportData {
       query = query.where(and(...conditions)) as typeof query;
     }
 
-    const guidelineList = query.all();
+    // Security: Limit number of entries to prevent memory exhaustion
+    const guidelineList = query.limit(MAX_EXPORT_ENTRIES_PER_TYPE).all();
     const guidelineIds = guidelineList.map((g) => g.id);
 
     // Batch fetch all versions for all guidelines
@@ -370,7 +375,8 @@ function queryEntries(options: ExportOptions): ExportData {
       query = query.where(and(...conditions)) as typeof query;
     }
 
-    const knowledgeList = query.all();
+    // Security: Limit number of entries to prevent memory exhaustion
+    const knowledgeList = query.limit(MAX_EXPORT_ENTRIES_PER_TYPE).all();
     const knowledgeIds = knowledgeList.map((k) => k.id);
 
     // Batch fetch all versions for all knowledge entries

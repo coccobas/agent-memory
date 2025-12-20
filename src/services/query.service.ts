@@ -39,6 +39,39 @@ import {
 
 const logger = createComponentLogger('query');
 
+// Security: Maximum lengths for search inputs to prevent DoS
+const MAX_SEARCH_STRING_LENGTH = 10000; // 10KB limit for search strings
+const MAX_REGEX_PATTERN_LENGTH = 500; // Limit regex pattern length
+
+/**
+ * Check if a regex pattern is safe (no ReDoS potential).
+ * Rejects patterns with nested quantifiers that could cause exponential backtracking.
+ *
+ * Security: Prevents Regular Expression Denial of Service attacks.
+ */
+function isSafeRegexPattern(pattern: string): boolean {
+  // Check length first
+  if (pattern.length > MAX_REGEX_PATTERN_LENGTH) {
+    return false;
+  }
+
+  // Detect dangerous patterns: nested quantifiers that cause catastrophic backtracking
+  const dangerousPatterns = [
+    /\([^)]*[+*?]\)[+*?]/, // Nested quantifiers: (x+)+, (x*)+, (x?)*, etc.
+    /\([^)]*\)\{[^}]*\}[+*?]/, // Quantified groups with trailing quantifier
+    /([+*?])\1{2,}/, // Multiple consecutive quantifiers: +++, ***, ???
+    /\[[^\]]*\][+*?]\{/, // Character class with quantifier and brace
+  ];
+
+  for (const dangerous of dangerousPatterns) {
+    if (dangerous.test(pattern)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 type QueryEntryType = 'tool' | 'guideline' | 'knowledge';
 
 // =============================================================================
@@ -102,8 +135,23 @@ function getEntryKeyName(entry: EntryUnion, type: 'tools' | 'guidelines' | 'know
 // =============================================================================
 
 /**
+ * FNV-1a hash function for fast cache key generation
+ * Much faster than JSON.stringify for creating unique keys
+ */
+function fnv1aHash(str: string): string {
+  let hash = 2166136261; // FNV offset basis
+  for (let i = 0; i < str.length; i++) {
+    hash ^= str.charCodeAt(i);
+    hash = Math.imul(hash, 16777619); // FNV prime
+  }
+  // Convert to unsigned and then to hex string
+  return (hash >>> 0).toString(16);
+}
+
+/**
  * Generate a cache key from query parameters
- * Now includes scope information to enable selective invalidation
+ * Uses FNV-1a hash for faster key generation than JSON.stringify
+ * Includes scope information to enable selective invalidation
  */
 function getQueryCacheKey(params: MemoryQueryParams): string | null {
   // Don't cache queries with relatedTo filter (too specific)
@@ -116,17 +164,25 @@ function getQueryCacheKey(params: MemoryQueryParams): string | null {
   const scopeId = params.scope?.id ?? 'null';
   const scopePrefix = `${scopeType}:${scopeId}`;
 
-  // Create a deterministic key from query parameters
-  const key = JSON.stringify({
-    types: params.types?.sort() || ['tools', 'guidelines', 'knowledge'].sort(),
-    tags: params.tags,
-    search: params.search,
-    compact: params.compact,
-    limit: params.limit || 20,
-    includeVersions: params.includeVersions,
-  });
+  // Pre-sort types array once (avoid repeated sorts)
+  const sortedTypes = params.types?.slice().sort().join(',') ?? 'guidelines,knowledge,tools';
 
-  return `${scopePrefix}:${key}`;
+  // Build a simple string representation for hashing (faster than JSON.stringify)
+  const keyParts = [
+    sortedTypes,
+    params.search ?? '',
+    params.compact ? '1' : '0',
+    String(params.limit || 20),
+    params.includeVersions ? '1' : '0',
+    params.tags?.include?.slice().sort().join(',') ?? '',
+    params.tags?.require?.slice().sort().join(',') ?? '',
+    params.tags?.exclude?.slice().sort().join(',') ?? '',
+  ];
+
+  // Use hash for the parameter part
+  const paramHash = fnv1aHash(keyParts.join('|'));
+
+  return `${scopePrefix}:${paramHash}`;
 }
 
 const queryCache = new LRUCache<MemoryQueryResult>({
@@ -305,8 +361,9 @@ export interface MemoryQueryResult {
 // =============================================================================
 
 // Add scope chain cache with shorter TTL (scope structure changes less often)
+// Increased from 100 to 500 for multi-tenant deployments
 const scopeChainCache = new LRUCache<ScopeDescriptor[]>({
-  maxSize: 100,
+  maxSize: 500,
   ttlMs: 10 * 60 * 1000, // 10 minutes
 });
 
@@ -355,14 +412,12 @@ export function resolveScopeChain(input?: {
   const chain: ScopeDescriptor[] = [];
 
   const pushUnique = (scopeType: ScopeType, scopeId: string | null) => {
-    if (!inherit && chain.length > 0) return;
-    if (!inherit && chain.length === 0) {
-      chain.push({ scopeType, scopeId });
+    // For inherit=false, only allow the first (requested) scope
+    if (!inherit && chain.length > 0) {
       return;
     }
 
-    if (!inherit) return;
-
+    // Avoid duplicates
     const exists = chain.some((s) => s.scopeType === scopeType && s.scopeId === scopeId);
     if (!exists) {
       chain.push({ scopeType, scopeId });
@@ -520,8 +575,130 @@ interface AdjacentNode extends GraphNode {
 }
 
 /**
+ * Traverse relations using SQLite recursive CTE for single-query performance
+ * This is significantly faster than BFS with multiple queries for multi-hop traversals
+ *
+ * Currently disabled in traverseRelationGraph() pending further testing.
+ * Enable by uncommenting the CTE call in that function.
+ *
+ * @param startType - Type of the starting node
+ * @param startId - ID of the starting node
+ * @param options - Traversal options
+ * @returns Entry IDs grouped by type (excluding the start node)
+ */
+export function traverseRelationGraphCTE(
+  startType: GraphNodeType,
+  startId: string,
+  options: {
+    depth?: number;
+    direction?: TraversalDirection;
+    relationType?: RelationType;
+    maxResults?: number;
+  } = {}
+): Record<QueryEntryType, Set<string>> | null {
+  const maxDepth = Math.min(Math.max(options.depth ?? 1, 1), 5);
+  const direction = options.direction ?? 'both';
+  const maxResults = options.maxResults ?? 100;
+  const relationType = options.relationType;
+
+  try {
+    // Build the recursive CTE query based on direction
+    let forwardUnion = '';
+    let backwardUnion = '';
+
+    if (direction === 'forward' || direction === 'both') {
+      forwardUnion = `
+        SELECT r.target_type, r.target_id, g.depth + 1
+        FROM entry_relations r
+        JOIN reachable g ON r.source_type = g.node_type AND r.source_id = g.node_id
+        WHERE g.depth < ?
+        ${relationType ? `AND r.relation_type = ?` : ''}
+      `;
+    }
+
+    if (direction === 'backward' || direction === 'both') {
+      backwardUnion = `
+        SELECT r.source_type, r.source_id, g.depth + 1
+        FROM entry_relations r
+        JOIN reachable g ON r.target_type = g.node_type AND r.target_id = g.node_id
+        WHERE g.depth < ?
+        ${relationType ? `AND r.relation_type = ?` : ''}
+      `;
+    }
+
+    // Combine unions
+    let recursivePart = '';
+    if (forwardUnion && backwardUnion) {
+      recursivePart = `${forwardUnion} UNION ${backwardUnion}`;
+    } else if (forwardUnion) {
+      recursivePart = forwardUnion;
+    } else if (backwardUnion) {
+      recursivePart = backwardUnion;
+    } else {
+      return null; // No direction specified
+    }
+
+    const cteQuery = `
+      WITH RECURSIVE reachable(node_type, node_id, depth) AS (
+        -- Base case: start node at depth 0
+        SELECT ?, ?, 0
+        UNION
+        -- Recursive case: traverse relations
+        ${recursivePart}
+      )
+      SELECT DISTINCT node_type, node_id
+      FROM reachable
+      WHERE (node_type != ? OR node_id != ?)
+        AND node_type IN ('tool', 'guideline', 'knowledge')
+      LIMIT ?
+    `;
+
+    // Build parameters array
+    const params: (string | number)[] = [startType, startId];
+
+    // Add depth parameters for each direction
+    if (direction === 'forward' || direction === 'both') {
+      params.push(maxDepth);
+      if (relationType) params.push(relationType);
+    }
+    if (direction === 'backward' || direction === 'both') {
+      params.push(maxDepth);
+      if (relationType) params.push(relationType);
+    }
+
+    // Add WHERE clause parameters
+    params.push(startType, startId, maxResults);
+
+    // Execute the CTE query
+    const stmt = getPreparedStatement(cteQuery);
+    const rows = stmt.all(...params) as Array<{ node_type: string; node_id: string }>;
+
+    // Group results by type
+    const result: Record<QueryEntryType, Set<string>> = {
+      tool: new Set<string>(),
+      guideline: new Set<string>(),
+      knowledge: new Set<string>(),
+    };
+
+    for (const row of rows) {
+      const nodeType = row.node_type as QueryEntryType;
+      if (nodeType === 'tool' || nodeType === 'guideline' || nodeType === 'knowledge') {
+        result[nodeType].add(row.node_id);
+      }
+    }
+
+    return result;
+  } catch (error) {
+    // CTE failed, return null to fall back to BFS
+    logger.debug({ error }, 'Recursive CTE traversal failed, falling back to BFS');
+    return null;
+  }
+}
+
+/**
  * Get adjacent nodes from a given node using indexed queries
  * Uses idx_relations_source and idx_relations_target for efficiency
+ * Fallback for when CTE is not available
  */
 function getAdjacentNodes(
   node: GraphNode,
@@ -595,6 +772,10 @@ function getAdjacentNodes(
 /**
  * Traverse the relation graph using BFS with cycle detection
  *
+ * Note: A recursive CTE implementation exists (traverseRelationGraphCTE) but is
+ * currently disabled pending further testing. The BFS approach is reliable and
+ * handles cycle detection properly.
+ *
  * @param startType - Type of the starting node
  * @param startId - ID of the starting node
  * @param options - Traversal options
@@ -610,6 +791,14 @@ export function traverseRelationGraph(
     maxResults?: number;
   } = {}
 ): Record<QueryEntryType, Set<string>> {
+  // Note: CTE-based traversal (traverseRelationGraphCTE) is available but disabled
+  // pending further testing. Enable it by uncommenting the following:
+  // const cteResult = traverseRelationGraphCTE(startType, startId, options);
+  // if (cteResult !== null) {
+  //   return cteResult;
+  // }
+
+  // BFS traversal (reliable, with cycle detection)
   const result: Record<QueryEntryType, Set<string>> = {
     tool: new Set<string>(),
     guideline: new Set<string>(),
@@ -685,12 +874,18 @@ function getRelatedEntryIdsWithTraversal(
     };
   }
 
-  // Use graph traversal with new parameters
+  // Clamp traversal parameters to prevent expensive graph explosions
+  const depthRaw = typeof relatedTo.depth === 'number' ? relatedTo.depth : 1;
+  const depth = Math.min(5, Math.max(1, Math.floor(depthRaw)));
+  const maxResultsRaw = typeof relatedTo.maxResults === 'number' ? relatedTo.maxResults : 100;
+  const maxResults = Math.min(100, Math.max(1, Math.floor(maxResultsRaw)));
+
+  // Use graph traversal with normalized parameters
   return traverseRelationGraph(relatedTo.type, relatedTo.id, {
-    depth: relatedTo.depth,
+    depth,
     direction: relatedTo.direction,
     relationType: relatedTo.relation,
-    maxResults: relatedTo.maxResults,
+    maxResults,
   });
 }
 
@@ -717,15 +912,35 @@ function executeLikeSearch(
     let tableName: string;
     let searchColumns: string[];
 
+    // Only allow known columns to be interpolated into SQL identifiers.
+    // Values remain parameterized, but column names must be allowlisted.
+    const columnMap: Record<string, string> = {
+      name: 'name',
+      title: 'title',
+      description: 'description',
+      content: 'content',
+      rationale: 'rationale',
+      source: 'source',
+    };
+
     if (entryType === 'tool') {
       tableName = 'tools';
-      searchColumns = fields && fields.length > 0 ? fields : ['name'];
+      const allowed = new Set(['name'] as const);
+      const mapped = (fields ?? []).map((f) => columnMap[f.toLowerCase()]).filter(Boolean);
+      const filtered = mapped.filter((c): c is string => allowed.has(c as 'name'));
+      searchColumns = filtered.length > 0 ? filtered : ['name'];
     } else if (entryType === 'guideline') {
       tableName = 'guidelines';
-      searchColumns = fields && fields.length > 0 ? fields : ['name'];
+      const allowed = new Set(['name'] as const);
+      const mapped = (fields ?? []).map((f) => columnMap[f.toLowerCase()]).filter(Boolean);
+      const filtered = mapped.filter((c): c is string => allowed.has(c as 'name'));
+      searchColumns = filtered.length > 0 ? filtered : ['name'];
     } else {
       tableName = 'knowledge';
-      searchColumns = fields && fields.length > 0 ? fields : ['title'];
+      const allowed = new Set(['title'] as const);
+      const mapped = (fields ?? []).map((f) => columnMap[f.toLowerCase()]).filter(Boolean);
+      const filtered = mapped.filter((c): c is string => allowed.has(c as 'title'));
+      searchColumns = filtered.length > 0 ? filtered : ['title'];
     }
 
     // Build LIKE query for each column
@@ -870,58 +1085,70 @@ function priorityInRange(priority: number | null | undefined, min?: number, max?
 }
 
 /**
- * Calculate Levenshtein distance (for fuzzy matching)
+ * Calculate Levenshtein distance with early termination optimization
+ *
+ * When maxDistance is provided, the algorithm exits early if the minimum
+ * possible distance in the current row exceeds the threshold. This reduces
+ * time complexity from O(n×m) to O(n×k) where k is the distance threshold.
+ *
+ * @param str1 - First string
+ * @param str2 - Second string
+ * @param maxDistance - Optional maximum distance threshold for early termination
+ * @returns The Levenshtein distance, or maxDistance+1 if threshold exceeded
  */
-function levenshteinDistance(str1: string, str2: string): number {
+function levenshteinDistance(str1: string, str2: string, maxDistance?: number): number {
   const len1 = str1.length;
   const len2 = str2.length;
-  const matrix: number[][] = [];
 
-  for (let i = 0; i <= len1; i++) {
-    matrix[i] = [i];
+  // Early termination: if length difference exceeds maxDistance, no need to compute
+  if (maxDistance !== undefined && Math.abs(len1 - len2) > maxDistance) {
+    return maxDistance + 1;
   }
 
-  for (let j = 0; j <= len2; j++) {
-    const row0 = matrix[0];
-    if (row0) {
-      row0[j] = j;
-    }
+  // Optimize by ensuring str1 is the shorter string (reduces matrix columns)
+  if (len1 > len2) {
+    return levenshteinDistance(str2, str1, maxDistance);
   }
 
-  for (let i = 1; i <= len1; i++) {
-    const row = matrix[i];
-    if (!row) continue;
-    for (let j = 1; j <= len2; j++) {
-      if (str1[i - 1] === str2[j - 1]) {
-        const prevRow = matrix[i - 1];
-        const prevVal = prevRow?.[j - 1];
-        if (prevVal !== undefined) {
-          row[j] = prevVal;
-        }
-      } else {
-        const prevRow = matrix[i - 1];
-        const currentRow = matrix[i];
-        const val1 = prevRow?.[j];
-        const val2 = currentRow?.[j - 1];
-        const val3 = prevRow?.[j - 1];
-        if (val1 !== undefined && val2 !== undefined && val3 !== undefined) {
-          row[j] = Math.min(
-            val1 + 1, // deletion
-            val2 + 1, // insertion
-            val3 + 1 // substitution
-          );
-        }
+  // Use single row optimization (O(min(m,n)) space instead of O(m×n))
+  let prevRow: number[] = Array(len1 + 1)
+    .fill(0)
+    .map((_, i) => i);
+  let currRow: number[] = Array(len1 + 1).fill(0);
+
+  for (let j = 1; j <= len2; j++) {
+    currRow[0] = j;
+    let rowMin = j; // Track minimum value in current row for early termination
+
+    for (let i = 1; i <= len1; i++) {
+      const cost = str1[i - 1] === str2[j - 1] ? 0 : 1;
+
+      currRow[i] = Math.min(
+        (prevRow[i] ?? 0) + 1, // deletion
+        (currRow[i - 1] ?? 0) + 1, // insertion
+        (prevRow[i - 1] ?? 0) + cost // substitution
+      );
+
+      if (currRow[i]! < rowMin) {
+        rowMin = currRow[i]!;
       }
     }
+
+    // Early termination: if minimum possible distance exceeds threshold, abort
+    if (maxDistance !== undefined && rowMin > maxDistance) {
+      return maxDistance + 1;
+    }
+
+    // Swap rows
+    [prevRow, currRow] = [currRow, prevRow];
   }
 
-  const finalRow = matrix[len1];
-  const finalVal = finalRow?.[len2];
-  return finalVal ?? 0;
+  return prevRow[len1] ?? 0;
 }
 
 /**
  * Check if text matches with fuzzy matching
+ * Uses early termination optimization for Levenshtein distance
  */
 function fuzzyTextMatches(haystack: string | null | undefined, needle: string): boolean {
   if (!haystack) return false;
@@ -929,32 +1156,49 @@ function fuzzyTextMatches(haystack: string | null | undefined, needle: string): 
   const haystackLower = haystack.toLowerCase();
   const needleLower = needle.toLowerCase();
 
-  // First try exact substring match
+  // First try exact substring match (fast path)
   if (haystackLower.includes(needleLower)) return true;
 
-  // Calculate similarity (1 - normalized distance)
+  // Calculate similarity threshold-based max distance for early termination
+  // If similarity >= 0.7 is required, then distance <= 0.3 * maxLen
   const maxLen = Math.max(haystackLower.length, needleLower.length);
   if (maxLen === 0) return true;
 
-  const distance = levenshteinDistance(haystackLower, needleLower);
-  const similarity = 1 - distance / maxLen;
+  // Calculate max allowed distance for early termination
+  const maxAllowedDistance = Math.floor(maxLen * (1 - DEFAULT_SEMANTIC_THRESHOLD));
 
-  // Allow ~30% difference in fuzzy matching
-  return similarity >= DEFAULT_SEMANTIC_THRESHOLD;
+  // Use early termination optimization
+  const distance = levenshteinDistance(haystackLower, needleLower, maxAllowedDistance);
+
+  // If distance exceeds threshold, it returns maxAllowedDistance + 1
+  return distance <= maxAllowedDistance;
 }
 
 /**
  * Check if text matches using regex
+ *
+ * Security: Validates pattern for ReDoS safety and limits haystack length.
  */
 function regexTextMatches(haystack: string | null | undefined, pattern: string): boolean {
   if (!haystack) return false;
 
+  // Security: Limit haystack length to prevent DoS with very long strings
+  const limitedHaystack =
+    haystack.length > MAX_SEARCH_STRING_LENGTH ? haystack.slice(0, MAX_SEARCH_STRING_LENGTH) : haystack;
+
+  // Security: Validate pattern before creating RegExp to prevent ReDoS
+  if (!isSafeRegexPattern(pattern)) {
+    logger.warn({ pattern }, 'Rejected potentially dangerous regex pattern (ReDoS risk)');
+    // Fall back to simple string match for unsafe patterns
+    return limitedHaystack.toLowerCase().includes(pattern.toLowerCase());
+  }
+
   try {
     const regex = new RegExp(pattern, 'i'); // Case-insensitive
-    return regex.test(haystack);
+    return regex.test(limitedHaystack);
   } catch {
     // Invalid regex, fall back to simple match
-    return haystack.toLowerCase().includes(pattern.toLowerCase());
+    return limitedHaystack.toLowerCase().includes(pattern.toLowerCase());
   }
 }
 
@@ -1078,11 +1322,12 @@ function computeScore(params: {
 
   // If semantic similarity is available, use hybrid scoring
   if (params.semanticSimilarity !== undefined) {
-    // Hybrid scoring: semantic weight vs other factors
+    // Hybrid scoring: semantic weight (configurable) vs other factors
     const semanticScore = params.semanticSimilarity * 10; // Scale to 0-10
     score = semanticScore * SEMANTIC_SCORE_WEIGHT;
 
-    // Other factors contribute 30%
+    // Other factors contribute the remaining weight (1 - semantic weight)
+    const otherFactorsWeight = 1 - SEMANTIC_SCORE_WEIGHT;
     let otherFactors = 0;
 
     if (params.hasExplicitRelation) {
@@ -1109,7 +1354,7 @@ function computeScore(params: {
     const maxOtherFactors = 5 + 9 + 2 + 1 + 1.5; // Max possible
     otherFactors = (otherFactors / maxOtherFactors) * 10;
 
-    score += otherFactors * 0.3;
+    score += otherFactors * otherFactorsWeight;
   } else {
     // Traditional scoring without semantic similarity
     if (params.hasExplicitRelation) {
@@ -1190,36 +1435,45 @@ function executeFts5Search(
   const escapedSearch = search.replace(/["*]/g, '').trim();
   if (!escapedSearch) return result;
 
-  // Search tools
+  // Build a combined UNION query for all requested types
+  // This reduces database round-trips from 3 to 1
+  const queryParts: string[] = [];
+  const params: string[] = [];
+
   if (types.includes('tools')) {
-    const query = getPreparedStatement(
-      `SELECT tool_id FROM tools_fts WHERE tools_fts MATCH ? ORDER BY rank`
-    );
-    const toolRows = query.all(escapedSearch) as Array<{ tool_id: string }>;
-    for (const row of toolRows) {
-      result.tool.add(row.tool_id);
-    }
+    queryParts.push(`SELECT 'tool' as type, tool_id as id FROM tools_fts WHERE tools_fts MATCH ?`);
+    params.push(escapedSearch);
   }
 
-  // Search guidelines
   if (types.includes('guidelines')) {
-    const query = getPreparedStatement(
-      `SELECT guideline_id FROM guidelines_fts WHERE guidelines_fts MATCH ? ORDER BY rank`
+    queryParts.push(
+      `SELECT 'guideline' as type, guideline_id as id FROM guidelines_fts WHERE guidelines_fts MATCH ?`
     );
-    const guidelineRows = query.all(escapedSearch) as Array<{ guideline_id: string }>;
-    for (const row of guidelineRows) {
-      result.guideline.add(row.guideline_id);
-    }
+    params.push(escapedSearch);
   }
 
-  // Search knowledge
   if (types.includes('knowledge')) {
-    const query = getPreparedStatement(
-      `SELECT knowledge_id FROM knowledge_fts WHERE knowledge_fts MATCH ? ORDER BY rank`
+    queryParts.push(
+      `SELECT 'knowledge' as type, knowledge_id as id FROM knowledge_fts WHERE knowledge_fts MATCH ?`
     );
-    const knowledgeRows = query.all(escapedSearch) as Array<{ knowledge_id: string }>;
-    for (const row of knowledgeRows) {
-      result.knowledge.add(row.knowledge_id);
+    params.push(escapedSearch);
+  }
+
+  if (queryParts.length === 0) return result;
+
+  // Execute combined query
+  const combinedQuery = queryParts.join(' UNION ALL ');
+  const stmt = getPreparedStatement(combinedQuery);
+  const rows = stmt.all(...params) as Array<{ type: string; id: string }>;
+
+  // Distribute results by type
+  for (const row of rows) {
+    if (row.type === 'tool') {
+      result.tool.add(row.id);
+    } else if (row.type === 'guideline') {
+      result.guideline.add(row.id);
+    } else if (row.type === 'knowledge') {
+      result.knowledge.add(row.id);
     }
   }
 
@@ -1254,7 +1508,9 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
       : (['tools', 'guidelines', 'knowledge'] as const);
 
   const scopeChain = resolveScopeChain(params.scope);
-  const limit = params.limit && params.limit > 0 ? params.limit : 20;
+  const rawLimit =
+    params.limit && params.limit > 0 ? params.limit : config.pagination.defaultLimit;
+  const limit = Math.min(Math.floor(rawLimit), config.pagination.maxLimit);
 
   // New: Batched version loading helper
   function loadVersionsBatched(
@@ -2085,7 +2341,8 @@ export async function executeMemoryQueryAsync(
 ): Promise<MemoryQueryResult> {
   const search = params.search?.trim();
   const semanticSearchEnabled = params.semanticSearch !== false; // Default true
-  const semanticThreshold = params.semanticThreshold ?? DEFAULT_SEMANTIC_THRESHOLD;
+  const semanticThresholdRaw = params.semanticThreshold ?? DEFAULT_SEMANTIC_THRESHOLD;
+  const semanticThreshold = Math.min(1, Math.max(0, semanticThresholdRaw));
 
   // If semantic search is disabled or no search query, use sync version
   if (!semanticSearchEnabled || !search) {
@@ -2114,7 +2371,9 @@ export async function executeMemoryQueryAsync(
         return 'knowledge';
       });
 
-      const limit = params.limit && params.limit > 0 ? params.limit : 20;
+      const rawLimit =
+        params.limit && params.limit > 0 ? params.limit : config.pagination.defaultLimit;
+      const limit = Math.min(Math.floor(rawLimit), config.pagination.maxLimit);
       const similarEntries = await vectorService.searchSimilar(
         embeddingResult.embedding,
         entryTypes,

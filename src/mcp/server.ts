@@ -79,6 +79,7 @@ import { verificationHandlers } from './handlers/verification.handler.js';
 import { hooksHandlers } from './handlers/hooks.handler.js';
 import { observeHandlers } from './handlers/observe.handler.js';
 import { handleConsolidation, consolidationTool } from './handlers/consolidation.handler.js';
+import { reviewHandlers } from './handlers/review.handler.js';
 import { checkRateLimits } from '../utils/rate-limiter.js';
 import { VERSION } from '../version.js';
 
@@ -367,6 +368,7 @@ Example: {"action":"add","title":"API uses REST","content":"This project uses RE
           enum: ['create', 'list', 'attach', 'detach', 'for_entry'],
           description: 'Action to perform',
         },
+        agentId: { type: 'string', description: 'Agent identifier for access control/auditing' },
         // create params
         name: { type: 'string', description: 'Tag name (unique)' },
         category: { type: 'string', enum: ['language', 'domain', 'category', 'meta', 'custom'] },
@@ -399,6 +401,7 @@ Example: {"action":"add","title":"API uses REST","content":"This project uses RE
           enum: ['create', 'list', 'delete'],
           description: 'Action to perform',
         },
+        agentId: { type: 'string', description: 'Agent identifier for access control/auditing' },
         // common params
         id: { type: 'string', description: 'Relation ID (delete)' },
         sourceType: { type: 'string', enum: ['tool', 'guideline', 'knowledge', 'project'] },
@@ -475,6 +478,8 @@ Quick start: {"action":"context","scopeType":"project","inherit":true}`,
           enum: ['search', 'context'],
           description: 'Action to perform',
         },
+        // auth/identity (required for permission checks)
+        agentId: { type: 'string', description: 'Agent identifier for access control/auditing' },
         // search params
         types: {
           type: 'array',
@@ -717,6 +722,8 @@ Quick start: {"action":"context","scopeType":"project","inherit":true}`,
           enum: ['grant', 'revoke', 'check', 'list'],
           description: 'Action to perform',
         },
+        // admin auth (required for grant/revoke/list)
+        admin_key: { type: 'string', description: 'Admin key (grant, revoke, list)' },
         // grant params
         agent_id: { type: 'string', description: 'Agent identifier (grant, revoke, check, list)' },
         scope_type: {
@@ -813,6 +820,7 @@ Use this to verify the memory server is working or to get entry counts.`,
           enum: ['create', 'list', 'cleanup', 'restore'],
           description: 'Action to perform',
         },
+        admin_key: { type: 'string', description: 'Admin key (required)' },
         // create params
         name: {
           type: 'string',
@@ -848,6 +856,7 @@ Use this to verify the memory server is working or to get entry counts.`,
           enum: ['init', 'status', 'reset', 'verify'],
           description: 'Action to perform',
         },
+        admin_key: { type: 'string', description: 'Admin key (required for init/reset)' },
         // init params
         force: {
           type: 'boolean',
@@ -879,6 +888,8 @@ Use this to verify the memory server is working or to get entry counts.`,
           enum: ['export'],
           description: 'Action to perform',
         },
+        agentId: { type: 'string', description: 'Agent identifier for access control/auditing' },
+        admin_key: { type: 'string', description: 'Admin key (required when writing to disk)' },
         format: {
           type: 'string',
           enum: ['json', 'markdown', 'yaml', 'openapi'],
@@ -932,6 +943,7 @@ Use this to verify the memory server is working or to get entry counts.`,
           enum: ['import'],
           description: 'Action to perform',
         },
+        admin_key: { type: 'string', description: 'Admin key (required)' },
         content: {
           type: 'string',
           description: 'Content to import (JSON string, YAML string, Markdown, or OpenAPI spec)',
@@ -1267,6 +1279,47 @@ Returns extracted entries with confidence scores and duplicate detection.`,
   // MEMORY CONSOLIDATION
   // -------------------------------------------------------------------------
   consolidationTool,
+
+  // -------------------------------------------------------------------------
+  // REVIEW CANDIDATES
+  // -------------------------------------------------------------------------
+  {
+    name: 'memory_review',
+    description: `Review candidate memory entries from a session.
+
+Actions:
+- list: List all candidates pending review in a session
+- show: Show full details of a specific candidate
+- approve: Promote candidate to project scope
+- reject: Deactivate/reject candidate
+- skip: Remove from review queue without action
+
+Use this tool to review entries extracted during a session before promoting them to project scope.
+Example: {"action":"list","sessionId":"sess-123"}`,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: {
+          type: 'string',
+          enum: ['list', 'show', 'approve', 'reject', 'skip'],
+          description: 'Action to perform',
+        },
+        sessionId: {
+          type: 'string',
+          description: 'Session ID to review candidates from',
+        },
+        entryId: {
+          type: 'string',
+          description: 'Entry ID or short ID (for show, approve, reject, skip)',
+        },
+        projectId: {
+          type: 'string',
+          description: 'Target project ID for approved entries (optional, derived from session if not provided)',
+        },
+      },
+      required: ['action', 'sessionId'],
+    },
+  },
 ];
 
 // =============================================================================
@@ -1564,7 +1617,7 @@ const bundledHandlers: Record<string, (params: Record<string, unknown>) => unkno
       case 'create':
         return backupHandlers.create(rest as { name?: string });
       case 'list':
-        return backupHandlers.list();
+        return backupHandlers.list(rest);
       case 'cleanup':
         return backupHandlers.cleanup(rest as { keepCount?: number });
       case 'restore':
@@ -1783,6 +1836,30 @@ const bundledHandlers: Record<string, (params: Record<string, unknown>) => unkno
 
   memory_consolidate: (params) => {
     return handleConsolidation(params);
+  },
+
+  memory_review: (params) => {
+    const { action, ...rest } = params;
+    switch (action) {
+      case 'list':
+        return reviewHandlers.list(rest as { sessionId: string });
+      case 'show':
+        return reviewHandlers.show(rest as { sessionId: string; entryId: string });
+      case 'approve':
+        return reviewHandlers.approve(rest as { sessionId: string; entryId: string; projectId?: string });
+      case 'reject':
+        return reviewHandlers.reject(rest as { sessionId: string; entryId: string });
+      case 'skip':
+        return reviewHandlers.skip(rest as { sessionId: string; entryId: string });
+      default:
+        throw createInvalidActionError('memory_review', String(action), [
+          'list',
+          'show',
+          'approve',
+          'reject',
+          'skip',
+        ]);
+    }
   },
 };
 

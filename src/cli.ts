@@ -37,6 +37,12 @@ async function main() {
     return;
   }
 
+  if (command === 'review') {
+    const { runReviewCommand } = await import('./commands/review.js');
+    await runReviewCommand(argv.slice(1));
+    return;
+  }
+
   // Load config first (which loads dotenv)
   await import('./config/index.js');
 

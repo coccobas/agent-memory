@@ -29,11 +29,15 @@ vi.mock('../../src/db/connection.js', async () => {
 import { queryHandlers } from '../../src/mcp/handlers/query.handler.js';
 
 describe('memory_context integration', () => {
+  const AGENT_ID = 'agent-1';
   let orgId: string;
   let projectId: string;
   let sessionId: string;
+  let previousPermMode: string | undefined;
 
   beforeAll(() => {
+    previousPermMode = process.env.AGENT_MEMORY_PERMISSIONS_MODE;
+    process.env.AGENT_MEMORY_PERMISSIONS_MODE = 'permissive';
     const testDb = setupTestDb(TEST_DB_PATH);
     sqlite = testDb.sqlite;
     db = testDb.db;
@@ -64,12 +68,18 @@ describe('memory_context integration', () => {
   });
 
   afterAll(() => {
+    if (previousPermMode === undefined) {
+      delete process.env.AGENT_MEMORY_PERMISSIONS_MODE;
+    } else {
+      process.env.AGENT_MEMORY_PERMISSIONS_MODE = previousPermMode;
+    }
     sqlite.close();
     cleanupTestDb(TEST_DB_PATH);
   });
 
   it('returns aggregated context for a session with inheritance', () => {
     const response = queryHandlers.context({
+      agentId: AGENT_ID,
       scopeType: 'session',
       scopeId: sessionId,
       inherit: true,
@@ -93,6 +103,7 @@ describe('memory_context integration', () => {
 
   it('returns context only for the given scope when inherit is false', () => {
     const response = queryHandlers.context({
+      agentId: AGENT_ID,
       scopeType: 'project',
       scopeId: projectId,
       inherit: false,

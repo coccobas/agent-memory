@@ -16,6 +16,99 @@ import { config } from '../config/index.js';
 
 const logger = createComponentLogger('extraction');
 
+// Security: Maximum context size to prevent DoS and API quota exhaustion
+const MAX_CONTEXT_LENGTH = 100000; // 100KB limit
+
+// Security: Allowed OpenAI-compatible hosts (add your approved hosts here)
+const ALLOWED_OPENAI_HOSTS = [
+  'api.openai.com',
+  'api.anthropic.com',
+  'localhost',
+  '127.0.0.1',
+];
+
+/**
+ * Validate URL for SSRF protection.
+ * Rejects private IP ranges and ensures only approved protocols.
+ *
+ * Security: Prevents Server-Side Request Forgery attacks.
+ */
+function validateExternalUrl(urlString: string, allowPrivate: boolean = false): void {
+  const url = new URL(urlString);
+
+  // Check protocol
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    throw new Error(`Invalid URL scheme: ${url.protocol}. Only http/https allowed.`);
+  }
+
+  if (!allowPrivate) {
+    // Check for private/internal IP ranges
+    const hostname = url.hostname.toLowerCase();
+    const privatePatterns = [
+      /^127\./, // 127.0.0.0/8 (loopback)
+      /^10\./, // 10.0.0.0/8 (private)
+      /^172\.(1[6-9]|2[0-9]|3[01])\./, // 172.16.0.0/12 (private)
+      /^192\.168\./, // 192.168.0.0/16 (private)
+      /^169\.254\./, // 169.254.0.0/16 (link-local, AWS metadata)
+      /^0\.0\.0\.0$/, // 0.0.0.0
+      /^::1$/, // IPv6 loopback
+      /^\[::1\]$/, // IPv6 loopback with brackets
+      /^localhost$/i, // localhost
+    ];
+
+    for (const pattern of privatePatterns) {
+      if (pattern.test(hostname)) {
+        throw new Error(
+          `SSRF protection: Private/internal addresses not allowed: ${hostname}`
+        );
+      }
+    }
+  }
+}
+
+/**
+ * Validate model name to prevent injection attacks.
+ * Model names should only contain safe characters.
+ *
+ * Security: Prevents injection via malicious model names.
+ */
+function isValidModelName(modelName: string): boolean {
+  // Allow alphanumeric, hyphens, underscores, colons (for tags like llama:7b), and dots
+  // Examples: llama2, llama:7b, gpt-4-turbo, mistral-7b-instruct-v0.2
+  const validPattern = /^[a-zA-Z0-9._:-]+$/;
+  return validPattern.test(modelName) && modelName.length <= 100;
+}
+
+/**
+ * Validate OpenAI-compatible base URL against allowlist.
+ * When using custom base URLs, credentials may be sent to that server.
+ *
+ * Security: Prevents credential exposure to untrusted servers.
+ */
+function validateOpenAIBaseUrl(baseUrl: string | undefined): void {
+  if (!baseUrl) return; // Default API URL is fine
+
+  const url = new URL(baseUrl);
+  const hostname = url.hostname.toLowerCase();
+
+  // Allow localhost for development
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    logger.debug({ baseUrl }, 'Using local OpenAI-compatible endpoint');
+    return;
+  }
+
+  // Check against allowlist
+  if (!ALLOWED_OPENAI_HOSTS.includes(hostname)) {
+    logger.warn(
+      { hostname },
+      'OpenAI base URL not in allowlist. Add to ALLOWED_OPENAI_HOSTS if legitimate.'
+    );
+    // Note: We warn but don't block to avoid breaking legitimate setups
+    // In high-security environments, uncomment the throw below:
+    // throw new Error(`OpenAI base URL not allowed: ${hostname}`);
+  }
+}
+
 export type ExtractionProvider = 'openai' | 'anthropic' | 'ollama' | 'disabled';
 
 export interface ExtractedEntry {
@@ -236,23 +329,37 @@ class ExtractionService {
     this.openaiModel = config.extraction.openaiModel;
     this.anthropicModel = config.extraction.anthropicModel;
     this.ollamaBaseUrl = config.extraction.ollamaBaseUrl;
-    this.ollamaModel = config.extraction.ollamaModel;
+
+    // Security: Validate Ollama model name to prevent injection
+    const rawOllamaModel = config.extraction.ollamaModel;
+    if (!isValidModelName(rawOllamaModel)) {
+      throw new Error(
+        `Invalid Ollama model name: "${rawOllamaModel}". ` +
+          'Model names must only contain alphanumeric characters, hyphens, underscores, colons, and dots.'
+      );
+    }
+    this.ollamaModel = rawOllamaModel;
 
     // Initialize OpenAI client if using OpenAI (or OpenAI-compatible like LM Studio)
     if (this.provider === 'openai' && config.extraction.openaiApiKey) {
-      const openaiOptions: { apiKey: string; baseURL?: string } = {
+      // Security: Validate custom base URL to prevent credential exposure
+      validateOpenAIBaseUrl(config.extraction.openaiBaseUrl);
+
+      this.openaiClient = new OpenAI({
         apiKey: config.extraction.openaiApiKey,
-      };
-      // Allow custom base URL for LM Studio, LocalAI, or other OpenAI-compatible APIs
-      if (config.extraction.openaiBaseUrl) {
-        openaiOptions.baseURL = config.extraction.openaiBaseUrl;
-      }
-      this.openaiClient = new OpenAI(openaiOptions);
+        baseURL: config.extraction.openaiBaseUrl || undefined,
+        timeout: 120000, // 120 second timeout for LLM calls (can be longer than embeddings)
+        maxRetries: 0, // Disable SDK retry - we handle retries with withRetry
+      });
     }
 
     // Initialize Anthropic client if using Anthropic
     if (this.provider === 'anthropic' && config.extraction.anthropicApiKey) {
-      this.anthropicClient = new Anthropic({ apiKey: config.extraction.anthropicApiKey });
+      this.anthropicClient = new Anthropic({
+        apiKey: config.extraction.anthropicApiKey,
+        timeout: 120000, // 120 second timeout
+        maxRetries: 0, // Disable SDK retry
+      });
     }
   }
 
@@ -288,6 +395,14 @@ class ExtractionService {
     // Validate input
     if (!input.context || input.context.trim().length === 0) {
       throw new Error('Cannot extract from empty context');
+    }
+
+    // Security: Prevent DoS and API quota exhaustion with large context
+    if (input.context.length > MAX_CONTEXT_LENGTH) {
+      throw new Error(
+        `Context exceeds maximum length of ${MAX_CONTEXT_LENGTH} characters (got ${input.context.length}). ` +
+          `Truncate or summarize the context before extraction.`
+      );
     }
 
     const startTime = Date.now();
@@ -435,9 +550,17 @@ class ExtractionService {
 
     return withRetry(
       async () => {
+        // Security: Validate URL scheme (allow private IPs since Ollama is typically local)
+        validateExternalUrl(url, true /* allowPrivate - Ollama is typically localhost */);
+
+        const timeoutMsRaw = process.env.AGENT_MEMORY_OLLAMA_TIMEOUT_MS;
+        const timeoutMs =
+          timeoutMsRaw && !Number.isNaN(Number(timeoutMsRaw)) ? Math.max(1000, Number(timeoutMsRaw)) : 30000;
+
         const response = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          signal: AbortSignal.timeout(timeoutMs),
           body: JSON.stringify({
             model: this.ollamaModel,
             prompt: `${EXTRACTION_SYSTEM_PROMPT}\n\n${buildUserPrompt(input)}`,
@@ -454,7 +577,20 @@ class ExtractionService {
           throw new Error(`Ollama request failed: ${response.status} ${response.statusText}`);
         }
 
-        const data = (await response.json()) as { response: string };
+        // Security: Check response size before parsing to prevent memory exhaustion
+        const contentLength = response.headers.get('content-length');
+        const maxResponseSize = 10 * 1024 * 1024; // 10MB max response
+        if (contentLength && parseInt(contentLength, 10) > maxResponseSize) {
+          throw new Error(`Ollama response too large: ${contentLength} bytes (max ${maxResponseSize})`);
+        }
+
+        // Read response as text first to check size
+        const responseText = await response.text();
+        if (responseText.length > maxResponseSize) {
+          throw new Error(`Ollama response too large: ${responseText.length} bytes (max ${maxResponseSize})`);
+        }
+
+        const data = JSON.parse(responseText) as { response: string };
         if (!data.response) {
           throw new Error('No response from Ollama');
         }

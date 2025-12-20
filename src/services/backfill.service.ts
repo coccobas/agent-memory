@@ -26,12 +26,20 @@ import { config } from '../config/index.js';
 
 const logger = createComponentLogger('backfill');
 
+export interface BackfillError {
+  entryType: string;
+  entryId: string;
+  error: string;
+  timestamp: string;
+}
+
 export interface BackfillProgress {
   total: number;
   processed: number;
   succeeded: number;
   failed: number;
   inProgress: boolean;
+  errors: BackfillError[]; // Track individual errors for debugging
 }
 
 export interface BackfillOptions {
@@ -68,6 +76,7 @@ export async function backfillEmbeddings(options: BackfillOptions = {}): Promise
     succeeded: 0,
     failed: 0,
     inProgress: true,
+    errors: [],
   };
 
   // Count total entries to process (using COUNT(*) for efficiency)
@@ -281,17 +290,8 @@ async function backfillEntryType(
         // Generate embedding
         const result = await embeddingService.embed(text);
 
-        // Store in vector database
-        await vectorService.storeEmbedding(
-          entryType,
-          entry.id,
-          entry.currentVersionId,
-          text,
-          result.embedding,
-          result.model
-        );
-
-        // Track in database
+        // Track in database FIRST (more reliable, can be rolled back)
+        // This ensures we don't have orphaned vector embeddings without tracking records
         const embeddingRecord: NewEntryEmbedding = {
           id: generateId(),
           entryType,
@@ -304,24 +304,61 @@ async function backfillEntryType(
 
         db.insert(entryEmbeddings).values(embeddingRecord).run();
 
+        // Then store in vector database
+        // If this fails, the tracking record exists but hasEmbedding may be misleading
+        // However, we can still search by other means, and retry will skip this entry
+        try {
+          await vectorService.storeEmbedding(
+            entryType,
+            entry.id,
+            entry.currentVersionId,
+            text,
+            result.embedding,
+            result.model
+          );
+        } catch (vectorError) {
+          // Vector storage failed - update tracking to reflect partial state
+          // This allows the entry to be retried later
+          logger.warn(
+            { entryType, entryId: entry.id, error: vectorError },
+            'Vector storage failed, marking for retry'
+          );
+          db.update(entryEmbeddings)
+            .set({ hasEmbedding: false })
+            .where(eq(entryEmbeddings.id, embeddingRecord.id))
+            .run();
+          throw vectorError; // Re-throw to trigger failure handling
+        }
+
         progress.processed++;
         progress.succeeded++;
       } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
         logger.error(
           {
             entryType,
             entryId: entry.id,
-            errorMessage: error instanceof Error ? error.message : String(error),
+            errorMessage,
             errorStack: error instanceof Error ? error.stack : undefined,
           },
           'Failed to process entry'
         );
         progress.processed++;
         progress.failed++;
+        // Track error details for debugging (limit to 100 to prevent memory issues)
+        if (progress.errors.length < 100) {
+          progress.errors.push({
+            entryType,
+            entryId: entry.id,
+            error: errorMessage,
+            timestamp: new Date().toISOString(),
+          });
+        }
       }
 
       if (onProgress) {
-        onProgress({ ...progress });
+        // Deep copy to avoid mutations affecting original progress object
+        onProgress({ ...progress, errors: [...progress.errors] });
       }
     });
 

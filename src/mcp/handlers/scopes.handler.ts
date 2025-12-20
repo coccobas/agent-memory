@@ -1,5 +1,7 @@
 /**
  * Scope management handlers (organizations, projects, sessions)
+ *
+ * Security: Destructive operations require admin key authentication.
  */
 
 import {
@@ -21,6 +23,7 @@ import {
 } from '../../utils/type-guards.js';
 import { formatTimestamps } from '../../utils/timestamp-formatter.js';
 import { getCriticalGuidelinesForSession } from '../../services/critical-guidelines.service.js';
+import { requireAdminKey } from '../../utils/admin.js';
 
 /**
  * Type guard to check if a value is a valid session status
@@ -35,6 +38,9 @@ export const scopeHandlers = {
   // ===========================================================================
 
   orgCreate(params: Record<string, unknown>) {
+    // Security: Org creation requires admin authentication
+    requireAdminKey(params);
+
     const name = getRequiredParam(params, 'name', isString);
     const metadata = getOptionalParam(params, 'metadata', isObject);
 
@@ -65,6 +71,9 @@ export const scopeHandlers = {
   // ===========================================================================
 
   projectCreate(params: Record<string, unknown>) {
+    // Security: Project creation requires admin authentication
+    requireAdminKey(params);
+
     const name = getRequiredParam(params, 'name', isString);
     const orgId = getOptionalParam(params, 'orgId', isString);
     const description = getOptionalParam(params, 'description', isString);
@@ -121,6 +130,9 @@ export const scopeHandlers = {
   },
 
   projectUpdate(params: Record<string, unknown>) {
+    // Security: Project update requires admin authentication
+    requireAdminKey(params);
+
     const id = getRequiredParam(params, 'id', isString);
     const name = getOptionalParam(params, 'name', isString);
     const description = getOptionalParam(params, 'description', isString);
@@ -142,6 +154,9 @@ export const scopeHandlers = {
   },
 
   projectDelete(params: Record<string, unknown>) {
+    // Security: Project deletion requires admin authentication
+    requireAdminKey(params);
+
     const id = getRequiredParam(params, 'id', isString);
     const confirm = getOptionalParam(params, 'confirm', isBoolean);
 

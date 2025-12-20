@@ -24,13 +24,22 @@ vi.mock('../../src/db/connection.js', async () => {
 import { relationHandlers } from '../../src/mcp/handlers/relations.handler.js';
 
 describe('Relations Integration', () => {
+  const AGENT_ID = 'agent-1';
+  let previousPermMode: string | undefined;
   beforeAll(() => {
+    previousPermMode = process.env.AGENT_MEMORY_PERMISSIONS_MODE;
+    process.env.AGENT_MEMORY_PERMISSIONS_MODE = 'permissive';
     const testDb = setupTestDb(TEST_DB_PATH);
     sqlite = testDb.sqlite;
     db = testDb.db;
   });
 
   afterAll(() => {
+    if (previousPermMode === undefined) {
+      delete process.env.AGENT_MEMORY_PERMISSIONS_MODE;
+    } else {
+      process.env.AGENT_MEMORY_PERMISSIONS_MODE = previousPermMode;
+    }
     sqlite.close();
     cleanupTestDb(TEST_DB_PATH);
   });
@@ -41,6 +50,7 @@ describe('Relations Integration', () => {
       const { guideline } = createTestGuideline(db, 'sql_guideline');
 
       const result = relationHandlers.create({
+        agentId: AGENT_ID,
         sourceType: 'tool',
         sourceId: tool.id,
         targetType: 'guideline',
@@ -62,6 +72,7 @@ describe('Relations Integration', () => {
       const { tool } = createTestTool(db, 'reverse_tool');
 
       const result = relationHandlers.create({
+        agentId: AGENT_ID,
         sourceType: 'guideline',
         sourceId: guideline.id,
         targetType: 'tool',
@@ -74,7 +85,7 @@ describe('Relations Integration', () => {
 
     it('should require all required fields', () => {
       expect(() => {
-        relationHandlers.create({});
+        relationHandlers.create({ agentId: AGENT_ID });
       }).toThrow('sourceType is required');
     });
   });
@@ -86,6 +97,7 @@ describe('Relations Integration', () => {
       const { guideline: g2 } = createTestGuideline(db, 'target2');
 
       relationHandlers.create({
+        agentId: AGENT_ID,
         sourceType: 'tool',
         sourceId: tool.id,
         targetType: 'guideline',
@@ -94,6 +106,7 @@ describe('Relations Integration', () => {
       });
 
       relationHandlers.create({
+        agentId: AGENT_ID,
         sourceType: 'tool',
         sourceId: tool.id,
         targetType: 'guideline',
@@ -102,6 +115,7 @@ describe('Relations Integration', () => {
       });
 
       const result = relationHandlers.list({
+        agentId: AGENT_ID,
         sourceType: 'tool',
         sourceId: tool.id,
         limit: 10,
@@ -120,6 +134,7 @@ describe('Relations Integration', () => {
       const { tool: t2 } = createTestTool(db, 'source2');
 
       relationHandlers.create({
+        agentId: AGENT_ID,
         sourceType: 'tool',
         sourceId: t1.id,
         targetType: 'guideline',
@@ -128,6 +143,7 @@ describe('Relations Integration', () => {
       });
 
       relationHandlers.create({
+        agentId: AGENT_ID,
         sourceType: 'tool',
         sourceId: t2.id,
         targetType: 'guideline',
@@ -136,6 +152,7 @@ describe('Relations Integration', () => {
       });
 
       const result = relationHandlers.list({
+        agentId: AGENT_ID,
         targetType: 'guideline',
         targetId: guideline.id,
         limit: 10,
@@ -154,6 +171,7 @@ describe('Relations Integration', () => {
       const { guideline: g2 } = createTestGuideline(db, 'depends1');
 
       relationHandlers.create({
+        agentId: AGENT_ID,
         sourceType: 'tool',
         sourceId: tool.id,
         targetType: 'guideline',
@@ -162,6 +180,7 @@ describe('Relations Integration', () => {
       });
 
       relationHandlers.create({
+        agentId: AGENT_ID,
         sourceType: 'tool',
         sourceId: tool.id,
         targetType: 'guideline',
@@ -170,6 +189,7 @@ describe('Relations Integration', () => {
       });
 
       const result = relationHandlers.list({
+        agentId: AGENT_ID,
         sourceType: 'tool',
         sourceId: tool.id,
         relationType: 'applies_to',
@@ -180,9 +200,8 @@ describe('Relations Integration', () => {
       expect(result.relations[0].relationType).toBe('applies_to');
     });
 
-    it('should list all relations', () => {
-      const result = relationHandlers.list({ limit: 10 });
-      expect(result.relations.length).toBeGreaterThan(0);
+    it('should require an anchored entry filter', () => {
+      expect(() => relationHandlers.list({ agentId: AGENT_ID, limit: 10 })).toThrow();
     });
   });
 
@@ -192,6 +211,7 @@ describe('Relations Integration', () => {
       const { guideline } = createTestGuideline(db, 'delete_guideline');
 
       const createResult = relationHandlers.create({
+        agentId: AGENT_ID,
         sourceType: 'tool',
         sourceId: tool.id,
         targetType: 'guideline',
@@ -200,6 +220,7 @@ describe('Relations Integration', () => {
       });
 
       const deleteResult = relationHandlers.delete({
+        agentId: AGENT_ID,
         id: createResult.relation.id,
       });
 
@@ -207,6 +228,7 @@ describe('Relations Integration', () => {
 
       // Verify relation is deleted
       const listResult = relationHandlers.list({
+        agentId: AGENT_ID,
         sourceType: 'tool',
         sourceId: tool.id,
         limit: 10,
@@ -216,7 +238,7 @@ describe('Relations Integration', () => {
 
     it('should require id or full key', () => {
       expect(() => {
-        relationHandlers.delete({});
+        relationHandlers.delete({ agentId: AGENT_ID });
       }).toThrow(
         'Either id or all of (sourceType, sourceId, targetType, targetId, relationType) are required'
       );

@@ -68,5 +68,8 @@ strategy docs/
 docs/findings/
 docs/review/
 
+# Local-only security notes (not tracked)
+docs/guides/security.md
+
 # Prompts (not tracked)
 prompts/

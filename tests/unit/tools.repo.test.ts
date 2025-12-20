@@ -190,9 +190,9 @@ describe('toolRepo', () => {
       const history = toolRepo.getHistory(created.id);
 
       expect(history.length).toBe(2);
-      // History is ordered descending (newest first)
-      expect(history[0]?.versionNum).toBe(2);
-      expect(history[1]?.versionNum).toBe(1);
+      // History is ordered ascending (oldest first)
+      expect(history[0]?.versionNum).toBe(1);
+      expect(history[1]?.versionNum).toBe(2);
     });
   });
 

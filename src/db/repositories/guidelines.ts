@@ -1,9 +1,13 @@
-import { eq, and, isNull, desc, asc } from 'drizzle-orm';
+import { eq, and, isNull, desc, asc, inArray, or } from 'drizzle-orm';
 import { getDb } from '../connection.js';
 import {
   guidelines,
   guidelineVersions,
   conflictLog,
+  entryTags,
+  entryRelations,
+  entryEmbeddings,
+  permissions,
   type Guideline,
   type NewGuideline,
   type GuidelineVersion,
@@ -279,17 +283,29 @@ export const guidelineRepo = {
       .offset(offset)
       .all();
 
-    // Fetch current versions
-    return guidelinesList.map((guideline) => {
-      const currentVersion = guideline.currentVersionId
-        ? db
-            .select()
-            .from(guidelineVersions)
-            .where(eq(guidelineVersions.id, guideline.currentVersionId))
-            .get()
-        : undefined;
-      return { ...guideline, currentVersion };
-    });
+    // Batch fetch current versions to avoid N+1 queries
+    const versionIds = guidelinesList
+      .map((g) => g.currentVersionId)
+      .filter((id): id is string => id !== null && id !== undefined);
+
+    const versionsMap = new Map<string, GuidelineVersion>();
+    if (versionIds.length > 0) {
+      const versionsList = db
+        .select()
+        .from(guidelineVersions)
+        .where(inArray(guidelineVersions.id, versionIds))
+        .all();
+      for (const v of versionsList) {
+        versionsMap.set(v.id, v);
+      }
+    }
+
+    return guidelinesList.map((guideline) => ({
+      ...guideline,
+      currentVersion: guideline.currentVersionId
+        ? versionsMap.get(guideline.currentVersionId)
+        : undefined,
+    }));
   },
 
   /**
@@ -416,7 +432,21 @@ export const guidelineRepo = {
       .set({ isActive: false })
       .where(eq(guidelines.id, id))
       .run();
-    return result.changes > 0;
+    const success = result.changes > 0;
+
+    // Remove from vector search when deactivated (async, fire-and-forget)
+    if (success) {
+      void (async () => {
+        try {
+          const vectorService = getVectorService();
+          await vectorService.removeEmbedding('guideline', id);
+        } catch {
+          // Error already logged in vector service
+        }
+      })();
+    }
+
+    return success;
   },
 
   /**
@@ -429,12 +459,42 @@ export const guidelineRepo = {
   },
 
   /**
-   * Hard delete a guideline and all versions
+   * Hard delete a guideline and all related records (versions, tags, relations, embeddings, permissions)
    */
   delete(id: string): boolean {
     const result = transaction(() => {
       const db = getDb();
+
+      // Delete related records first (cascade cleanup)
+      // 1. Delete tags associated with this entry
+      db.delete(entryTags)
+        .where(and(eq(entryTags.entryType, 'guideline'), eq(entryTags.entryId, id)))
+        .run();
+
+      // 2. Delete relations where this entry is source or target
+      db.delete(entryRelations)
+        .where(
+          or(
+            and(eq(entryRelations.sourceType, 'guideline'), eq(entryRelations.sourceId, id)),
+            and(eq(entryRelations.targetType, 'guideline'), eq(entryRelations.targetId, id))
+          )
+        )
+        .run();
+
+      // 3. Delete embedding tracking records
+      db.delete(entryEmbeddings)
+        .where(and(eq(entryEmbeddings.entryType, 'guideline'), eq(entryEmbeddings.entryId, id)))
+        .run();
+
+      // 4. Delete entry-specific permissions
+      db.delete(permissions)
+        .where(and(eq(permissions.entryType, 'guideline'), eq(permissions.entryId, id)))
+        .run();
+
+      // 5. Delete versions
       db.delete(guidelineVersions).where(eq(guidelineVersions.guidelineId, id)).run();
+
+      // 6. Delete guideline
       const deleteResult = db.delete(guidelines).where(eq(guidelines.id, id)).run();
       return deleteResult.changes > 0;
     });

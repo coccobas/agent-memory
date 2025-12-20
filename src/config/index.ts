@@ -336,7 +336,7 @@ export const config: Config = {
     provider: getEmbeddingProvider(),
     openaiApiKey: process.env.AGENT_MEMORY_OPENAI_API_KEY,
     openaiModel: process.env.AGENT_MEMORY_OPENAI_MODEL || 'text-embedding-3-small',
-    maxConcurrency: parseInt_(process.env.AGENT_MEMORY_EMBEDDING_MAX_CONCURRENCY, 4),
+    maxConcurrency: parseInt_(process.env.AGENT_MEMORY_EMBEDDING_MAX_CONCURRENCY, 16),
   },
 
   extraction: {
@@ -376,14 +376,16 @@ export const config: Config = {
   },
 
   cache: {
-    totalLimitMB: parseInt_(process.env.AGENT_MEMORY_CACHE_LIMIT_MB, 100),
+    // Production-optimized cache sizes (increased from 100/200/50)
+    totalLimitMB: parseInt_(process.env.AGENT_MEMORY_CACHE_LIMIT_MB, 512),
     queryCacheTTLMs: parseInt_(process.env.AGENT_MEMORY_QUERY_CACHE_TTL_MS, 5 * 60 * 1000),
     scopeCacheTTLMs: parseInt_(process.env.AGENT_MEMORY_SCOPE_CACHE_TTL_MS, 10 * 60 * 1000),
-    maxPreparedStatements: parseInt_(process.env.AGENT_MEMORY_MAX_PREPARED_STATEMENTS, 100),
-    queryCacheSize: parseInt_(process.env.AGENT_MEMORY_QUERY_CACHE_SIZE, 200),
-    queryCacheMemoryMB: parseInt_(process.env.AGENT_MEMORY_QUERY_CACHE_MEMORY_MB, 50),
-    pressureThreshold: parseNumber(process.env.AGENT_MEMORY_CACHE_PRESSURE_THRESHOLD, 0.8),
-    evictionTarget: parseNumber(process.env.AGENT_MEMORY_CACHE_EVICTION_TARGET, 0.8),
+    maxPreparedStatements: parseInt_(process.env.AGENT_MEMORY_MAX_PREPARED_STATEMENTS, 500),
+    queryCacheSize: parseInt_(process.env.AGENT_MEMORY_QUERY_CACHE_SIZE, 1000),
+    queryCacheMemoryMB: parseInt_(process.env.AGENT_MEMORY_QUERY_CACHE_MEMORY_MB, 200),
+    // Start eviction earlier and more aggressively
+    pressureThreshold: parseNumber(process.env.AGENT_MEMORY_CACHE_PRESSURE_THRESHOLD, 0.75),
+    evictionTarget: parseNumber(process.env.AGENT_MEMORY_CACHE_EVICTION_TARGET, 0.6),
   },
 
   memory: {
@@ -394,15 +396,18 @@ export const config: Config = {
   rateLimit: {
     enabled: process.env.AGENT_MEMORY_RATE_LIMIT !== '0',
     perAgent: {
-      maxRequests: parseInt_(process.env.AGENT_MEMORY_RATE_LIMIT_PER_AGENT_MAX, 100),
+      // Increased from 100 to 500 req/min (8.3 RPS per agent)
+      maxRequests: parseInt_(process.env.AGENT_MEMORY_RATE_LIMIT_PER_AGENT_MAX, 500),
       windowMs: parseInt_(process.env.AGENT_MEMORY_RATE_LIMIT_PER_AGENT_WINDOW_MS, 60000),
     },
     global: {
-      maxRequests: parseInt_(process.env.AGENT_MEMORY_RATE_LIMIT_GLOBAL_MAX, 1000),
+      // Increased from 1000 to 5000 req/min (83 RPS global)
+      maxRequests: parseInt_(process.env.AGENT_MEMORY_RATE_LIMIT_GLOBAL_MAX, 5000),
       windowMs: parseInt_(process.env.AGENT_MEMORY_RATE_LIMIT_GLOBAL_WINDOW_MS, 60000),
     },
     burst: {
-      maxRequests: parseInt_(process.env.AGENT_MEMORY_RATE_LIMIT_BURST_MAX, 20),
+      // Increased from 20 to 50 peak RPS
+      maxRequests: parseInt_(process.env.AGENT_MEMORY_RATE_LIMIT_BURST_MAX, 50),
       windowMs: parseInt_(process.env.AGENT_MEMORY_RATE_LIMIT_BURST_WINDOW_MS, 1000),
     },
   },
@@ -522,7 +527,7 @@ function buildConfig(): Config {
       provider: getEmbeddingProvider(),
       openaiApiKey: process.env.AGENT_MEMORY_OPENAI_API_KEY,
       openaiModel: process.env.AGENT_MEMORY_OPENAI_MODEL || 'text-embedding-3-small',
-      maxConcurrency: parseInt_(process.env.AGENT_MEMORY_EMBEDDING_MAX_CONCURRENCY, 4),
+      maxConcurrency: parseInt_(process.env.AGENT_MEMORY_EMBEDDING_MAX_CONCURRENCY, 16),
     },
 
     extraction: {
@@ -567,14 +572,16 @@ function buildConfig(): Config {
     },
 
     cache: {
-      totalLimitMB: parseInt_(process.env.AGENT_MEMORY_CACHE_LIMIT_MB, 100),
+      // Production-optimized cache sizes (increased from 100/200/50)
+      totalLimitMB: parseInt_(process.env.AGENT_MEMORY_CACHE_LIMIT_MB, 512),
       queryCacheTTLMs: parseInt_(process.env.AGENT_MEMORY_QUERY_CACHE_TTL_MS, 5 * 60 * 1000),
       scopeCacheTTLMs: parseInt_(process.env.AGENT_MEMORY_SCOPE_CACHE_TTL_MS, 10 * 60 * 1000),
-      maxPreparedStatements: parseInt_(process.env.AGENT_MEMORY_MAX_PREPARED_STATEMENTS, 100),
-      queryCacheSize: parseInt_(process.env.AGENT_MEMORY_QUERY_CACHE_SIZE, 200),
-      queryCacheMemoryMB: parseInt_(process.env.AGENT_MEMORY_QUERY_CACHE_MEMORY_MB, 50),
-      pressureThreshold: parseNumber(process.env.AGENT_MEMORY_CACHE_PRESSURE_THRESHOLD, 0.8),
-      evictionTarget: parseNumber(process.env.AGENT_MEMORY_CACHE_EVICTION_TARGET, 0.8),
+      maxPreparedStatements: parseInt_(process.env.AGENT_MEMORY_MAX_PREPARED_STATEMENTS, 500),
+      queryCacheSize: parseInt_(process.env.AGENT_MEMORY_QUERY_CACHE_SIZE, 1000),
+      queryCacheMemoryMB: parseInt_(process.env.AGENT_MEMORY_QUERY_CACHE_MEMORY_MB, 200),
+      // Start eviction earlier and more aggressively
+      pressureThreshold: parseNumber(process.env.AGENT_MEMORY_CACHE_PRESSURE_THRESHOLD, 0.75),
+      evictionTarget: parseNumber(process.env.AGENT_MEMORY_CACHE_EVICTION_TARGET, 0.6),
     },
 
     memory: {
@@ -585,15 +592,18 @@ function buildConfig(): Config {
     rateLimit: {
       enabled: process.env.AGENT_MEMORY_RATE_LIMIT !== '0',
       perAgent: {
-        maxRequests: parseInt_(process.env.AGENT_MEMORY_RATE_LIMIT_PER_AGENT_MAX, 100),
+        // Increased from 100 to 500 req/min (8.3 RPS per agent)
+        maxRequests: parseInt_(process.env.AGENT_MEMORY_RATE_LIMIT_PER_AGENT_MAX, 500),
         windowMs: parseInt_(process.env.AGENT_MEMORY_RATE_LIMIT_PER_AGENT_WINDOW_MS, 60000),
       },
       global: {
-        maxRequests: parseInt_(process.env.AGENT_MEMORY_RATE_LIMIT_GLOBAL_MAX, 1000),
+        // Increased from 1000 to 5000 req/min (83 RPS global)
+        maxRequests: parseInt_(process.env.AGENT_MEMORY_RATE_LIMIT_GLOBAL_MAX, 5000),
         windowMs: parseInt_(process.env.AGENT_MEMORY_RATE_LIMIT_GLOBAL_WINDOW_MS, 60000),
       },
       burst: {
-        maxRequests: parseInt_(process.env.AGENT_MEMORY_RATE_LIMIT_BURST_MAX, 20),
+        // Increased from 20 to 50 peak RPS
+        maxRequests: parseInt_(process.env.AGENT_MEMORY_RATE_LIMIT_BURST_MAX, 50),
         windowMs: parseInt_(process.env.AGENT_MEMORY_RATE_LIMIT_BURST_WINDOW_MS, 1000),
       },
     },

@@ -9,7 +9,7 @@
  */
 
 import pino from 'pino';
-import { appendFileSync } from 'node:fs';
+import { appendFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { isMcpServerMode } from './runtime.js';
 import { sanitizeForLogging } from './sanitize.js';
@@ -28,22 +28,22 @@ const loggingEnabled = !isTest;
 const isMcpServer = isMcpServerMode();
 
 // Conditional debug logging to log directory (only if AGENT_MEMORY_DEBUG=1)
+// Uses async file I/O to avoid blocking the event loop at startup
 if (DEBUG_ENABLED && !isTest) {
-  try {
-    // Use configured log path, fallback to tmpdir
-    const logDir = config.paths.log;
-    const debugLogPath = join(logDir, 'agent-memory-debug.log');
-    const logEntry =
-      JSON.stringify({
-        timestamp: Date.now(),
-        isMcpServer,
-        argv1: process.argv[1],
-        platform: process.platform,
-      }) + '\n';
-    appendFileSync(debugLogPath, logEntry);
-  } catch {
+  // Use configured log path, fallback to tmpdir
+  const logDir = config.paths.log;
+  const debugLogPath = join(logDir, 'agent-memory-debug.log');
+  const logEntry =
+    JSON.stringify({
+      timestamp: Date.now(),
+      isMcpServer,
+      argv1: process.argv[1],
+      platform: process.platform,
+    }) + '\n';
+  // Fire-and-forget async write - don't block startup
+  appendFile(debugLogPath, logEntry).catch(() => {
     // Ignore debug log errors - directory may not exist yet
-  }
+  });
 }
 
 /**

@@ -10,6 +10,7 @@ import {
   type PermissionLevel,
 } from '../../services/permission.service.js';
 import type { ScopeType, EntryType } from '../../db/schema.js';
+import { requireAdminKey } from '../../utils/admin.js';
 import {
   getRequiredParam,
   getOptionalParam,
@@ -60,6 +61,7 @@ export const permissionHandlers = {
    * Grant a permission to an agent
    */
   grant(params: Record<string, unknown>) {
+    requireAdminKey(params);
     const agent_id = getRequiredParam(params, 'agent_id', isString);
     const scope_type = getOptionalParam(params, 'scope_type', isScopeType);
     const scope_id = getOptionalParam(params, 'scope_id', isString);
@@ -84,6 +86,7 @@ export const permissionHandlers = {
    * Revoke a permission
    */
   revoke(params: Record<string, unknown>) {
+    requireAdminKey(params);
     const permission_id = getOptionalParam(params, 'permission_id', isString);
     const agent_id = getOptionalParam(params, 'agent_id', isString);
     const scope_type = getOptionalParam(params, 'scope_type', isScopeType);
@@ -143,6 +146,7 @@ export const permissionHandlers = {
    * List permissions
    */
   list(params: Record<string, unknown>) {
+    requireAdminKey(params);
     const agent_id = getOptionalParam(params, 'agent_id', isString);
     const scope_type = getOptionalParam(params, 'scope_type', isScopeType);
     const scope_id = getOptionalParam(params, 'scope_id', isString);

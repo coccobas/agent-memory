@@ -18,3 +18,4 @@ export * from './conversations.handler.js';
 export * from './backup.handler.js';
 export * from './observe.handler.js';
 export * from './consolidation.handler.js';
+export * from './review.handler.js';

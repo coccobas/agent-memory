@@ -123,7 +123,14 @@ export async function findSimilarGroups(
       }
 
       // Search for similar entries
-      const similar = await vectorService.searchSimilar(embedding, [entryType], 20);
+      let similar: Awaited<ReturnType<typeof vectorService.searchSimilar>>;
+      try {
+        similar = await vectorService.searchSimilar(embedding, [entryType], 20);
+      } catch (error) {
+        // Log error but continue - dimension mismatch or other issues shouldn't block consolidation
+        logger.warn({ entryId: entry.id, error }, 'Failed to search similar entries');
+        continue;
+      }
 
       // Filter by threshold and exclude self
       const similarEntries = similar
@@ -137,9 +144,12 @@ export async function findSimilarGroups(
           similarEntries.map((s) => s.entryId)
         );
 
+        // Build Map for O(1) lookups instead of O(n) find per member
+        const detailsById = new Map(memberDetails.map((d) => [d.id, d]));
+
         const members = similarEntries
           .map((s) => {
-            const detail = memberDetails.find((d) => d.id === s.entryId);
+            const detail = detailsById.get(s.entryId);
             if (!detail) return null;
             return {
               id: s.entryId,
@@ -233,6 +243,12 @@ export async function consolidate(params: ConsolidationParams): Promise<Consolid
             // For now, just link related entries
             await executeAbstractStrategy(group, consolidatedBy);
             break;
+
+          default: {
+            // Exhaustiveness check - ensures all strategies are handled
+            const _exhaustive: never = strategy;
+            throw new Error(`Unknown consolidation strategy: ${_exhaustive}`);
+          }
         }
 
         result.entriesProcessed += group.members.length + 1;
@@ -261,13 +277,14 @@ export async function consolidate(params: ConsolidationParams): Promise<Consolid
 // eslint-disable-next-line @typescript-eslint/require-await
 async function executeDedupeStrategy(
   group: SimilarityGroup,
-  consolidatedBy?: string
+  _consolidatedBy?: string
 ): Promise<void> {
-  for (const member of group.members) {
-    // Deactivate the duplicate entry
-    deactivateEntry(group.entryType, member.id, consolidatedBy);
+  // Batch deactivate all duplicate entries (single UPDATE instead of N)
+  const memberIds = group.members.map((m) => m.id);
+  batchDeactivateEntries(group.entryType, memberIds);
 
-    // Create a relation to track provenance
+  // Create relations to track provenance
+  for (const member of group.members) {
     createConsolidationRelation(group.entryType, member.id, group.primaryId, 'consolidated_into');
   }
 
@@ -292,15 +309,18 @@ async function executeMergeStrategy(
   const allEntryIds = [group.primaryId, ...group.members.map((m) => m.id)];
   const entries = getEntryDetails(group.entryType, allEntryIds);
 
-  const primaryEntry = entries.find((e) => e.id === group.primaryId);
+  // Build a Map for O(1) lookups instead of O(n) find per member
+  const entriesById = new Map(entries.map((e) => [e.id, e]));
+
+  const primaryEntry = entriesById.get(group.primaryId);
   if (!primaryEntry) {
     throw new Error(`Primary entry ${group.primaryId} not found`);
   }
 
-  // Combine content (append unique points from members)
+  // Combine content (append unique points from members) - O(1) lookups
   const memberContents = group.members
     .map((m) => {
-      const entry = entries.find((e) => e.id === m.id);
+      const entry = entriesById.get(m.id);
       return entry?.content || '';
     })
     .filter((c) => c.length > 0);
@@ -317,9 +337,12 @@ async function executeMergeStrategy(
     consolidatedBy
   );
 
-  // Deactivate merged entries and create relations
+  // Batch deactivate merged entries (single UPDATE instead of N)
+  const memberIds = group.members.map((m) => m.id);
+  batchDeactivateEntries(group.entryType, memberIds);
+
+  // Create relations to track provenance
   for (const member of group.members) {
-    deactivateEntry(group.entryType, member.id, consolidatedBy);
     createConsolidationRelation(group.entryType, member.id, group.primaryId, 'merged_into');
   }
 
@@ -391,15 +414,20 @@ function getEntriesForConsolidation(
       )
       .all();
 
-    return entries.map((e) => {
-      const version = e.versionId
+    // Batch fetch all versions in a single query (fixes N+1 pattern)
+    const versionIds = entries.map((e) => e.versionId).filter((id): id is string => id !== null);
+    const versions =
+      versionIds.length > 0
         ? db
-            .select({ description: toolVersions.description })
+            .select({ id: toolVersions.id, description: toolVersions.description })
             .from(toolVersions)
-            .where(eq(toolVersions.id, e.versionId))
-            .get()
-        : null;
+            .where(inArray(toolVersions.id, versionIds))
+            .all()
+        : [];
+    const versionMap = new Map(versions.map((v) => [v.id, v]));
 
+    return entries.map((e) => {
+      const version = e.versionId ? versionMap.get(e.versionId) : null;
       return {
         id: e.id,
         name: e.name,
@@ -425,15 +453,20 @@ function getEntriesForConsolidation(
       )
       .all();
 
-    return entries.map((e) => {
-      const version = e.versionId
+    // Batch fetch all versions in a single query (fixes N+1 pattern)
+    const versionIds = entries.map((e) => e.versionId).filter((id): id is string => id !== null);
+    const versions =
+      versionIds.length > 0
         ? db
-            .select({ content: guidelineVersions.content })
+            .select({ id: guidelineVersions.id, content: guidelineVersions.content })
             .from(guidelineVersions)
-            .where(eq(guidelineVersions.id, e.versionId))
-            .get()
-        : null;
+            .where(inArray(guidelineVersions.id, versionIds))
+            .all()
+        : [];
+    const versionMap = new Map(versions.map((v) => [v.id, v]));
 
+    return entries.map((e) => {
+      const version = e.versionId ? versionMap.get(e.versionId) : null;
       return {
         id: e.id,
         name: e.name,
@@ -460,15 +493,20 @@ function getEntriesForConsolidation(
       )
       .all();
 
-    return entries.map((e) => {
-      const version = e.versionId
+    // Batch fetch all versions in a single query (fixes N+1 pattern)
+    const versionIds = entries.map((e) => e.versionId).filter((id): id is string => id !== null);
+    const versions =
+      versionIds.length > 0
         ? db
-            .select({ content: knowledgeVersions.content })
+            .select({ id: knowledgeVersions.id, content: knowledgeVersions.content })
             .from(knowledgeVersions)
-            .where(eq(knowledgeVersions.id, e.versionId))
-            .get()
-        : null;
+            .where(inArray(knowledgeVersions.id, versionIds))
+            .all()
+        : [];
+    const versionMap = new Map(versions.map((v) => [v.id, v]));
 
+    return entries.map((e) => {
+      const version = e.versionId ? versionMap.get(e.versionId) : null;
       return {
         id: e.id,
         name: e.title,
@@ -496,15 +534,24 @@ function getEntryDetails(entryType: EntryType, ids: string[]): EntryForConsolida
       .where(inArray(tools.id, ids))
       .all();
 
-    return entries.map((e) => {
-      const version = e.versionId
+    // Batch fetch all versions in a single query (fixes N+1 pattern)
+    const versionIds = entries.map((e) => e.versionId).filter((id): id is string => id !== null);
+    const versions =
+      versionIds.length > 0
         ? db
-            .select({ description: toolVersions.description, createdAt: toolVersions.createdAt })
+            .select({
+              id: toolVersions.id,
+              description: toolVersions.description,
+              createdAt: toolVersions.createdAt,
+            })
             .from(toolVersions)
-            .where(eq(toolVersions.id, e.versionId))
-            .get()
-        : null;
+            .where(inArray(toolVersions.id, versionIds))
+            .all()
+        : [];
+    const versionMap = new Map(versions.map((v) => [v.id, v]));
 
+    return entries.map((e) => {
+      const version = e.versionId ? versionMap.get(e.versionId) : null;
       return {
         id: e.id,
         name: e.name,
@@ -525,15 +572,24 @@ function getEntryDetails(entryType: EntryType, ids: string[]): EntryForConsolida
       .where(inArray(guidelines.id, ids))
       .all();
 
-    return entries.map((e) => {
-      const version = e.versionId
+    // Batch fetch all versions in a single query (fixes N+1 pattern)
+    const versionIds = entries.map((e) => e.versionId).filter((id): id is string => id !== null);
+    const versions =
+      versionIds.length > 0
         ? db
-            .select({ content: guidelineVersions.content, createdAt: guidelineVersions.createdAt })
+            .select({
+              id: guidelineVersions.id,
+              content: guidelineVersions.content,
+              createdAt: guidelineVersions.createdAt,
+            })
             .from(guidelineVersions)
-            .where(eq(guidelineVersions.id, e.versionId))
-            .get()
-        : null;
+            .where(inArray(guidelineVersions.id, versionIds))
+            .all()
+        : [];
+    const versionMap = new Map(versions.map((v) => [v.id, v]));
 
+    return entries.map((e) => {
+      const version = e.versionId ? versionMap.get(e.versionId) : null;
       return {
         id: e.id,
         name: e.name,
@@ -554,15 +610,24 @@ function getEntryDetails(entryType: EntryType, ids: string[]): EntryForConsolida
       .where(inArray(knowledge.id, ids))
       .all();
 
-    return entries.map((e) => {
-      const version = e.versionId
+    // Batch fetch all versions in a single query (fixes N+1 pattern)
+    const versionIds = entries.map((e) => e.versionId).filter((id): id is string => id !== null);
+    const versions =
+      versionIds.length > 0
         ? db
-            .select({ content: knowledgeVersions.content, createdAt: knowledgeVersions.createdAt })
+            .select({
+              id: knowledgeVersions.id,
+              content: knowledgeVersions.content,
+              createdAt: knowledgeVersions.createdAt,
+            })
             .from(knowledgeVersions)
-            .where(eq(knowledgeVersions.id, e.versionId))
-            .get()
-        : null;
+            .where(inArray(knowledgeVersions.id, versionIds))
+            .all()
+        : [];
+    const versionMap = new Map(versions.map((v) => [v.id, v]));
 
+    return entries.map((e) => {
+      const version = e.versionId ? versionMap.get(e.versionId) : null;
       return {
         id: e.id,
         name: e.title,
@@ -583,6 +648,23 @@ function deactivateEntry(entryType: EntryType, id: string, _deactivatedBy?: stri
     db.update(guidelines).set({ isActive: false }).where(eq(guidelines.id, id)).run();
   } else {
     db.update(knowledge).set({ isActive: false }).where(eq(knowledge.id, id)).run();
+  }
+}
+
+/**
+ * Batch deactivate multiple entries of the same type (O(1) instead of O(n))
+ */
+function batchDeactivateEntries(entryType: EntryType, ids: string[]): void {
+  if (ids.length === 0) return;
+
+  const db = getDb();
+
+  if (entryType === 'tool') {
+    db.update(tools).set({ isActive: false }).where(inArray(tools.id, ids)).run();
+  } else if (entryType === 'guideline') {
+    db.update(guidelines).set({ isActive: false }).where(inArray(guidelines.id, ids)).run();
+  } else {
+    db.update(knowledge).set({ isActive: false }).where(inArray(knowledge.id, ids)).run();
   }
 }
 

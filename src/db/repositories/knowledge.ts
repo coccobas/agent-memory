@@ -1,9 +1,13 @@
-import { eq, and, isNull, desc, asc } from 'drizzle-orm';
+import { eq, and, isNull, desc, asc, inArray, or } from 'drizzle-orm';
 import { getDb } from '../connection.js';
 import {
   knowledge,
   knowledgeVersions,
   conflictLog,
+  entryTags,
+  entryRelations,
+  entryEmbeddings,
+  permissions,
   type Knowledge,
   type NewKnowledge,
   type KnowledgeVersion,
@@ -275,17 +279,27 @@ export const knowledgeRepo = {
 
     const entries = query.limit(limit).offset(offset).all();
 
-    // Fetch current versions
-    return entries.map((entry) => {
-      const currentVersion = entry.currentVersionId
-        ? db
-            .select()
-            .from(knowledgeVersions)
-            .where(eq(knowledgeVersions.id, entry.currentVersionId))
-            .get()
-        : undefined;
-      return { ...entry, currentVersion };
-    });
+    // Batch fetch current versions to avoid N+1 queries
+    const versionIds = entries
+      .map((e) => e.currentVersionId)
+      .filter((id): id is string => id !== null && id !== undefined);
+
+    const versionsMap = new Map<string, KnowledgeVersion>();
+    if (versionIds.length > 0) {
+      const versionsList = db
+        .select()
+        .from(knowledgeVersions)
+        .where(inArray(knowledgeVersions.id, versionIds))
+        .all();
+      for (const v of versionsList) {
+        versionsMap.set(v.id, v);
+      }
+    }
+
+    return entries.map((entry) => ({
+      ...entry,
+      currentVersion: entry.currentVersionId ? versionsMap.get(entry.currentVersionId) : undefined,
+    }));
   },
 
   /**
@@ -397,7 +411,21 @@ export const knowledgeRepo = {
   deactivate(id: string): boolean {
     const db = getDb();
     const result = db.update(knowledge).set({ isActive: false }).where(eq(knowledge.id, id)).run();
-    return result.changes > 0;
+    const success = result.changes > 0;
+
+    // Remove from vector search when deactivated (async, fire-and-forget)
+    if (success) {
+      void (async () => {
+        try {
+          const vectorService = getVectorService();
+          await vectorService.removeEmbedding('knowledge', id);
+        } catch {
+          // Error already logged in vector service
+        }
+      })();
+    }
+
+    return success;
   },
 
   /**
@@ -410,12 +438,42 @@ export const knowledgeRepo = {
   },
 
   /**
-   * Hard delete a knowledge entry and all versions
+   * Hard delete a knowledge entry and all related records (versions, tags, relations, embeddings, permissions)
    */
   delete(id: string): boolean {
     const result = transaction(() => {
       const db = getDb();
+
+      // Delete related records first (cascade cleanup)
+      // 1. Delete tags associated with this entry
+      db.delete(entryTags)
+        .where(and(eq(entryTags.entryType, 'knowledge'), eq(entryTags.entryId, id)))
+        .run();
+
+      // 2. Delete relations where this entry is source or target
+      db.delete(entryRelations)
+        .where(
+          or(
+            and(eq(entryRelations.sourceType, 'knowledge'), eq(entryRelations.sourceId, id)),
+            and(eq(entryRelations.targetType, 'knowledge'), eq(entryRelations.targetId, id))
+          )
+        )
+        .run();
+
+      // 3. Delete embedding tracking records
+      db.delete(entryEmbeddings)
+        .where(and(eq(entryEmbeddings.entryType, 'knowledge'), eq(entryEmbeddings.entryId, id)))
+        .run();
+
+      // 4. Delete entry-specific permissions
+      db.delete(permissions)
+        .where(and(eq(permissions.entryType, 'knowledge'), eq(permissions.entryId, id)))
+        .run();
+
+      // 5. Delete versions
       db.delete(knowledgeVersions).where(eq(knowledgeVersions.knowledgeId, id)).run();
+
+      // 6. Delete knowledge entry
       const deleteResult = db.delete(knowledge).where(eq(knowledge.id, id)).run();
       return deleteResult.changes > 0;
     });

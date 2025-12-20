@@ -26,6 +26,7 @@ export class LRUCache<T> {
   private readonly ttlMs?: number;
   private readonly onEvict?: (key: string, value: T) => void;
   private readonly sizeEstimator?: (value: T) => number;
+  private totalBytes: number = 0; // Running total for O(1) memory tracking
 
   constructor(options: LRUCacheOptions<T>) {
     this.maxSize = options.maxSize;
@@ -53,6 +54,7 @@ export class LRUCache<T> {
     }
 
     this.cache.set(key, entry);
+    this.totalBytes += entry.size; // Update running total
     this.evictToLimits();
   }
 
@@ -88,6 +90,7 @@ export class LRUCache<T> {
   delete(key: string): boolean {
     const entry = this.cache.get(key);
     if (entry) {
+      this.totalBytes -= entry.size; // Update running total
       this.onEvict?.(key, entry.value);
       return this.cache.delete(key);
     }
@@ -101,6 +104,7 @@ export class LRUCache<T> {
       }
     }
     this.cache.clear();
+    this.totalBytes = 0; // Reset running total
   }
 
   /**
@@ -253,11 +257,8 @@ export class LRUCache<T> {
   }
 
   private calculateTotalMemoryMB(): number {
-    let totalBytes = 0;
-    for (const entry of this.cache.values()) {
-      totalBytes += entry.size;
-    }
-    return totalBytes / 1024 / 1024;
+    // O(1) using running total instead of O(n) iteration
+    return this.totalBytes / 1024 / 1024;
   }
 
   private evictToLimits(): void {

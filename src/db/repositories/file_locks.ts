@@ -75,9 +75,18 @@ export const fileLockRepo = {
 
     return transaction(() => {
       const db = getDb();
+      const nowTime = new Date().toISOString();
 
-      // Clean up expired locks first
-      this.cleanupExpiredLocks();
+      // Atomic: Delete expired lock for THIS specific file, then insert
+      // This avoids TOCTOU race by targeting only the specific file within the transaction
+      db.delete(fileLocks)
+        .where(
+          and(
+            eq(fileLocks.filePath, normalizedPath),
+            sql`${fileLocks.expiresAt} IS NOT NULL AND ${fileLocks.expiresAt} < ${nowTime}`
+          )
+        )
+        .run();
 
       try {
         db.insert(fileLocks).values(newLock).run();
@@ -87,18 +96,22 @@ export const fileLockRepo = {
           message.includes('UNIQUE constraint failed') && message.includes('file_locks.file_path');
         if (!isUnique) throw error;
 
-        const existing = this.getLock(normalizedPath);
+        // Lock exists and is not expired - get details for error message
+        const existing = db
+          .select()
+          .from(fileLocks)
+          .where(eq(fileLocks.filePath, normalizedPath))
+          .get();
+
         if (existing) {
           throw new Error(`File ${filePath} is already locked by agent ${existing.checkedOutBy}`);
         }
-        throw error;
+        // This shouldn't happen - unique constraint failed but no lock found
+        throw new Error(`Failed to acquire lock for ${filePath}: constraint violation`);
       }
 
-      const result = this.getLock(normalizedPath);
-      if (!result) {
-        throw new Error(`Failed to create lock for ${filePath}`);
-      }
-      return result;
+      // Return the newly created lock
+      return db.select().from(fileLocks).where(eq(fileLocks.id, id)).get() as FileLock;
     });
   },
 

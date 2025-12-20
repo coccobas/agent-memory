@@ -17,7 +17,10 @@ import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { eq } from 'drizzle-orm';
 import { conversationRepo } from '../db/repositories/conversations.js';
-import { sessionRepo } from '../db/repositories/scopes.js';
+import { sessionRepo, projectRepo } from '../db/repositories/scopes.js';
+import { guidelineRepo } from '../db/repositories/guidelines.js';
+import { knowledgeRepo } from '../db/repositories/knowledge.js';
+import { toolRepo } from '../db/repositories/tools.js';
 import { sessions } from '../db/schema.js';
 import { getDb } from '../db/connection.js';
 import { verifyAction, type ProposedAction } from '../services/verification.service.js';
@@ -523,6 +526,351 @@ function setObserveReviewedAt(sessionId: string, reviewedAt: string): void {
   sessionRepo.update(sessionId, { metadata: nextMeta });
 }
 
+interface SessionSummary {
+  sessionId: string;
+  projectName?: string;
+  guidelines: Array<{ name: string; content: string }>;
+  knowledge: Array<{ title: string; content: string }>;
+  tools: Array<{ name: string; description?: string }>;
+  needsReview: number;
+}
+
+function getSessionSummary(sessionId: string): SessionSummary {
+  const session = sessionRepo.getById(sessionId);
+  const projectId = session?.projectId;
+  const project = projectId ? projectRepo.getById(projectId) : null;
+
+  const guidelinesList = guidelineRepo.list({ scopeType: 'session', scopeId: sessionId });
+  const knowledgeList = knowledgeRepo.list({ scopeType: 'session', scopeId: sessionId });
+  const toolsList = toolRepo.list({ scopeType: 'session', scopeId: sessionId });
+
+  const meta = session?.metadata ?? {};
+  const observe = (meta.observe ?? {}) as Record<string, unknown>;
+  const needsReview = typeof observe.needsReviewCount === 'number' ? observe.needsReviewCount : 0;
+
+  return {
+    sessionId,
+    projectName: project?.name,
+    guidelines: guidelinesList.map((g) => ({
+      name: g.name,
+      content: g.currentVersion?.content ?? '',
+    })),
+    knowledge: knowledgeList.map((k) => ({
+      title: k.title,
+      content: k.currentVersion?.content ?? '',
+    })),
+    tools: toolsList.map((t) => ({
+      name: t.name,
+      description: t.currentVersion?.description ?? undefined,
+    })),
+    needsReview,
+  };
+}
+
+// Reserved for future session summary file output
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function writeSessionSummaryFile(sessionId: string, cwd: string): { path: string; itemCount: number } {
+  const summary = getSessionSummary(sessionId);
+  const itemCount = summary.guidelines.length + summary.knowledge.length + summary.tools.length;
+
+  const truncate = (s: string, len: number) => (s.length > len ? s.slice(0, len) + '...' : s);
+  const timestamp = new Date().toISOString();
+
+  let md = `# Session Summary\n\n`;
+  md += `**Session:** \`${sessionId.slice(0, 8)}…\`\n`;
+  if (summary.projectName) {
+    md += `**Project:** ${summary.projectName}\n`;
+  }
+  md += `**Updated:** ${timestamp}\n\n`;
+
+  md += `## Stored Entries\n\n`;
+
+  md += `### Guidelines (${summary.guidelines.length})\n`;
+  if (summary.guidelines.length === 0) {
+    md += `_(none)_\n\n`;
+  } else {
+    for (const g of summary.guidelines) {
+      md += `- **${g.name}** – ${truncate(g.content.replace(/\n/g, ' '), 80)}\n`;
+    }
+    md += `\n`;
+  }
+
+  md += `### Knowledge (${summary.knowledge.length})\n`;
+  if (summary.knowledge.length === 0) {
+    md += `_(none)_\n\n`;
+  } else {
+    for (const k of summary.knowledge) {
+      md += `- **${k.title}** – ${truncate(k.content.replace(/\n/g, ' '), 80)}\n`;
+    }
+    md += `\n`;
+  }
+
+  md += `### Tools (${summary.tools.length})\n`;
+  if (summary.tools.length === 0) {
+    md += `_(none)_\n\n`;
+  } else {
+    for (const t of summary.tools) {
+      md += `- **${t.name}**${t.description ? ` – ${truncate(t.description, 60)}` : ''}\n`;
+    }
+    md += `\n`;
+  }
+
+  if (summary.needsReview > 0) {
+    md += `## Needs Review (${summary.needsReview})\n`;
+    md += `_Items tagged as \`candidate\` require human review_\n`;
+  }
+
+  const summaryPath = resolve(cwd, '.claude', 'session-summary.md');
+  const summaryDir = dirname(summaryPath);
+  if (!existsSync(summaryDir)) {
+    mkdirSync(summaryDir, { recursive: true });
+  }
+  writeFileSync(summaryPath, md, 'utf8');
+
+  return { path: summaryPath, itemCount };
+}
+
+// Reserved for future stderr session summary output
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function formatSessionSummaryStderr(sessionId: string): void {
+  const summary = getSessionSummary(sessionId);
+
+  console.error(`\n📋 Session Summary (${sessionId.slice(0, 8)}…)`);
+  if (summary.projectName) {
+    console.error(`   Project: ${summary.projectName}`);
+  }
+  console.error('');
+
+  if (summary.guidelines.length > 0) {
+    console.error(`   Guidelines (${summary.guidelines.length}):`);
+    for (const g of summary.guidelines.slice(0, 5)) {
+      console.error(`   • ${g.name}`);
+    }
+    if (summary.guidelines.length > 5) {
+      console.error(`   ... and ${summary.guidelines.length - 5} more`);
+    }
+  }
+
+  if (summary.knowledge.length > 0) {
+    console.error(`   Knowledge (${summary.knowledge.length}):`);
+    for (const k of summary.knowledge.slice(0, 5)) {
+      console.error(`   • ${k.title}`);
+    }
+    if (summary.knowledge.length > 5) {
+      console.error(`   ... and ${summary.knowledge.length - 5} more`);
+    }
+  }
+
+  if (summary.tools.length > 0) {
+    console.error(`   Tools (${summary.tools.length}):`);
+    for (const t of summary.tools.slice(0, 5)) {
+      console.error(`   • ${t.name}`);
+    }
+    if (summary.tools.length > 5) {
+      console.error(`   ... and ${summary.tools.length - 5} more`);
+    }
+  }
+
+  if (summary.needsReview > 0) {
+    console.error(`\n   ⚠ ${summary.needsReview} item(s) need review`);
+  }
+  console.error('');
+}
+
+interface ReviewCandidate {
+  id: string;
+  shortId: string;
+  type: 'guideline' | 'knowledge' | 'tool';
+  name: string;
+  content: string;
+}
+
+function getReviewCandidates(sessionId: string): ReviewCandidate[] {
+  const candidates: ReviewCandidate[] = [];
+
+  const guidelinesList = guidelineRepo.list({ scopeType: 'session', scopeId: sessionId });
+  for (const g of guidelinesList) {
+    if (!g.isActive) continue;
+    const tags = g.id ? getEntryTags('guideline', g.id) : [];
+    if (tags.includes('candidate') || tags.includes('needs_review')) {
+      candidates.push({
+        id: g.id,
+        shortId: g.id.slice(0, 6),
+        type: 'guideline',
+        name: g.name,
+        content: g.currentVersion?.content ?? '',
+      });
+    }
+  }
+
+  const knowledgeList = knowledgeRepo.list({ scopeType: 'session', scopeId: sessionId });
+  for (const k of knowledgeList) {
+    if (!k.isActive) continue;
+    const tags = k.id ? getEntryTags('knowledge', k.id) : [];
+    if (tags.includes('candidate') || tags.includes('needs_review')) {
+      candidates.push({
+        id: k.id,
+        shortId: k.id.slice(0, 6),
+        type: 'knowledge',
+        name: k.title,
+        content: k.currentVersion?.content ?? '',
+      });
+    }
+  }
+
+  const toolsList = toolRepo.list({ scopeType: 'session', scopeId: sessionId });
+  for (const t of toolsList) {
+    if (!t.isActive) continue;
+    const tags = t.id ? getEntryTags('tool', t.id) : [];
+    if (tags.includes('candidate') || tags.includes('needs_review')) {
+      candidates.push({
+        id: t.id,
+        shortId: t.id.slice(0, 6),
+        type: 'tool',
+        name: t.name,
+        content: t.currentVersion?.description ?? '',
+      });
+    }
+  }
+
+  return candidates;
+}
+
+function getEntryTags(entryType: 'guideline' | 'knowledge' | 'tool', entryId: string): string[] {
+  try {
+    const { entryTagRepo } = require('../db/repositories/tags.js') as {
+      entryTagRepo: { getTagsForEntry: (type: string, id: string) => Array<{ name: string }> };
+    };
+    const tags = entryTagRepo.getTagsForEntry(entryType, entryId);
+    return tags.map((t) => t.name);
+  } catch {
+    return [];
+  }
+}
+
+function findCandidateByShortId(candidates: ReviewCandidate[], shortId: string): ReviewCandidate | undefined {
+  return candidates.find((c) => c.shortId === shortId || c.id === shortId || c.id.startsWith(shortId));
+}
+
+function approveCandidate(candidate: ReviewCandidate, projectId: string): boolean {
+  try {
+    if (candidate.type === 'guideline') {
+      const original = guidelineRepo.getById(candidate.id);
+      if (!original) return false;
+      guidelineRepo.create({
+        scopeType: 'project',
+        scopeId: projectId,
+        name: original.name,
+        content: original.currentVersion?.content ?? '',
+        category: original.category ?? undefined,
+        priority: original.priority ?? undefined,
+        rationale: original.currentVersion?.rationale ?? undefined,
+      });
+      guidelineRepo.deactivate(candidate.id);
+      return true;
+    }
+    if (candidate.type === 'knowledge') {
+      const original = knowledgeRepo.getById(candidate.id);
+      if (!original) return false;
+      knowledgeRepo.create({
+        scopeType: 'project',
+        scopeId: projectId,
+        title: original.title,
+        content: original.currentVersion?.content ?? '',
+        category: original.category ?? undefined,
+        source: original.currentVersion?.source ?? undefined,
+      });
+      knowledgeRepo.deactivate(candidate.id);
+      return true;
+    }
+    if (candidate.type === 'tool') {
+      const original = toolRepo.getById(candidate.id);
+      if (!original) return false;
+      toolRepo.create({
+        scopeType: 'project',
+        scopeId: projectId,
+        name: original.name,
+        description: original.currentVersion?.description ?? undefined,
+        category: original.category ?? undefined,
+      });
+      toolRepo.deactivate(candidate.id);
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+function rejectCandidate(candidate: ReviewCandidate): boolean {
+  try {
+    if (candidate.type === 'guideline') {
+      guidelineRepo.deactivate(candidate.id);
+      return true;
+    }
+    if (candidate.type === 'knowledge') {
+      knowledgeRepo.deactivate(candidate.id);
+      return true;
+    }
+    if (candidate.type === 'tool') {
+      toolRepo.deactivate(candidate.id);
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+function skipCandidate(candidate: ReviewCandidate): boolean {
+  try {
+    const { entryTagRepo, tagRepo } = require('../db/repositories/tags.js') as {
+      entryTagRepo: { detach: (type: string, entryId: string, tagId: string) => boolean };
+      tagRepo: { getByName: (name: string) => { id: string } | undefined };
+    };
+    const candidateTag = tagRepo.getByName('candidate');
+    const needsReviewTag = tagRepo.getByName('needs_review');
+    if (candidateTag) {
+      entryTagRepo.detach(candidate.type, candidate.id, candidateTag.id);
+    }
+    if (needsReviewTag) {
+      entryTagRepo.detach(candidate.type, candidate.id, needsReviewTag.id);
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function formatCandidateList(candidates: ReviewCandidate[]): void {
+  if (candidates.length === 0) {
+    console.error('\n📋 No candidates to review\n');
+    return;
+  }
+  console.error(`\n📋 Review Candidates (${candidates.length})\n`);
+  for (const c of candidates) {
+    const truncated = c.content.replace(/\n/g, ' ').slice(0, 50);
+    console.error(`  ${c.shortId}  [${c.type}] ${c.name}`);
+    console.error(`         ${truncated}${c.content.length > 50 ? '…' : ''}`);
+  }
+  console.error('\nCommands: !am approve <id> | !am reject <id> | !am skip <id> | !am show <id>\n');
+}
+
+function formatCandidateDetail(candidate: ReviewCandidate): void {
+  console.error(`\n📄 ${candidate.type.toUpperCase()}: ${candidate.name}`);
+  console.error(`   ID: ${candidate.id}`);
+  console.error(`   ───────────────────────────────────`);
+  // Show full content, wrapped
+  const lines = candidate.content.split('\n');
+  for (const line of lines.slice(0, 20)) {
+    console.error(`   ${line}`);
+  }
+  if (lines.length > 20) {
+    console.error(`   ... (${lines.length - 20} more lines)`);
+  }
+  console.error('');
+}
+
 async function runPreToolUse(projectId?: string, agentId?: string): Promise<void> {
   await import('../config/index.js');
   const input = await readStdinJson();
@@ -561,6 +909,7 @@ async function runStop(projectId?: string, agentId?: string): Promise<void> {
 
   const sessionId = input.session_id;
   const transcriptPath = input.transcript_path;
+  const cwd = input.cwd || process.cwd();
 
   if (!sessionId) {
     writeStderr('Missing session_id in hook input');
@@ -579,7 +928,7 @@ async function runStop(projectId?: string, agentId?: string): Promise<void> {
     transcriptPath,
     projectId,
     agentId,
-    cwd: input.cwd,
+    cwd,
   });
 
   if (isReviewSuspended(sessionId)) {
@@ -588,24 +937,28 @@ async function runStop(projectId?: string, agentId?: string): Promise<void> {
 
   const observe = getObserveState(sessionId);
 
-  // Only warn once per session to avoid spam on every turn
+  // Write session summary file and output minimal one-liner
+  const { itemCount } = writeSessionSummaryFile(sessionId, cwd);
+
+  // Only warn once per session about review availability
   if (!observe.committedAt && !hasWarnedReview(sessionId)) {
     setWarnedReview(sessionId);
-    console.error(
-      `⚠ Session review available. Run: memory_observe → draft → commit (session=${sessionId.slice(0, 8)}…)\n  Skip: !am review off`
-    );
-    // Exit 0 to not block - this is informational
+    if (itemCount > 0) {
+      console.error(`✓ Session tracked (${itemCount} items) - see .claude/session-summary.md`);
+    } else {
+      console.error(`✓ Session tracked - no new items`);
+    }
     process.exit(0);
   }
 
-  if ((observe.needsReviewCount ?? 0) > 0 && !observe.reviewedAt && !hasWarnedReview(sessionId)) {
-    setWarnedReview(sessionId);
+  if ((observe.needsReviewCount ?? 0) > 0 && !observe.reviewedAt) {
     console.error(
-      `⚠ ${observe.needsReviewCount} item(s) need review. Acknowledge: !am review done | Skip: !am review off`
+      `✓ Session (${itemCount} items, ${observe.needsReviewCount} need review) - run: npx agent-memory review`
     );
     process.exit(0);
   }
 
+  // Silent exit for subsequent turns after initial warning
   process.exit(0);
 }
 
@@ -664,7 +1017,116 @@ async function runUserPromptSubmit(projectId?: string): Promise<void> {
     process.exit(2);
   }
 
-  console.error('!am commands: status | review [off|on|done|status]');
+  if (command === 'summary') {
+    formatSessionSummaryStderr(sessionId);
+    process.exit(2);
+  }
+
+  // Review commands for in-IDE workflow
+  if (command === 'review' && !subcommand) {
+    const candidates = getReviewCandidates(sessionId);
+    formatCandidateList(candidates);
+    process.exit(2);
+  }
+
+  if (command === 'list') {
+    const candidates = getReviewCandidates(sessionId);
+    formatCandidateList(candidates);
+    process.exit(2);
+  }
+
+  if (command === 'show') {
+    const targetId = subcommand;
+    if (!targetId) {
+      console.error('Usage: !am show <id>');
+      process.exit(2);
+    }
+    const candidates = getReviewCandidates(sessionId);
+    const candidate = findCandidateByShortId(candidates, targetId);
+    if (!candidate) {
+      console.error(`Entry not found: ${targetId}`);
+      process.exit(2);
+    }
+    formatCandidateDetail(candidate);
+    process.exit(2);
+  }
+
+  if (command === 'approve') {
+    const targetId = subcommand;
+    if (!targetId) {
+      console.error('Usage: !am approve <id>');
+      process.exit(2);
+    }
+    if (!projectId) {
+      console.error('No project ID configured. Use --project-id when installing hooks.');
+      process.exit(2);
+    }
+    const candidates = getReviewCandidates(sessionId);
+    const candidate = findCandidateByShortId(candidates, targetId);
+    if (!candidate) {
+      console.error(`Entry not found: ${targetId}`);
+      process.exit(2);
+    }
+    const success = approveCandidate(candidate, projectId);
+    if (success) {
+      console.error(`✓ Approved: ${candidate.name} → project scope`);
+    } else {
+      console.error(`✗ Failed to approve: ${candidate.name}`);
+    }
+    process.exit(2);
+  }
+
+  if (command === 'reject') {
+    const targetId = subcommand;
+    if (!targetId) {
+      console.error('Usage: !am reject <id>');
+      process.exit(2);
+    }
+    const candidates = getReviewCandidates(sessionId);
+    const candidate = findCandidateByShortId(candidates, targetId);
+    if (!candidate) {
+      console.error(`Entry not found: ${targetId}`);
+      process.exit(2);
+    }
+    const success = rejectCandidate(candidate);
+    if (success) {
+      console.error(`✓ Rejected: ${candidate.name}`);
+    } else {
+      console.error(`✗ Failed to reject: ${candidate.name}`);
+    }
+    process.exit(2);
+  }
+
+  if (command === 'skip') {
+    const targetId = subcommand;
+    if (!targetId) {
+      console.error('Usage: !am skip <id>');
+      process.exit(2);
+    }
+    const candidates = getReviewCandidates(sessionId);
+    const candidate = findCandidateByShortId(candidates, targetId);
+    if (!candidate) {
+      console.error(`Entry not found: ${targetId}`);
+      process.exit(2);
+    }
+    const success = skipCandidate(candidate);
+    if (success) {
+      console.error(`✓ Skipped: ${candidate.name}`);
+    } else {
+      console.error(`✗ Failed to skip: ${candidate.name}`);
+    }
+    process.exit(2);
+  }
+
+  console.error(`!am commands:
+  status              Show session status
+  summary             Show session summary
+  review              List candidates for review
+  show <id>           Show entry details
+  approve <id>        Promote to project scope
+  reject <id>         Deactivate entry
+  skip <id>           Remove from review queue
+  review off|on|done  Control review notifications`);
   process.exit(2);
 }
 
