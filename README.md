@@ -40,6 +40,15 @@ Every conversation, your AI agent starts from scratch. You copy-paste context, r
 
 Agent Memory is an **MCP server** that gives AI agents persistent, structured memory. Instead of stuffing context, agents query specific knowledge on-demand.
 
+Agent Memory is the high-speed memory layer for AI agents—persistent, permissioned, and enforceable—so your agents remember the right things, at the right time, without bloating context.
+
+**What makes it different:**
+
+- Hierarchical scopes with inheritance (global → org → project → session)
+- Action-based MCP tool suite (plus optional REST API) for storing/querying memory
+- Built-in governance: permissions, auditability, conflict handling, file locks, verification hooks
+- Fast search stack: SQLite WAL/FTS plus optional semantic search (embeddings)
+
 ---
 
 ## ⚡ Quick Start

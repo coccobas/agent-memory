@@ -1,5 +1,14 @@
 # Agent Memory Documentation
 
+Agent Memory is the high-speed memory layer for AI agents—persistent, permissioned, and enforceable—so your agents remember the right things, at the right time, without bloating context.
+
+**Highlights:**
+
+- Hierarchical scopes with inheritance (global → org → project → session)
+- Action-based MCP tool suite (plus optional REST API) for storing/querying memory
+- Built-in governance: permissions, auditability, conflict handling, file locks, verification hooks
+- Fast search stack: SQLite WAL/FTS plus optional semantic search (embeddings)
+
 ## Choose Your Path
 
 - Claude Desktop / Cursor / VS Code: [Quickstart](quickstart.md) → [IDE Setup](guides/ide-setup.md)

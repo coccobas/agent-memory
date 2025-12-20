@@ -2,6 +2,15 @@
 
 Complete guide to Agent Memory concepts and your first workflow.
 
+Agent Memory is the high-speed memory layer for AI agents—persistent, permissioned, and enforceable—so your agents remember the right things, at the right time, without bloating context.
+
+Key capabilities:
+
+- Hierarchical scopes with inheritance (global → org → project → session)
+- Three memory types: guidelines, knowledge, tools
+- Fast search: full-text and optional semantic search
+- Governance features: permissions, audit logs, conflicts, file locks, verification hooks
+
 ## Prerequisites
 
 - **Node.js** >= 20.0.0
