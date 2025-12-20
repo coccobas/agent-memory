@@ -35,3 +35,21 @@ MCP runs over stdio and inherits the client’s trust boundary. Control access t
 
 - Sensitive fields are redacted in logs (`authorization`, `token`, `apiKey`, etc.).
 - In test environments, logging is disabled to reduce noise.
+
+## Client-Side Rendering
+
+When rendering API responses in HTML, clients must sanitize user-generated content.
+
+### FTS Search Snippets
+
+Search results include `snippet` fields with HTML `<mark>` tags for highlighting. The content is user-supplied, so **sanitize before rendering as HTML**:
+
+```javascript
+// Using DOMPurify
+import DOMPurify from 'dompurify';
+const safeHtml = DOMPurify.sanitize(snippet, { ALLOWED_TAGS: ['mark'] });
+```
+
+### Exports
+
+Markdown and YAML exports contain raw user content. Use a sanitizing renderer when converting to HTML.
