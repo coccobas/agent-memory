@@ -64,7 +64,10 @@
     "health": "tsx scripts/check-health.ts",
     "setup-hook": "tsx scripts/setup-hook.ts",
     "verify-response": "tsx scripts/verify-response.ts",
-    "docs:lint": "npm run docs:lint:md && npm run docs:lint:vale",
+    "docs:lint": "npm run docs:check:mcp-tools && npm run docs:lint:links && npm run docs:lint:md && npm run docs:lint:vale",
+    "docs:generate:mcp-tools": "tsx scripts/generate-mcp-tools-doc.ts",
+    "docs:check:mcp-tools": "tsx scripts/generate-mcp-tools-doc.ts --check",
+    "docs:lint:links": "tsx scripts/check-doc-links.ts",
     "docs:lint:md": "markdownlint-cli2",
     "docs:lint:vale": "vale README.md docs/"
   },

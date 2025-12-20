@@ -53,7 +53,15 @@ npx agent-memory@latest mcp
 Add to your MCP client config:
 
 <details>
-<summary><b>Claude Desktop</b> — <code>~/.claude.json</code></summary>
+<summary><b>Claude Desktop</b> — <code>claude_desktop_config.json</code></summary>
+
+Config file location:
+
+| OS | Path |
+|---|---|
+| macOS | `~/Library/Application Support/Claude/claude_desktop_config.json` |
+| Linux | `~/.config/claude/claude_desktop_config.json` |
+| Windows | `%APPDATA%\Claude\claude_desktop_config.json` |
 
 ```json
 {
@@ -231,10 +239,10 @@ npm run sync-rules:watch
 npx agent-memory mcp
 
 # REST API — Custom integrations
-AGENT_MEMORY_REST_API_KEY=secret npx agent-memory rest
+AGENT_MEMORY_REST_ENABLED=true AGENT_MEMORY_REST_API_KEY=secret npx agent-memory rest
 
 # Both simultaneously
-AGENT_MEMORY_REST_API_KEY=secret npx agent-memory both
+AGENT_MEMORY_REST_ENABLED=true AGENT_MEMORY_REST_API_KEY=secret npx agent-memory both
 ```
 
 | Endpoint | Description |
@@ -292,6 +300,7 @@ AGENT_MEMORY_PERMISSIONS_MODE=permissive
 | Cursor hooks | 🚧 In development |
 | VS Code hooks | 🚧 In development |
 | Other IDE hooks | 📋 Planned |
+| Task manager (status, assignment, priorities) | 📋 Planned |
 
 [Request a feature](https://github.com/anthropics/agent-memory/issues)
 

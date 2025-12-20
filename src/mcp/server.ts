@@ -1,7 +1,7 @@
 /**
  * MCP Server for Agent Memory Database
  *
- * Tool Bundling: 45+ individual tools consolidated into 20 action-based tools:
+ * Tool Bundling: 45+ individual tools consolidated into 25 action-based tools:
  * - memory_org (create, list)
  * - memory_project (create, list, get, update)
  * - memory_session (start, end, list)
@@ -22,6 +22,11 @@
  * - memory_permission (grant, revoke, check, list)
  * - memory_health (health check)
  * - memory_backup (create, list, cleanup, restore)
+ * - memory_consolidate (find_similar, dedupe, merge, abstract, archive_stale)
+ * - memory_conversation (start, add_message, get, list, update, link_context, get_context, search, end, archive)
+ * - memory_hook (generate, install, status, uninstall)
+ * - memory_verify (pre_check, post_check, acknowledge, status)
+ * - memory_observe (extract, draft, commit, status)
  */
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
@@ -45,6 +50,7 @@ import { queryHandlers } from './handlers/query.handler.js';
 import { conflictHandlers } from './handlers/conflicts.handler.js';
 import { getQueryCacheStats } from '../services/query.service.js';
 import { formatError, createInvalidActionError } from './errors.js';
+import { formatOutput } from '../utils/compact-formatter.js';
 import { logger } from '../utils/logger.js';
 
 // Import handlers
@@ -80,7 +86,7 @@ import { VERSION } from '../version.js';
 // BUNDLED TOOL DEFINITIONS (20 tools)
 // =============================================================================
 
-const TOOLS: Tool[] = [
+export const TOOLS: Tool[] = [
   // -------------------------------------------------------------------------
   // ORGANIZATION MANAGEMENT
   // -------------------------------------------------------------------------
@@ -1936,17 +1942,17 @@ export async function createServer(): Promise<Server> {
       const result = await handler(args ?? {});
       logger.debug({ tool: name }, 'Tool call successful');
 
-      // Safely serialize result, catching any JSON errors
-      let serializedResult: string;
+      // Format result based on output mode (compact or JSON)
+      let formattedResult: string;
       try {
-        serializedResult = JSON.stringify(result, null, 2);
-      } catch (jsonError) {
-        logger.error({ tool: name, error: jsonError }, 'JSON serialization error');
-        // Attempt safe serialization
-        serializedResult = JSON.stringify(
+        formattedResult = formatOutput(result);
+      } catch (fmtError) {
+        logger.error({ tool: name, error: fmtError }, 'Output formatting error');
+        // Fallback to safe JSON serialization
+        formattedResult = JSON.stringify(
           {
-            error: 'Failed to serialize result',
-            message: jsonError instanceof Error ? jsonError.message : String(jsonError),
+            error: 'Failed to format result',
+            message: fmtError instanceof Error ? fmtError.message : String(fmtError),
             resultType: typeof result,
           },
           null,
@@ -1958,7 +1964,7 @@ export async function createServer(): Promise<Server> {
         content: [
           {
             type: 'text',
-            text: serializedResult,
+            text: formattedResult,
           },
         ],
       };

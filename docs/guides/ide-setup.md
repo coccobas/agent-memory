@@ -130,13 +130,13 @@ Claude Code supports hooks for pre-tool verification:
 
 ```bash
 # Install hooks for a project
-npx agent-memory setup-hook --ide=claude --project=/path/to/project
+npx -y agent-memory@latest hook install --ide=claude --project-path /path/to/project
 
 # Check hook status
-npx agent-memory setup-hook --status --ide=claude --project=/path/to/project
+npx -y agent-memory@latest hook status --ide=claude --project-path /path/to/project
 
 # Uninstall hooks
-npx agent-memory setup-hook --uninstall --ide=claude --project=/path/to/project
+npx -y agent-memory@latest hook uninstall --ide=claude --project-path /path/to/project
 ```
 
 Or via MCP tool:
@@ -324,10 +324,10 @@ Agent Memory uses stdio transport (JSON-RPC over stdin/stdout).
 ### Install Hooks via CLI
 
 ```bash
-npx agent-memory setup-hook \
+npx -y agent-memory@latest hook install \
   --ide=claude \
-  --project=/Users/dev/my-project \
-  --project-id=proj-123
+  --project-path /Users/dev/my-project \
+  --project-id proj-123
 ```
 
 ### Check Hook Status
@@ -358,7 +358,7 @@ Run hooks manually for testing:
 
 ```bash
 # Pre-tool use check
-echo '{"tool": "write", "path": "/src/file.ts"}' | \
+echo '{"tool_name":"write","tool_input":{"file_path":"src/file.ts","content":"(test)"}}' | \
   agent-memory hook pretooluse --project-id proj-123
 
 # Session end

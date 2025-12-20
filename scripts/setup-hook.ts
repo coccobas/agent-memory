@@ -5,9 +5,13 @@
  * Generates and installs verification hooks for Claude Code, Cursor, and VSCode.
  *
  * Usage:
- *   npx agent-memory setup-hook --ide=claude --project=/path/to/project
- *   npx agent-memory setup-hook --ide=cursor --project=.
- *   npx agent-memory setup-hook --status --ide=claude --project=.
+ *   npm run setup-hook -- --ide=claude --project=/path/to/project
+ *   npm run setup-hook -- --ide=cursor --project=.
+ *   npm run setup-hook -- --status --ide=claude --project=.
+ *
+ * Note:
+ *   For end users of the published package, prefer:
+ *   agent-memory hook install|status|uninstall
  */
 
 import { existsSync } from 'node:fs';

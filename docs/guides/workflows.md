@@ -2,6 +2,8 @@
 
 Practical patterns for using Agent Memory in real-world scenarios.
 
+Use this guide when you want a repeatable “how we use memory” playbook (onboarding a project, running sessions, multi-agent coordination, and maintenance).
+
 ## Table of Contents
 
 - [Setting Up a New Project](#setting-up-a-new-project)

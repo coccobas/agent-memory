@@ -1,5 +1,13 @@
 # Agent Memory Documentation
 
+## Choose Your Path
+
+- Claude Desktop / Cursor / VS Code: [Quickstart](quickstart.md) → [IDE Setup](guides/ide-setup.md)
+- Claude Code (with enforcement): [IDE Setup](guides/ide-setup.md) → [Hooks](guides/hooks.md)
+- Docker (MCP/stdio): [Docker](guides/docker.md) → [IDE Setup](guides/ide-setup.md)
+- Docker (REST/HTTP): [Docker](guides/docker.md) → [API Reference](reference/mcp-tools.md#rest-api)
+- “What can I call?”: [MCP Tools](reference/mcp-tools.md)
+
 ## Quick Start
 
 | Document | Description |

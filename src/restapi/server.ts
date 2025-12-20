@@ -10,7 +10,7 @@ import type { EntryType } from '../db/schema.js';
 import {
   getOptionalParam,
   getRequiredParam,
-  isArray,
+  isArrayOfStrings,
   isBoolean,
   isEntryType,
   isNumber,
@@ -28,6 +28,14 @@ const queryTypeToEntryType: Record<'tools' | 'guidelines' | 'knowledge', EntryTy
   knowledge: 'knowledge',
 };
 
+function isQueryType(value: unknown): value is 'tools' | 'guidelines' | 'knowledge' {
+  return value === 'tools' || value === 'guidelines' || value === 'knowledge';
+}
+
+function isQueryTypesArray(value: unknown): value is Array<'tools' | 'guidelines' | 'knowledge'> {
+  return isArrayOfStrings(value) && value.every(isQueryType);
+}
+
 function parsePort(value: string | undefined, fallback: number): number {
   if (!value) return fallback;
   const parsed = Number(value);
@@ -44,18 +52,18 @@ export function createServer(): FastifyInstance {
     disableRequestLogging: true,
   });
 
-  app.addHook('preHandler', (request, reply, done) => {
+  app.addHook('preHandler', async (request, reply) => {
     const authDisabled = process.env.AGENT_MEMORY_REST_AUTH_DISABLED === 'true';
     const restApiKey = process.env.AGENT_MEMORY_REST_API_KEY;
 
-    if (request.url === '/health' || authDisabled) {
-      done();
+    const url = request.raw.url || request.url;
+    if ((typeof url === 'string' && url.startsWith('/health')) || authDisabled) {
       return;
     }
 
     if (!restApiKey) {
       restLogger.error('REST API key missing. Set AGENT_MEMORY_REST_API_KEY.');
-      void reply.status(503).send({ error: 'REST API key not configured' });
+      await reply.status(503).send({ error: 'REST API key not configured' });
       return;
     }
 
@@ -70,11 +78,9 @@ export function createServer(): FastifyInstance {
           : undefined;
 
     if (!token || token !== restApiKey) {
-      void reply.status(401).send({ error: 'Unauthorized' });
+      await reply.status(401).send({ error: 'Unauthorized' });
       return;
     }
-
-    done();
   });
 
   app.get('/health', () => {
@@ -111,9 +117,7 @@ export function createServer(): FastifyInstance {
       return v === 'forward' || v === 'backward' || v === 'both';
     }
 
-    const requestedTypes = getOptionalParam(body, 'types', isArray) as
-      | Array<'tools' | 'guidelines' | 'knowledge'>
-      | undefined;
+    const requestedTypes = getOptionalParam(body, 'types', isQueryTypesArray);
     const scope = getOptionalParam(body, 'scope', isValidScope);
 
     const queryParamsWithoutAgent = {

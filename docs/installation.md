@@ -62,14 +62,14 @@ Best for: Development, customization, contributing.
 docker pull ghcr.io/anthropics/agent-memory:latest
 
 # Run
-docker run -v ~/.agent-memory:/data ghcr.io/anthropics/agent-memory:latest mcp
+docker run --rm -i -v ~/.agent-memory:/data ghcr.io/anthropics/agent-memory:latest mcp
 ```
 
 Or build locally:
 
 ```bash
 docker build -t agent-memory .
-docker run -v ~/.agent-memory:/data agent-memory mcp
+docker run --rm -i -v ~/.agent-memory:/data agent-memory mcp
 ```
 
 Best for: Containerized deployments, isolation.
@@ -78,13 +78,17 @@ See [Docker setup guide](guides/docker.md) for detailed configuration.
 
 ## Verify Installation
 
-```bash
-# Check version
-agent-memory --version
+### MCP (Claude/Cursor/etc.)
 
-# Run health check
-agent-memory mcp &
-# Then use your MCP client to call memory_health
+1. Configure your MCP client (see [IDE setup](guides/ide-setup.md))
+2. Restart your client
+3. Ask it to run `memory_health`
+
+### REST API
+
+```bash
+AGENT_MEMORY_REST_ENABLED=true AGENT_MEMORY_REST_API_KEY=your-secret agent-memory rest
+curl http://127.0.0.1:8787/health
 ```
 
 ## Data Storage

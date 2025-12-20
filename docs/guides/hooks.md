@@ -40,21 +40,39 @@ Hooks are shell scripts that IDEs execute at specific lifecycle events (pre/post
 
 ### Install Hooks
 
-```bash
-# Using MCP tool (from within IDE)
-memory_hook action: "install", ide: "claude", projectPath: "/path/to/project"
+Using MCP tool:
 
-# Using CLI
+```json
+// Tool: memory_hook
+{
+  "action": "install",
+  "ide": "claude",
+  "projectPath": "/path/to/project"
+}
+```
+
+Using CLI:
+
+```bash
 npx agent-memory hook install --ide claude --project-path /path/to/project
 ```
 
 ### Check Status
 
-```bash
-# Using MCP tool
-memory_hook action: "status", ide: "claude", projectPath: "/path/to/project"
+Using MCP tool:
 
-# Using CLI
+```json
+// Tool: memory_hook
+{
+  "action": "status",
+  "ide": "claude",
+  "projectPath": "/path/to/project"
+}
+```
+
+Using CLI:
+
+```bash
 npx agent-memory hook status --ide claude --project-path /path/to/project
 ```
 

@@ -205,7 +205,8 @@ AGENT_MEMORY_SKIP_INIT=0 agent-memory mcp
 
 Check config file location:
 
-- macOS: `~/.claude.json`
+- macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- Linux: `~/.config/claude/claude_desktop_config.json`
 - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
 
 Verify JSON syntax:

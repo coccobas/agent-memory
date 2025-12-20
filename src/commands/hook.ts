@@ -4,6 +4,9 @@
  * Subcommands for running Claude Code hook logic in a deterministic way.
  *
  * Usage:
+ *   agent-memory hook install [options]
+ *   agent-memory hook status [options]
+ *   agent-memory hook uninstall [options]
  *   agent-memory hook pretooluse --project-id <id>
  *   agent-memory hook stop --project-id <id>
  *   agent-memory hook userpromptsubmit --project-id <id>
@@ -18,6 +21,13 @@ import { sessionRepo } from '../db/repositories/scopes.js';
 import { sessions } from '../db/schema.js';
 import { getDb } from '../db/connection.js';
 import { verifyAction, type ProposedAction } from '../services/verification.service.js';
+import {
+  generateHooks,
+  installHooks,
+  getHookStatus,
+  uninstallHooks,
+  type SupportedIDE,
+} from '../services/hook-generator.service.js';
 import { createComponentLogger } from '../utils/logger.js';
 
 const logger = createComponentLogger('hook');
@@ -76,6 +86,129 @@ function parseArgs(argv: string[]): {
   }
 
   return { subcommand, projectId, agentId, autoExtract };
+}
+
+function parseInstallArgs(argv: string[]): {
+  subcommand: 'install' | 'status' | 'uninstall';
+  ide: SupportedIDE;
+  projectPath: string;
+  projectId?: string;
+  sessionId?: string;
+  dryRun: boolean;
+  quiet: boolean;
+} {
+  const sub = (argv[0] || '').toLowerCase();
+  if (sub !== 'install' && sub !== 'status' && sub !== 'uninstall') {
+    writeStderr(`Unknown hook subcommand: ${argv[0] || ''}`);
+    process.exit(2);
+  }
+
+  const options = {
+    subcommand: sub,
+    ide: 'claude' as SupportedIDE,
+    projectPath: process.cwd(),
+    projectId: undefined as string | undefined,
+    sessionId: undefined as string | undefined,
+    dryRun: false,
+    quiet: false,
+  };
+
+  for (let i = 1; i < argv.length; i++) {
+    const arg = argv[i] ?? '';
+
+    if (arg === '--dry-run') {
+      options.dryRun = true;
+      continue;
+    }
+    if (arg === '--quiet' || arg === '-q') {
+      options.quiet = true;
+      continue;
+    }
+    if (arg === '--help' || arg === '-h') {
+      printHookHelp();
+      process.exit(0);
+    }
+
+    if (arg === '--ide') {
+      const ide = (argv[++i] ?? '').toLowerCase();
+      if (ide === 'claude' || ide === 'cursor' || ide === 'vscode') {
+        options.ide = ide;
+      } else {
+        writeStderr(`Invalid IDE: ${ide}. Supported: claude, cursor, vscode`);
+        process.exit(2);
+      }
+      continue;
+    }
+
+    if (arg.startsWith('--ide=')) {
+      const ide = arg.slice('--ide='.length).toLowerCase();
+      if (ide === 'claude' || ide === 'cursor' || ide === 'vscode') {
+        options.ide = ide;
+      } else {
+        writeStderr(`Invalid IDE: ${ide}. Supported: claude, cursor, vscode`);
+        process.exit(2);
+      }
+      continue;
+    }
+
+    if (arg === '--project-path') {
+      options.projectPath = resolve(argv[++i] ?? process.cwd());
+      continue;
+    }
+
+    if (arg.startsWith('--project-path=')) {
+      options.projectPath = resolve(arg.slice('--project-path='.length));
+      continue;
+    }
+
+    if (arg === '--project-id') {
+      options.projectId = argv[++i] ?? '';
+      continue;
+    }
+
+    if (arg.startsWith('--project-id=')) {
+      options.projectId = arg.slice('--project-id='.length);
+      continue;
+    }
+
+    if (arg === '--session-id') {
+      options.sessionId = argv[++i] ?? '';
+      continue;
+    }
+
+    if (arg.startsWith('--session-id=')) {
+      options.sessionId = arg.slice('--session-id='.length);
+      continue;
+    }
+
+    if (arg.startsWith('-')) {
+      writeStderr(`Unknown option: ${arg}`);
+      process.exit(2);
+    }
+  }
+
+  return options as {
+    subcommand: 'install' | 'status' | 'uninstall';
+    ide: SupportedIDE;
+    projectPath: string;
+    projectId?: string;
+    sessionId?: string;
+    dryRun: boolean;
+    quiet: boolean;
+  };
+}
+
+function printHookHelp(): void {
+  writeStdout(`Usage:
+  agent-memory hook install [--ide <claude|cursor|vscode>] [--project-path <path>] [--project-id <id>] [--session-id <id>] [--dry-run] [--quiet]
+  agent-memory hook status [--ide <claude|cursor|vscode>] [--project-path <path>] [--quiet]
+  agent-memory hook uninstall [--ide <claude|cursor|vscode>] [--project-path <path>] [--dry-run] [--quiet]
+  agent-memory hook <pretooluse|stop|userpromptsubmit|session-end> [--project-id <id>] [--agent-id <id>]
+
+Notes:
+  - install/status/uninstall write files in the target project directory.
+  - pretooluse/stop/userpromptsubmit/session-end are executed by Claude Code hooks and expect JSON on stdin.
+`);
 }
 
 async function readStdinJson(): Promise<ClaudeHookInput> {
@@ -421,30 +554,14 @@ async function runStop(projectId?: string, agentId?: string): Promise<void> {
 
   if (!observe.committedAt) {
     console.error(
-      [
-        'Agent Memory: end-of-session review is required before stopping.',
-        '',
-        `Next step (recommended): call memory_observe draft, then commit for sessionId=${sessionId}.`,
-        projectId
-          ? `Use projectId=${projectId} to allow auto-promote to project scope.`
-          : undefined,
-        '',
-        'To suspend enforcement for this session, type: !am review off',
-      ]
-        .filter(Boolean)
-        .join('\n')
+      `⚠ Session review required. Run: memory_observe → draft → commit (session=${sessionId.slice(0, 8)}…)\n  Skip: !am review off`
     );
     process.exit(2);
   }
 
   if ((observe.needsReviewCount ?? 0) > 0 && !observe.reviewedAt) {
     console.error(
-      [
-        `Agent Memory: ${observe.needsReviewCount} candidate memory item(s) need review before stopping.`,
-        '',
-        'To acknowledge review and allow stopping: !am review done',
-        'To suspend enforcement for this session: !am review off',
-      ].join('\n')
+      `⚠ ${observe.needsReviewCount} item(s) need review. Acknowledge: !am review done | Skip: !am review off`
     );
     process.exit(2);
   }
@@ -479,48 +596,35 @@ async function runUserPromptSubmit(projectId?: string): Promise<void> {
 
   if (command === 'review' && (subcommand === 'off' || subcommand === 'suspend')) {
     setReviewSuspended(sessionId, true);
-    console.error('Agent Memory: review enforcement suspended for this session.');
+    console.error('✓ Review suspended');
     process.exit(2);
   }
 
   if (command === 'review' && (subcommand === 'on' || subcommand === 'resume')) {
     setReviewSuspended(sessionId, false);
-    console.error('Agent Memory: review enforcement enabled for this session.');
+    console.error('✓ Review enabled');
     process.exit(2);
   }
 
   if (command === 'review' && subcommand === 'done') {
     const reviewedAt = new Date().toISOString();
     setObserveReviewedAt(sessionId, reviewedAt);
-    console.error(`Agent Memory: review acknowledged at ${reviewedAt}.`);
+    console.error('✓ Review acknowledged');
     process.exit(2);
   }
 
   if (command === 'status' || (command === 'review' && subcommand === 'status')) {
     const suspended = isReviewSuspended(sessionId);
     const observe = getObserveState(sessionId);
+    const committed = observe.committedAt ? '✓' : '✗';
+    const reviewed = observe.reviewedAt ? '✓' : (observe.needsReviewCount ?? 0) > 0 ? '⚠' : '–';
     console.error(
-      [
-        `Agent Memory status for sessionId=${sessionId}`,
-        `- reviewSuspended: ${suspended}`,
-        `- observe.committedAt: ${observe.committedAt ?? 'null'}`,
-        `- observe.needsReviewCount: ${observe.needsReviewCount ?? 0}`,
-        `- observe.reviewedAt: ${observe.reviewedAt ?? 'null'}`,
-      ].join('\n')
+      `Session ${sessionId.slice(0, 8)}… | committed:${committed} reviewed:${reviewed} suspended:${suspended ? 'yes' : 'no'} pending:${observe.needsReviewCount ?? 0}`
     );
     process.exit(2);
   }
 
-  console.error(
-    [
-      'Agent Memory commands:',
-      '- !am status',
-      '- !am review status',
-      '- !am review off',
-      '- !am review on',
-      '- !am review done',
-    ].join('\n')
-  );
+  console.error('!am commands: status | review [off|on|done|status]');
   process.exit(2);
 }
 
@@ -553,15 +657,102 @@ async function runSessionEnd(projectId?: string, agentId?: string): Promise<void
 }
 
 export async function runHookCommand(argv: string[]): Promise<void> {
+  const first = (argv[0] || '').toLowerCase();
+  if (!first || first === '--help' || first === '-h') {
+    printHookHelp();
+    process.exit(0);
+  }
+
+  if (first === 'install' || first === 'status' || first === 'uninstall') {
+    const { subcommand, ide, projectPath, projectId, sessionId, dryRun, quiet } =
+      parseInstallArgs(argv);
+
+    if (subcommand === 'status') {
+      const status = getHookStatus(projectPath, ide);
+      if (!quiet) {
+        writeStdout(`Status: ${status.installed ? 'Installed' : 'Not installed'}`);
+        writeStdout('Files:');
+        for (const file of status.files) {
+          writeStdout(`  ${file.exists ? '✓' : '✗'} ${file.path}`);
+        }
+      }
+      process.exit(status.installed ? 0 : 1);
+    }
+
+    if (subcommand === 'uninstall') {
+      if (dryRun) {
+        const status = getHookStatus(projectPath, ide);
+        if (!quiet) {
+          writeStdout('(Dry run - no files will be removed)');
+          writeStdout('Would remove:');
+          for (const file of status.files) {
+            if (file.exists) writeStdout(`  - ${file.path}`);
+          }
+        }
+        process.exit(0);
+      }
+
+      const result = uninstallHooks(projectPath, ide);
+      if (!quiet) {
+        if (result.success) {
+          writeStdout(`Removed ${result.removed.length} file(s):`);
+          for (const file of result.removed) writeStdout(`  - ${file}`);
+        } else {
+          writeStdout('Uninstall completed with errors:');
+          for (const error of result.errors) writeStdout(`  - ${error}`);
+        }
+      }
+      process.exit(result.success ? 0 : 1);
+    }
+
+    // install
+    const genResult = generateHooks({
+      ide,
+      projectPath,
+      projectId,
+      sessionId,
+    });
+
+    if (!genResult.success) {
+      writeStderr(genResult.message);
+      process.exit(1);
+    }
+
+    if (!quiet) {
+      writeStdout(genResult.message);
+    }
+
+    if (dryRun) {
+      if (!quiet) {
+        writeStdout('(Dry run - no files will be written)');
+        writeStdout('Would install:');
+        for (const hook of genResult.hooks) writeStdout(`  - ${hook.filePath}`);
+      }
+      process.exit(0);
+    }
+
+    const installResult = installHooks(genResult.hooks);
+    if (!quiet) {
+      if (installResult.success) {
+        writeStdout(`Installed ${installResult.installed.length} file(s):`);
+        for (const file of installResult.installed) writeStdout(`  ✓ ${file}`);
+        const firstHook = genResult.hooks[0];
+        if (firstHook) {
+          writeStdout('---');
+          writeStdout(firstHook.instructions);
+        }
+      } else {
+        writeStdout('Installation completed with errors:');
+        for (const error of installResult.errors) writeStdout(`  ✗ ${error}`);
+        for (const file of installResult.installed) writeStdout(`  ✓ ${file}`);
+      }
+    }
+    process.exit(installResult.success ? 0 : 1);
+  }
+
   const { subcommand, projectId, agentId } = parseArgs(argv);
 
   const sub = (subcommand || '').toLowerCase();
-  if (!sub || sub === '--help' || sub === '-h') {
-    writeStdout(
-      'Usage: agent-memory hook <pretooluse|stop|userpromptsubmit|session-end> [--project-id <id>] [--agent-id <id>]'
-    );
-    process.exit(0);
-  }
 
   if (sub === 'pretooluse') {
     await runPreToolUse(projectId, agentId);

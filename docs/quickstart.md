@@ -14,7 +14,7 @@ npx agent-memory@latest mcp
 
 ```bash
 docker pull ghcr.io/anthropics/agent-memory:latest
-docker run -v ~/.agent-memory:/data ghcr.io/anthropics/agent-memory:latest mcp
+docker run --rm -i -v ~/.agent-memory:/data ghcr.io/anthropics/agent-memory:latest mcp
 ```
 
 ## 2. Configure Your IDE
@@ -34,12 +34,15 @@ Add to your MCP client config:
 
 **Config locations:**
 
-| IDE | Config File |
-|:----|:------------|
-| Claude Desktop | `~/.claude.json` |
-| Claude Code | `~/.claude/settings.json` |
-| Cursor | `.cursor/mcp.json` |
-| VS Code | `.vscode/settings.json` |
+| Client | Config File |
+|:-------|:------------|
+| Claude Desktop (macOS) | `~/Library/Application Support/Claude/claude_desktop_config.json` |
+| Claude Desktop (Linux) | `~/.config/claude/claude_desktop_config.json` |
+| Claude Desktop (Windows) | `%APPDATA%\Claude\claude_desktop_config.json` |
+| Claude Code | `~/.claude/claude_code_config.json` |
+| Cursor (project) | `.cursor/mcp.json` |
+| Cursor (user) | `~/.cursor/mcp.json` |
+| VS Code (workspace) | `.vscode/settings.json` |
 
 See [IDE Setup](guides/ide-setup.md) for detailed configuration per IDE.
 
