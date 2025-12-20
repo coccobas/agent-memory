@@ -483,6 +483,19 @@ function isReviewSuspended(sessionId: string): boolean {
   return state[`review:suspended:${sessionId}`] === true;
 }
 
+function hasWarnedReview(sessionId: string): boolean {
+  const statePath = resolve(process.cwd(), '.claude', 'hooks', '.agent-memory-state.json');
+  const state = loadState(statePath);
+  return state[`review:warned:${sessionId}`] === true;
+}
+
+function setWarnedReview(sessionId: string): void {
+  const statePath = resolve(process.cwd(), '.claude', 'hooks', '.agent-memory-state.json');
+  const state = loadState(statePath);
+  state[`review:warned:${sessionId}`] = true;
+  saveState(statePath, state);
+}
+
 function getObserveState(sessionId: string): {
   committedAt?: string;
   reviewedAt?: string;
@@ -575,18 +588,22 @@ async function runStop(projectId?: string, agentId?: string): Promise<void> {
 
   const observe = getObserveState(sessionId);
 
-  if (!observe.committedAt) {
+  // Only warn once per session to avoid spam on every turn
+  if (!observe.committedAt && !hasWarnedReview(sessionId)) {
+    setWarnedReview(sessionId);
     console.error(
-      `⚠ Session review required. Run: memory_observe → draft → commit (session=${sessionId.slice(0, 8)}…)\n  Skip: !am review off`
+      `⚠ Session review available. Run: memory_observe → draft → commit (session=${sessionId.slice(0, 8)}…)\n  Skip: !am review off`
     );
-    process.exit(2);
+    // Exit 0 to not block - this is informational
+    process.exit(0);
   }
 
-  if ((observe.needsReviewCount ?? 0) > 0 && !observe.reviewedAt) {
+  if ((observe.needsReviewCount ?? 0) > 0 && !observe.reviewedAt && !hasWarnedReview(sessionId)) {
+    setWarnedReview(sessionId);
     console.error(
       `⚠ ${observe.needsReviewCount} item(s) need review. Acknowledge: !am review done | Skip: !am review off`
     );
-    process.exit(2);
+    process.exit(0);
   }
 
   process.exit(0);
