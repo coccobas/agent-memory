@@ -68,6 +68,23 @@ describe('Vector Service', () => {
     ).resolves.not.toThrow();
   });
 
+  it('should handle concurrent storeEmbedding without explicit initialize', async () => {
+    const service = getVectorService();
+
+    const embedding = Array(384).fill(0.123);
+
+    await expect(
+      Promise.all(
+        Array.from({ length: 10 }, (_, i) =>
+          service.storeEmbedding('tool', `tool-concurrent-${i}`, 'v1', `Tool ${i}`, embedding, 'm')
+        )
+      )
+    ).resolves.not.toThrow();
+
+    const count = await service.getCount();
+    expect(count).toBeGreaterThanOrEqual(1);
+  }, 20000);
+
   it('should store multiple embeddings', async () => {
     const service = getVectorService();
     await service.initialize();

@@ -70,6 +70,8 @@ class VectorService {
   private dbPath: string;
   private expectedDimension: number | null = null;
   private distanceMetric: DistanceMetric;
+  private initPromise: Promise<void> | null = null;
+  private ensureTablePromise: Promise<{ createdWithRecord: boolean }> | null = null;
 
   constructor(dbPath?: string, distanceMetric?: DistanceMetric) {
     this.dbPath = dbPath || DEFAULT_VECTOR_DB_PATH;
@@ -163,6 +165,75 @@ class VectorService {
     }
   }
 
+  private async ensureInitialized(): Promise<void> {
+    if (this.connection) return;
+    if (!this.initPromise) {
+      this.initPromise = this.initialize().finally(() => {
+        this.initPromise = null;
+      });
+    }
+    await this.initPromise;
+  }
+
+  private async ensureTable(
+    recordForCreate?: VectorRecord
+  ): Promise<{ createdWithRecord: boolean }> {
+    if (this.table) return { createdWithRecord: false };
+    if (this.ensureTablePromise) return this.ensureTablePromise;
+
+    this.ensureTablePromise = (async () => {
+      await this.ensureInitialized();
+      if (this.table) return { createdWithRecord: false };
+      if (!this.connection) {
+        throw new Error('Vector database connection not initialized');
+      }
+
+      // Try to open existing table first.
+      try {
+        const tableNames = await this.connection.tableNames();
+        if (tableNames.includes(this.tableName)) {
+          this.table = await this.connection.openTable(this.tableName);
+          return { createdWithRecord: false };
+        }
+      } catch (error) {
+        logger.debug({ error }, 'Could not list tables, will try open/create table');
+      }
+
+      // Try open (in case tableNames was unavailable or stale).
+      try {
+        this.table = await this.connection.openTable(this.tableName);
+        return { createdWithRecord: false };
+      } catch (error) {
+        logger.debug(
+          { error: error instanceof Error ? error.message : String(error) },
+          'Failed to open vector table, will try to create it'
+        );
+      }
+
+      if (!recordForCreate) {
+        throw new Error('Vector table is missing and no record provided to create it');
+      }
+
+      // Create table with first record.
+      try {
+        this.table = await this.connection.createTable(this.tableName, [recordForCreate]);
+        return { createdWithRecord: true };
+      } catch (error) {
+        // Another concurrent creator may have won - fall back to opening.
+        logger.debug(
+          { error: error instanceof Error ? error.message : String(error) },
+          'Failed to create vector table, will try to open it'
+        );
+        this.table = await this.connection.openTable(this.tableName);
+        return { createdWithRecord: false };
+      }
+    })().finally(() => {
+      this.ensureTablePromise = null;
+    });
+
+    return this.ensureTablePromise;
+  }
+
   /**
    * Store an embedding in the vector database
    */
@@ -190,57 +261,14 @@ class VectorService {
     };
 
     try {
-      // Create table on first record if it doesn't exist
-      if (!this.table) {
-        if (!this.connection) {
-          throw new Error('Vector database connection not initialized');
-        }
+      const { createdWithRecord } = await this.ensureTable(record);
+      if (createdWithRecord) return;
+      if (!this.table) return;
 
-        // Try to check if table exists, but if this fails just try to create it
-        let tableExists = false;
-        try {
-          const tableNames = await this.connection.tableNames();
-          tableExists = tableNames.includes(this.tableName);
-        } catch (error) {
-          // tableNames() might fail if database is empty - that's OK
-          logger.debug({ error }, 'Could not list tables, will try to create table');
-        }
-
-        if (tableExists) {
-          try {
-            this.table = await this.connection.openTable(this.tableName);
-          } catch (error) {
-            // Table might not actually exist (e.g., database was reset), try to create it
-            logger.debug(
-              { error: error instanceof Error ? error.message : String(error) },
-              'Failed to open existing table, will try to create it'
-            );
-            this.table = await this.connection.createTable(this.tableName, [record]);
-            return; // Record already added during table creation
-          }
-        } else {
-          // Create table with first record
-          this.table = await this.connection.createTable(this.tableName, [record]);
-          return; // Record already added during table creation
-        }
-      }
-
-      // Check if record already exists
-      // Create a dummy vector with the same dimensionality as the actual embedding
-      const dummyVector = Array(embedding.length).fill(0);
-      // Validate inputs to prevent SQL injection
-      const validatedEntryId = validateIdentifier(entryId, 'entryId');
-      const validatedVersionId = validateIdentifier(versionId, 'versionId');
-      const existing = await this.table
-        .search(dummyVector) // Dummy vector for filter-only query
-        .filter(`"entryId" = '${validatedEntryId}' AND "versionId" = '${validatedVersionId}'`)
-        .limit(1)
-        .toArray();
-
-      if (Array.isArray(existing) && existing.length > 0) {
-        // Delete existing record
-        await this.removeEmbedding(entryId, versionId);
-      }
+      // Delete any existing embeddings for this entry (all versions)
+      // This ensures we only keep the latest version and avoids stale semantic matches.
+      // Single delete is more efficient than search + conditional delete.
+      await this.removeEmbedding(entryType, entryId);
 
       // Add new record
       await this.table.add([record]);
@@ -371,7 +399,7 @@ class VectorService {
   /**
    * Remove embeddings for an entry (optionally specific version)
    */
-  async removeEmbedding(entryId: string, versionId?: string): Promise<void> {
+  async removeEmbedding(entryType: string, entryId: string, versionId?: string): Promise<void> {
     await this.ensureInitialized();
 
     if (!this.table) {
@@ -380,29 +408,30 @@ class VectorService {
 
     try {
       // Validate inputs to prevent SQL injection
+      const validatedEntryType = validateIdentifier(entryType, 'entryType');
       const validatedEntryId = validateIdentifier(entryId, 'entryId');
 
       // Build the filter predicate
       let filterPredicate: string;
       if (versionId) {
         const validatedVersionId = validateIdentifier(versionId, 'versionId');
-        filterPredicate = `"entryId" = '${validatedEntryId}' AND "versionId" = '${validatedVersionId}'`;
+        filterPredicate = `"entryType" = '${validatedEntryType}' AND "entryId" = '${validatedEntryId}' AND "versionId" = '${validatedVersionId}'`;
       } else {
         // Delete all versions for this entry
-        filterPredicate = `"entryId" = '${validatedEntryId}'`;
+        filterPredicate = `"entryType" = '${validatedEntryType}' AND "entryId" = '${validatedEntryId}'`;
       }
 
       // LanceDB supports delete operations via the delete method
       await this.table.delete(filterPredicate);
 
       logger.debug(
-        { entryId, versionId },
+        { entryType, entryId, versionId },
         'Successfully deleted embedding(s) from vector database'
       );
     } catch (error) {
       // Log error but don't throw - deletion failure shouldn't break the app
       logger.error(
-        { error, entryId, versionId },
+        { error, entryType, entryId, versionId },
         'Failed to remove embedding from vector database'
       );
     }
@@ -466,11 +495,7 @@ class VectorService {
   /**
    * Ensure the database is initialized
    */
-  private async ensureInitialized(): Promise<void> {
-    if (!this.connection) {
-      await this.initialize();
-    }
-  }
+  // ensureInitialized implemented above with initPromise guard
 }
 
 // Singleton instance

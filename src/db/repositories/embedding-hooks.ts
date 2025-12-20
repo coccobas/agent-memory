@@ -5,13 +5,13 @@
  * when creating or updating memory entries.
  */
 
-import { eq, and } from 'drizzle-orm';
 import { getDb } from '../connection.js';
-import { entryEmbeddings, type NewEntryEmbedding } from '../schema.js';
+import { entryEmbeddings } from '../schema.js';
 import { getEmbeddingService } from '../../services/embedding.service.js';
 import { getVectorService } from '../../services/vector.service.js';
 import { generateId } from './base.js';
 import { createComponentLogger } from '../../utils/logger.js';
+import { config } from '../../config/index.js';
 
 const logger = createComponentLogger('embedding-hook');
 
@@ -24,6 +24,122 @@ interface EmbeddingInput {
   text: string;
 }
 
+// =============================================================================
+// EMBEDDING JOB QUEUE (CONCURRENCY-LIMITED)
+// =============================================================================
+
+type EmbeddingQueueKey = `${EntryType}:${string}`;
+
+type QueuedEmbeddingInput = EmbeddingInput & { __seq: number; __key: EmbeddingQueueKey };
+
+const pendingByEntry = new Map<EmbeddingQueueKey, QueuedEmbeddingInput>();
+const queue: EmbeddingQueueKey[] = [];
+const enqueued = new Set<EmbeddingQueueKey>();
+let inFlight = 0;
+const latestSeqByKey = new Map<EmbeddingQueueKey, number>();
+
+function getMaxConcurrency(): number {
+  const raw = config.embedding?.maxConcurrency;
+  const n = typeof raw === 'number' && Number.isFinite(raw) ? raw : 4;
+  return Math.max(1, Math.floor(n));
+}
+
+async function runEmbeddingJob(input: QueuedEmbeddingInput): Promise<void> {
+  const embeddingService = getEmbeddingService();
+
+  // Skip if embeddings are disabled
+  if (!embeddingService.isAvailable()) {
+    return;
+  }
+
+  // Generate embedding
+  const result = await embeddingService.embed(input.text);
+
+  // If a newer job was enqueued for this entry, do not persist stale embeddings.
+  const latestSeq = latestSeqByKey.get(input.__key);
+  if (latestSeq !== input.__seq) {
+    return;
+  }
+
+  // Store in vector database
+  const vectorService = getVectorService();
+  await vectorService.storeEmbedding(
+    input.entryType,
+    input.entryId,
+    input.versionId,
+    input.text,
+    result.embedding,
+    result.model
+  );
+
+  // Track in database using upsert (single statement instead of SELECT + UPDATE/INSERT)
+  // Uses the unique index idx_entry_embeddings_version(entryType, entryId, versionId)
+  const db = getDb();
+  const now = new Date().toISOString();
+
+  db.insert(entryEmbeddings)
+    .values({
+      id: generateId(),
+      entryType: input.entryType,
+      entryId: input.entryId,
+      versionId: input.versionId,
+      hasEmbedding: true,
+      embeddingModel: result.model,
+      embeddingProvider: result.provider,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .onConflictDoUpdate({
+      target: [entryEmbeddings.entryType, entryEmbeddings.entryId, entryEmbeddings.versionId],
+      set: {
+        hasEmbedding: true,
+        embeddingModel: result.model,
+        embeddingProvider: result.provider,
+        updatedAt: now,
+      },
+    })
+    .run();
+}
+
+function drainQueue(): void {
+  const max = getMaxConcurrency();
+  while (inFlight < max && queue.length > 0) {
+    const key = queue.shift();
+    if (!key) break;
+    enqueued.delete(key);
+
+    const job = pendingByEntry.get(key);
+    if (!job) continue;
+    pendingByEntry.delete(key);
+
+    inFlight += 1;
+    void runEmbeddingJob(job)
+      .catch((error) => {
+        logger.error(
+          { error: error instanceof Error ? error.message : String(error) },
+          'Failed to generate embedding'
+        );
+      })
+      .finally(() => {
+        inFlight -= 1;
+        drainQueue();
+      });
+  }
+}
+
+function enqueueEmbeddingJob(input: EmbeddingInput): void {
+  const key: EmbeddingQueueKey = `${input.entryType}:${input.entryId}`;
+  const nextSeq = (latestSeqByKey.get(key) ?? 0) + 1;
+  latestSeqByKey.set(key, nextSeq);
+  // Latest-wins: overwrite pending job for this entry
+  pendingByEntry.set(key, { ...input, __seq: nextSeq, __key: key });
+  if (!enqueued.has(key)) {
+    enqueued.add(key);
+    queue.push(key);
+  }
+  drainQueue();
+}
+
 /**
  * Generate and store embedding for a version asynchronously
  *
@@ -31,78 +147,15 @@ interface EmbeddingInput {
  * Errors are logged but don't fail the operation.
  */
 export function generateEmbeddingAsync(input: EmbeddingInput): void {
-  // Run asynchronously without blocking
-  void (async () => {
-    try {
-      const embeddingService = getEmbeddingService();
+  enqueueEmbeddingJob(input);
+}
 
-      // Skip if embeddings are disabled
-      if (!embeddingService.isAvailable()) {
-        return;
-      }
-
-      // Generate embedding
-      const result = await embeddingService.embed(input.text);
-
-      // Store in vector database
-      const vectorService = getVectorService();
-      await vectorService.storeEmbedding(
-        input.entryType,
-        input.entryId,
-        input.versionId,
-        input.text,
-        result.embedding,
-        result.model
-      );
-
-      // Track in database
-      const db = getDb();
-      const embeddingRecord: NewEntryEmbedding = {
-        id: generateId(),
-        entryType: input.entryType,
-        entryId: input.entryId,
-        versionId: input.versionId,
-        hasEmbedding: true,
-        embeddingModel: result.model,
-        embeddingProvider: result.provider,
-      };
-
-      // Check if record exists
-      const existing = db
-        .select()
-        .from(entryEmbeddings)
-        .where(
-          and(
-            eq(entryEmbeddings.entryType, input.entryType),
-            eq(entryEmbeddings.entryId, input.entryId),
-            eq(entryEmbeddings.versionId, input.versionId)
-          )
-        )
-        .get();
-
-      if (existing) {
-        // Update existing record
-        db.update(entryEmbeddings)
-          .set({
-            hasEmbedding: true,
-            embeddingModel: result.model,
-            embeddingProvider: result.provider,
-            updatedAt: new Date().toISOString(),
-          })
-          .where(eq(entryEmbeddings.id, existing.id))
-          .run();
-      } else {
-        // Insert new record
-        db.insert(entryEmbeddings).values(embeddingRecord).run();
-      }
-    } catch (error) {
-      // Log error but don't throw (fire-and-forget)
-      logger.error(
-        { error: error instanceof Error ? error.message : String(error) },
-        'Failed to generate embedding'
-      );
-    }
-  })();
+export function resetEmbeddingQueueForTests(): void {
+  pendingByEntry.clear();
+  queue.length = 0;
+  enqueued.clear();
+  inFlight = 0;
+  latestSeqByKey.clear();
 }
 
 /**

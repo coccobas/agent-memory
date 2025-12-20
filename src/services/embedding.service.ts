@@ -41,6 +41,7 @@ class EmbeddingService {
   private openaiModel: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private localPipeline: any = null;
+  private localPipelinePromise: Promise<unknown> | null = null;
   private localModelName = 'Xenova/all-MiniLM-L6-v2'; // 384-dim embeddings
   private embeddingCache = new Map<string, number[]>();
   private maxCacheSize = 1000;
@@ -265,12 +266,22 @@ class EmbeddingService {
   private async embedLocal(text: string): Promise<number[]> {
     // Lazy load the pipeline
     if (!this.localPipeline) {
-      // Only log once to avoid spam in tests
-      if (!EmbeddingService.hasLoggedModelLoad) {
-        logger.info('Loading local model (first use may take time)');
-        EmbeddingService.hasLoggedModelLoad = true;
+      if (!this.localPipelinePromise) {
+        // Only log once to avoid spam in tests
+        if (!EmbeddingService.hasLoggedModelLoad) {
+          logger.info('Loading local model (first use may take time)');
+          EmbeddingService.hasLoggedModelLoad = true;
+        }
+        this.localPipelinePromise = pipeline('feature-extraction', this.localModelName)
+          .then((p) => {
+            this.localPipeline = p;
+            return p;
+          })
+          .finally(() => {
+            this.localPipelinePromise = null;
+          });
       }
-      this.localPipeline = await pipeline('feature-extraction', this.localModelName);
+      await this.localPipelinePromise;
     }
 
     try {

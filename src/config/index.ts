@@ -121,6 +121,7 @@ export interface Config {
     verbose: boolean;
     devMode: boolean;
     autoFixChecksums: boolean;
+    busyTimeoutMs: number;
   };
 
   // Vector Database
@@ -134,6 +135,7 @@ export interface Config {
     provider: 'openai' | 'local' | 'disabled';
     openaiApiKey: string | undefined;
     openaiModel: string;
+    maxConcurrency: number;
   };
 
   // Extraction (LLM-based auto-capture)
@@ -267,6 +269,11 @@ export interface Config {
     displayTimezone: string; // 'local' | 'utc' | IANA timezone (e.g., 'Europe/Rome')
   };
 
+  // Output formatting (primarily for MCP tool responses)
+  output: {
+    format: 'json' | 'compact';
+  };
+
   // Directory Paths
   paths: {
     dataDir: string;
@@ -313,6 +320,7 @@ export const config: Config = {
       process.env.AGENT_MEMORY_AUTO_FIX_CHECKSUMS,
       parseBoolean(process.env.AGENT_MEMORY_DEV_MODE, false)
     ),
+    busyTimeoutMs: parseInt_(process.env.AGENT_MEMORY_DB_BUSY_TIMEOUT_MS, 5000),
   },
 
   vectorDb: {
@@ -328,6 +336,7 @@ export const config: Config = {
     provider: getEmbeddingProvider(),
     openaiApiKey: process.env.AGENT_MEMORY_OPENAI_API_KEY,
     openaiModel: process.env.AGENT_MEMORY_OPENAI_MODEL || 'text-embedding-3-small',
+    maxConcurrency: parseInt_(process.env.AGENT_MEMORY_EMBEDDING_MAX_CONCURRENCY, 4),
   },
 
   extraction: {
@@ -467,6 +476,13 @@ export const config: Config = {
     displayTimezone: process.env.AGENT_MEMORY_TIMEZONE || 'local',
   },
 
+  output: {
+    format: parseString(process.env.AGENT_MEMORY_OUTPUT_FORMAT, 'json', [
+      'json',
+      'compact',
+    ] as const),
+  },
+
   paths: {
     dataDir: getDataDir(),
     backup: resolveDataPath(process.env.AGENT_MEMORY_BACKUP_PATH, 'backups'),
@@ -490,6 +506,7 @@ function buildConfig(): Config {
         process.env.AGENT_MEMORY_AUTO_FIX_CHECKSUMS,
         parseBoolean(process.env.AGENT_MEMORY_DEV_MODE, false)
       ),
+      busyTimeoutMs: parseInt_(process.env.AGENT_MEMORY_DB_BUSY_TIMEOUT_MS, 5000),
     },
 
     vectorDb: {
@@ -505,6 +522,7 @@ function buildConfig(): Config {
       provider: getEmbeddingProvider(),
       openaiApiKey: process.env.AGENT_MEMORY_OPENAI_API_KEY,
       openaiModel: process.env.AGENT_MEMORY_OPENAI_MODEL || 'text-embedding-3-small',
+      maxConcurrency: parseInt_(process.env.AGENT_MEMORY_EMBEDDING_MAX_CONCURRENCY, 4),
     },
 
     extraction: {
@@ -646,6 +664,13 @@ function buildConfig(): Config {
 
     timestamps: {
       displayTimezone: process.env.AGENT_MEMORY_TIMEZONE || 'local',
+    },
+
+    output: {
+      format: parseString(process.env.AGENT_MEMORY_OUTPUT_FORMAT, 'json', [
+        'json',
+        'compact',
+      ] as const),
     },
 
     paths: {

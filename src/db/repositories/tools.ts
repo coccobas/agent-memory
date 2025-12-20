@@ -423,7 +423,7 @@ export const toolRepo = {
       void (async () => {
         try {
           const vectorService = getVectorService();
-          await vectorService.removeEmbedding(id);
+          await vectorService.removeEmbedding('tool', id);
         } catch (error) {
           // Error already logged in vector service
         }

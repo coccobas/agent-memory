@@ -83,7 +83,18 @@ export const tagRepo = {
     const existing = this.getByName(name);
     if (existing) return existing;
 
-    return this.create({ name, category });
+    try {
+      return this.create({ name, category });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const isUnique =
+        message.includes('UNIQUE constraint failed') && message.includes('tags.name');
+      if (!isUnique) throw error;
+
+      const createdByOther = this.getByName(name);
+      if (createdByOther) return createdByOther;
+      throw error;
+    }
   },
 
   /**
@@ -307,7 +318,24 @@ export const entryTagRepo = {
       throw new Error('Either tagId or tagName must be provided');
     }
 
-    // Check if already attached
+    // Create the association
+    const id = generateId();
+    const entryTag: NewEntryTag = {
+      id,
+      entryType: input.entryType,
+      entryId: input.entryId,
+      tagId,
+    };
+
+    try {
+      db.insert(entryTags).values(entryTag).run();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const isUnique =
+        message.includes('UNIQUE constraint failed') && message.includes('entry_tags.entry_type');
+      if (!isUnique) throw error;
+    }
+
     const existing = db
       .select()
       .from(entryTags)
@@ -319,25 +347,12 @@ export const entryTagRepo = {
         )
       )
       .get();
-
     if (existing) return existing;
 
-    // Create the association
-    const id = generateId();
-    const entryTag: NewEntryTag = {
-      id,
-      entryType: input.entryType,
-      entryId: input.entryId,
-      tagId,
-    };
-
-    db.insert(entryTags).values(entryTag).run();
-
-    const result = db.select().from(entryTags).where(eq(entryTags.id, id)).get();
-    if (!result) {
-      throw new Error(`Failed to create entry tag ${id}`);
-    }
-    return result;
+    const byId = db.select().from(entryTags).where(eq(entryTags.id, id)).get();
+    if (byId) return byId;
+    if (existing) return existing;
+    throw new Error(`Failed to create entry tag ${id}`);
   },
 
   /**

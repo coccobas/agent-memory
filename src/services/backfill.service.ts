@@ -16,12 +16,13 @@ import {
   entryEmbeddings,
   type NewEntryEmbedding,
 } from '../db/schema.js';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, inArray, sql } from 'drizzle-orm';
 import { getEmbeddingService } from './embedding.service.js';
 import { getVectorService } from './vector.service.js';
 import { extractTextForEmbedding, type EntryType } from '../db/repositories/embedding-hooks.js';
 import { generateId } from '../db/repositories/base.js';
 import { createComponentLogger } from '../utils/logger.js';
+import { config } from '../config/index.js';
 
 const logger = createComponentLogger('backfill');
 
@@ -69,26 +70,30 @@ export async function backfillEmbeddings(options: BackfillOptions = {}): Promise
     inProgress: true,
   };
 
-  // Count total entries to process
+  // Count total entries to process (using COUNT(*) for efficiency)
   if (entryTypes.includes('tool')) {
-    const toolCount = db.select().from(tools).where(eq(tools.isActive, true)).all().length;
-    progress.total += toolCount;
+    const result = db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(tools)
+      .where(eq(tools.isActive, true))
+      .get();
+    progress.total += result?.count ?? 0;
   }
   if (entryTypes.includes('guideline')) {
-    const guidelineCount = db
-      .select()
+    const result = db
+      .select({ count: sql<number>`COUNT(*)` })
       .from(guidelines)
       .where(eq(guidelines.isActive, true))
-      .all().length;
-    progress.total += guidelineCount;
+      .get();
+    progress.total += result?.count ?? 0;
   }
   if (entryTypes.includes('knowledge')) {
-    const knowledgeCount = db
-      .select()
+    const result = db
+      .select({ count: sql<number>`COUNT(*)` })
       .from(knowledge)
       .where(eq(knowledge.isActive, true))
-      .all().length;
-    progress.total += knowledgeCount;
+      .get();
+    progress.total += result?.count ?? 0;
   }
 
   // Process each entry type
@@ -109,6 +114,34 @@ export async function backfillEmbeddings(options: BackfillOptions = {}): Promise
 }
 
 /**
+ * Helper to run async tasks with limited concurrency
+ */
+async function runWithConcurrency<T>(
+  tasks: (() => Promise<T>)[],
+  maxConcurrency: number
+): Promise<T[]> {
+  const results: T[] = [];
+  let index = 0;
+
+  const runNext = async (): Promise<void> => {
+    while (index < tasks.length) {
+      const currentIndex = index++;
+      const task = tasks[currentIndex];
+      if (task) {
+        results[currentIndex] = await task();
+      }
+    }
+  };
+
+  const workers = Array(Math.min(maxConcurrency, tasks.length))
+    .fill(null)
+    .map(() => runNext());
+
+  await Promise.all(workers);
+  return results;
+}
+
+/**
  * Backfill embeddings for a specific entry type
  */
 async function backfillEntryType(
@@ -121,6 +154,9 @@ async function backfillEntryType(
   const db = getDb();
   const embeddingService = getEmbeddingService();
   const vectorService = getVectorService();
+
+  // Get max concurrency from config (default 4)
+  const maxConcurrency = Math.max(1, config.embedding?.maxConcurrency ?? 4);
 
   // Get all active entries
   let entries: Array<{ id: string; name: string; currentVersionId: string | null }> = [];
@@ -157,116 +193,140 @@ async function backfillEntryType(
   for (let i = 0; i < entries.length; i += batchSize) {
     const batch = entries.slice(i, Math.min(i + batchSize, entries.length));
 
-    await Promise.all(
-      batch.map(async (entry) => {
-        try {
-          if (!entry.currentVersionId) {
-            progress.processed++;
-            progress.failed++;
-            return;
-          }
+    // Phase 1: Batch prefetch existing embeddings for this batch (fixes N+1)
+    const batchIds = batch.map((e) => e.id);
+    const batchVersionIds = batch.map((e) => e.currentVersionId).filter((v): v is string => !!v);
 
-          // Check if embedding already exists
-          const existingEmbedding = db
-            .select()
-            .from(entryEmbeddings)
-            .where(
-              and(
-                eq(entryEmbeddings.entryType, entryType),
-                eq(entryEmbeddings.entryId, entry.id),
-                eq(entryEmbeddings.versionId, entry.currentVersionId),
-                eq(entryEmbeddings.hasEmbedding, true)
-              )
-            )
-            .get();
+    const existingEmbeddingsSet = new Set<string>();
+    if (batchVersionIds.length > 0) {
+      const existingRows = db
+        .select({ entryId: entryEmbeddings.entryId, versionId: entryEmbeddings.versionId })
+        .from(entryEmbeddings)
+        .where(
+          and(
+            eq(entryEmbeddings.entryType, entryType),
+            inArray(entryEmbeddings.entryId, batchIds),
+            eq(entryEmbeddings.hasEmbedding, true)
+          )
+        )
+        .all();
+      for (const row of existingRows) {
+        existingEmbeddingsSet.add(`${row.entryId}:${row.versionId}`);
+      }
+    }
 
-          if (existingEmbedding) {
-            progress.processed++;
-            progress.succeeded++;
-            return; // Already has embedding
-          }
+    // Phase 2: Batch prefetch version data for this batch (fixes N+1)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const versionsById = new Map<string, any>();
+    if (batchVersionIds.length > 0) {
+      if (entryType === 'tool') {
+        const versions = db
+          .select()
+          .from(toolVersions)
+          .where(inArray(toolVersions.id, batchVersionIds))
+          .all();
+        for (const v of versions) {
+          versionsById.set(v.id, v);
+        }
+      } else if (entryType === 'guideline') {
+        const versions = db
+          .select()
+          .from(guidelineVersions)
+          .where(inArray(guidelineVersions.id, batchVersionIds))
+          .all();
+        for (const v of versions) {
+          versionsById.set(v.id, v);
+        }
+      } else if (entryType === 'knowledge') {
+        const versions = db
+          .select()
+          .from(knowledgeVersions)
+          .where(inArray(knowledgeVersions.id, batchVersionIds))
+          .all();
+        for (const v of versions) {
+          versionsById.set(v.id, v);
+        }
+      }
+    }
 
-          // Get version data
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          let versionData: any = null;
-          if (entryType === 'tool') {
-            versionData = db
-              .select()
-              .from(toolVersions)
-              .where(eq(toolVersions.id, entry.currentVersionId))
-              .get();
-          } else if (entryType === 'guideline') {
-            versionData = db
-              .select()
-              .from(guidelineVersions)
-              .where(eq(guidelineVersions.id, entry.currentVersionId))
-              .get();
-          } else if (entryType === 'knowledge') {
-            versionData = db
-              .select()
-              .from(knowledgeVersions)
-              .where(eq(knowledgeVersions.id, entry.currentVersionId))
-              .get();
-          }
-
-          if (!versionData) {
-            progress.processed++;
-            progress.failed++;
-            return;
-          }
-
-          // Extract text for embedding
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-          const text = extractTextForEmbedding(entryType, entry.name, versionData);
-
-          // Generate embedding
-          const result = await embeddingService.embed(text);
-
-          // Store in vector database
-          await vectorService.storeEmbedding(
-            entryType,
-            entry.id,
-            entry.currentVersionId,
-            text,
-            result.embedding,
-            result.model
-          );
-
-          // Track in database
-          const embeddingRecord: NewEntryEmbedding = {
-            id: generateId(),
-            entryType,
-            entryId: entry.id,
-            versionId: entry.currentVersionId,
-            hasEmbedding: true,
-            embeddingModel: result.model,
-            embeddingProvider: result.provider,
-          };
-
-          db.insert(entryEmbeddings).values(embeddingRecord).run();
-
-          progress.processed++;
-          progress.succeeded++;
-        } catch (error) {
-          // eslint-disable-next-line no-console
-          logger.error(
-            {
-              entryType,
-              entryId: entry.id,
-              errorMessage: error instanceof Error ? error.message : String(error),
-              errorStack: error instanceof Error ? error.stack : undefined,
-            },
-            'Failed to process entry'
-          );
+    // Phase 3: Create tasks for entries that need embedding generation
+    const tasks = batch.map((entry) => async () => {
+      try {
+        if (!entry.currentVersionId) {
           progress.processed++;
           progress.failed++;
+          return;
         }
 
-        if (onProgress) {
-          onProgress({ ...progress });
+        // Check if embedding already exists (using prefetched data)
+        const embeddingKey = `${entry.id}:${entry.currentVersionId}`;
+        if (existingEmbeddingsSet.has(embeddingKey)) {
+          progress.processed++;
+          progress.succeeded++;
+          return; // Already has embedding
         }
-      })
-    );
+
+        // Get version data (from prefetched map)
+        const versionData = versionsById.get(entry.currentVersionId);
+        if (!versionData) {
+          progress.processed++;
+          progress.failed++;
+          return;
+        }
+
+        // Extract text for embedding
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+        const text = extractTextForEmbedding(entryType, entry.name, versionData);
+
+        // Generate embedding
+        const result = await embeddingService.embed(text);
+
+        // Store in vector database
+        await vectorService.storeEmbedding(
+          entryType,
+          entry.id,
+          entry.currentVersionId,
+          text,
+          result.embedding,
+          result.model
+        );
+
+        // Track in database
+        const embeddingRecord: NewEntryEmbedding = {
+          id: generateId(),
+          entryType,
+          entryId: entry.id,
+          versionId: entry.currentVersionId,
+          hasEmbedding: true,
+          embeddingModel: result.model,
+          embeddingProvider: result.provider,
+        };
+
+        db.insert(entryEmbeddings).values(embeddingRecord).run();
+
+        progress.processed++;
+        progress.succeeded++;
+      } catch (error) {
+        logger.error(
+          {
+            entryType,
+            entryId: entry.id,
+            errorMessage: error instanceof Error ? error.message : String(error),
+            errorStack: error instanceof Error ? error.stack : undefined,
+          },
+          'Failed to process entry'
+        );
+        progress.processed++;
+        progress.failed++;
+      }
+
+      if (onProgress) {
+        onProgress({ ...progress });
+      }
+    });
+
+    // Run with limited concurrency instead of unbounded Promise.all
+    await runWithConcurrency(tasks, maxConcurrency);
 
     // Delay between batches to respect rate limits
     if (i + batchSize < entries.length && delayMs > 0) {
@@ -276,7 +336,7 @@ async function backfillEntryType(
 }
 
 /**
- * Get backfill statistics
+ * Get backfill statistics (uses COUNT(*) for efficiency)
  */
 export function getBackfillStats(): {
   tools: { total: number; withEmbeddings: number };
@@ -285,34 +345,47 @@ export function getBackfillStats(): {
 } {
   const db = getDb();
 
-  const toolsTotal = db.select().from(tools).where(eq(tools.isActive, true)).all().length;
-  const toolsWithEmbeddings = db
-    .select()
-    .from(entryEmbeddings)
-    .where(and(eq(entryEmbeddings.entryType, 'tool'), eq(entryEmbeddings.hasEmbedding, true)))
-    .all().length;
+  const toolsTotal =
+    db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(tools)
+      .where(eq(tools.isActive, true))
+      .get()?.count ?? 0;
 
-  const guidelinesTotal = db
-    .select()
-    .from(guidelines)
-    .where(eq(guidelines.isActive, true))
-    .all().length;
-  const guidelinesWithEmbeddings = db
-    .select()
-    .from(entryEmbeddings)
-    .where(and(eq(entryEmbeddings.entryType, 'guideline'), eq(entryEmbeddings.hasEmbedding, true)))
-    .all().length;
+  const toolsWithEmbeddings =
+    db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(entryEmbeddings)
+      .where(and(eq(entryEmbeddings.entryType, 'tool'), eq(entryEmbeddings.hasEmbedding, true)))
+      .get()?.count ?? 0;
 
-  const knowledgeTotal = db
-    .select()
-    .from(knowledge)
-    .where(eq(knowledge.isActive, true))
-    .all().length;
-  const knowledgeWithEmbeddings = db
-    .select()
-    .from(entryEmbeddings)
-    .where(and(eq(entryEmbeddings.entryType, 'knowledge'), eq(entryEmbeddings.hasEmbedding, true)))
-    .all().length;
+  const guidelinesTotal =
+    db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(guidelines)
+      .where(eq(guidelines.isActive, true))
+      .get()?.count ?? 0;
+
+  const guidelinesWithEmbeddings =
+    db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(entryEmbeddings)
+      .where(and(eq(entryEmbeddings.entryType, 'guideline'), eq(entryEmbeddings.hasEmbedding, true)))
+      .get()?.count ?? 0;
+
+  const knowledgeTotal =
+    db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(knowledge)
+      .where(eq(knowledge.isActive, true))
+      .get()?.count ?? 0;
+
+  const knowledgeWithEmbeddings =
+    db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(entryEmbeddings)
+      .where(and(eq(entryEmbeddings.entryType, 'knowledge'), eq(entryEmbeddings.hasEmbedding, true)))
+      .get()?.count ?? 0;
 
   return {
     tools: { total: toolsTotal, withEmbeddings: toolsWithEmbeddings },

@@ -12,13 +12,15 @@ import {
   toolVersions,
   guidelineVersions,
   knowledgeVersions,
+  entryTags,
+  tags,
+  entryRelations,
   type ToolVersion,
   type GuidelineVersion,
   type KnowledgeVersion,
   type ScopeType,
 } from '../db/schema.js';
-import { eq, and, isNull } from 'drizzle-orm';
-import { entryTagRepo, entryRelationRepo } from '../db/repositories/tags.js';
+import { eq, and, isNull, inArray } from 'drizzle-orm';
 
 export interface ExportOptions {
   types?: ('tools' | 'guidelines' | 'knowledge')[];
@@ -116,7 +118,70 @@ interface ExportData {
 }
 
 /**
- * Query and structure entries for export
+ * Batch fetch tags for entries of a given type
+ */
+function batchFetchTags(
+  db: ReturnType<typeof getDb>,
+  entryType: 'tool' | 'guideline' | 'knowledge',
+  entryIds: string[]
+): Map<string, string[]> {
+  const result = new Map<string, string[]>();
+  if (entryIds.length === 0) return result;
+
+  const rows = db
+    .select({
+      entryId: entryTags.entryId,
+      tagName: tags.name,
+    })
+    .from(entryTags)
+    .innerJoin(tags, eq(entryTags.tagId, tags.id))
+    .where(and(eq(entryTags.entryType, entryType), inArray(entryTags.entryId, entryIds)))
+    .all();
+
+  for (const row of rows) {
+    const existing = result.get(row.entryId) ?? [];
+    existing.push(row.tagName);
+    result.set(row.entryId, existing);
+  }
+
+  return result;
+}
+
+/**
+ * Batch fetch relations for entries of a given type
+ */
+function batchFetchRelations(
+  db: ReturnType<typeof getDb>,
+  sourceType: 'tool' | 'guideline' | 'knowledge',
+  sourceIds: string[]
+): Map<string, Array<{ targetType: string; targetId: string; relationType: string }>> {
+  const result = new Map<
+    string,
+    Array<{ targetType: string; targetId: string; relationType: string }>
+  >();
+  if (sourceIds.length === 0) return result;
+
+  const rows = db
+    .select()
+    .from(entryRelations)
+    .where(and(eq(entryRelations.sourceType, sourceType), inArray(entryRelations.sourceId, sourceIds)))
+    .all();
+
+  for (const row of rows) {
+    const existing = result.get(row.sourceId) ?? [];
+    existing.push({
+      targetType: row.targetType,
+      targetId: row.targetId,
+      relationType: row.relationType,
+    });
+    result.set(row.sourceId, existing);
+  }
+
+  return result;
+}
+
+/**
+ * Query and structure entries for export (optimized with batch fetching)
  */
 function queryEntries(options: ExportOptions): ExportData {
   const db = getDb();
@@ -151,21 +216,38 @@ function queryEntries(options: ExportOptions): ExportData {
     }
 
     const toolList = query.all();
+    const toolIds = toolList.map((t) => t.id);
+
+    // Batch fetch all versions for all tools
+    const allVersions =
+      toolIds.length > 0
+        ? db
+            .select()
+            .from(toolVersions)
+            .where(inArray(toolVersions.toolId, toolIds))
+            .all()
+        : [];
+    const versionsByToolId = new Map<string, ToolVersion[]>();
+    for (const v of allVersions) {
+      const existing = versionsByToolId.get(v.toolId) ?? [];
+      existing.push(v);
+      versionsByToolId.set(v.toolId, existing);
+    }
+
+    // Batch fetch all tags and relations
+    const tagsByEntryId = batchFetchTags(db, 'tool', toolIds);
+    const relationsByEntryId = batchFetchRelations(db, 'tool', toolIds);
 
     for (const tool of toolList) {
-      const versions = db.select().from(toolVersions).where(eq(toolVersions.toolId, tool.id)).all();
-
+      const versions = versionsByToolId.get(tool.id) ?? [];
       const currentVersion = versions.find((v) => v.id === tool.currentVersionId);
-      const entryTags = entryTagRepo.getTagsForEntry('tool', tool.id);
-      const relations = entryRelationRepo.list({
-        sourceType: 'tool',
-        sourceId: tool.id,
-      });
+      const toolTagNames = tagsByEntryId.get(tool.id) ?? [];
+      const relations = relationsByEntryId.get(tool.id) ?? [];
 
       // Filter by tags if specified
       if (options.tags && options.tags.length > 0) {
-        const tagNames = entryTags.map((t) => t.name.toLowerCase());
-        const hasRequiredTag = options.tags.some((tag) => tagNames.includes(tag.toLowerCase()));
+        const tagNamesLower = toolTagNames.map((t) => t.toLowerCase());
+        const hasRequiredTag = options.tags.some((tag) => tagNamesLower.includes(tag.toLowerCase()));
         if (!hasRequiredTag) continue;
       }
 
@@ -180,12 +262,8 @@ function queryEntries(options: ExportOptions): ExportData {
         createdBy: tool.createdBy,
         currentVersion,
         versions: options.includeVersions ? versions : undefined,
-        tags: entryTags.map((t) => t.name),
-        relations: relations.map((r) => ({
-          targetType: r.targetType,
-          targetId: r.targetId,
-          relationType: r.relationType,
-        })),
+        tags: toolTagNames,
+        relations,
       });
     }
   }
@@ -216,25 +294,38 @@ function queryEntries(options: ExportOptions): ExportData {
     }
 
     const guidelineList = query.all();
+    const guidelineIds = guidelineList.map((g) => g.id);
+
+    // Batch fetch all versions for all guidelines
+    const allVersions =
+      guidelineIds.length > 0
+        ? db
+            .select()
+            .from(guidelineVersions)
+            .where(inArray(guidelineVersions.guidelineId, guidelineIds))
+            .all()
+        : [];
+    const versionsByGuidelineId = new Map<string, GuidelineVersion[]>();
+    for (const v of allVersions) {
+      const existing = versionsByGuidelineId.get(v.guidelineId) ?? [];
+      existing.push(v);
+      versionsByGuidelineId.set(v.guidelineId, existing);
+    }
+
+    // Batch fetch all tags and relations
+    const tagsByEntryId = batchFetchTags(db, 'guideline', guidelineIds);
+    const relationsByEntryId = batchFetchRelations(db, 'guideline', guidelineIds);
 
     for (const guideline of guidelineList) {
-      const versions = db
-        .select()
-        .from(guidelineVersions)
-        .where(eq(guidelineVersions.guidelineId, guideline.id))
-        .all();
-
+      const versions = versionsByGuidelineId.get(guideline.id) ?? [];
       const currentVersion = versions.find((v) => v.id === guideline.currentVersionId);
-      const entryTags = entryTagRepo.getTagsForEntry('guideline', guideline.id);
-      const relations = entryRelationRepo.list({
-        sourceType: 'guideline',
-        sourceId: guideline.id,
-      });
+      const guidelineTagNames = tagsByEntryId.get(guideline.id) ?? [];
+      const relations = relationsByEntryId.get(guideline.id) ?? [];
 
       // Filter by tags if specified
       if (options.tags && options.tags.length > 0) {
-        const tagNames = entryTags.map((t) => t.name.toLowerCase());
-        const hasRequiredTag = options.tags.some((tag) => tagNames.includes(tag.toLowerCase()));
+        const tagNamesLower = guidelineTagNames.map((t) => t.toLowerCase());
+        const hasRequiredTag = options.tags.some((tag) => tagNamesLower.includes(tag.toLowerCase()));
         if (!hasRequiredTag) continue;
       }
 
@@ -250,12 +341,8 @@ function queryEntries(options: ExportOptions): ExportData {
         createdBy: guideline.createdBy,
         currentVersion,
         versions: options.includeVersions ? versions : undefined,
-        tags: entryTags.map((t) => t.name),
-        relations: relations.map((r) => ({
-          targetType: r.targetType,
-          targetId: r.targetId,
-          relationType: r.relationType,
-        })),
+        tags: guidelineTagNames,
+        relations,
       });
     }
   }
@@ -284,25 +371,38 @@ function queryEntries(options: ExportOptions): ExportData {
     }
 
     const knowledgeList = query.all();
+    const knowledgeIds = knowledgeList.map((k) => k.id);
+
+    // Batch fetch all versions for all knowledge entries
+    const allVersions =
+      knowledgeIds.length > 0
+        ? db
+            .select()
+            .from(knowledgeVersions)
+            .where(inArray(knowledgeVersions.knowledgeId, knowledgeIds))
+            .all()
+        : [];
+    const versionsByKnowledgeId = new Map<string, KnowledgeVersion[]>();
+    for (const v of allVersions) {
+      const existing = versionsByKnowledgeId.get(v.knowledgeId) ?? [];
+      existing.push(v);
+      versionsByKnowledgeId.set(v.knowledgeId, existing);
+    }
+
+    // Batch fetch all tags and relations
+    const tagsByEntryId = batchFetchTags(db, 'knowledge', knowledgeIds);
+    const relationsByEntryId = batchFetchRelations(db, 'knowledge', knowledgeIds);
 
     for (const know of knowledgeList) {
-      const versions = db
-        .select()
-        .from(knowledgeVersions)
-        .where(eq(knowledgeVersions.knowledgeId, know.id))
-        .all();
-
+      const versions = versionsByKnowledgeId.get(know.id) ?? [];
       const currentVersion = versions.find((v) => v.id === know.currentVersionId);
-      const entryTags = entryTagRepo.getTagsForEntry('knowledge', know.id);
-      const relations = entryRelationRepo.list({
-        sourceType: 'knowledge',
-        sourceId: know.id,
-      });
+      const knowledgeTagNames = tagsByEntryId.get(know.id) ?? [];
+      const relations = relationsByEntryId.get(know.id) ?? [];
 
       // Filter by tags if specified
       if (options.tags && options.tags.length > 0) {
-        const tagNames = entryTags.map((t) => t.name.toLowerCase());
-        const hasRequiredTag = options.tags.some((tag) => tagNames.includes(tag.toLowerCase()));
+        const tagNamesLower = knowledgeTagNames.map((t) => t.toLowerCase());
+        const hasRequiredTag = options.tags.some((tag) => tagNamesLower.includes(tag.toLowerCase()));
         if (!hasRequiredTag) continue;
       }
 
@@ -317,12 +417,8 @@ function queryEntries(options: ExportOptions): ExportData {
         createdBy: know.createdBy,
         currentVersion,
         versions: options.includeVersions ? versions : undefined,
-        tags: entryTags.map((t) => t.name),
-        relations: relations.map((r) => ({
-          targetType: r.targetType,
-          targetId: r.targetId,
-          relationType: r.relationType,
-        })),
+        tags: knowledgeTagNames,
+        relations,
       });
     }
   }
@@ -361,84 +457,86 @@ export function exportToJson(options: ExportOptions = {}): ExportResult {
 }
 
 /**
- * Export entries to Markdown format
+ * Export entries to Markdown format (optimized: uses array.join instead of +=)
  */
 export function exportToMarkdown(options: ExportOptions = {}): ExportResult {
   const data = queryEntries(options);
-  let markdown = `# Agent Memory Export\n\n`;
-  markdown += `**Exported:** ${data.exportedAt}\n`;
+  const parts: string[] = [];
+
+  parts.push(`# Agent Memory Export\n\n`);
+  parts.push(`**Exported:** ${data.exportedAt}\n`);
 
   const entryCount =
     data.entries.tools.length + data.entries.guidelines.length + data.entries.knowledge.length;
-  markdown += `**Entries:** ${entryCount}\n`;
+  parts.push(`**Entries:** ${entryCount}\n`);
 
   if (data.metadata.scopeType) {
-    markdown += `**Scope:** ${data.metadata.scopeType}${data.metadata.scopeId ? ` / ${data.metadata.scopeId}` : ''}\n`;
+    parts.push(`**Scope:** ${data.metadata.scopeType}${data.metadata.scopeId ? ` / ${data.metadata.scopeId}` : ''}\n`);
   }
-  markdown += `\n`;
+  parts.push(`\n`);
 
   if (data.entries.tools.length > 0) {
-    markdown += `## Tools (${data.entries.tools.length})\n\n`;
+    parts.push(`## Tools (${data.entries.tools.length})\n\n`);
     for (const tool of data.entries.tools) {
-      markdown += `### ${tool.name}\n\n`;
-      markdown += `- **ID:** \`${tool.id}\`\n`;
-      markdown += `- **Scope:** ${tool.scopeType}${tool.scopeId ? ` / ${tool.scopeId}` : ''}\n`;
-      if (tool.category) markdown += `- **Category:** ${tool.category}\n`;
+      parts.push(`### ${tool.name}\n\n`);
+      parts.push(`- **ID:** \`${tool.id}\`\n`);
+      parts.push(`- **Scope:** ${tool.scopeType}${tool.scopeId ? ` / ${tool.scopeId}` : ''}\n`);
+      if (tool.category) parts.push(`- **Category:** ${tool.category}\n`);
       if (tool.currentVersion?.description) {
-        markdown += `- **Description:** ${tool.currentVersion.description}\n`;
+        parts.push(`- **Description:** ${tool.currentVersion.description}\n`);
       }
       if (tool.tags.length > 0) {
-        markdown += `- **Tags:** ${tool.tags.map((t) => `\`${t}\``).join(', ')}\n`;
+        parts.push(`- **Tags:** ${tool.tags.map((t) => `\`${t}\``).join(', ')}\n`);
       }
       if (tool.currentVersion?.parameters) {
-        markdown += `- **Parameters:** \`${JSON.stringify(tool.currentVersion.parameters)}\`\n`;
+        parts.push(`- **Parameters:** \`${JSON.stringify(tool.currentVersion.parameters)}\`\n`);
       }
-      markdown += `\n`;
+      parts.push(`\n`);
     }
   }
 
   if (data.entries.guidelines.length > 0) {
-    markdown += `## Guidelines (${data.entries.guidelines.length})\n\n`;
+    parts.push(`## Guidelines (${data.entries.guidelines.length})\n\n`);
     for (const guideline of data.entries.guidelines) {
-      markdown += `### ${guideline.name}\n\n`;
-      markdown += `- **ID:** \`${guideline.id}\`\n`;
-      markdown += `- **Scope:** ${guideline.scopeType}${guideline.scopeId ? ` / ${guideline.scopeId}` : ''}\n`;
-      markdown += `- **Priority:** ${guideline.priority}\n`;
-      if (guideline.category) markdown += `- **Category:** ${guideline.category}\n`;
+      parts.push(`### ${guideline.name}\n\n`);
+      parts.push(`- **ID:** \`${guideline.id}\`\n`);
+      parts.push(`- **Scope:** ${guideline.scopeType}${guideline.scopeId ? ` / ${guideline.scopeId}` : ''}\n`);
+      parts.push(`- **Priority:** ${guideline.priority}\n`);
+      if (guideline.category) parts.push(`- **Category:** ${guideline.category}\n`);
       if (guideline.currentVersion?.content) {
-        markdown += `\n**Content:**\n\n${guideline.currentVersion.content}\n\n`;
+        parts.push(`\n**Content:**\n\n${guideline.currentVersion.content}\n\n`);
       }
       if (guideline.currentVersion?.rationale) {
-        markdown += `**Rationale:** ${guideline.currentVersion.rationale}\n\n`;
+        parts.push(`**Rationale:** ${guideline.currentVersion.rationale}\n\n`);
       }
       if (guideline.tags.length > 0) {
-        markdown += `**Tags:** ${guideline.tags.map((t) => `\`${t}\``).join(', ')}\n\n`;
+        parts.push(`**Tags:** ${guideline.tags.map((t) => `\`${t}\``).join(', ')}\n\n`);
       }
     }
   }
 
   if (data.entries.knowledge.length > 0) {
-    markdown += `## Knowledge (${data.entries.knowledge.length})\n\n`;
+    parts.push(`## Knowledge (${data.entries.knowledge.length})\n\n`);
     for (const know of data.entries.knowledge) {
-      markdown += `### ${know.title}\n\n`;
-      markdown += `- **ID:** \`${know.id}\`\n`;
-      markdown += `- **Scope:** ${know.scopeType}${know.scopeId ? ` / ${know.scopeId}` : ''}\n`;
-      if (know.category) markdown += `- **Category:** ${know.category}\n`;
+      parts.push(`### ${know.title}\n\n`);
+      parts.push(`- **ID:** \`${know.id}\`\n`);
+      parts.push(`- **Scope:** ${know.scopeType}${know.scopeId ? ` / ${know.scopeId}` : ''}\n`);
+      if (know.category) parts.push(`- **Category:** ${know.category}\n`);
       if (know.currentVersion?.content) {
-        markdown += `\n**Content:**\n\n${know.currentVersion.content}\n\n`;
+        parts.push(`\n**Content:**\n\n${know.currentVersion.content}\n\n`);
       }
       if (know.currentVersion?.source) {
-        markdown += `**Source:** ${know.currentVersion.source}\n\n`;
+        parts.push(`**Source:** ${know.currentVersion.source}\n\n`);
       }
       if (know.tags.length > 0) {
-        markdown += `**Tags:** ${know.tags.map((t) => `\`${t}\``).join(', ')}\n\n`;
+        parts.push(`**Tags:** ${know.tags.map((t) => `\`${t}\``).join(', ')}\n\n`);
       }
     }
   }
 
   return {
     format: 'markdown',
-    content: markdown,
+    content: parts.join(''),
     metadata: {
       exportedAt: data.exportedAt,
       entryCount,

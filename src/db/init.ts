@@ -272,83 +272,84 @@ export function initializeDatabase(
   };
 
   try {
-    // Check if already initialized
-    const wasInitialized = isDatabaseInitialized(sqlite);
-    result.alreadyInitialized = wasInitialized && !options.force;
-
-    // Get migration state
-    const appliedMigrations = getAppliedMigrations(sqlite);
     const migrationFiles = getMigrationFiles();
-
     if (migrationFiles.length === 0) {
       result.errors.push('No migration files found in src/db/migrations/');
       return result;
     }
 
-    // Verify integrity of applied migrations
-    for (const file of migrationFiles) {
-      if (appliedMigrations.has(file.name)) {
-        const storedChecksum = appliedMigrations.get(file.name);
-        const content = readFileSync(file.path, 'utf-8');
-        const currentChecksum = calculateChecksum(content);
+    // Apply migrations under an IMMEDIATE transaction to avoid multi-process races.
+    // This ensures we read applied migrations only after acquiring the write lock.
+    const runInit = sqlite.transaction(() => {
+      // Check if already initialized (inside lock for consistent reads)
+      const wasInitialized = isDatabaseInitialized(sqlite);
+      result.alreadyInitialized = wasInitialized && !options.force;
 
-        // If checksum is missing (legacy migration), backfill it
-        if (!storedChecksum) {
-          if (options.verbose) {
-            logger.info({ migration: file.name }, 'Backfilling missing checksum');
-          }
-          sqlite
-            .prepare('UPDATE _migrations SET checksum = ? WHERE name = ?')
-            .run(currentChecksum, file.name);
-          continue;
-        }
+      // Get migration state
+      const appliedMigrations = getAppliedMigrations(sqlite);
 
-        // Verify checksum match
-        if (storedChecksum !== currentChecksum) {
-          // In dev mode with autoFixChecksums enabled, auto-update the checksum
-          if (config.database.autoFixChecksums) {
-            logger.warn(
-              { migration: file.name, stored: storedChecksum, current: currentChecksum },
-              'Migration file modified - auto-updating checksum (dev mode)'
-            );
+      // Verify integrity of applied migrations
+      for (const file of migrationFiles) {
+        if (appliedMigrations.has(file.name)) {
+          const storedChecksum = appliedMigrations.get(file.name);
+          const content = readFileSync(file.path, 'utf-8');
+          const currentChecksum = calculateChecksum(content);
+
+          // If checksum is missing (legacy migration), backfill it
+          if (!storedChecksum) {
+            if (options.verbose) {
+              logger.info({ migration: file.name }, 'Backfilling missing checksum');
+            }
             sqlite
               .prepare('UPDATE _migrations SET checksum = ? WHERE name = ?')
               .run(currentChecksum, file.name);
-            continue; // Skip adding to integrity errors
+            continue;
           }
 
-          const error = `Migration integrity error: ${file.name} has been modified. Stored checksum: ${storedChecksum}, Current checksum: ${currentChecksum}`;
-          result.integrityErrors.push(error);
-          result.integrityVerified = false;
+          // Verify checksum match
+          if (storedChecksum !== currentChecksum) {
+            // In dev mode with autoFixChecksums enabled, auto-update the checksum
+            if (config.database.autoFixChecksums) {
+              logger.warn(
+                { migration: file.name, stored: storedChecksum, current: currentChecksum },
+                'Migration file modified - auto-updating checksum (dev mode)'
+              );
+              sqlite
+                .prepare('UPDATE _migrations SET checksum = ? WHERE name = ?')
+                .run(currentChecksum, file.name);
+              continue; // Skip adding to integrity errors
+            }
+
+            const error = `Migration integrity error: ${file.name} has been modified. Stored checksum: ${storedChecksum}, Current checksum: ${currentChecksum}`;
+            result.integrityErrors.push(error);
+            result.integrityVerified = false;
+          }
         }
       }
-    }
 
-    // Fail if integrity check failed
-    if (!result.integrityVerified) {
-      result.errors.push(...result.integrityErrors);
-      // Unless forced, stop here
-      if (!options.force) {
-        return result;
+      // Fail if integrity check failed
+      if (!result.integrityVerified) {
+        result.errors.push(...result.integrityErrors);
+        // Unless forced, stop here
+        if (!options.force) {
+          return;
+        }
       }
-    }
 
-    // Filter to only pending migrations
-    const pendingMigrations = options.force
-      ? migrationFiles
-      : migrationFiles.filter((m) => !appliedMigrations.has(m.name));
+      // Filter to only pending migrations
+      const pendingMigrations = options.force
+        ? migrationFiles
+        : migrationFiles.filter((m) => !appliedMigrations.has(m.name));
 
-    if (pendingMigrations.length === 0 && wasInitialized) {
-      if (options.verbose) {
-        logger.info('Database already initialized, no pending migrations');
+      if (pendingMigrations.length === 0 && wasInitialized) {
+        if (options.verbose) {
+          logger.info('Database already initialized, no pending migrations');
+        }
+        result.success = true;
+        result.alreadyInitialized = true;
+        return;
       }
-      result.success = true;
-      result.alreadyInitialized = true;
-      return result;
-    }
 
-    // Apply migrations in a transaction
-    sqlite.transaction(() => {
       for (const migration of pendingMigrations) {
         if (options.verbose) {
           logger.info({ migration: migration.name }, 'Applying migration');
@@ -357,13 +358,18 @@ export function initializeDatabase(
         applyMigration(sqlite, migration.name, migration.path, options);
         result.migrationsApplied.push(migration.name);
       }
-    })();
 
-    result.success = true;
+      result.success = true;
 
-    if (options.verbose) {
-      logger.info({ count: result.migrationsApplied.length }, 'Database initialized successfully');
-    }
+      if (options.verbose) {
+        logger.info(
+          { count: result.migrationsApplied.length },
+          'Database initialized successfully'
+        );
+      }
+    });
+
+    runInit.immediate();
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     result.errors.push(message);

@@ -13,7 +13,7 @@
  *   agent-memory hook session-end --project-id <id>
  */
 
-import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { eq } from 'drizzle-orm';
 import { conversationRepo } from '../db/repositories/conversations.js';
@@ -29,6 +29,7 @@ import {
   type SupportedIDE,
 } from '../services/hook-generator.service.js';
 import { createComponentLogger } from '../utils/logger.js';
+import { readTranscriptFromOffset } from '../utils/transcript-cursor.js';
 
 const logger = createComponentLogger('hook');
 
@@ -314,14 +315,7 @@ function extractProposedActionFromTool(
   };
 }
 
-function readTranscriptLines(transcriptPath: string): string[] {
-  if (!existsSync(transcriptPath)) return [];
-  const raw = readFileSync(transcriptPath, 'utf8');
-  return raw
-    .split('\n')
-    .map((l) => l.trim())
-    .filter(Boolean);
-}
+// readTranscriptLines removed - using readTranscriptFromOffset for better performance
 
 function loadState(statePath: string): Record<string, unknown> {
   if (!existsSync(statePath)) return {};
@@ -334,7 +328,9 @@ function loadState(statePath: string): Record<string, unknown> {
 
 function saveState(statePath: string, state: Record<string, unknown>): void {
   mkdirSync(dirname(statePath), { recursive: true });
-  writeFileSync(statePath, JSON.stringify(state, null, 2));
+  const existing = loadState(statePath);
+  const merged = { ...existing, ...state };
+  writeFileSync(statePath, JSON.stringify(merged, null, 2));
 }
 
 function extractMessageFromTranscriptEntry(
@@ -394,17 +390,43 @@ function ingestTranscript(params: {
   projectId?: string;
   agentId?: string;
   cwd?: string;
-}): { appended: number; totalLines: number } {
-  const { sessionId, transcriptPath, projectId, agentId, cwd } = params;
+}): { appended: number; linesRead: number } {
+  const { sessionId, transcriptPath } = params;
 
   const statePath = resolve(process.cwd(), '.claude', 'hooks', '.agent-memory-state.json');
   const state = loadState(statePath);
-  const key = `claude:${sessionId}:${transcriptPath}`;
-  const lastLine = typeof state[key] === 'number' ? state[key] : 0;
 
-  const lines = readTranscriptLines(transcriptPath);
-  const newLines = lines.slice(lastLine);
-  if (newLines.length === 0) return { appended: 0, totalLines: lines.length };
+  // Use byte offset for efficient incremental reading (instead of re-reading entire file)
+  const byteOffsetKey = `claude:byteOffset:${sessionId}:${transcriptPath}`;
+  const lastByteOffset = typeof state[byteOffsetKey] === 'number' ? state[byteOffsetKey] : 0;
+
+  // Read only new content from the last offset
+  const result = readTranscriptFromOffset(transcriptPath, lastByteOffset);
+
+  // Handle file truncation (e.g., log rotation) - reset state
+  if (result.wasTruncated) {
+    state[byteOffsetKey] = 0;
+    saveState(statePath, state);
+    // Re-read from beginning
+    const resetResult = readTranscriptFromOffset(transcriptPath, 0);
+    return processTranscriptLines(resetResult, params, state, statePath, byteOffsetKey);
+  }
+
+  if (result.lines.length === 0) {
+    return { appended: 0, linesRead: 0 };
+  }
+
+  return processTranscriptLines(result, params, state, statePath, byteOffsetKey);
+}
+
+function processTranscriptLines(
+  result: { lines: string[]; nextByteOffset: number },
+  params: { sessionId: string; transcriptPath: string; projectId?: string; agentId?: string; cwd?: string },
+  state: Record<string, unknown>,
+  statePath: string,
+  byteOffsetKey: string
+): { appended: number; linesRead: number } {
+  const { sessionId, projectId, agentId, cwd, transcriptPath } = params;
 
   const existing = conversationRepo.list(
     { sessionId, status: 'active' },
@@ -421,7 +443,7 @@ function ingestTranscript(params: {
       });
 
   let appended = 0;
-  for (const line of newLines) {
+  for (const line of result.lines) {
     let parsed: unknown;
     try {
       parsed = JSON.parse(line);
@@ -441,10 +463,11 @@ function ingestTranscript(params: {
     appended += 1;
   }
 
-  state[key] = lines.length;
+  // Persist byte offset for next incremental read
+  state[byteOffsetKey] = result.nextByteOffset;
   saveState(statePath, state);
 
-  return { appended, totalLines: lines.length };
+  return { appended, linesRead: result.lines.length };
 }
 
 function setReviewSuspended(sessionId: string, suspended: boolean): void {

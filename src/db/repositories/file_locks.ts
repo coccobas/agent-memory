@@ -5,6 +5,7 @@
 
 import { eq, and, sql } from 'drizzle-orm';
 import { getDb } from '../connection.js';
+import { transaction } from '../connection.js';
 import { fileLocks, type FileLock, type NewFileLock } from '../schema.js';
 import { generateId, now, DEFAULT_LOCK_TIMEOUT_SECONDS, MAX_LOCK_TIMEOUT_SECONDS } from './base.js';
 import { createComponentLogger } from '../../utils/logger.js';
@@ -40,8 +41,6 @@ export const fileLockRepo = {
    * @throws Error if file is already locked or timeout exceeds maximum
    */
   checkout(filePath: string, agentId: string, options: CheckoutOptions = {}): FileLock {
-    const db = getDb();
-
     // Validate required parameters
     if (!filePath) throw new Error('filePath is required');
     if (!agentId) throw new Error('agentId is required');
@@ -50,15 +49,6 @@ export const fileLockRepo = {
     const normalizedPath = normalizePath(filePath);
     if (!isPathSafe(filePath)) {
       throw new Error(`Invalid or unsafe file path: ${filePath}`);
-    }
-
-    // Clean up expired locks first
-    this.cleanupExpiredLocks();
-
-    // Check if file is already locked
-    const existing = this.getLock(normalizedPath);
-    if (existing) {
-      throw new Error(`File ${filePath} is already locked by agent ${existing.checkedOutBy}`);
     }
 
     // Calculate expiration
@@ -83,13 +73,33 @@ export const fileLockRepo = {
       metadata: options.metadata ?? null,
     };
 
-    db.insert(fileLocks).values(newLock).run();
+    return transaction(() => {
+      const db = getDb();
 
-    const result = this.getLock(normalizedPath);
-    if (!result) {
-      throw new Error(`Failed to create lock for ${filePath}`);
-    }
-    return result;
+      // Clean up expired locks first
+      this.cleanupExpiredLocks();
+
+      try {
+        db.insert(fileLocks).values(newLock).run();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        const isUnique =
+          message.includes('UNIQUE constraint failed') && message.includes('file_locks.file_path');
+        if (!isUnique) throw error;
+
+        const existing = this.getLock(normalizedPath);
+        if (existing) {
+          throw new Error(`File ${filePath} is already locked by agent ${existing.checkedOutBy}`);
+        }
+        throw error;
+      }
+
+      const result = this.getLock(normalizedPath);
+      if (!result) {
+        throw new Error(`Failed to create lock for ${filePath}`);
+      }
+      return result;
+    });
   },
 
   /**
@@ -100,25 +110,28 @@ export const fileLockRepo = {
    * @throws Error if file is not locked or locked by a different agent
    */
   checkin(filePath: string, agentId: string): void {
-    const db = getDb();
-
     if (!filePath) throw new Error('filePath is required');
     if (!agentId) throw new Error('agentId is required');
 
-    // Clean up expired locks first
-    this.cleanupExpiredLocks();
+    transaction(() => {
+      const db = getDb();
 
-    const normalizedPath = normalizePath(filePath);
-    const lock = this.getLock(normalizedPath);
-    if (!lock) {
-      throw new Error(`File ${filePath} is not locked`);
-    }
+      // Clean up expired locks first
+      this.cleanupExpiredLocks();
 
-    if (lock.checkedOutBy !== agentId) {
-      throw new Error(`File ${filePath} is locked by agent ${lock.checkedOutBy}, not ${agentId}`);
-    }
+      const normalizedPath = normalizePath(filePath);
+      const lock = this.getLock(normalizedPath);
+      if (!lock) {
+        throw new Error(`File ${filePath} is not locked`);
+      }
 
-    db.delete(fileLocks).where(eq(fileLocks.filePath, normalizedPath)).run();
+      if (lock.checkedOutBy !== agentId) {
+        throw new Error(`File ${filePath} is locked by agent ${lock.checkedOutBy}, not ${agentId}`);
+      }
+
+      // Delete by id to avoid deleting a replaced lock
+      db.delete(fileLocks).where(eq(fileLocks.id, lock.id)).run();
+    });
   },
 
   /**
@@ -130,42 +143,44 @@ export const fileLockRepo = {
    * @throws Error if file is not locked
    */
   forceUnlock(filePath: string, agentId: string, reason?: string): void {
-    const db = getDb();
-
     if (!filePath) throw new Error('filePath is required');
     if (!agentId) throw new Error('agentId is required');
 
-    // Clean up expired locks first
-    this.cleanupExpiredLocks();
+    transaction(() => {
+      const db = getDb();
 
-    const normalizedPath = normalizePath(filePath);
-    const lock = this.getLock(normalizedPath);
-    if (!lock) {
-      throw new Error(`File ${filePath} is not locked`);
-    }
+      // Clean up expired locks first
+      this.cleanupExpiredLocks();
 
-    logger.warn(
-      {
-        filePath,
-        lockedBy: lock.checkedOutBy,
-        unlockedBy: agentId,
-        reason,
-      },
-      'Force unlocking file'
-    );
+      const normalizedPath = normalizePath(filePath);
+      const lock = this.getLock(normalizedPath);
+      if (!lock) {
+        throw new Error(`File ${filePath} is not locked`);
+      }
 
-    // Update metadata with force unlock info before deleting
-    const metadata = {
-      ...(lock.metadata || {}),
-      forceUnlockedBy: agentId,
-      forceUnlockedAt: now(),
-      ...(reason ? { forceUnlockReason: reason } : {}),
-    };
+      logger.warn(
+        {
+          filePath,
+          lockedBy: lock.checkedOutBy,
+          unlockedBy: agentId,
+          reason,
+        },
+        'Force unlocking file'
+      );
 
-    db.update(fileLocks).set({ metadata }).where(eq(fileLocks.filePath, normalizedPath)).run();
+      // Update metadata with force unlock info before deleting
+      const metadata = {
+        ...(lock.metadata || {}),
+        forceUnlockedBy: agentId,
+        forceUnlockedAt: now(),
+        ...(reason ? { forceUnlockReason: reason } : {}),
+      };
 
-    // Delete the lock
-    db.delete(fileLocks).where(eq(fileLocks.filePath, normalizedPath)).run();
+      db.update(fileLocks).set({ metadata }).where(eq(fileLocks.id, lock.id)).run();
+
+      // Delete by id
+      db.delete(fileLocks).where(eq(fileLocks.id, lock.id)).run();
+    });
   },
 
   /**

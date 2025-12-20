@@ -23,6 +23,7 @@ vi.mock('../../src/db/connection.js', async () => {
   return {
     ...actual,
     getDb: () => db,
+    transaction: <T>(fn: () => T) => fn(),
   };
 });
 
@@ -96,7 +97,7 @@ describe('File Locks Repository', () => {
 
       expect(() => {
         fileLockRepo.checkout(filePath, agentId2);
-      }).toThrow('already locked');
+      }).toThrow(`already locked by agent ${agentId1}`);
     });
 
     it('should store session and project IDs', () => {

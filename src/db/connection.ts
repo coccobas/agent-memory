@@ -58,6 +58,7 @@ export function getDb(options: ConnectionOptions = {}): ReturnType<typeof drizzl
   try {
     sqliteInstance = new Database(dbPath, {
       readonly: options.readonly ?? false,
+      timeout: config.database.busyTimeoutMs,
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -86,6 +87,9 @@ export function getDb(options: ConnectionOptions = {}): ReturnType<typeof drizzl
 
   // Enable foreign keys
   sqliteInstance.pragma('foreign_keys = ON');
+
+  // Wait for locks instead of failing fast (important for multi-process startup and migrations)
+  sqliteInstance.pragma(`busy_timeout = ${config.database.busyTimeoutMs}`);
 
   // Auto-initialize database schema if not already done
   const shouldSkipInit = options.skipInit ?? config.database.skipInit;

@@ -1379,10 +1379,24 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
           conditions.push(sql`${tools.createdAt} <= ${params.createdBefore}`);
         }
 
+        // If FTS5 is enabled with a search query, filter by matching IDs
+        if (fts5Results && fts5Results.tool.size > 0) {
+          const ftsIds = Array.from(fts5Results.tool);
+          if (ftsIds.length > 0) {
+            conditions.push(inArray(tools.id, ftsIds));
+          }
+        }
+
+        // Calculate remaining slots to fetch (soft cap per scope)
+        const remainingSlots = Math.max(0, limit * 2 - entriesByScope.length);
+        const perScopeLimit = Math.max(remainingSlots, limit);
+
         const rows = db
           .select()
           .from(tools)
           .where(and(...conditions))
+          .orderBy(sql`${tools.createdAt} DESC`)
+          .limit(perScopeLimit)
           .all();
         for (const row of rows) {
           entriesByScope.push({ entry: row, scopeIndex: index });
@@ -1414,10 +1428,24 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
           }
         }
 
+        // If FTS5 is enabled with a search query, filter by matching IDs
+        if (fts5Results && fts5Results.guideline.size > 0) {
+          const ftsIds = Array.from(fts5Results.guideline);
+          if (ftsIds.length > 0) {
+            conditions.push(inArray(guidelines.id, ftsIds));
+          }
+        }
+
+        // Calculate remaining slots to fetch (soft cap per scope)
+        const remainingSlots = Math.max(0, limit * 2 - entriesByScope.length);
+        const perScopeLimit = Math.max(remainingSlots, limit);
+
         const rows = db
           .select()
           .from(guidelines)
           .where(and(...conditions))
+          .orderBy(sql`${guidelines.createdAt} DESC`)
+          .limit(perScopeLimit)
           .all();
         for (const row of rows) {
           entriesByScope.push({ entry: row, scopeIndex: index });
@@ -1437,10 +1465,24 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
           conditions.push(sql`${knowledge.createdAt} <= ${params.createdBefore}`);
         }
 
+        // If FTS5 is enabled with a search query, filter by matching IDs
+        if (fts5Results && fts5Results.knowledge.size > 0) {
+          const ftsIds = Array.from(fts5Results.knowledge);
+          if (ftsIds.length > 0) {
+            conditions.push(inArray(knowledge.id, ftsIds));
+          }
+        }
+
+        // Calculate remaining slots to fetch (soft cap per scope)
+        const remainingSlots = Math.max(0, limit * 2 - entriesByScope.length);
+        const perScopeLimit = Math.max(remainingSlots, limit);
+
         const rows = db
           .select()
           .from(knowledge)
           .where(and(...conditions))
+          .orderBy(sql`${knowledge.createdAt} DESC`)
+          .limit(perScopeLimit)
           .all();
         for (const row of rows) {
           entriesByScope.push({ entry: row, scopeIndex: index });
@@ -1797,73 +1839,134 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
     const expansionLimit = Math.min(results.length, 20);
     const maxRelationsPerEntry = 10;
 
+    // Phase 1: Collect all IDs to fetch (avoiding N+1 queries)
+    const toolIdsToFetch: string[] = [];
+    const guidelineIdsToFetch: string[] = [];
+    const knowledgeIdsToFetch: string[] = [];
+
     for (let i = 0; i < expansionLimit; i++) {
       const result = results[i];
       if (!result) continue;
 
       // Traverse 1 hop from this result
-      const relatedIds = traverseRelationGraph(result.type, result.id, {
+      const relatedIdsByType = traverseRelationGraph(result.type, result.id, {
         depth: 1,
         direction: 'both',
         maxResults: maxRelationsPerEntry,
       });
 
-      // Fetch related entries that aren't already in results
-      for (const [entryType, idSet] of Object.entries(relatedIds)) {
-        for (const entryId of idSet) {
-          const key = `${entryType}:${entryId}`;
-          if (existingIds.has(key)) continue;
+      // Collect IDs that aren't already in results
+      for (const entryId of relatedIdsByType.tool) {
+        const key = `tool:${entryId}`;
+        if (!existingIds.has(key)) {
           existingIds.add(key);
-
-          // Fetch the entry (simplified - we fetch basic info)
-          if (entryType === 'tool') {
-            const tool = db.select().from(tools).where(eq(tools.id, entryId)).get();
-            if (tool && tool.isActive) {
-              const entryTags = getTagsForEntries('tool', [entryId])[entryId] ?? [];
-              relatedToAdd.push({
-                type: 'tool',
-                id: entryId,
-                scopeType: tool.scopeType,
-                scopeId: tool.scopeId ?? null,
-                tags: entryTags,
-                score: 0.5, // Lower score for related entries
-                tool,
-              });
-            }
-          } else if (entryType === 'guideline') {
-            const guideline = db.select().from(guidelines).where(eq(guidelines.id, entryId)).get();
-            if (guideline && guideline.isActive) {
-              const entryTags = getTagsForEntries('guideline', [entryId])[entryId] ?? [];
-              relatedToAdd.push({
-                type: 'guideline',
-                id: entryId,
-                scopeType: guideline.scopeType,
-                scopeId: guideline.scopeId ?? null,
-                tags: entryTags,
-                score: 0.5, // Lower score for related entries
-                guideline,
-              });
-            }
-          } else if (entryType === 'knowledge') {
-            const knowledgeEntry = db
-              .select()
-              .from(knowledge)
-              .where(eq(knowledge.id, entryId))
-              .get();
-            if (knowledgeEntry && knowledgeEntry.isActive) {
-              const entryTags = getTagsForEntries('knowledge', [entryId])[entryId] ?? [];
-              relatedToAdd.push({
-                type: 'knowledge',
-                id: entryId,
-                scopeType: knowledgeEntry.scopeType,
-                scopeId: knowledgeEntry.scopeId ?? null,
-                tags: entryTags,
-                score: 0.5, // Lower score for related entries
-                knowledge: knowledgeEntry,
-              });
-            }
-          }
+          toolIdsToFetch.push(entryId);
         }
+      }
+      for (const entryId of relatedIdsByType.guideline) {
+        const key = `guideline:${entryId}`;
+        if (!existingIds.has(key)) {
+          existingIds.add(key);
+          guidelineIdsToFetch.push(entryId);
+        }
+      }
+      for (const entryId of relatedIdsByType.knowledge) {
+        const key = `knowledge:${entryId}`;
+        if (!existingIds.has(key)) {
+          existingIds.add(key);
+          knowledgeIdsToFetch.push(entryId);
+        }
+      }
+    }
+
+    // Phase 2: Batch fetch all entries (one query per type instead of N)
+    const toolsById = new Map<string, Tool>();
+    const guidelinesById = new Map<string, Guideline>();
+    const knowledgeById = new Map<string, Knowledge>();
+
+    if (toolIdsToFetch.length > 0) {
+      const fetchedTools = db
+        .select()
+        .from(tools)
+        .where(and(inArray(tools.id, toolIdsToFetch), eq(tools.isActive, true)))
+        .all();
+      for (const t of fetchedTools) {
+        toolsById.set(t.id, t);
+      }
+    }
+
+    if (guidelineIdsToFetch.length > 0) {
+      const fetchedGuidelines = db
+        .select()
+        .from(guidelines)
+        .where(and(inArray(guidelines.id, guidelineIdsToFetch), eq(guidelines.isActive, true)))
+        .all();
+      for (const g of fetchedGuidelines) {
+        guidelinesById.set(g.id, g);
+      }
+    }
+
+    if (knowledgeIdsToFetch.length > 0) {
+      const fetchedKnowledge = db
+        .select()
+        .from(knowledge)
+        .where(and(inArray(knowledge.id, knowledgeIdsToFetch), eq(knowledge.isActive, true)))
+        .all();
+      for (const k of fetchedKnowledge) {
+        knowledgeById.set(k.id, k);
+      }
+    }
+
+    // Phase 3: Batch fetch all tags (one call per type instead of N)
+    const toolTags = toolIdsToFetch.length > 0 ? getTagsForEntries('tool', toolIdsToFetch) : {};
+    const guidelineTags =
+      guidelineIdsToFetch.length > 0 ? getTagsForEntries('guideline', guidelineIdsToFetch) : {};
+    const knowledgeTags =
+      knowledgeIdsToFetch.length > 0 ? getTagsForEntries('knowledge', knowledgeIdsToFetch) : {};
+
+    // Phase 4: Build result items from in-memory maps
+    for (const entryId of toolIdsToFetch) {
+      const tool = toolsById.get(entryId);
+      if (tool) {
+        relatedToAdd.push({
+          type: 'tool',
+          id: entryId,
+          scopeType: tool.scopeType,
+          scopeId: tool.scopeId ?? null,
+          tags: toolTags[entryId] ?? [],
+          score: 0.5,
+          tool,
+        });
+      }
+    }
+
+    for (const entryId of guidelineIdsToFetch) {
+      const guideline = guidelinesById.get(entryId);
+      if (guideline) {
+        relatedToAdd.push({
+          type: 'guideline',
+          id: entryId,
+          scopeType: guideline.scopeType,
+          scopeId: guideline.scopeId ?? null,
+          tags: guidelineTags[entryId] ?? [],
+          score: 0.5,
+          guideline,
+        });
+      }
+    }
+
+    for (const entryId of knowledgeIdsToFetch) {
+      const knowledgeEntry = knowledgeById.get(entryId);
+      if (knowledgeEntry) {
+        relatedToAdd.push({
+          type: 'knowledge',
+          id: entryId,
+          scopeType: knowledgeEntry.scopeType,
+          scopeId: knowledgeEntry.scopeId ?? null,
+          tags: knowledgeTags[entryId] ?? [],
+          score: 0.5,
+          knowledge: knowledgeEntry,
+        });
       }
     }
 

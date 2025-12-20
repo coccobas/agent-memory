@@ -444,7 +444,7 @@ export const guidelineRepo = {
       void (async () => {
         try {
           const vectorService = getVectorService();
-          await vectorService.removeEmbedding(id);
+          await vectorService.removeEmbedding('guideline', id);
         } catch (error) {
           // Error already logged in vector service
         }

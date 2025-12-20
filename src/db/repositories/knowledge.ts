@@ -425,7 +425,7 @@ export const knowledgeRepo = {
       void (async () => {
         try {
           const vectorService = getVectorService();
-          await vectorService.removeEmbedding(id);
+          await vectorService.removeEmbedding('knowledge', id);
         } catch (error) {
           // Error already logged in vector service
         }

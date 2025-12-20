@@ -1,10 +1,16 @@
 import { HEAP_PRESSURE_THRESHOLD } from './constants.js';
 
-export interface LRUCacheOptions {
+export interface LRUCacheOptions<T = unknown> {
   maxSize: number;
   maxMemoryMB?: number; // Optional memory limit
   ttlMs?: number; // Optional Time To Live
-  onEvict?: (key: string, value: unknown) => void;
+  onEvict?: (key: string, value: T) => void;
+  /**
+   * Custom size estimator for cached values.
+   * If provided, this is used instead of JSON.stringify which can be slow.
+   * Return the estimated size in bytes.
+   */
+  sizeEstimator?: (value: T) => number;
 }
 
 interface CacheEntry<T> {
@@ -18,13 +24,15 @@ export class LRUCache<T> {
   private readonly maxSize: number;
   private readonly maxMemoryMB?: number;
   private readonly ttlMs?: number;
-  private readonly onEvict?: (key: string, value: unknown) => void;
+  private readonly onEvict?: (key: string, value: T) => void;
+  private readonly sizeEstimator?: (value: T) => number;
 
-  constructor(options: LRUCacheOptions) {
+  constructor(options: LRUCacheOptions<T>) {
     this.maxSize = options.maxSize;
     this.maxMemoryMB = options.maxMemoryMB;
     this.ttlMs = options.ttlMs;
     this.onEvict = options.onEvict;
+    this.sizeEstimator = options.sizeEstimator;
   }
 
   set(key: string, value: T): void {
@@ -176,34 +184,72 @@ export class LRUCache<T> {
 
   /**
    * Estimate the size of a value in bytes
-   * Uses JSON.stringify for serializable objects, with fallbacks for edge cases
+   *
+   * Uses custom sizeEstimator if provided, otherwise falls back to heuristics.
+   * JSON.stringify is only used as a last resort for small values when
+   * memory limits are enabled, as it can be expensive for large objects.
    */
-  private estimateSize(value: unknown): number {
-    try {
-      // For strings, use length directly (more efficient)
-      if (typeof value === 'string') {
-        return value.length * 2; // UTF-16 encoding
+  private estimateSize(value: T): number {
+    // Use custom estimator if provided (most efficient)
+    if (this.sizeEstimator) {
+      return this.sizeEstimator(value);
+    }
+
+    // Fast path for primitive types
+    if (typeof value === 'string') {
+      return (value as string).length * 2; // UTF-16 encoding
+    }
+
+    if (typeof value === 'number' || typeof value === 'boolean') {
+      return 8;
+    }
+
+    if (value === null || value === undefined) {
+      return 0;
+    }
+
+    // For arrays, use a cheap heuristic based on length
+    // Avoids expensive JSON.stringify for large result sets
+    if (Array.isArray(value)) {
+      const arr = value as unknown[];
+      // Estimate ~500 bytes per array item (typical for query results with objects)
+      // Add base overhead for the array structure itself
+      return 64 + arr.length * 500;
+    }
+
+    // For objects with a 'length' or 'size' property, use that as a hint
+    if (typeof value === 'object') {
+      const obj = value as Record<string, unknown>;
+
+      // Check for common size indicators
+      if (typeof obj.length === 'number') {
+        return 64 + (obj.length as number) * 500;
+      }
+      if (typeof obj.size === 'number') {
+        return 64 + (obj.size as number) * 500;
       }
 
-      // For numbers/booleans, use fixed small size
-      if (typeof value === 'number' || typeof value === 'boolean') {
-        return 8;
+      // For small objects when memory limit is enabled, use JSON.stringify
+      // For large objects or when memory limit is disabled, use fixed estimate
+      if (this.maxMemoryMB !== undefined) {
+        try {
+          // Only stringify if object appears small (few keys)
+          const keys = Object.keys(obj);
+          if (keys.length <= 10) {
+            const json = JSON.stringify(value);
+            return json.length * 2;
+          }
+        } catch {
+          // Fall through to default estimate
+        }
       }
 
-      // For null/undefined
-      if (value === null || value === undefined) {
-        return 0;
-      }
-
-      // For objects/arrays, use JSON.stringify
-      const json = JSON.stringify(value);
-      return json.length * 2; // UTF-16 encoding approximation
-    } catch {
-      // Fallback for circular references or other non-serializable objects
-      // Use a conservative estimate based on common query result sizes
-      // Average query result is typically 1-5KB
+      // Conservative estimate for medium-sized objects
       return 2048;
     }
+
+    // Default fallback
+    return 2048;
   }
 
   private calculateTotalMemoryMB(): number {
