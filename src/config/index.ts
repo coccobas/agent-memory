@@ -316,7 +316,7 @@ function getExtractionProvider(): 'openai' | 'anthropic' | 'ollama' | 'disabled'
  * Build configuration from current environment variables.
  * Single source of truth for config construction.
  */
-function buildConfig(): Config {
+export function buildConfig(): Config {
   return {
   database: {
     path: resolveDataPath(process.env.AGENT_MEMORY_DB_PATH, 'memory.db'),
