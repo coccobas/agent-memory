@@ -1,5 +1,4 @@
 import Fastify, { type FastifyInstance } from 'fastify';
-import { timingSafeEqual } from 'node:crypto';
 
 import { createComponentLogger } from '../utils/logger.js';
 import { executeMemoryQuery, executeMemoryQueryAsync } from '../services/query.service.js';
@@ -9,15 +8,15 @@ import { formatTimestamps } from '../utils/timestamp-formatter.js';
 import { checkPermission } from '../services/permission.service.js';
 import { checkRateLimits } from '../utils/rate-limiter.js';
 import type { EntryType } from '../db/schema.js';
+import '../services/bootstrap.js';
+import { isRestAuthConfigured, resolveAgentIdFromToken } from './auth.js';
+import { parseQueryBody, type QueryType } from './query-params.js';
 import {
   getOptionalParam,
   getRequiredParam,
-  isArrayOfStrings,
   isBoolean,
-  isEntryType,
   isNumber,
   isObject,
-  isRelationType,
   isScopeType,
   isString,
 } from '../utils/type-guards.js';
@@ -30,16 +29,6 @@ const queryTypeToEntryType: Record<'tools' | 'guidelines' | 'knowledge', EntryTy
   knowledge: 'knowledge',
 };
 
-type RestAuthMapping = { key: string; agentId: string };
-
-function isQueryType(value: unknown): value is 'tools' | 'guidelines' | 'knowledge' {
-  return value === 'tools' || value === 'guidelines' || value === 'knowledge';
-}
-
-function isQueryTypesArray(value: unknown): value is Array<'tools' | 'guidelines' | 'knowledge'> {
-  return isArrayOfStrings(value) && value.every(isQueryType);
-}
-
 function parsePort(value: string | undefined, fallback: number): number {
   if (!value) return fallback;
   const parsed = Number(value);
@@ -47,86 +36,6 @@ function parsePort(value: string | undefined, fallback: number): number {
     throw new Error(`Invalid port: ${value}`);
   }
   return parsed;
-}
-
-function safeEqual(a: string, b: string): boolean {
-  const aBuf = Buffer.from(a);
-  const bBuf = Buffer.from(b);
-  if (aBuf.length !== bBuf.length) return false;
-  return timingSafeEqual(aBuf, bBuf);
-}
-
-function parseApiKeyMappings(): RestAuthMapping[] {
-  const raw = process.env.AGENT_MEMORY_REST_API_KEYS;
-  if (!raw) return [];
-
-  // Prefer JSON for clarity:
-  // - [{"key":"...","agentId":"agent-1"}]
-  // - {"key1":"agent-1","key2":"agent-2"}
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    if (Array.isArray(parsed)) {
-      const mappings: RestAuthMapping[] = [];
-      for (const item of parsed) {
-        if (
-          item &&
-          typeof item === 'object' &&
-          typeof (item as { key?: unknown }).key === 'string' &&
-          typeof (item as { agentId?: unknown }).agentId === 'string'
-        ) {
-          mappings.push({ key: (item as { key: string }).key, agentId: (item as { agentId: string }).agentId });
-        }
-      }
-      return mappings;
-    }
-    if (parsed && typeof parsed === 'object') {
-      const mappings: RestAuthMapping[] = [];
-      for (const [key, agentId] of Object.entries(parsed as Record<string, unknown>)) {
-        if (typeof agentId === 'string' && agentId.length > 0) {
-          mappings.push({ key, agentId });
-        }
-      }
-      return mappings;
-    }
-  } catch {
-    // fall through to simple parsing
-  }
-
-  // Fallback: comma-separated list of "key:agentId" or "key=agentId"
-  return raw
-    .split(',')
-    .map((p) => p.trim())
-    .filter(Boolean)
-    .map((p) => {
-      const sep = p.includes('=') ? '=' : ':';
-      const [key, agentId] = p.split(sep);
-      return { key: (key ?? '').trim(), agentId: (agentId ?? '').trim() };
-    })
-    .filter((m) => m.key.length > 0 && m.agentId.length > 0);
-}
-
-function resolveAgentIdFromToken(token: string): string | null {
-  const mappings = parseApiKeyMappings();
-  if (mappings.length > 0) {
-    for (const m of mappings) {
-      if (safeEqual(token, m.key)) return m.agentId;
-    }
-    return null;
-  }
-
-  const singleKey = process.env.AGENT_MEMORY_REST_API_KEY;
-  if (!singleKey) return null;
-  if (!safeEqual(token, singleKey)) return null;
-
-  // Bind identity to the credential. If not configured, default to a fixed service identity.
-  return process.env.AGENT_MEMORY_REST_AGENT_ID || 'rest-api';
-}
-
-function isRestAuthConfigured(): boolean {
-  return Boolean(
-    (process.env.AGENT_MEMORY_REST_API_KEYS && process.env.AGENT_MEMORY_REST_API_KEYS.length > 0) ||
-      (process.env.AGENT_MEMORY_REST_API_KEY && process.env.AGENT_MEMORY_REST_API_KEY.length > 0)
-  );
 }
 
 export function createServer(): FastifyInstance {
@@ -207,60 +116,14 @@ export function createServer(): FastifyInstance {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const agentId = (request as any).agentId as string | undefined;
-    const conversationId = getOptionalParam(body, 'conversationId', isString);
-    const messageId = getOptionalParam(body, 'messageId', isString);
-    const autoLinkContext = getOptionalParam(body, 'autoLinkContext', isBoolean);
-
-    function isValidScope(
-      v: unknown
-    ): v is { type: 'global' | 'org' | 'project' | 'session'; id?: string; inherit?: boolean } {
-      if (!isObject(v)) return false;
-      const obj = v;
-      return (
-        isScopeType(obj.type) &&
-        (obj.id === undefined || isString(obj.id)) &&
-        (obj.inherit === undefined || isBoolean(obj.inherit))
-      );
-    }
-
-    function isTraversalDirection(v: unknown): v is 'forward' | 'backward' | 'both' {
-      return v === 'forward' || v === 'backward' || v === 'both';
-    }
-
-    const requestedTypes = getOptionalParam(body, 'types', isQueryTypesArray);
-    const scope = getOptionalParam(body, 'scope', isValidScope);
-
-    const queryParamsWithoutAgent = {
-      types: requestedTypes,
-      scope,
-      search: getOptionalParam(body, 'search', isString),
-      tags: getOptionalParam(body, 'tags', isObject),
-      relatedTo: (() => {
-        const relatedToParam = getOptionalParam(body, 'relatedTo', isObject);
-        if (!relatedToParam) return undefined;
-        const type = getOptionalParam(relatedToParam, 'type', isEntryType);
-        const id = getOptionalParam(relatedToParam, 'id', isString);
-        const relation = getOptionalParam(relatedToParam, 'relation', isRelationType);
-        const depth = getOptionalParam(relatedToParam, 'depth', isNumber);
-        const direction = getOptionalParam(relatedToParam, 'direction', isTraversalDirection);
-        const maxResults = getOptionalParam(relatedToParam, 'maxResults', isNumber);
-        if (type && id) {
-          return { type, id, relation, depth, direction, maxResults };
-        }
-        return undefined;
-      })(),
-      followRelations: getOptionalParam(body, 'followRelations', isBoolean),
-      limit: getOptionalParam(body, 'limit', isNumber),
-      compact: getOptionalParam(body, 'compact', isBoolean),
-      semanticSearch: getOptionalParam(body, 'semanticSearch', isBoolean),
-      semanticThreshold: getOptionalParam(body, 'semanticThreshold', isNumber),
-    };
+    const { conversationId, messageId, autoLinkContext, requestedTypes, scope, queryParamsWithoutAgent } =
+      parseQueryBody(body);
 
     if (!agentId) return reply.status(401).send({ error: 'Unauthorized' });
 
     const scopeType = scope?.type ?? 'global';
     const scopeId = scope?.id;
-    const typesToCheck = requestedTypes ?? ['tools', 'guidelines', 'knowledge'];
+    const typesToCheck: QueryType[] = requestedTypes ?? ['tools', 'guidelines', 'knowledge'];
     const deniedTypes = typesToCheck.filter(
       (type) =>
         !checkPermission(agentId, 'read', queryTypeToEntryType[type], null, scopeType, scopeId)

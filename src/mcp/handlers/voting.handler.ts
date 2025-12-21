@@ -10,56 +10,38 @@ import {
   listVotes,
   getVotingStats,
 } from '../../services/voting.service.js';
-
-export interface VotingRecordVoteParams {
-  taskId: string;
-  agentId: string;
-  voteValue: unknown;
-  confidence?: number;
-  reasoning?: string;
-}
-
-export interface VotingGetConsensusParams {
-  taskId: string;
-  k?: number; // Number of votes ahead required (default: 1)
-}
-
-export interface VotingListVotesParams {
-  taskId: string;
-}
-
-export interface VotingGetStatsParams {
-  taskId: string;
-}
+import type {
+  VotingRecordVoteParams,
+  VotingGetConsensusParams,
+  VotingListVotesParams,
+  VotingGetStatsParams,
+} from '../types.js';
 
 /**
  * Record a vote from an agent for a task
  */
-export function recordVoteHandler(params: Record<string, unknown>): {
+export function recordVoteHandler(params: VotingRecordVoteParams): {
   success: boolean;
   taskId: string;
   agentId: string;
   message: string;
 } {
-  const { taskId, agentId, voteValue, confidence, reasoning } =
-    params as unknown as VotingRecordVoteParams;
-
-  if (!taskId || !agentId || voteValue === undefined) {
+  if (!params.taskId || !params.agentId || params.voteValue === undefined) {
     throw new Error('taskId, agentId, and voteValue are required');
   }
 
   recordVote({
-    taskId,
-    agentId,
-    voteValue,
-    confidence,
-    reasoning,
+    taskId: params.taskId,
+    agentId: params.agentId,
+    voteValue: params.voteValue,
+    confidence: params.confidence,
+    reasoning: params.reasoning,
   });
 
   return {
     success: true,
-    taskId,
-    agentId,
+    taskId: params.taskId,
+    agentId: params.agentId,
     message: 'Vote recorded successfully',
   };
 }
@@ -67,7 +49,7 @@ export function recordVoteHandler(params: Record<string, unknown>): {
 /**
  * Get consensus for a task using First-to-Ahead-by-k algorithm
  */
-export function getConsensusHandler(params: Record<string, unknown>): {
+export function getConsensusHandler(params: VotingGetConsensusParams): {
   consensus: unknown;
   voteCount: number;
   confidence: number;
@@ -75,17 +57,16 @@ export function getConsensusHandler(params: Record<string, unknown>): {
   voteDistribution: Array<{ voteValue: unknown; count: number; agents: string[] }>;
   k: number;
 } {
-  const { taskId, k = 1 } = params as unknown as VotingGetConsensusParams;
-
-  if (!taskId) {
+  if (!params.taskId) {
     throw new Error('taskId is required');
   }
 
+  const k = params.k ?? 1;
   if (k < 1) {
     throw new Error('k must be at least 1');
   }
 
-  const result = calculateConsensus(taskId, k);
+  const result = calculateConsensus(params.taskId, k);
 
   return {
     ...result,
@@ -96,7 +77,7 @@ export function getConsensusHandler(params: Record<string, unknown>): {
 /**
  * List all votes for a task
  */
-export function listVotesHandler(params: Record<string, unknown>): {
+export function listVotesHandler(params: VotingListVotesParams): {
   votes: Array<{
     id: string;
     agentId: string;
@@ -107,24 +88,22 @@ export function listVotesHandler(params: Record<string, unknown>): {
   }>;
   taskId: string;
 } {
-  const { taskId } = params as unknown as VotingListVotesParams;
-
-  if (!taskId) {
+  if (!params.taskId) {
     throw new Error('taskId is required');
   }
 
-  const votes = listVotes(taskId);
+  const votes = listVotes(params.taskId);
 
   return {
     votes,
-    taskId,
+    taskId: params.taskId,
   };
 }
 
 /**
  * Get voting statistics for a task
  */
-export function getStatsHandler(params: Record<string, unknown>): {
+export function getStatsHandler(params: VotingGetStatsParams): {
   totalVotes: number;
   uniqueOptions: number;
   consensusReached: boolean;
@@ -132,13 +111,11 @@ export function getStatsHandler(params: Record<string, unknown>): {
   k: number;
   voteDistribution: Array<{ voteValue: unknown; count: number; agents: string[] }>;
 } {
-  const { taskId } = params as unknown as VotingGetStatsParams;
-
-  if (!taskId) {
+  if (!params.taskId) {
     throw new Error('taskId is required');
   }
 
-  return getVotingStats(taskId);
+  return getVotingStats(params.taskId);
 }
 
 export const votingHandlers = {

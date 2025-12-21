@@ -1,8 +1,12 @@
 /**
- * Simple sliding window rate limiter for MCP tool calls
+ * Token bucket rate limiter for MCP tool calls
  *
  * Provides per-agent and global rate limiting to prevent DoS
  * and ensure fair resource usage across multiple agents.
+ *
+ * Uses token bucket algorithm for O(1) memory per key instead of
+ * unbounded timestamp arrays. Tokens refill continuously based on
+ * elapsed time.
  */
 
 import { createComponentLogger } from './logger.js';
@@ -24,19 +28,25 @@ export interface RateLimiterConfig {
   minBurstProtection?: number;
 }
 
-interface WindowEntry {
-  timestamps: number[];
+/**
+ * Token bucket entry - O(1) memory per key
+ * Stores current token count and last refill time instead of timestamp arrays
+ */
+interface TokenBucketEntry {
+  tokens: number;
+  lastRefillTime: number;
 }
 
 /**
- * Sliding window rate limiter
+ * Token bucket rate limiter
  *
- * Tracks request timestamps within a sliding window and rejects
- * requests that would exceed the configured limit.
+ * Uses token bucket algorithm for fixed memory usage.
+ * Tokens refill at a rate of maxRequests/windowMs per millisecond.
+ * Each request consumes one token.
  */
 export class RateLimiter {
-  private windows = new Map<string, WindowEntry>();
-  private burstWindows = new Map<string, WindowEntry>(); // Separate window for burst protection
+  private buckets = new Map<string, TokenBucketEntry>();
+  private burstBuckets = new Map<string, TokenBucketEntry>(); // Separate bucket for burst protection
   private config: Required<RateLimiterConfig>;
   private cleanupInterval: NodeJS.Timeout | null = null;
 
@@ -51,8 +61,23 @@ export class RateLimiter {
       minBurstProtection: config.minBurstProtection ?? RateLimiter.DEFAULT_MIN_BURST_PROTECTION,
     };
 
-    // Start cleanup interval to prevent memory leaks
+    // Start cleanup interval to remove stale entries (less critical now but still useful)
     this.startCleanup();
+  }
+
+  /**
+   * Refill tokens for a bucket based on elapsed time
+   */
+  private refillBucket(
+    bucket: TokenBucketEntry,
+    maxTokens: number,
+    refillRatePerMs: number,
+    now: number
+  ): void {
+    const elapsed = now - bucket.lastRefillTime;
+    const tokensToAdd = elapsed * refillRatePerMs;
+    bucket.tokens = Math.min(maxTokens, bucket.tokens + tokensToAdd);
+    bucket.lastRefillTime = now;
   }
 
   /**
@@ -70,26 +95,27 @@ export class RateLimiter {
     const now = Date.now();
 
     // Always enforce minimum burst protection (even when rate limiting is disabled)
-    // This prevents DoS attacks by limiting max requests per second
-    const burstWindowStart = now - 1000; // 1 second window for burst protection
-    let burstEntry = this.burstWindows.get(key);
-    if (!burstEntry) {
-      burstEntry = { timestamps: [] };
-      this.burstWindows.set(key, burstEntry);
+    // Burst protection: minBurstProtection tokens per 1000ms
+    const burstRefillRate = this.config.minBurstProtection / 1000; // tokens per ms
+
+    let burstBucket = this.burstBuckets.get(key);
+    if (!burstBucket) {
+      burstBucket = { tokens: this.config.minBurstProtection, lastRefillTime: now };
+      this.burstBuckets.set(key, burstBucket);
+    } else {
+      this.refillBucket(burstBucket, this.config.minBurstProtection, burstRefillRate, now);
     }
 
-    // Remove timestamps outside the burst window
-    burstEntry.timestamps = burstEntry.timestamps.filter((ts) => ts > burstWindowStart);
-
     // Check burst protection
-    if (burstEntry.timestamps.length >= this.config.minBurstProtection) {
-      const oldestTimestamp = burstEntry.timestamps[0] ?? now;
-      const retryAfterMs = Math.max(0, oldestTimestamp + 1000 - now);
+    if (burstBucket.tokens < 1) {
+      // Calculate when we'll have 1 token again
+      const tokensNeeded = 1 - burstBucket.tokens;
+      const retryAfterMs = Math.ceil(tokensNeeded / burstRefillRate);
 
       logger.warn(
         {
           key,
-          currentCount: burstEntry.timestamps.length,
+          currentTokens: burstBucket.tokens,
           minBurstProtection: this.config.minBurstProtection,
           retryAfterMs,
         },
@@ -104,8 +130,8 @@ export class RateLimiter {
       };
     }
 
-    // Record this request in burst window
-    burstEntry.timestamps.push(now);
+    // Consume burst token
+    burstBucket.tokens -= 1;
 
     // If rate limiting is disabled (but burst protection passed), allow the request
     if (!this.config.enabled) {
@@ -116,31 +142,27 @@ export class RateLimiter {
       };
     }
 
-    const windowStart = now - this.config.windowMs;
+    // Main rate limiting: maxRequests tokens per windowMs
+    const refillRate = this.config.maxRequests / this.config.windowMs; // tokens per ms
 
-    // Get or create window for this key
-    let entry = this.windows.get(key);
-    if (!entry) {
-      entry = { timestamps: [] };
-      this.windows.set(key, entry);
+    let bucket = this.buckets.get(key);
+    if (!bucket) {
+      bucket = { tokens: this.config.maxRequests, lastRefillTime: now };
+      this.buckets.set(key, bucket);
+    } else {
+      this.refillBucket(bucket, this.config.maxRequests, refillRate, now);
     }
 
-    // Remove timestamps outside the current window
-    entry.timestamps = entry.timestamps.filter((ts) => ts > windowStart);
-
-    // Check if under limit
-    const currentCount = entry.timestamps.length;
-    const remaining = Math.max(0, this.config.maxRequests - currentCount);
-
-    if (currentCount >= this.config.maxRequests) {
-      // Find when the oldest request in window will expire
-      const oldestTimestamp = entry.timestamps[0] ?? now;
-      const retryAfterMs = Math.max(0, oldestTimestamp + this.config.windowMs - now);
+    // Check if we have tokens available
+    if (bucket.tokens < 1) {
+      // Calculate when we'll have 1 token again
+      const tokensNeeded = 1 - bucket.tokens;
+      const retryAfterMs = Math.ceil(tokensNeeded / refillRate);
 
       logger.warn(
         {
           key,
-          currentCount,
+          currentTokens: bucket.tokens,
           maxRequests: this.config.maxRequests,
           retryAfterMs,
         },
@@ -155,12 +177,13 @@ export class RateLimiter {
       };
     }
 
-    // Record this request
-    entry.timestamps.push(now);
+    // Consume token
+    bucket.tokens -= 1;
+    const remaining = Math.floor(bucket.tokens);
 
     return {
       allowed: true,
-      remaining: remaining - 1,
+      remaining: remaining,
       resetMs: this.config.windowMs,
     };
   }
@@ -178,10 +201,10 @@ export class RateLimiter {
    */
   getStats(key: string): { count: number; remaining: number; windowMs: number } {
     const now = Date.now();
-    const windowStart = now - this.config.windowMs;
+    const refillRate = this.config.maxRequests / this.config.windowMs;
 
-    const entry = this.windows.get(key);
-    if (!entry) {
+    const bucket = this.buckets.get(key);
+    if (!bucket) {
       return {
         count: 0,
         remaining: this.config.maxRequests,
@@ -189,11 +212,15 @@ export class RateLimiter {
       };
     }
 
-    const count = entry.timestamps.filter((ts) => ts > windowStart).length;
+    // Refill to get current token count
+    this.refillBucket(bucket, this.config.maxRequests, refillRate, now);
+
+    const remaining = Math.floor(bucket.tokens);
+    const count = this.config.maxRequests - remaining;
 
     return {
-      count,
-      remaining: Math.max(0, this.config.maxRequests - count),
+      count: Math.max(0, count),
+      remaining: Math.max(0, remaining),
       windowMs: this.config.windowMs,
     };
   }
@@ -202,16 +229,16 @@ export class RateLimiter {
    * Reset rate limit for a specific key
    */
   reset(key: string): void {
-    this.windows.delete(key);
-    this.burstWindows.delete(key);
+    this.buckets.delete(key);
+    this.burstBuckets.delete(key);
   }
 
   /**
    * Reset all rate limits
    */
   resetAll(): void {
-    this.windows.clear();
-    this.burstWindows.clear();
+    this.buckets.clear();
+    this.burstBuckets.clear();
   }
 
   /**
@@ -237,31 +264,32 @@ export class RateLimiter {
   }
 
   /**
-   * Start periodic cleanup of expired entries
+   * Start periodic cleanup of stale entries
+   * Less critical with token buckets but still useful for memory hygiene
    */
   private startCleanup(): void {
-    // Clean up every minute
+    // Clean up every minute - remove entries that have been idle for a while
     this.cleanupInterval = setInterval(() => {
       const now = Date.now();
-      const windowStart = now - this.config.windowMs;
-      const burstWindowStart = now - 1000; // 1 second for burst protection
+      const staleThreshold = this.config.windowMs * 2; // Consider stale after 2x window
 
-      for (const [key, entry] of this.windows) {
-        // Remove expired timestamps
-        entry.timestamps = entry.timestamps.filter((ts) => ts > windowStart);
-
-        // Remove empty entries
-        if (entry.timestamps.length === 0) {
-          this.windows.delete(key);
+      for (const [key, bucket] of this.buckets) {
+        // If bucket is full and hasn't been touched recently, remove it
+        if (
+          bucket.tokens >= this.config.maxRequests &&
+          now - bucket.lastRefillTime > staleThreshold
+        ) {
+          this.buckets.delete(key);
         }
       }
 
-      // Clean up burst windows
-      for (const [key, entry] of this.burstWindows) {
-        entry.timestamps = entry.timestamps.filter((ts) => ts > burstWindowStart);
-
-        if (entry.timestamps.length === 0) {
-          this.burstWindows.delete(key);
+      // Clean up burst buckets
+      for (const [key, bucket] of this.burstBuckets) {
+        if (
+          bucket.tokens >= this.config.minBurstProtection &&
+          now - bucket.lastRefillTime > 2000 // 2 seconds for burst
+        ) {
+          this.burstBuckets.delete(key);
         }
       }
     }, 60000);
@@ -278,8 +306,8 @@ export class RateLimiter {
       clearInterval(this.cleanupInterval);
       this.cleanupInterval = null;
     }
-    this.windows.clear();
-    this.burstWindows.clear();
+    this.buckets.clear();
+    this.burstBuckets.clear();
   }
 }
 

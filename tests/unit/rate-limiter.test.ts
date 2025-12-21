@@ -115,16 +115,18 @@ describe('RateLimiter', () => {
       expect(allowedResult.remaining).toBe(2);
     });
 
-    it('should slide window correctly', () => {
-      limiter.check('test-key');
-      vi.advanceTimersByTime(500);
-      limiter.check('test-key');
-      vi.advanceTimersByTime(500);
+    it('should refill tokens over time (token bucket behavior)', () => {
+      // Token bucket refills continuously at rate of maxRequests/windowMs
+      // With maxRequests=3 and windowMs=1000ms, refill rate = 3 tokens/second
+      limiter.check('test-key'); // 3 -> 2 tokens
+      vi.advanceTimersByTime(500); // 2 + 1.5 = 3 tokens (capped at max)
+      limiter.check('test-key'); // 3 -> 2 tokens
+      vi.advanceTimersByTime(500); // 2 + 1.5 = 3 tokens (capped at max)
 
-      // First request should have expired now
+      // After time passes, tokens refill - this is correct token bucket behavior
       const result = limiter.check('test-key');
       expect(result.allowed).toBe(true);
-      expect(result.remaining).toBe(1);
+      expect(result.remaining).toBe(2); // 3 -> 2 after consuming 1
     });
 
     it('should allow all requests when disabled', () => {

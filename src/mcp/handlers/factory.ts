@@ -1,0 +1,682 @@
+/**
+ * Generic Handler Factory
+ *
+ * Generates CRUD handlers for entry types (tool, guideline, knowledge)
+ * with common middleware for permissions, validation, audit logging, etc.
+ *
+ * Eliminates ~40% code duplication across handler files.
+ */
+
+import { transaction } from '../../db/connection.js';
+import { checkForDuplicates } from '../../services/duplicate.service.js';
+import { logAction } from '../../services/audit.service.js';
+import { detectRedFlags } from '../../services/redflag.service.js';
+import { invalidateCacheEntry } from '../../services/query.service.js';
+import { validateEntry } from '../../services/validation.service.js';
+import { checkPermission } from '../../services/permission.service.js';
+import {
+  createValidationError,
+  createNotFoundError,
+  createPermissionError,
+} from '../errors.js';
+import { createComponentLogger } from '../../utils/logger.js';
+import {
+  getRequiredParam,
+  getOptionalParam,
+  isString,
+  isScopeType,
+  isNumber,
+  isBoolean,
+  isArray,
+  isArrayOfObjects,
+  isObject,
+} from '../../utils/type-guards.js';
+import { formatTimestamps } from '../../utils/timestamp-formatter.js';
+import type { ScopeType } from '../../db/schema.js';
+
+// =============================================================================
+// Types
+// =============================================================================
+
+/**
+ * Minimal entry shape that all entry types share.
+ * Repos return types with version info nested (e.g., ToolWithVersion).
+ */
+export interface BaseEntry {
+  id: string;
+  scopeType: ScopeType;
+  scopeId: string | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
+/**
+ * Repository interface that all entry repos must implement
+ */
+export interface EntryRepository<
+  TEntry extends BaseEntry,
+  TCreateInput,
+  TUpdateInput,
+> {
+  create(input: TCreateInput): TEntry;
+  update(id: string, input: TUpdateInput): TEntry | undefined;
+  getById(id: string): TEntry | undefined;
+  getByName?(
+    name: string,
+    scopeType: ScopeType,
+    scopeId?: string,
+    inherit?: boolean
+  ): TEntry | undefined;
+  getByTitle?(
+    title: string,
+    scopeType: ScopeType,
+    scopeId?: string,
+    inherit?: boolean
+  ): TEntry | undefined;
+  list(
+    filter: { scopeType?: ScopeType; scopeId?: string; includeInactive?: boolean },
+    pagination?: { limit?: number; offset?: number }
+  ): TEntry[];
+  getHistory(id: string): unknown[];
+  deactivate(id: string): boolean;
+  delete(id: string): boolean;
+}
+
+/**
+ * Entry type names
+ */
+export type EntryType = 'tool' | 'guideline' | 'knowledge';
+
+/**
+ * Configuration for the handler factory
+ */
+export interface HandlerFactoryConfig<
+  TEntry extends BaseEntry,
+  TCreateInput,
+  TUpdateInput,
+> {
+  /** Entry type name used for logging, permissions, etc. */
+  entryType: EntryType;
+  /** The repository to use for CRUD operations */
+  repo: EntryRepository<TEntry, TCreateInput, TUpdateInput>;
+  /** Key name for the entry in response objects (e.g., 'tool', 'guideline', 'knowledge') */
+  responseKey: string;
+  /** Key name for the list in response objects (e.g., 'tools', 'guidelines', 'knowledge') */
+  responseListKey: string;
+  /** Name field used for duplicate checking and lookup (e.g., 'name' or 'title') */
+  nameField: 'name' | 'title';
+  /** Function to extract add params from raw request */
+  extractAddParams: (
+    params: Record<string, unknown>,
+    defaults: { scopeType?: ScopeType; scopeId?: string }
+  ) => TCreateInput;
+  /** Function to extract update params from raw request */
+  extractUpdateParams: (params: Record<string, unknown>) => TUpdateInput;
+  /** Get the name/title value from params for duplicate checking */
+  getNameValue: (params: Record<string, unknown>) => string;
+  /** Get the content value from an entry for red flag detection */
+  getContentForRedFlags: (entry: TEntry) => string;
+  /** Get validation data from params */
+  getValidationData: (
+    params: Record<string, unknown>,
+    existingEntry?: TEntry
+  ) => Record<string, unknown>;
+  /** Optional additional type guards for list filtering */
+  listFilterGuards?: Record<string, (v: unknown) => boolean>;
+  /** Optional function to add extra filters for list */
+  extractListFilters?: (params: Record<string, unknown>) => Record<string, unknown>;
+}
+
+// =============================================================================
+// Factory Implementation
+// =============================================================================
+
+/**
+ * Creates a complete set of CRUD handlers for an entry type
+ */
+export function createCrudHandlers<
+  TEntry extends BaseEntry,
+  TCreateInput,
+  TUpdateInput,
+>(config: HandlerFactoryConfig<TEntry, TCreateInput, TUpdateInput>) {
+  const logger = createComponentLogger(config.entryType + 's');
+
+  // Helper: Check permission and throw if denied
+  function requirePermission(
+    agentId: string,
+    permission: 'read' | 'write' | 'delete',
+    scopeType: ScopeType,
+    scopeId: string | null,
+    entryId: string | null = null
+  ): void {
+    if (!checkPermission(agentId, permission, config.entryType, entryId, scopeType, scopeId)) {
+      throw createPermissionError(permission, config.entryType, entryId ?? undefined);
+    }
+  }
+
+  // Helper: Get entry by ID and verify it exists
+  function getExistingEntry(id: string): TEntry {
+    const entry = config.repo.getById(id);
+    if (entry === undefined) {
+      throw createNotFoundError(config.entryType, id);
+    }
+    return entry;
+  }
+
+  return {
+    /**
+     * Add a new entry
+     */
+    add(params: Record<string, unknown>) {
+      const scopeType = getRequiredParam(params, 'scopeType', isScopeType);
+      const scopeId = getOptionalParam(params, 'scopeId', isString);
+      const agentId = getRequiredParam(params, 'agentId', isString);
+
+      // Validate scope
+      if (scopeType !== 'global' && !scopeId) {
+        throw createValidationError(
+          'scopeId',
+          `is required for ${scopeType} scope`,
+          'Provide the ID of the parent scope'
+        );
+      }
+
+      // Check permission (write required for add)
+      requirePermission(agentId, 'write', scopeType, scopeId ?? null);
+
+      // Get name/title for duplicate checking
+      const nameValue = config.getNameValue(params);
+
+      // Check for duplicates (warn but don't block)
+      const duplicateCheck = checkForDuplicates(
+        config.entryType,
+        nameValue,
+        scopeType,
+        scopeId ?? null
+      );
+      if (duplicateCheck.isDuplicate) {
+        logger.warn(
+          {
+            [config.nameField]: nameValue,
+            scopeType,
+            scopeId,
+            similarEntries: duplicateCheck.similarEntries.map((e) => ({
+              name: e.name,
+              similarity: e.similarity,
+            })),
+          },
+          `Potential duplicate ${config.entryType} found`
+        );
+      }
+
+      // Validate entry data
+      const validationData = config.getValidationData(params);
+      const validation = validateEntry(config.entryType, validationData, scopeType, scopeId);
+      if (!validation.valid) {
+        throw createValidationError(
+          'entry',
+          `Validation failed: ${validation.errors.map((e) => e.message).join(', ')}`,
+          'Check the validation errors and correct the input data'
+        );
+      }
+
+      // Extract typed input and create entry
+      const input = config.extractAddParams(params, { scopeType, scopeId });
+      const entry = config.repo.create(input);
+
+      // Check for red flags
+      const content = config.getContentForRedFlags(entry);
+      const redFlags = detectRedFlags({
+        type: config.entryType,
+        content,
+      });
+      if (redFlags.length > 0) {
+        logger.warn(
+          {
+            [config.nameField]: nameValue,
+            [`${config.entryType}Id`]: entry.id,
+            redFlags: redFlags.map((f) => ({
+              pattern: f.pattern,
+              severity: f.severity,
+              description: f.description,
+            })),
+          },
+          `Red flags detected in ${config.entryType}`
+        );
+      }
+
+      // Log audit
+      logAction({
+        agentId,
+        action: 'create',
+        entryType: config.entryType,
+        entryId: entry.id,
+        scopeType,
+        scopeId: scopeId ?? null,
+      });
+
+      return formatTimestamps({
+        success: true,
+        [config.responseKey]: entry,
+        redFlags: redFlags.length > 0 ? redFlags : undefined,
+      });
+    },
+
+    /**
+     * Update an existing entry
+     */
+    update(params: Record<string, unknown>) {
+      const id = getRequiredParam(params, 'id', isString);
+      const agentId = getRequiredParam(params, 'agentId', isString);
+
+      // Get existing entry to check scope and permission
+      const existingEntry = getExistingEntry(id);
+
+      // Check permission (write required for update)
+      requirePermission(agentId, 'write', existingEntry.scopeType, existingEntry.scopeId, id);
+
+      // Validate entry data
+      const validationData = config.getValidationData(params, existingEntry);
+      const validation = validateEntry(
+        config.entryType,
+        validationData,
+        existingEntry.scopeType,
+        existingEntry.scopeId ?? undefined
+      );
+      if (!validation.valid) {
+        throw createValidationError(
+          'entry',
+          `Validation failed: ${validation.errors.map((e) => e.message).join(', ')}`,
+          'Check the validation errors and correct the input data'
+        );
+      }
+
+      // Extract update input and update
+      const input = config.extractUpdateParams(params);
+      const entry = config.repo.update(id, input);
+      if (!entry) {
+        throw createNotFoundError(config.entryType, id);
+      }
+
+      // Invalidate cache for this entry
+      invalidateCacheEntry(config.entryType, id);
+
+      // Log audit
+      logAction({
+        agentId,
+        action: 'update',
+        entryType: config.entryType,
+        entryId: id,
+        scopeType: existingEntry.scopeType,
+        scopeId: existingEntry.scopeId ?? null,
+      });
+
+      return formatTimestamps({ success: true, [config.responseKey]: entry });
+    },
+
+    /**
+     * Get a single entry by ID or name
+     */
+    get(params: Record<string, unknown>) {
+      const id = getOptionalParam(params, 'id', isString);
+      const nameOrTitle = getOptionalParam(params, config.nameField, isString);
+      const scopeType = getOptionalParam(params, 'scopeType', isScopeType);
+      const scopeId = getOptionalParam(params, 'scopeId', isString);
+      const inherit = getOptionalParam(params, 'inherit', isBoolean);
+      const agentId = getRequiredParam(params, 'agentId', isString);
+
+      if (!id && !nameOrTitle) {
+        throw createValidationError(
+          `id or ${config.nameField}`,
+          'is required',
+          `Provide either the ${config.entryType} ID or ${config.nameField} with scopeType`
+        );
+      }
+
+      let entry: TEntry | undefined = undefined;
+      if (id) {
+        entry = config.repo.getById(id);
+      } else if (nameOrTitle && scopeType) {
+        // Use appropriate lookup method based on name field
+        if (config.nameField === 'name' && config.repo.getByName) {
+          entry = config.repo.getByName(nameOrTitle, scopeType, scopeId, inherit ?? true);
+        } else if (config.nameField === 'title' && config.repo.getByTitle) {
+          entry = config.repo.getByTitle(nameOrTitle, scopeType, scopeId, inherit ?? true);
+        }
+      } else {
+        throw createValidationError(
+          'scopeType',
+          `is required when using ${config.nameField}`,
+          `Provide scopeType when searching by ${config.nameField}`
+        );
+      }
+
+      if (entry === undefined) {
+        throw createNotFoundError(config.entryType, id || nameOrTitle);
+      }
+
+      // Check permission (read required for get)
+      requirePermission(agentId, 'read', entry.scopeType, entry.scopeId, entry.id);
+
+      // Log audit
+      logAction({
+        agentId,
+        action: 'read',
+        entryType: config.entryType,
+        entryId: entry.id,
+        scopeType: entry.scopeType,
+        scopeId: entry.scopeId ?? null,
+      });
+
+      return formatTimestamps({ [config.responseKey]: entry });
+    },
+
+    /**
+     * List entries with optional filters
+     */
+    list(params: Record<string, unknown>) {
+      const agentId = getRequiredParam(params, 'agentId', isString);
+      const scopeType = getOptionalParam(params, 'scopeType', isScopeType);
+      const scopeId = getOptionalParam(params, 'scopeId', isString);
+      const includeInactive = getOptionalParam(params, 'includeInactive', isBoolean);
+      const limit = getOptionalParam(params, 'limit', isNumber);
+      const offset = getOptionalParam(params, 'offset', isNumber);
+
+      // Build filter with extra type-specific filters
+      const filter: Record<string, unknown> = {
+        scopeType,
+        scopeId,
+        includeInactive,
+        ...(config.extractListFilters?.(params) ?? {}),
+      };
+
+      const all = config.repo.list(
+        filter as { scopeType?: ScopeType; scopeId?: string; includeInactive?: boolean },
+        { limit, offset }
+      );
+
+      // Filter by permission
+      const entries = all.filter((e) =>
+        checkPermission(agentId, 'read', config.entryType, e.id, e.scopeType, e.scopeId)
+      );
+
+      return formatTimestamps({
+        [config.responseListKey]: entries,
+        meta: {
+          returnedCount: entries.length,
+        },
+      });
+    },
+
+    /**
+     * Get version history for an entry
+     */
+    history(params: Record<string, unknown>) {
+      const id = getRequiredParam(params, 'id', isString);
+      const agentId = getRequiredParam(params, 'agentId', isString);
+
+      const entry = getExistingEntry(id);
+      requirePermission(agentId, 'read', entry.scopeType, entry.scopeId, id);
+
+      const versions = config.repo.getHistory(id);
+      return formatTimestamps({ versions });
+    },
+
+    /**
+     * Soft-delete an entry (deactivate)
+     */
+    deactivate(params: Record<string, unknown>) {
+      const id = getRequiredParam(params, 'id', isString);
+      const agentId = getRequiredParam(params, 'agentId', isString);
+
+      const existingEntry = getExistingEntry(id);
+
+      // Check permission (delete/write required for deactivate)
+      requirePermission(agentId, 'write', existingEntry.scopeType, existingEntry.scopeId, id);
+
+      const success = config.repo.deactivate(id);
+      if (!success) {
+        throw createNotFoundError(config.entryType, id);
+      }
+
+      // Log audit
+      logAction({
+        agentId,
+        action: 'delete',
+        entryType: config.entryType,
+        entryId: id,
+        scopeType: existingEntry.scopeType,
+        scopeId: existingEntry.scopeId ?? null,
+      });
+
+      return { success: true };
+    },
+
+    /**
+     * Hard-delete an entry permanently
+     */
+    delete(params: Record<string, unknown>) {
+      const id = getRequiredParam(params, 'id', isString);
+      const agentId = getRequiredParam(params, 'agentId', isString);
+
+      const existingEntry = getExistingEntry(id);
+
+      // Check permission (delete required for hard delete)
+      requirePermission(agentId, 'write', existingEntry.scopeType, existingEntry.scopeId, id);
+
+      const success = config.repo.delete(id);
+      if (!success) {
+        throw createNotFoundError(config.entryType, id);
+      }
+
+      // Invalidate cache for this entry
+      invalidateCacheEntry(config.entryType, id);
+
+      // Log audit
+      logAction({
+        agentId,
+        action: 'delete',
+        entryType: config.entryType,
+        entryId: id,
+        scopeType: existingEntry.scopeType,
+        scopeId: existingEntry.scopeId ?? null,
+      });
+
+      return { success: true, message: `${config.entryType} permanently deleted` };
+    },
+
+    /**
+     * Bulk add multiple entries in a transaction
+     */
+    bulk_add(params: Record<string, unknown>) {
+      const entries = getRequiredParam(params, 'entries', isArrayOfObjects);
+      const agentId = getRequiredParam(params, 'agentId', isString);
+      const defaultScopeType = getOptionalParam(params, 'scopeType', isScopeType);
+      const defaultScopeId = getOptionalParam(params, 'scopeId', isString);
+
+      if (entries.length === 0) {
+        throw createValidationError(
+          'entries',
+          'must be a non-empty array',
+          `Provide an array of ${config.entryType} entries to add`
+        );
+      }
+
+      // Check permissions for all entries
+      for (const entry of entries) {
+        if (!isObject(entry)) continue;
+        const entryObj = entry as Record<string, unknown>;
+        const entryScopeType = isScopeType(entryObj.scopeType)
+          ? entryObj.scopeType
+          : defaultScopeType;
+        const entryScopeId = isString(entryObj.scopeId) ? entryObj.scopeId : defaultScopeId;
+        requirePermission(agentId, 'write', entryScopeType as ScopeType, entryScopeId ?? null);
+      }
+
+      // Execute in transaction for atomicity
+      const results = transaction(() => {
+        return entries.map((entry) => {
+          if (!isObject(entry)) {
+            throw createValidationError(
+              'entry',
+              'must be an object',
+              'Each entry must be a valid object'
+            );
+          }
+
+          const entryObj = entry as Record<string, unknown>;
+          const scopeType = isScopeType(entryObj.scopeType)
+            ? entryObj.scopeType
+            : defaultScopeType;
+          const scopeId = isString(entryObj.scopeId) ? entryObj.scopeId : defaultScopeId;
+
+          if (!scopeType) {
+            throw createValidationError(
+              'scopeType',
+              'is required',
+              "Specify 'global', 'org', 'project', or 'session' at entry or top level"
+            );
+          }
+
+          if (scopeType !== 'global' && !scopeId) {
+            throw createValidationError(
+              'scopeId',
+              `is required for ${scopeType} scope`,
+              'Provide the ID of the parent scope'
+            );
+          }
+
+          const input = config.extractAddParams(entryObj, { scopeType, scopeId });
+          return config.repo.create(input);
+        });
+      });
+
+      return formatTimestamps({
+        success: true,
+        [config.responseListKey]: results,
+        count: results.length,
+      });
+    },
+
+    /**
+     * Bulk update multiple entries in a transaction
+     */
+    bulk_update(params: Record<string, unknown>) {
+      const updates = getRequiredParam(params, 'updates', isArrayOfObjects);
+      const agentId = getRequiredParam(params, 'agentId', isString);
+
+      if (updates.length === 0) {
+        throw createValidationError(
+          'updates',
+          'must be a non-empty array',
+          `Provide an array of ${config.entryType} updates`
+        );
+      }
+
+      // Check permissions for all entries
+      for (const update of updates) {
+        if (!isObject(update)) continue;
+        const updateObj = update as Record<string, unknown>;
+        const id = updateObj.id;
+        if (!isString(id)) continue;
+        const existingEntry = config.repo.getById(id);
+        if (!existingEntry) {
+          throw createNotFoundError(config.entryType, id);
+        }
+        requirePermission(agentId, 'write', existingEntry.scopeType, existingEntry.scopeId, id);
+      }
+
+      // Execute in transaction
+      const results = transaction(() => {
+        return updates.map((update) => {
+          if (!isObject(update)) {
+            throw createValidationError(
+              'update',
+              'must be an object',
+              'Each update must be a valid object'
+            );
+          }
+
+          const updateObj = update as Record<string, unknown>;
+          const id = updateObj.id;
+          if (!isString(id)) {
+            throw createValidationError(
+              'id',
+              'is required',
+              `Provide the ${config.entryType} ID to update`
+            );
+          }
+
+          const input = config.extractUpdateParams(updateObj);
+          const entry = config.repo.update(id, input);
+          if (!entry) {
+            throw createNotFoundError(config.entryType, id);
+          }
+
+          // Invalidate cache for this entry
+          invalidateCacheEntry(config.entryType, id);
+
+          return entry;
+        });
+      });
+
+      return formatTimestamps({
+        success: true,
+        [config.responseListKey]: results,
+        count: results.length,
+      });
+    },
+
+    /**
+     * Bulk delete (deactivate) multiple entries in a transaction
+     */
+    bulk_delete(params: Record<string, unknown>) {
+      const idsParam = getRequiredParam(params, 'ids', isArray);
+      const agentId = getRequiredParam(params, 'agentId', isString);
+
+      // Validate all IDs are strings
+      const ids: string[] = [];
+      for (let i = 0; i < idsParam.length; i++) {
+        const id = idsParam[i];
+        if (!isString(id)) {
+          throw createValidationError(
+            'ids',
+            `element at index ${i} is not a string`,
+            'All IDs must be strings'
+          );
+        }
+        ids.push(id);
+      }
+
+      if (ids.length === 0) {
+        throw createValidationError(
+          'ids',
+          'must be a non-empty array',
+          `Provide an array of ${config.entryType} IDs to delete`
+        );
+      }
+
+      // Check permissions for all entries
+      for (const id of ids) {
+        const existingEntry = config.repo.getById(id);
+        if (!existingEntry) {
+          throw createNotFoundError(config.entryType, id);
+        }
+        requirePermission(agentId, 'write', existingEntry.scopeType, existingEntry.scopeId, id);
+      }
+
+      // Execute in transaction
+      const results = transaction(() => {
+        return ids.map((id) => {
+          const success = config.repo.deactivate(id);
+          if (!success) {
+            throw createNotFoundError(config.entryType, id);
+          }
+          return { id, success: true };
+        });
+      });
+
+      return formatTimestamps({ success: true, deleted: results, count: results.length });
+    },
+  };
+}

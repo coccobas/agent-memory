@@ -95,9 +95,14 @@ describe('Embedding job queue', () => {
     const { reloadConfig } = await import('../../src/config/index.js');
     reloadConfig();
 
-    const { generateEmbeddingAsync, resetEmbeddingQueueForTests } =
+    const { generateEmbeddingAsync, resetEmbeddingQueueForTests, registerEmbeddingPipeline } =
       await import('../../src/db/repositories/embedding-hooks.js');
     resetEmbeddingQueueForTests();
+    registerEmbeddingPipeline({
+      isAvailable: () => true,
+      embed: embedMock,
+      storeEmbedding: storeEmbeddingMock,
+    });
 
     // Two rapid updates for the same entry; only the last one should be persisted.
     generateEmbeddingAsync({

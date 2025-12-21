@@ -10,6 +10,7 @@ import {
   createTestGuideline,
 } from '../fixtures/test-helpers.js';
 import * as schema from '../../src/db/schema.js';
+import { setSqliteInstanceForTests } from '../../src/db/connection.js';
 
 const TEST_DB_PATH = './data/test-memory-query-int.db';
 
@@ -45,6 +46,7 @@ describe('memory_query integration', () => {
     const testDb = setupTestDb(TEST_DB_PATH);
     sqlite = testDb.sqlite;
     db = testDb.db;
+    setSqliteInstanceForTests(sqlite);
     seedPredefinedTags(db);
 
     // Create scope hierarchy
@@ -100,6 +102,7 @@ describe('memory_query integration', () => {
     } else {
       process.env.AGENT_MEMORY_PERMISSIONS_MODE = previousPermMode;
     }
+    setSqliteInstanceForTests(null);
     sqlite.close();
     cleanupTestDb(TEST_DB_PATH);
   });

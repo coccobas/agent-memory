@@ -17,6 +17,7 @@ import { existsSync, mkdirSync, unlinkSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as schema from '../../src/db/schema.js';
 import { v4 as uuid } from 'uuid';
+import { setSqliteInstanceForTests } from '../../src/db/connection.js';
 
 const TEST_DB_PATH = './data/test/graph-traversal.db';
 
@@ -73,6 +74,7 @@ describe('Graph Traversal', () => {
     sqlite.pragma('foreign_keys = ON');
 
     db = drizzle(sqlite, { schema });
+    setSqliteInstanceForTests(sqlite);
 
     // Run all migrations
     const migrations = [
@@ -159,6 +161,7 @@ describe('Graph Traversal', () => {
   });
 
   afterAll(() => {
+    setSqliteInstanceForTests(null);
     sqlite.close();
     // Clean up test database files
     for (const suffix of ['', '-wal', '-shm']) {

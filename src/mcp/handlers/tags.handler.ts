@@ -13,9 +13,16 @@ import {
   isTagCategory,
 } from '../../utils/type-guards.js';
 import { requireEntryPermission } from '../../utils/entry-access.js';
+import type {
+  TagCreateParams,
+  TagListParams,
+  TagAttachParams,
+  TagDetachParams,
+  TagsForEntryParams,
+} from '../types.js';
 
 export const tagHandlers = {
-  create(params: Record<string, unknown>) {
+  create(params: TagCreateParams) {
     // Require caller identity for auditing consistency (even though tags aren't permissioned directly)
     getRequiredParam(params, 'agentId', isString);
     const name = getRequiredParam(params, 'name', isString);
@@ -38,7 +45,7 @@ export const tagHandlers = {
     return { success: true, tag, existed: false };
   },
 
-  list(params: Record<string, unknown>) {
+  list(params: TagListParams) {
     getRequiredParam(params, 'agentId', isString);
     const category = getOptionalParam(params, 'category', isTagCategory);
     const isPredefined = getOptionalParam(params, 'isPredefined', isBoolean);
@@ -54,7 +61,7 @@ export const tagHandlers = {
     };
   },
 
-  attach(params: Record<string, unknown>) {
+  attach(params: TagAttachParams) {
     const agentId = getRequiredParam(params, 'agentId', isString);
     const entryType = getRequiredParam(params, 'entryType', isEntryType);
     const entryId = getRequiredParam(params, 'entryId', isString);
@@ -78,7 +85,7 @@ export const tagHandlers = {
     return { success: true, entryTag };
   },
 
-  detach(params: Record<string, unknown>) {
+  detach(params: TagDetachParams) {
     const agentId = getRequiredParam(params, 'agentId', isString);
     const entryType = getRequiredParam(params, 'entryType', isEntryType);
     const entryId = getRequiredParam(params, 'entryId', isString);
@@ -90,7 +97,7 @@ export const tagHandlers = {
     return { success };
   },
 
-  forEntry(params: Record<string, unknown>) {
+  forEntry(params: TagsForEntryParams) {
     const agentId = getRequiredParam(params, 'agentId', isString);
     const entryType = getRequiredParam(params, 'entryType', isEntryType);
     const entryId = getRequiredParam(params, 'entryId', isString);

@@ -184,250 +184,243 @@ function batchFetchRelations(
 }
 
 /**
+ * Check if entry has required tag (case-insensitive)
+ */
+function hasRequiredTag(entryTags: string[], requiredTags: string[]): boolean {
+  if (requiredTags.length === 0) return true;
+  const tagNamesLower = entryTags.map((t) => t.toLowerCase());
+  return requiredTags.some((tag) => tagNamesLower.includes(tag.toLowerCase()));
+}
+
+/**
+ * Query tools for export
+ */
+function queryToolsForExport(
+  db: ReturnType<typeof getDb>,
+  options: ExportOptions
+): ExportedTool[] {
+  const conditions = [];
+
+  if (options.scopeType) {
+    if (options.scopeId === null || options.scopeId === undefined) {
+      conditions.push(and(eq(tools.scopeType, options.scopeType), isNull(tools.scopeId)));
+    } else {
+      conditions.push(
+        and(eq(tools.scopeType, options.scopeType), eq(tools.scopeId, options.scopeId))
+      );
+    }
+  }
+
+  if (!options.includeInactive) {
+    conditions.push(eq(tools.isActive, true));
+  }
+
+  let query = db.select().from(tools);
+  if (conditions.length > 0) {
+    query = query.where(and(...conditions)) as typeof query;
+  }
+
+  const toolList = query.limit(MAX_EXPORT_ENTRIES_PER_TYPE).all();
+  const toolIds = toolList.map((t) => t.id);
+
+  // Batch fetch versions, tags, and relations
+  const allVersions =
+    toolIds.length > 0
+      ? db.select().from(toolVersions).where(inArray(toolVersions.toolId, toolIds)).all()
+      : [];
+  const versionsByToolId = new Map<string, ToolVersion[]>();
+  for (const v of allVersions) {
+    const existing = versionsByToolId.get(v.toolId) ?? [];
+    existing.push(v);
+    versionsByToolId.set(v.toolId, existing);
+  }
+
+  const tagsByEntryId = batchFetchTags(db, 'tool', toolIds);
+  const relationsByEntryId = batchFetchRelations(db, 'tool', toolIds);
+
+  const result: ExportedTool[] = [];
+  for (const tool of toolList) {
+    const versions = versionsByToolId.get(tool.id) ?? [];
+    const currentVersion = versions.find((v) => v.id === tool.currentVersionId);
+    const toolTagNames = tagsByEntryId.get(tool.id) ?? [];
+    const relations = relationsByEntryId.get(tool.id) ?? [];
+
+    if (!hasRequiredTag(toolTagNames, options.tags ?? [])) continue;
+
+    result.push({
+      id: tool.id,
+      scopeType: tool.scopeType,
+      scopeId: tool.scopeId,
+      name: tool.name,
+      category: tool.category,
+      isActive: tool.isActive,
+      createdAt: tool.createdAt,
+      createdBy: tool.createdBy,
+      currentVersion,
+      versions: options.includeVersions ? versions : undefined,
+      tags: toolTagNames,
+      relations,
+    });
+  }
+
+  return result;
+}
+
+/**
+ * Query guidelines for export
+ */
+function queryGuidelinesForExport(
+  db: ReturnType<typeof getDb>,
+  options: ExportOptions
+): ExportedGuideline[] {
+  const conditions = [];
+
+  if (options.scopeType) {
+    if (options.scopeId === null || options.scopeId === undefined) {
+      conditions.push(and(eq(guidelines.scopeType, options.scopeType), isNull(guidelines.scopeId)));
+    } else {
+      conditions.push(
+        and(eq(guidelines.scopeType, options.scopeType), eq(guidelines.scopeId, options.scopeId))
+      );
+    }
+  }
+
+  if (!options.includeInactive) {
+    conditions.push(eq(guidelines.isActive, true));
+  }
+
+  let query = db.select().from(guidelines);
+  if (conditions.length > 0) {
+    query = query.where(and(...conditions)) as typeof query;
+  }
+
+  const guidelineList = query.limit(MAX_EXPORT_ENTRIES_PER_TYPE).all();
+  const guidelineIds = guidelineList.map((g) => g.id);
+
+  // Batch fetch versions, tags, and relations
+  const allVersions =
+    guidelineIds.length > 0
+      ? db.select().from(guidelineVersions).where(inArray(guidelineVersions.guidelineId, guidelineIds)).all()
+      : [];
+  const versionsByGuidelineId = new Map<string, GuidelineVersion[]>();
+  for (const v of allVersions) {
+    const existing = versionsByGuidelineId.get(v.guidelineId) ?? [];
+    existing.push(v);
+    versionsByGuidelineId.set(v.guidelineId, existing);
+  }
+
+  const tagsByEntryId = batchFetchTags(db, 'guideline', guidelineIds);
+  const relationsByEntryId = batchFetchRelations(db, 'guideline', guidelineIds);
+
+  const result: ExportedGuideline[] = [];
+  for (const guideline of guidelineList) {
+    const versions = versionsByGuidelineId.get(guideline.id) ?? [];
+    const currentVersion = versions.find((v) => v.id === guideline.currentVersionId);
+    const guidelineTagNames = tagsByEntryId.get(guideline.id) ?? [];
+    const relations = relationsByEntryId.get(guideline.id) ?? [];
+
+    if (!hasRequiredTag(guidelineTagNames, options.tags ?? [])) continue;
+
+    result.push({
+      id: guideline.id,
+      scopeType: guideline.scopeType,
+      scopeId: guideline.scopeId,
+      name: guideline.name,
+      category: guideline.category,
+      priority: guideline.priority,
+      isActive: guideline.isActive,
+      createdAt: guideline.createdAt,
+      createdBy: guideline.createdBy,
+      currentVersion,
+      versions: options.includeVersions ? versions : undefined,
+      tags: guidelineTagNames,
+      relations,
+    });
+  }
+
+  return result;
+}
+
+/**
+ * Query knowledge for export
+ */
+function queryKnowledgeForExport(
+  db: ReturnType<typeof getDb>,
+  options: ExportOptions
+): ExportedKnowledge[] {
+  const conditions = [];
+
+  if (options.scopeType) {
+    if (options.scopeId === null || options.scopeId === undefined) {
+      conditions.push(and(eq(knowledge.scopeType, options.scopeType), isNull(knowledge.scopeId)));
+    } else {
+      conditions.push(
+        and(eq(knowledge.scopeType, options.scopeType), eq(knowledge.scopeId, options.scopeId))
+      );
+    }
+  }
+
+  if (!options.includeInactive) {
+    conditions.push(eq(knowledge.isActive, true));
+  }
+
+  let query = db.select().from(knowledge);
+  if (conditions.length > 0) {
+    query = query.where(and(...conditions)) as typeof query;
+  }
+
+  const knowledgeList = query.limit(MAX_EXPORT_ENTRIES_PER_TYPE).all();
+  const knowledgeIds = knowledgeList.map((k) => k.id);
+
+  // Batch fetch versions, tags, and relations
+  const allVersions =
+    knowledgeIds.length > 0
+      ? db.select().from(knowledgeVersions).where(inArray(knowledgeVersions.knowledgeId, knowledgeIds)).all()
+      : [];
+  const versionsByKnowledgeId = new Map<string, KnowledgeVersion[]>();
+  for (const v of allVersions) {
+    const existing = versionsByKnowledgeId.get(v.knowledgeId) ?? [];
+    existing.push(v);
+    versionsByKnowledgeId.set(v.knowledgeId, existing);
+  }
+
+  const tagsByEntryId = batchFetchTags(db, 'knowledge', knowledgeIds);
+  const relationsByEntryId = batchFetchRelations(db, 'knowledge', knowledgeIds);
+
+  const result: ExportedKnowledge[] = [];
+  for (const know of knowledgeList) {
+    const versions = versionsByKnowledgeId.get(know.id) ?? [];
+    const currentVersion = versions.find((v) => v.id === know.currentVersionId);
+    const knowledgeTagNames = tagsByEntryId.get(know.id) ?? [];
+    const relations = relationsByEntryId.get(know.id) ?? [];
+
+    if (!hasRequiredTag(knowledgeTagNames, options.tags ?? [])) continue;
+
+    result.push({
+      id: know.id,
+      scopeType: know.scopeType,
+      scopeId: know.scopeId,
+      title: know.title,
+      category: know.category,
+      isActive: know.isActive,
+      createdAt: know.createdAt,
+      createdBy: know.createdBy,
+      currentVersion,
+      versions: options.includeVersions ? versions : undefined,
+      tags: knowledgeTagNames,
+      relations,
+    });
+  }
+
+  return result;
+}
+
+/**
  * Query and structure entries for export (optimized with batch fetching)
  */
 function queryEntries(options: ExportOptions): ExportData {
   const db = getDb();
   const types = options.types || ['tools', 'guidelines', 'knowledge'];
-  const entries: ExportData['entries'] = {
-    tools: [],
-    guidelines: [],
-    knowledge: [],
-  };
-
-  // Export tools
-  if (types.includes('tools')) {
-    const conditions = [];
-
-    if (options.scopeType) {
-      if (options.scopeId === null || options.scopeId === undefined) {
-        conditions.push(and(eq(tools.scopeType, options.scopeType), isNull(tools.scopeId)));
-      } else {
-        conditions.push(
-          and(eq(tools.scopeType, options.scopeType), eq(tools.scopeId, options.scopeId))
-        );
-      }
-    }
-
-    if (!options.includeInactive) {
-      conditions.push(eq(tools.isActive, true));
-    }
-
-    let query = db.select().from(tools);
-    if (conditions.length > 0) {
-      query = query.where(and(...conditions)) as typeof query;
-    }
-
-    // Security: Limit number of entries to prevent memory exhaustion
-    const toolList = query.limit(MAX_EXPORT_ENTRIES_PER_TYPE).all();
-    const toolIds = toolList.map((t) => t.id);
-
-    // Batch fetch all versions for all tools
-    const allVersions =
-      toolIds.length > 0
-        ? db
-            .select()
-            .from(toolVersions)
-            .where(inArray(toolVersions.toolId, toolIds))
-            .all()
-        : [];
-    const versionsByToolId = new Map<string, ToolVersion[]>();
-    for (const v of allVersions) {
-      const existing = versionsByToolId.get(v.toolId) ?? [];
-      existing.push(v);
-      versionsByToolId.set(v.toolId, existing);
-    }
-
-    // Batch fetch all tags and relations
-    const tagsByEntryId = batchFetchTags(db, 'tool', toolIds);
-    const relationsByEntryId = batchFetchRelations(db, 'tool', toolIds);
-
-    for (const tool of toolList) {
-      const versions = versionsByToolId.get(tool.id) ?? [];
-      const currentVersion = versions.find((v) => v.id === tool.currentVersionId);
-      const toolTagNames = tagsByEntryId.get(tool.id) ?? [];
-      const relations = relationsByEntryId.get(tool.id) ?? [];
-
-      // Filter by tags if specified
-      if (options.tags && options.tags.length > 0) {
-        const tagNamesLower = toolTagNames.map((t) => t.toLowerCase());
-        const hasRequiredTag = options.tags.some((tag) => tagNamesLower.includes(tag.toLowerCase()));
-        if (!hasRequiredTag) continue;
-      }
-
-      entries.tools.push({
-        id: tool.id,
-        scopeType: tool.scopeType,
-        scopeId: tool.scopeId,
-        name: tool.name,
-        category: tool.category,
-        isActive: tool.isActive,
-        createdAt: tool.createdAt,
-        createdBy: tool.createdBy,
-        currentVersion,
-        versions: options.includeVersions ? versions : undefined,
-        tags: toolTagNames,
-        relations,
-      });
-    }
-  }
-
-  // Export guidelines
-  if (types.includes('guidelines')) {
-    const conditions = [];
-
-    if (options.scopeType) {
-      if (options.scopeId === null || options.scopeId === undefined) {
-        conditions.push(
-          and(eq(guidelines.scopeType, options.scopeType), isNull(guidelines.scopeId))
-        );
-      } else {
-        conditions.push(
-          and(eq(guidelines.scopeType, options.scopeType), eq(guidelines.scopeId, options.scopeId))
-        );
-      }
-    }
-
-    if (!options.includeInactive) {
-      conditions.push(eq(guidelines.isActive, true));
-    }
-
-    let query = db.select().from(guidelines);
-    if (conditions.length > 0) {
-      query = query.where(and(...conditions)) as typeof query;
-    }
-
-    // Security: Limit number of entries to prevent memory exhaustion
-    const guidelineList = query.limit(MAX_EXPORT_ENTRIES_PER_TYPE).all();
-    const guidelineIds = guidelineList.map((g) => g.id);
-
-    // Batch fetch all versions for all guidelines
-    const allVersions =
-      guidelineIds.length > 0
-        ? db
-            .select()
-            .from(guidelineVersions)
-            .where(inArray(guidelineVersions.guidelineId, guidelineIds))
-            .all()
-        : [];
-    const versionsByGuidelineId = new Map<string, GuidelineVersion[]>();
-    for (const v of allVersions) {
-      const existing = versionsByGuidelineId.get(v.guidelineId) ?? [];
-      existing.push(v);
-      versionsByGuidelineId.set(v.guidelineId, existing);
-    }
-
-    // Batch fetch all tags and relations
-    const tagsByEntryId = batchFetchTags(db, 'guideline', guidelineIds);
-    const relationsByEntryId = batchFetchRelations(db, 'guideline', guidelineIds);
-
-    for (const guideline of guidelineList) {
-      const versions = versionsByGuidelineId.get(guideline.id) ?? [];
-      const currentVersion = versions.find((v) => v.id === guideline.currentVersionId);
-      const guidelineTagNames = tagsByEntryId.get(guideline.id) ?? [];
-      const relations = relationsByEntryId.get(guideline.id) ?? [];
-
-      // Filter by tags if specified
-      if (options.tags && options.tags.length > 0) {
-        const tagNamesLower = guidelineTagNames.map((t) => t.toLowerCase());
-        const hasRequiredTag = options.tags.some((tag) => tagNamesLower.includes(tag.toLowerCase()));
-        if (!hasRequiredTag) continue;
-      }
-
-      entries.guidelines.push({
-        id: guideline.id,
-        scopeType: guideline.scopeType,
-        scopeId: guideline.scopeId,
-        name: guideline.name,
-        category: guideline.category,
-        priority: guideline.priority,
-        isActive: guideline.isActive,
-        createdAt: guideline.createdAt,
-        createdBy: guideline.createdBy,
-        currentVersion,
-        versions: options.includeVersions ? versions : undefined,
-        tags: guidelineTagNames,
-        relations,
-      });
-    }
-  }
-
-  // Export knowledge
-  if (types.includes('knowledge')) {
-    const conditions = [];
-
-    if (options.scopeType) {
-      if (options.scopeId === null || options.scopeId === undefined) {
-        conditions.push(and(eq(knowledge.scopeType, options.scopeType), isNull(knowledge.scopeId)));
-      } else {
-        conditions.push(
-          and(eq(knowledge.scopeType, options.scopeType), eq(knowledge.scopeId, options.scopeId))
-        );
-      }
-    }
-
-    if (!options.includeInactive) {
-      conditions.push(eq(knowledge.isActive, true));
-    }
-
-    let query = db.select().from(knowledge);
-    if (conditions.length > 0) {
-      query = query.where(and(...conditions)) as typeof query;
-    }
-
-    // Security: Limit number of entries to prevent memory exhaustion
-    const knowledgeList = query.limit(MAX_EXPORT_ENTRIES_PER_TYPE).all();
-    const knowledgeIds = knowledgeList.map((k) => k.id);
-
-    // Batch fetch all versions for all knowledge entries
-    const allVersions =
-      knowledgeIds.length > 0
-        ? db
-            .select()
-            .from(knowledgeVersions)
-            .where(inArray(knowledgeVersions.knowledgeId, knowledgeIds))
-            .all()
-        : [];
-    const versionsByKnowledgeId = new Map<string, KnowledgeVersion[]>();
-    for (const v of allVersions) {
-      const existing = versionsByKnowledgeId.get(v.knowledgeId) ?? [];
-      existing.push(v);
-      versionsByKnowledgeId.set(v.knowledgeId, existing);
-    }
-
-    // Batch fetch all tags and relations
-    const tagsByEntryId = batchFetchTags(db, 'knowledge', knowledgeIds);
-    const relationsByEntryId = batchFetchRelations(db, 'knowledge', knowledgeIds);
-
-    for (const know of knowledgeList) {
-      const versions = versionsByKnowledgeId.get(know.id) ?? [];
-      const currentVersion = versions.find((v) => v.id === know.currentVersionId);
-      const knowledgeTagNames = tagsByEntryId.get(know.id) ?? [];
-      const relations = relationsByEntryId.get(know.id) ?? [];
-
-      // Filter by tags if specified
-      if (options.tags && options.tags.length > 0) {
-        const tagNamesLower = knowledgeTagNames.map((t) => t.toLowerCase());
-        const hasRequiredTag = options.tags.some((tag) => tagNamesLower.includes(tag.toLowerCase()));
-        if (!hasRequiredTag) continue;
-      }
-
-      entries.knowledge.push({
-        id: know.id,
-        scopeType: know.scopeType,
-        scopeId: know.scopeId,
-        title: know.title,
-        category: know.category,
-        isActive: know.isActive,
-        createdAt: know.createdAt,
-        createdBy: know.createdBy,
-        currentVersion,
-        versions: options.includeVersions ? versions : undefined,
-        tags: knowledgeTagNames,
-        relations,
-      });
-    }
-  }
 
   return {
     version: '1.0',
@@ -437,7 +430,11 @@ function queryEntries(options: ExportOptions): ExportData {
       scopeType: options.scopeType,
       scopeId: options.scopeId,
     },
-    entries,
+    entries: {
+      tools: types.includes('tools') ? queryToolsForExport(db, options) : [],
+      guidelines: types.includes('guidelines') ? queryGuidelinesForExport(db, options) : [],
+      knowledge: types.includes('knowledge') ? queryKnowledgeForExport(db, options) : [],
+    },
   };
 }
 

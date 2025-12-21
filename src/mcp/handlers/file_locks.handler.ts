@@ -12,6 +12,13 @@ import {
   isNumber,
   isObject,
 } from '../../utils/type-guards.js';
+import type {
+  FileCheckoutParams,
+  FileCheckinParams,
+  FileLockStatusParams,
+  FileLockListParams,
+  FileLockForceUnlockParams,
+} from '../types.js';
 
 /**
  * Validate that a file path is absolute and safe
@@ -49,7 +56,7 @@ function validateFilePath(filePath: string): void {
 }
 
 export const fileLockHandlers = {
-  checkout(params: Record<string, unknown>) {
+  checkout(params: FileCheckoutParams) {
     const file_path = getRequiredParam(params, 'file_path', isString);
     const agent_id = getRequiredParam(params, 'agent_id', isString);
     const session_id = getOptionalParam(params, 'session_id', isString);
@@ -69,7 +76,7 @@ export const fileLockHandlers = {
     return { success: true, lock };
   },
 
-  checkin(params: Record<string, unknown>) {
+  checkin(params: FileCheckinParams) {
     const file_path = getRequiredParam(params, 'file_path', isString);
     const agent_id = getRequiredParam(params, 'agent_id', isString);
 
@@ -80,7 +87,7 @@ export const fileLockHandlers = {
     return { success: true, message: `File ${file_path} checked in successfully` };
   },
 
-  status(params: Record<string, unknown>) {
+  status(params: FileLockStatusParams) {
     const file_path = getRequiredParam(params, 'file_path', isString);
 
     validateFilePath(file_path);
@@ -95,7 +102,7 @@ export const fileLockHandlers = {
     };
   },
 
-  list(params: Record<string, unknown>) {
+  list(params: FileLockListParams) {
     const project_id = getOptionalParam(params, 'project_id', isString);
     const session_id = getOptionalParam(params, 'session_id', isString);
     const agent_id = getOptionalParam(params, 'agent_id', isString);
@@ -113,7 +120,7 @@ export const fileLockHandlers = {
     };
   },
 
-  forceUnlock(params: Record<string, unknown>) {
+  forceUnlock(params: FileLockForceUnlockParams) {
     const file_path = getRequiredParam(params, 'file_path', isString);
     const agent_id = getRequiredParam(params, 'agent_id', isString);
     const reason = getOptionalParam(params, 'reason', isString);

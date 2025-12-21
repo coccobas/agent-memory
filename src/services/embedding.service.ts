@@ -12,6 +12,11 @@ import { pipeline } from '@xenova/transformers';
 import { createComponentLogger } from '../utils/logger.js';
 import { withRetry, isRetryableNetworkError } from '../utils/retry.js';
 import { config } from '../config/index.js';
+import {
+  createEmbeddingDisabledError,
+  createEmbeddingEmptyTextError,
+  createEmbeddingProviderError,
+} from '../mcp/errors.js';
 
 const logger = createComponentLogger('embedding');
 
@@ -104,13 +109,13 @@ class EmbeddingService {
    */
   async embed(text: string): Promise<EmbeddingResult> {
     if (this.provider === 'disabled') {
-      throw new Error('Embeddings are disabled');
+      throw createEmbeddingDisabledError();
     }
 
     // Normalize text
     const normalized = text.trim();
     if (!normalized) {
-      throw new Error('Cannot embed empty text');
+      throw createEmbeddingEmptyTextError();
     }
 
     // Check cache - use LRU pattern by deleting and re-inserting on access
@@ -158,7 +163,7 @@ class EmbeddingService {
    */
   async embedBatch(texts: string[]): Promise<EmbeddingBatchResult> {
     if (this.provider === 'disabled') {
-      throw new Error('Embeddings are disabled');
+      throw createEmbeddingDisabledError();
     }
 
     if (texts.length === 0) {
@@ -218,7 +223,7 @@ class EmbeddingService {
    */
   private async embedOpenAI(text: string): Promise<number[]> {
     if (!this.openaiClient) {
-      throw new Error('OpenAI client not initialized');
+      throw createEmbeddingProviderError('OpenAI', 'Client not initialized');
     }
 
     return withRetry(
@@ -231,7 +236,7 @@ class EmbeddingService {
 
         const embedding = response.data[0]?.embedding;
         if (!embedding) {
-          throw new Error('No embedding returned from OpenAI');
+          throw createEmbeddingProviderError('OpenAI', 'No embedding returned');
         }
         return embedding;
       },
@@ -249,7 +254,7 @@ class EmbeddingService {
    */
   private async embedBatchOpenAI(texts: string[]): Promise<number[][]> {
     if (!this.openaiClient) {
-      throw new Error('OpenAI client not initialized');
+      throw createEmbeddingProviderError('OpenAI', 'Client not initialized');
     }
 
     return withRetry(
@@ -305,8 +310,9 @@ class EmbeddingService {
 
       return embedding;
     } catch (error) {
-      throw new Error(
-        `Local embedding failed: ${error instanceof Error ? error.message : String(error)}`
+      throw createEmbeddingProviderError(
+        'Local',
+        error instanceof Error ? error.message : String(error)
       );
     }
   }

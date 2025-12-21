@@ -216,13 +216,18 @@ export function syncFTSForEntry(_entryType: EntryType, _entryId: string): void {
 }
 
 /**
- * Escape query string for FTS5
+ * Escape query string for FTS5 - preserves structure
  *
  * FTS5 has special characters that need escaping:
- * - Double quotes need to be escaped
- * - Some operators need special handling
+ * - Double quotes are escaped to ""
+ * - If query contains operators, wraps in quotes to treat as phrase
+ *
+ * Use this when you want to preserve the query structure for phrase matching.
+ *
+ * @param query - Raw search query
+ * @returns Escaped query safe for FTS5 MATCH
  */
-function escapeFTSQuery(query: string): string {
+export function escapeFts5Query(query: string): string {
   // Replace double quotes with escaped version
   let escaped = query.replace(/"/g, '""');
 
@@ -232,6 +237,43 @@ function escapeFTSQuery(query: string): string {
   }
 
   return escaped;
+}
+
+/**
+ * Simple FTS5 quote escaping - just escapes double quotes
+ *
+ * Use this for simple escaping when you'll apply your own query logic.
+ *
+ * @param query - Raw search query
+ * @returns Query with double quotes escaped
+ */
+export function escapeFts5Quotes(query: string): string {
+  return query.replace(/"/g, '""');
+}
+
+// Internal alias for backwards compatibility
+const escapeFTSQuery = escapeFts5Query;
+
+/**
+ * Escape query string for FTS5 MATCH - tokenized mode
+ *
+ * Converts input to plain tokens for similarity matching.
+ * Use this when the goal is fuzzy/similarity matching rather than
+ * preserving the exact query structure.
+ *
+ * @param input - Raw search input
+ * @returns Cleaned string with only alphanumeric tokens separated by spaces
+ */
+export function escapeFts5QueryTokenized(input: string): string {
+  return (
+    input
+      // Remove quotes and asterisks (FTS5 operators)
+      .replace(/["*]/g, '')
+      // Normalize kebab/snake/camel-ish identifiers into tokens
+      // FTS5 MATCH has its own query syntax; reducing to plain tokens avoids parse errors
+      .replace(/[^a-zA-Z0-9]+/g, ' ')
+      .trim()
+  );
 }
 
 /**

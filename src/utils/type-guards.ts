@@ -118,11 +118,11 @@ export function getParam<T>(
  * @returns Validated value or undefined
  */
 export function getOptionalParam<T>(
-  params: Record<string, unknown>,
+  params: object,
   key: string,
   typeGuard: (value: unknown) => value is T
 ): T | undefined {
-  const value = params[key];
+  const value = (params as Record<string, unknown>)[key];
   if (value === undefined) {
     return undefined;
   }
@@ -248,12 +248,12 @@ export function isConversationStatus(value: unknown): value is 'active' | 'compl
  * @returns Validated value
  */
 export function getRequiredParam<T>(
-  params: Record<string, unknown>,
+  params: object,
   key: string,
   typeGuard: (value: unknown) => value is T,
   customError?: string
 ): T {
-  const value = params[key];
+  const value = (params as Record<string, unknown>)[key];
   if (value === undefined) {
     throw new Error(customError || `${key} is required`);
   }

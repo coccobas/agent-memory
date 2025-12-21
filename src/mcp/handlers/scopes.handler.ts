@@ -24,6 +24,18 @@ import {
 import { formatTimestamps } from '../../utils/timestamp-formatter.js';
 import { getCriticalGuidelinesForSession } from '../../services/critical-guidelines.service.js';
 import { requireAdminKey } from '../../utils/admin.js';
+import type {
+  OrgCreateParams,
+  OrgListParams,
+  ProjectCreateParams,
+  ProjectListParams,
+  ProjectGetParams,
+  ProjectUpdateParams,
+  ProjectDeleteParams,
+  SessionStartParams,
+  SessionEndParams,
+  SessionListParams,
+} from '../types.js';
 
 /**
  * Type guard to check if a value is a valid session status
@@ -37,7 +49,7 @@ export const scopeHandlers = {
   // ORGANIZATIONS
   // ===========================================================================
 
-  orgCreate(params: Record<string, unknown>) {
+  orgCreate(params: OrgCreateParams & { adminKey?: string }) {
     // Security: Org creation requires admin authentication
     requireAdminKey(params);
 
@@ -53,7 +65,7 @@ export const scopeHandlers = {
     return formatTimestamps({ success: true, organization: org });
   },
 
-  orgList(params: Record<string, unknown>) {
+  orgList(params: OrgListParams) {
     const limit = getOptionalParam(params, 'limit', isNumber);
     const offset = getOptionalParam(params, 'offset', isNumber);
 
@@ -70,7 +82,7 @@ export const scopeHandlers = {
   // PROJECTS
   // ===========================================================================
 
-  projectCreate(params: Record<string, unknown>) {
+  projectCreate(params: ProjectCreateParams & { adminKey?: string }) {
     // Security: Project creation requires admin authentication
     requireAdminKey(params);
 
@@ -92,7 +104,7 @@ export const scopeHandlers = {
     return formatTimestamps({ success: true, project });
   },
 
-  projectList(params: Record<string, unknown>) {
+  projectList(params: ProjectListParams) {
     const orgId = getOptionalParam(params, 'orgId', isString);
     const limit = getOptionalParam(params, 'limit', isNumber);
     const offset = getOptionalParam(params, 'offset', isNumber);
@@ -106,7 +118,7 @@ export const scopeHandlers = {
     });
   },
 
-  projectGet(params: Record<string, unknown>) {
+  projectGet(params: ProjectGetParams) {
     const id = getOptionalParam(params, 'id', isString);
     const name = getOptionalParam(params, 'name', isString);
     const orgId = getOptionalParam(params, 'orgId', isString);
@@ -129,7 +141,7 @@ export const scopeHandlers = {
     return formatTimestamps({ project });
   },
 
-  projectUpdate(params: Record<string, unknown>) {
+  projectUpdate(params: ProjectUpdateParams & { adminKey?: string }) {
     // Security: Project update requires admin authentication
     requireAdminKey(params);
 
@@ -153,7 +165,7 @@ export const scopeHandlers = {
     return formatTimestamps({ success: true, project });
   },
 
-  projectDelete(params: Record<string, unknown>) {
+  projectDelete(params: ProjectDeleteParams & { adminKey?: string }) {
     // Security: Project deletion requires admin authentication
     requireAdminKey(params);
 
@@ -178,7 +190,7 @@ export const scopeHandlers = {
   // SESSIONS
   // ===========================================================================
 
-  sessionStart(params: Record<string, unknown>) {
+  sessionStart(params: SessionStartParams) {
     const projectId = getOptionalParam(params, 'projectId', isString);
     const name = getOptionalParam(params, 'name', isString);
     const purpose = getOptionalParam(params, 'purpose', isString);
@@ -205,7 +217,7 @@ export const scopeHandlers = {
     });
   },
 
-  sessionEnd(params: Record<string, unknown>) {
+  sessionEnd(params: SessionEndParams) {
     const id = getRequiredParam(params, 'id', isString);
     const status = getOptionalParam(params, 'status', isSessionStatus);
 
@@ -217,7 +229,7 @@ export const scopeHandlers = {
     return formatTimestamps({ success: true, session });
   },
 
-  sessionList(params: Record<string, unknown>) {
+  sessionList(params: SessionListParams) {
     const projectId = getOptionalParam(params, 'projectId', isString);
     const status = getOptionalParam(params, 'status', isSessionStatus);
     const limit = getOptionalParam(params, 'limit', isNumber);

@@ -10,11 +10,12 @@ import {
   consolidate,
   findSimilarGroups,
   archiveStale,
-  type ConsolidationParams,
+  type ConsolidationParams as ServiceConsolidationParams,
   type ConsolidationStrategy,
 } from '../../services/consolidation.service.js';
 import { isScopeType, isString, isNumber, isBoolean, isArray } from '../../utils/type-guards.js';
 import type { EntryType } from '../../db/schema.js';
+import type { ConsolidationParams } from '../types.js';
 import { formatTimestamps } from '../../utils/timestamp-formatter.js';
 
 // =============================================================================
@@ -117,7 +118,7 @@ function isEntryTypeArray(v: unknown): v is EntryType[] {
 // HANDLER
 // =============================================================================
 
-export async function handleConsolidation(args: Record<string, unknown>): Promise<unknown> {
+export async function handleConsolidation(args: ConsolidationParams): Promise<unknown> {
   const action = args.action;
   if (!isConsolidationAction(action)) {
     throw new Error(
@@ -234,7 +235,7 @@ export async function handleConsolidation(args: Record<string, unknown>): Promis
     throw new Error(`Unknown action: ${action}`);
   }
 
-  const params: ConsolidationParams = {
+  const serviceParams: ServiceConsolidationParams = {
     scopeType,
     scopeId,
     entryTypes,
@@ -245,7 +246,7 @@ export async function handleConsolidation(args: Record<string, unknown>): Promis
     consolidatedBy,
   };
 
-  const result = await consolidate(params);
+  const result = await consolidate(serviceParams);
 
   return formatTimestamps({
     action,

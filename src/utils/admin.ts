@@ -25,17 +25,18 @@ export function getConfiguredAdminKey(): string | null {
   return key && key.length > 0 ? key : null;
 }
 
-export function requireAdminKey(params: Record<string, unknown>): void {
+export function requireAdminKey(params: object): void {
   const configured = getConfiguredAdminKey();
   if (!configured) {
     throw new AdminAuthError('Admin key not configured. Set AGENT_MEMORY_ADMIN_KEY.');
   }
 
+  const p = params as Record<string, unknown>;
   const provided =
-    typeof params.admin_key === 'string'
-      ? params.admin_key
-      : typeof params.adminKey === 'string'
-        ? params.adminKey
+    typeof p.admin_key === 'string'
+      ? p.admin_key
+      : typeof p.adminKey === 'string'
+        ? p.adminKey
         : null;
 
   if (!provided || !safeEqual(provided, configured)) {

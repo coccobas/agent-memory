@@ -32,6 +32,18 @@ let isInitialized = false;
 // Cache for prepared statements with LRU eviction
 const preparedStatementCache = new Map<string, Database.Statement>();
 
+/**
+ * Test-only helper to bind prepared statements to an externally managed SQLite instance.
+ *
+ * Many unit/integration tests mock `getDb()` to point at an isolated in-memory or file DB.
+ * Some code paths use prepared statements directly, which otherwise rely on the internal
+ * connection singleton. This hook lets tests keep both consistent.
+ */
+export function setSqliteInstanceForTests(sqlite: Database.Database | null): void {
+  sqliteInstance = sqlite;
+  preparedStatementCache.clear();
+}
+
 export interface ConnectionOptions {
   dbPath?: string;
   readonly?: boolean;

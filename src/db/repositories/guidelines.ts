@@ -1,13 +1,8 @@
-import { eq, and, isNull, desc, asc, inArray, or } from 'drizzle-orm';
+import { eq, and, isNull, desc, asc, inArray } from 'drizzle-orm';
 import { getDb } from '../connection.js';
 import {
   guidelines,
   guidelineVersions,
-  conflictLog,
-  entryTags,
-  entryRelations,
-  entryEmbeddings,
-  permissions,
   type Guideline,
   type NewGuideline,
   type GuidelineVersion,
@@ -16,14 +11,15 @@ import {
 } from '../schema.js';
 import {
   generateId,
-  CONFLICT_WINDOW_MS,
   type PaginationOptions,
   DEFAULT_LIMIT,
   MAX_LIMIT,
+  cascadeDeleteRelatedRecords,
+  asyncVectorCleanup,
+  checkAndLogConflict,
 } from './base.js';
 import { transaction } from '../connection.js';
 import { generateEmbeddingAsync, extractTextForEmbedding } from './embedding-hooks.js';
-import { getVectorService } from '../../services/vector.service.js';
 
 // =============================================================================
 // TYPES
@@ -334,25 +330,10 @@ export const guidelineRepo = {
       const newVersionNum = (latestVersion?.versionNum ?? 0) + 1;
       const newVersionId = generateId();
 
-      // Check for conflict
-      let conflictFlag = false;
-      if (latestVersion) {
-        const lastWriteTime = new Date(latestVersion.createdAt).getTime();
-        const currentTime = Date.now();
-        if (currentTime - lastWriteTime < CONFLICT_WINDOW_MS) {
-          conflictFlag = true;
-
-          db.insert(conflictLog)
-            .values({
-              id: generateId(),
-              entryType: 'guideline',
-              entryId: id,
-              versionAId: latestVersion.id,
-              versionBId: newVersionId,
-            })
-            .run();
-        }
-      }
+      // Check for conflict using shared helper
+      const conflictFlag = latestVersion
+        ? checkAndLogConflict('guideline', id, latestVersion.id, newVersionId, new Date(latestVersion.createdAt))
+        : false;
 
       // Update guideline metadata if needed
       if (input.category !== undefined || input.priority !== undefined) {
@@ -434,16 +415,8 @@ export const guidelineRepo = {
       .run();
     const success = result.changes > 0;
 
-    // Remove from vector search when deactivated (async, fire-and-forget)
     if (success) {
-      void (async () => {
-        try {
-          const vectorService = getVectorService();
-          await vectorService.removeEmbedding('guideline', id);
-        } catch {
-          // Error already logged in vector service
-        }
-      })();
+      asyncVectorCleanup('guideline', id);
     }
 
     return success;
@@ -465,50 +438,19 @@ export const guidelineRepo = {
     const result = transaction(() => {
       const db = getDb();
 
-      // Delete related records first (cascade cleanup)
-      // 1. Delete tags associated with this entry
-      db.delete(entryTags)
-        .where(and(eq(entryTags.entryType, 'guideline'), eq(entryTags.entryId, id)))
-        .run();
+      // Delete related records (tags, relations, embeddings, permissions)
+      cascadeDeleteRelatedRecords('guideline', id);
 
-      // 2. Delete relations where this entry is source or target
-      db.delete(entryRelations)
-        .where(
-          or(
-            and(eq(entryRelations.sourceType, 'guideline'), eq(entryRelations.sourceId, id)),
-            and(eq(entryRelations.targetType, 'guideline'), eq(entryRelations.targetId, id))
-          )
-        )
-        .run();
-
-      // 3. Delete embedding tracking records
-      db.delete(entryEmbeddings)
-        .where(and(eq(entryEmbeddings.entryType, 'guideline'), eq(entryEmbeddings.entryId, id)))
-        .run();
-
-      // 4. Delete entry-specific permissions
-      db.delete(permissions)
-        .where(and(eq(permissions.entryType, 'guideline'), eq(permissions.entryId, id)))
-        .run();
-
-      // 5. Delete versions
+      // Delete versions
       db.delete(guidelineVersions).where(eq(guidelineVersions.guidelineId, id)).run();
 
-      // 6. Delete guideline
+      // Delete guideline
       const deleteResult = db.delete(guidelines).where(eq(guidelines.id, id)).run();
       return deleteResult.changes > 0;
     });
 
-    // Clean up vector embeddings asynchronously (fire-and-forget)
     if (result) {
-      void (async () => {
-        try {
-          const vectorService = getVectorService();
-          await vectorService.removeEmbedding('guideline', id);
-        } catch (error) {
-          // Error already logged in vector service
-        }
-      })();
+      asyncVectorCleanup('guideline', id);
     }
 
     return result;

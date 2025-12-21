@@ -60,6 +60,7 @@ export const ErrorCodes = {
   INVALID_ACTION: 'E1002',
   INVALID_FILE_PATH: 'E1003',
   INVALID_PARAMETER: 'E1004',
+  SIZE_LIMIT_EXCEEDED: 'E1005',
 
   // Resource errors (2000-2999)
   NOT_FOUND: 'E2000',
@@ -78,6 +79,7 @@ export const ErrorCodes = {
   // System errors (5000-5999)
   UNKNOWN_ERROR: 'E5000',
   INTERNAL_ERROR: 'E5001',
+  SERVICE_UNAVAILABLE: 'E5002',
 
   // Permission errors (6000-6999)
   PERMISSION_DENIED: 'E6000',
@@ -87,6 +89,17 @@ export const ErrorCodes = {
   EXTRACTION_FAILED: 'E7001',
   EXTRACTION_PARSE_ERROR: 'E7002',
   EXTRACTION_TIMEOUT: 'E7003',
+
+  // Embedding errors (8000-8999)
+  EMBEDDING_DISABLED: 'E8000',
+  EMBEDDING_FAILED: 'E8001',
+  EMBEDDING_EMPTY_TEXT: 'E8002',
+  EMBEDDING_PROVIDER_ERROR: 'E8003',
+
+  // Vector errors (9000-9999)
+  VECTOR_DB_ERROR: 'E9000',
+  VECTOR_NOT_INITIALIZED: 'E9001',
+  VECTOR_INVALID_INPUT: 'E9002',
 } as const;
 
 /**
@@ -213,6 +226,123 @@ export function createExtractionUnavailableError(): AgentMemoryError {
         'Set AGENT_MEMORY_EXTRACTION_PROVIDER to openai, anthropic, or ollama and provide the necessary API key',
     }
   );
+}
+
+/**
+ * Create an embedding disabled error
+ */
+export function createEmbeddingDisabledError(): AgentMemoryError {
+  return new AgentMemoryError('Embeddings are disabled', ErrorCodes.EMBEDDING_DISABLED, {
+    suggestion: 'Enable embeddings by setting AGENT_MEMORY_ENABLE_EMBEDDINGS=true',
+  });
+}
+
+/**
+ * Create an embedding error
+ */
+export function createEmbeddingError(
+  message: string,
+  details?: Record<string, unknown>
+): AgentMemoryError {
+  return new AgentMemoryError(`Embedding failed: ${message}`, ErrorCodes.EMBEDDING_FAILED, {
+    ...details,
+    suggestion: 'Check embedding provider configuration and API keys',
+  });
+}
+
+/**
+ * Create an embedding empty text error
+ */
+export function createEmbeddingEmptyTextError(): AgentMemoryError {
+  return new AgentMemoryError('Cannot embed empty text', ErrorCodes.EMBEDDING_EMPTY_TEXT, {
+    suggestion: 'Provide non-empty text for embedding',
+  });
+}
+
+/**
+ * Create an embedding provider error
+ */
+export function createEmbeddingProviderError(
+  provider: string,
+  message: string
+): AgentMemoryError {
+  return new AgentMemoryError(
+    `${provider} embedding error: ${message}`,
+    ErrorCodes.EMBEDDING_PROVIDER_ERROR,
+    { provider, suggestion: `Check ${provider} API key and configuration` }
+  );
+}
+
+/**
+ * Create a vector database error
+ */
+export function createVectorDbError(
+  operation: string,
+  message: string,
+  details?: Record<string, unknown>
+): AgentMemoryError {
+  return new AgentMemoryError(
+    `Vector database error during ${operation}: ${message}`,
+    ErrorCodes.VECTOR_DB_ERROR,
+    { operation, ...details, suggestion: 'Check vector database configuration' }
+  );
+}
+
+/**
+ * Create a vector not initialized error
+ */
+export function createVectorNotInitializedError(): AgentMemoryError {
+  return new AgentMemoryError(
+    'Vector database connection not initialized',
+    ErrorCodes.VECTOR_NOT_INITIALIZED,
+    { suggestion: 'Ensure vector database is properly configured and connected' }
+  );
+}
+
+/**
+ * Create a vector invalid input error
+ */
+export function createVectorInvalidInputError(
+  fieldName: string,
+  reason: string
+): AgentMemoryError {
+  return new AgentMemoryError(
+    `Invalid ${fieldName}: ${reason}`,
+    ErrorCodes.VECTOR_INVALID_INPUT,
+    { field: fieldName, suggestion: 'Provide valid input for the vector operation' }
+  );
+}
+
+/**
+ * Create a size limit exceeded error
+ */
+export function createSizeLimitError(
+  field: string,
+  maxSize: number,
+  actualSize: number,
+  unit: string = 'characters'
+): AgentMemoryError {
+  return new AgentMemoryError(
+    `${field} exceeds maximum ${unit} of ${maxSize} (got ${actualSize})`,
+    ErrorCodes.SIZE_LIMIT_EXCEEDED,
+    { field, maxSize, actualSize, unit }
+  );
+}
+
+/**
+ * Create a service unavailable error
+ */
+export function createServiceUnavailableError(
+  service: string,
+  reason?: string
+): AgentMemoryError {
+  const message = reason
+    ? `${service} is unavailable: ${reason}`
+    : `${service} is unavailable`;
+  return new AgentMemoryError(message, ErrorCodes.SERVICE_UNAVAILABLE, {
+    service,
+    suggestion: `Check ${service} configuration and dependencies`,
+  });
 }
 
 /**

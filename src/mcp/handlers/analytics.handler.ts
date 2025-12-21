@@ -10,20 +10,13 @@ import {
   detectLowDiversity,
 } from '../../services/error-correlation.service.js';
 import type { ScopeType } from '../../db/schema.js';
-
-export interface AnalyticsGetStatsParams {
-  scopeType?: ScopeType;
-  scopeId?: string;
-  startDate?: string; // ISO timestamp
-  endDate?: string; // ISO timestamp
-}
-
-export interface AnalyticsGetTrendsParams {
-  scopeType?: ScopeType;
-  scopeId?: string;
-  startDate?: string; // ISO timestamp
-  endDate?: string; // ISO timestamp
-}
+import type {
+  AnalyticsGetStatsParams,
+  AnalyticsGetTrendsParams,
+  AnalyticsGetSubtaskStatsParams,
+  AnalyticsGetErrorCorrelationParams,
+  AnalyticsGetLowDiversityParams,
+} from '../types.js';
 
 /**
  * Get usage statistics
@@ -89,20 +82,11 @@ export function getTrendsHandler(params: AnalyticsGetTrendsParams): {
  * Get subtask execution analytics
  */
 export function getSubtaskStatsHandler(
-  params: Record<string, unknown>
+  params: AnalyticsGetSubtaskStatsParams
 ): ReturnType<typeof getSubtaskStats> {
-  const { projectId, subtaskType, startDate, endDate } = params as {
-    projectId?: string;
-    subtaskType?: string;
-    startDate?: string;
-    endDate?: string;
-  };
-
   return getSubtaskStats({
-    projectId,
-    subtaskType,
-    startDate,
-    endDate,
+    projectId: params.projectId,
+    subtaskType: params.subtaskType,
   });
 }
 
@@ -110,22 +94,16 @@ export function getSubtaskStatsHandler(
  * Calculate error correlation between two agents
  */
 export function getErrorCorrelationHandler(
-  params: Record<string, unknown>
+  params: AnalyticsGetErrorCorrelationParams
 ): ReturnType<typeof calculateErrorCorrelation> {
-  const { agentA, agentB, timeWindow } = params as {
-    agentA: string;
-    agentB: string;
-    timeWindow?: { start: string; end: string };
-  };
-
-  if (!agentA || !agentB) {
+  if (!params.agentA || !params.agentB) {
     throw new Error('agentA and agentB are required');
   }
 
   return calculateErrorCorrelation({
-    agentA,
-    agentB,
-    timeWindow,
+    agentA: params.agentA,
+    agentB: params.agentB,
+    timeWindow: params.timeWindow,
   });
 }
 
@@ -133,12 +111,9 @@ export function getErrorCorrelationHandler(
  * Detect low diversity across all agent pairs in a project
  */
 export function getLowDiversityHandler(
-  params: Record<string, unknown>
+  params: AnalyticsGetLowDiversityParams & { projectId?: string }
 ): ReturnType<typeof detectLowDiversity> {
-  const { projectId } = params as {
-    projectId: string;
-  };
-
+  const projectId = params.projectId ?? params.scopeId;
   if (!projectId) {
     throw new Error('projectId is required');
   }

@@ -69,6 +69,11 @@ export interface ProjectGetParams {
   orgId?: string;
 }
 
+export interface ProjectDeleteParams {
+  id: string;
+  confirm?: boolean;
+}
+
 // =============================================================================
 // SESSION PARAMS
 // =============================================================================
@@ -247,17 +252,20 @@ export interface KnowledgeDeactivateParams {
 // =============================================================================
 
 export interface TagCreateParams {
+  agentId: string;
   name: string;
   category?: 'language' | 'domain' | 'category' | 'meta' | 'custom';
   description?: string;
 }
 
 export interface TagListParams extends PaginationParams {
+  agentId: string;
   category?: 'language' | 'domain' | 'category' | 'meta' | 'custom';
   isPredefined?: boolean;
 }
 
 export interface TagAttachParams {
+  agentId: string;
   entryType: EntryType;
   entryId: string;
   tagId?: string;
@@ -265,12 +273,14 @@ export interface TagAttachParams {
 }
 
 export interface TagDetachParams {
+  agentId: string;
   entryType: EntryType;
   entryId: string;
   tagId: string;
 }
 
 export interface TagsForEntryParams {
+  agentId: string;
   entryType: EntryType;
   entryId: string;
 }
@@ -474,6 +484,205 @@ export interface ObserveExtractParams {
 
 export interface ObserveStatusParams {
   // No params needed
+}
+
+export interface ObserveDraftParams {
+  sessionId: string;
+  projectId?: string;
+}
+
+export interface ObserveCommitParams {
+  sessionId: string;
+  projectId?: string;
+  entries: Array<{
+    type: 'guideline' | 'knowledge' | 'tool';
+    content: string;
+    confidence: number;
+    name?: string;
+    title?: string;
+    category?: string;
+    priority?: number;
+    rationale?: string;
+    suggestedTags?: string[];
+  }>;
+  autoPromote?: boolean;
+  autoPromoteThreshold?: number;
+  agentId?: string;
+}
+
+// =============================================================================
+// CONSOLIDATION PARAMS
+// =============================================================================
+
+export type ConsolidationAction = 'find_similar' | 'dedupe' | 'merge' | 'abstract' | 'archive_stale';
+
+export interface ConsolidationParams {
+  action: ConsolidationAction;
+  scopeType: ScopeType;
+  scopeId?: string;
+  entryTypes?: EntryType[];
+  threshold?: number;
+  staleDays?: number;
+  minRecencyScore?: number;
+  limit?: number;
+  dryRun?: boolean;
+  consolidatedBy?: string;
+}
+
+// =============================================================================
+// HOOK PARAMS
+// =============================================================================
+
+export type HookIde = 'claude' | 'cursor' | 'vscode';
+
+export interface HookGenerateParams {
+  ide: HookIde;
+  projectPath: string;
+  projectId?: string;
+  sessionId?: string;
+}
+
+export interface HookInstallParams {
+  ide: HookIde;
+  projectPath: string;
+  projectId?: string;
+  sessionId?: string;
+}
+
+export interface HookStatusParams {
+  ide: HookIde;
+  projectPath: string;
+}
+
+export interface HookUninstallParams {
+  ide: HookIde;
+  projectPath: string;
+}
+
+// =============================================================================
+// VERIFICATION PARAMS
+// =============================================================================
+
+export interface VerificationPreCheckParams {
+  sessionId: string;
+  agentId: string;
+  projectId?: string;
+  proposedAction: {
+    type: 'file_write' | 'code_generate' | 'api_call' | 'command' | 'other';
+    description?: string;
+    filePath?: string;
+    content?: string;
+    metadata?: Record<string, unknown>;
+  };
+}
+
+export interface VerificationPostCheckParams {
+  sessionId: string;
+  agentId: string;
+  projectId?: string;
+  completedAction?: {
+    type: string;
+    description?: string;
+    filePath?: string;
+    success: boolean;
+    metadata?: Record<string, unknown>;
+  };
+  content?: string;
+}
+
+export interface VerificationAcknowledgeParams {
+  sessionId: string;
+  agentId: string;
+  projectId?: string;
+  guidelineIds: string[];
+}
+
+export interface VerificationStatusParams {
+  sessionId: string;
+  agentId?: string;
+  projectId?: string;
+}
+
+// =============================================================================
+// ANALYTICS PARAMS
+// =============================================================================
+
+export interface AnalyticsGetStatsParams {
+  scopeType?: ScopeType;
+  scopeId?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface AnalyticsGetTrendsParams {
+  scopeType?: ScopeType;
+  scopeId?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface AnalyticsGetSubtaskStatsParams {
+  projectId: string;
+  subtaskType?: string;
+}
+
+export interface AnalyticsGetErrorCorrelationParams {
+  agentA: string;
+  agentB: string;
+  timeWindow?: {
+    start: string;
+    end: string;
+  };
+}
+
+export interface AnalyticsGetLowDiversityParams {
+  scopeType?: ScopeType;
+  scopeId?: string;
+}
+
+// =============================================================================
+// VOTING PARAMS
+// =============================================================================
+
+export interface VotingRecordVoteParams {
+  taskId: string;
+  agentId: string;
+  voteValue: unknown;
+  confidence?: number;
+  reasoning?: string;
+}
+
+export interface VotingGetConsensusParams {
+  taskId: string;
+  k?: number;
+}
+
+export interface VotingListVotesParams extends PaginationParams {
+  taskId: string;
+}
+
+export interface VotingGetStatsParams {
+  taskId: string;
+}
+
+// =============================================================================
+// BACKUP PARAMS
+// =============================================================================
+
+export interface BackupCreateParams {
+  name?: string;
+}
+
+export interface BackupListParams {
+  limit?: number;
+}
+
+export interface BackupCleanupParams {
+  keepCount?: number;
+}
+
+export interface BackupRestoreParams {
+  filename: string;
 }
 
 // Re-export common types for convenience

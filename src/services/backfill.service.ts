@@ -23,6 +23,7 @@ import { extractTextForEmbedding, type EntryType } from '../db/repositories/embe
 import { generateId } from '../db/repositories/base.js';
 import { createComponentLogger } from '../utils/logger.js';
 import { config } from '../config/index.js';
+import { createServiceUnavailableError } from '../mcp/errors.js';
 
 const logger = createComponentLogger('backfill');
 
@@ -63,7 +64,7 @@ export async function backfillEmbeddings(options: BackfillOptions = {}): Promise
   const embeddingService = getEmbeddingService();
 
   if (!embeddingService.isAvailable()) {
-    throw new Error('Embeddings are not available. Please configure an embedding provider.');
+    throw createServiceUnavailableError('Embeddings', 'Please configure an embedding provider');
   }
 
   const vectorService = getVectorService();

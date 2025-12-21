@@ -7,8 +7,6 @@
 
 import { getDb } from '../connection.js';
 import { entryEmbeddings } from '../schema.js';
-import { getEmbeddingService } from '../../services/embedding.service.js';
-import { getVectorService } from '../../services/vector.service.js';
 import { generateId } from './base.js';
 import { createComponentLogger } from '../../utils/logger.js';
 import { config } from '../../config/index.js';
@@ -22,6 +20,33 @@ interface EmbeddingInput {
   entryId: string;
   versionId: string;
   text: string;
+}
+
+export type EmbeddingPipeline = {
+  isAvailable: () => boolean;
+  embed: (
+    text: string
+  ) => Promise<{ embedding: number[]; model: string; provider: 'openai' | 'local' | 'disabled' }>;
+  storeEmbedding: (
+    entryType: EntryType,
+    entryId: string,
+    versionId: string,
+    text: string,
+    embedding: number[],
+    model: string
+  ) => Promise<void>;
+};
+
+let embeddingPipeline: EmbeddingPipeline | null = null;
+
+/**
+ * Register the embedding pipeline (LLM embed + vector store).
+ *
+ * Repository code should not import service implementations directly; this hook
+ * lets the service layer wire itself in at startup.
+ */
+export function registerEmbeddingPipeline(pipeline: EmbeddingPipeline | null): void {
+  embeddingPipeline = pipeline;
 }
 
 // =============================================================================
@@ -45,15 +70,16 @@ function getMaxConcurrency(): number {
 }
 
 async function runEmbeddingJob(input: QueuedEmbeddingInput): Promise<void> {
-  const embeddingService = getEmbeddingService();
+  const pipeline = embeddingPipeline;
+  if (!pipeline) return;
 
   // Skip if embeddings are disabled
-  if (!embeddingService.isAvailable()) {
+  if (!pipeline.isAvailable()) {
     return;
   }
 
   // Generate embedding
-  const result = await embeddingService.embed(input.text);
+  const result = await pipeline.embed(input.text);
 
   // If a newer job was enqueued for this entry, do not persist stale embeddings.
   const latestSeq = latestSeqByKey.get(input.__key);
@@ -62,8 +88,7 @@ async function runEmbeddingJob(input: QueuedEmbeddingInput): Promise<void> {
   }
 
   // Store in vector database
-  const vectorService = getVectorService();
-  await vectorService.storeEmbedding(
+  await pipeline.storeEmbedding(
     input.entryType,
     input.entryId,
     input.versionId,

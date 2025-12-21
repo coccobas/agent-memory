@@ -1,602 +1,144 @@
 /**
  * Tool registry handlers
+ *
+ * Uses the generic handler factory to eliminate code duplication.
  */
 
+import { toolRepo, type CreateToolInput, type UpdateToolInput, type ToolWithVersion } from '../../db/repositories/tools.js';
+import { createCrudHandlers } from './factory.js';
 import {
-  toolRepo,
-  type CreateToolInput,
-  type UpdateToolInput,
-} from '../../db/repositories/tools.js';
-import { requirePermission, checkPermissionForFilter } from '../helpers/permissions.js';
-import { transaction } from '../../db/connection.js';
-import { checkForDuplicates } from '../../services/duplicate.service.js';
-import { logAction } from '../../services/audit.service.js';
-import { detectRedFlags } from '../../services/redflag.service.js';
-import { invalidateCacheEntry } from '../../services/query.service.js';
+  getRequiredParam,
+  getOptionalParam,
+  isString,
+  isObject,
+  isArray,
+  isToolCategory,
+} from '../../utils/type-guards.js';
 import {
-  validateEntry,
   validateTextLength,
   validateJsonSize,
   validateArrayLength,
   SIZE_LIMITS,
 } from '../../services/validation.service.js';
-import { createValidationError, createNotFoundError } from '../errors.js';
-import { createComponentLogger } from '../../utils/logger.js';
-import {
-  getRequiredParam,
-  getOptionalParam,
-  isString,
-  isScopeType,
-  isObject,
-  isArray,
-  isNumber,
-  isBoolean,
-  isToolCategory,
-  isArrayOfObjects,
-} from '../../utils/type-guards.js';
-import { formatTimestamps } from '../../utils/timestamp-formatter.js';
+import type { ScopeType } from '../../db/schema.js';
 
-const logger = createComponentLogger('tools');
+// Type-specific extractors for the factory
 
-import type { ToolAddParams, ToolUpdateParams } from '../types.js';
+function extractAddParams(
+  params: Record<string, unknown>,
+  defaults: { scopeType?: ScopeType; scopeId?: string }
+): CreateToolInput {
+  const name = getRequiredParam(params, 'name', isString);
+  const category = getOptionalParam(params, 'category', isToolCategory);
+  const description = getOptionalParam(params, 'description', isString);
+  const parameters = getOptionalParam(params, 'parameters', isObject);
+  const examples = getOptionalParam(params, 'examples', isArray);
+  const constraints = getOptionalParam(params, 'constraints', isString);
+  const createdBy = getOptionalParam(params, 'createdBy', isString);
 
+  // Validate input sizes
+  validateTextLength(name, 'name', SIZE_LIMITS.NAME_MAX_LENGTH);
+  validateTextLength(description, 'description', SIZE_LIMITS.DESCRIPTION_MAX_LENGTH);
+  validateJsonSize(parameters, 'parameters', SIZE_LIMITS.PARAMETERS_MAX_BYTES);
+  validateJsonSize(examples, 'examples', SIZE_LIMITS.EXAMPLES_MAX_BYTES);
+
+  return {
+    scopeType: defaults.scopeType!,
+    scopeId: defaults.scopeId,
+    name,
+    category,
+    description,
+    parameters,
+    examples,
+    constraints,
+    createdBy,
+  };
+}
+
+function extractUpdateParams(params: Record<string, unknown>): UpdateToolInput {
+  const description = getOptionalParam(params, 'description', isString);
+  const parameters = getOptionalParam(params, 'parameters', isObject);
+  const examples = getOptionalParam(params, 'examples', isArray);
+  const constraints = getOptionalParam(params, 'constraints', isString);
+  const changeReason = getOptionalParam(params, 'changeReason', isString);
+  const updatedBy = getOptionalParam(params, 'updatedBy', isString);
+
+  // Validate input sizes
+  validateTextLength(description, 'description', SIZE_LIMITS.DESCRIPTION_MAX_LENGTH);
+  validateJsonSize(parameters, 'parameters', SIZE_LIMITS.PARAMETERS_MAX_BYTES);
+  validateJsonSize(examples, 'examples', SIZE_LIMITS.EXAMPLES_MAX_BYTES);
+
+  const input: UpdateToolInput = {};
+  if (description !== undefined) input.description = description;
+  if (parameters !== undefined) input.parameters = parameters;
+  if (examples !== undefined) input.examples = examples;
+  if (constraints !== undefined) input.constraints = constraints;
+  if (changeReason !== undefined) input.changeReason = changeReason;
+  if (updatedBy !== undefined) input.updatedBy = updatedBy;
+
+  return input;
+}
+
+function getNameValue(params: Record<string, unknown>): string {
+  return getRequiredParam(params, 'name', isString);
+}
+
+function getContentForRedFlags(entry: ToolWithVersion): string {
+  return entry.currentVersion?.description || '';
+}
+
+function getValidationData(
+  params: Record<string, unknown>,
+  existingEntry?: ToolWithVersion
+): Record<string, unknown> {
+  const name = existingEntry?.name ?? getOptionalParam(params, 'name', isString);
+  const description = getOptionalParam(params, 'description', isString);
+  const parameters = getOptionalParam(params, 'parameters', isObject);
+  const examples = getOptionalParam(params, 'examples', isArray);
+  const constraints = getOptionalParam(params, 'constraints', isString);
+
+  return { name, description, parameters, examples, constraints };
+}
+
+function extractListFilters(params: Record<string, unknown>): Record<string, unknown> {
+  const category = getOptionalParam(params, 'category', isToolCategory);
+  return { category };
+}
+
+// Create handlers using factory
+const baseHandlers = createCrudHandlers<ToolWithVersion, CreateToolInput, UpdateToolInput>({
+  entryType: 'tool',
+  repo: toolRepo,
+  responseKey: 'tool',
+  responseListKey: 'tools',
+  nameField: 'name',
+  extractAddParams,
+  extractUpdateParams,
+  getNameValue,
+  getContentForRedFlags,
+  getValidationData,
+  extractListFilters,
+});
+
+// Export with any tool-specific overrides
 export const toolHandlers = {
-  add(params: Record<string, unknown>) {
-    const scopeType = getRequiredParam(params, 'scopeType', isScopeType);
-    const scopeId = getOptionalParam(params, 'scopeId', isString);
-    const name = getRequiredParam(params, 'name', isString);
-    const category = getOptionalParam(params, 'category', isToolCategory);
-    const description = getOptionalParam(params, 'description', isString);
-    const parameters = getOptionalParam(params, 'parameters', isObject);
-    const examples = getOptionalParam(params, 'examples', isArray);
-    const constraints = getOptionalParam(params, 'constraints', isString);
-    const createdBy = getOptionalParam(params, 'createdBy', isString);
-    const agentId = getRequiredParam(params, 'agentId', isString);
+  ...baseHandlers,
 
-    if (scopeType !== 'global' && !scopeId) {
-      throw createValidationError(
-        'scopeId',
-        `is required for ${scopeType} scope`,
-        'Provide the ID of the parent scope'
-      );
-    }
-
-    // Validate input sizes
-    validateTextLength(name, 'name', SIZE_LIMITS.NAME_MAX_LENGTH);
-    validateTextLength(description, 'description', SIZE_LIMITS.DESCRIPTION_MAX_LENGTH);
-    validateJsonSize(parameters, 'parameters', SIZE_LIMITS.PARAMETERS_MAX_BYTES);
-    validateJsonSize(examples, 'examples', SIZE_LIMITS.EXAMPLES_MAX_BYTES);
-
-    // Check permission (write required for add)
-    requirePermission(agentId, 'write', scopeType, scopeId, 'tool');
-
-    // Check for duplicates (warn but don't block)
-    const duplicateCheck = checkForDuplicates('tool', name, scopeType, scopeId ?? null);
-    if (duplicateCheck.isDuplicate) {
-      logger.warn(
-        {
-          toolName: name,
-          scopeType,
-          scopeId,
-          similarEntries: duplicateCheck.similarEntries.map((e) => ({
-            name: e.name,
-            similarity: e.similarity,
-          })),
-        },
-        'Potential duplicate tool found'
-      );
-    }
-
-    // Validate entry data
-    const validation = validateEntry(
-      'tool',
-      { name, description, parameters, examples, constraints },
-      scopeType,
-      scopeId
-    );
-    if (!validation.valid) {
-      throw createValidationError(
-        'entry',
-        `Validation failed: ${validation.errors.map((e) => e.message).join(', ')}`,
-        'Check the validation errors and correct the input data'
-      );
-    }
-
-    const input: CreateToolInput = {
-      scopeType,
-      scopeId,
-      name,
-      category,
-      description,
-      parameters: parameters,
-      examples: examples,
-      constraints,
-      createdBy,
-    };
-
-    const tool = toolRepo.create(input);
-
-    // Check for red flags
-    const redFlags = detectRedFlags({
-      type: 'tool',
-      content: description || '',
-    });
-    if (redFlags.length > 0) {
-      logger.warn(
-        {
-          toolName: name,
-          toolId: tool.id,
-          redFlags: redFlags.map((f) => ({
-            pattern: f.pattern,
-            severity: f.severity,
-            description: f.description,
-          })),
-        },
-        'Red flags detected in tool'
-      );
-    }
-
-    // Log audit
-    logAction({
-      agentId,
-      action: 'create',
-      entryType: 'tool',
-      entryId: tool.id,
-      scopeType,
-      scopeId: scopeId ?? null,
-    });
-
-    return formatTimestamps({
-      success: true,
-      tool,
-      redFlags: redFlags.length > 0 ? redFlags : undefined,
-    });
-  },
-
-  update(params: Record<string, unknown>) {
-    const id = getRequiredParam(params, 'id', isString);
-    const description = getOptionalParam(params, 'description', isString);
-    const parameters = getOptionalParam(params, 'parameters', isObject);
-    const examples = getOptionalParam(params, 'examples', isArray);
-    const constraints = getOptionalParam(params, 'constraints', isString);
-    const changeReason = getOptionalParam(params, 'changeReason', isString);
-    const updatedBy = getOptionalParam(params, 'updatedBy', isString);
-    const agentId = getRequiredParam(params, 'agentId', isString);
-
-    // Get tool to check scope and permission
-    const existingTool = toolRepo.getById(id);
-    if (!existingTool) {
-      throw createNotFoundError('tool', id);
-    }
-
-    // Validate input sizes
-    validateTextLength(description, 'description', SIZE_LIMITS.DESCRIPTION_MAX_LENGTH);
-    validateJsonSize(parameters, 'parameters', SIZE_LIMITS.PARAMETERS_MAX_BYTES);
-    validateJsonSize(examples, 'examples', SIZE_LIMITS.EXAMPLES_MAX_BYTES);
-
-    // Check permission (write required for update)
-    requirePermission(agentId, 'write', existingTool.scopeType, existingTool.scopeId, 'tool');
-
-    const input: UpdateToolInput = {};
-    if (description !== undefined) input.description = description;
-    if (parameters !== undefined) input.parameters = parameters;
-    if (examples !== undefined) input.examples = examples;
-    if (constraints !== undefined) input.constraints = constraints;
-    if (changeReason !== undefined) input.changeReason = changeReason;
-    if (updatedBy !== undefined) input.updatedBy = updatedBy;
-
-    // Validate entry data (include existing name for validation)
-    const validation = validateEntry(
-      'tool',
-      { name: existingTool.name, description, parameters, examples, constraints },
-      existingTool.scopeType,
-      existingTool.scopeId ?? undefined
-    );
-    if (!validation.valid) {
-      throw createValidationError(
-        'entry',
-        `Validation failed: ${validation.errors.map((e) => e.message).join(', ')}`,
-        'Check the validation errors and correct the input data'
-      );
-    }
-
-    const tool = toolRepo.update(id, input);
-    if (!tool) {
-      throw createNotFoundError('tool', id);
-    }
-
-    // Invalidate cache for this entry
-    invalidateCacheEntry('tool', id);
-
-    // Log audit
-    logAction({
-      agentId,
-      action: 'update',
-      entryType: 'tool',
-      entryId: id,
-      scopeType: existingTool.scopeType,
-      scopeId: existingTool.scopeId ?? null,
-    });
-
-    return formatTimestamps({ success: true, tool });
-  },
-
-  get(params: Record<string, unknown>) {
-    const id = getOptionalParam(params, 'id', isString);
-    const name = getOptionalParam(params, 'name', isString);
-    const scopeType = getOptionalParam(params, 'scopeType', isScopeType);
-    const scopeId = getOptionalParam(params, 'scopeId', isString);
-    const inherit = getOptionalParam(params, 'inherit', isBoolean);
-    const agentId = getRequiredParam(params, 'agentId', isString);
-
-    if (!id && !name) {
-      throw createValidationError(
-        'id or name',
-        'is required',
-        'Provide either the tool ID or name with scopeType'
-      );
-    }
-
-    let tool;
-    if (id) {
-      tool = toolRepo.getById(id);
-    } else if (name && scopeType) {
-      tool = toolRepo.getByName(name, scopeType, scopeId, inherit ?? true);
-    } else {
-      throw createValidationError(
-        'scopeType',
-        'is required when using name',
-        'Provide scopeType when searching by name'
-      );
-    }
-
-    if (!tool) {
-      throw createNotFoundError('tool', id || name);
-    }
-
-    // Check permission (read required for get)
-    requirePermission(agentId, 'read', tool.scopeType, tool.scopeId, 'tool');
-
-    // Log audit
-    logAction({
-      agentId,
-      action: 'read',
-      entryType: 'tool',
-      entryId: tool.id,
-      scopeType: tool.scopeType,
-      scopeId: tool.scopeId ?? null,
-    });
-
-    return formatTimestamps({ tool });
-  },
-
-  list(params: Record<string, unknown>) {
-    const agentId = getRequiredParam(params, 'agentId', isString);
-    const scopeType = getOptionalParam(params, 'scopeType', isScopeType);
-    const scopeId = getOptionalParam(params, 'scopeId', isString);
-    const category = getOptionalParam(params, 'category', isToolCategory);
-    const includeInactive = getOptionalParam(params, 'includeInactive', isBoolean);
-    const limit = getOptionalParam(params, 'limit', isNumber);
-    const offset = getOptionalParam(params, 'offset', isNumber);
-
-    const all = toolRepo.list(
-      { scopeType, scopeId, category, includeInactive },
-      { limit, offset }
-    );
-    const tools = all.filter((t) =>
-      checkPermissionForFilter(agentId, 'read', 'tool', t.id, t.scopeType, t.scopeId ?? null)
-    );
-
-    return formatTimestamps({
-      tools,
-      meta: {
-        returnedCount: tools.length,
-      },
-    });
-  },
-
-  history(params: Record<string, unknown>) {
-    const id = getRequiredParam(params, 'id', isString);
-    const agentId = getRequiredParam(params, 'agentId', isString);
-
-    const tool = toolRepo.getById(id);
-    if (!tool) {
-      throw createNotFoundError('tool', id);
-    }
-    requirePermission(agentId, 'read', tool.scopeType, tool.scopeId, 'tool');
-
-    const versions = toolRepo.getHistory(id);
-    return formatTimestamps({ versions });
-  },
-
-  deactivate(params: Record<string, unknown>) {
-    const id = getRequiredParam(params, 'id', isString);
-    const agentId = getRequiredParam(params, 'agentId', isString);
-
-    // Get tool to check scope and permission
-    const existingTool = toolRepo.getById(id);
-    if (!existingTool) {
-      throw createNotFoundError('tool', id);
-    }
-
-    // Check permission (delete/write required for deactivate)
-    requirePermission(agentId, 'write', existingTool.scopeType, existingTool.scopeId, 'tool');
-
-    const success = toolRepo.deactivate(id);
-    if (!success) {
-      throw createNotFoundError('tool', id);
-    }
-
-    // Log audit
-    logAction({
-      agentId,
-      action: 'delete',
-      entryType: 'tool',
-      entryId: id,
-      scopeType: existingTool.scopeType,
-      scopeId: existingTool.scopeId ?? null,
-    });
-
-    return { success: true };
-  },
-
-  delete(params: Record<string, unknown>) {
-    const id = getRequiredParam(params, 'id', isString);
-    const agentId = getRequiredParam(params, 'agentId', isString);
-
-    // Get tool to check scope and permission
-    const existingTool = toolRepo.getById(id);
-    if (!existingTool) {
-      throw createNotFoundError('tool', id);
-    }
-
-    // Check permission (delete required for hard delete)
-    requirePermission(agentId, 'write', existingTool.scopeType, existingTool.scopeId, 'tool');
-
-    const success = toolRepo.delete(id);
-    if (!success) {
-      throw createNotFoundError('tool', id);
-    }
-
-    // Invalidate cache for this entry
-    invalidateCacheEntry('tool', id);
-
-    // Log audit
-    logAction({
-      agentId,
-      action: 'delete',
-      entryType: 'tool',
-      entryId: id,
-      scopeType: existingTool.scopeType,
-      scopeId: existingTool.scopeId ?? null,
-    });
-
-    return { success: true, message: 'Tool permanently deleted' };
-  },
-
+  // Override bulk_add to include size limit validation
   bulk_add(params: Record<string, unknown>) {
-    const entries = getRequiredParam(params, 'entries', isArrayOfObjects);
-    const agentId = getRequiredParam(params, 'agentId', isString);
-    // Allow top-level scopeType/scopeId as defaults for all entries
-    const defaultScopeType = getOptionalParam(params, 'scopeType', isScopeType);
-    const defaultScopeId = getOptionalParam(params, 'scopeId', isString);
-
-    // Validate bulk operation size
-    validateArrayLength(entries, 'entries', SIZE_LIMITS.BULK_OPERATION_MAX);
-
-    if (entries.length === 0) {
-      throw createValidationError(
-        'entries',
-        'must be a non-empty array',
-        'Provide an array of tool entries to add'
-      );
+    const entries = params.entries;
+    if (isArray(entries)) {
+      validateArrayLength(entries, 'entries', SIZE_LIMITS.BULK_OPERATION_MAX);
     }
-
-    // Check permissions for all entries
-    for (const entry of entries) {
-      if (!isObject(entry)) continue;
-      const entryObj = entry as unknown as ToolAddParams;
-      const entryScopeType = entryObj.scopeType ?? defaultScopeType;
-      const entryScopeId = entryObj.scopeId ?? defaultScopeId;
-      requirePermission(agentId, 'write', entryScopeType, entryScopeId, 'tool');
-    }
-
-    // Execute in transaction for atomicity
-    const results = transaction(() => {
-      return entries.map((entry) => {
-        // Validate entry structure
-        if (!isObject(entry)) {
-          throw createValidationError(
-            'entry',
-            'must be an object',
-            'Each entry must be a valid object'
-          );
-        }
-
-        const entryObj = entry as unknown as ToolAddParams;
-        // Use entry-level scope if provided, otherwise fall back to top-level defaults
-        const scopeType = isScopeType(entryObj.scopeType)
-          ? entryObj.scopeType
-          : defaultScopeType
-            ? defaultScopeType
-            : (() => {
-                throw createValidationError(
-                  'scopeType',
-                  'is required and must be a valid scope type',
-                  "Specify 'global', 'org', 'project', or 'session' at entry or top level"
-                );
-              })();
-        const scopeId = entryObj.scopeId ?? defaultScopeId;
-        const name = isString(entryObj.name)
-          ? entryObj.name
-          : (() => {
-              throw createValidationError(
-                'name',
-                'is required',
-                'Provide a unique name for the tool'
-              );
-            })();
-        const category = entryObj.category;
-        const description = entryObj.description;
-        const parameters = entryObj.parameters;
-        const examples = entryObj.examples;
-        const constraints = entryObj.constraints;
-        const createdBy = entryObj.createdBy;
-
-        if (!scopeType) {
-          throw createValidationError(
-            'scopeType',
-            'is required',
-            "Specify 'global', 'org', 'project', or 'session'"
-          );
-        }
-        if (!name) {
-          throw createValidationError('name', 'is required', 'Provide a unique name for the tool');
-        }
-        if (scopeType !== 'global' && !scopeId) {
-          throw createValidationError(
-            'scopeId',
-            `is required for ${scopeType} scope`,
-            'Provide the ID of the parent scope'
-          );
-        }
-
-        const input: CreateToolInput = {
-          scopeType,
-          scopeId,
-          name,
-          category,
-          description,
-          parameters: parameters,
-          examples: examples,
-          constraints,
-          createdBy,
-        };
-
-        return toolRepo.create(input);
-      });
-    });
-
-    return formatTimestamps({ success: true, tools: results, count: results.length });
+    return baseHandlers.bulk_add(params);
   },
 
+  // Override bulk_update to include size limit validation
   bulk_update(params: Record<string, unknown>) {
-    const updates = getRequiredParam(params, 'updates', isArrayOfObjects);
-    const agentId = getRequiredParam(params, 'agentId', isString);
-
-    // Validate bulk operation size
-    validateArrayLength(updates, 'updates', SIZE_LIMITS.BULK_OPERATION_MAX);
-
-    if (updates.length === 0) {
-      throw createValidationError(
-        'updates',
-        'must be a non-empty array',
-        'Provide an array of tool updates'
-      );
+    const updates = params.updates;
+    if (isArray(updates)) {
+      validateArrayLength(updates, 'updates', SIZE_LIMITS.BULK_OPERATION_MAX);
     }
-
-    // Check permissions for all entries
-    for (const update of updates) {
-      if (!isObject(update)) continue;
-      const updateObj = update as unknown as { id: string } & ToolUpdateParams;
-      const existingTool = toolRepo.getById(updateObj.id);
-      if (!existingTool) {
-        throw createNotFoundError('tool', updateObj.id);
-      }
-      requirePermission(agentId, 'write', existingTool.scopeType, existingTool.scopeId, 'tool');
-    }
-
-    // Execute in transaction
-    const results = transaction(() => {
-      return updates.map((update) => {
-        // Validate update structure
-        if (!isObject(update)) {
-          throw createValidationError(
-            'update',
-            'must be an object',
-            'Each update must be a valid object'
-          );
-        }
-
-        const updateObj = update as unknown as { id: string } & ToolUpdateParams;
-        const id = isString(updateObj.id)
-          ? updateObj.id
-          : (() => {
-              throw createValidationError('id', 'is required', 'Provide the tool ID to update');
-            })();
-        const description = updateObj.description;
-        const parameters = updateObj.parameters;
-        const examples = updateObj.examples;
-        const constraints = updateObj.constraints;
-        const changeReason = updateObj.changeReason;
-        const updatedBy = updateObj.updatedBy;
-
-        const input: UpdateToolInput = {};
-        if (description !== undefined) input.description = description;
-        if (parameters !== undefined) input.parameters = parameters;
-        if (examples !== undefined) input.examples = examples;
-        if (constraints !== undefined) input.constraints = constraints;
-        if (changeReason !== undefined) input.changeReason = changeReason;
-        if (updatedBy !== undefined) input.updatedBy = updatedBy;
-
-        const tool = toolRepo.update(id, input);
-        if (!tool) {
-          throw createNotFoundError('tool', id);
-        }
-
-        return tool;
-      });
-    });
-
-    return formatTimestamps({ success: true, tools: results, count: results.length });
-  },
-
-  bulk_delete(params: Record<string, unknown>) {
-    const idsParam = getRequiredParam(params, 'ids', isArray);
-    const agentId = getRequiredParam(params, 'agentId', isString);
-
-    // Validate all IDs are strings
-    const ids: string[] = [];
-    for (let i = 0; i < idsParam.length; i++) {
-      const id = idsParam[i];
-      if (!isString(id)) {
-        throw createValidationError(
-          'ids',
-          `element at index ${i} is not a string`,
-          'All IDs must be strings'
-        );
-      }
-      ids.push(id);
-    }
-
-    if (ids.length === 0) {
-      throw createValidationError(
-        'ids',
-        'must be a non-empty array',
-        'Provide an array of tool IDs to delete'
-      );
-    }
-
-    // Check permissions for all entries
-    for (const id of ids) {
-      const existingTool = toolRepo.getById(id);
-      if (!existingTool) {
-        throw createNotFoundError('tool', id);
-      }
-      requirePermission(agentId, 'write', existingTool.scopeType, existingTool.scopeId, 'tool');
-    }
-
-    // Execute in transaction
-    const results = transaction(() => {
-      return ids.map((id) => {
-        const success = toolRepo.deactivate(id);
-        if (!success) {
-          throw createNotFoundError('tool', id);
-        }
-        return { id, success: true };
-      });
-    });
-
-    return formatTimestamps({ success: true, deleted: results, count: results.length });
+    return baseHandlers.bulk_update(params);
   },
 };

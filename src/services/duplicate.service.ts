@@ -9,19 +9,7 @@ import { getDb, getPreparedStatement } from '../db/connection.js';
 import { tools, guidelines, knowledge } from '../db/schema.js';
 import { eq, and, isNull, inArray } from 'drizzle-orm';
 import type { ScopeType, EntryType } from '../db/schema.js';
-
-function escapeFts5Query(input: string): string {
-  // Keep this conservative: remove characters that have special meaning in MATCH syntax.
-  // This aligns with executeFts5Search() in query.service.ts.
-  return (
-    input
-      .replace(/["*]/g, '')
-      // Normalize kebab/snake/camel-ish identifiers into tokens.
-      // FTS5 MATCH has its own query syntax; reducing to plain tokens avoids parse errors.
-      .replace(/[^a-zA-Z0-9]+/g, ' ')
-      .trim()
-  );
-}
+import { escapeFts5QueryTokenized } from './fts.service.js';
 
 /**
  * Calculate Levenshtein distance with early termination optimization
@@ -137,7 +125,7 @@ export function findSimilarEntries(
 ): SimilarEntry[] {
   const db = getDb();
 
-  const ftsQuery = escapeFts5Query(name);
+  const ftsQuery = escapeFts5QueryTokenized(name);
   if (!ftsQuery) return [];
 
   if (entryType === 'tool') {

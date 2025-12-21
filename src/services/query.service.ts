@@ -30,6 +30,8 @@ import { createComponentLogger } from '../utils/logger.js';
 import { LRUCache } from '../utils/lru-cache.js';
 import { getMemoryCoordinator } from '../utils/memory-coordinator.js';
 import { config } from '../config/index.js';
+import { loadVersionsBatched } from './query/load-versions-batched.js';
+import { fuzzyTextMatches, regexTextMatches, textMatches } from './query/text-matching.js';
 import {
   DEFAULT_SEMANTIC_THRESHOLD,
   SEMANTIC_SCORE_WEIGHT,
@@ -39,39 +41,6 @@ import {
 } from '../utils/constants.js';
 
 const logger = createComponentLogger('query');
-
-// Security: Maximum lengths for search inputs to prevent DoS
-const MAX_SEARCH_STRING_LENGTH = 10000; // 10KB limit for search strings
-const MAX_REGEX_PATTERN_LENGTH = 500; // Limit regex pattern length
-
-/**
- * Check if a regex pattern is safe (no ReDoS potential).
- * Rejects patterns with nested quantifiers that could cause exponential backtracking.
- *
- * Security: Prevents Regular Expression Denial of Service attacks.
- */
-function isSafeRegexPattern(pattern: string): boolean {
-  // Check length first
-  if (pattern.length > MAX_REGEX_PATTERN_LENGTH) {
-    return false;
-  }
-
-  // Detect dangerous patterns: nested quantifiers that cause catastrophic backtracking
-  const dangerousPatterns = [
-    /\([^)]*[+*?]\)[+*?]/, // Nested quantifiers: (x+)+, (x*)+, (x?)*, etc.
-    /\([^)]*\)\{[^}]*\}[+*?]/, // Quantified groups with trailing quantifier
-    /([+*?])\1{2,}/, // Multiple consecutive quantifiers: +++, ***, ???
-    /\[[^\]]*\][+*?]\{/, // Character class with quantifier and brace
-  ];
-
-  for (const dangerous of dangerousPatterns) {
-    if (dangerous.test(pattern)) {
-      return false;
-    }
-  }
-
-  return true;
-}
 
 type QueryEntryType = 'tool' | 'guideline' | 'knowledge';
 
@@ -1082,133 +1051,6 @@ function priorityInRange(priority: number | null | undefined, min?: number, max?
   return true;
 }
 
-/**
- * Calculate Levenshtein distance with early termination optimization
- *
- * When maxDistance is provided, the algorithm exits early if the minimum
- * possible distance in the current row exceeds the threshold. This reduces
- * time complexity from O(n×m) to O(n×k) where k is the distance threshold.
- *
- * @param str1 - First string
- * @param str2 - Second string
- * @param maxDistance - Optional maximum distance threshold for early termination
- * @returns The Levenshtein distance, or maxDistance+1 if threshold exceeded
- */
-function levenshteinDistance(str1: string, str2: string, maxDistance?: number): number {
-  const len1 = str1.length;
-  const len2 = str2.length;
-
-  // Early termination: if length difference exceeds maxDistance, no need to compute
-  if (maxDistance !== undefined && Math.abs(len1 - len2) > maxDistance) {
-    return maxDistance + 1;
-  }
-
-  // Optimize by ensuring str1 is the shorter string (reduces matrix columns)
-  if (len1 > len2) {
-    return levenshteinDistance(str2, str1, maxDistance);
-  }
-
-  // Use single row optimization (O(min(m,n)) space instead of O(m×n))
-  let prevRow: number[] = Array(len1 + 1)
-    .fill(0)
-    .map((_, i) => i);
-  let currRow: number[] = Array(len1 + 1).fill(0);
-
-  for (let j = 1; j <= len2; j++) {
-    currRow[0] = j;
-    let rowMin = j; // Track minimum value in current row for early termination
-
-    for (let i = 1; i <= len1; i++) {
-      const cost = str1[i - 1] === str2[j - 1] ? 0 : 1;
-
-      currRow[i] = Math.min(
-        (prevRow[i] ?? 0) + 1, // deletion
-        (currRow[i - 1] ?? 0) + 1, // insertion
-        (prevRow[i - 1] ?? 0) + cost // substitution
-      );
-
-      if (currRow[i]! < rowMin) {
-        rowMin = currRow[i]!;
-      }
-    }
-
-    // Early termination: if minimum possible distance exceeds threshold, abort
-    if (maxDistance !== undefined && rowMin > maxDistance) {
-      return maxDistance + 1;
-    }
-
-    // Swap rows
-    [prevRow, currRow] = [currRow, prevRow];
-  }
-
-  return prevRow[len1] ?? 0;
-}
-
-/**
- * Check if text matches with fuzzy matching
- * Uses early termination optimization for Levenshtein distance
- */
-function fuzzyTextMatches(haystack: string | null | undefined, needle: string): boolean {
-  if (!haystack) return false;
-
-  const haystackLower = haystack.toLowerCase();
-  const needleLower = needle.toLowerCase();
-
-  // First try exact substring match (fast path)
-  if (haystackLower.includes(needleLower)) return true;
-
-  // Calculate similarity threshold-based max distance for early termination
-  // If similarity >= 0.7 is required, then distance <= 0.3 * maxLen
-  const maxLen = Math.max(haystackLower.length, needleLower.length);
-  if (maxLen === 0) return true;
-
-  // Calculate max allowed distance for early termination
-  const maxAllowedDistance = Math.floor(maxLen * (1 - DEFAULT_SEMANTIC_THRESHOLD));
-
-  // Use early termination optimization
-  const distance = levenshteinDistance(haystackLower, needleLower, maxAllowedDistance);
-
-  // If distance exceeds threshold, it returns maxAllowedDistance + 1
-  return distance <= maxAllowedDistance;
-}
-
-/**
- * Check if text matches using regex
- *
- * Security: Validates pattern for ReDoS safety and limits haystack length.
- */
-function regexTextMatches(haystack: string | null | undefined, pattern: string): boolean {
-  if (!haystack) return false;
-
-  // Security: Limit haystack length to prevent DoS with very long strings
-  const limitedHaystack =
-    haystack.length > MAX_SEARCH_STRING_LENGTH ? haystack.slice(0, MAX_SEARCH_STRING_LENGTH) : haystack;
-
-  // Security: Validate pattern before creating RegExp to prevent ReDoS
-  if (!isSafeRegexPattern(pattern)) {
-    logger.warn({ pattern }, 'Rejected potentially dangerous regex pattern (ReDoS risk)');
-    // Fall back to simple string match for unsafe patterns
-    return limitedHaystack.toLowerCase().includes(pattern.toLowerCase());
-  }
-
-  try {
-    const regex = new RegExp(pattern, 'i'); // Case-insensitive
-    return regex.test(limitedHaystack);
-  } catch {
-    // Invalid regex, fall back to simple match
-    return limitedHaystack.toLowerCase().includes(pattern.toLowerCase());
-  }
-}
-
-// =============================================================================
-// SCORING
-// =============================================================================
-
-function textMatches(haystack: string | null | undefined, needle: string): boolean {
-  if (!haystack) return false;
-  return haystack.toLowerCase().includes(needle.toLowerCase());
-}
-
 // =============================================================================
 // DECAY FUNCTIONS
 // =============================================================================
@@ -1510,91 +1352,6 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
     params.limit && params.limit > 0 ? params.limit : config.pagination.defaultLimit;
   const limit = Math.min(Math.floor(rawLimit), config.pagination.maxLimit);
 
-  // New: Batched version loading helper
-  function loadVersionsBatched(
-    toolIds: string[],
-    guidelineIds: string[],
-    knowledgeIds: string[]
-  ): {
-    tools: Map<string, { current: ToolVersion; history: ToolVersion[] }>;
-    guidelines: Map<string, { current: GuidelineVersion; history: GuidelineVersion[] }>;
-    knowledge: Map<string, { current: KnowledgeVersion; history: KnowledgeVersion[] }>;
-  } {
-    const result = {
-      tools: new Map<string, { current: ToolVersion; history: ToolVersion[] }>(),
-      guidelines: new Map<string, { current: GuidelineVersion; history: GuidelineVersion[] }>(),
-      knowledge: new Map<string, { current: KnowledgeVersion; history: KnowledgeVersion[] }>(),
-    };
-
-    if (toolIds.length > 0) {
-      const versions = db
-        .select()
-        .from(toolVersions)
-        .where(inArray(toolVersions.toolId, toolIds))
-        .all();
-
-      const map = new Map<string, ToolVersion[]>();
-      for (const v of versions) {
-        const list = map.get(v.toolId) ?? [];
-        list.push(v);
-        map.set(v.toolId, list);
-      }
-
-      for (const [id, list] of map) {
-        list.sort((a, b) => b.versionNum - a.versionNum);
-        if (list[0]) {
-          result.tools.set(id, { current: list[0], history: list });
-        }
-      }
-    }
-
-    if (guidelineIds.length > 0) {
-      const versions = db
-        .select()
-        .from(guidelineVersions)
-        .where(inArray(guidelineVersions.guidelineId, guidelineIds))
-        .all();
-
-      const map = new Map<string, GuidelineVersion[]>();
-      for (const v of versions) {
-        const list = map.get(v.guidelineId) ?? [];
-        list.push(v);
-        map.set(v.guidelineId, list);
-      }
-
-      for (const [id, list] of map) {
-        list.sort((a, b) => b.versionNum - a.versionNum);
-        if (list[0]) {
-          result.guidelines.set(id, { current: list[0], history: list });
-        }
-      }
-    }
-
-    if (knowledgeIds.length > 0) {
-      const versions = db
-        .select()
-        .from(knowledgeVersions)
-        .where(inArray(knowledgeVersions.knowledgeId, knowledgeIds))
-        .all();
-
-      const map = new Map<string, KnowledgeVersion[]>();
-      for (const v of versions) {
-        const list = map.get(v.knowledgeId) ?? [];
-        list.push(v);
-        map.set(v.knowledgeId, list);
-      }
-
-      for (const [id, list] of map) {
-        list.sort((a, b) => b.versionNum - a.versionNum);
-        if (list[0]) {
-          result.knowledge.set(id, { current: list[0], history: list });
-        }
-      }
-    }
-
-    return result;
-  }
-
   // Use graph traversal for relatedTo queries (supports depth, direction, maxResults)
   const relatedIds = getRelatedEntryIdsWithTraversal(params.relatedTo);
   const search = params.search?.trim();
@@ -1802,7 +1559,12 @@ export function executeMemoryQuery(params: MemoryQueryParams): MemoryQueryResult
     // We call this per type loop, which is efficient enough as we process types sequentially
     // Ideally we'd collect ALL first, but the structure is loop-based.
     // Given we only process each type once, this is fine.
-    const batchedVersions = loadVersionsBatched(batchToolIds, batchGuidelineIds, batchKnowledgeIds);
+    const batchedVersions = loadVersionsBatched(
+      db,
+      batchToolIds,
+      batchGuidelineIds,
+      batchKnowledgeIds
+    );
 
     // Get FTS5 matching rowids if FTS5 is enabled and search query exists
     // Note: useFts5 is defined in the outer scope of executeMemoryQuery

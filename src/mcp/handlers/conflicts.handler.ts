@@ -11,9 +11,10 @@ import {
   isNumber,
   isString,
 } from '../../utils/type-guards.js';
+import type { ConflictListParams, ConflictResolveParams } from '../types.js';
 
 export const conflictHandlers = {
-  list(params: Record<string, unknown>) {
+  list(params: ConflictListParams) {
     const entryType = getOptionalParam(params, 'entryType', isEntryType);
     const resolved = getOptionalParam(params, 'resolved', isBoolean);
     const limit = getOptionalParam(params, 'limit', isNumber);
@@ -29,7 +30,7 @@ export const conflictHandlers = {
     };
   },
 
-  resolve(params: Record<string, unknown>) {
+  resolve(params: ConflictResolveParams) {
     const id = getRequiredParam(params, 'id', isString);
     const resolution = getRequiredParam(params, 'resolution', isString);
     const resolvedBy = getOptionalParam(params, 'resolvedBy', isString);

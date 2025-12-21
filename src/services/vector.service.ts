@@ -9,6 +9,11 @@ import { dirname } from 'node:path';
 import { existsSync, mkdirSync } from 'node:fs';
 import { createComponentLogger } from '../utils/logger.js';
 import { config } from '../config/index.js';
+import {
+  createVectorInvalidInputError,
+  createVectorNotInitializedError,
+  createVectorDbError,
+} from '../mcp/errors.js';
 
 const logger = createComponentLogger('vector');
 
@@ -23,13 +28,14 @@ const DEFAULT_VECTOR_DB_PATH = config.vectorDb.path;
 function validateIdentifier(input: string, fieldName: string): string {
   // Allow alphanumeric, hyphens, underscores (common in UUIDs and IDs)
   if (!/^[a-zA-Z0-9_-]+$/.test(input)) {
-    throw new Error(
-      `Invalid ${fieldName}: contains disallowed characters. Only alphanumeric, hyphens, and underscores are allowed.`
+    throw createVectorInvalidInputError(
+      fieldName,
+      'contains disallowed characters. Only alphanumeric, hyphens, and underscores are allowed.'
     );
   }
   // Additional length check to prevent abuse
   if (input.length > 200) {
-    throw new Error(`Invalid ${fieldName}: exceeds maximum length of 200 characters`);
+    throw createVectorInvalidInputError(fieldName, 'exceeds maximum length of 200 characters');
   }
   return input;
 }
@@ -119,10 +125,15 @@ class VectorService {
     }
 
     if (embedding.length !== this.expectedDimension) {
-      throw new Error(
-        `Embedding dimension mismatch in ${context}: expected ${this.expectedDimension}, got ${embedding.length}. ` +
-          `This may happen when switching between embedding providers (OpenAI uses 1536d, local model uses 384d). ` +
-          `Consider clearing the vector database or using consistent embedding providers.`
+      throw createVectorDbError(
+        context,
+        `Dimension mismatch: expected ${this.expectedDimension}, got ${embedding.length}`,
+        {
+          expected: this.expectedDimension,
+          actual: embedding.length,
+          suggestion:
+            'This may happen when switching between embedding providers. Consider clearing the vector database.',
+        }
       );
     }
   }
@@ -154,8 +165,9 @@ class VectorService {
     try {
       this.connection = await Promise.race([connectionPromise, timeoutPromise]);
     } catch (error) {
-      throw new Error(
-        `Failed to connect to vector database: ${error instanceof Error ? error.message : String(error)}`
+      throw createVectorDbError(
+        'connect',
+        error instanceof Error ? error.message : String(error)
       );
     }
 
@@ -200,7 +212,7 @@ class VectorService {
       await this.ensureInitialized();
       if (this.table) return { createdWithRecord: false };
       if (!this.connection) {
-        throw new Error('Vector database connection not initialized');
+        throw createVectorNotInitializedError();
       }
 
       // Try to open existing table first.
@@ -226,7 +238,7 @@ class VectorService {
       }
 
       if (!recordForCreate) {
-        throw new Error('Vector table is missing and no record provided to create it');
+        throw createVectorDbError('ensureTable', 'Table is missing and no record provided to create it');
       }
 
       // Create table with first record.
@@ -290,8 +302,9 @@ class VectorService {
       // This ensures we only keep the latest version and avoids stale semantic matches.
       await this.removeOldVersions(entryType, entryId, versionId);
     } catch (error) {
-      throw new Error(
-        `Failed to store embedding: ${error instanceof Error ? error.message : String(error)}`
+      throw createVectorDbError(
+        'store',
+        error instanceof Error ? error.message : String(error)
       );
     }
   }
@@ -329,12 +342,13 @@ class VectorService {
    */
   private validateIdentifierInternal(input: string, fieldName: string): string {
     if (!/^[a-zA-Z0-9_-]+$/.test(input)) {
-      throw new Error(
-        `Invalid ${fieldName}: contains disallowed characters. Only alphanumeric, hyphens, and underscores are allowed.`
+      throw createVectorInvalidInputError(
+        fieldName,
+        'contains disallowed characters. Only alphanumeric, hyphens, and underscores are allowed.'
       );
     }
     if (input.length > 200) {
-      throw new Error(`Invalid ${fieldName}: exceeds maximum length of 200 characters`);
+      throw createVectorInvalidInputError(fieldName, 'exceeds maximum length of 200 characters');
     }
     return input;
   }

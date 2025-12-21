@@ -9,6 +9,7 @@ import { guidelineRepo } from '../db/repositories/guidelines.js';
 import type { ScopeType, EntryType } from '../db/schema.js';
 import { createComponentLogger } from '../utils/logger.js';
 import { config } from '../config/index.js';
+import { createSizeLimitError } from '../mcp/errors.js';
 
 const logger = createComponentLogger('validation');
 
@@ -41,6 +42,10 @@ export const SIZE_LIMITS = {
   TAGS_MAX_COUNT: config.validation.tagsMaxCount,
   EXAMPLES_MAX_COUNT: config.validation.examplesMaxCount,
   BULK_OPERATION_MAX: config.validation.bulkOperationMax,
+
+  // Security limits
+  REGEX_PATTERN_MAX_LENGTH: config.validation.regexPatternMaxLength,
+  VALIDATION_RULES_QUERY_LIMIT: config.validation.validationRulesQueryLimit,
 } as const;
 
 // Legacy constants for backward compatibility
@@ -48,8 +53,8 @@ const MAX_NAME_LENGTH = SIZE_LIMITS.NAME_MAX_LENGTH;
 const MAX_DESCRIPTION_LENGTH = SIZE_LIMITS.DESCRIPTION_MAX_LENGTH;
 const MAX_CONTENT_LENGTH = SIZE_LIMITS.CONTENT_MAX_LENGTH;
 
-// Maximum length for regex patterns to prevent DoS
-const MAX_REGEX_PATTERN_LENGTH = 500;
+// Maximum length for regex patterns to prevent DoS (from config)
+const MAX_REGEX_PATTERN_LENGTH = config.validation.regexPatternMaxLength;
 
 /**
  * Check if a regex pattern is safe (no ReDoS potential).
@@ -89,9 +94,7 @@ export function validateTextLength(
   maxLength: number
 ): void {
   if (value && value.length > maxLength) {
-    throw new Error(
-      `${fieldName} exceeds maximum length of ${maxLength} characters (got ${value.length})`
-    );
+    throw createSizeLimitError(fieldName, maxLength, value.length, 'characters');
   }
 }
 
@@ -103,9 +106,7 @@ export function validateJsonSize(value: unknown, fieldName: string, maxBytes: nu
 
   const serialized = JSON.stringify(value);
   if (serialized.length > maxBytes) {
-    throw new Error(
-      `${fieldName} exceeds maximum size of ${maxBytes} bytes (got ${serialized.length})`
-    );
+    throw createSizeLimitError(fieldName, maxBytes, serialized.length, 'bytes');
   }
 }
 
@@ -118,9 +119,7 @@ export function validateArrayLength(
   maxCount: number
 ): void {
   if (value && value.length > maxCount) {
-    throw new Error(
-      `${fieldName} exceeds maximum count of ${maxCount} items (got ${value.length})`
-    );
+    throw createSizeLimitError(fieldName, maxCount, value.length, 'items');
   }
 }
 
@@ -147,7 +146,7 @@ export function validateEntry(
       category: 'validation',
       includeInactive: false,
     },
-    { limit: 1000 }
+    { limit: config.validation.validationRulesQueryLimit }
   );
 
   // Filter rules by entry type if specified in rule name or content

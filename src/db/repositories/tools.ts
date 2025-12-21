@@ -1,13 +1,8 @@
-import { eq, and, isNull, desc, asc, inArray, or } from 'drizzle-orm';
+import { eq, and, isNull, desc, asc, inArray } from 'drizzle-orm';
 import { getDb } from '../connection.js';
 import {
   tools,
   toolVersions,
-  conflictLog,
-  entryTags,
-  entryRelations,
-  entryEmbeddings,
-  permissions,
   type Tool,
   type NewTool,
   type ToolVersion,
@@ -16,14 +11,15 @@ import {
 } from '../schema.js';
 import {
   generateId,
-  CONFLICT_WINDOW_MS,
   type PaginationOptions,
   DEFAULT_LIMIT,
   MAX_LIMIT,
+  cascadeDeleteRelatedRecords,
+  asyncVectorCleanup,
+  checkAndLogConflict,
 } from './base.js';
 import { transaction } from '../connection.js';
 import { generateEmbeddingAsync, extractTextForEmbedding } from './embedding-hooks.js';
-import { getVectorService } from '../../services/vector.service.js';
 
 // =============================================================================
 // TYPES
@@ -324,26 +320,10 @@ export const toolRepo = {
       const newVersionNum = (latestVersion?.versionNum ?? 0) + 1;
       const newVersionId = generateId();
 
-      // Check for conflict (another write within the window)
-      let conflictFlag = false;
-      if (latestVersion) {
-        const lastWriteTime = new Date(latestVersion.createdAt).getTime();
-        const currentTime = Date.now();
-        if (currentTime - lastWriteTime < CONFLICT_WINDOW_MS) {
-          conflictFlag = true;
-
-          // Log the conflict
-          db.insert(conflictLog)
-            .values({
-              id: generateId(),
-              entryType: 'tool',
-              entryId: id,
-              versionAId: latestVersion.id,
-              versionBId: newVersionId,
-            })
-            .run();
-        }
-      }
+      // Check for conflict using shared helper
+      const conflictFlag = latestVersion
+        ? checkAndLogConflict('tool', id, latestVersion.id, newVersionId, new Date(latestVersion.createdAt))
+        : false;
 
       // Create new version (inherit from previous if not specified)
       const previousVersion = existing.currentVersion;
@@ -408,16 +388,8 @@ export const toolRepo = {
     const result = db.update(tools).set({ isActive: false }).where(eq(tools.id, id)).run();
     const success = result.changes > 0;
 
-    // Remove from vector search when deactivated (async, fire-and-forget)
     if (success) {
-      void (async () => {
-        try {
-          const vectorService = getVectorService();
-          await vectorService.removeEmbedding('tool', id);
-        } catch {
-          // Error already logged in vector service
-        }
-      })();
+      asyncVectorCleanup('tool', id);
     }
 
     return success;
@@ -442,50 +414,19 @@ export const toolRepo = {
     const result = transaction(() => {
       const db = getDb();
 
-      // Delete related records first (cascade cleanup)
-      // 1. Delete tags associated with this entry
-      db.delete(entryTags)
-        .where(and(eq(entryTags.entryType, 'tool'), eq(entryTags.entryId, id)))
-        .run();
+      // Delete related records (tags, relations, embeddings, permissions)
+      cascadeDeleteRelatedRecords('tool', id);
 
-      // 2. Delete relations where this entry is source or target
-      db.delete(entryRelations)
-        .where(
-          or(
-            and(eq(entryRelations.sourceType, 'tool'), eq(entryRelations.sourceId, id)),
-            and(eq(entryRelations.targetType, 'tool'), eq(entryRelations.targetId, id))
-          )
-        )
-        .run();
-
-      // 3. Delete embedding tracking records
-      db.delete(entryEmbeddings)
-        .where(and(eq(entryEmbeddings.entryType, 'tool'), eq(entryEmbeddings.entryId, id)))
-        .run();
-
-      // 4. Delete entry-specific permissions
-      db.delete(permissions)
-        .where(and(eq(permissions.entryType, 'tool'), eq(permissions.entryId, id)))
-        .run();
-
-      // 5. Delete versions
+      // Delete versions
       db.delete(toolVersions).where(eq(toolVersions.toolId, id)).run();
 
-      // 6. Delete tool
+      // Delete tool
       const deleteResult = db.delete(tools).where(eq(tools.id, id)).run();
       return deleteResult.changes > 0;
     });
 
-    // Clean up vector embeddings asynchronously (fire-and-forget)
     if (result) {
-      void (async () => {
-        try {
-          const vectorService = getVectorService();
-          await vectorService.removeEmbedding('tool', id);
-        } catch (error) {
-          // Error already logged in vector service
-        }
-      })();
+      asyncVectorCleanup('tool', id);
     }
 
     return result;
