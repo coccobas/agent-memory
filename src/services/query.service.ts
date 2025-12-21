@@ -1,5 +1,6 @@
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { getDb, getPreparedStatement } from '../db/connection.js';
+import { escapeFts5Quotes, escapeFts5QueryTokenized } from './fts.service.js';
 import {
   tools,
   toolVersions,
@@ -770,15 +771,12 @@ function getAdjacentNodes(
 }
 
 /**
- * Traverse the relation graph using BFS with cycle detection
- *
- * Note: A recursive CTE implementation exists (traverseRelationGraphCTE) but is
- * currently disabled pending further testing. The BFS approach is reliable and
- * handles cycle detection properly.
+ * Traverse the relation graph to find related entries.
+ * Uses recursive CTE for fast multi-hop queries, falls back to BFS if CTE fails.
  *
  * @param startType - Type of the starting node
  * @param startId - ID of the starting node
- * @param options - Traversal options
+ * @param options - Traversal options (depth 1-5, direction, relationType, maxResults)
  * @returns Entry IDs grouped by type (excluding the start node)
  */
 export function traverseRelationGraph(
@@ -791,14 +789,14 @@ export function traverseRelationGraph(
     maxResults?: number;
   } = {}
 ): Record<QueryEntryType, Set<string>> {
-  // Note: CTE-based traversal (traverseRelationGraphCTE) is available but disabled
-  // pending further testing. Enable it by uncommenting the following:
-  // const cteResult = traverseRelationGraphCTE(startType, startId, options);
-  // if (cteResult !== null) {
-  //   return cteResult;
-  // }
+  // Try CTE-based traversal first (faster for multi-hop queries)
+  // Falls back to BFS if CTE fails (e.g., SQLite version issues)
+  const cteResult = traverseRelationGraphCTE(startType, startId, options);
+  if (cteResult !== null) {
+    return cteResult;
+  }
 
-  // BFS traversal (reliable, with cycle detection)
+  // BFS traversal fallback (reliable, with cycle detection)
   const result: Record<QueryEntryType, Set<string>> = {
     tool: new Set<string>(),
     guideline: new Set<string>(),
@@ -983,7 +981,7 @@ export function executeFts5Query(
   try {
     // Escape special FTS5 characters and build query
     // FTS5 uses a simple syntax: "term1 term2" for AND, "term1 OR term2" for OR
-    const escapedQuery = searchQuery.replace(/"/g, '""');
+    const escapedQuery = escapeFts5Quotes(searchQuery);
 
     let ftsTable: string;
     let ftsColumns: string[];
@@ -1431,8 +1429,8 @@ function executeFts5Search(
     knowledge: new Set(),
   };
 
-  // Escape special FTS5 characters
-  const escapedSearch = search.replace(/["*]/g, '').trim();
+  // Escape special FTS5 characters using shared utility
+  const escapedSearch = escapeFts5QueryTokenized(search);
   if (!escapedSearch) return result;
 
   // Build a combined UNION query for all requested types

@@ -72,6 +72,40 @@ import {
 } from './handlers/tasks.handler.js';
 import { votingHandlers } from './handlers/voting.handler.js';
 import { analyticsHandlers } from './handlers/analytics.handler.js';
+import type {
+  OrgCreateParams,
+  OrgListParams,
+  ProjectCreateParams,
+  ProjectListParams,
+  ProjectGetParams,
+  ProjectUpdateParams,
+  ProjectDeleteParams,
+  SessionStartParams,
+  SessionEndParams,
+  SessionListParams,
+  TagCreateParams,
+  TagListParams,
+  TagAttachParams,
+  TagDetachParams,
+  TagsForEntryParams,
+  FileCheckoutParams,
+  FileCheckinParams,
+  FileLockStatusParams,
+  FileLockListParams,
+  FileLockForceUnlockParams,
+  ConflictListParams,
+  ConflictResolveParams,
+  VotingRecordVoteParams,
+  VotingGetConsensusParams,
+  VotingListVotesParams,
+  VotingGetStatsParams,
+  AnalyticsGetStatsParams,
+  AnalyticsGetTrendsParams,
+  AnalyticsGetSubtaskStatsParams,
+  AnalyticsGetErrorCorrelationParams,
+  AnalyticsGetLowDiversityParams,
+  ConsolidationParams,
+} from './types.js';
 import { permissionHandlers } from './handlers/permissions.handler.js';
 import { conversationHandlers } from './handlers/conversations.handler.js';
 import { backupHandlers } from './handlers/backup.handler.js';
@@ -82,6 +116,16 @@ import { handleConsolidation, consolidationTool } from './handlers/consolidation
 import { reviewHandlers } from './handlers/review.handler.js';
 import { checkRateLimits } from '../utils/rate-limiter.js';
 import { VERSION } from '../version.js';
+
+/**
+ * Type assertion helper for MCP params.
+ * MCP provides params as Record<string, unknown> at runtime, but handlers
+ * expect typed params. This helper provides a clean cast while preserving
+ * runtime validation in handlers.
+ */
+function asParams<T>(params: Record<string, unknown>): T {
+  return params as T;
+}
 
 // =============================================================================
 // BUNDLED TOOL DEFINITIONS (20 tools)
@@ -1326,222 +1370,266 @@ Example: {"action":"list","sessionId":"sess-123"}`,
 // HANDLER DISPATCH - Action-based routing
 // =============================================================================
 
+type ActionHandler = (params: Record<string, unknown>) => unknown;
+type ActionRegistry = Record<string, ActionHandler>;
+
+/**
+ * Creates an action dispatcher from a registry of action handlers.
+ * Eliminates repetitive switch statements for action-based routing.
+ *
+ * @param toolName - Name of the tool for error messages
+ * @param registry - Map of action names to handler functions
+ * @returns A bundled handler that routes by action
+ */
+function createActionDispatcher(
+  toolName: string,
+  registry: ActionRegistry
+): (params: Record<string, unknown>) => unknown {
+  return (params: Record<string, unknown>) => {
+    const { action, ...rest } = params;
+    const handler = registry[action as string];
+    if (!handler) {
+      throw createInvalidActionError(toolName, String(action), Object.keys(registry));
+    }
+    return handler(rest);
+  };
+}
+
+// =============================================================================
+// ACTION REGISTRIES - Define action→handler mappings
+// =============================================================================
+
+const orgActions: ActionRegistry = {
+  create: (p) => scopeHandlers.orgCreate(asParams<OrgCreateParams & { adminKey?: string }>(p)),
+  list: (p) => scopeHandlers.orgList(asParams<OrgListParams>(p)),
+};
+
+const projectActions: ActionRegistry = {
+  create: (p) => scopeHandlers.projectCreate(asParams<ProjectCreateParams & { adminKey?: string }>(p)),
+  list: (p) => scopeHandlers.projectList(asParams<ProjectListParams>(p)),
+  get: (p) => scopeHandlers.projectGet(asParams<ProjectGetParams>(p)),
+  update: (p) => scopeHandlers.projectUpdate(asParams<ProjectUpdateParams & { adminKey?: string }>(p)),
+  delete: (p) => scopeHandlers.projectDelete(asParams<ProjectDeleteParams & { adminKey?: string }>(p)),
+};
+
+const sessionActions: ActionRegistry = {
+  start: (p) => scopeHandlers.sessionStart(asParams<SessionStartParams>(p)),
+  end: (p) => scopeHandlers.sessionEnd(asParams<SessionEndParams>(p)),
+  list: (p) => scopeHandlers.sessionList(asParams<SessionListParams>(p)),
+};
+
+const toolActions: ActionRegistry = {
+  add: toolHandlers.add,
+  update: toolHandlers.update,
+  get: toolHandlers.get,
+  list: toolHandlers.list,
+  history: toolHandlers.history,
+  deactivate: toolHandlers.deactivate,
+  delete: toolHandlers.delete,
+  bulk_add: toolHandlers.bulk_add,
+  bulk_update: toolHandlers.bulk_update,
+  bulk_delete: toolHandlers.bulk_delete,
+};
+
+const guidelineActions: ActionRegistry = {
+  add: guidelineHandlers.add,
+  update: guidelineHandlers.update,
+  get: guidelineHandlers.get,
+  list: guidelineHandlers.list,
+  history: guidelineHandlers.history,
+  deactivate: guidelineHandlers.deactivate,
+  delete: guidelineHandlers.delete,
+  bulk_add: guidelineHandlers.bulk_add,
+  bulk_update: guidelineHandlers.bulk_update,
+  bulk_delete: guidelineHandlers.bulk_delete,
+};
+
+const knowledgeActions: ActionRegistry = {
+  add: knowledgeHandlers.add,
+  update: knowledgeHandlers.update,
+  get: knowledgeHandlers.get,
+  list: knowledgeHandlers.list,
+  history: knowledgeHandlers.history,
+  deactivate: knowledgeHandlers.deactivate,
+  delete: knowledgeHandlers.delete,
+  bulk_add: knowledgeHandlers.bulk_add,
+  bulk_update: knowledgeHandlers.bulk_update,
+  bulk_delete: knowledgeHandlers.bulk_delete,
+};
+
+const tagActions: ActionRegistry = {
+  create: (p) => tagHandlers.create(asParams<TagCreateParams>(p)),
+  list: (p) => tagHandlers.list(asParams<TagListParams>(p)),
+  attach: (p) => tagHandlers.attach(asParams<TagAttachParams>(p)),
+  detach: (p) => tagHandlers.detach(asParams<TagDetachParams>(p)),
+  for_entry: (p) => tagHandlers.forEntry(asParams<TagsForEntryParams>(p)),
+};
+
+const relationActions: ActionRegistry = {
+  create: relationHandlers.create,
+  list: relationHandlers.list,
+  delete: relationHandlers.delete,
+};
+
+const fileLockActions: ActionRegistry = {
+  checkout: (p) => fileLockHandlers.checkout(asParams<FileCheckoutParams>(p)),
+  checkin: (p) => fileLockHandlers.checkin(asParams<FileCheckinParams>(p)),
+  status: (p) => fileLockHandlers.status(asParams<FileLockStatusParams>(p)),
+  list: (p) => fileLockHandlers.list(asParams<FileLockListParams>(p)),
+  force_unlock: (p) => fileLockHandlers.forceUnlock(asParams<FileLockForceUnlockParams>(p)),
+};
+
+const conflictActions: ActionRegistry = {
+  list: (p) => conflictHandlers.list(asParams<ConflictListParams>(p)),
+  resolve: (p) => conflictHandlers.resolve(asParams<ConflictResolveParams>(p)),
+};
+
+const taskActions: ActionRegistry = {
+  add: (p) => taskHandlers.add(p as unknown as TaskAddParams),
+  get: (p) => taskHandlers.get(p as unknown as TaskGetParams),
+  list: (p) => taskHandlers.list(p as unknown as TaskListParams),
+};
+
+const votingActions: ActionRegistry = {
+  record_vote: (p) => votingHandlers.record_vote(asParams<VotingRecordVoteParams>(p)),
+  get_consensus: (p) => votingHandlers.get_consensus(asParams<VotingGetConsensusParams>(p)),
+  list_votes: (p) => votingHandlers.list_votes(asParams<VotingListVotesParams>(p)),
+  get_stats: (p) => votingHandlers.get_stats(asParams<VotingGetStatsParams>(p)),
+};
+
+const analyticsActions: ActionRegistry = {
+  get_stats: (p) => analyticsHandlers.get_stats(asParams<AnalyticsGetStatsParams>(p)),
+  get_trends: (p) => analyticsHandlers.get_trends(asParams<AnalyticsGetTrendsParams>(p)),
+  get_subtask_stats: (p) => analyticsHandlers.get_subtask_stats(asParams<AnalyticsGetSubtaskStatsParams>(p)),
+  get_error_correlation: (p) => analyticsHandlers.get_error_correlation(asParams<AnalyticsGetErrorCorrelationParams>(p)),
+  get_low_diversity: (p) => analyticsHandlers.get_low_diversity(asParams<AnalyticsGetLowDiversityParams>(p)),
+};
+
+const permissionActions: ActionRegistry = {
+  grant: permissionHandlers.grant,
+  revoke: permissionHandlers.revoke,
+  check: permissionHandlers.check,
+  list: permissionHandlers.list,
+};
+
+const initActions: ActionRegistry = {
+  init: initHandlers.init,
+  status: initHandlers.status,
+  reset: initHandlers.reset,
+  verify: initHandlers.verify,
+};
+
+const backupActions: ActionRegistry = {
+  create: (p) => backupHandlers.create(p as { name?: string }),
+  list: backupHandlers.list,
+  cleanup: (p) => backupHandlers.cleanup(p as { keepCount?: number }),
+  restore: (p) => backupHandlers.restore(p as { filename: string }),
+};
+
+const exportActions: ActionRegistry = {
+  export: exportHandlers.export,
+};
+
+const importActions: ActionRegistry = {
+  import: importHandlers.import,
+};
+
+const conversationActions: ActionRegistry = {
+  start: conversationHandlers.start,
+  add_message: conversationHandlers.addMessage,
+  get: conversationHandlers.get,
+  list: conversationHandlers.list,
+  update: conversationHandlers.update,
+  link_context: conversationHandlers.linkContext,
+  get_context: conversationHandlers.getContext,
+  search: conversationHandlers.search,
+  end: conversationHandlers.end,
+  archive: conversationHandlers.archive,
+};
+
+const verifyActions: ActionRegistry = {
+  pre_check: verificationHandlers.preCheck,
+  post_check: verificationHandlers.postCheck,
+  acknowledge: verificationHandlers.acknowledge,
+  status: verificationHandlers.status,
+};
+
+const hookActions: ActionRegistry = {
+  generate: hooksHandlers.generate,
+  install: hooksHandlers.install,
+  status: hooksHandlers.status,
+  uninstall: hooksHandlers.uninstall,
+};
+
+const observeActions: ActionRegistry = {
+  extract: observeHandlers.extract,
+  draft: observeHandlers.draft,
+  commit: observeHandlers.commit,
+  status: () => observeHandlers.status(),
+};
+
+const reviewActions: ActionRegistry = {
+  list: (p) => reviewHandlers.list(p as { sessionId: string }),
+  show: (p) => reviewHandlers.show(p as { sessionId: string; entryId: string }),
+  approve: (p) => reviewHandlers.approve(p as { sessionId: string; entryId: string; projectId?: string }),
+  reject: (p) => reviewHandlers.reject(p as { sessionId: string; entryId: string }),
+  skip: (p) => reviewHandlers.skip(p as { sessionId: string; entryId: string }),
+};
+
+// =============================================================================
+// BUNDLED HANDLERS - Using registry pattern
+// =============================================================================
+
 // Bundled handlers that route by action
 const bundledHandlers: Record<string, (params: Record<string, unknown>) => unknown> = {
-  memory_org: (params) => {
-    const { action, ...rest } = params;
-    switch (action) {
-      case 'create':
-        return scopeHandlers.orgCreate(rest);
-      case 'list':
-        return scopeHandlers.orgList(rest);
-      default:
-        throw new Error(`Unknown action for memory_org: ${String(action)}`);
-    }
-  },
+  memory_org: createActionDispatcher('memory_org', orgActions),
+  memory_project: createActionDispatcher('memory_project', projectActions),
+  memory_session: createActionDispatcher('memory_session', sessionActions),
+  memory_tool: createActionDispatcher('memory_tool', toolActions),
+  memory_guideline: createActionDispatcher('memory_guideline', guidelineActions),
+  memory_knowledge: createActionDispatcher('memory_knowledge', knowledgeActions),
+  memory_tag: createActionDispatcher('memory_tag', tagActions),
+  memory_relation: createActionDispatcher('memory_relation', relationActions),
+  memory_file_lock: createActionDispatcher('memory_file_lock', fileLockActions),
+  memory_conflict: createActionDispatcher('memory_conflict', conflictActions),
+  memory_task: createActionDispatcher('memory_task', taskActions),
+  memory_voting: createActionDispatcher('memory_voting', votingActions),
+  memory_analytics: createActionDispatcher('memory_analytics', analyticsActions),
+  memory_permission: createActionDispatcher('memory_permission', permissionActions),
+  memory_init: createActionDispatcher('memory_init', initActions),
+  memory_backup: createActionDispatcher('memory_backup', backupActions),
+  memory_export: createActionDispatcher('memory_export', exportActions),
+  memory_import: createActionDispatcher('memory_import', importActions),
+  memory_conversation: createActionDispatcher('memory_conversation', conversationActions),
+  memory_verify: createActionDispatcher('memory_verify', verifyActions),
+  memory_hook: createActionDispatcher('memory_hook', hookActions),
+  memory_observe: createActionDispatcher('memory_observe', observeActions),
+  memory_consolidate: (params) => handleConsolidation(asParams<ConsolidationParams>(params)),
+  memory_review: createActionDispatcher('memory_review', reviewActions),
 
-  memory_project: (params) => {
-    const { action, ...rest } = params;
-    switch (action) {
-      case 'create':
-        return scopeHandlers.projectCreate(rest);
-      case 'list':
-        return scopeHandlers.projectList(rest);
-      case 'get':
-        return scopeHandlers.projectGet(rest);
-      case 'update':
-        return scopeHandlers.projectUpdate(rest);
-      case 'delete':
-        return scopeHandlers.projectDelete(rest);
-      default:
-        throw new Error(`Unknown action for memory_project: ${String(action)}`);
-    }
-  },
-
-  memory_session: (params) => {
-    const { action, ...rest } = params;
-    switch (action) {
-      case 'start':
-        return scopeHandlers.sessionStart(rest);
-      case 'end':
-        return scopeHandlers.sessionEnd(rest);
-      case 'list':
-        return scopeHandlers.sessionList(rest);
-      default:
-        throw new Error(`Unknown action for memory_session: ${String(action)}`);
-    }
-  },
-
-  memory_tool: (params) => {
-    const { action, ...rest } = params;
-    switch (action) {
-      case 'add':
-        return toolHandlers.add(rest);
-      case 'update':
-        return toolHandlers.update(rest);
-      case 'get':
-        return toolHandlers.get(rest);
-      case 'list':
-        return toolHandlers.list(rest);
-      case 'history':
-        return toolHandlers.history(rest);
-      case 'deactivate':
-        return toolHandlers.deactivate(rest);
-      case 'delete':
-        return toolHandlers.delete(rest);
-      case 'bulk_add':
-        return toolHandlers.bulk_add(rest);
-      case 'bulk_update':
-        return toolHandlers.bulk_update(rest);
-      case 'bulk_delete':
-        return toolHandlers.bulk_delete(rest);
-      default:
-        throw new Error(`Unknown action for memory_tool: ${String(action)}`);
-    }
-  },
-
-  memory_guideline: (params) => {
-    const { action, ...rest } = params;
-    switch (action) {
-      case 'add':
-        return guidelineHandlers.add(rest);
-      case 'update':
-        return guidelineHandlers.update(rest);
-      case 'get':
-        return guidelineHandlers.get(rest);
-      case 'list':
-        return guidelineHandlers.list(rest);
-      case 'history':
-        return guidelineHandlers.history(rest);
-      case 'deactivate':
-        return guidelineHandlers.deactivate(rest);
-      case 'delete':
-        return guidelineHandlers.delete(rest);
-      case 'bulk_add':
-        return guidelineHandlers.bulk_add(rest);
-      case 'bulk_update':
-        return guidelineHandlers.bulk_update(rest);
-      case 'bulk_delete':
-        return guidelineHandlers.bulk_delete(rest);
-      default:
-        throw new Error(`Unknown action for memory_guideline: ${String(action)}`);
-    }
-  },
-
-  memory_knowledge: (params) => {
-    const { action, ...rest } = params;
-    switch (action) {
-      case 'add':
-        return knowledgeHandlers.add(rest);
-      case 'update':
-        return knowledgeHandlers.update(rest);
-      case 'get':
-        return knowledgeHandlers.get(rest);
-      case 'list':
-        return knowledgeHandlers.list(rest);
-      case 'history':
-        return knowledgeHandlers.history(rest);
-      case 'deactivate':
-        return knowledgeHandlers.deactivate(rest);
-      case 'delete':
-        return knowledgeHandlers.delete(rest);
-      case 'bulk_add':
-        return knowledgeHandlers.bulk_add(rest);
-      case 'bulk_update':
-        return knowledgeHandlers.bulk_update(rest);
-      case 'bulk_delete':
-        return knowledgeHandlers.bulk_delete(rest);
-      default:
-        throw new Error(`Unknown action for memory_knowledge: ${String(action)}`);
-    }
-  },
-
-  memory_tag: (params) => {
-    const { action, ...rest } = params;
-    switch (action) {
-      case 'create':
-        return tagHandlers.create(rest);
-      case 'list':
-        return tagHandlers.list(rest);
-      case 'attach':
-        return tagHandlers.attach(rest);
-      case 'detach':
-        return tagHandlers.detach(rest);
-      case 'for_entry':
-        return tagHandlers.forEntry(rest);
-      default:
-        throw new Error(`Unknown action for memory_tag: ${String(action)}`);
-    }
-  },
-
-  memory_relation: (params) => {
-    const { action, ...rest } = params;
-    switch (action) {
-      case 'create':
-        return relationHandlers.create(rest);
-      case 'list':
-        return relationHandlers.list(rest);
-      case 'delete':
-        return relationHandlers.delete(rest);
-      default:
-        throw new Error(`Unknown action for memory_relation: ${String(action)}`);
-    }
-  },
-
-  memory_file_lock: (params) => {
-    const { action, ...rest } = params;
-    switch (action) {
-      case 'checkout':
-        return fileLockHandlers.checkout(rest);
-      case 'checkin':
-        return fileLockHandlers.checkin(rest);
-      case 'status':
-        return fileLockHandlers.status(rest);
-      case 'list':
-        return fileLockHandlers.list(rest);
-      case 'force_unlock':
-        return fileLockHandlers.forceUnlock(rest);
-      default:
-        throw new Error(`Unknown action for memory_file_lock: ${String(action)}`);
-    }
-  },
-
+  // Special handlers that need custom logic beyond simple dispatch
   memory_query: (params) => {
     const { action, ...rest } = params;
-    switch (action) {
-      case 'search':
-        return queryHandlers.query(rest);
-      case 'context': {
-        // Map limit to limitPerType for context action
-        const contextParams = { ...rest };
-        if ('limit' in contextParams && !('limitPerType' in contextParams)) {
-          contextParams.limitPerType = contextParams.limit;
-          delete contextParams.limit;
-        }
-        return queryHandlers.context(contextParams);
+    if (action === 'search') {
+      return queryHandlers.query(rest);
+    }
+    if (action === 'context') {
+      // Map limit to limitPerType for context action
+      const contextParams = { ...rest };
+      if ('limit' in contextParams && !('limitPerType' in contextParams)) {
+        contextParams.limitPerType = contextParams.limit;
+        delete contextParams.limit;
       }
-      default:
-        throw new Error(`Unknown action for memory_query: ${String(action)}`);
+      return queryHandlers.context(contextParams);
     }
+    throw createInvalidActionError('memory_query', String(action), ['search', 'context']);
   },
 
-  memory_conflict: (params) => {
-    const { action, ...rest } = params;
-    switch (action) {
-      case 'list':
-        return conflictHandlers.list(rest);
-      case 'resolve':
-        return conflictHandlers.resolve(rest);
-      default:
-        throw new Error(`Unknown action for memory_conflict: ${String(action)}`);
-    }
-  },
-
+  // memory_health has no action parameter - it's a simple status check
   memory_health: () => {
     const sqlite = getSqlite();
     const cacheStats = getQueryCacheStats();
 
-    // Get database stats
     const stats: {
       serverVersion: string;
       status: string;
@@ -1565,43 +1653,17 @@ const bundledHandlers: Record<string, (params: Record<string, unknown>) => unkno
       tables: {},
     };
 
-    // Count entries in each table
     try {
       stats.tables = {
-        organizations: (
-          sqlite.prepare('SELECT COUNT(*) as count FROM organizations').get() as { count: number }
-        ).count,
-        projects: (
-          sqlite.prepare('SELECT COUNT(*) as count FROM projects').get() as { count: number }
-        ).count,
-        sessions: (
-          sqlite.prepare('SELECT COUNT(*) as count FROM sessions').get() as { count: number }
-        ).count,
-        tools: (
-          sqlite.prepare('SELECT COUNT(*) as count FROM tools WHERE is_active = 1').get() as {
-            count: number;
-          }
-        ).count,
-        guidelines: (
-          sqlite.prepare('SELECT COUNT(*) as count FROM guidelines WHERE is_active = 1').get() as {
-            count: number;
-          }
-        ).count,
-        knowledge: (
-          sqlite.prepare('SELECT COUNT(*) as count FROM knowledge WHERE is_active = 1').get() as {
-            count: number;
-          }
-        ).count,
-        tags: (sqlite.prepare('SELECT COUNT(*) as count FROM tags').get() as { count: number })
-          .count,
-        fileLocks: (
-          sqlite.prepare('SELECT COUNT(*) as count FROM file_locks').get() as { count: number }
-        ).count,
-        conflicts: (
-          sqlite.prepare('SELECT COUNT(*) as count FROM conflict_log WHERE resolved = 0').get() as {
-            count: number;
-          }
-        ).count,
+        organizations: (sqlite.prepare('SELECT COUNT(*) as count FROM organizations').get() as { count: number }).count,
+        projects: (sqlite.prepare('SELECT COUNT(*) as count FROM projects').get() as { count: number }).count,
+        sessions: (sqlite.prepare('SELECT COUNT(*) as count FROM sessions').get() as { count: number }).count,
+        tools: (sqlite.prepare('SELECT COUNT(*) as count FROM tools WHERE is_active = 1').get() as { count: number }).count,
+        guidelines: (sqlite.prepare('SELECT COUNT(*) as count FROM guidelines WHERE is_active = 1').get() as { count: number }).count,
+        knowledge: (sqlite.prepare('SELECT COUNT(*) as count FROM knowledge WHERE is_active = 1').get() as { count: number }).count,
+        tags: (sqlite.prepare('SELECT COUNT(*) as count FROM tags').get() as { count: number }).count,
+        fileLocks: (sqlite.prepare('SELECT COUNT(*) as count FROM file_locks').get() as { count: number }).count,
+        conflicts: (sqlite.prepare('SELECT COUNT(*) as count FROM conflict_log WHERE resolved = 0').get() as { count: number }).count,
       };
     } catch (error) {
       stats.status = 'error';
@@ -1609,257 +1671,6 @@ const bundledHandlers: Record<string, (params: Record<string, unknown>) => unkno
     }
 
     return stats;
-  },
-
-  memory_backup: (params) => {
-    const { action, ...rest } = params;
-    switch (action) {
-      case 'create':
-        return backupHandlers.create(rest as { name?: string });
-      case 'list':
-        return backupHandlers.list(rest);
-      case 'cleanup':
-        return backupHandlers.cleanup(rest as { keepCount?: number });
-      case 'restore':
-        return backupHandlers.restore(rest as { filename: string });
-      default:
-        throw createInvalidActionError('memory_backup', String(action), [
-          'create',
-          'list',
-          'cleanup',
-          'restore',
-        ]);
-    }
-  },
-
-  memory_init: (params) => {
-    const { action, ...rest } = params;
-    switch (action) {
-      case 'init':
-        return initHandlers.init(rest);
-      case 'status':
-        return initHandlers.status(rest);
-      case 'reset':
-        return initHandlers.reset(rest);
-      case 'verify':
-        return initHandlers.verify(rest);
-      default:
-        throw new Error(`Unknown action for memory_init: ${String(action)}`);
-    }
-  },
-
-  memory_export: (params) => {
-    const { action, ...rest } = params;
-    switch (action) {
-      case 'export':
-        return exportHandlers.export(rest as Record<string, unknown>);
-      default:
-        throw createInvalidActionError('memory_export', String(action), ['export']);
-    }
-  },
-
-  memory_import: (params) => {
-    const { action, ...rest } = params;
-    switch (action) {
-      case 'import':
-        return importHandlers.import(rest as Record<string, unknown>);
-      default:
-        throw createInvalidActionError('memory_import', String(action), ['import']);
-    }
-  },
-
-  memory_task: (params) => {
-    const { action, ...rest } = params;
-    switch (action) {
-      case 'add':
-        return taskHandlers.add(rest as unknown as TaskAddParams);
-      case 'get':
-        return taskHandlers.get(rest as unknown as TaskGetParams);
-      case 'list':
-        return taskHandlers.list(rest as unknown as TaskListParams);
-      default:
-        throw new Error(`Unknown action for memory_task: ${String(action)}`);
-    }
-  },
-
-  memory_voting: (params) => {
-    const { action, ...rest } = params;
-    switch (action) {
-      case 'record_vote':
-        return votingHandlers.record_vote(rest as Record<string, unknown>);
-      case 'get_consensus':
-        return votingHandlers.get_consensus(rest as Record<string, unknown>);
-      case 'list_votes':
-        return votingHandlers.list_votes(rest as Record<string, unknown>);
-      case 'get_stats':
-        return votingHandlers.get_stats(rest as Record<string, unknown>);
-      default:
-        throw new Error(`Unknown action for memory_voting: ${String(action)}`);
-    }
-  },
-
-  memory_analytics: (params) => {
-    const { action, ...rest } = params;
-    switch (action) {
-      case 'get_stats':
-        return analyticsHandlers.get_stats(rest);
-      case 'get_trends':
-        return analyticsHandlers.get_trends(rest);
-      case 'get_subtask_stats':
-        return analyticsHandlers.get_subtask_stats(rest);
-      case 'get_error_correlation':
-        return analyticsHandlers.get_error_correlation(rest);
-      case 'get_low_diversity':
-        return analyticsHandlers.get_low_diversity(rest);
-      default:
-        throw new Error(`Unknown action for memory_analytics: ${String(action)}`);
-    }
-  },
-
-  memory_permission: (params) => {
-    const { action, ...rest } = params;
-    switch (action) {
-      case 'grant':
-        return permissionHandlers.grant(rest);
-      case 'revoke':
-        return permissionHandlers.revoke(rest);
-      case 'check':
-        return permissionHandlers.check(rest);
-      case 'list':
-        return permissionHandlers.list(rest);
-      default:
-        throw new Error(`Unknown action for memory_permission: ${String(action)}`);
-    }
-  },
-
-  memory_conversation: (params) => {
-    const { action, ...rest } = params;
-    switch (action) {
-      case 'start':
-        return conversationHandlers.start(rest);
-      case 'add_message':
-        return conversationHandlers.addMessage(rest);
-      case 'get':
-        return conversationHandlers.get(rest);
-      case 'list':
-        return conversationHandlers.list(rest);
-      case 'update':
-        return conversationHandlers.update(rest);
-      case 'link_context':
-        return conversationHandlers.linkContext(rest);
-      case 'get_context':
-        return conversationHandlers.getContext(rest);
-      case 'search':
-        return conversationHandlers.search(rest);
-      case 'end':
-        return conversationHandlers.end(rest);
-      case 'archive':
-        return conversationHandlers.archive(rest);
-      default:
-        throw createInvalidActionError('memory_conversation', String(action), [
-          'start',
-          'add_message',
-          'get',
-          'list',
-          'update',
-          'link_context',
-          'get_context',
-          'search',
-          'end',
-          'archive',
-        ]);
-    }
-  },
-
-  memory_verify: (params) => {
-    const { action, ...rest } = params;
-    switch (action) {
-      case 'pre_check':
-        return verificationHandlers.preCheck(rest);
-      case 'post_check':
-        return verificationHandlers.postCheck(rest);
-      case 'acknowledge':
-        return verificationHandlers.acknowledge(rest);
-      case 'status':
-        return verificationHandlers.status(rest);
-      default:
-        throw createInvalidActionError('memory_verify', String(action), [
-          'pre_check',
-          'post_check',
-          'acknowledge',
-          'status',
-        ]);
-    }
-  },
-
-  memory_hook: (params) => {
-    const { action, ...rest } = params;
-    switch (action) {
-      case 'generate':
-        return hooksHandlers.generate(rest);
-      case 'install':
-        return hooksHandlers.install(rest);
-      case 'status':
-        return hooksHandlers.status(rest);
-      case 'uninstall':
-        return hooksHandlers.uninstall(rest);
-      default:
-        throw createInvalidActionError('memory_hook', String(action), [
-          'generate',
-          'install',
-          'status',
-          'uninstall',
-        ]);
-    }
-  },
-
-  memory_observe: (params) => {
-    const { action, ...rest } = params;
-    switch (action) {
-      case 'extract':
-        return observeHandlers.extract(rest);
-      case 'draft':
-        return observeHandlers.draft(rest);
-      case 'commit':
-        return observeHandlers.commit(rest);
-      case 'status':
-        return observeHandlers.status();
-      default:
-        throw createInvalidActionError('memory_observe', String(action), [
-          'extract',
-          'draft',
-          'commit',
-          'status',
-        ]);
-    }
-  },
-
-  memory_consolidate: (params) => {
-    return handleConsolidation(params);
-  },
-
-  memory_review: (params) => {
-    const { action, ...rest } = params;
-    switch (action) {
-      case 'list':
-        return reviewHandlers.list(rest as { sessionId: string });
-      case 'show':
-        return reviewHandlers.show(rest as { sessionId: string; entryId: string });
-      case 'approve':
-        return reviewHandlers.approve(rest as { sessionId: string; entryId: string; projectId?: string });
-      case 'reject':
-        return reviewHandlers.reject(rest as { sessionId: string; entryId: string });
-      case 'skip':
-        return reviewHandlers.skip(rest as { sessionId: string; entryId: string });
-      default:
-        throw createInvalidActionError('memory_review', String(action), [
-          'list',
-          'show',
-          'approve',
-          'reject',
-          'skip',
-        ]);
-    }
   },
 };
 
@@ -1886,7 +1697,6 @@ export async function createServer(): Promise<Server> {
 
   // Initialize database (with more defensive error handling)
   try {
-    logger.info('Initializing database...');
     logger.info('Initializing database...');
     // P2-T1: Use health check aware connection
     await getDbWithHealthCheck();
