@@ -77,8 +77,8 @@ describe('memory_context integration', () => {
     cleanupTestDb(TEST_DB_PATH);
   });
 
-  it('returns aggregated context for a session with inheritance', () => {
-    const response = queryHandlers.context({
+  it('returns aggregated context for a session with inheritance', async () => {
+    const response = await queryHandlers.context({
       agentId: AGENT_ID,
       scopeType: 'session',
       scopeId: sessionId,
@@ -101,8 +101,8 @@ describe('memory_context integration', () => {
     expect(toolNames).toContain('session_tool');
   });
 
-  it('returns context only for the given scope when inherit is false', () => {
-    const response = queryHandlers.context({
+  it('returns context only for the given scope when inherit is false', async () => {
+    const response = await queryHandlers.context({
       agentId: AGENT_ID,
       scopeType: 'project',
       scopeId: projectId,

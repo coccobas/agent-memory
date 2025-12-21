@@ -164,14 +164,18 @@ export const queryHandlers = {
    * Convenience wrapper that returns aggregated context for a scope.
    * It queries tools, guidelines, and knowledge with inheritance enabled
    * and groups results by type.
+   *
+   * Note: Uses async version to support semantic search if enabled.
    */
-  context(params: Record<string, unknown>) {
+  async context(params: Record<string, unknown>) {
     const scopeType = getRequiredParam(params, 'scopeType', isScopeType);
     const scopeId = getOptionalParam(params, 'scopeId', isString);
     const inherit = getOptionalParam(params, 'inherit', isBoolean) ?? true;
     const compact = getOptionalParam(params, 'compact', isBoolean) ?? false;
     const limitPerType = getOptionalParam(params, 'limitPerType', isNumber);
     const agentId = getRequiredParam(params, 'agentId', isString);
+    const semanticSearch = getOptionalParam(params, 'semanticSearch', isBoolean);
+    const search = getOptionalParam(params, 'search', isString);
 
     const allowedTypes = (['tools', 'guidelines', 'knowledge'] as const).filter((type) =>
       checkPermission(agentId, 'read', queryTypeToEntryType[type], null, scopeType, scopeId ?? null)
@@ -181,7 +185,8 @@ export const queryHandlers = {
       throw createPermissionError('read', 'memory');
     }
 
-    const result = executeMemoryQuery({
+    // Use async version for consistency and semantic search support
+    const result = await executeMemoryQueryAsync({
       types: [...allowedTypes],
       scope: {
         type: scopeType,
@@ -190,6 +195,8 @@ export const queryHandlers = {
       },
       compact,
       limit: limitPerType,
+      search,
+      semanticSearch,
     });
 
     const tools = result.results.filter((r) => r.type === 'tool');
