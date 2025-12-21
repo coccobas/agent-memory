@@ -463,7 +463,7 @@ export function resolveScopeChain(input?: {
 // TAG & RELATION HELPERS
 // =============================================================================
 
-function getTagsForEntries(entryType: QueryEntryType, entryIds: string[]): Record<string, Tag[]> {
+export function getTagsForEntries(entryType: QueryEntryType, entryIds: string[]): Record<string, Tag[]> {
   if (entryIds.length === 0) return {};
   const db = getDb();
 
@@ -1261,7 +1261,7 @@ const PERF_LOG = config.logging.performance;
  * Execute FTS5 full-text search for better performance
  * Returns entry IDs that match the search query
  */
-function executeFts5Search(
+export function executeFts5Search(
   search: string,
   types: ('tools' | 'guidelines' | 'knowledge')[]
 ): Record<QueryEntryType, Set<string>> {
