@@ -21,6 +21,7 @@ import {
   isPermissionLevel,
   isPermissionAction,
 } from '../../utils/type-guards.js';
+import { createValidationError } from '../../core/errors.js';
 
 export interface PermissionGrantParams {
   agent_id: string;
@@ -94,11 +95,19 @@ export const permissionHandlers = {
     const entry_type = getOptionalParam(params, 'entry_type', isEntryType);
 
     if (!permission_id && !agent_id) {
-      throw new Error('Either permission_id or agent_id is required');
+      throw createValidationError(
+        'permission_id or agent_id',
+        'is required',
+        'Provide either permission_id or agent_id to revoke'
+      );
     }
 
     if (!agent_id) {
-      throw new Error('agent_id is required when not using permission_id');
+      throw createValidationError(
+        'agent_id',
+        'is required when not using permission_id',
+        'Provide agent_id to identify which permission to revoke'
+      );
     }
 
     revokePermission({

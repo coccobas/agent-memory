@@ -15,6 +15,7 @@ import {
 } from '../../utils/type-guards.js';
 import { requireEntryPermissionWithScope } from '../../utils/entry-access.js';
 import { emitEntryChanged } from '../../utils/events.js';
+import { createValidationError } from '../../core/errors.js';
 import type {
   TagCreateParams,
   TagListParams,
@@ -79,7 +80,11 @@ export const tagHandlers = {
     const tagName = getOptionalParam(params, 'tagName', isString);
 
     if (!tagId && !tagName) {
-      throw new Error('Either tagId or tagName is required');
+      throw createValidationError(
+        'tagId or tagName',
+        'is required',
+        'Provide either tagId or tagName to attach'
+      );
     }
 
     const entryTag = context.repos.entryTags.attach({

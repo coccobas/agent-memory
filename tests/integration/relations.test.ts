@@ -243,9 +243,7 @@ describe('Relations Integration', () => {
     it('should require id or full key', () => {
       expect(() => {
         relationHandlers.delete(context, { agentId: AGENT_ID });
-      }).toThrow(
-        'Either id or all of (sourceType, sourceId, targetType, targetId, relationType) are required'
-      );
+      }).toThrow(/id or \(sourceType, sourceId, targetType, targetId, relationType\)/);
     });
   });
 });

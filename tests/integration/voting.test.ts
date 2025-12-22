@@ -49,15 +49,15 @@ describe('Voting Handler Integration', () => {
     it('should require taskId, agentId, and voteValue', () => {
       expect(() => {
         votingHandlers.record_vote({ taskId: 'task-1', agentId: 'agent-1' });
-      }).toThrow('taskId, agentId, and voteValue are required');
+      }).toThrow(/taskId, agentId, and voteValue/);
 
       expect(() => {
         votingHandlers.record_vote({ taskId: 'task-1', voteValue: 'option-a' });
-      }).toThrow('taskId, agentId, and voteValue are required');
+      }).toThrow(/taskId, agentId, and voteValue/);
 
       expect(() => {
         votingHandlers.record_vote({ agentId: 'agent-1', voteValue: 'option-a' });
-      }).toThrow('taskId, agentId, and voteValue are required');
+      }).toThrow(/taskId, agentId, and voteValue/);
     });
 
     it('should record vote with confidence', () => {
@@ -122,7 +122,7 @@ describe('Voting Handler Integration', () => {
     it('should require taskId', () => {
       expect(() => {
         votingHandlers.get_consensus({});
-      }).toThrow('taskId is required');
+      }).toThrow(/taskId/);
     });
 
     it('should accept custom k value', () => {
@@ -146,7 +146,7 @@ describe('Voting Handler Integration', () => {
           taskId: 'task-1',
           k: 0,
         });
-      }).toThrow('k must be at least 1');
+      }).toThrow(/k.*must be at least 1/);
     });
 
     it('should return null consensus when no votes', () => {
@@ -185,7 +185,7 @@ describe('Voting Handler Integration', () => {
     it('should require taskId', () => {
       expect(() => {
         votingHandlers.list_votes({});
-      }).toThrow('taskId is required');
+      }).toThrow(/taskId/);
     });
 
     it('should include vote details', () => {
@@ -243,7 +243,7 @@ describe('Voting Handler Integration', () => {
     it('should require taskId', () => {
       expect(() => {
         votingHandlers.get_stats({});
-      }).toThrow('taskId is required');
+      }).toThrow(/taskId/);
     });
 
     it('should calculate vote distribution', () => {

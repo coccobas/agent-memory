@@ -11,6 +11,7 @@ import { getDb } from '../../db/connection.js';
 import { projects } from '../../db/schema.js';
 import { eq } from 'drizzle-orm';
 import type { ScopeType } from '../../db/schema.js';
+import { createValidationError, createNotFoundError } from '../../core/errors.js';
 
 export interface TaskAddParams {
   parentTask?: string; // ID of parent task (knowledge entry)
@@ -53,7 +54,11 @@ export function addTask(params: TaskAddParams): {
   } = params;
 
   if (!subtasks || subtasks.length === 0) {
-    throw new Error('At least one subtask is required');
+    throw createValidationError(
+      'subtasks',
+      'at least one subtask is required',
+      'Provide an array of subtask descriptions'
+    );
   }
 
   const db = getDb();
@@ -174,7 +179,7 @@ export function getTask(params: TaskGetParams): {
 
   const task = knowledgeRepo.getById(taskId);
   if (!task) {
-    throw new Error('Task not found');
+    throw createNotFoundError('Task', taskId);
   }
 
   // Get subtasks (tasks where this is the parent)

@@ -156,13 +156,13 @@ describe('Scope Management Integration', () => {
     it('should throw error when project not found', () => {
       expect(() => {
         scopeHandlers.projectGet({ id: 'non-existent-id' });
-      }).toThrow('Project not found');
+      }).toThrow(/Project not found/);
     });
 
     it('should require id or name', () => {
       expect(() => {
         scopeHandlers.projectGet({});
-      }).toThrow('Either id or name is required');
+      }).toThrow(/id or name/);
     });
 
     it('should list projects with orgId filter', () => {

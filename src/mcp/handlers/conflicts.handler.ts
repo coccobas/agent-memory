@@ -12,6 +12,7 @@ import {
   isString,
 } from '../../utils/type-guards.js';
 import type { ConflictListParams, ConflictResolveParams } from '../types.js';
+import { createNotFoundError } from '../../core/errors.js';
 
 export const conflictHandlers = {
   list(params: ConflictListParams) {
@@ -37,7 +38,7 @@ export const conflictHandlers = {
 
     const conflict = conflictRepo.resolve(id, resolution, resolvedBy);
     if (!conflict) {
-      throw new Error('Conflict not found');
+      throw createNotFoundError('Conflict', id);
     }
 
     return {

@@ -134,7 +134,7 @@ describe('Conflicts Integration', () => {
             resolution: 'Test',
             resolvedBy: 'test',
           });
-        }).toThrow('Conflict not found');
+        }).toThrow(/Conflict not found/);
       }
     });
 

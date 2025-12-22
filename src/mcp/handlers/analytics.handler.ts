@@ -17,6 +17,7 @@ import type {
   AnalyticsGetErrorCorrelationParams,
   AnalyticsGetLowDiversityParams,
 } from '../types.js';
+import { createValidationError } from '../../core/errors.js';
 
 /**
  * Get usage statistics
@@ -97,7 +98,11 @@ export function getErrorCorrelationHandler(
   params: AnalyticsGetErrorCorrelationParams
 ): ReturnType<typeof calculateErrorCorrelation> {
   if (!params.agentA || !params.agentB) {
-    throw new Error('agentA and agentB are required');
+    throw createValidationError(
+      'agentA and agentB',
+      'are required',
+      'Provide both agent IDs to calculate error correlation'
+    );
   }
 
   return calculateErrorCorrelation({
@@ -115,7 +120,11 @@ export function getLowDiversityHandler(
 ): ReturnType<typeof detectLowDiversity> {
   const projectId = params.projectId ?? params.scopeId;
   if (!projectId) {
-    throw new Error('projectId is required');
+    throw createValidationError(
+      'projectId',
+      'is required',
+      'Provide projectId or scopeId to detect low diversity'
+    );
   }
 
   return detectLowDiversity(projectId);

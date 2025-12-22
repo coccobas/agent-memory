@@ -58,7 +58,7 @@ describe('Tasks Handler Integration', () => {
           scopeType: 'global',
           subtasks: [],
         });
-      }).toThrow('At least one subtask is required');
+      }).toThrow(/subtasks/);
 
       expect(() => {
         taskHandlers.add({

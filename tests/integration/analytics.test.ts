@@ -147,11 +147,11 @@ describe('Analytics Handler Integration', () => {
     it('should require agentA and agentB', () => {
       expect(() => {
         analyticsHandlers.get_error_correlation({ agentA: 'agent-1' });
-      }).toThrow('agentA and agentB are required');
+      }).toThrow(/agentA and agentB/);
 
       expect(() => {
         analyticsHandlers.get_error_correlation({ agentB: 'agent-2' });
-      }).toThrow('agentA and agentB are required');
+      }).toThrow(/agentA and agentB/);
     });
 
     it('should accept time window', () => {
@@ -174,7 +174,7 @@ describe('Analytics Handler Integration', () => {
     it('should require projectId', () => {
       expect(() => {
         analyticsHandlers.get_low_diversity({});
-      }).toThrow('projectId is required');
+      }).toThrow(/projectId/);
     });
 
     it('should detect low diversity', () => {

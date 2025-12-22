@@ -122,7 +122,7 @@ describe('Permissions Handler Integration', () => {
     it('should require agent_id when not using permission_id', () => {
       expect(() => {
         permissionHandlers.revoke({ admin_key: 'test-admin-key' });
-      }).toThrow('Either permission_id or agent_id is required');
+      }).toThrow(/permission_id or agent_id/);
     });
 
     it('should revoke permission with filters', () => {

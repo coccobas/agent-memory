@@ -16,6 +16,7 @@ import type {
   VotingListVotesParams,
   VotingGetStatsParams,
 } from '../types.js';
+import { createValidationError } from '../../core/errors.js';
 
 /**
  * Record a vote from an agent for a task
@@ -27,7 +28,11 @@ export function recordVoteHandler(params: VotingRecordVoteParams): {
   message: string;
 } {
   if (!params.taskId || !params.agentId || params.voteValue === undefined) {
-    throw new Error('taskId, agentId, and voteValue are required');
+    throw createValidationError(
+      'taskId, agentId, and voteValue',
+      'are required',
+      'Provide all required fields to record a vote'
+    );
   }
 
   recordVote({
@@ -58,12 +63,16 @@ export function getConsensusHandler(params: VotingGetConsensusParams): {
   k: number;
 } {
   if (!params.taskId) {
-    throw new Error('taskId is required');
+    throw createValidationError('taskId', 'is required', 'Provide the task ID to get consensus for');
   }
 
   const k = params.k ?? 1;
   if (k < 1) {
-    throw new Error('k must be at least 1');
+    throw createValidationError(
+      'k',
+      'must be at least 1',
+      'The k parameter defines how many votes ahead are needed for consensus'
+    );
   }
 
   const result = calculateConsensus(params.taskId, k);
@@ -89,7 +98,7 @@ export function listVotesHandler(params: VotingListVotesParams): {
   taskId: string;
 } {
   if (!params.taskId) {
-    throw new Error('taskId is required');
+    throw createValidationError('taskId', 'is required', 'Provide the task ID to list votes for');
   }
 
   const votes = listVotes(params.taskId);
@@ -112,7 +121,7 @@ export function getStatsHandler(params: VotingGetStatsParams): {
   voteDistribution: Array<{ voteValue: unknown; count: number; agents: string[] }>;
 } {
   if (!params.taskId) {
-    throw new Error('taskId is required');
+    throw createValidationError('taskId', 'is required', 'Provide the task ID to get stats for');
   }
 
   return getVotingStats(params.taskId);

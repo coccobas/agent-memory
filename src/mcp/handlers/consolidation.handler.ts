@@ -17,6 +17,7 @@ import { isScopeType, isString, isNumber, isBoolean, isArray } from '../../utils
 import type { EntryType } from '../../db/schema.js';
 import type { ConsolidationParams } from '../types.js';
 import { formatTimestamps } from '../../utils/timestamp-formatter.js';
+import { createValidationError } from '../../core/errors.js';
 
 // =============================================================================
 // TOOL DEFINITION
@@ -121,20 +122,30 @@ function isEntryTypeArray(v: unknown): v is EntryType[] {
 export async function handleConsolidation(args: ConsolidationParams): Promise<unknown> {
   const action = args.action;
   if (!isConsolidationAction(action)) {
-    throw new Error(
-      `Invalid action: ${String(action)}. Must be one of: find_similar, dedupe, merge, abstract, archive_stale`
+    throw createValidationError(
+      'action',
+      `invalid value: ${String(action)}`,
+      'Must be one of: find_similar, dedupe, merge, abstract, archive_stale'
     );
   }
 
   const scopeType = args.scopeType;
   if (!isScopeType(scopeType)) {
-    throw new Error('scopeType is required and must be: global, org, project, or session');
+    throw createValidationError(
+      'scopeType',
+      'is required',
+      'Must be one of: global, org, project, or session'
+    );
   }
 
   // Validate scopeId for non-global scopes
   const scopeId = isString(args.scopeId) ? args.scopeId : undefined;
   if (scopeType !== 'global' && !scopeId) {
-    throw new Error(`scopeId is required for scopeType "${scopeType}"`);
+    throw createValidationError(
+      'scopeId',
+      `is required for scopeType "${scopeType}"`,
+      'Provide the scope ID for non-global scopes'
+    );
   }
 
   const entryTypes = isEntryTypeArray(args.entryTypes)
@@ -143,7 +154,11 @@ export async function handleConsolidation(args: ConsolidationParams): Promise<un
 
   const threshold = isNumber(args.threshold) ? args.threshold : 0.85;
   if (threshold < 0 || threshold > 1) {
-    throw new Error('threshold must be between 0 and 1');
+    throw createValidationError(
+      'threshold',
+      'must be between 0 and 1',
+      'Provide a value like 0.85 for 85% similarity matching'
+    );
   }
 
   const limit = isNumber(args.limit) ? args.limit : 20;
@@ -188,14 +203,20 @@ export async function handleConsolidation(args: ConsolidationParams): Promise<un
   if (action === 'archive_stale') {
     const staleDays = isNumber(args.staleDays) ? args.staleDays : undefined;
     if (staleDays === undefined || staleDays <= 0) {
-      throw new Error(
-        'staleDays is required and must be a positive number for archive_stale action'
+      throw createValidationError(
+        'staleDays',
+        'is required and must be a positive number for archive_stale action',
+        'Provide the number of days after which entries are considered stale'
       );
     }
 
     const minRecencyScore = isNumber(args.minRecencyScore) ? args.minRecencyScore : undefined;
     if (minRecencyScore !== undefined && (minRecencyScore < 0 || minRecencyScore > 1)) {
-      throw new Error('minRecencyScore must be between 0 and 1');
+      throw createValidationError(
+        'minRecencyScore',
+        'must be between 0 and 1',
+        'Provide a value like 0.3 to archive entries with low recency scores'
+      );
     }
 
     const result = await archiveStale({
@@ -232,7 +253,11 @@ export async function handleConsolidation(args: ConsolidationParams): Promise<un
 
   const strategy = strategyMap[action];
   if (!strategy) {
-    throw new Error(`Unknown action: ${action}`);
+    throw createValidationError(
+      'action',
+      `unknown action: ${action}`,
+      'Use find_similar, dedupe, merge, abstract, or archive_stale'
+    );
   }
 
   const serviceParams: ServiceConsolidationParams = {

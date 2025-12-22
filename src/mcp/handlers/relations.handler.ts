@@ -119,8 +119,10 @@ export const relationHandlers = {
         relationType
       );
     } else {
-      throw new Error(
-        'Either id or all of (sourceType, sourceId, targetType, targetId, relationType) are required'
+      throw createValidationError(
+        'id or (sourceType, sourceId, targetType, targetId, relationType)',
+        'is required',
+        'Provide either relation id or all entry identifiers'
       );
     }
 

@@ -24,6 +24,7 @@ import {
 import { formatTimestamps } from '../../utils/timestamp-formatter.js';
 import { getCriticalGuidelinesForSession } from '../../services/critical-guidelines.service.js';
 import { requireAdminKey } from '../../utils/admin.js';
+import { createValidationError, createNotFoundError } from '../../core/errors.js';
 import type {
   OrgCreateParams,
   OrgListParams,
@@ -124,7 +125,11 @@ export const scopeHandlers = {
     const orgId = getOptionalParam(params, 'orgId', isString);
 
     if (!id && !name) {
-      throw new Error('Either id or name is required');
+      throw createValidationError(
+        'id or name',
+        'is required',
+        'Provide either project id or name to look up'
+      );
     }
 
     let project;
@@ -135,7 +140,7 @@ export const scopeHandlers = {
     }
 
     if (!project) {
-      throw new Error('Project not found');
+      throw createNotFoundError('Project', id ?? name);
     }
 
     return formatTimestamps({ project });
@@ -159,7 +164,7 @@ export const scopeHandlers = {
 
     const project = projectRepo.update(id, input);
     if (!project) {
-      throw new Error('Project not found');
+      throw createNotFoundError('Project', id);
     }
 
     return formatTimestamps({ success: true, project });
@@ -173,14 +178,16 @@ export const scopeHandlers = {
     const confirm = getOptionalParam(params, 'confirm', isBoolean);
 
     if (!confirm) {
-      throw new Error(
-        'Delete requires confirmation. Set confirm: true to proceed. WARNING: This will permanently delete the project and cannot be undone.'
+      throw createValidationError(
+        'confirm',
+        'is required for delete operation',
+        'Set confirm: true to proceed. WARNING: This will permanently delete the project and cannot be undone.'
       );
     }
 
     const deleted = projectRepo.delete(id);
     if (!deleted) {
-      throw new Error('Project not found or already deleted');
+      throw createNotFoundError('Project', id);
     }
 
     return { success: true, message: `Project ${id} deleted` };
@@ -223,7 +230,7 @@ export const scopeHandlers = {
 
     const session = sessionRepo.end(id, (status ?? 'completed') as 'completed' | 'discarded');
     if (!session) {
-      throw new Error('Session not found');
+      throw createNotFoundError('Session', id);
     }
 
     return formatTimestamps({ success: true, session });
