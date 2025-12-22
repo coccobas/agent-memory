@@ -12,8 +12,8 @@
  */
 
 import type Database from 'better-sqlite3';
-import { drizzle } from 'drizzle-orm/better-sqlite3';
 import * as schema from './schema.js';
+import type { AppDb } from '../core/types.js';
 import { createComponentLogger } from '../utils/logger.js';
 import { config } from '../config/index.js';
 import {
@@ -46,11 +46,11 @@ export interface ConnectionOptions {
  *
  * @throws Error if database not initialized. Call createAppContext() first.
  */
-export function getDb(_options: ConnectionOptions = {}): ReturnType<typeof drizzle> {
+export function getDb(_options: ConnectionOptions = {}): AppDb {
   if (!isDatabaseInitialized()) {
     throw new Error('Database not initialized. Call createAppContext() first.');
   }
-  return getDatabase() as ReturnType<typeof drizzle>;
+  return getDatabase() as AppDb;
 }
 
 /**
@@ -180,7 +180,7 @@ export function clearPreparedStatementCache(): void {
 }
 
 export { schema };
-export type DbClient = ReturnType<typeof drizzle>;
+export type DbClient = AppDb;
 
 // =============================================================================
 // CONTAINER RE-EXPORTS

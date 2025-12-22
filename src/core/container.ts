@@ -12,21 +12,15 @@
  */
 
 import type Database from 'better-sqlite3';
-import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import type { Config } from '../config/index.js';
 import { buildConfig } from '../config/index.js';
 import type { AppContext } from './context.js';
 import { shutdownRuntime, type Runtime } from './runtime.js';
+import type { AppDb } from './types.js';
 
 // =============================================================================
 // CONTAINER STATE
 // =============================================================================
-
-/**
- * Drizzle DB type that works with any schema configuration.
- */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Required for schema flexibility
-type AnyDrizzleDb = BetterSQLite3Database<any>;
 
 interface ContainerState {
   // Configuration
@@ -35,8 +29,8 @@ interface ContainerState {
   // Process-scoped runtime (shared across MCP/REST)
   runtime: Runtime | null;
 
-  // Database references
-  db: AnyDrizzleDb | null;
+  // Database references (using typed schema)
+  db: AppDb | null;
   sqlite: Database.Database | null;
 
   // AppContext reference (for services access)
@@ -146,7 +140,7 @@ export function isRuntimeRegistered(): boolean {
 /**
  * Register the database instances
  */
-export function registerDatabase(db: AnyDrizzleDb, sqlite: Database.Database): void {
+export function registerDatabase(db: AppDb, sqlite: Database.Database): void {
   state.db = db;
   state.sqlite = sqlite;
 }
@@ -204,7 +198,7 @@ export function getConfig(): Config {
  * Get the database instance
  * @throws Error if database not initialized
  */
-export function getDatabase(): AnyDrizzleDb {
+export function getDatabase(): AppDb {
   if (!state.db) {
     throw new Error('Database not initialized. Call createAppContext() first.');
   }

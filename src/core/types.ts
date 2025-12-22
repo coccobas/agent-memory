@@ -7,15 +7,21 @@
 
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import type Database from 'better-sqlite3';
-import type { ScopeType } from '../db/schema.js';
+import type { ScopeType, AppSchema } from '../db/schema.js';
+
+/**
+ * Type-safe Drizzle database with full schema type information.
+ * Provides autocomplete for table names and column types.
+ */
+export type AppDb = BetterSQLite3Database<AppSchema>;
 
 /**
  * Database dependencies for repository factory functions.
  * Passed to repository factories instead of using service locator pattern.
  */
 export interface DatabaseDeps {
-  /** Drizzle ORM database instance */
-  db: BetterSQLite3Database<any>;
+  /** Drizzle ORM database instance with schema types */
+  db: AppDb;
   /** Raw better-sqlite3 database instance for transactions and raw SQL */
   sqlite: Database.Database;
 }

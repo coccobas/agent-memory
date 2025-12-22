@@ -1,11 +1,11 @@
 import type { Logger } from 'pino';
-import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import type Database from 'better-sqlite3';
 import type { Config } from '../config/index.js';
 import type { SecurityService } from '../services/security.service.js';
 import type { PipelineDependencies } from '../services/query/pipeline.js';
 import type { Runtime } from './runtime.js';
 import type { Repositories } from './interfaces/repositories.js';
+import type { AppDb } from './types.js';
 
 /**
  * Service interfaces for AppContext
@@ -83,7 +83,8 @@ export interface AppContextServices {
  */
 export interface AppContext {
   config: Config;
-  db: BetterSQLite3Database<any>; // Using any for schema flexibility
+  /** Type-safe Drizzle database with full schema type information */
+  db: AppDb;
   sqlite: Database.Database;
   logger: Logger;
   queryDeps: PipelineDependencies;

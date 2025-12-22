@@ -7,6 +7,7 @@ import { initializeDatabase } from './init.js';
 import { createComponentLogger } from '../utils/logger.js';
 import { toLongPath, normalizePath } from '../utils/paths.js';
 import type { Config } from '../config/index.js';
+import type { AppDb } from '../core/types.js';
 
 const logger = createComponentLogger('db-factory');
 
@@ -15,7 +16,7 @@ const logger = createComponentLogger('db-factory');
  */
 export async function createDatabaseConnection(
   configuration: Config
-): Promise<{ db: ReturnType<typeof drizzle>; sqlite: Database.Database }> {
+): Promise<{ db: AppDb; sqlite: Database.Database }> {
   const dbPath = toLongPath(normalizePath(configuration.database.path));
 
   // Ensure data directory exists

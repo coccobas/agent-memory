@@ -5,6 +5,16 @@
  */
 
 // =============================================================================
+// SCHEMA TYPE (for typed Drizzle database)
+// =============================================================================
+
+/**
+ * Full schema type for BetterSQLite3Database generic parameter.
+ * Use with: BetterSQLite3Database<AppSchema>
+ */
+export type AppSchema = typeof import('./index.js');
+
+// =============================================================================
 // TYPES
 // =============================================================================
 
