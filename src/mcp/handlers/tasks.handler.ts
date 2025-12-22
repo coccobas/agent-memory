@@ -5,9 +5,9 @@
  * This allows tracking parent-child relationships between tasks and subtasks.
  */
 
-import { knowledgeRepo, type CreateKnowledgeInput } from '../../db/repositories/knowledge.js';
-import { entryRelationRepo, type ListRelationsFilter } from '../../db/repositories/tags.js';
-import { getDb } from '../../db/connection.js';
+import type { CreateKnowledgeInput } from '../../db/repositories/knowledge.js';
+import type { ListRelationsFilter } from '../../db/repositories/tags.js';
+import type { AppContext } from '../../core/context.js';
 import { projects } from '../../db/schema.js';
 import { eq } from 'drizzle-orm';
 import type { ScopeType } from '../../db/schema.js';
@@ -38,7 +38,10 @@ export interface TaskListParams {
 /**
  * Add a task with subtasks, creating decomposition relationships
  */
-export function addTask(params: TaskAddParams): {
+export function addTask(
+  context: AppContext,
+  params: TaskAddParams
+): {
   success: boolean;
   task: { id: string; title: string };
   subtasks: Array<{ id: string; title: string }>;
@@ -61,7 +64,8 @@ export function addTask(params: TaskAddParams): {
     );
   }
 
-  const db = getDb();
+  const { db, repos } = context;
+  const { knowledge: knowledgeRepo, entryRelations: entryRelationRepo } = repos;
 
   // Create main task as a knowledge entry
   const mainTaskInput: CreateKnowledgeInput = {
@@ -166,7 +170,10 @@ export function addTask(params: TaskAddParams): {
 /**
  * Get a task and its subtasks
  */
-export function getTask(params: TaskGetParams): {
+export function getTask(
+  context: AppContext,
+  params: TaskGetParams
+): {
   task: {
     id: string;
     title: string;
@@ -176,6 +183,8 @@ export function getTask(params: TaskGetParams): {
   parentTask?: { id: string; title: string };
 } {
   const { taskId } = params;
+  const { repos } = context;
+  const { knowledge: knowledgeRepo, entryRelations: entryRelationRepo } = repos;
 
   const task = knowledgeRepo.getById(taskId);
   if (!task) {
@@ -242,7 +251,10 @@ export function getTask(params: TaskGetParams): {
 /**
  * List tasks, optionally filtered by parent or scope
  */
-export function listTasks(params: TaskListParams): {
+export function listTasks(
+  context: AppContext,
+  params: TaskListParams
+): {
   tasks: Array<{
     id: string;
     title: string;
@@ -253,6 +265,8 @@ export function listTasks(params: TaskListParams): {
   };
 } {
   const { parentTaskId, scopeType, scopeId, limit = 20, offset = 0 } = params;
+  const { repos } = context;
+  const { knowledge: knowledgeRepo, entryRelations: entryRelationRepo } = repos;
 
   let taskIds: string[] = [];
 
@@ -323,7 +337,7 @@ export function listTasks(params: TaskListParams): {
 }
 
 export const taskHandlers = {
-  add: addTask,
-  get: getTask,
-  list: listTasks,
+  add: (context: AppContext, params: TaskAddParams) => addTask(context, params),
+  get: (context: AppContext, params: TaskGetParams) => getTask(context, params),
+  list: (context: AppContext, params: TaskListParams) => listTasks(context, params),
 };

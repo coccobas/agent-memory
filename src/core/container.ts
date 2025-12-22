@@ -1,14 +1,16 @@
 /**
  * Dependency Injection Container
  *
- * Simplified container that acts as a thin shim for backward compatibility.
- * Holds references to Runtime and AppContext - no service instantiation.
+ * Class-based container for managing application state.
+ * Supports multiple instances for parallel test execution.
  *
  * Usage:
  * - registerRuntime() at process startup
  * - registerContext() after creating AppContext
  * - getRuntime() / getDb() / getSqlite() to access
  * - resetContainer() for test cleanup
+ *
+ * For tests needing isolation, create a new Container instance.
  */
 
 import type Database from 'better-sqlite3';
@@ -19,7 +21,7 @@ import { shutdownRuntime, type Runtime } from './runtime.js';
 import type { AppDb } from './types.js';
 
 // =============================================================================
-// CONTAINER STATE
+// CONTAINER STATE INTERFACE
 // =============================================================================
 
 interface ContainerState {
@@ -40,28 +42,242 @@ interface ContainerState {
   initialized: boolean;
 }
 
-let state: ContainerState = createInitialState();
+// =============================================================================
+// CONTAINER CLASS
+// =============================================================================
 
-function createInitialState(): ContainerState {
-  return {
-    config: buildConfig(),
-    runtime: null,
-    db: null,
-    sqlite: null,
-    context: null,
-    initialized: false,
-  };
+/**
+ * Container class for managing application state.
+ * Create new instances for isolated test environments.
+ */
+export class Container {
+  private state: ContainerState;
+
+  constructor() {
+    this.state = this.createInitialState();
+  }
+
+  private createInitialState(): ContainerState {
+    return {
+      config: buildConfig(),
+      runtime: null,
+      db: null,
+      sqlite: null,
+      context: null,
+      initialized: false,
+    };
+  }
+
+  // ===========================================================================
+  // STATE ACCESS
+  // ===========================================================================
+
+  /**
+   * Get the current container state (for advanced use cases)
+   */
+  getContainerState(): Readonly<ContainerState> {
+    return this.state;
+  }
+
+  /**
+   * Reset the entire container to initial state
+   * Use this in tests to ensure clean state between tests
+   */
+  reset(): void {
+    // Shutdown runtime if registered
+    if (this.state.runtime) {
+      try {
+        shutdownRuntime(this.state.runtime);
+      } catch {
+        // Ignore shutdown errors
+      }
+    }
+
+    // Close database if open
+    if (this.state.sqlite) {
+      try {
+        this.state.sqlite.close();
+      } catch {
+        // Ignore close errors
+      }
+    }
+
+    // Reset to initial state
+    this.state = this.createInitialState();
+  }
+
+  /**
+   * Initialize the container with optional overrides
+   * Useful for testing with mocked services
+   */
+  initialize(overrides?: Partial<ContainerState>): ContainerState {
+    if (overrides) {
+      this.state = { ...this.state, ...overrides };
+    }
+    this.state.initialized = true;
+    return this.state;
+  }
+
+  // ===========================================================================
+  // RUNTIME REGISTRATION
+  // ===========================================================================
+
+  /**
+   * Register the process-scoped Runtime
+   * Call this once at process startup, before creating AppContexts.
+   */
+  registerRuntime(runtime: Runtime): void {
+    this.state.runtime = runtime;
+  }
+
+  /**
+   * Get the registered Runtime
+   * @throws Error if runtime not registered
+   */
+  getRuntime(): Runtime {
+    if (!this.state.runtime) {
+      throw new Error('Runtime not registered. Call registerRuntime() first at startup.');
+    }
+    return this.state.runtime;
+  }
+
+  /**
+   * Check if runtime is registered
+   */
+  isRuntimeRegistered(): boolean {
+    return this.state.runtime !== null;
+  }
+
+  // ===========================================================================
+  // CONTEXT & DATABASE REGISTRATION
+  // ===========================================================================
+
+  /**
+   * Register the database instances
+   */
+  registerDatabase(db: AppDb, sqlite: Database.Database): void {
+    this.state.db = db;
+    this.state.sqlite = sqlite;
+  }
+
+  /**
+   * Register the full AppContext with the container.
+   * This populates the container state from an initialized AppContext.
+   */
+  registerContext(context: AppContext): void {
+    this.state.context = context;
+    this.state.config = context.config;
+    this.state.db = context.db;
+    this.state.sqlite = context.sqlite;
+    this.state.initialized = true;
+  }
+
+  /**
+   * Get the registered AppContext
+   * @throws Error if context not registered
+   */
+  getContext(): AppContext {
+    if (!this.state.context) {
+      throw new Error('AppContext not registered. Call registerContext() first.');
+    }
+    return this.state.context;
+  }
+
+  /**
+   * Check if context is registered
+   */
+  isContextRegistered(): boolean {
+    return this.state.context !== null;
+  }
+
+  /**
+   * Clear database registration (call when closing database)
+   */
+  clearDatabaseRegistration(): void {
+    this.state.db = null;
+    this.state.sqlite = null;
+  }
+
+  // ===========================================================================
+  // ACCESSORS
+  // ===========================================================================
+
+  /**
+   * Get the configuration
+   */
+  getConfig(): Config {
+    return this.state.config;
+  }
+
+  /**
+   * Get the database instance
+   * @throws Error if database not initialized
+   */
+  getDatabase(): AppDb {
+    if (!this.state.db) {
+      throw new Error('Database not initialized. Call createAppContext() first.');
+    }
+    return this.state.db;
+  }
+
+  /**
+   * Get the SQLite instance
+   * @throws Error if database not initialized
+   */
+  getSqlite(): Database.Database {
+    if (!this.state.sqlite) {
+      throw new Error('Database not initialized. Call createAppContext() first.');
+    }
+    return this.state.sqlite;
+  }
+
+  /**
+   * Check if database is initialized
+   */
+  isDatabaseInitialized(): boolean {
+    return this.state.db !== null && this.state.sqlite !== null;
+  }
+
+  /**
+   * Check if container is fully initialized
+   */
+  isInitialized(): boolean {
+    return this.state.initialized;
+  }
+
+  // ===========================================================================
+  // CONFIG RELOAD
+  // ===========================================================================
+
+  /**
+   * Reload configuration from environment variables
+   * Primarily for testing
+   */
+  reloadConfig(): void {
+    this.state.config = buildConfig();
+  }
 }
 
 // =============================================================================
-// CONTAINER API
+// DEFAULT INSTANCE (BACKWARD COMPATIBILITY)
+// =============================================================================
+
+/**
+ * Default container instance for backward compatibility.
+ * Use this for standard application code.
+ * For isolated tests, create new Container instances.
+ */
+export const defaultContainer = new Container();
+
+// =============================================================================
+// CONVENIENCE EXPORTS (DELEGATE TO DEFAULT CONTAINER)
 // =============================================================================
 
 /**
  * Get the current container state (for advanced use cases)
  */
 export function getContainerState(): Readonly<ContainerState> {
-  return state;
+  return defaultContainer.getContainerState();
 }
 
 /**
@@ -69,26 +285,7 @@ export function getContainerState(): Readonly<ContainerState> {
  * Use this in tests to ensure clean state between tests
  */
 export function resetContainer(): void {
-  // Shutdown runtime if registered
-  if (state.runtime) {
-    try {
-      shutdownRuntime(state.runtime);
-    } catch {
-      // Ignore shutdown errors
-    }
-  }
-
-  // Close database if open
-  if (state.sqlite) {
-    try {
-      state.sqlite.close();
-    } catch {
-      // Ignore close errors
-    }
-  }
-
-  // Reset to initial state
-  state = createInitialState();
+  defaultContainer.reset();
 }
 
 /**
@@ -96,23 +293,15 @@ export function resetContainer(): void {
  * Useful for testing with mocked services
  */
 export function initializeContainer(overrides?: Partial<ContainerState>): ContainerState {
-  if (overrides) {
-    state = { ...state, ...overrides };
-  }
-  state.initialized = true;
-  return state;
+  return defaultContainer.initialize(overrides);
 }
-
-// =============================================================================
-// RUNTIME REGISTRATION
-// =============================================================================
 
 /**
  * Register the process-scoped Runtime
  * Call this once at process startup, before creating AppContexts.
  */
 export function registerRuntime(runtime: Runtime): void {
-  state.runtime = runtime;
+  defaultContainer.registerRuntime(runtime);
 }
 
 /**
@@ -120,29 +309,21 @@ export function registerRuntime(runtime: Runtime): void {
  * @throws Error if runtime not registered
  */
 export function getRuntime(): Runtime {
-  if (!state.runtime) {
-    throw new Error('Runtime not registered. Call registerRuntime() first at startup.');
-  }
-  return state.runtime;
+  return defaultContainer.getRuntime();
 }
 
 /**
  * Check if runtime is registered
  */
 export function isRuntimeRegistered(): boolean {
-  return state.runtime !== null;
+  return defaultContainer.isRuntimeRegistered();
 }
-
-// =============================================================================
-// CONTEXT & DATABASE REGISTRATION
-// =============================================================================
 
 /**
  * Register the database instances
  */
 export function registerDatabase(db: AppDb, sqlite: Database.Database): void {
-  state.db = db;
-  state.sqlite = sqlite;
+  defaultContainer.registerDatabase(db, sqlite);
 }
 
 /**
@@ -150,11 +331,7 @@ export function registerDatabase(db: AppDb, sqlite: Database.Database): void {
  * This populates the container state from an initialized AppContext.
  */
 export function registerContext(context: AppContext): void {
-  state.context = context;
-  state.config = context.config;
-  state.db = context.db;
-  state.sqlite = context.sqlite;
-  state.initialized = true;
+  defaultContainer.registerContext(context);
 }
 
 /**
@@ -162,36 +339,28 @@ export function registerContext(context: AppContext): void {
  * @throws Error if context not registered
  */
 export function getContext(): AppContext {
-  if (!state.context) {
-    throw new Error('AppContext not registered. Call registerContext() first.');
-  }
-  return state.context;
+  return defaultContainer.getContext();
 }
 
 /**
  * Check if context is registered
  */
 export function isContextRegistered(): boolean {
-  return state.context !== null;
+  return defaultContainer.isContextRegistered();
 }
 
 /**
  * Clear database registration (call when closing database)
  */
 export function clearDatabaseRegistration(): void {
-  state.db = null;
-  state.sqlite = null;
+  defaultContainer.clearDatabaseRegistration();
 }
-
-// =============================================================================
-// ACCESSORS
-// =============================================================================
 
 /**
  * Get the configuration
  */
 export function getConfig(): Config {
-  return state.config;
+  return defaultContainer.getConfig();
 }
 
 /**
@@ -199,10 +368,7 @@ export function getConfig(): Config {
  * @throws Error if database not initialized
  */
 export function getDatabase(): AppDb {
-  if (!state.db) {
-    throw new Error('Database not initialized. Call createAppContext() first.');
-  }
-  return state.db;
+  return defaultContainer.getDatabase();
 }
 
 /**
@@ -210,34 +376,27 @@ export function getDatabase(): AppDb {
  * @throws Error if database not initialized
  */
 export function getSqlite(): Database.Database {
-  if (!state.sqlite) {
-    throw new Error('Database not initialized. Call createAppContext() first.');
-  }
-  return state.sqlite;
+  return defaultContainer.getSqlite();
 }
 
 /**
  * Check if database is initialized
  */
 export function isDatabaseInitialized(): boolean {
-  return state.db !== null && state.sqlite !== null;
+  return defaultContainer.isDatabaseInitialized();
 }
 
 /**
  * Check if container is fully initialized
  */
 export function isContainerInitialized(): boolean {
-  return state.initialized;
+  return defaultContainer.isInitialized();
 }
-
-// =============================================================================
-// CONFIG RELOAD
-// =============================================================================
 
 /**
  * Reload configuration from environment variables
  * Primarily for testing
  */
 export function reloadContainerConfig(): void {
-  state.config = buildConfig();
+  defaultContainer.reloadConfig();
 }

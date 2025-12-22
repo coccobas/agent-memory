@@ -3,17 +3,20 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
+import type { AppContext } from '../../src/core/context.js';
 import {
   setupTestDb,
   cleanupTestDb,
   createTestOrg,
   createTestProject,
+  registerTestContext,
 } from '../fixtures/test-helpers.js';
 import { taskHandlers } from '../../src/mcp/handlers/tasks.handler.js';
 
 const TEST_DB_PATH = './data/test-tasks-handler.db';
 let sqlite: ReturnType<typeof setupTestDb>['sqlite'];
 let db: ReturnType<typeof setupTestDb>['db'];
+let context: AppContext;
 
 vi.mock('../../src/db/connection.js', async () => {
   const actual = await vi.importActual<typeof import('../../src/db/connection.js')>(
@@ -30,6 +33,7 @@ describe('Tasks Handler Integration', () => {
     const testDb = setupTestDb(TEST_DB_PATH);
     sqlite = testDb.sqlite;
     db = testDb.db;
+    context = registerTestContext(testDb);
   });
 
   afterAll(() => {
@@ -39,7 +43,7 @@ describe('Tasks Handler Integration', () => {
 
   describe('add', () => {
     it('should add task with subtasks', () => {
-      const result = taskHandlers.add({
+      const result = taskHandlers.add(context, {
         scopeType: 'global',
         subtasks: ['Subtask 1', 'Subtask 2'],
       });
@@ -54,14 +58,14 @@ describe('Tasks Handler Integration', () => {
 
     it('should require subtasks', () => {
       expect(() => {
-        taskHandlers.add({
+        taskHandlers.add(context, {
           scopeType: 'global',
           subtasks: [],
         });
       }).toThrow(/subtasks/);
 
       expect(() => {
-        taskHandlers.add({
+        taskHandlers.add(context, {
           scopeType: 'global',
         });
       }).toThrow();
@@ -75,7 +79,7 @@ describe('Tasks Handler Integration', () => {
       ];
 
       strategies.forEach((strategy) => {
-        const result = taskHandlers.add({
+        const result = taskHandlers.add(context, {
           scopeType: 'global',
           subtasks: ['Test subtask'],
           decompositionStrategy: strategy,
@@ -87,12 +91,12 @@ describe('Tasks Handler Integration', () => {
 
     it('should support parent task', () => {
       // Create a parent task first
-      const parentResult = taskHandlers.add({
+      const parentResult = taskHandlers.add(context, {
         scopeType: 'global',
         subtasks: ['Parent subtask'],
       });
 
-      const result = taskHandlers.add({
+      const result = taskHandlers.add(context, {
         scopeType: 'global',
         parentTask: parentResult.task.id,
         subtasks: ['Child subtask'],
@@ -105,7 +109,7 @@ describe('Tasks Handler Integration', () => {
       const org = createTestOrg(db, 'Test Org');
       const project = createTestProject(db, 'Test Project', org.id);
 
-      const result = taskHandlers.add({
+      const result = taskHandlers.add(context, {
         scopeType: 'project',
         scopeId: project.id,
         projectId: project.id,
@@ -116,7 +120,7 @@ describe('Tasks Handler Integration', () => {
     });
 
     it('should store createdBy', () => {
-      const result = taskHandlers.add({
+      const result = taskHandlers.add(context, {
         scopeType: 'global',
         subtasks: ['Test subtask'],
         createdBy: 'test-user',
@@ -128,12 +132,12 @@ describe('Tasks Handler Integration', () => {
 
   describe('get', () => {
     it('should get task by ID', () => {
-      const addResult = taskHandlers.add({
+      const addResult = taskHandlers.add(context, {
         scopeType: 'global',
         subtasks: ['Get test subtask'],
       });
 
-      const result = taskHandlers.get({ taskId: addResult.task.id });
+      const result = taskHandlers.get(context, { taskId: addResult.task.id });
 
       expect(result.task).toBeDefined();
       expect(result.task.id).toBe(addResult.task.id);
@@ -143,17 +147,17 @@ describe('Tasks Handler Integration', () => {
 
     it('should require taskId', () => {
       expect(() => {
-        taskHandlers.get({});
+        taskHandlers.get(context, {});
       }).toThrow();
     });
 
     it('should return subtasks with task', () => {
-      const addResult = taskHandlers.add({
+      const addResult = taskHandlers.add(context, {
         scopeType: 'global',
         subtasks: ['Subtask A', 'Subtask B'],
       });
 
-      const result = taskHandlers.get({ taskId: addResult.task.id });
+      const result = taskHandlers.get(context, { taskId: addResult.task.id });
 
       expect(result.subtasks.length).toBe(2);
     });
@@ -161,17 +165,17 @@ describe('Tasks Handler Integration', () => {
 
   describe('list', () => {
     it('should list tasks', () => {
-      taskHandlers.add({
+      taskHandlers.add(context, {
         scopeType: 'global',
         subtasks: ['List test subtask 1'],
       });
 
-      taskHandlers.add({
+      taskHandlers.add(context, {
         scopeType: 'global',
         subtasks: ['List test subtask 2'],
       });
 
-      const result = taskHandlers.list({
+      const result = taskHandlers.list(context, {
         scopeType: 'global',
       });
 
@@ -181,18 +185,18 @@ describe('Tasks Handler Integration', () => {
     });
 
     it('should filter by parentTaskId', () => {
-      const parent = taskHandlers.add({
+      const parent = taskHandlers.add(context, {
         scopeType: 'global',
         subtasks: ['Parent'],
       });
 
-      taskHandlers.add({
+      taskHandlers.add(context, {
         scopeType: 'global',
         parentTask: parent.task.id,
         subtasks: ['Child'],
       });
 
-      const result = taskHandlers.list({
+      const result = taskHandlers.list(context, {
         parentTaskId: parent.task.id,
       });
 
@@ -203,13 +207,13 @@ describe('Tasks Handler Integration', () => {
       const org = createTestOrg(db, 'Test Org');
       const project = createTestProject(db, 'Test Project', org.id);
 
-      taskHandlers.add({
+      taskHandlers.add(context, {
         scopeType: 'project',
         scopeId: project.id,
         subtasks: ['Project task'],
       });
 
-      const result = taskHandlers.list({
+      const result = taskHandlers.list(context, {
         scopeType: 'project',
         scopeId: project.id,
       });
@@ -218,17 +222,17 @@ describe('Tasks Handler Integration', () => {
     });
 
     it('should support pagination', () => {
-      taskHandlers.add({
+      taskHandlers.add(context, {
         scopeType: 'global',
         subtasks: ['Pagination test 1'],
       });
 
-      taskHandlers.add({
+      taskHandlers.add(context, {
         scopeType: 'global',
         subtasks: ['Pagination test 2'],
       });
 
-      const result = taskHandlers.list({
+      const result = taskHandlers.list(context, {
         scopeType: 'global',
         limit: 1,
         offset: 0,
