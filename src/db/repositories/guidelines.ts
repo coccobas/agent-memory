@@ -1,9 +1,14 @@
-import { eq, and, isNull, desc, asc, inArray } from 'drizzle-orm';
-import { getDb } from '../connection.js';
+/**
+ * Guideline Repository
+ *
+ * Factory function that accepts DatabaseDeps for dependency injection.
+ */
+
+import { eq, and, desc, asc } from 'drizzle-orm';
+import { getDb, getSqlite, transactionWithDb } from '../connection.js';
 import {
   guidelines,
   guidelineVersions,
-  type Guideline,
   type NewGuideline,
   type GuidelineVersion,
   type NewGuidelineVersion,
@@ -12,447 +17,344 @@ import {
 import {
   generateId,
   type PaginationOptions,
-  DEFAULT_LIMIT,
-  MAX_LIMIT,
-  cascadeDeleteRelatedRecords,
+  cascadeDeleteRelatedRecordsWithDb,
   asyncVectorCleanup,
-  checkAndLogConflict,
+  checkAndLogConflictWithDb,
 } from './base.js';
-import { transaction } from '../connection.js';
 import { generateEmbeddingAsync, extractTextForEmbedding } from './embedding-hooks.js';
+import {
+  normalizePagination,
+  buildScopeConditions,
+  batchFetchVersionsWithDb,
+  attachVersions,
+  buildExactScopeConditions,
+  buildGlobalScopeConditions,
+} from './entry-utils.js';
+import type { DatabaseDeps } from '../../core/types.js';
+import type {
+  IGuidelineRepository,
+  CreateGuidelineInput,
+  UpdateGuidelineInput,
+  ListGuidelinesFilter,
+  GuidelineWithVersion,
+} from '../../core/interfaces/repositories.js';
+
+// Re-export types for backward compatibility
+export type {
+  CreateGuidelineInput,
+  UpdateGuidelineInput,
+  ListGuidelinesFilter,
+  GuidelineWithVersion,
+} from '../../core/interfaces/repositories.js';
 
 // =============================================================================
-// TYPES
+// GUIDELINE REPOSITORY FACTORY
 // =============================================================================
 
-export interface CreateGuidelineInput {
-  scopeType: ScopeType;
-  scopeId?: string;
-  name: string;
-  category?: string;
-  priority?: number;
-  content: string;
-  rationale?: string;
-  examples?: { bad?: string[]; good?: string[] };
-  createdBy?: string;
-}
+/**
+ * Create a guideline repository with injected database dependencies
+ */
+export function createGuidelineRepository(deps: DatabaseDeps): IGuidelineRepository {
+  const { db, sqlite } = deps;
 
-export interface UpdateGuidelineInput {
-  category?: string;
-  priority?: number;
-  content?: string;
-  rationale?: string;
-  examples?: { bad?: string[]; good?: string[] };
-  changeReason?: string;
-  updatedBy?: string;
-}
+  const repo: IGuidelineRepository = {
+    create(input: CreateGuidelineInput): GuidelineWithVersion {
+      return transactionWithDb(sqlite, () => {
+        const guidelineId = generateId();
+        const versionId = generateId();
 
-export interface ListGuidelinesFilter {
-  scopeType?: ScopeType;
-  scopeId?: string;
-  category?: string;
-  includeInactive?: boolean;
-  inherit?: boolean;
-}
+        // Create the guideline entry
+        const guideline: NewGuideline = {
+          id: guidelineId,
+          scopeType: input.scopeType,
+          scopeId: input.scopeId,
+          name: input.name,
+          category: input.category,
+          priority: input.priority ?? 50,
+          currentVersionId: versionId,
+          isActive: true,
+          createdBy: input.createdBy,
+        };
 
-export interface GuidelineWithVersion extends Guideline {
-  currentVersion?: GuidelineVersion;
-}
+        db.insert(guidelines).values(guideline).run();
 
-// =============================================================================
-// REPOSITORY
-// =============================================================================
+        // Create the initial version
+        const version: NewGuidelineVersion = {
+          id: versionId,
+          guidelineId,
+          versionNum: 1,
+          content: input.content,
+          rationale: input.rationale,
+          examples: input.examples,
+          createdBy: input.createdBy,
+          changeReason: 'Initial version',
+        };
 
-export const guidelineRepo = {
-  /**
-   * Create a new guideline with initial version
-   *
-   * @param input - Guideline creation parameters including scope, name, priority, and initial content
-   * @returns The created guideline with its current version
-   * @throws Error if a guideline with the same name already exists in the scope
-   */
-  create(input: CreateGuidelineInput): GuidelineWithVersion {
-    return transaction(() => {
-      const db = getDb();
-      const guidelineId = generateId();
-      const versionId = generateId();
+        db.insert(guidelineVersions).values(version).run();
 
-      // Create the guideline entry
-      const guideline: NewGuideline = {
-        id: guidelineId,
-        scopeType: input.scopeType,
-        scopeId: input.scopeId,
-        name: input.name,
-        category: input.category,
-        priority: input.priority ?? 50,
-        currentVersionId: versionId,
-        isActive: true,
-        createdBy: input.createdBy,
-      };
+        const result = repo.getById(guidelineId);
+        if (!result) {
+          throw new Error(`Failed to create guideline ${guidelineId}`);
+        }
 
-      db.insert(guidelines).values(guideline).run();
+        // Generate embedding asynchronously (fire-and-forget)
+        const text = extractTextForEmbedding('guideline', input.name, {
+          content: input.content,
+          rationale: input.rationale,
+        });
+        generateEmbeddingAsync({
+          entryType: 'guideline',
+          entryId: guidelineId,
+          versionId: versionId,
+          text,
+        });
 
-      // Create the initial version
-      const version: NewGuidelineVersion = {
-        id: versionId,
-        guidelineId,
-        versionNum: 1,
-        content: input.content,
-        rationale: input.rationale,
-        examples: input.examples,
-        createdBy: input.createdBy,
-        changeReason: 'Initial version',
-      };
-
-      db.insert(guidelineVersions).values(version).run();
-
-      const result = this.getById(guidelineId);
-      if (!result) {
-        throw new Error(`Failed to create guideline ${guidelineId}`);
-      }
-
-      // Generate embedding asynchronously (fire-and-forget)
-      const text = extractTextForEmbedding('guideline', input.name, {
-        content: input.content,
-        rationale: input.rationale,
+        return result;
       });
-      generateEmbeddingAsync({
-        entryType: 'guideline',
-        entryId: guidelineId,
-        versionId: versionId,
-        text,
-      });
+    },
 
-      return result;
-    });
-  },
+    getById(id: string): GuidelineWithVersion | undefined {
+      const guideline = db.select().from(guidelines).where(eq(guidelines.id, id)).get();
+      if (!guideline) return undefined;
 
-  /**
-   * Get guideline by ID with current version
-   *
-   * @param id - The guideline ID
-   * @returns The guideline with its current version, or undefined if not found
-   */
-  getById(id: string): GuidelineWithVersion | undefined {
-    const db = getDb();
-
-    const guideline = db.select().from(guidelines).where(eq(guidelines.id, id)).get();
-    if (!guideline) return undefined;
-
-    const currentVersion = guideline.currentVersionId
-      ? db
-          .select()
-          .from(guidelineVersions)
-          .where(eq(guidelineVersions.id, guideline.currentVersionId))
-          .get()
-      : undefined;
-
-    return { ...guideline, currentVersion };
-  },
-
-  /**
-   * Get guideline by name within a scope (with optional inheritance)
-   *
-   * @param name - The guideline name
-   * @param scopeType - The scope type to search in
-   * @param scopeId - The scope ID (required for non-global scopes)
-   * @param inherit - Whether to search parent scopes if not found (default: true)
-   * @returns The guideline with its current version, or undefined if not found
-   */
-  getByName(
-    name: string,
-    scopeType: ScopeType,
-    scopeId?: string,
-    inherit = true
-  ): GuidelineWithVersion | undefined {
-    const db = getDb();
-
-    // First, try exact scope match
-    const exactMatch = scopeId
-      ? db
-          .select()
-          .from(guidelines)
-          .where(
-            and(
-              eq(guidelines.name, name),
-              eq(guidelines.scopeType, scopeType),
-              eq(guidelines.scopeId, scopeId),
-              eq(guidelines.isActive, true)
-            )
-          )
-          .get()
-      : db
-          .select()
-          .from(guidelines)
-          .where(
-            and(
-              eq(guidelines.name, name),
-              eq(guidelines.scopeType, scopeType),
-              isNull(guidelines.scopeId),
-              eq(guidelines.isActive, true)
-            )
-          )
-          .get();
-
-    if (exactMatch) {
-      const currentVersion = exactMatch.currentVersionId
+      const currentVersion = guideline.currentVersionId
         ? db
             .select()
             .from(guidelineVersions)
-            .where(eq(guidelineVersions.id, exactMatch.currentVersionId))
+            .where(eq(guidelineVersions.id, guideline.currentVersionId))
             .get()
         : undefined;
-      return { ...exactMatch, currentVersion };
-    }
 
-    // If not found and inherit is true, search parent scopes
-    if (inherit && scopeType !== 'global') {
-      const globalMatch = db
+      return { ...guideline, currentVersion };
+    },
+
+    getByName(
+      name: string,
+      scopeType: ScopeType,
+      scopeId?: string,
+      inherit = true
+    ): GuidelineWithVersion | undefined {
+      // First, try exact scope match
+      const exactMatch = db
         .select()
         .from(guidelines)
-        .where(
-          and(
-            eq(guidelines.name, name),
-            eq(guidelines.scopeType, 'global'),
-            isNull(guidelines.scopeId),
-            eq(guidelines.isActive, true)
-          )
-        )
+        .where(buildExactScopeConditions(guidelines, guidelines.name, name, scopeType, scopeId))
         .get();
 
-      if (globalMatch) {
-        const currentVersion = globalMatch.currentVersionId
-          ? db
-              .select()
-              .from(guidelineVersions)
-              .where(eq(guidelineVersions.id, globalMatch.currentVersionId))
-              .get()
-          : undefined;
-        return { ...globalMatch, currentVersion };
+      if (exactMatch) {
+        const versionsMap = batchFetchVersionsWithDb<GuidelineVersion>(db, guidelineVersions, [
+          exactMatch.currentVersionId,
+        ]);
+        return attachVersions([exactMatch], versionsMap)[0];
       }
-    }
 
-    return undefined;
-  },
+      // If not found and inherit is true, search parent scopes
+      if (inherit && scopeType !== 'global') {
+        const globalMatch = db
+          .select()
+          .from(guidelines)
+          .where(buildGlobalScopeConditions(guidelines, guidelines.name, name))
+          .get();
 
-  /**
-   * List guidelines with filtering (ordered by priority desc)
-   *
-   * @param filter - Optional filters for scope, category, and active status
-   * @param options - Optional pagination parameters (limit, offset)
-   * @returns Array of guidelines matching the filter criteria, ordered by priority (highest first)
-   */
-  list(filter: ListGuidelinesFilter = {}, options: PaginationOptions = {}): GuidelineWithVersion[] {
-    const db = getDb();
-    const limit = Math.min(options.limit ?? DEFAULT_LIMIT, MAX_LIMIT);
-    const offset = options.offset ?? 0;
+        if (globalMatch) {
+          const versionsMap = batchFetchVersionsWithDb<GuidelineVersion>(db, guidelineVersions, [
+            globalMatch.currentVersionId,
+          ]);
+          return attachVersions([globalMatch], versionsMap)[0];
+        }
+      }
 
-    const conditions = [];
+      return undefined;
+    },
 
-    if (filter.scopeType !== undefined) {
-      conditions.push(eq(guidelines.scopeType, filter.scopeType));
-    }
+    list(
+      filter: ListGuidelinesFilter = {},
+      options: PaginationOptions = {}
+    ): GuidelineWithVersion[] {
+      const { limit, offset } = normalizePagination(options);
 
-    if (filter.scopeId !== undefined) {
-      conditions.push(eq(guidelines.scopeId, filter.scopeId));
-    } else if (filter.scopeType === 'global') {
-      conditions.push(isNull(guidelines.scopeId));
-    }
+      // Build conditions using shared utility + category-specific condition
+      const conditions = buildScopeConditions(guidelines, filter);
+      if (filter.category !== undefined) {
+        conditions.push(eq(guidelines.category, filter.category));
+      }
 
-    if (filter.category !== undefined) {
-      conditions.push(eq(guidelines.category, filter.category));
-    }
+      let query = db.select().from(guidelines);
+      if (conditions.length > 0) {
+        query = query.where(and(...conditions)) as typeof query;
+      }
 
-    if (!filter.includeInactive) {
-      conditions.push(eq(guidelines.isActive, true));
-    }
-
-    let query = db.select().from(guidelines);
-
-    if (conditions.length > 0) {
-      query = query.where(and(...conditions)) as typeof query;
-    }
-
-    const guidelinesList = query
-      .orderBy(desc(guidelines.priority))
-      .limit(limit)
-      .offset(offset)
-      .all();
-
-    // Batch fetch current versions to avoid N+1 queries
-    const versionIds = guidelinesList
-      .map((g) => g.currentVersionId)
-      .filter((id): id is string => id !== null && id !== undefined);
-
-    const versionsMap = new Map<string, GuidelineVersion>();
-    if (versionIds.length > 0) {
-      const versionsList = db
-        .select()
-        .from(guidelineVersions)
-        .where(inArray(guidelineVersions.id, versionIds))
+      const guidelinesList = query
+        .orderBy(desc(guidelines.priority))
+        .limit(limit)
+        .offset(offset)
         .all();
-      for (const v of versionsList) {
-        versionsMap.set(v.id, v);
-      }
-    }
 
-    return guidelinesList.map((guideline) => ({
-      ...guideline,
-      currentVersion: guideline.currentVersionId
-        ? versionsMap.get(guideline.currentVersionId)
-        : undefined,
-    }));
-  },
+      // Batch fetch versions using shared utility
+      const versionsMap = batchFetchVersionsWithDb<GuidelineVersion>(
+        db,
+        guidelineVersions,
+        guidelinesList.map((g) => g.currentVersionId)
+      );
 
-  /**
-   * Update a guideline (creates new version)
-   *
-   * @param id - The guideline ID to update
-   * @param input - Update parameters (fields not provided inherit from previous version)
-   * @returns The updated guideline with its new current version, or undefined if guideline not found
-   * @remarks Creates a new version and detects conflicts if another update happened within 5 seconds
-   */
-  update(id: string, input: UpdateGuidelineInput): GuidelineWithVersion | undefined {
-    return transaction(() => {
-      const db = getDb();
+      return attachVersions(guidelinesList, versionsMap);
+    },
 
-      const existing = this.getById(id);
-      if (!existing) return undefined;
+    update(id: string, input: UpdateGuidelineInput): GuidelineWithVersion | undefined {
+      return transactionWithDb(sqlite, () => {
+        const existing = repo.getById(id);
+        if (!existing) return undefined;
 
-      // Get current version number
-      const latestVersion = db
-        .select()
-        .from(guidelineVersions)
-        .where(eq(guidelineVersions.guidelineId, id))
-        .orderBy(desc(guidelineVersions.versionNum))
-        .get();
+        // Get current version number
+        const latestVersion = db
+          .select()
+          .from(guidelineVersions)
+          .where(eq(guidelineVersions.guidelineId, id))
+          .orderBy(desc(guidelineVersions.versionNum))
+          .get();
 
-      const newVersionNum = (latestVersion?.versionNum ?? 0) + 1;
-      const newVersionId = generateId();
+        const newVersionNum = (latestVersion?.versionNum ?? 0) + 1;
+        const newVersionId = generateId();
 
-      // Check for conflict using shared helper
-      const conflictFlag = latestVersion
-        ? checkAndLogConflict('guideline', id, latestVersion.id, newVersionId, new Date(latestVersion.createdAt))
-        : false;
+        // Check for conflict using shared helper
+        const conflictFlag = latestVersion
+          ? checkAndLogConflictWithDb(
+              db,
+              'guideline',
+              id,
+              latestVersion.id,
+              newVersionId,
+              new Date(latestVersion.createdAt)
+            )
+          : false;
 
-      // Update guideline metadata if needed
-      if (input.category !== undefined || input.priority !== undefined) {
+        // Update guideline metadata if needed
+        if (input.category !== undefined || input.priority !== undefined) {
+          db.update(guidelines)
+            .set({
+              ...(input.category !== undefined && { category: input.category }),
+              ...(input.priority !== undefined && { priority: input.priority }),
+            })
+            .where(eq(guidelines.id, id))
+            .run();
+        }
+
+        // Create new version
+        const previousVersion = existing.currentVersion;
+        const newVersion: NewGuidelineVersion = {
+          id: newVersionId,
+          guidelineId: id,
+          versionNum: newVersionNum,
+          content: input.content ?? previousVersion?.content ?? '',
+          rationale: input.rationale ?? previousVersion?.rationale,
+          examples: input.examples ?? previousVersion?.examples,
+          createdBy: input.updatedBy,
+          changeReason: input.changeReason,
+          conflictFlag,
+        };
+
+        db.insert(guidelineVersions).values(newVersion).run();
+
+        // Update current version pointer
         db.update(guidelines)
-          .set({
-            ...(input.category !== undefined && { category: input.category }),
-            ...(input.priority !== undefined && { priority: input.priority }),
-          })
+          .set({ currentVersionId: newVersionId })
           .where(eq(guidelines.id, id))
           .run();
-      }
 
-      // Create new version
-      const previousVersion = existing.currentVersion;
-      const newVersion: NewGuidelineVersion = {
-        id: newVersionId,
-        guidelineId: id,
-        versionNum: newVersionNum,
-        content: input.content ?? previousVersion?.content ?? '',
-        rationale: input.rationale ?? previousVersion?.rationale,
-        examples: input.examples ?? previousVersion?.examples,
-        createdBy: input.updatedBy,
-        changeReason: input.changeReason,
-        conflictFlag,
-      };
+        // Generate embedding asynchronously (fire-and-forget)
+        const text = extractTextForEmbedding('guideline', existing.name, {
+          content: newVersion.content,
+          rationale: newVersion.rationale ?? undefined,
+        });
+        generateEmbeddingAsync({
+          entryType: 'guideline',
+          entryId: id,
+          versionId: newVersionId,
+          text,
+        });
 
-      db.insert(guidelineVersions).values(newVersion).run();
+        return repo.getById(id);
+      });
+    },
 
-      // Update current version pointer
-      db.update(guidelines)
-        .set({ currentVersionId: newVersionId })
+    getHistory(guidelineId: string): GuidelineVersion[] {
+      return db
+        .select()
+        .from(guidelineVersions)
+        .where(eq(guidelineVersions.guidelineId, guidelineId))
+        .orderBy(asc(guidelineVersions.versionNum))
+        .all();
+    },
+
+    deactivate(id: string): boolean {
+      const result = db
+        .update(guidelines)
+        .set({ isActive: false })
         .where(eq(guidelines.id, id))
         .run();
+      const success = result.changes > 0;
 
-      // Generate embedding asynchronously (fire-and-forget)
-      const text = extractTextForEmbedding('guideline', existing.name, {
-        content: newVersion.content,
-        rationale: newVersion.rationale ?? undefined,
+      if (success) {
+        asyncVectorCleanup('guideline', id);
+      }
+
+      return success;
+    },
+
+    reactivate(id: string): boolean {
+      const result = db
+        .update(guidelines)
+        .set({ isActive: true })
+        .where(eq(guidelines.id, id))
+        .run();
+      return result.changes > 0;
+    },
+
+    delete(id: string): boolean {
+      const result = transactionWithDb(sqlite, () => {
+        // Delete related records (tags, relations, embeddings, permissions)
+        cascadeDeleteRelatedRecordsWithDb(db, 'guideline', id);
+
+        // Delete versions
+        db.delete(guidelineVersions).where(eq(guidelineVersions.guidelineId, id)).run();
+
+        // Delete guideline
+        const deleteResult = db.delete(guidelines).where(eq(guidelines.id, id)).run();
+        return deleteResult.changes > 0;
       });
-      generateEmbeddingAsync({
-        entryType: 'guideline',
-        entryId: id,
-        versionId: newVersionId,
-        text,
-      });
 
-      return this.getById(id);
-    });
+      if (result) {
+        asyncVectorCleanup('guideline', id);
+      }
+
+      return result;
+    },
+  };
+
+  return repo;
+}
+
+// =============================================================================
+// TEMPORARY BACKWARD COMPAT EXPORTS
+// TODO: Remove these when all call sites are updated to use AppContext.repos
+// =============================================================================
+
+/**
+ * @deprecated Use createGuidelineRepository(deps) instead. Will be removed when AppContext.repos is wired.
+ */
+function createLegacyGuidelineRepo(): IGuidelineRepository {
+  return createGuidelineRepository({ db: getDb(), sqlite: getSqlite() });
+}
+
+// Lazy-initialized singleton instance for backward compatibility
+let _guidelineRepo: IGuidelineRepository | null = null;
+
+/**
+ * @deprecated Use AppContext.repos.guidelines instead
+ */
+export const guidelineRepo: IGuidelineRepository = new Proxy({} as IGuidelineRepository, {
+  get(_, prop: keyof IGuidelineRepository) {
+    if (!_guidelineRepo) _guidelineRepo = createLegacyGuidelineRepo();
+    return _guidelineRepo[prop];
   },
-
-  /**
-   * Get version history for a guideline
-   *
-   * @param guidelineId - The guideline ID
-   * @returns Array of all versions for the guideline, ordered by version number (oldest first)
-   */
-  getHistory(guidelineId: string): GuidelineVersion[] {
-    const db = getDb();
-    return db
-      .select()
-      .from(guidelineVersions)
-      .where(eq(guidelineVersions.guidelineId, guidelineId))
-      .orderBy(asc(guidelineVersions.versionNum))
-      .all();
-  },
-
-  /**
-   * Deactivate a guideline (soft delete)
-   *
-   * @param id - The guideline ID to deactivate
-   * @returns True if the guideline was successfully deactivated
-   */
-  deactivate(id: string): boolean {
-    const db = getDb();
-    const result = db
-      .update(guidelines)
-      .set({ isActive: false })
-      .where(eq(guidelines.id, id))
-      .run();
-    const success = result.changes > 0;
-
-    if (success) {
-      asyncVectorCleanup('guideline', id);
-    }
-
-    return success;
-  },
-
-  /**
-   * Reactivate a guideline
-   */
-  reactivate(id: string): boolean {
-    const db = getDb();
-    const result = db.update(guidelines).set({ isActive: true }).where(eq(guidelines.id, id)).run();
-    return result.changes > 0;
-  },
-
-  /**
-   * Hard delete a guideline and all related records (versions, tags, relations, embeddings, permissions)
-   */
-  delete(id: string): boolean {
-    const result = transaction(() => {
-      const db = getDb();
-
-      // Delete related records (tags, relations, embeddings, permissions)
-      cascadeDeleteRelatedRecords('guideline', id);
-
-      // Delete versions
-      db.delete(guidelineVersions).where(eq(guidelineVersions.guidelineId, id)).run();
-
-      // Delete guideline
-      const deleteResult = db.delete(guidelines).where(eq(guidelines.id, id)).run();
-      return deleteResult.changes > 0;
-    });
-
-    if (result) {
-      asyncVectorCleanup('guideline', id);
-    }
-
-    return result;
-  },
-};
+});

@@ -204,4 +204,3 @@ export function runHookInstallCommand(
 
   return { exitCode: installResult.success ? 0 : 1, stdout, stderr };
 }
-

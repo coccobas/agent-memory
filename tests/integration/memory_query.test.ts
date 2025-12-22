@@ -8,14 +8,17 @@ import {
   createTestSession,
   createTestTool,
   createTestGuideline,
+  registerTestContext,
 } from '../fixtures/test-helpers.js';
+import type { AppContext } from '../../src/core/context.js';
 import * as schema from '../../src/db/schema.js';
-import { setSqliteInstanceForTests } from '../../src/db/connection.js';
+import { registerDatabase, clearPreparedStatementCache, resetContainer } from '../../src/db/connection.js';
 
 const TEST_DB_PATH = './data/test-memory-query-int.db';
 
 let sqlite: ReturnType<typeof setupTestDb>['sqlite'];
 let db: ReturnType<typeof setupTestDb>['db'];
+let context: AppContext;
 
 vi.mock('../../src/db/connection.js', async () => {
   const actual = await vi.importActual<typeof import('../../src/db/connection.js')>(
@@ -46,7 +49,11 @@ describe('memory_query integration', () => {
     const testDb = setupTestDb(TEST_DB_PATH);
     sqlite = testDb.sqlite;
     db = testDb.db;
-    setSqliteInstanceForTests(sqlite);
+    registerDatabase(db, sqlite);
+
+    // Register context for query handler (uses getContext())
+    context = registerTestContext(testDb);
+
     seedPredefinedTags(db);
 
     // Create scope hierarchy
@@ -83,7 +90,7 @@ describe('memory_query integration', () => {
     );
 
     // Create relation
-    relationHandlers.create({
+    relationHandlers.create(context, {
       agentId: AGENT_ID,
       sourceType: 'tool',
       sourceId: toolId,
@@ -93,7 +100,7 @@ describe('memory_query integration', () => {
     });
 
     // Attach tags
-    tagHandlers.attach({ agentId: AGENT_ID, entryType: 'guideline', entryId: guidelineId, tagName: 'security' });
+    tagHandlers.attach(context, { agentId: AGENT_ID, entryType: 'guideline', entryId: guidelineId, tagName: 'security' });
   });
 
   afterAll(() => {
@@ -102,7 +109,8 @@ describe('memory_query integration', () => {
     } else {
       process.env.AGENT_MEMORY_PERMISSIONS_MODE = previousPermMode;
     }
-    setSqliteInstanceForTests(null);
+    clearPreparedStatementCache();
+    resetContainer();
     sqlite.close();
     cleanupTestDb(TEST_DB_PATH);
   });
@@ -182,6 +190,39 @@ describe('memory_query integration', () => {
   });
 
   describe('Tag filtering', () => {
+    it('should not serve stale cached results after tag attach', async () => {
+      const { guideline } = createTestGuideline(db, 'fresh_tag_guideline');
+      const tag = 'fresh_tag';
+
+      // Prime cache with a tag-filtered query that should return nothing.
+      const before = await queryHandlers.query({
+        agentId: AGENT_ID,
+        types: ['guidelines'],
+        scope: { type: 'global', inherit: true },
+        tags: { require: [tag] },
+        limit: 10,
+      });
+      expect(before.results.some((r) => r.type === 'guideline' && r.guideline.id === guideline.id)).toBe(false);
+
+      // Attach tag (should emit event and invalidate caches)
+      tagHandlers.attach(context, {
+        agentId: AGENT_ID,
+        entryType: 'guideline',
+        entryId: guideline.id,
+        tagName: tag,
+      });
+
+      const after = await queryHandlers.query({
+        agentId: AGENT_ID,
+        types: ['guidelines'],
+        scope: { type: 'global', inherit: true },
+        tags: { require: [tag] },
+        limit: 10,
+      });
+
+      expect(after.results.some((r) => r.type === 'guideline' && r.guideline.id === guideline.id)).toBe(true);
+    });
+
 	    it('should filter by require tags', async () => {
 	      const response = await queryHandlers.query({
 	        agentId: AGENT_ID,
@@ -221,7 +262,7 @@ describe('memory_query integration', () => {
     it('should filter by exclude tags', async () => {
       // First attach deprecated tag to a guideline
       const { guideline } = createTestGuideline(db, 'deprecated_guideline');
-      tagHandlers.attach({ agentId: AGENT_ID, entryType: 'guideline', entryId: guideline.id, tagName: 'deprecated' });
+      tagHandlers.attach(context, { agentId: AGENT_ID, entryType: 'guideline', entryId: guideline.id, tagName: 'deprecated' });
 
 	      const response = await queryHandlers.query({
 	        agentId: AGENT_ID,

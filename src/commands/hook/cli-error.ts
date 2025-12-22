@@ -6,4 +6,3 @@ export class HookCliError extends Error {
     this.exitCode = exitCode;
   }
 }
-

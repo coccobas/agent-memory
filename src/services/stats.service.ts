@@ -3,36 +3,19 @@
  *
  * Provides cached counts for health checks without blocking the SQLite connection.
  * Counts are refreshed in the background on a configurable interval.
+ *
+ * Uses Runtime.statsCache for storage when Runtime is registered.
  */
 
 import { getSqlite } from '../db/connection.js';
+import { getRuntime, isRuntimeRegistered } from '../core/container.js';
+import type { TableCounts, StatsCache } from '../core/runtime.js';
 import { createComponentLogger } from '../utils/logger.js';
 
+// Re-export types for backward compatibility
+export type { TableCounts, StatsCache };
+
 const logger = createComponentLogger('stats');
-
-/**
- * Table counts structure
- */
-export interface TableCounts {
-  organizations: number;
-  projects: number;
-  sessions: number;
-  tools: number;
-  guidelines: number;
-  knowledge: number;
-  tags: number;
-  fileLocks: number;
-  conflicts: number;
-}
-
-/**
- * Cache entry structure
- */
-interface StatsCache {
-  counts: TableCounts;
-  lastUpdated: number;
-  isRefreshing: boolean;
-}
 
 // Default counts when no data is available
 const DEFAULT_COUNTS: TableCounts = {
@@ -50,8 +33,15 @@ const DEFAULT_COUNTS: TableCounts = {
 // Cache TTL in milliseconds (1 minute)
 const CACHE_TTL_MS = 60_000;
 
-// Singleton cache
-let statsCache: StatsCache | null = null;
+/**
+ * Get the stats cache from Runtime or return null if not available
+ */
+function getStatsCache(): StatsCache | null {
+  if (!isRuntimeRegistered()) {
+    return null;
+  }
+  return getRuntime().statsCache;
+}
 
 /**
  * Single UNION ALL query to get all counts at once
@@ -126,8 +116,9 @@ function refreshCounts(): TableCounts {
  * Check if cache is stale
  */
 function isCacheStale(): boolean {
-  if (!statsCache) return true;
-  return Date.now() - statsCache.lastUpdated > CACHE_TTL_MS;
+  const cache = getStatsCache();
+  if (!cache) return true;
+  return Date.now() - cache.lastUpdated > CACHE_TTL_MS;
 }
 
 /**
@@ -135,28 +126,25 @@ function isCacheStale(): boolean {
  * Non-blocking - returns immediately
  */
 function triggerBackgroundRefresh(): void {
-  if (statsCache?.isRefreshing) {
+  const cache = getStatsCache();
+  if (!cache) return;
+
+  if (cache.isRefreshing) {
     return; // Already refreshing
   }
 
-  if (statsCache) {
-    statsCache.isRefreshing = true;
-  }
+  cache.isRefreshing = true;
 
   // Use setImmediate to avoid blocking
   setImmediate(() => {
     try {
       const counts = refreshCounts();
-      statsCache = {
-        counts,
-        lastUpdated: Date.now(),
-        isRefreshing: false,
-      };
+      cache.counts = counts;
+      cache.lastUpdated = Date.now();
+      cache.isRefreshing = false;
     } catch (error) {
       logger.error({ error }, 'Background refresh failed');
-      if (statsCache) {
-        statsCache.isRefreshing = false;
-      }
+      cache.isRefreshing = false;
     }
   });
 }
@@ -170,14 +158,16 @@ function triggerBackgroundRefresh(): void {
  * @param forceRefresh - If true, performs synchronous refresh (blocking)
  */
 export function getCachedStats(forceRefresh = false): TableCounts {
-  if (forceRefresh || !statsCache) {
+  const cache = getStatsCache();
+
+  if (forceRefresh || !cache || cache.lastUpdated === 0) {
     // First call or forced refresh - do synchronous refresh
     const counts = refreshCounts();
-    statsCache = {
-      counts,
-      lastUpdated: Date.now(),
-      isRefreshing: false,
-    };
+    if (cache) {
+      cache.counts = counts;
+      cache.lastUpdated = Date.now();
+      cache.isRefreshing = false;
+    }
     return counts;
   }
 
@@ -186,7 +176,7 @@ export function getCachedStats(forceRefresh = false): TableCounts {
     triggerBackgroundRefresh();
   }
 
-  return statsCache.counts;
+  return cache.counts;
 }
 
 /**
@@ -198,9 +188,10 @@ export function getStatsWithMeta(): {
   isStale: boolean;
 } {
   const counts = getCachedStats();
+  const cache = getStatsCache();
   return {
     counts,
-    lastUpdated: statsCache?.lastUpdated ?? Date.now(),
+    lastUpdated: cache?.lastUpdated ?? Date.now(),
     isStale: isCacheStale(),
   };
 }
@@ -210,17 +201,11 @@ export function getStatsWithMeta(): {
  * Called when data changes significantly
  */
 export function invalidateStatsCache(): void {
-  if (statsCache) {
+  const cache = getStatsCache();
+  if (cache) {
     // Mark as stale by setting lastUpdated to 0
-    statsCache.lastUpdated = 0;
+    cache.lastUpdated = 0;
   }
-}
-
-/**
- * Reset the stats cache (for testing)
- */
-export function resetStatsCache(): void {
-  statsCache = null;
 }
 
 /**
@@ -232,9 +217,10 @@ export function getStatsCacheStatus(): {
   isRefreshing: boolean;
   ageMs: number;
 } {
-  if (!statsCache) {
+  const cache = getStatsCache();
+  if (!cache || cache.lastUpdated === 0) {
     return {
-      hasCache: false,
+      hasCache: cache !== null,
       isStale: true,
       isRefreshing: false,
       ageMs: 0,
@@ -244,7 +230,7 @@ export function getStatsCacheStatus(): {
   return {
     hasCache: true,
     isStale: isCacheStale(),
-    isRefreshing: statsCache.isRefreshing,
-    ageMs: Date.now() - statsCache.lastUpdated,
+    isRefreshing: cache.isRefreshing,
+    ageMs: Date.now() - cache.lastUpdated,
   };
 }

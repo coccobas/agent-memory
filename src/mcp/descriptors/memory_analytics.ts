@@ -47,9 +47,7 @@ export const memoryAnalyticsDescriptor: ToolDescriptor = {
     },
     get_error_correlation: {
       handler: (p) =>
-        analyticsHandlers.get_error_correlation(
-          p as unknown as AnalyticsGetErrorCorrelationParams
-        ),
+        analyticsHandlers.get_error_correlation(p as unknown as AnalyticsGetErrorCorrelationParams),
     },
     get_low_diversity: {
       handler: (p) =>

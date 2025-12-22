@@ -2,14 +2,17 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import {
   setupTestDb,
   cleanupTestDb,
+  registerTestContext,
   createTestProject,
   createTestKnowledge,
 } from '../fixtures/test-helpers.js';
+import type { AppContext } from '../../src/core/context.js';
 
 const TEST_DB_PATH = './data/test-knowledge.db';
 
 let sqlite: ReturnType<typeof setupTestDb>['sqlite'];
 let db: ReturnType<typeof setupTestDb>['db'];
+let context: AppContext;
 
 vi.mock('../../src/db/connection.js', async () => {
   const actual = await vi.importActual<typeof import('../../src/db/connection.js')>(
@@ -32,6 +35,7 @@ describe('Knowledge Integration', () => {
     const testDb = setupTestDb(TEST_DB_PATH);
     sqlite = testDb.sqlite;
     db = testDb.db;
+    context = registerTestContext(testDb);
   });
 
   afterAll(() => {
@@ -46,7 +50,7 @@ describe('Knowledge Integration', () => {
 
   describe('memory_knowledge_add', () => {
     it('should add a knowledge entry with all fields', () => {
-      const result = knowledgeHandlers.add({
+      const result = knowledgeHandlers.add(context, {
         agentId: AGENT_ID,
         scopeType: 'global',
         title: 'Test Knowledge',
@@ -65,7 +69,7 @@ describe('Knowledge Integration', () => {
 
     it('should add knowledge at project scope', () => {
       const project = createTestProject(db);
-      const result = knowledgeHandlers.add({
+      const result = knowledgeHandlers.add(context, {
         agentId: AGENT_ID,
         scopeType: 'project',
         scopeId: project.id,
@@ -80,19 +84,19 @@ describe('Knowledge Integration', () => {
 
     it('should require scopeType', () => {
       expect(() => {
-        knowledgeHandlers.add({ agentId: AGENT_ID, title: 'test', content: 'content' });
+        knowledgeHandlers.add(context, { agentId: AGENT_ID, title: 'test', content: 'content' });
       }).toThrow(/scopeType.*required/i);
     });
 
     it('should require title', () => {
       expect(() => {
-        knowledgeHandlers.add({ agentId: AGENT_ID, scopeType: 'global', content: 'content' });
+        knowledgeHandlers.add(context, { agentId: AGENT_ID, scopeType: 'global', content: 'content' });
       }).toThrow(/title.*required/i);
     });
 
     it('should require content', () => {
       expect(() => {
-        knowledgeHandlers.add({ agentId: AGENT_ID, scopeType: 'global', title: 'test' });
+        knowledgeHandlers.add(context, { agentId: AGENT_ID, scopeType: 'global', title: 'test' });
       }).toThrow(/content.*required/i);
     });
   });
@@ -102,7 +106,7 @@ describe('Knowledge Integration', () => {
       const { knowledge } = createTestKnowledge(db, 'update_test');
       const originalVersionId = knowledge.currentVersionId;
 
-      const result = knowledgeHandlers.update({
+      const result = knowledgeHandlers.update(context, {
         agentId: AGENT_ID,
         id: knowledge.id,
         content: 'Updated content',
@@ -115,7 +119,7 @@ describe('Knowledge Integration', () => {
 
     it('should require id', () => {
       expect(() => {
-        knowledgeHandlers.update({});
+        knowledgeHandlers.update(context, {});
       }).toThrow(/id.*required/i);
     });
   });
@@ -123,7 +127,7 @@ describe('Knowledge Integration', () => {
   describe('memory_knowledge_get', () => {
     it('should get knowledge by ID', () => {
       const { knowledge } = createTestKnowledge(db, 'get_test');
-      const result = knowledgeHandlers.get({ agentId: AGENT_ID, id: knowledge.id });
+      const result = knowledgeHandlers.get(context, { agentId: AGENT_ID, id: knowledge.id });
 
       expect(result.knowledge).toBeDefined();
       expect(result.knowledge.id).toBe(knowledge.id);
@@ -133,7 +137,7 @@ describe('Knowledge Integration', () => {
       const project = createTestProject(db);
       const { knowledge } = createTestKnowledge(db, 'get_by_title', 'project', project.id);
 
-      const result = knowledgeHandlers.get({
+      const result = knowledgeHandlers.get(context, {
         agentId: AGENT_ID,
         title: 'get_by_title',
         scopeType: 'project',
@@ -151,7 +155,7 @@ describe('Knowledge Integration', () => {
       createTestKnowledge(db, 'knowledge2', 'project', project.id);
       createTestKnowledge(db, 'knowledge3', 'project', project.id);
 
-      const result = knowledgeHandlers.list({
+      const result = knowledgeHandlers.list(context, {
         agentId: AGENT_ID,
         scopeType: 'project',
         scopeId: project.id,
@@ -170,7 +174,7 @@ describe('Knowledge Integration', () => {
       createTestKnowledge(db, 'doc2', 'global', undefined, 'documentation');
       createTestKnowledge(db, 'api1', 'global', undefined, 'api');
 
-      const result = knowledgeHandlers.list({
+      const result = knowledgeHandlers.list(context, {
         agentId: AGENT_ID,
         scopeType: 'global',
         category: 'documentation',
@@ -187,15 +191,15 @@ describe('Knowledge Integration', () => {
   describe('memory_knowledge_history', () => {
     it('should return version history', () => {
       const { knowledge } = createTestKnowledge(db, 'history_test');
-      knowledgeHandlers.update({ agentId: AGENT_ID, id: knowledge.id, content: 'Version 2', changeReason: 'Update' });
-      knowledgeHandlers.update({
+      knowledgeHandlers.update(context, { agentId: AGENT_ID, id: knowledge.id, content: 'Version 2', changeReason: 'Update' });
+      knowledgeHandlers.update(context, {
         agentId: AGENT_ID,
         id: knowledge.id,
         content: 'Version 3',
         changeReason: 'Another update',
       });
 
-      const result = knowledgeHandlers.history({ agentId: AGENT_ID, id: knowledge.id });
+      const result = knowledgeHandlers.history(context, { agentId: AGENT_ID, id: knowledge.id });
       expect(result.versions.length).toBeGreaterThanOrEqual(3);
     });
   });
@@ -203,10 +207,10 @@ describe('Knowledge Integration', () => {
   describe('memory_knowledge_deactivate', () => {
     it('should deactivate a knowledge entry', () => {
       const { knowledge } = createTestKnowledge(db, 'deactivate_test');
-      const result = knowledgeHandlers.deactivate({ agentId: AGENT_ID, id: knowledge.id });
+      const result = knowledgeHandlers.deactivate(context, { agentId: AGENT_ID, id: knowledge.id });
 
       expect(result.success).toBe(true);
-      const fetched = knowledgeHandlers.get({ agentId: AGENT_ID, id: knowledge.id });
+      const fetched = knowledgeHandlers.get(context, { agentId: AGENT_ID, id: knowledge.id });
       expect(fetched.knowledge.isActive).toBe(false);
     });
   });

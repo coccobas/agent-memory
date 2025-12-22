@@ -36,20 +36,20 @@ Example: {"action":"list","sessionId":"sess-123"}`,
   },
   actions: {
     list: {
-      handler: (p) => reviewHandlers.list(p as { sessionId: string }),
+      contextHandler: (ctx, p) => reviewHandlers.list(ctx, p as { sessionId: string }),
     },
     show: {
-      handler: (p) => reviewHandlers.show(p as { sessionId: string; entryId: string }),
+      contextHandler: (ctx, p) => reviewHandlers.show(ctx, p as { sessionId: string; entryId: string }),
     },
     approve: {
-      handler: (p) =>
-        reviewHandlers.approve(p as { sessionId: string; entryId: string; projectId?: string }),
+      contextHandler: (ctx, p) =>
+        reviewHandlers.approve(ctx, p as { sessionId: string; entryId: string; projectId?: string }),
     },
     reject: {
-      handler: (p) => reviewHandlers.reject(p as { sessionId: string; entryId: string }),
+      contextHandler: (ctx, p) => reviewHandlers.reject(ctx, p as { sessionId: string; entryId: string }),
     },
     skip: {
-      handler: (p) => reviewHandlers.skip(p as { sessionId: string; entryId: string }),
+      contextHandler: (ctx, p) => reviewHandlers.skip(ctx, p as { sessionId: string; entryId: string }),
     },
   },
 };

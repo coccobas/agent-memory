@@ -63,4 +63,3 @@ export function runStopCommand(params: {
 
   return { exitCode: 0, stdout: [], stderr: [] };
 }
-

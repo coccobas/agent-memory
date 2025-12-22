@@ -21,4 +21,3 @@ export async function readHookInputFromStdin(): Promise<ClaudeHookInput> {
     throw new HookCliError(2, 'Invalid JSON hook input');
   }
 }
-

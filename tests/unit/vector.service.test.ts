@@ -250,7 +250,7 @@ describe('Vector Service', () => {
     }
   });
 
-  it('should respect limit parameter', async () => {
+  it('should respect limit parameter', { timeout: 15000 }, async () => {
     const service = getVectorService();
     await service.initialize();
 

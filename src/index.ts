@@ -8,7 +8,19 @@
 // CRITICAL: Suppress dotenv output (stdout breaks MCP JSON-RPC protocol)
 process.env.DOTENV_CONFIG_QUIET = 'true';
 
-// Load configuration first (imports .env)
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { loadEnv } from './config/env.js';
+
+// Calculate project root
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const projectRoot = resolve(__dirname, '..');
+
+// Load environment variables explicitly
+loadEnv(projectRoot);
+
+// Load configuration
 import './config/index.js';
 
 // Re-export core/shared types (avoid name collisions with db exports)
@@ -16,9 +28,6 @@ export type { MemoryContextParams, MemoryQueryParams } from './core/types.js';
 
 // Re-export database utilities
 export * from './db/index.js';
-
-import { fileURLToPath } from 'node:url';
-import { resolve } from 'node:path';
 
 const isExecutedDirectly = (() => {
   const argvPath = process.argv[1];

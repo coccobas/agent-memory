@@ -3,22 +3,12 @@
  *
  * Loads tags for all fetched entries and builds the tagsByEntry map.
  * Also handles tag-based filtering.
+ *
+ * Uses injected dependencies for tag loading to support testing with mocks.
  */
 
-import type { PipelineContext, QueryEntryType } from '../pipeline.js';
+import type { PipelineContext } from '../pipeline.js';
 import type { Tag } from '../../../db/schema.js';
-import { getTagsForEntries as queryServiceGetTagsForEntries } from '../../query.service.js';
-
-/**
- * Get tags for a list of entries (batched query)
- */
-export function getTagsForEntries(
-  entryType: QueryEntryType,
-  entryIds: string[]
-): Record<string, Tag[]> {
-  if (entryIds.length === 0) return {};
-  return queryServiceGetTagsForEntries(entryType, entryIds);
-}
 
 /**
  * Filter entries by tag constraints
@@ -86,9 +76,11 @@ export function filterByTags(
 
 /**
  * Tags stage - loads tags for all fetched entries
+ *
+ * Uses ctx.deps.getTagsForEntries() instead of calling the global function directly.
  */
 export function tagsStage(ctx: PipelineContext): PipelineContext {
-  const { fetchedEntries } = ctx;
+  const { fetchedEntries, deps } = ctx;
 
   const tagsByEntry: Record<string, Tag[]> = {};
 
@@ -97,15 +89,15 @@ export function tagsStage(ctx: PipelineContext): PipelineContext {
   const guidelineIds = fetchedEntries.guidelines.map((e) => e.entry.id);
   const knowledgeIds = fetchedEntries.knowledge.map((e) => e.entry.id);
 
-  // Batch load tags for each type
+  // Batch load tags for each type using injected dependency
   if (toolIds.length > 0) {
-    Object.assign(tagsByEntry, getTagsForEntries('tool', toolIds));
+    Object.assign(tagsByEntry, deps.getTagsForEntries('tool', toolIds));
   }
   if (guidelineIds.length > 0) {
-    Object.assign(tagsByEntry, getTagsForEntries('guideline', guidelineIds));
+    Object.assign(tagsByEntry, deps.getTagsForEntries('guideline', guidelineIds));
   }
   if (knowledgeIds.length > 0) {
-    Object.assign(tagsByEntry, getTagsForEntries('knowledge', knowledgeIds));
+    Object.assign(tagsByEntry, deps.getTagsForEntries('knowledge', knowledgeIds));
   }
 
   return {

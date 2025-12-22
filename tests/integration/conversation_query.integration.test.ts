@@ -6,6 +6,7 @@ import {
   createTestProject,
   createTestKnowledge,
   createTestConversation,
+  registerTestContext,
 } from '../fixtures/test-helpers.js';
 import { eq } from 'drizzle-orm';
 
@@ -36,6 +37,9 @@ describe('Conversation-Query Integration', () => {
     const testDb = setupTestDb(TEST_DB_PATH);
     sqlite = testDb.sqlite;
     db = testDb.db;
+
+    // Register context for query handler (uses getContext())
+    registerTestContext(testDb);
   });
 
   afterAll(() => {
@@ -155,3 +159,5 @@ describe('Conversation-Query Integration', () => {
     expect(contexts.some((c) => c.entryId === knowledge.id)).toBe(false);
   });
 });
+
+

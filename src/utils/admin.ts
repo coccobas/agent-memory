@@ -43,4 +43,3 @@ export function requireAdminKey(params: object): void {
     throw new AdminAuthError('Unauthorized: invalid admin key');
   }
 }
-

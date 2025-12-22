@@ -161,7 +161,10 @@ export async function syncCriticalGuidelines(
       return syncCriticalGuidelinesToClaude(projectPath, options);
     case 'vscode': {
       const destFile = join(projectPath, '.vscode', 'critical-guidelines.md');
-      const content = generateCriticalGuidelinesMarkdown(options.projectId ?? null, options.sessionId);
+      const content = generateCriticalGuidelinesMarkdown(
+        options.projectId ?? null,
+        options.sessionId
+      );
       return syncCriticalGuidelinesToFile(destFile, content, options);
     }
     default:

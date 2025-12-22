@@ -1,10 +1,17 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { setupTestDb, cleanupTestDb, createTestTool } from '../fixtures/test-helpers.js';
+import {
+  setupTestDb,
+  cleanupTestDb,
+  registerTestContext,
+  createTestTool,
+} from '../fixtures/test-helpers.js';
+import type { AppContext } from '../../src/core/context.js';
 
 const TEST_DB_PATH = './data/test-conflicts.db';
 
 let sqlite: ReturnType<typeof setupTestDb>['sqlite'];
 let db: ReturnType<typeof setupTestDb>['db'];
+let context: AppContext;
 
 vi.mock('../../src/db/connection.js', async () => {
   const actual = await vi.importActual<typeof import('../../src/db/connection.js')>(
@@ -28,6 +35,7 @@ describe('Conflicts Integration', () => {
     const testDb = setupTestDb(TEST_DB_PATH);
     sqlite = testDb.sqlite;
     db = testDb.db;
+    context = registerTestContext(testDb);
   });
 
   afterAll(() => {
@@ -91,7 +99,7 @@ describe('Conflicts Integration', () => {
       const { tool } = createTestTool(db, 'conflict_test_tool');
 
       // First update
-      toolHandlers.update({
+      toolHandlers.update(context, {
         agentId: AGENT_ID,
         id: tool.id,
         description: 'First update',

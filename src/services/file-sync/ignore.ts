@@ -5,7 +5,10 @@ import { basename, join } from 'node:path';
  * Load ignore patterns from .rulesignore file
  */
 export function loadIgnorePatterns(projectRoot: string): string[] {
-  const ignoreFiles = [join(projectRoot, '.rulesignore'), join(projectRoot, 'rules', '.rulesignore')];
+  const ignoreFiles = [
+    join(projectRoot, '.rulesignore'),
+    join(projectRoot, 'rules', '.rulesignore'),
+  ];
 
   const patterns: string[] = [];
 
@@ -49,4 +52,3 @@ export function shouldIgnore(filePath: string, patterns: string[]): boolean {
 
   return false;
 }
-

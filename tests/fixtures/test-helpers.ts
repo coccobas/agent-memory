@@ -1,13 +1,156 @@
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { eq } from 'drizzle-orm';
-import { existsSync, mkdirSync, unlinkSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import * as schema from '../../src/db/schema.js';
 import { generateId } from '../../src/db/repositories/base.js';
+import { applyMigrations } from './migration-loader.js';
+import { cleanupDbFiles, ensureDataDirectory } from './db-utils.js';
+import { registerDatabase, resetContainer, clearPreparedStatementCache, getDb, getPreparedStatement, getSqlite } from '../../src/db/connection.js';
+import { registerRuntime, isRuntimeRegistered, getRuntime, registerContext } from '../../src/core/container.js';
+import { createRuntime, type Runtime } from '../../src/core/runtime.js';
+import { createAppContext } from '../../src/core/factory.js';
+import type { AppContext } from '../../src/core/context.js';
+import type { DatabaseDeps } from '../../src/core/types.js';
+import type { Repositories } from '../../src/core/interfaces/repositories.js';
+import { buildConfig, type Config } from '../../src/config/index.js';
+import { createDependencies, type PipelineDependencies, wireQueryCacheInvalidation } from '../../src/services/query/index.js';
+import { createComponentLogger } from '../../src/utils/logger.js';
+import { SecurityService } from '../../src/services/security.service.js';
+// Repository factory imports
+import {
+  createTagRepository,
+  createEntryTagRepository,
+  createEntryRelationRepository,
+} from '../../src/db/repositories/tags.js';
+import {
+  createOrganizationRepository,
+  createProjectRepository,
+  createSessionRepository,
+} from '../../src/db/repositories/scopes.js';
+import { createFileLockRepository } from '../../src/db/repositories/file_locks.js';
+import { createGuidelineRepository } from '../../src/db/repositories/guidelines.js';
+import { createKnowledgeRepository } from '../../src/db/repositories/knowledge.js';
+import { createToolRepository } from '../../src/db/repositories/tools.js';
+import { createConversationRepository } from '../../src/db/repositories/conversations.js';
 
 // Re-export schema for use in tests
 export { schema };
+
+// Re-export container functions for test cleanup
+export { registerDatabase, resetContainer, clearPreparedStatementCache };
+
+// Re-export runtime functions for test setup
+export { registerRuntime, isRuntimeRegistered, getRuntime };
+
+// Re-export container's registerContext and getContext for tests
+export { registerContext };
+import { getContext } from '../../src/core/container.js';
+export { getContext };
+
+/**
+ * Get the test context. Must call registerTestContext first.
+ * @throws Error if context not registered
+ */
+export function getTestContext(): AppContext {
+  return getContext();
+}
+
+// Re-export query dependencies factory
+export { createDependencies, type PipelineDependencies };
+
+/**
+ * Create query pipeline dependencies for tests.
+ * Uses the test runtime's query cache.
+ *
+ * @returns PipelineDependencies for use with executeQueryPipeline
+ */
+export function createTestQueryDeps(): PipelineDependencies {
+  const runtime = getRuntime();
+  const logger = createComponentLogger('query-pipeline-test');
+  return createDependencies({
+    getDb: () => getDb(),
+    getPreparedStatement: (sql: string) => getPreparedStatement(sql),
+    cache: runtime.queryCache.cache,
+    perfLog: false,
+    logger,
+  });
+}
+
+/**
+ * Get the test runtime's query cache.
+ * Useful for tests that need to check cache state.
+ */
+export function getTestQueryCache() {
+  const runtime = getRuntime();
+  return runtime.queryCache.cache;
+}
+
+/**
+ * Clear the test runtime's query cache.
+ */
+export function clearTestQueryCache(): void {
+  const runtime = getRuntime();
+  runtime.queryCache.cache.clear();
+}
+
+/**
+ * Create a minimal test runtime configuration
+ */
+function createTestRuntimeConfig() {
+  return {
+    cache: {
+      totalLimitMB: 100,
+      pressureThreshold: 0.9,
+    },
+    memory: {
+      checkIntervalMs: 60000,
+    },
+    rateLimit: {
+      enabled: false,
+      perAgent: { maxRequests: 100, windowMs: 60000 },
+      global: { maxRequests: 1000, windowMs: 60000 },
+      burst: { maxRequests: 50, windowMs: 1000 },
+    },
+    queryCache: {
+      maxSize: 100,
+      maxMemoryMB: 10,
+      ttlMs: 5 * 60 * 1000,
+    },
+  };
+}
+
+/**
+ * Ensure a test runtime is registered.
+ * Creates one if not already registered.
+ */
+export function ensureTestRuntime(): Runtime {
+  if (!isRuntimeRegistered()) {
+    const runtime = createRuntime(createTestRuntimeConfig());
+    registerRuntime(runtime);
+    return runtime;
+  }
+  // Return a placeholder - actual runtime is in container
+  return {} as Runtime;
+}
+
+/**
+ * Create a full AppContext for integration testing.
+ *
+ * This creates a complete context with all services wired up,
+ * suitable for testing service-level code that requires the full context.
+ *
+ * @param testDb - The test database from setupTestDb()
+ * @returns Fully initialized AppContext
+ */
+export async function createTestContext(testDb: TestDb): Promise<AppContext> {
+  ensureTestRuntime();
+  const baseConfig = buildConfig();
+  const config = {
+    ...baseConfig,
+    database: { ...baseConfig.database, path: testDb.path },
+  };
+  return createAppContext(config);
+}
 
 export interface TestDb {
   sqlite: Database.Database;
@@ -16,21 +159,76 @@ export interface TestDb {
 }
 
 /**
- * Setup an isolated test database
+ * Register a minimal test context for handler tests.
+ * This creates and registers an AppContext that handlers can use via getContext().
+ * Also wires up cache invalidation for the query cache.
+ *
+ * @param testDb - The test database from setupTestDb()
+ * @returns The registered AppContext
+ */
+export function registerTestContext(testDb: TestDb): AppContext {
+  ensureTestRuntime();
+  const config = buildConfig();
+  const logger = createComponentLogger('test');
+  const queryDeps = createTestQueryDeps();
+  const security = new SecurityService(config);
+  const runtime = getRuntime();
+
+  // Wire up cache invalidation if not already done
+  if (!runtime.queryCache.unsubscribe) {
+    runtime.queryCache.unsubscribe = wireQueryCacheInvalidation(
+      runtime.queryCache.cache,
+      createComponentLogger('query-cache-test')
+    );
+  }
+
+  // Create database dependencies for repository injection
+  const db = testDb.db as unknown as AppContext['db'];
+  const dbDeps: DatabaseDeps = { db, sqlite: testDb.sqlite };
+
+  // Create all repositories with injected dependencies
+  const tagRepo = createTagRepository(dbDeps);
+  const repos: Repositories = {
+    tags: tagRepo,
+    entryTags: createEntryTagRepository(dbDeps, tagRepo),
+    entryRelations: createEntryRelationRepository(dbDeps),
+    organizations: createOrganizationRepository(dbDeps),
+    projects: createProjectRepository(dbDeps),
+    sessions: createSessionRepository(dbDeps),
+    fileLocks: createFileLockRepository(dbDeps),
+    guidelines: createGuidelineRepository(dbDeps),
+    knowledge: createKnowledgeRepository(dbDeps),
+    tools: createToolRepository(dbDeps),
+    conversations: createConversationRepository(dbDeps),
+  };
+
+  const context: AppContext = {
+    config,
+    db,
+    sqlite: testDb.sqlite,
+    logger,
+    queryDeps,
+    security,
+    runtime,
+    repos,
+  };
+
+  registerContext(context);
+  return context;
+}
+
+/**
+ * Setup an isolated test database and register with container
  */
 export function setupTestDb(dbPath: string): TestDb {
   // Ensure data directory exists
-  if (!existsSync('./data')) {
-    mkdirSync('./data', { recursive: true });
-  }
+  ensureDataDirectory();
 
   // Clean up any existing test database
-  for (const suffix of ['', '-wal', '-shm']) {
-    const path = `${dbPath}${suffix}`;
-    if (existsSync(path)) {
-      unlinkSync(path);
-    }
-  }
+  cleanupDbFiles(dbPath);
+
+  // Ensure a runtime is registered for tests
+  ensureTestRuntime();
 
   // Create test database
   const sqlite = new Database(dbPath);
@@ -39,47 +237,22 @@ export function setupTestDb(dbPath: string): TestDb {
 
   const db = drizzle(sqlite, { schema });
 
-  // Run migrations
-  const migrations = [
-    '0000_lying_the_hand.sql',
-    '0001_add_file_locks.sql',
-    '0002_add_embeddings_tracking.sql',
-    '0003_add_fts5_tables.sql',
-    '0004_add_permissions.sql',
-    '0005_add_task_decomposition.sql',
-    '0006_add_audit_log.sql',
-    '0007_add_execution_tracking.sql',
-    '0008_add_agent_votes.sql',
-    '0009_add_conversation_history.sql',
-    '0010_add_verification_rules.sql',
-  ];
-  for (const migrationFile of migrations) {
-    const migrationPath = join(process.cwd(), 'src/db/migrations', migrationFile);
-    if (existsSync(migrationPath)) {
-      const migrationSql = readFileSync(migrationPath, 'utf-8');
-      const statements = migrationSql.split('--> statement-breakpoint');
-      for (const statement of statements) {
-        const trimmed = statement.trim();
-        if (trimmed) {
-          sqlite.exec(trimmed);
-        }
-      }
-    }
-  }
+  // Register with container so getDb()/getSqlite() work
+  registerDatabase(db, sqlite);
+
+  // Run migrations (dynamically discovered)
+  applyMigrations(sqlite);
 
   return { sqlite, db, path: dbPath };
 }
 
 /**
- * Clean up test database files
+ * Clean up test database and reset container
  */
 export function cleanupTestDb(dbPath: string): void {
-  for (const suffix of ['', '-wal', '-shm']) {
-    const path = `${dbPath}${suffix}`;
-    if (existsSync(path)) {
-      unlinkSync(path);
-    }
-  }
+  clearPreparedStatementCache();
+  resetContainer();
+  cleanupDbFiles(dbPath);
 }
 
 /**

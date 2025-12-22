@@ -13,6 +13,8 @@
  *   agent-memory hook session-end --project-id <id>
  */
 
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createComponentLogger } from '../utils/logger.js';
 import { runHookInstallCommand } from './hook/install-command.js';
 import { HookCliError } from './hook/cli-error.js';
@@ -24,6 +26,32 @@ import { runUserPromptSubmitCommand } from './hook/userpromptsubmit-command.js';
 import { runSessionEndCommand } from './hook/session-end-command.js';
 
 export { writeSessionSummaryFile, formatSessionSummaryStderr } from './hook/session-summary.js';
+
+/**
+ * Initialize database for hook subcommands that require DB access.
+ * This is a lightweight initialization that only sets up the database connection,
+ * without the full runtime/services needed by the MCP/REST servers.
+ */
+async function initializeHookDatabase(): Promise<void> {
+  // Load environment variables
+  const { loadEnv } = await import('../config/env.js');
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = dirname(__filename);
+  const projectRoot = resolve(__dirname, '../..');
+  loadEnv(projectRoot);
+
+  // Build config (needs env vars loaded first)
+  const { buildConfig } = await import('../config/index.js');
+  const config = buildConfig();
+
+  // Create database connection
+  const { createDatabaseConnection } = await import('../db/factory.js');
+  const { db, sqlite } = await createDatabaseConnection(config);
+
+  // Register with container so getDb() works
+  const { registerDatabase } = await import('../core/container.js');
+  registerDatabase(db, sqlite);
+}
 
 const logger = createComponentLogger('hook');
 
@@ -86,7 +114,9 @@ export async function runHookCommand(argv: string[]): Promise<void> {
       process.exit(2);
     }
 
-    await import('../config/index.js');
+    // Initialize database for all DB-requiring subcommands
+    await initializeHookDatabase();
+
     const input = await readHookInputFromStdin();
 
     if (sub === 'pretooluse') {
@@ -126,4 +156,3 @@ export async function runHookCommand(argv: string[]): Promise<void> {
     throw err;
   }
 }
-

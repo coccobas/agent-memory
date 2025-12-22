@@ -7,17 +7,108 @@
 
 import type { MemoryQueryParams, ResponseMeta } from '../../core/types.js';
 import type { ScopeType, Tool, Guideline, Knowledge, Tag } from '../../db/schema.js';
+import type { DbClient } from '../../db/connection.js';
+import type Database from 'better-sqlite3';
 
-// =============================================================================
-// PIPELINE TYPES
-// =============================================================================
+// Import shared types from types.ts to break circular dependency
+import type { QueryEntryType, QueryType, ScopeDescriptor, FilterStageResult } from './types.js';
 
-export type QueryEntryType = 'tool' | 'guideline' | 'knowledge';
-export type QueryType = 'tools' | 'guidelines' | 'knowledge';
+// Re-export types for backward compatibility
+export type {
+  QueryEntryType,
+  QueryType,
+  ScopeDescriptor,
+  ParentScopeInfo,
+  EntryUnion,
+  FilteredEntry,
+  FilterStageResult,
+} from './types.js';
 
-export interface ScopeDescriptor {
-  scopeType: ScopeType;
-  scopeId: string | null;
+/**
+ * Database type - matches Drizzle's configured instance
+ */
+export type DbInstance = DbClient;
+
+/**
+ * Dependencies that can be injected for testing
+ */
+export interface PipelineDependencies {
+  /**
+   * Get the Drizzle database instance
+   */
+  getDb: () => DbInstance;
+
+  /**
+   * Get a prepared statement (cached)
+   */
+  getPreparedStatement: (sql: string) => Database.Statement;
+
+  /**
+   * Execute FTS5 search query
+   */
+  executeFts5Search: (
+    search: string,
+    types: ('tools' | 'guidelines' | 'knowledge')[]
+  ) => Record<QueryEntryType, Set<string>>;
+
+  /**
+   * Execute FTS5 query for a specific entry type
+   */
+  executeFts5Query: (
+    entryType: QueryEntryType,
+    searchQuery: string,
+    fields?: string[]
+  ) => Set<number>;
+
+  /**
+   * Get tags for entries (batched)
+   */
+  getTagsForEntries: (entryType: QueryEntryType, entryIds: string[]) => Record<string, Tag[]>;
+
+  /**
+   * Traverse relation graph
+   */
+  traverseRelationGraph: (
+    startType: QueryEntryType | 'project',
+    startId: string,
+    options?: {
+      depth?: number;
+      direction?: 'forward' | 'backward' | 'both';
+      relationType?: string;
+      maxResults?: number;
+    }
+  ) => Record<QueryEntryType, Set<string>>;
+
+  /**
+   * Resolve scope chain with inheritance (includes DB lookups)
+   */
+  resolveScopeChain: (scope?: {
+    type: ScopeType;
+    id?: string;
+    inherit?: boolean;
+  }) => ScopeDescriptor[];
+
+  /**
+   * Cache operations
+   */
+  cache?: {
+    get: (key: string) => MemoryQueryResult | undefined;
+    set: (key: string, value: MemoryQueryResult) => void;
+    getCacheKey: (params: MemoryQueryParams) => string | null;
+  };
+
+  /**
+   * Performance logging enabled
+   */
+  perfLog?: boolean;
+
+  /**
+   * Logger instance
+   */
+  logger?: {
+    debug: (data: Record<string, unknown>, message: string) => void;
+    info: (data: Record<string, unknown>, message: string) => void;
+  };
 }
 
 export interface QueryResultItemBase {
@@ -66,6 +157,9 @@ export interface PipelineContext {
   // Input parameters
   params: MemoryQueryParams;
 
+  // Injected dependencies
+  deps: PipelineDependencies;
+
   // Resolved values
   types: readonly QueryType[];
   scopeChain: ScopeDescriptor[];
@@ -87,6 +181,9 @@ export interface PipelineContext {
   // Tags by entry ID
   tagsByEntry: Record<string, Tag[]>;
 
+  // Filtered entries (populated by filter stage, consumed by score stage)
+  filtered?: FilterStageResult;
+
   // Final results
   results: QueryResultItem[];
 
@@ -104,9 +201,13 @@ export type PipelineStage = (ctx: PipelineContext) => PipelineContext | Promise<
 /**
  * Create initial pipeline context from params
  */
-export function createPipelineContext(params: MemoryQueryParams): PipelineContext {
+export function createPipelineContext(
+  params: MemoryQueryParams,
+  deps: PipelineDependencies
+): PipelineContext {
   return {
     params,
+    deps,
     types: [],
     scopeChain: [],
     limit: 20,

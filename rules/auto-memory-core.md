@@ -50,8 +50,9 @@ Grant for each entry type (`knowledge`, `guideline`, `tool`) the agent needs to 
 **Common permission errors:**
 | Error Code | Meaning | Fix |
 |------------|---------|-----|
-| E5001 | `agentId` parameter missing | Add `"agentId": "<your-agent-id>"` to request |
 | E6000 | Permission denied | Grant write permission or use permissive mode |
+
+**Note:** `agentId` is only required for **write operations** (add, update, deactivate). Read operations (`context`, `search`, `list`, `get`) work without agentId in permissive mode.
 
 ---
 
@@ -157,14 +158,14 @@ Tool: `memory_session`
 
 | Error | Wrong | Correct |
 |-------|-------|---------|
-| Missing agentId | `{"action": "add", ...}` | `{"action": "add", "agentId": "<id>", ...}` |
+| Missing agentId (writes) | `{"action": "add", ...}` | `{"action": "add", "agentId": "<id>", ...}` |
 | Missing scopeId | `{"scopeType": "project"}` | `{"scopeType": "project", "scopeId": "<id>"}` |
 | Plural entryType | `"entryType": "guidelines"` | `"entryType": "guideline"` |
 | Wrong action | `memory_project` action `add` | `memory_project` action `create` |
 | Wrong action | `memory_guideline` action `create` | `memory_guideline` action `add` |
 | Missing tag params | `{"action": "attach", "entryId": "x"}` | `{"action": "attach", "entryType": "guideline", "entryId": "x", "tagName": "y"}` |
 
-**agentId is REQUIRED** for all write operations (add, update, deactivate).
+**agentId is REQUIRED** for write operations only (add, update, deactivate). Read operations (`context`, `search`, `list`, `get`) do not require agentId.
 **scopeId is REQUIRED** when scopeType is `project`, `org`, or `session`. Only `global` scope needs no scopeId.
 
 ---

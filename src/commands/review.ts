@@ -161,10 +161,7 @@ function truncate(s: string, maxLen: number): string {
   return cleaned.length > maxLen ? cleaned.slice(0, maxLen - 1) + '…' : cleaned;
 }
 
-async function approveEntry(
-  candidate: ReviewCandidate,
-  projectId: string
-): Promise<boolean> {
+async function approveEntry(candidate: ReviewCandidate, projectId: string): Promise<boolean> {
   try {
     if (candidate.type === 'guideline') {
       const original = guidelineRepo.getById(candidate.id);
@@ -317,7 +314,7 @@ async function runReviewLoop(
       break;
     }
 
-    const selectedIds = selected as string[];
+    const selectedIds = selected;
 
     if (selectedIds.length === 0) {
       const shouldExit = await p.confirm({
@@ -449,7 +446,7 @@ export async function runReviewCommand(argv: string[]): Promise<void> {
       process.exit(0);
     }
 
-    projectId = selected as string;
+    projectId = selected;
   }
 
   // Verify project exists
@@ -479,9 +476,7 @@ export async function runReviewCommand(argv: string[]): Promise<void> {
 
   // Summary
   p.note(
-    `Approved: ${stats.approved}\n` +
-      `Rejected: ${stats.rejected}\n` +
-      `Skipped: ${stats.skipped}`,
+    `Approved: ${stats.approved}\n` + `Rejected: ${stats.rejected}\n` + `Skipped: ${stats.skipped}`,
     'Review Summary'
   );
 

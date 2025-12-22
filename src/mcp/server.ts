@@ -41,22 +41,20 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 
 import {
-  getDb,
   closeDb,
-  getDbWithHealthCheck,
   startHealthCheckInterval,
 } from '../db/connection.js';
 import { cleanupExpiredLocks, cleanupStaleLocks } from '../db/repositories/file_locks.js';
-import { tagRepo } from '../db/repositories/tags.js';
-import { formatError, createInvalidActionError } from './errors.js';
-import { formatOutput } from '../utils/compact-formatter.js';
 import { logger } from '../utils/logger.js';
-import { checkRateLimits } from '../utils/rate-limiter.js';
 import { VERSION } from '../version.js';
-import '../services/bootstrap.js';
+import { runTool } from './tool-runner.js';
+import { createAppContext } from '../core/factory.js';
+import { registerContext } from '../core/container.js';
+import { config } from '../config/index.js';
+import type { AppContext } from '../core/context.js';
 
-// Import generated tools and handlers from descriptors
-import { GENERATED_TOOLS, GENERATED_HANDLERS } from './descriptors/index.js';
+// Import generated tools from descriptors
+import { GENERATED_TOOLS } from './descriptors/index.js';
 
 // =============================================================================
 // BUNDLED TOOL DEFINITIONS
@@ -73,7 +71,7 @@ export const TOOLS: Tool[] = GENERATED_TOOLS;
 // SERVER SETUP
 // =============================================================================
 
-export async function createServer(): Promise<Server> {
+export async function createServer(context: AppContext): Promise<Server> {
   logger.debug('Creating server...');
 
   const server = new Server(
@@ -90,31 +88,18 @@ export async function createServer(): Promise<Server> {
 
   logger.debug('Server instance created');
 
-  // Initialize database (with more defensive error handling)
+  // Database is already initialized by AppContext, but we might want to start specific background tasks
+  // like health checks or cleanups that are specific to the server lifecycle
   try {
-    logger.info('Initializing database...');
-    // P2-T1: Use health check aware connection
-    await getDbWithHealthCheck();
     startHealthCheckInterval();
-    logger.info('Database initialized successfully');
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    logger.fatal(
-      {
-        error: errorMessage,
-        stack: error instanceof Error ? error.stack : undefined,
-      },
-      'Database initialization failed'
-    );
-    // Don't throw - let the server start anyway, tools will handle errors gracefully
-    // This prevents Antigravity from seeing the server as crashed
-    logger.warn('Continuing server startup despite database initialization error');
+     logger.warn({ error }, 'Failed to start health check interval');
   }
 
   // Seed predefined tags
   try {
     logger.debug('Seeding predefined tags...');
-    tagRepo.seedPredefined();
+    context.repos.tags.seedPredefined();
     logger.debug('Tags seeded successfully');
   } catch (error) {
     logger.warn({ error }, 'Failed to seed tags');
@@ -145,131 +130,7 @@ export async function createServer(): Promise<Server> {
   // Call tool handler
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
-
-    // Rate limiting check
-    // Extract agentId from args if available for per-agent limiting
-    const agentId =
-      args && typeof args === 'object' && 'agentId' in args ? String(args.agentId) : undefined;
-
-    const rateLimitResult = checkRateLimits(agentId);
-    if (!rateLimitResult.allowed) {
-      logger.warn({ tool: name, agentId, reason: rateLimitResult.reason }, 'Rate limit exceeded');
-      return {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify(
-              {
-                success: false,
-                error: rateLimitResult.reason,
-                retryAfterMs: rateLimitResult.retryAfterMs,
-                code: 'RATE_LIMIT_EXCEEDED',
-              },
-              null,
-              2
-            ),
-          },
-        ],
-        isError: true,
-      };
-    }
-
-    logger.debug({ tool: name, args }, 'Tool call');
-
-    const handler = GENERATED_HANDLERS[name];
-    if (!handler) {
-      logger.error(
-        { tool: name, availableTools: Object.keys(GENERATED_HANDLERS) },
-        'Handler not found for tool'
-      );
-      const errorResponse = formatError(
-        createInvalidActionError('MCP', name, Object.keys(GENERATED_HANDLERS))
-      );
-      return {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify(errorResponse, null, 2),
-          },
-        ],
-        isError: true,
-      };
-    }
-
-    try {
-      // Ensure database is available before processing tool calls
-      try {
-        getDb();
-      } catch (dbError) {
-        logger.error({ error: dbError }, 'Database not available for tool call');
-        return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify(
-                formatError(
-                  new Error(
-                    'Database not available. Please check database initialization or run memory_init.'
-                  )
-                ),
-                null,
-                2
-              ),
-            },
-          ],
-          isError: true,
-        };
-      }
-
-      const result = await handler(args ?? {});
-      logger.debug({ tool: name }, 'Tool call successful');
-
-      // Format result based on output mode (compact or JSON)
-      let formattedResult: string;
-      try {
-        formattedResult = formatOutput(result);
-      } catch (fmtError) {
-        logger.error({ tool: name, error: fmtError }, 'Output formatting error');
-        // Fallback to safe JSON serialization
-        formattedResult = JSON.stringify(
-          {
-            error: 'Failed to format result',
-            message: fmtError instanceof Error ? fmtError.message : String(fmtError),
-            resultType: typeof result,
-          },
-          null,
-          2
-        );
-      }
-
-      return {
-        content: [
-          {
-            type: 'text',
-            text: formattedResult,
-          },
-        ],
-      };
-    } catch (error) {
-      logger.error(
-        {
-          tool: name,
-          error: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined,
-        },
-        'Tool call error'
-      );
-      const errorResponse = formatError(error);
-      return {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify(errorResponse, null, 2),
-          },
-        ],
-        isError: true,
-      };
-    }
+    return runTool(context, name, args as Record<string, unknown> | undefined);
   });
 
   logger.debug('Request handlers configured');
@@ -287,7 +148,13 @@ export async function runServer(): Promise<void> {
 
   let server: Server;
   try {
-    server = await createServer();
+    // Initialize AppContext
+    const context = await createAppContext(config);
+    
+    // Register with container for services that use getDb()/getSqlite()
+    registerContext(context);
+    
+    server = await createServer(context);
     logger.info('Server created successfully');
   } catch (error) {
     logger.fatal(
@@ -297,39 +164,8 @@ export async function runServer(): Promise<void> {
       },
       'Failed to create server'
     );
-    // Don't exit - try to continue with a minimal server
-    // This prevents Antigravity from seeing immediate crash
-    logger.warn('Attempting to create minimal server despite errors');
-    server = new Server(
-      {
-        name: 'agent-memory',
-        version: VERSION,
-      },
-      {
-        capabilities: {
-          tools: {},
-        },
-      }
-    );
-    // Set up minimal handlers
-    server.setRequestHandler(ListToolsRequestSchema, () => {
-      return { tools: [] };
-    });
-    server.setRequestHandler(CallToolRequestSchema, () => {
-      return {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify(
-              formatError(new Error('Server initialization incomplete. Please check logs.')),
-              null,
-              2
-            ),
-          },
-        ],
-        isError: true,
-      };
-    });
+    // Exit immediately on fatal error
+    process.exit(1);
   }
 
   // =============================================================================

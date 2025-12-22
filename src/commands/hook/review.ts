@@ -75,7 +75,9 @@ export function findCandidateByShortId(
   candidates: ReviewCandidate[],
   shortId: string
 ): ReviewCandidate | undefined {
-  return candidates.find((c) => c.shortId === shortId || c.id === shortId || c.id.startsWith(shortId));
+  return candidates.find(
+    (c) => c.shortId === shortId || c.id === shortId || c.id.startsWith(shortId)
+  );
 }
 
 export function approveCandidate(candidate: ReviewCandidate, projectId: string): boolean {
@@ -195,4 +197,3 @@ export function formatCandidateDetail(candidate: ReviewCandidate): string[] {
   lines.push('');
   return lines;
 }
-

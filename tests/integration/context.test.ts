@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import {
   setupTestDb,
   cleanupTestDb,
@@ -9,6 +9,7 @@ import {
   createTestTool,
   createTestGuideline,
   createTestKnowledge,
+  registerTestContext,
 } from '../fixtures/test-helpers.js';
 
 const TEST_DB_PATH = './data/test-context.db';
@@ -41,6 +42,9 @@ describe('memory_context integration', () => {
     const testDb = setupTestDb(TEST_DB_PATH);
     sqlite = testDb.sqlite;
     db = testDb.db;
+
+    // Register context for query handler (uses getContext())
+    registerTestContext(testDb);
 
     seedPredefinedTags(db);
 

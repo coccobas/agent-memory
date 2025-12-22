@@ -12,11 +12,12 @@ import { pipeline } from '@xenova/transformers';
 import { createComponentLogger } from '../utils/logger.js';
 import { withRetry, isRetryableNetworkError } from '../utils/retry.js';
 import { config } from '../config/index.js';
+import { yieldToEventLoop } from '../utils/yield.js';
 import {
   createEmbeddingDisabledError,
   createEmbeddingEmptyTextError,
   createEmbeddingProviderError,
-} from '../mcp/errors.js';
+} from '../core/errors.js';
 
 const logger = createComponentLogger('embedding');
 
@@ -35,39 +36,64 @@ interface EmbeddingBatchResult {
 }
 
 /**
+ * Configuration for EmbeddingService
+ * Allows explicit dependency injection instead of relying on global config
+ */
+export interface EmbeddingServiceConfig {
+  provider: EmbeddingProvider;
+  openaiApiKey?: string;
+  openaiModel: string;
+}
+
+/**
  * Embedding service with configurable providers
  */
 // Track if we've already warned about missing OpenAI key (avoid spam in tests)
 let hasWarnedAboutOpenAI = false;
 
-class EmbeddingService {
+export class EmbeddingService {
   private provider: EmbeddingProvider;
   private openaiClient: OpenAI | null = null;
   private openaiModel: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private localPipeline: any = null;
+  // Pipeline type from @xenova/transformers - library doesn't export proper types
+  private localPipeline:
+    | ((
+        text: string,
+        options?: { pooling?: string; normalize?: boolean }
+      ) => Promise<{ data: Float32Array }>)
+    | null = null;
   private localPipelinePromise: Promise<unknown> | null = null;
   private localModelName = 'Xenova/all-MiniLM-L6-v2'; // 384-dim embeddings
   private embeddingCache = new Map<string, number[]>();
   private maxCacheSize = 1000;
   public static hasLoggedModelLoad = false; // Public for test reset access
 
-  constructor() {
-    // Get provider from centralized config
-    this.provider = config.embedding.provider;
+  /**
+   * Create an EmbeddingService instance
+   * @param serviceConfig - Optional explicit configuration. If not provided, uses global config.
+   */
+  constructor(serviceConfig?: EmbeddingServiceConfig) {
+    // Use explicit config if provided, otherwise fall back to global config
+    const effectiveConfig = serviceConfig ?? {
+      provider: config.embedding.provider,
+      openaiApiKey: config.embedding.openaiApiKey,
+      openaiModel: config.embedding.openaiModel,
+    };
+
+    this.provider = effectiveConfig.provider;
 
     // Warn once if falling back to local (no API key)
-    if (this.provider === 'local' && !config.embedding.openaiApiKey && !hasWarnedAboutOpenAI) {
+    if (this.provider === 'local' && !effectiveConfig.openaiApiKey && !hasWarnedAboutOpenAI) {
       logger.warn('No OpenAI API key found, using local model');
       hasWarnedAboutOpenAI = true;
     }
 
-    this.openaiModel = config.embedding.openaiModel;
+    this.openaiModel = effectiveConfig.openaiModel;
 
     // Initialize OpenAI client if using OpenAI
-    if (this.provider === 'openai' && config.embedding.openaiApiKey) {
+    if (this.provider === 'openai' && effectiveConfig.openaiApiKey) {
       this.openaiClient = new OpenAI({
-        apiKey: config.embedding.openaiApiKey,
+        apiKey: effectiveConfig.openaiApiKey,
         timeout: 60000, // 60 second timeout to prevent indefinite hangs
         maxRetries: 0, // Disable SDK retry - we handle retries with withRetry
       });
@@ -183,9 +209,15 @@ class EmbeddingService {
     if (this.provider === 'openai') {
       embeddings = await this.embedBatchOpenAI(normalized);
     } else {
-      // For local, process one at a time (local model doesn't have efficient batching)
-      const results = await Promise.all(normalized.map((text) => this.embedLocal(text)));
-      embeddings = results.filter((e): e is number[] => e !== undefined);
+      // For local, run sequentially and periodically yield to avoid starving the event loop.
+      const results: number[][] = [];
+      for (let i = 0; i < normalized.length; i++) {
+        if (i > 0 && i % 5 === 0) {
+          await yieldToEventLoop();
+        }
+        results.push(await this.embedLocal(normalized[i]!));
+      }
+      embeddings = results;
     }
 
     // Cache results
@@ -222,14 +254,14 @@ class EmbeddingService {
    * Generate embedding using OpenAI API
    */
   private async embedOpenAI(text: string): Promise<number[]> {
-    if (!this.openaiClient) {
+    const client = this.openaiClient;
+    if (!client) {
       throw createEmbeddingProviderError('OpenAI', 'Client not initialized');
     }
 
     return withRetry(
       async () => {
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        const response = await this.openaiClient!.embeddings.create({
+        const response = await client.embeddings.create({
           model: this.openaiModel,
           input: text,
         });
@@ -253,14 +285,14 @@ class EmbeddingService {
    * Generate embeddings in batch using OpenAI API
    */
   private async embedBatchOpenAI(texts: string[]): Promise<number[][]> {
-    if (!this.openaiClient) {
+    const client = this.openaiClient;
+    if (!client) {
       throw createEmbeddingProviderError('OpenAI', 'Client not initialized');
     }
 
     return withRetry(
       async () => {
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        const response = await this.openaiClient!.embeddings.create({
+        const response = await client.embeddings.create({
           model: this.openaiModel,
           input: texts,
         });
@@ -290,7 +322,9 @@ class EmbeddingService {
         }
         this.localPipelinePromise = pipeline('feature-extraction', this.localModelName)
           .then((p) => {
-            this.localPipeline = p;
+            // Type assertion: @xenova/transformers pipeline returns a callable
+            // Cast through unknown to satisfy TypeScript's strict type checking
+            this.localPipeline = p as unknown as typeof this.localPipeline;
             return p;
           })
           .finally(() => {
@@ -300,14 +334,15 @@ class EmbeddingService {
       await this.localPipelinePromise;
     }
 
+    const localPipeline = this.localPipeline;
+    if (!localPipeline) {
+      throw createEmbeddingProviderError('Local', 'Pipeline not initialized');
+    }
+
     try {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-non-null-assertion
-      const output = await this.localPipeline!(text, { pooling: 'mean', normalize: true });
-
-      // Convert to regular array
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      const embedding = Array.from((output.data || output) as Float32Array);
-
+      const output = await localPipeline(text, { pooling: 'mean', normalize: true });
+      // Convert Float32Array to regular array
+      const embedding = Array.from(output.data);
       return embedding;
     } catch (error) {
       throw createEmbeddingProviderError(

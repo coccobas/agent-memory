@@ -171,4 +171,3 @@ export function runUserPromptSubmitCommand(params: {
     ],
   };
 }
-

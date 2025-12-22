@@ -43,14 +43,32 @@ async function main() {
     return;
   }
 
-  // Load config first (which loads dotenv)
-  await import('./config/index.js');
+  // Load environment variables explicitly
+  const { loadEnv } = await import('./config/env.js');
+  const { resolve, dirname } = await import('node:path');
+  const { fileURLToPath } = await import('node:url');
+  
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = dirname(__filename);
+  const projectRoot = resolve(__dirname, '..');
+  
+  loadEnv(projectRoot);
+
+  // Load config
+  const { config } = await import('./config/index.js');
 
   const { createComponentLogger } = await import('./utils/logger.js');
+  const { createRuntime, extractRuntimeConfig, shutdownRuntime } = await import('./core/runtime.js');
+  const { registerRuntime } = await import('./core/container.js');
 
   const logger = createComponentLogger('server');
   const mode = parseServerMode(argv, process.env.AGENT_MEMORY_MODE);
   logger.info({ mode }, 'Entry point reached');
+
+  // Create and register the process-scoped Runtime
+  // This is shared across MCP and REST servers in "both" mode
+  const runtime = createRuntime(extractRuntimeConfig(config));
+  registerRuntime(runtime);
 
   try {
     const mcpModulePath = './mcp/server.js';
@@ -74,6 +92,7 @@ async function main() {
       { error: error instanceof Error ? error.message : String(error) },
       'Server startup failed'
     );
+    shutdownRuntime(runtime);
     process.exit(1);
   }
 }

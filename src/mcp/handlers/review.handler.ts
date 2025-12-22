@@ -5,12 +5,8 @@
  * Allows listing, approving, rejecting, and skipping candidates.
  */
 
-import { guidelineRepo } from '../../db/repositories/guidelines.js';
-import { knowledgeRepo } from '../../db/repositories/knowledge.js';
-import { toolRepo } from '../../db/repositories/tools.js';
-import { sessionRepo, projectRepo } from '../../db/repositories/scopes.js';
-import { entryTagRepo, tagRepo } from '../../db/repositories/tags.js';
-import { createValidationError } from '../errors.js';
+import { createValidationError } from '../../core/errors.js';
+import type { AppContext } from '../../core/context.js';
 
 interface ReviewCandidate {
   id: string;
@@ -30,7 +26,8 @@ interface ActionParams {
   projectId?: string;
 }
 
-function getCandidates(sessionId: string): ReviewCandidate[] {
+function getCandidates(context: AppContext, sessionId: string): ReviewCandidate[] {
+  const { guidelines: guidelineRepo, knowledge: knowledgeRepo, tools: toolRepo, entryTags: entryTagRepo } = context.repos;
   const candidates: ReviewCandidate[] = [];
 
   // Get guidelines from session scope
@@ -87,19 +84,21 @@ function getCandidates(sessionId: string): ReviewCandidate[] {
   return candidates;
 }
 
-function findCandidate(sessionId: string, entryId: string): ReviewCandidate | undefined {
-  const candidates = getCandidates(sessionId);
+function findCandidate(context: AppContext, sessionId: string, entryId: string): ReviewCandidate | undefined {
+  const candidates = getCandidates(context, sessionId);
   return candidates.find(
     (c) => c.id === entryId || c.shortId === entryId || c.id.startsWith(entryId)
   );
 }
 
-function list(params: ListParams) {
+function list(context: AppContext, params: ListParams) {
+  const { sessions: sessionRepo, projects: projectRepo } = context.repos;
+
   if (!params.sessionId) {
     throw createValidationError('sessionId', 'is required', 'Provide the session ID');
   }
 
-  const candidates = getCandidates(params.sessionId);
+  const candidates = getCandidates(context, params.sessionId);
 
   // Get session info
   const session = sessionRepo.getById(params.sessionId);
@@ -119,13 +118,14 @@ function list(params: ListParams) {
       contentPreview: c.content.slice(0, 100) + (c.content.length > 100 ? '...' : ''),
     })),
     count: candidates.length,
-    hint: candidates.length > 0
-      ? 'Use approve/reject/skip with entryId to act on candidates'
-      : 'No candidates to review',
+    hint:
+      candidates.length > 0
+        ? 'Use approve/reject/skip with entryId to act on candidates'
+        : 'No candidates to review',
   };
 }
 
-function show(params: ActionParams) {
+function show(context: AppContext, params: ActionParams) {
   if (!params.sessionId) {
     throw createValidationError('sessionId', 'is required', 'Provide the session ID');
   }
@@ -133,7 +133,7 @@ function show(params: ActionParams) {
     throw createValidationError('entryId', 'is required', 'Provide the entry ID or short ID');
   }
 
-  const candidate = findCandidate(params.sessionId, params.entryId);
+  const candidate = findCandidate(context, params.sessionId, params.entryId);
   if (!candidate) {
     return {
       success: false,
@@ -153,7 +153,9 @@ function show(params: ActionParams) {
   };
 }
 
-function approve(params: ActionParams) {
+function approve(context: AppContext, params: ActionParams) {
+  const { guidelines: guidelineRepo, knowledge: knowledgeRepo, tools: toolRepo, sessions: sessionRepo } = context.repos;
+
   if (!params.sessionId) {
     throw createValidationError('sessionId', 'is required', 'Provide the session ID');
   }
@@ -176,7 +178,7 @@ function approve(params: ActionParams) {
     );
   }
 
-  const candidate = findCandidate(params.sessionId, params.entryId);
+  const candidate = findCandidate(context, params.sessionId, params.entryId);
   if (!candidate) {
     return {
       success: false,
@@ -244,7 +246,9 @@ function approve(params: ActionParams) {
   }
 }
 
-function reject(params: ActionParams) {
+function reject(context: AppContext, params: ActionParams) {
+  const { guidelines: guidelineRepo, knowledge: knowledgeRepo, tools: toolRepo } = context.repos;
+
   if (!params.sessionId) {
     throw createValidationError('sessionId', 'is required', 'Provide the session ID');
   }
@@ -252,7 +256,7 @@ function reject(params: ActionParams) {
     throw createValidationError('entryId', 'is required', 'Provide the entry ID or short ID');
   }
 
-  const candidate = findCandidate(params.sessionId, params.entryId);
+  const candidate = findCandidate(context, params.sessionId, params.entryId);
   if (!candidate) {
     return {
       success: false,
@@ -286,7 +290,9 @@ function reject(params: ActionParams) {
   }
 }
 
-function skip(params: ActionParams) {
+function skip(context: AppContext, params: ActionParams) {
+  const { tags: tagRepo, entryTags: entryTagRepo } = context.repos;
+
   if (!params.sessionId) {
     throw createValidationError('sessionId', 'is required', 'Provide the session ID');
   }
@@ -294,7 +300,7 @@ function skip(params: ActionParams) {
     throw createValidationError('entryId', 'is required', 'Provide the entry ID or short ID');
   }
 
-  const candidate = findCandidate(params.sessionId, params.entryId);
+  const candidate = findCandidate(context, params.sessionId, params.entryId);
   if (!candidate) {
     return {
       success: false,

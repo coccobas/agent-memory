@@ -39,4 +39,3 @@ export async function findMarkdownFiles(
 
   return files;
 }
-

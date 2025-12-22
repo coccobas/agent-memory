@@ -38,11 +38,7 @@ import { memoryObserveDescriptor } from './memory_observe.js';
 import { memoryConsolidateDescriptor } from './memory_consolidate.js';
 import { memoryReviewDescriptor } from './memory_review.js';
 
-import {
-  type AnyToolDescriptor,
-  descriptorToTool,
-  descriptorToHandler,
-} from './types.js';
+import { type AnyToolDescriptor, descriptorToTool, descriptorToHandler } from './types.js';
 
 /**
  * All tool descriptors in registration order

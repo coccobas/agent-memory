@@ -3,16 +3,18 @@
  *
  * Resolves related entry IDs using graph traversal.
  * Used for filtering entries by relation.
+ *
+ * Uses injected dependencies for graph traversal to support testing with mocks.
  */
 
-import type { PipelineContext, QueryEntryType } from '../pipeline.js';
-import type { RelationType } from '../../../db/schema.js';
-import { traverseRelationGraph } from '../../query.service.js';
+import type { PipelineContext, QueryEntryType, PipelineDependencies } from '../pipeline.js';
 
 /**
  * Get related entry IDs with traversal options
+ *
+ * Uses injected traverseRelationGraph instead of the global function.
  */
-export function getRelatedEntryIdsWithTraversal(
+function getRelatedEntryIdsWithTraversal(
   relatedTo:
     | {
         type?: string;
@@ -22,7 +24,8 @@ export function getRelatedEntryIdsWithTraversal(
         direction?: 'forward' | 'backward' | 'both';
         maxResults?: number;
       }
-    | undefined
+    | undefined,
+  traverseRelationGraph: PipelineDependencies['traverseRelationGraph']
 ): Record<QueryEntryType, Set<string>> {
   const result: Record<QueryEntryType, Set<string>> = {
     tool: new Set(),
@@ -40,12 +43,12 @@ export function getRelatedEntryIdsWithTraversal(
   const direction = relatedTo.direction ?? 'both';
   const maxResults = relatedTo.maxResults ?? 100;
 
-  // Use graph traversal to find related entries
+  // Use graph traversal to find related entries via injected dependency
   const traversed = traverseRelationGraph(sourceType, sourceId, {
     depth,
     direction,
     maxResults,
-    relationType: relatedTo.relation as RelationType | undefined,
+    relationType: relatedTo.relation,
   });
 
   return {
@@ -57,11 +60,13 @@ export function getRelatedEntryIdsWithTraversal(
 
 /**
  * Relations stage - resolves related entry IDs
+ *
+ * Uses ctx.deps.traverseRelationGraph() instead of calling the global function directly.
  */
 export function relationsStage(ctx: PipelineContext): PipelineContext {
-  const { params } = ctx;
+  const { params, deps } = ctx;
 
-  const relatedIds = getRelatedEntryIdsWithTraversal(params.relatedTo);
+  const relatedIds = getRelatedEntryIdsWithTraversal(params.relatedTo, deps.traverseRelationGraph);
 
   return {
     ...ctx,

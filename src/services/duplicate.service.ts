@@ -5,7 +5,7 @@
  * Helps prevent creating duplicate entries.
  */
 
-import { getDb, getPreparedStatement } from '../db/connection.js';
+import { getDb, getPreparedStatement, type DbClient } from '../db/connection.js';
 import { tools, guidelines, knowledge } from '../db/schema.js';
 import { eq, and, isNull, inArray } from 'drizzle-orm';
 import type { ScopeType, EntryType } from '../db/schema.js';
@@ -114,6 +114,7 @@ export interface SimilarEntry {
  * @param scopeType - Scope type
  * @param scopeId - Scope ID (optional)
  * @param threshold - Minimum similarity score (0-1, default: 0.8)
+ * @param dbClient - Optional database client (defaults to getDb() for backward compatibility)
  * @returns Array of similar entries with similarity scores
  */
 export function findSimilarEntries(
@@ -121,9 +122,10 @@ export function findSimilarEntries(
   name: string,
   scopeType: ScopeType,
   scopeId: string | null,
-  threshold: number = 0.8
+  threshold: number = 0.8,
+  dbClient?: DbClient
 ): SimilarEntry[] {
-  const db = getDb();
+  const db = dbClient ?? getDb();
 
   const ftsQuery = escapeFts5QueryTokenized(name);
   if (!ftsQuery) return [];
@@ -216,15 +218,17 @@ export function findSimilarEntries(
  * @param name - Name/title of the entry
  * @param scopeType - Scope type
  * @param scopeId - Scope ID (optional)
+ * @param dbClient - Optional database client (defaults to getDb() for backward compatibility)
  * @returns Object with isDuplicate flag and list of similar entries
  */
 export function checkForDuplicates(
   entryType: EntryType,
   name: string,
   scopeType: ScopeType,
-  scopeId: string | null
+  scopeId: string | null,
+  dbClient?: DbClient
 ): { isDuplicate: boolean; similarEntries: SimilarEntry[] } {
-  const similar = findSimilarEntries(entryType, name, scopeType, scopeId, 0.8);
+  const similar = findSimilarEntries(entryType, name, scopeType, scopeId, 0.8, dbClient);
 
   // Consider it a duplicate if similarity >= 0.9
   const duplicates = similar.filter((e) => e.similarity >= 0.9);
@@ -234,3 +238,4 @@ export function checkForDuplicates(
     similarEntries: similar,
   };
 }
+

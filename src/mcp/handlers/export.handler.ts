@@ -14,7 +14,7 @@ import {
   exportToOpenAPI,
   type ExportOptions,
 } from '../../services/export.service.js';
-import { createPermissionError, createValidationError } from '../errors.js';
+import { createPermissionError, createValidationError } from '../../core/errors.js';
 import { config } from '../../config/index.js';
 import { checkPermission } from '../../services/permission.service.js';
 import { getRequiredParam, isString } from '../../utils/type-guards.js';

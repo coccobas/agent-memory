@@ -82,9 +82,9 @@ export function formatTimestamps<T>(obj: T): T {
   if (obj === null || obj === undefined) return obj;
   if (typeof obj !== 'object') return obj;
 
-  // Handle arrays
+  // Handle arrays - recursive transform preserves type structure
   if (Array.isArray(obj)) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return -- Generic recursive transform
     return obj.map((item: unknown) => formatTimestamps(item)) as T;
   }
 

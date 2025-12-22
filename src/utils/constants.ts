@@ -139,3 +139,18 @@ export const DEFAULT_MEMORY_CHECK_INTERVAL_MS = config.memory.checkIntervalMs;
  * Default total memory limit for all caches (MB)
  */
 export const DEFAULT_TOTAL_CACHE_LIMIT_MB = config.cache.totalLimitMB;
+
+// =============================================================================
+// QUERY PIPELINE CONSTANTS
+// =============================================================================
+
+/**
+ * Soft cap multiplier for fetch stage.
+ *
+ * We fetch up to FETCH_HEADROOM_MULTIPLIER * limit entries to provide
+ * "filtering headroom" - entries may be filtered out after fetch, so we
+ * over-fetch to ensure we have enough results after filtering.
+ *
+ * Example: limit=20, multiplier=2 -> fetch up to 40 entries
+ */
+export const FETCH_HEADROOM_MULTIPLIER = 2;

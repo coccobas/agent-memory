@@ -191,11 +191,12 @@ export function createSafeLogger<T extends Record<string, (...args: unknown[]) =
 ): T {
   const safeLogger = {} as T;
 
+  // Dynamically wrap logger methods - type assertions needed for generic logger interface
   for (const [method, fn] of Object.entries(logger)) {
     if (typeof fn === 'function') {
       // Wrap each logging method to sanitize arguments
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
-      (safeLogger as any)[method] = (...args: unknown[]) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic property assignment on generic type
+      (safeLogger as Record<string, unknown>)[method] = (...args: unknown[]) => {
         const sanitizedArgs = args.map((arg) => {
           // Special handling for error objects
           if (arg instanceof Error) {
@@ -203,12 +204,12 @@ export function createSafeLogger<T extends Record<string, (...args: unknown[]) =
           }
           return sanitizeForLogging(arg);
         });
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-        return fn.apply(logger, sanitizedArgs);
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call -- Calling original logger method
+        return (fn as (...a: unknown[]) => unknown).apply(logger, sanitizedArgs);
       };
     } else {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
-      (safeLogger as any)[method] = fn;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic property assignment on generic type
+      (safeLogger as Record<string, unknown>)[method] = fn;
     }
   }
 

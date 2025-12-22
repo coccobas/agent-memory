@@ -227,10 +227,10 @@ export class LRUCache<T> {
 
       // Check for common size indicators
       if (typeof obj.length === 'number') {
-        return 64 + (obj.length as number) * 500;
+        return 64 + obj.length * 500;
       }
       if (typeof obj.size === 'number') {
-        return 64 + (obj.size as number) * 500;
+        return 64 + obj.size * 500;
       }
 
       // For small objects when memory limit is enabled, use JSON.stringify

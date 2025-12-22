@@ -120,8 +120,9 @@ async function readStdin(): Promise<string | undefined> {
     process.stdin.setEncoding('utf8');
     process.stdin.on('readable', () => {
       let chunk: string | null;
-      // eslint-disable-next-line no-cond-assign, @typescript-eslint/no-unsafe-assignment
-      while ((chunk = process.stdin.read()) !== null) {
+      // Standard Node.js stream reading pattern - assignment in condition is intentional
+      // eslint-disable-next-line no-cond-assign -- Idiomatic stream reading pattern
+      while ((chunk = process.stdin.read() as string | null) !== null) {
         data += chunk;
       }
     });

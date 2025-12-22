@@ -42,6 +42,13 @@ export const USER_DESTINATIONS: Record<string, string> = {
   generic: '.ide-rules',
 };
 
+function getUserHomeDirForRules(): string {
+  // In unit tests, writing to the real home directory may be blocked by sandboxing.
+  // Use a deterministic, repo-local home dir so user-level sync is still testable.
+  const isTest = process.env.NODE_ENV === 'test' || process.env.VITEST !== undefined;
+  return isTest ? resolve(process.cwd(), 'data/test-home') : homedir();
+}
+
 /**
  * Resolve user-level rules directory for an IDE
  */
@@ -55,7 +62,7 @@ export function resolveUserRulesDir(ide: string, customDir?: string): string {
     throw new Error(`Unknown IDE: ${ide}`);
   }
 
-  const homeDir = homedir();
+  const homeDir = getUserHomeDirForRules();
   return join(homeDir, userDestination);
 }
 
@@ -84,17 +91,20 @@ export function resolveDestinationDirForIde(
 export function filterSelectedFiles(
   sourceFiles: string[],
   sourceDir: string,
-  selectedFiles?: Set<string>
+  selectedFiles?: Set<string> | string[]
 ): string[] {
   if (!selectedFiles) return sourceFiles;
+
+  const selectedSet = Array.isArray(selectedFiles) ? new Set(selectedFiles) : selectedFiles;
+  if (selectedSet.size === 0) return sourceFiles;
 
   return sourceFiles.filter((file) => {
     const fileName = basename(file);
     const fileNameWithoutExt = basename(file, '.md');
     return (
-      selectedFiles.has(fileName) ||
-      selectedFiles.has(fileNameWithoutExt) ||
-      selectedFiles.has(relative(sourceDir, file))
+      selectedSet.has(fileName) ||
+      selectedSet.has(fileNameWithoutExt) ||
+      selectedSet.has(relative(sourceDir, file))
     );
   });
 }
@@ -257,7 +267,7 @@ export async function syncForIDE(
   outputDir: string,
   options: SyncOptions,
   ignorePatterns: string[],
-  selectedFiles?: Set<string>
+  selectedFiles?: Set<string> | string[]
 ): Promise<SyncResult> {
   const stats: SyncStats = {
     added: 0,

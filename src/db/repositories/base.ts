@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { eq, and, or, inArray } from 'drizzle-orm';
-import { getDb } from '../connection.js';
+import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import {
   entryTags,
   entryRelations,
@@ -9,6 +9,14 @@ import {
   conflictLog,
   type EntryType,
 } from '../schema.js';
+import { createComponentLogger } from '../../utils/logger.js';
+
+/**
+ * Database type alias for explicit DI in repository methods
+ */
+export type DrizzleDb = BetterSQLite3Database<any>;
+
+const logger = createComponentLogger('repository-base');
 
 /**
  * Generate a new UUID
@@ -96,15 +104,15 @@ export type CascadeEntryType = 'tool' | 'guideline' | 'knowledge';
  * Delete all related records for an entry (tags, relations, embeddings, permissions)
  * This is the common cascade cleanup logic used before deleting an entry.
  *
+ * @param db - The database connection (explicit DI)
  * @param entryType - The type of entry ('tool', 'guideline', 'knowledge')
  * @param entryId - The ID of the entry being deleted
  */
-export function cascadeDeleteRelatedRecords(
+export function cascadeDeleteRelatedRecordsWithDb(
+  db: DrizzleDb,
   entryType: CascadeEntryType,
   entryId: string
 ): void {
-  const db = getDb();
-
   // 1. Delete tags associated with this entry
   db.delete(entryTags)
     .where(and(eq(entryTags.entryType, entryType), eq(entryTags.entryId, entryId)))
@@ -154,18 +162,18 @@ export function registerVectorCleanupHook(hook: VectorCleanupHook | null): void 
 
 export function asyncVectorCleanup(entryType: EntryType, entryId: string): void {
   if (!vectorCleanupHook) return;
-  void (async () => {
-    try {
-      await vectorCleanupHook(entryType, entryId);
-    } catch {
-      // Errors should be logged by the hook implementation
-    }
-  })();
+  vectorCleanupHook(entryType, entryId).catch((error) => {
+    logger.error(
+      { error: error instanceof Error ? error.message : String(error), entryType, entryId },
+      'Vector cleanup failed'
+    );
+  });
 }
 
 /**
  * Check for concurrent write conflict and log if detected
  *
+ * @param db - The database connection (explicit DI)
  * @param entryType - The type of entry
  * @param entryId - The ID of the entry
  * @param previousVersionId - The ID of the previous version
@@ -173,7 +181,8 @@ export function asyncVectorCleanup(entryType: EntryType, entryId: string): void 
  * @param lastWriteTime - Timestamp of the last write (from previousVersion.createdAt)
  * @returns true if a conflict was detected
  */
-export function checkAndLogConflict(
+export function checkAndLogConflictWithDb(
+  db: DrizzleDb,
   entryType: CascadeEntryType,
   entryId: string,
   previousVersionId: string,
@@ -184,7 +193,6 @@ export function checkAndLogConflict(
   const lastTime = lastWriteTime.getTime();
 
   if (currentTime - lastTime < CONFLICT_WINDOW_MS) {
-    const db = getDb();
     db.insert(conflictLog)
       .values({
         id: generateId(),
@@ -201,25 +209,31 @@ export function checkAndLogConflict(
 }
 
 /**
+ * Type for version tables (any table with an id column)
+ */
+export type VersionTable = { id: { name: string } };
+
+/**
  * Batch fetch versions by IDs and return a Map for efficient lookup.
  * Generic helper to avoid N+1 queries when listing entries with versions.
  *
+ * @param db - The database connection (explicit DI)
  * @param versionTable - The drizzle version table to query
  * @param versionIds - Array of version IDs to fetch
  * @returns Map of version ID to version object
  */
-export function batchFetchVersionsById<T extends { id: string }>(
-  versionTable: Parameters<ReturnType<typeof getDb>['select']>[0] extends undefined
-    ? never
-    : { id: { name: string } },
+export function batchFetchVersionsByIdWithDb<T extends { id: string }>(
+  db: DrizzleDb,
+  versionTable: VersionTable,
   versionIds: string[]
 ): Map<string, T> {
   if (versionIds.length === 0) {
     return new Map();
   }
 
-  const db = getDb();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // Type assertion needed: Drizzle's table types are complex and don't easily support
+  // generic table access. The runtime behavior is correct as long as versionTable has an 'id' column.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Generic table access requires type assertion
   const versionsList = db
     .select()
     .from(versionTable as any)

@@ -7,18 +7,14 @@
  * Eliminates ~40% code duplication across handler files.
  */
 
-import { transaction } from '../../db/connection.js';
+import { transactionWithDb } from '../../db/connection.js';
 import { checkForDuplicates } from '../../services/duplicate.service.js';
 import { logAction } from '../../services/audit.service.js';
 import { detectRedFlags } from '../../services/redflag.service.js';
-import { invalidateCacheEntry } from '../../services/query.service.js';
+import { emitEntryChanged } from '../../utils/events.js';
 import { validateEntry } from '../../services/validation.service.js';
 import { checkPermission } from '../../services/permission.service.js';
-import {
-  createValidationError,
-  createNotFoundError,
-  createPermissionError,
-} from '../errors.js';
+import { createValidationError, createNotFoundError, createPermissionError } from '../../core/errors.js';
 import { createComponentLogger } from '../../utils/logger.js';
 import {
   getRequiredParam,
@@ -33,6 +29,8 @@ import {
 } from '../../utils/type-guards.js';
 import { formatTimestamps } from '../../utils/timestamp-formatter.js';
 import type { ScopeType } from '../../db/schema.js';
+import type { AppContext } from '../../core/context.js';
+import type { ContextAwareHandler } from '../descriptors/types.js';
 
 // =============================================================================
 // Types
@@ -53,11 +51,7 @@ export interface BaseEntry {
 /**
  * Repository interface that all entry repos must implement
  */
-export interface EntryRepository<
-  TEntry extends BaseEntry,
-  TCreateInput,
-  TUpdateInput,
-> {
+export interface EntryRepository<TEntry extends BaseEntry, TCreateInput, TUpdateInput> {
   create(input: TCreateInput): TEntry;
   update(id: string, input: TUpdateInput): TEntry | undefined;
   getById(id: string): TEntry | undefined;
@@ -90,15 +84,14 @@ export type EntryType = 'tool' | 'guideline' | 'knowledge';
 /**
  * Configuration for the handler factory
  */
-export interface HandlerFactoryConfig<
-  TEntry extends BaseEntry,
-  TCreateInput,
-  TUpdateInput,
-> {
+export interface HandlerFactoryConfig<TEntry extends BaseEntry, TCreateInput, TUpdateInput> {
   /** Entry type name used for logging, permissions, etc. */
   entryType: EntryType;
-  /** The repository to use for CRUD operations */
-  repo: EntryRepository<TEntry, TCreateInput, TUpdateInput>;
+  /**
+   * Function to get the repository from AppContext.repos
+   * This enables dependency injection at handler call time
+   */
+  getRepo: (context: AppContext) => EntryRepository<TEntry, TCreateInput, TUpdateInput>;
   /** Key name for the entry in response objects (e.g., 'tool', 'guideline', 'knowledge') */
   responseKey: string;
   /** Key name for the list in response objects (e.g., 'tools', 'guidelines', 'knowledge') */
@@ -127,18 +120,32 @@ export interface HandlerFactoryConfig<
   extractListFilters?: (params: Record<string, unknown>) => Record<string, unknown>;
 }
 
+/**
+ * Return type for createCrudHandlers - context-aware handlers
+ */
+export interface CrudHandlers {
+  add: ContextAwareHandler;
+  update: ContextAwareHandler;
+  get: ContextAwareHandler;
+  list: ContextAwareHandler;
+  history: ContextAwareHandler;
+  deactivate: ContextAwareHandler;
+  delete: ContextAwareHandler;
+  bulk_add: ContextAwareHandler;
+  bulk_update: ContextAwareHandler;
+  bulk_delete: ContextAwareHandler;
+}
+
 // =============================================================================
 // Factory Implementation
 // =============================================================================
 
 /**
- * Creates a complete set of CRUD handlers for an entry type
+ * Creates a complete set of context-aware CRUD handlers for an entry type
  */
-export function createCrudHandlers<
-  TEntry extends BaseEntry,
-  TCreateInput,
-  TUpdateInput,
->(config: HandlerFactoryConfig<TEntry, TCreateInput, TUpdateInput>) {
+export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpdateInput>(
+  config: HandlerFactoryConfig<TEntry, TCreateInput, TUpdateInput>
+): CrudHandlers {
   const logger = createComponentLogger(config.entryType + 's');
 
   // Helper: Check permission and throw if denied
@@ -155,8 +162,11 @@ export function createCrudHandlers<
   }
 
   // Helper: Get entry by ID and verify it exists
-  function getExistingEntry(id: string): TEntry {
-    const entry = config.repo.getById(id);
+  function getExistingEntry(
+    repo: EntryRepository<TEntry, TCreateInput, TUpdateInput>,
+    id: string
+  ): TEntry {
+    const entry = repo.getById(id);
     if (entry === undefined) {
       throw createNotFoundError(config.entryType, id);
     }
@@ -167,7 +177,8 @@ export function createCrudHandlers<
     /**
      * Add a new entry
      */
-    add(params: Record<string, unknown>) {
+    add(context: AppContext, params: Record<string, unknown>) {
+      const repo = config.getRepo(context);
       const scopeType = getRequiredParam(params, 'scopeType', isScopeType);
       const scopeId = getOptionalParam(params, 'scopeId', isString);
       const agentId = getRequiredParam(params, 'agentId', isString);
@@ -222,7 +233,7 @@ export function createCrudHandlers<
 
       // Extract typed input and create entry
       const input = config.extractAddParams(params, { scopeType, scopeId });
-      const entry = config.repo.create(input);
+      const entry = repo.create(input);
 
       // Check for red flags
       const content = config.getContentForRedFlags(entry);
@@ -265,12 +276,13 @@ export function createCrudHandlers<
     /**
      * Update an existing entry
      */
-    update(params: Record<string, unknown>) {
+    update(context: AppContext, params: Record<string, unknown>) {
+      const repo = config.getRepo(context);
       const id = getRequiredParam(params, 'id', isString);
       const agentId = getRequiredParam(params, 'agentId', isString);
 
       // Get existing entry to check scope and permission
-      const existingEntry = getExistingEntry(id);
+      const existingEntry = getExistingEntry(repo, id);
 
       // Check permission (write required for update)
       requirePermission(agentId, 'write', existingEntry.scopeType, existingEntry.scopeId, id);
@@ -293,13 +305,19 @@ export function createCrudHandlers<
 
       // Extract update input and update
       const input = config.extractUpdateParams(params);
-      const entry = config.repo.update(id, input);
+      const entry = repo.update(id, input);
       if (!entry) {
         throw createNotFoundError(config.entryType, id);
       }
 
-      // Invalidate cache for this entry
-      invalidateCacheEntry(config.entryType, id);
+      // Emit entry changed event (cache listens for these)
+      emitEntryChanged({
+        entryType: config.entryType,
+        entryId: id,
+        scopeType: existingEntry.scopeType,
+        scopeId: existingEntry.scopeId ?? null,
+        action: 'update',
+      });
 
       // Log audit
       logAction({
@@ -317,7 +335,8 @@ export function createCrudHandlers<
     /**
      * Get a single entry by ID or name
      */
-    get(params: Record<string, unknown>) {
+    get(context: AppContext, params: Record<string, unknown>) {
+      const repo = config.getRepo(context);
       const id = getOptionalParam(params, 'id', isString);
       const nameOrTitle = getOptionalParam(params, config.nameField, isString);
       const scopeType = getOptionalParam(params, 'scopeType', isScopeType);
@@ -335,13 +354,13 @@ export function createCrudHandlers<
 
       let entry: TEntry | undefined = undefined;
       if (id) {
-        entry = config.repo.getById(id);
+        entry = repo.getById(id);
       } else if (nameOrTitle && scopeType) {
         // Use appropriate lookup method based on name field
-        if (config.nameField === 'name' && config.repo.getByName) {
-          entry = config.repo.getByName(nameOrTitle, scopeType, scopeId, inherit ?? true);
-        } else if (config.nameField === 'title' && config.repo.getByTitle) {
-          entry = config.repo.getByTitle(nameOrTitle, scopeType, scopeId, inherit ?? true);
+        if (config.nameField === 'name' && repo.getByName) {
+          entry = repo.getByName(nameOrTitle, scopeType, scopeId, inherit ?? true);
+        } else if (config.nameField === 'title' && repo.getByTitle) {
+          entry = repo.getByTitle(nameOrTitle, scopeType, scopeId, inherit ?? true);
         }
       } else {
         throw createValidationError(
@@ -374,7 +393,8 @@ export function createCrudHandlers<
     /**
      * List entries with optional filters
      */
-    list(params: Record<string, unknown>) {
+    list(context: AppContext, params: Record<string, unknown>) {
+      const repo = config.getRepo(context);
       const agentId = getRequiredParam(params, 'agentId', isString);
       const scopeType = getOptionalParam(params, 'scopeType', isScopeType);
       const scopeId = getOptionalParam(params, 'scopeId', isString);
@@ -390,7 +410,7 @@ export function createCrudHandlers<
         ...(config.extractListFilters?.(params) ?? {}),
       };
 
-      const all = config.repo.list(
+      const all = repo.list(
         filter as { scopeType?: ScopeType; scopeId?: string; includeInactive?: boolean },
         { limit, offset }
       );
@@ -411,30 +431,32 @@ export function createCrudHandlers<
     /**
      * Get version history for an entry
      */
-    history(params: Record<string, unknown>) {
+    history(context: AppContext, params: Record<string, unknown>) {
+      const repo = config.getRepo(context);
       const id = getRequiredParam(params, 'id', isString);
       const agentId = getRequiredParam(params, 'agentId', isString);
 
-      const entry = getExistingEntry(id);
+      const entry = getExistingEntry(repo, id);
       requirePermission(agentId, 'read', entry.scopeType, entry.scopeId, id);
 
-      const versions = config.repo.getHistory(id);
+      const versions = repo.getHistory(id);
       return formatTimestamps({ versions });
     },
 
     /**
      * Soft-delete an entry (deactivate)
      */
-    deactivate(params: Record<string, unknown>) {
+    deactivate(context: AppContext, params: Record<string, unknown>) {
+      const repo = config.getRepo(context);
       const id = getRequiredParam(params, 'id', isString);
       const agentId = getRequiredParam(params, 'agentId', isString);
 
-      const existingEntry = getExistingEntry(id);
+      const existingEntry = getExistingEntry(repo, id);
 
       // Check permission (delete/write required for deactivate)
       requirePermission(agentId, 'write', existingEntry.scopeType, existingEntry.scopeId, id);
 
-      const success = config.repo.deactivate(id);
+      const success = repo.deactivate(id);
       if (!success) {
         throw createNotFoundError(config.entryType, id);
       }
@@ -455,22 +477,29 @@ export function createCrudHandlers<
     /**
      * Hard-delete an entry permanently
      */
-    delete(params: Record<string, unknown>) {
+    delete(context: AppContext, params: Record<string, unknown>) {
+      const repo = config.getRepo(context);
       const id = getRequiredParam(params, 'id', isString);
       const agentId = getRequiredParam(params, 'agentId', isString);
 
-      const existingEntry = getExistingEntry(id);
+      const existingEntry = getExistingEntry(repo, id);
 
       // Check permission (delete required for hard delete)
       requirePermission(agentId, 'write', existingEntry.scopeType, existingEntry.scopeId, id);
 
-      const success = config.repo.delete(id);
+      const success = repo.delete(id);
       if (!success) {
         throw createNotFoundError(config.entryType, id);
       }
 
-      // Invalidate cache for this entry
-      invalidateCacheEntry(config.entryType, id);
+      // Emit entry changed event (cache listens for these)
+      emitEntryChanged({
+        entryType: config.entryType,
+        entryId: id,
+        scopeType: existingEntry.scopeType,
+        scopeId: existingEntry.scopeId ?? null,
+        action: 'delete',
+      });
 
       // Log audit
       logAction({
@@ -488,7 +517,8 @@ export function createCrudHandlers<
     /**
      * Bulk add multiple entries in a transaction
      */
-    bulk_add(params: Record<string, unknown>) {
+    bulk_add(context: AppContext, params: Record<string, unknown>) {
+      const repo = config.getRepo(context);
       const entries = getRequiredParam(params, 'entries', isArrayOfObjects);
       const agentId = getRequiredParam(params, 'agentId', isString);
       const defaultScopeType = getOptionalParam(params, 'scopeType', isScopeType);
@@ -505,7 +535,7 @@ export function createCrudHandlers<
       // Check permissions for all entries
       for (const entry of entries) {
         if (!isObject(entry)) continue;
-        const entryObj = entry as Record<string, unknown>;
+        const entryObj = entry;
         const entryScopeType = isScopeType(entryObj.scopeType)
           ? entryObj.scopeType
           : defaultScopeType;
@@ -514,7 +544,7 @@ export function createCrudHandlers<
       }
 
       // Execute in transaction for atomicity
-      const results = transaction(() => {
+      const results = transactionWithDb(context.sqlite, () => {
         return entries.map((entry) => {
           if (!isObject(entry)) {
             throw createValidationError(
@@ -524,10 +554,8 @@ export function createCrudHandlers<
             );
           }
 
-          const entryObj = entry as Record<string, unknown>;
-          const scopeType = isScopeType(entryObj.scopeType)
-            ? entryObj.scopeType
-            : defaultScopeType;
+          const entryObj = entry;
+          const scopeType = isScopeType(entryObj.scopeType) ? entryObj.scopeType : defaultScopeType;
           const scopeId = isString(entryObj.scopeId) ? entryObj.scopeId : defaultScopeId;
 
           if (!scopeType) {
@@ -547,7 +575,7 @@ export function createCrudHandlers<
           }
 
           const input = config.extractAddParams(entryObj, { scopeType, scopeId });
-          return config.repo.create(input);
+          return repo.create(input);
         });
       });
 
@@ -561,7 +589,8 @@ export function createCrudHandlers<
     /**
      * Bulk update multiple entries in a transaction
      */
-    bulk_update(params: Record<string, unknown>) {
+    bulk_update(context: AppContext, params: Record<string, unknown>) {
+      const repo = config.getRepo(context);
       const updates = getRequiredParam(params, 'updates', isArrayOfObjects);
       const agentId = getRequiredParam(params, 'agentId', isString);
 
@@ -576,10 +605,10 @@ export function createCrudHandlers<
       // Check permissions for all entries
       for (const update of updates) {
         if (!isObject(update)) continue;
-        const updateObj = update as Record<string, unknown>;
+        const updateObj = update;
         const id = updateObj.id;
         if (!isString(id)) continue;
-        const existingEntry = config.repo.getById(id);
+        const existingEntry = repo.getById(id);
         if (!existingEntry) {
           throw createNotFoundError(config.entryType, id);
         }
@@ -587,7 +616,7 @@ export function createCrudHandlers<
       }
 
       // Execute in transaction
-      const results = transaction(() => {
+      const results = transactionWithDb(context.sqlite, () => {
         return updates.map((update) => {
           if (!isObject(update)) {
             throw createValidationError(
@@ -597,7 +626,7 @@ export function createCrudHandlers<
             );
           }
 
-          const updateObj = update as Record<string, unknown>;
+          const updateObj = update;
           const id = updateObj.id;
           if (!isString(id)) {
             throw createValidationError(
@@ -607,14 +636,21 @@ export function createCrudHandlers<
             );
           }
 
+          const existingEntry = repo.getById(id);
           const input = config.extractUpdateParams(updateObj);
-          const entry = config.repo.update(id, input);
+          const entry = repo.update(id, input);
           if (!entry) {
             throw createNotFoundError(config.entryType, id);
           }
 
-          // Invalidate cache for this entry
-          invalidateCacheEntry(config.entryType, id);
+          // Emit entry changed event (cache listens for these)
+          emitEntryChanged({
+            entryType: config.entryType,
+            entryId: id,
+            scopeType: existingEntry?.scopeType ?? 'global',
+            scopeId: existingEntry?.scopeId ?? null,
+            action: 'update',
+          });
 
           return entry;
         });
@@ -630,7 +666,8 @@ export function createCrudHandlers<
     /**
      * Bulk delete (deactivate) multiple entries in a transaction
      */
-    bulk_delete(params: Record<string, unknown>) {
+    bulk_delete(context: AppContext, params: Record<string, unknown>) {
+      const repo = config.getRepo(context);
       const idsParam = getRequiredParam(params, 'ids', isArray);
       const agentId = getRequiredParam(params, 'agentId', isString);
 
@@ -658,7 +695,7 @@ export function createCrudHandlers<
 
       // Check permissions for all entries
       for (const id of ids) {
-        const existingEntry = config.repo.getById(id);
+        const existingEntry = repo.getById(id);
         if (!existingEntry) {
           throw createNotFoundError(config.entryType, id);
         }
@@ -666,9 +703,9 @@ export function createCrudHandlers<
       }
 
       // Execute in transaction
-      const results = transaction(() => {
+      const results = transactionWithDb(context.sqlite, () => {
         return ids.map((id) => {
-          const success = config.repo.deactivate(id);
+          const success = repo.deactivate(id);
           if (!success) {
             throw createNotFoundError(config.entryType, id);
           }

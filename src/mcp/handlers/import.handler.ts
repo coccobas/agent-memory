@@ -11,7 +11,7 @@ import {
   importFromOpenAPI,
   type ImportOptions,
 } from '../../services/import.service.js';
-import { createValidationError } from '../errors.js';
+import { createValidationError } from '../../core/errors.js';
 import type { ScopeType } from '../../db/schema.js';
 import { requireAdminKey } from '../../utils/admin.js';
 

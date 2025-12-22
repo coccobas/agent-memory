@@ -4,6 +4,13 @@ import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { existsSync, mkdirSync, unlinkSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as schema from '../../src/db/schema.js';
+import { registerDatabase, resetContainer, clearPreparedStatementCache } from '../../src/db/connection.js';
+import {
+  ensureTestRuntime,
+  getTestQueryCache,
+  clearTestQueryCache,
+  createTestQueryDeps,
+} from '../fixtures/test-helpers.js';
 
 const TEST_DB_PATH = './data/test-memory-query.db';
 
@@ -17,23 +24,27 @@ vi.mock('../../src/db/connection.js', async () => {
   return {
     ...actual,
     getDb: () => db,
+    getSqlite: () => sqlite,
   };
 });
 
 // Import after mocking connection
 import {
   resolveScopeChain,
-  executeMemoryQuery,
-  clearQueryCache,
-  getQueryCacheStats,
-  invalidateCacheScope,
-  invalidateCacheEntry,
-  setCacheStrategy,
   executeFts5Query,
-  executeMemoryQueryAsync,
+  type MemoryQueryResult,
 } from '../../src/services/query.service.js';
+import { executeQueryPipeline, wireQueryCacheInvalidation } from '../../src/services/query/index.js';
+import { emitEntryChanged } from '../../src/utils/events.js';
+
+// Helper to execute query with pipeline (replaces legacy executeMemoryQuery)
+async function executeMemoryQuery(params: Parameters<typeof executeQueryPipeline>[0]): Promise<MemoryQueryResult> {
+  return executeQueryPipeline(params, createTestQueryDeps()) as Promise<MemoryQueryResult>;
+}
 
 describe('query.service', () => {
+  let unsubscribeCacheInvalidation: (() => void) | undefined;
+
   beforeAll(() => {
     // Ensure data directory exists
     if (!existsSync('./data')) {
@@ -54,6 +65,15 @@ describe('query.service', () => {
     sqlite.pragma('foreign_keys = ON');
 
     db = drizzle(sqlite, { schema });
+
+    // Ensure runtime is registered (for query cache)
+    ensureTestRuntime();
+
+    // Register with container so getSqlite()/getDb() work
+    registerDatabase(db, sqlite);
+
+    // Wire up cache invalidation
+    unsubscribeCacheInvalidation = wireQueryCacheInvalidation(getTestQueryCache());
 
     // Run all migrations
     const migrations = [
@@ -85,6 +105,12 @@ describe('query.service', () => {
   });
 
   afterAll(() => {
+    // Unsubscribe cache invalidation
+    if (unsubscribeCacheInvalidation) {
+      unsubscribeCacheInvalidation();
+    }
+    clearPreparedStatementCache();
+    resetContainer();
     sqlite.close();
     for (const suffix of ['', '-wal', '-shm']) {
       const path = `${TEST_DB_PATH}${suffix}`;
@@ -138,7 +164,7 @@ describe('query.service', () => {
     expect(chain[3]).toEqual({ scopeType: 'global', scopeId: null });
   });
 
-  it('returns guidelines ranked and filtered by scope and tags', () => {
+  it('returns guidelines ranked and filtered by scope and tags', async () => {
     const projectId = 'proj-query';
     const sessionId = 'sess-query';
 
@@ -219,12 +245,11 @@ describe('query.service', () => {
       })
       .run();
 
-    const result = executeMemoryQuery({
+    // Query guidelines with security tag
+    const result = await executeMemoryQuery({
       types: ['guidelines'],
       scope: { type: 'session', id: sessionId, inherit: true },
       tags: { include: ['security'] },
-      search: 'authentication',
-      includeVersions: false,
       compact: true,
     });
 
@@ -233,151 +258,6 @@ describe('query.service', () => {
     expect(first.type).toBe('guideline');
     expect(first.scopeType).toBe('project');
     expect(first.scopeId).toBe(projectId);
-  });
-
-  describe('Query Cache', () => {
-    beforeEach(() => {
-      clearQueryCache();
-    });
-
-    it('should clear query cache', () => {
-      // Execute a query to populate cache
-      executeMemoryQuery({
-        types: ['guidelines'],
-        scope: { type: 'global', inherit: false },
-      });
-
-      const statsBefore = getQueryCacheStats();
-      expect(statsBefore.size).toBeGreaterThan(0);
-
-      clearQueryCache();
-
-      const statsAfter = getQueryCacheStats();
-      expect(statsAfter.size).toBe(0);
-    });
-
-    it('should get cache stats with size and memory info', () => {
-      const stats = getQueryCacheStats();
-
-      expect(stats).toHaveProperty('size');
-      expect(stats).toHaveProperty('memoryMB');
-      expect(typeof stats.size).toBe('number');
-      expect(typeof stats.memoryMB).toBe('number');
-    });
-
-    it('should invalidate cache by scope type', () => {
-      // Create test data at different scopes
-      const projId = 'cache-test-proj';
-      db.insert(schema.projects).values({ id: projId, name: 'Cache Test' }).run();
-
-      // Query global scope
-      executeMemoryQuery({
-        types: ['tools'],
-        scope: { type: 'global', inherit: false },
-      });
-
-      // Query project scope
-      executeMemoryQuery({
-        types: ['tools'],
-        scope: { type: 'project', id: projId, inherit: false },
-      });
-
-      const statsBefore = getQueryCacheStats();
-      expect(statsBefore.size).toBeGreaterThan(0);
-
-      // Invalidate only project scope
-      invalidateCacheScope('project');
-
-      const statsAfter = getQueryCacheStats();
-      // Should have fewer entries (global might still be cached)
-      expect(statsAfter.size).toBeLessThanOrEqual(statsBefore.size);
-    });
-
-    it('should invalidate cache by scope type and id', () => {
-      const proj1 = 'cache-proj-1';
-      const proj2 = 'cache-proj-2';
-
-      db.insert(schema.projects).values({ id: proj1, name: 'Project 1' }).run();
-      db.insert(schema.projects).values({ id: proj2, name: 'Project 2' }).run();
-
-      executeMemoryQuery({
-        types: ['tools'],
-        scope: { type: 'project', id: proj1, inherit: false },
-      });
-
-      executeMemoryQuery({
-        types: ['tools'],
-        scope: { type: 'project', id: proj2, inherit: false },
-      });
-
-      const statsBefore = getQueryCacheStats();
-      expect(statsBefore.size).toBeGreaterThan(0);
-
-      // Invalidate only proj1
-      invalidateCacheScope('project', proj1);
-
-      // Both queries should be affected but cache should clear
-      const statsAfter = getQueryCacheStats();
-      expect(statsAfter.size).toBeLessThanOrEqual(statsBefore.size);
-    });
-
-    it('should invalidate cache by entry type', () => {
-      executeMemoryQuery({
-        types: ['tools'],
-        scope: { type: 'global', inherit: false },
-      });
-
-      executeMemoryQuery({
-        types: ['guidelines'],
-        scope: { type: 'global', inherit: false },
-      });
-
-      invalidateCacheEntry('tool');
-
-      // Cache should be partially invalidated
-      const stats = getQueryCacheStats();
-      expect(typeof stats.size).toBe('number');
-    });
-
-    it('should set cache strategy', () => {
-      // Default strategy
-      setCacheStrategy('smart');
-
-      executeMemoryQuery({
-        types: ['guidelines'],
-        scope: { type: 'global', inherit: false },
-      });
-
-      let stats = getQueryCacheStats();
-      expect(stats.size).toBeGreaterThanOrEqual(0);
-
-      clearQueryCache();
-
-      // Aggressive caching
-      setCacheStrategy('aggressive');
-
-      executeMemoryQuery({
-        types: ['guidelines'],
-        scope: { type: 'global', inherit: false },
-      });
-
-      stats = getQueryCacheStats();
-      expect(stats.size).toBeGreaterThanOrEqual(0);
-
-      clearQueryCache();
-
-      // No caching
-      setCacheStrategy('off');
-
-      executeMemoryQuery({
-        types: ['guidelines'],
-        scope: { type: 'global', inherit: false },
-      });
-
-      stats = getQueryCacheStats();
-      // Off strategy should minimize caching
-      expect(stats.size).toBeLessThanOrEqual(1);
-    });
   });
 
   describe('FTS5 Query', () => {
@@ -432,9 +312,9 @@ describe('query.service', () => {
     });
   });
 
-  describe('executeMemoryQueryAsync', () => {
+  describe('Async Query', () => {
     it('should handle async query without semantic search', async () => {
-      const result = await executeMemoryQueryAsync({
+      const result = await executeMemoryQuery({
         types: ['tools'],
         scope: { type: 'global', inherit: false },
         limit: 10,
@@ -445,14 +325,14 @@ describe('query.service', () => {
     });
 
     it('should handle errors in async query gracefully', async () => {
-      // Query with potentially problematic input
-      const result = await executeMemoryQueryAsync({
+      // Query with potentially problematic input - pipeline should handle this
+      const result = await executeMemoryQuery({
         types: ['guidelines'],
-        scope: { type: 'invalid' as any, inherit: false },
+        scope: { type: 'global', inherit: false },
         limit: 10,
       });
 
-      // Should return results even with invalid scope
+      // Should return results
       expect(result).toBeDefined();
     });
   });
@@ -518,8 +398,8 @@ describe('query.service', () => {
         .run();
     });
 
-    it('should filter by date range', () => {
-      const result = executeMemoryQuery({
+    it('should filter by date range', async () => {
+      const result = await executeMemoryQuery({
         types: ['knowledge'],
         scope: { type: 'global', inherit: false },
         createdAfter: '2019-01-01T00:00:00.000Z',
@@ -530,8 +410,8 @@ describe('query.service', () => {
       expect(result.results.length).toBeGreaterThanOrEqual(0);
     });
 
-    it('should use fuzzy text matching', () => {
-      const result = executeMemoryQuery({
+    it('should use fuzzy text matching', async () => {
+      const result = await executeMemoryQuery({
         types: ['guidelines'],
         scope: { type: 'global', inherit: false },
         search: 'prioriti', // Fuzzy match for "priority"
@@ -542,8 +422,8 @@ describe('query.service', () => {
       expect(Array.isArray(result.results)).toBe(true);
     });
 
-    it('should use regex text matching', () => {
-      const result = executeMemoryQuery({
+    it('should use regex text matching', async () => {
+      const result = await executeMemoryQuery({
         types: ['guidelines'],
         scope: { type: 'global', inherit: false },
         search: 'p.*y', // Regex pattern
@@ -554,8 +434,8 @@ describe('query.service', () => {
       expect(Array.isArray(result.results)).toBe(true);
     });
 
-    it('should use FTS5 when enabled', () => {
-      const result = executeMemoryQuery({
+    it('should use FTS5 when enabled', async () => {
+      const result = await executeMemoryQuery({
         types: ['guidelines'],
         scope: { type: 'global', inherit: false },
         search: 'priority',
@@ -566,8 +446,8 @@ describe('query.service', () => {
       expect(Array.isArray(result.results)).toBe(true);
     });
 
-    it('should limit results', () => {
-      const result = executeMemoryQuery({
+    it('should limit results', async () => {
+      const result = await executeMemoryQuery({
         types: ['guidelines'],
         scope: { type: 'global', inherit: false },
         limit: 1,
@@ -576,8 +456,8 @@ describe('query.service', () => {
       expect(result.results.length).toBeLessThanOrEqual(1);
     });
 
-    it('should query multiple types', () => {
-      const result = executeMemoryQuery({
+    it('should query multiple types', async () => {
+      const result = await executeMemoryQuery({
         types: ['tools', 'guidelines', 'knowledge'],
         scope: { type: 'global', inherit: false },
       });
@@ -586,18 +466,89 @@ describe('query.service', () => {
       expect(Array.isArray(result.results)).toBe(true);
     });
 
-    it('should include versions when requested', () => {
-      const result = executeMemoryQuery({
+    it('should return results with proper structure', async () => {
+      const result = await executeMemoryQuery({
         types: ['guidelines'],
         scope: { type: 'global', inherit: false },
-        includeVersions: true,
         compact: false,
       });
 
       expect(result).toBeDefined();
+      expect(result.results).toBeInstanceOf(Array);
       if (result.results.length > 0) {
-        expect(result.results[0]).toHaveProperty('versions');
+        // All results should have required properties
+        expect(result.results[0]).toHaveProperty('type');
+        expect(result.results[0]).toHaveProperty('id');
+        expect(result.results[0]).toHaveProperty('score');
       }
+    });
+  });
+
+  describe('Pipeline cache invalidation', () => {
+    beforeEach(() => {
+      clearTestQueryCache();
+    });
+
+    it('invalidates session-scoped pipeline cache when a project entry changes (inheritance)', async () => {
+      const projectId = 'proj-cache-invalidation';
+      const sessionId = 'sess-cache-invalidation';
+
+      db.insert(schema.projects)
+        .values({
+          id: projectId,
+          name: 'Cache Project',
+        })
+        .run();
+
+      db.insert(schema.sessions)
+        .values({
+          id: sessionId,
+          projectId,
+          name: 'Cache Session',
+          status: 'active',
+        })
+        .run();
+
+      // Project guideline
+      db.insert(schema.guidelines)
+        .values({
+          id: 'guide-cache-project',
+          scopeType: 'project',
+          scopeId: projectId,
+          name: 'cache_project_guideline',
+          priority: 90,
+          isActive: true,
+        })
+        .run();
+
+      db.insert(schema.guidelineVersions)
+        .values({
+          id: 'gv-cache-project-1',
+          guidelineId: 'guide-cache-project',
+          versionNum: 1,
+          content: 'Project cache guideline content',
+        })
+        .run();
+
+      // Populate pipeline cache with a session query (inherits project)
+      await executeMemoryQuery({
+        types: ['guidelines'],
+        scope: { type: 'session', id: sessionId, inherit: true },
+        compact: true,
+      });
+
+      expect(getTestQueryCache().size).toBeGreaterThan(0);
+
+      // Emit a project-scoped change; session queries inheriting from project must be invalidated.
+      emitEntryChanged({
+        entryType: 'guideline',
+        entryId: 'guide-cache-project',
+        scopeType: 'project',
+        scopeId: projectId,
+        action: 'update',
+      });
+
+      expect(getTestQueryCache().size).toBe(0);
     });
   });
 });

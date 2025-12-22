@@ -19,4 +19,3 @@ export type HookCommandResult = {
   stdout: string[];
   stderr: string[];
 };
-

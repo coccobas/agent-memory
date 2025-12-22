@@ -4,10 +4,10 @@
 
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
-import { existsSync, mkdirSync, unlinkSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import * as schema from '../../../src/db/schema.js';
 import { generateId } from '../../../src/db/repositories/base.js';
+import { applyMigrations } from '../../fixtures/migration-loader.js';
+import { cleanupDbFiles, ensureDataDirectory } from '../../fixtures/db-utils.js';
 
 const BENCH_DB_PATH = './data/benchmark/benchmark-memory.db';
 
@@ -22,9 +22,7 @@ export interface BenchDb {
  */
 export function setupBenchmarkDb(entryCount: number = 1000): BenchDb {
   // Ensure data directory exists
-  if (!existsSync('./data/benchmark')) {
-    mkdirSync('./data/benchmark', { recursive: true });
-  }
+  ensureDataDirectory('benchmark');
 
   // Clean up existing
   cleanupBenchmarkDb();
@@ -35,34 +33,8 @@ export function setupBenchmarkDb(entryCount: number = 1000): BenchDb {
   sqlite.pragma('foreign_keys = ON');
   const db = drizzle(sqlite, { schema });
 
-  // Run migrations
-  const migrations = [
-    '0000_lying_the_hand.sql',
-    '0001_add_file_locks.sql',
-    '0002_add_embeddings_tracking.sql',
-    '0003_add_fts5_tables.sql',
-    '0004_add_permissions.sql',
-    '0005_add_task_decomposition.sql',
-    '0006_add_audit_log.sql',
-    '0007_add_execution_tracking.sql',
-    '0008_add_agent_votes.sql',
-    '0009_add_conversation_history.sql',
-    '0010_add_verification_rules.sql',
-  ];
-
-  for (const migrationFile of migrations) {
-    const migrationPath = join(process.cwd(), 'src/db/migrations', migrationFile);
-    if (existsSync(migrationPath)) {
-      const migrationSql = readFileSync(migrationPath, 'utf-8');
-      const statements = migrationSql.split('--> statement-breakpoint');
-      for (const statement of statements) {
-        const trimmed = statement.trim();
-        if (trimmed) {
-          sqlite.exec(trimmed);
-        }
-      }
-    }
-  }
+  // Run migrations (dynamically discovered)
+  applyMigrations(sqlite);
 
   // Seed with benchmark data
   seedBenchmarkData(db, sqlite, entryCount);
@@ -74,16 +46,7 @@ export function setupBenchmarkDb(entryCount: number = 1000): BenchDb {
  * Clean up benchmark database files
  */
 export function cleanupBenchmarkDb(): void {
-  for (const suffix of ['', '-wal', '-shm']) {
-    const path = `${BENCH_DB_PATH}${suffix}`;
-    if (existsSync(path)) {
-      try {
-        unlinkSync(path);
-      } catch {
-        // Ignore errors
-      }
-    }
-  }
+  cleanupDbFiles(BENCH_DB_PATH);
 }
 
 /**

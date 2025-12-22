@@ -1,7 +1,14 @@
+/**
+ * Conflict Repository
+ *
+ * Factory function that accepts DatabaseDeps for dependency injection.
+ */
+
 import { and, eq } from 'drizzle-orm';
 import { getDb } from '../connection.js';
 import { conflictLog, type ConflictLog } from '../schema.js';
 import { now, type PaginationOptions, DEFAULT_LIMIT, MAX_LIMIT } from './base.js';
+import type { DatabaseDeps } from '../../core/types.js';
 
 // =============================================================================
 // TYPES
@@ -12,69 +19,89 @@ export interface ListConflictsFilter {
   resolved?: boolean;
 }
 
+export interface IConflictRepository {
+  list(filter?: ListConflictsFilter, options?: PaginationOptions): ConflictLog[];
+  getById(id: string): ConflictLog | undefined;
+  resolve(id: string, resolution: string, resolvedBy?: string): ConflictLog | undefined;
+}
+
 // =============================================================================
-// REPOSITORY
+// CONFLICT REPOSITORY FACTORY
 // =============================================================================
 
-export const conflictRepo = {
-  /**
-   * List conflicts with optional filtering.
-   */
-  list(filter: ListConflictsFilter = {}, options: PaginationOptions = {}): ConflictLog[] {
-    const db = getDb();
-    const limit = Math.min(options.limit ?? DEFAULT_LIMIT, MAX_LIMIT);
-    const offset = options.offset ?? 0;
+/**
+ * Create a conflict repository with injected database dependencies
+ */
+export function createConflictRepository(deps: DatabaseDeps): IConflictRepository {
+  const { db } = deps;
 
-    const conditions = [];
+  const repo: IConflictRepository = {
+    list(filter: ListConflictsFilter = {}, options: PaginationOptions = {}): ConflictLog[] {
+      const limit = Math.min(options.limit ?? DEFAULT_LIMIT, MAX_LIMIT);
+      const offset = options.offset ?? 0;
 
-    if (filter.entryType !== undefined) {
-      conditions.push(eq(conflictLog.entryType, filter.entryType));
-    }
+      const conditions = [];
 
-    if (filter.resolved !== undefined) {
-      conditions.push(eq(conflictLog.resolved, filter.resolved));
-    }
+      if (filter.entryType !== undefined) {
+        conditions.push(eq(conflictLog.entryType, filter.entryType));
+      }
 
-    let query = db.select().from(conflictLog);
+      if (filter.resolved !== undefined) {
+        conditions.push(eq(conflictLog.resolved, filter.resolved));
+      }
 
-    if (conditions.length > 0) {
-      query = query.where(and(...conditions)) as typeof query;
-    }
+      let query = db.select().from(conflictLog);
 
-    return query.orderBy(conflictLog.detectedAt).limit(limit).offset(offset).all();
+      if (conditions.length > 0) {
+        query = query.where(and(...conditions)) as typeof query;
+      }
+
+      return query.orderBy(conflictLog.detectedAt).limit(limit).offset(offset).all();
+    },
+
+    getById(id: string): ConflictLog | undefined {
+      return db.select().from(conflictLog).where(eq(conflictLog.id, id)).get();
+    },
+
+    resolve(id: string, resolution: string, resolvedBy?: string): ConflictLog | undefined {
+      const existing = repo.getById(id);
+      if (!existing) return undefined;
+
+      const resolvedAt = now();
+
+      db.update(conflictLog)
+        .set({
+          resolved: true,
+          resolution,
+          resolvedAt,
+          resolvedBy,
+        })
+        .where(eq(conflictLog.id, id))
+        .run();
+
+      return repo.getById(id) ?? undefined;
+    },
+  };
+
+  return repo;
+}
+
+// =============================================================================
+// TEMPORARY BACKWARD COMPAT EXPORTS
+// =============================================================================
+
+function createLegacyConflictRepo(): IConflictRepository {
+  return createConflictRepository({ db: getDb(), sqlite: null as any });
+}
+
+let _conflictRepo: IConflictRepository | null = null;
+
+/**
+ * @deprecated Use AppContext.repos.conflicts instead
+ */
+export const conflictRepo: IConflictRepository = new Proxy({} as IConflictRepository, {
+  get(_, prop: keyof IConflictRepository) {
+    if (!_conflictRepo) _conflictRepo = createLegacyConflictRepo();
+    return _conflictRepo[prop];
   },
-
-  /**
-   * Get a conflict by ID.
-   */
-  getById(id: string): ConflictLog | undefined {
-    const db = getDb();
-    return db.select().from(conflictLog).where(eq(conflictLog.id, id)).get();
-  },
-
-  /**
-   * Resolve a conflict by marking it as resolved and recording resolution details.
-   *
-   * Note: Does not mutate underlying versions; it only updates the conflict_log row.
-   */
-  resolve(id: string, resolution: string, resolvedBy?: string): ConflictLog | undefined {
-    const db = getDb();
-
-    const existing = this.getById(id);
-    if (!existing) return undefined;
-
-    const resolvedAt = now();
-
-    db.update(conflictLog)
-      .set({
-        resolved: true,
-        resolution,
-        resolvedAt,
-        resolvedBy,
-      })
-      .where(eq(conflictLog.id, id))
-      .run();
-
-    return this.getById(id) ?? undefined;
-  },
-};
+});

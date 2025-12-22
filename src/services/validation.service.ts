@@ -9,7 +9,7 @@ import { guidelineRepo } from '../db/repositories/guidelines.js';
 import type { ScopeType, EntryType } from '../db/schema.js';
 import { createComponentLogger } from '../utils/logger.js';
 import { config } from '../config/index.js';
-import { createSizeLimitError } from '../mcp/errors.js';
+import { createSizeLimitError } from '../core/errors.js';
 
 const logger = createComponentLogger('validation');
 
@@ -48,7 +48,7 @@ export const SIZE_LIMITS = {
   VALIDATION_RULES_QUERY_LIMIT: config.validation.validationRulesQueryLimit,
 } as const;
 
-// Legacy constants for backward compatibility
+// Convenience aliases
 const MAX_NAME_LENGTH = SIZE_LIMITS.NAME_MAX_LENGTH;
 const MAX_DESCRIPTION_LENGTH = SIZE_LIMITS.DESCRIPTION_MAX_LENGTH;
 const MAX_CONTENT_LENGTH = SIZE_LIMITS.CONTENT_MAX_LENGTH;
@@ -444,3 +444,4 @@ export function validateEntry(
     errors,
   };
 }
+

@@ -12,8 +12,10 @@ import {
   createTestTool,
   createTestGuideline,
   createTestKnowledge,
+  createTestQueryDeps,
 } from '../fixtures/test-helpers.js';
-import { executeMemoryQueryAsync } from '../../src/services/query.service.js';
+import { type MemoryQueryResult } from '../../src/services/query.service.js';
+import { executeQueryPipeline } from '../../src/services/query/index.js';
 import {
   getEmbeddingService,
   resetEmbeddingService,
@@ -22,6 +24,11 @@ import { getVectorService, resetVectorService } from '../../src/services/vector.
 import { generateEmbeddingAsync } from '../../src/db/repositories/embedding-hooks.js';
 import { entryEmbeddings } from '../../src/db/schema.js';
 import { eq, and } from 'drizzle-orm';
+
+// Helper to execute query with pipeline (replaces legacy executeMemoryQueryAsync)
+async function executeMemoryQueryAsync(params: Parameters<typeof executeQueryPipeline>[0]): Promise<MemoryQueryResult> {
+  return executeQueryPipeline(params, createTestQueryDeps()) as Promise<MemoryQueryResult>;
+}
 
 const TEST_DB_PATH = './data/test-semantic-search-int.db';
 

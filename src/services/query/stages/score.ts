@@ -8,11 +8,17 @@ import type { Tool, Guideline, Knowledge } from '../../../db/schema.js';
 import type {
   PipelineContext,
   QueryResultItem,
-  ToolQueryResult,
-  GuidelineQueryResult,
-  KnowledgeQueryResult,
+  QueryEntryType,
+  FilteredEntry,
 } from '../pipeline.js';
-import type { FilterStageResult, FilteredEntry } from './filter.js';
+import { config } from '../../../config/index.js';
+
+// Scoring weights from centralized config
+const SCORE_WEIGHTS = config.scoring.weights;
+
+// =============================================================================
+// SCORE COMPUTATION
+// =============================================================================
 
 interface ScoreParams {
   hasExplicitRelation: boolean;
@@ -44,31 +50,33 @@ function computeScore(params: ScoreParams): ScoreResult {
 
   // Relation boost (high priority signal)
   if (params.hasExplicitRelation) {
-    score += 50;
+    score += SCORE_WEIGHTS.explicitRelation;
   }
 
   // Tag matching boost
-  score += params.matchingTagCount * 10;
+  score += params.matchingTagCount * SCORE_WEIGHTS.tagMatch;
 
   // Scope proximity boost (closer scopes = higher score)
   if (params.totalScopes > 1) {
-    const scopeBoost = ((params.totalScopes - params.scopeIndex) / params.totalScopes) * 20;
+    const scopeBoost =
+      ((params.totalScopes - params.scopeIndex) / params.totalScopes) *
+      SCORE_WEIGHTS.scopeProximity;
     score += scopeBoost;
   }
 
   // Text match boost
   if (params.textMatched) {
-    score += 30;
+    score += SCORE_WEIGHTS.textMatch;
   }
 
   // Priority boost (for guidelines, 0-100 range)
   if (params.priority !== null) {
-    score += params.priority * 0.2; // Max 20 points from priority
+    score += params.priority * (SCORE_WEIGHTS.priorityMax / 100);
   }
 
   // Semantic similarity boost
   if (params.semanticScore !== undefined) {
-    score += params.semanticScore * 40; // Max 40 points from semantic
+    score += params.semanticScore * SCORE_WEIGHTS.semanticMax;
   }
 
   // Recency score calculation
@@ -95,90 +103,60 @@ function computeScore(params: ScoreParams): ScoreResult {
         recencyScore = ageDays <= halfLife ? 1 : 0.5;
       }
 
-      score += recencyScore * recencyWeight * 100;
+      score += recencyScore * recencyWeight * SCORE_WEIGHTS.recencyMax;
     }
   }
 
   return { score, recencyScore, ageDays };
 }
 
-/**
- * Build result item from filtered entry
- */
-function buildToolResult(
-  filtered: FilteredEntry<Tool>,
-  ctx: PipelineContext
-): ToolQueryResult {
-  const { entry, scopeIndex, tags, textMatched, matchingTagCount, hasExplicitRelation } = filtered;
-  const { scopeChain, semanticScores } = ctx;
+// =============================================================================
+// RESULT BUILDER CONFIGURATION
+// =============================================================================
 
-  const { score, recencyScore, ageDays } = computeScore({
-    hasExplicitRelation,
-    matchingTagCount,
-    scopeIndex,
-    totalScopes: scopeChain.length,
-    textMatched,
-    priority: null,
-    createdAt: entry.createdAt,
-    semanticScore: semanticScores?.get(entry.id),
-    recencyWeight: ctx.params.recencyWeight,
-    decayHalfLifeDays: ctx.params.decayHalfLifeDays,
-    decayFunction: ctx.params.decayFunction,
-    useUpdatedAt: ctx.params.useUpdatedAt,
-  });
+type EntryUnion = Tool | Guideline | Knowledge;
 
-  return {
+interface ResultConfig<T extends EntryUnion> {
+  type: QueryEntryType;
+  entityKey: 'tool' | 'guideline' | 'knowledge';
+  getPriority: (entry: T) => number | null;
+}
+
+const RESULT_CONFIGS: {
+  tool: ResultConfig<Tool>;
+  guideline: ResultConfig<Guideline>;
+  knowledge: ResultConfig<Knowledge>;
+} = {
+  tool: {
     type: 'tool',
-    id: entry.id,
-    scopeType: entry.scopeType,
-    scopeId: entry.scopeId ?? null,
-    tags,
-    score,
-    recencyScore,
-    ageDays,
-    tool: entry,
-  };
-}
-
-function buildGuidelineResult(
-  filtered: FilteredEntry<Guideline>,
-  ctx: PipelineContext
-): GuidelineQueryResult {
-  const { entry, scopeIndex, tags, textMatched, matchingTagCount, hasExplicitRelation } = filtered;
-  const { scopeChain, semanticScores } = ctx;
-
-  const { score, recencyScore, ageDays } = computeScore({
-    hasExplicitRelation,
-    matchingTagCount,
-    scopeIndex,
-    totalScopes: scopeChain.length,
-    textMatched,
-    priority: entry.priority,
-    createdAt: entry.createdAt,
-    semanticScore: semanticScores?.get(entry.id),
-    recencyWeight: ctx.params.recencyWeight,
-    decayHalfLifeDays: ctx.params.decayHalfLifeDays,
-    decayFunction: ctx.params.decayFunction,
-    useUpdatedAt: ctx.params.useUpdatedAt,
-  });
-
-  return {
+    entityKey: 'tool',
+    getPriority: () => null,
+  },
+  guideline: {
     type: 'guideline',
-    id: entry.id,
-    scopeType: entry.scopeType,
-    scopeId: entry.scopeId ?? null,
-    tags,
-    score,
-    recencyScore,
-    ageDays,
-    guideline: entry,
-  };
-}
+    entityKey: 'guideline',
+    getPriority: (entry) => entry.priority,
+  },
+  knowledge: {
+    type: 'knowledge',
+    entityKey: 'knowledge',
+    getPriority: () => null,
+  },
+};
 
-function buildKnowledgeResult(
-  filtered: FilteredEntry<Knowledge>,
-  ctx: PipelineContext
-): KnowledgeQueryResult {
+// =============================================================================
+// GENERIC RESULT BUILDER
+// =============================================================================
+
+/**
+ * Generic result builder that works for all entry types.
+ * The config object provides type-specific properties and priority extraction.
+ */
+function buildResult<T extends EntryUnion>(
+  filtered: FilteredEntry<T>,
+  ctx: PipelineContext,
+  config: ResultConfig<T>
+): QueryResultItem {
   const { entry, scopeIndex, tags, textMatched, matchingTagCount, hasExplicitRelation } = filtered;
   const { scopeChain, semanticScores } = ctx;
 
@@ -188,7 +166,7 @@ function buildKnowledgeResult(
     scopeIndex,
     totalScopes: scopeChain.length,
     textMatched,
-    priority: null,
+    priority: config.getPriority(entry),
     createdAt: entry.createdAt,
     semanticScore: semanticScores?.get(entry.id),
     recencyWeight: ctx.params.recencyWeight,
@@ -197,8 +175,9 @@ function buildKnowledgeResult(
     useUpdatedAt: ctx.params.useUpdatedAt,
   });
 
-  return {
-    type: 'knowledge',
+  // Build base result with common fields
+  const baseResult = {
+    type: config.type,
     id: entry.id,
     scopeType: entry.scopeType,
     scopeId: entry.scopeId ?? null,
@@ -206,28 +185,43 @@ function buildKnowledgeResult(
     score,
     recencyScore,
     ageDays,
-    knowledge: entry,
   };
+
+  // Add entity-specific field using dynamic key
+  return {
+    ...baseResult,
+    [config.entityKey]: entry,
+  } as QueryResultItem;
 }
+
+// =============================================================================
+// SCORE STAGE
+// =============================================================================
 
 /**
  * Score stage - computes scores and builds result items
+ *
+ * Expects ctx.filtered to be populated by the filter stage.
  */
-export function scoreStage(
-  ctx: PipelineContext & { filtered: FilterStageResult }
-): PipelineContext {
-  const { filtered } = ctx;
+export function scoreStage(ctx: PipelineContext): PipelineContext {
+  // ctx.filtered is now properly typed (no more unsafe cast needed)
+  const filtered = ctx.filtered;
+  if (!filtered) {
+    // Filter stage was not run - return empty results
+    return { ...ctx, results: [] };
+  }
+
   const results: QueryResultItem[] = [];
 
-  // Build result items for each type
+  // Build result items for each type using the generic builder
   for (const item of filtered.tools) {
-    results.push(buildToolResult(item, ctx));
+    results.push(buildResult(item, ctx, RESULT_CONFIGS.tool));
   }
   for (const item of filtered.guidelines) {
-    results.push(buildGuidelineResult(item, ctx));
+    results.push(buildResult(item, ctx, RESULT_CONFIGS.guideline));
   }
   for (const item of filtered.knowledge) {
-    results.push(buildKnowledgeResult(item, ctx));
+    results.push(buildResult(item, ctx, RESULT_CONFIGS.knowledge));
   }
 
   // Sort by score desc, then by createdAt desc

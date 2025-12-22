@@ -5,7 +5,53 @@
  * adapters can be built independently.
  */
 
-import type { ScopeType, EntryType, RelationType } from '../db/schema.js';
+import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import type Database from 'better-sqlite3';
+import type { ScopeType } from '../db/schema.js';
+
+/**
+ * Database dependencies for repository factory functions.
+ * Passed to repository factories instead of using service locator pattern.
+ */
+export interface DatabaseDeps {
+  /** Drizzle ORM database instance */
+  db: BetterSQLite3Database<any>;
+  /** Raw better-sqlite3 database instance for transactions and raw SQL */
+  sqlite: Database.Database;
+}
+
+// Re-export query types from query-types.ts
+export type {
+  QueryEntryType,
+  ScopeDescriptor,
+  TagFilter,
+  RelatedToDescriptor,
+  DateRangeFilter,
+  RecencyOptions,
+  BaseQueryParams,
+  TextSearchQuery,
+  SemanticSearchQuery,
+  RelationQuery,
+  TagQuery,
+  DateRangeQuery,
+  PriorityQuery,
+  ConversationContextQuery,
+  DefaultQuery,
+  TypedMemoryQuery,
+  MemoryQueryParams,
+} from './query-types.js';
+
+export {
+  isTextSearchQuery,
+  isSemanticSearchQuery,
+  isRelationQuery,
+  isTagQuery,
+  isDateRangeQuery,
+  isPriorityQuery,
+  isConversationContextQuery,
+  isDefaultQuery,
+  inferQueryStrategy,
+} from './query-types.js';
 
 export interface ResponseMeta {
   totalCount: number;
@@ -13,52 +59,6 @@ export interface ResponseMeta {
   truncated: boolean;
   hasMore: boolean;
   nextCursor?: string;
-}
-
-export interface MemoryQueryParams {
-  types?: ('tools' | 'guidelines' | 'knowledge')[];
-  scope?: {
-    type: ScopeType;
-    id?: string;
-    inherit?: boolean;
-  };
-  tags?: {
-    include?: string[];
-    require?: string[];
-    exclude?: string[];
-  };
-  search?: string;
-  relatedTo?: {
-    type: EntryType;
-    id: string;
-    relation?: RelationType;
-    depth?: number;
-    direction?: 'forward' | 'backward' | 'both';
-    maxResults?: number;
-  };
-  followRelations?: boolean;
-  limit?: number;
-  includeVersions?: boolean;
-  includeInactive?: boolean;
-  compact?: boolean;
-  semanticSearch?: boolean;
-  semanticThreshold?: number;
-  useFts5?: boolean;
-  fields?: string[];
-  fuzzy?: boolean;
-  createdAfter?: string;
-  createdBefore?: string;
-  updatedAfter?: string;
-  updatedBefore?: string;
-  priority?: { min?: number; max?: number };
-  regex?: boolean;
-  conversationId?: string;
-  messageId?: string;
-  autoLinkContext?: boolean;
-  recencyWeight?: number;
-  decayHalfLifeDays?: number;
-  decayFunction?: 'linear' | 'exponential' | 'step';
-  useUpdatedAt?: boolean;
 }
 
 export interface MemoryContextParams {

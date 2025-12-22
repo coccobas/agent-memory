@@ -1,84 +1,46 @@
 /**
  * Dependency Injection Container
  *
- * Centralizes all mutable singletons into a single registry with:
- * - Single reset point for tests
- * - Lazy initialization
- * - Backward-compatible accessor functions
+ * Simplified container that acts as a thin shim for backward compatibility.
+ * Holds references to Runtime and AppContext - no service instantiation.
  *
- * This replaces scattered mutable singletons across the codebase.
+ * Usage:
+ * - registerRuntime() at process startup
+ * - registerContext() after creating AppContext
+ * - getRuntime() / getDb() / getSqlite() to access
+ * - resetContainer() for test cleanup
  */
 
 import type Database from 'better-sqlite3';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import type { Config } from '../config/index.js';
 import { buildConfig } from '../config/index.js';
-
-// =============================================================================
-// SERVICE INTERFACES
-// =============================================================================
-
-/**
- * Embedding service interface
- */
-export interface IEmbeddingService {
-  isAvailable(): boolean;
-  embed(text: string): Promise<{ embedding: number[]; cached: boolean }>;
-  embedBatch(texts: string[]): Promise<{ embeddings: number[][]; cached: number }>;
-  getCacheStats(): { hits: number; misses: number; hitRate: number };
-}
-
-/**
- * Vector service interface
- */
-export interface IVectorService {
-  isAvailable(): boolean;
-  initialize(): Promise<void>;
-  storeEmbedding(
-    entryType: string,
-    entryId: string,
-    embedding: number[],
-    text: string,
-    versionId?: string
-  ): Promise<void>;
-  searchSimilar(
-    embedding: number[],
-    options?: { limit?: number; entryTypes?: string[]; threshold?: number }
-  ): Promise<Array<{ entryType: string; entryId: string; similarity: number; text: string }>>;
-  getCount(): number;
-}
-
-/**
- * Rate limiter interface
- */
-export interface IRateLimiter {
-  check(key?: string): { allowed: boolean; remaining: number; retryAfterMs?: number };
-  reset(): void;
-}
+import type { AppContext } from './context.js';
+import { shutdownRuntime, type Runtime } from './runtime.js';
 
 // =============================================================================
 // CONTAINER STATE
 // =============================================================================
 
+/**
+ * Drizzle DB type that works with any schema configuration.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Required for schema flexibility
+type AnyDrizzleDb = BetterSQLite3Database<any>;
+
 interface ContainerState {
-  // Core
+  // Configuration
   config: Config;
 
-  // Database (lazy initialized)
-  db: BetterSQLite3Database | null;
+  // Process-scoped runtime (shared across MCP/REST)
+  runtime: Runtime | null;
+
+  // Database references
+  db: AnyDrizzleDb | null;
   sqlite: Database.Database | null;
 
-  // Services (lazy initialized)
-  embeddingService: IEmbeddingService | null;
-  vectorService: IVectorService | null;
-
-  // Rate limiters
-  perAgentLimiter: IRateLimiter | null;
-  globalLimiter: IRateLimiter | null;
-  burstLimiter: IRateLimiter | null;
-
-  // Health check
-  healthCheckInterval: NodeJS.Timeout | null;
+  // AppContext reference (for services access)
+  context: AppContext | null;
 
   // Flags
   initialized: boolean;
@@ -89,14 +51,10 @@ let state: ContainerState = createInitialState();
 function createInitialState(): ContainerState {
   return {
     config: buildConfig(),
+    runtime: null,
     db: null,
     sqlite: null,
-    embeddingService: null,
-    vectorService: null,
-    perAgentLimiter: null,
-    globalLimiter: null,
-    burstLimiter: null,
-    healthCheckInterval: null,
+    context: null,
     initialized: false,
   };
 }
@@ -117,9 +75,13 @@ export function getContainerState(): Readonly<ContainerState> {
  * Use this in tests to ensure clean state between tests
  */
 export function resetContainer(): void {
-  // Clear intervals
-  if (state.healthCheckInterval) {
-    clearInterval(state.healthCheckInterval);
+  // Shutdown runtime if registered
+  if (state.runtime) {
+    try {
+      shutdownRuntime(state.runtime);
+    } catch {
+      // Ignore shutdown errors
+    }
   }
 
   // Close database if open
@@ -148,56 +110,87 @@ export function initializeContainer(overrides?: Partial<ContainerState>): Contai
 }
 
 // =============================================================================
-// SERVICE REGISTRATION
+// RUNTIME REGISTRATION
+// =============================================================================
+
+/**
+ * Register the process-scoped Runtime
+ * Call this once at process startup, before creating AppContexts.
+ */
+export function registerRuntime(runtime: Runtime): void {
+  state.runtime = runtime;
+}
+
+/**
+ * Get the registered Runtime
+ * @throws Error if runtime not registered
+ */
+export function getRuntime(): Runtime {
+  if (!state.runtime) {
+    throw new Error('Runtime not registered. Call registerRuntime() first at startup.');
+  }
+  return state.runtime;
+}
+
+/**
+ * Check if runtime is registered
+ */
+export function isRuntimeRegistered(): boolean {
+  return state.runtime !== null;
+}
+
+// =============================================================================
+// CONTEXT & DATABASE REGISTRATION
 // =============================================================================
 
 /**
  * Register the database instances
  */
-export function registerDatabase(
-  db: BetterSQLite3Database,
-  sqlite: Database.Database
-): void {
+export function registerDatabase(db: AnyDrizzleDb, sqlite: Database.Database): void {
   state.db = db;
   state.sqlite = sqlite;
 }
 
 /**
- * Register the embedding service
+ * Register the full AppContext with the container.
+ * This populates the container state from an initialized AppContext.
  */
-export function registerEmbeddingService(service: IEmbeddingService): void {
-  state.embeddingService = service;
+export function registerContext(context: AppContext): void {
+  state.context = context;
+  state.config = context.config;
+  state.db = context.db;
+  state.sqlite = context.sqlite;
+  state.initialized = true;
 }
 
 /**
- * Register the vector service
+ * Get the registered AppContext
+ * @throws Error if context not registered
  */
-export function registerVectorService(service: IVectorService): void {
-  state.vectorService = service;
+export function getContext(): AppContext {
+  if (!state.context) {
+    throw new Error('AppContext not registered. Call registerContext() first.');
+  }
+  return state.context;
 }
 
 /**
- * Register rate limiters
+ * Check if context is registered
  */
-export function registerRateLimiters(limiters: {
-  perAgent: IRateLimiter;
-  global: IRateLimiter;
-  burst: IRateLimiter;
-}): void {
-  state.perAgentLimiter = limiters.perAgent;
-  state.globalLimiter = limiters.global;
-  state.burstLimiter = limiters.burst;
+export function isContextRegistered(): boolean {
+  return state.context !== null;
 }
 
 /**
- * Register health check interval
+ * Clear database registration (call when closing database)
  */
-export function registerHealthCheckInterval(interval: NodeJS.Timeout): void {
-  state.healthCheckInterval = interval;
+export function clearDatabaseRegistration(): void {
+  state.db = null;
+  state.sqlite = null;
 }
 
 // =============================================================================
-// BACKWARD-COMPATIBLE ACCESSORS
+// ACCESSORS
 // =============================================================================
 
 /**
@@ -211,9 +204,9 @@ export function getConfig(): Config {
  * Get the database instance
  * @throws Error if database not initialized
  */
-export function getDatabase(): BetterSQLite3Database {
+export function getDatabase(): AnyDrizzleDb {
   if (!state.db) {
-    throw new Error('Database not initialized. Call initializeDatabase() first.');
+    throw new Error('Database not initialized. Call createAppContext() first.');
   }
   return state.db;
 }
@@ -224,7 +217,7 @@ export function getDatabase(): BetterSQLite3Database {
  */
 export function getSqlite(): Database.Database {
   if (!state.sqlite) {
-    throw new Error('Database not initialized. Call initializeDatabase() first.');
+    throw new Error('Database not initialized. Call createAppContext() first.');
   }
   return state.sqlite;
 }
@@ -237,32 +230,10 @@ export function isDatabaseInitialized(): boolean {
 }
 
 /**
- * Get the embedding service
+ * Check if container is fully initialized
  */
-export function getEmbeddingServiceFromContainer(): IEmbeddingService | null {
-  return state.embeddingService;
-}
-
-/**
- * Get the vector service
- */
-export function getVectorServiceFromContainer(): IVectorService | null {
-  return state.vectorService;
-}
-
-/**
- * Get rate limiters
- */
-export function getRateLimiters(): {
-  perAgent: IRateLimiter | null;
-  global: IRateLimiter | null;
-  burst: IRateLimiter | null;
-} {
-  return {
-    perAgent: state.perAgentLimiter,
-    global: state.globalLimiter,
-    burst: state.burstLimiter,
-  };
+export function isContainerInitialized(): boolean {
+  return state.initialized;
 }
 
 // =============================================================================

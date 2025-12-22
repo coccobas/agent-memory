@@ -86,10 +86,7 @@ export function levenshteinDistance(str1: string, str2: string, maxDistance?: nu
   return prevRow[len1] ?? 0;
 }
 
-export function fuzzyTextMatches(
-  haystack: string | null | undefined,
-  needle: string
-): boolean {
+export function fuzzyTextMatches(haystack: string | null | undefined, needle: string): boolean {
   if (!haystack) return false;
 
   const haystackLower = haystack.toLowerCase();
@@ -113,10 +110,7 @@ export function fuzzyTextMatches(
   return distance <= maxAllowedDistance;
 }
 
-export function regexTextMatches(
-  haystack: string | null | undefined,
-  pattern: string
-): boolean {
+export function regexTextMatches(haystack: string | null | undefined, pattern: string): boolean {
   if (!haystack) return false;
 
   // Security: Limit haystack length to prevent DoS with very long strings

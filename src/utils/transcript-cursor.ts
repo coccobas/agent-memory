@@ -111,35 +111,3 @@ export function readTranscriptFromOffset(
     closeSync(fd);
   }
 }
-
-/**
- * Compute the next cursor index (line count) to persist after ingesting.
- *
- * @deprecated Use readTranscriptFromOffset for better performance with large files.
- *
- * Behavior:
- * - Lines before `startIndex` are assumed already processed.
- * - Unparseable lines in the middle are skipped and considered "consumed".
- * - If the final line is unparseable, it is treated as a partial write and NOT consumed.
- */
-export function computeNextTranscriptCursor(lines: string[], startIndex: number): number {
-  const start = Math.max(0, Math.min(lines.length, startIndex));
-  let cursor = start;
-
-  for (let i = start; i < lines.length; i++) {
-    const line = lines[i] ?? '';
-    try {
-      JSON.parse(line);
-      cursor = i + 1;
-    } catch {
-      // If it's the last line, assume it's partially written and retry later.
-      if (i === lines.length - 1) {
-        break;
-      }
-      // Otherwise treat it as a malformed line and move on.
-      cursor = i + 1;
-    }
-  }
-
-  return cursor;
-}

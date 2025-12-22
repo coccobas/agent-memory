@@ -30,19 +30,19 @@ export const memoryTagDescriptor: ToolDescriptor = {
   },
   actions: {
     create: {
-      handler: (p) => tagHandlers.create(p as unknown as TagCreateParams),
+      contextHandler: (ctx, p) => tagHandlers.create(ctx, p as unknown as TagCreateParams),
     },
     list: {
-      handler: (p) => tagHandlers.list(p as unknown as TagListParams),
+      contextHandler: (ctx, p) => tagHandlers.list(ctx, p as unknown as TagListParams),
     },
     attach: {
-      handler: (p) => tagHandlers.attach(p as unknown as TagAttachParams),
+      contextHandler: (ctx, p) => tagHandlers.attach(ctx, p as unknown as TagAttachParams),
     },
     detach: {
-      handler: (p) => tagHandlers.detach(p as unknown as TagDetachParams),
+      contextHandler: (ctx, p) => tagHandlers.detach(ctx, p as unknown as TagDetachParams),
     },
     for_entry: {
-      handler: (p) => tagHandlers.forEntry(p as unknown as TagsForEntryParams),
+      contextHandler: (ctx, p) => tagHandlers.forEntry(ctx, p as unknown as TagsForEntryParams),
     },
   },
 };

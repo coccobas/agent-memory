@@ -109,4 +109,3 @@ export function extractMessageFromTranscriptEntry(
   if (!role || !content) return null;
   return { role, content };
 }
-

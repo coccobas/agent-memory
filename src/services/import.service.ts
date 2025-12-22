@@ -147,7 +147,9 @@ function importToolEntry(
       scopeType: scope.type,
       scopeId: scope.id || undefined,
       name: toolData.name,
-      category: toolData.category ? (toolData.category as 'mcp' | 'cli' | 'function' | 'api') : undefined,
+      category: toolData.category
+        ? (toolData.category as 'mcp' | 'cli' | 'function' | 'api')
+        : undefined,
       description: toolData.currentVersion?.description,
       parameters: toolData.currentVersion?.parameters,
       examples: toolData.currentVersion?.examples,
@@ -190,7 +192,9 @@ function importGuidelineEntry(
         priority: guidelineData.priority,
         content: guidelineData.currentVersion.content,
         rationale: guidelineData.currentVersion.rationale,
-        examples: guidelineData.currentVersion.examples as { bad?: string[]; good?: string[] } | undefined,
+        examples: guidelineData.currentVersion.examples as
+          | { bad?: string[]; good?: string[] }
+          | undefined,
         changeReason: 'Imported update',
         updatedBy: context.importedBy,
       };
@@ -208,7 +212,9 @@ function importGuidelineEntry(
       priority: guidelineData.priority || 50,
       content: guidelineData.currentVersion.content,
       rationale: guidelineData.currentVersion.rationale,
-      examples: guidelineData.currentVersion.examples as { bad?: string[]; good?: string[] } | undefined,
+      examples: guidelineData.currentVersion.examples as
+        | { bad?: string[]; good?: string[] }
+        | undefined,
       createdBy: context.importedBy,
     };
     const created = guidelineRepo.create(createInput);
@@ -373,7 +379,12 @@ export function importFromJson(content: string, options: ImportOptions = {}): Im
     for (const toolData of data.entries.tools) {
       try {
         const importResult = importToolEntry(toolData, context);
-        processImportResult(importResult, toolData.name || toolData.id || 'unknown', result, 'tools');
+        processImportResult(
+          importResult,
+          toolData.name || toolData.id || 'unknown',
+          result,
+          'tools'
+        );
       } catch (error) {
         result.errors.push({
           entry: toolData.name || toolData.id || 'unknown',
@@ -388,7 +399,12 @@ export function importFromJson(content: string, options: ImportOptions = {}): Im
     for (const guidelineData of data.entries.guidelines) {
       try {
         const importResult = importGuidelineEntry(guidelineData, context);
-        processImportResult(importResult, guidelineData.name || guidelineData.id || 'unknown', result, 'guidelines');
+        processImportResult(
+          importResult,
+          guidelineData.name || guidelineData.id || 'unknown',
+          result,
+          'guidelines'
+        );
       } catch (error) {
         result.errors.push({
           entry: guidelineData.name || guidelineData.id || 'unknown',
@@ -403,7 +419,12 @@ export function importFromJson(content: string, options: ImportOptions = {}): Im
     for (const knowledgeData of data.entries.knowledge) {
       try {
         const importResult = importKnowledgeEntry(knowledgeData, context);
-        processImportResult(importResult, knowledgeData.title || knowledgeData.id || 'unknown', result, 'knowledge');
+        processImportResult(
+          importResult,
+          knowledgeData.title || knowledgeData.id || 'unknown',
+          result,
+          'knowledge'
+        );
       } catch (error) {
         result.errors.push({
           entry: knowledgeData.title || knowledgeData.id || 'unknown',
@@ -653,3 +674,4 @@ export function importFromOpenAPI(content: string, options: ImportOptions = {}):
 
   return result;
 }
+

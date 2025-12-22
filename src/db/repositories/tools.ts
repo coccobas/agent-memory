@@ -1,9 +1,14 @@
-import { eq, and, isNull, desc, asc, inArray } from 'drizzle-orm';
-import { getDb } from '../connection.js';
+/**
+ * Tool Repository
+ *
+ * Factory function that accepts DatabaseDeps for dependency injection.
+ */
+
+import { eq, and, desc, asc } from 'drizzle-orm';
+import { getDb, getSqlite, transactionWithDb } from '../connection.js';
 import {
   tools,
   toolVersions,
-  type Tool,
   type NewTool,
   type ToolVersion,
   type NewToolVersion,
@@ -12,423 +17,312 @@ import {
 import {
   generateId,
   type PaginationOptions,
-  DEFAULT_LIMIT,
-  MAX_LIMIT,
-  cascadeDeleteRelatedRecords,
+  cascadeDeleteRelatedRecordsWithDb,
   asyncVectorCleanup,
-  checkAndLogConflict,
+  checkAndLogConflictWithDb,
 } from './base.js';
-import { transaction } from '../connection.js';
 import { generateEmbeddingAsync, extractTextForEmbedding } from './embedding-hooks.js';
+import {
+  normalizePagination,
+  buildScopeConditions,
+  batchFetchVersionsWithDb,
+  attachVersions,
+  buildExactScopeConditions,
+  buildGlobalScopeConditions,
+} from './entry-utils.js';
+import type { DatabaseDeps } from '../../core/types.js';
+import type {
+  IToolRepository,
+  CreateToolInput,
+  UpdateToolInput,
+  ListToolsFilter,
+  ToolWithVersion,
+} from '../../core/interfaces/repositories.js';
+
+// Re-export types for backward compatibility
+export type {
+  CreateToolInput,
+  UpdateToolInput,
+  ListToolsFilter,
+  ToolWithVersion,
+} from '../../core/interfaces/repositories.js';
 
 // =============================================================================
-// TYPES
+// TOOL REPOSITORY FACTORY
 // =============================================================================
 
-export interface CreateToolInput {
-  scopeType: ScopeType;
-  scopeId?: string;
-  name: string;
-  category?: 'mcp' | 'cli' | 'function' | 'api';
-  description?: string;
-  parameters?: Record<string, unknown>;
-  examples?: unknown[]; // Allow strings or objects
-  constraints?: string;
-  createdBy?: string;
-}
+/**
+ * Create a tool repository with injected database dependencies
+ */
+export function createToolRepository(deps: DatabaseDeps): IToolRepository {
+  const { db, sqlite } = deps;
 
-export interface UpdateToolInput {
-  description?: string;
-  parameters?: Record<string, unknown>;
-  examples?: unknown[]; // Allow strings or objects
-  constraints?: string;
-  changeReason?: string;
-  updatedBy?: string;
-}
+  const repo: IToolRepository = {
+    create(input: CreateToolInput): ToolWithVersion {
+      return transactionWithDb(sqlite, () => {
+        const toolId = generateId();
+        const versionId = generateId();
 
-export interface ListToolsFilter {
-  scopeType?: ScopeType;
-  scopeId?: string;
-  category?: 'mcp' | 'cli' | 'function' | 'api';
-  includeInactive?: boolean;
-  inherit?: boolean;
-}
+        // Create the tool entry
+        const tool: NewTool = {
+          id: toolId,
+          scopeType: input.scopeType,
+          scopeId: input.scopeId,
+          name: input.name,
+          category: input.category,
+          currentVersionId: versionId,
+          isActive: true,
+          createdBy: input.createdBy,
+        };
 
-export interface ToolWithVersion extends Tool {
-  currentVersion?: ToolVersion;
-}
+        db.insert(tools).values(tool).run();
 
-// =============================================================================
-// REPOSITORY
-// =============================================================================
+        // Create the initial version
+        const version: NewToolVersion = {
+          id: versionId,
+          toolId,
+          versionNum: 1,
+          description: input.description,
+          parameters: input.parameters,
+          examples: input.examples,
+          constraints: input.constraints,
+          createdBy: input.createdBy,
+          changeReason: 'Initial version',
+        };
 
-export const toolRepo = {
-  /**
-   * Create a new tool with initial version
-   *
-   * @param input - Tool creation parameters including scope, name, and initial version content
-   * @returns The created tool with its current version
-   * @throws Error if a tool with the same name already exists in the scope
-   */
-  create(input: CreateToolInput): ToolWithVersion {
-    return transaction(() => {
-      const db = getDb();
-      const toolId = generateId();
-      const versionId = generateId();
+        db.insert(toolVersions).values(version).run();
 
-      // Create the tool entry
-      const tool: NewTool = {
-        id: toolId,
-        scopeType: input.scopeType,
-        scopeId: input.scopeId,
-        name: input.name,
-        category: input.category,
-        currentVersionId: versionId,
-        isActive: true,
-        createdBy: input.createdBy,
-      };
+        const result = repo.getById(toolId);
+        if (!result) {
+          throw new Error(`Failed to create tool ${toolId}`);
+        }
 
-      db.insert(tools).values(tool).run();
+        // Generate embedding asynchronously (fire-and-forget)
+        const text = extractTextForEmbedding('tool', input.name, {
+          description: input.description,
+          constraints: input.constraints,
+        });
+        generateEmbeddingAsync({
+          entryType: 'tool',
+          entryId: toolId,
+          versionId: versionId,
+          text,
+        });
 
-      // Create the initial version
-      const version: NewToolVersion = {
-        id: versionId,
-        toolId,
-        versionNum: 1,
-        description: input.description,
-        parameters: input.parameters,
-        examples: input.examples,
-        constraints: input.constraints,
-        createdBy: input.createdBy,
-        changeReason: 'Initial version',
-      };
-
-      db.insert(toolVersions).values(version).run();
-
-      const result = this.getById(toolId);
-      if (!result) {
-        throw new Error(`Failed to create tool ${toolId}`);
-      }
-
-      // Generate embedding asynchronously (fire-and-forget)
-      const text = extractTextForEmbedding('tool', input.name, {
-        description: input.description,
-        constraints: input.constraints,
+        return result;
       });
-      generateEmbeddingAsync({
-        entryType: 'tool',
-        entryId: toolId,
-        versionId: versionId,
-        text,
-      });
+    },
 
-      return result;
-    });
-  },
+    getById(id: string): ToolWithVersion | undefined {
+      const tool = db.select().from(tools).where(eq(tools.id, id)).get();
+      if (!tool) return undefined;
 
-  /**
-   * Get tool by ID with current version
-   *
-   * @param id - The tool ID
-   * @returns The tool with its current version, or undefined if not found
-   */
-  getById(id: string): ToolWithVersion | undefined {
-    const db = getDb();
-
-    const tool = db.select().from(tools).where(eq(tools.id, id)).get();
-    if (!tool) return undefined;
-
-    const currentVersion = tool.currentVersionId
-      ? db.select().from(toolVersions).where(eq(toolVersions.id, tool.currentVersionId)).get()
-      : undefined;
-
-    return { ...tool, currentVersion };
-  },
-
-  /**
-   * Get tool by name within a scope (with optional inheritance)
-   *
-   * @param name - The tool name
-   * @param scopeType - The scope type to search in
-   * @param scopeId - The scope ID (required for non-global scopes)
-   * @param inherit - Whether to search parent scopes if not found (default: true)
-   * @returns The tool with its current version, or undefined if not found
-   */
-  getByName(
-    name: string,
-    scopeType: ScopeType,
-    scopeId?: string,
-    inherit = true
-  ): ToolWithVersion | undefined {
-    const db = getDb();
-
-    // First, try exact scope match
-    const exactMatch = scopeId
-      ? db
-          .select()
-          .from(tools)
-          .where(
-            and(
-              eq(tools.name, name),
-              eq(tools.scopeType, scopeType),
-              eq(tools.scopeId, scopeId),
-              eq(tools.isActive, true)
-            )
-          )
-          .get()
-      : db
-          .select()
-          .from(tools)
-          .where(
-            and(
-              eq(tools.name, name),
-              eq(tools.scopeType, scopeType),
-              isNull(tools.scopeId),
-              eq(tools.isActive, true)
-            )
-          )
-          .get();
-
-    if (exactMatch) {
-      const currentVersion = exactMatch.currentVersionId
-        ? db
-            .select()
-            .from(toolVersions)
-            .where(eq(toolVersions.id, exactMatch.currentVersionId))
-            .get()
+      const currentVersion = tool.currentVersionId
+        ? db.select().from(toolVersions).where(eq(toolVersions.id, tool.currentVersionId)).get()
         : undefined;
-      return { ...exactMatch, currentVersion };
-    }
 
-    // If not found and inherit is true, search parent scopes
-    if (inherit && scopeType !== 'global') {
-      // For now, just try global scope
-      const globalMatch = db
+      return { ...tool, currentVersion };
+    },
+
+    getByName(
+      name: string,
+      scopeType: ScopeType,
+      scopeId?: string,
+      inherit = true
+    ): ToolWithVersion | undefined {
+      // First, try exact scope match
+      const exactMatch = db
         .select()
         .from(tools)
-        .where(
-          and(
-            eq(tools.name, name),
-            eq(tools.scopeType, 'global'),
-            isNull(tools.scopeId),
-            eq(tools.isActive, true)
-          )
-        )
+        .where(buildExactScopeConditions(tools, tools.name, name, scopeType, scopeId))
         .get();
 
-      if (globalMatch) {
-        const currentVersion = globalMatch.currentVersionId
-          ? db
-              .select()
-              .from(toolVersions)
-              .where(eq(toolVersions.id, globalMatch.currentVersionId))
-              .get()
-          : undefined;
-        return { ...globalMatch, currentVersion };
+      if (exactMatch) {
+        const versionsMap = batchFetchVersionsWithDb<ToolVersion>(db, toolVersions, [
+          exactMatch.currentVersionId,
+        ]);
+        return attachVersions([exactMatch], versionsMap)[0];
       }
-    }
 
-    return undefined;
-  },
+      // If not found and inherit is true, search parent scopes
+      if (inherit && scopeType !== 'global') {
+        const globalMatch = db
+          .select()
+          .from(tools)
+          .where(buildGlobalScopeConditions(tools, tools.name, name))
+          .get();
 
-  /**
-   * List tools with filtering and pagination
-   *
-   * @param filter - Optional filters for scope, category, and active status
-   * @param options - Optional pagination parameters (limit, offset)
-   * @returns Array of tools matching the filter criteria, each with its current version
-   */
-  list(filter: ListToolsFilter = {}, options: PaginationOptions = {}): ToolWithVersion[] {
-    const db = getDb();
-    const limit = Math.min(options.limit ?? DEFAULT_LIMIT, MAX_LIMIT);
-    const offset = options.offset ?? 0;
+        if (globalMatch) {
+          const versionsMap = batchFetchVersionsWithDb<ToolVersion>(db, toolVersions, [
+            globalMatch.currentVersionId,
+          ]);
+          return attachVersions([globalMatch], versionsMap)[0];
+        }
+      }
 
-    const conditions = [];
+      return undefined;
+    },
 
-    if (filter.scopeType !== undefined) {
-      conditions.push(eq(tools.scopeType, filter.scopeType));
-    }
+    list(filter: ListToolsFilter = {}, options: PaginationOptions = {}): ToolWithVersion[] {
+      const { limit, offset } = normalizePagination(options);
 
-    if (filter.scopeId !== undefined) {
-      conditions.push(eq(tools.scopeId, filter.scopeId));
-    } else if (filter.scopeType === 'global') {
-      conditions.push(isNull(tools.scopeId));
-    }
+      // Build conditions using shared utility + category-specific condition
+      const conditions = buildScopeConditions(tools, filter);
+      if (filter.category !== undefined) {
+        conditions.push(eq(tools.category, filter.category));
+      }
 
-    if (filter.category !== undefined) {
-      conditions.push(eq(tools.category, filter.category));
-    }
+      let query = db.select().from(tools);
+      if (conditions.length > 0) {
+        query = query.where(and(...conditions)) as typeof query;
+      }
 
-    if (!filter.includeInactive) {
-      conditions.push(eq(tools.isActive, true));
-    }
+      const toolsList = query.limit(limit).offset(offset).all();
 
-    let query = db.select().from(tools);
+      // Batch fetch versions using shared utility
+      const versionsMap = batchFetchVersionsWithDb<ToolVersion>(
+        db,
+        toolVersions,
+        toolsList.map((t) => t.currentVersionId)
+      );
 
-    if (conditions.length > 0) {
-      query = query.where(and(...conditions)) as typeof query;
-    }
+      return attachVersions(toolsList, versionsMap);
+    },
 
-    const toolsList = query.limit(limit).offset(offset).all();
+    update(id: string, input: UpdateToolInput): ToolWithVersion | undefined {
+      return transactionWithDb(sqlite, () => {
+        const existing = repo.getById(id);
+        if (!existing) return undefined;
 
-    // Batch fetch current versions to avoid N+1 queries
-    const versionIds = toolsList
-      .map((t) => t.currentVersionId)
-      .filter((id): id is string => id !== null && id !== undefined);
+        // Get current version number
+        const latestVersion = db
+          .select()
+          .from(toolVersions)
+          .where(eq(toolVersions.toolId, id))
+          .orderBy(desc(toolVersions.versionNum))
+          .get();
 
-    const versionsMap = new Map<string, ToolVersion>();
-    if (versionIds.length > 0) {
-      const versionsList = db
+        const newVersionNum = (latestVersion?.versionNum ?? 0) + 1;
+        const newVersionId = generateId();
+
+        // Check for conflict using shared helper
+        const conflictFlag = latestVersion
+          ? checkAndLogConflictWithDb(
+              db,
+              'tool',
+              id,
+              latestVersion.id,
+              newVersionId,
+              new Date(latestVersion.createdAt)
+            )
+          : false;
+
+        // Create new version (inherit from previous if not specified)
+        const previousVersion = existing.currentVersion;
+        const newVersion: NewToolVersion = {
+          id: newVersionId,
+          toolId: id,
+          versionNum: newVersionNum,
+          description: input.description ?? previousVersion?.description,
+          parameters: input.parameters ?? previousVersion?.parameters,
+          examples: input.examples ?? previousVersion?.examples,
+          constraints: input.constraints ?? previousVersion?.constraints,
+          createdBy: input.updatedBy,
+          changeReason: input.changeReason,
+          conflictFlag,
+        };
+
+        db.insert(toolVersions).values(newVersion).run();
+
+        // Update tool's current version pointer
+        db.update(tools).set({ currentVersionId: newVersionId }).where(eq(tools.id, id)).run();
+
+        // Generate embedding asynchronously (fire-and-forget)
+        const text = extractTextForEmbedding('tool', existing.name, {
+          description: newVersion.description ?? undefined,
+          constraints: newVersion.constraints ?? undefined,
+        });
+        generateEmbeddingAsync({
+          entryType: 'tool',
+          entryId: id,
+          versionId: newVersionId,
+          text,
+        });
+
+        return repo.getById(id);
+      });
+    },
+
+    getHistory(toolId: string): ToolVersion[] {
+      return db
         .select()
         .from(toolVersions)
-        .where(inArray(toolVersions.id, versionIds))
+        .where(eq(toolVersions.toolId, toolId))
+        .orderBy(asc(toolVersions.versionNum))
         .all();
-      for (const v of versionsList) {
-        versionsMap.set(v.id, v);
+    },
+
+    deactivate(id: string): boolean {
+      const result = db.update(tools).set({ isActive: false }).where(eq(tools.id, id)).run();
+      const success = result.changes > 0;
+
+      if (success) {
+        asyncVectorCleanup('tool', id);
       }
-    }
 
-    return toolsList.map((tool) => ({
-      ...tool,
-      currentVersion: tool.currentVersionId ? versionsMap.get(tool.currentVersionId) : undefined,
-    }));
-  },
+      return success;
+    },
 
-  /**
-   * Update a tool (creates new version)
-   *
-   * @param id - The tool ID to update
-   * @param input - Update parameters (fields not provided inherit from previous version)
-   * @returns The updated tool with its new current version, or undefined if tool not found
-   * @remarks Creates a new version and detects conflicts if another update happened within 5 seconds
-   */
-  update(id: string, input: UpdateToolInput): ToolWithVersion | undefined {
-    return transaction(() => {
-      const db = getDb();
+    reactivate(id: string): boolean {
+      const result = db.update(tools).set({ isActive: true }).where(eq(tools.id, id)).run();
+      return result.changes > 0;
+    },
 
-      const existing = this.getById(id);
-      if (!existing) return undefined;
+    delete(id: string): boolean {
+      const result = transactionWithDb(sqlite, () => {
+        // Delete related records (tags, relations, embeddings, permissions)
+        cascadeDeleteRelatedRecordsWithDb(db, 'tool', id);
 
-      // Get current version number
-      const latestVersion = db
-        .select()
-        .from(toolVersions)
-        .where(eq(toolVersions.toolId, id))
-        .orderBy(desc(toolVersions.versionNum))
-        .get();
+        // Delete versions
+        db.delete(toolVersions).where(eq(toolVersions.toolId, id)).run();
 
-      const newVersionNum = (latestVersion?.versionNum ?? 0) + 1;
-      const newVersionId = generateId();
-
-      // Check for conflict using shared helper
-      const conflictFlag = latestVersion
-        ? checkAndLogConflict('tool', id, latestVersion.id, newVersionId, new Date(latestVersion.createdAt))
-        : false;
-
-      // Create new version (inherit from previous if not specified)
-      const previousVersion = existing.currentVersion;
-      const newVersion: NewToolVersion = {
-        id: newVersionId,
-        toolId: id,
-        versionNum: newVersionNum,
-        description: input.description ?? previousVersion?.description,
-        parameters: input.parameters ?? previousVersion?.parameters,
-        examples: input.examples ?? previousVersion?.examples,
-        constraints: input.constraints ?? previousVersion?.constraints,
-        createdBy: input.updatedBy,
-        changeReason: input.changeReason,
-        conflictFlag,
-      };
-
-      db.insert(toolVersions).values(newVersion).run();
-
-      // Update tool's current version pointer
-      db.update(tools).set({ currentVersionId: newVersionId }).where(eq(tools.id, id)).run();
-
-      // Generate embedding asynchronously (fire-and-forget)
-      const text = extractTextForEmbedding('tool', existing.name, {
-        description: newVersion.description ?? undefined,
-        constraints: newVersion.constraints ?? undefined,
-      });
-      generateEmbeddingAsync({
-        entryType: 'tool',
-        entryId: id,
-        versionId: newVersionId,
-        text,
+        // Delete tool
+        const deleteResult = db.delete(tools).where(eq(tools.id, id)).run();
+        return deleteResult.changes > 0;
       });
 
-      return this.getById(id);
-    });
+      if (result) {
+        asyncVectorCleanup('tool', id);
+      }
+
+      return result;
+    },
+  };
+
+  return repo;
+}
+
+// =============================================================================
+// TEMPORARY BACKWARD COMPAT EXPORTS
+// TODO: Remove these when all call sites are updated to use AppContext.repos
+// =============================================================================
+
+/**
+ * @deprecated Use createToolRepository(deps) instead. Will be removed when AppContext.repos is wired.
+ */
+function createLegacyToolRepo(): IToolRepository {
+  return createToolRepository({ db: getDb(), sqlite: getSqlite() });
+}
+
+// Lazy-initialized singleton instance for backward compatibility
+let _toolRepo: IToolRepository | null = null;
+
+/**
+ * @deprecated Use AppContext.repos.tools instead
+ */
+export const toolRepo: IToolRepository = new Proxy({} as IToolRepository, {
+  get(_, prop: keyof IToolRepository) {
+    if (!_toolRepo) _toolRepo = createLegacyToolRepo();
+    return _toolRepo[prop];
   },
-
-  /**
-   * Get version history for a tool
-   *
-   * @param toolId - The tool ID
-   * @returns Array of all versions for the tool, ordered by version number (oldest first)
-   */
-  getHistory(toolId: string): ToolVersion[] {
-    const db = getDb();
-    return db
-      .select()
-      .from(toolVersions)
-      .where(eq(toolVersions.toolId, toolId))
-      .orderBy(asc(toolVersions.versionNum))
-      .all();
-  },
-
-  /**
-   * Deactivate a tool (soft delete)
-   *
-   * @param id - The tool ID to deactivate
-   * @returns True if the tool was successfully deactivated
-   */
-  deactivate(id: string): boolean {
-    const db = getDb();
-    const result = db.update(tools).set({ isActive: false }).where(eq(tools.id, id)).run();
-    const success = result.changes > 0;
-
-    if (success) {
-      asyncVectorCleanup('tool', id);
-    }
-
-    return success;
-  },
-
-  /**
-   * Reactivate a tool
-   *
-   * @param id - The tool ID to reactivate
-   * @returns True if the tool was successfully reactivated
-   */
-  reactivate(id: string): boolean {
-    const db = getDb();
-    const result = db.update(tools).set({ isActive: true }).where(eq(tools.id, id)).run();
-    return result.changes > 0;
-  },
-
-  /**
-   * Hard delete a tool and all related records (versions, tags, relations, embeddings, permissions)
-   */
-  delete(id: string): boolean {
-    const result = transaction(() => {
-      const db = getDb();
-
-      // Delete related records (tags, relations, embeddings, permissions)
-      cascadeDeleteRelatedRecords('tool', id);
-
-      // Delete versions
-      db.delete(toolVersions).where(eq(toolVersions.toolId, id)).run();
-
-      // Delete tool
-      const deleteResult = db.delete(tools).where(eq(tools.id, id)).run();
-      return deleteResult.changes > 0;
-    });
-
-    if (result) {
-      asyncVectorCleanup('tool', id);
-    }
-
-    return result;
-  },
-};
+});

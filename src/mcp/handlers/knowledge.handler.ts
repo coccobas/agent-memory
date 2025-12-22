@@ -4,7 +4,11 @@
  * Uses the generic handler factory to eliminate code duplication.
  */
 
-import { knowledgeRepo, type CreateKnowledgeInput, type UpdateKnowledgeInput, type KnowledgeWithVersion } from '../../db/repositories/knowledge.js';
+import {
+  type CreateKnowledgeInput,
+  type UpdateKnowledgeInput,
+  type KnowledgeWithVersion,
+} from '../../db/repositories/knowledge.js';
 import { createCrudHandlers } from './factory.js';
 import {
   getRequiredParam,
@@ -14,6 +18,7 @@ import {
   isISODateString,
 } from '../../utils/type-guards.js';
 import type { ScopeType } from '../../db/schema.js';
+import type { AppContext } from '../../core/context.js';
 
 type KnowledgeCategory = 'decision' | 'fact' | 'context' | 'reference' | undefined;
 
@@ -99,7 +104,7 @@ export const knowledgeHandlers = createCrudHandlers<
   UpdateKnowledgeInput
 >({
   entryType: 'knowledge',
-  repo: knowledgeRepo,
+  getRepo: (context: AppContext) => context.repos.knowledge,
   responseKey: 'knowledge',
   responseListKey: 'knowledge',
   nameField: 'title',

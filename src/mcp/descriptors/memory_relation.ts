@@ -31,8 +31,8 @@ export const memoryRelationDescriptor: ToolDescriptor = {
     offset: { type: 'number' },
   },
   actions: {
-    create: { handler: relationHandlers.create },
-    list: { handler: relationHandlers.list },
-    delete: { handler: relationHandlers.delete },
+    create: { contextHandler: relationHandlers.create },
+    list: { contextHandler: relationHandlers.list },
+    delete: { contextHandler: relationHandlers.delete },
   },
 };

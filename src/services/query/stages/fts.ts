@@ -3,23 +3,20 @@
  *
  * Executes Full-Text Search (FTS5) if enabled.
  * Populates ftsMatchIds with entry IDs that match the search.
+ *
+ * Uses injected dependencies for FTS5 execution to support testing with mocks.
  */
 
-import type { PipelineContext, QueryEntryType, QueryType } from '../pipeline.js';
-import { executeFts5Search } from '../../query.service.js';
-
-/**
- * Convert QueryType to QueryEntryType
- */
-function typeToEntryType(type: QueryType): QueryEntryType {
-  return type === 'tools' ? 'tool' : type === 'guidelines' ? 'guideline' : 'knowledge';
-}
+import type { PipelineContext, QueryEntryType } from '../pipeline.js';
+import { queryTypeToEntryType } from '../type-maps.js';
 
 /**
  * FTS stage - executes FTS5 search if enabled
+ *
+ * Uses ctx.deps.executeFts5Search() instead of calling the global function directly.
  */
 export function ftsStage(ctx: PipelineContext): PipelineContext {
-  const { params, search, types } = ctx;
+  const { params, search, types, deps } = ctx;
 
   // Only run FTS5 if explicitly enabled and search query exists
   const useFts5 = params.useFts5 === true && !!search;
@@ -28,8 +25,8 @@ export function ftsStage(ctx: PipelineContext): PipelineContext {
     return ctx;
   }
 
-  // Execute FTS5 search
-  const fts5Results = executeFts5Search(search, [...types]);
+  // Execute FTS5 search using injected dependency
+  const fts5Results = deps.executeFts5Search(search, [...types]);
 
   if (!fts5Results) {
     return ctx;
@@ -43,7 +40,7 @@ export function ftsStage(ctx: PipelineContext): PipelineContext {
   };
 
   for (const type of types) {
-    const entryType = typeToEntryType(type);
+    const entryType = queryTypeToEntryType(type);
     const resultSet = fts5Results[entryType];
     if (resultSet) {
       ftsMatchIds[entryType] = resultSet;

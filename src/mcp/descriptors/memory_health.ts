@@ -5,7 +5,7 @@
  */
 
 import type { SimpleToolDescriptor } from './types.js';
-import { getQueryCacheStats } from '../../services/query.service.js';
+import { getRuntime, isRuntimeRegistered } from '../../core/container.js';
 import { getCachedStats, getStatsCacheStatus } from '../../services/stats.service.js';
 import { VERSION } from '../../version.js';
 
@@ -16,7 +16,10 @@ export const memoryHealthDescriptor: SimpleToolDescriptor = {
 Use this to verify the memory server is working or to get entry counts.`,
   params: {},
   handler: () => {
-    const queryCacheStats = getQueryCacheStats();
+    // Get cache stats from Runtime (if available)
+    const queryCacheStats = isRuntimeRegistered()
+      ? getRuntime().queryCache.cache.stats
+      : { size: 0, memoryMB: 0 };
     const tableCounts = getCachedStats();
     const statsCacheStatus = getStatsCacheStatus();
 

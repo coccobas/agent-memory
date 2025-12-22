@@ -2,7 +2,8 @@
  * Tag handlers
  */
 
-import { tagRepo, entryTagRepo, type CreateTagInput } from '../../db/repositories/tags.js';
+import type { CreateTagInput } from '../../db/repositories/tags.js';
+import type { AppContext } from '../../core/context.js';
 import {
   getRequiredParam,
   getOptionalParam,
@@ -12,7 +13,8 @@ import {
   isNumber,
   isTagCategory,
 } from '../../utils/type-guards.js';
-import { requireEntryPermission } from '../../utils/entry-access.js';
+import { requireEntryPermissionWithScope } from '../../utils/entry-access.js';
+import { emitEntryChanged } from '../../utils/events.js';
 import type {
   TagCreateParams,
   TagListParams,
@@ -22,7 +24,7 @@ import type {
 } from '../types.js';
 
 export const tagHandlers = {
-  create(params: TagCreateParams) {
+  create(context: AppContext, params: TagCreateParams) {
     // Require caller identity for auditing consistency (even though tags aren't permissioned directly)
     getRequiredParam(params, 'agentId', isString);
     const name = getRequiredParam(params, 'name', isString);
@@ -30,7 +32,7 @@ export const tagHandlers = {
     const description = getOptionalParam(params, 'description', isString);
 
     // Check if tag already exists
-    const existing = tagRepo.getByName(name);
+    const existing = context.repos.tags.getByName(name);
     if (existing) {
       return { success: true, tag: existing, existed: true };
     }
@@ -41,18 +43,18 @@ export const tagHandlers = {
       description,
     };
 
-    const tag = tagRepo.create(input);
+    const tag = context.repos.tags.create(input);
     return { success: true, tag, existed: false };
   },
 
-  list(params: TagListParams) {
+  list(context: AppContext, params: TagListParams) {
     getRequiredParam(params, 'agentId', isString);
     const category = getOptionalParam(params, 'category', isTagCategory);
     const isPredefined = getOptionalParam(params, 'isPredefined', isBoolean);
     const limit = getOptionalParam(params, 'limit', isNumber);
     const offset = getOptionalParam(params, 'offset', isNumber);
 
-    const tags = tagRepo.list({ category, isPredefined }, { limit, offset });
+    const tags = context.repos.tags.list({ category, isPredefined }, { limit, offset });
     return {
       tags,
       meta: {
@@ -61,12 +63,17 @@ export const tagHandlers = {
     };
   },
 
-  attach(params: TagAttachParams) {
+  attach(context: AppContext, params: TagAttachParams) {
     const agentId = getRequiredParam(params, 'agentId', isString);
     const entryType = getRequiredParam(params, 'entryType', isEntryType);
     const entryId = getRequiredParam(params, 'entryId', isString);
 
-    requireEntryPermission({ agentId, action: 'write', entryType, entryId });
+    const { scopeType, scopeId } = requireEntryPermissionWithScope(context, {
+      agentId,
+      action: 'write',
+      entryType,
+      entryId,
+    });
 
     const tagId = getOptionalParam(params, 'tagId', isString);
     const tagName = getOptionalParam(params, 'tagName', isString);
@@ -75,36 +82,60 @@ export const tagHandlers = {
       throw new Error('Either tagId or tagName is required');
     }
 
-    const entryTag = entryTagRepo.attach({
+    const entryTag = context.repos.entryTags.attach({
       entryType,
       entryId,
       tagId,
       tagName,
     });
 
+    // Tag changes affect tag-filtered queries; emit update for cache invalidation.
+    emitEntryChanged({
+      entryType,
+      entryId,
+      scopeType,
+      scopeId,
+      action: 'update',
+    });
+
     return { success: true, entryTag };
   },
 
-  detach(params: TagDetachParams) {
+  detach(context: AppContext, params: TagDetachParams) {
     const agentId = getRequiredParam(params, 'agentId', isString);
     const entryType = getRequiredParam(params, 'entryType', isEntryType);
     const entryId = getRequiredParam(params, 'entryId', isString);
     const tagId = getRequiredParam(params, 'tagId', isString);
 
-    requireEntryPermission({ agentId, action: 'write', entryType, entryId });
+    const { scopeType, scopeId } = requireEntryPermissionWithScope(context, {
+      agentId,
+      action: 'write',
+      entryType,
+      entryId,
+    });
 
-    const success = entryTagRepo.detach(entryType, entryId, tagId);
+    const success = context.repos.entryTags.detach(entryType, entryId, tagId);
+
+    if (success) {
+      emitEntryChanged({
+        entryType,
+        entryId,
+        scopeType,
+        scopeId,
+        action: 'update',
+      });
+    }
     return { success };
   },
 
-  forEntry(params: TagsForEntryParams) {
+  forEntry(context: AppContext, params: TagsForEntryParams) {
     const agentId = getRequiredParam(params, 'agentId', isString);
     const entryType = getRequiredParam(params, 'entryType', isEntryType);
     const entryId = getRequiredParam(params, 'entryId', isString);
 
-    requireEntryPermission({ agentId, action: 'read', entryType, entryId });
+    requireEntryPermissionWithScope(context, { agentId, action: 'read', entryType, entryId });
 
-    const tags = entryTagRepo.getTagsForEntry(entryType, entryId);
+    const tags = context.repos.entryTags.getTagsForEntry(entryType, entryId);
     return { tags };
   },
 };

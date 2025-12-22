@@ -9,22 +9,13 @@
  *   console.log(config.database.path);
  */
 
-import { config as dotenvConfig } from 'dotenv';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { existsSync } from 'node:fs';
 
 // Calculate project root
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const projectRoot = resolve(__dirname, '../..');
-
-// Load .env file (if exists) - environment variables take precedence
-// CRITICAL: Suppress dotenv output to stdout (MCP uses stdout for JSON-RPC)
-const envPath = resolve(projectRoot, '.env');
-if (existsSync(envPath)) {
-  dotenvConfig({ path: envPath, debug: false, quiet: true });
-}
 
 // =============================================================================
 // HELPER FUNCTIONS
@@ -45,6 +36,15 @@ function parseInt_(value: string | undefined, defaultValue: number): number {
   if (value === undefined || value === '') return defaultValue;
   const parsed = parseInt(value, 10);
   return Number.isNaN(parsed) ? defaultValue : parsed;
+}
+
+function parsePort(value: string | undefined, fallback: number): number {
+  if (!value) return fallback;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0 || parsed >= 65536) {
+    return fallback;
+  }
+  return parsed;
 }
 
 function parseString<T extends string>(
@@ -215,6 +215,19 @@ export interface Config {
     };
   };
 
+  // Query Scoring Weights
+  scoring: {
+    weights: {
+      explicitRelation: number;
+      tagMatch: number;
+      scopeProximity: number;
+      textMatch: number;
+      priorityMax: number;
+      semanticMax: number;
+      recencyMax: number;
+    };
+  };
+
   // Validation Limits
   validation: {
     nameMaxLength: number;
@@ -276,6 +289,21 @@ export interface Config {
     format: 'json' | 'compact';
   };
 
+  // REST API
+  rest: {
+    enabled: boolean;
+    host: string;
+    port: number;
+  };
+
+  // Security (auth + rate limiting)
+  security: {
+    restAuthDisabled: boolean;
+    restApiKey: string | undefined;
+    restApiKeys: string | undefined;
+    restAgentId: string;
+  };
+
   // Directory Paths
   paths: {
     dataDir: string;
@@ -318,191 +346,222 @@ function getExtractionProvider(): 'openai' | 'anthropic' | 'ollama' | 'disabled'
  */
 export function buildConfig(): Config {
   return {
-  database: {
-    path: resolveDataPath(process.env.AGENT_MEMORY_DB_PATH, 'memory.db'),
-    skipInit: parseBoolean(process.env.AGENT_MEMORY_SKIP_INIT, false),
-    verbose: parseBoolean(process.env.AGENT_MEMORY_PERF, false),
-    devMode: parseBoolean(process.env.AGENT_MEMORY_DEV_MODE, false),
-    autoFixChecksums: parseBoolean(
-      process.env.AGENT_MEMORY_AUTO_FIX_CHECKSUMS,
-      parseBoolean(process.env.AGENT_MEMORY_DEV_MODE, false)
-    ),
-    busyTimeoutMs: parseInt_(process.env.AGENT_MEMORY_DB_BUSY_TIMEOUT_MS, 5000),
-  },
-
-  vectorDb: {
-    path: resolveDataPath(process.env.AGENT_MEMORY_VECTOR_DB_PATH, 'vectors.lance'),
-    distanceMetric: parseString(process.env.AGENT_MEMORY_DISTANCE_METRIC, 'cosine', [
-      'cosine',
-      'l2',
-      'dot',
-    ] as const),
-  },
-
-  embedding: {
-    provider: getEmbeddingProvider(),
-    openaiApiKey: process.env.AGENT_MEMORY_OPENAI_API_KEY,
-    openaiModel: process.env.AGENT_MEMORY_OPENAI_MODEL || 'text-embedding-3-small',
-    maxConcurrency: parseInt_(process.env.AGENT_MEMORY_EMBEDDING_MAX_CONCURRENCY, 16),
-  },
-
-  extraction: {
-    provider: getExtractionProvider(),
-    openaiApiKey: process.env.AGENT_MEMORY_OPENAI_API_KEY,
-    openaiBaseUrl: process.env.AGENT_MEMORY_EXTRACTION_OPENAI_BASE_URL, // For LM Studio, LocalAI
-    openaiModel: process.env.AGENT_MEMORY_EXTRACTION_OPENAI_MODEL || 'gpt-4o-mini',
-    anthropicApiKey: process.env.AGENT_MEMORY_ANTHROPIC_API_KEY,
-    anthropicModel:
-      process.env.AGENT_MEMORY_EXTRACTION_ANTHROPIC_MODEL || 'claude-3-5-sonnet-20241022',
-    ollamaBaseUrl: process.env.AGENT_MEMORY_OLLAMA_BASE_URL || 'http://localhost:11434',
-    ollamaModel: process.env.AGENT_MEMORY_OLLAMA_MODEL || 'llama3.2',
-    maxTokens: parseInt_(process.env.AGENT_MEMORY_EXTRACTION_MAX_TOKENS, 4096),
-    temperature: parseNumber(process.env.AGENT_MEMORY_EXTRACTION_TEMPERATURE, 0.2),
-    confidenceThreshold: parseNumber(process.env.AGENT_MEMORY_EXTRACTION_CONFIDENCE_THRESHOLD, 0.7),
-    // Per-entry-type thresholds: guidelines need higher confidence (critical), tools lower (low-risk)
-    confidenceThresholds: {
-      guideline: parseNumber(process.env.AGENT_MEMORY_EXTRACTION_CONFIDENCE_GUIDELINE, 0.75),
-      knowledge: parseNumber(process.env.AGENT_MEMORY_EXTRACTION_CONFIDENCE_KNOWLEDGE, 0.7),
-      tool: parseNumber(process.env.AGENT_MEMORY_EXTRACTION_CONFIDENCE_TOOL, 0.65),
-      entity: parseNumber(process.env.AGENT_MEMORY_EXTRACTION_CONFIDENCE_ENTITY, 0.7),
-      relationship: parseNumber(process.env.AGENT_MEMORY_EXTRACTION_CONFIDENCE_RELATIONSHIP, 0.75),
+    database: {
+      path: resolveDataPath(process.env.AGENT_MEMORY_DB_PATH, 'memory.db'),
+      skipInit: parseBoolean(process.env.AGENT_MEMORY_SKIP_INIT, false),
+      verbose: parseBoolean(process.env.AGENT_MEMORY_PERF, false),
+      devMode: parseBoolean(process.env.AGENT_MEMORY_DEV_MODE, false),
+      autoFixChecksums: parseBoolean(
+        process.env.AGENT_MEMORY_AUTO_FIX_CHECKSUMS,
+        parseBoolean(process.env.AGENT_MEMORY_DEV_MODE, false)
+      ),
+      busyTimeoutMs: parseInt_(process.env.AGENT_MEMORY_DB_BUSY_TIMEOUT_MS, 5000),
     },
-  },
 
-  logging: {
-    level: parseString(process.env.LOG_LEVEL, 'info', [
-      'fatal',
-      'error',
-      'warn',
-      'info',
-      'debug',
-      'trace',
-    ] as const),
-    debug: parseBoolean(process.env.AGENT_MEMORY_DEBUG, false),
-    performance: parseBoolean(process.env.AGENT_MEMORY_PERF, false),
-  },
-
-  cache: {
-    // Production-optimized cache sizes (increased from 100/200/50)
-    totalLimitMB: parseInt_(process.env.AGENT_MEMORY_CACHE_LIMIT_MB, 512),
-    queryCacheTTLMs: parseInt_(process.env.AGENT_MEMORY_QUERY_CACHE_TTL_MS, 5 * 60 * 1000),
-    scopeCacheTTLMs: parseInt_(process.env.AGENT_MEMORY_SCOPE_CACHE_TTL_MS, 10 * 60 * 1000),
-    maxPreparedStatements: parseInt_(process.env.AGENT_MEMORY_MAX_PREPARED_STATEMENTS, 500),
-    queryCacheSize: parseInt_(process.env.AGENT_MEMORY_QUERY_CACHE_SIZE, 1000),
-    queryCacheMemoryMB: parseInt_(process.env.AGENT_MEMORY_QUERY_CACHE_MEMORY_MB, 200),
-    // Start eviction earlier and more aggressively
-    pressureThreshold: parseNumber(process.env.AGENT_MEMORY_CACHE_PRESSURE_THRESHOLD, 0.75),
-    evictionTarget: parseNumber(process.env.AGENT_MEMORY_CACHE_EVICTION_TARGET, 0.6),
-  },
-
-  memory: {
-    heapPressureThreshold: parseNumber(process.env.AGENT_MEMORY_HEAP_PRESSURE_THRESHOLD, 0.85),
-    checkIntervalMs: parseInt_(process.env.AGENT_MEMORY_MEMORY_CHECK_INTERVAL_MS, 30000),
-  },
-
-  rateLimit: {
-    enabled: process.env.AGENT_MEMORY_RATE_LIMIT !== '0',
-    perAgent: {
-      // Increased from 100 to 500 req/min (8.3 RPS per agent)
-      maxRequests: parseInt_(process.env.AGENT_MEMORY_RATE_LIMIT_PER_AGENT_MAX, 500),
-      windowMs: parseInt_(process.env.AGENT_MEMORY_RATE_LIMIT_PER_AGENT_WINDOW_MS, 60000),
+    vectorDb: {
+      path: resolveDataPath(process.env.AGENT_MEMORY_VECTOR_DB_PATH, 'vectors.lance'),
+      distanceMetric: parseString(process.env.AGENT_MEMORY_DISTANCE_METRIC, 'cosine', [
+        'cosine',
+        'l2',
+        'dot',
+      ] as const),
     },
-    global: {
-      // Increased from 1000 to 5000 req/min (83 RPS global)
-      maxRequests: parseInt_(process.env.AGENT_MEMORY_RATE_LIMIT_GLOBAL_MAX, 5000),
-      windowMs: parseInt_(process.env.AGENT_MEMORY_RATE_LIMIT_GLOBAL_WINDOW_MS, 60000),
+
+    embedding: {
+      provider: getEmbeddingProvider(),
+      openaiApiKey: process.env.AGENT_MEMORY_OPENAI_API_KEY,
+      openaiModel: process.env.AGENT_MEMORY_OPENAI_MODEL || 'text-embedding-3-small',
+      maxConcurrency: parseInt_(process.env.AGENT_MEMORY_EMBEDDING_MAX_CONCURRENCY, 16),
     },
-    burst: {
-      // Increased from 20 to 50 peak RPS
-      maxRequests: parseInt_(process.env.AGENT_MEMORY_RATE_LIMIT_BURST_MAX, 50),
-      windowMs: parseInt_(process.env.AGENT_MEMORY_RATE_LIMIT_BURST_WINDOW_MS, 1000),
+
+    extraction: {
+      provider: getExtractionProvider(),
+      openaiApiKey: process.env.AGENT_MEMORY_OPENAI_API_KEY,
+      openaiBaseUrl: process.env.AGENT_MEMORY_EXTRACTION_OPENAI_BASE_URL, // For LM Studio, LocalAI
+      openaiModel: process.env.AGENT_MEMORY_EXTRACTION_OPENAI_MODEL || 'gpt-4o-mini',
+      anthropicApiKey: process.env.AGENT_MEMORY_ANTHROPIC_API_KEY,
+      anthropicModel:
+        process.env.AGENT_MEMORY_EXTRACTION_ANTHROPIC_MODEL || 'claude-3-5-sonnet-20241022',
+      ollamaBaseUrl: process.env.AGENT_MEMORY_OLLAMA_BASE_URL || 'http://localhost:11434',
+      ollamaModel: process.env.AGENT_MEMORY_OLLAMA_MODEL || 'llama3.2',
+      maxTokens: parseInt_(process.env.AGENT_MEMORY_EXTRACTION_MAX_TOKENS, 4096),
+      temperature: parseNumber(process.env.AGENT_MEMORY_EXTRACTION_TEMPERATURE, 0.2),
+      confidenceThreshold: parseNumber(
+        process.env.AGENT_MEMORY_EXTRACTION_CONFIDENCE_THRESHOLD,
+        0.7
+      ),
+      // Per-entry-type thresholds: guidelines need higher confidence (critical), tools lower (low-risk)
+      confidenceThresholds: {
+        guideline: parseNumber(process.env.AGENT_MEMORY_EXTRACTION_CONFIDENCE_GUIDELINE, 0.75),
+        knowledge: parseNumber(process.env.AGENT_MEMORY_EXTRACTION_CONFIDENCE_KNOWLEDGE, 0.7),
+        tool: parseNumber(process.env.AGENT_MEMORY_EXTRACTION_CONFIDENCE_TOOL, 0.65),
+        entity: parseNumber(process.env.AGENT_MEMORY_EXTRACTION_CONFIDENCE_ENTITY, 0.7),
+        relationship: parseNumber(
+          process.env.AGENT_MEMORY_EXTRACTION_CONFIDENCE_RELATIONSHIP,
+          0.75
+        ),
+      },
     },
-  },
 
-  semanticSearch: {
-    defaultThreshold: parseNumber(process.env.AGENT_MEMORY_SEMANTIC_THRESHOLD, 0.7),
-    scoreWeight: parseNumber(process.env.AGENT_MEMORY_SEMANTIC_SCORE_WEIGHT, 0.7),
-    duplicateThreshold: parseNumber(process.env.AGENT_MEMORY_DUPLICATE_THRESHOLD, 0.8),
-  },
-
-  recency: {
-    defaultDecayHalfLifeDays: parseInt_(process.env.AGENT_MEMORY_DECAY_HALF_LIFE_DAYS, 14),
-    defaultRecencyWeight: parseNumber(process.env.AGENT_MEMORY_RECENCY_WEIGHT, 0.5),
-    maxRecencyBoost: parseNumber(process.env.AGENT_MEMORY_MAX_RECENCY_BOOST, 2.0),
-    useUpdatedAt: parseBoolean(process.env.AGENT_MEMORY_USE_UPDATED_AT, true),
-    // Per-entry-type decay: guidelines persist longer (30d), knowledge medium (14d), tools decay faster (7d)
-    decayHalfLifeDays: {
-      guideline: parseInt_(process.env.AGENT_MEMORY_DECAY_HALF_LIFE_GUIDELINE, 30),
-      knowledge: parseInt_(process.env.AGENT_MEMORY_DECAY_HALF_LIFE_KNOWLEDGE, 14),
-      tool: parseInt_(process.env.AGENT_MEMORY_DECAY_HALF_LIFE_TOOL, 7),
+    logging: {
+      level: parseString(process.env.LOG_LEVEL, 'info', [
+        'fatal',
+        'error',
+        'warn',
+        'info',
+        'debug',
+        'trace',
+      ] as const),
+      debug: parseBoolean(process.env.AGENT_MEMORY_DEBUG, false),
+      performance: parseBoolean(process.env.AGENT_MEMORY_PERF, false),
     },
-  },
 
-  validation: {
-    nameMaxLength: parseInt_(process.env.AGENT_MEMORY_NAME_MAX_LENGTH, 500),
-    titleMaxLength: parseInt_(process.env.AGENT_MEMORY_TITLE_MAX_LENGTH, 1000),
-    descriptionMaxLength: parseInt_(process.env.AGENT_MEMORY_DESCRIPTION_MAX_LENGTH, 10000),
-    contentMaxLength: parseInt_(process.env.AGENT_MEMORY_CONTENT_MAX_LENGTH, 100000),
-    rationaleMaxLength: parseInt_(process.env.AGENT_MEMORY_RATIONALE_MAX_LENGTH, 5000),
-    metadataMaxBytes: parseInt_(process.env.AGENT_MEMORY_METADATA_MAX_BYTES, 50000),
-    parametersMaxBytes: parseInt_(process.env.AGENT_MEMORY_PARAMETERS_MAX_BYTES, 50000),
-    examplesMaxBytes: parseInt_(process.env.AGENT_MEMORY_EXAMPLES_MAX_BYTES, 100000),
-    tagsMaxCount: parseInt_(process.env.AGENT_MEMORY_TAGS_MAX_COUNT, 50),
-    examplesMaxCount: parseInt_(process.env.AGENT_MEMORY_EXAMPLES_MAX_COUNT, 20),
-    bulkOperationMax: parseInt_(process.env.AGENT_MEMORY_BULK_OPERATION_MAX, 100),
-    regexPatternMaxLength: parseInt_(process.env.AGENT_MEMORY_REGEX_PATTERN_MAX_LENGTH, 500),
-    validationRulesQueryLimit: parseInt_(process.env.AGENT_MEMORY_VALIDATION_RULES_LIMIT, 1000),
-  },
+    cache: {
+      // Production-optimized cache sizes (increased from 100/200/50)
+      totalLimitMB: parseInt_(process.env.AGENT_MEMORY_CACHE_LIMIT_MB, 512),
+      queryCacheTTLMs: parseInt_(process.env.AGENT_MEMORY_QUERY_CACHE_TTL_MS, 5 * 60 * 1000),
+      scopeCacheTTLMs: parseInt_(process.env.AGENT_MEMORY_SCOPE_CACHE_TTL_MS, 10 * 60 * 1000),
+      maxPreparedStatements: parseInt_(process.env.AGENT_MEMORY_MAX_PREPARED_STATEMENTS, 500),
+      queryCacheSize: parseInt_(process.env.AGENT_MEMORY_QUERY_CACHE_SIZE, 1000),
+      queryCacheMemoryMB: parseInt_(process.env.AGENT_MEMORY_QUERY_CACHE_MEMORY_MB, 200),
+      // Start eviction earlier and more aggressively
+      pressureThreshold: parseNumber(process.env.AGENT_MEMORY_CACHE_PRESSURE_THRESHOLD, 0.75),
+      evictionTarget: parseNumber(process.env.AGENT_MEMORY_CACHE_EVICTION_TARGET, 0.6),
+    },
 
-  pagination: {
-    defaultLimit: parseInt_(process.env.AGENT_MEMORY_DEFAULT_QUERY_LIMIT, 20),
-    maxLimit: parseInt_(process.env.AGENT_MEMORY_MAX_QUERY_LIMIT, 100),
-  },
+    memory: {
+      heapPressureThreshold: parseNumber(process.env.AGENT_MEMORY_HEAP_PRESSURE_THRESHOLD, 0.85),
+      checkIntervalMs: parseInt_(process.env.AGENT_MEMORY_MEMORY_CHECK_INTERVAL_MS, 30000),
+    },
 
-  health: {
-    checkIntervalMs: parseInt_(process.env.AGENT_MEMORY_HEALTH_CHECK_INTERVAL_MS, 30000),
-    maxReconnectAttempts: parseInt_(process.env.AGENT_MEMORY_MAX_RECONNECT_ATTEMPTS, 3),
-    reconnectBaseDelayMs: parseInt_(process.env.AGENT_MEMORY_RECONNECT_BASE_DELAY_MS, 1000),
-    reconnectMaxDelayMs: parseInt_(process.env.AGENT_MEMORY_RECONNECT_MAX_DELAY_MS, 5000),
-  },
+    rateLimit: {
+      enabled: process.env.AGENT_MEMORY_RATE_LIMIT !== '0',
+      perAgent: {
+        // Increased from 100 to 500 req/min (8.3 RPS per agent)
+        maxRequests: parseInt_(process.env.AGENT_MEMORY_RATE_LIMIT_PER_AGENT_MAX, 500),
+        windowMs: parseInt_(process.env.AGENT_MEMORY_RATE_LIMIT_PER_AGENT_WINDOW_MS, 60000),
+      },
+      global: {
+        // Increased from 1000 to 5000 req/min (83 RPS global)
+        maxRequests: parseInt_(process.env.AGENT_MEMORY_RATE_LIMIT_GLOBAL_MAX, 5000),
+        windowMs: parseInt_(process.env.AGENT_MEMORY_RATE_LIMIT_GLOBAL_WINDOW_MS, 60000),
+      },
+      burst: {
+        // Increased from 20 to 50 peak RPS
+        maxRequests: parseInt_(process.env.AGENT_MEMORY_RATE_LIMIT_BURST_MAX, 50),
+        windowMs: parseInt_(process.env.AGENT_MEMORY_RATE_LIMIT_BURST_WINDOW_MS, 1000),
+      },
+    },
 
-  retry: {
-    maxAttempts: parseInt_(process.env.AGENT_MEMORY_RETRY_MAX_ATTEMPTS, 3),
-    initialDelayMs: parseInt_(process.env.AGENT_MEMORY_RETRY_INITIAL_DELAY_MS, 100),
-    maxDelayMs: parseInt_(process.env.AGENT_MEMORY_RETRY_MAX_DELAY_MS, 5000),
-    backoffMultiplier: parseNumber(process.env.AGENT_MEMORY_RETRY_BACKOFF_MULTIPLIER, 2),
-  },
+    semanticSearch: {
+      defaultThreshold: parseNumber(process.env.AGENT_MEMORY_SEMANTIC_THRESHOLD, 0.7),
+      scoreWeight: parseNumber(process.env.AGENT_MEMORY_SEMANTIC_SCORE_WEIGHT, 0.7),
+      duplicateThreshold: parseNumber(process.env.AGENT_MEMORY_DUPLICATE_THRESHOLD, 0.8),
+    },
 
-  conflict: {
-    windowMs: parseInt_(process.env.AGENT_MEMORY_CONFLICT_WINDOW_MS, 5000),
-    highErrorCorrelationThreshold: parseNumber(
-      process.env.AGENT_MEMORY_HIGH_ERROR_CORRELATION_THRESHOLD,
-      0.7
-    ),
-  },
+    recency: {
+      defaultDecayHalfLifeDays: parseInt_(process.env.AGENT_MEMORY_DECAY_HALF_LIFE_DAYS, 14),
+      defaultRecencyWeight: parseNumber(process.env.AGENT_MEMORY_RECENCY_WEIGHT, 0.5),
+      maxRecencyBoost: parseNumber(process.env.AGENT_MEMORY_MAX_RECENCY_BOOST, 2.0),
+      useUpdatedAt: parseBoolean(process.env.AGENT_MEMORY_USE_UPDATED_AT, true),
+      // Per-entry-type decay: guidelines persist longer (30d), knowledge medium (14d), tools decay faster (7d)
+      decayHalfLifeDays: {
+        guideline: parseInt_(process.env.AGENT_MEMORY_DECAY_HALF_LIFE_GUIDELINE, 30),
+        knowledge: parseInt_(process.env.AGENT_MEMORY_DECAY_HALF_LIFE_KNOWLEDGE, 14),
+        tool: parseInt_(process.env.AGENT_MEMORY_DECAY_HALF_LIFE_TOOL, 7),
+      },
+    },
 
-  runtime: {
-    nodeEnv: process.env.NODE_ENV || 'development',
-    projectRoot,
-  },
+    scoring: {
+      weights: {
+        explicitRelation: parseInt_(process.env.AGENT_MEMORY_SCORE_EXPLICIT_RELATION, 50),
+        tagMatch: parseInt_(process.env.AGENT_MEMORY_SCORE_TAG_MATCH, 10),
+        scopeProximity: parseInt_(process.env.AGENT_MEMORY_SCORE_SCOPE_PROXIMITY, 20),
+        textMatch: parseInt_(process.env.AGENT_MEMORY_SCORE_TEXT_MATCH, 30),
+        priorityMax: parseInt_(process.env.AGENT_MEMORY_SCORE_PRIORITY_MAX, 20),
+        semanticMax: parseInt_(process.env.AGENT_MEMORY_SCORE_SEMANTIC_MAX, 40),
+        recencyMax: parseInt_(process.env.AGENT_MEMORY_SCORE_RECENCY_MAX, 100),
+      },
+    },
 
-  timestamps: {
-    displayTimezone: process.env.AGENT_MEMORY_TIMEZONE || 'local',
-  },
+    validation: {
+      nameMaxLength: parseInt_(process.env.AGENT_MEMORY_NAME_MAX_LENGTH, 500),
+      titleMaxLength: parseInt_(process.env.AGENT_MEMORY_TITLE_MAX_LENGTH, 1000),
+      descriptionMaxLength: parseInt_(process.env.AGENT_MEMORY_DESCRIPTION_MAX_LENGTH, 10000),
+      contentMaxLength: parseInt_(process.env.AGENT_MEMORY_CONTENT_MAX_LENGTH, 100000),
+      rationaleMaxLength: parseInt_(process.env.AGENT_MEMORY_RATIONALE_MAX_LENGTH, 5000),
+      metadataMaxBytes: parseInt_(process.env.AGENT_MEMORY_METADATA_MAX_BYTES, 50000),
+      parametersMaxBytes: parseInt_(process.env.AGENT_MEMORY_PARAMETERS_MAX_BYTES, 50000),
+      examplesMaxBytes: parseInt_(process.env.AGENT_MEMORY_EXAMPLES_MAX_BYTES, 100000),
+      tagsMaxCount: parseInt_(process.env.AGENT_MEMORY_TAGS_MAX_COUNT, 50),
+      examplesMaxCount: parseInt_(process.env.AGENT_MEMORY_EXAMPLES_MAX_COUNT, 20),
+      bulkOperationMax: parseInt_(process.env.AGENT_MEMORY_BULK_OPERATION_MAX, 100),
+      regexPatternMaxLength: parseInt_(process.env.AGENT_MEMORY_REGEX_PATTERN_MAX_LENGTH, 500),
+      validationRulesQueryLimit: parseInt_(process.env.AGENT_MEMORY_VALIDATION_RULES_LIMIT, 1000),
+    },
 
-  output: {
-    format: parseString(process.env.AGENT_MEMORY_OUTPUT_FORMAT, 'json', [
-      'json',
-      'compact',
-    ] as const),
-  },
+    pagination: {
+      defaultLimit: parseInt_(process.env.AGENT_MEMORY_DEFAULT_QUERY_LIMIT, 20),
+      maxLimit: parseInt_(process.env.AGENT_MEMORY_MAX_QUERY_LIMIT, 100),
+    },
 
-  paths: {
-    dataDir: getDataDir(),
-    backup: resolveDataPath(process.env.AGENT_MEMORY_BACKUP_PATH, 'backups'),
-    export: resolveDataPath(process.env.AGENT_MEMORY_EXPORT_PATH, 'exports'),
-    log: resolveDataPath(process.env.AGENT_MEMORY_LOG_PATH, 'logs'),
-  },
+    health: {
+      checkIntervalMs: parseInt_(process.env.AGENT_MEMORY_HEALTH_CHECK_INTERVAL_MS, 30000),
+      maxReconnectAttempts: parseInt_(process.env.AGENT_MEMORY_MAX_RECONNECT_ATTEMPTS, 3),
+      reconnectBaseDelayMs: parseInt_(process.env.AGENT_MEMORY_RECONNECT_BASE_DELAY_MS, 1000),
+      reconnectMaxDelayMs: parseInt_(process.env.AGENT_MEMORY_RECONNECT_MAX_DELAY_MS, 5000),
+    },
+
+    retry: {
+      maxAttempts: parseInt_(process.env.AGENT_MEMORY_RETRY_MAX_ATTEMPTS, 3),
+      initialDelayMs: parseInt_(process.env.AGENT_MEMORY_RETRY_INITIAL_DELAY_MS, 100),
+      maxDelayMs: parseInt_(process.env.AGENT_MEMORY_RETRY_MAX_DELAY_MS, 5000),
+      backoffMultiplier: parseNumber(process.env.AGENT_MEMORY_RETRY_BACKOFF_MULTIPLIER, 2),
+    },
+
+    conflict: {
+      windowMs: parseInt_(process.env.AGENT_MEMORY_CONFLICT_WINDOW_MS, 5000),
+      highErrorCorrelationThreshold: parseNumber(
+        process.env.AGENT_MEMORY_HIGH_ERROR_CORRELATION_THRESHOLD,
+        0.7
+      ),
+    },
+
+    runtime: {
+      nodeEnv: process.env.NODE_ENV || 'development',
+      projectRoot,
+    },
+
+    timestamps: {
+      displayTimezone: process.env.AGENT_MEMORY_TIMEZONE || 'local',
+    },
+
+    output: {
+      format: parseString(process.env.AGENT_MEMORY_OUTPUT_FORMAT, 'json', [
+        'json',
+        'compact',
+      ] as const),
+    },
+
+    rest: {
+      enabled: parseBoolean(process.env.AGENT_MEMORY_REST_ENABLED, false),
+      host: process.env.AGENT_MEMORY_REST_HOST || '127.0.0.1',
+      port: parsePort(process.env.AGENT_MEMORY_REST_PORT, 8787),
+    },
+
+    security: {
+      restAuthDisabled: parseBoolean(process.env.AGENT_MEMORY_REST_AUTH_DISABLED, false),
+      restApiKey: process.env.AGENT_MEMORY_REST_API_KEY,
+      restApiKeys: process.env.AGENT_MEMORY_REST_API_KEYS,
+      restAgentId: process.env.AGENT_MEMORY_REST_AGENT_ID || 'rest-api',
+    },
+
+    paths: {
+      dataDir: getDataDir(),
+      backup: resolveDataPath(process.env.AGENT_MEMORY_BACKUP_PATH, 'backups'),
+      export: resolveDataPath(process.env.AGENT_MEMORY_EXPORT_PATH, 'exports'),
+      log: resolveDataPath(process.env.AGENT_MEMORY_LOG_PATH, 'logs'),
+    },
   };
 }
 

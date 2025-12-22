@@ -5,7 +5,7 @@
  * and generates embeddings for them in batches.
  */
 
-import { getDb } from '../db/connection.js';
+import { getDb, type DbClient } from '../db/connection.js';
 import {
   tools,
   toolVersions,
@@ -15,6 +15,9 @@ import {
   knowledgeVersions,
   entryEmbeddings,
   type NewEntryEmbedding,
+  type ToolVersion,
+  type GuidelineVersion,
+  type KnowledgeVersion,
 } from '../db/schema.js';
 import { eq, and, inArray, sql } from 'drizzle-orm';
 import { getEmbeddingService } from './embedding.service.js';
@@ -23,7 +26,10 @@ import { extractTextForEmbedding, type EntryType } from '../db/repositories/embe
 import { generateId } from '../db/repositories/base.js';
 import { createComponentLogger } from '../utils/logger.js';
 import { config } from '../config/index.js';
-import { createServiceUnavailableError } from '../mcp/errors.js';
+import { createServiceUnavailableError } from '../core/errors.js';
+
+// Union type for version data used in embedding extraction
+type VersionData = ToolVersion | GuidelineVersion | KnowledgeVersion;
 
 const logger = createComponentLogger('backfill');
 
@@ -53,7 +59,10 @@ export interface BackfillOptions {
 /**
  * Generate embeddings for all entries that don't have them yet
  */
-export async function backfillEmbeddings(options: BackfillOptions = {}): Promise<BackfillProgress> {
+export async function backfillEmbeddings(
+  options: BackfillOptions = {},
+  dbClient?: DbClient
+): Promise<BackfillProgress> {
   const {
     batchSize = 50,
     delayMs = 1000,
@@ -70,7 +79,7 @@ export async function backfillEmbeddings(options: BackfillOptions = {}): Promise
   const vectorService = getVectorService();
   await vectorService.initialize();
 
-  const db = getDb();
+  const db = dbClient ?? getDb();
   const progress: BackfillProgress = {
     total: 0,
     processed: 0,
@@ -108,13 +117,13 @@ export async function backfillEmbeddings(options: BackfillOptions = {}): Promise
 
   // Process each entry type
   if (entryTypes.includes('tool')) {
-    await backfillEntryType('tool', batchSize, delayMs, progress, onProgress);
+    await backfillEntryType('tool', batchSize, delayMs, progress, onProgress, db);
   }
   if (entryTypes.includes('guideline')) {
-    await backfillEntryType('guideline', batchSize, delayMs, progress, onProgress);
+    await backfillEntryType('guideline', batchSize, delayMs, progress, onProgress, db);
   }
   if (entryTypes.includes('knowledge')) {
-    await backfillEntryType('knowledge', batchSize, delayMs, progress, onProgress);
+    await backfillEntryType('knowledge', batchSize, delayMs, progress, onProgress, db);
   }
 
   progress.inProgress = false;
@@ -159,9 +168,10 @@ async function backfillEntryType(
   batchSize: number,
   delayMs: number,
   progress: BackfillProgress,
-  onProgress?: (progress: BackfillProgress) => void
+  onProgress: ((progress: BackfillProgress) => void) | undefined,
+  dbClient: DbClient
 ): Promise<void> {
-  const db = getDb();
+  const db = dbClient;
   const embeddingService = getEmbeddingService();
   const vectorService = getVectorService();
 
@@ -226,8 +236,7 @@ async function backfillEntryType(
     }
 
     // Phase 2: Batch prefetch version data for this batch (fixes N+1)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const versionsById = new Map<string, any>();
+    const versionsById = new Map<string, VersionData>();
     if (batchVersionIds.length > 0) {
       if (entryType === 'tool') {
         const versions = db
@@ -284,9 +293,17 @@ async function backfillEntryType(
           return;
         }
 
-        // Extract text for embedding
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-        const text = extractTextForEmbedding(entryType, entry.name, versionData);
+        // Extract text for embedding - convert null values to undefined for compatibility
+        // Type assertion needed because VersionData is a union and `in` check doesn't narrow properly
+        const vd = versionData as Record<string, unknown>;
+        const text = extractTextForEmbedding(entryType, entry.name, {
+          description: typeof vd.description === 'string' ? vd.description : undefined,
+          content: typeof vd.content === 'string' ? vd.content : undefined,
+          rationale: typeof vd.rationale === 'string' ? vd.rationale : undefined,
+          title: typeof vd.title === 'string' ? vd.title : undefined,
+          source: typeof vd.source === 'string' ? vd.source : undefined,
+          constraints: typeof vd.constraints === 'string' ? vd.constraints : undefined,
+        });
 
         // Generate embedding
         const result = await embeddingService.embed(text);
@@ -376,12 +393,12 @@ async function backfillEntryType(
 /**
  * Get backfill statistics (uses COUNT(*) for efficiency)
  */
-export function getBackfillStats(): {
+export function getBackfillStats(dbClient?: DbClient): {
   tools: { total: number; withEmbeddings: number };
   guidelines: { total: number; withEmbeddings: number };
   knowledge: { total: number; withEmbeddings: number };
 } {
-  const db = getDb();
+  const db = dbClient ?? getDb();
 
   const toolsTotal =
     db
@@ -408,7 +425,9 @@ export function getBackfillStats(): {
     db
       .select({ count: sql<number>`COUNT(*)` })
       .from(entryEmbeddings)
-      .where(and(eq(entryEmbeddings.entryType, 'guideline'), eq(entryEmbeddings.hasEmbedding, true)))
+      .where(
+        and(eq(entryEmbeddings.entryType, 'guideline'), eq(entryEmbeddings.hasEmbedding, true))
+      )
       .get()?.count ?? 0;
 
   const knowledgeTotal =
@@ -422,7 +441,9 @@ export function getBackfillStats(): {
     db
       .select({ count: sql<number>`COUNT(*)` })
       .from(entryEmbeddings)
-      .where(and(eq(entryEmbeddings.entryType, 'knowledge'), eq(entryEmbeddings.hasEmbedding, true)))
+      .where(
+        and(eq(entryEmbeddings.entryType, 'knowledge'), eq(entryEmbeddings.hasEmbedding, true))
+      )
       .get()?.count ?? 0;
 
   return {
@@ -431,3 +452,4 @@ export function getBackfillStats(): {
     knowledge: { total: knowledgeTotal, withEmbeddings: knowledgeWithEmbeddings },
   };
 }
+

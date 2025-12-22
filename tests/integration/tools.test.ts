@@ -2,15 +2,19 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import {
   setupTestDb,
   cleanupTestDb,
+  registerTestContext,
+  getTestContext,
   createTestOrg,
   createTestProject,
   createTestTool,
 } from '../fixtures/test-helpers.js';
+import type { AppContext } from '../../src/core/context.js';
 
 const TEST_DB_PATH = './data/test-tools.db';
 
 let sqlite: ReturnType<typeof setupTestDb>['sqlite'];
 let db: ReturnType<typeof setupTestDb>['db'];
+let context: AppContext;
 
 vi.mock('../../src/db/connection.js', async () => {
   const actual = await vi.importActual<typeof import('../../src/db/connection.js')>(
@@ -33,6 +37,7 @@ describe('Tools Integration', () => {
     const testDb = setupTestDb(TEST_DB_PATH);
     sqlite = testDb.sqlite;
     db = testDb.db;
+    context = registerTestContext(testDb);
   });
 
   afterAll(() => {
@@ -47,7 +52,7 @@ describe('Tools Integration', () => {
 
   describe('memory_tool_add', () => {
     it('should add a tool at global scope', () => {
-      const result = toolHandlers.add({
+      const result = toolHandlers.add(context, {
         agentId: AGENT_ID,
         scopeType: 'global',
         name: 'test_tool',
@@ -64,7 +69,7 @@ describe('Tools Integration', () => {
 
     it('should add a tool at project scope', () => {
       const project = createTestProject(db);
-      const result = toolHandlers.add({
+      const result = toolHandlers.add(context, {
         agentId: AGENT_ID,
         scopeType: 'project',
         scopeId: project.id,
@@ -79,19 +84,19 @@ describe('Tools Integration', () => {
 
     it('should require scopeType', () => {
       expect(() => {
-        toolHandlers.add({ agentId: AGENT_ID, name: 'test' });
+        toolHandlers.add(context, { agentId: AGENT_ID, name: 'test' });
       }).toThrow(/scopeType.*required/i);
     });
 
     it('should require name', () => {
       expect(() => {
-        toolHandlers.add({ agentId: AGENT_ID, scopeType: 'global' });
+        toolHandlers.add(context, { agentId: AGENT_ID, scopeType: 'global' });
       }).toThrow(/name.*required/i);
     });
 
     it('should require scopeId for non-global scope', () => {
       expect(() => {
-        toolHandlers.add({ agentId: AGENT_ID, scopeType: 'project', name: 'test' });
+        toolHandlers.add(context, { agentId: AGENT_ID, scopeType: 'project', name: 'test' });
       }).toThrow(/scopeId.*required/i);
     });
   });
@@ -101,7 +106,7 @@ describe('Tools Integration', () => {
       const { tool } = createTestTool(db, 'update_test_tool');
       const originalVersionId = tool.currentVersionId;
 
-      const result = toolHandlers.update({
+      const result = toolHandlers.update(context, {
         agentId: AGENT_ID,
         id: tool.id,
         description: 'Updated description',
@@ -114,13 +119,13 @@ describe('Tools Integration', () => {
 
     it('should require id', () => {
       expect(() => {
-        toolHandlers.update({});
+        toolHandlers.update(context, {});
       }).toThrow(/id.*required/i);
     });
 
     it('should throw error when tool not found', () => {
       expect(() => {
-        toolHandlers.update({ agentId: AGENT_ID, id: 'non-existent' });
+        toolHandlers.update(context, { agentId: AGENT_ID, id: 'non-existent' });
       }).toThrow(/tool.*not found/i);
     });
   });
@@ -128,7 +133,7 @@ describe('Tools Integration', () => {
   describe('memory_tool_get', () => {
     it('should get tool by ID', () => {
       const { tool } = createTestTool(db, 'get_by_id_tool');
-      const result = toolHandlers.get({ agentId: AGENT_ID, id: tool.id });
+      const result = toolHandlers.get(context, { agentId: AGENT_ID, id: tool.id });
 
       expect(result.tool).toBeDefined();
       expect(result.tool.id).toBe(tool.id);
@@ -139,7 +144,7 @@ describe('Tools Integration', () => {
       const project = createTestProject(db);
       const { tool } = createTestTool(db, 'get_by_name_tool', 'project', project.id);
 
-      const result = toolHandlers.get({
+      const result = toolHandlers.get(context, {
         agentId: AGENT_ID,
         name: 'get_by_name_tool',
         scopeType: 'project',
@@ -151,7 +156,7 @@ describe('Tools Integration', () => {
 
     it('should require id or name', () => {
       expect(() => {
-        toolHandlers.get({ agentId: AGENT_ID });
+        toolHandlers.get(context, { agentId: AGENT_ID });
       }).toThrow(/id or name.*required/i);
     });
   });
@@ -163,7 +168,7 @@ describe('Tools Integration', () => {
       createTestTool(db, 'tool2', 'project', project.id);
       createTestTool(db, 'tool3', 'project', project.id);
 
-      const result = toolHandlers.list({
+      const result = toolHandlers.list(context, {
         agentId: AGENT_ID,
         scopeType: 'project',
         scopeId: project.id,
@@ -181,7 +186,7 @@ describe('Tools Integration', () => {
       createTestTool(db, 'list_test_1');
       createTestTool(db, 'list_test_2');
 
-      const result = toolHandlers.list({ agentId: AGENT_ID, limit: 10 });
+      const result = toolHandlers.list(context, { agentId: AGENT_ID, limit: 10 });
       expect(result.tools.length).toBeGreaterThan(0);
     });
 
@@ -190,7 +195,7 @@ describe('Tools Integration', () => {
       createTestTool(db, 'page2');
       createTestTool(db, 'page3');
 
-      const result = toolHandlers.list({ agentId: AGENT_ID, limit: 2, offset: 0 });
+      const result = toolHandlers.list(context, { agentId: AGENT_ID, limit: 2, offset: 0 });
       expect(result.tools.length).toBeLessThanOrEqual(2);
     });
   });
@@ -198,15 +203,15 @@ describe('Tools Integration', () => {
   describe('memory_tool_history', () => {
     it('should return version history', () => {
       const { tool } = createTestTool(db, 'history_tool');
-      toolHandlers.update({ agentId: AGENT_ID, id: tool.id, description: 'Version 2', changeReason: 'Update' });
-      toolHandlers.update({
+      toolHandlers.update(context, { agentId: AGENT_ID, id: tool.id, description: 'Version 2', changeReason: 'Update' });
+      toolHandlers.update(context, {
         agentId: AGENT_ID,
         id: tool.id,
         description: 'Version 3',
         changeReason: 'Another update',
       });
 
-      const result = toolHandlers.history({ agentId: AGENT_ID, id: tool.id });
+      const result = toolHandlers.history(context, { agentId: AGENT_ID, id: tool.id });
       expect(result.versions.length).toBeGreaterThanOrEqual(3);
       // History is ordered ascending (oldest first)
       expect(result.versions[0].versionNum).toBeLessThan(result.versions[1].versionNum);
@@ -214,7 +219,7 @@ describe('Tools Integration', () => {
 
     it('should require id', () => {
       expect(() => {
-        toolHandlers.history({ agentId: AGENT_ID } as unknown as Record<string, unknown>);
+        toolHandlers.history(context, { agentId: AGENT_ID } as unknown as Record<string, unknown>);
       }).toThrow(/id.*required/i);
     });
   });
@@ -222,16 +227,16 @@ describe('Tools Integration', () => {
   describe('memory_tool_deactivate', () => {
     it('should deactivate a tool', () => {
       const { tool } = createTestTool(db, 'deactivate_test');
-      const result = toolHandlers.deactivate({ agentId: AGENT_ID, id: tool.id });
+      const result = toolHandlers.deactivate(context, { agentId: AGENT_ID, id: tool.id });
 
       expect(result.success).toBe(true);
-      const fetched = toolHandlers.get({ agentId: AGENT_ID, id: tool.id });
+      const fetched = toolHandlers.get(context, { agentId: AGENT_ID, id: tool.id });
       expect(fetched.tool.isActive).toBe(false);
     });
 
     it('should require id', () => {
       expect(() => {
-        toolHandlers.deactivate({});
+        toolHandlers.deactivate(context, {});
       }).toThrow(/id.*required/i);
     });
   });

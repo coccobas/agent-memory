@@ -36,7 +36,13 @@ export function ingestTranscript(params: {
 
 function processTranscriptLines(
   result: { lines: string[]; nextByteOffset: number },
-  params: { sessionId: string; transcriptPath: string; projectId?: string; agentId?: string; cwd?: string },
+  params: {
+    sessionId: string;
+    transcriptPath: string;
+    projectId?: string;
+    agentId?: string;
+    cwd?: string;
+  },
   state: Record<string, unknown>,
   statePath: string,
   byteOffsetKey: string
@@ -83,4 +89,3 @@ function processTranscriptLines(
 
   return { appended, linesRead: result.lines.length };
 }
-

@@ -4,8 +4,12 @@
  * Uses the generic handler factory to eliminate code duplication.
  */
 
-import { toolRepo, type CreateToolInput, type UpdateToolInput, type ToolWithVersion } from '../../db/repositories/tools.js';
-import { createCrudHandlers } from './factory.js';
+import {
+  type CreateToolInput,
+  type UpdateToolInput,
+  type ToolWithVersion,
+} from '../../db/repositories/tools.js';
+import { createCrudHandlers, type CrudHandlers } from './factory.js';
 import {
   getRequiredParam,
   getOptionalParam,
@@ -21,6 +25,7 @@ import {
   SIZE_LIMITS,
 } from '../../services/validation.service.js';
 import type { ScopeType } from '../../db/schema.js';
+import type { AppContext } from '../../core/context.js';
 
 // Type-specific extractors for the factory
 
@@ -108,7 +113,7 @@ function extractListFilters(params: Record<string, unknown>): Record<string, unk
 // Create handlers using factory
 const baseHandlers = createCrudHandlers<ToolWithVersion, CreateToolInput, UpdateToolInput>({
   entryType: 'tool',
-  repo: toolRepo,
+  getRepo: (context: AppContext) => context.repos.tools,
   responseKey: 'tool',
   responseListKey: 'tools',
   nameField: 'name',
@@ -121,24 +126,24 @@ const baseHandlers = createCrudHandlers<ToolWithVersion, CreateToolInput, Update
 });
 
 // Export with any tool-specific overrides
-export const toolHandlers = {
+export const toolHandlers: CrudHandlers = {
   ...baseHandlers,
 
   // Override bulk_add to include size limit validation
-  bulk_add(params: Record<string, unknown>) {
+  bulk_add(context: AppContext, params: Record<string, unknown>) {
     const entries = params.entries;
     if (isArray(entries)) {
       validateArrayLength(entries, 'entries', SIZE_LIMITS.BULK_OPERATION_MAX);
     }
-    return baseHandlers.bulk_add(params);
+    return baseHandlers.bulk_add(context, params);
   },
 
   // Override bulk_update to include size limit validation
-  bulk_update(params: Record<string, unknown>) {
+  bulk_update(context: AppContext, params: Record<string, unknown>) {
     const updates = params.updates;
     if (isArray(updates)) {
       validateArrayLength(updates, 'updates', SIZE_LIMITS.BULK_OPERATION_MAX);
     }
-    return baseHandlers.bulk_update(params);
+    return baseHandlers.bulk_update(context, params);
   },
 };

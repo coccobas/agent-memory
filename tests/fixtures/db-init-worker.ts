@@ -1,4 +1,8 @@
-import { getDb, closeDb } from '../../src/db/connection.js';
+import Database from 'better-sqlite3';
+import { drizzle } from 'drizzle-orm/better-sqlite3';
+import * as schema from '../../src/db/schema.js';
+import { registerDatabase, closeDb } from '../../src/db/connection.js';
+import { initializeDatabase } from '../../src/db/init.js';
 
 const dbPath = process.argv[2];
 if (!dbPath) {
@@ -8,7 +12,20 @@ if (!dbPath) {
 }
 
 try {
-  getDb({ dbPath });
+  // Create SQLite connection
+  const sqlite = new Database(dbPath);
+  sqlite.pragma('journal_mode = WAL');
+  sqlite.pragma('foreign_keys = ON');
+
+  // Create Drizzle instance
+  const db = drizzle(sqlite, { schema });
+
+  // Register with container
+  registerDatabase(db, sqlite);
+
+  // Initialize database (run migrations)
+  initializeDatabase(sqlite, { verbose: false });
+
   // eslint-disable-next-line no-console
   console.log('ok');
   closeDb();

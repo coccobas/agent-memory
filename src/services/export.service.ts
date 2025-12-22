@@ -4,7 +4,7 @@
  * Supports exporting entries to JSON, Markdown, and YAML formats
  */
 
-import { getDb } from '../db/connection.js';
+import { getDb, type DbClient } from '../db/connection.js';
 
 // Security: Maximum entries to export per type to prevent memory exhaustion
 const MAX_EXPORT_ENTRIES_PER_TYPE = 5000;
@@ -167,7 +167,9 @@ function batchFetchRelations(
   const rows = db
     .select()
     .from(entryRelations)
-    .where(and(eq(entryRelations.sourceType, sourceType), inArray(entryRelations.sourceId, sourceIds)))
+    .where(
+      and(eq(entryRelations.sourceType, sourceType), inArray(entryRelations.sourceId, sourceIds))
+    )
     .all();
 
   for (const row of rows) {
@@ -195,10 +197,7 @@ function hasRequiredTag(entryTags: string[], requiredTags: string[]): boolean {
 /**
  * Query tools for export
  */
-function queryToolsForExport(
-  db: ReturnType<typeof getDb>,
-  options: ExportOptions
-): ExportedTool[] {
+function queryToolsForExport(db: ReturnType<typeof getDb>, options: ExportOptions): ExportedTool[] {
   const conditions = [];
 
   if (options.scopeType) {
@@ -300,7 +299,11 @@ function queryGuidelinesForExport(
   // Batch fetch versions, tags, and relations
   const allVersions =
     guidelineIds.length > 0
-      ? db.select().from(guidelineVersions).where(inArray(guidelineVersions.guidelineId, guidelineIds)).all()
+      ? db
+          .select()
+          .from(guidelineVersions)
+          .where(inArray(guidelineVersions.guidelineId, guidelineIds))
+          .all()
       : [];
   const versionsByGuidelineId = new Map<string, GuidelineVersion[]>();
   for (const v of allVersions) {
@@ -375,7 +378,11 @@ function queryKnowledgeForExport(
   // Batch fetch versions, tags, and relations
   const allVersions =
     knowledgeIds.length > 0
-      ? db.select().from(knowledgeVersions).where(inArray(knowledgeVersions.knowledgeId, knowledgeIds)).all()
+      ? db
+          .select()
+          .from(knowledgeVersions)
+          .where(inArray(knowledgeVersions.knowledgeId, knowledgeIds))
+          .all()
       : [];
   const versionsByKnowledgeId = new Map<string, KnowledgeVersion[]>();
   for (const v of allVersions) {
@@ -418,8 +425,8 @@ function queryKnowledgeForExport(
 /**
  * Query and structure entries for export (optimized with batch fetching)
  */
-function queryEntries(options: ExportOptions): ExportData {
-  const db = getDb();
+function queryEntries(options: ExportOptions, dbClient?: DbClient): ExportData {
+  const db = dbClient ?? getDb();
   const types = options.types || ['tools', 'guidelines', 'knowledge'];
 
   return {
@@ -441,8 +448,8 @@ function queryEntries(options: ExportOptions): ExportData {
 /**
  * Export entries to JSON format
  */
-export function exportToJson(options: ExportOptions = {}): ExportResult {
-  const data = queryEntries(options);
+export function exportToJson(options: ExportOptions = {}, dbClient?: DbClient): ExportResult {
+  const data = queryEntries(options, dbClient);
   const entryCount =
     data.entries.tools.length + data.entries.guidelines.length + data.entries.knowledge.length;
 
@@ -462,8 +469,8 @@ export function exportToJson(options: ExportOptions = {}): ExportResult {
 /**
  * Export entries to Markdown format (optimized: uses array.join instead of +=)
  */
-export function exportToMarkdown(options: ExportOptions = {}): ExportResult {
-  const data = queryEntries(options);
+export function exportToMarkdown(options: ExportOptions = {}, dbClient?: DbClient): ExportResult {
+  const data = queryEntries(options, dbClient);
   const parts: string[] = [];
 
   parts.push(`# Agent Memory Export\n\n`);
@@ -474,7 +481,9 @@ export function exportToMarkdown(options: ExportOptions = {}): ExportResult {
   parts.push(`**Entries:** ${entryCount}\n`);
 
   if (data.metadata.scopeType) {
-    parts.push(`**Scope:** ${data.metadata.scopeType}${data.metadata.scopeId ? ` / ${data.metadata.scopeId}` : ''}\n`);
+    parts.push(
+      `**Scope:** ${data.metadata.scopeType}${data.metadata.scopeId ? ` / ${data.metadata.scopeId}` : ''}\n`
+    );
   }
   parts.push(`\n`);
 
@@ -503,7 +512,9 @@ export function exportToMarkdown(options: ExportOptions = {}): ExportResult {
     for (const guideline of data.entries.guidelines) {
       parts.push(`### ${guideline.name}\n\n`);
       parts.push(`- **ID:** \`${guideline.id}\`\n`);
-      parts.push(`- **Scope:** ${guideline.scopeType}${guideline.scopeId ? ` / ${guideline.scopeId}` : ''}\n`);
+      parts.push(
+        `- **Scope:** ${guideline.scopeType}${guideline.scopeId ? ` / ${guideline.scopeId}` : ''}\n`
+      );
       parts.push(`- **Priority:** ${guideline.priority}\n`);
       if (guideline.category) parts.push(`- **Category:** ${guideline.category}\n`);
       if (guideline.currentVersion?.content) {
@@ -553,8 +564,8 @@ export function exportToMarkdown(options: ExportOptions = {}): ExportResult {
 /**
  * Export entries to YAML format
  */
-export function exportToYaml(options: ExportOptions = {}): ExportResult {
-  const data = queryEntries(options);
+export function exportToYaml(options: ExportOptions = {}, dbClient?: DbClient): ExportResult {
+  const data = queryEntries(options, dbClient);
   const entryCount =
     data.entries.tools.length + data.entries.guidelines.length + data.entries.knowledge.length;
 
@@ -655,8 +666,8 @@ export function exportToYaml(options: ExportOptions = {}): ExportResult {
  * Converts tool definitions to OpenAPI 3.0 specification format.
  * Only exports tools (guidelines and knowledge are not applicable to OpenAPI).
  */
-export function exportToOpenAPI(options: ExportOptions = {}): ExportResult {
-  const data = queryEntries({ ...options, types: ['tools'] }); // Only tools for OpenAPI
+export function exportToOpenAPI(options: ExportOptions = {}, dbClient?: DbClient): ExportResult {
+  const data = queryEntries({ ...options, types: ['tools'] }, dbClient); // Only tools for OpenAPI
   const entryCount = data.entries.tools.length;
 
   // Build OpenAPI 3.0 specification
@@ -783,3 +794,4 @@ export function exportToOpenAPI(options: ExportOptions = {}): ExportResult {
     },
   };
 }
+

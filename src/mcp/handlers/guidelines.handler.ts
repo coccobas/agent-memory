@@ -4,7 +4,11 @@
  * Uses the generic handler factory to eliminate code duplication.
  */
 
-import { guidelineRepo, type CreateGuidelineInput, type UpdateGuidelineInput, type GuidelineWithVersion } from '../../db/repositories/guidelines.js';
+import {
+  type CreateGuidelineInput,
+  type UpdateGuidelineInput,
+  type GuidelineWithVersion,
+} from '../../db/repositories/guidelines.js';
 import { createCrudHandlers } from './factory.js';
 import {
   getRequiredParam,
@@ -14,6 +18,7 @@ import {
   isExamplesObject,
 } from '../../utils/type-guards.js';
 import type { ScopeType } from '../../db/schema.js';
+import type { AppContext } from '../../core/context.js';
 
 // Type-specific extractors for the factory
 
@@ -96,7 +101,7 @@ export const guidelineHandlers = createCrudHandlers<
   UpdateGuidelineInput
 >({
   entryType: 'guideline',
-  repo: guidelineRepo,
+  getRepo: (context: AppContext) => context.repos.guidelines,
   responseKey: 'guideline',
   responseListKey: 'guidelines',
   nameField: 'name',

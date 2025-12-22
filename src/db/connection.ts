@@ -1,19 +1,27 @@
 /**
- * Database connection module for Agent Memory
+ * Database Connection Module for Agent Memory
  *
- * Database connection management
- * Manages SQLite connection singleton with health checks
+ * Provides database connection management via the DI container.
+ * All database access goes through the container (core/container.ts).
+ *
+ * Usage:
+ * - createAppContext() for initialization
+ * - getDb() / getSqlite() for access (requires prior initialization)
+ * - resetContainer() for test cleanup
+ * - registerDatabase() for test setup with custom DB instances
  */
 
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import * as schema from './schema.js';
-import { existsSync, mkdirSync } from 'node:fs';
-import { dirname } from 'node:path';
-import { initializeDatabase } from './init.js';
 import { createComponentLogger } from '../utils/logger.js';
-import { toLongPath, normalizePath } from '../utils/paths.js';
 import { config } from '../config/index.js';
+import {
+  isDatabaseInitialized,
+  getDatabase,
+  getSqlite as getContainerSqlite,
+  clearDatabaseRegistration,
+} from '../core/container.js';
 
 const logger = createComponentLogger('connection');
 
@@ -23,26 +31,9 @@ const logger = createComponentLogger('connection');
 
 const MAX_PREPARED_STATEMENTS = config.cache.maxPreparedStatements;
 const DEFAULT_HEALTH_CHECK_INTERVAL_MS = config.health.checkIntervalMs;
-const DEFAULT_DB_PATH = toLongPath(normalizePath(config.database.path));
-
-let dbInstance: ReturnType<typeof drizzle> | null = null;
-let sqliteInstance: Database.Database | null = null;
-let isInitialized = false;
 
 // Cache for prepared statements with LRU eviction
 const preparedStatementCache = new Map<string, Database.Statement>();
-
-/**
- * Test-only helper to bind prepared statements to an externally managed SQLite instance.
- *
- * Many unit/integration tests mock `getDb()` to point at an isolated in-memory or file DB.
- * Some code paths use prepared statements directly, which otherwise rely on the internal
- * connection singleton. This hook lets tests keep both consistent.
- */
-export function setSqliteInstanceForTests(sqlite: Database.Database | null): void {
-  sqliteInstance = sqlite;
-  preparedStatementCache.clear();
-}
 
 export interface ConnectionOptions {
   dbPath?: string;
@@ -51,120 +42,59 @@ export interface ConnectionOptions {
 }
 
 /**
- * Get or create the database connection
+ * Get the database connection from the container.
+ *
+ * @throws Error if database not initialized. Call createAppContext() first.
  */
-export function getDb(options: ConnectionOptions = {}): ReturnType<typeof drizzle> {
-  const dbPath = options.dbPath ?? DEFAULT_DB_PATH;
-
-  if (dbInstance) {
-    return dbInstance;
+export function getDb(_options: ConnectionOptions = {}): ReturnType<typeof drizzle> {
+  if (!isDatabaseInitialized()) {
+    throw new Error('Database not initialized. Call createAppContext() first.');
   }
-
-  // Ensure data directory exists
-  const dir = dirname(dbPath);
-  if (!existsSync(dir)) {
-    mkdirSync(dir, { recursive: true });
-  }
-
-  // Create SQLite connection with WAL mode for better concurrency
-  try {
-    sqliteInstance = new Database(dbPath, {
-      readonly: options.readonly ?? false,
-      timeout: config.database.busyTimeoutMs,
-    });
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-
-    // Check for common native module errors
-    if (errorMessage.includes('MODULE_NOT_FOUND') || errorMessage.includes('Cannot find module')) {
-      throw new Error(
-        `Failed to load better-sqlite3 native module.\n` +
-          `Error: ${errorMessage}\n\n` +
-          `This is usually caused by:\n` +
-          `1. Missing native bindings for your platform (${process.platform}/${process.arch})\n` +
-          `2. Node.js version mismatch (currently ${process.version})\n` +
-          `3. Architecture mismatch\n\n` +
-          `Solutions:\n` +
-          `- Run: npm rebuild better-sqlite3\n` +
-          `- Or reinstall: npm install --force better-sqlite3`
-      );
-    }
-
-    // Re-throw with additional context
-    throw new Error(`Failed to create database connection: ${errorMessage}`);
-  }
-
-  // Enable WAL mode for better concurrent access
-  sqliteInstance.pragma('journal_mode = WAL');
-
-  // Enable foreign keys
-  sqliteInstance.pragma('foreign_keys = ON');
-
-  // Wait for locks instead of failing fast (important for multi-process startup and migrations)
-  sqliteInstance.pragma(`busy_timeout = ${config.database.busyTimeoutMs}`);
-
-  // Auto-initialize database schema if not already done
-  const shouldSkipInit = options.skipInit ?? config.database.skipInit;
-  if (!shouldSkipInit && !isInitialized && !options.readonly) {
-    const result = initializeDatabase(sqliteInstance, { verbose: config.database.verbose });
-
-    if (!result.success) {
-      logger.error({ errors: result.errors }, 'Database initialization failed');
-      throw new Error(`Database initialization failed: ${result.errors.join(', ')}`);
-    }
-
-    if (config.database.verbose && result.migrationsApplied.length > 0) {
-      logger.info(
-        { migrations: result.migrationsApplied, count: result.migrationsApplied.length },
-        'Applied migrations'
-      );
-    }
-
-    isInitialized = true;
-  }
-
-  // Create Drizzle instance with schema
-  dbInstance = drizzle(sqliteInstance, { schema });
-
-  return dbInstance;
+  return getDatabase() as ReturnType<typeof drizzle>;
 }
 
 /**
- * Close the database connection
+ * Close the database connection and clear the container registration.
  */
 export function closeDb(): void {
-  if (sqliteInstance) {
-    sqliteInstance.close();
-    sqliteInstance = null;
-    dbInstance = null;
-    isInitialized = false; // Reset initialization flag
+  if (isDatabaseInitialized()) {
+    try {
+      const sqlite = getContainerSqlite();
+      sqlite.close();
+    } catch {
+      // Ignore close errors
+    }
     preparedStatementCache.clear();
     stopHealthCheckInterval();
   }
+  clearDatabaseRegistration();
 }
 
 /**
- * Get the raw SQLite instance for direct operations
+ * Get the raw SQLite instance from the container.
+ *
+ * @throws Error if database not initialized.
  */
 export function getSqlite(): Database.Database {
-  if (!sqliteInstance) {
-    getDb(); // Initialize if not already done
+  if (!isDatabaseInitialized()) {
+    throw new Error('Database not initialized. Call createAppContext() first.');
   }
-  if (!sqliteInstance) {
-    throw new Error('Failed to initialize database connection');
-  }
-  return sqliteInstance;
+  return getContainerSqlite();
 }
 
 /**
  * Check if the database connection is healthy
  */
 export function isDbHealthy(): boolean {
-  if (!sqliteInstance || !sqliteInstance.open) {
+  if (!isDatabaseInitialized()) {
     return false;
   }
   try {
-    sqliteInstance.prepare('SELECT 1').get();
+    const sqlite = getContainerSqlite();
+    if (!sqlite.open) {
+      return false;
+    }
+    sqlite.prepare('SELECT 1').get();
     return true;
   } catch (error) {
     logger.warn({ error }, 'Database health check failed');
@@ -172,77 +102,18 @@ export function isDbHealthy(): boolean {
   }
 }
 
-const MAX_RECONNECT_ATTEMPTS = config.health.maxReconnectAttempts;
-const RECONNECT_BASE_DELAY_MS = config.health.reconnectBaseDelayMs;
-const RECONNECT_MAX_DELAY_MS = config.health.reconnectMaxDelayMs;
-
-/**
- * Attempt to reconnect to the database with exponential backoff
- * Uses iterative approach to avoid stack overflow risk
- */
-export async function attemptReconnect(options: ConnectionOptions = {}): Promise<boolean> {
-  for (let attempt = 1; attempt <= MAX_RECONNECT_ATTEMPTS; attempt++) {
-    logger.info(
-      { attempt, maxAttempts: MAX_RECONNECT_ATTEMPTS },
-      'Attempting to reconnect to database...'
-    );
-
-    try {
-      closeDb();
-
-      // Wait briefly before reconnecting (exponential backoff)
-      const delay = Math.min(
-        RECONNECT_BASE_DELAY_MS * Math.pow(2, attempt - 1),
-        RECONNECT_MAX_DELAY_MS
-      );
-      await new Promise((resolve) => setTimeout(resolve, delay));
-
-      getDb(options);
-
-      if (isDbHealthy()) {
-        logger.info({ attempt }, 'Successfully reconnected to database');
-        return true;
-      }
-
-      logger.warn({ attempt }, 'Reconnect succeeded but health check failed');
-    } catch (error) {
-      logger.error({ error, attempt }, 'Reconnect attempt failed');
-    }
-  }
-
-  logger.error(
-    { maxAttempts: MAX_RECONNECT_ATTEMPTS },
-    'Max reconnect attempts reached, giving up'
-  );
-  return false;
-}
-
-/**
- * Get DB instance ensuring it is healthy
- */
-export async function getDbWithHealthCheck(
-  options: ConnectionOptions = {}
-): Promise<ReturnType<typeof drizzle>> {
-  if (!isDbHealthy()) {
-    const reconnected = await attemptReconnect(options);
-    if (!reconnected) {
-      throw new Error('Database connection failed and could not reconnect');
-    }
-  }
-  return getDb(options);
-}
-
 let healthCheckInterval: NodeJS.Timeout | null = null;
 
+/**
+ * Start periodic health check.
+ * Logs a warning if the database becomes unhealthy.
+ */
 export function startHealthCheckInterval(intervalMs = DEFAULT_HEALTH_CHECK_INTERVAL_MS): void {
   if (healthCheckInterval) return;
 
   healthCheckInterval = setInterval(() => {
     if (!isDbHealthy()) {
-      logger.warn('Background health check failed, triggering reconnect');
-      attemptReconnect().catch((err) => {
-        logger.error({ error: err }, 'Background reconnect failed');
-      });
+      logger.warn('Database health check failed');
     }
   }, intervalMs);
 
@@ -291,12 +162,29 @@ export function getPreparedStatement(sql: string): Database.Statement {
 }
 
 /**
- * Run a transaction
+ * Run a transaction with explicit sqlite instance (DI pattern)
+ *
+ * @param sqlite - The better-sqlite3 database instance
+ * @param fn - The function to run in a transaction
  */
-export function transaction<T>(fn: () => T): T {
-  const sqlite = getSqlite();
+export function transactionWithDb<T>(sqlite: Database.Database, fn: () => T): T {
   return sqlite.transaction(fn)();
+}
+
+/**
+ * Clear the prepared statement cache.
+ * Useful for tests when switching database instances.
+ */
+export function clearPreparedStatementCache(): void {
+  preparedStatementCache.clear();
 }
 
 export { schema };
 export type DbClient = ReturnType<typeof drizzle>;
+
+// =============================================================================
+// CONTAINER RE-EXPORTS
+// =============================================================================
+
+// Re-export container functions for convenience (including registerDatabase for tests)
+export { resetContainer, isContainerInitialized, registerDatabase } from '../core/container.js';

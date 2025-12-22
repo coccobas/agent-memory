@@ -20,12 +20,7 @@ const logger = createComponentLogger('extraction');
 const MAX_CONTEXT_LENGTH = 100000; // 100KB limit
 
 // Security: Allowed OpenAI-compatible hosts (add your approved hosts here)
-const ALLOWED_OPENAI_HOSTS = [
-  'api.openai.com',
-  'api.anthropic.com',
-  'localhost',
-  '127.0.0.1',
-];
+const ALLOWED_OPENAI_HOSTS = ['api.openai.com', 'api.anthropic.com', 'localhost', '127.0.0.1'];
 
 /**
  * Validate URL for SSRF protection.
@@ -58,9 +53,7 @@ function validateExternalUrl(urlString: string, allowPrivate: boolean = false): 
 
     for (const pattern of privatePatterns) {
       if (pattern.test(hostname)) {
-        throw new Error(
-          `SSRF protection: Private/internal addresses not allowed: ${hostname}`
-        );
+        throw new Error(`SSRF protection: Private/internal addresses not allowed: ${hostname}`);
       }
     }
   }
@@ -302,10 +295,25 @@ function buildUserPrompt(input: ExtractionInput): string {
 // EXTRACTION SERVICE
 // =============================================================================
 
+/**
+ * Configuration for ExtractionService
+ * Allows explicit dependency injection instead of relying on global config
+ */
+export interface ExtractionServiceConfig {
+  provider: ExtractionProvider;
+  openaiApiKey?: string;
+  openaiModel: string;
+  openaiBaseUrl?: string;
+  anthropicApiKey?: string;
+  anthropicModel: string;
+  ollamaBaseUrl: string;
+  ollamaModel: string;
+}
+
 // Track if we've already warned about missing API keys (avoid spam in tests)
 let hasWarnedAboutProvider = false;
 
-class ExtractionService {
+export class ExtractionService {
   private provider: ExtractionProvider;
   private openaiClient: OpenAI | null = null;
   private anthropicClient: Anthropic | null = null;
@@ -314,9 +322,24 @@ class ExtractionService {
   private ollamaBaseUrl: string;
   private ollamaModel: string;
 
-  constructor() {
-    // Get provider from centralized config
-    this.provider = config.extraction.provider;
+  /**
+   * Create an ExtractionService instance
+   * @param serviceConfig - Optional explicit configuration. If not provided, uses global config.
+   */
+  constructor(serviceConfig?: ExtractionServiceConfig) {
+    // Use explicit config if provided, otherwise fall back to global config
+    const effectiveConfig: ExtractionServiceConfig = serviceConfig ?? {
+      provider: config.extraction.provider,
+      openaiApiKey: config.extraction.openaiApiKey,
+      openaiModel: config.extraction.openaiModel,
+      openaiBaseUrl: config.extraction.openaiBaseUrl,
+      anthropicApiKey: config.extraction.anthropicApiKey,
+      anthropicModel: config.extraction.anthropicModel,
+      ollamaBaseUrl: config.extraction.ollamaBaseUrl,
+      ollamaModel: config.extraction.ollamaModel,
+    };
+
+    this.provider = effectiveConfig.provider;
 
     // Warn once if disabled
     if (this.provider === 'disabled' && !hasWarnedAboutProvider) {
@@ -326,12 +349,12 @@ class ExtractionService {
       hasWarnedAboutProvider = true;
     }
 
-    this.openaiModel = config.extraction.openaiModel;
-    this.anthropicModel = config.extraction.anthropicModel;
-    this.ollamaBaseUrl = config.extraction.ollamaBaseUrl;
+    this.openaiModel = effectiveConfig.openaiModel;
+    this.anthropicModel = effectiveConfig.anthropicModel;
+    this.ollamaBaseUrl = effectiveConfig.ollamaBaseUrl;
 
     // Security: Validate Ollama model name to prevent injection
-    const rawOllamaModel = config.extraction.ollamaModel;
+    const rawOllamaModel = effectiveConfig.ollamaModel;
     if (!isValidModelName(rawOllamaModel)) {
       throw new Error(
         `Invalid Ollama model name: "${rawOllamaModel}". ` +
@@ -341,22 +364,22 @@ class ExtractionService {
     this.ollamaModel = rawOllamaModel;
 
     // Initialize OpenAI client if using OpenAI (or OpenAI-compatible like LM Studio)
-    if (this.provider === 'openai' && config.extraction.openaiApiKey) {
+    if (this.provider === 'openai' && effectiveConfig.openaiApiKey) {
       // Security: Validate custom base URL to prevent credential exposure
-      validateOpenAIBaseUrl(config.extraction.openaiBaseUrl);
+      validateOpenAIBaseUrl(effectiveConfig.openaiBaseUrl);
 
       this.openaiClient = new OpenAI({
-        apiKey: config.extraction.openaiApiKey,
-        baseURL: config.extraction.openaiBaseUrl || undefined,
+        apiKey: effectiveConfig.openaiApiKey,
+        baseURL: effectiveConfig.openaiBaseUrl || undefined,
         timeout: 120000, // 120 second timeout for LLM calls (can be longer than embeddings)
         maxRetries: 0, // Disable SDK retry - we handle retries with withRetry
       });
     }
 
     // Initialize Anthropic client if using Anthropic
-    if (this.provider === 'anthropic' && config.extraction.anthropicApiKey) {
+    if (this.provider === 'anthropic' && effectiveConfig.anthropicApiKey) {
       this.anthropicClient = new Anthropic({
-        apiKey: config.extraction.anthropicApiKey,
+        apiKey: effectiveConfig.anthropicApiKey,
         timeout: 120000, // 120 second timeout
         maxRetries: 0, // Disable SDK retry
       });
@@ -555,7 +578,9 @@ class ExtractionService {
 
         const timeoutMsRaw = process.env.AGENT_MEMORY_OLLAMA_TIMEOUT_MS;
         const timeoutMs =
-          timeoutMsRaw && !Number.isNaN(Number(timeoutMsRaw)) ? Math.max(1000, Number(timeoutMsRaw)) : 30000;
+          timeoutMsRaw && !Number.isNaN(Number(timeoutMsRaw))
+            ? Math.max(1000, Number(timeoutMsRaw))
+            : 30000;
 
         const response = await fetch(url, {
           method: 'POST',
@@ -581,13 +606,17 @@ class ExtractionService {
         const contentLength = response.headers.get('content-length');
         const maxResponseSize = 10 * 1024 * 1024; // 10MB max response
         if (contentLength && parseInt(contentLength, 10) > maxResponseSize) {
-          throw new Error(`Ollama response too large: ${contentLength} bytes (max ${maxResponseSize})`);
+          throw new Error(
+            `Ollama response too large: ${contentLength} bytes (max ${maxResponseSize})`
+          );
         }
 
         // Read response as text first to check size
         const responseText = await response.text();
         if (responseText.length > maxResponseSize) {
-          throw new Error(`Ollama response too large: ${responseText.length} bytes (max ${maxResponseSize})`);
+          throw new Error(
+            `Ollama response too large: ${responseText.length} bytes (max ${maxResponseSize})`
+          );
         }
 
         const data = JSON.parse(responseText) as { response: string };

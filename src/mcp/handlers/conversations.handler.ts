@@ -5,7 +5,7 @@
 import { conversationRepo } from '../../db/repositories/conversations.js';
 import { logAction } from '../../services/audit.service.js';
 import { generateConversationSummary } from '../../services/conversation.service.js';
-import { createValidationError, createNotFoundError } from '../errors.js';
+import { createValidationError, createNotFoundError } from '../../core/errors.js';
 import type { ConversationContext } from '../../db/schema.js';
 import {
   getRequiredParam,

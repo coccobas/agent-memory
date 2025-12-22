@@ -13,6 +13,7 @@
  */
 
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
+import type { AppContext } from '../../core/context.js';
 
 // =============================================================================
 // PARAM SCHEMA TYPES
@@ -53,6 +54,15 @@ export type ActionHandler<TParams = Record<string, unknown>, TResult = unknown> 
   params: TParams
 ) => TResult | Promise<TResult>;
 
+/**
+ * Context-aware action handler function type
+ * Handlers receive context and params, allowing dependency injection
+ */
+export type ContextAwareHandler<TParams = Record<string, unknown>, TResult = unknown> = (
+  context: AppContext,
+  params: TParams
+) => TResult | Promise<TResult>;
+
 // =============================================================================
 // ACTION DESCRIPTOR
 // =============================================================================
@@ -73,9 +83,16 @@ export interface ActionDescriptor<TParams = Record<string, unknown>> {
   required?: readonly string[];
 
   /**
-   * Handler function for this action
+   * Handler function for this action (legacy: params only)
+   * @deprecated Use contextHandler for DI-aware handlers
    */
-  handler: ActionHandler<TParams>;
+  handler?: ActionHandler<TParams>;
+
+  /**
+   * Context-aware handler function for this action
+   * Receives AppContext for dependency injection
+   */
+  contextHandler?: ContextAwareHandler<TParams>;
 }
 
 // =============================================================================
@@ -141,7 +158,16 @@ export interface SimpleToolDescriptor {
   description: string;
   params?: ParamSchemas;
   required?: readonly string[];
-  handler: ActionHandler;
+  /**
+   * Handler function (legacy: params only)
+   * @deprecated Use contextHandler for DI-aware handlers
+   */
+  handler?: ActionHandler;
+  /**
+   * Context-aware handler function
+   * Receives AppContext for dependency injection
+   */
+  contextHandler?: ContextAwareHandler;
 }
 
 /**
@@ -165,9 +191,7 @@ export function isActionBasedDescriptor(
 /**
  * Convert ParamSchemas to JSONSchema properties format
  */
-function toJsonSchemaProperties(
-  params: ParamSchemas
-): Record<string, Record<string, unknown>> {
+function toJsonSchemaProperties(params: ParamSchemas): Record<string, Record<string, unknown>> {
   const properties: Record<string, Record<string, unknown>> = {};
 
   for (const [name, schema] of Object.entries(params)) {
@@ -252,23 +276,37 @@ export function descriptorToTool(descriptor: AnyToolDescriptor): Tool {
 }
 
 /**
- * Generate action dispatcher from a ToolDescriptor
+ * Context-aware handler type returned by descriptorToHandler
  */
-export function descriptorToHandler(
-  descriptor: AnyToolDescriptor
-): (params: Record<string, unknown>) => unknown {
+export type GeneratedHandler = (
+  context: AppContext,
+  params: Record<string, unknown>
+) => unknown | Promise<unknown>;
+
+/**
+ * Generate action dispatcher from a ToolDescriptor
+ * Returns a context-aware handler that supports both legacy and new handler formats
+ */
+export function descriptorToHandler(descriptor: AnyToolDescriptor): GeneratedHandler {
   if (!isActionBasedDescriptor(descriptor)) {
-    // Simple tool - just call the handler
-    return descriptor.handler;
+    // Simple tool - prefer contextHandler, fall back to legacy handler
+    return (context: AppContext, params: Record<string, unknown>) => {
+      if (descriptor.contextHandler) {
+        return descriptor.contextHandler(context, params);
+      }
+      if (descriptor.handler) {
+        return descriptor.handler(params);
+      }
+      throw new Error(`No handler defined for ${descriptor.name}`);
+    };
   }
 
   // Action-based tool - route by action
-  return (params: Record<string, unknown>) => {
+  return (context: AppContext, params: Record<string, unknown>) => {
     const { action, ...rest } = params;
     const actionDef = descriptor.actions[action as string];
 
     if (!actionDef) {
-      // Import dynamically to avoid circular deps
       const validActions = Object.keys(descriptor.actions);
       throw new Error(
         `Invalid action "${action}" for ${descriptor.name}. ` +
@@ -276,7 +314,14 @@ export function descriptorToHandler(
       );
     }
 
-    return actionDef.handler(rest);
+    // Prefer contextHandler, fall back to legacy handler
+    if (actionDef.contextHandler) {
+      return actionDef.contextHandler(context, rest);
+    }
+    if (actionDef.handler) {
+      return actionDef.handler(rest);
+    }
+    throw new Error(`No handler defined for action "${action}" in ${descriptor.name}`);
   };
 }
 
@@ -285,10 +330,10 @@ export function descriptorToHandler(
  */
 export function generateFromDescriptors(descriptors: AnyToolDescriptor[]): {
   tools: Tool[];
-  handlers: Record<string, (params: Record<string, unknown>) => unknown>;
+  handlers: Record<string, GeneratedHandler>;
 } {
   const tools: Tool[] = [];
-  const handlers: Record<string, (params: Record<string, unknown>) => unknown> = {};
+  const handlers: Record<string, GeneratedHandler> = {};
 
   for (const descriptor of descriptors) {
     tools.push(descriptorToTool(descriptor));

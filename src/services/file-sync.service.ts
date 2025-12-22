@@ -5,6 +5,7 @@
  */
 
 import { homedir } from 'node:os';
+import { resolve } from 'node:path';
 
 // Re-export from modular files
 import { loadIgnorePatterns, shouldIgnore } from './file-sync/ignore.js';
@@ -51,10 +52,17 @@ export {
  * Get user's home directory
  */
 export function getUserHomeDir(): string {
-  return homedir();
+  const isTest = process.env.NODE_ENV === 'test' || process.env.VITEST !== undefined;
+  return isTest ? resolve(process.cwd(), 'data/test-home') : homedir();
 }
 
-export { loadIgnorePatterns, shouldIgnore, findMarkdownFiles, convertToMdc, concatenateForSingleMd };
+export {
+  loadIgnorePatterns,
+  shouldIgnore,
+  findMarkdownFiles,
+  convertToMdc,
+  concatenateForSingleMd,
+};
 
 export { createBackup, cleanupBackups };
 

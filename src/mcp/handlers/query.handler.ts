@@ -2,7 +2,8 @@
  * Cross-reference query handler
  */
 
-import { executeMemoryQuery, executeMemoryQueryAsync } from '../../services/query.service.js';
+import { executeQueryPipeline } from '../../services/query/index.js';
+import { getContext } from '../../core/container.js';
 import { logAction } from '../../services/audit.service.js';
 import { autoLinkContextFromQuery } from '../../services/conversation.service.js';
 import { checkPermission } from '../../services/permission.service.js';
@@ -21,7 +22,7 @@ import {
   isArrayOfStrings,
 } from '../../utils/type-guards.js';
 import { formatTimestamps } from '../../utils/timestamp-formatter.js';
-import { createPermissionError, createValidationError } from '../errors.js';
+import { createPermissionError, createValidationError } from '../../core/errors.js';
 
 const queryTypeToEntryType = {
   tools: 'tool',
@@ -35,8 +36,8 @@ function isQueryType(value: string): value is keyof typeof queryTypeToEntryType 
 
 export const queryHandlers = {
   async query(params: Record<string, unknown>) {
-    // Extract agent-specific params
-    const agentId = getRequiredParam(params, 'agentId', isString);
+    // Extract agent-specific params (agentId optional for read operations)
+    const agentId = getOptionalParam(params, 'agentId', isString);
     const conversationId = getOptionalParam(params, 'conversationId', isString);
     const messageId = getOptionalParam(params, 'messageId', isString);
     const autoLinkContext = getOptionalParam(params, 'autoLinkContext', isBoolean);
@@ -61,11 +62,16 @@ export const queryHandlers = {
 
     // Build query params object (excluding agent-specific fields)
     const requestedTypesRaw = getOptionalParam(params, 'types', isArrayOfStrings);
-    const requestedTypes = requestedTypesRaw
-      ? requestedTypesRaw.filter(isQueryType)
-      : undefined;
-    if (requestedTypesRaw && (!requestedTypes || requestedTypes.length !== requestedTypesRaw.length)) {
-      throw createValidationError('types', 'contains invalid values', 'Use tools, guidelines, knowledge');
+    const requestedTypes = requestedTypesRaw ? requestedTypesRaw.filter(isQueryType) : undefined;
+    if (
+      requestedTypesRaw &&
+      (!requestedTypes || requestedTypes.length !== requestedTypesRaw.length)
+    ) {
+      throw createValidationError(
+        'types',
+        'contains invalid values',
+        'Use tools, guidelines, knowledge'
+      );
     }
 
     const queryParamsWithoutAgent: MemoryQueryParams = {
@@ -114,7 +120,10 @@ export const queryHandlers = {
     );
 
     if (requestedTypes && deniedTypes.length > 0) {
-      throw createPermissionError('read', deniedTypes.map((t) => queryTypeToEntryType[t]).join(','));
+      throw createPermissionError(
+        'read',
+        deniedTypes.map((t) => queryTypeToEntryType[t]).join(',')
+      );
     }
 
     // If types omitted, filter to allowed ones
@@ -126,15 +135,9 @@ export const queryHandlers = {
       queryParamsWithoutAgent.types = [...allowedTypes];
     }
 
-    // Use async version if semantic search is requested (or default enabled)
-    // Note: FTS5 and semantic search can work together - FTS5 for fast text filtering,
-    // semantic search for similarity scoring
-    const useAsync =
-      queryParamsWithoutAgent.semanticSearch !== false && queryParamsWithoutAgent.search;
-
-    const result = useAsync
-      ? await executeMemoryQueryAsync(queryParamsWithoutAgent)
-      : executeMemoryQuery(queryParamsWithoutAgent);
+    // Execute query using the modular pipeline with context-injected dependencies
+    const context = getContext();
+    const result = await executeQueryPipeline(queryParamsWithoutAgent, context.queryDeps);
 
     // Auto-link results to conversation if conversationId provided
     if (conversationId && autoLinkContext !== false) {
@@ -164,8 +167,6 @@ export const queryHandlers = {
    * Convenience wrapper that returns aggregated context for a scope.
    * It queries tools, guidelines, and knowledge with inheritance enabled
    * and groups results by type.
-   *
-   * Note: Uses async version to support semantic search if enabled.
    */
   async context(params: Record<string, unknown>) {
     const scopeType = getRequiredParam(params, 'scopeType', isScopeType);
@@ -173,7 +174,8 @@ export const queryHandlers = {
     const inherit = getOptionalParam(params, 'inherit', isBoolean) ?? true;
     const compact = getOptionalParam(params, 'compact', isBoolean) ?? false;
     const limitPerType = getOptionalParam(params, 'limitPerType', isNumber);
-    const agentId = getRequiredParam(params, 'agentId', isString);
+    // agentId optional for read operations
+    const agentId = getOptionalParam(params, 'agentId', isString);
     const semanticSearch = getOptionalParam(params, 'semanticSearch', isBoolean);
     const search = getOptionalParam(params, 'search', isString);
 
@@ -185,8 +187,8 @@ export const queryHandlers = {
       throw createPermissionError('read', 'memory');
     }
 
-    // Use async version for consistency and semantic search support
-    const result = await executeMemoryQueryAsync({
+    // Query parameters for context
+    const queryParams: MemoryQueryParams = {
       types: [...allowedTypes],
       scope: {
         type: scopeType,
@@ -197,7 +199,11 @@ export const queryHandlers = {
       limit: limitPerType,
       search,
       semanticSearch,
-    });
+    };
+
+    // Execute query using the modular pipeline with context-injected dependencies
+    const context = getContext();
+    const result = await executeQueryPipeline(queryParams, context.queryDeps);
 
     const tools = result.results.filter((r) => r.type === 'tool');
     const guidelines = result.results.filter((r) => r.type === 'guideline');

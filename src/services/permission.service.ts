@@ -2,10 +2,10 @@
  * Permission service for fine-grained access control
  *
  * Default behavior: If no permissions are configured, access is DENIED (secure by default).
- * Set AGENT_MEMORY_PERMISSIONS_MODE=permissive for legacy backward-compatible behavior.
+ * Set AGENT_MEMORY_PERMISSIONS_MODE=permissive to allow all operations without explicit grants.
  */
 
-import { getDb } from '../db/connection.js';
+import { getDb, type DbClient } from '../db/connection.js';
 import { permissions, projects, sessions } from '../db/schema.js';
 import { eq, and, or, isNull } from 'drizzle-orm';
 import type { ScopeType, PermissionEntryType, EntryType } from '../db/schema.js';
@@ -30,18 +30,23 @@ const PERMISSIONS_EXIST_CACHE_TTL_MS = 30 * 1000; // 30 seconds
 /**
  * Check if any permissions exist in the database (cached)
  * Returns true if at least one permission record exists
+ *
+ * @param dbClient - Optional database client (defaults to getDb() for backward compatibility)
  */
-function checkPermissionsExist(): boolean {
+function checkPermissionsExist(dbClient?: DbClient): boolean {
   const now = Date.now();
 
   // Return cached value if still valid
-  if (permissionsExistCache && now - permissionsExistCache.timestamp < PERMISSIONS_EXIST_CACHE_TTL_MS) {
+  if (
+    permissionsExistCache &&
+    now - permissionsExistCache.timestamp < PERMISSIONS_EXIST_CACHE_TTL_MS
+  ) {
     return permissionsExistCache.value;
   }
 
   // Query database
   try {
-    const db = getDb();
+    const db = dbClient ?? getDb();
     const permCount = db.select().from(permissions).limit(1).all().length;
     const exists = permCount > 0;
 
@@ -72,10 +77,15 @@ function invalidatePermissionsExistCache(): void {
  * Returns the parent scope type and ID, or null if at global level
  *
  * Uses LRU cache to avoid repeated DB queries for the same scope.
+ *
+ * @param scopeType - The scope type
+ * @param scopeId - The scope ID
+ * @param dbClient - Optional database client (defaults to getDb() for backward compatibility)
  */
 function getParentScope(
   scopeType: ScopeType,
-  scopeId: string | null | undefined
+  scopeId: string | null | undefined,
+  dbClient?: DbClient
 ): { type: ScopeType; id: string | null } | null {
   if (scopeType === 'global') {
     return null; // Global has no parent
@@ -88,12 +98,12 @@ function getParentScope(
     return cached;
   }
 
+  const db = dbClient ?? getDb();
   let result: { type: ScopeType; id: string | null } | null = null;
 
   if (scopeType === 'session' && scopeId) {
     // Session's parent is project (get from session record)
     try {
-      const db = getDb();
       const session = db.select().from(sessions).where(eq(sessions.id, scopeId)).get();
       if (session?.projectId) {
         result = { type: 'project', id: session.projectId };
@@ -108,7 +118,6 @@ function getParentScope(
   } else if (scopeType === 'project' && scopeId) {
     // Project's parent is org (get from project record)
     try {
-      const db = getDb();
       const project = db.select().from(projects).where(eq(projects.id, scopeId)).get();
       if (project?.orgId) {
         result = { type: 'org', id: project.orgId };
@@ -136,10 +145,15 @@ function getParentScope(
 /**
  * Build scope chain for inheritance checking
  * Returns array of scopes from most specific to least specific (global)
+ *
+ * @param scopeType - The scope type
+ * @param scopeId - The scope ID
+ * @param dbClient - Optional database client (defaults to getDb() for backward compatibility)
  */
 function buildScopeChain(
   scopeType: ScopeType,
-  scopeId: string | null | undefined
+  scopeId: string | null | undefined,
+  dbClient?: DbClient
 ): Array<{ type: ScopeType; id: string | null }> {
   const chain: Array<{ type: ScopeType; id: string | null }> = [];
 
@@ -147,9 +161,12 @@ function buildScopeChain(
   chain.push({ type: scopeType, id: scopeId ?? null });
 
   // Walk up the hierarchy
-  let current: { type: ScopeType; id: string | null } | null = { type: scopeType, id: scopeId ?? null };
+  let current: { type: ScopeType; id: string | null } | null = {
+    type: scopeType,
+    id: scopeId ?? null,
+  };
   while (current && current.type !== 'global') {
-    const parent = getParentScope(current.type, current.id);
+    const parent = getParentScope(current.type, current.id, dbClient);
     if (parent && !chain.some((s) => s.type === parent.type && s.id === parent.id)) {
       chain.push(parent);
       current = parent;
@@ -175,6 +192,24 @@ export type PermissionLevel = 'read' | 'write' | 'admin';
 export type Action = 'read' | 'write' | 'delete';
 
 /**
+ * Permission hierarchy: admin > write > read
+ * Higher numbers grant access to lower-numbered actions.
+ */
+const PERMISSION_HIERARCHY: Record<PermissionLevel, number> = {
+  read: 1,
+  write: 2,
+  admin: 3,
+};
+
+/**
+ * Check if a granted permission level satisfies the required level.
+ * admin grants all, write grants write+read, read grants only read.
+ */
+function hasRequiredLevel(granted: PermissionLevel, required: PermissionLevel): boolean {
+  return PERMISSION_HIERARCHY[granted] >= PERMISSION_HIERARCHY[required];
+}
+
+/**
  * Check if an agent has permission to perform an action
  *
  * Permission hierarchy:
@@ -192,6 +227,7 @@ export type Action = 'read' | 'write' | 'delete';
  * @param entryId - The entry ID (optional, for entry-specific permissions)
  * @param scopeType - The scope type
  * @param scopeId - The scope ID (optional)
+ * @param dbClient - Optional database client (defaults to getDb() for backward compatibility)
  * @returns true if the agent has permission, false otherwise
  */
 export function checkPermission(
@@ -200,19 +236,10 @@ export function checkPermission(
   entryType: EntryType,
   entryId: string | null | undefined,
   scopeType: ScopeType,
-  scopeId: string | null | undefined
+  scopeId: string | null | undefined,
+  dbClient?: DbClient
 ): boolean {
-  // If no agentId provided, deny access (security by default)
-  if (!agentId) {
-    return false;
-  }
-
-  // Filter out 'project' from entryType as it's not supported in permissions schema
-  if (entryType === 'project') {
-    return true; // Default to allow for project entries
-  }
-
-  // Check for permissive mode - this always takes precedence
+  // Check for permissive mode first - this always takes precedence
   const permissiveMode = process.env.AGENT_MEMORY_PERMISSIONS_MODE === 'permissive';
   if (permissiveMode) {
     // Security: Warn once about permissive mode being active
@@ -227,8 +254,20 @@ export function checkPermission(
     return true;
   }
 
+  // If no agentId provided, deny access (security by default)
+  if (!agentId) {
+    return false;
+  }
+
+  // Filter out 'project' from entryType as it's not supported in permissions schema
+  if (entryType === 'project') {
+    return true; // Default to allow for project entries
+  }
+
+  const db = dbClient ?? getDb();
+
   // Check if any permissions exist (cached to avoid DB query on every check)
-  if (!checkPermissionsExist()) {
+  if (!checkPermissionsExist(db)) {
     // No permissions configured - deny access (secure by default)
     // To allow access without explicit permissions, set AGENT_MEMORY_PERMISSIONS_MODE=permissive
     logger.debug(
@@ -238,14 +277,12 @@ export function checkPermission(
     return false;
   }
 
-  const db = getDb();
-
   // Map action to required permission level
   const requiredPermission: PermissionLevel =
     action === 'read' ? 'read' : action === 'write' ? 'write' : 'admin';
 
   // Build scope chain for inheritance (most specific to least specific)
-  const scopeChain = buildScopeChain(scopeType, scopeId);
+  const scopeChain = buildScopeChain(scopeType, scopeId, db);
 
   // Build permission check query
   // Check in order of specificity:
@@ -301,18 +338,20 @@ export function checkPermission(
   for (const perm of matchingPerms) {
     const permLevel = perm.permission as PermissionLevel;
 
-    // Check permission hierarchy
-    if (requiredPermission === 'read' && permLevel === 'read') return true;
-    if (requiredPermission === 'read' && permLevel === 'write') return true;
-    if (requiredPermission === 'read' && permLevel === 'admin') return true;
-    if (requiredPermission === 'write' && permLevel === 'write') return true;
-    if (requiredPermission === 'write' && permLevel === 'admin') return true;
-    if (requiredPermission === 'admin' && permLevel === 'admin') return true;
+    // Check permission hierarchy using lookup table
+    if (hasRequiredLevel(permLevel, requiredPermission)) {
+      return true;
+    }
   }
 
   // Agent has permissions but not at the required level
   logger.debug(
-    { agentId, action, requiredPermission, foundPermissions: matchingPerms.map((p) => p.permission) },
+    {
+      agentId,
+      action,
+      requiredPermission,
+      foundPermissions: matchingPerms.map((p) => p.permission),
+    },
     'Access denied: agent has permissions but not at required level'
   );
   return false;
@@ -320,21 +359,27 @@ export function checkPermission(
 
 /**
  * Grant permission to an agent
+ *
+ * @param params - Permission parameters
+ * @param dbClient - Optional database client (defaults to getDb() for backward compatibility)
  */
-export function grantPermission(params: {
-  agentId: string;
-  scopeType?: ScopeType;
-  scopeId?: string | null;
-  entryType?: EntryType;
-  entryId?: string | null;
-  permission: PermissionLevel;
-}): void {
+export function grantPermission(
+  params: {
+    agentId: string;
+    scopeType?: ScopeType;
+    scopeId?: string | null;
+    entryType?: EntryType;
+    entryId?: string | null;
+    permission: PermissionLevel;
+  },
+  dbClient?: DbClient
+): void {
   // Filter out 'project' from entryType as it's not supported in permissions schema
   if (params.entryType === 'project') {
     return; // Skip granting permissions for project entries
   }
 
-  const db = getDb();
+  const db = dbClient ?? getDb();
   const id = `${params.agentId}:${params.scopeType ?? 'global'}:${params.scopeId ?? ''}:${params.entryType ?? '*'}:${params.entryId ?? '*'}:${params.permission}`;
 
   // After early return, entryType can't be 'project', so we can safely cast
@@ -364,21 +409,27 @@ export function grantPermission(params: {
 
 /**
  * Revoke permission from an agent
+ *
+ * @param params - Permission parameters
+ * @param dbClient - Optional database client (defaults to getDb() for backward compatibility)
  */
-export function revokePermission(params: {
-  agentId: string;
-  scopeType?: ScopeType;
-  scopeId?: string | null;
-  entryType?: EntryType;
-  entryId?: string | null;
-  permission?: PermissionLevel; // If not specified, revoke all permissions matching other criteria
-}): void {
+export function revokePermission(
+  params: {
+    agentId: string;
+    scopeType?: ScopeType;
+    scopeId?: string | null;
+    entryType?: EntryType;
+    entryId?: string | null;
+    permission?: PermissionLevel; // If not specified, revoke all permissions matching other criteria
+  },
+  dbClient?: DbClient
+): void {
   // Filter out 'project' from entryType as it's not supported in permissions schema
   if (params.entryType === 'project') {
     return; // Skip revoking permissions for project entries
   }
 
-  const db = getDb();
+  const db = dbClient ?? getDb();
 
   const conditions = [eq(permissions.agentId, params.agentId)];
 
@@ -420,8 +471,14 @@ export function revokePermission(params: {
 
 /**
  * Get all permissions for an agent
+ *
+ * @param agentId - The agent ID
+ * @param dbClient - Optional database client (defaults to getDb() for backward compatibility)
  */
-export function getAgentPermissions(agentId: string): Array<{
+export function getAgentPermissions(
+  agentId: string,
+  dbClient?: DbClient
+): Array<{
   id: string;
   scopeType: ScopeType | null;
   scopeId: string | null;
@@ -429,7 +486,7 @@ export function getAgentPermissions(agentId: string): Array<{
   entryId: string | null;
   permission: PermissionLevel;
 }> {
-  const db = getDb();
+  const db = dbClient ?? getDb();
 
   const perms = db.select().from(permissions).where(eq(permissions.agentId, agentId)).all();
 
@@ -445,14 +502,20 @@ export function getAgentPermissions(agentId: string): Array<{
 
 /**
  * List all permissions (optionally filtered)
+ *
+ * @param params - Optional filter parameters
+ * @param dbClient - Optional database client (defaults to getDb() for backward compatibility)
  */
-export function listPermissions(params?: {
-  agentId?: string;
-  scopeType?: ScopeType;
-  scopeId?: string;
-  entryType?: 'tool' | 'guideline' | 'knowledge';
-  entryId?: string;
-}): Array<{
+export function listPermissions(
+  params?: {
+    agentId?: string;
+    scopeType?: ScopeType;
+    scopeId?: string;
+    entryType?: 'tool' | 'guideline' | 'knowledge';
+    entryId?: string;
+  },
+  dbClient?: DbClient
+): Array<{
   id: string;
   agentId: string;
   entryType: 'tool' | 'guideline' | 'knowledge' | null;
@@ -462,7 +525,7 @@ export function listPermissions(params?: {
   permission: PermissionLevel;
   createdAt: string;
 }> {
-  const db = getDb();
+  const db = dbClient ?? getDb();
 
   const conditions = [];
   if (params?.agentId) {

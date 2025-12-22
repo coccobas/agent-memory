@@ -68,4 +68,3 @@ export function extractContentFromMdc(content: string): string {
   if (endIndex === -1) return content;
   return content.slice(endIndex + 3).trimStart();
 }
-

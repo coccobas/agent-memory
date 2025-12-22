@@ -10,9 +10,8 @@ import {
   createNotFoundError,
   createConflictError,
   createFileLockError,
-  createInvalidActionError,
-  formatError,
-} from '../../src/mcp/errors.js';
+} from '../../src/core/errors.js';
+import { createInvalidActionError, formatError } from '../../src/mcp/errors.js';
 
 describe('AgentMemoryError', () => {
   it('should create error with message and code', () => {

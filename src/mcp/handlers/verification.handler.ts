@@ -15,7 +15,7 @@ import {
   type ProposedActionType,
 } from '../../services/verification.service.js';
 import { getCriticalGuidelinesForSession } from '../../services/critical-guidelines.service.js';
-import { createValidationError } from '../errors.js';
+import { createValidationError } from '../../core/errors.js';
 import { createComponentLogger } from '../../utils/logger.js';
 import {
   getRequiredParam,

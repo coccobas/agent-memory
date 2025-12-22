@@ -2,7 +2,8 @@
  * Relation handlers
  */
 
-import { entryRelationRepo, type CreateRelationInput } from '../../db/repositories/tags.js';
+import type { CreateRelationInput } from '../../db/repositories/tags.js';
+import type { AppContext } from '../../core/context.js';
 import {
   getRequiredParam,
   getOptionalParam,
@@ -12,10 +13,10 @@ import {
   isNumber,
 } from '../../utils/type-guards.js';
 import { requireEntryPermission } from '../../utils/entry-access.js';
-import { createValidationError } from '../errors.js';
+import { createValidationError } from '../../core/errors.js';
 
 export const relationHandlers = {
-  create(params: Record<string, unknown>) {
+  create(context: AppContext, params: Record<string, unknown>) {
     const agentId = getRequiredParam(params, 'agentId', isString);
     const sourceType = getRequiredParam(params, 'sourceType', isEntryType);
     const sourceId = getRequiredParam(params, 'sourceId', isString);
@@ -24,8 +25,8 @@ export const relationHandlers = {
     const relationType = getRequiredParam(params, 'relationType', isRelationType);
     const createdBy = getOptionalParam(params, 'createdBy', isString);
 
-    requireEntryPermission({ agentId, action: 'write', entryType: sourceType, entryId: sourceId });
-    requireEntryPermission({ agentId, action: 'write', entryType: targetType, entryId: targetId });
+    requireEntryPermission(context, { agentId, action: 'write', entryType: sourceType, entryId: sourceId });
+    requireEntryPermission(context, { agentId, action: 'write', entryType: targetType, entryId: targetId });
 
     const input: CreateRelationInput = {
       sourceType,
@@ -36,11 +37,11 @@ export const relationHandlers = {
       createdBy,
     };
 
-    const relation = entryRelationRepo.create(input);
+    const relation = context.repos.entryRelations.create(input);
     return { success: true, relation };
   },
 
-  list(params: Record<string, unknown>) {
+  list(context: AppContext, params: Record<string, unknown>) {
     const agentId = getRequiredParam(params, 'agentId', isString);
     const sourceType = getOptionalParam(params, 'sourceType', isEntryType);
     const sourceId = getOptionalParam(params, 'sourceId', isString);
@@ -51,8 +52,7 @@ export const relationHandlers = {
     const offset = getOptionalParam(params, 'offset', isNumber);
 
     // Avoid broad enumeration: require at least one anchored entry filter
-    const anchored =
-      (sourceType && sourceId) || (targetType && targetId);
+    const anchored = (sourceType && sourceId) || (targetType && targetId);
     if (!anchored) {
       throw createValidationError(
         'sourceType/sourceId or targetType/targetId',
@@ -61,13 +61,13 @@ export const relationHandlers = {
       );
     }
     if (sourceType && sourceId) {
-      requireEntryPermission({ agentId, action: 'read', entryType: sourceType, entryId: sourceId });
+      requireEntryPermission(context, { agentId, action: 'read', entryType: sourceType, entryId: sourceId });
     }
     if (targetType && targetId) {
-      requireEntryPermission({ agentId, action: 'read', entryType: targetType, entryId: targetId });
+      requireEntryPermission(context, { agentId, action: 'read', entryType: targetType, entryId: targetId });
     }
 
-    const relations = entryRelationRepo.list(
+    const relations = context.repos.entryRelations.list(
       { sourceType, sourceId, targetType, targetId, relationType },
       { limit, offset }
     );
@@ -80,7 +80,7 @@ export const relationHandlers = {
     };
   },
 
-  delete(params: Record<string, unknown>) {
+  delete(context: AppContext, params: Record<string, unknown>) {
     const agentId = getRequiredParam(params, 'agentId', isString);
     const id = getOptionalParam(params, 'id', isString);
     const sourceType = getOptionalParam(params, 'sourceType', isEntryType);
@@ -92,16 +92,26 @@ export const relationHandlers = {
     let success = false;
 
     if (id) {
-      const rel = entryRelationRepo.getById(id);
+      const rel = context.repos.entryRelations.getById(id);
       if (!rel) return { success: false };
       // Only check entry permission for non-project types (projects have different access control)
       if (rel.sourceType !== 'project') {
-        requireEntryPermission({ agentId, action: 'delete', entryType: rel.sourceType, entryId: rel.sourceId });
+        requireEntryPermission(context, {
+          agentId,
+          action: 'delete',
+          entryType: rel.sourceType,
+          entryId: rel.sourceId,
+        });
       }
-      success = entryRelationRepo.delete(id);
+      success = context.repos.entryRelations.delete(id);
     } else if (sourceType && sourceId && targetType && targetId && relationType) {
-      requireEntryPermission({ agentId, action: 'delete', entryType: sourceType, entryId: sourceId });
-      success = entryRelationRepo.deleteByEntries(
+      requireEntryPermission(context, {
+        agentId,
+        action: 'delete',
+        entryType: sourceType,
+        entryId: sourceId,
+      });
+      success = context.repos.entryRelations.deleteByEntries(
         sourceType,
         sourceId,
         targetType,

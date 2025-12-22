@@ -6,7 +6,7 @@
  */
 
 import { eq } from 'drizzle-orm';
-import { getDb } from '../db/connection.js';
+import { getDb, type DbClient } from '../db/connection.js';
 import {
   guidelines,
   guidelineVersions,
@@ -88,7 +88,9 @@ function matchesFilePattern(filePath: string, patterns: string[]): boolean {
   for (const pattern of patterns) {
     // First escape all regex special characters (except * and ?)
     // Then convert glob wildcards to regex equivalents
-    const escaped = escapeRegexChars(pattern.replace(/\*/g, '\0STAR\0').replace(/\?/g, '\0QUESTION\0'));
+    const escaped = escapeRegexChars(
+      pattern.replace(/\*/g, '\0STAR\0').replace(/\?/g, '\0QUESTION\0')
+    );
     const regexPattern = escaped.replace(/\0STAR\0/g, '.*').replace(/\0QUESTION\0/g, '.');
 
     try {
@@ -145,7 +147,8 @@ function isSafeRegexPattern(pattern: string): boolean {
 function safeRegexTest(regex: RegExp, content: string, _timeoutMs: number = 100): boolean {
   // For very long content, limit what we test to prevent hanging
   const maxContentLength = 100000;
-  const testContent = content.length > maxContentLength ? content.slice(0, maxContentLength) : content;
+  const testContent =
+    content.length > maxContentLength ? content.slice(0, maxContentLength) : content;
 
   // Simple regex test - JavaScript regex runs synchronously, so we can't truly timeout.
   // Instead, we limit content length and reject dangerous patterns upfront.
@@ -241,9 +244,12 @@ function verifyAgainstGuideline(
 
 /**
  * Get verification rules for a guideline.
+ *
+ * @param guidelineId - The guideline ID
+ * @param dbClient - Optional database client (defaults to getDb() for backward compatibility)
  */
-function getVerificationRules(guidelineId: string): VerificationRules | null {
-  const db = getDb();
+function getVerificationRules(guidelineId: string, dbClient?: DbClient): VerificationRules | null {
+  const db = dbClient ?? getDb();
 
   const guideline = db.select().from(guidelines).where(eq(guidelines.id, guidelineId)).get();
 
@@ -270,15 +276,19 @@ function getVerificationRules(guidelineId: string): VerificationRules | null {
  * @param sessionId - The session ID (optional)
  * @param projectId - The project ID (optional)
  * @param action - The proposed action to verify
+ * @param dbClient - Optional database client (defaults to getDb() for backward compatibility)
  * @returns Verification result with violations and warnings
  */
 export function verifyAction(
   sessionId: string | null,
   projectId: string | null,
-  action: ProposedAction
+  action: ProposedAction,
+  dbClient?: DbClient
 ): VerificationResult {
+  const db = dbClient ?? getDb();
+
   // Get critical guidelines for the scope
-  const criticalGuidelines = getCriticalGuidelinesForScope(projectId, sessionId);
+  const criticalGuidelines = getCriticalGuidelinesForScope(projectId, sessionId, db);
 
   const violations: Violation[] = [];
   const warnings: string[] = [];
@@ -286,7 +296,7 @@ export function verifyAction(
 
   for (const guideline of criticalGuidelines) {
     checkedGuidelineIds.push(guideline.id);
-    const rules = getVerificationRules(guideline.id);
+    const rules = getVerificationRules(guideline.id, db);
 
     const violation = verifyAgainstGuideline(action, guideline, rules);
     if (violation) {
@@ -326,7 +336,7 @@ export function verifyAction(
   };
 
   // Log the verification
-  logVerification(sessionId, 'pre_check', action, result, checkedGuidelineIds);
+  logVerification(sessionId, 'pre_check', action, result, checkedGuidelineIds, undefined, db);
 
   return result;
 }
@@ -337,21 +347,25 @@ export function verifyAction(
  * @param sessionId - The session ID
  * @param action - The completed action
  * @param agentId - The agent ID that performed the action
+ * @param dbClient - Optional database client (defaults to getDb() for backward compatibility)
  */
 export function logCompletedAction(
   sessionId: string | null,
   action: ProposedAction,
-  agentId?: string
+  agentId?: string,
+  dbClient?: DbClient
 ): VerificationResult {
+  const db = dbClient ?? getDb();
+
   // Run the same verification logic for analytics
-  const projectId = sessionId ? getProjectIdForSession(sessionId) : null;
-  const criticalGuidelines = getCriticalGuidelinesForScope(projectId, sessionId);
+  const projectId = sessionId ? getProjectIdForSession(sessionId, db) : null;
+  const criticalGuidelines = getCriticalGuidelinesForScope(projectId, sessionId, db);
 
   const violations: Violation[] = [];
   const checkedGuidelineIds = criticalGuidelines.map((g) => g.id);
 
   for (const guideline of criticalGuidelines) {
-    const rules = getVerificationRules(guideline.id);
+    const rules = getVerificationRules(guideline.id, db);
     const violation = verifyAgainstGuideline(action, guideline, rules);
     if (violation) {
       violations.push(violation);
@@ -370,7 +384,7 @@ export function logCompletedAction(
   };
 
   // Log the post-check
-  logVerification(sessionId, 'post_check', action, result, checkedGuidelineIds, agentId);
+  logVerification(sessionId, 'post_check', action, result, checkedGuidelineIds, agentId, db);
 
   return result;
 }
@@ -381,20 +395,22 @@ export function logCompletedAction(
  * @param sessionId - The session ID
  * @param guidelineIds - The guideline IDs to acknowledge (or all critical if empty)
  * @param acknowledgedBy - The agent/user who acknowledged
+ * @param dbClient - Optional database client (defaults to getDb() for backward compatibility)
  * @returns Number of guidelines acknowledged
  */
 export function acknowledgeGuidelines(
   sessionId: string,
   guidelineIds?: string[],
-  acknowledgedBy?: string
+  acknowledgedBy?: string,
+  dbClient?: DbClient
 ): { acknowledged: number; guidelineIds: string[] } {
-  const db = getDb();
+  const db = dbClient ?? getDb();
 
   // If no specific IDs provided, get all critical guidelines for the session
   let idsToAcknowledge = guidelineIds;
   if (!idsToAcknowledge || idsToAcknowledge.length === 0) {
-    const projectId = getProjectIdForSession(sessionId);
-    const criticalGuidelines = getCriticalGuidelinesForScope(projectId, sessionId);
+    const projectId = getProjectIdForSession(sessionId, db);
+    const criticalGuidelines = getCriticalGuidelinesForScope(projectId, sessionId, db);
     idsToAcknowledge = criticalGuidelines.map((g) => g.id);
   }
 
@@ -433,7 +449,8 @@ export function acknowledgeGuidelines(
       requiresConfirmation: false,
     },
     acknowledgedIds,
-    acknowledgedBy
+    acknowledgedBy,
+    db
   );
 
   logger.info({ sessionId, acknowledged }, 'Guidelines acknowledged');
@@ -443,9 +460,12 @@ export function acknowledgeGuidelines(
 
 /**
  * Get acknowledged guideline IDs for a session.
+ *
+ * @param sessionId - The session ID
+ * @param dbClient - Optional database client (defaults to getDb() for backward compatibility)
  */
-export function getAcknowledgedGuidelineIds(sessionId: string): string[] {
-  const db = getDb();
+export function getAcknowledgedGuidelineIds(sessionId: string, dbClient?: DbClient): string[] {
+  const db = dbClient ?? getDb();
 
   const acknowledgments = db
     .select({ guidelineId: sessionGuidelineAcknowledgments.guidelineId })
@@ -458,13 +478,19 @@ export function getAcknowledgedGuidelineIds(sessionId: string): string[] {
 
 /**
  * Check if all critical guidelines have been acknowledged for a session.
+ *
+ * @param sessionId - The session ID
+ * @param projectId - The project ID
+ * @param dbClient - Optional database client (defaults to getDb() for backward compatibility)
  */
 export function areAllCriticalGuidelinesAcknowledged(
   sessionId: string,
-  projectId: string | null
+  projectId: string | null,
+  dbClient?: DbClient
 ): { acknowledged: boolean; missing: string[] } {
-  const criticalGuidelines = getCriticalGuidelinesForScope(projectId, sessionId);
-  const acknowledgedIds = new Set(getAcknowledgedGuidelineIds(sessionId));
+  const db = dbClient ?? getDb();
+  const criticalGuidelines = getCriticalGuidelinesForScope(projectId, sessionId, db);
+  const acknowledgedIds = new Set(getAcknowledgedGuidelineIds(sessionId, db));
 
   const missing = criticalGuidelines.filter((g) => !acknowledgedIds.has(g.id)).map((g) => g.name);
 
@@ -480,9 +506,12 @@ export function areAllCriticalGuidelinesAcknowledged(
 
 /**
  * Get project ID for a session.
+ *
+ * @param sessionId - The session ID
+ * @param dbClient - Optional database client (defaults to getDb() for backward compatibility)
  */
-function getProjectIdForSession(sessionId: string): string | null {
-  const db = getDb();
+function getProjectIdForSession(sessionId: string, dbClient?: DbClient): string | null {
+  const db = dbClient ?? getDb();
 
   const session = db
     .select({ projectId: sessions.projectId })
@@ -495,6 +524,14 @@ function getProjectIdForSession(sessionId: string): string | null {
 
 /**
  * Log a verification action.
+ *
+ * @param sessionId - The session ID
+ * @param actionType - The type of verification action
+ * @param proposedAction - The proposed action
+ * @param result - The verification result
+ * @param guidelineIds - The guideline IDs checked
+ * @param createdBy - The agent/user who performed the action
+ * @param dbClient - Optional database client (defaults to getDb() for backward compatibility)
  */
 function logVerification(
   sessionId: string | null,
@@ -502,10 +539,11 @@ function logVerification(
   proposedAction: ProposedAction,
   result: VerificationResult,
   guidelineIds: string[],
-  createdBy?: string
+  createdBy?: string,
+  dbClient?: DbClient
 ): void {
   try {
-    const db = getDb();
+    const db = dbClient ?? getDb();
 
     db.insert(verificationLog)
       .values({

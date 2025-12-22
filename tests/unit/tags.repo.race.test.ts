@@ -1,28 +1,28 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { setupTestDb, cleanupTestDb, schema } from '../fixtures/test-helpers.js';
-import { tagRepo, entryTagRepo } from '../../src/db/repositories/tags.js';
+import {
+  createTagRepository,
+  createEntryTagRepository,
+} from '../../src/db/repositories/tags.js';
+import type { ITagRepository, IEntryTagRepository } from '../../src/core/interfaces/repositories.js';
+import type { DatabaseDeps } from '../../src/core/types.js';
 
 const TEST_DB_PATH = './data/test-tags-race.db';
 
 let sqlite: ReturnType<typeof setupTestDb>['sqlite'];
 let db: ReturnType<typeof setupTestDb>['db'];
-
-vi.mock('../../src/db/connection.js', async () => {
-  const actual = await vi.importActual<typeof import('../../src/db/connection.js')>(
-    '../../src/db/connection.js'
-  );
-  return {
-    ...actual,
-    getDb: () => db,
-    transaction: <T>(fn: () => T) => fn(),
-  };
-});
+let deps: DatabaseDeps;
+let tagRepo: ITagRepository;
+let entryTagRepo: IEntryTagRepository;
 
 describe('Tags repository race handling', () => {
   beforeAll(() => {
     const testDb = setupTestDb(TEST_DB_PATH);
     sqlite = testDb.sqlite;
     db = testDb.db;
+    deps = { db, sqlite };
+    tagRepo = createTagRepository(deps);
+    entryTagRepo = createEntryTagRepository(deps, tagRepo);
   });
 
   afterAll(() => {
@@ -38,12 +38,15 @@ describe('Tags repository race handling', () => {
   it('tagRepo.getOrCreate returns existing tag on unique constraint', () => {
     const created = tagRepo.create({ name: 'dup', category: 'custom' });
 
+    // Create a wrapper repo for spying - this simulates the race condition
+    // where getByName returns undefined first (race) then finds the tag
+    const spyRepo = createTagRepository(deps);
     const spy = vi
-      .spyOn(tagRepo, 'getByName')
+      .spyOn(spyRepo, 'getByName')
       .mockImplementationOnce(() => undefined)
       .mockImplementation(() => created);
 
-    const got = tagRepo.getOrCreate('dup', 'custom');
+    const got = spyRepo.getOrCreate('dup', 'custom');
     expect(got.id).toBe(created.id);
 
     spy.mockRestore();

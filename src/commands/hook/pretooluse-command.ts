@@ -34,4 +34,3 @@ export function runPreToolUseCommand(params: {
 
   return { exitCode: 0, stdout: [], stderr: [] };
 }
-

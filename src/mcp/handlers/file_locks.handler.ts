@@ -4,7 +4,7 @@
 
 import { isAbsolute } from 'node:path';
 import { fileLockRepo } from '../../db/repositories/file_locks.js';
-import { createValidationError } from '../errors.js';
+import { createValidationError } from '../../core/errors.js';
 import {
   getRequiredParam,
   getOptionalParam,

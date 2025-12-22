@@ -30,4 +30,3 @@ export function runSessionEndCommand(params: {
 
   return { exitCode: 0, stdout: [], stderr: [] };
 }
-

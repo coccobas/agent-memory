@@ -43,7 +43,7 @@ interface MemoryCoordinatorConfig {
  *
  * Manages multiple LRU caches and ensures total memory usage stays within limits
  */
-class MemoryCoordinator {
+export class MemoryCoordinator {
   private caches = new Map<string, CacheEntry>();
   private config: MemoryCoordinatorConfig;
   private checkInterval: NodeJS.Timeout | null = null;
@@ -297,29 +297,19 @@ class MemoryCoordinator {
   }
 }
 
-// Singleton instance
-let coordinator: MemoryCoordinator | null = null;
-
-/**
- * Get the global memory coordinator instance
- */
-export function getMemoryCoordinator(): MemoryCoordinator {
-  if (!coordinator) {
-    coordinator = new MemoryCoordinator({
-      totalLimitMB: config.cache.totalLimitMB,
-      pressureThreshold: config.cache.pressureThreshold,
-      checkIntervalMs: config.memory.checkIntervalMs,
-    });
-  }
-  return coordinator;
-}
-
-/**
- * Reset the memory coordinator (useful for testing)
- */
-export function resetMemoryCoordinator(): void {
-  if (coordinator) {
-    coordinator.stopMonitoring();
-    coordinator = null;
-  }
-}
+// =============================================================================
+// NOTE: Singleton removed - use Runtime.memoryCoordinator instead
+// =============================================================================
+// The MemoryCoordinator instance is now owned by Runtime and registered via
+// createRuntime() in src/core/runtime.ts. Access it through the container:
+//
+//   import { getRuntime } from '../core/container.js';
+//   const coordinator = getRuntime().memoryCoordinator;
+//
+// For services that may load before Runtime is registered, use lazy registration:
+//
+//   import { getRuntime, isRuntimeRegistered } from '../core/container.js';
+//   if (isRuntimeRegistered()) {
+//     getRuntime().memoryCoordinator.register('myCache', cache, priority);
+//   }
+// =============================================================================

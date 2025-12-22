@@ -4,13 +4,17 @@
  */
 
 import { getSqlite } from '../src/db/connection.js';
-import { getQueryCacheStats } from '../src/services/query.service.js';
+import { getRuntime, isRuntimeRegistered } from '../src/core/container.js';
 import { VERSION } from '../src/version.js';
 
 function checkHealth() {
   try {
     const sqlite = getSqlite();
-    const cacheStats = getQueryCacheStats();
+
+    // Get cache stats from Runtime (if available)
+    const cacheStats = isRuntimeRegistered()
+      ? getRuntime().queryCache.cache.stats
+      : { size: 0, memoryMB: 0 };
 
     // Get database stats
     const stats: {
@@ -22,7 +26,7 @@ function checkHealth() {
         walEnabled: boolean;
         error?: string;
       };
-      cache: ReturnType<typeof getQueryCacheStats>;
+      cache: { size: number; memoryMB: number };
       tables: Record<string, number>;
     } = {
       serverVersion: VERSION,
@@ -116,6 +120,8 @@ function checkHealth() {
 }
 
 checkHealth();
+
+
 
 
 

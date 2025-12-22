@@ -46,14 +46,15 @@ All MCP tools use action-based requests:
 | `memory_health` | Check server health and database status. Returns version, database stats, and c… | — |
 | `memory_hook` | Generate and manage IDE verification hooks. Actions: - generate: Generate hook… | `generate`, `install`, `status`, `uninstall` |
 | `memory_import` | Import memory entries from various formats. Actions: import | `import` |
-| `memory_init` | Manage database initialization and migrations. Actions: init (initialize/migrat… | `init`, `status`, `reset`, `verify` |
+| `memory_init` | Manage database initialization and migrations. Actions: init (initialize/migrat… | `init`, `status`, `reset` |
 | `memory_knowledge` | Manage knowledge entries (facts, decisions, context to remember). Actions: add,… | `add`, `update`, `get`, `list`, `history`, `deactivate`, `delete`, `bulk_add`, `bulk_update`, `bulk_delete` |
 | `memory_observe` | Extract memory entries from conversation/code context using LLM analysis. Actio… | `extract`, `draft`, `commit`, `status` |
 | `memory_org` | Manage organizations. Actions: create, list | `create`, `list` |
 | `memory_permission` | Manage permissions. Actions: grant, revoke, check, list | `grant`, `revoke`, `check`, `list` |
-| `memory_project` | Manage projects. Actions: create, list, get, update | `create`, `list`, `get`, `update` |
+| `memory_project` | Manage projects. Actions: create, list, get, update | `create`, `list`, `get`, `update`, `delete` |
 | `memory_query` | Query and aggregate memory. **IMPORTANT: Call this FIRST at conversation start… | `search`, `context` |
 | `memory_relation` | Manage entry relations. Actions: create, list, delete | `create`, `list`, `delete` |
+| `memory_review` | Review candidate memory entries from a session. Actions: - list: List all candi… | `list`, `show`, `approve`, `reject`, `skip` |
 | `memory_session` | Manage working sessions (group related work together). Actions: start, end, lis… | `start`, `end`, `list` |
 | `memory_tag` | Manage tags. Actions: create, list, attach, detach, for_entry | `create`, `list`, `attach`, `detach`, `for_entry` |
 | `memory_task` | Manage task decomposition. Actions: add, get, list | `add`, `get`, `list` |
@@ -86,6 +87,7 @@ Manage database backups. Actions: create (create backup), list (list all backups
 
 | Parameter | Type | Required | Description |
 |---|---|---:|---|
+| `admin_key` | string |  | Admin key (required) |
 | `filename` | string |  | Backup filename to restore (restore) |
 | `keepCount` | number |  | Number of backups to keep (cleanup, default: 5) |
 | `name` | string |  | Custom backup name (create, optional) |
@@ -120,7 +122,7 @@ Consolidate similar memory entries to reduce redundancy and improve coherence. A
 | `limit` | number |  | Maximum number of groups to process (default: 20) |
 | `minRecencyScore` | number |  | For archive_stale: only archive if recencyScore is below this (0-1) |
 | `scopeId` | string |  | Scope ID (required for non-global scopes) |
-| `scopeType` | string (`global`, `org`, `project`, `session`) | yes | Scope type to consolidate within |
+| `scopeType` | string (`global`, `org`, `project`, `session`) |  | Scope type to consolidate within |
 | `staleDays` | number |  | For archive_stale: entries older than this (in days) are considered stale |
 | `threshold` | number |  | Similarity threshold 0-1 (default: 0.85). Higher = stricter matching. |
 
@@ -162,6 +164,8 @@ Export memory entries to various formats. Actions: export
 
 | Parameter | Type | Required | Description |
 |---|---|---:|---|
+| `admin_key` | string |  | Admin key (required when writing to disk) |
+| `agentId` | string |  | Agent identifier for access control/auditing |
 | `filename` | string |  | Optional filename to save export to configured export directory. If not provided, content is returned in response only. |
 | `format` | string (`json`, `markdown`, `yaml`, `openapi`) |  | Export format (default: json) |
 | `includeInactive` | boolean |  | Include inactive/deleted entries (default: false) |
@@ -240,6 +244,7 @@ Import memory entries from various formats. Actions: import
 
 | Parameter | Type | Required | Description |
 |---|---|---:|---|
+| `admin_key` | string |  | Admin key (required) |
 | `conflictStrategy` | string (`skip`, `update`, `replace`, `error`) |  | How to handle conflicts with existing entries (default: update) |
 | `content` | string | yes | Content to import (JSON string, YAML string, Markdown, or OpenAPI spec) |
 | `format` | string (`json`, `yaml`, `markdown`, `openapi`) |  | Import format (default: json, auto-detected if possible) |
@@ -251,10 +256,11 @@ Import memory entries from various formats. Actions: import
 
 Manage database initialization and migrations. Actions: init (initialize/migrate), status (check migration status), reset (reset database - WARNING: deletes all data)
 
-- Actions: `init`, `status`, `reset`, `verify`
+- Actions: `init`, `status`, `reset`
 
 | Parameter | Type | Required | Description |
 |---|---|---:|---|
+| `admin_key` | string |  | Admin key (required for init/reset) |
 | `confirm` | boolean |  | Confirm database reset - required for reset action. WARNING: This deletes all data! |
 | `force` | boolean |  | Force re-initialization even if already initialized (init) |
 | `verbose` | boolean |  | Enable verbose output (init, reset) |
@@ -327,6 +333,7 @@ Manage permissions. Actions: grant, revoke, check, list
 
 | Parameter | Type | Required | Description |
 |---|---|---:|---|
+| `admin_key` | string |  | Admin key (grant, revoke, list) |
 | `agent_id` | string |  | Agent identifier (grant, revoke, check, list) |
 | `created_by` | string |  | Creator identifier (grant) |
 | `entry_type` | string (`tool`, `guideline`, `knowledge`) |  | Entry type (grant, revoke, check, list) |
@@ -341,7 +348,7 @@ Manage permissions. Actions: grant, revoke, check, list
 
 Manage projects. Actions: create, list, get, update
 
-- Actions: `create`, `list`, `get`, `update`
+- Actions: `create`, `list`, `get`, `update`, `delete`
 
 | Parameter | Type | Required | Description |
 |---|---|---:|---|
@@ -362,6 +369,7 @@ Query and aggregate memory. **IMPORTANT: Call this FIRST at conversation start w
 
 | Parameter | Type | Required | Description |
 |---|---|---:|---|
+| `agentId` | string |  | Agent identifier for access control/auditing |
 | `compact` | boolean |  | Return compact results |
 | `createdAfter` | string |  | Filter by creation date (ISO timestamp) |
 | `createdBefore` | string |  | Filter by creation date (ISO timestamp) |
@@ -395,6 +403,7 @@ Manage entry relations. Actions: create, list, delete
 
 | Parameter | Type | Required | Description |
 |---|---|---:|---|
+| `agentId` | string |  | Agent identifier for access control/auditing |
 | `createdBy` | string |  |  |
 | `id` | string |  | Relation ID (delete) |
 | `limit` | number |  |  |
@@ -404,6 +413,18 @@ Manage entry relations. Actions: create, list, delete
 | `sourceType` | string (`tool`, `guideline`, `knowledge`, `project`) |  |  |
 | `targetId` | string |  |  |
 | `targetType` | string (`tool`, `guideline`, `knowledge`, `project`) |  |  |
+
+### `memory_review`
+
+Review candidate memory entries from a session. Actions: - list: List all candidates pending review in a session - show: Show full details of a specific candidate - approve: Promo…
+
+- Actions: `list`, `show`, `approve`, `reject`, `skip`
+
+| Parameter | Type | Required | Description |
+|---|---|---:|---|
+| `entryId` | string |  | Entry ID or short ID (for show, approve, reject, skip) |
+| `projectId` | string |  | Target project ID for approved entries (optional, derived from session if not provided) |
+| `sessionId` | string | yes | Session ID to review candidates from |
 
 ### `memory_session`
 
@@ -431,6 +452,7 @@ Manage tags. Actions: create, list, attach, detach, for_entry
 
 | Parameter | Type | Required | Description |
 |---|---|---:|---|
+| `agentId` | string |  | Agent identifier for access control/auditing |
 | `category` | string (`language`, `domain`, `category`, `meta`, `custom`) |  |  |
 | `description` | string |  |  |
 | `entryId` | string |  |  |

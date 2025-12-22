@@ -26,4 +26,3 @@ export async function findAllRuleFiles(dir: string, baseDir: string = dir): Prom
 
   return files;
 }
-

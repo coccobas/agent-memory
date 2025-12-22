@@ -46,4 +46,3 @@ export function setWarnedReview(sessionId: string): void {
   state[`review:warned:${sessionId}`] = true;
   saveState(statePath, state);
 }
-

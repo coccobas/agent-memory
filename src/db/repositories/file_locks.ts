@@ -1,309 +1,284 @@
 /**
- * File lock repository
- * Manages file-level locks for concurrent editing
+ * File Lock Repository
+ *
+ * Factory function that accepts DatabaseDeps for dependency injection.
+ * Manages file-level locks for concurrent editing.
  */
 
 import { eq, and, sql } from 'drizzle-orm';
-import { getDb } from '../connection.js';
-import { transaction } from '../connection.js';
+import { getDb, getSqlite, transactionWithDb } from '../connection.js';
 import { fileLocks, type FileLock, type NewFileLock } from '../schema.js';
 import { generateId, now, DEFAULT_LOCK_TIMEOUT_SECONDS, MAX_LOCK_TIMEOUT_SECONDS } from './base.js';
 import { createComponentLogger } from '../../utils/logger.js';
 import { normalizePath, isPathSafe } from '../../utils/paths.js';
+import type { DatabaseDeps } from '../../core/types.js';
+import type {
+  IFileLockRepository,
+  CheckoutOptions,
+  ListLocksFilter,
+} from '../../core/interfaces/repositories.js';
 
-// =============================================================================
-// FILE LOCKS REPOSITORY
-// =============================================================================
+// Re-export input types for backward compatibility
+export type { CheckoutOptions, ListLocksFilter } from '../../core/interfaces/repositories.js';
 
 const logger = createComponentLogger('FileLockRepo');
 
-export interface CheckoutOptions {
-  sessionId?: string;
-  projectId?: string;
-  expiresIn?: number; // seconds
-  metadata?: Record<string, unknown>;
-}
+// =============================================================================
+// FILE LOCKS REPOSITORY FACTORY
+// =============================================================================
 
-export interface ListLocksFilter {
-  projectId?: string;
-  sessionId?: string;
-  agentId?: string;
-}
+/**
+ * Create a file lock repository with injected database dependencies
+ */
+export function createFileLockRepository(deps: DatabaseDeps): IFileLockRepository {
+  const { db, sqlite } = deps;
 
-export const fileLockRepo = {
-  /**
-   * Checkout a file (create a lock)
-   *
-   * @param filePath - Absolute path to the file to lock
-   * @param agentId - Identifier of the agent checking out the file
-   * @param options - Optional checkout configuration
-   * @returns The created file lock
-   * @throws Error if file is already locked or timeout exceeds maximum
-   */
-  checkout(filePath: string, agentId: string, options: CheckoutOptions = {}): FileLock {
-    // Validate required parameters
-    if (!filePath) throw new Error('filePath is required');
-    if (!agentId) throw new Error('agentId is required');
+  const repo: IFileLockRepository = {
+    checkout(filePath: string, agentId: string, options: CheckoutOptions = {}): FileLock {
+      // Validate required parameters
+      if (!filePath) throw new Error('filePath is required');
+      if (!agentId) throw new Error('agentId is required');
 
-    // Normalize and validate path
-    const normalizedPath = normalizePath(filePath);
-    if (!isPathSafe(filePath)) {
-      throw new Error(`Invalid or unsafe file path: ${filePath}`);
-    }
-
-    // Calculate expiration
-    const expiresIn = options.expiresIn ?? DEFAULT_LOCK_TIMEOUT_SECONDS;
-    if (expiresIn > MAX_LOCK_TIMEOUT_SECONDS) {
-      throw new Error(`Lock timeout cannot exceed ${MAX_LOCK_TIMEOUT_SECONDS} seconds`);
-    }
-
-    const checkedOutAt = now();
-    const expiresAt =
-      expiresIn > 0 ? new Date(Date.parse(checkedOutAt) + expiresIn * 1000).toISOString() : null;
-
-    const id = generateId();
-    const newLock: NewFileLock = {
-      id,
-      filePath: normalizedPath,
-      checkedOutBy: agentId,
-      sessionId: options.sessionId,
-      projectId: options.projectId,
-      checkedOutAt,
-      expiresAt,
-      metadata: options.metadata ?? null,
-    };
-
-    return transaction(() => {
-      const db = getDb();
-      const nowTime = new Date().toISOString();
-
-      // Atomic: Delete expired lock for THIS specific file, then insert
-      // This avoids TOCTOU race by targeting only the specific file within the transaction
-      db.delete(fileLocks)
-        .where(
-          and(
-            eq(fileLocks.filePath, normalizedPath),
-            sql`${fileLocks.expiresAt} IS NOT NULL AND ${fileLocks.expiresAt} < ${nowTime}`
-          )
-        )
-        .run();
-
-      try {
-        db.insert(fileLocks).values(newLock).run();
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        const isUnique =
-          message.includes('UNIQUE constraint failed') && message.includes('file_locks.file_path');
-        if (!isUnique) throw error;
-
-        // Lock exists and is not expired - get details for error message
-        const existing = db
-          .select()
-          .from(fileLocks)
-          .where(eq(fileLocks.filePath, normalizedPath))
-          .get();
-
-        if (existing) {
-          throw new Error(`File ${filePath} is already locked by agent ${existing.checkedOutBy}`);
-        }
-        // This shouldn't happen - unique constraint failed but no lock found
-        throw new Error(`Failed to acquire lock for ${filePath}: constraint violation`);
-      }
-
-      // Return the newly created lock
-      return db.select().from(fileLocks).where(eq(fileLocks.id, id)).get() as FileLock;
-    });
-  },
-
-  /**
-   * Check in a file (remove lock if owned by agent)
-   *
-   * @param filePath - Absolute path to the file to check in
-   * @param agentId - Identifier of the agent checking in the file
-   * @throws Error if file is not locked or locked by a different agent
-   */
-  checkin(filePath: string, agentId: string): void {
-    if (!filePath) throw new Error('filePath is required');
-    if (!agentId) throw new Error('agentId is required');
-
-    transaction(() => {
-      const db = getDb();
-
-      // Clean up expired locks first
-      this.cleanupExpiredLocks();
-
+      // Normalize and validate path
       const normalizedPath = normalizePath(filePath);
-      const lock = this.getLock(normalizedPath);
-      if (!lock) {
-        throw new Error(`File ${filePath} is not locked`);
+      if (!isPathSafe(filePath)) {
+        throw new Error(`Invalid or unsafe file path: ${filePath}`);
       }
 
-      if (lock.checkedOutBy !== agentId) {
-        throw new Error(`File ${filePath} is locked by agent ${lock.checkedOutBy}, not ${agentId}`);
+      // Calculate expiration
+      const expiresIn = options.expiresIn ?? DEFAULT_LOCK_TIMEOUT_SECONDS;
+      if (expiresIn > MAX_LOCK_TIMEOUT_SECONDS) {
+        throw new Error(`Lock timeout cannot exceed ${MAX_LOCK_TIMEOUT_SECONDS} seconds`);
       }
 
-      // Delete by id to avoid deleting a replaced lock
-      db.delete(fileLocks).where(eq(fileLocks.id, lock.id)).run();
-    });
-  },
+      const checkedOutAt = now();
+      const expiresAt =
+        expiresIn > 0 ? new Date(Date.parse(checkedOutAt) + expiresIn * 1000).toISOString() : null;
 
-  /**
-   * Force unlock a file (remove lock regardless of owner)
-   *
-   * @param filePath - Absolute path to the file to unlock
-   * @param agentId - Identifier of the agent performing the force unlock
-   * @param reason - Optional reason for forcing the unlock
-   * @throws Error if file is not locked
-   */
-  forceUnlock(filePath: string, agentId: string, reason?: string): void {
-    if (!filePath) throw new Error('filePath is required');
-    if (!agentId) throw new Error('agentId is required');
-
-    transaction(() => {
-      const db = getDb();
-
-      // Clean up expired locks first
-      this.cleanupExpiredLocks();
-
-      const normalizedPath = normalizePath(filePath);
-      const lock = this.getLock(normalizedPath);
-      if (!lock) {
-        throw new Error(`File ${filePath} is not locked`);
-      }
-
-      logger.warn(
-        {
-          filePath,
-          lockedBy: lock.checkedOutBy,
-          unlockedBy: agentId,
-          reason,
-        },
-        'Force unlocking file'
-      );
-
-      // Update metadata with force unlock info before deleting
-      const metadata = {
-        ...(lock.metadata || {}),
-        forceUnlockedBy: agentId,
-        forceUnlockedAt: now(),
-        ...(reason ? { forceUnlockReason: reason } : {}),
+      const id = generateId();
+      const newLock: NewFileLock = {
+        id,
+        filePath: normalizedPath,
+        checkedOutBy: agentId,
+        sessionId: options.sessionId,
+        projectId: options.projectId,
+        checkedOutAt,
+        expiresAt,
+        metadata: options.metadata ?? null,
       };
 
-      db.update(fileLocks).set({ metadata }).where(eq(fileLocks.id, lock.id)).run();
+      return transactionWithDb(sqlite, () => {
+        const nowTime = new Date().toISOString();
 
-      // Delete by id
-      db.delete(fileLocks).where(eq(fileLocks.id, lock.id)).run();
-    });
-  },
+        // Atomic: Delete expired lock for THIS specific file, then insert
+        // This avoids TOCTOU race by targeting only the specific file within the transaction
+        db.delete(fileLocks)
+          .where(
+            and(
+              eq(fileLocks.filePath, normalizedPath),
+              sql`${fileLocks.expiresAt} IS NOT NULL AND ${fileLocks.expiresAt} < ${nowTime}`
+            )
+          )
+          .run();
 
-  /**
-   * Check if a file is currently locked (not expired)
-   *
-   * @param filePath - Absolute path to the file to check
-   * @returns True if the file is currently locked
-   */
-  isLocked(filePath: string): boolean {
-    if (!filePath) throw new Error('filePath is required');
-    this.cleanupExpiredLocks();
-    const normalizedPath = normalizePath(filePath);
-    return this.getLock(normalizedPath) !== null;
-  },
+        try {
+          db.insert(fileLocks).values(newLock).run();
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          const isUnique =
+            message.includes('UNIQUE constraint failed') &&
+            message.includes('file_locks.file_path');
+          if (!isUnique) throw error;
 
-  /**
-   * Get lock information for a file
-   *
-   * @param filePath - Absolute path to the file
-   * @returns The file lock if it exists and is not expired, null otherwise
-   */
-  getLock(filePath: string): FileLock | null {
-    const db = getDb();
+          // Lock exists and is not expired - get details for error message
+          const existing = db
+            .select()
+            .from(fileLocks)
+            .where(eq(fileLocks.filePath, normalizedPath))
+            .get();
 
-    if (!filePath) throw new Error('filePath is required');
+          if (existing) {
+            throw new Error(
+              `File ${filePath} is already locked by agent ${existing.checkedOutBy}`
+            );
+          }
+          // This shouldn't happen - unique constraint failed but no lock found
+          throw new Error(`Failed to acquire lock for ${filePath}: constraint violation`);
+        }
 
-    const normalizedPath = normalizePath(filePath);
-    // Get lock for this file
-    const lock = db.select().from(fileLocks).where(eq(fileLocks.filePath, normalizedPath)).get();
+        // Return the newly created lock
+        return db.select().from(fileLocks).where(eq(fileLocks.id, id)).get() as FileLock;
+      });
+    },
 
-    if (!lock) return null;
+    checkin(filePath: string, agentId: string): void {
+      if (!filePath) throw new Error('filePath is required');
+      if (!agentId) throw new Error('agentId is required');
 
-    // Check if expired (this check is redundant if cleanupExpiredLocks is always called first,
-    // but good for direct calls to getLock)
-    const nowTime = new Date().toISOString();
-    if (lock.expiresAt && lock.expiresAt <= nowTime) {
-      return null;
-    }
+      transactionWithDb(sqlite, () => {
+        // Clean up expired locks first
+        repo.cleanupExpiredLocks();
 
-    return lock;
-  },
+        const normalizedPath = normalizePath(filePath);
+        const lock = repo.getLock(normalizedPath);
+        if (!lock) {
+          throw new Error(`File ${filePath} is not locked`);
+        }
 
-  /**
-   * List active locks with optional filtering
-   *
-   * @param filter - Optional filters for projectId, sessionId, or agentId
-   * @returns Array of active file locks matching the filter criteria
-   */
-  listLocks(filter: ListLocksFilter = {}): FileLock[] {
-    const db = getDb();
-    const nowTime = new Date().toISOString();
+        if (lock.checkedOutBy !== agentId) {
+          throw new Error(
+            `File ${filePath} is locked by agent ${lock.checkedOutBy}, not ${agentId}`
+          );
+        }
 
-    // Clean up expired locks first
-    this.cleanupExpiredLocks();
+        // Delete by id to avoid deleting a replaced lock
+        db.delete(fileLocks).where(eq(fileLocks.id, lock.id)).run();
+      });
+    },
 
-    const conditions = [];
+    forceUnlock(filePath: string, agentId: string, reason?: string): void {
+      if (!filePath) throw new Error('filePath is required');
+      if (!agentId) throw new Error('agentId is required');
 
-    if (filter.projectId !== undefined) {
-      conditions.push(eq(fileLocks.projectId, filter.projectId));
-    }
+      transactionWithDb(sqlite, () => {
+        // Clean up expired locks first
+        repo.cleanupExpiredLocks();
 
-    if (filter.sessionId !== undefined) {
-      conditions.push(eq(fileLocks.sessionId, filter.sessionId));
-    }
+        const normalizedPath = normalizePath(filePath);
+        const lock = repo.getLock(normalizedPath);
+        if (!lock) {
+          throw new Error(`File ${filePath} is not locked`);
+        }
 
-    if (filter.agentId !== undefined) {
-      conditions.push(eq(fileLocks.checkedOutBy, filter.agentId));
-    }
+        logger.warn(
+          {
+            filePath,
+            lockedBy: lock.checkedOutBy,
+            unlockedBy: agentId,
+            reason,
+          },
+          'Force unlocking file'
+        );
 
-    let query = db.select().from(fileLocks);
-    if (conditions.length > 0) {
-      query = query.where(and(...conditions)) as typeof query;
-    }
+        // Update metadata with force unlock info before deleting
+        const metadata = {
+          ...(lock.metadata || {}),
+          forceUnlockedBy: agentId,
+          forceUnlockedAt: now(),
+          ...(reason ? { forceUnlockReason: reason } : {}),
+        };
 
-    const locks = query.all();
+        db.update(fileLocks).set({ metadata }).where(eq(fileLocks.id, lock.id)).run();
 
-    // Filter out expired locks
-    return locks.filter((lock) => {
-      if (!lock.expiresAt) return true;
-      return lock.expiresAt > nowTime;
-    });
-  },
+        // Delete by id
+        db.delete(fileLocks).where(eq(fileLocks.id, lock.id)).run();
+      });
+    },
 
-  /**
-   * Clean up expired locks
-   *
-   * @returns The number of locks removed
-   */
-  cleanupExpiredLocks(): number {
-    return cleanupExpiredLocks().cleaned;
-  },
+    isLocked(filePath: string): boolean {
+      if (!filePath) throw new Error('filePath is required');
+      repo.cleanupExpiredLocks();
+      const normalizedPath = normalizePath(filePath);
+      return repo.getLock(normalizedPath) !== null;
+    },
 
-  /**
-   * Clean up stale locks
-   */
-  cleanupStaleLocks(maxAgeHours = 24): number {
-    return cleanupStaleLocks(maxAgeHours).cleaned;
-  },
-};
+    getLock(filePath: string): FileLock | null {
+      if (!filePath) throw new Error('filePath is required');
+
+      const normalizedPath = normalizePath(filePath);
+      // Get lock for this file
+      const lock = db.select().from(fileLocks).where(eq(fileLocks.filePath, normalizedPath)).get();
+
+      if (!lock) return null;
+
+      // Check if expired (this check is redundant if cleanupExpiredLocks is always called first,
+      // but good for direct calls to getLock)
+      const nowTime = new Date().toISOString();
+      if (lock.expiresAt && lock.expiresAt <= nowTime) {
+        return null;
+      }
+
+      return lock;
+    },
+
+    listLocks(filter: ListLocksFilter = {}): FileLock[] {
+      const nowTime = new Date().toISOString();
+
+      // Clean up expired locks first
+      repo.cleanupExpiredLocks();
+
+      const conditions = [];
+
+      if (filter.projectId !== undefined) {
+        conditions.push(eq(fileLocks.projectId, filter.projectId));
+      }
+
+      if (filter.sessionId !== undefined) {
+        conditions.push(eq(fileLocks.sessionId, filter.sessionId));
+      }
+
+      if (filter.agentId !== undefined) {
+        conditions.push(eq(fileLocks.checkedOutBy, filter.agentId));
+      }
+
+      let query = db.select().from(fileLocks);
+      if (conditions.length > 0) {
+        query = query.where(and(...conditions)) as typeof query;
+      }
+
+      const locks = query.all();
+
+      // Filter out expired locks
+      return locks.filter((lock) => {
+        if (!lock.expiresAt) return true;
+        return lock.expiresAt > nowTime;
+      });
+    },
+
+    cleanupExpiredLocks(): number {
+      const nowTime = new Date().toISOString();
+      try {
+        const result = db
+          .delete(fileLocks)
+          .where(sql`${fileLocks.expiresAt} IS NOT NULL AND ${fileLocks.expiresAt} < ${nowTime}`)
+          .run();
+        return result.changes;
+      } catch {
+        return 0;
+      }
+    },
+
+    cleanupStaleLocks(maxAgeHours = 24): number {
+      const cutoff = new Date(Date.now() - maxAgeHours * 60 * 60 * 1000).toISOString();
+      try {
+        const result = db
+          .delete(fileLocks)
+          .where(sql`${fileLocks.expiresAt} IS NULL AND ${fileLocks.checkedOutAt} < ${cutoff}`)
+          .run();
+        return result.changes;
+      } catch {
+        return 0;
+      }
+    },
+  };
+
+  return repo;
+}
+
+// =============================================================================
+// STANDALONE CLEANUP FUNCTIONS (for backward compatibility)
+// =============================================================================
 
 export function cleanupExpiredLocks(): { cleaned: number; errors: string[] } {
   const db = getDb();
-  const now = new Date().toISOString();
+  const nowTime = new Date().toISOString();
   const errors: string[] = [];
 
   try {
     // Find and delete expired locks
     const result = db
       .delete(fileLocks)
-      .where(sql`${fileLocks.expiresAt} IS NOT NULL AND ${fileLocks.expiresAt} < ${now}`)
+      .where(sql`${fileLocks.expiresAt} IS NOT NULL AND ${fileLocks.expiresAt} < ${nowTime}`)
       .run();
 
     return { cleaned: result.changes, errors };
@@ -319,8 +294,7 @@ export function cleanupStaleLocks(maxAgeHours = 24): { cleaned: number; errors: 
   const errors: string[] = [];
 
   try {
-    // Delete locks older than cutoff that have no expiration set (or just very old ones generally?)
-    // Guide says: IS NULL AND checkedOutAt < cutoff.
+    // Delete locks older than cutoff that have no expiration set
     const result = db
       .delete(fileLocks)
       .where(sql`${fileLocks.expiresAt} IS NULL AND ${fileLocks.checkedOutAt} < ${cutoff}`)
@@ -332,3 +306,28 @@ export function cleanupStaleLocks(maxAgeHours = 24): { cleaned: number; errors: 
     return { cleaned: 0, errors };
   }
 }
+
+// =============================================================================
+// TEMPORARY BACKWARD COMPAT EXPORTS
+// TODO: Remove these when all call sites are updated to use AppContext.repos
+// =============================================================================
+
+/**
+ * @deprecated Use createFileLockRepository(deps) instead. Will be removed when AppContext.repos is wired.
+ */
+function createLegacyFileLockRepo(): IFileLockRepository {
+  return createFileLockRepository({ db: getDb(), sqlite: getSqlite() });
+}
+
+// Lazy-initialized singleton instance for backward compatibility
+let _fileLockRepo: IFileLockRepository | null = null;
+
+/**
+ * @deprecated Use AppContext.repos.fileLocks instead
+ */
+export const fileLockRepo: IFileLockRepository = new Proxy({} as IFileLockRepository, {
+  get(_, prop: keyof IFileLockRepository) {
+    if (!_fileLockRepo) _fileLockRepo = createLegacyFileLockRepo();
+    return _fileLockRepo[prop];
+  },
+});

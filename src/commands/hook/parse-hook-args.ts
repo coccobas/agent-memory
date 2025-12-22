@@ -30,4 +30,3 @@ export function parseHookArgs(argv: string[]): {
 
   return { subcommand, projectId, agentId, autoExtract };
 }
-

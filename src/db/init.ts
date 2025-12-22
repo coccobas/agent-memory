@@ -295,17 +295,6 @@ export function initializeDatabase(
           const content = readFileSync(file.path, 'utf-8');
           const currentChecksum = calculateChecksum(content);
 
-          // If checksum is missing (legacy migration), backfill it
-          if (!storedChecksum) {
-            if (options.verbose) {
-              logger.info({ migration: file.name }, 'Backfilling missing checksum');
-            }
-            sqlite
-              .prepare('UPDATE _migrations SET checksum = ? WHERE name = ?')
-              .run(currentChecksum, file.name);
-            continue;
-          }
-
           // Verify checksum match
           if (storedChecksum !== currentChecksum) {
             // In dev mode with autoFixChecksums enabled, auto-update the checksum
