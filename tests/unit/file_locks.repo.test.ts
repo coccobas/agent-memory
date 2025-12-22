@@ -1,37 +1,32 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import {
   setupTestDb,
   cleanupTestDb,
+  registerTestContext,
   schema,
   createTestProject,
   createTestSession,
 } from '../fixtures/test-helpers.js';
-import { fileLockRepo } from '../../src/db/repositories/file_locks.js';
+import type { IFileLockRepository } from '../../src/db/repositories/file_locks.js';
 import { DEFAULT_LOCK_TIMEOUT_SECONDS } from '../../src/db/repositories/base.js';
 
 const TEST_DB_PATH = './data/test-file-locks.db';
 
 let sqlite: ReturnType<typeof setupTestDb>['sqlite'];
 let db: ReturnType<typeof setupTestDb>['db'];
+let fileLockRepo: IFileLockRepository;
 let testProjectId: string;
 let testSessionId: string;
-
-vi.mock('../../src/db/connection.js', async () => {
-  const actual = await vi.importActual<typeof import('../../src/db/connection.js')>(
-    '../../src/db/connection.js'
-  );
-  return {
-    ...actual,
-    getDb: () => db,
-    transaction: <T>(fn: () => T) => fn(),
-  };
-});
 
 describe('File Locks Repository', () => {
   beforeAll(() => {
     const testDb = setupTestDb(TEST_DB_PATH);
     sqlite = testDb.sqlite;
     db = testDb.db;
+
+    // Register context and get repository from context.repos
+    const context = registerTestContext(testDb);
+    fileLockRepo = context.repos.fileLocks;
 
     // Create test project and session for FK-constrained tests
     const project = createTestProject(db, 'Lock Test Project');

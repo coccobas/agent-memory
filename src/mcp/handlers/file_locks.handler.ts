@@ -3,7 +3,7 @@
  */
 
 import { isAbsolute } from 'node:path';
-import { fileLockRepo } from '../../db/repositories/file_locks.js';
+import type { AppContext } from '../../core/context.js';
 import { createValidationError } from '../../core/errors.js';
 import {
   getRequiredParam,
@@ -56,7 +56,7 @@ function validateFilePath(filePath: string): void {
 }
 
 export const fileLockHandlers = {
-  checkout(params: FileCheckoutParams) {
+  checkout(context: AppContext, params: FileCheckoutParams) {
     const file_path = getRequiredParam(params, 'file_path', isString);
     const agent_id = getRequiredParam(params, 'agent_id', isString);
     const session_id = getOptionalParam(params, 'session_id', isString);
@@ -66,7 +66,7 @@ export const fileLockHandlers = {
 
     validateFilePath(file_path);
 
-    const lock = fileLockRepo.checkout(file_path, agent_id, {
+    const lock = context.repos.fileLocks.checkout(file_path, agent_id, {
       sessionId: session_id,
       projectId: project_id,
       expiresIn: expires_in,
@@ -76,23 +76,23 @@ export const fileLockHandlers = {
     return { success: true, lock };
   },
 
-  checkin(params: FileCheckinParams) {
+  checkin(context: AppContext, params: FileCheckinParams) {
     const file_path = getRequiredParam(params, 'file_path', isString);
     const agent_id = getRequiredParam(params, 'agent_id', isString);
 
     validateFilePath(file_path);
 
-    fileLockRepo.checkin(file_path, agent_id);
+    context.repos.fileLocks.checkin(file_path, agent_id);
 
     return { success: true, message: `File ${file_path} checked in successfully` };
   },
 
-  status(params: FileLockStatusParams) {
+  status(context: AppContext, params: FileLockStatusParams) {
     const file_path = getRequiredParam(params, 'file_path', isString);
 
     validateFilePath(file_path);
 
-    const lock = fileLockRepo.getLock(file_path);
+    const lock = context.repos.fileLocks.getLock(file_path);
     const isLocked = lock !== null;
 
     return {
@@ -102,12 +102,12 @@ export const fileLockHandlers = {
     };
   },
 
-  list(params: FileLockListParams) {
+  list(context: AppContext, params: FileLockListParams) {
     const project_id = getOptionalParam(params, 'project_id', isString);
     const session_id = getOptionalParam(params, 'session_id', isString);
     const agent_id = getOptionalParam(params, 'agent_id', isString);
 
-    const locks = fileLockRepo.listLocks({
+    const locks = context.repos.fileLocks.listLocks({
       projectId: project_id,
       sessionId: session_id,
       agentId: agent_id,
@@ -120,14 +120,14 @@ export const fileLockHandlers = {
     };
   },
 
-  forceUnlock(params: FileLockForceUnlockParams) {
+  forceUnlock(context: AppContext, params: FileLockForceUnlockParams) {
     const file_path = getRequiredParam(params, 'file_path', isString);
     const agent_id = getRequiredParam(params, 'agent_id', isString);
     const reason = getOptionalParam(params, 'reason', isString);
 
     validateFilePath(file_path);
 
-    fileLockRepo.forceUnlock(file_path, agent_id, reason);
+    context.repos.fileLocks.forceUnlock(file_path, agent_id, reason);
 
     return {
       success: true,
