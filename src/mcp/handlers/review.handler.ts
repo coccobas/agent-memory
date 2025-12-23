@@ -26,16 +26,16 @@ interface ActionParams {
   projectId?: string;
 }
 
-function getCandidates(context: AppContext, sessionId: string): ReviewCandidate[] {
+async function getCandidates(context: AppContext, sessionId: string): Promise<ReviewCandidate[]> {
   const { guidelines: guidelineRepo, knowledge: knowledgeRepo, tools: toolRepo, entryTags: entryTagRepo } = context.repos;
   const candidates: ReviewCandidate[] = [];
 
   // Get guidelines from session scope
-  const guidelines = guidelineRepo.list({ scopeType: 'session', scopeId: sessionId });
+  const guidelines = await guidelineRepo.list({ scopeType: 'session', scopeId: sessionId });
   for (const g of guidelines) {
     if (!g.isActive) continue;
-    const tags = entryTagRepo.getTagsForEntry('guideline', g.id);
-    const tagNames = tags.map((t) => t.name);
+    const tags = await entryTagRepo.getTagsForEntry('guideline', g.id);
+    const tagNames = tags.map((t: { name: string }) => t.name);
     if (tagNames.includes('candidate') || tagNames.includes('needs_review')) {
       candidates.push({
         id: g.id,
@@ -48,11 +48,11 @@ function getCandidates(context: AppContext, sessionId: string): ReviewCandidate[
   }
 
   // Get knowledge from session scope
-  const knowledgeList = knowledgeRepo.list({ scopeType: 'session', scopeId: sessionId });
+  const knowledgeList = await knowledgeRepo.list({ scopeType: 'session', scopeId: sessionId });
   for (const k of knowledgeList) {
     if (!k.isActive) continue;
-    const tags = entryTagRepo.getTagsForEntry('knowledge', k.id);
-    const tagNames = tags.map((t) => t.name);
+    const tags = await entryTagRepo.getTagsForEntry('knowledge', k.id);
+    const tagNames = tags.map((t: { name: string }) => t.name);
     if (tagNames.includes('candidate') || tagNames.includes('needs_review')) {
       candidates.push({
         id: k.id,
@@ -65,11 +65,11 @@ function getCandidates(context: AppContext, sessionId: string): ReviewCandidate[
   }
 
   // Get tools from session scope
-  const tools = toolRepo.list({ scopeType: 'session', scopeId: sessionId });
+  const tools = await toolRepo.list({ scopeType: 'session', scopeId: sessionId });
   for (const t of tools) {
     if (!t.isActive) continue;
-    const tags = entryTagRepo.getTagsForEntry('tool', t.id);
-    const tagNames = tags.map((tag) => tag.name);
+    const tags = await entryTagRepo.getTagsForEntry('tool', t.id);
+    const tagNames = tags.map((tag: { name: string }) => tag.name);
     if (tagNames.includes('candidate') || tagNames.includes('needs_review')) {
       candidates.push({
         id: t.id,
@@ -84,26 +84,26 @@ function getCandidates(context: AppContext, sessionId: string): ReviewCandidate[
   return candidates;
 }
 
-function findCandidate(context: AppContext, sessionId: string, entryId: string): ReviewCandidate | undefined {
-  const candidates = getCandidates(context, sessionId);
+async function findCandidate(context: AppContext, sessionId: string, entryId: string): Promise<ReviewCandidate | undefined> {
+  const candidates = await getCandidates(context, sessionId);
   return candidates.find(
     (c) => c.id === entryId || c.shortId === entryId || c.id.startsWith(entryId)
   );
 }
 
-function list(context: AppContext, params: ListParams) {
+async function list(context: AppContext, params: ListParams) {
   const { sessions: sessionRepo, projects: projectRepo } = context.repos;
 
   if (!params.sessionId) {
     throw createValidationError('sessionId', 'is required', 'Provide the session ID');
   }
 
-  const candidates = getCandidates(context, params.sessionId);
+  const candidates = await getCandidates(context, params.sessionId);
 
   // Get session info
-  const session = sessionRepo.getById(params.sessionId);
+  const session = await sessionRepo.getById(params.sessionId);
   const projectId = session?.projectId;
-  const project = projectId ? projectRepo.getById(projectId) : null;
+  const project = projectId ? await projectRepo.getById(projectId) : null;
 
   return {
     success: true,
@@ -125,7 +125,7 @@ function list(context: AppContext, params: ListParams) {
   };
 }
 
-function show(context: AppContext, params: ActionParams) {
+async function show(context: AppContext, params: ActionParams) {
   if (!params.sessionId) {
     throw createValidationError('sessionId', 'is required', 'Provide the session ID');
   }
@@ -133,7 +133,7 @@ function show(context: AppContext, params: ActionParams) {
     throw createValidationError('entryId', 'is required', 'Provide the entry ID or short ID');
   }
 
-  const candidate = findCandidate(context, params.sessionId, params.entryId);
+  const candidate = await findCandidate(context, params.sessionId, params.entryId);
   if (!candidate) {
     return {
       success: false,
@@ -153,7 +153,7 @@ function show(context: AppContext, params: ActionParams) {
   };
 }
 
-function approve(context: AppContext, params: ActionParams) {
+async function approve(context: AppContext, params: ActionParams) {
   const { guidelines: guidelineRepo, knowledge: knowledgeRepo, tools: toolRepo, sessions: sessionRepo } = context.repos;
 
   if (!params.sessionId) {
@@ -166,7 +166,7 @@ function approve(context: AppContext, params: ActionParams) {
   // Get project ID from params or session
   let projectId = params.projectId;
   if (!projectId) {
-    const session = sessionRepo.getById(params.sessionId);
+    const session = await sessionRepo.getById(params.sessionId);
     projectId = session?.projectId ?? undefined;
   }
 
@@ -178,7 +178,7 @@ function approve(context: AppContext, params: ActionParams) {
     );
   }
 
-  const candidate = findCandidate(context, params.sessionId, params.entryId);
+  const candidate = await findCandidate(context, params.sessionId, params.entryId);
   if (!candidate) {
     return {
       success: false,
@@ -188,10 +188,10 @@ function approve(context: AppContext, params: ActionParams) {
 
   try {
     if (candidate.type === 'guideline') {
-      const original = guidelineRepo.getById(candidate.id);
+      const original = await guidelineRepo.getById(candidate.id);
       if (!original) return { success: false, message: 'Guideline not found' };
 
-      guidelineRepo.create({
+      await guidelineRepo.create({
         scopeType: 'project',
         scopeId: projectId,
         name: original.name,
@@ -200,12 +200,12 @@ function approve(context: AppContext, params: ActionParams) {
         priority: original.priority ?? undefined,
         rationale: original.currentVersion?.rationale ?? undefined,
       });
-      guidelineRepo.deactivate(candidate.id);
+      await guidelineRepo.deactivate(candidate.id);
     } else if (candidate.type === 'knowledge') {
-      const original = knowledgeRepo.getById(candidate.id);
+      const original = await knowledgeRepo.getById(candidate.id);
       if (!original) return { success: false, message: 'Knowledge not found' };
 
-      knowledgeRepo.create({
+      await knowledgeRepo.create({
         scopeType: 'project',
         scopeId: projectId,
         title: original.title,
@@ -213,19 +213,19 @@ function approve(context: AppContext, params: ActionParams) {
         category: original.category ?? undefined,
         source: original.currentVersion?.source ?? undefined,
       });
-      knowledgeRepo.deactivate(candidate.id);
+      await knowledgeRepo.deactivate(candidate.id);
     } else if (candidate.type === 'tool') {
-      const original = toolRepo.getById(candidate.id);
+      const original = await toolRepo.getById(candidate.id);
       if (!original) return { success: false, message: 'Tool not found' };
 
-      toolRepo.create({
+      await toolRepo.create({
         scopeType: 'project',
         scopeId: projectId,
         name: original.name,
         description: original.currentVersion?.description ?? undefined,
         category: original.category ?? undefined,
       });
-      toolRepo.deactivate(candidate.id);
+      await toolRepo.deactivate(candidate.id);
     }
 
     return {
@@ -246,7 +246,7 @@ function approve(context: AppContext, params: ActionParams) {
   }
 }
 
-function reject(context: AppContext, params: ActionParams) {
+async function reject(context: AppContext, params: ActionParams) {
   const { guidelines: guidelineRepo, knowledge: knowledgeRepo, tools: toolRepo } = context.repos;
 
   if (!params.sessionId) {
@@ -256,7 +256,7 @@ function reject(context: AppContext, params: ActionParams) {
     throw createValidationError('entryId', 'is required', 'Provide the entry ID or short ID');
   }
 
-  const candidate = findCandidate(context, params.sessionId, params.entryId);
+  const candidate = await findCandidate(context, params.sessionId, params.entryId);
   if (!candidate) {
     return {
       success: false,
@@ -266,11 +266,11 @@ function reject(context: AppContext, params: ActionParams) {
 
   try {
     if (candidate.type === 'guideline') {
-      guidelineRepo.deactivate(candidate.id);
+      await guidelineRepo.deactivate(candidate.id);
     } else if (candidate.type === 'knowledge') {
-      knowledgeRepo.deactivate(candidate.id);
+      await knowledgeRepo.deactivate(candidate.id);
     } else if (candidate.type === 'tool') {
-      toolRepo.deactivate(candidate.id);
+      await toolRepo.deactivate(candidate.id);
     }
 
     return {
@@ -290,7 +290,7 @@ function reject(context: AppContext, params: ActionParams) {
   }
 }
 
-function skip(context: AppContext, params: ActionParams) {
+async function skip(context: AppContext, params: ActionParams) {
   const { tags: tagRepo, entryTags: entryTagRepo } = context.repos;
 
   if (!params.sessionId) {
@@ -300,7 +300,7 @@ function skip(context: AppContext, params: ActionParams) {
     throw createValidationError('entryId', 'is required', 'Provide the entry ID or short ID');
   }
 
-  const candidate = findCandidate(context, params.sessionId, params.entryId);
+  const candidate = await findCandidate(context, params.sessionId, params.entryId);
   if (!candidate) {
     return {
       success: false,
@@ -310,19 +310,19 @@ function skip(context: AppContext, params: ActionParams) {
 
   try {
     // Remove review tags
-    const candidateTag = tagRepo.getByName('candidate');
-    const needsReviewTag = tagRepo.getByName('needs_review');
+    const candidateTag = await tagRepo.getByName('candidate');
+    const needsReviewTag = await tagRepo.getByName('needs_review');
 
     if (candidateTag) {
       try {
-        entryTagRepo.detach(candidate.type, candidate.id, candidateTag.id);
+        await entryTagRepo.detach(candidate.type, candidate.id, candidateTag.id);
       } catch {
         // Ignore if not attached
       }
     }
     if (needsReviewTag) {
       try {
-        entryTagRepo.detach(candidate.type, candidate.id, needsReviewTag.id);
+        await entryTagRepo.detach(candidate.type, candidate.id, needsReviewTag.id);
       } catch {
         // Ignore if not attached
       }

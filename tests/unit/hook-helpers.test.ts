@@ -373,7 +373,7 @@ describe('session-summary', () => {
   describe('formatSessionSummary', () => {
     it('should format summary with all entry types', async () => {
       vi.doMock('../../src/commands/hook/session.js', () => ({
-        getSessionSummary: vi.fn(() => ({
+        getSessionSummary: vi.fn(() => Promise.resolve({
           sessionId: 'sess-12345678',
           projectName: 'Test Project',
           guidelines: [{ name: 'rule1', content: 'content1' }],
@@ -384,7 +384,7 @@ describe('session-summary', () => {
       }));
 
       const { formatSessionSummary } = await import('../../src/commands/hook/session-summary.js');
-      const lines = formatSessionSummary('sess-12345678');
+      const lines = await formatSessionSummary('sess-12345678');
 
       const output = lines.join('\n');
       expect(output).toContain('Session Summary');
@@ -400,7 +400,7 @@ describe('session-summary', () => {
 
     it('should truncate long lists', async () => {
       vi.doMock('../../src/commands/hook/session.js', () => ({
-        getSessionSummary: vi.fn(() => ({
+        getSessionSummary: vi.fn(() => Promise.resolve({
           sessionId: 'sess-12345678',
           guidelines: Array.from({ length: 10 }, (_, i) => ({ name: `rule${i}`, content: 'c' })),
           knowledge: [],
@@ -410,7 +410,7 @@ describe('session-summary', () => {
       }));
 
       const { formatSessionSummary } = await import('../../src/commands/hook/session-summary.js');
-      const lines = formatSessionSummary('sess-12345678');
+      const lines = await formatSessionSummary('sess-12345678');
 
       const output = lines.join('\n');
       expect(output).toContain('and 5 more');

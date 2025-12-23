@@ -5,7 +5,6 @@
  */
 
 import { eq, and, isNull, sql } from 'drizzle-orm';
-import { getDb } from '../connection.js';
 import {
   organizations,
   projects,
@@ -57,7 +56,7 @@ export function createOrganizationRepository(deps: DatabaseDeps): IOrganizationR
   const { db } = deps;
 
   const repo: IOrganizationRepository = {
-    create(input: CreateOrganizationInput): Organization {
+    async create(input: CreateOrganizationInput): Promise<Organization> {
       const id = generateId();
 
       const org: NewOrganization = {
@@ -68,7 +67,7 @@ export function createOrganizationRepository(deps: DatabaseDeps): IOrganizationR
 
       db.insert(organizations).values(org).run();
 
-      const result = repo.getById(id);
+      const result = await repo.getById(id);
       if (!result) {
         throw new Error(`Failed to create organization ${id}`);
       }
@@ -76,19 +75,19 @@ export function createOrganizationRepository(deps: DatabaseDeps): IOrganizationR
       return result;
     },
 
-    getById(id: string): Organization | undefined {
+    async getById(id: string): Promise<Organization | undefined> {
       return db.select().from(organizations).where(eq(organizations.id, id)).get();
     },
 
-    list(options: PaginationOptions = {}): Organization[] {
+    async list(options: PaginationOptions = {}): Promise<Organization[]> {
       const limit = Math.min(options.limit ?? DEFAULT_LIMIT, MAX_LIMIT);
       const offset = options.offset ?? 0;
 
       return db.select().from(organizations).limit(limit).offset(offset).all();
     },
 
-    update(id: string, input: UpdateOrganizationInput): Organization | undefined {
-      const existing = repo.getById(id);
+    async update(id: string, input: UpdateOrganizationInput): Promise<Organization | undefined> {
+      const existing = await repo.getById(id);
       if (!existing) return undefined;
 
       db.update(organizations)
@@ -99,14 +98,14 @@ export function createOrganizationRepository(deps: DatabaseDeps): IOrganizationR
         .where(eq(organizations.id, id))
         .run();
 
-      const result = repo.getById(id);
+      const result = await repo.getById(id);
       if (result) {
         invalidateScopeChainCache('org', id);
       }
       return result;
     },
 
-    delete(id: string): boolean {
+    async delete(id: string): Promise<boolean> {
       const result = db.delete(organizations).where(eq(organizations.id, id)).run();
       if (result.changes > 0) {
         invalidateScopeChainCache('org', id);
@@ -129,7 +128,7 @@ export function createProjectRepository(deps: DatabaseDeps): IProjectRepository 
   const { db } = deps;
 
   const repo: IProjectRepository = {
-    create(input: CreateProjectInput): Project {
+    async create(input: CreateProjectInput): Promise<Project> {
       const id = generateId();
 
       const project: NewProject = {
@@ -143,7 +142,7 @@ export function createProjectRepository(deps: DatabaseDeps): IProjectRepository 
 
       db.insert(projects).values(project).run();
 
-      const result = repo.getById(id);
+      const result = await repo.getById(id);
       if (!result) {
         throw new Error(`Failed to create project ${id}`);
       }
@@ -151,11 +150,11 @@ export function createProjectRepository(deps: DatabaseDeps): IProjectRepository 
       return result;
     },
 
-    getById(id: string): Project | undefined {
+    async getById(id: string): Promise<Project | undefined> {
       return db.select().from(projects).where(eq(projects.id, id)).get();
     },
 
-    getByName(name: string, orgId?: string): Project | undefined {
+    async getByName(name: string, orgId?: string): Promise<Project | undefined> {
       if (orgId) {
         return db
           .select()
@@ -171,7 +170,7 @@ export function createProjectRepository(deps: DatabaseDeps): IProjectRepository 
         .get();
     },
 
-    list(filter: ListProjectsFilter = {}, options: PaginationOptions = {}): Project[] {
+    async list(filter: ListProjectsFilter = {}, options: PaginationOptions = {}): Promise<Project[]> {
       const limit = Math.min(options.limit ?? DEFAULT_LIMIT, MAX_LIMIT);
       const offset = options.offset ?? 0;
 
@@ -184,8 +183,8 @@ export function createProjectRepository(deps: DatabaseDeps): IProjectRepository 
       return query.limit(limit).offset(offset).all();
     },
 
-    update(id: string, input: UpdateProjectInput): Project | undefined {
-      const existing = repo.getById(id);
+    async update(id: string, input: UpdateProjectInput): Promise<Project | undefined> {
+      const existing = await repo.getById(id);
       if (!existing) return undefined;
 
       db.update(projects)
@@ -199,14 +198,14 @@ export function createProjectRepository(deps: DatabaseDeps): IProjectRepository 
         .where(eq(projects.id, id))
         .run();
 
-      const result = repo.getById(id);
+      const result = await repo.getById(id);
       if (result) {
         invalidateScopeChainCache('project', id);
       }
       return result;
     },
 
-    delete(id: string): boolean {
+    async delete(id: string): Promise<boolean> {
       const result = db.delete(projects).where(eq(projects.id, id)).run();
       if (result.changes > 0) {
         invalidateScopeChainCache('project', id);
@@ -229,7 +228,7 @@ export function createSessionRepository(deps: DatabaseDeps): ISessionRepository 
   const { db } = deps;
 
   const repo: ISessionRepository = {
-    create(input: CreateSessionInput): Session {
+    async create(input: CreateSessionInput): Promise<Session> {
       const id = generateId();
 
       const session: NewSession = {
@@ -244,7 +243,7 @@ export function createSessionRepository(deps: DatabaseDeps): ISessionRepository 
 
       db.insert(sessions).values(session).run();
 
-      const result = repo.getById(id);
+      const result = await repo.getById(id);
       if (!result) {
         throw new Error(`Failed to create session ${id}`);
       }
@@ -252,11 +251,11 @@ export function createSessionRepository(deps: DatabaseDeps): ISessionRepository 
       return result;
     },
 
-    getById(id: string): Session | undefined {
+    async getById(id: string): Promise<Session | undefined> {
       return db.select().from(sessions).where(eq(sessions.id, id)).get();
     },
 
-    list(filter: ListSessionsFilter = {}, options: PaginationOptions = {}): Session[] {
+    async list(filter: ListSessionsFilter = {}, options: PaginationOptions = {}): Promise<Session[]> {
       const limit = Math.min(options.limit ?? DEFAULT_LIMIT, MAX_LIMIT);
       const offset = options.offset ?? 0;
 
@@ -277,8 +276,8 @@ export function createSessionRepository(deps: DatabaseDeps): ISessionRepository 
       return query.limit(limit).offset(offset).all();
     },
 
-    update(id: string, input: UpdateSessionInput): Session | undefined {
-      const existing = repo.getById(id);
+    async update(id: string, input: UpdateSessionInput): Promise<Session | undefined> {
+      const existing = await repo.getById(id);
       if (!existing) return undefined;
 
       const endedAt =
@@ -295,18 +294,18 @@ export function createSessionRepository(deps: DatabaseDeps): ISessionRepository 
         .where(eq(sessions.id, id))
         .run();
 
-      const result = repo.getById(id);
+      const result = await repo.getById(id);
       if (result) {
         invalidateScopeChainCache('session', id);
       }
       return result;
     },
 
-    end(id: string, status: 'completed' | 'discarded' = 'completed'): Session | undefined {
+    async end(id: string, status: 'completed' | 'discarded' = 'completed'): Promise<Session | undefined> {
       return repo.update(id, { status });
     },
 
-    delete(id: string): boolean {
+    async delete(id: string): Promise<boolean> {
       const result = db.delete(sessions).where(eq(sessions.id, id)).run();
       if (result.changes > 0) {
         invalidateScopeChainCache('session', id);
@@ -318,63 +317,3 @@ export function createSessionRepository(deps: DatabaseDeps): ISessionRepository 
   return repo;
 }
 
-// =============================================================================
-// TEMPORARY BACKWARD COMPAT EXPORTS
-// TODO: Remove these when all call sites are updated to use AppContext.repos
-// =============================================================================
-
-/**
- * @deprecated Use createOrganizationRepository(deps) instead. Will be removed when AppContext.repos is wired.
- */
-function createLegacyOrgRepo(): IOrganizationRepository {
-  return createOrganizationRepository({ db: getDb(), sqlite: null as any });
-}
-
-/**
- * @deprecated Use createProjectRepository(deps) instead. Will be removed when AppContext.repos is wired.
- */
-function createLegacyProjectRepo(): IProjectRepository {
-  return createProjectRepository({ db: getDb(), sqlite: null as any });
-}
-
-/**
- * @deprecated Use createSessionRepository(deps) instead. Will be removed when AppContext.repos is wired.
- */
-function createLegacySessionRepo(): ISessionRepository {
-  return createSessionRepository({ db: getDb(), sqlite: null as any });
-}
-
-// Lazy-initialized singleton instances for backward compatibility
-let _organizationRepo: IOrganizationRepository | null = null;
-let _projectRepo: IProjectRepository | null = null;
-let _sessionRepo: ISessionRepository | null = null;
-
-/**
- * @deprecated Use AppContext.repos.organizations instead
- */
-export const organizationRepo: IOrganizationRepository = new Proxy({} as IOrganizationRepository, {
-  get(_, prop: keyof IOrganizationRepository) {
-    if (!_organizationRepo) _organizationRepo = createLegacyOrgRepo();
-    return _organizationRepo[prop];
-  },
-});
-
-/**
- * @deprecated Use AppContext.repos.projects instead
- */
-export const projectRepo: IProjectRepository = new Proxy({} as IProjectRepository, {
-  get(_, prop: keyof IProjectRepository) {
-    if (!_projectRepo) _projectRepo = createLegacyProjectRepo();
-    return _projectRepo[prop];
-  },
-});
-
-/**
- * @deprecated Use AppContext.repos.sessions instead
- */
-export const sessionRepo: ISessionRepository = new Proxy({} as ISessionRepository, {
-  get(_, prop: keyof ISessionRepository) {
-    if (!_sessionRepo) _sessionRepo = createLegacySessionRepo();
-    return _sessionRepo[prop];
-  },
-});

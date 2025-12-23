@@ -171,6 +171,123 @@ export function transactionWithDb<T>(sqlite: Database.Database, fn: () => T): T 
   return sqlite.transaction(fn)();
 }
 
+// =============================================================================
+// TRANSACTION RETRY LOGIC (ADR-007)
+// =============================================================================
+
+/**
+ * Error codes that indicate transient database contention issues
+ * that may succeed on retry.
+ */
+const RETRYABLE_ERROR_PATTERNS = [
+  'SQLITE_BUSY',
+  'SQLITE_LOCKED',
+  'SQLITE_PROTOCOL',
+  'database is locked',
+  'database is busy',
+];
+
+/**
+ * Check if an error is retryable (transient database contention).
+ *
+ * @param error - The error to check
+ * @returns true if the error is retryable
+ */
+export function isRetryableDbError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const message = error.message.toLowerCase();
+  const code = 'code' in error ? String(error.code).toUpperCase() : '';
+
+  return RETRYABLE_ERROR_PATTERNS.some(
+    (pattern) => message.includes(pattern.toLowerCase()) || code.includes(pattern.toUpperCase())
+  );
+}
+
+export interface TransactionRetryOptions {
+  /** Maximum number of retry attempts (default: config.transaction.maxRetries) */
+  maxRetries?: number;
+  /** Initial delay in ms before first retry (default: config.transaction.initialDelayMs) */
+  initialDelayMs?: number;
+  /** Maximum delay cap in ms (default: config.transaction.maxDelayMs) */
+  maxDelayMs?: number;
+  /** Backoff multiplier for exponential delay (default: config.transaction.backoffMultiplier) */
+  backoffMultiplier?: number;
+}
+
+/**
+ * Synchronous sleep using a busy-wait loop.
+ * Note: This blocks the event loop but is acceptable for short database contention scenarios.
+ */
+function sleepSync(ms: number): void {
+  const end = Date.now() + ms;
+  while (Date.now() < end) {
+    // Busy wait - necessary for synchronous SQLite context
+  }
+}
+
+/**
+ * Run a transaction with exponential backoff retry for transient errors.
+ * Handles SQLITE_BUSY, SQLITE_LOCKED, and other database contention issues.
+ *
+ * @param sqlite - The better-sqlite3 database instance
+ * @param fn - The function to run in a transaction
+ * @param options - Retry configuration (defaults from config.transaction)
+ * @returns The result of the transaction function
+ * @throws The last error if all retries fail
+ */
+export function transactionWithRetry<T>(
+  sqlite: Database.Database,
+  fn: () => T,
+  options?: TransactionRetryOptions
+): T {
+  const maxRetries = options?.maxRetries ?? config.transaction.maxRetries;
+  const initialDelay = options?.initialDelayMs ?? config.transaction.initialDelayMs;
+  const maxDelay = options?.maxDelayMs ?? config.transaction.maxDelayMs;
+  const multiplier = options?.backoffMultiplier ?? config.transaction.backoffMultiplier;
+
+  let lastError: Error | undefined;
+  let delay = initialDelay;
+
+  for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
+    try {
+      return sqlite.transaction(fn)();
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+
+      const isRetryable = isRetryableDbError(error);
+      const hasMoreAttempts = attempt <= maxRetries;
+
+      if (!isRetryable || !hasMoreAttempts) {
+        logger.warn(
+          {
+            error: lastError.message,
+            attempt,
+            maxRetries: maxRetries + 1,
+            retryable: isRetryable,
+          },
+          'Transaction failed'
+        );
+        throw lastError;
+      }
+
+      logger.debug(
+        {
+          error: lastError.message,
+          attempt,
+          nextDelayMs: delay,
+        },
+        'Retrying transaction after transient error'
+      );
+
+      sleepSync(delay);
+      delay = Math.min(delay * multiplier, maxDelay);
+    }
+  }
+
+  // Should not reach here, but TypeScript needs it
+  throw lastError ?? new Error('Transaction failed with unknown error');
+}
+
 /**
  * Clear the prepared statement cache.
  * Useful for tests when switching database instances.

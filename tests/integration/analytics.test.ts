@@ -3,12 +3,14 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
-import { setupTestDb, cleanupTestDb } from '../fixtures/test-helpers.js';
+import { setupTestDb, cleanupTestDb, createTestContext } from '../fixtures/test-helpers.js';
 import { analyticsHandlers } from '../../src/mcp/handlers/analytics.handler.js';
+import type { AppContext } from '../../src/core/context.js';
 
 const TEST_DB_PATH = './data/test-analytics-handler.db';
 let sqlite: ReturnType<typeof setupTestDb>['sqlite'];
 let db: ReturnType<typeof setupTestDb>['db'];
+let ctx: AppContext;
 
 vi.mock('../../src/db/connection.js', async () => {
   const actual = await vi.importActual<typeof import('../../src/db/connection.js')>(
@@ -21,10 +23,11 @@ vi.mock('../../src/db/connection.js', async () => {
 });
 
 describe('Analytics Handler Integration', () => {
-  beforeAll(() => {
+  beforeAll(async () => {
     const testDb = setupTestDb(TEST_DB_PATH);
     sqlite = testDb.sqlite;
     db = testDb.db;
+    ctx = await createTestContext(testDb);
   });
 
   afterAll(() => {
@@ -34,7 +37,7 @@ describe('Analytics Handler Integration', () => {
 
   describe('get_stats', () => {
     it('should return usage statistics', () => {
-      const result = analyticsHandlers.get_stats({});
+      const result = analyticsHandlers.get_stats(ctx, {});
 
       expect(result).toBeDefined();
       expect(result.stats).toBeDefined();
@@ -44,14 +47,14 @@ describe('Analytics Handler Integration', () => {
     });
 
     it('should filter by scopeType', () => {
-      const result = analyticsHandlers.get_stats({ scopeType: 'global' });
+      const result = analyticsHandlers.get_stats(ctx, { scopeType: 'global' });
 
       expect(result.filters.scopeType).toBe('global');
       expect(result.stats).toBeDefined();
     });
 
     it('should filter by scopeId', () => {
-      const result = analyticsHandlers.get_stats({ scopeId: 'test-scope-id' });
+      const result = analyticsHandlers.get_stats(ctx, { scopeId: 'test-scope-id' });
 
       expect(result.filters.scopeId).toBe('test-scope-id');
     });
@@ -60,7 +63,7 @@ describe('Analytics Handler Integration', () => {
       const startDate = '2024-01-01T00:00:00Z';
       const endDate = '2024-12-31T23:59:59Z';
 
-      const result = analyticsHandlers.get_stats({ startDate, endDate });
+      const result = analyticsHandlers.get_stats(ctx, { startDate, endDate });
 
       expect(result.filters.startDate).toBe(startDate);
       expect(result.filters.endDate).toBe(endDate);
@@ -69,7 +72,7 @@ describe('Analytics Handler Integration', () => {
 
   describe('get_trends', () => {
     it('should return trend data', () => {
-      const result = analyticsHandlers.get_trends({});
+      const result = analyticsHandlers.get_trends(ctx, {});
 
       expect(result).toBeDefined();
       expect(result.trends).toBeDefined();
@@ -78,7 +81,7 @@ describe('Analytics Handler Integration', () => {
     });
 
     it('should filter trends by scopeType', () => {
-      const result = analyticsHandlers.get_trends({ scopeType: 'project' });
+      const result = analyticsHandlers.get_trends(ctx, { scopeType: 'project' });
 
       expect(result.filters.scopeType).toBe('project');
     });
@@ -87,7 +90,7 @@ describe('Analytics Handler Integration', () => {
       const startDate = '2024-01-01T00:00:00Z';
       const endDate = '2024-12-31T23:59:59Z';
 
-      const result = analyticsHandlers.get_trends({ startDate, endDate });
+      const result = analyticsHandlers.get_trends(ctx, { startDate, endDate });
 
       expect(result.filters.startDate).toBe(startDate);
       expect(result.filters.endDate).toBe(endDate);
@@ -96,7 +99,7 @@ describe('Analytics Handler Integration', () => {
 
   describe('get_subtask_stats', () => {
     it('should return subtask statistics', () => {
-      const result = analyticsHandlers.get_subtask_stats({ projectId: 'test-project' });
+      const result = analyticsHandlers.get_subtask_stats(ctx, { projectId: 'test-project' });
 
       expect(result).toBeDefined();
       expect(Array.isArray(result.subtasks)).toBe(true);
@@ -106,7 +109,7 @@ describe('Analytics Handler Integration', () => {
     });
 
     it('should filter by subtaskType', () => {
-      const result = analyticsHandlers.get_subtask_stats({
+      const result = analyticsHandlers.get_subtask_stats(ctx, {
         projectId: 'test-project',
         subtaskType: 'test-type',
       });
@@ -118,7 +121,7 @@ describe('Analytics Handler Integration', () => {
       const startDate = '2024-01-01T00:00:00Z';
       const endDate = '2024-12-31T23:59:59Z';
 
-      const result = analyticsHandlers.get_subtask_stats({
+      const result = analyticsHandlers.get_subtask_stats(ctx, {
         projectId: 'test-project',
         startDate,
         endDate,
@@ -130,7 +133,7 @@ describe('Analytics Handler Integration', () => {
 
   describe('get_error_correlation', () => {
     it('should calculate error correlation', () => {
-      const result = analyticsHandlers.get_error_correlation({
+      const result = analyticsHandlers.get_error_correlation(ctx, {
         agentA: 'agent-1',
         agentB: 'agent-2',
       });
@@ -146,11 +149,11 @@ describe('Analytics Handler Integration', () => {
 
     it('should require agentA and agentB', () => {
       expect(() => {
-        analyticsHandlers.get_error_correlation({ agentA: 'agent-1' });
+        analyticsHandlers.get_error_correlation(ctx, { agentA: 'agent-1' });
       }).toThrow(/agentA and agentB/);
 
       expect(() => {
-        analyticsHandlers.get_error_correlation({ agentB: 'agent-2' });
+        analyticsHandlers.get_error_correlation(ctx, { agentB: 'agent-2' });
       }).toThrow(/agentA and agentB/);
     });
 
@@ -160,7 +163,7 @@ describe('Analytics Handler Integration', () => {
         end: '2024-12-31T23:59:59Z',
       };
 
-      const result = analyticsHandlers.get_error_correlation({
+      const result = analyticsHandlers.get_error_correlation(ctx, {
         agentA: 'agent-1',
         agentB: 'agent-2',
         timeWindow,
@@ -173,12 +176,12 @@ describe('Analytics Handler Integration', () => {
   describe('get_low_diversity', () => {
     it('should require projectId', () => {
       expect(() => {
-        analyticsHandlers.get_low_diversity({});
+        analyticsHandlers.get_low_diversity(ctx, {});
       }).toThrow(/projectId/);
     });
 
     it('should detect low diversity', () => {
-      const result = analyticsHandlers.get_low_diversity({ projectId: 'test-project' });
+      const result = analyticsHandlers.get_low_diversity(ctx, { projectId: 'test-project' });
 
       expect(result).toBeDefined();
       expect(Array.isArray(result.agentPairs)).toBe(true);
@@ -186,5 +189,6 @@ describe('Analytics Handler Integration', () => {
     });
   });
 });
+
 
 

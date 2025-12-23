@@ -5,7 +5,6 @@
  */
 
 import { and, eq } from 'drizzle-orm';
-import { getDb } from '../connection.js';
 import { conflictLog, type ConflictLog } from '../schema.js';
 import { now, type PaginationOptions, DEFAULT_LIMIT, MAX_LIMIT } from './base.js';
 import type { DatabaseDeps } from '../../core/types.js';
@@ -20,9 +19,9 @@ export interface ListConflictsFilter {
 }
 
 export interface IConflictRepository {
-  list(filter?: ListConflictsFilter, options?: PaginationOptions): ConflictLog[];
-  getById(id: string): ConflictLog | undefined;
-  resolve(id: string, resolution: string, resolvedBy?: string): ConflictLog | undefined;
+  list(filter?: ListConflictsFilter, options?: PaginationOptions): Promise<ConflictLog[]>;
+  getById(id: string): Promise<ConflictLog | undefined>;
+  resolve(id: string, resolution: string, resolvedBy?: string): Promise<ConflictLog | undefined>;
 }
 
 // =============================================================================
@@ -36,7 +35,7 @@ export function createConflictRepository(deps: DatabaseDeps): IConflictRepositor
   const { db } = deps;
 
   const repo: IConflictRepository = {
-    list(filter: ListConflictsFilter = {}, options: PaginationOptions = {}): ConflictLog[] {
+    async list(filter: ListConflictsFilter = {}, options: PaginationOptions = {}): Promise<ConflictLog[]> {
       const limit = Math.min(options.limit ?? DEFAULT_LIMIT, MAX_LIMIT);
       const offset = options.offset ?? 0;
 
@@ -59,12 +58,12 @@ export function createConflictRepository(deps: DatabaseDeps): IConflictRepositor
       return query.orderBy(conflictLog.detectedAt).limit(limit).offset(offset).all();
     },
 
-    getById(id: string): ConflictLog | undefined {
+    async getById(id: string): Promise<ConflictLog | undefined> {
       return db.select().from(conflictLog).where(eq(conflictLog.id, id)).get();
     },
 
-    resolve(id: string, resolution: string, resolvedBy?: string): ConflictLog | undefined {
-      const existing = repo.getById(id);
+    async resolve(id: string, resolution: string, resolvedBy?: string): Promise<ConflictLog | undefined> {
+      const existing = await repo.getById(id);
       if (!existing) return undefined;
 
       const resolvedAt = now();
@@ -79,29 +78,9 @@ export function createConflictRepository(deps: DatabaseDeps): IConflictRepositor
         .where(eq(conflictLog.id, id))
         .run();
 
-      return repo.getById(id) ?? undefined;
+      return (await repo.getById(id)) ?? undefined;
     },
   };
 
   return repo;
 }
-
-// =============================================================================
-// TEMPORARY BACKWARD COMPAT EXPORTS
-// =============================================================================
-
-function createLegacyConflictRepo(): IConflictRepository {
-  return createConflictRepository({ db: getDb(), sqlite: null as any });
-}
-
-let _conflictRepo: IConflictRepository | null = null;
-
-/**
- * @deprecated Use AppContext.repos.conflicts instead
- */
-export const conflictRepo: IConflictRepository = new Proxy({} as IConflictRepository, {
-  get(_, prop: keyof IConflictRepository) {
-    if (!_conflictRepo) _conflictRepo = createLegacyConflictRepo();
-    return _conflictRepo[prop];
-  },
-});

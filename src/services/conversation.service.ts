@@ -1,10 +1,52 @@
-import { conversationRepo } from '../db/repositories/conversations.js';
+import type { IConversationRepository, CreateKnowledgeInput } from '../core/interfaces/repositories.js';
 import type { PermissionEntryType } from '../db/schema.js';
 import type { MemoryQueryResult } from './query.service.js';
-import type { CreateKnowledgeInput } from '../db/repositories/knowledge.js';
 import { createComponentLogger } from '../utils/logger.js';
 
 const logger = createComponentLogger('ConversationService');
+
+/**
+ * Conversation service interface
+ */
+export interface ConversationService {
+  autoLinkContextFromQuery(
+    conversationId: string,
+    messageId: string | undefined,
+    queryResult: MemoryQueryResult
+  ): Promise<void>;
+  generateConversationSummary(conversationId: string): Promise<string>;
+  extractKnowledgeFromConversation(conversationId: string): Promise<CreateKnowledgeInput[]>;
+  getConversationAnalytics(conversationId: string): Promise<ConversationAnalytics>;
+}
+
+/**
+ * Create a conversation service with injected dependencies
+ *
+ * @param conversationRepo - Conversation repository
+ * @returns Conversation service instance
+ */
+export function createConversationService(
+  conversationRepo: IConversationRepository
+): ConversationService {
+  return {
+    async autoLinkContextFromQuery(
+      conversationId: string,
+      messageId: string | undefined,
+      queryResult: MemoryQueryResult
+    ): Promise<void> {
+      await autoLinkContextFromQueryImpl(conversationRepo, conversationId, messageId, queryResult);
+    },
+    async generateConversationSummary(conversationId: string): Promise<string> {
+      return generateConversationSummaryImpl(conversationRepo, conversationId);
+    },
+    async extractKnowledgeFromConversation(conversationId: string): Promise<CreateKnowledgeInput[]> {
+      return extractKnowledgeFromConversationImpl(conversationRepo, conversationId);
+    },
+    async getConversationAnalytics(conversationId: string): Promise<ConversationAnalytics> {
+      return getConversationAnalyticsImpl(conversationRepo, conversationId);
+    },
+  };
+}
 
 /**
  * Conversation analytics
@@ -20,20 +62,14 @@ export interface ConversationAnalytics {
 }
 
 /**
- * Automatically link memory entries from query results to conversation
- *
- * This is a fire-and-forget operation - errors are silently ignored to prevent
- * disrupting the main query flow.
- *
- * @param conversationId - The conversation ID
- * @param messageId - Optional message ID to link to specific message
- * @param queryResult - The query result containing entries to link
+ * Automatically link memory entries from query results to conversation (implementation)
  */
-export function autoLinkContextFromQuery(
+async function autoLinkContextFromQueryImpl(
+  conversationRepo: IConversationRepository,
   conversationId: string,
   messageId: string | undefined,
   queryResult: MemoryQueryResult
-): void {
+): Promise<void> {
   // Defensive null checks - this is fire-and-forget, so fail silently
   if (!queryResult || !Array.isArray(queryResult.results)) {
     return;
@@ -53,7 +89,7 @@ export function autoLinkContextFromQuery(
         typeof item.score === 'number' ? (item.score > 1 ? item.score / 100 : item.score) : 0;
 
       try {
-        conversationRepo.linkContext({
+        await conversationRepo.linkContext({
           conversationId,
           messageId,
           entryType,
@@ -78,13 +114,13 @@ export function autoLinkContextFromQuery(
 }
 
 /**
- * Generate a summary of conversation
- *
- * @param conversationId - The conversation ID
- * @returns Summary text
+ * Generate a summary of conversation (implementation)
  */
-export function generateConversationSummary(conversationId: string): string {
-  const conversation = conversationRepo.getById(conversationId, true, true);
+async function generateConversationSummaryImpl(
+  conversationRepo: IConversationRepository,
+  conversationId: string
+): Promise<string> {
+  const conversation = await conversationRepo.getById(conversationId, true, true);
 
   if (!conversation) {
     return 'Conversation not found';
@@ -127,13 +163,13 @@ export function generateConversationSummary(conversationId: string): string {
 }
 
 /**
- * Extract knowledge from conversation
- *
- * @param conversationId - The conversation ID
- * @returns Array of knowledge entries to create
+ * Extract knowledge from conversation (implementation)
  */
-export function extractKnowledgeFromConversation(conversationId: string): CreateKnowledgeInput[] {
-  const conversation = conversationRepo.getById(conversationId, true, true);
+async function extractKnowledgeFromConversationImpl(
+  conversationRepo: IConversationRepository,
+  conversationId: string
+): Promise<CreateKnowledgeInput[]> {
+  const conversation = await conversationRepo.getById(conversationId, true, true);
 
   if (!conversation || !conversation.messages) {
     return [];
@@ -166,13 +202,13 @@ export function extractKnowledgeFromConversation(conversationId: string): Create
 }
 
 /**
- * Get analytics for a conversation
- *
- * @param conversationId - The conversation ID
- * @returns Analytics object
+ * Get analytics for a conversation (implementation)
  */
-export function getConversationAnalytics(conversationId: string): ConversationAnalytics {
-  const conversation = conversationRepo.getById(conversationId, true, true);
+async function getConversationAnalyticsImpl(
+  conversationRepo: IConversationRepository,
+  conversationId: string
+): Promise<ConversationAnalytics> {
+  const conversation = await conversationRepo.getById(conversationId, true, true);
 
   if (!conversation) {
     throw new Error(`Conversation ${conversationId} not found`);

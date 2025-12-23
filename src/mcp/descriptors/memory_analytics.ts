@@ -36,22 +36,22 @@ export const memoryAnalyticsDescriptor: ToolDescriptor = {
   },
   actions: {
     get_stats: {
-      handler: (p) => analyticsHandlers.get_stats(p as unknown as AnalyticsGetStatsParams),
+      contextHandler: (ctx, p) => analyticsHandlers.get_stats(ctx, p as unknown as AnalyticsGetStatsParams),
     },
     get_trends: {
-      handler: (p) => analyticsHandlers.get_trends(p as unknown as AnalyticsGetTrendsParams),
+      contextHandler: (ctx, p) => analyticsHandlers.get_trends(ctx, p as unknown as AnalyticsGetTrendsParams),
     },
     get_subtask_stats: {
-      handler: (p) =>
-        analyticsHandlers.get_subtask_stats(p as unknown as AnalyticsGetSubtaskStatsParams),
+      contextHandler: (ctx, p) =>
+        analyticsHandlers.get_subtask_stats(ctx, p as unknown as AnalyticsGetSubtaskStatsParams),
     },
     get_error_correlation: {
-      handler: (p) =>
-        analyticsHandlers.get_error_correlation(p as unknown as AnalyticsGetErrorCorrelationParams),
+      contextHandler: (ctx, p) =>
+        analyticsHandlers.get_error_correlation(ctx, p as unknown as AnalyticsGetErrorCorrelationParams),
     },
     get_low_diversity: {
-      handler: (p) =>
-        analyticsHandlers.get_low_diversity(p as unknown as AnalyticsGetLowDiversityParams),
+      contextHandler: (ctx, p) =>
+        analyticsHandlers.get_low_diversity(ctx, p as unknown as AnalyticsGetLowDiversityParams),
     },
   },
 };

@@ -3,11 +3,11 @@ import { dirname, resolve } from 'node:path';
 
 import { getSessionSummary } from './session.js';
 
-export function writeSessionSummaryFile(
+export async function writeSessionSummaryFile(
   sessionId: string,
   cwd: string
-): { path: string; itemCount: number } {
-  const summary = getSessionSummary(sessionId);
+): Promise<{ path: string; itemCount: number }> {
+  const summary = await getSessionSummary(sessionId);
   const itemCount = summary.guidelines.length + summary.knowledge.length + summary.tools.length;
 
   const truncate = (s: string, len: number) => (s.length > len ? s.slice(0, len) + '...' : s);
@@ -67,8 +67,8 @@ export function writeSessionSummaryFile(
   return { path: summaryPath, itemCount };
 }
 
-export function formatSessionSummary(sessionId: string): string[] {
-  const summary = getSessionSummary(sessionId);
+export async function formatSessionSummary(sessionId: string): Promise<string[]> {
+  const summary = await getSessionSummary(sessionId);
   const lines: string[] = [];
 
   lines.push(`\n📋 Session Summary (${sessionId.slice(0, 8)}…)`);
@@ -115,7 +115,7 @@ export function formatSessionSummary(sessionId: string): string[] {
   return lines;
 }
 
-export function formatSessionSummaryStderr(sessionId: string): void {
-  const lines = formatSessionSummary(sessionId);
+export async function formatSessionSummaryStderr(sessionId: string): Promise<void> {
+  const lines = await formatSessionSummary(sessionId);
   for (const line of lines) console.error(line);
 }

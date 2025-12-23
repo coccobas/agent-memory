@@ -1,7 +1,10 @@
-import { guidelineRepo } from '../../db/repositories/guidelines.js';
-import { knowledgeRepo } from '../../db/repositories/knowledge.js';
-import { toolRepo } from '../../db/repositories/tools.js';
-import { entryTagRepo, tagRepo } from '../../db/repositories/tags.js';
+import { getDb, getSqlite } from '../../db/connection.js';
+import { createRepositories } from '../../core/factory/repositories.js';
+import type { Repositories } from '../../core/interfaces/repositories.js';
+
+function getRepos(): Repositories {
+  return createRepositories({ db: getDb(), sqlite: getSqlite() });
+}
 
 export interface ReviewCandidate {
   id: string;
@@ -11,13 +14,14 @@ export interface ReviewCandidate {
   content: string;
 }
 
-export function getReviewCandidates(sessionId: string): ReviewCandidate[] {
+export async function getReviewCandidates(sessionId: string): Promise<ReviewCandidate[]> {
+  const repos = getRepos();
   const candidates: ReviewCandidate[] = [];
 
-  const guidelinesList = guidelineRepo.list({ scopeType: 'session', scopeId: sessionId });
+  const guidelinesList = await repos.guidelines.list({ scopeType: 'session', scopeId: sessionId });
   for (const g of guidelinesList) {
     if (!g.isActive) continue;
-    const tags = g.id ? getEntryTags('guideline', g.id) : [];
+    const tags = g.id ? await getEntryTags(repos, 'guideline', g.id) : [];
     if (tags.includes('candidate') || tags.includes('needs_review')) {
       candidates.push({
         id: g.id,
@@ -29,10 +33,10 @@ export function getReviewCandidates(sessionId: string): ReviewCandidate[] {
     }
   }
 
-  const knowledgeList = knowledgeRepo.list({ scopeType: 'session', scopeId: sessionId });
+  const knowledgeList = await repos.knowledge.list({ scopeType: 'session', scopeId: sessionId });
   for (const k of knowledgeList) {
     if (!k.isActive) continue;
-    const tags = k.id ? getEntryTags('knowledge', k.id) : [];
+    const tags = k.id ? await getEntryTags(repos, 'knowledge', k.id) : [];
     if (tags.includes('candidate') || tags.includes('needs_review')) {
       candidates.push({
         id: k.id,
@@ -44,10 +48,10 @@ export function getReviewCandidates(sessionId: string): ReviewCandidate[] {
     }
   }
 
-  const toolsList = toolRepo.list({ scopeType: 'session', scopeId: sessionId });
+  const toolsList = await repos.tools.list({ scopeType: 'session', scopeId: sessionId });
   for (const t of toolsList) {
     if (!t.isActive) continue;
-    const tags = t.id ? getEntryTags('tool', t.id) : [];
+    const tags = t.id ? await getEntryTags(repos, 'tool', t.id) : [];
     if (tags.includes('candidate') || tags.includes('needs_review')) {
       candidates.push({
         id: t.id,
@@ -62,9 +66,13 @@ export function getReviewCandidates(sessionId: string): ReviewCandidate[] {
   return candidates;
 }
 
-function getEntryTags(entryType: 'guideline' | 'knowledge' | 'tool', entryId: string): string[] {
+async function getEntryTags(
+  repos: Repositories,
+  entryType: 'guideline' | 'knowledge' | 'tool',
+  entryId: string
+): Promise<string[]> {
   try {
-    const tags = entryTagRepo.getTagsForEntry(entryType, entryId);
+    const tags = await repos.entryTags.getTagsForEntry(entryType, entryId);
     return tags.map((t) => t.name);
   } catch {
     return [];
@@ -80,12 +88,13 @@ export function findCandidateByShortId(
   );
 }
 
-export function approveCandidate(candidate: ReviewCandidate, projectId: string): boolean {
+export async function approveCandidate(candidate: ReviewCandidate, projectId: string): Promise<boolean> {
+  const repos = getRepos();
   try {
     if (candidate.type === 'guideline') {
-      const original = guidelineRepo.getById(candidate.id);
+      const original = await repos.guidelines.getById(candidate.id);
       if (!original) return false;
-      guidelineRepo.create({
+      await repos.guidelines.create({
         scopeType: 'project',
         scopeId: projectId,
         name: original.name,
@@ -94,13 +103,13 @@ export function approveCandidate(candidate: ReviewCandidate, projectId: string):
         priority: original.priority ?? undefined,
         rationale: original.currentVersion?.rationale ?? undefined,
       });
-      guidelineRepo.deactivate(candidate.id);
+      await repos.guidelines.deactivate(candidate.id);
       return true;
     }
     if (candidate.type === 'knowledge') {
-      const original = knowledgeRepo.getById(candidate.id);
+      const original = await repos.knowledge.getById(candidate.id);
       if (!original) return false;
-      knowledgeRepo.create({
+      await repos.knowledge.create({
         scopeType: 'project',
         scopeId: projectId,
         title: original.title,
@@ -108,20 +117,20 @@ export function approveCandidate(candidate: ReviewCandidate, projectId: string):
         category: original.category ?? undefined,
         source: original.currentVersion?.source ?? undefined,
       });
-      knowledgeRepo.deactivate(candidate.id);
+      await repos.knowledge.deactivate(candidate.id);
       return true;
     }
     if (candidate.type === 'tool') {
-      const original = toolRepo.getById(candidate.id);
+      const original = await repos.tools.getById(candidate.id);
       if (!original) return false;
-      toolRepo.create({
+      await repos.tools.create({
         scopeType: 'project',
         scopeId: projectId,
         name: original.name,
         description: original.currentVersion?.description ?? '',
         category: original.category ?? undefined,
       });
-      toolRepo.deactivate(candidate.id);
+      await repos.tools.deactivate(candidate.id);
       return true;
     }
     return false;
@@ -130,18 +139,19 @@ export function approveCandidate(candidate: ReviewCandidate, projectId: string):
   }
 }
 
-export function rejectCandidate(candidate: ReviewCandidate): boolean {
+export async function rejectCandidate(candidate: ReviewCandidate): Promise<boolean> {
+  const repos = getRepos();
   try {
     if (candidate.type === 'guideline') {
-      guidelineRepo.deactivate(candidate.id);
+      await repos.guidelines.deactivate(candidate.id);
       return true;
     }
     if (candidate.type === 'knowledge') {
-      knowledgeRepo.deactivate(candidate.id);
+      await repos.knowledge.deactivate(candidate.id);
       return true;
     }
     if (candidate.type === 'tool') {
-      toolRepo.deactivate(candidate.id);
+      await repos.tools.deactivate(candidate.id);
       return true;
     }
     return false;
@@ -150,15 +160,16 @@ export function rejectCandidate(candidate: ReviewCandidate): boolean {
   }
 }
 
-export function skipCandidate(candidate: ReviewCandidate): boolean {
+export async function skipCandidate(candidate: ReviewCandidate): Promise<boolean> {
+  const repos = getRepos();
   try {
-    const candidateTag = tagRepo.getByName('candidate');
-    const needsReviewTag = tagRepo.getByName('needs_review');
+    const candidateTag = await repos.tags.getByName('candidate');
+    const needsReviewTag = await repos.tags.getByName('needs_review');
     if (candidateTag) {
-      entryTagRepo.detach(candidate.type, candidate.id, candidateTag.id);
+      await repos.entryTags.detach(candidate.type, candidate.id, candidateTag.id);
     }
     if (needsReviewTag) {
-      entryTagRepo.detach(candidate.type, candidate.id, needsReviewTag.id);
+      await repos.entryTags.detach(candidate.type, candidate.id, needsReviewTag.id);
     }
     return true;
   } catch {

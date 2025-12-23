@@ -3,9 +3,11 @@
  *
  * MCP handler for memory consolidation operations.
  * Implements the memory evolution aspect from "Memory in the Age of AI Agents" paper.
+ * Context-aware handlers that receive AppContext for dependency injection.
  */
 
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
+import type { AppContext } from '../../core/context.js';
 import {
   consolidate,
   findSimilarGroups,
@@ -119,7 +121,7 @@ function isEntryTypeArray(v: unknown): v is EntryType[] {
 // HANDLER
 // =============================================================================
 
-export async function handleConsolidation(args: ConsolidationParams): Promise<unknown> {
+export async function handleConsolidation(_context: AppContext, args: ConsolidationParams): Promise<unknown> {
   const action = args.action;
   if (!isConsolidationAction(action)) {
     throw createValidationError(

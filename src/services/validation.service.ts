@@ -5,7 +5,7 @@
  * Rules are applied before create/update operations.
  */
 
-import { guidelineRepo } from '../db/repositories/guidelines.js';
+import type { IGuidelineRepository } from '../core/interfaces/repositories.js';
 import type { ScopeType, EntryType } from '../db/schema.js';
 import { createComponentLogger } from '../utils/logger.js';
 import { config } from '../config/index.js';
@@ -124,24 +124,57 @@ export function validateArrayLength(
 }
 
 /**
- * Validate an entry against validation rules
+ * Validation service interface
+ */
+export interface ValidationService {
+  validateEntry(
+    entryType: EntryType,
+    data: Record<string, unknown>,
+    scopeType: ScopeType,
+    scopeId?: string
+  ): Promise<ValidationResult>;
+}
+
+/**
+ * Create a validation service with injected dependencies
  *
+ * @param guidelineRepo - Guideline repository for loading validation rules
+ * @returns Validation service instance
+ */
+export function createValidationService(guidelineRepo: IGuidelineRepository): ValidationService {
+  return {
+    async validateEntry(
+      entryType: EntryType,
+      data: Record<string, unknown>,
+      _scopeType: ScopeType,
+      _scopeId?: string
+    ): Promise<ValidationResult> {
+      return validateEntryImpl(guidelineRepo, entryType, data, _scopeType, _scopeId);
+    },
+  };
+}
+
+/**
+ * Validate an entry against validation rules (implementation)
+ *
+ * @param guidelineRepo - Guideline repository
  * @param entryType - Type of entry to validate
  * @param data - Entry data to validate
  * @param scopeType - Scope type
  * @param scopeId - Scope ID (optional)
  * @returns Validation result with errors if any
  */
-export function validateEntry(
+async function validateEntryImpl(
+  guidelineRepo: IGuidelineRepository,
   entryType: EntryType,
   data: Record<string, unknown>,
   _scopeType: ScopeType,
   _scopeId?: string
-): ValidationResult {
+): Promise<ValidationResult> {
   const errors: ValidationError[] = [];
 
   // Load validation rules from guidelines
-  const validationRules = guidelineRepo.list(
+  const validationRules = await guidelineRepo.list(
     {
       category: 'validation',
       includeInactive: false,

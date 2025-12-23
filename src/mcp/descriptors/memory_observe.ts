@@ -93,9 +93,9 @@ Returns extracted entries with confidence scores and duplicate detection.`,
     },
   },
   actions: {
-    extract: { handler: observeHandlers.extract },
+    extract: { contextHandler: observeHandlers.extract },
     draft: { handler: observeHandlers.draft },
-    commit: { handler: observeHandlers.commit },
+    commit: { contextHandler: observeHandlers.commit },
     status: { handler: () => observeHandlers.status() },
   },
 };

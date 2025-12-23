@@ -2,8 +2,10 @@
  * Analytics handlers for usage statistics and trends
  *
  * Provides insights into system usage patterns from audit log data.
+ * Context-aware handlers that receive AppContext for dependency injection.
  */
 
+import type { AppContext } from '../../core/context.js';
 import { getUsageStats, getTrends, getSubtaskStats } from '../../services/analytics.service.js';
 import {
   calculateErrorCorrelation,
@@ -22,7 +24,7 @@ import { createValidationError } from '../../core/errors.js';
 /**
  * Get usage statistics
  */
-export function getUsageStatsHandler(params: AnalyticsGetStatsParams): {
+export function getUsageStatsHandler(_context: AppContext, params: AnalyticsGetStatsParams): {
   stats: ReturnType<typeof getUsageStats>;
   filters: {
     scopeType?: ScopeType;
@@ -52,7 +54,7 @@ export function getUsageStatsHandler(params: AnalyticsGetStatsParams): {
 /**
  * Get trend data over time
  */
-export function getTrendsHandler(params: AnalyticsGetTrendsParams): {
+export function getTrendsHandler(_context: AppContext, params: AnalyticsGetTrendsParams): {
   trends: ReturnType<typeof getTrends>;
   filters: {
     scopeType?: ScopeType;
@@ -83,6 +85,7 @@ export function getTrendsHandler(params: AnalyticsGetTrendsParams): {
  * Get subtask execution analytics
  */
 export function getSubtaskStatsHandler(
+  _context: AppContext,
   params: AnalyticsGetSubtaskStatsParams
 ): ReturnType<typeof getSubtaskStats> {
   return getSubtaskStats({
@@ -95,6 +98,7 @@ export function getSubtaskStatsHandler(
  * Calculate error correlation between two agents
  */
 export function getErrorCorrelationHandler(
+  _context: AppContext,
   params: AnalyticsGetErrorCorrelationParams
 ): ReturnType<typeof calculateErrorCorrelation> {
   if (!params.agentA || !params.agentB) {
@@ -116,6 +120,7 @@ export function getErrorCorrelationHandler(
  * Detect low diversity across all agent pairs in a project
  */
 export function getLowDiversityHandler(
+  _context: AppContext,
   params: AnalyticsGetLowDiversityParams & { projectId?: string }
 ): ReturnType<typeof detectLowDiversity> {
   const projectId = params.projectId ?? params.scopeId;

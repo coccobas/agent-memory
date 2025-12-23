@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import {
   setupTestDb,
   cleanupTestDb,
@@ -49,8 +49,8 @@ describe('Guidelines Integration', () => {
   });
 
   describe('memory_guideline_add', () => {
-    it('should add a guideline with all fields', () => {
-      const result = guidelineHandlers.add(context, {
+    it('should add a guideline with all fields', async () => {
+      const result = await guidelineHandlers.add(context, {
         agentId: AGENT_ID,
         scopeType: 'global',
         name: 'test_guideline',
@@ -68,9 +68,9 @@ describe('Guidelines Integration', () => {
       expect(result.guideline.priority).toBe(100);
     });
 
-    it('should add guideline at project scope', () => {
+    it('should add guideline at project scope', async () => {
       const project = createTestProject(db);
-      const result = guidelineHandlers.add(context, {
+      const result = await guidelineHandlers.add(context, {
         agentId: AGENT_ID,
         scopeType: 'project',
         scopeId: project.id,
@@ -84,27 +84,27 @@ describe('Guidelines Integration', () => {
       expect(result.guideline.scopeId).toBe(project.id);
     });
 
-    it('should require scopeType', () => {
-      expect(() => {
-        guidelineHandlers.add(context, { agentId: AGENT_ID, name: 'test', content: 'content' });
-      }).toThrow(/scopeType.*required/i);
+    it('should require scopeType', async () => {
+      await expect(
+        guidelineHandlers.add(context, { agentId: AGENT_ID, name: 'test', content: 'content' })
+      ).rejects.toThrow(/scopeType.*required/i);
     });
 
-    it('should require name', () => {
-      expect(() => {
-        guidelineHandlers.add(context, { agentId: AGENT_ID, scopeType: 'global', content: 'content' });
-      }).toThrow(/name.*required/i);
+    it('should require name', async () => {
+      await expect(
+        guidelineHandlers.add(context, { agentId: AGENT_ID, scopeType: 'global', content: 'content' })
+      ).rejects.toThrow(/name.*required/i);
     });
 
-    it('should require content', () => {
-      expect(() => {
-        guidelineHandlers.add(context, { agentId: AGENT_ID, scopeType: 'global', name: 'test' });
-      }).toThrow(/content.*required/i);
+    it('should require content', async () => {
+      await expect(
+        guidelineHandlers.add(context, { agentId: AGENT_ID, scopeType: 'global', name: 'test' })
+      ).rejects.toThrow(/content.*required/i);
     });
   });
 
   describe('memory_guideline_update', () => {
-    it('should update guideline and create new version', () => {
+    it('should update guideline and create new version', async () => {
       const { guideline } = createTestGuideline(
         db,
         'update_test',
@@ -115,7 +115,7 @@ describe('Guidelines Integration', () => {
       );
       const originalVersionId = guideline.currentVersionId;
 
-      const result = guidelineHandlers.update(context, {
+      const result = await guidelineHandlers.update(context, {
         agentId: AGENT_ID,
         id: guideline.id,
         content: 'Updated content',
@@ -128,27 +128,25 @@ describe('Guidelines Integration', () => {
       expect(result.guideline.priority).toBe(95);
     });
 
-    it('should require id', () => {
-      expect(() => {
-        guidelineHandlers.update(context, {});
-      }).toThrow('id is required');
+    it('should require id', async () => {
+      await expect(guidelineHandlers.update(context, {})).rejects.toThrow('id is required');
     });
   });
 
   describe('memory_guideline_get', () => {
-    it('should get guideline by ID', () => {
+    it('should get guideline by ID', async () => {
       const { guideline } = createTestGuideline(db, 'get_test');
-      const result = guidelineHandlers.get(context, { agentId: AGENT_ID, id: guideline.id });
+      const result = await guidelineHandlers.get(context, { agentId: AGENT_ID, id: guideline.id });
 
       expect(result.guideline).toBeDefined();
       expect(result.guideline.id).toBe(guideline.id);
     });
 
-    it('should get guideline by name and scope', () => {
+    it('should get guideline by name and scope', async () => {
       const project = createTestProject(db);
       const { guideline } = createTestGuideline(db, 'get_by_name', 'project', project.id);
 
-      const result = guidelineHandlers.get(context, {
+      const result = await guidelineHandlers.get(context, {
         agentId: AGENT_ID,
         name: 'get_by_name',
         scopeType: 'project',
@@ -160,13 +158,13 @@ describe('Guidelines Integration', () => {
   });
 
   describe('memory_guideline_list', () => {
-    it('should list guidelines with scope filter', () => {
+    it('should list guidelines with scope filter', async () => {
       const project = createTestProject(db);
       createTestGuideline(db, 'guideline1', 'global');
       createTestGuideline(db, 'guideline2', 'project', project.id);
       createTestGuideline(db, 'guideline3', 'project', project.id);
 
-      const result = guidelineHandlers.list(context, {
+      const result = await guidelineHandlers.list(context, {
         agentId: AGENT_ID,
         scopeType: 'project',
         scopeId: project.id,
@@ -180,12 +178,12 @@ describe('Guidelines Integration', () => {
       });
     });
 
-    it('should filter by category', () => {
+    it('should filter by category', async () => {
       createTestGuideline(db, 'security1', 'global', undefined, 'security');
       createTestGuideline(db, 'security2', 'global', undefined, 'security');
       createTestGuideline(db, 'behavior1', 'global', undefined, 'behavior');
 
-      const result = guidelineHandlers.list(context, {
+      const result = await guidelineHandlers.list(context, {
         agentId: AGENT_ID,
         scopeType: 'global',
         category: 'security',
@@ -200,29 +198,29 @@ describe('Guidelines Integration', () => {
   });
 
   describe('memory_guideline_history', () => {
-    it('should return version history', () => {
+    it('should return version history', async () => {
       const { guideline } = createTestGuideline(db, 'history_test');
-      guidelineHandlers.update(context, { agentId: AGENT_ID, id: guideline.id, content: 'Version 2', changeReason: 'Update' });
-      guidelineHandlers.update(context, {
+      await guidelineHandlers.update(context, { agentId: AGENT_ID, id: guideline.id, content: 'Version 2', changeReason: 'Update' });
+      await guidelineHandlers.update(context, {
         agentId: AGENT_ID,
         id: guideline.id,
         content: 'Version 3',
         changeReason: 'Another update',
       });
 
-      const result = guidelineHandlers.history(context, { agentId: AGENT_ID, id: guideline.id });
+      const result = await guidelineHandlers.history(context, { agentId: AGENT_ID, id: guideline.id });
       expect(result.versions.length).toBeGreaterThanOrEqual(3);
     });
   });
 
   describe('memory_guideline_deactivate', () => {
-    it('should deactivate a guideline', () => {
+    it('should deactivate a guideline', async () => {
       const { guideline } = createTestGuideline(db, 'deactivate_test');
-      const result = guidelineHandlers.deactivate(context, { agentId: AGENT_ID, id: guideline.id });
+      const result = await guidelineHandlers.deactivate(context, { agentId: AGENT_ID, id: guideline.id });
 
       expect(result.success).toBe(true);
 
-      const fetched = guidelineHandlers.get(context, { agentId: AGENT_ID, id: guideline.id });
+      const fetched = await guidelineHandlers.get(context, { agentId: AGENT_ID, id: guideline.id });
       expect(fetched.guideline.isActive).toBe(false);
     });
   });

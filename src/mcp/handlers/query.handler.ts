@@ -1,14 +1,15 @@
 /**
  * Cross-reference query handler
+ *
+ * Context-aware handlers that receive AppContext for dependency injection.
  */
 
 import { executeQueryPipeline } from '../../services/query/index.js';
-import { getContext } from '../../core/container.js';
 import { logAction } from '../../services/audit.service.js';
-import { autoLinkContextFromQuery } from '../../services/conversation.service.js';
-import { checkPermission } from '../../services/permission.service.js';
+import { createConversationService } from '../../services/conversation.service.js';
 
 import type { MemoryQueryParams } from '../types.js';
+import type { AppContext } from '../../core/context.js';
 import {
   getRequiredParam,
   getOptionalParam,
@@ -35,7 +36,7 @@ function isQueryType(value: string): value is keyof typeof queryTypeToEntryType 
 }
 
 export const queryHandlers = {
-  async query(params: Record<string, unknown>) {
+  async query(context: AppContext, params: Record<string, unknown>) {
     // Extract agent-specific params (agentId optional for read operations)
     const agentId = getOptionalParam(params, 'agentId', isString);
     const conversationId = getOptionalParam(params, 'conversationId', isString);
@@ -107,16 +108,15 @@ export const queryHandlers = {
     const scopeId = queryParamsWithoutAgent.scope?.id;
 
     const typesToCheck = requestedTypes ?? (['tools', 'guidelines', 'knowledge'] as const);
-    const deniedTypes = typesToCheck.filter(
-      (type) =>
-        !checkPermission(
-          agentId,
-          'read',
-          queryTypeToEntryType[type],
-          null,
-          scopeType,
-          scopeId ?? null
-        )
+    const deniedTypes = typesToCheck.filter((type) =>
+      !context.services!.permission.check(
+        agentId,
+        'read',
+        queryTypeToEntryType[type],
+        null,
+        scopeType,
+        scopeId ?? null
+      )
     );
 
     if (requestedTypes && deniedTypes.length > 0) {
@@ -136,13 +136,13 @@ export const queryHandlers = {
     }
 
     // Execute query using the modular pipeline with context-injected dependencies
-    const context = getContext();
     const result = await executeQueryPipeline(queryParamsWithoutAgent, context.queryDeps);
 
     // Auto-link results to conversation if conversationId provided
     if (conversationId && autoLinkContext !== false) {
       try {
-        autoLinkContextFromQuery(conversationId, messageId, result);
+        const conversationService = createConversationService(context.repos.conversations);
+        conversationService.autoLinkContextFromQuery(conversationId, messageId, result);
       } catch (error) {
         // Silently ignore errors in auto-linking (fire-and-forget)
         // This shouldn't break the query response
@@ -168,7 +168,7 @@ export const queryHandlers = {
    * It queries tools, guidelines, and knowledge with inheritance enabled
    * and groups results by type.
    */
-  async context(params: Record<string, unknown>) {
+  async context(context: AppContext, params: Record<string, unknown>) {
     const scopeType = getRequiredParam(params, 'scopeType', isScopeType);
     const scopeId = getOptionalParam(params, 'scopeId', isString);
     const inherit = getOptionalParam(params, 'inherit', isBoolean) ?? true;
@@ -180,7 +180,14 @@ export const queryHandlers = {
     const search = getOptionalParam(params, 'search', isString);
 
     const allowedTypes = (['tools', 'guidelines', 'knowledge'] as const).filter((type) =>
-      checkPermission(agentId, 'read', queryTypeToEntryType[type], null, scopeType, scopeId ?? null)
+      context.services!.permission.check(
+        agentId,
+        'read',
+        queryTypeToEntryType[type],
+        null,
+        scopeType,
+        scopeId ?? null
+      )
     );
 
     if (allowedTypes.length === 0) {
@@ -202,7 +209,6 @@ export const queryHandlers = {
     };
 
     // Execute query using the modular pipeline with context-injected dependencies
-    const context = getContext();
     const result = await executeQueryPipeline(queryParams, context.queryDeps);
 
     const tools = result.results.filter((r) => r.type === 'tool');

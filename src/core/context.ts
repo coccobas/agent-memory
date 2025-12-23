@@ -2,6 +2,8 @@ import type { Logger } from 'pino';
 import type Database from 'better-sqlite3';
 import type { Config } from '../config/index.js';
 import type { SecurityService } from '../services/security.service.js';
+import type { PermissionService } from '../services/permission.service.js';
+import type { VerificationService } from '../services/verification.service.js';
 import type { PipelineDependencies } from '../services/query/pipeline.js';
 import type { Runtime } from './runtime.js';
 import type { Repositories } from './interfaces/repositories.js';
@@ -67,12 +69,15 @@ export interface IExtractionService {
 
 /**
  * Services container
- * Optional to maintain backward compatibility during migration
+ * Optional services for embedding, vector, extraction
+ * Permission is required for all authorization checks
  */
 export interface AppContextServices {
   embedding?: IEmbeddingService;
   vector?: IVectorService;
   extraction?: IExtractionService;
+  permission: PermissionService; // Required - all code paths must have permission service
+  verification?: VerificationService;
 }
 
 /**

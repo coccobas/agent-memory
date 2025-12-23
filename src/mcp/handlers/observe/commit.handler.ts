@@ -1,7 +1,10 @@
 /**
  * Commit handler - Store client-extracted entries
+ *
+ * Context-aware handler that receives AppContext for dependency injection.
  */
 
+import type { AppContext } from '../../../core/context.js';
 import { checkForDuplicates } from '../../../services/duplicate.service.js';
 import { logAction } from '../../../services/audit.service.js';
 import { createValidationError } from '../../../core/errors.js';
@@ -16,8 +19,6 @@ import {
 } from '../../../utils/type-guards.js';
 import { formatTimestamps } from '../../../utils/timestamp-formatter.js';
 import type { ScopeType } from '../../types.js';
-import { entryTagRepo } from '../../../db/repositories/tags.js';
-import { sessionRepo } from '../../../db/repositories/scopes.js';
 import type {
   ExtractedEntity,
   ExtractedRelationship,
@@ -258,7 +259,7 @@ function normalizeCommitRelationship(raw: unknown, index: number): ExtractedRela
  * - High-confidence entries can auto-promote to project scope (default on)
  * - Lower-confidence entries are stored at session scope and tagged for review
  */
-export function commit(params: Record<string, unknown>) {
+export async function commit(context: AppContext, params: Record<string, unknown>) {
   const sessionId = getRequiredParam(params, 'sessionId', isString);
   const projectId = getOptionalParam(params, 'projectId', isString);
   const agentId = getOptionalParam(params, 'agentId', isString);
@@ -290,7 +291,7 @@ export function commit(params: Record<string, unknown>) {
   const relationConfidenceThreshold = 0.8;
 
   // Ensure session exists
-  ensureSessionIdExists(sessionId, projectId, agentId);
+  await ensureSessionIdExists(context.db, context.repos, sessionId, projectId, agentId);
 
   const stored: StoredEntry[] = [];
   const storedEntities: StoredEntry[] = [];
@@ -328,7 +329,7 @@ export function commit(params: Record<string, unknown>) {
       shouldStore: true,
     };
 
-    const saved = storeEntry(processed, targetScopeType, targetScopeId, agentId);
+    const saved = await storeEntry(context.repos, processed, targetScopeType, targetScopeId, agentId);
     if (!saved) continue;
     stored.push(saved);
 
@@ -339,12 +340,12 @@ export function commit(params: Record<string, unknown>) {
     if (isCandidate) {
       needsReviewCount += 1;
       try {
-        entryTagRepo.attach({
+        await context.repos.entryTags.attach({
           entryType: saved.type,
           entryId: saved.id,
           tagName: 'needs_review',
         });
-        entryTagRepo.attach({ entryType: saved.type, entryId: saved.id, tagName: 'candidate' });
+        await context.repos.entryTags.attach({ entryType: saved.type, entryId: saved.id, tagName: 'candidate' });
       } catch (error) {
         logger.warn(
           {
@@ -361,7 +362,7 @@ export function commit(params: Record<string, unknown>) {
     for (const tagName of suggestedTags) {
       if (typeof tagName !== 'string' || !tagName.trim()) continue;
       try {
-        entryTagRepo.attach({ entryType: saved.type, entryId: saved.id, tagName });
+        await context.repos.entryTags.attach({ entryType: saved.type, entryId: saved.id, tagName });
       } catch {
         // best-effort
       }
@@ -375,7 +376,7 @@ export function commit(params: Record<string, unknown>) {
     const targetScopeId = wantsProject ? projectId : sessionId;
 
     try {
-      const saved = storeEntity(entity, targetScopeType, targetScopeId, agentId);
+      const saved = await storeEntity(context.repos, entity, targetScopeType, targetScopeId, agentId);
       if (saved) {
         storedEntities.push(saved);
       }
@@ -393,7 +394,8 @@ export function commit(params: Record<string, unknown>) {
   // Create relations
   if (relationships.length > 0 && (stored.length > 0 || storedEntities.length > 0)) {
     const nameToIdMap = buildNameToIdMap(stored, storedEntities);
-    const relationResults = createExtractedRelations(
+    const relationResults = await createExtractedRelations(
+      context.repos,
       relationships,
       nameToIdMap,
       relationConfidenceThreshold
@@ -404,7 +406,7 @@ export function commit(params: Record<string, unknown>) {
 
   const committedAt = new Date().toISOString();
   const reviewedAt = needsReviewCount === 0 ? committedAt : undefined;
-  const nextMeta = mergeSessionMetadata(sessionId, {
+  const nextMeta = await mergeSessionMetadata(context.repos, sessionId, {
     observe: {
       committedAt,
       committedBy: agentId ?? null,
@@ -422,7 +424,7 @@ export function commit(params: Record<string, unknown>) {
       ...(reviewedAt ? { reviewedAt } : {}),
     },
   });
-  sessionRepo.update(sessionId, { metadata: nextMeta });
+  await context.repos.sessions.update(sessionId, { metadata: nextMeta });
 
   logAction({
     agentId,

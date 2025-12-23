@@ -259,9 +259,17 @@ export interface Config {
     reconnectMaxDelayMs: number;
   };
 
-  // Retry
+  // Retry (network operations)
   retry: {
     maxAttempts: number;
+    initialDelayMs: number;
+    maxDelayMs: number;
+    backoffMultiplier: number;
+  };
+
+  // Transaction Retry (database contention)
+  transaction: {
+    maxRetries: number;
     initialDelayMs: number;
     maxDelayMs: number;
     backoffMultiplier: number;
@@ -517,6 +525,13 @@ export function buildConfig(): Config {
       initialDelayMs: parseInt_(process.env.AGENT_MEMORY_RETRY_INITIAL_DELAY_MS, 100),
       maxDelayMs: parseInt_(process.env.AGENT_MEMORY_RETRY_MAX_DELAY_MS, 5000),
       backoffMultiplier: parseNumber(process.env.AGENT_MEMORY_RETRY_BACKOFF_MULTIPLIER, 2),
+    },
+
+    transaction: {
+      maxRetries: parseInt_(process.env.AGENT_MEMORY_TX_RETRIES, 3),
+      initialDelayMs: parseInt_(process.env.AGENT_MEMORY_TX_DELAY_MS, 10),
+      maxDelayMs: parseInt_(process.env.AGENT_MEMORY_TX_MAX_DELAY_MS, 1000),
+      backoffMultiplier: parseNumber(process.env.AGENT_MEMORY_TX_BACKOFF, 2),
     },
 
     conflict: {

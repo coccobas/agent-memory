@@ -5,7 +5,7 @@
  */
 
 import { eq, and, desc, asc } from 'drizzle-orm';
-import { getDb, getSqlite, transactionWithDb } from '../connection.js';
+import { transactionWithRetry } from '../connection.js';
 import {
   guidelines,
   guidelineVersions,
@@ -57,9 +57,25 @@ export type {
 export function createGuidelineRepository(deps: DatabaseDeps): IGuidelineRepository {
   const { db, sqlite } = deps;
 
+  // Helper to fetch guideline with version (used within transactions)
+  function getByIdSync(id: string): GuidelineWithVersion | undefined {
+    const guideline = db.select().from(guidelines).where(eq(guidelines.id, id)).get();
+    if (!guideline) return undefined;
+
+    const currentVersion = guideline.currentVersionId
+      ? db
+          .select()
+          .from(guidelineVersions)
+          .where(eq(guidelineVersions.id, guideline.currentVersionId))
+          .get()
+      : undefined;
+
+    return { ...guideline, currentVersion };
+  }
+
   const repo: IGuidelineRepository = {
-    create(input: CreateGuidelineInput): GuidelineWithVersion {
-      return transactionWithDb(sqlite, () => {
+    async create(input: CreateGuidelineInput): Promise<GuidelineWithVersion> {
+      return transactionWithRetry(sqlite, () => {
         const guidelineId = generateId();
         const versionId = generateId();
 
@@ -92,7 +108,7 @@ export function createGuidelineRepository(deps: DatabaseDeps): IGuidelineReposit
 
         db.insert(guidelineVersions).values(version).run();
 
-        const result = repo.getById(guidelineId);
+        const result = getByIdSync(guidelineId);
         if (!result) {
           throw new Error(`Failed to create guideline ${guidelineId}`);
         }
@@ -113,27 +129,16 @@ export function createGuidelineRepository(deps: DatabaseDeps): IGuidelineReposit
       });
     },
 
-    getById(id: string): GuidelineWithVersion | undefined {
-      const guideline = db.select().from(guidelines).where(eq(guidelines.id, id)).get();
-      if (!guideline) return undefined;
-
-      const currentVersion = guideline.currentVersionId
-        ? db
-            .select()
-            .from(guidelineVersions)
-            .where(eq(guidelineVersions.id, guideline.currentVersionId))
-            .get()
-        : undefined;
-
-      return { ...guideline, currentVersion };
+    async getById(id: string): Promise<GuidelineWithVersion | undefined> {
+      return getByIdSync(id);
     },
 
-    getByName(
+    async getByName(
       name: string,
       scopeType: ScopeType,
       scopeId?: string,
       inherit = true
-    ): GuidelineWithVersion | undefined {
+    ): Promise<GuidelineWithVersion | undefined> {
       // First, try exact scope match
       const exactMatch = db
         .select()
@@ -167,10 +172,10 @@ export function createGuidelineRepository(deps: DatabaseDeps): IGuidelineReposit
       return undefined;
     },
 
-    list(
+    async list(
       filter: ListGuidelinesFilter = {},
       options: PaginationOptions = {}
-    ): GuidelineWithVersion[] {
+    ): Promise<GuidelineWithVersion[]> {
       const { limit, offset } = normalizePagination(options);
 
       // Build conditions using shared utility + category-specific condition
@@ -200,9 +205,9 @@ export function createGuidelineRepository(deps: DatabaseDeps): IGuidelineReposit
       return attachVersions(guidelinesList, versionsMap);
     },
 
-    update(id: string, input: UpdateGuidelineInput): GuidelineWithVersion | undefined {
-      return transactionWithDb(sqlite, () => {
-        const existing = repo.getById(id);
+    async update(id: string, input: UpdateGuidelineInput): Promise<GuidelineWithVersion | undefined> {
+      return transactionWithRetry(sqlite, () => {
+        const existing = getByIdSync(id);
         if (!existing) return undefined;
 
         // Get current version number
@@ -273,11 +278,11 @@ export function createGuidelineRepository(deps: DatabaseDeps): IGuidelineReposit
           text,
         });
 
-        return repo.getById(id);
+        return getByIdSync(id);
       });
     },
 
-    getHistory(guidelineId: string): GuidelineVersion[] {
+    async getHistory(guidelineId: string): Promise<GuidelineVersion[]> {
       return db
         .select()
         .from(guidelineVersions)
@@ -286,7 +291,7 @@ export function createGuidelineRepository(deps: DatabaseDeps): IGuidelineReposit
         .all();
     },
 
-    deactivate(id: string): boolean {
+    async deactivate(id: string): Promise<boolean> {
       const result = db
         .update(guidelines)
         .set({ isActive: false })
@@ -301,7 +306,7 @@ export function createGuidelineRepository(deps: DatabaseDeps): IGuidelineReposit
       return success;
     },
 
-    reactivate(id: string): boolean {
+    async reactivate(id: string): Promise<boolean> {
       const result = db
         .update(guidelines)
         .set({ isActive: true })
@@ -310,8 +315,8 @@ export function createGuidelineRepository(deps: DatabaseDeps): IGuidelineReposit
       return result.changes > 0;
     },
 
-    delete(id: string): boolean {
-      const result = transactionWithDb(sqlite, () => {
+    async delete(id: string): Promise<boolean> {
+      const result = transactionWithRetry(sqlite, () => {
         // Delete related records (tags, relations, embeddings, permissions)
         cascadeDeleteRelatedRecordsWithDb(db, 'guideline', id);
 
@@ -333,28 +338,3 @@ export function createGuidelineRepository(deps: DatabaseDeps): IGuidelineReposit
 
   return repo;
 }
-
-// =============================================================================
-// TEMPORARY BACKWARD COMPAT EXPORTS
-// TODO: Remove these when all call sites are updated to use AppContext.repos
-// =============================================================================
-
-/**
- * @deprecated Use createGuidelineRepository(deps) instead. Will be removed when AppContext.repos is wired.
- */
-function createLegacyGuidelineRepo(): IGuidelineRepository {
-  return createGuidelineRepository({ db: getDb(), sqlite: getSqlite() });
-}
-
-// Lazy-initialized singleton instance for backward compatibility
-let _guidelineRepo: IGuidelineRepository | null = null;
-
-/**
- * @deprecated Use AppContext.repos.guidelines instead
- */
-export const guidelineRepo: IGuidelineRepository = new Proxy({} as IGuidelineRepository, {
-  get(_, prop: keyof IGuidelineRepository) {
-    if (!_guidelineRepo) _guidelineRepo = createLegacyGuidelineRepo();
-    return _guidelineRepo[prop];
-  },
-});

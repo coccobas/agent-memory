@@ -2,7 +2,7 @@
  * Unit tests for red flag service
  */
 
-import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import {
   setupTestDb,
   cleanupTestDb,
@@ -10,40 +10,46 @@ import {
   createTestGuideline,
   createTestKnowledge,
   createTestGuideline as createRedFlagGuideline,
+  createTestRepositories,
 } from '../fixtures/test-helpers.js';
-import { detectRedFlags, scoreRedFlagRisk } from '../../src/services/redflag.service.js';
+import { createRedFlagService, type RedFlagService } from '../../src/services/redflag.service.js';
+import type { Repositories } from '../../src/core/interfaces/repositories.js';
 
 const TEST_DB_PATH = './data/test-redflag.db';
-let sqlite: ReturnType<typeof setupTestDb>['sqlite'];
-let db: ReturnType<typeof setupTestDb>['db'];
+let testDb: ReturnType<typeof setupTestDb>;
+let repos: Repositories;
+let redFlagService: RedFlagService;
 
-vi.mock('../../src/db/connection.js', async () => {
-  const actual = await vi.importActual<typeof import('../../src/db/connection.js')>(
-    '../../src/db/connection.js'
-  );
-  return {
-    ...actual,
-    getDb: () => db,
-  };
-});
+// Helper functions to maintain test compatibility
+async function detectRedFlags(...args: Parameters<RedFlagService['detectRedFlags']>) {
+  return await redFlagService.detectRedFlags(...args);
+}
+
+async function scoreRedFlagRisk(...args: Parameters<RedFlagService['scoreRedFlagRisk']>) {
+  return await redFlagService.scoreRedFlagRisk(...args);
+}
 
 describe('redflag.service', () => {
   beforeAll(() => {
-    const testDb = setupTestDb(TEST_DB_PATH);
-    sqlite = testDb.sqlite;
-    db = testDb.db;
+    testDb = setupTestDb(TEST_DB_PATH);
+    repos = createTestRepositories(testDb);
+    redFlagService = createRedFlagService({
+      toolRepo: repos.tools,
+      guidelineRepo: repos.guidelines,
+      knowledgeRepo: repos.knowledge,
+    });
   });
 
   afterAll(() => {
-    sqlite.close();
+    testDb.sqlite.close();
     cleanupTestDb(TEST_DB_PATH);
   });
 
   describe('detectRedFlags', () => {
-    it('should detect red flags from guidelines', () => {
+    it('should detect red flags from guidelines', async () => {
       // Create a red flag guideline
       createRedFlagGuideline(
-        db,
+        testDb.db,
         'red_flag:suspicious_pattern',
         'global',
         undefined,
@@ -52,7 +58,7 @@ describe('redflag.service', () => {
         'suspicious keyword'
       );
 
-      const flags = detectRedFlags({
+      const flags = await detectRedFlags({
         type: 'tool',
         content: 'This contains suspicious keyword in the content',
       });
@@ -62,8 +68,8 @@ describe('redflag.service', () => {
       expect(flags[0]?.severity).toBe('medium');
     });
 
-    it('should detect malformed JSON', () => {
-      const flags = detectRedFlags({
+    it('should detect malformed JSON', async () => {
+      const flags = await detectRedFlags({
         type: 'tool',
         content: 'This has { invalid json structure }',
       });
@@ -78,10 +84,10 @@ describe('redflag.service', () => {
       }
     });
 
-    it('should detect overly long content', () => {
+    it('should detect overly long content', async () => {
       const longContent = 'a'.repeat(10001); // > 10k characters
 
-      const flags = detectRedFlags({
+      const flags = await detectRedFlags({
         type: 'tool',
         content: longContent,
       });
@@ -95,12 +101,12 @@ describe('redflag.service', () => {
       }
     });
 
-    it('should detect inconsistent formatting', () => {
+    it('should detect inconsistent formatting', async () => {
       // Create content with very long lines
       const longLine = 'a'.repeat(300);
       const content = Array(15).fill(longLine).join('\n');
 
-      const flags = detectRedFlags({
+      const flags = await detectRedFlags({
         type: 'tool',
         content,
       });
@@ -114,8 +120,8 @@ describe('redflag.service', () => {
       }
     });
 
-    it('should return empty array for clean content', () => {
-      const flags = detectRedFlags({
+    it('should return empty array for clean content', async () => {
+      const flags = await detectRedFlags({
         type: 'tool',
         content: 'This is clean, normal content without any issues.',
       });
@@ -124,18 +130,18 @@ describe('redflag.service', () => {
       expect(Array.isArray(flags)).toBe(true);
     });
 
-    it('should work with different entry types', () => {
-      const toolFlags = detectRedFlags({
+    it('should work with different entry types', async () => {
+      const toolFlags = await detectRedFlags({
         type: 'tool',
         content: 'Test content',
       });
 
-      const guidelineFlags = detectRedFlags({
+      const guidelineFlags = await detectRedFlags({
         type: 'guideline',
         content: 'Test content',
       });
 
-      const knowledgeFlags = detectRedFlags({
+      const knowledgeFlags = await detectRedFlags({
         type: 'knowledge',
         content: 'Test content',
       });
@@ -145,8 +151,8 @@ describe('redflag.service', () => {
       expect(Array.isArray(knowledgeFlags)).toBe(true);
     });
 
-    it('should handle metadata parameter', () => {
-      const flags = detectRedFlags({
+    it('should handle metadata parameter', async () => {
+      const flags = await detectRedFlags({
         type: 'tool',
         content: 'Test content',
         metadata: { key: 'value' },
@@ -155,10 +161,10 @@ describe('redflag.service', () => {
       expect(Array.isArray(flags)).toBe(true);
     });
 
-    it('should detect multiple red flags', () => {
+    it('should detect multiple red flags', async () => {
       const content = 'a'.repeat(10001) + ' { invalid json }';
 
-      const flags = detectRedFlags({
+      const flags = await detectRedFlags({
         type: 'tool',
         content,
       });
@@ -166,8 +172,8 @@ describe('redflag.service', () => {
       expect(flags.length).toBeGreaterThan(1);
     });
 
-    it('should handle empty content', () => {
-      const flags = detectRedFlags({
+    it('should handle empty content', async () => {
+      const flags = await detectRedFlags({
         type: 'tool',
         content: '',
       });
@@ -177,25 +183,25 @@ describe('redflag.service', () => {
   });
 
   describe('scoreRedFlagRisk', () => {
-    it('should calculate risk score for tool', () => {
+    it('should calculate risk score for tool', async () => {
       const { tool } = createTestTool(
-        db,
+        testDb.db,
         'risk-test-tool',
         'global',
         undefined,
         'Normal description'
       );
 
-      const score = scoreRedFlagRisk(tool.id, 'tool');
+      const score = await scoreRedFlagRisk(tool.id, 'tool');
 
       expect(typeof score).toBe('number');
       expect(score).toBeGreaterThanOrEqual(0);
       expect(score).toBeLessThanOrEqual(1);
     });
 
-    it('should calculate risk score for guideline', () => {
+    it('should calculate risk score for guideline', async () => {
       const guideline = createTestGuideline(
-        db,
+        testDb.db,
         'risk-test-guideline',
         'global',
         undefined,
@@ -204,60 +210,61 @@ describe('redflag.service', () => {
         'Normal content'
       );
 
-      const score = scoreRedFlagRisk(guideline.guideline.id, 'guideline');
+      const score = await scoreRedFlagRisk(guideline.guideline.id, 'guideline');
 
       expect(typeof score).toBe('number');
       expect(score).toBeGreaterThanOrEqual(0);
       expect(score).toBeLessThanOrEqual(1);
     });
 
-    it('should calculate risk score for knowledge', () => {
-      const { knowledge } = createTestKnowledge(db, 'Risk Test Knowledge', 'Normal content');
+    it('should calculate risk score for knowledge', async () => {
+      const { knowledge } = createTestKnowledge(testDb.db, 'Risk Test Knowledge', 'Normal content');
 
-      const score = scoreRedFlagRisk(knowledge.id, 'knowledge');
+      const score = await scoreRedFlagRisk(knowledge.id, 'knowledge');
 
       expect(typeof score).toBe('number');
       expect(score).toBeGreaterThanOrEqual(0);
       expect(score).toBeLessThanOrEqual(1);
     });
 
-    it('should return 0 for non-existent entry', () => {
-      const score = scoreRedFlagRisk('nonexistent-id', 'tool');
+    it('should return 0 for non-existent entry', async () => {
+      const score = await scoreRedFlagRisk('nonexistent-id', 'tool');
 
       expect(score).toBe(0);
     });
 
-    it('should cap risk score at 1.0', () => {
+    it('should cap risk score at 1.0', async () => {
       // Create entry with multiple high-severity flags
       const { tool } = createTestTool(
-        db,
+        testDb.db,
         'high-risk-tool',
         'global',
         undefined,
         'a'.repeat(10001) + ' { invalid json } ' + 'b'.repeat(200) + '\n' + 'c'.repeat(200)
       );
 
-      const score = scoreRedFlagRisk(tool.id, 'tool');
+      const score = await scoreRedFlagRisk(tool.id, 'tool');
 
       expect(score).toBeLessThanOrEqual(1.0);
     });
 
-    it('should weight high severity flags more', () => {
+    it('should weight high severity flags more', async () => {
       // Create tool with high-severity flag (malformed JSON)
       const { tool } = createTestTool(
-        db,
+        testDb.db,
         'high-severity-tool',
         'global',
         undefined,
         '{ invalid json }'
       );
 
-      const score = scoreRedFlagRisk(tool.id, 'tool');
+      const score = await scoreRedFlagRisk(tool.id, 'tool');
 
       // High severity flags contribute 0.4 each
       expect(score).toBeGreaterThanOrEqual(0);
     });
   });
 });
+
 
 

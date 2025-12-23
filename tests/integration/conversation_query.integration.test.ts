@@ -8,12 +8,14 @@ import {
   createTestConversation,
   registerTestContext,
 } from '../fixtures/test-helpers.js';
+import type { AppContext } from '../../src/core/context.js';
 import { eq } from 'drizzle-orm';
 
 const TEST_DB_PATH = './data/test-conversation-query.db';
 
 let sqlite: ReturnType<typeof setupTestDb>['sqlite'];
 let db: ReturnType<typeof setupTestDb>['db'];
+let context: AppContext;
 
 vi.mock('../../src/db/connection.js', async () => {
   const actual = await vi.importActual<typeof import('../../src/db/connection.js')>(
@@ -38,8 +40,8 @@ describe('Conversation-Query Integration', () => {
     sqlite = testDb.sqlite;
     db = testDb.db;
 
-    // Register context for query handler (uses getContext())
-    registerTestContext(testDb);
+    // Register context for query handler
+    context = registerTestContext(testDb);
   });
 
   afterAll(() => {
@@ -55,13 +57,13 @@ describe('Conversation-Query Integration', () => {
   it('should auto-link query results to conversation', async () => {
     const project = createTestProject(db);
     const { knowledge } = createTestKnowledge(db, 'Test Knowledge for Linking');
-    const { conversation } = conversationHandlers.start({
+    const { conversation } = await conversationHandlers.start(context, {
       projectId: project.id,
       agentId: AGENT_ID,
     });
 
     // Query with conversationId - should auto-link
-    await queryHandlers.query({
+    await queryHandlers.query(context, {
       agentId: AGENT_ID,
       search: 'Test Knowledge',
       conversationId: conversation.id,
@@ -82,11 +84,11 @@ describe('Conversation-Query Integration', () => {
   it('should link query results to specific message', async () => {
     const project = createTestProject(db);
     const { knowledge } = createTestKnowledge(db, 'Message-Specific Knowledge');
-    const { conversation } = conversationHandlers.start({
+    const { conversation } = await conversationHandlers.start(context, {
       projectId: project.id,
       agentId: AGENT_ID,
     });
-    const { message } = conversationHandlers.addMessage({
+    const { message } = await conversationHandlers.addMessage(context, {
       agentId: AGENT_ID,
       conversationId: conversation.id,
       role: 'user',
@@ -94,7 +96,7 @@ describe('Conversation-Query Integration', () => {
     });
 
     // Query with conversationId and messageId
-    await queryHandlers.query({
+    await queryHandlers.query(context, {
       agentId: AGENT_ID,
       search: 'Message-Specific',
       conversationId: conversation.id,
@@ -118,7 +120,7 @@ describe('Conversation-Query Integration', () => {
     createTestKnowledge(db, 'Unlinked Knowledge');
 
     // Query without conversationId
-    await queryHandlers.query({
+    await queryHandlers.query(context, {
       agentId: AGENT_ID,
       search: 'Unlinked',
       types: ['knowledge'],
@@ -134,13 +136,13 @@ describe('Conversation-Query Integration', () => {
   it('should skip linking when autoLinkContext is false', async () => {
     const project = createTestProject(db);
     const { knowledge } = createTestKnowledge(db, 'Skip Link Knowledge');
-    const { conversation } = conversationHandlers.start({
+    const { conversation } = await conversationHandlers.start(context, {
       projectId: project.id,
       agentId: AGENT_ID,
     });
 
     // Query with conversationId but autoLinkContext=false
-    await queryHandlers.query({
+    await queryHandlers.query(context, {
       agentId: AGENT_ID,
       search: 'Skip Link',
       conversationId: conversation.id,
@@ -159,5 +161,6 @@ describe('Conversation-Query Integration', () => {
     expect(contexts.some((c) => c.entryId === knowledge.id)).toBe(false);
   });
 });
+
 
 

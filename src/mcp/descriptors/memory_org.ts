@@ -19,11 +19,11 @@ export const memoryOrgDescriptor: ToolDescriptor = {
         name: { type: 'string', description: 'Organization name (create)' },
         metadata: { type: 'object', description: 'Optional metadata (create)' },
       },
-      handler: (p) =>
-        scopeHandlers.orgCreate(p as unknown as OrgCreateParams & { adminKey?: string }),
+      contextHandler: (ctx, p) =>
+        scopeHandlers.orgCreate(ctx, p as unknown as OrgCreateParams & { adminKey?: string }),
     },
     list: {
-      handler: (p) => scopeHandlers.orgList(p as unknown as OrgListParams),
+      contextHandler: (ctx, p) => scopeHandlers.orgList(ctx, p as unknown as OrgListParams),
     },
   },
 };

@@ -38,6 +38,6 @@ export const memoryImportDescriptor: ToolDescriptor = {
     importedBy: { type: 'string', description: 'Agent ID or identifier for audit trail' },
   },
   actions: {
-    import: { handler: importHandlers.import },
+    import: { contextHandler: importHandlers.import },
   },
 };

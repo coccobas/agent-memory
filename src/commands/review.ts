@@ -9,11 +9,9 @@
  */
 
 import * as p from '@clack/prompts';
-import { guidelineRepo } from '../db/repositories/guidelines.js';
-import { knowledgeRepo } from '../db/repositories/knowledge.js';
-import { toolRepo } from '../db/repositories/tools.js';
-import { sessionRepo, projectRepo } from '../db/repositories/scopes.js';
-import { entryTagRepo, tagRepo } from '../db/repositories/tags.js';
+import { getDb, getSqlite } from '../db/connection.js';
+import { createRepositories } from '../core/factory/repositories.js';
+import type { Repositories } from '../core/interfaces/repositories.js';
 import { createComponentLogger } from '../utils/logger.js';
 
 const logger = createComponentLogger('review');
@@ -99,14 +97,14 @@ Actions during review:
 `);
 }
 
-async function getCandidates(sessionId: string): Promise<ReviewCandidate[]> {
+async function getCandidates(repos: Repositories, sessionId: string): Promise<ReviewCandidate[]> {
   const candidates: ReviewCandidate[] = [];
 
   // Get guidelines from session scope
-  const guidelines = guidelineRepo.list({ scopeType: 'session', scopeId: sessionId });
+  const guidelines = await repos.guidelines.list({ scopeType: 'session', scopeId: sessionId });
   for (const g of guidelines) {
     if (!g.isActive) continue;
-    const tags = entryTagRepo.getTagsForEntry('guideline', g.id);
+    const tags = await repos.entryTags.getTagsForEntry('guideline', g.id);
     const tagNames = tags.map((t) => t.name);
     if (tagNames.includes('candidate') || tagNames.includes('needs_review')) {
       candidates.push({
@@ -120,10 +118,10 @@ async function getCandidates(sessionId: string): Promise<ReviewCandidate[]> {
   }
 
   // Get knowledge from session scope
-  const knowledgeList = knowledgeRepo.list({ scopeType: 'session', scopeId: sessionId });
+  const knowledgeList = await repos.knowledge.list({ scopeType: 'session', scopeId: sessionId });
   for (const k of knowledgeList) {
     if (!k.isActive) continue;
-    const tags = entryTagRepo.getTagsForEntry('knowledge', k.id);
+    const tags = await repos.entryTags.getTagsForEntry('knowledge', k.id);
     const tagNames = tags.map((t) => t.name);
     if (tagNames.includes('candidate') || tagNames.includes('needs_review')) {
       candidates.push({
@@ -137,10 +135,10 @@ async function getCandidates(sessionId: string): Promise<ReviewCandidate[]> {
   }
 
   // Get tools from session scope
-  const tools = toolRepo.list({ scopeType: 'session', scopeId: sessionId });
+  const tools = await repos.tools.list({ scopeType: 'session', scopeId: sessionId });
   for (const t of tools) {
     if (!t.isActive) continue;
-    const tags = entryTagRepo.getTagsForEntry('tool', t.id);
+    const tags = await repos.entryTags.getTagsForEntry('tool', t.id);
     const tagNames = tags.map((tag) => tag.name);
     if (tagNames.includes('candidate') || tagNames.includes('needs_review')) {
       candidates.push({
@@ -161,14 +159,18 @@ function truncate(s: string, maxLen: number): string {
   return cleaned.length > maxLen ? cleaned.slice(0, maxLen - 1) + '…' : cleaned;
 }
 
-async function approveEntry(candidate: ReviewCandidate, projectId: string): Promise<boolean> {
+async function approveEntry(
+  repos: Repositories,
+  candidate: ReviewCandidate,
+  projectId: string
+): Promise<boolean> {
   try {
     if (candidate.type === 'guideline') {
-      const original = guidelineRepo.getById(candidate.id);
+      const original = await repos.guidelines.getById(candidate.id);
       if (!original) return false;
 
       // Create new guideline at project scope
-      guidelineRepo.create({
+      await repos.guidelines.create({
         scopeType: 'project',
         scopeId: projectId,
         name: original.name,
@@ -179,15 +181,15 @@ async function approveEntry(candidate: ReviewCandidate, projectId: string): Prom
       });
 
       // Deactivate the session-scoped original
-      guidelineRepo.deactivate(candidate.id);
+      await repos.guidelines.deactivate(candidate.id);
       return true;
     }
 
     if (candidate.type === 'knowledge') {
-      const original = knowledgeRepo.getById(candidate.id);
+      const original = await repos.knowledge.getById(candidate.id);
       if (!original) return false;
 
-      knowledgeRepo.create({
+      await repos.knowledge.create({
         scopeType: 'project',
         scopeId: projectId,
         title: original.title,
@@ -196,15 +198,15 @@ async function approveEntry(candidate: ReviewCandidate, projectId: string): Prom
         source: original.currentVersion?.source ?? undefined,
       });
 
-      knowledgeRepo.deactivate(candidate.id);
+      await repos.knowledge.deactivate(candidate.id);
       return true;
     }
 
     if (candidate.type === 'tool') {
-      const original = toolRepo.getById(candidate.id);
+      const original = await repos.tools.getById(candidate.id);
       if (!original) return false;
 
-      toolRepo.create({
+      await repos.tools.create({
         scopeType: 'project',
         scopeId: projectId,
         name: original.name,
@@ -212,7 +214,7 @@ async function approveEntry(candidate: ReviewCandidate, projectId: string): Prom
         category: original.category ?? undefined,
       });
 
-      toolRepo.deactivate(candidate.id);
+      await repos.tools.deactivate(candidate.id);
       return true;
     }
 
@@ -226,18 +228,18 @@ async function approveEntry(candidate: ReviewCandidate, projectId: string): Prom
   }
 }
 
-function rejectEntry(candidate: ReviewCandidate): boolean {
+async function rejectEntry(repos: Repositories, candidate: ReviewCandidate): Promise<boolean> {
   try {
     if (candidate.type === 'guideline') {
-      guidelineRepo.deactivate(candidate.id);
+      await repos.guidelines.deactivate(candidate.id);
       return true;
     }
     if (candidate.type === 'knowledge') {
-      knowledgeRepo.deactivate(candidate.id);
+      await repos.knowledge.deactivate(candidate.id);
       return true;
     }
     if (candidate.type === 'tool') {
-      toolRepo.deactivate(candidate.id);
+      await repos.tools.deactivate(candidate.id);
       return true;
     }
     return false;
@@ -250,25 +252,25 @@ function rejectEntry(candidate: ReviewCandidate): boolean {
   }
 }
 
-function removeReviewTags(candidate: ReviewCandidate): void {
+async function removeReviewTags(repos: Repositories, candidate: ReviewCandidate): Promise<void> {
   try {
     // Look up tag IDs by name
-    const candidateTag = tagRepo.getByName('candidate');
-    const needsReviewTag = tagRepo.getByName('needs_review');
+    const candidateTag = await repos.tags.getByName('candidate');
+    const needsReviewTag = await repos.tags.getByName('needs_review');
 
     if (candidateTag) {
-      entryTagRepo.detach(candidate.type, candidate.id, candidateTag.id);
+      await repos.entryTags.detach(candidate.type, candidate.id, candidateTag.id);
     }
     if (needsReviewTag) {
-      entryTagRepo.detach(candidate.type, candidate.id, needsReviewTag.id);
+      await repos.entryTags.detach(candidate.type, candidate.id, needsReviewTag.id);
     }
   } catch {
     // Best effort
   }
 }
 
-async function findActiveSession(): Promise<string | undefined> {
-  const activeSessions = sessionRepo.list({ status: 'active' }, { limit: 10, offset: 0 });
+async function findActiveSession(repos: Repositories): Promise<string | undefined> {
+  const activeSessions = await repos.sessions.list({ status: 'active' }, { limit: 10, offset: 0 });
   if (activeSessions.length === 0) return undefined;
 
   // Return most recent active session (using startedAt)
@@ -282,6 +284,7 @@ async function findActiveSession(): Promise<string | undefined> {
 }
 
 async function runReviewLoop(
+  repos: Repositories,
   candidates: ReviewCandidate[],
   projectId: string
 ): Promise<ReviewStats> {
@@ -350,7 +353,7 @@ async function runReviewLoop(
       spinner.start('Approving entries...');
 
       for (const candidate of selectedCandidates) {
-        const success = await approveEntry(candidate, projectId);
+        const success = await approveEntry(repos, candidate, projectId);
         if (success) {
           stats.approved++;
           remaining = remaining.filter((c) => c.id !== candidate.id);
@@ -365,7 +368,7 @@ async function runReviewLoop(
       spinner.start('Rejecting entries...');
 
       for (const candidate of selectedCandidates) {
-        const success = rejectEntry(candidate);
+        const success = await rejectEntry(repos, candidate);
         if (success) {
           stats.rejected++;
           remaining = remaining.filter((c) => c.id !== candidate.id);
@@ -377,7 +380,7 @@ async function runReviewLoop(
 
     if (action === 'skip') {
       for (const candidate of selectedCandidates) {
-        removeReviewTags(candidate);
+        await removeReviewTags(repos, candidate);
         stats.skipped++;
         remaining = remaining.filter((c) => c.id !== candidate.id);
       }
@@ -396,8 +399,11 @@ export async function runReviewCommand(argv: string[]): Promise<void> {
     process.exit(0);
   }
 
-  // Load config
+  // Load config (this also initializes the database via createAppContext)
   await import('../config/index.js');
+
+  // Create repositories with database dependencies
+  const repos = createRepositories({ db: getDb(), sqlite: getSqlite() });
 
   p.intro('Agent Memory Review');
 
@@ -406,7 +412,7 @@ export async function runReviewCommand(argv: string[]): Promise<void> {
   if (!sessionId) {
     const spinner = p.spinner();
     spinner.start('Finding active session...');
-    sessionId = await findActiveSession();
+    sessionId = await findActiveSession(repos);
     spinner.stop(sessionId ? `Found session: ${sessionId.slice(0, 8)}…` : 'No active session');
   }
 
@@ -416,7 +422,7 @@ export async function runReviewCommand(argv: string[]): Promise<void> {
   }
 
   // Verify session exists
-  const session = sessionRepo.getById(sessionId);
+  const session = await repos.sessions.getById(sessionId);
   if (!session) {
     p.log.error(`Session not found: ${sessionId}`);
     process.exit(1);
@@ -426,7 +432,7 @@ export async function runReviewCommand(argv: string[]): Promise<void> {
   let projectId = argProjectId ?? session.projectId ?? undefined;
   if (!projectId) {
     // Ask user to select a project
-    const projects = projectRepo.list();
+    const projects = await repos.projects.list();
     if (projects.length === 0) {
       p.log.error('No projects found. Create a project first.');
       process.exit(1);
@@ -450,7 +456,7 @@ export async function runReviewCommand(argv: string[]): Promise<void> {
   }
 
   // Verify project exists
-  const project = projectRepo.getById(projectId);
+  const project = await repos.projects.getById(projectId);
   if (!project) {
     p.log.error(`Project not found: ${projectId}`);
     process.exit(1);
@@ -462,7 +468,7 @@ export async function runReviewCommand(argv: string[]): Promise<void> {
   // Get candidates
   const spinner = p.spinner();
   spinner.start('Loading candidates...');
-  const candidates = await getCandidates(sessionId);
+  const candidates = await getCandidates(repos, sessionId);
   spinner.stop(`Found ${candidates.length} candidate(s)`);
 
   if (candidates.length === 0) {
@@ -472,7 +478,7 @@ export async function runReviewCommand(argv: string[]): Promise<void> {
   }
 
   // Run interactive review loop
-  const stats = await runReviewLoop(candidates, projectId);
+  const stats = await runReviewLoop(repos, candidates, projectId);
 
   // Summary
   p.note(
@@ -492,7 +498,7 @@ export async function runReviewCommand(argv: string[]): Promise<void> {
         reviewStats: stats,
       },
     };
-    sessionRepo.update(sessionId, { metadata: newMeta });
+    await repos.sessions.update(sessionId, { metadata: newMeta });
   }
 
   p.outro('Review complete');

@@ -2,44 +2,63 @@
  * Unit tests for migration service
  */
 
-import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
-import { setupTestDb, cleanupTestDb, createTestTool } from '../fixtures/test-helpers.js';
-import { migrateEntries, migrateScope } from '../../src/services/migration.service.js';
-import { toolRepo } from '../../src/db/repositories/tools.js';
-import { guidelineRepo } from '../../src/db/repositories/guidelines.js';
-import { knowledgeRepo } from '../../src/db/repositories/knowledge.js';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import {
+  setupTestDb,
+  cleanupTestDb,
+  createTestTool,
+  createTestRepositories,
+  type TestDb,
+} from '../fixtures/test-helpers.js';
+import {
+  createMigrationService,
+  type MigrationService,
+} from '../../src/services/migration.service.js';
+import { createImportService } from '../../src/services/import.service.js';
+import type {
+  IToolRepository,
+  IGuidelineRepository,
+  IKnowledgeRepository,
+} from '../../src/core/interfaces/repositories.js';
 
 const TEST_DB_PATH = './data/test-migration.db';
-let sqlite: ReturnType<typeof setupTestDb>['sqlite'];
-let db: ReturnType<typeof setupTestDb>['db'];
-
-vi.mock('../../src/db/connection.js', async () => {
-  const actual = await vi.importActual<typeof import('../../src/db/connection.js')>(
-    '../../src/db/connection.js'
-  );
-  return {
-    ...actual,
-    getDb: () => db,
-  };
-});
+let testDb: TestDb;
+let toolRepo: IToolRepository;
+let guidelineRepo: IGuidelineRepository;
+let knowledgeRepo: IKnowledgeRepository;
+let migrationService: MigrationService;
 
 describe('migration.service', () => {
   beforeAll(() => {
-    const testDb = setupTestDb(TEST_DB_PATH);
-    sqlite = testDb.sqlite;
-    db = testDb.db;
+    testDb = setupTestDb(TEST_DB_PATH);
+    const repos = createTestRepositories(testDb);
+    toolRepo = repos.tools;
+    guidelineRepo = repos.guidelines;
+    knowledgeRepo = repos.knowledge;
+
+    // Create import service with test repos
+    const importService = createImportService({
+      toolRepo: repos.tools,
+      guidelineRepo: repos.guidelines,
+      knowledgeRepo: repos.knowledge,
+      tagRepo: repos.tags,
+      entryTagRepo: repos.entryTags,
+    });
+
+    // Create migration service with injected import service
+    migrationService = createMigrationService({ importService });
   });
 
   afterAll(() => {
-    sqlite.close();
+    testDb.sqlite.close();
     cleanupTestDb(TEST_DB_PATH);
   });
 
   describe('migrateEntries', () => {
-    it('should migrate entries from JSON to YAML', () => {
-      createTestTool(db, 'migration-test-tool', 'global');
+    it('should migrate entries from JSON to YAML', async () => {
+      createTestTool(testDb.db, 'migration-test-tool', 'global');
 
-      const result = migrateEntries({
+      const result = await migrationService.migrateEntries({
         fromFormat: 'json',
         toFormat: 'yaml',
         scopeType: 'global',
@@ -51,8 +70,8 @@ describe('migration.service', () => {
       expect(typeof result.dryRun).toBe('boolean');
     });
 
-    it('should migrate entries from JSON to Markdown', () => {
-      const result = migrateEntries({
+    it('should migrate entries from JSON to Markdown', async () => {
+      const result = await migrationService.migrateEntries({
         fromFormat: 'json',
         toFormat: 'markdown',
         scopeType: 'global',
@@ -62,10 +81,10 @@ describe('migration.service', () => {
       expect(result.migrated).toBeGreaterThanOrEqual(0);
     });
 
-    it('should support dry-run mode', () => {
-      createTestTool(db, 'dry-run-test-tool', 'global');
+    it('should support dry-run mode', async () => {
+      createTestTool(testDb.db, 'dry-run-test-tool', 'global');
 
-      const result = migrateEntries({
+      const result = await migrationService.migrateEntries({
         fromFormat: 'json',
         toFormat: 'yaml',
         scopeType: 'global',
@@ -76,8 +95,8 @@ describe('migration.service', () => {
       expect(result.migrated).toBeGreaterThanOrEqual(0);
     });
 
-    it('should filter by scopeType', () => {
-      const result = migrateEntries({
+    it('should filter by scopeType', async () => {
+      const result = await migrationService.migrateEntries({
         fromFormat: 'json',
         toFormat: 'yaml',
         scopeType: 'project',
@@ -87,8 +106,8 @@ describe('migration.service', () => {
       expect(result).toBeDefined();
     });
 
-    it('should filter by scopeId', () => {
-      const result = migrateEntries({
+    it('should filter by scopeId', async () => {
+      const result = await migrationService.migrateEntries({
         fromFormat: 'json',
         toFormat: 'yaml',
         scopeType: 'project',
@@ -98,8 +117,8 @@ describe('migration.service', () => {
       expect(result).toBeDefined();
     });
 
-    it('should handle migration errors gracefully', () => {
-      const result = migrateEntries({
+    it('should handle migration errors gracefully', async () => {
+      const result = await migrationService.migrateEntries({
         fromFormat: 'invalid-format',
         toFormat: 'yaml',
         scopeType: 'global',
@@ -111,11 +130,11 @@ describe('migration.service', () => {
       expect(result.errors.length).toBeGreaterThanOrEqual(0);
     });
 
-    it('should report migration statistics', () => {
-      createTestTool(db, 'stats-test-tool-1', 'global');
-      createTestTool(db, 'stats-test-tool-2', 'global');
+    it('should report migration statistics', async () => {
+      createTestTool(testDb.db, 'stats-test-tool-1', 'global');
+      createTestTool(testDb.db, 'stats-test-tool-2', 'global');
 
-      const result = migrateEntries({
+      const result = await migrationService.migrateEntries({
         fromFormat: 'json',
         toFormat: 'markdown',
         scopeType: 'global',
@@ -125,11 +144,11 @@ describe('migration.service', () => {
       expect(result.errors.length).toBeGreaterThanOrEqual(0);
     });
 
-    it('should handle OpenAPI format migration', () => {
+    it('should handle OpenAPI format migration', async () => {
       // OpenAPI only supports tools
-      createTestTool(db, 'openapi-test-tool', 'global');
+      createTestTool(testDb.db, 'openapi-test-tool', 'global');
 
-      const result = migrateEntries({
+      const result = await migrationService.migrateEntries({
         fromFormat: 'openapi',
         toFormat: 'json',
         scopeType: 'global',
@@ -140,9 +159,9 @@ describe('migration.service', () => {
       expect(typeof result.migrated).toBe('number');
     });
 
-    it('should handle empty database', () => {
+    it('should handle empty database', async () => {
       // Use a scope that doesn't have entries from previous tests
-      const result = migrateEntries({
+      const result = await migrationService.migrateEntries({
         fromFormat: 'json',
         toFormat: 'yaml',
         scopeType: 'project',
@@ -153,9 +172,9 @@ describe('migration.service', () => {
       expect(result.errors.length).toBe(0);
     });
 
-    it('should collect errors during migration', () => {
+    it('should collect errors during migration', async () => {
       // Try to migrate with invalid source format
-      const result = migrateEntries({
+      const result = await migrationService.migrateEntries({
         fromFormat: 'invalid',
         toFormat: 'json',
         scopeType: 'global',
@@ -169,8 +188,8 @@ describe('migration.service', () => {
       });
     });
 
-    it('should handle YAML to JSON migration', () => {
-      const result = migrateEntries({
+    it('should handle YAML to JSON migration', async () => {
+      const result = await migrationService.migrateEntries({
         fromFormat: 'yaml',
         toFormat: 'json',
         scopeType: 'global',
@@ -180,8 +199,8 @@ describe('migration.service', () => {
       expect(typeof result.migrated).toBe('number');
     });
 
-    it('should handle Markdown to JSON migration', () => {
-      const result = migrateEntries({
+    it('should handle Markdown to JSON migration', async () => {
+      const result = await migrationService.migrateEntries({
         fromFormat: 'markdown',
         toFormat: 'json',
         scopeType: 'global',
@@ -191,10 +210,10 @@ describe('migration.service', () => {
       expect(typeof result.migrated).toBe('number');
     });
 
-    it('should reject non-JSON to OpenAPI migration', () => {
-      createTestTool(db, 'openapi-target-test', 'global');
+    it('should reject non-JSON to OpenAPI migration', async () => {
+      createTestTool(testDb.db, 'openapi-target-test', 'global');
 
-      const result = migrateEntries({
+      const result = await migrationService.migrateEntries({
         fromFormat: 'yaml', // Non-JSON source with OpenAPI target
         toFormat: 'openapi',
         scopeType: 'global',
@@ -204,16 +223,16 @@ describe('migration.service', () => {
       expect(result.errors[0].error).toContain('OpenAPI target format requires JSON source');
     });
 
-    it('should count created and updated entries', () => {
+    it('should count created and updated entries', async () => {
       // Create a tool that will be exported and re-imported
-      const tool = toolRepo.create({
+      const tool = await toolRepo.create({
         scopeType: 'global',
         name: 'migration-count-test',
         description: 'Test tool for migration count',
         createdBy: 'test',
       });
 
-      const result = migrateEntries({
+      const result = await migrationService.migrateEntries({
         fromFormat: 'json',
         toFormat: 'json',
         scopeType: 'global',
@@ -223,19 +242,19 @@ describe('migration.service', () => {
       expect(result.dryRun).toBe(false);
 
       // Tool should still exist after migration
-      const migratedTool = toolRepo.getById(tool.id);
+      const migratedTool = await toolRepo.getById(tool.id);
       expect(migratedTool).toBeDefined();
     });
 
-    it('should migrate guidelines', () => {
-      guidelineRepo.create({
+    it('should migrate guidelines', async () => {
+      await guidelineRepo.create({
         scopeType: 'global',
         name: 'migration-guideline-test',
         content: 'Test guideline',
         createdBy: 'test',
       });
 
-      const result = migrateEntries({
+      const result = await migrationService.migrateEntries({
         fromFormat: 'json',
         toFormat: 'json',
         scopeType: 'global',
@@ -244,15 +263,15 @@ describe('migration.service', () => {
       expect(result.migrated).toBeGreaterThanOrEqual(1);
     });
 
-    it('should migrate knowledge', () => {
-      knowledgeRepo.create({
+    it('should migrate knowledge', async () => {
+      await knowledgeRepo.create({
         scopeType: 'global',
         title: 'Migration Knowledge Test',
         content: 'Test knowledge',
         createdBy: 'test',
       });
 
-      const result = migrateEntries({
+      const result = await migrationService.migrateEntries({
         fromFormat: 'json',
         toFormat: 'json',
         scopeType: 'global',
@@ -261,11 +280,11 @@ describe('migration.service', () => {
       expect(result.migrated).toBeGreaterThanOrEqual(1);
     });
 
-    it('should use OpenAPI export for fromFormat openapi', () => {
+    it('should use OpenAPI export for fromFormat openapi', async () => {
       // OpenAPI only exports tools
-      createTestTool(db, 'openapi-export-test', 'global');
+      createTestTool(testDb.db, 'openapi-export-test', 'global');
 
-      const result = migrateEntries({
+      const result = await migrationService.migrateEntries({
         fromFormat: 'openapi',
         toFormat: 'json',
         scopeType: 'global',
@@ -275,9 +294,9 @@ describe('migration.service', () => {
       expect(typeof result.migrated).toBe('number');
     });
 
-    it('should handle errors in export/import cycle', () => {
+    it('should handle errors in export/import cycle', async () => {
       // Test with a format that might cause export issues
-      const result = migrateEntries({
+      const result = await migrationService.migrateEntries({
         fromFormat: 'invalid-format-test',
         toFormat: 'json',
         scopeType: 'global',
@@ -289,9 +308,9 @@ describe('migration.service', () => {
   });
 
   describe('migrateScope', () => {
-    it('should migrate entries between scopes', () => {
+    it('should migrate entries between scopes', async () => {
       // Create tools in agent scope
-      toolRepo.create({
+      await toolRepo.create({
         scopeType: 'agent',
         scopeId: 'agent-1',
         name: 'agent-tool-1',
@@ -299,7 +318,7 @@ describe('migration.service', () => {
         createdBy: 'test',
       });
 
-      const result = migrateScope(
+      const result = await migrationService.migrateScope(
         { type: 'agent', id: 'agent-1' },
         { type: 'global', id: undefined }
       );
@@ -308,12 +327,12 @@ describe('migration.service', () => {
       expect(result.dryRun).toBe(false);
 
       // Tool should exist in global scope now
-      const migratedTool = toolRepo.getByName('agent-tool-1', 'global');
+      const migratedTool = await toolRepo.getByName('agent-tool-1', 'global');
       expect(migratedTool).toBeDefined();
     });
 
-    it('should support dry-run mode for scope migration', () => {
-      toolRepo.create({
+    it('should support dry-run mode for scope migration', async () => {
+      await toolRepo.create({
         scopeType: 'project',
         scopeId: 'project-1',
         name: 'project-tool-dryrun',
@@ -321,7 +340,7 @@ describe('migration.service', () => {
         createdBy: 'test',
       });
 
-      const result = migrateScope(
+      const result = await migrationService.migrateScope(
         { type: 'project', id: 'project-1' },
         { type: 'global', id: undefined },
         undefined,
@@ -332,13 +351,13 @@ describe('migration.service', () => {
       expect(result.migrated).toBeGreaterThanOrEqual(1);
 
       // Tool should NOT exist in global scope (dry run)
-      const tool = toolRepo.getByName('project-tool-dryrun', 'global');
+      const tool = await toolRepo.getByName('project-tool-dryrun', 'global');
       expect(tool).toBeUndefined();
     });
 
-    it('should filter by entryTypes', () => {
+    it('should filter by entryTypes', async () => {
       // Create tools and guidelines
-      toolRepo.create({
+      await toolRepo.create({
         scopeType: 'agent',
         scopeId: 'agent-2',
         name: 'agent-tool-filter',
@@ -346,7 +365,7 @@ describe('migration.service', () => {
         createdBy: 'test',
       });
 
-      guidelineRepo.create({
+      await guidelineRepo.create({
         scopeType: 'agent',
         scopeId: 'agent-2',
         name: 'agent-guideline-filter',
@@ -355,7 +374,7 @@ describe('migration.service', () => {
       });
 
       // Migrate only tools
-      const result = migrateScope(
+      const result = await migrationService.migrateScope(
         { type: 'agent', id: 'agent-2' },
         { type: 'global', id: undefined },
         ['tools']
@@ -364,16 +383,16 @@ describe('migration.service', () => {
       expect(result.migrated).toBeGreaterThanOrEqual(1);
 
       // Tool should be migrated
-      const tool = toolRepo.getByName('agent-tool-filter', 'global');
+      const tool = await toolRepo.getByName('agent-tool-filter', 'global');
       expect(tool).toBeDefined();
 
       // Guideline should NOT be migrated
-      const guideline = guidelineRepo.getByName('agent-guideline-filter', 'global');
+      const guideline = await guidelineRepo.getByName('agent-guideline-filter', 'global');
       expect(guideline).toBeUndefined();
     });
 
-    it('should migrate guidelines with entryTypes filter', () => {
-      guidelineRepo.create({
+    it('should migrate guidelines with entryTypes filter', async () => {
+      await guidelineRepo.create({
         scopeType: 'project',
         scopeId: 'project-2',
         name: 'project-guideline',
@@ -381,7 +400,7 @@ describe('migration.service', () => {
         createdBy: 'test',
       });
 
-      const result = migrateScope(
+      const result = await migrationService.migrateScope(
         { type: 'project', id: 'project-2' },
         { type: 'global', id: undefined },
         ['guidelines']
@@ -389,12 +408,12 @@ describe('migration.service', () => {
 
       expect(result.migrated).toBeGreaterThanOrEqual(1);
 
-      const guideline = guidelineRepo.getByName('project-guideline', 'global');
+      const guideline = await guidelineRepo.getByName('project-guideline', 'global');
       expect(guideline).toBeDefined();
     });
 
-    it('should migrate knowledge with entryTypes filter', () => {
-      knowledgeRepo.create({
+    it('should migrate knowledge with entryTypes filter', async () => {
+      await knowledgeRepo.create({
         scopeType: 'agent',
         scopeId: 'agent-3',
         title: 'Agent Knowledge',
@@ -402,7 +421,7 @@ describe('migration.service', () => {
         createdBy: 'test',
       });
 
-      const result = migrateScope(
+      const result = await migrationService.migrateScope(
         { type: 'agent', id: 'agent-3' },
         { type: 'global', id: undefined },
         ['knowledge']
@@ -410,12 +429,12 @@ describe('migration.service', () => {
 
       expect(result.migrated).toBeGreaterThanOrEqual(1);
 
-      const knowledge = knowledgeRepo.getByTitle('Agent Knowledge', 'global');
+      const knowledge = await knowledgeRepo.getByTitle('Agent Knowledge', 'global');
       expect(knowledge).toBeDefined();
     });
 
-    it('should migrate multiple entry types', () => {
-      toolRepo.create({
+    it('should migrate multiple entry types', async () => {
+      await toolRepo.create({
         scopeType: 'project',
         scopeId: 'project-3',
         name: 'multi-tool',
@@ -423,7 +442,7 @@ describe('migration.service', () => {
         createdBy: 'test',
       });
 
-      guidelineRepo.create({
+      await guidelineRepo.create({
         scopeType: 'project',
         scopeId: 'project-3',
         name: 'multi-guideline',
@@ -431,7 +450,7 @@ describe('migration.service', () => {
         createdBy: 'test',
       });
 
-      knowledgeRepo.create({
+      await knowledgeRepo.create({
         scopeType: 'project',
         scopeId: 'project-3',
         title: 'Multi Knowledge',
@@ -439,7 +458,7 @@ describe('migration.service', () => {
         createdBy: 'test',
       });
 
-      const result = migrateScope(
+      const result = await migrationService.migrateScope(
         { type: 'project', id: 'project-3' },
         { type: 'global', id: undefined },
         ['tools', 'guidelines', 'knowledge']
@@ -447,13 +466,13 @@ describe('migration.service', () => {
 
       expect(result.migrated).toBeGreaterThanOrEqual(3);
 
-      expect(toolRepo.getByName('multi-tool', 'global')).toBeDefined();
-      expect(guidelineRepo.getByName('multi-guideline', 'global')).toBeDefined();
-      expect(knowledgeRepo.getByTitle('Multi Knowledge', 'global')).toBeDefined();
+      expect(await toolRepo.getByName('multi-tool', 'global')).toBeDefined();
+      expect(await guidelineRepo.getByName('multi-guideline', 'global')).toBeDefined();
+      expect(await knowledgeRepo.getByTitle('Multi Knowledge', 'global')).toBeDefined();
     });
 
-    it('should handle empty source scope', () => {
-      const result = migrateScope(
+    it('should handle empty source scope', async () => {
+      const result = await migrationService.migrateScope(
         { type: 'project', id: 'non-existent-project' },
         { type: 'global', id: undefined }
       );
@@ -462,8 +481,8 @@ describe('migration.service', () => {
       expect(result.errors.length).toBe(0);
     });
 
-    it('should use default entryTypes when not specified', () => {
-      toolRepo.create({
+    it('should use default entryTypes when not specified', async () => {
+      await toolRepo.create({
         scopeType: 'agent',
         scopeId: 'agent-4',
         name: 'default-types-tool',
@@ -471,7 +490,7 @@ describe('migration.service', () => {
         createdBy: 'test',
       });
 
-      const result = migrateScope(
+      const result = await migrationService.migrateScope(
         { type: 'agent', id: 'agent-4' },
         { type: 'global', id: undefined }
         // Not specifying entryTypes - should default to all
@@ -480,8 +499,8 @@ describe('migration.service', () => {
       expect(result.migrated).toBeGreaterThanOrEqual(1);
     });
 
-    it('should map scopes correctly', () => {
-      toolRepo.create({
+    it('should map scopes correctly', async () => {
+      await toolRepo.create({
         scopeType: 'agent',
         scopeId: 'source-agent',
         name: 'scope-mapping-tool',
@@ -489,7 +508,7 @@ describe('migration.service', () => {
         createdBy: 'test',
       });
 
-      const result = migrateScope(
+      const result = await migrationService.migrateScope(
         { type: 'agent', id: 'source-agent' },
         { type: 'project', id: 'target-project' }
       );
@@ -497,15 +516,15 @@ describe('migration.service', () => {
       expect(result.migrated).toBeGreaterThanOrEqual(1);
 
       // Tool should be in target scope
-      const tool = toolRepo.getByName('scope-mapping-tool', 'project', 'target-project');
+      const tool = await toolRepo.getByName('scope-mapping-tool', 'project', 'target-project');
       expect(tool).toBeDefined();
       expect(tool?.scopeType).toBe('project');
       expect(tool?.scopeId).toBe('target-project');
     });
 
-    it('should update existing entries in target scope', () => {
+    it('should update existing entries in target scope', async () => {
       // Create tool in source scope
-      toolRepo.create({
+      await toolRepo.create({
         scopeType: 'agent',
         scopeId: 'agent-5',
         name: 'update-test-tool',
@@ -514,14 +533,14 @@ describe('migration.service', () => {
       });
 
       // Create same tool in target scope
-      toolRepo.create({
+      await toolRepo.create({
         scopeType: 'global',
         name: 'update-test-tool',
         description: 'Will be updated',
         createdBy: 'test',
       });
 
-      const result = migrateScope(
+      const result = await migrationService.migrateScope(
         { type: 'agent', id: 'agent-5' },
         { type: 'global', id: undefined }
       );
@@ -529,13 +548,13 @@ describe('migration.service', () => {
       expect(result.migrated).toBeGreaterThanOrEqual(1);
 
       // Tool in global should be updated
-      const tool = toolRepo.getByName('update-test-tool', 'global');
+      const tool = await toolRepo.getByName('update-test-tool', 'global');
       expect(tool?.currentVersion?.description).toBe('Original description');
     });
 
-    it('should handle migration errors gracefully', () => {
+    it('should handle migration errors gracefully', async () => {
       // Create an entry and test error handling
-      toolRepo.create({
+      await toolRepo.create({
         scopeType: 'project',
         scopeId: 'project-error',
         name: 'error-test-tool',
@@ -543,7 +562,7 @@ describe('migration.service', () => {
         createdBy: 'test',
       });
 
-      const result = migrateScope(
+      const result = await migrationService.migrateScope(
         { type: 'project', id: 'project-error' },
         { type: 'global', id: undefined }
       );
@@ -557,10 +576,10 @@ describe('migration.service', () => {
       });
     });
 
-    it('should return correct error structure on exception', () => {
+    it('should return correct error structure on exception', async () => {
       // This will test the catch block by using invalid scope type
       // The test exercises error handling but may not actually trigger an error
-      const result = migrateScope(
+      const result = await migrationService.migrateScope(
         { type: 'global', id: undefined },
         { type: 'global', id: undefined }
       );
@@ -570,8 +589,8 @@ describe('migration.service', () => {
       expect(Array.isArray(result.errors)).toBe(true);
     });
 
-    it('should preserve all entry data during migration', () => {
-      const originalTool = toolRepo.create({
+    it('should preserve all entry data during migration', async () => {
+      const originalTool = await toolRepo.create({
         scopeType: 'agent',
         scopeId: 'agent-preserve',
         name: 'preserve-test',
@@ -581,9 +600,9 @@ describe('migration.service', () => {
         createdBy: 'test-user',
       });
 
-      migrateScope({ type: 'agent', id: 'agent-preserve' }, { type: 'global', id: undefined });
+      await migrationService.migrateScope({ type: 'agent', id: 'agent-preserve' }, { type: 'global', id: undefined });
 
-      const migratedTool = toolRepo.getByName('preserve-test', 'global');
+      const migratedTool = await toolRepo.getByName('preserve-test', 'global');
       expect(migratedTool).toBeDefined();
       expect(migratedTool?.name).toBe('preserve-test');
       expect(migratedTool?.category).toBe('mcp');
@@ -591,8 +610,8 @@ describe('migration.service', () => {
       expect(migratedTool?.currentVersion?.parameters).toEqual({ param1: 'value1' });
     });
 
-    it('should migrate between non-global scopes', () => {
-      toolRepo.create({
+    it('should migrate between non-global scopes', async () => {
+      await toolRepo.create({
         scopeType: 'agent',
         scopeId: 'agent-source',
         name: 'agent-to-project-tool',
@@ -600,19 +619,20 @@ describe('migration.service', () => {
         createdBy: 'test',
       });
 
-      const result = migrateScope(
+      const result = await migrationService.migrateScope(
         { type: 'agent', id: 'agent-source' },
         { type: 'project', id: 'project-target' }
       );
 
       expect(result.migrated).toBeGreaterThanOrEqual(1);
 
-      const tool = toolRepo.getByName('agent-to-project-tool', 'project', 'project-target');
+      const tool = await toolRepo.getByName('agent-to-project-tool', 'project', 'project-target');
       expect(tool).toBeDefined();
       expect(tool?.scopeType).toBe('project');
       expect(tool?.scopeId).toBe('project-target');
     });
   });
 });
+
 
 

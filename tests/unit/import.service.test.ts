@@ -2,49 +2,37 @@
  * Unit tests for import service
  */
 
-import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
-import { setupTestDb, cleanupTestDb } from '../fixtures/test-helpers.js';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { setupTestDb, cleanupTestDb, createTestRepositories } from '../fixtures/test-helpers.js';
+import type { Repositories } from '../../src/core/interfaces/repositories.js';
+import { createImportService, type ImportService } from '../../src/services/import.service.js';
 
 const TEST_DB_PATH = './data/test-import.db';
 
-let sqlite: ReturnType<typeof setupTestDb>['sqlite'];
-let db: ReturnType<typeof setupTestDb>['db'];
-
-vi.mock('../../src/db/connection.js', async () => {
-  const actual = await vi.importActual<typeof import('../../src/db/connection.js')>(
-    '../../src/db/connection.js'
-  );
-  return {
-    ...actual,
-    getDb: () => db,
-  };
-});
-
-import { toolRepo } from '../../src/db/repositories/tools.js';
-import { guidelineRepo } from '../../src/db/repositories/guidelines.js';
-import { knowledgeRepo } from '../../src/db/repositories/knowledge.js';
-import { entryTagRepo } from '../../src/db/repositories/tags.js';
-import {
-  importFromJson,
-  importFromYaml,
-  importFromMarkdown,
-  importFromOpenAPI,
-} from '../../src/services/import.service.js';
+let testDb: ReturnType<typeof setupTestDb>;
+let repos: Repositories;
+let importService: ImportService;
 
 describe('Import Service', () => {
   beforeAll(() => {
-    const testDb = setupTestDb(TEST_DB_PATH);
-    sqlite = testDb.sqlite;
-    db = testDb.db;
+    testDb = setupTestDb(TEST_DB_PATH);
+    repos = createTestRepositories(testDb);
+    importService = createImportService({
+      toolRepo: repos.tools,
+      guidelineRepo: repos.guidelines,
+      knowledgeRepo: repos.knowledge,
+      tagRepo: repos.tags,
+      entryTagRepo: repos.entryTags,
+    });
   });
 
   afterAll(() => {
-    sqlite.close();
+    testDb.sqlite.close();
     cleanupTestDb(TEST_DB_PATH);
   });
 
   describe('importFromJson', () => {
-    it('should import new tools', () => {
+    it('should import new tools', async () => {
       const jsonContent = JSON.stringify({
         version: '1.0',
         entries: {
@@ -64,27 +52,27 @@ describe('Import Service', () => {
         },
       });
 
-      const result = importFromJson(jsonContent);
+      const result = await importService.importFromJson(jsonContent);
 
       expect(result.success).toBe(true);
       expect(result.created).toBe(1);
       expect(result.details.tools.created).toBe(1);
 
       // Verify tool was created
-      const tool = toolRepo.getByName('import-test-tool', 'global');
+      const tool = await repos.tools.getByName('import-test-tool', 'global');
       expect(tool).toBeDefined();
       expect(tool?.name).toBe('import-test-tool');
 
       // Verify tags were attached
-      const tags = entryTagRepo.getTagsForEntry('tool', tool!.id);
+      const tags = await repos.entryTags.getTagsForEntry('tool', tool!.id);
       const tagNames = tags.map((t) => t.name);
       expect(tagNames).toContain('test');
       expect(tagNames).toContain('import');
     });
 
-    it('should update existing tools when conflictStrategy is update', () => {
+    it('should update existing tools when conflictStrategy is update', async () => {
       // Create existing tool
-      const existing = toolRepo.create({
+      const existing = await repos.tools.create({
         scopeType: 'global',
         name: 'existing-tool',
         description: 'Original description',
@@ -107,7 +95,7 @@ describe('Import Service', () => {
         },
       });
 
-      const result = importFromJson(jsonContent, {
+      const result = await importService.importFromJson(jsonContent, {
         conflictStrategy: 'update',
       });
 
@@ -116,12 +104,12 @@ describe('Import Service', () => {
       expect(result.created).toBe(0);
 
       // Verify tool was updated
-      const tool = toolRepo.getById(existing.id);
+      const tool = await repos.tools.getById(existing.id);
       expect(tool?.currentVersion?.description).toBe('Updated description');
     });
 
-    it('should skip existing tools when conflictStrategy is skip', () => {
-      toolRepo.create({
+    it('should skip existing tools when conflictStrategy is skip', async () => {
+      await repos.tools.create({
         scopeType: 'global',
         name: 'skip-tool',
         description: 'Original',
@@ -143,7 +131,7 @@ describe('Import Service', () => {
         },
       });
 
-      const result = importFromJson(jsonContent, {
+      const result = await importService.importFromJson(jsonContent, {
         conflictStrategy: 'skip',
       });
 
@@ -152,11 +140,11 @@ describe('Import Service', () => {
       expect(result.updated).toBe(0);
 
       // Verify tool was not updated
-      const tool = toolRepo.getByName('skip-tool', 'global');
+      const tool = await repos.tools.getByName('skip-tool', 'global');
       expect(tool?.currentVersion?.description).toBe('Original');
     });
 
-    it('should import guidelines with all fields', () => {
+    it('should import guidelines with all fields', async () => {
       const jsonContent = JSON.stringify({
         version: '1.0',
         entries: {
@@ -176,17 +164,17 @@ describe('Import Service', () => {
         },
       });
 
-      const result = importFromJson(jsonContent);
+      const result = await importService.importFromJson(jsonContent);
 
       expect(result.success).toBe(true);
       expect(result.created).toBe(1);
 
-      const guideline = guidelineRepo.getByName('import-guideline', 'global');
+      const guideline = await repos.guidelines.getByName('import-guideline', 'global');
       expect(guideline?.priority).toBe(90);
       expect(guideline?.currentVersion?.content).toBe('Always use const');
     });
 
-    it('should import knowledge entries', () => {
+    it('should import knowledge entries', async () => {
       const jsonContent = JSON.stringify({
         version: '1.0',
         entries: {
@@ -205,36 +193,36 @@ describe('Import Service', () => {
         },
       });
 
-      const result = importFromJson(jsonContent);
+      const result = await importService.importFromJson(jsonContent);
 
       expect(result.success).toBe(true);
       expect(result.created).toBe(1);
 
-      const knowledge = knowledgeRepo.getByTitle('Import Knowledge', 'global');
+      const knowledge = await repos.knowledge.getByTitle('Import Knowledge', 'global');
       expect(knowledge?.currentVersion?.content).toBe('This is imported knowledge');
     });
 
-    it('should handle invalid JSON', () => {
-      const result = importFromJson('invalid json content');
+    it('should handle invalid JSON', async () => {
+      const result = await importService.importFromJson('invalid json content');
 
       expect(result.success).toBe(false);
       expect(result.errors.length).toBeGreaterThan(0);
       expect(result.errors[0].entry).toBe('parsing');
     });
 
-    it('should handle missing entries object', () => {
+    it('should handle missing entries object', async () => {
       const jsonContent = JSON.stringify({
         version: '1.0',
         // Missing entries
       });
 
-      const result = importFromJson(jsonContent);
+      const result = await importService.importFromJson(jsonContent);
 
       expect(result.success).toBe(false);
       expect(result.errors[0].entry).toBe('structure');
     });
 
-    it('should handle missing required fields', () => {
+    it('should handle missing required fields', async () => {
       const jsonContent = JSON.stringify({
         version: '1.0',
         entries: {
@@ -250,7 +238,7 @@ describe('Import Service', () => {
         },
       });
 
-      const result = importFromJson(jsonContent);
+      const result = await importService.importFromJson(jsonContent);
 
       expect(result.success).toBe(true);
       expect(result.created).toBe(0);
@@ -259,8 +247,8 @@ describe('Import Service', () => {
   });
 
   describe('importFromYaml', () => {
-    it('should return error for YAML import', () => {
-      const result = importFromYaml('some: yaml\ncontent: here');
+    it('should return error for YAML import', async () => {
+      const result = await importService.importFromYaml('some: yaml\ncontent: here');
 
       expect(result.success).toBe(false);
       expect(result.errors[0].error).toContain('YAML import not fully implemented');
@@ -268,8 +256,8 @@ describe('Import Service', () => {
   });
 
   describe('importFromMarkdown', () => {
-    it('should return error for Markdown import', () => {
-      const result = importFromMarkdown('# Markdown\n\nSome content');
+    it('should return error for Markdown import', async () => {
+      const result = await importService.importFromMarkdown('# Markdown\n\nSome content');
 
       expect(result.success).toBe(false);
       expect(result.errors[0].error).toContain('Markdown import not supported');
@@ -277,8 +265,8 @@ describe('Import Service', () => {
   });
 
   describe('importFromJson - additional scenarios', () => {
-    it('should handle error conflict strategy for tools', () => {
-      toolRepo.create({
+    it('should handle error conflict strategy for tools', async () => {
+      await repos.tools.create({
         scopeType: 'global',
         name: 'error-conflict-tool',
         description: 'Original',
@@ -299,7 +287,7 @@ describe('Import Service', () => {
         },
       });
 
-      const result = importFromJson(jsonContent, {
+      const result = await importService.importFromJson(jsonContent, {
         conflictStrategy: 'error',
       });
 
@@ -310,8 +298,8 @@ describe('Import Service', () => {
       expect(result.errors[0].error).toContain('already exists');
     });
 
-    it('should handle replace conflict strategy for tools', () => {
-      const existing = toolRepo.create({
+    it('should handle replace conflict strategy for tools', async () => {
+      const existing = await repos.tools.create({
         scopeType: 'global',
         name: 'replace-tool',
         description: 'Original',
@@ -332,18 +320,18 @@ describe('Import Service', () => {
         },
       });
 
-      const result = importFromJson(jsonContent, {
+      const result = await importService.importFromJson(jsonContent, {
         conflictStrategy: 'replace',
       });
 
       expect(result.success).toBe(true);
       expect(result.updated).toBe(1);
 
-      const tool = toolRepo.getById(existing.id);
+      const tool = await repos.tools.getById(existing.id);
       expect(tool?.currentVersion?.description).toBe('Replaced description');
     });
 
-    it('should apply scope mapping', () => {
+    it('should apply scope mapping', async () => {
       const jsonContent = JSON.stringify({
         entries: {
           tools: [
@@ -359,7 +347,7 @@ describe('Import Service', () => {
         },
       });
 
-      const result = importFromJson(jsonContent, {
+      const result = await importService.importFromJson(jsonContent, {
         scopeMapping: {
           'agent:agent-123': { type: 'global', id: undefined },
         },
@@ -369,11 +357,11 @@ describe('Import Service', () => {
       expect(result.created).toBe(1);
 
       // Tool should be created with global scope instead
-      const tool = toolRepo.getByName('scoped-tool', 'global');
+      const tool = await repos.tools.getByName('scoped-tool', 'global');
       expect(tool).toBeDefined();
     });
 
-    it('should handle missing guideline name', () => {
+    it('should handle missing guideline name', async () => {
       const jsonContent = JSON.stringify({
         entries: {
           guidelines: [
@@ -388,7 +376,7 @@ describe('Import Service', () => {
         },
       });
 
-      const result = importFromJson(jsonContent);
+      const result = await importService.importFromJson(jsonContent);
 
       expect(result.success).toBe(true);
       expect(result.created).toBe(0);
@@ -396,7 +384,7 @@ describe('Import Service', () => {
       expect(result.errors[0].error).toContain('name is required');
     });
 
-    it('should handle missing guideline content', () => {
+    it('should handle missing guideline content', async () => {
       const jsonContent = JSON.stringify({
         entries: {
           guidelines: [
@@ -412,7 +400,7 @@ describe('Import Service', () => {
         },
       });
 
-      const result = importFromJson(jsonContent);
+      const result = await importService.importFromJson(jsonContent);
 
       expect(result.success).toBe(true);
       expect(result.created).toBe(0);
@@ -420,8 +408,8 @@ describe('Import Service', () => {
       expect(result.errors[0].error).toContain('content is required');
     });
 
-    it('should handle guideline conflict strategies', () => {
-      guidelineRepo.create({
+    it('should handle guideline conflict strategies', async () => {
+      await repos.guidelines.create({
         scopeType: 'global',
         name: 'conflict-guideline',
         content: 'Original content',
@@ -443,23 +431,23 @@ describe('Import Service', () => {
       });
 
       // Test skip
-      const skipResult = importFromJson(jsonContent, { conflictStrategy: 'skip' });
+      const skipResult = await importService.importFromJson(jsonContent, { conflictStrategy: 'skip' });
       expect(skipResult.skipped).toBe(1);
       expect(skipResult.details.guidelines.skipped).toBe(1);
 
       // Test error
-      const errorResult = importFromJson(jsonContent, { conflictStrategy: 'error' });
+      const errorResult = await importService.importFromJson(jsonContent, { conflictStrategy: 'error' });
       expect(errorResult.errors.length).toBeGreaterThan(0);
       expect(errorResult.errors[0].error).toContain('already exists');
 
       // Test update
-      const updateResult = importFromJson(jsonContent, { conflictStrategy: 'update' });
+      const updateResult = await importService.importFromJson(jsonContent, { conflictStrategy: 'update' });
       expect(updateResult.updated).toBe(1);
       expect(updateResult.details.guidelines.updated).toBe(1);
     });
 
-    it('should attach tags when updating guidelines', () => {
-      const existing = guidelineRepo.create({
+    it('should attach tags when updating guidelines', async () => {
+      const existing = await repos.guidelines.create({
         scopeType: 'global',
         name: 'guideline-with-tags',
         content: 'Original',
@@ -481,17 +469,17 @@ describe('Import Service', () => {
         },
       });
 
-      const result = importFromJson(jsonContent, { conflictStrategy: 'update' });
+      const result = await importService.importFromJson(jsonContent, { conflictStrategy: 'update' });
 
       expect(result.updated).toBe(1);
 
-      const tags = entryTagRepo.getTagsForEntry('guideline', existing.id);
+      const tags = await repos.entryTags.getTagsForEntry('guideline', existing.id);
       const tagNames = tags.map((t) => t.name);
       expect(tagNames).toContain('updated');
       expect(tagNames).toContain('imported');
     });
 
-    it('should handle missing knowledge title', () => {
+    it('should handle missing knowledge title', async () => {
       const jsonContent = JSON.stringify({
         entries: {
           knowledge: [
@@ -506,7 +494,7 @@ describe('Import Service', () => {
         },
       });
 
-      const result = importFromJson(jsonContent);
+      const result = await importService.importFromJson(jsonContent);
 
       expect(result.success).toBe(true);
       expect(result.created).toBe(0);
@@ -514,7 +502,7 @@ describe('Import Service', () => {
       expect(result.errors[0].error).toContain('title is required');
     });
 
-    it('should handle missing knowledge content', () => {
+    it('should handle missing knowledge content', async () => {
       const jsonContent = JSON.stringify({
         entries: {
           knowledge: [
@@ -530,7 +518,7 @@ describe('Import Service', () => {
         },
       });
 
-      const result = importFromJson(jsonContent);
+      const result = await importService.importFromJson(jsonContent);
 
       expect(result.success).toBe(true);
       expect(result.created).toBe(0);
@@ -538,8 +526,8 @@ describe('Import Service', () => {
       expect(result.errors[0].error).toContain('content is required');
     });
 
-    it('should handle knowledge conflict strategies', () => {
-      knowledgeRepo.create({
+    it('should handle knowledge conflict strategies', async () => {
+      await repos.knowledge.create({
         scopeType: 'global',
         title: 'Conflict Knowledge',
         content: 'Original content',
@@ -561,23 +549,23 @@ describe('Import Service', () => {
       });
 
       // Test skip
-      const skipResult = importFromJson(jsonContent, { conflictStrategy: 'skip' });
+      const skipResult = await importService.importFromJson(jsonContent, { conflictStrategy: 'skip' });
       expect(skipResult.skipped).toBe(1);
       expect(skipResult.details.knowledge.skipped).toBe(1);
 
       // Test error
-      const errorResult = importFromJson(jsonContent, { conflictStrategy: 'error' });
+      const errorResult = await importService.importFromJson(jsonContent, { conflictStrategy: 'error' });
       expect(errorResult.errors.length).toBeGreaterThan(0);
       expect(errorResult.errors[0].error).toContain('already exists');
 
       // Test update
-      const updateResult = importFromJson(jsonContent, { conflictStrategy: 'update' });
+      const updateResult = await importService.importFromJson(jsonContent, { conflictStrategy: 'update' });
       expect(updateResult.updated).toBe(1);
       expect(updateResult.details.knowledge.updated).toBe(1);
     });
 
-    it('should attach tags when updating knowledge', () => {
-      const existing = knowledgeRepo.create({
+    it('should attach tags when updating knowledge', async () => {
+      const existing = await repos.knowledge.create({
         scopeType: 'global',
         title: 'Knowledge with tags',
         content: 'Original',
@@ -599,17 +587,17 @@ describe('Import Service', () => {
         },
       });
 
-      const result = importFromJson(jsonContent, { conflictStrategy: 'update' });
+      const result = await importService.importFromJson(jsonContent, { conflictStrategy: 'update' });
 
       expect(result.updated).toBe(1);
 
-      const tags = entryTagRepo.getTagsForEntry('knowledge', existing.id);
+      const tags = await repos.entryTags.getTagsForEntry('knowledge', existing.id);
       const tagNames = tags.map((t) => t.name);
       expect(tagNames).toContain('updated');
       expect(tagNames).toContain('imported');
     });
 
-    it('should handle errors in tool creation gracefully', () => {
+    it('should handle errors in tool creation gracefully', async () => {
       const jsonContent = JSON.stringify({
         entries: {
           tools: [
@@ -626,13 +614,13 @@ describe('Import Service', () => {
       });
 
       // Should not throw, just record error
-      const result = importFromJson(jsonContent);
+      const result = await importService.importFromJson(jsonContent);
 
       expect(result.success).toBe(true);
       // May succeed or error depending on validation
     });
 
-    it('should use importedBy option', () => {
+    it('should use importedBy option', async () => {
       const jsonContent = JSON.stringify({
         entries: {
           tools: [
@@ -647,19 +635,19 @@ describe('Import Service', () => {
         },
       });
 
-      const result = importFromJson(jsonContent, {
+      const result = await importService.importFromJson(jsonContent, {
         importedBy: 'import-service-test',
       });
 
       expect(result.created).toBe(1);
 
-      const tool = toolRepo.getByName('tool-with-creator', 'global');
+      const tool = await repos.tools.getByName('tool-with-creator', 'global');
       expect(tool?.createdBy).toBe('import-service-test');
     });
   });
 
   describe('importFromOpenAPI', () => {
-    it('should import tools from OpenAPI spec', () => {
+    it('should import tools from OpenAPI spec', async () => {
       const openApiSpec = JSON.stringify({
         openapi: '3.0.0',
         info: {
@@ -698,13 +686,13 @@ describe('Import Service', () => {
         },
       });
 
-      const result = importFromOpenAPI(openApiSpec);
+      const result = await importService.importFromOpenAPI(openApiSpec);
 
       expect(result.success).toBe(true);
       expect(result.created).toBe(1);
       expect(result.details.tools.created).toBe(1);
 
-      const tool = toolRepo.getByName('createUser', 'global');
+      const tool = await repos.tools.getByName('createUser', 'global');
       expect(tool).toBeDefined();
       expect(tool?.currentVersion?.description).toContain('Creates a new user');
       expect(tool?.category).toBe('api');
@@ -716,13 +704,13 @@ describe('Import Service', () => {
       expect(params.email).toBeDefined();
 
       // Verify tags
-      const tags = entryTagRepo.getTagsForEntry('tool', tool!.id);
+      const tags = await repos.entryTags.getTagsForEntry('tool', tool!.id);
       const tagNames = tags.map((t) => t.name);
       expect(tagNames).toContain('users');
       expect(tagNames).toContain('create');
     });
 
-    it('should handle OpenAPI with parameters array', () => {
+    it('should handle OpenAPI with parameters array', async () => {
       const openApiSpec = JSON.stringify({
         openapi: '3.0.0',
         paths: {
@@ -755,12 +743,12 @@ describe('Import Service', () => {
         },
       });
 
-      const result = importFromOpenAPI(openApiSpec);
+      const result = await importService.importFromOpenAPI(openApiSpec);
 
       expect(result.success).toBe(true);
       expect(result.created).toBe(1);
 
-      const tool = toolRepo.getByName('getItem', 'global');
+      const tool = await repos.tools.getByName('getItem', 'global');
       expect(tool).toBeDefined();
 
       const params = tool?.currentVersion?.parameters as Record<string, unknown>;
@@ -769,7 +757,7 @@ describe('Import Service', () => {
       expect(params.include).toBeDefined();
     });
 
-    it('should handle OpenAPI without operationId', () => {
+    it('should handle OpenAPI without operationId', async () => {
       const openApiSpec = JSON.stringify({
         openapi: '3.0.0',
         paths: {
@@ -783,17 +771,17 @@ describe('Import Service', () => {
         },
       });
 
-      const result = importFromOpenAPI(openApiSpec);
+      const result = await importService.importFromOpenAPI(openApiSpec);
 
       expect(result.success).toBe(true);
       expect(result.created).toBe(1);
 
       // Should use summary as tool name
-      const tool = toolRepo.getByName('Test endpoint summary', 'global');
+      const tool = await repos.tools.getByName('Test endpoint summary', 'global');
       expect(tool).toBeDefined();
     });
 
-    it('should handle OpenAPI without operationId or summary', () => {
+    it('should handle OpenAPI without operationId or summary', async () => {
       const openApiSpec = JSON.stringify({
         openapi: '3.0.0',
         paths: {
@@ -806,25 +794,25 @@ describe('Import Service', () => {
         },
       });
 
-      const result = importFromOpenAPI(openApiSpec);
+      const result = await importService.importFromOpenAPI(openApiSpec);
 
       expect(result.success).toBe(true);
       expect(result.created).toBe(1);
 
       // Should use path as tool name
-      const tool = toolRepo.getByName('api_fallback', 'global');
+      const tool = await repos.tools.getByName('api_fallback', 'global');
       expect(tool).toBeDefined();
     });
 
-    it('should handle invalid OpenAPI JSON', () => {
-      const result = importFromOpenAPI('invalid json');
+    it('should handle invalid OpenAPI JSON', async () => {
+      const result = await importService.importFromOpenAPI('invalid json');
 
       expect(result.success).toBe(false);
       expect(result.errors.length).toBeGreaterThan(0);
       expect(result.errors[0].entry).toBe('parsing');
     });
 
-    it('should handle missing paths in OpenAPI', () => {
+    it('should handle missing paths in OpenAPI', async () => {
       const openApiSpec = JSON.stringify({
         openapi: '3.0.0',
         info: {
@@ -833,14 +821,14 @@ describe('Import Service', () => {
         // Missing paths
       });
 
-      const result = importFromOpenAPI(openApiSpec);
+      const result = await importService.importFromOpenAPI(openApiSpec);
 
       expect(result.success).toBe(false);
       expect(result.errors[0].error).toContain('Missing paths');
     });
 
-    it('should handle OpenAPI update conflict', () => {
-      toolRepo.create({
+    it('should handle OpenAPI update conflict', async () => {
+      await repos.tools.create({
         scopeType: 'global',
         name: 'updateOperation',
         category: 'api',
@@ -860,7 +848,7 @@ describe('Import Service', () => {
         },
       });
 
-      const result = importFromOpenAPI(openApiSpec, {
+      const result = await importService.importFromOpenAPI(openApiSpec, {
         conflictStrategy: 'update',
       });
 
@@ -868,12 +856,12 @@ describe('Import Service', () => {
       expect(result.updated).toBe(1);
       expect(result.details.tools.updated).toBe(1);
 
-      const tool = toolRepo.getByName('updateOperation', 'global');
+      const tool = await repos.tools.getByName('updateOperation', 'global');
       expect(tool?.currentVersion?.description).toBe('Updated description');
     });
 
-    it('should handle OpenAPI skip conflict', () => {
-      toolRepo.create({
+    it('should handle OpenAPI skip conflict', async () => {
+      await repos.tools.create({
         scopeType: 'global',
         name: 'skipOperation',
         category: 'api',
@@ -893,7 +881,7 @@ describe('Import Service', () => {
         },
       });
 
-      const result = importFromOpenAPI(openApiSpec, {
+      const result = await importService.importFromOpenAPI(openApiSpec, {
         conflictStrategy: 'skip',
       });
 
@@ -901,12 +889,12 @@ describe('Import Service', () => {
       expect(result.skipped).toBe(1);
       expect(result.details.tools.skipped).toBe(1);
 
-      const tool = toolRepo.getByName('skipOperation', 'global');
+      const tool = await repos.tools.getByName('skipOperation', 'global');
       expect(tool?.currentVersion?.description).toBe('Original');
     });
 
-    it('should handle OpenAPI error conflict', () => {
-      toolRepo.create({
+    it('should handle OpenAPI error conflict', async () => {
+      await repos.tools.create({
         scopeType: 'global',
         name: 'errorOperation',
         category: 'api',
@@ -926,7 +914,7 @@ describe('Import Service', () => {
         },
       });
 
-      const result = importFromOpenAPI(openApiSpec, {
+      const result = await importService.importFromOpenAPI(openApiSpec, {
         conflictStrategy: 'error',
       });
 
@@ -935,8 +923,8 @@ describe('Import Service', () => {
       expect(result.errors[0].error).toContain('already exists');
     });
 
-    it('should handle OpenAPI replace conflict', () => {
-      const existing = toolRepo.create({
+    it('should handle OpenAPI replace conflict', async () => {
+      const existing = await repos.tools.create({
         scopeType: 'global',
         name: 'replaceOperation',
         category: 'api',
@@ -956,19 +944,19 @@ describe('Import Service', () => {
         },
       });
 
-      const result = importFromOpenAPI(openApiSpec, {
+      const result = await importService.importFromOpenAPI(openApiSpec, {
         conflictStrategy: 'replace',
       });
 
       expect(result.success).toBe(true);
       expect(result.updated).toBe(1);
 
-      const tool = toolRepo.getById(existing.id);
+      const tool = await repos.tools.getById(existing.id);
       expect(tool?.currentVersion?.description).toBe('Replaced description');
     });
 
-    it('should attach tags when updating OpenAPI tools', () => {
-      const existing = toolRepo.create({
+    it('should attach tags when updating OpenAPI tools', async () => {
+      const existing = await repos.tools.create({
         scopeType: 'global',
         name: 'taggedOperation',
         category: 'api',
@@ -989,19 +977,19 @@ describe('Import Service', () => {
         },
       });
 
-      const result = importFromOpenAPI(openApiSpec, {
+      const result = await importService.importFromOpenAPI(openApiSpec, {
         conflictStrategy: 'update',
       });
 
       expect(result.updated).toBe(1);
 
-      const tags = entryTagRepo.getTagsForEntry('tool', existing.id);
+      const tags = await repos.entryTags.getTagsForEntry('tool', existing.id);
       const tagNames = tags.map((t) => t.name);
       expect(tagNames).toContain('v2');
       expect(tagNames).toContain('authenticated');
     });
 
-    it('should handle OpenAPI with default parameter values', () => {
+    it('should handle OpenAPI with default parameter values', async () => {
       const openApiSpec = JSON.stringify({
         openapi: '3.0.0',
         paths: {
@@ -1035,18 +1023,18 @@ describe('Import Service', () => {
         },
       });
 
-      const result = importFromOpenAPI(openApiSpec);
+      const result = await importService.importFromOpenAPI(openApiSpec);
 
       expect(result.success).toBe(true);
       expect(result.created).toBe(1);
 
-      const tool = toolRepo.getByName('getWithDefaults', 'global');
+      const tool = await repos.tools.getByName('getWithDefaults', 'global');
       const params = tool?.currentVersion?.parameters as Record<string, any>;
       expect(params.limit.default).toBe(10);
       expect(params.offset.default).toBe(0);
     });
 
-    it('should handle multiple operations in single path', () => {
+    it('should handle multiple operations in single path', async () => {
       const openApiSpec = JSON.stringify({
         openapi: '3.0.0',
         paths: {
@@ -1071,18 +1059,18 @@ describe('Import Service', () => {
         },
       });
 
-      const result = importFromOpenAPI(openApiSpec);
+      const result = await importService.importFromOpenAPI(openApiSpec);
 
       expect(result.success).toBe(true);
       expect(result.created).toBe(4);
 
-      expect(toolRepo.getByName('getMulti', 'global')).toBeDefined();
-      expect(toolRepo.getByName('createMulti', 'global')).toBeDefined();
-      expect(toolRepo.getByName('updateMulti', 'global')).toBeDefined();
-      expect(toolRepo.getByName('deleteMulti', 'global')).toBeDefined();
+      expect(await repos.tools.getByName('getMulti', 'global')).toBeDefined();
+      expect(await repos.tools.getByName('createMulti', 'global')).toBeDefined();
+      expect(await repos.tools.getByName('updateMulti', 'global')).toBeDefined();
+      expect(await repos.tools.getByName('deleteMulti', 'global')).toBeDefined();
     });
 
-    it('should handle OpenAPI with importedBy option', () => {
+    it('should handle OpenAPI with importedBy option', async () => {
       const openApiSpec = JSON.stringify({
         openapi: '3.0.0',
         paths: {
@@ -1095,29 +1083,29 @@ describe('Import Service', () => {
         },
       });
 
-      const result = importFromOpenAPI(openApiSpec, {
+      const result = await importService.importFromOpenAPI(openApiSpec, {
         importedBy: 'openapi-importer',
       });
 
       expect(result.created).toBe(1);
 
-      const tool = toolRepo.getByName('testCreatedBy', 'global');
+      const tool = await repos.tools.getByName('testCreatedBy', 'global');
       expect(tool?.createdBy).toBe('openapi-importer');
     });
 
-    it('should handle empty paths object', () => {
+    it('should handle empty paths object', async () => {
       const openApiSpec = JSON.stringify({
         openapi: '3.0.0',
         paths: {},
       });
 
-      const result = importFromOpenAPI(openApiSpec);
+      const result = await importService.importFromOpenAPI(openApiSpec);
 
       expect(result.success).toBe(true);
       expect(result.created).toBe(0);
     });
 
-    it('should skip non-object path items', () => {
+    it('should skip non-object path items', async () => {
       const openApiSpec = JSON.stringify({
         openapi: '3.0.0',
         paths: {
@@ -1131,13 +1119,13 @@ describe('Import Service', () => {
         },
       });
 
-      const result = importFromOpenAPI(openApiSpec);
+      const result = await importService.importFromOpenAPI(openApiSpec);
 
       expect(result.success).toBe(true);
       expect(result.created).toBe(1); // Only normal operation
     });
 
-    it('should skip non-object operations', () => {
+    it('should skip non-object operations', async () => {
       const openApiSpec = JSON.stringify({
         openapi: '3.0.0',
         paths: {
@@ -1151,12 +1139,10 @@ describe('Import Service', () => {
         },
       });
 
-      const result = importFromOpenAPI(openApiSpec);
+      const result = await importService.importFromOpenAPI(openApiSpec);
 
       expect(result.success).toBe(true);
       expect(result.created).toBe(1);
     });
   });
 });
-
-

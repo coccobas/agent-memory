@@ -32,9 +32,41 @@ import { createGuidelineRepository } from '../../src/db/repositories/guidelines.
 import { createKnowledgeRepository } from '../../src/db/repositories/knowledge.js';
 import { createToolRepository } from '../../src/db/repositories/tools.js';
 import { createConversationRepository } from '../../src/db/repositories/conversations.js';
+import { createConflictRepository } from '../../src/db/repositories/conflicts.js';
+import { PermissionService } from '../../src/services/permission.service.js';
+import { VerificationService } from '../../src/services/verification.service.js';
+import type { AppContextServices } from '../../src/core/context.js';
 
 // Re-export schema for use in tests
 export { schema };
+
+/**
+ * Create repositories for unit tests that don't need full AppContext.
+ * Uses the factory pattern with injected database dependencies.
+ *
+ * @param testDb - The test database from setupTestDb()
+ * @returns All repositories with injected dependencies
+ */
+export function createTestRepositories(testDb: TestDb): Repositories {
+  const db = testDb.db as unknown as AppContext['db'];
+  const dbDeps: DatabaseDeps = { db, sqlite: testDb.sqlite };
+
+  const tagRepo = createTagRepository(dbDeps);
+  return {
+    tags: tagRepo,
+    entryTags: createEntryTagRepository(dbDeps, tagRepo),
+    entryRelations: createEntryRelationRepository(dbDeps),
+    organizations: createOrganizationRepository(dbDeps),
+    projects: createProjectRepository(dbDeps),
+    sessions: createSessionRepository(dbDeps),
+    fileLocks: createFileLockRepository(dbDeps),
+    guidelines: createGuidelineRepository(dbDeps),
+    knowledge: createKnowledgeRepository(dbDeps),
+    tools: createToolRepository(dbDeps),
+    conversations: createConversationRepository(dbDeps),
+    conflicts: createConflictRepository(dbDeps),
+  };
+}
 
 // Re-export container functions for test cleanup
 export { registerDatabase, resetContainer, clearPreparedStatementCache };
@@ -200,6 +232,13 @@ export function registerTestContext(testDb: TestDb): AppContext {
     knowledge: createKnowledgeRepository(dbDeps),
     tools: createToolRepository(dbDeps),
     conversations: createConversationRepository(dbDeps),
+    conflicts: createConflictRepository(dbDeps),
+  };
+
+  // Create services including permission service (required for handlers)
+  const services: AppContextServices = {
+    permission: new PermissionService(db, runtime.memoryCoordinator),
+    verification: new VerificationService(db),
   };
 
   const context: AppContext = {
@@ -211,6 +250,7 @@ export function registerTestContext(testDb: TestDb): AppContext {
     security,
     runtime,
     repos,
+    services,
   };
 
   registerContext(context);

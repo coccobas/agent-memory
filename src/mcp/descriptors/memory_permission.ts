@@ -33,9 +33,9 @@ export const memoryPermissionDescriptor: ToolDescriptor = {
     offset: { type: 'number', description: 'Skip N results (list)' },
   },
   actions: {
-    grant: { handler: permissionHandlers.grant },
-    revoke: { handler: permissionHandlers.revoke },
-    check: { handler: permissionHandlers.check },
-    list: { handler: permissionHandlers.list },
+    grant: { contextHandler: permissionHandlers.grant },
+    revoke: { contextHandler: permissionHandlers.revoke },
+    check: { contextHandler: permissionHandlers.check },
+    list: { contextHandler: permissionHandlers.list },
   },
 };

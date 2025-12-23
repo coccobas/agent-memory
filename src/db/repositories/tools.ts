@@ -5,7 +5,7 @@
  */
 
 import { eq, and, desc, asc } from 'drizzle-orm';
-import { getDb, getSqlite, transactionWithDb } from '../connection.js';
+import { transactionWithRetry } from '../connection.js';
 import {
   tools,
   toolVersions,
@@ -57,9 +57,21 @@ export type {
 export function createToolRepository(deps: DatabaseDeps): IToolRepository {
   const { db, sqlite } = deps;
 
+  // Helper to fetch tool with version (used within transactions)
+  function getByIdSync(id: string): ToolWithVersion | undefined {
+    const tool = db.select().from(tools).where(eq(tools.id, id)).get();
+    if (!tool) return undefined;
+
+    const currentVersion = tool.currentVersionId
+      ? db.select().from(toolVersions).where(eq(toolVersions.id, tool.currentVersionId)).get()
+      : undefined;
+
+    return { ...tool, currentVersion };
+  }
+
   const repo: IToolRepository = {
-    create(input: CreateToolInput): ToolWithVersion {
-      return transactionWithDb(sqlite, () => {
+    async create(input: CreateToolInput): Promise<ToolWithVersion> {
+      return transactionWithRetry(sqlite, () => {
         const toolId = generateId();
         const versionId = generateId();
 
@@ -92,7 +104,7 @@ export function createToolRepository(deps: DatabaseDeps): IToolRepository {
 
         db.insert(toolVersions).values(version).run();
 
-        const result = repo.getById(toolId);
+        const result = getByIdSync(toolId);
         if (!result) {
           throw new Error(`Failed to create tool ${toolId}`);
         }
@@ -113,23 +125,16 @@ export function createToolRepository(deps: DatabaseDeps): IToolRepository {
       });
     },
 
-    getById(id: string): ToolWithVersion | undefined {
-      const tool = db.select().from(tools).where(eq(tools.id, id)).get();
-      if (!tool) return undefined;
-
-      const currentVersion = tool.currentVersionId
-        ? db.select().from(toolVersions).where(eq(toolVersions.id, tool.currentVersionId)).get()
-        : undefined;
-
-      return { ...tool, currentVersion };
+    async getById(id: string): Promise<ToolWithVersion | undefined> {
+      return getByIdSync(id);
     },
 
-    getByName(
+    async getByName(
       name: string,
       scopeType: ScopeType,
       scopeId?: string,
       inherit = true
-    ): ToolWithVersion | undefined {
+    ): Promise<ToolWithVersion | undefined> {
       // First, try exact scope match
       const exactMatch = db
         .select()
@@ -163,7 +168,7 @@ export function createToolRepository(deps: DatabaseDeps): IToolRepository {
       return undefined;
     },
 
-    list(filter: ListToolsFilter = {}, options: PaginationOptions = {}): ToolWithVersion[] {
+    async list(filter: ListToolsFilter = {}, options: PaginationOptions = {}): Promise<ToolWithVersion[]> {
       const { limit, offset } = normalizePagination(options);
 
       // Build conditions using shared utility + category-specific condition
@@ -189,9 +194,9 @@ export function createToolRepository(deps: DatabaseDeps): IToolRepository {
       return attachVersions(toolsList, versionsMap);
     },
 
-    update(id: string, input: UpdateToolInput): ToolWithVersion | undefined {
-      return transactionWithDb(sqlite, () => {
-        const existing = repo.getById(id);
+    async update(id: string, input: UpdateToolInput): Promise<ToolWithVersion | undefined> {
+      return transactionWithRetry(sqlite, () => {
+        const existing = getByIdSync(id);
         if (!existing) return undefined;
 
         // Get current version number
@@ -249,11 +254,11 @@ export function createToolRepository(deps: DatabaseDeps): IToolRepository {
           text,
         });
 
-        return repo.getById(id);
+        return getByIdSync(id);
       });
     },
 
-    getHistory(toolId: string): ToolVersion[] {
+    async getHistory(toolId: string): Promise<ToolVersion[]> {
       return db
         .select()
         .from(toolVersions)
@@ -262,7 +267,7 @@ export function createToolRepository(deps: DatabaseDeps): IToolRepository {
         .all();
     },
 
-    deactivate(id: string): boolean {
+    async deactivate(id: string): Promise<boolean> {
       const result = db.update(tools).set({ isActive: false }).where(eq(tools.id, id)).run();
       const success = result.changes > 0;
 
@@ -273,13 +278,13 @@ export function createToolRepository(deps: DatabaseDeps): IToolRepository {
       return success;
     },
 
-    reactivate(id: string): boolean {
+    async reactivate(id: string): Promise<boolean> {
       const result = db.update(tools).set({ isActive: true }).where(eq(tools.id, id)).run();
       return result.changes > 0;
     },
 
-    delete(id: string): boolean {
-      const result = transactionWithDb(sqlite, () => {
+    async delete(id: string): Promise<boolean> {
+      const result = transactionWithRetry(sqlite, () => {
         // Delete related records (tags, relations, embeddings, permissions)
         cascadeDeleteRelatedRecordsWithDb(db, 'tool', id);
 
@@ -301,28 +306,3 @@ export function createToolRepository(deps: DatabaseDeps): IToolRepository {
 
   return repo;
 }
-
-// =============================================================================
-// TEMPORARY BACKWARD COMPAT EXPORTS
-// TODO: Remove these when all call sites are updated to use AppContext.repos
-// =============================================================================
-
-/**
- * @deprecated Use createToolRepository(deps) instead. Will be removed when AppContext.repos is wired.
- */
-function createLegacyToolRepo(): IToolRepository {
-  return createToolRepository({ db: getDb(), sqlite: getSqlite() });
-}
-
-// Lazy-initialized singleton instance for backward compatibility
-let _toolRepo: IToolRepository | null = null;
-
-/**
- * @deprecated Use AppContext.repos.tools instead
- */
-export const toolRepo: IToolRepository = new Proxy({} as IToolRepository, {
-  get(_, prop: keyof IToolRepository) {
-    if (!_toolRepo) _toolRepo = createLegacyToolRepo();
-    return _toolRepo[prop];
-  },
-});

@@ -10,10 +10,10 @@
 import { transactionWithDb } from '../../db/connection.js';
 import { checkForDuplicates } from '../../services/duplicate.service.js';
 import { logAction } from '../../services/audit.service.js';
-import { detectRedFlags } from '../../services/redflag.service.js';
+import { createRedFlagService } from '../../services/redflag.service.js';
 import { emitEntryChanged } from '../../utils/events.js';
-import { validateEntry } from '../../services/validation.service.js';
-import { checkPermission } from '../../services/permission.service.js';
+import { createValidationService } from '../../services/validation.service.js';
+// Permission checks via context.services.permission (no legacy imports)
 import { createValidationError, createNotFoundError, createPermissionError } from '../../core/errors.js';
 import { createComponentLogger } from '../../utils/logger.js';
 import {
@@ -52,28 +52,28 @@ export interface BaseEntry {
  * Repository interface that all entry repos must implement
  */
 export interface EntryRepository<TEntry extends BaseEntry, TCreateInput, TUpdateInput> {
-  create(input: TCreateInput): TEntry;
-  update(id: string, input: TUpdateInput): TEntry | undefined;
-  getById(id: string): TEntry | undefined;
+  create(input: TCreateInput): Promise<TEntry>;
+  update(id: string, input: TUpdateInput): Promise<TEntry | undefined>;
+  getById(id: string): Promise<TEntry | undefined>;
   getByName?(
     name: string,
     scopeType: ScopeType,
     scopeId?: string,
     inherit?: boolean
-  ): TEntry | undefined;
+  ): Promise<TEntry | undefined>;
   getByTitle?(
     title: string,
     scopeType: ScopeType,
     scopeId?: string,
     inherit?: boolean
-  ): TEntry | undefined;
+  ): Promise<TEntry | undefined>;
   list(
     filter: { scopeType?: ScopeType; scopeId?: string; includeInactive?: boolean },
     pagination?: { limit?: number; offset?: number }
-  ): TEntry[];
-  getHistory(id: string): unknown[];
-  deactivate(id: string): boolean;
-  delete(id: string): boolean;
+  ): Promise<TEntry[]>;
+  getHistory(id: string): Promise<unknown[]>;
+  deactivate(id: string): Promise<boolean>;
+  delete(id: string): Promise<boolean>;
 }
 
 /**
@@ -150,23 +150,33 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
 
   // Helper: Check permission and throw if denied
   function requirePermission(
+    context: AppContext,
     agentId: string,
     permission: 'read' | 'write' | 'delete',
     scopeType: ScopeType,
     scopeId: string | null,
     entryId: string | null = null
   ): void {
-    if (!checkPermission(agentId, permission, config.entryType, entryId, scopeType, scopeId)) {
+    const hasPermission = context.services!.permission.check(
+      agentId,
+      permission,
+      config.entryType,
+      entryId,
+      scopeType,
+      scopeId
+    );
+
+    if (!hasPermission) {
       throw createPermissionError(permission, config.entryType, entryId ?? undefined);
     }
   }
 
   // Helper: Get entry by ID and verify it exists
-  function getExistingEntry(
+  async function getExistingEntry(
     repo: EntryRepository<TEntry, TCreateInput, TUpdateInput>,
     id: string
-  ): TEntry {
-    const entry = repo.getById(id);
+  ): Promise<TEntry> {
+    const entry = await repo.getById(id);
     if (entry === undefined) {
       throw createNotFoundError(config.entryType, id);
     }
@@ -177,7 +187,7 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
     /**
      * Add a new entry
      */
-    add(context: AppContext, params: Record<string, unknown>) {
+    async add(context: AppContext, params: Record<string, unknown>) {
       const repo = config.getRepo(context);
       const scopeType = getRequiredParam(params, 'scopeType', isScopeType);
       const scopeId = getOptionalParam(params, 'scopeId', isString);
@@ -193,7 +203,7 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
       }
 
       // Check permission (write required for add)
-      requirePermission(agentId, 'write', scopeType, scopeId ?? null);
+      requirePermission(context, agentId, 'write', scopeType, scopeId ?? null);
 
       // Get name/title for duplicate checking
       const nameValue = config.getNameValue(params);
@@ -222,22 +232,28 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
 
       // Validate entry data
       const validationData = config.getValidationData(params);
-      const validation = validateEntry(config.entryType, validationData, scopeType, scopeId);
+      const validationService = createValidationService(context.repos.guidelines);
+      const validation = await validationService.validateEntry(config.entryType, validationData, scopeType, scopeId);
       if (!validation.valid) {
         throw createValidationError(
           'entry',
-          `Validation failed: ${validation.errors.map((e) => e.message).join(', ')}`,
+          `Validation failed: ${validation.errors.map((e: { message: string }) => e.message).join(', ')}`,
           'Check the validation errors and correct the input data'
         );
       }
 
       // Extract typed input and create entry
       const input = config.extractAddParams(params, { scopeType, scopeId });
-      const entry = repo.create(input);
+      const entry = await repo.create(input);
 
       // Check for red flags
       const content = config.getContentForRedFlags(entry);
-      const redFlags = detectRedFlags({
+      const redFlagService = createRedFlagService({
+        guidelineRepo: context.repos.guidelines,
+        knowledgeRepo: context.repos.knowledge,
+        toolRepo: context.repos.tools,
+      });
+      const redFlags = await redFlagService.detectRedFlags({
         type: config.entryType,
         content,
       });
@@ -246,7 +262,7 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
           {
             [config.nameField]: nameValue,
             [`${config.entryType}Id`]: entry.id,
-            redFlags: redFlags.map((f) => ({
+            redFlags: redFlags.map((f: { pattern: string; severity: string; description: string }) => ({
               pattern: f.pattern,
               severity: f.severity,
               description: f.description,
@@ -276,20 +292,21 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
     /**
      * Update an existing entry
      */
-    update(context: AppContext, params: Record<string, unknown>) {
+    async update(context: AppContext, params: Record<string, unknown>) {
       const repo = config.getRepo(context);
       const id = getRequiredParam(params, 'id', isString);
       const agentId = getRequiredParam(params, 'agentId', isString);
 
       // Get existing entry to check scope and permission
-      const existingEntry = getExistingEntry(repo, id);
+      const existingEntry = await getExistingEntry(repo, id);
 
       // Check permission (write required for update)
-      requirePermission(agentId, 'write', existingEntry.scopeType, existingEntry.scopeId, id);
+      requirePermission(context, agentId, 'write', existingEntry.scopeType, existingEntry.scopeId, id);
 
       // Validate entry data
       const validationData = config.getValidationData(params, existingEntry);
-      const validation = validateEntry(
+      const validationService = createValidationService(context.repos.guidelines);
+      const validation = await validationService.validateEntry(
         config.entryType,
         validationData,
         existingEntry.scopeType,
@@ -298,14 +315,14 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
       if (!validation.valid) {
         throw createValidationError(
           'entry',
-          `Validation failed: ${validation.errors.map((e) => e.message).join(', ')}`,
+          `Validation failed: ${validation.errors.map((e: { message: string }) => e.message).join(', ')}`,
           'Check the validation errors and correct the input data'
         );
       }
 
       // Extract update input and update
       const input = config.extractUpdateParams(params);
-      const entry = repo.update(id, input);
+      const entry = await repo.update(id, input);
       if (!entry) {
         throw createNotFoundError(config.entryType, id);
       }
@@ -335,7 +352,7 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
     /**
      * Get a single entry by ID or name
      */
-    get(context: AppContext, params: Record<string, unknown>) {
+    async get(context: AppContext, params: Record<string, unknown>) {
       const repo = config.getRepo(context);
       const id = getOptionalParam(params, 'id', isString);
       const nameOrTitle = getOptionalParam(params, config.nameField, isString);
@@ -354,13 +371,13 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
 
       let entry: TEntry | undefined = undefined;
       if (id) {
-        entry = repo.getById(id);
+        entry = await repo.getById(id);
       } else if (nameOrTitle && scopeType) {
         // Use appropriate lookup method based on name field
         if (config.nameField === 'name' && repo.getByName) {
-          entry = repo.getByName(nameOrTitle, scopeType, scopeId, inherit ?? true);
+          entry = await repo.getByName(nameOrTitle, scopeType, scopeId, inherit ?? true);
         } else if (config.nameField === 'title' && repo.getByTitle) {
-          entry = repo.getByTitle(nameOrTitle, scopeType, scopeId, inherit ?? true);
+          entry = await repo.getByTitle(nameOrTitle, scopeType, scopeId, inherit ?? true);
         }
       } else {
         throw createValidationError(
@@ -375,7 +392,7 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
       }
 
       // Check permission (read required for get)
-      requirePermission(agentId, 'read', entry.scopeType, entry.scopeId, entry.id);
+      requirePermission(context, agentId, 'read', entry.scopeType, entry.scopeId, entry.id);
 
       // Log audit
       logAction({
@@ -393,7 +410,7 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
     /**
      * List entries with optional filters
      */
-    list(context: AppContext, params: Record<string, unknown>) {
+    async list(context: AppContext, params: Record<string, unknown>) {
       const repo = config.getRepo(context);
       const agentId = getRequiredParam(params, 'agentId', isString);
       const scopeType = getOptionalParam(params, 'scopeType', isScopeType);
@@ -410,15 +427,23 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
         ...(config.extractListFilters?.(params) ?? {}),
       };
 
-      const all = repo.list(
+      const all = await repo.list(
         filter as { scopeType?: ScopeType; scopeId?: string; includeInactive?: boolean },
         { limit, offset }
       );
 
-      // Filter by permission
-      const entries = all.filter((e) =>
-        checkPermission(agentId, 'read', config.entryType, e.id, e.scopeType, e.scopeId)
-      );
+      // Use batch permission check for efficiency (single DB query)
+      const batchEntries = all.map((e) => ({
+        id: e.id,
+        entryType: config.entryType,
+        scopeType: e.scopeType,
+        scopeId: e.scopeId,
+      }));
+
+      const permissionResults = context.services!.permission.checkBatch(agentId, 'read', batchEntries);
+
+      // Filter entries by permission results
+      const entries = all.filter((e) => permissionResults.get(e.id) === true);
 
       return formatTimestamps({
         [config.responseListKey]: entries,
@@ -431,32 +456,32 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
     /**
      * Get version history for an entry
      */
-    history(context: AppContext, params: Record<string, unknown>) {
+    async history(context: AppContext, params: Record<string, unknown>) {
       const repo = config.getRepo(context);
       const id = getRequiredParam(params, 'id', isString);
       const agentId = getRequiredParam(params, 'agentId', isString);
 
-      const entry = getExistingEntry(repo, id);
-      requirePermission(agentId, 'read', entry.scopeType, entry.scopeId, id);
+      const entry = await getExistingEntry(repo, id);
+      requirePermission(context, agentId, 'read', entry.scopeType, entry.scopeId, id);
 
-      const versions = repo.getHistory(id);
+      const versions = await repo.getHistory(id);
       return formatTimestamps({ versions });
     },
 
     /**
      * Soft-delete an entry (deactivate)
      */
-    deactivate(context: AppContext, params: Record<string, unknown>) {
+    async deactivate(context: AppContext, params: Record<string, unknown>) {
       const repo = config.getRepo(context);
       const id = getRequiredParam(params, 'id', isString);
       const agentId = getRequiredParam(params, 'agentId', isString);
 
-      const existingEntry = getExistingEntry(repo, id);
+      const existingEntry = await getExistingEntry(repo, id);
 
       // Check permission (delete/write required for deactivate)
-      requirePermission(agentId, 'write', existingEntry.scopeType, existingEntry.scopeId, id);
+      requirePermission(context, agentId, 'write', existingEntry.scopeType, existingEntry.scopeId, id);
 
-      const success = repo.deactivate(id);
+      const success = await repo.deactivate(id);
       if (!success) {
         throw createNotFoundError(config.entryType, id);
       }
@@ -477,17 +502,17 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
     /**
      * Hard-delete an entry permanently
      */
-    delete(context: AppContext, params: Record<string, unknown>) {
+    async delete(context: AppContext, params: Record<string, unknown>) {
       const repo = config.getRepo(context);
       const id = getRequiredParam(params, 'id', isString);
       const agentId = getRequiredParam(params, 'agentId', isString);
 
-      const existingEntry = getExistingEntry(repo, id);
+      const existingEntry = await getExistingEntry(repo, id);
 
       // Check permission (delete required for hard delete)
-      requirePermission(agentId, 'write', existingEntry.scopeType, existingEntry.scopeId, id);
+      requirePermission(context, agentId, 'write', existingEntry.scopeType, existingEntry.scopeId, id);
 
-      const success = repo.delete(id);
+      const success = await repo.delete(id);
       if (!success) {
         throw createNotFoundError(config.entryType, id);
       }
@@ -517,7 +542,7 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
     /**
      * Bulk add multiple entries in a transaction
      */
-    bulk_add(context: AppContext, params: Record<string, unknown>) {
+    async bulk_add(context: AppContext, params: Record<string, unknown>) {
       const repo = config.getRepo(context);
       const entries = getRequiredParam(params, 'entries', isArrayOfObjects);
       const agentId = getRequiredParam(params, 'agentId', isString);
@@ -540,11 +565,19 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
           ? entryObj.scopeType
           : defaultScopeType;
         const entryScopeId = isString(entryObj.scopeId) ? entryObj.scopeId : defaultScopeId;
-        requirePermission(agentId, 'write', entryScopeType as ScopeType, entryScopeId ?? null);
+        requirePermission(
+          context,
+          agentId,
+          'write',
+          entryScopeType as ScopeType,
+          entryScopeId ?? null
+        );
       }
 
       // Execute in transaction for atomicity
-      const results = transactionWithDb(context.sqlite, () => {
+      // Note: repo methods return Promises but SQLite is sync underneath,
+      // so promises resolve immediately within the sync transaction callback
+      const promises = transactionWithDb(context.sqlite, () => {
         return entries.map((entry) => {
           if (!isObject(entry)) {
             throw createValidationError(
@@ -579,6 +612,9 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
         });
       });
 
+      // Await all promises (already resolved since SQLite is sync)
+      const results = await Promise.all(promises);
+
       return formatTimestamps({
         success: true,
         [config.responseListKey]: results,
@@ -589,7 +625,7 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
     /**
      * Bulk update multiple entries in a transaction
      */
-    bulk_update(context: AppContext, params: Record<string, unknown>) {
+    async bulk_update(context: AppContext, params: Record<string, unknown>) {
       const repo = config.getRepo(context);
       const updates = getRequiredParam(params, 'updates', isArrayOfObjects);
       const agentId = getRequiredParam(params, 'agentId', isString);
@@ -602,21 +638,29 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
         );
       }
 
-      // Check permissions for all entries
+      // Check permissions for all entries (await repo calls outside transaction)
       for (const update of updates) {
         if (!isObject(update)) continue;
         const updateObj = update;
         const id = updateObj.id;
         if (!isString(id)) continue;
-        const existingEntry = repo.getById(id);
+        const existingEntry = await repo.getById(id);
         if (!existingEntry) {
           throw createNotFoundError(config.entryType, id);
         }
-        requirePermission(agentId, 'write', existingEntry.scopeType, existingEntry.scopeId, id);
+        requirePermission(
+          context,
+          agentId,
+          'write',
+          existingEntry.scopeType,
+          existingEntry.scopeId,
+          id
+        );
       }
 
       // Execute in transaction
-      const results = transactionWithDb(context.sqlite, () => {
+      // Note: repo methods return Promises but SQLite is sync underneath
+      const promises = transactionWithDb(context.sqlite, () => {
         return updates.map((update) => {
           if (!isObject(update)) {
             throw createValidationError(
@@ -636,25 +680,30 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
             );
           }
 
-          const existingEntry = repo.getById(id);
           const input = config.extractUpdateParams(updateObj);
-          const entry = repo.update(id, input);
-          if (!entry) {
-            throw createNotFoundError(config.entryType, id);
-          }
-
-          // Emit entry changed event (cache listens for these)
-          emitEntryChanged({
-            entryType: config.entryType,
-            entryId: id,
-            scopeType: existingEntry?.scopeType ?? 'global',
-            scopeId: existingEntry?.scopeId ?? null,
-            action: 'update',
+          // Return promise that will be awaited after transaction
+          return repo.update(id, input).then((entry) => {
+            if (!entry) {
+              throw createNotFoundError(config.entryType, id);
+            }
+            return entry;
           });
-
-          return entry;
         });
       });
+
+      // Await all promises (already resolved since SQLite is sync)
+      const results = await Promise.all(promises);
+
+      // Emit events after transaction completes successfully
+      for (const result of results) {
+        emitEntryChanged({
+          entryType: config.entryType,
+          entryId: result.id,
+          scopeType: result.scopeType,
+          scopeId: result.scopeId ?? null,
+          action: 'update',
+        });
+      }
 
       return formatTimestamps({
         success: true,
@@ -666,7 +715,7 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
     /**
      * Bulk delete (deactivate) multiple entries in a transaction
      */
-    bulk_delete(context: AppContext, params: Record<string, unknown>) {
+    async bulk_delete(context: AppContext, params: Record<string, unknown>) {
       const repo = config.getRepo(context);
       const idsParam = getRequiredParam(params, 'ids', isArray);
       const agentId = getRequiredParam(params, 'agentId', isString);
@@ -693,25 +742,37 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
         );
       }
 
-      // Check permissions for all entries
+      // Check permissions for all entries (await repo calls outside transaction)
       for (const id of ids) {
-        const existingEntry = repo.getById(id);
+        const existingEntry = await repo.getById(id);
         if (!existingEntry) {
           throw createNotFoundError(config.entryType, id);
         }
-        requirePermission(agentId, 'write', existingEntry.scopeType, existingEntry.scopeId, id);
+        requirePermission(
+          context,
+          agentId,
+          'write',
+          existingEntry.scopeType,
+          existingEntry.scopeId,
+          id
+        );
       }
 
       // Execute in transaction
-      const results = transactionWithDb(context.sqlite, () => {
+      // Note: repo methods return Promises but SQLite is sync underneath
+      const promises = transactionWithDb(context.sqlite, () => {
         return ids.map((id) => {
-          const success = repo.deactivate(id);
-          if (!success) {
-            throw createNotFoundError(config.entryType, id);
-          }
-          return { id, success: true };
+          return repo.deactivate(id).then((success) => {
+            if (!success) {
+              throw createNotFoundError(config.entryType, id);
+            }
+            return { id, success: true };
+          });
         });
       });
+
+      // Await all promises (already resolved since SQLite is sync)
+      const results = await Promise.all(promises);
 
       return formatTimestamps({ success: true, deleted: results, count: results.length });
     },

@@ -2,44 +2,36 @@
  * Unit tests for guidelines repository
  */
 
-import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import {
   setupTestDb,
   cleanupTestDb,
   createTestOrg,
   createTestProject,
+  createTestRepositories,
+  type TestDb,
 } from '../fixtures/test-helpers.js';
-import { guidelineRepo } from '../../src/db/repositories/guidelines.js';
+import type { IGuidelineRepository } from '../../src/core/interfaces/repositories.js';
 
 const TEST_DB_PATH = './data/test-guidelines-repo.db';
-let sqlite: ReturnType<typeof setupTestDb>['sqlite'];
-let db: ReturnType<typeof setupTestDb>['db'];
-
-vi.mock('../../src/db/connection.js', async () => {
-  const actual = await vi.importActual<typeof import('../../src/db/connection.js')>(
-    '../../src/db/connection.js'
-  );
-  return {
-    ...actual,
-    getDb: () => db,
-  };
-});
+let testDb: TestDb;
+let guidelineRepo: IGuidelineRepository;
 
 describe('guidelineRepo', () => {
   beforeAll(() => {
-    const testDb = setupTestDb(TEST_DB_PATH);
-    sqlite = testDb.sqlite;
-    db = testDb.db;
+    testDb = setupTestDb(TEST_DB_PATH);
+    const repos = createTestRepositories(testDb);
+    guidelineRepo = repos.guidelines;
   });
 
   afterAll(() => {
-    sqlite.close();
+    testDb.sqlite.close();
     cleanupTestDb(TEST_DB_PATH);
   });
 
   describe('create', () => {
-    it('should create a guideline with initial version', () => {
-      const guideline = guidelineRepo.create({
+    it('should create a guideline with initial version', async () => {
+      const guideline = await guidelineRepo.create({
         scopeType: 'global',
         name: 'test-guideline',
         content: 'Test content',
@@ -54,8 +46,8 @@ describe('guidelineRepo', () => {
       expect(guideline.currentVersion?.versionNum).toBe(1);
     });
 
-    it('should default priority to 50', () => {
-      const guideline = guidelineRepo.create({
+    it('should default priority to 50', async () => {
+      const guideline = await guidelineRepo.create({
         scopeType: 'global',
         name: 'default-priority-guideline',
         content: 'Content',
@@ -64,11 +56,11 @@ describe('guidelineRepo', () => {
       expect(guideline.priority).toBe(50);
     });
 
-    it('should create guideline at project scope', () => {
-      const org = createTestOrg(db, 'Test Org');
-      const project = createTestProject(db, 'Test Project', org.id);
+    it('should create guideline at project scope', async () => {
+      const org = createTestOrg(testDb.db, 'Test Org');
+      const project = createTestProject(testDb.db, 'Test Project', org.id);
 
-      const guideline = guidelineRepo.create({
+      const guideline = await guidelineRepo.create({
         scopeType: 'project',
         scopeId: project.id,
         name: 'project-guideline',
@@ -81,54 +73,54 @@ describe('guidelineRepo', () => {
   });
 
   describe('getById', () => {
-    it('should get guideline by ID', () => {
-      const created = guidelineRepo.create({
+    it('should get guideline by ID', async () => {
+      const created = await guidelineRepo.create({
         scopeType: 'global',
         name: 'get-by-id-guideline',
         content: 'Content',
       });
 
-      const guideline = guidelineRepo.getById(created.id);
+      const guideline = await guidelineRepo.getById(created.id);
 
       expect(guideline).toBeDefined();
       expect(guideline?.id).toBe(created.id);
       expect(guideline?.name).toBe('get-by-id-guideline');
     });
 
-    it('should return undefined for non-existent ID', () => {
-      const guideline = guidelineRepo.getById('non-existent-id');
+    it('should return undefined for non-existent ID', async () => {
+      const guideline = await guidelineRepo.getById('non-existent-id');
       expect(guideline).toBeUndefined();
     });
   });
 
   describe('list', () => {
-    it('should list guidelines', () => {
-      guidelineRepo.create({
+    it('should list guidelines', async () => {
+      await guidelineRepo.create({
         scopeType: 'global',
         name: 'list-guideline-1',
         content: 'Content 1',
       });
 
-      guidelineRepo.create({
+      await guidelineRepo.create({
         scopeType: 'global',
         name: 'list-guideline-2',
         content: 'Content 2',
       });
 
-      const guidelines = guidelineRepo.list({ scopeType: 'global' }, { limit: 10 });
+      const guidelines = await guidelineRepo.list({ scopeType: 'global' }, { limit: 10 });
 
       expect(guidelines.length).toBeGreaterThanOrEqual(2);
     });
 
-    it('should filter by category', () => {
-      guidelineRepo.create({
+    it('should filter by category', async () => {
+      await guidelineRepo.create({
         scopeType: 'global',
         name: 'security-guideline',
         content: 'Content',
         category: 'security',
       });
 
-      const guidelines = guidelineRepo.list(
+      const guidelines = await guidelineRepo.list(
         { scopeType: 'global', category: 'security' },
         { limit: 10 }
       );
@@ -138,15 +130,15 @@ describe('guidelineRepo', () => {
       });
     });
 
-    it('should support pagination', () => {
-      guidelineRepo.create({
+    it('should support pagination', async () => {
+      await guidelineRepo.create({
         scopeType: 'global',
         name: 'pagination-1',
         content: 'Content',
       });
 
-      const page1 = guidelineRepo.list({ scopeType: 'global' }, { limit: 1, offset: 0 });
-      const page2 = guidelineRepo.list({ scopeType: 'global' }, { limit: 1, offset: 1 });
+      const page1 = await guidelineRepo.list({ scopeType: 'global' }, { limit: 1, offset: 0 });
+      const page2 = await guidelineRepo.list({ scopeType: 'global' }, { limit: 1, offset: 1 });
 
       expect(page1.length).toBeLessThanOrEqual(1);
       expect(page2.length).toBeLessThanOrEqual(1);
@@ -154,8 +146,8 @@ describe('guidelineRepo', () => {
   });
 
   describe('update', () => {
-    it('should update guideline and create new version', () => {
-      const created = guidelineRepo.create({
+    it('should update guideline and create new version', async () => {
+      const created = await guidelineRepo.create({
         scopeType: 'global',
         name: 'update-guideline',
         content: 'Original content',
@@ -163,7 +155,7 @@ describe('guidelineRepo', () => {
 
       const originalVersionId = created.currentVersionId;
 
-      const updated = guidelineRepo.update(created.id, {
+      const updated = await guidelineRepo.update(created.id, {
         content: 'Updated content',
         changeReason: 'Test update',
       });
@@ -173,15 +165,15 @@ describe('guidelineRepo', () => {
       expect(updated.currentVersion?.versionNum).toBe(2);
     });
 
-    it('should update priority', () => {
-      const created = guidelineRepo.create({
+    it('should update priority', async () => {
+      const created = await guidelineRepo.create({
         scopeType: 'global',
         name: 'update-priority-guideline',
         content: 'Content',
         priority: 50,
       });
 
-      const updated = guidelineRepo.update(created.id, {
+      const updated = await guidelineRepo.update(created.id, {
         priority: 90,
       });
 
@@ -190,19 +182,19 @@ describe('guidelineRepo', () => {
   });
 
   describe('getHistory', () => {
-    it('should get version history', () => {
-      const created = guidelineRepo.create({
+    it('should get version history', async () => {
+      const created = await guidelineRepo.create({
         scopeType: 'global',
         name: 'history-guideline',
         content: 'Version 1',
       });
 
-      guidelineRepo.update(created.id, {
+      await guidelineRepo.update(created.id, {
         content: 'Version 2',
         changeReason: 'Update',
       });
 
-      const history = guidelineRepo.getHistory(created.id);
+      const history = await guidelineRepo.getHistory(created.id);
 
       expect(history.length).toBe(2);
       expect(history[0]?.versionNum).toBe(1);
@@ -211,19 +203,20 @@ describe('guidelineRepo', () => {
   });
 
   describe('deactivate', () => {
-    it('should deactivate guideline', () => {
-      const created = guidelineRepo.create({
+    it('should deactivate guideline', async () => {
+      const created = await guidelineRepo.create({
         scopeType: 'global',
         name: 'deactivate-guideline',
         content: 'Content',
       });
 
-      guidelineRepo.deactivate(created.id);
+      await guidelineRepo.deactivate(created.id);
 
-      const guideline = guidelineRepo.getById(created.id);
+      const guideline = await guidelineRepo.getById(created.id);
       expect(guideline?.isActive).toBe(false);
     });
   });
 });
+
 
 

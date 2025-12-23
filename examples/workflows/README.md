@@ -151,9 +151,14 @@ Claude will use the `memory_guideline` tool to store the guideline.
 ### Using Programmatically
 
 ```typescript
-import { createServer } from 'agent-memory';
+import { createAppContext } from 'agent-memory';
+import { createServer } from 'agent-memory/mcp/server';
 
-const server = await createServer();
+// Create application context first
+const context = await createAppContext(config);
+
+// Create the MCP server with the context
+const server = await createServer(context);
 // Use the MCP server in your application
 ```
 

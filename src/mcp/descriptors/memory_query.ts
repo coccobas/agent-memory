@@ -117,17 +117,17 @@ Quick start: {"action":"context","scopeType":"project","inherit":true}`,
   },
   actions: {
     search: {
-      handler: (params) => queryHandlers.query(params),
+      contextHandler: (context, params) => queryHandlers.query(context, params),
     },
     context: {
-      handler: (params) => {
+      contextHandler: (context, params) => {
         // Map limit to limitPerType for context action
         const contextParams = { ...params };
         if ('limit' in contextParams && !('limitPerType' in contextParams)) {
           (contextParams as Record<string, unknown>).limitPerType = contextParams.limit;
           delete (contextParams as Record<string, unknown>).limit;
         }
-        return queryHandlers.context(contextParams);
+        return queryHandlers.context(context, contextParams);
       },
     },
   },

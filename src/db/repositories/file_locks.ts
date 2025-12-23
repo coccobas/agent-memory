@@ -6,7 +6,7 @@
  */
 
 import { eq, and, sql } from 'drizzle-orm';
-import { getDb, getSqlite, transactionWithDb } from '../connection.js';
+import { transactionWithDb } from '../connection.js';
 import { fileLocks, type FileLock, type NewFileLock } from '../schema.js';
 import { generateId, now, DEFAULT_LOCK_TIMEOUT_SECONDS, MAX_LOCK_TIMEOUT_SECONDS } from './base.js';
 import { createComponentLogger } from '../../utils/logger.js';
@@ -34,7 +34,7 @@ export function createFileLockRepository(deps: DatabaseDeps): IFileLockRepositor
   const { db, sqlite } = deps;
 
   const repo: IFileLockRepository = {
-    checkout(filePath: string, agentId: string, options: CheckoutOptions = {}): FileLock {
+    async checkout(filePath: string, agentId: string, options: CheckoutOptions = {}): Promise<FileLock> {
       // Validate required parameters
       if (!filePath) throw new Error('filePath is required');
       if (!agentId) throw new Error('agentId is required');
@@ -111,17 +111,25 @@ export function createFileLockRepository(deps: DatabaseDeps): IFileLockRepositor
       });
     },
 
-    checkin(filePath: string, agentId: string): void {
+    async checkin(filePath: string, agentId: string): Promise<void> {
       if (!filePath) throw new Error('filePath is required');
       if (!agentId) throw new Error('agentId is required');
 
       transactionWithDb(sqlite, () => {
-        // Clean up expired locks first
-        repo.cleanupExpiredLocks();
+        // Clean up expired locks first (sync call within transaction)
+        const nowTime = new Date().toISOString();
+        db.delete(fileLocks)
+          .where(sql`${fileLocks.expiresAt} IS NOT NULL AND ${fileLocks.expiresAt} < ${nowTime}`)
+          .run();
 
         const normalizedPath = normalizePath(filePath);
-        const lock = repo.getLock(normalizedPath);
+        const lock = db.select().from(fileLocks).where(eq(fileLocks.filePath, normalizedPath)).get();
         if (!lock) {
+          throw new Error(`File ${filePath} is not locked`);
+        }
+
+        // Check if expired
+        if (lock.expiresAt && lock.expiresAt <= nowTime) {
           throw new Error(`File ${filePath} is not locked`);
         }
 
@@ -136,17 +144,25 @@ export function createFileLockRepository(deps: DatabaseDeps): IFileLockRepositor
       });
     },
 
-    forceUnlock(filePath: string, agentId: string, reason?: string): void {
+    async forceUnlock(filePath: string, agentId: string, reason?: string): Promise<void> {
       if (!filePath) throw new Error('filePath is required');
       if (!agentId) throw new Error('agentId is required');
 
       transactionWithDb(sqlite, () => {
-        // Clean up expired locks first
-        repo.cleanupExpiredLocks();
+        // Clean up expired locks first (sync call within transaction)
+        const nowTime = new Date().toISOString();
+        db.delete(fileLocks)
+          .where(sql`${fileLocks.expiresAt} IS NOT NULL AND ${fileLocks.expiresAt} < ${nowTime}`)
+          .run();
 
         const normalizedPath = normalizePath(filePath);
-        const lock = repo.getLock(normalizedPath);
+        const lock = db.select().from(fileLocks).where(eq(fileLocks.filePath, normalizedPath)).get();
         if (!lock) {
+          throw new Error(`File ${filePath} is not locked`);
+        }
+
+        // Check if expired
+        if (lock.expiresAt && lock.expiresAt <= nowTime) {
           throw new Error(`File ${filePath} is not locked`);
         }
 
@@ -175,14 +191,14 @@ export function createFileLockRepository(deps: DatabaseDeps): IFileLockRepositor
       });
     },
 
-    isLocked(filePath: string): boolean {
+    async isLocked(filePath: string): Promise<boolean> {
       if (!filePath) throw new Error('filePath is required');
-      repo.cleanupExpiredLocks();
+      await repo.cleanupExpiredLocks();
       const normalizedPath = normalizePath(filePath);
-      return repo.getLock(normalizedPath) !== null;
+      return (await repo.getLock(normalizedPath)) !== null;
     },
 
-    getLock(filePath: string): FileLock | null {
+    async getLock(filePath: string): Promise<FileLock | null> {
       if (!filePath) throw new Error('filePath is required');
 
       const normalizedPath = normalizePath(filePath);
@@ -201,11 +217,11 @@ export function createFileLockRepository(deps: DatabaseDeps): IFileLockRepositor
       return lock;
     },
 
-    listLocks(filter: ListLocksFilter = {}): FileLock[] {
+    async listLocks(filter: ListLocksFilter = {}): Promise<FileLock[]> {
       const nowTime = new Date().toISOString();
 
       // Clean up expired locks first
-      repo.cleanupExpiredLocks();
+      await repo.cleanupExpiredLocks();
 
       const conditions = [];
 
@@ -235,7 +251,7 @@ export function createFileLockRepository(deps: DatabaseDeps): IFileLockRepositor
       });
     },
 
-    cleanupExpiredLocks(): number {
+    async cleanupExpiredLocks(): Promise<number> {
       const nowTime = new Date().toISOString();
       try {
         const result = db
@@ -248,7 +264,7 @@ export function createFileLockRepository(deps: DatabaseDeps): IFileLockRepositor
       }
     },
 
-    cleanupStaleLocks(maxAgeHours = 24): number {
+    async cleanupStaleLocks(maxAgeHours = 24): Promise<number> {
       const cutoff = new Date(Date.now() - maxAgeHours * 60 * 60 * 1000).toISOString();
       try {
         const result = db
@@ -264,70 +280,3 @@ export function createFileLockRepository(deps: DatabaseDeps): IFileLockRepositor
 
   return repo;
 }
-
-// =============================================================================
-// STANDALONE CLEANUP FUNCTIONS (for backward compatibility)
-// =============================================================================
-
-export function cleanupExpiredLocks(): { cleaned: number; errors: string[] } {
-  const db = getDb();
-  const nowTime = new Date().toISOString();
-  const errors: string[] = [];
-
-  try {
-    // Find and delete expired locks
-    const result = db
-      .delete(fileLocks)
-      .where(sql`${fileLocks.expiresAt} IS NOT NULL AND ${fileLocks.expiresAt} < ${nowTime}`)
-      .run();
-
-    return { cleaned: result.changes, errors };
-  } catch (error) {
-    errors.push(error instanceof Error ? error.message : String(error));
-    return { cleaned: 0, errors };
-  }
-}
-
-export function cleanupStaleLocks(maxAgeHours = 24): { cleaned: number; errors: string[] } {
-  const db = getDb();
-  const cutoff = new Date(Date.now() - maxAgeHours * 60 * 60 * 1000).toISOString();
-  const errors: string[] = [];
-
-  try {
-    // Delete locks older than cutoff that have no expiration set
-    const result = db
-      .delete(fileLocks)
-      .where(sql`${fileLocks.expiresAt} IS NULL AND ${fileLocks.checkedOutAt} < ${cutoff}`)
-      .run();
-
-    return { cleaned: result.changes, errors };
-  } catch (error) {
-    errors.push(error instanceof Error ? error.message : String(error));
-    return { cleaned: 0, errors };
-  }
-}
-
-// =============================================================================
-// TEMPORARY BACKWARD COMPAT EXPORTS
-// TODO: Remove these when all call sites are updated to use AppContext.repos
-// =============================================================================
-
-/**
- * @deprecated Use createFileLockRepository(deps) instead. Will be removed when AppContext.repos is wired.
- */
-function createLegacyFileLockRepo(): IFileLockRepository {
-  return createFileLockRepository({ db: getDb(), sqlite: getSqlite() });
-}
-
-// Lazy-initialized singleton instance for backward compatibility
-let _fileLockRepo: IFileLockRepository | null = null;
-
-/**
- * @deprecated Use AppContext.repos.fileLocks instead
- */
-export const fileLockRepo: IFileLockRepository = new Proxy({} as IFileLockRepository, {
-  get(_, prop: keyof IFileLockRepository) {
-    if (!_fileLockRepo) _fileLockRepo = createLegacyFileLockRepo();
-    return _fileLockRepo[prop];
-  },
-});

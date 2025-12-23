@@ -1,34 +1,33 @@
 import type { AppContext } from '../core/context.js';
 import type { EntryType, ScopeType } from '../db/schema.js';
-import { checkPermission } from '../services/permission.service.js';
 import { createNotFoundError, createPermissionError } from '../core/errors.js';
 
-export function getEntryScope(
+export async function getEntryScope(
   context: AppContext,
   entryType: Exclude<EntryType, 'project'>,
   id: string
-): {
+): Promise<{
   scopeType: ScopeType;
   scopeId: string | null;
-} {
+}> {
   const { tools: toolRepo, guidelines: guidelineRepo, knowledge: knowledgeRepo } = context.repos;
 
   if (entryType === 'tool') {
-    const tool = toolRepo.getById(id);
+    const tool = await toolRepo.getById(id);
     if (!tool) throw createNotFoundError('tool', id);
     return { scopeType: tool.scopeType, scopeId: tool.scopeId ?? null };
   }
   if (entryType === 'guideline') {
-    const guideline = guidelineRepo.getById(id);
+    const guideline = await guidelineRepo.getById(id);
     if (!guideline) throw createNotFoundError('guideline', id);
     return { scopeType: guideline.scopeType, scopeId: guideline.scopeId ?? null };
   }
-  const knowledge = knowledgeRepo.getById(id);
+  const knowledge = await knowledgeRepo.getById(id);
   if (!knowledge) throw createNotFoundError('knowledge', id);
   return { scopeType: knowledge.scopeType, scopeId: knowledge.scopeId ?? null };
 }
 
-export function requireEntryPermission(
+export async function requireEntryPermission(
   context: AppContext,
   params: {
     agentId: string;
@@ -36,10 +35,10 @@ export function requireEntryPermission(
     entryType: Exclude<EntryType, 'project'>;
     entryId: string;
   }
-): void {
-  const { scopeType, scopeId } = getEntryScope(context, params.entryType, params.entryId);
+): Promise<void> {
+  const { scopeType, scopeId } = await getEntryScope(context, params.entryType, params.entryId);
   if (
-    !checkPermission(
+    !context.services!.permission.check(
       params.agentId,
       params.action,
       params.entryType,
@@ -52,7 +51,7 @@ export function requireEntryPermission(
   }
 }
 
-export function requireEntryPermissionWithScope(
+export async function requireEntryPermissionWithScope(
   context: AppContext,
   params: {
     agentId: string;
@@ -60,10 +59,10 @@ export function requireEntryPermissionWithScope(
     entryType: Exclude<EntryType, 'project'>;
     entryId: string;
   }
-): { scopeType: ScopeType; scopeId: string | null } {
-  const { scopeType, scopeId } = getEntryScope(context, params.entryType, params.entryId);
+): Promise<{ scopeType: ScopeType; scopeId: string | null }> {
+  const { scopeType, scopeId } = await getEntryScope(context, params.entryType, params.entryId);
   if (
-    !checkPermission(
+    !context.services!.permission.check(
       params.agentId,
       params.action,
       params.entryType,

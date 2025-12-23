@@ -174,8 +174,8 @@ describe('runStopCommand', () => {
     vi.clearAllMocks();
   });
 
-  it('should return error when session_id is missing', () => {
-    const result = runStopCommand({
+  it('should return error when session_id is missing', async () => {
+    const result = await runStopCommand({
       input: { transcript_path: '/path/to/transcript.json' },
     });
 
@@ -183,8 +183,8 @@ describe('runStopCommand', () => {
     expect(result.stderr[0]).toContain('Missing session_id');
   });
 
-  it('should return error when transcript_path is missing', () => {
-    const result = runStopCommand({
+  it('should return error when transcript_path is missing', async () => {
+    const result = await runStopCommand({
       input: { session_id: 'sess-123' },
     });
 
@@ -192,10 +192,10 @@ describe('runStopCommand', () => {
     expect(result.stderr[0]).toContain('Missing transcript_path');
   });
 
-  it('should call ensureSessionIdExists and ingestTranscript', () => {
+  it('should call ensureSessionIdExists and ingestTranscript', async () => {
     vi.mocked(isReviewSuspended).mockReturnValue(true);
 
-    const result = runStopCommand({
+    const result = await runStopCommand({
       projectId: 'proj-123',
       agentId: 'claude-code',
       input: {
@@ -216,13 +216,13 @@ describe('runStopCommand', () => {
     expect(result.exitCode).toBe(0);
   });
 
-  it('should return early when review is suspended', () => {
+  it('should return early when review is suspended', async () => {
     vi.mocked(isReviewSuspended).mockReturnValue(true);
-    vi.mocked(getObserveState).mockReturnValue({});
+    vi.mocked(getObserveState).mockResolvedValue({});
     vi.mocked(hasWarnedReview).mockReturnValue(false);
-    vi.mocked(writeSessionSummaryFile).mockReturnValue({ itemCount: 0 });
+    vi.mocked(writeSessionSummaryFile).mockResolvedValue({ itemCount: 0 });
 
-    const result = runStopCommand({
+    const result = await runStopCommand({
       input: {
         session_id: 'sess-123',
         transcript_path: '/path/transcript.json',
@@ -235,13 +235,13 @@ describe('runStopCommand', () => {
     expect(ingestTranscript).toHaveBeenCalled();
   });
 
-  it('should show session tracked message when items exist and not warned before', () => {
+  it('should show session tracked message when items exist and not warned before', async () => {
     vi.mocked(isReviewSuspended).mockReturnValue(false);
-    vi.mocked(getObserveState).mockReturnValue({});
+    vi.mocked(getObserveState).mockResolvedValue({});
     vi.mocked(hasWarnedReview).mockReturnValue(false);
-    vi.mocked(writeSessionSummaryFile).mockReturnValue({ itemCount: 5 });
+    vi.mocked(writeSessionSummaryFile).mockResolvedValue({ itemCount: 5 });
 
-    const result = runStopCommand({
+    const result = await runStopCommand({
       input: {
         session_id: 'sess-123',
         transcript_path: '/path/transcript.json',
@@ -253,13 +253,13 @@ describe('runStopCommand', () => {
     expect(result.stderr[0]).toContain('5 items');
   });
 
-  it('should show no new items message when itemCount is 0', () => {
+  it('should show no new items message when itemCount is 0', async () => {
     vi.mocked(isReviewSuspended).mockReturnValue(false);
-    vi.mocked(getObserveState).mockReturnValue({});
+    vi.mocked(getObserveState).mockResolvedValue({});
     vi.mocked(hasWarnedReview).mockReturnValue(false);
-    vi.mocked(writeSessionSummaryFile).mockReturnValue({ itemCount: 0 });
+    vi.mocked(writeSessionSummaryFile).mockResolvedValue({ itemCount: 0 });
 
-    const result = runStopCommand({
+    const result = await runStopCommand({
       input: {
         session_id: 'sess-123',
         transcript_path: '/path/transcript.json',
@@ -269,13 +269,13 @@ describe('runStopCommand', () => {
     expect(result.stderr[0]).toContain('no new items');
   });
 
-  it('should show review reminder when items need review', () => {
+  it('should show review reminder when items need review', async () => {
     vi.mocked(isReviewSuspended).mockReturnValue(false);
-    vi.mocked(getObserveState).mockReturnValue({ needsReviewCount: 3 });
+    vi.mocked(getObserveState).mockResolvedValue({ needsReviewCount: 3 });
     vi.mocked(hasWarnedReview).mockReturnValue(true);
-    vi.mocked(writeSessionSummaryFile).mockReturnValue({ itemCount: 5 });
+    vi.mocked(writeSessionSummaryFile).mockResolvedValue({ itemCount: 5 });
 
-    const result = runStopCommand({
+    const result = await runStopCommand({
       input: {
         session_id: 'sess-123',
         transcript_path: '/path/transcript.json',
@@ -292,16 +292,16 @@ describe('runUserPromptSubmitCommand', () => {
     vi.clearAllMocks();
   });
 
-  it('should return exit code 0 when session_id is missing', () => {
-    const result = runUserPromptSubmitCommand({
+  it('should return exit code 0 when session_id is missing', async () => {
+    const result = await runUserPromptSubmitCommand({
       input: { prompt: '!am status' },
     });
 
     expect(result.exitCode).toBe(0);
   });
 
-  it('should return exit code 0 for non-!am prompts', () => {
-    const result = runUserPromptSubmitCommand({
+  it('should return exit code 0 for non-!am prompts', async () => {
+    const result = await runUserPromptSubmitCommand({
       input: { session_id: 'sess-123', prompt: 'Help me debug this' },
     });
 
@@ -309,8 +309,8 @@ describe('runUserPromptSubmitCommand', () => {
     expect(ensureSessionIdExists).not.toHaveBeenCalled();
   });
 
-  it('should return exit code 0 when prompt is empty', () => {
-    const result = runUserPromptSubmitCommand({
+  it('should return exit code 0 when prompt is empty', async () => {
+    const result = await runUserPromptSubmitCommand({
       input: { session_id: 'sess-123', prompt: '' },
     });
 
@@ -318,8 +318,8 @@ describe('runUserPromptSubmitCommand', () => {
   });
 
   describe('!am commands', () => {
-    it('should handle !am review off', () => {
-      const result = runUserPromptSubmitCommand({
+    it('should handle !am review off', async () => {
+      const result = await runUserPromptSubmitCommand({
         input: { session_id: 'sess-123', prompt: '!am review off' },
       });
 
@@ -328,16 +328,16 @@ describe('runUserPromptSubmitCommand', () => {
       expect(result.stderr[0]).toContain('Review suspended');
     });
 
-    it('should handle !am review suspend', () => {
-      const result = runUserPromptSubmitCommand({
+    it('should handle !am review suspend', async () => {
+      const result = await runUserPromptSubmitCommand({
         input: { session_id: 'sess-123', prompt: '!am review suspend' },
       });
 
       expect(setReviewSuspended).toHaveBeenCalledWith('sess-123', true);
     });
 
-    it('should handle !am review on', () => {
-      const result = runUserPromptSubmitCommand({
+    it('should handle !am review on', async () => {
+      const result = await runUserPromptSubmitCommand({
         input: { session_id: 'sess-123', prompt: '!am review on' },
       });
 
@@ -345,16 +345,16 @@ describe('runUserPromptSubmitCommand', () => {
       expect(result.stderr[0]).toContain('Review enabled');
     });
 
-    it('should handle !am review resume', () => {
-      const result = runUserPromptSubmitCommand({
+    it('should handle !am review resume', async () => {
+      const result = await runUserPromptSubmitCommand({
         input: { session_id: 'sess-123', prompt: '!am review resume' },
       });
 
       expect(setReviewSuspended).toHaveBeenCalledWith('sess-123', false);
     });
 
-    it('should handle !am review done', () => {
-      const result = runUserPromptSubmitCommand({
+    it('should handle !am review done', async () => {
+      const result = await runUserPromptSubmitCommand({
         input: { session_id: 'sess-123', prompt: '!am review done' },
       });
 
@@ -362,14 +362,14 @@ describe('runUserPromptSubmitCommand', () => {
       expect(result.stderr[0]).toContain('Review acknowledged');
     });
 
-    it('should handle !am status', () => {
+    it('should handle !am status', async () => {
       vi.mocked(isReviewSuspended).mockReturnValue(false);
-      vi.mocked(getObserveState).mockReturnValue({
+      vi.mocked(getObserveState).mockResolvedValue({
         committedAt: '2024-01-01T00:00:00Z',
         needsReviewCount: 2,
       });
 
-      const result = runUserPromptSubmitCommand({
+      const result = await runUserPromptSubmitCommand({
         input: { session_id: 'sess-123', prompt: '!am status' },
       });
 
@@ -377,8 +377,10 @@ describe('runUserPromptSubmitCommand', () => {
       expect(result.stderr[0]).toContain('committed:');
     });
 
-    it('should handle !am summary', () => {
-      const result = runUserPromptSubmitCommand({
+    it('should handle !am summary', async () => {
+      vi.mocked(formatSessionSummary).mockResolvedValue(['Session summary']);
+
+      const result = await runUserPromptSubmitCommand({
         input: { session_id: 'sess-123', prompt: '!am summary' },
       });
 
@@ -386,8 +388,10 @@ describe('runUserPromptSubmitCommand', () => {
       expect(result.exitCode).toBe(2);
     });
 
-    it('should handle !am review (list)', () => {
-      const result = runUserPromptSubmitCommand({
+    it('should handle !am review (list)', async () => {
+      vi.mocked(getReviewCandidates).mockResolvedValue([]);
+
+      const result = await runUserPromptSubmitCommand({
         input: { session_id: 'sess-123', prompt: '!am review' },
       });
 
@@ -395,8 +399,10 @@ describe('runUserPromptSubmitCommand', () => {
       expect(formatCandidateList).toHaveBeenCalled();
     });
 
-    it('should handle !am list', () => {
-      const result = runUserPromptSubmitCommand({
+    it('should handle !am list', async () => {
+      vi.mocked(getReviewCandidates).mockResolvedValue([]);
+
+      const result = await runUserPromptSubmitCommand({
         input: { session_id: 'sess-123', prompt: '!am list' },
       });
 
@@ -404,11 +410,12 @@ describe('runUserPromptSubmitCommand', () => {
       expect(formatCandidateList).toHaveBeenCalled();
     });
 
-    it('should handle !am show <id>', () => {
+    it('should handle !am show <id>', async () => {
       const mockCandidate = { id: 'cand-123', shortId: 'abc123', type: 'guideline', name: 'test', content: 'content' };
+      vi.mocked(getReviewCandidates).mockResolvedValue([]);
       vi.mocked(findCandidateByShortId).mockReturnValue(mockCandidate as any);
 
-      const result = runUserPromptSubmitCommand({
+      const result = await runUserPromptSubmitCommand({
         input: { session_id: 'sess-123', prompt: '!am show abc123' },
       });
 
@@ -416,29 +423,32 @@ describe('runUserPromptSubmitCommand', () => {
       expect(formatCandidateDetail).toHaveBeenCalledWith(mockCandidate);
     });
 
-    it('should handle !am show without id', () => {
-      const result = runUserPromptSubmitCommand({
+    it('should handle !am show without id', async () => {
+      const result = await runUserPromptSubmitCommand({
         input: { session_id: 'sess-123', prompt: '!am show' },
       });
 
       expect(result.stderr).toContain('Usage: !am show <id>');
     });
 
-    it('should handle !am show with non-existent id', () => {
+    it('should handle !am show with non-existent id', async () => {
+      vi.mocked(getReviewCandidates).mockResolvedValue([]);
       vi.mocked(findCandidateByShortId).mockReturnValue(undefined);
 
-      const result = runUserPromptSubmitCommand({
+      const result = await runUserPromptSubmitCommand({
         input: { session_id: 'sess-123', prompt: '!am show notfound' },
       });
 
       expect(result.stderr[0]).toContain('Entry not found');
     });
 
-    it('should handle !am approve <id>', () => {
+    it('should handle !am approve <id>', async () => {
       const mockCandidate = { id: 'cand-123', shortId: 'abc123', type: 'guideline', name: 'test', content: 'content' };
+      vi.mocked(getReviewCandidates).mockResolvedValue([]);
       vi.mocked(findCandidateByShortId).mockReturnValue(mockCandidate as any);
+      vi.mocked(approveCandidate).mockResolvedValue(true);
 
-      const result = runUserPromptSubmitCommand({
+      const result = await runUserPromptSubmitCommand({
         projectId: 'proj-123',
         input: { session_id: 'sess-123', prompt: '!am approve abc123' },
       });
@@ -447,19 +457,21 @@ describe('runUserPromptSubmitCommand', () => {
       expect(result.stderr[0]).toContain('Approved');
     });
 
-    it('should require projectId for approve', () => {
-      const result = runUserPromptSubmitCommand({
+    it('should require projectId for approve', async () => {
+      const result = await runUserPromptSubmitCommand({
         input: { session_id: 'sess-123', prompt: '!am approve abc123' },
       });
 
       expect(result.stderr[0]).toContain('No project ID');
     });
 
-    it('should handle !am reject <id>', () => {
+    it('should handle !am reject <id>', async () => {
       const mockCandidate = { id: 'cand-123', shortId: 'abc123', type: 'guideline', name: 'test', content: 'content' };
+      vi.mocked(getReviewCandidates).mockResolvedValue([]);
       vi.mocked(findCandidateByShortId).mockReturnValue(mockCandidate as any);
+      vi.mocked(rejectCandidate).mockResolvedValue(true);
 
-      const result = runUserPromptSubmitCommand({
+      const result = await runUserPromptSubmitCommand({
         input: { session_id: 'sess-123', prompt: '!am reject abc123' },
       });
 
@@ -467,11 +479,13 @@ describe('runUserPromptSubmitCommand', () => {
       expect(result.stderr[0]).toContain('Rejected');
     });
 
-    it('should handle !am skip <id>', () => {
+    it('should handle !am skip <id>', async () => {
       const mockCandidate = { id: 'cand-123', shortId: 'abc123', type: 'guideline', name: 'test', content: 'content' };
+      vi.mocked(getReviewCandidates).mockResolvedValue([]);
       vi.mocked(findCandidateByShortId).mockReturnValue(mockCandidate as any);
+      vi.mocked(skipCandidate).mockResolvedValue(true);
 
-      const result = runUserPromptSubmitCommand({
+      const result = await runUserPromptSubmitCommand({
         input: { session_id: 'sess-123', prompt: '!am skip abc123' },
       });
 
@@ -479,8 +493,8 @@ describe('runUserPromptSubmitCommand', () => {
       expect(result.stderr[0]).toContain('Skipped');
     });
 
-    it('should show help for unknown command', () => {
-      const result = runUserPromptSubmitCommand({
+    it('should show help for unknown command', async () => {
+      const result = await runUserPromptSubmitCommand({
         input: { session_id: 'sess-123', prompt: '!am unknown' },
       });
 
@@ -488,11 +502,11 @@ describe('runUserPromptSubmitCommand', () => {
       expect(result.stderr[0]).toContain('!am commands:');
     });
 
-    it('should handle prompt from user_prompt field', () => {
+    it('should handle prompt from user_prompt field', async () => {
       vi.mocked(isReviewSuspended).mockReturnValue(false);
-      vi.mocked(getObserveState).mockReturnValue({});
+      vi.mocked(getObserveState).mockResolvedValue({});
 
-      const result = runUserPromptSubmitCommand({
+      const result = await runUserPromptSubmitCommand({
         input: { session_id: 'sess-123', user_prompt: '!am status' },
       });
 
@@ -506,8 +520,8 @@ describe('runSessionEndCommand', () => {
     vi.clearAllMocks();
   });
 
-  it('should return error when session_id is missing', () => {
-    const result = runSessionEndCommand({
+  it('should return error when session_id is missing', async () => {
+    const result = await runSessionEndCommand({
       input: { transcript_path: '/path/to/transcript.json' },
     });
 
@@ -515,8 +529,8 @@ describe('runSessionEndCommand', () => {
     expect(result.stderr[0]).toContain('Missing session_id');
   });
 
-  it('should return error when transcript_path is missing', () => {
-    const result = runSessionEndCommand({
+  it('should return error when transcript_path is missing', async () => {
+    const result = await runSessionEndCommand({
       input: { session_id: 'sess-123' },
     });
 
@@ -524,8 +538,8 @@ describe('runSessionEndCommand', () => {
     expect(result.stderr[0]).toContain('Missing transcript_path');
   });
 
-  it('should call ensureSessionIdExists and ingestTranscript', () => {
-    const result = runSessionEndCommand({
+  it('should call ensureSessionIdExists and ingestTranscript', async () => {
+    const result = await runSessionEndCommand({
       projectId: 'proj-123',
       agentId: 'claude-code',
       input: {
@@ -548,8 +562,8 @@ describe('runSessionEndCommand', () => {
     expect(result.stderr).toEqual([]);
   });
 
-  it('should handle missing cwd gracefully', () => {
-    const result = runSessionEndCommand({
+  it('should handle missing cwd gracefully', async () => {
+    const result = await runSessionEndCommand({
       input: {
         session_id: 'sess-123',
         transcript_path: '/path/transcript.json',

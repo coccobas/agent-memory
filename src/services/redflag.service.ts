@@ -10,9 +10,11 @@
  * Red-flag patterns are stored as guidelines with category: 'red_flag'
  */
 
-import { guidelineRepo } from '../db/repositories/guidelines.js';
-import { knowledgeRepo } from '../db/repositories/knowledge.js';
-import { toolRepo } from '../db/repositories/tools.js';
+import type {
+  IGuidelineRepository,
+  IKnowledgeRepository,
+  IToolRepository,
+} from '../core/interfaces/repositories.js';
 import type { EntryType } from '../db/schema.js';
 
 export type RedFlagSeverity = 'low' | 'medium' | 'high';
@@ -24,20 +26,51 @@ export interface RedFlag {
 }
 
 /**
- * Detect red flags in an entry
- *
- * @param entry - Entry to check
- * @returns Array of detected red flags
+ * Red-flag service dependencies
  */
-export function detectRedFlags(entry: {
-  type: EntryType;
-  content: string;
-  metadata?: Record<string, unknown>;
-}): RedFlag[] {
+export interface RedFlagServiceDeps {
+  guidelineRepo: IGuidelineRepository;
+  knowledgeRepo: IKnowledgeRepository;
+  toolRepo: IToolRepository;
+}
+
+/**
+ * Red-flag service interface
+ */
+export interface RedFlagService {
+  detectRedFlags(entry: { type: EntryType; content: string; metadata?: Record<string, unknown> }): Promise<RedFlag[]>;
+  scoreRedFlagRisk(entryId: string, entryType: EntryType): Promise<number>;
+}
+
+/**
+ * Create a red-flag detection service with injected dependencies
+ */
+export function createRedFlagService(deps: RedFlagServiceDeps): RedFlagService {
+  return {
+    async detectRedFlags(entry: { type: EntryType; content: string; metadata?: Record<string, unknown> }): Promise<RedFlag[]> {
+      return detectRedFlagsImpl(deps.guidelineRepo, entry);
+    },
+    async scoreRedFlagRisk(entryId: string, entryType: EntryType): Promise<number> {
+      return scoreRedFlagRiskImpl(deps, entryId, entryType);
+    },
+  };
+}
+
+/**
+ * Detect red flags in an entry (implementation)
+ */
+async function detectRedFlagsImpl(
+  guidelineRepo: IGuidelineRepository,
+  entry: {
+    type: EntryType;
+    content: string;
+    metadata?: Record<string, unknown>;
+  }
+): Promise<RedFlag[]> {
   const flags: RedFlag[] = [];
 
   // Load red-flag patterns from guidelines
-  const redFlagGuidelines = guidelineRepo.list(
+  const redFlagGuidelines = await guidelineRepo.list(
     {
       category: 'red_flag',
       includeInactive: false,
@@ -115,33 +148,33 @@ export function detectRedFlags(entry: {
 }
 
 /**
- * Calculate a risk score (0-1) based on detected red flags
- *
- * @param entryId - Entry ID
- * @param entryType - Entry type
- * @returns Risk score from 0 (no risk) to 1 (high risk)
+ * Calculate a risk score (0-1) based on detected red flags (implementation)
  */
-export function scoreRedFlagRisk(entryId: string, entryType: EntryType): number {
+async function scoreRedFlagRiskImpl(
+  deps: RedFlagServiceDeps,
+  entryId: string,
+  entryType: EntryType
+): Promise<number> {
   // Get entry content
   let content = '';
   let metadata: Record<string, unknown> | undefined;
 
   if (entryType === 'tool') {
-    const tool = toolRepo.getById(entryId);
+    const tool = await deps.toolRepo.getById(entryId);
     if (tool) {
       content = tool.currentVersion?.description || '';
       // Tools don't have metadata field in schema
       metadata = undefined;
     }
   } else if (entryType === 'guideline') {
-    const guideline = guidelineRepo.getById(entryId);
+    const guideline = await deps.guidelineRepo.getById(entryId);
     if (guideline) {
       content = guideline.currentVersion?.content || '';
       // Guidelines don't have metadata field in schema
       metadata = undefined;
     }
   } else {
-    const knowledge = knowledgeRepo.getById(entryId);
+    const knowledge = await deps.knowledgeRepo.getById(entryId);
     if (knowledge) {
       content = knowledge.currentVersion?.content || '';
       // Knowledge doesn't have metadata field in schema
@@ -151,7 +184,7 @@ export function scoreRedFlagRisk(entryId: string, entryType: EntryType): number 
 
   if (!content) return 0;
 
-  const flags = detectRedFlags({ type: entryType, content, metadata });
+  const flags = await detectRedFlagsImpl(deps.guidelineRepo, { type: entryType, content, metadata });
 
   // Calculate risk score based on severity
   let riskScore = 0;

@@ -36,13 +36,13 @@ export const memoryTaskDescriptor: ToolDescriptor = {
   },
   actions: {
     add: {
-      handler: (p) => taskHandlers.add(p as unknown as TaskAddParams),
+      contextHandler: (ctx, p) => taskHandlers.add(ctx, p as unknown as TaskAddParams),
     },
     get: {
-      handler: (p) => taskHandlers.get(p as unknown as TaskGetParams),
+      contextHandler: (ctx, p) => taskHandlers.get(ctx, p as unknown as TaskGetParams),
     },
     list: {
-      handler: (p) => taskHandlers.list(p as unknown as TaskListParams),
+      contextHandler: (ctx, p) => taskHandlers.list(ctx, p as unknown as TaskListParams),
     },
   },
 };

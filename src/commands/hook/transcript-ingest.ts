@@ -1,15 +1,20 @@
-import { conversationRepo } from '../../db/repositories/conversations.js';
+import { getDb, getSqlite } from '../../db/connection.js';
+import { createRepositories } from '../../core/factory/repositories.js';
 import { readTranscriptFromOffset } from '../../utils/transcript-cursor.js';
 import { extractMessageFromTranscriptEntry } from './shared.js';
 import { getAgentMemoryStatePath, loadState, saveState } from './state-file.js';
 
-export function ingestTranscript(params: {
+function getConversationRepo() {
+  return createRepositories({ db: getDb(), sqlite: getSqlite() }).conversations;
+}
+
+export async function ingestTranscript(params: {
   sessionId: string;
   transcriptPath: string;
   projectId?: string;
   agentId?: string;
   cwd?: string;
-}): { appended: number; linesRead: number } {
+}): Promise<{ appended: number; linesRead: number }> {
   const { sessionId, transcriptPath } = params;
 
   const statePath = getAgentMemoryStatePath();
@@ -34,7 +39,7 @@ export function ingestTranscript(params: {
   return processTranscriptLines(result, params, state, statePath, byteOffsetKey);
 }
 
-function processTranscriptLines(
+async function processTranscriptLines(
   result: { lines: string[]; nextByteOffset: number },
   params: {
     sessionId: string;
@@ -46,16 +51,18 @@ function processTranscriptLines(
   state: Record<string, unknown>,
   statePath: string,
   byteOffsetKey: string
-): { appended: number; linesRead: number } {
+): Promise<{ appended: number; linesRead: number }> {
   const { sessionId, projectId, agentId, cwd, transcriptPath } = params;
+  const conversationRepo = getConversationRepo();
 
-  const existing = conversationRepo.list(
+  const existingList = await conversationRepo.list(
     { sessionId, status: 'active' },
     { limit: 1, offset: 0 }
-  )[0];
+  );
+  const existing = existingList[0];
   const conversation = existing
     ? existing
-    : conversationRepo.create({
+    : await conversationRepo.create({
         sessionId,
         projectId,
         agentId: agentId ?? undefined,
@@ -75,7 +82,7 @@ function processTranscriptLines(
     const msg = extractMessageFromTranscriptEntry(parsed);
     if (!msg) continue;
 
-    conversationRepo.addMessage({
+    await conversationRepo.addMessage({
       conversationId: conversation.id,
       role: msg.role,
       content: msg.content,

@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { eq, and, or, inArray } from 'drizzle-orm';
+import { eq, and, or } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import {
   entryTags,
@@ -208,41 +208,3 @@ export function checkAndLogConflictWithDb(
   return false;
 }
 
-/**
- * Type for version tables (any table with an id column)
- */
-export type VersionTable = { id: { name: string } };
-
-/**
- * Batch fetch versions by IDs and return a Map for efficient lookup.
- * Generic helper to avoid N+1 queries when listing entries with versions.
- *
- * @param db - The database connection (explicit DI)
- * @param versionTable - The drizzle version table to query
- * @param versionIds - Array of version IDs to fetch
- * @returns Map of version ID to version object
- */
-export function batchFetchVersionsByIdWithDb<T extends { id: string }>(
-  db: DrizzleDb,
-  versionTable: VersionTable,
-  versionIds: string[]
-): Map<string, T> {
-  if (versionIds.length === 0) {
-    return new Map();
-  }
-
-  // Type assertion needed: Drizzle's table types are complex and don't easily support
-  // generic table access. The runtime behavior is correct as long as versionTable has an 'id' column.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Generic table access requires type assertion
-  const versionsList = db
-    .select()
-    .from(versionTable as any)
-    .where(inArray((versionTable as any).id, versionIds))
-    .all() as T[];
-
-  const versionsMap = new Map<string, T>();
-  for (const v of versionsList) {
-    versionsMap.set(v.id, v);
-  }
-  return versionsMap;
-}

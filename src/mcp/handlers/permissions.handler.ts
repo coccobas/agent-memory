@@ -2,15 +2,10 @@
  * Permissions handler
  */
 
-import {
-  checkPermission,
-  grantPermission,
-  revokePermission,
-  listPermissions as listPermissionsFromService,
-  type PermissionLevel,
-} from '../../services/permission.service.js';
+import type { PermissionLevel } from '../../services/permission.service.js';
 import type { ScopeType, EntryType } from '../../db/schema.js';
 import { requireAdminKey } from '../../utils/admin.js';
+import type { AppContext } from '../../core/context.js';
 import {
   getRequiredParam,
   getOptionalParam,
@@ -61,7 +56,7 @@ export const permissionHandlers = {
   /**
    * Grant a permission to an agent
    */
-  grant(params: Record<string, unknown>) {
+  grant(context: AppContext, params: Record<string, unknown>) {
     requireAdminKey(params);
     const agent_id = getRequiredParam(params, 'agent_id', isString);
     const scope_type = getOptionalParam(params, 'scope_type', isScopeType);
@@ -69,7 +64,7 @@ export const permissionHandlers = {
     const entry_type = getOptionalParam(params, 'entry_type', isEntryType);
     const permission = getRequiredParam(params, 'permission', isPermissionLevel);
 
-    const perm = grantPermission({
+    const perm = context.services!.permission.grant({
       agentId: agent_id,
       scopeType: scope_type ?? undefined,
       scopeId: scope_id,
@@ -86,7 +81,7 @@ export const permissionHandlers = {
   /**
    * Revoke a permission
    */
-  revoke(params: Record<string, unknown>) {
+  revoke(context: AppContext, params: Record<string, unknown>) {
     requireAdminKey(params);
     const permission_id = getOptionalParam(params, 'permission_id', isString);
     const agent_id = getOptionalParam(params, 'agent_id', isString);
@@ -110,7 +105,7 @@ export const permissionHandlers = {
       );
     }
 
-    revokePermission({
+    context.services!.permission.revoke({
       agentId: agent_id,
       scopeType: scope_type ?? undefined,
       scopeId: scope_id,
@@ -125,14 +120,14 @@ export const permissionHandlers = {
   /**
    * Check if an agent has permission
    */
-  check(params: Record<string, unknown>) {
+  check(context: AppContext, params: Record<string, unknown>) {
     const agent_id = getRequiredParam(params, 'agent_id', isString);
     const action = getRequiredParam(params, 'action', isPermissionAction);
     const scope_type = getRequiredParam(params, 'scope_type', isScopeType);
     const scope_id = getOptionalParam(params, 'scope_id', isString);
     const entry_type = getOptionalParam(params, 'entry_type', isEntryType);
 
-    const hasPermission = checkPermission(
+    const hasPermission = context.services!.permission.check(
       agent_id,
       action,
       entry_type ?? 'tool',
@@ -154,7 +149,7 @@ export const permissionHandlers = {
   /**
    * List permissions
    */
-  list(params: Record<string, unknown>) {
+  list(context: AppContext, params: Record<string, unknown>) {
     requireAdminKey(params);
     const agent_id = getOptionalParam(params, 'agent_id', isString);
     const scope_type = getOptionalParam(params, 'scope_type', isScopeType);
@@ -163,7 +158,7 @@ export const permissionHandlers = {
     const limit = getOptionalParam(params, 'limit', isNumber);
     const offset = getOptionalParam(params, 'offset', isNumber);
 
-    const permissionsList = listPermissionsFromService({
+    const permissionsList = context.services!.permission.list({
       agentId: agent_id,
       scopeType: scope_type ?? undefined,
       scopeId: scope_id ?? undefined,

@@ -16,7 +16,7 @@ import { requireEntryPermission } from '../../utils/entry-access.js';
 import { createValidationError } from '../../core/errors.js';
 
 export const relationHandlers = {
-  create(context: AppContext, params: Record<string, unknown>) {
+  async create(context: AppContext, params: Record<string, unknown>) {
     const agentId = getRequiredParam(params, 'agentId', isString);
     const sourceType = getRequiredParam(params, 'sourceType', isEntryType);
     const sourceId = getRequiredParam(params, 'sourceId', isString);
@@ -25,8 +25,8 @@ export const relationHandlers = {
     const relationType = getRequiredParam(params, 'relationType', isRelationType);
     const createdBy = getOptionalParam(params, 'createdBy', isString);
 
-    requireEntryPermission(context, { agentId, action: 'write', entryType: sourceType, entryId: sourceId });
-    requireEntryPermission(context, { agentId, action: 'write', entryType: targetType, entryId: targetId });
+    await requireEntryPermission(context, { agentId, action: 'write', entryType: sourceType, entryId: sourceId });
+    await requireEntryPermission(context, { agentId, action: 'write', entryType: targetType, entryId: targetId });
 
     const input: CreateRelationInput = {
       sourceType,
@@ -37,11 +37,11 @@ export const relationHandlers = {
       createdBy,
     };
 
-    const relation = context.repos.entryRelations.create(input);
+    const relation = await context.repos.entryRelations.create(input);
     return { success: true, relation };
   },
 
-  list(context: AppContext, params: Record<string, unknown>) {
+  async list(context: AppContext, params: Record<string, unknown>) {
     const agentId = getRequiredParam(params, 'agentId', isString);
     const sourceType = getOptionalParam(params, 'sourceType', isEntryType);
     const sourceId = getOptionalParam(params, 'sourceId', isString);
@@ -61,13 +61,13 @@ export const relationHandlers = {
       );
     }
     if (sourceType && sourceId) {
-      requireEntryPermission(context, { agentId, action: 'read', entryType: sourceType, entryId: sourceId });
+      await requireEntryPermission(context, { agentId, action: 'read', entryType: sourceType, entryId: sourceId });
     }
     if (targetType && targetId) {
-      requireEntryPermission(context, { agentId, action: 'read', entryType: targetType, entryId: targetId });
+      await requireEntryPermission(context, { agentId, action: 'read', entryType: targetType, entryId: targetId });
     }
 
-    const relations = context.repos.entryRelations.list(
+    const relations = await context.repos.entryRelations.list(
       { sourceType, sourceId, targetType, targetId, relationType },
       { limit, offset }
     );
@@ -80,7 +80,7 @@ export const relationHandlers = {
     };
   },
 
-  delete(context: AppContext, params: Record<string, unknown>) {
+  async delete(context: AppContext, params: Record<string, unknown>) {
     const agentId = getRequiredParam(params, 'agentId', isString);
     const id = getOptionalParam(params, 'id', isString);
     const sourceType = getOptionalParam(params, 'sourceType', isEntryType);
@@ -92,26 +92,26 @@ export const relationHandlers = {
     let success = false;
 
     if (id) {
-      const rel = context.repos.entryRelations.getById(id);
+      const rel = await context.repos.entryRelations.getById(id);
       if (!rel) return { success: false };
       // Only check entry permission for non-project types (projects have different access control)
       if (rel.sourceType !== 'project') {
-        requireEntryPermission(context, {
+        await requireEntryPermission(context, {
           agentId,
           action: 'delete',
           entryType: rel.sourceType,
           entryId: rel.sourceId,
         });
       }
-      success = context.repos.entryRelations.delete(id);
+      success = await context.repos.entryRelations.delete(id);
     } else if (sourceType && sourceId && targetType && targetId && relationType) {
-      requireEntryPermission(context, {
+      await requireEntryPermission(context, {
         agentId,
         action: 'delete',
         entryType: sourceType,
         entryId: sourceId,
       });
-      success = context.repos.entryRelations.deleteByEntries(
+      success = await context.repos.entryRelations.deleteByEntries(
         sourceType,
         sourceId,
         targetType,

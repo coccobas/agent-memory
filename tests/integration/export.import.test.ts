@@ -2,44 +2,29 @@
  * Integration tests for export/import handlers
  */
 
-import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
-import { setupTestDb, cleanupTestDb } from '../fixtures/test-helpers.js';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { setupTestDb, cleanupTestDb, createTestContext } from '../fixtures/test-helpers.js';
+import type { AppContext } from '../../src/core/context.js';
+import { exportHandlers } from '../../src/mcp/handlers/export.handler.js';
+import { importHandlers } from '../../src/mcp/handlers/import.handler.js';
 
 const TEST_DB_PATH = './data/test-export-import.db';
 
-let sqlite: ReturnType<typeof setupTestDb>['sqlite'];
-let db: ReturnType<typeof setupTestDb>['db'];
-
-vi.mock('../../src/db/connection.js', async () => {
-  const actual = await vi.importActual<typeof import('../../src/db/connection.js')>(
-    '../../src/db/connection.js'
-  );
-  return {
-    ...actual,
-    getDb: () => db,
-  };
-});
-
-import { toolRepo } from '../../src/db/repositories/tools.js';
-import { guidelineRepo } from '../../src/db/repositories/guidelines.js';
-import { knowledgeRepo } from '../../src/db/repositories/knowledge.js';
-import { tagRepo, entryTagRepo } from '../../src/db/repositories/tags.js';
-import { exportHandlers } from '../../src/mcp/handlers/export.handler.js';
-import { importHandlers } from '../../src/mcp/handlers/import.handler.js';
+let testDb: ReturnType<typeof setupTestDb>;
+let context: AppContext;
 
 describe('Export/Import Handlers', () => {
   const AGENT_ID = 'agent-1';
   const ADMIN_KEY = 'test-admin-key';
   let previousPermMode: string | undefined;
   let previousAdminKey: string | undefined;
-  beforeAll(() => {
+  beforeAll(async () => {
     previousPermMode = process.env.AGENT_MEMORY_PERMISSIONS_MODE;
     previousAdminKey = process.env.AGENT_MEMORY_ADMIN_KEY;
     process.env.AGENT_MEMORY_PERMISSIONS_MODE = 'permissive';
     process.env.AGENT_MEMORY_ADMIN_KEY = ADMIN_KEY;
-    const testDb = setupTestDb(TEST_DB_PATH);
-    sqlite = testDb.sqlite;
-    db = testDb.db;
+    testDb = setupTestDb(TEST_DB_PATH);
+    context = await createTestContext(testDb);
   });
 
   afterAll(() => {
@@ -53,19 +38,19 @@ describe('Export/Import Handlers', () => {
     } else {
       process.env.AGENT_MEMORY_ADMIN_KEY = previousAdminKey;
     }
-    sqlite.close();
+    testDb.sqlite.close();
     cleanupTestDb(TEST_DB_PATH);
   });
 
   describe('exportHandlers', () => {
-    it('should handle export action with JSON format', () => {
-      toolRepo.create({
+    it('should handle export action with JSON format', async () => {
+      await context.repos.tools.create({
         scopeType: 'global',
         name: 'handler-export-test',
         createdBy: 'test',
       });
 
-      const result = exportHandlers.export({
+      const result = await exportHandlers.export(context, {
         agentId: AGENT_ID,
         types: ['tools'],
         format: 'json',
@@ -80,15 +65,15 @@ describe('Export/Import Handlers', () => {
       expect(data.entries.tools).toBeInstanceOf(Array);
     });
 
-    it('should handle export action with Markdown format', () => {
-      guidelineRepo.create({
+    it('should handle export action with Markdown format', async () => {
+      await context.repos.guidelines.create({
         scopeType: 'global',
         name: 'markdown-export',
         content: 'Test content',
         createdBy: 'test',
       });
 
-      const result = exportHandlers.export({
+      const result = await exportHandlers.export(context, {
         agentId: AGENT_ID,
         types: ['guidelines'],
         format: 'markdown',
@@ -99,21 +84,21 @@ describe('Export/Import Handlers', () => {
       expect(result.content).toContain('## Guidelines');
     });
 
-    it('should handle export with scope filtering', () => {
-      toolRepo.create({
+    it('should handle export with scope filtering', async () => {
+      await context.repos.tools.create({
         scopeType: 'global',
         name: 'global-export-tool',
         createdBy: 'test',
       });
 
-      toolRepo.create({
+      await context.repos.tools.create({
         scopeType: 'project',
         scopeId: 'proj-123',
         name: 'project-export-tool',
         createdBy: 'test',
       });
 
-      const result = exportHandlers.export({
+      const result = await exportHandlers.export(context, {
         agentId: AGENT_ID,
         types: ['tools'],
         scopeType: 'project',
@@ -129,7 +114,7 @@ describe('Export/Import Handlers', () => {
   });
 
   describe('importHandlers', () => {
-    it('should handle import action', () => {
+    it('should handle import action', async () => {
       const exportData = {
         version: '1.0',
         entries: {
@@ -146,7 +131,7 @@ describe('Export/Import Handlers', () => {
         },
       };
 
-      const result = importHandlers.import({
+      const result = await importHandlers.import(context, {
         admin_key: ADMIN_KEY,
         content: JSON.stringify(exportData),
         format: 'json',
@@ -158,34 +143,34 @@ describe('Export/Import Handlers', () => {
       expect(result.errors).toEqual([]);
 
       // Verify tool was created
-      const tool = toolRepo.getByName('handler-import-tool', 'global');
+      const tool = await context.repos.tools.getByName('handler-import-tool', 'global');
       expect(tool).toBeDefined();
     });
 
-    it('should handle missing content parameter', () => {
-      expect(() => {
-        importHandlers.import({
+    it('should handle missing content parameter', async () => {
+      await expect(
+        importHandlers.import(context, {
           admin_key: ADMIN_KEY,
           format: 'json',
-        });
-      }).toThrow(/content.*required/i);
+        })
+      ).rejects.toThrow(/content.*required/i);
     });
 
-    it('should validate format parameter', () => {
-      expect(() => {
-        importHandlers.import({
+    it('should validate format parameter', async () => {
+      await expect(
+        importHandlers.import(context, {
           admin_key: ADMIN_KEY,
           content: '{}',
           format: 'invalid',
-        });
-      }).toThrow(/format.*must be/i);
+        })
+      ).rejects.toThrow(/format.*must be/i);
     });
   });
 
   describe('Round-trip (export then import)', () => {
-    it('should preserve data through export and import', () => {
+    it('should preserve data through export and import', async () => {
       // Create test data
-      const tool = toolRepo.create({
+      const tool = await context.repos.tools.create({
         scopeType: 'global',
         name: 'roundtrip-tool',
         category: 'mcp',
@@ -193,15 +178,15 @@ describe('Export/Import Handlers', () => {
         createdBy: 'test',
       });
 
-      const tag = tagRepo.getOrCreate('roundtrip-tag');
-      entryTagRepo.attach({
+      const tag = await context.repos.tags.getOrCreate('roundtrip-tag');
+      await context.repos.entryTags.attach({
         entryType: 'tool',
         entryId: tool.id,
         tagId: tag.id,
       });
 
       // Export
-      const exportResult = exportHandlers.export({
+      const exportResult = await exportHandlers.export(context, {
         agentId: AGENT_ID,
         types: ['tools'],
         format: 'json',
@@ -210,10 +195,10 @@ describe('Export/Import Handlers', () => {
       expect(exportResult.success).toBe(true);
 
       // Delete the tool
-      toolRepo.deactivate(tool.id);
+      await context.repos.tools.deactivate(tool.id);
 
       // Import
-      const importResult = importHandlers.import({
+      const importResult = await importHandlers.import(context, {
         admin_key: ADMIN_KEY,
         content: exportResult.content,
         format: 'json',
@@ -225,22 +210,22 @@ describe('Export/Import Handlers', () => {
       expect(importResult.updated).toBeGreaterThanOrEqual(0);
     });
 
-    it('should handle complex data with multiple types', () => {
+    it('should handle complex data with multiple types', async () => {
       // Create diverse test data
-      toolRepo.create({
+      await context.repos.tools.create({
         scopeType: 'global',
         name: 'multi-tool',
         createdBy: 'test',
       });
 
-      guidelineRepo.create({
+      await context.repos.guidelines.create({
         scopeType: 'global',
         name: 'multi-guideline',
         content: 'Multi content',
         createdBy: 'test',
       });
 
-      knowledgeRepo.create({
+      await context.repos.knowledge.create({
         scopeType: 'global',
         title: 'Multi Knowledge',
         content: 'Multi knowledge content',
@@ -248,7 +233,7 @@ describe('Export/Import Handlers', () => {
       });
 
       // Export all types
-      const exportResult = exportHandlers.export({
+      const exportResult = await exportHandlers.export(context, {
         agentId: AGENT_ID,
         types: ['tools', 'guidelines', 'knowledge'],
         format: 'json',
@@ -261,5 +246,3 @@ describe('Export/Import Handlers', () => {
     });
   });
 });
-
-

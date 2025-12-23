@@ -56,7 +56,7 @@ function validateFilePath(filePath: string): void {
 }
 
 export const fileLockHandlers = {
-  checkout(context: AppContext, params: FileCheckoutParams) {
+  async checkout(context: AppContext, params: FileCheckoutParams) {
     const file_path = getRequiredParam(params, 'file_path', isString);
     const agent_id = getRequiredParam(params, 'agent_id', isString);
     const session_id = getOptionalParam(params, 'session_id', isString);
@@ -66,7 +66,7 @@ export const fileLockHandlers = {
 
     validateFilePath(file_path);
 
-    const lock = context.repos.fileLocks.checkout(file_path, agent_id, {
+    const lock = await context.repos.fileLocks.checkout(file_path, agent_id, {
       sessionId: session_id,
       projectId: project_id,
       expiresIn: expires_in,
@@ -76,23 +76,23 @@ export const fileLockHandlers = {
     return { success: true, lock };
   },
 
-  checkin(context: AppContext, params: FileCheckinParams) {
+  async checkin(context: AppContext, params: FileCheckinParams) {
     const file_path = getRequiredParam(params, 'file_path', isString);
     const agent_id = getRequiredParam(params, 'agent_id', isString);
 
     validateFilePath(file_path);
 
-    context.repos.fileLocks.checkin(file_path, agent_id);
+    await context.repos.fileLocks.checkin(file_path, agent_id);
 
     return { success: true, message: `File ${file_path} checked in successfully` };
   },
 
-  status(context: AppContext, params: FileLockStatusParams) {
+  async status(context: AppContext, params: FileLockStatusParams) {
     const file_path = getRequiredParam(params, 'file_path', isString);
 
     validateFilePath(file_path);
 
-    const lock = context.repos.fileLocks.getLock(file_path);
+    const lock = await context.repos.fileLocks.getLock(file_path);
     const isLocked = lock !== null;
 
     return {
@@ -102,12 +102,12 @@ export const fileLockHandlers = {
     };
   },
 
-  list(context: AppContext, params: FileLockListParams) {
+  async list(context: AppContext, params: FileLockListParams) {
     const project_id = getOptionalParam(params, 'project_id', isString);
     const session_id = getOptionalParam(params, 'session_id', isString);
     const agent_id = getOptionalParam(params, 'agent_id', isString);
 
-    const locks = context.repos.fileLocks.listLocks({
+    const locks = await context.repos.fileLocks.listLocks({
       projectId: project_id,
       sessionId: session_id,
       agentId: agent_id,
@@ -120,14 +120,14 @@ export const fileLockHandlers = {
     };
   },
 
-  forceUnlock(context: AppContext, params: FileLockForceUnlockParams) {
+  async forceUnlock(context: AppContext, params: FileLockForceUnlockParams) {
     const file_path = getRequiredParam(params, 'file_path', isString);
     const agent_id = getRequiredParam(params, 'agent_id', isString);
     const reason = getOptionalParam(params, 'reason', isString);
 
     validateFilePath(file_path);
 
-    context.repos.fileLocks.forceUnlock(file_path, agent_id, reason);
+    await context.repos.fileLocks.forceUnlock(file_path, agent_id, reason);
 
     return {
       success: true,

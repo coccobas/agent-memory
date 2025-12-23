@@ -63,6 +63,71 @@ export interface VerificationRules {
 }
 
 // =============================================================================
+// VERIFICATION SERVICE CLASS
+// =============================================================================
+
+/**
+ * VerificationService class with encapsulated DI
+ */
+export class VerificationService {
+  private readonly db: DbClient;
+
+  constructor(db: DbClient) {
+    this.db = db;
+  }
+
+  /**
+   * Verify a proposed action against critical guidelines.
+   */
+  verifyAction(
+    sessionId: string | null,
+    projectId: string | null,
+    action: ProposedAction
+  ): VerificationResult {
+    return verifyAction(sessionId, projectId, action, this.db);
+  }
+
+  /**
+   * Log a completed action for post-check analytics.
+   */
+  logCompletedAction(
+    sessionId: string | null,
+    action: ProposedAction,
+    agentId?: string
+  ): VerificationResult {
+    return logCompletedAction(sessionId, action, agentId, this.db);
+  }
+
+  /**
+   * Acknowledge critical guidelines for a session.
+   */
+  acknowledgeGuidelines(
+    sessionId: string,
+    guidelineIds?: string[],
+    acknowledgedBy?: string
+  ): { acknowledged: number; guidelineIds: string[] } {
+    return acknowledgeGuidelines(sessionId, guidelineIds, acknowledgedBy, this.db);
+  }
+
+  /**
+   * Get acknowledged guideline IDs for a session.
+   */
+  getAcknowledgedGuidelineIds(sessionId: string): string[] {
+    return getAcknowledgedGuidelineIds(sessionId, this.db);
+  }
+
+  /**
+   * Check if all critical guidelines have been acknowledged for a session.
+   */
+  areAllCriticalGuidelinesAcknowledged(
+    sessionId: string,
+    projectId: string | null
+  ): { acknowledged: boolean; missing: string[] } {
+    return areAllCriticalGuidelinesAcknowledged(sessionId, projectId, this.db);
+  }
+}
+
+// =============================================================================
 // VERIFICATION LOGIC
 // =============================================================================
 

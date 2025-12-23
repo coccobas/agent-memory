@@ -16,8 +16,8 @@ import {
 } from '../../services/export.service.js';
 import { createPermissionError, createValidationError } from '../../core/errors.js';
 import { config } from '../../config/index.js';
-import { checkPermission } from '../../services/permission.service.js';
 import { getRequiredParam, isString } from '../../utils/type-guards.js';
+import type { AppContext } from '../../core/context.js';
 import { requireAdminKey } from '../../utils/admin.js';
 
 interface ExportParams {
@@ -35,7 +35,7 @@ interface ExportParams {
 /**
  * Export entries to specified format
  */
-function exportEntries(params: Record<string, unknown>) {
+function exportEntries(context: AppContext, params: Record<string, unknown>) {
   const exportParams = params as unknown as ExportParams;
   const format = exportParams.format || 'json';
   const agentId = getRequiredParam(params, 'agentId', isString);
@@ -56,7 +56,7 @@ function exportEntries(params: Record<string, unknown>) {
   } as const;
 
   const denied = requestedTypes.filter(
-    (t) => !checkPermission(agentId, 'read', typeToEntryType[t], null, scopeType, scopeId ?? null)
+    (t) => !context.services!.permission.check(agentId, 'read', typeToEntryType[t], null, scopeType, scopeId ?? null)
   );
   if (denied.length > 0) {
     throw createPermissionError('read', 'export', denied.join(','));
@@ -153,5 +153,5 @@ function exportEntries(params: Record<string, unknown>) {
 }
 
 export const exportHandlers = {
-  export: exportEntries,
+  export: (context: AppContext, params: Record<string, unknown>) => exportEntries(context, params),
 };

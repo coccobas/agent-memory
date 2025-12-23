@@ -1,17 +1,16 @@
 /**
  * Shared helper functions for observe handlers
+ *
+ * All functions accept a repos parameter for dependency injection.
  */
 
 import { checkForDuplicates } from '../../../services/duplicate.service.js';
-import { guidelineRepo, type CreateGuidelineInput } from '../../../db/repositories/guidelines.js';
-import { knowledgeRepo, type CreateKnowledgeInput } from '../../../db/repositories/knowledge.js';
-import { toolRepo, type CreateToolInput } from '../../../db/repositories/tools.js';
+import type { CreateGuidelineInput } from '../../../db/repositories/guidelines.js';
+import type { CreateKnowledgeInput } from '../../../db/repositories/knowledge.js';
+import type { CreateToolInput } from '../../../db/repositories/tools.js';
 import { logAction } from '../../../services/audit.service.js';
 import { createComponentLogger } from '../../../utils/logger.js';
 import type { ScopeType } from '../../types.js';
-import { entryTagRepo, entryRelationRepo } from '../../../db/repositories/tags.js';
-import { sessionRepo } from '../../../db/repositories/scopes.js';
-import { getDb } from '../../../db/connection.js';
 import { sessions } from '../../../db/schema.js';
 import type { RelationType, EntryType } from '../../../db/schema.js';
 import type {
@@ -19,6 +18,8 @@ import type {
   ExtractedRelationship,
 } from '../../../services/extraction.service.js';
 import type { ProcessedEntry, StoredEntry } from './types.js';
+import type { Repositories } from '../../../core/interfaces/repositories.js';
+import type { AppDb } from '../../../core/types.js';
 
 const logger = createComponentLogger('observe');
 
@@ -46,23 +47,25 @@ export function parseEnvNumber(name: string, defaultValue: number): number {
 // SESSION UTILITIES
 // =============================================================================
 
-export function mergeSessionMetadata(
+export async function mergeSessionMetadata(
+  repos: Repositories,
   sessionId: string,
   patch: Record<string, unknown>
-): Record<string, unknown> {
-  const existing = sessionRepo.getById(sessionId);
+): Promise<Record<string, unknown>> {
+  const existing = await repos.sessions.getById(sessionId);
   const existingMeta = existing?.metadata ?? {};
   return { ...existingMeta, ...patch };
 }
 
-export function ensureSessionIdExists(
+export async function ensureSessionIdExists(
+  db: AppDb,
+  repos: Repositories,
   sessionId: string,
   projectId?: string,
   agentId?: string
-): void {
-  if (sessionRepo.getById(sessionId)) return;
+): Promise<void> {
+  if (await repos.sessions.getById(sessionId)) return;
 
-  const db = getDb();
   db.insert(sessions)
     .values({
       id: sessionId,
@@ -83,12 +86,13 @@ export function ensureSessionIdExists(
 /**
  * Store an entity as a knowledge entry with category 'fact'
  */
-export function storeEntity(
+export async function storeEntity(
+  repos: Repositories,
   entity: ExtractedEntity,
   scopeType: ScopeType,
   scopeId: string | undefined,
   agentId?: string
-): StoredEntry | null {
+): Promise<StoredEntry | null> {
   // Check for duplicates
   const duplicateCheck = checkForDuplicates('knowledge', entity.name, scopeType, scopeId ?? null);
   if (duplicateCheck.isDuplicate) {
@@ -106,7 +110,7 @@ export function storeEntity(
     createdBy: agentId,
   };
 
-  const knowledge = knowledgeRepo.create(input);
+  const knowledge = await repos.knowledge.create(input);
 
   logAction({
     agentId,
@@ -119,8 +123,8 @@ export function storeEntity(
 
   // Tag with entity markers
   try {
-    entryTagRepo.attach({ entryType: 'knowledge', entryId: knowledge.id, tagName: 'entity' });
-    entryTagRepo.attach({
+    await repos.entryTags.attach({ entryType: 'knowledge', entryId: knowledge.id, tagName: 'entity' });
+    await repos.entryTags.attach({
       entryType: 'knowledge',
       entryId: knowledge.id,
       tagName: `entity-type:${entity.entityType}`,
@@ -146,12 +150,13 @@ export function storeEntity(
 /**
  * Store an extracted entry to the appropriate repository
  */
-export function storeEntry(
+export async function storeEntry(
+  repos: Repositories,
   entry: ProcessedEntry,
   scopeType: ScopeType,
   scopeId: string | undefined,
   agentId?: string
-): StoredEntry | null {
+): Promise<StoredEntry | null> {
   if (entry.type === 'guideline') {
     const input: CreateGuidelineInput = {
       scopeType,
@@ -163,7 +168,7 @@ export function storeEntry(
       rationale: entry.rationale,
       createdBy: agentId,
     };
-    const guideline = guidelineRepo.create(input);
+    const guideline = await repos.guidelines.create(input);
 
     logAction({
       agentId,
@@ -191,7 +196,7 @@ export function storeEntry(
       source: entry.rationale,
       createdBy: agentId,
     };
-    const knowledge = knowledgeRepo.create(input);
+    const knowledge = await repos.knowledge.create(input);
 
     logAction({
       agentId,
@@ -218,7 +223,7 @@ export function storeEntry(
       category: entry.category as 'mcp' | 'cli' | 'function' | 'api' | undefined,
       createdBy: agentId,
     };
-    const tool = toolRepo.create(input);
+    const tool = await repos.tools.create(input);
 
     logAction({
       agentId,
@@ -267,11 +272,12 @@ export function buildNameToIdMap(
 /**
  * Create relations from extracted relationships
  */
-export function createExtractedRelations(
+export async function createExtractedRelations(
+  repos: Repositories,
   relationships: ExtractedRelationship[],
   nameToIdMap: Map<string, { id: string; type: EntryType }>,
   confidenceThreshold: number = 0.8
-): { created: number; skipped: number; errors: number } {
+): Promise<{ created: number; skipped: number; errors: number }> {
   let created = 0;
   let skipped = 0;
   let errors = 0;
@@ -322,7 +328,7 @@ export function createExtractedRelations(
     }
 
     try {
-      entryRelationRepo.create({
+      await repos.entryRelations.create({
         sourceType,
         sourceId: source.id,
         targetType,

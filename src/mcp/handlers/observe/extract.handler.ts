@@ -1,7 +1,10 @@
 /**
  * Extract handler - LLM-based memory extraction
+ *
+ * Context-aware handler that receives AppContext for dependency injection.
  */
 
+import type { AppContext } from '../../../core/context.js';
 import {
   getExtractionService,
   type ExtractionInput,
@@ -34,7 +37,7 @@ const logger = createComponentLogger('observe.extract');
 /**
  * Extract memory entries from raw context using LLM
  */
-export async function extract(params: Record<string, unknown>) {
+export async function extract(appContext: AppContext, params: Record<string, unknown>) {
   // Extract and validate parameters
   const context = getRequiredParam(params, 'context', isString);
   const contextType = getOptionalParam(params, 'contextType', isString) as
@@ -124,7 +127,7 @@ export async function extract(params: Record<string, unknown>) {
     for (const entry of processedEntries) {
       if (entry.shouldStore) {
         try {
-          const stored = storeEntry(entry, scopeType, scopeId, agentId);
+          const stored = await storeEntry(appContext.repos, entry, scopeType, scopeId, agentId);
           if (stored) {
             storedEntries.push(stored);
           }
@@ -144,7 +147,7 @@ export async function extract(params: Record<string, unknown>) {
     for (const entity of result.entities ?? []) {
       if (entity.confidence >= entityThreshold) {
         try {
-          const stored = storeEntity(entity, scopeType, scopeId, agentId);
+          const stored = await storeEntity(appContext.repos, entity, scopeType, scopeId, agentId);
           if (stored) {
             storedEntities.push(stored);
           }
@@ -166,7 +169,8 @@ export async function extract(params: Record<string, unknown>) {
       (storedEntries.length > 0 || storedEntities.length > 0)
     ) {
       const nameToIdMap = buildNameToIdMap(storedEntries, storedEntities);
-      const relationResults = createExtractedRelations(
+      const relationResults = await createExtractedRelations(
+        appContext.repos,
         result.relationships ?? [],
         nameToIdMap,
         relationConfidenceThreshold

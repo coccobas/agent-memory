@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { eq } from 'drizzle-orm';
 import {
   setupTestDb,
@@ -53,8 +53,8 @@ describe('Tags Integration', () => {
   });
 
   describe('memory_tag_create', () => {
-    it('should create a custom tag', () => {
-      const result = tagHandlers.create(context, {
+    it('should create a custom tag', async () => {
+      const result = await tagHandlers.create(context, {
         agentId: AGENT_ID,
         name: 'custom_tag',
         category: 'custom',
@@ -69,51 +69,51 @@ describe('Tags Integration', () => {
       expect(result.existed).toBe(false);
     });
 
-    it('should return existing tag if already exists', () => {
-      tagHandlers.create(context, { agentId: AGENT_ID, name: 'existing_tag' });
-      const result = tagHandlers.create(context, { agentId: AGENT_ID, name: 'existing_tag' });
+    it('should return existing tag if already exists', async () => {
+      await tagHandlers.create(context, { agentId: AGENT_ID, name: 'existing_tag' });
+      const result = await tagHandlers.create(context, { agentId: AGENT_ID, name: 'existing_tag' });
 
       expect(result.success).toBe(true);
       expect(result.existed).toBe(true);
     });
 
-    it('should require name', () => {
-      expect(() => {
-        tagHandlers.create(context, { agentId: AGENT_ID });
-      }).toThrow('name is required');
+    it('should require name', async () => {
+      await expect(
+        tagHandlers.create(context, { agentId: AGENT_ID })
+      ).rejects.toThrow('name is required');
     });
   });
 
   describe('memory_tag_list', () => {
-    it('should list all tags', () => {
-      const result = tagHandlers.list(context, { agentId: AGENT_ID, limit: 10 });
+    it('should list all tags', async () => {
+      const result = await tagHandlers.list(context, { agentId: AGENT_ID, limit: 10 });
       expect(result.tags.length).toBeGreaterThan(0);
     });
 
-    it('should filter by category', () => {
-      const result = tagHandlers.list(context, { agentId: AGENT_ID, category: 'language', limit: 10 });
+    it('should filter by category', async () => {
+      const result = await tagHandlers.list(context, { agentId: AGENT_ID, category: 'language', limit: 10 });
       expect(result.tags.length).toBeGreaterThan(0);
       result.tags.forEach((tag) => {
         expect(tag.category).toBe('language');
       });
     });
 
-    it('should filter by isPredefined', () => {
-      const result = tagHandlers.list(context, { agentId: AGENT_ID, isPredefined: true, limit: 10 });
+    it('should filter by isPredefined', async () => {
+      const result = await tagHandlers.list(context, { agentId: AGENT_ID, isPredefined: true, limit: 10 });
       expect(result.tags.length).toBeGreaterThan(0);
       result.tags.forEach((tag) => {
         expect(tag.isPredefined).toBe(true);
       });
     });
 
-    it('should support pagination', () => {
-      const result = tagHandlers.list(context, { agentId: AGENT_ID, limit: 2, offset: 0 });
+    it('should support pagination', async () => {
+      const result = await tagHandlers.list(context, { agentId: AGENT_ID, limit: 2, offset: 0 });
       expect(result.tags.length).toBeLessThanOrEqual(2);
     });
   });
 
   describe('memory_tag_attach', () => {
-    it('should attach tag to a tool', () => {
+    it('should attach tag to a tool', async () => {
       const { tool } = createTestTool(db, 'tagged_tool');
       const securityTag = db
         .select()
@@ -121,7 +121,7 @@ describe('Tags Integration', () => {
         .where(eq(schema.tags.name, 'security'))
         .get()!;
 
-      const result = tagHandlers.attach(context, {
+      const result = await tagHandlers.attach(context, {
         agentId: AGENT_ID,
         entryType: 'tool',
         entryId: tool.id,
@@ -135,10 +135,10 @@ describe('Tags Integration', () => {
       expect(result.entryTag.tagId).toBe(securityTag.id);
     });
 
-    it('should attach tag to a guideline', () => {
+    it('should attach tag to a guideline', async () => {
       const { guideline } = createTestGuideline(db, 'tagged_guideline');
 
-      const result = tagHandlers.attach(context, {
+      const result = await tagHandlers.attach(context, {
         agentId: AGENT_ID,
         entryType: 'guideline',
         entryId: guideline.id,
@@ -149,9 +149,9 @@ describe('Tags Integration', () => {
       expect(result.entryTag.entryType).toBe('guideline');
     });
 
-    it('should create tag if it does not exist', () => {
+    it('should create tag if it does not exist', async () => {
       const { tool } = createTestTool(db, 'auto_tag_tool');
-      const result = tagHandlers.attach(context, {
+      const result = await tagHandlers.attach(context, {
         agentId: AGENT_ID,
         entryType: 'tool',
         entryId: tool.id,
@@ -163,17 +163,17 @@ describe('Tags Integration', () => {
       expect(tag).toBeDefined();
     });
 
-    it('should require entryType', () => {
-      expect(() => {
-        tagHandlers.attach(context, { agentId: AGENT_ID, entryId: 'test', tagName: 'test' });
-      }).toThrow('entryType is required');
+    it('should require entryType', async () => {
+      await expect(
+        tagHandlers.attach(context, { agentId: AGENT_ID, entryId: 'test', tagName: 'test' })
+      ).rejects.toThrow('entryType is required');
     });
   });
 
   describe('memory_tag_detach', () => {
-    it('should detach tag from entry', () => {
+    it('should detach tag from entry', async () => {
       const { tool } = createTestTool(db, 'detach_test');
-      const attachResult = tagHandlers.attach(context, {
+      await tagHandlers.attach(context, {
         agentId: AGENT_ID,
         entryType: 'tool',
         entryId: tool.id,
@@ -185,7 +185,7 @@ describe('Tags Integration', () => {
         .where(eq(schema.tags.name, 'security'))
         .get()!;
 
-      const result = tagHandlers.detach(context, {
+      const result = await tagHandlers.detach(context, {
         agentId: AGENT_ID,
         entryType: 'tool',
         entryId: tool.id,
@@ -195,24 +195,24 @@ describe('Tags Integration', () => {
       expect(result.success).toBe(true);
 
       // Verify tag is detached
-      const tags = tagHandlers.forEntry(context, { agentId: AGENT_ID, entryType: 'tool', entryId: tool.id });
+      const tags = await tagHandlers.forEntry(context, { agentId: AGENT_ID, entryType: 'tool', entryId: tool.id });
       expect(tags.tags.find((t) => t.name === 'security')).toBeUndefined();
     });
 
-    it('should require entryType', () => {
-      expect(() => {
-        tagHandlers.detach(context, { agentId: AGENT_ID, entryId: 'test', tagId: 'test' });
-      }).toThrow('entryType is required');
+    it('should require entryType', async () => {
+      await expect(
+        tagHandlers.detach(context, { agentId: AGENT_ID, entryId: 'test', tagId: 'test' })
+      ).rejects.toThrow('entryType is required');
     });
   });
 
   describe('memory_tags_for_entry', () => {
-    it('should return all tags for an entry', () => {
+    it('should return all tags for an entry', async () => {
       const { tool } = createTestTool(db, 'multi_tag_tool');
-      tagHandlers.attach(context, { agentId: AGENT_ID, entryType: 'tool', entryId: tool.id, tagName: 'security' });
-      tagHandlers.attach(context, { agentId: AGENT_ID, entryType: 'tool', entryId: tool.id, tagName: 'required' });
+      await tagHandlers.attach(context, { agentId: AGENT_ID, entryType: 'tool', entryId: tool.id, tagName: 'security' });
+      await tagHandlers.attach(context, { agentId: AGENT_ID, entryType: 'tool', entryId: tool.id, tagName: 'required' });
 
-      const result = tagHandlers.forEntry(context, {
+      const result = await tagHandlers.forEntry(context, {
         agentId: AGENT_ID,
         entryType: 'tool',
         entryId: tool.id,
@@ -223,9 +223,9 @@ describe('Tags Integration', () => {
       expect(result.tags.some((t) => t.name === 'required')).toBe(true);
     });
 
-    it('should return empty array for entry with no tags', () => {
+    it('should return empty array for entry with no tags', async () => {
       const { tool } = createTestTool(db, 'no_tags_tool');
-      const result = tagHandlers.forEntry(context, {
+      const result = await tagHandlers.forEntry(context, {
         agentId: AGENT_ID,
         entryType: 'tool',
         entryId: tool.id,
@@ -234,10 +234,10 @@ describe('Tags Integration', () => {
       expect(result.tags).toEqual([]);
     });
 
-    it('should require entryType', () => {
-      expect(() => {
-        tagHandlers.forEntry(context, { agentId: AGENT_ID, entryId: 'test' });
-      }).toThrow('entryType is required');
+    it('should require entryType', async () => {
+      await expect(
+        tagHandlers.forEntry(context, { agentId: AGENT_ID, entryId: 'test' })
+      ).rejects.toThrow('entryType is required');
     });
   });
 });

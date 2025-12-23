@@ -31,13 +31,13 @@ Example: {"action":"start","projectId":"proj-123","name":"Add auth feature","pur
   },
   actions: {
     start: {
-      handler: (p) => scopeHandlers.sessionStart(p as unknown as SessionStartParams),
+      contextHandler: (ctx, p) => scopeHandlers.sessionStart(ctx, p as unknown as SessionStartParams),
     },
     end: {
-      handler: (p) => scopeHandlers.sessionEnd(p as unknown as SessionEndParams),
+      contextHandler: (ctx, p) => scopeHandlers.sessionEnd(ctx, p as unknown as SessionEndParams),
     },
     list: {
-      handler: (p) => scopeHandlers.sessionList(p as unknown as SessionListParams),
+      contextHandler: (ctx, p) => scopeHandlers.sessionList(ctx, p as unknown as SessionListParams),
     },
   },
 };

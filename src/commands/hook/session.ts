@@ -1,11 +1,13 @@
 import { eq } from 'drizzle-orm';
 
-import { getDb } from '../../db/connection.js';
+import { getDb, getSqlite } from '../../db/connection.js';
 import { sessions } from '../../db/schema.js';
-import { sessionRepo, projectRepo } from '../../db/repositories/scopes.js';
-import { guidelineRepo } from '../../db/repositories/guidelines.js';
-import { knowledgeRepo } from '../../db/repositories/knowledge.js';
-import { toolRepo } from '../../db/repositories/tools.js';
+import { createRepositories } from '../../core/factory/repositories.js';
+import type { Repositories } from '../../core/interfaces/repositories.js';
+
+function getRepos(): Repositories {
+  return createRepositories({ db: getDb(), sqlite: getSqlite() });
+}
 
 export function ensureSessionIdExists(sessionId: string, projectId?: string): void {
   const db = getDb();
@@ -25,12 +27,13 @@ export function ensureSessionIdExists(sessionId: string, projectId?: string): vo
     .run();
 }
 
-export function getObserveState(sessionId: string): {
+export async function getObserveState(sessionId: string): Promise<{
   committedAt?: string;
   reviewedAt?: string;
   needsReviewCount?: number;
-} {
-  const session = sessionRepo.getById(sessionId);
+}> {
+  const repos = getRepos();
+  const session = await repos.sessions.getById(sessionId);
   const meta = session?.metadata ?? {};
   const observe = (meta.observe ?? {}) as Record<string, unknown>;
   return {
@@ -41,15 +44,16 @@ export function getObserveState(sessionId: string): {
   };
 }
 
-export function setObserveReviewedAt(sessionId: string, reviewedAt: string): void {
-  const session = sessionRepo.getById(sessionId);
+export async function setObserveReviewedAt(sessionId: string, reviewedAt: string): Promise<void> {
+  const repos = getRepos();
+  const session = await repos.sessions.getById(sessionId);
   const meta = session?.metadata ?? {};
   const observe = (meta.observe ?? {}) as Record<string, unknown>;
   const nextMeta: Record<string, unknown> = {
     ...meta,
     observe: { ...observe, reviewedAt },
   };
-  sessionRepo.update(sessionId, { metadata: nextMeta });
+  await repos.sessions.update(sessionId, { metadata: nextMeta });
 }
 
 export interface SessionSummary {
@@ -61,14 +65,15 @@ export interface SessionSummary {
   needsReview: number;
 }
 
-export function getSessionSummary(sessionId: string): SessionSummary {
-  const session = sessionRepo.getById(sessionId);
+export async function getSessionSummary(sessionId: string): Promise<SessionSummary> {
+  const repos = getRepos();
+  const session = await repos.sessions.getById(sessionId);
   const projectId = session?.projectId;
-  const project = projectId ? projectRepo.getById(projectId) : null;
+  const project = projectId ? await repos.projects.getById(projectId) : null;
 
-  const guidelinesList = guidelineRepo.list({ scopeType: 'session', scopeId: sessionId });
-  const knowledgeList = knowledgeRepo.list({ scopeType: 'session', scopeId: sessionId });
-  const toolsList = toolRepo.list({ scopeType: 'session', scopeId: sessionId });
+  const guidelinesList = await repos.guidelines.list({ scopeType: 'session', scopeId: sessionId });
+  const knowledgeList = await repos.knowledge.list({ scopeType: 'session', scopeId: sessionId });
+  const toolsList = await repos.tools.list({ scopeType: 'session', scopeId: sessionId });
 
   const meta = session?.metadata ?? {};
   const observe = (meta.observe ?? {}) as Record<string, unknown>;

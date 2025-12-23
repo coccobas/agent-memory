@@ -31,16 +31,16 @@ export const memoryVotingDescriptor: ToolDescriptor = {
   },
   actions: {
     record_vote: {
-      handler: (p) => votingHandlers.record_vote(p as unknown as VotingRecordVoteParams),
+      contextHandler: (ctx, p) => votingHandlers.record_vote(ctx, p as unknown as VotingRecordVoteParams),
     },
     get_consensus: {
-      handler: (p) => votingHandlers.get_consensus(p as unknown as VotingGetConsensusParams),
+      contextHandler: (ctx, p) => votingHandlers.get_consensus(ctx, p as unknown as VotingGetConsensusParams),
     },
     list_votes: {
-      handler: (p) => votingHandlers.list_votes(p as unknown as VotingListVotesParams),
+      contextHandler: (ctx, p) => votingHandlers.list_votes(ctx, p as unknown as VotingListVotesParams),
     },
     get_stats: {
-      handler: (p) => votingHandlers.get_stats(p as unknown as VotingGetStatsParams),
+      contextHandler: (ctx, p) => votingHandlers.get_stats(ctx, p as unknown as VotingGetStatsParams),
     },
   },
 };

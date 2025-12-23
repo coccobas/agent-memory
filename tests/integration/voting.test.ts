@@ -3,12 +3,14 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
-import { setupTestDb, cleanupTestDb } from '../fixtures/test-helpers.js';
+import { setupTestDb, cleanupTestDb, createTestContext } from '../fixtures/test-helpers.js';
 import { votingHandlers } from '../../src/mcp/handlers/voting.handler.js';
+import type { AppContext } from '../../src/core/context.js';
 
 const TEST_DB_PATH = './data/test-voting-handler.db';
 let sqlite: ReturnType<typeof setupTestDb>['sqlite'];
 let db: ReturnType<typeof setupTestDb>['db'];
+let ctx: AppContext;
 
 vi.mock('../../src/db/connection.js', async () => {
   const actual = await vi.importActual<typeof import('../../src/db/connection.js')>(
@@ -21,10 +23,11 @@ vi.mock('../../src/db/connection.js', async () => {
 });
 
 describe('Voting Handler Integration', () => {
-  beforeAll(() => {
+  beforeAll(async () => {
     const testDb = setupTestDb(TEST_DB_PATH);
     sqlite = testDb.sqlite;
     db = testDb.db;
+    ctx = await createTestContext(testDb);
   });
 
   afterAll(() => {
@@ -33,8 +36,8 @@ describe('Voting Handler Integration', () => {
   });
 
   describe('record_vote', () => {
-    it('should record a vote', () => {
-      const result = votingHandlers.record_vote({
+    it('should record a vote', async () => {
+      const result = await votingHandlers.record_vote(ctx, {
         taskId: 'task-1',
         agentId: 'agent-1',
         voteValue: 'option-a',
@@ -46,22 +49,22 @@ describe('Voting Handler Integration', () => {
       expect(result.message).toBe('Vote recorded successfully');
     });
 
-    it('should require taskId, agentId, and voteValue', () => {
-      expect(() => {
-        votingHandlers.record_vote({ taskId: 'task-1', agentId: 'agent-1' });
-      }).toThrow(/taskId, agentId, and voteValue/);
+    it('should require taskId, agentId, and voteValue', async () => {
+      await expect(
+        votingHandlers.record_vote(ctx, { taskId: 'task-1', agentId: 'agent-1' })
+      ).rejects.toThrow(/taskId, agentId, and voteValue/);
 
-      expect(() => {
-        votingHandlers.record_vote({ taskId: 'task-1', voteValue: 'option-a' });
-      }).toThrow(/taskId, agentId, and voteValue/);
+      await expect(
+        votingHandlers.record_vote(ctx, { taskId: 'task-1', voteValue: 'option-a' })
+      ).rejects.toThrow(/taskId, agentId, and voteValue/);
 
-      expect(() => {
-        votingHandlers.record_vote({ agentId: 'agent-1', voteValue: 'option-a' });
-      }).toThrow(/taskId, agentId, and voteValue/);
+      await expect(
+        votingHandlers.record_vote(ctx, { agentId: 'agent-1', voteValue: 'option-a' })
+      ).rejects.toThrow(/taskId, agentId, and voteValue/);
     });
 
-    it('should record vote with confidence', () => {
-      const result = votingHandlers.record_vote({
+    it('should record vote with confidence', async () => {
+      const result = await votingHandlers.record_vote(ctx, {
         taskId: 'task-2',
         agentId: 'agent-1',
         voteValue: 'option-a',
@@ -71,8 +74,8 @@ describe('Voting Handler Integration', () => {
       expect(result.success).toBe(true);
     });
 
-    it('should record vote with reasoning', () => {
-      const result = votingHandlers.record_vote({
+    it('should record vote with reasoning', async () => {
+      const result = await votingHandlers.record_vote(ctx, {
         taskId: 'task-3',
         agentId: 'agent-1',
         voteValue: 'option-a',
@@ -82,8 +85,8 @@ describe('Voting Handler Integration', () => {
       expect(result.success).toBe(true);
     });
 
-    it('should handle complex vote values', () => {
-      const result = votingHandlers.record_vote({
+    it('should handle complex vote values', async () => {
+      const result = await votingHandlers.record_vote(ctx, {
         taskId: 'task-4',
         agentId: 'agent-1',
         voteValue: { option: 'a', priority: 1 },
@@ -94,20 +97,20 @@ describe('Voting Handler Integration', () => {
   });
 
   describe('get_consensus', () => {
-    it('should get consensus for a task', () => {
-      votingHandlers.record_vote({
+    it('should get consensus for a task', async () => {
+      await votingHandlers.record_vote(ctx, {
         taskId: 'task-consensus-1',
         agentId: 'agent-1',
         voteValue: 'option-a',
       });
 
-      votingHandlers.record_vote({
+      await votingHandlers.record_vote(ctx, {
         taskId: 'task-consensus-1',
         agentId: 'agent-2',
         voteValue: 'option-a',
       });
 
-      const result = votingHandlers.get_consensus({
+      const result = await votingHandlers.get_consensus(ctx, {
         taskId: 'task-consensus-1',
       });
 
@@ -119,20 +122,20 @@ describe('Voting Handler Integration', () => {
       expect(result.k).toBe(1); // default
     });
 
-    it('should require taskId', () => {
-      expect(() => {
-        votingHandlers.get_consensus({});
-      }).toThrow(/taskId/);
+    it('should require taskId', async () => {
+      await expect(
+        votingHandlers.get_consensus(ctx, {})
+      ).rejects.toThrow(/taskId/);
     });
 
-    it('should accept custom k value', () => {
-      votingHandlers.record_vote({
+    it('should accept custom k value', async () => {
+      await votingHandlers.record_vote(ctx, {
         taskId: 'task-consensus-2',
         agentId: 'agent-1',
         voteValue: 'option-a',
       });
 
-      const result = votingHandlers.get_consensus({
+      const result = await votingHandlers.get_consensus(ctx, {
         taskId: 'task-consensus-2',
         k: 2,
       });
@@ -140,17 +143,17 @@ describe('Voting Handler Integration', () => {
       expect(result.k).toBe(2);
     });
 
-    it('should reject k < 1', () => {
-      expect(() => {
-        votingHandlers.get_consensus({
+    it('should reject k < 1', async () => {
+      await expect(
+        votingHandlers.get_consensus(ctx, {
           taskId: 'task-1',
           k: 0,
-        });
-      }).toThrow(/k.*must be at least 1/);
+        })
+      ).rejects.toThrow(/k.*must be at least 1/);
     });
 
-    it('should return null consensus when no votes', () => {
-      const result = votingHandlers.get_consensus({
+    it('should return null consensus when no votes', async () => {
+      const result = await votingHandlers.get_consensus(ctx, {
         taskId: 'task-no-votes',
       });
 
@@ -160,20 +163,20 @@ describe('Voting Handler Integration', () => {
   });
 
   describe('list_votes', () => {
-    it('should list votes for a task', () => {
-      votingHandlers.record_vote({
+    it('should list votes for a task', async () => {
+      await votingHandlers.record_vote(ctx, {
         taskId: 'task-list-1',
         agentId: 'agent-1',
         voteValue: 'option-a',
       });
 
-      votingHandlers.record_vote({
+      await votingHandlers.record_vote(ctx, {
         taskId: 'task-list-1',
         agentId: 'agent-2',
         voteValue: 'option-b',
       });
 
-      const result = votingHandlers.list_votes({
+      const result = await votingHandlers.list_votes(ctx, {
         taskId: 'task-list-1',
       });
 
@@ -182,14 +185,14 @@ describe('Voting Handler Integration', () => {
       expect(result.votes.length).toBe(2);
     });
 
-    it('should require taskId', () => {
-      expect(() => {
-        votingHandlers.list_votes({});
-      }).toThrow(/taskId/);
+    it('should require taskId', async () => {
+      await expect(
+        votingHandlers.list_votes(ctx, {})
+      ).rejects.toThrow(/taskId/);
     });
 
-    it('should include vote details', () => {
-      votingHandlers.record_vote({
+    it('should include vote details', async () => {
+      await votingHandlers.record_vote(ctx, {
         taskId: 'task-list-2',
         agentId: 'agent-1',
         voteValue: 'option-a',
@@ -197,7 +200,7 @@ describe('Voting Handler Integration', () => {
         reasoning: 'Test reasoning',
       });
 
-      const result = votingHandlers.list_votes({
+      const result = await votingHandlers.list_votes(ctx, {
         taskId: 'task-list-2',
       });
 
@@ -209,26 +212,26 @@ describe('Voting Handler Integration', () => {
   });
 
   describe('get_stats', () => {
-    it('should get voting statistics', () => {
-      votingHandlers.record_vote({
+    it('should get voting statistics', async () => {
+      await votingHandlers.record_vote(ctx, {
         taskId: 'task-stats-1',
         agentId: 'agent-1',
         voteValue: 'option-a',
       });
 
-      votingHandlers.record_vote({
+      await votingHandlers.record_vote(ctx, {
         taskId: 'task-stats-1',
         agentId: 'agent-2',
         voteValue: 'option-a',
       });
 
-      votingHandlers.record_vote({
+      await votingHandlers.record_vote(ctx, {
         taskId: 'task-stats-1',
         agentId: 'agent-3',
         voteValue: 'option-b',
       });
 
-      const result = votingHandlers.get_stats({
+      const result = await votingHandlers.get_stats(ctx, {
         taskId: 'task-stats-1',
       });
 
@@ -240,26 +243,26 @@ describe('Voting Handler Integration', () => {
       expect(result.k).toBeDefined();
     });
 
-    it('should require taskId', () => {
-      expect(() => {
-        votingHandlers.get_stats({});
-      }).toThrow(/taskId/);
+    it('should require taskId', async () => {
+      await expect(
+        votingHandlers.get_stats(ctx, {})
+      ).rejects.toThrow(/taskId/);
     });
 
-    it('should calculate vote distribution', () => {
-      votingHandlers.record_vote({
+    it('should calculate vote distribution', async () => {
+      await votingHandlers.record_vote(ctx, {
         taskId: 'task-stats-2',
         agentId: 'agent-1',
         voteValue: 'option-a',
       });
 
-      votingHandlers.record_vote({
+      await votingHandlers.record_vote(ctx, {
         taskId: 'task-stats-2',
         agentId: 'agent-2',
         voteValue: 'option-a',
       });
 
-      const result = votingHandlers.get_stats({
+      const result = await votingHandlers.get_stats(ctx, {
         taskId: 'task-stats-2',
       });
 
@@ -268,5 +271,6 @@ describe('Voting Handler Integration', () => {
     });
   });
 });
+
 
 

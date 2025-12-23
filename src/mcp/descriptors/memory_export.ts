@@ -47,6 +47,6 @@ export const memoryExportDescriptor: ToolDescriptor = {
     },
   },
   actions: {
-    export: { handler: exportHandlers.export },
+    export: { contextHandler: exportHandlers.export },
   },
 };

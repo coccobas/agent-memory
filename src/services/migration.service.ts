@@ -5,8 +5,15 @@
  */
 
 import { exportToJson, exportToOpenAPI } from './export.service.js';
-import { importFromJson } from './import.service.js';
+import type { ImportService } from './import.service.js';
 import type { ScopeType } from '../db/schema.js';
+
+/**
+ * Migration service dependencies
+ */
+export interface MigrationServiceDeps {
+  importService: ImportService;
+}
 
 export interface MigrationParams {
   fromFormat: string;
@@ -23,15 +30,41 @@ export interface MigrationResult {
 }
 
 /**
- * Migrate entries from one format to another
- *
- * This function exports entries in the source format and re-imports them
- * in the target format, effectively converting between formats.
- *
- * @param params - Migration parameters
- * @returns Migration result with count of migrated entries and any errors
+ * Migration service interface
  */
-export function migrateEntries(params: MigrationParams): MigrationResult {
+export interface MigrationService {
+  migrateEntries(params: MigrationParams): Promise<MigrationResult>;
+  migrateScope(
+    fromScope: { type: ScopeType; id?: string },
+    toScope: { type: ScopeType; id?: string },
+    entryTypes?: ('tools' | 'guidelines' | 'knowledge')[],
+    dryRun?: boolean
+  ): Promise<MigrationResult>;
+}
+
+/**
+ * Create a migration service with injected dependencies
+ */
+export function createMigrationService(deps: MigrationServiceDeps): MigrationService {
+  return {
+    async migrateEntries(params: MigrationParams): Promise<MigrationResult> {
+      return migrateEntriesImpl(deps, params);
+    },
+    async migrateScope(
+      fromScope: { type: ScopeType; id?: string },
+      toScope: { type: ScopeType; id?: string },
+      entryTypes?: ('tools' | 'guidelines' | 'knowledge')[],
+      dryRun = false
+    ): Promise<MigrationResult> {
+      return migrateScopeImpl(deps, fromScope, toScope, entryTypes, dryRun);
+    },
+  };
+}
+
+/**
+ * Migrate entries from one format to another (implementation)
+ */
+async function migrateEntriesImpl(deps: MigrationServiceDeps, params: MigrationParams): Promise<MigrationResult> {
   const { fromFormat, toFormat, scopeType, scopeId, dryRun = false } = params;
 
   const result: MigrationResult = {
@@ -76,18 +109,18 @@ export function migrateEntries(params: MigrationParams): MigrationResult {
         }
         // Convert JSON export to OpenAPI format would require parsing and conversion
         // For simplicity, we'll just re-import as JSON
-        importResult = importFromJson(exportResult.content, {
+        importResult = await deps.importService.importFromJson(exportResult.content, {
           conflictStrategy: 'update',
         });
       } else {
         // Import as JSON (most flexible format)
-        importResult = importFromJson(exportResult.content, {
+        importResult = await deps.importService.importFromJson(exportResult.content, {
           conflictStrategy: 'update',
         });
       }
 
       result.migrated = importResult.created + importResult.updated;
-      result.errors = importResult.errors.map((e) => ({
+      result.errors = importResult.errors.map((e: { entry: string; error: string }) => ({
         entryId: e.entry,
         error: e.error,
       }));
@@ -106,22 +139,15 @@ export function migrateEntries(params: MigrationParams): MigrationResult {
 }
 
 /**
- * Migrate entries between scopes
- *
- * Moves entries from one scope to another, preserving all data.
- *
- * @param fromScope - Source scope
- * @param toScope - Target scope
- * @param entryTypes - Types of entries to migrate (default: all)
- * @param dryRun - If true, only report what would be migrated
- * @returns Migration result
+ * Migrate entries between scopes (implementation)
  */
-export function migrateScope(
+async function migrateScopeImpl(
+  deps: MigrationServiceDeps,
   fromScope: { type: ScopeType; id?: string },
   toScope: { type: ScopeType; id?: string },
   entryTypes?: ('tools' | 'guidelines' | 'knowledge')[],
   dryRun = false
-): MigrationResult {
+): Promise<MigrationResult> {
   const result: MigrationResult = {
     migrated: 0,
     errors: [],
@@ -142,7 +168,7 @@ export function migrateScope(
 
     if (!dryRun) {
       // Import to target scope with scope mapping
-      const importResult = importFromJson(exportResult.content, {
+      const importResult = await deps.importService.importFromJson(exportResult.content, {
         conflictStrategy: 'update',
         scopeMapping: {
           [`${fromScope.type}:${fromScope.id || ''}`]: {
@@ -153,7 +179,7 @@ export function migrateScope(
       });
 
       result.migrated = importResult.created + importResult.updated;
-      result.errors = importResult.errors.map((e) => ({
+      result.errors = importResult.errors.map((e: { entry: string; error: string }) => ({
         entryId: e.entry,
         error: e.error,
       }));
@@ -169,4 +195,5 @@ export function migrateScope(
 
   return result;
 }
+
 

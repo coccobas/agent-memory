@@ -2,33 +2,30 @@
  * Unit tests for validation service
  */
 
-import { describe, it, expect, beforeAll, afterAll, vi, beforeEach } from 'vitest';
-import { setupTestDb, cleanupTestDb, createTestGuideline } from '../fixtures/test-helpers.js';
-import { validateEntry } from '../../src/services/validation.service.js';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { setupTestDb, cleanupTestDb, createTestGuideline, createTestRepositories } from '../fixtures/test-helpers.js';
+import { createValidationService, type ValidationService } from '../../src/services/validation.service.js';
+import type { Repositories } from '../../src/core/interfaces/repositories.js';
 
 const TEST_DB_PATH = './data/test-validation.db';
-let sqlite: ReturnType<typeof setupTestDb>['sqlite'];
-let db: ReturnType<typeof setupTestDb>['db'];
+let testDb: ReturnType<typeof setupTestDb>;
+let repos: Repositories;
+let validationService: ValidationService;
 
-vi.mock('../../src/db/connection.js', async () => {
-  const actual = await vi.importActual<typeof import('../../src/db/connection.js')>(
-    '../../src/db/connection.js'
-  );
-  return {
-    ...actual,
-    getDb: () => db,
-  };
-});
+// Helper to call validateEntry on the service
+async function validateEntry(...args: Parameters<ValidationService['validateEntry']>) {
+  return await validationService.validateEntry(...args);
+}
 
 describe('validation.service', () => {
   beforeAll(() => {
-    const testDb = setupTestDb(TEST_DB_PATH);
-    sqlite = testDb.sqlite;
-    db = testDb.db;
+    testDb = setupTestDb(TEST_DB_PATH);
+    repos = createTestRepositories(testDb);
+    validationService = createValidationService(repos.guidelines);
   });
 
   afterAll(() => {
-    sqlite.close();
+    testDb.sqlite.close();
     cleanupTestDb(TEST_DB_PATH);
   });
 
@@ -38,8 +35,8 @@ describe('validation.service', () => {
   });
 
   describe('validateEntry - tool', () => {
-    it('should validate tool with valid data', () => {
-      const result = validateEntry(
+    it('should validate tool with valid data', async () => {
+      const result = await validateEntry(
         'tool',
         {
           name: 'test-tool',
@@ -52,8 +49,8 @@ describe('validation.service', () => {
       expect(result.errors).toHaveLength(0);
     });
 
-    it('should require tool name', () => {
-      const result = validateEntry(
+    it('should require tool name', async () => {
+      const result = await validateEntry(
         'tool',
         {
           description: 'Test description',
@@ -67,8 +64,8 @@ describe('validation.service', () => {
       );
     });
 
-    it('should reject empty tool name', () => {
-      const result = validateEntry(
+    it('should reject empty tool name', async () => {
+      const result = await validateEntry(
         'tool',
         {
           name: '',
@@ -81,9 +78,9 @@ describe('validation.service', () => {
       expect(result.errors.some((e) => e.field === 'name')).toBe(true);
     });
 
-    it('should reject tool name exceeding max length', () => {
+    it('should reject tool name exceeding max length', async () => {
       const longName = 'a'.repeat(501); // Exceeds new limit of 500
-      const result = validateEntry('tool', { name: longName }, 'global');
+      const result = await validateEntry('tool', { name: longName }, 'global');
 
       expect(result.valid).toBe(false);
       expect(
@@ -93,9 +90,9 @@ describe('validation.service', () => {
       ).toBe(true);
     });
 
-    it('should reject description exceeding max length', () => {
+    it('should reject description exceeding max length', async () => {
       const longDescription = 'a'.repeat(10 * 1024 + 1); // MAX_DESCRIPTION_LENGTH is 10KB
-      const result = validateEntry(
+      const result = await validateEntry(
         'tool',
         {
           name: 'test-tool',
@@ -112,8 +109,8 @@ describe('validation.service', () => {
   });
 
   describe('validateEntry - guideline', () => {
-    it('should validate guideline with valid data', () => {
-      const result = validateEntry(
+    it('should validate guideline with valid data', async () => {
+      const result = await validateEntry(
         'guideline',
         {
           name: 'test-guideline',
@@ -126,8 +123,8 @@ describe('validation.service', () => {
       expect(result.errors).toHaveLength(0);
     });
 
-    it('should require guideline name', () => {
-      const result = validateEntry(
+    it('should require guideline name', async () => {
+      const result = await validateEntry(
         'guideline',
         {
           content: 'Test content',
@@ -141,8 +138,8 @@ describe('validation.service', () => {
       );
     });
 
-    it('should require guideline content', () => {
-      const result = validateEntry(
+    it('should require guideline content', async () => {
+      const result = await validateEntry(
         'guideline',
         {
           name: 'test-guideline',
@@ -156,9 +153,9 @@ describe('validation.service', () => {
       ).toBe(true);
     });
 
-    it('should reject content exceeding max length', () => {
+    it('should reject content exceeding max length', async () => {
       const longContent = 'a'.repeat(1024 * 1024 + 1); // MAX_CONTENT_LENGTH is 1MB
-      const result = validateEntry(
+      const result = await validateEntry(
         'guideline',
         {
           name: 'test-guideline',
@@ -175,8 +172,8 @@ describe('validation.service', () => {
   });
 
   describe('validateEntry - knowledge', () => {
-    it('should validate knowledge with valid data', () => {
-      const result = validateEntry(
+    it('should validate knowledge with valid data', async () => {
+      const result = await validateEntry(
         'knowledge',
         {
           title: 'test-knowledge',
@@ -189,8 +186,8 @@ describe('validation.service', () => {
       expect(result.errors).toHaveLength(0);
     });
 
-    it('should require knowledge title', () => {
-      const result = validateEntry(
+    it('should require knowledge title', async () => {
+      const result = await validateEntry(
         'knowledge',
         {
           content: 'Test content',
@@ -204,8 +201,8 @@ describe('validation.service', () => {
       );
     });
 
-    it('should require knowledge content', () => {
-      const result = validateEntry(
+    it('should require knowledge content', async () => {
+      const result = await validateEntry(
         'knowledge',
         {
           title: 'test-knowledge',
@@ -221,8 +218,8 @@ describe('validation.service', () => {
   });
 
   describe('validateEntry - date fields', () => {
-    it('should validate valid ISO date strings', () => {
-      const result = validateEntry(
+    it('should validate valid ISO date strings', async () => {
+      const result = await validateEntry(
         'tool',
         {
           name: 'test-tool',
@@ -234,8 +231,8 @@ describe('validation.service', () => {
       expect(result.valid).toBe(true);
     });
 
-    it('should reject invalid date strings', () => {
-      const result = validateEntry(
+    it('should reject invalid date strings', async () => {
+      const result = await validateEntry(
         'tool',
         {
           name: 'test-tool',
@@ -250,8 +247,8 @@ describe('validation.service', () => {
       ).toBe(true);
     });
 
-    it('should reject non-string date values', () => {
-      const result = validateEntry(
+    it('should reject non-string date values', async () => {
+      const result = await validateEntry(
         'tool',
         {
           name: 'test-tool',
@@ -266,8 +263,8 @@ describe('validation.service', () => {
       ).toBe(true);
     });
 
-    it('should validate multiple date fields', () => {
-      const result = validateEntry(
+    it('should validate multiple date fields', async () => {
+      const result = await validateEntry(
         'tool',
         {
           name: 'test-tool',
@@ -283,8 +280,8 @@ describe('validation.service', () => {
   });
 
   describe('validateEntry - JSON metadata fields', () => {
-    it('should validate valid JSON strings', () => {
-      const result = validateEntry(
+    it('should validate valid JSON strings', async () => {
+      const result = await validateEntry(
         'tool',
         {
           name: 'test-tool',
@@ -296,8 +293,8 @@ describe('validation.service', () => {
       expect(result.valid).toBe(true);
     });
 
-    it('should validate valid JSON objects', () => {
-      const result = validateEntry(
+    it('should validate valid JSON objects', async () => {
+      const result = await validateEntry(
         'tool',
         {
           name: 'test-tool',
@@ -309,8 +306,8 @@ describe('validation.service', () => {
       expect(result.valid).toBe(true);
     });
 
-    it('should reject invalid JSON strings', () => {
-      const result = validateEntry(
+    it('should reject invalid JSON strings', async () => {
+      const result = await validateEntry(
         'tool',
         {
           name: 'test-tool',
@@ -325,8 +322,8 @@ describe('validation.service', () => {
       ).toBe(true);
     });
 
-    it('should reject arrays for metadata field', () => {
-      const result = validateEntry(
+    it('should reject arrays for metadata field', async () => {
+      const result = await validateEntry(
         'tool',
         {
           name: 'test-tool',
@@ -343,10 +340,10 @@ describe('validation.service', () => {
   });
 
   describe('validateEntry - custom validation rules', () => {
-    it('should apply validation rules from guidelines', () => {
+    it('should apply validation rules from guidelines', async () => {
       // Create a validation guideline
       createTestGuideline(
-        db,
+        testDb.db,
         'validation:tool:required_name',
         'global',
         undefined,
@@ -359,7 +356,7 @@ describe('validation.service', () => {
         })
       );
 
-      const result = validateEntry(
+      const result = await validateEntry(
         'tool',
         {
           description: 'Test description',
@@ -374,7 +371,7 @@ describe('validation.service', () => {
 
     it('should apply JSON validation rules', () => {
       createTestGuideline(
-        db,
+        testDb.db,
         'validation:tool:name_pattern',
         'global',
         undefined,
@@ -403,7 +400,7 @@ describe('validation.service', () => {
 
     it('should handle rules that apply to all entry types', () => {
       createTestGuideline(
-        db,
+        testDb.db,
         'validation:all:required_fields',
         'global',
         undefined,
@@ -426,8 +423,8 @@ describe('validation.service', () => {
   });
 
   describe('validateEntry - edge cases', () => {
-    it('should handle null values gracefully', () => {
-      const result = validateEntry(
+    it('should handle null values gracefully', async () => {
+      const result = await validateEntry(
         'tool',
         {
           name: null,
@@ -440,8 +437,8 @@ describe('validation.service', () => {
       expect(result.errors.some((e) => e.field === 'name')).toBe(true);
     });
 
-    it('should handle undefined values gracefully', () => {
-      const result = validateEntry(
+    it('should handle undefined values gracefully', async () => {
+      const result = await validateEntry(
         'tool',
         {
           name: undefined,
@@ -453,8 +450,8 @@ describe('validation.service', () => {
       expect(result.valid).toBe(false);
     });
 
-    it('should handle whitespace-only strings', () => {
-      const result = validateEntry(
+    it('should handle whitespace-only strings', async () => {
+      const result = await validateEntry(
         'tool',
         {
           name: '   ',
@@ -467,8 +464,8 @@ describe('validation.service', () => {
       expect(result.errors.some((e) => e.field === 'name')).toBe(true);
     });
 
-    it('should validate with scopeId provided', () => {
-      const result = validateEntry(
+    it('should validate with scopeId provided', async () => {
+      const result = await validateEntry(
         'tool',
         {
           name: 'test-tool',
@@ -481,5 +478,6 @@ describe('validation.service', () => {
     });
   });
 });
+
 
 

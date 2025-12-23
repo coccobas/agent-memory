@@ -2,17 +2,17 @@
  * Scope management handlers (organizations, projects, sessions)
  *
  * Security: Destructive operations require admin key authentication.
+ *
+ * Context-aware handlers that receive AppContext for dependency injection.
  */
 
-import {
-  organizationRepo,
-  projectRepo,
-  sessionRepo,
-  type CreateOrganizationInput,
-  type CreateProjectInput,
-  type UpdateProjectInput,
-  type CreateSessionInput,
-} from '../../db/repositories/scopes.js';
+import type {
+  CreateOrganizationInput,
+  CreateProjectInput,
+  UpdateProjectInput,
+  CreateSessionInput,
+} from '../../core/interfaces/repositories.js';
+import type { AppContext } from '../../core/context.js';
 import {
   getRequiredParam,
   getOptionalParam,
@@ -50,7 +50,7 @@ export const scopeHandlers = {
   // ORGANIZATIONS
   // ===========================================================================
 
-  orgCreate(params: OrgCreateParams & { adminKey?: string }) {
+  async orgCreate(context: AppContext, params: OrgCreateParams & { adminKey?: string }) {
     // Security: Org creation requires admin authentication
     requireAdminKey(params);
 
@@ -62,15 +62,15 @@ export const scopeHandlers = {
       metadata,
     };
 
-    const org = organizationRepo.create(input);
+    const org = await context.repos.organizations.create(input);
     return formatTimestamps({ success: true, organization: org });
   },
 
-  orgList(params: OrgListParams) {
+  async orgList(context: AppContext, params: OrgListParams) {
     const limit = getOptionalParam(params, 'limit', isNumber);
     const offset = getOptionalParam(params, 'offset', isNumber);
 
-    const organizations = organizationRepo.list({ limit, offset });
+    const organizations = await context.repos.organizations.list({ limit, offset });
     return formatTimestamps({
       organizations,
       meta: {
@@ -83,7 +83,7 @@ export const scopeHandlers = {
   // PROJECTS
   // ===========================================================================
 
-  projectCreate(params: ProjectCreateParams & { adminKey?: string }) {
+  async projectCreate(context: AppContext, params: ProjectCreateParams & { adminKey?: string }) {
     // Security: Project creation requires admin authentication
     requireAdminKey(params);
 
@@ -101,16 +101,16 @@ export const scopeHandlers = {
       metadata,
     };
 
-    const project = projectRepo.create(input);
+    const project = await context.repos.projects.create(input);
     return formatTimestamps({ success: true, project });
   },
 
-  projectList(params: ProjectListParams) {
+  async projectList(context: AppContext, params: ProjectListParams) {
     const orgId = getOptionalParam(params, 'orgId', isString);
     const limit = getOptionalParam(params, 'limit', isNumber);
     const offset = getOptionalParam(params, 'offset', isNumber);
 
-    const projects = projectRepo.list({ orgId }, { limit, offset });
+    const projects = await context.repos.projects.list({ orgId }, { limit, offset });
     return formatTimestamps({
       projects,
       meta: {
@@ -119,7 +119,7 @@ export const scopeHandlers = {
     });
   },
 
-  projectGet(params: ProjectGetParams) {
+  async projectGet(context: AppContext, params: ProjectGetParams) {
     const id = getOptionalParam(params, 'id', isString);
     const name = getOptionalParam(params, 'name', isString);
     const orgId = getOptionalParam(params, 'orgId', isString);
@@ -134,9 +134,9 @@ export const scopeHandlers = {
 
     let project;
     if (id) {
-      project = projectRepo.getById(id);
+      project = await context.repos.projects.getById(id);
     } else if (name) {
-      project = projectRepo.getByName(name, orgId);
+      project = await context.repos.projects.getByName(name, orgId);
     }
 
     if (!project) {
@@ -146,7 +146,7 @@ export const scopeHandlers = {
     return formatTimestamps({ project });
   },
 
-  projectUpdate(params: ProjectUpdateParams & { adminKey?: string }) {
+  async projectUpdate(context: AppContext, params: ProjectUpdateParams & { adminKey?: string }) {
     // Security: Project update requires admin authentication
     requireAdminKey(params);
 
@@ -162,7 +162,7 @@ export const scopeHandlers = {
     if (rootPath !== undefined) input.rootPath = rootPath;
     if (metadata !== undefined) input.metadata = metadata;
 
-    const project = projectRepo.update(id, input);
+    const project = await context.repos.projects.update(id, input);
     if (!project) {
       throw createNotFoundError('Project', id);
     }
@@ -170,7 +170,7 @@ export const scopeHandlers = {
     return formatTimestamps({ success: true, project });
   },
 
-  projectDelete(params: ProjectDeleteParams & { adminKey?: string }) {
+  async projectDelete(context: AppContext, params: ProjectDeleteParams & { adminKey?: string }) {
     // Security: Project deletion requires admin authentication
     requireAdminKey(params);
 
@@ -185,7 +185,7 @@ export const scopeHandlers = {
       );
     }
 
-    const deleted = projectRepo.delete(id);
+    const deleted = await context.repos.projects.delete(id);
     if (!deleted) {
       throw createNotFoundError('Project', id);
     }
@@ -197,7 +197,7 @@ export const scopeHandlers = {
   // SESSIONS
   // ===========================================================================
 
-  sessionStart(params: SessionStartParams) {
+  async sessionStart(context: AppContext, params: SessionStartParams) {
     const projectId = getOptionalParam(params, 'projectId', isString);
     const name = getOptionalParam(params, 'name', isString);
     const purpose = getOptionalParam(params, 'purpose', isString);
@@ -212,7 +212,7 @@ export const scopeHandlers = {
       metadata,
     };
 
-    const session = sessionRepo.create(input);
+    const session = await context.repos.sessions.create(input);
 
     // Fetch critical guidelines for the session's scope
     const criticalGuidelines = getCriticalGuidelinesForSession(projectId ?? null, session.id);
@@ -224,11 +224,11 @@ export const scopeHandlers = {
     });
   },
 
-  sessionEnd(params: SessionEndParams) {
+  async sessionEnd(context: AppContext, params: SessionEndParams) {
     const id = getRequiredParam(params, 'id', isString);
     const status = getOptionalParam(params, 'status', isSessionStatus);
 
-    const session = sessionRepo.end(id, (status ?? 'completed') as 'completed' | 'discarded');
+    const session = await context.repos.sessions.end(id, (status ?? 'completed') as 'completed' | 'discarded');
     if (!session) {
       throw createNotFoundError('Session', id);
     }
@@ -236,13 +236,13 @@ export const scopeHandlers = {
     return formatTimestamps({ success: true, session });
   },
 
-  sessionList(params: SessionListParams) {
+  async sessionList(context: AppContext, params: SessionListParams) {
     const projectId = getOptionalParam(params, 'projectId', isString);
     const status = getOptionalParam(params, 'status', isSessionStatus);
     const limit = getOptionalParam(params, 'limit', isNumber);
     const offset = getOptionalParam(params, 'offset', isNumber);
 
-    const sessions = sessionRepo.list({ projectId, status }, { limit, offset });
+    const sessions = await context.repos.sessions.list({ projectId, status }, { limit, offset });
     return formatTimestamps({
       sessions,
       meta: {

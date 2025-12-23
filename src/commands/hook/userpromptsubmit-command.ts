@@ -13,10 +13,10 @@ import {
   skipCandidate,
 } from './review.js';
 
-export function runUserPromptSubmitCommand(params: {
+export async function runUserPromptSubmitCommand(params: {
   projectId?: string;
   input: ClaudeHookInput;
-}): HookCommandResult {
+}): Promise<HookCommandResult> {
   const { projectId, input } = params;
 
   const sessionId = input.session_id;
@@ -52,13 +52,13 @@ export function runUserPromptSubmitCommand(params: {
 
   if (command === 'review' && subcommand === 'done') {
     const reviewedAt = new Date().toISOString();
-    setObserveReviewedAt(sessionId, reviewedAt);
+    await setObserveReviewedAt(sessionId, reviewedAt);
     return { exitCode: 2, stdout: [], stderr: ['✓ Review acknowledged'] };
   }
 
   if (command === 'status' || (command === 'review' && subcommand === 'status')) {
     const suspended = isReviewSuspended(sessionId);
-    const observe = getObserveState(sessionId);
+    const observe = await getObserveState(sessionId);
     const committed = observe.committedAt ? '✓' : '✗';
     const reviewed = observe.reviewedAt ? '✓' : (observe.needsReviewCount ?? 0) > 0 ? '⚠' : '–';
     return {
@@ -71,16 +71,16 @@ export function runUserPromptSubmitCommand(params: {
   }
 
   if (command === 'summary') {
-    return { exitCode: 2, stdout: [], stderr: formatSessionSummary(sessionId) };
+    return { exitCode: 2, stdout: [], stderr: await formatSessionSummary(sessionId) };
   }
 
   if (command === 'review' && !subcommand) {
-    const candidates = getReviewCandidates(sessionId);
+    const candidates = await getReviewCandidates(sessionId);
     return { exitCode: 2, stdout: [], stderr: formatCandidateList(candidates) };
   }
 
   if (command === 'list') {
-    const candidates = getReviewCandidates(sessionId);
+    const candidates = await getReviewCandidates(sessionId);
     return { exitCode: 2, stdout: [], stderr: formatCandidateList(candidates) };
   }
 
@@ -89,7 +89,7 @@ export function runUserPromptSubmitCommand(params: {
     if (!targetId) {
       return { exitCode: 2, stdout: [], stderr: ['Usage: !am show <id>'] };
     }
-    const candidates = getReviewCandidates(sessionId);
+    const candidates = await getReviewCandidates(sessionId);
     const candidate = findCandidateByShortId(candidates, targetId);
     if (!candidate) {
       return { exitCode: 2, stdout: [], stderr: [`Entry not found: ${targetId}`] };
@@ -109,12 +109,12 @@ export function runUserPromptSubmitCommand(params: {
         stderr: ['No project ID configured. Use --project-id when installing hooks.'],
       };
     }
-    const candidates = getReviewCandidates(sessionId);
+    const candidates = await getReviewCandidates(sessionId);
     const candidate = findCandidateByShortId(candidates, targetId);
     if (!candidate) {
       return { exitCode: 2, stdout: [], stderr: [`Entry not found: ${targetId}`] };
     }
-    const success = approveCandidate(candidate, projectId);
+    const success = await approveCandidate(candidate, projectId);
     if (success) {
       return { exitCode: 2, stdout: [], stderr: [`✓ Approved: ${candidate.name} → project scope`] };
     }
@@ -126,12 +126,12 @@ export function runUserPromptSubmitCommand(params: {
     if (!targetId) {
       return { exitCode: 2, stdout: [], stderr: ['Usage: !am reject <id>'] };
     }
-    const candidates = getReviewCandidates(sessionId);
+    const candidates = await getReviewCandidates(sessionId);
     const candidate = findCandidateByShortId(candidates, targetId);
     if (!candidate) {
       return { exitCode: 2, stdout: [], stderr: [`Entry not found: ${targetId}`] };
     }
-    const success = rejectCandidate(candidate);
+    const success = await rejectCandidate(candidate);
     if (success) {
       return { exitCode: 2, stdout: [], stderr: [`✓ Rejected: ${candidate.name}`] };
     }
@@ -143,12 +143,12 @@ export function runUserPromptSubmitCommand(params: {
     if (!targetId) {
       return { exitCode: 2, stdout: [], stderr: ['Usage: !am skip <id>'] };
     }
-    const candidates = getReviewCandidates(sessionId);
+    const candidates = await getReviewCandidates(sessionId);
     const candidate = findCandidateByShortId(candidates, targetId);
     if (!candidate) {
       return { exitCode: 2, stdout: [], stderr: [`Entry not found: ${targetId}`] };
     }
-    const success = skipCandidate(candidate);
+    const success = await skipCandidate(candidate);
     if (success) {
       return { exitCode: 2, stdout: [], stderr: [`✓ Skipped: ${candidate.name}`] };
     }

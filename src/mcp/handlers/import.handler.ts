@@ -1,18 +1,13 @@
 /**
  * Import Handler
  *
- * Handles importing memory entries from various formats (JSON, YAML, Markdown)
+ * Context-aware handler for importing memory entries from various formats.
  */
 
-import {
-  importFromJson,
-  importFromYaml,
-  importFromMarkdown,
-  importFromOpenAPI,
-  type ImportOptions,
-} from '../../services/import.service.js';
+import { createImportService, type ImportOptions } from '../../services/import.service.js';
 import { createValidationError } from '../../core/errors.js';
 import type { ScopeType } from '../../db/schema.js';
+import type { AppContext } from '../../core/context.js';
 import { requireAdminKey } from '../../utils/admin.js';
 
 interface ImportParams {
@@ -27,7 +22,7 @@ interface ImportParams {
 /**
  * Import entries from specified format
  */
-function importEntries(params: Record<string, unknown>) {
+async function importEntries(context: AppContext, params: Record<string, unknown>) {
   requireAdminKey(params);
   const importParams = params as unknown as ImportParams;
 
@@ -49,20 +44,29 @@ function importEntries(params: Record<string, unknown>) {
     importedBy: importParams.importedBy,
   };
 
+  // Create import service with injected repositories
+  const importService = createImportService({
+    toolRepo: context.repos.tools,
+    guidelineRepo: context.repos.guidelines,
+    knowledgeRepo: context.repos.knowledge,
+    tagRepo: context.repos.tags,
+    entryTagRepo: context.repos.entryTags,
+  });
+
   let result;
   switch (format) {
     case 'openapi':
-      result = importFromOpenAPI(importParams.content, options);
+      result = await importService.importFromOpenAPI(importParams.content, options);
       break;
     case 'yaml':
-      result = importFromYaml(importParams.content, options);
+      result = await importService.importFromYaml(importParams.content, options);
       break;
     case 'markdown':
-      result = importFromMarkdown(importParams.content, options);
+      result = await importService.importFromMarkdown(importParams.content, options);
       break;
     case 'json':
     default:
-      result = importFromJson(importParams.content, options);
+      result = await importService.importFromJson(importParams.content, options);
       break;
   }
 

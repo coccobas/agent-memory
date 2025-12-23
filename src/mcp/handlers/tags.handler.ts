@@ -25,7 +25,7 @@ import type {
 } from '../types.js';
 
 export const tagHandlers = {
-  create(context: AppContext, params: TagCreateParams) {
+  async create(context: AppContext, params: TagCreateParams) {
     // Require caller identity for auditing consistency (even though tags aren't permissioned directly)
     getRequiredParam(params, 'agentId', isString);
     const name = getRequiredParam(params, 'name', isString);
@@ -33,7 +33,7 @@ export const tagHandlers = {
     const description = getOptionalParam(params, 'description', isString);
 
     // Check if tag already exists
-    const existing = context.repos.tags.getByName(name);
+    const existing = await context.repos.tags.getByName(name);
     if (existing) {
       return { success: true, tag: existing, existed: true };
     }
@@ -44,18 +44,18 @@ export const tagHandlers = {
       description,
     };
 
-    const tag = context.repos.tags.create(input);
+    const tag = await context.repos.tags.create(input);
     return { success: true, tag, existed: false };
   },
 
-  list(context: AppContext, params: TagListParams) {
+  async list(context: AppContext, params: TagListParams) {
     getRequiredParam(params, 'agentId', isString);
     const category = getOptionalParam(params, 'category', isTagCategory);
     const isPredefined = getOptionalParam(params, 'isPredefined', isBoolean);
     const limit = getOptionalParam(params, 'limit', isNumber);
     const offset = getOptionalParam(params, 'offset', isNumber);
 
-    const tags = context.repos.tags.list({ category, isPredefined }, { limit, offset });
+    const tags = await context.repos.tags.list({ category, isPredefined }, { limit, offset });
     return {
       tags,
       meta: {
@@ -64,12 +64,12 @@ export const tagHandlers = {
     };
   },
 
-  attach(context: AppContext, params: TagAttachParams) {
+  async attach(context: AppContext, params: TagAttachParams) {
     const agentId = getRequiredParam(params, 'agentId', isString);
     const entryType = getRequiredParam(params, 'entryType', isEntryType);
     const entryId = getRequiredParam(params, 'entryId', isString);
 
-    const { scopeType, scopeId } = requireEntryPermissionWithScope(context, {
+    const { scopeType, scopeId } = await requireEntryPermissionWithScope(context, {
       agentId,
       action: 'write',
       entryType,
@@ -87,7 +87,7 @@ export const tagHandlers = {
       );
     }
 
-    const entryTag = context.repos.entryTags.attach({
+    const entryTag = await context.repos.entryTags.attach({
       entryType,
       entryId,
       tagId,
@@ -106,20 +106,20 @@ export const tagHandlers = {
     return { success: true, entryTag };
   },
 
-  detach(context: AppContext, params: TagDetachParams) {
+  async detach(context: AppContext, params: TagDetachParams) {
     const agentId = getRequiredParam(params, 'agentId', isString);
     const entryType = getRequiredParam(params, 'entryType', isEntryType);
     const entryId = getRequiredParam(params, 'entryId', isString);
     const tagId = getRequiredParam(params, 'tagId', isString);
 
-    const { scopeType, scopeId } = requireEntryPermissionWithScope(context, {
+    const { scopeType, scopeId } = await requireEntryPermissionWithScope(context, {
       agentId,
       action: 'write',
       entryType,
       entryId,
     });
 
-    const success = context.repos.entryTags.detach(entryType, entryId, tagId);
+    const success = await context.repos.entryTags.detach(entryType, entryId, tagId);
 
     if (success) {
       emitEntryChanged({
@@ -133,14 +133,14 @@ export const tagHandlers = {
     return { success };
   },
 
-  forEntry(context: AppContext, params: TagsForEntryParams) {
+  async forEntry(context: AppContext, params: TagsForEntryParams) {
     const agentId = getRequiredParam(params, 'agentId', isString);
     const entryType = getRequiredParam(params, 'entryType', isEntryType);
     const entryId = getRequiredParam(params, 'entryId', isString);
 
-    requireEntryPermissionWithScope(context, { agentId, action: 'read', entryType, entryId });
+    await requireEntryPermissionWithScope(context, { agentId, action: 'read', entryType, entryId });
 
-    const tags = context.repos.entryTags.getTagsForEntry(entryType, entryId);
+    const tags = await context.repos.entryTags.getTagsForEntry(entryType, entryId);
     return { tags };
   },
 };

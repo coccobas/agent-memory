@@ -11,7 +11,10 @@ import type { AppContextServices } from '../context.js';
 import { EmbeddingService } from '../../services/embedding.service.js';
 import { VectorService } from '../../services/vector.service.js';
 import { ExtractionService } from '../../services/extraction.service.js';
+import { PermissionService } from '../../services/permission.service.js';
+import { VerificationService } from '../../services/verification.service.js';
 import { registerVectorCleanupHook } from '../../db/repositories/base.js';
+import type { AppDb } from '../types.js';
 
 /**
  * Create all services with explicit configuration (DI pattern)
@@ -20,9 +23,10 @@ import { registerVectorCleanupHook } from '../../db/repositories/base.js';
  *
  * @param config - Application configuration
  * @param runtime - Runtime for wiring embedding pipeline
+ * @param db - Database instance (for permission service)
  * @returns Service instances
  */
-export function createServices(config: Config, runtime: Runtime): AppContextServices {
+export function createServices(config: Config, runtime: Runtime, db: AppDb): AppContextServices {
   // Create services with explicit configuration
   const embeddingService = new EmbeddingService({
     provider: config.embedding.provider,
@@ -59,9 +63,17 @@ export function createServices(config: Config, runtime: Runtime): AppContextServ
     await vectorService.removeEmbedding(entryType, entryId);
   });
 
+  // Create permission service
+  const permissionService = new PermissionService(db, runtime.memoryCoordinator);
+
+  // Create verification service
+  const verificationService = new VerificationService(db);
+
   return {
     embedding: embeddingService,
     vector: vectorService,
     extraction: extractionService,
+    permission: permissionService,
+    verification: verificationService,
   };
 }

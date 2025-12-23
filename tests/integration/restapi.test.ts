@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
 import {
   cleanupTestDb,
+  createTestContext,
   createTestConversation,
   createTestKnowledge,
   createTestProject,
@@ -10,40 +11,33 @@ import {
   schema,
 } from '../fixtures/test-helpers.js';
 import { and, eq } from 'drizzle-orm';
+import type { AppContext } from '../../src/core/context.js';
+import { createServer } from '../../src/restapi/server.js';
 
 const TEST_DB_PATH = './data/test-restapi.db';
 const REST_API_KEY = 'test-rest-api-key';
 const REST_AGENT_ID = 'rest-test-agent';
 
+let testDb: ReturnType<typeof setupTestDb>;
 let sqlite: ReturnType<typeof setupTestDb>['sqlite'];
 let db: ReturnType<typeof setupTestDb>['db'];
+let context: AppContext;
 let previousApiKey: string | undefined;
 let previousRestAgentId: string | undefined;
 let previousPermMode: string | undefined;
 
-vi.mock('../../src/db/connection.js', async () => {
-  const actual = await vi.importActual<typeof import('../../src/db/connection.js')>(
-    '../../src/db/connection.js'
-  );
-  return {
-    ...actual,
-    getDb: () => db,
-  };
-});
-
-import { createServer } from '../../src/restapi/server.js';
-
 describe('REST API Integration', () => {
-  beforeAll(() => {
+  beforeAll(async () => {
     previousApiKey = process.env.AGENT_MEMORY_REST_API_KEY;
     previousRestAgentId = process.env.AGENT_MEMORY_REST_AGENT_ID;
     previousPermMode = process.env.AGENT_MEMORY_PERMISSIONS_MODE;
     process.env.AGENT_MEMORY_REST_API_KEY = REST_API_KEY;
     process.env.AGENT_MEMORY_REST_AGENT_ID = REST_AGENT_ID;
     process.env.AGENT_MEMORY_PERMISSIONS_MODE = 'permissive';
-    const testDb = setupTestDb(TEST_DB_PATH);
+    testDb = setupTestDb(TEST_DB_PATH);
     sqlite = testDb.sqlite;
     db = testDb.db;
+    context = await createTestContext(testDb);
   });
 
   afterAll(() => {
@@ -55,7 +49,7 @@ describe('REST API Integration', () => {
   });
 
   it('GET /health returns ok', async () => {
-    const app = createServer();
+    const app = createServer(context);
     const res = await app.inject({ method: 'GET', url: '/health' });
     expect(res.statusCode).toBe(200);
     const body = res.json() as { ok: boolean; uptimeSec: number };
@@ -65,7 +59,7 @@ describe('REST API Integration', () => {
   });
 
   it('POST /v1/query rejects unauthorized requests', async () => {
-    const app = createServer();
+    const app = createServer(context);
     const res = await app.inject({
       method: 'POST',
       url: '/v1/query',
@@ -76,7 +70,7 @@ describe('REST API Integration', () => {
   });
 
   it('POST /v1/query returns 400 for non-object body', async () => {
-    const app = createServer();
+    const app = createServer(context);
     const res = await app.inject({
       method: 'POST',
       url: '/v1/query',
@@ -89,7 +83,7 @@ describe('REST API Integration', () => {
   });
 
   it('POST /v1/context returns 400 when missing required params', async () => {
-    const app = createServer();
+    const app = createServer(context);
     const res = await app.inject({
       method: 'POST',
       url: '/v1/context',
@@ -105,7 +99,7 @@ describe('REST API Integration', () => {
   it('POST /v1/query can search tools (semanticSearch disabled)', async () => {
     createTestTool(db, 'rest_tool_alpha', 'global', undefined, 'cli', 'Tool for REST search test');
 
-    const app = createServer();
+    const app = createServer(context);
     const res = await app.inject({
       method: 'POST',
       url: '/v1/query',
@@ -136,7 +130,7 @@ describe('REST API Integration', () => {
     createTestTool(db, 'rest_global_tool', 'global');
     createTestKnowledge(db, 'REST Project Knowledge', 'project', project.id);
 
-    const app = createServer();
+    const app = createServer(context);
     const res = await app.inject({
       method: 'POST',
       url: '/v1/context',
@@ -169,7 +163,7 @@ describe('REST API Integration', () => {
     const { knowledge } = createTestKnowledge(db, 'REST Linkable Knowledge', 'project', project.id);
     const conversation = createTestConversation(db, undefined, project.id);
 
-    const app = createServer();
+    const app = createServer(context);
     const res = await app.inject({
       method: 'POST',
       url: '/v1/query',

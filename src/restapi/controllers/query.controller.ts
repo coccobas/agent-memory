@@ -2,9 +2,8 @@ import type { FastifyRequest, FastifyReply } from 'fastify';
 import type { AppContext } from '../../core/context.js';
 import { executeQueryPipeline } from '../../services/query/index.js';
 import { logAction } from '../../services/audit.service.js';
-import { autoLinkContextFromQuery } from '../../services/conversation.service.js';
+import { createConversationService } from '../../services/conversation.service.js';
 import { formatTimestamps } from '../../utils/timestamp-formatter.js';
-import { checkPermission } from '../../services/permission.service.js';
 import { parseQueryBody, type QueryType } from '../query-params.js';
 import { isObject } from '../../utils/type-guards.js';
 import type { EntryType } from '../../db/schema.js';
@@ -16,7 +15,7 @@ const queryTypeToEntryType: Record<'tools' | 'guidelines' | 'knowledge', EntryTy
 };
 
 export class QueryController {
-  constructor(private context: AppContext) {}
+  constructor(private context: AppContext) { }
 
   async handleQuery(request: FastifyRequest, reply: FastifyReply) {
     const body = request.body;
@@ -40,11 +39,17 @@ export class QueryController {
     const scopeType = scope?.type ?? 'global';
     const scopeId = scope?.id;
     const typesToCheck: QueryType[] = requestedTypes ?? ['tools', 'guidelines', 'knowledge'];
-    
+
     // Permission Check
-    const deniedTypes = typesToCheck.filter(
-      (type) =>
-        !checkPermission(agentId, 'read', queryTypeToEntryType[type], null, scopeType, scopeId)
+    const deniedTypes = typesToCheck.filter((type) =>
+      !this.context.services!.permission.check(
+        agentId,
+        'read',
+        queryTypeToEntryType[type],
+        null,
+        scopeType,
+        scopeId
+      )
     );
 
     if (requestedTypes && deniedTypes.length > 0) {
@@ -66,7 +71,8 @@ export class QueryController {
 
     if (conversationId && autoLinkContext !== false) {
       try {
-        autoLinkContextFromQuery(conversationId, messageId, result);
+        const conversationService = createConversationService(this.context.repos.conversations);
+        conversationService.autoLinkContextFromQuery(conversationId, messageId, result);
       } catch {
         // ignore auto-link errors
       }

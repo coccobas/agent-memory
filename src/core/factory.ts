@@ -55,7 +55,7 @@ export async function createAppContext(config: Config, runtime?: Runtime): Promi
 
   // Create all components using sub-factories
   const repos = createRepositories(dbDeps);
-  const services = createServices(config, effectiveRuntime);
+  const services = createServices(config, effectiveRuntime, db);
   const queryDeps = createQueryPipeline(config, effectiveRuntime);
 
   // Wire query cache invalidation

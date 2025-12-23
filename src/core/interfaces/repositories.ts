@@ -24,6 +24,10 @@ import type {
   ScopeType,
 } from '../../db/schema.js';
 import type { PaginationOptions } from '../../db/repositories/base.js';
+import type {
+  IConflictRepository,
+  ListConflictsFilter,
+} from '../../db/repositories/conflicts.js';
 
 // Narrower type for conversation context entry types (excludes 'project')
 export type ContextEntryType = 'tool' | 'guideline' | 'knowledge';
@@ -45,16 +49,16 @@ export interface ListTagsFilter {
 }
 
 export interface ITagRepository {
-  create(input: CreateTagInput): Tag;
-  getById(id: string): Tag | undefined;
-  getByName(name: string): Tag | undefined;
+  create(input: CreateTagInput): Promise<Tag>;
+  getById(id: string): Promise<Tag | undefined>;
+  getByName(name: string): Promise<Tag | undefined>;
   getOrCreate(
     name: string,
     category?: 'language' | 'domain' | 'category' | 'meta' | 'custom'
-  ): Tag;
-  list(filter?: ListTagsFilter, options?: PaginationOptions): Tag[];
-  delete(id: string): boolean;
-  seedPredefined(): void;
+  ): Promise<Tag>;
+  list(filter?: ListTagsFilter, options?: PaginationOptions): Promise<Tag[]>;
+  delete(id: string): Promise<boolean>;
+  seedPredefined(): Promise<void>;
 }
 
 // =============================================================================
@@ -69,11 +73,11 @@ export interface AttachTagInput {
 }
 
 export interface IEntryTagRepository {
-  attach(input: AttachTagInput): EntryTag;
-  detach(entryType: EntryType, entryId: string, tagId: string): boolean;
-  getTagsForEntry(entryType: EntryType, entryId: string): Tag[];
-  getEntriesWithTag(tagId: string, entryType?: EntryType): EntryTag[];
-  removeAllFromEntry(entryType: EntryType, entryId: string): number;
+  attach(input: AttachTagInput): Promise<EntryTag>;
+  detach(entryType: EntryType, entryId: string, tagId: string): Promise<boolean>;
+  getTagsForEntry(entryType: EntryType, entryId: string): Promise<Tag[]>;
+  getEntriesWithTag(tagId: string, entryType?: EntryType): Promise<EntryTag[]>;
+  removeAllFromEntry(entryType: EntryType, entryId: string): Promise<number>;
 }
 
 // =============================================================================
@@ -98,20 +102,20 @@ export interface ListRelationsFilter {
 }
 
 export interface IEntryRelationRepository {
-  create(input: CreateRelationInput): EntryRelation;
-  getById(id: string): EntryRelation | undefined;
-  list(filter?: ListRelationsFilter, options?: PaginationOptions): EntryRelation[];
-  getFromEntry(entryType: EntryType, entryId: string): EntryRelation[];
-  getToEntry(entryType: EntryType, entryId: string): EntryRelation[];
-  delete(id: string): boolean;
+  create(input: CreateRelationInput): Promise<EntryRelation>;
+  getById(id: string): Promise<EntryRelation | undefined>;
+  list(filter?: ListRelationsFilter, options?: PaginationOptions): Promise<EntryRelation[]>;
+  getFromEntry(entryType: EntryType, entryId: string): Promise<EntryRelation[]>;
+  getToEntry(entryType: EntryType, entryId: string): Promise<EntryRelation[]>;
+  delete(id: string): Promise<boolean>;
   deleteByEntries(
     sourceType: EntryType,
     sourceId: string,
     targetType: EntryType,
     targetId: string,
     relationType: RelationType
-  ): boolean;
-  removeAllForEntry(entryType: EntryType, entryId: string): number;
+  ): Promise<boolean>;
+  removeAllForEntry(entryType: EntryType, entryId: string): Promise<number>;
 }
 
 // =============================================================================
@@ -129,11 +133,11 @@ export interface UpdateOrganizationInput {
 }
 
 export interface IOrganizationRepository {
-  create(input: CreateOrganizationInput): Organization;
-  getById(id: string): Organization | undefined;
-  list(options?: PaginationOptions): Organization[];
-  update(id: string, input: UpdateOrganizationInput): Organization | undefined;
-  delete(id: string): boolean;
+  create(input: CreateOrganizationInput): Promise<Organization>;
+  getById(id: string): Promise<Organization | undefined>;
+  list(options?: PaginationOptions): Promise<Organization[]>;
+  update(id: string, input: UpdateOrganizationInput): Promise<Organization | undefined>;
+  delete(id: string): Promise<boolean>;
 }
 
 // =============================================================================
@@ -160,12 +164,12 @@ export interface ListProjectsFilter {
 }
 
 export interface IProjectRepository {
-  create(input: CreateProjectInput): Project;
-  getById(id: string): Project | undefined;
-  getByName(name: string, orgId?: string): Project | undefined;
-  list(filter?: ListProjectsFilter, options?: PaginationOptions): Project[];
-  update(id: string, input: UpdateProjectInput): Project | undefined;
-  delete(id: string): boolean;
+  create(input: CreateProjectInput): Promise<Project>;
+  getById(id: string): Promise<Project | undefined>;
+  getByName(name: string, orgId?: string): Promise<Project | undefined>;
+  list(filter?: ListProjectsFilter, options?: PaginationOptions): Promise<Project[]>;
+  update(id: string, input: UpdateProjectInput): Promise<Project | undefined>;
+  delete(id: string): Promise<boolean>;
 }
 
 // =============================================================================
@@ -194,12 +198,12 @@ export interface ListSessionsFilter {
 }
 
 export interface ISessionRepository {
-  create(input: CreateSessionInput): Session;
-  getById(id: string): Session | undefined;
-  list(filter?: ListSessionsFilter, options?: PaginationOptions): Session[];
-  update(id: string, input: UpdateSessionInput): Session | undefined;
-  end(id: string, status?: 'completed' | 'discarded'): Session | undefined;
-  delete(id: string): boolean;
+  create(input: CreateSessionInput): Promise<Session>;
+  getById(id: string): Promise<Session | undefined>;
+  list(filter?: ListSessionsFilter, options?: PaginationOptions): Promise<Session[]>;
+  update(id: string, input: UpdateSessionInput): Promise<Session | undefined>;
+  end(id: string, status?: 'completed' | 'discarded'): Promise<Session | undefined>;
+  delete(id: string): Promise<boolean>;
 }
 
 // =============================================================================
@@ -220,14 +224,14 @@ export interface ListLocksFilter {
 }
 
 export interface IFileLockRepository {
-  checkout(filePath: string, agentId: string, options?: CheckoutOptions): FileLock;
-  checkin(filePath: string, agentId: string): void;
-  forceUnlock(filePath: string, agentId: string, reason?: string): void;
-  isLocked(filePath: string): boolean;
-  getLock(filePath: string): FileLock | null;
-  listLocks(filter?: ListLocksFilter): FileLock[];
-  cleanupExpiredLocks(): number;
-  cleanupStaleLocks(maxAgeHours?: number): number;
+  checkout(filePath: string, agentId: string, options?: CheckoutOptions): Promise<FileLock>;
+  checkin(filePath: string, agentId: string): Promise<void>;
+  forceUnlock(filePath: string, agentId: string, reason?: string): Promise<void>;
+  isLocked(filePath: string): Promise<boolean>;
+  getLock(filePath: string): Promise<FileLock | null>;
+  listLocks(filter?: ListLocksFilter): Promise<FileLock[]>;
+  cleanupExpiredLocks(): Promise<number>;
+  cleanupStaleLocks(maxAgeHours?: number): Promise<number>;
 }
 
 // =============================================================================
@@ -269,20 +273,20 @@ export interface GuidelineWithVersion extends Guideline {
 }
 
 export interface IGuidelineRepository {
-  create(input: CreateGuidelineInput): GuidelineWithVersion;
-  getById(id: string): GuidelineWithVersion | undefined;
+  create(input: CreateGuidelineInput): Promise<GuidelineWithVersion>;
+  getById(id: string): Promise<GuidelineWithVersion | undefined>;
   getByName(
     name: string,
     scopeType: ScopeType,
     scopeId?: string,
     inherit?: boolean
-  ): GuidelineWithVersion | undefined;
-  list(filter?: ListGuidelinesFilter, options?: PaginationOptions): GuidelineWithVersion[];
-  update(id: string, input: UpdateGuidelineInput): GuidelineWithVersion | undefined;
-  getHistory(guidelineId: string): GuidelineVersion[];
-  deactivate(id: string): boolean;
-  reactivate(id: string): boolean;
-  delete(id: string): boolean;
+  ): Promise<GuidelineWithVersion | undefined>;
+  list(filter?: ListGuidelinesFilter, options?: PaginationOptions): Promise<GuidelineWithVersion[]>;
+  update(id: string, input: UpdateGuidelineInput): Promise<GuidelineWithVersion | undefined>;
+  getHistory(guidelineId: string): Promise<GuidelineVersion[]>;
+  deactivate(id: string): Promise<boolean>;
+  reactivate(id: string): Promise<boolean>;
+  delete(id: string): Promise<boolean>;
 }
 
 // =============================================================================
@@ -324,20 +328,20 @@ export interface KnowledgeWithVersion extends Knowledge {
 }
 
 export interface IKnowledgeRepository {
-  create(input: CreateKnowledgeInput): KnowledgeWithVersion;
-  getById(id: string): KnowledgeWithVersion | undefined;
+  create(input: CreateKnowledgeInput): Promise<KnowledgeWithVersion>;
+  getById(id: string): Promise<KnowledgeWithVersion | undefined>;
   getByTitle(
     title: string,
     scopeType: ScopeType,
     scopeId?: string,
     inherit?: boolean
-  ): KnowledgeWithVersion | undefined;
-  list(filter?: ListKnowledgeFilter, options?: PaginationOptions): KnowledgeWithVersion[];
-  update(id: string, input: UpdateKnowledgeInput): KnowledgeWithVersion | undefined;
-  getHistory(knowledgeId: string): KnowledgeVersion[];
-  deactivate(id: string): boolean;
-  reactivate(id: string): boolean;
-  delete(id: string): boolean;
+  ): Promise<KnowledgeWithVersion | undefined>;
+  list(filter?: ListKnowledgeFilter, options?: PaginationOptions): Promise<KnowledgeWithVersion[]>;
+  update(id: string, input: UpdateKnowledgeInput): Promise<KnowledgeWithVersion | undefined>;
+  getHistory(knowledgeId: string): Promise<KnowledgeVersion[]>;
+  deactivate(id: string): Promise<boolean>;
+  reactivate(id: string): Promise<boolean>;
+  delete(id: string): Promise<boolean>;
 }
 
 // =============================================================================
@@ -379,20 +383,20 @@ export interface ToolWithVersion extends Tool {
 }
 
 export interface IToolRepository {
-  create(input: CreateToolInput): ToolWithVersion;
-  getById(id: string): ToolWithVersion | undefined;
+  create(input: CreateToolInput): Promise<ToolWithVersion>;
+  getById(id: string): Promise<ToolWithVersion | undefined>;
   getByName(
     name: string,
     scopeType: ScopeType,
     scopeId?: string,
     inherit?: boolean
-  ): ToolWithVersion | undefined;
-  list(filter?: ListToolsFilter, options?: PaginationOptions): ToolWithVersion[];
-  update(id: string, input: UpdateToolInput): ToolWithVersion | undefined;
-  getHistory(toolId: string): ToolVersion[];
-  deactivate(id: string): boolean;
-  reactivate(id: string): boolean;
-  delete(id: string): boolean;
+  ): Promise<ToolWithVersion | undefined>;
+  list(filter?: ListToolsFilter, options?: PaginationOptions): Promise<ToolWithVersion[]>;
+  update(id: string, input: UpdateToolInput): Promise<ToolWithVersion | undefined>;
+  getHistory(toolId: string): Promise<ToolVersion[]>;
+  deactivate(id: string): Promise<boolean>;
+  reactivate(id: string): Promise<boolean>;
+  delete(id: string): Promise<boolean>;
 }
 
 // =============================================================================
@@ -480,15 +484,15 @@ export interface ConversationWithMessages {
 }
 
 export interface IConversationRepository {
-  create(input: CreateConversationInput): ConversationWithMessages;
+  create(input: CreateConversationInput): Promise<ConversationWithMessages>;
   getById(
     id: string,
     includeMessages?: boolean,
     includeContext?: boolean
-  ): ConversationWithMessages | undefined;
-  list(filter?: ListConversationsFilter, options?: PaginationOptions): ConversationWithMessages[];
-  update(id: string, updates: UpdateConversationInput): ConversationWithMessages | undefined;
-  addMessage(input: AddMessageInput): {
+  ): Promise<ConversationWithMessages | undefined>;
+  list(filter?: ListConversationsFilter, options?: PaginationOptions): Promise<ConversationWithMessages[]>;
+  update(id: string, updates: UpdateConversationInput): Promise<ConversationWithMessages | undefined>;
+  addMessage(input: AddMessageInput): Promise<{
     id: string;
     conversationId: string;
     role: 'user' | 'agent' | 'system';
@@ -498,12 +502,12 @@ export interface IConversationRepository {
     toolsUsed: string[] | null;
     metadata: Record<string, unknown> | null;
     createdAt: string;
-  };
+  }>;
   getMessages(
     conversationId: string,
     limit?: number,
     offset?: number
-  ): Array<{
+  ): Promise<Array<{
     id: string;
     conversationId: string;
     role: 'user' | 'agent' | 'system';
@@ -513,8 +517,8 @@ export interface IConversationRepository {
     toolsUsed: string[] | null;
     metadata: Record<string, unknown> | null;
     createdAt: string;
-  }>;
-  linkContext(input: LinkContextInput): {
+  }>>;
+  linkContext(input: LinkContextInput): Promise<{
     id: string;
     conversationId: string;
     messageId: string | null;
@@ -522,11 +526,11 @@ export interface IConversationRepository {
     entryId: string;
     relevanceScore: number | null;
     createdAt: string;
-  };
+  }>;
   getContextForEntry(
     entryType: ContextEntryType,
     entryId: string
-  ): Array<{
+  ): Promise<Array<{
     id: string;
     conversationId: string;
     messageId: string | null;
@@ -534,8 +538,8 @@ export interface IConversationRepository {
     entryId: string;
     relevanceScore: number | null;
     createdAt: string;
-  }>;
-  getContextForConversation(conversationId: string): Array<{
+  }>>;
+  getContextForConversation(conversationId: string): Promise<Array<{
     id: string;
     conversationId: string;
     messageId: string | null;
@@ -543,9 +547,17 @@ export interface IConversationRepository {
     entryId: string;
     relevanceScore: number | null;
     createdAt: string;
-  }>;
-  search(searchQuery: string, filter?: ConversationSearchFilter): ConversationWithMessages[];
+  }>>;
+  search(searchQuery: string, filter?: ConversationSearchFilter): Promise<ConversationWithMessages[]>;
 }
+
+// =============================================================================
+// CONFLICT REPOSITORY
+// =============================================================================
+
+// IConflictRepository and ListConflictsFilter are imported from conflicts.ts
+// and re-exported here for centralized access
+export type { IConflictRepository, ListConflictsFilter };
 
 // =============================================================================
 // AGGREGATED REPOSITORIES TYPE
@@ -566,4 +578,5 @@ export interface Repositories {
   knowledge: IKnowledgeRepository;
   tools: IToolRepository;
   conversations: IConversationRepository;
+  conflicts: IConflictRepository;
 }

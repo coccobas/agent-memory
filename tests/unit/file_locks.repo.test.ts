@@ -46,11 +46,11 @@ describe('File Locks Repository', () => {
   });
 
   describe('checkout', () => {
-    it('should checkout a file successfully', () => {
+    it('should checkout a file successfully', async () => {
       const filePath = '/path/to/file.ts';
       const agentId = 'agent-1';
 
-      const lock = fileLockRepo.checkout(filePath, agentId);
+      const lock = await fileLockRepo.checkout(filePath, agentId);
 
       expect(lock).toBeDefined();
       expect(lock.filePath).toBe(filePath);
@@ -58,11 +58,11 @@ describe('File Locks Repository', () => {
       expect(lock.expiresAt).toBeDefined();
     });
 
-    it('should use default timeout if not specified', () => {
+    it('should use default timeout if not specified', async () => {
       const filePath = '/path/to/file.ts';
       const agentId = 'agent-1';
 
-      const lock = fileLockRepo.checkout(filePath, agentId);
+      const lock = await fileLockRepo.checkout(filePath, agentId);
       const checkedOutAt = new Date(lock.checkedOutAt).getTime();
       const expiresAt = new Date(lock.expiresAt!).getTime();
       const timeoutSeconds = (expiresAt - checkedOutAt) / 1000;
@@ -70,12 +70,12 @@ describe('File Locks Repository', () => {
       expect(timeoutSeconds).toBeCloseTo(DEFAULT_LOCK_TIMEOUT_SECONDS, 1);
     });
 
-    it('should use custom timeout if specified', () => {
+    it('should use custom timeout if specified', async () => {
       const filePath = '/path/to/file.ts';
       const agentId = 'agent-1';
       const customTimeout = 7200; // 2 hours
 
-      const lock = fileLockRepo.checkout(filePath, agentId, { expiresIn: customTimeout });
+      const lock = await fileLockRepo.checkout(filePath, agentId, { expiresIn: customTimeout });
       const checkedOutAt = new Date(lock.checkedOutAt).getTime();
       const expiresAt = new Date(lock.expiresAt!).getTime();
       const timeoutSeconds = (expiresAt - checkedOutAt) / 1000;
@@ -83,23 +83,23 @@ describe('File Locks Repository', () => {
       expect(timeoutSeconds).toBeCloseTo(customTimeout, 1);
     });
 
-    it('should throw error if file is already locked', () => {
+    it('should throw error if file is already locked', async () => {
       const filePath = '/path/to/file.ts';
       const agentId1 = 'agent-1';
       const agentId2 = 'agent-2';
 
-      fileLockRepo.checkout(filePath, agentId1);
+      await fileLockRepo.checkout(filePath, agentId1);
 
-      expect(() => {
-        fileLockRepo.checkout(filePath, agentId2);
-      }).toThrow(`already locked by agent ${agentId1}`);
+      await expect(
+        fileLockRepo.checkout(filePath, agentId2)
+      ).rejects.toThrow(`already locked by agent ${agentId1}`);
     });
 
-    it('should store session and project IDs', () => {
+    it('should store session and project IDs', async () => {
       const filePath = '/path/to/file.ts';
       const agentId = 'agent-1';
 
-      const lock = fileLockRepo.checkout(filePath, agentId, {
+      const lock = await fileLockRepo.checkout(filePath, agentId, {
         sessionId: testSessionId,
         projectId: testProjectId,
       });
@@ -108,86 +108,86 @@ describe('File Locks Repository', () => {
       expect(lock.projectId).toBe(testProjectId);
     });
 
-    it('should store metadata', () => {
+    it('should store metadata', async () => {
       const filePath = '/path/to/file.ts';
       const agentId = 'agent-1';
       const metadata = { reason: 'refactoring', priority: 'high' };
 
-      const lock = fileLockRepo.checkout(filePath, agentId, { metadata });
+      const lock = await fileLockRepo.checkout(filePath, agentId, { metadata });
 
       expect(lock.metadata).toEqual(metadata);
     });
   });
 
   describe('checkin', () => {
-    it('should check in a file successfully', () => {
+    it('should check in a file successfully', async () => {
       const filePath = '/path/to/file.ts';
       const agentId = 'agent-1';
 
-      fileLockRepo.checkout(filePath, agentId);
-      fileLockRepo.checkin(filePath, agentId);
+      await fileLockRepo.checkout(filePath, agentId);
+      await fileLockRepo.checkin(filePath, agentId);
 
-      expect(fileLockRepo.isLocked(filePath)).toBe(false);
+      expect(await fileLockRepo.isLocked(filePath)).toBe(false);
     });
 
-    it('should throw error if file is not locked', () => {
+    it('should throw error if file is not locked', async () => {
       const filePath = '/path/to/file.ts';
       const agentId = 'agent-1';
 
-      expect(() => {
-        fileLockRepo.checkin(filePath, agentId);
-      }).toThrow('not locked');
+      await expect(
+        fileLockRepo.checkin(filePath, agentId)
+      ).rejects.toThrow('not locked');
     });
 
-    it('should throw error if locked by different agent', () => {
+    it('should throw error if locked by different agent', async () => {
       const filePath = '/path/to/file.ts';
       const agentId1 = 'agent-1';
       const agentId2 = 'agent-2';
 
-      fileLockRepo.checkout(filePath, agentId1);
+      await fileLockRepo.checkout(filePath, agentId1);
 
-      expect(() => {
-        fileLockRepo.checkin(filePath, agentId2);
-      }).toThrow('locked by agent');
+      await expect(
+        fileLockRepo.checkin(filePath, agentId2)
+      ).rejects.toThrow('locked by agent');
     });
   });
 
   describe('forceUnlock', () => {
-    it('should force unlock a file', () => {
+    it('should force unlock a file', async () => {
       const filePath = '/path/to/file.ts';
       const agentId1 = 'agent-1';
       const agentId2 = 'agent-2';
 
-      fileLockRepo.checkout(filePath, agentId1);
-      fileLockRepo.forceUnlock(filePath, agentId2, 'Emergency unlock');
+      await fileLockRepo.checkout(filePath, agentId1);
+      await fileLockRepo.forceUnlock(filePath, agentId2, 'Emergency unlock');
 
-      expect(fileLockRepo.isLocked(filePath)).toBe(false);
+      expect(await fileLockRepo.isLocked(filePath)).toBe(false);
     });
 
-    it('should throw error if file is not locked', () => {
+    it('should throw error if file is not locked', async () => {
       const filePath = '/path/to/file.ts';
       const agentId = 'agent-1';
 
-      expect(() => {
-        fileLockRepo.forceUnlock(filePath, agentId);
-      }).toThrow('not locked');
+      await expect(
+        fileLockRepo.forceUnlock(filePath, agentId)
+      ).rejects.toThrow('not locked');
     });
   });
 
   describe('isLocked', () => {
-    it('should return true for locked file', () => {
+    it('should return true for locked file', async () => {
       const filePath = '/path/to/file.ts';
       const agentId = 'agent-1';
 
-      fileLockRepo.checkout(filePath, agentId);
+      await fileLockRepo.checkout(filePath, agentId);
 
-      expect(fileLockRepo.isLocked(filePath)).toBe(true);
+      expect(await fileLockRepo.isLocked(filePath)).toBe(true);
     });
 
-    it('should return false for unlocked file', () => {
+    it('should return false for unlocked file', async () => {
       const filePath = '/path/to/file.ts';
 
-      expect(fileLockRepo.isLocked(filePath)).toBe(false);
+      expect(await fileLockRepo.isLocked(filePath)).toBe(false);
     });
 
     it('should return false for expired lock', async () => {
@@ -195,74 +195,74 @@ describe('File Locks Repository', () => {
       const agentId = 'agent-1';
 
       // Create a lock with very short timeout
-      fileLockRepo.checkout(filePath, agentId, { expiresIn: 0.1 }); // 100ms
+      await fileLockRepo.checkout(filePath, agentId, { expiresIn: 0.1 }); // 100ms
 
       // Wait for expiration
       await new Promise((resolve) => setTimeout(resolve, 200));
 
-      expect(fileLockRepo.isLocked(filePath)).toBe(false);
+      expect(await fileLockRepo.isLocked(filePath)).toBe(false);
     });
   });
 
   describe('getLock', () => {
-    it('should return lock information', () => {
+    it('should return lock information', async () => {
       const filePath = '/path/to/file.ts';
       const agentId = 'agent-1';
 
-      fileLockRepo.checkout(filePath, agentId);
-      const lock = fileLockRepo.getLock(filePath);
+      await fileLockRepo.checkout(filePath, agentId);
+      const lock = await fileLockRepo.getLock(filePath);
 
       expect(lock).toBeDefined();
       expect(lock?.filePath).toBe(filePath);
       expect(lock?.checkedOutBy).toBe(agentId);
     });
 
-    it('should return null for unlocked file', () => {
+    it('should return null for unlocked file', async () => {
       const filePath = '/path/to/file.ts';
 
-      const lock = fileLockRepo.getLock(filePath);
+      const lock = await fileLockRepo.getLock(filePath);
 
       expect(lock).toBeNull();
     });
   });
 
   describe('listLocks', () => {
-    it('should list all active locks', () => {
-      fileLockRepo.checkout('/file1.ts', 'agent-1');
-      fileLockRepo.checkout('/file2.ts', 'agent-2');
-      fileLockRepo.checkout('/file3.ts', 'agent-1');
+    it('should list all active locks', async () => {
+      await fileLockRepo.checkout('/file1.ts', 'agent-1');
+      await fileLockRepo.checkout('/file2.ts', 'agent-2');
+      await fileLockRepo.checkout('/file3.ts', 'agent-1');
 
-      const locks = fileLockRepo.listLocks();
+      const locks = await fileLockRepo.listLocks();
 
       expect(locks.length).toBe(3);
     });
 
-    it('should filter by project ID', () => {
-      fileLockRepo.checkout('/file1.ts', 'agent-1', { projectId: testProjectId });
-      fileLockRepo.checkout('/file2.ts', 'agent-2'); // no project
+    it('should filter by project ID', async () => {
+      await fileLockRepo.checkout('/file1.ts', 'agent-1', { projectId: testProjectId });
+      await fileLockRepo.checkout('/file2.ts', 'agent-2'); // no project
 
-      const locks = fileLockRepo.listLocks({ projectId: testProjectId });
+      const locks = await fileLockRepo.listLocks({ projectId: testProjectId });
 
       expect(locks.length).toBe(1);
       expect(locks[0].projectId).toBe(testProjectId);
     });
 
-    it('should filter by session ID', () => {
-      fileLockRepo.checkout('/file1.ts', 'agent-1', { sessionId: testSessionId });
-      fileLockRepo.checkout('/file2.ts', 'agent-2'); // no session
+    it('should filter by session ID', async () => {
+      await fileLockRepo.checkout('/file1.ts', 'agent-1', { sessionId: testSessionId });
+      await fileLockRepo.checkout('/file2.ts', 'agent-2'); // no session
 
-      const locks = fileLockRepo.listLocks({ sessionId: testSessionId });
+      const locks = await fileLockRepo.listLocks({ sessionId: testSessionId });
 
       expect(locks.length).toBe(1);
       expect(locks[0].sessionId).toBe(testSessionId);
     });
 
-    it('should filter by agent ID', () => {
-      fileLockRepo.checkout('/file1.ts', 'agent-1');
-      fileLockRepo.checkout('/file2.ts', 'agent-2');
-      fileLockRepo.checkout('/file3.ts', 'agent-1');
+    it('should filter by agent ID', async () => {
+      await fileLockRepo.checkout('/file1.ts', 'agent-1');
+      await fileLockRepo.checkout('/file2.ts', 'agent-2');
+      await fileLockRepo.checkout('/file3.ts', 'agent-1');
 
-      const locks = fileLockRepo.listLocks({ agentId: 'agent-1' });
+      const locks = await fileLockRepo.listLocks({ agentId: 'agent-1' });
 
       expect(locks.length).toBe(2);
       expect(locks.every((lock) => lock.checkedOutBy === 'agent-1')).toBe(true);
@@ -271,23 +271,23 @@ describe('File Locks Repository', () => {
 
   describe('cleanupExpiredLocks', () => {
     it('should remove expired locks', async () => {
-      fileLockRepo.checkout('/file1.ts', 'agent-1', { expiresIn: 0.1 });
-      fileLockRepo.checkout('/file2.ts', 'agent-2', { expiresIn: 1000 });
+      await fileLockRepo.checkout('/file1.ts', 'agent-1', { expiresIn: 0.1 });
+      await fileLockRepo.checkout('/file2.ts', 'agent-2', { expiresIn: 1000 });
 
       // Wait for first lock to expire
       await new Promise((resolve) => setTimeout(resolve, 200));
 
-      const cleaned = fileLockRepo.cleanupExpiredLocks();
+      const cleaned = await fileLockRepo.cleanupExpiredLocks();
 
       expect(cleaned).toBe(1);
-      expect(fileLockRepo.isLocked('/file1.ts')).toBe(false);
-      expect(fileLockRepo.isLocked('/file2.ts')).toBe(true);
+      expect(await fileLockRepo.isLocked('/file1.ts')).toBe(false);
+      expect(await fileLockRepo.isLocked('/file2.ts')).toBe(true);
     });
 
-    it('should return 0 if no expired locks', () => {
-      fileLockRepo.checkout('/file1.ts', 'agent-1');
+    it('should return 0 if no expired locks', async () => {
+      await fileLockRepo.checkout('/file1.ts', 'agent-1');
 
-      const cleaned = fileLockRepo.cleanupExpiredLocks();
+      const cleaned = await fileLockRepo.cleanupExpiredLocks();
 
       expect(cleaned).toBe(0);
     });

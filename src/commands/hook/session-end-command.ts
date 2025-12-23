@@ -2,11 +2,11 @@ import type { ClaudeHookInput, HookCommandResult } from './types.js';
 import { ensureSessionIdExists } from './session.js';
 import { ingestTranscript } from './transcript-ingest.js';
 
-export function runSessionEndCommand(params: {
+export async function runSessionEndCommand(params: {
   projectId?: string;
   agentId?: string;
   input: ClaudeHookInput;
-}): HookCommandResult {
+}): Promise<HookCommandResult> {
   const { projectId, agentId, input } = params;
 
   const sessionId = input.session_id;
@@ -20,7 +20,7 @@ export function runSessionEndCommand(params: {
   }
 
   ensureSessionIdExists(sessionId, projectId);
-  ingestTranscript({
+  await ingestTranscript({
     sessionId,
     transcriptPath,
     projectId,

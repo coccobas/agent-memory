@@ -61,9 +61,9 @@ If blocked=true is returned, DO NOT proceed with the action.`,
     },
   },
   actions: {
-    pre_check: { handler: verificationHandlers.preCheck },
-    post_check: { handler: verificationHandlers.postCheck },
-    acknowledge: { handler: verificationHandlers.acknowledge },
-    status: { handler: verificationHandlers.status },
+    pre_check: { contextHandler: verificationHandlers.preCheck },
+    post_check: { contextHandler: verificationHandlers.postCheck },
+    acknowledge: { contextHandler: verificationHandlers.acknowledge },
+    status: { contextHandler: verificationHandlers.status },
   },
 };

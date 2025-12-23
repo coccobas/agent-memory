@@ -2,46 +2,31 @@
  * Unit tests for export service
  */
 
-import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
-import { setupTestDb, cleanupTestDb } from '../fixtures/test-helpers.js';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { setupTestDb, cleanupTestDb, createTestRepositories } from '../fixtures/test-helpers.js';
+import type { Repositories } from '../../src/core/interfaces/repositories.js';
+import { exportToJson, exportToMarkdown, exportToYaml } from '../../src/services/export.service.js';
 
 const TEST_DB_PATH = './data/test-export.db';
 
-let sqlite: ReturnType<typeof setupTestDb>['sqlite'];
-let db: ReturnType<typeof setupTestDb>['db'];
-
-vi.mock('../../src/db/connection.js', async () => {
-  const actual = await vi.importActual<typeof import('../../src/db/connection.js')>(
-    '../../src/db/connection.js'
-  );
-  return {
-    ...actual,
-    getDb: () => db,
-  };
-});
-
-import { toolRepo } from '../../src/db/repositories/tools.js';
-import { guidelineRepo } from '../../src/db/repositories/guidelines.js';
-import { knowledgeRepo } from '../../src/db/repositories/knowledge.js';
-import { tagRepo, entryTagRepo } from '../../src/db/repositories/tags.js';
-import { exportToJson, exportToMarkdown, exportToYaml } from '../../src/services/export.service.js';
+let testDb: ReturnType<typeof setupTestDb>;
+let repos: Repositories;
 
 describe('Export Service', () => {
   beforeAll(() => {
-    const testDb = setupTestDb(TEST_DB_PATH);
-    sqlite = testDb.sqlite;
-    db = testDb.db;
+    testDb = setupTestDb(TEST_DB_PATH);
+    repos = createTestRepositories(testDb);
   });
 
   afterAll(() => {
-    sqlite.close();
+    testDb.sqlite.close();
     cleanupTestDb(TEST_DB_PATH);
   });
 
   describe('exportToJson', () => {
-    it('should export tools to JSON', () => {
+    it('should export tools to JSON', async () => {
       // Create a test tool
-      const tool = toolRepo.create({
+      const tool = await repos.tools.create({
         scopeType: 'global',
         name: 'test-export-tool',
         description: 'Test tool for export',
@@ -64,8 +49,8 @@ describe('Export Service', () => {
       expect(exportedTool.name).toBe('test-export-tool');
     });
 
-    it('should export guidelines to JSON', () => {
-      const guideline = guidelineRepo.create({
+    it('should export guidelines to JSON', async () => {
+      const guideline = await repos.guidelines.create({
         scopeType: 'global',
         name: 'test-export-guideline',
         content: 'Test guideline content',
@@ -81,14 +66,14 @@ describe('Export Service', () => {
       expect(exportedGuideline.priority).toBe(80);
     });
 
-    it('should filter by scope', () => {
-      toolRepo.create({
+    it('should filter by scope', async () => {
+      await repos.tools.create({
         scopeType: 'global',
         name: 'global-tool',
         createdBy: 'test',
       });
 
-      toolRepo.create({
+      await repos.tools.create({
         scopeType: 'project',
         scopeId: 'proj-123',
         name: 'project-tool',
@@ -106,15 +91,15 @@ describe('Export Service', () => {
       expect(toolNames).not.toContain('project-tool');
     });
 
-    it('should include tags', () => {
-      const tool = toolRepo.create({
+    it('should include tags', async () => {
+      const tool = await repos.tools.create({
         scopeType: 'global',
         name: 'tagged-tool',
         createdBy: 'test',
       });
 
-      const tag = tagRepo.getOrCreate('test-tag');
-      entryTagRepo.attach({
+      const tag = await repos.tags.getOrCreate('test-tag');
+      await repos.entryTags.attach({
         entryType: 'tool',
         entryId: tool.id,
         tagId: tag.id,
@@ -127,21 +112,21 @@ describe('Export Service', () => {
       expect(exportedTool.tags).toContain('test-tag');
     });
 
-    it('should filter by tags', () => {
-      const tool1 = toolRepo.create({
+    it('should filter by tags', async () => {
+      const tool1 = await repos.tools.create({
         scopeType: 'global',
         name: 'python-tool',
         createdBy: 'test',
       });
 
-      const tool2 = toolRepo.create({
+      const tool2 = await repos.tools.create({
         scopeType: 'global',
         name: 'java-tool',
         createdBy: 'test',
       });
 
-      const pythonTag = tagRepo.getOrCreate('python');
-      entryTagRepo.attach({
+      const pythonTag = await repos.tags.getOrCreate('python');
+      await repos.entryTags.attach({
         entryType: 'tool',
         entryId: tool1.id,
         tagId: pythonTag.id,
@@ -160,8 +145,8 @@ describe('Export Service', () => {
   });
 
   describe('exportToMarkdown', () => {
-    it('should export to Markdown format', () => {
-      toolRepo.create({
+    it('should export to Markdown format', async () => {
+      await repos.tools.create({
         scopeType: 'global',
         name: 'markdown-tool',
         description: 'Tool for Markdown export',
@@ -176,8 +161,8 @@ describe('Export Service', () => {
       expect(result.content).toContain('### markdown-tool');
     });
 
-    it('should format guidelines properly', () => {
-      guidelineRepo.create({
+    it('should format guidelines properly', async () => {
+      await repos.guidelines.create({
         scopeType: 'global',
         name: 'markdown-guideline',
         content: 'This is the guideline content',
@@ -195,8 +180,8 @@ describe('Export Service', () => {
   });
 
   describe('exportToYaml', () => {
-    it('should export to YAML format', () => {
-      toolRepo.create({
+    it('should export to YAML format', async () => {
+      await repos.tools.create({
         scopeType: 'global',
         name: 'yaml-tool',
         createdBy: 'test',
@@ -212,5 +197,3 @@ describe('Export Service', () => {
     });
   });
 });
-
-

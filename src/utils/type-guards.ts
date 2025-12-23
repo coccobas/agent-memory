@@ -309,3 +309,4 @@ export function isNonNegativeInteger(value: unknown): value is number {
   return isNumber(value) && Number.isInteger(value) && value >= 0;
 }
 
+

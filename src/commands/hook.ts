@@ -127,21 +127,21 @@ export async function runHookCommand(argv: string[]): Promise<void> {
     }
 
     if (sub === 'stop') {
-      const result = runStopCommand({ projectId, agentId, input });
+      const result = await runStopCommand({ projectId, agentId, input });
       for (const line of result.stdout) writeStdout(line);
       for (const line of result.stderr) writeStderr(line);
       process.exit(result.exitCode);
     }
 
     if (sub === 'userpromptsubmit' || sub === 'user-prompt-submit') {
-      const result = runUserPromptSubmitCommand({ projectId, input });
+      const result = await runUserPromptSubmitCommand({ projectId, input });
       for (const line of result.stdout) writeStdout(line);
       for (const line of result.stderr) writeStderr(line);
       process.exit(result.exitCode);
     }
 
     if (sub === 'session-end' || sub === 'sessionend') {
-      const result = runSessionEndCommand({ projectId, agentId, input });
+      const result = await runSessionEndCommand({ projectId, agentId, input });
       for (const line of result.stdout) writeStdout(line);
       for (const line of result.stderr) writeStderr(line);
       process.exit(result.exitCode);

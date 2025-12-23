@@ -11,11 +11,13 @@ import {
   createTestKnowledge,
   registerTestContext,
 } from '../fixtures/test-helpers.js';
+import type { AppContext } from '../../src/core/context.js';
 
 const TEST_DB_PATH = './data/test-context.db';
 
 let sqlite: ReturnType<typeof setupTestDb>['sqlite'];
 let db: ReturnType<typeof setupTestDb>['db'];
+let context: AppContext;
 
 vi.mock('../../src/db/connection.js', async () => {
   const actual = await vi.importActual<typeof import('../../src/db/connection.js')>(
@@ -43,8 +45,8 @@ describe('memory_context integration', () => {
     sqlite = testDb.sqlite;
     db = testDb.db;
 
-    // Register context for query handler (uses getContext())
-    registerTestContext(testDb);
+    // Register context for query handler
+    context = registerTestContext(testDb);
 
     seedPredefinedTags(db);
 
@@ -82,7 +84,7 @@ describe('memory_context integration', () => {
   });
 
   it('returns aggregated context for a session with inheritance', async () => {
-    const response = await queryHandlers.context({
+    const response = await queryHandlers.context(context, {
       agentId: AGENT_ID,
       scopeType: 'session',
       scopeId: sessionId,
@@ -106,7 +108,7 @@ describe('memory_context integration', () => {
   });
 
   it('returns context only for the given scope when inherit is false', async () => {
-    const response = await queryHandlers.context({
+    const response = await queryHandlers.context(context, {
       agentId: AGENT_ID,
       scopeType: 'project',
       scopeId: projectId,

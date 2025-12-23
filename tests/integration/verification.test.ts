@@ -2,57 +2,46 @@
  * Integration tests for verification handlers
  */
 
-import { describe, it, expect, beforeAll, afterAll, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import {
   setupTestDb,
   cleanupTestDb,
   createTestGuideline,
   createTestProject,
   createTestSession,
+  createTestContext,
 } from '../fixtures/test-helpers.js';
+import { verificationHandlers } from '../../src/mcp/handlers/verification.handler.js';
+import type { AppContext } from '../../src/core/context.js';
 
 const TEST_DB_PATH = './data/test-verification-integration.db';
-let sqlite: ReturnType<typeof setupTestDb>['sqlite'];
-let db: ReturnType<typeof setupTestDb>['db'];
-
-vi.mock('../../src/db/connection.js', async () => {
-  const actual = await vi.importActual<typeof import('../../src/db/connection.js')>(
-    '../../src/db/connection.js'
-  );
-  return {
-    ...actual,
-    getDb: () => db,
-  };
-});
-
-// Import handlers after mock setup
-const { verificationHandlers } = await import('../../src/mcp/handlers/verification.handler.js');
+let testDb: ReturnType<typeof setupTestDb>;
+let context: AppContext;
 
 describe('verification.handler (integration)', () => {
-  beforeAll(() => {
-    const testDb = setupTestDb(TEST_DB_PATH);
-    sqlite = testDb.sqlite;
-    db = testDb.db;
+  beforeAll(async () => {
+    testDb = setupTestDb(TEST_DB_PATH);
+    context = await createTestContext(testDb);
   });
 
   afterAll(() => {
-    sqlite.close();
+    testDb.sqlite.close();
     cleanupTestDb(TEST_DB_PATH);
   });
 
   beforeEach(() => {
     // Clean up before each test
-    sqlite.exec('DELETE FROM verification_log');
-    sqlite.exec('DELETE FROM session_guideline_acknowledgments');
-    sqlite.exec('DELETE FROM guideline_versions');
-    sqlite.exec('DELETE FROM guidelines');
-    sqlite.exec('DELETE FROM sessions');
-    sqlite.exec('DELETE FROM projects');
+    testDb.sqlite.exec('DELETE FROM verification_log');
+    testDb.sqlite.exec('DELETE FROM session_guideline_acknowledgments');
+    testDb.sqlite.exec('DELETE FROM guideline_versions');
+    testDb.sqlite.exec('DELETE FROM guidelines');
+    testDb.sqlite.exec('DELETE FROM sessions');
+    testDb.sqlite.exec('DELETE FROM projects');
   });
 
   describe('preCheck', () => {
     it('should return allowed when no violations', () => {
-      const result = verificationHandlers.preCheck({
+      const result = verificationHandlers.preCheck(context, {
         proposedAction: {
           type: 'file_write',
           filePath: '/path/to/file.ts',
@@ -68,7 +57,7 @@ describe('verification.handler (integration)', () => {
 
     it('should return blocked when violation detected', () => {
       const { version } = createTestGuideline(
-        db,
+        testDb.db,
         'no-file-writes',
         'global',
         undefined,
@@ -78,11 +67,11 @@ describe('verification.handler (integration)', () => {
       );
 
       // Add verification rules
-      sqlite.exec(
+      testDb.sqlite.exec(
         `UPDATE guideline_versions SET verification_rules = '{"forbiddenActions": ["file_write"]}' WHERE id = '${version.id}'`
       );
 
-      const result = verificationHandlers.preCheck({
+      const result = verificationHandlers.preCheck(context, {
         proposedAction: {
           type: 'file_write',
           filePath: '/path/to/file.ts',
@@ -97,11 +86,11 @@ describe('verification.handler (integration)', () => {
     });
 
     it('should work with sessionId for scope resolution', () => {
-      const project = createTestProject(db, 'Test Project');
-      const session = createTestSession(db, project.id, 'Test Session');
+      const project = createTestProject(testDb.db, 'Test Project');
+      const session = createTestSession(testDb.db, project.id, 'Test Session');
 
       const { version } = createTestGuideline(
-        db,
+        testDb.db,
         'project-rule',
         'project',
         project.id,
@@ -110,11 +99,11 @@ describe('verification.handler (integration)', () => {
         'Project-specific rule'
       );
 
-      sqlite.exec(
+      testDb.sqlite.exec(
         `UPDATE guideline_versions SET verification_rules = '{"contentPatterns": ["forbidden_word"]}' WHERE id = '${version.id}'`
       );
 
-      const result = verificationHandlers.preCheck({
+      const result = verificationHandlers.preCheck(context, {
         sessionId: session.id,
         proposedAction: {
           type: 'code_generate',
@@ -128,14 +117,14 @@ describe('verification.handler (integration)', () => {
 
     it('should throw error for missing proposedAction', () => {
       expect(() => {
-        verificationHandlers.preCheck({});
+        verificationHandlers.preCheck(context, {});
       }).toThrow();
     });
   });
 
   describe('postCheck', () => {
     it('should log action and return result', () => {
-      const result = verificationHandlers.postCheck({
+      const result = verificationHandlers.postCheck(context, {
         completedAction: {
           type: 'file_write',
           filePath: '/path/to/file.ts',
@@ -149,7 +138,7 @@ describe('verification.handler (integration)', () => {
     });
 
     it('should accept content string as alternative to completedAction', () => {
-      const result = verificationHandlers.postCheck({
+      const result = verificationHandlers.postCheck(context, {
         content: 'Some agent response content',
       });
 
@@ -159,7 +148,7 @@ describe('verification.handler (integration)', () => {
 
     it('should report violations for audit purposes', () => {
       const { version } = createTestGuideline(
-        db,
+        testDb.db,
         'no-secrets',
         'global',
         undefined,
@@ -168,11 +157,11 @@ describe('verification.handler (integration)', () => {
         'Never expose secrets'
       );
 
-      sqlite.exec(
+      testDb.sqlite.exec(
         `UPDATE guideline_versions SET verification_rules = '{"contentPatterns": ["password\\\\s*="]}' WHERE id = '${version.id}'`
       );
 
-      const result = verificationHandlers.postCheck({
+      const result = verificationHandlers.postCheck(context, {
         completedAction: {
           type: 'code_generate',
           content: 'const password = "secret"',
@@ -186,20 +175,20 @@ describe('verification.handler (integration)', () => {
 
     it('should throw error when neither completedAction nor content provided', () => {
       expect(() => {
-        verificationHandlers.postCheck({});
+        verificationHandlers.postCheck(context, {});
       }).toThrow();
     });
   });
 
   describe('acknowledge', () => {
     it('should acknowledge all critical guidelines', () => {
-      const project = createTestProject(db, 'Test Project');
-      const session = createTestSession(db, project.id, 'Test Session');
+      const project = createTestProject(testDb.db, 'Test Project');
+      const session = createTestSession(testDb.db, project.id, 'Test Session');
 
-      createTestGuideline(db, 'critical-1', 'global', undefined, 'security', 95, 'Content 1');
-      createTestGuideline(db, 'critical-2', 'global', undefined, 'security', 92, 'Content 2');
+      createTestGuideline(testDb.db, 'critical-1', 'global', undefined, 'security', 95, 'Content 1');
+      createTestGuideline(testDb.db, 'critical-2', 'global', undefined, 'security', 92, 'Content 2');
 
-      const result = verificationHandlers.acknowledge({
+      const result = verificationHandlers.acknowledge(context, {
         sessionId: session.id,
       });
 
@@ -211,11 +200,11 @@ describe('verification.handler (integration)', () => {
     });
 
     it('should acknowledge specific guidelines', () => {
-      const project = createTestProject(db, 'Test Project');
-      const session = createTestSession(db, project.id, 'Test Session');
+      const project = createTestProject(testDb.db, 'Test Project');
+      const session = createTestSession(testDb.db, project.id, 'Test Session');
 
       const { guideline: g1 } = createTestGuideline(
-        db,
+        testDb.db,
         'critical-1',
         'global',
         undefined,
@@ -223,9 +212,9 @@ describe('verification.handler (integration)', () => {
         95,
         'Content 1'
       );
-      createTestGuideline(db, 'critical-2', 'global', undefined, 'security', 92, 'Content 2');
+      createTestGuideline(testDb.db, 'critical-2', 'global', undefined, 'security', 92, 'Content 2');
 
-      const result = verificationHandlers.acknowledge({
+      const result = verificationHandlers.acknowledge(context, {
         sessionId: session.id,
         guidelineIds: [g1.id],
       });
@@ -237,12 +226,12 @@ describe('verification.handler (integration)', () => {
     });
 
     it('should include agentId in acknowledgment', () => {
-      const project = createTestProject(db, 'Test Project');
-      const session = createTestSession(db, project.id, 'Test Session');
+      const project = createTestProject(testDb.db, 'Test Project');
+      const session = createTestSession(testDb.db, project.id, 'Test Session');
 
-      createTestGuideline(db, 'critical-1', 'global', undefined, 'security', 95, 'Content');
+      createTestGuideline(testDb.db, 'critical-1', 'global', undefined, 'security', 95, 'Content');
 
-      const result = verificationHandlers.acknowledge({
+      const result = verificationHandlers.acknowledge(context, {
         sessionId: session.id,
         agentId: 'test-agent-123',
       });
@@ -250,7 +239,7 @@ describe('verification.handler (integration)', () => {
       expect(result.success).toBe(true);
 
       // Verify agentId was stored
-      const acks = sqlite
+      const acks = testDb.sqlite
         .prepare('SELECT * FROM session_guideline_acknowledgments WHERE session_id = ?')
         .all(session.id) as any[];
       expect(acks[0].acknowledged_by).toBe('test-agent-123');
@@ -258,20 +247,20 @@ describe('verification.handler (integration)', () => {
 
     it('should throw error for missing sessionId', () => {
       expect(() => {
-        verificationHandlers.acknowledge({});
+        verificationHandlers.acknowledge(context, {});
       }).toThrow();
     });
   });
 
   describe('status', () => {
     it('should return verification status for session', () => {
-      const project = createTestProject(db, 'Test Project');
-      const session = createTestSession(db, project.id, 'Test Session');
+      const project = createTestProject(testDb.db, 'Test Project');
+      const session = createTestSession(testDb.db, project.id, 'Test Session');
 
-      createTestGuideline(db, 'critical-1', 'global', undefined, 'security', 95, 'Content 1');
-      createTestGuideline(db, 'critical-2', 'global', undefined, 'security', 92, 'Content 2');
+      createTestGuideline(testDb.db, 'critical-1', 'global', undefined, 'security', 95, 'Content 1');
+      createTestGuideline(testDb.db, 'critical-2', 'global', undefined, 'security', 92, 'Content 2');
 
-      const result = verificationHandlers.status({
+      const result = verificationHandlers.status(context, {
         sessionId: session.id,
       });
 
@@ -284,11 +273,11 @@ describe('verification.handler (integration)', () => {
     });
 
     it('should show acknowledged status for each guideline', () => {
-      const project = createTestProject(db, 'Test Project');
-      const session = createTestSession(db, project.id, 'Test Session');
+      const project = createTestProject(testDb.db, 'Test Project');
+      const session = createTestSession(testDb.db, project.id, 'Test Session');
 
       const { guideline: g1 } = createTestGuideline(
-        db,
+        testDb.db,
         'critical-1',
         'global',
         undefined,
@@ -296,15 +285,15 @@ describe('verification.handler (integration)', () => {
         95,
         'Content 1'
       );
-      createTestGuideline(db, 'critical-2', 'global', undefined, 'security', 92, 'Content 2');
+      createTestGuideline(testDb.db, 'critical-2', 'global', undefined, 'security', 92, 'Content 2');
 
       // Acknowledge one guideline
-      verificationHandlers.acknowledge({
+      verificationHandlers.acknowledge(context, {
         sessionId: session.id,
         guidelineIds: [g1.id],
       });
 
-      const result = verificationHandlers.status({
+      const result = verificationHandlers.status(context, {
         sessionId: session.id,
       });
 
@@ -320,7 +309,7 @@ describe('verification.handler (integration)', () => {
 
     it('should throw error for missing sessionId', () => {
       expect(() => {
-        verificationHandlers.status({});
+        verificationHandlers.status(context, {});
       }).toThrow();
     });
   });

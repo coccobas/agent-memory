@@ -5,7 +5,6 @@
  */
 
 import { eq, and, inArray } from 'drizzle-orm';
-import { getDb, getSqlite } from '../connection.js';
 import {
   tags,
   entryTags,
@@ -52,7 +51,7 @@ export function createTagRepository(deps: DatabaseDeps): ITagRepository {
   const { db, sqlite } = deps;
 
   const repo: ITagRepository = {
-    create(input: CreateTagInput): Tag {
+    async create(input: CreateTagInput): Promise<Tag> {
       const id = generateId();
 
       const tag: NewTag = {
@@ -65,43 +64,43 @@ export function createTagRepository(deps: DatabaseDeps): ITagRepository {
 
       db.insert(tags).values(tag).run();
 
-      const result = repo.getById(id);
+      const result = await repo.getById(id);
       if (!result) {
         throw new Error(`Failed to create tag ${id}`);
       }
       return result;
     },
 
-    getById(id: string): Tag | undefined {
+    async getById(id: string): Promise<Tag | undefined> {
       return db.select().from(tags).where(eq(tags.id, id)).get();
     },
 
-    getByName(name: string): Tag | undefined {
+    async getByName(name: string): Promise<Tag | undefined> {
       return db.select().from(tags).where(eq(tags.name, name)).get();
     },
 
-    getOrCreate(
+    async getOrCreate(
       name: string,
       category: 'language' | 'domain' | 'category' | 'meta' | 'custom' = 'custom'
-    ): Tag {
-      const existing = repo.getByName(name);
+    ): Promise<Tag> {
+      const existing = await repo.getByName(name);
       if (existing) return existing;
 
       try {
-        return repo.create({ name, category });
+        return await repo.create({ name, category });
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         const isUnique =
           message.includes('UNIQUE constraint failed') && message.includes('tags.name');
         if (!isUnique) throw error;
 
-        const createdByOther = repo.getByName(name);
+        const createdByOther = await repo.getByName(name);
         if (createdByOther) return createdByOther;
         throw error;
       }
     },
 
-    list(filter: ListTagsFilter = {}, options: PaginationOptions = {}): Tag[] {
+    async list(filter: ListTagsFilter = {}, options: PaginationOptions = {}): Promise<Tag[]> {
       const limit = Math.min(options.limit ?? DEFAULT_LIMIT, MAX_LIMIT);
       const offset = options.offset ?? 0;
 
@@ -124,7 +123,7 @@ export function createTagRepository(deps: DatabaseDeps): ITagRepository {
       return query.limit(limit).offset(offset).all();
     },
 
-    delete(id: string): boolean {
+    async delete(id: string): Promise<boolean> {
       // Use transaction via sqlite.transaction()
       return sqlite.transaction(() => {
         // Remove all entry_tags associations first
@@ -136,7 +135,7 @@ export function createTagRepository(deps: DatabaseDeps): ITagRepository {
       })();
     },
 
-    seedPredefined(): void {
+    async seedPredefined(): Promise<void> {
       const predefinedTags: CreateTagInput[] = [
         // Languages
         {
@@ -274,9 +273,9 @@ export function createTagRepository(deps: DatabaseDeps): ITagRepository {
       ];
 
       for (const tag of predefinedTags) {
-        const existing = repo.getByName(tag.name);
+        const existing = await repo.getByName(tag.name);
         if (!existing) {
-          repo.create(tag);
+          await repo.create(tag);
         }
       }
     },
@@ -299,11 +298,11 @@ export function createEntryTagRepository(
   const { db } = deps;
 
   const repo: IEntryTagRepository = {
-    attach(input: AttachTagInput): EntryTag {
+    async attach(input: AttachTagInput): Promise<EntryTag> {
       // Get or create the tag
       let tagId = input.tagId;
       if (!tagId && input.tagName) {
-        const tag = tagRepo.getOrCreate(input.tagName);
+        const tag = await tagRepo.getOrCreate(input.tagName);
         tagId = tag.id;
       }
 
@@ -348,7 +347,7 @@ export function createEntryTagRepository(
       throw new Error(`Failed to create entry tag ${id}`);
     },
 
-    detach(entryType: EntryType, entryId: string, tagId: string): boolean {
+    async detach(entryType: EntryType, entryId: string, tagId: string): Promise<boolean> {
       const result = db
         .delete(entryTags)
         .where(
@@ -362,7 +361,7 @@ export function createEntryTagRepository(
       return result.changes > 0;
     },
 
-    getTagsForEntry(entryType: EntryType, entryId: string): Tag[] {
+    async getTagsForEntry(entryType: EntryType, entryId: string): Promise<Tag[]> {
       const associations = db
         .select()
         .from(entryTags)
@@ -375,7 +374,7 @@ export function createEntryTagRepository(
       return db.select().from(tags).where(inArray(tags.id, tagIds)).all();
     },
 
-    getEntriesWithTag(tagId: string, entryType?: EntryType): EntryTag[] {
+    async getEntriesWithTag(tagId: string, entryType?: EntryType): Promise<EntryTag[]> {
       if (entryType) {
         return db
           .select()
@@ -387,7 +386,7 @@ export function createEntryTagRepository(
       return db.select().from(entryTags).where(eq(entryTags.tagId, tagId)).all();
     },
 
-    removeAllFromEntry(entryType: EntryType, entryId: string): number {
+    async removeAllFromEntry(entryType: EntryType, entryId: string): Promise<number> {
       const result = db
         .delete(entryTags)
         .where(and(eq(entryTags.entryType, entryType), eq(entryTags.entryId, entryId)))
@@ -410,7 +409,7 @@ export function createEntryRelationRepository(deps: DatabaseDeps): IEntryRelatio
   const { db } = deps;
 
   const repo: IEntryRelationRepository = {
-    create(input: CreateRelationInput): EntryRelation {
+    async create(input: CreateRelationInput): Promise<EntryRelation> {
       // Check if already exists
       const existing = db
         .select()
@@ -448,11 +447,11 @@ export function createEntryRelationRepository(deps: DatabaseDeps): IEntryRelatio
       return result;
     },
 
-    getById(id: string): EntryRelation | undefined {
+    async getById(id: string): Promise<EntryRelation | undefined> {
       return db.select().from(entryRelations).where(eq(entryRelations.id, id)).get();
     },
 
-    list(filter: ListRelationsFilter = {}, options: PaginationOptions = {}): EntryRelation[] {
+    async list(filter: ListRelationsFilter = {}, options: PaginationOptions = {}): Promise<EntryRelation[]> {
       const limit = Math.min(options.limit ?? DEFAULT_LIMIT, MAX_LIMIT);
       const offset = options.offset ?? 0;
 
@@ -483,7 +482,7 @@ export function createEntryRelationRepository(deps: DatabaseDeps): IEntryRelatio
       return query.limit(limit).offset(offset).all();
     },
 
-    getFromEntry(entryType: EntryType, entryId: string): EntryRelation[] {
+    async getFromEntry(entryType: EntryType, entryId: string): Promise<EntryRelation[]> {
       return db
         .select()
         .from(entryRelations)
@@ -491,7 +490,7 @@ export function createEntryRelationRepository(deps: DatabaseDeps): IEntryRelatio
         .all();
     },
 
-    getToEntry(entryType: EntryType, entryId: string): EntryRelation[] {
+    async getToEntry(entryType: EntryType, entryId: string): Promise<EntryRelation[]> {
       return db
         .select()
         .from(entryRelations)
@@ -499,18 +498,18 @@ export function createEntryRelationRepository(deps: DatabaseDeps): IEntryRelatio
         .all();
     },
 
-    delete(id: string): boolean {
+    async delete(id: string): Promise<boolean> {
       const result = db.delete(entryRelations).where(eq(entryRelations.id, id)).run();
       return result.changes > 0;
     },
 
-    deleteByEntries(
+    async deleteByEntries(
       sourceType: EntryType,
       sourceId: string,
       targetType: EntryType,
       targetId: string,
       relationType: RelationType
-    ): boolean {
+    ): Promise<boolean> {
       const result = db
         .delete(entryRelations)
         .where(
@@ -526,7 +525,7 @@ export function createEntryRelationRepository(deps: DatabaseDeps): IEntryRelatio
       return result.changes > 0;
     },
 
-    removeAllForEntry(entryType: EntryType, entryId: string): number {
+    async removeAllForEntry(entryType: EntryType, entryId: string): Promise<number> {
       const fromResult = db
         .delete(entryRelations)
         .where(and(eq(entryRelations.sourceType, entryType), eq(entryRelations.sourceId, entryId)))
@@ -544,65 +543,3 @@ export function createEntryRelationRepository(deps: DatabaseDeps): IEntryRelatio
   return repo;
 }
 
-// =============================================================================
-// TEMPORARY BACKWARD COMPAT EXPORTS
-// TODO: Remove these when all call sites are updated to use AppContext.repos
-// =============================================================================
-
-/**
- * @deprecated Use createTagRepository(deps) instead. Will be removed when AppContext.repos is wired.
- */
-function createLegacyTagRepo(): ITagRepository {
-  return createTagRepository({ db: getDb(), sqlite: getSqlite() });
-}
-
-/**
- * @deprecated Use createEntryTagRepository(deps, tagRepo) instead. Will be removed when AppContext.repos is wired.
- */
-function createLegacyEntryTagRepo(): IEntryTagRepository {
-  const deps = { db: getDb(), sqlite: getSqlite() };
-  const tagRepoInstance = createTagRepository(deps);
-  return createEntryTagRepository(deps, tagRepoInstance);
-}
-
-/**
- * @deprecated Use createEntryRelationRepository(deps) instead. Will be removed when AppContext.repos is wired.
- */
-function createLegacyEntryRelationRepo(): IEntryRelationRepository {
-  return createEntryRelationRepository({ db: getDb(), sqlite: getSqlite() });
-}
-
-// Lazy-initialized singleton instances for backward compatibility
-let _tagRepo: ITagRepository | null = null;
-let _entryTagRepo: IEntryTagRepository | null = null;
-let _entryRelationRepo: IEntryRelationRepository | null = null;
-
-/**
- * @deprecated Use AppContext.repos.tags instead
- */
-export const tagRepo: ITagRepository = new Proxy({} as ITagRepository, {
-  get(_, prop: keyof ITagRepository) {
-    if (!_tagRepo) _tagRepo = createLegacyTagRepo();
-    return _tagRepo[prop];
-  },
-});
-
-/**
- * @deprecated Use AppContext.repos.entryTags instead
- */
-export const entryTagRepo: IEntryTagRepository = new Proxy({} as IEntryTagRepository, {
-  get(_, prop: keyof IEntryTagRepository) {
-    if (!_entryTagRepo) _entryTagRepo = createLegacyEntryTagRepo();
-    return _entryTagRepo[prop];
-  },
-});
-
-/**
- * @deprecated Use AppContext.repos.entryRelations instead
- */
-export const entryRelationRepo: IEntryRelationRepository = new Proxy({} as IEntryRelationRepository, {
-  get(_, prop: keyof IEntryRelationRepository) {
-    if (!_entryRelationRepo) _entryRelationRepo = createLegacyEntryRelationRepo();
-    return _entryRelationRepo[prop];
-  },
-});

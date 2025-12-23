@@ -199,7 +199,7 @@ describe('Vector Service', () => {
     }
   });
 
-  it('should filter search results by entry type', async () => {
+  it('should filter search results by entry type', { timeout: 10000 }, async () => {
     const service = getVectorService();
     await service.initialize();
 

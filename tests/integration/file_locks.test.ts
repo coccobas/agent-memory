@@ -54,8 +54,8 @@ describe('File Locks Integration', () => {
   });
 
   describe('memory_file_checkout', () => {
-    it('should checkout a file successfully', () => {
-      const result = fileLockHandlers.checkout(context, {
+    it('should checkout a file successfully', async () => {
+      const result = await fileLockHandlers.checkout(context, {
         file_path: '/path/to/file.ts',
         agent_id: 'agent-1',
       });
@@ -66,24 +66,24 @@ describe('File Locks Integration', () => {
       expect(result.lock.checkedOutBy).toBe('agent-1');
     });
 
-    it('should require file_path', () => {
-      expect(() => {
+    it('should require file_path', async () => {
+      await expect(
         fileLockHandlers.checkout(context, {
           agent_id: 'agent-1',
-        } as any);
-      }).toThrow('file_path is required');
+        } as any)
+      ).rejects.toThrow('file_path is required');
     });
 
-    it('should require agent_id', () => {
-      expect(() => {
+    it('should require agent_id', async () => {
+      await expect(
         fileLockHandlers.checkout(context, {
           file_path: '/path/to/file.ts',
-        } as any);
-      }).toThrow('agent_id is required');
+        } as any)
+      ).rejects.toThrow('agent_id is required');
     });
 
-    it('should accept optional parameters', () => {
-      const result = fileLockHandlers.checkout(context, {
+    it('should accept optional parameters', async () => {
+      const result = await fileLockHandlers.checkout(context, {
         file_path: '/path/to/file.ts',
         agent_id: 'agent-1',
         session_id: testSessionId,
@@ -98,29 +98,29 @@ describe('File Locks Integration', () => {
       expect(result.lock.metadata).toEqual({ reason: 'refactoring' });
     });
 
-    it('should throw error if file already locked', () => {
-      fileLockHandlers.checkout(context, {
+    it('should throw error if file already locked', async () => {
+      await fileLockHandlers.checkout(context, {
         file_path: '/path/to/file.ts',
         agent_id: 'agent-1',
       });
 
-      expect(() => {
+      await expect(
         fileLockHandlers.checkout(context, {
           file_path: '/path/to/file.ts',
           agent_id: 'agent-2',
-        });
-      }).toThrow('already locked');
+        })
+      ).rejects.toThrow('already locked');
     });
   });
 
   describe('memory_file_checkin', () => {
-    it('should check in a file successfully', () => {
-      fileLockHandlers.checkout(context, {
+    it('should check in a file successfully', async () => {
+      await fileLockHandlers.checkout(context, {
         file_path: '/path/to/file.ts',
         agent_id: 'agent-1',
       });
 
-      const result = fileLockHandlers.checkin(context, {
+      const result = await fileLockHandlers.checkin(context, {
         file_path: '/path/to/file.ts',
         agent_id: 'agent-1',
       });
@@ -129,54 +129,54 @@ describe('File Locks Integration', () => {
       expect(result.message).toContain('checked in successfully');
     });
 
-    it('should require file_path', () => {
-      expect(() => {
+    it('should require file_path', async () => {
+      await expect(
         fileLockHandlers.checkin(context, {
           agent_id: 'agent-1',
-        } as any);
-      }).toThrow('file_path is required');
+        } as any)
+      ).rejects.toThrow('file_path is required');
     });
 
-    it('should require agent_id', () => {
-      expect(() => {
+    it('should require agent_id', async () => {
+      await expect(
         fileLockHandlers.checkin(context, {
           file_path: '/path/to/file.ts',
-        } as any);
-      }).toThrow('agent_id is required');
+        } as any)
+      ).rejects.toThrow('agent_id is required');
     });
 
-    it('should throw error if file not locked', () => {
-      expect(() => {
+    it('should throw error if file not locked', async () => {
+      await expect(
         fileLockHandlers.checkin(context, {
           file_path: '/path/to/file.ts',
           agent_id: 'agent-1',
-        });
-      }).toThrow('not locked');
+        })
+      ).rejects.toThrow('not locked');
     });
 
-    it('should throw error if locked by different agent', () => {
-      fileLockHandlers.checkout(context, {
+    it('should throw error if locked by different agent', async () => {
+      await fileLockHandlers.checkout(context, {
         file_path: '/path/to/file.ts',
         agent_id: 'agent-1',
       });
 
-      expect(() => {
+      await expect(
         fileLockHandlers.checkin(context, {
           file_path: '/path/to/file.ts',
           agent_id: 'agent-2',
-        });
-      }).toThrow('locked by agent');
+        })
+      ).rejects.toThrow('locked by agent');
     });
   });
 
   describe('memory_file_lock_status', () => {
-    it('should return lock status for locked file', () => {
-      fileLockHandlers.checkout(context, {
+    it('should return lock status for locked file', async () => {
+      await fileLockHandlers.checkout(context, {
         file_path: '/path/to/file.ts',
         agent_id: 'agent-1',
       });
 
-      const result = fileLockHandlers.status(context, {
+      const result = await fileLockHandlers.status(context, {
         file_path: '/path/to/file.ts',
       });
 
@@ -186,8 +186,8 @@ describe('File Locks Integration', () => {
       expect(result.lock?.filePath).toBe('/path/to/file.ts');
     });
 
-    it('should return lock status for unlocked file', () => {
-      const result = fileLockHandlers.status(context, {
+    it('should return lock status for unlocked file', async () => {
+      const result = await fileLockHandlers.status(context, {
         file_path: '/path/to/file.ts',
       });
 
@@ -196,82 +196,82 @@ describe('File Locks Integration', () => {
       expect(result.lock).toBeNull();
     });
 
-    it('should require file_path', () => {
-      expect(() => {
-        fileLockHandlers.status(context, {} as any);
-      }).toThrow('file_path is required');
+    it('should require file_path', async () => {
+      await expect(
+        fileLockHandlers.status(context, {} as any)
+      ).rejects.toThrow('file_path is required');
     });
   });
 
   describe('memory_file_lock_list', () => {
-    it('should list all active locks', () => {
-      fileLockHandlers.checkout(context, {
+    it('should list all active locks', async () => {
+      await fileLockHandlers.checkout(context, {
         file_path: '/file1.ts',
         agent_id: 'agent-1',
       });
-      fileLockHandlers.checkout(context, {
+      await fileLockHandlers.checkout(context, {
         file_path: '/file2.ts',
         agent_id: 'agent-2',
       });
 
-      const result = fileLockHandlers.list(context, {});
+      const result = await fileLockHandlers.list(context, {});
 
       expect(result.success).toBe(true);
       expect(result.locks.length).toBe(2);
       expect(result.count).toBe(2);
     });
 
-    it('should filter by project_id', () => {
-      fileLockHandlers.checkout(context, {
+    it('should filter by project_id', async () => {
+      await fileLockHandlers.checkout(context, {
         file_path: '/file1.ts',
         agent_id: 'agent-1',
         project_id: testProjectId,
       });
-      fileLockHandlers.checkout(context, {
+      await fileLockHandlers.checkout(context, {
         file_path: '/file2.ts',
         agent_id: 'agent-2',
       });
 
-      const result = fileLockHandlers.list(context, { project_id: testProjectId });
+      const result = await fileLockHandlers.list(context, { project_id: testProjectId });
 
       expect(result.success).toBe(true);
       expect(result.locks.length).toBe(1);
       expect(result.locks[0].projectId).toBe(testProjectId);
     });
 
-    it('should filter by session_id', () => {
-      fileLockHandlers.checkout(context, {
+    it('should filter by session_id', async () => {
+      await fileLockHandlers.checkout(context, {
         file_path: '/file1.ts',
         agent_id: 'agent-1',
         session_id: testSessionId,
       });
-      fileLockHandlers.checkout(context, {
+      await fileLockHandlers.checkout(context, {
         file_path: '/file2.ts',
         agent_id: 'agent-2',
       });
 
-      const result = fileLockHandlers.list(context, { session_id: testSessionId });
+      const result = await fileLockHandlers.list(context, { session_id: testSessionId });
 
       expect(result.success).toBe(true);
       expect(result.locks.length).toBe(1);
       expect(result.locks[0].sessionId).toBe(testSessionId);
     });
 
-    it('should filter by agent_id', () => {
-      fileLockHandlers.checkout(context, {
+    it('should filter by agent_id', async () => {
+      await fileLockHandlers.checkout(context, {
         file_path: '/file1.ts',
         agent_id: 'agent-1',
       });
-      fileLockHandlers.checkout(context, {
+      await fileLockHandlers.checkout(context, {
         file_path: '/file2.ts',
         agent_id: 'agent-2',
       });
-      fileLockHandlers.checkout(context, {
+      await fileLockHandlers.checkout(context, {
         file_path: '/file3.ts',
         agent_id: 'agent-1',
       });
 
-      const result = fileLockHandlers.list(context, { agent_id: 'agent-1' });
+      const result = await fileLockHandlers.list(context, { agent_id: 'agent-1' });
 
       expect(result.success).toBe(true);
       expect(result.locks.length).toBe(2);
@@ -280,13 +280,13 @@ describe('File Locks Integration', () => {
   });
 
   describe('memory_file_lock_force_unlock', () => {
-    it('should force unlock a file', () => {
-      fileLockHandlers.checkout(context, {
+    it('should force unlock a file', async () => {
+      await fileLockHandlers.checkout(context, {
         file_path: '/path/to/file.ts',
         agent_id: 'agent-1',
       });
 
-      const result = fileLockHandlers.forceUnlock(context, {
+      const result = await fileLockHandlers.forceUnlock(context, {
         file_path: '/path/to/file.ts',
         agent_id: 'agent-2',
         reason: 'Emergency unlock',
@@ -296,62 +296,62 @@ describe('File Locks Integration', () => {
       expect(result.message).toContain('force unlocked');
 
       // Verify file is unlocked
-      const status = fileLockHandlers.status(context, {
+      const status = await fileLockHandlers.status(context, {
         file_path: '/path/to/file.ts',
       });
       expect(status.isLocked).toBe(false);
     });
 
-    it('should require file_path', () => {
-      expect(() => {
+    it('should require file_path', async () => {
+      await expect(
         fileLockHandlers.forceUnlock(context, {
           agent_id: 'agent-1',
-        } as any);
-      }).toThrow('file_path is required');
+        } as any)
+      ).rejects.toThrow('file_path is required');
     });
 
-    it('should require agent_id', () => {
-      expect(() => {
+    it('should require agent_id', async () => {
+      await expect(
         fileLockHandlers.forceUnlock(context, {
           file_path: '/path/to/file.ts',
-        } as any);
-      }).toThrow('agent_id is required');
+        } as any)
+      ).rejects.toThrow('agent_id is required');
     });
 
-    it('should throw error if file not locked', () => {
-      expect(() => {
+    it('should throw error if file not locked', async () => {
+      await expect(
         fileLockHandlers.forceUnlock(context, {
           file_path: '/path/to/file.ts',
           agent_id: 'agent-1',
-        });
-      }).toThrow('not locked');
+        })
+      ).rejects.toThrow('not locked');
     });
   });
 
   describe('Lock lifecycle', () => {
-    it('should complete full checkout -> checkin cycle', () => {
+    it('should complete full checkout -> checkin cycle', async () => {
       // Checkout
-      const checkoutResult = fileLockHandlers.checkout(context, {
+      const checkoutResult = await fileLockHandlers.checkout(context, {
         file_path: '/path/to/file.ts',
         agent_id: 'agent-1',
       });
       expect(checkoutResult.success).toBe(true);
 
       // Verify locked
-      const status1 = fileLockHandlers.status(context, {
+      const status1 = await fileLockHandlers.status(context, {
         file_path: '/path/to/file.ts',
       });
       expect(status1.isLocked).toBe(true);
 
       // Checkin
-      const checkinResult = fileLockHandlers.checkin(context, {
+      const checkinResult = await fileLockHandlers.checkin(context, {
         file_path: '/path/to/file.ts',
         agent_id: 'agent-1',
       });
       expect(checkinResult.success).toBe(true);
 
       // Verify unlocked
-      const status2 = fileLockHandlers.status(context, {
+      const status2 = await fileLockHandlers.status(context, {
         file_path: '/path/to/file.ts',
       });
       expect(status2.isLocked).toBe(false);

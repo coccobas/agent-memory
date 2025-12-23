@@ -44,7 +44,6 @@ import {
   closeDb,
   startHealthCheckInterval,
 } from '../db/connection.js';
-import { cleanupExpiredLocks, cleanupStaleLocks } from '../db/repositories/file_locks.js';
 import { logger } from '../utils/logger.js';
 import { VERSION } from '../version.js';
 import { runTool } from './tool-runner.js';
@@ -108,11 +107,11 @@ export async function createServer(context: AppContext): Promise<Server> {
 
   // Cleanup stale file locks
   try {
-    const expired = cleanupExpiredLocks();
-    const stale = cleanupStaleLocks();
-    if (expired.cleaned > 0 || stale.cleaned > 0) {
+    const expiredCount = await context.repos.fileLocks.cleanupExpiredLocks();
+    const staleCount = await context.repos.fileLocks.cleanupStaleLocks();
+    if (expiredCount > 0 || staleCount > 0) {
       logger.info(
-        { expired: expired.cleaned, stale: stale.cleaned },
+        { expired: expiredCount, stale: staleCount },
         'Cleaned up stale file locks'
       );
     }

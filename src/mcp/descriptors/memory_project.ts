@@ -27,22 +27,22 @@ export const memoryProjectDescriptor: ToolDescriptor = {
   },
   actions: {
     create: {
-      handler: (p) =>
-        scopeHandlers.projectCreate(p as unknown as ProjectCreateParams & { adminKey?: string }),
+      contextHandler: (ctx, p) =>
+        scopeHandlers.projectCreate(ctx, p as unknown as ProjectCreateParams & { adminKey?: string }),
     },
     list: {
-      handler: (p) => scopeHandlers.projectList(p as unknown as ProjectListParams),
+      contextHandler: (ctx, p) => scopeHandlers.projectList(ctx, p as unknown as ProjectListParams),
     },
     get: {
-      handler: (p) => scopeHandlers.projectGet(p as unknown as ProjectGetParams),
+      contextHandler: (ctx, p) => scopeHandlers.projectGet(ctx, p as unknown as ProjectGetParams),
     },
     update: {
-      handler: (p) =>
-        scopeHandlers.projectUpdate(p as unknown as ProjectUpdateParams & { adminKey?: string }),
+      contextHandler: (ctx, p) =>
+        scopeHandlers.projectUpdate(ctx, p as unknown as ProjectUpdateParams & { adminKey?: string }),
     },
     delete: {
-      handler: (p) =>
-        scopeHandlers.projectDelete(p as unknown as ProjectDeleteParams & { adminKey?: string }),
+      contextHandler: (ctx, p) =>
+        scopeHandlers.projectDelete(ctx, p as unknown as ProjectDeleteParams & { adminKey?: string }),
     },
   },
 };

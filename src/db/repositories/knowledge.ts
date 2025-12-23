@@ -5,7 +5,7 @@
  */
 
 import { eq, and, desc, asc } from 'drizzle-orm';
-import { getDb, getSqlite, transactionWithDb } from '../connection.js';
+import { transactionWithRetry } from '../connection.js';
 import {
   knowledge,
   knowledgeVersions,
@@ -57,9 +57,25 @@ export type {
 export function createKnowledgeRepository(deps: DatabaseDeps): IKnowledgeRepository {
   const { db, sqlite } = deps;
 
+  // Helper to fetch knowledge with version (used within transactions)
+  function getByIdSync(id: string): KnowledgeWithVersion | undefined {
+    const entry = db.select().from(knowledge).where(eq(knowledge.id, id)).get();
+    if (!entry) return undefined;
+
+    const currentVersion = entry.currentVersionId
+      ? db
+          .select()
+          .from(knowledgeVersions)
+          .where(eq(knowledgeVersions.id, entry.currentVersionId))
+          .get()
+      : undefined;
+
+    return { ...entry, currentVersion };
+  }
+
   const repo: IKnowledgeRepository = {
-    create(input: CreateKnowledgeInput): KnowledgeWithVersion {
-      return transactionWithDb(sqlite, () => {
+    async create(input: CreateKnowledgeInput): Promise<KnowledgeWithVersion> {
+      return transactionWithRetry(sqlite, () => {
         const knowledgeId = generateId();
         const versionId = generateId();
 
@@ -92,7 +108,7 @@ export function createKnowledgeRepository(deps: DatabaseDeps): IKnowledgeReposit
 
         db.insert(knowledgeVersions).values(version).run();
 
-        const result = repo.getById(knowledgeId);
+        const result = getByIdSync(knowledgeId);
         if (!result) {
           throw new Error(`Failed to create knowledge entry ${knowledgeId}`);
         }
@@ -113,27 +129,16 @@ export function createKnowledgeRepository(deps: DatabaseDeps): IKnowledgeReposit
       });
     },
 
-    getById(id: string): KnowledgeWithVersion | undefined {
-      const entry = db.select().from(knowledge).where(eq(knowledge.id, id)).get();
-      if (!entry) return undefined;
-
-      const currentVersion = entry.currentVersionId
-        ? db
-            .select()
-            .from(knowledgeVersions)
-            .where(eq(knowledgeVersions.id, entry.currentVersionId))
-            .get()
-        : undefined;
-
-      return { ...entry, currentVersion };
+    async getById(id: string): Promise<KnowledgeWithVersion | undefined> {
+      return getByIdSync(id);
     },
 
-    getByTitle(
+    async getByTitle(
       title: string,
       scopeType: ScopeType,
       scopeId?: string,
       inherit = true
-    ): KnowledgeWithVersion | undefined {
+    ): Promise<KnowledgeWithVersion | undefined> {
       // First, try exact scope match
       const exactMatch = db
         .select()
@@ -167,7 +172,7 @@ export function createKnowledgeRepository(deps: DatabaseDeps): IKnowledgeReposit
       return undefined;
     },
 
-    list(filter: ListKnowledgeFilter = {}, options: PaginationOptions = {}): KnowledgeWithVersion[] {
+    async list(filter: ListKnowledgeFilter = {}, options: PaginationOptions = {}): Promise<KnowledgeWithVersion[]> {
       const { limit, offset } = normalizePagination(options);
 
       // Build conditions using shared utility + category-specific condition
@@ -193,9 +198,9 @@ export function createKnowledgeRepository(deps: DatabaseDeps): IKnowledgeReposit
       return attachVersions(entries, versionsMap);
     },
 
-    update(id: string, input: UpdateKnowledgeInput): KnowledgeWithVersion | undefined {
-      return transactionWithDb(sqlite, () => {
-        const existing = repo.getById(id);
+    async update(id: string, input: UpdateKnowledgeInput): Promise<KnowledgeWithVersion | undefined> {
+      return transactionWithRetry(sqlite, () => {
+        const existing = getByIdSync(id);
         if (!existing) return undefined;
 
         // Get current version number
@@ -261,11 +266,11 @@ export function createKnowledgeRepository(deps: DatabaseDeps): IKnowledgeReposit
           text,
         });
 
-        return repo.getById(id);
+        return getByIdSync(id);
       });
     },
 
-    getHistory(knowledgeId: string): KnowledgeVersion[] {
+    async getHistory(knowledgeId: string): Promise<KnowledgeVersion[]> {
       return db
         .select()
         .from(knowledgeVersions)
@@ -274,7 +279,7 @@ export function createKnowledgeRepository(deps: DatabaseDeps): IKnowledgeReposit
         .all();
     },
 
-    deactivate(id: string): boolean {
+    async deactivate(id: string): Promise<boolean> {
       const result = db
         .update(knowledge)
         .set({ isActive: false })
@@ -289,7 +294,7 @@ export function createKnowledgeRepository(deps: DatabaseDeps): IKnowledgeReposit
       return success;
     },
 
-    reactivate(id: string): boolean {
+    async reactivate(id: string): Promise<boolean> {
       const result = db
         .update(knowledge)
         .set({ isActive: true })
@@ -298,8 +303,8 @@ export function createKnowledgeRepository(deps: DatabaseDeps): IKnowledgeReposit
       return result.changes > 0;
     },
 
-    delete(id: string): boolean {
-      const result = transactionWithDb(sqlite, () => {
+    async delete(id: string): Promise<boolean> {
+      const result = transactionWithRetry(sqlite, () => {
         // Delete related records (tags, relations, embeddings, permissions)
         cascadeDeleteRelatedRecordsWithDb(db, 'knowledge', id);
 
@@ -321,28 +326,3 @@ export function createKnowledgeRepository(deps: DatabaseDeps): IKnowledgeReposit
 
   return repo;
 }
-
-// =============================================================================
-// TEMPORARY BACKWARD COMPAT EXPORTS
-// TODO: Remove these when all call sites are updated to use AppContext.repos
-// =============================================================================
-
-/**
- * @deprecated Use createKnowledgeRepository(deps) instead. Will be removed when AppContext.repos is wired.
- */
-function createLegacyKnowledgeRepo(): IKnowledgeRepository {
-  return createKnowledgeRepository({ db: getDb(), sqlite: getSqlite() });
-}
-
-// Lazy-initialized singleton instance for backward compatibility
-let _knowledgeRepo: IKnowledgeRepository | null = null;
-
-/**
- * @deprecated Use AppContext.repos.knowledge instead
- */
-export const knowledgeRepo: IKnowledgeRepository = new Proxy({} as IKnowledgeRepository, {
-  get(_, prop: keyof IKnowledgeRepository) {
-    if (!_knowledgeRepo) _knowledgeRepo = createLegacyKnowledgeRepo();
-    return _knowledgeRepo[prop];
-  },
-});

@@ -4,11 +4,11 @@ import { hasWarnedReview, isReviewSuspended, setWarnedReview } from './state-fil
 import { ingestTranscript } from './transcript-ingest.js';
 import { writeSessionSummaryFile } from './session-summary.js';
 
-export function runStopCommand(params: {
+export async function runStopCommand(params: {
   projectId?: string;
   agentId?: string;
   input: ClaudeHookInput;
-}): HookCommandResult {
+}): Promise<HookCommandResult> {
   const { projectId, agentId, input } = params;
 
   const sessionId = input.session_id;
@@ -24,7 +24,7 @@ export function runStopCommand(params: {
 
   ensureSessionIdExists(sessionId, projectId);
 
-  ingestTranscript({
+  await ingestTranscript({
     sessionId,
     transcriptPath,
     projectId,
@@ -36,8 +36,8 @@ export function runStopCommand(params: {
     return { exitCode: 0, stdout: [], stderr: [] };
   }
 
-  const observe = getObserveState(sessionId);
-  const { itemCount } = writeSessionSummaryFile(sessionId, cwd);
+  const observe = await getObserveState(sessionId);
+  const { itemCount } = await writeSessionSummaryFile(sessionId, cwd);
 
   if (!observe.committedAt && !hasWarnedReview(sessionId)) {
     setWarnedReview(sessionId);

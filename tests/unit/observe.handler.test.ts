@@ -2,12 +2,28 @@
  * Unit tests for observe handler
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll } from 'vitest';
 import { observeHandlers } from '../../src/mcp/handlers/observe.handler.js';
 import { resetExtractionService } from '../../src/services/extraction.service.js';
 import { ErrorCodes } from '../../src/mcp/errors.js';
+import { setupTestDb, cleanupTestDb, createTestContext } from '../fixtures/test-helpers.js';
+import type { AppContext } from '../../src/core/context.js';
+
+const TEST_DB_PATH = './data/test-observe-handler.db';
+let ctx: AppContext;
+let testDb: ReturnType<typeof setupTestDb>;
 
 describe('observe handler', () => {
+  beforeAll(async () => {
+    testDb = setupTestDb(TEST_DB_PATH);
+    ctx = await createTestContext(testDb);
+  });
+
+  afterAll(() => {
+    testDb.sqlite.close();
+    cleanupTestDb(TEST_DB_PATH);
+  });
+
   beforeEach(() => {
     resetExtractionService();
   });
@@ -54,7 +70,7 @@ describe('observe handler', () => {
 
   describe('extract action validation', () => {
     it('should require context parameter', async () => {
-      await expect(observeHandlers.extract({ scopeType: 'global' })).rejects.toThrow();
+      await expect(observeHandlers.extract(ctx, { scopeType: 'global' })).rejects.toThrow();
     });
 
     it('should require scopeId for non-global scope', async () => {
@@ -67,7 +83,7 @@ describe('observe handler', () => {
       resetExtractionService();
 
       await expect(
-        observeHandlers.extract({
+        observeHandlers.extract(ctx, {
           context: 'Test context',
           scopeType: 'project',
           // Missing scopeId
@@ -92,7 +108,7 @@ describe('observe handler', () => {
       resetExtractionService();
 
       await expect(
-        observeHandlers.extract({
+        observeHandlers.extract(ctx, {
           context: 'Test context',
           scopeType: 'global',
         })

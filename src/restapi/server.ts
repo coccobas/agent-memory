@@ -2,32 +2,11 @@ import Fastify, { type FastifyInstance } from 'fastify';
 
 import { createComponentLogger } from '../utils/logger.js';
 import type { AppContext } from '../core/context.js';
-import type { DatabaseDeps } from '../core/types.js';
-import type { Repositories } from '../core/interfaces/repositories.js';
 import { createAppContext } from '../core/factory.js';
-import { buildConfig, config } from '../config/index.js';
+import { config } from '../config/index.js';
 import { mapError } from '../utils/error-mapper.js';
-import { registerContext, getRuntime } from '../core/container.js';
+import { registerContext } from '../core/container.js';
 import { registerV1Routes } from './routes/v1.js';
-import { createDependencies } from '../services/query/index.js';
-import { SecurityService } from '../services/security.service.js';
-import { getDb, getSqlite, getPreparedStatement } from '../db/connection.js';
-// Repository factory imports
-import {
-  createTagRepository,
-  createEntryTagRepository,
-  createEntryRelationRepository,
-} from '../db/repositories/tags.js';
-import {
-  createOrganizationRepository,
-  createProjectRepository,
-  createSessionRepository,
-} from '../db/repositories/scopes.js';
-import { createFileLockRepository } from '../db/repositories/file_locks.js';
-import { createGuidelineRepository } from '../db/repositories/guidelines.js';
-import { createKnowledgeRepository } from '../db/repositories/knowledge.js';
-import { createToolRepository } from '../db/repositories/tools.js';
-import { createConversationRepository } from '../db/repositories/conversations.js';
 
 // Extend Fastify request to include authenticated agent ID
 declare module 'fastify' {
@@ -39,59 +18,12 @@ declare module 'fastify' {
 const restLogger = createComponentLogger('restapi');
 
 /**
- * Create a default AppContext from the container.
- * Used when createServer() is called without a context (e.g., in tests).
- * Requires the container to be initialized first via createAppContext().
+ * Create a REST API server with the provided AppContext.
+ *
+ * @param context - The application context (required per ADR-008)
+ * @returns Configured Fastify instance
  */
-function createDefaultContext(): AppContext {
-  const localConfig = buildConfig();
-  const logger = createComponentLogger('app');
-  const runtime = getRuntime();
-  const queryLogger = createComponentLogger('query-pipeline');
-  const queryDeps = createDependencies({
-    getDb: () => getDb(),
-    getPreparedStatement,
-    cache: runtime.queryCache.cache,
-    perfLog: localConfig.logging.performance,
-    logger: queryLogger,
-  });
-  const security = new SecurityService(localConfig);
-
-  // Create database dependencies for repository injection
-  const db = getDb() as unknown as AppContext['db'];
-  const sqlite = getSqlite();
-  const dbDeps: DatabaseDeps = { db, sqlite };
-
-  // Create all repositories with injected dependencies
-  const tagRepo = createTagRepository(dbDeps);
-  const repos: Repositories = {
-    tags: tagRepo,
-    entryTags: createEntryTagRepository(dbDeps, tagRepo),
-    entryRelations: createEntryRelationRepository(dbDeps),
-    organizations: createOrganizationRepository(dbDeps),
-    projects: createProjectRepository(dbDeps),
-    sessions: createSessionRepository(dbDeps),
-    fileLocks: createFileLockRepository(dbDeps),
-    guidelines: createGuidelineRepository(dbDeps),
-    knowledge: createKnowledgeRepository(dbDeps),
-    tools: createToolRepository(dbDeps),
-    conversations: createConversationRepository(dbDeps),
-  };
-
-  return {
-    config: localConfig,
-    db,
-    sqlite,
-    logger,
-    queryDeps,
-    security,
-    runtime,
-    repos,
-  };
-}
-
-export function createServer(context?: AppContext): FastifyInstance {
-  const effectiveContext = context ?? createDefaultContext();
+export function createServer(context: AppContext): FastifyInstance {
   const app = Fastify({
     // Fastify v5 expects a config object here; we keep Fastify logging off and rely on our own logger.
     logger: false,
@@ -110,7 +42,7 @@ export function createServer(context?: AppContext): FastifyInstance {
     // Use centralized Security Service
     // We pass the headers directly. Fastify headers are IncomingHttpHeaders (Record<string, string | string[] | undefined>)
     // which matches our interface.
-    const result = effectiveContext.security.validateRequest({
+    const result = context.security.validateRequest({
       headers: request.headers
     });
 
@@ -146,7 +78,7 @@ export function createServer(context?: AppContext): FastifyInstance {
   });
 
   // Register Routes
-  registerV1Routes(app, effectiveContext);
+  registerV1Routes(app, context);
 
   app.setErrorHandler((error, _request, reply) => {
     restLogger.error({ error }, 'REST API request failed');

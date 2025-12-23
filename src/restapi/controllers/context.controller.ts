@@ -2,7 +2,6 @@ import type { FastifyRequest, FastifyReply } from 'fastify';
 import type { AppContext } from '../../core/context.js';
 import { executeQueryPipeline } from '../../services/query/index.js';
 import { formatTimestamps } from '../../utils/timestamp-formatter.js';
-import { checkPermission } from '../../services/permission.service.js';
 import {
   getOptionalParam,
   getRequiredParam,
@@ -21,7 +20,7 @@ const queryTypeToEntryType: Record<'tools' | 'guidelines' | 'knowledge', EntryTy
 };
 
 export class ContextController {
-  constructor(private context: AppContext) {}
+  constructor(private context: AppContext) { }
 
   async handleContext(request: FastifyRequest, reply: FastifyReply) {
     const body = request.body;
@@ -39,7 +38,14 @@ export class ContextController {
     if (!agentId) return reply.status(401).send({ error: 'Unauthorized' });
 
     const allowedTypes = (['tools', 'guidelines', 'knowledge'] as const).filter((type) =>
-      checkPermission(agentId, 'read', queryTypeToEntryType[type], null, scopeType, scopeId)
+      this.context.services!.permission.check(
+        agentId,
+        'read',
+        queryTypeToEntryType[type],
+        null,
+        scopeType,
+        scopeId
+      )
     );
 
     if (allowedTypes.length === 0) {
@@ -57,7 +63,7 @@ export class ContextController {
       compact,
       limit: limitPerType,
     };
-    
+
     const result = await executeQueryPipeline(queryParams, this.context.queryDeps);
 
     const tools = result.results.filter((r) => r.type === 'tool');

@@ -5,22 +5,64 @@
  */
 
 import { config } from '../config/index.js';
-import { toolRepo, type CreateToolInput, type UpdateToolInput } from '../db/repositories/tools.js';
+import type {
+  IToolRepository,
+  CreateToolInput,
+  UpdateToolInput,
+  IGuidelineRepository,
+  CreateGuidelineInput,
+  UpdateGuidelineInput,
+  IKnowledgeRepository,
+  CreateKnowledgeInput,
+  UpdateKnowledgeInput,
+  ITagRepository,
+  IEntryTagRepository,
+} from '../core/interfaces/repositories.js';
+import type { ScopeType } from '../db/schema.js';
 
 // Security: Maximum import content size to prevent DoS attacks
 const MAX_IMPORT_CONTENT_SIZE = config.validation.contentMaxLength * 10; // 10x content limit (~500KB default)
-import {
-  guidelineRepo,
-  type CreateGuidelineInput,
-  type UpdateGuidelineInput,
-} from '../db/repositories/guidelines.js';
-import {
-  knowledgeRepo,
-  type CreateKnowledgeInput,
-  type UpdateKnowledgeInput,
-} from '../db/repositories/knowledge.js';
-import { entryTagRepo, tagRepo } from '../db/repositories/tags.js';
-import type { ScopeType } from '../db/schema.js';
+
+/**
+ * Import service dependencies
+ */
+export interface ImportServiceDeps {
+  toolRepo: IToolRepository;
+  guidelineRepo: IGuidelineRepository;
+  knowledgeRepo: IKnowledgeRepository;
+  tagRepo: ITagRepository;
+  entryTagRepo: IEntryTagRepository;
+}
+
+/**
+ * Import service interface
+ */
+export interface ImportService {
+  importFromJson(content: string, options?: ImportOptions): Promise<ImportResult>;
+  importFromYaml(content: string, options?: ImportOptions): Promise<ImportResult>;
+  importFromMarkdown(content: string, options?: ImportOptions): Promise<ImportResult>;
+  importFromOpenAPI(content: string, options?: ImportOptions): Promise<ImportResult>;
+}
+
+/**
+ * Create an import service with injected dependencies
+ */
+export function createImportService(deps: ImportServiceDeps): ImportService {
+  return {
+    async importFromJson(content: string, options: ImportOptions = {}): Promise<ImportResult> {
+      return importFromJsonImpl(deps, content, options);
+    },
+    async importFromYaml(content: string, options: ImportOptions = {}): Promise<ImportResult> {
+      return importFromYamlImpl(content, options);
+    },
+    async importFromMarkdown(content: string, options: ImportOptions = {}): Promise<ImportResult> {
+      return importFromMarkdownImpl(content, options);
+    },
+    async importFromOpenAPI(content: string, options: ImportOptions = {}): Promise<ImportResult> {
+      return importFromOpenAPIImpl(deps, content, options);
+    },
+  };
+}
 
 export interface ImportOptions {
   conflictStrategy?: 'skip' | 'update' | 'replace' | 'error';
@@ -96,31 +138,34 @@ interface ImportContext {
 /**
  * Attach tags to an entry
  */
-function attachTagsToEntry(
+async function attachTagsToEntry(
+  tagRepo: ITagRepository,
+  entryTagRepo: IEntryTagRepository,
   entryType: 'tool' | 'guideline' | 'knowledge',
   entryId: string,
   tags?: string[]
-): void {
+): Promise<void> {
   if (!tags) return;
   for (const tagName of tags) {
-    const tag = tagRepo.getOrCreate(tagName);
-    entryTagRepo.attach({ entryType, entryId, tagId: tag.id });
+    const tag = await tagRepo.getOrCreate(tagName);
+    await entryTagRepo.attach({ entryType, entryId, tagId: tag.id });
   }
 }
 
 /**
  * Import a single tool entry
  */
-function importToolEntry(
+async function importToolEntry(
+  deps: ImportServiceDeps,
   toolData: ImportEntry,
   context: ImportContext
-): { status: 'created' | 'updated' | 'skipped' | 'error'; error?: string } {
+): Promise<{ status: 'created' | 'updated' | 'skipped' | 'error'; error?: string }> {
   if (!toolData.name) {
     return { status: 'error', error: 'Tool name is required' };
   }
 
   const scope = context.mapScope(toolData.scopeType, toolData.scopeId);
-  const existing = toolRepo.getByName(toolData.name, scope.type, scope.id || undefined);
+  const existing = await deps.toolRepo.getByName(toolData.name, scope.type, scope.id || undefined);
 
   if (existing) {
     if (context.conflictStrategy === 'skip') {
@@ -137,8 +182,8 @@ function importToolEntry(
         changeReason: 'Imported update',
         updatedBy: context.importedBy,
       };
-      toolRepo.update(existing.id, updateInput);
-      attachTagsToEntry('tool', existing.id, toolData.tags);
+      await deps.toolRepo.update(existing.id, updateInput);
+      await attachTagsToEntry(deps.tagRepo, deps.entryTagRepo, 'tool', existing.id, toolData.tags);
       return { status: 'updated' };
     }
   } else {
@@ -156,8 +201,8 @@ function importToolEntry(
       constraints: toolData.currentVersion?.constraints,
       createdBy: context.importedBy,
     };
-    const created = toolRepo.create(createInput);
-    attachTagsToEntry('tool', created.id, toolData.tags);
+    const created = await deps.toolRepo.create(createInput);
+    await attachTagsToEntry(deps.tagRepo, deps.entryTagRepo, 'tool', created.id, toolData.tags);
     return { status: 'created' };
   }
 }
@@ -165,10 +210,11 @@ function importToolEntry(
 /**
  * Import a single guideline entry
  */
-function importGuidelineEntry(
+async function importGuidelineEntry(
+  deps: ImportServiceDeps,
   guidelineData: ImportEntry,
   context: ImportContext
-): { status: 'created' | 'updated' | 'skipped' | 'error'; error?: string } {
+): Promise<{ status: 'created' | 'updated' | 'skipped' | 'error'; error?: string }> {
   if (!guidelineData.name) {
     return { status: 'error', error: 'Guideline name is required' };
   }
@@ -178,7 +224,7 @@ function importGuidelineEntry(
   }
 
   const scope = context.mapScope(guidelineData.scopeType, guidelineData.scopeId);
-  const existing = guidelineRepo.getByName(guidelineData.name, scope.type, scope.id || undefined);
+  const existing = await deps.guidelineRepo.getByName(guidelineData.name, scope.type, scope.id || undefined);
 
   if (existing) {
     if (context.conflictStrategy === 'skip') {
@@ -198,8 +244,8 @@ function importGuidelineEntry(
         changeReason: 'Imported update',
         updatedBy: context.importedBy,
       };
-      guidelineRepo.update(existing.id, updateInput);
-      attachTagsToEntry('guideline', existing.id, guidelineData.tags);
+      await deps.guidelineRepo.update(existing.id, updateInput);
+      await attachTagsToEntry(deps.tagRepo, deps.entryTagRepo, 'guideline', existing.id, guidelineData.tags);
       return { status: 'updated' };
     }
   } else {
@@ -217,8 +263,8 @@ function importGuidelineEntry(
         | undefined,
       createdBy: context.importedBy,
     };
-    const created = guidelineRepo.create(createInput);
-    attachTagsToEntry('guideline', created.id, guidelineData.tags);
+    const created = await deps.guidelineRepo.create(createInput);
+    await attachTagsToEntry(deps.tagRepo, deps.entryTagRepo, 'guideline', created.id, guidelineData.tags);
     return { status: 'created' };
   }
 }
@@ -226,10 +272,11 @@ function importGuidelineEntry(
 /**
  * Import a single knowledge entry
  */
-function importKnowledgeEntry(
+async function importKnowledgeEntry(
+  deps: ImportServiceDeps,
   knowledgeData: ImportEntry,
   context: ImportContext
-): { status: 'created' | 'updated' | 'skipped' | 'error'; error?: string } {
+): Promise<{ status: 'created' | 'updated' | 'skipped' | 'error'; error?: string }> {
   if (!knowledgeData.title) {
     return { status: 'error', error: 'Knowledge title is required' };
   }
@@ -239,7 +286,7 @@ function importKnowledgeEntry(
   }
 
   const scope = context.mapScope(knowledgeData.scopeType, knowledgeData.scopeId);
-  const existing = knowledgeRepo.getByTitle(knowledgeData.title, scope.type, scope.id || undefined);
+  const existing = await deps.knowledgeRepo.getByTitle(knowledgeData.title, scope.type, scope.id || undefined);
 
   if (existing) {
     if (context.conflictStrategy === 'skip') {
@@ -259,8 +306,8 @@ function importKnowledgeEntry(
         changeReason: 'Imported update',
         updatedBy: context.importedBy,
       };
-      knowledgeRepo.update(existing.id, updateInput);
-      attachTagsToEntry('knowledge', existing.id, knowledgeData.tags);
+      await deps.knowledgeRepo.update(existing.id, updateInput);
+      await attachTagsToEntry(deps.tagRepo, deps.entryTagRepo, 'knowledge', existing.id, knowledgeData.tags);
       return { status: 'updated' };
     }
   } else {
@@ -278,8 +325,8 @@ function importKnowledgeEntry(
       validUntil: knowledgeData.currentVersion.validUntil,
       createdBy: context.importedBy,
     };
-    const created = knowledgeRepo.create(createInput);
-    attachTagsToEntry('knowledge', created.id, knowledgeData.tags);
+    const created = await deps.knowledgeRepo.create(createInput);
+    await attachTagsToEntry(deps.tagRepo, deps.entryTagRepo, 'knowledge', created.id, knowledgeData.tags);
     return { status: 'created' };
   }
 }
@@ -313,9 +360,13 @@ function processImportResult(
 }
 
 /**
- * Import from JSON format
+ * Import from JSON format (implementation)
  */
-export function importFromJson(content: string, options: ImportOptions = {}): ImportResult {
+async function importFromJsonImpl(
+  deps: ImportServiceDeps,
+  content: string,
+  options: ImportOptions = {}
+): Promise<ImportResult> {
   const result: ImportResult = {
     success: true,
     created: 0,
@@ -378,7 +429,7 @@ export function importFromJson(content: string, options: ImportOptions = {}): Im
   if (data.entries.tools) {
     for (const toolData of data.entries.tools) {
       try {
-        const importResult = importToolEntry(toolData, context);
+        const importResult = await importToolEntry(deps, toolData, context);
         processImportResult(
           importResult,
           toolData.name || toolData.id || 'unknown',
@@ -398,7 +449,7 @@ export function importFromJson(content: string, options: ImportOptions = {}): Im
   if (data.entries.guidelines) {
     for (const guidelineData of data.entries.guidelines) {
       try {
-        const importResult = importGuidelineEntry(guidelineData, context);
+        const importResult = await importGuidelineEntry(deps, guidelineData, context);
         processImportResult(
           importResult,
           guidelineData.name || guidelineData.id || 'unknown',
@@ -418,7 +469,7 @@ export function importFromJson(content: string, options: ImportOptions = {}): Im
   if (data.entries.knowledge) {
     for (const knowledgeData of data.entries.knowledge) {
       try {
-        const importResult = importKnowledgeEntry(knowledgeData, context);
+        const importResult = await importKnowledgeEntry(deps, knowledgeData, context);
         processImportResult(
           importResult,
           knowledgeData.title || knowledgeData.id || 'unknown',
@@ -438,9 +489,9 @@ export function importFromJson(content: string, options: ImportOptions = {}): Im
 }
 
 /**
- * Import from YAML format
+ * Import from YAML format (implementation)
  */
-export function importFromYaml(_content: string, _options: ImportOptions = {}): ImportResult {
+function importFromYamlImpl(_content: string, _options: ImportOptions = {}): ImportResult {
   // For now, YAML import returns an error suggesting JSON
   // Full YAML parsing would require a library or more robust implementation
   return {
@@ -463,9 +514,9 @@ export function importFromYaml(_content: string, _options: ImportOptions = {}): 
 }
 
 /**
- * Import from Markdown format (limited support)
+ * Import from Markdown format (implementation)
  */
-export function importFromMarkdown(_content: string, _options: ImportOptions = {}): ImportResult {
+function importFromMarkdownImpl(_content: string, _options: ImportOptions = {}): ImportResult {
   // Markdown import is not supported for now
   // Markdown is primarily an export format for human readability
   return {
@@ -489,11 +540,15 @@ export function importFromMarkdown(_content: string, _options: ImportOptions = {
 }
 
 /**
- * Import from OpenAPI/Swagger format
+ * Import from OpenAPI/Swagger format (implementation)
  *
  * Converts OpenAPI 3.0 specification to tool definitions.
  */
-export function importFromOpenAPI(content: string, options: ImportOptions = {}): ImportResult {
+async function importFromOpenAPIImpl(
+  deps: ImportServiceDeps,
+  content: string,
+  options: ImportOptions = {}
+): Promise<ImportResult> {
   const conflictStrategy = options.conflictStrategy || 'update';
   const result: ImportResult = {
     success: true,
@@ -624,7 +679,7 @@ export function importFromOpenAPI(content: string, options: ImportOptions = {}):
         }
 
         // Check if tool exists
-        const existing = toolRepo.getByName(toolName, defaultScopeType, defaultScopeId);
+        const existing = await deps.toolRepo.getByName(toolName, defaultScopeType, defaultScopeId);
 
         if (existing) {
           if (conflictStrategy === 'skip') {
@@ -642,8 +697,8 @@ export function importFromOpenAPI(content: string, options: ImportOptions = {}):
               changeReason: 'Imported from OpenAPI',
               updatedBy: options.importedBy,
             };
-            toolRepo.update(existing.id, updateInput);
-            attachTagsToEntry('tool', existing.id, op.tags);
+            await deps.toolRepo.update(existing.id, updateInput);
+            await attachTagsToEntry(deps.tagRepo, deps.entryTagRepo, 'tool', existing.id, op.tags);
             result.updated++;
             result.details.tools.updated++;
           }
@@ -658,8 +713,8 @@ export function importFromOpenAPI(content: string, options: ImportOptions = {}):
             parameters: Object.keys(parameters).length > 0 ? parameters : undefined,
             createdBy: options.importedBy,
           };
-          const created = toolRepo.create(createInput);
-          attachTagsToEntry('tool', created.id, op.tags);
+          const created = await deps.toolRepo.create(createInput);
+          await attachTagsToEntry(deps.tagRepo, deps.entryTagRepo, 'tool', created.id, op.tags);
           result.created++;
           result.details.tools.created++;
         }

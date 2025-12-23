@@ -5,7 +5,7 @@
  */
 
 import { eq, and, or, like, desc, asc, sql, inArray } from 'drizzle-orm';
-import { getDb, getSqlite, transactionWithDb } from '../connection.js';
+import { transactionWithDb } from '../connection.js';
 import {
   conversations,
   conversationMessages,
@@ -50,8 +50,40 @@ export type {
 export function createConversationRepository(deps: DatabaseDeps): IConversationRepository {
   const { db, sqlite } = deps;
 
+  // Helper to fetch conversation (used within transactions)
+  function getByIdSync(
+    id: string,
+    includeMessages?: boolean,
+    includeContext?: boolean
+  ): ConversationWithMessages | undefined {
+    const conversation = db.select().from(conversations).where(eq(conversations.id, id)).get();
+
+    if (!conversation) return undefined;
+
+    const result: ConversationWithMessages = { ...conversation };
+
+    if (includeMessages) {
+      result.messages = db
+        .select()
+        .from(conversationMessages)
+        .where(eq(conversationMessages.conversationId, id))
+        .orderBy(asc(conversationMessages.messageIndex))
+        .all();
+    }
+
+    if (includeContext) {
+      result.context = db
+        .select()
+        .from(conversationContext)
+        .where(eq(conversationContext.conversationId, id))
+        .all();
+    }
+
+    return result;
+  }
+
   const repo: IConversationRepository = {
-    create(input: CreateConversationInput): ConversationWithMessages {
+    async create(input: CreateConversationInput): Promise<ConversationWithMessages> {
       return transactionWithDb(sqlite, () => {
         const conversationId = generateId();
 
@@ -67,7 +99,7 @@ export function createConversationRepository(deps: DatabaseDeps): IConversationR
 
         db.insert(conversations).values(entry).run();
 
-        const result = repo.getById(conversationId);
+        const result = getByIdSync(conversationId);
         if (!result) {
           throw new Error(`Failed to create conversation ${conversationId}`);
         }
@@ -76,11 +108,11 @@ export function createConversationRepository(deps: DatabaseDeps): IConversationR
       });
     },
 
-    getById(
+    async getById(
       id: string,
       includeMessages?: boolean,
       includeContext?: boolean
-    ): ConversationWithMessages | undefined {
+    ): Promise<ConversationWithMessages | undefined> {
       const conversation = db.select().from(conversations).where(eq(conversations.id, id)).get();
 
       if (!conversation) return undefined;
@@ -107,10 +139,10 @@ export function createConversationRepository(deps: DatabaseDeps): IConversationR
       return result;
     },
 
-    list(
+    async list(
       filter: ListConversationsFilter = {},
       options: PaginationOptions = {}
-    ): ConversationWithMessages[] {
+    ): Promise<ConversationWithMessages[]> {
       const limit = Math.min(options.limit ?? DEFAULT_LIMIT, MAX_LIMIT);
       const offset = options.offset ?? 0;
 
@@ -149,9 +181,9 @@ export function createConversationRepository(deps: DatabaseDeps): IConversationR
       return query.orderBy(desc(conversations.startedAt)).limit(limit).offset(offset).all();
     },
 
-    update(id: string, updates: UpdateConversationInput): ConversationWithMessages | undefined {
+    async update(id: string, updates: UpdateConversationInput): Promise<ConversationWithMessages | undefined> {
       return transactionWithDb(sqlite, () => {
-        const existing = repo.getById(id);
+        const existing = getByIdSync(id);
         if (!existing) return undefined;
 
         const updateData: Partial<NewConversation> = {};
@@ -176,11 +208,11 @@ export function createConversationRepository(deps: DatabaseDeps): IConversationR
 
         db.update(conversations).set(updateData).where(eq(conversations.id, id)).run();
 
-        return repo.getById(id) ?? undefined;
+        return getByIdSync(id);
       });
     },
 
-    addMessage(input: AddMessageInput) {
+    async addMessage(input: AddMessageInput) {
       return transactionWithDb(sqlite, () => {
         const messageId = generateId();
 
@@ -223,7 +255,7 @@ export function createConversationRepository(deps: DatabaseDeps): IConversationR
       });
     },
 
-    getMessages(conversationId: string, limit?: number, offset?: number) {
+    async getMessages(conversationId: string, limit?: number, offset?: number) {
       let query = db
         .select()
         .from(conversationMessages)
@@ -241,7 +273,7 @@ export function createConversationRepository(deps: DatabaseDeps): IConversationR
       return query.all();
     },
 
-    linkContext(input: LinkContextInput) {
+    async linkContext(input: LinkContextInput) {
       return transactionWithDb(sqlite, () => {
         const contextId = generateId();
 
@@ -310,7 +342,7 @@ export function createConversationRepository(deps: DatabaseDeps): IConversationR
       });
     },
 
-    getContextForEntry(entryType: ContextEntryType, entryId: string) {
+    async getContextForEntry(entryType: ContextEntryType, entryId: string) {
       return db
         .select()
         .from(conversationContext)
@@ -320,7 +352,7 @@ export function createConversationRepository(deps: DatabaseDeps): IConversationR
         .all();
     },
 
-    getContextForConversation(conversationId: string) {
+    async getContextForConversation(conversationId: string) {
       return db
         .select()
         .from(conversationContext)
@@ -328,7 +360,7 @@ export function createConversationRepository(deps: DatabaseDeps): IConversationR
         .all();
     },
 
-    search(searchQuery: string, filter?: ConversationSearchFilter): ConversationWithMessages[] {
+    async search(searchQuery: string, filter?: ConversationSearchFilter): Promise<ConversationWithMessages[]> {
       const limit = Math.min(filter?.limit ?? DEFAULT_LIMIT, MAX_LIMIT);
       const offset = filter?.offset ?? 0;
 
@@ -389,28 +421,3 @@ export function createConversationRepository(deps: DatabaseDeps): IConversationR
 
   return repo;
 }
-
-// =============================================================================
-// TEMPORARY BACKWARD COMPAT EXPORTS
-// TODO: Remove these when all call sites are updated to use AppContext.repos
-// =============================================================================
-
-/**
- * @deprecated Use createConversationRepository(deps) instead. Will be removed when AppContext.repos is wired.
- */
-function createLegacyConversationRepo(): IConversationRepository {
-  return createConversationRepository({ db: getDb(), sqlite: getSqlite() });
-}
-
-// Lazy-initialized singleton instance for backward compatibility
-let _conversationRepo: IConversationRepository | null = null;
-
-/**
- * @deprecated Use AppContext.repos.conversations instead
- */
-export const conversationRepo: IConversationRepository = new Proxy({} as IConversationRepository, {
-  get(_, prop: keyof IConversationRepository) {
-    if (!_conversationRepo) _conversationRepo = createLegacyConversationRepo();
-    return _conversationRepo[prop];
-  },
-});

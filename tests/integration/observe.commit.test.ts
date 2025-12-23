@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { eq } from 'drizzle-orm';
 
 import {
@@ -6,14 +6,17 @@ import {
   createTestProject,
   createTestSession,
   createTestTool,
+  createTestContext,
   schema,
   setupTestDb,
 } from '../fixtures/test-helpers.js';
+import type { AppContext } from '../../src/core/context.js';
 
 const TEST_DB_PATH = './data/test-observe-commit.db';
 
 let sqlite: ReturnType<typeof setupTestDb>['sqlite'];
 let db: ReturnType<typeof setupTestDb>['db'];
+let ctx: AppContext;
 
 vi.mock('../../src/db/connection.js', async () => {
   const actual = await vi.importActual<typeof import('../../src/db/connection.js')>(
@@ -30,10 +33,11 @@ vi.mock('../../src/db/connection.js', async () => {
 import { observeHandlers } from '../../src/mcp/handlers/observe.handler.js';
 
 describe('memory_observe.commit integration', () => {
-  beforeAll(() => {
+  beforeAll(async () => {
     const testDb = setupTestDb(TEST_DB_PATH);
     sqlite = testDb.sqlite;
     db = testDb.db;
+    ctx = await createTestContext(testDb);
   });
 
   afterAll(() => {
@@ -41,14 +45,14 @@ describe('memory_observe.commit integration', () => {
     cleanupTestDb(TEST_DB_PATH);
   });
 
-  it('stores high-confidence to project, low-confidence to session, and updates session metadata', () => {
+  it('stores high-confidence to project, low-confidence to session, and updates session metadata', async () => {
     const project = createTestProject(db, 'Observe Commit Project');
     const session = createTestSession(db, project.id, 'Session', 'Purpose', 'agent-1');
 
     // Existing tool => should be detected as duplicate at project scope and skipped.
     createTestTool(db, 'dup-tool', 'project', project.id, 'cli', 'Existing tool');
 
-    const result = observeHandlers.commit({
+    const result = await observeHandlers.commit(ctx, {
       sessionId: session.id,
       projectId: project.id,
       agentId: 'agent-1',

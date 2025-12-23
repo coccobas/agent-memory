@@ -2,6 +2,7 @@
  * memory_health tool descriptor
  *
  * This is a SimpleToolDescriptor - no actions, just a single handler.
+ * Context-aware handler that receives AppContext for dependency injection.
  */
 
 import type { SimpleToolDescriptor } from './types.js';
@@ -15,7 +16,7 @@ export const memoryHealthDescriptor: SimpleToolDescriptor = {
 
 Use this to verify the memory server is working or to get entry counts.`,
   params: {},
-  handler: () => {
+  contextHandler: (_ctx) => {
     // Get cache stats from Runtime (if available)
     const queryCacheStats = isRuntimeRegistered()
       ? getRuntime().queryCache.cache.stats

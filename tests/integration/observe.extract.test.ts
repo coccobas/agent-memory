@@ -1,18 +1,21 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { eq } from 'drizzle-orm';
 
 import {
   cleanupTestDb,
   createTestProject,
   createTestTool,
+  createTestContext,
   schema,
   setupTestDb,
 } from '../fixtures/test-helpers.js';
+import type { AppContext } from '../../src/core/context.js';
 
 const TEST_DB_PATH = './data/test-observe-extract.db';
 
 let sqlite: ReturnType<typeof setupTestDb>['sqlite'];
 let db: ReturnType<typeof setupTestDb>['db'];
+let ctx: AppContext;
 
 const mockExtract = vi.fn();
 
@@ -45,10 +48,11 @@ vi.mock('../../src/services/extraction.service.js', async () => {
 import { observeHandlers } from '../../src/mcp/handlers/observe.handler.js';
 
 describe('memory_observe.extract integration', () => {
-  beforeAll(() => {
+  beforeAll(async () => {
     const testDb = setupTestDb(TEST_DB_PATH);
     sqlite = testDb.sqlite;
     db = testDb.db;
+    ctx = await createTestContext(testDb);
   });
 
   afterAll(() => {
@@ -110,7 +114,7 @@ describe('memory_observe.extract integration', () => {
       processingTimeMs: 5,
     });
 
-    const result = await observeHandlers.extract({
+    const result = await observeHandlers.extract(ctx, {
       action: 'extract',
       context: 'Some context',
       contextType: 'conversation',
@@ -197,7 +201,7 @@ describe('memory_observe.extract integration', () => {
       processingTimeMs: 1,
     });
 
-    const result = await observeHandlers.extract({
+    const result = await observeHandlers.extract(ctx, {
       context: 'Some context',
       scopeType: 'project',
       scopeId: project.id,

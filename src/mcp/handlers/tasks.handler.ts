@@ -38,14 +38,14 @@ export interface TaskListParams {
 /**
  * Add a task with subtasks, creating decomposition relationships
  */
-export function addTask(
+export async function addTask(
   context: AppContext,
   params: TaskAddParams
-): {
+): Promise<{
   success: boolean;
   task: { id: string; title: string };
   subtasks: Array<{ id: string; title: string }>;
-} {
+}> {
   const {
     parentTask,
     subtasks,
@@ -77,7 +77,7 @@ export function addTask(
     createdBy,
   };
 
-  const mainTask = knowledgeRepo.create(mainTaskInput);
+  const mainTask = await knowledgeRepo.create(mainTaskInput);
 
   // Create subtasks as knowledge entries and link them
   const createdSubtasks = [];
@@ -91,11 +91,11 @@ export function addTask(
       createdBy,
     };
 
-    const subtask = knowledgeRepo.create(subtaskInput);
+    const subtask = await knowledgeRepo.create(subtaskInput);
     createdSubtasks.push(subtask);
 
     // Create relation: main task -> subtask (parent_task)
-    entryRelationRepo.create({
+    await entryRelationRepo.create({
       sourceType: 'knowledge',
       sourceId: mainTask.id,
       targetType: 'knowledge',
@@ -105,7 +105,7 @@ export function addTask(
     });
 
     // Create inverse relation: subtask -> main task (subtask_of)
-    entryRelationRepo.create({
+    await entryRelationRepo.create({
       sourceType: 'knowledge',
       sourceId: subtask.id,
       targetType: 'knowledge',
@@ -117,7 +117,7 @@ export function addTask(
 
   // If there's a parent task, link it
   if (parentTask) {
-    entryRelationRepo.create({
+    await entryRelationRepo.create({
       sourceType: 'knowledge',
       sourceId: parentTask,
       targetType: 'knowledge',
@@ -126,7 +126,7 @@ export function addTask(
       createdBy,
     });
 
-    entryRelationRepo.create({
+    await entryRelationRepo.create({
       sourceType: 'knowledge',
       sourceId: mainTask.id,
       targetType: 'knowledge',
@@ -170,10 +170,10 @@ export function addTask(
 /**
  * Get a task and its subtasks
  */
-export function getTask(
+export async function getTask(
   context: AppContext,
   params: TaskGetParams
-): {
+): Promise<{
   task: {
     id: string;
     title: string;
@@ -181,12 +181,12 @@ export function getTask(
   };
   subtasks: Array<{ id: string; title: string }>;
   parentTask?: { id: string; title: string };
-} {
+}> {
   const { taskId } = params;
   const { repos } = context;
   const { knowledge: knowledgeRepo, entryRelations: entryRelationRepo } = repos;
 
-  const task = knowledgeRepo.getById(taskId);
+  const task = await knowledgeRepo.getById(taskId);
   if (!task) {
     throw createNotFoundError('Task', taskId);
   }
@@ -197,22 +197,20 @@ export function getTask(
     sourceId: taskId,
     relationType: 'parent_task',
   };
-  const relations = entryRelationRepo.list(filter);
+  const relations = await entryRelationRepo.list(filter);
 
-  const subtasks = relations
-    .map((rel) => {
-      if (rel.targetType === 'knowledge') {
-        const subtask = knowledgeRepo.getById(rel.targetId);
-        return subtask
-          ? {
-              id: subtask.id,
-              title: subtask.title,
-            }
-          : null;
+  const subtasks: Array<{ id: string; title: string }> = [];
+  for (const rel of relations) {
+    if (rel.targetType === 'knowledge') {
+      const subtask = await knowledgeRepo.getById(rel.targetId);
+      if (subtask) {
+        subtasks.push({
+          id: subtask.id,
+          title: subtask.title,
+        });
       }
-      return null;
-    })
-    .filter((s): s is { id: string; title: string } => s !== null);
+    }
+  }
 
   // Get parent task (if this is a subtask)
   const parentFilter: ListRelationsFilter = {
@@ -220,22 +218,21 @@ export function getTask(
     sourceId: taskId,
     relationType: 'subtask_of',
   };
-  const parentRelations = entryRelationRepo.list(parentFilter);
+  const parentRelations = await entryRelationRepo.list(parentFilter);
 
-  const parentTask =
-    parentRelations.length > 0 && parentRelations[0]?.targetType === 'knowledge'
-      ? (() => {
-          const firstRelation = parentRelations[0];
-          if (!firstRelation) return undefined;
-          const parent = knowledgeRepo.getById(firstRelation.targetId);
-          return parent
-            ? {
-                id: parent.id,
-                title: parent.title,
-              }
-            : undefined;
-        })()
-      : undefined;
+  let parentTask: { id: string; title: string } | undefined;
+  if (parentRelations.length > 0 && parentRelations[0]?.targetType === 'knowledge') {
+    const firstRelation = parentRelations[0];
+    if (firstRelation) {
+      const parent = await knowledgeRepo.getById(firstRelation.targetId);
+      if (parent) {
+        parentTask = {
+          id: parent.id,
+          title: parent.title,
+        };
+      }
+    }
+  }
 
   return {
     task: {
@@ -251,10 +248,10 @@ export function getTask(
 /**
  * List tasks, optionally filtered by parent or scope
  */
-export function listTasks(
+export async function listTasks(
   context: AppContext,
   params: TaskListParams
-): {
+): Promise<{
   tasks: Array<{
     id: string;
     title: string;
@@ -263,7 +260,7 @@ export function listTasks(
   meta: {
     returnedCount: number;
   };
-} {
+}> {
   const { parentTaskId, scopeType, scopeId, limit = 20, offset = 0 } = params;
   const { repos } = context;
   const { knowledge: knowledgeRepo, entryRelations: entryRelationRepo } = repos;
@@ -277,24 +274,24 @@ export function listTasks(
       sourceId: parentTaskId,
       relationType: 'parent_task',
     };
-    const relations = entryRelationRepo.list(filter);
-    taskIds = relations.filter((rel) => rel.targetType === 'knowledge').map((rel) => rel.targetId);
+    const relations = await entryRelationRepo.list(filter);
+    taskIds = relations.filter((rel: { targetType: string }) => rel.targetType === 'knowledge').map((rel: { targetId: string }) => rel.targetId);
   } else {
     // Get all tasks (knowledge entries that are parents)
     const filter: ListRelationsFilter = {
       relationType: 'parent_task',
     };
-    const allRelations = entryRelationRepo.list(filter);
+    const allRelations = await entryRelationRepo.list(filter);
     taskIds = Array.from(
       new Set(
-        allRelations.filter((rel) => rel.sourceType === 'knowledge').map((rel) => rel.sourceId)
+        allRelations.filter((rel: { sourceType: string }) => rel.sourceType === 'knowledge').map((rel: { sourceId: string }) => rel.sourceId)
       )
     );
   }
 
   // Filter by scope if provided
   if (scopeType) {
-    const tasks = knowledgeRepo.list(
+    const tasks = await knowledgeRepo.list(
       {
         scopeType,
         scopeId,
@@ -303,28 +300,34 @@ export function listTasks(
       { limit: 1000, offset: 0 } // Get all to filter
     );
 
-    const taskIdsInScope = new Set(tasks.map((t) => t.id));
+    const taskIdsInScope = new Set(tasks.map((t: { id: string }) => t.id));
     taskIds = taskIds.filter((id) => taskIdsInScope.has(id));
   }
 
   // Get task details and count subtasks
-  const tasks = taskIds.slice(offset, offset + limit).map((taskId) => {
-    const task = knowledgeRepo.getById(taskId);
-    if (!task) return null;
+  const tasksToProcess = taskIds.slice(offset, offset + limit);
+  const tasks: Array<{ id: string; title: string; subtaskCount: number } | null> = [];
+
+  for (const taskId of tasksToProcess) {
+    const task = await knowledgeRepo.getById(taskId);
+    if (!task) {
+      tasks.push(null);
+      continue;
+    }
 
     const subtaskFilter: ListRelationsFilter = {
       sourceType: 'knowledge',
       sourceId: taskId,
       relationType: 'parent_task',
     };
-    const subtaskRelations = entryRelationRepo.list(subtaskFilter);
+    const subtaskRelations = await entryRelationRepo.list(subtaskFilter);
 
-    return {
+    tasks.push({
       id: task.id,
       title: task.title,
       subtaskCount: subtaskRelations.length,
-    };
-  });
+    });
+  }
 
   return {
     tasks: tasks.filter(

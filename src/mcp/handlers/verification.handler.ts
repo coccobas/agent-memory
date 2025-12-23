@@ -17,6 +17,7 @@ import {
 import { getCriticalGuidelinesForSession } from '../../services/critical-guidelines.service.js';
 import { createValidationError } from '../../core/errors.js';
 import { createComponentLogger } from '../../utils/logger.js';
+import type { AppContext } from '../../core/context.js';
 import {
   getRequiredParam,
   getOptionalParam,
@@ -62,7 +63,7 @@ export const verificationHandlers = {
    * Returns blocked: true if the action would violate critical guidelines.
    * Agents should NOT proceed if blocked.
    */
-  preCheck(params: Record<string, unknown>) {
+  preCheck(context: AppContext, params: Record<string, unknown>) {
     const sessionId = getOptionalParam(params, 'sessionId', isString);
     const projectId = getOptionalParam(params, 'projectId', isString);
     const proposedAction = getRequiredParam(params, 'proposedAction', isProposedAction);
@@ -72,7 +73,13 @@ export const verificationHandlers = {
     logger.info({ sessionId, actionType: proposedAction.type }, 'Pre-check verification requested');
 
     // Verify the action
-    const result = verifyAction(sessionId ?? null, projectId ?? null, proposedAction);
+    const result = context.services?.verification
+      ? context.services.verification.verifyAction(
+        sessionId ?? null,
+        projectId ?? null,
+        proposedAction
+      )
+      : verifyAction(sessionId ?? null, projectId ?? null, proposedAction);
 
     return formatTimestamps({
       success: true,
@@ -90,7 +97,7 @@ export const verificationHandlers = {
    *
    * Does not block - used for analytics and audit purposes.
    */
-  postCheck(params: Record<string, unknown>) {
+  postCheck(context: AppContext, params: Record<string, unknown>) {
     const sessionId = getOptionalParam(params, 'sessionId', isString);
     // projectId is accepted but derived internally from sessionId
     getOptionalParam(params, 'projectId', isString);
@@ -118,7 +125,9 @@ export const verificationHandlers = {
     logger.info({ sessionId, actionType: action.type }, 'Post-check verification requested');
 
     // Log and verify the completed action
-    const result = logCompletedAction(sessionId ?? null, action, agentId);
+    const result = context.services?.verification
+      ? context.services.verification.logCompletedAction(sessionId ?? null, action, agentId)
+      : logCompletedAction(sessionId ?? null, action, agentId);
 
     return formatTimestamps({
       success: true,
@@ -137,7 +146,7 @@ export const verificationHandlers = {
    *
    * Should be called after reviewing critical guidelines at session start.
    */
-  acknowledge(params: Record<string, unknown>) {
+  acknowledge(context: AppContext, params: Record<string, unknown>) {
     const sessionId = getRequiredParam(params, 'sessionId', isString);
     const guidelineIds = getOptionalParam(params, 'guidelineIds', isStringArray);
     const agentId = getOptionalParam(params, 'agentId', isString);
@@ -145,11 +154,15 @@ export const verificationHandlers = {
     logger.info({ sessionId, guidelineIds }, 'Acknowledgment requested');
 
     // Acknowledge the guidelines
-    const result = acknowledgeGuidelines(sessionId, guidelineIds, agentId);
+    const result = context.services?.verification
+      ? context.services.verification.acknowledgeGuidelines(sessionId, guidelineIds, agentId)
+      : acknowledgeGuidelines(sessionId, guidelineIds, agentId);
 
     // Check if all critical guidelines are now acknowledged
     const projectId = null; // Will be resolved from session
-    const status = areAllCriticalGuidelinesAcknowledged(sessionId, projectId);
+    const status = context.services?.verification
+      ? context.services.verification.areAllCriticalGuidelinesAcknowledged(sessionId, projectId)
+      : areAllCriticalGuidelinesAcknowledged(sessionId, projectId);
 
     return formatTimestamps({
       success: true,
@@ -170,17 +183,25 @@ export const verificationHandlers = {
    *
    * Returns critical guidelines and acknowledgment status.
    */
-  status(params: Record<string, unknown>) {
+  status(context: AppContext, params: Record<string, unknown>) {
     const sessionId = getRequiredParam(params, 'sessionId', isString);
     const projectId = getOptionalParam(params, 'projectId', isString);
 
     logger.info({ sessionId }, 'Verification status requested');
 
     // Get critical guidelines
-    const criticalGuidelines = getCriticalGuidelinesForSession(projectId ?? null, sessionId);
+    const criticalGuidelines = getCriticalGuidelinesForSession(
+      projectId ?? null,
+      sessionId,
+      context.db
+    );
 
     // Get acknowledged guidelines
-    const acknowledgedIds = new Set(getAcknowledgedGuidelineIds(sessionId));
+    const acknowledgedIds = new Set(
+      context.services?.verification
+        ? context.services.verification.getAcknowledgedGuidelineIds(sessionId)
+        : getAcknowledgedGuidelineIds(sessionId)
+    );
 
     // Build status for each guideline
     const guidelinesStatus = criticalGuidelines.guidelines.map((g) => ({

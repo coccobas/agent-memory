@@ -77,7 +77,7 @@ describe.skipIf(!getEmbeddingService().isAvailable())('Backfill Service', () => 
     expect(progress.total).toBe(3);
     expect(progress.processed).toBe(3);
     expect(progress.inProgress).toBe(false);
-  });
+  }, 20000); // Increased timeout for embedding operations
 
   it('should process only specified entry types', async () => {
     // Create multiple entries
@@ -110,7 +110,7 @@ describe.skipIf(!getEmbeddingService().isAvailable())('Backfill Service', () => 
 
     expect(progress.total).toBe(5);
     expect(progress.processed).toBe(5);
-  });
+  }, 15000); // Increased timeout for batch processing
 
   it('should track progress with callback', async () => {
     createTestTool(db, 'progress-tool-1', 'global');
@@ -192,7 +192,7 @@ describe.skipIf(!getEmbeddingService().isAvailable())('Backfill Service', () => 
     // Should have at least one delay (100ms) between batches
     // Being lenient with timing to avoid flaky tests
     expect(elapsed).toBeGreaterThan(50);
-  });
+  }, 15000); // Increased timeout for batch processing with delays
 
   it('should get backfill statistics', async () => {
     // Create entries

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import {
   setupTestDb,
   cleanupTestDb,
@@ -49,11 +49,11 @@ describe('Relations Integration', () => {
   });
 
   describe('memory_relation_create', () => {
-    it('should create a relation between tool and guideline', () => {
+    it('should create a relation between tool and guideline', async () => {
       const { tool } = createTestTool(db, 'sql_tool');
       const { guideline } = createTestGuideline(db, 'sql_guideline');
 
-      const result = relationHandlers.create(context, {
+      const result = await relationHandlers.create(context, {
         agentId: AGENT_ID,
         sourceType: 'tool',
         sourceId: tool.id,
@@ -71,11 +71,11 @@ describe('Relations Integration', () => {
       expect(result.relation.relationType).toBe('applies_to');
     });
 
-    it('should create relation in reverse direction', () => {
+    it('should create relation in reverse direction', async () => {
       const { guideline } = createTestGuideline(db, 'reverse_guideline');
       const { tool } = createTestTool(db, 'reverse_tool');
 
-      const result = relationHandlers.create(context, {
+      const result = await relationHandlers.create(context, {
         agentId: AGENT_ID,
         sourceType: 'guideline',
         sourceId: guideline.id,
@@ -87,20 +87,20 @@ describe('Relations Integration', () => {
       expect(result.success).toBe(true);
     });
 
-    it('should require all required fields', () => {
-      expect(() => {
-        relationHandlers.create(context, { agentId: AGENT_ID });
-      }).toThrow('sourceType is required');
+    it('should require all required fields', async () => {
+      await expect(
+        relationHandlers.create(context, { agentId: AGENT_ID })
+      ).rejects.toThrow('sourceType is required');
     });
   });
 
   describe('memory_relation_list', () => {
-    it('should list relations by source', () => {
+    it('should list relations by source', async () => {
       const { tool } = createTestTool(db, 'source_tool');
       const { guideline: g1 } = createTestGuideline(db, 'target1');
       const { guideline: g2 } = createTestGuideline(db, 'target2');
 
-      relationHandlers.create(context, {
+      await relationHandlers.create(context, {
         agentId: AGENT_ID,
         sourceType: 'tool',
         sourceId: tool.id,
@@ -109,7 +109,7 @@ describe('Relations Integration', () => {
         relationType: 'applies_to',
       });
 
-      relationHandlers.create(context, {
+      await relationHandlers.create(context, {
         agentId: AGENT_ID,
         sourceType: 'tool',
         sourceId: tool.id,
@@ -118,7 +118,7 @@ describe('Relations Integration', () => {
         relationType: 'applies_to',
       });
 
-      const result = relationHandlers.list(context, {
+      const result = await relationHandlers.list(context, {
         agentId: AGENT_ID,
         sourceType: 'tool',
         sourceId: tool.id,
@@ -132,12 +132,12 @@ describe('Relations Integration', () => {
       });
     });
 
-    it('should list relations by target', () => {
+    it('should list relations by target', async () => {
       const { guideline } = createTestGuideline(db, 'target_guideline');
       const { tool: t1 } = createTestTool(db, 'source1');
       const { tool: t2 } = createTestTool(db, 'source2');
 
-      relationHandlers.create(context, {
+      await relationHandlers.create(context, {
         agentId: AGENT_ID,
         sourceType: 'tool',
         sourceId: t1.id,
@@ -146,7 +146,7 @@ describe('Relations Integration', () => {
         relationType: 'applies_to',
       });
 
-      relationHandlers.create(context, {
+      await relationHandlers.create(context, {
         agentId: AGENT_ID,
         sourceType: 'tool',
         sourceId: t2.id,
@@ -155,7 +155,7 @@ describe('Relations Integration', () => {
         relationType: 'applies_to',
       });
 
-      const result = relationHandlers.list(context, {
+      const result = await relationHandlers.list(context, {
         agentId: AGENT_ID,
         targetType: 'guideline',
         targetId: guideline.id,
@@ -169,12 +169,12 @@ describe('Relations Integration', () => {
       });
     });
 
-    it('should filter by relation type', () => {
+    it('should filter by relation type', async () => {
       const { tool } = createTestTool(db, 'filter_tool');
       const { guideline: g1 } = createTestGuideline(db, 'applies1');
       const { guideline: g2 } = createTestGuideline(db, 'depends1');
 
-      relationHandlers.create(context, {
+      await relationHandlers.create(context, {
         agentId: AGENT_ID,
         sourceType: 'tool',
         sourceId: tool.id,
@@ -183,7 +183,7 @@ describe('Relations Integration', () => {
         relationType: 'applies_to',
       });
 
-      relationHandlers.create(context, {
+      await relationHandlers.create(context, {
         agentId: AGENT_ID,
         sourceType: 'tool',
         sourceId: tool.id,
@@ -192,7 +192,7 @@ describe('Relations Integration', () => {
         relationType: 'depends_on',
       });
 
-      const result = relationHandlers.list(context, {
+      const result = await relationHandlers.list(context, {
         agentId: AGENT_ID,
         sourceType: 'tool',
         sourceId: tool.id,
@@ -204,17 +204,19 @@ describe('Relations Integration', () => {
       expect(result.relations[0].relationType).toBe('applies_to');
     });
 
-    it('should require an anchored entry filter', () => {
-      expect(() => relationHandlers.list(context, { agentId: AGENT_ID, limit: 10 })).toThrow();
+    it('should require an anchored entry filter', async () => {
+      await expect(
+        relationHandlers.list(context, { agentId: AGENT_ID, limit: 10 })
+      ).rejects.toThrow();
     });
   });
 
   describe('memory_relation_delete', () => {
-    it('should delete a relation', () => {
+    it('should delete a relation', async () => {
       const { tool } = createTestTool(db, 'delete_tool');
       const { guideline } = createTestGuideline(db, 'delete_guideline');
 
-      const createResult = relationHandlers.create(context, {
+      const createResult = await relationHandlers.create(context, {
         agentId: AGENT_ID,
         sourceType: 'tool',
         sourceId: tool.id,
@@ -223,7 +225,7 @@ describe('Relations Integration', () => {
         relationType: 'applies_to',
       });
 
-      const deleteResult = relationHandlers.delete(context, {
+      const deleteResult = await relationHandlers.delete(context, {
         agentId: AGENT_ID,
         id: createResult.relation.id,
       });
@@ -231,7 +233,7 @@ describe('Relations Integration', () => {
       expect(deleteResult.success).toBe(true);
 
       // Verify relation is deleted
-      const listResult = relationHandlers.list(context, {
+      const listResult = await relationHandlers.list(context, {
         agentId: AGENT_ID,
         sourceType: 'tool',
         sourceId: tool.id,
@@ -240,10 +242,10 @@ describe('Relations Integration', () => {
       expect(listResult.relations.find((r) => r.id === createResult.relation.id)).toBeUndefined();
     });
 
-    it('should require id or full key', () => {
-      expect(() => {
-        relationHandlers.delete(context, { agentId: AGENT_ID });
-      }).toThrow(/id or \(sourceType, sourceId, targetType, targetId, relationType\)/);
+    it('should require id or full key', async () => {
+      await expect(
+        relationHandlers.delete(context, { agentId: AGENT_ID })
+      ).rejects.toThrow(/id or \(sourceType, sourceId, targetType, targetId, relationType\)/);
     });
   });
 });
