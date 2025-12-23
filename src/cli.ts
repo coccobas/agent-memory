@@ -43,6 +43,12 @@ async function main() {
     return;
   }
 
+  if (command === 'reindex') {
+    const { runReindexCommand } = await import('./commands/reindex.js');
+    await runReindexCommand(argv.slice(1));
+    return;
+  }
+
   // Load environment variables explicitly
   const { loadEnv } = await import('./config/env.js');
   const { resolve, dirname } = await import('node:path');

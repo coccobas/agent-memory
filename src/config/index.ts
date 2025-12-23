@@ -136,6 +136,10 @@ export interface Config {
     openaiApiKey: string | undefined;
     openaiModel: string;
     maxConcurrency: number;
+    /** Max retry attempts for failed embedding jobs (default: 3) */
+    maxRetries: number;
+    /** Base delay in ms between retries, doubles each attempt (default: 1000) */
+    retryDelayMs: number;
   };
 
   // Extraction (LLM-based auto-capture)
@@ -380,6 +384,8 @@ export function buildConfig(): Config {
       openaiApiKey: process.env.AGENT_MEMORY_OPENAI_API_KEY,
       openaiModel: process.env.AGENT_MEMORY_OPENAI_MODEL || 'text-embedding-3-small',
       maxConcurrency: parseInt_(process.env.AGENT_MEMORY_EMBEDDING_MAX_CONCURRENCY, 16),
+      maxRetries: parseInt_(process.env.AGENT_MEMORY_EMBEDDING_MAX_RETRIES, 3),
+      retryDelayMs: parseInt_(process.env.AGENT_MEMORY_EMBEDDING_RETRY_DELAY_MS, 1000),
     },
 
     extraction: {

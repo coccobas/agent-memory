@@ -8,6 +8,7 @@
 import type { SimpleToolDescriptor } from './types.js';
 import { getRuntime, isRuntimeRegistered } from '../../core/container.js';
 import { getCachedStats, getStatsCacheStatus } from '../../services/stats.service.js';
+import { getEmbeddingQueueStats } from '../../db/repositories/embedding-hooks.js';
 import { VERSION } from '../../version.js';
 
 export const memoryHealthDescriptor: SimpleToolDescriptor = {
@@ -37,6 +38,7 @@ Use this to verify the memory server is working or to get entry counts.`,
         tableCountsAge: statsCacheStatus.ageMs,
         tableCountsStale: statsCacheStatus.isStale,
       },
+      embeddingQueue: getEmbeddingQueueStats(),
       tables: tableCounts,
     };
   },

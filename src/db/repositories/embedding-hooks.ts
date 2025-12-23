@@ -63,6 +63,75 @@ const enqueued = new Set<EmbeddingQueueKey>();
 let inFlight = 0;
 const latestSeqByKey = new Map<EmbeddingQueueKey, number>();
 
+// Stats counters
+let processedCount = 0;
+let failedCount = 0;
+let skippedStaleCount = 0;
+let retriedCount = 0;
+
+// =============================================================================
+// FAILED JOB TRACKING & RETRY
+// =============================================================================
+
+interface FailedJob {
+  input: EmbeddingInput;
+  attempts: number;
+  lastError: string;
+  lastAttemptAt: number;
+}
+
+const failedJobs = new Map<EmbeddingQueueKey, FailedJob>();
+
+function getMaxRetries(): number {
+  const raw = config.embedding?.maxRetries;
+  const n = typeof raw === 'number' && Number.isFinite(raw) ? raw : 3;
+  return Math.max(0, Math.floor(n));
+}
+
+function getRetryDelayMs(): number {
+  const raw = config.embedding?.retryDelayMs;
+  const n = typeof raw === 'number' && Number.isFinite(raw) ? raw : 1000;
+  return Math.max(100, Math.floor(n));
+}
+
+/**
+ * Stats for the embedding queue
+ */
+export interface EmbeddingQueueStats {
+  /** Number of jobs waiting in queue */
+  pending: number;
+  /** Number of jobs currently being processed */
+  inFlight: number;
+  /** Total jobs successfully processed since startup */
+  processed: number;
+  /** Total jobs that failed (exhausted retries) since startup */
+  failed: number;
+  /** Jobs skipped because a newer version was queued */
+  skippedStale: number;
+  /** Jobs successfully retried after initial failure */
+  retried: number;
+  /** Jobs currently waiting for retry */
+  failedPendingRetry: number;
+  /** Maximum concurrent jobs allowed */
+  maxConcurrency: number;
+}
+
+/**
+ * Get current embedding queue statistics
+ */
+export function getEmbeddingQueueStats(): EmbeddingQueueStats {
+  return {
+    pending: queue.length,
+    inFlight,
+    processed: processedCount,
+    failed: failedCount,
+    skippedStale: skippedStaleCount,
+    retried: retriedCount,
+    failedPendingRetry: failedJobs.size,
+    maxConcurrency: getMaxConcurrency(),
+  };
+}
+
 function getMaxConcurrency(): number {
   const raw = config.embedding?.maxConcurrency;
   const n = typeof raw === 'number' && Number.isFinite(raw) ? raw : 4;
@@ -84,6 +153,7 @@ async function runEmbeddingJob(input: QueuedEmbeddingInput): Promise<void> {
   // If a newer job was enqueued for this entry, do not persist stale embeddings.
   const latestSeq = latestSeqByKey.get(input.__key);
   if (latestSeq !== input.__seq) {
+    skippedStaleCount++;
     return;
   }
 
@@ -124,6 +194,9 @@ async function runEmbeddingJob(input: QueuedEmbeddingInput): Promise<void> {
       },
     })
     .run();
+
+  // Track successful completion
+  processedCount++;
 }
 
 function drainQueue(): void {
@@ -137,13 +210,44 @@ function drainQueue(): void {
     if (!job) continue;
     pendingByEntry.delete(key);
 
+    // Check if this is a retry
+    const existingFailed = failedJobs.get(key);
+    const attemptNumber = existingFailed ? existingFailed.attempts + 1 : 1;
+
     inFlight += 1;
     void runEmbeddingJob(job)
+      .then(() => {
+        // If this was a retry that succeeded, track it
+        if (existingFailed) {
+          retriedCount++;
+          failedJobs.delete(key);
+        }
+      })
       .catch((error) => {
-        logger.error(
-          { error: error instanceof Error ? error.message : String(error) },
-          'Failed to generate embedding'
-        );
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        const maxRetries = getMaxRetries();
+
+        if (attemptNumber < maxRetries) {
+          // Track for retry
+          failedJobs.set(key, {
+            input: job,
+            attempts: attemptNumber,
+            lastError: errorMsg,
+            lastAttemptAt: Date.now(),
+          });
+          logger.warn(
+            { error: errorMsg, attempt: attemptNumber, maxRetries, key },
+            'Embedding job failed, will retry'
+          );
+        } else {
+          // Exhausted retries
+          failedCount++;
+          failedJobs.delete(key);
+          logger.error(
+            { error: errorMsg, attempts: attemptNumber, key },
+            'Embedding job failed after max retries'
+          );
+        }
       })
       .finally(() => {
         inFlight -= 1;
@@ -175,12 +279,70 @@ export function generateEmbeddingAsync(input: EmbeddingInput): void {
   enqueueEmbeddingJob(input);
 }
 
+/**
+ * Retry all failed embedding jobs that haven't exhausted retries.
+ * Jobs are re-queued with exponential backoff based on attempt count.
+ *
+ * @returns Number of jobs re-queued for retry
+ */
+export function retryFailedEmbeddings(): { requeued: number; remaining: number } {
+  const baseDelay = getRetryDelayMs();
+  const now = Date.now();
+  let requeued = 0;
+
+  for (const [key, failedJob] of failedJobs) {
+    // Calculate delay with exponential backoff: baseDelay * 2^(attempts-1)
+    const delay = baseDelay * Math.pow(2, failedJob.attempts - 1);
+    const timeSinceLastAttempt = now - failedJob.lastAttemptAt;
+
+    // Only retry if enough time has passed
+    if (timeSinceLastAttempt >= delay) {
+      // Re-enqueue the job
+      enqueueEmbeddingJob(failedJob.input);
+      requeued++;
+      logger.info(
+        { key, attempt: failedJob.attempts + 1, lastError: failedJob.lastError },
+        'Re-queued failed embedding job for retry'
+      );
+    }
+  }
+
+  return { requeued, remaining: failedJobs.size };
+}
+
+/**
+ * Get details of failed jobs pending retry
+ */
+export function getFailedEmbeddingJobs(): Array<{
+  key: string;
+  entryType: EntryType;
+  entryId: string;
+  attempts: number;
+  lastError: string;
+  lastAttemptAt: string;
+}> {
+  return Array.from(failedJobs.entries()).map(([key, job]) => ({
+    key,
+    entryType: job.input.entryType,
+    entryId: job.input.entryId,
+    attempts: job.attempts,
+    lastError: job.lastError,
+    lastAttemptAt: new Date(job.lastAttemptAt).toISOString(),
+  }));
+}
+
 export function resetEmbeddingQueueForTests(): void {
   pendingByEntry.clear();
   queue.length = 0;
   enqueued.clear();
   inFlight = 0;
   latestSeqByKey.clear();
+  failedJobs.clear();
+  // Reset stats
+  processedCount = 0;
+  failedCount = 0;
+  skippedStaleCount = 0;
+  retriedCount = 0;
 }
 
 /**
