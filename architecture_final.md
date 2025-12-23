@@ -3,7 +3,7 @@
 **Version:** 1.1
 **Date:** 2025-12-23
 **Status:** Canonical Reference
-**Last Updated:** HIGH priority tasks 1, 3, 4 completed; async repository migration done
+**Last Updated:** All HIGH priority tasks completed (including embedding retry queue with stats, retry mechanism, and reindex CLI)
 
 ---
 
@@ -892,11 +892,11 @@ expect(result.success).toBe(true);
 | Task | Location | Status | Details |
 |------|----------|--------|---------|
 | **Transaction retry logic** | `src/db/connection.ts` | ✅ DONE | Added `transactionWithRetry()` with configurable `AGENT_MEMORY_TX_RETRIES` and `AGENT_MEMORY_TX_DELAY_MS`. Exponential backoff on SQLITE_BUSY/SQLITE_LOCKED. |
-| **Embedding retry queue** | `src/services/embedding.service.ts` | TODO | In-memory bounded queue (max 1000 items). Retry with exponential backoff. Add `getQueueStats()` to health endpoint. |
+| **Embedding retry queue** | `src/db/repositories/embedding-hooks.ts` | ✅ DONE | In-memory bounded queue with concurrency control. Retry with exponential backoff. Stats exposed in health endpoint. Reindex CLI command added. |
 | **Shared AppContext for REST** | `src/restapi/server.ts` | ✅ DONE | Refactored `createServer()` to require `AppContext`. Removed fallback context creation. |
 | **Remove legacy permission exports** | `src/services/permission.service.ts` | ✅ DONE | Deleted deprecated function wrappers (~547 lines). All callers now use `PermissionService` class via context. |
 
-**Sprint Deliverables:**
+**Sprint Deliverables (All Complete):**
 ```typescript
 // 1. New config options
 interface Config {
@@ -905,8 +905,9 @@ interface Config {
     baseDelayMs: number;   // AGENT_MEMORY_TX_DELAY_MS, default 10
   };
   embedding: {
-    queueMaxSize: number;  // AGENT_MEMORY_EMBED_QUEUE_SIZE, default 1000
-    retryAttempts: number; // AGENT_MEMORY_EMBED_RETRIES, default 3
+    maxConcurrency: number; // AGENT_MEMORY_EMBEDDING_MAX_CONCURRENCY, default 4
+    maxRetries: number;     // AGENT_MEMORY_EMBEDDING_MAX_RETRIES, default 3
+    retryDelayMs: number;   // AGENT_MEMORY_EMBEDDING_RETRY_DELAY_MS, default 1000
   };
 }
 
@@ -916,8 +917,20 @@ export async function createServer(context: AppContext): Promise<FastifyInstance
 // 3. Health endpoint addition
 {
   "status": "ok",
-  "embeddingQueue": { "pending": 5, "failed": 0, "processed": 1234 }
+  "embeddingQueue": {
+    "pending": 5,
+    "inFlight": 2,
+    "processed": 1234,
+    "failed": 0,
+    "skippedStale": 3,
+    "retried": 1,
+    "failedPendingRetry": 0,
+    "maxConcurrency": 4
+  }
 }
+
+// 4. Reindex CLI command
+agent-memory reindex [--type <type>] [--batch-size <n>] [--delay <ms>] [--force] [--retry-failed] [--stats]
 ```
 
 ### 9.2 MEDIUM Priority (Next Quarter)
@@ -926,7 +939,7 @@ export async function createServer(context: AppContext): Promise<FastifyInstance
 |------|----------|---------|
 | **Eliminate `getDb()` calls** | Various | Search for `getDb()`, `getSqlite()` imports. Refactor to use injected deps. Target: 0 calls outside tests. |
 | **Batch tag loading** | `src/services/query/stages/tags.ts` | Replace N+1 queries with single `WHERE id IN (...)` query. Cache tag results per pipeline run. |
-| **Reindex CLI command** | `src/cli.ts` | Add `agent-memory reindex [--scope project] [--type guidelines]` to regenerate embeddings. |
+| **Reindex CLI command** | `src/cli.ts`, `src/commands/reindex.ts` | ✅ DONE - Added `agent-memory reindex` with `--type`, `--batch-size`, `--delay`, `--force`, `--retry-failed`, `--stats` options. |
 | **Backup scheduler** | `src/services/backup.service.ts` | Optional cron-like scheduler: `AGENT_MEMORY_BACKUP_CRON="0 * * * *"`. Keep last N backups. |
 | **Cursor pagination** | `src/db/repositories/base.ts` | Add `cursor?: string` to `PaginationOptions`. Return `nextCursor` in list responses. |
 
@@ -979,7 +992,7 @@ These tasks prepare the codebase for PostgreSQL without breaking SQLite. **Must 
 ├─────────────────────────┼─────────┼────────┼────────┼──────────────┤
 │ Global accessor calls   │ ~86     │ 0      │ HIGH   │ Testability  │
 │ Legacy permission funcs │ 0 ✅    │ 0      │ -      │ Maintenance  │
-│ Fire-and-forget embeds  │ YES     │ NO     │ MED    │ Data quality │
+│ Fire-and-forget embeds  │ NO ✅   │ NO     │ -      │ Data quality │
 │ REST context drift      │ NO ✅   │ NO     │ -      │ Consistency  │
 │ N+1 tag queries         │ YES     │ NO     │ LOW    │ Performance  │
 │ Sync repository methods │ NO ✅   │ NO     │ -      │ PG readiness │
@@ -1070,7 +1083,7 @@ These tasks prepare the codebase for PostgreSQL without breaking SQLite. **Must 
 
 ### ADR-006: In-Memory Embedding Retry Queue
 
-**Status:** Accepted
+**Status:** Implemented (2025-12-23)
 
 **Context:** Fire-and-forget embedding generation can silently fail, leaving entries without embeddings.
 
@@ -1084,17 +1097,32 @@ These tasks prepare the codebase for PostgreSQL without breaking SQLite. **Must 
 
 **Consequences:**
 - Failed embeddings lost on restart
-- Need CLI command: `agent-memory reindex` for manual recovery
-- Queue size should be bounded to prevent memory issues
+- CLI command `agent-memory reindex` provides manual recovery
+- Queue uses concurrency control to prevent overwhelming the embedding service
 
-**Implementation:**
+**Implementation (Actual):**
 ```typescript
-interface EmbeddingQueue {
-  enqueue(task: EmbeddingTask): boolean;  // false if queue full
-  process(maxConcurrency: number): void;
-  getStats(): { pending: number; failed: number; processed: number };
-  retryFailed(): void;
+// Location: src/db/repositories/embedding-hooks.ts
+
+// Queue stats
+interface EmbeddingQueueStats {
+  pending: number;           // Jobs waiting in queue
+  inFlight: number;          // Currently processing
+  processed: number;         // Successfully completed
+  failed: number;            // Exhausted all retries
+  skippedStale: number;      // Skipped (newer version queued)
+  retried: number;           // Succeeded after retry
+  failedPendingRetry: number; // Waiting for retry
+  maxConcurrency: number;    // Concurrent job limit
 }
+
+// Config options
+AGENT_MEMORY_EMBEDDING_MAX_CONCURRENCY=4  // Default: 4
+AGENT_MEMORY_EMBEDDING_MAX_RETRIES=3      // Default: 3
+AGENT_MEMORY_EMBEDDING_RETRY_DELAY_MS=1000 // Default: 1000 (exponential backoff)
+
+// CLI command
+agent-memory reindex [--type <type>] [--batch-size <n>] [--delay <ms>] [--force] [--retry-failed] [--stats]
 ```
 
 ### ADR-007: Configurable Transaction Retry
