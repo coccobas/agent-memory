@@ -937,7 +937,7 @@ agent-memory reindex [--type <type>] [--batch-size <n>] [--delay <ms>] [--force]
 
 | Task | Location | Details |
 |------|----------|---------|
-| **Eliminate `getDb()` calls** | Various | Search for `getDb()`, `getSqlite()` imports. Refactor to use injected deps. Target: 0 calls outside tests. |
+| **Eliminate `getDb()` calls** | Various | ✅ DONE - All service functions now accept explicit `db: DbClient` parameter. Handlers pass `context.db`. No implicit `getDb()` fallbacks remain outside connection module. |
 | **Batch tag loading** | `src/services/query/stages/tags.ts` | ✅ DONE - Already implemented with batched queries (2-3 queries, not N+1). |
 | **Reindex CLI command** | `src/cli.ts`, `src/commands/reindex.ts` | ✅ DONE - Added `agent-memory reindex` with `--type`, `--batch-size`, `--delay`, `--force`, `--retry-failed`, `--stats` options. |
 | **Backup scheduler** | `src/services/backup-scheduler.service.ts` | ✅ DONE - `node-cron` scheduler with `AGENT_MEMORY_BACKUP_SCHEDULE`, `AGENT_MEMORY_BACKUP_RETENTION`, `AGENT_MEMORY_BACKUP_ENABLED` env vars. Status exposed in health endpoint. |
