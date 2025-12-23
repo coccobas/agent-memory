@@ -62,7 +62,7 @@ describe('verification.service', () => {
         type: 'file_write',
         filePath: '/path/to/file.ts',
         content: 'const x = 1;',
-      });
+      }, db);
 
       expect(result.allowed).toBe(true);
       expect(result.blocked).toBe(false);
@@ -89,7 +89,7 @@ describe('verification.service', () => {
         type: 'file_write',
         filePath: '/path/to/file.ts',
         content: 'const x = 1;',
-      });
+      }, db);
 
       expect(result.blocked).toBe(true);
       expect(result.violations).toHaveLength(1);
@@ -117,7 +117,7 @@ describe('verification.service', () => {
         type: 'file_write',
         filePath: '/project/.env',
         content: 'SECRET_KEY=abc123',
-      });
+      }, db);
 
       expect(result.blocked).toBe(true);
       expect(result.violations).toHaveLength(1);
@@ -143,7 +143,7 @@ describe('verification.service', () => {
       const result = verifyAction(null, null, {
         type: 'code_generate',
         content: 'const apiKey = "sk-abc123def456";',
-      });
+      }, db);
 
       expect(result.blocked).toBe(true);
       expect(result.violations).toHaveLength(1);
@@ -169,7 +169,7 @@ describe('verification.service', () => {
       const result = verifyAction(null, null, {
         type: 'code_generate',
         content: 'const result = eval(userInput);',
-      });
+      }, db);
 
       expect(result.blocked).toBe(true);
       expect(result.violations.length).toBeGreaterThan(0);
@@ -190,7 +190,7 @@ describe('verification.service', () => {
         type: 'file_write',
         filePath: '/project/src/index.ts',
         content: 'console.log("hello");',
-      });
+      }, db);
 
       expect(result.allowed).toBe(true);
       expect(result.blocked).toBe(false);
@@ -211,7 +211,7 @@ describe('verification.service', () => {
       verifyAction(null, null, {
         type: 'file_write',
         filePath: '/path/to/file.ts',
-      });
+      }, db);
 
       const logs = sqlite
         .prepare('SELECT * FROM verification_log WHERE action_type = ?')
@@ -240,7 +240,7 @@ describe('verification.service', () => {
       const result = logCompletedAction(null, {
         type: 'code_generate',
         content: 'const password = "secret123";',
-      });
+      }, undefined, db);
 
       // Post-check doesn't block, but logs violations
       expect(result.blocked).toBe(false);
@@ -261,7 +261,7 @@ describe('verification.service', () => {
       createTestGuideline(db, 'critical-1', 'global', undefined, 'security', 95, 'Content 1');
       createTestGuideline(db, 'critical-2', 'global', undefined, 'security', 92, 'Content 2');
 
-      const result = acknowledgeGuidelines(session.id, undefined, 'test-agent');
+      const result = acknowledgeGuidelines(session.id, undefined, 'test-agent', db);
 
       expect(result.acknowledged).toBe(2);
       expect(result.guidelineIds).toHaveLength(2);
@@ -290,7 +290,7 @@ describe('verification.service', () => {
         'Content 2'
       );
 
-      const result = acknowledgeGuidelines(session.id, [g1.id], 'test-agent');
+      const result = acknowledgeGuidelines(session.id, [g1.id], 'test-agent', db);
 
       expect(result.acknowledged).toBe(1);
       expect(result.guidelineIds).toHaveLength(1);
@@ -312,8 +312,8 @@ describe('verification.service', () => {
       );
 
       // Acknowledge twice
-      acknowledgeGuidelines(session.id, [guideline.id], 'test-agent');
-      const result = acknowledgeGuidelines(session.id, [guideline.id], 'test-agent');
+      acknowledgeGuidelines(session.id, [guideline.id], 'test-agent', db);
+      const result = acknowledgeGuidelines(session.id, [guideline.id], 'test-agent', db);
 
       // Should still succeed (upsert/ignore behavior)
       expect(result.acknowledged).toBe(1);
@@ -349,9 +349,9 @@ describe('verification.service', () => {
         'Content'
       );
 
-      acknowledgeGuidelines(session.id, [g1.id], 'test-agent');
+      acknowledgeGuidelines(session.id, [g1.id], 'test-agent', db);
 
-      const result = getAcknowledgedGuidelineIds(session.id);
+      const result = getAcknowledgedGuidelineIds(session.id, db);
 
       expect(result).toHaveLength(1);
       expect(result).toContain(g1.id);
@@ -362,7 +362,7 @@ describe('verification.service', () => {
       const project = createTestProject(db, 'Test Project');
       const session = createTestSession(db, project.id, 'Test Session');
 
-      const result = getAcknowledgedGuidelineIds(session.id);
+      const result = getAcknowledgedGuidelineIds(session.id, db);
 
       expect(result).toHaveLength(0);
     });
@@ -377,9 +377,9 @@ describe('verification.service', () => {
       createTestGuideline(db, 'critical-2', 'global', undefined, 'security', 92, 'Content');
 
       // Acknowledge all
-      acknowledgeGuidelines(session.id, undefined, 'test-agent');
+      acknowledgeGuidelines(session.id, undefined, 'test-agent', db);
 
-      const result = areAllCriticalGuidelinesAcknowledged(session.id, null);
+      const result = areAllCriticalGuidelinesAcknowledged(session.id, null, db);
 
       expect(result.acknowledged).toBe(true);
       expect(result.missing).toHaveLength(0);
@@ -401,9 +401,9 @@ describe('verification.service', () => {
       createTestGuideline(db, 'critical-2', 'global', undefined, 'security', 92, 'Content');
 
       // Only acknowledge one
-      acknowledgeGuidelines(session.id, [g1.id], 'test-agent');
+      acknowledgeGuidelines(session.id, [g1.id], 'test-agent', db);
 
-      const result = areAllCriticalGuidelinesAcknowledged(session.id, null);
+      const result = areAllCriticalGuidelinesAcknowledged(session.id, null, db);
 
       expect(result.acknowledged).toBe(false);
       expect(result.missing).toHaveLength(1);
@@ -417,7 +417,7 @@ describe('verification.service', () => {
       // Only create low-priority guideline
       createTestGuideline(db, 'low-priority', 'global', undefined, 'security', 50, 'Content');
 
-      const result = areAllCriticalGuidelinesAcknowledged(session.id, null);
+      const result = areAllCriticalGuidelinesAcknowledged(session.id, null, db);
 
       expect(result.acknowledged).toBe(true);
       expect(result.missing).toHaveLength(0);

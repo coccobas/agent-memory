@@ -5,6 +5,7 @@
  * IDE verification hooks (Claude Code, Cursor, VSCode).
  */
 
+import type { AppContext } from '../../core/context.js';
 import {
   generateHooks,
   installHooks,
@@ -31,7 +32,7 @@ export const hooksHandlers = {
    *
    * Returns the hook content and instructions for manual installation.
    */
-  generate(params: Record<string, unknown>) {
+  generate(context: AppContext, params: Record<string, unknown>) {
     const ide = getRequiredParam(params, 'ide', isSupportedIDE);
     const projectPath = getRequiredParam(params, 'projectPath', isString);
     const projectId = getOptionalParam(params, 'projectId', isString);
@@ -44,6 +45,7 @@ export const hooksHandlers = {
       projectPath,
       projectId,
       sessionId,
+      db: context.db,
     });
 
     return formatTimestamps({
@@ -70,7 +72,7 @@ export const hooksHandlers = {
    *
    * Generates and writes hook files to the appropriate locations.
    */
-  install(params: Record<string, unknown>) {
+  install(context: AppContext, params: Record<string, unknown>) {
     const ide = getRequiredParam(params, 'ide', isSupportedIDE);
     const projectPath = getRequiredParam(params, 'projectPath', isString);
     const projectId = getOptionalParam(params, 'projectId', isString);
@@ -84,6 +86,7 @@ export const hooksHandlers = {
       projectPath,
       projectId,
       sessionId,
+      db: context.db,
     });
 
     if (!generated.success) {

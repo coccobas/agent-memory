@@ -215,7 +215,7 @@ export const scopeHandlers = {
     const session = await context.repos.sessions.create(input);
 
     // Fetch critical guidelines for the session's scope
-    const criticalGuidelines = getCriticalGuidelinesForSession(projectId ?? null, session.id);
+    const criticalGuidelines = getCriticalGuidelinesForSession(projectId ?? null, session.id, context.db);
 
     return formatTimestamps({
       success: true,

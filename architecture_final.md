@@ -938,10 +938,10 @@ agent-memory reindex [--type <type>] [--batch-size <n>] [--delay <ms>] [--force]
 | Task | Location | Details |
 |------|----------|---------|
 | **Eliminate `getDb()` calls** | Various | Search for `getDb()`, `getSqlite()` imports. Refactor to use injected deps. Target: 0 calls outside tests. |
-| **Batch tag loading** | `src/services/query/stages/tags.ts` | Replace N+1 queries with single `WHERE id IN (...)` query. Cache tag results per pipeline run. |
+| **Batch tag loading** | `src/services/query/stages/tags.ts` | ✅ DONE - Already implemented with batched queries (2-3 queries, not N+1). |
 | **Reindex CLI command** | `src/cli.ts`, `src/commands/reindex.ts` | ✅ DONE - Added `agent-memory reindex` with `--type`, `--batch-size`, `--delay`, `--force`, `--retry-failed`, `--stats` options. |
-| **Backup scheduler** | `src/services/backup.service.ts` | Optional cron-like scheduler: `AGENT_MEMORY_BACKUP_CRON="0 * * * *"`. Keep last N backups. |
-| **Cursor pagination** | `src/db/repositories/base.ts` | Add `cursor?: string` to `PaginationOptions`. Return `nextCursor` in list responses. |
+| **Backup scheduler** | `src/services/backup-scheduler.service.ts` | ✅ DONE - `node-cron` scheduler with `AGENT_MEMORY_BACKUP_SCHEDULE`, `AGENT_MEMORY_BACKUP_RETENTION`, `AGENT_MEMORY_BACKUP_ENABLED` env vars. Status exposed in health endpoint. |
+| **Cursor pagination** | `src/mcp/handlers/factory.ts`, `src/db/repositories/base.ts` | ✅ DONE - `encodeCursor`/`decodeCursor` helpers, `normalizePagination` handles cursor, list responses include `hasMore`, `truncated`, `nextCursor`. |
 
 ### 9.3 MEDIUM-HIGH Priority (Phase 1 - Abstraction Layer)
 

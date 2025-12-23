@@ -5,7 +5,7 @@
  * Helps prevent creating duplicate entries.
  */
 
-import { getDb, getPreparedStatement, type DbClient } from '../db/connection.js';
+import { getPreparedStatement, type DbClient } from '../db/connection.js';
 import { tools, guidelines, knowledge } from '../db/schema.js';
 import { eq, and, isNull, inArray } from 'drizzle-orm';
 import type { ScopeType, EntryType } from '../db/schema.js';
@@ -123,9 +123,8 @@ export function findSimilarEntries(
   scopeType: ScopeType,
   scopeId: string | null,
   threshold: number = 0.8,
-  dbClient?: DbClient
+  db: DbClient
 ): SimilarEntry[] {
-  const db = dbClient ?? getDb();
 
   const ftsQuery = escapeFts5QueryTokenized(name);
   if (!ftsQuery) return [];
@@ -226,9 +225,9 @@ export function checkForDuplicates(
   name: string,
   scopeType: ScopeType,
   scopeId: string | null,
-  dbClient?: DbClient
+  db: DbClient
 ): { isDuplicate: boolean; similarEntries: SimilarEntry[] } {
-  const similar = findSimilarEntries(entryType, name, scopeType, scopeId, 0.8, dbClient);
+  const similar = findSimilarEntries(entryType, name, scopeType, scopeId, 0.8, db);
 
   // Consider it a duplicate if similarity >= 0.9
   const duplicates = similar.filter((e) => e.similarity >= 0.9);

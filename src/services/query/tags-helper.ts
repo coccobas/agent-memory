@@ -5,7 +5,7 @@
  */
 
 import { and, eq, inArray } from 'drizzle-orm';
-import { getDb, type DbClient } from '../../db/connection.js';
+import type { DbClient } from '../../db/connection.js';
 import { tags, entryTags, type Tag } from '../../db/schema.js';
 
 export type QueryEntryType = 'tool' | 'guideline' | 'knowledge';
@@ -21,10 +21,9 @@ export type QueryEntryType = 'tool' | 'guideline' | 'knowledge';
 export function getTagsForEntries(
   entryType: QueryEntryType,
   entryIds: string[],
-  dbClient?: DbClient
+  db: DbClient
 ): Record<string, Tag[]> {
   if (entryIds.length === 0) return {};
-  const db = dbClient ?? getDb();
 
   const entryTagRows = db
     .select()

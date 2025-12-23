@@ -131,6 +131,7 @@ describe('Consolidation Service', () => {
         entryTypes: ['guideline'],
         staleDays: 90,
         dryRun: false,
+        db,
       };
 
       const result = await archiveStale(params);
@@ -159,6 +160,7 @@ describe('Consolidation Service', () => {
         entryTypes: ['guideline'],
         staleDays: 90,
         dryRun: true, // Dry run mode
+        db,
       };
 
       const result = await archiveStale(params);
@@ -185,6 +187,7 @@ describe('Consolidation Service', () => {
         staleDays: 1, // All entries qualify by age
         minRecencyScore: 0.1, // Only archive if recencyScore < 0.1
         dryRun: true,
+        db,
       };
 
       const result = await archiveStale(params);
@@ -207,6 +210,7 @@ describe('Consolidation Service', () => {
         entryTypes: ['guideline', 'knowledge'],
         staleDays: 90,
         dryRun: true,
+        db,
       };
 
       const result = await archiveStale(params);
@@ -229,6 +233,7 @@ describe('Consolidation Service', () => {
         entryTypes: ['guideline'],
         staleDays: 30,
         dryRun: true,
+        db,
       };
 
       const result = await archiveStale(params);
@@ -256,6 +261,7 @@ describe('Consolidation Service', () => {
         entryTypes: ['guideline'],
         staleDays: 300, // Very high threshold, none should match
         dryRun: true,
+        db,
       };
 
       const result = await archiveStale(params);

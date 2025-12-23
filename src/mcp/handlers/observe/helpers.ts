@@ -20,6 +20,7 @@ import type {
 import type { ProcessedEntry, StoredEntry } from './types.js';
 import type { Repositories } from '../../../core/interfaces/repositories.js';
 import type { AppDb } from '../../../core/types.js';
+import type { DbClient } from '../../../db/connection.js';
 
 const logger = createComponentLogger('observe');
 
@@ -91,10 +92,11 @@ export async function storeEntity(
   entity: ExtractedEntity,
   scopeType: ScopeType,
   scopeId: string | undefined,
-  agentId?: string
+  agentId: string | undefined,
+  db: DbClient
 ): Promise<StoredEntry | null> {
   // Check for duplicates
-  const duplicateCheck = checkForDuplicates('knowledge', entity.name, scopeType, scopeId ?? null);
+  const duplicateCheck = checkForDuplicates('knowledge', entity.name, scopeType, scopeId ?? null, db);
   if (duplicateCheck.isDuplicate) {
     logger.debug({ entityName: entity.name }, 'Skipping duplicate entity');
     return null;
@@ -119,7 +121,7 @@ export async function storeEntity(
     entryId: knowledge.id,
     scopeType,
     scopeId: scopeId ?? null,
-  });
+  }, db);
 
   // Tag with entity markers
   try {
@@ -155,7 +157,8 @@ export async function storeEntry(
   entry: ProcessedEntry,
   scopeType: ScopeType,
   scopeId: string | undefined,
-  agentId?: string
+  agentId: string | undefined,
+  db: DbClient
 ): Promise<StoredEntry | null> {
   if (entry.type === 'guideline') {
     const input: CreateGuidelineInput = {
@@ -177,7 +180,7 @@ export async function storeEntry(
       entryId: guideline.id,
       scopeType,
       scopeId: scopeId ?? null,
-    });
+    }, db);
 
     return {
       id: guideline.id,
@@ -205,7 +208,7 @@ export async function storeEntry(
       entryId: knowledge.id,
       scopeType,
       scopeId: scopeId ?? null,
-    });
+    }, db);
 
     return {
       id: knowledge.id,
@@ -232,7 +235,7 @@ export async function storeEntry(
       entryId: tool.id,
       scopeType,
       scopeId: scopeId ?? null,
-    });
+    }, db);
 
     return {
       id: tool.id,

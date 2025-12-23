@@ -323,6 +323,16 @@ export interface Config {
     export: string;
     log: string;
   };
+
+  // Backup Scheduler
+  backup: {
+    /** Cron expression for scheduled backups (empty = disabled). E.g., "0 0 * * *" for daily at midnight */
+    schedule: string;
+    /** Number of backups to keep (default: 5) */
+    retentionCount: number;
+    /** Enable/disable backup scheduler (default: true if schedule is set) */
+    enabled: boolean;
+  };
 }
 
 // =============================================================================
@@ -582,6 +592,15 @@ export function buildConfig(): Config {
       backup: resolveDataPath(process.env.AGENT_MEMORY_BACKUP_PATH, 'backups'),
       export: resolveDataPath(process.env.AGENT_MEMORY_EXPORT_PATH, 'exports'),
       log: resolveDataPath(process.env.AGENT_MEMORY_LOG_PATH, 'logs'),
+    },
+
+    backup: {
+      schedule: process.env.AGENT_MEMORY_BACKUP_SCHEDULE || '',
+      retentionCount: parseInt_(process.env.AGENT_MEMORY_BACKUP_RETENTION, 5),
+      enabled: parseBoolean(
+        process.env.AGENT_MEMORY_BACKUP_ENABLED,
+        !!process.env.AGENT_MEMORY_BACKUP_SCHEDULE // Default: enabled if schedule is set
+      ),
     },
   };
 }

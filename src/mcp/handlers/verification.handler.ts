@@ -5,19 +5,12 @@
  * to verify compliance with critical guidelines.
  */
 
-import {
-  verifyAction,
-  logCompletedAction,
-  acknowledgeGuidelines,
-  areAllCriticalGuidelinesAcknowledged,
-  getAcknowledgedGuidelineIds,
-  type ProposedAction,
-  type ProposedActionType,
-} from '../../services/verification.service.js';
+import type { ProposedAction, ProposedActionType } from '../../services/verification.service.js';
 import { getCriticalGuidelinesForSession } from '../../services/critical-guidelines.service.js';
-import { createValidationError } from '../../core/errors.js';
+import { createValidationError, createServiceUnavailableError } from '../../core/errors.js';
 import { createComponentLogger } from '../../utils/logger.js';
 import type { AppContext } from '../../core/context.js';
+
 import {
   getRequiredParam,
   getOptionalParam,
@@ -28,6 +21,16 @@ import {
 import { formatTimestamps } from '../../utils/timestamp-formatter.js';
 
 const logger = createComponentLogger('verification');
+
+/**
+ * Ensure verification service is available in context
+ */
+function requireVerificationService(context: AppContext) {
+  if (!context.services?.verification) {
+    throw createServiceUnavailableError('verification', 'Service not available in context');
+  }
+  return context.services.verification;
+}
 
 /**
  * Type guard for action type
@@ -72,14 +75,13 @@ export const verificationHandlers = {
 
     logger.info({ sessionId, actionType: proposedAction.type }, 'Pre-check verification requested');
 
-    // Verify the action
-    const result = context.services?.verification
-      ? context.services.verification.verifyAction(
-        sessionId ?? null,
-        projectId ?? null,
-        proposedAction
-      )
-      : verifyAction(sessionId ?? null, projectId ?? null, proposedAction);
+    // Verify the action using injected service
+    const verification = requireVerificationService(context);
+    const result = verification.verifyAction(
+      sessionId ?? null,
+      projectId ?? null,
+      proposedAction
+    );
 
     return formatTimestamps({
       success: true,
@@ -124,10 +126,13 @@ export const verificationHandlers = {
 
     logger.info({ sessionId, actionType: action.type }, 'Post-check verification requested');
 
-    // Log and verify the completed action
-    const result = context.services?.verification
-      ? context.services.verification.logCompletedAction(sessionId ?? null, action, agentId)
-      : logCompletedAction(sessionId ?? null, action, agentId);
+    // Log and verify the completed action using injected service
+    const verification = requireVerificationService(context);
+    const result = verification.logCompletedAction(
+      sessionId ?? null,
+      action,
+      agentId
+    );
 
     return formatTimestamps({
       success: true,
@@ -153,16 +158,20 @@ export const verificationHandlers = {
 
     logger.info({ sessionId, guidelineIds }, 'Acknowledgment requested');
 
-    // Acknowledge the guidelines
-    const result = context.services?.verification
-      ? context.services.verification.acknowledgeGuidelines(sessionId, guidelineIds, agentId)
-      : acknowledgeGuidelines(sessionId, guidelineIds, agentId);
+    // Acknowledge the guidelines using injected service
+    const verification = requireVerificationService(context);
+    const result = verification.acknowledgeGuidelines(
+      sessionId,
+      guidelineIds,
+      agentId
+    );
 
     // Check if all critical guidelines are now acknowledged
     const projectId = null; // Will be resolved from session
-    const status = context.services?.verification
-      ? context.services.verification.areAllCriticalGuidelinesAcknowledged(sessionId, projectId)
-      : areAllCriticalGuidelinesAcknowledged(sessionId, projectId);
+    const status = verification.areAllCriticalGuidelinesAcknowledged(
+      sessionId,
+      projectId
+    );
 
     return formatTimestamps({
       success: true,
@@ -196,11 +205,10 @@ export const verificationHandlers = {
       context.db
     );
 
-    // Get acknowledged guidelines
+    // Get acknowledged guidelines using injected service
+    const verification = requireVerificationService(context);
     const acknowledgedIds = new Set(
-      context.services?.verification
-        ? context.services.verification.getAcknowledgedGuidelineIds(sessionId)
-        : getAcknowledgedGuidelineIds(sessionId)
+      verification.getAcknowledgedGuidelineIds(sessionId)
     );
 
     // Build status for each guideline

@@ -155,7 +155,7 @@ export const queryHandlers = {
       action: 'query',
       queryParams: queryParamsWithoutAgent,
       resultCount: result.results.length,
-    });
+    }, context.db);
 
     return formatTimestamps({
       results: result.results,

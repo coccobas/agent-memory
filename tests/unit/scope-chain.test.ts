@@ -36,7 +36,7 @@ describe('Scope Chain Caching', () => {
     const input = { type: 'project' as const, id: 'proj-1', inherit: true };
 
     // First call - should hit DB
-    const result1 = resolveScopeChain(input);
+    const result1 = resolveScopeChain(input, mockDb);
     expect(mockDb.get).toHaveBeenCalledTimes(1);
     expect(result1).toEqual([
       { scopeType: 'project', scopeId: 'proj-1' },
@@ -47,7 +47,7 @@ describe('Scope Chain Caching', () => {
     mockDb.get.mockClear();
 
     // Second call - should use cache
-    const result2 = resolveScopeChain(input);
+    const result2 = resolveScopeChain(input, mockDb);
     expect(mockDb.get).not.toHaveBeenCalled();
     expect(result2).toEqual(result1);
   });
@@ -57,12 +57,12 @@ describe('Scope Chain Caching', () => {
 
     const input = { type: 'project' as const, id: 'proj-1', inherit: true };
 
-    resolveScopeChain(input);
+    resolveScopeChain(input, mockDb);
     mockDb.get.mockClear();
 
     invalidateScopeChainCache('project', 'proj-1');
 
-    resolveScopeChain(input);
+    resolveScopeChain(input, mockDb);
     expect(mockDb.get).toHaveBeenCalled();
   });
 
@@ -70,11 +70,11 @@ describe('Scope Chain Caching', () => {
     mockDb.get.mockReturnValue({ orgId: 'org-1' });
 
     // Cache project 1
-    resolveScopeChain({ type: 'project', id: 'proj-1' });
+    resolveScopeChain({ type: 'project', id: 'proj-1' }, mockDb);
     mockDb.get.mockClear();
 
     // Cache project 2 (different key)
-    resolveScopeChain({ type: 'project', id: 'proj-2' });
+    resolveScopeChain({ type: 'project', id: 'proj-2' }, mockDb);
     expect(mockDb.get).toHaveBeenCalled();
   });
 });

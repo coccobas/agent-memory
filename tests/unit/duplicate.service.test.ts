@@ -47,13 +47,13 @@ describe('duplicate.service', () => {
       // Create a tool
       createTestTool(db, 'test-query-tool', 'global');
 
-      const similar = findSimilarEntries('tool', 'test query tool', 'global', null, 0.7);
+      const similar = findSimilarEntries('tool', 'test query tool', 'global', null, 0.7, db);
       expect(similar.length).toBeGreaterThan(0);
       expect(similar[0]?.name).toContain('test');
     });
 
     it('should return empty array when no similar entries found', () => {
-      const similar = findSimilarEntries('tool', 'completely-unique-name-xyz', 'global', null, 0.8);
+      const similar = findSimilarEntries('tool', 'completely-unique-name-xyz', 'global', null, 0.8, db);
       expect(similar).toEqual([]);
     });
 
@@ -61,11 +61,11 @@ describe('duplicate.service', () => {
       createTestTool(db, 'my-tool', 'global');
 
       // Low threshold should find matches
-      const lowThreshold = findSimilarEntries('tool', 'my tool', 'global', null, 0.5);
+      const lowThreshold = findSimilarEntries('tool', 'my tool', 'global', null, 0.5, db);
       expect(lowThreshold.length).toBeGreaterThan(0);
 
       // High threshold might not find matches
-      const highThreshold = findSimilarEntries('tool', 'different-tool', 'global', null, 0.95);
+      const highThreshold = findSimilarEntries('tool', 'different-tool', 'global', null, 0.95, db);
       // Should have fewer or no matches with higher threshold
       expect(highThreshold.length).toBeLessThanOrEqual(lowThreshold.length);
     });
@@ -86,7 +86,8 @@ describe('duplicate.service', () => {
         'use parameterized queries',
         'global',
         null,
-        0.7
+        0.7,
+        db
       );
       expect(similar.length).toBeGreaterThan(0);
     });
@@ -99,7 +100,8 @@ describe('duplicate.service', () => {
         'database connection patterns',
         'global',
         null,
-        0.7
+        0.7,
+        db
       );
       expect(similar.length).toBeGreaterThan(0);
     });
@@ -110,11 +112,11 @@ describe('duplicate.service', () => {
         createTestTool(db, 'scoped-tool', 'project', project.id);
 
         // Should find in project scope
-        const similar = findSimilarEntries('tool', 'scoped tool', 'project', project.id, 0.7);
+        const similar = findSimilarEntries('tool', 'scoped tool', 'project', project.id, 0.7, db);
         expect(similar.length).toBeGreaterThan(0);
 
         // Should not find in global scope
-        const globalSimilar = findSimilarEntries('tool', 'scoped tool', 'global', null, 0.7);
+        const globalSimilar = findSimilarEntries('tool', 'scoped tool', 'global', null, 0.7, db);
         // May find it or not depending on FTS behavior, but should respect scope
         expect(globalSimilar.length).toBeGreaterThanOrEqual(0);
       }
@@ -124,7 +126,7 @@ describe('duplicate.service', () => {
       createTestTool(db, 'test-tool-one', 'global');
       createTestTool(db, 'test-tool-two', 'global');
 
-      const similar = findSimilarEntries('tool', 'test tool one', 'global', null, 0.5);
+      const similar = findSimilarEntries('tool', 'test tool one', 'global', null, 0.5, db);
 
       if (similar.length > 1) {
         // First should have higher similarity than second
@@ -137,7 +139,7 @@ describe('duplicate.service', () => {
     it('should detect duplicates with high similarity', () => {
       const tool = createTestTool(db, 'existing-tool', 'global');
 
-      const result = checkForDuplicates('tool', 'existing-tool', 'global', null);
+      const result = checkForDuplicates('tool', 'existing-tool', 'global', null, db);
 
       // Should detect duplicate if similarity >= 0.9
       // Note: FTS5 might not be available in test environment, so we check if entries exist
@@ -155,7 +157,7 @@ describe('duplicate.service', () => {
     it('should not flag as duplicate when similarity is low', () => {
       createTestTool(db, 'different-tool', 'global');
 
-      const result = checkForDuplicates('tool', 'completely-different-name', 'global', null);
+      const result = checkForDuplicates('tool', 'completely-different-name', 'global', null, db);
 
       // May have similar entries but not duplicates
       expect(result.isDuplicate).toBe(false);
@@ -164,7 +166,7 @@ describe('duplicate.service', () => {
     it('should return all similar entries even if not duplicates', () => {
       createTestTool(db, 'similar-tool', 'global');
 
-      const result = checkForDuplicates('tool', 'similar tool name', 'global', null);
+      const result = checkForDuplicates('tool', 'similar tool name', 'global', null, db);
 
       expect(result.similarEntries).toBeDefined();
       expect(Array.isArray(result.similarEntries)).toBe(true);
@@ -181,7 +183,7 @@ describe('duplicate.service', () => {
         'Test guideline'
       );
 
-      const result = checkForDuplicates('guideline', 'existing-guideline', 'global', null);
+      const result = checkForDuplicates('guideline', 'existing-guideline', 'global', null, db);
       expect(result).toBeDefined();
       expect(typeof result.isDuplicate).toBe('boolean');
     });
@@ -189,7 +191,7 @@ describe('duplicate.service', () => {
     it('should work with knowledge', () => {
       createTestKnowledge(db, 'Existing Knowledge');
 
-      const result = checkForDuplicates('knowledge', 'Existing Knowledge', 'global', null);
+      const result = checkForDuplicates('knowledge', 'Existing Knowledge', 'global', null, db);
       expect(result).toBeDefined();
       expect(typeof result.isDuplicate).toBe('boolean');
     });

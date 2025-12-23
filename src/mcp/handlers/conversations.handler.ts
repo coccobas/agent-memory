@@ -63,7 +63,7 @@ export const conversationHandlers = {
       entryId: conversation.id,
       scopeType: sessionId ? 'session' : 'project',
       scopeId: sessionId || projectId || null,
-    });
+    }, context.db);
 
     return formatTimestamps({
       success: true,
@@ -164,7 +164,7 @@ export const conversationHandlers = {
       entryId: conversationId,
       scopeType: conversation.sessionId ? 'session' : 'project',
       scopeId: conversation.sessionId || conversation.projectId || null,
-    });
+    }, context.db);
 
     return formatTimestamps({
       success: true,
@@ -196,7 +196,7 @@ export const conversationHandlers = {
       entryId: id,
       scopeType: conversation.sessionId ? 'session' : 'project',
       scopeId: conversation.sessionId || conversation.projectId || null,
-    });
+    }, context.db);
 
     return formatTimestamps({
       success: true,
@@ -237,7 +237,7 @@ export const conversationHandlers = {
       scopeType: sessionId ? 'session' : projectId ? 'project' : 'global',
       scopeId: sessionId || projectId || null,
       resultCount: conversations.length,
-    });
+    }, context.db);
 
     return formatTimestamps({
       success: true,
@@ -296,7 +296,7 @@ export const conversationHandlers = {
       entryId: id,
       scopeType: conversation.sessionId ? 'session' : 'project',
       scopeId: conversation.sessionId || conversation.projectId || null,
-    });
+    }, context.db);
 
     return formatTimestamps({
       success: true,
@@ -341,7 +341,7 @@ export const conversationHandlers = {
       entryId: conversationId,
       scopeType: conversation.sessionId ? 'session' : 'project',
       scopeId: conversation.sessionId || conversation.projectId || null,
-    });
+    }, context.db);
 
     return formatTimestamps({
       success: true,
@@ -401,7 +401,7 @@ export const conversationHandlers = {
       entryType: conversationId ? 'knowledge' : entryType || undefined,
       entryId: conversationId || entryId || undefined,
       resultCount: contexts.length,
-    });
+    }, context.db);
 
     return formatTimestamps({
       success: true,
@@ -441,7 +441,7 @@ export const conversationHandlers = {
       scopeId: sessionId || projectId || null,
       queryParams: { search: searchQuery },
       resultCount: results.length,
-    });
+    }, context.db);
 
     return formatTimestamps({
       success: true,
@@ -495,7 +495,7 @@ export const conversationHandlers = {
       entryId: id,
       scopeType: conversation.sessionId ? 'session' : 'project',
       scopeId: conversation.sessionId || conversation.projectId || null,
-    });
+    }, context.db);
 
     return formatTimestamps({
       success: true,
@@ -536,7 +536,7 @@ export const conversationHandlers = {
       entryId: id,
       scopeType: conversation.sessionId ? 'session' : 'project',
       scopeId: conversation.sessionId || conversation.projectId || null,
-    });
+    }, context.db);
 
     return formatTimestamps({
       success: true,

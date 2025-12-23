@@ -6,7 +6,7 @@
  */
 
 import { and, eq } from 'drizzle-orm';
-import { getDb, getPreparedStatement, type DbClient } from '../../db/connection.js';
+import { getPreparedStatement, type DbClient } from '../../db/connection.js';
 import { entryRelations, type RelationType } from '../../db/schema.js';
 import { createComponentLogger } from '../../utils/logger.js';
 
@@ -163,10 +163,9 @@ export function traverseRelationGraphCTE(
 function getAdjacentNodes(
   node: GraphNode,
   direction: TraversalDirection,
-  relationType?: RelationType,
-  dbClient?: DbClient
+  relationType: RelationType | undefined,
+  db: DbClient
 ): AdjacentNode[] {
-  const db = dbClient ?? getDb();
   const adjacent: AdjacentNode[] = [];
 
   // Forward: node is source, find targets
@@ -249,7 +248,7 @@ export function traverseRelationGraph(
     relationType?: RelationType;
     maxResults?: number;
   } = {},
-  dbClient?: DbClient
+  db?: DbClient
 ): Record<QueryEntryType, Set<string>> {
   // Try CTE-based traversal first (faster for multi-hop queries)
   // Falls back to BFS if CTE fails (e.g., SQLite version issues)
@@ -302,8 +301,8 @@ export function traverseRelationGraph(
     // Stop expanding if we've reached max depth
     if (currentDepth >= maxDepth) continue;
 
-    // Get adjacent nodes
-    const neighbors = getAdjacentNodes(currentNode, direction, options.relationType, dbClient);
+    // Get adjacent nodes (db is required for BFS fallback)
+    const neighbors = db ? getAdjacentNodes(currentNode, direction, options.relationType, db) : [];
 
     for (const neighbor of neighbors) {
       const neighborKey = `${neighbor.type}:${neighbor.id}`;

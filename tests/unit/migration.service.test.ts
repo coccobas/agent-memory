@@ -46,7 +46,7 @@ describe('migration.service', () => {
     });
 
     // Create migration service with injected import service
-    migrationService = createMigrationService({ importService });
+    migrationService = createMigrationService({ importService, db: testDb.db });
   });
 
   afterAll(() => {

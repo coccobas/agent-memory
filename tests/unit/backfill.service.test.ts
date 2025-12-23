@@ -72,7 +72,7 @@ describe.skipIf(!getEmbeddingService().isAvailable())('Backfill Service', () => 
     const progress = await backfillEmbeddings({
       batchSize: 10,
       delayMs: 0, // No delay for tests
-    });
+    }, db);
 
     expect(progress.total).toBe(3);
     expect(progress.processed).toBe(3);
@@ -89,7 +89,7 @@ describe.skipIf(!getEmbeddingService().isAvailable())('Backfill Service', () => 
       entryTypes: ['tool'],
       batchSize: 10,
       delayMs: 0,
-    });
+    }, db);
 
     // Should only count and process tools
     expect(progress.total).toBe(2);
@@ -106,7 +106,7 @@ describe.skipIf(!getEmbeddingService().isAvailable())('Backfill Service', () => 
       entryTypes: ['tool'],
       batchSize: 2, // Small batch size
       delayMs: 0,
-    });
+    }, db);
 
     expect(progress.total).toBe(5);
     expect(progress.processed).toBe(5);
@@ -125,7 +125,7 @@ describe.skipIf(!getEmbeddingService().isAvailable())('Backfill Service', () => 
       onProgress: (p) => {
         progressUpdates.push({ ...p });
       },
-    });
+    }, db);
 
     // Should have received progress updates
     expect(progressUpdates.length).toBeGreaterThan(0);
@@ -144,7 +144,7 @@ describe.skipIf(!getEmbeddingService().isAvailable())('Backfill Service', () => 
       entryTypes: ['tool'],
       batchSize: 10,
       delayMs: 0,
-    });
+    }, db);
 
     expect(progress.succeeded).toBeGreaterThan(0);
     expect(progress.succeeded + progress.failed).toBe(progress.processed);
@@ -158,7 +158,7 @@ describe.skipIf(!getEmbeddingService().isAvailable())('Backfill Service', () => 
       entryTypes: ['tool'],
       batchSize: 10,
       delayMs: 0,
-    });
+    }, db);
 
     expect(firstRun.processed).toBe(1);
 
@@ -167,7 +167,7 @@ describe.skipIf(!getEmbeddingService().isAvailable())('Backfill Service', () => 
       entryTypes: ['tool'],
       batchSize: 10,
       delayMs: 0,
-    });
+    }, db);
 
     // All entries should already have embeddings
     expect(secondRun.succeeded).toBe(1);
@@ -185,7 +185,7 @@ describe.skipIf(!getEmbeddingService().isAvailable())('Backfill Service', () => 
       entryTypes: ['tool'],
       batchSize: 2, // 2 batches needed
       delayMs: 100, // 100ms delay between batches
-    });
+    }, db);
 
     const elapsed = Date.now() - startTime;
 
@@ -201,7 +201,7 @@ describe.skipIf(!getEmbeddingService().isAvailable())('Backfill Service', () => 
     createTestKnowledge(db, 'stats-knowledge', 'global');
 
     // Get stats before backfill
-    const statsBefore = getBackfillStats();
+    const statsBefore = getBackfillStats(db);
     expect(statsBefore.tools.total).toBe(1);
     expect(statsBefore.guidelines.total).toBe(1);
     expect(statsBefore.knowledge.total).toBe(1);
@@ -211,10 +211,10 @@ describe.skipIf(!getEmbeddingService().isAvailable())('Backfill Service', () => 
     await backfillEmbeddings({
       batchSize: 10,
       delayMs: 0,
-    });
+    }, db);
 
     // Get stats after backfill
-    const statsAfter = getBackfillStats();
+    const statsAfter = getBackfillStats(db);
     expect(statsAfter.tools.withEmbeddings).toBe(1);
     expect(statsAfter.guidelines.withEmbeddings).toBe(1);
     expect(statsAfter.knowledge.withEmbeddings).toBe(1);
@@ -234,7 +234,7 @@ describe.skipIf(!getEmbeddingService().isAvailable())('Backfill Service', () => 
       entryTypes: ['tool'],
       batchSize: 10,
       delayMs: 0,
-    });
+    }, db);
 
     // Should mark as failed
     expect(progress.processed).toBe(1);
@@ -248,7 +248,7 @@ describe.skipIf(!getEmbeddingService().isAvailable())('Backfill Service', () => 
       entryTypes: ['tool'],
       batchSize: 10,
       delayMs: 0,
-    });
+    }, db);
 
     // Check that tracking record was created
     const embeddingRecord = db
@@ -273,7 +273,7 @@ describe.skipIf(!getEmbeddingService().isAvailable())('Backfill Service', () => 
       entryTypes: ['tool', 'guideline'],
       batchSize: 10,
       delayMs: 0,
-    });
+    }, db);
 
     expect(progress.total).toBe(3);
     expect(progress.processed).toBe(3);
@@ -284,7 +284,7 @@ describe.skipIf(!getEmbeddingService().isAvailable())('Backfill Service', () => 
     const progress = await backfillEmbeddings({
       batchSize: 10,
       delayMs: 0,
-    });
+    }, db);
 
     expect(progress.total).toBe(0);
     expect(progress.processed).toBe(0);
@@ -301,7 +301,7 @@ describe.skipIf(!getEmbeddingService().isAvailable())('Backfill Service', () => 
       entryTypes: ['tool'],
       batchSize: 10,
       delayMs: 0,
-    });
+    }, db);
 
     // Inactive entries should not be processed
     expect(progress.total).toBe(0);
@@ -325,7 +325,7 @@ describe.skipIf(!getEmbeddingService().isAvailable())('Backfill Service', () => 
     const progress = await backfillEmbeddings({
       batchSize: 10,
       delayMs: 0,
-    });
+    }, db);
 
     // All should succeed (text extraction worked)
     expect(progress.succeeded).toBe(3);
@@ -345,7 +345,7 @@ describe.skipIf(!getEmbeddingService().isAvailable())('Backfill Service', () => 
       onProgress: (p) => {
         progressUpdates.push(p.processed);
       },
-    });
+    }, db);
 
     // Progress should increase incrementally
     expect(progressUpdates.length).toBeGreaterThan(0);
@@ -362,7 +362,7 @@ describe.skipIf(!getEmbeddingService().isAvailable())('Backfill Service', () => 
       entryTypes: ['tool'],
       batchSize: 10,
       delayMs: 0,
-    });
+    }, db);
 
     expect(progress.inProgress).toBe(false);
   });

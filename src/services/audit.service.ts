@@ -5,7 +5,7 @@
  * Logs are written asynchronously to prevent performance impact.
  */
 
-import { getDb, type DbClient } from '../db/connection.js';
+import type { DbClient } from '../db/connection.js';
 import { auditLog } from '../db/schema.js';
 import { generateId } from '../db/repositories/base.js';
 import type { ScopeType, EntryType } from '../db/schema.js';
@@ -46,11 +46,10 @@ export interface AuditLogParams {
  * @param params - Audit log parameters
  * @param dbClient - Optional database client (defaults to getDb() for backward compatibility)
  */
-export function logAction(params: AuditLogParams, dbClient?: DbClient): void {
+export function logAction(params: AuditLogParams, db: DbClient): void {
   // Use setImmediate for fire-and-forget async logging
   setImmediate(() => {
     try {
-      const db = dbClient ?? getDb();
       const id = generateId();
 
       // Filter out 'project' from entryType as it's not supported in audit log schema
@@ -93,19 +92,5 @@ export function logAction(params: AuditLogParams, dbClient?: DbClient): void {
   });
 }
 
-/**
- * Create a wrapper function that logs actions automatically
- */
-export function withAuditLogging<T extends unknown[]>(
-  fn: (...args: T) => unknown,
-  getAuditParams: (...args: T) => AuditLogParams
-): (...args: T) => unknown {
-  return (...args: T) => {
-    const result = fn(...args);
-    const auditParams = getAuditParams(...args);
-    logAction(auditParams);
-    return result;
-  };
-}
 
 

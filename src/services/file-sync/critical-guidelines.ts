@@ -2,12 +2,14 @@ import { join } from 'node:path';
 
 import { getCriticalGuidelinesForScope } from '../critical-guidelines.service.js';
 import { writeFileWithVerifyBackup } from './sync-ops.js';
+import type { DbClient } from '../../db/connection.js';
 
 export interface CriticalGuidelinesSyncOptions {
   projectId?: string;
   sessionId?: string;
   backup?: boolean;
   verify?: boolean;
+  db: DbClient;
 }
 
 export interface CriticalGuidelinesSyncResult {
@@ -19,9 +21,10 @@ export interface CriticalGuidelinesSyncResult {
 
 export function generateCriticalGuidelinesMarkdown(
   projectId: string | null,
-  sessionId?: string | null
+  sessionId: string | null | undefined,
+  db: DbClient
 ): string {
-  const guidelines = getCriticalGuidelinesForScope(projectId, sessionId);
+  const guidelines = getCriticalGuidelinesForScope(projectId, sessionId, db);
 
   if (guidelines.length === 0) {
     return `# Critical Guidelines (Auto-synced from Agent Memory)
@@ -133,26 +136,26 @@ async function syncCriticalGuidelinesToFile(
 
 export async function syncCriticalGuidelinesToCursor(
   projectPath: string,
-  options: CriticalGuidelinesSyncOptions = {}
+  options: CriticalGuidelinesSyncOptions
 ): Promise<CriticalGuidelinesSyncResult> {
   const destFile = join(projectPath, '.cursor', 'rules', 'critical-guidelines.md');
-  const content = generateCriticalGuidelinesMarkdown(options.projectId ?? null, options.sessionId);
+  const content = generateCriticalGuidelinesMarkdown(options.projectId ?? null, options.sessionId, options.db);
   return syncCriticalGuidelinesToFile(destFile, content, options);
 }
 
 export async function syncCriticalGuidelinesToClaude(
   projectPath: string,
-  options: CriticalGuidelinesSyncOptions = {}
+  options: CriticalGuidelinesSyncOptions
 ): Promise<CriticalGuidelinesSyncResult> {
   const destFile = join(projectPath, '.claude', 'critical-guidelines.md');
-  const content = generateCriticalGuidelinesMarkdown(options.projectId ?? null, options.sessionId);
+  const content = generateCriticalGuidelinesMarkdown(options.projectId ?? null, options.sessionId, options.db);
   return syncCriticalGuidelinesToFile(destFile, content, options);
 }
 
 export async function syncCriticalGuidelines(
   projectPath: string,
   ide: string,
-  options: CriticalGuidelinesSyncOptions = {}
+  options: CriticalGuidelinesSyncOptions
 ): Promise<CriticalGuidelinesSyncResult> {
   switch (ide.toLowerCase()) {
     case 'cursor':
@@ -163,7 +166,8 @@ export async function syncCriticalGuidelines(
       const destFile = join(projectPath, '.vscode', 'critical-guidelines.md');
       const content = generateCriticalGuidelinesMarkdown(
         options.projectId ?? null,
-        options.sessionId
+        options.sessionId,
+        options.db
       );
       return syncCriticalGuidelinesToFile(destFile, content, options);
     }

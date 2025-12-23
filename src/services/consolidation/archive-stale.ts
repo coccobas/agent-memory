@@ -40,6 +40,7 @@ export async function archiveStale(params: ArchiveStaleParams): Promise<ArchiveS
     minRecencyScore,
     dryRun = false,
     archivedBy: _archivedBy,
+    db,
   } = params;
 
   const result: ArchiveStaleResult = {
@@ -55,7 +56,7 @@ export async function archiveStale(params: ArchiveStaleParams): Promise<ArchiveS
   try {
     for (const entryType of entryTypes) {
       const halfLifeDays = getHalfLifeDays(entryType);
-      const entries = getEntriesForConsolidation(entryType, scopeType, scopeId);
+      const entries = getEntriesForConsolidation(entryType, scopeType, scopeId, db);
 
       for (const entry of entries) {
         result.entriesScanned++;
@@ -86,7 +87,7 @@ export async function archiveStale(params: ArchiveStaleParams): Promise<ArchiveS
 
         if (!dryRun) {
           try {
-            deactivateEntry(entryType, entry.id);
+            deactivateEntry(entryType, entry.id, db);
             result.entriesArchived++;
           } catch (error) {
             const errorMsg = error instanceof Error ? error.message : String(error);

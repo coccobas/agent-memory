@@ -6,7 +6,7 @@
  */
 
 import { eq } from 'drizzle-orm';
-import { getDb, type DbClient } from '../../db/connection.js';
+import type { DbClient } from '../../db/connection.js';
 import { projects, sessions, type ScopeType } from '../../db/schema.js';
 import { LRUCache } from '../../utils/lru-cache.js';
 import { getRuntime, isRuntimeRegistered } from '../../core/container.js';
@@ -78,12 +78,12 @@ export function clearScopeChainCache(): void {
  * @param dbClient - Optional database client (defaults to getDb() for backward compatibility)
  */
 export function resolveScopeChain(
-  input?: {
+  input: {
     type: ScopeType;
     id?: string;
     inherit?: boolean;
-  },
-  dbClient?: DbClient
+  } | undefined,
+  db: DbClient
 ): ScopeDescriptor[] {
   ensureScopeChainCacheRegistered();
   const cacheKey = getScopeChainCacheKey(input);
@@ -98,8 +98,6 @@ export function resolveScopeChain(
     scopeChainCache.set(cacheKey, result);
     return result;
   }
-
-  const db = dbClient ?? getDb();
   const chain: ScopeDescriptor[] = [];
 
   const pushUnique = (scopeType: ScopeType, scopeId: string | null) => {

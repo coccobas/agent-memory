@@ -23,6 +23,7 @@ export async function findSimilarGroups(params: FindSimilarParams): Promise<Simi
     entryTypes = ['guideline', 'knowledge', 'tool'],
     threshold = config.semanticSearch.duplicateThreshold,
     limit = 20,
+    db,
   } = params;
 
   const embeddingService = getEmbeddingService();
@@ -38,7 +39,7 @@ export async function findSimilarGroups(params: FindSimilarParams): Promise<Simi
 
   for (const entryType of entryTypes) {
     // Get all entries of this type in scope
-    const entries = getEntriesForConsolidation(entryType, scopeType, scopeId);
+    const entries = getEntriesForConsolidation(entryType, scopeType, scopeId, db);
 
     for (const entry of entries) {
       if (processedIds.has(entry.id)) continue;
@@ -75,7 +76,8 @@ export async function findSimilarGroups(params: FindSimilarParams): Promise<Simi
         // Get full entry details for similar entries
         const memberDetails = getEntryDetails(
           entryType,
-          similarEntries.map((s) => s.entryId)
+          similarEntries.map((s) => s.entryId),
+          db
         );
 
         // Build Map for O(1) lookups instead of O(n) find per member

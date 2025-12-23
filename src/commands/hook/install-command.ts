@@ -7,6 +7,7 @@ import {
   uninstallHooks,
   type SupportedIDE,
 } from '../../services/hook-generator.service.js';
+import { getDb } from '../../db/connection.js';
 
 export type HookInstallCliResult = {
   exitCode: number;
@@ -172,7 +173,8 @@ export function runHookInstallCommand(
     return { exitCode: result.success ? 0 : 1, stdout, stderr };
   }
 
-  const genResult = generateHooks({ ide, projectPath, projectId, sessionId });
+  const db = getDb();
+  const genResult = generateHooks({ ide, projectPath, projectId, sessionId, db });
   if (!genResult.success) {
     err(genResult.message);
     return { exitCode: 1, stdout, stderr };

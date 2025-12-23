@@ -5,7 +5,7 @@
  */
 
 import { eq, and, isNull, inArray } from 'drizzle-orm';
-import { getDb, type DbClient } from '../../db/connection.js';
+import type { DbClient } from '../../db/connection.js';
 import {
   tools,
   toolVersions,
@@ -30,10 +30,9 @@ import type { EntryForConsolidation } from './types.js';
 export function getEntriesForConsolidation(
   entryType: EntryType,
   scopeType: ScopeType,
-  scopeId?: string,
-  dbClient?: DbClient
+  scopeId: string | undefined,
+  db: DbClient
 ): EntryForConsolidation[] {
-  const db = dbClient ?? getDb();
 
   if (entryType === 'tool') {
     const entries = db
@@ -162,11 +161,9 @@ export function getEntriesForConsolidation(
 export function getEntryDetails(
   entryType: EntryType,
   ids: string[],
-  dbClient?: DbClient
+  db: DbClient
 ): EntryForConsolidation[] {
   if (ids.length === 0) return [];
-
-  const db = dbClient ?? getDb();
 
   if (entryType === 'tool') {
     const entries = db
@@ -292,8 +289,7 @@ export function getEntryDetails(
 /**
  * Deactivate a single entry
  */
-export function deactivateEntry(entryType: EntryType, id: string, dbClient?: DbClient): void {
-  const db = dbClient ?? getDb();
+export function deactivateEntry(entryType: EntryType, id: string, db: DbClient): void {
 
   if (entryType === 'tool') {
     db.update(tools).set({ isActive: false }).where(eq(tools.id, id)).run();
@@ -310,11 +306,9 @@ export function deactivateEntry(entryType: EntryType, id: string, dbClient?: DbC
 export function batchDeactivateEntries(
   entryType: EntryType,
   ids: string[],
-  dbClient?: DbClient
+  db: DbClient
 ): void {
   if (ids.length === 0) return;
-
-  const db = dbClient ?? getDb();
 
   if (entryType === 'tool') {
     db.update(tools).set({ isActive: false }).where(inArray(tools.id, ids)).run();
@@ -333,10 +327,9 @@ export function updateEntryContent(
   id: string,
   content: string,
   changeReason: string,
-  updatedBy?: string,
-  dbClient?: DbClient
+  updatedBy: string | undefined,
+  db: DbClient
 ): void {
-  const db = dbClient ?? getDb();
 
   if (entryType === 'guideline') {
     const entry = db.select().from(guidelines).where(eq(guidelines.id, id)).get();
@@ -442,9 +435,8 @@ export function createConsolidationRelation(
   sourceId: string,
   targetId: string,
   relationType: ConsolidationRelationType,
-  dbClient?: DbClient
+  db: DbClient
 ): void {
-  const db = dbClient ?? getDb();
 
   // Map our consolidation relation types to schema relation types
   const schemaRelationType = relationType === 'related' ? 'related_to' : 'related_to';

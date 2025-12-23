@@ -44,7 +44,7 @@ describe('analytics.service', () => {
 
   describe('getUsageStats', () => {
     it('should return usage statistics structure', () => {
-      const stats = getUsageStats();
+      const stats = getUsageStats({}, db);
 
       expect(stats).toBeDefined();
       expect(stats.mostQueriedEntries).toBeDefined();
@@ -58,14 +58,14 @@ describe('analytics.service', () => {
     });
 
     it('should filter by scopeType', () => {
-      const stats = getUsageStats({ scopeType: 'global' });
+      const stats = getUsageStats({ scopeType: 'global' }, db);
 
       expect(stats).toBeDefined();
       expect(typeof stats.scopeUsage).toBe('object');
     });
 
     it('should filter by scopeId', () => {
-      const stats = getUsageStats({ scopeId: 'test-scope-id' });
+      const stats = getUsageStats({ scopeId: 'test-scope-id' }, db);
 
       expect(stats).toBeDefined();
     });
@@ -74,7 +74,7 @@ describe('analytics.service', () => {
       const startDate = new Date('2024-01-01').toISOString();
       const endDate = new Date('2024-12-31').toISOString();
 
-      const stats = getUsageStats({ startDate, endDate });
+      const stats = getUsageStats({ startDate, endDate }, db);
 
       expect(stats).toBeDefined();
     });
@@ -90,7 +90,7 @@ describe('analytics.service', () => {
       // Wait for async logging
       return new Promise<void>((resolve) => {
         setImmediate(() => {
-          const stats = getUsageStats();
+          const stats = getUsageStats({}, db);
 
           expect(stats.mostQueriedEntries).toBeDefined();
           expect(Array.isArray(stats.mostQueriedEntries)).toBe(true);
@@ -106,7 +106,7 @@ describe('analytics.service', () => {
 
       return new Promise<void>((resolve) => {
         setImmediate(() => {
-          const stats = getUsageStats();
+          const stats = getUsageStats({}, db);
 
           expect(stats.queryFrequency).toBeDefined();
           expect(Array.isArray(stats.queryFrequency)).toBe(true);
@@ -123,7 +123,7 @@ describe('analytics.service', () => {
 
       return new Promise<void>((resolve) => {
         setImmediate(() => {
-          const stats = getUsageStats();
+          const stats = getUsageStats({}, db);
 
           expect(stats.scopeUsage).toBeDefined();
           expect(stats.scopeUsage.global).toBeDefined();
@@ -143,7 +143,7 @@ describe('analytics.service', () => {
 
       return new Promise<void>((resolve) => {
         setImmediate(() => {
-          const stats = getUsageStats();
+          const stats = getUsageStats({}, db);
 
           expect(stats.actionBreakdown).toBeDefined();
           expect(Array.isArray(stats.actionBreakdown)).toBe(true);
@@ -160,7 +160,7 @@ describe('analytics.service', () => {
 
       return new Promise<void>((resolve) => {
         setImmediate(() => {
-          const stats = getUsageStats();
+          const stats = getUsageStats({}, db);
 
           expect(stats.entryTypeBreakdown).toBeDefined();
           expect(Array.isArray(stats.entryTypeBreakdown)).toBe(true);
@@ -172,7 +172,7 @@ describe('analytics.service', () => {
 
   describe('getTrends', () => {
     it('should return trend data structure', () => {
-      const trends = getTrends();
+      const trends = getTrends({}, db);
 
       expect(Array.isArray(trends)).toBe(true);
       if (trends.length > 0) {
@@ -188,7 +188,7 @@ describe('analytics.service', () => {
     });
 
     it('should filter trends by scopeType', () => {
-      const trends = getTrends({ scopeType: 'global' });
+      const trends = getTrends({ scopeType: 'global' }, db);
 
       expect(Array.isArray(trends)).toBe(true);
     });
@@ -197,7 +197,7 @@ describe('analytics.service', () => {
       const startDate = new Date('2024-01-01').toISOString();
       const endDate = new Date('2024-12-31').toISOString();
 
-      const trends = getTrends({ startDate, endDate });
+      const trends = getTrends({ startDate, endDate }, db);
 
       expect(Array.isArray(trends)).toBe(true);
     });
@@ -209,7 +209,7 @@ describe('analytics.service', () => {
 
       return new Promise<void>((resolve) => {
         setImmediate(() => {
-          const trends = getTrends();
+          const trends = getTrends({}, db);
 
           expect(Array.isArray(trends)).toBe(true);
           // Trends should aggregate actions by date
@@ -221,7 +221,7 @@ describe('analytics.service', () => {
 
   describe('getSubtaskStats', () => {
     it('should return subtask statistics structure', () => {
-      const stats = getSubtaskStats({ projectId: 'test-project' });
+      const stats = getSubtaskStats({ projectId: 'test-project' }, db);
 
       expect(stats).toBeDefined();
       expect(Array.isArray(stats.subtasks)).toBe(true);
@@ -234,13 +234,13 @@ describe('analytics.service', () => {
       const stats = getSubtaskStats({
         projectId: 'test-project',
         subtaskType: 'test-type',
-      });
+      }, db);
 
       expect(stats).toBeDefined();
     });
 
     it('should calculate completion statistics', () => {
-      const stats = getSubtaskStats({ projectId: 'test-project' });
+      const stats = getSubtaskStats({ projectId: 'test-project' }, db);
 
       expect(stats.totalSubtasks).toBeGreaterThanOrEqual(0);
       expect(stats.completedSubtasks).toBeGreaterThanOrEqual(0);
@@ -248,7 +248,7 @@ describe('analytics.service', () => {
     });
 
     it('should return subtask details', () => {
-      const stats = getSubtaskStats({ projectId: 'test-project' });
+      const stats = getSubtaskStats({ projectId: 'test-project' }, db);
 
       stats.subtasks.forEach((subtask) => {
         expect(subtask.subtaskType).toBeDefined();

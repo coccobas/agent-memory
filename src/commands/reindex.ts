@@ -21,6 +21,7 @@ import {
 } from '../db/repositories/embedding-hooks.js';
 import { getEmbeddingService } from '../services/embedding.service.js';
 import { createComponentLogger } from '../utils/logger.js';
+import type { DbClient } from '../db/connection.js';
 
 const logger = createComponentLogger('reindex-cmd');
 
@@ -128,9 +129,9 @@ Examples:
 `);
 }
 
-function printStats(): void {
+function printStats(db: DbClient): void {
   const queueStats = getEmbeddingQueueStats();
-  const backfillStats = getBackfillStats();
+  const backfillStats = getBackfillStats(db);
   const failedJobs = getFailedEmbeddingJobs();
 
   console.log('\n=== Embedding Queue Stats ===');
@@ -171,9 +172,6 @@ export async function runReindexCommand(args: string[]): Promise<void> {
   await import('../config/index.js');
   const { getDb } = await import('../db/connection.js');
 
-  // Ensure database is initialized
-  getDb();
-
   const options = parseArgs(args);
 
   // Check embedding service availability
@@ -186,9 +184,12 @@ export async function runReindexCommand(args: string[]): Promise<void> {
 
   console.log(`Embedding provider: ${embeddingService.getProvider()}`);
 
+  // Get db instance
+  const db = getDb();
+
   // Stats only mode
   if (options.showStats) {
-    printStats();
+    printStats(db);
     process.exit(0);
   }
 
@@ -226,7 +227,7 @@ export async function runReindexCommand(args: string[]): Promise<void> {
         const percent = p.total > 0 ? Math.round((p.processed / p.total) * 100) : 0;
         process.stdout.write(`\r  Progress: ${p.processed}/${p.total} (${percent}%) - ${p.succeeded} succeeded, ${p.failed} failed`);
       },
-    });
+    }, db);
 
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
     console.log(`\n\nCompleted in ${elapsed}s:`);

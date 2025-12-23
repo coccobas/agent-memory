@@ -6,7 +6,7 @@
  */
 
 import { eq, and, isNull, desc, gte, or, inArray } from 'drizzle-orm';
-import { getDb, type DbClient } from '../db/connection.js';
+import type { DbClient } from '../db/connection.js';
 import { guidelines, guidelineVersions, type ScopeType } from '../db/schema.js';
 import { resolveScopeChain, type ScopeDescriptor } from './query.service.js';
 import { createComponentLogger } from '../utils/logger.js';
@@ -55,15 +55,14 @@ export interface CriticalGuidelinesResult {
  *
  * @param projectId - The project ID to start the scope chain from
  * @param sessionId - Optional session ID for more specific scope
- * @param dbClient - Optional database client (defaults to getDb() for backward compatibility)
+ * @param db - Database client (required)
  * @returns Array of critical guidelines sorted by priority (highest first)
  */
 export function getCriticalGuidelinesForScope(
   projectId: string | null,
-  sessionId?: string | null,
-  dbClient?: DbClient
+  sessionId: string | null | undefined,
+  db: DbClient
 ): CriticalGuideline[] {
-  const db = dbClient ?? getDb();
 
   // Determine the scope chain
   let scopeChain: ScopeDescriptor[];
@@ -165,15 +164,15 @@ export function getCriticalGuidelinesForScope(
  *
  * @param projectId - The project ID
  * @param sessionId - Optional session ID
- * @param dbClient - Optional database client (defaults to getDb() for backward compatibility)
+ * @param db - Database client (required)
  * @returns Formatted result with count, guidelines, and message
  */
 export function getCriticalGuidelinesForSession(
   projectId: string | null,
-  sessionId?: string | null,
-  dbClient?: DbClient
+  sessionId: string | null | undefined,
+  db: DbClient
 ): CriticalGuidelinesResult {
-  const guidelines = getCriticalGuidelinesForScope(projectId, sessionId, dbClient);
+  const guidelines = getCriticalGuidelinesForScope(projectId, sessionId, db);
 
   return {
     count: guidelines.length,
@@ -192,15 +191,15 @@ export function getCriticalGuidelinesForSession(
  *
  * @param projectId - The project ID
  * @param sessionId - Optional session ID
- * @param dbClient - Optional database client (defaults to getDb() for backward compatibility)
+ * @param db - Database client (required)
  * @returns Array of guideline IDs
  */
 export function getCriticalGuidelineIds(
   projectId: string | null,
-  sessionId?: string | null,
-  dbClient?: DbClient
+  sessionId: string | null | undefined,
+  db: DbClient
 ): string[] {
-  const guidelines = getCriticalGuidelinesForScope(projectId, sessionId, dbClient);
+  const guidelines = getCriticalGuidelinesForScope(projectId, sessionId, db);
   return guidelines.map((g) => g.id);
 }
 
@@ -208,11 +207,10 @@ export function getCriticalGuidelineIds(
  * Check if a specific guideline is critical (priority >= 90).
  *
  * @param guidelineId - The guideline ID to check
- * @param dbClient - Optional database client (defaults to getDb() for backward compatibility)
+ * @param db - Database client (required)
  * @returns True if the guideline exists and has priority >= 90
  */
-export function isGuidelineCritical(guidelineId: string, dbClient?: DbClient): boolean {
-  const db = dbClient ?? getDb();
+export function isGuidelineCritical(guidelineId: string, db: DbClient): boolean {
 
   const guideline = db
     .select({ priority: guidelines.priority })

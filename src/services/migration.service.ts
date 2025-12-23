@@ -7,12 +7,14 @@
 import { exportToJson, exportToOpenAPI } from './export.service.js';
 import type { ImportService } from './import.service.js';
 import type { ScopeType } from '../db/schema.js';
+import type { DbClient } from '../db/connection.js';
 
 /**
  * Migration service dependencies
  */
 export interface MigrationServiceDeps {
   importService: ImportService;
+  db: DbClient;
 }
 
 export interface MigrationParams {
@@ -81,13 +83,13 @@ async function migrateEntriesImpl(deps: MigrationServiceDeps, params: MigrationP
         types: ['tools'], // OpenAPI only supports tools
         scopeType,
         scopeId,
-      });
+      }, deps.db);
     } else {
       exportResult = exportToJson({
         types: ['tools', 'guidelines', 'knowledge'],
         scopeType,
         scopeId,
-      });
+      }, deps.db);
     }
 
     if (exportResult.metadata.entryCount === 0) {
@@ -160,7 +162,7 @@ async function migrateScopeImpl(
       types: entryTypes || ['tools', 'guidelines', 'knowledge'],
       scopeType: fromScope.type,
       scopeId: fromScope.id,
-    });
+    }, deps.db);
 
     if (exportResult.metadata.entryCount === 0) {
       return result;

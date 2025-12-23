@@ -9,6 +9,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { getCriticalGuidelinesForScope } from './critical-guidelines.service.js';
 import { createComponentLogger } from '../utils/logger.js';
+import type { DbClient } from '../db/connection.js';
 
 const logger = createComponentLogger('hook-generator');
 
@@ -23,6 +24,7 @@ export interface HookConfig {
   projectPath: string;
   projectId?: string;
   sessionId?: string;
+  db: DbClient;
 }
 
 export interface GeneratedHook {
@@ -358,9 +360,10 @@ If Agent Memory is configured as an MCP server in Claude Code, run the MCP tool:
  */
 export function generateCursorRulesFile(
   projectId: string | null,
-  sessionId?: string | null
+  sessionId: string | null | undefined,
+  db: DbClient
 ): string {
-  const guidelines = getCriticalGuidelinesForScope(projectId, sessionId);
+  const guidelines = getCriticalGuidelinesForScope(projectId, sessionId, db);
 
   if (guidelines.length === 0) {
     return `# Critical Guidelines (Auto-synced from Agent Memory)
@@ -499,7 +502,7 @@ export function generateHooks(config: HookConfig): HookGenerationResult {
         // Generate rules file
         hooks.push({
           filePath: path.join(config.projectPath, '.cursor', 'rules', 'critical-guidelines.md'),
-          content: generateCursorRulesFile(config.projectId ?? null, config.sessionId),
+          content: generateCursorRulesFile(config.projectId ?? null, config.sessionId, config.db),
           instructions: generateCursorInstructions(config.projectPath),
         });
 
@@ -510,7 +513,7 @@ export function generateHooks(config: HookConfig): HookGenerationResult {
         // VSCode doesn't have native hooks, but we can provide rules
         hooks.push({
           filePath: path.join(config.projectPath, '.vscode', 'critical-guidelines.md'),
-          content: generateCursorRulesFile(config.projectId ?? null, config.sessionId),
+          content: generateCursorRulesFile(config.projectId ?? null, config.sessionId, config.db),
           instructions:
             'VSCode does not support native hooks. This file contains critical guidelines for reference.',
         });

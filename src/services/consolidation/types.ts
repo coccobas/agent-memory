@@ -3,6 +3,7 @@
  */
 
 import type { ScopeType, EntryType } from '../../db/schema.js';
+import type { DbClient } from '../../db/connection.js';
 
 // =============================================================================
 // STRATEGY TYPES
@@ -23,6 +24,7 @@ export interface ConsolidationParams {
   dryRun?: boolean; // If true, only report what would be consolidated
   limit?: number; // Max number of consolidation groups to process
   consolidatedBy?: string; // Agent/user ID for audit
+  db: DbClient; // Database client
 }
 
 export interface FindSimilarParams {
@@ -31,6 +33,7 @@ export interface FindSimilarParams {
   entryTypes?: EntryType[];
   threshold?: number;
   limit?: number;
+  db: DbClient; // Database client
 }
 
 // =============================================================================
@@ -89,6 +92,7 @@ export interface ArchiveStaleParams {
   minRecencyScore?: number; // Optional: only archive if recencyScore is below this (0-1)
   dryRun?: boolean;
   archivedBy?: string;
+  db: DbClient; // Database client
 }
 
 export interface ArchivedEntryInfo {

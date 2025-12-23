@@ -5,7 +5,7 @@
  * when one option is k votes ahead of all other options.
  */
 
-import { getDb, type DbClient } from '../db/connection.js';
+import type { DbClient } from '../db/connection.js';
 import { agentVotes } from '../db/schema.js';
 import { generateId } from '../db/repositories/base.js';
 import { eq } from 'drizzle-orm';
@@ -33,10 +33,9 @@ export interface ConsensusResult {
  * votes multiple times in quick succession.
  *
  * @param params - Vote parameters
- * @param dbClient - Optional database client (defaults to getDb() for backward compatibility)
+ * @param db - Database client (required)
  */
-export function recordVote(params: RecordVoteParams, dbClient?: DbClient): void {
-  const db = dbClient ?? getDb();
+export function recordVote(params: RecordVoteParams, db: DbClient): void {
   const id = generateId();
 
   // Atomic upsert: insert new vote or update existing one
@@ -69,16 +68,14 @@ export function recordVote(params: RecordVoteParams, dbClient?: DbClient): void 
  *
  * @param taskId - The task ID to calculate consensus for
  * @param k - The number of votes ahead required (default: 1)
- * @param dbClient - Optional database client (defaults to getDb() for backward compatibility)
+ * @param db - Database client (required)
  * @returns Consensus result with vote distribution and dissenting votes
  */
 export function calculateConsensus(
   taskId: string,
   k: number = 1,
-  dbClient?: DbClient
+  db: DbClient
 ): ConsensusResult {
-  const db = dbClient ?? getDb();
-
   // Get all votes for this task
   const votes = db.select().from(agentVotes).where(eq(agentVotes.taskId, taskId)).all();
 
@@ -196,11 +193,11 @@ export function calculateConsensus(
  * List all votes for a task
  *
  * @param taskId - The task ID to list votes for
- * @param dbClient - Optional database client (defaults to getDb() for backward compatibility)
+ * @param db - Database client (required)
  */
 export function listVotes(
   taskId: string,
-  dbClient?: DbClient
+  db: DbClient
 ): Array<{
   id: string;
   agentId: string;
@@ -209,8 +206,6 @@ export function listVotes(
   reasoning: string | null;
   createdAt: string;
 }> {
-  const db = dbClient ?? getDb();
-
   const votes = db.select().from(agentVotes).where(eq(agentVotes.taskId, taskId)).all();
 
   return votes.map((vote) => ({
@@ -227,11 +222,11 @@ export function listVotes(
  * Get voting statistics for a task
  *
  * @param taskId - The task ID to get stats for
- * @param dbClient - Optional database client (defaults to getDb() for backward compatibility)
+ * @param db - Database client (required)
  */
 export function getVotingStats(
   taskId: string,
-  dbClient?: DbClient
+  db: DbClient
 ): {
   totalVotes: number;
   uniqueOptions: number;
@@ -240,7 +235,7 @@ export function getVotingStats(
   k: number;
   voteDistribution: Array<{ voteValue: unknown; count: number; agents: string[] }>;
 } {
-  const consensus = calculateConsensus(taskId, 1, dbClient);
+  const consensus = calculateConsensus(taskId, 1, db);
   return {
     totalVotes: consensus.voteCount,
     uniqueOptions: consensus.voteDistribution.length,

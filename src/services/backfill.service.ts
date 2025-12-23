@@ -5,7 +5,7 @@
  * and generates embeddings for them in batches.
  */
 
-import { getDb, type DbClient } from '../db/connection.js';
+import type { DbClient } from '../db/connection.js';
 import {
   tools,
   toolVersions,
@@ -61,7 +61,7 @@ export interface BackfillOptions {
  */
 export async function backfillEmbeddings(
   options: BackfillOptions = {},
-  dbClient?: DbClient
+  db: DbClient
 ): Promise<BackfillProgress> {
   const {
     batchSize = 50,
@@ -78,8 +78,6 @@ export async function backfillEmbeddings(
 
   const vectorService = getVectorService();
   await vectorService.initialize();
-
-  const db = dbClient ?? getDb();
   const progress: BackfillProgress = {
     total: 0,
     processed: 0,
@@ -393,12 +391,11 @@ async function backfillEntryType(
 /**
  * Get backfill statistics (uses COUNT(*) for efficiency)
  */
-export function getBackfillStats(dbClient?: DbClient): {
+export function getBackfillStats(db: DbClient): {
   tools: { total: number; withEmbeddings: number };
   guidelines: { total: number; withEmbeddings: number };
   knowledge: { total: number; withEmbeddings: number };
 } {
-  const db = dbClient ?? getDb();
 
   const toolsTotal =
     db

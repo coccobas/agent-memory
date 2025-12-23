@@ -4,7 +4,7 @@
  * Supports exporting entries to JSON, Markdown, and YAML formats
  */
 
-import { getDb, type DbClient } from '../db/connection.js';
+import type { DbClient } from '../db/connection.js';
 
 // Security: Maximum entries to export per type to prevent memory exhaustion
 const MAX_EXPORT_ENTRIES_PER_TYPE = 5000;
@@ -124,7 +124,7 @@ interface ExportData {
  * Batch fetch tags for entries of a given type
  */
 function batchFetchTags(
-  db: ReturnType<typeof getDb>,
+  db: DbClient,
   entryType: 'tool' | 'guideline' | 'knowledge',
   entryIds: string[]
 ): Map<string, string[]> {
@@ -154,7 +154,7 @@ function batchFetchTags(
  * Batch fetch relations for entries of a given type
  */
 function batchFetchRelations(
-  db: ReturnType<typeof getDb>,
+  db: DbClient,
   sourceType: 'tool' | 'guideline' | 'knowledge',
   sourceIds: string[]
 ): Map<string, Array<{ targetType: string; targetId: string; relationType: string }>> {
@@ -197,7 +197,7 @@ function hasRequiredTag(entryTags: string[], requiredTags: string[]): boolean {
 /**
  * Query tools for export
  */
-function queryToolsForExport(db: ReturnType<typeof getDb>, options: ExportOptions): ExportedTool[] {
+function queryToolsForExport(db: DbClient, options: ExportOptions): ExportedTool[] {
   const conditions = [];
 
   if (options.scopeType) {
@@ -220,7 +220,7 @@ function queryToolsForExport(db: ReturnType<typeof getDb>, options: ExportOption
   }
 
   const toolList = query.limit(MAX_EXPORT_ENTRIES_PER_TYPE).all();
-  const toolIds = toolList.map((t) => t.id);
+  const toolIds = toolList.map((t: { id: string }) => t.id);
 
   // Batch fetch versions, tags, and relations
   const allVersions =
@@ -269,7 +269,7 @@ function queryToolsForExport(db: ReturnType<typeof getDb>, options: ExportOption
  * Query guidelines for export
  */
 function queryGuidelinesForExport(
-  db: ReturnType<typeof getDb>,
+  db: DbClient,
   options: ExportOptions
 ): ExportedGuideline[] {
   const conditions = [];
@@ -294,7 +294,7 @@ function queryGuidelinesForExport(
   }
 
   const guidelineList = query.limit(MAX_EXPORT_ENTRIES_PER_TYPE).all();
-  const guidelineIds = guidelineList.map((g) => g.id);
+  const guidelineIds = guidelineList.map((g: { id: string }) => g.id);
 
   // Batch fetch versions, tags, and relations
   const allVersions =
@@ -348,7 +348,7 @@ function queryGuidelinesForExport(
  * Query knowledge for export
  */
 function queryKnowledgeForExport(
-  db: ReturnType<typeof getDb>,
+  db: DbClient,
   options: ExportOptions
 ): ExportedKnowledge[] {
   const conditions = [];
@@ -373,7 +373,7 @@ function queryKnowledgeForExport(
   }
 
   const knowledgeList = query.limit(MAX_EXPORT_ENTRIES_PER_TYPE).all();
-  const knowledgeIds = knowledgeList.map((k) => k.id);
+  const knowledgeIds = knowledgeList.map((k: { id: string }) => k.id);
 
   // Batch fetch versions, tags, and relations
   const allVersions =
@@ -425,8 +425,7 @@ function queryKnowledgeForExport(
 /**
  * Query and structure entries for export (optimized with batch fetching)
  */
-function queryEntries(options: ExportOptions, dbClient?: DbClient): ExportData {
-  const db = dbClient ?? getDb();
+function queryEntries(options: ExportOptions, db: DbClient): ExportData {
   const types = options.types || ['tools', 'guidelines', 'knowledge'];
 
   return {
@@ -448,8 +447,8 @@ function queryEntries(options: ExportOptions, dbClient?: DbClient): ExportData {
 /**
  * Export entries to JSON format
  */
-export function exportToJson(options: ExportOptions = {}, dbClient?: DbClient): ExportResult {
-  const data = queryEntries(options, dbClient);
+export function exportToJson(options: ExportOptions, db: DbClient): ExportResult {
+  const data = queryEntries(options, db);
   const entryCount =
     data.entries.tools.length + data.entries.guidelines.length + data.entries.knowledge.length;
 
@@ -469,8 +468,8 @@ export function exportToJson(options: ExportOptions = {}, dbClient?: DbClient): 
 /**
  * Export entries to Markdown format (optimized: uses array.join instead of +=)
  */
-export function exportToMarkdown(options: ExportOptions = {}, dbClient?: DbClient): ExportResult {
-  const data = queryEntries(options, dbClient);
+export function exportToMarkdown(options: ExportOptions, db: DbClient): ExportResult {
+  const data = queryEntries(options, db);
   const parts: string[] = [];
 
   parts.push(`# Agent Memory Export\n\n`);
@@ -564,8 +563,8 @@ export function exportToMarkdown(options: ExportOptions = {}, dbClient?: DbClien
 /**
  * Export entries to YAML format
  */
-export function exportToYaml(options: ExportOptions = {}, dbClient?: DbClient): ExportResult {
-  const data = queryEntries(options, dbClient);
+export function exportToYaml(options: ExportOptions, db: DbClient): ExportResult {
+  const data = queryEntries(options, db);
   const entryCount =
     data.entries.tools.length + data.entries.guidelines.length + data.entries.knowledge.length;
 
@@ -666,8 +665,8 @@ export function exportToYaml(options: ExportOptions = {}, dbClient?: DbClient): 
  * Converts tool definitions to OpenAPI 3.0 specification format.
  * Only exports tools (guidelines and knowledge are not applicable to OpenAPI).
  */
-export function exportToOpenAPI(options: ExportOptions = {}, dbClient?: DbClient): ExportResult {
-  const data = queryEntries({ ...options, types: ['tools'] }, dbClient); // Only tools for OpenAPI
+export function exportToOpenAPI(options: ExportOptions, db: DbClient): ExportResult {
+  const data = queryEntries({ ...options, types: ['tools'] }, db); // Only tools for OpenAPI
   const entryCount = data.entries.tools.length;
 
   // Build OpenAPI 3.0 specification

@@ -4,6 +4,7 @@
  * Create relations between similar entries without modifying them.
  */
 
+import type { DbClient } from '../../../db/connection.js';
 import { createComponentLogger } from '../../../utils/logger.js';
 import type { ConsolidationStrategy } from '../strategy.interface.js';
 import type { SimilarityGroup, StrategyResult } from '../types.js';
@@ -14,10 +15,10 @@ const logger = createComponentLogger('consolidation.abstract');
 export class AbstractStrategy implements ConsolidationStrategy {
   readonly name = 'abstract' as const;
 
-  execute(group: SimilarityGroup, _consolidatedBy?: string): StrategyResult {
+  execute(group: SimilarityGroup, _consolidatedBy: string | undefined, db: DbClient): StrategyResult {
     // Link all members as related to the primary
     for (const member of group.members) {
-      createConsolidationRelation(group.entryType, group.primaryId, member.id, 'related');
+      createConsolidationRelation(group.entryType, group.primaryId, member.id, 'related', db);
     }
 
     logger.info(

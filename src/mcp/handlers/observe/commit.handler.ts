@@ -314,7 +314,8 @@ export async function commit(context: AppContext, params: Record<string, unknown
       entryType,
       entryName,
       targetScopeType,
-      targetScopeId ?? null
+      targetScopeId ?? null,
+      context.db
     );
 
     if (duplicateCheck.isDuplicate) {
@@ -329,7 +330,7 @@ export async function commit(context: AppContext, params: Record<string, unknown
       shouldStore: true,
     };
 
-    const saved = await storeEntry(context.repos, processed, targetScopeType, targetScopeId, agentId);
+    const saved = await storeEntry(context.repos, processed, targetScopeType, targetScopeId, agentId, context.db);
     if (!saved) continue;
     stored.push(saved);
 
@@ -376,7 +377,7 @@ export async function commit(context: AppContext, params: Record<string, unknown
     const targetScopeId = wantsProject ? projectId : sessionId;
 
     try {
-      const saved = await storeEntity(context.repos, entity, targetScopeType, targetScopeId, agentId);
+      const saved = await storeEntity(context.repos, entity, targetScopeType, targetScopeId, agentId, context.db);
       if (saved) {
         storedEntities.push(saved);
       }
@@ -432,7 +433,7 @@ export async function commit(context: AppContext, params: Record<string, unknown
     scopeType: 'session',
     scopeId: sessionId,
     resultCount: stored.length + storedEntities.length,
-  });
+  }, context.db);
 
   return formatTimestamps({
     success: true,

@@ -4,6 +4,7 @@
  * Combine content from similar entries into the primary.
  */
 
+import type { DbClient } from '../../../db/connection.js';
 import { createComponentLogger } from '../../../utils/logger.js';
 import type { ConsolidationStrategy } from '../strategy.interface.js';
 import type { SimilarityGroup, StrategyResult } from '../types.js';
@@ -20,10 +21,10 @@ const logger = createComponentLogger('consolidation.merge');
 export class MergeStrategy implements ConsolidationStrategy {
   readonly name = 'semantic_merge' as const;
 
-  execute(group: SimilarityGroup, consolidatedBy?: string): StrategyResult {
+  execute(group: SimilarityGroup, consolidatedBy: string | undefined, db: DbClient): StrategyResult {
     // Get full content of all entries
     const allEntryIds = [group.primaryId, ...group.members.map((m) => m.id)];
-    const entries = getEntryDetails(group.entryType, allEntryIds);
+    const entries = getEntryDetails(group.entryType, allEntryIds, db);
 
     // Build a Map for O(1) lookups
     const entriesById = new Map(entries.map((e) => [e.id, e]));
@@ -57,16 +58,17 @@ export class MergeStrategy implements ConsolidationStrategy {
       group.primaryId,
       mergedContent,
       `Merged from ${group.members.length} similar entries`,
-      consolidatedBy
+      consolidatedBy,
+      db
     );
 
     // Batch deactivate merged entries (single UPDATE instead of N)
     const memberIds = group.members.map((m) => m.id);
-    batchDeactivateEntries(group.entryType, memberIds);
+    batchDeactivateEntries(group.entryType, memberIds, db);
 
     // Create relations to track provenance
     for (const member of group.members) {
-      createConsolidationRelation(group.entryType, member.id, group.primaryId, 'merged_into');
+      createConsolidationRelation(group.entryType, member.id, group.primaryId, 'merged_into', db);
     }
 
     logger.info(

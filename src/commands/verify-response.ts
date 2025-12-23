@@ -12,6 +12,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { verifyAction, type ProposedAction } from '../services/verification.service.js';
+import { getDb } from '../db/connection.js';
 
 interface CLIOptions {
   content?: string;
@@ -165,10 +166,13 @@ export async function runVerifyResponseCommand(argv: string[]): Promise<void> {
   };
 
   try {
+    // Get database connection for CLI usage
+    const db = getDb();
     const result = verifyAction(
       options.sessionId || null,
       options.projectId || null,
-      proposedAction
+      proposedAction,
+      db
     );
 
     if (options.outputFormat === 'json') {

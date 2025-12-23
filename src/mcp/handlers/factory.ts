@@ -28,6 +28,8 @@ import {
   isObject,
 } from '../../utils/type-guards.js';
 import { formatTimestamps } from '../../utils/timestamp-formatter.js';
+import { normalizePagination } from '../../db/repositories/entry-utils.js';
+import { encodeCursor } from '../../db/repositories/base.js';
 import type { ScopeType } from '../../db/schema.js';
 import type { AppContext } from '../../core/context.js';
 import type { ContextAwareHandler } from '../descriptors/types.js';
@@ -213,7 +215,8 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
         config.entryType,
         nameValue,
         scopeType,
-        scopeId ?? null
+        scopeId ?? null,
+        context.db
       );
       if (duplicateCheck.isDuplicate) {
         logger.warn(
@@ -280,7 +283,7 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
         entryId: entry.id,
         scopeType,
         scopeId: scopeId ?? null,
-      });
+      }, context.db);
 
       return formatTimestamps({
         success: true,
@@ -344,7 +347,7 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
         entryId: id,
         scopeType: existingEntry.scopeType,
         scopeId: existingEntry.scopeId ?? null,
-      });
+      }, context.db);
 
       return formatTimestamps({ success: true, [config.responseKey]: entry });
     },
@@ -402,13 +405,14 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
         entryId: entry.id,
         scopeType: entry.scopeType,
         scopeId: entry.scopeId ?? null,
-      });
+      }, context.db);
 
       return formatTimestamps({ [config.responseKey]: entry });
     },
 
     /**
      * List entries with optional filters
+     * Supports cursor-based pagination for efficient traversal of large datasets.
      */
     async list(context: AppContext, params: Record<string, unknown>) {
       const repo = config.getRepo(context);
@@ -416,8 +420,16 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
       const scopeType = getOptionalParam(params, 'scopeType', isScopeType);
       const scopeId = getOptionalParam(params, 'scopeId', isString);
       const includeInactive = getOptionalParam(params, 'includeInactive', isBoolean);
-      const limit = getOptionalParam(params, 'limit', isNumber);
-      const offset = getOptionalParam(params, 'offset', isNumber);
+      const limitParam = getOptionalParam(params, 'limit', isNumber);
+      const offsetParam = getOptionalParam(params, 'offset', isNumber);
+      const cursor = getOptionalParam(params, 'cursor', isString);
+
+      // Normalize pagination (cursor takes precedence over offset)
+      const { limit, offset } = normalizePagination({
+        limit: limitParam,
+        offset: offsetParam,
+        cursor,
+      });
 
       // Build filter with extra type-specific filters
       const filter: Record<string, unknown> = {
@@ -427,13 +439,18 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
         ...(config.extractListFilters?.(params) ?? {}),
       };
 
+      // Fetch limit+1 to detect if there are more records (without COUNT query)
       const all = await repo.list(
         filter as { scopeType?: ScopeType; scopeId?: string; includeInactive?: boolean },
-        { limit, offset }
+        { limit: limit + 1, offset }
       );
 
+      // Determine if there are more records
+      const hasMore = all.length > limit;
+      const recordsToCheck = hasMore ? all.slice(0, limit) : all;
+
       // Use batch permission check for efficiency (single DB query)
-      const batchEntries = all.map((e) => ({
+      const batchEntries = recordsToCheck.map((e) => ({
         id: e.id,
         entryType: config.entryType,
         scopeType: e.scopeType,
@@ -443,12 +460,15 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
       const permissionResults = context.services!.permission.checkBatch(agentId, 'read', batchEntries);
 
       // Filter entries by permission results
-      const entries = all.filter((e) => permissionResults.get(e.id) === true);
+      const entries = recordsToCheck.filter((e) => permissionResults.get(e.id) === true);
 
       return formatTimestamps({
         [config.responseListKey]: entries,
         meta: {
           returnedCount: entries.length,
+          hasMore,
+          truncated: hasMore,
+          nextCursor: hasMore ? encodeCursor(offset + limit) : undefined,
         },
       });
     },
@@ -494,7 +514,7 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
         entryId: id,
         scopeType: existingEntry.scopeType,
         scopeId: existingEntry.scopeId ?? null,
-      });
+      }, context.db);
 
       return { success: true };
     },
@@ -534,7 +554,7 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
         entryId: id,
         scopeType: existingEntry.scopeType,
         scopeId: existingEntry.scopeId ?? null,
-      });
+      }, context.db);
 
       return { success: true, message: `${config.entryType} permanently deleted` };
     },

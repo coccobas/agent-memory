@@ -9,7 +9,6 @@ import { setupTestDb, cleanupTestDb } from '../fixtures/test-helpers.js';
 import * as schema from '../../src/db/schema.js';
 import {
   logAction,
-  withAuditLogging,
   type AuditLogParams,
 } from '../../src/services/audit.service.js';
 
@@ -50,7 +49,7 @@ describe('audit.service', () => {
         scopeType: 'global',
       };
 
-      logAction(params);
+      logAction(params, db);
 
       // Wait for async operation
       await new Promise((resolve) => setImmediate(resolve));
@@ -70,7 +69,7 @@ describe('audit.service', () => {
         logAction({
           action,
           entryType: 'tool',
-        });
+        }, db);
       }
 
       await new Promise((resolve) => setImmediate(resolve));
@@ -86,7 +85,7 @@ describe('audit.service', () => {
       logAction({
         action: 'read',
         entryType: 'tool',
-      });
+      }, db);
 
       await new Promise((resolve) => setImmediate(resolve));
 
@@ -99,7 +98,7 @@ describe('audit.service', () => {
       logAction({
         action: 'create',
         entryType: 'project',
-      });
+      }, db);
 
       await new Promise((resolve) => setImmediate(resolve));
 
@@ -113,7 +112,7 @@ describe('audit.service', () => {
       logAction({
         action: 'query',
         queryParams,
-      });
+      }, db);
 
       await new Promise((resolve) => setImmediate(resolve));
 
@@ -126,7 +125,7 @@ describe('audit.service', () => {
       logAction({
         action: 'query',
         resultCount: 42,
-      });
+      }, db);
 
       await new Promise((resolve) => setImmediate(resolve));
 
@@ -137,13 +136,14 @@ describe('audit.service', () => {
 
     it('should not throw on database errors', async () => {
       // Close database to simulate error
+      const originalDb = db;
       sqlite.close();
 
       expect(() => {
         logAction({
           action: 'create',
           entryType: 'tool',
-        });
+        }, originalDb);
       }).not.toThrow();
 
       // Wait for async operation
@@ -158,7 +158,7 @@ describe('audit.service', () => {
     it('should handle all optional parameters as undefined', async () => {
       logAction({
         action: 'read',
-      });
+      }, db);
 
       await new Promise((resolve) => setImmediate(resolve));
 
@@ -168,38 +168,6 @@ describe('audit.service', () => {
       expect(lastLog?.agentId).toBeNull();
       expect(lastLog?.entryType).toBeNull();
       expect(lastLog?.entryId).toBeNull();
-    });
-  });
-
-  describe('withAuditLogging', () => {
-    it('should wrap function and log actions', async () => {
-      const fn = vi.fn((x: number) => x * 2);
-      const getAuditParams = vi.fn((x: number) => ({
-        action: 'create' as const,
-        entryType: 'tool' as const,
-      }));
-
-      const wrapped = withAuditLogging(fn, getAuditParams);
-      const result = wrapped(5);
-
-      expect(result).toBe(10);
-      expect(fn).toHaveBeenCalledWith(5);
-      expect(getAuditParams).toHaveBeenCalledWith(5);
-
-      await new Promise((resolve) => setImmediate(resolve));
-
-      const logs = db.select().from(schema.auditLog).all();
-      expect(logs.length).toBeGreaterThan(0);
-    });
-
-    it('should preserve function return value', () => {
-      const fn = (a: number, b: number) => a + b;
-      const getAuditParams = () => ({ action: 'create' as const });
-
-      const wrapped = withAuditLogging(fn, getAuditParams);
-      const result = wrapped(2, 3);
-
-      expect(result).toBe(5);
     });
   });
 });

@@ -24,7 +24,7 @@ import { createValidationError } from '../../core/errors.js';
 /**
  * Get usage statistics
  */
-export function getUsageStatsHandler(_context: AppContext, params: AnalyticsGetStatsParams): {
+export function getUsageStatsHandler(context: AppContext, params: AnalyticsGetStatsParams): {
   stats: ReturnType<typeof getUsageStats>;
   filters: {
     scopeType?: ScopeType;
@@ -38,7 +38,7 @@ export function getUsageStatsHandler(_context: AppContext, params: AnalyticsGetS
     scopeId: params.scopeId,
     startDate: params.startDate,
     endDate: params.endDate,
-  });
+  }, context.db);
 
   return {
     stats,
@@ -54,7 +54,7 @@ export function getUsageStatsHandler(_context: AppContext, params: AnalyticsGetS
 /**
  * Get trend data over time
  */
-export function getTrendsHandler(_context: AppContext, params: AnalyticsGetTrendsParams): {
+export function getTrendsHandler(context: AppContext, params: AnalyticsGetTrendsParams): {
   trends: ReturnType<typeof getTrends>;
   filters: {
     scopeType?: ScopeType;
@@ -68,7 +68,7 @@ export function getTrendsHandler(_context: AppContext, params: AnalyticsGetTrend
     scopeId: params.scopeId,
     startDate: params.startDate,
     endDate: params.endDate,
-  });
+  }, context.db);
 
   return {
     trends,
@@ -85,20 +85,20 @@ export function getTrendsHandler(_context: AppContext, params: AnalyticsGetTrend
  * Get subtask execution analytics
  */
 export function getSubtaskStatsHandler(
-  _context: AppContext,
+  context: AppContext,
   params: AnalyticsGetSubtaskStatsParams
 ): ReturnType<typeof getSubtaskStats> {
   return getSubtaskStats({
     projectId: params.projectId,
     subtaskType: params.subtaskType,
-  });
+  }, context.db);
 }
 
 /**
  * Calculate error correlation between two agents
  */
 export function getErrorCorrelationHandler(
-  _context: AppContext,
+  context: AppContext,
   params: AnalyticsGetErrorCorrelationParams
 ): ReturnType<typeof calculateErrorCorrelation> {
   if (!params.agentA || !params.agentB) {
@@ -113,14 +113,14 @@ export function getErrorCorrelationHandler(
     agentA: params.agentA,
     agentB: params.agentB,
     timeWindow: params.timeWindow,
-  });
+  }, context.db);
 }
 
 /**
  * Detect low diversity across all agent pairs in a project
  */
 export function getLowDiversityHandler(
-  _context: AppContext,
+  context: AppContext,
   params: AnalyticsGetLowDiversityParams & { projectId?: string }
 ): ReturnType<typeof detectLowDiversity> {
   const projectId = params.projectId ?? params.scopeId;
@@ -132,7 +132,7 @@ export function getLowDiversityHandler(
     );
   }
 
-  return detectLowDiversity(projectId);
+  return detectLowDiversity(projectId, context.db);
 }
 
 export const analyticsHandlers = {

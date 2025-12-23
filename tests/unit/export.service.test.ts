@@ -34,7 +34,7 @@ describe('Export Service', () => {
         createdBy: 'test-user',
       });
 
-      const result = exportToJson({ types: ['tools'] });
+      const result = exportToJson({ types: ['tools'] }, testDb.db);
 
       expect(result.format).toBe('json');
       expect(result.metadata.entryCount).toBeGreaterThanOrEqual(1);
@@ -58,7 +58,7 @@ describe('Export Service', () => {
         createdBy: 'test-user',
       });
 
-      const result = exportToJson({ types: ['guidelines'] });
+      const result = exportToJson({ types: ['guidelines'] }, testDb.db);
 
       const data = JSON.parse(result.content);
       const exportedGuideline = data.entries.guidelines.find((g: any) => g.id === guideline.id);
@@ -83,7 +83,7 @@ describe('Export Service', () => {
       const result = exportToJson({
         types: ['tools'],
         scopeType: 'global',
-      });
+      }, testDb.db);
 
       const data = JSON.parse(result.content);
       const toolNames = data.entries.tools.map((t: any) => t.name);
@@ -105,7 +105,7 @@ describe('Export Service', () => {
         tagId: tag.id,
       });
 
-      const result = exportToJson({ types: ['tools'] });
+      const result = exportToJson({ types: ['tools'] }, testDb.db);
       const data = JSON.parse(result.content);
       const exportedTool = data.entries.tools.find((t: any) => t.id === tool.id);
 
@@ -135,7 +135,7 @@ describe('Export Service', () => {
       const result = exportToJson({
         types: ['tools'],
         tags: ['python'],
-      });
+      }, testDb.db);
 
       const data = JSON.parse(result.content);
       const toolNames = data.entries.tools.map((t: any) => t.name);
@@ -153,7 +153,7 @@ describe('Export Service', () => {
         createdBy: 'test',
       });
 
-      const result = exportToMarkdown({ types: ['tools'] });
+      const result = exportToMarkdown({ types: ['tools'] }, testDb.db);
 
       expect(result.format).toBe('markdown');
       expect(result.content).toContain('# Agent Memory Export');
@@ -170,7 +170,7 @@ describe('Export Service', () => {
         createdBy: 'test',
       });
 
-      const result = exportToMarkdown({ types: ['guidelines'] });
+      const result = exportToMarkdown({ types: ['guidelines'] }, testDb.db);
 
       expect(result.content).toContain('## Guidelines');
       expect(result.content).toContain('### markdown-guideline');
@@ -187,7 +187,7 @@ describe('Export Service', () => {
         createdBy: 'test',
       });
 
-      const result = exportToYaml({ types: ['tools'] });
+      const result = exportToYaml({ types: ['tools'] }, testDb.db);
 
       expect(result.format).toBe('yaml');
       expect(result.content).toContain('# Agent Memory Export');

@@ -66,6 +66,9 @@ async function main() {
   const { createComponentLogger } = await import('./utils/logger.js');
   const { createRuntime, extractRuntimeConfig, shutdownRuntime } = await import('./core/runtime.js');
   const { registerRuntime } = await import('./core/container.js');
+  const { startBackupScheduler, stopBackupScheduler } = await import(
+    './services/backup-scheduler.service.js'
+  );
 
   const logger = createComponentLogger('server');
   const mode = parseServerMode(argv, process.env.AGENT_MEMORY_MODE);
@@ -75,6 +78,23 @@ async function main() {
   // This is shared across MCP and REST servers in "both" mode
   const runtime = createRuntime(extractRuntimeConfig(config));
   registerRuntime(runtime);
+
+  // Start backup scheduler if configured
+  if (config.backup.schedule) {
+    startBackupScheduler({
+      schedule: config.backup.schedule,
+      retentionCount: config.backup.retentionCount,
+      enabled: config.backup.enabled,
+    });
+  }
+
+  // Cleanup on shutdown
+  const cleanup = () => {
+    stopBackupScheduler();
+    shutdownRuntime(runtime);
+  };
+  process.on('SIGTERM', cleanup);
+  process.on('SIGINT', cleanup);
 
   try {
     const mcpModulePath = './mcp/server.js';
@@ -98,7 +118,7 @@ async function main() {
       { error: error instanceof Error ? error.message : String(error) },
       'Server startup failed'
     );
-    shutdownRuntime(runtime);
+    cleanup();
     process.exit(1);
   }
 }

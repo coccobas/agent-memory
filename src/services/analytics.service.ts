@@ -4,7 +4,7 @@
  * Aggregates data from the audit log to provide insights into system usage.
  */
 
-import { getDb, type DbClient } from '../db/connection.js';
+import type { DbClient } from '../db/connection.js';
 import { auditLog, entryTags, tags } from '../db/schema.js';
 import { eq, and, gte, lte, sql, desc, count, isNotNull, type SQL } from 'drizzle-orm';
 import type { ScopeType, EntryType } from '../db/schema.js';
@@ -39,10 +39,9 @@ export interface TrendData {
  * Get usage statistics from audit log
  *
  * @param params - Query parameters
- * @param dbClient - Optional database client (defaults to getDb() for backward compatibility)
+ * @param db - Database client (required)
  */
-export function getUsageStats(params: UsageStatsParams = {}, dbClient?: DbClient): UsageStats {
-  const db = dbClient ?? getDb();
+export function getUsageStats(params: UsageStatsParams = {}, db: DbClient): UsageStats {
   const { scopeType, scopeId, startDate, endDate } = params;
 
   // Build base query conditions
@@ -228,10 +227,9 @@ export function getUsageStats(params: UsageStatsParams = {}, dbClient?: DbClient
  * Get trend data over time
  *
  * @param params - Query parameters
- * @param dbClient - Optional database client (defaults to getDb() for backward compatibility)
+ * @param db - Database client (required)
  */
-export function getTrends(params: UsageStatsParams = {}, dbClient?: DbClient): TrendData[] {
-  const db = dbClient ?? getDb();
+export function getTrends(params: UsageStatsParams = {}, db: DbClient): TrendData[] {
   const { scopeType, scopeId, startDate, endDate } = params;
 
   // Build base query conditions
@@ -311,7 +309,7 @@ export function getTrends(params: UsageStatsParams = {}, dbClient?: DbClient): T
  * Provides insights into subtask success rates, execution times, and error patterns.
  *
  * @param params - Query parameters
- * @param dbClient - Optional database client (defaults to getDb() for backward compatibility)
+ * @param db - Database client (required)
  */
 export function getSubtaskStats(
   params: {
@@ -320,7 +318,7 @@ export function getSubtaskStats(
     startDate?: string;
     endDate?: string;
   },
-  dbClient?: DbClient
+  db: DbClient
 ): {
   subtasks: Array<{
     subtaskType: string;
@@ -333,7 +331,6 @@ export function getSubtaskStats(
   completedSubtasks: number;
   failedSubtasks: number;
 } {
-  const db = dbClient ?? getDb();
 
   // Build where conditions
   const conditions = [isNotNull(auditLog.subtaskType)];

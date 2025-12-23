@@ -5,6 +5,10 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 // Mock modules before imports
+vi.mock('../../src/db/connection.js', () => ({
+  getDb: vi.fn(() => ({})), // Return mock db object
+}));
+
 vi.mock('../../src/services/verification.service.js', () => ({
   verifyAction: vi.fn(),
 }));
@@ -83,7 +87,7 @@ describe('runPreToolUseCommand', () => {
     expect(verifyAction).toHaveBeenCalledWith('sess-123', 'proj-123', expect.objectContaining({
       type: 'file_write',
       filePath: '/path/to/file.ts',
-    }));
+    }), expect.anything());
   });
 
   it('should return exit code 2 with violations when action is blocked', () => {
@@ -144,7 +148,7 @@ describe('runPreToolUseCommand', () => {
 
     expect(verifyAction).toHaveBeenCalledWith(null, null, expect.objectContaining({
       type: 'command',
-    }));
+    }), expect.anything());
   });
 
   it('should handle unknown tools as other action type', () => {
@@ -165,7 +169,7 @@ describe('runPreToolUseCommand', () => {
 
     expect(verifyAction).toHaveBeenCalledWith(null, null, expect.objectContaining({
       type: 'other',
-    }));
+    }), expect.anything());
   });
 });
 

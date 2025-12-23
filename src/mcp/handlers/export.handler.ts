@@ -75,17 +75,17 @@ function exportEntries(context: AppContext, params: Record<string, unknown>) {
   let result;
   switch (format) {
     case 'openapi':
-      result = exportToOpenAPI(options);
+      result = exportToOpenAPI(options, context.db);
       break;
     case 'markdown':
-      result = exportToMarkdown(options);
+      result = exportToMarkdown(options, context.db);
       break;
     case 'yaml':
-      result = exportToYaml(options);
+      result = exportToYaml(options, context.db);
       break;
     case 'json':
     default:
-      result = exportToJson(options);
+      result = exportToJson(options, context.db);
       break;
   }
 

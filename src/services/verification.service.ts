@@ -6,7 +6,7 @@
  */
 
 import { eq } from 'drizzle-orm';
-import { getDb, type DbClient } from '../db/connection.js';
+import type { DbClient } from '../db/connection.js';
 import {
   guidelines,
   guidelineVersions,
@@ -311,11 +311,9 @@ function verifyAgainstGuideline(
  * Get verification rules for a guideline.
  *
  * @param guidelineId - The guideline ID
- * @param dbClient - Optional database client (defaults to getDb() for backward compatibility)
+ * @param db - Database client (required)
  */
-function getVerificationRules(guidelineId: string, dbClient?: DbClient): VerificationRules | null {
-  const db = dbClient ?? getDb();
-
+function getVerificationRules(guidelineId: string, db: DbClient): VerificationRules | null {
   const guideline = db.select().from(guidelines).where(eq(guidelines.id, guidelineId)).get();
 
   if (!guideline?.currentVersionId) {
@@ -341,17 +339,15 @@ function getVerificationRules(guidelineId: string, dbClient?: DbClient): Verific
  * @param sessionId - The session ID (optional)
  * @param projectId - The project ID (optional)
  * @param action - The proposed action to verify
- * @param dbClient - Optional database client (defaults to getDb() for backward compatibility)
+ * @param db - Database client (required)
  * @returns Verification result with violations and warnings
  */
 export function verifyAction(
   sessionId: string | null,
   projectId: string | null,
   action: ProposedAction,
-  dbClient?: DbClient
+  db: DbClient
 ): VerificationResult {
-  const db = dbClient ?? getDb();
-
   // Get critical guidelines for the scope
   const criticalGuidelines = getCriticalGuidelinesForScope(projectId, sessionId, db);
 
@@ -412,16 +408,14 @@ export function verifyAction(
  * @param sessionId - The session ID
  * @param action - The completed action
  * @param agentId - The agent ID that performed the action
- * @param dbClient - Optional database client (defaults to getDb() for backward compatibility)
+ * @param db - Database client (required)
  */
 export function logCompletedAction(
   sessionId: string | null,
   action: ProposedAction,
-  agentId?: string,
-  dbClient?: DbClient
+  agentId: string | undefined,
+  db: DbClient
 ): VerificationResult {
-  const db = dbClient ?? getDb();
-
   // Run the same verification logic for analytics
   const projectId = sessionId ? getProjectIdForSession(sessionId, db) : null;
   const criticalGuidelines = getCriticalGuidelinesForScope(projectId, sessionId, db);
@@ -460,17 +454,15 @@ export function logCompletedAction(
  * @param sessionId - The session ID
  * @param guidelineIds - The guideline IDs to acknowledge (or all critical if empty)
  * @param acknowledgedBy - The agent/user who acknowledged
- * @param dbClient - Optional database client (defaults to getDb() for backward compatibility)
+ * @param db - Database client (required)
  * @returns Number of guidelines acknowledged
  */
 export function acknowledgeGuidelines(
   sessionId: string,
-  guidelineIds?: string[],
-  acknowledgedBy?: string,
-  dbClient?: DbClient
+  guidelineIds: string[] | undefined,
+  acknowledgedBy: string | undefined,
+  db: DbClient
 ): { acknowledged: number; guidelineIds: string[] } {
-  const db = dbClient ?? getDb();
-
   // If no specific IDs provided, get all critical guidelines for the session
   let idsToAcknowledge = guidelineIds;
   if (!idsToAcknowledge || idsToAcknowledge.length === 0) {
@@ -527,11 +519,9 @@ export function acknowledgeGuidelines(
  * Get acknowledged guideline IDs for a session.
  *
  * @param sessionId - The session ID
- * @param dbClient - Optional database client (defaults to getDb() for backward compatibility)
+ * @param db - Database client (required)
  */
-export function getAcknowledgedGuidelineIds(sessionId: string, dbClient?: DbClient): string[] {
-  const db = dbClient ?? getDb();
-
+export function getAcknowledgedGuidelineIds(sessionId: string, db: DbClient): string[] {
   const acknowledgments = db
     .select({ guidelineId: sessionGuidelineAcknowledgments.guidelineId })
     .from(sessionGuidelineAcknowledgments)
@@ -546,14 +536,13 @@ export function getAcknowledgedGuidelineIds(sessionId: string, dbClient?: DbClie
  *
  * @param sessionId - The session ID
  * @param projectId - The project ID
- * @param dbClient - Optional database client (defaults to getDb() for backward compatibility)
+ * @param db - Database client (required)
  */
 export function areAllCriticalGuidelinesAcknowledged(
   sessionId: string,
   projectId: string | null,
-  dbClient?: DbClient
+  db: DbClient
 ): { acknowledged: boolean; missing: string[] } {
-  const db = dbClient ?? getDb();
   const criticalGuidelines = getCriticalGuidelinesForScope(projectId, sessionId, db);
   const acknowledgedIds = new Set(getAcknowledgedGuidelineIds(sessionId, db));
 
@@ -573,11 +562,9 @@ export function areAllCriticalGuidelinesAcknowledged(
  * Get project ID for a session.
  *
  * @param sessionId - The session ID
- * @param dbClient - Optional database client (defaults to getDb() for backward compatibility)
+ * @param db - Database client (required)
  */
-function getProjectIdForSession(sessionId: string, dbClient?: DbClient): string | null {
-  const db = dbClient ?? getDb();
-
+function getProjectIdForSession(sessionId: string, db: DbClient): string | null {
   const session = db
     .select({ projectId: sessions.projectId })
     .from(sessions)
@@ -596,7 +583,7 @@ function getProjectIdForSession(sessionId: string, dbClient?: DbClient): string 
  * @param result - The verification result
  * @param guidelineIds - The guideline IDs checked
  * @param createdBy - The agent/user who performed the action
- * @param dbClient - Optional database client (defaults to getDb() for backward compatibility)
+ * @param db - Database client (required)
  */
 function logVerification(
   sessionId: string | null,
@@ -604,12 +591,10 @@ function logVerification(
   proposedAction: ProposedAction,
   result: VerificationResult,
   guidelineIds: string[],
-  createdBy?: string,
-  dbClient?: DbClient
+  createdBy: string | undefined,
+  db: DbClient
 ): void {
   try {
-    const db = dbClient ?? getDb();
-
     db.insert(verificationLog)
       .values({
         id: generateId(),

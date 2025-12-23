@@ -7,7 +7,13 @@
 
 import { eq, and, isNull, inArray, type SQL } from 'drizzle-orm';
 import type { ScopeType } from '../schema.js';
-import { DEFAULT_LIMIT, MAX_LIMIT, type PaginationOptions, type DrizzleDb } from './base.js';
+import {
+  DEFAULT_LIMIT,
+  MAX_LIMIT,
+  decodeCursor,
+  type PaginationOptions,
+  type DrizzleDb,
+} from './base.js';
 
 // =============================================================================
 // TYPES
@@ -31,16 +37,28 @@ export interface ScopeMatchParams {
 // =============================================================================
 
 /**
- * Normalize pagination options with defaults and limits
+ * Normalize pagination options with defaults and limits.
+ * Supports both offset-based and cursor-based pagination.
+ * If cursor is provided, it takes precedence over offset.
+ *
+ * @param options - Pagination options (limit, offset, cursor)
+ * @returns Normalized limit and offset
  */
 export function normalizePagination(options: PaginationOptions = {}): {
   limit: number;
   offset: number;
 } {
-  return {
-    limit: Math.min(options.limit ?? DEFAULT_LIMIT, MAX_LIMIT),
-    offset: options.offset ?? 0,
-  };
+  const limit = Math.min(options.limit ?? DEFAULT_LIMIT, MAX_LIMIT);
+
+  // If cursor is provided, decode and use its offset
+  if (options.cursor) {
+    const decoded = decodeCursor(options.cursor);
+    if (decoded) {
+      return { limit, offset: decoded.offset };
+    }
+  }
+
+  return { limit, offset: options.offset ?? 0 };
 }
 
 // =============================================================================

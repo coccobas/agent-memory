@@ -43,9 +43,9 @@ describe('voting.service', () => {
         taskId: 'task-1',
         agentId: 'agent-1',
         voteValue: 'option-a',
-      });
+      }, db);
 
-      const votes = listVotes('task-1');
+      const votes = listVotes('task-1', db);
       expect(votes.length).toBe(1);
       expect(votes[0]?.agentId).toBe('agent-1');
       expect(votes[0]?.voteValue).toBe('option-a'); // JSON parsed back to original value
@@ -56,15 +56,15 @@ describe('voting.service', () => {
         taskId: 'task-2',
         agentId: 'agent-1',
         voteValue: 'option-a',
-      });
+      }, db);
 
       recordVote({
         taskId: 'task-2',
         agentId: 'agent-1',
         voteValue: 'option-b',
-      });
+      }, db);
 
-      const votes = listVotes('task-2');
+      const votes = listVotes('task-2', db);
       expect(votes.length).toBe(1);
       expect(votes[0]?.voteValue).toBe('option-b');
     });
@@ -75,9 +75,9 @@ describe('voting.service', () => {
         agentId: 'agent-1',
         voteValue: 'option-a',
         confidence: 0.9,
-      });
+      }, db);
 
-      const votes = listVotes('task-3');
+      const votes = listVotes('task-3', db);
       expect(votes[0]?.confidence).toBe(0.9);
     });
 
@@ -87,9 +87,9 @@ describe('voting.service', () => {
         agentId: 'agent-1',
         voteValue: 'option-a',
         reasoning: 'This is the best option',
-      });
+      }, db);
 
-      const votes = listVotes('task-4');
+      const votes = listVotes('task-4', db);
       expect(votes[0]?.reasoning).toBe('This is the best option');
     });
 
@@ -98,9 +98,9 @@ describe('voting.service', () => {
         taskId: 'task-5',
         agentId: 'agent-1',
         voteValue: 'option-a',
-      });
+      }, db);
 
-      const votes = listVotes('task-5');
+      const votes = listVotes('task-5', db);
       expect(votes[0]?.confidence).toBe(1.0);
     });
 
@@ -111,9 +111,9 @@ describe('voting.service', () => {
         taskId: 'task-6',
         agentId: 'agent-1',
         voteValue: complexValue,
-      });
+      }, db);
 
-      const votes = listVotes('task-6');
+      const votes = listVotes('task-6', db);
       expect(votes[0]?.voteValue).toBeDefined();
       // Should be parsed back to object
       expect(typeof votes[0]?.voteValue).toBe('object');
@@ -122,7 +122,7 @@ describe('voting.service', () => {
 
   describe('calculateConsensus', () => {
     it('should return null consensus when no votes', () => {
-      const result = calculateConsensus('task-no-votes');
+      const result = calculateConsensus('task-no-votes', 1, db);
 
       expect(result.consensus).toBeNull();
       expect(result.voteCount).toBe(0);
@@ -136,20 +136,20 @@ describe('voting.service', () => {
         taskId: 'task-single',
         agentId: 'agent-1',
         voteValue: 'option-a',
-      });
+      }, db);
 
-      const result = calculateConsensus('task-single');
+      const result = calculateConsensus('task-single', 1, db);
 
       expect(result.consensus).toBeDefined();
       expect(result.voteCount).toBe(1);
     });
 
     it('should reach consensus when one option is k votes ahead', () => {
-      recordVote({ taskId: 'task-consensus-1', agentId: 'agent-1', voteValue: 'option-a' });
-      recordVote({ taskId: 'task-consensus-1', agentId: 'agent-2', voteValue: 'option-a' });
-      recordVote({ taskId: 'task-consensus-1', agentId: 'agent-3', voteValue: 'option-b' });
+      recordVote({ taskId: 'task-consensus-1', agentId: 'agent-1', voteValue: 'option-a' }, db);
+      recordVote({ taskId: 'task-consensus-1', agentId: 'agent-2', voteValue: 'option-a' }, db);
+      recordVote({ taskId: 'task-consensus-1', agentId: 'agent-3', voteValue: 'option-b' }, db);
 
-      const result = calculateConsensus('task-consensus-1', 1);
+      const result = calculateConsensus('task-consensus-1', 1, db);
 
       // option-a has 2 votes, option-b has 1, so option-a is 1 vote ahead
       expect(result.consensus).toBeDefined();
@@ -157,10 +157,10 @@ describe('voting.service', () => {
     });
 
     it('should not reach consensus when no option is k votes ahead', () => {
-      recordVote({ taskId: 'task-no-consensus', agentId: 'agent-1', voteValue: 'option-a' });
-      recordVote({ taskId: 'task-no-consensus', agentId: 'agent-2', voteValue: 'option-b' });
+      recordVote({ taskId: 'task-no-consensus', agentId: 'agent-1', voteValue: 'option-a' }, db);
+      recordVote({ taskId: 'task-no-consensus', agentId: 'agent-2', voteValue: 'option-b' }, db);
 
-      const result = calculateConsensus('task-no-consensus', 1);
+      const result = calculateConsensus('task-no-consensus', 1, db);
 
       // Both have 1 vote, neither is 1 vote ahead
       expect(result.consensus).toBeNull();
@@ -168,11 +168,11 @@ describe('voting.service', () => {
     });
 
     it('should return vote distribution', () => {
-      recordVote({ taskId: 'task-dist', agentId: 'agent-1', voteValue: 'option-a' });
-      recordVote({ taskId: 'task-dist', agentId: 'agent-2', voteValue: 'option-a' });
-      recordVote({ taskId: 'task-dist', agentId: 'agent-3', voteValue: 'option-b' });
+      recordVote({ taskId: 'task-dist', agentId: 'agent-1', voteValue: 'option-a' }, db);
+      recordVote({ taskId: 'task-dist', agentId: 'agent-2', voteValue: 'option-a' }, db);
+      recordVote({ taskId: 'task-dist', agentId: 'agent-3', voteValue: 'option-b' }, db);
 
-      const result = calculateConsensus('task-dist');
+      const result = calculateConsensus('task-dist', 1, db);
 
       expect(result.voteDistribution.length).toBe(2);
       expect(result.voteDistribution[0]?.count).toBe(2); // option-a
@@ -185,15 +185,15 @@ describe('voting.service', () => {
         agentId: 'agent-1',
         voteValue: 'option-a',
         confidence: 0.9,
-      });
+      }, db);
       recordVote({
         taskId: 'task-dissent',
         agentId: 'agent-2',
         voteValue: 'option-b',
         confidence: 0.8,
-      });
+      }, db);
 
-      const result = calculateConsensus('task-dissent');
+      const result = calculateConsensus('task-dissent', 1, db);
 
       // If consensus is reached, dissenting votes are those not matching consensus
       expect(Array.isArray(result.dissentingVotes)).toBe(true);
@@ -205,15 +205,15 @@ describe('voting.service', () => {
         agentId: 'agent-1',
         voteValue: 'option-a',
         confidence: 0.8,
-      });
+      }, db);
       recordVote({
         taskId: 'task-conf',
         agentId: 'agent-2',
         voteValue: 'option-a',
         confidence: 0.9,
-      });
+      }, db);
 
-      const result = calculateConsensus('task-conf');
+      const result = calculateConsensus('task-conf', 1, db);
 
       if (result.consensus !== null) {
         expect(result.confidence).toBeGreaterThan(0);
@@ -224,16 +224,16 @@ describe('voting.service', () => {
 
   describe('listVotes', () => {
     it('should list all votes for a task', () => {
-      recordVote({ taskId: 'task-list-1', agentId: 'agent-1', voteValue: 'option-a' });
-      recordVote({ taskId: 'task-list-1', agentId: 'agent-2', voteValue: 'option-b' });
+      recordVote({ taskId: 'task-list-1', agentId: 'agent-1', voteValue: 'option-a' }, db);
+      recordVote({ taskId: 'task-list-1', agentId: 'agent-2', voteValue: 'option-b' }, db);
 
-      const votes = listVotes('task-list-1');
+      const votes = listVotes('task-list-1', db);
 
       expect(votes.length).toBe(2);
     });
 
     it('should return empty array for task with no votes', () => {
-      const votes = listVotes('task-no-votes-2');
+      const votes = listVotes('task-no-votes-2', db);
 
       expect(votes).toEqual([]);
     });
@@ -245,9 +245,9 @@ describe('voting.service', () => {
         voteValue: 'option-a',
         confidence: 0.85,
         reasoning: 'Test reasoning',
-      });
+      }, db);
 
-      const votes = listVotes('task-details');
+      const votes = listVotes('task-details', db);
 
       expect(votes[0]?.agentId).toBe('agent-1');
       expect(votes[0]?.confidence).toBe(0.85);
@@ -258,10 +258,10 @@ describe('voting.service', () => {
 
   describe('getVotingStats', () => {
     it('should return voting statistics', () => {
-      recordVote({ taskId: 'task-stats-unique-1', agentId: 'agent-1', voteValue: 'option-a' });
-      recordVote({ taskId: 'task-stats-unique-1', agentId: 'agent-2', voteValue: 'option-a' });
+      recordVote({ taskId: 'task-stats-unique-1', agentId: 'agent-1', voteValue: 'option-a' }, db);
+      recordVote({ taskId: 'task-stats-unique-1', agentId: 'agent-2', voteValue: 'option-a' }, db);
 
-      const stats = getVotingStats('task-stats-unique-1');
+      const stats = getVotingStats('task-stats-unique-1', db);
 
       expect(stats).toBeDefined();
       expect(typeof stats.totalVotes).toBe('number');
@@ -272,10 +272,10 @@ describe('voting.service', () => {
     });
 
     it('should calculate vote distribution', () => {
-      recordVote({ taskId: 'task-stats-unique-2', agentId: 'agent-1', voteValue: 'option-a' });
-      recordVote({ taskId: 'task-stats-unique-2', agentId: 'agent-2', voteValue: 'option-a' });
+      recordVote({ taskId: 'task-stats-unique-2', agentId: 'agent-1', voteValue: 'option-a' }, db);
+      recordVote({ taskId: 'task-stats-unique-2', agentId: 'agent-2', voteValue: 'option-a' }, db);
 
-      const stats = getVotingStats('task-stats-unique-2');
+      const stats = getVotingStats('task-stats-unique-2', db);
 
       expect(stats).toBeDefined();
       expect(stats.totalVotes).toBe(2);
@@ -283,10 +283,10 @@ describe('voting.service', () => {
     });
 
     it('should list all voters', () => {
-      recordVote({ taskId: 'task-stats-3', agentId: 'agent-1', voteValue: 'option-a' });
-      recordVote({ taskId: 'task-stats-3', agentId: 'agent-2', voteValue: 'option-b' });
+      recordVote({ taskId: 'task-stats-3', agentId: 'agent-1', voteValue: 'option-a' }, db);
+      recordVote({ taskId: 'task-stats-3', agentId: 'agent-2', voteValue: 'option-b' }, db);
 
-      const stats = getVotingStats('task-stats-3');
+      const stats = getVotingStats('task-stats-3', db);
 
       expect(stats).toBeDefined();
       expect(stats.totalVotes).toBe(2);
@@ -294,7 +294,7 @@ describe('voting.service', () => {
     });
 
     it('should return empty stats for task with no votes', () => {
-      const stats = getVotingStats('task-stats-empty');
+      const stats = getVotingStats('task-stats-empty', db);
 
       expect(stats.totalVotes).toBe(0);
       expect(stats.uniqueOptions).toBe(0);

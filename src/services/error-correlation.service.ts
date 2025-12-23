@@ -5,7 +5,7 @@
  * between agents to detect low diversity (agents making similar errors).
  */
 
-import { getDb, type DbClient } from '../db/connection.js';
+import type { DbClient } from '../db/connection.js';
 import { auditLog } from '../db/schema.js';
 import { eq, and, sql, isNotNull } from 'drizzle-orm';
 
@@ -38,10 +38,9 @@ export interface LowDiversityResult {
  */
 export function calculateErrorCorrelation(
   params: ErrorCorrelationParams,
-  dbClient?: DbClient
+  db: DbClient
 ): ErrorCorrelationResult {
   const { agentA, agentB, timeWindow } = params;
-  const db = dbClient ?? getDb();
 
   // Build where conditions
   const conditions = [
@@ -232,8 +231,7 @@ function calculateCorrelationFromSets(
  *
  * Optimized: Pre-fetches all error data in a single query to avoid O(n²) database calls.
  */
-export function detectLowDiversity(projectId: string, dbClient?: DbClient): LowDiversityResult {
-  const db = dbClient ?? getDb();
+export function detectLowDiversity(projectId: string, db: DbClient): LowDiversityResult {
 
   // Single query to get all error data for all agents in this project
   // This replaces O(n²) queries with O(1) query + O(n²) in-memory operations

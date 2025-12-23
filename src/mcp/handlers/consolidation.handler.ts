@@ -121,7 +121,7 @@ function isEntryTypeArray(v: unknown): v is EntryType[] {
 // HANDLER
 // =============================================================================
 
-export async function handleConsolidation(_context: AppContext, args: ConsolidationParams): Promise<unknown> {
+export async function handleConsolidation(context: AppContext, args: ConsolidationParams): Promise<unknown> {
   const action = args.action;
   if (!isConsolidationAction(action)) {
     throw createValidationError(
@@ -175,6 +175,7 @@ export async function handleConsolidation(_context: AppContext, args: Consolidat
       entryTypes,
       threshold,
       limit,
+      db: context.db,
     });
 
     return formatTimestamps({
@@ -229,6 +230,7 @@ export async function handleConsolidation(_context: AppContext, args: Consolidat
       minRecencyScore,
       dryRun,
       archivedBy: consolidatedBy,
+      db: context.db,
     });
 
     return formatTimestamps({
@@ -271,6 +273,7 @@ export async function handleConsolidation(_context: AppContext, args: Consolidat
     limit,
     dryRun,
     consolidatedBy,
+    db: context.db,
   };
 
   const result = await consolidate(serviceParams);

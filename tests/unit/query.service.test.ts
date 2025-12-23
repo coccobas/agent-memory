@@ -154,7 +154,7 @@ describe('query.service', () => {
       type: 'session',
       id: sessionId,
       inherit: true,
-    });
+    }, db);
 
     // Expect order: session, project, org, global
     expect(chain).toHaveLength(4);

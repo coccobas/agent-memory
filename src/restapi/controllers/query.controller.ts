@@ -83,7 +83,7 @@ export class QueryController {
       action: 'query',
       queryParams: queryParamsWithoutAgent,
       resultCount: result.results.length,
-    });
+    }, this.context.db);
 
     return formatTimestamps({
       results: result.results,

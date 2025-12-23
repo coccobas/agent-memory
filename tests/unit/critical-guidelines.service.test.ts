@@ -54,7 +54,7 @@ describe('critical-guidelines.service', () => {
 
   describe('getCriticalGuidelinesForScope', () => {
     it('should return empty array when no guidelines exist', () => {
-      const result = getCriticalGuidelinesForScope(null, null);
+      const result = getCriticalGuidelinesForScope(null, null, db);
       expect(result).toHaveLength(0);
     });
 
@@ -97,7 +97,7 @@ describe('critical-guidelines.service', () => {
         'Highest priority content'
       );
 
-      const result = getCriticalGuidelinesForScope(null, null);
+      const result = getCriticalGuidelinesForScope(null, null, db);
 
       expect(result).toHaveLength(2);
       expect(result[0].name).toBe('highest-priority');
@@ -126,7 +126,7 @@ describe('critical-guidelines.service', () => {
         'Project critical'
       );
 
-      const result = getCriticalGuidelinesForScope(project.id, null);
+      const result = getCriticalGuidelinesForScope(project.id, null, db);
 
       expect(result).toHaveLength(2);
       expect(result.some((g) => g.name === 'global-critical')).toBe(true);
@@ -156,7 +156,7 @@ describe('critical-guidelines.service', () => {
         'Session critical'
       );
 
-      const result = getCriticalGuidelinesForScope(project.id, session.id);
+      const result = getCriticalGuidelinesForScope(project.id, session.id, db);
 
       expect(result).toHaveLength(2);
       expect(result.some((g) => g.name === 'global-critical')).toBe(true);
@@ -168,7 +168,7 @@ describe('critical-guidelines.service', () => {
       createTestGuideline(db, 'priority-95', 'global', undefined, 'security', 95, 'Content');
       createTestGuideline(db, 'priority-100', 'global', undefined, 'security', 100, 'Content');
 
-      const result = getCriticalGuidelinesForScope(null, null);
+      const result = getCriticalGuidelinesForScope(null, null, db);
 
       expect(result).toHaveLength(3);
       expect(result[0].priority).toBe(100);
@@ -190,7 +190,7 @@ describe('critical-guidelines.service', () => {
       // Deactivate the guideline
       sqlite.exec(`UPDATE guidelines SET is_active = 0 WHERE id = '${guideline.id}'`);
 
-      const result = getCriticalGuidelinesForScope(null, null);
+      const result = getCriticalGuidelinesForScope(null, null, db);
 
       expect(result).toHaveLength(0);
     });
@@ -211,7 +211,7 @@ describe('critical-guidelines.service', () => {
         `UPDATE guideline_versions SET rationale = 'Test rationale', examples = '{"bad": ["bad1"], "good": ["good1"]}' WHERE id = '${version.id}'`
       );
 
-      const result = getCriticalGuidelinesForScope(null, null);
+      const result = getCriticalGuidelinesForScope(null, null, db);
 
       expect(result).toHaveLength(1);
       expect(result[0].content).toBe('Test content');
@@ -224,7 +224,7 @@ describe('critical-guidelines.service', () => {
     it('should return formatted result with count and message', () => {
       createTestGuideline(db, 'critical-guideline', 'global', undefined, 'security', 95, 'Content');
 
-      const result = getCriticalGuidelinesForSession(null, null);
+      const result = getCriticalGuidelinesForSession(null, null, db);
 
       expect(result.count).toBe(1);
       expect(result.guidelines).toHaveLength(1);
@@ -236,7 +236,7 @@ describe('critical-guidelines.service', () => {
     it('should return no message when no critical guidelines exist', () => {
       createTestGuideline(db, 'low-priority', 'global', undefined, 'security', 50, 'Content');
 
-      const result = getCriticalGuidelinesForSession(null, null);
+      const result = getCriticalGuidelinesForSession(null, null, db);
 
       expect(result.count).toBe(0);
       expect(result.guidelines).toHaveLength(0);
