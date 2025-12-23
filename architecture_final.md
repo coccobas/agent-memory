@@ -1,9 +1,9 @@
 # Agent Memory: Final Architecture Specification
 
-**Version:** 1.1
-**Date:** 2025-12-23
+**Version:** 1.2
+**Date:** 2025-12-24
 **Status:** Canonical Reference
-**Last Updated:** All HIGH priority tasks completed (including embedding retry queue with stats, retry mechanism, and reindex CLI)
+**Last Updated:** Phase 1 (Abstraction Layer) completed - adapter interfaces and implementations in src/core/adapters/
 
 ---
 
@@ -146,21 +146,32 @@ Phase 0: Foundation (COMPLETED - 2025-12-23)
 │ Shared AppContext for REST        │ ✅ DONE   │ -               │
 └─────────────────────────────────────────────────────────────────┘
 
-Phase 1: Abstraction Layer (Next Sprint)
+Phase 1: Abstraction Layer (COMPLETED - 2025-12-24)
 ═══════════════════════════════════════════════════
 ┌─────────────────────────────────────────────────────────────────┐
 │ Task                              │ Status    │ Blocks          │
 ├───────────────────────────────────┼───────────┼─────────────────┤
-│ Define IStorageAdapter interface  │ TODO      │ -               │
-│ Define ICacheAdapter interface    │ TODO      │ -               │
-│ Define ILockAdapter interface     │ TODO      │ -               │
-│ Define IEventAdapter interface    │ TODO      │ -               │
-│ Implement SQLiteStorageAdapter    │ TODO      │ Interface       │
-│ Implement MemoryCacheAdapter      │ TODO      │ Interface       │
-│ Implement LocalLockAdapter        │ TODO      │ Interface       │
-│ Implement LocalEventAdapter       │ TODO      │ Interface       │
-│ Refactor repos to use adapters    │ TODO      │ Adapters        │
+│ Define IStorageAdapter interface  │ ✅ DONE   │ -               │
+│ Define ICacheAdapter interface    │ ✅ DONE   │ -               │
+│ Define ILockAdapter interface     │ ✅ DONE   │ -               │
+│ Define IEventAdapter interface    │ ✅ DONE   │ -               │
+│ Implement SQLiteStorageAdapter    │ ✅ DONE   │ Interface       │
+│ Implement MemoryCacheAdapter      │ ✅ DONE   │ Interface       │
+│ Implement LocalLockAdapter        │ ✅ DONE   │ Interface       │
+│ Implement LocalEventAdapter       │ ✅ DONE   │ Interface       │
+│ Wire adapters into AppContext     │ ✅ DONE   │ Adapters        │
 └─────────────────────────────────────────────────────────────────┘
+
+Adapters located in src/core/adapters/:
+- interfaces.ts: All 4 adapter interfaces + Adapters collection type
+- sqlite.adapter.ts: SQLiteStorageAdapter (wraps Drizzle + better-sqlite3)
+- memory-cache.adapter.ts: MemoryCacheAdapter (wraps LRUCache)
+- local-lock.adapter.ts: LocalLockAdapter (wraps FileLockRepository)
+- local-event.adapter.ts: LocalEventAdapter (wraps EventBus singleton)
+- index.ts: createAdapters() factory + re-exports
+
+AppContext.adapters is now available for new code paths. Existing repos
+continue using db/sqlite directly - migration happens incrementally.
 
 Phase 2: PostgreSQL Support (Q2)
 ═══════════════════════════════════════════════════
@@ -943,19 +954,19 @@ agent-memory reindex [--type <type>] [--batch-size <n>] [--delay <ms>] [--force]
 | **Backup scheduler** | `src/services/backup-scheduler.service.ts` | ✅ DONE - `node-cron` scheduler with `AGENT_MEMORY_BACKUP_SCHEDULE`, `AGENT_MEMORY_BACKUP_RETENTION`, `AGENT_MEMORY_BACKUP_ENABLED` env vars. Status exposed in health endpoint. |
 | **Cursor pagination** | `src/mcp/handlers/factory.ts`, `src/db/repositories/base.ts` | ✅ DONE - `encodeCursor`/`decodeCursor` helpers, `normalizePagination` handles cursor, list responses include `hasMore`, `truncated`, `nextCursor`. |
 
-### 9.3 MEDIUM-HIGH Priority (Phase 1 - Abstraction Layer)
+### 9.3 MEDIUM-HIGH Priority (Phase 1 - Abstraction Layer) ✅ COMPLETED
 
-These tasks prepare the codebase for PostgreSQL without breaking SQLite. **Must complete before Phase 2.**
+These tasks prepare the codebase for PostgreSQL without breaking SQLite. **Completed 2025-12-24.**
 
 | Task | Location | Status | Details |
 |------|----------|--------|---------|
-| **Define adapter interfaces** | `src/core/interfaces/adapters.ts` | TODO | `IStorageAdapter`, `ICacheAdapter`, `ILockAdapter`, `IEventAdapter` |
-| **Implement SQLiteStorageAdapter** | `src/db/adapters/sqlite.adapter.ts` | TODO | Wrap current SQLite logic behind interface |
-| **Implement MemoryCacheAdapter** | `src/cache/adapters/memory.adapter.ts` | TODO | Wrap LRUCache behind `ICacheAdapter` |
-| **Implement LocalLockAdapter** | `src/locks/adapters/local.adapter.ts` | TODO | Wrap FileLockRepository behind `ILockAdapter` |
-| **Implement LocalEventAdapter** | `src/events/adapters/local.adapter.ts` | TODO | Wrap EventEmitter behind `IEventAdapter` |
+| **Define adapter interfaces** | `src/core/adapters/interfaces.ts` | ✅ DONE | `IStorageAdapter`, `ICacheAdapter`, `ILockAdapter`, `IEventAdapter`, `Adapters` |
+| **Implement SQLiteStorageAdapter** | `src/core/adapters/sqlite.adapter.ts` | ✅ DONE | Wraps Drizzle + better-sqlite3 behind interface |
+| **Implement MemoryCacheAdapter** | `src/core/adapters/memory-cache.adapter.ts` | ✅ DONE | Wraps LRUCache behind `ICacheAdapter` |
+| **Implement LocalLockAdapter** | `src/core/adapters/local-lock.adapter.ts` | ✅ DONE | Wraps FileLockRepository behind `ILockAdapter` |
+| **Implement LocalEventAdapter** | `src/core/adapters/local-event.adapter.ts` | ✅ DONE | Wraps EventBus singleton behind `IEventAdapter` |
 | **Make repos async** | `src/db/repositories/*.ts` | ✅ DONE | All repository methods now return `Promise<T>`. All handlers/services updated to use `await`. |
-| **Wire adapters in factory** | `src/core/factory/adapters.ts` | TODO | Factory selects adapter based on config |
+| **Wire adapters in factory** | `src/core/factory.ts` | ✅ DONE | `createAdapters()` called in `createAppContext()`, available via `ctx.adapters` |
 
 ### 9.4 Phase 2 - PostgreSQL Support (Q2)
 
