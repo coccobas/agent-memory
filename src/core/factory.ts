@@ -20,6 +20,7 @@ import { SecurityService } from '../services/security.service.js';
 import { createRepositories } from './factory/repositories.js';
 import { createServices } from './factory/services.js';
 import { createQueryPipeline, wireQueryCache } from './factory/query-pipeline.js';
+import { createAdapters } from './adapters/index.js';
 
 /**
  * Create a new Application Context
@@ -58,6 +59,13 @@ export async function createAppContext(config: Config, runtime?: Runtime): Promi
   const services = createServices(config, effectiveRuntime, db);
   const queryDeps = createQueryPipeline(config, effectiveRuntime);
 
+  // Create adapters (abstraction layer for multi-backend support)
+  const adapters = createAdapters({
+    db,
+    sqlite,
+    fileLockRepo: repos.fileLocks,
+  });
+
   // Wire query cache invalidation
   wireQueryCache(effectiveRuntime, createComponentLogger('query-cache'));
 
@@ -74,5 +82,6 @@ export async function createAppContext(config: Config, runtime?: Runtime): Promi
     runtime: effectiveRuntime,
     services,
     repos,
+    adapters,
   };
 }

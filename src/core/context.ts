@@ -8,6 +8,7 @@ import type { PipelineDependencies } from '../services/query/pipeline.js';
 import type { Runtime } from './runtime.js';
 import type { Repositories } from './interfaces/repositories.js';
 import type { AppDb } from './types.js';
+import type { Adapters } from './adapters/index.js';
 
 /**
  * Service interfaces for AppContext
@@ -97,4 +98,6 @@ export interface AppContext {
   runtime: Runtime;
   services?: AppContextServices;
   repos: Repositories;
+  /** Adapter layer for storage, cache, locks, and events */
+  adapters?: Adapters;
 }
