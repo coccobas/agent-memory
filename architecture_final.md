@@ -996,14 +996,22 @@ These tasks prepare the codebase for PostgreSQL without breaking SQLite. **Compl
 | **Factory updates** | `src/core/adapters/index.ts` | ✅ DONE | Config-driven adapter selection with AdapterDeps union type |
 | **Integration tests** | `tests/integration/postgresql/` | ✅ DONE | Connection tests with Docker Compose (PostgreSQL 16) |
 
-### 9.5 Phase 3 - Distributed Infrastructure (Q3)
+### 9.5 Phase 3 - Distributed Infrastructure ✅ COMPLETED
 
-| Task | Location | Details |
-|------|----------|---------|
-| **RedisCacheAdapter** | `src/cache/adapters/redis.adapter.ts` | ioredis-based caching |
-| **RedisLockAdapter** | `src/locks/adapters/redis.adapter.ts` | Redlock algorithm implementation |
-| **RedisEventAdapter** | `src/events/adapters/redis.adapter.ts` | Redis pub/sub for cross-instance events |
-| **Horizontal scaling tests** | `tests/scaling/` | Multi-instance coordination tests |
+| Task | Location | Status | Details |
+|------|----------|--------|---------|
+| **RedisCacheAdapter** | `src/core/adapters/redis-cache.adapter.ts` | ✅ DONE | L1/L2 caching with ioredis, TTL support, prefix invalidation |
+| **RedisLockAdapter** | `src/core/adapters/redis-lock.adapter.ts` | ✅ DONE | Redlock-style SET NX PX, Lua scripts for safe unlock |
+| **RedisEventAdapter** | `src/core/adapters/redis-event.adapter.ts` | ✅ DONE | Redis pub/sub, instance ID tracking, dual connections |
+| **Redis configuration** | `src/config/index.ts` | ✅ DONE | AGENT_MEMORY_REDIS_* env vars for all options |
+| **Factory integration** | `src/core/adapters/index.ts` | ✅ DONE | createRedisAdapters(), createAdaptersWithConfig() |
+| **Horizontal scaling tests** | `tests/integration/redis-adapters.test.ts` | ✅ DONE | Cross-instance cache, lock, and event tests |
+
+Configuration:
+  AGENT_MEMORY_REDIS_ENABLED=true
+  AGENT_MEMORY_REDIS_URL or AGENT_MEMORY_REDIS_HOST/PORT
+  AGENT_MEMORY_REDIS_PASSWORD, AGENT_MEMORY_REDIS_TLS
+  AGENT_MEMORY_REDIS_CACHE_TTL_MS, AGENT_MEMORY_REDIS_LOCK_TTL_MS
 
 ### 9.6 LOW Priority (Future/Optional)
 
