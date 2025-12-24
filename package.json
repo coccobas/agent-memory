@@ -92,6 +92,7 @@
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.12",
+    "@types/ioredis": "^4.28.10",
     "@types/node": "^22.10.0",
     "@types/node-cron": "^3.0.11",
     "@types/pg": "^8.16.0",
@@ -122,5 +123,8 @@
   "license": "MIT",
   "overrides": {
     "esbuild": "^0.25.0"
+  },
+  "optionalDependencies": {
+    "ioredis": "^5.8.2"
   }
 }

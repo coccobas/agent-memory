@@ -360,6 +360,40 @@ export interface Config {
     /** Enable/disable backup scheduler (default: true if schedule is set) */
     enabled: boolean;
   };
+
+  // Redis Configuration (for distributed deployments)
+  redis: {
+    /** Enable Redis for distributed caching, locking, and events (default: false) */
+    enabled: boolean;
+    /** Redis connection URL (overrides host/port if set) */
+    url: string | undefined;
+    /** Redis host (default: localhost) */
+    host: string;
+    /** Redis port (default: 6379) */
+    port: number;
+    /** Redis password */
+    password: string | undefined;
+    /** Redis database number (default: 0) */
+    db: number;
+    /** Enable TLS/SSL (default: false) */
+    tls: boolean;
+    /** Key prefix for namespacing (default: 'agentmem:') */
+    keyPrefix: string;
+    /** Cache TTL in milliseconds (default: 3600000 = 1 hour) */
+    cacheTTLMs: number;
+    /** Lock TTL in milliseconds (default: 30000 = 30 seconds) */
+    lockTTLMs: number;
+    /** Lock retry count (default: 3) */
+    lockRetryCount: number;
+    /** Lock retry delay in ms (default: 200) */
+    lockRetryDelayMs: number;
+    /** Event channel name (default: 'agentmem:events') */
+    eventChannel: string;
+    /** Connection timeout in ms (default: 10000) */
+    connectTimeoutMs: number;
+    /** Max retries per request (default: 3) */
+    maxRetriesPerRequest: number;
+  };
 }
 
 // =============================================================================
@@ -649,6 +683,24 @@ export function buildConfig(): Config {
         process.env.AGENT_MEMORY_BACKUP_ENABLED,
         !!process.env.AGENT_MEMORY_BACKUP_SCHEDULE // Default: enabled if schedule is set
       ),
+    },
+
+    redis: {
+      enabled: parseBoolean(process.env.AGENT_MEMORY_REDIS_ENABLED, false),
+      url: process.env.AGENT_MEMORY_REDIS_URL,
+      host: process.env.AGENT_MEMORY_REDIS_HOST || 'localhost',
+      port: parsePort(process.env.AGENT_MEMORY_REDIS_PORT, 6379),
+      password: process.env.AGENT_MEMORY_REDIS_PASSWORD,
+      db: parseInt_(process.env.AGENT_MEMORY_REDIS_DB, 0),
+      tls: parseBoolean(process.env.AGENT_MEMORY_REDIS_TLS, false),
+      keyPrefix: process.env.AGENT_MEMORY_REDIS_KEY_PREFIX || 'agentmem:',
+      cacheTTLMs: parseInt_(process.env.AGENT_MEMORY_REDIS_CACHE_TTL_MS, 3600000),
+      lockTTLMs: parseInt_(process.env.AGENT_MEMORY_REDIS_LOCK_TTL_MS, 30000),
+      lockRetryCount: parseInt_(process.env.AGENT_MEMORY_REDIS_LOCK_RETRY_COUNT, 3),
+      lockRetryDelayMs: parseInt_(process.env.AGENT_MEMORY_REDIS_LOCK_RETRY_DELAY_MS, 200),
+      eventChannel: process.env.AGENT_MEMORY_REDIS_EVENT_CHANNEL || 'agentmem:events',
+      connectTimeoutMs: parseInt_(process.env.AGENT_MEMORY_REDIS_CONNECT_TIMEOUT_MS, 10000),
+      maxRetriesPerRequest: parseInt_(process.env.AGENT_MEMORY_REDIS_MAX_RETRIES, 3),
     },
   };
 }
