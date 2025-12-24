@@ -6,6 +6,7 @@
  */
 
 import type { Logger } from 'pino';
+import type { Pool } from 'pg';
 import type Database from 'better-sqlite3';
 import type { AppContext } from '../context.js';
 import type { Config } from '../../config/index.js';
@@ -16,7 +17,7 @@ import type { Repositories } from '../interfaces/repositories.js';
 import { createComponentLogger } from '../../utils/logger.js';
 import { SecurityService } from '../../services/security.service.js';
 
-import { createServices } from './services.js';
+import { createServices, type ServiceDependencies } from './services.js';
 import { createQueryPipeline, wireQueryCache } from './query-pipeline.js';
 
 /**
@@ -30,6 +31,10 @@ export interface WireContextInput {
   repos: Repositories;
   adapters: Adapters;
   logger: Logger;
+  /** Database type for service auto-detection */
+  dbType: 'sqlite' | 'postgresql';
+  /** PostgreSQL pool (for pgvector when dbType is 'postgresql') */
+  pgPool?: Pool;
 }
 
 /**
@@ -52,10 +57,13 @@ export interface WireContextInput {
  * @returns Fully wired AppContext
  */
 export function wireContext(input: WireContextInput): AppContext {
-  const { config, runtime, db, sqlite, repos, adapters, logger } = input;
+  const { config, runtime, db, sqlite, repos, adapters, logger, dbType, pgPool } = input;
+
+  // Build service dependencies for auto-detection
+  const serviceDeps: ServiceDependencies = { dbType, pgPool };
 
   // Create services with explicit configuration
-  const services = createServices(config, runtime, db);
+  const services = createServices(config, runtime, db, serviceDeps);
 
   // Create query pipeline
   const queryDeps = createQueryPipeline(config, runtime);

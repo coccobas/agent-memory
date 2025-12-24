@@ -98,6 +98,13 @@ export const rlSection: ConfigSectionMeta = {
     },
 
     // Training settings
+    trainingEnabled: {
+      envKey: 'AGENT_MEMORY_RL_TRAINING_ENABLED',
+      defaultValue: false,
+      description: 'Enable RL policy training features.',
+      schema: z.boolean(),
+      parse: 'boolean',
+    },
     trainingSchedule: {
       envKey: 'AGENT_MEMORY_RL_TRAINING_SCHEDULE',
       defaultValue: '0 3 * * 0',
@@ -111,19 +118,53 @@ export const rlSection: ConfigSectionMeta = {
       schema: z.number().int().min(100),
       parse: 'int',
     },
+    trainingEpochs: {
+      envKey: 'AGENT_MEMORY_RL_EPOCHS',
+      defaultValue: 3,
+      description: 'Number of training epochs for DPO training.',
+      schema: z.number().int().min(1).max(20),
+      parse: 'int',
+    },
+    trainingBatchSize: {
+      envKey: 'AGENT_MEMORY_RL_BATCH_SIZE',
+      defaultValue: 8,
+      description: 'Batch size for training (adjust based on GPU memory).',
+      schema: z.number().int().min(1).max(128),
+      parse: 'int',
+    },
+    trainingLearningRate: {
+      envKey: 'AGENT_MEMORY_RL_LEARNING_RATE',
+      defaultValue: 5e-5,
+      description: 'Learning rate for optimizer (typically 1e-5 to 1e-4).',
+      schema: z.number().min(1e-6).max(1e-3),
+      parse: 'number',
+    },
+    trainingBeta: {
+      envKey: 'AGENT_MEMORY_RL_BETA',
+      defaultValue: 0.1,
+      description: 'DPO beta parameter for KL penalty (0.01-0.5).',
+      schema: z.number().min(0.01).max(1.0),
+      parse: 'number',
+    },
     trainingEvalSplit: {
-      envKey: 'AGENT_MEMORY_RL_TRAINING_EVAL_SPLIT',
+      envKey: 'AGENT_MEMORY_RL_EVAL_SPLIT',
       defaultValue: 0.2,
       description: 'Fraction of data to use for evaluation (0.05-0.5).',
       schema: z.number().min(0.05).max(0.5),
       parse: 'number',
     },
     trainingModelStoragePath: {
-      envKey: 'AGENT_MEMORY_RL_TRAINING_MODEL_STORAGE_PATH',
+      envKey: 'AGENT_MEMORY_RL_MODEL_PATH',
       defaultValue: './models/rl',
       description: 'Directory path for storing trained RL models.',
       schema: z.string(),
       parse: 'path',
+    },
+    trainingExportFormat: {
+      envKey: 'AGENT_MEMORY_RL_EXPORT_FORMAT',
+      defaultValue: 'jsonl',
+      description: 'Default export format for training datasets.',
+      schema: z.enum(['huggingface', 'openai', 'csv', 'jsonl']),
     },
   },
 };

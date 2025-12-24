@@ -5,6 +5,56 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.11] - 2025-12-24
+
+### Added
+
+#### Query Rewriting / HyDE
+- Intent classifier with pattern-based detection (lookup, how_to, debug, explore, compare, configure)
+- Query expander with 50+ programming synonyms dictionary
+- HyDE (Hypothetical Document Embedding) generator with intent-specific prompts
+- New `rewriteStage` in query pipeline
+- Configuration section: `queryRewrite`
+
+#### Latent Memory / KV-Cache
+- New `memory_latent` MCP tool with 7 actions (create, get, search, inject, warm_session, stats, prune)
+- Tiered KV-cache: L1 (in-memory LRU) + L2 (persistent SQLite/Redis)
+- Embedding compression: Random projection (1536→256 dims), scalar quantization
+- Context injector with JSON, Markdown, and natural language formats
+- Database migration: `0019_add_latent_memories.sql`
+
+#### Hierarchical Summarization
+- New `memory_summarize` MCP tool with 6 actions (build, status, get, search, drill_down, delete)
+- Leiden algorithm for community detection on embedding similarity
+- 4-level hierarchy: chunk → topic → domain → global
+- LLM-based summarizer with level-aware prompts
+- Coarse-to-fine retrieval for efficient hierarchical search
+- Database migration: `0020_add_summaries.sql`
+
+#### RL Policy Training Enhancements
+- Dataset export in multiple formats: HuggingFace, OpenAI, Anthropic, CSV, JSONL
+- Model loader with multi-format support (ONNX, SafeTensors, JSON, checkpoints)
+- Policy evaluator with A/B testing, confusion matrix, temporal tracking
+- New MCP actions: `export_dataset`, `train`, `load_model`, `list_models`, `evaluate`, `compare`
+- Enhanced configuration section for RL training hyperparameters
+
+#### LoRA Export / Parametric Internalization
+- New `memory_lora` MCP tool with 3 actions (export, list_adapters, generate_script)
+- Training data generator from guidelines with positive and contrastive examples
+- Multiple export formats: Alpaca, ShareGPT, OpenAI Messages, Anthropic Prompts
+- LoRA adapter config generation (rank, alpha, dropout, target modules)
+- Automatic training script generation with PEFT configuration
+- Configuration section: `lora`
+
+### Changed
+- Updated competitive analysis documentation to reflect all gaps as closed
+- Enhanced query pipeline with rewrite stage support
+
+### Documentation
+- Added `docs/lora-export.md` - LoRA export user guide
+- Updated `docs/competitive-analysis.md` - All competitive gaps now marked as implemented
+- Added comprehensive README files for each new service
+
 ## [0.9.4] - 2025-12-19
 
 ### Added

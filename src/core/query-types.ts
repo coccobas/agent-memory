@@ -189,6 +189,11 @@ export interface DefaultQuery extends BaseQueryParams, DateRangeFilter, RecencyO
   conversationId?: string;
   messageId?: string;
   autoLinkContext?: boolean;
+  // Query rewriting params
+  enableHyDE?: boolean;
+  enableExpansion?: boolean;
+  enableDecomposition?: boolean;
+  disableRewrite?: boolean;
 }
 
 /**

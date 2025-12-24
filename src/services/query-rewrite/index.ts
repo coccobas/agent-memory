@@ -1,0 +1,15 @@
+/**
+ * Query Rewrite Service
+ *
+ * Provides query rewriting capabilities including:
+ * - HyDE (Hypothetical Document Embedding)
+ * - Query expansion (synonyms, relations, LLM-based)
+ * - Intent classification
+ * - Multi-hop query decomposition
+ */
+
+export * from './types.js';
+export { IntentClassifier } from './classifier.js';
+export { QueryExpander } from './expander.js';
+export { HyDEGenerator } from './hyde.js';
+export { QueryRewriteService } from './query-rewrite.service.js';

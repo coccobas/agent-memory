@@ -42,6 +42,9 @@ import { memory_librarian as memoryLibrarianDescriptor } from './memory_libraria
 import { memoryForgetDescriptor } from './memory_forget.js';
 import { memoryFeedbackDescriptor } from './memory_feedback.js';
 import { memoryRlDescriptor } from './memory_rl.js';
+import { memoryLatentDescriptor } from './memory_latent.js';
+import { memorySummarizeDescriptor } from './memory_summarize.js';
+import { memoryLoraDescriptor } from './memory_lora.js';
 
 import { type AnyToolDescriptor, descriptorToTool, descriptorToHandler } from './types.js';
 
@@ -111,6 +114,12 @@ export const allDescriptors: AnyToolDescriptor[] = [
   memoryFeedbackDescriptor,
   // RL Policies
   memoryRlDescriptor,
+  // Latent Memory / KV-Cache
+  memoryLatentDescriptor,
+  // Hierarchical Summarization
+  memorySummarizeDescriptor,
+  // LoRA Training Data Export
+  memoryLoraDescriptor,
 ];
 
 /**
@@ -162,4 +171,7 @@ export {
   memoryForgetDescriptor,
   memoryFeedbackDescriptor,
   memoryRlDescriptor,
+  memoryLatentDescriptor,
+  memorySummarizeDescriptor,
+  memoryLoraDescriptor,
 };

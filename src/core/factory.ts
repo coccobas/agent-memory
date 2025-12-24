@@ -111,6 +111,8 @@ export async function createAppContext(config: Config, runtime?: Runtime): Promi
     repos,
     adapters,
     logger,
+    dbType: connection.type,
+    pgPool: connection.type === 'postgresql' ? connection.pool : undefined,
   });
 }
 

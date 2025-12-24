@@ -21,3 +21,4 @@ export * from './consolidation.handler.js';
 export * from './review.handler.js';
 export * from './feedback.handler.js';
 export * from './rl.handler.js';
+export * from './latent-memory.handler.js';

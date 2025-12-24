@@ -1,7 +1,9 @@
 /**
  * Vector Database Configuration Section
  *
- * LanceDB vector storage settings for semantic search.
+ * Vector storage settings for semantic search.
+ * Supports auto-detection (pgvector for PostgreSQL, LanceDB for SQLite),
+ * or explicit backend override.
  */
 
 import { z } from 'zod';
@@ -11,10 +13,18 @@ export const vectorDbSection: ConfigSectionMeta = {
   name: 'vectorDb',
   description: 'Vector database configuration for semantic search embeddings.',
   options: {
+    backend: {
+      envKey: 'AGENT_MEMORY_VECTOR_BACKEND',
+      defaultValue: 'auto',
+      description:
+        'Vector storage backend: auto (pgvector for PostgreSQL, LanceDB for SQLite), pgvector, or lancedb.',
+      schema: z.enum(['auto', 'pgvector', 'lancedb']),
+      allowedValues: ['auto', 'pgvector', 'lancedb'] as const,
+    },
     path: {
       envKey: 'AGENT_MEMORY_VECTOR_DB_PATH',
       defaultValue: 'vectors.lance',
-      description: 'Path to LanceDB vector database directory.',
+      description: 'Path to LanceDB vector database directory (only used when backend is lancedb).',
       schema: z.string(),
       parse: 'path',
     },

@@ -98,6 +98,22 @@ export interface IExtractionService {
 }
 
 /**
+ * Hierarchical summarization service interface
+ */
+export interface IHierarchicalSummarizationService {
+  buildSummaries(options: {
+    scopeType: 'global' | 'org' | 'project' | 'session';
+    scopeId?: string;
+    entryTypes?: Array<'tool' | 'guideline' | 'knowledge' | 'experience'>;
+    forceRebuild?: boolean;
+  }): Promise<{
+    summariesCreated: number;
+    levelsBuilt: number;
+    processingTimeMs: number;
+  }>;
+}
+
+/**
  * Services container
  * Optional services for embedding, vector, extraction
  * Permission is required for all authorization checks
@@ -108,6 +124,7 @@ export interface AppContextServices {
   extraction?: IExtractionService;
   permission: PermissionService; // Required - all code paths must have permission service
   verification?: VerificationService;
+  summarization?: IHierarchicalSummarizationService;
 }
 
 /**

@@ -42,6 +42,8 @@ import { backupSection } from './sections/backup.js';
 import { redisSection } from './sections/redis.js';
 import { captureSection } from './sections/capture.js';
 import { rlSection } from './sections/rl.js';
+import { queryRewriteSection } from './sections/queryRewrite.js';
+import { loraSection } from './sections/lora.js';
 
 // =============================================================================
 // TOP-LEVEL OPTIONS
@@ -95,6 +97,8 @@ export const configRegistry: ConfigRegistry = {
     redis: redisSection,
     capture: captureSection,
     rl: rlSection,
+    queryRewrite: queryRewriteSection,
+    lora: loraSection,
   },
 };
 

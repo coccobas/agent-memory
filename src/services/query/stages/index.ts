@@ -9,6 +9,7 @@
  */
 
 export { resolveStage } from './resolve.js';
+export { rewriteStage, type RewriteStageContext } from './rewrite.js';
 export { ftsStage } from './fts.js';
 export { relationsStage } from './relations.js';
 export { fetchStage } from './fetch.js';

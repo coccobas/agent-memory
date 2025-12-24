@@ -4,6 +4,7 @@
  * Creates all service instances with explicit configuration.
  */
 
+import type { Pool } from 'pg';
 import type { Config } from '../../config/index.js';
 import type { Runtime } from '../runtime.js';
 import { registerEmbeddingPipeline } from '../runtime.js';
@@ -13,9 +14,22 @@ import { VectorService } from '../../services/vector.service.js';
 import { ExtractionService } from '../../services/extraction.service.js';
 import { PermissionService } from '../../services/permission.service.js';
 import { VerificationService } from '../../services/verification.service.js';
+import { HierarchicalSummarizationService } from '../../services/summarization/index.js';
 import { registerVectorCleanupHook } from '../../db/repositories/base.js';
 import type { AppDb } from '../types.js';
 import type { IVectorStore } from '../interfaces/vector-store.js';
+import { LanceDbVectorStore } from '../../db/vector-stores/lancedb.js';
+
+/**
+ * Database-specific dependencies for service creation.
+ * Used for auto-detection of vector backend.
+ */
+export interface ServiceDependencies {
+  /** Database type for auto-detection */
+  dbType: 'sqlite' | 'postgresql';
+  /** PostgreSQL pool (required when dbType is 'postgresql') */
+  pgPool?: Pool;
+}
 
 /**
  * Optional service overrides for dependency injection.
@@ -33,9 +47,14 @@ export interface ServiceOverrides {
  *
  * Also wires up embedding pipeline and vector cleanup hooks.
  *
+ * Auto-detects vector backend based on database type:
+ * - PostgreSQL → pgvector (unified PostgreSQL storage)
+ * - SQLite → LanceDB (default file-based vector store)
+ *
  * @param config - Application configuration
  * @param runtime - Runtime for wiring embedding pipeline
  * @param db - Database instance (for permission service)
+ * @param deps - Database dependencies for auto-detection
  * @param overrides - Optional service overrides for DI (e.g., mock vector store for tests)
  * @returns Service instances
  */
@@ -43,6 +62,7 @@ export function createServices(
   config: Config,
   runtime: Runtime,
   db: AppDb,
+  deps?: ServiceDependencies,
   overrides?: ServiceOverrides
 ): AppContextServices {
   // Create services with explicit configuration
@@ -52,8 +72,37 @@ export function createServices(
     openaiModel: config.embedding.openaiModel,
   });
 
-  // Use provided vectorService, or create one with optional custom store
-  const vectorService = overrides?.vectorService ?? new VectorService(overrides?.vectorStore);
+  // Determine vector store: overrides > config.backend > auto-detect > default
+  let vectorStore: IVectorStore | undefined = overrides?.vectorStore;
+
+  if (!vectorStore && !overrides?.vectorService) {
+    const backend = config.vectorDb.backend ?? 'auto';
+
+    if (backend === 'pgvector') {
+      // Explicitly requested pgvector
+      if (!deps?.pgPool) {
+        throw new Error('pgvector backend requires PostgreSQL pool (dbType: postgresql)');
+      }
+      const { PgVectorStore } = require('../../db/vector-stores/pgvector.js');
+      vectorStore = new PgVectorStore(deps.pgPool, config.vectorDb.distanceMetric);
+    } else if (backend === 'lancedb') {
+      // Explicitly requested LanceDB
+      vectorStore = new LanceDbVectorStore();
+    } else {
+      // Auto-detect based on database type
+      if (deps?.dbType === 'postgresql' && deps.pgPool) {
+        // PostgreSQL mode: use pgvector for unified storage
+        const { PgVectorStore } = require('../../db/vector-stores/pgvector.js');
+        vectorStore = new PgVectorStore(deps.pgPool, config.vectorDb.distanceMetric);
+      } else {
+        // SQLite mode: use LanceDB (default)
+        vectorStore = new LanceDbVectorStore();
+      }
+    }
+  }
+
+  // Use provided vectorService, or create one with the determined store
+  const vectorService = overrides?.vectorService ?? new VectorService(vectorStore);
 
   const extractionService = new ExtractionService({
     provider: config.extraction.provider,
@@ -88,11 +137,28 @@ export function createServices(
   // Create verification service
   const verificationService = new VerificationService(db);
 
+  // Create hierarchical summarization service
+  const summarizationService = new HierarchicalSummarizationService(
+    db,
+    embeddingService,
+    extractionService,
+    vectorService,
+    {
+      provider: config.extraction.provider, // Use same provider as extraction
+      model: config.extraction.openaiModel, // Default model
+      maxLevels: 3,
+      minGroupSize: 3,
+      similarityThreshold: 0.75,
+      communityResolution: 1.0,
+    }
+  );
+
   return {
     embedding: embeddingService,
     vector: vectorService,
     extraction: extractionService,
     permission: permissionService,
     verification: verificationService,
+    summarization: summarizationService,
   };
 }

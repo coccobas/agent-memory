@@ -3,16 +3,19 @@
  *
  * Metrics and utilities for evaluating RL policy performance.
  * Compares policy decisions against test data and ground truth.
+ * Supports baseline comparison, A/B testing, and temporal tracking.
  */
 
 import type { Dataset } from './dataset-builder.js';
 import type { IPolicy } from '../policies/base.policy.js';
+import type { LoadedModel } from './model-loader.js';
 
 // =============================================================================
 // TYPES
 // =============================================================================
 
 export interface EvaluationResult {
+  policyType?: string;
   accuracy: number;
   precision: number;
   recall: number;
@@ -29,6 +32,59 @@ export interface EvaluationResult {
       support: number;
     }
   >;
+  rewardDistribution?: RewardDistribution;
+  temporalMetrics?: TemporalMetrics;
+}
+
+export interface ExtendedEvaluationResult extends EvaluationResult {
+  policyType: string;
+  metrics: {
+    accuracy: number;
+    precision: number;
+    recall: number;
+    f1Score: number;
+    avgReward: number;
+    rewardStdDev: number;
+  };
+  baseline?: {
+    accuracy: number;
+    avgReward: number;
+    f1Score: number;
+  };
+  improvement?: {
+    accuracyDelta: number;
+    rewardDelta: number;
+    percentImprovement: number;
+  };
+  confusionMatrix: Record<string, Record<string, number>>;
+  rewardDistribution?: RewardDistribution;
+}
+
+export interface RewardDistribution {
+  min: number;
+  max: number;
+  mean: number;
+  median: number;
+  stdDev: number;
+  quartiles: {
+    q1: number;
+    q2: number;
+    q3: number;
+  };
+  histogram: Array<{ bin: string; count: number; percentage: number }>;
+}
+
+export interface TemporalMetrics {
+  timeWindow: string;
+  windows: Array<{
+    windowStart: string;
+    windowEnd: string;
+    accuracy: number;
+    avgReward: number;
+    sampleCount: number;
+  }>;
+  trend: 'improving' | 'declining' | 'stable';
+  improvementRate?: number; // % change per window
 }
 
 export interface ComparisonResult {
@@ -39,6 +95,30 @@ export interface ComparisonResult {
     accuracy: number;
     avgReward: number;
     f1: number;
+  };
+  pValue?: number; // Statistical significance
+  effectSize?: number; // Cohen's d for reward difference
+}
+
+export interface ABTestResult {
+  modelA: {
+    name: string;
+    metrics: EvaluationResult;
+    sampleCount: number;
+  };
+  modelB: {
+    name: string;
+    metrics: EvaluationResult;
+    sampleCount: number;
+  };
+  winner: 'A' | 'B' | 'tie';
+  pValue: number;
+  confidenceLevel: number;
+  details: {
+    rewardDifference: number;
+    accuracyDifference: number;
+    effectSize: number;
+    recommendation: string;
   };
 }
 
@@ -383,6 +463,505 @@ export function formatComparisonReport(
   lines.push(`  Accuracy:   ${(result.policyB.accuracy * 100).toFixed(2)}%`);
   lines.push(`  Avg Reward: ${result.policyB.avgReward.toFixed(4)}`);
   lines.push(`  F1 Score:   ${(result.policyB.f1 * 100).toFixed(2)}%`);
+
+  return lines.join('\n');
+}
+
+// =============================================================================
+// MODEL EVALUATION (LoadedModel support)
+// =============================================================================
+
+/**
+ * PolicyEvaluator class for evaluating loaded models
+ *
+ * Provides advanced evaluation capabilities:
+ * - Model evaluation on held-out data
+ * - Baseline comparison (rule-based vs learned)
+ * - A/B testing with statistical significance
+ * - Reward distribution analysis
+ * - Temporal tracking
+ */
+export class PolicyEvaluator {
+  /**
+   * Evaluate a loaded model on held-out evaluation data
+   *
+   * @param model - Loaded model to evaluate
+   * @param evalData - Evaluation dataset
+   * @returns Extended evaluation result with baseline comparison
+   */
+  async evaluate<TState, TAction>(
+    model: LoadedModel,
+    evalData: Array<{ state: TState; action: TAction; reward: number }>
+  ): Promise<ExtendedEvaluationResult> {
+    // For now, we assume the model has a corresponding policy implementation
+    // In a real implementation, this would load the model weights and run inference
+    throw new Error('Model evaluation not yet implemented - requires model inference');
+  }
+
+  /**
+   * Compare two loaded models on the same dataset
+   *
+   * Performs statistical significance testing to determine if differences are meaningful.
+   *
+   * @param modelA - First model
+   * @param modelB - Second model
+   * @param data - Evaluation data
+   * @returns Comparison result with statistical significance
+   */
+  async compare<TState, TAction>(
+    modelA: LoadedModel,
+    modelB: LoadedModel,
+    data: Array<{ state: TState; action: TAction; reward: number }>
+  ): Promise<{
+    winner: 'A' | 'B' | 'tie';
+    pValue: number;
+    details: {
+      modelA: ExtendedEvaluationResult;
+      modelB: ExtendedEvaluationResult;
+      rewardDifference: number;
+      accuracyDifference: number;
+      effectSize: number;
+    };
+  }> {
+    // Evaluate both models
+    const resultA = await this.evaluate<TState, TAction>(modelA, data);
+    const resultB = await this.evaluate<TState, TAction>(modelB, data);
+
+    // Compute statistical significance (t-test on rewards)
+    const pValue = computeTTestPValue(
+      data.map((d) => d.reward),
+      data.map((d) => d.reward)
+    );
+
+    // Compute effect size (Cohen's d)
+    const effectSize = computeCohenD(
+      resultA.metrics.avgReward,
+      resultB.metrics.avgReward,
+      resultA.metrics.rewardStdDev,
+      resultB.metrics.rewardStdDev
+    );
+
+    // Determine winner
+    const SIGNIFICANCE_THRESHOLD = 0.05;
+    let winner: 'A' | 'B' | 'tie' = 'tie';
+
+    if (pValue < SIGNIFICANCE_THRESHOLD) {
+      winner = resultB.metrics.avgReward > resultA.metrics.avgReward ? 'B' : 'A';
+    }
+
+    return {
+      winner,
+      pValue,
+      details: {
+        modelA: resultA,
+        modelB: resultB,
+        rewardDifference: resultB.metrics.avgReward - resultA.metrics.avgReward,
+        accuracyDifference: resultB.metrics.accuracy - resultA.metrics.accuracy,
+        effectSize,
+      },
+    };
+  }
+
+  /**
+   * Run A/B test simulation with traffic split
+   *
+   * Simulates deploying two models with specified traffic split and
+   * evaluates performance on randomly assigned subsets.
+   *
+   * @param modelA - First model
+   * @param modelB - Second model
+   * @param data - Evaluation data
+   * @param splitRatio - Traffic split ratio (0-1, default 0.5 for 50/50)
+   * @returns A/B test result with recommendations
+   */
+  async abTest<TState, TAction>(
+    modelA: LoadedModel,
+    modelB: LoadedModel,
+    data: Array<{ state: TState; action: TAction; reward: number }>,
+    splitRatio: number = 0.5
+  ): Promise<ABTestResult> {
+    // Validate split ratio
+    if (splitRatio < 0 || splitRatio > 1) {
+      throw new Error('Split ratio must be between 0 and 1');
+    }
+
+    // Randomly assign data to groups
+    const shuffled = [...data].sort(() => Math.random() - 0.5);
+    const splitIdx = Math.floor(shuffled.length * splitRatio);
+    const groupA = shuffled.slice(0, splitIdx);
+    const groupB = shuffled.slice(splitIdx);
+
+    // Evaluate on respective groups
+    const resultA = await this.evaluate<TState, TAction>(modelA, groupA);
+    const resultB = await this.evaluate<TState, TAction>(modelB, groupB);
+
+    // Compute statistical significance
+    const pValue = computeTTestPValue(
+      groupA.map((d) => d.reward),
+      groupB.map((d) => d.reward)
+    );
+
+    const effectSize = computeCohenD(
+      resultA.metrics.avgReward,
+      resultB.metrics.avgReward,
+      resultA.metrics.rewardStdDev,
+      resultB.metrics.rewardStdDev
+    );
+
+    // Determine winner
+    const confidenceLevel = 1 - pValue;
+    const SIGNIFICANCE_THRESHOLD = 0.05;
+    let winner: 'A' | 'B' | 'tie' = 'tie';
+
+    if (pValue < SIGNIFICANCE_THRESHOLD) {
+      winner = resultB.metrics.avgReward > resultA.metrics.avgReward ? 'B' : 'A';
+    }
+
+    // Generate recommendation
+    let recommendation: string;
+    if (winner === 'tie') {
+      recommendation = 'No significant difference detected. Continue monitoring.';
+    } else if (winner === 'A') {
+      recommendation = `Model A performs significantly better. Consider rolling out to 100% traffic.`;
+    } else {
+      recommendation = `Model B performs significantly better. Consider rolling out to 100% traffic.`;
+    }
+
+    if (effectSize < 0.2) {
+      recommendation += ' Note: Effect size is small - practical significance may be limited.';
+    }
+
+    return {
+      modelA: {
+        name: `${modelA.policyType}-v${modelA.version}`,
+        metrics: resultA,
+        sampleCount: groupA.length,
+      },
+      modelB: {
+        name: `${modelB.policyType}-v${modelB.version}`,
+        metrics: resultB,
+        sampleCount: groupB.length,
+      },
+      winner,
+      pValue,
+      confidenceLevel,
+      details: {
+        rewardDifference: resultB.metrics.avgReward - resultA.metrics.avgReward,
+        accuracyDifference: resultB.metrics.accuracy - resultA.metrics.accuracy,
+        effectSize,
+        recommendation,
+      },
+    };
+  }
+}
+
+// =============================================================================
+// REWARD DISTRIBUTION ANALYSIS
+// =============================================================================
+
+/**
+ * Compute reward distribution statistics
+ *
+ * Analyzes the distribution of rewards to understand:
+ * - Central tendency (mean, median)
+ * - Spread (std dev, quartiles)
+ * - Shape (histogram)
+ */
+export function computeRewardDistribution(rewards: number[]): RewardDistribution {
+  if (rewards.length === 0) {
+    return {
+      min: 0,
+      max: 0,
+      mean: 0,
+      median: 0,
+      stdDev: 0,
+      quartiles: { q1: 0, q2: 0, q3: 0 },
+      histogram: [],
+    };
+  }
+
+  // Sort for percentile calculations
+  const sorted = [...rewards].sort((a, b) => a - b);
+
+  // Basic statistics
+  const min = sorted[0] ?? 0;
+  const max = sorted[sorted.length - 1] ?? 0;
+  const mean = rewards.reduce((a, b) => a + b, 0) / rewards.length;
+  const median = sorted[Math.floor(sorted.length / 2)] ?? 0;
+
+  // Variance and standard deviation
+  const variance = rewards.reduce((a, b) => a + (b - mean) ** 2, 0) / rewards.length;
+  const stdDev = Math.sqrt(variance);
+
+  // Quartiles
+  const q1 = sorted[Math.floor(sorted.length * 0.25)] ?? 0;
+  const q2 = median;
+  const q3 = sorted[Math.floor(sorted.length * 0.75)] ?? 0;
+
+  // Histogram (10 bins)
+  const numBins = 10;
+  const binWidth = (max - min) / numBins;
+  const bins: Array<{ bin: string; count: number; percentage: number }> = [];
+
+  for (let i = 0; i < numBins; i++) {
+    const binStart = min + i * binWidth;
+    const binEnd = min + (i + 1) * binWidth;
+    const count = rewards.filter((r) => r >= binStart && (i === numBins - 1 ? r <= binEnd : r < binEnd)).length;
+
+    bins.push({
+      bin: `[${binStart.toFixed(2)}, ${binEnd.toFixed(2)}${i === numBins - 1 ? ']' : ')'}`,
+      count,
+      percentage: (count / rewards.length) * 100,
+    });
+  }
+
+  return {
+    min,
+    max,
+    mean,
+    median,
+    stdDev,
+    quartiles: { q1, q2, q3 },
+    histogram: bins,
+  };
+}
+
+// =============================================================================
+// TEMPORAL ANALYSIS
+// =============================================================================
+
+/**
+ * Compute temporal metrics to track improvement over time
+ *
+ * Splits data into time windows and tracks performance trends.
+ *
+ * @param data - Evaluation data with timestamps
+ * @param windowSize - Window size in milliseconds (default: 7 days)
+ * @returns Temporal metrics with trend analysis
+ */
+export function computeTemporalMetrics<TState, TAction>(
+  data: Array<{
+    state: TState;
+    action: TAction;
+    reward: number;
+    timestamp?: string;
+  }>,
+  windowSize: number = 7 * 24 * 60 * 60 * 1000 // 7 days
+): TemporalMetrics {
+  // Filter data with timestamps
+  const timestampedData = data.filter((d) => d.timestamp);
+
+  if (timestampedData.length === 0) {
+    return {
+      timeWindow: 'N/A',
+      windows: [],
+      trend: 'stable',
+    };
+  }
+
+  // Sort by timestamp
+  const sorted = timestampedData.sort((a, b) => {
+    const timeA = new Date(a.timestamp ?? 0).getTime();
+    const timeB = new Date(b.timestamp ?? 0).getTime();
+    return timeA - timeB;
+  });
+
+  // Determine time range
+  const startTime = new Date(sorted[0]?.timestamp ?? 0).getTime();
+  const endTime = new Date(sorted[sorted.length - 1]?.timestamp ?? 0).getTime();
+  const numWindows = Math.ceil((endTime - startTime) / windowSize);
+
+  // Compute metrics for each window
+  const windows: TemporalMetrics['windows'] = [];
+
+  for (let i = 0; i < numWindows; i++) {
+    const windowStart = startTime + i * windowSize;
+    const windowEnd = windowStart + windowSize;
+
+    const windowData = sorted.filter((d) => {
+      const timestamp = new Date(d.timestamp ?? 0).getTime();
+      return timestamp >= windowStart && timestamp < windowEnd;
+    });
+
+    if (windowData.length === 0) continue;
+
+    // Compute metrics for this window
+    const rewards = windowData.map((d) => d.reward);
+    const avgReward = rewards.reduce((a, b) => a + b, 0) / rewards.length;
+
+    // For accuracy, we would need expected actions - placeholder for now
+    const accuracy = 0; // TODO: Compute actual accuracy
+
+    windows.push({
+      windowStart: new Date(windowStart).toISOString(),
+      windowEnd: new Date(windowEnd).toISOString(),
+      accuracy,
+      avgReward,
+      sampleCount: windowData.length,
+    });
+  }
+
+  // Compute trend
+  let trend: 'improving' | 'declining' | 'stable' = 'stable';
+  let improvementRate: number | undefined;
+
+  if (windows.length >= 2) {
+    // Linear regression on average rewards
+    const rewardTrend = windows.map((w) => w.avgReward);
+    const slope = computeLinearRegressionSlope(rewardTrend);
+
+    if (slope > 0.01) {
+      trend = 'improving';
+      improvementRate = slope;
+    } else if (slope < -0.01) {
+      trend = 'declining';
+      improvementRate = slope;
+    }
+  }
+
+  return {
+    timeWindow: `${windowSize / (24 * 60 * 60 * 1000)} days`,
+    windows,
+    trend,
+    improvementRate,
+  };
+}
+
+// =============================================================================
+// STATISTICAL UTILITIES
+// =============================================================================
+
+/**
+ * Compute t-test p-value for two samples
+ *
+ * Uses Welch's t-test for unequal variances.
+ */
+function computeTTestPValue(sample1: number[], sample2: number[]): number {
+  if (sample1.length === 0 || sample2.length === 0) {
+    return 1.0; // No significant difference
+  }
+
+  // Compute means
+  const mean1 = sample1.reduce((a, b) => a + b, 0) / sample1.length;
+  const mean2 = sample2.reduce((a, b) => a + b, 0) / sample2.length;
+
+  // Compute variances
+  const var1 = sample1.reduce((a, b) => a + (b - mean1) ** 2, 0) / (sample1.length - 1);
+  const var2 = sample2.reduce((a, b) => a + (b - mean2) ** 2, 0) / (sample2.length - 1);
+
+  // Welch's t-statistic
+  const t = (mean1 - mean2) / Math.sqrt(var1 / sample1.length + var2 / sample2.length);
+
+  // Degrees of freedom (Welch-Satterthwaite)
+  const df =
+    (var1 / sample1.length + var2 / sample2.length) ** 2 /
+    ((var1 / sample1.length) ** 2 / (sample1.length - 1) +
+      (var2 / sample2.length) ** 2 / (sample2.length - 1));
+
+  // Approximate p-value (two-tailed)
+  // This is a simplified approximation - for production use a proper stats library
+  const pValue = 2 * (1 - approximateTCDF(Math.abs(t), df));
+
+  return pValue;
+}
+
+/**
+ * Approximate cumulative distribution function for t-distribution
+ * Simplified approximation - for production use a proper stats library
+ */
+function approximateTCDF(t: number, df: number): number {
+  // Use normal approximation for large df
+  if (df > 30) {
+    return approximateNormalCDF(t);
+  }
+
+  // Simplified approximation for small df
+  // This is NOT accurate - use a real stats library in production
+  return approximateNormalCDF(t * Math.sqrt(df / (df + t * t)));
+}
+
+/**
+ * Approximate cumulative distribution function for standard normal
+ */
+function approximateNormalCDF(z: number): number {
+  // Abramowitz and Stegun approximation
+  const t = 1 / (1 + 0.2316419 * Math.abs(z));
+  const d = 0.3989423 * Math.exp((-z * z) / 2);
+  const p =
+    d *
+    t *
+    (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+
+  return z > 0 ? 1 - p : p;
+}
+
+/**
+ * Compute Cohen's d effect size
+ */
+function computeCohenD(
+  mean1: number,
+  mean2: number,
+  stdDev1: number,
+  stdDev2: number
+): number {
+  const pooledStdDev = Math.sqrt((stdDev1 ** 2 + stdDev2 ** 2) / 2);
+  return (mean2 - mean1) / pooledStdDev;
+}
+
+/**
+ * Compute slope of linear regression
+ */
+function computeLinearRegressionSlope(values: number[]): number {
+  if (values.length < 2) return 0;
+
+  const n = values.length;
+  const xMean = (n - 1) / 2; // x values are 0, 1, 2, ..., n-1
+  const yMean = values.reduce((a, b) => a + b, 0) / n;
+
+  let numerator = 0;
+  let denominator = 0;
+
+  for (let i = 0; i < n; i++) {
+    const val = values[i];
+    if (val === undefined) continue;
+    numerator += (i - xMean) * (val - yMean);
+    denominator += (i - xMean) ** 2;
+  }
+
+  return denominator === 0 ? 0 : numerator / denominator;
+}
+
+/**
+ * Format A/B test result as human-readable report
+ */
+export function formatABTestReport(result: ABTestResult): string {
+  const lines: string[] = [];
+
+  lines.push('A/B Test Report');
+  lines.push('='.repeat(50));
+  lines.push('');
+
+  lines.push(`Model A: ${result.modelA.name} (${result.modelA.sampleCount} samples)`);
+  lines.push(`Model B: ${result.modelB.name} (${result.modelB.sampleCount} samples)`);
+  lines.push('');
+
+  lines.push(`Winner: ${result.winner === 'tie' ? 'No clear winner' : `Model ${result.winner}`}`);
+  lines.push(`Confidence: ${(result.confidenceLevel * 100).toFixed(2)}%`);
+  lines.push(`P-value: ${result.pValue.toFixed(4)}`);
+  lines.push('');
+
+  lines.push('Performance Differences:');
+  lines.push(
+    `  Reward:   ${result.details.rewardDifference >= 0 ? '+' : ''}${result.details.rewardDifference.toFixed(4)}`
+  );
+  lines.push(
+    `  Accuracy: ${result.details.accuracyDifference >= 0 ? '+' : ''}${(result.details.accuracyDifference * 100).toFixed(2)}%`
+  );
+  lines.push(`  Effect Size: ${result.details.effectSize.toFixed(3)} (Cohen's d)`);
+  lines.push('');
+
+  lines.push('Recommendation:');
+  lines.push(`  ${result.details.recommendation}`);
 
   return lines.join('\n');
 }
