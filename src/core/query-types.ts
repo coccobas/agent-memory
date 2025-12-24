@@ -57,6 +57,20 @@ export interface DateRangeFilter {
 }
 
 /**
+ * Temporal validity filter (knowledge entries)
+ * For temporal knowledge graphs - filter by validity period
+ */
+export interface TemporalFilter {
+  /** Return entries valid at this specific point in time (ISO timestamp) */
+  atTime?: string;
+  /** Return entries valid during this period */
+  validDuring?: {
+    start: string;
+    end: string;
+  };
+}
+
+/**
  * Recency scoring options
  */
 export interface RecencyOptions {
@@ -154,7 +168,7 @@ export interface ConversationContextQuery extends BaseQueryParams {
  * Allows all parameters but with optional strategy field.
  * This is the canonical query params type used throughout the codebase.
  */
-export interface DefaultQuery extends BaseQueryParams, DateRangeFilter, RecencyOptions {
+export interface DefaultQuery extends BaseQueryParams, DateRangeFilter, RecencyOptions, TemporalFilter {
   strategy?: 'default' | undefined;
   // Search params
   search?: string;

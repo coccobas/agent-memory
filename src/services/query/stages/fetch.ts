@@ -49,6 +49,7 @@ const FETCH_CONFIGS: Record<'tools' | 'guidelines' | 'knowledge' | 'experiences'
   knowledge: {
     table: knowledge,
     ftsKey: 'knowledge',
+    // Temporal filtering handled specially in fetchKnowledgeWithTemporal
   },
   experiences: {
     table: experiences,
@@ -123,6 +124,116 @@ function fetchEntriesGeneric<T extends EntryUnion>(
 }
 
 // =============================================================================
+// TEMPORAL KNOWLEDGE FETCH
+// =============================================================================
+
+/**
+ * Fetch knowledge entries with temporal filtering.
+ * When atTime or validDuring is specified, joins with knowledge_versions
+ * to filter by temporal validity.
+ */
+function fetchKnowledgeWithTemporal(
+  db: DbInstance,
+  ctx: PipelineContext,
+  result: Array<{ entry: Knowledge; scopeIndex: number }>,
+  softCap: number
+): void {
+  const { scopeChain, params, ftsMatchIds, limit } = ctx;
+  const config = FETCH_CONFIGS.knowledge;
+  const { ftsKey } = config;
+
+  // Check if temporal filtering is needed
+  const hasTemporal = params.atTime || params.validDuring;
+
+  for (let index = 0; index < scopeChain.length; index++) {
+    if (result.length >= softCap) break;
+
+    const scope = scopeChain[index]!;
+    const perScopeLimit = Math.max(softCap - result.length, limit);
+
+    if (hasTemporal) {
+      // Use raw SQL with join for temporal filtering
+      const atTime = params.atTime;
+      const validDuring = params.validDuring;
+
+      let temporalConditions = '';
+      const queryParams: unknown[] = [
+        scope.scopeType,
+        scope.scopeId ?? null,
+      ];
+
+      if (atTime) {
+        // Entry is valid at a specific point in time
+        // valid_from <= atTime (or null) AND valid_until > atTime (or null)
+        temporalConditions = `
+          AND (kv.valid_from IS NULL OR kv.valid_from <= ?)
+          AND (kv.valid_until IS NULL OR kv.valid_until > ?)
+        `;
+        queryParams.push(atTime, atTime);
+      } else if (validDuring) {
+        // Entry is valid during a period (overlaps with the period)
+        // valid_from <= end AND valid_until >= start (accounting for nulls)
+        temporalConditions = `
+          AND (kv.valid_from IS NULL OR kv.valid_from <= ?)
+          AND (kv.valid_until IS NULL OR kv.valid_until >= ?)
+        `;
+        queryParams.push(validDuring.end, validDuring.start);
+      }
+
+      // Build date filter conditions
+      let dateConditions = '';
+      if (params.createdAfter) {
+        dateConditions += ` AND k.created_at >= ?`;
+        queryParams.push(params.createdAfter);
+      }
+      if (params.createdBefore) {
+        dateConditions += ` AND k.created_at <= ?`;
+        queryParams.push(params.createdBefore);
+      }
+
+      // Build FTS filter condition
+      let ftsCondition = '';
+      if (ftsMatchIds && ftsMatchIds[ftsKey].size > 0) {
+        const ids = Array.from(ftsMatchIds[ftsKey]);
+        const placeholders = ids.map(() => '?').join(',');
+        ftsCondition = ` AND k.id IN (${placeholders})`;
+        queryParams.push(...ids);
+      }
+
+      queryParams.push(perScopeLimit);
+
+      const sqlQuery = `
+        SELECT DISTINCT k.*
+        FROM knowledge k
+        INNER JOIN knowledge_versions kv ON k.current_version_id = kv.id
+        WHERE k.scope_type = ?
+          AND (k.scope_id = ? OR (k.scope_id IS NULL AND ? IS NULL))
+          AND k.is_active = 1
+          ${temporalConditions}
+          ${dateConditions}
+          ${ftsCondition}
+        ORDER BY k.created_at DESC
+        LIMIT ?
+      `;
+
+      // Adjust query params for the NULL check
+      queryParams.splice(2, 0, scope.scopeId ?? null);
+
+      const stmt = ctx.deps.getPreparedStatement(sqlQuery);
+      const rows = stmt.all(...queryParams) as Knowledge[];
+
+      for (const row of rows) {
+        result.push({ entry: row, scopeIndex: index });
+      }
+    } else {
+      // No temporal filtering, use standard fetch
+      fetchEntriesGeneric(db, config, ctx, result, softCap);
+      break; // fetchEntriesGeneric handles all scopes
+    }
+  }
+}
+
+// =============================================================================
 // FETCH STAGE
 // =============================================================================
 
@@ -150,7 +261,8 @@ export function fetchStage(ctx: PipelineContext): PipelineContext {
     } else if (type === 'guidelines') {
       fetchEntriesGeneric(db, FETCH_CONFIGS.guidelines, ctx, fetchedEntries.guidelines, softCap);
     } else if (type === 'knowledge') {
-      fetchEntriesGeneric(db, FETCH_CONFIGS.knowledge, ctx, fetchedEntries.knowledge, softCap);
+      // Use temporal-aware fetch for knowledge (handles atTime/validDuring)
+      fetchKnowledgeWithTemporal(db, ctx, fetchedEntries.knowledge, softCap);
     } else if (type === 'experiences') {
       fetchEntriesGeneric(db, FETCH_CONFIGS.experiences, ctx, fetchedEntries.experiences, softCap);
     }

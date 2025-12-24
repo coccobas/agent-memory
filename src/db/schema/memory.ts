@@ -22,6 +22,9 @@ export const tools = sqliteTable(
       .default(sql`CURRENT_TIMESTAMP`)
       .notNull(),
     createdBy: text('created_by'),
+    // Access tracking for forgetting
+    lastAccessedAt: text('last_accessed_at'),
+    accessCount: integer('access_count').default(0),
   },
   (table) => [
     index('idx_tools_scope').on(table.scopeType, table.scopeId),
@@ -75,6 +78,9 @@ export const guidelines = sqliteTable(
       .default(sql`CURRENT_TIMESTAMP`)
       .notNull(),
     createdBy: text('created_by'),
+    // Access tracking for forgetting
+    lastAccessedAt: text('last_accessed_at'),
+    accessCount: integer('access_count').default(0),
   },
   (table) => [
     index('idx_guidelines_scope').on(table.scopeType, table.scopeId),
@@ -133,6 +139,9 @@ export const knowledge = sqliteTable(
       .default(sql`CURRENT_TIMESTAMP`)
       .notNull(),
     createdBy: text('created_by'),
+    // Access tracking for forgetting
+    lastAccessedAt: text('last_accessed_at'),
+    accessCount: integer('access_count').default(0),
   },
   (table) => [
     index('idx_knowledge_scope').on(table.scopeType, table.scopeId),
@@ -154,7 +163,10 @@ export const knowledgeVersions = sqliteTable(
     content: text('content').notNull(),
     source: text('source'),
     confidence: real('confidence').default(1.0).notNull(),
-    validUntil: text('valid_until'),
+    // Temporal validity for knowledge graphs
+    validFrom: text('valid_from'), // When this knowledge becomes valid
+    validUntil: text('valid_until'), // When this knowledge expires
+    invalidatedBy: text('invalidated_by'), // ID of entry that supersedes this
     createdAt: text('created_at')
       .default(sql`CURRENT_TIMESTAMP`)
       .notNull(),

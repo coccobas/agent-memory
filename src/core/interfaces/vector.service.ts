@@ -36,4 +36,9 @@ export interface IVectorService {
   getCount(): Promise<number>;
 
   close(): void;
+
+  /**
+   * Compact the vector store to reclaim space (optional)
+   */
+  compact?(): Promise<void>;
 }

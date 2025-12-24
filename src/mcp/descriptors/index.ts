@@ -39,6 +39,9 @@ import { memoryConsolidateDescriptor } from './memory_consolidate.js';
 import { memoryReviewDescriptor } from './memory_review.js';
 import { memoryExperienceDescriptor } from './memory_experience.js';
 import { memory_librarian as memoryLibrarianDescriptor } from './memory_librarian.js';
+import { memoryForgetDescriptor } from './memory_forget.js';
+import { memoryFeedbackDescriptor } from './memory_feedback.js';
+import { memoryRlDescriptor } from './memory_rl.js';
 
 import { type AnyToolDescriptor, descriptorToTool, descriptorToHandler } from './types.js';
 
@@ -102,6 +105,12 @@ export const allDescriptors: AnyToolDescriptor[] = [
   memoryExperienceDescriptor,
   // Librarian Agent
   memoryLibrarianDescriptor,
+  // Memory Forgetting
+  memoryForgetDescriptor,
+  // RL Feedback
+  memoryFeedbackDescriptor,
+  // RL Policies
+  memoryRlDescriptor,
 ];
 
 /**
@@ -150,4 +159,7 @@ export {
   memoryReviewDescriptor,
   memoryExperienceDescriptor,
   memoryLibrarianDescriptor,
+  memoryForgetDescriptor,
+  memoryFeedbackDescriptor,
+  memoryRlDescriptor,
 };

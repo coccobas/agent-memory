@@ -35,6 +35,8 @@ import { addReviewCommand } from './commands/review.js';
 import { addHookCommand } from './commands/hook.js';
 import { addExperienceCommand } from './commands/experience.js';
 import { addLibrarianCommand } from './commands/librarian.js';
+import { addForgetCommand } from './commands/forget.js';
+import { addRlCommand } from './commands/rl.js';
 
 // Version from package.json
 const VERSION = '0.9.9';
@@ -107,6 +109,12 @@ function registerCommands(program: Command): void {
   // Experiential Memory
   addExperienceCommand(program);
   addLibrarianCommand(program);
+
+  // Reinforcement Learning
+  addRlCommand(program);
+
+  // Memory Lifecycle
+  addForgetCommand(program);
 }
 
 /**

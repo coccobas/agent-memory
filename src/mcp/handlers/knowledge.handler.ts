@@ -33,6 +33,7 @@ function extractAddParams(
   const content = getRequiredParam(params, 'content', isString);
   const source = getOptionalParam(params, 'source', isString);
   const confidence = getOptionalParam(params, 'confidence', isNumber);
+  const validFrom = getOptionalParam(params, 'validFrom', isISODateString);
   const validUntil = getOptionalParam(params, 'validUntil', isISODateString);
   const createdBy = getOptionalParam(params, 'createdBy', isString);
 
@@ -44,6 +45,7 @@ function extractAddParams(
     content,
     source,
     confidence,
+    validFrom,
     validUntil,
     createdBy,
   };
@@ -54,7 +56,9 @@ function extractUpdateParams(params: Record<string, unknown>): UpdateKnowledgeIn
   const content = getOptionalParam(params, 'content', isString);
   const source = getOptionalParam(params, 'source', isString);
   const confidence = getOptionalParam(params, 'confidence', isNumber);
+  const validFrom = getOptionalParam(params, 'validFrom', isISODateString);
   const validUntil = getOptionalParam(params, 'validUntil', isISODateString);
+  const invalidatedBy = getOptionalParam(params, 'invalidatedBy', isString);
   const changeReason = getOptionalParam(params, 'changeReason', isString);
   const updatedBy = getOptionalParam(params, 'updatedBy', isString);
 
@@ -63,7 +67,9 @@ function extractUpdateParams(params: Record<string, unknown>): UpdateKnowledgeIn
   if (content !== undefined) input.content = content;
   if (source !== undefined) input.source = source;
   if (confidence !== undefined) input.confidence = confidence;
+  if (validFrom !== undefined) input.validFrom = validFrom;
   if (validUntil !== undefined) input.validUntil = validUntil;
+  if (invalidatedBy !== undefined) input.invalidatedBy = invalidatedBy;
   if (changeReason !== undefined) input.changeReason = changeReason;
   if (updatedBy !== undefined) input.updatedBy = updatedBy;
 
@@ -86,10 +92,11 @@ function getValidationData(
   const content = getOptionalParam(params, 'content', isString);
   const source = getOptionalParam(params, 'source', isString);
   const confidence = getOptionalParam(params, 'confidence', isNumber);
+  const validFrom = getOptionalParam(params, 'validFrom', isISODateString);
   const validUntil = getOptionalParam(params, 'validUntil', isISODateString);
   const category = getOptionalParam(params, 'category', isString);
 
-  return { title, content, source, confidence, validUntil, category };
+  return { title, content, source, confidence, validFrom, validUntil, category };
 }
 
 function extractListFilters(params: Record<string, unknown>): Record<string, unknown> {

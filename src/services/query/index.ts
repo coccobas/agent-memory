@@ -29,6 +29,7 @@ import { tagsStage } from './stages/tags.js';
 import { filterStage } from './stages/filter.js';
 import { scoreStage } from './stages/score.js';
 import { formatStage } from './stages/format.js';
+import { getFeedbackService } from '../feedback/index.js';
 
 // Import from modular submodules (avoids circular dependency with query.service.ts)
 import { resolveScopeChain } from './scope-chain.js';
@@ -235,6 +236,47 @@ export function createDependencies(options: QueryPipelineOptions): PipelineDepen
 // =============================================================================
 
 /**
+ * Record retrievals for RL feedback collection (fire-and-forget)
+ *
+ * This runs asynchronously and does not block the query response.
+ * Failures are logged but do not affect query execution.
+ */
+function recordRetrievalsForFeedback(
+  params: MemoryQueryParams,
+  result: MemoryQueryResult
+): void {
+  // Skip if no results or no session context
+  if (result.results.length === 0) return;
+
+  // Get sessionId from params - may be passed for context tracking
+  const sessionId = (params as Record<string, unknown>).sessionId as string | undefined;
+  if (!sessionId) return;
+
+  const feedbackService = getFeedbackService();
+  if (!feedbackService) return;
+
+  // Fire-and-forget async recording
+  setImmediate(async () => {
+    try {
+      await feedbackService.recordRetrievalBatch(
+        result.results.map((r, idx) => ({
+          sessionId,
+          queryText: params.search,
+          entryType: r.type as 'tool' | 'guideline' | 'knowledge' | 'experience',
+          entryId: r.id,
+          retrievalRank: idx + 1,
+          retrievalScore: r.score ?? 0,
+          semanticScore: (r as unknown as Record<string, unknown>).semanticScore as number | undefined,
+        }))
+      );
+    } catch (error) {
+      // Silently ignore - feedback collection should never break queries
+      // Could add logging here if needed for debugging
+    }
+  });
+}
+
+/**
  * Synchronous query pipeline execution (core implementation)
  *
  * Features:
@@ -289,6 +331,9 @@ export function executeQueryPipelineSync(
   const formattedCtx = formatStage(scoredCtx);
 
   const result = buildQueryResult(formattedCtx);
+
+  // Record retrievals for RL feedback (fire-and-forget, non-blocking)
+  recordRetrievalsForFeedback(params, result);
 
   // Cache the result
   if (cacheKey && deps.cache) {

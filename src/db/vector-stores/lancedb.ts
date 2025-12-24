@@ -340,6 +340,23 @@ export class LanceDbVectorStore implements IVectorStore {
     this.table = null;
   }
 
+  /**
+   * Compact the table to reclaim space and clean up old versions.
+   * LanceDB keeps transaction versions for time travel - this removes them.
+   */
+  async compact(): Promise<void> {
+    await this.ensureInitialized();
+    if (!this.table) return;
+
+    try {
+      // Compact files to merge small fragments
+      await this.table.optimize({ cleanupOlderThan: new Date() });
+      logger.debug('Vector table compacted and old versions cleaned up');
+    } catch (error) {
+      logger.warn({ error }, 'Failed to compact vector table');
+    }
+  }
+
   private distanceToSimilarity(distance: number): number {
     if (this.distanceMetric === 'cosine') {
       return Math.max(0, Math.min(1, 1 - distance));

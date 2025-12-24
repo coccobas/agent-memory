@@ -64,4 +64,10 @@ export interface IVectorStore {
    * Get distance metric
    */
   getDistanceMetric(): DistanceMetric;
+
+  /**
+   * Compact the vector store to reclaim space from deleted records
+   * and clean up old version files (optional - not all backends support this)
+   */
+  compact?(): Promise<void>;
 }

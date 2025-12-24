@@ -97,6 +97,13 @@ describe('query.service', () => {
       '0008_add_agent_votes.sql',
       '0009_add_conversation_history.sql',
       '0010_add_verification_rules.sql',
+      '0011_add_performance_indexes.sql',
+      '0012_add_experiences.sql',
+      '0013_migrate_promotions_to_relations.sql',
+      '0014_add_experiences_fts.sql',
+      '0015_add_recommendations.sql',
+      '0016_add_access_tracking.sql',
+      '0017_add_temporal_knowledge.sql',
     ];
     for (const migrationFile of migrations) {
       const migrationPath = join(process.cwd(), 'src/db/migrations', migrationFile);

@@ -320,6 +320,8 @@ export class KnowledgeCaptureModule implements CaptureModule<KnowledgeCaptureRes
           isActive: true,
           createdAt: now,
           createdBy: options.agentId ?? null,
+          lastAccessedAt: null,
+          accessCount: 0,
         };
         result.knowledge.push({
           entry: knowledgeEntry,
@@ -340,6 +342,8 @@ export class KnowledgeCaptureModule implements CaptureModule<KnowledgeCaptureRes
           isActive: true,
           createdAt: now,
           createdBy: options.agentId ?? null,
+          lastAccessedAt: null,
+          accessCount: 0,
         };
         result.guidelines.push({
           entry: guidelineEntry,
@@ -359,6 +363,8 @@ export class KnowledgeCaptureModule implements CaptureModule<KnowledgeCaptureRes
           isActive: true,
           createdAt: now,
           createdBy: options.agentId ?? null,
+          lastAccessedAt: null,
+          accessCount: 0,
         };
         result.tools.push({
           entry: toolEntry,

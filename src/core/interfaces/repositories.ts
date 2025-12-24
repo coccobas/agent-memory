@@ -303,6 +303,9 @@ export interface CreateKnowledgeInput {
   content: string;
   source?: string;
   confidence?: number;
+  /** When this knowledge becomes valid (ISO timestamp). For temporal KG. */
+  validFrom?: string;
+  /** When this knowledge expires (ISO timestamp). For temporal KG. */
   validUntil?: string;
   createdBy?: string;
 }
@@ -312,7 +315,12 @@ export interface UpdateKnowledgeInput {
   content?: string;
   source?: string;
   confidence?: number;
+  /** When this knowledge becomes valid (ISO timestamp). For temporal KG. */
+  validFrom?: string;
+  /** When this knowledge expires (ISO timestamp). For temporal KG. */
   validUntil?: string;
+  /** ID of entry that supersedes/invalidates this knowledge. For temporal KG. */
+  invalidatedBy?: string;
   changeReason?: string;
   updatedBy?: string;
 }

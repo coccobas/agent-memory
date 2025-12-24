@@ -13,15 +13,15 @@
 | ↳ Deduplication | ✅ IMPLEMENTED (SharedState with content hashing) |
 | ↳ MCP Actions | ✅ IMPLEMENTED (record_case, capture_from_transcript) |
 | ↳ Handler Hooks | ✅ IMPLEMENTED (session end, turn complete) |
-| **Librarian Agent** | 🔄 IN PROGRESS |
+| **Librarian Agent** | ✅ IMPLEMENTED |
 | ↳ Math Utilities | ✅ IMPLEMENTED (Jaccard, LCS, Cosine, Edit Distance) |
 | ↳ Trajectory Similarity | ✅ IMPLEMENTED (14 action categories, 5 components) |
 | ↳ Pattern Detector | ✅ IMPLEMENTED (embedding + trajectory validation) |
-| ↳ Recommendations Schema | 📋 Planned |
-| ↳ Quality Gate | 📋 Planned |
-| ↳ Librarian Service | 📋 Planned |
-| ↳ MCP Handler | 📋 Planned |
-| **CLI & REST Extensions** | 📋 Planned |
+| ↳ Recommendations Schema | ✅ IMPLEMENTED (migration 0015) |
+| ↳ Quality Gate | ✅ IMPLEMENTED (auto-promote, review, reject thresholds) |
+| ↳ Librarian Service | ✅ IMPLEMENTED (scheduler, analyzer, recommender) |
+| ↳ MCP Handler | ✅ IMPLEMENTED (memory_librarian tool) |
+| **CLI & REST Extensions** | ✅ IMPLEMENTED (experience, librarian commands) |
 
 ---
 

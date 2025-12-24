@@ -62,6 +62,15 @@ export const queryHandlers = {
       return v === 'forward' || v === 'backward' || v === 'both';
     }
 
+    // Helper to validate temporal validDuring object
+    function isValidDuringPeriod(
+      v: unknown
+    ): v is { start: string; end: string } {
+      if (!isObject(v)) return false;
+      const obj = v;
+      return isString(obj.start) && isString(obj.end);
+    }
+
     // Build query params object (excluding agent-specific fields)
     const requestedTypesRaw = getOptionalParam(params, 'types', isArrayOfStrings);
     const requestedTypes = requestedTypesRaw ? requestedTypesRaw.filter(isQueryType) : undefined;
@@ -102,6 +111,9 @@ export const queryHandlers = {
       compact: getOptionalParam(params, 'compact', isBoolean),
       semanticSearch: getOptionalParam(params, 'semanticSearch', isBoolean),
       semanticThreshold: getOptionalParam(params, 'semanticThreshold', isNumber),
+      // Temporal filtering (knowledge entries only)
+      atTime: getOptionalParam(params, 'atTime', isString),
+      validDuring: getOptionalParam(params, 'validDuring', isValidDuringPeriod),
     };
 
     // Permissions: deny by default, allow per requested type/scope

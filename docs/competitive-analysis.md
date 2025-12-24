@@ -38,7 +38,7 @@ Your Agent Memory system is **significantly more feature-complete** than most co
 | Guidelines/Rules | ✅ Critical+Priority | ❌ | ❌ | ❌ | ❌ |
 | Knowledge/Facts | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Tools/Skills | ✅ MCP integration | ❌ | Limited | ❌ | ❌ |
-| Experiential | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Experiential | ✅ Case→Strategy→Skill | ✅ | ✅ | ✅ | ✅ |
 | **Architecture** |||||
 | Scope Hierarchy | ✅ 4-level (Global→Org→Project→Session) | Session/User | 2-tier | Session | User/Session |
 | Knowledge Graph | ✅ Relations | ✅ Graph variant | ❌ | ✅ Temporal KG | ❌ |
@@ -67,26 +67,13 @@ Based on the arXiv taxonomy and commercial landscape, here are your **priority g
 
 ### 🔴 HIGH PRIORITY (Competitive Moat)
 
-#### 1. Experiential Memory (Case/Strategy/Skill)
+#### 1. ~~Experiential Memory (Case/Strategy/Skill)~~ ✅ IMPLEMENTED (v0.9.9)
 
-The paper identifies this as THE differentiator for agent evolution. Competitors (Mem0, Letta) lead here.
-
-**What to add:**
-- Case-based memory: Store full trajectories with success/failure labels
-- Strategy-based memory: Abstract insights, workflows, reasoning patterns
-- Skill compilation: Convert repeated successes into callable functions
-
-**Implementation sketch:**
-```typescript
-// New entry type: Experience
-interface Experience {
-  trajectory: Action[]; // Full execution trace
-  outcome: 'success' | 'failure' | 'partial';
-  insights: string[];   // Reflected learnings
-  abstractedSkill?: string; // If promoted to skill
-  rewardSignal?: number;
-}
-```
+> **Status:** Fully implemented in v0.9.9. See `memory_experience` MCP tool and `experience` CLI command.
+> - Case-based memory with trajectories and outcomes
+> - Strategy-level abstraction via promotion
+> - Skill compilation via promotion to Tools
+> - Librarian Agent for pattern detection and auto-promotion
 
 #### 2. Memory Forgetting Mechanisms
 

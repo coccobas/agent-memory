@@ -117,6 +117,12 @@ export class VectorService implements IVectorService {
     this.store.close();
   }
 
+  async compact(): Promise<void> {
+    if (this.store.compact) {
+      await this.store.compact();
+    }
+  }
+
   /**
    * Validate embedding dimension matches expected dimension
    */

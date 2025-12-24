@@ -41,6 +41,7 @@ import { pathsSection } from './sections/paths.js';
 import { backupSection } from './sections/backup.js';
 import { redisSection } from './sections/redis.js';
 import { captureSection } from './sections/capture.js';
+import { rlSection } from './sections/rl.js';
 
 // =============================================================================
 // TOP-LEVEL OPTIONS
@@ -93,6 +94,7 @@ export const configRegistry: ConfigRegistry = {
     backup: backupSection,
     redis: redisSection,
     capture: captureSection,
+    rl: rlSection,
   },
 };
 

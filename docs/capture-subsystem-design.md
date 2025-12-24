@@ -82,14 +82,16 @@ Captured artifacts serve as the input queue for the Librarian Agent.
 
 ---
 
-## 5. Implementation Roadmap
+## 5. Implementation Roadmap ✅ COMPLETE
 
-1.  **Scaffold Service:** Create `src/services/session-analysis.service.ts` with `analyzeTurn` and `analyzeSession` methods.
-2.  **Configuration:** Add `knowledgeCaptureFrequency` to the config registry.
-3.  **Hook Integration (Knowledge):** Modify `conversationHandlers.addMessage` to call `analyzeTurn`.
-4.  **Hook Integration (Experience):** Modify `scopeHandlers.sessionEnd` to call `analyzeSession`.
-5.  **LLM Prompts:** Design distinct prompts for "Fact Extraction" (incremental) vs "Strategy Synthesis" (holistic).
-6.  **Repository Dispatch:** Implement logic to write to both `ExperienceRepository` and `KnowledgeRepository`.
+> **Status:** All items implemented in v0.9.9. See `src/services/capture/` for the unified capture service.
+
+1.  ✅ **Scaffold Service:** `src/services/capture/index.ts` with `CaptureService` coordinator
+2.  ✅ **Configuration:** `src/config/registry/sections/capture.ts` with full config options
+3.  ✅ **Hook Integration (Knowledge):** `KnowledgeCaptureModule` in `knowledge.module.ts`
+4.  ✅ **Hook Integration (Experience):** `ExperienceCaptureModule` in `experience.module.ts`
+5.  ✅ **LLM Prompts:** Uses `memory_observe.extract()` for LLM-based extraction
+6.  ✅ **Repository Dispatch:** Both modules write to respective repositories with deduplication
 
 ## Related Documents
 - [Experiential Memory, Skills & Librarian Agent Plan](./experiential-memory-skills-librarian-plan.md)

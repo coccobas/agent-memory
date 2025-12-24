@@ -4,7 +4,7 @@ import { eq } from 'drizzle-orm';
 import * as schema from '../../src/db/schema.js';
 import { generateId } from '../../src/db/repositories/base.js';
 import { applyMigrations } from './migration-loader.js';
-import { cleanupDbFiles, ensureDataDirectory } from './db-utils.js';
+import { cleanupDbFiles, ensureDataDirectory, cleanupVectorDb, cleanupTestVectorDbs } from './db-utils.js';
 import {
   registerDatabase,
   resetContainer,
@@ -89,6 +89,9 @@ export function createTestRepositories(testDb: TestDb): Repositories {
 
 // Re-export container functions for test cleanup
 export { registerDatabase, resetContainer, clearPreparedStatementCache };
+
+// Re-export vector cleanup utilities
+export { cleanupVectorDb, cleanupTestVectorDbs };
 
 // Re-export runtime functions for test setup
 export { registerRuntime, isRuntimeRegistered, getRuntime };

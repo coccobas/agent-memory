@@ -4,7 +4,7 @@
  * Shared utilities for database setup and cleanup in tests.
  */
 
-import { existsSync, unlinkSync, mkdirSync } from 'node:fs';
+import { existsSync, unlinkSync, mkdirSync, rmSync } from 'node:fs';
 
 /**
  * Clean up SQLite database files including WAL and SHM files.
@@ -44,4 +44,33 @@ export function ensureDirectory(dir: string): void {
 export function ensureDataDirectory(subdir?: string): void {
   const dir = subdir ? `./data/${subdir}` : './data';
   ensureDirectory(dir);
+}
+
+/**
+ * Clean up a LanceDB vector database directory.
+ * Removes the entire directory tree recursively.
+ *
+ * @param vectorDbPath - Path to the LanceDB directory (e.g., 'data/test/vectors.lance')
+ */
+export function cleanupVectorDb(vectorDbPath: string): void {
+  if (existsSync(vectorDbPath)) {
+    try {
+      rmSync(vectorDbPath, { recursive: true, force: true });
+    } catch {
+      // Ignore errors (directory may be locked or already deleted)
+    }
+  }
+}
+
+/**
+ * Clean up all test vector databases in the data/test directory.
+ */
+export function cleanupTestVectorDbs(): void {
+  const testVectorPaths = [
+    './data/test/vectors.lance',
+    './data/test-vectors.lance',
+  ];
+  for (const path of testVectorPaths) {
+    cleanupVectorDb(path);
+  }
 }

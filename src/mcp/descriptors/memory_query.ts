@@ -102,6 +102,18 @@ Quick start: {"action":"context","scopeType":"project","inherit":true}`,
       type: 'number',
       description: 'Minimum similarity score for semantic results (0-1, default: 0.7)',
     },
+    atTime: {
+      type: 'string',
+      description: 'Filter knowledge entries valid at this specific point in time (ISO timestamp). Temporal filtering for knowledge graphs.',
+    },
+    validDuring: {
+      type: 'object',
+      properties: {
+        start: { type: 'string', description: 'Period start (ISO timestamp)' },
+        end: { type: 'string', description: 'Period end (ISO timestamp)' },
+      },
+      description: 'Filter knowledge entries valid during this period. Returns entries where validity overlaps with the specified range.',
+    },
     scopeType: {
       type: 'string',
       enum: ['global', 'org', 'project', 'session'],

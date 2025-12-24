@@ -24,6 +24,9 @@ import {
   type AnalysisResult,
   type LibrarianStatus,
 } from './types.js';
+import { getRLService } from '../rl/index.js';
+import { buildConsolidationState } from '../rl/state/consolidation.state.js';
+import { getFeedbackService } from '../feedback/index.js';
 
 const logger = createComponentLogger('librarian');
 
@@ -67,6 +70,28 @@ export class LibrarianService {
 
     // Initialize recommendation store
     this.recommendationStore = initializeRecommendationStore(deps);
+  }
+
+  /**
+   * Get total count of experiences in the given scope
+   */
+  private async getEntryCount(scopeType: string, scopeId?: string): Promise<number> {
+    try {
+      const experiences = await this.collector.collect({
+        scopeType: scopeType as any,
+        scopeId,
+        inherit: true,
+        levelFilter: 'all',
+        limit: 10000, // High limit just for counting
+      });
+      return experiences.totalFound;
+    } catch (error) {
+      logger.warn(
+        { error: error instanceof Error ? error.message : String(error) },
+        'Failed to get entry count, using 0'
+      );
+      return 0;
+    }
   }
 
   /**
@@ -145,14 +170,125 @@ export class LibrarianService {
         'Pattern detection complete'
       );
 
-      // Stage 3: Quality Evaluation
+      // Stage 3: RL Consolidation Policy Integration (Optional)
+      let filteredPatterns = patternDetection.patterns;
+      const rlService = getRLService();
+      const feedbackService = getFeedbackService();
+
+      if (rlService?.isEnabled() && rlService.getConsolidationPolicy().isEnabled()) {
+        logger.debug({ runId, stage: 'rl_consolidation_policy' }, 'Consulting RL consolidation policy');
+
+        // Get total entries in scope for context
+        const totalEntriesInScope = await this.getEntryCount(request.scopeType, request.scopeId);
+
+        // For each pattern group, get policy decision
+        const policyDecisions = await Promise.all(
+          patternDetection.patterns.map(async (pattern) => {
+            // Build state for consolidation policy
+            const state = buildConsolidationState({
+              group: {
+                entries: pattern.experiences.map((exp) => ({
+                  id: exp.experience.id,
+                  type: 'experience' as const,
+                  similarity: pattern.embeddingSimilarity,
+                })),
+                avgSimilarity: pattern.embeddingSimilarity,
+              },
+              usageStats: {
+                totalRetrievals: pattern.experiences.reduce(
+                  (sum, e) => sum + e.experience.useCount,
+                  0
+                ),
+                avgRetrievalRank: 5, // Default mid-rank, would need actual retrieval data
+                successCount: pattern.experiences.reduce(
+                  (sum, e) => sum + e.experience.successCount,
+                  0
+                ),
+                failureCount: pattern.experiences.reduce(
+                  (sum, e) => sum + (e.experience.useCount - e.experience.successCount),
+                  0
+                ),
+                lastAccessedAt: pattern.experiences
+                  .map((e) => e.experience.lastUsedAt)
+                  .filter((d): d is string => d !== null)
+                  .sort()
+                  .pop(),
+              },
+              scopeContext: {
+                scopeType: request.scopeType,
+                totalEntriesInScope,
+                duplicateCount: patternDetection.patterns.reduce(
+                  (sum, p) => sum + p.experiences.length,
+                  0
+                ),
+              },
+            });
+
+            // Get policy decision
+            const decision = await rlService.getConsolidationPolicy().decideWithFallback(state);
+
+            // Record decision for training if feedback service is available
+            if (feedbackService) {
+              try {
+                await feedbackService.recordConsolidationDecision({
+                  scopeType: request.scopeType,
+                  scopeId: request.scopeId,
+                  action: decision.action.action,
+                  sourceEntryIds: pattern.experiences.map((e) => e.experience.id),
+                  similarityScore: pattern.embeddingSimilarity,
+                  decidedBy: 'librarian',
+                });
+              } catch (error) {
+                logger.warn(
+                  { error: error instanceof Error ? error.message : String(error) },
+                  'Failed to record consolidation decision for training'
+                );
+              }
+            }
+
+            return { pattern, decision };
+          })
+        );
+
+        // Filter patterns based on policy decisions
+        // 'keep' -> include in recommendations
+        // 'merge', 'dedupe', 'archive', 'abstract' -> include with suggested action
+        // For now, we filter out 'archive' actions since those shouldn't be promoted
+        filteredPatterns = policyDecisions
+          .filter(({ decision }) => decision.action.action !== 'archive')
+          .map(({ pattern, decision }) => ({
+            ...pattern,
+            // Add policy metadata to pattern for downstream use
+            rlPolicyAction: decision.action.action,
+            rlPolicyConfidence: decision.confidence,
+            rlPolicyReason: decision.metadata?.reason,
+          }));
+
+        logger.debug(
+          {
+            runId,
+            originalPatterns: patternDetection.patterns.length,
+            filteredPatterns: filteredPatterns.length,
+            filtered: policyDecisions
+              .filter(({ decision }) => decision.action.action === 'archive')
+              .map(({ pattern, decision }) => ({
+                patternId: pattern.id,
+                action: decision.action.action,
+                reason: decision.metadata?.reason,
+              })),
+          },
+          'RL consolidation policy filtering complete'
+        );
+      }
+
+      // Stage 4: Quality Evaluation
       logger.debug({ runId, stage: 'quality_evaluation' }, 'Evaluating pattern quality');
-      const qualityEvaluations = patternDetection.patterns.map(pattern => ({
+      const qualityEvaluations = filteredPatterns.map(pattern => ({
         pattern,
         result: this.qualityGate.evaluate(pattern),
       }));
 
-      // Stage 4: Recommendation Generation
+      // Stage 5: Recommendation Generation
       logger.debug({ runId, stage: 'recommendation_generation' }, 'Generating recommendations');
       const evaluationMap = new Map(qualityEvaluations.map(e => [e.pattern, e.result]));
 
@@ -162,12 +298,12 @@ export class LibrarianService {
       });
 
       const recommendations = this.recommender.generateRecommendations(
-        patternDetection.patterns,
+        filteredPatterns,
         evaluationMap,
         { scopeType: request.scopeType, scopeId: request.scopeId }
       );
 
-      // Stage 5: Storage (if not dry run)
+      // Stage 6: Storage (if not dry run)
       if (!request.dryRun && recommendations.recommendations.length > 0) {
         logger.debug({ runId, stage: 'storage' }, 'Storing recommendations');
         await this.recommender.storeRecommendations(

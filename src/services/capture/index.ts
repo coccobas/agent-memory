@@ -32,6 +32,10 @@ import type {
   KnowledgeCaptureResult,
 } from './types.js';
 import type { IExperienceRepository } from '../../core/interfaces/repositories.js';
+import { getRLService } from '../rl/index.js';
+import { buildExtractionState } from '../rl/state/extraction.state.js';
+import { getFeedbackService } from '../feedback/index.js';
+import { createHash } from 'crypto';
 
 const logger = createComponentLogger('capture');
 
@@ -42,6 +46,8 @@ const logger = createComponentLogger('capture');
 export interface CaptureServiceDeps {
   experienceRepo: IExperienceRepository;
   knowledgeModuleDeps: KnowledgeModuleDeps;
+  // Optional: for getting entry counts when RL is enabled
+  getEntryCount?: (projectId?: string) => Promise<number>;
 }
 
 export interface CaptureServiceConfig extends CaptureConfig {}
@@ -55,12 +61,14 @@ export class CaptureService {
   private knowledgeModule: KnowledgeCaptureModule;
   private stateManager: CaptureStateManager;
   private captureConfig: CaptureConfig;
+  private getEntryCountFn?: (projectId?: string) => Promise<number>;
 
   constructor(deps: CaptureServiceDeps, captureConfig?: CaptureServiceConfig) {
     this.experienceModule = createExperienceCaptureModule(deps.experienceRepo);
     this.knowledgeModule = createKnowledgeCaptureModule(deps.knowledgeModuleDeps);
     this.stateManager = getCaptureStateManager();
     this.captureConfig = captureConfig ?? this.buildDefaultConfig();
+    this.getEntryCountFn = deps.getEntryCount;
   }
 
   /**
@@ -131,6 +139,27 @@ export class CaptureService {
     };
   }
 
+  /**
+   * Get total entry count for a project (for RL state building)
+   */
+  private async getEntryCount(projectId?: string): Promise<number> {
+    if (this.getEntryCountFn) {
+      return this.getEntryCountFn(projectId);
+    }
+    // Default fallback - return 0 if no count function provided
+    return 0;
+  }
+
+  /**
+   * Simple content hash for deduplication and decision tracking
+   */
+  private hashContent(content: string): string {
+    return createHash('sha256')
+      .update(content.slice(0, 1000))
+      .digest('hex')
+      .slice(0, 16);
+  }
+
   // =============================================================================
   // TURN HANDLING
   // =============================================================================
@@ -156,22 +185,109 @@ export class CaptureService {
       return null;
     }
 
-    const shouldCapture = this.stateManager.shouldTriggerTurnCapture(
-      metrics,
-      this.captureConfig,
-      sessionState.captureCount
-    );
+    // Try RL policy first if enabled
+    const rlService = getRLService();
+    const feedbackService = getFeedbackService();
 
-    if (!shouldCapture) {
-      return null;
+    if (rlService?.isEnabled() && rlService.getExtractionPolicy().isEnabled()) {
+      try {
+        // Build extraction state from current context
+        const state = buildExtractionState({
+          turns: sessionState.transcript,
+          metrics,
+          memoryContext: {
+            totalEntries: await this.getEntryCount(sessionState.projectId),
+            recentExtractions: sessionState.captureCount,
+            sessionCaptureCount: sessionState.captureCount,
+          },
+          // Could add similarity check here if we want to query for similar content
+        });
+
+        // Get policy decision
+        const decision = await rlService.getExtractionPolicy().decideWithFallback(state);
+
+        logger.debug(
+          {
+            sessionId,
+            decision: decision.action.decision,
+            confidence: decision.confidence,
+            entryType: decision.action.entryType,
+          },
+          'RL extraction policy decision'
+        );
+
+        // Record the decision for training (fire-and-forget)
+        if (feedbackService) {
+          const turnContent = turn.content ?? '';
+          feedbackService
+            .recordExtractionDecision({
+              sessionId,
+              turnNumber: metrics.turnCount,
+              decision: decision.action.decision,
+              entryType: decision.action.entryType,
+              confidence: decision.confidence,
+              contextHash: this.hashContent(turnContent),
+            })
+            .catch((error) => {
+              logger.warn(
+                { error: error instanceof Error ? error.message : String(error) },
+                'Failed to record extraction decision'
+              );
+            });
+        }
+
+        // Act on decision
+        if (decision.action.decision === 'skip') {
+          logger.debug({ sessionId }, 'RL policy decided to skip extraction');
+          return null;
+        }
+
+        if (decision.action.decision === 'defer') {
+          logger.debug({ sessionId }, 'RL policy decided to defer extraction');
+          return null;
+        }
+
+        // 'store' - proceed with extraction
+        logger.info(
+          {
+            sessionId,
+            turnCount: metrics.turnCount,
+            captureCount: sessionState.captureCount,
+            rlDecision: true,
+          },
+          'Triggering RL-based capture'
+        );
+      } catch (error) {
+        logger.warn(
+          { error: error instanceof Error ? error.message : String(error) },
+          'RL policy decision failed, falling back to threshold-based'
+        );
+        // Fall through to threshold-based logic
+      }
+    } else {
+      // Fallback to threshold-based logic if RL not enabled
+      const shouldCapture = this.stateManager.shouldTriggerTurnCapture(
+        metrics,
+        this.captureConfig,
+        sessionState.captureCount
+      );
+
+      if (!shouldCapture) {
+        return null;
+      }
+
+      logger.info(
+        {
+          sessionId,
+          turnCount: metrics.turnCount,
+          captureCount: sessionState.captureCount,
+          thresholdBased: true,
+        },
+        'Triggering threshold-based capture'
+      );
     }
 
-    logger.info(
-      { sessionId, turnCount: metrics.turnCount, captureCount: sessionState.captureCount },
-      'Triggering turn-based capture'
-    );
-
-    // Trigger knowledge capture
+    // Execute the extraction
     const captureOptions: CaptureOptions = {
       sessionId,
       scopeType: 'session',

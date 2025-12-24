@@ -26,6 +26,7 @@ import { getCriticalGuidelinesForSession } from '../../services/critical-guideli
 import { requireAdminKey } from '../../utils/admin.js';
 import { createValidationError, createNotFoundError } from '../../core/errors.js';
 import { getCaptureService } from '../../services/capture/index.js';
+import { getFeedbackService } from '../../services/feedback/index.js';
 import { createComponentLogger } from '../../utils/logger.js';
 
 const logger = createComponentLogger('scopes');
@@ -268,6 +269,9 @@ export const scopeHandlers = {
       });
     }
 
+    // Record task outcome for RL feedback (non-blocking)
+    recordSessionOutcome(id, status ?? 'completed');
+
     return formatTimestamps({ success: true, session });
   },
 
@@ -286,3 +290,88 @@ export const scopeHandlers = {
     });
   },
 };
+
+/**
+ * Record session outcome for RL feedback collection
+ *
+ * Infers outcome type from session status and links all retrievals
+ * from the session to this outcome.
+ */
+function recordSessionOutcome(
+  sessionId: string,
+  status: 'active' | 'paused' | 'completed' | 'discarded'
+): void {
+  const feedbackService = getFeedbackService();
+  if (!feedbackService) return;
+
+  // Fire-and-forget async recording
+  setImmediate(async () => {
+    try {
+      // Infer outcome type from session status
+      const outcomeType = inferOutcomeFromStatus(status);
+
+      // Record the outcome
+      const outcomeId = await feedbackService.recordOutcome({
+        sessionId,
+        outcomeType,
+        outcomeSignal: 'session_status',
+        confidence: getConfidenceForStatus(status),
+      });
+
+      // Link all unlinked retrievals from this session to the outcome
+      const retrievals = await feedbackService.getUnlinkedRetrievals(sessionId);
+      if (retrievals.length > 0) {
+        await feedbackService.linkRetrievalsToOutcome(
+          outcomeId,
+          retrievals.map(r => r.id)
+        );
+        logger.debug(
+          { sessionId, outcomeId, linkedRetrievals: retrievals.length },
+          'Linked retrievals to session outcome'
+        );
+      }
+    } catch (error) {
+      logger.error(
+        { sessionId, error: error instanceof Error ? error.message : String(error) },
+        'Failed to record session outcome for RL feedback'
+      );
+    }
+  });
+}
+
+/**
+ * Infer outcome type from session status
+ */
+function inferOutcomeFromStatus(
+  status: 'active' | 'paused' | 'completed' | 'discarded'
+): 'success' | 'failure' | 'partial' | 'unknown' {
+  switch (status) {
+    case 'completed':
+      return 'success';
+    case 'discarded':
+      return 'failure';
+    case 'paused':
+      return 'partial';
+    default:
+      return 'unknown';
+  }
+}
+
+/**
+ * Get confidence level for status-based outcome inference
+ */
+function getConfidenceForStatus(
+  status: 'active' | 'paused' | 'completed' | 'discarded'
+): number {
+  // Session status is a moderate signal - not explicit user feedback
+  switch (status) {
+    case 'completed':
+      return 0.7;  // Completed sessions likely successful
+    case 'discarded':
+      return 0.8;  // Discarded is a stronger signal of failure
+    case 'paused':
+      return 0.5;  // Paused is ambiguous
+    default:
+      return 0.3;
+  }
+}

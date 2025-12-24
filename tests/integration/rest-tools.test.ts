@@ -1,7 +1,7 @@
 /**
  * Integration tests for REST API Tools Endpoints
  *
- * Tests the new REST API tools endpoints that expose all 28 MCP tools via HTTP:
+ * Tests the new REST API tools endpoints that expose all 29 MCP tools via HTTP:
  * - GET /v1/tools - List all available tools
  * - POST /v1/tools/:tool - Execute a tool by name
  * - GET /v1/openapi.json - Get OpenAPI specification
@@ -71,7 +71,7 @@ describe('REST API Tools Endpoints', () => {
   });
 
   describe('GET /v1/tools - List Tools', () => {
-    it('should return list of all 28 tools', async () => {
+    it('should return list of all 29 tools', async () => {
       const app = createServer(context);
 
       const res = await app.inject({
@@ -95,7 +95,7 @@ describe('REST API Tools Endpoints', () => {
       // Verify response structure
       expect(body.tools).toBeDefined();
       expect(Array.isArray(body.tools)).toBe(true);
-      expect(body.count).toBe(28); // Expect all 28 MCP tools
+      expect(body.count).toBe(29); // Expect all 29 MCP tools (includes memory_forget)
 
       // Verify specific tools are present
       const toolNames = body.tools.map((t) => t.name);
