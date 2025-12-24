@@ -5,8 +5,7 @@
  */
 
 import type { ConsolidationState } from '../types.js';
-import type { ScopeType } from '../../../db/schema.js';
-import type { EntryType } from '../../../db/schema/feedback.js';
+import type { ScopeType, EntryType } from '../../../db/schema.js';
 
 // =============================================================================
 // STATE BUILDER

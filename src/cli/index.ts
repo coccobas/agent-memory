@@ -39,7 +39,7 @@ import { addForgetCommand } from './commands/forget.js';
 import { addRlCommand } from './commands/rl.js';
 
 // Version from package.json
-const VERSION = '0.9.9';
+const VERSION = '0.9.11';
 
 /**
  * Create the Commander.js program

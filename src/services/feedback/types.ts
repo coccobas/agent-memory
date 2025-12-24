@@ -8,13 +8,11 @@
  */
 
 import type {
-  EntryType,
   OutcomeType,
   OutcomeSignal,
   ExtractionDecisionType,
   ConsolidationAction,
   AttributionMethod,
-  ScopeType,
   MemoryRetrieval,
   TaskOutcome,
   RetrievalOutcome,
@@ -23,10 +21,16 @@ import type {
   ConsolidationDecision,
   ConsolidationOutcome,
 } from '../../db/schema/feedback.js';
+import type { EntryType as BaseEntryType, ScopeType } from '../../db/schema/types.js';
+
+/**
+ * Entry type for feedback/RL tracking - subset of base EntryType
+ * Excludes 'project' which is not a trackable memory entry
+ */
+export type EntryType = Extract<BaseEntryType, 'tool' | 'guideline' | 'knowledge' | 'experience'>;
 
 // Re-export feedback schema types
 export type {
-  EntryType,
   OutcomeType,
   OutcomeSignal,
   ExtractionDecisionType,

@@ -276,7 +276,7 @@ Scope Context:
 /**
  * Create completion for policy
  */
-function createCompletionForPolicy(action: any, policy: PolicyType, reward: number): string {
+function createCompletionForPolicy(action: any, _policy: PolicyType, reward: number): string {
   const actionJson = JSON.stringify(action, null, 2);
 
   return `Assistant: Based on my analysis, here is my decision:

@@ -35,7 +35,7 @@ export {
   createKVCacheService,
   type LatentMemory,
   type LatentMemorySourceType,
-  type CompressionMethod,
+  // Note: CompressionMethod is already exported from compression/types.js above
   type KVCacheConfig,
   type CacheStats,
 } from './kv-cache.service.js';

@@ -4,7 +4,7 @@
  * CRUD operations for memory_retrievals table
  */
 
-import { eq, and, desc, isNull } from 'drizzle-orm';
+import { eq, and, desc, gte, lte } from 'drizzle-orm';
 import type { DrizzleDb } from '../../../db/repositories/base.js';
 import { generateId, now } from '../../../db/repositories/base.js';
 import {
@@ -12,7 +12,6 @@ import {
   retrievalOutcomes,
   type MemoryRetrieval,
   type NewMemoryRetrieval,
-  type EntryType,
 } from '../../../db/schema/feedback.js';
 import type { RecordRetrievalParams } from '../types.js';
 import { createComponentLogger } from '../../../utils/logger.js';
@@ -101,7 +100,7 @@ export class RetrievalRepository {
   /**
    * Get all retrievals for a specific entry
    */
-  async getByEntry(entryType: EntryType, entryId: string): Promise<MemoryRetrieval[]> {
+  async getByEntry(entryType: MemoryRetrieval['entryType'], entryId: string): Promise<MemoryRetrieval[]> {
     const retrievals = this.db
       .select()
       .from(memoryRetrievals)
@@ -151,7 +150,7 @@ export class RetrievalRepository {
   /**
    * Count retrievals for an entry
    */
-  async countByEntry(entryType: EntryType, entryId: string): Promise<number> {
+  async countByEntry(entryType: MemoryRetrieval['entryType'], entryId: string): Promise<number> {
     const retrievals = await this.getByEntry(entryType, entryId);
     return retrievals.length;
   }
@@ -166,8 +165,8 @@ export class RetrievalRepository {
       .where(
         and(
           // SQLite string comparison works for ISO timestamps
-          this.db.$with('start', () => memoryRetrievals.retrievedAt >= startDate),
-          this.db.$with('end', () => memoryRetrievals.retrievedAt <= endDate)
+          gte(memoryRetrievals.retrievedAt, startDate),
+          lte(memoryRetrievals.retrievedAt, endDate)
         )
       )
       .orderBy(desc(memoryRetrievals.retrievedAt))

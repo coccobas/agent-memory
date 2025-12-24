@@ -12,9 +12,6 @@ import type {
   ExtractionState,
   RetrievalState,
   ConsolidationState,
-  ExtractionAction,
-  RetrievalAction,
-  ConsolidationAction,
 } from '../../types.js';
 import type { Dataset } from '../dataset-builder.js';
 import type {
@@ -326,7 +323,7 @@ What consolidation action should be taken?`;
 /**
  * Format action as assistant response
  */
-function formatActionAsResponse(action: any, policy: PolicyType, reward: number): string {
+function formatActionAsResponse(action: any, _policy: PolicyType, reward: number): string {
   const actionJson = JSON.stringify(action, null, 2);
 
   return `Based on the analysis, I recommend the following action:

@@ -183,7 +183,11 @@ export class ModelLoader {
       model = match;
     } else {
       // Get latest (first in sorted list)
-      model = candidates[0];
+      const latest = candidates[0];
+      if (!latest) {
+        throw new Error(`No models found for policy: ${policyType}`);
+      }
+      model = latest;
     }
 
     // Validate model integrity
@@ -384,17 +388,17 @@ export class ModelLoader {
   private extractVersion(filename: string, metadata: ModelMetadata): string {
     // Try to extract from filename
     const versionMatch = filename.match(/v?(\d+\.\d+\.\d+)/);
-    if (versionMatch) {
+    if (versionMatch?.[1]) {
       return versionMatch[1];
     }
 
     const dateMatch = filename.match(/(\d{8}-\d{6})/);
-    if (dateMatch) {
+    if (dateMatch?.[1]) {
       return dateMatch[1];
     }
 
     // Fall back to metadata version or trained date
-    return metadata.config.version ?? metadata.trainedAt;
+    return metadata.config.version ?? metadata.trainedAt ?? 'unknown';
   }
 
   /**

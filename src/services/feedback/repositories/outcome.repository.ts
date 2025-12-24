@@ -4,7 +4,7 @@
  * CRUD operations for task_outcomes and retrieval_outcomes tables
  */
 
-import { eq, and, desc, inArray } from 'drizzle-orm';
+import { eq, and, desc, inArray, gte, lte } from 'drizzle-orm';
 import type { DrizzleDb } from '../../../db/repositories/base.js';
 import { generateId, now } from '../../../db/repositories/base.js';
 import {
@@ -166,7 +166,7 @@ export class OutcomeRepository {
   /**
    * Count successful outcomes for retrievals of a specific entry
    */
-  async countSuccessfulRetrievals(entryId: string): Promise<number> {
+  async countSuccessfulRetrievals(_entryId: string): Promise<number> {
     // This requires joining through memory_retrievals - we'll implement a simple version
     // In practice, you might want to add indexes or optimize this query
     const allOutcomes = this.db
@@ -196,8 +196,8 @@ export class OutcomeRepository {
       .where(
         and(
           // SQLite string comparison works for ISO timestamps
-          this.db.$with('start', () => taskOutcomes.outcomeAt >= startDate),
-          this.db.$with('end', () => taskOutcomes.outcomeAt <= endDate)
+          gte(taskOutcomes.outcomeAt, startDate),
+          lte(taskOutcomes.outcomeAt, endDate)
         )
       )
       .orderBy(desc(taskOutcomes.outcomeAt))

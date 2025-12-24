@@ -243,7 +243,7 @@ export async function testPerformance(
   embeddingService: EmbeddingService
 ): Promise<void> {
   console.log('Performance test...');
-  const hierarchy = await setupMockHierarchy(db);
+  await setupMockHierarchy(db); // Sets up test data
   const retriever = new CoarseToFineRetriever(db, embeddingService);
 
   const queries = [

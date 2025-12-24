@@ -121,7 +121,7 @@ export async function exportOpenAIMessagesFormat(
     };
 
     const fileSizes: Record<string, number> = {};
-    for (const [key, path] of Object.entries(files)) {
+    for (const [_key, path] of Object.entries(files)) {
       const stat = await fs.stat(path);
       fileSizes[path] = stat.size;
     }
@@ -138,7 +138,7 @@ export async function exportOpenAIMessagesFormat(
         evalExamples: evalData.length,
         fileSizes,
         exportedAt: new Date().toISOString(),
-        policyType: config.policy,
+        policyType: config.policy ?? 'extraction',
         estimatedTokens: totalTokens,
       },
       warnings: warnings.length > 0 ? warnings : undefined,
@@ -159,7 +159,7 @@ export async function exportOpenAIMessagesFormat(
         evalExamples: 0,
         fileSizes: {},
         exportedAt: new Date().toISOString(),
-        policyType: config.policy,
+        policyType: config.policy ?? 'extraction',
       },
       error: error instanceof Error ? error.message : String(error),
     };

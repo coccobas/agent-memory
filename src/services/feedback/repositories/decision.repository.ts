@@ -5,7 +5,7 @@
  * consolidation_decisions, and consolidation_outcomes tables
  */
 
-import { eq, and, desc, inArray, isNull } from 'drizzle-orm';
+import { eq, and, desc, gte, lte } from 'drizzle-orm';
 import type { DrizzleDb } from '../../../db/repositories/base.js';
 import { generateId, now } from '../../../db/repositories/base.js';
 import {
@@ -21,9 +21,8 @@ import {
   type NewConsolidationDecision,
   type ConsolidationOutcome,
   type NewConsolidationOutcome,
-  type EntryType,
-  type ScopeType,
 } from '../../../db/schema/feedback.js';
+import type { ScopeType } from '../../../db/schema/types.js';
 import type {
   RecordExtractionDecisionParams,
   RecordConsolidationDecisionParams,
@@ -193,8 +192,8 @@ export class DecisionRepository {
       .from(extractionDecisions)
       .where(
         and(
-          this.db.$with('start', () => extractionDecisions.decidedAt >= startDate),
-          this.db.$with('end', () => extractionDecisions.decidedAt <= endDate)
+          gte(extractionDecisions.decidedAt, startDate),
+          lte(extractionDecisions.decidedAt, endDate)
         )
       )
       .orderBy(desc(extractionDecisions.decidedAt))
@@ -359,8 +358,8 @@ export class DecisionRepository {
       .from(consolidationDecisions)
       .where(
         and(
-          this.db.$with('start', () => consolidationDecisions.decidedAt >= startDate),
-          this.db.$with('end', () => consolidationDecisions.decidedAt <= endDate)
+          gte(consolidationDecisions.decidedAt, startDate),
+          lte(consolidationDecisions.decidedAt, endDate)
         )
       )
       .orderBy(desc(consolidationDecisions.decidedAt))

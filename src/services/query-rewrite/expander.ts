@@ -227,7 +227,9 @@ export class QueryExpander {
     const expandablePositions: Array<{ index: number; synonyms: string[] }> = [];
 
     for (let i = 0; i < tokens.length; i++) {
-      const synonyms = findSynonyms(tokens[i]);
+      const token = tokens[i];
+      if (!token) continue;
+      const synonyms = findSynonyms(token);
       if (synonyms.length > 0) {
         expandablePositions.push({ index: i, synonyms });
       }
@@ -260,16 +262,20 @@ export class QueryExpander {
       const secondPos = expandablePositions[1];
 
       // Try combining first synonym of each position
-      if (firstPos.synonyms.length > 0 && secondPos.synonyms.length > 0) {
-        let combined = [...tokens];
-        combined[firstPos.index] = firstPos.synonyms[0];
-        combined[secondPos.index] = secondPos.synonyms[0];
+      if (firstPos && secondPos && firstPos.synonyms.length > 0 && secondPos.synonyms.length > 0) {
+        const firstSynonym = firstPos.synonyms[0];
+        const secondSynonym = secondPos.synonyms[0];
+        if (firstSynonym && secondSynonym) {
+          const combined = [...tokens];
+          combined[firstPos.index] = firstSynonym;
+          combined[secondPos.index] = secondSynonym;
 
-        expansions.push({
-          text: combined.join(' '),
-          source: 'dictionary',
-          confidence: 0.7, // Lower confidence for multi-substitution
-        });
+          expansions.push({
+            text: combined.join(' '),
+            source: 'dictionary',
+            confidence: 0.7, // Lower confidence for multi-substitution
+          });
+        }
       }
     }
 
@@ -296,6 +302,7 @@ export class QueryExpander {
     // Find related terms for each token
     for (let i = 0; i < tokens.length; i++) {
       const token = tokens[i];
+      if (!token) continue;
 
       try {
         const relatedTerms = await this.relationTraverser(token, 2); // Max depth 2

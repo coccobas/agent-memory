@@ -219,21 +219,25 @@ export class CaptureService {
         // Record the decision for training (fire-and-forget)
         if (feedbackService) {
           const turnContent = turn.content ?? '';
-          feedbackService
-            .recordExtractionDecision({
-              sessionId,
-              turnNumber: metrics.turnCount,
-              decision: decision.action.decision,
-              entryType: decision.action.entryType,
-              confidence: decision.confidence,
-              contextHash: this.hashContent(turnContent),
-            })
-            .catch((error) => {
-              logger.warn(
-                { error: error instanceof Error ? error.message : String(error) },
-                'Failed to record extraction decision'
-              );
-            });
+          // Only record if entryType is trackable (excludes 'project')
+          const entryType = decision.action.entryType;
+          if (entryType && entryType !== 'project') {
+            feedbackService
+              .recordExtractionDecision({
+                sessionId,
+                turnNumber: metrics.turnCount,
+                decision: decision.action.decision,
+                entryType,
+                confidence: decision.confidence,
+                contextHash: this.hashContent(turnContent),
+              })
+              .catch((error) => {
+                logger.warn(
+                  { error: error instanceof Error ? error.message : String(error) },
+                  'Failed to record extraction decision'
+                );
+              });
+          }
         }
 
         // Act on decision

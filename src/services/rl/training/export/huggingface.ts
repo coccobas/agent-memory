@@ -131,7 +131,7 @@ export async function exportHuggingFace(
  */
 function convertToHuggingFaceFormat(
   example: ExtractionTrainingExample | RetrievalTrainingExample | ConsolidationTrainingExample,
-  policy: PolicyType,
+  _policy: PolicyType,
   includeMetadata: boolean
 ): any {
   const base = {

@@ -490,8 +490,8 @@ export class PolicyEvaluator {
    * @returns Extended evaluation result with baseline comparison
    */
   async evaluate<TState, TAction>(
-    model: LoadedModel,
-    evalData: Array<{ state: TState; action: TAction; reward: number }>
+    _model: LoadedModel,
+    _evalData: Array<{ state: TState; action: TAction; reward: number }>
   ): Promise<ExtendedEvaluationResult> {
     // For now, we assume the model has a corresponding policy implementation
     // In a real implementation, this would load the model weights and run inference

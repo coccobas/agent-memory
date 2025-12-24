@@ -93,7 +93,7 @@ export function computeTimeDecayAttribution(
   // Distribute score proportionally to weights
   return retrievals.map((r, index) => ({
     retrievalId: r.id,
-    score: totalWeight > 0 ? (baseScore * weights[index]) / totalWeight : 0,
+    score: totalWeight > 0 ? (baseScore * (weights[index] ?? 0)) / totalWeight : 0,
   }));
 }
 
@@ -124,7 +124,7 @@ export function computeRankWeightedAttribution(
   // Distribute score proportionally to weights
   return retrievals.map((r, index) => ({
     retrievalId: r.id,
-    score: totalWeight > 0 ? (baseScore * weights[index]) / totalWeight : 0,
+    score: totalWeight > 0 ? (baseScore * (weights[index] ?? 0)) / totalWeight : 0,
   }));
 }
 
@@ -147,7 +147,7 @@ export function computeAttentionAttribution(
 
     return retrievals.map((r, index) => ({
       retrievalId: r.id,
-      score: totalWeight > 0 ? (baseScore * attentionWeights[index]) / totalWeight : 0,
+      score: totalWeight > 0 ? (baseScore * (attentionWeights[index] ?? 0)) / totalWeight : 0,
     }));
   }
 

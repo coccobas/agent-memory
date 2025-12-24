@@ -40,19 +40,49 @@ const logger = createComponentLogger('hierarchical-summarization');
 export class HierarchicalSummarizationService {
   private config: HierarchicalSummarizationConfig;
 
+  // Dependencies stored for future implementation
+  private db: AppDb;
+  private embeddingService: EmbeddingService;
+  private extractionService: ExtractionService;
+  private vectorService: IVectorService;
+
   constructor(
-    private db: AppDb,
-    private embeddingService: EmbeddingService,
-    private extractionService: ExtractionService,
-    private _vectorService: IVectorService, // Prefixed with _ since not currently used
+    db: AppDb,
+    embeddingService: EmbeddingService,
+    extractionService: ExtractionService,
+    vectorService: IVectorService,
     config?: Partial<HierarchicalSummarizationConfig>
   ) {
+    this.db = db;
+    this.embeddingService = embeddingService;
+    this.extractionService = extractionService;
+    this.vectorService = vectorService;
     this.config = {
       ...DEFAULT_HIERARCHICAL_SUMMARIZATION_CONFIG,
       ...config,
     };
 
     logger.debug({ config: this.config }, 'Hierarchical summarization service initialized');
+  }
+
+  /** Get database instance (for subclasses/testing) */
+  protected getDb(): AppDb {
+    return this.db;
+  }
+
+  /** Get embedding service (for subclasses/testing) */
+  protected getEmbeddingService(): EmbeddingService {
+    return this.embeddingService;
+  }
+
+  /** Get extraction service (for subclasses/testing) */
+  protected getExtractionService(): ExtractionService {
+    return this.extractionService;
+  }
+
+  /** Get vector service (for subclasses/testing) */
+  protected getVectorService(): IVectorService {
+    return this.vectorService;
   }
 
   /**

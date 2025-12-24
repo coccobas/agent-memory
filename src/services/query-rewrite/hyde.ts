@@ -193,8 +193,9 @@ export class HyDEGenerator {
     // Build the prompt based on intent
     const userPrompt = HYDE_PROMPTS[intent](query);
 
-    // Build context for extraction service
-    const context = `${HYDE_SYSTEM_PROMPT}\n\n${userPrompt}`;
+    // Build context for extraction service (reserved for future prompt variations)
+    // Note: context variable intentionally unused - reserved for future prompt variations
+    void `${HYDE_SYSTEM_PROMPT}\n\n${userPrompt}`;
 
     // For HyDE, we're not extracting structured entries, just generating text
     // We'll use the extraction service's raw generation capability

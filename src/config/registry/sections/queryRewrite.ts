@@ -37,7 +37,7 @@ export const queryRewriteSection: ConfigSectionMeta = {
       defaultValue: 0.7,
       description: 'Temperature for HyDE document generation (0-2).',
       schema: z.number().min(0).max(2),
-      parse: 'float',
+      parse: 'number',
     },
     hydeMaxTokens: {
       envKey: 'AGENT_MEMORY_HYDE_MAX_TOKENS',
@@ -86,7 +86,7 @@ export const queryRewriteSection: ConfigSectionMeta = {
       defaultValue: 0.5,
       description: 'Weight for expanded queries relative to original (0-1).',
       schema: z.number().min(0).max(1),
-      parse: 'float',
+      parse: 'number',
     },
     decompositionEnabled: {
       envKey: 'AGENT_MEMORY_QUERY_DECOMPOSITION_ENABLED',

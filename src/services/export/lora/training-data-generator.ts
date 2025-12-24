@@ -49,7 +49,7 @@ export class TrainingDataGenerator {
    */
   private generatePositiveExample(guideline: GuidelineData, variant: number): TrainingExample {
     const instructions = this.generateInstructionVariants(guideline);
-    const instruction = instructions[variant % instructions.length];
+    const instruction = instructions[variant % instructions.length] ?? '';
     const contextualInput = this.generateContextualInput(guideline, variant);
 
     return {
@@ -73,7 +73,7 @@ export class TrainingDataGenerator {
    */
   private generateNegativeExample(guideline: GuidelineData, variant: number): TrainingExample {
     const instructions = this.generateInstructionVariants(guideline);
-    const instruction = instructions[variant % instructions.length];
+    const instruction = instructions[variant % instructions.length] ?? '';
     const contextualInput = this.generateContextualInput(guideline, variant);
 
     return {
@@ -135,7 +135,7 @@ This is a ${priority} priority ${category} guideline that must be followed caref
     if (scenarios.length === 0) {
       return '';
     }
-    return scenarios[variant % scenarios.length];
+    return scenarios[variant % scenarios.length] ?? '';
   }
 
   /**
@@ -168,7 +168,7 @@ This is a ${priority} priority ${category} guideline that must be followed caref
       `While the guideline suggests one approach, it's often better to ${this.generateAlternative(guideline)}`,
     ];
 
-    return violations[Math.floor(Math.random() * violations.length)];
+    return violations[Math.floor(Math.random() * violations.length)] ?? '';
   }
 
   /**
@@ -187,7 +187,7 @@ This is a ${priority} priority ${category} guideline that must be followed caref
    */
   private extractScenarios(guideline: GuidelineData): string[] {
     const scenarios: string[] = [];
-    const content = guideline.content;
+    const content = guideline.content ?? '';
 
     // Look for example patterns
     const exampleMatches = content.match(/example[s]?:\s*([^\n]+)/gi);

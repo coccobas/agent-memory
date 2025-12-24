@@ -78,7 +78,7 @@ export class ExtractionCollector {
       );
 
       const retrievalCount = retrievals.length;
-      const lastRetrievedAt = retrievals.length > 0 ? retrievals[0].retrievedAt : null;
+      const lastRetrievedAt = retrievals.length > 0 ? retrievals[0]?.retrievedAt : null;
 
       // Count successful outcomes for these retrievals
       let successCount = 0;
@@ -115,7 +115,7 @@ export class ExtractionCollector {
         decision.entryId,
         retrievalCount,
         successCount,
-        lastRetrievedAt,
+        lastRetrievedAt ?? null,
         outcomeScore
       );
 

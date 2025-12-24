@@ -73,12 +73,12 @@ export async function exportDataset(
   // Apply split ratio if specified and different from dataset
   let processedDataset = dataset;
   if (options.splitRatio !== undefined && options.splitRatio !== 0.2) {
-    processedDataset = resplitDataset(dataset, options.splitRatio, options.shuffle, options.seed);
+    processedDataset = resplitDataset(dataset as Dataset<any>, options.splitRatio, options.shuffle, options.seed);
   }
 
   // Apply max examples limit if specified
   if (options.maxExamples !== undefined) {
-    processedDataset = limitDataset(processedDataset, options.maxExamples);
+    processedDataset = limitDataset(processedDataset as Dataset<any>, options.maxExamples);
   }
 
   // Delegate to format-specific exporter

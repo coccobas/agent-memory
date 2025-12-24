@@ -59,6 +59,7 @@ export interface Config {
     statementTimeoutMs: number;
   };
   vectorDb: {
+    backend: 'auto' | 'pgvector' | 'lancedb';
     path: string;
     distanceMetric: 'cosine' | 'l2' | 'dot';
   };

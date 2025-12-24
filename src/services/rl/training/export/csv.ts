@@ -118,7 +118,7 @@ export async function exportCSV(
  */
 function flattenExample(
   example: ExtractionTrainingExample | RetrievalTrainingExample | ConsolidationTrainingExample,
-  policy: PolicyType,
+  _policy: PolicyType,
   includeMetadata: boolean
 ): CSVRow {
   const row: CSVRow = {};
@@ -346,7 +346,7 @@ See \`analysis_template.py\` for example analysis code.
 /**
  * Get description for column
  */
-function getColumnDescription(column: string, policy: PolicyType): string {
+function getColumnDescription(column: string, _policy: PolicyType): string {
   // Extract the leaf name
   const parts = column.split('.');
   const leaf = parts[parts.length - 1];

@@ -15,10 +15,8 @@
 import { sqliteTable, text, integer, real, index } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
-/**
- * Entry type enum - matches core memory types
- */
-export type EntryType = 'tool' | 'guideline' | 'knowledge' | 'experience';
+// Note: EntryType is imported from types.ts when needed.
+// The drizzle schema uses inline enum definitions for table columns.
 
 /**
  * Outcome type enum - task completion status
@@ -45,10 +43,8 @@ export type ConsolidationAction = 'merge' | 'dedupe' | 'archive' | 'abstract' | 
  */
 export type AttributionMethod = 'last_touch' | 'linear' | 'attention';
 
-/**
- * Scope type enum - matches core scope types
- */
-export type ScopeType = 'global' | 'org' | 'project' | 'session';
+// Note: ScopeType is imported from types.ts when needed.
+// The drizzle schema uses inline enum definitions for table columns.
 
 /**
  * Memory retrievals - track every query pipeline retrieval event

@@ -39,19 +39,10 @@ import {
 import {
   computeLinearAttribution,
   computeLastTouchAttribution,
-  computeTimeDecayAttribution,
   computeAttentionAttribution,
 } from './evaluators/attribution.js';
 import {
-  computeExtractionReward,
-  computeComprehensiveExtractionReward,
-  DEFAULT_EXTRACTION_REWARD_CONFIG,
-  type ExtractionRewardConfig,
-} from './evaluators/extraction-reward.js';
-import {
   computeConsolidationRewardFromOutcome,
-  DEFAULT_CONSOLIDATION_REWARD_CONFIG,
-  type ConsolidationRewardConfig,
   type ConsolidationMetrics,
 } from './evaluators/consolidation-reward.js';
 
@@ -74,10 +65,7 @@ import type {
 import { DEFAULT_FEEDBACK_CONFIG } from './types.js';
 import type {
   MemoryRetrieval,
-  TaskOutcome,
   AttributionMethod,
-  EntryType,
-  ScopeType,
 } from '../../db/schema/feedback.js';
 
 const logger = createComponentLogger('feedback');

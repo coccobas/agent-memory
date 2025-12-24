@@ -8,7 +8,7 @@
  *   npx tsx src/services/rl/training/examples/list-models.ts [modelsDir]
  */
 
-import { createModelLoader, getDefaultModelsDir, formatModelInfo } from '../model-loader.js';
+import { createModelLoader, getDefaultModelsDir } from '../model-loader.js';
 
 async function main(): Promise<void> {
   // Get models directory from args or use default

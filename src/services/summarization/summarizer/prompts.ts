@@ -315,11 +315,11 @@ function handleItemIteration(template: string, items: PromptVariables['items']):
     return result;
   }
 
-  const itemTemplate = eachMatch[1];
+  const itemTemplate = eachMatch[1] ?? '';
   const itemsText = items
     .map((item) => {
       let itemText = itemTemplate;
-      itemText = itemText.replace(/\{\{this\.type\}\}/g, item.type);
+      itemText = itemText.replace(/\{\{this\.type\}\}/g, item.type ?? '');
       itemText = itemText.replace(/\{\{this\.title\}\}/g, item.title);
       itemText = itemText.replace(/\{\{this\.content\}\}/g, item.content);
 
@@ -361,7 +361,7 @@ function handleItemIteration(template: string, items: PromptVariables['items']):
  */
 export function getFallbackSummary(
   items: PromptVariables['items'],
-  level: HierarchyLevel
+  _level: HierarchyLevel // Reserved for level-specific fallbacks
 ): {
   title: string;
   content: string;
@@ -376,10 +376,11 @@ export function getFallbackSummary(
   }
 
   // Extract title
+  const firstItem = items[0];
   const title =
     items.length === 1
-      ? items[0].title
-      : `Summary of ${items.length} ${items[0].type || 'item'}s`;
+      ? firstItem?.title ?? 'Untitled'
+      : `Summary of ${items.length} ${firstItem?.type ?? 'item'}s`;
 
   // Extract key sentences (first sentence from each item)
   const sentences = items

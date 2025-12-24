@@ -7,8 +7,7 @@
  * - Consolidation: how to merge, dedupe, and forget entries
  */
 
-import type { ScopeType } from '../../db/schema.js';
-import type { EntryType } from '../../db/schema/feedback.js';
+import type { ScopeType, EntryType } from '../../db/schema.js';
 
 // =============================================================================
 // POLICY DECISION TYPES

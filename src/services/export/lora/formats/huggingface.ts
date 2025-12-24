@@ -105,7 +105,7 @@ export async function exportAlpacaFormat(
     };
 
     const fileSizes: Record<string, number> = {};
-    for (const [key, path] of Object.entries(files)) {
+    for (const [_key, path] of Object.entries(files)) {
       const stat = await fs.stat(path);
       fileSizes[path] = stat.size;
     }
@@ -120,7 +120,7 @@ export async function exportAlpacaFormat(
         evalExamples: evalData.length,
         fileSizes,
         exportedAt: new Date().toISOString(),
-        policyType: config.policy,
+        policyType: config.policy ?? 'extraction',
       },
     };
   } catch (error) {
@@ -139,7 +139,7 @@ export async function exportAlpacaFormat(
         evalExamples: 0,
         fileSizes: {},
         exportedAt: new Date().toISOString(),
-        policyType: config.policy,
+        policyType: config.policy ?? 'extraction',
       },
       error: error instanceof Error ? error.message : String(error),
     };
@@ -242,7 +242,7 @@ export async function exportShareGPTFormat(
     };
 
     const fileSizes: Record<string, number> = {};
-    for (const [key, path] of Object.entries(files)) {
+    for (const [_key, path] of Object.entries(files)) {
       const stat = await fs.stat(path);
       fileSizes[path] = stat.size;
     }
@@ -257,7 +257,7 @@ export async function exportShareGPTFormat(
         evalExamples: evalData.length,
         fileSizes,
         exportedAt: new Date().toISOString(),
-        policyType: config.policy,
+        policyType: config.policy ?? 'extraction',
       },
     };
   } catch (error) {
@@ -276,7 +276,7 @@ export async function exportShareGPTFormat(
         evalExamples: 0,
         fileSizes: {},
         exportedAt: new Date().toISOString(),
-        policyType: config.policy,
+        policyType: config.policy ?? 'extraction',
       },
       error: error instanceof Error ? error.message : String(error),
     };
@@ -535,8 +535,8 @@ This dataset is designed for:
 If you use this dataset, please cite:
 
 \`\`\`bibtex
-@dataset{agent_memory_${config.policy}_alpaca,
-  title={Agent Memory ${config.policy.charAt(0).toUpperCase() + config.policy.slice(1)} Policy Dataset (Alpaca Format)},
+@dataset{agent_memory_${config.policy ?? 'extraction'}_alpaca,
+  title={Agent Memory ${(config.policy ?? 'extraction').charAt(0).toUpperCase() + (config.policy ?? 'extraction').slice(1)} Policy Dataset (Alpaca Format)},
   year={${new Date().getFullYear()}},
   version={${datasetInfo.version}},
   format={alpaca}
@@ -763,8 +763,8 @@ This dataset is designed for:
 If you use this dataset, please cite:
 
 \`\`\`bibtex
-@dataset{agent_memory_${config.policy}_sharegpt,
-  title={Agent Memory ${config.policy.charAt(0).toUpperCase() + config.policy.slice(1)} Policy Dataset (ShareGPT Format)},
+@dataset{agent_memory_${config.policy ?? 'extraction'}_sharegpt,
+  title={Agent Memory ${(config.policy ?? 'extraction').charAt(0).toUpperCase() + (config.policy ?? 'extraction').slice(1)} Policy Dataset (ShareGPT Format)},
   year={${new Date().getFullYear()}},
   version={${datasetInfo.version}},
   format={sharegpt}

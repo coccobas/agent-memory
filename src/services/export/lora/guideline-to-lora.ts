@@ -507,7 +507,7 @@ ${this.getFormatDescription(format)}
    */
   private async generateTrainingScript(
     outputPath: string,
-    format: LoRAFormat,
+    _format: LoRAFormat,
     targetModel?: string
   ): Promise<string> {
     const scriptPath = join(outputPath, 'train.py');
@@ -601,8 +601,8 @@ print("Training script template generated. Complete the implementation.")
       randomIndex = Math.floor(random() * currentIndex);
       currentIndex -= 1;
 
-      temporaryValue = array[currentIndex];
-      array[currentIndex] = array[randomIndex];
+      temporaryValue = array[currentIndex]!;
+      array[currentIndex] = array[randomIndex]!;
       array[randomIndex] = temporaryValue;
     }
   }

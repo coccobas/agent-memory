@@ -14,7 +14,7 @@
 
 import { eq, and, desc, inArray } from 'drizzle-orm';
 import type { AppDb } from '../../../core/types.js';
-import { summaries, summaryMembers, type SummaryMemberType } from '../../../db/schema.js';
+import { summaries, summaryMembers } from '../../../db/schema.js';
 import { EmbeddingService } from '../../embedding.service.js';
 import { cosineSimilarity } from '../../librarian/utils/math.js';
 import { createComponentLogger } from '../../../utils/logger.js';
@@ -184,7 +184,7 @@ export class CoarseToFineRetriever {
   /**
    * Drill down from a specific summary to see its children and members
    */
-  async drillDown(summaryId: string, query?: string): Promise<DrillDownResult> {
+  async drillDown(summaryId: string, _query?: string): Promise<DrillDownResult> {
     // Get the summary
     const summary = this.db
       .select()
@@ -376,7 +376,7 @@ export class CoarseToFineRetriever {
    */
   private async getFinalEntries(
     finalSummaries: Array<SummaryEntry & { score: number }>,
-    queryEmbedding: number[],
+    _queryEmbedding: number[], // Reserved for future re-ranking
     options: CoarseToFineOptions
   ): Promise<RetrievedEntry[]> {
     const entries: RetrievedEntry[] = [];

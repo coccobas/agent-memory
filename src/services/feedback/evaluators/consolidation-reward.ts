@@ -5,7 +5,6 @@
  */
 
 import type { ConsolidationDecision, ConsolidationOutcome } from '../../../db/schema/feedback.js';
-import type { FeedbackConfig } from '../types.js';
 import { DEFAULT_FEEDBACK_CONFIG } from '../types.js';
 
 // =============================================================================
@@ -305,9 +304,9 @@ export function computeConsolidationRewardStats(
     negativeRewards: rewardValues.filter((r) => r < 0).length,
     neutralRewards: rewardValues.filter((r) => r === 0).length,
     rewardDistribution: {
-      min: sorted[0],
-      max: sorted[sorted.length - 1],
-      median,
+      min: sorted[0] ?? 0,
+      max: sorted[sorted.length - 1] ?? 0,
+      median: median ?? 0,
       stdDev,
     },
     averageRetrievalRateImprovement:

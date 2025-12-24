@@ -107,7 +107,7 @@ export async function exportAnthropicPromptsFormat(
     };
 
     const fileSizes: Record<string, number> = {};
-    for (const [key, path] of Object.entries(files)) {
+    for (const [_key, path] of Object.entries(files)) {
       const stat = await fs.stat(path);
       fileSizes[path] = stat.size;
     }
@@ -122,7 +122,7 @@ export async function exportAnthropicPromptsFormat(
         evalExamples: evalData.length,
         fileSizes,
         exportedAt: new Date().toISOString(),
-        policyType: config.policy,
+        policyType: config.policy ?? 'extraction',
       },
     };
   } catch (error) {
@@ -141,7 +141,7 @@ export async function exportAnthropicPromptsFormat(
         evalExamples: 0,
         fileSizes: {},
         exportedAt: new Date().toISOString(),
-        policyType: config.policy,
+        policyType: config.policy ?? 'extraction',
       },
       error: error instanceof Error ? error.message : String(error),
     };
@@ -557,8 +557,8 @@ anthropic finetune create \\
 If you use this dataset, please cite:
 
 \`\`\`bibtex
-@dataset{agent_memory_${config.policy}_anthropic,
-  title={Agent Memory ${config.policy.charAt(0).toUpperCase() + config.policy.slice(1)} Policy Dataset (Anthropic Format)},
+@dataset{agent_memory_${config.policy ?? 'extraction'}_anthropic,
+  title={Agent Memory ${(config.policy ?? 'extraction').charAt(0).toUpperCase() + (config.policy ?? 'extraction').slice(1)} Policy Dataset (Anthropic Format)},
   year={${new Date().getFullYear()}},
   version={${datasetInfo.version}},
   format={anthropic-prompts}

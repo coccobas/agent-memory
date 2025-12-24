@@ -13,4 +13,10 @@ export * from './dataset-builder.js';
 export * from './dpo-trainer.js';
 export * from './evaluation.js';
 export * from './model-loader.js';
-export * from './export/index.js';
+// Re-export specific items from export to avoid conflicts with model-loader types
+export {
+  exportDataset,
+  type ExportFormat,
+  type ExportOptions,
+  type ExportResult,
+} from './export/index.js';

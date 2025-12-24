@@ -222,7 +222,7 @@ export function exampleSimilarityPreservation(): void {
 
   // Generate two similar embeddings
   const base = new Array(1536).fill(0).map(() => Math.random() - 0.5);
-  const similar = base.map((v, i) => v + (Math.random() - 0.5) * 0.1);
+  const similar = base.map((v, _i) => v + (Math.random() - 0.5) * 0.1);
   const dissimilar = new Array(1536).fill(0).map(() => Math.random() - 0.5);
 
   // Original similarities

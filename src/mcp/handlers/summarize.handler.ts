@@ -234,8 +234,7 @@ async function searchSummaries(
     context.services.vector
   );
 
-  const results = await service.searchSummaries({
-    query,
+  const results = await service.searchSummaries(query, {
     scopeType,
     scopeId,
     level,

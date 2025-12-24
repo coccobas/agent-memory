@@ -5,7 +5,6 @@
  */
 
 import type { ExtractionDecision, ExtractionOutcome } from '../../../db/schema/feedback.js';
-import type { FeedbackConfig } from '../types.js';
 import { DEFAULT_FEEDBACK_CONFIG } from '../types.js';
 
 // =============================================================================
@@ -116,7 +115,7 @@ export function computeExtractionReward(
  * This is more complex - we'd need to know if the skipped content
  * would have been useful. For now, we return neutral.
  */
-export function computeSkipReward(decision: ExtractionDecision): number {
+export function computeSkipReward(_decision: ExtractionDecision): number {
   // Could be enhanced to detect cases where we should have stored
   // but didn't (e.g., by analyzing later queries that would have matched)
   return 0;
@@ -125,7 +124,7 @@ export function computeSkipReward(decision: ExtractionDecision): number {
 /**
  * Compute reward for a defer decision
  */
-export function computeDeferReward(decision: ExtractionDecision): number {
+export function computeDeferReward(_decision: ExtractionDecision): number {
   // Defer is typically a safe choice - neutral reward
   return 0;
 }
@@ -241,9 +240,9 @@ export function computeExtractionRewardStats(
     negativeRewards: rewardValues.filter((r) => r < 0).length,
     neutralRewards: rewardValues.filter((r) => r === 0).length,
     rewardDistribution: {
-      min: sorted[0],
-      max: sorted[sorted.length - 1],
-      median,
+      min: sorted[0] ?? 0,
+      max: sorted[sorted.length - 1] ?? 0,
+      median: median ?? 0,
       stdDev,
     },
   };
