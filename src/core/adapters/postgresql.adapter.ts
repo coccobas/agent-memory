@@ -12,13 +12,67 @@
 import type { Pool, PoolClient, PoolConfig } from 'pg';
 import type { IStorageAdapter } from './interfaces.js';
 import type { Config } from '../../config/index.js';
+import type { PostgreSQLAppDb } from '../types.js';
+import { createComponentLogger } from '../../utils/logger.js';
+
+const logger = createComponentLogger('pg-adapter');
 
 /**
- * Type alias for PostgreSQL Drizzle database instance.
- * We use 'unknown' here to avoid circular dependencies with the schema.
- * The actual type is: drizzle<AppSchema>(pool)
+ * PostgreSQL error codes that indicate transient issues worth retrying.
+ * See: https://www.postgresql.org/docs/current/errcodes-appendix.html
  */
-export type PostgresDb = unknown;
+const PG_RETRYABLE_ERROR_CODES = [
+  '40001', // serialization_failure
+  '40P01', // deadlock_detected
+  '57P01', // admin_shutdown (transient)
+  '08006', // connection_failure
+  '08000', // connection_exception
+  '08003', // connection_does_not_exist
+  '53300', // too_many_connections
+  '55P03', // lock_not_available
+];
+
+/**
+ * Default retry configuration for PostgreSQL transactions.
+ */
+const DEFAULT_PG_RETRY_CONFIG = {
+  maxRetries: 3,
+  initialDelayMs: 50,
+  maxDelayMs: 1000,
+  backoffMultiplier: 2,
+};
+
+/**
+ * Check if a PostgreSQL error is retryable.
+ */
+function isPgRetryableError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+
+  // Check for PostgreSQL error code
+  const code = 'code' in error ? String(error.code) : '';
+  if (PG_RETRYABLE_ERROR_CODES.includes(code)) {
+    return true;
+  }
+
+  // Check error message for connection issues
+  const message = error.message.toLowerCase();
+  if (
+    message.includes('connection terminated') ||
+    message.includes('connection refused') ||
+    message.includes('could not connect')
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Sleep for a given number of milliseconds.
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 /**
  * PostgreSQL storage adapter implementation.
@@ -26,7 +80,7 @@ export type PostgresDb = unknown;
  */
 export class PostgreSQLStorageAdapter implements IStorageAdapter {
   private pool: Pool | null = null;
-  private db: PostgresDb | null = null;
+  private db: PostgreSQLAppDb | null = null;
   private config: Config['postgresql'];
   private connected = false;
   // Track the current transaction client for nested executeRaw calls
@@ -70,8 +124,10 @@ export class PostgreSQLStorageAdapter implements IStorageAdapter {
       });
     }
 
-    // Create Drizzle instance
-    this.db = drizzle(this.pool);
+    // Create Drizzle instance with schema for type safety
+    // Dynamic import of PG schema to ensure proper typing
+    const pgSchema = await import('../../db/schema/postgresql/index.js');
+    this.db = drizzle(this.pool, { schema: pgSchema }) as unknown as PostgreSQLAppDb;
 
     // Verify connection with a test query
     const client = await this.pool.connect();
@@ -126,8 +182,9 @@ export class PostgreSQLStorageAdapter implements IStorageAdapter {
   }
 
   /**
-   * Execute a function within a database transaction.
+   * Execute a function within a database transaction with retry logic.
    * Automatically commits on success, rolls back on error.
+   * Retries on transient errors (deadlocks, serialization failures, connection issues).
    *
    * Uses a dedicated client from the pool for the transaction.
    * All executeRaw calls within fn() will use this transaction client.
@@ -137,30 +194,75 @@ export class PostgreSQLStorageAdapter implements IStorageAdapter {
       throw new Error('PostgreSQL adapter not connected');
     }
 
-    const client = await this.pool.connect();
-    const previousClient = this.transactionClient;
-    try {
-      await client.query('BEGIN');
-      // Set transaction client so executeRaw uses it
-      this.transactionClient = client;
-      const result = await fn();
-      await client.query('COMMIT');
-      return result;
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      // Restore previous client (supports nested transactions conceptually)
-      this.transactionClient = previousClient;
-      client.release();
+    const { maxRetries, initialDelayMs, maxDelayMs, backoffMultiplier } = DEFAULT_PG_RETRY_CONFIG;
+    let lastError: Error | undefined;
+    let delay = initialDelayMs;
+
+    for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
+      const client = await this.pool.connect();
+      const previousClient = this.transactionClient;
+
+      try {
+        await client.query('BEGIN');
+        // Set transaction client so executeRaw uses it
+        this.transactionClient = client;
+        const result = await fn();
+        await client.query('COMMIT');
+        return result;
+      } catch (error) {
+        // Always rollback on error
+        try {
+          await client.query('ROLLBACK');
+        } catch {
+          // Ignore rollback errors
+        }
+
+        lastError = error instanceof Error ? error : new Error(String(error));
+        const isRetryable = isPgRetryableError(error);
+        const hasMoreAttempts = attempt <= maxRetries;
+
+        if (!isRetryable || !hasMoreAttempts) {
+          logger.warn(
+            {
+              error: lastError.message,
+              code: 'code' in (error as object) ? (error as { code: string }).code : undefined,
+              attempt,
+              maxRetries: maxRetries + 1,
+              retryable: isRetryable,
+            },
+            'PostgreSQL transaction failed'
+          );
+          throw lastError;
+        }
+
+        logger.debug(
+          {
+            error: lastError.message,
+            code: 'code' in (error as object) ? (error as { code: string }).code : undefined,
+            attempt,
+            nextDelayMs: delay,
+          },
+          'Retrying PostgreSQL transaction after transient error'
+        );
+
+        await sleep(delay);
+        delay = Math.min(delay * backoffMultiplier, maxDelayMs);
+      } finally {
+        // Restore previous client and release
+        this.transactionClient = previousClient;
+        client.release();
+      }
     }
+
+    // Should not reach here, but TypeScript needs it
+    throw lastError ?? new Error('Transaction failed with unknown error');
   }
 
   /**
    * Get the Drizzle ORM database instance.
    * Use this for type-safe queries.
    */
-  getDb(): PostgresDb {
+  getDb(): PostgreSQLAppDb {
     if (!this.db) {
       throw new Error('PostgreSQL adapter not connected');
     }

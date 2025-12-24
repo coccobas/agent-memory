@@ -52,6 +52,7 @@ export interface IVectorService {
       score: number;
     }>
   >;
+  removeEmbedding(entryType: string, entryId: string, versionId?: string): Promise<void>;
   getCount(): Promise<number>;
   close(): void;
 }

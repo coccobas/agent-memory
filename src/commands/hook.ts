@@ -54,8 +54,9 @@ async function initializeHookDatabase(): Promise<void> {
     registerDatabase(connection.db, connection.sqlite);
   } else {
     // PostgreSQL mode - register db from adapter, no sqlite handle
-    const db = connection.adapter.getDb();
-    registerDatabase(db as Parameters<typeof registerDatabase>[0], undefined);
+    // Cast through unknown since PG and SQLite Drizzle types are structurally different
+    const db = connection.adapter.getDb() as unknown as Parameters<typeof registerDatabase>[0];
+    registerDatabase(db, undefined);
   }
 }
 

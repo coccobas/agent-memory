@@ -6,22 +6,35 @@
  */
 
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type Database from 'better-sqlite3';
 import type { ScopeType, AppSchema } from '../db/schema.js';
+import type { AppSchema as PgAppSchema } from '../db/schema/postgresql/index.js';
 
 /**
  * Type-safe Drizzle database with full schema type information.
- * Provides autocomplete for table names and column types.
  *
- * Note: This is typed as SQLite (the primary backend). For PostgreSQL,
- * the adapter handles type differences at runtime. Drizzle's query API
- * is compatible across both backends.
+ * This is the primary database type, optimized for SQLite (the default backend).
+ * For PostgreSQL deployments, use IStorageAdapter methods which handle both backends.
  */
 export type AppDb = BetterSQLite3Database<AppSchema>;
 
 /**
+ * PostgreSQL-specific Drizzle database type.
+ * Used internally by PostgreSQLStorageAdapter.
+ *
+ * Code that needs to work with both backends should use:
+ * - IStorageAdapter.executeRaw() for raw SQL
+ * - Repository pattern with DatabaseDeps
+ */
+export type PostgreSQLAppDb = NodePgDatabase<PgAppSchema>;
+
+/**
  * Database dependencies for repository factory functions.
  * Passed to repository factories instead of using service locator pattern.
+ *
+ * For SQLite: db is populated, sqlite is populated
+ * For PostgreSQL: db may be cast, sqlite is undefined (use IStorageAdapter instead)
  */
 export interface DatabaseDeps {
   /** Drizzle ORM database instance with schema types */

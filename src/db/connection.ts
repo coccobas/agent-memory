@@ -233,8 +233,13 @@ function sleep(ms: number): Promise<void> {
  * Run a transaction with exponential backoff retry for transient errors.
  * Handles SQLITE_BUSY, SQLITE_LOCKED, and other database contention issues.
  *
- * In PostgreSQL mode (sqlite undefined), runs the function directly
- * (PostgreSQL transactions are handled by the adapter layer).
+ * **SQLite mode**: Uses better-sqlite3's synchronous transaction() with retry logic.
+ * Handles SQLITE_BUSY, SQLITE_LOCKED, and other contention errors.
+ *
+ * **PostgreSQL mode**: Runs fn() directly without wrapping in a transaction.
+ * For PostgreSQL transactions with retry logic, use:
+ * - `IStorageAdapter.transaction()` from PostgreSQLStorageAdapter
+ *   (includes built-in retry for deadlocks, serialization failures, connection issues)
  *
  * @param sqlite - The better-sqlite3 database instance (undefined for PostgreSQL mode)
  * @param fn - The function to run in a transaction
@@ -247,7 +252,8 @@ export async function transactionWithRetry<T>(
   fn: () => T,
   options?: TransactionRetryOptions
 ): Promise<T> {
-  // PostgreSQL mode: run directly (transactions handled by adapter)
+  // PostgreSQL mode: run directly
+  // PostgreSQL transactions with retry are handled by IStorageAdapter.transaction()
   if (!sqlite) {
     return fn();
   }

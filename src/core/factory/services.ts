@@ -7,7 +7,7 @@
 import type { Config } from '../../config/index.js';
 import type { Runtime } from '../runtime.js';
 import { registerEmbeddingPipeline } from '../runtime.js';
-import type { AppContextServices } from '../context.js';
+import type { AppContextServices, IVectorService } from '../context.js';
 import { EmbeddingService } from '../../services/embedding.service.js';
 import { VectorService } from '../../services/vector.service.js';
 import { ExtractionService } from '../../services/extraction.service.js';
@@ -15,6 +15,18 @@ import { PermissionService } from '../../services/permission.service.js';
 import { VerificationService } from '../../services/verification.service.js';
 import { registerVectorCleanupHook } from '../../db/repositories/base.js';
 import type { AppDb } from '../types.js';
+import type { IVectorStore } from '../interfaces/vector-store.js';
+
+/**
+ * Optional service overrides for dependency injection.
+ * Allows tests and alternative deployments to swap implementations.
+ */
+export interface ServiceOverrides {
+  /** Custom vector store implementation (e.g., mock for tests) */
+  vectorStore?: IVectorStore;
+  /** Pre-created vector service (skips internal creation) */
+  vectorService?: IVectorService;
+}
 
 /**
  * Create all services with explicit configuration (DI pattern)
@@ -24,9 +36,15 @@ import type { AppDb } from '../types.js';
  * @param config - Application configuration
  * @param runtime - Runtime for wiring embedding pipeline
  * @param db - Database instance (for permission service)
+ * @param overrides - Optional service overrides for DI (e.g., mock vector store for tests)
  * @returns Service instances
  */
-export function createServices(config: Config, runtime: Runtime, db: AppDb): AppContextServices {
+export function createServices(
+  config: Config,
+  runtime: Runtime,
+  db: AppDb,
+  overrides?: ServiceOverrides
+): AppContextServices {
   // Create services with explicit configuration
   const embeddingService = new EmbeddingService({
     provider: config.embedding.provider,
@@ -34,7 +52,9 @@ export function createServices(config: Config, runtime: Runtime, db: AppDb): App
     openaiModel: config.embedding.openaiModel,
   });
 
-  const vectorService = new VectorService();
+  // Use provided vectorService, or create one with optional custom store
+  const vectorService =
+    overrides?.vectorService ?? new VectorService(overrides?.vectorStore);
 
   const extractionService = new ExtractionService({
     provider: config.extraction.provider,

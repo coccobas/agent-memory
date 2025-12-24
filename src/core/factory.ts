@@ -68,7 +68,8 @@ export async function createAppContext(config: Config, runtime?: Runtime): Promi
     logger.info({ dbType: 'postgresql' }, 'Using PostgreSQL backend');
 
     // Get Drizzle db from the adapter
-    db = connection.adapter.getDb() as AppDb;
+    // Cast through unknown since PG and SQLite Drizzle types are structurally different
+    db = connection.adapter.getDb() as unknown as AppDb;
     sqlite = undefined;
     dbDeps = { db, sqlite: undefined };
 
