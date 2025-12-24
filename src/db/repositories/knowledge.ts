@@ -172,7 +172,10 @@ export function createKnowledgeRepository(deps: DatabaseDeps): IKnowledgeReposit
       return undefined;
     },
 
-    async list(filter: ListKnowledgeFilter = {}, options: PaginationOptions = {}): Promise<KnowledgeWithVersion[]> {
+    async list(
+      filter: ListKnowledgeFilter = {},
+      options: PaginationOptions = {}
+    ): Promise<KnowledgeWithVersion[]> {
       const { limit, offset } = normalizePagination(options);
 
       // Build conditions using shared utility + category-specific condition
@@ -198,7 +201,10 @@ export function createKnowledgeRepository(deps: DatabaseDeps): IKnowledgeReposit
       return attachVersions(entries, versionsMap);
     },
 
-    async update(id: string, input: UpdateKnowledgeInput): Promise<KnowledgeWithVersion | undefined> {
+    async update(
+      id: string,
+      input: UpdateKnowledgeInput
+    ): Promise<KnowledgeWithVersion | undefined> {
       return transactionWithRetry(sqlite, () => {
         const existing = getByIdSync(id);
         if (!existing) return undefined;
@@ -295,11 +301,7 @@ export function createKnowledgeRepository(deps: DatabaseDeps): IKnowledgeReposit
     },
 
     async reactivate(id: string): Promise<boolean> {
-      const result = db
-        .update(knowledge)
-        .set({ isActive: true })
-        .where(eq(knowledge.id, id))
-        .run();
+      const result = db.update(knowledge).set({ isActive: true }).where(eq(knowledge.id, id)).run();
       return result.changes > 0;
     },
 

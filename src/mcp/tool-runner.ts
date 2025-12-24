@@ -1,5 +1,4 @@
-
-import { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { formatOutput } from '../utils/compact-formatter.js';
 import { logger } from '../utils/logger.js';
 import { GENERATED_HANDLERS } from './descriptors/index.js';
@@ -112,19 +111,23 @@ export async function runTool(
       },
       'Tool call error'
     );
-    
+
     // Use unified error mapper
     const mapped = mapError(error);
-    
+
     return {
       content: [
         {
           type: 'text',
-          text: JSON.stringify({
-            error: mapped.message,
-            code: mapped.code,
-            context: mapped.details
-          }, null, 2),
+          text: JSON.stringify(
+            {
+              error: mapped.message,
+              code: mapped.code,
+              context: mapped.details,
+            },
+            null,
+            2
+          ),
         },
       ],
       isError: true,

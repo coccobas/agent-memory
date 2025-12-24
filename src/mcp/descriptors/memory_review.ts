@@ -39,17 +39,23 @@ Example: {"action":"list","sessionId":"sess-123"}`,
       contextHandler: (ctx, p) => reviewHandlers.list(ctx, p as { sessionId: string }),
     },
     show: {
-      contextHandler: (ctx, p) => reviewHandlers.show(ctx, p as { sessionId: string; entryId: string }),
+      contextHandler: (ctx, p) =>
+        reviewHandlers.show(ctx, p as { sessionId: string; entryId: string }),
     },
     approve: {
       contextHandler: (ctx, p) =>
-        reviewHandlers.approve(ctx, p as { sessionId: string; entryId: string; projectId?: string }),
+        reviewHandlers.approve(
+          ctx,
+          p as { sessionId: string; entryId: string; projectId?: string }
+        ),
     },
     reject: {
-      contextHandler: (ctx, p) => reviewHandlers.reject(ctx, p as { sessionId: string; entryId: string }),
+      contextHandler: (ctx, p) =>
+        reviewHandlers.reject(ctx, p as { sessionId: string; entryId: string }),
     },
     skip: {
-      contextHandler: (ctx, p) => reviewHandlers.skip(ctx, p as { sessionId: string; entryId: string }),
+      contextHandler: (ctx, p) =>
+        reviewHandlers.skip(ctx, p as { sessionId: string; entryId: string }),
     },
   },
 };

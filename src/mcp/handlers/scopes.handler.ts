@@ -215,7 +215,11 @@ export const scopeHandlers = {
     const session = await context.repos.sessions.create(input);
 
     // Fetch critical guidelines for the session's scope
-    const criticalGuidelines = getCriticalGuidelinesForSession(projectId ?? null, session.id, context.db);
+    const criticalGuidelines = getCriticalGuidelinesForSession(
+      projectId ?? null,
+      session.id,
+      context.db
+    );
 
     return formatTimestamps({
       success: true,
@@ -228,7 +232,10 @@ export const scopeHandlers = {
     const id = getRequiredParam(params, 'id', isString);
     const status = getOptionalParam(params, 'status', isSessionStatus);
 
-    const session = await context.repos.sessions.end(id, (status ?? 'completed') as 'completed' | 'discarded');
+    const session = await context.repos.sessions.end(
+      id,
+      (status ?? 'completed') as 'completed' | 'discarded'
+    );
     if (!session) {
       throw createNotFoundError('Session', id);
     }

@@ -88,7 +88,10 @@ export function findCandidateByShortId(
   );
 }
 
-export async function approveCandidate(candidate: ReviewCandidate, projectId: string): Promise<boolean> {
+export async function approveCandidate(
+  candidate: ReviewCandidate,
+  projectId: string
+): Promise<boolean> {
   const repos = getRepos();
   try {
     if (candidate.type === 'guideline') {

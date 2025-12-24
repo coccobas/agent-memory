@@ -1,4 +1,3 @@
-
 import { connect, type Connection, type Table } from '@lancedb/lancedb';
 import { dirname } from 'node:path';
 import { existsSync, mkdirSync } from 'node:fs';
@@ -10,7 +9,11 @@ import {
   createVectorDbError,
 } from '../../core/errors.js';
 import type { IVectorStore } from '../../core/interfaces/vector-store.js';
-import type { DistanceMetric, SearchResult, VectorRecord } from '../../core/interfaces/vector.service.js';
+import type {
+  DistanceMetric,
+  SearchResult,
+  VectorRecord,
+} from '../../core/interfaces/vector.service.js';
 
 const logger = createComponentLogger('lancedb-store');
 
@@ -217,7 +220,7 @@ export class LanceDbVectorStore implements IVectorStore {
     try {
       const validatedEntryType = validateIdentifier(filter.entryType, 'entryType');
       const validatedEntryId = validateIdentifier(filter.entryId, 'entryId');
-      
+
       let filterPredicate = `"entryType" = '${validatedEntryType}' AND "entryId" = '${validatedEntryId}'`;
 
       if (filter.versionId) {
@@ -226,7 +229,10 @@ export class LanceDbVectorStore implements IVectorStore {
       }
 
       if (filter.excludeVersionId) {
-        const validatedExcludeVersionId = validateIdentifier(filter.excludeVersionId, 'excludeVersionId');
+        const validatedExcludeVersionId = validateIdentifier(
+          filter.excludeVersionId,
+          'excludeVersionId'
+        );
         filterPredicate += ` AND "versionId" != '${validatedExcludeVersionId}'`;
       }
 

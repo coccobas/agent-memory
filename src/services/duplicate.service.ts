@@ -125,7 +125,6 @@ export function findSimilarEntries(
   threshold: number = 0.8,
   db: DbClient
 ): SimilarEntry[] {
-
   const ftsQuery = escapeFts5QueryTokenized(name);
   if (!ftsQuery) return [];
 
@@ -237,5 +236,3 @@ export function checkForDuplicates(
     similarEntries: similar,
   };
 }
-
-

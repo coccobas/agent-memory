@@ -24,10 +24,7 @@ import type {
   ScopeType,
 } from '../../db/schema.js';
 import type { PaginationOptions } from '../../db/repositories/base.js';
-import type {
-  IConflictRepository,
-  ListConflictsFilter,
-} from '../../db/repositories/conflicts.js';
+import type { IConflictRepository, ListConflictsFilter } from '../../db/repositories/conflicts.js';
 
 // Narrower type for conversation context entry types (excludes 'project')
 export type ContextEntryType = 'tool' | 'guideline' | 'knowledge';
@@ -490,8 +487,14 @@ export interface IConversationRepository {
     includeMessages?: boolean,
     includeContext?: boolean
   ): Promise<ConversationWithMessages | undefined>;
-  list(filter?: ListConversationsFilter, options?: PaginationOptions): Promise<ConversationWithMessages[]>;
-  update(id: string, updates: UpdateConversationInput): Promise<ConversationWithMessages | undefined>;
+  list(
+    filter?: ListConversationsFilter,
+    options?: PaginationOptions
+  ): Promise<ConversationWithMessages[]>;
+  update(
+    id: string,
+    updates: UpdateConversationInput
+  ): Promise<ConversationWithMessages | undefined>;
   addMessage(input: AddMessageInput): Promise<{
     id: string;
     conversationId: string;
@@ -507,17 +510,19 @@ export interface IConversationRepository {
     conversationId: string,
     limit?: number,
     offset?: number
-  ): Promise<Array<{
-    id: string;
-    conversationId: string;
-    role: 'user' | 'agent' | 'system';
-    content: string;
-    messageIndex: number;
-    contextEntries: Array<{ type: EntryType; id: string }> | null;
-    toolsUsed: string[] | null;
-    metadata: Record<string, unknown> | null;
-    createdAt: string;
-  }>>;
+  ): Promise<
+    Array<{
+      id: string;
+      conversationId: string;
+      role: 'user' | 'agent' | 'system';
+      content: string;
+      messageIndex: number;
+      contextEntries: Array<{ type: EntryType; id: string }> | null;
+      toolsUsed: string[] | null;
+      metadata: Record<string, unknown> | null;
+      createdAt: string;
+    }>
+  >;
   linkContext(input: LinkContextInput): Promise<{
     id: string;
     conversationId: string;
@@ -530,25 +535,32 @@ export interface IConversationRepository {
   getContextForEntry(
     entryType: ContextEntryType,
     entryId: string
-  ): Promise<Array<{
-    id: string;
-    conversationId: string;
-    messageId: string | null;
-    entryType: ContextEntryType;
-    entryId: string;
-    relevanceScore: number | null;
-    createdAt: string;
-  }>>;
-  getContextForConversation(conversationId: string): Promise<Array<{
-    id: string;
-    conversationId: string;
-    messageId: string | null;
-    entryType: ContextEntryType;
-    entryId: string;
-    relevanceScore: number | null;
-    createdAt: string;
-  }>>;
-  search(searchQuery: string, filter?: ConversationSearchFilter): Promise<ConversationWithMessages[]>;
+  ): Promise<
+    Array<{
+      id: string;
+      conversationId: string;
+      messageId: string | null;
+      entryType: ContextEntryType;
+      entryId: string;
+      relevanceScore: number | null;
+      createdAt: string;
+    }>
+  >;
+  getContextForConversation(conversationId: string): Promise<
+    Array<{
+      id: string;
+      conversationId: string;
+      messageId: string | null;
+      entryType: ContextEntryType;
+      entryId: string;
+      relevanceScore: number | null;
+      createdAt: string;
+    }>
+  >;
+  search(
+    searchQuery: string,
+    filter?: ConversationSearchFilter
+  ): Promise<ConversationWithMessages[]>;
 }
 
 // =============================================================================

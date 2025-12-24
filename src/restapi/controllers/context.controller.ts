@@ -20,7 +20,7 @@ const queryTypeToEntryType: Record<'tools' | 'guidelines' | 'knowledge', EntryTy
 };
 
 export class ContextController {
-  constructor(private context: AppContext) { }
+  constructor(private context: AppContext) {}
 
   async handleContext(request: FastifyRequest, reply: FastifyReply) {
     const body = request.body;

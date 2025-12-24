@@ -40,10 +40,7 @@ import {
   type Tool,
 } from '@modelcontextprotocol/sdk/types.js';
 
-import {
-  closeDb,
-  startHealthCheckInterval,
-} from '../db/connection.js';
+import { closeDb, startHealthCheckInterval } from '../db/connection.js';
 import { logger } from '../utils/logger.js';
 import { VERSION } from '../version.js';
 import { runTool } from './tool-runner.js';
@@ -92,7 +89,7 @@ export async function createServer(context: AppContext): Promise<Server> {
   try {
     startHealthCheckInterval();
   } catch (error) {
-     logger.warn({ error }, 'Failed to start health check interval');
+    logger.warn({ error }, 'Failed to start health check interval');
   }
 
   // Seed predefined tags
@@ -110,10 +107,7 @@ export async function createServer(context: AppContext): Promise<Server> {
     const expiredCount = await context.repos.fileLocks.cleanupExpiredLocks();
     const staleCount = await context.repos.fileLocks.cleanupStaleLocks();
     if (expiredCount > 0 || staleCount > 0) {
-      logger.info(
-        { expired: expiredCount, stale: staleCount },
-        'Cleaned up stale file locks'
-      );
+      logger.info({ expired: expiredCount, stale: staleCount }, 'Cleaned up stale file locks');
     }
   } catch (error) {
     logger.warn({ error }, 'Failed to cleanup file locks');
@@ -129,7 +123,7 @@ export async function createServer(context: AppContext): Promise<Server> {
   // Call tool handler
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
-    return runTool(context, name, args as Record<string, unknown> | undefined);
+    return runTool(context, name, args);
   });
 
   logger.debug('Request handlers configured');
@@ -149,10 +143,10 @@ export async function runServer(): Promise<void> {
   try {
     // Initialize AppContext
     const context = await createAppContext(config);
-    
+
     // Register with container for services that use getDb()/getSqlite()
     registerContext(context);
-    
+
     server = await createServer(context);
     logger.info('Server created successfully');
   } catch (error) {

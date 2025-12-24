@@ -108,15 +108,16 @@ export const queryHandlers = {
     const scopeId = queryParamsWithoutAgent.scope?.id;
 
     const typesToCheck = requestedTypes ?? (['tools', 'guidelines', 'knowledge'] as const);
-    const deniedTypes = typesToCheck.filter((type) =>
-      !context.services!.permission.check(
-        agentId,
-        'read',
-        queryTypeToEntryType[type],
-        null,
-        scopeType,
-        scopeId ?? null
-      )
+    const deniedTypes = typesToCheck.filter(
+      (type) =>
+        !context.services!.permission.check(
+          agentId,
+          'read',
+          queryTypeToEntryType[type],
+          null,
+          scopeType,
+          scopeId ?? null
+        )
     );
 
     if (requestedTypes && deniedTypes.length > 0) {
@@ -150,12 +151,15 @@ export const queryHandlers = {
     }
 
     // Log audit
-    logAction({
-      agentId,
-      action: 'query',
-      queryParams: queryParamsWithoutAgent,
-      resultCount: result.results.length,
-    }, context.db);
+    logAction(
+      {
+        agentId,
+        action: 'query',
+        queryParams: queryParamsWithoutAgent,
+        resultCount: result.results.length,
+      },
+      context.db
+    );
 
     return formatTimestamps({
       results: result.results,

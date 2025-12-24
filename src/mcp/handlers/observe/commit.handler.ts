@@ -330,7 +330,14 @@ export async function commit(context: AppContext, params: Record<string, unknown
       shouldStore: true,
     };
 
-    const saved = await storeEntry(context.repos, processed, targetScopeType, targetScopeId, agentId, context.db);
+    const saved = await storeEntry(
+      context.repos,
+      processed,
+      targetScopeType,
+      targetScopeId,
+      agentId,
+      context.db
+    );
     if (!saved) continue;
     stored.push(saved);
 
@@ -346,7 +353,11 @@ export async function commit(context: AppContext, params: Record<string, unknown
           entryId: saved.id,
           tagName: 'needs_review',
         });
-        await context.repos.entryTags.attach({ entryType: saved.type, entryId: saved.id, tagName: 'candidate' });
+        await context.repos.entryTags.attach({
+          entryType: saved.type,
+          entryId: saved.id,
+          tagName: 'candidate',
+        });
       } catch (error) {
         logger.warn(
           {
@@ -377,7 +388,14 @@ export async function commit(context: AppContext, params: Record<string, unknown
     const targetScopeId = wantsProject ? projectId : sessionId;
 
     try {
-      const saved = await storeEntity(context.repos, entity, targetScopeType, targetScopeId, agentId, context.db);
+      const saved = await storeEntity(
+        context.repos,
+        entity,
+        targetScopeType,
+        targetScopeId,
+        agentId,
+        context.db
+      );
       if (saved) {
         storedEntities.push(saved);
       }
@@ -427,13 +445,16 @@ export async function commit(context: AppContext, params: Record<string, unknown
   });
   await context.repos.sessions.update(sessionId, { metadata: nextMeta });
 
-  logAction({
-    agentId,
-    action: 'create',
-    scopeType: 'session',
-    scopeId: sessionId,
-    resultCount: stored.length + storedEntities.length,
-  }, context.db);
+  logAction(
+    {
+      agentId,
+      action: 'create',
+      scopeType: 'session',
+      scopeId: sessionId,
+      resultCount: stored.length + storedEntities.length,
+    },
+    context.db
+  );
 
   return formatTimestamps({
     success: true,

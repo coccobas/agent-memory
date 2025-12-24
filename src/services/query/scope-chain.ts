@@ -78,11 +78,13 @@ export function clearScopeChainCache(): void {
  * @param dbClient - Optional database client (defaults to getDb() for backward compatibility)
  */
 export function resolveScopeChain(
-  input: {
-    type: ScopeType;
-    id?: string;
-    inherit?: boolean;
-  } | undefined,
+  input:
+    | {
+        type: ScopeType;
+        id?: string;
+        inherit?: boolean;
+      }
+    | undefined,
   db: DbClient
 ): ScopeDescriptor[] {
   ensureScopeChainCacheRegistered();

@@ -25,8 +25,18 @@ export const relationHandlers = {
     const relationType = getRequiredParam(params, 'relationType', isRelationType);
     const createdBy = getOptionalParam(params, 'createdBy', isString);
 
-    await requireEntryPermission(context, { agentId, action: 'write', entryType: sourceType, entryId: sourceId });
-    await requireEntryPermission(context, { agentId, action: 'write', entryType: targetType, entryId: targetId });
+    await requireEntryPermission(context, {
+      agentId,
+      action: 'write',
+      entryType: sourceType,
+      entryId: sourceId,
+    });
+    await requireEntryPermission(context, {
+      agentId,
+      action: 'write',
+      entryType: targetType,
+      entryId: targetId,
+    });
 
     const input: CreateRelationInput = {
       sourceType,
@@ -61,10 +71,20 @@ export const relationHandlers = {
       );
     }
     if (sourceType && sourceId) {
-      await requireEntryPermission(context, { agentId, action: 'read', entryType: sourceType, entryId: sourceId });
+      await requireEntryPermission(context, {
+        agentId,
+        action: 'read',
+        entryType: sourceType,
+        entryId: sourceId,
+      });
     }
     if (targetType && targetId) {
-      await requireEntryPermission(context, { agentId, action: 'read', entryType: targetType, entryId: targetId });
+      await requireEntryPermission(context, {
+        agentId,
+        action: 'read',
+        entryType: targetType,
+        entryId: targetId,
+      });
     }
 
     const relations = await context.repos.entryRelations.list(

@@ -268,10 +268,7 @@ function queryToolsForExport(db: DbClient, options: ExportOptions): ExportedTool
 /**
  * Query guidelines for export
  */
-function queryGuidelinesForExport(
-  db: DbClient,
-  options: ExportOptions
-): ExportedGuideline[] {
+function queryGuidelinesForExport(db: DbClient, options: ExportOptions): ExportedGuideline[] {
   const conditions = [];
 
   if (options.scopeType) {
@@ -347,10 +344,7 @@ function queryGuidelinesForExport(
 /**
  * Query knowledge for export
  */
-function queryKnowledgeForExport(
-  db: DbClient,
-  options: ExportOptions
-): ExportedKnowledge[] {
+function queryKnowledgeForExport(db: DbClient, options: ExportOptions): ExportedKnowledge[] {
   const conditions = [];
 
   if (options.scopeType) {
@@ -793,5 +787,3 @@ export function exportToOpenAPI(options: ExportOptions, db: DbClient): ExportRes
     },
   };
 }
-
-

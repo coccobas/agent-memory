@@ -23,7 +23,10 @@ import { createValidationError } from '../../core/errors.js';
 /**
  * Record a vote from an agent for a task
  */
-export async function recordVoteHandler(context: AppContext, params: VotingRecordVoteParams): Promise<{
+export async function recordVoteHandler(
+  context: AppContext,
+  params: VotingRecordVoteParams
+): Promise<{
   success: boolean;
   taskId: string;
   agentId: string;
@@ -37,13 +40,16 @@ export async function recordVoteHandler(context: AppContext, params: VotingRecor
     );
   }
 
-  recordVote({
-    taskId: params.taskId,
-    agentId: params.agentId,
-    voteValue: params.voteValue,
-    confidence: params.confidence,
-    reasoning: params.reasoning,
-  }, context.db);
+  recordVote(
+    {
+      taskId: params.taskId,
+      agentId: params.agentId,
+      voteValue: params.voteValue,
+      confidence: params.confidence,
+      reasoning: params.reasoning,
+    },
+    context.db
+  );
 
   return {
     success: true,
@@ -56,7 +62,10 @@ export async function recordVoteHandler(context: AppContext, params: VotingRecor
 /**
  * Get consensus for a task using First-to-Ahead-by-k algorithm
  */
-export async function getConsensusHandler(context: AppContext, params: VotingGetConsensusParams): Promise<{
+export async function getConsensusHandler(
+  context: AppContext,
+  params: VotingGetConsensusParams
+): Promise<{
   consensus: unknown;
   voteCount: number;
   confidence: number;
@@ -65,7 +74,11 @@ export async function getConsensusHandler(context: AppContext, params: VotingGet
   k: number;
 }> {
   if (!params.taskId) {
-    throw createValidationError('taskId', 'is required', 'Provide the task ID to get consensus for');
+    throw createValidationError(
+      'taskId',
+      'is required',
+      'Provide the task ID to get consensus for'
+    );
   }
 
   const k = params.k ?? 1;
@@ -88,7 +101,10 @@ export async function getConsensusHandler(context: AppContext, params: VotingGet
 /**
  * List all votes for a task
  */
-export async function listVotesHandler(context: AppContext, params: VotingListVotesParams): Promise<{
+export async function listVotesHandler(
+  context: AppContext,
+  params: VotingListVotesParams
+): Promise<{
   votes: Array<{
     id: string;
     agentId: string;
@@ -114,7 +130,10 @@ export async function listVotesHandler(context: AppContext, params: VotingListVo
 /**
  * Get voting statistics for a task
  */
-export async function getStatsHandler(context: AppContext, params: VotingGetStatsParams): Promise<{
+export async function getStatsHandler(
+  context: AppContext,
+  params: VotingGetStatsParams
+): Promise<{
   totalVotes: number;
   uniqueOptions: number;
   consensusReached: boolean;

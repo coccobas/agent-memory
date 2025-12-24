@@ -20,25 +20,25 @@ export function mapError(error: unknown): MappedError {
       message: error.message,
       code: error.code,
       statusCode: getStatusCodeForErrorCode(error.code),
-      details: error.context
+      details: error.context,
     };
   }
 
   // 2. Handle Fastify/HTTP style errors with status codes
   if (typeof error === 'object' && error !== null && 'statusCode' in error) {
     const statusCode = (error as { statusCode: number }).statusCode;
-    const message = (error instanceof Error) ? error.message : 'Request failed';
+    const message = error instanceof Error ? error.message : 'Request failed';
     return {
       message,
       code: 'HTTP_ERROR',
-      statusCode
+      statusCode,
     };
   }
 
   // 3. Handle Standard Errors
   if (error instanceof Error) {
     const message = error.message;
-    
+
     // Heuristic mapping for common errors
     if (message.includes('Validation error') || message.includes('is required')) {
       return { message, code: ErrorCodes.INVALID_PARAMETER, statusCode: 400 };
@@ -54,7 +54,7 @@ export function mapError(error: unknown): MappedError {
     return {
       message: error.message,
       code: ErrorCodes.INTERNAL_ERROR,
-      statusCode: 500
+      statusCode: 500,
     };
   }
 
@@ -63,7 +63,7 @@ export function mapError(error: unknown): MappedError {
   return {
     message: String(error),
     code: ErrorCodes.UNKNOWN_ERROR,
-    statusCode: 500
+    statusCode: 500,
   };
 }
 
@@ -84,12 +84,12 @@ function getStatusCodeForErrorCode(code: string): number {
     case ErrorCodes.NOT_FOUND:
     case ErrorCodes.LOCK_NOT_FOUND:
       return 404;
-      
+
     case ErrorCodes.ALREADY_EXISTS:
     case ErrorCodes.CONFLICT:
     case ErrorCodes.FILE_LOCKED:
       return 409;
-      
+
     case ErrorCodes.SERVICE_UNAVAILABLE:
     case ErrorCodes.EXTRACTION_UNAVAILABLE:
     case ErrorCodes.EMBEDDING_DISABLED:

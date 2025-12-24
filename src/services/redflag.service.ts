@@ -38,7 +38,11 @@ export interface RedFlagServiceDeps {
  * Red-flag service interface
  */
 export interface RedFlagService {
-  detectRedFlags(entry: { type: EntryType; content: string; metadata?: Record<string, unknown> }): Promise<RedFlag[]>;
+  detectRedFlags(entry: {
+    type: EntryType;
+    content: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<RedFlag[]>;
   scoreRedFlagRisk(entryId: string, entryType: EntryType): Promise<number>;
 }
 
@@ -47,7 +51,11 @@ export interface RedFlagService {
  */
 export function createRedFlagService(deps: RedFlagServiceDeps): RedFlagService {
   return {
-    async detectRedFlags(entry: { type: EntryType; content: string; metadata?: Record<string, unknown> }): Promise<RedFlag[]> {
+    async detectRedFlags(entry: {
+      type: EntryType;
+      content: string;
+      metadata?: Record<string, unknown>;
+    }): Promise<RedFlag[]> {
       return detectRedFlagsImpl(deps.guidelineRepo, entry);
     },
     async scoreRedFlagRisk(entryId: string, entryType: EntryType): Promise<number> {
@@ -184,7 +192,11 @@ async function scoreRedFlagRiskImpl(
 
   if (!content) return 0;
 
-  const flags = await detectRedFlagsImpl(deps.guidelineRepo, { type: entryType, content, metadata });
+  const flags = await detectRedFlagsImpl(deps.guidelineRepo, {
+    type: entryType,
+    content,
+    metadata,
+  });
 
   // Calculate risk score based on severity
   let riskScore = 0;

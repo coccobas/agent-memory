@@ -77,11 +77,7 @@ export const verificationHandlers = {
 
     // Verify the action using injected service
     const verification = requireVerificationService(context);
-    const result = verification.verifyAction(
-      sessionId ?? null,
-      projectId ?? null,
-      proposedAction
-    );
+    const result = verification.verifyAction(sessionId ?? null, projectId ?? null, proposedAction);
 
     return formatTimestamps({
       success: true,
@@ -128,11 +124,7 @@ export const verificationHandlers = {
 
     // Log and verify the completed action using injected service
     const verification = requireVerificationService(context);
-    const result = verification.logCompletedAction(
-      sessionId ?? null,
-      action,
-      agentId
-    );
+    const result = verification.logCompletedAction(sessionId ?? null, action, agentId);
 
     return formatTimestamps({
       success: true,
@@ -160,18 +152,11 @@ export const verificationHandlers = {
 
     // Acknowledge the guidelines using injected service
     const verification = requireVerificationService(context);
-    const result = verification.acknowledgeGuidelines(
-      sessionId,
-      guidelineIds,
-      agentId
-    );
+    const result = verification.acknowledgeGuidelines(sessionId, guidelineIds, agentId);
 
     // Check if all critical guidelines are now acknowledged
     const projectId = null; // Will be resolved from session
-    const status = verification.areAllCriticalGuidelinesAcknowledged(
-      sessionId,
-      projectId
-    );
+    const status = verification.areAllCriticalGuidelinesAcknowledged(sessionId, projectId);
 
     return formatTimestamps({
       success: true,
@@ -207,9 +192,7 @@ export const verificationHandlers = {
 
     // Get acknowledged guidelines using injected service
     const verification = requireVerificationService(context);
-    const acknowledgedIds = new Set(
-      verification.getAcknowledgedGuidelineIds(sessionId)
-    );
+    const acknowledgedIds = new Set(verification.getAcknowledgedGuidelineIds(sessionId));
 
     // Build status for each guideline
     const guidelinesStatus = criticalGuidelines.guidelines.map((g) => ({

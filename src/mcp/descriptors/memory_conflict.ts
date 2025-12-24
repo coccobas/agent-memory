@@ -30,7 +30,8 @@ export const memoryConflictDescriptor: ToolDescriptor = {
       contextHandler: (ctx, p) => conflictHandlers.list(ctx, p as unknown as ConflictListParams),
     },
     resolve: {
-      contextHandler: (ctx, p) => conflictHandlers.resolve(ctx, p as unknown as ConflictResolveParams),
+      contextHandler: (ctx, p) =>
+        conflictHandlers.resolve(ctx, p as unknown as ConflictResolveParams),
     },
   },
 };

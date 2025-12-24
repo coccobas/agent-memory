@@ -56,7 +56,15 @@ function exportEntries(context: AppContext, params: Record<string, unknown>) {
   } as const;
 
   const denied = requestedTypes.filter(
-    (t) => !context.services!.permission.check(agentId, 'read', typeToEntryType[t], null, scopeType, scopeId ?? null)
+    (t) =>
+      !context.services!.permission.check(
+        agentId,
+        'read',
+        typeToEntryType[t],
+        null,
+        scopeType,
+        scopeId ?? null
+      )
   );
   if (denied.length > 0) {
     throw createPermissionError('read', 'export', denied.join(','));

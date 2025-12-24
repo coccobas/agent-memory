@@ -5,7 +5,7 @@
  * Coordinates eviction when total memory usage exceeds configured limits.
  */
 
-import { LRUCache } from '../utils/lru-cache.js';
+import type { LRUCache } from '../utils/lru-cache.js';
 import { createComponentLogger } from '../utils/logger.js';
 
 const logger = createComponentLogger('memory-coordinator');
@@ -68,7 +68,8 @@ export class MemoryCoordinator {
 
   isMemoryPressureHigh(): boolean {
     const total = this.getTotalMemoryMB();
-    const threshold = this.coordinatorConfig.totalLimitMB * this.coordinatorConfig.pressureThreshold;
+    const threshold =
+      this.coordinatorConfig.totalLimitMB * this.coordinatorConfig.pressureThreshold;
     return total > threshold;
   }
 
@@ -148,7 +149,10 @@ export class MemoryCoordinator {
 
     this.checkInterval.unref();
     logger.debug(
-      { intervalMs: this.coordinatorConfig.checkIntervalMs, limitMB: this.coordinatorConfig.totalLimitMB },
+      {
+        intervalMs: this.coordinatorConfig.checkIntervalMs,
+        limitMB: this.coordinatorConfig.totalLimitMB,
+      },
       'Memory monitoring started'
     );
   }

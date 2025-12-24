@@ -275,7 +275,9 @@ export async function listTasks(
       relationType: 'parent_task',
     };
     const relations = await entryRelationRepo.list(filter);
-    taskIds = relations.filter((rel: { targetType: string }) => rel.targetType === 'knowledge').map((rel: { targetId: string }) => rel.targetId);
+    taskIds = relations
+      .filter((rel: { targetType: string }) => rel.targetType === 'knowledge')
+      .map((rel: { targetId: string }) => rel.targetId);
   } else {
     // Get all tasks (knowledge entries that are parents)
     const filter: ListRelationsFilter = {
@@ -284,7 +286,9 @@ export async function listTasks(
     const allRelations = await entryRelationRepo.list(filter);
     taskIds = Array.from(
       new Set(
-        allRelations.filter((rel: { sourceType: string }) => rel.sourceType === 'knowledge').map((rel: { sourceId: string }) => rel.sourceId)
+        allRelations
+          .filter((rel: { sourceType: string }) => rel.sourceType === 'knowledge')
+          .map((rel: { sourceId: string }) => rel.sourceId)
       )
     );
   }

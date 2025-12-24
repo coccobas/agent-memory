@@ -15,7 +15,7 @@ const queryTypeToEntryType: Record<'tools' | 'guidelines' | 'knowledge', EntryTy
 };
 
 export class QueryController {
-  constructor(private context: AppContext) { }
+  constructor(private context: AppContext) {}
 
   async handleQuery(request: FastifyRequest, reply: FastifyReply) {
     const body = request.body;
@@ -41,15 +41,16 @@ export class QueryController {
     const typesToCheck: QueryType[] = requestedTypes ?? ['tools', 'guidelines', 'knowledge'];
 
     // Permission Check
-    const deniedTypes = typesToCheck.filter((type) =>
-      !this.context.services!.permission.check(
-        agentId,
-        'read',
-        queryTypeToEntryType[type],
-        null,
-        scopeType,
-        scopeId
-      )
+    const deniedTypes = typesToCheck.filter(
+      (type) =>
+        !this.context.services!.permission.check(
+          agentId,
+          'read',
+          queryTypeToEntryType[type],
+          null,
+          scopeType,
+          scopeId
+        )
     );
 
     if (requestedTypes && deniedTypes.length > 0) {
@@ -78,12 +79,15 @@ export class QueryController {
       }
     }
 
-    logAction({
-      agentId,
-      action: 'query',
-      queryParams: queryParamsWithoutAgent,
-      resultCount: result.results.length,
-    }, this.context.db);
+    logAction(
+      {
+        agentId,
+        action: 'query',
+        queryParams: queryParamsWithoutAgent,
+        resultCount: result.results.length,
+      },
+      this.context.db
+    );
 
     return formatTimestamps({
       results: result.results,

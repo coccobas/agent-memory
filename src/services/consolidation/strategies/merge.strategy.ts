@@ -21,7 +21,11 @@ const logger = createComponentLogger('consolidation.merge');
 export class MergeStrategy implements ConsolidationStrategy {
   readonly name = 'semantic_merge' as const;
 
-  execute(group: SimilarityGroup, consolidatedBy: string | undefined, db: DbClient): StrategyResult {
+  execute(
+    group: SimilarityGroup,
+    consolidatedBy: string | undefined,
+    db: DbClient
+  ): StrategyResult {
     // Get full content of all entries
     const allEntryIds = [group.primaryId, ...group.members.map((m) => m.id)];
     const entries = getEntryDetails(group.entryType, allEntryIds, db);

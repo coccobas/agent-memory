@@ -27,7 +27,12 @@ interface ActionParams {
 }
 
 async function getCandidates(context: AppContext, sessionId: string): Promise<ReviewCandidate[]> {
-  const { guidelines: guidelineRepo, knowledge: knowledgeRepo, tools: toolRepo, entryTags: entryTagRepo } = context.repos;
+  const {
+    guidelines: guidelineRepo,
+    knowledge: knowledgeRepo,
+    tools: toolRepo,
+    entryTags: entryTagRepo,
+  } = context.repos;
   const candidates: ReviewCandidate[] = [];
 
   // Get guidelines from session scope
@@ -84,7 +89,11 @@ async function getCandidates(context: AppContext, sessionId: string): Promise<Re
   return candidates;
 }
 
-async function findCandidate(context: AppContext, sessionId: string, entryId: string): Promise<ReviewCandidate | undefined> {
+async function findCandidate(
+  context: AppContext,
+  sessionId: string,
+  entryId: string
+): Promise<ReviewCandidate | undefined> {
   const candidates = await getCandidates(context, sessionId);
   return candidates.find(
     (c) => c.id === entryId || c.shortId === entryId || c.id.startsWith(entryId)
@@ -154,7 +163,12 @@ async function show(context: AppContext, params: ActionParams) {
 }
 
 async function approve(context: AppContext, params: ActionParams) {
-  const { guidelines: guidelineRepo, knowledge: knowledgeRepo, tools: toolRepo, sessions: sessionRepo } = context.repos;
+  const {
+    guidelines: guidelineRepo,
+    knowledge: knowledgeRepo,
+    tools: toolRepo,
+    sessions: sessionRepo,
+  } = context.repos;
 
   if (!params.sessionId) {
     throw createValidationError('sessionId', 'is required', 'Provide the session ID');

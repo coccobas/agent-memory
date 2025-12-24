@@ -33,7 +33,6 @@ export function getEntriesForConsolidation(
   scopeId: string | undefined,
   db: DbClient
 ): EntryForConsolidation[] {
-
   if (entryType === 'tool') {
     const entries = db
       .select({
@@ -290,7 +289,6 @@ export function getEntryDetails(
  * Deactivate a single entry
  */
 export function deactivateEntry(entryType: EntryType, id: string, db: DbClient): void {
-
   if (entryType === 'tool') {
     db.update(tools).set({ isActive: false }).where(eq(tools.id, id)).run();
   } else if (entryType === 'guideline') {
@@ -303,11 +301,7 @@ export function deactivateEntry(entryType: EntryType, id: string, db: DbClient):
 /**
  * Batch deactivate multiple entries of the same type (O(1) instead of O(n))
  */
-export function batchDeactivateEntries(
-  entryType: EntryType,
-  ids: string[],
-  db: DbClient
-): void {
+export function batchDeactivateEntries(entryType: EntryType, ids: string[], db: DbClient): void {
   if (ids.length === 0) return;
 
   if (entryType === 'tool') {
@@ -330,7 +324,6 @@ export function updateEntryContent(
   updatedBy: string | undefined,
   db: DbClient
 ): void {
-
   if (entryType === 'guideline') {
     const entry = db.select().from(guidelines).where(eq(guidelines.id, id)).get();
     if (!entry) throw new Error(`Guideline ${id} not found`);
@@ -437,7 +430,6 @@ export function createConsolidationRelation(
   relationType: ConsolidationRelationType,
   db: DbClient
 ): void {
-
   // Map our consolidation relation types to schema relation types
   const schemaRelationType = relationType === 'related' ? 'related_to' : 'related_to';
 

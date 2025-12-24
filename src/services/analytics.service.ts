@@ -331,7 +331,6 @@ export function getSubtaskStats(
   completedSubtasks: number;
   failedSubtasks: number;
 } {
-
   // Build where conditions
   const conditions = [isNotNull(auditLog.subtaskType)];
 

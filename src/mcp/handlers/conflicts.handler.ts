@@ -23,7 +23,10 @@ export const conflictHandlers = {
     const limit = getOptionalParam(params, 'limit', isNumber);
     const offset = getOptionalParam(params, 'offset', isNumber);
 
-    const conflicts = await context.repos.conflicts.list({ entryType, resolved }, { limit, offset });
+    const conflicts = await context.repos.conflicts.list(
+      { entryType, resolved },
+      { limit, offset }
+    );
 
     return {
       conflicts,

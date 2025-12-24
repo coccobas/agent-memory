@@ -98,7 +98,13 @@ export async function extract(appContext: AppContext, params: Record<string, unk
     const name = entry.name || entry.title || 'Unnamed';
 
     // Check for duplicates
-    const duplicateCheck = checkForDuplicates(entryType, name, scopeType, scopeId ?? null, appContext.db);
+    const duplicateCheck = checkForDuplicates(
+      entryType,
+      name,
+      scopeType,
+      scopeId ?? null,
+      appContext.db
+    );
 
     // Determine if entry should be stored using per-type threshold
     const typeThreshold = getThreshold(entryType);
@@ -127,7 +133,14 @@ export async function extract(appContext: AppContext, params: Record<string, unk
     for (const entry of processedEntries) {
       if (entry.shouldStore) {
         try {
-          const stored = await storeEntry(appContext.repos, entry, scopeType, scopeId, agentId, appContext.db);
+          const stored = await storeEntry(
+            appContext.repos,
+            entry,
+            scopeType,
+            scopeId,
+            agentId,
+            appContext.db
+          );
           if (stored) {
             storedEntries.push(stored);
           }
@@ -147,7 +160,14 @@ export async function extract(appContext: AppContext, params: Record<string, unk
     for (const entity of result.entities ?? []) {
       if (entity.confidence >= entityThreshold) {
         try {
-          const stored = await storeEntity(appContext.repos, entity, scopeType, scopeId, agentId, appContext.db);
+          const stored = await storeEntity(
+            appContext.repos,
+            entity,
+            scopeType,
+            scopeId,
+            agentId,
+            appContext.db
+          );
           if (stored) {
             storedEntities.push(stored);
           }
@@ -181,13 +201,16 @@ export async function extract(appContext: AppContext, params: Record<string, unk
   }
 
   // Log audit
-  logAction({
-    agentId,
-    action: 'query',
-    scopeType,
-    scopeId: scopeId ?? null,
-    resultCount: result.entries.length + (result.entities ?? []).length,
-  }, appContext.db);
+  logAction(
+    {
+      agentId,
+      action: 'query',
+      scopeType,
+      scopeId: scopeId ?? null,
+      resultCount: result.entries.length + (result.entities ?? []).length,
+    },
+    appContext.db
+  );
 
   return formatTimestamps({
     success: true,

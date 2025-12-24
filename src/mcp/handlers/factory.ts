@@ -14,7 +14,11 @@ import { createRedFlagService } from '../../services/redflag.service.js';
 import { emitEntryChanged } from '../../utils/events.js';
 import { createValidationService } from '../../services/validation.service.js';
 // Permission checks via context.services.permission (no legacy imports)
-import { createValidationError, createNotFoundError, createPermissionError } from '../../core/errors.js';
+import {
+  createValidationError,
+  createNotFoundError,
+  createPermissionError,
+} from '../../core/errors.js';
 import { createComponentLogger } from '../../utils/logger.js';
 import {
   getRequiredParam,
@@ -236,7 +240,12 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
       // Validate entry data
       const validationData = config.getValidationData(params);
       const validationService = createValidationService(context.repos.guidelines);
-      const validation = await validationService.validateEntry(config.entryType, validationData, scopeType, scopeId);
+      const validation = await validationService.validateEntry(
+        config.entryType,
+        validationData,
+        scopeType,
+        scopeId
+      );
       if (!validation.valid) {
         throw createValidationError(
           'entry',
@@ -265,25 +274,30 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
           {
             [config.nameField]: nameValue,
             [`${config.entryType}Id`]: entry.id,
-            redFlags: redFlags.map((f: { pattern: string; severity: string; description: string }) => ({
-              pattern: f.pattern,
-              severity: f.severity,
-              description: f.description,
-            })),
+            redFlags: redFlags.map(
+              (f: { pattern: string; severity: string; description: string }) => ({
+                pattern: f.pattern,
+                severity: f.severity,
+                description: f.description,
+              })
+            ),
           },
           `Red flags detected in ${config.entryType}`
         );
       }
 
       // Log audit
-      logAction({
-        agentId,
-        action: 'create',
-        entryType: config.entryType,
-        entryId: entry.id,
-        scopeType,
-        scopeId: scopeId ?? null,
-      }, context.db);
+      logAction(
+        {
+          agentId,
+          action: 'create',
+          entryType: config.entryType,
+          entryId: entry.id,
+          scopeType,
+          scopeId: scopeId ?? null,
+        },
+        context.db
+      );
 
       return formatTimestamps({
         success: true,
@@ -304,7 +318,14 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
       const existingEntry = await getExistingEntry(repo, id);
 
       // Check permission (write required for update)
-      requirePermission(context, agentId, 'write', existingEntry.scopeType, existingEntry.scopeId, id);
+      requirePermission(
+        context,
+        agentId,
+        'write',
+        existingEntry.scopeType,
+        existingEntry.scopeId,
+        id
+      );
 
       // Validate entry data
       const validationData = config.getValidationData(params, existingEntry);
@@ -340,14 +361,17 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
       });
 
       // Log audit
-      logAction({
-        agentId,
-        action: 'update',
-        entryType: config.entryType,
-        entryId: id,
-        scopeType: existingEntry.scopeType,
-        scopeId: existingEntry.scopeId ?? null,
-      }, context.db);
+      logAction(
+        {
+          agentId,
+          action: 'update',
+          entryType: config.entryType,
+          entryId: id,
+          scopeType: existingEntry.scopeType,
+          scopeId: existingEntry.scopeId ?? null,
+        },
+        context.db
+      );
 
       return formatTimestamps({ success: true, [config.responseKey]: entry });
     },
@@ -398,14 +422,17 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
       requirePermission(context, agentId, 'read', entry.scopeType, entry.scopeId, entry.id);
 
       // Log audit
-      logAction({
-        agentId,
-        action: 'read',
-        entryType: config.entryType,
-        entryId: entry.id,
-        scopeType: entry.scopeType,
-        scopeId: entry.scopeId ?? null,
-      }, context.db);
+      logAction(
+        {
+          agentId,
+          action: 'read',
+          entryType: config.entryType,
+          entryId: entry.id,
+          scopeType: entry.scopeType,
+          scopeId: entry.scopeId ?? null,
+        },
+        context.db
+      );
 
       return formatTimestamps({ [config.responseKey]: entry });
     },
@@ -457,7 +484,11 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
         scopeId: e.scopeId,
       }));
 
-      const permissionResults = context.services!.permission.checkBatch(agentId, 'read', batchEntries);
+      const permissionResults = context.services!.permission.checkBatch(
+        agentId,
+        'read',
+        batchEntries
+      );
 
       // Filter entries by permission results
       const entries = recordsToCheck.filter((e) => permissionResults.get(e.id) === true);
@@ -499,7 +530,14 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
       const existingEntry = await getExistingEntry(repo, id);
 
       // Check permission (delete/write required for deactivate)
-      requirePermission(context, agentId, 'write', existingEntry.scopeType, existingEntry.scopeId, id);
+      requirePermission(
+        context,
+        agentId,
+        'write',
+        existingEntry.scopeType,
+        existingEntry.scopeId,
+        id
+      );
 
       const success = await repo.deactivate(id);
       if (!success) {
@@ -507,14 +545,17 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
       }
 
       // Log audit
-      logAction({
-        agentId,
-        action: 'delete',
-        entryType: config.entryType,
-        entryId: id,
-        scopeType: existingEntry.scopeType,
-        scopeId: existingEntry.scopeId ?? null,
-      }, context.db);
+      logAction(
+        {
+          agentId,
+          action: 'delete',
+          entryType: config.entryType,
+          entryId: id,
+          scopeType: existingEntry.scopeType,
+          scopeId: existingEntry.scopeId ?? null,
+        },
+        context.db
+      );
 
       return { success: true };
     },
@@ -530,7 +571,14 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
       const existingEntry = await getExistingEntry(repo, id);
 
       // Check permission (delete required for hard delete)
-      requirePermission(context, agentId, 'write', existingEntry.scopeType, existingEntry.scopeId, id);
+      requirePermission(
+        context,
+        agentId,
+        'write',
+        existingEntry.scopeType,
+        existingEntry.scopeId,
+        id
+      );
 
       const success = await repo.delete(id);
       if (!success) {
@@ -547,14 +595,17 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
       });
 
       // Log audit
-      logAction({
-        agentId,
-        action: 'delete',
-        entryType: config.entryType,
-        entryId: id,
-        scopeType: existingEntry.scopeType,
-        scopeId: existingEntry.scopeId ?? null,
-      }, context.db);
+      logAction(
+        {
+          agentId,
+          action: 'delete',
+          entryType: config.entryType,
+          entryId: id,
+          scopeType: existingEntry.scopeType,
+          scopeId: existingEntry.scopeId ?? null,
+        },
+        context.db
+      );
 
       return { success: true, message: `${config.entryType} permanently deleted` };
     },

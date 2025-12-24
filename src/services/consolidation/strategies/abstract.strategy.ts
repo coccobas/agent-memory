@@ -15,7 +15,11 @@ const logger = createComponentLogger('consolidation.abstract');
 export class AbstractStrategy implements ConsolidationStrategy {
   readonly name = 'abstract' as const;
 
-  execute(group: SimilarityGroup, _consolidatedBy: string | undefined, db: DbClient): StrategyResult {
+  execute(
+    group: SimilarityGroup,
+    _consolidatedBy: string | undefined,
+    db: DbClient
+  ): StrategyResult {
     // Link all members as related to the primary
     for (const member of group.members) {
       createConsolidationRelation(group.entryType, group.primaryId, member.id, 'related', db);

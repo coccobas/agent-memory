@@ -43,7 +43,7 @@ export function createServer(context: AppContext): FastifyInstance {
     // We pass the headers directly. Fastify headers are IncomingHttpHeaders (Record<string, string | string[] | undefined>)
     // which matches our interface.
     const result = context.security.validateRequest({
-      headers: request.headers
+      headers: request.headers,
     });
 
     if (!result.authorized) {
@@ -82,19 +82,20 @@ export function createServer(context: AppContext): FastifyInstance {
 
   app.setErrorHandler((error, _request, reply) => {
     restLogger.error({ error }, 'REST API request failed');
-    
+
     // Use centralized Error Mapper
     const mapped = mapError(error);
-    
-    // If it's a server error in production, hide details
-    const safeMessage = (mapped.statusCode >= 500 && process.env.NODE_ENV === 'production')
-      ? 'Internal Server Error'
-      : mapped.message;
 
-    void reply.status(mapped.statusCode).send({ 
+    // If it's a server error in production, hide details
+    const safeMessage =
+      mapped.statusCode >= 500 && process.env.NODE_ENV === 'production'
+        ? 'Internal Server Error'
+        : mapped.message;
+
+    void reply.status(mapped.statusCode).send({
       error: safeMessage,
       code: mapped.code,
-      details: mapped.details 
+      details: mapped.details,
     });
   });
 

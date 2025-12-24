@@ -1,4 +1,7 @@
-import type { IConversationRepository, CreateKnowledgeInput } from '../core/interfaces/repositories.js';
+import type {
+  IConversationRepository,
+  CreateKnowledgeInput,
+} from '../core/interfaces/repositories.js';
 import type { PermissionEntryType } from '../db/schema.js';
 import type { MemoryQueryResult } from './query.service.js';
 import { createComponentLogger } from '../utils/logger.js';
@@ -39,7 +42,9 @@ export function createConversationService(
     async generateConversationSummary(conversationId: string): Promise<string> {
       return generateConversationSummaryImpl(conversationRepo, conversationId);
     },
-    async extractKnowledgeFromConversation(conversationId: string): Promise<CreateKnowledgeInput[]> {
+    async extractKnowledgeFromConversation(
+      conversationId: string
+    ): Promise<CreateKnowledgeInput[]> {
       return extractKnowledgeFromConversationImpl(conversationRepo, conversationId);
     },
     async getConversationAnalytics(conversationId: string): Promise<ConversationAnalytics> {
@@ -286,4 +291,3 @@ async function getConversationAnalyticsImpl(
     averageRelevanceScore,
   };
 }
-

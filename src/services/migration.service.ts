@@ -66,7 +66,10 @@ export function createMigrationService(deps: MigrationServiceDeps): MigrationSer
 /**
  * Migrate entries from one format to another (implementation)
  */
-async function migrateEntriesImpl(deps: MigrationServiceDeps, params: MigrationParams): Promise<MigrationResult> {
+async function migrateEntriesImpl(
+  deps: MigrationServiceDeps,
+  params: MigrationParams
+): Promise<MigrationResult> {
   const { fromFormat, toFormat, scopeType, scopeId, dryRun = false } = params;
 
   const result: MigrationResult = {
@@ -79,17 +82,23 @@ async function migrateEntriesImpl(deps: MigrationServiceDeps, params: MigrationP
     // Step 1: Export entries in source format
     let exportResult;
     if (fromFormat === 'openapi') {
-      exportResult = exportToOpenAPI({
-        types: ['tools'], // OpenAPI only supports tools
-        scopeType,
-        scopeId,
-      }, deps.db);
+      exportResult = exportToOpenAPI(
+        {
+          types: ['tools'], // OpenAPI only supports tools
+          scopeType,
+          scopeId,
+        },
+        deps.db
+      );
     } else {
-      exportResult = exportToJson({
-        types: ['tools', 'guidelines', 'knowledge'],
-        scopeType,
-        scopeId,
-      }, deps.db);
+      exportResult = exportToJson(
+        {
+          types: ['tools', 'guidelines', 'knowledge'],
+          scopeType,
+          scopeId,
+        },
+        deps.db
+      );
     }
 
     if (exportResult.metadata.entryCount === 0) {
@@ -158,11 +167,14 @@ async function migrateScopeImpl(
 
   try {
     // Export from source scope
-    const exportResult = exportToJson({
-      types: entryTypes || ['tools', 'guidelines', 'knowledge'],
-      scopeType: fromScope.type,
-      scopeId: fromScope.id,
-    }, deps.db);
+    const exportResult = exportToJson(
+      {
+        types: entryTypes || ['tools', 'guidelines', 'knowledge'],
+        scopeType: fromScope.type,
+        scopeId: fromScope.id,
+      },
+      deps.db
+    );
 
     if (exportResult.metadata.entryCount === 0) {
       return result;
@@ -197,5 +209,3 @@ async function migrateScopeImpl(
 
   return result;
 }
-
-

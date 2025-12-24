@@ -28,7 +28,10 @@ export const memoryProjectDescriptor: ToolDescriptor = {
   actions: {
     create: {
       contextHandler: (ctx, p) =>
-        scopeHandlers.projectCreate(ctx, p as unknown as ProjectCreateParams & { adminKey?: string }),
+        scopeHandlers.projectCreate(
+          ctx,
+          p as unknown as ProjectCreateParams & { adminKey?: string }
+        ),
     },
     list: {
       contextHandler: (ctx, p) => scopeHandlers.projectList(ctx, p as unknown as ProjectListParams),
@@ -38,11 +41,17 @@ export const memoryProjectDescriptor: ToolDescriptor = {
     },
     update: {
       contextHandler: (ctx, p) =>
-        scopeHandlers.projectUpdate(ctx, p as unknown as ProjectUpdateParams & { adminKey?: string }),
+        scopeHandlers.projectUpdate(
+          ctx,
+          p as unknown as ProjectUpdateParams & { adminKey?: string }
+        ),
     },
     delete: {
       contextHandler: (ctx, p) =>
-        scopeHandlers.projectDelete(ctx, p as unknown as ProjectDeleteParams & { adminKey?: string }),
+        scopeHandlers.projectDelete(
+          ctx,
+          p as unknown as ProjectDeleteParams & { adminKey?: string }
+        ),
     },
   },
 };

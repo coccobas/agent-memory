@@ -205,7 +205,10 @@ export function createGuidelineRepository(deps: DatabaseDeps): IGuidelineReposit
       return attachVersions(guidelinesList, versionsMap);
     },
 
-    async update(id: string, input: UpdateGuidelineInput): Promise<GuidelineWithVersion | undefined> {
+    async update(
+      id: string,
+      input: UpdateGuidelineInput
+    ): Promise<GuidelineWithVersion | undefined> {
       return transactionWithRetry(sqlite, () => {
         const existing = getByIdSync(id);
         if (!existing) return undefined;

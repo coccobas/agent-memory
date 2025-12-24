@@ -329,4 +329,3 @@ export function executeQueryPipeline(
 ): MemoryQueryResult {
   return executeQueryPipelineSync(params, deps);
 }
-

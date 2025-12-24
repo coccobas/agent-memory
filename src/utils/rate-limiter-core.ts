@@ -224,16 +224,16 @@ export class RateLimiter {
       const staleThreshold = this.config.windowMs * 2;
 
       for (const [key, bucket] of this.buckets) {
-        if (bucket.tokens >= this.config.maxRequests && now - bucket.lastRefillTime > staleThreshold) {
+        if (
+          bucket.tokens >= this.config.maxRequests &&
+          now - bucket.lastRefillTime > staleThreshold
+        ) {
           this.buckets.delete(key);
         }
       }
 
       for (const [key, bucket] of this.burstBuckets) {
-        if (
-          bucket.tokens >= this.config.minBurstProtection &&
-          now - bucket.lastRefillTime > 2000
-        ) {
+        if (bucket.tokens >= this.config.minBurstProtection && now - bucket.lastRefillTime > 2000) {
           this.burstBuckets.delete(key);
         }
       }

@@ -34,7 +34,11 @@ export function createFileLockRepository(deps: DatabaseDeps): IFileLockRepositor
   const { db, sqlite } = deps;
 
   const repo: IFileLockRepository = {
-    async checkout(filePath: string, agentId: string, options: CheckoutOptions = {}): Promise<FileLock> {
+    async checkout(
+      filePath: string,
+      agentId: string,
+      options: CheckoutOptions = {}
+    ): Promise<FileLock> {
       // Validate required parameters
       if (!filePath) throw new Error('filePath is required');
       if (!agentId) throw new Error('agentId is required');
@@ -98,9 +102,7 @@ export function createFileLockRepository(deps: DatabaseDeps): IFileLockRepositor
             .get();
 
           if (existing) {
-            throw new Error(
-              `File ${filePath} is already locked by agent ${existing.checkedOutBy}`
-            );
+            throw new Error(`File ${filePath} is already locked by agent ${existing.checkedOutBy}`);
           }
           // This shouldn't happen - unique constraint failed but no lock found
           throw new Error(`Failed to acquire lock for ${filePath}: constraint violation`);
@@ -123,7 +125,11 @@ export function createFileLockRepository(deps: DatabaseDeps): IFileLockRepositor
           .run();
 
         const normalizedPath = normalizePath(filePath);
-        const lock = db.select().from(fileLocks).where(eq(fileLocks.filePath, normalizedPath)).get();
+        const lock = db
+          .select()
+          .from(fileLocks)
+          .where(eq(fileLocks.filePath, normalizedPath))
+          .get();
         if (!lock) {
           throw new Error(`File ${filePath} is not locked`);
         }
@@ -156,7 +162,11 @@ export function createFileLockRepository(deps: DatabaseDeps): IFileLockRepositor
           .run();
 
         const normalizedPath = normalizePath(filePath);
-        const lock = db.select().from(fileLocks).where(eq(fileLocks.filePath, normalizedPath)).get();
+        const lock = db
+          .select()
+          .from(fileLocks)
+          .where(eq(fileLocks.filePath, normalizedPath))
+          .get();
         if (!lock) {
           throw new Error(`File ${filePath} is not locked`);
         }

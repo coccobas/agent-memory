@@ -45,7 +45,14 @@ export const conversationHandlers = {
     // Check permission (write required for create)
     const scopeType = sessionId ? 'session' : 'project';
     const scopeId = sessionId || projectId || null;
-    requirePermission(context.services!.permission, agentId, 'write', scopeType, scopeId, 'knowledge');
+    requirePermission(
+      context.services!.permission,
+      agentId,
+      'write',
+      scopeType,
+      scopeId,
+      'knowledge'
+    );
 
     const conversation = await context.repos.conversations.create({
       sessionId,
@@ -56,14 +63,17 @@ export const conversationHandlers = {
     });
 
     // Log audit event
-    logAction({
-      agentId,
-      action: 'create',
-      entryType: 'knowledge', // Conversations are tracked as knowledge-type entries
-      entryId: conversation.id,
-      scopeType: sessionId ? 'session' : 'project',
-      scopeId: sessionId || projectId || null,
-    }, context.db);
+    logAction(
+      {
+        agentId,
+        action: 'create',
+        entryType: 'knowledge', // Conversations are tracked as knowledge-type entries
+        entryId: conversation.id,
+        scopeType: sessionId ? 'session' : 'project',
+        scopeId: sessionId || projectId || null,
+      },
+      context.db
+    );
 
     return formatTimestamps({
       success: true,
@@ -145,7 +155,14 @@ export const conversationHandlers = {
     // Check permission (write required)
     const addMsgScopeType = conversation.sessionId ? 'session' : 'project';
     const addMsgScopeId = conversation.sessionId || conversation.projectId || null;
-    requirePermission(context.services!.permission, agentId, 'write', addMsgScopeType, addMsgScopeId, 'knowledge');
+    requirePermission(
+      context.services!.permission,
+      agentId,
+      'write',
+      addMsgScopeType,
+      addMsgScopeId,
+      'knowledge'
+    );
 
     const message = await context.repos.conversations.addMessage({
       conversationId,
@@ -157,14 +174,17 @@ export const conversationHandlers = {
     });
 
     // Log audit event
-    logAction({
-      agentId,
-      action: 'update',
-      entryType: 'knowledge',
-      entryId: conversationId,
-      scopeType: conversation.sessionId ? 'session' : 'project',
-      scopeId: conversation.sessionId || conversation.projectId || null,
-    }, context.db);
+    logAction(
+      {
+        agentId,
+        action: 'update',
+        entryType: 'knowledge',
+        entryId: conversationId,
+        scopeType: conversation.sessionId ? 'session' : 'project',
+        scopeId: conversation.sessionId || conversation.projectId || null,
+      },
+      context.db
+    );
 
     return formatTimestamps({
       success: true,
@@ -178,7 +198,11 @@ export const conversationHandlers = {
     const includeContext = getOptionalParam(params, 'includeContext', isBoolean);
     const agentId = getOptionalParam(params, 'agentId', isString);
 
-    const conversation = await context.repos.conversations.getById(id, includeMessages, includeContext);
+    const conversation = await context.repos.conversations.getById(
+      id,
+      includeMessages,
+      includeContext
+    );
     if (!conversation) {
       throw createNotFoundError('Conversation', id);
     }
@@ -186,17 +210,27 @@ export const conversationHandlers = {
     // Check permission (read required)
     const getScopeType = conversation.sessionId ? 'session' : 'project';
     const getScopeId = conversation.sessionId || conversation.projectId || null;
-    requirePermission(context.services!.permission, agentId, 'read', getScopeType, getScopeId, 'knowledge');
+    requirePermission(
+      context.services!.permission,
+      agentId,
+      'read',
+      getScopeType,
+      getScopeId,
+      'knowledge'
+    );
 
     // Log audit event
-    logAction({
-      agentId,
-      action: 'read',
-      entryType: 'knowledge',
-      entryId: id,
-      scopeType: conversation.sessionId ? 'session' : 'project',
-      scopeId: conversation.sessionId || conversation.projectId || null,
-    }, context.db);
+    logAction(
+      {
+        agentId,
+        action: 'read',
+        entryType: 'knowledge',
+        entryId: id,
+        scopeType: conversation.sessionId ? 'session' : 'project',
+        scopeId: conversation.sessionId || conversation.projectId || null,
+      },
+      context.db
+    );
 
     return formatTimestamps({
       success: true,
@@ -217,7 +251,14 @@ export const conversationHandlers = {
     // Check permission (read required)
     const listScopeType = sessionId ? 'session' : projectId ? 'project' : 'global';
     const listScopeId = sessionId || projectId || null;
-    requirePermission(context.services!.permission, agentId, 'read', listScopeType, listScopeId, 'knowledge');
+    requirePermission(
+      context.services!.permission,
+      agentId,
+      'read',
+      listScopeType,
+      listScopeId,
+      'knowledge'
+    );
 
     const conversations = await context.repos.conversations.list(
       {
@@ -230,14 +271,17 @@ export const conversationHandlers = {
     );
 
     // Log audit event
-    logAction({
-      agentId,
-      action: 'read',
-      entryType: 'knowledge',
-      scopeType: sessionId ? 'session' : projectId ? 'project' : 'global',
-      scopeId: sessionId || projectId || null,
-      resultCount: conversations.length,
-    }, context.db);
+    logAction(
+      {
+        agentId,
+        action: 'read',
+        entryType: 'knowledge',
+        scopeType: sessionId ? 'session' : projectId ? 'project' : 'global',
+        scopeId: sessionId || projectId || null,
+        resultCount: conversations.length,
+      },
+      context.db
+    );
 
     return formatTimestamps({
       success: true,
@@ -276,7 +320,14 @@ export const conversationHandlers = {
     // Check permission (write required)
     const updateScopeType = existing.sessionId ? 'session' : 'project';
     const updateScopeId = existing.sessionId || existing.projectId || null;
-    requirePermission(context.services!.permission, agentId, 'write', updateScopeType, updateScopeId, 'knowledge');
+    requirePermission(
+      context.services!.permission,
+      agentId,
+      'write',
+      updateScopeType,
+      updateScopeId,
+      'knowledge'
+    );
 
     const conversation = await context.repos.conversations.update(id, {
       title,
@@ -289,14 +340,17 @@ export const conversationHandlers = {
     }
 
     // Log audit event
-    logAction({
-      agentId,
-      action: 'update',
-      entryType: 'knowledge',
-      entryId: id,
-      scopeType: conversation.sessionId ? 'session' : 'project',
-      scopeId: conversation.sessionId || conversation.projectId || null,
-    }, context.db);
+    logAction(
+      {
+        agentId,
+        action: 'update',
+        entryType: 'knowledge',
+        entryId: id,
+        scopeType: conversation.sessionId ? 'session' : 'project',
+        scopeId: conversation.sessionId || conversation.projectId || null,
+      },
+      context.db
+    );
 
     return formatTimestamps({
       success: true,
@@ -322,8 +376,22 @@ export const conversationHandlers = {
     // Check permission (read required for entry, write for conversation)
     const linkScopeType = conversation.sessionId ? 'session' : 'project';
     const linkScopeId = conversation.sessionId || conversation.projectId || null;
-    requirePermission(context.services!.permission, agentId, 'read', linkScopeType, linkScopeId, entryType);
-    requirePermission(context.services!.permission, agentId, 'write', linkScopeType, linkScopeId, 'knowledge');
+    requirePermission(
+      context.services!.permission,
+      agentId,
+      'read',
+      linkScopeType,
+      linkScopeId,
+      entryType
+    );
+    requirePermission(
+      context.services!.permission,
+      agentId,
+      'write',
+      linkScopeType,
+      linkScopeId,
+      'knowledge'
+    );
 
     const linkedContext = await context.repos.conversations.linkContext({
       conversationId,
@@ -334,14 +402,17 @@ export const conversationHandlers = {
     });
 
     // Log audit event
-    logAction({
-      agentId,
-      action: 'update',
-      entryType: 'knowledge',
-      entryId: conversationId,
-      scopeType: conversation.sessionId ? 'session' : 'project',
-      scopeId: conversation.sessionId || conversation.projectId || null,
-    }, context.db);
+    logAction(
+      {
+        agentId,
+        action: 'update',
+        entryType: 'knowledge',
+        entryId: conversationId,
+        scopeType: conversation.sessionId ? 'session' : 'project',
+        scopeId: conversation.sessionId || conversation.projectId || null,
+      },
+      context.db
+    );
 
     return formatTimestamps({
       success: true,
@@ -375,7 +446,14 @@ export const conversationHandlers = {
       // Check permission (read required)
       const ctxScopeType = conversation.sessionId ? 'session' : 'project';
       const ctxScopeId = conversation.sessionId || conversation.projectId || null;
-      requirePermission(context.services!.permission, agentId, 'read', ctxScopeType, ctxScopeId, 'knowledge');
+      requirePermission(
+        context.services!.permission,
+        agentId,
+        'read',
+        ctxScopeType,
+        ctxScopeId,
+        'knowledge'
+      );
 
       contexts = await context.repos.conversations.getContextForConversation(conversationId);
     } else {
@@ -395,13 +473,16 @@ export const conversationHandlers = {
     }
 
     // Log audit event
-    logAction({
-      agentId,
-      action: 'read',
-      entryType: conversationId ? 'knowledge' : entryType || undefined,
-      entryId: conversationId || entryId || undefined,
-      resultCount: contexts.length,
-    }, context.db);
+    logAction(
+      {
+        agentId,
+        action: 'read',
+        entryType: conversationId ? 'knowledge' : entryType || undefined,
+        entryId: conversationId || entryId || undefined,
+        resultCount: contexts.length,
+      },
+      context.db
+    );
 
     return formatTimestamps({
       success: true,
@@ -422,7 +503,14 @@ export const conversationHandlers = {
     // Check permission (read required)
     const searchScopeType = sessionId ? 'session' : projectId ? 'project' : 'global';
     const searchScopeId = sessionId || projectId || null;
-    requirePermission(context.services!.permission, agentId, 'read', searchScopeType, searchScopeId, 'knowledge');
+    requirePermission(
+      context.services!.permission,
+      agentId,
+      'read',
+      searchScopeType,
+      searchScopeId,
+      'knowledge'
+    );
 
     const results = await context.repos.conversations.search(searchQuery, {
       sessionId,
@@ -433,15 +521,18 @@ export const conversationHandlers = {
     });
 
     // Log audit event
-    logAction({
-      agentId,
-      action: 'query',
-      entryType: 'knowledge',
-      scopeType: sessionId ? 'session' : projectId ? 'project' : 'global',
-      scopeId: sessionId || projectId || null,
-      queryParams: { search: searchQuery },
-      resultCount: results.length,
-    }, context.db);
+    logAction(
+      {
+        agentId,
+        action: 'query',
+        entryType: 'knowledge',
+        scopeType: sessionId ? 'session' : projectId ? 'project' : 'global',
+        scopeId: sessionId || projectId || null,
+        queryParams: { search: searchQuery },
+        resultCount: results.length,
+      },
+      context.db
+    );
 
     return formatTimestamps({
       success: true,
@@ -470,7 +561,14 @@ export const conversationHandlers = {
     // Check permission (write required)
     const endScopeType = existing.sessionId ? 'session' : 'project';
     const endScopeId = existing.sessionId || existing.projectId || null;
-    requirePermission(context.services!.permission, agentId, 'write', endScopeType, endScopeId, 'knowledge');
+    requirePermission(
+      context.services!.permission,
+      agentId,
+      'write',
+      endScopeType,
+      endScopeId,
+      'knowledge'
+    );
 
     const conversation = await context.repos.conversations.update(id, {
       status: 'completed',
@@ -488,14 +586,17 @@ export const conversationHandlers = {
     }
 
     // Log audit event
-    logAction({
-      agentId,
-      action: 'update',
-      entryType: 'knowledge',
-      entryId: id,
-      scopeType: conversation.sessionId ? 'session' : 'project',
-      scopeId: conversation.sessionId || conversation.projectId || null,
-    }, context.db);
+    logAction(
+      {
+        agentId,
+        action: 'update',
+        entryType: 'knowledge',
+        entryId: id,
+        scopeType: conversation.sessionId ? 'session' : 'project',
+        scopeId: conversation.sessionId || conversation.projectId || null,
+      },
+      context.db
+    );
 
     return formatTimestamps({
       success: true,
@@ -518,7 +619,14 @@ export const conversationHandlers = {
     // Check permission (write required)
     const archiveScopeType = existing.sessionId ? 'session' : 'project';
     const archiveScopeId = existing.sessionId || existing.projectId || null;
-    requirePermission(context.services!.permission, agentId, 'write', archiveScopeType, archiveScopeId, 'knowledge');
+    requirePermission(
+      context.services!.permission,
+      agentId,
+      'write',
+      archiveScopeType,
+      archiveScopeId,
+      'knowledge'
+    );
 
     const conversation = await context.repos.conversations.update(id, {
       status: 'archived',
@@ -529,14 +637,17 @@ export const conversationHandlers = {
     }
 
     // Log audit event
-    logAction({
-      agentId,
-      action: 'update',
-      entryType: 'knowledge',
-      entryId: id,
-      scopeType: conversation.sessionId ? 'session' : 'project',
-      scopeId: conversation.sessionId || conversation.projectId || null,
-    }, context.db);
+    logAction(
+      {
+        agentId,
+        action: 'update',
+        entryType: 'knowledge',
+        entryId: id,
+        scopeType: conversation.sessionId ? 'session' : 'project',
+        scopeId: conversation.sessionId || conversation.projectId || null,
+      },
+      context.db
+    );
 
     return formatTimestamps({
       success: true,

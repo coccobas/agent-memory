@@ -396,7 +396,6 @@ export function getBackfillStats(db: DbClient): {
   guidelines: { total: number; withEmbeddings: number };
   knowledge: { total: number; withEmbeddings: number };
 } {
-
   const toolsTotal =
     db
       .select({ count: sql<number>`COUNT(*)` })
@@ -449,5 +448,3 @@ export function getBackfillStats(db: DbClient): {
     knowledge: { total: knowledgeTotal, withEmbeddings: knowledgeWithEmbeddings },
   };
 }
-
-

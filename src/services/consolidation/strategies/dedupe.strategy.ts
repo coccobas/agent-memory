@@ -15,14 +15,24 @@ const logger = createComponentLogger('consolidation.dedupe');
 export class DedupeStrategy implements ConsolidationStrategy {
   readonly name = 'dedupe' as const;
 
-  execute(group: SimilarityGroup, _consolidatedBy: string | undefined, db: DbClient): StrategyResult {
+  execute(
+    group: SimilarityGroup,
+    _consolidatedBy: string | undefined,
+    db: DbClient
+  ): StrategyResult {
     // Batch deactivate all duplicate entries (single UPDATE instead of N)
     const memberIds = group.members.map((m) => m.id);
     batchDeactivateEntries(group.entryType, memberIds, db);
 
     // Create relations to track provenance
     for (const member of group.members) {
-      createConsolidationRelation(group.entryType, member.id, group.primaryId, 'consolidated_into', db);
+      createConsolidationRelation(
+        group.entryType,
+        member.id,
+        group.primaryId,
+        'consolidated_into',
+        db
+      );
     }
 
     logger.info(

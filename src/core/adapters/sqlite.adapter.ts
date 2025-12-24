@@ -3,6 +3,10 @@
  *
  * Wraps the existing SQLite + Drizzle database connection
  * behind the IStorageAdapter interface.
+ *
+ * Design: Implements async-first interface by wrapping sync SQLite
+ * calls in Promise.resolve(). This allows the same interface to
+ * work with both SQLite (sync) and PostgreSQL (async).
  */
 
 import type Database from 'better-sqlite3';
@@ -13,6 +17,9 @@ import { transactionWithDb } from '../../db/connection.js';
 /**
  * SQLite storage adapter implementation.
  * Wraps existing better-sqlite3 + Drizzle ORM instances.
+ *
+ * All async methods wrap synchronous SQLite calls in Promise.resolve()
+ * for interface compatibility with PostgreSQL adapters.
  */
 export class SQLiteStorageAdapter implements IStorageAdapter {
   private db: AppDb;
@@ -41,39 +48,66 @@ export class SQLiteStorageAdapter implements IStorageAdapter {
     return this.connected && this.sqlite.open;
   }
 
-  executeRaw<T>(sql: string, params?: unknown[]): T[] {
+  /**
+   * Execute a raw SQL query and return all results.
+   * Wraps sync SQLite call in Promise for interface compatibility.
+   */
+  async executeRaw<T>(sql: string, params?: unknown[]): Promise<T[]> {
     const stmt = this.sqlite.prepare(sql);
-    return (params ? stmt.all(...params) : stmt.all()) as T[];
+    const result = (params ? stmt.all(...params) : stmt.all()) as T[];
+    return Promise.resolve(result);
   }
 
-  executeRawSingle<T>(sql: string, params?: unknown[]): T | undefined {
+  /**
+   * Execute a raw SQL query and return the first result.
+   * Wraps sync SQLite call in Promise for interface compatibility.
+   */
+  async executeRawSingle<T>(sql: string, params?: unknown[]): Promise<T | undefined> {
     const stmt = this.sqlite.prepare(sql);
-    return (params ? stmt.get(...params) : stmt.get()) as T | undefined;
+    const result = (params ? stmt.get(...params) : stmt.get()) as T | undefined;
+    return Promise.resolve(result);
   }
 
-  transaction<T>(fn: () => T): T {
-    return transactionWithDb(this.sqlite, fn);
-  }
+  /**
+   * Execute a function within a database transaction.
+   *
+   * For SQLite with better-sqlite3, the underlying transaction is synchronous.
+   * The async fn is executed within the sync transaction context.
+   * This works because Drizzle with better-sqlite3 returns immediately-resolved promises.
+   *
+   * Note: Truly async operations (I/O, timers) within fn would break this pattern,
+   * but all Drizzle operations with better-sqlite3 are synchronous internally.
+   */
+  async transaction<T>(fn: () => Promise<T>): Promise<T> {
+    // SQLite transactions are synchronous internally
+    // We wrap the sync transaction in a Promise for interface compatibility
+    return new Promise((resolve, reject) => {
+      try {
+        const result = transactionWithDb(this.sqlite, () => {
+          // Execute the async fn synchronously
+          // This works because Drizzle/better-sqlite3 operations resolve immediately
+          let syncResult: T;
+          let syncError: Error | undefined;
 
-  async transactionAsync<T>(fn: () => Promise<T>): Promise<T> {
-    // SQLite transactions are synchronous, but we support async fn
-    // The fn will execute within a sync transaction context
-    return transactionWithDb(this.sqlite, () => {
-      // Note: This works because SQLite is synchronous under the hood
-      // The promises returned by Drizzle resolve immediately
-      let result: T;
-      const promise = fn();
-      // For truly async operations, this pattern won't work
-      // But Drizzle with better-sqlite3 is synchronous
-      if (promise instanceof Promise) {
-        // We need to await, but we're in sync context
-        // This works for Drizzle because it's actually sync
-        promise.then((r) => {
-          result = r;
+          // Start the promise chain
+          fn()
+            .then((r) => {
+              syncResult = r;
+            })
+            .catch((e) => {
+              syncError = e;
+            });
+
+          // Since SQLite is sync, the promise has already resolved/rejected
+          if (syncError) {
+            throw syncError;
+          }
+          return syncResult!;
         });
-        return result!;
+        resolve(result);
+      } catch (error) {
+        reject(error);
       }
-      return promise as T;
     });
   }
 

@@ -1,9 +1,9 @@
 # Agent Memory: Final Architecture Specification
 
-**Version:** 1.2
+**Version:** 1.3
 **Date:** 2025-12-24
 **Status:** Canonical Reference
-**Last Updated:** Phase 1 (Abstraction Layer) completed - adapter interfaces and implementations in src/core/adapters/
+**Last Updated:** Phase 2 (PostgreSQL Adapter Support) completed - PostgreSQLStorageAdapter, FTS abstraction, and integration tests
 
 ---
 
@@ -173,18 +173,34 @@ Adapters located in src/core/adapters/:
 AppContext.adapters is now available for new code paths. Existing repos
 continue using db/sqlite directly - migration happens incrementally.
 
-Phase 2: PostgreSQL Support (Q2)
+Phase 2: PostgreSQL Support (COMPLETED - 2025-12-24)
 ═══════════════════════════════════════════════════
 ┌─────────────────────────────────────────────────────────────────┐
 │ Task                              │ Status    │ Blocks          │
 ├───────────────────────────────────┼───────────┼─────────────────┤
-│ Implement PostgresStorageAdapter  │ TODO      │ Phase 1         │
-│ Add connection pooling (pg-pool)  │ TODO      │ PostgresAdapter │
-│ Migrate FTS5 to PostgreSQL tsvector│ TODO     │ PostgresAdapter │
-│ Update Drizzle schema for PG      │ TODO      │ PostgresAdapter │
-│ Add PG-specific migrations        │ TODO      │ Schema          │
-│ Integration tests with PostgreSQL │ TODO      │ All above       │
+│ Implement PostgresStorageAdapter  │ ✅ DONE   │ Phase 1         │
+│ Add connection pooling (pg-pool)  │ ✅ DONE   │ PostgresAdapter │
+│ Migrate FTS5 to PostgreSQL tsvector│ ✅ DONE  │ PostgresAdapter │
+│ Update Drizzle schema for PG      │ ✅ DONE   │ PostgresAdapter │
+│ Add PG-specific migrations        │ ✅ DONE   │ Schema          │
+│ Integration tests with PostgreSQL │ ✅ DONE   │ All above       │
 └─────────────────────────────────────────────────────────────────┘
+
+PostgreSQL support implemented in:
+- src/core/adapters/postgresql.adapter.ts: PostgreSQLStorageAdapter with pg-pool
+- src/db/schema/postgresql/: Full Drizzle schema (10 files)
+- src/db/migrations/postgresql/: 12 SQL migration files including tsvector FTS
+- src/services/fts/: IFTSService interface + SQLite/PostgreSQL implementations
+- src/config/index.ts: AGENT_MEMORY_DB_TYPE + PostgreSQL config options
+- tests/integration/postgresql/: Connection tests with Docker Compose
+- tests/fixtures/docker-compose.yml: PostgreSQL 16 test container
+- drizzle.config.pg.ts: Drizzle Kit config for PostgreSQL
+
+Configuration:
+  AGENT_MEMORY_DB_TYPE=postgresql
+  AGENT_MEMORY_PG_HOST, AGENT_MEMORY_PG_PORT, AGENT_MEMORY_PG_DATABASE
+  AGENT_MEMORY_PG_USER, AGENT_MEMORY_PG_PASSWORD, AGENT_MEMORY_PG_SSL
+  AGENT_MEMORY_PG_POOL_MIN, AGENT_MEMORY_PG_POOL_MAX
 
 Phase 3: Distributed Infrastructure (Q3)
 ═══════════════════════════════════════════════════
@@ -968,15 +984,17 @@ These tasks prepare the codebase for PostgreSQL without breaking SQLite. **Compl
 | **Make repos async** | `src/db/repositories/*.ts` | ✅ DONE | All repository methods now return `Promise<T>`. All handlers/services updated to use `await`. |
 | **Wire adapters in factory** | `src/core/factory.ts` | ✅ DONE | `createAdapters()` called in `createAppContext()`, available via `ctx.adapters` |
 
-### 9.4 Phase 2 - PostgreSQL Support (Q2)
+### 9.4 Phase 2 - PostgreSQL Support ✅ COMPLETED
 
-| Task | Location | Details |
-|------|----------|---------|
-| **PostgresStorageAdapter** | `src/db/adapters/postgres.adapter.ts` | Connection pool, async queries |
-| **Drizzle PostgreSQL dialect** | `src/db/schema-pg.ts` | PostgreSQL-specific schema (tsvector, etc.) |
-| **FTS migration** | `src/services/fts-pg.service.ts` | `tsvector` implementation replacing FTS5 |
-| **PostgreSQL migrations** | `src/db/migrations-pg/` | Separate migration folder for PG |
-| **Integration tests** | `tests/integration-pg/` | Test suite running against real PostgreSQL |
+| Task | Location | Status | Details |
+|------|----------|--------|---------|
+| **PostgresStorageAdapter** | `src/core/adapters/postgresql.adapter.ts` | ✅ DONE | pg-pool connection management, dynamic imports, health checks |
+| **Drizzle PostgreSQL dialect** | `src/db/schema/postgresql/` | ✅ DONE | 10 schema files with PostgreSQL types (boolean, jsonb, timestamp) |
+| **FTS abstraction** | `src/services/fts/` | ✅ DONE | IFTSService interface + SQLite FTS5 and PostgreSQL tsvector implementations |
+| **PostgreSQL migrations** | `src/db/migrations/postgresql/` | ✅ DONE | 12 migration files including tsvector columns, GIN indexes, triggers |
+| **Config updates** | `src/config/index.ts` | ✅ DONE | AGENT_MEMORY_DB_TYPE + all PostgreSQL config options |
+| **Factory updates** | `src/core/adapters/index.ts` | ✅ DONE | Config-driven adapter selection with AdapterDeps union type |
+| **Integration tests** | `tests/integration/postgresql/` | ✅ DONE | Connection tests with Docker Compose (PostgreSQL 16) |
 
 ### 9.5 Phase 3 - Distributed Infrastructure (Q3)
 
@@ -1007,6 +1025,8 @@ These tasks prepare the codebase for PostgreSQL without breaking SQLite. **Compl
 │ REST context drift      │ NO ✅   │ NO     │ -      │ Consistency  │
 │ N+1 tag queries         │ YES     │ NO     │ LOW    │ Performance  │
 │ Sync repository methods │ NO ✅   │ NO     │ -      │ PG readiness │
+│ PostgreSQL adapter      │ DONE ✅ │ DONE   │ -      │ Enterprise   │
+│ FTS abstraction         │ DONE ✅ │ DONE   │ -      │ DB agnostic  │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -1400,8 +1420,16 @@ Before implementing a new feature, verify:
 src/
 ├── cli.ts                    # CLI entry point
 ├── config/                   # Configuration
-│   └── index.ts
+│   └── index.ts              # Includes DB_TYPE + PostgreSQL config
 ├── core/                     # Core abstractions
+│   ├── adapters/             # Storage/Cache/Lock/Event adapters
+│   │   ├── index.ts          # createAdapters() factory
+│   │   ├── interfaces.ts     # IStorageAdapter, ICacheAdapter, etc.
+│   │   ├── sqlite.adapter.ts # SQLite storage adapter
+│   │   ├── postgresql.adapter.ts # PostgreSQL storage adapter
+│   │   ├── memory-cache.adapter.ts
+│   │   ├── local-lock.adapter.ts
+│   │   └── local-event.adapter.ts
 │   ├── container.ts          # DI container
 │   ├── context.ts            # AppContext types
 │   ├── errors.ts             # Error classes
@@ -1418,9 +1446,11 @@ src/
 ├── db/                       # Database layer
 │   ├── connection.ts         # Connection management
 │   ├── factory.ts            # DB connection factory
-│   ├── migrations/           # SQL migrations
+│   ├── migrations/           # SQLite SQL migrations
+│   ├── migrations/postgresql/ # PostgreSQL migrations (12 files)
 │   ├── repositories/         # Repository implementations
-│   └── schema/               # Drizzle schema
+│   ├── schema/               # SQLite Drizzle schema
+│   └── schema/postgresql/    # PostgreSQL Drizzle schema (10 files)
 ├── mcp/                      # MCP transport
 │   ├── descriptors/          # Tool definitions
 │   ├── handlers/             # Request handlers
@@ -1433,6 +1463,11 @@ src/
 │   ├── query/                # Query pipeline
 │   │   ├── pipeline.ts       # Pipeline orchestration
 │   │   └── stages/           # Pipeline stages
+│   ├── fts/                  # Full-text search abstraction
+│   │   ├── index.ts          # Factory + exports
+│   │   ├── interfaces.ts     # IFTSService interface
+│   │   ├── sqlite-fts.service.ts    # SQLite FTS5 implementation
+│   │   └── postgresql-fts.service.ts # PostgreSQL tsvector implementation
 │   ├── embedding.service.ts
 │   ├── extraction.service.ts
 │   ├── permission.service.ts
@@ -1442,6 +1477,20 @@ src/
     ├── logger.ts             # Logging
     ├── lru-cache.ts          # LRU cache
     └── type-guards.ts        # Runtime type checking
+
+tests/
+├── fixtures/
+│   ├── test-helpers.ts       # SQLite test utilities
+│   ├── test-helpers.pg.ts    # PostgreSQL test utilities
+│   └── docker-compose.yml    # PostgreSQL 16 test container
+├── integration/
+│   ├── postgresql/           # PostgreSQL integration tests
+│   │   └── connection.test.ts
+│   └── *.test.ts             # SQLite integration tests
+└── unit/                     # Unit tests
+
+drizzle.config.ts             # SQLite Drizzle Kit config
+drizzle.config.pg.ts          # PostgreSQL Drizzle Kit config
 ```
 
 ---

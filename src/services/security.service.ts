@@ -63,28 +63,31 @@ export class SecurityService {
       // Try JSON first
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        return parsed.filter(item => 
-          item && typeof item.key === 'string' && typeof item.agentId === 'string'
+        return parsed.filter(
+          (item) => item && typeof item.key === 'string' && typeof item.agentId === 'string'
         ) as AuthMapping[];
       }
       if (typeof parsed === 'object' && parsed !== null) {
-        return Object.entries(parsed).map(([key, agentId]) => ({
-          key,
-          agentId: String(agentId)
-        })).filter(m => m.agentId.length > 0);
+        return Object.entries(parsed)
+          .map(([key, agentId]) => ({
+            key,
+            agentId: String(agentId),
+          }))
+          .filter((m) => m.agentId.length > 0);
       }
     } catch {
       // Fall through to comma-separated
     }
 
     // Fallback: key:agentId,key2:agentId2
-    return raw.split(',')
-      .map(p => {
+    return raw
+      .split(',')
+      .map((p) => {
         const sep = p.includes('=') ? '=' : ':';
         const [key, agentId] = p.split(sep);
         return { key: (key ?? '').trim(), agentId: (agentId ?? '').trim() };
       })
-      .filter(m => m.key && m.agentId);
+      .filter((m) => m.key && m.agentId);
   }
 
   /**
@@ -108,7 +111,7 @@ export class SecurityService {
 
   /**
    * Validate a request for Auth and Rate Limits
-   * 
+   *
    * @param input.headers - Request headers (for REST)
    * @param input.args - Tool arguments (for MCP)
    * @param input.skipAuth - Force skip auth (use with caution)
@@ -125,7 +128,7 @@ export class SecurityService {
     if (input.headers) {
       const authHeader = input.headers['authorization'];
       const apiKeyHeader = input.headers['x-api-key'];
-      
+
       let token: string | undefined;
       if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
         token = authHeader.slice(7);
@@ -150,12 +153,12 @@ export class SecurityService {
 
     // If Auth is strictly required but missing
     if (!input.skipAuth && !this.restAuthDisabled && !agentId && input.headers) {
-       // Only fail if headers were provided (implying REST context where auth is expected)
-       // For MCP, agentId is optional unless we enforce it later
-       if (!this.isAuthConfigured()) {
-         return { authorized: false, error: 'Auth not configured', statusCode: 503 };
-       }
-       return { authorized: false, error: 'Unauthorized', statusCode: 401 };
+      // Only fail if headers were provided (implying REST context where auth is expected)
+      // For MCP, agentId is optional unless we enforce it later
+      if (!this.isAuthConfigured()) {
+        return { authorized: false, error: 'Auth not configured', statusCode: 503 };
+      }
+      return { authorized: false, error: 'Unauthorized', statusCode: 401 };
     }
 
     // 2. Rate Limiting
@@ -166,13 +169,13 @@ export class SecurityService {
         authorized: false,
         error: limitResult.reason ?? 'Rate limit exceeded',
         statusCode: 429,
-        retryAfterMs: limitResult.retryAfterMs
+        retryAfterMs: limitResult.retryAfterMs,
       };
     }
 
     return {
       authorized: true,
-      context: { agentId }
+      context: { agentId },
     };
   }
 

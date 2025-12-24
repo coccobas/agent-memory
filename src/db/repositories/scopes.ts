@@ -170,7 +170,10 @@ export function createProjectRepository(deps: DatabaseDeps): IProjectRepository 
         .get();
     },
 
-    async list(filter: ListProjectsFilter = {}, options: PaginationOptions = {}): Promise<Project[]> {
+    async list(
+      filter: ListProjectsFilter = {},
+      options: PaginationOptions = {}
+    ): Promise<Project[]> {
       const limit = Math.min(options.limit ?? DEFAULT_LIMIT, MAX_LIMIT);
       const offset = options.offset ?? 0;
 
@@ -255,7 +258,10 @@ export function createSessionRepository(deps: DatabaseDeps): ISessionRepository 
       return db.select().from(sessions).where(eq(sessions.id, id)).get();
     },
 
-    async list(filter: ListSessionsFilter = {}, options: PaginationOptions = {}): Promise<Session[]> {
+    async list(
+      filter: ListSessionsFilter = {},
+      options: PaginationOptions = {}
+    ): Promise<Session[]> {
       const limit = Math.min(options.limit ?? DEFAULT_LIMIT, MAX_LIMIT);
       const offset = options.offset ?? 0;
 
@@ -301,7 +307,10 @@ export function createSessionRepository(deps: DatabaseDeps): ISessionRepository 
       return result;
     },
 
-    async end(id: string, status: 'completed' | 'discarded' = 'completed'): Promise<Session | undefined> {
+    async end(
+      id: string,
+      status: 'completed' | 'discarded' = 'completed'
+    ): Promise<Session | undefined> {
       return repo.update(id, { status });
     },
 
@@ -316,4 +325,3 @@ export function createSessionRepository(deps: DatabaseDeps): ISessionRepository 
 
   return repo;
 }
-

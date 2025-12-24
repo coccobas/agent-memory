@@ -139,7 +139,11 @@ export async function syncCriticalGuidelinesToCursor(
   options: CriticalGuidelinesSyncOptions
 ): Promise<CriticalGuidelinesSyncResult> {
   const destFile = join(projectPath, '.cursor', 'rules', 'critical-guidelines.md');
-  const content = generateCriticalGuidelinesMarkdown(options.projectId ?? null, options.sessionId, options.db);
+  const content = generateCriticalGuidelinesMarkdown(
+    options.projectId ?? null,
+    options.sessionId,
+    options.db
+  );
   return syncCriticalGuidelinesToFile(destFile, content, options);
 }
 
@@ -148,7 +152,11 @@ export async function syncCriticalGuidelinesToClaude(
   options: CriticalGuidelinesSyncOptions
 ): Promise<CriticalGuidelinesSyncResult> {
   const destFile = join(projectPath, '.claude', 'critical-guidelines.md');
-  const content = generateCriticalGuidelinesMarkdown(options.projectId ?? null, options.sessionId, options.db);
+  const content = generateCriticalGuidelinesMarkdown(
+    options.projectId ?? null,
+    options.sessionId,
+    options.db
+  );
   return syncCriticalGuidelinesToFile(destFile, content, options);
 }
 

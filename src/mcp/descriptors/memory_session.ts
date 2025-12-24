@@ -31,7 +31,8 @@ Example: {"action":"start","projectId":"proj-123","name":"Add auth feature","pur
   },
   actions: {
     start: {
-      contextHandler: (ctx, p) => scopeHandlers.sessionStart(ctx, p as unknown as SessionStartParams),
+      contextHandler: (ctx, p) =>
+        scopeHandlers.sessionStart(ctx, p as unknown as SessionStartParams),
     },
     end: {
       contextHandler: (ctx, p) => scopeHandlers.sessionEnd(ctx, p as unknown as SessionEndParams),

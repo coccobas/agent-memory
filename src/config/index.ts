@@ -113,8 +113,15 @@ function resolveDataPath(envVar: string | undefined, relativePath: string): stri
 // CONFIGURATION INTERFACE
 // =============================================================================
 
+/** Database type: SQLite (default) or PostgreSQL (enterprise) */
+export type DatabaseType = 'sqlite' | 'postgresql';
+
 export interface Config {
-  // Database
+  // Database Type Selection
+  /** Database backend: 'sqlite' (default) or 'postgresql' (enterprise) */
+  dbType: DatabaseType;
+
+  // SQLite Database (used when dbType = 'sqlite')
   database: {
     path: string;
     skipInit: boolean;
@@ -122,6 +129,26 @@ export interface Config {
     devMode: boolean;
     autoFixChecksums: boolean;
     busyTimeoutMs: number;
+  };
+
+  // PostgreSQL Database (used when dbType = 'postgresql')
+  postgresql: {
+    host: string;
+    port: number;
+    database: string;
+    user: string;
+    password: string;
+    ssl: boolean;
+    /** Minimum connections in pool (default: 2) */
+    poolMin: number;
+    /** Maximum connections in pool (default: 10) */
+    poolMax: number;
+    /** Idle connection timeout in ms (default: 30000) */
+    idleTimeoutMs: number;
+    /** Connection acquisition timeout in ms (default: 10000) */
+    connectionTimeoutMs: number;
+    /** Statement timeout in ms (default: 30000, 0 = no timeout) */
+    statementTimeoutMs: number;
   };
 
   // Vector Database
@@ -368,6 +395,12 @@ function getExtractionProvider(): 'openai' | 'anthropic' | 'ollama' | 'disabled'
  */
 export function buildConfig(): Config {
   return {
+    // Database type selection: 'sqlite' (default) or 'postgresql'
+    dbType: parseString(process.env.AGENT_MEMORY_DB_TYPE, 'sqlite', [
+      'sqlite',
+      'postgresql',
+    ] as const),
+
     database: {
       path: resolveDataPath(process.env.AGENT_MEMORY_DB_PATH, 'memory.db'),
       skipInit: parseBoolean(process.env.AGENT_MEMORY_SKIP_INIT, false),
@@ -378,6 +411,21 @@ export function buildConfig(): Config {
         parseBoolean(process.env.AGENT_MEMORY_DEV_MODE, false)
       ),
       busyTimeoutMs: parseInt_(process.env.AGENT_MEMORY_DB_BUSY_TIMEOUT_MS, 5000),
+    },
+
+    // PostgreSQL configuration (used when dbType = 'postgresql')
+    postgresql: {
+      host: process.env.AGENT_MEMORY_PG_HOST || 'localhost',
+      port: parsePort(process.env.AGENT_MEMORY_PG_PORT, 5432),
+      database: process.env.AGENT_MEMORY_PG_DATABASE || 'agent_memory',
+      user: process.env.AGENT_MEMORY_PG_USER || 'postgres',
+      password: process.env.AGENT_MEMORY_PG_PASSWORD || '',
+      ssl: parseBoolean(process.env.AGENT_MEMORY_PG_SSL, false),
+      poolMin: parseInt_(process.env.AGENT_MEMORY_PG_POOL_MIN, 2),
+      poolMax: parseInt_(process.env.AGENT_MEMORY_PG_POOL_MAX, 10),
+      idleTimeoutMs: parseInt_(process.env.AGENT_MEMORY_PG_IDLE_TIMEOUT_MS, 30000),
+      connectionTimeoutMs: parseInt_(process.env.AGENT_MEMORY_PG_CONNECTION_TIMEOUT_MS, 10000),
+      statementTimeoutMs: parseInt_(process.env.AGENT_MEMORY_PG_STATEMENT_TIMEOUT_MS, 30000),
     },
 
     vectorDb: {

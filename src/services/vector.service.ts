@@ -6,10 +6,10 @@
 
 import { createComponentLogger } from '../utils/logger.js';
 import { createVectorDbError } from '../core/errors.js';
-import type { 
-  IVectorService, 
-  SearchResult, 
-  VectorRecord
+import type {
+  IVectorService,
+  SearchResult,
+  VectorRecord,
 } from '../core/interfaces/vector.service.js';
 import type { IVectorStore } from '../core/interfaces/vector-store.js';
 import { LanceDbVectorStore } from '../db/vector-stores/lancedb.js'; // Default implementation
@@ -122,7 +122,7 @@ export class VectorService implements IVectorService {
    */
   private validateDimension(embedding: number[], context: string): void {
     const expectedDimension = this.store.getExpectedDimension();
-    
+
     if (expectedDimension === null) {
       this.store.setExpectedDimension(embedding.length);
       logger.info({ dimension: embedding.length }, 'Vector database dimension set');

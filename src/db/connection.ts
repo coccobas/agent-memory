@@ -50,7 +50,7 @@ export function getDb(_options: ConnectionOptions = {}): AppDb {
   if (!isDatabaseInitialized()) {
     throw new Error('Database not initialized. Call createAppContext() first.');
   }
-  return getDatabase() as AppDb;
+  return getDatabase();
 }
 
 /**

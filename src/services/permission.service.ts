@@ -300,7 +300,12 @@ export class PermissionService {
     }
 
     this.logger.debug(
-      { agentId, action, requiredPermission, foundPermissions: matchingPerms.map((p) => p.permission) },
+      {
+        agentId,
+        action,
+        requiredPermission,
+        foundPermissions: matchingPerms.map((p) => p.permission),
+      },
       'Access denied: insufficient permission level'
     );
     return false;
@@ -412,7 +417,7 @@ export class PermissionService {
       .all();
 
     // Index permissions by scope for efficient lookup
-    const permsByScope = new Map<string, Array<typeof matchingPerms[0]>>();
+    const permsByScope = new Map<string, Array<(typeof matchingPerms)[0]>>();
     for (const perm of matchingPerms) {
       const key = `${perm.scopeType}:${perm.scopeId ?? ''}:${perm.entryType}:${perm.entryId ?? ''}`;
       const existing = permsByScope.get(key) ?? [];
@@ -529,7 +534,9 @@ export class PermissionService {
 
     if (params.entryId !== undefined) {
       conditions.push(
-        params.entryId === null ? isNull(permissions.entryId) : eq(permissions.entryId, params.entryId)
+        params.entryId === null
+          ? isNull(permissions.entryId)
+          : eq(permissions.entryId, params.entryId)
       );
     }
 
@@ -537,7 +544,10 @@ export class PermissionService {
       conditions.push(eq(permissions.permission, params.permission));
     }
 
-    this.db.delete(permissions).where(and(...conditions)).run();
+    this.db
+      .delete(permissions)
+      .where(and(...conditions))
+      .run();
     this.permissionsExistCache = null;
   }
 

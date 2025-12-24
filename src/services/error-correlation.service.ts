@@ -232,7 +232,6 @@ function calculateCorrelationFromSets(
  * Optimized: Pre-fetches all error data in a single query to avoid O(n²) database calls.
  */
 export function detectLowDiversity(projectId: string, db: DbClient): LowDiversityResult {
-
   // Single query to get all error data for all agents in this project
   // This replaces O(n²) queries with O(1) query + O(n²) in-memory operations
   const allAgentErrors = db

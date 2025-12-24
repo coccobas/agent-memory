@@ -477,4 +477,3 @@ async function validateEntryImpl(
     errors,
   };
 }
-

@@ -35,13 +35,19 @@ export interface IVectorService {
     embedding: number[],
     model: string
   ): Promise<void>;
-  searchSimilar(embedding: number[], entryTypes: string[], limit?: number): Promise<Array<{
-    entryType: string;
-    entryId: string;
-    versionId: string;
-    text: string;
-    score: number;
-  }>>;
+  searchSimilar(
+    embedding: number[],
+    entryTypes: string[],
+    limit?: number
+  ): Promise<
+    Array<{
+      entryType: string;
+      entryId: string;
+      versionId: string;
+      text: string;
+      score: number;
+    }>
+  >;
   getCount(): Promise<number>;
   close(): void;
 }
@@ -62,7 +68,12 @@ export interface IExtractionService {
       confidence: number;
     }>;
     entities: Array<{ name: string; entityType: string; confidence: number }>;
-    relationships: Array<{ sourceRef: string; targetRef: string; relationType: string; confidence: number }>;
+    relationships: Array<{
+      sourceRef: string;
+      targetRef: string;
+      relationType: string;
+      confidence: number;
+    }>;
     model: string;
     provider: string;
   }>;

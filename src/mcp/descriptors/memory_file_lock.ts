@@ -27,19 +27,22 @@ export const memoryFileLockDescriptor: ToolDescriptor = {
   },
   actions: {
     checkout: {
-      contextHandler: (ctx, p) => fileLockHandlers.checkout(ctx, p as unknown as FileCheckoutParams),
+      contextHandler: (ctx, p) =>
+        fileLockHandlers.checkout(ctx, p as unknown as FileCheckoutParams),
     },
     checkin: {
       contextHandler: (ctx, p) => fileLockHandlers.checkin(ctx, p as unknown as FileCheckinParams),
     },
     status: {
-      contextHandler: (ctx, p) => fileLockHandlers.status(ctx, p as unknown as FileLockStatusParams),
+      contextHandler: (ctx, p) =>
+        fileLockHandlers.status(ctx, p as unknown as FileLockStatusParams),
     },
     list: {
       contextHandler: (ctx, p) => fileLockHandlers.list(ctx, p as unknown as FileLockListParams),
     },
     force_unlock: {
-      contextHandler: (ctx, p) => fileLockHandlers.forceUnlock(ctx, p as unknown as FileLockForceUnlockParams),
+      contextHandler: (ctx, p) =>
+        fileLockHandlers.forceUnlock(ctx, p as unknown as FileLockForceUnlockParams),
     },
   },
 };

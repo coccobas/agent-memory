@@ -78,9 +78,7 @@ export class LocalLockAdapter implements ILockAdapter {
   }
 
   async listLocks(filter?: ListLocksFilter): Promise<LockInfo[]> {
-    const locks = await this.repo.listLocks(
-      filter?.owner ? { agentId: filter.owner } : undefined
-    );
+    const locks = await this.repo.listLocks(filter?.owner ? { agentId: filter.owner } : undefined);
     return locks.map((lock) => this.toLockInfo(lock));
   }
 

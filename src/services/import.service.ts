@@ -224,7 +224,11 @@ async function importGuidelineEntry(
   }
 
   const scope = context.mapScope(guidelineData.scopeType, guidelineData.scopeId);
-  const existing = await deps.guidelineRepo.getByName(guidelineData.name, scope.type, scope.id || undefined);
+  const existing = await deps.guidelineRepo.getByName(
+    guidelineData.name,
+    scope.type,
+    scope.id || undefined
+  );
 
   if (existing) {
     if (context.conflictStrategy === 'skip') {
@@ -245,7 +249,13 @@ async function importGuidelineEntry(
         updatedBy: context.importedBy,
       };
       await deps.guidelineRepo.update(existing.id, updateInput);
-      await attachTagsToEntry(deps.tagRepo, deps.entryTagRepo, 'guideline', existing.id, guidelineData.tags);
+      await attachTagsToEntry(
+        deps.tagRepo,
+        deps.entryTagRepo,
+        'guideline',
+        existing.id,
+        guidelineData.tags
+      );
       return { status: 'updated' };
     }
   } else {
@@ -264,7 +274,13 @@ async function importGuidelineEntry(
       createdBy: context.importedBy,
     };
     const created = await deps.guidelineRepo.create(createInput);
-    await attachTagsToEntry(deps.tagRepo, deps.entryTagRepo, 'guideline', created.id, guidelineData.tags);
+    await attachTagsToEntry(
+      deps.tagRepo,
+      deps.entryTagRepo,
+      'guideline',
+      created.id,
+      guidelineData.tags
+    );
     return { status: 'created' };
   }
 }
@@ -286,7 +302,11 @@ async function importKnowledgeEntry(
   }
 
   const scope = context.mapScope(knowledgeData.scopeType, knowledgeData.scopeId);
-  const existing = await deps.knowledgeRepo.getByTitle(knowledgeData.title, scope.type, scope.id || undefined);
+  const existing = await deps.knowledgeRepo.getByTitle(
+    knowledgeData.title,
+    scope.type,
+    scope.id || undefined
+  );
 
   if (existing) {
     if (context.conflictStrategy === 'skip') {
@@ -307,7 +327,13 @@ async function importKnowledgeEntry(
         updatedBy: context.importedBy,
       };
       await deps.knowledgeRepo.update(existing.id, updateInput);
-      await attachTagsToEntry(deps.tagRepo, deps.entryTagRepo, 'knowledge', existing.id, knowledgeData.tags);
+      await attachTagsToEntry(
+        deps.tagRepo,
+        deps.entryTagRepo,
+        'knowledge',
+        existing.id,
+        knowledgeData.tags
+      );
       return { status: 'updated' };
     }
   } else {
@@ -326,7 +352,13 @@ async function importKnowledgeEntry(
       createdBy: context.importedBy,
     };
     const created = await deps.knowledgeRepo.create(createInput);
-    await attachTagsToEntry(deps.tagRepo, deps.entryTagRepo, 'knowledge', created.id, knowledgeData.tags);
+    await attachTagsToEntry(
+      deps.tagRepo,
+      deps.entryTagRepo,
+      'knowledge',
+      created.id,
+      knowledgeData.tags
+    );
     return { status: 'created' };
   }
 }
@@ -729,4 +761,3 @@ async function importFromOpenAPIImpl(
 
   return result;
 }
-

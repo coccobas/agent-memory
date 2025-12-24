@@ -5,11 +5,7 @@
  * This module contains only MCP protocol-specific formatting.
  */
 
-import {
-  AgentMemoryError,
-  ErrorCodes,
-  sanitizeErrorMessage,
-} from '../core/errors.js';
+import { AgentMemoryError, ErrorCodes, sanitizeErrorMessage } from '../core/errors.js';
 
 /**
  * Create an invalid action error (MCP-specific: includes tool context)

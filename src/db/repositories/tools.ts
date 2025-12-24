@@ -168,7 +168,10 @@ export function createToolRepository(deps: DatabaseDeps): IToolRepository {
       return undefined;
     },
 
-    async list(filter: ListToolsFilter = {}, options: PaginationOptions = {}): Promise<ToolWithVersion[]> {
+    async list(
+      filter: ListToolsFilter = {},
+      options: PaginationOptions = {}
+    ): Promise<ToolWithVersion[]> {
       const { limit, offset } = normalizePagination(options);
 
       // Build conditions using shared utility + category-specific condition

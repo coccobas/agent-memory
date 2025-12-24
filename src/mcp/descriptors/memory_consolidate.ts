@@ -62,19 +62,24 @@ Example: {"action":"archive_stale","scopeType":"project","scopeId":"proj-123","s
   },
   actions: {
     find_similar: {
-      contextHandler: (ctx, p) => handleConsolidation(ctx, { action: 'find_similar', ...p } as ConsolidationParams),
+      contextHandler: (ctx, p) =>
+        handleConsolidation(ctx, { action: 'find_similar', ...p } as ConsolidationParams),
     },
     dedupe: {
-      contextHandler: (ctx, p) => handleConsolidation(ctx, { action: 'dedupe', ...p } as ConsolidationParams),
+      contextHandler: (ctx, p) =>
+        handleConsolidation(ctx, { action: 'dedupe', ...p } as ConsolidationParams),
     },
     merge: {
-      contextHandler: (ctx, p) => handleConsolidation(ctx, { action: 'merge', ...p } as ConsolidationParams),
+      contextHandler: (ctx, p) =>
+        handleConsolidation(ctx, { action: 'merge', ...p } as ConsolidationParams),
     },
     abstract: {
-      contextHandler: (ctx, p) => handleConsolidation(ctx, { action: 'abstract', ...p } as ConsolidationParams),
+      contextHandler: (ctx, p) =>
+        handleConsolidation(ctx, { action: 'abstract', ...p } as ConsolidationParams),
     },
     archive_stale: {
-      contextHandler: (ctx, p) => handleConsolidation(ctx, { action: 'archive_stale', ...p } as ConsolidationParams),
+      contextHandler: (ctx, p) =>
+        handleConsolidation(ctx, { action: 'archive_stale', ...p } as ConsolidationParams),
     },
   },
 };

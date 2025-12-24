@@ -71,11 +71,7 @@ export function recordVote(params: RecordVoteParams, db: DbClient): void {
  * @param db - Database client (required)
  * @returns Consensus result with vote distribution and dissenting votes
  */
-export function calculateConsensus(
-  taskId: string,
-  k: number = 1,
-  db: DbClient
-): ConsensusResult {
+export function calculateConsensus(taskId: string, k: number = 1, db: DbClient): ConsensusResult {
   // Get all votes for this task
   const votes = db.select().from(agentVotes).where(eq(agentVotes.taskId, taskId)).all();
 

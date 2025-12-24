@@ -35,7 +35,10 @@ export function createConflictRepository(deps: DatabaseDeps): IConflictRepositor
   const { db } = deps;
 
   const repo: IConflictRepository = {
-    async list(filter: ListConflictsFilter = {}, options: PaginationOptions = {}): Promise<ConflictLog[]> {
+    async list(
+      filter: ListConflictsFilter = {},
+      options: PaginationOptions = {}
+    ): Promise<ConflictLog[]> {
       const limit = Math.min(options.limit ?? DEFAULT_LIMIT, MAX_LIMIT);
       const offset = options.offset ?? 0;
 
@@ -62,7 +65,11 @@ export function createConflictRepository(deps: DatabaseDeps): IConflictRepositor
       return db.select().from(conflictLog).where(eq(conflictLog.id, id)).get();
     },
 
-    async resolve(id: string, resolution: string, resolvedBy?: string): Promise<ConflictLog | undefined> {
+    async resolve(
+      id: string,
+      resolution: string,
+      resolvedBy?: string
+    ): Promise<ConflictLog | undefined> {
       const existing = await repo.getById(id);
       if (!existing) return undefined;
 

@@ -168,7 +168,12 @@ export function createTagRepository(deps: DatabaseDeps): ITagRepository {
           isPredefined: true,
           description: 'Go programming language',
         },
-        { name: 'sql', category: 'language', isPredefined: true, description: 'SQL query language' },
+        {
+          name: 'sql',
+          category: 'language',
+          isPredefined: true,
+          description: 'SQL query language',
+        },
         {
           name: 'bash',
           category: 'language',
@@ -263,7 +268,12 @@ export function createTagRepository(deps: DatabaseDeps): ITagRepository {
           isPredefined: true,
           description: 'Stable and production-ready',
         },
-        { name: 'required', category: 'meta', isPredefined: true, description: 'Required/mandatory' },
+        {
+          name: 'required',
+          category: 'meta',
+          isPredefined: true,
+          description: 'Required/mandatory',
+        },
         {
           name: 'optional',
           category: 'meta',
@@ -451,7 +461,10 @@ export function createEntryRelationRepository(deps: DatabaseDeps): IEntryRelatio
       return db.select().from(entryRelations).where(eq(entryRelations.id, id)).get();
     },
 
-    async list(filter: ListRelationsFilter = {}, options: PaginationOptions = {}): Promise<EntryRelation[]> {
+    async list(
+      filter: ListRelationsFilter = {},
+      options: PaginationOptions = {}
+    ): Promise<EntryRelation[]> {
       const limit = Math.min(options.limit ?? DEFAULT_LIMIT, MAX_LIMIT);
       const offset = options.offset ?? 0;
 
@@ -542,4 +555,3 @@ export function createEntryRelationRepository(deps: DatabaseDeps): IEntryRelatio
 
   return repo;
 }
-

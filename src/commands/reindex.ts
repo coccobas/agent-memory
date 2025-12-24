@@ -145,9 +145,15 @@ function printStats(db: DbClient): void {
   console.log(`  Max concurrency:   ${queueStats.maxConcurrency}`);
 
   console.log('\n=== Backfill Stats ===');
-  console.log(`  Tools:       ${backfillStats.tools.withEmbeddings}/${backfillStats.tools.total} with embeddings`);
-  console.log(`  Guidelines:  ${backfillStats.guidelines.withEmbeddings}/${backfillStats.guidelines.total} with embeddings`);
-  console.log(`  Knowledge:   ${backfillStats.knowledge.withEmbeddings}/${backfillStats.knowledge.total} with embeddings`);
+  console.log(
+    `  Tools:       ${backfillStats.tools.withEmbeddings}/${backfillStats.tools.total} with embeddings`
+  );
+  console.log(
+    `  Guidelines:  ${backfillStats.guidelines.withEmbeddings}/${backfillStats.guidelines.total} with embeddings`
+  );
+  console.log(
+    `  Knowledge:   ${backfillStats.knowledge.withEmbeddings}/${backfillStats.knowledge.total} with embeddings`
+  );
 
   if (failedJobs.length > 0) {
     console.log('\n=== Failed Jobs Pending Retry ===');
@@ -219,15 +225,20 @@ export async function runReindexCommand(args: string[]): Promise<void> {
   const startTime = Date.now();
 
   try {
-    const progress = await backfillEmbeddings({
-      batchSize: options.batchSize,
-      delayMs: options.delayMs,
-      entryTypes,
-      onProgress: (p) => {
-        const percent = p.total > 0 ? Math.round((p.processed / p.total) * 100) : 0;
-        process.stdout.write(`\r  Progress: ${p.processed}/${p.total} (${percent}%) - ${p.succeeded} succeeded, ${p.failed} failed`);
+    const progress = await backfillEmbeddings(
+      {
+        batchSize: options.batchSize,
+        delayMs: options.delayMs,
+        entryTypes,
+        onProgress: (p) => {
+          const percent = p.total > 0 ? Math.round((p.processed / p.total) * 100) : 0;
+          process.stdout.write(
+            `\r  Progress: ${p.processed}/${p.total} (${percent}%) - ${p.succeeded} succeeded, ${p.failed} failed`
+          );
+        },
       },
-    }, db);
+      db
+    );
 
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
     console.log(`\n\nCompleted in ${elapsed}s:`);

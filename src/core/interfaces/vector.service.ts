@@ -21,7 +21,7 @@ export type DistanceMetric = 'l2' | 'cosine' | 'dot';
 export interface IVectorService {
   isAvailable(): boolean;
   initialize(): Promise<void>;
-  
+
   storeEmbedding(
     entryType: string,
     entryId: string,
@@ -31,13 +31,9 @@ export interface IVectorService {
     model: string
   ): Promise<void>;
 
-  searchSimilar(
-    embedding: number[],
-    entryTypes: string[],
-    limit?: number
-  ): Promise<SearchResult[]>;
+  searchSimilar(embedding: number[], entryTypes: string[], limit?: number): Promise<SearchResult[]>;
 
   getCount(): Promise<number>;
-  
+
   close(): void;
 }

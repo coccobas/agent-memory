@@ -24,7 +24,10 @@ import { createValidationError } from '../../core/errors.js';
 /**
  * Get usage statistics
  */
-export function getUsageStatsHandler(context: AppContext, params: AnalyticsGetStatsParams): {
+export function getUsageStatsHandler(
+  context: AppContext,
+  params: AnalyticsGetStatsParams
+): {
   stats: ReturnType<typeof getUsageStats>;
   filters: {
     scopeType?: ScopeType;
@@ -33,12 +36,15 @@ export function getUsageStatsHandler(context: AppContext, params: AnalyticsGetSt
     endDate?: string;
   };
 } {
-  const stats = getUsageStats({
-    scopeType: params.scopeType,
-    scopeId: params.scopeId,
-    startDate: params.startDate,
-    endDate: params.endDate,
-  }, context.db);
+  const stats = getUsageStats(
+    {
+      scopeType: params.scopeType,
+      scopeId: params.scopeId,
+      startDate: params.startDate,
+      endDate: params.endDate,
+    },
+    context.db
+  );
 
   return {
     stats,
@@ -54,7 +60,10 @@ export function getUsageStatsHandler(context: AppContext, params: AnalyticsGetSt
 /**
  * Get trend data over time
  */
-export function getTrendsHandler(context: AppContext, params: AnalyticsGetTrendsParams): {
+export function getTrendsHandler(
+  context: AppContext,
+  params: AnalyticsGetTrendsParams
+): {
   trends: ReturnType<typeof getTrends>;
   filters: {
     scopeType?: ScopeType;
@@ -63,12 +72,15 @@ export function getTrendsHandler(context: AppContext, params: AnalyticsGetTrends
     endDate?: string;
   };
 } {
-  const trends = getTrends({
-    scopeType: params.scopeType,
-    scopeId: params.scopeId,
-    startDate: params.startDate,
-    endDate: params.endDate,
-  }, context.db);
+  const trends = getTrends(
+    {
+      scopeType: params.scopeType,
+      scopeId: params.scopeId,
+      startDate: params.startDate,
+      endDate: params.endDate,
+    },
+    context.db
+  );
 
   return {
     trends,
@@ -88,10 +100,13 @@ export function getSubtaskStatsHandler(
   context: AppContext,
   params: AnalyticsGetSubtaskStatsParams
 ): ReturnType<typeof getSubtaskStats> {
-  return getSubtaskStats({
-    projectId: params.projectId,
-    subtaskType: params.subtaskType,
-  }, context.db);
+  return getSubtaskStats(
+    {
+      projectId: params.projectId,
+      subtaskType: params.subtaskType,
+    },
+    context.db
+  );
 }
 
 /**
@@ -109,11 +124,14 @@ export function getErrorCorrelationHandler(
     );
   }
 
-  return calculateErrorCorrelation({
-    agentA: params.agentA,
-    agentB: params.agentB,
-    timeWindow: params.timeWindow,
-  }, context.db);
+  return calculateErrorCorrelation(
+    {
+      agentA: params.agentA,
+      agentB: params.agentB,
+      timeWindow: params.timeWindow,
+    },
+    context.db
+  );
 }
 
 /**

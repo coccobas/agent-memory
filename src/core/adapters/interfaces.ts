@@ -4,6 +4,9 @@
  * Abstract interfaces for storage, cache, locks, and events.
  * Allows swapping implementations (SQLite → PostgreSQL, LRU → Redis, etc.)
  * without changing application code.
+ *
+ * Design: Async-first interface for PostgreSQL compatibility.
+ * SQLite adapters wrap synchronous calls in Promise.resolve().
  */
 
 import type { EntryChangedEvent } from '../../utils/events.js';
@@ -18,6 +21,9 @@ export type { EntryChangedEvent };
 /**
  * Abstract storage adapter interface.
  * Wraps database connections (SQLite, PostgreSQL, etc.)
+ *
+ * All query methods are async to support PostgreSQL.
+ * SQLite implementations wrap sync calls in Promise.resolve().
  */
 export interface IStorageAdapter {
   // Lifecycle
@@ -25,19 +31,36 @@ export interface IStorageAdapter {
   close(): Promise<void>;
   isConnected(): boolean;
 
-  // Raw query execution (for services needing direct SQL access)
-  executeRaw<T>(sql: string, params?: unknown[]): T[];
-  executeRawSingle<T>(sql: string, params?: unknown[]): T | undefined;
+  /**
+   * Execute a raw SQL query and return all results.
+   * @param sql - SQL query string with parameter placeholders
+   * @param params - Query parameters (positional)
+   * @returns Promise resolving to array of results
+   */
+  executeRaw<T>(sql: string, params?: unknown[]): Promise<T[]>;
 
-  // Transaction support
-  transaction<T>(fn: () => T): T;
-  transactionAsync<T>(fn: () => Promise<T>): Promise<T>;
+  /**
+   * Execute a raw SQL query and return the first result.
+   * @param sql - SQL query string with parameter placeholders
+   * @param params - Query parameters (positional)
+   * @returns Promise resolving to first result or undefined
+   */
+  executeRawSingle<T>(sql: string, params?: unknown[]): Promise<T | undefined>;
+
+  /**
+   * Execute a function within a database transaction.
+   * Automatically commits on success, rolls back on error.
+   * @param fn - Async function to execute within transaction
+   * @returns Promise resolving to function result
+   */
+  transaction<T>(fn: () => Promise<T>): Promise<T>;
 
   // ORM instance access (for repository compatibility)
-  // Returns the underlying ORM instance (Drizzle for SQLite, could differ for PG)
+  // Returns the underlying ORM instance (Drizzle for SQLite/PostgreSQL)
   getDb(): unknown;
 
   // Raw connection access (for low-level operations)
+  // SQLite: Database.Database, PostgreSQL: Pool
   getRawConnection(): unknown;
 
   // Health check

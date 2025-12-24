@@ -121,7 +121,10 @@ function isEntryTypeArray(v: unknown): v is EntryType[] {
 // HANDLER
 // =============================================================================
 
-export async function handleConsolidation(context: AppContext, args: ConsolidationParams): Promise<unknown> {
+export async function handleConsolidation(
+  context: AppContext,
+  args: ConsolidationParams
+): Promise<unknown> {
   const action = args.action;
   if (!isConsolidationAction(action)) {
     throw createValidationError(

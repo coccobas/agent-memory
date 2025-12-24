@@ -8,7 +8,11 @@ import type { Logger } from 'pino';
 import type { Config } from '../../config/index.js';
 import type { Runtime } from '../runtime.js';
 import { getDb, getPreparedStatement } from '../../db/connection.js';
-import { createDependencies, wireQueryCacheInvalidation, type PipelineDependencies } from '../../services/query/index.js';
+import {
+  createDependencies,
+  wireQueryCacheInvalidation,
+  type PipelineDependencies,
+} from '../../services/query/index.js';
 import { createComponentLogger } from '../../utils/logger.js';
 
 /**

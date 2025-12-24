@@ -181,7 +181,10 @@ export function createConversationRepository(deps: DatabaseDeps): IConversationR
       return query.orderBy(desc(conversations.startedAt)).limit(limit).offset(offset).all();
     },
 
-    async update(id: string, updates: UpdateConversationInput): Promise<ConversationWithMessages | undefined> {
+    async update(
+      id: string,
+      updates: UpdateConversationInput
+    ): Promise<ConversationWithMessages | undefined> {
       return transactionWithDb(sqlite, () => {
         const existing = getByIdSync(id);
         if (!existing) return undefined;
@@ -347,7 +350,10 @@ export function createConversationRepository(deps: DatabaseDeps): IConversationR
         .select()
         .from(conversationContext)
         .where(
-          and(eq(conversationContext.entryType, entryType), eq(conversationContext.entryId, entryId))
+          and(
+            eq(conversationContext.entryType, entryType),
+            eq(conversationContext.entryId, entryId)
+          )
         )
         .all();
     },
@@ -360,7 +366,10 @@ export function createConversationRepository(deps: DatabaseDeps): IConversationR
         .all();
     },
 
-    async search(searchQuery: string, filter?: ConversationSearchFilter): Promise<ConversationWithMessages[]> {
+    async search(
+      searchQuery: string,
+      filter?: ConversationSearchFilter
+    ): Promise<ConversationWithMessages[]> {
       const limit = Math.min(filter?.limit ?? DEFAULT_LIMIT, MAX_LIMIT);
       const offset = filter?.offset ?? 0;
 

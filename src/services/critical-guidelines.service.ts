@@ -63,7 +63,6 @@ export function getCriticalGuidelinesForScope(
   sessionId: string | null | undefined,
   db: DbClient
 ): CriticalGuideline[] {
-
   // Determine the scope chain
   let scopeChain: ScopeDescriptor[];
 
@@ -211,7 +210,6 @@ export function getCriticalGuidelineIds(
  * @returns True if the guideline exists and has priority >= 90
  */
 export function isGuidelineCritical(guidelineId: string, db: DbClient): boolean {
-
   const guideline = db
     .select({ priority: guidelines.priority })
     .from(guidelines)

@@ -96,7 +96,13 @@ export async function storeEntity(
   db: DbClient
 ): Promise<StoredEntry | null> {
   // Check for duplicates
-  const duplicateCheck = checkForDuplicates('knowledge', entity.name, scopeType, scopeId ?? null, db);
+  const duplicateCheck = checkForDuplicates(
+    'knowledge',
+    entity.name,
+    scopeType,
+    scopeId ?? null,
+    db
+  );
   if (duplicateCheck.isDuplicate) {
     logger.debug({ entityName: entity.name }, 'Skipping duplicate entity');
     return null;
@@ -114,18 +120,25 @@ export async function storeEntity(
 
   const knowledge = await repos.knowledge.create(input);
 
-  logAction({
-    agentId,
-    action: 'create',
-    entryType: 'knowledge',
-    entryId: knowledge.id,
-    scopeType,
-    scopeId: scopeId ?? null,
-  }, db);
+  logAction(
+    {
+      agentId,
+      action: 'create',
+      entryType: 'knowledge',
+      entryId: knowledge.id,
+      scopeType,
+      scopeId: scopeId ?? null,
+    },
+    db
+  );
 
   // Tag with entity markers
   try {
-    await repos.entryTags.attach({ entryType: 'knowledge', entryId: knowledge.id, tagName: 'entity' });
+    await repos.entryTags.attach({
+      entryType: 'knowledge',
+      entryId: knowledge.id,
+      tagName: 'entity',
+    });
     await repos.entryTags.attach({
       entryType: 'knowledge',
       entryId: knowledge.id,
@@ -173,14 +186,17 @@ export async function storeEntry(
     };
     const guideline = await repos.guidelines.create(input);
 
-    logAction({
-      agentId,
-      action: 'create',
-      entryType: 'guideline',
-      entryId: guideline.id,
-      scopeType,
-      scopeId: scopeId ?? null,
-    }, db);
+    logAction(
+      {
+        agentId,
+        action: 'create',
+        entryType: 'guideline',
+        entryId: guideline.id,
+        scopeType,
+        scopeId: scopeId ?? null,
+      },
+      db
+    );
 
     return {
       id: guideline.id,
@@ -201,14 +217,17 @@ export async function storeEntry(
     };
     const knowledge = await repos.knowledge.create(input);
 
-    logAction({
-      agentId,
-      action: 'create',
-      entryType: 'knowledge',
-      entryId: knowledge.id,
-      scopeType,
-      scopeId: scopeId ?? null,
-    }, db);
+    logAction(
+      {
+        agentId,
+        action: 'create',
+        entryType: 'knowledge',
+        entryId: knowledge.id,
+        scopeType,
+        scopeId: scopeId ?? null,
+      },
+      db
+    );
 
     return {
       id: knowledge.id,
@@ -228,14 +247,17 @@ export async function storeEntry(
     };
     const tool = await repos.tools.create(input);
 
-    logAction({
-      agentId,
-      action: 'create',
-      entryType: 'tool',
-      entryId: tool.id,
-      scopeType,
-      scopeId: scopeId ?? null,
-    }, db);
+    logAction(
+      {
+        agentId,
+        action: 'create',
+        entryType: 'tool',
+        entryId: tool.id,
+        scopeType,
+        scopeId: scopeId ?? null,
+      },
+      db
+    );
 
     return {
       id: tool.id,
