@@ -61,7 +61,16 @@ export async function runMigrations(pool: Pool): Promise<void> {
 
   for (const file of files) {
     const sql = readFileSync(join(migrationsDir, file), 'utf-8');
-    await pool.query(sql);
+    try {
+      await pool.query(sql);
+    } catch (error) {
+      // Skip pgvector migration if extension is not available
+      if (file.includes('pgvector') && error instanceof Error && error.message.includes('extension "vector" is not available')) {
+        console.log(`Skipping ${file}: pgvector extension not available`);
+        continue;
+      }
+      throw error;
+    }
   }
 }
 
@@ -71,6 +80,8 @@ export async function runMigrations(pool: Pool): Promise<void> {
 export async function resetDatabase(pool: Pool): Promise<void> {
   // Drop all tables in reverse dependency order
   await pool.query(`
+    DROP TABLE IF EXISTS _vector_meta CASCADE;
+    DROP TABLE IF EXISTS vector_embeddings CASCADE;
     DROP TABLE IF EXISTS verification_log CASCADE;
     DROP TABLE IF EXISTS session_guideline_acknowledgments CASCADE;
     DROP TABLE IF EXISTS conversation_context CASCADE;

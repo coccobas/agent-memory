@@ -95,7 +95,7 @@ describe('REST API Tools Endpoints', () => {
       // Verify response structure
       expect(body.tools).toBeDefined();
       expect(Array.isArray(body.tools)).toBe(true);
-      expect(body.count).toBe(29); // Expect all 29 MCP tools (includes memory_forget)
+      expect(body.count).toBe(34); // Expect all 34 MCP tools
 
       // Verify specific tools are present
       const toolNames = body.tools.map((t) => t.name);
