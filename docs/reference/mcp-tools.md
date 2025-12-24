@@ -1,12 +1,11 @@
-# API Reference
+# MCP Tools Reference
 
-Authoritative reference for MCP tool schemas (generated from the server), plus REST/CLI usage for integrations.
+Authoritative reference for MCP tool schemas, auto-generated from the server.
 
 ## Table of Contents
 
-- [MCP Tools](#mcp-tools)
-- [REST API](#rest-api)
-- [CLI Commands](#cli-commands)
+- [Common Parameters](#common-parameters)
+- [Tool Schemas](#tool-schemas-generated)
 - [See Also](#see-also)
 
 ---
@@ -544,175 +543,11 @@ Manage multi-agent voting and consensus. Actions: record_vote, get_consensus, li
 
 ---
 
-## REST API
-
-REST is **disabled by default**. Enable with environment variables:
-
-```bash
-AGENT_MEMORY_REST_ENABLED=true
-AGENT_MEMORY_REST_API_KEY=your-secret-key
-```
-
-### Authentication
-
-Include in every request (except `/health`):
-
-- `Authorization: Bearer <API_KEY>`
-- or `X-API-Key: <API_KEY>`
-
-### Endpoints
-
-#### GET /health
-
-No authentication required.
-
-```bash
-curl http://127.0.0.1:8787/health
-```
-
-Response:
-
-```json
-{
-  "ok": true,
-  "uptimeSec": 3600
-}
-```
-
-#### POST /v1/query
-
-Search memory entries.
-
-```bash
-curl -X POST http://127.0.0.1:8787/v1/query \
-  -H "Authorization: Bearer your-secret-key" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "agentId": "my-app",
-    "types": ["guidelines", "knowledge"],
-    "scope": {
-      "type": "project",
-      "id": "proj-def456",
-      "inherit": true
-    },
-    "search": "authentication",
-    "semanticSearch": true,
-    "semanticThreshold": 0.7,
-    "limit": 20
-  }'
-```
-
-#### POST /v1/context
-
-Get aggregated context for a scope.
-
-```bash
-curl -X POST http://127.0.0.1:8787/v1/context \
-  -H "Authorization: Bearer your-secret-key" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "agentId": "my-app",
-    "scopeType": "project",
-    "scopeId": "proj-def456",
-    "inherit": true,
-    "compact": false,
-    "limitPerType": 50
-  }'
-```
-
-Response includes:
-
-- `scope`
-- `tools`, `guidelines`, `knowledge`
-- `meta`
-
-### Error Responses
-
-Errors return a simple JSON payload:
-
-```json
-{ "error": "Unauthorized" }
-```
-
-Common statuses:
-
-| HTTP Status | Meaning |
-|---:|---|
-| 400 | Invalid request parameters |
-| 401 | Missing or invalid API key |
-| 403 | Insufficient permissions |
-| 429 | Rate limited |
-| 500 | Server error |
-
----
-
-## CLI Commands
-
-### Server Commands
-
-```bash
-# Start MCP server (default)
-agent-memory mcp
-
-# Start REST server
-AGENT_MEMORY_REST_ENABLED=true \
-AGENT_MEMORY_REST_API_KEY=secret \
-agent-memory rest
-
-# Start both servers
-AGENT_MEMORY_REST_ENABLED=true \
-AGENT_MEMORY_REST_API_KEY=secret \
-agent-memory both
-```
-
-### Utility Commands
-
-```bash
-# Check version
-agent-memory --version
-
-# Verify response content
-echo "content" | agent-memory verify-response --type code_generate
-
-# Install/check/uninstall IDE hooks/rules files
-agent-memory hook install --ide claude --project-path /path/to/project
-agent-memory hook status --ide claude --project-path /path/to/project
-agent-memory hook uninstall --ide claude --project-path /path/to/project
-
-# Execute hook logic (expects JSON on stdin; used by Claude Code hooks)
-agent-memory hook pretooluse --project-id proj-def456
-agent-memory hook stop --project-id proj-def456
-agent-memory hook userpromptsubmit --project-id proj-def456
-agent-memory hook session-end --project-id proj-def456
-```
-
-### Environment Variables
-
-Key variables (see [full reference](environment-variables.md)):
-
-```bash
-# Data location
-AGENT_MEMORY_DATA_DIR=~/.agent-memory
-
-# Semantic search
-AGENT_MEMORY_OPENAI_API_KEY=sk-...
-
-# REST API
-AGENT_MEMORY_REST_ENABLED=true
-AGENT_MEMORY_REST_API_KEY=your-secret
-AGENT_MEMORY_REST_HOST=127.0.0.1
-AGENT_MEMORY_REST_PORT=8787
-
-# Permissions (for single-agent setups)
-AGENT_MEMORY_PERMISSIONS_MODE=permissive
-```
-
----
-
 ## See Also
 
-- [Getting Started](../getting-started.md) - First workflow walkthrough
+- [REST API Reference](rest-api.md) - HTTP API for non-MCP integrations
+- [CLI Reference](cli.md) - Command-line interface
 - [Environment Variables](environment-variables.md) - All configuration options
-- [Workflows Guide](../guides/workflows.md) - Common usage patterns
-- [Architecture](../concepts/architecture.md) - System design
+- [Tutorials](../tutorials/quickstart.md) - Getting started guide
+- [Architecture](../explanation/architecture.md) - System design
 

@@ -2,22 +2,32 @@
 
 Get Agent Memory running in 2 minutes.
 
-## 1. Start the Server
+**What you'll learn:** How to start the server and make your first memory.
 
-**Option A: npx (no install)**
+**Prerequisites:** Node.js >= 20.0.0 or Docker
+
+---
+
+## Step 1: Start the Server
+
+Choose one option:
+
+### Option A: npx (no install)
 
 ```bash
 npx agent-memory@latest mcp
 ```
 
-**Option B: Docker**
+### Option B: Docker
 
 ```bash
 docker pull ghcr.io/anthropics/agent-memory:latest
 docker run --rm -i -v ~/.agent-memory:/data ghcr.io/anthropics/agent-memory:latest mcp
 ```
 
-## 2. Configure Your IDE
+---
+
+## Step 2: Configure Your IDE
 
 Add to your MCP client config:
 
@@ -44,9 +54,9 @@ Add to your MCP client config:
 | Cursor (user) | `~/.cursor/mcp.json` |
 | VS Code (workspace) | `.vscode/settings.json` |
 
-See [IDE Setup](guides/ide-setup.md) for detailed configuration per IDE.
+---
 
-## 3. Verify
+## Step 3: Verify
 
 Restart your IDE and ask the agent:
 
@@ -54,13 +64,19 @@ Restart your IDE and ask the agent:
 Check the agent memory health status
 ```
 
-## 4. First Memory
+You should see a response with database stats and version info.
+
+---
+
+## Step 4: First Memory
+
+Ask your agent to store something:
 
 ```
 Remember that this project uses TypeScript with strict mode enabled
 ```
 
-Then query:
+Then query it:
 
 ```
 What do you remember about this project?
@@ -70,6 +86,6 @@ What do you remember about this project?
 
 ## Next Steps
 
-- [Getting Started](getting-started.md) — Full setup and first workflow
-- [IDE Setup](guides/ide-setup.md) — Detailed IDE configuration
-- [Installation](installation.md) — Docker, global install, from source
+- [First Workflow](first-workflow.md) - Complete tutorial on projects, sessions, and memory types
+- [IDE Setup](../guides/ide-setup.md) - Detailed IDE configuration
+- [Docker Setup](../guides/docker.md) - Container deployment options
