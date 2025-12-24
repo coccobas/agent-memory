@@ -33,7 +33,7 @@ interface ContainerState {
 
   // Database references (using typed schema)
   db: AppDb | null;
-  sqlite: Database.Database | null;
+  sqlite: Database.Database | null | undefined; // undefined in PostgreSQL mode
 
   // AppContext reference (for services access)
   context: AppContext | null;
@@ -154,8 +154,10 @@ export class Container {
 
   /**
    * Register the database instances
+   * @param db - Drizzle ORM database instance
+   * @param sqlite - Raw SQLite instance (undefined for PostgreSQL mode)
    */
-  registerDatabase(db: AppDb, sqlite: Database.Database): void {
+  registerDatabase(db: AppDb, sqlite?: Database.Database): void {
     this.state.db = db;
     this.state.sqlite = sqlite;
   }
@@ -221,21 +223,24 @@ export class Container {
   }
 
   /**
-   * Get the SQLite instance
-   * @throws Error if database not initialized
+   * Get the SQLite instance (SQLite mode only)
+   * @throws Error if database not initialized or in PostgreSQL mode
    */
   getSqlite(): Database.Database {
     if (!this.state.sqlite) {
-      throw new Error('Database not initialized. Call createAppContext() first.');
+      throw new Error(
+        'SQLite instance not available. Either database not initialized or using PostgreSQL mode.'
+      );
     }
     return this.state.sqlite;
   }
 
   /**
    * Check if database is initialized
+   * In PostgreSQL mode, only db is set (sqlite is undefined)
    */
   isDatabaseInitialized(): boolean {
-    return this.state.db !== null && this.state.sqlite !== null;
+    return this.state.db !== null;
   }
 
   /**
@@ -321,8 +326,10 @@ export function isRuntimeRegistered(): boolean {
 
 /**
  * Register the database instances
+ * @param db - Drizzle ORM database instance
+ * @param sqlite - Raw SQLite instance (undefined for PostgreSQL mode)
  */
-export function registerDatabase(db: AppDb, sqlite: Database.Database): void {
+export function registerDatabase(db: AppDb, sqlite?: Database.Database): void {
   defaultContainer.registerDatabase(db, sqlite);
 }
 

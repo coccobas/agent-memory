@@ -1,33 +1,35 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
-  getExtractionService,
-  resetExtractionService,
+  ExtractionService,
+  resetExtractionServiceState,
 } from '../../src/services/extraction.service.js';
 
 describe('Extraction Service', () => {
+  let service: ExtractionService;
+
   beforeEach(() => {
-    resetExtractionService();
+    resetExtractionServiceState();
+    service = new ExtractionService();
   });
 
   afterEach(() => {
-    resetExtractionService();
+    resetExtractionServiceState();
   });
 
-  it('should create singleton instance', () => {
-    const service1 = getExtractionService();
-    const service2 = getExtractionService();
-    expect(service1).toBe(service2);
+  it('should create independent instances', () => {
+    const service1 = new ExtractionService();
+    const service2 = new ExtractionService();
+    // With DI pattern, instances are independent
+    expect(service1).not.toBe(service2);
   });
 
   it('should determine provider based on environment', () => {
-    const service = getExtractionService();
     const provider = service.getProvider();
     // Should be one of the valid providers
     expect(['openai', 'anthropic', 'ollama', 'disabled']).toContain(provider);
   });
 
   it('should report availability correctly', () => {
-    const service = getExtractionService();
     const available = service.isAvailable();
     const provider = service.getProvider();
 
@@ -47,10 +49,10 @@ describe('Extraction Service', () => {
     const { reloadConfig } = await import('../../src/config/index.js');
     reloadConfig();
 
-    resetExtractionService();
-    const service = getExtractionService();
+    resetExtractionServiceState();
+    const disabledService = new ExtractionService();
 
-    const result = await service.extract({ context: 'Test context' });
+    const result = await disabledService.extract({ context: 'Test context' });
     expect(result.entries).toEqual([]);
     expect(result.provider).toBe('disabled');
     expect(result.processingTimeMs).toBe(0);
@@ -65,8 +67,6 @@ describe('Extraction Service', () => {
   });
 
   it('should reject empty context', async () => {
-    const service = getExtractionService();
-
     // Only test if service is available
     if (service.isAvailable()) {
       await expect(service.extract({ context: '' })).rejects.toThrow(
@@ -87,13 +87,13 @@ describe('Extraction Service', () => {
       const { reloadConfig } = await import('../../src/config/index.js');
       reloadConfig();
 
-      resetExtractionService();
-      const service = getExtractionService();
+      resetExtractionServiceState();
+      const disabledService = new ExtractionService();
 
-      expect(service.getProvider()).toBe('disabled');
-      expect(service.isAvailable()).toBe(false);
+      expect(disabledService.getProvider()).toBe('disabled');
+      expect(disabledService.isAvailable()).toBe(false);
 
-      const result = await service.extract({ context: 'some context' });
+      const result = await disabledService.extract({ context: 'some context' });
       expect(result.entries).toHaveLength(0);
       expect(result.model).toBe('disabled');
 
@@ -122,10 +122,10 @@ describe('Extraction Service', () => {
       const { reloadConfig } = await import('../../src/config/index.js');
       reloadConfig();
 
-      resetExtractionService();
-      const service = getExtractionService();
+      resetExtractionServiceState();
+      const testService = new ExtractionService();
 
-      expect(service.getProvider()).toBe('disabled');
+      expect(testService.getProvider()).toBe('disabled');
 
       // Restore
       if (originalProvider) process.env.AGENT_MEMORY_EXTRACTION_PROVIDER = originalProvider;
@@ -146,11 +146,11 @@ describe('Extraction Service', () => {
       const { reloadConfig } = await import('../../src/config/index.js');
       reloadConfig();
 
-      resetExtractionService();
-      const service = getExtractionService();
+      resetExtractionServiceState();
+      const testService = new ExtractionService();
 
-      expect(service.getProvider()).toBe('openai');
-      expect(service.isAvailable()).toBe(true);
+      expect(testService.getProvider()).toBe('openai');
+      expect(testService.isAvailable()).toBe(true);
 
       // Restore
       if (originalProvider) {
@@ -176,10 +176,10 @@ describe('Extraction Service', () => {
       const { reloadConfig } = await import('../../src/config/index.js');
       reloadConfig();
 
-      resetExtractionService();
-      const service = getExtractionService();
+      resetExtractionServiceState();
+      const testService = new ExtractionService();
 
-      expect(service.getProvider()).toBe('disabled');
+      expect(testService.getProvider()).toBe('disabled');
 
       // Restore
       if (originalProvider) {

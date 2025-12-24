@@ -12,6 +12,10 @@ import type { ScopeType, AppSchema } from '../db/schema.js';
 /**
  * Type-safe Drizzle database with full schema type information.
  * Provides autocomplete for table names and column types.
+ *
+ * Note: This is typed as SQLite (the primary backend). For PostgreSQL,
+ * the adapter handles type differences at runtime. Drizzle's query API
+ * is compatible across both backends.
  */
 export type AppDb = BetterSQLite3Database<AppSchema>;
 
@@ -22,8 +26,8 @@ export type AppDb = BetterSQLite3Database<AppSchema>;
 export interface DatabaseDeps {
   /** Drizzle ORM database instance with schema types */
   db: AppDb;
-  /** Raw better-sqlite3 database instance for transactions and raw SQL */
-  sqlite: Database.Database;
+  /** Raw better-sqlite3 database instance for transactions and raw SQL (SQLite mode only) */
+  sqlite?: Database.Database;
 }
 
 // Re-export query types from query-types.ts

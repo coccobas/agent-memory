@@ -164,11 +164,18 @@ export function getPreparedStatement(sql: string): Database.Statement {
 /**
  * Run a transaction with explicit sqlite instance (DI pattern)
  *
- * @param sqlite - The better-sqlite3 database instance
+ * @param sqlite - The better-sqlite3 database instance (optional for PostgreSQL mode)
  * @param fn - The function to run in a transaction
+ *
+ * In PostgreSQL mode (sqlite undefined), runs the function directly.
+ * PostgreSQL transactions are handled by the adapter layer.
  */
-export function transactionWithDb<T>(sqlite: Database.Database, fn: () => T): T {
-  return sqlite.transaction(fn)();
+export function transactionWithDb<T>(sqlite: Database.Database | undefined, fn: () => T): T {
+  if (sqlite) {
+    return sqlite.transaction(fn)();
+  }
+  // PostgreSQL mode: run directly (transactions handled by adapter)
+  return fn();
 }
 
 // =============================================================================
@@ -215,31 +222,36 @@ export interface TransactionRetryOptions {
 }
 
 /**
- * Synchronous sleep using a busy-wait loop.
- * Note: This blocks the event loop but is acceptable for short database contention scenarios.
+ * Async sleep using setTimeout.
+ * Does not block the event loop.
  */
-function sleepSync(ms: number): void {
-  const end = Date.now() + ms;
-  while (Date.now() < end) {
-    // Busy wait - necessary for synchronous SQLite context
-  }
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
  * Run a transaction with exponential backoff retry for transient errors.
  * Handles SQLITE_BUSY, SQLITE_LOCKED, and other database contention issues.
  *
- * @param sqlite - The better-sqlite3 database instance
+ * In PostgreSQL mode (sqlite undefined), runs the function directly
+ * (PostgreSQL transactions are handled by the adapter layer).
+ *
+ * @param sqlite - The better-sqlite3 database instance (undefined for PostgreSQL mode)
  * @param fn - The function to run in a transaction
  * @param options - Retry configuration (defaults from config.transaction)
  * @returns The result of the transaction function
  * @throws The last error if all retries fail
  */
-export function transactionWithRetry<T>(
-  sqlite: Database.Database,
+export async function transactionWithRetry<T>(
+  sqlite: Database.Database | undefined,
   fn: () => T,
   options?: TransactionRetryOptions
-): T {
+): Promise<T> {
+  // PostgreSQL mode: run directly (transactions handled by adapter)
+  if (!sqlite) {
+    return fn();
+  }
+
   const maxRetries = options?.maxRetries ?? config.transaction.maxRetries;
   const initialDelay = options?.initialDelayMs ?? config.transaction.initialDelayMs;
   const maxDelay = options?.maxDelayMs ?? config.transaction.maxDelayMs;
@@ -279,7 +291,7 @@ export function transactionWithRetry<T>(
         'Retrying transaction after transient error'
       );
 
-      sleepSync(delay);
+      await sleep(delay);
       delay = Math.min(delay * multiplier, maxDelay);
     }
   }

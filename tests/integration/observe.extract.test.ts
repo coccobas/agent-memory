@@ -9,7 +9,7 @@ import {
   schema,
   setupTestDb,
 } from '../fixtures/test-helpers.js';
-import type { AppContext } from '../../src/core/context.js';
+import type { AppContext, IExtractionService } from '../../src/core/context.js';
 
 const TEST_DB_PATH = './data/test-observe-extract.db';
 
@@ -18,6 +18,13 @@ let db: ReturnType<typeof setupTestDb>['db'];
 let ctx: AppContext;
 
 const mockExtract = vi.fn();
+
+// Create a mock extraction service
+const mockExtractionService: IExtractionService = {
+  isAvailable: () => true,
+  getProvider: () => 'openai',
+  extract: mockExtract,
+};
 
 vi.mock('../../src/db/connection.js', async () => {
   const actual = await vi.importActual<typeof import('../../src/db/connection.js')>(
@@ -31,20 +38,6 @@ vi.mock('../../src/db/connection.js', async () => {
   };
 });
 
-vi.mock('../../src/services/extraction.service.js', async () => {
-  const actual = await vi.importActual<typeof import('../../src/services/extraction.service.js')>(
-    '../../src/services/extraction.service.js'
-  );
-  return {
-    ...actual,
-    getExtractionService: () => ({
-      isAvailable: () => true,
-      getProvider: () => 'openai',
-      extract: mockExtract,
-    }),
-  };
-});
-
 import { observeHandlers } from '../../src/mcp/handlers/observe.handler.js';
 
 describe('memory_observe.extract integration', () => {
@@ -53,6 +46,12 @@ describe('memory_observe.extract integration', () => {
     sqlite = testDb.sqlite;
     db = testDb.db;
     ctx = await createTestContext(testDb);
+
+    // Add the mock extraction service to the context
+    if (!ctx.services) {
+      ctx.services = { permission: ctx.services!.permission };
+    }
+    ctx.services.extraction = mockExtractionService;
   });
 
   afterAll(() => {

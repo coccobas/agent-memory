@@ -20,13 +20,20 @@ import {
   type KnowledgeVersion,
 } from '../db/schema.js';
 import { eq, and, inArray, sql } from 'drizzle-orm';
-import { getEmbeddingService } from './embedding.service.js';
-import { getVectorService } from './vector.service.js';
+import type { IEmbeddingService, IVectorService } from '../core/context.js';
 import { extractTextForEmbedding, type EntryType } from '../db/repositories/embedding-hooks.js';
 import { generateId } from '../db/repositories/base.js';
 import { createComponentLogger } from '../utils/logger.js';
 import { config } from '../config/index.js';
 import { createServiceUnavailableError } from '../core/errors.js';
+
+/**
+ * Service dependencies for backfill operations
+ */
+export interface BackfillServices {
+  embedding: IEmbeddingService;
+  vector: IVectorService;
+}
 
 // Union type for version data used in embedding extraction
 type VersionData = ToolVersion | GuidelineVersion | KnowledgeVersion;
@@ -58,10 +65,15 @@ export interface BackfillOptions {
 
 /**
  * Generate embeddings for all entries that don't have them yet
+ *
+ * @param options - Backfill configuration options
+ * @param db - Database client
+ * @param services - Injected service dependencies
  */
 export async function backfillEmbeddings(
   options: BackfillOptions = {},
-  db: DbClient
+  db: DbClient,
+  services: BackfillServices
 ): Promise<BackfillProgress> {
   const {
     batchSize = 50,
@@ -70,13 +82,12 @@ export async function backfillEmbeddings(
     onProgress,
   } = options;
 
-  const embeddingService = getEmbeddingService();
+  const { embedding: embeddingService, vector: vectorService } = services;
 
   if (!embeddingService.isAvailable()) {
     throw createServiceUnavailableError('Embeddings', 'Please configure an embedding provider');
   }
 
-  const vectorService = getVectorService();
   await vectorService.initialize();
   const progress: BackfillProgress = {
     total: 0,
@@ -115,13 +126,13 @@ export async function backfillEmbeddings(
 
   // Process each entry type
   if (entryTypes.includes('tool')) {
-    await backfillEntryType('tool', batchSize, delayMs, progress, onProgress, db);
+    await backfillEntryType('tool', batchSize, delayMs, progress, onProgress, db, services);
   }
   if (entryTypes.includes('guideline')) {
-    await backfillEntryType('guideline', batchSize, delayMs, progress, onProgress, db);
+    await backfillEntryType('guideline', batchSize, delayMs, progress, onProgress, db, services);
   }
   if (entryTypes.includes('knowledge')) {
-    await backfillEntryType('knowledge', batchSize, delayMs, progress, onProgress, db);
+    await backfillEntryType('knowledge', batchSize, delayMs, progress, onProgress, db, services);
   }
 
   progress.inProgress = false;
@@ -167,11 +178,11 @@ async function backfillEntryType(
   delayMs: number,
   progress: BackfillProgress,
   onProgress: ((progress: BackfillProgress) => void) | undefined,
-  dbClient: DbClient
+  dbClient: DbClient,
+  services: BackfillServices
 ): Promise<void> {
   const db = dbClient;
-  const embeddingService = getEmbeddingService();
-  const vectorService = getVectorService();
+  const { embedding: embeddingService, vector: vectorService } = services;
 
   // Get max concurrency from config (default 4)
   const maxConcurrency = Math.max(1, config.embedding?.maxConcurrency ?? 4);

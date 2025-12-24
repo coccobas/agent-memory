@@ -4,8 +4,6 @@
  * Finds groups of semantically similar entries for consolidation.
  */
 
-import { getEmbeddingService } from '../embedding.service.js';
-import { getVectorService } from '../vector.service.js';
 import { createComponentLogger } from '../../utils/logger.js';
 import { config } from '../../config/index.js';
 import type { FindSimilarParams, SimilarityGroup } from './types.js';
@@ -24,10 +22,10 @@ export async function findSimilarGroups(params: FindSimilarParams): Promise<Simi
     threshold = config.semanticSearch.duplicateThreshold,
     limit = 20,
     db,
+    services,
   } = params;
 
-  const embeddingService = getEmbeddingService();
-  const vectorService = getVectorService();
+  const { embedding: embeddingService, vector: vectorService } = services;
 
   if (!embeddingService.isAvailable()) {
     logger.warn('Embeddings not available, cannot find similar groups');

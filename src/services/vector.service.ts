@@ -143,23 +143,3 @@ export class VectorService implements IVectorService {
     }
   }
 }
-
-// Singleton instance
-let vectorService: VectorService | null = null;
-
-/**
- * Get the singleton vector service instance
- */
-export function getVectorService(): VectorService {
-  if (!vectorService) {
-    vectorService = new VectorService();
-  }
-  return vectorService;
-}
-
-/**
- * Reset the vector service (useful for testing)
- */
-export function resetVectorService(): void {
-  vectorService = null;
-}

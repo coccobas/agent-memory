@@ -14,12 +14,16 @@ import type { Adapters } from './adapters/index.js';
  * Service interfaces for AppContext
  * Using interfaces to allow flexible implementations and testing
  */
+export type EmbeddingProvider = 'openai' | 'local' | 'disabled';
+
 export interface IEmbeddingService {
   isAvailable(): boolean;
-  getProvider(): 'openai' | 'local' | 'disabled';
+  getProvider(): EmbeddingProvider;
   getEmbeddingDimension(): number;
-  embed(text: string): Promise<{ embedding: number[]; model: string; provider: string }>;
-  embedBatch(texts: string[]): Promise<{ embeddings: number[][]; model: string; provider: string }>;
+  embed(text: string): Promise<{ embedding: number[]; model: string; provider: EmbeddingProvider }>;
+  embedBatch(
+    texts: string[]
+  ): Promise<{ embeddings: number[][]; model: string; provider: EmbeddingProvider }>;
   clearCache(): void;
   cleanup(): void;
 }
@@ -52,9 +56,13 @@ export interface IVectorService {
   close(): void;
 }
 
+export type ExtractionProvider = 'openai' | 'anthropic' | 'ollama' | 'disabled';
+export type EntityType = 'person' | 'technology' | 'component' | 'concept' | 'organization';
+export type ExtractedRelationType = 'depends_on' | 'related_to' | 'applies_to' | 'conflicts_with';
+
 export interface IExtractionService {
   isAvailable(): boolean;
-  getProvider(): 'openai' | 'anthropic' | 'ollama' | 'disabled';
+  getProvider(): ExtractionProvider;
   extract(input: {
     context: string;
     contextType?: 'conversation' | 'code' | 'mixed';
@@ -67,15 +75,24 @@ export interface IExtractionService {
       content: string;
       confidence: number;
     }>;
-    entities: Array<{ name: string; entityType: string; confidence: number }>;
+    entities: Array<{
+      name: string;
+      entityType: EntityType;
+      description?: string;
+      confidence: number;
+    }>;
     relationships: Array<{
       sourceRef: string;
+      sourceType: 'guideline' | 'knowledge' | 'tool' | 'entity';
       targetRef: string;
-      relationType: string;
+      targetType: 'guideline' | 'knowledge' | 'tool' | 'entity';
+      relationType: ExtractedRelationType;
       confidence: number;
     }>;
     model: string;
-    provider: string;
+    provider: ExtractionProvider;
+    tokensUsed?: number;
+    processingTimeMs: number;
   }>;
 }
 
@@ -102,7 +119,8 @@ export interface AppContext {
   config: Config;
   /** Type-safe Drizzle database with full schema type information */
   db: AppDb;
-  sqlite: Database.Database;
+  /** SQLite handle - only present in SQLite mode, undefined in PostgreSQL mode */
+  sqlite?: Database.Database;
   logger: Logger;
   queryDeps: PipelineDependencies;
   security: SecurityService;

@@ -8,15 +8,49 @@ import { createComponentLogger } from '../utils/logger.js';
 import { toLongPath, normalizePath } from '../utils/paths.js';
 import type { Config } from '../config/index.js';
 import type { AppDb } from '../core/types.js';
+import type { Pool } from 'pg';
+import type { PostgreSQLStorageAdapter } from '../core/adapters/postgresql.adapter.js';
 
 const logger = createComponentLogger('db-factory');
 
 /**
- * Factory to create a new database connection (for DI container)
+ * SQLite database connection result
  */
-export async function createDatabaseConnection(
-  configuration: Config
-): Promise<{ db: AppDb; sqlite: Database.Database }> {
+export interface SQLiteConnection {
+  type: 'sqlite';
+  db: AppDb;
+  sqlite: Database.Database;
+}
+
+/**
+ * PostgreSQL database connection result
+ */
+export interface PostgreSQLConnection {
+  type: 'postgresql';
+  adapter: PostgreSQLStorageAdapter;
+  pool: Pool;
+}
+
+/**
+ * Discriminated union of database connections
+ */
+export type DatabaseConnection = SQLiteConnection | PostgreSQLConnection;
+
+/**
+ * Factory to create a new database connection based on configuration.
+ * Returns a discriminated union based on dbType.
+ */
+export async function createDatabaseConnection(configuration: Config): Promise<DatabaseConnection> {
+  if (configuration.dbType === 'postgresql') {
+    return createPostgreSQLConnection(configuration);
+  }
+  return createSQLiteConnection(configuration);
+}
+
+/**
+ * Create a SQLite database connection
+ */
+async function createSQLiteConnection(configuration: Config): Promise<SQLiteConnection> {
   const dbPath = toLongPath(normalizePath(configuration.database.path));
 
   // Ensure data directory exists
@@ -84,5 +118,86 @@ export async function createDatabaseConnection(
   }
 
   const db = drizzle(sqlite, { schema });
-  return { db, sqlite };
+  return { type: 'sqlite', db, sqlite };
+}
+
+/**
+ * Create a PostgreSQL database connection
+ */
+async function createPostgreSQLConnection(configuration: Config): Promise<PostgreSQLConnection> {
+  // Dynamic import to avoid loading pg when using SQLite
+  const { PostgreSQLStorageAdapter } = await import('../core/adapters/postgresql.adapter.js');
+
+  const adapter = new PostgreSQLStorageAdapter(configuration.postgresql);
+  await adapter.connect();
+
+  // Run PostgreSQL migrations if not skipping init
+  if (!configuration.database.skipInit) {
+    await runPostgreSQLMigrations(adapter, configuration.database.verbose);
+  }
+
+  const pool = adapter.getRawConnection();
+  logger.info({ host: configuration.postgresql.host, database: configuration.postgresql.database }, 'Connected to PostgreSQL');
+
+  return { type: 'postgresql', adapter, pool };
+}
+
+/**
+ * Run PostgreSQL migrations from the migrations/postgresql directory
+ */
+async function runPostgreSQLMigrations(adapter: PostgreSQLStorageAdapter, verbose: boolean): Promise<void> {
+  const { readFileSync, readdirSync, existsSync: fsExistsSync } = await import('node:fs');
+  const { join, dirname: pathDirname } = await import('node:path');
+  const { fileURLToPath } = await import('node:url');
+
+  // Get the migrations directory path
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = pathDirname(__filename);
+  const migrationsDir = join(__dirname, 'migrations', 'postgresql');
+
+  if (!fsExistsSync(migrationsDir)) {
+    logger.warn({ migrationsDir }, 'PostgreSQL migrations directory not found');
+    return;
+  }
+
+  // Create migrations tracking table if it doesn't exist
+  await adapter.executeRaw(`
+    CREATE TABLE IF NOT EXISTS _migrations (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE,
+      applied_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Get already applied migrations
+  const applied = await adapter.executeRaw<{ name: string }>('SELECT name FROM _migrations');
+  const appliedSet = new Set(applied.map((m) => m.name));
+
+  // Get all migration files sorted by name
+  const files = readdirSync(migrationsDir)
+    .filter((f) => f.endsWith('.sql'))
+    .sort();
+
+  const migrationsApplied: string[] = [];
+
+  for (const file of files) {
+    if (appliedSet.has(file)) {
+      continue;
+    }
+
+    const sql = readFileSync(join(migrationsDir, file), 'utf-8');
+
+    try {
+      await adapter.executeRaw(sql);
+      await adapter.executeRaw('INSERT INTO _migrations (name) VALUES ($1)', [file]);
+      migrationsApplied.push(file);
+    } catch (error) {
+      logger.error({ file, error }, 'PostgreSQL migration failed');
+      throw new Error(`PostgreSQL migration ${file} failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  if (verbose && migrationsApplied.length > 0) {
+    logger.info({ migrations: migrationsApplied, count: migrationsApplied.length }, 'Applied PostgreSQL migrations');
+  }
 }

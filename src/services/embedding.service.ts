@@ -372,29 +372,11 @@ export class EmbeddingService {
   }
 }
 
-// Singleton instance
-let embeddingService: EmbeddingService | null = null;
-
 /**
- * Get the singleton embedding service instance
+ * Reset module-level state for testing purposes.
+ * Note: In production code, services should be instantiated via DI and cleaned up directly.
  */
-export function getEmbeddingService(): EmbeddingService {
-  if (!embeddingService) {
-    embeddingService = new EmbeddingService();
-  }
-  return embeddingService;
-}
-
-/**
- * Reset the embedding service (useful for testing)
- * Also cleans up resources before resetting
- */
-export function resetEmbeddingService(): void {
-  // Cleanup resources before resetting
-  if (embeddingService) {
-    embeddingService.cleanup();
-  }
-  embeddingService = null;
+export function resetEmbeddingServiceState(): void {
   // Reset warning flag for tests
   hasWarnedAboutOpenAI = false;
   EmbeddingService.hasLoggedModelLoad = false;

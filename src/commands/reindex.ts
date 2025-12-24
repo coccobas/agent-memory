@@ -12,14 +12,15 @@
  *   --retry-failed      Retry failed embedding jobs from queue
  */
 
-import { backfillEmbeddings, getBackfillStats } from '../services/backfill.service.js';
+import { backfillEmbeddings, getBackfillStats, type BackfillServices } from '../services/backfill.service.js';
 import {
   retryFailedEmbeddings,
   getEmbeddingQueueStats,
   getFailedEmbeddingJobs,
   type EntryType,
 } from '../db/repositories/embedding-hooks.js';
-import { getEmbeddingService } from '../services/embedding.service.js';
+import { EmbeddingService } from '../services/embedding.service.js';
+import { VectorService } from '../services/vector.service.js';
 import { createComponentLogger } from '../utils/logger.js';
 import type { DbClient } from '../db/connection.js';
 
@@ -180,8 +181,24 @@ export async function runReindexCommand(args: string[]): Promise<void> {
 
   const options = parseArgs(args);
 
-  // Check embedding service availability
-  const embeddingService = getEmbeddingService();
+  // Load config
+  const { buildConfig } = await import('../config/index.js');
+  const config = buildConfig();
+
+  // Create services directly (standalone CLI command)
+  const embeddingService = new EmbeddingService({
+    provider: config.embedding.provider,
+    openaiApiKey: config.embedding.openaiApiKey,
+    openaiModel: config.embedding.openaiModel,
+  });
+
+  const vectorService = new VectorService();
+
+  const services: BackfillServices = {
+    embedding: embeddingService,
+    vector: vectorService,
+  };
+
   if (!embeddingService.isAvailable()) {
     console.error('Error: Embedding service is not available.');
     console.error('Please configure AGENT_MEMORY_OPENAI_API_KEY or use local embeddings.');
@@ -237,7 +254,8 @@ export async function runReindexCommand(args: string[]): Promise<void> {
           );
         },
       },
-      db
+      db,
+      services
     );
 
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);

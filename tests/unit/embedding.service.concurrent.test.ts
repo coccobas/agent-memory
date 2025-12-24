@@ -31,14 +31,16 @@ describe('EmbeddingService concurrency', () => {
     const { reloadConfig } = await import('../../src/config/index.js');
     reloadConfig();
 
-    const { resetEmbeddingService, getEmbeddingService } =
+    const { EmbeddingService, resetEmbeddingServiceState } =
       await import('../../src/services/embedding.service.js');
 
-    resetEmbeddingService();
-    const service = getEmbeddingService();
+    resetEmbeddingServiceState();
+    const service = new EmbeddingService();
 
     await Promise.all(Array.from({ length: 20 }, () => service.embed('hello world')));
 
     expect(pipelineMock).toHaveBeenCalledTimes(1);
+
+    service.cleanup();
   });
 });

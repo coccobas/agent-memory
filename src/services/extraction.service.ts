@@ -848,26 +848,10 @@ export class ExtractionService {
   }
 }
 
-// =============================================================================
-// SINGLETON
-// =============================================================================
-
-let extractionService: ExtractionService | null = null;
-
 /**
- * Get the singleton extraction service instance
+ * Reset module-level state for testing purposes.
+ * Note: In production code, services should be instantiated via DI and cleaned up directly.
  */
-export function getExtractionService(): ExtractionService {
-  if (!extractionService) {
-    extractionService = new ExtractionService();
-  }
-  return extractionService;
-}
-
-/**
- * Reset the extraction service (useful for testing)
- */
-export function resetExtractionService(): void {
-  extractionService = null;
+export function resetExtractionServiceState(): void {
   hasWarnedAboutProvider = false;
 }

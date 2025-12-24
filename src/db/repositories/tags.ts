@@ -124,15 +124,21 @@ export function createTagRepository(deps: DatabaseDeps): ITagRepository {
     },
 
     async delete(id: string): Promise<boolean> {
-      // Use transaction via sqlite.transaction()
-      return sqlite.transaction(() => {
+      // Use transaction if sqlite is available (SQLite mode)
+      // For PostgreSQL, run queries directly (Drizzle handles atomicity)
+      const doDelete = () => {
         // Remove all entry_tags associations first
         db.delete(entryTags).where(eq(entryTags.tagId, id)).run();
 
         // Delete the tag
         const result = db.delete(tags).where(eq(tags.id, id)).run();
         return result.changes > 0;
-      })();
+      };
+
+      if (sqlite) {
+        return sqlite.transaction(doDelete)();
+      }
+      return doDelete();
     },
 
     async seedPredefined(): Promise<void> {

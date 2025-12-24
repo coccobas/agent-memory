@@ -5,10 +5,7 @@
  */
 
 import type { AppContext } from '../../../core/context.js';
-import {
-  getExtractionService,
-  type ExtractionInput,
-} from '../../../services/extraction.service.js';
+import type { ExtractionInput } from '../../../services/extraction.service.js';
 import { checkForDuplicates } from '../../../services/duplicate.service.js';
 import { logAction } from '../../../services/audit.service.js';
 import { config } from '../../../config/index.js';
@@ -63,8 +60,11 @@ export async function extract(appContext: AppContext, params: Record<string, unk
     );
   }
 
-  // Check if extraction service is available
-  const extractionService = getExtractionService();
+  // Get extraction service from context (DI)
+  if (!appContext.services?.extraction) {
+    throw createExtractionUnavailableError();
+  }
+  const extractionService = appContext.services.extraction;
   if (!extractionService.isAvailable()) {
     throw createExtractionUnavailableError();
   }

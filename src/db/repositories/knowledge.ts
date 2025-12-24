@@ -75,7 +75,7 @@ export function createKnowledgeRepository(deps: DatabaseDeps): IKnowledgeReposit
 
   const repo: IKnowledgeRepository = {
     async create(input: CreateKnowledgeInput): Promise<KnowledgeWithVersion> {
-      return transactionWithRetry(sqlite, () => {
+      return await transactionWithRetry(sqlite, () => {
         const knowledgeId = generateId();
         const versionId = generateId();
 
@@ -205,7 +205,7 @@ export function createKnowledgeRepository(deps: DatabaseDeps): IKnowledgeReposit
       id: string,
       input: UpdateKnowledgeInput
     ): Promise<KnowledgeWithVersion | undefined> {
-      return transactionWithRetry(sqlite, () => {
+      return await transactionWithRetry(sqlite, () => {
         const existing = getByIdSync(id);
         if (!existing) return undefined;
 
@@ -306,7 +306,7 @@ export function createKnowledgeRepository(deps: DatabaseDeps): IKnowledgeReposit
     },
 
     async delete(id: string): Promise<boolean> {
-      const result = transactionWithRetry(sqlite, () => {
+      const result = await transactionWithRetry(sqlite, () => {
         // Delete related records (tags, relations, embeddings, permissions)
         cascadeDeleteRelatedRecordsWithDb(db, 'knowledge', id);
 

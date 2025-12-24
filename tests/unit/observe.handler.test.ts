@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll } from 'vitest';
 import { observeHandlers } from '../../src/mcp/handlers/observe.handler.js';
-import { resetExtractionService } from '../../src/services/extraction.service.js';
+import { resetExtractionServiceState, ExtractionService } from '../../src/services/extraction.service.js';
 import { ErrorCodes } from '../../src/mcp/errors.js';
 import { setupTestDb, cleanupTestDb, createTestContext } from '../fixtures/test-helpers.js';
 import type { AppContext } from '../../src/core/context.js';
@@ -25,16 +25,17 @@ describe('observe handler', () => {
   });
 
   beforeEach(() => {
-    resetExtractionService();
+    resetExtractionServiceState();
   });
 
   afterEach(() => {
-    resetExtractionService();
+    resetExtractionServiceState();
   });
 
   describe('status action', () => {
     it('should return extraction service status', () => {
-      const result = observeHandlers.status();
+      // status now requires AppContext
+      const result = observeHandlers.status(ctx);
 
       expect(result).toHaveProperty('available');
       expect(result).toHaveProperty('provider');
@@ -50,9 +51,12 @@ describe('observe handler', () => {
 
       const { reloadConfig } = await import('../../src/config/index.js');
       reloadConfig();
-      resetExtractionService();
+      resetExtractionServiceState();
 
-      const result = observeHandlers.status();
+      // Create a new context with disabled extraction service
+      const disabledCtx = await createTestContext(testDb);
+
+      const result = observeHandlers.status(disabledCtx);
 
       expect(result.available).toBe(false);
       expect(result.provider).toBe('disabled');
@@ -80,7 +84,7 @@ describe('observe handler', () => {
 
       const { reloadConfig } = await import('../../src/config/index.js');
       reloadConfig();
-      resetExtractionService();
+      resetExtractionServiceState();
 
       await expect(
         observeHandlers.extract(ctx, {
@@ -105,7 +109,7 @@ describe('observe handler', () => {
 
       const { reloadConfig } = await import('../../src/config/index.js');
       reloadConfig();
-      resetExtractionService();
+      resetExtractionServiceState();
 
       await expect(
         observeHandlers.extract(ctx, {

@@ -1,11 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { getVectorService, resetVectorService } from '../../src/services/vector.service.js';
+import { VectorService } from '../../src/services/vector.service.js';
 import { existsSync, rmSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const TEST_VECTOR_DB_PATH = resolve(process.cwd(), 'data/test-vectors.lance');
 
 describe('Vector Service', () => {
+  let service: VectorService;
+
   beforeEach(() => {
     // Set environment variable to use test database path
     process.env.AGENT_MEMORY_VECTOR_DB_PATH = TEST_VECTOR_DB_PATH;
@@ -14,11 +16,10 @@ describe('Vector Service', () => {
     if (existsSync(TEST_VECTOR_DB_PATH)) {
       rmSync(TEST_VECTOR_DB_PATH, { recursive: true, force: true });
     }
-    resetVectorService();
+    service = new VectorService();
   });
 
   afterEach(async () => {
-    const service = getVectorService();
     await service.close();
 
     // Clean up test vector DB
@@ -26,21 +27,20 @@ describe('Vector Service', () => {
       rmSync(TEST_VECTOR_DB_PATH, { recursive: true, force: true });
     }
 
-    resetVectorService();
-
     // Clear environment variable
     delete process.env.AGENT_MEMORY_VECTOR_DB_PATH;
   });
 
-  it('should create singleton instance', () => {
-    const service1 = getVectorService();
-    const service2 = getVectorService();
-    expect(service1).toBe(service2);
+  it('should create independent instances', () => {
+    const service1 = new VectorService();
+    const service2 = new VectorService();
+    // With DI pattern, instances are independent
+    expect(service1).not.toBe(service2);
+    service1.close();
+    service2.close();
   });
 
   it('should initialize vector database', async () => {
-    const service = getVectorService();
-
     // Should not throw
     await expect(service.initialize()).resolves.not.toThrow();
 
@@ -49,7 +49,6 @@ describe('Vector Service', () => {
   });
 
   it('should store embedding successfully', async () => {
-    const service = getVectorService();
     await service.initialize();
 
     const embedding = Array(384)
@@ -69,8 +68,6 @@ describe('Vector Service', () => {
   });
 
   it('should handle concurrent storeEmbedding without explicit initialize', async () => {
-    const service = getVectorService();
-
     const embedding = Array(384).fill(0.123);
 
     await expect(
@@ -86,7 +83,6 @@ describe('Vector Service', () => {
   }, 20000);
 
   it('should store multiple embeddings', async () => {
-    const service = getVectorService();
     await service.initialize();
 
     const embedding1 = Array(384)
@@ -119,7 +115,6 @@ describe('Vector Service', () => {
   });
 
   it('should update existing embedding', async () => {
-    const service = getVectorService();
     await service.initialize();
 
     const embedding1 = Array(384)
@@ -167,7 +162,6 @@ describe('Vector Service', () => {
   });
 
   it('should search for similar embeddings', async () => {
-    const service = getVectorService();
     await service.initialize();
 
     // Create similar embeddings (all values close to 0.5)
@@ -200,7 +194,6 @@ describe('Vector Service', () => {
   });
 
   it('should filter search results by entry type', { timeout: 10000 }, async () => {
-    const service = getVectorService();
     await service.initialize();
 
     const embedding1 = Array(384)
@@ -251,7 +244,6 @@ describe('Vector Service', () => {
   });
 
   it('should respect limit parameter', { timeout: 15000 }, async () => {
-    const service = getVectorService();
     await service.initialize();
 
     // Store multiple embeddings
@@ -280,7 +272,6 @@ describe('Vector Service', () => {
   });
 
   it('should return results sorted by similarity', async () => {
-    const service = getVectorService();
     await service.initialize();
 
     const baseEmbedding = Array(384).fill(0.5);
@@ -323,7 +314,6 @@ describe('Vector Service', () => {
   });
 
   it('should get count of stored embeddings', async () => {
-    const service = getVectorService();
     await service.initialize();
 
     // Get initial count (might not be 0 if other tests ran)
@@ -357,7 +347,6 @@ describe('Vector Service', () => {
   });
 
   it('should handle search with no results gracefully', async () => {
-    const service = getVectorService();
     await service.initialize();
 
     const queryEmbedding = Array(384)
@@ -373,7 +362,6 @@ describe('Vector Service', () => {
   });
 
   it('should handle search with empty entry types array', async () => {
-    const service = getVectorService();
     await service.initialize();
 
     const embedding = Array(384)
@@ -393,7 +381,6 @@ describe('Vector Service', () => {
   });
 
   it('should close connection successfully', async () => {
-    const service = getVectorService();
     await service.initialize();
 
     // Should not throw
@@ -406,12 +393,10 @@ describe('Vector Service', () => {
   it('should handle initialization errors gracefully', async () => {
     // This test is tricky as we'd need to force an error
     // For now, just verify that initialization doesn't throw with valid path
-    const service = getVectorService();
     await expect(service.initialize()).resolves.not.toThrow();
   });
 
   it('should return similarity scores between 0 and 1', async () => {
-    const service = getVectorService();
     await service.initialize();
 
     const embedding = Array(384)
@@ -431,7 +416,6 @@ describe('Vector Service', () => {
   });
 
   it('should include text in search results', async () => {
-    const service = getVectorService();
     await service.initialize();
 
     const embedding = Array(384)
@@ -452,7 +436,6 @@ describe('Vector Service', () => {
   });
 
   it('should store version information', async () => {
-    const service = getVectorService();
     await service.initialize();
 
     const embedding = Array(384)

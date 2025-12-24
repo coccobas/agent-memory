@@ -71,7 +71,7 @@ export function createToolRepository(deps: DatabaseDeps): IToolRepository {
 
   const repo: IToolRepository = {
     async create(input: CreateToolInput): Promise<ToolWithVersion> {
-      return transactionWithRetry(sqlite, () => {
+      return await transactionWithRetry(sqlite, () => {
         const toolId = generateId();
         const versionId = generateId();
 
@@ -198,7 +198,7 @@ export function createToolRepository(deps: DatabaseDeps): IToolRepository {
     },
 
     async update(id: string, input: UpdateToolInput): Promise<ToolWithVersion | undefined> {
-      return transactionWithRetry(sqlite, () => {
+      return await transactionWithRetry(sqlite, () => {
         const existing = getByIdSync(id);
         if (!existing) return undefined;
 
@@ -287,7 +287,7 @@ export function createToolRepository(deps: DatabaseDeps): IToolRepository {
     },
 
     async delete(id: string): Promise<boolean> {
-      const result = transactionWithRetry(sqlite, () => {
+      const result = await transactionWithRetry(sqlite, () => {
         // Delete related records (tags, relations, embeddings, permissions)
         cascadeDeleteRelatedRecordsWithDb(db, 'tool', id);
 

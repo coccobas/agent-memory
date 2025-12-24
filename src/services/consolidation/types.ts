@@ -4,6 +4,15 @@
 
 import type { ScopeType, EntryType } from '../../db/schema.js';
 import type { DbClient } from '../../db/connection.js';
+import type { IEmbeddingService, IVectorService } from '../../core/context.js';
+
+/**
+ * Service dependencies for consolidation operations
+ */
+export interface ConsolidationServices {
+  embedding: IEmbeddingService;
+  vector: IVectorService;
+}
 
 // =============================================================================
 // STRATEGY TYPES
@@ -25,6 +34,7 @@ export interface ConsolidationParams {
   limit?: number; // Max number of consolidation groups to process
   consolidatedBy?: string; // Agent/user ID for audit
   db: DbClient; // Database client
+  services: ConsolidationServices; // Injected services
 }
 
 export interface FindSimilarParams {
@@ -34,6 +44,7 @@ export interface FindSimilarParams {
   threshold?: number;
   limit?: number;
   db: DbClient; // Database client
+  services: ConsolidationServices; // Injected services
 }
 
 // =============================================================================

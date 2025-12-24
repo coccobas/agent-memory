@@ -170,6 +170,20 @@ export async function handleConsolidation(
   const dryRun = isBoolean(args.dryRun) ? args.dryRun : false;
   const consolidatedBy = isString(args.consolidatedBy) ? args.consolidatedBy : undefined;
 
+  // Validate required services
+  if (!context.services?.embedding || !context.services?.vector) {
+    throw createValidationError(
+      'services',
+      'Embedding and vector services are required for consolidation',
+      'Ensure services are properly initialized'
+    );
+  }
+
+  const services = {
+    embedding: context.services.embedding,
+    vector: context.services.vector,
+  };
+
   if (action === 'find_similar') {
     // Just find similar groups without consolidating
     const groups = await findSimilarGroups({
@@ -179,6 +193,7 @@ export async function handleConsolidation(
       threshold,
       limit,
       db: context.db,
+      services,
     });
 
     return formatTimestamps({
@@ -277,6 +292,7 @@ export async function handleConsolidation(
     dryRun,
     consolidatedBy,
     db: context.db,
+    services,
   };
 
   const result = await consolidate(serviceParams);

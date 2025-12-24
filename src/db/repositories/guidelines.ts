@@ -75,7 +75,7 @@ export function createGuidelineRepository(deps: DatabaseDeps): IGuidelineReposit
 
   const repo: IGuidelineRepository = {
     async create(input: CreateGuidelineInput): Promise<GuidelineWithVersion> {
-      return transactionWithRetry(sqlite, () => {
+      return await transactionWithRetry(sqlite, () => {
         const guidelineId = generateId();
         const versionId = generateId();
 
@@ -209,7 +209,7 @@ export function createGuidelineRepository(deps: DatabaseDeps): IGuidelineReposit
       id: string,
       input: UpdateGuidelineInput
     ): Promise<GuidelineWithVersion | undefined> {
-      return transactionWithRetry(sqlite, () => {
+      return await transactionWithRetry(sqlite, () => {
         const existing = getByIdSync(id);
         if (!existing) return undefined;
 
@@ -319,7 +319,7 @@ export function createGuidelineRepository(deps: DatabaseDeps): IGuidelineReposit
     },
 
     async delete(id: string): Promise<boolean> {
-      const result = transactionWithRetry(sqlite, () => {
+      const result = await transactionWithRetry(sqlite, () => {
         // Delete related records (tags, relations, embeddings, permissions)
         cascadeDeleteRelatedRecordsWithDb(db, 'guideline', id);
 

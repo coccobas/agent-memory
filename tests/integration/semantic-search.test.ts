@@ -17,10 +17,10 @@ import {
 import { type MemoryQueryResult } from '../../src/services/query.service.js';
 import { executeQueryPipeline } from '../../src/services/query/index.js';
 import {
-  getEmbeddingService,
-  resetEmbeddingService,
+  EmbeddingService,
+  resetEmbeddingServiceState,
 } from '../../src/services/embedding.service.js';
-import { getVectorService, resetVectorService } from '../../src/services/vector.service.js';
+import { VectorService } from '../../src/services/vector.service.js';
 import { generateEmbeddingAsync } from '../../src/db/repositories/embedding-hooks.js';
 import { entryEmbeddings } from '../../src/db/schema.js';
 import { eq, and } from 'drizzle-orm';
@@ -34,6 +34,8 @@ const TEST_DB_PATH = './data/test-semantic-search-int.db';
 
 let sqlite: ReturnType<typeof setupTestDb>['sqlite'];
 let db: ReturnType<typeof setupTestDb>['db'];
+let embeddingService: EmbeddingService;
+let vectorService: VectorService;
 
 vi.mock('../../src/db/connection.js', async () => {
   const actual = await vi.importActual<typeof import('../../src/db/connection.js')>(
@@ -80,10 +82,9 @@ async function waitForEmbedding(
 }
 
 describe('Semantic Search Integration', () => {
-  let embeddingService: ReturnType<typeof getEmbeddingService>;
-
   beforeAll(async () => {
-    embeddingService = getEmbeddingService();
+    resetEmbeddingServiceState();
+    embeddingService = new EmbeddingService();
 
     if (!embeddingService.isAvailable()) {
       console.warn('Semantic search tests will be skipped - embeddings not configured');
@@ -95,7 +96,7 @@ describe('Semantic Search Integration', () => {
     db = testDb.db;
 
     // Initialize vector service
-    const vectorService = getVectorService();
+    vectorService = new VectorService();
     await vectorService.initialize();
   });
 
@@ -106,12 +107,15 @@ describe('Semantic Search Integration', () => {
     cleanupTestDb(TEST_DB_PATH);
 
     // Clean up vector database
-    const vectorService = getVectorService();
-    await vectorService.close();
+    if (vectorService) {
+      vectorService.close();
+    }
 
-    // Reset services
-    resetEmbeddingService();
-    resetVectorService();
+    // Clean up embedding service
+    if (embeddingService) {
+      embeddingService.cleanup();
+    }
+    resetEmbeddingServiceState();
   });
 
   it('should skip semantic search when provider disabled', async () => {

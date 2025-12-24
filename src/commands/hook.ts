@@ -46,11 +46,17 @@ async function initializeHookDatabase(): Promise<void> {
 
   // Create database connection
   const { createDatabaseConnection } = await import('../db/factory.js');
-  const { db, sqlite } = await createDatabaseConnection(config);
+  const connection = await createDatabaseConnection(config);
 
   // Register with container so getDb() works
   const { registerDatabase } = await import('../core/container.js');
-  registerDatabase(db, sqlite);
+  if (connection.type === 'sqlite') {
+    registerDatabase(connection.db, connection.sqlite);
+  } else {
+    // PostgreSQL mode - register db from adapter, no sqlite handle
+    const db = connection.adapter.getDb();
+    registerDatabase(db as Parameters<typeof registerDatabase>[0], undefined);
+  }
 }
 
 const logger = createComponentLogger('hook');

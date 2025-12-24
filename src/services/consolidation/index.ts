@@ -16,6 +16,7 @@
 export type {
   ConsolidationStrategyType as ConsolidationStrategy,
   ConsolidationParams,
+  ConsolidationServices,
   FindSimilarParams,
   SimilarityGroup,
   SimilarityGroupMember,
