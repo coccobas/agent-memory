@@ -76,6 +76,8 @@ async function main() {
     'observe',
     'task',
     'voting',
+    'experience',
+    'librarian',
     // Note: 'review' and 'hook' are handled by existing legacy commands above
   ];
 

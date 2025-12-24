@@ -37,6 +37,7 @@ export function ftsStage(ctx: PipelineContext): PipelineContext {
     tool: new Set<string>(),
     guideline: new Set<string>(),
     knowledge: new Set<string>(),
+    experience: new Set<string>(),
   };
 
   for (const type of types) {

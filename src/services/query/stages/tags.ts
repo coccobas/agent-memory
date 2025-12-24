@@ -88,6 +88,7 @@ export function tagsStage(ctx: PipelineContext): PipelineContext {
   const toolIds = fetchedEntries.tools.map((e) => e.entry.id);
   const guidelineIds = fetchedEntries.guidelines.map((e) => e.entry.id);
   const knowledgeIds = fetchedEntries.knowledge.map((e) => e.entry.id);
+  const experienceIds = fetchedEntries.experiences.map((e) => e.entry.id);
 
   // Batch load tags for each type using injected dependency
   if (toolIds.length > 0) {
@@ -98,6 +99,9 @@ export function tagsStage(ctx: PipelineContext): PipelineContext {
   }
   if (knowledgeIds.length > 0) {
     Object.assign(tagsByEntry, deps.getTagsForEntries('knowledge', knowledgeIds));
+  }
+  if (experienceIds.length > 0) {
+    Object.assign(tagsByEntry, deps.getTagsForEntries('experience', experienceIds));
   }
 
   return {

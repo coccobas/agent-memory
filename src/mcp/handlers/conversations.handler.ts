@@ -24,6 +24,10 @@ import {
 import { formatTimestamps } from '../../utils/timestamp-formatter.js';
 import type { PermissionEntryType } from '../../db/schema.js';
 import { requirePermission } from '../helpers/permissions.js';
+import { getCaptureService, type TurnData } from '../../services/capture/index.js';
+import { createComponentLogger } from '../../utils/logger.js';
+
+const logger = createComponentLogger('conversations');
 
 export const conversationHandlers = {
   async start(context: AppContext, params: Record<string, unknown>) {
@@ -185,6 +189,27 @@ export const conversationHandlers = {
       },
       context.db
     );
+
+    // Trigger capture service on turn complete (non-blocking)
+    if (conversation.sessionId) {
+      const captureService = getCaptureService();
+      if (captureService) {
+        // Map 'agent' role to 'assistant' for capture service
+        const turnRole = role === 'agent' ? 'assistant' : role;
+        const turnData: TurnData = {
+          role: turnRole as 'user' | 'assistant' | 'system',
+          content,
+          toolCalls: toolsUsed?.map(name => ({ name, input: {}, success: true })),
+          timestamp: new Date().toISOString(),
+        };
+        captureService.onTurnComplete(conversation.sessionId, turnData).catch(error => {
+          logger.error(
+            { sessionId: conversation.sessionId, error: error instanceof Error ? error.message : String(error) },
+            'Turn capture failed'
+          );
+        });
+      }
+    }
 
     return formatTimestamps({
       success: true,

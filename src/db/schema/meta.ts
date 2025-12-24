@@ -14,7 +14,7 @@ export const entryTags = sqliteTable(
   {
     id: text('id').primaryKey(),
     entryType: text('entry_type', {
-      enum: ['tool', 'guideline', 'knowledge', 'project'],
+      enum: ['tool', 'guideline', 'knowledge', 'project', 'experience'],
     }).notNull(),
     entryId: text('entry_id').notNull(),
     tagId: text('tag_id')
@@ -39,11 +39,11 @@ export const entryRelations = sqliteTable(
   {
     id: text('id').primaryKey(),
     sourceType: text('source_type', {
-      enum: ['tool', 'guideline', 'knowledge', 'project'],
+      enum: ['tool', 'guideline', 'knowledge', 'project', 'experience'],
     }).notNull(),
     sourceId: text('source_id').notNull(),
     targetType: text('target_type', {
-      enum: ['tool', 'guideline', 'knowledge', 'project'],
+      enum: ['tool', 'guideline', 'knowledge', 'project', 'experience'],
     }).notNull(),
     targetId: text('target_id').notNull(),
     relationType: text('relation_type', {
@@ -54,6 +54,7 @@ export const entryRelations = sqliteTable(
         'related_to',
         'parent_task',
         'subtask_of',
+        'promoted_to',
       ],
     }).notNull(),
     createdAt: text('created_at')
@@ -81,7 +82,7 @@ export const conflictLog = sqliteTable(
   'conflict_log',
   {
     id: text('id').primaryKey(),
-    entryType: text('entry_type', { enum: ['tool', 'guideline', 'knowledge'] }).notNull(),
+    entryType: text('entry_type', { enum: ['tool', 'guideline', 'knowledge', 'experience'] }).notNull(),
     entryId: text('entry_id').notNull(),
     versionAId: text('version_a_id').notNull(),
     versionBId: text('version_b_id').notNull(),

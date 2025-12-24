@@ -31,6 +31,7 @@ function getRelatedEntryIdsWithTraversal(
     tool: new Set(),
     guideline: new Set(),
     knowledge: new Set(),
+    experience: new Set(),
   };
 
   if (!relatedTo || !relatedTo.type || !relatedTo.id) {
@@ -55,6 +56,7 @@ function getRelatedEntryIdsWithTraversal(
     tool: traversed.tool ?? new Set(),
     guideline: traversed.guideline ?? new Set(),
     knowledge: traversed.knowledge ?? new Set(),
+    experience: traversed.experience ?? new Set(),
   };
 }
 

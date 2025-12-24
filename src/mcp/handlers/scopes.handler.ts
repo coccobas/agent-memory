@@ -25,6 +25,10 @@ import { formatTimestamps } from '../../utils/timestamp-formatter.js';
 import { getCriticalGuidelinesForSession } from '../../services/critical-guidelines.service.js';
 import { requireAdminKey } from '../../utils/admin.js';
 import { createValidationError, createNotFoundError } from '../../core/errors.js';
+import { getCaptureService } from '../../services/capture/index.js';
+import { createComponentLogger } from '../../utils/logger.js';
+
+const logger = createComponentLogger('scopes');
 import type {
   OrgCreateParams,
   OrgListParams,
@@ -238,6 +242,30 @@ export const scopeHandlers = {
     );
     if (!session) {
       throw createNotFoundError('Session', id);
+    }
+
+    // Trigger capture service on session end (non-blocking)
+    const captureService = getCaptureService();
+    if (captureService && status !== 'discarded') {
+      captureService.onSessionEnd(id).then(result => {
+        if (result.experiences.experiences.length > 0 || result.knowledge.knowledge.length > 0) {
+          logger.info(
+            {
+              sessionId: id,
+              experiencesExtracted: result.experiences.experiences.length,
+              knowledgeExtracted: result.knowledge.knowledge.length,
+              guidelinesExtracted: result.knowledge.guidelines.length,
+              toolsExtracted: result.knowledge.tools.length,
+            },
+            'Session capture completed'
+          );
+        }
+      }).catch(error => {
+        logger.error(
+          { sessionId: id, error: error instanceof Error ? error.message : String(error) },
+          'Session capture failed'
+        );
+      });
     }
 
     return formatTimestamps({ success: true, session });

@@ -49,6 +49,7 @@ import { createKnowledgeRepository } from '../../src/db/repositories/knowledge.j
 import { createToolRepository } from '../../src/db/repositories/tools.js';
 import { createConversationRepository } from '../../src/db/repositories/conversations.js';
 import { createConflictRepository } from '../../src/db/repositories/conflicts.js';
+import { createExperienceRepository } from '../../src/db/repositories/experiences.js';
 import { PermissionService } from '../../src/services/permission.service.js';
 import { VerificationService } from '../../src/services/verification.service.js';
 import type { AppContextServices } from '../../src/core/context.js';
@@ -68,6 +69,7 @@ export function createTestRepositories(testDb: TestDb): Repositories {
   const dbDeps: DatabaseDeps = { db, sqlite: testDb.sqlite };
 
   const tagRepo = createTagRepository(dbDeps);
+  const toolRepo = createToolRepository(dbDeps);
   return {
     tags: tagRepo,
     entryTags: createEntryTagRepository(dbDeps, tagRepo),
@@ -78,9 +80,10 @@ export function createTestRepositories(testDb: TestDb): Repositories {
     fileLocks: createFileLockRepository(dbDeps),
     guidelines: createGuidelineRepository(dbDeps),
     knowledge: createKnowledgeRepository(dbDeps),
-    tools: createToolRepository(dbDeps),
+    tools: toolRepo,
     conversations: createConversationRepository(dbDeps),
     conflicts: createConflictRepository(dbDeps),
+    experiences: createExperienceRepository({ ...dbDeps, toolRepo }),
   };
 }
 
@@ -236,6 +239,7 @@ export function registerTestContext(testDb: TestDb): AppContext {
 
   // Create all repositories with injected dependencies
   const tagRepo = createTagRepository(dbDeps);
+  const toolRepo = createToolRepository(dbDeps);
   const repos: Repositories = {
     tags: tagRepo,
     entryTags: createEntryTagRepository(dbDeps, tagRepo),
@@ -246,9 +250,10 @@ export function registerTestContext(testDb: TestDb): AppContext {
     fileLocks: createFileLockRepository(dbDeps),
     guidelines: createGuidelineRepository(dbDeps),
     knowledge: createKnowledgeRepository(dbDeps),
-    tools: createToolRepository(dbDeps),
+    tools: toolRepo,
     conversations: createConversationRepository(dbDeps),
     conflicts: createConflictRepository(dbDeps),
+    experiences: createExperienceRepository({ ...dbDeps, toolRepo }),
   };
 
   // Create services including permission service (required for handlers)
@@ -718,4 +723,64 @@ export function createTestContextLink(
     .from(schema.conversationContext)
     .where(eq(schema.conversationContext.id, id))
     .get()!;
+}
+
+/**
+ * Create a test experience with version
+ */
+export function createTestExperience(
+  db: ReturnType<typeof drizzle>,
+  title: string,
+  scopeType: 'global' | 'org' | 'project' | 'session' = 'global',
+  scopeId?: string,
+  level: 'case' | 'strategy' = 'case',
+  category?: string,
+  content?: string,
+  scenario?: string
+): { experience: schema.Experience; version: schema.ExperienceVersion } {
+  const experienceId = generateId();
+  const versionId = generateId();
+
+  db.insert(schema.experiences)
+    .values({
+      id: experienceId,
+      scopeType,
+      scopeId,
+      title,
+      level,
+      category,
+      isActive: true,
+    })
+    .run();
+
+  db.insert(schema.experienceVersions)
+    .values({
+      id: versionId,
+      experienceId,
+      versionNum: 1,
+      content: content || `Test experience: ${title}`,
+      scenario: scenario || 'Test scenario',
+      outcome: 'success',
+      source: 'user',
+      changeReason: 'Initial version',
+    })
+    .run();
+
+  db.update(schema.experiences)
+    .set({ currentVersionId: versionId })
+    .where(eq(schema.experiences.id, experienceId))
+    .run();
+
+  return {
+    experience: db
+      .select()
+      .from(schema.experiences)
+      .where(eq(schema.experiences.id, experienceId))
+      .get()!,
+    version: db
+      .select()
+      .from(schema.experienceVersions)
+      .where(eq(schema.experienceVersions.id, versionId))
+      .get()!,
+  };
 }

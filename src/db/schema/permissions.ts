@@ -15,7 +15,7 @@ export const permissions = sqliteTable(
     agentId: text('agent_id').notNull(),
     scopeType: text('scope_type', { enum: ['global', 'org', 'project', 'session'] }),
     scopeId: text('scope_id'),
-    entryType: text('entry_type', { enum: ['tool', 'guideline', 'knowledge'] }),
+    entryType: text('entry_type', { enum: ['tool', 'guideline', 'knowledge', 'experience'] }),
     entryId: text('entry_id'),
     permission: text('permission', { enum: ['read', 'write', 'admin'] }).notNull(),
     createdAt: text('created_at')

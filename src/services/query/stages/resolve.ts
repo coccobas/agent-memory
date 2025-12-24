@@ -11,7 +11,7 @@
 import type { PipelineContext, QueryType } from '../pipeline.js';
 import { config } from '../../../config/index.js';
 
-const DEFAULT_TYPES: readonly QueryType[] = ['tools', 'guidelines', 'knowledge'] as const;
+const DEFAULT_TYPES: readonly QueryType[] = ['tools', 'guidelines', 'knowledge', 'experiences'] as const;
 
 /**
  * Resolve stage - normalizes query parameters

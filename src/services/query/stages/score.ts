@@ -4,7 +4,7 @@
  * Computes relevance scores for filtered entries and builds result items.
  */
 
-import type { Tool, Guideline, Knowledge } from '../../../db/schema.js';
+import type { Tool, Guideline, Knowledge, Experience } from '../../../db/schema.js';
 import type {
   PipelineContext,
   QueryResultItem,
@@ -114,11 +114,11 @@ function computeScore(params: ScoreParams): ScoreResult {
 // RESULT BUILDER CONFIGURATION
 // =============================================================================
 
-type EntryUnion = Tool | Guideline | Knowledge;
+type EntryUnion = Tool | Guideline | Knowledge | Experience;
 
 interface ResultConfig<T extends EntryUnion> {
   type: QueryEntryType;
-  entityKey: 'tool' | 'guideline' | 'knowledge';
+  entityKey: 'tool' | 'guideline' | 'knowledge' | 'experience';
   getPriority: (entry: T) => number | null;
 }
 
@@ -126,6 +126,7 @@ const RESULT_CONFIGS: {
   tool: ResultConfig<Tool>;
   guideline: ResultConfig<Guideline>;
   knowledge: ResultConfig<Knowledge>;
+  experience: ResultConfig<Experience>;
 } = {
   tool: {
     type: 'tool',
@@ -140,6 +141,11 @@ const RESULT_CONFIGS: {
   knowledge: {
     type: 'knowledge',
     entityKey: 'knowledge',
+    getPriority: () => null,
+  },
+  experience: {
+    type: 'experience',
+    entityKey: 'experience',
     getPriority: () => null,
   },
 };
@@ -223,6 +229,9 @@ export function scoreStage(ctx: PipelineContext): PipelineContext {
   for (const item of filtered.knowledge) {
     results.push(buildResult(item, ctx, RESULT_CONFIGS.knowledge));
   }
+  for (const item of filtered.experiences) {
+    results.push(buildResult(item, ctx, RESULT_CONFIGS.experience));
+  }
 
   // Sort by score desc, then by createdAt desc
   results.sort((a, b) => {
@@ -241,5 +250,6 @@ export function scoreStage(ctx: PipelineContext): PipelineContext {
 function getCreatedAt(item: QueryResultItem): string {
   if (item.type === 'tool') return item.tool.createdAt ?? '';
   if (item.type === 'guideline') return item.guideline.createdAt ?? '';
-  return item.knowledge.createdAt ?? '';
+  if (item.type === 'knowledge') return item.knowledge.createdAt ?? '';
+  return item.experience.createdAt ?? '';
 }

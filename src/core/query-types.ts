@@ -14,7 +14,7 @@ import type { ScopeType, EntryType, RelationType } from '../db/schema.js';
 /**
  * Entry types for query filtering
  */
-export type QueryEntryType = 'tools' | 'guidelines' | 'knowledge';
+export type QueryEntryType = 'tools' | 'guidelines' | 'knowledge' | 'experiences';
 
 /**
  * Scope descriptor for filtering by scope

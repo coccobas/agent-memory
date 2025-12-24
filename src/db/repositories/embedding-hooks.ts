@@ -15,7 +15,7 @@ import { embeddingCounter, embeddingDuration } from '../../utils/metrics.js';
 
 const logger = createComponentLogger('embedding-hook');
 
-export type EntryType = 'tool' | 'guideline' | 'knowledge';
+export type EntryType = 'tool' | 'guideline' | 'knowledge' | 'experience';
 
 interface EmbeddingInput {
   entryType: EntryType;
@@ -384,6 +384,8 @@ export function extractTextForEmbedding(
     title?: string;
     source?: string;
     constraints?: string;
+    scenario?: string;
+    pattern?: string;
   }
 ): string {
   const parts: string[] = [name];
@@ -397,6 +399,10 @@ export function extractTextForEmbedding(
   } else if (entryType === 'knowledge') {
     if (versionData.content) parts.push(versionData.content);
     if (versionData.source) parts.push(versionData.source);
+  } else if (entryType === 'experience') {
+    if (versionData.content) parts.push(versionData.content);
+    if (versionData.scenario) parts.push(versionData.scenario);
+    if (versionData.pattern) parts.push(versionData.pattern);
   }
 
   return parts.filter((p) => p && p.trim().length > 0).join(' ');

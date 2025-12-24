@@ -8,7 +8,7 @@ import { and, eq, inArray } from 'drizzle-orm';
 import type { DbClient } from '../../db/connection.js';
 import { tags, entryTags, type Tag } from '../../db/schema.js';
 
-export type QueryEntryType = 'tool' | 'guideline' | 'knowledge';
+export type QueryEntryType = 'tool' | 'guideline' | 'knowledge' | 'experience';
 
 /**
  * Batch fetch tags for a list of entries

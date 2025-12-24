@@ -232,6 +232,7 @@ export function filterStage(ctx: PipelineContext): PipelineContext {
     tools: [],
     guidelines: [],
     knowledge: [],
+    experiences: [],
   };
 
   if (types.includes('tools')) {
@@ -250,6 +251,14 @@ export function filterStage(ctx: PipelineContext): PipelineContext {
       fetchedEntries.knowledge,
       'knowledge',
       'knowledge',
+      ctx
+    );
+  }
+  if (types.includes('experiences')) {
+    filtered.experiences = filterEntriesOfType(
+      fetchedEntries.experiences,
+      'experiences',
+      'experience',
       ctx
     );
   }

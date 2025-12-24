@@ -16,8 +16,8 @@ const logger = createComponentLogger('graph-traversal');
 // TYPES
 // =============================================================================
 
-export type QueryEntryType = 'tool' | 'guideline' | 'knowledge';
-type GraphNodeType = 'tool' | 'guideline' | 'knowledge' | 'project';
+export type QueryEntryType = 'tool' | 'guideline' | 'knowledge' | 'experience';
+type GraphNodeType = 'tool' | 'guideline' | 'knowledge' | 'project' | 'experience';
 type TraversalDirection = 'forward' | 'backward' | 'both';
 
 interface GraphNode {
@@ -105,7 +105,7 @@ export function traverseRelationGraphCTE(
       SELECT DISTINCT node_type, node_id
       FROM reachable
       WHERE (node_type != ? OR node_id != ?)
-        AND node_type IN ('tool', 'guideline', 'knowledge')
+        AND node_type IN ('tool', 'guideline', 'knowledge', 'experience')
       LIMIT ?
     `;
 
@@ -134,11 +134,12 @@ export function traverseRelationGraphCTE(
       tool: new Set<string>(),
       guideline: new Set<string>(),
       knowledge: new Set<string>(),
+      experience: new Set<string>(),
     };
 
     for (const row of rows) {
       const nodeType = row.node_type as QueryEntryType;
-      if (nodeType === 'tool' || nodeType === 'guideline' || nodeType === 'knowledge') {
+      if (nodeType === 'tool' || nodeType === 'guideline' || nodeType === 'knowledge' || nodeType === 'experience') {
         result[nodeType].add(row.node_id);
       }
     }
@@ -262,6 +263,7 @@ export function traverseRelationGraph(
     tool: new Set<string>(),
     guideline: new Set<string>(),
     knowledge: new Set<string>(),
+    experience: new Set<string>(),
   };
 
   // Clamp depth to 1-5 range
@@ -292,7 +294,7 @@ export function traverseRelationGraph(
     // Add to results if not start node and is a query entry type
     if (!isStartNode) {
       const entryType = currentNode.type as QueryEntryType;
-      if (entryType === 'tool' || entryType === 'guideline' || entryType === 'knowledge') {
+      if (entryType === 'tool' || entryType === 'guideline' || entryType === 'knowledge' || entryType === 'experience') {
         result[entryType].add(currentNode.id);
         resultCount++;
 

@@ -6,7 +6,7 @@
  */
 
 import type { MemoryQueryParams, ResponseMeta } from '../../core/types.js';
-import type { ScopeType, Tool, Guideline, Knowledge, Tag } from '../../db/schema.js';
+import type { ScopeType, Tool, Guideline, Knowledge, Experience, Tag } from '../../db/schema.js';
 import type { DbClient } from '../../db/connection.js';
 import type Database from 'better-sqlite3';
 
@@ -48,7 +48,7 @@ export interface PipelineDependencies {
    */
   executeFts5Search: (
     search: string,
-    types: ('tools' | 'guidelines' | 'knowledge')[]
+    types: QueryType[]
   ) => Record<QueryEntryType, Set<string>>;
 
   /**
@@ -143,7 +143,14 @@ export interface KnowledgeQueryResult extends QueryResultItemBase {
   versions?: unknown[];
 }
 
-export type QueryResultItem = ToolQueryResult | GuidelineQueryResult | KnowledgeQueryResult;
+export interface ExperienceQueryResult extends QueryResultItemBase {
+  type: 'experience';
+  experience: Experience;
+  version?: unknown;
+  versions?: unknown[];
+}
+
+export type QueryResultItem = ToolQueryResult | GuidelineQueryResult | KnowledgeQueryResult | ExperienceQueryResult;
 
 export interface MemoryQueryResult {
   results: QueryResultItem[];
@@ -176,6 +183,7 @@ export interface PipelineContext {
     tools: Array<{ entry: Tool; scopeIndex: number }>;
     guidelines: Array<{ entry: Guideline; scopeIndex: number }>;
     knowledge: Array<{ entry: Knowledge; scopeIndex: number }>;
+    experiences: Array<{ entry: Experience; scopeIndex: number }>;
   };
 
   // Tags by entry ID
@@ -213,9 +221,9 @@ export function createPipelineContext(
     limit: 20,
     search: undefined,
     ftsMatchIds: null,
-    relatedIds: { tool: new Set(), guideline: new Set(), knowledge: new Set() },
+    relatedIds: { tool: new Set(), guideline: new Set(), knowledge: new Set(), experience: new Set() },
     semanticScores: null,
-    fetchedEntries: { tools: [], guidelines: [], knowledge: [] },
+    fetchedEntries: { tools: [], guidelines: [], knowledge: [], experiences: [] },
     tagsByEntry: {},
     results: [],
     startMs: Date.now(),

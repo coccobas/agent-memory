@@ -29,10 +29,11 @@ const queryTypeToEntryType = {
   tools: 'tool',
   guidelines: 'guideline',
   knowledge: 'knowledge',
+  experiences: 'experience',
 } as const;
 
 function isQueryType(value: string): value is keyof typeof queryTypeToEntryType {
-  return value === 'tools' || value === 'guidelines' || value === 'knowledge';
+  return value === 'tools' || value === 'guidelines' || value === 'knowledge' || value === 'experiences';
 }
 
 export const queryHandlers = {
@@ -71,7 +72,7 @@ export const queryHandlers = {
       throw createValidationError(
         'types',
         'contains invalid values',
-        'Use tools, guidelines, knowledge'
+        'Use tools, guidelines, knowledge, experiences'
       );
     }
 
@@ -107,7 +108,7 @@ export const queryHandlers = {
     const scopeType = queryParamsWithoutAgent.scope?.type ?? 'global';
     const scopeId = queryParamsWithoutAgent.scope?.id;
 
-    const typesToCheck = requestedTypes ?? (['tools', 'guidelines', 'knowledge'] as const);
+    const typesToCheck = requestedTypes ?? (['tools', 'guidelines', 'knowledge', 'experiences'] as const);
     const deniedTypes = typesToCheck.filter(
       (type) =>
         !context.services!.permission.check(
@@ -183,7 +184,7 @@ export const queryHandlers = {
     const semanticSearch = getOptionalParam(params, 'semanticSearch', isBoolean);
     const search = getOptionalParam(params, 'search', isString);
 
-    const allowedTypes = (['tools', 'guidelines', 'knowledge'] as const).filter((type) =>
+    const allowedTypes = (['tools', 'guidelines', 'knowledge', 'experiences'] as const).filter((type) =>
       context.services!.permission.check(
         agentId,
         'read',
@@ -218,6 +219,7 @@ export const queryHandlers = {
     const tools = result.results.filter((r) => r.type === 'tool');
     const guidelines = result.results.filter((r) => r.type === 'guideline');
     const knowledge = result.results.filter((r) => r.type === 'knowledge');
+    const experiences = result.results.filter((r) => r.type === 'experience');
 
     return formatTimestamps({
       scope: {
@@ -227,6 +229,7 @@ export const queryHandlers = {
       tools,
       guidelines,
       knowledge,
+      experiences,
       meta: result.meta,
     });
   },

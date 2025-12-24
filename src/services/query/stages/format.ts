@@ -6,7 +6,7 @@
  * - Compact mode (strip unnecessary fields)
  */
 
-import type { Tool, Guideline, Knowledge } from '../../../db/schema.js';
+import type { Tool, Guideline, Knowledge, Experience } from '../../../db/schema.js';
 import type { PipelineContext, QueryResultItem } from '../pipeline.js';
 
 /**
@@ -50,7 +50,7 @@ export function formatStage(ctx: PipelineContext): PipelineContext {
           priority: item.guideline.priority,
         } as Guideline,
       };
-    } else {
+    } else if (item.type === 'knowledge') {
       return {
         ...item,
         version: undefined,
@@ -60,6 +60,19 @@ export function formatStage(ctx: PipelineContext): PipelineContext {
           title: item.knowledge.title,
           category: item.knowledge.category,
         } as Knowledge,
+      };
+    } else {
+      // experience
+      return {
+        ...item,
+        version: undefined,
+        versions: undefined,
+        experience: {
+          id: item.experience.id,
+          title: item.experience.title,
+          level: item.experience.level,
+          category: item.experience.category,
+        } as Experience,
       };
     }
   });

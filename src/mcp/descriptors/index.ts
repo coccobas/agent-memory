@@ -37,6 +37,8 @@ import { memoryHookDescriptor } from './memory_hook.js';
 import { memoryObserveDescriptor } from './memory_observe.js';
 import { memoryConsolidateDescriptor } from './memory_consolidate.js';
 import { memoryReviewDescriptor } from './memory_review.js';
+import { memoryExperienceDescriptor } from './memory_experience.js';
+import { memory_librarian as memoryLibrarianDescriptor } from './memory_librarian.js';
 
 import { type AnyToolDescriptor, descriptorToTool, descriptorToHandler } from './types.js';
 
@@ -96,6 +98,10 @@ export const allDescriptors: AnyToolDescriptor[] = [
   memoryConsolidateDescriptor,
   // Review Candidates
   memoryReviewDescriptor,
+  // Experiential Memory
+  memoryExperienceDescriptor,
+  // Librarian Agent
+  memoryLibrarianDescriptor,
 ];
 
 /**
@@ -142,4 +148,6 @@ export {
   memoryObserveDescriptor,
   memoryConsolidateDescriptor,
   memoryReviewDescriptor,
+  memoryExperienceDescriptor,
+  memoryLibrarianDescriptor,
 };

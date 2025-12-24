@@ -33,9 +33,11 @@ import { addTaskCommand } from './commands/task.js';
 import { addVotingCommand } from './commands/voting.js';
 import { addReviewCommand } from './commands/review.js';
 import { addHookCommand } from './commands/hook.js';
+import { addExperienceCommand } from './commands/experience.js';
+import { addLibrarianCommand } from './commands/librarian.js';
 
 // Version from package.json
-const VERSION = '0.9.8';
+const VERSION = '0.9.9';
 
 /**
  * Create the Commander.js program
@@ -101,6 +103,10 @@ function registerCommands(program: Command): void {
   addVotingCommand(program);
   addReviewCommand(program);
   addHookCommand(program);
+
+  // Experiential Memory
+  addExperienceCommand(program);
+  addLibrarianCommand(program);
 }
 
 /**

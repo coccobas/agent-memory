@@ -10,7 +10,7 @@ export type ScopeType = 'global' | 'org' | 'project' | 'session';
 /**
  * Entry type enum for polymorphic associations
  */
-export type EntryType = 'tool' | 'guideline' | 'knowledge' | 'project';
+export type EntryType = 'tool' | 'guideline' | 'knowledge' | 'project' | 'experience';
 
 /**
  * Permission entry type (subset of EntryType - excludes 'project')
@@ -26,7 +26,8 @@ export type RelationType =
   | 'conflicts_with'
   | 'related_to'
   | 'parent_task'
-  | 'subtask_of';
+  | 'subtask_of'
+  | 'promoted_to';
 
 /**
  * Conversation status enum

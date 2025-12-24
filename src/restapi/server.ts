@@ -38,25 +38,34 @@ export function createServer(context: AppContext): FastifyInstance {
 
   app.addHook('preHandler', async (request, reply) => {
     const url = request.raw.url || request.url;
-    if (typeof url === 'string' && url.startsWith('/health')) {
-      // Rate limit health endpoint by client IP to prevent DoS attacks
-      const forwardedFor = request.headers['x-forwarded-for'];
-      let clientIp = request.ip ?? 'unknown';
-      if (forwardedFor !== undefined) {
-        const firstIp = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor;
-        if (firstIp !== undefined) {
-          const parts = String(firstIp).split(',');
-          clientIp = parts[0]?.trim() ?? clientIp;
-        }
-      }
 
-      const healthCheck = context.security.checkHealthRateLimit(clientIp);
-      if (!healthCheck.allowed) {
-        reply.header('Retry-After', String(Math.ceil((healthCheck.retryAfterMs ?? 1000) / 1000)));
-        await reply.status(429).send({ error: 'Rate limit exceeded', code: 'RATE_LIMIT_EXCEEDED' });
+    // Skip auth for public endpoints
+    if (typeof url === 'string') {
+      if (url.startsWith('/health')) {
+        // Rate limit health endpoint by client IP to prevent DoS attacks
+        const forwardedFor = request.headers['x-forwarded-for'];
+        let clientIp = request.ip ?? 'unknown';
+        if (forwardedFor !== undefined) {
+          const firstIp = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor;
+          if (firstIp !== undefined) {
+            const parts = String(firstIp).split(',');
+            clientIp = parts[0]?.trim() ?? clientIp;
+          }
+        }
+
+        const healthCheck = context.security.checkHealthRateLimit(clientIp);
+        if (!healthCheck.allowed) {
+          reply.header('Retry-After', String(Math.ceil((healthCheck.retryAfterMs ?? 1000) / 1000)));
+          await reply.status(429).send({ error: 'Rate limit exceeded', code: 'RATE_LIMIT_EXCEEDED' });
+          return;
+        }
         return;
       }
-      return;
+
+      // OpenAPI spec endpoint is public for documentation
+      if (url === '/v1/openapi.json' || url.startsWith('/metrics')) {
+        return;
+      }
     }
 
     // Use centralized Security Service

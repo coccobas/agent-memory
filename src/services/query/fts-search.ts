@@ -10,7 +10,7 @@ import { createComponentLogger } from '../../utils/logger.js';
 
 const logger = createComponentLogger('fts-search');
 
-export type QueryEntryType = 'tool' | 'guideline' | 'knowledge';
+export type QueryEntryType = 'tool' | 'guideline' | 'knowledge' | 'experience';
 
 // =============================================================================
 // LIKE FALLBACK
@@ -58,8 +58,15 @@ function executeLikeSearch(
       const mapped = (fields ?? []).map((f) => columnMap[f.toLowerCase()]).filter(Boolean);
       const filtered = mapped.filter((c): c is string => allowed.has(c as 'name'));
       searchColumns = filtered.length > 0 ? filtered : ['name'];
-    } else {
+    } else if (entryType === 'knowledge') {
       tableName = 'knowledge';
+      const allowed = new Set(['title'] as const);
+      const mapped = (fields ?? []).map((f) => columnMap[f.toLowerCase()]).filter(Boolean);
+      const filtered = mapped.filter((c): c is string => allowed.has(c as 'title'));
+      searchColumns = filtered.length > 0 ? filtered : ['title'];
+    } else {
+      // experience
+      tableName = 'experiences';
       const allowed = new Set(['title'] as const);
       const mapped = (fields ?? []).map((f) => columnMap[f.toLowerCase()]).filter(Boolean);
       const filtered = mapped.filter((c): c is string => allowed.has(c as 'title'));
@@ -121,9 +128,13 @@ export function executeFts5Query(
     } else if (entryType === 'guideline') {
       ftsTable = 'guidelines_fts';
       ftsColumns = ['name', 'content', 'rationale'];
-    } else {
+    } else if (entryType === 'knowledge') {
       ftsTable = 'knowledge_fts';
       ftsColumns = ['title', 'content', 'source'];
+    } else {
+      // experience
+      ftsTable = 'experiences_fts';
+      ftsColumns = ['title', 'content', 'scenario', 'outcome', 'pattern', 'applicability'];
     }
 
     // Build FTS5 query - if fields specified, search only those columns
@@ -175,12 +186,13 @@ export function executeFts5Query(
  */
 export function executeFts5Search(
   search: string,
-  types: ('tools' | 'guidelines' | 'knowledge')[]
+  types: ('tools' | 'guidelines' | 'knowledge' | 'experiences')[]
 ): Record<QueryEntryType, Set<string>> {
   const result: Record<QueryEntryType, Set<string>> = {
     tool: new Set(),
     guideline: new Set(),
     knowledge: new Set(),
+    experience: new Set(),
   };
 
   // Escape special FTS5 characters using shared utility
@@ -211,6 +223,13 @@ export function executeFts5Search(
     params.push(escapedSearch);
   }
 
+  if (types.includes('experiences')) {
+    queryParts.push(
+      `SELECT 'experience' as type, experience_id as id FROM experiences_fts WHERE experiences_fts MATCH ?`
+    );
+    params.push(escapedSearch);
+  }
+
   if (queryParts.length === 0) return result;
 
   // Execute combined query
@@ -226,6 +245,8 @@ export function executeFts5Search(
       result.guideline.add(row.id);
     } else if (row.type === 'knowledge') {
       result.knowledge.add(row.id);
+    } else if (row.type === 'experience') {
+      result.experience.add(row.id);
     }
   }
 

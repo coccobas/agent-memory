@@ -8,3 +8,4 @@ export * from './tags.js';
 export * from './conflicts.js';
 export * from './file_locks.js';
 export * from './conversations.js';
+export * from './experiences.js';

@@ -21,6 +21,11 @@ import type {
   KnowledgeVersion,
   Tool,
   ToolVersion,
+  Experience,
+  ExperienceVersion,
+  ExperienceTrajectoryStep,
+  ExperienceLevel,
+  ExperienceSource,
   ScopeType,
 } from '../../db/schema.js';
 import type { PaginationOptions } from '../../db/repositories/base.js';
@@ -572,6 +577,130 @@ export interface IConversationRepository {
 export type { IConflictRepository, ListConflictsFilter };
 
 // =============================================================================
+// EXPERIENCE REPOSITORY (Experiential Memory)
+// =============================================================================
+
+/** Input for creating a trajectory step */
+export interface TrajectoryStepInput {
+  action: string;
+  observation?: string;
+  reasoning?: string;
+  toolUsed?: string;
+  success?: boolean;
+  timestamp?: string;
+  durationMs?: number;
+}
+
+/** Input for creating a new experience */
+export interface CreateExperienceInput {
+  scopeType: ScopeType;
+  scopeId?: string;
+  title: string;
+  level?: ExperienceLevel;
+  category?: string;
+  content: string;
+  scenario?: string;
+  outcome?: string;
+  pattern?: string;
+  applicability?: string;
+  contraindications?: string;
+  confidence?: number;
+  source?: ExperienceSource;
+  steps?: TrajectoryStepInput[];
+  createdBy?: string;
+}
+
+/** Input for updating an experience */
+export interface UpdateExperienceInput {
+  category?: string;
+  content?: string;
+  scenario?: string;
+  outcome?: string;
+  pattern?: string;
+  applicability?: string;
+  contraindications?: string;
+  confidence?: number;
+  changeReason?: string;
+  updatedBy?: string;
+}
+
+/** Input for promoting an experience to a higher level */
+export interface PromoteExperienceInput {
+  toLevel: 'strategy' | 'skill';
+  // For strategy promotion
+  pattern?: string;
+  applicability?: string;
+  contraindications?: string;
+  // For skill promotion (creates linked memory_tool)
+  toolName?: string;
+  toolDescription?: string;
+  toolCategory?: 'mcp' | 'cli' | 'function' | 'api';
+  toolParameters?: Record<string, unknown>;
+  reason?: string;
+  promotedBy?: string;
+}
+
+/** Input for recording an outcome */
+export interface RecordOutcomeInput {
+  success: boolean;
+  feedback?: string;
+}
+
+/** List filter for experiences */
+export interface ListExperiencesFilter {
+  scopeType?: ScopeType;
+  scopeId?: string;
+  level?: ExperienceLevel;
+  category?: string;
+  includeInactive?: boolean;
+  inherit?: boolean;
+}
+
+/** Experience with current version and optional trajectory */
+export interface ExperienceWithVersion extends Experience {
+  currentVersion?: ExperienceVersion;
+  trajectorySteps?: ExperienceTrajectoryStep[];
+}
+
+/** Result of promoting to skill (includes created tool) */
+export interface PromoteToSkillResult {
+  experience: ExperienceWithVersion;
+  createdTool?: {
+    id: string;
+    name: string;
+    scopeType: ScopeType;
+    scopeId: string | null;
+  };
+}
+
+export interface IExperienceRepository {
+  // Standard CRUD
+  create(input: CreateExperienceInput): Promise<ExperienceWithVersion>;
+  getById(id: string, includeTrajectory?: boolean): Promise<ExperienceWithVersion | undefined>;
+  getByTitle(
+    title: string,
+    scopeType: ScopeType,
+    scopeId?: string,
+    inherit?: boolean
+  ): Promise<ExperienceWithVersion | undefined>;
+  list(
+    filter?: ListExperiencesFilter,
+    options?: PaginationOptions
+  ): Promise<ExperienceWithVersion[]>;
+  update(id: string, input: UpdateExperienceInput): Promise<ExperienceWithVersion | undefined>;
+  getHistory(experienceId: string): Promise<ExperienceVersion[]>;
+  deactivate(id: string): Promise<boolean>;
+  reactivate(id: string): Promise<boolean>;
+  delete(id: string): Promise<boolean>;
+
+  // Experience-specific operations
+  addStep(experienceId: string, step: TrajectoryStepInput): Promise<ExperienceTrajectoryStep>;
+  getTrajectory(experienceId: string): Promise<ExperienceTrajectoryStep[]>;
+  promote(id: string, input: PromoteExperienceInput): Promise<PromoteToSkillResult>;
+  recordOutcome(id: string, input: RecordOutcomeInput): Promise<ExperienceWithVersion | undefined>;
+}
+
+// =============================================================================
 // AGGREGATED REPOSITORIES TYPE
 // =============================================================================
 
@@ -591,4 +720,5 @@ export interface Repositories {
   tools: IToolRepository;
   conversations: IConversationRepository;
   conflicts: IConflictRepository;
+  experiences: IExperienceRepository;
 }

@@ -7,8 +7,8 @@
  * Uses injected dependencies for DB access to support testing with mocks.
  */
 
-import { tools, guidelines, knowledge } from '../../../db/schema.js';
-import type { Tool, Guideline, Knowledge } from '../../../db/schema.js';
+import { tools, guidelines, knowledge, experiences } from '../../../db/schema.js';
+import type { Tool, Guideline, Knowledge, Experience } from '../../../db/schema.js';
 import { eq, and, isNull, inArray, sql } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
 import type { PipelineContext, QueryEntryType, DbInstance } from '../pipeline.js';
@@ -18,15 +18,15 @@ import { FETCH_HEADROOM_MULTIPLIER } from '../../../utils/constants.js';
 // FETCH CONFIGURATION
 // =============================================================================
 
-type EntryUnion = Tool | Guideline | Knowledge;
+type EntryUnion = Tool | Guideline | Knowledge | Experience;
 
 interface FetchConfig {
-  table: typeof tools | typeof guidelines | typeof knowledge;
+  table: typeof tools | typeof guidelines | typeof knowledge | typeof experiences;
   ftsKey: QueryEntryType;
   applyExtraFilters?: (conditions: SQL[], ctx: PipelineContext) => void;
 }
 
-const FETCH_CONFIGS: Record<'tools' | 'guidelines' | 'knowledge', FetchConfig> = {
+const FETCH_CONFIGS: Record<'tools' | 'guidelines' | 'knowledge' | 'experiences', FetchConfig> = {
   tools: {
     table: tools,
     ftsKey: 'tool',
@@ -49,6 +49,17 @@ const FETCH_CONFIGS: Record<'tools' | 'guidelines' | 'knowledge', FetchConfig> =
   knowledge: {
     table: knowledge,
     ftsKey: 'knowledge',
+  },
+  experiences: {
+    table: experiences,
+    ftsKey: 'experience',
+    applyExtraFilters: (conditions, ctx) => {
+      const { params } = ctx;
+      // Filter by experience level if specified (via extension params)
+      if ((params as { level?: string }).level) {
+        conditions.push(sql`${experiences.level} = ${(params as { level: string }).level}`);
+      }
+    },
   },
 };
 
@@ -128,6 +139,7 @@ export function fetchStage(ctx: PipelineContext): PipelineContext {
     tools: [],
     guidelines: [],
     knowledge: [],
+    experiences: [],
   };
 
   const softCap = limit * FETCH_HEADROOM_MULTIPLIER;
@@ -139,6 +151,8 @@ export function fetchStage(ctx: PipelineContext): PipelineContext {
       fetchEntriesGeneric(db, FETCH_CONFIGS.guidelines, ctx, fetchedEntries.guidelines, softCap);
     } else if (type === 'knowledge') {
       fetchEntriesGeneric(db, FETCH_CONFIGS.knowledge, ctx, fetchedEntries.knowledge, softCap);
+    } else if (type === 'experiences') {
+      fetchEntriesGeneric(db, FETCH_CONFIGS.experiences, ctx, fetchedEntries.experiences, softCap);
     }
   }
 

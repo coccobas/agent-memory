@@ -5,7 +5,7 @@
  * Extracted to break circular dependencies between pipeline.ts and stage modules.
  */
 
-import type { Tool, Guideline, Knowledge, Tag, ScopeType } from '../../db/schema.js';
+import type { Tool, Guideline, Knowledge, Experience, Tag, ScopeType } from '../../db/schema.js';
 
 // =============================================================================
 // ENTRY TYPE DEFINITIONS
@@ -14,17 +14,17 @@ import type { Tool, Guideline, Knowledge, Tag, ScopeType } from '../../db/schema
 /**
  * Singular entry type identifier (database-level)
  */
-export type QueryEntryType = 'tool' | 'guideline' | 'knowledge';
+export type QueryEntryType = 'tool' | 'guideline' | 'knowledge' | 'experience';
 
 /**
  * Plural query type identifier (API-level)
  */
-export type QueryType = 'tools' | 'guidelines' | 'knowledge';
+export type QueryType = 'tools' | 'guidelines' | 'knowledge' | 'experiences';
 
 /**
  * Union of all entry types
  */
-export type EntryUnion = Tool | Guideline | Knowledge;
+export type EntryUnion = Tool | Guideline | Knowledge | Experience;
 
 // =============================================================================
 // SCOPE TYPES
@@ -70,4 +70,5 @@ export interface FilterStageResult {
   tools: FilteredEntry<Tool>[];
   guidelines: FilteredEntry<Guideline>[];
   knowledge: FilteredEntry<Knowledge>[];
+  experiences: FilteredEntry<Experience>[];
 }

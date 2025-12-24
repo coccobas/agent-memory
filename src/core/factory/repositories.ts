@@ -22,6 +22,7 @@ import { createKnowledgeRepository } from '../../db/repositories/knowledge.js';
 import { createToolRepository } from '../../db/repositories/tools.js';
 import { createConversationRepository } from '../../db/repositories/conversations.js';
 import { createConflictRepository } from '../../db/repositories/conflicts.js';
+import { createExperienceRepository } from '../../db/repositories/experiences.js';
 
 /**
  * Create all repositories with injected dependencies
@@ -46,5 +47,6 @@ export function createRepositories(deps: DatabaseDeps): Repositories {
     tools: createToolRepository(deps),
     conversations: createConversationRepository(deps),
     conflicts: createConflictRepository(deps),
+    experiences: createExperienceRepository(deps),
   };
 }

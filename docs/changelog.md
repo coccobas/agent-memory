@@ -25,6 +25,39 @@ All notable changes to Agent Memory are documented here.
 
 ---
 
+## [0.9.9] - 2024-12
+
+### Added
+- **Experiential Memory System**: New `experience` entity type for capturing case-level learnings
+  - Experiences with versioning, trajectories (action sequences), and outcomes
+  - Case-level experiences can be promoted to strategy-level patterns
+  - Full CRUD via `memory_experience` MCP tool and `experience` CLI command
+  - FTS5 full-text search for experiences
+  - Integrated with `memory_query` pipeline for unified discovery
+
+- **Librarian Agent**: Autonomous pattern detection and promotion recommendations
+  - Pattern detection using trajectory similarity and embedding analysis
+  - Quality gate evaluation (auto-promote, review, reject dispositions)
+  - Recommendation store for managing promotion suggestions
+  - Scheduler support for periodic analysis runs
+  - Available via `memory_librarian` MCP tool and `librarian` CLI command
+
+- **Unified Capture Service**: Centralized experience and knowledge capture
+  - Automatic capture on session end
+  - Deduplication via content hashing
+  - Configurable capture thresholds
+
+- **Promotion via Relations**: Experiences use `entry_relations` with `promoted_to` type
+  - Replaces direct FK columns for promotion tracking
+  - Enables bidirectional traversal (promoted_to / derived_from)
+
+### Changed
+- Query pipeline now includes experiences in context and search results
+- Entry relations support `promoted_to` relation type
+- CLI updated with `experience` and `librarian` subcommands
+
+---
+
 ## [0.9.8] - 2024-12
 
 ### Changed

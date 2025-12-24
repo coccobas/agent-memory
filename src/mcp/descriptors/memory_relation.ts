@@ -11,9 +11,9 @@ export const memoryRelationDescriptor: ToolDescriptor = {
   commonParams: {
     agentId: { type: 'string', description: 'Agent identifier for access control/auditing' },
     id: { type: 'string', description: 'Relation ID (delete)' },
-    sourceType: { type: 'string', enum: ['tool', 'guideline', 'knowledge', 'project'] },
+    sourceType: { type: 'string', enum: ['tool', 'guideline', 'knowledge', 'project', 'experience'] },
     sourceId: { type: 'string' },
-    targetType: { type: 'string', enum: ['tool', 'guideline', 'knowledge', 'project'] },
+    targetType: { type: 'string', enum: ['tool', 'guideline', 'knowledge', 'project', 'experience'] },
     targetId: { type: 'string' },
     relationType: {
       type: 'string',
@@ -24,6 +24,7 @@ export const memoryRelationDescriptor: ToolDescriptor = {
         'related_to',
         'parent_task',
         'subtask_of',
+        'promoted_to',
       ],
     },
     createdBy: { type: 'string' },

@@ -40,6 +40,7 @@ import { securitySection } from './sections/security.js';
 import { pathsSection } from './sections/paths.js';
 import { backupSection } from './sections/backup.js';
 import { redisSection } from './sections/redis.js';
+import { captureSection } from './sections/capture.js';
 
 // =============================================================================
 // TOP-LEVEL OPTIONS
@@ -91,6 +92,7 @@ export const configRegistry: ConfigRegistry = {
     paths: pathsSection,
     backup: backupSection,
     redis: redisSection,
+    capture: captureSection,
   },
 };
 

@@ -8,7 +8,7 @@
  */
 
 import type { QueryType, QueryEntryType, EntryUnion } from './types.js';
-import { tools, guidelines, knowledge } from '../../db/schema.js';
+import { tools, guidelines, knowledge, experiences } from '../../db/schema.js';
 
 // =============================================================================
 // TYPE CONVERSION MAPS
@@ -22,6 +22,7 @@ export const QUERY_TYPE_TO_ENTRY_TYPE: Record<QueryType, QueryEntryType> = {
   tools: 'tool',
   guidelines: 'guideline',
   knowledge: 'knowledge',
+  experiences: 'experience',
 } as const;
 
 /**
@@ -32,6 +33,7 @@ export const ENTRY_TYPE_TO_QUERY_TYPE: Record<QueryEntryType, QueryType> = {
   tool: 'tools',
   guideline: 'guidelines',
   knowledge: 'knowledge',
+  experience: 'experiences',
 } as const;
 
 // =============================================================================
@@ -65,6 +67,7 @@ export const QUERY_TYPE_TO_TABLE = {
   tools: tools,
   guidelines: guidelines,
   knowledge: knowledge,
+  experiences: experiences,
 } as const;
 
 /**
@@ -74,6 +77,7 @@ export const QUERY_TYPE_TO_TABLE_NAME: Record<QueryType, string> = {
   tools: 'tools',
   guidelines: 'guidelines',
   knowledge: 'knowledge',
+  experiences: 'experiences',
 } as const;
 
 /**
@@ -83,6 +87,7 @@ export const ENTRY_TYPE_TO_TABLE_NAME: Record<QueryEntryType, string> = {
   tool: 'tools',
   guideline: 'guidelines',
   knowledge: 'knowledge',
+  experience: 'experiences',
 } as const;
 
 // =============================================================================
@@ -92,23 +97,24 @@ export const ENTRY_TYPE_TO_TABLE_NAME: Record<QueryEntryType, string> = {
 /**
  * Mapping from QueryType to the field used as the entry's key/name.
  * - tools and guidelines use 'name'
- * - knowledge uses 'title'
+ * - knowledge and experiences use 'title'
  */
 export const ENTRY_TYPE_KEY_FIELD: Record<QueryType, 'name' | 'title'> = {
   tools: 'name',
   guidelines: 'name',
   knowledge: 'title',
+  experiences: 'title',
 } as const;
 
 /**
  * Get the identifying field value from an entry.
  *
- * @param entry - The entry object (Tool, Guideline, or Knowledge)
+ * @param entry - The entry object (Tool, Guideline, Knowledge, or Experience)
  * @param type - The query type to determine which field to use
  * @returns The value of the name/title field
  */
 export function getEntryKeyValue(entry: EntryUnion, type: QueryType): string {
-  if (type === 'knowledge') {
+  if (type === 'knowledge' || type === 'experiences') {
     return (entry as { title: string }).title ?? '';
   }
   return (entry as { name: string }).name ?? '';

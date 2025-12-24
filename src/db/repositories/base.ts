@@ -176,7 +176,7 @@ export const MAX_LOCK_TIMEOUT_SECONDS = 86400;
  * Entry types that support cascade delete and relations
  * Excludes 'project' as it has different handling
  */
-export type CascadeEntryType = 'tool' | 'guideline' | 'knowledge';
+export type CascadeEntryType = 'tool' | 'guideline' | 'knowledge' | 'experience';
 
 /**
  * Delete all related records for an entry (tags, relations, embeddings, permissions)
