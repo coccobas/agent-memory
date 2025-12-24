@@ -350,6 +350,12 @@ export class PgVectorStore implements IVectorStore {
     const opsClass = INDEX_OPS[this.distanceMetric];
 
     try {
+      // pgvector requires fixed dimensions for HNSW index
+      // Alter column type to specify dimension if not already set
+      await client.query(
+        `ALTER TABLE vector_embeddings ALTER COLUMN embedding TYPE vector(${dimension})`
+      );
+
       // Create HNSW index
       // m=16: connections per layer, ef_construction=64: build-time search width
       await client.query(`

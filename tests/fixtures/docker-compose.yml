@@ -1,5 +1,3 @@
-version: '3.8'
-
 # Docker Compose for PostgreSQL and Redis integration tests
 # Usage:
 #   docker-compose -f tests/fixtures/docker-compose.yml up -d
@@ -8,7 +6,7 @@ version: '3.8'
 
 services:
   postgres-test:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     container_name: agent-memory-postgres-test
     ports:
       - "5433:5432"  # Use 5433 to avoid conflicts with local PostgreSQL

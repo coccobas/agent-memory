@@ -5,9 +5,9 @@
  * They are skipped if PostgreSQL connection is not available.
  *
  * To run these tests:
- * 1. Set up PostgreSQL with pgvector: CREATE EXTENSION vector;
- * 2. Set environment variable: AGENT_MEMORY_PG_HOST, AGENT_MEMORY_PG_DATABASE, etc.
- * 3. Run: npx vitest run tests/integration/pgvector.test.ts
+ * 1. Start PostgreSQL with pgvector: docker-compose -f tests/fixtures/docker-compose.yml up -d
+ * 2. Set environment variable: PGVECTOR_AVAILABLE=true
+ * 3. Run: PGVECTOR_AVAILABLE=true npx vitest run tests/integration/pgvector.test.ts
  */
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
@@ -18,35 +18,39 @@ let PgVectorStore: typeof import('../../src/db/vector-stores/pgvector.js').PgVec
 
 const PG_CONFIG = {
   host: process.env.AGENT_MEMORY_PG_HOST || 'localhost',
-  port: parseInt(process.env.AGENT_MEMORY_PG_PORT || '5432', 10),
+  port: parseInt(process.env.AGENT_MEMORY_PG_PORT || '5433', 10),
   database: process.env.AGENT_MEMORY_PG_DATABASE || 'agent_memory_test',
-  user: process.env.AGENT_MEMORY_PG_USER || 'postgres',
-  password: process.env.AGENT_MEMORY_PG_PASSWORD || '',
+  user: process.env.AGENT_MEMORY_PG_USER || 'test',
+  password: process.env.AGENT_MEMORY_PG_PASSWORD || 'test',
 };
+
+// Check environment variable at module load time for skipIf
+const pgvectorEnabled = process.env.PGVECTOR_AVAILABLE === 'true';
 
 let pool: Pool | null = null;
 let store: InstanceType<typeof PgVectorStore> | null = null;
-let pgAvailable = false;
 
-async function checkPgVectorAvailable(): Promise<boolean> {
+async function setupPgVector(): Promise<boolean> {
   try {
     const testPool = new Pool({ ...PG_CONFIG, connectionTimeoutMillis: 5000 });
     const client = await testPool.connect();
 
     try {
+      // Create extension if not exists
+      await client.query('CREATE EXTENSION IF NOT EXISTS vector');
+
       // Check if pgvector extension is available
       const result = await client.query(
         "SELECT 1 FROM pg_extension WHERE extname = 'vector'"
       );
       if (result.rowCount === 0) {
         console.log('pgvector extension not installed, skipping integration tests');
+        await testPool.end();
         return false;
       }
 
       // Ensure test tables exist
       await client.query(`
-        CREATE EXTENSION IF NOT EXISTS vector;
-
         DROP TABLE IF EXISTS vector_embeddings;
         DROP TABLE IF EXISTS _vector_meta;
 
@@ -87,13 +91,16 @@ async function checkPgVectorAvailable(): Promise<boolean> {
   }
 }
 
-describe('PgVectorStore Integration', () => {
+describe.skipIf(!pgvectorEnabled)('PgVectorStore Integration', () => {
   beforeAll(async () => {
     // Import the module
     const module = await import('../../src/db/vector-stores/pgvector.js');
     PgVectorStore = module.PgVectorStore;
 
-    pgAvailable = await checkPgVectorAvailable();
+    const available = await setupPgVector();
+    if (!available) {
+      throw new Error('pgvector not available - set PGVECTOR_AVAILABLE=true only when PostgreSQL with pgvector is running');
+    }
   });
 
   afterAll(async () => {
@@ -103,7 +110,7 @@ describe('PgVectorStore Integration', () => {
   });
 
   beforeEach(async () => {
-    if (!pgAvailable || !pool) return;
+    if (!pool) return;
 
     // Clean up embeddings between tests
     const client = await pool.connect();
@@ -117,7 +124,7 @@ describe('PgVectorStore Integration', () => {
     store = new PgVectorStore(pool, 'cosine');
   });
 
-  describe.skipIf(!pgAvailable)('with PostgreSQL', () => {
+  describe('with PostgreSQL', () => {
     it('should initialize successfully', async () => {
       await expect(store!.initialize()).resolves.not.toThrow();
       expect(store!.isAvailable()).toBe(true);
