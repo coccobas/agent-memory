@@ -12,6 +12,15 @@ data/*.db-wal
 data/vectors.lance/
 data/test/
 
+# Root-level database files (prevent accidental commits)
+memory.db
+memory.db-shm
+memory.db-wal
+vectors.lance/
+
+# Generated API spec
+openapi.json
+
 # IDE
 .vscode/
 .idea/
@@ -40,6 +49,7 @@ benchmarks/results.json
 
 # Environment
 .env
+.env.*
 .env.local
 .env.*.local
 
