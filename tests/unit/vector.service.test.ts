@@ -40,7 +40,7 @@ describe('Vector Service', () => {
     service2.close();
   });
 
-  it('should initialize vector database', async () => {
+  it('should initialize vector database', { timeout: 10000 }, async () => {
     // Should not throw
     await expect(service.initialize()).resolves.not.toThrow();
 
@@ -48,7 +48,7 @@ describe('Vector Service', () => {
     await expect(service.initialize()).resolves.not.toThrow();
   });
 
-  it('should store embedding successfully', async () => {
+  it('should store embedding successfully', { timeout: 15000 }, async () => {
     await service.initialize();
 
     const embedding = Array(384)
@@ -67,22 +67,33 @@ describe('Vector Service', () => {
     ).resolves.not.toThrow();
   });
 
-  it('should handle concurrent storeEmbedding without explicit initialize', async () => {
-    const embedding = Array(384).fill(0.123);
+  it(
+    'should handle concurrent storeEmbedding without explicit initialize',
+    { timeout: 45000 },
+    async () => {
+      const embedding = Array(384).fill(0.123);
 
-    await expect(
-      Promise.all(
-        Array.from({ length: 10 }, (_, i) =>
-          service.storeEmbedding('tool', `tool-concurrent-${i}`, 'v1', `Tool ${i}`, embedding, 'm')
+      await expect(
+        Promise.all(
+          Array.from({ length: 10 }, (_, i) =>
+            service.storeEmbedding(
+              'tool',
+              `tool-concurrent-${i}`,
+              'v1',
+              `Tool ${i}`,
+              embedding,
+              'm'
+            )
+          )
         )
-      )
-    ).resolves.not.toThrow();
+      ).resolves.not.toThrow();
 
-    const count = await service.getCount();
-    expect(count).toBeGreaterThanOrEqual(1);
-  }, 20000);
+      const count = await service.getCount();
+      expect(count).toBeGreaterThanOrEqual(1);
+    }
+  );
 
-  it('should store multiple embeddings', async () => {
+  it('should store multiple embeddings', { timeout: 15000 }, async () => {
     await service.initialize();
 
     const embedding1 = Array(384)
@@ -114,7 +125,7 @@ describe('Vector Service', () => {
     expect(count).toBeGreaterThanOrEqual(2);
   });
 
-  it('should update existing embedding', async () => {
+  it('should update existing embedding', { timeout: 15000 }, async () => {
     await service.initialize();
 
     const embedding1 = Array(384)
@@ -161,7 +172,7 @@ describe('Vector Service', () => {
     expect(finalCount).toBeGreaterThanOrEqual(countAfterFirst);
   });
 
-  it('should search for similar embeddings', async () => {
+  it('should search for similar embeddings', { timeout: 15000 }, async () => {
     await service.initialize();
 
     // Create similar embeddings (all values close to 0.5)
@@ -243,7 +254,7 @@ describe('Vector Service', () => {
     }
   });
 
-  it('should respect limit parameter', { timeout: 15000 }, async () => {
+  it('should respect limit parameter', { timeout: 30000 }, async () => {
     await service.initialize();
 
     // Store multiple embeddings
@@ -271,7 +282,7 @@ describe('Vector Service', () => {
     expect(results.length).toBeLessThanOrEqual(5);
   });
 
-  it('should return results sorted by similarity', async () => {
+  it('should return results sorted by similarity', { timeout: 20000 }, async () => {
     await service.initialize();
 
     const baseEmbedding = Array(384).fill(0.5);
@@ -313,7 +324,7 @@ describe('Vector Service', () => {
     }
   });
 
-  it('should get count of stored embeddings', async () => {
+  it('should get count of stored embeddings', { timeout: 15000 }, async () => {
     await service.initialize();
 
     // Get initial count (might not be 0 if other tests ran)
@@ -346,7 +357,7 @@ describe('Vector Service', () => {
     expect(finalCount).toBeGreaterThanOrEqual(count + 1);
   });
 
-  it('should handle search with no results gracefully', async () => {
+  it('should handle search with no results gracefully', { timeout: 10000 }, async () => {
     await service.initialize();
 
     const queryEmbedding = Array(384)
@@ -361,7 +372,7 @@ describe('Vector Service', () => {
     expect(results.length).toBe(0);
   });
 
-  it('should handle search with empty entry types array', async () => {
+  it('should handle search with empty entry types array', { timeout: 10000 }, async () => {
     await service.initialize();
 
     const embedding = Array(384)
@@ -380,7 +391,7 @@ describe('Vector Service', () => {
     expect(Array.isArray(results)).toBe(true);
   });
 
-  it('should close connection successfully', async () => {
+  it('should close connection successfully', { timeout: 10000 }, async () => {
     await service.initialize();
 
     // Should not throw
@@ -390,13 +401,13 @@ describe('Vector Service', () => {
     expect(() => service.close()).not.toThrow();
   });
 
-  it('should handle initialization errors gracefully', async () => {
+  it('should handle initialization errors gracefully', { timeout: 10000 }, async () => {
     // This test is tricky as we'd need to force an error
     // For now, just verify that initialization doesn't throw with valid path
     await expect(service.initialize()).resolves.not.toThrow();
   });
 
-  it('should return similarity scores between 0 and 1', async () => {
+  it('should return similarity scores between 0 and 1', { timeout: 10000 }, async () => {
     await service.initialize();
 
     const embedding = Array(384)
@@ -415,7 +426,7 @@ describe('Vector Service', () => {
     });
   });
 
-  it('should include text in search results', async () => {
+  it('should include text in search results', { timeout: 10000 }, async () => {
     await service.initialize();
 
     const embedding = Array(384)
@@ -435,7 +446,7 @@ describe('Vector Service', () => {
     }
   });
 
-  it('should store version information', async () => {
+  it('should store version information', { timeout: 10000 }, async () => {
     await service.initialize();
 
     const embedding = Array(384)

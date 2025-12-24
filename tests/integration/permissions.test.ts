@@ -210,7 +210,10 @@ describe('Permissions Handler Integration', () => {
         entry_type: 'guideline',
       });
 
-      const result = permissionHandlers.list(context, { admin_key: 'test-admin-key', agent_id: 'agent-list-2' });
+      const result = permissionHandlers.list(context, {
+        admin_key: 'test-admin-key',
+        agent_id: 'agent-list-2',
+      });
 
       expect(result.permissions.length).toBeGreaterThan(0);
       result.permissions.forEach((perm) => {
@@ -231,7 +234,10 @@ describe('Permissions Handler Integration', () => {
         entry_type: 'tool',
       });
 
-      const result = permissionHandlers.list(context, { admin_key: 'test-admin-key', scope_type: 'project' });
+      const result = permissionHandlers.list(context, {
+        admin_key: 'test-admin-key',
+        scope_type: 'project',
+      });
 
       expect(Array.isArray(result.permissions)).toBe(true);
     });
@@ -244,12 +250,12 @@ describe('Permissions Handler Integration', () => {
         entry_type: 'knowledge',
       });
 
-      const result = permissionHandlers.list(context, { admin_key: 'test-admin-key', entry_type: 'knowledge' });
+      const result = permissionHandlers.list(context, {
+        admin_key: 'test-admin-key',
+        entry_type: 'knowledge',
+      });
 
       expect(Array.isArray(result.permissions)).toBe(true);
     });
   });
 });
-
-
-

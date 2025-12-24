@@ -46,7 +46,8 @@ describe('Scope Management Integration', () => {
 
   describe('Organizations', () => {
     it('should create an organization', async () => {
-      const result = await scopeHandlers.orgCreate(ctx, { adminKey: TEST_ADMIN_KEY,
+      const result = await scopeHandlers.orgCreate(ctx, {
+        adminKey: TEST_ADMIN_KEY,
         name: 'Test Organization',
         metadata: { description: 'A test org' },
       });
@@ -58,7 +59,8 @@ describe('Scope Management Integration', () => {
     });
 
     it('should create organization without metadata', async () => {
-      const result = await scopeHandlers.orgCreate(ctx, { adminKey: TEST_ADMIN_KEY,
+      const result = await scopeHandlers.orgCreate(ctx, {
+        adminKey: TEST_ADMIN_KEY,
         name: 'Simple Org',
       });
 
@@ -67,9 +69,9 @@ describe('Scope Management Integration', () => {
     });
 
     it('should require name', async () => {
-      await expect(
-        scopeHandlers.orgCreate(ctx, { adminKey: TEST_ADMIN_KEY,})
-      ).rejects.toThrow('name is required');
+      await expect(scopeHandlers.orgCreate(ctx, { adminKey: TEST_ADMIN_KEY })).rejects.toThrow(
+        'name is required'
+      );
     });
 
     it('should list organizations with pagination', async () => {
@@ -93,7 +95,8 @@ describe('Scope Management Integration', () => {
     });
 
     it('should create a project with org', async () => {
-      const result = await scopeHandlers.projectCreate(ctx, { adminKey: TEST_ADMIN_KEY,
+      const result = await scopeHandlers.projectCreate(ctx, {
+        adminKey: TEST_ADMIN_KEY,
         name: 'Test Project',
         orgId,
         description: 'A test project',
@@ -109,7 +112,8 @@ describe('Scope Management Integration', () => {
     });
 
     it('should create a project without org', async () => {
-      const result = await scopeHandlers.projectCreate(ctx, { adminKey: TEST_ADMIN_KEY,
+      const result = await scopeHandlers.projectCreate(ctx, {
+        adminKey: TEST_ADMIN_KEY,
         name: 'Standalone Project',
       });
 
@@ -118,9 +122,9 @@ describe('Scope Management Integration', () => {
     });
 
     it('should require name', async () => {
-      await expect(
-        scopeHandlers.projectCreate(ctx, { adminKey: TEST_ADMIN_KEY,})
-      ).rejects.toThrow('name is required');
+      await expect(scopeHandlers.projectCreate(ctx, { adminKey: TEST_ADMIN_KEY })).rejects.toThrow(
+        'name is required'
+      );
     });
 
     it('should get project by ID', async () => {
@@ -136,18 +140,18 @@ describe('Scope Management Integration', () => {
       const project = createTestProject(db, 'Case-Sensitive-Test', orgId);
 
       // Test different case variations
-      expect((await scopeHandlers.projectGet(ctx, { name: 'Case-Sensitive-Test', orgId })).project.id).toBe(
-        project.id
-      );
-      expect((await scopeHandlers.projectGet(ctx, { name: 'case-sensitive-test', orgId })).project.id).toBe(
-        project.id
-      );
-      expect((await scopeHandlers.projectGet(ctx, { name: 'CASE-SENSITIVE-TEST', orgId })).project.id).toBe(
-        project.id
-      );
-      expect((await scopeHandlers.projectGet(ctx, { name: 'CaSe-SeNsItIvE-TeSt', orgId })).project.id).toBe(
-        project.id
-      );
+      expect(
+        (await scopeHandlers.projectGet(ctx, { name: 'Case-Sensitive-Test', orgId })).project.id
+      ).toBe(project.id);
+      expect(
+        (await scopeHandlers.projectGet(ctx, { name: 'case-sensitive-test', orgId })).project.id
+      ).toBe(project.id);
+      expect(
+        (await scopeHandlers.projectGet(ctx, { name: 'CASE-SENSITIVE-TEST', orgId })).project.id
+      ).toBe(project.id);
+      expect(
+        (await scopeHandlers.projectGet(ctx, { name: 'CaSe-SeNsItIvE-TeSt', orgId })).project.id
+      ).toBe(project.id);
     });
 
     it('should get project by name without orgId', async () => {
@@ -158,15 +162,13 @@ describe('Scope Management Integration', () => {
     });
 
     it('should throw error when project not found', async () => {
-      await expect(
-        scopeHandlers.projectGet(ctx, { id: 'non-existent-id' })
-      ).rejects.toThrow(/Project not found/);
+      await expect(scopeHandlers.projectGet(ctx, { id: 'non-existent-id' })).rejects.toThrow(
+        /Project not found/
+      );
     });
 
     it('should require id or name', async () => {
-      await expect(
-        scopeHandlers.projectGet(ctx, {})
-      ).rejects.toThrow(/id or name/);
+      await expect(scopeHandlers.projectGet(ctx, {})).rejects.toThrow(/id or name/);
     });
 
     it('should list projects with orgId filter', async () => {
@@ -184,7 +186,8 @@ describe('Scope Management Integration', () => {
 
     it('should update project', async () => {
       const project = createTestProject(db, 'Update Test', orgId);
-      const result = await scopeHandlers.projectUpdate(ctx, { adminKey: TEST_ADMIN_KEY,
+      const result = await scopeHandlers.projectUpdate(ctx, {
+        adminKey: TEST_ADMIN_KEY,
         id: project.id,
         name: 'Updated Name',
         description: 'Updated description',
@@ -196,9 +199,9 @@ describe('Scope Management Integration', () => {
     });
 
     it('should require id for update', async () => {
-      await expect(
-        scopeHandlers.projectUpdate(ctx, { adminKey: TEST_ADMIN_KEY,})
-      ).rejects.toThrow('id is required');
+      await expect(scopeHandlers.projectUpdate(ctx, { adminKey: TEST_ADMIN_KEY })).rejects.toThrow(
+        'id is required'
+      );
     });
   });
 
@@ -261,9 +264,7 @@ describe('Scope Management Integration', () => {
     });
 
     it('should require id for ending session', async () => {
-      await expect(
-        scopeHandlers.sessionEnd(ctx, {})
-      ).rejects.toThrow('id is required');
+      await expect(scopeHandlers.sessionEnd(ctx, {})).rejects.toThrow('id is required');
     });
 
     it('should list sessions by projectId', async () => {
@@ -282,7 +283,10 @@ describe('Scope Management Integration', () => {
       await scopeHandlers.sessionEnd(ctx, { id: activeSession.id, status: 'completed' });
 
       const activeResult = await scopeHandlers.sessionList(ctx, { status: 'active', limit: 10 });
-      const completedResult = await scopeHandlers.sessionList(ctx, { status: 'completed', limit: 10 });
+      const completedResult = await scopeHandlers.sessionList(ctx, {
+        status: 'completed',
+        limit: 10,
+      });
 
       expect(activeResult.sessions.every((s) => s.status === 'active')).toBe(true);
       expect(completedResult.sessions.every((s) => s.status === 'completed')).toBe(true);

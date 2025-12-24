@@ -123,9 +123,7 @@ describe('Voting Handler Integration', () => {
     });
 
     it('should require taskId', async () => {
-      await expect(
-        votingHandlers.get_consensus(ctx, {})
-      ).rejects.toThrow(/taskId/);
+      await expect(votingHandlers.get_consensus(ctx, {})).rejects.toThrow(/taskId/);
     });
 
     it('should accept custom k value', async () => {
@@ -186,9 +184,7 @@ describe('Voting Handler Integration', () => {
     });
 
     it('should require taskId', async () => {
-      await expect(
-        votingHandlers.list_votes(ctx, {})
-      ).rejects.toThrow(/taskId/);
+      await expect(votingHandlers.list_votes(ctx, {})).rejects.toThrow(/taskId/);
     });
 
     it('should include vote details', async () => {
@@ -244,9 +240,7 @@ describe('Voting Handler Integration', () => {
     });
 
     it('should require taskId', async () => {
-      await expect(
-        votingHandlers.get_stats(ctx, {})
-      ).rejects.toThrow(/taskId/);
+      await expect(votingHandlers.get_stats(ctx, {})).rejects.toThrow(/taskId/);
     });
 
     it('should calculate vote distribution', async () => {
@@ -271,6 +265,3 @@ describe('Voting Handler Integration', () => {
     });
   });
 });
-
-
-

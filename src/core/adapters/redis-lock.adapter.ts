@@ -292,9 +292,11 @@ export class RedisLockAdapter implements ILockAdapter {
 
     try {
       // Use Lua script to atomically check and delete
-      const result = await (this.client as Redis & {
-        unlockIfOwned: (key: string, token: string) => Promise<number>;
-      }).unlockIfOwned(fullKey, token);
+      const result = await (
+        this.client as Redis & {
+          unlockIfOwned: (key: string, token: string) => Promise<number>;
+        }
+      ).unlockIfOwned(fullKey, token);
 
       if (result === 1) {
         this.localTokens.delete(fullKey);
@@ -468,9 +470,16 @@ export class RedisLockAdapter implements ILockAdapter {
     const newExpiresAt = new Date(Date.now() + ttlMs).toISOString();
 
     try {
-      const result = await (this.client as Redis & {
-        extendIfOwned: (key: string, token: string, expiresAt: string, ttl: number) => Promise<number>;
-      }).extendIfOwned(fullKey, token, newExpiresAt, ttlMs);
+      const result = await (
+        this.client as Redis & {
+          extendIfOwned: (
+            key: string,
+            token: string,
+            expiresAt: string,
+            ttl: number
+          ) => Promise<number>;
+        }
+      ).extendIfOwned(fullKey, token, newExpiresAt, ttlMs);
 
       if (result === 1) {
         logger.debug({ key, owner, ttlMs }, 'Lock extended');

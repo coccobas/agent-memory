@@ -5,15 +5,31 @@ import * as schema from '../../src/db/schema.js';
 import { generateId } from '../../src/db/repositories/base.js';
 import { applyMigrations } from './migration-loader.js';
 import { cleanupDbFiles, ensureDataDirectory } from './db-utils.js';
-import { registerDatabase, resetContainer, clearPreparedStatementCache, getDb, getPreparedStatement, getSqlite } from '../../src/db/connection.js';
-import { registerRuntime, isRuntimeRegistered, getRuntime, registerContext } from '../../src/core/container.js';
+import {
+  registerDatabase,
+  resetContainer,
+  clearPreparedStatementCache,
+  getDb,
+  getPreparedStatement,
+  getSqlite,
+} from '../../src/db/connection.js';
+import {
+  registerRuntime,
+  isRuntimeRegistered,
+  getRuntime,
+  registerContext,
+} from '../../src/core/container.js';
 import { createRuntime, type Runtime } from '../../src/core/runtime.js';
 import { createAppContext } from '../../src/core/factory.js';
 import type { AppContext } from '../../src/core/context.js';
 import type { DatabaseDeps } from '../../src/core/types.js';
 import type { Repositories } from '../../src/core/interfaces/repositories.js';
 import { buildConfig, type Config } from '../../src/config/index.js';
-import { createDependencies, type PipelineDependencies, wireQueryCacheInvalidation } from '../../src/services/query/index.js';
+import {
+  createDependencies,
+  type PipelineDependencies,
+  wireQueryCacheInvalidation,
+} from '../../src/services/query/index.js';
 import { createComponentLogger } from '../../src/utils/logger.js';
 import { SecurityService } from '../../src/services/security.service.js';
 // Repository factory imports

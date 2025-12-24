@@ -17,7 +17,11 @@ import { existsSync, mkdirSync, unlinkSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as schema from '../../src/db/schema.js';
 import { v4 as uuid } from 'uuid';
-import { registerDatabase, clearPreparedStatementCache, resetContainer } from '../../src/db/connection.js';
+import {
+  registerDatabase,
+  clearPreparedStatementCache,
+  resetContainer,
+} from '../../src/db/connection.js';
 import {
   ensureTestRuntime,
   clearTestQueryCache,
@@ -41,14 +45,13 @@ vi.mock('../../src/db/connection.js', async () => {
 });
 
 // Import after mocking
-import {
-  traverseRelationGraph,
-  type MemoryQueryResult,
-} from '../../src/services/query.service.js';
+import { traverseRelationGraph, type MemoryQueryResult } from '../../src/services/query.service.js';
 import { executeQueryPipeline } from '../../src/services/query/index.js';
 
 // Helper to execute query with pipeline (replaces legacy executeMemoryQuery)
-async function executeMemoryQuery(params: Parameters<typeof executeQueryPipeline>[0]): Promise<MemoryQueryResult> {
+async function executeMemoryQuery(
+  params: Parameters<typeof executeQueryPipeline>[0]
+): Promise<MemoryQueryResult> {
   return executeQueryPipeline(params, createTestQueryDeps()) as Promise<MemoryQueryResult>;
 }
 

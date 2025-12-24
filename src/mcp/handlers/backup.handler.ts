@@ -16,10 +16,10 @@ import { requireAdminKey } from '../../utils/admin.js';
 /**
  * Create a database backup
  */
-function create(params: Record<string, unknown>) {
+async function create(params: Record<string, unknown>) {
   requireAdminKey(params);
   const name = typeof params.name === 'string' ? params.name : undefined;
-  const result = createDatabaseBackup(name);
+  const result = await createDatabaseBackup(name);
   return {
     success: result.success,
     message: result.message,
@@ -68,7 +68,7 @@ function cleanup(params: Record<string, unknown>) {
 /**
  * Restore from a backup
  */
-function restore(params: Record<string, unknown>) {
+async function restore(params: Record<string, unknown>) {
   requireAdminKey(params);
   const filename = typeof params.filename === 'string' ? params.filename : '';
   if (!filename) {
@@ -78,7 +78,7 @@ function restore(params: Record<string, unknown>) {
     };
   }
 
-  const result = restoreFromBackup(filename);
+  const result = await restoreFromBackup(filename);
   return {
     success: result.success,
     message: result.message,

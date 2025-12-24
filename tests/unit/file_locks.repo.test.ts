@@ -90,9 +90,9 @@ describe('File Locks Repository', () => {
 
       await fileLockRepo.checkout(filePath, agentId1);
 
-      await expect(
-        fileLockRepo.checkout(filePath, agentId2)
-      ).rejects.toThrow(`already locked by agent ${agentId1}`);
+      await expect(fileLockRepo.checkout(filePath, agentId2)).rejects.toThrow(
+        `already locked by agent ${agentId1}`
+      );
     });
 
     it('should store session and project IDs', async () => {
@@ -134,9 +134,7 @@ describe('File Locks Repository', () => {
       const filePath = '/path/to/file.ts';
       const agentId = 'agent-1';
 
-      await expect(
-        fileLockRepo.checkin(filePath, agentId)
-      ).rejects.toThrow('not locked');
+      await expect(fileLockRepo.checkin(filePath, agentId)).rejects.toThrow('not locked');
     });
 
     it('should throw error if locked by different agent', async () => {
@@ -146,9 +144,7 @@ describe('File Locks Repository', () => {
 
       await fileLockRepo.checkout(filePath, agentId1);
 
-      await expect(
-        fileLockRepo.checkin(filePath, agentId2)
-      ).rejects.toThrow('locked by agent');
+      await expect(fileLockRepo.checkin(filePath, agentId2)).rejects.toThrow('locked by agent');
     });
   });
 
@@ -168,9 +164,7 @@ describe('File Locks Repository', () => {
       const filePath = '/path/to/file.ts';
       const agentId = 'agent-1';
 
-      await expect(
-        fileLockRepo.forceUnlock(filePath, agentId)
-      ).rejects.toThrow('not locked');
+      await expect(fileLockRepo.forceUnlock(filePath, agentId)).rejects.toThrow('not locked');
     });
   });
 

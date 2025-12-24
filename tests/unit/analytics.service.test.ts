@@ -231,10 +231,13 @@ describe('analytics.service', () => {
     });
 
     it('should filter by subtaskType', () => {
-      const stats = getSubtaskStats({
-        projectId: 'test-project',
-        subtaskType: 'test-type',
-      }, db);
+      const stats = getSubtaskStats(
+        {
+          projectId: 'test-project',
+          subtaskType: 'test-type',
+        },
+        db
+      );
 
       expect(stats).toBeDefined();
     });
@@ -260,6 +263,3 @@ describe('analytics.service', () => {
     });
   });
 });
-
-
-

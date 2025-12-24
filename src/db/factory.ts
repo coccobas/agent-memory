@@ -137,7 +137,10 @@ async function createPostgreSQLConnection(configuration: Config): Promise<Postgr
   }
 
   const pool = adapter.getRawConnection();
-  logger.info({ host: configuration.postgresql.host, database: configuration.postgresql.database }, 'Connected to PostgreSQL');
+  logger.info(
+    { host: configuration.postgresql.host, database: configuration.postgresql.database },
+    'Connected to PostgreSQL'
+  );
 
   return { type: 'postgresql', adapter, pool };
 }
@@ -145,7 +148,10 @@ async function createPostgreSQLConnection(configuration: Config): Promise<Postgr
 /**
  * Run PostgreSQL migrations from the migrations/postgresql directory
  */
-async function runPostgreSQLMigrations(adapter: PostgreSQLStorageAdapter, verbose: boolean): Promise<void> {
+async function runPostgreSQLMigrations(
+  adapter: PostgreSQLStorageAdapter,
+  verbose: boolean
+): Promise<void> {
   const { readFileSync, readdirSync, existsSync: fsExistsSync } = await import('node:fs');
   const { join, dirname: pathDirname } = await import('node:path');
   const { fileURLToPath } = await import('node:url');
@@ -193,11 +199,16 @@ async function runPostgreSQLMigrations(adapter: PostgreSQLStorageAdapter, verbos
       migrationsApplied.push(file);
     } catch (error) {
       logger.error({ file, error }, 'PostgreSQL migration failed');
-      throw new Error(`PostgreSQL migration ${file} failed: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(
+        `PostgreSQL migration ${file} failed: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 
   if (verbose && migrationsApplied.length > 0) {
-    logger.info({ migrations: migrationsApplied, count: migrationsApplied.length }, 'Applied PostgreSQL migrations');
+    logger.info(
+      { migrations: migrationsApplied, count: migrationsApplied.length },
+      'Applied PostgreSQL migrations'
+    );
   }
 }

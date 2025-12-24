@@ -52,11 +52,7 @@ export interface IFTSService {
    * @param options - Search options
    * @returns Array of search results with ranking
    */
-  search(
-    query: string,
-    entryTypes: EntryType[],
-    options?: FTSSearchOptions
-  ): Promise<FTSResult[]>;
+  search(query: string, entryTypes: EntryType[], options?: FTSSearchOptions): Promise<FTSResult[]>;
 
   /**
    * Rebuild the FTS index for a specific entry type or all types.

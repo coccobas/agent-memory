@@ -197,9 +197,9 @@ describe('File Locks Integration', () => {
     });
 
     it('should require file_path', async () => {
-      await expect(
-        fileLockHandlers.status(context, {} as any)
-      ).rejects.toThrow('file_path is required');
+      await expect(fileLockHandlers.status(context, {} as any)).rejects.toThrow(
+        'file_path is required'
+      );
     });
   });
 

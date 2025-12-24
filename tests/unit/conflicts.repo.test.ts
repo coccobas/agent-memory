@@ -26,7 +26,8 @@ describe('conflictRepo', () => {
 
   it('lists and resolves conflicts', async () => {
     // Seed a conflict row
-    testDb.db.insert(schema.conflictLog)
+    testDb.db
+      .insert(schema.conflictLog)
       .values({
         id: 'conf-test-1',
         entryType: 'tool',
@@ -38,7 +39,10 @@ describe('conflictRepo', () => {
       })
       .run();
 
-    const unresolved = await conflictRepo.list({ entryType: 'tool', resolved: false }, { limit: 10 });
+    const unresolved = await conflictRepo.list(
+      { entryType: 'tool', resolved: false },
+      { limit: 10 }
+    );
     expect(unresolved.length).toBeGreaterThan(0);
     const row = unresolved.find((c) => c.id === 'conf-test-1');
     expect(row).toBeDefined();
@@ -50,7 +54,10 @@ describe('conflictRepo', () => {
     expect(resolved?.resolution).toBe('Kept version ver-b');
     expect(resolved?.resolvedBy).toBe('tester');
 
-    const nowResolved = await conflictRepo.list({ entryType: 'tool', resolved: true }, { limit: 10 });
+    const nowResolved = await conflictRepo.list(
+      { entryType: 'tool', resolved: true },
+      { limit: 10 }
+    );
     const resolvedRow = nowResolved.find((c) => c.id === 'conf-test-1');
     expect(resolvedRow).toBeDefined();
     expect(resolvedRow?.resolved).toBe(true);

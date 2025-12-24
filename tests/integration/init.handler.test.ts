@@ -60,7 +60,10 @@ describe('init.handler', () => {
   describe('init', () => {
     it('should report already initialized for test database', () => {
       // Test database is already initialized via setupTestDb
-      const result = initHandlers.init({ admin_key: ADMIN_KEY } as unknown as Record<string, unknown>);
+      const result = initHandlers.init({ admin_key: ADMIN_KEY } as unknown as Record<
+        string,
+        unknown
+      >);
 
       expect(result).toMatchObject({
         success: expect.any(Boolean),
@@ -72,7 +75,10 @@ describe('init.handler', () => {
     });
 
     it('should initialize database with force', () => {
-      const result = initHandlers.init({ admin_key: ADMIN_KEY, force: true } as unknown as Record<string, unknown>);
+      const result = initHandlers.init({ admin_key: ADMIN_KEY, force: true } as unknown as Record<
+        string,
+        unknown
+      >);
 
       // Force mode attempts to re-apply migrations
       // May succeed or have errors if migrations already recorded
@@ -82,19 +88,28 @@ describe('init.handler', () => {
     });
 
     it('should handle verbose mode', () => {
-      const result = initHandlers.init({ admin_key: ADMIN_KEY, verbose: true } as unknown as Record<string, unknown>);
+      const result = initHandlers.init({ admin_key: ADMIN_KEY, verbose: true } as unknown as Record<
+        string,
+        unknown
+      >);
       // Verbose mode should work on already initialized database
       expect(result).toHaveProperty('success');
     });
 
     it('should return alreadyInitialized when database is already initialized', () => {
       // First init should detect already initialized (from setupTestDb)
-      const result = initHandlers.init({ admin_key: ADMIN_KEY } as unknown as Record<string, unknown>);
+      const result = initHandlers.init({ admin_key: ADMIN_KEY } as unknown as Record<
+        string,
+        unknown
+      >);
       expect(result.alreadyInitialized).toBe(true);
       expect(result.message).toContain('already initialized');
 
       // Second init should also detect already initialized
-      const result2 = initHandlers.init({ admin_key: ADMIN_KEY } as unknown as Record<string, unknown>);
+      const result2 = initHandlers.init({ admin_key: ADMIN_KEY } as unknown as Record<
+        string,
+        unknown
+      >);
       expect(result2.alreadyInitialized).toBe(true);
       expect(result2.message).toContain('already initialized');
     });
@@ -102,7 +117,10 @@ describe('init.handler', () => {
 
   describe('reset', () => {
     it('should require confirmation', () => {
-      const result = initHandlers.reset({ admin_key: ADMIN_KEY } as unknown as Record<string, unknown>);
+      const result = initHandlers.reset({ admin_key: ADMIN_KEY } as unknown as Record<
+        string,
+        unknown
+      >);
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('confirmation');
@@ -110,7 +128,10 @@ describe('init.handler', () => {
     });
 
     it('should reset database when confirmed', () => {
-      const result = initHandlers.reset({ admin_key: ADMIN_KEY, confirm: true } as unknown as Record<string, unknown>);
+      const result = initHandlers.reset({
+        admin_key: ADMIN_KEY,
+        confirm: true,
+      } as unknown as Record<string, unknown>);
 
       expect(result).toMatchObject({
         success: expect.any(Boolean),
@@ -125,7 +146,11 @@ describe('init.handler', () => {
     });
 
     it('should handle verbose mode in reset', () => {
-      const result = initHandlers.reset({ admin_key: ADMIN_KEY, confirm: true, verbose: true } as unknown as Record<string, unknown>);
+      const result = initHandlers.reset({
+        admin_key: ADMIN_KEY,
+        confirm: true,
+        verbose: true,
+      } as unknown as Record<string, unknown>);
       expect(result.success).toBe(true);
     });
   });

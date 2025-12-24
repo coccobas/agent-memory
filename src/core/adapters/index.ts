@@ -22,10 +22,7 @@ export type {
 
 // Implementations - Storage
 export { SQLiteStorageAdapter, createSQLiteStorageAdapter } from './sqlite.adapter.js';
-export {
-  PostgreSQLStorageAdapter,
-  createPostgreSQLStorageAdapter,
-} from './postgresql.adapter.js';
+export { PostgreSQLStorageAdapter, createPostgreSQLStorageAdapter } from './postgresql.adapter.js';
 
 // Implementations - Local (single-instance)
 export {
@@ -58,7 +55,13 @@ import type Database from 'better-sqlite3';
 import type { Pool } from 'pg';
 import type { AppDb } from '../types.js';
 import type { IFileLockRepository } from '../interfaces/repositories.js';
-import type { Adapters, ICacheAdapter, ILockAdapter, EntryEventAdapter, IStorageAdapter } from './interfaces.js';
+import type {
+  Adapters,
+  ICacheAdapter,
+  ILockAdapter,
+  EntryEventAdapter,
+  IStorageAdapter,
+} from './interfaces.js';
 import type { DatabaseType, Config } from '../../config/index.js';
 import { LRUCache } from '../../utils/lru-cache.js';
 import { createSQLiteStorageAdapter } from './sqlite.adapter.js';
@@ -118,9 +121,8 @@ export interface LegacyAdapterDeps {
  */
 export function createAdapters(deps: AdapterDeps | LegacyAdapterDeps): Adapters {
   // Handle legacy deps (no dbType = SQLite)
-  const effectiveDeps: AdapterDeps = 'dbType' in deps
-    ? deps
-    : { ...deps, dbType: 'sqlite' as const };
+  const effectiveDeps: AdapterDeps =
+    'dbType' in deps ? deps : { ...deps, dbType: 'sqlite' as const };
 
   // Create storage adapter based on database type
   let storage: IStorageAdapter;
@@ -244,11 +246,7 @@ export function createRedisAdapters(redisConfig: Config['redis']): RedisAdapters
 export async function connectRedisAdapters(adapters: RedisAdapters): Promise<void> {
   logger.info('Connecting Redis adapters...');
 
-  await Promise.all([
-    adapters.cache.connect(),
-    adapters.lock.connect(),
-    adapters.event.connect(),
-  ]);
+  await Promise.all([adapters.cache.connect(), adapters.lock.connect(), adapters.event.connect()]);
 
   logger.info('Redis adapters connected');
 }
@@ -260,11 +258,7 @@ export async function connectRedisAdapters(adapters: RedisAdapters): Promise<voi
 export async function closeRedisAdapters(adapters: RedisAdapters): Promise<void> {
   logger.info('Closing Redis adapters...');
 
-  await Promise.all([
-    adapters.cache.close(),
-    adapters.lock.close(),
-    adapters.event.close(),
-  ]);
+  await Promise.all([adapters.cache.close(), adapters.lock.close(), adapters.event.close()]);
 
   logger.info('Redis adapters closed');
 }

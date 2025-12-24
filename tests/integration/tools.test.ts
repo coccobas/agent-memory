@@ -83,9 +83,9 @@ describe('Tools Integration', () => {
     });
 
     it('should require scopeType', async () => {
-      await expect(
-        toolHandlers.add(context, { agentId: AGENT_ID, name: 'test' })
-      ).rejects.toThrow(/scopeType.*required/i);
+      await expect(toolHandlers.add(context, { agentId: AGENT_ID, name: 'test' })).rejects.toThrow(
+        /scopeType.*required/i
+      );
     });
 
     it('should require name', async () => {
@@ -118,9 +118,7 @@ describe('Tools Integration', () => {
     });
 
     it('should require id', async () => {
-      await expect(
-        toolHandlers.update(context, {})
-      ).rejects.toThrow(/id.*required/i);
+      await expect(toolHandlers.update(context, {})).rejects.toThrow(/id.*required/i);
     });
 
     it('should throw error when tool not found', async () => {
@@ -155,9 +153,9 @@ describe('Tools Integration', () => {
     });
 
     it('should require id or name', async () => {
-      await expect(
-        toolHandlers.get(context, { agentId: AGENT_ID })
-      ).rejects.toThrow(/id or name.*required/i);
+      await expect(toolHandlers.get(context, { agentId: AGENT_ID })).rejects.toThrow(
+        /id or name.*required/i
+      );
     });
   });
 
@@ -203,7 +201,12 @@ describe('Tools Integration', () => {
   describe('memory_tool_history', () => {
     it('should return version history', async () => {
       const { tool } = createTestTool(db, 'history_tool');
-      await toolHandlers.update(context, { agentId: AGENT_ID, id: tool.id, description: 'Version 2', changeReason: 'Update' });
+      await toolHandlers.update(context, {
+        agentId: AGENT_ID,
+        id: tool.id,
+        description: 'Version 2',
+        changeReason: 'Update',
+      });
       await toolHandlers.update(context, {
         agentId: AGENT_ID,
         id: tool.id,
@@ -235,9 +238,7 @@ describe('Tools Integration', () => {
     });
 
     it('should require id', async () => {
-      await expect(
-        toolHandlers.deactivate(context, {})
-      ).rejects.toThrow(/id.*required/i);
+      await expect(toolHandlers.deactivate(context, {})).rejects.toThrow(/id.*required/i);
     });
   });
 });

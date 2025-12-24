@@ -14,15 +14,16 @@ import type { DatabaseDeps, AppDb } from './types.js';
 import { getRuntime, isRuntimeRegistered } from './container.js';
 import { createComponentLogger } from '../utils/logger.js';
 import { createDatabaseConnection } from '../db/factory.js';
-import { SecurityService } from '../services/security.service.js';
 
 // Sub-factory imports
 import { createRepositories } from './factory/repositories.js';
-import { createServices } from './factory/services.js';
-import { createQueryPipeline, wireQueryCache } from './factory/query-pipeline.js';
-import { createAdapters } from './adapters/index.js';
-import type { Adapters } from './adapters/index.js';
-import type Database from 'better-sqlite3';
+import { wireContext } from './factory/context-wiring.js';
+import {
+  createAdaptersWithConfig,
+  connectRedisAdapters,
+  closeRedisAdapters,
+  type RedisAdapters,
+} from './adapters/index.js';
 
 /**
  * Create a new Application Context
@@ -58,91 +59,82 @@ export async function createAppContext(config: Config, runtime?: Runtime): Promi
   // Initialize Database - returns discriminated union based on dbType
   const connection = await createDatabaseConnection(config);
 
+  // Resolve backend-specific resources
   let db: AppDb;
-  let sqlite: Database.Database | undefined;
-  let adapters: Adapters;
-  let dbDeps: DatabaseDeps;
+  let sqlite: DatabaseDeps['sqlite'];
 
   if (connection.type === 'postgresql') {
-    // PostgreSQL mode
     logger.info({ dbType: 'postgresql' }, 'Using PostgreSQL backend');
-
-    // Get Drizzle db from the adapter
     // Cast through unknown since PG and SQLite Drizzle types are structurally different
     db = connection.adapter.getDb() as unknown as AppDb;
     sqlite = undefined;
-    dbDeps = { db, sqlite: undefined };
-
-    // Create repositories (they work with Drizzle which supports both backends)
-    const repos = createRepositories(dbDeps);
-
-    // Create adapters with PostgreSQL config
-    adapters = createAdapters({
-      dbType: 'postgresql',
-      config: config.postgresql,
-      fileLockRepo: repos.fileLocks,
-    });
-
-    // Create services and other components
-    const services = createServices(config, effectiveRuntime, db);
-    const queryDeps = createQueryPipeline(config, effectiveRuntime);
-
-    // Wire query cache invalidation
-    wireQueryCache(effectiveRuntime, createComponentLogger('query-cache'));
-
-    // Create security service
-    const security = new SecurityService(config);
-
-    return {
-      config,
-      db,
-      sqlite: undefined,
-      logger,
-      queryDeps,
-      security,
-      runtime: effectiveRuntime,
-      services,
-      repos,
-      adapters,
-    };
   } else {
-    // SQLite mode (default)
     logger.info({ dbType: 'sqlite' }, 'Using SQLite backend');
-
     db = connection.db;
     sqlite = connection.sqlite;
-    dbDeps = { db, sqlite };
-
-    // Create all components using sub-factories
-    const repos = createRepositories(dbDeps);
-    const services = createServices(config, effectiveRuntime, db);
-    const queryDeps = createQueryPipeline(config, effectiveRuntime);
-
-    // Create adapters (abstraction layer for multi-backend support)
-    adapters = createAdapters({
-      dbType: 'sqlite',
-      db,
-      sqlite,
-      fileLockRepo: repos.fileLocks,
-    });
-
-    // Wire query cache invalidation
-    wireQueryCache(effectiveRuntime, createComponentLogger('query-cache'));
-
-    // Create security service
-    const security = new SecurityService(config);
-
-    return {
-      config,
-      db,
-      sqlite,
-      logger,
-      queryDeps,
-      security,
-      runtime: effectiveRuntime,
-      services,
-      repos,
-      adapters,
-    };
   }
+
+  // Create database dependencies and repositories
+  const dbDeps: DatabaseDeps = { db, sqlite };
+  const repos = createRepositories(dbDeps);
+
+  // Create adapters (backend-specific, needs repos.fileLocks)
+  // Uses createAdaptersWithConfig to support Redis when enabled
+  const adapterDeps =
+    connection.type === 'postgresql'
+      ? {
+          dbType: 'postgresql' as const,
+          config: config.postgresql,
+          fileLockRepo: repos.fileLocks,
+        }
+      : {
+          dbType: 'sqlite' as const,
+          db,
+          sqlite: sqlite!,
+          fileLockRepo: repos.fileLocks,
+        };
+
+  const adapters = createAdaptersWithConfig(adapterDeps, config);
+
+  // Connect Redis adapters if they were created
+  if ('redis' in adapters && adapters.redis) {
+    logger.info('Connecting Redis adapters for distributed deployment');
+    await connectRedisAdapters(adapters.redis);
+  }
+
+  // Wire all shared components and assemble AppContext
+  return wireContext({
+    config,
+    runtime: effectiveRuntime,
+    db,
+    sqlite,
+    repos,
+    adapters,
+    logger,
+  });
+}
+
+/**
+ * Shutdown an AppContext, releasing adapter resources.
+ *
+ * This closes Redis connections if they were created during context initialization.
+ * Call this during graceful shutdown alongside shutdownRuntime().
+ *
+ * @param context - The AppContext to shut down
+ */
+export async function shutdownAppContext(context: AppContext): Promise<void> {
+  const logger = createComponentLogger('app');
+
+  // Close Redis adapters if they exist
+  if (context.adapters && 'redis' in context.adapters && context.adapters.redis) {
+    logger.info('Closing Redis adapters');
+    await closeRedisAdapters(context.adapters.redis as RedisAdapters);
+  }
+
+  // Close vector service if it exists
+  if (context.services?.vector) {
+    context.services.vector.close();
+  }
+
+  logger.info('AppContext shutdown complete');
 }

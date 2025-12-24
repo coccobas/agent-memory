@@ -6,18 +6,31 @@
  * DB reset, backups, exports), require an explicit admin key.
  */
 
-import { timingSafeEqual } from 'node:crypto';
+import { timingSafeEqual, createHash } from 'node:crypto';
 
 export class AdminAuthError extends Error {
   override name = 'AdminAuthError';
 }
 
+/**
+ * Timing-safe string comparison that prevents length oracle attacks.
+ * Uses SHA-256 hashing to normalize lengths before comparison.
+ */
 function safeEqual(a: string, b: string): boolean {
-  // timingSafeEqual requires equal-length buffers
-  const aBuf = Buffer.from(a);
-  const bBuf = Buffer.from(b);
-  if (aBuf.length !== bBuf.length) return false;
-  return timingSafeEqual(aBuf, bBuf);
+  const aVal = a ?? '';
+  const bVal = b ?? '';
+
+  // Hash both values to normalize to equal length (32 bytes)
+  const aHash = createHash('sha256').update(aVal).digest();
+  const bHash = createHash('sha256').update(bVal).digest();
+
+  // Perform timing-safe comparison
+  const isMatch = timingSafeEqual(aHash, bHash);
+
+  // Reject empty credentials (after timing-safe work)
+  const bothNonEmpty = aVal.length > 0 && bVal.length > 0;
+
+  return isMatch && bothNonEmpty;
 }
 
 export function getConfiguredAdminKey(): string | null {

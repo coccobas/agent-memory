@@ -39,11 +39,14 @@ describe('voting.service', () => {
 
   describe('recordVote', () => {
     it('should record a vote', () => {
-      recordVote({
-        taskId: 'task-1',
-        agentId: 'agent-1',
-        voteValue: 'option-a',
-      }, db);
+      recordVote(
+        {
+          taskId: 'task-1',
+          agentId: 'agent-1',
+          voteValue: 'option-a',
+        },
+        db
+      );
 
       const votes = listVotes('task-1', db);
       expect(votes.length).toBe(1);
@@ -52,17 +55,23 @@ describe('voting.service', () => {
     });
 
     it('should update existing vote from same agent', () => {
-      recordVote({
-        taskId: 'task-2',
-        agentId: 'agent-1',
-        voteValue: 'option-a',
-      }, db);
+      recordVote(
+        {
+          taskId: 'task-2',
+          agentId: 'agent-1',
+          voteValue: 'option-a',
+        },
+        db
+      );
 
-      recordVote({
-        taskId: 'task-2',
-        agentId: 'agent-1',
-        voteValue: 'option-b',
-      }, db);
+      recordVote(
+        {
+          taskId: 'task-2',
+          agentId: 'agent-1',
+          voteValue: 'option-b',
+        },
+        db
+      );
 
       const votes = listVotes('task-2', db);
       expect(votes.length).toBe(1);
@@ -70,35 +79,44 @@ describe('voting.service', () => {
     });
 
     it('should record vote with confidence', () => {
-      recordVote({
-        taskId: 'task-3',
-        agentId: 'agent-1',
-        voteValue: 'option-a',
-        confidence: 0.9,
-      }, db);
+      recordVote(
+        {
+          taskId: 'task-3',
+          agentId: 'agent-1',
+          voteValue: 'option-a',
+          confidence: 0.9,
+        },
+        db
+      );
 
       const votes = listVotes('task-3', db);
       expect(votes[0]?.confidence).toBe(0.9);
     });
 
     it('should record vote with reasoning', () => {
-      recordVote({
-        taskId: 'task-4',
-        agentId: 'agent-1',
-        voteValue: 'option-a',
-        reasoning: 'This is the best option',
-      }, db);
+      recordVote(
+        {
+          taskId: 'task-4',
+          agentId: 'agent-1',
+          voteValue: 'option-a',
+          reasoning: 'This is the best option',
+        },
+        db
+      );
 
       const votes = listVotes('task-4', db);
       expect(votes[0]?.reasoning).toBe('This is the best option');
     });
 
     it('should default confidence to 1.0', () => {
-      recordVote({
-        taskId: 'task-5',
-        agentId: 'agent-1',
-        voteValue: 'option-a',
-      }, db);
+      recordVote(
+        {
+          taskId: 'task-5',
+          agentId: 'agent-1',
+          voteValue: 'option-a',
+        },
+        db
+      );
 
       const votes = listVotes('task-5', db);
       expect(votes[0]?.confidence).toBe(1.0);
@@ -107,11 +125,14 @@ describe('voting.service', () => {
     it('should handle complex vote values', () => {
       const complexValue = { option: 'a', priority: 1, metadata: { key: 'value' } };
 
-      recordVote({
-        taskId: 'task-6',
-        agentId: 'agent-1',
-        voteValue: complexValue,
-      }, db);
+      recordVote(
+        {
+          taskId: 'task-6',
+          agentId: 'agent-1',
+          voteValue: complexValue,
+        },
+        db
+      );
 
       const votes = listVotes('task-6', db);
       expect(votes[0]?.voteValue).toBeDefined();
@@ -132,11 +153,14 @@ describe('voting.service', () => {
     });
 
     it('should reach consensus with single vote', () => {
-      recordVote({
-        taskId: 'task-single',
-        agentId: 'agent-1',
-        voteValue: 'option-a',
-      }, db);
+      recordVote(
+        {
+          taskId: 'task-single',
+          agentId: 'agent-1',
+          voteValue: 'option-a',
+        },
+        db
+      );
 
       const result = calculateConsensus('task-single', 1, db);
 
@@ -180,18 +204,24 @@ describe('voting.service', () => {
     });
 
     it('should return dissenting votes', () => {
-      recordVote({
-        taskId: 'task-dissent',
-        agentId: 'agent-1',
-        voteValue: 'option-a',
-        confidence: 0.9,
-      }, db);
-      recordVote({
-        taskId: 'task-dissent',
-        agentId: 'agent-2',
-        voteValue: 'option-b',
-        confidence: 0.8,
-      }, db);
+      recordVote(
+        {
+          taskId: 'task-dissent',
+          agentId: 'agent-1',
+          voteValue: 'option-a',
+          confidence: 0.9,
+        },
+        db
+      );
+      recordVote(
+        {
+          taskId: 'task-dissent',
+          agentId: 'agent-2',
+          voteValue: 'option-b',
+          confidence: 0.8,
+        },
+        db
+      );
 
       const result = calculateConsensus('task-dissent', 1, db);
 
@@ -200,18 +230,24 @@ describe('voting.service', () => {
     });
 
     it('should calculate confidence from consensus votes', () => {
-      recordVote({
-        taskId: 'task-conf',
-        agentId: 'agent-1',
-        voteValue: 'option-a',
-        confidence: 0.8,
-      }, db);
-      recordVote({
-        taskId: 'task-conf',
-        agentId: 'agent-2',
-        voteValue: 'option-a',
-        confidence: 0.9,
-      }, db);
+      recordVote(
+        {
+          taskId: 'task-conf',
+          agentId: 'agent-1',
+          voteValue: 'option-a',
+          confidence: 0.8,
+        },
+        db
+      );
+      recordVote(
+        {
+          taskId: 'task-conf',
+          agentId: 'agent-2',
+          voteValue: 'option-a',
+          confidence: 0.9,
+        },
+        db
+      );
 
       const result = calculateConsensus('task-conf', 1, db);
 
@@ -239,13 +275,16 @@ describe('voting.service', () => {
     });
 
     it('should include vote details', () => {
-      recordVote({
-        taskId: 'task-details',
-        agentId: 'agent-1',
-        voteValue: 'option-a',
-        confidence: 0.85,
-        reasoning: 'Test reasoning',
-      }, db);
+      recordVote(
+        {
+          taskId: 'task-details',
+          agentId: 'agent-1',
+          voteValue: 'option-a',
+          confidence: 0.85,
+          reasoning: 'Test reasoning',
+        },
+        db
+      );
 
       const votes = listVotes('task-details', db);
 
@@ -303,6 +342,3 @@ describe('voting.service', () => {
     });
   });
 });
-
-
-

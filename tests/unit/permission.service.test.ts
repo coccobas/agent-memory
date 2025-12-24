@@ -90,7 +90,9 @@ describe('permission.service', () => {
 
       expect(permissionService.check('agent-1', 'read', 'tool', null, 'global', null)).toBe(true);
       expect(permissionService.check('agent-1', 'write', 'tool', null, 'global', null)).toBe(true);
-      expect(permissionService.check('agent-1', 'delete', 'tool', null, 'global', null)).toBe(false); // delete requires admin
+      expect(permissionService.check('agent-1', 'delete', 'tool', null, 'global', null)).toBe(
+        false
+      ); // delete requires admin
     });
 
     it('should enforce permission hierarchy - admin can do everything', () => {
@@ -115,9 +117,13 @@ describe('permission.service', () => {
         permission: 'write',
       });
 
-      expect(permissionService.check('agent-3', 'write', 'tool', 'tool-123', 'global', null)).toBe(true);
+      expect(permissionService.check('agent-3', 'write', 'tool', 'tool-123', 'global', null)).toBe(
+        true
+      );
       // tool-456 doesn't have specific permission, so depends on default behavior
-      expect(permissionService.check('agent-3', 'write', 'tool', 'tool-456', 'global', null)).toBeDefined();
+      expect(
+        permissionService.check('agent-3', 'write', 'tool', 'tool-456', 'global', null)
+      ).toBeDefined();
     });
 
     it('should check scope-specific permissions', () => {
@@ -132,7 +138,9 @@ describe('permission.service', () => {
         permission: 'read',
       });
 
-      expect(permissionService.check('agent-4', 'read', 'tool', null, 'project', project.id)).toBe(true);
+      expect(permissionService.check('agent-4', 'read', 'tool', null, 'project', project.id)).toBe(
+        true
+      );
       // Should default allow for other scopes when no specific permission
     });
 
@@ -146,7 +154,9 @@ describe('permission.service', () => {
 
       expect(permissionService.check('agent-5', 'read', 'tool', null, 'global', null)).toBe(true);
       expect(permissionService.check('agent-5', 'write', 'tool', null, 'global', null)).toBe(false);
-      expect(permissionService.check('agent-5', 'delete', 'tool', null, 'global', null)).toBe(false);
+      expect(permissionService.check('agent-5', 'delete', 'tool', null, 'global', null)).toBe(
+        false
+      );
     });
   });
 

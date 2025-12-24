@@ -78,9 +78,9 @@ describe('Tags Integration', () => {
     });
 
     it('should require name', async () => {
-      await expect(
-        tagHandlers.create(context, { agentId: AGENT_ID })
-      ).rejects.toThrow('name is required');
+      await expect(tagHandlers.create(context, { agentId: AGENT_ID })).rejects.toThrow(
+        'name is required'
+      );
     });
   });
 
@@ -91,7 +91,11 @@ describe('Tags Integration', () => {
     });
 
     it('should filter by category', async () => {
-      const result = await tagHandlers.list(context, { agentId: AGENT_ID, category: 'language', limit: 10 });
+      const result = await tagHandlers.list(context, {
+        agentId: AGENT_ID,
+        category: 'language',
+        limit: 10,
+      });
       expect(result.tags.length).toBeGreaterThan(0);
       result.tags.forEach((tag) => {
         expect(tag.category).toBe('language');
@@ -99,7 +103,11 @@ describe('Tags Integration', () => {
     });
 
     it('should filter by isPredefined', async () => {
-      const result = await tagHandlers.list(context, { agentId: AGENT_ID, isPredefined: true, limit: 10 });
+      const result = await tagHandlers.list(context, {
+        agentId: AGENT_ID,
+        isPredefined: true,
+        limit: 10,
+      });
       expect(result.tags.length).toBeGreaterThan(0);
       result.tags.forEach((tag) => {
         expect(tag.isPredefined).toBe(true);
@@ -195,7 +203,11 @@ describe('Tags Integration', () => {
       expect(result.success).toBe(true);
 
       // Verify tag is detached
-      const tags = await tagHandlers.forEntry(context, { agentId: AGENT_ID, entryType: 'tool', entryId: tool.id });
+      const tags = await tagHandlers.forEntry(context, {
+        agentId: AGENT_ID,
+        entryType: 'tool',
+        entryId: tool.id,
+      });
       expect(tags.tags.find((t) => t.name === 'security')).toBeUndefined();
     });
 
@@ -209,8 +221,18 @@ describe('Tags Integration', () => {
   describe('memory_tags_for_entry', () => {
     it('should return all tags for an entry', async () => {
       const { tool } = createTestTool(db, 'multi_tag_tool');
-      await tagHandlers.attach(context, { agentId: AGENT_ID, entryType: 'tool', entryId: tool.id, tagName: 'security' });
-      await tagHandlers.attach(context, { agentId: AGENT_ID, entryType: 'tool', entryId: tool.id, tagName: 'required' });
+      await tagHandlers.attach(context, {
+        agentId: AGENT_ID,
+        entryType: 'tool',
+        entryId: tool.id,
+        tagName: 'security',
+      });
+      await tagHandlers.attach(context, {
+        agentId: AGENT_ID,
+        entryType: 'tool',
+        entryId: tool.id,
+        tagName: 'required',
+      });
 
       const result = await tagHandlers.forEntry(context, {
         agentId: AGENT_ID,

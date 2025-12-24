@@ -12,7 +12,11 @@
  *   --retry-failed      Retry failed embedding jobs from queue
  */
 
-import { backfillEmbeddings, getBackfillStats, type BackfillServices } from '../services/backfill.service.js';
+import {
+  backfillEmbeddings,
+  getBackfillStats,
+  type BackfillServices,
+} from '../services/backfill.service.js';
 import {
   retryFailedEmbeddings,
   getEmbeddingQueueStats,

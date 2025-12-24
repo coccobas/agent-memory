@@ -10,6 +10,8 @@ import { entryEmbeddings } from '../schema.js';
 import { generateId } from './base.js';
 import { createComponentLogger } from '../../utils/logger.js';
 import { config } from '../../config/index.js';
+import { getEmbeddingDLQ } from '../../utils/dead-letter-queue.js';
+import { embeddingCounter, embeddingDuration } from '../../utils/metrics.js';
 
 const logger = createComponentLogger('embedding-hook');
 
@@ -147,6 +149,9 @@ async function runEmbeddingJob(input: QueuedEmbeddingInput): Promise<void> {
     return;
   }
 
+  // Start metrics timer
+  const timer = embeddingDuration.startTimer({ provider: 'pipeline' });
+
   // Generate embedding
   const result = await pipeline.embed(input.text);
 
@@ -154,6 +159,7 @@ async function runEmbeddingJob(input: QueuedEmbeddingInput): Promise<void> {
   const latestSeq = latestSeqByKey.get(input.__key);
   if (latestSeq !== input.__seq) {
     skippedStaleCount++;
+    timer.end();
     return;
   }
 
@@ -197,6 +203,8 @@ async function runEmbeddingJob(input: QueuedEmbeddingInput): Promise<void> {
 
   // Track successful completion
   processedCount++;
+  embeddingCounter.inc({ provider: result.provider, status: 'success' });
+  timer.end();
 }
 
 function drainQueue(): void {
@@ -226,6 +234,7 @@ function drainQueue(): void {
       .catch((error) => {
         const errorMsg = error instanceof Error ? error.message : String(error);
         const maxRetries = getMaxRetries();
+        embeddingCounter.inc({ provider: 'pipeline', status: 'error' });
 
         if (attemptNumber < maxRetries) {
           // Track for retry
@@ -240,12 +249,29 @@ function drainQueue(): void {
             'Embedding job failed, will retry'
           );
         } else {
-          // Exhausted retries
+          // Exhausted retries - add to DLQ for analysis/manual retry
           failedCount++;
           failedJobs.delete(key);
+
+          // Add to Dead Letter Queue for potential future recovery
+          getEmbeddingDLQ().add({
+            type: 'embedding',
+            operation: 'generateAndStore',
+            payload: {
+              entryType: job.entryType,
+              entryId: job.entryId,
+              text: job.text.substring(0, 100), // Truncate for storage
+            },
+            error: errorMsg,
+            metadata: {
+              versionId: job.versionId,
+              attempts: attemptNumber,
+            },
+          });
+
           logger.error(
             { error: errorMsg, attempts: attemptNumber, key },
-            'Embedding job failed after max retries'
+            'Embedding job failed after max retries, added to DLQ'
           );
         }
       })

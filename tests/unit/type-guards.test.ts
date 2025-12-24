@@ -426,6 +426,3 @@ describe('Parameter Helpers', () => {
     });
   });
 });
-
-
-

@@ -270,7 +270,9 @@ export function traverseRelationGraph(
   const maxResults = options.maxResults ?? 100;
 
   // BFS queue: [node, currentDepth]
+  // Using index-based dequeue instead of shift() for O(1) performance
   const queue: Array<[GraphNode, number]> = [[{ type: startType, id: startId }, 0]];
+  let queueHead = 0; // Index of next item to process (avoids O(n) shift())
 
   // Track visited nodes to prevent cycles: "type:id"
   const visited = new Set<string>();
@@ -278,8 +280,8 @@ export function traverseRelationGraph(
 
   let resultCount = 0;
 
-  while (queue.length > 0 && resultCount < maxResults) {
-    const item = queue.shift();
+  while (queueHead < queue.length && resultCount < maxResults) {
+    const item = queue[queueHead++]; // O(1) dequeue instead of shift()'s O(n)
     if (!item) break;
 
     const [currentNode, currentDepth] = item;

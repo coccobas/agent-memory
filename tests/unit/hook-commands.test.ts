@@ -50,11 +50,31 @@ import { runStopCommand } from '../../src/commands/hook/stop-command.js';
 import { runUserPromptSubmitCommand } from '../../src/commands/hook/userpromptsubmit-command.js';
 import { runSessionEndCommand } from '../../src/commands/hook/session-end-command.js';
 import { verifyAction } from '../../src/services/verification.service.js';
-import { ensureSessionIdExists, getObserveState, setObserveReviewedAt } from '../../src/commands/hook/session.js';
-import { hasWarnedReview, isReviewSuspended, setWarnedReview, setReviewSuspended } from '../../src/commands/hook/state-file.js';
+import {
+  ensureSessionIdExists,
+  getObserveState,
+  setObserveReviewedAt,
+} from '../../src/commands/hook/session.js';
+import {
+  hasWarnedReview,
+  isReviewSuspended,
+  setWarnedReview,
+  setReviewSuspended,
+} from '../../src/commands/hook/state-file.js';
 import { ingestTranscript } from '../../src/commands/hook/transcript-ingest.js';
-import { writeSessionSummaryFile, formatSessionSummary } from '../../src/commands/hook/session-summary.js';
-import { getReviewCandidates, findCandidateByShortId, approveCandidate, rejectCandidate, skipCandidate, formatCandidateList, formatCandidateDetail } from '../../src/commands/hook/review.js';
+import {
+  writeSessionSummaryFile,
+  formatSessionSummary,
+} from '../../src/commands/hook/session-summary.js';
+import {
+  getReviewCandidates,
+  findCandidateByShortId,
+  approveCandidate,
+  rejectCandidate,
+  skipCandidate,
+  formatCandidateList,
+  formatCandidateDetail,
+} from '../../src/commands/hook/review.js';
 
 describe('runPreToolUseCommand', () => {
   beforeEach(() => {
@@ -84,10 +104,15 @@ describe('runPreToolUseCommand', () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toEqual([]);
     expect(result.stderr).toEqual([]);
-    expect(verifyAction).toHaveBeenCalledWith('sess-123', 'proj-123', expect.objectContaining({
-      type: 'file_write',
-      filePath: '/path/to/file.ts',
-    }), expect.anything());
+    expect(verifyAction).toHaveBeenCalledWith(
+      'sess-123',
+      'proj-123',
+      expect.objectContaining({
+        type: 'file_write',
+        filePath: '/path/to/file.ts',
+      }),
+      expect.anything()
+    );
   });
 
   it('should return exit code 2 with violations when action is blocked', () => {
@@ -95,7 +120,12 @@ describe('runPreToolUseCommand', () => {
       allowed: false,
       blocked: true,
       violations: [
-        { guidelineId: 'g1', guidelineName: 'no-secrets', severity: 'critical', message: 'Contains secret' },
+        {
+          guidelineId: 'g1',
+          guidelineName: 'no-secrets',
+          severity: 'critical',
+          message: 'Contains secret',
+        },
       ],
       warnings: [],
       requiresConfirmation: false,
@@ -146,9 +176,14 @@ describe('runPreToolUseCommand', () => {
       },
     });
 
-    expect(verifyAction).toHaveBeenCalledWith(null, null, expect.objectContaining({
-      type: 'command',
-    }), expect.anything());
+    expect(verifyAction).toHaveBeenCalledWith(
+      null,
+      null,
+      expect.objectContaining({
+        type: 'command',
+      }),
+      expect.anything()
+    );
   });
 
   it('should handle unknown tools as other action type', () => {
@@ -167,9 +202,14 @@ describe('runPreToolUseCommand', () => {
       },
     });
 
-    expect(verifyAction).toHaveBeenCalledWith(null, null, expect.objectContaining({
-      type: 'other',
-    }), expect.anything());
+    expect(verifyAction).toHaveBeenCalledWith(
+      null,
+      null,
+      expect.objectContaining({
+        type: 'other',
+      }),
+      expect.anything()
+    );
   });
 });
 
@@ -415,7 +455,13 @@ describe('runUserPromptSubmitCommand', () => {
     });
 
     it('should handle !am show <id>', async () => {
-      const mockCandidate = { id: 'cand-123', shortId: 'abc123', type: 'guideline', name: 'test', content: 'content' };
+      const mockCandidate = {
+        id: 'cand-123',
+        shortId: 'abc123',
+        type: 'guideline',
+        name: 'test',
+        content: 'content',
+      };
       vi.mocked(getReviewCandidates).mockResolvedValue([]);
       vi.mocked(findCandidateByShortId).mockReturnValue(mockCandidate as any);
 
@@ -447,7 +493,13 @@ describe('runUserPromptSubmitCommand', () => {
     });
 
     it('should handle !am approve <id>', async () => {
-      const mockCandidate = { id: 'cand-123', shortId: 'abc123', type: 'guideline', name: 'test', content: 'content' };
+      const mockCandidate = {
+        id: 'cand-123',
+        shortId: 'abc123',
+        type: 'guideline',
+        name: 'test',
+        content: 'content',
+      };
       vi.mocked(getReviewCandidates).mockResolvedValue([]);
       vi.mocked(findCandidateByShortId).mockReturnValue(mockCandidate as any);
       vi.mocked(approveCandidate).mockResolvedValue(true);
@@ -470,7 +522,13 @@ describe('runUserPromptSubmitCommand', () => {
     });
 
     it('should handle !am reject <id>', async () => {
-      const mockCandidate = { id: 'cand-123', shortId: 'abc123', type: 'guideline', name: 'test', content: 'content' };
+      const mockCandidate = {
+        id: 'cand-123',
+        shortId: 'abc123',
+        type: 'guideline',
+        name: 'test',
+        content: 'content',
+      };
       vi.mocked(getReviewCandidates).mockResolvedValue([]);
       vi.mocked(findCandidateByShortId).mockReturnValue(mockCandidate as any);
       vi.mocked(rejectCandidate).mockResolvedValue(true);
@@ -484,7 +542,13 @@ describe('runUserPromptSubmitCommand', () => {
     });
 
     it('should handle !am skip <id>', async () => {
-      const mockCandidate = { id: 'cand-123', shortId: 'abc123', type: 'guideline', name: 'test', content: 'content' };
+      const mockCandidate = {
+        id: 'cand-123',
+        shortId: 'abc123',
+        type: 'guideline',
+        name: 'test',
+        content: 'content',
+      };
       vi.mocked(getReviewCandidates).mockResolvedValue([]);
       vi.mocked(findCandidateByShortId).mockReturnValue(mockCandidate as any);
       vi.mocked(skipCandidate).mockResolvedValue(true);
@@ -574,9 +638,11 @@ describe('runSessionEndCommand', () => {
       },
     });
 
-    expect(ingestTranscript).toHaveBeenCalledWith(expect.objectContaining({
-      cwd: undefined,
-    }));
+    expect(ingestTranscript).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cwd: undefined,
+      })
+    );
     expect(result.exitCode).toBe(0);
   });
 });

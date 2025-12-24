@@ -1,9 +1,9 @@
 version: '3.8'
 
-# Docker Compose for PostgreSQL integration tests
+# Docker Compose for PostgreSQL and Redis integration tests
 # Usage:
 #   docker-compose -f tests/fixtures/docker-compose.yml up -d
-#   npm run test:integration:pg
+#   npm run test:run
 #   docker-compose -f tests/fixtures/docker-compose.yml down
 
 services:
@@ -32,3 +32,16 @@ services:
       -c synchronous_commit=off
       -c fsync=off
       -c full_page_writes=off
+
+  redis-test:
+    image: redis:7-alpine
+    container_name: agent-memory-redis-test
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+    # Use append-only file disabled for faster tests
+    command: redis-server --appendonly no --save ""

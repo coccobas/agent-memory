@@ -90,7 +90,11 @@ describe('Knowledge Integration', () => {
 
     it('should require title', async () => {
       await expect(
-        knowledgeHandlers.add(context, { agentId: AGENT_ID, scopeType: 'global', content: 'content' })
+        knowledgeHandlers.add(context, {
+          agentId: AGENT_ID,
+          scopeType: 'global',
+          content: 'content',
+        })
       ).rejects.toThrow(/title.*required/i);
     });
 
@@ -189,7 +193,12 @@ describe('Knowledge Integration', () => {
   describe('memory_knowledge_history', () => {
     it('should return version history', async () => {
       const { knowledge } = createTestKnowledge(db, 'history_test');
-      await knowledgeHandlers.update(context, { agentId: AGENT_ID, id: knowledge.id, content: 'Version 2', changeReason: 'Update' });
+      await knowledgeHandlers.update(context, {
+        agentId: AGENT_ID,
+        id: knowledge.id,
+        content: 'Version 2',
+        changeReason: 'Update',
+      });
       await knowledgeHandlers.update(context, {
         agentId: AGENT_ID,
         id: knowledge.id,
@@ -197,7 +206,10 @@ describe('Knowledge Integration', () => {
         changeReason: 'Another update',
       });
 
-      const result = await knowledgeHandlers.history(context, { agentId: AGENT_ID, id: knowledge.id });
+      const result = await knowledgeHandlers.history(context, {
+        agentId: AGENT_ID,
+        id: knowledge.id,
+      });
       expect(result.versions.length).toBeGreaterThanOrEqual(3);
     });
   });
@@ -205,7 +217,10 @@ describe('Knowledge Integration', () => {
   describe('memory_knowledge_deactivate', () => {
     it('should deactivate a knowledge entry', async () => {
       const { knowledge } = createTestKnowledge(db, 'deactivate_test');
-      const result = await knowledgeHandlers.deactivate(context, { agentId: AGENT_ID, id: knowledge.id });
+      const result = await knowledgeHandlers.deactivate(context, {
+        agentId: AGENT_ID,
+        id: knowledge.id,
+      });
 
       expect(result.success).toBe(true);
       const fetched = await knowledgeHandlers.get(context, { agentId: AGENT_ID, id: knowledge.id });

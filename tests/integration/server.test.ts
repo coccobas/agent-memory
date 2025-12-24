@@ -7,7 +7,13 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createServer } from '../../src/mcp/server.js';
 import { closeDb, getDb } from '../../src/db/connection.js';
-import { setupTestDb, cleanupTestDb, createTestQueryDeps, getRuntime, type TestDb } from '../fixtures/test-helpers.js';
+import {
+  setupTestDb,
+  cleanupTestDb,
+  createTestQueryDeps,
+  getRuntime,
+  type TestDb,
+} from '../fixtures/test-helpers.js';
 import type { AppContext } from '../../src/core/context.js';
 import { createComponentLogger } from '../../src/utils/logger.js';
 import { config } from '../../src/config/index.js';

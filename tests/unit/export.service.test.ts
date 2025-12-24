@@ -80,10 +80,13 @@ describe('Export Service', () => {
         createdBy: 'test',
       });
 
-      const result = exportToJson({
-        types: ['tools'],
-        scopeType: 'global',
-      }, testDb.db);
+      const result = exportToJson(
+        {
+          types: ['tools'],
+          scopeType: 'global',
+        },
+        testDb.db
+      );
 
       const data = JSON.parse(result.content);
       const toolNames = data.entries.tools.map((t: any) => t.name);
@@ -132,10 +135,13 @@ describe('Export Service', () => {
         tagId: pythonTag.id,
       });
 
-      const result = exportToJson({
-        types: ['tools'],
-        tags: ['python'],
-      }, testDb.db);
+      const result = exportToJson(
+        {
+          types: ['tools'],
+          tags: ['python'],
+        },
+        testDb.db
+      );
 
       const data = JSON.parse(result.content);
       const toolNames = data.entries.tools.map((t: any) => t.name);

@@ -49,6 +49,42 @@ async function main() {
     return;
   }
 
+  // Check for Commander.js CLI commands (new unified CLI)
+  // These are all subcommand-style commands like: knowledge, guideline, tool, query, etc.
+  const cliCommands = [
+    'knowledge',
+    'guideline',
+    'tool',
+    'query',
+    'org',
+    'project',
+    'session',
+    'tag',
+    'relation',
+    'permission',
+    'file-lock',
+    'init',
+    'backup',
+    'export',
+    'import',
+    'health',
+    'conflict',
+    'analytics',
+    'consolidate',
+    'verify',
+    'conversation',
+    'observe',
+    'task',
+    'voting',
+    // Note: 'review' and 'hook' are handled by existing legacy commands above
+  ];
+
+  if (cliCommands.includes(command) || command === '--help' || command === '-h' || command === '--version' || command === '-V') {
+    const { runCli } = await import('./cli/index.js');
+    await runCli(argv);
+    return;
+  }
+
   // Load environment variables explicitly
   const { loadEnv } = await import('./config/env.js');
   const { resolve, dirname } = await import('node:path');

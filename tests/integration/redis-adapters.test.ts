@@ -352,7 +352,10 @@ describe.skipIf(!REDIS_ENABLED)('Redis Adapters Integration', () => {
         // Instance 1 invalidates
         await cache1.deleteAsync('shared-key');
 
-        // Instance 2 should see the deletion
+        // Allow pub/sub invalidation message to propagate
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        // Instance 2 should see the deletion (local cache invalidated via pub/sub)
         const deleted = await cache2.getAsync('shared-key');
         expect(deleted).toBeUndefined();
       } finally {

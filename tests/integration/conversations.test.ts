@@ -59,9 +59,9 @@ describe('Conversations Integration', () => {
     });
 
     it('should require sessionId or projectId', async () => {
-      await expect(
-        conversationHandlers.start(ctx, { agentId: 'agent-1' })
-      ).rejects.toThrow(/sessionId or projectId.*required/i);
+      await expect(conversationHandlers.start(ctx, { agentId: 'agent-1' })).rejects.toThrow(
+        /sessionId or projectId.*required/i
+      );
     });
   });
 
@@ -73,7 +73,8 @@ describe('Conversations Integration', () => {
         agentId: 'agent-1',
       });
 
-      const result = await conversationHandlers.addMessage(ctx, { agentId: 'test-agent',
+      const result = await conversationHandlers.addMessage(ctx, {
+        agentId: 'test-agent',
         conversationId: conversation.id,
         role: 'user',
         content: 'Hello, world!',
@@ -93,7 +94,8 @@ describe('Conversations Integration', () => {
         agentId: 'agent-1',
       });
 
-      const result = await conversationHandlers.addMessage(ctx, { agentId: 'test-agent',
+      const result = await conversationHandlers.addMessage(ctx, {
+        agentId: 'test-agent',
         conversationId: conversation.id,
         role: 'agent',
         content: 'Response',
@@ -114,19 +116,33 @@ describe('Conversations Integration', () => {
 
     it('should require role', async () => {
       const project = createTestProject(db);
-      const { conversation } = await conversationHandlers.start(ctx, { projectId: project.id, agentId: 'test-agent' });
+      const { conversation } = await conversationHandlers.start(ctx, {
+        projectId: project.id,
+        agentId: 'test-agent',
+      });
 
       await expect(
-        conversationHandlers.addMessage(ctx, { conversationId: conversation.id, content: 'Hello', agentId: 'test-agent' })
+        conversationHandlers.addMessage(ctx, {
+          conversationId: conversation.id,
+          content: 'Hello',
+          agentId: 'test-agent',
+        })
       ).rejects.toThrow(/role.*required/i);
     });
 
     it('should require content', async () => {
       const project = createTestProject(db);
-      const { conversation } = await conversationHandlers.start(ctx, { projectId: project.id, agentId: 'test-agent' });
+      const { conversation } = await conversationHandlers.start(ctx, {
+        projectId: project.id,
+        agentId: 'test-agent',
+      });
 
       await expect(
-        conversationHandlers.addMessage(ctx, { conversationId: conversation.id, role: 'user', agentId: 'test-agent' })
+        conversationHandlers.addMessage(ctx, {
+          conversationId: conversation.id,
+          role: 'user',
+          agentId: 'test-agent',
+        })
       ).rejects.toThrow(/content.*required/i);
     });
   });
@@ -149,14 +165,21 @@ describe('Conversations Integration', () => {
 
     it('should get with messages', async () => {
       const project = createTestProject(db);
-      const { conversation } = await conversationHandlers.start(ctx, { projectId: project.id, agentId: 'test-agent' });
-      await conversationHandlers.addMessage(ctx, { agentId: 'test-agent',
+      const { conversation } = await conversationHandlers.start(ctx, {
+        projectId: project.id,
+        agentId: 'test-agent',
+      });
+      await conversationHandlers.addMessage(ctx, {
+        agentId: 'test-agent',
         conversationId: conversation.id,
         role: 'user',
         content: 'Message 1',
       });
 
-      const result = await conversationHandlers.get(ctx, { id: conversation.id, includeMessages: true });
+      const result = await conversationHandlers.get(ctx, {
+        id: conversation.id,
+        includeMessages: true,
+      });
 
       expect(result.conversation.messages).toBeDefined();
       expect(result.conversation.messages?.length).toBe(1);
@@ -165,31 +188,46 @@ describe('Conversations Integration', () => {
     it('should get with context', async () => {
       const project = createTestProject(db);
       const { knowledge } = createTestKnowledge(db, 'Test Knowledge');
-      const { conversation } = await conversationHandlers.start(ctx, { projectId: project.id, agentId: 'test-agent' });
-      await conversationHandlers.linkContext(ctx, { agentId: 'test-agent',
+      const { conversation } = await conversationHandlers.start(ctx, {
+        projectId: project.id,
+        agentId: 'test-agent',
+      });
+      await conversationHandlers.linkContext(ctx, {
+        agentId: 'test-agent',
         conversationId: conversation.id,
         entryType: 'knowledge',
         entryId: knowledge.id,
       });
 
-      const result = await conversationHandlers.get(ctx, { id: conversation.id, includeContext: true });
+      const result = await conversationHandlers.get(ctx, {
+        id: conversation.id,
+        includeContext: true,
+      });
 
       expect(result.conversation.context).toBeDefined();
       expect(result.conversation.context?.length).toBeGreaterThanOrEqual(1);
     });
 
     it('should throw error for non-existent conversation', async () => {
-      await expect(
-        conversationHandlers.get(ctx, { id: 'non-existent-id' })
-      ).rejects.toThrow(/not found/i);
+      await expect(conversationHandlers.get(ctx, { id: 'non-existent-id' })).rejects.toThrow(
+        /not found/i
+      );
     });
   });
 
   describe('memory_conversation_list', () => {
     it('should list conversations', async () => {
       const project = createTestProject(db);
-      await conversationHandlers.start(ctx, { projectId: project.id, agentId: 'test-agent', title: 'Conv 1' });
-      await conversationHandlers.start(ctx, { projectId: project.id, agentId: 'test-agent', title: 'Conv 2' });
+      await conversationHandlers.start(ctx, {
+        projectId: project.id,
+        agentId: 'test-agent',
+        title: 'Conv 1',
+      });
+      await conversationHandlers.start(ctx, {
+        projectId: project.id,
+        agentId: 'test-agent',
+        title: 'Conv 2',
+      });
 
       const result = await conversationHandlers.list(ctx, { projectId: project.id });
 
@@ -199,11 +237,24 @@ describe('Conversations Integration', () => {
 
     it('should filter by status', async () => {
       const project = createTestProject(db);
-      const { conversation } = await conversationHandlers.start(ctx, { projectId: project.id, agentId: 'test-agent' });
-      await conversationHandlers.update(ctx, { agentId: 'test-agent', id: conversation.id, status: 'completed' });
+      const { conversation } = await conversationHandlers.start(ctx, {
+        projectId: project.id,
+        agentId: 'test-agent',
+      });
+      await conversationHandlers.update(ctx, {
+        agentId: 'test-agent',
+        id: conversation.id,
+        status: 'completed',
+      });
 
-      const active = await conversationHandlers.list(ctx, { projectId: project.id, status: 'active' });
-      const completed = await conversationHandlers.list(ctx, { projectId: project.id, status: 'completed' });
+      const active = await conversationHandlers.list(ctx, {
+        projectId: project.id,
+        status: 'active',
+      });
+      const completed = await conversationHandlers.list(ctx, {
+        projectId: project.id,
+        status: 'completed',
+      });
 
       expect(completed.conversations.some((c) => c.id === conversation.id)).toBe(true);
     });
@@ -229,9 +280,9 @@ describe('Conversations Integration', () => {
     });
 
     it('should require id', async () => {
-      await expect(
-        conversationHandlers.update(ctx, { title: 'New Title' })
-      ).rejects.toThrow(/id.*required/i);
+      await expect(conversationHandlers.update(ctx, { title: 'New Title' })).rejects.toThrow(
+        /id.*required/i
+      );
     });
   });
 
@@ -239,9 +290,13 @@ describe('Conversations Integration', () => {
     it('should link entry', async () => {
       const project = createTestProject(db);
       const { knowledge } = createTestKnowledge(db, 'Test Knowledge');
-      const { conversation } = await conversationHandlers.start(ctx, { projectId: project.id, agentId: 'test-agent' });
+      const { conversation } = await conversationHandlers.start(ctx, {
+        projectId: project.id,
+        agentId: 'test-agent',
+      });
 
-      const result = await conversationHandlers.linkContext(ctx, { agentId: 'test-agent',
+      const result = await conversationHandlers.linkContext(ctx, {
+        agentId: 'test-agent',
         conversationId: conversation.id,
         entryType: 'knowledge',
         entryId: knowledge.id,
@@ -264,8 +319,12 @@ describe('Conversations Integration', () => {
     it('should get context for entry', async () => {
       const project = createTestProject(db);
       const { knowledge } = createTestKnowledge(db, 'Test Knowledge');
-      const { conversation } = await conversationHandlers.start(ctx, { projectId: project.id, agentId: 'test-agent' });
-      await conversationHandlers.linkContext(ctx, { agentId: 'test-agent',
+      const { conversation } = await conversationHandlers.start(ctx, {
+        projectId: project.id,
+        agentId: 'test-agent',
+      });
+      await conversationHandlers.linkContext(ctx, {
+        agentId: 'test-agent',
         conversationId: conversation.id,
         entryType: 'knowledge',
         entryId: knowledge.id,
@@ -284,8 +343,12 @@ describe('Conversations Integration', () => {
     it('should get context for conversation', async () => {
       const project = createTestProject(db);
       const { knowledge } = createTestKnowledge(db, 'Test Knowledge');
-      const { conversation } = await conversationHandlers.start(ctx, { projectId: project.id, agentId: 'test-agent' });
-      await conversationHandlers.linkContext(ctx, { agentId: 'test-agent',
+      const { conversation } = await conversationHandlers.start(ctx, {
+        projectId: project.id,
+        agentId: 'test-agent',
+      });
+      await conversationHandlers.linkContext(ctx, {
+        agentId: 'test-agent',
         conversationId: conversation.id,
         entryType: 'knowledge',
         entryId: knowledge.id,
@@ -308,7 +371,8 @@ describe('Conversations Integration', () => {
         agentId: 'test-agent',
         title: 'Searchable Title',
       });
-      await conversationHandlers.addMessage(ctx, { agentId: 'test-agent',
+      await conversationHandlers.addMessage(ctx, {
+        agentId: 'test-agent',
         conversationId: conversation.id,
         role: 'user',
         content: 'This is about authentication',
@@ -324,18 +388,22 @@ describe('Conversations Integration', () => {
     });
 
     it('should require search query', async () => {
-      await expect(
-        conversationHandlers.search(ctx, {})
-      ).rejects.toThrow(/search.*required/i);
+      await expect(conversationHandlers.search(ctx, {})).rejects.toThrow(/search.*required/i);
     });
   });
 
   describe('memory_conversation_end', () => {
     it('should end conversation', async () => {
       const project = createTestProject(db);
-      const { conversation } = await conversationHandlers.start(ctx, { projectId: project.id, agentId: 'test-agent' });
+      const { conversation } = await conversationHandlers.start(ctx, {
+        projectId: project.id,
+        agentId: 'test-agent',
+      });
 
-      const result = await conversationHandlers.end(ctx, { agentId: 'test-agent', id: conversation.id });
+      const result = await conversationHandlers.end(ctx, {
+        agentId: 'test-agent',
+        id: conversation.id,
+      });
 
       expect(result.success).toBe(true);
       expect(result.conversation.status).toBe('completed');
@@ -344,8 +412,12 @@ describe('Conversations Integration', () => {
 
     it('should generate summary if requested', async () => {
       const project = createTestProject(db);
-      const { conversation } = await conversationHandlers.start(ctx, { projectId: project.id, agentId: 'test-agent' });
-      await conversationHandlers.addMessage(ctx, { agentId: 'test-agent',
+      const { conversation } = await conversationHandlers.start(ctx, {
+        projectId: project.id,
+        agentId: 'test-agent',
+      });
+      await conversationHandlers.addMessage(ctx, {
+        agentId: 'test-agent',
         conversationId: conversation.id,
         role: 'user',
         content: 'Hello',
@@ -365,9 +437,15 @@ describe('Conversations Integration', () => {
   describe('memory_conversation_archive', () => {
     it('should archive conversation', async () => {
       const project = createTestProject(db);
-      const { conversation } = await conversationHandlers.start(ctx, { projectId: project.id, agentId: 'test-agent' });
+      const { conversation } = await conversationHandlers.start(ctx, {
+        projectId: project.id,
+        agentId: 'test-agent',
+      });
 
-      const result = await conversationHandlers.archive(ctx, { agentId: 'test-agent', id: conversation.id });
+      const result = await conversationHandlers.archive(ctx, {
+        agentId: 'test-agent',
+        id: conversation.id,
+      });
 
       expect(result.success).toBe(true);
       expect(result.conversation.status).toBe('archived');

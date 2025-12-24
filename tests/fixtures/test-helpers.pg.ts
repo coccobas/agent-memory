@@ -122,10 +122,7 @@ export async function withTransaction<T>(
 /**
  * Helper to skip tests when PostgreSQL is not available.
  */
-export function describeIfPostgres(
-  name: string,
-  fn: () => void
-): void {
+export function describeIfPostgres(name: string, fn: () => void): void {
   const isAvailable = process.env.POSTGRES_AVAILABLE === 'true';
   if (isAvailable) {
     describe(name, fn);

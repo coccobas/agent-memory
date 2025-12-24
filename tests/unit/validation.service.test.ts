@@ -3,8 +3,16 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { setupTestDb, cleanupTestDb, createTestGuideline, createTestRepositories } from '../fixtures/test-helpers.js';
-import { createValidationService, type ValidationService } from '../../src/services/validation.service.js';
+import {
+  setupTestDb,
+  cleanupTestDb,
+  createTestGuideline,
+  createTestRepositories,
+} from '../fixtures/test-helpers.js';
+import {
+  createValidationService,
+  type ValidationService,
+} from '../../src/services/validation.service.js';
 import type { Repositories } from '../../src/core/interfaces/repositories.js';
 
 const TEST_DB_PATH = './data/test-validation.db';
@@ -478,6 +486,3 @@ describe('validation.service', () => {
     });
   });
 });
-
-
-

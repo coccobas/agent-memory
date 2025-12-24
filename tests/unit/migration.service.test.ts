@@ -600,7 +600,10 @@ describe('migration.service', () => {
         createdBy: 'test-user',
       });
 
-      await migrationService.migrateScope({ type: 'agent', id: 'agent-preserve' }, { type: 'global', id: undefined });
+      await migrationService.migrateScope(
+        { type: 'agent', id: 'agent-preserve' },
+        { type: 'global', id: undefined }
+      );
 
       const migratedTool = await toolRepo.getByName('preserve-test', 'global');
       expect(migratedTool).toBeDefined();
@@ -633,6 +636,3 @@ describe('migration.service', () => {
     });
   });
 });
-
-
-

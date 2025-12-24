@@ -25,7 +25,9 @@ let testOrgId: string;
 let testProjectId: string;
 
 // Helper to execute query with pipeline (replaces legacy executeMemoryQuery)
-async function executeMemoryQuery(params: Parameters<typeof executeQueryPipeline>[0]): Promise<MemoryQueryResult> {
+async function executeMemoryQuery(
+  params: Parameters<typeof executeQueryPipeline>[0]
+): Promise<MemoryQueryResult> {
   return executeQueryPipeline(params, createTestQueryDeps()) as Promise<MemoryQueryResult>;
 }
 
@@ -58,7 +60,8 @@ describe('Edge Cases', () => {
       const pastTime = new Date(Date.now() - 10000).toISOString();
       const expiredTime = new Date(Date.now() - 5000).toISOString();
 
-      testDb.db.insert(schema.fileLocks)
+      testDb.db
+        .insert(schema.fileLocks)
         .values({
           id: 'lock-expired',
           filePath: '/path/to/expired.ts',
@@ -100,7 +103,8 @@ describe('Edge Cases', () => {
       const pastTime = new Date(Date.now() - 10000).toISOString();
       const expiredTime = new Date(Date.now() - 1000).toISOString();
 
-      testDb.db.insert(schema.fileLocks)
+      testDb.db
+        .insert(schema.fileLocks)
         .values({
           id: 'lock-expired-2',
           filePath: '/path/to/expired2.ts',
@@ -119,7 +123,8 @@ describe('Edge Cases', () => {
       const pastTime = new Date(now - 10000).toISOString();
 
       // Create one expired and one active lock
-      testDb.db.insert(schema.fileLocks)
+      testDb.db
+        .insert(schema.fileLocks)
         .values([
           {
             id: 'lock-expired-3',
@@ -183,15 +188,17 @@ describe('Edge Cases', () => {
   describe('Large Result Sets', () => {
     it('should handle querying 200 tools efficiently', async () => {
       // Create 200 tools in global scope
-      const tools = await Promise.all(Array.from({ length: 200 }, async (_, i) => {
-        const tool = await repos.tools.create({
-          scopeType: 'global',
-          name: `tool_${i.toString().padStart(3, '0')}`,
-          category: i % 2 === 0 ? 'mcp' : 'cli',
-          description: `Test tool number ${i}`,
-        });
-        return tool;
-      }));
+      const tools = await Promise.all(
+        Array.from({ length: 200 }, async (_, i) => {
+          const tool = await repos.tools.create({
+            scopeType: 'global',
+            name: `tool_${i.toString().padStart(3, '0')}`,
+            category: i % 2 === 0 ? 'mcp' : 'cli',
+            description: `Test tool number ${i}`,
+          });
+          return tool;
+        })
+      );
 
       expect(tools).toHaveLength(200);
 
@@ -231,14 +238,16 @@ describe('Edge Cases', () => {
 
     it('should handle pagination with large datasets', async () => {
       // Create 50 tools
-      await Promise.all(Array.from({ length: 50 }, async (_, i) => {
-        await repos.tools.create({
-          scopeType: 'global',
-          name: `paginated_tool_${i.toString().padStart(3, '0')}`,
-          category: 'function',
-          description: `Paginated tool ${i}`,
-        });
-      }));
+      await Promise.all(
+        Array.from({ length: 50 }, async (_, i) => {
+          await repos.tools.create({
+            scopeType: 'global',
+            name: `paginated_tool_${i.toString().padStart(3, '0')}`,
+            category: 'function',
+            description: `Paginated tool ${i}`,
+          });
+        })
+      );
 
       // List with default pagination
       const page1 = await repos.tools.list({ scopeType: 'global' }, { limit: 20, offset: 0 });
@@ -254,13 +263,15 @@ describe('Edge Cases', () => {
 
     it('should respect max limit of 100', async () => {
       // Create 150 tools
-      await Promise.all(Array.from({ length: 150 }, async (_, i) => {
-        await repos.tools.create({
-          scopeType: 'global',
-          name: `limit_test_tool_${i.toString().padStart(3, '0')}`,
-          category: 'api',
-        });
-      }));
+      await Promise.all(
+        Array.from({ length: 150 }, async (_, i) => {
+          await repos.tools.create({
+            scopeType: 'global',
+            name: `limit_test_tool_${i.toString().padStart(3, '0')}`,
+            category: 'api',
+          });
+        })
+      );
 
       // Try to query with limit > 100
       const result = await repos.tools.list({ scopeType: 'global' }, { limit: 200 });

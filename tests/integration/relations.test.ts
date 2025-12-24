@@ -88,9 +88,9 @@ describe('Relations Integration', () => {
     });
 
     it('should require all required fields', async () => {
-      await expect(
-        relationHandlers.create(context, { agentId: AGENT_ID })
-      ).rejects.toThrow('sourceType is required');
+      await expect(relationHandlers.create(context, { agentId: AGENT_ID })).rejects.toThrow(
+        'sourceType is required'
+      );
     });
   });
 
@@ -243,9 +243,9 @@ describe('Relations Integration', () => {
     });
 
     it('should require id or full key', async () => {
-      await expect(
-        relationHandlers.delete(context, { agentId: AGENT_ID })
-      ).rejects.toThrow(/id or \(sourceType, sourceId, targetType, targetId, relationType\)/);
+      await expect(relationHandlers.delete(context, { agentId: AGENT_ID })).rejects.toThrow(
+        /id or \(sourceType, sourceId, targetType, targetId, relationType\)/
+      );
     });
   });
 });

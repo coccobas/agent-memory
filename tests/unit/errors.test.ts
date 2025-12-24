@@ -2,7 +2,7 @@
  * Unit tests for error utilities
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
   AgentMemoryError,
   ErrorCodes,
@@ -10,6 +10,7 @@ import {
   createNotFoundError,
   createConflictError,
   createFileLockError,
+  sanitizeErrorMessage,
 } from '../../src/core/errors.js';
 import { createInvalidActionError, formatError } from '../../src/mcp/errors.js';
 
@@ -140,5 +141,168 @@ describe('formatError', () => {
     const formatted2 = formatError(undefined);
     expect(formatted2.error).toBe('undefined');
     expect(formatted2.code).toBe(ErrorCodes.UNKNOWN_ERROR);
+  });
+});
+
+describe('sanitizeErrorMessage', () => {
+  let originalEnv: string | undefined;
+
+  beforeEach(() => {
+    originalEnv = process.env.NODE_ENV;
+  });
+
+  afterEach(() => {
+    if (originalEnv !== undefined) {
+      process.env.NODE_ENV = originalEnv;
+    } else {
+      delete process.env.NODE_ENV;
+    }
+  });
+
+  describe('in development mode', () => {
+    beforeEach(() => {
+      process.env.NODE_ENV = 'development';
+    });
+
+    it('should not sanitize paths in development', () => {
+      const message = 'Error in /Users/admin/project/file.ts';
+      expect(sanitizeErrorMessage(message)).toBe(message);
+    });
+
+    it('should not sanitize IP addresses in development', () => {
+      const message = 'Connection failed to 192.168.1.100';
+      expect(sanitizeErrorMessage(message)).toBe(message);
+    });
+  });
+
+  describe('in production mode', () => {
+    beforeEach(() => {
+      process.env.NODE_ENV = 'production';
+    });
+
+    describe('Unix path sanitization', () => {
+      it('should redact /Users paths', () => {
+        const message = 'Error in /Users/admin/project/file.ts';
+        expect(sanitizeErrorMessage(message)).toBe('Error in [REDACTED_PATH]');
+      });
+
+      it('should redact /home paths', () => {
+        const message = 'Failed at /home/ubuntu/app/index.js';
+        expect(sanitizeErrorMessage(message)).toBe('Failed at [REDACTED_PATH]');
+      });
+
+      it('should redact /var paths', () => {
+        const message = 'Log error in /var/log/app.log';
+        expect(sanitizeErrorMessage(message)).toBe('Log error in [REDACTED_PATH]');
+      });
+
+      it('should redact /etc paths', () => {
+        const message = 'Config at /etc/app/config.json';
+        expect(sanitizeErrorMessage(message)).toBe('Config at [REDACTED_PATH]');
+      });
+
+      it('should redact /root paths', () => {
+        const message = 'Root file /root/.ssh/id_rsa';
+        expect(sanitizeErrorMessage(message)).toBe('Root file [REDACTED_PATH]');
+      });
+
+      it('should redact /srv paths', () => {
+        const message = 'Server at /srv/www/html/index.html';
+        expect(sanitizeErrorMessage(message)).toBe('Server at [REDACTED_PATH]');
+      });
+
+      it('should redact /mnt, /lib, /bin, /sbin, /proc, /sys, /boot, /dev, /run paths', () => {
+        const paths = ['/mnt/data', '/lib/x86_64', '/bin/bash', '/sbin/init', '/proc/1', '/sys/class', '/boot/grub', '/dev/sda1', '/run/lock'];
+        paths.forEach(path => {
+          const message = `Error at ${path}`;
+          expect(sanitizeErrorMessage(message)).toBe('Error at [REDACTED_PATH]');
+        });
+      });
+    });
+
+    describe('Windows path sanitization', () => {
+      it('should redact C:\\ paths', () => {
+        const message = 'Error in C:\\Users\\Admin\\project\\file.ts';
+        expect(sanitizeErrorMessage(message)).toBe('Error in [REDACTED_PATH]');
+      });
+
+      it('should redact other drive letters', () => {
+        const message = 'Failed at D:\\Projects\\app\\index.js';
+        expect(sanitizeErrorMessage(message)).toBe('Failed at [REDACTED_PATH]');
+      });
+    });
+
+    describe('IP address sanitization', () => {
+      it('should redact valid IPv4 addresses', () => {
+        const message = 'Connection failed to 192.168.1.100';
+        expect(sanitizeErrorMessage(message)).toBe('Connection failed to [REDACTED_IP]');
+      });
+
+      it('should redact multiple IP addresses', () => {
+        const message = 'Proxy 10.0.0.1 failed to reach 172.16.0.50';
+        expect(sanitizeErrorMessage(message)).toBe('Proxy [REDACTED_IP] failed to reach [REDACTED_IP]');
+      });
+
+      it('should redact edge case IPs', () => {
+        const ips = ['0.0.0.0', '255.255.255.255', '127.0.0.1'];
+        ips.forEach(ip => {
+          const message = `Server at ${ip}`;
+          expect(sanitizeErrorMessage(message)).toBe('Server at [REDACTED_IP]');
+        });
+      });
+    });
+
+    describe('Connection string sanitization', () => {
+      it('should redact PostgreSQL connection strings', () => {
+        const message = 'Failed to connect to postgres://user:pass@localhost:5432/db';
+        expect(sanitizeErrorMessage(message)).toBe('Failed to connect to [REDACTED_CONNECTION_STRING]');
+      });
+
+      it('should redact MySQL connection strings', () => {
+        const message = 'Error: mysql://admin:secret@db.example.com/mydb';
+        expect(sanitizeErrorMessage(message)).toBe('Error: [REDACTED_CONNECTION_STRING]');
+      });
+
+      it('should redact Redis connection strings', () => {
+        const message = 'Cache error redis://user:password@redis.local:6379';
+        expect(sanitizeErrorMessage(message)).toBe('Cache error [REDACTED_CONNECTION_STRING]');
+      });
+
+      it('should redact MongoDB connection strings', () => {
+        const message = 'DB error mongodb://admin:pass123@mongo.local/test';
+        expect(sanitizeErrorMessage(message)).toBe('DB error [REDACTED_CONNECTION_STRING]');
+      });
+
+      it('should redact AMQP connection strings', () => {
+        const message = 'Queue error amqp://guest:guest@rabbitmq:5672';
+        expect(sanitizeErrorMessage(message)).toBe('Queue error [REDACTED_CONNECTION_STRING]');
+      });
+    });
+
+    describe('Stack trace sanitization', () => {
+      it('should redact stack trace function calls', () => {
+        const message = 'Error at someFunction (/path/to/file.ts:10:5)';
+        expect(sanitizeErrorMessage(message)).toBe('Error [REDACTED_STACK]');
+      });
+
+      it('should redact stack trace file references', () => {
+        const message = 'Error at /path/to/file.ts:10:5';
+        expect(sanitizeErrorMessage(message)).toBe('Error [REDACTED_STACK]');
+      });
+    });
+
+    describe('Combined sanitization', () => {
+      it('should redact multiple sensitive patterns', () => {
+        const message = 'Connection from 192.168.1.1 to postgres://user:pass@10.0.0.5/db failed at /home/user/app.ts:50:10';
+        const sanitized = sanitizeErrorMessage(message);
+        expect(sanitized).not.toContain('192.168.1.1');
+        expect(sanitized).not.toContain('10.0.0.5');
+        expect(sanitized).not.toContain('postgres://');
+        expect(sanitized).not.toContain('/home/user/app.ts');
+        expect(sanitized).toContain('[REDACTED_IP]');
+        expect(sanitized).toContain('[REDACTED_CONNECTION_STRING]');
+        expect(sanitized).toContain('[REDACTED_STACK]');
+      });
+    });
   });
 });

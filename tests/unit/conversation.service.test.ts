@@ -12,7 +12,10 @@ import {
   createTestKnowledge,
   createTestRepositories,
 } from '../fixtures/test-helpers.js';
-import { createConversationService, type ConversationService } from '../../src/services/conversation.service.js';
+import {
+  createConversationService,
+  type ConversationService,
+} from '../../src/services/conversation.service.js';
 import type { MemoryQueryResult } from '../../src/services/query.service.js';
 import type { Repositories } from '../../src/core/interfaces/repositories.js';
 import { eq } from 'drizzle-orm';
@@ -29,19 +32,27 @@ let testSessionId: string;
 let db: ReturnType<typeof setupTestDb>['db'];
 
 // Helper functions to maintain test compatibility
-async function autoLinkContextFromQuery(...args: Parameters<ConversationService['autoLinkContextFromQuery']>) {
+async function autoLinkContextFromQuery(
+  ...args: Parameters<ConversationService['autoLinkContextFromQuery']>
+) {
   return await conversationService.autoLinkContextFromQuery(...args);
 }
 
-async function generateConversationSummary(...args: Parameters<ConversationService['generateConversationSummary']>) {
+async function generateConversationSummary(
+  ...args: Parameters<ConversationService['generateConversationSummary']>
+) {
   return await conversationService.generateConversationSummary(...args);
 }
 
-async function extractKnowledgeFromConversation(...args: Parameters<ConversationService['extractKnowledgeFromConversation']>) {
+async function extractKnowledgeFromConversation(
+  ...args: Parameters<ConversationService['extractKnowledgeFromConversation']>
+) {
   return await conversationService.extractKnowledgeFromConversation(...args);
 }
 
-async function getConversationAnalytics(...args: Parameters<ConversationService['getConversationAnalytics']>) {
+async function getConversationAnalytics(
+  ...args: Parameters<ConversationService['getConversationAnalytics']>
+) {
   return await conversationService.getConversationAnalytics(...args);
 }
 
@@ -252,6 +263,3 @@ describe('Conversation Service', () => {
     });
   });
 });
-
-
-

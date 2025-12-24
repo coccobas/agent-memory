@@ -8,6 +8,7 @@
  * (Redis requirement for pub/sub).
  */
 
+import { z } from 'zod';
 import type { IEventAdapter, EntryChangedEvent } from './interfaces.js';
 import { createComponentLogger } from '../../utils/logger.js';
 
@@ -15,6 +16,26 @@ import { createComponentLogger } from '../../utils/logger.js';
 type Redis = import('ioredis').default;
 
 const logger = createComponentLogger('redis-event');
+
+/**
+ * Zod schema for EntryChangedEvent validation.
+ */
+const EntryChangedEventSchema: z.ZodType<EntryChangedEvent> = z.object({
+  entryType: z.enum(['tool', 'guideline', 'knowledge']),
+  entryId: z.string().min(1),
+  scopeType: z.enum(['global', 'org', 'project', 'session']),
+  scopeId: z.union([z.string(), z.null()]),
+  action: z.enum(['create', 'update', 'delete', 'deactivate']),
+});
+
+/**
+ * Zod schema for Redis event message validation.
+ */
+const RedisEventMessageSchema = z.object({
+  instanceId: z.string().min(1),
+  event: EntryChangedEventSchema,
+  timestamp: z.string().optional(),
+});
 
 /**
  * Configuration options for Redis event adapter.
@@ -142,15 +163,27 @@ export class RedisEventAdapter implements IEventAdapter<EntryChangedEvent> {
       if (channel !== this.channel) return;
 
       try {
-        const parsed = JSON.parse(message) as RedisEventMessage;
+        const parsed = JSON.parse(message);
+
+        // Validate message structure with Zod
+        const validationResult = RedisEventMessageSchema.safeParse(parsed);
+        if (!validationResult.success) {
+          logger.warn(
+            { error: validationResult.error, message },
+            'Received malformed event message from Redis'
+          );
+          return;
+        }
+
+        const validated = validationResult.data;
 
         // Skip messages from this instance (we already handled locally)
-        if (parsed.instanceId === this.instanceId) {
+        if (validated.instanceId === this.instanceId) {
           return;
         }
 
         // Dispatch to local handlers
-        this.dispatchToHandlers(parsed.event);
+        this.dispatchToHandlers(validated.event);
       } catch (error) {
         logger.warn({ error, message }, 'Failed to parse event message');
       }
@@ -163,7 +196,10 @@ export class RedisEventAdapter implements IEventAdapter<EntryChangedEvent> {
     await subClient.subscribe(this.channel);
 
     this.connected = true;
-    logger.info({ channel: this.channel, instanceId: this.instanceId }, 'Redis event adapter connected');
+    logger.info(
+      { channel: this.channel, instanceId: this.instanceId },
+      'Redis event adapter connected'
+    );
   }
 
   /**

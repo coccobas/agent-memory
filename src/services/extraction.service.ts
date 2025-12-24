@@ -20,7 +20,18 @@ const logger = createComponentLogger('extraction');
 const MAX_CONTEXT_LENGTH = 100000; // 100KB limit
 
 // Security: Allowed OpenAI-compatible hosts (add your approved hosts here)
-const ALLOWED_OPENAI_HOSTS = ['api.openai.com', 'api.anthropic.com', 'localhost', '127.0.0.1'];
+// localhost only allowed in development mode, not production
+const ALLOWED_OPENAI_HOSTS = ['api.openai.com', 'api.anthropic.com'];
+
+/**
+ * Detect integer IP format to prevent SSRF bypass
+ * Examples: 2130706433 (decimal for 127.0.0.1), 0x7f000001 (hex)
+ *
+ * Security: Prevents SSRF bypass via integer IP representation
+ */
+function isIntegerIpFormat(hostname: string): boolean {
+  return /^\d+$/.test(hostname) || /^0x[0-9a-fA-F]+$/i.test(hostname);
+}
 
 /**
  * Validate URL for SSRF protection.
@@ -39,6 +50,15 @@ function validateExternalUrl(urlString: string, allowPrivate: boolean = false): 
   if (!allowPrivate) {
     // Check for private/internal IP ranges
     const hostname = url.hostname.toLowerCase();
+
+    // Security: Block integer IP format before pattern checks
+    if (isIntegerIpFormat(hostname)) {
+      throw new Error(
+        `SSRF protection: Integer IP format not allowed: ${hostname}. Use standard dotted notation.`
+      );
+    }
+
+    // IPv4 private patterns
     const privatePatterns = [
       /^127\./, // 127.0.0.0/8 (loopback)
       /^10\./, // 10.0.0.0/8 (private)
@@ -46,14 +66,27 @@ function validateExternalUrl(urlString: string, allowPrivate: boolean = false): 
       /^192\.168\./, // 192.168.0.0/16 (private)
       /^169\.254\./, // 169.254.0.0/16 (link-local, AWS metadata)
       /^0\.0\.0\.0$/, // 0.0.0.0
-      /^::1$/, // IPv6 loopback
-      /^\[::1\]$/, // IPv6 loopback with brackets
       /^localhost$/i, // localhost
+    ];
+
+    // IPv6 private patterns
+    const ipv6PrivatePatterns = [
+      /^\[?::1\]?$/i, // IPv6 loopback
+      /^\[?fe80:/i, // link-local
+      /^\[?fc[0-9a-f]{2}:/i, // unique local (fc00::/7)
+      /^\[?fd[0-9a-f]{2}:/i, // unique local (fd00::/8)
+      /^\[?ff[0-9a-f]{2}:/i, // multicast (ff00::/8)
     ];
 
     for (const pattern of privatePatterns) {
       if (pattern.test(hostname)) {
         throw new Error(`SSRF protection: Private/internal addresses not allowed: ${hostname}`);
+      }
+    }
+
+    for (const pattern of ipv6PrivatePatterns) {
+      if (pattern.test(hostname)) {
+        throw new Error(`SSRF protection: Private/internal IPv6 addresses not allowed: ${hostname}`);
       }
     }
   }
@@ -73,10 +106,57 @@ function isValidModelName(modelName: string): boolean {
 }
 
 /**
+ * Read response body with size limit to prevent memory exhaustion.
+ * Streams the response and aborts if it exceeds the maximum size.
+ *
+ * Security: Prevents memory exhaustion from malicious or oversized responses.
+ */
+async function readResponseWithLimit(
+  response: Response,
+  maxSizeBytes: number,
+  abortController: AbortController
+): Promise<string> {
+  const reader = response.body?.getReader();
+  if (!reader) {
+    throw new Error('Response body is not readable');
+  }
+
+  const decoder = new TextDecoder();
+  const chunks: string[] = [];
+  let totalBytes = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      totalBytes += value.byteLength;
+
+      // Security: Abort if response exceeds size limit
+      if (totalBytes > maxSizeBytes) {
+        abortController.abort();
+        throw new Error(
+          `Response exceeds maximum size of ${maxSizeBytes} bytes (received ${totalBytes} bytes)`
+        );
+      }
+
+      chunks.push(decoder.decode(value, { stream: true }));
+    }
+
+    // Flush any remaining bytes
+    chunks.push(decoder.decode());
+    return chunks.join('');
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+/**
  * Validate OpenAI-compatible base URL against allowlist.
  * When using custom base URLs, credentials may be sent to that server.
  *
  * Security: Prevents credential exposure to untrusted servers.
+ * Set AGENT_MEMORY_EXTRACTION_STRICT_ALLOWLIST=true to enforce blocking.
  */
 function validateOpenAIBaseUrl(baseUrl: string | undefined): void {
   if (!baseUrl) return; // Default API URL is fine
@@ -84,21 +164,35 @@ function validateOpenAIBaseUrl(baseUrl: string | undefined): void {
   const url = new URL(baseUrl);
   const hostname = url.hostname.toLowerCase();
 
-  // Allow localhost for development
+  // Security: Only allow localhost in development mode (NODE_ENV !== 'production')
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    logger.debug({ baseUrl }, 'Using local OpenAI-compatible endpoint');
+    const isProduction = process.env.NODE_ENV === 'production';
+    if (isProduction) {
+      throw new Error(
+        `SSRF protection: localhost/127.0.0.1 not allowed in production. ` +
+          `Use a public hostname or deploy with NODE_ENV !== 'production' for development.`
+      );
+    }
+    logger.debug({ baseUrl }, 'Using local OpenAI-compatible endpoint (development mode)');
     return;
   }
 
   // Check against allowlist
   if (!ALLOWED_OPENAI_HOSTS.includes(hostname)) {
+    // Strict mode: block non-allowlisted hosts (recommended for production)
+    if (config.extraction.strictBaseUrlAllowlist) {
+      throw new Error(
+        `OpenAI base URL not allowed: ${hostname}. ` +
+          `Allowed hosts: ${ALLOWED_OPENAI_HOSTS.join(', ')}. ` +
+          `Set AGENT_MEMORY_EXTRACTION_STRICT_ALLOWLIST=false to allow custom hosts.`
+      );
+    }
+
+    // Permissive mode: warn but allow (for backward compatibility)
     logger.warn(
       { hostname },
-      'OpenAI base URL not in allowlist. Add to ALLOWED_OPENAI_HOSTS if legitimate.'
+      'OpenAI base URL not in allowlist. Set AGENT_MEMORY_EXTRACTION_STRICT_ALLOWLIST=true to enforce blocking.'
     );
-    // Note: We warn but don't block to avoid breaking legitimate setups
-    // In high-security environments, uncomment the throw below:
-    // throw new Error(`OpenAI base URL not allowed: ${hostname}`);
   }
 }
 
@@ -582,58 +676,56 @@ export class ExtractionService {
             ? Math.max(1000, Number(timeoutMsRaw))
             : 30000;
 
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          signal: AbortSignal.timeout(timeoutMs),
-          body: JSON.stringify({
+        const abortController = new AbortController();
+        const timeoutId = setTimeout(() => abortController.abort(), timeoutMs);
+
+        try {
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            signal: abortController.signal,
+            body: JSON.stringify({
+              model: this.ollamaModel,
+              prompt: `${EXTRACTION_SYSTEM_PROMPT}\n\n${buildUserPrompt(input)}`,
+              format: 'json',
+              stream: false,
+              options: {
+                temperature: config.extraction.temperature,
+                num_predict: config.extraction.maxTokens,
+              },
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error(`Ollama request failed: ${response.status} ${response.statusText}`);
+          }
+
+          // Security: Stream response with size limit to prevent memory exhaustion
+          const maxResponseSize = 10 * 1024 * 1024; // 10MB max response
+          const responseText = await readResponseWithLimit(
+            response,
+            maxResponseSize,
+            abortController
+          );
+
+          const data = JSON.parse(responseText) as { response: string };
+          if (!data.response) {
+            throw new Error('No response from Ollama');
+          }
+
+          const parsed = this.parseExtractionResponse(data.response);
+
+          return {
+            entries: parsed.entries,
+            entities: parsed.entities,
+            relationships: parsed.relationships,
             model: this.ollamaModel,
-            prompt: `${EXTRACTION_SYSTEM_PROMPT}\n\n${buildUserPrompt(input)}`,
-            format: 'json',
-            stream: false,
-            options: {
-              temperature: config.extraction.temperature,
-              num_predict: config.extraction.maxTokens,
-            },
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error(`Ollama request failed: ${response.status} ${response.statusText}`);
+            provider: 'ollama' as const,
+            processingTimeMs: 0, // Will be set by caller
+          };
+        } finally {
+          clearTimeout(timeoutId);
         }
-
-        // Security: Check response size before parsing to prevent memory exhaustion
-        const contentLength = response.headers.get('content-length');
-        const maxResponseSize = 10 * 1024 * 1024; // 10MB max response
-        if (contentLength && parseInt(contentLength, 10) > maxResponseSize) {
-          throw new Error(
-            `Ollama response too large: ${contentLength} bytes (max ${maxResponseSize})`
-          );
-        }
-
-        // Read response as text first to check size
-        const responseText = await response.text();
-        if (responseText.length > maxResponseSize) {
-          throw new Error(
-            `Ollama response too large: ${responseText.length} bytes (max ${maxResponseSize})`
-          );
-        }
-
-        const data = JSON.parse(responseText) as { response: string };
-        if (!data.response) {
-          throw new Error('No response from Ollama');
-        }
-
-        const parsed = this.parseExtractionResponse(data.response);
-
-        return {
-          entries: parsed.entries,
-          entities: parsed.entities,
-          relationships: parsed.relationships,
-          model: this.ollamaModel,
-          provider: 'ollama' as const,
-          processingTimeMs: 0, // Will be set by caller
-        };
       },
       {
         retryableErrors: (error: Error) => {

@@ -7,10 +7,7 @@ import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { setupTestDb, cleanupTestDb } from '../fixtures/test-helpers.js';
 import * as schema from '../../src/db/schema.js';
-import {
-  logAction,
-  type AuditLogParams,
-} from '../../src/services/audit.service.js';
+import { logAction, type AuditLogParams } from '../../src/services/audit.service.js';
 
 const TEST_DB_PATH = './data/test-audit.db';
 let sqlite: ReturnType<typeof setupTestDb>['sqlite'];
@@ -66,10 +63,13 @@ describe('audit.service', () => {
       const actions: AuditLogParams['action'][] = ['query', 'create', 'update', 'delete', 'read'];
 
       for (const action of actions) {
-        logAction({
-          action,
-          entryType: 'tool',
-        }, db);
+        logAction(
+          {
+            action,
+            entryType: 'tool',
+          },
+          db
+        );
       }
 
       await new Promise((resolve) => setImmediate(resolve));
@@ -82,10 +82,13 @@ describe('audit.service', () => {
     });
 
     it('should handle null agentId', async () => {
-      logAction({
-        action: 'read',
-        entryType: 'tool',
-      }, db);
+      logAction(
+        {
+          action: 'read',
+          entryType: 'tool',
+        },
+        db
+      );
 
       await new Promise((resolve) => setImmediate(resolve));
 
@@ -95,10 +98,13 @@ describe('audit.service', () => {
     });
 
     it('should filter out project entryType', async () => {
-      logAction({
-        action: 'create',
-        entryType: 'project',
-      }, db);
+      logAction(
+        {
+          action: 'create',
+          entryType: 'project',
+        },
+        db
+      );
 
       await new Promise((resolve) => setImmediate(resolve));
 
@@ -109,10 +115,13 @@ describe('audit.service', () => {
 
     it('should store queryParams as JSON', async () => {
       const queryParams = { search: 'test', limit: 10 };
-      logAction({
-        action: 'query',
-        queryParams,
-      }, db);
+      logAction(
+        {
+          action: 'query',
+          queryParams,
+        },
+        db
+      );
 
       await new Promise((resolve) => setImmediate(resolve));
 
@@ -122,10 +131,13 @@ describe('audit.service', () => {
     });
 
     it('should store resultCount', async () => {
-      logAction({
-        action: 'query',
-        resultCount: 42,
-      }, db);
+      logAction(
+        {
+          action: 'query',
+          resultCount: 42,
+        },
+        db
+      );
 
       await new Promise((resolve) => setImmediate(resolve));
 
@@ -140,10 +152,13 @@ describe('audit.service', () => {
       sqlite.close();
 
       expect(() => {
-        logAction({
-          action: 'create',
-          entryType: 'tool',
-        }, originalDb);
+        logAction(
+          {
+            action: 'create',
+            entryType: 'tool',
+          },
+          originalDb
+        );
       }).not.toThrow();
 
       // Wait for async operation
@@ -156,9 +171,12 @@ describe('audit.service', () => {
     });
 
     it('should handle all optional parameters as undefined', async () => {
-      logAction({
-        action: 'read',
-      }, db);
+      logAction(
+        {
+          action: 'read',
+        },
+        db
+      );
 
       await new Promise((resolve) => setImmediate(resolve));
 
@@ -171,6 +189,3 @@ describe('audit.service', () => {
     });
   });
 });
-
-
-

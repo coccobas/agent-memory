@@ -75,40 +75,45 @@ export class SQLiteStorageAdapter implements IStorageAdapter {
    * The async fn is executed within the sync transaction context.
    * This works because Drizzle with better-sqlite3 returns immediately-resolved promises.
    *
-   * Note: Truly async operations (I/O, timers) within fn would break this pattern,
-   * but all Drizzle operations with better-sqlite3 are synchronous internally.
+   * IMPORTANT: The fn parameter MUST only contain synchronous Drizzle operations.
+   * Truly async operations (I/O, timers, fetch, etc.) will throw an error.
    */
   async transaction<T>(fn: () => Promise<T>): Promise<T> {
-    // SQLite transactions are synchronous internally
-    // We wrap the sync transaction in a Promise for interface compatibility
-    return new Promise((resolve, reject) => {
-      try {
-        const result = transactionWithDb(this.sqlite, () => {
-          // Execute the async fn synchronously
-          // This works because Drizzle/better-sqlite3 operations resolve immediately
-          let syncResult: T;
-          let syncError: Error | undefined;
+    let resultValue: T;
+    let resultError: Error | undefined;
+    let wasResolved = false;
 
-          // Start the promise chain
-          fn()
-            .then((r) => {
-              syncResult = r;
-            })
-            .catch((e) => {
-              syncError = e;
-            });
+    try {
+      transactionWithDb(this.sqlite, () => {
+        fn()
+          .then((value) => {
+            resultValue = value;
+            wasResolved = true;
+          })
+          .catch((error) => {
+            resultError = error;
+            wasResolved = true;
+          });
+      });
 
-          // Since SQLite is sync, the promise has already resolved/rejected
-          if (syncError) {
-            throw syncError;
-          }
-          return syncResult!;
-        });
-        resolve(result);
-      } catch (error) {
-        reject(error);
+      // Yield to microtask queue to let promise callbacks execute
+      await Promise.resolve();
+
+      if (!wasResolved) {
+        throw new Error(
+          'SQLite transaction completed before async operation resolved. ' +
+            'Use only synchronous Drizzle operations within SQLite transactions.'
+        );
       }
-    });
+
+      if (resultError) {
+        throw resultError;
+      }
+
+      return resultValue!;
+    } catch (error) {
+      throw error instanceof Error ? error : new Error(String(error));
+    }
   }
 
   getDb(): AppDb {

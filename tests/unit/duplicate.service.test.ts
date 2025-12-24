@@ -53,7 +53,14 @@ describe('duplicate.service', () => {
     });
 
     it('should return empty array when no similar entries found', () => {
-      const similar = findSimilarEntries('tool', 'completely-unique-name-xyz', 'global', null, 0.8, db);
+      const similar = findSimilarEntries(
+        'tool',
+        'completely-unique-name-xyz',
+        'global',
+        null,
+        0.8,
+        db
+      );
       expect(similar).toEqual([]);
     });
 
@@ -197,6 +204,3 @@ describe('duplicate.service', () => {
     });
   });
 });
-
-
-

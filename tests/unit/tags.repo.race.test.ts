@@ -7,7 +7,10 @@ import {
   type TestDb,
 } from '../fixtures/test-helpers.js';
 import { createTagRepository, createEntryTagRepository } from '../../src/db/repositories/tags.js';
-import type { ITagRepository, IEntryTagRepository } from '../../src/core/interfaces/repositories.js';
+import type {
+  ITagRepository,
+  IEntryTagRepository,
+} from '../../src/core/interfaces/repositories.js';
 import type { DatabaseDeps } from '../../src/core/types.js';
 
 const TEST_DB_PATH = './data/test-tags-race.db';

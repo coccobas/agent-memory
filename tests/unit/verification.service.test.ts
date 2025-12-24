@@ -58,11 +58,16 @@ describe('verification.service', () => {
 
   describe('verifyAction', () => {
     it('should return allowed when no critical guidelines exist', () => {
-      const result = verifyAction(null, null, {
-        type: 'file_write',
-        filePath: '/path/to/file.ts',
-        content: 'const x = 1;',
-      }, db);
+      const result = verifyAction(
+        null,
+        null,
+        {
+          type: 'file_write',
+          filePath: '/path/to/file.ts',
+          content: 'const x = 1;',
+        },
+        db
+      );
 
       expect(result.allowed).toBe(true);
       expect(result.blocked).toBe(false);
@@ -85,11 +90,16 @@ describe('verification.service', () => {
         `UPDATE guideline_versions SET verification_rules = '{"forbiddenActions": ["file_write"]}' WHERE id = '${version.id}'`
       );
 
-      const result = verifyAction(null, null, {
-        type: 'file_write',
-        filePath: '/path/to/file.ts',
-        content: 'const x = 1;',
-      }, db);
+      const result = verifyAction(
+        null,
+        null,
+        {
+          type: 'file_write',
+          filePath: '/path/to/file.ts',
+          content: 'const x = 1;',
+        },
+        db
+      );
 
       expect(result.blocked).toBe(true);
       expect(result.violations).toHaveLength(1);
@@ -113,11 +123,16 @@ describe('verification.service', () => {
         `UPDATE guideline_versions SET verification_rules = '{"filePatterns": [".env", ".env.*"]}' WHERE id = '${version.id}'`
       );
 
-      const result = verifyAction(null, null, {
-        type: 'file_write',
-        filePath: '/project/.env',
-        content: 'SECRET_KEY=abc123',
-      }, db);
+      const result = verifyAction(
+        null,
+        null,
+        {
+          type: 'file_write',
+          filePath: '/project/.env',
+          content: 'SECRET_KEY=abc123',
+        },
+        db
+      );
 
       expect(result.blocked).toBe(true);
       expect(result.violations).toHaveLength(1);
@@ -140,10 +155,15 @@ describe('verification.service', () => {
         `UPDATE guideline_versions SET verification_rules = '{"contentPatterns": ["sk-[a-zA-Z0-9]+"]}' WHERE id = '${version.id}'`
       );
 
-      const result = verifyAction(null, null, {
-        type: 'code_generate',
-        content: 'const apiKey = "sk-abc123def456";',
-      }, db);
+      const result = verifyAction(
+        null,
+        null,
+        {
+          type: 'code_generate',
+          content: 'const apiKey = "sk-abc123def456";',
+        },
+        db
+      );
 
       expect(result.blocked).toBe(true);
       expect(result.violations).toHaveLength(1);
@@ -166,10 +186,15 @@ describe('verification.service', () => {
         `UPDATE guideline_versions SET examples = '{"bad": ["eval(", "new Function("], "good": ["JSON.parse("]}' WHERE id = '${version.id}'`
       );
 
-      const result = verifyAction(null, null, {
-        type: 'code_generate',
-        content: 'const result = eval(userInput);',
-      }, db);
+      const result = verifyAction(
+        null,
+        null,
+        {
+          type: 'code_generate',
+          content: 'const result = eval(userInput);',
+        },
+        db
+      );
 
       expect(result.blocked).toBe(true);
       expect(result.violations.length).toBeGreaterThan(0);
@@ -186,11 +211,16 @@ describe('verification.service', () => {
         'Never modify .env files'
       );
 
-      const result = verifyAction(null, null, {
-        type: 'file_write',
-        filePath: '/project/src/index.ts',
-        content: 'console.log("hello");',
-      }, db);
+      const result = verifyAction(
+        null,
+        null,
+        {
+          type: 'file_write',
+          filePath: '/project/src/index.ts',
+          content: 'console.log("hello");',
+        },
+        db
+      );
 
       expect(result.allowed).toBe(true);
       expect(result.blocked).toBe(false);
@@ -208,10 +238,15 @@ describe('verification.service', () => {
         'Test content'
       );
 
-      verifyAction(null, null, {
-        type: 'file_write',
-        filePath: '/path/to/file.ts',
-      }, db);
+      verifyAction(
+        null,
+        null,
+        {
+          type: 'file_write',
+          filePath: '/path/to/file.ts',
+        },
+        db
+      );
 
       const logs = sqlite
         .prepare('SELECT * FROM verification_log WHERE action_type = ?')
@@ -237,10 +272,15 @@ describe('verification.service', () => {
         `UPDATE guideline_versions SET verification_rules = '{"contentPatterns": ["password"]}' WHERE id = '${version.id}'`
       );
 
-      const result = logCompletedAction(null, {
-        type: 'code_generate',
-        content: 'const password = "secret123";',
-      }, undefined, db);
+      const result = logCompletedAction(
+        null,
+        {
+          type: 'code_generate',
+          content: 'const password = "secret123";',
+        },
+        undefined,
+        db
+      );
 
       // Post-check doesn't block, but logs violations
       expect(result.blocked).toBe(false);

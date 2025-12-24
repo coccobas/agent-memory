@@ -143,9 +143,9 @@ describe('Conflicts Integration', () => {
     });
 
     it('should require resolution', async () => {
-      await expect(
-        conflictHandlers.resolve(context, { id: 'test-id' })
-      ).rejects.toThrow('resolution is required');
+      await expect(conflictHandlers.resolve(context, { id: 'test-id' })).rejects.toThrow(
+        'resolution is required'
+      );
     });
   });
 });

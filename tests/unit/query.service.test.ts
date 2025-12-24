@@ -4,7 +4,11 @@ import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { existsSync, mkdirSync, unlinkSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as schema from '../../src/db/schema.js';
-import { registerDatabase, resetContainer, clearPreparedStatementCache } from '../../src/db/connection.js';
+import {
+  registerDatabase,
+  resetContainer,
+  clearPreparedStatementCache,
+} from '../../src/db/connection.js';
 import {
   ensureTestRuntime,
   getTestQueryCache,
@@ -34,11 +38,16 @@ import {
   executeFts5Query,
   type MemoryQueryResult,
 } from '../../src/services/query.service.js';
-import { executeQueryPipeline, wireQueryCacheInvalidation } from '../../src/services/query/index.js';
+import {
+  executeQueryPipeline,
+  wireQueryCacheInvalidation,
+} from '../../src/services/query/index.js';
 import { emitEntryChanged } from '../../src/utils/events.js';
 
 // Helper to execute query with pipeline (replaces legacy executeMemoryQuery)
-async function executeMemoryQuery(params: Parameters<typeof executeQueryPipeline>[0]): Promise<MemoryQueryResult> {
+async function executeMemoryQuery(
+  params: Parameters<typeof executeQueryPipeline>[0]
+): Promise<MemoryQueryResult> {
   return executeQueryPipeline(params, createTestQueryDeps()) as Promise<MemoryQueryResult>;
 }
 
@@ -150,11 +159,14 @@ describe('query.service', () => {
       })
       .run();
 
-    const chain = resolveScopeChain({
-      type: 'session',
-      id: sessionId,
-      inherit: true,
-    }, db);
+    const chain = resolveScopeChain(
+      {
+        type: 'session',
+        id: sessionId,
+        inherit: true,
+      },
+      db
+    );
 
     // Expect order: session, project, org, global
     expect(chain).toHaveLength(4);

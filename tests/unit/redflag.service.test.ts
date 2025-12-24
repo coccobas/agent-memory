@@ -265,6 +265,3 @@ describe('redflag.service', () => {
     });
   });
 });
-
-
-

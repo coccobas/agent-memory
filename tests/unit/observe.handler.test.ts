@@ -4,7 +4,10 @@
 
 import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll } from 'vitest';
 import { observeHandlers } from '../../src/mcp/handlers/observe.handler.js';
-import { resetExtractionServiceState, ExtractionService } from '../../src/services/extraction.service.js';
+import {
+  resetExtractionServiceState,
+  ExtractionService,
+} from '../../src/services/extraction.service.js';
 import { ErrorCodes } from '../../src/mcp/errors.js';
 import { setupTestDb, cleanupTestDb, createTestContext } from '../fixtures/test-helpers.js';
 import type { AppContext } from '../../src/core/context.js';

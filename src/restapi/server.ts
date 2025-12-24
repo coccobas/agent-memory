@@ -7,6 +7,9 @@ import { config } from '../config/index.js';
 import { mapError } from '../utils/error-mapper.js';
 import { registerContext } from '../core/container.js';
 import { registerV1Routes } from './routes/v1.js';
+import { getHealthMonitor, resetHealthMonitor } from '../services/health.service.js';
+import { metrics } from '../utils/metrics.js';
+import { backpressure } from '../utils/backpressure.js';
 
 // Extend Fastify request to include authenticated agent ID
 declare module 'fastify' {
@@ -36,6 +39,23 @@ export function createServer(context: AppContext): FastifyInstance {
   app.addHook('preHandler', async (request, reply) => {
     const url = request.raw.url || request.url;
     if (typeof url === 'string' && url.startsWith('/health')) {
+      // Rate limit health endpoint by client IP to prevent DoS attacks
+      const forwardedFor = request.headers['x-forwarded-for'];
+      let clientIp = request.ip ?? 'unknown';
+      if (forwardedFor !== undefined) {
+        const firstIp = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor;
+        if (firstIp !== undefined) {
+          const parts = String(firstIp).split(',');
+          clientIp = parts[0]?.trim() ?? clientIp;
+        }
+      }
+
+      const healthCheck = context.security.checkHealthRateLimit(clientIp);
+      if (!healthCheck.allowed) {
+        reply.header('Retry-After', String(Math.ceil((healthCheck.retryAfterMs ?? 1000) / 1000)));
+        await reply.status(429).send({ error: 'Rate limit exceeded', code: 'RATE_LIMIT_EXCEEDED' });
+        return;
+      }
       return;
     }
 
@@ -70,11 +90,32 @@ export function createServer(context: AppContext): FastifyInstance {
     }
   });
 
-  app.get('/health', () => {
+  app.get('/health', async () => {
+    const healthMonitor = getHealthMonitor();
+    const lastCheck = healthMonitor.getLastCheckResult();
+
+    if (lastCheck) {
+      return {
+        ok: lastCheck.status !== 'unhealthy',
+        status: lastCheck.status,
+        uptimeSec: Math.round(process.uptime()),
+        version: lastCheck.version,
+        database: lastCheck.database,
+        circuitBreakers: lastCheck.circuitBreakers.length,
+      };
+    }
+
+    // Fallback for first request before periodic checks run
     return {
       ok: true,
       uptimeSec: Math.round(process.uptime()),
     };
+  });
+
+  // Prometheus metrics endpoint
+  app.get('/metrics', async (_request, reply) => {
+    reply.header('Content-Type', 'text/plain; version=0.0.4; charset=utf-8');
+    return metrics.format();
   });
 
   // Register Routes
@@ -117,7 +158,36 @@ export async function runServer(): Promise<void> {
   // Register with container for services that use getDb()/getSqlite()
   registerContext(context);
 
+  // Initialize and start health monitoring
+  const healthMonitor = getHealthMonitor();
+  if (context.adapters) {
+    healthMonitor.initialize({
+      storageAdapter: context.adapters.storage,
+      cacheStatsProvider: () => ({
+        size: context.runtime.queryCache.cache.size,
+        memoryMB: context.runtime.queryCache.cache.stats.memoryMB,
+      }),
+    });
+    healthMonitor.startPeriodicChecks();
+  }
+
+  // Start backpressure monitoring
+  backpressure.startMonitoring();
+
   const app = createServer(context);
+
+  // Graceful shutdown
+  const shutdown = async () => {
+    restLogger.info('Shutting down REST API...');
+    healthMonitor.stopPeriodicChecks();
+    backpressure.stopMonitoring();
+    resetHealthMonitor();
+    await app.close();
+  };
+
+  process.on('SIGTERM', () => void shutdown());
+  process.on('SIGINT', () => void shutdown());
+
   await app.listen({ host, port });
   restLogger.info({ host, port }, 'REST API listening');
 }

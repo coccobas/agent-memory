@@ -185,8 +185,24 @@ describe('verification.handler (integration)', () => {
       const project = createTestProject(testDb.db, 'Test Project');
       const session = createTestSession(testDb.db, project.id, 'Test Session');
 
-      createTestGuideline(testDb.db, 'critical-1', 'global', undefined, 'security', 95, 'Content 1');
-      createTestGuideline(testDb.db, 'critical-2', 'global', undefined, 'security', 92, 'Content 2');
+      createTestGuideline(
+        testDb.db,
+        'critical-1',
+        'global',
+        undefined,
+        'security',
+        95,
+        'Content 1'
+      );
+      createTestGuideline(
+        testDb.db,
+        'critical-2',
+        'global',
+        undefined,
+        'security',
+        92,
+        'Content 2'
+      );
 
       const result = verificationHandlers.acknowledge(context, {
         sessionId: session.id,
@@ -212,7 +228,15 @@ describe('verification.handler (integration)', () => {
         95,
         'Content 1'
       );
-      createTestGuideline(testDb.db, 'critical-2', 'global', undefined, 'security', 92, 'Content 2');
+      createTestGuideline(
+        testDb.db,
+        'critical-2',
+        'global',
+        undefined,
+        'security',
+        92,
+        'Content 2'
+      );
 
       const result = verificationHandlers.acknowledge(context, {
         sessionId: session.id,
@@ -257,8 +281,24 @@ describe('verification.handler (integration)', () => {
       const project = createTestProject(testDb.db, 'Test Project');
       const session = createTestSession(testDb.db, project.id, 'Test Session');
 
-      createTestGuideline(testDb.db, 'critical-1', 'global', undefined, 'security', 95, 'Content 1');
-      createTestGuideline(testDb.db, 'critical-2', 'global', undefined, 'security', 92, 'Content 2');
+      createTestGuideline(
+        testDb.db,
+        'critical-1',
+        'global',
+        undefined,
+        'security',
+        95,
+        'Content 1'
+      );
+      createTestGuideline(
+        testDb.db,
+        'critical-2',
+        'global',
+        undefined,
+        'security',
+        92,
+        'Content 2'
+      );
 
       const result = verificationHandlers.status(context, {
         sessionId: session.id,
@@ -285,7 +325,15 @@ describe('verification.handler (integration)', () => {
         95,
         'Content 1'
       );
-      createTestGuideline(testDb.db, 'critical-2', 'global', undefined, 'security', 92, 'Content 2');
+      createTestGuideline(
+        testDb.db,
+        'critical-2',
+        'global',
+        undefined,
+        'security',
+        92,
+        'Content 2'
+      );
 
       // Acknowledge one guideline
       verificationHandlers.acknowledge(context, {

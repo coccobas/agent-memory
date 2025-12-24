@@ -7,9 +7,6 @@
  * MCP-specific formatting (formatError, createInvalidActionError) lives in src/mcp/errors.ts
  */
 
-// Production detection without config import (keeps core import-clean)
-const isProduction = process.env.NODE_ENV === 'production';
-
 /**
  * Sanitize error messages to remove sensitive information in production.
  * This prevents exposure of internal paths, stack traces, and system details.
@@ -17,16 +14,30 @@ const isProduction = process.env.NODE_ENV === 'production';
  * Security: Prevents information disclosure attacks.
  */
 export function sanitizeErrorMessage(message: string): string {
-  if (!isProduction) {
+  // Check production mode dynamically for testability
+  if (process.env.NODE_ENV !== 'production') {
     return message; // Show full details in development
   }
 
   // Redact file system paths (Unix and Windows)
   const sanitized = message
-    // Unix paths: /Users/..., /home/..., /var/..., /etc/...
-    .replace(/\/(?:Users|home|var|tmp|etc|opt|usr|private)\/[^\s:,)'"]+/gi, '[REDACTED_PATH]')
+    // Unix paths: /Users/..., /home/..., /var/..., /etc/..., /root/..., /srv/..., etc.
+    .replace(
+      /\/(?:Users|home|var|tmp|etc|opt|usr|private|root|srv|mnt|lib|bin|sbin|proc|sys|boot|dev|run)\/[^\s:,)'"]+/gi,
+      '[REDACTED_PATH]'
+    )
     // Windows paths: C:\Users\..., D:\...
     .replace(/[A-Z]:\\[^\s:,)'"]+/gi, '[REDACTED_PATH]')
+    // IPv4 addresses
+    .replace(
+      /\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b/g,
+      '[REDACTED_IP]'
+    )
+    // Connection strings with credentials (postgres, mysql, redis, mongodb, amqp)
+    .replace(
+      /(?:postgres|postgresql|mysql|redis|mongodb|amqp):\/\/[^:]+:[^@]+@[^\s]+/gi,
+      '[REDACTED_CONNECTION_STRING]'
+    )
     // Stack trace lines
     .replace(/at\s+[\w.<>]+\s+\([^)]+\)/g, '[REDACTED_STACK]')
     .replace(/at\s+[^\s]+:[0-9]+:[0-9]+/g, '[REDACTED_STACK]');
@@ -78,11 +89,19 @@ export const ErrorCodes = {
   // Database errors (4000-4999)
   DATABASE_ERROR: 'E4000',
   MIGRATION_ERROR: 'E4001',
+  CONNECTION_ERROR: 'E4002',
+  CONNECTION_POOL_EXHAUSTED: 'E4003',
+  TRANSACTION_ERROR: 'E4004',
+  QUERY_TIMEOUT: 'E4005',
 
   // System errors (5000-5999)
   UNKNOWN_ERROR: 'E5000',
   INTERNAL_ERROR: 'E5001',
   SERVICE_UNAVAILABLE: 'E5002',
+  CIRCUIT_BREAKER_OPEN: 'E5003',
+  RATE_LIMITED: 'E5004',
+  RESOURCE_EXHAUSTED: 'E5005',
+  QUEUE_FULL: 'E5006',
 
   // Permission errors (6000-6999)
   PERMISSION_DENIED: 'E6000',
@@ -103,7 +122,146 @@ export const ErrorCodes = {
   VECTOR_DB_ERROR: 'E9000',
   VECTOR_NOT_INITIALIZED: 'E9001',
   VECTOR_INVALID_INPUT: 'E9002',
+
+  // Network/External errors (10000-10999)
+  NETWORK_ERROR: 'E10000',
+  EXTERNAL_SERVICE_ERROR: 'E10001',
+  TIMEOUT: 'E10002',
+  RETRY_EXHAUSTED: 'E10003',
 } as const;
+
+// =============================================================================
+// SPECIALIZED ERROR CLASSES
+// =============================================================================
+
+/**
+ * Database-specific errors
+ */
+export class DatabaseError extends AgentMemoryError {
+  constructor(
+    message: string,
+    code: string = ErrorCodes.DATABASE_ERROR,
+    context?: Record<string, unknown>
+  ) {
+    super(message, code, context);
+    this.name = 'DatabaseError';
+  }
+}
+
+/**
+ * Connection-related errors
+ */
+export class ConnectionError extends DatabaseError {
+  constructor(
+    message: string,
+    public readonly isRetryable: boolean = true,
+    context?: Record<string, unknown>
+  ) {
+    super(message, ErrorCodes.CONNECTION_ERROR, { ...context, isRetryable });
+    this.name = 'ConnectionError';
+  }
+}
+
+/**
+ * Network/external service errors
+ */
+export class NetworkError extends AgentMemoryError {
+  constructor(
+    message: string,
+    public readonly service: string,
+    public readonly isRetryable: boolean = true,
+    context?: Record<string, unknown>
+  ) {
+    super(message, ErrorCodes.NETWORK_ERROR, { ...context, service, isRetryable });
+    this.name = 'NetworkError';
+  }
+}
+
+/**
+ * Circuit breaker open error
+ */
+export class CircuitBreakerError extends AgentMemoryError {
+  constructor(
+    public readonly service: string,
+    public readonly resetTime: number,
+    context?: Record<string, unknown>
+  ) {
+    super(
+      `Circuit breaker open for ${service}. Will reset at ${new Date(resetTime).toISOString()}`,
+      ErrorCodes.CIRCUIT_BREAKER_OPEN,
+      { ...context, service, resetTime }
+    );
+    this.name = 'CircuitBreakerError';
+  }
+}
+
+/**
+ * Rate limiting error
+ */
+export class RateLimitError extends AgentMemoryError {
+  constructor(
+    public readonly retryAfterMs: number,
+    context?: Record<string, unknown>
+  ) {
+    super(`Rate limit exceeded. Retry after ${retryAfterMs}ms`, ErrorCodes.RATE_LIMITED, {
+      ...context,
+      retryAfterMs,
+    });
+    this.name = 'RateLimitError';
+  }
+}
+
+/**
+ * Resource exhausted error (queues, memory, etc.)
+ */
+export class ResourceExhaustedError extends AgentMemoryError {
+  constructor(
+    public readonly resource: string,
+    message: string,
+    context?: Record<string, unknown>
+  ) {
+    super(message, ErrorCodes.RESOURCE_EXHAUSTED, { ...context, resource });
+    this.name = 'ResourceExhaustedError';
+  }
+}
+
+/**
+ * Timeout error
+ */
+export class TimeoutError extends AgentMemoryError {
+  constructor(
+    public readonly operation: string,
+    public readonly timeoutMs: number,
+    context?: Record<string, unknown>
+  ) {
+    super(`Operation '${operation}' timed out after ${timeoutMs}ms`, ErrorCodes.TIMEOUT, {
+      ...context,
+      operation,
+      timeoutMs,
+    });
+    this.name = 'TimeoutError';
+  }
+}
+
+/**
+ * Retry exhausted error
+ */
+export class RetryExhaustedError extends AgentMemoryError {
+  constructor(
+    public readonly operation: string,
+    public readonly attempts: number,
+    public readonly lastError: Error,
+    context?: Record<string, unknown>
+  ) {
+    super(
+      `Operation '${operation}' failed after ${attempts} attempts: ${lastError.message}`,
+      ErrorCodes.RETRY_EXHAUSTED,
+      { ...context, operation, attempts, lastErrorMessage: lastError.message }
+    );
+    this.name = 'RetryExhaustedError';
+    this.cause = lastError;
+  }
+}
 
 /**
  * Create a validation error with helpful context

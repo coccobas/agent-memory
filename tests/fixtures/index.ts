@@ -9,36 +9,19 @@
  */
 
 // Database setup and cleanup
-export {
-  setupTestDb,
-  cleanupTestDb,
-  createTestContext,
-  type TestDb,
-} from './test-helpers.js';
+export { setupTestDb, cleanupTestDb, createTestContext, type TestDb } from './test-helpers.js';
 
 // Database utilities
-export {
-  cleanupDbFiles,
-  ensureDirectory,
-  ensureDataDirectory,
-} from './db-utils.js';
+export { cleanupDbFiles, ensureDirectory, ensureDataDirectory } from './db-utils.js';
 
 // Schema re-export (for test assertions)
 export { schema } from './test-helpers.js';
 
 // Scope factories
-export {
-  createTestOrg,
-  createTestProject,
-  createTestSession,
-} from './test-helpers.js';
+export { createTestOrg, createTestProject, createTestSession } from './test-helpers.js';
 
 // Entry factories
-export {
-  createTestTool,
-  createTestGuideline,
-  createTestKnowledge,
-} from './test-helpers.js';
+export { createTestTool, createTestGuideline, createTestKnowledge } from './test-helpers.js';
 
 // Conversation factories
 export {

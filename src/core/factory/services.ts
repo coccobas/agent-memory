@@ -53,8 +53,7 @@ export function createServices(
   });
 
   // Use provided vectorService, or create one with optional custom store
-  const vectorService =
-    overrides?.vectorService ?? new VectorService(overrides?.vectorStore);
+  const vectorService = overrides?.vectorService ?? new VectorService(overrides?.vectorStore);
 
   const extractionService = new ExtractionService({
     provider: config.extraction.provider,

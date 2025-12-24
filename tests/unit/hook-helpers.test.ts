@@ -208,7 +208,8 @@ describe('shared', () => {
 
   describe('extractMessageFromTranscriptEntry', () => {
     it('should extract user message', async () => {
-      const { extractMessageFromTranscriptEntry } = await import('../../src/commands/hook/shared.js');
+      const { extractMessageFromTranscriptEntry } =
+        await import('../../src/commands/hook/shared.js');
       const result = extractMessageFromTranscriptEntry({
         role: 'user',
         content: 'Hello there',
@@ -218,7 +219,8 @@ describe('shared', () => {
     });
 
     it('should extract assistant message', async () => {
-      const { extractMessageFromTranscriptEntry } = await import('../../src/commands/hook/shared.js');
+      const { extractMessageFromTranscriptEntry } =
+        await import('../../src/commands/hook/shared.js');
       const result = extractMessageFromTranscriptEntry({
         role: 'assistant',
         content: 'Hi!',
@@ -228,7 +230,8 @@ describe('shared', () => {
     });
 
     it('should handle content array with text objects', async () => {
-      const { extractMessageFromTranscriptEntry } = await import('../../src/commands/hook/shared.js');
+      const { extractMessageFromTranscriptEntry } =
+        await import('../../src/commands/hook/shared.js');
       const result = extractMessageFromTranscriptEntry({
         role: 'user',
         content: [{ text: 'Part 1' }, { text: 'Part 2' }],
@@ -238,7 +241,8 @@ describe('shared', () => {
     });
 
     it('should return null for invalid entries', async () => {
-      const { extractMessageFromTranscriptEntry } = await import('../../src/commands/hook/shared.js');
+      const { extractMessageFromTranscriptEntry } =
+        await import('../../src/commands/hook/shared.js');
 
       expect(extractMessageFromTranscriptEntry(null)).toBeNull();
       expect(extractMessageFromTranscriptEntry({})).toBeNull();
@@ -264,7 +268,13 @@ describe('review', () => {
     it('should find candidate by exact shortId', async () => {
       const { findCandidateByShortId } = await import('../../src/commands/hook/review.js');
       const candidates = [
-        { id: 'abcdef123456', shortId: 'abcdef', type: 'guideline' as const, name: 'test', content: 'content' },
+        {
+          id: 'abcdef123456',
+          shortId: 'abcdef',
+          type: 'guideline' as const,
+          name: 'test',
+          content: 'content',
+        },
       ];
 
       const result = findCandidateByShortId(candidates, 'abcdef');
@@ -274,7 +284,13 @@ describe('review', () => {
     it('should find candidate by full id', async () => {
       const { findCandidateByShortId } = await import('../../src/commands/hook/review.js');
       const candidates = [
-        { id: 'abcdef123456', shortId: 'abcdef', type: 'guideline' as const, name: 'test', content: 'content' },
+        {
+          id: 'abcdef123456',
+          shortId: 'abcdef',
+          type: 'guideline' as const,
+          name: 'test',
+          content: 'content',
+        },
       ];
 
       const result = findCandidateByShortId(candidates, 'abcdef123456');
@@ -284,7 +300,13 @@ describe('review', () => {
     it('should find candidate by id prefix', async () => {
       const { findCandidateByShortId } = await import('../../src/commands/hook/review.js');
       const candidates = [
-        { id: 'abcdef123456', shortId: 'abcdef', type: 'guideline' as const, name: 'test', content: 'content' },
+        {
+          id: 'abcdef123456',
+          shortId: 'abcdef',
+          type: 'guideline' as const,
+          name: 'test',
+          content: 'content',
+        },
       ];
 
       const result = findCandidateByShortId(candidates, 'abcdef1234');
@@ -294,7 +316,13 @@ describe('review', () => {
     it('should return undefined when not found', async () => {
       const { findCandidateByShortId } = await import('../../src/commands/hook/review.js');
       const candidates = [
-        { id: 'abcdef123456', shortId: 'abcdef', type: 'guideline' as const, name: 'test', content: 'content' },
+        {
+          id: 'abcdef123456',
+          shortId: 'abcdef',
+          type: 'guideline' as const,
+          name: 'test',
+          content: 'content',
+        },
       ];
 
       const result = findCandidateByShortId(candidates, 'xyz');
@@ -313,7 +341,13 @@ describe('review', () => {
     it('should format candidates with truncated content', async () => {
       const { formatCandidateList } = await import('../../src/commands/hook/review.js');
       const candidates = [
-        { id: 'abc123', shortId: 'abc123', type: 'guideline' as const, name: 'test-rule', content: 'A'.repeat(100) },
+        {
+          id: 'abc123',
+          shortId: 'abc123',
+          type: 'guideline' as const,
+          name: 'test-rule',
+          content: 'A'.repeat(100),
+        },
       ];
 
       const lines = formatCandidateList(candidates);
@@ -373,14 +407,16 @@ describe('session-summary', () => {
   describe('formatSessionSummary', () => {
     it('should format summary with all entry types', async () => {
       vi.doMock('../../src/commands/hook/session.js', () => ({
-        getSessionSummary: vi.fn(() => Promise.resolve({
-          sessionId: 'sess-12345678',
-          projectName: 'Test Project',
-          guidelines: [{ name: 'rule1', content: 'content1' }],
-          knowledge: [{ title: 'fact1', content: 'fact content' }],
-          tools: [{ name: 'tool1', description: 'tool desc' }],
-          needsReview: 2,
-        })),
+        getSessionSummary: vi.fn(() =>
+          Promise.resolve({
+            sessionId: 'sess-12345678',
+            projectName: 'Test Project',
+            guidelines: [{ name: 'rule1', content: 'content1' }],
+            knowledge: [{ title: 'fact1', content: 'fact content' }],
+            tools: [{ name: 'tool1', description: 'tool desc' }],
+            needsReview: 2,
+          })
+        ),
       }));
 
       const { formatSessionSummary } = await import('../../src/commands/hook/session-summary.js');
@@ -400,13 +436,15 @@ describe('session-summary', () => {
 
     it('should truncate long lists', async () => {
       vi.doMock('../../src/commands/hook/session.js', () => ({
-        getSessionSummary: vi.fn(() => Promise.resolve({
-          sessionId: 'sess-12345678',
-          guidelines: Array.from({ length: 10 }, (_, i) => ({ name: `rule${i}`, content: 'c' })),
-          knowledge: [],
-          tools: [],
-          needsReview: 0,
-        })),
+        getSessionSummary: vi.fn(() =>
+          Promise.resolve({
+            sessionId: 'sess-12345678',
+            guidelines: Array.from({ length: 10 }, (_, i) => ({ name: `rule${i}`, content: 'c' })),
+            knowledge: [],
+            tools: [],
+            needsReview: 0,
+          })
+        ),
       }));
 
       const { formatSessionSummary } = await import('../../src/commands/hook/session-summary.js');

@@ -52,17 +52,20 @@ export interface RedisCacheConfig {
  */
 export class RedisCacheAdapter<T = unknown> implements ICacheAdapter<T> {
   private client: Redis | null = null;
+  private subClient: Redis | null = null;
   private keyPrefix: string;
   private defaultTTLMs: number;
   private config: RedisCacheConfig;
   private pendingOps = new Map<string, Promise<unknown>>();
   private localCache = new Map<string, { value: T; expiresAt: number }>();
   private connected = false;
+  private invalidationChannel: string;
 
   constructor(config: RedisCacheConfig) {
     this.config = config;
     this.keyPrefix = config.keyPrefix ?? 'agentmem:cache:';
     this.defaultTTLMs = config.defaultTTLMs ?? 3600000; // 1 hour default
+    this.invalidationChannel = `${this.keyPrefix}invalidation`;
   }
 
   /**
@@ -122,12 +125,62 @@ export class RedisCacheAdapter<T = unknown> implements ICacheAdapter<T> {
     // Actually connect
     await client.connect();
     this.connected = true;
+
+    // Set up a separate subscriber client for invalidation messages
+    await this.setupInvalidationSubscriber(IORedis, options);
+  }
+
+  /**
+   * Set up pub/sub subscriber for cross-instance cache invalidation.
+   */
+  private async setupInvalidationSubscriber(
+    IORedis: typeof import('ioredis').default,
+    options: RedisOptions
+  ): Promise<void> {
+    // Create a separate client for subscriptions (Redis requirement)
+    if (this.config.url) {
+      this.subClient = new IORedis(this.config.url, options);
+    } else {
+      this.subClient = new IORedis(options);
+    }
+
+    await this.subClient.connect();
+
+    // Subscribe to invalidation channel
+    await this.subClient.subscribe(this.invalidationChannel);
+
+    this.subClient.on('message', (channel: string, message: string) => {
+      if (channel !== this.invalidationChannel) return;
+
+      try {
+        const { key, type } = JSON.parse(message) as { key: string; type: 'delete' | 'clear' };
+
+        if (type === 'clear') {
+          // Clear all local cache entries with our prefix
+          for (const fullKey of this.localCache.keys()) {
+            if (fullKey.startsWith(this.keyPrefix)) {
+              this.localCache.delete(fullKey);
+            }
+          }
+        } else if (type === 'delete' && key) {
+          // Delete specific key from local cache
+          this.localCache.delete(key);
+        }
+      } catch {
+        // Ignore malformed messages
+      }
+    });
   }
 
   /**
    * Close Redis connection.
    */
   async close(): Promise<void> {
+    if (this.subClient) {
+      await this.subClient.unsubscribe(this.invalidationChannel);
+      await this.subClient.quit();
+      this.subClient = null;
+    }
     if (this.client) {
       await this.client.quit();
       this.client = null;
@@ -299,9 +352,32 @@ export class RedisCacheAdapter<T = unknown> implements ICacheAdapter<T> {
     const fullKey = this.keyPrefix + key;
     try {
       const result = await this.client.del(fullKey);
+
+      // Publish invalidation message for cross-instance consistency
+      await this.publishInvalidation(fullKey, 'delete');
+
       return result > 0;
     } catch {
       return false;
+    }
+  }
+
+  /**
+   * Publish cache invalidation message to other instances.
+   */
+  private async publishInvalidation(
+    key: string,
+    type: 'delete' | 'clear'
+  ): Promise<void> {
+    if (!this.client || !this.connected) return;
+
+    try {
+      await this.client.publish(
+        this.invalidationChannel,
+        JSON.stringify({ key, type })
+      );
+    } catch {
+      // Ignore publish errors - best effort invalidation
     }
   }
 
@@ -340,6 +416,9 @@ export class RedisCacheAdapter<T = unknown> implements ICacheAdapter<T> {
       if (keysToDelete.length > 0) {
         await this.client.del(...keysToDelete);
       }
+
+      // Publish clear invalidation for cross-instance consistency
+      await this.publishInvalidation('', 'clear');
     } catch (error) {
       logger.warn({ error }, 'Redis clear failed');
     }

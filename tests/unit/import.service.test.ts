@@ -431,17 +431,23 @@ describe('Import Service', () => {
       });
 
       // Test skip
-      const skipResult = await importService.importFromJson(jsonContent, { conflictStrategy: 'skip' });
+      const skipResult = await importService.importFromJson(jsonContent, {
+        conflictStrategy: 'skip',
+      });
       expect(skipResult.skipped).toBe(1);
       expect(skipResult.details.guidelines.skipped).toBe(1);
 
       // Test error
-      const errorResult = await importService.importFromJson(jsonContent, { conflictStrategy: 'error' });
+      const errorResult = await importService.importFromJson(jsonContent, {
+        conflictStrategy: 'error',
+      });
       expect(errorResult.errors.length).toBeGreaterThan(0);
       expect(errorResult.errors[0].error).toContain('already exists');
 
       // Test update
-      const updateResult = await importService.importFromJson(jsonContent, { conflictStrategy: 'update' });
+      const updateResult = await importService.importFromJson(jsonContent, {
+        conflictStrategy: 'update',
+      });
       expect(updateResult.updated).toBe(1);
       expect(updateResult.details.guidelines.updated).toBe(1);
     });
@@ -469,7 +475,9 @@ describe('Import Service', () => {
         },
       });
 
-      const result = await importService.importFromJson(jsonContent, { conflictStrategy: 'update' });
+      const result = await importService.importFromJson(jsonContent, {
+        conflictStrategy: 'update',
+      });
 
       expect(result.updated).toBe(1);
 
@@ -549,17 +557,23 @@ describe('Import Service', () => {
       });
 
       // Test skip
-      const skipResult = await importService.importFromJson(jsonContent, { conflictStrategy: 'skip' });
+      const skipResult = await importService.importFromJson(jsonContent, {
+        conflictStrategy: 'skip',
+      });
       expect(skipResult.skipped).toBe(1);
       expect(skipResult.details.knowledge.skipped).toBe(1);
 
       // Test error
-      const errorResult = await importService.importFromJson(jsonContent, { conflictStrategy: 'error' });
+      const errorResult = await importService.importFromJson(jsonContent, {
+        conflictStrategy: 'error',
+      });
       expect(errorResult.errors.length).toBeGreaterThan(0);
       expect(errorResult.errors[0].error).toContain('already exists');
 
       // Test update
-      const updateResult = await importService.importFromJson(jsonContent, { conflictStrategy: 'update' });
+      const updateResult = await importService.importFromJson(jsonContent, {
+        conflictStrategy: 'update',
+      });
       expect(updateResult.updated).toBe(1);
       expect(updateResult.details.knowledge.updated).toBe(1);
     });
@@ -587,7 +601,9 @@ describe('Import Service', () => {
         },
       });
 
-      const result = await importService.importFromJson(jsonContent, { conflictStrategy: 'update' });
+      const result = await importService.importFromJson(jsonContent, {
+        conflictStrategy: 'update',
+      });
 
       expect(result.updated).toBe(1);
 

@@ -26,7 +26,9 @@ import { entryEmbeddings } from '../../src/db/schema.js';
 import { eq, and } from 'drizzle-orm';
 
 // Helper to execute query with pipeline (replaces legacy executeMemoryQueryAsync)
-async function executeMemoryQueryAsync(params: Parameters<typeof executeQueryPipeline>[0]): Promise<MemoryQueryResult> {
+async function executeMemoryQueryAsync(
+  params: Parameters<typeof executeQueryPipeline>[0]
+): Promise<MemoryQueryResult> {
   return executeQueryPipeline(params, createTestQueryDeps()) as Promise<MemoryQueryResult>;
 }
 

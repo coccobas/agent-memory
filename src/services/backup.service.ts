@@ -1,12 +1,18 @@
 /**
  * Backup Service
  *
- * Handles database backups to the configured backup directory
+ * Handles database backups to the configured backup directory.
+ * Uses better-sqlite3's backup() API for WAL-consistent backups.
  */
 
 import { copyFileSync, mkdirSync, existsSync, readdirSync, unlinkSync, statSync } from 'node:fs';
 import { join, basename, resolve, relative, isAbsolute } from 'node:path';
+import Database from 'better-sqlite3';
 import { config } from '../config/index.js';
+import { isDatabaseInitialized, getSqlite } from '../core/container.js';
+import { createComponentLogger } from '../utils/logger.js';
+
+const logger = createComponentLogger('backup');
 
 export interface BackupResult {
   success: boolean;
@@ -23,9 +29,10 @@ export interface BackupInfo {
 }
 
 /**
- * Create a backup of the database to the configured backup directory
+ * Create a backup of the database to the configured backup directory.
+ * Uses better-sqlite3's backup() API for WAL-consistent backups when available.
  */
-export function createDatabaseBackup(customName?: string): BackupResult {
+export async function createDatabaseBackup(customName?: string): Promise<BackupResult> {
   try {
     const dbPath = config.database.path;
     const backupDir = config.paths.backup;
@@ -62,13 +69,73 @@ export function createDatabaseBackup(customName?: string): BackupResult {
     const backupFilename = customName ? `${customName}.db` : `${dbBasename}-backup-${timestamp}.db`;
     const backupPath = join(backupDir, backupFilename);
 
-    // Copy database file
+    // Use better-sqlite3's backup() API for WAL-consistent backups
+    // This is the safe way to backup a database with WAL mode enabled
+    if (config.dbType === 'sqlite' && isDatabaseInitialized()) {
+      try {
+        const sqlite = getSqlite();
+
+        if (sqlite && sqlite.open) {
+          // Use the backup() API which handles WAL correctly
+          await sqlite.backup(backupPath);
+          logger.debug({ backupPath }, 'Database backed up using better-sqlite3 backup() API');
+
+          // Verify backup integrity
+          const backupDb = new Database(backupPath, { readonly: true });
+          try {
+            const integrity = backupDb.pragma('integrity_check') as Array<{
+              integrity_check: string;
+            }>;
+            if (integrity[0]?.integrity_check !== 'ok') {
+              backupDb.close();
+              unlinkSync(backupPath);
+              return {
+                success: false,
+                message: 'Backup integrity check failed',
+              };
+            }
+          } finally {
+            backupDb.close();
+          }
+
+          return {
+            success: true,
+            backupPath,
+            message: 'Database backed up successfully (WAL-safe)',
+            timestamp,
+          };
+        }
+      } catch (backupError) {
+        // If backup() API fails, fall back to checkpoint + copy
+        logger.warn(
+          { error: backupError instanceof Error ? backupError.message : String(backupError) },
+          'better-sqlite3 backup() failed, falling back to checkpoint + copy'
+        );
+      }
+    }
+
+    // Fallback: Force WAL checkpoint before copying (less safe but works)
+    // This ensures all WAL changes are flushed to the main database file
+    if (config.dbType === 'sqlite' && isDatabaseInitialized()) {
+      try {
+        const sqlite = getSqlite();
+        if (sqlite && sqlite.open) {
+          // TRUNCATE mode: checkpoint and truncate the WAL file
+          sqlite.pragma('wal_checkpoint(TRUNCATE)');
+          logger.debug('WAL checkpoint completed before backup');
+        }
+      } catch {
+        // Continue with backup even if checkpoint fails
+      }
+    }
+
+    // Copy database file (fallback method)
     copyFileSync(dbPath, backupPath);
 
     return {
       success: true,
       backupPath,
-      message: `Database backed up successfully`,
+      message: 'Database backed up successfully',
       timestamp,
     };
   } catch (error) {
@@ -139,7 +206,7 @@ export function cleanupBackups(keepCount: number = 5): { deleted: string[]; kept
 /**
  * Restore database from a backup
  */
-export function restoreFromBackup(backupFilename: string): BackupResult {
+export async function restoreFromBackup(backupFilename: string): Promise<BackupResult> {
   try {
     const backupDir = config.paths.backup;
     const dbPath = config.database.path;
@@ -176,7 +243,7 @@ export function restoreFromBackup(backupFilename: string): BackupResult {
 
     // Create a safety backup of current database before restoring
     if (existsSync(dbPath)) {
-      const safetyBackup = createDatabaseBackup('pre-restore-safety');
+      const safetyBackup = await createDatabaseBackup('pre-restore-safety');
       if (!safetyBackup.success) {
         return {
           success: false,

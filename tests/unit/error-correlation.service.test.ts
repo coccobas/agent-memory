@@ -38,10 +38,13 @@ describe('error-correlation.service', () => {
 
   describe('calculateErrorCorrelation', () => {
     it('should calculate correlation between two agents', () => {
-      const result = calculateErrorCorrelation({
-        agentA: 'agent-1',
-        agentB: 'agent-2',
-      }, db);
+      const result = calculateErrorCorrelation(
+        {
+          agentA: 'agent-1',
+          agentB: 'agent-2',
+        },
+        db
+      );
 
       expect(result).toBeDefined();
       expect(typeof result.correlation).toBe('number');
@@ -53,10 +56,13 @@ describe('error-correlation.service', () => {
     });
 
     it('should return correlation of 0 when no errors', () => {
-      const result = calculateErrorCorrelation({
-        agentA: 'agent-no-errors-1',
-        agentB: 'agent-no-errors-2',
-      }, db);
+      const result = calculateErrorCorrelation(
+        {
+          agentA: 'agent-no-errors-1',
+          agentB: 'agent-no-errors-2',
+        },
+        db
+      );
 
       expect(result.correlation).toBe(0);
       expect(result.sharedErrors).toBe(0);
@@ -70,11 +76,14 @@ describe('error-correlation.service', () => {
         end: new Date('2024-12-31').toISOString(),
       };
 
-      const result = calculateErrorCorrelation({
-        agentA: 'agent-1',
-        agentB: 'agent-2',
-        timeWindow,
-      }, db);
+      const result = calculateErrorCorrelation(
+        {
+          agentA: 'agent-1',
+          agentB: 'agent-2',
+          timeWindow,
+        },
+        db
+      );
 
       expect(result).toBeDefined();
       expect(typeof result.correlation).toBe('number');
@@ -85,30 +94,39 @@ describe('error-correlation.service', () => {
       const sharedTasks = ['task-corr-1', 'task-corr-2', 'task-corr-3'];
 
       for (const taskId of sharedTasks) {
-        logAction({
-          action: 'query',
-          success: false,
-          scopeType: 'project',
-          scopeId: 'test-project',
-          agentId: 'agent-high-corr-1',
-          subtaskType: taskId,
-          errorMessage: 'Test error',
-        }, db);
-        logAction({
-          action: 'query',
-          success: false,
-          scopeType: 'project',
-          scopeId: 'test-project',
-          agentId: 'agent-high-corr-2',
-          subtaskType: taskId,
-          errorMessage: 'Test error',
-        }, db);
+        logAction(
+          {
+            action: 'query',
+            success: false,
+            scopeType: 'project',
+            scopeId: 'test-project',
+            agentId: 'agent-high-corr-1',
+            subtaskType: taskId,
+            errorMessage: 'Test error',
+          },
+          db
+        );
+        logAction(
+          {
+            action: 'query',
+            success: false,
+            scopeType: 'project',
+            scopeId: 'test-project',
+            agentId: 'agent-high-corr-2',
+            subtaskType: taskId,
+            errorMessage: 'Test error',
+          },
+          db
+        );
       }
 
-      const result = calculateErrorCorrelation({
-        agentA: 'agent-high-corr-1',
-        agentB: 'agent-high-corr-2',
-      }, db);
+      const result = calculateErrorCorrelation(
+        {
+          agentA: 'agent-high-corr-1',
+          agentB: 'agent-high-corr-2',
+        },
+        db
+      );
 
       // Function should return valid structure
       expect(result).toBeDefined();
@@ -120,49 +138,64 @@ describe('error-correlation.service', () => {
 
     it('should detect low/no correlation when agents make different errors', () => {
       // Agent 1 fails on tasks A, B, C
-      logAction({
-        action: 'query',
-        success: false,
-        scopeType: 'project',
-        scopeId: 'test-project',
-        agentId: 'agent-diff-1',
-        subtaskType: 'task-diff-a',
-        errorMessage: 'Error A',
-      }, db);
-      logAction({
-        action: 'query',
-        success: false,
-        scopeType: 'project',
-        scopeId: 'test-project',
-        agentId: 'agent-diff-1',
-        subtaskType: 'task-diff-b',
-        errorMessage: 'Error B',
-      }, db);
+      logAction(
+        {
+          action: 'query',
+          success: false,
+          scopeType: 'project',
+          scopeId: 'test-project',
+          agentId: 'agent-diff-1',
+          subtaskType: 'task-diff-a',
+          errorMessage: 'Error A',
+        },
+        db
+      );
+      logAction(
+        {
+          action: 'query',
+          success: false,
+          scopeType: 'project',
+          scopeId: 'test-project',
+          agentId: 'agent-diff-1',
+          subtaskType: 'task-diff-b',
+          errorMessage: 'Error B',
+        },
+        db
+      );
 
       // Agent 2 fails on tasks D, E, F
-      logAction({
-        action: 'query',
-        success: false,
-        scopeType: 'project',
-        scopeId: 'test-project',
-        agentId: 'agent-diff-2',
-        subtaskType: 'task-diff-d',
-        errorMessage: 'Error D',
-      }, db);
-      logAction({
-        action: 'query',
-        success: false,
-        scopeType: 'project',
-        scopeId: 'test-project',
-        agentId: 'agent-diff-2',
-        subtaskType: 'task-diff-e',
-        errorMessage: 'Error E',
-      }, db);
+      logAction(
+        {
+          action: 'query',
+          success: false,
+          scopeType: 'project',
+          scopeId: 'test-project',
+          agentId: 'agent-diff-2',
+          subtaskType: 'task-diff-d',
+          errorMessage: 'Error D',
+        },
+        db
+      );
+      logAction(
+        {
+          action: 'query',
+          success: false,
+          scopeType: 'project',
+          scopeId: 'test-project',
+          agentId: 'agent-diff-2',
+          subtaskType: 'task-diff-e',
+          errorMessage: 'Error E',
+        },
+        db
+      );
 
-      const result = calculateErrorCorrelation({
-        agentA: 'agent-diff-1',
-        agentB: 'agent-diff-2',
-      }, db);
+      const result = calculateErrorCorrelation(
+        {
+          agentA: 'agent-diff-1',
+          agentB: 'agent-diff-2',
+        },
+        db
+      );
 
       // Function should return valid structure
       expect(result).toBeDefined();
@@ -174,30 +207,39 @@ describe('error-correlation.service', () => {
     it('should provide high correlation recommendation (>0.7)', () => {
       // Create many shared errors to get high correlation
       for (let i = 0; i < 10; i++) {
-        logAction({
-          action: 'query',
-          success: false,
-          scopeType: 'project',
-          scopeId: 'test-project',
-          agentId: 'agent-high-rec-1',
-          subtaskType: `task-high-shared-${i}`,
-          errorMessage: 'Shared error',
-        }, db);
-        logAction({
-          action: 'query',
-          success: false,
-          scopeType: 'project',
-          scopeId: 'test-project',
-          agentId: 'agent-high-rec-2',
-          subtaskType: `task-high-shared-${i}`,
-          errorMessage: 'Shared error',
-        }, db);
+        logAction(
+          {
+            action: 'query',
+            success: false,
+            scopeType: 'project',
+            scopeId: 'test-project',
+            agentId: 'agent-high-rec-1',
+            subtaskType: `task-high-shared-${i}`,
+            errorMessage: 'Shared error',
+          },
+          db
+        );
+        logAction(
+          {
+            action: 'query',
+            success: false,
+            scopeType: 'project',
+            scopeId: 'test-project',
+            agentId: 'agent-high-rec-2',
+            subtaskType: `task-high-shared-${i}`,
+            errorMessage: 'Shared error',
+          },
+          db
+        );
       }
 
-      const result = calculateErrorCorrelation({
-        agentA: 'agent-high-rec-1',
-        agentB: 'agent-high-rec-2',
-      }, db);
+      const result = calculateErrorCorrelation(
+        {
+          agentA: 'agent-high-rec-1',
+          agentB: 'agent-high-rec-2',
+        },
+        db
+      );
 
       // Function should return valid structure
       expect(result).toBeDefined();
@@ -211,56 +253,71 @@ describe('error-correlation.service', () => {
       // Create some shared and some unique errors
       // Shared errors
       for (let i = 0; i < 3; i++) {
-        logAction({
-          action: 'query',
-          success: false,
-          scopeType: 'project',
-          scopeId: 'test-project',
-          agentId: 'agent-mod-1',
-          subtaskType: `task-shared-mod-${i}`,
-          errorMessage: 'Shared error',
-        }, db);
-        logAction({
-          action: 'query',
-          success: false,
-          scopeType: 'project',
-          scopeId: 'test-project',
-          agentId: 'agent-mod-2',
-          subtaskType: `task-shared-mod-${i}`,
-          errorMessage: 'Shared error',
-        }, db);
+        logAction(
+          {
+            action: 'query',
+            success: false,
+            scopeType: 'project',
+            scopeId: 'test-project',
+            agentId: 'agent-mod-1',
+            subtaskType: `task-shared-mod-${i}`,
+            errorMessage: 'Shared error',
+          },
+          db
+        );
+        logAction(
+          {
+            action: 'query',
+            success: false,
+            scopeType: 'project',
+            scopeId: 'test-project',
+            agentId: 'agent-mod-2',
+            subtaskType: `task-shared-mod-${i}`,
+            errorMessage: 'Shared error',
+          },
+          db
+        );
       }
 
       // Unique errors for agent 1
       for (let i = 0; i < 3; i++) {
-        logAction({
-          action: 'query',
-          success: false,
-          scopeType: 'project',
-          scopeId: 'test-project',
-          agentId: 'agent-mod-1',
-          subtaskType: `task-unique-1-${i}`,
-          errorMessage: 'Unique error 1',
-        }, db);
+        logAction(
+          {
+            action: 'query',
+            success: false,
+            scopeType: 'project',
+            scopeId: 'test-project',
+            agentId: 'agent-mod-1',
+            subtaskType: `task-unique-1-${i}`,
+            errorMessage: 'Unique error 1',
+          },
+          db
+        );
       }
 
       // Unique errors for agent 2
       for (let i = 0; i < 3; i++) {
-        logAction({
-          action: 'query',
-          success: false,
-          scopeType: 'project',
-          scopeId: 'test-project',
-          agentId: 'agent-mod-2',
-          subtaskType: `task-unique-2-${i}`,
-          errorMessage: 'Unique error 2',
-        }, db);
+        logAction(
+          {
+            action: 'query',
+            success: false,
+            scopeType: 'project',
+            scopeId: 'test-project',
+            agentId: 'agent-mod-2',
+            subtaskType: `task-unique-2-${i}`,
+            errorMessage: 'Unique error 2',
+          },
+          db
+        );
       }
 
-      const result = calculateErrorCorrelation({
-        agentA: 'agent-mod-1',
-        agentB: 'agent-mod-2',
-      }, db);
+      const result = calculateErrorCorrelation(
+        {
+          agentA: 'agent-mod-1',
+          agentB: 'agent-mod-2',
+        },
+        db
+      );
 
       // Note: This might not always give moderate correlation due to the formula,
       // but we can test the recommendation logic exists
@@ -271,10 +328,13 @@ describe('error-correlation.service', () => {
 
     it('should provide anti-correlation recommendation (<-0.3)', () => {
       // This is hard to achieve with binary error data, but we can test the logic
-      const result = calculateErrorCorrelation({
-        agentA: 'agent-anti-1',
-        agentB: 'agent-anti-2',
-      }, db);
+      const result = calculateErrorCorrelation(
+        {
+          agentA: 'agent-anti-1',
+          agentB: 'agent-anti-2',
+        },
+        db
+      );
 
       // At minimum, verify correlation is calculated
       expect(typeof result.correlation).toBe('number');
@@ -284,29 +344,38 @@ describe('error-correlation.service', () => {
 
     it('should provide good diversity recommendation (default case)', () => {
       // Create minimal shared errors
-      logAction({
-        action: 'query',
-        success: false,
-        scopeType: 'project',
-        scopeId: 'test-project',
-        agentId: 'agent-good-div-1',
-        subtaskType: 'task-good-div-1',
-        errorMessage: 'Error 1',
-      }, db);
-      logAction({
-        action: 'query',
-        success: false,
-        scopeType: 'project',
-        scopeId: 'test-project',
-        agentId: 'agent-good-div-2',
-        subtaskType: 'task-good-div-2',
-        errorMessage: 'Error 2',
-      }, db);
+      logAction(
+        {
+          action: 'query',
+          success: false,
+          scopeType: 'project',
+          scopeId: 'test-project',
+          agentId: 'agent-good-div-1',
+          subtaskType: 'task-good-div-1',
+          errorMessage: 'Error 1',
+        },
+        db
+      );
+      logAction(
+        {
+          action: 'query',
+          success: false,
+          scopeType: 'project',
+          scopeId: 'test-project',
+          agentId: 'agent-good-div-2',
+          subtaskType: 'task-good-div-2',
+          errorMessage: 'Error 2',
+        },
+        db
+      );
 
-      const result = calculateErrorCorrelation({
-        agentA: 'agent-good-div-1',
-        agentB: 'agent-good-div-2',
-      }, db);
+      const result = calculateErrorCorrelation(
+        {
+          agentA: 'agent-good-div-1',
+          agentB: 'agent-good-div-2',
+        },
+        db
+      );
 
       // Function should return valid structure
       expect(result).toBeDefined();
@@ -316,20 +385,26 @@ describe('error-correlation.service', () => {
     });
 
     it('should handle single agent scenarios', () => {
-      logAction({
-        action: 'query',
-        success: false,
-        scopeType: 'project',
-        scopeId: 'test-project',
-        agentId: 'agent-same',
-        subtaskType: 'task-same-1',
-        errorMessage: 'Error',
-      }, db);
+      logAction(
+        {
+          action: 'query',
+          success: false,
+          scopeType: 'project',
+          scopeId: 'test-project',
+          agentId: 'agent-same',
+          subtaskType: 'task-same-1',
+          errorMessage: 'Error',
+        },
+        db
+      );
 
-      const result = calculateErrorCorrelation({
-        agentA: 'agent-same',
-        agentB: 'agent-same',
-      }, db);
+      const result = calculateErrorCorrelation(
+        {
+          agentA: 'agent-same',
+          agentB: 'agent-same',
+        },
+        db
+      );
 
       expect(result).toBeDefined();
       expect(typeof result.correlation).toBe('number');
@@ -343,66 +418,84 @@ describe('error-correlation.service', () => {
       const futureDate = new Date('2030-01-01').toISOString();
 
       // Create an error entry (will use current timestamp)
-      logAction({
-        action: 'query',
-        success: false,
-        scopeType: 'project',
-        scopeId: 'test-project',
-        agentId: 'agent-time-1',
-        subtaskType: 'task-time-1',
-        errorMessage: 'Error',
-      }, db);
+      logAction(
+        {
+          action: 'query',
+          success: false,
+          scopeType: 'project',
+          scopeId: 'test-project',
+          agentId: 'agent-time-1',
+          subtaskType: 'task-time-1',
+          errorMessage: 'Error',
+        },
+        db
+      );
 
       // Query with past time window (should find nothing)
-      const pastResult = calculateErrorCorrelation({
-        agentA: 'agent-time-1',
-        agentB: 'agent-time-2',
-        timeWindow: {
-          start: pastDate,
-          end: new Date('2020-12-31').toISOString(),
+      const pastResult = calculateErrorCorrelation(
+        {
+          agentA: 'agent-time-1',
+          agentB: 'agent-time-2',
+          timeWindow: {
+            start: pastDate,
+            end: new Date('2020-12-31').toISOString(),
+          },
         },
-      }, db);
+        db
+      );
 
       expect(pastResult.totalTasks).toBe(0);
 
       // Query with future time window (should find the entry)
-      const futureResult = calculateErrorCorrelation({
-        agentA: 'agent-time-1',
-        agentB: 'agent-time-2',
-        timeWindow: {
-          start: pastDate,
-          end: futureDate,
+      const futureResult = calculateErrorCorrelation(
+        {
+          agentA: 'agent-time-1',
+          agentB: 'agent-time-2',
+          timeWindow: {
+            start: pastDate,
+            end: futureDate,
+          },
         },
-      }, db);
+        db
+      );
 
       expect(futureResult.totalTasks).toBeGreaterThanOrEqual(0);
     });
 
     it('should use entryId as primary key for tasks', () => {
       // Create errors with entryId
-      logAction({
-        action: 'memory.create',
-        success: false,
-        scopeType: 'project',
-        scopeId: 'test-project',
-        agentId: 'agent-entry-1',
-        entryId: 'entry-123',
-        errorMessage: 'Error on entry 123',
-      }, db);
-      logAction({
-        action: 'memory.create',
-        success: false,
-        scopeType: 'project',
-        scopeId: 'test-project',
-        agentId: 'agent-entry-2',
-        entryId: 'entry-123',
-        errorMessage: 'Error on entry 123',
-      }, db);
+      logAction(
+        {
+          action: 'memory.create',
+          success: false,
+          scopeType: 'project',
+          scopeId: 'test-project',
+          agentId: 'agent-entry-1',
+          entryId: 'entry-123',
+          errorMessage: 'Error on entry 123',
+        },
+        db
+      );
+      logAction(
+        {
+          action: 'memory.create',
+          success: false,
+          scopeType: 'project',
+          scopeId: 'test-project',
+          agentId: 'agent-entry-2',
+          entryId: 'entry-123',
+          errorMessage: 'Error on entry 123',
+        },
+        db
+      );
 
-      const result = calculateErrorCorrelation({
-        agentA: 'agent-entry-1',
-        agentB: 'agent-entry-2',
-      }, db);
+      const result = calculateErrorCorrelation(
+        {
+          agentA: 'agent-entry-1',
+          agentB: 'agent-entry-2',
+        },
+        db
+      );
 
       // Should handle entryId-based errors
       expect(result).toBeDefined();
@@ -411,40 +504,52 @@ describe('error-correlation.service', () => {
     });
 
     it('should use subtaskType as fallback when entryId is null', () => {
-      logAction({
-        action: 'query',
-        success: false,
-        scopeType: 'project',
-        scopeId: 'test-project',
-        agentId: 'agent-subtype-1',
-        subtaskType: 'query-type-1',
-        errorMessage: 'Error',
-      }, db);
+      logAction(
+        {
+          action: 'query',
+          success: false,
+          scopeType: 'project',
+          scopeId: 'test-project',
+          agentId: 'agent-subtype-1',
+          subtaskType: 'query-type-1',
+          errorMessage: 'Error',
+        },
+        db
+      );
 
-      const result = calculateErrorCorrelation({
-        agentA: 'agent-subtype-1',
-        agentB: 'agent-subtype-2',
-      }, db);
+      const result = calculateErrorCorrelation(
+        {
+          agentA: 'agent-subtype-1',
+          agentB: 'agent-subtype-2',
+        },
+        db
+      );
 
       expect(result).toBeDefined();
       expect(result.totalTasks).toBeGreaterThanOrEqual(0);
     });
 
     it('should handle edge case of single task', () => {
-      logAction({
-        action: 'query',
-        success: false,
-        scopeType: 'project',
-        scopeId: 'test-project',
-        agentId: 'agent-single-1',
-        subtaskType: 'single-task',
-        errorMessage: 'Error',
-      }, db);
+      logAction(
+        {
+          action: 'query',
+          success: false,
+          scopeType: 'project',
+          scopeId: 'test-project',
+          agentId: 'agent-single-1',
+          subtaskType: 'single-task',
+          errorMessage: 'Error',
+        },
+        db
+      );
 
-      const result = calculateErrorCorrelation({
-        agentA: 'agent-single-1',
-        agentB: 'agent-single-2',
-      }, db);
+      const result = calculateErrorCorrelation(
+        {
+          agentA: 'agent-single-1',
+          agentB: 'agent-single-2',
+        },
+        db
+      );
 
       expect(result.totalTasks).toBeGreaterThanOrEqual(0);
       // With only 1 task, correlation should be 0 (totalTasks > 1 check)
@@ -453,29 +558,38 @@ describe('error-correlation.service', () => {
 
     it('should clamp correlation to [-1, 1] range', () => {
       // Any valid calculation should result in clamped correlation
-      logAction({
-        action: 'query',
-        success: false,
-        scopeType: 'project',
-        scopeId: 'test-project',
-        agentId: 'agent-clamp-1',
-        subtaskType: 'task-clamp-1',
-        errorMessage: 'Error',
-      }, db);
-      logAction({
-        action: 'query',
-        success: false,
-        scopeType: 'project',
-        scopeId: 'test-project',
-        agentId: 'agent-clamp-2',
-        subtaskType: 'task-clamp-2',
-        errorMessage: 'Error',
-      }, db);
+      logAction(
+        {
+          action: 'query',
+          success: false,
+          scopeType: 'project',
+          scopeId: 'test-project',
+          agentId: 'agent-clamp-1',
+          subtaskType: 'task-clamp-1',
+          errorMessage: 'Error',
+        },
+        db
+      );
+      logAction(
+        {
+          action: 'query',
+          success: false,
+          scopeType: 'project',
+          scopeId: 'test-project',
+          agentId: 'agent-clamp-2',
+          subtaskType: 'task-clamp-2',
+          errorMessage: 'Error',
+        },
+        db
+      );
 
-      const result = calculateErrorCorrelation({
-        agentA: 'agent-clamp-1',
-        agentB: 'agent-clamp-2',
-      }, db);
+      const result = calculateErrorCorrelation(
+        {
+          agentA: 'agent-clamp-1',
+          agentB: 'agent-clamp-2',
+        },
+        db
+      );
 
       expect(result.correlation).toBeGreaterThanOrEqual(-1);
       expect(result.correlation).toBeLessThanOrEqual(1);
@@ -493,24 +607,30 @@ describe('error-correlation.service', () => {
 
     it('should return agent pairs with correlation scores', () => {
       // Create errors for multiple agents in the same project
-      logAction({
-        action: 'query',
-        success: false,
-        scopeType: 'project',
-        scopeId: 'diversity-project',
-        agentId: 'agent-div-1',
-        subtaskType: 'task-1',
-        errorMessage: 'Error 1',
-      }, db);
-      logAction({
-        action: 'query',
-        success: false,
-        scopeType: 'project',
-        scopeId: 'diversity-project',
-        agentId: 'agent-div-2',
-        subtaskType: 'task-2',
-        errorMessage: 'Error 2',
-      }, db);
+      logAction(
+        {
+          action: 'query',
+          success: false,
+          scopeType: 'project',
+          scopeId: 'diversity-project',
+          agentId: 'agent-div-1',
+          subtaskType: 'task-1',
+          errorMessage: 'Error 1',
+        },
+        db
+      );
+      logAction(
+        {
+          action: 'query',
+          success: false,
+          scopeType: 'project',
+          scopeId: 'diversity-project',
+          agentId: 'agent-div-2',
+          subtaskType: 'task-2',
+          errorMessage: 'Error 2',
+        },
+        db
+      );
 
       const result = detectLowDiversity('diversity-project', db);
 
@@ -536,15 +656,18 @@ describe('error-correlation.service', () => {
 
     it('should return empty results when less than 2 agents with errors', () => {
       // Create error for only one agent
-      logAction({
-        action: 'query',
-        success: false,
-        scopeType: 'project',
-        scopeId: 'single-agent-project',
-        agentId: 'lonely-agent',
-        subtaskType: 'task-1',
-        errorMessage: 'Error',
-      }, db);
+      logAction(
+        {
+          action: 'query',
+          success: false,
+          scopeType: 'project',
+          scopeId: 'single-agent-project',
+          agentId: 'lonely-agent',
+          subtaskType: 'task-1',
+          errorMessage: 'Error',
+        },
+        db
+      );
 
       const result = detectLowDiversity('single-agent-project', db);
 
@@ -559,24 +682,30 @@ describe('error-correlation.service', () => {
 
       // Create two agents with identical errors (high correlation)
       for (let i = 0; i < 5; i++) {
-        logAction({
-          action: 'query',
-          success: false,
-          scopeType: 'project',
-          scopeId: projectId,
-          agentId: 'agent-corr-a',
-          subtaskType: `shared-task-${i}`,
-          errorMessage: 'Shared error',
-        }, db);
-        logAction({
-          action: 'query',
-          success: false,
-          scopeType: 'project',
-          scopeId: projectId,
-          agentId: 'agent-corr-b',
-          subtaskType: `shared-task-${i}`,
-          errorMessage: 'Shared error',
-        }, db);
+        logAction(
+          {
+            action: 'query',
+            success: false,
+            scopeType: 'project',
+            scopeId: projectId,
+            agentId: 'agent-corr-a',
+            subtaskType: `shared-task-${i}`,
+            errorMessage: 'Shared error',
+          },
+          db
+        );
+        logAction(
+          {
+            action: 'query',
+            success: false,
+            scopeType: 'project',
+            scopeId: projectId,
+            agentId: 'agent-corr-b',
+            subtaskType: `shared-task-${i}`,
+            errorMessage: 'Shared error',
+          },
+          db
+        );
       }
 
       const result = detectLowDiversity(projectId, db);
@@ -600,15 +729,18 @@ describe('error-correlation.service', () => {
 
       // Create multiple agent pairs with different error patterns
       for (let i = 0; i < 3; i++) {
-        logAction({
-          action: 'query',
-          success: false,
-          scopeType: 'project',
-          scopeId: projectId,
-          agentId: `agent-sort-${i}`,
-          subtaskType: `task-${i}`,
-          errorMessage: 'Error',
-        }, db);
+        logAction(
+          {
+            action: 'query',
+            success: false,
+            scopeType: 'project',
+            scopeId: projectId,
+            agentId: `agent-sort-${i}`,
+            subtaskType: `task-${i}`,
+            errorMessage: 'Error',
+          },
+          db
+        );
       }
 
       const result = detectLowDiversity(projectId, db);
@@ -626,24 +758,30 @@ describe('error-correlation.service', () => {
 
       // Create agents with high correlation
       for (let i = 0; i < 10; i++) {
-        logAction({
-          action: 'query',
-          success: false,
-          scopeType: 'project',
-          scopeId: projectId,
-          agentId: 'agent-rec-1',
-          subtaskType: `task-rec-${i}`,
-          errorMessage: 'Error',
-        }, db);
-        logAction({
-          action: 'query',
-          success: false,
-          scopeType: 'project',
-          scopeId: projectId,
-          agentId: 'agent-rec-2',
-          subtaskType: `task-rec-${i}`,
-          errorMessage: 'Error',
-        }, db);
+        logAction(
+          {
+            action: 'query',
+            success: false,
+            scopeType: 'project',
+            scopeId: projectId,
+            agentId: 'agent-rec-1',
+            subtaskType: `task-rec-${i}`,
+            errorMessage: 'Error',
+          },
+          db
+        );
+        logAction(
+          {
+            action: 'query',
+            success: false,
+            scopeType: 'project',
+            scopeId: projectId,
+            agentId: 'agent-rec-2',
+            subtaskType: `task-rec-${i}`,
+            errorMessage: 'Error',
+          },
+          db
+        );
       }
 
       const result = detectLowDiversity(projectId, db);
@@ -665,24 +803,30 @@ describe('error-correlation.service', () => {
       const projectId = 'good-diversity-project';
 
       // Create agents with different error patterns
-      logAction({
-        action: 'query',
-        success: false,
-        scopeType: 'project',
-        scopeId: projectId,
-        agentId: 'agent-good-a',
-        subtaskType: 'task-a',
-        errorMessage: 'Error A',
-      }, db);
-      logAction({
-        action: 'query',
-        success: false,
-        scopeType: 'project',
-        scopeId: projectId,
-        agentId: 'agent-good-b',
-        subtaskType: 'task-b',
-        errorMessage: 'Error B',
-      }, db);
+      logAction(
+        {
+          action: 'query',
+          success: false,
+          scopeType: 'project',
+          scopeId: projectId,
+          agentId: 'agent-good-a',
+          subtaskType: 'task-a',
+          errorMessage: 'Error A',
+        },
+        db
+      );
+      logAction(
+        {
+          action: 'query',
+          success: false,
+          scopeType: 'project',
+          scopeId: projectId,
+          agentId: 'agent-good-b',
+          subtaskType: 'task-b',
+          errorMessage: 'Error B',
+        },
+        db
+      );
 
       const result = detectLowDiversity(projectId, db);
 
@@ -710,24 +854,30 @@ describe('error-correlation.service', () => {
 
     it('should only analyze agents from specified project', () => {
       // Create errors in different projects
-      logAction({
-        action: 'query',
-        success: false,
-        scopeType: 'project',
-        scopeId: 'project-A',
-        agentId: 'agent-proj-A',
-        subtaskType: 'task-1',
-        errorMessage: 'Error',
-      }, db);
-      logAction({
-        action: 'query',
-        success: false,
-        scopeType: 'project',
-        scopeId: 'project-B',
-        agentId: 'agent-proj-B',
-        subtaskType: 'task-2',
-        errorMessage: 'Error',
-      }, db);
+      logAction(
+        {
+          action: 'query',
+          success: false,
+          scopeType: 'project',
+          scopeId: 'project-A',
+          agentId: 'agent-proj-A',
+          subtaskType: 'task-1',
+          errorMessage: 'Error',
+        },
+        db
+      );
+      logAction(
+        {
+          action: 'query',
+          success: false,
+          scopeType: 'project',
+          scopeId: 'project-B',
+          agentId: 'agent-proj-B',
+          subtaskType: 'task-2',
+          errorMessage: 'Error',
+        },
+        db
+      );
 
       const resultA = detectLowDiversity('project-A', db);
       const resultB = detectLowDiversity('project-B', db);
@@ -742,33 +892,42 @@ describe('error-correlation.service', () => {
       const projectId = 'pairs-project';
 
       // Create 3 agents, should get 3 pairs (C(3,2) = 3)
-      logAction({
-        action: 'query',
-        success: false,
-        scopeType: 'project',
-        scopeId: projectId,
-        agentId: 'agent-pair-1',
-        subtaskType: 'task-1',
-        errorMessage: 'Error',
-      }, db);
-      logAction({
-        action: 'query',
-        success: false,
-        scopeType: 'project',
-        scopeId: projectId,
-        agentId: 'agent-pair-2',
-        subtaskType: 'task-2',
-        errorMessage: 'Error',
-      }, db);
-      logAction({
-        action: 'query',
-        success: false,
-        scopeType: 'project',
-        scopeId: projectId,
-        agentId: 'agent-pair-3',
-        subtaskType: 'task-3',
-        errorMessage: 'Error',
-      }, db);
+      logAction(
+        {
+          action: 'query',
+          success: false,
+          scopeType: 'project',
+          scopeId: projectId,
+          agentId: 'agent-pair-1',
+          subtaskType: 'task-1',
+          errorMessage: 'Error',
+        },
+        db
+      );
+      logAction(
+        {
+          action: 'query',
+          success: false,
+          scopeType: 'project',
+          scopeId: projectId,
+          agentId: 'agent-pair-2',
+          subtaskType: 'task-2',
+          errorMessage: 'Error',
+        },
+        db
+      );
+      logAction(
+        {
+          action: 'query',
+          success: false,
+          scopeType: 'project',
+          scopeId: projectId,
+          agentId: 'agent-pair-3',
+          subtaskType: 'task-3',
+          errorMessage: 'Error',
+        },
+        db
+      );
 
       const result = detectLowDiversity(projectId, db);
 
@@ -788,14 +947,17 @@ describe('error-correlation.service', () => {
       const projectId = 'null-agent-project';
 
       // The function filters out null agentIds
-      logAction({
-        action: 'query',
-        success: false,
-        scopeType: 'project',
-        scopeId: projectId,
-        subtaskType: 'task-1',
-        errorMessage: 'Error',
-      }, db);
+      logAction(
+        {
+          action: 'query',
+          success: false,
+          scopeType: 'project',
+          scopeId: projectId,
+          subtaskType: 'task-1',
+          errorMessage: 'Error',
+        },
+        db
+      );
 
       const result = detectLowDiversity(projectId, db);
 
@@ -805,6 +967,3 @@ describe('error-correlation.service', () => {
     });
   });
 });
-
-
-

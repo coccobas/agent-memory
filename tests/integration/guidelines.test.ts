@@ -92,7 +92,11 @@ describe('Guidelines Integration', () => {
 
     it('should require name', async () => {
       await expect(
-        guidelineHandlers.add(context, { agentId: AGENT_ID, scopeType: 'global', content: 'content' })
+        guidelineHandlers.add(context, {
+          agentId: AGENT_ID,
+          scopeType: 'global',
+          content: 'content',
+        })
       ).rejects.toThrow(/name.*required/i);
     });
 
@@ -200,7 +204,12 @@ describe('Guidelines Integration', () => {
   describe('memory_guideline_history', () => {
     it('should return version history', async () => {
       const { guideline } = createTestGuideline(db, 'history_test');
-      await guidelineHandlers.update(context, { agentId: AGENT_ID, id: guideline.id, content: 'Version 2', changeReason: 'Update' });
+      await guidelineHandlers.update(context, {
+        agentId: AGENT_ID,
+        id: guideline.id,
+        content: 'Version 2',
+        changeReason: 'Update',
+      });
       await guidelineHandlers.update(context, {
         agentId: AGENT_ID,
         id: guideline.id,
@@ -208,7 +217,10 @@ describe('Guidelines Integration', () => {
         changeReason: 'Another update',
       });
 
-      const result = await guidelineHandlers.history(context, { agentId: AGENT_ID, id: guideline.id });
+      const result = await guidelineHandlers.history(context, {
+        agentId: AGENT_ID,
+        id: guideline.id,
+      });
       expect(result.versions.length).toBeGreaterThanOrEqual(3);
     });
   });
@@ -216,7 +228,10 @@ describe('Guidelines Integration', () => {
   describe('memory_guideline_deactivate', () => {
     it('should deactivate a guideline', async () => {
       const { guideline } = createTestGuideline(db, 'deactivate_test');
-      const result = await guidelineHandlers.deactivate(context, { agentId: AGENT_ID, id: guideline.id });
+      const result = await guidelineHandlers.deactivate(context, {
+        agentId: AGENT_ID,
+        id: guideline.id,
+      });
 
       expect(result.success).toBe(true);
 

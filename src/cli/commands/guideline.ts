@@ -1,0 +1,304 @@
+/**
+ * Guideline CLI Command
+ *
+ * Manage guideline entries via CLI.
+ */
+
+import { Command } from 'commander';
+import { getCliContext, shutdownCliContext } from '../utils/context.js';
+import { formatOutput, type OutputFormat } from '../utils/output.js';
+import { handleCliError } from '../utils/errors.js';
+import { readStdinJson } from '../utils/stdin.js';
+import { guidelineHandlers } from '../../mcp/handlers/guidelines.handler.js';
+
+export function addGuidelineCommand(program: Command): void {
+  const guideline = program.command('guideline').description('Manage guideline entries');
+
+  // guideline add
+  guideline
+    .command('add')
+    .description('Add a new guideline')
+    .requiredOption('--name <name>', 'Guideline name')
+    .requiredOption('--content <content>', 'Guideline content')
+    .requiredOption('--scope-type <type>', 'Scope type: global, org, project, session')
+    .option('--scope-id <id>', 'Scope ID (required for non-global)')
+    .option('--category <category>', 'Category (e.g., security, code_style)')
+    .option('--priority <n>', 'Priority 0-100', parseInt)
+    .option('--rationale <text>', 'Rationale for this guideline')
+    .option('--created-by <name>', 'Creator name')
+    .action(async (options, cmd) => {
+      try {
+        const globalOpts = cmd.optsWithGlobals();
+        const context = await getCliContext();
+
+        const result = await guidelineHandlers.add(context, {
+          name: options.name,
+          content: options.content,
+          scopeType: options.scopeType,
+          scopeId: options.scopeId,
+          category: options.category,
+          priority: options.priority,
+          rationale: options.rationale,
+          createdBy: options.createdBy,
+          agentId: globalOpts.agentId,
+        });
+
+        console.log(formatOutput(result, globalOpts.format as OutputFormat));
+      } catch (error) {
+        handleCliError(error);
+      } finally {
+        await shutdownCliContext();
+      }
+    });
+
+  // guideline list
+  guideline
+    .command('list')
+    .description('List guidelines')
+    .option('--scope-type <type>', 'Filter by scope type')
+    .option('--scope-id <id>', 'Filter by scope ID')
+    .option('--category <category>', 'Filter by category')
+    .option('--include-inactive', 'Include inactive entries')
+    .option('--limit <n>', 'Maximum entries to return', parseInt)
+    .option('--offset <n>', 'Offset for pagination', parseInt)
+    .action(async (options, cmd) => {
+      try {
+        const globalOpts = cmd.optsWithGlobals();
+        const context = await getCliContext();
+
+        const result = await guidelineHandlers.list(context, {
+          scopeType: options.scopeType,
+          scopeId: options.scopeId,
+          category: options.category,
+          includeInactive: options.includeInactive,
+          limit: options.limit,
+          offset: options.offset,
+          agentId: globalOpts.agentId,
+        });
+
+        console.log(formatOutput(result, globalOpts.format as OutputFormat));
+      } catch (error) {
+        handleCliError(error);
+      } finally {
+        await shutdownCliContext();
+      }
+    });
+
+  // guideline get
+  guideline
+    .command('get')
+    .description('Get a guideline by ID or name')
+    .option('--id <id>', 'Guideline ID')
+    .option('--name <name>', 'Guideline name (requires scope-type)')
+    .option('--scope-type <type>', 'Scope type for name lookup')
+    .option('--scope-id <id>', 'Scope ID for name lookup')
+    .option('--inherit', 'Search parent scopes')
+    .action(async (options, cmd) => {
+      try {
+        const globalOpts = cmd.optsWithGlobals();
+        const context = await getCliContext();
+
+        const result = await guidelineHandlers.get(context, {
+          id: options.id,
+          name: options.name,
+          scopeType: options.scopeType,
+          scopeId: options.scopeId,
+          inherit: options.inherit ?? true,
+          agentId: globalOpts.agentId,
+        });
+
+        console.log(formatOutput(result, globalOpts.format as OutputFormat));
+      } catch (error) {
+        handleCliError(error);
+      } finally {
+        await shutdownCliContext();
+      }
+    });
+
+  // guideline update
+  guideline
+    .command('update')
+    .description('Update a guideline')
+    .requiredOption('--id <id>', 'Guideline ID')
+    .option('--content <content>', 'New content')
+    .option('--category <category>', 'New category')
+    .option('--priority <n>', 'New priority', parseInt)
+    .option('--rationale <text>', 'New rationale')
+    .option('--change-reason <reason>', 'Reason for update')
+    .action(async (options, cmd) => {
+      try {
+        const globalOpts = cmd.optsWithGlobals();
+        const context = await getCliContext();
+
+        const result = await guidelineHandlers.update(context, {
+          id: options.id,
+          content: options.content,
+          category: options.category,
+          priority: options.priority,
+          rationale: options.rationale,
+          changeReason: options.changeReason,
+          agentId: globalOpts.agentId,
+        });
+
+        console.log(formatOutput(result, globalOpts.format as OutputFormat));
+      } catch (error) {
+        handleCliError(error);
+      } finally {
+        await shutdownCliContext();
+      }
+    });
+
+  // guideline history
+  guideline
+    .command('history')
+    .description('Get version history for a guideline')
+    .requiredOption('--id <id>', 'Guideline ID')
+    .action(async (options, cmd) => {
+      try {
+        const globalOpts = cmd.optsWithGlobals();
+        const context = await getCliContext();
+
+        const result = await guidelineHandlers.history(context, {
+          id: options.id,
+          agentId: globalOpts.agentId,
+        });
+
+        console.log(formatOutput(result, globalOpts.format as OutputFormat));
+      } catch (error) {
+        handleCliError(error);
+      } finally {
+        await shutdownCliContext();
+      }
+    });
+
+  // guideline deactivate
+  guideline
+    .command('deactivate')
+    .description('Soft-delete a guideline')
+    .requiredOption('--id <id>', 'Guideline ID')
+    .action(async (options, cmd) => {
+      try {
+        const globalOpts = cmd.optsWithGlobals();
+        const context = await getCliContext();
+
+        const result = await guidelineHandlers.deactivate(context, {
+          id: options.id,
+          agentId: globalOpts.agentId,
+        });
+
+        console.log(formatOutput(result, globalOpts.format as OutputFormat));
+      } catch (error) {
+        handleCliError(error);
+      } finally {
+        await shutdownCliContext();
+      }
+    });
+
+  // guideline delete
+  guideline
+    .command('delete')
+    .description('Permanently delete a guideline')
+    .requiredOption('--id <id>', 'Guideline ID')
+    .action(async (options, cmd) => {
+      try {
+        const globalOpts = cmd.optsWithGlobals();
+        const context = await getCliContext();
+
+        const result = await guidelineHandlers.delete(context, {
+          id: options.id,
+          agentId: globalOpts.agentId,
+        });
+
+        console.log(formatOutput(result, globalOpts.format as OutputFormat));
+      } catch (error) {
+        handleCliError(error);
+      } finally {
+        await shutdownCliContext();
+      }
+    });
+
+  // guideline bulk-add
+  guideline
+    .command('bulk-add')
+    .description('Add multiple guidelines (reads JSON array from stdin)')
+    .requiredOption('--scope-type <type>', 'Default scope type')
+    .option('--scope-id <id>', 'Default scope ID')
+    .action(async (options, cmd) => {
+      try {
+        const globalOpts = cmd.optsWithGlobals();
+        const context = await getCliContext();
+
+        const entries = await readStdinJson<object[]>();
+        if (!entries || !Array.isArray(entries)) {
+          throw new Error('No entries provided via stdin. Pipe JSON array of entries.');
+        }
+
+        const result = await guidelineHandlers.bulk_add(context, {
+          entries,
+          scopeType: options.scopeType,
+          scopeId: options.scopeId,
+          agentId: globalOpts.agentId,
+        });
+
+        console.log(formatOutput(result, globalOpts.format as OutputFormat));
+      } catch (error) {
+        handleCliError(error);
+      } finally {
+        await shutdownCliContext();
+      }
+    });
+
+  // guideline bulk-update
+  guideline
+    .command('bulk-update')
+    .description('Update multiple guidelines (reads JSON array from stdin)')
+    .action(async (_, cmd) => {
+      try {
+        const globalOpts = cmd.optsWithGlobals();
+        const context = await getCliContext();
+
+        const updates = await readStdinJson<object[]>();
+        if (!updates || !Array.isArray(updates)) {
+          throw new Error('No updates provided via stdin. Pipe JSON array of updates.');
+        }
+
+        const result = await guidelineHandlers.bulk_update(context, {
+          updates,
+          agentId: globalOpts.agentId,
+        });
+
+        console.log(formatOutput(result, globalOpts.format as OutputFormat));
+      } catch (error) {
+        handleCliError(error);
+      } finally {
+        await shutdownCliContext();
+      }
+    });
+
+  // guideline bulk-delete
+  guideline
+    .command('bulk-delete')
+    .description('Delete multiple guidelines (reads JSON array of IDs from stdin)')
+    .action(async (_, cmd) => {
+      try {
+        const globalOpts = cmd.optsWithGlobals();
+        const context = await getCliContext();
+
+        const ids = await readStdinJson<string[]>();
+        if (!ids || !Array.isArray(ids)) {
+          throw new Error('No IDs provided via stdin. Pipe JSON array of IDs.');
+        }
+
+        const result = await guidelineHandlers.bulk_delete(context, {
+          ids,
+          agentId: globalOpts.agentId,
+        });
+
+        console.log(formatOutput(result, globalOpts.format as OutputFormat));
+      } catch (error) {
+        handleCliError(error);
+      } finally {
+        await shutdownCliContext();
+      }
+    });
+}
