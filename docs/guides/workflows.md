@@ -8,6 +8,9 @@ Use this guide when you want a repeatable “how we use memory” playbook (onbo
 
 - [Setting Up a New Project](#setting-up-a-new-project)
 - [Memory-First Development](#memory-first-development)
+- [Automatic Memory Extraction](#automatic-memory-extraction)
+- [Candidate Review Workflow](#candidate-review-workflow)
+- [Conversation Tracking](#conversation-tracking)
 - [Multi-Agent Coordination](#multi-agent-coordination)
 - [Memory Consolidation](#memory-consolidation)
 - [Backup and Recovery](#backup-and-recovery)
@@ -252,6 +255,313 @@ Start a session to group work:
   "action": "end",
   "id": "sess-ghi789",
   "status": "completed"
+}
+```
+
+---
+
+## Automatic Memory Extraction
+
+Use the `memory_observe` tool to automatically extract guidelines, knowledge, and tool patterns from conversations or code context using LLM analysis.
+
+### Check Extraction Service Status
+
+```json
+// Tool: memory_observe
+{
+  "action": "status"
+}
+```
+
+Returns whether the extraction provider is configured (OpenAI, Anthropic, or Ollama).
+
+### Extract from Conversation Context
+
+```json
+// Tool: memory_observe
+{
+  "action": "extract",
+  "context": "User: We should always use TypeScript strict mode with noImplicitAny.\nAssistant: Understood, I'll enforce strict mode.\nUser: Also, never use console.log in production code.",
+  "contextType": "conversation",
+  "scopeType": "session",
+  "scopeId": "sess-ghi789",
+  "projectId": "proj-def456",
+  "autoStore": true,
+  "confidenceThreshold": 0.7
+}
+```
+
+**Parameters:**
+
+| Parameter | Description |
+|-----------|-------------|
+| `context` | Raw conversation or code to analyze |
+| `contextType` | `conversation`, `code`, or `mixed` |
+| `focusAreas` | Optional: `decisions`, `facts`, `rules`, `tools` |
+| `autoStore` | Store entries above confidence threshold |
+| `autoPromote` | Promote high-confidence entries to project scope |
+| `autoPromoteThreshold` | Threshold for auto-promotion (default: 0.85) |
+
+### Extract from Code Context
+
+```json
+// Tool: memory_observe
+{
+  "action": "extract",
+  "context": "// All API routes must use async/await\n// Errors should be caught and logged with proper context\nasync function getUser(id: string): Promise<User> {\n  try {\n    return await db.users.findById(id);\n  } catch (error) {\n    logger.error('Failed to fetch user', { userId: id, error });\n    throw new ApiError('User not found', 404);\n  }\n}",
+  "contextType": "code",
+  "scopeType": "session",
+  "scopeId": "sess-ghi789",
+  "focusAreas": ["rules", "decisions"]
+}
+```
+
+### Client-Assisted Extraction (Two-Step)
+
+For more control, use draft + commit workflow:
+
+**Step 1: Get extraction schema and prompt**
+
+```json
+// Tool: memory_observe
+{
+  "action": "draft",
+  "sessionId": "sess-ghi789",
+  "projectId": "proj-def456"
+}
+```
+
+Returns a strict JSON schema and prompt template for client-side extraction.
+
+**Step 2: Commit extracted entries**
+
+```json
+// Tool: memory_observe
+{
+  "action": "commit",
+  "sessionId": "sess-ghi789",
+  "entries": [
+    {
+      "type": "guideline",
+      "name": "typescript-strict",
+      "content": "Use TypeScript strict mode with noImplicitAny enabled",
+      "confidence": 0.92,
+      "category": "code_style"
+    },
+    {
+      "type": "knowledge",
+      "title": "Error handling pattern",
+      "content": "All async functions must use try-catch with structured logging",
+      "confidence": 0.88,
+      "category": "decision"
+    }
+  ],
+  "autoPromote": true,
+  "autoPromoteThreshold": 0.85
+}
+```
+
+### Extraction Best Practices
+
+1. **Start with sessions** - Store extracted entries in session scope first
+2. **Review before promoting** - Use the review workflow to validate candidates
+3. **Focus on high-confidence** - Set thresholds appropriately (0.7+ for auto-store, 0.85+ for auto-promote)
+4. **Use context types** - Specify `conversation` or `code` for better extraction accuracy
+
+---
+
+## Candidate Review Workflow
+
+Extracted entries are stored as "candidates" in session scope. Use the review workflow to promote them to project scope.
+
+### List Pending Candidates
+
+```json
+// Tool: memory_review
+{
+  "action": "list",
+  "sessionId": "sess-ghi789"
+}
+```
+
+Returns entries tagged with `candidate` or `needs_review`.
+
+### View Candidate Details
+
+```json
+// Tool: memory_review
+{
+  "action": "show",
+  "sessionId": "sess-ghi789",
+  "entryId": "know-abc123"
+}
+```
+
+### Approve Candidate (Promote to Project)
+
+```json
+// Tool: memory_review
+{
+  "action": "approve",
+  "sessionId": "sess-ghi789",
+  "entryId": "know-abc123",
+  "projectId": "proj-def456"
+}
+```
+
+This:
+1. Creates a copy of the entry in project scope
+2. Removes candidate tags from the session entry
+3. Creates a relation between the entries
+
+### Reject Candidate
+
+```json
+// Tool: memory_review
+{
+  "action": "reject",
+  "sessionId": "sess-ghi789",
+  "entryId": "know-abc123"
+}
+```
+
+Deactivates the entry and removes it from the review queue.
+
+### Skip Candidate
+
+```json
+// Tool: memory_review
+{
+  "action": "skip",
+  "sessionId": "sess-ghi789",
+  "entryId": "know-abc123"
+}
+```
+
+Removes from review queue without deactivating (can be reviewed later).
+
+### CLI Interactive Review
+
+For bulk review, use the interactive TUI:
+
+```bash
+agent-memory review --session sess-ghi789 --project proj-def456
+```
+
+| Key | Action |
+|-----|--------|
+| ↑/↓ | Navigate entries |
+| Space | Toggle selection |
+| a | Approve selected |
+| r | Reject selected |
+| s | Skip selected |
+| q | Quit |
+
+---
+
+## Conversation Tracking
+
+Track conversation history and link it to memory entries for context.
+
+### Start a Conversation
+
+```json
+// Tool: memory_conversation
+{
+  "action": "start",
+  "projectId": "proj-def456",
+  "sessionId": "sess-ghi789",
+  "title": "Implementing user authentication",
+  "agentId": "claude-code"
+}
+```
+
+### Add Messages
+
+```json
+// Tool: memory_conversation
+{
+  "action": "add_message",
+  "conversationId": "conv-jkl012",
+  "role": "user",
+  "content": "How should we handle JWT token expiration?",
+  "agentId": "claude-code"
+}
+```
+
+```json
+// Tool: memory_conversation
+{
+  "action": "add_message",
+  "conversationId": "conv-jkl012",
+  "role": "agent",
+  "content": "For JWT tokens, I recommend using short-lived access tokens (1 hour) with refresh tokens (7 days).",
+  "toolsUsed": ["memory_query"],
+  "contextEntries": [
+    {"type": "knowledge", "id": "know-xyz789"}
+  ]
+}
+```
+
+### Link Memory Context
+
+Associate memory entries with specific messages:
+
+```json
+// Tool: memory_conversation
+{
+  "action": "link_context",
+  "conversationId": "conv-jkl012",
+  "messageId": "msg-abc123",
+  "entryType": "guideline",
+  "entryId": "guide-def456",
+  "relevanceScore": 0.95
+}
+```
+
+### Get Context for an Entry
+
+Find all conversations where an entry was referenced:
+
+```json
+// Tool: memory_conversation
+{
+  "action": "get_context",
+  "entryType": "knowledge",
+  "entryId": "know-xyz789"
+}
+```
+
+### Search Conversations
+
+```json
+// Tool: memory_conversation
+{
+  "action": "search",
+  "search": "JWT authentication",
+  "projectId": "proj-def456",
+  "limit": 10
+}
+```
+
+### End Conversation with Summary
+
+```json
+// Tool: memory_conversation
+{
+  "action": "end",
+  "conversationId": "conv-jkl012",
+  "generateSummary": true
+}
+```
+
+### Archive Old Conversations
+
+```json
+// Tool: memory_conversation
+{
+  "action": "archive",
+  "conversationId": "conv-jkl012"
 }
 ```
 

@@ -85,6 +85,103 @@ curl http://127.0.0.1:8787/health
 
 ---
 
+### GET /metrics
+
+Prometheus-compatible metrics endpoint. **No authentication required.**
+
+```bash
+curl http://127.0.0.1:8787/metrics
+```
+
+Returns metrics in Prometheus format for monitoring.
+
+---
+
+### GET /v1/openapi.json
+
+OpenAPI 3.0 specification for the REST API. **No authentication required.**
+
+```bash
+curl http://127.0.0.1:8787/v1/openapi.json
+```
+
+Use this to generate client SDKs or import into API tools like Postman.
+
+---
+
+### GET /v1/tools
+
+List all available MCP tools and their schemas.
+
+```bash
+curl http://127.0.0.1:8787/v1/tools \
+  -H "Authorization: Bearer your-secret-key"
+```
+
+**Response:**
+```json
+{
+  "tools": [
+    {
+      "name": "memory_query",
+      "description": "Query and aggregate memory...",
+      "inputSchema": {...}
+    }
+  ]
+}
+```
+
+---
+
+### POST /v1/tools/:tool
+
+Execute any MCP tool via REST. This provides full access to all Agent Memory functionality.
+
+**Request:**
+```bash
+curl -X POST http://127.0.0.1:8787/v1/tools/memory_guideline \
+  -H "Authorization: Bearer your-secret-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action": "add",
+    "scopeType": "project",
+    "scopeId": "proj-123",
+    "name": "no-console-log",
+    "content": "Never use console.log in production"
+  }'
+```
+
+**Parameters:**
+
+The request body matches the MCP tool's input schema. See [MCP Tools Reference](mcp-tools.md) for each tool's parameters.
+
+**Example - Create a project:**
+```bash
+curl -X POST http://127.0.0.1:8787/v1/tools/memory_project \
+  -H "Authorization: Bearer your-secret-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action": "create",
+    "name": "my-api",
+    "rootPath": "/path/to/project"
+  }'
+```
+
+**Example - Start a session:**
+```bash
+curl -X POST http://127.0.0.1:8787/v1/tools/memory_session \
+  -H "Authorization: Bearer your-secret-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action": "start",
+    "projectId": "proj-123",
+    "name": "Add authentication",
+    "agentId": "my-agent"
+  }'
+```
+
+---
+
 ### POST /v1/query
 
 Search memory entries with filters.
