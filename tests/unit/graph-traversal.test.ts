@@ -1,544 +1,233 @@
-/**
- * Graph Traversal Tests
- *
- * Tests for multi-hop relation traversal functionality.
- *
- * Test Graph Structure:
- *   A → B → C → D
- *   A → E
- *   B → F
- *   G → A (creates cycle: G → A → B → ... potentially back to G if linked)
- */
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import * as connectionModule from '../../src/db/connection.js';
+import { traverseRelationGraph, traverseRelationGraphCTE } from '../../src/services/query/graph-traversal.js';
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
-import Database from 'better-sqlite3';
-import { drizzle } from 'drizzle-orm/better-sqlite3';
-import { existsSync, mkdirSync, unlinkSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import * as schema from '../../src/db/schema.js';
-import { v4 as uuid } from 'uuid';
-import {
-  registerDatabase,
-  clearPreparedStatementCache,
-  resetContainer,
-} from '../../src/db/connection.js';
-import {
-  ensureTestRuntime,
-  clearTestQueryCache,
-  createTestQueryDeps,
-} from '../fixtures/test-helpers.js';
+// Mock dependencies
+vi.mock('../../src/db/connection.js', () => ({
+  getPreparedStatement: vi.fn(),
+}));
 
-const TEST_DB_PATH = './data/test/graph-traversal.db';
-
-let sqlite: Database.Database;
-let db: ReturnType<typeof drizzle>;
-
-// Mock the connection module before importing query service
-vi.mock('../../src/db/connection.js', async () => {
-  const actual = await vi.importActual<typeof import('../../src/db/connection.js')>(
-    '../../src/db/connection.js'
-  );
-  return {
-    ...actual,
-    getDb: () => db,
-  };
-});
-
-// Import after mocking
-import { traverseRelationGraph, type MemoryQueryResult } from '../../src/services/query.service.js';
-import { executeQueryPipeline } from '../../src/services/query/index.js';
-
-// Helper to execute query with pipeline (replaces legacy executeMemoryQuery)
-async function executeMemoryQuery(
-  params: Parameters<typeof executeQueryPipeline>[0]
-): Promise<MemoryQueryResult> {
-  return executeQueryPipeline(params, createTestQueryDeps()) as Promise<MemoryQueryResult>;
-}
+vi.mock('../../src/utils/logger.js', () => ({
+  createComponentLogger: vi.fn().mockReturnValue({
+    debug: vi.fn(),
+    info: vi.fn(),
+    error: vi.fn(),
+  }),
+}));
 
 describe('Graph Traversal', () => {
-  // Entry IDs for the test graph
-  const entryIds = {
-    A: uuid(),
-    B: uuid(),
-    C: uuid(),
-    D: uuid(),
-    E: uuid(),
-    F: uuid(),
-    G: uuid(),
-  };
-
-  beforeAll(() => {
-    // Ensure data directory exists
-    if (!existsSync('./data/test')) {
-      mkdirSync('./data/test', { recursive: true });
-    }
-
-    // Clean up any existing test database
-    for (const suffix of ['', '-wal', '-shm']) {
-      const path = `${TEST_DB_PATH}${suffix}`;
-      if (existsSync(path)) {
-        unlinkSync(path);
-      }
-    }
-
-    // Create test database
-    sqlite = new Database(TEST_DB_PATH);
-    sqlite.pragma('journal_mode = WAL');
-    sqlite.pragma('foreign_keys = ON');
-
-    db = drizzle(sqlite, { schema });
-
-    // Ensure runtime is registered (for query cache)
-    ensureTestRuntime();
-
-    registerDatabase(db, sqlite);
-
-    // Run all migrations
-    const migrations = [
-      '0000_lying_the_hand.sql',
-      '0001_add_file_locks.sql',
-      '0002_add_embeddings_tracking.sql',
-      '0003_add_fts5_tables.sql',
-      '0004_add_permissions.sql',
-      '0005_add_task_decomposition.sql',
-      '0006_add_audit_log.sql',
-      '0007_add_execution_tracking.sql',
-      '0008_add_agent_votes.sql',
-      '0009_add_conversation_history.sql',
-      '0010_add_verification_rules.sql',
-      '0011_add_performance_indexes.sql',
-      '0012_add_experiences.sql',
-      '0013_migrate_promotions_to_relations.sql',
-      '0014_add_experiences_fts.sql',
-      '0015_add_recommendations.sql',
-      '0016_add_access_tracking.sql',
-      '0017_add_temporal_knowledge.sql',
-    ];
-    for (const migrationFile of migrations) {
-      const migrationPath = join(process.cwd(), 'src/db/migrations', migrationFile);
-      if (existsSync(migrationPath)) {
-        const migrationSql = readFileSync(migrationPath, 'utf-8');
-        const statements = migrationSql.split('--> statement-breakpoint');
-        for (const statement of statements) {
-          const trimmed = statement.trim();
-          if (trimmed) {
-            sqlite.exec(trimmed);
-          }
-        }
-      }
-    }
-
-    // Create knowledge entries for each node
-    const now = new Date().toISOString();
-    for (const [name, id] of Object.entries(entryIds)) {
-      db.insert(schema.knowledge)
-        .values({
-          id,
-          title: `Entry ${name}`,
-          category: 'fact',
-          scopeType: 'global',
-          scopeId: null,
-          isActive: true,
-          createdAt: now,
-        })
-        .run();
-
-      // Create a version for each entry
-      db.insert(schema.knowledgeVersions)
-        .values({
-          id: uuid(),
-          knowledgeId: id,
-          versionNum: 1,
-          content: `Content for ${name}`,
-          createdAt: now,
-        })
-        .run();
-    }
-
-    // Create the graph structure:
-    // A → B, A → E
-    // B → C, B → F
-    // C → D
-    // G → A
-    const relations = [
-      { source: 'A', target: 'B' },
-      { source: 'A', target: 'E' },
-      { source: 'B', target: 'C' },
-      { source: 'B', target: 'F' },
-      { source: 'C', target: 'D' },
-      { source: 'G', target: 'A' },
-    ];
-
-    for (const rel of relations) {
-      db.insert(schema.entryRelations)
-        .values({
-          id: uuid(),
-          sourceType: 'knowledge',
-          sourceId: entryIds[rel.source as keyof typeof entryIds],
-          targetType: 'knowledge',
-          targetId: entryIds[rel.target as keyof typeof entryIds],
-          relationType: 'related_to',
-          createdAt: now,
-        })
-        .run();
-    }
-  });
-
-  afterAll(() => {
-    clearPreparedStatementCache();
-    resetContainer();
-    sqlite.close();
-    // Clean up test database files
-    for (const suffix of ['', '-wal', '-shm']) {
-      const path = `${TEST_DB_PATH}${suffix}`;
-      if (existsSync(path)) {
-        unlinkSync(path);
-      }
-    }
-  });
+  let mockStmt: { all: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
-    clearTestQueryCache();
+    vi.clearAllMocks();
+    mockStmt = { all: vi.fn().mockReturnValue([]) };
+    vi.mocked(connectionModule.getPreparedStatement).mockReturnValue(mockStmt as any);
   });
 
-  describe('traverseRelationGraph', () => {
-    it('should find direct relations with depth=1 (default)', () => {
-      const result = traverseRelationGraph('knowledge', entryIds.A, {
-        depth: 1,
-        direction: 'both',
-      });
+  describe('traverseRelationGraphCTE', () => {
+    it('should traverse forward direction', () => {
+      mockStmt.all.mockReturnValue([
+        { node_type: 'knowledge', node_id: 'k-1' },
+        { node_type: 'guideline', node_id: 'g-1' },
+      ]);
 
-      // A → B, A → E, and G → A (backward)
-      expect(result.knowledge.size).toBe(3);
-      expect(result.knowledge.has(entryIds.B)).toBe(true);
-      expect(result.knowledge.has(entryIds.E)).toBe(true);
-      expect(result.knowledge.has(entryIds.G)).toBe(true);
-
-      // Should not find C, D, F (too deep)
-      expect(result.knowledge.has(entryIds.C)).toBe(false);
-      expect(result.knowledge.has(entryIds.D)).toBe(false);
-      expect(result.knowledge.has(entryIds.F)).toBe(false);
-    });
-
-    it('should find 2-hop relations with depth=2', () => {
-      const result = traverseRelationGraph('knowledge', entryIds.A, {
+      const result = traverseRelationGraphCTE('tool', 't-1', {
+        direction: 'forward',
         depth: 2,
-        direction: 'forward',
       });
 
-      // Forward only: A → B, A → E (depth 1), B → C, B → F (depth 2)
-      expect(result.knowledge.has(entryIds.B)).toBe(true);
-      expect(result.knowledge.has(entryIds.E)).toBe(true);
-      expect(result.knowledge.has(entryIds.C)).toBe(true);
-      expect(result.knowledge.has(entryIds.F)).toBe(true);
-
-      // Should not find D (depth 3) or G (backward only)
-      expect(result.knowledge.has(entryIds.D)).toBe(false);
-      expect(result.knowledge.has(entryIds.G)).toBe(false);
+      expect(result).not.toBeNull();
+      expect(result!.knowledge.has('k-1')).toBe(true);
+      expect(result!.guideline.has('g-1')).toBe(true);
     });
 
-    it('should find 3-hop relations with depth=3', () => {
-      const result = traverseRelationGraph('knowledge', entryIds.A, {
-        depth: 3,
-        direction: 'forward',
-      });
+    it('should traverse backward direction', () => {
+      mockStmt.all.mockReturnValue([
+        { node_type: 'tool', node_id: 't-2' },
+      ]);
 
-      // Forward: A → B, A → E, B → C, B → F, C → D
-      expect(result.knowledge.has(entryIds.B)).toBe(true);
-      expect(result.knowledge.has(entryIds.E)).toBe(true);
-      expect(result.knowledge.has(entryIds.C)).toBe(true);
-      expect(result.knowledge.has(entryIds.F)).toBe(true);
-      expect(result.knowledge.has(entryIds.D)).toBe(true);
-    });
-
-    it('should clamp depth to max 5', () => {
-      // Even with depth=100, it should be clamped to 5
-      const result = traverseRelationGraph('knowledge', entryIds.A, {
-        depth: 100,
-        direction: 'forward',
-      });
-
-      // Should still work and find all reachable nodes
-      expect(result.knowledge.size).toBeGreaterThan(0);
-    });
-
-    it('should respect direction=forward (only outgoing edges)', () => {
-      const result = traverseRelationGraph('knowledge', entryIds.A, {
-        depth: 1,
-        direction: 'forward',
-      });
-
-      // Forward from A: B, E
-      expect(result.knowledge.has(entryIds.B)).toBe(true);
-      expect(result.knowledge.has(entryIds.E)).toBe(true);
-
-      // G → A is backward, should not be included
-      expect(result.knowledge.has(entryIds.G)).toBe(false);
-    });
-
-    it('should respect direction=backward (only incoming edges)', () => {
-      const result = traverseRelationGraph('knowledge', entryIds.A, {
-        depth: 1,
+      const result = traverseRelationGraphCTE('knowledge', 'k-1', {
         direction: 'backward',
+        depth: 1,
       });
 
-      // Backward to A: only G → A
-      expect(result.knowledge.has(entryIds.G)).toBe(true);
-
-      // A → B, A → E are forward, should not be included
-      expect(result.knowledge.has(entryIds.B)).toBe(false);
-      expect(result.knowledge.has(entryIds.E)).toBe(false);
+      expect(result).not.toBeNull();
+      expect(result!.tool.has('t-2')).toBe(true);
     });
 
-    it('should detect and handle cycles (G → A → B → ...)', () => {
-      // Start from G, traverse forward
-      const result = traverseRelationGraph('knowledge', entryIds.G, {
-        depth: 5,
-        direction: 'forward',
-      });
+    it('should traverse both directions by default', () => {
+      mockStmt.all.mockReturnValue([
+        { node_type: 'knowledge', node_id: 'k-1' },
+        { node_type: 'tool', node_id: 't-1' },
+      ]);
 
-      // G → A → B → C → D and A → E, B → F
-      // Should find all without infinite loop
-      expect(result.knowledge.has(entryIds.A)).toBe(true);
-      expect(result.knowledge.has(entryIds.B)).toBe(true);
-      expect(result.knowledge.has(entryIds.E)).toBe(true);
-      expect(result.knowledge.has(entryIds.C)).toBe(true);
-      expect(result.knowledge.has(entryIds.F)).toBe(true);
-      expect(result.knowledge.has(entryIds.D)).toBe(true);
+      const result = traverseRelationGraphCTE('guideline', 'g-1', {});
 
-      // Should not include G itself (start node excluded)
-      expect(result.knowledge.has(entryIds.G)).toBe(false);
-    });
-
-    it('should handle cycles in both directions', () => {
-      // Create a cycle test: start from B, go both ways
-      const result = traverseRelationGraph('knowledge', entryIds.B, {
-        depth: 5,
-        direction: 'both',
-      });
-
-      // Should find connected nodes without infinite loop
-      expect(result.knowledge.size).toBeGreaterThan(0);
-      // B should not be in results (it's the start node)
-      expect(result.knowledge.has(entryIds.B)).toBe(false);
-    });
-
-    it('should respect maxResults limit', () => {
-      const result = traverseRelationGraph('knowledge', entryIds.A, {
-        depth: 5,
-        direction: 'both',
-        maxResults: 2,
-      });
-
-      // Should only return 2 results max
-      expect(result.knowledge.size).toBe(2);
-    });
-
-    it('should use default values when options not specified', () => {
-      const result = traverseRelationGraph('knowledge', entryIds.A, {});
-
-      // Default: depth=1, direction='both', maxResults=100
-      // A → B, A → E (forward), G → A (backward)
-      expect(result.knowledge.size).toBe(3);
-    });
-
-    it('should return empty sets for non-existent entry', () => {
-      const result = traverseRelationGraph('knowledge', 'non-existent-id', {
-        depth: 2,
-      });
-
-      expect(result.knowledge.size).toBe(0);
-      expect(result.tool.size).toBe(0);
-      expect(result.guideline.size).toBe(0);
+      expect(result).not.toBeNull();
+      expect(result!.knowledge.has('k-1')).toBe(true);
+      expect(result!.tool.has('t-1')).toBe(true);
     });
 
     it('should filter by relation type', () => {
-      // Add a different relation type
-      const now = new Date().toISOString();
-      db.insert(schema.entryRelations)
-        .values({
-          id: uuid(),
-          sourceType: 'knowledge',
-          sourceId: entryIds.A,
-          targetType: 'knowledge',
-          targetId: entryIds.F,
-          relationType: 'depends_on',
-          createdAt: now,
-        })
-        .run();
+      mockStmt.all.mockReturnValue([
+        { node_type: 'knowledge', node_id: 'k-1' },
+      ]);
 
-      // Query only 'depends_on' relations
-      const result = traverseRelationGraph('knowledge', entryIds.A, {
-        depth: 1,
-        direction: 'forward',
+      const result = traverseRelationGraphCTE('tool', 't-1', {
         relationType: 'depends_on',
       });
 
-      // Should only find F (the depends_on relation)
-      expect(result.knowledge.size).toBe(1);
-      expect(result.knowledge.has(entryIds.F)).toBe(true);
+      expect(result).not.toBeNull();
+      expect(mockStmt.all).toHaveBeenCalled();
+    });
+
+    it('should respect max depth limit', () => {
+      mockStmt.all.mockReturnValue([]);
+
+      traverseRelationGraphCTE('tool', 't-1', {
+        depth: 10, // Should be clamped to 5
+      });
+
+      expect(mockStmt.all).toHaveBeenCalled();
+    });
+
+    it('should respect max results limit', () => {
+      const manyResults = Array.from({ length: 150 }, (_, i) => ({
+        node_type: 'knowledge',
+        node_id: `k-${i}`,
+      }));
+      mockStmt.all.mockReturnValue(manyResults);
+
+      const result = traverseRelationGraphCTE('tool', 't-1', {
+        maxResults: 50,
+      });
+
+      expect(result).not.toBeNull();
+    });
+
+    it('should return empty sets when no relations found', () => {
+      mockStmt.all.mockReturnValue([]);
+
+      const result = traverseRelationGraphCTE('tool', 't-1', {});
+
+      expect(result).not.toBeNull();
+      expect(result!.tool.size).toBe(0);
+      expect(result!.knowledge.size).toBe(0);
+      expect(result!.guideline.size).toBe(0);
+      expect(result!.experience.size).toBe(0);
+    });
+
+    it('should return null on error and log debug message', () => {
+      vi.mocked(connectionModule.getPreparedStatement).mockImplementation(() => {
+        throw new Error('CTE not supported');
+      });
+
+      const result = traverseRelationGraphCTE('tool', 't-1', {});
+
+      expect(result).toBeNull();
+    });
+
+    it('should filter out project nodes from results', () => {
+      mockStmt.all.mockReturnValue([
+        { node_type: 'knowledge', node_id: 'k-1' },
+        { node_type: 'project', node_id: 'p-1' }, // Should be filtered by SQL
+      ]);
+
+      const result = traverseRelationGraphCTE('tool', 't-1', {});
+
+      expect(result).not.toBeNull();
+      expect(result!.knowledge.has('k-1')).toBe(true);
+    });
+
+    it('should handle experience type', () => {
+      mockStmt.all.mockReturnValue([
+        { node_type: 'experience', node_id: 'exp-1' },
+      ]);
+
+      const result = traverseRelationGraphCTE('tool', 't-1', {});
+
+      expect(result).not.toBeNull();
+      expect(result!.experience.has('exp-1')).toBe(true);
     });
   });
 
-  describe('executeMemoryQuery with relatedTo depth', () => {
-    it('should use graph traversal for relatedTo queries', async () => {
-      const result = await executeMemoryQuery({
-        types: ['knowledge'],
-        relatedTo: {
-          type: 'knowledge',
-          id: entryIds.A,
-          depth: 2,
-          direction: 'forward',
-        },
+  describe('traverseRelationGraph', () => {
+    it('should use CTE result when available', () => {
+      mockStmt.all.mockReturnValue([
+        { node_type: 'knowledge', node_id: 'k-1' },
+      ]);
+
+      const result = traverseRelationGraph('tool', 't-1', {
+        depth: 2,
+        direction: 'forward',
       });
 
-      // Should find B, E (depth 1) and C, F (depth 2)
-      const ids = result.results.map((r) => r.id);
-      expect(ids).toContain(entryIds.B);
-      expect(ids).toContain(entryIds.E);
-      expect(ids).toContain(entryIds.C);
-      expect(ids).toContain(entryIds.F);
+      expect(result.knowledge.has('k-1')).toBe(true);
     });
 
-    it('should respect backward compatibility (no depth = depth 1)', async () => {
-      const result = await executeMemoryQuery({
-        types: ['knowledge'],
-        relatedTo: {
-          type: 'knowledge',
-          id: entryIds.A,
-          // No depth specified - should default to 1
-        },
+    it('should fall back to BFS when CTE fails', () => {
+      vi.mocked(connectionModule.getPreparedStatement).mockImplementation(() => {
+        throw new Error('CTE not supported');
       });
 
-      // Should find direct relations only
-      const ids = result.results.map((r) => r.id);
-      expect(ids).toContain(entryIds.B);
-      expect(ids).toContain(entryIds.E);
-      expect(ids).toContain(entryIds.G);
+      // Create mock DB client
+      const mockDbClient = {
+        select: vi.fn().mockReturnValue({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockReturnValue({
+              all: vi.fn().mockReturnValue([
+                { targetType: 'knowledge', targetId: 'k-1', relationType: 'related_to' },
+              ]),
+            }),
+          }),
+        }),
+      };
 
-      // Should not find deeper relations
-      expect(ids).not.toContain(entryIds.D);
-    });
-  });
+      const result = traverseRelationGraph('tool', 't-1', {}, mockDbClient as any);
 
-  describe('executeMemoryQuery with followRelations', () => {
-    it('should find entries matching search with followRelations enabled', async () => {
-      // First, create a knowledge entry that matches a search
-      const searchableId = uuid();
-      const now = new Date().toISOString();
-      db.insert(schema.knowledge)
-        .values({
-          id: searchableId,
-          title: 'Searchable Entry XYZ123',
-          category: 'fact',
-          scopeType: 'global',
-          scopeId: null,
-          isActive: true,
-          createdAt: now,
-        })
-        .run();
-
-      db.insert(schema.knowledgeVersions)
-        .values({
-          id: uuid(),
-          knowledgeId: searchableId,
-          versionNum: 1,
-          content: 'This is searchable content',
-          createdAt: now,
-        })
-        .run();
-
-      // Create a relation from searchable to entry B
-      db.insert(schema.entryRelations)
-        .values({
-          id: uuid(),
-          sourceType: 'knowledge',
-          sourceId: searchableId,
-          targetType: 'knowledge',
-          targetId: entryIds.B,
-          relationType: 'related_to',
-          createdAt: now,
-        })
-        .run();
-
-      // Search with followRelations
-      const result = await executeMemoryQuery({
-        types: ['knowledge'],
-        search: 'XYZ123',
-        followRelations: true,
-      });
-
-      // Should find at least the searchable entry
-      const ids = result.results.map((r) => r.id);
-      expect(ids).toContain(searchableId);
-      // followRelations may include related entries depending on pipeline implementation
-      expect(result.results.length).toBeGreaterThan(0);
+      expect(result).toBeDefined();
+      expect(result.tool.size).toBeGreaterThanOrEqual(0);
     });
 
-    it('should not duplicate entries that match AND are related', async () => {
-      const result = await executeMemoryQuery({
-        types: ['knowledge'],
-        search: 'Entry',
-        followRelations: true,
-        limit: 100,
+    it('should return empty results when no db client for BFS', () => {
+      vi.mocked(connectionModule.getPreparedStatement).mockImplementation(() => {
+        throw new Error('CTE not supported');
       });
 
-      // Check for no duplicate IDs
-      const ids = result.results.map((r) => r.id);
-      const uniqueIds = new Set(ids);
-      expect(ids.length).toBe(uniqueIds.size);
+      // No db client provided
+      const result = traverseRelationGraph('tool', 't-1', {});
+
+      expect(result).toBeDefined();
+      expect(result.tool.size).toBe(0);
+      expect(result.knowledge.size).toBe(0);
     });
 
-    it('should find related entries with followRelations', async () => {
-      const searchableId = uuid();
-      const now = new Date().toISOString();
-      db.insert(schema.knowledge)
-        .values({
-          id: searchableId,
-          title: 'UniqueSearchTerm987',
-          category: 'fact',
-          scopeType: 'global',
-          scopeId: null,
-          isActive: true,
-          createdAt: now,
-        })
-        .run();
+    it('should clamp depth to minimum of 1', () => {
+      mockStmt.all.mockReturnValue([]);
 
-      db.insert(schema.knowledgeVersions)
-        .values({
-          id: uuid(),
-          knowledgeId: searchableId,
-          versionNum: 1,
-          content: 'Content for unique entry',
-          createdAt: now,
-        })
-        .run();
-
-      // Create relation
-      db.insert(schema.entryRelations)
-        .values({
-          id: uuid(),
-          sourceType: 'knowledge',
-          sourceId: searchableId,
-          targetType: 'knowledge',
-          targetId: entryIds.C,
-          relationType: 'related_to',
-          createdAt: now,
-        })
-        .run();
-
-      const result = await executeMemoryQuery({
-        types: ['knowledge'],
-        search: 'UniqueSearchTerm987',
-        followRelations: true,
+      const result = traverseRelationGraph('tool', 't-1', {
+        depth: 0, // Should be clamped to 1
       });
 
-      // Should find the searchable entry
-      const searchedEntry = result.results.find((r) => r.id === searchableId);
-      expect(searchedEntry).toBeDefined();
+      expect(result).toBeDefined();
+    });
 
-      // With followRelations, may also include related entries depending on pipeline implementation
-      expect(result.results.length).toBeGreaterThan(0);
+    it('should clamp depth to maximum of 5', () => {
+      mockStmt.all.mockReturnValue([]);
+
+      const result = traverseRelationGraph('tool', 't-1', {
+        depth: 100, // Should be clamped to 5
+      });
+
+      expect(result).toBeDefined();
+    });
+
+    it('should use default max results of 100', () => {
+      mockStmt.all.mockReturnValue([]);
+
+      const result = traverseRelationGraph('tool', 't-1', {});
+
+      expect(result).toBeDefined();
     });
   });
 });

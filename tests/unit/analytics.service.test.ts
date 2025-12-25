@@ -219,6 +219,144 @@ describe('analytics.service', () => {
     });
   });
 
+  describe('getUsageStats with search queries', () => {
+    it('should extract search queries from queryParams JSON', () => {
+      // Insert audit log entry with queryParams directly into database
+      db.insert(schema.auditLog)
+        .values({
+          id: 'test-search-1',
+          action: 'query',
+          queryParams: JSON.stringify({ search: 'test query' }),
+          createdAt: new Date().toISOString(),
+        })
+        .run();
+
+      const stats = getUsageStats({}, db);
+
+      expect(stats.searchQueries).toBeDefined();
+      expect(Array.isArray(stats.searchQueries)).toBe(true);
+    });
+
+    it('should handle query parameter alias', () => {
+      db.insert(schema.auditLog)
+        .values({
+          id: 'test-search-2',
+          action: 'query',
+          queryParams: JSON.stringify({ query: 'another query' }),
+          createdAt: new Date().toISOString(),
+        })
+        .run();
+
+      const stats = getUsageStats({}, db);
+      expect(stats.searchQueries).toBeDefined();
+    });
+
+    it('should handle invalid JSON in queryParams gracefully', () => {
+      db.insert(schema.auditLog)
+        .values({
+          id: 'test-search-3',
+          action: 'query',
+          queryParams: 'not valid json {{{',
+          createdAt: new Date().toISOString(),
+        })
+        .run();
+
+      // Should not throw
+      const stats = getUsageStats({}, db);
+      expect(stats.searchQueries).toBeDefined();
+    });
+
+    it('should normalize and deduplicate search queries', () => {
+      db.insert(schema.auditLog)
+        .values([
+          {
+            id: 'test-search-4a',
+            action: 'query',
+            queryParams: JSON.stringify({ search: 'Test Query' }),
+            createdAt: new Date().toISOString(),
+          },
+          {
+            id: 'test-search-4b',
+            action: 'query',
+            queryParams: JSON.stringify({ search: 'test query' }),
+            createdAt: new Date().toISOString(),
+          },
+        ])
+        .run();
+
+      const stats = getUsageStats({}, db);
+      // Should normalize to lowercase and count duplicates
+      expect(stats.searchQueries).toBeDefined();
+    });
+
+    it('should ignore empty search queries', () => {
+      db.insert(schema.auditLog)
+        .values({
+          id: 'test-search-5',
+          action: 'query',
+          queryParams: JSON.stringify({ search: '   ' }),
+          createdAt: new Date().toISOString(),
+        })
+        .run();
+
+      const stats = getUsageStats({}, db);
+      expect(stats.searchQueries).toBeDefined();
+    });
+
+    it('should handle queryParams that is already an object', () => {
+      db.insert(schema.auditLog)
+        .values({
+          id: 'test-search-6',
+          action: 'query',
+          queryParams: { search: 'object query' } as any,
+          createdAt: new Date().toISOString(),
+        })
+        .run();
+
+      const stats = getUsageStats({}, db);
+      expect(stats.searchQueries).toBeDefined();
+    });
+
+    it('should handle queryParams that is an array', () => {
+      db.insert(schema.auditLog)
+        .values({
+          id: 'test-search-7',
+          action: 'query',
+          queryParams: JSON.stringify(['array', 'items']),
+          createdAt: new Date().toISOString(),
+        })
+        .run();
+
+      // Should not throw - arrays are skipped
+      const stats = getUsageStats({}, db);
+      expect(stats.searchQueries).toBeDefined();
+    });
+  });
+
+  describe('getTrends action types', () => {
+    it('should track delete actions in trends', () => {
+      logAction({ action: 'delete', entryType: 'tool' });
+
+      return new Promise<void>((resolve) => {
+        setImmediate(() => {
+          const trends = getTrends({}, db);
+
+          expect(Array.isArray(trends)).toBe(true);
+          // At least one trend entry should have delete counts
+          if (trends.length > 0) {
+            expect(trends.some((t) => t.deletes >= 0)).toBe(true);
+          }
+          resolve();
+        });
+      });
+    });
+
+    it('should filter by scopeId', () => {
+      const trends = getTrends({ scopeId: 'test-scope' }, db);
+      expect(Array.isArray(trends)).toBe(true);
+    });
+  });
+
   describe('getSubtaskStats', () => {
     it('should return subtask statistics structure', () => {
       const stats = getSubtaskStats({ projectId: 'test-project' }, db);
@@ -260,6 +398,103 @@ describe('analytics.service', () => {
         expect(typeof subtask.failed).toBe('number');
         expect(typeof subtask.successRate).toBe('number');
       });
+    });
+
+    it('should filter by date range', () => {
+      const stats = getSubtaskStats({
+        startDate: '2024-01-01T00:00:00.000Z',
+        endDate: '2024-12-31T23:59:59.999Z',
+      }, db);
+
+      expect(stats).toBeDefined();
+      expect(typeof stats.totalSubtasks).toBe('number');
+    });
+
+    it('should filter without projectId (uses subtask filter only)', () => {
+      const stats = getSubtaskStats({
+        subtaskType: 'test-subtask-type',
+      }, db);
+
+      expect(stats).toBeDefined();
+    });
+
+    it('should track success and failure status', () => {
+      // Insert audit logs with different success states
+      db.insert(schema.auditLog)
+        .values([
+          {
+            id: 'subtask-success-1',
+            action: 'create',
+            scopeType: 'project',
+            scopeId: 'test-proj-stats',
+            subtaskType: 'test-subtask',
+            success: true,
+            createdAt: new Date().toISOString(),
+          },
+          {
+            id: 'subtask-fail-1',
+            action: 'create',
+            scopeType: 'project',
+            scopeId: 'test-proj-stats',
+            subtaskType: 'test-subtask',
+            success: false,
+            createdAt: new Date().toISOString(),
+          },
+        ])
+        .run();
+
+      const stats = getSubtaskStats({ projectId: 'test-proj-stats' }, db);
+
+      expect(stats.totalSubtasks).toBeGreaterThan(0);
+      expect(stats.completedSubtasks).toBeGreaterThan(0);
+      expect(stats.failedSubtasks).toBeGreaterThan(0);
+    });
+
+    it('should calculate success rate correctly', () => {
+      // Insert audit logs with known outcomes
+      db.insert(schema.auditLog)
+        .values([
+          {
+            id: 'subtask-rate-1',
+            action: 'create',
+            scopeType: 'project',
+            scopeId: 'test-proj-rate',
+            subtaskType: 'rate-test',
+            success: true,
+            createdAt: new Date().toISOString(),
+          },
+          {
+            id: 'subtask-rate-2',
+            action: 'create',
+            scopeType: 'project',
+            scopeId: 'test-proj-rate',
+            subtaskType: 'rate-test',
+            success: true,
+            createdAt: new Date().toISOString(),
+          },
+          {
+            id: 'subtask-rate-3',
+            action: 'create',
+            scopeType: 'project',
+            scopeId: 'test-proj-rate',
+            subtaskType: 'rate-test',
+            success: false,
+            createdAt: new Date().toISOString(),
+          },
+        ])
+        .run();
+
+      const stats = getSubtaskStats({ projectId: 'test-proj-rate' }, db);
+
+      // Should have at least one subtask type
+      expect(stats.subtasks.length).toBeGreaterThan(0);
+
+      // Find our test subtask
+      const rateTest = stats.subtasks.find((s) => s.subtaskType === 'rate-test');
+      if (rateTest) {
+        // 2 success out of 3 = 66.67%
+        expect(rateTest.successRate).toBeCloseTo(2 / 3, 2);
+      }
     });
   });
 });

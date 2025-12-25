@@ -27,6 +27,12 @@ import {
   isPermissionAction,
   isConversationRole,
   isConversationStatus,
+  isValidLimit,
+  isValidOffset,
+  isValidPriority,
+  isValidConfidence,
+  isPositiveInteger,
+  isNonNegativeInteger,
 } from '../../src/utils/type-guards.js';
 
 describe('Type Guards - Basic Types', () => {
@@ -423,6 +429,170 @@ describe('Parameter Helpers', () => {
     it('should throw when validation fails', () => {
       const params = { name: 'test', age: 'invalid' };
       expect(() => validateParams(params, validator)).toThrow('Parameter validation failed');
+    });
+  });
+});
+
+describe('Type Guards - Numeric Validation', () => {
+  describe('isValidLimit', () => {
+    it('should return true for valid limit values (1-1000)', () => {
+      expect(isValidLimit(1)).toBe(true);
+      expect(isValidLimit(10)).toBe(true);
+      expect(isValidLimit(100)).toBe(true);
+      expect(isValidLimit(500)).toBe(true);
+      expect(isValidLimit(1000)).toBe(true);
+    });
+
+    it('should return false for values outside range', () => {
+      expect(isValidLimit(0)).toBe(false);
+      expect(isValidLimit(-1)).toBe(false);
+      expect(isValidLimit(1001)).toBe(false);
+      expect(isValidLimit(10000)).toBe(false);
+    });
+
+    it('should return false for non-integers', () => {
+      expect(isValidLimit(1.5)).toBe(false);
+      expect(isValidLimit(10.1)).toBe(false);
+    });
+
+    it('should return false for non-numbers', () => {
+      expect(isValidLimit('10')).toBe(false);
+      expect(isValidLimit(null)).toBe(false);
+      expect(isValidLimit(undefined)).toBe(false);
+      expect(isValidLimit(NaN)).toBe(false);
+    });
+  });
+
+  describe('isValidOffset', () => {
+    it('should return true for valid offset values (non-negative integers)', () => {
+      expect(isValidOffset(0)).toBe(true);
+      expect(isValidOffset(1)).toBe(true);
+      expect(isValidOffset(100)).toBe(true);
+      expect(isValidOffset(10000)).toBe(true);
+    });
+
+    it('should return false for negative values', () => {
+      expect(isValidOffset(-1)).toBe(false);
+      expect(isValidOffset(-100)).toBe(false);
+    });
+
+    it('should return false for non-integers', () => {
+      expect(isValidOffset(0.5)).toBe(false);
+      expect(isValidOffset(10.1)).toBe(false);
+    });
+
+    it('should return false for non-numbers', () => {
+      expect(isValidOffset('0')).toBe(false);
+      expect(isValidOffset(null)).toBe(false);
+      expect(isValidOffset(undefined)).toBe(false);
+      expect(isValidOffset(NaN)).toBe(false);
+    });
+  });
+
+  describe('isValidPriority', () => {
+    it('should return true for valid priority values (0-100)', () => {
+      expect(isValidPriority(0)).toBe(true);
+      expect(isValidPriority(50)).toBe(true);
+      expect(isValidPriority(100)).toBe(true);
+      expect(isValidPriority(33.5)).toBe(true); // Allows floats
+    });
+
+    it('should return false for values outside range', () => {
+      expect(isValidPriority(-1)).toBe(false);
+      expect(isValidPriority(101)).toBe(false);
+      expect(isValidPriority(1000)).toBe(false);
+    });
+
+    it('should return false for non-finite values', () => {
+      expect(isValidPriority(Infinity)).toBe(false);
+      expect(isValidPriority(-Infinity)).toBe(false);
+      expect(isValidPriority(NaN)).toBe(false);
+    });
+
+    it('should return false for non-numbers', () => {
+      expect(isValidPriority('50')).toBe(false);
+      expect(isValidPriority(null)).toBe(false);
+      expect(isValidPriority(undefined)).toBe(false);
+    });
+  });
+
+  describe('isValidConfidence', () => {
+    it('should return true for valid confidence values (0-1)', () => {
+      expect(isValidConfidence(0)).toBe(true);
+      expect(isValidConfidence(0.5)).toBe(true);
+      expect(isValidConfidence(1)).toBe(true);
+      expect(isValidConfidence(0.95)).toBe(true);
+    });
+
+    it('should return false for values outside range', () => {
+      expect(isValidConfidence(-0.1)).toBe(false);
+      expect(isValidConfidence(1.1)).toBe(false);
+      expect(isValidConfidence(100)).toBe(false);
+    });
+
+    it('should return false for non-finite values', () => {
+      expect(isValidConfidence(Infinity)).toBe(false);
+      expect(isValidConfidence(-Infinity)).toBe(false);
+      expect(isValidConfidence(NaN)).toBe(false);
+    });
+
+    it('should return false for non-numbers', () => {
+      expect(isValidConfidence('0.5')).toBe(false);
+      expect(isValidConfidence(null)).toBe(false);
+      expect(isValidConfidence(undefined)).toBe(false);
+    });
+  });
+
+  describe('isPositiveInteger', () => {
+    it('should return true for positive integers', () => {
+      expect(isPositiveInteger(1)).toBe(true);
+      expect(isPositiveInteger(10)).toBe(true);
+      expect(isPositiveInteger(100)).toBe(true);
+      expect(isPositiveInteger(1000000)).toBe(true);
+    });
+
+    it('should return false for zero and negative values', () => {
+      expect(isPositiveInteger(0)).toBe(false);
+      expect(isPositiveInteger(-1)).toBe(false);
+      expect(isPositiveInteger(-100)).toBe(false);
+    });
+
+    it('should return false for non-integers', () => {
+      expect(isPositiveInteger(1.5)).toBe(false);
+      expect(isPositiveInteger(10.1)).toBe(false);
+    });
+
+    it('should return false for non-numbers', () => {
+      expect(isPositiveInteger('1')).toBe(false);
+      expect(isPositiveInteger(null)).toBe(false);
+      expect(isPositiveInteger(undefined)).toBe(false);
+      expect(isPositiveInteger(NaN)).toBe(false);
+    });
+  });
+
+  describe('isNonNegativeInteger', () => {
+    it('should return true for non-negative integers', () => {
+      expect(isNonNegativeInteger(0)).toBe(true);
+      expect(isNonNegativeInteger(1)).toBe(true);
+      expect(isNonNegativeInteger(100)).toBe(true);
+      expect(isNonNegativeInteger(1000000)).toBe(true);
+    });
+
+    it('should return false for negative values', () => {
+      expect(isNonNegativeInteger(-1)).toBe(false);
+      expect(isNonNegativeInteger(-100)).toBe(false);
+    });
+
+    it('should return false for non-integers', () => {
+      expect(isNonNegativeInteger(0.5)).toBe(false);
+      expect(isNonNegativeInteger(10.1)).toBe(false);
+    });
+
+    it('should return false for non-numbers', () => {
+      expect(isNonNegativeInteger('0')).toBe(false);
+      expect(isNonNegativeInteger(null)).toBe(false);
+      expect(isNonNegativeInteger(undefined)).toBe(false);
+      expect(isNonNegativeInteger(NaN)).toBe(false);
     });
   });
 });

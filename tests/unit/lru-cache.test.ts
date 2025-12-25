@@ -367,4 +367,70 @@ describe('LRUCache', () => {
 
     expect(onEvict).toHaveBeenCalledWith('key', 'value1');
   });
+
+  it('should use custom sizeEstimator when provided', () => {
+    const sizeEstimator = vi.fn().mockReturnValue(100);
+    const cache = new LRUCache<string>({ maxSize: 10, sizeEstimator });
+
+    cache.set('key', 'value');
+
+    expect(sizeEstimator).toHaveBeenCalledWith('value');
+    expect(cache.stats.memoryMB).toBeCloseTo(100 / 1024 / 1024, 5);
+  });
+
+  it('should estimate size for objects with length property', () => {
+    const cache = new LRUCache<{ length: number }>({ maxSize: 10 });
+    cache.set('obj', { length: 10 });
+
+    const stats = cache.stats;
+    expect(stats.memoryMB).toBeGreaterThan(0);
+  });
+
+  it('should estimate size for objects with size property', () => {
+    const cache = new LRUCache<{ size: number }>({ maxSize: 10 });
+    cache.set('obj', { size: 5 });
+
+    const stats = cache.stats;
+    expect(stats.memoryMB).toBeGreaterThan(0);
+  });
+
+  it('should use JSON.stringify for small objects with maxMemoryMB', () => {
+    const cache = new LRUCache<object>({ maxSize: 10, maxMemoryMB: 1 });
+    cache.set('obj', { a: 1, b: 2 });
+
+    const stats = cache.stats;
+    expect(stats.memoryMB).toBeGreaterThan(0);
+  });
+
+  it('should use fixed estimate for large objects with maxMemoryMB', () => {
+    const cache = new LRUCache<object>({ maxSize: 10, maxMemoryMB: 1 });
+    const largeObj: Record<string, number> = {};
+    for (let i = 0; i < 20; i++) {
+      largeObj[`key${i}`] = i;
+    }
+    cache.set('obj', largeObj);
+
+    const stats = cache.stats;
+    expect(stats.memoryMB).toBeGreaterThan(0);
+  });
+
+  it('should not call onEvict when clear is called on empty cache', () => {
+    const onEvict = vi.fn();
+    const cache = new LRUCache<string>({ maxSize: 10, onEvict });
+
+    cache.clear();
+
+    expect(onEvict).not.toHaveBeenCalled();
+  });
+
+  it('should evict all entries when evictUntilMemory target is 0', () => {
+    const cache = new LRUCache<string>({ maxSize: 10 });
+    cache.set('a', 'value1');
+    cache.set('b', 'value2');
+
+    const result = cache.evictUntilMemory(0);
+
+    expect(result.evicted).toBe(2);
+    expect(cache.size).toBe(0);
+  });
 });

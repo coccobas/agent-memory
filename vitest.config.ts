@@ -24,7 +24,20 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
       include: ['src/**/*.ts'],
-      exclude: ['src/db/migrations/**'],
+      exclude: [
+        'src/db/migrations/**',
+        'src/cli/**', // CLI commands are thin wrappers tested via integration
+        'src/cli.ts', // CLI entry point
+        'src/index.ts', // Main entry point
+        '**/example.ts', // Example files
+        '**/examples/**', // Example directories
+        '**/*.example.ts', // Example pattern files
+        '**/index.ts', // Index/barrel files - re-exports don't need direct tests
+        'src/core/errors/cli-error.ts', // CLI error class
+        '**/integration-test.ts', // Integration test utilities
+        '**/*.test.ts', // Test files in src directory
+        '**/types.ts', // Type definition files
+      ],
       thresholds: {
         lines: 80,
         functions: 80,

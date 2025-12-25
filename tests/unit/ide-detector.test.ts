@@ -310,5 +310,164 @@ describe('IDE Detector', () => {
       }
     });
   });
+
+  describe('additional IDE detection', () => {
+    it('should detect Claude IDE', () => {
+      mockExistsSync.mockImplementation((path: string) => {
+        return path.includes('.claude') || path.includes('CLAUDE.md');
+      });
+
+      const result = detectIDE('/test/workspace');
+      expect(result.ide).toBe('claude');
+      expect(result.confidence).toBeGreaterThan(0);
+    });
+
+    it('should detect Antigravity IDE', () => {
+      mockExistsSync.mockImplementation((path: string) => {
+        return path.includes('.agent') || path.includes('.agent/rules');
+      });
+
+      const result = detectIDE('/test/workspace');
+      expect(result.ide).toBe('antigravity');
+      expect(result.confidence).toBeGreaterThan(0);
+    });
+
+    it('should detect claude-code from package.json keywords', () => {
+      mockExistsSync.mockImplementation((path: string) => {
+        return path.includes('package.json');
+      });
+
+      mockReadFileSync.mockImplementation(() => {
+        return JSON.stringify({
+          keywords: ['claude-code'],
+        });
+      });
+
+      const result = detectIDE('/test/workspace');
+      expect(result.ide).toBe('claude');
+    });
+
+    it('should detect visual-studio-code from package.json keywords', () => {
+      mockExistsSync.mockImplementation((path: string) => {
+        return path.includes('package.json');
+      });
+
+      mockReadFileSync.mockImplementation(() => {
+        return JSON.stringify({
+          keywords: ['visual-studio-code'],
+        });
+      });
+
+      const result = detectIDE('/test/workspace');
+      expect(result.ide).toBe('vscode');
+    });
+
+    it('should detect webstorm from devDependencies', () => {
+      mockExistsSync.mockImplementation((path: string) => {
+        return path.includes('package.json');
+      });
+
+      mockReadFileSync.mockImplementation(() => {
+        return JSON.stringify({
+          devDependencies: {
+            webstorm: '1.0.0',
+          },
+        });
+      });
+
+      const result = detectIDE('/test/workspace');
+      expect(result.ide).toBe('intellij');
+    });
+
+    it('should detect nvim from package.json keywords', () => {
+      mockExistsSync.mockImplementation((path: string) => {
+        return path.includes('package.json');
+      });
+
+      mockReadFileSync.mockImplementation(() => {
+        return JSON.stringify({
+          keywords: ['nvim'],
+        });
+      });
+
+      const result = detectIDE('/test/workspace');
+      expect(result.ide).toBe('neovim');
+    });
+
+    it('should detect from CLAUDE_CODE environment variable', () => {
+      mockExistsSync.mockReturnValue(false);
+      process.env.CLAUDE_CODE = '1';
+
+      const result = detectIDE('/test/workspace');
+      expect(result.ide).toBe('claude');
+    });
+
+    it('should detect from ANTIGRAVITY environment variable', () => {
+      mockExistsSync.mockReturnValue(false);
+      process.env.ANTIGRAVITY = '1';
+
+      const result = detectIDE('/test/workspace');
+      expect(result.ide).toBe('antigravity');
+    });
+
+    it('should handle invalid package.json JSON', () => {
+      mockExistsSync.mockImplementation((path: string) => {
+        return path.includes('package.json');
+      });
+
+      mockReadFileSync.mockImplementation(() => {
+        return 'not valid json {';
+      });
+
+      const result = detectIDE('/test/workspace');
+      // Should not throw
+      expect(result).toBeDefined();
+    });
+
+    it('should handle package.json with non-array keywords', () => {
+      mockExistsSync.mockImplementation((path: string) => {
+        return path.includes('package.json');
+      });
+
+      mockReadFileSync.mockImplementation(() => {
+        return JSON.stringify({
+          keywords: 'not-an-array',
+        });
+      });
+
+      const result = detectIDE('/test/workspace');
+      expect(result).toBeDefined();
+    });
+
+    it('should handle package.json with non-string keywords', () => {
+      mockExistsSync.mockImplementation((path: string) => {
+        return path.includes('package.json');
+      });
+
+      mockReadFileSync.mockImplementation(() => {
+        return JSON.stringify({
+          keywords: [123, null, 'cursor'],
+        });
+      });
+
+      const result = detectIDE('/test/workspace');
+      expect(result.ide).toBe('cursor');
+    });
+
+    it('should handle package.json with invalid devDependencies', () => {
+      mockExistsSync.mockImplementation((path: string) => {
+        return path.includes('package.json');
+      });
+
+      mockReadFileSync.mockImplementation(() => {
+        return JSON.stringify({
+          devDependencies: 'not-an-object',
+        });
+      });
+
+      const result = detectIDE('/test/workspace');
+      expect(result).toBeDefined();
+    });
+  });
 });
 

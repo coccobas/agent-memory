@@ -11,6 +11,26 @@ import {
   createConflictError,
   createFileLockError,
   sanitizeErrorMessage,
+  createEmbeddingProviderError,
+  createVectorDbError,
+  createVectorNotInitializedError,
+  createVectorInvalidInputError,
+  createSizeLimitError,
+  createServiceUnavailableError,
+  createPermissionError,
+  createExtractionError,
+  createExtractionUnavailableError,
+  createEmbeddingDisabledError,
+  createEmbeddingError,
+  createEmbeddingEmptyTextError,
+  DatabaseError,
+  ConnectionError,
+  NetworkError,
+  CircuitBreakerError,
+  RateLimitError,
+  ResourceExhaustedError,
+  TimeoutError,
+  RetryExhaustedError,
 } from '../../src/core/errors.js';
 import { createInvalidActionError, formatError } from '../../src/mcp/errors.js';
 
@@ -303,6 +323,209 @@ describe('sanitizeErrorMessage', () => {
         expect(sanitized).toContain('[REDACTED_CONNECTION_STRING]');
         expect(sanitized).toContain('[REDACTED_STACK]');
       });
+    });
+  });
+});
+
+describe('Specialized Error Classes', () => {
+  it('should create DatabaseError with default code', () => {
+    const error = new DatabaseError('DB connection failed');
+    expect(error.code).toBe(ErrorCodes.DATABASE_ERROR);
+    expect(error.name).toBe('DatabaseError');
+  });
+
+  it('should create DatabaseError with custom code', () => {
+    const error = new DatabaseError('Migration failed', ErrorCodes.MIGRATION_ERROR);
+    expect(error.code).toBe(ErrorCodes.MIGRATION_ERROR);
+  });
+
+  it('should create ConnectionError', () => {
+    const error = new ConnectionError('Connection failed', true, { host: 'localhost' });
+    expect(error.code).toBe(ErrorCodes.CONNECTION_ERROR);
+    expect(error.name).toBe('ConnectionError');
+    expect(error.isRetryable).toBe(true);
+    expect(error.context?.host).toBe('localhost');
+  });
+
+  it('should create NetworkError', () => {
+    const error = new NetworkError('Connection failed', 'API', true);
+    expect(error.code).toBe(ErrorCodes.NETWORK_ERROR);
+    expect(error.name).toBe('NetworkError');
+    expect(error.service).toBe('API');
+  });
+
+  it('should create CircuitBreakerError', () => {
+    const resetTime = Date.now() + 60000;
+    const error = new CircuitBreakerError('ServiceA', resetTime);
+    expect(error.code).toBe(ErrorCodes.CIRCUIT_BREAKER_OPEN);
+    expect(error.name).toBe('CircuitBreakerError');
+    expect(error.service).toBe('ServiceA');
+    expect(error.context?.service).toBe('ServiceA');
+  });
+
+  it('should create RateLimitError', () => {
+    const error = new RateLimitError(60000);
+    expect(error.code).toBe(ErrorCodes.RATE_LIMITED);
+    expect(error.name).toBe('RateLimitError');
+    expect(error.retryAfterMs).toBe(60000);
+  });
+
+  it('should create ResourceExhaustedError', () => {
+    const error = new ResourceExhaustedError('memory', 'Memory exhausted');
+    expect(error.code).toBe(ErrorCodes.RESOURCE_EXHAUSTED);
+    expect(error.name).toBe('ResourceExhaustedError');
+    expect(error.resource).toBe('memory');
+  });
+
+  it('should create TimeoutError', () => {
+    const error = new TimeoutError('API call', 5000);
+    expect(error.code).toBe(ErrorCodes.TIMEOUT);
+    expect(error.name).toBe('TimeoutError');
+    expect(error.operation).toBe('API call');
+    expect(error.timeoutMs).toBe(5000);
+  });
+
+  it('should create RetryExhaustedError', () => {
+    const lastError = new Error('Connection failed');
+    const error = new RetryExhaustedError('fetchData', 3, lastError);
+    expect(error.code).toBe(ErrorCodes.RETRY_EXHAUSTED);
+    expect(error.name).toBe('RetryExhaustedError');
+    expect(error.operation).toBe('fetchData');
+    expect(error.attempts).toBe(3);
+    expect(error.lastError).toBe(lastError);
+  });
+});
+
+describe('Error Factory Functions', () => {
+  describe('createEmbeddingProviderError', () => {
+    it('should create embedding provider error', () => {
+      const error = createEmbeddingProviderError('openai', 'API rate limit exceeded');
+      expect(error.message).toContain('openai');
+      expect(error.message).toContain('API rate limit exceeded');
+      expect(error.code).toBe(ErrorCodes.EMBEDDING_PROVIDER_ERROR);
+      expect(error.context?.provider).toBe('openai');
+    });
+  });
+
+  describe('createVectorDbError', () => {
+    it('should create vector db error without details', () => {
+      const error = createVectorDbError('search', 'Index not found');
+      expect(error.message).toContain('search');
+      expect(error.message).toContain('Index not found');
+      expect(error.code).toBe(ErrorCodes.VECTOR_DB_ERROR);
+      expect(error.context?.operation).toBe('search');
+    });
+
+    it('should create vector db error with details', () => {
+      const error = createVectorDbError('insert', 'Dimension mismatch', { expected: 384, actual: 512 });
+      expect(error.context?.expected).toBe(384);
+      expect(error.context?.actual).toBe(512);
+    });
+  });
+
+  describe('createVectorNotInitializedError', () => {
+    it('should create vector not initialized error', () => {
+      const error = createVectorNotInitializedError();
+      expect(error.message).toContain('not initialized');
+      expect(error.code).toBe(ErrorCodes.VECTOR_NOT_INITIALIZED);
+      expect(error.context?.suggestion).toBeDefined();
+    });
+  });
+
+  describe('createVectorInvalidInputError', () => {
+    it('should create vector invalid input error', () => {
+      const error = createVectorInvalidInputError('embedding', 'must be array of numbers');
+      expect(error.message).toContain('embedding');
+      expect(error.message).toContain('must be array of numbers');
+      expect(error.code).toBe(ErrorCodes.VECTOR_INVALID_INPUT);
+      expect(error.context?.field).toBe('embedding');
+    });
+  });
+
+  describe('createSizeLimitError', () => {
+    it('should create size limit error with default unit', () => {
+      const error = createSizeLimitError('content', 10000, 15000);
+      expect(error.message).toContain('10000');
+      expect(error.message).toContain('15000');
+      expect(error.message).toContain('characters');
+      expect(error.code).toBe(ErrorCodes.SIZE_LIMIT_EXCEEDED);
+    });
+
+    it('should create size limit error with custom unit', () => {
+      const error = createSizeLimitError('file', 1024, 2048, 'bytes');
+      expect(error.message).toContain('bytes');
+      expect(error.context?.unit).toBe('bytes');
+    });
+  });
+
+  describe('createServiceUnavailableError', () => {
+    it('should create service unavailable error without reason', () => {
+      const error = createServiceUnavailableError('EmbeddingService');
+      expect(error.message).toBe('EmbeddingService is unavailable');
+      expect(error.code).toBe(ErrorCodes.SERVICE_UNAVAILABLE);
+    });
+
+    it('should create service unavailable error with reason', () => {
+      const error = createServiceUnavailableError('VectorDB', 'Connection refused');
+      expect(error.message).toBe('VectorDB is unavailable: Connection refused');
+      expect(error.context?.service).toBe('VectorDB');
+    });
+  });
+
+  describe('createPermissionError', () => {
+    it('should create permission error without identifier', () => {
+      const error = createPermissionError('write', 'file');
+      expect(error.message).toContain('write');
+      expect(error.message).toContain('access required');
+      expect(error.code).toBe(ErrorCodes.PERMISSION_DENIED);
+    });
+
+    it('should create permission error with identifier', () => {
+      const error = createPermissionError('read', 'guideline', 'guideline-123');
+      expect(error.message).toContain('read');
+      expect(error.message).toContain('guideline');
+      expect(error.context?.identifier).toBe('guideline-123');
+    });
+  });
+
+  describe('createExtractionError', () => {
+    it('should create extraction error', () => {
+      const error = createExtractionError('openai', 'JSON parse failed');
+      expect(error.message).toContain('JSON parse failed');
+      expect(error.message).toContain('openai');
+      expect(error.code).toBe(ErrorCodes.EXTRACTION_FAILED);
+    });
+  });
+
+  describe('createExtractionUnavailableError', () => {
+    it('should create extraction unavailable error', () => {
+      const error = createExtractionUnavailableError();
+      expect(error.message).toContain('not available');
+      expect(error.code).toBe(ErrorCodes.EXTRACTION_UNAVAILABLE);
+    });
+  });
+
+  describe('createEmbeddingDisabledError', () => {
+    it('should create embedding disabled error', () => {
+      const error = createEmbeddingDisabledError();
+      expect(error.message).toContain('disabled');
+      expect(error.code).toBe(ErrorCodes.EMBEDDING_DISABLED);
+    });
+  });
+
+  describe('createEmbeddingError', () => {
+    it('should create embedding error', () => {
+      const error = createEmbeddingError('Model not found');
+      expect(error.message).toContain('Model not found');
+      expect(error.code).toBe(ErrorCodes.EMBEDDING_FAILED);
+    });
+  });
+
+  describe('createEmbeddingEmptyTextError', () => {
+    it('should create embedding empty text error', () => {
+      const error = createEmbeddingEmptyTextError();
+      expect(error.message).toContain('empty');
+      expect(error.code).toBe(ErrorCodes.EMBEDDING_EMPTY_TEXT);
     });
   });
 });

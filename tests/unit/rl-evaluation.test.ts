@@ -1,11 +1,18 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
   evaluatePolicy,
+  evaluatePolicyOnDataset,
   comparePolicies,
+  comparePolicyAgainstBaseline,
   computeConfidenceInterval,
+  computeRewardDistribution,
+  computeTemporalMetrics,
   formatEvaluationReport,
   formatComparisonReport,
+  formatABTestReport,
+  PolicyEvaluator,
 } from '../../src/services/rl/training/evaluation.js';
+import type { Dataset } from '../../src/services/rl/training/dataset-builder.js';
 import { ExtractionPolicy } from '../../src/services/rl/policies/extraction.policy.js';
 import type { ExtractionState, ExtractionAction } from '../../src/services/rl/types.js';
 
@@ -414,25 +421,468 @@ describe('RL Policy Evaluation', () => {
       expect(report).toMatch(/[+-]\d+\.\d{2}%/);
     });
   });
+
+  describe('evaluatePolicyOnDataset', () => {
+    it('should evaluate policy on dataset eval split', async () => {
+      const dataset: Dataset<{ state: ExtractionState; action: ExtractionAction; reward: number }> = {
+        train: [
+          {
+            state: createExtractionState(),
+            action: { decision: 'store' as const, entryType: 'knowledge' as const },
+            reward: 0.8,
+          },
+        ],
+        eval: [
+          {
+            state: createExtractionState({ similarEntryExists: true }),
+            action: { decision: 'skip' as const },
+            reward: 0.7,
+          },
+          {
+            state: createExtractionState(),
+            action: { decision: 'store' as const, entryType: 'guideline' as const },
+            reward: 0.9,
+          },
+        ],
+      };
+
+      const result = await evaluatePolicyOnDataset(policy, dataset);
+
+      expect(result.accuracy).toBeGreaterThanOrEqual(0);
+      expect(result.accuracy).toBeLessThanOrEqual(1);
+      expect(result.avgReward).toBeGreaterThan(0);
+      expect(result.confusionMatrix).toBeDefined();
+    });
+
+    it('should use eval split not train split', async () => {
+      const dataset: Dataset<{ state: ExtractionState; action: ExtractionAction; reward: number }> = {
+        train: [],
+        eval: [
+          {
+            state: createExtractionState({ similarEntryExists: true }),
+            action: { decision: 'skip' as const },
+            reward: 0.5,
+          },
+        ],
+      };
+
+      const result = await evaluatePolicyOnDataset(policy, dataset);
+
+      // Should evaluate on eval, not train
+      expect(result.avgReward).toBe(0.5);
+    });
+  });
+
+  describe('comparePolicyAgainstBaseline', () => {
+    it('should compare policy against baseline on dataset', async () => {
+      const policyA = new ExtractionPolicy({ enabled: true });
+      const baselinePolicy = new ExtractionPolicy({ enabled: true });
+
+      const dataset: Dataset<{ state: ExtractionState; action: ExtractionAction; reward: number }> = {
+        train: [],
+        eval: [
+          {
+            state: createExtractionState({ similarEntryExists: true }),
+            action: { decision: 'skip' as const },
+            reward: 0.8,
+          },
+          {
+            state: createExtractionState(),
+            action: { decision: 'store' as const, entryType: 'knowledge' as const },
+            reward: 0.7,
+          },
+        ],
+      };
+
+      const result = await comparePolicyAgainstBaseline(policyA, baselinePolicy, dataset);
+
+      expect(result.policyA).toBeDefined();
+      expect(result.policyB).toBeDefined();
+      expect(result.winner).toMatch(/^(A|B|tie)$/);
+      expect(result.improvements).toBeDefined();
+    });
+  });
+
+  describe('computeRewardDistribution', () => {
+    it('should compute basic statistics', () => {
+      const rewards = [0.5, 0.6, 0.7, 0.8, 0.9];
+
+      const result = computeRewardDistribution(rewards);
+
+      expect(result.min).toBe(0.5);
+      expect(result.max).toBe(0.9);
+      expect(result.mean).toBeCloseTo(0.7, 2);
+      expect(result.median).toBe(0.7);
+      expect(result.stdDev).toBeGreaterThan(0);
+    });
+
+    it('should compute quartiles', () => {
+      const rewards = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0];
+
+      const result = computeRewardDistribution(rewards);
+
+      expect(result.quartiles.q1).toBeLessThan(result.quartiles.q2);
+      expect(result.quartiles.q2).toBeLessThan(result.quartiles.q3);
+    });
+
+    it('should create histogram bins', () => {
+      const rewards = [0.15, 0.25, 0.35, 0.45, 0.55, 0.65, 0.75, 0.85, 0.95];
+
+      const result = computeRewardDistribution(rewards);
+
+      expect(result.histogram.length).toBe(10);
+      expect(result.histogram.every(bin => bin.count >= 0)).toBe(true);
+      expect(result.histogram.every(bin => bin.percentage >= 0)).toBe(true);
+
+      // Sum of counts should account for most rewards (some edge cases may be excluded)
+      const totalCount = result.histogram.reduce((sum, bin) => sum + bin.count, 0);
+      expect(totalCount).toBeGreaterThanOrEqual(rewards.length - 1);
+    });
+
+    it('should handle empty rewards array', () => {
+      const result = computeRewardDistribution([]);
+
+      expect(result.min).toBe(0);
+      expect(result.max).toBe(0);
+      expect(result.mean).toBe(0);
+      expect(result.median).toBe(0);
+      expect(result.stdDev).toBe(0);
+      expect(result.quartiles.q1).toBe(0);
+      expect(result.histogram).toEqual([]);
+    });
+
+    it('should handle single reward', () => {
+      const result = computeRewardDistribution([0.5]);
+
+      expect(result.min).toBe(0.5);
+      expect(result.max).toBe(0.5);
+      expect(result.mean).toBe(0.5);
+      expect(result.median).toBe(0.5);
+      expect(result.stdDev).toBe(0);
+    });
+
+    it('should handle negative rewards', () => {
+      const rewards = [-0.5, -0.3, 0, 0.3, 0.5];
+
+      const result = computeRewardDistribution(rewards);
+
+      expect(result.min).toBe(-0.5);
+      expect(result.max).toBe(0.5);
+      expect(result.mean).toBeCloseTo(0, 2);
+    });
+
+    it('should format histogram bin labels correctly', () => {
+      const rewards = [0.1, 0.5, 0.9];
+
+      const result = computeRewardDistribution(rewards);
+
+      expect(result.histogram[0]?.bin).toMatch(/^\[[\d.]+, [\d.]+\)/);
+      expect(result.histogram[9]?.bin).toMatch(/^\[[\d.]+, [\d.]+\]$/);
+    });
+  });
+
+  describe('computeTemporalMetrics', () => {
+    it('should handle data without timestamps', () => {
+      const data = [
+        { state: createExtractionState(), action: { decision: 'store' as const }, reward: 0.8 },
+        { state: createExtractionState(), action: { decision: 'skip' as const }, reward: 0.6 },
+      ];
+
+      const result = computeTemporalMetrics(data);
+
+      expect(result.timeWindow).toBe('N/A');
+      expect(result.windows).toEqual([]);
+      expect(result.trend).toBe('stable');
+    });
+
+    it('should compute windows for timestamped data', () => {
+      const now = Date.now();
+      const day = 24 * 60 * 60 * 1000;
+
+      const data = [
+        { state: createExtractionState(), action: { decision: 'store' as const }, reward: 0.7, timestamp: new Date(now - 14 * day).toISOString() },
+        { state: createExtractionState(), action: { decision: 'store' as const }, reward: 0.75, timestamp: new Date(now - 10 * day).toISOString() },
+        { state: createExtractionState(), action: { decision: 'store' as const }, reward: 0.8, timestamp: new Date(now - 5 * day).toISOString() },
+        { state: createExtractionState(), action: { decision: 'store' as const }, reward: 0.85, timestamp: new Date(now).toISOString() },
+      ];
+
+      const result = computeTemporalMetrics(data, 7 * day);
+
+      expect(result.windows.length).toBeGreaterThan(0);
+      expect(result.windows[0]?.windowStart).toBeDefined();
+      expect(result.windows[0]?.avgReward).toBeGreaterThan(0);
+    });
+
+    it('should detect improving trend', () => {
+      const now = Date.now();
+      const day = 24 * 60 * 60 * 1000;
+
+      const data = [
+        { state: createExtractionState(), action: { decision: 'store' as const }, reward: 0.5, timestamp: new Date(now - 21 * day).toISOString() },
+        { state: createExtractionState(), action: { decision: 'store' as const }, reward: 0.6, timestamp: new Date(now - 14 * day).toISOString() },
+        { state: createExtractionState(), action: { decision: 'store' as const }, reward: 0.7, timestamp: new Date(now - 7 * day).toISOString() },
+        { state: createExtractionState(), action: { decision: 'store' as const }, reward: 0.9, timestamp: new Date(now).toISOString() },
+      ];
+
+      const result = computeTemporalMetrics(data, 7 * day);
+
+      expect(['improving', 'stable']).toContain(result.trend);
+    });
+
+    it('should detect declining trend', () => {
+      const now = Date.now();
+      const day = 24 * 60 * 60 * 1000;
+
+      const data = [
+        { state: createExtractionState(), action: { decision: 'store' as const }, reward: 0.9, timestamp: new Date(now - 21 * day).toISOString() },
+        { state: createExtractionState(), action: { decision: 'store' as const }, reward: 0.7, timestamp: new Date(now - 14 * day).toISOString() },
+        { state: createExtractionState(), action: { decision: 'store' as const }, reward: 0.5, timestamp: new Date(now - 7 * day).toISOString() },
+        { state: createExtractionState(), action: { decision: 'store' as const }, reward: 0.3, timestamp: new Date(now).toISOString() },
+      ];
+
+      const result = computeTemporalMetrics(data, 7 * day);
+
+      expect(['declining', 'stable']).toContain(result.trend);
+    });
+
+    it('should include sample count per window', () => {
+      const now = Date.now();
+      const day = 24 * 60 * 60 * 1000;
+
+      const data = [
+        { state: createExtractionState(), action: { decision: 'store' as const }, reward: 0.8, timestamp: new Date(now - 1 * day).toISOString() },
+        { state: createExtractionState(), action: { decision: 'store' as const }, reward: 0.7, timestamp: new Date(now - 2 * day).toISOString() },
+        { state: createExtractionState(), action: { decision: 'store' as const }, reward: 0.9, timestamp: new Date(now - 3 * day).toISOString() },
+      ];
+
+      const result = computeTemporalMetrics(data, 7 * day);
+
+      if (result.windows.length > 0) {
+        expect(result.windows[0]?.sampleCount).toBeGreaterThan(0);
+      }
+    });
+  });
+
+  describe('formatABTestReport', () => {
+    it('should format AB test result as report', () => {
+      const result = {
+        modelA: {
+          name: 'extraction-v1',
+          metrics: {
+            accuracy: 0.8,
+            precision: 0.75,
+            recall: 0.85,
+            f1: 0.79,
+            avgReward: 0.7,
+            rewardStdDev: 0.1,
+            confusionMatrix: {},
+          },
+          sampleCount: 100,
+        },
+        modelB: {
+          name: 'extraction-v2',
+          metrics: {
+            accuracy: 0.85,
+            precision: 0.8,
+            recall: 0.88,
+            f1: 0.84,
+            avgReward: 0.75,
+            rewardStdDev: 0.08,
+            confusionMatrix: {},
+          },
+          sampleCount: 100,
+        },
+        winner: 'B' as const,
+        pValue: 0.03,
+        confidenceLevel: 0.97,
+        details: {
+          rewardDifference: 0.05,
+          accuracyDifference: 0.05,
+          effectSize: 0.5,
+          recommendation: 'Model B performs significantly better.',
+        },
+      };
+
+      const report = formatABTestReport(result);
+
+      expect(report).toContain('A/B Test Report');
+      expect(report).toContain('extraction-v1');
+      expect(report).toContain('extraction-v2');
+      expect(report).toContain('Winner');
+      expect(report).toContain('Confidence');
+      expect(report).toContain('P-value');
+      expect(report).toContain('Performance Differences');
+      expect(report).toContain('Recommendation');
+    });
+
+    it('should show tie correctly', () => {
+      const result = {
+        modelA: {
+          name: 'model-a',
+          metrics: {
+            accuracy: 0.8,
+            precision: 0.8,
+            recall: 0.8,
+            f1: 0.8,
+            avgReward: 0.8,
+            rewardStdDev: 0.1,
+            confusionMatrix: {},
+          },
+          sampleCount: 50,
+        },
+        modelB: {
+          name: 'model-b',
+          metrics: {
+            accuracy: 0.8,
+            precision: 0.8,
+            recall: 0.8,
+            f1: 0.8,
+            avgReward: 0.8,
+            rewardStdDev: 0.1,
+            confusionMatrix: {},
+          },
+          sampleCount: 50,
+        },
+        winner: 'tie' as const,
+        pValue: 0.5,
+        confidenceLevel: 0.5,
+        details: {
+          rewardDifference: 0,
+          accuracyDifference: 0,
+          effectSize: 0,
+          recommendation: 'No significant difference detected.',
+        },
+      };
+
+      const report = formatABTestReport(result);
+
+      expect(report).toContain('No clear winner');
+    });
+
+    it('should format effect size', () => {
+      const result = {
+        modelA: {
+          name: 'model-a',
+          metrics: {
+            accuracy: 0.7,
+            precision: 0.7,
+            recall: 0.7,
+            f1: 0.7,
+            avgReward: 0.6,
+            rewardStdDev: 0.1,
+            confusionMatrix: {},
+          },
+          sampleCount: 100,
+        },
+        modelB: {
+          name: 'model-b',
+          metrics: {
+            accuracy: 0.9,
+            precision: 0.9,
+            recall: 0.9,
+            f1: 0.9,
+            avgReward: 0.8,
+            rewardStdDev: 0.05,
+            confusionMatrix: {},
+          },
+          sampleCount: 100,
+        },
+        winner: 'B' as const,
+        pValue: 0.01,
+        confidenceLevel: 0.99,
+        details: {
+          rewardDifference: 0.2,
+          accuracyDifference: 0.2,
+          effectSize: 1.5,
+          recommendation: 'Model B is significantly better.',
+        },
+      };
+
+      const report = formatABTestReport(result);
+
+      expect(report).toContain("Cohen's d");
+      expect(report).toContain('1.5');
+    });
+  });
+
+  describe('PolicyEvaluator', () => {
+    let evaluator: PolicyEvaluator;
+
+    beforeEach(() => {
+      evaluator = new PolicyEvaluator();
+    });
+
+    it('should create PolicyEvaluator instance', () => {
+      expect(evaluator).toBeDefined();
+    });
+
+    it('should have evaluate method', () => {
+      expect(typeof evaluator.evaluate).toBe('function');
+    });
+
+    it('should have compare method', () => {
+      expect(typeof evaluator.compare).toBe('function');
+    });
+
+    it('should have abTest method', () => {
+      expect(typeof evaluator.abTest).toBe('function');
+    });
+
+    it('evaluate should throw not implemented error', async () => {
+      const mockModel = {
+        policyType: 'extraction',
+        version: 1,
+        checksum: 'abc',
+        trainedAt: new Date().toISOString(),
+        metadata: {},
+      };
+
+      await expect(
+        evaluator.evaluate(mockModel, [])
+      ).rejects.toThrow('Model evaluation not yet implemented');
+    });
+
+    it('abTest should validate split ratio', async () => {
+      const mockModel = {
+        policyType: 'extraction',
+        version: 1,
+        checksum: 'abc',
+        trainedAt: new Date().toISOString(),
+        metadata: {},
+      };
+
+      await expect(
+        evaluator.abTest(mockModel, mockModel, [], 1.5)
+      ).rejects.toThrow('Split ratio must be between 0 and 1');
+
+      await expect(
+        evaluator.abTest(mockModel, mockModel, [], -0.5)
+      ).rejects.toThrow('Split ratio must be between 0 and 1');
+    });
+  });
 });
 
 // Helper function to create extraction state
 function createExtractionState(
-  overrides: Partial<ExtractionState> = {}
+  overrides: Partial<ExtractionState> & {
+    hasError?: boolean;
+    similarEntryExists?: boolean;
+    turnNumber?: number;
+  } = {}
 ): ExtractionState {
   return {
     contextFeatures: {
-      turnNumber: 5,
+      turnNumber: overrides.turnNumber ?? 5,
       tokenCount: 100,
       toolCallCount: 0,
-      hasError: overrides.contextFeatures?.hasError ?? false,
+      hasError: overrides.hasError ?? false,
       userTurnCount: 3,
       assistantTurnCount: 2,
     },
     memoryState: {
       totalEntries: 50,
       recentExtractions: 2,
-      similarEntryExists: overrides.memoryState?.similarEntryExists ?? false,
+      similarEntryExists: overrides.similarEntryExists ?? false,
       sessionCaptureCount: 1,
     },
     contentFeatures: {

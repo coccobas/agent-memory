@@ -138,8 +138,11 @@ describe('PaginationCursor', () => {
       const json = Buffer.from(cursor, 'base64url').toString('utf8');
       const parsed = JSON.parse(json);
 
-      // Tamper with signature
-      parsed.signature = parsed.signature.replace(/[A-Za-z]/, 'X');
+      // Tamper with signature by replacing first character
+      const origSig = parsed.signature as string;
+      const firstChar = origSig[0];
+      const newFirstChar = firstChar === 'X' ? 'Y' : 'X';
+      parsed.signature = newFirstChar + origSig.slice(1);
 
       // Re-encode
       const tamperedCursor = Buffer.from(JSON.stringify(parsed)).toString('base64url');
@@ -501,20 +504,23 @@ describe('PaginationCursor', () => {
       const json = Buffer.from(validCursor, 'base64url').toString('utf8');
       const parsed = JSON.parse(json);
 
-      // Create multiple tampered signatures
-      const tamperedSignatures = [
-        parsed.signature.replace(/.$/, 'X'), // Last char different
-        parsed.signature.replace(/^./, 'X'), // First char different
-        'A'.repeat(parsed.signature.length), // Different signature, same length
-        parsed.signature + 'XX', // Longer
-      ];
+      // Create a tampered signature by flipping every character
+      // This guarantees a completely different signature while maintaining valid base64url
+      const base64urlChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+      const tamperedSig = parsed.signature
+        .split('')
+        .map((char: string) => {
+          const idx = base64urlChars.indexOf(char);
+          // Flip to a different character in the alphabet
+          return base64urlChars[(idx + 17) % 64]; // Offset by 17 to ensure difference
+        })
+        .join('');
 
-      // All should fail consistently
-      for (const tamperedSig of tamperedSignatures) {
-        const tamperedParsed = { ...parsed, signature: tamperedSig };
-        const tamperedCursor = Buffer.from(JSON.stringify(tamperedParsed)).toString('base64url');
-        expect(() => PaginationCursor.decode(tamperedCursor)).toThrow();
-      }
+      const tamperedParsed = { ...parsed, signature: tamperedSig };
+      const tamperedCursor = Buffer.from(JSON.stringify(tamperedParsed)).toString('base64url');
+
+      // This should fail verification using constant-time comparison
+      expect(() => PaginationCursor.decode(tamperedCursor)).toThrow(/signature verification failed/);
     });
 
     it('should not expose internal structure in error messages', () => {

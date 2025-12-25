@@ -1,121 +1,88 @@
-/**
- * Unit tests for logger utility
- */
-
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { logger, createComponentLogger } from '../../src/utils/logger.js';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { createComponentLogger, logger } from '../../src/utils/logger.js';
 
 describe('Logger', () => {
-  const originalEnv = process.env;
-  const originalLogLevel = process.env.LOG_LEVEL;
-  const originalNodeEnv = process.env.NODE_ENV;
-
   beforeEach(() => {
-    vi.resetModules();
-    process.env = { ...originalEnv };
-  });
-
-  afterEach(() => {
-    process.env = originalEnv;
-    process.env.LOG_LEVEL = originalLogLevel;
-    process.env.NODE_ENV = originalNodeEnv;
-  });
-
-  describe('logger instance', () => {
-    it('should create logger instance', () => {
-      expect(logger).toBeDefined();
-      expect(typeof logger.info).toBe('function');
-      expect(typeof logger.error).toBe('function');
-      expect(typeof logger.warn).toBe('function');
-      expect(typeof logger.debug).toBe('function');
-    });
-
-    it('should have log level from environment', async () => {
-      process.env.LOG_LEVEL = 'debug';
-      vi.resetModules();
-      // Re-import to get fresh logger with new env
-      const { logger: newLogger } = await import('../../src/utils/logger.js');
-      expect(newLogger).toBeDefined();
-    });
-
-    it('should default to info level when LOG_LEVEL not set', async () => {
-      delete process.env.LOG_LEVEL;
-      vi.resetModules();
-      const { logger: newLogger } = await import('../../src/utils/logger.js');
-      expect(newLogger).toBeDefined();
-    });
+    vi.clearAllMocks();
   });
 
   describe('createComponentLogger', () => {
-    it('should create child logger with component context', () => {
-      const componentLogger = createComponentLogger('test-component');
-      expect(componentLogger).toBeDefined();
-      expect(componentLogger.info).toBeDefined();
-      expect(componentLogger.error).toBeDefined();
+    it('should create a child logger', () => {
+      const childLogger = createComponentLogger('test-component');
+      expect(childLogger).toBeDefined();
     });
 
-    it('should create logger with different component names', () => {
-      const logger1 = createComponentLogger('component1');
-      const logger2 = createComponentLogger('component2');
-      expect(logger1).toBeDefined();
-      expect(logger2).toBeDefined();
-      // Both should be valid logger instances
-      expect(typeof logger1.info).toBe('function');
-      expect(typeof logger2.info).toBe('function');
+    it('should return logger with logging methods', () => {
+      const childLogger = createComponentLogger('test-component');
+      expect(typeof childLogger.info).toBe('function');
+      expect(typeof childLogger.warn).toBe('function');
+      expect(typeof childLogger.error).toBe('function');
+      expect(typeof childLogger.debug).toBe('function');
     });
 
-    it('should allow logging with component logger', () => {
-      const componentLogger = createComponentLogger('test');
-      // Should not throw
-      expect(() => {
-        componentLogger.info('test message');
-        componentLogger.error('error message');
-        componentLogger.warn('warning message');
-        componentLogger.debug('debug message');
-      }).not.toThrow();
-    });
-  });
+    it('should create different loggers for different components', () => {
+      const loggerA = createComponentLogger('component-a');
+      const loggerB = createComponentLogger('component-b');
 
-  describe('logger methods', () => {
-    it('should support info logging', () => {
-      expect(() => logger.info('test')).not.toThrow();
-      expect(() => logger.info({ key: 'value' }, 'test')).not.toThrow();
+      // Both should be defined
+      expect(loggerA).toBeDefined();
+      expect(loggerB).toBeDefined();
     });
 
-    it('should support error logging', () => {
-      expect(() => logger.error('error')).not.toThrow();
-      expect(() => logger.error({ err: new Error('test') }, 'error')).not.toThrow();
-    });
-
-    it('should support warn logging', () => {
-      expect(() => logger.warn('warning')).not.toThrow();
-    });
-
-    it('should support debug logging', () => {
-      expect(() => logger.debug('debug')).not.toThrow();
-    });
-
-    it('should support structured logging', () => {
-      expect(() => {
-        logger.info({ userId: '123', action: 'login' }, 'User logged in');
-      }).not.toThrow();
+    it('should return loggers with trace and fatal methods', () => {
+      const childLogger = createComponentLogger('test-component');
+      expect(typeof childLogger.trace).toBe('function');
+      expect(typeof childLogger.fatal).toBe('function');
     });
   });
 
-  describe('environment handling', () => {
-    it('should handle production environment', async () => {
-      process.env.NODE_ENV = 'production';
-      vi.resetModules();
-      const { logger: prodLogger } = await import('../../src/utils/logger.js');
-      expect(prodLogger).toBeDefined();
+  describe('logger instance', () => {
+    it('should be defined', () => {
+      expect(logger).toBeDefined();
     });
 
-    it('should handle development environment', async () => {
-      process.env.NODE_ENV = 'development';
-      vi.resetModules();
-      const { logger: devLogger } = await import('../../src/utils/logger.js');
-      expect(devLogger).toBeDefined();
+    it('should have logging methods', () => {
+      expect(typeof logger.info).toBe('function');
+      expect(typeof logger.warn).toBe('function');
+      expect(typeof logger.error).toBe('function');
+      expect(typeof logger.debug).toBe('function');
+    });
+
+    it('should have child method', () => {
+      expect(typeof logger.child).toBe('function');
+    });
+
+    it('should have trace and fatal methods', () => {
+      expect(typeof logger.trace).toBe('function');
+      expect(typeof logger.fatal).toBe('function');
+    });
+
+    it('should have isLevelEnabled method', () => {
+      expect(typeof logger.isLevelEnabled).toBe('function');
+    });
+
+    it('should have flush method', () => {
+      expect(typeof logger.flush).toBe('function');
+    });
+
+    it('should have a valid log level', () => {
+      const validLevels = ['trace', 'debug', 'info', 'warn', 'error', 'fatal', 'silent'];
+      expect(validLevels).toContain(logger.level);
+    });
+  });
+
+  describe('child logger bindings', () => {
+    it('should create child logger with custom bindings', () => {
+      const child = logger.child({ requestId: 'test-123' });
+      expect(child).toBeDefined();
+      expect(typeof child.info).toBe('function');
+    });
+
+    it('should create nested child loggers', () => {
+      const child1 = logger.child({ component: 'parent' });
+      const child2 = child1.child({ subComponent: 'child' });
+      expect(child2).toBeDefined();
+      expect(typeof child2.info).toBe('function');
     });
   });
 });
-

@@ -193,4 +193,285 @@ describe('Extraction Service', () => {
 
   // Note: Actual LLM extraction tests would require API keys or mocked responses
   // Those would be integration tests rather than unit tests
+
+  describe('context size validation', () => {
+    it('should reject context exceeding maximum length', async () => {
+      // Only test if service is available
+      if (!service.isAvailable()) {
+        // Need a service that's not disabled to test validation
+        const { reloadConfig } = await import('../../src/config/index.js');
+        const originalProvider = process.env.AGENT_MEMORY_EXTRACTION_PROVIDER;
+        process.env.AGENT_MEMORY_EXTRACTION_PROVIDER = 'openai';
+        process.env.AGENT_MEMORY_OPENAI_API_KEY = 'sk-test';
+        reloadConfig();
+
+        resetExtractionServiceState();
+        const enabledService = new ExtractionService();
+
+        // Create context larger than 100KB
+        const largeContext = 'x'.repeat(100001);
+
+        await expect(enabledService.extract({ context: largeContext })).rejects.toThrow(
+          'Context exceeds maximum length'
+        );
+
+        // Restore
+        if (originalProvider) {
+          process.env.AGENT_MEMORY_EXTRACTION_PROVIDER = originalProvider;
+        } else {
+          delete process.env.AGENT_MEMORY_EXTRACTION_PROVIDER;
+        }
+        delete process.env.AGENT_MEMORY_OPENAI_API_KEY;
+        reloadConfig();
+      } else {
+        // Create context larger than 100KB
+        const largeContext = 'x'.repeat(100001);
+
+        await expect(service.extract({ context: largeContext })).rejects.toThrow(
+          'Context exceeds maximum length'
+        );
+      }
+    });
+
+    it('should accept context at maximum length', async () => {
+      // Only test if service is available
+      if (!service.isAvailable()) {
+        // Skip if disabled
+        return;
+      }
+
+      // Create context exactly at 100KB
+      const maxContext = 'x'.repeat(100000);
+
+      // This would require API access, so we just verify it doesn't throw for size
+      // The actual API call would fail without valid credentials
+      try {
+        await service.extract({ context: maxContext });
+      } catch (error) {
+        // Expected to fail on API call, not size validation
+        expect((error as Error).message).not.toContain('Context exceeds maximum length');
+      }
+    });
+  });
+
+  describe('explicit config injection', () => {
+    it('should use injected config over global config', () => {
+      const customService = new ExtractionService({
+        provider: 'disabled',
+        openaiApiKey: 'test-key',
+        openaiModel: 'gpt-4o',
+        openaiBaseUrl: undefined,
+        anthropicApiKey: undefined,
+        anthropicModel: 'claude-3-5-sonnet-20241022',
+        ollamaBaseUrl: 'http://localhost:11434',
+        ollamaModel: 'llama2',
+      });
+
+      expect(customService.getProvider()).toBe('disabled');
+      expect(customService.isAvailable()).toBe(false);
+    });
+
+    it('should initialize OpenAI client with custom config', () => {
+      const customService = new ExtractionService({
+        provider: 'openai',
+        openaiApiKey: 'sk-custom-key',
+        openaiModel: 'gpt-4o-mini',
+        openaiBaseUrl: undefined,
+        anthropicApiKey: undefined,
+        anthropicModel: 'claude-3-5-sonnet-20241022',
+        ollamaBaseUrl: 'http://localhost:11434',
+        ollamaModel: 'llama2',
+      });
+
+      expect(customService.getProvider()).toBe('openai');
+      expect(customService.isAvailable()).toBe(true);
+    });
+
+    it('should initialize Anthropic client with custom config', () => {
+      const customService = new ExtractionService({
+        provider: 'anthropic',
+        openaiApiKey: undefined,
+        openaiModel: 'gpt-4o-mini',
+        openaiBaseUrl: undefined,
+        anthropicApiKey: 'sk-ant-custom-key',
+        anthropicModel: 'claude-3-5-sonnet-20241022',
+        ollamaBaseUrl: 'http://localhost:11434',
+        ollamaModel: 'llama2',
+      });
+
+      expect(customService.getProvider()).toBe('anthropic');
+      expect(customService.isAvailable()).toBe(true);
+    });
+
+    it('should validate Ollama model name', () => {
+      // Valid model names
+      expect(() => new ExtractionService({
+        provider: 'ollama',
+        openaiApiKey: undefined,
+        openaiModel: 'gpt-4o-mini',
+        openaiBaseUrl: undefined,
+        anthropicApiKey: undefined,
+        anthropicModel: 'claude-3-5-sonnet-20241022',
+        ollamaBaseUrl: 'http://localhost:11434',
+        ollamaModel: 'llama2',
+      })).not.toThrow();
+
+      expect(() => new ExtractionService({
+        provider: 'ollama',
+        openaiApiKey: undefined,
+        openaiModel: 'gpt-4o-mini',
+        openaiBaseUrl: undefined,
+        anthropicApiKey: undefined,
+        anthropicModel: 'claude-3-5-sonnet-20241022',
+        ollamaBaseUrl: 'http://localhost:11434',
+        ollamaModel: 'llama:7b',
+      })).not.toThrow();
+
+      expect(() => new ExtractionService({
+        provider: 'ollama',
+        openaiApiKey: undefined,
+        openaiModel: 'gpt-4o-mini',
+        openaiBaseUrl: undefined,
+        anthropicApiKey: undefined,
+        anthropicModel: 'claude-3-5-sonnet-20241022',
+        ollamaBaseUrl: 'http://localhost:11434',
+        ollamaModel: 'mistral-7b-instruct-v0.2',
+      })).not.toThrow();
+    });
+
+    it('should reject invalid Ollama model names', () => {
+      // Invalid model names with special characters
+      expect(() => new ExtractionService({
+        provider: 'ollama',
+        openaiApiKey: undefined,
+        openaiModel: 'gpt-4o-mini',
+        openaiBaseUrl: undefined,
+        anthropicApiKey: undefined,
+        anthropicModel: 'claude-3-5-sonnet-20241022',
+        ollamaBaseUrl: 'http://localhost:11434',
+        ollamaModel: 'llama; rm -rf /',
+      })).toThrow('Invalid Ollama model name');
+
+      expect(() => new ExtractionService({
+        provider: 'ollama',
+        openaiApiKey: undefined,
+        openaiModel: 'gpt-4o-mini',
+        openaiBaseUrl: undefined,
+        anthropicApiKey: undefined,
+        anthropicModel: 'claude-3-5-sonnet-20241022',
+        ollamaBaseUrl: 'http://localhost:11434',
+        ollamaModel: 'model$(whoami)',
+      })).toThrow('Invalid Ollama model name');
+    });
+  });
+
+  describe('OpenAI base URL validation', () => {
+    it('should allow default base URL (undefined)', () => {
+      expect(() => new ExtractionService({
+        provider: 'openai',
+        openaiApiKey: 'sk-test',
+        openaiModel: 'gpt-4o-mini',
+        openaiBaseUrl: undefined,
+        anthropicApiKey: undefined,
+        anthropicModel: 'claude-3-5-sonnet-20241022',
+        ollamaBaseUrl: 'http://localhost:11434',
+        ollamaModel: 'llama2',
+      })).not.toThrow();
+    });
+
+    it('should allow localhost in development mode', () => {
+      const originalNodeEnv = process.env.NODE_ENV;
+      process.env.NODE_ENV = 'development';
+
+      try {
+        expect(() => new ExtractionService({
+          provider: 'openai',
+          openaiApiKey: 'sk-test',
+          openaiModel: 'gpt-4o-mini',
+          openaiBaseUrl: 'http://localhost:1234/v1',
+          anthropicApiKey: undefined,
+          anthropicModel: 'claude-3-5-sonnet-20241022',
+          ollamaBaseUrl: 'http://localhost:11434',
+          ollamaModel: 'llama2',
+        })).not.toThrow();
+      } finally {
+        if (originalNodeEnv) {
+          process.env.NODE_ENV = originalNodeEnv;
+        } else {
+          delete process.env.NODE_ENV;
+        }
+      }
+    });
+
+    it('should reject localhost in production mode', () => {
+      const originalNodeEnv = process.env.NODE_ENV;
+      process.env.NODE_ENV = 'production';
+
+      try {
+        expect(() => new ExtractionService({
+          provider: 'openai',
+          openaiApiKey: 'sk-test',
+          openaiModel: 'gpt-4o-mini',
+          openaiBaseUrl: 'http://localhost:1234/v1',
+          anthropicApiKey: undefined,
+          anthropicModel: 'claude-3-5-sonnet-20241022',
+          ollamaBaseUrl: 'http://localhost:11434',
+          ollamaModel: 'llama2',
+        })).toThrow('SSRF protection');
+      } finally {
+        if (originalNodeEnv) {
+          process.env.NODE_ENV = originalNodeEnv;
+        } else {
+          delete process.env.NODE_ENV;
+        }
+      }
+    });
+  });
+
+  describe('extraction input variations', () => {
+    it('should handle different context types', async () => {
+      if (!service.isAvailable()) {
+        // Use disabled service to test disabled path
+        const result = await service.extract({
+          context: 'test content',
+          contextType: 'conversation'
+        });
+        expect(result.provider).toBe('disabled');
+      }
+    });
+
+    it('should handle focus areas', async () => {
+      if (!service.isAvailable()) {
+        const result = await service.extract({
+          context: 'test content',
+          focusAreas: ['decisions', 'facts']
+        });
+        expect(result.entries).toHaveLength(0);
+      }
+    });
+
+    it('should handle scope hints', async () => {
+      if (!service.isAvailable()) {
+        const result = await service.extract({
+          context: 'test content',
+          scopeHint: {
+            projectName: 'TestProject',
+            language: 'TypeScript',
+            domain: 'testing'
+          }
+        });
+        expect(result.entries).toHaveLength(0);
+      }
+    });
+
+    it('should handle existing summary', async () => {
+      if (!service.isAvailable()) {
+        const result = await service.extract({
+          context: 'new content',
+          existingSummary: 'Previous context...'
+        });
+        expect(result.entries).toHaveLength(0);
+      }
+    });
+  });
 });

@@ -443,5 +443,269 @@ describe('permission.service', () => {
       expect(perms).toEqual([]);
     });
   });
+
+  describe('checkBatch', () => {
+    beforeEach(() => {
+      db.delete(schema.permissions).run();
+    });
+
+    it('should return empty map for empty entries', () => {
+      const results = permissionService.checkBatch('agent-1', 'read', []);
+      expect(results.size).toBe(0);
+    });
+
+    it('should deny all entries when agentId is null', () => {
+      const entries = [
+        { id: 'entry-1', entryType: 'tool' as const, scopeType: 'global' as const, scopeId: null },
+        { id: 'entry-2', entryType: 'guideline' as const, scopeType: 'global' as const, scopeId: null },
+      ];
+      const results = permissionService.checkBatch(null, 'read', entries);
+      expect(results.get('entry-1')).toBe(false);
+      expect(results.get('entry-2')).toBe(false);
+    });
+
+    it('should allow project entries by default', () => {
+      const entries = [
+        { id: 'proj-1', entryType: 'project' as const, scopeType: 'global' as const, scopeId: null },
+        { id: 'tool-1', entryType: 'tool' as const, scopeType: 'global' as const, scopeId: null },
+      ];
+      const results = permissionService.checkBatch('agent-batch-1', 'read', entries);
+      expect(results.get('proj-1')).toBe(true);
+      // tool-1 has no permission
+      expect(results.get('tool-1')).toBe(false);
+    });
+
+    it('should check batch permissions correctly', () => {
+      permissionService.grant({
+        agentId: 'agent-batch-2',
+        scopeType: 'global',
+        entryType: 'tool',
+        permission: 'read',
+      });
+
+      const entries = [
+        { id: 'tool-1', entryType: 'tool' as const, scopeType: 'global' as const, scopeId: null },
+        { id: 'guide-1', entryType: 'guideline' as const, scopeType: 'global' as const, scopeId: null },
+      ];
+      const results = permissionService.checkBatch('agent-batch-2', 'read', entries);
+      expect(results.get('tool-1')).toBe(true);
+      expect(results.get('guide-1')).toBe(false);
+    });
+
+    it('should check entry-specific permissions in batch', () => {
+      permissionService.grant({
+        agentId: 'agent-batch-3',
+        scopeType: 'global',
+        entryType: 'tool',
+        entryId: 'tool-1',
+        permission: 'write',
+      });
+
+      const entries = [
+        { id: 'tool-1', entryType: 'tool' as const, scopeType: 'global' as const, scopeId: null },
+        { id: 'tool-2', entryType: 'tool' as const, scopeType: 'global' as const, scopeId: null },
+      ];
+      const results = permissionService.checkBatch('agent-batch-3', 'write', entries);
+      expect(results.get('tool-1')).toBe(true);
+      expect(results.get('tool-2')).toBe(false);
+    });
+
+    it('should check scope inheritance in batch', () => {
+      const org = createTestOrg(db, 'Batch Org');
+      const project = createTestProject(db, 'Batch Project', org.id);
+
+      permissionService.grant({
+        agentId: 'agent-batch-4',
+        scopeType: 'org',
+        scopeId: org.id,
+        entryType: 'tool',
+        permission: 'read',
+      });
+
+      const entries = [
+        { id: 'tool-1', entryType: 'tool' as const, scopeType: 'project' as const, scopeId: project.id },
+      ];
+      const results = permissionService.checkBatch('agent-batch-4', 'read', entries);
+      // Should inherit permission from org
+      expect(results.get('tool-1')).toBe(true);
+    });
+
+    it('should handle only project entries in batch', () => {
+      const entries = [
+        { id: 'proj-1', entryType: 'project' as const, scopeType: 'global' as const, scopeId: null },
+        { id: 'proj-2', entryType: 'project' as const, scopeType: 'global' as const, scopeId: null },
+      ];
+      const results = permissionService.checkBatch('agent-batch-5', 'read', entries);
+      expect(results.get('proj-1')).toBe(true);
+      expect(results.get('proj-2')).toBe(true);
+      expect(results.size).toBe(2);
+    });
+  });
+
+  describe('invalidateCache', () => {
+    it('should invalidate permissions cache', () => {
+      permissionService.grant({
+        agentId: 'agent-cache-1',
+        scopeType: 'global',
+        entryType: 'tool',
+        permission: 'read',
+      });
+
+      // First check should work
+      expect(permissionService.check('agent-cache-1', 'read', 'tool', null, 'global', null)).toBe(true);
+
+      // Invalidate cache
+      permissionService.invalidateCache();
+
+      // Check should still work after invalidation
+      expect(permissionService.check('agent-cache-1', 'read', 'tool', null, 'global', null)).toBe(true);
+    });
+  });
+
+  describe('scope inheritance', () => {
+    it('should inherit permissions from org to project', () => {
+      const org = createTestOrg(db, 'Inherit Org');
+      const project = createTestProject(db, 'Inherit Project', org.id);
+
+      permissionService.grant({
+        agentId: 'agent-inherit-1',
+        scopeType: 'org',
+        scopeId: org.id,
+        entryType: 'tool',
+        permission: 'write',
+      });
+
+      // Should have permission on project scope due to org inheritance
+      expect(permissionService.check('agent-inherit-1', 'write', 'tool', null, 'project', project.id)).toBe(true);
+    });
+
+    it('should inherit permissions from global to project', () => {
+      const org = createTestOrg(db, 'Global Inherit Org');
+      const project = createTestProject(db, 'Global Inherit Project', org.id);
+
+      permissionService.grant({
+        agentId: 'agent-inherit-2',
+        scopeType: 'global',
+        entryType: 'guideline',
+        permission: 'read',
+      });
+
+      // Should have permission on project scope due to global inheritance
+      expect(permissionService.check('agent-inherit-2', 'read', 'guideline', null, 'project', project.id)).toBe(true);
+    });
+
+    it('should check org scope permissions', () => {
+      const org = createTestOrg(db, 'Org Permission Test');
+
+      permissionService.grant({
+        agentId: 'agent-org-1',
+        scopeType: 'org',
+        scopeId: org.id,
+        entryType: 'knowledge',
+        permission: 'admin',
+      });
+
+      expect(permissionService.check('agent-org-1', 'delete', 'knowledge', null, 'org', org.id)).toBe(true);
+    });
+
+    it('should handle session to project inheritance', () => {
+      const org = createTestOrg(db, 'Session Org');
+      const project = createTestProject(db, 'Session Project', org.id);
+
+      // Create a session
+      const sessionId = `sess-${Date.now()}`;
+      db.insert(schema.sessions).values({
+        id: sessionId,
+        projectId: project.id,
+        name: 'Test Session',
+        status: 'active',
+        agentId: 'test-agent',
+      }).run();
+
+      permissionService.grant({
+        agentId: 'agent-session-1',
+        scopeType: 'project',
+        scopeId: project.id,
+        entryType: 'tool',
+        permission: 'write',
+      });
+
+      // Should inherit permission from project when checking session scope
+      expect(permissionService.check('agent-session-1', 'write', 'tool', null, 'session', sessionId)).toBe(true);
+    });
+  });
+
+  describe('revoke with various conditions', () => {
+    beforeEach(() => {
+      db.delete(schema.permissions).run();
+    });
+
+    it('should revoke with null scopeId', () => {
+      permissionService.grant({
+        agentId: 'agent-revoke-null',
+        scopeType: 'global',
+        scopeId: null,
+        entryType: 'tool',
+        permission: 'read',
+      });
+
+      permissionService.revoke({
+        agentId: 'agent-revoke-null',
+        scopeType: 'global',
+        scopeId: null,
+      });
+
+      const perms = permissionService.getForAgent('agent-revoke-null');
+      expect(perms.length).toBe(0);
+    });
+
+    it('should revoke with null entryId', () => {
+      permissionService.grant({
+        agentId: 'agent-revoke-entry',
+        scopeType: 'global',
+        entryType: 'tool',
+        entryId: null,
+        permission: 'read',
+      });
+
+      permissionService.revoke({
+        agentId: 'agent-revoke-entry',
+        entryId: null,
+      });
+
+      const perms = permissionService.getForAgent('agent-revoke-entry');
+      expect(perms.length).toBe(0);
+    });
+  });
+
+  describe('list with filters', () => {
+    beforeEach(() => {
+      db.delete(schema.permissions).run();
+    });
+
+    it('should filter by scopeId', () => {
+      const org = createTestOrg(db, 'List Scope Org');
+
+      permissionService.grant({
+        agentId: 'agent-list-scope',
+        scopeType: 'org',
+        scopeId: org.id,
+        entryType: 'tool',
+        permission: 'read',
+      });
+
+      permissionService.grant({
+        agentId: 'agent-list-scope',
+        scopeType: 'org',
+        scopeId: 'other-org-id',
+        entryType: 'tool',
+        permission: 'write',
+      });
+
+      const perms = permissionService.list({ scopeId: org.id });
+      expect(perms.length).toBe(1);
+      expect(perms[0]?.scopeId).toBe(org.id);
+    });
+  });
 });
 

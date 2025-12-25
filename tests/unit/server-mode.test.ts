@@ -31,6 +31,23 @@ describe('parseServerMode', () => {
     expect(parseServerMode(['--mode=both'], '')).toBe('both');
   });
 
+  it('accepts short aliases', () => {
+    // Short flags with dash
+    expect(parseServerMode(['-m'], '')).toBe('mcp');
+    expect(parseServerMode(['-r'], '')).toBe('rest');
+    expect(parseServerMode(['-b'], '')).toBe('both');
+
+    // Short flags without dash
+    expect(parseServerMode(['m'], '')).toBe('mcp');
+    expect(parseServerMode(['r'], '')).toBe('rest');
+    expect(parseServerMode(['b'], '')).toBe('both');
+  });
+
+  it('short alias overrides env', () => {
+    expect(parseServerMode(['-r'], 'mcp')).toBe('rest');
+    expect(parseServerMode(['b'], 'rest')).toBe('both');
+  });
+
   it('throws on unknown modes', () => {
     expect(() => parseServerMode(['--mode=wat'], '')).toThrow(/Unknown mode/i);
     expect(() => parseServerMode([], 'wat')).toThrow(/Unknown mode/i);

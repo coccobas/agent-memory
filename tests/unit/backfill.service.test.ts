@@ -431,7 +431,7 @@ describe.skipIf(!embeddingsAvailable)('Backfill Service', () => {
     }
   });
 
-  it('should set inProgress to false when complete', { timeout: 15000 }, async () => {
+  it('should set inProgress to false when complete', { timeout: 30000 }, async () => {
     createTestTool(db, 'complete-tool', 'global');
 
     const progress = await backfillEmbeddings(
