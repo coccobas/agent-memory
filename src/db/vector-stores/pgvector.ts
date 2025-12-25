@@ -36,6 +36,21 @@ const INDEX_OPS: Record<DistanceMetric, string> = {
 };
 
 /**
+ * Validates embedding dimension to prevent SQL injection.
+ * @param dimension - The dimension value to validate
+ * @returns The validated dimension as a number
+ * @throws Error if the dimension is invalid
+ */
+function validateDimension(dimension: unknown): number {
+  if (typeof dimension !== 'number' || !Number.isInteger(dimension) || dimension < 1 || dimension > 10000) {
+    throw new Error(
+      `Invalid embedding dimension: ${dimension}. Must be integer between 1 and 10000.`
+    );
+  }
+  return dimension;
+}
+
+/**
  * pgvector implementation of IVectorStore
  */
 export class PgVectorStore implements IVectorStore {
@@ -347,13 +362,15 @@ export class PgVectorStore implements IVectorStore {
    * Create HNSW index with appropriate ops class
    */
   private async createHnswIndex(client: PoolClient, dimension: number): Promise<void> {
+    // Validate dimension to prevent SQL injection
+    const validatedDimension = validateDimension(dimension);
     const opsClass = INDEX_OPS[this.distanceMetric];
 
     try {
       // pgvector requires fixed dimensions for HNSW index
       // Alter column type to specify dimension if not already set
       await client.query(
-        `ALTER TABLE vector_embeddings ALTER COLUMN embedding TYPE vector(${dimension})`
+        `ALTER TABLE vector_embeddings ALTER COLUMN embedding TYPE vector(${validatedDimension})`
       );
 
       // Create HNSW index

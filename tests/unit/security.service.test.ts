@@ -231,8 +231,8 @@ describe('SecurityService', () => {
       service = new SecurityService(config);
     });
 
-    it('should authorize valid Bearer token', () => {
-      const result = service.validateRequest({
+    it('should authorize valid Bearer token', async () => {
+      const result = await service.validateRequest({
         headers: { authorization: 'Bearer valid-key' },
       });
 
@@ -240,8 +240,8 @@ describe('SecurityService', () => {
       expect(result.context?.agentId).toBe('test-agent');
     });
 
-    it('should authorize valid X-API-Key header', () => {
-      const result = service.validateRequest({
+    it('should authorize valid X-API-Key header', async () => {
+      const result = await service.validateRequest({
         headers: { 'x-api-key': 'valid-key' },
       });
 
@@ -249,8 +249,8 @@ describe('SecurityService', () => {
       expect(result.context?.agentId).toBe('test-agent');
     });
 
-    it('should reject invalid token', () => {
-      const result = service.validateRequest({
+    it('should reject invalid token', async () => {
+      const result = await service.validateRequest({
         headers: { authorization: 'Bearer invalid-key' },
       });
 
@@ -258,8 +258,8 @@ describe('SecurityService', () => {
       expect(result.statusCode).toBe(401);
     });
 
-    it('should allow MCP-style agentId from args', () => {
-      const result = service.validateRequest({
+    it('should allow MCP-style agentId from args', async () => {
+      const result = await service.validateRequest({
         args: { agentId: 'mcp-agent' },
       });
 
@@ -303,36 +303,36 @@ describe('SecurityService', () => {
       service = new SecurityService(config);
     });
 
-    it('should allow health check requests within rate limit', () => {
-      const result = service.checkHealthRateLimit('192.168.1.1');
+    it('should allow health check requests within rate limit', async () => {
+      const result = await service.checkHealthRateLimit('192.168.1.1');
 
       expect(result.allowed).toBe(true);
       expect(result.retryAfterMs).toBeUndefined();
     });
 
-    it('should track health checks per client IP', () => {
+    it('should track health checks per client IP', async () => {
       const ip1 = '192.168.1.1';
       const ip2 = '192.168.1.2';
 
-      const result1 = service.checkHealthRateLimit(ip1);
-      const result2 = service.checkHealthRateLimit(ip2);
+      const result1 = await service.checkHealthRateLimit(ip1);
+      const result2 = await service.checkHealthRateLimit(ip2);
 
       expect(result1.allowed).toBe(true);
       expect(result2.allowed).toBe(true);
     });
 
-    it('should enforce health endpoint rate limits', () => {
+    it('should enforce health endpoint rate limits', async () => {
       const clientIp = '192.168.1.100';
 
       // Health limiter is configured with maxRequests: 60, windowMs: 60000, minBurstProtection: 20
       // Make requests up to the burst protection limit
       for (let i = 0; i < 20; i++) {
-        const result = service.checkHealthRateLimit(clientIp);
+        const result = await service.checkHealthRateLimit(clientIp);
         expect(result.allowed).toBe(true);
       }
 
       // Next request should be rate limited
-      const blocked = service.checkHealthRateLimit(clientIp);
+      const blocked = await service.checkHealthRateLimit(clientIp);
       expect(blocked.allowed).toBe(false);
       expect(blocked.retryAfterMs).toBeDefined();
       expect(blocked.retryAfterMs).toBeGreaterThan(0);

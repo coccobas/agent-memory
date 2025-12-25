@@ -459,3 +459,4 @@ export function getBackfillStats(db: DbClient): {
     knowledge: { total: knowledgeTotal, withEmbeddings: knowledgeWithEmbeddings },
   };
 }
+

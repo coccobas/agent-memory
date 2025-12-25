@@ -5,6 +5,72 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.12] - 2025-12-25
+
+### Security
+
+#### Critical Fixes
+- **CRIT-001**: SQL injection prevention in temporal queries with ISO date validation
+- **CRIT-002**: SQL injection prevention in pgvector dimension parameter
+- **CRIT-003**: Path traversal prevention in file sync using `isPathSafe()`
+- **CRIT-004**: Block permissive mode in production environment
+- **CRIT-005**: SSL certificate validation for PostgreSQL connections
+- **CRIT-007**: CORS configuration with `@fastify/cors`
+- **CRIT-009**: Redis adapter race condition fixes with `ConnectionGuard`
+- **CRIT-012**: Rate limiter fail-closed with local fallback strategy
+
+#### High Priority Fixes
+- **HIGH-001**: IP address spoofing fix using Fastify `trustProxy`
+- **HIGH-002**: FTS5 operator sanitization (AND, OR, NOT, NEAR)
+- **HIGH-003**: Content-Type validation preHandler hook
+- **HIGH-004**: Response compression with `@fastify/compress`
+- **HIGH-005**: Hide error details in production (5xx responses)
+- **HIGH-011**: PostgreSQL pool cleanup on connection failure
+- **HIGH-012**: SQLite async transaction escape detection
+- **HIGH-017**: X-Request-ID header generation and propagation
+- **HIGH-018**: HMAC-signed pagination cursors
+
+#### Medium Priority Fixes
+- **MED-001**: Security headers with `@fastify/helmet`
+- **MED-002**: X-RateLimit-* response headers
+- **MED-005**: Connection pool monitoring metrics
+- **MED-007**: Date range validation (1970-2100)
+- **MED-010**: ReDoS pattern detection
+- **MED-011**: Security event logging
+- **MED-012**: MAX_ENTRIES_PER_IMPORT limit
+
+### Added
+
+#### New Utilities
+- `src/utils/connection-guard.ts` - Atomic connection handling for Redis adapters
+- `src/utils/pagination.ts` - HMAC-signed cursor validation
+- `src/utils/security-logger.ts` - Security event logging with structured JSON
+- `src/core/adapters/local-rate-limiter.adapter.ts` - In-memory rate limiting
+- `src/core/adapters/redis-rate-limiter.adapter.ts` - Redis-backed rate limiting with fail modes
+
+#### Security Test Suite (220 tests)
+- `tests/security/sql-injection.test.ts` - 55 SQL injection tests
+- `tests/security/path-traversal.test.ts` - 72 path traversal tests
+- `tests/security/dos-stress.test.ts` - 68 DoS stress tests
+- `tests/security/permission-race.test.ts` - 25 TOCTOU race condition tests
+
+#### Coverage Improvements (600+ new tests)
+- RL services coverage: 0% → 70%+ (116 tests)
+- Latent memory services coverage: 0% → 70%+ (214 tests)
+- Circuit breaker coverage: 8% → 100% (40 tests)
+- Dead letter queue coverage: 16% → 80%+ (73 tests)
+- Query rewrite stage coverage: 3% → 70%+ (44 tests)
+
+### Changed
+- Rate limiter now defaults to fail-closed with local fallback
+- Redis adapters use ConnectionGuard for atomic connection handling
+- Example files excluded from TypeScript build
+- Exported `escapeFTSQuery` alias for backwards compatibility
+
+### Performance
+- Test suite expanded from ~1,800 to 2,706 tests
+- All tests complete in under 45 seconds
+
 ## [0.9.11] - 2025-12-24
 
 ### Added
@@ -179,6 +245,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[0.9.12]: https://github.com/user/agent-memory/compare/v0.9.11...v0.9.12
+[0.9.11]: https://github.com/user/agent-memory/compare/v0.9.4...v0.9.11
+[0.9.4]: https://github.com/user/agent-memory/compare/v0.9.3...v0.9.4
+[0.9.3]: https://github.com/user/agent-memory/compare/v0.9.2...v0.9.3
 [0.9.2]: https://github.com/user/agent-memory/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/user/agent-memory/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/user/agent-memory/compare/v0.8.5...v0.9.0

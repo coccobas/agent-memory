@@ -223,6 +223,13 @@ export class PermissionService {
     // Check for permissive mode first
     const permissiveMode = process.env.AGENT_MEMORY_PERMISSIONS_MODE === 'permissive';
     if (permissiveMode) {
+      // SECURITY: Block permissive mode in production
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error(
+          'SECURITY: AGENT_MEMORY_PERMISSIONS_MODE=permissive is FORBIDDEN in production. ' +
+            'Remove this environment variable and configure explicit permissions.'
+        );
+      }
       if (!this.hasWarnedAboutPermissiveMode) {
         this.logger.warn(
           'SECURITY WARNING: Permission checks disabled (AGENT_MEMORY_PERMISSIONS_MODE=permissive). ' +
@@ -333,6 +340,13 @@ export class PermissionService {
     // Check for permissive mode first
     const permissiveMode = process.env.AGENT_MEMORY_PERMISSIONS_MODE === 'permissive';
     if (permissiveMode) {
+      // SECURITY: Block permissive mode in production
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error(
+          'SECURITY: AGENT_MEMORY_PERMISSIONS_MODE=permissive is FORBIDDEN in production. ' +
+            'Remove this environment variable and configure explicit permissions.'
+        );
+      }
       if (!this.hasWarnedAboutPermissiveMode) {
         this.logger.warn(
           'SECURITY WARNING: Permission checks disabled (AGENT_MEMORY_PERMISSIONS_MODE=permissive).'

@@ -24,6 +24,24 @@ import type { ScopeType } from '../db/schema.js';
 const MAX_IMPORT_CONTENT_SIZE = config.validation.contentMaxLength * 10; // 10x content limit (~500KB default)
 
 /**
+ * Get the maximum number of entries allowed per import
+ * Security: Prevent resource exhaustion from large imports
+ *
+ * Note: Reads directly from env to allow runtime configuration in tests
+ */
+function getMaxEntriesPerImport(): number {
+  const envValue = process.env.AGENT_MEMORY_MAX_IMPORT_ENTRIES;
+  if (envValue) {
+    const parsed = parseInt(envValue, 10);
+    if (!isNaN(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+  // Fall back to config value
+  return config.validation.maxImportEntries;
+}
+
+/**
  * Import service dependencies
  */
 export interface ImportServiceDeps {
@@ -133,6 +151,17 @@ interface ImportContext {
   conflictStrategy: ConflictStrategy;
   importedBy?: string;
   mapScope: (scopeType: ScopeType, scopeId?: string | null) => { type: ScopeType; id?: string };
+}
+
+/**
+ * Count total entries in import data
+ */
+function countTotalEntries(data: ImportData): number {
+  let total = 0;
+  if (data.entries.tools) total += data.entries.tools.length;
+  if (data.entries.guidelines) total += data.entries.guidelines.length;
+  if (data.entries.knowledge) total += data.entries.knowledge.length;
+  return total;
 }
 
 /**
@@ -441,6 +470,18 @@ async function importFromJsonImpl(
     return result;
   }
 
+  // Security: Validate total entry count to prevent resource exhaustion
+  const totalEntries = countTotalEntries(data);
+  const maxEntries = getMaxEntriesPerImport();
+  if (totalEntries > maxEntries) {
+    result.success = false;
+    result.errors.push({
+      entry: 'import',
+      error: `Import exceeds maximum entry limit of ${maxEntries} entries (got ${totalEntries}). Consider splitting the import into smaller batches.`,
+    });
+    return result;
+  }
+
   // Create import context
   const context: ImportContext = {
     conflictStrategy: options.conflictStrategy || 'update',
@@ -630,6 +671,29 @@ async function importFromOpenAPIImpl(
     return result;
   }
 
+  // Security: Count total operations and validate against entry limit
+  let totalOperations = 0;
+  for (const pathItem of Object.values(openApiSpec.paths)) {
+    if (typeof pathItem === 'object' && pathItem !== null) {
+      // Count HTTP methods (get, post, put, delete, patch, etc.)
+      for (const value of Object.values(pathItem)) {
+        if (typeof value === 'object' && value !== null) {
+          totalOperations++;
+        }
+      }
+    }
+  }
+
+  const maxEntries = getMaxEntriesPerImport();
+  if (totalOperations > maxEntries) {
+    result.success = false;
+    result.errors.push({
+      entry: 'import',
+      error: `OpenAPI import exceeds maximum entry limit of ${maxEntries} operations (got ${totalOperations}). Consider splitting the API specification.`,
+    });
+    return result;
+  }
+
   // Default scope (can be overridden by options)
   const defaultScopeType: ScopeType = 'global';
   const defaultScopeId: string | undefined = undefined;
@@ -761,3 +825,4 @@ async function importFromOpenAPIImpl(
 
   return result;
 }
+

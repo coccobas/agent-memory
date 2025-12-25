@@ -32,6 +32,143 @@ describe('Import Service', () => {
   });
 
   describe('importFromJson', () => {
+    describe('Entry limit validation', () => {
+      it('should reject import when total entries exceed limit', async () => {
+        // Set a low limit for testing
+        const originalEnv = process.env.AGENT_MEMORY_MAX_IMPORT_ENTRIES;
+        process.env.AGENT_MEMORY_MAX_IMPORT_ENTRIES = '5';
+
+        // Create an import service with the new limit
+        const testImportService = createImportService({
+          toolRepo: repos.tools,
+          guidelineRepo: repos.guidelines,
+          knowledgeRepo: repos.knowledge,
+          tagRepo: repos.tags,
+          entryTagRepo: repos.entryTags,
+        });
+
+        const jsonContent = JSON.stringify({
+          version: '1.0',
+          entries: {
+            tools: [
+              { scopeType: 'global', name: 'tool-1', currentVersion: { description: 'Tool 1' } },
+              { scopeType: 'global', name: 'tool-2', currentVersion: { description: 'Tool 2' } },
+            ],
+            guidelines: [
+              {
+                scopeType: 'global',
+                name: 'guideline-1',
+                currentVersion: { content: 'Content 1' },
+              },
+              {
+                scopeType: 'global',
+                name: 'guideline-2',
+                currentVersion: { content: 'Content 2' },
+              },
+            ],
+            knowledge: [
+              {
+                scopeType: 'global',
+                title: 'knowledge-1',
+                currentVersion: { content: 'Knowledge 1' },
+              },
+              {
+                scopeType: 'global',
+                title: 'knowledge-2',
+                currentVersion: { content: 'Knowledge 2' },
+              },
+            ],
+          },
+        });
+
+        const result = await testImportService.importFromJson(jsonContent);
+
+        expect(result.success).toBe(false);
+        expect(result.created).toBe(0);
+        expect(result.errors.length).toBeGreaterThan(0);
+        expect(result.errors[0].entry).toBe('import');
+        expect(result.errors[0].error).toContain('exceeds maximum entry limit');
+        expect(result.errors[0].error).toContain('5');
+        expect(result.errors[0].error).toContain('6');
+
+        // Restore original env
+        if (originalEnv === undefined) {
+          delete process.env.AGENT_MEMORY_MAX_IMPORT_ENTRIES;
+        } else {
+          process.env.AGENT_MEMORY_MAX_IMPORT_ENTRIES = originalEnv;
+        }
+      });
+
+      it('should allow import when under the limit', async () => {
+        const originalEnv = process.env.AGENT_MEMORY_MAX_IMPORT_ENTRIES;
+        process.env.AGENT_MEMORY_MAX_IMPORT_ENTRIES = '10';
+
+        const testImportService = createImportService({
+          toolRepo: repos.tools,
+          guidelineRepo: repos.guidelines,
+          knowledgeRepo: repos.knowledge,
+          tagRepo: repos.tags,
+          entryTagRepo: repos.entryTags,
+        });
+
+        const jsonContent = JSON.stringify({
+          version: '1.0',
+          entries: {
+            tools: [
+              { scopeType: 'global', name: 'under-limit-1', currentVersion: { description: 'T1' } },
+              { scopeType: 'global', name: 'under-limit-2', currentVersion: { description: 'T2' } },
+            ],
+          },
+        });
+
+        const result = await testImportService.importFromJson(jsonContent);
+
+        expect(result.success).toBe(true);
+        expect(result.created).toBe(2);
+
+        // Restore original env
+        if (originalEnv === undefined) {
+          delete process.env.AGENT_MEMORY_MAX_IMPORT_ENTRIES;
+        } else {
+          process.env.AGENT_MEMORY_MAX_IMPORT_ENTRIES = originalEnv;
+        }
+      });
+
+      it('should use default limit of 10000 when env var not set', async () => {
+        const originalEnv = process.env.AGENT_MEMORY_MAX_IMPORT_ENTRIES;
+        delete process.env.AGENT_MEMORY_MAX_IMPORT_ENTRIES;
+
+        const testImportService = createImportService({
+          toolRepo: repos.tools,
+          guidelineRepo: repos.guidelines,
+          knowledgeRepo: repos.knowledge,
+          tagRepo: repos.tags,
+          entryTagRepo: repos.entryTags,
+        });
+
+        // Create a small import (well under default)
+        const jsonContent = JSON.stringify({
+          version: '1.0',
+          entries: {
+            tools: [
+              { scopeType: 'global', name: 'default-limit', currentVersion: { description: 'Test' } },
+            ],
+          },
+        });
+
+        const result = await testImportService.importFromJson(jsonContent);
+
+        expect(result.success).toBe(true);
+
+        // Restore original env
+        if (originalEnv === undefined) {
+          delete process.env.AGENT_MEMORY_MAX_IMPORT_ENTRIES;
+        } else {
+          process.env.AGENT_MEMORY_MAX_IMPORT_ENTRIES = originalEnv;
+        }
+      });
+    });
+
     it('should import new tools', async () => {
       const jsonContent = JSON.stringify({
         version: '1.0',
@@ -663,6 +800,85 @@ describe('Import Service', () => {
   });
 
   describe('importFromOpenAPI', () => {
+    describe('Entry limit validation', () => {
+      it('should reject OpenAPI import when operations exceed limit', async () => {
+        const originalEnv = process.env.AGENT_MEMORY_MAX_IMPORT_ENTRIES;
+        process.env.AGENT_MEMORY_MAX_IMPORT_ENTRIES = '3';
+
+        const testImportService = createImportService({
+          toolRepo: repos.tools,
+          guidelineRepo: repos.guidelines,
+          knowledgeRepo: repos.knowledge,
+          tagRepo: repos.tags,
+          entryTagRepo: repos.entryTags,
+        });
+
+        const openApiSpec = JSON.stringify({
+          openapi: '3.0.0',
+          paths: {
+            '/users': {
+              get: { operationId: 'getUsers', description: 'Get users' },
+              post: { operationId: 'createUser', description: 'Create user' },
+            },
+            '/posts': {
+              get: { operationId: 'getPosts', description: 'Get posts' },
+              post: { operationId: 'createPost', description: 'Create post' },
+            },
+          },
+        });
+
+        const result = await testImportService.importFromOpenAPI(openApiSpec);
+
+        expect(result.success).toBe(false);
+        expect(result.errors.length).toBeGreaterThan(0);
+        expect(result.errors[0].entry).toBe('import');
+        expect(result.errors[0].error).toContain('exceeds maximum entry limit');
+        expect(result.errors[0].error).toContain('3');
+        expect(result.errors[0].error).toContain('4');
+
+        // Restore original env
+        if (originalEnv === undefined) {
+          delete process.env.AGENT_MEMORY_MAX_IMPORT_ENTRIES;
+        } else {
+          process.env.AGENT_MEMORY_MAX_IMPORT_ENTRIES = originalEnv;
+        }
+      });
+
+      it('should allow OpenAPI import when under limit', async () => {
+        const originalEnv = process.env.AGENT_MEMORY_MAX_IMPORT_ENTRIES;
+        process.env.AGENT_MEMORY_MAX_IMPORT_ENTRIES = '5';
+
+        const testImportService = createImportService({
+          toolRepo: repos.tools,
+          guidelineRepo: repos.guidelines,
+          knowledgeRepo: repos.knowledge,
+          tagRepo: repos.tags,
+          entryTagRepo: repos.entryTags,
+        });
+
+        const openApiSpec = JSON.stringify({
+          openapi: '3.0.0',
+          paths: {
+            '/test': {
+              get: { operationId: 'getTest', description: 'Get test' },
+            },
+          },
+        });
+
+        const result = await testImportService.importFromOpenAPI(openApiSpec);
+
+        expect(result.success).toBe(true);
+        expect(result.created).toBe(1);
+
+        // Restore original env
+        if (originalEnv === undefined) {
+          delete process.env.AGENT_MEMORY_MAX_IMPORT_ENTRIES;
+        } else {
+          process.env.AGENT_MEMORY_MAX_IMPORT_ENTRIES = originalEnv;
+        }
+      });
+    });
+
     it('should import tools from OpenAPI spec', async () => {
       const openApiSpec = JSON.stringify({
         openapi: '3.0.0',
@@ -1162,3 +1378,4 @@ describe('Import Service', () => {
     });
   });
 });
+

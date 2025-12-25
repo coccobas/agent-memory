@@ -52,6 +52,7 @@ export interface Config {
     user: string;
     password: string;
     ssl: boolean;
+    sslRejectUnauthorized: boolean;
     poolMin: number;
     poolMax: number;
     idleTimeoutMs: number;
@@ -158,6 +159,7 @@ export interface Config {
     bulkOperationMax: number;
     regexPatternMaxLength: number;
     validationRulesQueryLimit: number;
+    maxImportEntries: number;
   };
   pagination: {
     defaultLimit: number;

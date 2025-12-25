@@ -11,8 +11,9 @@ import type Database from 'better-sqlite3';
 import type { AppContext } from '../context.js';
 import type { Config } from '../../config/index.js';
 import type { Runtime } from '../runtime.js';
+import { setRateLimiters } from '../runtime.js';
 import type { AppDb } from '../types.js';
-import type { Adapters } from '../adapters/index.js';
+import type { Adapters, RedisAdapters } from '../adapters/index.js';
 import type { Repositories } from '../interfaces/repositories.js';
 import { createComponentLogger } from '../../utils/logger.js';
 import { SecurityService } from '../../services/security.service.js';
@@ -56,7 +57,7 @@ export interface WireContextInput {
  * @param input - All resolved backend-specific resources
  * @returns Fully wired AppContext
  */
-export function wireContext(input: WireContextInput): AppContext {
+export async function wireContext(input: WireContextInput): Promise<AppContext> {
   const { config, runtime, db, sqlite, repos, adapters, logger, dbType, pgPool } = input;
 
   // Build service dependencies for auto-detection
@@ -71,8 +72,16 @@ export function wireContext(input: WireContextInput): AppContext {
   // Wire query cache invalidation
   wireQueryCache(runtime, createComponentLogger('query-cache'));
 
-  // Create security service
-  const security = new SecurityService(config);
+  // If Redis adapters were created and connected, swap rate limiters
+  if (config.redis.enabled && 'redis' in adapters && adapters.redis) {
+    logger.info('Swapping local rate limiters with Redis rate limiters');
+    const redisAdapters = adapters.redis as RedisAdapters;
+    await setRateLimiters(runtime, redisAdapters.rateLimiters);
+  }
+
+  // Create security service with runtime's rate limiters
+  // (which are now Redis-backed if Redis is enabled)
+  const security = new SecurityService(config, runtime.rateLimiters);
 
   return {
     config,

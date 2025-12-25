@@ -12,7 +12,56 @@ import type { Tool, Guideline, Knowledge, Experience } from '../../../db/schema.
 import { eq, and, isNull, inArray, sql } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
 import type { PipelineContext, QueryEntryType, DbInstance } from '../pipeline.js';
-import { FETCH_HEADROOM_MULTIPLIER } from '../../../utils/constants.js';
+
+// =============================================================================
+// ADAPTIVE HEADROOM CALCULATION
+// =============================================================================
+
+/**
+ * Computes adaptive fetch headroom based on filter signals in the pipeline context.
+ *
+ * Uses lower multipliers when filters are highly selective (fewer results expected):
+ * - 1.2x when FTS matches or related IDs are less than the limit
+ * - 1.5x when tag filters (require/exclude) are present
+ * - 2.0x as default fallback
+ */
+function computeAdaptiveHeadroom(ctx: PipelineContext): number {
+  const { ftsMatchIds, params, limit } = ctx;
+
+  // If FTS matches exist and total matches are less than limit, use minimal headroom
+  if (ftsMatchIds) {
+    const totalMatches = Object.values(ftsMatchIds).reduce(
+      (sum, idSet) => sum + idSet.size,
+      0
+    );
+    if (totalMatches < limit) {
+      return 1.2;
+    }
+  }
+
+  // If relatedTo is set, check if total related IDs are less than limit
+  if (params.relatedTo && ctx.relatedIds) {
+    const totalRelatedIds = Object.values(ctx.relatedIds).reduce(
+      (sum, idSet) => sum + idSet.size,
+      0
+    );
+    if (totalRelatedIds < limit) {
+      return 1.2;
+    }
+  }
+
+  // If tag filters are present (require or exclude arrays), use moderate headroom
+  if (params.tags) {
+    const hasRequire = Array.isArray(params.tags.require) && params.tags.require.length > 0;
+    const hasExclude = Array.isArray(params.tags.exclude) && params.tags.exclude.length > 0;
+    if (hasRequire || hasExclude) {
+      return 1.5;
+    }
+  }
+
+  // Default headroom for general queries
+  return 2.0;
+}
 
 // =============================================================================
 // FETCH CONFIGURATION
@@ -124,6 +173,28 @@ function fetchEntriesGeneric<T extends EntryUnion>(
 }
 
 // =============================================================================
+// INPUT VALIDATION
+// =============================================================================
+
+/**
+ * Validates and sanitizes ISO 8601 date strings to prevent SQL injection.
+ * @param value - The value to validate
+ * @param fieldName - The field name for error reporting
+ * @returns The validated ISO date string
+ * @throws Error if the value is not a valid ISO 8601 date string
+ */
+function validateIsoDate(value: unknown, fieldName: string): string {
+  if (typeof value !== 'string') {
+    throw new Error(`${fieldName} must be a string`);
+  }
+  const isoRegex = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d{3})?Z?)?$/;
+  if (!isoRegex.test(value)) {
+    throw new Error(`${fieldName} must be a valid ISO 8601 date string`);
+  }
+  return value;
+}
+
+// =============================================================================
 // TEMPORAL KNOWLEDGE FETCH
 // =============================================================================
 
@@ -153,6 +224,7 @@ function fetchKnowledgeWithTemporal(
 
     if (hasTemporal) {
       // Use raw SQL with join for temporal filtering
+      // Validate all temporal parameters to prevent SQL injection
       const atTime = params.atTime;
       const validDuring = params.validDuring;
 
@@ -163,32 +235,41 @@ function fetchKnowledgeWithTemporal(
       ];
 
       if (atTime) {
+        // Validate atTime parameter
+        const validatedAtTime = validateIsoDate(atTime, 'atTime');
+
         // Entry is valid at a specific point in time
         // valid_from <= atTime (or null) AND valid_until > atTime (or null)
         temporalConditions = `
           AND (kv.valid_from IS NULL OR kv.valid_from <= ?)
           AND (kv.valid_until IS NULL OR kv.valid_until > ?)
         `;
-        queryParams.push(atTime, atTime);
+        queryParams.push(validatedAtTime, validatedAtTime);
       } else if (validDuring) {
+        // Validate validDuring parameters
+        const validatedStart = validateIsoDate(validDuring.start, 'validDuring.start');
+        const validatedEnd = validateIsoDate(validDuring.end, 'validDuring.end');
+
         // Entry is valid during a period (overlaps with the period)
         // valid_from <= end AND valid_until >= start (accounting for nulls)
         temporalConditions = `
           AND (kv.valid_from IS NULL OR kv.valid_from <= ?)
           AND (kv.valid_until IS NULL OR kv.valid_until >= ?)
         `;
-        queryParams.push(validDuring.end, validDuring.start);
+        queryParams.push(validatedEnd, validatedStart);
       }
 
-      // Build date filter conditions
+      // Build date filter conditions with validation
       let dateConditions = '';
       if (params.createdAfter) {
+        const validatedCreatedAfter = validateIsoDate(params.createdAfter, 'createdAfter');
         dateConditions += ` AND k.created_at >= ?`;
-        queryParams.push(params.createdAfter);
+        queryParams.push(validatedCreatedAfter);
       }
       if (params.createdBefore) {
+        const validatedCreatedBefore = validateIsoDate(params.createdBefore, 'createdBefore');
         dateConditions += ` AND k.created_at <= ?`;
-        queryParams.push(params.createdBefore);
+        queryParams.push(validatedCreatedBefore);
       }
 
       // Build FTS filter condition
@@ -241,6 +322,7 @@ function fetchKnowledgeWithTemporal(
  * Fetch stage - fetches entries from DB
  *
  * Uses ctx.deps.getDb() for database access instead of calling getDb() directly.
+ * Applies adaptive headroom calculation and per-type result limiting.
  */
 export function fetchStage(ctx: PipelineContext): PipelineContext {
   const db = ctx.deps.getDb();
@@ -253,18 +335,23 @@ export function fetchStage(ctx: PipelineContext): PipelineContext {
     experiences: [],
   };
 
-  const softCap = limit * FETCH_HEADROOM_MULTIPLIER;
+  // Use adaptive headroom based on filter signals
+  const adaptiveHeadroom = computeAdaptiveHeadroom(ctx);
+  const softCap = limit * adaptiveHeadroom;
+
+  // Distribute softCap across types to prevent over-fetching
+  const perTypeSoftCap = Math.ceil(softCap / types.length);
 
   for (const type of types) {
     if (type === 'tools') {
-      fetchEntriesGeneric(db, FETCH_CONFIGS.tools, ctx, fetchedEntries.tools, softCap);
+      fetchEntriesGeneric(db, FETCH_CONFIGS.tools, ctx, fetchedEntries.tools, perTypeSoftCap);
     } else if (type === 'guidelines') {
-      fetchEntriesGeneric(db, FETCH_CONFIGS.guidelines, ctx, fetchedEntries.guidelines, softCap);
+      fetchEntriesGeneric(db, FETCH_CONFIGS.guidelines, ctx, fetchedEntries.guidelines, perTypeSoftCap);
     } else if (type === 'knowledge') {
       // Use temporal-aware fetch for knowledge (handles atTime/validDuring)
-      fetchKnowledgeWithTemporal(db, ctx, fetchedEntries.knowledge, softCap);
+      fetchKnowledgeWithTemporal(db, ctx, fetchedEntries.knowledge, perTypeSoftCap);
     } else if (type === 'experiences') {
-      fetchEntriesGeneric(db, FETCH_CONFIGS.experiences, ctx, fetchedEntries.experiences, softCap);
+      fetchEntriesGeneric(db, FETCH_CONFIGS.experiences, ctx, fetchedEntries.experiences, perTypeSoftCap);
     }
   }
 

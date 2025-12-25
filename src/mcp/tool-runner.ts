@@ -16,7 +16,7 @@ export async function runTool(
   args: Record<string, unknown> | undefined
 ): Promise<CallToolResult> {
   // 1. Security Check (Rate Limiting + optional Auth)
-  const securityResult = context.security.validateRequest({
+  const securityResult = await context.security.validateRequest({
     args,
     // For now, MCP tools are often used without explicit auth headers in local context
     // The security service handles this by checking args.agentId if present

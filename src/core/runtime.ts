@@ -8,7 +8,9 @@
  */
 
 import type { Config } from '../config/index.js';
-import { RateLimiter, type RateLimiterConfig } from '../utils/rate-limiter-core.js';
+import type { RateLimiterConfig } from '../utils/rate-limiter-core.js';
+import type { IRateLimiterAdapter } from './adapters/interfaces.js';
+import { createLocalRateLimiterAdapter } from './adapters/local-rate-limiter.adapter.js';
 import { createComponentLogger } from '../utils/logger.js';
 import { LRUCache } from '../utils/lru-cache.js';
 import type { MemoryQueryResult } from '../services/query/pipeline.js';
@@ -89,9 +91,9 @@ export interface EmbeddingPipeline {
 // =============================================================================
 
 export interface RateLimiters {
-  perAgent: RateLimiter;
-  global: RateLimiter;
-  burst: RateLimiter;
+  perAgent: IRateLimiterAdapter;
+  global: IRateLimiterAdapter;
+  burst: IRateLimiterAdapter;
 }
 
 // =============================================================================
@@ -155,15 +157,15 @@ export function createRuntime(config: RuntimeConfig): Runtime {
   });
 
   const rateLimiters: RateLimiters = {
-    perAgent: new RateLimiter({
+    perAgent: createLocalRateLimiterAdapter({
       ...config.rateLimit.perAgent,
       enabled: config.rateLimit.enabled,
     }),
-    global: new RateLimiter({
+    global: createLocalRateLimiterAdapter({
       ...config.rateLimit.global,
       enabled: config.rateLimit.enabled,
     }),
-    burst: new RateLimiter({
+    burst: createLocalRateLimiterAdapter({
       ...config.rateLimit.burst,
       enabled: config.rateLimit.enabled,
     }),
@@ -202,7 +204,7 @@ export function createRuntime(config: RuntimeConfig): Runtime {
  *
  * @param runtime - The Runtime to shut down
  */
-export function shutdownRuntime(runtime: Runtime): void {
+export async function shutdownRuntime(runtime: Runtime): Promise<void> {
   logger.info('Shutting down runtime');
 
   // Unsubscribe from entry change events
@@ -215,9 +217,9 @@ export function shutdownRuntime(runtime: Runtime): void {
   runtime.queryCache.cache.clear();
 
   runtime.memoryCoordinator.stopMonitoring();
-  runtime.rateLimiters.perAgent.stop();
-  runtime.rateLimiters.global.stop();
-  runtime.rateLimiters.burst.stop();
+  await runtime.rateLimiters.perAgent.stop();
+  await runtime.rateLimiters.global.stop();
+  await runtime.rateLimiters.burst.stop();
 
   logger.info('Runtime shutdown complete');
 }
@@ -236,6 +238,30 @@ export function registerEmbeddingPipeline(
   if (pipeline) {
     logger.debug('Embedding pipeline registered with runtime');
   }
+}
+
+/**
+ * Swap rate limiters in the runtime (e.g., from local to Redis).
+ * Stops the old rate limiters before replacing them.
+ *
+ * @param runtime - The runtime to update
+ * @param rateLimiters - The new rate limiters to use
+ */
+export async function setRateLimiters(
+  runtime: Runtime,
+  rateLimiters: RateLimiters
+): Promise<void> {
+  logger.info('Swapping rate limiters');
+
+  // Stop old rate limiters
+  await runtime.rateLimiters.perAgent.stop();
+  await runtime.rateLimiters.global.stop();
+  await runtime.rateLimiters.burst.stop();
+
+  // Set new ones
+  runtime.rateLimiters = rateLimiters;
+
+  logger.debug('Rate limiters swapped successfully');
 }
 
 /**

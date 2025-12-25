@@ -1,4 +1,8 @@
 import Fastify, { type FastifyInstance } from 'fastify';
+import cors from '@fastify/cors';
+import compress from '@fastify/compress';
+import helmet from '@fastify/helmet';
+import { randomUUID } from 'crypto';
 
 import { createComponentLogger } from '../utils/logger.js';
 import type { AppContext } from '../core/context.js';
@@ -11,10 +15,16 @@ import { getHealthMonitor, resetHealthMonitor } from '../services/health.service
 import { metrics } from '../utils/metrics.js';
 import { backpressure } from '../utils/backpressure.js';
 
-// Extend Fastify request to include authenticated agent ID
+// Extend Fastify request to include authenticated agent ID, request ID, and rate limit info
 declare module 'fastify' {
   interface FastifyRequest {
     agentId?: string;
+    requestId?: string;
+    rateLimitInfo?: {
+      limit: number;
+      remaining: number;
+      reset: number;
+    };
   }
 }
 
@@ -34,6 +44,91 @@ export function createServer(context: AppContext): FastifyInstance {
     bodyLimit: 1024 * 1024, // 1 MiB
     connectionTimeout: 30000, // 30 second connection timeout
     requestTimeout: 60000, // 60 second request timeout to prevent resource exhaustion
+    trustProxy: process.env.AGENT_MEMORY_REST_TRUST_PROXY === 'true', // Enable trustProxy to use Fastify's built-in IP parsing (HIGH-001 fix)
+  });
+
+  // Register CORS plugin early, before other plugins and routes
+  const corsOrigins = process.env.AGENT_MEMORY_REST_CORS_ORIGINS;
+  void app.register(cors, {
+    origin: corsOrigins ? corsOrigins.split(',').map((o) => o.trim()) : false,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Agent-ID', 'X-Request-ID', 'X-API-Key'],
+    exposedHeaders: [
+      'X-Request-ID',
+      'Retry-After',
+      'X-RateLimit-Limit',
+      'X-RateLimit-Remaining',
+      'X-RateLimit-Reset',
+    ],
+    maxAge: 86400,
+  });
+
+  // HIGH-006: Security headers via helmet
+  void app.register(helmet, {
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"], // Allow inline styles for error pages
+        scriptSrc: ["'self'"],
+        imgSrc: ["'self'", 'data:'],
+      },
+    },
+    hsts: {
+      maxAge: 31536000, // 1 year
+      includeSubDomains: true,
+      preload: true,
+    },
+    frameguard: {
+      action: 'deny',
+    },
+    noSniff: true,
+    ieNoOpen: true,
+    xssFilter: true,
+  });
+
+  // HIGH-004: Response compression for performance
+  void app.register(compress, {
+    global: true,
+    threshold: 1024, // Only compress responses > 1KB
+    encodings: ['gzip', 'deflate'], // Prefer gzip
+  });
+
+  // HIGH-017: Request ID tracing for observability
+  app.addHook('onRequest', async (request, reply) => {
+    const requestId = (request.headers['x-request-id'] as string) || randomUUID();
+    request.requestId = requestId;
+    reply.header('X-Request-ID', requestId);
+  });
+
+  // Add rate limit headers to all responses
+  app.addHook('onSend', async (request, reply) => {
+    if (request.rateLimitInfo) {
+      reply.header('X-RateLimit-Limit', String(request.rateLimitInfo.limit));
+      reply.header('X-RateLimit-Remaining', String(request.rateLimitInfo.remaining));
+      reply.header('X-RateLimit-Reset', String(request.rateLimitInfo.reset));
+    }
+  });
+
+  // HIGH-003: Content-Type validation for non-GET requests
+  app.addHook('preHandler', async (request, reply) => {
+    // Skip for GET, HEAD, OPTIONS, and health endpoints
+    if (['GET', 'HEAD', 'OPTIONS'].includes(request.method) || request.url.startsWith('/health')) {
+      return;
+    }
+
+    const contentType = request.headers['content-type'];
+    if (!contentType?.toLowerCase().includes('application/json')) {
+      await reply.status(415).send({
+        error: 'Unsupported Media Type',
+        code: 'UNSUPPORTED_CONTENT_TYPE',
+        details: {
+          expected: 'application/json',
+          received: contentType || 'none',
+        },
+      });
+      return;
+    }
   });
 
   app.addHook('preHandler', async (request, reply) => {
@@ -43,20 +138,15 @@ export function createServer(context: AppContext): FastifyInstance {
     if (typeof url === 'string') {
       if (url.startsWith('/health')) {
         // Rate limit health endpoint by client IP to prevent DoS attacks
-        const forwardedFor = request.headers['x-forwarded-for'];
-        let clientIp = request.ip ?? 'unknown';
-        if (forwardedFor !== undefined) {
-          const firstIp = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor;
-          if (firstIp !== undefined) {
-            const parts = String(firstIp).split(',');
-            clientIp = parts[0]?.trim() ?? clientIp;
-          }
-        }
+        // Use Fastify's built-in request.ip which safely handles X-Forwarded-For when trustProxy is enabled (HIGH-001 fix)
+        const clientIp = request.ip ?? 'unknown';
 
-        const healthCheck = context.security.checkHealthRateLimit(clientIp);
+        const healthCheck = await context.security.checkHealthRateLimit(clientIp);
         if (!healthCheck.allowed) {
           reply.header('Retry-After', String(Math.ceil((healthCheck.retryAfterMs ?? 1000) / 1000)));
-          await reply.status(429).send({ error: 'Rate limit exceeded', code: 'RATE_LIMIT_EXCEEDED' });
+          await reply
+            .status(429)
+            .send({ error: 'Rate limit exceeded', code: 'RATE_LIMIT_EXCEEDED' });
           return;
         }
         return;
@@ -71,9 +161,14 @@ export function createServer(context: AppContext): FastifyInstance {
     // Use centralized Security Service
     // We pass the headers directly. Fastify headers are IncomingHttpHeaders (Record<string, string | string[] | undefined>)
     // which matches our interface.
-    const result = context.security.validateRequest({
+    const result = await context.security.validateRequest({
       headers: request.headers,
     });
+
+    // Attach rate limit info to request for downstream use
+    if (result.rateLimitInfo) {
+      request.rateLimitInfo = result.rateLimitInfo;
+    }
 
     if (!result.authorized) {
       const code =
@@ -84,6 +179,12 @@ export function createServer(context: AppContext): FastifyInstance {
             : 'UNAUTHORIZED';
       if (result.retryAfterMs) {
         reply.header('Retry-After', String(Math.ceil(result.retryAfterMs / 1000)));
+      }
+      // Add rate limit headers for failed requests too
+      if (result.rateLimitInfo) {
+        reply.header('X-RateLimit-Limit', String(result.rateLimitInfo.limit));
+        reply.header('X-RateLimit-Remaining', String(result.rateLimitInfo.remaining));
+        reply.header('X-RateLimit-Reset', String(result.rateLimitInfo.reset));
       }
       await reply.status(result.statusCode || 401).send({
         error: result.error,
@@ -130,23 +231,26 @@ export function createServer(context: AppContext): FastifyInstance {
   // Register Routes
   registerV1Routes(app, context);
 
-  app.setErrorHandler((error, _request, reply) => {
-    restLogger.error({ error }, 'REST API request failed');
+  app.setErrorHandler(async (error, request, reply) => {
+    // HIGH-017: Include request ID in error logs for tracing
+    restLogger.error({ error, requestId: request.requestId }, 'REST API request failed');
 
     // Use centralized Error Mapper
     const mapped = mapError(error);
 
-    // If it's a server error in production, hide details
+    // If it's a server error in production, hide details (HIGH-005 fix)
+    const isProduction = process.env.NODE_ENV === 'production';
     const safeMessage =
-      mapped.statusCode >= 500 && process.env.NODE_ENV === 'production'
-        ? 'Internal Server Error'
-        : mapped.message;
+      mapped.statusCode >= 500 && isProduction ? 'Internal Server Error' : mapped.message;
 
-    void reply.status(mapped.statusCode).send({
+    // Also hide details for 5xx errors in production (HIGH-005 fix)
+    const responseBody = {
       error: safeMessage,
       code: mapped.code,
-      details: mapped.details,
-    });
+      ...(mapped.statusCode < 500 || !isProduction ? { details: mapped.details } : {}),
+    };
+
+    await reply.status(mapped.statusCode).send(responseBody); // CRIT-010 fix: use await instead of void
   });
 
   return app;

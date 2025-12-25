@@ -11,10 +11,14 @@ export type {
   ICacheAdapter,
   ILockAdapter,
   IEventAdapter,
+  IRateLimiterAdapter,
   LockInfo,
   AcquireLockOptions,
   AcquireLockResult,
   ListLocksFilter,
+  RateLimitCheckResult,
+  RateLimitStats,
+  RateLimiterBucketConfig,
   EntryEventAdapter,
   Adapters,
   EntryChangedEvent,
@@ -32,6 +36,10 @@ export {
 } from './memory-cache.adapter.js';
 export { LocalLockAdapter, createLocalLockAdapter } from './local-lock.adapter.js';
 export { LocalEventAdapter, createLocalEventAdapter } from './local-event.adapter.js';
+export {
+  LocalRateLimiterAdapter,
+  createLocalRateLimiterAdapter,
+} from './local-rate-limiter.adapter.js';
 
 // Implementations - Redis (distributed)
 export {
@@ -49,6 +57,11 @@ export {
   createRedisEventAdapter,
   type RedisEventConfig,
 } from './redis-event.adapter.js';
+export {
+  RedisRateLimiterAdapter,
+  createRedisRateLimiterAdapter,
+  type RedisRateLimiterConfig,
+} from './redis-rate-limiter.adapter.js';
 
 // Dependencies for factory
 import type Database from 'better-sqlite3';
@@ -72,6 +85,10 @@ import { createLocalEventAdapter } from './local-event.adapter.js';
 import { createRedisCacheAdapter, type RedisCacheAdapter } from './redis-cache.adapter.js';
 import { createRedisLockAdapter, type RedisLockAdapter } from './redis-lock.adapter.js';
 import { createRedisEventAdapter, type RedisEventAdapter } from './redis-event.adapter.js';
+import {
+  createRedisRateLimiterAdapter,
+  type RedisRateLimiterAdapter,
+} from './redis-rate-limiter.adapter.js';
 import { createComponentLogger } from '../../utils/logger.js';
 
 const logger = createComponentLogger('adapters');
@@ -191,6 +208,11 @@ export interface RedisAdapters {
   cache: RedisCacheAdapter;
   lock: RedisLockAdapter;
   event: RedisEventAdapter;
+  rateLimiters: {
+    perAgent: RedisRateLimiterAdapter;
+    global: RedisRateLimiterAdapter;
+    burst: RedisRateLimiterAdapter;
+  };
 }
 
 /**
@@ -199,13 +221,16 @@ export interface RedisAdapters {
  *
  * Usage:
  * ```typescript
- * const redisAdapters = createRedisAdapters(config.redis);
+ * const redisAdapters = createRedisAdapters(config);
  * await connectRedisAdapters(redisAdapters);
  * // Use adapters...
  * await closeRedisAdapters(redisAdapters);
  * ```
  */
-export function createRedisAdapters(redisConfig: Config['redis']): RedisAdapters {
+export function createRedisAdapters(config: Config): RedisAdapters {
+  const redisConfig = config.redis;
+  const rateLimitConfig = config.rateLimit;
+
   const baseConfig = {
     url: redisConfig.url,
     host: redisConfig.host,
@@ -236,7 +261,44 @@ export function createRedisAdapters(redisConfig: Config['redis']): RedisAdapters
     channel: redisConfig.eventChannel,
   });
 
-  return { cache, lock, event };
+  // Create rate limiter adapters using the rateLimit config section
+  const perAgentRateLimiter = createRedisRateLimiterAdapter({
+    ...baseConfig,
+    keyPrefix: `${redisConfig.keyPrefix}ratelimit:agent:`,
+    maxRequests: rateLimitConfig.perAgent.maxRequests,
+    windowMs: rateLimitConfig.perAgent.windowMs,
+    enabled: rateLimitConfig.enabled,
+    minBurstProtection: 100,
+  });
+
+  const globalRateLimiter = createRedisRateLimiterAdapter({
+    ...baseConfig,
+    keyPrefix: `${redisConfig.keyPrefix}ratelimit:global:`,
+    maxRequests: rateLimitConfig.global.maxRequests,
+    windowMs: rateLimitConfig.global.windowMs,
+    enabled: rateLimitConfig.enabled,
+    minBurstProtection: 100,
+  });
+
+  const burstRateLimiter = createRedisRateLimiterAdapter({
+    ...baseConfig,
+    keyPrefix: `${redisConfig.keyPrefix}ratelimit:burst:`,
+    maxRequests: rateLimitConfig.burst.maxRequests,
+    windowMs: rateLimitConfig.burst.windowMs,
+    enabled: rateLimitConfig.enabled,
+    minBurstProtection: 5,
+  });
+
+  return {
+    cache,
+    lock,
+    event,
+    rateLimiters: {
+      perAgent: perAgentRateLimiter,
+      global: globalRateLimiter,
+      burst: burstRateLimiter,
+    },
+  };
 }
 
 /**
@@ -246,7 +308,14 @@ export function createRedisAdapters(redisConfig: Config['redis']): RedisAdapters
 export async function connectRedisAdapters(adapters: RedisAdapters): Promise<void> {
   logger.info('Connecting Redis adapters...');
 
-  await Promise.all([adapters.cache.connect(), adapters.lock.connect(), adapters.event.connect()]);
+  await Promise.all([
+    adapters.cache.connect(),
+    adapters.lock.connect(),
+    adapters.event.connect(),
+    adapters.rateLimiters.perAgent.connect(),
+    adapters.rateLimiters.global.connect(),
+    adapters.rateLimiters.burst.connect(),
+  ]);
 
   logger.info('Redis adapters connected');
 }
@@ -258,7 +327,14 @@ export async function connectRedisAdapters(adapters: RedisAdapters): Promise<voi
 export async function closeRedisAdapters(adapters: RedisAdapters): Promise<void> {
   logger.info('Closing Redis adapters...');
 
-  await Promise.all([adapters.cache.close(), adapters.lock.close(), adapters.event.close()]);
+  await Promise.all([
+    adapters.cache.close(),
+    adapters.lock.close(),
+    adapters.event.close(),
+    adapters.rateLimiters.perAgent.stop(),
+    adapters.rateLimiters.global.stop(),
+    adapters.rateLimiters.burst.stop(),
+  ]);
 
   logger.info('Redis adapters closed');
 }
@@ -286,7 +362,7 @@ export function createAdaptersWithConfig(
   }
 
   // Create Redis adapters
-  const redisAdapters = createRedisAdapters(config.redis);
+  const redisAdapters = createRedisAdapters(config);
 
   logger.info('Redis adapters created (not yet connected)');
 

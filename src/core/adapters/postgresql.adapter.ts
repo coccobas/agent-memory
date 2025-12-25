@@ -98,6 +98,27 @@ export class PostgreSQLStorageAdapter implements IStorageAdapter {
       return;
     }
 
+    // Security validation: enforce SSL certificate validation in production
+    const isProduction = process.env.NODE_ENV === 'production';
+    if (isProduction && this.config.ssl && !this.config.sslRejectUnauthorized) {
+      throw new Error(
+        'SECURITY ERROR: SSL certificate validation (sslRejectUnauthorized) must be enabled in production. ' +
+          'Set AGENT_MEMORY_PG_SSL_REJECT_UNAUTHORIZED=true or disable production mode.'
+      );
+    }
+
+    // Warn in development when certificate validation is disabled
+    if (!isProduction && this.config.ssl && !this.config.sslRejectUnauthorized) {
+      logger.warn(
+        {
+          ssl: true,
+          sslRejectUnauthorized: false,
+          environment: process.env.NODE_ENV || 'development',
+        },
+        'WARNING: SSL certificate validation is disabled. This is insecure and should only be used in development/testing.'
+      );
+    }
+
     // Dynamic import to avoid loading pg when using SQLite
     const { Pool } = await import('pg');
     const { drizzle } = await import('drizzle-orm/node-postgres');
@@ -108,7 +129,7 @@ export class PostgreSQLStorageAdapter implements IStorageAdapter {
       database: this.config.database,
       user: this.config.user,
       password: this.config.password,
-      ssl: this.config.ssl ? { rejectUnauthorized: false } : false,
+      ssl: this.config.ssl ? { rejectUnauthorized: this.config.sslRejectUnauthorized } : false,
       min: this.config.poolMin,
       max: this.config.poolMax,
       idleTimeoutMillis: this.config.idleTimeoutMs,
@@ -130,12 +151,24 @@ export class PostgreSQLStorageAdapter implements IStorageAdapter {
     this.db = drizzle(this.pool, { schema: pgSchema }) as unknown as PostgreSQLAppDb;
 
     // Verify connection with a test query
-    const client = await this.pool.connect();
+    let client: PoolClient | null = null;
     try {
+      client = await this.pool.connect();
       await client.query('SELECT 1');
       this.connected = true;
+    } catch (error) {
+      // CRITICAL: Close pool on connection failure
+      if (client) client.release();
+      try {
+        await this.pool.end();
+      } catch (closeError) {
+        logger.warn({ closeError }, 'Failed to close pool after connection error');
+      }
+      this.pool = null;
+      this.db = null;
+      throw error;
     } finally {
-      client.release();
+      if (client) client.release();
     }
   }
 

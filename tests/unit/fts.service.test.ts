@@ -15,6 +15,9 @@ import {
   rebuildFTSIndex,
   isFTSAvailable,
   syncFTSForEntry,
+  sanitizeFts5Operators,
+  escapeFts5Query,
+  escapeFts5Quotes,
 } from '../../src/services/fts.service.js';
 
 const TEST_DB_PATH = './data/test-fts.db';
@@ -242,4 +245,190 @@ describe('fts.service', () => {
       }).not.toThrow();
     });
   });
+
+  describe('sanitizeFts5Operators', () => {
+    describe('operator detection and sanitization', () => {
+      it('should sanitize uppercase AND operator', () => {
+        const result = sanitizeFts5Operators('term1 AND term2');
+        expect(result).toBe('"term1 AND term2"');
+      });
+
+      it('should sanitize lowercase and operator', () => {
+        const result = sanitizeFts5Operators('term1 and term2');
+        expect(result).toBe('"term1 and term2"');
+      });
+
+      it('should sanitize mixed case And operator', () => {
+        const result = sanitizeFts5Operators('term1 And term2');
+        expect(result).toBe('"term1 And term2"');
+      });
+
+      it('should sanitize OR operator', () => {
+        const result = sanitizeFts5Operators('term1 OR term2');
+        expect(result).toBe('"term1 OR term2"');
+      });
+
+      it('should sanitize NOT operator', () => {
+        const result = sanitizeFts5Operators('term1 NOT term2');
+        expect(result).toBe('"term1 NOT term2"');
+      });
+
+      it('should sanitize NEAR operator without distance', () => {
+        const result = sanitizeFts5Operators('term1 NEAR term2');
+        expect(result).toBe('"term1 NEAR term2"');
+      });
+
+      it('should sanitize NEAR/N operator with distance', () => {
+        const result = sanitizeFts5Operators('term1 NEAR/5 term2');
+        expect(result).toBe('"term1 NEAR/5 term2"');
+      });
+
+      it('should sanitize NEAR/10 operator', () => {
+        const result = sanitizeFts5Operators('term1 NEAR/10 term2');
+        expect(result).toBe('"term1 NEAR/10 term2"');
+      });
+
+      it('should sanitize multiple operators in one query', () => {
+        const result = sanitizeFts5Operators('term1 AND term2 OR term3 NOT term4');
+        expect(result).toBe('"term1 AND term2 OR term3 NOT term4"');
+      });
+
+      it('should sanitize complex query with NEAR and AND', () => {
+        const result = sanitizeFts5Operators('term1 NEAR/5 term2 AND term3');
+        expect(result).toBe('"term1 NEAR/5 term2 AND term3"');
+      });
+    });
+
+    describe('quote escaping', () => {
+      it('should escape double quotes before sanitizing', () => {
+        const result = sanitizeFts5Operators('"quoted" AND term');
+        expect(result).toBe('"""quoted"" AND term"');
+      });
+
+      it('should handle multiple quotes with operators', () => {
+        const result = sanitizeFts5Operators('"first" OR "second"');
+        expect(result).toBe('"""first"" OR ""second"""');
+      });
+
+      it('should escape quotes in query without operators', () => {
+        const result = sanitizeFts5Operators('"just a quoted phrase"');
+        expect(result).toBe('""just a quoted phrase""');
+      });
+    });
+
+    describe('edge cases', () => {
+      it('should handle empty string', () => {
+        const result = sanitizeFts5Operators('');
+        expect(result).toBe('');
+      });
+
+      it('should handle whitespace-only string', () => {
+        const result = sanitizeFts5Operators('   ');
+        expect(result).toBe('   ');
+      });
+
+      it('should not sanitize query without operators', () => {
+        const result = sanitizeFts5Operators('simple search query');
+        expect(result).toBe('simple search query');
+      });
+
+      it('should not sanitize partial operator matches', () => {
+        // "LAND" contains "AND" but is not the operator
+        const result = sanitizeFts5Operators('landscape');
+        expect(result).toBe('landscape');
+      });
+
+      it('should not sanitize operator as part of word', () => {
+        // "android" contains "and" but is not the operator
+        const result = sanitizeFts5Operators('android');
+        expect(result).toBe('android');
+      });
+
+      it('should handle operator at start of query', () => {
+        const result = sanitizeFts5Operators('AND term');
+        expect(result).toBe('"AND term"');
+      });
+
+      it('should handle operator at end of query', () => {
+        const result = sanitizeFts5Operators('term AND');
+        expect(result).toBe('"term AND"');
+      });
+
+      it('should preserve normal punctuation without operators', () => {
+        const result = sanitizeFts5Operators('hello, world!');
+        expect(result).toBe('hello, world!');
+      });
+    });
+
+    describe('word boundary detection', () => {
+      it('should detect AND with punctuation before', () => {
+        const result = sanitizeFts5Operators('(AND term)');
+        expect(result).toBe('"(AND term)"');
+      });
+
+      it('should detect AND with punctuation after', () => {
+        const result = sanitizeFts5Operators('term AND,');
+        expect(result).toBe('"term AND,"');
+      });
+
+      it('should not match operators inside compound words', () => {
+        const result = sanitizeFts5Operators('understand');
+        expect(result).toBe('understand');
+      });
+
+      it('should not match operators in URLs or identifiers', () => {
+        const result = sanitizeFts5Operators('myANDroid_app');
+        expect(result).toBe('myANDroid_app');
+      });
+    });
+
+    describe('case sensitivity', () => {
+      it('should be case-insensitive for all operators', () => {
+        expect(sanitizeFts5Operators('a and b')).toBe('"a and b"');
+        expect(sanitizeFts5Operators('a AND b')).toBe('"a AND b"');
+        expect(sanitizeFts5Operators('a AnD b')).toBe('"a AnD b"');
+        expect(sanitizeFts5Operators('a or b')).toBe('"a or b"');
+        expect(sanitizeFts5Operators('a OR b')).toBe('"a OR b"');
+        expect(sanitizeFts5Operators('a not b')).toBe('"a not b"');
+        expect(sanitizeFts5Operators('a NOT b')).toBe('"a NOT b"');
+        expect(sanitizeFts5Operators('a near b')).toBe('"a near b"');
+        expect(sanitizeFts5Operators('a NEAR b')).toBe('"a NEAR b"');
+      });
+    });
+  });
+
+  describe('escapeFts5Query', () => {
+    it('should escape double quotes', () => {
+      const result = escapeFts5Query('"quoted text"');
+      expect(result).toBe('"""quoted text"""');
+    });
+
+    it('should wrap query with special characters in quotes', () => {
+      const result = escapeFts5Query('term1 + term2');
+      expect(result).toBe('"term1 + term2"');
+    });
+
+    it('should handle query without special characters', () => {
+      const result = escapeFts5Query('simple');
+      expect(result).toBe('simple');
+    });
+  });
+
+  describe('escapeFts5Quotes', () => {
+    it('should only escape double quotes', () => {
+      const result = escapeFts5Quotes('"quoted text"');
+      expect(result).toBe('""quoted text""');
+    });
+
+    it('should not modify text without quotes', () => {
+      const result = escapeFts5Quotes('no quotes here');
+      expect(result).toBe('no quotes here');
+    });
+
+    it('should handle multiple quotes', () => {
+      const result = escapeFts5Quotes('"first" "second" "third"');
+      expect(result).toBe('""first"" ""second"" ""third""');
+    });
+  });
 });
+

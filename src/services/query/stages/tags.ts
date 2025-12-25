@@ -78,6 +78,8 @@ export function filterByTags(
  * Tags stage - loads tags for all fetched entries
  *
  * Uses ctx.deps.getTagsForEntries() instead of calling the global function directly.
+ *
+ * This is used when tag filtering is required (before filter stage).
  */
 export function tagsStage(ctx: PipelineContext): PipelineContext {
   const { fetchedEntries, deps } = ctx;
@@ -89,6 +91,48 @@ export function tagsStage(ctx: PipelineContext): PipelineContext {
   const guidelineIds = fetchedEntries.guidelines.map((e) => e.entry.id);
   const knowledgeIds = fetchedEntries.knowledge.map((e) => e.entry.id);
   const experienceIds = fetchedEntries.experiences.map((e) => e.entry.id);
+
+  // Batch load tags for each type using injected dependency
+  if (toolIds.length > 0) {
+    Object.assign(tagsByEntry, deps.getTagsForEntries('tool', toolIds));
+  }
+  if (guidelineIds.length > 0) {
+    Object.assign(tagsByEntry, deps.getTagsForEntries('guideline', guidelineIds));
+  }
+  if (knowledgeIds.length > 0) {
+    Object.assign(tagsByEntry, deps.getTagsForEntries('knowledge', knowledgeIds));
+  }
+  if (experienceIds.length > 0) {
+    Object.assign(tagsByEntry, deps.getTagsForEntries('experience', experienceIds));
+  }
+
+  return {
+    ...ctx,
+    tagsByEntry,
+  };
+}
+
+/**
+ * Post-filter tags stage - loads tags only for filtered entries
+ *
+ * This is a memory optimization that loads tags only for entries that passed filtering.
+ * Used when tag filtering is NOT required (after filter stage).
+ */
+export function postFilterTagsStage(ctx: PipelineContext): PipelineContext {
+  const { filtered, deps } = ctx;
+
+  if (!filtered) {
+    // No filtered entries, return context as-is
+    return ctx;
+  }
+
+  const tagsByEntry: Record<string, Tag[]> = {};
+
+  // Collect entry IDs only from filtered entries
+  const toolIds = filtered.tools.map((e) => e.entry.id);
+  const guidelineIds = filtered.guidelines.map((e) => e.entry.id);
+  const knowledgeIds = filtered.knowledge.map((e) => e.entry.id);
+  const experienceIds = filtered.experiences.map((e) => e.entry.id);
 
   // Batch load tags for each type using injected dependency
   if (toolIds.length > 0) {

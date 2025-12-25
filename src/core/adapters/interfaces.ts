@@ -170,6 +170,97 @@ export interface IEventAdapter<TEvent = unknown> {
 export type EntryEventAdapter = IEventAdapter<EntryChangedEvent>;
 
 // =============================================================================
+// RATE LIMITER ADAPTER
+// =============================================================================
+
+/**
+ * Result of a rate limit check operation.
+ */
+export interface RateLimitCheckResult {
+  allowed: boolean;
+  remaining: number;
+  resetMs: number;
+  retryAfterMs?: number;
+}
+
+/**
+ * Rate limiter statistics for a given key.
+ */
+export interface RateLimitStats {
+  count: number;
+  remaining: number;
+  windowMs: number;
+}
+
+/**
+ * Configuration for a rate limiter bucket.
+ */
+export interface RateLimiterBucketConfig {
+  /** Maximum requests per window */
+  maxRequests: number;
+  /** Window size in milliseconds */
+  windowMs: number;
+  /** Whether rate limiting is enabled */
+  enabled?: boolean;
+  /** Minimum burst protection (default: 100) */
+  minBurstProtection?: number;
+}
+
+/**
+ * Abstract rate limiter adapter interface.
+ * Wraps rate limiter implementations (in-memory, Redis, etc.)
+ */
+export interface IRateLimiterAdapter {
+  /**
+   * Check if a request is allowed and consume a token if so.
+   * @param key - The rate limit key (e.g., agent ID, IP address)
+   * @returns Result with allowed status, remaining tokens, and timing info
+   */
+  check(key: string): Promise<RateLimitCheckResult>;
+
+  /**
+   * Consume a token for the given key.
+   * @param key - The rate limit key
+   * @returns Whether the request was allowed
+   */
+  consume(key: string): Promise<boolean>;
+
+  /**
+   * Get statistics for a given key without consuming a token.
+   * @param key - The rate limit key
+   * @returns Current usage statistics
+   */
+  getStats(key: string): Promise<RateLimitStats>;
+
+  /**
+   * Reset rate limit counters for a specific key.
+   * @param key - The rate limit key to reset
+   */
+  reset(key: string): Promise<void>;
+
+  /**
+   * Reset all rate limit counters.
+   */
+  resetAll(): Promise<void>;
+
+  /**
+   * Update configuration dynamically.
+   * @param config - Partial configuration to update
+   */
+  updateConfig(config: Partial<RateLimiterBucketConfig>): void;
+
+  /**
+   * Check if rate limiting is enabled.
+   */
+  isEnabled(): boolean;
+
+  /**
+   * Stop and cleanup resources.
+   */
+  stop(): Promise<void>;
+}
+
+// =============================================================================
 // ADAPTERS COLLECTION
 // =============================================================================
 

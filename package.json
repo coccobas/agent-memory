@@ -1,6 +1,6 @@
 {
   "name": "agent-memory",
-  "version": "0.9.11",
+  "version": "0.9.12",
   "description": "MCP server providing structured memory backend for AI agents",
   "type": "module",
   "main": "dist/index.js",
@@ -80,6 +80,9 @@
   "dependencies": {
     "@anthropic-ai/sdk": "~0.71.2",
     "@clack/prompts": "^0.11.0",
+    "@fastify/compress": "^8.3.1",
+    "@fastify/cors": "^10.1.0",
+    "@fastify/helmet": "^13.0.2",
     "@lancedb/lancedb": "~0.23.0",
     "@modelcontextprotocol/sdk": "~1.25.1",
     "@xenova/transformers": "^2.17.0",

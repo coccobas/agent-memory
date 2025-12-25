@@ -11,6 +11,7 @@
 import { z } from 'zod';
 import type { IEventAdapter, EntryChangedEvent } from './interfaces.js';
 import { createComponentLogger } from '../../utils/logger.js';
+import { ConnectionGuard } from '../../utils/connection-guard.js';
 
 // Type imports for ioredis (actual import is dynamic to avoid loading when not used)
 type Redis = import('ioredis').default;
@@ -93,6 +94,7 @@ export class RedisEventAdapter implements IEventAdapter<EntryChangedEvent> {
   private config: RedisEventConfig;
   private connected = false;
   private instanceId: string;
+  private connectionGuard = new ConnectionGuard();
 
   // Local handlers for this instance
   private handlers = new Set<(event: EntryChangedEvent) => void>();
@@ -108,98 +110,106 @@ export class RedisEventAdapter implements IEventAdapter<EntryChangedEvent> {
    * Must be called before using the adapter.
    */
   async connect(): Promise<void> {
-    if (this.connected && this.pubClient && this.subClient) {
-      return;
-    }
+    return this.connectionGuard.connect(async () => {
+      const { Redis: IORedis } = await import('ioredis');
 
-    const { Redis: IORedis } = await import('ioredis');
+      const options = {
+        host: this.config.host ?? 'localhost',
+        port: this.config.port ?? 6379,
+        password: this.config.password,
+        db: this.config.db ?? 0,
+        lazyConnect: true,
+        ...(this.config.tls ? { tls: {} } : {}),
+      };
 
-    const options = {
-      host: this.config.host ?? 'localhost',
-      port: this.config.port ?? 6379,
-      password: this.config.password,
-      db: this.config.db ?? 0,
-      lazyConnect: true,
-      ...(this.config.tls ? { tls: {} } : {}),
-    };
-
-    // Create publisher connection
-    if (this.config.url) {
-      this.pubClient = new IORedis(this.config.url, options);
-    } else {
-      this.pubClient = new IORedis(options);
-    }
-
-    // Create subscriber connection (separate connection required for pub/sub)
-    if (this.config.url) {
-      this.subClient = new IORedis(this.config.url, options);
-    } else {
-      this.subClient = new IORedis(options);
-    }
-
-    const pubClient = this.pubClient!;
-    const subClient = this.subClient!;
-
-    // Set up event handlers for publisher
-    pubClient.on('connect', () => {
-      logger.debug('Redis event publisher connected');
-    });
-
-    pubClient.on('error', (error: Error) => {
-      logger.error({ error }, 'Redis event publisher error');
-    });
-
-    // Set up event handlers for subscriber
-    subClient.on('connect', () => {
-      logger.debug('Redis event subscriber connected');
-    });
-
-    subClient.on('error', (error: Error) => {
-      logger.error({ error }, 'Redis event subscriber error');
-    });
-
-    // Handle incoming messages
-    subClient.on('message', (channel: string, message: string) => {
-      if (channel !== this.channel) return;
-
-      try {
-        const parsed = JSON.parse(message);
-
-        // Validate message structure with Zod
-        const validationResult = RedisEventMessageSchema.safeParse(parsed);
-        if (!validationResult.success) {
-          logger.warn(
-            { error: validationResult.error, message },
-            'Received malformed event message from Redis'
-          );
-          return;
-        }
-
-        const validated = validationResult.data;
-
-        // Skip messages from this instance (we already handled locally)
-        if (validated.instanceId === this.instanceId) {
-          return;
-        }
-
-        // Dispatch to local handlers
-        this.dispatchToHandlers(validated.event);
-      } catch (error) {
-        logger.warn({ error, message }, 'Failed to parse event message');
+      // Create publisher connection
+      if (this.config.url) {
+        this.pubClient = new IORedis(this.config.url, options);
+      } else {
+        this.pubClient = new IORedis(options);
       }
+
+      // Create subscriber connection (separate connection required for pub/sub)
+      if (this.config.url) {
+        this.subClient = new IORedis(this.config.url, options);
+      } else {
+        this.subClient = new IORedis(options);
+      }
+
+      const pubClient = this.pubClient!;
+      const subClient = this.subClient!;
+
+      // Set up event handlers for publisher
+      pubClient.on('connect', () => {
+        logger.debug('Redis event publisher connected');
+      });
+
+      pubClient.on('error', (error: Error) => {
+        logger.error({ error }, 'Redis event publisher error');
+      });
+
+      pubClient.on('close', () => {
+        this.connected = false;
+        this.connectionGuard.setDisconnected();
+      });
+
+      // Set up event handlers for subscriber
+      subClient.on('connect', () => {
+        logger.debug('Redis event subscriber connected');
+      });
+
+      subClient.on('error', (error: Error) => {
+        logger.error({ error }, 'Redis event subscriber error');
+      });
+
+      subClient.on('close', () => {
+        this.connected = false;
+        this.connectionGuard.setDisconnected();
+      });
+
+      // Connect both clients BEFORE setting up message handlers
+      await Promise.all([pubClient.connect(), subClient.connect()]);
+
+      // Subscribe to channel BEFORE registering message handlers
+      await subClient.subscribe(this.channel);
+
+      // Handle incoming messages - registered AFTER subscription is complete
+      subClient.on('message', (channel: string, message: string) => {
+        if (channel !== this.channel) return;
+
+        try {
+          const parsed = JSON.parse(message);
+
+          // Validate message structure with Zod
+          const validationResult = RedisEventMessageSchema.safeParse(parsed);
+          if (!validationResult.success) {
+            logger.warn(
+              { error: validationResult.error, message },
+              'Received malformed event message from Redis'
+            );
+            return;
+          }
+
+          const validated = validationResult.data;
+
+          // Skip messages from this instance (we already handled locally)
+          if (validated.instanceId === this.instanceId) {
+            return;
+          }
+
+          // Dispatch to local handlers
+          this.dispatchToHandlers(validated.event);
+        } catch (error) {
+          logger.warn({ error, message }, 'Failed to parse event message');
+        }
+      });
+
+      this.connected = true;
+      logger.info(
+        { channel: this.channel, instanceId: this.instanceId },
+        'Redis event adapter connected'
+      );
     });
-
-    // Connect both clients
-    await Promise.all([pubClient.connect(), subClient.connect()]);
-
-    // Subscribe to channel
-    await subClient.subscribe(this.channel);
-
-    this.connected = true;
-    logger.info(
-      { channel: this.channel, instanceId: this.instanceId },
-      'Redis event adapter connected'
-    );
   }
 
   /**

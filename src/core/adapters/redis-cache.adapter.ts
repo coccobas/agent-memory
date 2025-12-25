@@ -9,12 +9,14 @@
 
 import type { ICacheAdapter } from './interfaces.js';
 import { createComponentLogger } from '../../utils/logger.js';
+import { ConnectionGuard } from '../../utils/connection-guard.js';
 
 // Type imports for ioredis (actual import is dynamic to avoid loading when not used)
 type Redis = import('ioredis').default;
 type RedisOptions = import('ioredis').RedisOptions;
 
 const logger = createComponentLogger('redis-cache');
+const MAX_SCAN_ITERATIONS = 10000;
 
 /**
  * Configuration options for Redis cache adapter.
@@ -58,7 +60,7 @@ export class RedisCacheAdapter<T = unknown> implements ICacheAdapter<T> {
   private config: RedisCacheConfig;
   private pendingOps = new Map<string, Promise<unknown>>();
   private localCache = new Map<string, { value: T; expiresAt: number }>();
-  private connected = false;
+  private connectionGuard = new ConnectionGuard();
   private invalidationChannel: string;
 
   constructor(config: RedisCacheConfig) {
@@ -73,61 +75,57 @@ export class RedisCacheAdapter<T = unknown> implements ICacheAdapter<T> {
    * Must be called before using the adapter.
    */
   async connect(): Promise<void> {
-    if (this.connected && this.client) {
-      return;
-    }
+    return this.connectionGuard.connect(async () => {
+      // Dynamic import to avoid loading ioredis when not using Redis
+      const { Redis: IORedis } = await import('ioredis');
 
-    // Dynamic import to avoid loading ioredis when not using Redis
-    const { Redis: IORedis } = await import('ioredis');
+      const options: RedisOptions = {
+        host: this.config.host ?? 'localhost',
+        port: this.config.port ?? 6379,
+        password: this.config.password,
+        db: this.config.db ?? 0,
+        connectTimeout: this.config.connectTimeoutMs ?? 10000,
+        maxRetriesPerRequest: this.config.maxRetriesPerRequest ?? 3,
+        retryStrategy: (times: number) => {
+          if (times > 10) return null; // Stop retrying
+          return Math.min(times * 100, 3000);
+        },
+        lazyConnect: true,
+      };
 
-    const options: RedisOptions = {
-      host: this.config.host ?? 'localhost',
-      port: this.config.port ?? 6379,
-      password: this.config.password,
-      db: this.config.db ?? 0,
-      connectTimeout: this.config.connectTimeoutMs ?? 10000,
-      maxRetriesPerRequest: this.config.maxRetriesPerRequest ?? 3,
-      retryStrategy: (times: number) => {
-        if (times > 10) return null; // Stop retrying
-        return Math.min(times * 100, 3000);
-      },
-      lazyConnect: true,
-    };
+      if (this.config.tls) {
+        options.tls = {};
+      }
 
-    if (this.config.tls) {
-      options.tls = {};
-    }
+      // If URL is provided, use it instead
+      if (this.config.url) {
+        this.client = new IORedis(this.config.url, options);
+      } else {
+        this.client = new IORedis(options);
+      }
 
-    // If URL is provided, use it instead
-    if (this.config.url) {
-      this.client = new IORedis(this.config.url, options);
-    } else {
-      this.client = new IORedis(options);
-    }
+      const client = this.client!;
 
-    const client = this.client!;
+      // Handle connection events
+      client.on('connect', () => {
+        logger.info('Redis cache connected');
+      });
 
-    // Handle connection events
-    client.on('connect', () => {
-      this.connected = true;
-      logger.info('Redis cache connected');
+      client.on('error', (error: Error) => {
+        logger.error({ error }, 'Redis cache error');
+      });
+
+      client.on('close', () => {
+        this.connectionGuard.setDisconnected();
+        logger.warn('Redis cache connection closed');
+      });
+
+      // Actually connect
+      await client.connect();
+
+      // Set up a separate subscriber client for invalidation messages
+      await this.setupInvalidationSubscriber(IORedis, options);
     });
-
-    client.on('error', (error: Error) => {
-      logger.error({ error }, 'Redis cache error');
-    });
-
-    client.on('close', () => {
-      this.connected = false;
-      logger.warn('Redis cache connection closed');
-    });
-
-    // Actually connect
-    await client.connect();
-    this.connected = true;
-
-    // Set up a separate subscriber client for invalidation messages
-    await this.setupInvalidationSubscriber(IORedis, options);
   }
 
   /**
@@ -184,15 +182,15 @@ export class RedisCacheAdapter<T = unknown> implements ICacheAdapter<T> {
     if (this.client) {
       await this.client.quit();
       this.client = null;
-      this.connected = false;
     }
+    this.connectionGuard.reset();
   }
 
   /**
    * Check if connected to Redis.
    */
   isConnected(): boolean {
-    return this.connected && this.client !== null;
+    return this.connectionGuard.connected && this.client !== null;
   }
 
   /**
@@ -215,9 +213,9 @@ export class RedisCacheAdapter<T = unknown> implements ICacheAdapter<T> {
 
     // For sync interface, we can't truly await Redis
     // Queue an async fetch that updates local cache
-    if (this.client && this.connected) {
-      this.fetchAsync(fullKey).catch(() => {
-        // Silently ignore fetch errors
+    if (this.client && this.connectionGuard.connected) {
+      this.fetchAsync(fullKey).catch((error) => {
+        logger.debug({ error, key }, 'Async fetch failed');
       });
     }
 
@@ -236,7 +234,7 @@ export class RedisCacheAdapter<T = unknown> implements ICacheAdapter<T> {
       return local.value;
     }
 
-    if (!this.client || !this.connected) {
+    if (!this.client || !this.connectionGuard.connected) {
       return undefined;
     }
 
@@ -272,9 +270,9 @@ export class RedisCacheAdapter<T = unknown> implements ICacheAdapter<T> {
     });
 
     // Queue async Redis set
-    if (this.client && this.connected) {
-      this.setAsync(key, value, ttlMs).catch(() => {
-        // Silently ignore set errors
+    if (this.client && this.connectionGuard.connected) {
+      this.setAsync(key, value, ttlMs).catch((error) => {
+        logger.debug({ error, key }, 'Async set failed');
       });
     }
   }
@@ -283,7 +281,7 @@ export class RedisCacheAdapter<T = unknown> implements ICacheAdapter<T> {
    * Async set to Redis.
    */
   async setAsync(key: string, value: T, ttlMs?: number): Promise<void> {
-    if (!this.client || !this.connected) {
+    if (!this.client || !this.connectionGuard.connected) {
       return;
     }
 
@@ -313,7 +311,7 @@ export class RedisCacheAdapter<T = unknown> implements ICacheAdapter<T> {
    * Async check if key exists in Redis.
    */
   async hasAsync(key: string): Promise<boolean> {
-    if (!this.client || !this.connected) {
+    if (!this.client || !this.connectionGuard.connected) {
       return this.has(key);
     }
 
@@ -334,8 +332,10 @@ export class RedisCacheAdapter<T = unknown> implements ICacheAdapter<T> {
     const hadLocal = this.localCache.delete(fullKey);
 
     // Queue async Redis delete
-    if (this.client && this.connected) {
-      this.deleteAsync(key).catch(() => {});
+    if (this.client && this.connectionGuard.connected) {
+      this.deleteAsync(key).catch((error) => {
+        logger.debug({ error, key }, 'Async delete failed');
+      });
     }
 
     return hadLocal;
@@ -345,7 +345,7 @@ export class RedisCacheAdapter<T = unknown> implements ICacheAdapter<T> {
    * Async delete from Redis.
    */
   async deleteAsync(key: string): Promise<boolean> {
-    if (!this.client || !this.connected) {
+    if (!this.client || !this.connectionGuard.connected) {
       return false;
     }
 
@@ -369,7 +369,7 @@ export class RedisCacheAdapter<T = unknown> implements ICacheAdapter<T> {
     key: string,
     type: 'delete' | 'clear'
   ): Promise<void> {
-    if (!this.client || !this.connected) return;
+    if (!this.client || !this.connectionGuard.connected) return;
 
     try {
       await this.client.publish(
@@ -388,8 +388,10 @@ export class RedisCacheAdapter<T = unknown> implements ICacheAdapter<T> {
     this.localCache.clear();
 
     // Queue async Redis clear
-    if (this.client && this.connected) {
-      this.clearAsync().catch(() => {});
+    if (this.client && this.connectionGuard.connected) {
+      this.clearAsync().catch((error) => {
+        logger.warn({ error }, 'Async clear failed');
+      });
     }
   }
 
@@ -397,7 +399,7 @@ export class RedisCacheAdapter<T = unknown> implements ICacheAdapter<T> {
    * Async clear all entries with our prefix.
    */
   async clearAsync(): Promise<void> {
-    if (!this.client || !this.connected) {
+    if (!this.client || !this.connectionGuard.connected) {
       return;
     }
 
@@ -406,8 +408,17 @@ export class RedisCacheAdapter<T = unknown> implements ICacheAdapter<T> {
       const pattern = this.keyPrefix + '*';
       let cursor = '0';
       const keysToDelete: string[] = [];
+      let iterations = 0;
 
       do {
+        if (++iterations > MAX_SCAN_ITERATIONS) {
+          logger.warn(
+            { iterations, keysFound: keysToDelete.length },
+            'SCAN iteration limit reached in clearAsync'
+          );
+          break;
+        }
+
         const [newCursor, keys] = await this.client.scan(cursor, 'MATCH', pattern, 'COUNT', 100);
         cursor = newCursor;
         keysToDelete.push(...keys);
@@ -420,7 +431,7 @@ export class RedisCacheAdapter<T = unknown> implements ICacheAdapter<T> {
       // Publish clear invalidation for cross-instance consistency
       await this.publishInvalidation('', 'clear');
     } catch (error) {
-      logger.warn({ error }, 'Redis clear failed');
+      logger.error({ error }, 'Redis clear failed');
     }
   }
 
@@ -440,8 +451,10 @@ export class RedisCacheAdapter<T = unknown> implements ICacheAdapter<T> {
     }
 
     // Queue async Redis invalidation
-    if (this.client && this.connected) {
-      this.invalidateByPrefixAsync(prefix).catch(() => {});
+    if (this.client && this.connectionGuard.connected) {
+      this.invalidateByPrefixAsync(prefix).catch((error) => {
+        logger.debug({ error, prefix }, 'Async invalidate by prefix failed');
+      });
     }
 
     return count;
@@ -451,7 +464,7 @@ export class RedisCacheAdapter<T = unknown> implements ICacheAdapter<T> {
    * Async invalidate by prefix in Redis.
    */
   async invalidateByPrefixAsync(prefix: string): Promise<number> {
-    if (!this.client || !this.connected) {
+    if (!this.client || !this.connectionGuard.connected) {
       return 0;
     }
 
@@ -459,8 +472,17 @@ export class RedisCacheAdapter<T = unknown> implements ICacheAdapter<T> {
       const pattern = this.keyPrefix + prefix + '*';
       let cursor = '0';
       const keysToDelete: string[] = [];
+      let iterations = 0;
 
       do {
+        if (++iterations > MAX_SCAN_ITERATIONS) {
+          logger.warn(
+            { iterations, keysFound: keysToDelete.length, prefix },
+            'SCAN iteration limit reached in invalidateByPrefixAsync'
+          );
+          break;
+        }
+
         const [newCursor, keys] = await this.client.scan(cursor, 'MATCH', pattern, 'COUNT', 100);
         cursor = newCursor;
         keysToDelete.push(...keys);
@@ -471,7 +493,8 @@ export class RedisCacheAdapter<T = unknown> implements ICacheAdapter<T> {
       }
 
       return keysToDelete.length;
-    } catch {
+    } catch (error) {
+      logger.error({ error, prefix }, 'Redis invalidate by prefix failed');
       return 0;
     }
   }
@@ -522,7 +545,7 @@ export class RedisCacheAdapter<T = unknown> implements ICacheAdapter<T> {
    * Internal async fetch to populate local cache.
    */
   private async fetchAsync(fullKey: string): Promise<void> {
-    if (!this.client || !this.connected) return;
+    if (!this.client || !this.connectionGuard.connected) return;
 
     // Dedupe concurrent fetches for same key
     const existing = this.pendingOps.get(fullKey);

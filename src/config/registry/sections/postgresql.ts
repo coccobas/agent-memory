@@ -49,6 +49,13 @@ export const postgresqlSection: ConfigSectionMeta = {
       description: 'Enable SSL/TLS for PostgreSQL connections.',
       schema: z.boolean(),
     },
+    sslRejectUnauthorized: {
+      envKey: 'AGENT_MEMORY_PG_SSL_REJECT_UNAUTHORIZED',
+      defaultValue: true,
+      description:
+        'Verify SSL certificates (reject unauthorized). Set to false only in development/testing. Required in production.',
+      schema: z.boolean(),
+    },
     poolMin: {
       envKey: 'AGENT_MEMORY_PG_POOL_MIN',
       defaultValue: 2,

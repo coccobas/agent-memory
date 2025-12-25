@@ -10,6 +10,7 @@ import { convertToMdc, concatenateForSingleMd } from './markdown.js';
 import { upsertSyncFile, deleteOrphanedFiles } from './sync-ops.js';
 import type { SyncOptions, SyncStats, FileOperation, SyncResult } from './types.js';
 import { findMarkdownFiles } from './discovery.js';
+import { isPathSafe } from '../../utils/paths.js';
 
 // IDE destination mapping for project-level
 export const IDE_DESTINATIONS: Record<string, string> = {
@@ -233,6 +234,16 @@ export function getDestinationPath(
   const fileName = basename(relativePath);
   const dir = dirname(relativePath);
 
+  // Security: Check for path traversal attempts in relative path
+  if (relativePath.startsWith('..') || relativePath.includes('/..') || relativePath.includes('\\..')) {
+    throw new Error(`Path traversal detected: source "${sourcePath}" escapes sourceDir "${sourceDir}"`);
+  }
+
+  // Security: Check for null bytes in path
+  if (relativePath.includes('\0') || sourcePath.includes('\0')) {
+    throw new Error('Security violation: null byte in path');
+  }
+
   // Convert .md to .mdc for Cursor
   const ext = ide === 'cursor' ? '.mdc' : extname(fileName);
   const baseName = basename(fileName, '.md');
@@ -252,6 +263,11 @@ export function getDestinationPath(
     destDir = join(outputDir, ideDestination);
   }
   const destPath = dir === '.' ? join(destDir, newFileName) : join(destDir, dir, newFileName);
+
+  // Security: Final safety check - ensure destination path is within allowed directory
+  if (!isPathSafe(destPath, destDir)) {
+    throw new Error(`Path traversal detected: destination "${destPath}" outside allowed directory "${destDir}"`);
+  }
 
   return destPath;
 }

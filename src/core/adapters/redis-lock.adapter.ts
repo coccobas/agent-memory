@@ -15,6 +15,7 @@ import type {
   ListLocksFilter,
 } from './interfaces.js';
 import { createComponentLogger } from '../../utils/logger.js';
+import { ConnectionGuard } from '../../utils/connection-guard.js';
 
 // Type imports for ioredis (actual import is dynamic to avoid loading when not used)
 type Redis = import('ioredis').default;
@@ -85,6 +86,7 @@ export class RedisLockAdapter implements ILockAdapter {
   // private driftFactor: number;
   private config: RedisLockConfig;
   private connected = false;
+  private connectionGuard = new ConnectionGuard();
 
   // Track local lock tokens for safe unlock
   private localTokens = new Map<string, string>();
@@ -103,47 +105,46 @@ export class RedisLockAdapter implements ILockAdapter {
    * Initialize Redis connection.
    */
   async connect(): Promise<void> {
-    if (this.connected && this.client) {
-      return;
-    }
+    return this.connectionGuard.connect(async () => {
+      const { Redis: IORedis } = await import('ioredis');
 
-    const { Redis: IORedis } = await import('ioredis');
+      const options = {
+        host: this.config.host ?? 'localhost',
+        port: this.config.port ?? 6379,
+        password: this.config.password,
+        db: this.config.db ?? 0,
+        lazyConnect: true,
+        ...(this.config.tls ? { tls: {} } : {}),
+      };
 
-    const options = {
-      host: this.config.host ?? 'localhost',
-      port: this.config.port ?? 6379,
-      password: this.config.password,
-      db: this.config.db ?? 0,
-      lazyConnect: true,
-      ...(this.config.tls ? { tls: {} } : {}),
-    };
+      if (this.config.url) {
+        this.client = new IORedis(this.config.url, options);
+      } else {
+        this.client = new IORedis(options);
+      }
 
-    if (this.config.url) {
-      this.client = new IORedis(this.config.url, options);
-    } else {
-      this.client = new IORedis(options);
-    }
+      const client = this.client!;
 
-    const client = this.client!;
+      client.on('connect', () => {
+        this.connected = true;
+        logger.info('Redis lock adapter connected');
+      });
 
-    client.on('connect', () => {
+      client.on('error', (error: Error) => {
+        logger.error({ error }, 'Redis lock adapter error');
+      });
+
+      client.on('close', () => {
+        this.connected = false;
+        this.connectionGuard.setDisconnected();
+      });
+
+      await client.connect();
       this.connected = true;
-      logger.info('Redis lock adapter connected');
+
+      // Define Lua scripts for atomic operations
+      await this.defineScripts();
     });
-
-    client.on('error', (error: Error) => {
-      logger.error({ error }, 'Redis lock adapter error');
-    });
-
-    client.on('close', () => {
-      this.connected = false;
-    });
-
-    await client.connect();
-    this.connected = true;
-
-    // Define Lua scripts for atomic operations
-    await this.defineScripts();
   }
 
   /**
@@ -302,6 +303,10 @@ export class RedisLockAdapter implements ILockAdapter {
         this.localTokens.delete(fullKey);
         logger.debug({ key, owner }, 'Lock released');
         return true;
+      } else {
+        // Token didn't match or lock doesn't exist - clean up local token
+        this.localTokens.delete(fullKey);
+        return false;
       }
     } catch (error) {
       // Fallback: try direct delete if Lua script not available
@@ -316,12 +321,16 @@ export class RedisLockAdapter implements ILockAdapter {
             return true;
           }
         }
-      } catch {
-        // Ignore fallback errors
+        // Token didn't match - clean up local token
+        this.localTokens.delete(fullKey);
+        return false;
+      } catch (fallbackError) {
+        // Fallback failed - clean up local token
+        this.localTokens.delete(fullKey);
+        logger.warn({ error: fallbackError, key }, 'Fallback unlock failed');
+        return false;
       }
     }
-
-    return false;
   }
 
   /**

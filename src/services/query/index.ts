@@ -25,7 +25,7 @@ import { resolveStage } from './stages/resolve.js';
 import { ftsStage } from './stages/fts.js';
 import { relationsStage } from './stages/relations.js';
 import { fetchStage } from './stages/fetch.js';
-import { tagsStage } from './stages/tags.js';
+import { tagsStage, postFilterTagsStage } from './stages/tags.js';
 import { filterStage } from './stages/filter.js';
 import { scoreStage } from './stages/score.js';
 import { formatStage } from './stages/format.js';
@@ -313,16 +313,33 @@ export function executeQueryPipelineSync(
 
   const initialCtx = createPipelineContext(params, deps);
 
+  // Determine if tag filtering is required
+  const needsTagFiltering = !!(
+    params.tags?.require?.length ||
+    params.tags?.exclude?.length ||
+    params.tags?.include?.length
+  );
+
   // Run pipeline stages (all stages are synchronous)
   let ctx: PipelineContext = initialCtx;
   ctx = resolveStage(ctx);
   ctx = ftsStage(ctx);
   ctx = relationsStage(ctx);
   ctx = fetchStage(ctx);
-  ctx = tagsStage(ctx);
 
-  // Run filter stage (adds filtered property)
-  const filteredCtx = filterStage(ctx);
+  // Conditional stage ordering for tag loading optimization:
+  // - If tag filtering is needed: load tags BEFORE filtering (current behavior)
+  // - Otherwise: filter first, then load tags only for filtered entries (optimization)
+  let filteredCtx: PipelineContext;
+  if (needsTagFiltering) {
+    // Load all tags, then filter (tags needed for filtering)
+    ctx = tagsStage(ctx);
+    filteredCtx = filterStage(ctx);
+  } else {
+    // Filter first, then load tags only for filtered entries (memory optimization)
+    filteredCtx = filterStage(ctx);
+    filteredCtx = postFilterTagsStage(filteredCtx);
+  }
 
   // Run score stage (uses filtered property)
   const scoredCtx = scoreStage(filteredCtx);

@@ -68,12 +68,73 @@ function isSafeRegexPattern(pattern: string): boolean {
     return false;
   }
 
+  return detectRedosPatterns(pattern);
+}
+
+/**
+ * Detect common ReDoS vulnerability patterns in regex.
+ * Returns true if pattern is SAFE, false if DANGEROUS.
+ *
+ * This is a defense-in-depth approach focusing on practical patterns that
+ * commonly cause DoS. It does not provide complete ReDoS prevention
+ * (which is computationally hard) but catches common attack patterns.
+ *
+ * @param pattern - The regex pattern to validate
+ * @returns true if pattern appears safe, false if potentially dangerous
+ */
+export function detectRedosPatterns(pattern: string): boolean {
   // Detect dangerous patterns: nested quantifiers that cause catastrophic backtracking
   const dangerousPatterns = [
-    /\([^)]*[+*?]\)[+*?]/, // Nested quantifiers: (x+)+, (x*)+, (x?)*, etc.
-    /\([^)]*\)\{[^}]*\}[+*?]/, // Quantified groups with trailing quantifier
-    /([+*?])\1{2,}/, // Multiple consecutive quantifiers: +++, ***, ???
-    /\[[^\]]*\][+*?]\{/, // Character class with quantifier and brace
+    // === NESTED QUANTIFIERS ===
+    // These cause exponential backtracking: (a+)+, (a*)+, (a?)*, (a?)+
+    /\([^)]*[+*?]\)[+*?]/,
+
+    // Quantified groups with trailing quantifier: (x){2,}+, (a)*{1,5}, (test)+{2,}
+    /\([^)]*\)[+*?]?\{/,
+
+    // Multiple consecutive quantifiers (ignoring lazy modifiers)
+    // Check for: +++, ***, ???, but also ++*, *+?, etc.
+    // First remove lazy modifiers (?) that follow quantifiers, then check for duplicates
+    /[+*][+*]/,
+
+    // Character class with quantifier and brace: [a-z]+{, [0-9]*{2,}
+    /\[[^\]]*\][+*?]\{/,
+
+    // === OVERLAPPING ALTERNATIONS ===
+    // Patterns like (a|a)+, (ab|a)+, (a|ab)* that cause backtracking
+    // Simplified check: alternation with quantifier that might overlap
+    /\([^)]*\|[^)]*\)[+*]/,
+
+    // === EXPONENTIAL BACKTRACKING PATTERNS ===
+    // Nested quantifiers with optional elements: (a+b?)+ causes exponential growth
+    // Pattern: quantified group containing quantified element followed by optional element
+    /\([^)]*[+*][^)]*[?]\)[+*]/,
+
+    // Pattern with multiple quantifiers: (a*b*)+
+    /\([^)]*[+*?][^)]*[+*?]\)[+*]/,
+
+    // === CATASTROPHIC PATTERNS WITH REPETITION ===
+    // Greedy quantifiers on both sides: .*.*+, .+.++, .*x.*+
+    /\.\*[^)]*\.\*[+*]/,
+    /\.\+[^)]*\.\+[+*]/,
+
+    // Pattern: (x+x+)+ - repeated elements with quantifiers
+    /\([^)]*[+*][^)]*[+*]\)\+/,
+
+    // === ALTERNATION WITH NESTED QUANTIFIERS ===
+    // Complex alternations that can cause backtracking: (a+|b+)+, (x*|y*)*
+    /\([^)]*[+*]\|[^)]*[+*]\)[+*]/,
+
+    // === EXCESSIVE REPETITION BOUNDS ===
+    // Very large repetition counts: .{1,99999}, a{100,}, [a-z]{1,10000}
+    // This checks for bounds >= 1000
+    /\{[^}]*,\s*([1-9]\d{3,}|[1-9]\d\d\d+)\}/,
+    /\{\s*([1-9]\d{3,}|[1-9]\d\d\d+)\s*,/,
+
+    // === WORD BOUNDARIES WITH GREEDY QUANTIFIERS ===
+    // Patterns like \b.*\b that can cause excessive backtracking
+    /\\b[^)]*\.\*[^)]*\\b/,
+    /\\b[^)]*\.\+[^)]*\\b/,
   ];
 
   for (const dangerous of dangerousPatterns) {
@@ -121,6 +182,54 @@ export function validateArrayLength(
   if (value && value.length > maxCount) {
     throw createSizeLimitError(fieldName, maxCount, value.length, 'items');
   }
+}
+
+/**
+ * Date range validation constants
+ */
+export const DATE_RANGE = {
+  MIN_YEAR: 1970,
+  MAX_YEAR: 2100,
+} as const;
+
+/**
+ * Validate date is within reasonable range (1970-2100)
+ *
+ * Prevents obviously invalid dates like year 0001 or 9999 while allowing
+ * legitimate historical dates (Unix epoch forward) and reasonable future dates.
+ *
+ * @param date - ISO date string to validate
+ * @param fieldName - Name of the field for error messages
+ * @returns The validated date string
+ * @throws Error if date is invalid or outside the acceptable range
+ */
+export function validateDateRange(date: string, fieldName: string): string {
+  // Parse the date
+  const parsedDate = new Date(date);
+
+  // Check if date is valid
+  if (isNaN(parsedDate.getTime())) {
+    throw new Error(`${fieldName} must be a valid ISO 8601 date string`);
+  }
+
+  // Extract year
+  const year = parsedDate.getUTCFullYear();
+
+  // Validate year is within acceptable range
+  if (year < DATE_RANGE.MIN_YEAR) {
+    throw new Error(
+      `${fieldName} year must be ${DATE_RANGE.MIN_YEAR} or later (got ${year})`
+    );
+  }
+
+  if (year > DATE_RANGE.MAX_YEAR) {
+    throw new Error(
+      `${fieldName} year must be ${DATE_RANGE.MAX_YEAR} or earlier (got ${year})`
+    );
+  }
+
+  // Return the original date string if valid
+  return date;
 }
 
 /**
@@ -413,7 +522,7 @@ async function validateEntryImpl(
     }
   }
 
-  // Validate date formats
+  // Validate date formats and ranges
   const dateFields = [
     'validUntil',
     'createdAfter',
@@ -425,12 +534,16 @@ async function validateEntryImpl(
     if (data[field] !== undefined && data[field] !== null) {
       const dateValue = data[field];
       if (typeof dateValue === 'string') {
-        const date = new Date(dateValue);
-        if (isNaN(date.getTime())) {
+        try {
+          // Validate date format and range
+          validateDateRange(dateValue, field);
+        } catch (error) {
+          const errorMessage =
+            error instanceof Error ? error.message : `${field} is invalid`;
           errors.push({
             field,
-            rule: 'builtin:dateFormat',
-            message: `${field} must be a valid ISO 8601 date string`,
+            rule: 'builtin:dateRange',
+            message: errorMessage,
           });
         }
       } else {
@@ -477,3 +590,4 @@ async function validateEntryImpl(
     errors,
   };
 }
+

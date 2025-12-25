@@ -1,7 +1,9 @@
 import { timingSafeEqual, createHash } from 'node:crypto';
 import { createComponentLogger } from '../utils/logger.js';
+import { securityLogger } from '../utils/security-logger.js';
 import type { Config } from '../config/index.js';
-import { RateLimiter } from '../utils/rate-limiter-core.js';
+import type { IRateLimiterAdapter } from '../core/adapters/interfaces.js';
+import { createLocalRateLimiterAdapter } from '../core/adapters/local-rate-limiter.adapter.js';
 
 const logger = createComponentLogger('security');
 
@@ -15,6 +17,11 @@ export interface SecurityResult {
   statusCode?: number;
   retryAfterMs?: number;
   context?: SecurityContext;
+  rateLimitInfo?: {
+    limit: number;
+    remaining: number;
+    reset: number;
+  };
 }
 
 type AuthMapping = { key: string; agentId: string };
@@ -64,25 +71,43 @@ export class SecurityService {
   private readonly restApiKeys: string | undefined;
   private readonly restAgentId: string;
 
-  private readonly burstLimiter: RateLimiter;
-  private readonly globalLimiter: RateLimiter;
-  private readonly perAgentLimiter: RateLimiter;
-  private readonly healthLimiter: RateLimiter;
+  private readonly burstLimiter: IRateLimiterAdapter;
+  private readonly globalLimiter: IRateLimiterAdapter;
+  private readonly perAgentLimiter: IRateLimiterAdapter;
+  private readonly healthLimiter: IRateLimiterAdapter;
 
   /** Cached parsed API key mappings (key → agentId) */
   private parsedApiKeyMap: ParsedApiKeyMap;
 
-  constructor(config: Config) {
+  constructor(
+    config: Config,
+    rateLimiters?: {
+      perAgent: IRateLimiterAdapter;
+      global: IRateLimiterAdapter;
+      burst: IRateLimiterAdapter;
+    }
+  ) {
     this.restAuthDisabled = config.security.restAuthDisabled;
     this.restApiKey = config.security.restApiKey;
     this.restApiKeys = config.security.restApiKeys;
     this.restAgentId = config.security.restAgentId;
 
-    const enabled = config.rateLimit.enabled;
-    this.burstLimiter = new RateLimiter({ ...config.rateLimit.burst, enabled });
-    this.globalLimiter = new RateLimiter({ ...config.rateLimit.global, enabled });
-    this.perAgentLimiter = new RateLimiter({ ...config.rateLimit.perAgent, enabled });
-    this.healthLimiter = new RateLimiter({
+    // Use provided rate limiters or create local ones
+    if (rateLimiters) {
+      this.perAgentLimiter = rateLimiters.perAgent;
+      this.globalLimiter = rateLimiters.global;
+      this.burstLimiter = rateLimiters.burst;
+    } else {
+      const enabled = config.rateLimit.enabled;
+      this.burstLimiter = createLocalRateLimiterAdapter({ ...config.rateLimit.burst, enabled });
+      this.globalLimiter = createLocalRateLimiterAdapter({ ...config.rateLimit.global, enabled });
+      this.perAgentLimiter = createLocalRateLimiterAdapter({
+        ...config.rateLimit.perAgent,
+        enabled,
+      });
+    }
+
+    this.healthLimiter = createLocalRateLimiterAdapter({
       maxRequests: 60,
       windowMs: 60000,
       enabled: true,
@@ -180,13 +205,14 @@ export class SecurityService {
    * @param input.args - Tool arguments (for MCP)
    * @param input.skipAuth - Force skip auth (use with caution)
    */
-  validateRequest(input: {
+  async validateRequest(input: {
     headers?: Record<string, string | string[] | undefined>;
     args?: Record<string, unknown>;
     skipAuth?: boolean;
-  }): SecurityResult {
+  }): Promise<SecurityResult> {
     // 1. Resolve Identity
     let agentId: string | undefined;
+    let tokenProvided = false;
 
     // Check headers (REST style)
     if (input.headers) {
@@ -194,17 +220,28 @@ export class SecurityService {
       const apiKeyHeader = input.headers['x-api-key'];
 
       let token: string | undefined;
+      let tokenType: string | undefined;
       if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
         token = authHeader.slice(7);
+        tokenType = 'Bearer';
       } else if (typeof apiKeyHeader === 'string') {
         token = apiKeyHeader;
+        tokenType = 'API Key';
       }
 
       if (token) {
+        tokenProvided = true;
         const resolved = this.resolveAgentId(token);
         if (resolved) {
           agentId = resolved;
           logger.debug({ agentId }, 'Resolved identity from token');
+        } else {
+          // Token provided but invalid - log auth failure
+          securityLogger.logAuthFailure({
+            reason: 'Invalid or unrecognized token',
+            tokenType,
+            userAgent: String(input.headers['user-agent'] ?? ''),
+          });
         }
       }
     }
@@ -222,24 +259,71 @@ export class SecurityService {
       if (!this.isAuthConfigured()) {
         return { authorized: false, error: 'Auth not configured', statusCode: 503 };
       }
+
+      // Log unauthorized access attempt
+      if (!tokenProvided) {
+        securityLogger.logUnauthorizedAccess({
+          description: 'No authentication credentials provided',
+          userAgent: String(input.headers['user-agent'] ?? ''),
+        });
+      }
+
       return { authorized: false, error: 'Unauthorized', statusCode: 401 };
     }
 
     // 2. Rate Limiting
-    const limitResult = this.checkRateLimits(agentId);
+    const limitResult = await this.checkRateLimits(agentId);
     if (!limitResult.allowed) {
       logger.warn({ agentId, reason: limitResult.reason }, 'Rate limit exceeded');
+
+      // Log rate limit violation with security logger
+      const limitType = limitResult.reason?.includes('burst')
+        ? 'burst'
+        : limitResult.reason?.includes('global')
+          ? 'global'
+          : limitResult.reason?.includes('agent')
+            ? 'per-agent'
+            : ('global' as const);
+
+      securityLogger.logRateLimitExceeded({
+        limitType,
+        agentId,
+        currentCount: limitResult.limit,
+        maxRequests: limitResult.limit,
+        retryAfterMs: limitResult.retryAfterMs,
+      });
+
       return {
         authorized: false,
         error: limitResult.reason ?? 'Rate limit exceeded',
         statusCode: 429,
         retryAfterMs: limitResult.retryAfterMs,
+        rateLimitInfo:
+          limitResult.limit !== undefined &&
+          limitResult.remaining !== undefined &&
+          limitResult.reset !== undefined
+            ? {
+                limit: limitResult.limit,
+                remaining: limitResult.remaining,
+                reset: limitResult.reset,
+              }
+            : undefined,
       };
     }
 
     return {
       authorized: true,
       context: { agentId },
+      rateLimitInfo:
+        limitResult.limit !== undefined &&
+        limitResult.remaining !== undefined &&
+        limitResult.reset !== undefined
+          ? {
+              limit: limitResult.limit,
+              remaining: limitResult.remaining,
+              reset: limitResult.reset,
+            }
+          : undefined,
     };
   }
 
@@ -250,49 +334,78 @@ export class SecurityService {
     );
   }
 
-  private checkRateLimits(agentId?: string): {
+  private async checkRateLimits(agentId?: string): Promise<{
     allowed: boolean;
     reason?: string;
     retryAfterMs?: number;
-  } {
-    const burstResult = this.burstLimiter.check('global');
+    limit?: number;
+    remaining?: number;
+    reset?: number;
+  }> {
+    const now = Math.floor(Date.now() / 1000); // Unix timestamp in seconds
+
+    const burstResult = await this.burstLimiter.check('global');
     if (!burstResult.allowed) {
       return {
         allowed: false,
         reason: 'Burst rate limit exceeded',
         retryAfterMs: burstResult.retryAfterMs,
+        limit: burstResult.remaining + 1, // remaining + current request
+        remaining: burstResult.remaining,
+        reset: now + Math.ceil((burstResult.retryAfterMs ?? 0) / 1000),
       };
     }
 
-    const globalResult = this.globalLimiter.check('global');
+    const globalResult = await this.globalLimiter.check('global');
     if (!globalResult.allowed) {
       return {
         allowed: false,
         reason: 'Global rate limit exceeded',
         retryAfterMs: globalResult.retryAfterMs,
+        limit: globalResult.remaining + 1,
+        remaining: globalResult.remaining,
+        reset: now + Math.ceil((globalResult.retryAfterMs ?? 0) / 1000),
       };
     }
 
     if (agentId) {
-      const agentResult = this.perAgentLimiter.check(agentId);
+      const agentResult = await this.perAgentLimiter.check(agentId);
       if (!agentResult.allowed) {
         return {
           allowed: false,
           reason: `Rate limit exceeded for agent ${agentId}`,
           retryAfterMs: agentResult.retryAfterMs,
+          limit: agentResult.remaining + 1,
+          remaining: agentResult.remaining,
+          reset: now + Math.ceil((agentResult.retryAfterMs ?? 0) / 1000),
         };
       }
+      // Return successful rate limit info from per-agent limiter
+      return {
+        allowed: true,
+        limit: agentResult.remaining + 1,
+        remaining: agentResult.remaining,
+        reset: now + Math.ceil(agentResult.resetMs / 1000),
+      };
     }
 
-    return { allowed: true };
+    // Return successful rate limit info from global limiter if no agentId
+    return {
+      allowed: true,
+      limit: globalResult.remaining + 1,
+      remaining: globalResult.remaining,
+      reset: now + Math.ceil(globalResult.resetMs / 1000),
+    };
   }
 
   /**
    * Check rate limit for health endpoint requests.
    * Health endpoint has stricter limits to prevent DoS attacks.
    */
-  checkHealthRateLimit(clientIp: string): { allowed: boolean; retryAfterMs?: number } {
-    const result = this.healthLimiter.check(clientIp);
+  async checkHealthRateLimit(
+    clientIp: string
+  ): Promise<{ allowed: boolean; retryAfterMs?: number }> {
+    const result = await this.healthLimiter.check(clientIp);
     return { allowed: result.allowed, retryAfterMs: result.retryAfterMs };
   }
 }

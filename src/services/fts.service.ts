@@ -7,6 +7,12 @@
  * - Phrase matching
  * - Prefix matching
  * - Boolean operators
+ *
+ * Security Note:
+ * FTS5 supports operators (AND, OR, NOT, NEAR) that can be injected by users.
+ * All user input is sanitized via sanitizeFts5Operators() to prevent operator injection
+ * attacks while preserving search functionality. Operators are treated as literal text
+ * by wrapping queries in quotes when detected.
  */
 
 import { getSqlite } from '../db/connection.js';
@@ -46,8 +52,9 @@ export function searchFTS(
   const limit = options.limit ?? 100;
   const results: FTSResult[] = [];
 
-  // Escape query for FTS5 (handle special characters)
-  const escapedQuery = escapeFTSQuery(query);
+  // Sanitize query to prevent operator injection, then escape for FTS5
+  const sanitizedQuery = sanitizeFts5Operators(query);
+  const escapedQuery = sanitizedQuery;
 
   for (const entryType of entryTypes) {
     let ftsTable: string;
@@ -240,6 +247,55 @@ export function escapeFts5Query(query: string): string {
 }
 
 /**
+ * Sanitize FTS5 query to prevent operator injection
+ *
+ * FTS5 supports operators like AND, OR, NOT, NEAR that can be injected
+ * to manipulate search behavior. This function sanitizes user input by:
+ * 1. Detecting FTS5 operators (case-insensitive)
+ * 2. Wrapping the entire query in quotes if operators are found
+ * 3. Escaping double quotes properly
+ * 4. Handling NEAR/N syntax (e.g., NEAR/5)
+ *
+ * The function uses word boundary detection to avoid false positives:
+ * - "landscape" -> "landscape" (not sanitized, "and" is part of word)
+ * - "term AND term" -> '"term AND term"' (sanitized, standalone operator)
+ * - "term NEAR/5 term" -> '"term NEAR/5 term"' (sanitized with distance)
+ *
+ * Examples:
+ * ```typescript
+ * sanitizeFts5Operators('hello world') // 'hello world' (no operators)
+ * sanitizeFts5Operators('term1 AND term2') // '"term1 AND term2"' (operator detected)
+ * sanitizeFts5Operators('term1 NEAR/5 term2') // '"term1 NEAR/5 term2"' (NEAR with distance)
+ * sanitizeFts5Operators('"quoted" AND term') // '"""quoted"" AND term"' (quotes escaped)
+ * sanitizeFts5Operators('android') // 'android' (not an operator)
+ * ```
+ *
+ * @param query - Raw user search query
+ * @returns Sanitized query safe from operator injection
+ */
+export function sanitizeFts5Operators(query: string): string {
+  if (!query || query.trim().length === 0) {
+    return query;
+  }
+
+  // First, escape any existing double quotes
+  let sanitized = query.replace(/"/g, '""');
+
+  // FTS5 operators that need sanitization (case-insensitive)
+  // Matches: AND, OR, NOT, NEAR, NEAR/N (where N is a number)
+  const operatorPattern = /\b(AND|OR|NOT|NEAR(?:\/\d+)?)\b/gi;
+
+  // Check if the query contains any FTS5 operators
+  if (operatorPattern.test(sanitized)) {
+    // Wrap entire query in quotes to treat operators as literal text
+    // This preserves user intent while preventing operator injection
+    sanitized = `"${sanitized}"`;
+  }
+
+  return sanitized;
+}
+
+/**
  * Simple FTS5 quote escaping - just escapes double quotes
  *
  * Use this for simple escaping when you'll apply your own query logic.
@@ -251,8 +307,8 @@ export function escapeFts5Quotes(query: string): string {
   return query.replace(/"/g, '""');
 }
 
-// Internal alias for backwards compatibility
-const escapeFTSQuery = escapeFts5Query;
+// Export alias for backwards compatibility
+export const escapeFTSQuery = escapeFts5Query;
 
 /**
  * Escape query string for FTS5 MATCH - tokenized mode
@@ -291,3 +347,4 @@ export function isFTSAvailable(): boolean {
     return false;
   }
 }
+

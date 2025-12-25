@@ -445,6 +445,27 @@ export const dbPoolGauge = metrics.gauge('agentmem_db_pool_connections', {
   labelNames: ['state'], // idle, active, waiting
 });
 
+// Additional pool metrics for detailed monitoring
+export const dbPoolSizeGauge = metrics.gauge('agentmem_db_pool_size', {
+  help: 'Current database connection pool size (total connections)',
+});
+
+export const dbPoolAvailableGauge = metrics.gauge('agentmem_db_pool_available', {
+  help: 'Available database connections in pool',
+});
+
+export const dbPoolWaitingGauge = metrics.gauge('agentmem_db_pool_waiting', {
+  help: 'Number of requests waiting for a database connection',
+});
+
+export const dbPoolIdleGauge = metrics.gauge('agentmem_db_pool_idle', {
+  help: 'Number of idle database connections in pool',
+});
+
+export const dbPoolMaxGauge = metrics.gauge('agentmem_db_pool_max', {
+  help: 'Maximum database connection pool size',
+});
+
 // Embedding metrics
 export const embeddingCounter = metrics.counter('agentmem_embeddings_total', {
   help: 'Total number of embedding operations',
@@ -495,3 +516,141 @@ export const errorCounter = metrics.counter('agentmem_errors_total', {
   help: 'Total number of errors',
   labelNames: ['code', 'component'],
 });
+
+// =============================================================================
+// POOL METRICS UTILITIES
+// =============================================================================
+
+/**
+ * Pool statistics interface compatible with both PostgreSQL and SQLite adapters.
+ */
+export interface PoolStats {
+  totalCount: number;
+  idleCount: number;
+  waitingCount: number;
+}
+
+/**
+ * Configuration for connection pool metrics.
+ */
+export interface PoolMetricsConfig {
+  maxConnections?: number;
+}
+
+/**
+ * Record database connection pool metrics.
+ *
+ * This function updates all pool-related gauges with current statistics.
+ * It should be called periodically (e.g., every 10-30 seconds) to maintain
+ * accurate pool metrics for monitoring and alerting.
+ *
+ * @param stats - Pool statistics from the adapter
+ * @param config - Optional configuration (e.g., max connections)
+ *
+ * @example
+ * ```typescript
+ * import { recordPoolMetrics } from './metrics.js';
+ *
+ * // Get stats from PostgreSQL adapter
+ * const stats = adapter.getPoolStats();
+ * recordPoolMetrics(stats, { maxConnections: 20 });
+ * ```
+ */
+export function recordPoolMetrics(stats: PoolStats, config?: PoolMetricsConfig): void {
+  const { totalCount, idleCount, waitingCount } = stats;
+  const activeCount = totalCount - idleCount;
+  const availableCount = idleCount;
+
+  // Set individual gauges
+  dbPoolSizeGauge.set(totalCount);
+  dbPoolAvailableGauge.set(availableCount);
+  dbPoolWaitingGauge.set(waitingCount);
+  dbPoolIdleGauge.set(idleCount);
+
+  if (config?.maxConnections !== undefined) {
+    dbPoolMaxGauge.set(config.maxConnections);
+  }
+
+  // Update the legacy gauge with state labels
+  dbPoolGauge.set(idleCount, { state: 'idle' });
+  dbPoolGauge.set(activeCount, { state: 'active' });
+  dbPoolGauge.set(waitingCount, { state: 'waiting' });
+
+  logger.debug(
+    {
+      total: totalCount,
+      idle: idleCount,
+      active: activeCount,
+      waiting: waitingCount,
+      available: availableCount,
+      max: config?.maxConnections,
+    },
+    'Recorded database pool metrics'
+  );
+}
+
+/**
+ * Create a periodic pool metrics recorder.
+ *
+ * Returns a function that starts recording pool metrics at regular intervals.
+ * Useful for background monitoring.
+ *
+ * @param getStats - Function to retrieve current pool statistics
+ * @param config - Pool configuration
+ * @param intervalMs - Interval between recordings (default: 15000ms / 15s)
+ * @returns Object with start() and stop() methods
+ *
+ * @example
+ * ```typescript
+ * import { createPoolMetricsRecorder } from './metrics.js';
+ *
+ * const recorder = createPoolMetricsRecorder(
+ *   () => adapter.getPoolStats(),
+ *   { maxConnections: 20 },
+ *   10000 // Record every 10 seconds
+ * );
+ *
+ * // Start recording
+ * recorder.start();
+ *
+ * // Later, stop recording
+ * recorder.stop();
+ * ```
+ */
+export function createPoolMetricsRecorder(
+  getStats: () => PoolStats,
+  config?: PoolMetricsConfig,
+  intervalMs: number = 15000
+): { start: () => void; stop: () => void } {
+  let intervalId: NodeJS.Timeout | null = null;
+
+  const recordMetrics = () => {
+    try {
+      const stats = getStats();
+      recordPoolMetrics(stats, config);
+    } catch (error) {
+      logger.warn({ error }, 'Failed to record pool metrics');
+    }
+  };
+
+  return {
+    start: () => {
+      if (intervalId) {
+        logger.warn('Pool metrics recorder already started');
+        return;
+      }
+      logger.info({ intervalMs }, 'Starting pool metrics recorder');
+      // Record immediately on start
+      recordMetrics();
+      // Then record periodically
+      intervalId = setInterval(recordMetrics, intervalMs);
+    },
+    stop: () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = null;
+        logger.info('Stopped pool metrics recorder');
+      }
+    },
+  };
+}

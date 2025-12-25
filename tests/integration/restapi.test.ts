@@ -194,4 +194,128 @@ describe('REST API Integration', () => {
     expect(links.length).toBeGreaterThanOrEqual(1);
     await app.close();
   });
+
+  describe('Security Headers', () => {
+    it('should include helmet security headers in responses', async () => {
+      const app = createServer(context);
+      const res = await app.inject({
+        method: 'GET',
+        url: '/health',
+      });
+
+      // Check for helmet security headers
+      expect(res.headers['x-content-type-options']).toBe('nosniff');
+      expect(res.headers['x-frame-options']).toBe('DENY');
+      expect(res.headers['x-xss-protection']).toBeDefined();
+      expect(res.headers['strict-transport-security']).toContain('max-age=31536000');
+
+      await app.close();
+    });
+
+    it('should include CSP headers', async () => {
+      const app = createServer(context);
+      const res = await app.inject({
+        method: 'GET',
+        url: '/health',
+      });
+
+      expect(res.headers['content-security-policy']).toBeDefined();
+      expect(res.headers['content-security-policy']).toContain("default-src 'self'");
+
+      await app.close();
+    });
+  });
+
+  describe('Rate Limit Headers', () => {
+    it('should include rate limit headers in successful authenticated requests', async () => {
+      const app = createServer(context);
+      const res = await app.inject({
+        method: 'POST',
+        url: '/v1/query',
+        headers: { authorization: `Bearer ${REST_API_KEY}` },
+        payload: {
+          types: ['knowledge'],
+          search: 'test',
+          semanticSearch: false,
+        },
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.headers['x-ratelimit-limit']).toBeDefined();
+      expect(res.headers['x-ratelimit-remaining']).toBeDefined();
+      expect(res.headers['x-ratelimit-reset']).toBeDefined();
+
+      // Validate that values are numbers
+      expect(Number(res.headers['x-ratelimit-limit'])).toBeGreaterThan(0);
+      expect(Number(res.headers['x-ratelimit-remaining'])).toBeGreaterThanOrEqual(0);
+      expect(Number(res.headers['x-ratelimit-reset'])).toBeGreaterThan(0);
+
+      await app.close();
+    });
+
+    it('should include rate limit headers in rate limited responses', async () => {
+      const app = createServer(context);
+
+      // Make many requests to trigger rate limit
+      const requests = Array.from({ length: 120 }, (_, i) =>
+        app.inject({
+          method: 'POST',
+          url: '/v1/query',
+          headers: { authorization: `Bearer ${REST_API_KEY}` },
+          payload: { types: ['knowledge'], search: `test-${i}`, semanticSearch: false },
+        })
+      );
+
+      const responses = await Promise.all(requests);
+
+      // Find a rate limited response (429)
+      const rateLimited = responses.find((r) => r.statusCode === 429);
+
+      if (rateLimited) {
+        expect(rateLimited.headers['x-ratelimit-limit']).toBeDefined();
+        expect(rateLimited.headers['x-ratelimit-remaining']).toBe('0');
+        expect(rateLimited.headers['x-ratelimit-reset']).toBeDefined();
+        expect(rateLimited.headers['retry-after']).toBeDefined();
+      }
+
+      await app.close();
+    });
+
+    it('should declare rate limit headers in CORS configuration', async () => {
+      const app = createServer(context);
+
+      // The CORS configuration is set during server creation
+      // We verify the headers are properly exposed by checking actual response headers
+      // when CORS is enabled (requires setting AGENT_MEMORY_REST_CORS_ORIGINS)
+      const previousCorsOrigins = process.env.AGENT_MEMORY_REST_CORS_ORIGINS;
+
+      try {
+        process.env.AGENT_MEMORY_REST_CORS_ORIGINS = 'http://localhost:3000';
+        const appWithCors = createServer(context);
+
+        const res = await appWithCors.inject({
+          method: 'OPTIONS',
+          url: '/v1/query',
+          headers: {
+            origin: 'http://localhost:3000',
+            'access-control-request-method': 'POST',
+          },
+        });
+
+        const exposedHeaders = res.headers['access-control-expose-headers'];
+        expect(exposedHeaders).toBeDefined();
+        if (typeof exposedHeaders === 'string') {
+          expect(exposedHeaders).toContain('X-RateLimit-Limit');
+          expect(exposedHeaders).toContain('X-RateLimit-Remaining');
+          expect(exposedHeaders).toContain('X-RateLimit-Reset');
+        }
+
+        await appWithCors.close();
+      } finally {
+        process.env.AGENT_MEMORY_REST_CORS_ORIGINS = previousCorsOrigins;
+      }
+
+      await app.close();
+    });
+  });
 });

@@ -13,6 +13,9 @@ import type Database from 'better-sqlite3';
 import type { AppDb } from '../types.js';
 import type { IStorageAdapter } from './interfaces.js';
 import { transactionWithDb } from '../../db/connection.js';
+import { createComponentLogger } from '../../utils/logger.js';
+
+const logger = createComponentLogger('sqlite-adapter');
 
 /**
  * SQLite storage adapter implementation.
@@ -25,6 +28,8 @@ export class SQLiteStorageAdapter implements IStorageAdapter {
   private db: AppDb;
   private sqlite: Database.Database;
   private connected = true; // Assumes already connected when constructed
+  private activeTransactionId: string | null = null;
+  private transactionStartTime: number | null = null;
 
   constructor(db: AppDb, sqlite: Database.Database) {
     this.db = db;
@@ -77,15 +82,53 @@ export class SQLiteStorageAdapter implements IStorageAdapter {
    *
    * IMPORTANT: The fn parameter MUST only contain synchronous Drizzle operations.
    * Truly async operations (I/O, timers, fetch, etc.) will throw an error.
+   *
+   * Transaction Context Tracking (HIGH-012):
+   * - Tracks active transaction via unique ID and timestamp
+   * - Detects async operations that escape transaction context
+   * - Provides detailed error messages with debugging information
+   * - Logs warnings when potentially problematic patterns are detected
    */
   async transaction<T>(fn: () => Promise<T>): Promise<T> {
+    const transactionId = `txn-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    const startTime = Date.now();
+
+    // Detect nested transactions (not supported in SQLite)
+    // This check MUST happen before we set activeTransactionId
+    if (this.activeTransactionId !== null) {
+      const error = new Error(
+        `Nested SQLite transaction detected. Active transaction: ${this.activeTransactionId}, ` +
+          `attempted new transaction: ${transactionId}. ` +
+          `SQLite does not support nested transactions. ` +
+          `This usually indicates an async operation escaped the transaction context.`
+      );
+      logger.error(
+        {
+          activeTransactionId: this.activeTransactionId,
+          newTransactionId: transactionId,
+          activeTransactionDurationMs: this.transactionStartTime
+            ? Date.now() - this.transactionStartTime
+            : null,
+        },
+        'Nested transaction attempted - potential async escape detected'
+      );
+      throw error;
+    }
+
     let resultValue: T;
     let resultError: Error | undefined;
     let wasResolved = false;
 
+    this.activeTransactionId = transactionId;
+    this.transactionStartTime = startTime;
+
     try {
       transactionWithDb(this.sqlite, () => {
-        fn()
+        // Immediately invoke the async function and capture the promise
+        const promise = fn();
+
+        // Check if the promise resolved synchronously (microtask)
+        promise
           .then((value) => {
             resultValue = value;
             wasResolved = true;
@@ -96,23 +139,94 @@ export class SQLiteStorageAdapter implements IStorageAdapter {
           });
       });
 
-      // Yield to microtask queue to let promise callbacks execute
+      // Yield to microtask queue to let synchronously-resolved promises execute
+      // This allows promises that resolve immediately (like synchronous Drizzle ops)
+      // to complete their .then() callbacks
       await Promise.resolve();
 
+      const durationMs = Date.now() - startTime;
+
       if (!wasResolved) {
-        throw new Error(
-          'SQLite transaction completed before async operation resolved. ' +
-            'Use only synchronous Drizzle operations within SQLite transactions.'
+        const error = new Error(
+          `SQLite transaction completed before async operation resolved. ` +
+            `Transaction ID: ${transactionId}, Duration: ${durationMs}ms. ` +
+            `\n\nThis indicates an async operation escaped the transaction context. ` +
+            `\n\nWHY THIS IS A PROBLEM:` +
+            `\n- SQLite transactions are synchronous and complete immediately` +
+            `\n- Async operations (I/O, timers, fetch, await real promises) run after the transaction ends` +
+            `\n- Data changes from these operations won't be atomic with the transaction` +
+            `\n- This can lead to data inconsistency and race conditions` +
+            `\n\nHOW TO FIX:` +
+            `\n1. Use only synchronous Drizzle operations within SQLite transactions` +
+            `\n2. Move async I/O operations (file reads, HTTP calls, etc.) outside the transaction` +
+            `\n3. For PostgreSQL, use the PostgreSQLStorageAdapter which supports true async transactions` +
+            `\n4. Consider using transactionWithRetry() from db/connection.ts for better error handling` +
+            `\n\nDEBUGGING:` +
+            `\n- Review the call stack to identify which async operation didn't complete` +
+            `\n- Look for: fetch(), fs promises, setTimeout/setInterval, external API calls` +
+            `\n- Check if the transaction callback contains 'await' on non-Drizzle promises`
+        );
+
+        logger.error(
+          {
+            transactionId,
+            durationMs,
+            wasResolved: false,
+          },
+          'Async operation escaped SQLite transaction context'
+        );
+
+        throw error;
+      }
+
+      // Log warning for suspiciously long transactions
+      if (durationMs > 100) {
+        logger.warn(
+          {
+            transactionId,
+            durationMs,
+            threshold: 100,
+          },
+          'SQLite transaction took longer than expected - may contain async operations'
         );
       }
 
       if (resultError) {
+        logger.debug(
+          {
+            transactionId,
+            durationMs,
+            error: resultError.message,
+          },
+          'Transaction failed with error'
+        );
         throw resultError;
       }
 
+      logger.debug(
+        {
+          transactionId,
+          durationMs,
+        },
+        'Transaction completed successfully'
+      );
+
       return resultValue!;
     } catch (error) {
+      const durationMs = Date.now() - startTime;
+      logger.error(
+        {
+          transactionId,
+          durationMs,
+          error: error instanceof Error ? error.message : String(error),
+        },
+        'Transaction failed'
+      );
       throw error instanceof Error ? error : new Error(String(error));
+    } finally {
+      // Always clear transaction tracking in finally block
+      this.activeTransactionId = null;
+      this.transactionStartTime = null;
     }
   }
 

@@ -316,6 +316,33 @@ Content here.`;
       const vscodePath = getDestinationPath(sourcePath, TEST_SOURCE_DIR, 'vscode', TEST_OUTPUT_DIR);
       expect(vscodePath).toContain(IDE_DESTINATIONS.vscode);
     });
+
+    it('should reject path traversal attempts with ../', () => {
+      // Attempt to escape source directory using ../
+      const maliciousPath = join(TEST_SOURCE_DIR, '..', '..', 'etc', 'passwd.md');
+
+      expect(() => {
+        getDestinationPath(maliciousPath, TEST_SOURCE_DIR, 'cursor', TEST_OUTPUT_DIR);
+      }).toThrow('Path traversal detected');
+    });
+
+    it('should reject path traversal attempts with null bytes', () => {
+      // Attempt to use null byte injection
+      const maliciousPath = join(TEST_SOURCE_DIR, 'test\0.md');
+
+      expect(() => {
+        getDestinationPath(maliciousPath, TEST_SOURCE_DIR, 'cursor', TEST_OUTPUT_DIR);
+      }).toThrow('Security violation: null byte in path');
+    });
+
+    it('should allow safe relative paths within source directory', () => {
+      // This should be safe - subdirectory within sourceDir
+      const safePath = join(TEST_SOURCE_DIR, 'subdir', 'test.md');
+
+      expect(() => {
+        getDestinationPath(safePath, TEST_SOURCE_DIR, 'cursor', TEST_OUTPUT_DIR);
+      }).not.toThrow();
+    });
   });
 
   describe('createBackup and cleanupBackups', () => {
@@ -946,3 +973,4 @@ This is the actual content.
     });
   });
 });
+

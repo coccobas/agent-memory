@@ -266,5 +266,7 @@ export function filterStage(ctx: PipelineContext): PipelineContext {
   return {
     ...ctx,
     filtered,
+    // Clear fetchedEntries to release memory - data is now in filtered
+    fetchedEntries: { tools: [], guidelines: [], knowledge: [], experiences: [] },
   };
 }

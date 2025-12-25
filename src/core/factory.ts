@@ -103,7 +103,7 @@ export async function createAppContext(config: Config, runtime?: Runtime): Promi
   }
 
   // Wire all shared components and assemble AppContext
-  return wireContext({
+  return await wireContext({
     config,
     runtime: effectiveRuntime,
     db,

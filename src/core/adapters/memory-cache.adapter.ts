@@ -118,18 +118,11 @@ export class MemoryCacheAdapter<T> implements ICacheAdapter<T> {
 /**
  * Extended LRUCache that exposes keys for iteration.
  * Used by MemoryCacheAdapter.
+ *
+ * @deprecated No longer needed - LRUCache already exposes keys() method
  */
 export class IterableLRUCache<T> extends LRUCache<T> {
-  /**
-   * Get all keys in the cache.
-   */
-  keys(): IterableIterator<string> {
-    // Access the parent's cache Map
-    // Note: This accesses the private 'cache' property
-    // We use type assertion to work around TypeScript's access control
-    const cacheMap = (this as unknown as { cache: Map<string, unknown> }).cache;
-    return cacheMap.keys();
-  }
+  // This class is now a no-op wrapper since LRUCache has keys() built-in
 }
 
 /**
@@ -171,45 +164,13 @@ class MemoryCacheAdapterWithKeys<T> implements ICacheAdapter<T> {
   }
 
   invalidateByPrefix(prefix: string): number {
-    let count = 0;
-    const keysToDelete: string[] = [];
-
-    // Access internal Map via type assertion
-    const cacheMap = (this.cache as unknown as { cache: Map<string, unknown> }).cache;
-    for (const key of cacheMap.keys()) {
-      if (key.startsWith(prefix)) {
-        keysToDelete.push(key);
-      }
-    }
-
-    for (const key of keysToDelete) {
-      if (this.cache.delete(key)) {
-        count++;
-      }
-    }
-
-    return count;
+    // Use the public deleteMatching method instead of type assertions
+    return this.cache.deleteMatching((key) => key.startsWith(prefix));
   }
 
   invalidateByPredicate(predicate: (key: string) => boolean): number {
-    let count = 0;
-    const keysToDelete: string[] = [];
-
-    // Access internal Map via type assertion
-    const cacheMap = (this.cache as unknown as { cache: Map<string, unknown> }).cache;
-    for (const key of cacheMap.keys()) {
-      if (predicate(key)) {
-        keysToDelete.push(key);
-      }
-    }
-
-    for (const key of keysToDelete) {
-      if (this.cache.delete(key)) {
-        count++;
-      }
-    }
-
-    return count;
+    // Use the public deleteMatching method instead of type assertions
+    return this.cache.deleteMatching(predicate);
   }
 
   size(): number {
