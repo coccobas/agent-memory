@@ -229,7 +229,11 @@ const promoteHandler: ContextAwareHandler = async (
     promotedBy: agentId,
   };
 
-  const result = await context.repos.experiences.promote(id, input);
+  // Use the ExperiencePromotionService for business logic orchestration
+  if (!context.services.experiencePromotion) {
+    throw createValidationError('experiencePromotion', 'service not available');
+  }
+  const result = await context.services.experiencePromotion.promote(id, input);
 
   // Log audit
   logAction(

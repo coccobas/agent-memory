@@ -18,6 +18,7 @@ import { createLocalFileSystemAdapter } from '../adapters/index.js';
 import type { Repositories } from '../interfaces/repositories.js';
 import { createComponentLogger } from '../../utils/logger.js';
 import { SecurityService } from '../../services/security.service.js';
+import { createExperiencePromotionService } from '../../services/experience/index.js';
 
 import { createServices, type ServiceDependencies } from './services.js';
 import { createQueryPipeline, wireQueryCache } from './query-pipeline.js';
@@ -66,6 +67,13 @@ export async function wireContext(input: WireContextInput): Promise<AppContext> 
 
   // Create services with explicit configuration
   const services = await createServices(config, runtime, db, serviceDeps);
+
+  // Create ExperiencePromotionService (needs repos and adapters)
+  const experiencePromotionService = createExperiencePromotionService({
+    experienceRepo: repos.experiences,
+    eventAdapter: adapters.event,
+  });
+  services.experiencePromotion = experiencePromotionService;
 
   // Create query pipeline
   const queryDeps = createQueryPipeline(config, runtime);
