@@ -86,8 +86,8 @@ interface PublicEndpointConfig {
 }
 
 const DEFAULT_PUBLIC_ENDPOINTS: PublicEndpointConfig = {
-  rateLimitedPublic: ['/health'],
-  fullyPublic: ['/v1/openapi.json', '/metrics'],
+  rateLimitedPublic: ['/health', '/metrics'],
+  fullyPublic: ['/v1/openapi.json'],
 };
 
 /**

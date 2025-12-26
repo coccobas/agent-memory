@@ -64,7 +64,7 @@ export async function wireContext(input: WireContextInput): Promise<AppContext> 
   const serviceDeps: ServiceDependencies = { dbType, pgPool };
 
   // Create services with explicit configuration
-  const services = createServices(config, runtime, db, serviceDeps);
+  const services = await createServices(config, runtime, db, serviceDeps);
 
   // Create query pipeline
   const queryDeps = createQueryPipeline(config, runtime);

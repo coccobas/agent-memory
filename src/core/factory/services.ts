@@ -63,13 +63,13 @@ export interface ServiceOverrides {
  * @param overrides - Optional service overrides for DI (e.g., mock vector store for tests)
  * @returns Service instances
  */
-export function createServices(
+export async function createServices(
   config: Config,
   runtime: Runtime,
   db: AppDb,
   deps?: ServiceDependencies,
   overrides?: ServiceOverrides
-): AppContextServices {
+): Promise<AppContextServices> {
   // Create services with explicit configuration
   const embeddingService = new EmbeddingService({
     provider: config.embedding.provider,
@@ -88,7 +88,8 @@ export function createServices(
       if (!deps?.pgPool) {
         throw new Error('pgvector backend requires PostgreSQL pool (dbType: postgresql)');
       }
-      const { PgVectorStore } = require('../../db/vector-stores/pgvector.js');
+      // Dynamic import for ESM compatibility
+      const { PgVectorStore } = await import('../../db/vector-stores/pgvector.js');
       vectorStore = new PgVectorStore(deps.pgPool, config.vectorDb.distanceMetric);
     } else if (backend === 'lancedb') {
       // Explicitly requested LanceDB
@@ -97,7 +98,8 @@ export function createServices(
       // Auto-detect based on database type
       if (deps?.dbType === 'postgresql' && deps.pgPool) {
         // PostgreSQL mode: use pgvector for unified storage
-        const { PgVectorStore } = require('../../db/vector-stores/pgvector.js');
+        // Dynamic import for ESM compatibility
+        const { PgVectorStore } = await import('../../db/vector-stores/pgvector.js');
         vectorStore = new PgVectorStore(deps.pgPool, config.vectorDb.distanceMetric);
       } else {
         // SQLite mode: use LanceDB (default)

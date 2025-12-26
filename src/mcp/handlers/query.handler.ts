@@ -155,15 +155,16 @@ export const queryHandlers = {
     // Execute query using the modular pipeline with context-injected dependencies
     const result = await executeQueryPipeline(queryParamsWithoutAgent, context.queryDeps);
 
-    // Auto-link results to conversation if conversationId provided
+    // Auto-link results to conversation if conversationId provided (fire-and-forget)
     if (conversationId && autoLinkContext !== false) {
-      try {
-        const conversationService = createConversationService(context.repos.conversations);
-        conversationService.autoLinkContextFromQuery(conversationId, messageId, result);
-      } catch (error) {
-        // Log error but don't break the query response (fire-and-forget)
-        logger.debug({ error, conversationId }, 'Auto-link context failed (non-critical)');
-      }
+      const conversationService = createConversationService(context.repos.conversations);
+      // Use void + .catch() pattern to properly handle async errors without blocking
+      void conversationService
+        .autoLinkContextFromQuery(conversationId, messageId, result)
+        .catch((error) => {
+          // Log error but don't break the query response (non-critical operation)
+          logger.debug({ error, conversationId }, 'Auto-link context failed (non-critical)');
+        });
     }
 
     // Log audit

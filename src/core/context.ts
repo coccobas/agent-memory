@@ -161,7 +161,7 @@ export interface AppContext {
   queryDeps: PipelineDependencies;
   security: SecurityService;
   runtime: Runtime;
-  services?: AppContextServices;
+  services: AppContextServices;
   repos: Repositories;
   /** @deprecated Use `adaptersWithRedis` for Redis lifecycle management */
   adapters?: Adapters;

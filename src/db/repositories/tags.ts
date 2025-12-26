@@ -4,7 +4,7 @@
  * Factory functions that accept DatabaseDeps for dependency injection.
  */
 
-import { eq, and, inArray } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import {
   tags,
   entryTags,
@@ -20,6 +20,7 @@ import {
 } from '../schema.js';
 import { generateId, type PaginationOptions, DEFAULT_LIMIT, MAX_LIMIT } from './base.js';
 import type { DatabaseDeps } from '../../core/types.js';
+import { transactionWithDb } from '../connection.js';
 import type {
   ITagRepository,
   IEntryTagRepository,
@@ -124,21 +125,15 @@ export function createTagRepository(deps: DatabaseDeps): ITagRepository {
     },
 
     async delete(id: string): Promise<boolean> {
-      // Use transaction if sqlite is available (SQLite mode)
-      // For PostgreSQL, run queries directly (Drizzle handles atomicity)
-      const doDelete = () => {
+      // Use transactionWithDb helper for consistent SQLite/PostgreSQL handling
+      return transactionWithDb(sqlite, () => {
         // Remove all entry_tags associations first
         db.delete(entryTags).where(eq(entryTags.tagId, id)).run();
 
         // Delete the tag
         const result = db.delete(tags).where(eq(tags.id, id)).run();
         return result.changes > 0;
-      };
-
-      if (sqlite) {
-        return sqlite.transaction(doDelete)();
-      }
-      return doDelete();
+      });
     },
 
     async seedPredefined(): Promise<void> {
@@ -378,16 +373,20 @@ export function createEntryTagRepository(
     },
 
     async getTagsForEntry(entryType: EntryType, entryId: string): Promise<Tag[]> {
-      const associations = db
-        .select()
-        .from(entryTags)
+      // Optimized: Single query with JOIN instead of two round-trips
+      return db
+        .select({
+          id: tags.id,
+          name: tags.name,
+          category: tags.category,
+          isPredefined: tags.isPredefined,
+          description: tags.description,
+          createdAt: tags.createdAt,
+        })
+        .from(tags)
+        .innerJoin(entryTags, eq(tags.id, entryTags.tagId))
         .where(and(eq(entryTags.entryType, entryType), eq(entryTags.entryId, entryId)))
         .all();
-
-      if (associations.length === 0) return [];
-
-      const tagIds = associations.map((a) => a.tagId);
-      return db.select().from(tags).where(inArray(tags.id, tagIds)).all();
     },
 
     async getEntriesWithTag(tagId: string, entryType?: EntryType): Promise<EntryTag[]> {

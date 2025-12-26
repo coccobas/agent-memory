@@ -56,6 +56,168 @@ const MAX_CONTENT_LENGTH = SIZE_LIMITS.CONTENT_MAX_LENGTH;
 // Maximum length for regex patterns to prevent DoS (from config)
 const MAX_REGEX_PATTERN_LENGTH = config.validation.regexPatternMaxLength;
 
+// =============================================================================
+// BUILT-IN VALIDATION HELPERS
+// =============================================================================
+
+/**
+ * Validate tool entry fields
+ */
+function validateToolEntry(data: Record<string, unknown>, errors: ValidationError[]): void {
+  if (!data.name || typeof data.name !== 'string' || data.name.trim().length === 0) {
+    errors.push({
+      field: 'name',
+      rule: 'builtin:required',
+      message: 'Tool name is required',
+    });
+  } else if (data.name.length > MAX_NAME_LENGTH) {
+    errors.push({
+      field: 'name',
+      rule: 'builtin:maxLength',
+      message: `Tool name must be at most ${MAX_NAME_LENGTH} characters`,
+    });
+  }
+
+  if (data.description && typeof data.description === 'string') {
+    if (data.description.length > MAX_DESCRIPTION_LENGTH) {
+      errors.push({
+        field: 'description',
+        rule: 'builtin:maxLength',
+        message: `Description must be at most ${MAX_DESCRIPTION_LENGTH} characters`,
+      });
+    }
+  }
+}
+
+/**
+ * Validate guideline entry fields
+ */
+function validateGuidelineEntry(data: Record<string, unknown>, errors: ValidationError[]): void {
+  if (!data.name || typeof data.name !== 'string' || data.name.trim().length === 0) {
+    errors.push({
+      field: 'name',
+      rule: 'builtin:required',
+      message: 'Guideline name is required',
+    });
+  } else if (data.name.length > MAX_NAME_LENGTH) {
+    errors.push({
+      field: 'name',
+      rule: 'builtin:maxLength',
+      message: `Guideline name must be at most ${MAX_NAME_LENGTH} characters`,
+    });
+  }
+
+  if (!data.content || typeof data.content !== 'string' || data.content.trim().length === 0) {
+    errors.push({
+      field: 'content',
+      rule: 'builtin:required',
+      message: 'Guideline content is required',
+    });
+  } else if (data.content.length > MAX_CONTENT_LENGTH) {
+    errors.push({
+      field: 'content',
+      rule: 'builtin:maxLength',
+      message: `Content must be at most ${MAX_CONTENT_LENGTH} characters`,
+    });
+  }
+}
+
+/**
+ * Validate knowledge entry fields
+ */
+function validateKnowledgeEntry(data: Record<string, unknown>, errors: ValidationError[]): void {
+  if (!data.title || typeof data.title !== 'string' || data.title.trim().length === 0) {
+    errors.push({
+      field: 'title',
+      rule: 'builtin:required',
+      message: 'Knowledge title is required',
+    });
+  } else if (data.title.length > MAX_NAME_LENGTH) {
+    errors.push({
+      field: 'title',
+      rule: 'builtin:maxLength',
+      message: `Title must be at most ${MAX_NAME_LENGTH} characters`,
+    });
+  }
+
+  if (!data.content || typeof data.content !== 'string' || data.content.trim().length === 0) {
+    errors.push({
+      field: 'content',
+      rule: 'builtin:required',
+      message: 'Knowledge content is required',
+    });
+  } else if (data.content.length > MAX_CONTENT_LENGTH) {
+    errors.push({
+      field: 'content',
+      rule: 'builtin:maxLength',
+      message: `Content must be at most ${MAX_CONTENT_LENGTH} characters`,
+    });
+  }
+}
+
+/**
+ * Validate date fields are valid ISO dates within acceptable range
+ */
+function validateDateFields(data: Record<string, unknown>, errors: ValidationError[]): void {
+  const dateFields = ['validUntil', 'createdAfter', 'createdBefore', 'updatedAfter', 'updatedBefore'];
+
+  for (const field of dateFields) {
+    if (data[field] !== undefined && data[field] !== null) {
+      const dateValue = data[field];
+      if (typeof dateValue === 'string') {
+        try {
+          validateDateRange(dateValue, field);
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : `${field} is invalid`;
+          errors.push({
+            field,
+            rule: 'builtin:dateRange',
+            message: errorMessage,
+          });
+        }
+      } else {
+        errors.push({
+          field,
+          rule: 'builtin:dateType',
+          message: `${field} must be a string`,
+        });
+      }
+    }
+  }
+}
+
+/**
+ * Validate JSON metadata fields are valid
+ */
+function validateJsonFields(data: Record<string, unknown>, errors: ValidationError[]): void {
+  const metadataFields = ['metadata', 'parameters', 'examples'];
+
+  for (const field of metadataFields) {
+    if (data[field] !== undefined && data[field] !== null) {
+      const value = data[field];
+      if (typeof value === 'string') {
+        try {
+          JSON.parse(value);
+        } catch {
+          errors.push({
+            field,
+            rule: 'builtin:jsonFormat',
+            message: `${field} must be valid JSON`,
+          });
+        }
+      } else if (typeof value !== 'object' || Array.isArray(value)) {
+        if (field === 'metadata' && Array.isArray(value)) {
+          errors.push({
+            field,
+            rule: 'builtin:jsonType',
+            message: `${field} must be an object, not an array`,
+          });
+        }
+      }
+    }
+  }
+}
+
 /**
  * Check if a regex pattern is safe (no ReDoS potential).
  * Rejects patterns with nested quantifiers that could cause exponential backtracking.
@@ -437,153 +599,20 @@ async function validateEntryImpl(
     }
   }
 
-  // Built-in validation rules
-  // Required fields and length constraints by entry type
+  // Built-in validation rules by entry type
   if (entryType === 'tool') {
-    if (!data.name || typeof data.name !== 'string' || data.name.trim().length === 0) {
-      errors.push({
-        field: 'name',
-        rule: 'builtin:required',
-        message: 'Tool name is required',
-      });
-    } else if (data.name.length > MAX_NAME_LENGTH) {
-      errors.push({
-        field: 'name',
-        rule: 'builtin:maxLength',
-        message: `Tool name must be at most ${MAX_NAME_LENGTH} characters`,
-      });
-    }
-
-    // Validate description length
-    if (data.description && typeof data.description === 'string') {
-      if (data.description.length > MAX_DESCRIPTION_LENGTH) {
-        errors.push({
-          field: 'description',
-          rule: 'builtin:maxLength',
-          message: `Description must be at most ${MAX_DESCRIPTION_LENGTH} characters`,
-        });
-      }
-    }
+    validateToolEntry(data, errors);
   } else if (entryType === 'guideline') {
-    if (!data.name || typeof data.name !== 'string' || data.name.trim().length === 0) {
-      errors.push({
-        field: 'name',
-        rule: 'builtin:required',
-        message: 'Guideline name is required',
-      });
-    } else if (data.name.length > MAX_NAME_LENGTH) {
-      errors.push({
-        field: 'name',
-        rule: 'builtin:maxLength',
-        message: `Guideline name must be at most ${MAX_NAME_LENGTH} characters`,
-      });
-    }
-
-    if (!data.content || typeof data.content !== 'string' || data.content.trim().length === 0) {
-      errors.push({
-        field: 'content',
-        rule: 'builtin:required',
-        message: 'Guideline content is required',
-      });
-    } else if (data.content.length > MAX_CONTENT_LENGTH) {
-      errors.push({
-        field: 'content',
-        rule: 'builtin:maxLength',
-        message: `Content must be at most ${MAX_CONTENT_LENGTH} characters`,
-      });
-    }
+    validateGuidelineEntry(data, errors);
   } else if (entryType === 'knowledge') {
-    if (!data.title || typeof data.title !== 'string' || data.title.trim().length === 0) {
-      errors.push({
-        field: 'title',
-        rule: 'builtin:required',
-        message: 'Knowledge title is required',
-      });
-    } else if (data.title.length > MAX_NAME_LENGTH) {
-      errors.push({
-        field: 'title',
-        rule: 'builtin:maxLength',
-        message: `Title must be at most ${MAX_NAME_LENGTH} characters`,
-      });
-    }
-
-    if (!data.content || typeof data.content !== 'string' || data.content.trim().length === 0) {
-      errors.push({
-        field: 'content',
-        rule: 'builtin:required',
-        message: 'Knowledge content is required',
-      });
-    } else if (data.content.length > MAX_CONTENT_LENGTH) {
-      errors.push({
-        field: 'content',
-        rule: 'builtin:maxLength',
-        message: `Content must be at most ${MAX_CONTENT_LENGTH} characters`,
-      });
-    }
+    validateKnowledgeEntry(data, errors);
   }
 
   // Validate date formats and ranges
-  const dateFields = [
-    'validUntil',
-    'createdAfter',
-    'createdBefore',
-    'updatedAfter',
-    'updatedBefore',
-  ];
-  for (const field of dateFields) {
-    if (data[field] !== undefined && data[field] !== null) {
-      const dateValue = data[field];
-      if (typeof dateValue === 'string') {
-        try {
-          // Validate date format and range
-          validateDateRange(dateValue, field);
-        } catch (error) {
-          const errorMessage =
-            error instanceof Error ? error.message : `${field} is invalid`;
-          errors.push({
-            field,
-            rule: 'builtin:dateRange',
-            message: errorMessage,
-          });
-        }
-      } else {
-        errors.push({
-          field,
-          rule: 'builtin:dateType',
-          message: `${field} must be a string`,
-        });
-      }
-    }
-  }
+  validateDateFields(data, errors);
 
   // Validate JSON metadata fields
-  const metadataFields = ['metadata', 'parameters', 'examples'];
-  for (const field of metadataFields) {
-    if (data[field] !== undefined && data[field] !== null) {
-      const value = data[field];
-      if (typeof value === 'string') {
-        // Try to parse as JSON
-        try {
-          JSON.parse(value);
-        } catch {
-          errors.push({
-            field,
-            rule: 'builtin:jsonFormat',
-            message: `${field} must be valid JSON`,
-          });
-        }
-      } else if (typeof value !== 'object' || Array.isArray(value)) {
-        // If not a string, it should be an object (not array)
-        if (field === 'metadata' && Array.isArray(value)) {
-          errors.push({
-            field,
-            rule: 'builtin:jsonType',
-            message: `${field} must be an object, not an array`,
-          });
-        }
-      }
-    }
-  }
+  validateJsonFields(data, errors);
 
   return {
     valid: errors.length === 0,
