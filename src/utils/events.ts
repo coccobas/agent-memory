@@ -3,9 +3,13 @@
  *
  * Provides a centralized event system for propagating entry changes
  * to cache layers without tight coupling between repositories and caches.
+ *
+ * The EventBus class implements IEventAdapterExtended for multi-instance
+ * cache coordination compatibility.
  */
 
 import type { ScopeType } from '../db/schema.js';
+import type { IEventAdapterExtended } from '../core/interfaces/event-adapter.js';
 import { createComponentLogger } from './logger.js';
 
 const logger = createComponentLogger('events');
@@ -30,12 +34,19 @@ export type EntryChangedHandler = (event: EntryChangedEvent) => void;
 // EVENT BUS IMPLEMENTATION
 // =============================================================================
 
-class EventBus {
+/**
+ * EventBus implements IEventAdapterExtended for multi-instance
+ * cache coordination. This is the local (single-instance) implementation.
+ *
+ * For distributed deployments, use RedisEventAdapter which provides
+ * cross-instance event propagation via Redis pub/sub.
+ */
+class EventBus implements IEventAdapterExtended {
   private handlers: Set<EntryChangedHandler> = new Set();
 
   /**
-   * Subscribe to entry change events
-   * Returns an unsubscribe function
+   * Subscribe to entry change events.
+   * Returns an unsubscribe function.
    */
   subscribe(handler: EntryChangedHandler): () => void {
     this.handlers.add(handler);
@@ -45,7 +56,7 @@ class EventBus {
   }
 
   /**
-   * Emit an entry changed event
+   * Emit an entry changed event to all subscribers.
    */
   emit(event: EntryChangedEvent): void {
     for (const handler of this.handlers) {
@@ -66,14 +77,22 @@ class EventBus {
   }
 
   /**
-   * Clear all handlers (for testing)
+   * Clear all handlers (for testing).
    */
   clear(): void {
     this.handlers.clear();
   }
 
   /**
-   * Get the number of registered handlers (for testing)
+   * Get the number of registered handlers.
+   */
+  subscriberCount(): number {
+    return this.handlers.size;
+  }
+
+  /**
+   * Get the number of registered handlers (legacy accessor).
+   * @deprecated Use subscriberCount() method instead
    */
   get handlerCount(): number {
     return this.handlers.size;

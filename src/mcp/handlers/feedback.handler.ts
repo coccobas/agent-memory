@@ -15,7 +15,7 @@ import {
   isArrayOfStrings,
 } from '../../utils/type-guards.js';
 import { createValidationError } from '../../core/errors.js';
-import type { ExportParams } from '../../services/feedback/types.js';
+import type { ExportParams, EntryType, OutcomeType } from '../../services/feedback/types.js';
 
 // =============================================================================
 // HANDLERS
@@ -138,8 +138,8 @@ async function exportTrainingData(
     endDate,
     onlyWithOutcomes,
     limit,
-    entryTypes: entryTypes as any,
-    outcomeTypes: outcomeTypes as any,
+    entryTypes: entryTypes as EntryType[] | undefined,
+    outcomeTypes: outcomeTypes as OutcomeType[] | undefined,
   };
 
   const data = await feedbackService.exportTrainingData(exportParams);

@@ -8,7 +8,10 @@ import type { PipelineDependencies } from '../services/query/pipeline.js';
 import type { Runtime } from './runtime.js';
 import type { Repositories } from './interfaces/repositories.js';
 import type { AppDb } from './types.js';
-import type { Adapters } from './adapters/index.js';
+import type { Adapters, AdaptersWithRedis, IEventAdapter, ICacheAdapter } from './adapters/index.js';
+import type { EntryChangedEvent } from '../utils/events.js';
+import type { FeedbackService } from '../services/feedback/index.js';
+import type { FeedbackQueueProcessor } from '../services/feedback/queue.js';
 
 /**
  * Service interfaces for AppContext
@@ -125,6 +128,21 @@ export interface AppContextServices {
   permission: PermissionService; // Required - all code paths must have permission service
   verification?: VerificationService;
   summarization?: IHierarchicalSummarizationService;
+  /** Feedback service for RL training data collection */
+  feedback?: FeedbackService;
+  /** Feedback queue processor for batched retrieval recording */
+  feedbackQueue?: FeedbackQueueProcessor;
+}
+
+/**
+ * Unified adapter interface for handler injection.
+ * Provides access to event and cache adapters with a consistent interface.
+ */
+export interface UnifiedAdapters {
+  /** Event adapter - automatically uses Redis or local based on availability */
+  event: IEventAdapter<EntryChangedEvent>;
+  /** Cache adapter - optional, uses Redis when available */
+  cache?: ICacheAdapter;
 }
 
 /**
@@ -145,6 +163,18 @@ export interface AppContext {
   runtime: Runtime;
   services?: AppContextServices;
   repos: Repositories;
-  /** Adapter layer for storage, cache, locks, and events */
+  /** @deprecated Use `adaptersWithRedis` for Redis lifecycle management */
   adapters?: Adapters;
+  /**
+   * Adapter layer with Redis auto-detection and lifecycle management.
+   * Use `adaptersWithRedis.connectRedis()` during startup to enable Redis.
+   * Falls back to local adapters if Redis is unavailable.
+   */
+  adaptersWithRedis?: AdaptersWithRedis;
+  /**
+   * Unified adapters for handler injection.
+   * Provides a simplified interface for accessing event and cache adapters.
+   * Automatically resolves to Redis or local based on availability.
+   */
+  unifiedAdapters?: UnifiedAdapters;
 }

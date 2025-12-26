@@ -67,15 +67,15 @@ describe('REST API Server', () => {
   });
 
   describe('createServer', () => {
-    it('should create a Fastify instance', () => {
-      app = createServer(mockContext);
+    it('should create a Fastify instance', async () => {
+      app = await createServer(mockContext);
 
       expect(app).toBeDefined();
       expect(app.server).toBeDefined();
     });
 
-    it('should configure request timeout', () => {
-      app = createServer(mockContext);
+    it('should configure request timeout', async () => {
+      app = await createServer(mockContext);
 
       // Server should be configured (options aren't directly accessible, but it should work)
       expect(app).toBeDefined();
@@ -84,7 +84,7 @@ describe('REST API Server', () => {
 
   describe('Health endpoint', () => {
     it('should return health status', async () => {
-      app = createServer(mockContext);
+      app = await createServer(mockContext);
       await app.ready();
 
       const response = await app.inject({
@@ -104,7 +104,7 @@ describe('REST API Server', () => {
         retryAfterMs: 5000,
       });
 
-      app = createServer(mockContext);
+      app = await createServer(mockContext);
       await app.ready();
 
       const response = await app.inject({
@@ -119,7 +119,7 @@ describe('REST API Server', () => {
 
   describe('Metrics endpoint', () => {
     it('should return Prometheus metrics', async () => {
-      app = createServer(mockContext);
+      app = await createServer(mockContext);
       await app.ready();
 
       const response = await app.inject({
@@ -135,7 +135,7 @@ describe('REST API Server', () => {
 
   describe('Request ID tracing', () => {
     it('should generate request ID if not provided', async () => {
-      app = createServer(mockContext);
+      app = await createServer(mockContext);
       await app.ready();
 
       const response = await app.inject({
@@ -148,7 +148,7 @@ describe('REST API Server', () => {
     });
 
     it('should use provided request ID', async () => {
-      app = createServer(mockContext);
+      app = await createServer(mockContext);
       await app.ready();
 
       const customId = 'custom-request-id-123';
@@ -166,7 +166,7 @@ describe('REST API Server', () => {
 
   describe('Content-Type validation', () => {
     it('should accept application/json for POST requests', async () => {
-      app = createServer(mockContext);
+      app = await createServer(mockContext);
       await app.ready();
 
       // This will hit the authentication layer first
@@ -185,7 +185,7 @@ describe('REST API Server', () => {
     });
 
     it('should reject non-JSON content type for POST requests', async () => {
-      app = createServer(mockContext);
+      app = await createServer(mockContext);
       await app.ready();
 
       const response = await app.inject({
@@ -204,7 +204,7 @@ describe('REST API Server', () => {
     });
 
     it('should skip content-type validation for GET requests', async () => {
-      app = createServer(mockContext);
+      app = await createServer(mockContext);
       await app.ready();
 
       const response = await app.inject({
@@ -216,7 +216,7 @@ describe('REST API Server', () => {
     });
 
     it('should skip content-type validation for OPTIONS requests', async () => {
-      app = createServer(mockContext);
+      app = await createServer(mockContext);
       await app.ready();
 
       const response = await app.inject({
@@ -231,7 +231,7 @@ describe('REST API Server', () => {
 
   describe('Authentication', () => {
     it('should skip auth for health endpoint', async () => {
-      app = createServer(mockContext);
+      app = await createServer(mockContext);
       await app.ready();
 
       const response = await app.inject({
@@ -244,7 +244,7 @@ describe('REST API Server', () => {
     });
 
     it('should skip auth for metrics endpoint', async () => {
-      app = createServer(mockContext);
+      app = await createServer(mockContext);
       await app.ready();
 
       const response = await app.inject({
@@ -262,7 +262,7 @@ describe('REST API Server', () => {
         statusCode: 401,
       });
 
-      app = createServer(mockContext);
+      app = await createServer(mockContext);
       await app.ready();
 
       const response = await app.inject({
@@ -287,7 +287,7 @@ describe('REST API Server', () => {
         rateLimitInfo: { limit: 100, remaining: 0, reset: Date.now() + 60000 },
       });
 
-      app = createServer(mockContext);
+      app = await createServer(mockContext);
       await app.ready();
 
       const response = await app.inject({
@@ -309,7 +309,7 @@ describe('REST API Server', () => {
         context: { agentId: 'my-agent' },
       });
 
-      app = createServer(mockContext);
+      app = await createServer(mockContext);
       await app.ready();
 
       // The agentId would be attached but we can verify the response is authorized
@@ -334,7 +334,7 @@ describe('REST API Server', () => {
         rateLimitInfo: { limit: 100, remaining: 95, reset: 1234567890 },
       });
 
-      app = createServer(mockContext);
+      app = await createServer(mockContext);
       await app.ready();
 
       const response = await app.inject({
@@ -355,7 +355,7 @@ describe('REST API Server', () => {
   describe('Error handling', () => {
     it('should map errors to appropriate responses', async () => {
       // Create a route that throws an error
-      app = createServer(mockContext);
+      app = await createServer(mockContext);
 
       // Add a test route that throws
       app.get('/v1/error-test', async () => {
@@ -384,7 +384,7 @@ describe('REST API Server', () => {
     });
 
     it('should include request ID in error logging', async () => {
-      app = createServer(mockContext);
+      app = await createServer(mockContext);
 
       app.get('/v1/logged-error', async () => {
         throw new Error('Logged error');
@@ -412,7 +412,7 @@ describe('REST API Server', () => {
 
   describe('Security headers', () => {
     it('should include security headers from helmet', async () => {
-      app = createServer(mockContext);
+      app = await createServer(mockContext);
       await app.ready();
 
       const response = await app.inject({
@@ -432,7 +432,7 @@ describe('REST API Server', () => {
       const originalEnv = process.env.AGENT_MEMORY_REST_CORS_ORIGINS;
       process.env.AGENT_MEMORY_REST_CORS_ORIGINS = 'http://localhost:3000';
 
-      app = createServer(mockContext);
+      app = await createServer(mockContext);
       await app.ready();
 
       const response = await app.inject({
@@ -458,7 +458,7 @@ describe('REST API Server', () => {
 
   describe('Body limit', () => {
     it('should reject oversized request bodies', async () => {
-      app = createServer(mockContext);
+      app = await createServer(mockContext);
       await app.ready();
 
       vi.mocked(mockContext.security.validateRequest).mockResolvedValueOnce({

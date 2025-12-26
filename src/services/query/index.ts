@@ -17,6 +17,8 @@
 
 export * from './pipeline.js';
 export * from './stages/index.js';
+export * from './entity-extractor.js';
+export * from './entity-index.js';
 
 import type { MemoryQueryParams } from '../../core/types.js';
 import type { MemoryQueryResult, PipelineContext, PipelineDependencies } from './pipeline.js';
@@ -24,12 +26,14 @@ import { createPipelineContext, buildQueryResult } from './pipeline.js';
 import { resolveStage } from './stages/resolve.js';
 import { ftsStage } from './stages/fts.js';
 import { relationsStage } from './stages/relations.js';
-import { fetchStage } from './stages/fetch.js';
+import { fetchStage, fetchStageAsync } from './stages/fetch.js';
 import { tagsStage, postFilterTagsStage } from './stages/tags.js';
 import { filterStage } from './stages/filter.js';
+import { feedbackStage, feedbackStageAsync } from './stages/feedback.js';
 import { scoreStage } from './stages/score.js';
 import { formatStage } from './stages/format.js';
 import { getFeedbackService } from '../feedback/index.js';
+import { getFeedbackQueue } from '../feedback/queue.js';
 
 // Import from modular submodules (avoids circular dependency with query.service.ts)
 import { resolveScopeChain } from './scope-chain.js';
@@ -238,7 +242,8 @@ export function createDependencies(options: QueryPipelineOptions): PipelineDepen
 /**
  * Record retrievals for RL feedback collection (fire-and-forget)
  *
- * This runs asynchronously and does not block the query response.
+ * This uses the feedback queue for backpressure-controlled processing.
+ * Falls back to async recording if the queue is not available or full.
  * Failures are logged but do not affect query execution.
  */
 function recordRetrievalsForFeedback(
@@ -252,26 +257,41 @@ function recordRetrievalsForFeedback(
   const sessionId = (params as Record<string, unknown>).sessionId as string | undefined;
   if (!sessionId) return;
 
+  // Build the batch of retrieval params
+  const batch = result.results.map((r, idx) => ({
+    sessionId,
+    queryText: params.search,
+    entryType: r.type as 'tool' | 'guideline' | 'knowledge' | 'experience',
+    entryId: r.id,
+    retrievalRank: idx + 1,
+    retrievalScore: r.score ?? 0,
+    semanticScore: (r as unknown as Record<string, unknown>).semanticScore as number | undefined,
+  }));
+
+  // Try to use the feedback queue (preferred - has backpressure)
+  const queue = getFeedbackQueue();
+  if (queue && queue.isAccepting()) {
+    const enqueued = queue.enqueue(batch);
+    if (enqueued) {
+      return; // Successfully queued
+    }
+    // Queue rejected (full) - fall through to fallback
+  }
+
+  // Fallback: use feedback service directly if queue unavailable or full
   const feedbackService = getFeedbackService();
   if (!feedbackService) return;
 
-  // Fire-and-forget async recording
+  // Fire-and-forget async recording (graceful degradation)
   setImmediate(async () => {
     try {
-      await feedbackService.recordRetrievalBatch(
-        result.results.map((r, idx) => ({
-          sessionId,
-          queryText: params.search,
-          entryType: r.type as 'tool' | 'guideline' | 'knowledge' | 'experience',
-          entryId: r.id,
-          retrievalRank: idx + 1,
-          retrievalScore: r.score ?? 0,
-          semanticScore: (r as unknown as Record<string, unknown>).semanticScore as number | undefined,
-        }))
-      );
+      await feedbackService.recordRetrievalBatch(batch);
     } catch (error) {
-      // Silently ignore - feedback collection should never break queries
-      // Could add logging here if needed for debugging
+      // Feedback collection should never break queries - log for debugging only
+      // Using process.env check to avoid import cycle with logger
+      if (process.env.AGENT_MEMORY_LOG_LEVEL === 'debug' || process.env.AGENT_MEMORY_DEBUG === 'true') {
+        console.debug('[query] Feedback recording failed (non-fatal):', error instanceof Error ? error.message : error);
+      }
     }
   });
 }
@@ -341,8 +361,11 @@ export function executeQueryPipelineSync(
     filteredCtx = postFilterTagsStage(filteredCtx);
   }
 
-  // Run score stage (uses filtered property)
-  const scoredCtx = scoreStage(filteredCtx);
+  // Load feedback scores for filtered entries (for feedback-based scoring)
+  const feedbackCtx = feedbackStage(filteredCtx);
+
+  // Run score stage (uses filtered property and feedbackScores)
+  const scoredCtx = scoreStage(feedbackCtx);
 
   // Run format stage
   const formattedCtx = formatStage(scoredCtx);
@@ -377,17 +400,127 @@ export function executeQueryPipelineSync(
 }
 
 /**
- * Async query pipeline execution
+ * Async query pipeline execution (core implementation)
  *
- * Wraps the synchronous implementation for async API compatibility.
- * All pipeline stages are currently synchronous, so this is a thin wrapper.
+ * Features:
+ * - Query result caching (respects cache from deps)
+ * - Performance logging (when deps.perfLog is true)
+ * - Dependency injection for testability
+ * - Parallel database fetches via async stages
+ * - Async feedback loading with DB fallback
  *
  * @param params - Query parameters
  * @param deps - Dependencies (use createDependencies() to create)
  */
-export function executeQueryPipeline(
+export async function executeQueryPipelineAsync(
   params: MemoryQueryParams,
   deps: PipelineDependencies
-): MemoryQueryResult {
-  return executeQueryPipelineSync(params, deps);
+): Promise<MemoryQueryResult> {
+  const startMs = deps.perfLog ? Date.now() : 0;
+
+  // Check cache first
+  const cacheKey = deps.cache?.getCacheKey(params) ?? null;
+  if (cacheKey && deps.cache) {
+    const cached = deps.cache.get(cacheKey);
+    if (cached) {
+      if (deps.perfLog && deps.logger) {
+        deps.logger.debug(
+          {
+            scopeType: params.scope?.type ?? 'none',
+            resultsCount: cached.results.length,
+          },
+          'pipeline_query CACHE_HIT'
+        );
+      }
+      return cached;
+    }
+  }
+
+  const initialCtx = createPipelineContext(params, deps);
+
+  // Determine if tag filtering is required
+  const needsTagFiltering = !!(
+    params.tags?.require?.length ||
+    params.tags?.exclude?.length ||
+    params.tags?.include?.length
+  );
+
+  // Run pipeline stages with async support
+  let ctx: PipelineContext = initialCtx;
+
+  // Synchronous stages (pure computation or already optimized)
+  ctx = resolveStage(ctx);
+  ctx = ftsStage(ctx);
+  ctx = relationsStage(ctx);
+
+  // Async fetch stage - parallel per-type fetching
+  ctx = await fetchStageAsync(ctx);
+
+  // Conditional stage ordering for tag loading optimization:
+  // - If tag filtering is needed: load tags BEFORE filtering (current behavior)
+  // - Otherwise: filter first, then load tags only for filtered entries (optimization)
+  let filteredCtx: PipelineContext;
+  if (needsTagFiltering) {
+    // Load all tags, then filter (tags needed for filtering)
+    ctx = tagsStage(ctx);
+    filteredCtx = filterStage(ctx);
+  } else {
+    // Filter first, then load tags only for filtered entries (memory optimization)
+    filteredCtx = filterStage(ctx);
+    filteredCtx = postFilterTagsStage(filteredCtx);
+  }
+
+  // Async feedback stage - DB fallback for cache misses
+  const feedbackCtx = await feedbackStageAsync(filteredCtx);
+
+  // Run score stage (uses filtered property and feedbackScores)
+  const scoredCtx = scoreStage(feedbackCtx);
+
+  // Run format stage
+  const formattedCtx = formatStage(scoredCtx);
+
+  const result = buildQueryResult(formattedCtx);
+
+  // Record retrievals for RL feedback (fire-and-forget, non-blocking)
+  recordRetrievalsForFeedback(params, result);
+
+  // Cache the result
+  if (cacheKey && deps.cache) {
+    deps.cache.set(cacheKey, result);
+  }
+
+  // Performance logging
+  if (deps.perfLog && deps.logger) {
+    const durationMs = Date.now() - startMs;
+    deps.logger.info(
+      {
+        scopeType: params.scope?.type ?? 'none',
+        types: (params.types ?? ['tools', 'guidelines', 'knowledge']).join(','),
+        resultsCount: result.results.length,
+        totalCount: result.meta.totalCount,
+        durationMs,
+        cached: false,
+        async: true, // Mark as async execution for monitoring
+      },
+      'pipeline_query performance'
+    );
+  }
+
+  return result;
+}
+
+/**
+ * Async query pipeline execution (primary entry point)
+ *
+ * Uses async stages for improved performance via parallel fetching
+ * and async feedback loading.
+ *
+ * @param params - Query parameters
+ * @param deps - Dependencies (use createDependencies() to create)
+ */
+export async function executeQueryPipeline(
+  params: MemoryQueryParams,
+  deps: PipelineDependencies
+): Promise<MemoryQueryResult> {
+  return executeQueryPipelineAsync(params, deps);
 }

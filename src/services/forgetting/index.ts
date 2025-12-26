@@ -9,8 +9,9 @@
  */
 
 import { eq, and } from 'drizzle-orm';
-import { tools, guidelines, knowledge } from '../../db/schema/memory.js';
-import { experiences } from '../../db/schema/experiences.js';
+import { tools, guidelines, knowledge, type Tool, type Guideline, type Knowledge } from '../../db/schema/memory.js';
+import { experiences, type Experience } from '../../db/schema/experiences.js';
+import type { ScopeType } from '../../db/schema/types.js';
 import { createComponentLogger } from '../../utils/logger.js';
 import type { DbClient } from '../../db/connection.js';
 import type {
@@ -23,6 +24,68 @@ import type {
   EntryType,
   ForgettingStrategy,
 } from './types.js';
+
+/**
+ * Union type of all memory entry types for forgetting service
+ */
+type MemoryEntry = Tool | Guideline | Knowledge | Experience;
+
+/**
+ * Helper to safely get priority from an entry (only guidelines have it)
+ */
+function getEntryPriority(entry: MemoryEntry): number | null {
+  return 'priority' in entry ? entry.priority : null;
+}
+
+/**
+ * Helper to safely get confidence from an entry (knowledge and experience have it)
+ */
+function getEntryConfidence(entry: MemoryEntry): number | null {
+  if ('confidence' in entry && typeof entry.confidence === 'number') {
+    return entry.confidence;
+  }
+  return null;
+}
+
+/**
+ * Helper to safely check if entry is critical (guidelines only)
+ */
+function getEntryIsCritical(entry: MemoryEntry): boolean | null {
+  if ('isCritical' in entry && typeof entry.isCritical === 'boolean') {
+    return entry.isCritical;
+  }
+  return null;
+}
+
+/**
+ * Helper to get name/title from an entry
+ */
+function getEntryName(entry: MemoryEntry, entryType: EntryType): string {
+  if (entryType === 'knowledge' || entryType === 'experience') {
+    return (entry as Knowledge | Experience).title;
+  }
+  return (entry as Tool | Guideline).name;
+}
+
+/**
+ * Helper to get use count for experiences
+ */
+function getEntryUseCount(entry: MemoryEntry, entryType: EntryType): number | null {
+  if (entryType === 'experience') {
+    return (entry as Experience).useCount;
+  }
+  return null;
+}
+
+/**
+ * Helper to get success count for experiences
+ */
+function getEntrySuccessCount(entry: MemoryEntry, entryType: EntryType): number | null {
+  if (entryType === 'experience') {
+    return (entry as Experience).successCount;
+  }
+  return null;
+}
 import {
   calculateRecencyScore,
   shouldForgetByRecency,
@@ -220,13 +283,12 @@ async function analyzeEntryType(
   config: ForgettingConfig
 ): Promise<{ candidates: ForgettingCandidate[]; analyzed: number }> {
   const table = getTableForType(entryType);
-  const nameField = entryType === 'knowledge' || entryType === 'experience' ? 'title' : 'name';
 
   // Build query conditions
   const conditions = [eq(table.isActive, true)];
 
   if (params.scopeType) {
-    conditions.push(eq(table.scopeType, params.scopeType as any));
+    conditions.push(eq(table.scopeType, params.scopeType as ScopeType));
   }
   if (params.scopeId) {
     conditions.push(eq(table.scopeId, params.scopeId));
@@ -256,12 +318,13 @@ async function analyzeEntryType(
       params.minAccessCount ?? config.frequency.minAccessCount
     );
 
+    const typedEntry = entry as MemoryEntry;
     const importanceInput = {
-      priority: (entry as any).priority ?? null,
-      confidence: (entry as any).confidence ?? null,
-      isCritical: (entry as any).isCritical ?? null,
-      accessCount: entryType === 'experience' ? (entry as any).useCount : accessCount,
-      successCount: entryType === 'experience' ? (entry as any).successCount : null,
+      priority: getEntryPriority(typedEntry),
+      confidence: getEntryConfidence(typedEntry),
+      isCritical: getEntryIsCritical(typedEntry),
+      accessCount: getEntryUseCount(typedEntry, entryType) ?? accessCount,
+      successCount: getEntrySuccessCount(typedEntry, entryType),
     };
 
     const importanceScore = calculateImportanceScore(importanceInput);
@@ -297,15 +360,15 @@ async function analyzeEntryType(
       candidates.push({
         id: entry.id,
         entryType,
-        name: (entry as any)[nameField],
+        name: getEntryName(typedEntry, entryType),
         scopeType: entry.scopeType,
         scopeId: entry.scopeId,
         createdAt: entry.createdAt,
         lastAccessedAt,
         accessCount,
-        priority: (entry as any).priority,
-        confidence: (entry as any).confidence,
-        isCritical: (entry as any).isCritical,
+        priority: getEntryPriority(typedEntry) ?? undefined,
+        confidence: getEntryConfidence(typedEntry) ?? undefined,
+        isCritical: getEntryIsCritical(typedEntry) ?? undefined,
         scores: {
           recency: recencyScore,
           frequency: frequencyScore,
@@ -429,7 +492,8 @@ async function deactivateEntry(
   agentId?: string
 ): Promise<void> {
   const table = getTableForType(entryType);
-  await db.update(table).set({ isActive: false } as any).where(eq(table.id, id));
+  // All entry tables have isActive column - use type assertion for union table type
+  await db.update(table).set({ isActive: false } as Partial<MemoryEntry>).where(eq(table.id, id));
   logger.info({ entryType, id, agentId }, 'Entry forgotten (deactivated)');
 }
 

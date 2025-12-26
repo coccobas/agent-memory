@@ -12,6 +12,7 @@ import type {
   ForgettingStrategy,
   EntryType,
 } from '../../services/forgetting/types.js';
+import { createInvalidActionError } from '../errors.js';
 
 // =============================================================================
 // TYPES
@@ -47,7 +48,7 @@ interface StatusInput {
   action: 'status';
 }
 
-type ForgettingInput = AnalyzeInput | ForgetInput | StatusInput;
+export type ForgettingInput = AnalyzeInput | ForgetInput | StatusInput;
 
 // =============================================================================
 // HANDLERS
@@ -130,6 +131,10 @@ export async function handleForgetting(
     case 'status':
       return forgettingHandlers.status(context, input);
     default:
-      throw new Error(`Unknown action: ${(input as any).action}`);
+      throw createInvalidActionError('memory_forget', (input as { action: string }).action, [
+        'analyze',
+        'forget',
+        'status',
+      ]);
   }
 }

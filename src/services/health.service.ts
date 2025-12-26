@@ -15,6 +15,10 @@ import { config } from '../config/index.js';
 import { createComponentLogger } from '../utils/logger.js';
 import { getAllCircuitBreakerStats } from '../utils/circuit-breaker.js';
 import type { IStorageAdapter } from '../core/adapters/interfaces.js';
+import {
+  getHealthMonitor as containerGetHealthMonitor,
+  resetHealthMonitor as containerResetHealthMonitor,
+} from '../core/container.js';
 
 const logger = createComponentLogger('health');
 
@@ -445,27 +449,27 @@ export class HealthMonitor {
 }
 
 // =============================================================================
-// SINGLETON INSTANCE
+// SINGLETON INSTANCE (delegated to Container for test isolation)
 // =============================================================================
-
-let healthMonitor: HealthMonitor | null = null;
 
 /**
  * Get or create the health monitor singleton
+ * Uses Container for storage to enable test isolation
  */
 export function getHealthMonitor(): HealthMonitor {
-  if (!healthMonitor) {
-    healthMonitor = new HealthMonitor();
+  const existing = containerGetHealthMonitor() as HealthMonitor | null;
+  if (existing) {
+    return existing;
   }
-  return healthMonitor;
+  // Create new health monitor and register with container
+  const monitor = new HealthMonitor();
+  containerGetHealthMonitor(() => monitor);
+  return monitor;
 }
 
 /**
  * Reset the health monitor (for testing)
  */
 export function resetHealthMonitor(): void {
-  if (healthMonitor) {
-    healthMonitor.stopPeriodicChecks();
-  }
-  healthMonitor = null;
+  containerResetHealthMonitor();
 }

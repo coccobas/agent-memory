@@ -62,7 +62,7 @@ export async function setupMockHierarchy(db: AppDb): Promise<MockHierarchy> {
       title: domain.title,
       content: `High-level summary of ${domain.title}`,
       memberCount: 0,
-      embedding: JSON.stringify(domain.embedding) as any,
+      embedding: domain.embedding,
       embeddingDimension: 3,
       isActive: true,
       needsRegeneration: false,
@@ -98,7 +98,7 @@ export async function setupMockHierarchy(db: AppDb): Promise<MockHierarchy> {
       title: topic.title,
       content: `Topic summary for ${topic.title}`,
       memberCount: 0,
-      embedding: JSON.stringify(topic.embedding) as any,
+      embedding: topic.embedding,
       embeddingDimension: 3,
       isActive: true,
       needsRegeneration: false,
@@ -145,7 +145,7 @@ export async function setupMockHierarchy(db: AppDb): Promise<MockHierarchy> {
       title: chunk.title,
       content: `Chunk summary for ${chunk.title}`,
       memberCount: 0,
-      embedding: JSON.stringify(chunk.embedding) as any,
+      embedding: chunk.embedding,
       embeddingDimension: 3,
       isActive: true,
       needsRegeneration: false,
@@ -168,16 +168,16 @@ export async function setupMockHierarchy(db: AppDb): Promise<MockHierarchy> {
 
   // Base entries
   const entries = [
-    { id: 'guideline-jwt-1', chunkId: 'chunk-jwt', type: 'guideline' },
-    { id: 'guideline-jwt-2', chunkId: 'chunk-jwt', type: 'guideline' },
-    { id: 'knowledge-migration-1', chunkId: 'chunk-migrations', type: 'knowledge' },
+    { id: 'guideline-jwt-1', chunkId: 'chunk-jwt', type: 'guideline' as const },
+    { id: 'guideline-jwt-2', chunkId: 'chunk-jwt', type: 'guideline' as const },
+    { id: 'knowledge-migration-1', chunkId: 'chunk-migrations', type: 'knowledge' as const },
   ];
 
   for (const entry of entries) {
     db.insert(summaryMembers).values({
       id: `member-${entry.id}`,
       summaryId: entry.chunkId,
-      memberType: entry.type as any,
+      memberType: entry.type,
       memberId: entry.id,
       contributionScore: 0.8,
       displayOrder: 0,

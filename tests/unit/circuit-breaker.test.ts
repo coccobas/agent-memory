@@ -609,9 +609,14 @@ describe('CircuitBreaker', () => {
       const breaker = new CircuitBreaker(config);
       const fn = vi.fn().mockRejectedValue('string error');
 
-      // Non-Error objects should be propagated but not counted (isFailure expects Error)
-      await expect(breaker.execute(fn)).rejects.toBe('string error');
-      expect(breaker.getStats().failures).toBe(0);
+      // Non-Error values are now converted to Error and wrapped with context
+      // This provides better debugging information for non-standard throws
+      await expect(breaker.execute(fn)).rejects.toMatchObject({
+        name: 'CircuitBreakerWrappedError',
+        message: expect.stringContaining('string error'),
+      });
+      // Non-Error values now count as failures since they're converted to Error
+      expect(breaker.getStats().failures).toBe(1);
       expect(breaker.getStats().state).toBe('CLOSED');
     });
 

@@ -4,12 +4,13 @@
  * CRUD operations for memory_retrievals table
  */
 
-import { eq, and, desc, gte, lte } from 'drizzle-orm';
+import { eq, and, desc, gte, lte, inArray } from 'drizzle-orm';
 import type { DrizzleDb } from '../../../db/repositories/base.js';
 import { generateId, now } from '../../../db/repositories/base.js';
 import {
   memoryRetrievals,
   retrievalOutcomes,
+  taskOutcomes,
   type MemoryRetrieval,
   type NewMemoryRetrieval,
 } from '../../../db/schema/feedback.js';
@@ -174,6 +175,219 @@ export class RetrievalRepository {
 
     return retrievals;
   }
+}
+
+/**
+ * Feedback score for an entry (positive/negative count from task outcomes)
+ */
+export interface EntryFeedbackScore {
+  positiveCount: number;
+  negativeCount: number;
+  netScore: number;
+}
+
+/**
+ * Get aggregated feedback scores for a memory entry.
+ *
+ * This joins through:
+ * - memory_retrievals (to find retrievals of this entry)
+ * - retrieval_outcomes (to link retrievals to outcomes)
+ * - task_outcomes (to get success/failure status)
+ *
+ * A positive outcome contributes +1, a failure outcome contributes -1.
+ * Partial outcomes contribute +0.5.
+ */
+export async function getEntryFeedback(
+  db: DrizzleDb,
+  entryType: MemoryRetrieval['entryType'],
+  entryId: string
+): Promise<EntryFeedbackScore> {
+  // Get all retrievals for this entry
+  const entryRetrievals = db
+    .select({ id: memoryRetrievals.id })
+    .from(memoryRetrievals)
+    .where(
+      and(
+        eq(memoryRetrievals.entryType, entryType),
+        eq(memoryRetrievals.entryId, entryId)
+      )
+    )
+    .all();
+
+  if (entryRetrievals.length === 0) {
+    return { positiveCount: 0, negativeCount: 0, netScore: 0 };
+  }
+
+  const retrievalIds = entryRetrievals.map((r) => r.id);
+
+  // Get all retrieval-outcome links for these retrievals
+  const links = db
+    .select({
+      retrievalId: retrievalOutcomes.retrievalId,
+      outcomeId: retrievalOutcomes.outcomeId,
+      contributionScore: retrievalOutcomes.contributionScore,
+    })
+    .from(retrievalOutcomes)
+    .where(inArray(retrievalOutcomes.retrievalId, retrievalIds))
+    .all();
+
+  if (links.length === 0) {
+    return { positiveCount: 0, negativeCount: 0, netScore: 0 };
+  }
+
+  // Get unique outcome IDs
+  const outcomeIds = [...new Set(links.map((l) => l.outcomeId))];
+
+  // Fetch the outcomes
+  const outcomes = db
+    .select({
+      id: taskOutcomes.id,
+      outcomeType: taskOutcomes.outcomeType,
+    })
+    .from(taskOutcomes)
+    .where(inArray(taskOutcomes.id, outcomeIds))
+    .all();
+
+  // Build a map of outcome ID -> outcome type
+  const outcomeTypeMap = new Map(outcomes.map((o) => [o.id, o.outcomeType]));
+
+  // Count positive and negative outcomes
+  let positiveCount = 0;
+  let negativeCount = 0;
+
+  for (const link of links) {
+    const outcomeType = outcomeTypeMap.get(link.outcomeId);
+    if (!outcomeType) continue;
+
+    if (outcomeType === 'success') {
+      positiveCount++;
+    } else if (outcomeType === 'failure') {
+      negativeCount++;
+    } else if (outcomeType === 'partial') {
+      // Partial counts as 0.5 positive (we'll round at the end)
+      positiveCount += 0.5;
+    }
+    // 'unknown' outcomes don't contribute
+  }
+
+  // Round the counts in case of partial contributions
+  positiveCount = Math.round(positiveCount);
+  negativeCount = Math.round(negativeCount);
+
+  return {
+    positiveCount,
+    negativeCount,
+    netScore: positiveCount - negativeCount,
+  };
+}
+
+/**
+ * Get feedback scores for multiple entries in batch.
+ * More efficient than calling getEntryFeedback for each entry.
+ */
+export async function getEntryFeedbackBatch(
+  db: DrizzleDb,
+  entries: Array<{ entryType: MemoryRetrieval['entryType']; entryId: string }>
+): Promise<Map<string, EntryFeedbackScore>> {
+  const result = new Map<string, EntryFeedbackScore>();
+
+  if (entries.length === 0) {
+    return result;
+  }
+
+  // Initialize all entries with zero scores
+  for (const entry of entries) {
+    result.set(entry.entryId, { positiveCount: 0, negativeCount: 0, netScore: 0 });
+  }
+
+  // Get all entry IDs
+  const entryIds = entries.map((e) => e.entryId);
+
+  // Get all retrievals for these entries
+  const entryRetrievals = db
+    .select({
+      id: memoryRetrievals.id,
+      entryId: memoryRetrievals.entryId,
+    })
+    .from(memoryRetrievals)
+    .where(inArray(memoryRetrievals.entryId, entryIds))
+    .all();
+
+  if (entryRetrievals.length === 0) {
+    return result;
+  }
+
+  // Build a map of retrieval ID -> entry ID
+  const retrievalToEntry = new Map(entryRetrievals.map((r) => [r.id, r.entryId]));
+  const retrievalIds = entryRetrievals.map((r) => r.id);
+
+  // Get all retrieval-outcome links
+  const links = db
+    .select({
+      retrievalId: retrievalOutcomes.retrievalId,
+      outcomeId: retrievalOutcomes.outcomeId,
+    })
+    .from(retrievalOutcomes)
+    .where(inArray(retrievalOutcomes.retrievalId, retrievalIds))
+    .all();
+
+  if (links.length === 0) {
+    return result;
+  }
+
+  // Get unique outcome IDs
+  const outcomeIds = [...new Set(links.map((l) => l.outcomeId))];
+
+  // Fetch the outcomes
+  const outcomes = db
+    .select({
+      id: taskOutcomes.id,
+      outcomeType: taskOutcomes.outcomeType,
+    })
+    .from(taskOutcomes)
+    .where(inArray(taskOutcomes.id, outcomeIds))
+    .all();
+
+  // Build a map of outcome ID -> outcome type
+  const outcomeTypeMap = new Map(outcomes.map((o) => [o.id, o.outcomeType]));
+
+  // Accumulate scores per entry
+  const scoreAccumulator = new Map<string, { positive: number; negative: number }>();
+  for (const entryId of entryIds) {
+    scoreAccumulator.set(entryId, { positive: 0, negative: 0 });
+  }
+
+  for (const link of links) {
+    const entryId = retrievalToEntry.get(link.retrievalId);
+    if (!entryId) continue;
+
+    const outcomeType = outcomeTypeMap.get(link.outcomeId);
+    if (!outcomeType) continue;
+
+    const acc = scoreAccumulator.get(entryId);
+    if (!acc) continue;
+
+    if (outcomeType === 'success') {
+      acc.positive++;
+    } else if (outcomeType === 'failure') {
+      acc.negative++;
+    } else if (outcomeType === 'partial') {
+      acc.positive += 0.5;
+    }
+  }
+
+  // Convert to final result
+  for (const [entryId, acc] of scoreAccumulator) {
+    const positiveCount = Math.round(acc.positive);
+    const negativeCount = Math.round(acc.negative);
+    result.set(entryId, {
+      positiveCount,
+      negativeCount,
+      netScore: positiveCount - negativeCount,
+    });
+  }
+
+  return result;
 }
 
 /**

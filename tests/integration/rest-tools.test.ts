@@ -72,7 +72,7 @@ describe('REST API Tools Endpoints', () => {
 
   describe('GET /v1/tools - List Tools', () => {
     it('should return list of all 29 tools', async () => {
-      const app = createServer(context);
+      const app = await createServer(context);
 
       const res = await app.inject({
         method: 'GET',
@@ -124,7 +124,7 @@ describe('REST API Tools Endpoints', () => {
     });
 
     it('should require authentication', async () => {
-      const app = createServer(context);
+      const app = await createServer(context);
 
       const res = await app.inject({
         method: 'GET',
@@ -140,7 +140,7 @@ describe('REST API Tools Endpoints', () => {
     });
 
     it('should include all required tool metadata', async () => {
-      const app = createServer(context);
+      const app = await createServer(context);
 
       const res = await app.inject({
         method: 'GET',
@@ -173,7 +173,7 @@ describe('REST API Tools Endpoints', () => {
 
   describe('POST /v1/tools/:tool - Execute Simple Tool', () => {
     it('should execute memory_health tool (simple tool, no action)', async () => {
-      const app = createServer(context);
+      const app = await createServer(context);
 
       const res = await app.inject({
         method: 'POST',
@@ -205,7 +205,7 @@ describe('REST API Tools Endpoints', () => {
     });
 
     it('should accept empty object payload for simple tools', async () => {
-      const app = createServer(context);
+      const app = await createServer(context);
 
       const res = await app.inject({
         method: 'POST',
@@ -224,7 +224,7 @@ describe('REST API Tools Endpoints', () => {
 
   describe('POST /v1/tools/:tool - Execute Action-Based Tool', () => {
     it('should execute memory_project with action:list', async () => {
-      const app = createServer(context);
+      const app = await createServer(context);
 
       const res = await app.inject({
         method: 'POST',
@@ -250,7 +250,7 @@ describe('REST API Tools Endpoints', () => {
     });
 
     it('should execute memory_project with action:create', async () => {
-      const app = createServer(context);
+      const app = await createServer(context);
 
       const projectName = 'REST Tools Test Project';
 
@@ -282,7 +282,7 @@ describe('REST API Tools Endpoints', () => {
     });
 
     it('should accept params object for action-based tools', async () => {
-      const app = createServer(context);
+      const app = await createServer(context);
 
       const res = await app.inject({
         method: 'POST',
@@ -306,7 +306,7 @@ describe('REST API Tools Endpoints', () => {
     });
 
     it('should merge body params with params object', async () => {
-      const app = createServer(context);
+      const app = await createServer(context);
 
       const res = await app.inject({
         method: 'POST',
@@ -330,7 +330,7 @@ describe('REST API Tools Endpoints', () => {
 
   describe('POST /v1/tools/:tool - Error Handling', () => {
     it('should return 404 for unknown tool', async () => {
-      const app = createServer(context);
+      const app = await createServer(context);
 
       const res = await app.inject({
         method: 'POST',
@@ -356,7 +356,7 @@ describe('REST API Tools Endpoints', () => {
     });
 
     it('should return 400 for action-based tool without action', async () => {
-      const app = createServer(context);
+      const app = await createServer(context);
 
       const res = await app.inject({
         method: 'POST',
@@ -390,7 +390,7 @@ describe('REST API Tools Endpoints', () => {
     });
 
     it('should return 400 for action-based tool with invalid action', async () => {
-      const app = createServer(context);
+      const app = await createServer(context);
 
       const res = await app.inject({
         method: 'POST',
@@ -424,7 +424,7 @@ describe('REST API Tools Endpoints', () => {
     });
 
     it('should return 415 for non-JSON request body', async () => {
-      const app = createServer(context);
+      const app = await createServer(context);
 
       const res = await app.inject({
         method: 'POST',
@@ -440,7 +440,7 @@ describe('REST API Tools Endpoints', () => {
     });
 
     it('should return 401 without authentication', async () => {
-      const app = createServer(context);
+      const app = await createServer(context);
 
       const res = await app.inject({
         method: 'POST',
@@ -460,7 +460,7 @@ describe('REST API Tools Endpoints', () => {
 
   describe('POST /v1/tools/:tool - Complex Tool Execution', () => {
     it('should execute memory_query with search parameters', async () => {
-      const app = createServer(context);
+      const app = await createServer(context);
 
       // Create test data first
       const project = createTestProject(db, 'Query Test Project');
@@ -499,7 +499,7 @@ describe('REST API Tools Endpoints', () => {
     });
 
     it('should execute memory_knowledge with add action', async () => {
-      const app = createServer(context);
+      const app = await createServer(context);
 
       const project = createTestProject(db, 'Knowledge Test Project');
 
@@ -538,7 +538,7 @@ describe('REST API Tools Endpoints', () => {
 
   describe('GET /v1/openapi.json - OpenAPI Specification', () => {
     it('should return valid OpenAPI 3.0 specification', async () => {
-      const app = createServer(context);
+      const app = await createServer(context);
 
       const res = await app.inject({
         method: 'GET',
@@ -577,7 +577,7 @@ describe('REST API Tools Endpoints', () => {
     });
 
     it('should include all tool endpoints in OpenAPI spec', async () => {
-      const app = createServer(context);
+      const app = await createServer(context);
 
       const res = await app.inject({
         method: 'GET',
@@ -601,7 +601,7 @@ describe('REST API Tools Endpoints', () => {
     });
 
     it('should include proper security definitions', async () => {
-      const app = createServer(context);
+      const app = await createServer(context);
 
       const res = await app.inject({
         method: 'GET',
@@ -634,7 +634,7 @@ describe('REST API Tools Endpoints', () => {
     });
 
     it('should return content-type application/json', async () => {
-      const app = createServer(context);
+      const app = await createServer(context);
 
       const res = await app.inject({
         method: 'GET',
@@ -650,7 +650,7 @@ describe('REST API Tools Endpoints', () => {
 
   describe('Authentication and Authorization', () => {
     it('should accept Bearer token authentication', async () => {
-      const app = createServer(context);
+      const app = await createServer(context);
 
       const res = await app.inject({
         method: 'POST',
@@ -665,7 +665,7 @@ describe('REST API Tools Endpoints', () => {
     });
 
     it('should accept X-API-Key header authentication', async () => {
-      const app = createServer(context);
+      const app = await createServer(context);
 
       const res = await app.inject({
         method: 'POST',
@@ -680,7 +680,7 @@ describe('REST API Tools Endpoints', () => {
     });
 
     it('should reject invalid API key', async () => {
-      const app = createServer(context);
+      const app = await createServer(context);
 
       const res = await app.inject({
         method: 'POST',
@@ -695,7 +695,7 @@ describe('REST API Tools Endpoints', () => {
     });
 
     it('should extract agentId from request context', async () => {
-      const app = createServer(context);
+      const app = await createServer(context);
 
       const project = createTestProject(db, 'Agent ID Test Project');
 
@@ -730,7 +730,7 @@ describe('REST API Tools Endpoints', () => {
 
   describe('Edge Cases and Validation', () => {
     it('should handle action as null for action-based tool', async () => {
-      const app = createServer(context);
+      const app = await createServer(context);
 
       const res = await app.inject({
         method: 'POST',
@@ -754,7 +754,7 @@ describe('REST API Tools Endpoints', () => {
     });
 
     it('should handle action as number for action-based tool', async () => {
-      const app = createServer(context);
+      const app = await createServer(context);
 
       const res = await app.inject({
         method: 'POST',
@@ -778,7 +778,7 @@ describe('REST API Tools Endpoints', () => {
     });
 
     it('should handle array payload gracefully', async () => {
-      const app = createServer(context);
+      const app = await createServer(context);
 
       const res = await app.inject({
         method: 'POST',
@@ -801,7 +801,7 @@ describe('REST API Tools Endpoints', () => {
     });
 
     it('should handle deeply nested params object', async () => {
-      const app = createServer(context);
+      const app = await createServer(context);
 
       const res = await app.inject({
         method: 'POST',
@@ -829,7 +829,7 @@ describe('REST API Tools Endpoints', () => {
     });
 
     it('should handle empty string tool name gracefully', async () => {
-      const app = createServer(context);
+      const app = await createServer(context);
 
       const res = await app.inject({
         method: 'POST',
@@ -847,7 +847,7 @@ describe('REST API Tools Endpoints', () => {
 
   describe('Response Format Consistency', () => {
     it('should return consistent success response format', async () => {
-      const app = createServer(context);
+      const app = await createServer(context);
 
       const res = await app.inject({
         method: 'POST',
@@ -872,7 +872,7 @@ describe('REST API Tools Endpoints', () => {
     });
 
     it('should return consistent error response format', async () => {
-      const app = createServer(context);
+      const app = await createServer(context);
 
       const res = await app.inject({
         method: 'POST',

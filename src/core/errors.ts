@@ -131,6 +131,188 @@ export const ErrorCodes = {
 } as const;
 
 // =============================================================================
+// ERROR BUILDER PATTERN
+// =============================================================================
+
+/**
+ * Fluent builder for creating AgentMemoryError instances.
+ *
+ * Provides a chainable API for constructing errors with context, suggestions,
+ * and cause information. Keeps backward compatibility with existing factory functions.
+ *
+ * @example
+ * ```typescript
+ * // Using the builder directly
+ * const error = ErrorBuilder.validation('email')
+ *   .withSuggestion('Use a valid email format')
+ *   .build('Invalid email format');
+ *
+ * // Using the builder for not found errors
+ * const error = ErrorBuilder.notFound('project', 'proj-123')
+ *   .withContext({ searchedScopes: ['global', 'org'] })
+ *   .build();
+ *
+ * // Using the builder for permission errors
+ * const error = ErrorBuilder.permission('write', 'guideline')
+ *   .withContext({ requiredRole: 'admin' })
+ *   .withSuggestion('Contact your administrator')
+ *   .build();
+ * ```
+ */
+export class ErrorBuilder {
+  private code: string = ErrorCodes.UNKNOWN_ERROR;
+  private context: Record<string, unknown> = {};
+  private suggestion?: string;
+  private causeError?: Error;
+
+  private constructor() {}
+
+  /**
+   * Start building a validation error
+   */
+  static validation(field: string): ErrorBuilder {
+    const builder = new ErrorBuilder();
+    builder.code = ErrorCodes.MISSING_REQUIRED_FIELD;
+    builder.context = { field };
+    return builder;
+  }
+
+  /**
+   * Start building a not found error
+   */
+  static notFound(resource: string, identifier?: string): ErrorBuilder {
+    const builder = new ErrorBuilder();
+    builder.code = ErrorCodes.NOT_FOUND;
+    builder.context = { resource, identifier };
+    builder.suggestion = `Check that the ${resource} exists and you have the correct ID`;
+    return builder;
+  }
+
+  /**
+   * Start building a permission denied error
+   */
+  static permission(action: string, resource: string, identifier?: string): ErrorBuilder {
+    const builder = new ErrorBuilder();
+    builder.code = ErrorCodes.PERMISSION_DENIED;
+    builder.context = { action, resource, identifier };
+    builder.suggestion = `Ensure you have ${action} permissions for this ${resource}`;
+    return builder;
+  }
+
+  /**
+   * Start building a conflict error
+   */
+  static conflict(resource: string): ErrorBuilder {
+    const builder = new ErrorBuilder();
+    builder.code = ErrorCodes.CONFLICT;
+    builder.context = { resource };
+    builder.suggestion = 'Check for recent updates and resolve the conflict using memory_conflict tool';
+    return builder;
+  }
+
+  /**
+   * Start building a service unavailable error
+   */
+  static serviceUnavailable(service: string): ErrorBuilder {
+    const builder = new ErrorBuilder();
+    builder.code = ErrorCodes.SERVICE_UNAVAILABLE;
+    builder.context = { service };
+    builder.suggestion = `Check ${service} configuration and dependencies`;
+    return builder;
+  }
+
+  /**
+   * Start building a circuit breaker open error
+   */
+  static circuitBreakerOpen(serviceName: string): ErrorBuilder {
+    const builder = new ErrorBuilder();
+    builder.code = ErrorCodes.CIRCUIT_BREAKER_OPEN;
+    builder.context = { service: serviceName };
+    builder.suggestion = 'The service is experiencing issues. Wait for recovery or check service health.';
+    return builder;
+  }
+
+  /**
+   * Start building a custom error with a specific code
+   */
+  static withCode(code: string): ErrorBuilder {
+    const builder = new ErrorBuilder();
+    builder.code = code;
+    return builder;
+  }
+
+  /**
+   * Add a suggestion to the error
+   */
+  withSuggestion(suggestion: string): this {
+    this.suggestion = suggestion;
+    return this;
+  }
+
+  /**
+   * Add or merge context to the error
+   */
+  withContext(ctx: Record<string, unknown>): this {
+    this.context = { ...this.context, ...ctx };
+    return this;
+  }
+
+  /**
+   * Set the cause of the error (for error chaining)
+   */
+  withCause(cause: Error): this {
+    this.causeError = cause;
+    return this;
+  }
+
+  /**
+   * Build the final AgentMemoryError
+   *
+   * @param message - Custom error message. If not provided, a default message is generated.
+   */
+  build(message?: string): AgentMemoryError {
+    const finalMessage = message ?? this.generateDefaultMessage();
+    const finalContext = {
+      ...this.context,
+      ...(this.suggestion ? { suggestion: this.suggestion } : {}),
+    };
+
+    const error = new AgentMemoryError(finalMessage, this.code, finalContext);
+    if (this.causeError) {
+      error.cause = this.causeError;
+    }
+    return error;
+  }
+
+  private generateDefaultMessage(): string {
+    const resource = this.context.resource as string | undefined;
+    const identifier = this.context.identifier as string | undefined;
+    const action = this.context.action as string | undefined;
+    const service = this.context.service as string | undefined;
+    const field = this.context.field as string | undefined;
+
+    switch (this.code) {
+      case ErrorCodes.NOT_FOUND:
+        return identifier ? `${resource} not found: ${identifier}` : `${resource} not found`;
+      case ErrorCodes.PERMISSION_DENIED:
+        return identifier
+          ? `Permission denied: ${action} access required for ${resource} ${identifier}`
+          : `Permission denied: ${action} access required`;
+      case ErrorCodes.CONFLICT:
+        return `Conflict detected: ${resource}`;
+      case ErrorCodes.SERVICE_UNAVAILABLE:
+        return `${service} is unavailable`;
+      case ErrorCodes.CIRCUIT_BREAKER_OPEN:
+        return `Service ${service} is temporarily unavailable (circuit breaker open)`;
+      case ErrorCodes.MISSING_REQUIRED_FIELD:
+        return `Validation error: ${field}`;
+      default:
+        return 'An error occurred';
+    }
+  }
+}
+
+// =============================================================================
 // SPECIALIZED ERROR CLASSES
 // =============================================================================
 

@@ -360,3 +360,85 @@ export function fetchStage(ctx: PipelineContext): PipelineContext {
     fetchedEntries,
   };
 }
+
+// =============================================================================
+// ASYNC FETCH STAGE
+// =============================================================================
+
+/**
+ * Async fetch stage - fetches entries from DB with parallel per-type fetching
+ *
+ * Uses Promise.all to run fetches for different types concurrently.
+ * Each type fetch still runs synchronously, but multiple types run in parallel.
+ * This enables better utilization of I/O wait time when fetching multiple entry types.
+ */
+export async function fetchStageAsync(ctx: PipelineContext): Promise<PipelineContext> {
+  const db = ctx.deps.getDb();
+  const { types, limit } = ctx;
+
+  const fetchedEntries: PipelineContext['fetchedEntries'] = {
+    tools: [],
+    guidelines: [],
+    knowledge: [],
+    experiences: [],
+  };
+
+  // Use adaptive headroom based on filter signals
+  const adaptiveHeadroom = computeAdaptiveHeadroom(ctx);
+  const softCap = limit * adaptiveHeadroom;
+
+  // Distribute softCap across types to prevent over-fetching
+  const perTypeSoftCap = Math.ceil(softCap / types.length);
+
+  // Create fetch promises for each type (wrap sync in setImmediate for true parallelism)
+  const fetchPromises: Promise<void>[] = [];
+
+  for (const type of types) {
+    if (type === 'tools') {
+      fetchPromises.push(
+        new Promise((resolve) => {
+          setImmediate(() => {
+            fetchEntriesGeneric(db, FETCH_CONFIGS.tools, ctx, fetchedEntries.tools, perTypeSoftCap);
+            resolve();
+          });
+        })
+      );
+    } else if (type === 'guidelines') {
+      fetchPromises.push(
+        new Promise((resolve) => {
+          setImmediate(() => {
+            fetchEntriesGeneric(db, FETCH_CONFIGS.guidelines, ctx, fetchedEntries.guidelines, perTypeSoftCap);
+            resolve();
+          });
+        })
+      );
+    } else if (type === 'knowledge') {
+      fetchPromises.push(
+        new Promise((resolve) => {
+          setImmediate(() => {
+            // Use temporal-aware fetch for knowledge (handles atTime/validDuring)
+            fetchKnowledgeWithTemporal(db, ctx, fetchedEntries.knowledge, perTypeSoftCap);
+            resolve();
+          });
+        })
+      );
+    } else if (type === 'experiences') {
+      fetchPromises.push(
+        new Promise((resolve) => {
+          setImmediate(() => {
+            fetchEntriesGeneric(db, FETCH_CONFIGS.experiences, ctx, fetchedEntries.experiences, perTypeSoftCap);
+            resolve();
+          });
+        })
+      );
+    }
+  }
+
+  // Execute all fetches in parallel
+  await Promise.all(fetchPromises);
+
+  return {
+    ...ctx,
+    fetchedEntries,
+  };
+}

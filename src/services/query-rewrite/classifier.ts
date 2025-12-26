@@ -179,6 +179,142 @@ export class IntentClassifier {
     const found = this.intentPatterns.find((p) => p.intent === intent);
     return found?.patterns ?? [];
   }
+
+  /**
+   * Get the memory types most relevant for a given intent
+   *
+   * This mapping enables smart memory type prioritization based on query intent.
+   * For example, "how do I..." queries should prioritize guidelines, while
+   * "what is..." queries should prioritize knowledge entries.
+   *
+   * @param intent - The classified intent
+   * @returns Array of memory types in priority order
+   */
+  getMemoryTypesForIntent(
+    intent: QueryIntent
+  ): Array<'guideline' | 'knowledge' | 'tool' | 'experience'> {
+    switch (intent) {
+      case 'how_to':
+        // Procedural queries → guidelines first, then experiences
+        return ['guideline', 'experience', 'tool', 'knowledge'];
+
+      case 'debug':
+        // Error/problem solving → experiences first (past solutions), then knowledge
+        return ['experience', 'knowledge', 'guideline', 'tool'];
+
+      case 'lookup':
+        // Factual queries → knowledge first
+        return ['knowledge', 'guideline', 'tool', 'experience'];
+
+      case 'compare':
+        // Comparison queries → knowledge (decisions), then experiences
+        return ['knowledge', 'experience', 'guideline', 'tool'];
+
+      case 'configure':
+        // Configuration → guidelines (standards), tools, then knowledge
+        return ['guideline', 'tool', 'knowledge', 'experience'];
+
+      case 'explore':
+      default:
+        // Open-ended discovery → balanced, but knowledge first
+        return ['knowledge', 'guideline', 'experience', 'tool'];
+    }
+  }
+
+  /**
+   * Get score boost weights for memory types based on intent
+   *
+   * Returns a map of memory type to boost weight (0-1).
+   * Higher weight = more relevant for this intent.
+   *
+   * @param intent - The classified intent
+   * @returns Map of memory type to boost weight
+   */
+  getMemoryTypeWeights(intent: QueryIntent): Map<string, number> {
+    const weights = new Map<string, number>();
+
+    switch (intent) {
+      case 'how_to':
+        weights.set('guideline', 1.0);
+        weights.set('experience', 0.8);
+        weights.set('tool', 0.6);
+        weights.set('knowledge', 0.4);
+        break;
+
+      case 'debug':
+        weights.set('experience', 1.0);
+        weights.set('knowledge', 0.8);
+        weights.set('guideline', 0.5);
+        weights.set('tool', 0.4);
+        break;
+
+      case 'lookup':
+        weights.set('knowledge', 1.0);
+        weights.set('guideline', 0.6);
+        weights.set('tool', 0.4);
+        weights.set('experience', 0.3);
+        break;
+
+      case 'compare':
+        weights.set('knowledge', 1.0);
+        weights.set('experience', 0.8);
+        weights.set('guideline', 0.4);
+        weights.set('tool', 0.3);
+        break;
+
+      case 'configure':
+        weights.set('guideline', 1.0);
+        weights.set('tool', 0.9);
+        weights.set('knowledge', 0.5);
+        weights.set('experience', 0.4);
+        break;
+
+      case 'explore':
+      default:
+        // Balanced weights for exploration
+        weights.set('knowledge', 0.8);
+        weights.set('guideline', 0.7);
+        weights.set('experience', 0.6);
+        weights.set('tool', 0.5);
+        break;
+    }
+
+    return weights;
+  }
+
+  /**
+   * Get extraction focus areas based on intent
+   *
+   * Maps intent to the extraction focus areas that should be prioritized
+   * when extracting memories from context.
+   *
+   * @param intent - The classified intent
+   * @returns Array of focus areas for extraction
+   */
+  getExtractionFocusForIntent(
+    intent: QueryIntent
+  ): Array<'decisions' | 'facts' | 'rules' | 'tools'> {
+    switch (intent) {
+      case 'how_to':
+        return ['rules', 'tools'];
+
+      case 'debug':
+        return ['facts', 'decisions'];
+
+      case 'lookup':
+        return ['facts'];
+
+      case 'compare':
+        return ['decisions', 'facts'];
+
+      case 'configure':
+        return ['rules', 'tools', 'facts'];
+
+      case 'explore':
+      default:
+        return ['facts', 'decisions', 'rules', 'tools'];
+    }
+  }
 }
 
 /**

@@ -44,7 +44,7 @@ import { closeDb, startHealthCheckInterval } from '../db/connection.js';
 import { logger } from '../utils/logger.js';
 import { VERSION } from '../version.js';
 import { runTool } from './tool-runner.js';
-import { createAppContext } from '../core/factory.js';
+import { createAppContext, shutdownAppContext } from '../core/factory.js';
 import { registerContext } from '../core/container.js';
 import { config } from '../config/index.js';
 import type { AppContext } from '../core/context.js';
@@ -140,9 +140,10 @@ export async function runServer(): Promise<void> {
   );
 
   let server: Server;
+  let context: AppContext;
   try {
     // Initialize AppContext
-    const context = await createAppContext(config);
+    context = await createAppContext(config);
 
     // Register with container for services that use getDb()/getSqlite()
     registerContext(context);
@@ -165,10 +166,14 @@ export async function runServer(): Promise<void> {
   // SHUTDOWN HANDLING
   // =============================================================================
 
-  function shutdown(signal: string): void {
+  async function shutdown(signal: string): Promise<void> {
     logger.info({ signal }, 'Shutdown signal received');
 
     try {
+      // Gracefully shutdown AppContext (drains feedback queue on SIGTERM)
+      const drainQueue = signal === 'SIGTERM';
+      await shutdownAppContext(context, { drainFeedbackQueue: drainQueue });
+
       // Close database connection
       closeDb();
 
@@ -185,8 +190,8 @@ export async function runServer(): Promise<void> {
     logger.debug('Transport created');
 
     // Unix/macOS signals
-    process.on('SIGINT', () => shutdown('SIGINT'));
-    process.on('SIGTERM', () => shutdown('SIGTERM'));
+    process.on('SIGINT', () => void shutdown('SIGINT'));
+    process.on('SIGTERM', () => void shutdown('SIGTERM'));
 
     // Windows: handle Ctrl+C via readline
     if (process.platform === 'win32') {
@@ -199,7 +204,7 @@ export async function runServer(): Promise<void> {
             output: process.stdout,
           })
           .on('SIGINT', () => {
-            shutdown('SIGINT (Windows)');
+            void shutdown('SIGINT (Windows)');
           });
       }
     }
@@ -207,22 +212,26 @@ export async function runServer(): Promise<void> {
     // Log unhandled errors
     process.on('uncaughtException', (error) => {
       logger.fatal({ error }, 'Uncaught exception');
-      try {
-        closeDb();
-      } catch (dbError) {
-        logger.error({ dbError }, 'Error closing database');
-      }
-      process.exit(1);
+      void shutdownAppContext(context).then(() => {
+        try {
+          closeDb();
+        } catch (dbError) {
+          logger.error({ dbError }, 'Error closing database');
+        }
+        process.exit(1);
+      });
     });
 
     process.on('unhandledRejection', (reason) => {
       logger.fatal({ reason }, 'Unhandled rejection');
-      try {
-        closeDb();
-      } catch (dbError) {
-        logger.error({ dbError }, 'Error closing database');
-      }
-      process.exit(1);
+      void shutdownAppContext(context).then(() => {
+        try {
+          closeDb();
+        } catch (dbError) {
+          logger.error({ dbError }, 'Error closing database');
+        }
+        process.exit(1);
+      });
     });
 
     // Connect to transport
@@ -232,11 +241,13 @@ export async function runServer(): Promise<void> {
     logger.info('Server is now listening for requests');
   } catch (error) {
     logger.fatal({ error }, 'Fatal error during startup');
-    try {
-      closeDb();
-    } catch (dbError) {
-      logger.error({ dbError }, 'Error closing database');
-    }
-    process.exit(1);
+    void shutdownAppContext(context).then(() => {
+      try {
+        closeDb();
+      } catch (dbError) {
+        logger.error({ dbError }, 'Error closing database');
+      }
+      process.exit(1);
+    });
   }
 }

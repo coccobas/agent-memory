@@ -19,6 +19,11 @@ import { registerVectorCleanupHook } from '../../db/repositories/base.js';
 import type { AppDb } from '../types.js';
 import type { IVectorStore } from '../interfaces/vector-store.js';
 import { LanceDbVectorStore } from '../../db/vector-stores/lancedb.js';
+import { initFeedbackService } from '../../services/feedback/index.js';
+import { initFeedbackQueue } from '../../services/feedback/queue.js';
+import { createComponentLogger } from '../../utils/logger.js';
+
+const logger = createComponentLogger('services-factory');
 
 /**
  * Database-specific dependencies for service creation.
@@ -153,6 +158,24 @@ export function createServices(
     }
   );
 
+  // Initialize feedback service for RL training data collection
+  const feedbackService = initFeedbackService(
+    { db },
+    {
+      enabled: true, // Enabled by default; could add config option if needed
+    }
+  );
+  logger.debug('Feedback service initialized');
+
+  // Initialize and start the feedback queue processor
+  const feedbackQueue = initFeedbackQueue(feedbackService, {
+    maxQueueSize: config.feedback.queueSize,
+    workerConcurrency: config.feedback.workerConcurrency,
+    batchTimeoutMs: config.feedback.batchTimeoutMs,
+  });
+  feedbackQueue.start();
+  logger.info('Feedback queue processor started');
+
   return {
     embedding: embeddingService,
     vector: vectorService,
@@ -160,5 +183,7 @@ export function createServices(
     permission: permissionService,
     verification: verificationService,
     summarization: summarizationService,
+    feedback: feedbackService,
+    feedbackQueue,
   };
 }

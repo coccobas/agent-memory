@@ -36,26 +36,35 @@ export async function findSimilarGroups(params: FindSimilarParams): Promise<Simi
   const processedIds = new Set<string>();
 
   for (const entryType of entryTypes) {
+    if (groups.length >= limit) break;
+
     // Get all entries of this type in scope
     const entries = getEntriesForConsolidation(entryType, scopeType, scopeId, db);
+    if (entries.length === 0) continue;
 
-    for (const entry of entries) {
+    // OPTIMIZATION: Batch generate embeddings for all entries at once
+    // This reduces N sequential API calls to a single batch call
+    const texts = entries.map((e) => `${e.name}: ${e.content}`);
+    let embeddings: number[][];
+
+    try {
+      const result = await embeddingService.embedBatch(texts);
+      embeddings = result.embeddings;
+    } catch (error) {
+      logger.warn({ entryType, error }, 'Failed to batch generate embeddings');
+      continue;
+    }
+
+    // Process entries with their pre-computed embeddings
+    for (let i = 0; i < entries.length; i++) {
+      const entry = entries[i]!;
+      const embedding = embeddings[i];
+
       if (processedIds.has(entry.id)) continue;
       if (groups.length >= limit) break;
+      if (!embedding) continue;
 
-      // Generate embedding for this entry
-      const text = `${entry.name}: ${entry.content}`;
-      let embedding: number[];
-
-      try {
-        const result = await embeddingService.embed(text);
-        embedding = result.embedding;
-      } catch (error) {
-        logger.debug({ entryId: entry.id, error }, 'Failed to generate embedding');
-        continue;
-      }
-
-      // Search for similar entries
+      // Search for similar entries using pre-computed embedding
       let similar: Awaited<ReturnType<typeof vectorService.searchSimilar>>;
       try {
         similar = await vectorService.searchSimilar(embedding, [entryType], 20);

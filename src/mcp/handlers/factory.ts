@@ -20,6 +20,7 @@ import {
   createPermissionError,
 } from '../../core/errors.js';
 import { createComponentLogger } from '../../utils/logger.js';
+import { safeSync, safeAsync } from '../../utils/safe-async.js';
 import {
   getRequiredParam,
   getOptionalParam,
@@ -215,12 +216,18 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
       const nameValue = config.getNameValue(params);
 
       // Check for duplicates (warn but don't block)
-      const duplicateCheck = checkForDuplicates(
-        config.entryType,
-        nameValue,
-        scopeType,
-        scopeId ?? null,
-        context.db
+      // Uses safeSync for graceful degradation - duplicate check is non-critical
+      const duplicateCheck = safeSync(
+        () =>
+          checkForDuplicates(
+            config.entryType,
+            nameValue,
+            scopeType,
+            scopeId ?? null,
+            context.db
+          ),
+        { name: 'checkForDuplicates', entryType: config.entryType, nameValue },
+        { isDuplicate: false, similarEntries: [] }
       );
       if (duplicateCheck.isDuplicate) {
         logger.warn(
@@ -258,17 +265,22 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
       const input = config.extractAddParams(params, { scopeType, scopeId });
       const entry = await repo.create(input);
 
-      // Check for red flags
+      // Check for red flags (non-critical - graceful degradation)
       const content = config.getContentForRedFlags(entry);
       const redFlagService = createRedFlagService({
         guidelineRepo: context.repos.guidelines,
         knowledgeRepo: context.repos.knowledge,
         toolRepo: context.repos.tools,
       });
-      const redFlags = await redFlagService.detectRedFlags({
-        type: config.entryType,
-        content,
-      });
+      const redFlags = await safeAsync(
+        () =>
+          redFlagService.detectRedFlags({
+            type: config.entryType,
+            content,
+          }),
+        { name: 'detectRedFlags', entryType: config.entryType, entryId: entry.id },
+        []
+      );
       if (redFlags.length > 0) {
         logger.warn(
           {

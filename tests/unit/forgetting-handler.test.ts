@@ -218,7 +218,7 @@ describe('Forgetting Handler', () => {
     it('should throw for unknown action', async () => {
       await expect(
         handleForgetting(mockContext, { action: 'unknown' as any })
-      ).rejects.toThrow('Unknown action');
+      ).rejects.toThrow("Invalid action 'unknown' for tool 'memory_forget'");
     });
   });
 });

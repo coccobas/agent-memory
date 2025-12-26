@@ -25,6 +25,8 @@ import {
   rateLimitBurstOptions,
   recencyDecayHalfLifeOptions,
   scoringWeightOptions,
+  feedbackScoringOptions,
+  entityScoringOptions,
 } from './registry/index.js';
 import { parseInt_, parseNumber, parseBoolean, projectRoot } from './registry/parsers.js';
 
@@ -144,6 +146,20 @@ export interface Config {
       semanticMax: number;
       recencyMax: number;
     };
+    feedbackScoring: {
+      enabled: boolean;
+      boostPerPositive: number;
+      boostMax: number;
+      penaltyPerNegative: number;
+      penaltyMax: number;
+      cacheTTLMs: number;
+      cacheMaxSize: number;
+    };
+    entityScoring: {
+      enabled: boolean;
+      exactMatchBoost: number;
+      partialMatchBoost: number;
+    };
   };
   validation: {
     nameMaxLength: number;
@@ -236,6 +252,16 @@ export interface Config {
     connectTimeoutMs: number;
     maxRetriesPerRequest: number;
   };
+  feedback: {
+    queueSize: number;
+    workerConcurrency: number;
+    batchTimeoutMs: number;
+  };
+  circuitBreaker: {
+    failureThreshold: number;
+    resetTimeoutMs: number;
+    successThreshold: number;
+  };
 }
 
 // =============================================================================
@@ -321,9 +347,11 @@ export function buildConfig(): Config {
       ) as Config['recency']['decayHalfLifeDays'],
     },
 
-    // Add nested scoring weights
+    // Add nested scoring weights, feedback scoring, and entity scoring
     scoring: {
       weights: buildNestedOptions(scoringWeightOptions) as Config['scoring']['weights'],
+      feedbackScoring: buildNestedOptions(feedbackScoringOptions) as Config['scoring']['feedbackScoring'],
+      entityScoring: buildNestedOptions(entityScoringOptions) as Config['scoring']['entityScoring'],
     },
   };
 

@@ -21,6 +21,11 @@ import {
   getDatabase,
   getSqlite as getContainerSqlite,
   clearDatabaseRegistration,
+  setHealthCheckInterval as containerSetHealthCheckInterval,
+  clearHealthCheckInterval as containerClearHealthCheckInterval,
+  hasHealthCheckInterval as containerHasHealthCheckInterval,
+  getPreparedStatement as containerGetPreparedStatement,
+  clearPreparedStatementCache as containerClearPreparedStatementCache,
 } from '../core/container.js';
 
 const logger = createComponentLogger('connection');
@@ -29,11 +34,7 @@ const logger = createComponentLogger('connection');
 // CONSTANTS FROM CONFIG
 // =============================================================================
 
-const MAX_PREPARED_STATEMENTS = config.cache.maxPreparedStatements;
 const DEFAULT_HEALTH_CHECK_INTERVAL_MS = config.health.checkIntervalMs;
-
-// Cache for prepared statements with LRU eviction
-const preparedStatementCache = new Map<string, Database.Statement>();
 
 export interface ConnectionOptions {
   dbPath?: string;
@@ -64,7 +65,7 @@ export function closeDb(): void {
     } catch {
       // Ignore close errors
     }
-    preparedStatementCache.clear();
+    containerClearPreparedStatementCache();
     stopHealthCheckInterval();
   }
   clearDatabaseRegistration();
@@ -102,62 +103,46 @@ export function isDbHealthy(): boolean {
   }
 }
 
-let healthCheckInterval: NodeJS.Timeout | null = null;
-
 /**
  * Start periodic health check.
  * Logs a warning if the database becomes unhealthy.
+ * Uses Container for interval storage to enable test isolation.
  */
 export function startHealthCheckInterval(intervalMs = DEFAULT_HEALTH_CHECK_INTERVAL_MS): void {
-  if (healthCheckInterval) return;
+  if (containerHasHealthCheckInterval()) return;
 
-  healthCheckInterval = setInterval(() => {
+  const interval = setInterval(() => {
     if (!isDbHealthy()) {
       logger.warn('Database health check failed');
     }
   }, intervalMs);
 
   // Do not keep process alive just for this interval
-  healthCheckInterval.unref();
+  interval.unref();
+
+  containerSetHealthCheckInterval(interval);
 }
 
 export function stopHealthCheckInterval(): void {
-  if (healthCheckInterval) {
-    clearInterval(healthCheckInterval);
-    healthCheckInterval = null;
-  }
+  containerClearHealthCheckInterval();
 }
 
 /**
- * Get a cached prepared statement or create a new one
- * Implements LRU eviction when cache exceeds MAX_PREPARED_STATEMENTS
+ * Get a cached prepared statement or create a new one.
+ * Uses LRU cache with automatic eviction when capacity is reached.
+ * Uses Container for cache storage to enable test isolation.
  */
 export function getPreparedStatement(sql: string): Database.Statement {
   const sqlite = getSqlite();
 
-  let stmt = preparedStatementCache.get(sql);
-  if (stmt) {
-    // Move to end of Map to mark as recently used (LRU)
-    preparedStatementCache.delete(sql);
-    preparedStatementCache.set(sql, stmt);
-    return stmt;
+  // Get from LRU cache or create with factory
+  // LRU cache handles eviction automatically when maxSize is exceeded
+  const stmt = containerGetPreparedStatement(sql, () => sqlite.prepare(sql));
+  if (!stmt) {
+    // Should not happen with factory, but TypeScript needs this
+    return sqlite.prepare(sql);
   }
 
-  // Create new prepared statement
-  stmt = sqlite.prepare(sql);
-
-  // Evict oldest entry if cache is full (LRU eviction)
-  if (preparedStatementCache.size >= MAX_PREPARED_STATEMENTS) {
-    // First entry in Map is the least recently used
-    const firstKey = preparedStatementCache.keys().next().value;
-    if (firstKey) {
-      preparedStatementCache.delete(firstKey);
-      // Note: better-sqlite3 statements don't need explicit cleanup
-      // They are cleaned up when the database connection closes
-    }
-  }
-
-  preparedStatementCache.set(sql, stmt);
   return stmt;
 }
 
@@ -311,7 +296,7 @@ export async function transactionWithRetry<T>(
  * Useful for tests when switching database instances.
  */
 export function clearPreparedStatementCache(): void {
-  preparedStatementCache.clear();
+  containerClearPreparedStatementCache();
 }
 
 export { schema };

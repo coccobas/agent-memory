@@ -24,6 +24,7 @@ export type {
   EntryChangedEvent,
 } from './interfaces.js';
 
+
 // Implementations - Storage
 export { SQLiteStorageAdapter, createSQLiteStorageAdapter } from './sqlite.adapter.js';
 export { PostgreSQLStorageAdapter, createPostgreSQLStorageAdapter } from './postgresql.adapter.js';
@@ -340,37 +341,148 @@ export async function closeRedisAdapters(adapters: RedisAdapters): Promise<void>
 }
 
 /**
- * Create adapters with Redis support.
+ * Result of adapter creation with Redis support.
+ * Includes lifecycle management functions for Redis adapters.
+ */
+export interface AdaptersWithRedis extends Adapters {
+  redis?: RedisAdapters;
+  /**
+   * Connect Redis adapters if present.
+   * Returns true if Redis was connected, false if using local adapters.
+   * On connection failure, automatically falls back to local event adapter.
+   */
+  connectRedis(): Promise<boolean>;
+  /**
+   * Close Redis adapters if present.
+   */
+  closeRedis(): Promise<void>;
+  /**
+   * Check if Redis event adapter is active (connected and in use).
+   */
+  isRedisEventActive(): boolean;
+}
+
+/**
+ * Create adapters with Redis support and auto-detection.
  *
  * If Redis is enabled in config, creates Redis-backed cache, lock, and event
  * adapters for distributed deployments. Otherwise falls back to local adapters.
  *
- * Note: If Redis adapters are created, they need to be connected before use
- * and closed during shutdown. The returned object includes a `redis` property
- * with the Redis adapters for lifecycle management.
+ * The returned object includes:
+ * - `connectRedis()`: Connect Redis adapters with graceful fallback
+ * - `closeRedis()`: Close Redis adapters during shutdown
+ * - `isRedisEventActive()`: Check if Redis events are in use
+ *
+ * Usage:
+ * ```typescript
+ * const adapters = createAdaptersWithConfig(deps, config);
+ * const redisConnected = await adapters.connectRedis();
+ * // Use adapters.event - automatically uses Redis or local based on connection
+ * await adapters.closeRedis();
+ * ```
  */
 export function createAdaptersWithConfig(
   deps: AdapterDeps | LegacyAdapterDeps,
   config: Config
-): Adapters & { redis?: RedisAdapters } {
+): AdaptersWithRedis {
   // Create base adapters (storage is always local - SQLite or PostgreSQL)
   const baseAdapters = createAdapters(deps);
 
-  // If Redis is not enabled, return local adapters
+  // If Redis is not enabled, return local adapters with no-op lifecycle methods
   if (!config.redis.enabled) {
-    return baseAdapters;
+    return {
+      ...baseAdapters,
+      connectRedis: async () => false,
+      closeRedis: async () => {},
+      isRedisEventActive: () => false,
+    };
   }
 
   // Create Redis adapters
   const redisAdapters = createRedisAdapters(config);
-
   logger.info('Redis adapters created (not yet connected)');
 
-  return {
+  // Track whether Redis event adapter is actively in use
+  let redisEventActive = false;
+
+  // Create result with mutable event adapter (can fall back to local)
+  const result: AdaptersWithRedis = {
     storage: baseAdapters.storage,
     cache: redisAdapters.cache as ICacheAdapter,
     lock: redisAdapters.lock as ILockAdapter,
-    event: redisAdapters.event as EntryEventAdapter,
+    event: redisAdapters.event as EntryEventAdapter, // Start with Redis, may fallback
     redis: redisAdapters,
+
+    /**
+     * Connect Redis adapters with graceful fallback for events.
+     * If Redis connection fails, the event adapter falls back to local EventBus.
+     */
+    async connectRedis(): Promise<boolean> {
+      try {
+        logger.info('Connecting Redis adapters...');
+
+        // Try to connect all Redis adapters
+        await Promise.all([
+          redisAdapters.cache.connect(),
+          redisAdapters.lock.connect(),
+          redisAdapters.event.connect(),
+          redisAdapters.rateLimiters.perAgent.connect(),
+          redisAdapters.rateLimiters.global.connect(),
+          redisAdapters.rateLimiters.burst.connect(),
+        ]);
+
+        redisEventActive = true;
+        logger.info('Redis adapters connected - using Redis for event coordination');
+        return true;
+      } catch (error) {
+        // Redis connection failed - fallback to local event adapter
+        logger.warn(
+          { error: error instanceof Error ? error.message : String(error) },
+          'Redis connection failed - falling back to local event adapter'
+        );
+
+        // Replace event adapter with local implementation
+        result.event = baseAdapters.event;
+        redisEventActive = false;
+
+        // Try to close any partially connected Redis adapters
+        try {
+          await closeRedisAdapters(redisAdapters);
+        } catch (closeError) {
+          logger.debug(
+            { error: closeError instanceof Error ? closeError.message : String(closeError) },
+            'Error closing partial Redis connections during fallback'
+          );
+        }
+
+        return false;
+      }
+    },
+
+    /**
+     * Close Redis adapters if they were connected.
+     */
+    async closeRedis(): Promise<void> {
+      if (result.redis) {
+        try {
+          await closeRedisAdapters(result.redis);
+          redisEventActive = false;
+        } catch (error) {
+          logger.warn(
+            { error: error instanceof Error ? error.message : String(error) },
+            'Error closing Redis adapters'
+          );
+        }
+      }
+    },
+
+    /**
+     * Check if Redis event adapter is actively in use.
+     */
+    isRedisEventActive(): boolean {
+      return redisEventActive;
+    },
   };
+
+  return result;
 }

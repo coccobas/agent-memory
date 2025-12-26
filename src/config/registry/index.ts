@@ -25,7 +25,7 @@ import {
 } from './sections/rateLimit.js';
 import { semanticSearchSection } from './sections/semanticSearch.js';
 import { recencySection, recencyDecayHalfLifeOptions } from './sections/recency.js';
-import { scoringSection, scoringWeightOptions } from './sections/scoring.js';
+import { scoringSection, scoringWeightOptions, feedbackScoringOptions, entityScoringOptions } from './sections/scoring.js';
 import { validationSection } from './sections/validation.js';
 import { paginationSection } from './sections/pagination.js';
 import { healthSection } from './sections/health.js';
@@ -44,6 +44,8 @@ import { captureSection } from './sections/capture.js';
 import { rlSection } from './sections/rl.js';
 import { queryRewriteSection } from './sections/queryRewrite.js';
 import { loraSection } from './sections/lora.js';
+import { feedbackSection } from './sections/feedback.js';
+import { circuitBreakerSection } from './sections/circuitBreaker.js';
 
 // =============================================================================
 // TOP-LEVEL OPTIONS
@@ -99,6 +101,8 @@ export const configRegistry: ConfigRegistry = {
     rl: rlSection,
     queryRewrite: queryRewriteSection,
     lora: loraSection,
+    feedback: feedbackSection,
+    circuitBreaker: circuitBreakerSection,
   },
 };
 
@@ -114,6 +118,8 @@ export {
   rateLimitBurstOptions,
   recencyDecayHalfLifeOptions,
   scoringWeightOptions,
+  feedbackScoringOptions,
+  entityScoringOptions,
 };
 
 // Re-export types and utilities

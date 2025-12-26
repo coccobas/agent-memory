@@ -5,7 +5,7 @@
  */
 
 import type { ToolDescriptor } from './types.js';
-import { handleForgetting } from '../handlers/forgetting.handler.js';
+import { handleForgetting, type ForgettingInput } from '../handlers/forgetting.handler.js';
 
 export const memoryForgetDescriptor: ToolDescriptor = {
   name: 'memory_forget',
@@ -75,15 +75,15 @@ Example: {"action":"analyze","scopeType":"project","scopeId":"proj-123","strateg
   actions: {
     analyze: {
       contextHandler: (context, params) =>
-        handleForgetting(context, { action: 'analyze', ...params } as any),
+        handleForgetting(context, { action: 'analyze', ...params } as ForgettingInput),
     },
     forget: {
       contextHandler: (context, params) =>
-        handleForgetting(context, { action: 'forget', ...params } as any),
+        handleForgetting(context, { action: 'forget', ...params } as ForgettingInput),
     },
     status: {
       contextHandler: (context, params) =>
-        handleForgetting(context, { action: 'status', ...params } as any),
+        handleForgetting(context, { action: 'status', ...params } as ForgettingInput),
     },
   },
 };

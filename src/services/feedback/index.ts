@@ -24,6 +24,9 @@ import {
   createDecisionRepository,
 } from './repositories/decision.repository.js';
 
+// Feedback score cache
+import { getFeedbackScoreCache } from '../query/feedback-cache.js';
+
 // Collectors
 import {
   RetrievalCollector,
@@ -142,7 +145,7 @@ export class FeedbackService {
     ) {
       this.retrievalCollector.recordRetrieval(params).catch((error) => {
         logger.error(
-          { error: error instanceof Error ? error.message : String(error) },
+          { err: error, sessionId: params.sessionId, entryId: params.entryId },
           'Async retrieval recording failed'
         );
       });
@@ -167,7 +170,7 @@ export class FeedbackService {
     ) {
       this.retrievalCollector.recordRetrievalBatch(params).catch((error) => {
         logger.error(
-          { error: error instanceof Error ? error.message : String(error) },
+          { err: error, batchSize: params.length },
           'Async batch retrieval recording failed'
         );
       });
@@ -210,7 +213,7 @@ export class FeedbackService {
     ) {
       this.outcomeCollector.recordOutcome(params).catch((error) => {
         logger.error(
-          { error: error instanceof Error ? error.message : String(error) },
+          { err: error, sessionId: params.sessionId, outcomeType: params.outcomeType },
           'Async outcome recording failed'
         );
       });
@@ -276,7 +279,7 @@ export class FeedbackService {
         .linkRetrievalsToOutcome(outcomeId, retrievalIds, scores, method)
         .catch((error) => {
           logger.error(
-            { error: error instanceof Error ? error.message : String(error) },
+            { err: error, outcomeId, retrievalCount: retrievalIds.length, method },
             'Async attribution linking failed'
           );
         });
@@ -284,6 +287,35 @@ export class FeedbackService {
     }
 
     await this.outcomeCollector.linkRetrievalsToOutcome(outcomeId, retrievalIds, scores, method);
+
+    // Invalidate feedback score cache for affected entries
+    // This ensures the next query will fetch fresh feedback scores
+    this.invalidateFeedbackCacheForRetrievals(validRetrievals);
+  }
+
+  /**
+   * Invalidate feedback score cache for entries affected by new outcomes
+   */
+  private invalidateFeedbackCacheForRetrievals(retrievals: MemoryRetrieval[]): void {
+    try {
+      const cache = getFeedbackScoreCache();
+      for (const retrieval of retrievals) {
+        cache.invalidate(
+          retrieval.entryType as 'tool' | 'guideline' | 'knowledge' | 'experience',
+          retrieval.entryId
+        );
+      }
+      logger.debug(
+        { invalidatedCount: retrievals.length },
+        'Feedback cache invalidated for new outcome'
+      );
+    } catch (error) {
+      // Non-fatal - cache will refresh on next access
+      logger.warn(
+        { error: error instanceof Error ? error.message : String(error) },
+        'Failed to invalidate feedback cache'
+      );
+    }
   }
 
   // ===========================================================================
@@ -609,3 +641,17 @@ export function resetFeedbackService(): void {
 export * from './types.js';
 export type { ExtractionRewardConfig } from './evaluators/extraction-reward.js';
 export type { ConsolidationRewardConfig } from './evaluators/consolidation-reward.js';
+
+// Re-export feedback cache utilities for scoring integration
+export {
+  getFeedbackScoreCache,
+  resetFeedbackScoreCache,
+  FeedbackScoreCache,
+  getFeedbackMultiplier,
+  type FeedbackScoringConfig,
+} from '../query/feedback-cache.js';
+export {
+  getEntryFeedback,
+  getEntryFeedbackBatch,
+  type EntryFeedbackScore,
+} from './repositories/retrieval.repository.js';

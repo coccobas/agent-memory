@@ -123,9 +123,24 @@ export async function createAppContext(config: Config, runtime?: Runtime): Promi
  * Call this during graceful shutdown alongside shutdownRuntime().
  *
  * @param context - The AppContext to shut down
+ * @param options - Shutdown options
  */
-export async function shutdownAppContext(context: AppContext): Promise<void> {
+export async function shutdownAppContext(
+  context: AppContext,
+  options?: { drainFeedbackQueue?: boolean }
+): Promise<void> {
   const logger = createComponentLogger('app');
+
+  // Drain or stop feedback queue if it exists
+  if (context.services?.feedbackQueue) {
+    if (options?.drainFeedbackQueue) {
+      logger.info('Draining feedback queue before shutdown');
+      await context.services.feedbackQueue.drain();
+    } else {
+      logger.info('Stopping feedback queue');
+      await context.services.feedbackQueue.stop();
+    }
+  }
 
   // Close Redis adapters if they exist
   if (context.adapters && 'redis' in context.adapters && context.adapters.redis) {

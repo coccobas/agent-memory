@@ -27,10 +27,32 @@ export interface SecurityResult {
 type AuthMapping = { key: string; agentId: string };
 
 /**
- * Parsed API key configuration for efficient lookup.
- * Keys are API keys, values are agent IDs.
+ * HMAC-indexed API key entry for O(1) lookup with timing-safe verification.
+ *
+ * Security approach:
+ * 1. Pre-compute SHA-256 hash of each API key at construction time
+ * 2. During lookup, hash the incoming token once
+ * 3. Use Map.get() for O(1) hash lookup (no timing leak - hash comparison is constant)
+ * 4. Perform timing-safe comparison of actual keys to confirm (prevents hash collision attacks)
+ *
+ * This provides O(1) average case while maintaining timing-safe security guarantees.
  */
-type ParsedApiKeyMap = Map<string, string>;
+interface HashedKeyEntry {
+  /** Original API key (for timing-safe verification) */
+  key: string;
+  /** Associated agent ID */
+  agentId: string;
+}
+
+/**
+ * Parsed API key configuration with HMAC-indexed lookup.
+ * - byHash: Map from SHA-256 hex hash → key entry (for O(1) lookup)
+ * - entries: Array of all mappings (for fallback iteration if needed)
+ */
+interface ParsedApiKeyMap {
+  byHash: Map<string, HashedKeyEntry>;
+  entries: AuthMapping[];
+}
 
 /**
  * Timing-safe string comparison that prevents length and null oracle attacks.
@@ -124,20 +146,25 @@ export class SecurityService {
    */
   reloadApiKeys(): void {
     this.parsedApiKeyMap = this.buildApiKeyMap();
-    logger.debug({ keyCount: this.parsedApiKeyMap.size }, 'Reloaded API key mappings');
+    logger.debug({ keyCount: this.parsedApiKeyMap.byHash.size }, 'Reloaded API key mappings');
   }
 
   /**
-   * Build the API key map from raw configuration.
+   * Build the HMAC-indexed API key map from raw configuration.
+   * Pre-computes SHA-256 hashes for O(1) lookup while maintaining timing-safe verification.
    * Called once at construction and on explicit reload.
    */
   private buildApiKeyMap(): ParsedApiKeyMap {
     const mappings = this.parseApiKeyMappings();
-    const map = new Map<string, string>();
+    const byHash = new Map<string, HashedKeyEntry>();
+
     for (const m of mappings) {
-      map.set(m.key, m.agentId);
+      // Pre-compute SHA-256 hash for O(1) lookup
+      const hash = createHash('sha256').update(m.key).digest('hex');
+      byHash.set(hash, { key: m.key, agentId: m.agentId });
     }
-    return map;
+
+    return { byHash, entries: mappings };
   }
 
   /**
@@ -180,16 +207,28 @@ export class SecurityService {
 
   /**
    * Resolve Agent ID from a bearer token or API key.
-   * Uses cached API key map for O(1) lookup.
+   *
+   * Uses HMAC-indexed lookup for O(1) average case:
+   * 1. Hash the incoming token once (constant time)
+   * 2. Look up by hash in Map (O(1) - no timing leak from comparison)
+   * 3. If found, perform timing-safe comparison to verify (prevents hash collision attacks)
+   *
+   * This is significantly faster than O(n) iteration for large key sets while
+   * maintaining security through timing-safe verification of the actual key.
    */
   resolveAgentId(token: string): string | null {
-    // 1. Check cached mappings (O(1) lookup by iterating for timing-safe comparison)
-    // Note: We iterate to use timing-safe comparison, but the map is pre-parsed
-    for (const [key, agentId] of this.parsedApiKeyMap) {
-      if (safeEqual(token, key)) return agentId;
+    // 1. O(1) HMAC-indexed lookup in parsed API key mappings
+    const tokenHash = createHash('sha256').update(token).digest('hex');
+    const candidate = this.parsedApiKeyMap.byHash.get(tokenHash);
+
+    if (candidate) {
+      // Verify with timing-safe comparison (prevents hash collision attacks)
+      if (safeEqual(token, candidate.key)) {
+        return candidate.agentId;
+      }
     }
 
-    // 2. Check Single Key
+    // 2. Check Single Key (legacy/simple config)
     const singleKey = this.restApiKey;
     if (singleKey && safeEqual(token, singleKey)) {
       return this.restAgentId;

@@ -3,10 +3,17 @@
  *
  * Prevents cascading failures by failing fast when a service is down.
  * States: CLOSED (normal) -> OPEN (failing) -> HALF_OPEN (testing)
+ *
+ * Configuration via environment variables:
+ * - AGENT_MEMORY_CB_FAILURE_THRESHOLD: Number of failures before opening (default: 5)
+ * - AGENT_MEMORY_CB_RESET_TIMEOUT_MS: Time before attempting to close (default: 30000)
+ * - AGENT_MEMORY_CB_SUCCESS_THRESHOLD: Successes needed to close (default: 2)
  */
 
 import { CircuitBreakerError } from '../core/errors.js';
+import { defaultContainer } from '../core/container.js';
 import { createComponentLogger } from './logger.js';
+import { config } from '../config/index.js';
 
 const logger = createComponentLogger('circuit-breaker');
 
@@ -36,10 +43,14 @@ export interface CircuitBreakerStats {
   totalSuccesses: number;
 }
 
+/**
+ * Default circuit breaker configuration.
+ * Values are loaded from centralized config (configurable via environment variables).
+ */
 const DEFAULT_CONFIG: Omit<CircuitBreakerConfig, 'name'> = {
-  failureThreshold: 5,
-  resetTimeoutMs: 30000,
-  successThreshold: 2,
+  failureThreshold: config.circuitBreaker.failureThreshold,
+  resetTimeoutMs: config.circuitBreaker.resetTimeoutMs,
+  successThreshold: config.circuitBreaker.successThreshold,
   isFailure: () => true,
 };
 
@@ -82,8 +93,14 @@ export class CircuitBreaker {
       this.onSuccess();
       return result;
     } catch (error) {
-      if (error instanceof Error && this.config.isFailure(error)) {
-        this.onFailure(error);
+      const err = error instanceof Error ? error : new Error(String(error));
+      if (this.config.isFailure(err)) {
+        this.onFailure(err);
+        // Wrap the error with circuit breaker context for better debugging
+        const wrappedError = new Error(`[CircuitBreaker:${this.config.name}] ${err.message}`);
+        wrappedError.cause = err;
+        wrappedError.name = 'CircuitBreakerWrappedError';
+        throw wrappedError;
       }
       throw error;
     }
@@ -202,20 +219,21 @@ export class CircuitBreaker {
 }
 
 // =============================================================================
-// CIRCUIT BREAKER REGISTRY
+// CIRCUIT BREAKER REGISTRY (delegated to Container for test isolation)
 // =============================================================================
-
-const circuitBreakers = new Map<string, CircuitBreaker>();
 
 /**
  * Get or create a circuit breaker for a service
+ * Uses Container for storage to enable test isolation
  */
 export function getCircuitBreaker(config: CircuitBreakerConfig): CircuitBreaker {
-  let breaker = circuitBreakers.get(config.name);
-  if (!breaker) {
-    breaker = new CircuitBreaker(config);
-    circuitBreakers.set(config.name, breaker);
+  const existing = defaultContainer.getCircuitBreaker(config.name) as CircuitBreaker | undefined;
+  if (existing) {
+    return existing;
   }
+  // Create new circuit breaker and register with container
+  const breaker = new CircuitBreaker(config);
+  defaultContainer.getCircuitBreaker(config.name, () => breaker);
   return breaker;
 }
 
@@ -223,7 +241,12 @@ export function getCircuitBreaker(config: CircuitBreakerConfig): CircuitBreaker 
  * Get all circuit breakers
  */
 export function getAllCircuitBreakers(): Map<string, CircuitBreaker> {
-  return new Map(circuitBreakers);
+  const containerBreakers = defaultContainer.getAllCircuitBreakers();
+  const result = new Map<string, CircuitBreaker>();
+  for (const [name, breaker] of containerBreakers) {
+    result.set(name, breaker as CircuitBreaker);
+  }
+  return result;
 }
 
 /**
@@ -231,8 +254,9 @@ export function getAllCircuitBreakers(): Map<string, CircuitBreaker> {
  */
 export function getAllCircuitBreakerStats(): Record<string, CircuitBreakerStats> {
   const stats: Record<string, CircuitBreakerStats> = {};
-  for (const [name, breaker] of circuitBreakers) {
-    stats[name] = breaker.getStats();
+  const breakers = defaultContainer.getAllCircuitBreakers();
+  for (const [name, breaker] of breakers) {
+    stats[name] = (breaker as CircuitBreaker).getStats();
   }
   return stats;
 }
@@ -241,7 +265,5 @@ export function getAllCircuitBreakerStats(): Record<string, CircuitBreakerStats>
  * Reset all circuit breakers (for testing)
  */
 export function resetAllCircuitBreakers(): void {
-  for (const breaker of circuitBreakers.values()) {
-    breaker.forceClose();
-  }
+  defaultContainer.resetAllCircuitBreakers();
 }

@@ -12,9 +12,26 @@ export { resolveStage } from './resolve.js';
 export { rewriteStage, type RewriteStageContext } from './rewrite.js';
 export { ftsStage } from './fts.js';
 export { relationsStage } from './relations.js';
-export { fetchStage } from './fetch.js';
+export { fetchStage, fetchStageAsync } from './fetch.js';
 export { tagsStage, postFilterTagsStage, filterByTags } from './tags.js';
 export { filterStage } from './filter.js';
 // FilteredEntry and FilterStageResult are now exported from ../types.ts and ../pipeline.ts
 export { scoreStage } from './score.js';
 export { formatStage } from './format.js';
+export {
+  createEntityFilterStage,
+  getEntityMatchBoost,
+  hasEntityMatch,
+  filterByEntityMatch,
+  getEntityFilterStats,
+  DEFAULT_ENTITY_FILTER_CONFIG,
+  type EntityFilterConfig,
+  type EntityFilterResult,
+  type EntityFilterPipelineContext,
+} from './entity-filter.js';
+export {
+  feedbackStage,
+  feedbackStageAsync,
+  prewarmFeedbackCache,
+  type FeedbackPipelineContext,
+} from './feedback.js';

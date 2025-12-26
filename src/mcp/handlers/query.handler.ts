@@ -7,8 +7,11 @@
 import { executeQueryPipeline } from '../../services/query/index.js';
 import { logAction } from '../../services/audit.service.js';
 import { createConversationService } from '../../services/conversation.service.js';
+import { createComponentLogger } from '../../utils/logger.js';
 
 import type { MemoryQueryParams } from '../types.js';
+
+const logger = createComponentLogger('query-handler');
 import type { AppContext } from '../../core/context.js';
 import {
   getRequiredParam,
@@ -158,8 +161,8 @@ export const queryHandlers = {
         const conversationService = createConversationService(context.repos.conversations);
         conversationService.autoLinkContextFromQuery(conversationId, messageId, result);
       } catch (error) {
-        // Silently ignore errors in auto-linking (fire-and-forget)
-        // This shouldn't break the query response
+        // Log error but don't break the query response (fire-and-forget)
+        logger.debug({ error, conversationId }, 'Auto-link context failed (non-critical)');
       }
     }
 

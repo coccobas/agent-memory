@@ -49,7 +49,7 @@ describe('REST API Integration', () => {
   });
 
   it('GET /health returns ok', async () => {
-    const app = createServer(context);
+    const app = await createServer(context);
     const res = await app.inject({ method: 'GET', url: '/health' });
     expect(res.statusCode).toBe(200);
     const body = res.json() as { ok: boolean; uptimeSec: number };
@@ -59,7 +59,7 @@ describe('REST API Integration', () => {
   });
 
   it('POST /v1/query rejects unauthorized requests', async () => {
-    const app = createServer(context);
+    const app = await createServer(context);
     const res = await app.inject({
       method: 'POST',
       url: '/v1/query',
@@ -70,7 +70,7 @@ describe('REST API Integration', () => {
   });
 
   it('POST /v1/query returns 400 for non-object body', async () => {
-    const app = createServer(context);
+    const app = await createServer(context);
     const res = await app.inject({
       method: 'POST',
       url: '/v1/query',
@@ -83,7 +83,7 @@ describe('REST API Integration', () => {
   });
 
   it('POST /v1/context returns 400 when missing required params', async () => {
-    const app = createServer(context);
+    const app = await createServer(context);
     const res = await app.inject({
       method: 'POST',
       url: '/v1/context',
@@ -99,7 +99,7 @@ describe('REST API Integration', () => {
   it('POST /v1/query can search tools (semanticSearch disabled)', async () => {
     createTestTool(db, 'rest_tool_alpha', 'global', undefined, 'cli', 'Tool for REST search test');
 
-    const app = createServer(context);
+    const app = await createServer(context);
     const res = await app.inject({
       method: 'POST',
       url: '/v1/query',
@@ -130,7 +130,7 @@ describe('REST API Integration', () => {
     createTestTool(db, 'rest_global_tool', 'global');
     createTestKnowledge(db, 'REST Project Knowledge', 'project', project.id);
 
-    const app = createServer(context);
+    const app = await createServer(context);
     const res = await app.inject({
       method: 'POST',
       url: '/v1/context',
@@ -163,7 +163,7 @@ describe('REST API Integration', () => {
     const { knowledge } = createTestKnowledge(db, 'REST Linkable Knowledge', 'project', project.id);
     const conversation = createTestConversation(db, undefined, project.id);
 
-    const app = createServer(context);
+    const app = await createServer(context);
     const res = await app.inject({
       method: 'POST',
       url: '/v1/query',
@@ -197,7 +197,7 @@ describe('REST API Integration', () => {
 
   describe('Security Headers', () => {
     it('should include helmet security headers in responses', async () => {
-      const app = createServer(context);
+      const app = await createServer(context);
       const res = await app.inject({
         method: 'GET',
         url: '/health',
@@ -213,7 +213,7 @@ describe('REST API Integration', () => {
     });
 
     it('should include CSP headers', async () => {
-      const app = createServer(context);
+      const app = await createServer(context);
       const res = await app.inject({
         method: 'GET',
         url: '/health',
@@ -228,7 +228,7 @@ describe('REST API Integration', () => {
 
   describe('Rate Limit Headers', () => {
     it('should include rate limit headers in successful authenticated requests', async () => {
-      const app = createServer(context);
+      const app = await createServer(context);
       const res = await app.inject({
         method: 'POST',
         url: '/v1/query',
@@ -254,7 +254,7 @@ describe('REST API Integration', () => {
     });
 
     it('should include rate limit headers in rate limited responses', async () => {
-      const app = createServer(context);
+      const app = await createServer(context);
 
       // Make many requests to trigger rate limit
       const requests = Array.from({ length: 120 }, (_, i) =>
@@ -282,7 +282,7 @@ describe('REST API Integration', () => {
     });
 
     it('should declare rate limit headers in CORS configuration', async () => {
-      const app = createServer(context);
+      const app = await createServer(context);
 
       // The CORS configuration is set during server creation
       // We verify the headers are properly exposed by checking actual response headers
@@ -291,7 +291,7 @@ describe('REST API Integration', () => {
 
       try {
         process.env.AGENT_MEMORY_REST_CORS_ORIGINS = 'http://localhost:3000';
-        const appWithCors = createServer(context);
+        const appWithCors = await createServer(context);
 
         const res = await appWithCors.inject({
           method: 'OPTIONS',

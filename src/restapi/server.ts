@@ -2,11 +2,10 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
 import compress from '@fastify/compress';
 import helmet from '@fastify/helmet';
-import { randomUUID } from 'crypto';
 
 import { createComponentLogger } from '../utils/logger.js';
 import type { AppContext } from '../core/context.js';
-import { createAppContext } from '../core/factory.js';
+import { createAppContext, shutdownAppContext } from '../core/factory.js';
 import { config } from '../config/index.js';
 import { mapError } from '../utils/error-mapper.js';
 import { registerContext } from '../core/container.js';
@@ -14,6 +13,8 @@ import { registerV1Routes } from './routes/v1.js';
 import { getHealthMonitor, resetHealthMonitor } from '../services/health.service.js';
 import { metrics } from '../utils/metrics.js';
 import { backpressure } from '../utils/backpressure.js';
+import { getFeedbackQueue } from '../services/feedback/queue.js';
+import { registerAuthMiddleware } from './middleware/index.js';
 
 // Extend Fastify request to include authenticated agent ID, request ID, and rate limit info
 declare module 'fastify' {
@@ -31,12 +32,78 @@ declare module 'fastify' {
 const restLogger = createComponentLogger('restapi');
 
 /**
+ * Validate a CORS origin URL.
+ * Only allows http:// or https:// URLs to prevent protocol-based attacks.
+ *
+ * @security Rejects non-HTTP(S) protocols (file://, javascript:, data:, etc.)
+ */
+function isValidCorsOrigin(origin: string): boolean {
+  try {
+    const url = new URL(origin);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Parse and validate CORS origins from environment variable.
+ *
+ * @security CORS Security Implications:
+ *
+ * When `credentials: true` is enabled (as in this server), browsers will:
+ * 1. Include cookies, HTTP authentication, and client-side certificates in cross-origin requests
+ * 2. Allow the response to be read by the requesting origin
+ *
+ * Security considerations:
+ * - NEVER use wildcard (*) origin with credentials - browsers will reject this
+ * - Only whitelist trusted origins that genuinely need cross-origin access
+ * - Each origin should be a specific, validated URL (not a pattern)
+ * - Consider the principle of least privilege when adding origins
+ *
+ * Configuration:
+ * Set AGENT_MEMORY_REST_CORS_ORIGINS to a comma-separated list of allowed origins.
+ * Example: "https://app.example.com,https://admin.example.com"
+ *
+ * If not set or empty, CORS is disabled (same-origin only).
+ *
+ * @param envValue - Comma-separated list of allowed origins
+ * @returns Array of validated origins, or false if CORS should be disabled
+ */
+function parseCorsOrigins(envValue: string | undefined): string[] | false {
+  if (!envValue) {
+    return false;
+  }
+
+  const origins = envValue.split(',').map((o) => o.trim()).filter(Boolean);
+  const validOrigins: string[] = [];
+  const invalidOrigins: string[] = [];
+
+  for (const origin of origins) {
+    if (isValidCorsOrigin(origin)) {
+      validOrigins.push(origin);
+    } else {
+      invalidOrigins.push(origin);
+    }
+  }
+
+  if (invalidOrigins.length > 0) {
+    restLogger.warn(
+      { invalidOrigins },
+      'Invalid CORS origins ignored. Origins must be valid http:// or https:// URLs.'
+    );
+  }
+
+  return validOrigins.length > 0 ? validOrigins : false;
+}
+
+/**
  * Create a REST API server with the provided AppContext.
  *
  * @param context - The application context (required per ADR-008)
- * @returns Configured Fastify instance
+ * @returns Promise resolving to configured Fastify instance
  */
-export function createServer(context: AppContext): FastifyInstance {
+export async function createServer(context: AppContext): Promise<FastifyInstance> {
   const app = Fastify({
     // Fastify v5 expects a config object here; we keep Fastify logging off and rely on our own logger.
     logger: false,
@@ -48,9 +115,9 @@ export function createServer(context: AppContext): FastifyInstance {
   });
 
   // Register CORS plugin early, before other plugins and routes
-  const corsOrigins = process.env.AGENT_MEMORY_REST_CORS_ORIGINS;
-  void app.register(cors, {
-    origin: corsOrigins ? corsOrigins.split(',').map((o) => o.trim()) : false,
+  // See parseCorsOrigins() JSDoc for security implications of credentials: true
+  await app.register(cors, {
+    origin: parseCorsOrigins(process.env.AGENT_MEMORY_REST_CORS_ORIGINS),
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Agent-ID', 'X-Request-ID', 'X-API-Key'],
@@ -65,7 +132,7 @@ export function createServer(context: AppContext): FastifyInstance {
   });
 
   // HIGH-006: Security headers via helmet
-  void app.register(helmet, {
+  await app.register(helmet, {
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
@@ -88,121 +155,23 @@ export function createServer(context: AppContext): FastifyInstance {
   });
 
   // HIGH-004: Response compression for performance
-  void app.register(compress, {
+  await app.register(compress, {
     global: true,
     threshold: 1024, // Only compress responses > 1KB
     encodings: ['gzip', 'deflate'], // Prefer gzip
   });
 
-  // HIGH-017: Request ID tracing for observability
-  app.addHook('onRequest', async (request, reply) => {
-    const requestId = (request.headers['x-request-id'] as string) || randomUUID();
-    request.requestId = requestId;
-    reply.header('X-Request-ID', requestId);
-  });
-
-  // Add rate limit headers to all responses
-  app.addHook('onSend', async (request, reply) => {
-    if (request.rateLimitInfo) {
-      reply.header('X-RateLimit-Limit', String(request.rateLimitInfo.limit));
-      reply.header('X-RateLimit-Remaining', String(request.rateLimitInfo.remaining));
-      reply.header('X-RateLimit-Reset', String(request.rateLimitInfo.reset));
-    }
-  });
-
-  // HIGH-003: Content-Type validation for non-GET requests
-  app.addHook('preHandler', async (request, reply) => {
-    // Skip for GET, HEAD, OPTIONS, and health endpoints
-    if (['GET', 'HEAD', 'OPTIONS'].includes(request.method) || request.url.startsWith('/health')) {
-      return;
-    }
-
-    const contentType = request.headers['content-type'];
-    if (!contentType?.toLowerCase().includes('application/json')) {
-      await reply.status(415).send({
-        error: 'Unsupported Media Type',
-        code: 'UNSUPPORTED_CONTENT_TYPE',
-        details: {
-          expected: 'application/json',
-          received: contentType || 'none',
-        },
-      });
-      return;
-    }
-  });
-
-  app.addHook('preHandler', async (request, reply) => {
-    const url = request.raw.url || request.url;
-
-    // Skip auth for public endpoints
-    if (typeof url === 'string') {
-      if (url.startsWith('/health')) {
-        // Rate limit health endpoint by client IP to prevent DoS attacks
-        // Use Fastify's built-in request.ip which safely handles X-Forwarded-For when trustProxy is enabled (HIGH-001 fix)
-        const clientIp = request.ip ?? 'unknown';
-
-        const healthCheck = await context.security.checkHealthRateLimit(clientIp);
-        if (!healthCheck.allowed) {
-          reply.header('Retry-After', String(Math.ceil((healthCheck.retryAfterMs ?? 1000) / 1000)));
-          await reply
-            .status(429)
-            .send({ error: 'Rate limit exceeded', code: 'RATE_LIMIT_EXCEEDED' });
-          return;
-        }
-        return;
-      }
-
-      // OpenAPI spec endpoint is public for documentation
-      if (url === '/v1/openapi.json' || url.startsWith('/metrics')) {
-        return;
-      }
-    }
-
-    // Use centralized Security Service
-    // We pass the headers directly. Fastify headers are IncomingHttpHeaders (Record<string, string | string[] | undefined>)
-    // which matches our interface.
-    const result = await context.security.validateRequest({
-      headers: request.headers,
-    });
-
-    // Attach rate limit info to request for downstream use
-    if (result.rateLimitInfo) {
-      request.rateLimitInfo = result.rateLimitInfo;
-    }
-
-    if (!result.authorized) {
-      const code =
-        result.statusCode === 429
-          ? 'RATE_LIMIT_EXCEEDED'
-          : result.statusCode === 503
-            ? 'SERVICE_UNAVAILABLE'
-            : 'UNAUTHORIZED';
-      if (result.retryAfterMs) {
-        reply.header('Retry-After', String(Math.ceil(result.retryAfterMs / 1000)));
-      }
-      // Add rate limit headers for failed requests too
-      if (result.rateLimitInfo) {
-        reply.header('X-RateLimit-Limit', String(result.rateLimitInfo.limit));
-        reply.header('X-RateLimit-Remaining', String(result.rateLimitInfo.remaining));
-        reply.header('X-RateLimit-Reset', String(result.rateLimitInfo.reset));
-      }
-      await reply.status(result.statusCode || 401).send({
-        error: result.error,
-        retryAfterMs: result.retryAfterMs,
-        code,
-      });
-      return;
-    }
-
-    // Attach derived identity for downstream handlers
-    if (result.context?.agentId) {
-      request.agentId = result.context.agentId;
-    }
-  });
+  // Register authentication middleware (request ID, rate limits, content-type, auth)
+  // See src/restapi/middleware/auth.ts for implementation details
+  registerAuthMiddleware(app, context);
 
   app.get('/health', async () => {
     const healthMonitor = getHealthMonitor();
     const lastCheck = healthMonitor.getLastCheckResult();
+
+    // Get feedback queue stats if available
+    const feedbackQueue = getFeedbackQueue();
+    const feedbackQueueStats = feedbackQueue?.getStats();
 
     if (lastCheck) {
       return {
@@ -212,6 +181,16 @@ export function createServer(context: AppContext): FastifyInstance {
         version: lastCheck.version,
         database: lastCheck.database,
         circuitBreakers: lastCheck.circuitBreakers.length,
+        feedbackQueue: feedbackQueueStats
+          ? {
+              queueDepth: feedbackQueueStats.queueDepth,
+              maxQueueSize: feedbackQueueStats.maxQueueSize,
+              isRunning: feedbackQueueStats.isRunning,
+              batchesProcessed: feedbackQueueStats.batchesProcessed,
+              itemsProcessed: feedbackQueueStats.itemsProcessed,
+              failures: feedbackQueueStats.failures,
+            }
+          : undefined,
       };
     }
 
@@ -219,6 +198,12 @@ export function createServer(context: AppContext): FastifyInstance {
     return {
       ok: true,
       uptimeSec: Math.round(process.uptime()),
+      feedbackQueue: feedbackQueueStats
+        ? {
+            queueDepth: feedbackQueueStats.queueDepth,
+            isRunning: feedbackQueueStats.isRunning,
+          }
+        : undefined,
     };
   });
 
@@ -287,19 +272,29 @@ export async function runServer(): Promise<void> {
   // Start backpressure monitoring
   backpressure.startMonitoring();
 
-  const app = createServer(context);
+  const app = await createServer(context);
 
   // Graceful shutdown
-  const shutdown = async () => {
-    restLogger.info('Shutting down REST API...');
+  const shutdown = async (signal: string) => {
+    restLogger.info({ signal }, 'Shutting down REST API...');
+
+    // Stop health monitoring
     healthMonitor.stopPeriodicChecks();
     backpressure.stopMonitoring();
     resetHealthMonitor();
+
+    // Gracefully shutdown AppContext (drains feedback queue on SIGTERM)
+    const drainQueue = signal === 'SIGTERM';
+    await shutdownAppContext(context, { drainFeedbackQueue: drainQueue });
+
+    // Close Fastify
     await app.close();
+
+    restLogger.info('REST API shutdown complete');
   };
 
-  process.on('SIGTERM', () => void shutdown());
-  process.on('SIGINT', () => void shutdown());
+  process.on('SIGTERM', () => void shutdown('SIGTERM'));
+  process.on('SIGINT', () => void shutdown('SIGINT'));
 
   await app.listen({ host, port });
   restLogger.info({ host, port }, 'REST API listening');

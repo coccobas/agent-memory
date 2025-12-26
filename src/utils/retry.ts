@@ -1,8 +1,15 @@
 /**
  * Retry utility with exponential backoff
+ *
+ * Configuration via environment variables:
+ * - AGENT_MEMORY_RETRY_MAX_ATTEMPTS: Maximum retry attempts (default: 3)
+ * - AGENT_MEMORY_RETRY_INITIAL_DELAY_MS: Initial delay in ms (default: 100)
+ * - AGENT_MEMORY_RETRY_MAX_DELAY_MS: Maximum delay in ms (default: 5000)
+ * - AGENT_MEMORY_RETRY_BACKOFF_MULTIPLIER: Backoff multiplier (default: 2)
  */
 
 import { logger } from './logger.js';
+import { config } from '../config/index.js';
 
 export interface RetryOptions {
   maxAttempts?: number;
@@ -13,11 +20,15 @@ export interface RetryOptions {
   onRetry?: (error: Error, attempt: number) => void;
 }
 
+/**
+ * Default retry options loaded from centralized configuration.
+ * Values are configurable via environment variables.
+ */
 const DEFAULT_OPTIONS: Required<RetryOptions> = {
-  maxAttempts: 3,
-  initialDelayMs: 100,
-  maxDelayMs: 5000,
-  backoffMultiplier: 2,
+  maxAttempts: config.retry.maxAttempts,
+  initialDelayMs: config.retry.initialDelayMs,
+  maxDelayMs: config.retry.maxDelayMs,
+  backoffMultiplier: config.retry.backoffMultiplier,
   retryableErrors: () => true,
   onRetry: () => {},
 };

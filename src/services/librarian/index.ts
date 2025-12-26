@@ -24,6 +24,7 @@ import {
   type AnalysisResult,
   type LibrarianStatus,
 } from './types.js';
+import type { ScopeType } from '../../db/schema/types.js';
 import { getRLService } from '../rl/index.js';
 import { buildConsolidationState } from '../rl/state/consolidation.state.js';
 import { getFeedbackService } from '../feedback/index.js';
@@ -75,10 +76,10 @@ export class LibrarianService {
   /**
    * Get total count of experiences in the given scope
    */
-  private async getEntryCount(scopeType: string, scopeId?: string): Promise<number> {
+  private async getEntryCount(scopeType: ScopeType, scopeId?: string): Promise<number> {
     try {
       const experiences = await this.collector.collect({
-        scopeType: scopeType as any,
+        scopeType,
         scopeId,
         inherit: true,
         levelFilter: 'all',

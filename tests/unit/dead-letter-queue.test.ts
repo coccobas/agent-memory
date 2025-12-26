@@ -1049,7 +1049,8 @@ describe('DeadLetterQueue', () => {
       const result = await dlqWithCB.retry(id);
 
       expect(result.success).toBe(false);
-      expect(result.error?.message).toBe('CB failure');
+      // Circuit breaker now wraps errors with context for better debugging
+      expect(result.error?.message).toContain('CB failure');
 
       dlqWithCB.clear();
     });

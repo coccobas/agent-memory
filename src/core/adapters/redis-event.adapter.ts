@@ -9,7 +9,7 @@
  */
 
 import { z } from 'zod';
-import type { IEventAdapter, EntryChangedEvent } from './interfaces.js';
+import type { IEventAdapterExtended, EntryChangedEvent } from '../interfaces/event-adapter.js';
 import { createComponentLogger } from '../../utils/logger.js';
 import { ConnectionGuard } from '../../utils/connection-guard.js';
 
@@ -87,7 +87,7 @@ function generateInstanceId(): string {
  * Note: Requires two Redis connections - one for publishing
  * and one for subscribing (Redis pub/sub limitation).
  */
-export class RedisEventAdapter implements IEventAdapter<EntryChangedEvent> {
+export class RedisEventAdapter implements IEventAdapterExtended {
   private pubClient: Redis | null = null;
   private subClient: Redis | null = null;
   private channel: string;

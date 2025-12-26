@@ -13,6 +13,139 @@ import { createComponentLogger } from '../../utils/logger.js';
 const logger = createComponentLogger('graph-traversal');
 
 // =============================================================================
+// PRE-DEFINED CTE QUERIES (for prepared statement caching)
+// =============================================================================
+
+// Forward-only traversal without relation type filter
+const CTE_FORWARD_NO_FILTER = `
+  WITH RECURSIVE reachable(node_type, node_id, depth) AS (
+    SELECT ?, ?, 0
+    UNION
+    SELECT r.target_type, r.target_id, g.depth + 1
+    FROM entry_relations r
+    JOIN reachable g ON r.source_type = g.node_type AND r.source_id = g.node_id
+    WHERE g.depth < ?
+  )
+  SELECT DISTINCT node_type, node_id
+  FROM reachable
+  WHERE (node_type != ? OR node_id != ?)
+    AND node_type IN ('tool', 'guideline', 'knowledge', 'experience')
+  LIMIT ?
+`;
+
+// Forward-only traversal with relation type filter
+const CTE_FORWARD_WITH_FILTER = `
+  WITH RECURSIVE reachable(node_type, node_id, depth) AS (
+    SELECT ?, ?, 0
+    UNION
+    SELECT r.target_type, r.target_id, g.depth + 1
+    FROM entry_relations r
+    JOIN reachable g ON r.source_type = g.node_type AND r.source_id = g.node_id
+    WHERE g.depth < ? AND r.relation_type = ?
+  )
+  SELECT DISTINCT node_type, node_id
+  FROM reachable
+  WHERE (node_type != ? OR node_id != ?)
+    AND node_type IN ('tool', 'guideline', 'knowledge', 'experience')
+  LIMIT ?
+`;
+
+// Backward-only traversal without relation type filter
+const CTE_BACKWARD_NO_FILTER = `
+  WITH RECURSIVE reachable(node_type, node_id, depth) AS (
+    SELECT ?, ?, 0
+    UNION
+    SELECT r.source_type, r.source_id, g.depth + 1
+    FROM entry_relations r
+    JOIN reachable g ON r.target_type = g.node_type AND r.target_id = g.node_id
+    WHERE g.depth < ?
+  )
+  SELECT DISTINCT node_type, node_id
+  FROM reachable
+  WHERE (node_type != ? OR node_id != ?)
+    AND node_type IN ('tool', 'guideline', 'knowledge', 'experience')
+  LIMIT ?
+`;
+
+// Backward-only traversal with relation type filter
+const CTE_BACKWARD_WITH_FILTER = `
+  WITH RECURSIVE reachable(node_type, node_id, depth) AS (
+    SELECT ?, ?, 0
+    UNION
+    SELECT r.source_type, r.source_id, g.depth + 1
+    FROM entry_relations r
+    JOIN reachable g ON r.target_type = g.node_type AND r.target_id = g.node_id
+    WHERE g.depth < ? AND r.relation_type = ?
+  )
+  SELECT DISTINCT node_type, node_id
+  FROM reachable
+  WHERE (node_type != ? OR node_id != ?)
+    AND node_type IN ('tool', 'guideline', 'knowledge', 'experience')
+  LIMIT ?
+`;
+
+// Bidirectional traversal without relation type filter
+const CTE_BOTH_NO_FILTER = `
+  WITH RECURSIVE reachable(node_type, node_id, depth) AS (
+    SELECT ?, ?, 0
+    UNION
+    SELECT r.target_type, r.target_id, g.depth + 1
+    FROM entry_relations r
+    JOIN reachable g ON r.source_type = g.node_type AND r.source_id = g.node_id
+    WHERE g.depth < ?
+    UNION
+    SELECT r.source_type, r.source_id, g.depth + 1
+    FROM entry_relations r
+    JOIN reachable g ON r.target_type = g.node_type AND r.target_id = g.node_id
+    WHERE g.depth < ?
+  )
+  SELECT DISTINCT node_type, node_id
+  FROM reachable
+  WHERE (node_type != ? OR node_id != ?)
+    AND node_type IN ('tool', 'guideline', 'knowledge', 'experience')
+  LIMIT ?
+`;
+
+// Bidirectional traversal with relation type filter
+const CTE_BOTH_WITH_FILTER = `
+  WITH RECURSIVE reachable(node_type, node_id, depth) AS (
+    SELECT ?, ?, 0
+    UNION
+    SELECT r.target_type, r.target_id, g.depth + 1
+    FROM entry_relations r
+    JOIN reachable g ON r.source_type = g.node_type AND r.source_id = g.node_id
+    WHERE g.depth < ? AND r.relation_type = ?
+    UNION
+    SELECT r.source_type, r.source_id, g.depth + 1
+    FROM entry_relations r
+    JOIN reachable g ON r.target_type = g.node_type AND r.target_id = g.node_id
+    WHERE g.depth < ? AND r.relation_type = ?
+  )
+  SELECT DISTINCT node_type, node_id
+  FROM reachable
+  WHERE (node_type != ? OR node_id != ?)
+    AND node_type IN ('tool', 'guideline', 'knowledge', 'experience')
+  LIMIT ?
+`;
+
+/**
+ * Select the appropriate pre-defined CTE query based on direction and filter
+ */
+function selectCTEQuery(
+  direction: TraversalDirection,
+  hasFilter: boolean
+): string | null {
+  if (direction === 'forward') {
+    return hasFilter ? CTE_FORWARD_WITH_FILTER : CTE_FORWARD_NO_FILTER;
+  } else if (direction === 'backward') {
+    return hasFilter ? CTE_BACKWARD_WITH_FILTER : CTE_BACKWARD_NO_FILTER;
+  } else if (direction === 'both') {
+    return hasFilter ? CTE_BOTH_WITH_FILTER : CTE_BOTH_NO_FILTER;
+  }
+  return null;
+}
+
+// =============================================================================
 // TYPES
 // =============================================================================
 
@@ -56,76 +189,36 @@ export function traverseRelationGraphCTE(
   const direction = options.direction ?? 'both';
   const maxResults = options.maxResults ?? 100;
   const relationType = options.relationType;
+  const hasFilter = !!relationType;
 
   try {
-    // Build the recursive CTE query based on direction
-    let forwardUnion = '';
-    let backwardUnion = '';
-
-    if (direction === 'forward' || direction === 'both') {
-      forwardUnion = `
-        SELECT r.target_type, r.target_id, g.depth + 1
-        FROM entry_relations r
-        JOIN reachable g ON r.source_type = g.node_type AND r.source_id = g.node_id
-        WHERE g.depth < ?
-        ${relationType ? `AND r.relation_type = ?` : ''}
-      `;
+    // OPTIMIZATION: Use pre-defined query to enable prepared statement caching
+    const cteQuery = selectCTEQuery(direction, hasFilter);
+    if (!cteQuery) {
+      return null; // Invalid direction
     }
 
-    if (direction === 'backward' || direction === 'both') {
-      backwardUnion = `
-        SELECT r.source_type, r.source_id, g.depth + 1
-        FROM entry_relations r
-        JOIN reachable g ON r.target_type = g.node_type AND r.target_id = g.node_id
-        WHERE g.depth < ?
-        ${relationType ? `AND r.relation_type = ?` : ''}
-      `;
-    }
-
-    // Combine unions
-    let recursivePart = '';
-    if (forwardUnion && backwardUnion) {
-      recursivePart = `${forwardUnion} UNION ${backwardUnion}`;
-    } else if (forwardUnion) {
-      recursivePart = forwardUnion;
-    } else if (backwardUnion) {
-      recursivePart = backwardUnion;
-    } else {
-      return null; // No direction specified
-    }
-
-    const cteQuery = `
-      WITH RECURSIVE reachable(node_type, node_id, depth) AS (
-        -- Base case: start node at depth 0
-        SELECT ?, ?, 0
-        UNION
-        -- Recursive case: traverse relations
-        ${recursivePart}
-      )
-      SELECT DISTINCT node_type, node_id
-      FROM reachable
-      WHERE (node_type != ? OR node_id != ?)
-        AND node_type IN ('tool', 'guideline', 'knowledge', 'experience')
-      LIMIT ?
-    `;
-
-    // Build parameters array
+    // Build parameters array based on query variant
     const params: (string | number)[] = [startType, startId];
 
-    // Add depth parameters for each direction
-    if (direction === 'forward' || direction === 'both') {
+    if (direction === 'forward') {
       params.push(maxDepth);
-      if (relationType) params.push(relationType);
-    }
-    if (direction === 'backward' || direction === 'both') {
+      if (hasFilter) params.push(relationType!);
+    } else if (direction === 'backward') {
       params.push(maxDepth);
-      if (relationType) params.push(relationType);
+      if (hasFilter) params.push(relationType!);
+    } else if (direction === 'both') {
+      // Both directions need maxDepth twice (once for forward, once for backward)
+      params.push(maxDepth);
+      if (hasFilter) params.push(relationType!);
+      params.push(maxDepth);
+      if (hasFilter) params.push(relationType!);
     }
 
     // Add WHERE clause parameters
     params.push(startType, startId, maxResults);
 
-    // Execute the CTE query
+    // Execute the CTE query with cached prepared statement
     const stmt = getPreparedStatement(cteQuery);
     const rows = stmt.all(...params) as Array<{ node_type: string; node_id: string }>;
 

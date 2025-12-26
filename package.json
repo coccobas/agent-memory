@@ -1,6 +1,6 @@
 {
   "name": "agent-memory",
-  "version": "0.9.12",
+  "version": "0.9.13",
   "description": "MCP server providing structured memory backend for AI agents",
   "type": "module",
   "main": "dist/index.js",
@@ -73,6 +73,7 @@
     "docs:generate:env": "tsx scripts/generate-env-docs.ts",
     "docs:check:env": "tsx scripts/generate-env-docs.ts --check",
     "docs:generate:openapi": "tsx scripts/generate-openapi-spec.ts",
+    "docs:validate:openapi": "redocly lint openapi.json",
     "docs:lint:links": "tsx scripts/check-doc-links.ts",
     "docs:lint:md": "markdownlint-cli2",
     "docs:lint:vale": "vale README.md docs/"

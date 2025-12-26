@@ -133,22 +133,14 @@ function convertToHuggingFaceFormat(
   example: ExtractionTrainingExample | RetrievalTrainingExample | ConsolidationTrainingExample,
   _policy: PolicyType,
   includeMetadata: boolean
-): any {
-  const base = {
+): Record<string, unknown> {
+  return {
     state: example.state,
     action: example.action,
     reward: example.reward,
+    ...(example.nextState && { next_state: example.nextState }),
+    ...(includeMetadata && example.metadata && { metadata: example.metadata }),
   };
-
-  if (example.nextState) {
-    (base as any).next_state = example.nextState;
-  }
-
-  if (includeMetadata && example.metadata) {
-    (base as any).metadata = example.metadata;
-  }
-
-  return base;
 }
 
 // =============================================================================

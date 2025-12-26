@@ -209,6 +209,121 @@ export class PermissionService {
     return chain;
   }
 
+  // ===========================================================================
+  // PERMISSION CHECK HELPERS (extracted to reduce duplication)
+  // ===========================================================================
+
+  /**
+   * Check if permissive mode is enabled.
+   * @returns true if permissive mode allows access
+   * @throws Error if permissive mode is attempted in production
+   */
+  private checkPermissiveMode(): boolean {
+    const permissiveMode = process.env.AGENT_MEMORY_PERMISSIONS_MODE === 'permissive';
+    if (!permissiveMode) {
+      return false;
+    }
+
+    // SECURITY: Block permissive mode in production
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(
+        'SECURITY: AGENT_MEMORY_PERMISSIONS_MODE=permissive is FORBIDDEN in production. ' +
+          'Remove this environment variable and configure explicit permissions.'
+      );
+    }
+
+    if (!this.hasWarnedAboutPermissiveMode) {
+      this.logger.warn(
+        'SECURITY WARNING: Permission checks disabled (AGENT_MEMORY_PERMISSIONS_MODE=permissive). ' +
+          'This should only be used in development. In production, configure explicit permissions.'
+      );
+      this.hasWarnedAboutPermissiveMode = true;
+    }
+
+    return true;
+  }
+
+  /**
+   * Map an action to the required permission level
+   */
+  private getRequiredPermissionLevel(action: Action): PermissionLevel {
+    return action === 'read' ? 'read' : action === 'write' ? 'write' : 'admin';
+  }
+
+  /**
+   * Build permission query conditions for a single entry
+   */
+  private buildPermissionConditions(
+    agentId: string,
+    entryType: EntryType,
+    entryId: string | null | undefined,
+    scopeChain: Array<{ type: ScopeType; id: string | null }>
+  ): ReturnType<typeof and>[] {
+    const conditions: ReturnType<typeof and>[] = [];
+
+    for (const scope of scopeChain) {
+      // Entry-specific permission
+      if (entryId) {
+        conditions.push(
+          and(
+            eq(permissions.agentId, agentId),
+            eq(permissions.entryType, entryType as PermissionEntryType),
+            eq(permissions.entryId, entryId),
+            eq(permissions.scopeType, scope.type),
+            scope.id === null ? isNull(permissions.scopeId) : eq(permissions.scopeId, scope.id)
+          )
+        );
+      }
+
+      // Entry-type permission (applies to all entries of this type in scope)
+      conditions.push(
+        and(
+          eq(permissions.agentId, agentId),
+          eq(permissions.entryType, entryType as PermissionEntryType),
+          isNull(permissions.entryId),
+          eq(permissions.scopeType, scope.type),
+          scope.id === null ? isNull(permissions.scopeId) : eq(permissions.scopeId, scope.id)
+        )
+      );
+    }
+
+    return conditions;
+  }
+
+  /**
+   * Check if any permission in the list meets the required level
+   */
+  private hasAnyRequiredLevel(
+    perms: Array<{ permission: string }>,
+    requiredLevel: PermissionLevel
+  ): boolean {
+    return perms.some((p) => this.hasRequiredLevel(p.permission as PermissionLevel, requiredLevel));
+  }
+
+  // Maximum OR conditions per query to avoid performance degradation
+  private static readonly MAX_OR_CONDITIONS = 20;
+
+  /**
+   * Execute permission query with chunking for large condition sets
+   * Prevents performance issues when many entries are checked
+   */
+  private executeChunkedPermissionQuery(
+    conditions: ReturnType<typeof and>[]
+  ): typeof permissions.$inferSelect[] {
+    if (conditions.length <= PermissionService.MAX_OR_CONDITIONS) {
+      return this.db.select().from(permissions).where(or(...conditions)).all();
+    }
+
+    // Chunk the conditions and merge results
+    const results: typeof permissions.$inferSelect[] = [];
+    for (let i = 0; i < conditions.length; i += PermissionService.MAX_OR_CONDITIONS) {
+      const chunk = conditions.slice(i, i + PermissionService.MAX_OR_CONDITIONS);
+      const chunkResults = this.db.select().from(permissions).where(or(...chunk)).all();
+      results.push(...chunkResults);
+    }
+    return results;
+  }
+
   /**
    * Check if an agent has permission to perform an action
    */
@@ -221,22 +336,7 @@ export class PermissionService {
     scopeId: string | null | undefined
   ): boolean {
     // Check for permissive mode first
-    const permissiveMode = process.env.AGENT_MEMORY_PERMISSIONS_MODE === 'permissive';
-    if (permissiveMode) {
-      // SECURITY: Block permissive mode in production
-      if (process.env.NODE_ENV === 'production') {
-        throw new Error(
-          'SECURITY: AGENT_MEMORY_PERMISSIONS_MODE=permissive is FORBIDDEN in production. ' +
-            'Remove this environment variable and configure explicit permissions.'
-        );
-      }
-      if (!this.hasWarnedAboutPermissiveMode) {
-        this.logger.warn(
-          'SECURITY WARNING: Permission checks disabled (AGENT_MEMORY_PERMISSIONS_MODE=permissive). ' +
-            'This should only be used in development. In production, configure explicit permissions.'
-        );
-        this.hasWarnedAboutPermissiveMode = true;
-      }
+    if (this.checkPermissiveMode()) {
       return true;
     }
 
@@ -256,41 +356,11 @@ export class PermissionService {
       return false;
     }
 
-    const requiredPermission: PermissionLevel =
-      action === 'read' ? 'read' : action === 'write' ? 'write' : 'admin';
-
+    const requiredPermission = this.getRequiredPermissionLevel(action);
     const scopeChain = this.buildScopeChain(scopeType, scopeId);
-    const conditions = [];
+    const conditions = this.buildPermissionConditions(agentId, entryType, entryId, scopeChain);
 
-    for (const scope of scopeChain) {
-      if (entryId) {
-        conditions.push(
-          and(
-            eq(permissions.agentId, agentId),
-            eq(permissions.entryType, entryType as PermissionEntryType),
-            eq(permissions.entryId, entryId),
-            eq(permissions.scopeType, scope.type),
-            scope.id === null ? isNull(permissions.scopeId) : eq(permissions.scopeId, scope.id)
-          )
-        );
-      }
-
-      conditions.push(
-        and(
-          eq(permissions.agentId, agentId),
-          eq(permissions.entryType, entryType as 'tool' | 'guideline' | 'knowledge'),
-          isNull(permissions.entryId),
-          eq(permissions.scopeType, scope.type),
-          scope.id === null ? isNull(permissions.scopeId) : eq(permissions.scopeId, scope.id)
-        )
-      );
-    }
-
-    const matchingPerms = this.db
-      .select()
-      .from(permissions)
-      .where(or(...conditions))
-      .all();
+    const matchingPerms = this.executeChunkedPermissionQuery(conditions);
 
     if (matchingPerms.length === 0) {
       this.logger.debug(
@@ -300,10 +370,8 @@ export class PermissionService {
       return false;
     }
 
-    for (const perm of matchingPerms) {
-      if (this.hasRequiredLevel(perm.permission as PermissionLevel, requiredPermission)) {
-        return true;
-      }
+    if (this.hasAnyRequiredLevel(matchingPerms, requiredPermission)) {
+      return true;
     }
 
     this.logger.debug(
@@ -323,7 +391,7 @@ export class PermissionService {
    *
    * This is more efficient than calling check() in a loop because:
    * 1. Unique scope chains are computed once
-   * 2. Single DB query for all permission lookups
+   * 2. Single DB query for all permission lookups (with chunking for large sets)
    * 3. Results are cached in a Map for O(1) lookup
    */
   checkBatch(
@@ -338,21 +406,7 @@ export class PermissionService {
     }
 
     // Check for permissive mode first
-    const permissiveMode = process.env.AGENT_MEMORY_PERMISSIONS_MODE === 'permissive';
-    if (permissiveMode) {
-      // SECURITY: Block permissive mode in production
-      if (process.env.NODE_ENV === 'production') {
-        throw new Error(
-          'SECURITY: AGENT_MEMORY_PERMISSIONS_MODE=permissive is FORBIDDEN in production. ' +
-            'Remove this environment variable and configure explicit permissions.'
-        );
-      }
-      if (!this.hasWarnedAboutPermissiveMode) {
-        this.logger.warn(
-          'SECURITY WARNING: Permission checks disabled (AGENT_MEMORY_PERMISSIONS_MODE=permissive).'
-        );
-        this.hasWarnedAboutPermissiveMode = true;
-      }
+    if (this.checkPermissiveMode()) {
       for (const entry of entries) {
         results.set(entry.id, true);
       }
@@ -387,48 +441,20 @@ export class PermissionService {
       return results;
     }
 
-    const requiredPermission: PermissionLevel =
-      action === 'read' ? 'read' : action === 'write' ? 'write' : 'admin';
+    const requiredPermission = this.getRequiredPermissionLevel(action);
 
-    // Collect unique scope chains and build conditions
-    const allConditions = [];
+    // Collect unique scope chains and build conditions using helper
+    const allConditions: ReturnType<typeof and>[] = [];
     const entryScopes = new Map<string, Array<{ type: ScopeType; id: string | null }>>();
 
     for (const entry of nonProjectEntries) {
       const scopeChain = this.buildScopeChain(entry.scopeType, entry.scopeId);
       entryScopes.set(entry.id, scopeChain);
-
-      for (const scope of scopeChain) {
-        // Entry-specific permission
-        allConditions.push(
-          and(
-            eq(permissions.agentId, agentId),
-            eq(permissions.entryType, entry.entryType as PermissionEntryType),
-            eq(permissions.entryId, entry.id),
-            eq(permissions.scopeType, scope.type),
-            scope.id === null ? isNull(permissions.scopeId) : eq(permissions.scopeId, scope.id)
-          )
-        );
-
-        // Entry-type permission
-        allConditions.push(
-          and(
-            eq(permissions.agentId, agentId),
-            eq(permissions.entryType, entry.entryType as 'tool' | 'guideline' | 'knowledge'),
-            isNull(permissions.entryId),
-            eq(permissions.scopeType, scope.type),
-            scope.id === null ? isNull(permissions.scopeId) : eq(permissions.scopeId, scope.id)
-          )
-        );
-      }
+      allConditions.push(...this.buildPermissionConditions(agentId, entry.entryType, entry.id, scopeChain));
     }
 
-    // Single batch query for all permissions
-    const matchingPerms = this.db
-      .select()
-      .from(permissions)
-      .where(or(...allConditions))
-      .all();
+    // Batch query with chunking for large condition sets
+    const matchingPerms = this.executeChunkedPermissionQuery(allConditions);
 
     // Index permissions by scope for efficient lookup
     const permsByScope = new Map<string, Array<(typeof matchingPerms)[0]>>();
@@ -448,26 +474,18 @@ export class PermissionService {
         // Check entry-specific permission
         const entryKey = `${scope.type}:${scope.id ?? ''}:${entry.entryType}:${entry.id}`;
         const entryPerms = permsByScope.get(entryKey) ?? [];
-        for (const perm of entryPerms) {
-          if (this.hasRequiredLevel(perm.permission as PermissionLevel, requiredPermission)) {
-            hasPermission = true;
-            break;
-          }
+        if (this.hasAnyRequiredLevel(entryPerms, requiredPermission)) {
+          hasPermission = true;
+          break;
         }
-
-        if (hasPermission) break;
 
         // Check entry-type permission
         const typeKey = `${scope.type}:${scope.id ?? ''}:${entry.entryType}:`;
         const typePerms = permsByScope.get(typeKey) ?? [];
-        for (const perm of typePerms) {
-          if (this.hasRequiredLevel(perm.permission as PermissionLevel, requiredPermission)) {
-            hasPermission = true;
-            break;
-          }
+        if (this.hasAnyRequiredLevel(typePerms, requiredPermission)) {
+          hasPermission = true;
+          break;
         }
-
-        if (hasPermission) break;
       }
 
       results.set(entry.id, hasPermission);

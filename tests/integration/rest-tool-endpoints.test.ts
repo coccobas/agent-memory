@@ -41,7 +41,7 @@ describe('REST Tool Endpoints', () => {
 
     testDb = setupTestDb(TEST_DB_PATH);
     context = await createTestContext(testDb);
-    app = createServer(context);
+    app = await createServer(context);
   });
 
   afterAll(async () => {
