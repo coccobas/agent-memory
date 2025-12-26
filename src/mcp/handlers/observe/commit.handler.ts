@@ -2,13 +2,12 @@
  * Commit handler - Store client-extracted entries
  *
  * Context-aware handler that receives AppContext for dependency injection.
+ * The handler validates and normalizes input, then delegates to ObserveCommitService.
  */
 
 import type { AppContext } from '../../../core/context.js';
-import { checkForDuplicates } from '../../../services/duplicate.service.js';
 import { logAction } from '../../../services/audit.service.js';
 import { createValidationError } from '../../../core/errors.js';
-import { createComponentLogger } from '../../../utils/logger.js';
 import {
   getRequiredParam,
   getOptionalParam,
@@ -18,24 +17,15 @@ import {
   isArray,
 } from '../../../utils/type-guards.js';
 import { formatTimestamps } from '../../../utils/timestamp-formatter.js';
-import type { ScopeType } from '../../types.js';
 import type {
   ExtractedEntity,
   ExtractedRelationship,
 } from '../../../services/extraction.service.js';
-import type { ProcessedEntry, StoredEntry, ObserveCommitEntry } from './types.js';
+import type { ObserveCommitEntry } from './types.js';
 import {
   parseEnvBool,
   parseEnvNumber,
-  mergeSessionMetadata,
-  ensureSessionIdExists,
-  storeEntry,
-  storeEntity,
-  buildNameToIdMap,
-  createExtractedRelations,
 } from './helpers.js';
-
-const logger = createComponentLogger('observe.commit');
 
 // =============================================================================
 // NORMALIZATION FUNCTIONS
@@ -256,29 +246,38 @@ function normalizeCommitRelationship(raw: unknown, index: number): ExtractedRela
 /**
  * Client-assisted extraction: accept extracted entries and store them.
  *
+ * Validates and normalizes input, then delegates to ObserveCommitService.
  * - High-confidence entries can auto-promote to project scope (default on)
  * - Lower-confidence entries are stored at session scope and tagged for review
  */
 export async function commit(context: AppContext, params: Record<string, unknown>) {
+  // Validate required service
+  if (!context.services.observeCommit) {
+    throw createValidationError('observeCommit', 'service not available');
+  }
+
+  // Parse and validate parameters
   const sessionId = getRequiredParam(params, 'sessionId', isString);
   const projectId = getOptionalParam(params, 'projectId', isString);
   const agentId = getOptionalParam(params, 'agentId', isString);
 
+  // Normalize entries
   const rawEntries = getRequiredParam(params, 'entries', isArray);
   const entries = rawEntries.map((e, i) => normalizeCommitEntry(e, i));
 
-  // Parse entities (optional)
+  // Normalize entities (optional)
   const rawEntities = getOptionalParam(params, 'entities', isArray) || [];
   const entities: ExtractedEntity[] = rawEntities
     .map((e, i) => normalizeCommitEntity(e, i))
     .filter((e): e is ExtractedEntity => e !== null);
 
-  // Parse relationships (optional)
+  // Normalize relationships (optional)
   const rawRelationships = getOptionalParam(params, 'relationships', isArray) || [];
   const relationships: ExtractedRelationship[] = rawRelationships
     .map((r, i) => normalizeCommitRelationship(r, i))
     .filter((r): r is ExtractedRelationship => r !== null);
 
+  // Get auto-promote settings
   const autoPromoteDefault = parseEnvBool('AGENT_MEMORY_OBSERVE_AUTO_PROMOTE_DEFAULT', true);
   const autoPromote = getOptionalParam(params, 'autoPromote', isBoolean) ?? autoPromoteDefault;
   const autoPromoteThresholdDefault = parseEnvNumber(
@@ -288,199 +287,34 @@ export async function commit(context: AppContext, params: Record<string, unknown
   const autoPromoteThreshold =
     getOptionalParam(params, 'autoPromoteThreshold', isNumber) ?? autoPromoteThresholdDefault;
 
-  const relationConfidenceThreshold = 0.8;
-
-  // Ensure session exists
-  await ensureSessionIdExists(context.db, context.repos, sessionId, projectId, agentId);
-
-  const stored: StoredEntry[] = [];
-  const storedEntities: StoredEntry[] = [];
-  const skippedDuplicates: Array<{ type: string; name: string; scopeType: ScopeType }> = [];
-  let storedToProject = 0;
-  let storedToSession = 0;
-  let needsReviewCount = 0;
-  let relationsCreated = 0;
-  let relationsSkipped = 0;
-
-  // Store entries
-  for (const entry of entries) {
-    const wantsProject = autoPromote && entry.confidence >= autoPromoteThreshold && !!projectId;
-    const targetScopeType: ScopeType = wantsProject ? 'project' : 'session';
-    const targetScopeId = wantsProject ? projectId : sessionId;
-
-    const entryType = entry.type;
-    const entryName = entry.name || entry.title || 'Unnamed';
-    const duplicateCheck = checkForDuplicates(
-      entryType,
-      entryName,
-      targetScopeType,
-      targetScopeId ?? null,
-      context.db
-    );
-
-    if (duplicateCheck.isDuplicate) {
-      skippedDuplicates.push({ type: entryType, name: entryName, scopeType: targetScopeType });
-      continue;
-    }
-
-    const processed: ProcessedEntry = {
-      ...entry,
-      isDuplicate: false,
-      similarEntries: duplicateCheck.similarEntries.slice(0, 3),
-      shouldStore: true,
-    };
-
-    const saved = await storeEntry(
-      context.repos,
-      processed,
-      targetScopeType,
-      targetScopeId,
-      agentId,
-      context.db
-    );
-    if (!saved) continue;
-    stored.push(saved);
-
-    if (targetScopeType === 'project') storedToProject += 1;
-    else storedToSession += 1;
-
-    const isCandidate = targetScopeType === 'session';
-    if (isCandidate) {
-      needsReviewCount += 1;
-      try {
-        await context.repos.entryTags.attach({
-          entryType: saved.type,
-          entryId: saved.id,
-          tagName: 'needs_review',
-        });
-        await context.repos.entryTags.attach({
-          entryType: saved.type,
-          entryId: saved.id,
-          tagName: 'candidate',
-        });
-      } catch (error) {
-        logger.warn(
-          {
-            entryType: saved.type,
-            entryId: saved.id,
-            error: error instanceof Error ? error.message : String(error),
-          },
-          'Failed to attach candidate tags'
-        );
-      }
-    }
-
-    const suggestedTags = Array.isArray(entry.suggestedTags) ? entry.suggestedTags : [];
-    for (const tagName of suggestedTags) {
-      if (typeof tagName !== 'string' || !tagName.trim()) continue;
-      try {
-        await context.repos.entryTags.attach({ entryType: saved.type, entryId: saved.id, tagName });
-      } catch {
-        // best-effort
-      }
-    }
-  }
-
-  // Store entities
-  for (const entity of entities) {
-    const wantsProject = autoPromote && entity.confidence >= autoPromoteThreshold && !!projectId;
-    const targetScopeType: ScopeType = wantsProject ? 'project' : 'session';
-    const targetScopeId = wantsProject ? projectId : sessionId;
-
-    try {
-      const saved = await storeEntity(
-        context.repos,
-        entity,
-        targetScopeType,
-        targetScopeId,
-        agentId,
-        context.db
-      );
-      if (saved) {
-        storedEntities.push(saved);
-      }
-    } catch (error) {
-      logger.warn(
-        {
-          entityName: entity.name,
-          error: error instanceof Error ? error.message : String(error),
-        },
-        'Failed to store entity in commit'
-      );
-    }
-  }
-
-  // Create relations
-  if (relationships.length > 0 && (stored.length > 0 || storedEntities.length > 0)) {
-    const nameToIdMap = buildNameToIdMap(stored, storedEntities);
-    const relationResults = await createExtractedRelations(
-      context.repos,
-      relationships,
-      nameToIdMap,
-      relationConfidenceThreshold
-    );
-    relationsCreated = relationResults.created;
-    relationsSkipped = relationResults.skipped + relationResults.errors;
-  }
-
-  const committedAt = new Date().toISOString();
-  const reviewedAt = needsReviewCount === 0 ? committedAt : undefined;
-  const nextMeta = await mergeSessionMetadata(context.repos, sessionId, {
-    observe: {
-      committedAt,
-      committedBy: agentId ?? null,
-      autoPromote,
-      autoPromoteThreshold,
-      totalReceived: entries.length,
-      entitiesReceived: entities.length,
-      relationshipsReceived: relationships.length,
-      storedCount: stored.length,
-      entitiesStoredCount: storedEntities.length,
-      relationsCreated,
-      storedToProject,
-      storedToSession,
-      needsReviewCount,
-      ...(reviewedAt ? { reviewedAt } : {}),
-    },
+  // Delegate to service for business logic
+  const result = await context.services.observeCommit.commit({
+    sessionId,
+    projectId,
+    agentId,
+    entries,
+    entities,
+    relationships,
+    autoPromote,
+    autoPromoteThreshold,
   });
-  await context.repos.sessions.update(sessionId, { metadata: nextMeta });
 
+  // Log audit action
   logAction(
     {
       agentId,
       action: 'create',
       scopeType: 'session',
       scopeId: sessionId,
-      resultCount: stored.length + storedEntities.length,
+      resultCount: result.stored.entries.length + result.stored.entities.length,
     },
     context.db
   );
 
   return formatTimestamps({
     success: true,
-    stored: {
-      entries: stored,
-      entities: storedEntities,
-      relationsCreated,
-    },
-    skippedDuplicates,
-    meta: {
-      sessionId,
-      projectId: projectId ?? null,
-      autoPromote,
-      autoPromoteThreshold,
-      totalReceived: entries.length,
-      entitiesReceived: entities.length,
-      relationshipsReceived: relationships.length,
-      storedCount: stored.length,
-      entitiesStoredCount: storedEntities.length,
-      relationsCreated,
-      relationsSkipped,
-      storedToProject,
-      storedToSession,
-      needsReviewCount,
-      committedAt,
-      reviewedAt: reviewedAt ?? null,
-    },
+    stored: result.stored,
+    skippedDuplicates: result.skippedDuplicates,
+    meta: result.meta,
   });
 }

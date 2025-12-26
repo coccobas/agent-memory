@@ -25,6 +25,7 @@ import type { CaptureStateManager } from '../services/capture/state.js';
 import type { EntityExtractor } from '../services/query/entity-extractor.js';
 import type { FeedbackScoreCache } from '../services/query/feedback-cache.js';
 import type { ExperiencePromotionService } from '../services/experience/index.js';
+import type { ObserveCommitService } from '../services/observe/index.js';
 
 /**
  * Service interfaces for AppContext
@@ -168,6 +169,8 @@ export interface AppContextServices {
   capture?: CaptureService;
   /** Experience promotion service for case→strategy→skill promotions */
   experiencePromotion?: ExperiencePromotionService;
+  /** Observe commit service for storing extracted entries */
+  observeCommit?: ObserveCommitService;
 }
 
 /**

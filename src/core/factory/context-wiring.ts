@@ -19,6 +19,7 @@ import type { Repositories } from '../interfaces/repositories.js';
 import { createComponentLogger } from '../../utils/logger.js';
 import { SecurityService } from '../../services/security.service.js';
 import { createExperiencePromotionService } from '../../services/experience/index.js';
+import { createObserveCommitService } from '../../services/observe/index.js';
 
 import { createServices, type ServiceDependencies } from './services.js';
 import { createQueryPipeline, wireQueryCache } from './query-pipeline.js';
@@ -74,6 +75,13 @@ export async function wireContext(input: WireContextInput): Promise<AppContext> 
     eventAdapter: adapters.event,
   });
   services.experiencePromotion = experiencePromotionService;
+
+  // Create ObserveCommitService (needs repos and db)
+  const observeCommitService = createObserveCommitService({
+    repos,
+    db,
+  });
+  services.observeCommit = observeCommitService;
 
   // Create query pipeline
   const queryDeps = createQueryPipeline(config, runtime);
