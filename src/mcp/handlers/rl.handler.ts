@@ -5,7 +5,9 @@
  */
 
 import type { AppContext } from '../../core/context.js';
-import { getRLService, initRLService } from '../../services/rl/index.js';
+import type { IFileSystemAdapter } from '../../core/adapters/index.js';
+import { createLocalFileSystemAdapter } from '../../core/adapters/index.js';
+import { createValidationError } from '../../core/errors.js';
 import {
   buildExtractionDataset,
   buildRetrievalDataset,
@@ -27,12 +29,21 @@ import {
   isObject,
   isNumber,
 } from '../../utils/type-guards.js';
-import { createValidationError } from '../../core/errors.js';
 import type { DatasetParams } from '../../services/rl/training/dataset-builder.js';
 import type { TrainingConfig } from '../../services/rl/training/dpo-trainer.js';
-import { writeFileSync, existsSync, readdirSync, statSync, readFileSync } from 'node:fs';
-import { join, resolve, basename } from 'node:path';
-import { config } from '../../config/index.js';
+import { config as appConfig } from '../../config/index.js';
+
+// =============================================================================
+// FILESYSTEM ADAPTER HELPER
+// =============================================================================
+
+/**
+ * Get the filesystem adapter from context.
+ * Falls back to creating a local adapter if not available in context.
+ */
+function getFileSystemAdapter(context: AppContext): IFileSystemAdapter {
+  return context.unifiedAdapters?.fs ?? createLocalFileSystemAdapter();
+}
 
 // =============================================================================
 // HANDLERS
@@ -42,14 +53,12 @@ import { config } from '../../config/index.js';
  * Get RL service status and policy states
  */
 async function status(
-  _context: AppContext,
+  context: AppContext,
   _params: Record<string, unknown>
 ): Promise<unknown> {
-  let rlService = getRLService();
-
-  // Initialize if not already initialized
+  const rlService = context.services.rl;
   if (!rlService) {
-    rlService = initRLService();
+    throw createValidationError('rl', 'RL service not available');
   }
 
   return rlService.getStatus();
@@ -119,7 +128,7 @@ async function trainOriginal(
  * Enable or disable a policy
  */
 async function enable(
-  _context: AppContext,
+  context: AppContext,
   params: Record<string, unknown>
 ): Promise<unknown> {
   const policy = getRequiredParam(params, 'policy', isString);
@@ -132,9 +141,9 @@ async function enable(
     );
   }
 
-  let rlService = getRLService();
+  const rlService = context.services.rl;
   if (!rlService) {
-    rlService = initRLService();
+    throw createValidationError('rl', 'RL service not available');
   }
 
   // Update config to enable/disable the policy
@@ -155,23 +164,23 @@ async function enable(
  * Update policy configuration
  */
 async function updateConfig(
-  _context: AppContext,
+  context: AppContext,
   params: Record<string, unknown>
 ): Promise<unknown> {
   const policy = getOptionalParam(params, 'policy', isString);
-  const config = getOptionalParam(params, 'config', isObject);
+  const configParam = getOptionalParam(params, 'config', isObject);
   const modelPath = getOptionalParam(params, 'modelPath', isString);
   const enabled = getOptionalParam(params, 'enabled', isBoolean);
 
-  let rlService = getRLService();
+  const rlService = context.services.rl;
   if (!rlService) {
-    rlService = initRLService();
+    throw createValidationError('rl', 'RL service not available');
   }
 
   // Build config update
-  const updateConfig: any = {};
+  const configUpdate: Record<string, unknown> = {};
 
-  if (policy && (config || modelPath !== undefined || enabled !== undefined)) {
+  if (policy && (configParam || modelPath !== undefined || enabled !== undefined)) {
     if (!['extraction', 'retrieval', 'consolidation'].includes(policy)) {
       throw createValidationError(
         'policy',
@@ -179,23 +188,23 @@ async function updateConfig(
       );
     }
 
-    updateConfig[policy] = {
-      ...(config as any),
+    configUpdate[policy] = {
+      ...(configParam as Record<string, unknown>),
     };
 
     if (modelPath !== undefined) {
-      updateConfig[policy].modelPath = modelPath;
+      (configUpdate[policy] as Record<string, unknown>).modelPath = modelPath;
     }
 
     if (enabled !== undefined) {
-      updateConfig[policy].enabled = enabled;
+      (configUpdate[policy] as Record<string, unknown>).enabled = enabled;
     }
-  } else if (config) {
+  } else if (configParam) {
     // Global config update
-    Object.assign(updateConfig, config);
+    Object.assign(configUpdate, configParam);
   }
 
-  rlService.updateConfig(updateConfig);
+  rlService.updateConfig(configUpdate);
 
   return {
     success: true,
@@ -207,9 +216,10 @@ async function updateConfig(
  * Export dataset in various formats
  */
 async function exportDataset(
-  _context: AppContext,
+  context: AppContext,
   params: Record<string, unknown>
 ): Promise<unknown> {
+  const fs = getFileSystemAdapter(context);
   const policy = getRequiredParam(params, 'policy', isString);
   const format = getOptionalParam(params, 'format', isString) ?? 'huggingface';
   const outputPath = getRequiredParam(params, 'outputPath', isString);
@@ -265,7 +275,7 @@ async function exportDataset(
     case 'huggingface':
       // Hugging Face DPO format (JSONL with prompt, chosen, rejected)
       content = pairs.map((p) => JSON.stringify(p)).join('\n');
-      filename = join(outputPath, `${policy}_dpo_train.jsonl`);
+      filename = fs.join(outputPath, `${policy}_dpo_train.jsonl`);
       break;
 
     case 'openai':
@@ -280,7 +290,7 @@ async function exportDataset(
           })
         )
         .join('\n');
-      filename = join(outputPath, `${policy}_openai_train.jsonl`);
+      filename = fs.join(outputPath, `${policy}_openai_train.jsonl`);
       break;
 
     case 'csv':
@@ -294,20 +304,20 @@ async function exportDataset(
         })
         .join('\n');
       content = headers + rows;
-      filename = join(outputPath, `${policy}_train.csv`);
+      filename = fs.join(outputPath, `${policy}_train.csv`);
       break;
 
     case 'jsonl':
     default:
       // Standard JSONL format (full dataset)
       content = dataset.train.map((ex) => JSON.stringify(ex)).join('\n');
-      filename = join(outputPath, `${policy}_train.jsonl`);
+      filename = fs.join(outputPath, `${policy}_train.jsonl`);
       break;
   }
 
   // Validate and write file
-  const resolvedPath = resolve(filename);
-  const outputDir = resolve(outputPath);
+  const resolvedPath = fs.resolve(filename);
+  const outputDir = fs.resolve(outputPath);
 
   // Security check: ensure path is within intended directory
   if (!resolvedPath.startsWith(outputDir)) {
@@ -317,7 +327,7 @@ async function exportDataset(
     );
   }
 
-  writeFileSync(resolvedPath, content, 'utf-8');
+  await fs.writeFile(resolvedPath, content, 'utf-8');
 
   return {
     success: true,
@@ -354,9 +364,10 @@ async function trainPolicy(
  * Load a trained model
  */
 async function loadModel(
-  _context: AppContext,
+  context: AppContext,
   params: Record<string, unknown>
 ): Promise<unknown> {
+  const fs = getFileSystemAdapter(context);
   const policy = getRequiredParam(params, 'policy', isString);
   const version = getOptionalParam(params, 'version', isString);
 
@@ -367,37 +378,40 @@ async function loadModel(
     );
   }
 
-  let rlService = getRLService();
+  const rlService = context.services.rl;
   if (!rlService) {
-    rlService = initRLService();
+    throw createValidationError('rl', 'RL service not available');
   }
 
   // Determine model path
-  const modelsDir = join(config.paths.dataDir, 'models', 'rl', policy);
+  const modelsDir = fs.join(appConfig.paths.dataDir, 'models', 'rl', policy);
   let modelPath: string;
 
   if (version) {
     // Load specific version
-    modelPath = join(modelsDir, version);
+    modelPath = fs.join(modelsDir, version);
   } else {
     // Load latest version (most recent directory)
-    if (!existsSync(modelsDir)) {
+    if (!(await fs.exists(modelsDir))) {
       throw createValidationError('policy', `No trained models found for ${policy}`);
     }
 
-    const versions = readdirSync(modelsDir)
-      .filter((name) => {
-        const fullPath = join(modelsDir, name);
-        return statSync(fullPath).isDirectory();
-      })
-      .sort()
-      .reverse();
+    const dirEntries = await fs.readDir(modelsDir);
+    const versions: string[] = [];
+    for (const name of dirEntries) {
+      const fullPath = fs.join(modelsDir, name);
+      const stat = await fs.stat(fullPath);
+      if (stat.isDirectory()) {
+        versions.push(name);
+      }
+    }
+    versions.sort().reverse();
 
     if (versions.length === 0) {
       throw createValidationError('policy', `No trained models found for ${policy}`);
     }
 
-    modelPath = join(modelsDir, versions[0]!);
+    modelPath = fs.join(modelsDir, versions[0]!);
   }
 
   // Update config to use the model
@@ -412,7 +426,7 @@ async function loadModel(
     success: true,
     policy,
     modelPath,
-    version: version ?? basename(modelPath),
+    version: version ?? fs.basename(modelPath),
   };
 }
 
@@ -420,55 +434,67 @@ async function loadModel(
  * List available trained models
  */
 async function listModels(
-  _context: AppContext,
+  context: AppContext,
   _params: Record<string, unknown>
 ): Promise<unknown> {
-  const modelsBaseDir = join(config.paths.dataDir, 'models', 'rl');
+  const fs = getFileSystemAdapter(context);
+  const modelsBaseDir = fs.join(appConfig.paths.dataDir, 'models', 'rl');
   const policies = ['extraction', 'retrieval', 'consolidation'];
 
   const models: Record<string, any[]> = {};
 
   for (const policy of policies) {
-    const policyDir = join(modelsBaseDir, policy);
+    const policyDir = fs.join(modelsBaseDir, policy);
 
-    if (!existsSync(policyDir)) {
+    if (!(await fs.exists(policyDir))) {
       models[policy] = [];
       continue;
     }
 
-    const versions = readdirSync(policyDir)
-      .filter((name) => {
-        const fullPath = join(policyDir, name);
-        return statSync(fullPath).isDirectory();
-      })
-      .map((version) => {
-        const versionPath = join(policyDir, version);
-        const metadataPath = join(versionPath, `${policy}_metadata.json`);
+    const dirEntries = await fs.readDir(policyDir);
+    const versions: Array<{
+      version: string;
+      path: string;
+      createdAt?: string;
+      trainPairs?: number;
+      evalPairs?: number;
+    }> = [];
 
-        let metadata: any = {};
-        if (existsSync(metadataPath)) {
-          try {
-            metadata = JSON.parse(readFileSync(metadataPath, 'utf-8'));
-          } catch (error) {
-            // Ignore metadata read errors
-          }
-        }
+    for (const name of dirEntries) {
+      const fullPath = fs.join(policyDir, name);
+      const stat = await fs.stat(fullPath);
 
-        return {
-          version,
-          path: versionPath,
-          createdAt: metadata.createdAt,
-          trainPairs: metadata.trainPairs,
-          evalPairs: metadata.evalPairs,
-        };
-      })
-      .sort((a, b) => {
-        // Sort by createdAt descending
-        if (a.createdAt && b.createdAt) {
-          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      if (!stat.isDirectory()) continue;
+
+      const versionPath = fullPath;
+      const metadataPath = fs.join(versionPath, `${policy}_metadata.json`);
+
+      let metadata: Record<string, unknown> = {};
+      if (await fs.exists(metadataPath)) {
+        try {
+          const content = await fs.readFile(metadataPath, 'utf-8');
+          metadata = JSON.parse(content);
+        } catch {
+          // Ignore metadata read errors
         }
-        return b.version.localeCompare(a.version);
+      }
+
+      versions.push({
+        version: name,
+        path: versionPath,
+        createdAt: metadata.createdAt as string | undefined,
+        trainPairs: metadata.trainPairs as number | undefined,
+        evalPairs: metadata.evalPairs as number | undefined,
       });
+    }
+
+    versions.sort((a, b) => {
+      // Sort by createdAt descending
+      if (a.createdAt && b.createdAt) {
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      }
+      return b.version.localeCompare(a.version);
+    });
 
     models[policy] = versions;
   }
@@ -483,9 +509,10 @@ async function listModels(
  * Evaluate a model on held-out data
  */
 async function evaluateModel(
-  _context: AppContext,
+  context: AppContext,
   params: Record<string, unknown>
 ): Promise<unknown> {
+  const fs = getFileSystemAdapter(context);
   const policy = getRequiredParam(params, 'policy', isString);
   const datasetPath = getOptionalParam(params, 'datasetPath', isString);
 
@@ -496,16 +523,16 @@ async function evaluateModel(
     );
   }
 
-  const rlService = getRLService();
+  const rlService = context.services.rl;
   if (!rlService) {
-    throw createValidationError('rl', 'RL service not initialized');
+    throw createValidationError('rl', 'RL service not available');
   }
 
   // If dataset path provided, use it; otherwise build from feedback
   let dataset;
   if (datasetPath) {
     // Load dataset from file (JSONL format expected)
-    const content = readFileSync(datasetPath, 'utf-8');
+    const content = await fs.readFile(datasetPath, 'utf-8');
     const examples = content
       .split('\n')
       .filter((line: string) => line.trim())
@@ -570,9 +597,10 @@ async function evaluateModel(
  * Compare two models
  */
 async function compareModels(
-  _context: AppContext,
+  context: AppContext,
   params: Record<string, unknown>
 ): Promise<unknown> {
+  const fs = getFileSystemAdapter(context);
   const policyA = getRequiredParam(params, 'policyA', isString);
   const policyB = getRequiredParam(params, 'policyB', isString);
   const datasetPath = getOptionalParam(params, 'datasetPath', isString);
@@ -599,15 +627,15 @@ async function compareModels(
     );
   }
 
-  const rlService = getRLService();
+  const rlService = context.services.rl;
   if (!rlService) {
-    throw createValidationError('rl', 'RL service not initialized');
+    throw createValidationError('rl', 'RL service not available');
   }
 
   // Build or load dataset
   let dataset;
   if (datasetPath) {
-    const content = readFileSync(datasetPath, 'utf-8');
+    const content = await fs.readFile(datasetPath, 'utf-8');
     const examples = content
       .split('\n')
       .filter((line: string) => line.trim())

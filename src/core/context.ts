@@ -8,10 +8,22 @@ import type { PipelineDependencies } from '../services/query/pipeline.js';
 import type { Runtime } from './runtime.js';
 import type { Repositories } from './interfaces/repositories.js';
 import type { AppDb } from './types.js';
-import type { Adapters, AdaptersWithRedis, IEventAdapter, ICacheAdapter } from './adapters/index.js';
+import type {
+  Adapters,
+  AdaptersWithRedis,
+  IEventAdapter,
+  ICacheAdapter,
+  IFileSystemAdapter,
+} from './adapters/index.js';
 import type { EntryChangedEvent } from '../utils/events.js';
 import type { FeedbackService } from '../services/feedback/index.js';
 import type { FeedbackQueueProcessor } from '../services/feedback/queue.js';
+import type { RLService } from '../services/rl/index.js';
+import type { LibrarianService } from '../services/librarian/index.js';
+import type { CaptureService } from '../services/capture/index.js';
+import type { CaptureStateManager } from '../services/capture/state.js';
+import type { EntityExtractor } from '../services/query/entity-extractor.js';
+import type { FeedbackScoreCache } from '../services/query/feedback-cache.js';
 
 /**
  * Service interfaces for AppContext
@@ -118,31 +130,54 @@ export interface IHierarchicalSummarizationService {
 
 /**
  * Services container
- * Optional services for embedding, vector, extraction
+ *
+ * Service optionality:
+ * - Required services are always created by the factory
+ * - Optional services may be disabled via configuration or lazy-initialized
+ *
  * Permission is required for all authorization checks
  */
 export interface AppContextServices {
+  // === Always Created (Required) ===
+  permission: PermissionService; // Required - all code paths must have permission service
+  /** Feedback service for RL training data collection */
+  feedback: FeedbackService;
+  /** Feedback queue processor for batched retrieval recording */
+  feedbackQueue: FeedbackQueueProcessor;
+  /** Reinforcement learning service for policy decisions */
+  rl: RLService;
+  /** Capture state manager for session state */
+  captureState: CaptureStateManager;
+  /** Entity extractor for text entity extraction */
+  entityExtractor: EntityExtractor;
+  /** Feedback score cache for retrieval scoring */
+  feedbackScoreCache: FeedbackScoreCache;
+
+  // === Configuration-Dependent (Optional) ===
   embedding?: IEmbeddingService;
   vector?: IVectorService;
   extraction?: IExtractionService;
-  permission: PermissionService; // Required - all code paths must have permission service
   verification?: VerificationService;
   summarization?: IHierarchicalSummarizationService;
-  /** Feedback service for RL training data collection */
-  feedback?: FeedbackService;
-  /** Feedback queue processor for batched retrieval recording */
-  feedbackQueue?: FeedbackQueueProcessor;
+
+  // === Lazy-Initialized (Optional) ===
+  /** Librarian service for pattern detection and promotion */
+  librarian?: LibrarianService;
+  /** Capture service for session-scoped entry capture */
+  capture?: CaptureService;
 }
 
 /**
  * Unified adapter interface for handler injection.
- * Provides access to event and cache adapters with a consistent interface.
+ * Provides access to event, cache, and filesystem adapters with a consistent interface.
  */
 export interface UnifiedAdapters {
   /** Event adapter - automatically uses Redis or local based on availability */
   event: IEventAdapter<EntryChangedEvent>;
   /** Cache adapter - optional, uses Redis when available */
   cache?: ICacheAdapter;
+  /** FileSystem adapter - abstracts file I/O for testability */
+  fs: IFileSystemAdapter;
 }
 
 /**

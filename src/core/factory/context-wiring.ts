@@ -8,12 +8,13 @@
 import type { Logger } from 'pino';
 import type { Pool } from 'pg';
 import type Database from 'better-sqlite3';
-import type { AppContext } from '../context.js';
+import type { AppContext, UnifiedAdapters } from '../context.js';
 import type { Config } from '../../config/index.js';
 import type { Runtime } from '../runtime.js';
 import { setRateLimiters } from '../runtime.js';
 import type { AppDb } from '../types.js';
 import type { Adapters, RedisAdapters } from '../adapters/index.js';
+import { createLocalFileSystemAdapter } from '../adapters/index.js';
 import type { Repositories } from '../interfaces/repositories.js';
 import { createComponentLogger } from '../../utils/logger.js';
 import { SecurityService } from '../../services/security.service.js';
@@ -83,6 +84,13 @@ export async function wireContext(input: WireContextInput): Promise<AppContext> 
   // (which are now Redis-backed if Redis is enabled)
   const security = new SecurityService(config, runtime.rateLimiters);
 
+  // Create unified adapters with filesystem adapter for handler injection
+  const unifiedAdapters: UnifiedAdapters = {
+    event: adapters.event,
+    cache: adapters.cache,
+    fs: createLocalFileSystemAdapter(),
+  };
+
   return {
     config,
     db,
@@ -94,5 +102,6 @@ export async function wireContext(input: WireContextInput): Promise<AppContext> 
     services,
     repos,
     adapters,
+    unifiedAdapters,
   };
 }

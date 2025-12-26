@@ -24,6 +24,10 @@ export type {
   EntryChangedEvent,
 } from './interfaces.js';
 
+// FileSystem Adapter
+export type { IFileSystemAdapter, FileStat } from './filesystem.adapter.js';
+export { LocalFileSystemAdapter, createLocalFileSystemAdapter } from './local-filesystem.adapter.js';
+
 
 // Implementations - Storage
 export { SQLiteStorageAdapter, createSQLiteStorageAdapter } from './sqlite.adapter.js';
@@ -91,6 +95,7 @@ import {
   type RedisRateLimiterAdapter,
 } from './redis-rate-limiter.adapter.js';
 import { createComponentLogger } from '../../utils/logger.js';
+import { createValidationError } from '../errors.js';
 
 const logger = createComponentLogger('adapters');
 
@@ -186,12 +191,12 @@ export function createStorageAdapter(
 ): IStorageAdapter {
   if (dbType === 'postgresql') {
     if (!deps.config) {
-      throw new Error('PostgreSQL config required for postgresql storage adapter');
+      throw createValidationError('config', 'is required for postgresql storage adapter');
     }
     return createPostgreSQLStorageAdapter(deps.config);
   } else {
     if (!deps.db || !deps.sqlite) {
-      throw new Error('db and sqlite required for sqlite storage adapter');
+      throw createValidationError('db and sqlite', 'are required for sqlite storage adapter');
     }
     return createSQLiteStorageAdapter(deps.db, deps.sqlite);
   }
