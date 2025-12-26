@@ -109,6 +109,25 @@ export interface PipelineDependencies {
     debug: (data: Record<string, unknown>, message: string) => void;
     info: (data: Record<string, unknown>, message: string) => void;
   };
+
+  /**
+   * Feedback dependencies for RL training data collection.
+   * Optional - if not provided, feedback recording is skipped.
+   */
+  feedback?: {
+    /** Enqueue batch for processing (preferred - has backpressure) */
+    enqueue: (batch: Array<{
+      sessionId: string;
+      queryText?: string;
+      entryType: 'tool' | 'guideline' | 'knowledge' | 'experience';
+      entryId: string;
+      retrievalRank: number;
+      retrievalScore: number;
+      semanticScore?: number;
+    }>) => boolean;
+    /** Check if queue is accepting new items */
+    isAccepting: () => boolean;
+  };
 }
 
 export interface QueryResultItemBase {

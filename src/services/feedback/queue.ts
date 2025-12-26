@@ -422,43 +422,20 @@ export class FeedbackQueueProcessor {
 }
 
 // =============================================================================
-// SINGLETON MANAGEMENT
+// FACTORY
 // =============================================================================
 
-let processorInstance: FeedbackQueueProcessor | null = null;
-
 /**
- * Get the feedback queue processor singleton
- * Returns null if not initialized
+ * Create a new FeedbackQueueProcessor instance.
+ * Use this via dependency injection rather than the singleton.
+ *
+ * @param feedbackService - The feedback service for persisting samples
+ * @param config - Optional configuration overrides
+ * @returns A new FeedbackQueueProcessor instance
  */
-export function getFeedbackQueue(): FeedbackQueueProcessor | null {
-  return processorInstance;
-}
-
-/**
- * Initialize the feedback queue processor with dependencies
- */
-export function initFeedbackQueue(
+export function createFeedbackQueueProcessor(
   feedbackService: FeedbackService,
   config?: Partial<FeedbackQueueConfig>
 ): FeedbackQueueProcessor {
-  if (processorInstance) {
-    logger.warn('FeedbackQueueProcessor already initialized, returning existing instance');
-    return processorInstance;
-  }
-
-  processorInstance = new FeedbackQueueProcessor(feedbackService, config);
-  logger.info('FeedbackQueueProcessor initialized');
-  return processorInstance;
-}
-
-/**
- * Reset the feedback queue processor singleton (for testing)
- */
-export async function resetFeedbackQueue(): Promise<void> {
-  if (processorInstance) {
-    await processorInstance.stop();
-    processorInstance = null;
-    logger.debug('FeedbackQueueProcessor reset');
-  }
+  return new FeedbackQueueProcessor(feedbackService, config);
 }

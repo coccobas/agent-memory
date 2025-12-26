@@ -20,8 +20,15 @@ import type { AppDb } from '../types.js';
 import type { IVectorStore } from '../interfaces/vector-store.js';
 import { LanceDbVectorStore } from '../../db/vector-stores/lancedb.js';
 import { initFeedbackService } from '../../services/feedback/index.js';
-import { initFeedbackQueue } from '../../services/feedback/queue.js';
+import { createFeedbackQueueProcessor } from '../../services/feedback/queue.js';
 import { createComponentLogger } from '../../utils/logger.js';
+// Phase 1 Architecture Migration - DI-managed services
+import { RLService } from '../../services/rl/index.js';
+import { CaptureStateManager } from '../../services/capture/state.js';
+import { EntityExtractor } from '../../services/query/entity-extractor.js';
+import { FeedbackScoreCache } from '../../services/query/feedback-cache.js';
+import { LibrarianService } from '../../services/librarian/index.js';
+import { createValidationError } from '../errors.js';
 
 const logger = createComponentLogger('services-factory');
 
@@ -86,7 +93,7 @@ export async function createServices(
     if (backend === 'pgvector') {
       // Explicitly requested pgvector
       if (!deps?.pgPool) {
-        throw new Error('pgvector backend requires PostgreSQL pool (dbType: postgresql)');
+        throw createValidationError('pgPool', 'is required for pgvector backend (dbType: postgresql)');
       }
       // Dynamic import for ESM compatibility
       const { PgVectorStore } = await import('../../db/vector-stores/pgvector.js');
@@ -160,6 +167,16 @@ export async function createServices(
     }
   );
 
+  // === Phase 1 Architecture Migration: DI-managed services ===
+
+  // Feedback Score Cache - caches feedback scores for retrieval scoring
+  const feedbackScoreCacheInstance = new FeedbackScoreCache({
+    maxSize: 1000,
+    ttlMs: 60000, // 1 minute
+    enabled: true,
+  });
+  logger.debug('Feedback score cache initialized');
+
   // Initialize feedback service for RL training data collection
   const feedbackService = initFeedbackService(
     { db },
@@ -169,14 +186,41 @@ export async function createServices(
   );
   logger.debug('Feedback service initialized');
 
-  // Initialize and start the feedback queue processor
-  const feedbackQueue = initFeedbackQueue(feedbackService, {
+  // Create and start the feedback queue processor
+  const feedbackQueue = createFeedbackQueueProcessor(feedbackService, {
     maxQueueSize: config.feedback.queueSize,
     workerConcurrency: config.feedback.workerConcurrency,
     batchTimeoutMs: config.feedback.batchTimeoutMs,
   });
   feedbackQueue.start();
   logger.info('Feedback queue processor started');
+
+  // RL Service - manages reinforcement learning policies
+  const rlService = new RLService({
+    enabled: true,
+    extraction: { enabled: true },
+    retrieval: { enabled: true },
+    consolidation: { enabled: true },
+  });
+  logger.debug('RL service initialized');
+
+  // Capture State Manager - manages session capture state
+  const captureStateManager = new CaptureStateManager();
+  logger.debug('Capture state manager initialized');
+
+  // Entity Extractor - extracts entities from text
+  const entityExtractorInstance = new EntityExtractor();
+  logger.debug('Entity extractor initialized');
+
+  // Librarian Service - pattern detection and recommendation
+  // Note: LibrarianService uses getRLService() and getFeedbackService() internally
+  const librarianService = new LibrarianService(
+    { db },
+    {
+      // Default config; could add config options if needed
+    }
+  );
+  logger.debug('Librarian service initialized');
 
   return {
     embedding: embeddingService,
@@ -187,5 +231,11 @@ export async function createServices(
     summarization: summarizationService,
     feedback: feedbackService,
     feedbackQueue,
+    // Phase 1 DI-managed services
+    rl: rlService,
+    captureState: captureStateManager,
+    entityExtractor: entityExtractorInstance,
+    feedbackScoreCache: feedbackScoreCacheInstance,
+    librarian: librarianService,
   };
 }

@@ -83,8 +83,10 @@ export async function wireContext(input: WireContextInput): Promise<AppContext> 
   });
   services.observeCommit = observeCommitService;
 
-  // Create query pipeline
-  const queryDeps = createQueryPipeline(config, runtime);
+  // Create query pipeline with feedback queue for RL training
+  const queryDeps = createQueryPipeline(config, runtime, {
+    feedbackQueue: services.feedbackQueue,
+  });
 
   // Wire query cache invalidation using the event adapter
   wireQueryCache(adapters.event, runtime, createComponentLogger('query-cache'));

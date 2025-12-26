@@ -32,8 +32,6 @@ import { filterStage } from './stages/filter.js';
 import { feedbackStage, feedbackStageAsync } from './stages/feedback.js';
 import { scoreStage } from './stages/score.js';
 import { formatStage } from './stages/format.js';
-import { getFeedbackService } from '../feedback/index.js';
-import { getFeedbackQueue } from '../feedback/queue.js';
 
 // Import from modular submodules (avoids circular dependency with query.service.ts)
 import { resolveScopeChain } from './scope-chain.js';
@@ -194,6 +192,8 @@ export interface QueryPipelineOptions {
   perfLog: boolean;
   /** Logger instance */
   logger: Logger;
+  /** Feedback queue interface for RL training (optional) */
+  feedback?: PipelineDependencies['feedback'];
 }
 
 /**
@@ -206,7 +206,7 @@ export interface QueryPipelineOptions {
  * @returns PipelineDependencies for use with executeQueryPipeline
  */
 export function createDependencies(options: QueryPipelineOptions): PipelineDependencies {
-  const { getDb, getPreparedStatement, cache, perfLog, logger } = options;
+  const { getDb, getPreparedStatement, cache, perfLog, logger, feedback } = options;
 
   return {
     getDb,
@@ -235,6 +235,7 @@ export function createDependencies(options: QueryPipelineOptions): PipelineDepen
       debug: (data, message) => logger.debug(data, message),
       info: (data, message) => logger.info(data, message),
     },
+    feedback,
   };
 }
 
@@ -245,20 +246,27 @@ export function createDependencies(options: QueryPipelineOptions): PipelineDepen
 /**
  * Record retrievals for RL feedback collection (fire-and-forget)
  *
- * This uses the feedback queue for backpressure-controlled processing.
- * Falls back to async recording if the queue is not available or full.
+ * Uses the feedback queue (via deps) for backpressure-controlled processing.
+ * Silently skips if feedback deps are not provided.
  * Failures are logged but do not affect query execution.
  */
 function recordRetrievalsForFeedback(
   params: MemoryQueryParams,
-  result: MemoryQueryResult
+  result: MemoryQueryResult,
+  deps: PipelineDependencies
 ): void {
+  // Skip if feedback is not configured via DI
+  if (!deps.feedback) return;
+
   // Skip if no results or no session context
   if (result.results.length === 0) return;
 
   // Get sessionId from params - may be passed for context tracking
   const sessionId = (params as Record<string, unknown>).sessionId as string | undefined;
   if (!sessionId) return;
+
+  // Skip if queue is not accepting (backpressure)
+  if (!deps.feedback.isAccepting()) return;
 
   // Build the batch of retrieval params
   const batch = result.results.map((r, idx) => ({
@@ -271,32 +279,8 @@ function recordRetrievalsForFeedback(
     semanticScore: (r as unknown as Record<string, unknown>).semanticScore as number | undefined,
   }));
 
-  // Try to use the feedback queue (preferred - has backpressure)
-  const queue = getFeedbackQueue();
-  if (queue && queue.isAccepting()) {
-    const enqueued = queue.enqueue(batch);
-    if (enqueued) {
-      return; // Successfully queued
-    }
-    // Queue rejected (full) - fall through to fallback
-  }
-
-  // Fallback: use feedback service directly if queue unavailable or full
-  const feedbackService = getFeedbackService();
-  if (!feedbackService) return;
-
-  // Fire-and-forget async recording (graceful degradation)
-  setImmediate(async () => {
-    try {
-      await feedbackService.recordRetrievalBatch(batch);
-    } catch (error) {
-      // Feedback collection should never break queries - log for debugging only
-      // Using process.env check to avoid import cycle with logger
-      if (process.env.AGENT_MEMORY_LOG_LEVEL === 'debug' || process.env.AGENT_MEMORY_DEBUG === 'true') {
-        console.debug('[query] Feedback recording failed (non-fatal):', error instanceof Error ? error.message : error);
-      }
-    }
-  });
+  // Enqueue batch for processing (fire-and-forget)
+  deps.feedback.enqueue(batch);
 }
 
 /**
@@ -376,7 +360,7 @@ export function executeQueryPipelineSync(
   const result = buildQueryResult(formattedCtx);
 
   // Record retrievals for RL feedback (fire-and-forget, non-blocking)
-  recordRetrievalsForFeedback(params, result);
+  recordRetrievalsForFeedback(params, result, deps);
 
   // Cache the result
   if (cacheKey && deps.cache) {
@@ -485,7 +469,7 @@ export async function executeQueryPipelineAsync(
   const result = buildQueryResult(formattedCtx);
 
   // Record retrievals for RL feedback (fire-and-forget, non-blocking)
-  recordRetrievalsForFeedback(params, result);
+  recordRetrievalsForFeedback(params, result, deps);
 
   // Cache the result
   if (cacheKey && deps.cache) {

@@ -13,7 +13,6 @@ import { registerV1Routes } from './routes/v1.js';
 import { getHealthMonitor, resetHealthMonitor } from '../services/health.service.js';
 import { metrics } from '../utils/metrics.js';
 import { backpressure } from '../utils/backpressure.js';
-import { getFeedbackQueue } from '../services/feedback/queue.js';
 import { registerAuthMiddleware } from './middleware/index.js';
 
 // Extend Fastify request to include authenticated agent ID, request ID, and rate limit info
@@ -170,7 +169,7 @@ export async function createServer(context: AppContext): Promise<FastifyInstance
     const lastCheck = healthMonitor.getLastCheckResult();
 
     // Get feedback queue stats if available
-    const feedbackQueue = getFeedbackQueue();
+    const feedbackQueue = context.services.feedbackQueue;
     const feedbackQueueStats = feedbackQueue?.getStats();
 
     if (lastCheck) {

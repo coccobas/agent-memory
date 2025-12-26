@@ -9,6 +9,7 @@ import type { Config } from '../../config/index.js';
 import type { Runtime } from '../runtime.js';
 import type { IEventAdapter } from '../adapters/interfaces.js';
 import type { EntryChangedEvent } from '../../utils/events.js';
+import type { FeedbackQueueProcessor } from '../../services/feedback/queue.js';
 import { getDb, getPreparedStatement } from '../../db/connection.js';
 import {
   createDependencies,
@@ -18,14 +19,36 @@ import {
 import { createComponentLogger } from '../../utils/logger.js';
 
 /**
+ * Options for creating query pipeline dependencies
+ */
+export interface QueryPipelineOptions {
+  /** Feedback queue for RL training data collection (optional) */
+  feedbackQueue?: FeedbackQueueProcessor;
+}
+
+/**
  * Create query pipeline dependencies
  *
  * @param config - Application configuration
  * @param runtime - Runtime with query cache
+ * @param options - Optional configuration including feedback queue
  * @returns Pipeline dependencies
  */
-export function createQueryPipeline(config: Config, runtime: Runtime): PipelineDependencies {
+export function createQueryPipeline(
+  config: Config,
+  runtime: Runtime,
+  options?: QueryPipelineOptions
+): PipelineDependencies {
   const logger = createComponentLogger('query-pipeline');
+
+  // Wire feedback queue if provided
+  const feedback = options?.feedbackQueue
+    ? {
+        enqueue: (batch: Parameters<FeedbackQueueProcessor['enqueue']>[0]) =>
+          options.feedbackQueue!.enqueue(batch),
+        isAccepting: () => options.feedbackQueue!.isAccepting(),
+      }
+    : undefined;
 
   return createDependencies({
     getDb: () => getDb(),
@@ -33,6 +56,7 @@ export function createQueryPipeline(config: Config, runtime: Runtime): PipelineD
     cache: runtime.queryCache.cache,
     perfLog: config.logging.performance,
     logger,
+    feedback,
   });
 }
 
