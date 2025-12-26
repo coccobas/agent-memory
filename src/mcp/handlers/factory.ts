@@ -11,7 +11,6 @@ import { transactionWithDb } from '../../db/connection.js';
 import { checkForDuplicates } from '../../services/duplicate.service.js';
 import { logAction } from '../../services/audit.service.js';
 import { createRedFlagService } from '../../services/redflag.service.js';
-import { emitEntryChanged } from '../../utils/events.js';
 import { createValidationService } from '../../services/validation.service.js';
 // Permission checks via context.services.permission (no legacy imports)
 import {
@@ -364,7 +363,7 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
       }
 
       // Emit entry changed event (cache listens for these)
-      emitEntryChanged({
+      context.unifiedAdapters?.event.emit({
         entryType: config.entryType,
         entryId: id,
         scopeType: existingEntry.scopeType,
@@ -598,7 +597,7 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
       }
 
       // Emit entry changed event (cache listens for these)
-      emitEntryChanged({
+      context.unifiedAdapters?.event.emit({
         entryType: config.entryType,
         entryId: id,
         scopeType: existingEntry.scopeType,
@@ -779,7 +778,7 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
 
       // Emit events after transaction completes successfully
       for (const result of results) {
-        emitEntryChanged({
+        context.unifiedAdapters?.event.emit({
           entryType: config.entryType,
           entryId: result.id,
           scopeType: result.scopeType,

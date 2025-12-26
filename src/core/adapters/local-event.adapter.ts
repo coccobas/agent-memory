@@ -1,39 +1,41 @@
 /**
  * Local Event Adapter
  *
- * Wraps the existing EventBus singleton
- * behind the IEventAdapter interface.
+ * Wraps an EventBus instance behind the IEventAdapter interface.
+ * EventBus is injected via constructor for proper dependency injection.
  */
 
 import type { IEventAdapter, EntryChangedEvent } from './interfaces.js';
-import { getEventBus, resetEventBus } from '../../utils/events.js';
+import { EventBus, createEventBus } from '../../utils/events.js';
 
 /**
  * Local event adapter implementation.
- * Wraps the existing in-memory EventBus singleton.
+ * Wraps an injected EventBus instance.
  */
 export class LocalEventAdapter implements IEventAdapter<EntryChangedEvent> {
+  constructor(private readonly eventBus: EventBus) {}
+
   subscribe(handler: (event: EntryChangedEvent) => void): () => void {
-    return getEventBus().subscribe(handler);
+    return this.eventBus.subscribe(handler);
   }
 
   emit(event: EntryChangedEvent): void {
-    getEventBus().emit(event);
+    this.eventBus.emit(event);
   }
 
   clear(): void {
-    resetEventBus();
+    this.eventBus.clear();
   }
 
   subscriberCount(): number {
-    return getEventBus().handlerCount;
+    return this.eventBus.subscriberCount();
   }
 }
 
 /**
- * Create a local event adapter.
- * Uses the singleton EventBus under the hood.
+ * Create a local event adapter with a new EventBus instance.
+ * Prefer using constructor injection for testability.
  */
 export function createLocalEventAdapter(): IEventAdapter<EntryChangedEvent> {
-  return new LocalEventAdapter();
+  return new LocalEventAdapter(createEventBus());
 }

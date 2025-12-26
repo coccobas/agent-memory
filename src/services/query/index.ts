@@ -45,7 +45,8 @@ import type Database from 'better-sqlite3';
 import type { ScopeType } from '../../db/schema.js';
 import type { LRUCache } from '../../utils/lru-cache.js';
 import type { Logger } from 'pino';
-import { onEntryChanged, type EntryChangedEvent } from '../../utils/events.js';
+import type { EntryChangedEvent } from '../../utils/events.js';
+import type { IEventAdapter } from '../../core/adapters/interfaces.js';
 
 // =============================================================================
 // CACHE KEY GENERATION
@@ -154,23 +155,25 @@ export function invalidatePipelineCacheScope(
 }
 
 /**
- * Wire up query cache invalidation to the entry change event bus.
+ * Wire up query cache invalidation to the entry change event adapter.
  *
  * This should be called once during application startup (in factory.ts or cli.ts).
  * Returns an unsubscribe function that should be called during shutdown.
  *
+ * @param eventAdapter - The event adapter to subscribe to
  * @param cache - The query cache to invalidate on entry changes
  * @param logger - Optional logger for debug output
  * @returns Unsubscribe function
  */
 export function wireQueryCacheInvalidation(
+  eventAdapter: IEventAdapter<EntryChangedEvent>,
   cache: LRUCache<MemoryQueryResult>,
   logger?: Logger
 ): () => void {
   const handler = (event: EntryChangedEvent): void => {
     invalidatePipelineCacheScope(cache, event.scopeType, event.scopeId, logger);
   };
-  return onEntryChanged(handler);
+  return eventAdapter.subscribe(handler);
 }
 
 // =============================================================================

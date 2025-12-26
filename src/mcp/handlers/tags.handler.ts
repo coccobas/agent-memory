@@ -14,7 +14,6 @@ import {
   isTagCategory,
 } from '../../utils/type-guards.js';
 import { requireEntryPermissionWithScope } from '../../utils/entry-access.js';
-import { emitEntryChanged } from '../../utils/events.js';
 import { createValidationError } from '../../core/errors.js';
 import type {
   TagCreateParams,
@@ -95,7 +94,7 @@ export const tagHandlers = {
     });
 
     // Tag changes affect tag-filtered queries; emit update for cache invalidation.
-    emitEntryChanged({
+    context.unifiedAdapters?.event.emit({
       entryType,
       entryId,
       scopeType,
@@ -122,7 +121,7 @@ export const tagHandlers = {
     const success = await context.repos.entryTags.detach(entryType, entryId, tagId);
 
     if (success) {
-      emitEntryChanged({
+      context.unifiedAdapters?.event.emit({
         entryType,
         entryId,
         scopeType,

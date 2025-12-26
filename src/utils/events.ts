@@ -40,8 +40,10 @@ export type EntryChangedHandler = (event: EntryChangedEvent) => void;
  *
  * For distributed deployments, use RedisEventAdapter which provides
  * cross-instance event propagation via Redis pub/sub.
+ *
+ * Usage: Create via factory, inject via DI, do not use singleton.
  */
-class EventBus implements IEventAdapterExtended {
+export class EventBus implements IEventAdapterExtended {
   private handlers: Set<EntryChangedHandler> = new Set();
 
   /**
@@ -90,45 +92,16 @@ class EventBus implements IEventAdapterExtended {
     return this.handlers.size;
   }
 
-  /**
-   * Get the number of registered handlers (legacy accessor).
-   * @deprecated Use subscriberCount() method instead
-   */
-  get handlerCount(): number {
-    return this.handlers.size;
-  }
 }
 
 // =============================================================================
-// SINGLETON INSTANCE
+// FACTORY
 // =============================================================================
 
-const eventBus = new EventBus();
-
 /**
- * Get the global event bus instance
+ * Create a new EventBus instance.
+ * Use this via dependency injection rather than the singleton.
  */
-export function getEventBus(): EventBus {
-  return eventBus;
-}
-
-/**
- * Emit an entry changed event (convenience function)
- */
-export function emitEntryChanged(event: EntryChangedEvent): void {
-  eventBus.emit(event);
-}
-
-/**
- * Subscribe to entry changed events (convenience function)
- */
-export function onEntryChanged(handler: EntryChangedHandler): () => void {
-  return eventBus.subscribe(handler);
-}
-
-/**
- * Reset the event bus (for testing)
- */
-export function resetEventBus(): void {
-  eventBus.clear();
+export function createEventBus(): EventBus {
+  return new EventBus();
 }

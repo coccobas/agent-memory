@@ -7,6 +7,8 @@
 import type { Logger } from 'pino';
 import type { Config } from '../../config/index.js';
 import type { Runtime } from '../runtime.js';
+import type { IEventAdapter } from '../adapters/interfaces.js';
+import type { EntryChangedEvent } from '../../utils/events.js';
 import { getDb, getPreparedStatement } from '../../db/connection.js';
 import {
   createDependencies,
@@ -39,13 +41,19 @@ export function createQueryPipeline(config: Config, runtime: Runtime): PipelineD
  *
  * Should be called once during context creation.
  *
+ * @param eventAdapter - The event adapter to subscribe to
  * @param runtime - Runtime with query cache
  * @param logger - Optional logger (creates one if not provided)
  */
-export function wireQueryCache(runtime: Runtime, logger?: Logger): void {
+export function wireQueryCache(
+  eventAdapter: IEventAdapter<EntryChangedEvent>,
+  runtime: Runtime,
+  logger?: Logger
+): void {
   if (!runtime.queryCache.unsubscribe) {
     const effectiveLogger = logger ?? createComponentLogger('query-cache');
     runtime.queryCache.unsubscribe = wireQueryCacheInvalidation(
+      eventAdapter,
       runtime.queryCache.cache,
       effectiveLogger
     );

@@ -9,12 +9,14 @@
 
 import type { Config } from '../config/index.js';
 import type { RateLimiterConfig } from '../utils/rate-limiter-core.js';
-import type { IRateLimiterAdapter } from './adapters/interfaces.js';
+import type { IRateLimiterAdapter, IEventAdapter } from './adapters/interfaces.js';
 import { createLocalRateLimiterAdapter } from './adapters/local-rate-limiter.adapter.js';
+import { LocalEventAdapter } from './adapters/local-event.adapter.js';
 import { createComponentLogger } from '../utils/logger.js';
 import { LRUCache } from '../utils/lru-cache.js';
 import type { MemoryQueryResult } from '../services/query/pipeline.js';
 import { MemoryCoordinator } from './memory-coordinator.js';
+import { createEventBus, type EntryChangedEvent } from '../utils/events.js';
 
 // Re-export for backward compatibility
 export { MemoryCoordinator } from './memory-coordinator.js';
@@ -114,6 +116,8 @@ export interface Runtime {
   embeddingPipeline: EmbeddingPipeline | null;
   statsCache: StatsCache;
   queryCache: QueryCache;
+  /** Event bus for entry change events (cache invalidation, etc.) */
+  eventBus: IEventAdapter<EntryChangedEvent>;
 }
 
 // =============================================================================
@@ -188,6 +192,12 @@ export function createRuntime(config: RuntimeConfig): Runtime {
     unsubscribe: null, // Set by wireQueryCacheInvalidation after event bus is available
   };
 
+  // Create event bus for entry change events
+  // This is owned by Runtime to ensure single instance across all AppContexts
+  // LocalEventAdapter wraps the EventBus and provides the IEventAdapter interface
+  const eventBus = new LocalEventAdapter(createEventBus());
+  logger.debug('Event bus created');
+
   logger.info('Runtime created successfully');
 
   return {
@@ -196,6 +206,7 @@ export function createRuntime(config: RuntimeConfig): Runtime {
     embeddingPipeline: null, // Wired later via registerEmbeddingPipeline
     statsCache,
     queryCache,
+    eventBus,
   };
 }
 
@@ -215,6 +226,9 @@ export async function shutdownRuntime(runtime: Runtime): Promise<void> {
 
   // Clear the query cache
   runtime.queryCache.cache.clear();
+
+  // Clear the event bus
+  runtime.eventBus.clear();
 
   runtime.memoryCoordinator.stopMonitoring();
   await runtime.rateLimiters.perAgent.stop();

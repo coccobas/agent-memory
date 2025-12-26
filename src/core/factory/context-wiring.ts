@@ -86,8 +86,8 @@ export async function wireContext(input: WireContextInput): Promise<AppContext> 
   // Create query pipeline
   const queryDeps = createQueryPipeline(config, runtime);
 
-  // Wire query cache invalidation
-  wireQueryCache(runtime, createComponentLogger('query-cache'));
+  // Wire query cache invalidation using the event adapter
+  wireQueryCache(adapters.event, runtime, createComponentLogger('query-cache'));
 
   // If Redis adapters were created and connected, swap rate limiters
   if (config.redis.enabled && 'redis' in adapters && adapters.redis) {
