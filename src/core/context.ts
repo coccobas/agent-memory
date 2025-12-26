@@ -25,6 +25,7 @@ import type { EntityExtractor } from '../services/query/entity-extractor.js';
 import type { FeedbackScoreCache } from '../services/query/feedback-cache.js';
 import type { ExperiencePromotionService } from '../services/experience/index.js';
 import type { ObserveCommitService } from '../services/observe/index.js';
+import type { LoraService } from '../services/lora.service.js';
 
 /**
  * Service interfaces for AppContext
@@ -170,6 +171,8 @@ export interface AppContextServices {
   experiencePromotion?: ExperiencePromotionService;
   /** Observe commit service for storing extracted entries */
   observeCommit?: ObserveCommitService;
+  /** LoRA service for exporting guidelines as training data */
+  lora?: LoraService;
 }
 
 /**

@@ -28,6 +28,7 @@ import { CaptureStateManager } from '../../services/capture/state.js';
 import { EntityExtractor } from '../../services/query/entity-extractor.js';
 import { FeedbackScoreCache } from '../../services/query/feedback-cache.js';
 import { LibrarianService } from '../../services/librarian/index.js';
+import { createLoraService } from '../../services/lora.service.js';
 import { createValidationError } from '../errors.js';
 
 const logger = createComponentLogger('services-factory');
@@ -171,9 +172,9 @@ export async function createServices(
 
   // Feedback Score Cache - caches feedback scores for retrieval scoring
   const feedbackScoreCacheInstance = new FeedbackScoreCache({
-    maxSize: 1000,
-    ttlMs: 60000, // 1 minute
-    enabled: true,
+    maxSize: config.scoring.feedbackScoring.cacheMaxSize,
+    ttlMs: config.scoring.feedbackScoring.cacheTTLMs,
+    enabled: config.scoring.feedbackScoring.enabled,
   });
   logger.debug('Feedback score cache initialized');
 
@@ -222,6 +223,10 @@ export async function createServices(
   );
   logger.debug('Librarian service initialized');
 
+  // LoRA Service - exports guidelines as LoRA training data
+  const loraService = createLoraService();
+  logger.debug('LoRA service initialized');
+
   return {
     embedding: embeddingService,
     vector: vectorService,
@@ -237,5 +242,6 @@ export async function createServices(
     entityExtractor: entityExtractorInstance,
     feedbackScoreCache: feedbackScoreCacheInstance,
     librarian: librarianService,
+    lora: loraService,
   };
 }
