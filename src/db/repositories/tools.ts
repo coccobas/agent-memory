@@ -21,6 +21,7 @@ import {
   asyncVectorCleanup,
   checkAndLogConflictWithDb,
 } from './base.js';
+import { createConflictError } from '../../core/errors.js';
 import { generateEmbeddingAsync, extractTextForEmbedding } from './embedding-hooks.js';
 import {
   normalizePagination,
@@ -38,6 +39,7 @@ import type {
   ListToolsFilter,
   ToolWithVersion,
 } from '../../core/interfaces/repositories.js';
+import { validateToolInput } from './validation.js';
 
 // Re-export types for backward compatibility
 export type {
@@ -71,6 +73,9 @@ export function createToolRepository(deps: DatabaseDeps): IToolRepository {
 
   const repo: IToolRepository = {
     async create(input: CreateToolInput): Promise<ToolWithVersion> {
+      // Validate input before processing (throws on invalid input)
+      validateToolInput(input);
+
       return await transactionWithRetry(sqlite, () => {
         const toolId = generateId();
         const versionId = generateId();
@@ -106,7 +111,7 @@ export function createToolRepository(deps: DatabaseDeps): IToolRepository {
 
         const result = getByIdSync(toolId);
         if (!result) {
-          throw new Error(`Failed to create tool ${toolId}`);
+          throw createConflictError('tool', `failed to create with id ${toolId}`);
         }
 
         // Generate embedding asynchronously (fire-and-forget)

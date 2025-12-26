@@ -21,6 +21,7 @@ import {
   asyncVectorCleanup,
   checkAndLogConflictWithDb,
 } from './base.js';
+import { createConflictError } from '../../core/errors.js';
 import { generateEmbeddingAsync, extractTextForEmbedding } from './embedding-hooks.js';
 import {
   normalizePagination,
@@ -38,6 +39,7 @@ import type {
   ListKnowledgeFilter,
   KnowledgeWithVersion,
 } from '../../core/interfaces/repositories.js';
+import { validateKnowledgeInput } from './validation.js';
 
 // Re-export types for backward compatibility
 export type {
@@ -75,6 +77,9 @@ export function createKnowledgeRepository(deps: DatabaseDeps): IKnowledgeReposit
 
   const repo: IKnowledgeRepository = {
     async create(input: CreateKnowledgeInput): Promise<KnowledgeWithVersion> {
+      // Validate input before processing (throws on invalid input)
+      validateKnowledgeInput(input);
+
       return await transactionWithRetry(sqlite, () => {
         const knowledgeId = generateId();
         const versionId = generateId();
@@ -111,7 +116,7 @@ export function createKnowledgeRepository(deps: DatabaseDeps): IKnowledgeReposit
 
         const result = getByIdSync(knowledgeId);
         if (!result) {
-          throw new Error(`Failed to create knowledge entry ${knowledgeId}`);
+          throw createConflictError('knowledge', `failed to create with id ${knowledgeId}`);
         }
 
         // Generate embedding asynchronously (fire-and-forget)

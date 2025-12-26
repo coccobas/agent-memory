@@ -21,6 +21,7 @@ import {
   asyncVectorCleanup,
   checkAndLogConflictWithDb,
 } from './base.js';
+import { createConflictError } from '../../core/errors.js';
 import { generateEmbeddingAsync, extractTextForEmbedding } from './embedding-hooks.js';
 import {
   normalizePagination,
@@ -38,6 +39,7 @@ import type {
   ListGuidelinesFilter,
   GuidelineWithVersion,
 } from '../../core/interfaces/repositories.js';
+import { validateGuidelineInput } from './validation.js';
 
 // Re-export types for backward compatibility
 export type {
@@ -75,6 +77,9 @@ export function createGuidelineRepository(deps: DatabaseDeps): IGuidelineReposit
 
   const repo: IGuidelineRepository = {
     async create(input: CreateGuidelineInput): Promise<GuidelineWithVersion> {
+      // Validate input before processing (throws on invalid input)
+      validateGuidelineInput(input);
+
       return await transactionWithRetry(sqlite, () => {
         const guidelineId = generateId();
         const versionId = generateId();
@@ -110,7 +115,7 @@ export function createGuidelineRepository(deps: DatabaseDeps): IGuidelineReposit
 
         const result = getByIdSync(guidelineId);
         if (!result) {
-          throw new Error(`Failed to create guideline ${guidelineId}`);
+          throw createConflictError('guideline', `failed to create with id ${guidelineId}`);
         }
 
         // Generate embedding asynchronously (fire-and-forget)
