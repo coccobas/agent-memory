@@ -21,6 +21,7 @@ import {
   formatRetrievalForDPO,
   formatConsolidationForDPO,
 } from '../../services/rl/training/index.js';
+import { createDatasetFormatService } from '../../services/rl/dataset-format.service.js';
 import {
   getRequiredParam,
   getOptionalParam,
@@ -236,10 +237,12 @@ async function exportDataset(
     );
   }
 
-  if (!['huggingface', 'openai', 'csv', 'jsonl'].includes(format)) {
+  // Validate format using service
+  const formatService = createDatasetFormatService();
+  if (!formatService.isValidFormat(format)) {
     throw createValidationError(
       'format',
-      'Format must be huggingface, openai, csv, or jsonl'
+      `Format must be one of: ${formatService.getSupportedFormats().join(', ')}`
     );
   }
 
@@ -267,56 +270,16 @@ async function exportDataset(
     pairs = formatConsolidationForDPO(dataset.train);
   }
 
-  // Format data based on requested format
-  let content: string;
-  let filename: string;
-
-  switch (format) {
-    case 'huggingface':
-      // Hugging Face DPO format (JSONL with prompt, chosen, rejected)
-      content = pairs.map((p) => JSON.stringify(p)).join('\n');
-      filename = fs.join(outputPath, `${policy}_dpo_train.jsonl`);
-      break;
-
-    case 'openai':
-      // OpenAI fine-tuning format (JSONL with messages)
-      content = pairs
-        .map((p) =>
-          JSON.stringify({
-            messages: [
-              { role: 'user', content: p.prompt },
-              { role: 'assistant', content: p.chosen },
-            ],
-          })
-        )
-        .join('\n');
-      filename = fs.join(outputPath, `${policy}_openai_train.jsonl`);
-      break;
-
-    case 'csv':
-      // CSV format
-      const headers = 'prompt,chosen,rejected\n';
-      const rows = pairs
-        .map((p) => {
-          const escapeCsv = (str: string) =>
-            `"${str.replace(/"/g, '""').replace(/\n/g, ' ')}"`;
-          return `${escapeCsv(p.prompt)},${escapeCsv(p.chosen)},${escapeCsv(p.rejected)}`;
-        })
-        .join('\n');
-      content = headers + rows;
-      filename = fs.join(outputPath, `${policy}_train.csv`);
-      break;
-
-    case 'jsonl':
-    default:
-      // Standard JSONL format (full dataset)
-      content = dataset.train.map((ex) => JSON.stringify(ex)).join('\n');
-      filename = fs.join(outputPath, `${policy}_train.jsonl`);
-      break;
-  }
+  // Format data using service
+  const formatResult = formatService.formatDPOPairs(pairs, {
+    policy,
+    format,
+    outputPath,
+  });
+  const { content, filename: formattedFilename } = formatResult;
 
   // Validate and write file
-  const resolvedPath = fs.resolve(filename);
+  const resolvedPath = fs.resolve(formattedFilename);
   const outputDir = fs.resolve(outputPath);
 
   // Security check: ensure path is within intended directory
