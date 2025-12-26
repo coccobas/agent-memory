@@ -45,7 +45,8 @@ import { logger } from '../utils/logger.js';
 import { VERSION } from '../version.js';
 import { runTool } from './tool-runner.js';
 import { createAppContext, shutdownAppContext } from '../core/factory.js';
-import { registerContext } from '../core/container.js';
+import { registerContext, registerRuntime } from '../core/container.js';
+import { createRuntime, extractRuntimeConfig } from '../core/runtime.js';
 import { config } from '../config/index.js';
 import type { AppContext } from '../core/context.js';
 
@@ -141,9 +142,12 @@ export async function runServer(): Promise<void> {
 
   let server: Server;
   let context: AppContext;
+  const runtime = createRuntime(extractRuntimeConfig(config));
+  registerRuntime(runtime);
+
   try {
-    // Initialize AppContext
-    context = await createAppContext(config);
+    // Initialize AppContext with runtime
+    context = await createAppContext(config, runtime);
 
     // Register with container for services that use getDb()/getSqlite()
     registerContext(context);

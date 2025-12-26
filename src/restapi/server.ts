@@ -6,9 +6,10 @@ import helmet from '@fastify/helmet';
 import { createComponentLogger } from '../utils/logger.js';
 import type { AppContext } from '../core/context.js';
 import { createAppContext, shutdownAppContext } from '../core/factory.js';
+import { createRuntime, extractRuntimeConfig } from '../core/runtime.js';
 import { config } from '../config/index.js';
 import { mapError } from '../utils/error-mapper.js';
-import { registerContext } from '../core/container.js';
+import { registerContext, registerRuntime } from '../core/container.js';
 import { registerV1Routes } from './routes/v1.js';
 import { getHealthMonitor, resetHealthMonitor } from '../services/health.service.js';
 import { metrics } from '../utils/metrics.js';
@@ -249,24 +250,26 @@ export async function runServer(): Promise<void> {
   const host = config.rest.host;
   const port = config.rest.port;
 
-  // Initialize AppContext
-  const context = await createAppContext(config);
+  // Create runtime first
+  const runtime = createRuntime(extractRuntimeConfig(config));
+  registerRuntime(runtime);
+
+  // Initialize AppContext with runtime
+  const context = await createAppContext(config, runtime);
 
   // Register with container for services that use getDb()/getSqlite()
   registerContext(context);
 
   // Initialize and start health monitoring
   const healthMonitor = getHealthMonitor();
-  if (context.adapters) {
-    healthMonitor.initialize({
-      storageAdapter: context.adapters.storage,
-      cacheStatsProvider: () => ({
-        size: context.runtime.queryCache.cache.size,
-        memoryMB: context.runtime.queryCache.cache.stats.memoryMB,
-      }),
-    });
-    healthMonitor.startPeriodicChecks();
-  }
+  healthMonitor.initialize({
+    storageAdapter: context.adapters.storage,
+    cacheStatsProvider: () => ({
+      size: context.runtime.queryCache.cache.size,
+      memoryMB: context.runtime.queryCache.cache.stats.memoryMB,
+    }),
+  });
+  healthMonitor.startPeriodicChecks();
 
   // Start backpressure monitoring
   backpressure.startMonitoring();

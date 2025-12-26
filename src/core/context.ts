@@ -9,7 +9,6 @@ import type { Runtime } from './runtime.js';
 import type { Repositories } from './interfaces/repositories.js';
 import type { AppDb } from './types.js';
 import type {
-  Adapters,
   AdaptersWithRedis,
   IEventAdapter,
   ICacheAdapter,
@@ -204,18 +203,16 @@ export interface AppContext {
   runtime: Runtime;
   services: AppContextServices;
   repos: Repositories;
-  /** @deprecated Use `adaptersWithRedis` for Redis lifecycle management */
-  adapters?: Adapters;
   /**
    * Adapter layer with Redis auto-detection and lifecycle management.
-   * Use `adaptersWithRedis.connectRedis()` during startup to enable Redis.
-   * Falls back to local adapters if Redis is unavailable.
+   * Includes storage, cache, lock, and event adapters.
+   * When Redis is configured, includes Redis-specific adapters and lifecycle methods.
    */
-  adaptersWithRedis?: AdaptersWithRedis;
+  adapters: AdaptersWithRedis;
   /**
    * Unified adapters for handler injection.
-   * Provides a simplified interface for accessing event and cache adapters.
+   * Provides a simplified interface for accessing event, cache, and filesystem adapters.
    * Automatically resolves to Redis or local based on availability.
    */
-  unifiedAdapters?: UnifiedAdapters;
+  unifiedAdapters: UnifiedAdapters;
 }

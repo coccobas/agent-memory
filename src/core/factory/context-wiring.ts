@@ -13,7 +13,7 @@ import type { Config } from '../../config/index.js';
 import type { Runtime } from '../runtime.js';
 import { setRateLimiters } from '../runtime.js';
 import type { AppDb } from '../types.js';
-import type { Adapters, RedisAdapters } from '../adapters/index.js';
+import type { AdaptersWithRedis, RedisAdapters } from '../adapters/index.js';
 import { createLocalFileSystemAdapter } from '../adapters/index.js';
 import type { Repositories } from '../interfaces/repositories.js';
 import { createComponentLogger } from '../../utils/logger.js';
@@ -33,7 +33,7 @@ export interface WireContextInput {
   db: AppDb;
   sqlite: Database.Database | undefined;
   repos: Repositories;
-  adapters: Adapters;
+  adapters: AdaptersWithRedis;
   logger: Logger;
   /** Database type for service auto-detection */
   dbType: 'sqlite' | 'postgresql';

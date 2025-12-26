@@ -6,6 +6,7 @@
  */
 
 import type { AppContext } from '../../core/context.js';
+import type { Runtime } from '../../core/runtime.js';
 
 let cachedContext: AppContext | null = null;
 
@@ -29,17 +30,21 @@ export async function getCliContext(): Promise<AppContext> {
 
   // Create runtime
   const { createRuntime, extractRuntimeConfig } = await import('../../core/runtime.js');
-  const { registerRuntime, isRuntimeRegistered } = await import('../../core/container.js');
+  const { registerRuntime, isRuntimeRegistered, getRuntime } = await import('../../core/container.js');
 
   // Only create runtime if not already registered
-  if (!isRuntimeRegistered()) {
-    const runtime = createRuntime(extractRuntimeConfig(config));
+  // Ensure runtime exists and is registered
+  let runtime: Runtime;
+  if (isRuntimeRegistered()) {
+    runtime = getRuntime();
+  } else {
+    runtime = createRuntime(extractRuntimeConfig(config));
     registerRuntime(runtime);
   }
 
-  // Create context
+  // Create context with runtime
   const { createAppContext } = await import('../../core/factory.js');
-  cachedContext = await createAppContext(config);
+  cachedContext = await createAppContext(config, runtime);
 
   return cachedContext;
 }

@@ -11,7 +11,6 @@ import type { AppContext } from './context.js';
 import type { Config } from '../config/index.js';
 import type { Runtime } from './runtime.js';
 import type { DatabaseDeps, AppDb } from './types.js';
-import { getRuntime, isRuntimeRegistered } from './container.js';
 import { createComponentLogger } from '../utils/logger.js';
 import { createDatabaseConnection } from '../db/factory.js';
 
@@ -32,17 +31,10 @@ import {
  * Supports both SQLite and PostgreSQL backends based on config.dbType.
  *
  * @param config - The application configuration
- * @param runtime - Optional runtime. If not provided, uses the one registered with the container.
+ * @param runtime - The process-scoped runtime instance (required)
  * @returns Fully initialized AppContext
  */
-export async function createAppContext(config: Config, runtime?: Runtime): Promise<AppContext> {
-  // Get runtime from container if not provided
-  const effectiveRuntime = runtime ?? (isRuntimeRegistered() ? getRuntime() : null);
-  if (!effectiveRuntime) {
-    throw new Error(
-      'Runtime not available. Either pass runtime to createAppContext() or call registerRuntime() first.'
-    );
-  }
+export async function createAppContext(config: Config, runtime: Runtime): Promise<AppContext> {
 
   const logger = createComponentLogger('app');
 
@@ -105,7 +97,7 @@ export async function createAppContext(config: Config, runtime?: Runtime): Promi
   // Wire all shared components and assemble AppContext
   return await wireContext({
     config,
-    runtime: effectiveRuntime,
+    runtime,
     db,
     sqlite,
     repos,
