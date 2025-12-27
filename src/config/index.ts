@@ -376,6 +376,7 @@ export const config: Config = buildConfig();
 /**
  * Reload configuration from environment variables.
  * WARNING: This mutates the config object. Only use in tests.
+ * Prefer using snapshotConfig/restoreConfig for test isolation.
  */
 export function reloadConfig(): void {
   const newConfig = buildConfig();
@@ -384,6 +385,105 @@ export function reloadConfig(): void {
     if (typeof section === 'object' && section !== null) {
       Object.assign(config[key], section);
     }
+  }
+}
+
+// =============================================================================
+// TEST UTILITIES - Config snapshot and restore for test isolation
+// =============================================================================
+
+/** Deep clone helper for config objects */
+function deepClone<T>(obj: T): T {
+  return JSON.parse(JSON.stringify(obj)) as T;
+}
+
+/**
+ * Create a snapshot of the current config state.
+ * Use with restoreConfig() for test isolation.
+ *
+ * @example
+ * const snapshot = snapshotConfig();
+ * try {
+ *   process.env.SOME_VAR = 'test';
+ *   reloadConfig();
+ *   // ... run test
+ * } finally {
+ *   restoreConfig(snapshot);
+ * }
+ */
+export function snapshotConfig(): Config {
+  return deepClone(config);
+}
+
+/**
+ * Restore config from a previously saved snapshot.
+ * Does NOT modify environment variables - only the config object.
+ */
+export function restoreConfig(snapshot: Config): void {
+  for (const key of Object.keys(snapshot) as Array<keyof Config>) {
+    const section = snapshot[key];
+    if (typeof section === 'object' && section !== null) {
+      Object.assign(config[key], section);
+    }
+  }
+}
+
+/**
+ * Run a test function with temporary environment variable overrides.
+ * Automatically saves config state, applies env changes, and restores on completion.
+ *
+ * @param envOverrides - Environment variables to set (use undefined to delete)
+ * @param testFn - Test function to run
+ * @returns The result of testFn
+ *
+ * @example
+ * await withTestEnv(
+ *   { AGENT_MEMORY_EMBEDDING_PROVIDER: 'disabled' },
+ *   async () => {
+ *     const service = new EmbeddingService();
+ *     await expect(service.embed('test')).rejects.toThrow();
+ *   }
+ * );
+ */
+export async function withTestEnv<T>(
+  envOverrides: Record<string, string | undefined>,
+  testFn: () => T | Promise<T>
+): Promise<T> {
+  const configSnapshot = snapshotConfig();
+  const envSnapshot: Record<string, string | undefined> = {};
+
+  // Save original env values
+  for (const key of Object.keys(envOverrides)) {
+    envSnapshot[key] = process.env[key];
+  }
+
+  try {
+    // Apply env overrides
+    for (const [key, value] of Object.entries(envOverrides)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+
+    // Reload config with new env values
+    reloadConfig();
+
+    // Run test
+    return await testFn();
+  } finally {
+    // Restore original env values
+    for (const [key, value] of Object.entries(envSnapshot)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+
+    // Restore config (don't rely on reloadConfig since env might have side effects)
+    restoreConfig(configSnapshot);
   }
 }
 

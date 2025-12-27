@@ -3,6 +3,7 @@ import {
   EmbeddingService,
   resetEmbeddingServiceState,
 } from '../../src/services/embedding.service.js';
+import { withTestEnv } from '../../src/config/index.js';
 
 describe('Embedding Service', () => {
   let service: EmbeddingService;
@@ -56,28 +57,17 @@ describe('Embedding Service', () => {
   });
 
   it('should throw error when embeddings disabled', async () => {
-    // Force disabled mode by setting env var
-    const originalProvider = process.env.AGENT_MEMORY_EMBEDDING_PROVIDER;
-    process.env.AGENT_MEMORY_EMBEDDING_PROVIDER = 'disabled';
+    await withTestEnv(
+      { AGENT_MEMORY_EMBEDDING_PROVIDER: 'disabled' },
+      async () => {
+        resetEmbeddingServiceState();
+        const disabledService = new EmbeddingService();
 
-    // Reload config to pick up the new env var
-    const { reloadConfig } = await import('../../src/config/index.js');
-    reloadConfig();
+        await expect(disabledService.embed('test')).rejects.toThrow('Embeddings are disabled');
 
-    resetEmbeddingServiceState();
-    const disabledService = new EmbeddingService();
-
-    await expect(disabledService.embed('test')).rejects.toThrow('Embeddings are disabled');
-
-    disabledService.cleanup();
-
-    // Restore
-    if (originalProvider) {
-      process.env.AGENT_MEMORY_EMBEDDING_PROVIDER = originalProvider;
-    } else {
-      delete process.env.AGENT_MEMORY_EMBEDDING_PROVIDER;
-    }
-    reloadConfig();
+        disabledService.cleanup();
+      }
+    );
   });
 
   it('should reject empty text', async () => {
