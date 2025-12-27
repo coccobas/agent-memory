@@ -11,7 +11,9 @@ import {
   createTestProject,
 } from '../fixtures/test-helpers.js';
 import * as schema from '../../src/db/schema.js';
-import { PermissionService } from '../../src/services/permission.service.js';
+import { PermissionService, type ParentScopeValue } from '../../src/services/permission.service.js';
+import { LRUCache } from '../../src/utils/lru-cache.js';
+import { createMemoryCacheAdapter } from '../../src/core/adapters/memory-cache.adapter.js';
 
 const TEST_DB_PATH = './data/test-permission.db';
 let sqlite: ReturnType<typeof setupTestDb>['sqlite'];
@@ -29,7 +31,9 @@ describe('permission.service', () => {
     const testDb = setupTestDb(TEST_DB_PATH);
     sqlite = testDb.sqlite;
     db = testDb.db;
-    permissionService = new PermissionService(db);
+    const permissionLru = new LRUCache<ParentScopeValue>({ maxSize: 500, ttlMs: 5 * 60 * 1000 });
+    const permissionCacheAdapter = createMemoryCacheAdapter(permissionLru);
+    permissionService = new PermissionService(db, permissionCacheAdapter);
   });
 
   afterAll(() => {

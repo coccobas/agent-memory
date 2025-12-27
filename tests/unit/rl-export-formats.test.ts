@@ -1159,7 +1159,7 @@ describe('Export Orchestration', () => {
     }
   });
 
-  it('should handle compression flag (not yet implemented)', async () => {
+  it('should handle compression flag', async () => {
     const examples = [createExtractionExample()];
     const dataset = createTestDataset(examples);
 
@@ -1173,8 +1173,10 @@ describe('Export Orchestration', () => {
     const result = await exportDataset(dataset, options);
 
     expect(result.success).toBe(true);
-    expect(result.warnings).toBeDefined();
-    expect(result.warnings![0]).toContain('Compression requested but not yet implemented');
+    // Compression is now implemented - files should end with .gz
+    for (const file of result.files) {
+      expect(file).toMatch(/\.gz$/);
+    }
   });
 
   it('should handle export errors gracefully', async () => {

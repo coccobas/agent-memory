@@ -92,7 +92,7 @@ describe('REST API Integration', () => {
     });
     expect(res.statusCode).toBe(400);
     const body = res.json() as { error: string };
-    expect(body.error).toContain('scopeType is required');
+    expect(body.error).toMatch(/scopeType.*is required/);
     await app.close();
   });
 

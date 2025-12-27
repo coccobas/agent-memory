@@ -71,7 +71,7 @@ describe('File Locks Integration', () => {
         fileLockHandlers.checkout(context, {
           agent_id: 'agent-1',
         } as any)
-      ).rejects.toThrow('file_path is required');
+      ).rejects.toThrow(/file_path.*is required/);
     });
 
     it('should require agent_id', async () => {
@@ -79,7 +79,7 @@ describe('File Locks Integration', () => {
         fileLockHandlers.checkout(context, {
           file_path: '/path/to/file.ts',
         } as any)
-      ).rejects.toThrow('agent_id is required');
+      ).rejects.toThrow(/agent_id.*is required/);
     });
 
     it('should accept optional parameters', async () => {
@@ -109,7 +109,7 @@ describe('File Locks Integration', () => {
           file_path: '/path/to/file.ts',
           agent_id: 'agent-2',
         })
-      ).rejects.toThrow('already locked');
+      ).rejects.toThrow(/is locked|already locked/);
     });
   });
 
@@ -134,7 +134,7 @@ describe('File Locks Integration', () => {
         fileLockHandlers.checkin(context, {
           agent_id: 'agent-1',
         } as any)
-      ).rejects.toThrow('file_path is required');
+      ).rejects.toThrow(/file_path.*is required/);
     });
 
     it('should require agent_id', async () => {
@@ -142,7 +142,7 @@ describe('File Locks Integration', () => {
         fileLockHandlers.checkin(context, {
           file_path: '/path/to/file.ts',
         } as any)
-      ).rejects.toThrow('agent_id is required');
+      ).rejects.toThrow(/agent_id.*is required/);
     });
 
     it('should throw error if file not locked', async () => {
@@ -151,7 +151,7 @@ describe('File Locks Integration', () => {
           file_path: '/path/to/file.ts',
           agent_id: 'agent-1',
         })
-      ).rejects.toThrow('not locked');
+      ).rejects.toThrow(/not locked|not found/);
     });
 
     it('should throw error if locked by different agent', async () => {
@@ -165,7 +165,7 @@ describe('File Locks Integration', () => {
           file_path: '/path/to/file.ts',
           agent_id: 'agent-2',
         })
-      ).rejects.toThrow('locked by agent');
+      ).rejects.toThrow(/locked.*by|locked by agent|is locked/);
     });
   });
 
@@ -198,7 +198,7 @@ describe('File Locks Integration', () => {
 
     it('should require file_path', async () => {
       await expect(fileLockHandlers.status(context, {} as any)).rejects.toThrow(
-        'file_path is required'
+        /file_path.*is required/
       );
     });
   });
@@ -307,7 +307,7 @@ describe('File Locks Integration', () => {
         fileLockHandlers.forceUnlock(context, {
           agent_id: 'agent-1',
         } as any)
-      ).rejects.toThrow('file_path is required');
+      ).rejects.toThrow(/file_path.*is required/);
     });
 
     it('should require agent_id', async () => {
@@ -315,7 +315,7 @@ describe('File Locks Integration', () => {
         fileLockHandlers.forceUnlock(context, {
           file_path: '/path/to/file.ts',
         } as any)
-      ).rejects.toThrow('agent_id is required');
+      ).rejects.toThrow(/agent_id.*is required/);
     });
 
     it('should throw error if file not locked', async () => {
@@ -324,7 +324,7 @@ describe('File Locks Integration', () => {
           file_path: '/path/to/file.ts',
           agent_id: 'agent-1',
         })
-      ).rejects.toThrow('not locked');
+      ).rejects.toThrow(/not locked|not found/);
     });
   });
 

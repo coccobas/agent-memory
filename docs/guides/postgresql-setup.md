@@ -2,6 +2,8 @@
 
 Configure Agent Memory to use PostgreSQL for enterprise deployments.
 
+> **See also:** [Deployment Modes](deployment-modes.md) for comparing SQLite vs PostgreSQL vs Redis
+
 ## Prerequisites
 
 - PostgreSQL 14+ installed and running

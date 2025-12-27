@@ -89,7 +89,7 @@ describe('Relations Integration', () => {
 
     it('should require all required fields', async () => {
       await expect(relationHandlers.create(context, { agentId: AGENT_ID })).rejects.toThrow(
-        'sourceType is required'
+        /sourceType.*is required/
       );
     });
   });

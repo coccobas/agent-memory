@@ -268,7 +268,7 @@ describe('MCP Descriptor Types', () => {
 
       const handler = descriptorToHandler(descriptor);
 
-      expect(() => handler({} as never, {})).toThrow('No handler defined for test');
+      expect(() => handler({} as never, {})).toThrow(/no handler.*defined.*for.*test/i);
     });
 
     it('should route actions for ToolDescriptor', () => {
@@ -299,7 +299,7 @@ describe('MCP Descriptor Types', () => {
       const handler = descriptorToHandler(descriptor);
 
       expect(() => handler({} as never, { action: 'invalid' })).toThrow(
-        'Invalid action "invalid" for test'
+        /invalid.*action.*"invalid".*for.*test/i
       );
     });
 
@@ -353,7 +353,7 @@ describe('MCP Descriptor Types', () => {
       const handler = descriptorToHandler(descriptor);
 
       expect(() => handler({} as never, { action: 'noHandler' })).toThrow(
-        'No handler defined for action "noHandler"'
+        /no handler.*defined.*for.*action.*"noHandler"/i
       );
     });
 

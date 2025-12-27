@@ -2,6 +2,8 @@
 
 Scale Agent Memory across multiple nodes using Redis for distributed caching, locking, and events.
 
+> **See also:** [Deployment Modes](deployment-modes.md) for comparing SQLite vs PostgreSQL vs Redis
+
 ## Prerequisites
 
 - Redis 6+ installed and running

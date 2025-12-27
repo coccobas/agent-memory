@@ -12,7 +12,8 @@ import type { AppContextServices, IVectorService } from '../context.js';
 import { EmbeddingService } from '../../services/embedding.service.js';
 import { VectorService } from '../../services/vector.service.js';
 import { ExtractionService } from '../../services/extraction.service.js';
-import { PermissionService } from '../../services/permission.service.js';
+import { PermissionService, type ParentScopeValue } from '../../services/permission.service.js';
+import type { ICacheAdapter } from '../adapters/interfaces.js';
 import { VerificationService } from '../../services/verification.service.js';
 import { HierarchicalSummarizationService } from '../../services/summarization/index.js';
 import { registerVectorCleanupHook } from '../../db/repositories/base.js';
@@ -42,6 +43,8 @@ export interface ServiceDependencies {
   dbType: 'sqlite' | 'postgresql';
   /** PostgreSQL pool (required when dbType is 'postgresql') */
   pgPool?: Pool;
+  /** Cache adapter for permission service (required) */
+  permissionCacheAdapter: ICacheAdapter<ParentScopeValue>;
 }
 
 /**
@@ -146,8 +149,14 @@ export async function createServices(
     await vectorService.removeEmbedding(entryType, entryId);
   });
 
-  // Create permission service
-  const permissionService = new PermissionService(db, runtime.memoryCoordinator);
+  // Create permission service (cache adapter is required via deps)
+  if (!deps?.permissionCacheAdapter) {
+    throw createValidationError(
+      'permissionCacheAdapter',
+      'is required in ServiceDependencies for PermissionService'
+    );
+  }
+  const permissionService = new PermissionService(db, deps.permissionCacheAdapter);
 
   // Create verification service
   const verificationService = new VerificationService(db);

@@ -195,7 +195,7 @@ export function createGuidelineRepository(deps: DatabaseDeps): IGuidelineReposit
       }
 
       const guidelinesList = query
-        .orderBy(desc(guidelines.priority))
+        .orderBy(desc(guidelines.priority), asc(guidelines.id))
         .limit(limit)
         .offset(offset)
         .all();

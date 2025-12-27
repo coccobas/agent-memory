@@ -132,7 +132,7 @@ describe('RL Policy Evaluation', () => {
     });
 
     it('should throw error for empty test data', async () => {
-      await expect(evaluatePolicy(policy, [])).rejects.toThrow('Test data is empty');
+      await expect(evaluatePolicy(policy, [])).rejects.toThrow(/testData.*is empty/i);
     });
 
     it('should handle perfect accuracy', async () => {
@@ -839,7 +839,7 @@ describe('RL Policy Evaluation', () => {
 
       await expect(
         evaluator.evaluate(mockModel, [])
-      ).rejects.toThrow('Model evaluation not yet implemented');
+      ).rejects.toThrow(/not yet implemented|model inference not found/i);
     });
 
     it('abTest should validate split ratio', async () => {
@@ -853,11 +853,11 @@ describe('RL Policy Evaluation', () => {
 
       await expect(
         evaluator.abTest(mockModel, mockModel, [], 1.5)
-      ).rejects.toThrow('Split ratio must be between 0 and 1');
+      ).rejects.toThrow(/splitRatio.*must be between 0 and 1/i);
 
       await expect(
         evaluator.abTest(mockModel, mockModel, [], -0.5)
-      ).rejects.toThrow('Split ratio must be between 0 and 1');
+      ).rejects.toThrow(/splitRatio.*must be between 0 and 1/i);
     });
   });
 });

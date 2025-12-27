@@ -4,6 +4,7 @@ import * as rlService from '../../src/services/rl/index.js';
 import * as training from '../../src/services/rl/training/index.js';
 import type { AppContext } from '../../src/core/context.js';
 
+// Note: getRLService and initRLService are no longer used - handler uses context.services.rl
 vi.mock('../../src/services/rl/index.js', () => ({
   getRLService: vi.fn(),
   initRLService: vi.fn(),
@@ -69,7 +70,9 @@ describe('RL Handler', () => {
     mockContext = {
       db: {} as any,
       repos: {} as any,
-      services: {} as any,
+      services: {
+        rl: mockRLService,
+      } as any,
     };
   });
 
@@ -81,12 +84,15 @@ describe('RL Handler', () => {
       expect(mockRLService.getStatus).toHaveBeenCalled();
     });
 
-    it('should initialize service if not present', async () => {
-      vi.mocked(rlService.getRLService).mockReturnValue(null as any);
+    it('should throw when RL service not available', async () => {
+      const noRlContext = {
+        ...mockContext,
+        services: {} as any,
+      };
 
-      await rlHandlers.status(mockContext, {});
-
-      expect(rlService.initRLService).toHaveBeenCalled();
+      await expect(rlHandlers.status(noRlContext, {})).rejects.toThrow(
+        /RL service not available/i
+      );
     });
   });
 
@@ -279,11 +285,14 @@ describe('RL Handler', () => {
 
   describe('evaluate', () => {
     it('should throw when RL service not initialized', async () => {
-      vi.mocked(rlService.getRLService).mockReturnValue(null as any);
+      const noRlContext = {
+        ...mockContext,
+        services: {} as any,
+      };
 
       await expect(
-        rlHandlers.evaluate(mockContext, { policy: 'extraction' })
-      ).rejects.toThrow();
+        rlHandlers.evaluate(noRlContext, { policy: 'extraction' })
+      ).rejects.toThrow(/RL service not available/i);
     });
 
     it('should throw on invalid policy', async () => {
@@ -322,14 +331,17 @@ describe('RL Handler', () => {
     });
 
     it('should throw when RL service not initialized', async () => {
-      vi.mocked(rlService.getRLService).mockReturnValue(null as any);
+      const noRlContext = {
+        ...mockContext,
+        services: {} as any,
+      };
 
       await expect(
-        rlHandlers.compare(mockContext, {
+        rlHandlers.compare(noRlContext, {
           policyA: 'extraction',
           policyB: 'extraction',
         })
-      ).rejects.toThrow();
+      ).rejects.toThrow(/RL service not available/i);
     });
 
     it('should compare extraction policies', async () => {
@@ -586,16 +598,20 @@ describe('RL Handler', () => {
       ).rejects.toThrow('No trained models');
     });
 
-    it('should initialize service if not present', async () => {
+    it('should throw when RL service not available', async () => {
       const { existsSync, readdirSync, statSync } = await import('node:fs');
-      vi.mocked(rlService.getRLService).mockReturnValue(null as any);
       vi.mocked(existsSync).mockReturnValue(true);
       vi.mocked(readdirSync).mockReturnValue(['v1'] as any);
       vi.mocked(statSync).mockReturnValue({ isDirectory: () => true } as any);
 
-      await rlHandlers.load_model(mockContext, { policy: 'extraction' });
+      const noRlContext = {
+        ...mockContext,
+        services: {} as any,
+      };
 
-      expect(rlService.initRLService).toHaveBeenCalled();
+      await expect(
+        rlHandlers.load_model(noRlContext, { policy: 'extraction' })
+      ).rejects.toThrow(/RL service not available/i);
     });
   });
 

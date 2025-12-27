@@ -3,9 +3,6 @@ import {
   FeedbackQueueProcessor,
   FeedbackQueueConfig,
   FeedbackQueueStats,
-  initFeedbackQueue,
-  getFeedbackQueue,
-  resetFeedbackQueue,
 } from '../../src/services/feedback/queue.js';
 import type { FeedbackService } from '../../src/services/feedback/index.js';
 import type { RecordRetrievalParams } from '../../src/services/feedback/types.js';
@@ -119,7 +116,6 @@ describe('FeedbackQueueProcessor', () => {
     if (processor) {
       await processor.stop();
     }
-    await resetFeedbackQueue();
   });
 
   describe('Constructor and Configuration', () => {
@@ -690,89 +686,6 @@ describe('FeedbackQueueProcessor', () => {
   });
 });
 
-describe('Singleton Management', () => {
-  let mockFeedbackService: FeedbackService;
-
-  beforeEach(async () => {
-    vi.clearAllMocks();
-    await resetFeedbackQueue();
-    mockFeedbackService = createMockFeedbackService();
-  });
-
-  afterEach(async () => {
-    await resetFeedbackQueue();
-  });
-
-  describe('initFeedbackQueue()', () => {
-    it('should create singleton instance', () => {
-      const processor = initFeedbackQueue(mockFeedbackService);
-
-      expect(processor).toBeInstanceOf(FeedbackQueueProcessor);
-      expect(getFeedbackQueue()).toBe(processor);
-    });
-
-    it('should return existing instance if already initialized', () => {
-      const first = initFeedbackQueue(mockFeedbackService);
-      const second = initFeedbackQueue(mockFeedbackService);
-
-      expect(first).toBe(second);
-    });
-
-    it('should accept custom config', () => {
-      const processor = initFeedbackQueue(mockFeedbackService, {
-        maxQueueSize: 250,
-      });
-
-      expect(processor.getStats().maxQueueSize).toBe(250);
-    });
-  });
-
-  describe('getFeedbackQueue()', () => {
-    it('should return null when not initialized', () => {
-      const processor = getFeedbackQueue();
-
-      expect(processor).toBeNull();
-    });
-
-    it('should return singleton after initialization', () => {
-      const initialized = initFeedbackQueue(mockFeedbackService);
-      const retrieved = getFeedbackQueue();
-
-      expect(retrieved).toBe(initialized);
-    });
-  });
-
-  describe('resetFeedbackQueue()', () => {
-    it('should reset singleton to null', async () => {
-      initFeedbackQueue(mockFeedbackService);
-      expect(getFeedbackQueue()).not.toBeNull();
-
-      await resetFeedbackQueue();
-
-      expect(getFeedbackQueue()).toBeNull();
-    });
-
-    it('should stop processor before reset', async () => {
-      const processor = initFeedbackQueue(mockFeedbackService);
-      processor.start();
-      expect(processor.getStats().isRunning).toBe(true);
-
-      await resetFeedbackQueue();
-
-      // After reset, a new instance would need to be created
-      expect(getFeedbackQueue()).toBeNull();
-    });
-
-    it('should be safe to call multiple times', async () => {
-      await resetFeedbackQueue();
-      await resetFeedbackQueue();
-      await resetFeedbackQueue();
-
-      expect(getFeedbackQueue()).toBeNull();
-    });
-  });
-});
-
 describe('Edge Cases and Error Handling', () => {
   let mockFeedbackService: FeedbackService & {
     recordRetrievalBatch: ReturnType<typeof vi.fn>;
@@ -788,7 +701,6 @@ describe('Edge Cases and Error Handling', () => {
     if (processor) {
       await processor.stop();
     }
-    await resetFeedbackQueue();
   });
 
   it('should handle rapid enqueue/dequeue cycles', async () => {

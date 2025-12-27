@@ -36,7 +36,7 @@ describe('LLM Summarizer', () => {
         model: 'invalid/model/../name',
       };
 
-      expect(() => new LLMSummarizer(config)).toThrow('Invalid model name');
+      expect(() => new LLMSummarizer(config)).toThrow(/invalid model name/i);
     });
 
     it('should accept valid model names', () => {
@@ -54,7 +54,7 @@ describe('LLM Summarizer', () => {
         // No API key
       };
 
-      expect(() => new LLMSummarizer(config)).toThrow('OpenAI API key is required');
+      expect(() => new LLMSummarizer(config)).toThrow(/openai.*api.*key.*required/i);
     });
 
     it('should throw error for Anthropic without API key', () => {
@@ -63,7 +63,7 @@ describe('LLM Summarizer', () => {
         // No API key
       };
 
-      expect(() => new LLMSummarizer(config)).toThrow('Anthropic API key is required');
+      expect(() => new LLMSummarizer(config)).toThrow(/anthropic.*api.*key.*required/i);
     });
 
     it('should initialize Ollama with default base URL', () => {
@@ -140,7 +140,7 @@ describe('LLM Summarizer', () => {
       };
 
       await expect(summarizer.summarize(request)).rejects.toThrow(
-        'Cannot summarize empty items list'
+        /items.*cannot be empty|empty items/i
       );
     });
 

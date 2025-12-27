@@ -79,7 +79,7 @@ describe('Tags Integration', () => {
 
     it('should require name', async () => {
       await expect(tagHandlers.create(context, { agentId: AGENT_ID })).rejects.toThrow(
-        'name is required'
+        /name.*is required/
       );
     });
   });
@@ -174,7 +174,7 @@ describe('Tags Integration', () => {
     it('should require entryType', async () => {
       await expect(
         tagHandlers.attach(context, { agentId: AGENT_ID, entryId: 'test', tagName: 'test' })
-      ).rejects.toThrow('entryType is required');
+      ).rejects.toThrow(/entryType.*is required/);
     });
   });
 
@@ -214,7 +214,7 @@ describe('Tags Integration', () => {
     it('should require entryType', async () => {
       await expect(
         tagHandlers.detach(context, { agentId: AGENT_ID, entryId: 'test', tagId: 'test' })
-      ).rejects.toThrow('entryType is required');
+      ).rejects.toThrow(/entryType.*is required/);
     });
   });
 
@@ -259,7 +259,7 @@ describe('Tags Integration', () => {
     it('should require entryType', async () => {
       await expect(
         tagHandlers.forEntry(context, { agentId: AGENT_ID, entryId: 'test' })
-      ).rejects.toThrow('entryType is required');
+      ).rejects.toThrow(/entryType.*is required/);
     });
   });
 });

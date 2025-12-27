@@ -28,8 +28,11 @@ import { buildConfig, type Config } from '../../src/config/index.js';
 import {
   createDependencies,
   type PipelineDependencies,
-  wireQueryCacheInvalidation,
 } from '../../src/services/query/index.js';
+import { wireQueryCache } from '../../src/core/factory/query-pipeline.js';
+import { createLocalEventAdapter } from '../../src/core/adapters/local-event.adapter.js';
+import { LocalFileSystemAdapter } from '../../src/core/adapters/local-filesystem.adapter.js';
+import type { UnifiedAdapters } from '../../src/core/context.js';
 import { createComponentLogger } from '../../src/utils/logger.js';
 import { SecurityService } from '../../src/services/security.service.js';
 // Repository factory imports
@@ -50,9 +53,13 @@ import { createToolRepository } from '../../src/db/repositories/tools.js';
 import { createConversationRepository } from '../../src/db/repositories/conversations.js';
 import { createConflictRepository } from '../../src/db/repositories/conflicts.js';
 import { createExperienceRepository } from '../../src/db/repositories/experiences.js';
-import { PermissionService } from '../../src/services/permission.service.js';
+import { PermissionService, type ParentScopeValue } from '../../src/services/permission.service.js';
 import { VerificationService } from '../../src/services/verification.service.js';
+import { createExperiencePromotionService } from '../../src/services/experience/index.js';
+import { LibrarianService } from '../../src/services/librarian/index.js';
 import type { AppContextServices } from '../../src/core/context.js';
+import { LRUCache } from '../../src/utils/lru-cache.js';
+import { createMemoryCacheAdapter } from '../../src/core/adapters/memory-cache.adapter.js';
 
 // Re-export schema for use in tests
 export { schema };
@@ -230,12 +237,12 @@ export function registerTestContext(testDb: TestDb): AppContext {
   const security = new SecurityService(config);
   const runtime = getRuntime();
 
+  // Create shared event adapter for all services
+  const eventAdapter = createLocalEventAdapter();
+
   // Wire up cache invalidation if not already done
   if (!runtime.queryCache.unsubscribe) {
-    runtime.queryCache.unsubscribe = wireQueryCacheInvalidation(
-      runtime.queryCache.cache,
-      createComponentLogger('query-cache-test')
-    );
+    wireQueryCache(eventAdapter, runtime, logger);
   }
 
   // Create database dependencies for repository injection
@@ -261,10 +268,28 @@ export function registerTestContext(testDb: TestDb): AppContext {
     experiences: createExperienceRepository({ ...dbDeps, toolRepo }),
   };
 
+  // Create permission cache adapter
+  const permissionLru = new LRUCache<ParentScopeValue>({ maxSize: 500, ttlMs: 5 * 60 * 1000 });
+  const permissionCacheAdapter = createMemoryCacheAdapter(permissionLru);
+  if (runtime.memoryCoordinator) {
+    runtime.memoryCoordinator.register('parent-scope', permissionLru, 7);
+  }
+
   // Create services including permission service (required for handlers)
   const services: AppContextServices = {
-    permission: new PermissionService(db, runtime.memoryCoordinator),
+    permission: new PermissionService(db, permissionCacheAdapter),
     verification: new VerificationService(db),
+    experiencePromotion: createExperiencePromotionService({
+      experienceRepo: repos.experiences,
+      eventAdapter,
+    }),
+    librarian: new LibrarianService(dbDeps),
+  };
+
+  // Create unified adapters for event propagation
+  const unifiedAdapters: UnifiedAdapters = {
+    event: eventAdapter,
+    fs: new LocalFileSystemAdapter(),
   };
 
   const context: AppContext = {
@@ -277,6 +302,7 @@ export function registerTestContext(testDb: TestDb): AppContext {
     runtime,
     repos,
     services,
+    unifiedAdapters,
   };
 
   registerContext(context);

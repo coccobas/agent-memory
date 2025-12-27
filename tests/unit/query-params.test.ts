@@ -33,7 +33,7 @@ describe('parseQueryBody', () => {
     });
 
     it('should throw on invalid conversationId', () => {
-      expect(() => parseQueryBody({ conversationId: 123 })).toThrow("Parameter 'conversationId' has invalid type");
+      expect(() => parseQueryBody({ conversationId: 123 })).toThrow(/conversationId.*invalid type/i);
     });
   });
 
@@ -50,15 +50,15 @@ describe('parseQueryBody', () => {
     });
 
     it('should throw on invalid types', () => {
-      expect(() => parseQueryBody({ types: ['invalid'] })).toThrow("Parameter 'types' has invalid type");
+      expect(() => parseQueryBody({ types: ['invalid'] })).toThrow(/types.*invalid type/i);
     });
 
     it('should throw on non-array types', () => {
-      expect(() => parseQueryBody({ types: 'tools' })).toThrow("Parameter 'types' has invalid type");
+      expect(() => parseQueryBody({ types: 'tools' })).toThrow(/types.*invalid type/i);
     });
 
     it('should throw on mixed valid/invalid types', () => {
-      expect(() => parseQueryBody({ types: ['tools', 'invalid'] })).toThrow("Parameter 'types' has invalid type");
+      expect(() => parseQueryBody({ types: ['tools', 'invalid'] })).toThrow(/types.*invalid type/i);
     });
   });
 
@@ -90,21 +90,21 @@ describe('parseQueryBody', () => {
     });
 
     it('should throw on invalid scope type', () => {
-      expect(() => parseQueryBody({ scope: { type: 'invalid' } })).toThrow("Parameter 'scope' has invalid type");
+      expect(() => parseQueryBody({ scope: { type: 'invalid' } })).toThrow(/scope.*invalid type/i);
     });
 
     it('should throw on non-object scope', () => {
-      expect(() => parseQueryBody({ scope: 'global' })).toThrow("Parameter 'scope' has invalid type");
+      expect(() => parseQueryBody({ scope: 'global' })).toThrow(/scope.*invalid type/i);
     });
 
     it('should throw on scope with non-string id', () => {
-      expect(() => parseQueryBody({ scope: { type: 'project', id: 123 } })).toThrow("Parameter 'scope' has invalid type");
+      expect(() => parseQueryBody({ scope: { type: 'project', id: 123 } })).toThrow(/scope.*invalid type/i);
     });
 
     it('should throw on scope with non-boolean inherit', () => {
       expect(() => parseQueryBody({
         scope: { type: 'project', inherit: 'true' },
-      })).toThrow("Parameter 'scope' has invalid type");
+      })).toThrow(/scope.*invalid type/i);
     });
   });
 
@@ -115,7 +115,7 @@ describe('parseQueryBody', () => {
     });
 
     it('should throw on non-string search', () => {
-      expect(() => parseQueryBody({ search: 123 })).toThrow("Parameter 'search' has invalid type");
+      expect(() => parseQueryBody({ search: 123 })).toThrow(/search.*invalid type/i);
     });
   });
 
@@ -128,7 +128,7 @@ describe('parseQueryBody', () => {
     });
 
     it('should throw on non-object tags', () => {
-      expect(() => parseQueryBody({ tags: ['tag1'] })).toThrow("Parameter 'tags' has invalid type");
+      expect(() => parseQueryBody({ tags: ['tag1'] })).toThrow(/tags.*invalid type/i);
     });
   });
 
@@ -201,13 +201,13 @@ describe('parseQueryBody', () => {
     });
 
     it('should throw on non-object relatedTo', () => {
-      expect(() => parseQueryBody({ relatedTo: 'tool-123' })).toThrow("Parameter 'relatedTo' has invalid type");
+      expect(() => parseQueryBody({ relatedTo: 'tool-123' })).toThrow(/relatedTo.*invalid type/i);
     });
 
     it('should throw on invalid direction', () => {
       expect(() => parseQueryBody({
         relatedTo: { type: 'tool', id: 'tool-1', direction: 'invalid' },
-      })).toThrow("Parameter 'direction' has invalid type");
+      })).toThrow(/direction.*invalid type/i);
     });
   });
 
@@ -240,7 +240,7 @@ describe('parseQueryBody', () => {
     });
 
     it('should throw on non-numeric limit', () => {
-      expect(() => parseQueryBody({ limit: '50' })).toThrow("Parameter 'limit' has invalid type");
+      expect(() => parseQueryBody({ limit: '50' })).toThrow(/limit.*invalid type/i);
     });
   });
 

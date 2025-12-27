@@ -155,7 +155,7 @@ describe('LatentMemoryService', () => {
     it('should throw error when service is not available', async () => {
       vi.mocked(mockEmbeddingService.isAvailable).mockReturnValue(false);
       await expect(service.createLatentMemory(input)).rejects.toThrow(
-        'LatentMemoryService is not available'
+        'LatentMemoryService is unavailable: embeddings or vectors disabled'
       );
     });
 
@@ -456,7 +456,7 @@ describe('LatentMemoryService', () => {
     it('should throw error when service is not available', async () => {
       vi.mocked(mockEmbeddingService.isAvailable).mockReturnValue(false);
       await expect(service.findSimilar('query text')).rejects.toThrow(
-        'LatentMemoryService is not available'
+        'LatentMemoryService is unavailable: embeddings or vectors disabled'
       );
     });
 
@@ -639,13 +639,13 @@ describe('LatentMemoryService', () => {
 
     it('should validate importance score range (too low)', async () => {
       await expect(service.updateImportance('mem-123', -0.1)).rejects.toThrow(
-        'Invalid importance score: -0.1 (must be 0-1)'
+        'Validation error: importanceScore - must be between 0 and 1'
       );
     });
 
     it('should validate importance score range (too high)', async () => {
       await expect(service.updateImportance('mem-123', 1.5)).rejects.toThrow(
-        'Invalid importance score: 1.5 (must be 0-1)'
+        'Validation error: importanceScore - must be between 0 and 1'
       );
     });
 
@@ -683,11 +683,11 @@ describe('LatentMemoryService', () => {
     });
 
     it('should validate staleDays parameter (zero)', async () => {
-      await expect(service.pruneStale(0)).rejects.toThrow('Invalid staleDays: 0 (must be > 0)');
+      await expect(service.pruneStale(0)).rejects.toThrow('Validation error: staleDays - must be greater than 0');
     });
 
     it('should validate staleDays parameter (negative)', async () => {
-      await expect(service.pruneStale(-5)).rejects.toThrow('Invalid staleDays: -5 (must be > 0)');
+      await expect(service.pruneStale(-5)).rejects.toThrow('Validation error: staleDays - must be greater than 0');
     });
 
     it('should handle missing repository gracefully', async () => {

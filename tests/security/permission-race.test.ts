@@ -26,8 +26,10 @@ import {
   createTestProject,
   type TestDb,
 } from '../fixtures/test-helpers.js';
-import { PermissionService } from '../../src/services/permission.service.js';
+import { PermissionService, type ParentScopeValue } from '../../src/services/permission.service.js';
 import { createProjectRepository, createSessionRepository } from '../../src/db/repositories/scopes.js';
+import { LRUCache } from '../../src/utils/lru-cache.js';
+import { createMemoryCacheAdapter } from '../../src/core/adapters/memory-cache.adapter.js';
 import type { IProjectRepository, ISessionRepository } from '../../src/core/interfaces/repositories.js';
 import * as schema from '../../src/db/schema.js';
 import { eq, and } from 'drizzle-orm';
@@ -55,7 +57,9 @@ describe('Permission Race Conditions (TOCTOU)', () => {
     delete process.env.AGENT_MEMORY_PERMISSIONS_MODE;
 
     testDb = setupTestDb(TEST_DB_PATH);
-    permissionService = new PermissionService(testDb.db);
+    const permissionLru = new LRUCache<ParentScopeValue>({ maxSize: 500, ttlMs: 5 * 60 * 1000 });
+    const permissionCacheAdapter = createMemoryCacheAdapter(permissionLru);
+    permissionService = new PermissionService(testDb.db, permissionCacheAdapter);
     projectRepo = createProjectRepository({ db: testDb.db });
     sessionRepo = createSessionRepository({ db: testDb.db });
   });

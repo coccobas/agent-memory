@@ -38,7 +38,7 @@ describe('ScalarQuantization', () => {
         bits: 8,
       };
 
-      expect(() => new ScalarQuantization(config)).toThrow('Input dimension must be positive');
+      expect(() => new ScalarQuantization(config)).toThrow('Validation error: inputDimension - must be positive');
     });
 
     it('should throw error when output dimension differs from input', () => {
@@ -49,7 +49,7 @@ describe('ScalarQuantization', () => {
       };
 
       expect(() => new ScalarQuantization(config)).toThrow(
-        'Quantization preserves dimensionality'
+        /outputDimension.*must.*inputDimension|must match input dimension/i
       );
     });
 
@@ -61,7 +61,7 @@ describe('ScalarQuantization', () => {
       };
 
       expect(() => new ScalarQuantization(config)).toThrow(
-        'Only 8-bit and 16-bit quantization supported'
+        'Validation error: bits - only 8-bit and 16-bit quantization supported'
       );
     });
 
@@ -155,7 +155,7 @@ describe('ScalarQuantization', () => {
       const compressor = new ScalarQuantization(config);
       const embedding = [0.1, 0.2]; // Only 2 elements
 
-      expect(() => compressor.compress(embedding)).toThrow('Input dimension mismatch');
+      expect(() => compressor.compress(embedding)).toThrow('Validation error: embedding - dimension mismatch');
     });
 
     it('should auto-compute range from first embedding', () => {
@@ -255,7 +255,7 @@ describe('ScalarQuantization', () => {
       const compressor = new ScalarQuantization(config);
       const compressed = [0, 1, 2]; // Only 3 elements
 
-      expect(() => compressor.decompress(compressed)).toThrow('Compressed dimension mismatch');
+      expect(() => compressor.decompress(compressed)).toThrow('Validation error: compressed - dimension mismatch');
     });
 
     it('should throw error if range not initialized', () => {
@@ -269,7 +269,7 @@ describe('ScalarQuantization', () => {
       const compressed = [0, 10, 20, 30, 40];
 
       expect(() => compressor.decompress(compressed)).toThrow(
-        'Cannot decompress: normalization range not initialized'
+        'Validation error: normalizationRange - not initialized'
       );
     });
 
@@ -556,8 +556,8 @@ describe('ScalarQuantization', () => {
 
       const compressor = new ScalarQuantization(config);
 
-      expect(() => compressor.setRange(1, 1)).toThrow('Min must be less than max');
-      expect(() => compressor.setRange(1, 0)).toThrow('Min must be less than max');
+      expect(() => compressor.setRange(1, 1)).toThrow('Validation error: range - min must be less than max');
+      expect(() => compressor.setRange(1, 0)).toThrow('Validation error: range - min must be less than max');
     });
   });
 
@@ -598,7 +598,7 @@ describe('RandomProjection', () => {
       };
 
       expect(() => new RandomProjection(config)).toThrow(
-        'Input and output dimensions must be positive'
+        'Validation error: dimensions - input and output dimensions must be positive'
       );
     });
 
@@ -609,7 +609,7 @@ describe('RandomProjection', () => {
       };
 
       expect(() => new RandomProjection(config)).toThrow(
-        'Input and output dimensions must be positive'
+        'Validation error: dimensions - input and output dimensions must be positive'
       );
     });
 
@@ -620,7 +620,7 @@ describe('RandomProjection', () => {
       };
 
       expect(() => new RandomProjection(config)).toThrow(
-        'Output dimension must not exceed input dimension'
+        'Validation error: outputDimension - must not exceed input dimension'
       );
     });
 
@@ -674,7 +674,7 @@ describe('RandomProjection', () => {
       const compressor = new RandomProjection(config);
       const embedding = [0.1, 0.2]; // Only 2 elements
 
-      expect(() => compressor.compress(embedding)).toThrow('Input dimension mismatch');
+      expect(() => compressor.compress(embedding)).toThrow('Validation error: embedding - dimension mismatch');
     });
 
     it('should produce deterministic results with same seed', () => {
@@ -786,7 +786,7 @@ describe('RandomProjection', () => {
       const compressor = new RandomProjection(config);
 
       expect(() => compressor.decompress()).toThrow(
-        'Random projection does not support decompression'
+        'decompress is unavailable: random projection does not support decompression'
       );
     });
   });

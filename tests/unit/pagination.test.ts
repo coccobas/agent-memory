@@ -182,14 +182,14 @@ describe('PaginationCursor', () => {
     });
 
     it('should reject completely invalid cursor', () => {
-      expect(() => PaginationCursor.decode('not-a-valid-cursor')).toThrow(/invalid/i);
-      expect(() => PaginationCursor.decode('')).toThrow(/invalid/i);
-      expect(() => PaginationCursor.decode('!!!')).toThrow(/invalid/i);
+      expect(() => PaginationCursor.decode('not-a-valid-cursor')).toThrow(/cursor.*invalid|Validation error/i);
+      expect(() => PaginationCursor.decode('')).toThrow(/cursor.*invalid|Validation error/i);
+      expect(() => PaginationCursor.decode('!!!')).toThrow(/cursor.*invalid|Validation error/i);
     });
 
     it('should reject cursor with invalid JSON', () => {
       const invalidJson = Buffer.from('{"invalid json').toString('base64url');
-      expect(() => PaginationCursor.decode(invalidJson)).toThrow(/invalid/i);
+      expect(() => PaginationCursor.decode(invalidJson)).toThrow(/cursor.*invalid|Validation error/i);
     });
 
     it('should reject cursor with non-object structure', () => {

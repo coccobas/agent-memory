@@ -1,7 +1,25 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { LRUCache } from '../../src/utils/lru-cache.js';
 
 describe('LRUCache', () => {
+  // Mock process.memoryUsage by default to prevent memory pressure eviction in tests
+  let memorySpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    memorySpy = vi.spyOn(process, 'memoryUsage');
+    // Default to low pressure (10% heap used)
+    memorySpy.mockReturnValue({
+      heapUsed: 100 * 1024 * 1024,
+      heapTotal: 1000 * 1024 * 1024,
+      external: 0,
+      rss: 0,
+      arrayBuffers: 0,
+    });
+  });
+
+  afterEach(() => {
+    memorySpy.mockRestore();
+  });
   it('should store and retrieve values', () => {
     const cache = new LRUCache<string>({ maxSize: 10 });
     cache.set('key1', 'value1');
@@ -67,22 +85,16 @@ describe('LRUCache', () => {
   });
 
   it('should evict on memory pressure if implemented', () => {
-    const memorySpy = vi.spyOn(process, 'memoryUsage');
-
-    // Low pressure first
-    memorySpy.mockReturnValue({
-      heapUsed: 100 * 1024 * 1024,
-      heapTotal: 1000 * 1024 * 1024,
-      external: 0,
-      rss: 0,
-      arrayBuffers: 0,
-    });
-
+    vi.useFakeTimers();
+    // Low pressure already set in beforeEach
     const cache = new LRUCache<string>({ maxSize: 100 });
     // Fill 10 items
     for (let i = 0; i < 10; i++) cache.set(String(i), 'val');
 
     expect(cache.size).toBe(10);
+
+    // Advance time past the memory check interval (100ms)
+    vi.advanceTimersByTime(150);
 
     // High pressure
     memorySpy.mockReturnValue({
@@ -98,20 +110,10 @@ describe('LRUCache', () => {
 
     // Should have evicted batch
     // Batch is 10%. Size was 10. Target 9. Evicts 1. Size 9. Adds 1. Size 10.
-    // Wait? If it evicts 1, then adds 1, size is 10.
-    // If I didn't evict, size would be 11.
-    // So expect size to be 10.
-    // But if implementation was strict 10% of TOTAL including new...
-    // My implementation: evicts BEFORE set.
-    // (10 * 0.9) = 9. Loop while > 9.
-    // 10 is > 9. Evicts 1. Size 9.
-    // Sets 'new'. Size 10.
-
     expect(cache.size).toBe(10);
     expect(cache.has('0')).toBe(false); // First one should be evicted
     expect(cache.has('new')).toBe(true);
-
-    memorySpy.mockRestore();
+    vi.useRealTimers();
   });
 
   it('should handle updating existing keys', () => {

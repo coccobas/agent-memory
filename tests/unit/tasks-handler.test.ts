@@ -13,6 +13,10 @@ describe('Tasks Handler', () => {
     create: ReturnType<typeof vi.fn>;
     list: ReturnType<typeof vi.fn>;
   };
+  let mockProjectsRepo: {
+    getById: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
+  };
   let mockDb: {
     select: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
@@ -28,6 +32,10 @@ describe('Tasks Handler', () => {
     mockRelationsRepo = {
       create: vi.fn(),
       list: vi.fn(),
+    };
+    mockProjectsRepo = {
+      getById: vi.fn(),
+      update: vi.fn(),
     };
     mockDb = {
       select: vi.fn().mockReturnValue({
@@ -50,6 +58,7 @@ describe('Tasks Handler', () => {
       repos: {
         knowledge: mockKnowledgeRepo,
         entryRelations: mockRelationsRepo,
+        projects: mockProjectsRepo,
       } as any,
       services: {} as any,
     };
@@ -138,13 +147,8 @@ describe('Tasks Handler', () => {
         .mockResolvedValueOnce({ id: 'task-1', title: 'Main' })
         .mockResolvedValueOnce({ id: 'subtask-1', title: 'Sub' });
       mockRelationsRepo.create.mockResolvedValue({});
-      mockDb.select.mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            get: vi.fn().mockReturnValue({ id: 'proj-123', metadata: {} }),
-          }),
-        }),
-      });
+      mockProjectsRepo.getById.mockResolvedValue({ id: 'proj-123', metadata: {} });
+      mockProjectsRepo.update.mockResolvedValue({});
 
       await addTask(mockContext, {
         subtasks: ['Sub task'],
@@ -153,7 +157,7 @@ describe('Tasks Handler', () => {
         decompositionStrategy: 'maximal',
       });
 
-      expect(mockDb.update).toHaveBeenCalled();
+      expect(mockProjectsRepo.update).toHaveBeenCalled();
     });
   });
 

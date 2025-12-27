@@ -739,10 +739,13 @@ describe('CaptureStateManager', () => {
 describe('ExperienceCaptureModule', () => {
   let module: ExperienceCaptureModule;
   let mockRepo: IExperienceRepository;
+  let stateManager: CaptureStateManager;
 
   beforeEach(() => {
+    resetCaptureStateManager();
+    stateManager = getCaptureStateManager();
     mockRepo = createMockExperienceRepo();
-    module = createExperienceCaptureModule(mockRepo, 'disabled');
+    module = createExperienceCaptureModule(mockRepo, stateManager, 'disabled');
   });
 
   describe('Capture Triggers', () => {
@@ -1070,11 +1073,11 @@ describe('ExperienceCaptureModule', () => {
     it('should skip duplicate case', async () => {
       // Reset and recreate module to get fresh state manager
       resetCaptureStateManager();
-      const freshModule = createExperienceCaptureModule(mockRepo, 'disabled');
-      const stateManager = getCaptureStateManager();
+      const freshStateManager = getCaptureStateManager();
+      const freshModule = createExperienceCaptureModule(mockRepo, freshStateManager, 'disabled');
 
       // Create session first
-      stateManager.getOrCreateSession('session-1');
+      freshStateManager.getOrCreateSession('session-1');
 
       const params: RecordCaseParams = {
         sessionId: 'session-1',
@@ -1123,8 +1126,11 @@ describe('KnowledgeCaptureModule', () => {
   let mockKnowledgeRepo: IKnowledgeRepository;
   let mockGuidelineRepo: IGuidelineRepository;
   let mockToolRepo: IToolRepository;
+  let stateManager: CaptureStateManager;
 
   beforeEach(() => {
+    resetCaptureStateManager();
+    stateManager = getCaptureStateManager();
     mockKnowledgeRepo = createMockKnowledgeRepo();
     mockGuidelineRepo = createMockGuidelineRepo();
     mockToolRepo = createMockToolRepo();
@@ -1133,6 +1139,7 @@ describe('KnowledgeCaptureModule', () => {
       knowledgeRepo: mockKnowledgeRepo,
       guidelineRepo: mockGuidelineRepo,
       toolRepo: mockToolRepo,
+      stateManager,
     });
   });
 
@@ -1271,10 +1278,12 @@ describe('CaptureService Integration', () => {
   let mockKnowledgeRepo: IKnowledgeRepository;
   let mockGuidelineRepo: IGuidelineRepository;
   let mockToolRepo: IToolRepository;
+  let stateManager: CaptureStateManager;
 
   beforeEach(() => {
     resetCaptureService();
     resetCaptureStateManager();
+    stateManager = getCaptureStateManager();
 
     mockExperienceRepo = createMockExperienceRepo();
     mockKnowledgeRepo = createMockKnowledgeRepo();
@@ -1283,6 +1292,7 @@ describe('CaptureService Integration', () => {
 
     service = initCaptureService({
       experienceRepo: mockExperienceRepo,
+      stateManager,
       knowledgeModuleDeps: {
         knowledgeRepo: mockKnowledgeRepo,
         guidelineRepo: mockGuidelineRepo,
@@ -1486,7 +1496,7 @@ describe('CaptureService Integration', () => {
 
   describe('Hash Management', () => {
     it('should clear old hashes', async () => {
-      const stateManager = getCaptureStateManager();
+      // Use the shared stateManager from beforeEach which is same as service's internal one
 
       // Register some hashes
       stateManager.registerHash('hash1', 'knowledge', 'entry-1');

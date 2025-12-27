@@ -67,7 +67,7 @@ describe('Permissions Helper', () => {
           'project',
           'proj-1'
         )
-      ).toThrow('Authentication required');
+      ).toThrow(/agentId.*must be provided|Authentication required/i);
     });
 
     it('should allow when agentId missing in permissive mode', () => {
@@ -152,7 +152,7 @@ describe('Permissions Helper', () => {
     });
 
     it('should throw when agentId is undefined in strict mode', () => {
-      expect(() => requireAgentId(undefined)).toThrow('Authentication required');
+      expect(() => requireAgentId(undefined)).toThrow(/agentId.*must be provided|Authentication required/i);
     });
 
     it('should pass when agentId is undefined in permissive mode', () => {

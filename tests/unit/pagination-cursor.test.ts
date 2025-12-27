@@ -80,22 +80,22 @@ describe('PaginationCursor', () => {
     });
 
     it('should throw on invalid base64', () => {
-      expect(() => PaginationCursor.decode('!!invalid!!')).toThrow('Invalid pagination cursor');
+      expect(() => PaginationCursor.decode('!!invalid!!')).toThrow(/cursor.*is not valid JSON/i);
     });
 
     it('should throw on invalid JSON', () => {
       const invalidJson = Buffer.from('not json').toString('base64url');
-      expect(() => PaginationCursor.decode(invalidJson)).toThrow('Invalid pagination cursor');
+      expect(() => PaginationCursor.decode(invalidJson)).toThrow(/cursor.*is not valid JSON/i);
     });
 
     it('should throw on missing data', () => {
       const noData = Buffer.from('{"signature":"abc"}').toString('base64url');
-      expect(() => PaginationCursor.decode(noData)).toThrow('Invalid cursor data');
+      expect(() => PaginationCursor.decode(noData)).toThrow('Validation error: cursor.data - invalid cursor data');
     });
 
     it('should throw on missing signature', () => {
       const noSig = Buffer.from('{"data":{"offset":1}}').toString('base64url');
-      expect(() => PaginationCursor.decode(noSig)).toThrow('Invalid cursor signature');
+      expect(() => PaginationCursor.decode(noSig)).toThrow('Validation error: cursor.signature - invalid cursor signature');
     });
 
     it('should throw on tampered data', () => {

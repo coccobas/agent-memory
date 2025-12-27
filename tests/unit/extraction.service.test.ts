@@ -212,7 +212,7 @@ describe('Extraction Service', () => {
         const largeContext = 'x'.repeat(100001);
 
         await expect(enabledService.extract({ context: largeContext })).rejects.toThrow(
-          'Context exceeds maximum length'
+          'context exceeds maximum characters of 100000'
         );
 
         // Restore
@@ -228,7 +228,7 @@ describe('Extraction Service', () => {
         const largeContext = 'x'.repeat(100001);
 
         await expect(service.extract({ context: largeContext })).rejects.toThrow(
-          'Context exceeds maximum length'
+          'context exceeds maximum characters of 100000'
         );
       }
     });
@@ -350,7 +350,7 @@ describe('Extraction Service', () => {
         anthropicModel: 'claude-3-5-sonnet-20241022',
         ollamaBaseUrl: 'http://localhost:11434',
         ollamaModel: 'llama; rm -rf /',
-      })).toThrow('Invalid Ollama model name');
+      })).toThrow('Validation error: ollamaModel - invalid model name');
 
       expect(() => new ExtractionService({
         provider: 'ollama',
@@ -361,7 +361,7 @@ describe('Extraction Service', () => {
         anthropicModel: 'claude-3-5-sonnet-20241022',
         ollamaBaseUrl: 'http://localhost:11434',
         ollamaModel: 'model$(whoami)',
-      })).toThrow('Invalid Ollama model name');
+      })).toThrow('Validation error: ollamaModel - invalid model name');
     });
   });
 

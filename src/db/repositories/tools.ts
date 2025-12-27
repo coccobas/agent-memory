@@ -190,7 +190,7 @@ export function createToolRepository(deps: DatabaseDeps): IToolRepository {
         query = query.where(and(...conditions)) as typeof query;
       }
 
-      const toolsList = query.limit(limit).offset(offset).all();
+      const toolsList = query.orderBy(asc(tools.id)).limit(limit).offset(offset).all();
 
       // Batch fetch versions using shared utility
       const versionsMap = batchFetchVersionsWithDb<ToolVersion>(

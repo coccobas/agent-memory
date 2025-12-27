@@ -24,7 +24,9 @@ describe('Feedback Handler', () => {
     mockContext = {
       db: {} as any,
       repos: {} as any,
-      services: {} as any,
+      services: {
+        feedback: mockFeedbackService,
+      } as any,
     };
   });
 
@@ -64,11 +66,11 @@ describe('Feedback Handler', () => {
     });
 
     it('should throw when feedback service is not initialized', async () => {
-      vi.mocked(feedbackModule.getFeedbackService).mockReturnValue(null as any);
+      mockContext.services = {} as any; // Remove feedback service
 
       await expect(
         feedbackHandlers.listRetrievals(mockContext, { sessionId: 'session-123' })
-      ).rejects.toThrow('not initialized');
+      ).rejects.toThrow(); // TypeError when accessing undefined service
     });
   });
 

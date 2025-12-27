@@ -1,11 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { tagHandlers } from '../../src/mcp/handlers/tags.handler.js';
 import * as entryAccessUtil from '../../src/utils/entry-access.js';
-import * as eventsUtil from '../../src/utils/events.js';
 import type { AppContext } from '../../src/core/context.js';
 
 vi.mock('../../src/utils/entry-access.js');
-vi.mock('../../src/utils/events.js');
 
 describe('Tags Handler', () => {
   let mockContext: AppContext;
@@ -19,6 +17,7 @@ describe('Tags Handler', () => {
     detach: ReturnType<typeof vi.fn>;
     getTagsForEntry: ReturnType<typeof vi.fn>;
   };
+  let mockEventEmit: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -26,7 +25,7 @@ describe('Tags Handler', () => {
       scopeType: 'project',
       scopeId: 'proj-123',
     } as any);
-    vi.mocked(eventsUtil.emitEntryChanged).mockReturnValue(undefined);
+    mockEventEmit = vi.fn();
     mockTagsRepo = {
       create: vi.fn(),
       getByName: vi.fn(),
@@ -44,7 +43,13 @@ describe('Tags Handler', () => {
         entryTags: mockEntryTagsRepo,
       } as any,
       services: {} as any,
-    };
+      unifiedAdapters: {
+        event: {
+          emit: mockEventEmit,
+          subscribe: vi.fn(),
+        },
+      },
+    } as any;
   });
 
   describe('create', () => {
@@ -206,7 +211,7 @@ describe('Tags Handler', () => {
         tagId: 'tag-1',
       });
 
-      expect(eventsUtil.emitEntryChanged).toHaveBeenCalledWith(
+      expect(mockEventEmit).toHaveBeenCalledWith(
         expect.objectContaining({
           entryType: 'tool',
           entryId: 't-1',
@@ -271,7 +276,7 @@ describe('Tags Handler', () => {
         tagId: 'tag-1',
       });
 
-      expect(eventsUtil.emitEntryChanged).toHaveBeenCalled();
+      expect(mockEventEmit).toHaveBeenCalled();
     });
 
     it('should not emit event on failure', async () => {
@@ -284,7 +289,7 @@ describe('Tags Handler', () => {
         tagId: 'tag-1',
       });
 
-      expect(eventsUtil.emitEntryChanged).not.toHaveBeenCalled();
+      expect(mockEventEmit).not.toHaveBeenCalled();
     });
   });
 

@@ -3,14 +3,15 @@ import {
   LocalEventAdapter,
   createLocalEventAdapter,
 } from '../../src/core/adapters/local-event.adapter.js';
-import { resetEventBus } from '../../src/utils/events.js';
+import { createEventBus } from '../../src/utils/events.js';
 
 describe('LocalEventAdapter', () => {
   let adapter: LocalEventAdapter;
 
   beforeEach(() => {
-    resetEventBus();
-    adapter = new LocalEventAdapter();
+    // Create a fresh EventBus for each test
+    const eventBus = createEventBus();
+    adapter = new LocalEventAdapter(eventBus);
   });
 
   describe('subscribe', () => {
@@ -165,14 +166,12 @@ describe('LocalEventAdapter', () => {
 });
 
 describe('createLocalEventAdapter', () => {
-  beforeEach(() => {
-    resetEventBus();
-  });
-
   it('should create an adapter', () => {
     const adapter = createLocalEventAdapter();
     expect(adapter).toBeDefined();
-    expect(adapter).toBeInstanceOf(LocalEventAdapter);
+    // createLocalEventAdapter returns IEventAdapter, not LocalEventAdapter directly
+    expect(adapter.subscribe).toBeDefined();
+    expect(adapter.emit).toBeDefined();
   });
 
   it('should create a working adapter', () => {
@@ -182,10 +181,11 @@ describe('createLocalEventAdapter', () => {
     adapter.subscribe(handler);
 
     const event = {
-      type: 'entry_created' as const,
       entryType: 'tool' as const,
       entryId: 'test-id',
-      timestamp: new Date().toISOString(),
+      scopeType: 'project' as const,
+      scopeId: 'proj-1',
+      action: 'create' as const,
     };
 
     adapter.emit(event);
@@ -193,14 +193,16 @@ describe('createLocalEventAdapter', () => {
     expect(handler).toHaveBeenCalledWith(event);
   });
 
-  it('should share state with singleton EventBus', () => {
+  it('should create independent adapters', () => {
+    // Each createLocalEventAdapter call creates a NEW EventBus, so they're independent
     const adapter1 = createLocalEventAdapter();
     const adapter2 = createLocalEventAdapter();
 
     const handler = vi.fn();
     adapter1.subscribe(handler);
 
-    // adapter2 should see the subscriber added by adapter1
-    expect(adapter2.subscriberCount()).toBe(1);
+    // adapter2 has its own EventBus, so it should have 0 subscribers
+    expect(adapter2.subscriberCount()).toBe(0);
+    expect(adapter1.subscriberCount()).toBe(1);
   });
 });

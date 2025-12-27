@@ -54,6 +54,9 @@ describe('Observe Handler', () => {
   let mockRelationsRepo: {
     create: ReturnType<typeof vi.fn>;
   };
+  let mockObserveCommitService: {
+    commit: ReturnType<typeof vi.fn>;
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -91,6 +94,31 @@ describe('Observe Handler', () => {
     mockRelationsRepo = {
       create: vi.fn().mockResolvedValue({ id: 'rel-1' }),
     };
+    mockObserveCommitService = {
+      commit: vi.fn().mockResolvedValue({
+        stored: {
+          entries: [{ id: 'g-1', type: 'guideline', name: 'Test Rule', scopeType: 'session' }],
+          entities: [],
+          relationsCreated: 0,
+        },
+        skippedDuplicates: [],
+        meta: {
+          sessionId: 'sess-1',
+          projectId: null,
+          autoPromote: true,
+          autoPromoteThreshold: 0.85,
+          totalReceived: 1,
+          entitiesReceived: 0,
+          relationshipsReceived: 0,
+          storedCount: 1,
+          entitiesStoredCount: 0,
+          relationsCreated: 0,
+          relationsSkipped: 0,
+          storedToProject: 0,
+          storedToSession: 1,
+        },
+      }),
+    };
     mockContext = {
       db: {} as any,
       repos: {
@@ -103,6 +131,7 @@ describe('Observe Handler', () => {
       } as any,
       services: {
         extraction: mockExtractionService,
+        observeCommit: mockObserveCommitService,
       } as any,
     };
   });
@@ -495,9 +524,25 @@ describe('Observe Handler', () => {
     });
 
     it('should skip duplicates', async () => {
-      vi.mocked(duplicateService.checkForDuplicates).mockReturnValue({
-        isDuplicate: true,
-        similarEntries: [{ id: 'g-1', name: 'Existing', similarity: 0.95 }],
+      // Mock service to return skipped duplicate result
+      mockObserveCommitService.commit.mockResolvedValueOnce({
+        stored: { entries: [], entities: [], relationsCreated: 0 },
+        skippedDuplicates: [{ type: 'guideline', name: 'Existing Rule', scopeType: 'session' }],
+        meta: {
+          sessionId: 'sess-1',
+          projectId: null,
+          autoPromote: true,
+          autoPromoteThreshold: 0.85,
+          totalReceived: 1,
+          entitiesReceived: 0,
+          relationshipsReceived: 0,
+          storedCount: 0,
+          entitiesStoredCount: 0,
+          relationsCreated: 0,
+          relationsSkipped: 0,
+          storedToProject: 0,
+          storedToSession: 0,
+        },
       });
 
       const result = await observeHandlers.commit(mockContext, {
@@ -517,9 +562,29 @@ describe('Observe Handler', () => {
     });
 
     it('should auto-promote high-confidence entries to project', async () => {
-      vi.mocked(duplicateService.checkForDuplicates).mockReturnValue({
-        isDuplicate: false,
-        similarEntries: [],
+      // Mock service to return promoted to project result
+      mockObserveCommitService.commit.mockResolvedValueOnce({
+        stored: {
+          entries: [{ id: 'g-1', type: 'guideline', name: 'High Confidence Rule', scopeType: 'project' }],
+          entities: [],
+          relationsCreated: 0,
+        },
+        skippedDuplicates: [],
+        meta: {
+          sessionId: 'sess-1',
+          projectId: 'proj-1',
+          autoPromote: true,
+          autoPromoteThreshold: 0.85,
+          totalReceived: 1,
+          entitiesReceived: 0,
+          relationshipsReceived: 0,
+          storedCount: 1,
+          entitiesStoredCount: 0,
+          relationsCreated: 0,
+          relationsSkipped: 0,
+          storedToProject: 1,
+          storedToSession: 0,
+        },
       });
 
       const result = await observeHandlers.commit(mockContext, {
@@ -542,9 +607,30 @@ describe('Observe Handler', () => {
     });
 
     it('should store low-confidence entries to session', async () => {
-      vi.mocked(duplicateService.checkForDuplicates).mockReturnValue({
-        isDuplicate: false,
-        similarEntries: [],
+      // Mock service to return stored to session result with needsReview
+      mockObserveCommitService.commit.mockResolvedValueOnce({
+        stored: {
+          entries: [{ id: 'g-1', type: 'guideline', name: 'Low Confidence Rule', scopeType: 'session' }],
+          entities: [],
+          relationsCreated: 0,
+        },
+        skippedDuplicates: [],
+        meta: {
+          sessionId: 'sess-1',
+          projectId: 'proj-1',
+          autoPromote: true,
+          autoPromoteThreshold: 0.85,
+          totalReceived: 1,
+          entitiesReceived: 0,
+          relationshipsReceived: 0,
+          storedCount: 1,
+          entitiesStoredCount: 0,
+          relationsCreated: 0,
+          relationsSkipped: 0,
+          storedToProject: 0,
+          storedToSession: 1,
+          needsReviewCount: 1,
+        },
       });
 
       const result = await observeHandlers.commit(mockContext, {
@@ -568,11 +654,8 @@ describe('Observe Handler', () => {
     });
 
     it('should attach candidate tags to session entries', async () => {
-      vi.mocked(duplicateService.checkForDuplicates).mockReturnValue({
-        isDuplicate: false,
-        similarEntries: [],
-      });
-
+      // The handler now delegates to service. We verify service is called with entries
+      // that would get candidate tags. Tag attachment is handled by the service.
       await observeHandlers.commit(mockContext, {
         sessionId: 'sess-1',
         entries: [
@@ -585,20 +668,19 @@ describe('Observe Handler', () => {
         ],
       });
 
-      expect(mockEntryTagsRepo.attach).toHaveBeenCalledWith(
-        expect.objectContaining({ tagName: 'needs_review' })
-      );
-      expect(mockEntryTagsRepo.attach).toHaveBeenCalledWith(
-        expect.objectContaining({ tagName: 'candidate' })
+      // Verify the service was called with the entry
+      expect(mockObserveCommitService.commit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sessionId: 'sess-1',
+          entries: expect.arrayContaining([
+            expect.objectContaining({ name: 'Test Rule', confidence: 0.7 }),
+          ]),
+        })
       );
     });
 
     it('should attach suggested tags', async () => {
-      vi.mocked(duplicateService.checkForDuplicates).mockReturnValue({
-        isDuplicate: false,
-        similarEntries: [],
-      });
-
+      // The handler passes suggestedTags to the service which handles attachment
       await observeHandlers.commit(mockContext, {
         sessionId: 'sess-1',
         entries: [
@@ -612,18 +694,42 @@ describe('Observe Handler', () => {
         ],
       });
 
-      expect(mockEntryTagsRepo.attach).toHaveBeenCalledWith(
-        expect.objectContaining({ tagName: 'testing' })
-      );
-      expect(mockEntryTagsRepo.attach).toHaveBeenCalledWith(
-        expect.objectContaining({ tagName: 'best-practice' })
+      // Verify the service was called with the entry including suggestedTags
+      expect(mockObserveCommitService.commit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entries: expect.arrayContaining([
+            expect.objectContaining({
+              suggestedTags: ['testing', 'best-practice'],
+            }),
+          ]),
+        })
       );
     });
 
     it('should store entities', async () => {
-      vi.mocked(duplicateService.checkForDuplicates).mockReturnValue({
-        isDuplicate: false,
-        similarEntries: [],
+      // Mock service to return entities stored result
+      mockObserveCommitService.commit.mockResolvedValueOnce({
+        stored: {
+          entries: [],
+          entities: [{ id: 'e-1', type: 'entity', name: 'PostgreSQL', scopeType: 'session' }],
+          relationsCreated: 0,
+        },
+        skippedDuplicates: [],
+        meta: {
+          sessionId: 'sess-1',
+          projectId: null,
+          autoPromote: true,
+          autoPromoteThreshold: 0.85,
+          totalReceived: 0,
+          entitiesReceived: 1,
+          relationshipsReceived: 0,
+          storedCount: 0,
+          entitiesStoredCount: 1,
+          relationsCreated: 0,
+          relationsSkipped: 0,
+          storedToProject: 0,
+          storedToSession: 0,
+        },
       });
 
       const result = await observeHandlers.commit(mockContext, {
@@ -678,11 +784,8 @@ describe('Observe Handler', () => {
     });
 
     it('should update session metadata', async () => {
-      vi.mocked(duplicateService.checkForDuplicates).mockReturnValue({
-        isDuplicate: false,
-        similarEntries: [],
-      });
-
+      // The handler delegates to service which handles session metadata updates
+      // We verify the service is called with the correct sessionId
       await observeHandlers.commit(mockContext, {
         sessionId: 'sess-1',
         entries: [
@@ -695,14 +798,10 @@ describe('Observe Handler', () => {
         ],
       });
 
-      expect(mockSessionsRepo.update).toHaveBeenCalledWith(
-        'sess-1',
+      // Verify service was called with sessionId
+      expect(mockObserveCommitService.commit).toHaveBeenCalledWith(
         expect.objectContaining({
-          metadata: expect.objectContaining({
-            observe: expect.objectContaining({
-              storedCount: 1,
-            }),
-          }),
+          sessionId: 'sess-1',
         })
       );
     });

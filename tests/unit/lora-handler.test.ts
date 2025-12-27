@@ -28,6 +28,11 @@ describe('LoRA Handler', () => {
   let mockPermissionService: {
     check: ReturnType<typeof vi.fn>;
   };
+  let mockLoraService: {
+    exportToFiles: ReturnType<typeof vi.fn>;
+    listAdapters: ReturnType<typeof vi.fn>;
+    generateScript: ReturnType<typeof vi.fn>;
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -37,6 +42,46 @@ describe('LoRA Handler', () => {
     mockPermissionService = {
       check: vi.fn().mockReturnValue(true),
     };
+    mockLoraService = {
+      exportToFiles: vi.fn().mockImplementation((repo, options) => {
+        // Simulate checking if there are guidelines
+        return repo.list(options.guidelineFilter || {}).then((guidelines: unknown[]) => {
+          if (guidelines.length === 0) {
+            throw new Error('No guidelines found matching the filter criteria');
+          }
+          // Simulate example counting
+          const examplesPerGuideline = options.examplesPerGuideline || 3;
+          const baseExamples = guidelines.length * 3; // 3 per guideline
+          const additionalExamples = Math.min(examplesPerGuideline, 2) * guidelines.length;
+          return {
+            success: true,
+            targetModel: options.targetModel,
+            format: options.format || 'huggingface',
+            stats: {
+              totalExamples: options.includeExamples ? baseExamples + additionalExamples : baseExamples,
+              trainCount: 9,
+              evalCount: 1
+            },
+            files: [],
+          };
+        });
+      }),
+      listAdapters: vi.fn().mockResolvedValue({ success: true, adapters: [] }),
+      generateScript: vi.fn().mockImplementation((model, format, _dataPath, _output) => {
+        const scripts: Record<string, string> = {
+          huggingface: 'from transformers import SFTTrainer\nfrom peft import LoraConfig\nfrom datasets import load_dataset\ntrainer = SFTTrainer()',
+          openai: 'import openai\nclient = openai.Client()\nclient.fine_tuning.jobs.create()\nFineTuningJob.create()\n# OpenAI',
+          anthropic: 'import anthropic\nclient = anthropic.Anthropic()\nfine_tune.create()\n# Anthropic',
+          alpaca: 'from transformers import SFTTrainer\ndef format_alpaca(example):\n  return example\n# Alpaca',
+        };
+        return Promise.resolve({
+          success: true,
+          targetModel: model,
+          format,
+          script: scripts[format] || '# Unknown format',
+        });
+      }),
+    };
     mockContext = {
       db: {} as any,
       repos: {
@@ -44,6 +89,7 @@ describe('LoRA Handler', () => {
       } as any,
       services: {
         permission: mockPermissionService,
+        lora: mockLoraService,
       } as any,
     };
   });

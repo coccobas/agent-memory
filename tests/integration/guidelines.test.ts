@@ -133,7 +133,7 @@ describe('Guidelines Integration', () => {
     });
 
     it('should require id', async () => {
-      await expect(guidelineHandlers.update(context, {})).rejects.toThrow('id is required');
+      await expect(guidelineHandlers.update(context, {})).rejects.toThrow(/id.*is required/);
     });
   });
 

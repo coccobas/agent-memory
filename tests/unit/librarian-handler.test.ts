@@ -20,6 +20,10 @@ const mockLibrarianService = {
   getRecommendationStore: vi.fn().mockReturnValue(mockRecommendationStore),
 };
 
+const mockExperiencePromotionService = {
+  promote: vi.fn(),
+};
+
 vi.mock('../../src/services/librarian/index.js', () => ({
   getLibrarianService: vi.fn(),
   initializeLibrarianService: vi.fn(),
@@ -45,7 +49,10 @@ describe('Librarian Handler', () => {
       db: {} as any,
       sqlite: {} as any,
       repos: {} as any,
-      services: {} as any,
+      services: {
+        librarian: mockLibrarianService,
+        experiencePromotion: mockExperiencePromotionService,
+      } as any,
     };
   });
 
@@ -97,8 +104,7 @@ describe('Librarian Handler', () => {
     });
 
     it('should return error when service unavailable', async () => {
-      vi.mocked(librarianIndex.getLibrarianService).mockReturnValue(null);
-      vi.mocked(librarianIndex.initializeLibrarianService).mockReturnValue(null as any);
+      mockContext.services = {} as any; // Remove librarian service
 
       const result = await librarianHandlers.analyze(mockContext, {
         scopeType: 'project',
@@ -138,8 +144,7 @@ describe('Librarian Handler', () => {
     });
 
     it('should return error when service unavailable', async () => {
-      vi.mocked(librarianIndex.getLibrarianService).mockReturnValue(null);
-      vi.mocked(librarianIndex.initializeLibrarianService).mockReturnValue(null as any);
+      mockContext.services = {} as any; // Remove librarian service
 
       const result = await librarianHandlers.status(mockContext, {});
 
@@ -205,8 +210,7 @@ describe('Librarian Handler', () => {
     });
 
     it('should return error when service unavailable', async () => {
-      vi.mocked(librarianIndex.getLibrarianService).mockReturnValue(null);
-      vi.mocked(librarianIndex.initializeLibrarianService).mockReturnValue(null as any);
+      mockContext.services = {} as any; // Remove librarian service
 
       const result = await librarianHandlers.list_recommendations(mockContext, {});
 
@@ -249,8 +253,7 @@ describe('Librarian Handler', () => {
     });
 
     it('should return error when service unavailable', async () => {
-      vi.mocked(librarianIndex.getLibrarianService).mockReturnValue(null);
-      vi.mocked(librarianIndex.initializeLibrarianService).mockReturnValue(null as any);
+      mockContext.services = {} as any; // Remove librarian service
 
       const result = await librarianHandlers.show_recommendation(mockContext, {
         recommendationId: 'rec-1',
@@ -262,6 +265,16 @@ describe('Librarian Handler', () => {
 
   describe('approve', () => {
     it('should approve a recommendation', async () => {
+      mockRecommendationStore.getById.mockResolvedValue({
+        id: 'rec-1',
+        exemplarExperienceId: 'exp-1',
+        type: 'strategy',
+        pattern: 'test pattern',
+      });
+      mockExperiencePromotionService.promote.mockResolvedValue({
+        experience: { id: 'exp-1-promoted' },
+        createdTool: null,
+      });
       mockRecommendationStore.approve.mockResolvedValue({
         id: 'rec-1',
         status: 'approved',
@@ -283,7 +296,7 @@ describe('Librarian Handler', () => {
     });
 
     it('should return error when not found', async () => {
-      mockRecommendationStore.approve.mockResolvedValue(null);
+      mockRecommendationStore.getById.mockResolvedValue(null);
 
       const result = await librarianHandlers.approve(mockContext, {
         recommendationId: 'rec-nonexistent',
@@ -294,8 +307,7 @@ describe('Librarian Handler', () => {
     });
 
     it('should return error when service unavailable', async () => {
-      vi.mocked(librarianIndex.getLibrarianService).mockReturnValue(null);
-      vi.mocked(librarianIndex.initializeLibrarianService).mockReturnValue(null as any);
+      mockContext.services = {} as any; // Remove librarian service
 
       const result = await librarianHandlers.approve(mockContext, {
         recommendationId: 'rec-1',
@@ -339,8 +351,7 @@ describe('Librarian Handler', () => {
     });
 
     it('should return error when service unavailable', async () => {
-      vi.mocked(librarianIndex.getLibrarianService).mockReturnValue(null);
-      vi.mocked(librarianIndex.initializeLibrarianService).mockReturnValue(null as any);
+      mockContext.services = {} as any; // Remove librarian service
 
       const result = await librarianHandlers.reject(mockContext, {
         recommendationId: 'rec-1',
@@ -383,8 +394,7 @@ describe('Librarian Handler', () => {
     });
 
     it('should return error when service unavailable', async () => {
-      vi.mocked(librarianIndex.getLibrarianService).mockReturnValue(null);
-      vi.mocked(librarianIndex.initializeLibrarianService).mockReturnValue(null as any);
+      mockContext.services = {} as any; // Remove librarian service
 
       const result = await librarianHandlers.skip(mockContext, {
         recommendationId: 'rec-1',

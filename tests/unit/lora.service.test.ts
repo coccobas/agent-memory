@@ -315,7 +315,7 @@ describe('LoRA Export Service', () => {
     describe('Invalid format handling', () => {
       it('should throw error for unsupported format', () => {
         expect(() => exportToFormat(mockExamples, 'invalid-format' as LoRAFormat)).toThrow(
-          'Unsupported format'
+          /unsupported format/i
         );
       });
     });

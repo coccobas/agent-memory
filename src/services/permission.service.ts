@@ -10,8 +10,7 @@ import { permissions, projects, sessions } from '../db/schema.js';
 import { eq, and, or, isNull } from 'drizzle-orm';
 import type { ScopeType, PermissionEntryType, EntryType } from '../db/schema.js';
 import { createComponentLogger } from '../utils/logger.js';
-import { LRUCache } from '../utils/lru-cache.js';
-import type { MemoryCoordinator } from '../core/memory-coordinator.js';
+import type { ICacheAdapter } from '../core/adapters/interfaces.js';
 import { createValidationError } from '../core/errors.js';
 
 // =============================================================================
@@ -46,6 +45,11 @@ export interface BatchPermissionEntry {
  */
 export type BatchPermissionResult = Map<string, boolean>;
 
+/**
+ * Cache value type for parent scope lookups
+ */
+export type ParentScopeValue = { type: ScopeType; id: string | null } | null;
+
 // =============================================================================
 // PERMISSION SERVICE CLASS
 // =============================================================================
@@ -55,31 +59,21 @@ export type BatchPermissionResult = Map<string, boolean>;
  *
  * Caches are instance-level, not module-level, enabling:
  * - Clean test isolation
- * - Memory coordinator integration
  * - Proper lifecycle management
+ * - Swappable cache implementations (LRU, Redis)
  */
 export class PermissionService {
   private readonly db: DbClient;
   private readonly logger = createComponentLogger('permission');
-  private readonly parentScopeCache: LRUCache<{ type: ScopeType; id: string | null } | null>;
+  private readonly parentScopeCache: ICacheAdapter<ParentScopeValue>;
   private permissionsExistCache: { value: boolean; timestamp: number } | null = null;
   private hasWarnedAboutPermissiveMode = false;
 
   private static readonly PERMISSIONS_EXIST_CACHE_TTL_MS = 30 * 1000; // 30 seconds
 
-  constructor(db: DbClient, memoryCoordinator?: MemoryCoordinator) {
+  constructor(db: DbClient, cacheAdapter: ICacheAdapter<ParentScopeValue>) {
     this.db = db;
-
-    // Create parent scope cache with LRU eviction
-    this.parentScopeCache = new LRUCache<{ type: ScopeType; id: string | null } | null>({
-      maxSize: 500,
-      ttlMs: 5 * 60 * 1000, // 5 minutes
-    });
-
-    // Register with memory coordinator if provided
-    if (memoryCoordinator) {
-      memoryCoordinator.register('parent-scope', this.parentScopeCache, 7);
-    }
+    this.parentScopeCache = cacheAdapter;
   }
 
   /**
@@ -103,8 +97,8 @@ export class PermissionService {
     }
 
     try {
-      const permCount = this.db.select().from(permissions).limit(1).all().length;
-      const exists = permCount > 0;
+      const result = this.db.select().from(permissions).limit(1).get();
+      const exists = result !== undefined;
       this.permissionsExistCache = { value: exists, timestamp: now };
       return exists;
     } catch (error) {

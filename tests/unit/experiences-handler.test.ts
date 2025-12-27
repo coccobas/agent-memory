@@ -31,6 +31,9 @@ describe('Experience Handlers', () => {
     list: ReturnType<typeof vi.fn>;
     deactivate: ReturnType<typeof vi.fn>;
   };
+  let mockExperiencePromotionService: {
+    promote: ReturnType<typeof vi.fn>;
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -45,18 +48,23 @@ describe('Experience Handlers', () => {
       list: vi.fn(),
       deactivate: vi.fn(),
     };
+    mockExperiencePromotionService = {
+      promote: vi.fn(),
+    };
     mockContext = {
       db: {} as any,
       repos: {
         experiences: mockExperiencesRepo,
       } as any,
-      services: {} as any,
+      services: {
+        experiencePromotion: mockExperiencePromotionService,
+      } as any,
     };
   });
 
   describe('promote', () => {
     it('should promote experience to strategy', async () => {
-      mockExperiencesRepo.promote.mockResolvedValue({
+      mockExperiencePromotionService.promote.mockResolvedValue({
         experience: {
           id: 'exp-1',
           title: 'Test',
@@ -74,14 +82,14 @@ describe('Experience Handlers', () => {
       });
 
       expect(result.success).toBe(true);
-      expect(mockExperiencesRepo.promote).toHaveBeenCalledWith(
+      expect(mockExperiencePromotionService.promote).toHaveBeenCalledWith(
         'exp-1',
         expect.objectContaining({ toLevel: 'strategy' })
       );
     });
 
     it('should promote experience to skill and create tool', async () => {
-      mockExperiencesRepo.promote.mockResolvedValue({
+      mockExperiencePromotionService.promote.mockResolvedValue({
         experience: { id: 'exp-1', level: 'strategy', scopeType: 'project' },
         createdTool: { id: 'tool-1', name: 'my-skill' },
       });

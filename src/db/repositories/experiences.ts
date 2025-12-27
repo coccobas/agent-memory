@@ -250,7 +250,7 @@ export function createExperienceRepository(deps: DatabaseDeps): IExperienceRepos
         query = query.where(and(...conditions)) as typeof query;
       }
 
-      const entries = query.limit(limit).offset(offset).all();
+      const entries = query.orderBy(asc(experiences.id)).limit(limit).offset(offset).all();
 
       // Batch fetch versions using shared utility
       const versionsMap = batchFetchVersionsWithDb<ExperienceVersion>(

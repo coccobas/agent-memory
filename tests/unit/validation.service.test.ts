@@ -682,19 +682,19 @@ describe('validateDateRange', () => {
   describe('invalid dates', () => {
     it('should reject invalid date strings', () => {
       expect(() => validateDateRange('not-a-date', 'testField')).toThrow(
-        'testField must be a valid ISO 8601 date string'
+        'Validation error: testField - must be a valid ISO 8601 date string'
       );
     });
 
     it('should reject empty strings', () => {
       expect(() => validateDateRange('', 'testField')).toThrow(
-        'testField must be a valid ISO 8601 date string'
+        'Validation error: testField - must be a valid ISO 8601 date string'
       );
     });
 
     it('should reject malformed dates', () => {
       expect(() => validateDateRange('2024-13-45', 'testField')).toThrow(
-        'testField must be a valid ISO 8601 date string'
+        'Validation error: testField - must be a valid ISO 8601 date string'
       );
     });
   });
@@ -702,37 +702,37 @@ describe('validateDateRange', () => {
   describe('date range validation', () => {
     it('should reject dates before 1970', () => {
       expect(() => validateDateRange('1969-12-31T23:59:59Z', 'testField')).toThrow(
-        'testField year must be 1970 or later (got 1969)'
+        'Validation error: testField - year must be 1970 or later (got 1969)'
       );
     });
 
     it('should reject dates after 2100', () => {
       expect(() => validateDateRange('2101-01-01T00:00:00Z', 'testField')).toThrow(
-        'testField year must be 2100 or earlier (got 2101)'
+        'Validation error: testField - year must be 2100 or earlier (got 2101)'
       );
     });
 
     it('should reject year 0001', () => {
       expect(() => validateDateRange('0001-01-01T00:00:00Z', 'testField')).toThrow(
-        'testField year must be 1970 or later (got 1)'
+        'Validation error: testField - year must be 1970 or later (got 1)'
       );
     });
 
     it('should reject year 9999', () => {
       expect(() => validateDateRange('9999-12-31T23:59:59Z', 'testField')).toThrow(
-        'testField year must be 2100 or earlier (got 9999)'
+        'Validation error: testField - year must be 2100 or earlier (got 9999)'
       );
     });
 
     it('should reject year 1900', () => {
       expect(() => validateDateRange('1900-01-01T00:00:00Z', 'testField')).toThrow(
-        'testField year must be 1970 or later (got 1900)'
+        'Validation error: testField - year must be 1970 or later (got 1900)'
       );
     });
 
     it('should reject year 3000', () => {
       expect(() => validateDateRange('3000-01-01T00:00:00Z', 'testField')).toThrow(
-        'testField year must be 2100 or earlier (got 3000)'
+        'Validation error: testField - year must be 2100 or earlier (got 3000)'
       );
     });
   });
@@ -740,13 +740,13 @@ describe('validateDateRange', () => {
   describe('field name in error messages', () => {
     it('should include field name in error messages', () => {
       expect(() => validateDateRange('invalid', 'myCustomField')).toThrow(
-        'myCustomField must be a valid ISO 8601 date string'
+        'Validation error: myCustomField - must be a valid ISO 8601 date string'
       );
     });
 
     it('should include field name in range errors', () => {
       expect(() => validateDateRange('1969-01-01T00:00:00Z', 'dateField')).toThrow(
-        'dateField year must be 1970 or later'
+        'Validation error: dateField - year must be 1970 or later'
       );
     });
   });

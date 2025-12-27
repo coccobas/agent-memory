@@ -62,7 +62,7 @@ describe('Container', () => {
 
       it('should throw when getting unregistered runtime', () => {
         expect(() => container.getRuntime()).toThrow(
-          'Runtime not registered'
+          'runtime is unavailable: not registered'
         );
       });
 
@@ -94,7 +94,7 @@ describe('Container', () => {
 
       it('should throw when getting uninitialized database', () => {
         expect(() => container.getDatabase()).toThrow(
-          'Database not initialized'
+          'database is unavailable: not initialized'
         );
       });
 
@@ -103,7 +103,7 @@ describe('Container', () => {
         container.registerDatabase(mockDb);
 
         expect(() => container.getSqlite()).toThrow(
-          'SQLite instance not available'
+          /sqlite.*unavailable|not available/i
         );
       });
 
@@ -134,7 +134,7 @@ describe('Container', () => {
 
       it('should throw when getting unregistered context', () => {
         expect(() => container.getContext()).toThrow(
-          'AppContext not registered'
+          'AppContext is unavailable: not registered'
         );
       });
 

@@ -70,7 +70,7 @@ describe('Scope Management Integration', () => {
 
     it('should require name', async () => {
       await expect(scopeHandlers.orgCreate(ctx, { adminKey: TEST_ADMIN_KEY })).rejects.toThrow(
-        'name is required'
+        /name.*is required/
       );
     });
 
@@ -123,7 +123,7 @@ describe('Scope Management Integration', () => {
 
     it('should require name', async () => {
       await expect(scopeHandlers.projectCreate(ctx, { adminKey: TEST_ADMIN_KEY })).rejects.toThrow(
-        'name is required'
+        /name.*is required/
       );
     });
 
@@ -200,7 +200,7 @@ describe('Scope Management Integration', () => {
 
     it('should require id for update', async () => {
       await expect(scopeHandlers.projectUpdate(ctx, { adminKey: TEST_ADMIN_KEY })).rejects.toThrow(
-        'id is required'
+        /id.*is required/
       );
     });
   });
@@ -264,7 +264,7 @@ describe('Scope Management Integration', () => {
     });
 
     it('should require id for ending session', async () => {
-      await expect(scopeHandlers.sessionEnd(ctx, {})).rejects.toThrow('id is required');
+      await expect(scopeHandlers.sessionEnd(ctx, {})).rejects.toThrow(/id.*is required/);
     });
 
     it('should list sessions by projectId', async () => {

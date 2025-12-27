@@ -195,7 +195,7 @@ export function createKnowledgeRepository(deps: DatabaseDeps): IKnowledgeReposit
         query = query.where(and(...conditions)) as typeof query;
       }
 
-      const entries = query.limit(limit).offset(offset).all();
+      const entries = query.orderBy(asc(knowledge.id)).limit(limit).offset(offset).all();
 
       // Batch fetch versions using shared utility
       const versionsMap = batchFetchVersionsWithDb<KnowledgeVersion>(

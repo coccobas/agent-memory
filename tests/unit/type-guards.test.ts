@@ -359,12 +359,12 @@ describe('Parameter Helpers', () => {
 
     it('should throw when missing and no default', () => {
       const params = { name: 'test' };
-      expect(() => getParam(params, 'age', isNumber)).toThrow("Parameter 'age' is required");
+      expect(() => getParam(params, 'age', isNumber)).toThrow('Validation error: age - is required');
     });
 
     it('should throw when type is invalid', () => {
       const params = { age: 'not-a-number' };
-      expect(() => getParam(params, 'age', isNumber)).toThrow("Parameter 'age' has invalid type");
+      expect(() => getParam(params, 'age', isNumber)).toThrow('Validation error: age - has invalid type');
     });
   });
 
@@ -376,19 +376,19 @@ describe('Parameter Helpers', () => {
 
     it('should throw with default error when missing', () => {
       const params = {};
-      expect(() => getRequiredParam(params, 'name', isString)).toThrow('name is required');
+      expect(() => getRequiredParam(params, 'name', isString)).toThrow('Validation error: name - is required');
     });
 
     it('should throw with custom error when provided', () => {
       const params = {};
       expect(() => getRequiredParam(params, 'name', isString, 'Custom error')).toThrow(
-        'Custom error'
+        'Validation error: name - Custom error'
       );
     });
 
     it('should throw when type is invalid', () => {
       const params = { name: 123 };
-      expect(() => getRequiredParam(params, 'name', isString)).toThrow('name has invalid type');
+      expect(() => getRequiredParam(params, 'name', isString)).toThrow('Validation error: name - has invalid type');
     });
   });
 
@@ -406,7 +406,7 @@ describe('Parameter Helpers', () => {
     it('should throw when type is invalid', () => {
       const params = { name: 123 };
       expect(() => getOptionalParam(params, 'name', isString)).toThrow(
-        "Parameter 'name' has invalid type"
+        'Validation error: name - has invalid type'
       );
     });
   });
@@ -428,7 +428,7 @@ describe('Parameter Helpers', () => {
 
     it('should throw when validation fails', () => {
       const params = { name: 'test', age: 'invalid' };
-      expect(() => validateParams(params, validator)).toThrow('Parameter validation failed');
+      expect(() => validateParams(params, validator)).toThrow('Validation error: params - parameter validation failed');
     });
   });
 });

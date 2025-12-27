@@ -93,7 +93,7 @@ describe('Hierarchical Summarization Service', () => {
       };
 
       await expect(service.buildSummaries(options)).rejects.toThrow(
-        'Summarization provider is disabled'
+        'Summarization is unavailable: provider is disabled'
       );
     });
 
@@ -284,7 +284,7 @@ describe('Hierarchical Summarization Service', () => {
       };
 
       await expect(service.buildSummaries(options)).rejects.toThrow(
-        'provider is disabled'
+        'Summarization is unavailable: provider is disabled'
       );
     });
 
@@ -551,42 +551,42 @@ describe('Hierarchical Summarization Service', () => {
 
   describe('Unimplemented Methods', () => {
     it('getSummary should throw not implemented error', async () => {
-      await expect(service.getSummary('test-id')).rejects.toThrow('Not implemented');
+      await expect(service.getSummary('test-id')).rejects.toThrow('getSummary is unavailable: not implemented');
     });
 
     it('getSummariesAtLevel should throw not implemented error', async () => {
       await expect(service.getSummariesAtLevel(1, 'project', 'test-id')).rejects.toThrow(
-        'Not implemented'
+        'getSummariesAtLevel is unavailable: not implemented'
       );
     });
 
     it('getSummariesAtLevel should work with different levels', async () => {
       await expect(service.getSummariesAtLevel(2, 'org', 'org-id')).rejects.toThrow(
-        'Not implemented'
+        'getSummariesAtLevel is unavailable: not implemented'
       );
-      await expect(service.getSummariesAtLevel(3, 'global')).rejects.toThrow('Not implemented');
+      await expect(service.getSummariesAtLevel(3, 'global')).rejects.toThrow('getSummariesAtLevel is unavailable: not implemented');
     });
 
     it('getChildSummaries should throw not implemented error', async () => {
-      await expect(service.getChildSummaries('parent-id')).rejects.toThrow('Not implemented');
+      await expect(service.getChildSummaries('parent-id')).rejects.toThrow('getChildSummaries is unavailable: not implemented');
     });
 
     it('searchSummaries should throw not implemented error', async () => {
-      await expect(service.searchSummaries('test query')).rejects.toThrow('Not implemented');
+      await expect(service.searchSummaries('test query')).rejects.toThrow('searchSummaries is unavailable: not implemented');
     });
 
     it('searchSummaries should accept options', async () => {
       await expect(
         service.searchSummaries('test query', { level: 1, limit: 10 })
-      ).rejects.toThrow('Not implemented');
+      ).rejects.toThrow('searchSummaries is unavailable: not implemented');
     });
 
     it('getStatus should throw not implemented error', async () => {
-      await expect(service.getStatus('project', 'test-id')).rejects.toThrow('Not implemented');
+      await expect(service.getStatus('project', 'test-id')).rejects.toThrow('getStatus is unavailable: not implemented');
     });
 
     it('getStatus should work without scopeId for global', async () => {
-      await expect(service.getStatus('global')).rejects.toThrow('Not implemented');
+      await expect(service.getStatus('global')).rejects.toThrow('getStatus is unavailable: not implemented');
     });
   });
 

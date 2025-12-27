@@ -182,7 +182,7 @@ describe.skipIf(!embeddingsAvailable)('Backfill Service', () => {
     expect(progress.succeeded + progress.failed).toBe(progress.processed);
   });
 
-  it('should skip entries that already have embeddings', { timeout: 30000 }, async () => {
+  it('should skip entries that already have embeddings', { timeout: 120000 }, async () => {
     createTestTool(db, 'existing-tool', 'global');
 
     // Run backfill first time

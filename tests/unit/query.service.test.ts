@@ -38,10 +38,11 @@ import {
   executeFts5Query,
   type MemoryQueryResult,
 } from '../../src/services/query.service.js';
-import {
-  executeQueryPipeline,
-  wireQueryCacheInvalidation,
-} from '../../src/services/query/index.js';
+import { executeQueryPipeline } from '../../src/services/query/index.js';
+import { wireQueryCache } from '../../src/core/factory/query-pipeline.js';
+import { createLocalEventAdapter } from '../../src/core/adapters/local-event.adapter.js';
+import { createComponentLogger } from '../../src/utils/logger.js';
+import { getRuntime } from '../../src/core/container.js';
 import { emitEntryChanged } from '../../src/utils/events.js';
 
 // Helper to execute query with pipeline (replaces legacy executeMemoryQuery)
@@ -53,6 +54,7 @@ async function executeMemoryQuery(
 
 describe('query.service', () => {
   let unsubscribeCacheInvalidation: (() => void) | undefined;
+  let testEventAdapter: ReturnType<typeof createLocalEventAdapter>;
 
   beforeAll(() => {
     // Ensure data directory exists
@@ -81,8 +83,11 @@ describe('query.service', () => {
     // Register with container so getSqlite()/getDb() work
     registerDatabase(db, sqlite);
 
-    // Wire up cache invalidation
-    unsubscribeCacheInvalidation = wireQueryCacheInvalidation(getTestQueryCache());
+    // Wire up cache invalidation - requires event adapter and runtime
+    testEventAdapter = createLocalEventAdapter();
+    const runtime = getRuntime();
+    wireQueryCache(testEventAdapter, runtime, createComponentLogger('test-query-cache'));
+    unsubscribeCacheInvalidation = runtime.queryCache.unsubscribe ?? undefined;
 
     // Run all migrations
     const migrations = [
@@ -559,7 +564,7 @@ describe('query.service', () => {
       expect(getTestQueryCache().size).toBeGreaterThan(0);
 
       // Emit a project-scoped change; session queries inheriting from project must be invalidated.
-      emitEntryChanged({
+      testEventAdapter.emit({
         entryType: 'guideline',
         entryId: 'guide-cache-project',
         scopeType: 'project',

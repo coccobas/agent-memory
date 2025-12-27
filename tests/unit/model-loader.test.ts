@@ -186,7 +186,7 @@ describe('Model Loader', () => {
 
     it('should throw error if no models found for policy type', async () => {
       await expect(loader.loadModel('extraction')).rejects.toThrow(
-        'No models found for policy type: extraction'
+        'model not found: extraction'
       );
     });
 
@@ -194,7 +194,7 @@ describe('Model Loader', () => {
       createMockModel(testModelsDir, 'extraction-v1.0.0.onnx', 'extraction', 'onnx', 'v1.0.0');
 
       await expect(loader.loadModel('extraction', 'v2.0.0')).rejects.toThrow(
-        'Model version v2.0.0 not found'
+        'model not found: extraction@v2.0.0'
       );
     });
 
@@ -213,7 +213,7 @@ describe('Model Loader', () => {
       createMockMetadata(modelPath, 'extraction', 'onnx', 'v1.0.0');
 
       // Should fail because file is empty
-      await expect(loader.loadModel('extraction')).rejects.toThrow('validation failed');
+      await expect(loader.loadModel('extraction')).rejects.toThrow('Validation error: model - ');
     });
 
     it('should cache loaded models', async () => {

@@ -22,6 +22,10 @@ import { createExperiencePromotionService } from '../../services/experience/inde
 import { createObserveCommitService } from '../../services/observe/index.js';
 import { CaptureService } from '../../services/capture/index.js';
 import type { ExtractionService } from '../../services/extraction.service.js';
+import { LRUCache } from '../../utils/lru-cache.js';
+import { createMemoryCacheAdapter } from '../adapters/memory-cache.adapter.js';
+import type { ParentScopeValue } from '../../services/permission.service.js';
+import type { ICacheAdapter } from '../adapters/interfaces.js';
 
 import { createServices, type ServiceDependencies } from './services.js';
 import { createQueryPipeline, wireQueryCache } from './query-pipeline.js';
@@ -65,8 +69,31 @@ export interface WireContextInput {
 export async function wireContext(input: WireContextInput): Promise<AppContext> {
   const { config, runtime, db, sqlite, repos, adapters, logger, dbType, pgPool } = input;
 
+  // Create permission cache adapter
+  // Use Redis if enabled, otherwise use in-memory LRU cache
+  let permissionCacheAdapter: ICacheAdapter<ParentScopeValue>;
+
+  if (config.redis.enabled && 'redis' in adapters && adapters.redis) {
+    // Redis mode: use Redis-backed cache adapter
+    // Note: RedisCacheAdapter would need to be instantiated here if available
+    // For now, we use memory cache as Redis cache adapter for permission scope is not yet implemented
+    logger.info('Permission scope cache: using in-memory cache (Redis permission cache not yet implemented)');
+    const lru = new LRUCache<ParentScopeValue>({ maxSize: 500, ttlMs: 5 * 60 * 1000 });
+    permissionCacheAdapter = createMemoryCacheAdapter(lru);
+    if (runtime.memoryCoordinator) {
+      runtime.memoryCoordinator.register('parent-scope', lru, 7);
+    }
+  } else {
+    // Local mode: use in-memory LRU cache
+    const lru = new LRUCache<ParentScopeValue>({ maxSize: 500, ttlMs: 5 * 60 * 1000 });
+    permissionCacheAdapter = createMemoryCacheAdapter(lru);
+    if (runtime.memoryCoordinator) {
+      runtime.memoryCoordinator.register('parent-scope', lru, 7);
+    }
+  }
+
   // Build service dependencies for auto-detection
-  const serviceDeps: ServiceDependencies = { dbType, pgPool };
+  const serviceDeps: ServiceDependencies = { dbType, pgPool, permissionCacheAdapter };
 
   // Create services with explicit configuration
   const services = await createServices(config, runtime, db, serviceDeps);

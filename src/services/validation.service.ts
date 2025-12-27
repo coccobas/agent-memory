@@ -6,10 +6,12 @@
  */
 
 import type { IGuidelineRepository } from '../core/interfaces/repositories.js';
+import type { GuidelineWithVersion } from '../db/repositories/guidelines.js';
 import type { ScopeType, EntryType } from '../db/schema.js';
 import { createComponentLogger } from '../utils/logger.js';
 import { config } from '../config/index.js';
 import { createSizeLimitError, createValidationError } from '../core/errors.js';
+import { LRUCache } from '../utils/lru-cache.js';
 
 const logger = createComponentLogger('validation');
 
@@ -400,6 +402,12 @@ export interface ValidationService {
     scopeType: ScopeType,
     scopeId?: string
   ): Promise<ValidationResult>;
+
+  /**
+   * Invalidate the cached validation rules.
+   * Call this when validation guidelines are updated.
+   */
+  invalidateCache(): void;
 }
 
 /**
@@ -409,6 +417,12 @@ export interface ValidationService {
  * @returns Validation service instance
  */
 export function createValidationService(guidelineRepo: IGuidelineRepository): ValidationService {
+  // Cache for validation rules with TTL (5 minutes by default)
+  const validationRulesCache = new LRUCache<GuidelineWithVersion[]>({
+    maxSize: 1, // Only one entry needed (all validation rules)
+    ttlMs: config.cache.queryCacheTTLMs,
+  });
+
   return {
     async validateEntry(
       entryType: EntryType,
@@ -416,7 +430,12 @@ export function createValidationService(guidelineRepo: IGuidelineRepository): Va
       _scopeType: ScopeType,
       _scopeId?: string
     ): Promise<ValidationResult> {
-      return validateEntryImpl(guidelineRepo, entryType, data, _scopeType, _scopeId);
+      return validateEntryImpl(guidelineRepo, validationRulesCache, entryType, data, _scopeType, _scopeId);
+    },
+
+    invalidateCache(): void {
+      validationRulesCache.clear();
+      logger.debug('Validation rules cache invalidated');
     },
   };
 }
@@ -425,6 +444,7 @@ export function createValidationService(guidelineRepo: IGuidelineRepository): Va
  * Validate an entry against validation rules (implementation)
  *
  * @param guidelineRepo - Guideline repository
+ * @param cache - LRU cache for validation rules
  * @param entryType - Type of entry to validate
  * @param data - Entry data to validate
  * @param scopeType - Scope type
@@ -433,6 +453,7 @@ export function createValidationService(guidelineRepo: IGuidelineRepository): Va
  */
 async function validateEntryImpl(
   guidelineRepo: IGuidelineRepository,
+  cache: LRUCache<GuidelineWithVersion[]>,
   entryType: EntryType,
   data: Record<string, unknown>,
   _scopeType: ScopeType,
@@ -440,14 +461,22 @@ async function validateEntryImpl(
 ): Promise<ValidationResult> {
   const errors: ValidationError[] = [];
 
-  // Load validation rules from guidelines
-  const validationRules = await guidelineRepo.list(
-    {
-      category: 'validation',
-      includeInactive: false,
-    },
-    { limit: config.validation.validationRulesQueryLimit }
-  );
+  // Check cache first for validation rules
+  const cacheKey = 'validation-rules';
+  let validationRules = cache.get(cacheKey);
+
+  if (!validationRules) {
+    // Load validation rules from guidelines
+    validationRules = await guidelineRepo.list(
+      {
+        category: 'validation',
+        includeInactive: false,
+      },
+      { limit: config.validation.validationRulesQueryLimit }
+    );
+    cache.set(cacheKey, validationRules);
+    logger.debug({ ruleCount: validationRules.length }, 'Loaded and cached validation rules');
+  }
 
   // Filter rules by entry type if specified in rule name or content
   const applicableRules = validationRules.filter((rule) => {

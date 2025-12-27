@@ -2,187 +2,178 @@
  * Unit tests for events utility
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
-  getEventBus,
-  emitEntryChanged,
-  onEntryChanged,
-  resetEventBus,
+  EventBus,
+  createEventBus,
   type EntryChangedEvent,
   type EntryChangedHandler,
 } from '../../src/utils/events.js';
 
 describe('Events Utility', () => {
-  // Clean up after each test to ensure isolation
-  beforeEach(() => {
-    resetEventBus();
-  });
+  let eventBus: EventBus;
 
-  afterEach(() => {
-    resetEventBus();
+  // Create fresh event bus for each test to ensure isolation
+  beforeEach(() => {
+    eventBus = createEventBus();
   });
 
   describe('EventBus - subscribe', () => {
     it('should subscribe a handler and return unsubscribe function', () => {
-      const bus = getEventBus();
       const handler = vi.fn();
 
-      expect(bus.handlerCount).toBe(0);
-      const unsubscribe = bus.subscribe(handler);
-      expect(bus.handlerCount).toBe(1);
+      expect(eventBus.subscriberCount()).toBe(0);
+      const unsubscribe = eventBus.subscribe(handler);
+      expect(eventBus.subscriberCount()).toBe(1);
       expect(typeof unsubscribe).toBe('function');
     });
 
     it('should allow multiple handlers to subscribe', () => {
-      const bus = getEventBus();
       const handler1 = vi.fn();
       const handler2 = vi.fn();
       const handler3 = vi.fn();
 
-      bus.subscribe(handler1);
-      bus.subscribe(handler2);
-      bus.subscribe(handler3);
+      eventBus.subscribe(handler1);
+      eventBus.subscribe(handler2);
+      eventBus.subscribe(handler3);
 
-      expect(bus.handlerCount).toBe(3);
+      expect(eventBus.subscriberCount()).toBe(3);
     });
 
     it('should not add duplicate handler references', () => {
-      const bus = getEventBus();
       const handler = vi.fn();
 
-      bus.subscribe(handler);
-      bus.subscribe(handler);
+      eventBus.subscribe(handler);
+      eventBus.subscribe(handler);
+      eventBus.subscribe(handler);
 
-      // Set should prevent duplicates
-      expect(bus.handlerCount).toBe(1);
+      // Sets don't allow duplicates
+      expect(eventBus.subscriberCount()).toBe(1);
     });
 
     it('should handle subscribing the same handler after unsubscribe', () => {
-      const bus = getEventBus();
       const handler = vi.fn();
 
-      const unsubscribe1 = bus.subscribe(handler);
-      expect(bus.handlerCount).toBe(1);
+      const unsubscribe = eventBus.subscribe(handler);
+      expect(eventBus.subscriberCount()).toBe(1);
 
-      unsubscribe1();
-      expect(bus.handlerCount).toBe(0);
+      unsubscribe();
+      expect(eventBus.subscriberCount()).toBe(0);
 
-      const unsubscribe2 = bus.subscribe(handler);
-      expect(bus.handlerCount).toBe(1);
-
-      unsubscribe2();
-      expect(bus.handlerCount).toBe(0);
+      eventBus.subscribe(handler);
+      expect(eventBus.subscriberCount()).toBe(1);
     });
   });
 
   describe('EventBus - unsubscribe', () => {
     it('should unsubscribe a handler using returned function', () => {
-      const bus = getEventBus();
       const handler = vi.fn();
+      const unsubscribe = eventBus.subscribe(handler);
 
-      const unsubscribe = bus.subscribe(handler);
-      expect(bus.handlerCount).toBe(1);
-
+      expect(eventBus.subscriberCount()).toBe(1);
       unsubscribe();
-      expect(bus.handlerCount).toBe(0);
+      expect(eventBus.subscriberCount()).toBe(0);
     });
 
     it('should only unsubscribe the specific handler', () => {
-      const bus = getEventBus();
+      const handler1 = vi.fn();
+      const handler2 = vi.fn();
+
+      eventBus.subscribe(handler1);
+      const unsubscribe2 = eventBus.subscribe(handler2);
+
+      unsubscribe2();
+
+      expect(eventBus.subscriberCount()).toBe(1);
+
+      // Verify handler1 still receives events
+      const event: EntryChangedEvent = {
+        entryType: 'knowledge',
+        entryId: 'test-id',
+        scopeType: 'project',
+        scopeId: 'proj-1',
+        action: 'create',
+      };
+      eventBus.emit(event);
+
+      expect(handler1).toHaveBeenCalledWith(event);
+      expect(handler2).not.toHaveBeenCalled();
+    });
+
+    it('should be safe to call unsubscribe multiple times', () => {
+      const handler = vi.fn();
+      const unsubscribe = eventBus.subscribe(handler);
+
+      unsubscribe();
+      unsubscribe();
+      unsubscribe();
+
+      expect(eventBus.subscriberCount()).toBe(0);
+    });
+
+    it('should not affect other handlers when unsubscribing', () => {
       const handler1 = vi.fn();
       const handler2 = vi.fn();
       const handler3 = vi.fn();
 
-      const unsub1 = bus.subscribe(handler1);
-      const unsub2 = bus.subscribe(handler2);
-      bus.subscribe(handler3);
+      eventBus.subscribe(handler1);
+      const unsubscribe2 = eventBus.subscribe(handler2);
+      eventBus.subscribe(handler3);
 
-      expect(bus.handlerCount).toBe(3);
-
-      unsub1();
-      expect(bus.handlerCount).toBe(2);
-
-      unsub2();
-      expect(bus.handlerCount).toBe(1);
-    });
-
-    it('should be safe to call unsubscribe multiple times', () => {
-      const bus = getEventBus();
-      const handler = vi.fn();
-
-      const unsubscribe = bus.subscribe(handler);
-      expect(bus.handlerCount).toBe(1);
-
-      unsubscribe();
-      expect(bus.handlerCount).toBe(0);
-
-      unsubscribe(); // Should not throw
-      expect(bus.handlerCount).toBe(0);
-    });
-
-    it('should not affect other handlers when unsubscribing', () => {
-      const bus = getEventBus();
-      const handler1 = vi.fn();
-      const handler2 = vi.fn();
-
-      const unsub1 = bus.subscribe(handler1);
-      bus.subscribe(handler2);
+      unsubscribe2();
 
       const event: EntryChangedEvent = {
-        entryType: 'knowledge',
-        entryId: '123',
-        scopeType: 'project',
-        scopeId: 'proj1',
-        action: 'create',
+        entryType: 'guideline',
+        entryId: 'test-id',
+        scopeType: 'global',
+        scopeId: null,
+        action: 'update',
       };
+      eventBus.emit(event);
 
-      unsub1();
-      bus.emit(event);
-
-      expect(handler1).not.toHaveBeenCalled();
-      expect(handler2).toHaveBeenCalledWith(event);
+      expect(handler1).toHaveBeenCalledWith(event);
+      expect(handler2).not.toHaveBeenCalled();
+      expect(handler3).toHaveBeenCalledWith(event);
     });
   });
 
   describe('EventBus - emit', () => {
     it('should emit event to single subscribed handler', () => {
-      const bus = getEventBus();
       const handler = vi.fn();
-      bus.subscribe(handler);
+      eventBus.subscribe(handler);
 
       const event: EntryChangedEvent = {
         entryType: 'tool',
         entryId: 'tool-123',
         scopeType: 'project',
-        scopeId: 'proj1',
+        scopeId: 'proj-456',
         action: 'create',
       };
 
-      bus.emit(event);
+      eventBus.emit(event);
 
       expect(handler).toHaveBeenCalledTimes(1);
       expect(handler).toHaveBeenCalledWith(event);
     });
 
     it('should emit event to multiple subscribed handlers', () => {
-      const bus = getEventBus();
       const handler1 = vi.fn();
       const handler2 = vi.fn();
       const handler3 = vi.fn();
 
-      bus.subscribe(handler1);
-      bus.subscribe(handler2);
-      bus.subscribe(handler3);
+      eventBus.subscribe(handler1);
+      eventBus.subscribe(handler2);
+      eventBus.subscribe(handler3);
 
       const event: EntryChangedEvent = {
-        entryType: 'guideline',
-        entryId: 'guide-456',
-        scopeType: 'global',
-        scopeId: null,
-        action: 'update',
+        entryType: 'knowledge',
+        entryId: 'know-1',
+        scopeType: 'session',
+        scopeId: 'sess-1',
+        action: 'delete',
       };
 
-      bus.emit(event);
+      eventBus.emit(event);
 
       expect(handler1).toHaveBeenCalledWith(event);
       expect(handler2).toHaveBeenCalledWith(event);
@@ -190,73 +181,54 @@ describe('Events Utility', () => {
     });
 
     it('should not call unsubscribed handlers', () => {
-      const bus = getEventBus();
-      const handler1 = vi.fn();
-      const handler2 = vi.fn();
+      const activeHandler = vi.fn();
+      const removedHandler = vi.fn();
 
-      const unsub1 = bus.subscribe(handler1);
-      bus.subscribe(handler2);
+      eventBus.subscribe(activeHandler);
+      const unsubscribe = eventBus.subscribe(removedHandler);
 
-      unsub1();
+      unsubscribe();
 
       const event: EntryChangedEvent = {
-        entryType: 'knowledge',
-        entryId: 'know-789',
-        scopeType: 'session',
-        scopeId: 'sess1',
-        action: 'delete',
+        entryType: 'guideline',
+        entryId: 'guide-1',
+        scopeType: 'org',
+        scopeId: 'org-1',
+        action: 'update',
       };
 
-      bus.emit(event);
+      eventBus.emit(event);
 
-      expect(handler1).not.toHaveBeenCalled();
-      expect(handler2).toHaveBeenCalledWith(event);
+      expect(activeHandler).toHaveBeenCalled();
+      expect(removedHandler).not.toHaveBeenCalled();
     });
 
     it('should handle emitting when no handlers are subscribed', () => {
-      const bus = getEventBus();
-
       const event: EntryChangedEvent = {
         entryType: 'tool',
         entryId: 'tool-1',
-        scopeType: 'project',
-        scopeId: 'proj1',
-        action: 'deactivate',
+        scopeType: 'global',
+        scopeId: null,
+        action: 'create',
       };
 
-      expect(() => bus.emit(event)).not.toThrow();
+      // Should not throw
+      expect(() => eventBus.emit(event)).not.toThrow();
     });
 
     it('should emit different event types correctly', () => {
-      const bus = getEventBus();
       const handler = vi.fn();
-      bus.subscribe(handler);
+      eventBus.subscribe(handler);
 
       const events: EntryChangedEvent[] = [
-        {
-          entryType: 'tool',
-          entryId: '1',
-          scopeType: 'project',
-          scopeId: 'p1',
-          action: 'create',
-        },
-        {
-          entryType: 'guideline',
-          entryId: '2',
-          scopeType: 'org',
-          scopeId: 'o1',
-          action: 'update',
-        },
-        {
-          entryType: 'knowledge',
-          entryId: '3',
-          scopeType: 'global',
-          scopeId: null,
-          action: 'delete',
-        },
+        { entryType: 'tool', entryId: '1', scopeType: 'global', scopeId: null, action: 'create' },
+        { entryType: 'guideline', entryId: '2', scopeType: 'project', scopeId: 'p1', action: 'update' },
+        { entryType: 'knowledge', entryId: '3', scopeType: 'session', scopeId: 's1', action: 'delete' },
       ];
 
-      events.forEach((event) => bus.emit(event));
+      for (const event of events) {
+        eventBus.emit(event);
+      }
 
       expect(handler).toHaveBeenCalledTimes(3);
       expect(handler).toHaveBeenNthCalledWith(1, events[0]);
@@ -265,27 +237,20 @@ describe('Events Utility', () => {
     });
 
     it('should emit all action types correctly', () => {
-      const bus = getEventBus();
       const handler = vi.fn();
-      bus.subscribe(handler);
+      eventBus.subscribe(handler);
 
-      const actions: Array<'create' | 'update' | 'delete' | 'deactivate'> = [
-        'create',
-        'update',
-        'delete',
-        'deactivate',
-      ];
+      const actions: EntryChangedEvent['action'][] = ['create', 'update', 'delete', 'deactivate'];
 
-      actions.forEach((action) => {
-        const event: EntryChangedEvent = {
-          entryType: 'tool',
-          entryId: 'id',
+      for (const action of actions) {
+        eventBus.emit({
+          entryType: 'knowledge',
+          entryId: `entry-${action}`,
           scopeType: 'project',
-          scopeId: 'p1',
+          scopeId: 'proj-1',
           action,
-        };
-        bus.emit(event);
-      });
+        });
+      }
 
       expect(handler).toHaveBeenCalledTimes(4);
     });
@@ -293,481 +258,13 @@ describe('Events Utility', () => {
 
   describe('EventBus - error handling', () => {
     it('should catch and log errors from handlers without crashing', () => {
-      const bus = getEventBus();
       const errorHandler = vi.fn(() => {
         throw new Error('Handler error');
       });
-      const normalHandler = vi.fn();
 
-      bus.subscribe(errorHandler);
-      bus.subscribe(normalHandler);
+      eventBus.subscribe(errorHandler);
 
       const event: EntryChangedEvent = {
-        entryType: 'tool',
-        entryId: 'tool-1',
-        scopeType: 'project',
-        scopeId: 'proj1',
-        action: 'create',
-      };
-
-      // Should not throw even though errorHandler throws
-      expect(() => bus.emit(event)).not.toThrow();
-
-      // Both handlers should have been called
-      expect(errorHandler).toHaveBeenCalled();
-      expect(normalHandler).toHaveBeenCalled();
-    });
-
-    it('should continue calling handlers after one throws', () => {
-      const bus = getEventBus();
-      const handler1 = vi.fn();
-      const errorHandler = vi.fn(() => {
-        throw new Error('Middle handler error');
-      });
-      const handler3 = vi.fn();
-
-      bus.subscribe(handler1);
-      bus.subscribe(errorHandler);
-      bus.subscribe(handler3);
-
-      const event: EntryChangedEvent = {
-        entryType: 'guideline',
-        entryId: 'guide-1',
-        scopeType: 'project',
-        scopeId: 'proj1',
-        action: 'update',
-      };
-
-      bus.emit(event);
-
-      // All handlers should have been called despite error in middle one
-      expect(handler1).toHaveBeenCalledWith(event);
-      expect(errorHandler).toHaveBeenCalledWith(event);
-      expect(handler3).toHaveBeenCalledWith(event);
-    });
-
-    it('should handle non-Error exceptions', () => {
-      const bus = getEventBus();
-      const handler = vi.fn(() => {
-        // eslint-disable-next-line no-throw-literal
-        throw 'string error';
-      });
-
-      bus.subscribe(handler);
-
-      const event: EntryChangedEvent = {
-        entryType: 'knowledge',
-        entryId: 'know-1',
-        scopeType: 'project',
-        scopeId: 'proj1',
-        action: 'create',
-      };
-
-      expect(() => bus.emit(event)).not.toThrow();
-      expect(handler).toHaveBeenCalled();
-    });
-
-    it('should handle multiple errors from different handlers', () => {
-      const bus = getEventBus();
-      const errorHandler1 = vi.fn(() => {
-        throw new Error('Error 1');
-      });
-      const errorHandler2 = vi.fn(() => {
-        throw new Error('Error 2');
-      });
-      const normalHandler = vi.fn();
-
-      bus.subscribe(errorHandler1);
-      bus.subscribe(normalHandler);
-      bus.subscribe(errorHandler2);
-
-      const event: EntryChangedEvent = {
-        entryType: 'tool',
-        entryId: 'tool-1',
-        scopeType: 'project',
-        scopeId: 'proj1',
-        action: 'create',
-      };
-
-      expect(() => bus.emit(event)).not.toThrow();
-      expect(errorHandler1).toHaveBeenCalled();
-      expect(normalHandler).toHaveBeenCalled();
-      expect(errorHandler2).toHaveBeenCalled();
-    });
-  });
-
-  describe('EventBus - clear', () => {
-    it('should remove all handlers', () => {
-      const bus = getEventBus();
-      const handler1 = vi.fn();
-      const handler2 = vi.fn();
-
-      bus.subscribe(handler1);
-      bus.subscribe(handler2);
-      expect(bus.handlerCount).toBe(2);
-
-      bus.clear();
-      expect(bus.handlerCount).toBe(0);
-    });
-
-    it('should prevent handlers from being called after clear', () => {
-      const bus = getEventBus();
-      const handler = vi.fn();
-
-      bus.subscribe(handler);
-      bus.clear();
-
-      const event: EntryChangedEvent = {
-        entryType: 'tool',
-        entryId: 'tool-1',
-        scopeType: 'project',
-        scopeId: 'proj1',
-        action: 'create',
-      };
-
-      bus.emit(event);
-      expect(handler).not.toHaveBeenCalled();
-    });
-
-    it('should be safe to call clear when no handlers exist', () => {
-      const bus = getEventBus();
-      expect(bus.handlerCount).toBe(0);
-      expect(() => bus.clear()).not.toThrow();
-      expect(bus.handlerCount).toBe(0);
-    });
-
-    it('should allow subscribing after clear', () => {
-      const bus = getEventBus();
-      const handler1 = vi.fn();
-      const handler2 = vi.fn();
-
-      bus.subscribe(handler1);
-      bus.clear();
-      bus.subscribe(handler2);
-
-      expect(bus.handlerCount).toBe(1);
-
-      const event: EntryChangedEvent = {
-        entryType: 'tool',
-        entryId: 'tool-1',
-        scopeType: 'project',
-        scopeId: 'proj1',
-        action: 'create',
-      };
-
-      bus.emit(event);
-      expect(handler1).not.toHaveBeenCalled();
-      expect(handler2).toHaveBeenCalled();
-    });
-  });
-
-  describe('EventBus - handlerCount', () => {
-    it('should return correct count of handlers', () => {
-      const bus = getEventBus();
-      expect(bus.handlerCount).toBe(0);
-
-      const unsub1 = bus.subscribe(vi.fn());
-      expect(bus.handlerCount).toBe(1);
-
-      const unsub2 = bus.subscribe(vi.fn());
-      expect(bus.handlerCount).toBe(2);
-
-      unsub1();
-      expect(bus.handlerCount).toBe(1);
-
-      unsub2();
-      expect(bus.handlerCount).toBe(0);
-    });
-
-    it('should return 0 after clear', () => {
-      const bus = getEventBus();
-      bus.subscribe(vi.fn());
-      bus.subscribe(vi.fn());
-      bus.clear();
-      expect(bus.handlerCount).toBe(0);
-    });
-  });
-
-  describe('Singleton behavior', () => {
-    it('should return the same instance from getEventBus', () => {
-      const bus1 = getEventBus();
-      const bus2 = getEventBus();
-      expect(bus1).toBe(bus2);
-    });
-
-    it('should share handlers across getEventBus calls', () => {
-      const bus1 = getEventBus();
-      const bus2 = getEventBus();
-      const handler = vi.fn();
-
-      bus1.subscribe(handler);
-      expect(bus2.handlerCount).toBe(1);
-
-      const event: EntryChangedEvent = {
-        entryType: 'tool',
-        entryId: 'tool-1',
-        scopeType: 'project',
-        scopeId: 'proj1',
-        action: 'create',
-      };
-
-      bus2.emit(event);
-      expect(handler).toHaveBeenCalledWith(event);
-    });
-  });
-
-  describe('Convenience functions', () => {
-    describe('emitEntryChanged', () => {
-      it('should emit event to subscribed handlers', () => {
-        const handler = vi.fn();
-        onEntryChanged(handler);
-
-        const event: EntryChangedEvent = {
-          entryType: 'knowledge',
-          entryId: 'know-1',
-          scopeType: 'project',
-          scopeId: 'proj1',
-          action: 'create',
-        };
-
-        emitEntryChanged(event);
-        expect(handler).toHaveBeenCalledWith(event);
-      });
-
-      it('should work with multiple handlers', () => {
-        const handler1 = vi.fn();
-        const handler2 = vi.fn();
-
-        onEntryChanged(handler1);
-        onEntryChanged(handler2);
-
-        const event: EntryChangedEvent = {
-          entryType: 'guideline',
-          entryId: 'guide-1',
-          scopeType: 'global',
-          scopeId: null,
-          action: 'update',
-        };
-
-        emitEntryChanged(event);
-        expect(handler1).toHaveBeenCalledWith(event);
-        expect(handler2).toHaveBeenCalledWith(event);
-      });
-    });
-
-    describe('onEntryChanged', () => {
-      it('should subscribe handler and return unsubscribe function', () => {
-        const handler = vi.fn();
-        const bus = getEventBus();
-
-        expect(bus.handlerCount).toBe(0);
-        const unsubscribe = onEntryChanged(handler);
-        expect(bus.handlerCount).toBe(1);
-
-        unsubscribe();
-        expect(bus.handlerCount).toBe(0);
-      });
-
-      it('should work with emitEntryChanged', () => {
-        const handler = vi.fn();
-        const unsubscribe = onEntryChanged(handler);
-
-        const event: EntryChangedEvent = {
-          entryType: 'tool',
-          entryId: 'tool-1',
-          scopeType: 'session',
-          scopeId: 'sess1',
-          action: 'delete',
-        };
-
-        emitEntryChanged(event);
-        expect(handler).toHaveBeenCalledWith(event);
-
-        unsubscribe();
-        handler.mockClear();
-
-        emitEntryChanged(event);
-        expect(handler).not.toHaveBeenCalled();
-      });
-    });
-
-    describe('resetEventBus', () => {
-      it('should clear all handlers', () => {
-        const handler1 = vi.fn();
-        const handler2 = vi.fn();
-
-        onEntryChanged(handler1);
-        onEntryChanged(handler2);
-
-        const bus = getEventBus();
-        expect(bus.handlerCount).toBe(2);
-
-        resetEventBus();
-        expect(bus.handlerCount).toBe(0);
-      });
-
-      it('should prevent handlers from being called after reset', () => {
-        const handler = vi.fn();
-        onEntryChanged(handler);
-
-        resetEventBus();
-
-        const event: EntryChangedEvent = {
-          entryType: 'tool',
-          entryId: 'tool-1',
-          scopeType: 'project',
-          scopeId: 'proj1',
-          action: 'create',
-        };
-
-        emitEntryChanged(event);
-        expect(handler).not.toHaveBeenCalled();
-      });
-    });
-  });
-
-  describe('Edge cases and async behavior', () => {
-    it('should handle handlers that modify the event object', () => {
-      const bus = getEventBus();
-      const handler1 = vi.fn((event: EntryChangedEvent) => {
-        // Attempt to modify the event
-        (event as any).modified = true;
-      });
-      const handler2 = vi.fn();
-
-      bus.subscribe(handler1);
-      bus.subscribe(handler2);
-
-      const event: EntryChangedEvent = {
-        entryType: 'tool',
-        entryId: 'tool-1',
-        scopeType: 'project',
-        scopeId: 'proj1',
-        action: 'create',
-      };
-
-      bus.emit(event);
-
-      // Both handlers should receive the same event reference
-      expect(handler1).toHaveBeenCalledWith(event);
-      expect(handler2).toHaveBeenCalledWith(event);
-    });
-
-    it('should handle async handlers (fire and forget)', async () => {
-      const bus = getEventBus();
-      const asyncHandler = vi.fn(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 10));
-      });
-      const syncHandler = vi.fn();
-
-      bus.subscribe(asyncHandler as EntryChangedHandler);
-      bus.subscribe(syncHandler);
-
-      const event: EntryChangedEvent = {
-        entryType: 'knowledge',
-        entryId: 'know-1',
-        scopeType: 'project',
-        scopeId: 'proj1',
-        action: 'create',
-      };
-
-      bus.emit(event);
-
-      // Emit is synchronous, so async handler is called but not awaited
-      expect(asyncHandler).toHaveBeenCalledWith(event);
-      expect(syncHandler).toHaveBeenCalledWith(event);
-    });
-
-    it('should handle unsubscribing during event emission', () => {
-      const bus = getEventBus();
-      let unsubscribe2: (() => void) | undefined;
-
-      const handler1 = vi.fn(() => {
-        // Unsubscribe handler2 during emission
-        if (unsubscribe2) unsubscribe2();
-      });
-      const handler2 = vi.fn();
-      const handler3 = vi.fn();
-
-      bus.subscribe(handler1);
-      unsubscribe2 = bus.subscribe(handler2);
-      bus.subscribe(handler3);
-
-      const event: EntryChangedEvent = {
-        entryType: 'tool',
-        entryId: 'tool-1',
-        scopeType: 'project',
-        scopeId: 'proj1',
-        action: 'create',
-      };
-
-      bus.emit(event);
-
-      // Handler1 should be called
-      expect(handler1).toHaveBeenCalledWith(event);
-      // Handler2 might be called depending on Set iteration order
-      // Handler3 should be called
-      expect(handler3).toHaveBeenCalledWith(event);
-    });
-
-    it('should handle subscribing during event emission', () => {
-      const bus = getEventBus();
-      const handler2 = vi.fn();
-      const handler1 = vi.fn(() => {
-        // Subscribe a new handler during emission
-        bus.subscribe(handler2);
-      });
-
-      bus.subscribe(handler1);
-
-      const event: EntryChangedEvent = {
-        entryType: 'guideline',
-        entryId: 'guide-1',
-        scopeType: 'project',
-        scopeId: 'proj1',
-        action: 'update',
-      };
-
-      bus.emit(event);
-
-      expect(handler1).toHaveBeenCalledWith(event);
-      // Handler2 was added during emission, behavior is implementation-dependent
-      // (Set iteration behavior when modified during iteration is not guaranteed)
-      // The important thing is that handler2 is now registered
-      expect(bus.handlerCount).toBe(2);
-
-      // Handler2 should definitely be called for next emission
-      handler1.mockClear();
-      handler2.mockClear();
-      bus.emit(event);
-      expect(handler1).toHaveBeenCalledWith(event);
-      expect(handler2).toHaveBeenCalledWith(event);
-    });
-
-    it('should handle rapid succession of events', () => {
-      const bus = getEventBus();
-      const handler = vi.fn();
-      bus.subscribe(handler);
-
-      const events: EntryChangedEvent[] = Array.from({ length: 100 }, (_, i) => ({
-        entryType: 'tool',
-        entryId: `tool-${i}`,
-        scopeType: 'project',
-        scopeId: 'proj1',
-        action: 'create' as const,
-      }));
-
-      events.forEach((event) => bus.emit(event));
-
-      expect(handler).toHaveBeenCalledTimes(100);
-    });
-
-    it('should handle empty string and null scopeId', () => {
-      const bus = getEventBus();
-      const handler = vi.fn();
-      bus.subscribe(handler);
-
-      const event1: EntryChangedEvent = {
         entryType: 'tool',
         entryId: 'tool-1',
         scopeType: 'global',
@@ -775,69 +272,494 @@ describe('Events Utility', () => {
         action: 'create',
       };
 
-      const event2: EntryChangedEvent = {
-        entryType: 'tool',
-        entryId: 'tool-2',
+      // Should not throw despite handler error
+      expect(() => eventBus.emit(event)).not.toThrow();
+      expect(errorHandler).toHaveBeenCalled();
+    });
+
+    it('should continue calling handlers after one throws', () => {
+      const handler1 = vi.fn();
+      const errorHandler = vi.fn(() => {
+        throw new Error('Handler error');
+      });
+      const handler2 = vi.fn();
+
+      eventBus.subscribe(handler1);
+      eventBus.subscribe(errorHandler);
+      eventBus.subscribe(handler2);
+
+      const event: EntryChangedEvent = {
+        entryType: 'knowledge',
+        entryId: 'k-1',
         scopeType: 'project',
-        scopeId: '',
+        scopeId: 'p-1',
         action: 'update',
       };
 
-      bus.emit(event1);
-      bus.emit(event2);
+      eventBus.emit(event);
 
-      expect(handler).toHaveBeenCalledTimes(2);
-      expect(handler).toHaveBeenNthCalledWith(1, event1);
-      expect(handler).toHaveBeenNthCalledWith(2, event2);
+      expect(handler1).toHaveBeenCalled();
+      expect(errorHandler).toHaveBeenCalled();
+      expect(handler2).toHaveBeenCalled();
+    });
+
+    it('should handle non-Error exceptions', () => {
+      const stringThrower = vi.fn(() => {
+        throw 'string error';
+      });
+
+      eventBus.subscribe(stringThrower);
+
+      const event: EntryChangedEvent = {
+        entryType: 'guideline',
+        entryId: 'g-1',
+        scopeType: 'global',
+        scopeId: null,
+        action: 'create',
+      };
+
+      expect(() => eventBus.emit(event)).not.toThrow();
+    });
+
+    it('should handle multiple errors from different handlers', () => {
+      const error1 = vi.fn(() => { throw new Error('Error 1'); });
+      const error2 = vi.fn(() => { throw new Error('Error 2'); });
+      const success = vi.fn();
+
+      eventBus.subscribe(error1);
+      eventBus.subscribe(success);
+      eventBus.subscribe(error2);
+
+      const event: EntryChangedEvent = {
+        entryType: 'tool',
+        entryId: 't-1',
+        scopeType: 'project',
+        scopeId: 'p-1',
+        action: 'delete',
+      };
+
+      expect(() => eventBus.emit(event)).not.toThrow();
+      expect(error1).toHaveBeenCalled();
+      expect(success).toHaveBeenCalled();
+      expect(error2).toHaveBeenCalled();
+    });
+  });
+
+  describe('EventBus - clear', () => {
+    it('should remove all handlers', () => {
+      const handler1 = vi.fn();
+      const handler2 = vi.fn();
+
+      eventBus.subscribe(handler1);
+      eventBus.subscribe(handler2);
+
+      expect(eventBus.subscriberCount()).toBe(2);
+
+      eventBus.clear();
+
+      expect(eventBus.subscriberCount()).toBe(0);
+    });
+
+    it('should prevent handlers from being called after clear', () => {
+      const handler = vi.fn();
+      eventBus.subscribe(handler);
+
+      eventBus.clear();
+
+      const event: EntryChangedEvent = {
+        entryType: 'knowledge',
+        entryId: 'k-1',
+        scopeType: 'global',
+        scopeId: null,
+        action: 'create',
+      };
+
+      eventBus.emit(event);
+
+      expect(handler).not.toHaveBeenCalled();
+    });
+
+    it('should be safe to call clear when no handlers exist', () => {
+      expect(() => eventBus.clear()).not.toThrow();
+      expect(eventBus.subscriberCount()).toBe(0);
+    });
+
+    it('should allow subscribing after clear', () => {
+      const handler1 = vi.fn();
+      const handler2 = vi.fn();
+
+      eventBus.subscribe(handler1);
+      eventBus.clear();
+      eventBus.subscribe(handler2);
+
+      expect(eventBus.subscriberCount()).toBe(1);
+
+      const event: EntryChangedEvent = {
+        entryType: 'tool',
+        entryId: 't-1',
+        scopeType: 'project',
+        scopeId: 'p-1',
+        action: 'create',
+      };
+
+      eventBus.emit(event);
+
+      expect(handler1).not.toHaveBeenCalled();
+      expect(handler2).toHaveBeenCalledWith(event);
+    });
+  });
+
+  describe('EventBus - subscriberCount', () => {
+    it('should return correct count of handlers', () => {
+      expect(eventBus.subscriberCount()).toBe(0);
+
+      const handler1 = vi.fn();
+      const handler2 = vi.fn();
+
+      eventBus.subscribe(handler1);
+      expect(eventBus.subscriberCount()).toBe(1);
+
+      eventBus.subscribe(handler2);
+      expect(eventBus.subscriberCount()).toBe(2);
+    });
+
+    it('should return 0 after clear', () => {
+      eventBus.subscribe(vi.fn());
+      eventBus.subscribe(vi.fn());
+      eventBus.subscribe(vi.fn());
+
+      expect(eventBus.subscriberCount()).toBe(3);
+
+      eventBus.clear();
+
+      expect(eventBus.subscriberCount()).toBe(0);
+    });
+  });
+
+  describe('Factory behavior', () => {
+    it('should create independent instances from createEventBus', () => {
+      const bus1 = createEventBus();
+      const bus2 = createEventBus();
+
+      expect(bus1).not.toBe(bus2);
+    });
+
+    it('should not share handlers between instances', () => {
+      const bus1 = createEventBus();
+      const bus2 = createEventBus();
+
+      const handler1 = vi.fn();
+      const handler2 = vi.fn();
+
+      bus1.subscribe(handler1);
+      bus2.subscribe(handler2);
+
+      const event: EntryChangedEvent = {
+        entryType: 'knowledge',
+        entryId: 'k-1',
+        scopeType: 'project',
+        scopeId: 'p-1',
+        action: 'create',
+      };
+
+      bus1.emit(event);
+
+      expect(handler1).toHaveBeenCalledWith(event);
+      expect(handler2).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Helper functions integration', () => {
+    it('should subscribe handler and return unsubscribe function', () => {
+      const handler = vi.fn();
+
+      const unsubscribe = eventBus.subscribe(handler);
+
+      const event: EntryChangedEvent = {
+        entryType: 'tool',
+        entryId: 'tool-1',
+        scopeType: 'project',
+        scopeId: 'proj-1',
+        action: 'create',
+      };
+
+      eventBus.emit(event);
+      expect(handler).toHaveBeenCalledWith(event);
+
+      unsubscribe();
+      handler.mockClear();
+
+      eventBus.emit(event);
+      expect(handler).not.toHaveBeenCalled();
+    });
+
+    it('should work with emit', () => {
+      const receivedEvents: EntryChangedEvent[] = [];
+      eventBus.subscribe((event) => {
+        receivedEvents.push(event);
+      });
+
+      const event: EntryChangedEvent = {
+        entryType: 'guideline',
+        entryId: 'g-1',
+        scopeType: 'org',
+        scopeId: 'org-1',
+        action: 'update',
+      };
+
+      eventBus.emit(event);
+
+      expect(receivedEvents).toHaveLength(1);
+      expect(receivedEvents[0]).toEqual(event);
+    });
+
+    it('should clear all handlers', () => {
+      eventBus.subscribe(vi.fn());
+      eventBus.subscribe(vi.fn());
+
+      expect(eventBus.subscriberCount()).toBe(2);
+
+      eventBus.clear();
+
+      expect(eventBus.subscriberCount()).toBe(0);
+    });
+
+    it('should prevent handlers from being called after clear', () => {
+      const handler = vi.fn();
+      eventBus.subscribe(handler);
+
+      eventBus.clear();
+
+      const event: EntryChangedEvent = {
+        entryType: 'knowledge',
+        entryId: 'k-1',
+        scopeType: 'global',
+        scopeId: null,
+        action: 'create',
+      };
+
+      eventBus.emit(event);
+
+      expect(handler).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Edge cases and async behavior', () => {
+    it('should handle handlers that modify the event object', () => {
+      const handler1 = vi.fn((event: EntryChangedEvent) => {
+        // @ts-expect-error - intentionally modifying event
+        event.entryId = 'modified';
+      });
+      const handler2 = vi.fn();
+
+      eventBus.subscribe(handler1);
+      eventBus.subscribe(handler2);
+
+      const event: EntryChangedEvent = {
+        entryType: 'tool',
+        entryId: 'original',
+        scopeType: 'project',
+        scopeId: 'p-1',
+        action: 'create',
+      };
+
+      eventBus.emit(event);
+
+      // Both handlers are called (modification happens in-place)
+      expect(handler1).toHaveBeenCalled();
+      expect(handler2).toHaveBeenCalled();
+    });
+
+    it('should handle async handlers (fire and forget)', async () => {
+      let asyncHandlerCompleted = false;
+
+      const asyncHandler = vi.fn(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        asyncHandlerCompleted = true;
+      });
+
+      eventBus.subscribe(asyncHandler);
+
+      const event: EntryChangedEvent = {
+        entryType: 'knowledge',
+        entryId: 'k-1',
+        scopeType: 'global',
+        scopeId: null,
+        action: 'create',
+      };
+
+      eventBus.emit(event);
+
+      // Handler was called but async work hasn't completed
+      expect(asyncHandler).toHaveBeenCalled();
+
+      // Wait for async to complete
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(asyncHandlerCompleted).toBe(true);
+    });
+
+    it('should handle unsubscribing during event emission', () => {
+      const handler1 = vi.fn();
+      let unsubscribe2: (() => void) | undefined;
+      const handler2 = vi.fn(() => {
+        unsubscribe2?.();
+      });
+      const handler3 = vi.fn();
+
+      eventBus.subscribe(handler1);
+      unsubscribe2 = eventBus.subscribe(handler2);
+      eventBus.subscribe(handler3);
+
+      const event: EntryChangedEvent = {
+        entryType: 'tool',
+        entryId: 't-1',
+        scopeType: 'project',
+        scopeId: 'p-1',
+        action: 'update',
+      };
+
+      eventBus.emit(event);
+
+      // All handlers should have been called for this emission
+      expect(handler1).toHaveBeenCalled();
+      expect(handler2).toHaveBeenCalled();
+      expect(handler3).toHaveBeenCalled();
+
+      // handler2 should be unsubscribed for future emissions
+      handler1.mockClear();
+      handler2.mockClear();
+      handler3.mockClear();
+
+      eventBus.emit(event);
+
+      expect(handler1).toHaveBeenCalled();
+      expect(handler2).not.toHaveBeenCalled();
+      expect(handler3).toHaveBeenCalled();
+    });
+
+    it('should handle subscribing during event emission', () => {
+      const laterHandler = vi.fn();
+      const handler1 = vi.fn(() => {
+        eventBus.subscribe(laterHandler);
+      });
+
+      eventBus.subscribe(handler1);
+
+      const event: EntryChangedEvent = {
+        entryType: 'guideline',
+        entryId: 'g-1',
+        scopeType: 'global',
+        scopeId: null,
+        action: 'create',
+      };
+
+      eventBus.emit(event);
+
+      expect(handler1).toHaveBeenCalled();
+      // laterHandler may or may not be called during first emission
+      // (implementation-dependent for Sets)
+
+      // But it should definitely be called on next emission
+      handler1.mockClear();
+      laterHandler.mockClear();
+
+      eventBus.emit(event);
+
+      expect(handler1).toHaveBeenCalled();
+      expect(laterHandler).toHaveBeenCalled();
+    });
+
+    it('should handle rapid succession of events', () => {
+      const handler = vi.fn();
+      eventBus.subscribe(handler);
+
+      const events: EntryChangedEvent[] = [];
+      for (let i = 0; i < 100; i++) {
+        events.push({
+          entryType: 'knowledge',
+          entryId: `k-${i}`,
+          scopeType: 'project',
+          scopeId: 'p-1',
+          action: 'create',
+        });
+      }
+
+      for (const event of events) {
+        eventBus.emit(event);
+      }
+
+      expect(handler).toHaveBeenCalledTimes(100);
+    });
+
+    it('should handle empty string and null scopeId', () => {
+      const handler = vi.fn();
+      eventBus.subscribe(handler);
+
+      const eventWithNull: EntryChangedEvent = {
+        entryType: 'tool',
+        entryId: 't-1',
+        scopeType: 'global',
+        scopeId: null,
+        action: 'create',
+      };
+
+      eventBus.emit(eventWithNull);
+
+      expect(handler).toHaveBeenCalledWith(eventWithNull);
     });
   });
 
   describe('Type safety', () => {
     it('should enforce EntryType values', () => {
-      const bus = getEventBus();
       const handler = vi.fn();
-      bus.subscribe(handler);
+      eventBus.subscribe(handler);
 
-      const validEntryTypes: Array<'tool' | 'guideline' | 'knowledge'> = [
-        'tool',
-        'guideline',
-        'knowledge',
-      ];
+      const toolEvent: EntryChangedEvent = {
+        entryType: 'tool',
+        entryId: 't-1',
+        scopeType: 'project',
+        scopeId: 'p-1',
+        action: 'create',
+      };
 
-      validEntryTypes.forEach((entryType) => {
-        const event: EntryChangedEvent = {
-          entryType,
-          entryId: 'id',
-          scopeType: 'project',
-          scopeId: 'proj1',
-          action: 'create',
-        };
-        expect(() => bus.emit(event)).not.toThrow();
-      });
+      const guidelineEvent: EntryChangedEvent = {
+        entryType: 'guideline',
+        entryId: 'g-1',
+        scopeType: 'project',
+        scopeId: 'p-1',
+        action: 'create',
+      };
+
+      const knowledgeEvent: EntryChangedEvent = {
+        entryType: 'knowledge',
+        entryId: 'k-1',
+        scopeType: 'project',
+        scopeId: 'p-1',
+        action: 'create',
+      };
+
+      eventBus.emit(toolEvent);
+      eventBus.emit(guidelineEvent);
+      eventBus.emit(knowledgeEvent);
+
+      expect(handler).toHaveBeenCalledTimes(3);
     });
 
     it('should work with all scope types', () => {
-      const bus = getEventBus();
       const handler = vi.fn();
-      bus.subscribe(handler);
+      eventBus.subscribe(handler);
 
-      const scopeTypes: Array<'global' | 'org' | 'project' | 'session'> = [
-        'global',
-        'org',
-        'project',
-        'session',
-      ];
+      const scopeTypes: EntryChangedEvent['scopeType'][] = ['global', 'org', 'project', 'session'];
 
-      scopeTypes.forEach((scopeType, index) => {
-        const event: EntryChangedEvent = {
-          entryType: 'tool',
-          entryId: `id-${index}`,
+      for (const scopeType of scopeTypes) {
+        eventBus.emit({
+          entryType: 'knowledge',
+          entryId: `k-${scopeType}`,
           scopeType,
-          scopeId: scopeType === 'global' ? null : `scope-${index}`,
+          scopeId: scopeType === 'global' ? null : `${scopeType}-1`,
           action: 'create',
-        };
-        bus.emit(event);
-      });
+        });
+      }
 
       expect(handler).toHaveBeenCalledTimes(4);
     });
@@ -845,161 +767,135 @@ describe('Events Utility', () => {
 
   describe('Real-world usage patterns', () => {
     it('should support cache invalidation pattern', () => {
-      const bus = getEventBus();
       const cache = new Map<string, unknown>();
+      cache.set('tool:t-1', { name: 'test' });
+      cache.set('knowledge:k-1', { title: 'test' });
 
-      // Cache invalidation handler
-      const invalidateCache = vi.fn((event: EntryChangedEvent) => {
-        const cacheKey = `${event.entryType}:${event.entryId}`;
-        cache.delete(cacheKey);
+      eventBus.subscribe((event) => {
+        const key = `${event.entryType}:${event.entryId}`;
+        cache.delete(key);
       });
 
-      bus.subscribe(invalidateCache);
-
-      // Populate cache
-      cache.set('tool:tool-1', { name: 'Test Tool' });
-      cache.set('knowledge:know-1', { title: 'Test Knowledge' });
-
-      // Emit update event
-      const event: EntryChangedEvent = {
+      eventBus.emit({
         entryType: 'tool',
-        entryId: 'tool-1',
+        entryId: 't-1',
         scopeType: 'project',
-        scopeId: 'proj1',
+        scopeId: 'p-1',
         action: 'update',
-      };
+      });
 
-      bus.emit(event);
-
-      expect(invalidateCache).toHaveBeenCalledWith(event);
-      expect(cache.has('tool:tool-1')).toBe(false);
-      expect(cache.has('knowledge:know-1')).toBe(true);
+      expect(cache.has('tool:t-1')).toBe(false);
+      expect(cache.has('knowledge:k-1')).toBe(true);
     });
 
     it('should support multiple cache layers', () => {
-      const bus = getEventBus();
-      const l1Cache = new Map();
-      const l2Cache = new Map();
+      const l1Cache = new Map<string, unknown>();
+      const l2Cache = new Map<string, unknown>();
 
-      const invalidateL1 = vi.fn(() => {
-        l1Cache.clear();
+      l1Cache.set('tool:t-1', 'cached');
+      l2Cache.set('tool:t-1', 'cached');
+
+      eventBus.subscribe((event) => {
+        l1Cache.delete(`${event.entryType}:${event.entryId}`);
       });
 
-      const invalidateL2 = vi.fn(() => {
-        l2Cache.clear();
+      eventBus.subscribe((event) => {
+        l2Cache.delete(`${event.entryType}:${event.entryId}`);
       });
 
-      bus.subscribe(invalidateL1);
-      bus.subscribe(invalidateL2);
-
-      l1Cache.set('key', 'value');
-      l2Cache.set('key', 'value');
-
-      const event: EntryChangedEvent = {
-        entryType: 'guideline',
-        entryId: 'guide-1',
+      eventBus.emit({
+        entryType: 'tool',
+        entryId: 't-1',
         scopeType: 'project',
-        scopeId: 'proj1',
+        scopeId: 'p-1',
         action: 'delete',
-      };
+      });
 
-      bus.emit(event);
-
-      expect(invalidateL1).toHaveBeenCalled();
-      expect(invalidateL2).toHaveBeenCalled();
-      expect(l1Cache.size).toBe(0);
-      expect(l2Cache.size).toBe(0);
+      expect(l1Cache.has('tool:t-1')).toBe(false);
+      expect(l2Cache.has('tool:t-1')).toBe(false);
     });
 
     it('should support filtering events by entry type', () => {
-      const bus = getEventBus();
       const toolHandler = vi.fn();
-      const knowledgeHandler = vi.fn();
+      const guidelineHandler = vi.fn();
 
-      bus.subscribe((event) => {
+      eventBus.subscribe((event) => {
         if (event.entryType === 'tool') {
           toolHandler(event);
         }
       });
 
-      bus.subscribe((event) => {
-        if (event.entryType === 'knowledge') {
-          knowledgeHandler(event);
+      eventBus.subscribe((event) => {
+        if (event.entryType === 'guideline') {
+          guidelineHandler(event);
         }
       });
 
-      const toolEvent: EntryChangedEvent = {
+      eventBus.emit({
         entryType: 'tool',
-        entryId: 'tool-1',
+        entryId: 't-1',
         scopeType: 'project',
-        scopeId: 'proj1',
-        action: 'create',
-      };
-
-      const knowledgeEvent: EntryChangedEvent = {
-        entryType: 'knowledge',
-        entryId: 'know-1',
-        scopeType: 'project',
-        scopeId: 'proj1',
-        action: 'create',
-      };
-
-      bus.emit(toolEvent);
-      bus.emit(knowledgeEvent);
-
-      expect(toolHandler).toHaveBeenCalledWith(toolEvent);
-      expect(toolHandler).toHaveBeenCalledTimes(1);
-      expect(knowledgeHandler).toHaveBeenCalledWith(knowledgeEvent);
-      expect(knowledgeHandler).toHaveBeenCalledTimes(1);
-    });
-
-    it('should support action-based handling', () => {
-      const bus = getEventBus();
-      const createHandler = vi.fn();
-      const updateHandler = vi.fn();
-      const deleteHandler = vi.fn();
-
-      bus.subscribe((event) => {
-        switch (event.action) {
-          case 'create':
-            createHandler(event);
-            break;
-          case 'update':
-            updateHandler(event);
-            break;
-          case 'delete':
-          case 'deactivate':
-            deleteHandler(event);
-            break;
-        }
-      });
-
-      emitEntryChanged({
-        entryType: 'tool',
-        entryId: '1',
-        scopeType: 'project',
-        scopeId: 'p1',
+        scopeId: 'p-1',
         action: 'create',
       });
 
-      emitEntryChanged({
-        entryType: 'tool',
-        entryId: '1',
+      eventBus.emit({
+        entryType: 'guideline',
+        entryId: 'g-1',
         scopeType: 'project',
-        scopeId: 'p1',
+        scopeId: 'p-1',
         action: 'update',
       });
 
-      emitEntryChanged({
-        entryType: 'tool',
-        entryId: '1',
+      eventBus.emit({
+        entryType: 'knowledge',
+        entryId: 'k-1',
         scopeType: 'project',
-        scopeId: 'p1',
+        scopeId: 'p-1',
         action: 'delete',
       });
 
+      expect(toolHandler).toHaveBeenCalledTimes(1);
+      expect(guidelineHandler).toHaveBeenCalledTimes(1);
+    });
+
+    it('should support action-based handling', () => {
+      const createHandler = vi.fn();
+      const deleteHandler = vi.fn();
+
+      eventBus.subscribe((event) => {
+        if (event.action === 'create') {
+          createHandler(event);
+        } else if (event.action === 'delete') {
+          deleteHandler(event);
+        }
+      });
+
+      eventBus.emit({
+        entryType: 'tool',
+        entryId: 't-1',
+        scopeType: 'project',
+        scopeId: 'p-1',
+        action: 'create',
+      });
+
+      eventBus.emit({
+        entryType: 'tool',
+        entryId: 't-2',
+        scopeType: 'project',
+        scopeId: 'p-1',
+        action: 'delete',
+      });
+
+      eventBus.emit({
+        entryType: 'tool',
+        entryId: 't-3',
+        scopeType: 'project',
+        scopeId: 'p-1',
+        action: 'update',
+      });
+
       expect(createHandler).toHaveBeenCalledTimes(1);
-      expect(updateHandler).toHaveBeenCalledTimes(1);
       expect(deleteHandler).toHaveBeenCalledTimes(1);
     });
   });

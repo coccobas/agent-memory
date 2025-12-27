@@ -75,7 +75,7 @@ describe('MCP Permissions Helper', () => {
           'read',
           'global'
         )
-      ).toThrow('Authentication required');
+      ).toThrow(/agentId.*must be provided|Authentication required/i);
     });
 
     it('should allow when agentId missing in permissive mode', () => {
@@ -140,7 +140,9 @@ describe('MCP Permissions Helper', () => {
     });
 
     it('should throw when agentId undefined in strict mode', () => {
-      expect(() => requireAgentId(undefined)).toThrow('Authentication required');
+      expect(() => requireAgentId(undefined)).toThrow(
+        /agentId.*must be provided|Authentication required/i
+      );
     });
 
     it('should not throw when agentId undefined in permissive mode', () => {
