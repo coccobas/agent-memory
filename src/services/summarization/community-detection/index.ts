@@ -52,6 +52,7 @@ import type {
 } from './types.js';
 import { detectCommunitiesLeiden } from './leiden.js';
 import { detectCommunitiesConnected } from './connected-components.js';
+import { createValidationError } from '../../../core/errors.js';
 
 /**
  * Detect communities in a set of nodes using the specified algorithm
@@ -98,7 +99,7 @@ export async function detectCommunities(
     case 'connected':
       return detectCommunitiesConnected(nodes, config);
     default:
-      throw new Error(`Unknown community detection algorithm: ${algorithm}`);
+      throw createValidationError('algorithm', `unknown community detection algorithm "${algorithm}"`);
   }
 }
 
@@ -189,31 +190,31 @@ export async function batchDetectCommunities(
 export function validateConfig(config: CommunityDetectionConfig): void {
   if (config.resolution !== undefined) {
     if (config.resolution <= 0) {
-      throw new Error('Resolution must be positive');
+      throw createValidationError('resolution', 'must be positive');
     }
   }
 
   if (config.minCommunitySize !== undefined) {
     if (config.minCommunitySize < 1) {
-      throw new Error('Minimum community size must be at least 1');
+      throw createValidationError('minCommunitySize', 'must be at least 1');
     }
   }
 
   if (config.similarityThreshold !== undefined) {
     if (config.similarityThreshold < 0 || config.similarityThreshold > 1) {
-      throw new Error('Similarity threshold must be between 0 and 1');
+      throw createValidationError('similarityThreshold', 'must be between 0 and 1');
     }
   }
 
   if (config.maxIterations !== undefined) {
     if (config.maxIterations < 1) {
-      throw new Error('Maximum iterations must be at least 1');
+      throw createValidationError('maxIterations', 'must be at least 1');
     }
   }
 
   if (config.convergenceThreshold !== undefined) {
     if (config.convergenceThreshold <= 0) {
-      throw new Error('Convergence threshold must be positive');
+      throw createValidationError('convergenceThreshold', 'must be positive');
     }
   }
 }

@@ -6,6 +6,38 @@ alwaysApply: true
 
 # Agent Memory Architecture
 
+<critical>
+## MANDATORY: Architecture Guidelines
+
+Before making ANY architectural changes, modifying core infrastructure, or adding new services, you MUST read and follow the guidelines in:
+
+**`/architecture_final.md`** (project root, see “Architecture Guidelines (Mandatory)”)
+
+This document contains binding rules for:
+- Layered architecture and layer boundaries
+- Dependency injection patterns (NEVER use module-level singletons)
+- Service registry usage (access via `runtime.services.*`)
+- Adapter patterns for swappable backends
+- Repository patterns and interfaces
+- Error handling with proper error codes
+- Configuration registry usage
+- Event system patterns
+
+**Key prohibitions:**
+- NO synchronous `require()` to break circular dependencies
+- NO module-level singletons or `getInstance()` patterns
+- NO business logic in MCP handlers
+- NO direct database access in services (use repositories)
+- NO hidden dependencies resolved at runtime
+
+**Enforcement:**
+- `npm run lint:architecture` (runs in `npm run validate` / CI) rejects new hidden-dependency patterns (eg. `require()` and new `get*Service()` singletons outside the legacy allowlist).
+
+Deviations from these guidelines require explicit user approval.
+</critical>
+
+---
+
 ## System Overview
 
 Agent Memory is an MCP (Model Context Protocol) server providing a structured memory backend for AI agents. Instead of loading entire knowledge bases into context, agents query specific memory segments on-demand.
@@ -235,5 +267,3 @@ Agent Memory supports **Massively Decomposed Agentic Processes (MDAPs)** for mil
 - **Context management**: Queryable memory with scope inheritance
 - **Voting infrastructure**: `agent_votes` table for consensus
 - **Analytics**: Success rate tracking, error correlation
-
-

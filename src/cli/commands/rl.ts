@@ -9,8 +9,6 @@ import { writeFileSync } from 'fs';
 import { getCliContext, shutdownCliContext } from '../utils/context.js';
 import { formatOutput, type OutputFormat } from '../utils/output.js';
 import { handleCliError } from '../utils/errors.js';
-import { getRLService } from '../../services/rl/index.js';
-import { getFeedbackService } from '../../services/feedback/index.js';
 import {
   buildExtractionDataset,
   buildRetrievalDataset,
@@ -32,9 +30,9 @@ export function addRlCommand(program: Command): void {
     .action(async (_options, cmd) => {
       try {
         const globalOpts = cmd.optsWithGlobals();
-        await getCliContext();
+        const context = await getCliContext();
 
-        const rlService = getRLService();
+        const rlService = context.services.rl;
         if (!rlService) {
           console.error('RL service not initialized');
           return;
@@ -84,9 +82,9 @@ export function addRlCommand(program: Command): void {
     .action(async (options, cmd) => {
       try {
         const globalOpts = cmd.optsWithGlobals();
-        await getCliContext();
+        const context = await getCliContext();
 
-        const feedbackService = getFeedbackService();
+        const feedbackService = context.services.feedback;
         if (!feedbackService) {
           console.error('Feedback service not initialized');
           return;
@@ -299,7 +297,7 @@ export function addRlCommand(program: Command): void {
     .action(async (policy, options, cmd) => {
       try {
         const globalOpts = cmd.optsWithGlobals();
-        await getCliContext();
+        const context = await getCliContext();
 
         // Validate policy type
         if (!['extraction', 'retrieval', 'consolidation'].includes(policy)) {
@@ -307,7 +305,7 @@ export function addRlCommand(program: Command): void {
           return;
         }
 
-        const rlService = getRLService();
+        const rlService = context.services.rl;
         if (!rlService) {
           console.error('RL service not initialized');
           return;
@@ -362,7 +360,7 @@ export function addRlCommand(program: Command): void {
     .action(async (policy, options, cmd) => {
       try {
         const globalOpts = cmd.optsWithGlobals();
-        await getCliContext();
+        const context = await getCliContext();
 
         // Validate policy type
         if (!['extraction', 'retrieval', 'consolidation'].includes(policy)) {
@@ -370,7 +368,7 @@ export function addRlCommand(program: Command): void {
           return;
         }
 
-        const rlService = getRLService();
+        const rlService = context.services.rl;
         if (!rlService) {
           console.error('RL service not initialized');
           return;
@@ -405,7 +403,7 @@ export function addRlCommand(program: Command): void {
     .action(async (policy, path, _options, cmd) => {
       try {
         const globalOpts = cmd.optsWithGlobals();
-        await getCliContext();
+        const context = await getCliContext();
 
         // Validate policy type
         if (!['extraction', 'retrieval', 'consolidation'].includes(policy)) {
@@ -413,7 +411,7 @@ export function addRlCommand(program: Command): void {
           return;
         }
 
-        const rlService = getRLService();
+        const rlService = context.services.rl;
         if (!rlService) {
           console.error('RL service not initialized');
           return;

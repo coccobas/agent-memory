@@ -10,6 +10,7 @@ import { formatOutput, type OutputFormat } from '../utils/output.js';
 import { handleCliError } from '../utils/errors.js';
 import { readStdinJson } from '../utils/stdin.js';
 import { guidelineHandlers } from '../../mcp/handlers/guidelines.handler.js';
+import { createValidationError } from '../../core/errors.js';
 
 export function addGuidelineCommand(program: Command): void {
   const guideline = program.command('guideline').description('Manage guideline entries');
@@ -230,7 +231,7 @@ export function addGuidelineCommand(program: Command): void {
 
         const entries = await readStdinJson<object[]>();
         if (!entries || !Array.isArray(entries)) {
-          throw new Error('No entries provided via stdin. Pipe JSON array of entries.');
+          throw createValidationError('entries', 'is required via stdin as JSON array');
         }
 
         const result = await guidelineHandlers.bulk_add(context, {
@@ -259,7 +260,7 @@ export function addGuidelineCommand(program: Command): void {
 
         const updates = await readStdinJson<object[]>();
         if (!updates || !Array.isArray(updates)) {
-          throw new Error('No updates provided via stdin. Pipe JSON array of updates.');
+          throw createValidationError('updates', 'is required via stdin as JSON array');
         }
 
         const result = await guidelineHandlers.bulk_update(context, {
@@ -286,7 +287,7 @@ export function addGuidelineCommand(program: Command): void {
 
         const ids = await readStdinJson<string[]>();
         if (!ids || !Array.isArray(ids)) {
-          throw new Error('No IDs provided via stdin. Pipe JSON array of IDs.');
+          throw createValidationError('ids', 'is required via stdin as JSON array');
         }
 
         const result = await guidelineHandlers.bulk_delete(context, {

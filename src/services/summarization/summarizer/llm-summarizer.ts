@@ -9,6 +9,11 @@ import { OpenAI } from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 import { createComponentLogger } from '../../../utils/logger.js';
 import { withRetry, isRetryableNetworkError } from '../../../utils/retry.js';
+import {
+  createValidationError,
+  createSizeLimitError,
+  createServiceUnavailableError,
+} from '../../../core/errors.js';
 import type {
   SummarizationRequest,
   SummarizationResult,
@@ -45,7 +50,7 @@ async function readResponseWithLimit(
 ): Promise<string> {
   const reader = response.body?.getReader();
   if (!reader) {
-    throw new Error('Response body is not readable');
+    throw createValidationError('response.body', 'is not readable');
   }
 
   const decoder = new TextDecoder();
@@ -61,9 +66,7 @@ async function readResponseWithLimit(
 
       if (totalBytes > maxSizeBytes) {
         abortController.abort();
-        throw new Error(
-          `Response exceeds maximum size of ${maxSizeBytes} bytes (received ${totalBytes} bytes)`
-        );
+        throw createSizeLimitError('response', maxSizeBytes, totalBytes, 'bytes');
       }
 
       chunks.push(decoder.decode(value, { stream: true }));
@@ -124,9 +127,10 @@ export class LLMSummarizer {
 
     // Validate model name
     if (this.config.model && !isValidModelName(this.config.model)) {
-      throw new Error(
-        `Invalid model name: "${this.config.model}". ` +
-          'Model names must only contain alphanumeric characters, hyphens, underscores, colons, and dots.'
+      throw createValidationError(
+        'model',
+        `invalid model name "${this.config.model}"`,
+        'Model names must only contain alphanumeric characters, hyphens, underscores, colons, and dots'
       );
     }
 
@@ -162,9 +166,10 @@ export class LLMSummarizer {
     switch (this.config.provider) {
       case 'openai':
         if (!this.config.openaiApiKey) {
-          throw new Error(
-            'OpenAI API key is required when provider is "openai". ' +
-              'Set openaiApiKey in config or use a different provider.'
+          throw createValidationError(
+            'openaiApiKey',
+            'is required when provider is "openai"',
+            'Set openaiApiKey in config or use a different provider'
           );
         }
         this.openaiClient = new OpenAI({
@@ -177,9 +182,10 @@ export class LLMSummarizer {
 
       case 'anthropic':
         if (!this.config.anthropicApiKey) {
-          throw new Error(
-            'Anthropic API key is required when provider is "anthropic". ' +
-              'Set anthropicApiKey in config or use a different provider.'
+          throw createValidationError(
+            'anthropicApiKey',
+            'is required when provider is "anthropic"',
+            'Set anthropicApiKey in config or use a different provider'
           );
         }
         this.anthropicClient = new Anthropic({
@@ -229,7 +235,7 @@ export class LLMSummarizer {
 
     // Validate request
     if (!request.items || request.items.length === 0) {
-      throw new Error('Cannot summarize empty items list');
+      throw createValidationError('items', 'cannot be empty for summarization');
     }
 
     // If provider is disabled, use fallback
@@ -253,10 +259,7 @@ export class LLMSummarizer {
       // Validate context length
       const totalLength = systemPrompt.length + userPrompt.length;
       if (totalLength > MAX_CONTEXT_LENGTH) {
-        throw new Error(
-          `Context exceeds maximum length of ${MAX_CONTEXT_LENGTH} characters (got ${totalLength}). ` +
-            'Reduce the number of items or content size.'
-        );
+        throw createSizeLimitError('context', MAX_CONTEXT_LENGTH, totalLength, 'characters');
       }
 
       // Call appropriate provider
@@ -276,7 +279,7 @@ export class LLMSummarizer {
           result = await this.summarizeOllama(systemPrompt, userPrompt, request.hierarchyLevel);
           break;
         default:
-          throw new Error(`Unknown provider: ${String(this.config.provider)}`);
+          throw createValidationError('provider', `unknown provider "${String(this.config.provider)}"`);
       }
 
       result.processingTimeMs = Date.now() - startTime;
@@ -350,7 +353,7 @@ export class LLMSummarizer {
   ): Promise<SummarizationResult> {
     const client = this.openaiClient;
     if (!client) {
-      throw new Error('OpenAI client not initialized');
+      throw createServiceUnavailableError('OpenAI', 'client not initialized');
     }
 
     return withRetry(
@@ -368,7 +371,7 @@ export class LLMSummarizer {
 
         const content = response.choices[0]?.message?.content;
         if (!content) {
-          throw new Error('No content returned from OpenAI');
+          throw createServiceUnavailableError('OpenAI', 'no content returned from API');
         }
 
         return this.parseResponse(content, level, 'openai');
@@ -392,7 +395,7 @@ export class LLMSummarizer {
   ): Promise<SummarizationResult> {
     const client = this.anthropicClient;
     if (!client) {
-      throw new Error('Anthropic client not initialized');
+      throw createServiceUnavailableError('Anthropic', 'client not initialized');
     }
 
     return withRetry(
@@ -406,7 +409,7 @@ export class LLMSummarizer {
 
         const textBlock = response.content.find((block) => block.type === 'text');
         if (!textBlock || textBlock.type !== 'text') {
-          throw new Error('No text content returned from Anthropic');
+          throw createServiceUnavailableError('Anthropic', 'no text content returned from API');
         }
 
         return this.parseResponse(textBlock.text, level, 'anthropic');
@@ -454,7 +457,7 @@ export class LLMSummarizer {
           });
 
           if (!response.ok) {
-            throw new Error(`Ollama request failed: ${response.status} ${response.statusText}`);
+            throw createServiceUnavailableError('Ollama', `request failed: ${response.status} ${response.statusText}`);
           }
 
           const responseText = await readResponseWithLimit(
@@ -465,7 +468,7 @@ export class LLMSummarizer {
 
           const data = JSON.parse(responseText) as { response: string };
           if (!data.response) {
-            throw new Error('No response from Ollama');
+            throw createServiceUnavailableError('Ollama', 'no response returned from API');
           }
 
           return this.parseResponse(data.response, level, 'ollama');

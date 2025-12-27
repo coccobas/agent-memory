@@ -58,6 +58,7 @@ import { shutdownRuntime, type Runtime } from './runtime.js';
 import type { AppDb } from './types.js';
 import { createComponentLogger } from '../utils/logger.js';
 import { LRUCache } from '../utils/lru-cache.js';
+import { createServiceUnavailableError } from './errors.js';
 
 // Forward declarations for types to avoid circular dependencies
 // The actual CircuitBreaker class is imported dynamically or passed in
@@ -236,7 +237,7 @@ export class Container {
    */
   getRuntime(): Runtime {
     if (!this.state.runtime) {
-      throw new Error('Runtime not registered. Call registerRuntime() first at startup.');
+      throw createServiceUnavailableError('runtime', 'not registered. Call registerRuntime() first at startup');
     }
     return this.state.runtime;
   }
@@ -280,7 +281,7 @@ export class Container {
    */
   getContext(): AppContext {
     if (!this.state.context) {
-      throw new Error('AppContext not registered. Call registerContext() first.');
+      throw createServiceUnavailableError('AppContext', 'not registered. Call registerContext() first');
     }
     return this.state.context;
   }
@@ -317,7 +318,7 @@ export class Container {
    */
   getDatabase(): AppDb {
     if (!this.state.db) {
-      throw new Error('Database not initialized. Call createAppContext() first.');
+      throw createServiceUnavailableError('database', 'not initialized. Call createAppContext() first');
     }
     return this.state.db;
   }
@@ -328,8 +329,9 @@ export class Container {
    */
   getSqlite(): Database.Database {
     if (!this.state.sqlite) {
-      throw new Error(
-        'SQLite instance not available. Either database not initialized or using PostgreSQL mode.'
+      throw createServiceUnavailableError(
+        'SQLite',
+        'not available. Either database not initialized or using PostgreSQL mode'
       );
     }
     return this.state.sqlite;

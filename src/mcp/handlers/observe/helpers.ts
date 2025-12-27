@@ -11,7 +11,6 @@ import type { CreateToolInput } from '../../../db/repositories/tools.js';
 import { logAction } from '../../../services/audit.service.js';
 import { createComponentLogger } from '../../../utils/logger.js';
 import type { ScopeType } from '../../types.js';
-import { sessions } from '../../../db/schema.js';
 import type { RelationType, EntryType } from '../../../db/schema.js';
 import type {
   ExtractedEntity,
@@ -19,8 +18,8 @@ import type {
 } from '../../../services/extraction.service.js';
 import type { ProcessedEntry, StoredEntry } from './types.js';
 import type { Repositories } from '../../../core/interfaces/repositories.js';
-import type { AppDb } from '../../../core/types.js';
 import type { DbClient } from '../../../db/connection.js';
+import { parseBoolean, parseNumber } from '../../../config/registry/parsers.js';
 
 const logger = createComponentLogger('observe');
 
@@ -28,20 +27,20 @@ const logger = createComponentLogger('observe');
 // ENVIRONMENT PARSING
 // =============================================================================
 
+/**
+ * Parse environment variable as boolean
+ * Delegates to config parser for consistent behavior
+ */
 export function parseEnvBool(name: string, defaultValue: boolean): boolean {
-  const raw = process.env[name];
-  if (raw === undefined) return defaultValue;
-  const normalized = raw.trim().toLowerCase();
-  if (['1', 'true', 'yes', 'y', 'on'].includes(normalized)) return true;
-  if (['0', 'false', 'no', 'n', 'off'].includes(normalized)) return false;
-  return defaultValue;
+  return parseBoolean(process.env[name], defaultValue);
 }
 
+/**
+ * Parse environment variable as number
+ * Delegates to config parser for consistent behavior
+ */
 export function parseEnvNumber(name: string, defaultValue: number): number {
-  const raw = process.env[name];
-  if (raw === undefined) return defaultValue;
-  const parsed = Number(raw);
-  return Number.isFinite(parsed) ? parsed : defaultValue;
+  return parseNumber(process.env[name], defaultValue);
 }
 
 // =============================================================================
@@ -58,8 +57,11 @@ export async function mergeSessionMetadata(
   return { ...existingMeta, ...patch };
 }
 
+/**
+ * Ensure a session exists, creating it if necessary via repository.
+ * Uses proper repository layer instead of direct DB access.
+ */
 export async function ensureSessionIdExists(
-  db: AppDb,
   repos: Repositories,
   sessionId: string,
   projectId?: string,
@@ -67,17 +69,13 @@ export async function ensureSessionIdExists(
 ): Promise<void> {
   if (await repos.sessions.getById(sessionId)) return;
 
-  db.insert(sessions)
-    .values({
-      id: sessionId,
-      projectId: projectId ?? null,
-      name: 'Session (auto-created by observe.commit)',
-      purpose: 'Auto-created to store observe entries',
-      agentId: agentId ?? null,
-      status: 'active',
-      metadata: { source: 'observe.commit' },
-    })
-    .run();
+  await repos.sessions.create({
+    projectId: projectId ?? undefined,
+    name: 'Session (auto-created by observe.commit)',
+    purpose: 'Auto-created to store observe entries',
+    agentId: agentId ?? undefined,
+    metadata: { source: 'observe.commit' },
+  });
 }
 
 // =============================================================================

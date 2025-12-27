@@ -1,7 +1,4 @@
-import { eq } from 'drizzle-orm';
-
 import { getDb, getSqlite } from '../../db/connection.js';
-import { sessions } from '../../db/schema.js';
 import { createRepositories } from '../../core/factory/repositories.js';
 import type { Repositories } from '../../core/interfaces/repositories.js';
 
@@ -9,22 +6,31 @@ function getRepos(): Repositories {
   return createRepositories({ db: getDb(), sqlite: getSqlite() });
 }
 
-export function ensureSessionIdExists(sessionId: string, projectId?: string): void {
-  const db = getDb();
-  const existing = db.select().from(sessions).where(eq(sessions.id, sessionId)).get();
+/**
+ * Ensure a session exists, creating it if necessary via repository.
+ * Uses proper repository layer instead of direct DB access.
+ * Uses the external sessionId as the internal ID to maintain FK consistency.
+ */
+export async function ensureSessionIdExists(sessionId: string, projectId?: string): Promise<void> {
+  const repos = getRepos();
+  const existing = await repos.sessions.getById(sessionId);
   if (existing) return;
 
-  db.insert(sessions)
-    .values({
-      id: sessionId,
-      projectId: projectId ?? null,
-      name: 'Claude Code Session',
-      purpose: 'Auto-created from Claude Code hooks',
-      agentId: null,
-      status: 'active',
-      metadata: { source: 'claude-code' },
-    })
-    .run();
+  // Verify projectId exists before using it (to avoid FK constraint failure)
+  let validProjectId: string | undefined;
+  if (projectId) {
+    const project = await repos.projects.getById(projectId);
+    validProjectId = project ? projectId : undefined;
+  }
+
+  await repos.sessions.create({
+    id: sessionId, // Use external sessionId as internal ID
+    projectId: validProjectId,
+    name: 'Claude Code Session',
+    purpose: 'Auto-created from Claude Code hooks',
+    agentId: undefined,
+    metadata: { source: 'claude-code' },
+  });
 }
 
 export async function getObserveState(sessionId: string): Promise<{

@@ -19,7 +19,7 @@ export async function runSessionEndCommand(params: {
     return { exitCode: 2, stdout: [], stderr: ['Missing transcript_path in hook input'] };
   }
 
-  ensureSessionIdExists(sessionId, projectId);
+  await ensureSessionIdExists(sessionId, projectId);
   await ingestTranscript({
     sessionId,
     transcriptPath,

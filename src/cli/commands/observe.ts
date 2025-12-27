@@ -10,6 +10,7 @@ import { formatOutput, type OutputFormat } from '../utils/output.js';
 import { handleCliError } from '../utils/errors.js';
 import { readStdin, readStdinJson } from '../utils/stdin.js';
 import { observeHandlers } from '../../mcp/handlers/observe/index.js';
+import { createValidationError } from '../../core/errors.js';
 
 export function addObserveCommand(program: Command): void {
   const observe = program.command('observe').description('Extract memory entries from context');
@@ -37,7 +38,7 @@ export function addObserveCommand(program: Command): void {
         }
 
         if (!inputContext) {
-          throw new Error('No context provided. Use --context or pipe content via stdin.');
+          throw createValidationError('context', 'is required via --context option or stdin');
         }
 
         const focusAreas = options.focusAreas
@@ -112,7 +113,7 @@ export function addObserveCommand(program: Command): void {
 
         const entries = await readStdinJson<object[]>();
         if (!entries || !Array.isArray(entries)) {
-          throw new Error('No entries provided via stdin. Pipe JSON array of entries.');
+          throw createValidationError('entries', 'is required via stdin as JSON array');
         }
 
         const result = await observeHandlers.commit(context, {

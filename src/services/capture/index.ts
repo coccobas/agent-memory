@@ -18,7 +18,6 @@ import {
   type KnowledgeModuleDeps,
 } from './knowledge.module.js';
 import {
-  getCaptureStateManager,
   CaptureStateManager,
 } from './state.js';
 import type {
@@ -32,9 +31,9 @@ import type {
   KnowledgeCaptureResult,
 } from './types.js';
 import type { IExperienceRepository } from '../../core/interfaces/repositories.js';
-import { getRLService } from '../rl/index.js';
+import type { RLService } from '../rl/index.js';
 import { buildExtractionState } from '../rl/state/extraction.state.js';
-import { getFeedbackService } from '../feedback/index.js';
+import type { FeedbackService } from '../feedback/index.js';
 import { createHash } from 'crypto';
 
 const logger = createComponentLogger('capture');
@@ -46,8 +45,14 @@ const logger = createComponentLogger('capture');
 export interface CaptureServiceDeps {
   experienceRepo: IExperienceRepository;
   knowledgeModuleDeps: KnowledgeModuleDeps;
-  // Optional: for getting entry counts when RL is enabled
+  /** Optional: for getting entry counts when RL is enabled */
   getEntryCount?: (projectId?: string) => Promise<number>;
+  /** Optional: RL service for extraction policy decisions */
+  rlService?: RLService | null;
+  /** Optional: feedback service for recording decisions */
+  feedbackService?: FeedbackService | null;
+  /** Optional: capture state manager (defaults to new instance if not provided) */
+  stateManager?: CaptureStateManager;
 }
 
 export interface CaptureServiceConfig extends CaptureConfig {}
@@ -62,13 +67,21 @@ export class CaptureService {
   private stateManager: CaptureStateManager;
   private captureConfig: CaptureConfig;
   private getEntryCountFn?: (projectId?: string) => Promise<number>;
+  private rlService?: RLService | null;
+  private feedbackService?: FeedbackService | null;
 
   constructor(deps: CaptureServiceDeps, captureConfig?: CaptureServiceConfig) {
-    this.experienceModule = createExperienceCaptureModule(deps.experienceRepo);
-    this.knowledgeModule = createKnowledgeCaptureModule(deps.knowledgeModuleDeps);
-    this.stateManager = getCaptureStateManager();
+    this.stateManager = deps.stateManager ?? new CaptureStateManager();
+    // Pass stateManager to module factories for DI
+    this.experienceModule = createExperienceCaptureModule(deps.experienceRepo, this.stateManager);
+    this.knowledgeModule = createKnowledgeCaptureModule({
+      ...deps.knowledgeModuleDeps,
+      stateManager: this.stateManager,
+    });
     this.captureConfig = captureConfig ?? this.buildDefaultConfig();
     this.getEntryCountFn = deps.getEntryCount;
+    this.rlService = deps.rlService;
+    this.feedbackService = deps.feedbackService;
   }
 
   /**
@@ -186,8 +199,8 @@ export class CaptureService {
     }
 
     // Try RL policy first if enabled
-    const rlService = getRLService();
-    const feedbackService = getFeedbackService();
+    const rlService = this.rlService;
+    const feedbackService = this.feedbackService;
 
     if (rlService?.isEnabled() && rlService.getExtractionPolicy().isEnabled()) {
       try {
@@ -487,6 +500,7 @@ let captureServiceInstance: CaptureService | null = null;
 /**
  * Get the singleton capture service instance
  * Note: Must be initialized with deps before first use
+ * @deprecated Use context.services.capture instead via dependency injection
  */
 export function getCaptureService(): CaptureService | null {
   return captureServiceInstance;
@@ -494,6 +508,7 @@ export function getCaptureService(): CaptureService | null {
 
 /**
  * Initialize the capture service with dependencies
+ * @deprecated Use context.services.capture instead via dependency injection
  */
 export function initCaptureService(
   deps: CaptureServiceDeps,
@@ -511,7 +526,7 @@ export function resetCaptureService(): void {
 }
 
 // Re-export types and utilities
-export { getCaptureStateManager, resetCaptureStateManager } from './state.js';
+export { CaptureStateManager, getCaptureStateManager, resetCaptureStateManager } from './state.js';
 export type {
   TurnData,
   TurnMetrics,

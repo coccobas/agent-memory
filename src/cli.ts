@@ -7,12 +7,13 @@
 process.env.DOTENV_CONFIG_QUIET = 'true';
 
 import { parseServerMode } from './utils/server-mode.js';
+import { createValidationError } from './core/errors.js';
 
 async function importAndRun(modulePath: string): Promise<void> {
   // Avoid static imports so we can build MCP-only, REST-only, or both.
   const mod = (await import(modulePath)) as { runServer?: () => Promise<void> };
   if (typeof mod.runServer !== 'function') {
-    throw new Error(`Module ${modulePath} does not export runServer()`);
+    throw createValidationError('module', `${modulePath} does not export runServer()`);
   }
   await mod.runServer();
 }

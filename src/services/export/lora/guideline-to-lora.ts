@@ -14,6 +14,7 @@ import {
   type Guideline,
   type GuidelineVersion,
 } from '../../../db/schema.js';
+import { createValidationError } from '../../../core/errors.js';
 import { eq, and, gte, lte, inArray, isNull } from 'drizzle-orm';
 import type {
   GuidelineData,
@@ -351,7 +352,7 @@ export class GuidelineToLoRAConverter {
         }));
 
       default:
-        throw new Error(`Unsupported format: ${format}`);
+        throw createValidationError('format', `unsupported format: ${format}`, 'Use alpaca, openai-messages, sharegpt, or anthropic-prompts');
     }
   }
 

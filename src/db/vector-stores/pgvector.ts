@@ -11,6 +11,7 @@ import {
   createVectorDbError,
   createVectorNotInitializedError,
   createVectorInvalidInputError,
+  createValidationError,
 } from '../../core/errors.js';
 import type { IVectorStore } from '../../core/interfaces/vector-store.js';
 import type {
@@ -43,8 +44,10 @@ const INDEX_OPS: Record<DistanceMetric, string> = {
  */
 function validateDimension(dimension: unknown): number {
   if (typeof dimension !== 'number' || !Number.isInteger(dimension) || dimension < 1 || dimension > 10000) {
-    throw new Error(
-      `Invalid embedding dimension: ${dimension}. Must be integer between 1 and 10000.`
+    throw createValidationError(
+      'dimension',
+      `invalid embedding dimension: ${dimension}`,
+      'Must be an integer between 1 and 10000'
     );
   }
   return dimension;

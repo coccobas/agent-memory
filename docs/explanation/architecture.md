@@ -2,6 +2,8 @@
 
 Agent Memory is a structured memory backend for AI agents. It exposes a Model Context Protocol (MCP) interface and an optional REST API.
 
+For the canonical system-wide architecture (including mandatory architecture guidelines), see `architecture_final.md` at the project root.
+
 ## Components
 
 ```
@@ -165,6 +167,7 @@ See [Adapter System](adapter-system.md) for details.
 
 ## See Also
 
+- `architecture_final.md` (project root) - Canonical architecture + mandatory guidelines
 - [Data Model](data-model.md) - Entry types, scopes, inheritance
 - [Security Model](security-model.md) - Authentication and permissions
 - [Adapter System](adapter-system.md) - Multi-backend abstraction

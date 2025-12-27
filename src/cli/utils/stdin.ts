@@ -4,6 +4,8 @@
  * Provides utilities for reading from stdin (for bulk operations and piped content).
  */
 
+import { createValidationError } from '../../core/errors.js';
+
 /**
  * Read from stdin (for bulk operations and piped content)
  */
@@ -39,6 +41,6 @@ export async function readStdinJson<T>(): Promise<T | undefined> {
   try {
     return JSON.parse(data) as T;
   } catch {
-    throw new Error(`Invalid JSON from stdin: ${data.slice(0, 100)}...`);
+    throw createValidationError('stdin', `invalid JSON format: ${data.slice(0, 100)}...`);
   }
 }

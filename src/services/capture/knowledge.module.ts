@@ -20,7 +20,7 @@ import type {
 } from './types.js';
 import type { Knowledge, Guideline, Tool } from '../../db/schema.js';
 import type { IKnowledgeRepository, IGuidelineRepository, IToolRepository } from '../../core/interfaces/repositories.js';
-import { getCaptureStateManager } from './state.js';
+import { CaptureStateManager } from './state.js';
 
 const logger = createComponentLogger('capture:knowledge');
 
@@ -33,6 +33,8 @@ export interface KnowledgeModuleDeps {
   guidelineRepo: IGuidelineRepository;
   toolRepo: IToolRepository;
   extractionService?: ExtractionService;
+  /** State manager for capture threshold tracking - injected by CaptureService */
+  stateManager?: CaptureStateManager;
 }
 
 // =============================================================================
@@ -44,13 +46,17 @@ export class KnowledgeCaptureModule implements CaptureModule<KnowledgeCaptureRes
   private knowledgeRepo: IKnowledgeRepository;
   private guidelineRepo: IGuidelineRepository;
   private toolRepo: IToolRepository;
-  private stateManager = getCaptureStateManager();
+  private stateManager: CaptureStateManager;
 
   constructor(deps: KnowledgeModuleDeps) {
+    if (!deps.stateManager) {
+      throw new Error('KnowledgeCaptureModule requires stateManager to be provided');
+    }
     this.extractionService = deps.extractionService ?? new ExtractionService();
     this.knowledgeRepo = deps.knowledgeRepo;
     this.guidelineRepo = deps.guidelineRepo;
     this.toolRepo = deps.toolRepo;
+    this.stateManager = deps.stateManager;
   }
 
   /**

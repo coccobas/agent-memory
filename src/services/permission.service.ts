@@ -12,6 +12,7 @@ import type { ScopeType, PermissionEntryType, EntryType } from '../db/schema.js'
 import { createComponentLogger } from '../utils/logger.js';
 import { LRUCache } from '../utils/lru-cache.js';
 import type { MemoryCoordinator } from '../core/memory-coordinator.js';
+import { createValidationError } from '../core/errors.js';
 
 // =============================================================================
 // TYPES
@@ -226,9 +227,10 @@ export class PermissionService {
 
     // SECURITY: Block permissive mode in production
     if (process.env.NODE_ENV === 'production') {
-      throw new Error(
-        'SECURITY: AGENT_MEMORY_PERMISSIONS_MODE=permissive is FORBIDDEN in production. ' +
-          'Remove this environment variable and configure explicit permissions.'
+      throw createValidationError(
+        'AGENT_MEMORY_PERMISSIONS_MODE',
+        'permissive mode is FORBIDDEN in production',
+        'Remove this environment variable and configure explicit permissions'
       );
     }
 

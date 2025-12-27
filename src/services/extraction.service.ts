@@ -13,11 +13,20 @@ import Anthropic from '@anthropic-ai/sdk';
 import { createComponentLogger } from '../utils/logger.js';
 import { withRetry, isRetryableNetworkError } from '../utils/retry.js';
 import { config } from '../config/index.js';
+import {
+  createValidationError,
+  createExtractionError,
+  createSizeLimitError,
+  createServiceUnavailableError,
+} from '../core/errors.js';
 
 const logger = createComponentLogger('extraction');
 
 // Security: Maximum context size to prevent DoS and API quota exhaustion
 const MAX_CONTEXT_LENGTH = 100000; // 100KB limit
+
+// Extraction timeout to prevent hanging requests (30 seconds)
+const EXTRACTION_TIMEOUT_MS = 30000;
 
 // Security: Allowed OpenAI-compatible hosts (add your approved hosts here)
 // localhost only allowed in development mode, not production
@@ -44,7 +53,7 @@ function validateExternalUrl(urlString: string, allowPrivate: boolean = false): 
 
   // Check protocol
   if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-    throw new Error(`Invalid URL scheme: ${url.protocol}. Only http/https allowed.`);
+    throw createValidationError('url', `invalid scheme: ${url.protocol}. Only http/https allowed`);
   }
 
   if (!allowPrivate) {
@@ -53,8 +62,9 @@ function validateExternalUrl(urlString: string, allowPrivate: boolean = false): 
 
     // Security: Block integer IP format before pattern checks
     if (isIntegerIpFormat(hostname)) {
-      throw new Error(
-        `SSRF protection: Integer IP format not allowed: ${hostname}. Use standard dotted notation.`
+      throw createValidationError(
+        'hostname',
+        `SSRF protection: Integer IP format not allowed: ${hostname}. Use standard dotted notation`
       );
     }
 
@@ -80,13 +90,13 @@ function validateExternalUrl(urlString: string, allowPrivate: boolean = false): 
 
     for (const pattern of privatePatterns) {
       if (pattern.test(hostname)) {
-        throw new Error(`SSRF protection: Private/internal addresses not allowed: ${hostname}`);
+        throw createValidationError('hostname', `SSRF protection: Private/internal addresses not allowed: ${hostname}`);
       }
     }
 
     for (const pattern of ipv6PrivatePatterns) {
       if (pattern.test(hostname)) {
-        throw new Error(`SSRF protection: Private/internal IPv6 addresses not allowed: ${hostname}`);
+        throw createValidationError('hostname', `SSRF protection: Private IPv6 addresses not allowed: ${hostname}`);
       }
     }
   }
@@ -118,7 +128,7 @@ async function readResponseWithLimit(
 ): Promise<string> {
   const reader = response.body?.getReader();
   if (!reader) {
-    throw new Error('Response body is not readable');
+    throw createExtractionError('response', 'body is not readable');
   }
 
   const decoder = new TextDecoder();
@@ -135,9 +145,7 @@ async function readResponseWithLimit(
       // Security: Abort if response exceeds size limit
       if (totalBytes > maxSizeBytes) {
         abortController.abort();
-        throw new Error(
-          `Response exceeds maximum size of ${maxSizeBytes} bytes (received ${totalBytes} bytes)`
-        );
+        throw createSizeLimitError('response', maxSizeBytes, totalBytes, 'bytes');
       }
 
       chunks.push(decoder.decode(value, { stream: true }));
@@ -168,9 +176,9 @@ function validateOpenAIBaseUrl(baseUrl: string | undefined): void {
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
     const isProduction = process.env.NODE_ENV === 'production';
     if (isProduction) {
-      throw new Error(
-        `SSRF protection: localhost/127.0.0.1 not allowed in production. ` +
-          `Use a public hostname or deploy with NODE_ENV !== 'production' for development.`
+      throw createValidationError(
+        'baseUrl',
+        'SSRF protection: localhost/127.0.0.1 not allowed in production. Use a public hostname or deploy with NODE_ENV !== production for development'
       );
     }
     logger.debug({ baseUrl }, 'Using local OpenAI-compatible endpoint (development mode)');
@@ -181,10 +189,9 @@ function validateOpenAIBaseUrl(baseUrl: string | undefined): void {
   if (!ALLOWED_OPENAI_HOSTS.includes(hostname)) {
     // Strict mode: block non-allowlisted hosts (recommended for production)
     if (config.extraction.strictBaseUrlAllowlist) {
-      throw new Error(
-        `OpenAI base URL not allowed: ${hostname}. ` +
-          `Allowed hosts: ${ALLOWED_OPENAI_HOSTS.join(', ')}. ` +
-          `Set AGENT_MEMORY_EXTRACTION_STRICT_ALLOWLIST=false to allow custom hosts.`
+      throw createValidationError(
+        'baseUrl',
+        `not in allowlist: ${hostname}. Allowed hosts: ${ALLOWED_OPENAI_HOSTS.join(', ')}. Set AGENT_MEMORY_EXTRACTION_STRICT_ALLOWLIST=false to allow custom hosts`
       );
     }
 
@@ -450,9 +457,9 @@ export class ExtractionService {
     // Security: Validate Ollama model name to prevent injection
     const rawOllamaModel = effectiveConfig.ollamaModel;
     if (!isValidModelName(rawOllamaModel)) {
-      throw new Error(
-        `Invalid Ollama model name: "${rawOllamaModel}". ` +
-          'Model names must only contain alphanumeric characters, hyphens, underscores, colons, and dots.'
+      throw createValidationError(
+        'ollamaModel',
+        `invalid model name: "${rawOllamaModel}". Must only contain alphanumeric characters, hyphens, underscores, colons, and dots`
       );
     }
     this.ollamaModel = rawOllamaModel;
@@ -495,6 +502,30 @@ export class ExtractionService {
   }
 
   /**
+   * Run a promise with a timeout
+   *
+   * @param promise - Promise to wrap with timeout
+   * @param timeoutMs - Timeout in milliseconds
+   * @param operation - Operation name for error message
+   * @returns Promise result or throws timeout error
+   */
+  private async withTimeout<T>(promise: Promise<T>, timeoutMs: number, operation: string): Promise<T> {
+    let timeoutId: ReturnType<typeof setTimeout>;
+
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => {
+        reject(createExtractionError(operation, `timed out after ${timeoutMs}ms`, { timeoutMs }));
+      }, timeoutMs);
+    });
+
+    try {
+      return await Promise.race([promise, timeoutPromise]);
+    } finally {
+      clearTimeout(timeoutId!);
+    }
+  }
+
+  /**
    * Extract memory entries from context
    */
   async extract(input: ExtractionInput): Promise<ExtractionResult> {
@@ -511,15 +542,12 @@ export class ExtractionService {
 
     // Validate input
     if (!input.context || input.context.trim().length === 0) {
-      throw new Error('Cannot extract from empty context');
+      throw createValidationError('context', 'cannot be empty');
     }
 
     // Security: Prevent DoS and API quota exhaustion with large context
     if (input.context.length > MAX_CONTEXT_LENGTH) {
-      throw new Error(
-        `Context exceeds maximum length of ${MAX_CONTEXT_LENGTH} characters (got ${input.context.length}). ` +
-          `Truncate or summarize the context before extraction.`
-      );
+      throw createSizeLimitError('context', MAX_CONTEXT_LENGTH, input.context.length, 'characters');
     }
 
     const startTime = Date.now();
@@ -527,18 +555,31 @@ export class ExtractionService {
     try {
       let result: ExtractionResult;
 
+      // Wrap provider calls with timeout to prevent hanging requests
       switch (this.provider) {
         case 'openai':
-          result = await this.extractOpenAI(input);
+          result = await this.withTimeout(
+            this.extractOpenAI(input),
+            EXTRACTION_TIMEOUT_MS,
+            'OpenAI extraction'
+          );
           break;
         case 'anthropic':
-          result = await this.extractAnthropic(input);
+          result = await this.withTimeout(
+            this.extractAnthropic(input),
+            EXTRACTION_TIMEOUT_MS,
+            'Anthropic extraction'
+          );
           break;
         case 'ollama':
-          result = await this.extractOllama(input);
+          result = await this.withTimeout(
+            this.extractOllama(input),
+            EXTRACTION_TIMEOUT_MS,
+            'Ollama extraction'
+          );
           break;
         default:
-          throw new Error(`Unknown extraction provider: ${String(this.provider)}`);
+          throw createValidationError('provider', `unknown extraction provider: ${String(this.provider)}`);
       }
 
       result.processingTimeMs = Date.now() - startTime;
@@ -572,7 +613,7 @@ export class ExtractionService {
   private async extractOpenAI(input: ExtractionInput): Promise<ExtractionResult> {
     const client = this.openaiClient;
     if (!client) {
-      throw new Error('OpenAI client not initialized. Check AGENT_MEMORY_OPENAI_API_KEY.');
+      throw createServiceUnavailableError('OpenAI', 'client not initialized. Check AGENT_MEMORY_OPENAI_API_KEY');
     }
 
     return withRetry(
@@ -590,7 +631,7 @@ export class ExtractionService {
 
         const content = response.choices[0]?.message?.content;
         if (!content) {
-          throw new Error('No content returned from OpenAI');
+          throw createExtractionError('openai', 'no content returned in response');
         }
 
         const parsed = this.parseExtractionResponse(content);
@@ -620,7 +661,7 @@ export class ExtractionService {
   private async extractAnthropic(input: ExtractionInput): Promise<ExtractionResult> {
     const client = this.anthropicClient;
     if (!client) {
-      throw new Error('Anthropic client not initialized. Check AGENT_MEMORY_ANTHROPIC_API_KEY.');
+      throw createServiceUnavailableError('Anthropic', 'client not initialized. Check AGENT_MEMORY_ANTHROPIC_API_KEY');
     }
 
     return withRetry(
@@ -635,7 +676,7 @@ export class ExtractionService {
         // Extract text content from response
         const textBlock = response.content.find((block) => block.type === 'text');
         if (!textBlock || textBlock.type !== 'text') {
-          throw new Error('No text content returned from Anthropic');
+          throw createExtractionError('anthropic', 'no text content returned in response');
         }
 
         const parsed = this.parseExtractionResponse(textBlock.text);
@@ -697,7 +738,7 @@ export class ExtractionService {
           });
 
           if (!response.ok) {
-            throw new Error(`Ollama request failed: ${response.status} ${response.statusText}`);
+            throw createExtractionError('ollama', `request failed: ${response.status} ${response.statusText}`);
           }
 
           // Security: Stream response with size limit to prevent memory exhaustion
@@ -710,7 +751,7 @@ export class ExtractionService {
 
           const data = JSON.parse(responseText) as { response: string };
           if (!data.response) {
-            throw new Error('No response from Ollama');
+            throw createExtractionError('ollama', 'no response in data');
           }
 
           const parsed = this.parseExtractionResponse(data.response);

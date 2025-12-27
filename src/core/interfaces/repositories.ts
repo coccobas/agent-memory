@@ -179,6 +179,8 @@ export interface IProjectRepository {
 // =============================================================================
 
 export interface CreateSessionInput {
+  /** Optional custom ID. If not provided, a new ID is generated. */
+  id?: string;
   projectId?: string;
   name?: string;
   purpose?: string;
@@ -709,6 +711,235 @@ export interface IExperienceRepository {
 }
 
 // =============================================================================
+// ANALYTICS REPOSITORY
+// =============================================================================
+
+/**
+ * Parameters for usage statistics queries
+ */
+export interface UsageStatsParams {
+  scopeType?: ScopeType;
+  scopeId?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+/**
+ * Usage statistics result
+ */
+export interface UsageStats {
+  mostQueriedEntries: Array<{ entryId: string; entryType: EntryType; queryCount: number }>;
+  queryFrequency: Array<{ date: string; count: number }>;
+  tagPopularity: Array<{ tagId: string; tagName: string; usageCount: number }>;
+  scopeUsage: Record<ScopeType, number>;
+  searchQueries: Array<{ query: string; count: number }>;
+  actionBreakdown: Array<{ action: string; count: number }>;
+  entryTypeBreakdown: Array<{ entryType: EntryType | null; count: number }>;
+}
+
+/**
+ * Trend data for a single day
+ */
+export interface TrendData {
+  date: string;
+  queries: number;
+  creates: number;
+  updates: number;
+  deletes: number;
+  total: number;
+}
+
+/**
+ * Parameters for subtask statistics queries
+ */
+export interface SubtaskStatsParams {
+  projectId?: string;
+  subtaskType?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+/**
+ * Subtask statistics result
+ */
+export interface SubtaskStats {
+  subtasks: Array<{
+    subtaskType: string;
+    total: number;
+    completed: number;
+    failed: number;
+    successRate: number;
+  }>;
+  totalSubtasks: number;
+  completedSubtasks: number;
+  failedSubtasks: number;
+}
+
+export interface IAnalyticsRepository {
+  /**
+   * Get usage statistics from audit log
+   */
+  getUsageStats(params?: UsageStatsParams): Promise<UsageStats>;
+
+  /**
+   * Get trend data over time
+   */
+  getTrends(params?: UsageStatsParams): Promise<TrendData[]>;
+
+  /**
+   * Get subtask execution analytics
+   */
+  getSubtaskStats(params?: SubtaskStatsParams): Promise<SubtaskStats>;
+}
+
+// =============================================================================
+// VOTING REPOSITORY
+// =============================================================================
+
+/**
+ * Input for recording a vote
+ */
+export interface RecordVoteInput {
+  taskId: string;
+  agentId: string;
+  voteValue: unknown;
+  confidence?: number;
+  reasoning?: string;
+}
+
+/**
+ * Vote record
+ */
+export interface VoteRecord {
+  id: string;
+  taskId: string;
+  agentId: string;
+  voteValue: unknown;
+  confidence: number;
+  reasoning: string | null;
+  createdAt: string;
+}
+
+export interface IVotingRepository {
+  /**
+   * Record a vote from an agent for a task
+   * Uses upsert to handle duplicate votes from the same agent
+   */
+  recordVote(input: RecordVoteInput): Promise<void>;
+
+  /**
+   * Get all votes for a task
+   */
+  getVotesForTask(taskId: string): Promise<VoteRecord[]>;
+}
+
+// =============================================================================
+// VERIFICATION REPOSITORY
+// =============================================================================
+
+/**
+ * Verification rules stored in guideline versions
+ */
+export interface VerificationRules {
+  filePatterns?: string[];
+  contentPatterns?: string[];
+  forbiddenActions?: string[];
+  requiredPatterns?: string[];
+}
+
+/**
+ * Input for creating a guideline acknowledgment
+ */
+export interface CreateAcknowledgmentInput {
+  sessionId: string;
+  guidelineId: string;
+  acknowledgedBy?: string;
+}
+
+/**
+ * Guideline acknowledgment record
+ */
+export interface SessionGuidelineAcknowledgment {
+  id: string;
+  sessionId: string;
+  guidelineId: string;
+  acknowledgedBy: string | null;
+  acknowledgedAt: string;
+}
+
+/**
+ * Input for logging a verification action
+ */
+export interface LogVerificationInput {
+  sessionId: string | null;
+  actionType: 'pre_check' | 'post_check' | 'acknowledge';
+  proposedAction: {
+    type: string;
+    description?: string;
+    filePath?: string;
+    content?: string;
+    metadata?: Record<string, unknown>;
+  };
+  result: {
+    allowed: boolean;
+    blocked: boolean;
+    violations: Array<{
+      guidelineId: string;
+      guidelineName: string;
+      severity: 'critical' | 'warning';
+      message: string;
+      suggestedAction?: string;
+    }>;
+    warnings: string[];
+    requiresConfirmation: boolean;
+    confirmationPrompt?: string;
+  };
+  guidelineIds: string[];
+  createdBy?: string;
+}
+
+/**
+ * Verification log record
+ */
+export interface VerificationLogEntry {
+  id: string;
+  sessionId: string | null;
+  actionType: 'pre_check' | 'post_check' | 'acknowledge';
+  proposedAction: Record<string, unknown>;
+  result: Record<string, unknown>;
+  guidelineIds: string[];
+  createdBy: string | null;
+  createdAt: string;
+}
+
+export interface IVerificationRepository {
+  /**
+   * Create a guideline acknowledgment for a session
+   */
+  createAcknowledgment(input: CreateAcknowledgmentInput): Promise<SessionGuidelineAcknowledgment>;
+
+  /**
+   * Get all acknowledged guideline IDs for a session
+   */
+  getAcknowledgedGuidelineIds(sessionId: string): Promise<string[]>;
+
+  /**
+   * Log a verification action (pre_check, post_check, acknowledge)
+   */
+  logVerification(input: LogVerificationInput): Promise<VerificationLogEntry>;
+
+  /**
+   * Get verification rules for a guideline
+   */
+  getVerificationRules(guidelineId: string): Promise<VerificationRules | null>;
+
+  /**
+   * Get project ID for a session
+   */
+  getProjectIdForSession(sessionId: string): Promise<string | null>;
+}
+
+// =============================================================================
 // AGGREGATED REPOSITORIES TYPE
 // =============================================================================
 
@@ -729,4 +960,7 @@ export interface Repositories {
   conversations: IConversationRepository;
   conflicts: IConflictRepository;
   experiences: IExperienceRepository;
+  verification?: IVerificationRepository;
+  voting?: IVotingRepository;
+  analytics?: IAnalyticsRepository;
 }

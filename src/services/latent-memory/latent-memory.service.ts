@@ -18,6 +18,10 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import { createComponentLogger } from '../../utils/logger.js';
+import {
+  createServiceUnavailableError,
+  createValidationError,
+} from '../../core/errors.js';
 import type { EmbeddingService } from '../embedding.service.js';
 import type { VectorService } from '../vector.service.js';
 import type { LatentMemory } from '../../db/schema/latent-memories.js';
@@ -265,7 +269,7 @@ export class LatentMemoryService {
    */
   async createLatentMemory(input: CreateLatentMemoryInput): Promise<LatentMemory> {
     if (!this.isAvailable()) {
-      throw new Error('LatentMemoryService is not available (embeddings or vectors disabled)');
+      throw createServiceUnavailableError('LatentMemoryService', 'embeddings or vectors disabled');
     }
 
     const {
@@ -468,7 +472,7 @@ export class LatentMemoryService {
    */
   async findSimilar(query: string, options: FindSimilarOptions = {}): Promise<SimilarLatentMemory[]> {
     if (!this.isAvailable()) {
-      throw new Error('LatentMemoryService is not available (embeddings or vectors disabled)');
+      throw createServiceUnavailableError('LatentMemoryService', 'embeddings or vectors disabled');
     }
 
     const { limit = 20, minScore = 0.0, sourceTypes, sessionId } = options;
@@ -604,7 +608,7 @@ export class LatentMemoryService {
     }
 
     if (score < 0 || score > 1) {
-      throw new Error(`Invalid importance score: ${score} (must be 0-1)`);
+      throw createValidationError('importanceScore', `must be between 0 and 1, got ${score}`);
     }
 
     try {
@@ -635,7 +639,7 @@ export class LatentMemoryService {
     }
 
     if (staleDays <= 0) {
-      throw new Error(`Invalid staleDays: ${staleDays} (must be > 0)`);
+      throw createValidationError('staleDays', `must be greater than 0, got ${staleDays}`);
     }
 
     logger.info({ staleDays }, 'Pruning stale latent memories');

@@ -14,6 +14,7 @@ import type { IStorageAdapter } from './interfaces.js';
 import type { Config } from '../../config/index.js';
 import type { PostgreSQLAppDb } from '../types.js';
 import { createComponentLogger } from '../../utils/logger.js';
+import { createValidationError, createServiceUnavailableError } from '../errors.js';
 
 const logger = createComponentLogger('pg-adapter');
 
@@ -101,9 +102,10 @@ export class PostgreSQLStorageAdapter implements IStorageAdapter {
     // Security validation: enforce SSL certificate validation in production
     const isProduction = process.env.NODE_ENV === 'production';
     if (isProduction && this.config.ssl && !this.config.sslRejectUnauthorized) {
-      throw new Error(
-        'SECURITY ERROR: SSL certificate validation (sslRejectUnauthorized) must be enabled in production. ' +
-          'Set AGENT_MEMORY_PG_SSL_REJECT_UNAUTHORIZED=true or disable production mode.'
+      throw createValidationError(
+        'sslRejectUnauthorized',
+        'SSL certificate validation must be enabled in production',
+        'Set AGENT_MEMORY_PG_SSL_REJECT_UNAUTHORIZED=true or disable production mode'
       );
     }
 
@@ -198,7 +200,7 @@ export class PostgreSQLStorageAdapter implements IStorageAdapter {
    */
   async executeRaw<T>(sql: string, params?: unknown[]): Promise<T[]> {
     if (!this.pool) {
-      throw new Error('PostgreSQL adapter not connected');
+      throw createServiceUnavailableError('PostgreSQL adapter', 'not connected');
     }
     // Use transaction client if we're inside a transaction, otherwise use pool
     const queryable = this.transactionClient ?? this.pool;
@@ -224,7 +226,7 @@ export class PostgreSQLStorageAdapter implements IStorageAdapter {
    */
   async transaction<T>(fn: () => Promise<T>): Promise<T> {
     if (!this.pool) {
-      throw new Error('PostgreSQL adapter not connected');
+      throw createServiceUnavailableError('PostgreSQL adapter', 'not connected');
     }
 
     const { maxRetries, initialDelayMs, maxDelayMs, backoffMultiplier } = DEFAULT_PG_RETRY_CONFIG;
@@ -297,7 +299,7 @@ export class PostgreSQLStorageAdapter implements IStorageAdapter {
    */
   getDb(): PostgreSQLAppDb {
     if (!this.db) {
-      throw new Error('PostgreSQL adapter not connected');
+      throw createServiceUnavailableError('PostgreSQL adapter', 'not connected');
     }
     return this.db;
   }
@@ -308,7 +310,7 @@ export class PostgreSQLStorageAdapter implements IStorageAdapter {
    */
   getRawConnection(): Pool {
     if (!this.pool) {
-      throw new Error('PostgreSQL adapter not connected');
+      throw createServiceUnavailableError('PostgreSQL adapter', 'not connected');
     }
     return this.pool;
   }

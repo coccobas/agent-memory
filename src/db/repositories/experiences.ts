@@ -52,6 +52,11 @@ import type {
   RecordOutcomeInput,
   PromoteToSkillResult,
 } from '../../core/interfaces/repositories.js';
+import {
+  createNotFoundError,
+  createValidationError,
+  createConflictError,
+} from '../../core/errors.js';
 
 // Re-export types for backward compatibility
 export type {
@@ -162,7 +167,7 @@ export function createExperienceRepository(deps: DatabaseDeps): IExperienceRepos
 
         const result = getByIdSync(experienceId, true);
         if (!result) {
-          throw new Error(`Failed to create experience entry ${experienceId}`);
+          throw createConflictError('experience', `failed to create entry ${experienceId}`);
         }
 
         // Generate embedding asynchronously (fire-and-forget)
@@ -393,7 +398,7 @@ export function createExperienceRepository(deps: DatabaseDeps): IExperienceRepos
       return await transactionWithRetry(sqlite, () => {
         const experience = getByIdSync(experienceId);
         if (!experience || !experience.currentVersion) {
-          throw new Error(`Experience ${experienceId} not found or has no current version`);
+          throw createNotFoundError('experience', experienceId);
         }
 
         // Get current max step number
@@ -428,7 +433,7 @@ export function createExperienceRepository(deps: DatabaseDeps): IExperienceRepos
           .get();
 
         if (!created) {
-          throw new Error('Failed to create trajectory step');
+          throw createConflictError('trajectoryStep', 'failed to create step');
         }
 
         return created;
@@ -453,13 +458,13 @@ export function createExperienceRepository(deps: DatabaseDeps): IExperienceRepos
       return await transactionWithRetry(sqlite, () => {
         const existing = getByIdSync(id);
         if (!existing) {
-          throw new Error(`Experience ${id} not found`);
+          throw createNotFoundError('experience', id);
         }
 
         if (input.toLevel === 'strategy') {
           // Case → Strategy promotion
           if (existing.level !== 'case') {
-            throw new Error('Can only promote case-level experiences to strategy');
+            throw createValidationError('level', 'can only promote case-level experiences to strategy');
           }
 
           // Create new strategy experience linked to this one
@@ -511,18 +516,18 @@ export function createExperienceRepository(deps: DatabaseDeps): IExperienceRepos
 
           const result = getByIdSync(strategyId);
           if (!result) {
-            throw new Error('Failed to create strategy experience');
+            throw createConflictError('experience', 'failed to create strategy experience');
           }
 
           return { experience: result };
         } else if (input.toLevel === 'skill') {
           // Strategy → Skill promotion (creates linked memory_tool)
           if (existing.level !== 'strategy') {
-            throw new Error('Can only promote strategy-level experiences to skill');
+            throw createValidationError('level', 'can only promote strategy-level experiences to skill');
           }
 
           if (!input.toolName) {
-            throw new Error('toolName is required for skill promotion');
+            throw createValidationError('toolName', 'is required for skill promotion');
           }
 
           // Create the linked tool
@@ -570,7 +575,7 @@ export function createExperienceRepository(deps: DatabaseDeps): IExperienceRepos
 
           const updatedExperience = getByIdSync(id);
           if (!updatedExperience) {
-            throw new Error('Failed to update experience with tool link');
+            throw createConflictError('experience', 'failed to update with tool link');
           }
 
           return {
@@ -584,7 +589,7 @@ export function createExperienceRepository(deps: DatabaseDeps): IExperienceRepos
           };
         }
 
-        throw new Error(`Invalid promotion level: ${input.toLevel}`);
+        throw createValidationError('toLevel', `invalid promotion level: ${input.toLevel}`);
       });
     },
 

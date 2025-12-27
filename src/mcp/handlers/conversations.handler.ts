@@ -24,7 +24,7 @@ import {
 import { formatTimestamps } from '../../utils/timestamp-formatter.js';
 import type { PermissionEntryType } from '../../db/schema.js';
 import { requirePermission } from '../helpers/permissions.js';
-import { getCaptureService, type TurnData } from '../../services/capture/index.js';
+import type { TurnData } from '../../services/capture/index.js';
 import { createComponentLogger } from '../../utils/logger.js';
 
 const logger = createComponentLogger('conversations');
@@ -192,7 +192,7 @@ export const conversationHandlers = {
 
     // Trigger capture service on turn complete (non-blocking)
     if (conversation.sessionId) {
-      const captureService = getCaptureService();
+      const captureService = context.services.capture;
       if (captureService) {
         // Map 'agent' role to 'assistant' for capture service
         const turnRole = role === 'agent' ? 'assistant' : role;

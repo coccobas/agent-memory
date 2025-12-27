@@ -19,6 +19,7 @@ import {
 } from '../../db/schema.js';
 import { generateId } from '../../db/repositories/base.js';
 import type { EntryForConsolidation } from './types.js';
+import { createNotFoundError } from '../../core/errors.js';
 
 // =============================================================================
 // ENTRY FETCHING
@@ -326,7 +327,7 @@ export function updateEntryContent(
 ): void {
   if (entryType === 'guideline') {
     const entry = db.select().from(guidelines).where(eq(guidelines.id, id)).get();
-    if (!entry) throw new Error(`Guideline ${id} not found`);
+    if (!entry) throw createNotFoundError('Guideline', id);
 
     const currentVersion = entry.currentVersionId
       ? db
@@ -357,7 +358,7 @@ export function updateEntryContent(
       .run();
   } else if (entryType === 'knowledge') {
     const entry = db.select().from(knowledge).where(eq(knowledge.id, id)).get();
-    if (!entry) throw new Error(`Knowledge ${id} not found`);
+    if (!entry) throw createNotFoundError('Knowledge', id);
 
     const currentVersion = entry.currentVersionId
       ? db
@@ -387,7 +388,7 @@ export function updateEntryContent(
     db.update(knowledge).set({ currentVersionId: newVersionId }).where(eq(knowledge.id, id)).run();
   } else if (entryType === 'tool') {
     const entry = db.select().from(tools).where(eq(tools.id, id)).get();
-    if (!entry) throw new Error(`Tool ${id} not found`);
+    if (!entry) throw createNotFoundError('Tool', id);
 
     const currentVersion = entry.currentVersionId
       ? db.select().from(toolVersions).where(eq(toolVersions.id, entry.currentVersionId)).get()

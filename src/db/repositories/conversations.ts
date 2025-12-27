@@ -16,6 +16,7 @@ import {
 } from '../schema.js';
 import { generateId, type PaginationOptions, DEFAULT_LIMIT, MAX_LIMIT } from './base.js';
 import type { DatabaseDeps } from '../../core/types.js';
+import { createConflictError } from '../../core/errors.js';
 import type {
   IConversationRepository,
   CreateConversationInput,
@@ -101,7 +102,7 @@ export function createConversationRepository(deps: DatabaseDeps): IConversationR
 
         const result = getByIdSync(conversationId);
         if (!result) {
-          throw new Error(`Failed to create conversation ${conversationId}`);
+          throw createConflictError('conversation', `failed to create with id ${conversationId}`);
         }
 
         return result;
@@ -251,7 +252,7 @@ export function createConversationRepository(deps: DatabaseDeps): IConversationR
           .get();
 
         if (!result) {
-          throw new Error(`Failed to create message ${messageId}`);
+          throw createConflictError('message', `failed to create with id ${messageId}`);
         }
 
         return result;
@@ -321,7 +322,7 @@ export function createConversationRepository(deps: DatabaseDeps): IConversationR
               .where(eq(conversationContext.id, existing.id))
               .get();
             if (!updated) {
-              throw new Error(`Failed to update context link ${existing.id}`);
+              throw createConflictError('context_link', `failed to update with id ${existing.id}`);
             }
             return updated;
           }
@@ -338,7 +339,7 @@ export function createConversationRepository(deps: DatabaseDeps): IConversationR
           .get();
 
         if (!result) {
-          throw new Error(`Failed to create context link ${contextId}`);
+          throw createConflictError('context_link', `failed to create with id ${contextId}`);
         }
 
         return result;

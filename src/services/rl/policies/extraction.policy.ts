@@ -27,12 +27,14 @@ export class ExtractionPolicy extends BasePolicy<ExtractionState, ExtractionActi
   }
 
   /**
-   * Make extraction decision using learned model
-   * For now, this calls the fallback until models are trained
+   * Make extraction decision using learned model.
+   * Currently uses rule-based fallback until trained models are available.
+   *
+   * @todo Implement model inference when trained models are available.
+   *       Load model via ModelLoader, run inference on state features,
+   *       and return learned policy decision instead of fallback rules.
    */
   async decide(state: ExtractionState): Promise<PolicyDecision<ExtractionAction>> {
-    // TODO: Implement model inference when trained models are available
-    // For now, use fallback rules
     return this.getFallback()(state);
   }
 

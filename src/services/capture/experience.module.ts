@@ -13,6 +13,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { createComponentLogger } from '../../utils/logger.js';
 import { withRetry, isRetryableNetworkError } from '../../utils/retry.js';
 import { config } from '../../config/index.js';
+import { createServiceUnavailableError } from '../../core/errors.js';
 import type {
   TurnData,
   TurnMetrics,
@@ -25,7 +26,7 @@ import type {
 } from './types.js';
 import type { IExperienceRepository, CreateExperienceInput } from '../../core/interfaces/repositories.js';
 import type { Experience } from '../../db/schema.js';
-import { getCaptureStateManager } from './state.js';
+import { CaptureStateManager } from './state.js';
 
 const logger = createComponentLogger('capture:experience');
 
@@ -111,13 +112,15 @@ export class ExperienceCaptureModule implements CaptureModule<ExperienceCaptureR
   private openaiClient: OpenAI | null = null;
   private anthropicClient: Anthropic | null = null;
   private experienceRepo: IExperienceRepository;
-  private stateManager = getCaptureStateManager();
+  private stateManager: CaptureStateManager;
 
   constructor(
     experienceRepo: IExperienceRepository,
+    stateManager: CaptureStateManager,
     providerOverride?: ExperienceExtractionProvider
   ) {
     this.experienceRepo = experienceRepo;
+    this.stateManager = stateManager;
     this.provider = providerOverride ?? (config.extraction.provider as ExperienceExtractionProvider);
 
     // Initialize clients based on provider
@@ -394,7 +397,7 @@ export class ExperienceCaptureModule implements CaptureModule<ExperienceCaptureR
    */
   private async extractWithOpenAI(context: string): Promise<ExtractedExperience[]> {
     if (!this.openaiClient) {
-      throw new Error('OpenAI client not initialized');
+      throw createServiceUnavailableError('OpenAI', 'Client not initialized - check OPENAI_API_KEY configuration');
     }
 
     return withRetry(
@@ -431,7 +434,7 @@ export class ExperienceCaptureModule implements CaptureModule<ExperienceCaptureR
    */
   private async extractWithAnthropic(context: string): Promise<ExtractedExperience[]> {
     if (!this.anthropicClient) {
-      throw new Error('Anthropic client not initialized');
+      throw createServiceUnavailableError('Anthropic', 'Client not initialized - check ANTHROPIC_API_KEY configuration');
     }
 
     return withRetry(
@@ -485,7 +488,7 @@ export class ExperienceCaptureModule implements CaptureModule<ExperienceCaptureR
         });
 
         if (!response.ok) {
-          throw new Error(`Ollama request failed: ${response.status}`);
+          throw createServiceUnavailableError('Ollama', `Request failed with status ${response.status}`);
         }
 
         const data = await response.json() as { response: string };
@@ -584,7 +587,8 @@ export class ExperienceCaptureModule implements CaptureModule<ExperienceCaptureR
  */
 export function createExperienceCaptureModule(
   experienceRepo: IExperienceRepository,
+  stateManager: CaptureStateManager,
   providerOverride?: ExperienceExtractionProvider
 ): ExperienceCaptureModule {
-  return new ExperienceCaptureModule(experienceRepo, providerOverride);
+  return new ExperienceCaptureModule(experienceRepo, stateManager, providerOverride);
 }

@@ -4,6 +4,7 @@
 
 import type { PermissionService } from '../../services/permission.service.js';
 import type { ScopeType, EntryType } from '../../db/schema.js';
+import { createPermissionError, createValidationError } from '../../core/errors.js';
 
 /**
  * Check if the system is in permissive mode (backward compatibility)
@@ -42,8 +43,10 @@ export function requirePermission(
     if (isPermissiveMode()) {
       return; // Allow in permissive mode
     }
-    throw new Error(
-      `Authentication required: agentId must be provided. Set AGENT_MEMORY_PERMISSIONS_MODE=permissive to allow anonymous access.`
+    throw createValidationError(
+      'agentId',
+      'must be provided for authentication',
+      'Set AGENT_MEMORY_PERMISSIONS_MODE=permissive to allow anonymous access'
     );
   }
 
@@ -57,8 +60,10 @@ export function requirePermission(
   );
 
   if (!hasPermission) {
-    throw new Error(
-      `Permission denied: agent '${agentId}' does not have '${action}' permission for ${entryType ?? 'all entries'} in ${scopeType}${scopeId ? `:${scopeId}` : ''}`
+    throw createPermissionError(
+      action,
+      entryType ?? 'all entries',
+      `${scopeType}${scopeId ? `:${scopeId}` : ''}`
     );
   }
 }
@@ -69,8 +74,10 @@ export function requirePermission(
  */
 export function requireAgentId(agentId: string | undefined): asserts agentId is string {
   if (!agentId && !isPermissiveMode()) {
-    throw new Error(
-      `Authentication required: agentId must be provided. Set AGENT_MEMORY_PERMISSIONS_MODE=permissive to allow anonymous access.`
+    throw createValidationError(
+      'agentId',
+      'must be provided for authentication',
+      'Set AGENT_MEMORY_PERMISSIONS_MODE=permissive to allow anonymous access'
     );
   }
 }

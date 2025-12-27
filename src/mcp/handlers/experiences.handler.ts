@@ -436,8 +436,11 @@ const recordCaseHandler: ContextAwareHandler = async (
     source,
   };
 
-  // Create capture module and record case
-  const captureModule = createExperienceCaptureModule(context.repos.experiences);
+  // Create capture module and record case (use DI-managed state manager)
+  const captureModule = createExperienceCaptureModule(
+    context.repos.experiences,
+    context.services.captureState
+  );
   const result = await captureModule.recordCase(recordParams);
 
   // Log audit for each created experience
@@ -533,8 +536,11 @@ const captureFromTranscriptHandler: ContextAwareHandler = async (
     lastTurnTime: Date.now(),
   };
 
-  // Create capture module and capture experiences
-  const captureModule = createExperienceCaptureModule(context.repos.experiences);
+  // Create capture module and capture experiences (use DI-managed state manager)
+  const captureModule = createExperienceCaptureModule(
+    context.repos.experiences,
+    context.services.captureState
+  );
   const result = await captureModule.capture(transcript, metrics, {
     scopeType,
     scopeId: scopeId ?? projectId,

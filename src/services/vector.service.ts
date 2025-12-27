@@ -40,7 +40,7 @@
  */
 
 import { createComponentLogger } from '../utils/logger.js';
-import { createVectorDbError } from '../core/errors.js';
+import { createVectorDbError, createServiceUnavailableError } from '../core/errors.js';
 import type {
   IVectorService,
   SearchResult,
@@ -148,12 +148,12 @@ export class VectorService implements IVectorService {
 
     // Error state - throw the stored error
     if (this.state === 'error') {
-      throw this.lastError ?? new Error('Vector service in error state');
+      throw this.lastError ?? createServiceUnavailableError('VectorService', 'service is in error state');
     }
 
     // Closed state - cannot reinitialize
     if (this.state === 'closed') {
-      throw new Error('Vector service is closed and cannot be reinitialized');
+      throw createServiceUnavailableError('VectorService', 'service is closed and cannot be reinitialized');
     }
 
     if (!this.initPromise) {
@@ -233,9 +233,14 @@ export class VectorService implements IVectorService {
     // Validate dimension
     const expectedDim = this.store.getExpectedDimension();
     if (expectedDim !== null && embedding.length !== expectedDim) {
-      const error = new Error(
-        `Embedding dimension mismatch in searchSimilar: query has ${embedding.length} dimensions, ` +
-          `but stored embeddings have ${expectedDim} dimensions.`
+      const error = createVectorDbError(
+        'searchSimilar',
+        `Embedding dimension mismatch: query has ${embedding.length} dimensions, but stored embeddings have ${expectedDim} dimensions`,
+        {
+          queryDimension: embedding.length,
+          storedDimension: expectedDim,
+          suggestion: 'Ensure the query embedding uses the same model as stored embeddings',
+        }
       );
       logger.error(
         { queryDimension: embedding.length, storedDimension: expectedDim, error },

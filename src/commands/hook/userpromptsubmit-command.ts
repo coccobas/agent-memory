@@ -38,7 +38,7 @@ export async function runUserPromptSubmitCommand(params: {
   const command = (parts[0] ?? '').toLowerCase();
   const subcommand = (parts[1] ?? '').toLowerCase();
 
-  ensureSessionIdExists(sessionId, projectId);
+  await ensureSessionIdExists(sessionId, projectId);
 
   if (command === 'review' && (subcommand === 'off' || subcommand === 'suspend')) {
     setReviewSuspended(sessionId, true);

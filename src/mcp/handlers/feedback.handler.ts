@@ -5,7 +5,6 @@
  */
 
 import type { AppContext } from '../../core/context.js';
-import { getFeedbackService } from '../../services/feedback/index.js';
 import {
   getRequiredParam,
   getOptionalParam,
@@ -14,7 +13,6 @@ import {
   isBoolean,
   isArrayOfStrings,
 } from '../../utils/type-guards.js';
-import { createValidationError } from '../../core/errors.js';
 import type { ExportParams, EntryType, OutcomeType } from '../../services/feedback/types.js';
 
 // =============================================================================
@@ -25,16 +23,13 @@ import type { ExportParams, EntryType, OutcomeType } from '../../services/feedba
  * List retrieval events for a session
  */
 async function listRetrievals(
-  _context: AppContext,
+  context: AppContext,
   params: Record<string, unknown>
 ): Promise<{ retrievals: unknown[]; count: number }> {
   const sessionId = getRequiredParam(params, 'sessionId', isString);
   const limit = getOptionalParam(params, 'limit', isNumber) ?? 100;
 
-  const feedbackService = getFeedbackService();
-  if (!feedbackService) {
-    throw createValidationError('feedback', 'Feedback service not initialized');
-  }
+  const feedbackService = context.services.feedback;
 
   const retrievals = await feedbackService.getSessionRetrievals(sessionId);
   const limited = retrievals.slice(0, limit);
@@ -49,16 +44,13 @@ async function listRetrievals(
  * List task outcomes for a session
  */
 async function listOutcomes(
-  _context: AppContext,
+  context: AppContext,
   params: Record<string, unknown>
 ): Promise<{ outcomes: unknown[]; count: number }> {
   const sessionId = getRequiredParam(params, 'sessionId', isString);
   const limit = getOptionalParam(params, 'limit', isNumber) ?? 100;
 
-  const feedbackService = getFeedbackService();
-  if (!feedbackService) {
-    throw createValidationError('feedback', 'Feedback service not initialized');
-  }
+  const feedbackService = context.services.feedback;
 
   // Get outcomes via export (using sessionId filter when available)
   const data = await feedbackService.exportTrainingData({
@@ -78,17 +70,14 @@ async function listOutcomes(
  * List extraction/consolidation decisions
  */
 async function listDecisions(
-  _context: AppContext,
+  context: AppContext,
   params: Record<string, unknown>
 ): Promise<{ decisions: unknown[]; count: number }> {
   const sessionId = getOptionalParam(params, 'sessionId', isString);
   const policyType = getOptionalParam(params, 'policyType', isString) ?? 'extraction';
   const limit = getOptionalParam(params, 'limit', isNumber) ?? 100;
 
-  const feedbackService = getFeedbackService();
-  if (!feedbackService) {
-    throw createValidationError('feedback', 'Feedback service not initialized');
-  }
+  const feedbackService = context.services.feedback;
 
   const data = await feedbackService.exportTrainingData({
     limit,
@@ -117,7 +106,7 @@ async function listDecisions(
  * Export training dataset for a policy type
  */
 async function exportTrainingData(
-  _context: AppContext,
+  context: AppContext,
   params: Record<string, unknown>
 ): Promise<unknown> {
   const policyType = getOptionalParam(params, 'policyType', isString);
@@ -128,10 +117,7 @@ async function exportTrainingData(
   const entryTypes = getOptionalParam(params, 'entryTypes', isArrayOfStrings);
   const outcomeTypes = getOptionalParam(params, 'outcomeTypes', isArrayOfStrings);
 
-  const feedbackService = getFeedbackService();
-  if (!feedbackService) {
-    throw createValidationError('feedback', 'Feedback service not initialized');
-  }
+  const feedbackService = context.services.feedback;
 
   const exportParams: ExportParams = {
     startDate,
@@ -176,16 +162,13 @@ async function exportTrainingData(
  * Get feedback collection statistics
  */
 async function stats(
-  _context: AppContext,
+  context: AppContext,
   params: Record<string, unknown>
 ): Promise<unknown> {
   const startDate = getOptionalParam(params, 'startDate', isString);
   const endDate = getOptionalParam(params, 'endDate', isString);
 
-  const feedbackService = getFeedbackService();
-  if (!feedbackService) {
-    throw createValidationError('feedback', 'Feedback service not initialized');
-  }
+  const feedbackService = context.services.feedback;
 
   // Get stats via export
   const data = await feedbackService.exportTrainingData({

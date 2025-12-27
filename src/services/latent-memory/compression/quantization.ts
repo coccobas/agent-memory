@@ -16,6 +16,7 @@
  * - dequantized = (quantized / (2^bits - 1)) * (max - min) + min
  */
 
+import { createValidationError } from '../../../core/errors.js';
 import type {
   CompressionStrategy,
   CompressionMethod,
@@ -60,13 +61,14 @@ export class ScalarQuantization implements CompressionStrategy {
    */
   constructor(config: QuantizationConfig) {
     if (config.inputDimension <= 0) {
-      throw new Error('Input dimension must be positive');
+      throw createValidationError('inputDimension', 'must be positive');
     }
 
     // For quantization, input and output dimensions must match
     if (config.outputDimension !== config.inputDimension) {
-      throw new Error(
-        'Quantization preserves dimensionality: outputDimension must equal inputDimension'
+      throw createValidationError(
+        'outputDimension',
+        'quantization preserves dimensionality: must equal inputDimension'
       );
     }
 
@@ -82,7 +84,7 @@ export class ScalarQuantization implements CompressionStrategy {
       this.minValue = -32768;
       this.maxValue = 32767;
     } else {
-      throw new Error('Only 8-bit and 16-bit quantization supported');
+      throw createValidationError('bits', 'only 8-bit and 16-bit quantization supported');
     }
 
     this.range = this.maxValue - this.minValue;
@@ -135,8 +137,9 @@ export class ScalarQuantization implements CompressionStrategy {
    */
   compress(embedding: number[]): number[] {
     if (embedding.length !== this.inputDim) {
-      throw new Error(
-        `Input dimension mismatch: expected ${this.inputDim}, got ${embedding.length}`
+      throw createValidationError(
+        'embedding',
+        `dimension mismatch: expected ${this.inputDim}, got ${embedding.length}`
       );
     }
 
@@ -171,13 +174,14 @@ export class ScalarQuantization implements CompressionStrategy {
    */
   decompress(compressed: number[]): number[] {
     if (compressed.length !== this.outputDim) {
-      throw new Error(
-        `Compressed dimension mismatch: expected ${this.outputDim}, got ${compressed.length}`
+      throw createValidationError(
+        'compressed',
+        `dimension mismatch: expected ${this.outputDim}, got ${compressed.length}`
       );
     }
 
     if (this.min === -Infinity || this.max === Infinity) {
-      throw new Error('Cannot decompress: normalization range not initialized');
+      throw createValidationError('normalizationRange', 'not initialized, compress an embedding first');
     }
 
     const result = new Array(this.inputDim);
@@ -309,7 +313,7 @@ export class ScalarQuantization implements CompressionStrategy {
    */
   setRange(min: number, max: number): void {
     if (min >= max) {
-      throw new Error('Min must be less than max');
+      throw createValidationError('range', 'min must be less than max');
     }
     this.min = min;
     this.max = max;

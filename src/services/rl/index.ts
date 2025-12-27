@@ -216,6 +216,7 @@ let serviceInstance: RLService | null = null;
 
 /**
  * Get or create the RL service singleton
+ * @deprecated Use context.services.rl instead via dependency injection
  */
 export function getRLService(config?: Partial<RLServiceConfig>): RLService | null {
   if (serviceInstance) return serviceInstance;
@@ -226,6 +227,7 @@ export function getRLService(config?: Partial<RLServiceConfig>): RLService | nul
 
 /**
  * Initialize the RL service with configuration
+ * @deprecated Use context.services.rl instead via dependency injection
  */
 export function initRLService(config?: Partial<RLServiceConfig>): RLService {
   serviceInstance = new RLService(config);

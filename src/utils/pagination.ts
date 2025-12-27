@@ -14,6 +14,7 @@
  */
 
 import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createValidationError } from '../core/errors.js';
 import { logger } from './logger.js';
 
 /**
@@ -173,36 +174,36 @@ export class PaginationCursor {
 
       // Validate structure
       if (!signedCursor || typeof signedCursor !== 'object') {
-        throw new Error('Invalid cursor structure');
+        throw createValidationError('cursor', 'invalid cursor structure');
       }
 
       if (!signedCursor.data || typeof signedCursor.data !== 'object') {
-        throw new Error('Invalid cursor data');
+        throw createValidationError('cursor.data', 'invalid cursor data');
       }
 
       if (!signedCursor.signature || typeof signedCursor.signature !== 'string') {
-        throw new Error('Invalid cursor signature');
+        throw createValidationError('cursor.signature', 'invalid cursor signature');
       }
 
       // Verify signature
       if (!verifySignature(signedCursor.data, signedCursor.signature)) {
-        throw new Error('Cursor signature verification failed (possible tampering)');
+        throw createValidationError('cursor', 'signature verification failed (possible tampering)');
       }
 
       // Check expiration
       const expiresAt = signedCursor.data.expiresAt;
       if (typeof expiresAt === 'number' && expiresAt > 0) {
         if (Date.now() > expiresAt) {
-          throw new Error('Cursor has expired');
+          throw createValidationError('cursor', 'cursor has expired');
         }
       }
 
       return signedCursor.data;
     } catch (error) {
       if (error instanceof Error) {
-        throw new Error(`Invalid pagination cursor: ${error.message}`);
+        throw createValidationError('cursor', error.message);
       }
-      throw new Error('Invalid pagination cursor: unknown error');
+      throw createValidationError('cursor', 'unknown error');
     }
   }
 

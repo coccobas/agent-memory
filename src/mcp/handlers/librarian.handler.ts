@@ -6,14 +6,18 @@
 
 import type { AppContext } from '../../core/context.js';
 import type { ContextAwareHandler } from '../descriptors/types.js';
-import type { ScopeType } from '../../db/schema.js';
-import type { RecommendationStatus } from '../../db/schema/recommendations.js';
 import { createComponentLogger } from '../../utils/logger.js';
-import { getLibrarianService, initializeLibrarianService } from '../../services/librarian/index.js';
-import {
-  getLibrarianSchedulerStatus,
-} from '../../services/librarian/scheduler.service.js';
+import { getLibrarianSchedulerStatus } from '../../services/librarian/scheduler.service.js';
 import { generateId } from '../../db/repositories/base.js';
+import { formatError } from '../errors.js';
+import {
+  getOptionalParam,
+  isScopeType,
+  isRecommendationStatus,
+  isString,
+  isNumber,
+  isBoolean,
+} from '../../utils/type-guards.js';
 
 const logger = createComponentLogger('librarian-handler');
 
@@ -22,14 +26,10 @@ const logger = createComponentLogger('librarian-handler');
 // =============================================================================
 
 /**
- * Get or initialize the librarian service
+ * Get librarian service from context
  */
-function getOrInitLibrarianService(context: AppContext) {
-  let service = getLibrarianService();
-  if (!service && context.sqlite) {
-    service = initializeLibrarianService({ db: context.db, sqlite: context.sqlite });
-  }
-  return service;
+function getLibrarianServiceFromContext(context: AppContext) {
+  return context.services.librarian;
 }
 
 // =============================================================================
@@ -40,7 +40,7 @@ function getOrInitLibrarianService(context: AppContext) {
  * Run pattern detection analysis
  */
 const analyze: ContextAwareHandler = async (context, params) => {
-  const service = getOrInitLibrarianService(context);
+  const service = getLibrarianServiceFromContext(context);
 
   if (!service) {
     return {
@@ -49,10 +49,10 @@ const analyze: ContextAwareHandler = async (context, params) => {
     };
   }
 
-  const scopeType = (params.scopeType as ScopeType) ?? 'project';
-  const scopeId = params.scopeId as string | undefined;
-  const lookbackDays = params.lookbackDays as number | undefined;
-  const dryRun = params.dryRun as boolean | undefined;
+  const scopeType = getOptionalParam(params, 'scopeType', isScopeType) ?? 'project';
+  const scopeId = getOptionalParam(params, 'scopeId', isString);
+  const lookbackDays = getOptionalParam(params, 'lookbackDays', isNumber);
+  const dryRun = getOptionalParam(params, 'dryRun', isBoolean);
 
   logger.info({ scopeType, scopeId, lookbackDays, dryRun }, 'Starting librarian analysis');
 
@@ -82,11 +82,10 @@ const analyze: ContextAwareHandler = async (context, params) => {
       },
     };
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    logger.error({ error: errorMessage }, 'Librarian analysis failed');
+    logger.error({ error }, 'Librarian analysis failed');
     return {
       success: false,
-      error: errorMessage,
+      ...formatError(error),
     };
   }
 };
@@ -95,7 +94,7 @@ const analyze: ContextAwareHandler = async (context, params) => {
  * Get librarian status
  */
 const status: ContextAwareHandler = async (context, _params) => {
-  const service = getOrInitLibrarianService(context);
+  const service = getLibrarianServiceFromContext(context);
 
   if (!service) {
     return {
@@ -121,10 +120,9 @@ const status: ContextAwareHandler = async (context, _params) => {
       },
     };
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
     return {
       success: false,
-      error: errorMessage,
+      ...formatError(error),
     };
   }
 };
@@ -133,7 +131,7 @@ const status: ContextAwareHandler = async (context, _params) => {
  * List pending recommendations
  */
 const list_recommendations: ContextAwareHandler = async (context, params) => {
-  const service = getOrInitLibrarianService(context);
+  const service = getLibrarianServiceFromContext(context);
 
   if (!service) {
     return {
@@ -143,12 +141,12 @@ const list_recommendations: ContextAwareHandler = async (context, params) => {
   }
 
   const store = service.getRecommendationStore();
-  const statusFilter = params.status as RecommendationStatus | undefined;
-  const minConfidence = params.minConfidence as number | undefined;
-  const limit = params.limit as number | undefined;
-  const offset = params.offset as number | undefined;
-  const scopeType = params.scopeType as ScopeType | undefined;
-  const scopeId = params.scopeId as string | undefined;
+  const statusFilter = getOptionalParam(params, 'status', isRecommendationStatus);
+  const minConfidence = getOptionalParam(params, 'minConfidence', isNumber);
+  const limit = getOptionalParam(params, 'limit', isNumber);
+  const offset = getOptionalParam(params, 'offset', isNumber);
+  const scopeType = getOptionalParam(params, 'scopeType', isScopeType);
+  const scopeId = getOptionalParam(params, 'scopeId', isString);
 
   try {
     const recommendations = await store.list(
@@ -185,10 +183,9 @@ const list_recommendations: ContextAwareHandler = async (context, params) => {
       offset,
     };
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
     return {
       success: false,
-      error: errorMessage,
+      ...formatError(error),
     };
   }
 };
@@ -197,7 +194,7 @@ const list_recommendations: ContextAwareHandler = async (context, params) => {
  * Show recommendation details
  */
 const show_recommendation: ContextAwareHandler = async (context, params) => {
-  const service = getOrInitLibrarianService(context);
+  const service = getLibrarianServiceFromContext(context);
 
   if (!service) {
     return {
@@ -206,7 +203,7 @@ const show_recommendation: ContextAwareHandler = async (context, params) => {
     };
   }
 
-  const recommendationId = params.recommendationId as string;
+  const recommendationId = getOptionalParam(params, 'recommendationId', isString);
   if (!recommendationId) {
     return {
       success: false,
@@ -234,19 +231,18 @@ const show_recommendation: ContextAwareHandler = async (context, params) => {
       },
     };
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
     return {
       success: false,
-      error: errorMessage,
+      ...formatError(error),
     };
   }
 };
 
 /**
- * Approve a recommendation
+ * Approve a recommendation and perform the actual promotion
  */
 const approve: ContextAwareHandler = async (context, params) => {
-  const service = getOrInitLibrarianService(context);
+  const service = getLibrarianServiceFromContext(context);
 
   if (!service) {
     return {
@@ -255,9 +251,17 @@ const approve: ContextAwareHandler = async (context, params) => {
     };
   }
 
-  const recommendationId = params.recommendationId as string;
-  const reviewedBy = params.reviewedBy as string | undefined;
-  const notes = params.notes as string | undefined;
+  const promotionService = context.services.experiencePromotion;
+  if (!promotionService) {
+    return {
+      success: false,
+      error: 'Experience promotion service not available',
+    };
+  }
+
+  const recommendationId = getOptionalParam(params, 'recommendationId', isString);
+  const reviewedBy = getOptionalParam(params, 'reviewedBy', isString);
+  const notes = getOptionalParam(params, 'notes', isString);
 
   if (!recommendationId) {
     return {
@@ -269,33 +273,69 @@ const approve: ContextAwareHandler = async (context, params) => {
   const store = service.getRecommendationStore();
 
   try {
-    const updated = await store.approve(
-      recommendationId,
-      reviewedBy ?? 'mcp-handler',
-      undefined, // promotedExperienceId - would be set after actual promotion
-      undefined, // promotedToolId - would be set after actual promotion
-      notes
-    );
-
-    if (!updated) {
+    // Fetch the recommendation to get its details
+    const recommendation = await store.getById(recommendationId);
+    if (!recommendation) {
       return {
         success: false,
         error: 'Recommendation not found',
       };
     }
 
-    logger.info({ recommendationId, reviewedBy }, 'Recommendation approved');
+    if (!recommendation.exemplarExperienceId) {
+      return {
+        success: false,
+        error: 'Recommendation has no exemplar experience to promote',
+      };
+    }
+
+    // Perform the actual promotion
+    const promotionResult = await promotionService.promote(recommendation.exemplarExperienceId, {
+      toLevel: recommendation.type as 'strategy' | 'skill',
+      pattern: recommendation.pattern ?? undefined,
+      applicability: recommendation.applicability ?? undefined,
+      contraindications: recommendation.contraindications ?? undefined,
+      reason: recommendation.rationale ?? undefined,
+      promotedBy: reviewedBy ?? 'mcp-handler',
+    });
+
+    // Approve the recommendation with the promotion results
+    const updated = await store.approve(
+      recommendationId,
+      reviewedBy ?? 'mcp-handler',
+      promotionResult.experience.id,
+      promotionResult.createdTool?.id,
+      notes
+    );
+
+    if (!updated) {
+      return {
+        success: false,
+        error: 'Failed to update recommendation after promotion',
+      };
+    }
+
+    logger.info(
+      {
+        recommendationId,
+        reviewedBy,
+        promotedExperienceId: promotionResult.experience.id,
+        createdToolId: promotionResult.createdTool?.id,
+      },
+      'Recommendation approved and promotion completed'
+    );
 
     return {
       success: true,
       recommendation: updated,
-      message: 'Recommendation approved. TODO: Implement actual promotion logic.',
+      promotedExperience: promotionResult.experience,
+      createdTool: promotionResult.createdTool,
+      message: 'Recommendation approved and experience promoted successfully.',
     };
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
     return {
       success: false,
-      error: errorMessage,
+      ...formatError(error),
     };
   }
 };
@@ -304,7 +344,7 @@ const approve: ContextAwareHandler = async (context, params) => {
  * Reject a recommendation
  */
 const reject: ContextAwareHandler = async (context, params) => {
-  const service = getOrInitLibrarianService(context);
+  const service = getLibrarianServiceFromContext(context);
 
   if (!service) {
     return {
@@ -313,9 +353,9 @@ const reject: ContextAwareHandler = async (context, params) => {
     };
   }
 
-  const recommendationId = params.recommendationId as string;
-  const reviewedBy = params.reviewedBy as string | undefined;
-  const notes = params.notes as string | undefined;
+  const recommendationId = getOptionalParam(params, 'recommendationId', isString);
+  const reviewedBy = getOptionalParam(params, 'reviewedBy', isString);
+  const notes = getOptionalParam(params, 'notes', isString);
 
   if (!recommendationId) {
     return {
@@ -347,10 +387,9 @@ const reject: ContextAwareHandler = async (context, params) => {
       recommendation: updated,
     };
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
     return {
       success: false,
-      error: errorMessage,
+      ...formatError(error),
     };
   }
 };
@@ -359,7 +398,7 @@ const reject: ContextAwareHandler = async (context, params) => {
  * Skip a recommendation (defer for later)
  */
 const skip: ContextAwareHandler = async (context, params) => {
-  const service = getOrInitLibrarianService(context);
+  const service = getLibrarianServiceFromContext(context);
 
   if (!service) {
     return {
@@ -368,9 +407,9 @@ const skip: ContextAwareHandler = async (context, params) => {
     };
   }
 
-  const recommendationId = params.recommendationId as string;
-  const reviewedBy = params.reviewedBy as string | undefined;
-  const notes = params.notes as string | undefined;
+  const recommendationId = getOptionalParam(params, 'recommendationId', isString);
+  const reviewedBy = getOptionalParam(params, 'reviewedBy', isString);
+  const notes = getOptionalParam(params, 'notes', isString);
 
   if (!recommendationId) {
     return {
@@ -402,10 +441,9 @@ const skip: ContextAwareHandler = async (context, params) => {
       recommendation: updated,
     };
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
     return {
       success: false,
-      error: errorMessage,
+      ...formatError(error),
     };
   }
 };

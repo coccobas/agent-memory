@@ -18,6 +18,7 @@ import { summaries, summaryMembers } from '../../../db/schema.js';
 import { EmbeddingService } from '../../embedding.service.js';
 import { cosineSimilarity } from '../../librarian/utils/math.js';
 import { createComponentLogger } from '../../../utils/logger.js';
+import { createNotFoundError } from '../../../core/errors.js';
 import type {
   CoarseToFineOptions,
   CoarseToFineResult,
@@ -193,7 +194,7 @@ export class CoarseToFineRetriever {
       .get();
 
     if (!summary) {
-      throw new Error(`Summary not found: ${summaryId}`);
+      throw createNotFoundError('Summary', summaryId);
     }
 
     // Get members

@@ -9,7 +9,7 @@ import type { IGuidelineRepository } from '../core/interfaces/repositories.js';
 import type { ScopeType, EntryType } from '../db/schema.js';
 import { createComponentLogger } from '../utils/logger.js';
 import { config } from '../config/index.js';
-import { createSizeLimitError } from '../core/errors.js';
+import { createSizeLimitError, createValidationError } from '../core/errors.js';
 
 const logger = createComponentLogger('validation');
 
@@ -371,7 +371,7 @@ export function validateDateRange(date: string, fieldName: string): string {
 
   // Check if date is valid
   if (isNaN(parsedDate.getTime())) {
-    throw new Error(`${fieldName} must be a valid ISO 8601 date string`);
+    throw createValidationError(fieldName, 'must be a valid ISO 8601 date string', 'Use format like 2024-01-15 or 2024-01-15T10:30:00Z');
   }
 
   // Extract year
@@ -379,15 +379,11 @@ export function validateDateRange(date: string, fieldName: string): string {
 
   // Validate year is within acceptable range
   if (year < DATE_RANGE.MIN_YEAR) {
-    throw new Error(
-      `${fieldName} year must be ${DATE_RANGE.MIN_YEAR} or later (got ${year})`
-    );
+    throw createValidationError(fieldName, `year must be ${DATE_RANGE.MIN_YEAR} or later (got ${year})`, `Use a date from ${DATE_RANGE.MIN_YEAR} onwards`);
   }
 
   if (year > DATE_RANGE.MAX_YEAR) {
-    throw new Error(
-      `${fieldName} year must be ${DATE_RANGE.MAX_YEAR} or earlier (got ${year})`
-    );
+    throw createValidationError(fieldName, `year must be ${DATE_RANGE.MAX_YEAR} or earlier (got ${year})`, `Use a date before ${DATE_RANGE.MAX_YEAR}`);
   }
 
   // Return the original date string if valid
@@ -619,4 +615,5 @@ async function validateEntryImpl(
     errors,
   };
 }
+
 

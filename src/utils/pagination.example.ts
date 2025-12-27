@@ -7,6 +7,7 @@
  * HIGH-018: Prevent cursor tampering in paginated APIs
  */
 
+import { createValidationError } from '../core/errors.js';
 import { PaginationCursor, type CursorData } from './pagination.js';
 
 // =============================================================================
@@ -120,7 +121,7 @@ function exampleValidation() {
     // Use data safely
   } else {
     // Return error to client
-    throw new Error('Invalid or expired pagination cursor');
+    throw createValidationError('cursor', 'invalid or expired pagination cursor');
   }
 }
 
@@ -160,7 +161,7 @@ function listItemsEndpoint(req: ListItemsRequest): ListItemsResponse {
         limit = cursorData.limit;
       }
     } catch (error) {
-      throw new Error('Invalid pagination cursor');
+      throw createValidationError('cursor', 'invalid pagination cursor');
     }
   }
 
@@ -208,7 +209,7 @@ function securityBestPractices() {
 
   // 3. Validate cursors early in request processing
   if (!PaginationCursor.isValid(cursor)) {
-    throw new Error('Invalid cursor');
+    throw createValidationError('cursor', 'invalid cursor');
   }
 
   // 4. Don't expose cursor internals in error messages

@@ -19,6 +19,9 @@ interface CacheEntry<T> {
   timestamp: number;
 }
 
+// Memory pressure check interval (avoid expensive process.memoryUsage() on every set)
+const MEMORY_CHECK_INTERVAL_MS = 100;
+
 export class LRUCache<T> {
   private cache = new Map<string, CacheEntry<T>>();
   private readonly maxSize: number;
@@ -27,6 +30,8 @@ export class LRUCache<T> {
   private readonly onEvict?: (key: string, value: T) => void;
   private readonly sizeEstimator?: (value: T) => number;
   private totalBytes: number = 0; // Running total for O(1) memory tracking
+  private lastMemoryCheck: number = 0; // Timestamp of last memory check
+  private lastPressureResult: boolean = false; // Cached memory pressure result
 
   constructor(options: LRUCacheOptions<T>) {
     this.maxSize = options.maxSize;
@@ -279,11 +284,28 @@ export class LRUCache<T> {
     }
   }
 
+  /**
+   * Check if under memory pressure with sampling to avoid expensive syscalls.
+   *
+   * process.memoryUsage() is expensive (~0.1ms per call), so we sample at
+   * MEMORY_CHECK_INTERVAL_MS intervals and cache the result between checks.
+   */
   private checkMemoryPressure(): boolean {
+    const now = Date.now();
+
+    // Return cached result if within sampling interval
+    if (now - this.lastMemoryCheck < MEMORY_CHECK_INTERVAL_MS) {
+      return this.lastPressureResult;
+    }
+
+    // Perform actual check and cache result
+    this.lastMemoryCheck = now;
     const usage = process.memoryUsage();
     const heapUsedMB = usage.heapUsed / 1024 / 1024;
     const heapTotalMB = usage.heapTotal / 1024 / 1024;
-    return heapUsedMB / heapTotalMB > HEAP_PRESSURE_THRESHOLD;
+    this.lastPressureResult = heapUsedMB / heapTotalMB > HEAP_PRESSURE_THRESHOLD;
+
+    return this.lastPressureResult;
   }
 
   private evictBatch(percentage: number): void {

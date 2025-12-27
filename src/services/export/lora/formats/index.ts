@@ -12,6 +12,7 @@ import type {
   OpenAIMessagesExample,
   AnthropicPromptsExample,
 } from '../types.js';
+import { createValidationError } from '../../../../core/errors.js';
 
 /**
  * Export training examples to specified format
@@ -27,7 +28,7 @@ export function exportToFormat(examples: TrainingExample[], format: LoRAFormat):
     case 'anthropic-prompts':
       return exportToAnthropicPrompts(examples);
     default:
-      throw new Error(`Unsupported format: ${format}`);
+      throw createValidationError('format', `unsupported format: ${format}`, 'Use alpaca, sharegpt, openai-messages, or anthropic-prompts');
   }
 }
 

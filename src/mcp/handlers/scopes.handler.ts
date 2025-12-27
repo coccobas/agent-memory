@@ -25,8 +25,6 @@ import { formatTimestamps } from '../../utils/timestamp-formatter.js';
 import { getCriticalGuidelinesForSession } from '../../services/critical-guidelines.service.js';
 import { requireAdminKey } from '../../utils/admin.js';
 import { createValidationError, createNotFoundError } from '../../core/errors.js';
-import { getCaptureService } from '../../services/capture/index.js';
-import { getFeedbackService } from '../../services/feedback/index.js';
 import { createComponentLogger } from '../../utils/logger.js';
 
 const logger = createComponentLogger('scopes');
@@ -246,7 +244,7 @@ export const scopeHandlers = {
     }
 
     // Trigger capture service on session end (non-blocking)
-    const captureService = getCaptureService();
+    const captureService = context.services.capture;
     if (captureService && status !== 'discarded') {
       captureService.onSessionEnd(id).then(result => {
         if (result.experiences.experiences.length > 0 || result.knowledge.knowledge.length > 0) {
@@ -270,7 +268,7 @@ export const scopeHandlers = {
     }
 
     // Record task outcome for RL feedback (non-blocking)
-    recordSessionOutcome(id, status ?? 'completed');
+    recordSessionOutcome(id, status ?? 'completed', context.services.feedback);
 
     return formatTimestamps({ success: true, session });
   },
@@ -299,10 +297,9 @@ export const scopeHandlers = {
  */
 function recordSessionOutcome(
   sessionId: string,
-  status: 'active' | 'paused' | 'completed' | 'discarded'
+  status: 'active' | 'paused' | 'completed' | 'discarded',
+  feedbackService: import('../../services/feedback/index.js').FeedbackService
 ): void {
-  const feedbackService = getFeedbackService();
-  if (!feedbackService) return;
 
   // Fire-and-forget async recording
   setImmediate(async () => {

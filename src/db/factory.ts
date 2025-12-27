@@ -10,6 +10,7 @@ import type { Config } from '../config/index.js';
 import type { AppDb } from '../core/types.js';
 import type { Pool } from 'pg';
 import type { PostgreSQLStorageAdapter } from '../core/adapters/postgresql.adapter.js';
+import { createServiceUnavailableError } from '../core/errors.js';
 
 const logger = createComponentLogger('db-factory');
 
@@ -72,23 +73,18 @@ async function createSQLiteConnection(configuration: Config): Promise<SQLiteConn
 
     // Check for common native module errors
     if (errorMessage.includes('MODULE_NOT_FOUND') || errorMessage.includes('Cannot find module')) {
-      throw new Error(
-        `Failed to load better-sqlite3 native module.\n` +
-          `Error: ${errorMessage}\n\n` +
-          `This is usually caused by:\n` +
-          `1. Missing native bindings for your platform (${process.platform}/${process.arch})
-` +
-          `2. Node.js version mismatch (currently ${process.version})
-` +
-          `3. Architecture mismatch\n\n` +
-          `Solutions:\n` +
-          `- Run: npm rebuild better-sqlite3\n` +
-          `- Or reinstall: npm install --force better-sqlite3`
+      throw createServiceUnavailableError(
+        'better-sqlite3',
+        `failed to load native module. This is usually caused by: ` +
+          `1) Missing native bindings for your platform (${process.platform}/${process.arch}), ` +
+          `2) Node.js version mismatch (currently ${process.version}), ` +
+          `3) Architecture mismatch. ` +
+          `Solutions: Run 'npm rebuild better-sqlite3' or reinstall with 'npm install --force better-sqlite3'`
       );
     }
 
     // Re-throw with additional context
-    throw new Error(`Failed to create database connection: ${errorMessage}`);
+    throw createServiceUnavailableError('database', `failed to create connection: ${errorMessage}`);
   }
 
   // Enable WAL mode for better concurrent access
@@ -106,7 +102,7 @@ async function createSQLiteConnection(configuration: Config): Promise<SQLiteConn
 
     if (!result.success) {
       logger.error({ errors: result.errors }, 'Database initialization failed');
-      throw new Error(`Database initialization failed: ${result.errors.join(', ')}`);
+      throw createServiceUnavailableError('database', `initialization failed: ${result.errors.join(', ')}`);
     }
 
     if (configuration.database.verbose && result.migrationsApplied.length > 0) {
@@ -199,8 +195,9 @@ async function runPostgreSQLMigrations(
       migrationsApplied.push(file);
     } catch (error) {
       logger.error({ file, error }, 'PostgreSQL migration failed');
-      throw new Error(
-        `PostgreSQL migration ${file} failed: ${error instanceof Error ? error.message : String(error)}`
+      throw createServiceUnavailableError(
+        'PostgreSQL migration',
+        `${file} failed: ${error instanceof Error ? error.message : String(error)}`
       );
     }
   }

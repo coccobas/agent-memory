@@ -20,6 +20,7 @@
 
 import { AsyncLocalStorage } from 'async_hooks';
 import { randomBytes } from 'crypto';
+import { createValidationError } from '../core/errors.js';
 
 // =============================================================================
 // VALIDATION CONSTANTS
@@ -56,13 +57,13 @@ const correlationStorage = new AsyncLocalStorage<CorrelationContext>();
  */
 function validateCorrelationId(id: string): void {
   if (!id || typeof id !== 'string') {
-    throw new Error('Correlation ID must be a non-empty string');
+    throw createValidationError('correlationId', 'must be a non-empty string');
   }
   if (id.length > MAX_CORRELATION_ID_LENGTH) {
-    throw new Error(`Correlation ID exceeds maximum length of ${MAX_CORRELATION_ID_LENGTH} characters`);
+    throw createValidationError('correlationId', `exceeds maximum length of ${MAX_CORRELATION_ID_LENGTH} characters`);
   }
   if (!CORRELATION_ID_PATTERN.test(id)) {
-    throw new Error('Correlation ID must contain only alphanumeric characters, underscores, and hyphens');
+    throw createValidationError('correlationId', 'must contain only alphanumeric characters, underscores, and hyphens');
   }
 }
 
@@ -75,11 +76,11 @@ function validateMetadata(metadata: Record<string, unknown> | undefined): void {
   try {
     const serialized = JSON.stringify(metadata);
     if (serialized.length > MAX_METADATA_SIZE_BYTES) {
-      throw new Error(`Metadata exceeds maximum size of ${MAX_METADATA_SIZE_BYTES} bytes`);
+      throw createValidationError('metadata', `exceeds maximum size of ${MAX_METADATA_SIZE_BYTES} bytes`);
     }
   } catch (error) {
     if (error instanceof Error && error.message.includes('maximum size')) throw error;
-    throw new Error('Metadata must be JSON-serializable');
+    throw createValidationError('metadata', 'must be JSON-serializable');
   }
 }
 

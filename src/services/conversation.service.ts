@@ -5,6 +5,7 @@ import type {
 import type { PermissionEntryType } from '../db/schema.js';
 import type { MemoryQueryResult } from './query.service.js';
 import { createComponentLogger } from '../utils/logger.js';
+import { createNotFoundError } from '../core/errors.js';
 
 const logger = createComponentLogger('ConversationService');
 
@@ -216,7 +217,7 @@ async function getConversationAnalyticsImpl(
   const conversation = await conversationRepo.getById(conversationId, true, true);
 
   if (!conversation) {
-    throw new Error(`Conversation ${conversationId} not found`);
+    throw createNotFoundError('Conversation', conversationId);
   }
 
   const messages = conversation.messages || [];
@@ -291,4 +292,5 @@ async function getConversationAnalyticsImpl(
     averageRelevanceScore,
   };
 }
+
 

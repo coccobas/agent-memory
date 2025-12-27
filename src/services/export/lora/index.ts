@@ -13,6 +13,7 @@ import type {
   TrainingExample,
   GuidelineData,
 } from './types.js';
+import { createNotFoundError } from '../../../core/errors.js';
 import { TrainingDataGenerator } from './training-data-generator.js';
 import { exportToFormat } from './formats/index.js';
 import {
@@ -57,7 +58,7 @@ export async function exportGuidelinesAsLoRA(
     const guidelineData = await queryGuidelines(db, config);
 
     if (guidelineData.length === 0) {
-      throw new Error('No guidelines found matching the specified criteria');
+      throw createNotFoundError('guidelines', 'matching the specified criteria');
     }
 
     // Generate training examples

@@ -10,6 +10,7 @@ import type { Pool } from 'pg';
 import type { IFTSService } from './interfaces.js';
 import { createSQLiteFTSService } from './sqlite-fts.service.js';
 import { createPostgreSQLFTSService } from './postgresql-fts.service.js';
+import { createValidationError } from '../../core/errors.js';
 
 // Re-export interfaces and types
 export type { IFTSService, FTSResult, FTSSearchOptions, FTSDatabaseType } from './interfaces.js';
@@ -40,7 +41,7 @@ export function createFTSService(deps: FTSServiceDeps): IFTSService {
     default: {
       // Exhaustive check
       const _exhaustive: never = deps;
-      throw new Error(`Unknown database type: ${JSON.stringify(_exhaustive)}`);
+      throw createValidationError('dbType', `Unknown database type: ${JSON.stringify(_exhaustive)}`, 'Use either sqlite or postgresql');
     }
   }
 }

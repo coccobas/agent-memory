@@ -1,3 +1,5 @@
+import { createValidationError } from '../core/errors.js';
+
 export type ServerMode = 'mcp' | 'rest' | 'both';
 
 export function parseServerMode(argv: string[], envModeRaw?: string): ServerMode {
@@ -35,7 +37,5 @@ export function parseServerMode(argv: string[], envModeRaw?: string): ServerMode
   if (mode === '-r' || mode === 'r') return 'rest';
   if (mode === '-b' || mode === 'b') return 'both';
 
-  throw new Error(
-    `Unknown mode: ${mode}. Use --mcp (-m), --rest (-r), --both (-b), or AGENT_MEMORY_MODE.`
-  );
+  throw createValidationError('mode', `unknown mode '${mode}' - use --mcp (-m), --rest (-r), --both (-b), or AGENT_MEMORY_MODE`);
 }

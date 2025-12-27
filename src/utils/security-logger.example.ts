@@ -5,6 +5,7 @@
  * These examples show how to integrate security logging throughout the application.
  */
 
+import { createValidationError } from '../core/errors.js';
 import { securityLogger, SecuritySeverity } from './security-logger.js';
 
 /**
@@ -308,7 +309,7 @@ export function exampleApiEndpointIntegration(
       ip: req.ip,
       userAgent: req.headers['user-agent'],
     });
-    throw new Error('Unauthorized');
+    throw createValidationError('agentId', 'unauthorized - no credentials provided');
   }
 
   // 2. Validate input
@@ -320,7 +321,7 @@ export function exampleApiEndpointIntegration(
         bodyType: typeof req.body,
       },
     });
-    throw new Error('Invalid input');
+    throw createValidationError('body', 'invalid input - must be an object');
   }
 
   // 3. Check permissions
@@ -332,7 +333,7 @@ export function exampleApiEndpointIntegration(
       agentId,
       path: '/api/knowledge/add',
     });
-    throw new Error('Permission denied');
+    throw createValidationError('permission', 'permission denied for write access');
   }
 
   // Process request...

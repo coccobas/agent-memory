@@ -11,6 +11,7 @@ import { upsertSyncFile, deleteOrphanedFiles } from './sync-ops.js';
 import type { SyncOptions, SyncStats, FileOperation, SyncResult } from './types.js';
 import { findMarkdownFiles } from './discovery.js';
 import { isPathSafe } from '../../utils/paths.js';
+import { createValidationError } from '../../core/errors.js';
 
 // IDE destination mapping for project-level
 export const IDE_DESTINATIONS: Record<string, string> = {
@@ -60,7 +61,7 @@ export function resolveUserRulesDir(ide: string, customDir?: string): string {
 
   const userDestination = USER_DESTINATIONS[ide];
   if (!userDestination) {
-    throw new Error(`Unknown IDE: ${ide}`);
+    throw createValidationError('ide', `Unknown IDE: ${ide}`, 'Use one of: cursor, claude, vscode, intellij, sublime, neovim, emacs, antigravity, generic');
   }
 
   const homeDir = getUserHomeDirForRules();
@@ -81,7 +82,7 @@ export function resolveDestinationDirForIde(
 
   const ideDestination = IDE_DESTINATIONS[ide];
   if (!ideDestination) {
-    throw new Error(`Unknown IDE: ${ide}`);
+    throw createValidationError('ide', `Unknown IDE: ${ide}`, 'Use one of: cursor, claude, vscode, intellij, sublime, neovim, emacs, antigravity, generic');
   }
   return join(outputDir, ideDestination);
 }
@@ -127,7 +128,7 @@ export async function syncSingleMdIde(params: SyncSingleMdParams): Promise<void>
 
   const singleMdFileName = SINGLE_MD_IDES[ide];
   if (!singleMdFileName) {
-    throw new Error(`IDE does not support single-md sync: ${ide}`);
+    throw createValidationError('ide', `IDE does not support single-md sync: ${ide}`, 'Only claude IDE supports single-md sync');
   }
 
   const filesMap = new Map<string, string>();
@@ -236,12 +237,12 @@ export function getDestinationPath(
 
   // Security: Check for path traversal attempts in relative path
   if (relativePath.startsWith('..') || relativePath.includes('/..') || relativePath.includes('\\..')) {
-    throw new Error(`Path traversal detected: source "${sourcePath}" escapes sourceDir "${sourceDir}"`);
+    throw createValidationError('sourcePath', `Path traversal detected: source "${sourcePath}" escapes sourceDir "${sourceDir}"`, 'Ensure source file is within the source directory');
   }
 
   // Security: Check for null bytes in path
   if (relativePath.includes('\0') || sourcePath.includes('\0')) {
-    throw new Error('Security violation: null byte in path');
+    throw createValidationError('path', 'Security violation: null byte in path', 'Remove null bytes from file path');
   }
 
   // Convert .md to .mdc for Cursor
@@ -258,7 +259,7 @@ export function getDestinationPath(
     // For project-level, append IDE destination to output directory
     const ideDestination = IDE_DESTINATIONS[ide];
     if (!ideDestination) {
-      throw new Error(`Unknown IDE: ${ide}`);
+      throw createValidationError('ide', `Unknown IDE: ${ide}`, 'Use one of: cursor, claude, vscode, intellij, sublime, neovim, emacs, antigravity, generic');
     }
     destDir = join(outputDir, ideDestination);
   }
@@ -266,7 +267,7 @@ export function getDestinationPath(
 
   // Security: Final safety check - ensure destination path is within allowed directory
   if (!isPathSafe(destPath, destDir)) {
-    throw new Error(`Path traversal detected: destination "${destPath}" outside allowed directory "${destDir}"`);
+    throw createValidationError('destPath', `Path traversal detected: destination "${destPath}" outside allowed directory "${destDir}"`, 'Ensure destination is within allowed directory');
   }
 
   return destPath;

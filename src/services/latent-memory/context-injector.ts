@@ -9,6 +9,7 @@
  */
 
 import { createComponentLogger } from '../../utils/logger.js';
+import { createValidationError } from '../../core/errors.js';
 
 const logger = createComponentLogger('context-injector');
 
@@ -211,7 +212,7 @@ export class ContextInjectorService {
         break;
       default:
         const exhaustiveCheck: never = options.format;
-        throw new Error(`Unsupported format: ${exhaustiveCheck}`);
+        throw createValidationError('format', `unsupported format: ${exhaustiveCheck}`);
     }
 
     // Re-estimate final token count for the formatted content

@@ -20,6 +20,8 @@ import { createComponentLogger } from '../../utils/logger.js';
 import { SecurityService } from '../../services/security.service.js';
 import { createExperiencePromotionService } from '../../services/experience/index.js';
 import { createObserveCommitService } from '../../services/observe/index.js';
+import { CaptureService } from '../../services/capture/index.js';
+import type { ExtractionService } from '../../services/extraction.service.js';
 
 import { createServices, type ServiceDependencies } from './services.js';
 import { createQueryPipeline, wireQueryCache } from './query-pipeline.js';
@@ -82,6 +84,24 @@ export async function wireContext(input: WireContextInput): Promise<AppContext> 
     db,
   });
   services.observeCommit = observeCommitService;
+
+  // Create CaptureService (needs repos, services, and optional extraction)
+  // Cast extraction service to concrete type (KnowledgeModuleDeps expects ExtractionService, not interface)
+  const captureService = new CaptureService(
+    {
+      experienceRepo: repos.experiences,
+      knowledgeModuleDeps: {
+        knowledgeRepo: repos.knowledge,
+        guidelineRepo: repos.guidelines,
+        toolRepo: repos.tools,
+        extractionService: services.extraction as ExtractionService | undefined,
+      },
+      stateManager: services.captureState,
+      rlService: services.rl,
+      feedbackService: services.feedback,
+    }
+  );
+  services.capture = captureService;
 
   // Create query pipeline with feedback queue for RL training
   const queryDeps = createQueryPipeline(config, runtime, {

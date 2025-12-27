@@ -1,6 +1,9 @@
 /**
  * Hierarchical Summarization Service
  *
+ * @experimental This service is under active development. Most methods are stubs
+ * that throw "not implemented" errors. The architecture and API may change.
+ *
  * Orchestrates multi-level summarization of memory entries using:
  * 1. Community detection (Leiden algorithm) to group similar entries
  * 2. LLM-based summarization to create concise summaries
@@ -11,6 +14,7 @@
  */
 
 import { createComponentLogger } from '../../utils/logger.js';
+import { createServiceUnavailableError } from '../../core/errors.js';
 import type { AppDb } from '../../core/types.js';
 import type { EmbeddingService } from '../embedding.service.js';
 import type { ExtractionService } from '../extraction.service.js';
@@ -36,6 +40,8 @@ const logger = createComponentLogger('hierarchical-summarization');
  *
  * Main orchestrator for building and managing hierarchical summaries
  * of memory entries across multiple levels.
+ *
+ * @experimental Most methods are not yet implemented and will throw errors.
  */
 export class HierarchicalSummarizationService {
   private config: HierarchicalSummarizationConfig;
@@ -113,8 +119,9 @@ export class HierarchicalSummarizationService {
 
     // Check if provider is available
     if (this.config.provider === 'disabled') {
-      throw new Error(
-        'Summarization provider is disabled. Configure AGENT_MEMORY_EXTRACTION_PROVIDER to enable.'
+      throw createServiceUnavailableError(
+        'Summarization',
+        'provider is disabled. Configure AGENT_MEMORY_EXTRACTION_PROVIDER to enable'
       );
     }
 
@@ -194,7 +201,7 @@ export class HierarchicalSummarizationService {
     // TODO: Query knowledge table for summary with this ID
     // Filter by metadata.isSummary = true
     logger.debug({ id }, 'Getting summary by ID');
-    throw new Error('Not implemented: getSummary');
+    throw createServiceUnavailableError('getSummary', 'not implemented');
   }
 
   /**
@@ -207,7 +214,7 @@ export class HierarchicalSummarizationService {
   ): Promise<SummaryEntry[]> {
     // TODO: Query knowledge table for summaries at this level
     logger.debug({ level, scopeType, scopeId }, 'Getting summaries at level');
-    throw new Error('Not implemented: getSummariesAtLevel');
+    throw createServiceUnavailableError('getSummariesAtLevel', 'not implemented');
   }
 
   /**
@@ -216,7 +223,7 @@ export class HierarchicalSummarizationService {
   async getChildSummaries(parentId: string): Promise<SummaryEntry[]> {
     // TODO: Query summaries where parentSummaryId = parentId
     logger.debug({ parentId }, 'Getting child summaries');
-    throw new Error('Not implemented: getChildSummaries');
+    throw createServiceUnavailableError('getChildSummaries', 'not implemented');
   }
 
   /**
@@ -228,7 +235,7 @@ export class HierarchicalSummarizationService {
   ): Promise<SummaryEntry[]> {
     // TODO: Use vector service for semantic search or FTS for text search
     logger.debug({ query: _query, options: _options }, 'Searching summaries');
-    throw new Error('Not implemented: searchSummaries');
+    throw createServiceUnavailableError('searchSummaries', 'not implemented');
   }
 
   /**
@@ -237,7 +244,7 @@ export class HierarchicalSummarizationService {
   async getStatus(scopeType: string, scopeId?: string): Promise<SummaryBuildStatus> {
     // TODO: Query summaries and count by level
     logger.debug({ scopeType, scopeId }, 'Getting summary build status');
-    throw new Error('Not implemented: getStatus');
+    throw createServiceUnavailableError('getStatus', 'not implemented');
   }
 
   /**

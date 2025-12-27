@@ -27,12 +27,14 @@ export class RetrievalPolicy extends BasePolicy<RetrievalState, RetrievalAction>
   }
 
   /**
-   * Make retrieval decision using learned model
-   * For now, this calls the fallback until models are trained
+   * Make retrieval decision using learned model.
+   * Currently uses rule-based fallback until trained models are available.
+   *
+   * @todo Implement model inference when trained models are available.
+   *       Load model via ModelLoader, run inference on state features,
+   *       and return learned policy decision instead of fallback rules.
    */
   async decide(state: RetrievalState): Promise<PolicyDecision<RetrievalAction>> {
-    // TODO: Implement model inference when trained models are available
-    // For now, use fallback rules
     return this.getFallback()(state);
   }
 

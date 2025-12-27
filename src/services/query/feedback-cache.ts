@@ -292,6 +292,7 @@ let cacheInstance: FeedbackScoreCache | null = null;
 
 /**
  * Get or create the singleton feedback score cache
+ * @deprecated Use context.services.feedbackScoreCache instead via dependency injection
  */
 export function getFeedbackScoreCache(): FeedbackScoreCache {
   if (!cacheInstance) {

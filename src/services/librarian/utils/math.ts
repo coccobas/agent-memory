@@ -5,6 +5,8 @@
  * and sequence analysis used in pattern detection.
  */
 
+import { createValidationError } from '../../../core/errors.js';
+
 // =============================================================================
 // JACCARD SIMILARITY
 // =============================================================================
@@ -188,7 +190,7 @@ export function lcsSimilarity<T>(
  */
 export function cosineSimilarity(vec1: number[], vec2: number[]): number {
   if (vec1.length !== vec2.length) {
-    throw new Error('Vectors must have the same dimension');
+    throw createValidationError('vectors', `Vectors must have the same dimension (got ${vec1.length} and ${vec2.length})`, 'Ensure both vectors have equal length');
   }
 
   if (vec1.length === 0) {
@@ -316,7 +318,7 @@ export function standardDeviation(values: number[]): number {
  */
 export function weightedMean(values: number[], weights: number[]): number {
   if (values.length !== weights.length) {
-    throw new Error('Values and weights must have the same length');
+    throw createValidationError('weights', `Values and weights must have the same length (got ${values.length} and ${weights.length})`, 'Ensure values and weights arrays have equal length');
   }
 
   if (values.length === 0) return 0;

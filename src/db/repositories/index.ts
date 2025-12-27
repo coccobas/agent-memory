@@ -9,3 +9,6 @@ export * from './conflicts.js';
 export * from './file_locks.js';
 export * from './conversations.js';
 export * from './experiences.js';
+export * from './verification.js';
+export * from './voting.js';
+export * from './analytics.js';

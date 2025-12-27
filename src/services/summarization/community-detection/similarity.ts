@@ -11,6 +11,7 @@ import type {
   SimilarityEdge,
   AdjacencyList,
 } from './types.js';
+import { createValidationError } from '../../../core/errors.js';
 
 // =============================================================================
 // COSINE SIMILARITY
@@ -30,9 +31,7 @@ import type {
  */
 export function cosineSimilarity(a: number[], b: number[]): number {
   if (a.length !== b.length) {
-    throw new Error(
-      `Vector dimension mismatch: ${a.length} vs ${b.length}`
-    );
+    throw createValidationError('vectors', `dimension mismatch: ${a.length} vs ${b.length}`);
   }
 
   if (a.length === 0) {
@@ -112,9 +111,7 @@ export function computeCentroid(embeddings: number[][]): number[] | undefined {
   // Verify all embeddings have the same dimension
   for (const embedding of validEmbeddings) {
     if (embedding.length !== dimension) {
-      throw new Error(
-        `Embedding dimension mismatch: expected ${dimension}, got ${embedding.length}`
-      );
+      throw createValidationError('embeddings', `dimension mismatch: expected ${dimension}, got ${embedding.length}`);
     }
   }
 

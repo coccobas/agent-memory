@@ -405,6 +405,7 @@ let entityExtractorInstance: EntityExtractor | null = null;
 
 /**
  * Get the singleton entity extractor instance
+ * @deprecated Use context.services.entityExtractor instead via dependency injection
  */
 export function getEntityExtractor(): EntityExtractor {
   if (!entityExtractorInstance) {

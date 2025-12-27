@@ -327,6 +327,7 @@ let stateManagerInstance: CaptureStateManager | null = null;
 
 /**
  * Get the singleton state manager instance
+ * @deprecated Use context.services.captureState instead via dependency injection
  */
 export function getCaptureStateManager(): CaptureStateManager {
   if (!stateManagerInstance) {

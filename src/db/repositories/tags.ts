@@ -20,6 +20,7 @@ import {
 } from '../schema.js';
 import { generateId, type PaginationOptions, DEFAULT_LIMIT, MAX_LIMIT } from './base.js';
 import type { DatabaseDeps } from '../../core/types.js';
+import { createValidationError, createConflictError } from '../../core/errors.js';
 import { transactionWithDb } from '../connection.js';
 import type {
   ITagRepository,
@@ -67,7 +68,7 @@ export function createTagRepository(deps: DatabaseDeps): ITagRepository {
 
       const result = await repo.getById(id);
       if (!result) {
-        throw new Error(`Failed to create tag ${id}`);
+        throw createConflictError('tag', `failed to create with id ${id}`);
       }
       return result;
     },
@@ -318,7 +319,7 @@ export function createEntryTagRepository(
       }
 
       if (!tagId) {
-        throw new Error('Either tagId or tagName must be provided');
+        throw createValidationError('tagId', 'either tagId or tagName must be provided');
       }
 
       // Create the association
@@ -355,7 +356,7 @@ export function createEntryTagRepository(
       const byId = db.select().from(entryTags).where(eq(entryTags.id, id)).get();
       if (byId) return byId;
       if (existing) return existing;
-      throw new Error(`Failed to create entry tag ${id}`);
+      throw createConflictError('entry_tag', `failed to create with id ${id}`);
     },
 
     async detach(entryType: EntryType, entryId: string, tagId: string): Promise<boolean> {
@@ -457,7 +458,7 @@ export function createEntryRelationRepository(deps: DatabaseDeps): IEntryRelatio
 
       const result = db.select().from(entryRelations).where(eq(entryRelations.id, id)).get();
       if (!result) {
-        throw new Error(`Failed to create entry relation ${id}`);
+        throw createConflictError('entry_relation', `failed to create with id ${id}`);
       }
       return result;
     },

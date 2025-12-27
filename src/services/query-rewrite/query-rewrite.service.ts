@@ -50,6 +50,10 @@ const DEFAULT_EXPANSION_CONFIG: ExpansionConfig = {
  * Orchestrates intent classification, query expansion, and HyDE generation
  * to produce multiple query variations that improve retrieval recall and precision.
  *
+ * @todo Implement HyDE (Hypothetical Document Embedding) generator.
+ *       HyDE uses an LLM to generate hypothetical answer documents,
+ *       then embeds those for retrieval instead of the raw query.
+ *
  * @example
  * ```typescript
  * const service = new QueryRewriteService({
@@ -99,10 +103,7 @@ export class QueryRewriteService implements IQueryRewriteService {
       this.expander = new QueryExpander(this.config.expansion!);
     }
 
-    // TODO: Initialize HyDE generator when implemented
-    // if (this.config.enableHyDE) {
-    //   this.hydeGenerator = new HyDEGenerator(...);
-    // }
+    // HyDE generator initialization (not yet implemented - see class @todo)
   }
 
   /**
@@ -153,18 +154,9 @@ export class QueryRewriteService implements IQueryRewriteService {
       }
     }
 
-    // HyDE strategy (when implemented)
+    // HyDE strategy (not yet implemented - see class @todo)
     if (enableHyDE && this.hydeGenerator) {
-      // TODO: Generate HyDE documents
-      // const hydeResult = await this.hydeGenerator.generate(...);
-      // for (const doc of hydeResult.documents) {
-      //   queries.push({
-      //     text: doc,
-      //     embedding: hydeResult.embeddings[i],
-      //     source: 'hyde',
-      //     weight: 0.8
-      //   });
-      // }
+      // HyDE document generation will be added here
     }
 
     // Step 4: Determine strategy
@@ -294,7 +286,7 @@ export class QueryRewriteService implements IQueryRewriteService {
       }
     }
 
-    // TODO: Update HyDE generator if config changed
+    // HyDE generator update will be added here when implemented
   }
 }
 

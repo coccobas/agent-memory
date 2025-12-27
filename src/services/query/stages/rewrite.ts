@@ -8,12 +8,17 @@
  *
  * Extends PipelineContext with rewritten queries that downstream stages
  * (especially FTS) can use to improve recall and precision.
+ *
+ * @todo Make pipeline async to support QueryExpander's async methods.
+ * @todo Implement HyDE generator integration for semantic rewriting.
+ * @todo Implement query decomposition for multi-hop reasoning.
  */
 
 import type { PipelineContext } from '../pipeline.js';
 import type { RewrittenQuery, RewriteResult } from '../../query-rewrite/types.js';
 import { IntentClassifier } from '../../query-rewrite/classifier.js';
-// import { QueryExpander } from '../../query-rewrite/expander.js'; // TODO: Use when async pipeline is implemented
+// QueryExpander import commented out until async pipeline is implemented
+// import { QueryExpander } from '../../query-rewrite/expander.js';
 
 /**
  * Extended pipeline context with rewrite results
@@ -162,24 +167,14 @@ function performRewrite(ctx: PipelineContext): RewriteResult {
     rewrittenQueries.push(...expansions);
   }
 
-  // HyDE-based rewriting
-  // Note: Actual HyDE requires LLM and embedding generation
-  // This is a placeholder for when the full rewrite service is integrated
+  // HyDE-based rewriting (not yet implemented - see module @todo)
   if (params.enableHyDE === true) {
-    // TODO: Call HyDE generator when available
-    // For now, HyDE is not implemented in this basic version
-    // The full implementation would:
-    // 1. Use LLM to generate hypothetical documents
-    // 2. Embed those documents
-    // 3. Add them as RewrittenQuery with embeddings
+    // HyDE generator will be called here when implemented
   }
 
-  // Decomposition-based rewriting
-  // Note: Multi-hop decomposition requires query planning
-  // This is a placeholder for when the full rewrite service is integrated
+  // Decomposition-based rewriting (not yet implemented - see module @todo)
   if (params.enableDecomposition === true) {
-    // TODO: Call query planner when available
-    // For now, decomposition is not implemented
+    // Query planner will be called here when implemented
   }
 
   // Determine strategy based on what was actually used
@@ -203,18 +198,12 @@ function performRewrite(ctx: PipelineContext): RewriteResult {
 }
 
 /**
- * Performs query expansion using the QueryExpander
+ * Performs query expansion using the QueryExpander.
+ *
+ * Currently returns empty array because QueryExpander.expand() is async
+ * but pipeline stages are synchronous. See module @todo for async pipeline.
  */
 function performExpansion(_query: string, _config: RewriteConfig): RewrittenQuery[] {
-  // Note: QueryExpander.expand() is async, but pipeline stages are currently synchronous
-  // For now, we don't perform expansion in this basic implementation
-  // Full implementation would require making the pipeline async or extracting sync logic
-
-  // TODO: Either make pipeline async or extract sync expansion logic from QueryExpander
-  // When implemented, this would:
-  // 1. Create QueryExpander instance
-  // 2. Call sync expansion (dictionary-based)
-  // 3. Map results to RewrittenQuery with weights
-
+  // Expansion requires async pipeline - returns empty for now
   return [];
 }

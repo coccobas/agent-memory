@@ -5,6 +5,8 @@
  * These functions validate at runtime and provide better error messages.
  */
 
+import { createValidationError } from '../core/errors.js';
+
 /**
  * Type guard to check if a value is a string
  */
@@ -76,7 +78,7 @@ export function validateParams<T extends Record<string, unknown>>(
   validator: (params: Record<string, unknown>) => params is T
 ): T {
   if (!validator(params)) {
-    throw new Error('Parameter validation failed');
+    throw createValidationError('params', 'parameter validation failed');
   }
   return params;
 }
@@ -101,10 +103,10 @@ export function getParam<T>(
     if (defaultValue !== undefined) {
       return defaultValue;
     }
-    throw new Error(`Parameter '${key}' is required`);
+    throw createValidationError(key, 'is required');
   }
   if (!typeGuard(value)) {
-    throw new Error(`Parameter '${key}' has invalid type`);
+    throw createValidationError(key, 'has invalid type');
   }
   return value;
 }
@@ -127,7 +129,7 @@ export function getOptionalParam<T>(
     return undefined;
   }
   if (!typeGuard(value)) {
-    throw new Error(`Parameter '${key}' has invalid type`);
+    throw createValidationError(key, 'has invalid type');
   }
   return value;
 }
@@ -255,10 +257,10 @@ export function getRequiredParam<T>(
 ): T {
   const value = (params as Record<string, unknown>)[key];
   if (value === undefined) {
-    throw new Error(customError || `${key} is required`);
+    throw createValidationError(key, customError || 'is required');
   }
   if (!typeGuard(value)) {
-    throw new Error(`${key} has invalid type`);
+    throw createValidationError(key, 'has invalid type');
   }
   return value;
 }
@@ -308,4 +310,47 @@ export function isPositiveInteger(value: unknown): value is number {
 export function isNonNegativeInteger(value: unknown): value is number {
   return isNumber(value) && Number.isInteger(value) && value >= 0;
 }
+
+// =============================================================================
+// LIBRARIAN / RECOMMENDATION TYPE GUARDS
+// =============================================================================
+
+/**
+ * Type guard to check if a value is a valid recommendation status
+ */
+export function isRecommendationStatus(
+  value: unknown
+): value is 'pending' | 'approved' | 'rejected' | 'skipped' | 'expired' {
+  return (
+    isString(value) && ['pending', 'approved', 'rejected', 'skipped', 'expired'].includes(value)
+  );
+}
+
+/**
+ * Type guard to check if a value is a valid recommendation type
+ */
+export function isRecommendationType(value: unknown): value is 'strategy' | 'skill' {
+  return isString(value) && ['strategy', 'skill'].includes(value);
+}
+
+// =============================================================================
+// EXPERIENCE TYPE GUARDS
+// =============================================================================
+
+/**
+ * Type guard to check if a value is a valid experience level
+ */
+export function isExperienceLevel(value: unknown): value is 'case' | 'strategy' {
+  return isString(value) && ['case', 'strategy'].includes(value);
+}
+
+/**
+ * Type guard to check if a value is a valid experience source
+ */
+export function isExperienceSource(
+  value: unknown
+): value is 'observation' | 'reflection' | 'user' | 'promotion' {
+  return isString(value) && ['observation', 'reflection', 'user', 'promotion'].includes(value);
+}
+
 

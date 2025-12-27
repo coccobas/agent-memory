@@ -7,6 +7,7 @@
 
 import { readFileSync, readdirSync, statSync, existsSync } from 'fs';
 import { join, extname } from 'path';
+import { createNotFoundError, createValidationError } from '../../../core/errors.js';
 
 // =============================================================================
 // TYPES
@@ -169,7 +170,7 @@ export class ModelLoader {
     const candidates = models.filter((m) => m.policyType === policyType);
 
     if (candidates.length === 0) {
-      throw new Error(`No models found for policy type: ${policyType}`);
+      throw createNotFoundError('model', policyType);
     }
 
     let model: LoadedModel;
@@ -178,14 +179,14 @@ export class ModelLoader {
       // Find specific version
       const match = candidates.find((m) => m.version === version);
       if (!match) {
-        throw new Error(`Model version ${version} not found for policy: ${policyType}`);
+        throw createNotFoundError('model', `${policyType}@${version}`);
       }
       model = match;
     } else {
       // Get latest (first in sorted list)
       const latest = candidates[0];
       if (!latest) {
-        throw new Error(`No models found for policy: ${policyType}`);
+        throw createNotFoundError('model', policyType);
       }
       model = latest;
     }
@@ -193,9 +194,7 @@ export class ModelLoader {
     // Validate model integrity
     const validation = await this.validateModel(model.modelPath);
     if (!validation.valid) {
-      throw new Error(
-        `Model validation failed: ${validation.errors?.join(', ') ?? 'Unknown error'}`
-      );
+      throw createValidationError('model', validation.errors?.join(', ') ?? 'validation failed');
     }
 
     // Load weights if configured

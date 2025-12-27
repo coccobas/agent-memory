@@ -19,6 +19,7 @@ import {
 import { generateId, now, type PaginationOptions, DEFAULT_LIMIT, MAX_LIMIT } from './base.js';
 import { invalidateScopeChainCache } from '../../services/query.service.js';
 import type { DatabaseDeps } from '../../core/types.js';
+import { createConflictError } from '../../core/errors.js';
 import type {
   IOrganizationRepository,
   IProjectRepository,
@@ -69,7 +70,7 @@ export function createOrganizationRepository(deps: DatabaseDeps): IOrganizationR
 
       const result = await repo.getById(id);
       if (!result) {
-        throw new Error(`Failed to create organization ${id}`);
+        throw createConflictError('organization', `failed to create with id ${id}`);
       }
       invalidateScopeChainCache('org', id);
       return result;
@@ -144,7 +145,7 @@ export function createProjectRepository(deps: DatabaseDeps): IProjectRepository 
 
       const result = await repo.getById(id);
       if (!result) {
-        throw new Error(`Failed to create project ${id}`);
+        throw createConflictError('project', `failed to create with id ${id}`);
       }
       invalidateScopeChainCache('project', id);
       return result;
@@ -232,7 +233,7 @@ export function createSessionRepository(deps: DatabaseDeps): ISessionRepository 
 
   const repo: ISessionRepository = {
     async create(input: CreateSessionInput): Promise<Session> {
-      const id = generateId();
+      const id = input.id ?? generateId();
 
       const session: NewSession = {
         id,
@@ -248,7 +249,7 @@ export function createSessionRepository(deps: DatabaseDeps): ISessionRepository 
 
       const result = await repo.getById(id);
       if (!result) {
-        throw new Error(`Failed to create session ${id}`);
+        throw createConflictError('session', `failed to create with id ${id}`);
       }
       invalidateScopeChainCache('session', id);
       return result;

@@ -427,17 +427,60 @@ function shuffleArray<T>(array: T[], seed?: number): T[] {
 }
 
 /**
- * Compress exported files
+ * Compress exported files using gzip
+ *
+ * Compresses each file in the result and updates file paths to include .gz extension.
+ * Original uncompressed files are removed after successful compression.
+ *
+ * @param result - Export result with files to compress
+ * @returns Updated result with compressed file paths
  */
 async function compressExport(result: ExportResult): Promise<ExportResult> {
-  // TODO: Implement compression (gzip/zip)
-  // For now, return as-is with a warning
-  const warnings = result.warnings || [];
-  warnings.push('Compression requested but not yet implemented');
+  const fs = await import('fs/promises');
+  const zlib = await import('zlib');
+  const { promisify } = await import('util');
+  const gzip = promisify(zlib.gzip);
+
+  const compressedFiles: string[] = [];
+  const fileSizes: Record<string, number> = result.stats.fileSizes ?? {};
+  const warnings: string[] = result.warnings ?? [];
+
+  for (const file of result.files) {
+    try {
+      // Read original file
+      const content = await fs.readFile(file);
+
+      // Compress with gzip
+      const compressed = await gzip(content);
+
+      // Write compressed file
+      const gzPath = `${file}.gz`;
+      await fs.writeFile(gzPath, compressed);
+
+      // Get compressed file size
+      const stats = await fs.stat(gzPath);
+      fileSizes[gzPath] = stats.size;
+
+      // Remove original uncompressed file
+      await fs.unlink(file);
+
+      compressedFiles.push(gzPath);
+    } catch (error) {
+      // If compression fails for a file, keep the original and warn
+      compressedFiles.push(file);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      warnings.push(`Failed to compress ${file}: ${errorMessage}`);
+    }
+  }
 
   return {
     ...result,
-    warnings,
+    files: compressedFiles,
+    stats: {
+      ...result.stats,
+      fileSizes,
+    },
+    warnings: warnings.length > 0 ? warnings : undefined,
   };
 }
 

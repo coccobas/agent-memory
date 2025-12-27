@@ -10,6 +10,7 @@ import { formatOutput, type OutputFormat } from '../utils/output.js';
 import { handleCliError } from '../utils/errors.js';
 import { readStdin } from '../utils/stdin.js';
 import { importHandlers } from '../../mcp/handlers/import.handler.js';
+import { createValidationError } from '../../core/errors.js';
 
 export function addImportCommand(program: Command): void {
   const importCmd = program.command('import').description('Import memory entries');
@@ -34,7 +35,7 @@ export function addImportCommand(program: Command): void {
         // Read content from stdin
         const content = await readStdin();
         if (!content) {
-          throw new Error('No content provided via stdin. Pipe the content to import.');
+          throw createValidationError('content', 'is required via stdin');
         }
 
         const result = await importHandlers.import(context, {

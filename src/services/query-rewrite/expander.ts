@@ -181,6 +181,9 @@ export class QueryExpander {
    *
    * @param query - Original query text
    * @returns Array of expanded queries with metadata
+   *
+   * @todo Implement LLM-based semantic expansion when useLLM is enabled.
+   *       Use an LLM to generate semantically similar query variations.
    */
   async expand(query: string): Promise<ExpandedQuery[]> {
     const expansions: ExpandedQuery[] = [];
@@ -197,10 +200,9 @@ export class QueryExpander {
       expansions.push(...relationExpansions);
     }
 
-    // LLM-based expansion (stub for future implementation)
+    // LLM-based expansion (not yet implemented)
     if (this.config.useLLM) {
-      // TODO: Implement LLM-based semantic expansion
-      // This would use an LLM to generate semantically similar queries
+      // LLM-based semantic expansion will be added here
     }
 
     // Limit to maxExpansions

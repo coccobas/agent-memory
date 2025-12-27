@@ -16,6 +16,7 @@ import * as schema from './schema.js';
 import type { AppDb } from '../core/types.js';
 import { createComponentLogger } from '../utils/logger.js';
 import { config } from '../config/index.js';
+import { createServiceUnavailableError } from '../core/errors.js';
 import {
   isDatabaseInitialized,
   getDatabase,
@@ -49,7 +50,7 @@ export interface ConnectionOptions {
  */
 export function getDb(_options: ConnectionOptions = {}): AppDb {
   if (!isDatabaseInitialized()) {
-    throw new Error('Database not initialized. Call createAppContext() first.');
+    throw createServiceUnavailableError('Database', 'not initialized. Call createAppContext() first');
   }
   return getDatabase();
 }
@@ -78,7 +79,7 @@ export function closeDb(): void {
  */
 export function getSqlite(): Database.Database {
   if (!isDatabaseInitialized()) {
-    throw new Error('Database not initialized. Call createAppContext() first.');
+    throw createServiceUnavailableError('Database', 'not initialized. Call createAppContext() first');
   }
   return getContainerSqlite();
 }

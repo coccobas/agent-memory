@@ -4,8 +4,8 @@ import { readTranscriptFromOffset } from '../../utils/transcript-cursor.js';
 import { extractMessageFromTranscriptEntry } from './shared.js';
 import { getAgentMemoryStatePath, loadState, saveState } from './state-file.js';
 
-function getConversationRepo() {
-  return createRepositories({ db: getDb(), sqlite: getSqlite() }).conversations;
+function getRepos() {
+  return createRepositories({ db: getDb(), sqlite: getSqlite() });
 }
 
 export async function ingestTranscript(params: {
@@ -53,7 +53,15 @@ async function processTranscriptLines(
   byteOffsetKey: string
 ): Promise<{ appended: number; linesRead: number }> {
   const { sessionId, projectId, agentId, cwd, transcriptPath } = params;
-  const conversationRepo = getConversationRepo();
+  const repos = getRepos();
+  const conversationRepo = repos.conversations;
+
+  // Validate projectId exists to avoid FK constraint failure
+  let validProjectId: string | undefined;
+  if (projectId) {
+    const project = await repos.projects.getById(projectId);
+    validProjectId = project ? projectId : undefined;
+  }
 
   const existingList = await conversationRepo.list(
     { sessionId, status: 'active' },
@@ -64,7 +72,7 @@ async function processTranscriptLines(
     ? existing
     : await conversationRepo.create({
         sessionId,
-        projectId,
+        projectId: validProjectId,
         agentId: agentId ?? undefined,
         title: cwd ? `Claude Code: ${cwd}` : 'Claude Code conversation',
         metadata: { source: 'claude-code', transcriptPath },

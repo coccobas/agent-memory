@@ -25,9 +25,23 @@ import {
   type LibrarianStatus,
 } from './types.js';
 import type { ScopeType } from '../../db/schema/types.js';
-import { getRLService } from '../rl/index.js';
+import type { RLService } from '../rl/index.js';
 import { buildConsolidationState } from '../rl/state/consolidation.state.js';
-import { getFeedbackService } from '../feedback/index.js';
+import type { FeedbackService } from '../feedback/index.js';
+
+// =============================================================================
+// TYPES
+// =============================================================================
+
+/**
+ * Dependencies for LibrarianService
+ */
+export interface LibrarianServiceDeps extends DatabaseDeps {
+  /** Optional RL service for consolidation policy decisions */
+  rlService?: RLService | null;
+  /** Optional feedback service for recording decisions */
+  feedbackService?: FeedbackService | null;
+}
 
 const logger = createComponentLogger('librarian');
 
@@ -48,9 +62,13 @@ export class LibrarianService {
   private recommender: Recommender;
   private recommendationStore: IRecommendationStore;
   private lastAnalysis?: AnalysisResult;
+  private rlService?: RLService | null;
+  private feedbackService?: FeedbackService | null;
 
-  constructor(deps: DatabaseDeps, config: Partial<LibrarianConfig> = {}) {
+  constructor(deps: LibrarianServiceDeps, config: Partial<LibrarianConfig> = {}) {
     this.config = { ...DEFAULT_LIBRARIAN_CONFIG, ...config };
+    this.rlService = deps.rlService;
+    this.feedbackService = deps.feedbackService;
 
     // Initialize pipeline components
     const experienceRepo = createExperienceRepository(deps);
@@ -173,8 +191,8 @@ export class LibrarianService {
 
       // Stage 3: RL Consolidation Policy Integration (Optional)
       let filteredPatterns = patternDetection.patterns;
-      const rlService = getRLService();
-      const feedbackService = getFeedbackService();
+      const rlService = this.rlService;
+      const feedbackService = this.feedbackService;
 
       if (rlService?.isEnabled() && rlService.getConsolidationPolicy().isEnabled()) {
         logger.debug({ runId, stage: 'rl_consolidation_policy' }, 'Consulting RL consolidation policy');
@@ -420,9 +438,10 @@ let serviceInstance: LibrarianService | null = null;
 
 /**
  * Get or create the librarian service singleton
+ * @deprecated Use context.services.librarian instead via dependency injection
  */
 export function getLibrarianService(
-  deps?: DatabaseDeps,
+  deps?: LibrarianServiceDeps,
   config?: Partial<LibrarianConfig>
 ): LibrarianService | null {
   if (serviceInstance) return serviceInstance;
@@ -433,9 +452,10 @@ export function getLibrarianService(
 
 /**
  * Initialize the librarian service with dependencies
+ * @deprecated Use context.services.librarian instead via dependency injection
  */
 export function initializeLibrarianService(
-  deps: DatabaseDeps,
+  deps: LibrarianServiceDeps,
   config?: Partial<LibrarianConfig>
 ): LibrarianService {
   serviceInstance = new LibrarianService(deps, config);

@@ -10,6 +10,7 @@ import { formatOutput, type OutputFormat } from '../utils/output.js';
 import { handleCliError } from '../utils/errors.js';
 import { readStdinJson } from '../utils/stdin.js';
 import { taskHandlers } from '../../mcp/handlers/tasks.handler.js';
+import { createValidationError } from '../../core/errors.js';
 
 export function addTaskCommand(program: Command): void {
   const task = program.command('task').description('Manage task decomposition');
@@ -31,7 +32,7 @@ export function addTaskCommand(program: Command): void {
 
         const subtasks = await readStdinJson<string[]>();
         if (!subtasks || !Array.isArray(subtasks)) {
-          throw new Error('No subtasks provided via stdin. Pipe JSON array of subtask descriptions.');
+          throw createValidationError('subtasks', 'is required via stdin as JSON array');
         }
 
         const result = await taskHandlers.add(context, {

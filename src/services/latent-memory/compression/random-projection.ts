@@ -14,6 +14,10 @@
  * Reference: Achlioptas, D. (2003). Database-friendly random projections.
  */
 
+import {
+  createValidationError,
+  createServiceUnavailableError,
+} from '../../../core/errors.js';
 import type {
   CompressionStrategy,
   CompressionMethod,
@@ -77,11 +81,11 @@ export class RandomProjection implements CompressionStrategy {
    */
   constructor(config: RandomProjectionConfig) {
     if (config.inputDimension <= 0 || config.outputDimension <= 0) {
-      throw new Error('Input and output dimensions must be positive');
+      throw createValidationError('dimensions', 'input and output dimensions must be positive');
     }
 
     if (config.outputDimension > config.inputDimension) {
-      throw new Error('Output dimension must not exceed input dimension');
+      throw createValidationError('outputDimension', 'must not exceed input dimension');
     }
 
     this.inputDim = config.inputDimension;
@@ -147,8 +151,9 @@ export class RandomProjection implements CompressionStrategy {
    */
   compress(embedding: number[]): number[] {
     if (embedding.length !== this.inputDim) {
-      throw new Error(
-        `Input dimension mismatch: expected ${this.inputDim}, got ${embedding.length}`
+      throw createValidationError(
+        'embedding',
+        `dimension mismatch: expected ${this.inputDim}, got ${embedding.length}`
       );
     }
 
@@ -184,7 +189,7 @@ export class RandomProjection implements CompressionStrategy {
    * but this is generally not useful for retrieval purposes.
    */
   decompress(): number[] {
-    throw new Error('Random projection does not support decompression (lossy transformation)');
+    throw createServiceUnavailableError('decompress', 'random projection does not support decompression (lossy transformation)');
   }
 
   /**

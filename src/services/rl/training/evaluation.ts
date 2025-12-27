@@ -9,6 +9,7 @@
 import type { Dataset } from './dataset-builder.js';
 import type { IPolicy } from '../policies/base.policy.js';
 import type { LoadedModel } from './model-loader.js';
+import { createValidationError, createNotFoundError } from '../../../core/errors.js';
 
 // =============================================================================
 // TYPES
@@ -140,7 +141,7 @@ export async function evaluatePolicy<TState, TAction>(
   testData: Array<{ state: TState; expectedAction: TAction; reward: number }>
 ): Promise<EvaluationResult> {
   if (testData.length === 0) {
-    throw new Error('Test data is empty');
+    throw createValidationError('testData', 'is empty');
   }
 
   let correct = 0;
@@ -495,7 +496,7 @@ export class PolicyEvaluator {
   ): Promise<ExtendedEvaluationResult> {
     // For now, we assume the model has a corresponding policy implementation
     // In a real implementation, this would load the model weights and run inference
-    throw new Error('Model evaluation not yet implemented - requires model inference');
+    throw createNotFoundError('model inference', 'not yet implemented');
   }
 
   /**
@@ -582,7 +583,7 @@ export class PolicyEvaluator {
   ): Promise<ABTestResult> {
     // Validate split ratio
     if (splitRatio < 0 || splitRatio > 1) {
-      throw new Error('Split ratio must be between 0 and 1');
+      throw createValidationError('splitRatio', 'must be between 0 and 1');
     }
 
     // Randomly assign data to groups
@@ -789,8 +790,10 @@ export function computeTemporalMetrics<TState, TAction>(
     const rewards = windowData.map((d) => d.reward);
     const avgReward = rewards.reduce((a, b) => a + b, 0) / rewards.length;
 
-    // For accuracy, we would need expected actions - placeholder for now
-    const accuracy = 0; // TODO: Compute actual accuracy
+    // Compute accuracy as proportion of positive rewards (reward > 0 indicates success)
+    // This is a proxy metric since we don't have ground truth labels
+    const positiveRewards = rewards.filter((r) => r > 0).length;
+    const accuracy = positiveRewards / rewards.length;
 
     windows.push({
       windowStart: new Date(windowStart).toISOString(),

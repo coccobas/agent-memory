@@ -31,6 +31,8 @@
  * ```
  */
 
+import { createValidationError } from '../../../core/errors.js';
+
 // Export types
 export type {
   CompressionMethod,
@@ -110,7 +112,7 @@ export function createCompressor(
     default: {
       // Exhaustive check for TypeScript
       const exhaustiveCheck: never = method;
-      throw new Error(`Unsupported compression method: ${exhaustiveCheck}`);
+      throw createValidationError('method', `unsupported compression method: ${exhaustiveCheck}`);
     }
   }
 }
@@ -218,7 +220,7 @@ export function compressWithMetadata(
  */
 export function cosineSimilarity(a: number[], b: number[]): number {
   if (a.length !== b.length) {
-    throw new Error('Vectors must have same dimension');
+    throw createValidationError('vectors', 'must have same dimension');
   }
 
   let dotProduct = 0;

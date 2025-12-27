@@ -364,7 +364,11 @@ export class FeedbackService {
   }
 
   /**
-   * Evaluate the outcome of a consolidation decision
+   * Evaluate the outcome of a consolidation decision.
+   *
+   * @todo Compute actual retrieval rates from database instead of placeholder values.
+   *       Requires tracking retrieval events and querying statistics over the
+   *       evaluation window to measure real pre/post consolidation impact.
    */
   async evaluateConsolidationOutcome(
     decisionId: string,
@@ -383,16 +387,15 @@ export class FeedbackService {
     const evaluationWindowDays =
       windowDays ?? this.config.consolidation.evaluationWindowDays;
 
-    // Compute pre/post metrics (simplified - in practice, query actual retrieval data)
-    // This is a placeholder implementation
+    // Placeholder metrics - see method @todo for real implementation
     const preMetrics: ConsolidationMetrics = {
-      retrievalRate: 0.5, // TODO: Compute from actual data
+      retrievalRate: 0.5,
       successRate: 0.6,
       storageCount: JSON.parse(decision.sourceEntryIds).length,
     };
 
     const postMetrics: ConsolidationMetrics = {
-      retrievalRate: 0.6, // TODO: Compute from actual data
+      retrievalRate: 0.6,
       successRate: 0.7,
       storageCount: decision.targetEntryId ? 1 : 0,
     };
@@ -614,6 +617,7 @@ let serviceInstance: FeedbackService | null = null;
 
 /**
  * Get the feedback service singleton
+ * @deprecated Use context.services.feedback instead via dependency injection
  */
 export function getFeedbackService(): FeedbackService | null {
   return serviceInstance;
@@ -621,6 +625,7 @@ export function getFeedbackService(): FeedbackService | null {
 
 /**
  * Initialize the feedback service with dependencies
+ * @deprecated Use context.services.feedback instead via dependency injection
  */
 export function initFeedbackService(
   deps: DatabaseDeps,

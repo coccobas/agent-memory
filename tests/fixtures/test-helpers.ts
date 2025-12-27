@@ -197,13 +197,15 @@ export function ensureTestRuntime(): Runtime {
  * @returns Fully initialized AppContext
  */
 export async function createTestContext(testDb: TestDb): Promise<AppContext> {
-  ensureTestRuntime();
+  const runtime = ensureTestRuntime();
   const baseConfig = buildConfig();
   const config = {
     ...baseConfig,
     database: { ...baseConfig.database, path: testDb.path },
   };
-  return createAppContext(config);
+  // Get the actual registered runtime if ensureTestRuntime returned a placeholder
+  const actualRuntime = isRuntimeRegistered() ? getRuntime() : runtime;
+  return createAppContext(config, actualRuntime);
 }
 
 export interface TestDb {

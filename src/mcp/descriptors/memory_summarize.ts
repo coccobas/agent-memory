@@ -1,6 +1,9 @@
 /**
  * memory_summarize tool descriptor
  *
+ * @experimental This feature is under active development. Most actions will return
+ * "not implemented" errors. The API may change in future versions.
+ *
  * Manages hierarchical summarization of memory entries.
  * Provides multi-level memory consolidation for efficient retrieval and contextual understanding.
  */
@@ -11,6 +14,9 @@ import { summarizeHandlers } from '../handlers/summarize.handler.js';
 export const memorySummarizeDescriptor: ToolDescriptor = {
   name: 'memory_summarize',
   description: `Manage hierarchical summaries for efficient memory retrieval at scale.
+
+**EXPERIMENTAL**: This feature is under active development. Most actions will return
+"not implemented" errors. The API may change in future versions.
 
 Hierarchical summarization creates multi-level abstractions of memory entries:
 - Level 0 (Chunk): Small groups of related entries (5-10 items)

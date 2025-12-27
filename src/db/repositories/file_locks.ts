@@ -17,6 +17,11 @@ import type {
   CheckoutOptions,
   ListLocksFilter,
 } from '../../core/interfaces/repositories.js';
+import {
+  createValidationError,
+  createFileLockError,
+  createNotFoundError,
+} from '../../core/errors.js';
 
 // Re-export input types for backward compatibility
 export type { CheckoutOptions, ListLocksFilter } from '../../core/interfaces/repositories.js';
@@ -40,19 +45,19 @@ export function createFileLockRepository(deps: DatabaseDeps): IFileLockRepositor
       options: CheckoutOptions = {}
     ): Promise<FileLock> {
       // Validate required parameters
-      if (!filePath) throw new Error('filePath is required');
-      if (!agentId) throw new Error('agentId is required');
+      if (!filePath) throw createValidationError('filePath', 'is required');
+      if (!agentId) throw createValidationError('agentId', 'is required');
 
       // Normalize and validate path
       const normalizedPath = normalizePath(filePath);
       if (!isPathSafe(filePath)) {
-        throw new Error(`Invalid or unsafe file path: ${filePath}`);
+        throw createValidationError('filePath', `invalid or unsafe path: ${filePath}`);
       }
 
       // Calculate expiration
       const expiresIn = options.expiresIn ?? DEFAULT_LOCK_TIMEOUT_SECONDS;
       if (expiresIn > MAX_LOCK_TIMEOUT_SECONDS) {
-        throw new Error(`Lock timeout cannot exceed ${MAX_LOCK_TIMEOUT_SECONDS} seconds`);
+        throw createValidationError('expiresIn', `cannot exceed ${MAX_LOCK_TIMEOUT_SECONDS} seconds`);
       }
 
       const checkedOutAt = now();
@@ -102,10 +107,10 @@ export function createFileLockRepository(deps: DatabaseDeps): IFileLockRepositor
             .get();
 
           if (existing) {
-            throw new Error(`File ${filePath} is already locked by agent ${existing.checkedOutBy}`);
+            throw createFileLockError(filePath, existing.checkedOutBy);
           }
           // This shouldn't happen - unique constraint failed but no lock found
-          throw new Error(`Failed to acquire lock for ${filePath}: constraint violation`);
+          throw createValidationError('lock', `constraint violation for ${filePath}`);
         }
 
         // Return the newly created lock
@@ -114,8 +119,8 @@ export function createFileLockRepository(deps: DatabaseDeps): IFileLockRepositor
     },
 
     async checkin(filePath: string, agentId: string): Promise<void> {
-      if (!filePath) throw new Error('filePath is required');
-      if (!agentId) throw new Error('agentId is required');
+      if (!filePath) throw createValidationError('filePath', 'is required');
+      if (!agentId) throw createValidationError('agentId', 'is required');
 
       transactionWithDb(sqlite, () => {
         // Clean up expired locks first (sync call within transaction)
@@ -131,18 +136,16 @@ export function createFileLockRepository(deps: DatabaseDeps): IFileLockRepositor
           .where(eq(fileLocks.filePath, normalizedPath))
           .get();
         if (!lock) {
-          throw new Error(`File ${filePath} is not locked`);
+          throw createNotFoundError('lock', filePath);
         }
 
         // Check if expired
         if (lock.expiresAt && lock.expiresAt <= nowTime) {
-          throw new Error(`File ${filePath} is not locked`);
+          throw createValidationError('lock', `has expired for ${filePath}`);
         }
 
         if (lock.checkedOutBy !== agentId) {
-          throw new Error(
-            `File ${filePath} is locked by agent ${lock.checkedOutBy}, not ${agentId}`
-          );
+          throw createFileLockError(filePath, lock.checkedOutBy);
         }
 
         // Delete by id to avoid deleting a replaced lock
@@ -151,8 +154,8 @@ export function createFileLockRepository(deps: DatabaseDeps): IFileLockRepositor
     },
 
     async forceUnlock(filePath: string, agentId: string, reason?: string): Promise<void> {
-      if (!filePath) throw new Error('filePath is required');
-      if (!agentId) throw new Error('agentId is required');
+      if (!filePath) throw createValidationError('filePath', 'is required');
+      if (!agentId) throw createValidationError('agentId', 'is required');
 
       transactionWithDb(sqlite, () => {
         // Clean up expired locks first (sync call within transaction)
@@ -168,12 +171,12 @@ export function createFileLockRepository(deps: DatabaseDeps): IFileLockRepositor
           .where(eq(fileLocks.filePath, normalizedPath))
           .get();
         if (!lock) {
-          throw new Error(`File ${filePath} is not locked`);
+          throw createNotFoundError('lock', filePath);
         }
 
         // Check if expired
         if (lock.expiresAt && lock.expiresAt <= nowTime) {
-          throw new Error(`File ${filePath} is not locked`);
+          throw createValidationError('lock', `has expired for ${filePath}`);
         }
 
         logger.warn(
@@ -202,14 +205,14 @@ export function createFileLockRepository(deps: DatabaseDeps): IFileLockRepositor
     },
 
     async isLocked(filePath: string): Promise<boolean> {
-      if (!filePath) throw new Error('filePath is required');
+      if (!filePath) throw createValidationError('filePath', 'is required');
       await repo.cleanupExpiredLocks();
       const normalizedPath = normalizePath(filePath);
       return (await repo.getLock(normalizedPath)) !== null;
     },
 
     async getLock(filePath: string): Promise<FileLock | null> {
-      if (!filePath) throw new Error('filePath is required');
+      if (!filePath) throw createValidationError('filePath', 'is required');
 
       const normalizedPath = normalizePath(filePath);
       // Get lock for this file

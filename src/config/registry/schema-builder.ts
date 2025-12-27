@@ -16,6 +16,7 @@ import {
   parseString,
   resolveDataPath,
 } from './parsers.js';
+import { createValidationError } from '../../core/errors.js';
 
 // =============================================================================
 // SCHEMA BUILDING
@@ -87,7 +88,7 @@ export function validateConfig<T>(
     const errorMessage = `Configuration validation failed:\n${errors.map((e) => `  - ${e}`).join('\n')}`;
 
     if (options?.strict !== false) {
-      throw new Error(errorMessage);
+      throw createValidationError('config', errorMessage);
     }
 
     // In non-strict mode, log warning and continue

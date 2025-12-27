@@ -9,9 +9,10 @@
 
 import { tools, guidelines, knowledge, experiences } from '../../../db/schema.js';
 import type { Tool, Guideline, Knowledge, Experience } from '../../../db/schema.js';
-import { eq, and, isNull, inArray, sql } from 'drizzle-orm';
+import { eq, and, or, isNull, inArray, sql } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
 import type { PipelineContext, QueryEntryType, DbInstance } from '../pipeline.js';
+import { createValidationError } from '../../../core/errors.js';
 
 // =============================================================================
 // ADAPTIVE HEADROOM CALCULATION
@@ -128,47 +129,76 @@ function fetchEntriesGeneric<T extends EntryUnion>(
   result: Array<{ entry: T; scopeIndex: number }>,
   softCap: number
 ): void {
-  const { scopeChain, params, ftsMatchIds, limit } = ctx;
+  const { scopeChain, params, ftsMatchIds } = ctx;
   const { table, ftsKey, applyExtraFilters } = config;
 
-  for (let index = 0; index < scopeChain.length; index++) {
-    if (result.length >= softCap) break;
-
-    const scope = scopeChain[index]!;
-    const conditions: SQL[] = [
-      eq(table.scopeType, scope.scopeType),
-      scope.scopeId === null ? isNull(table.scopeId) : eq(table.scopeId, scope.scopeId),
-      eq(table.isActive, true),
-    ];
-
-    // Date filters
-    if (params.createdAfter) {
-      conditions.push(sql`${table.createdAt} >= ${params.createdAfter}`);
+  // Build scope conditions for all scopes in the chain (batched approach)
+  // This replaces N separate queries with a single query using OR
+  const scopeConditions: SQL[] = [];
+  for (const scope of scopeChain) {
+    const scopeCondition =
+      scope.scopeId === null
+        ? and(eq(table.scopeType, scope.scopeType), isNull(table.scopeId))
+        : and(eq(table.scopeType, scope.scopeType), eq(table.scopeId, scope.scopeId));
+    if (scopeCondition) {
+      scopeConditions.push(scopeCondition);
     }
-    if (params.createdBefore) {
-      conditions.push(sql`${table.createdAt} <= ${params.createdBefore}`);
+  }
+
+  // Build common conditions
+  const commonConditions: SQL[] = [eq(table.isActive, true)];
+
+  // Date filters
+  if (params.createdAfter) {
+    commonConditions.push(sql`${table.createdAt} >= ${params.createdAfter}`);
+  }
+  if (params.createdBefore) {
+    commonConditions.push(sql`${table.createdAt} <= ${params.createdBefore}`);
+  }
+
+  // Type-specific extra filters (e.g., priority for guidelines)
+  applyExtraFilters?.(commonConditions, ctx);
+
+  // FTS5 ID filter
+  if (ftsMatchIds && ftsMatchIds[ftsKey].size > 0) {
+    commonConditions.push(inArray(table.id, Array.from(ftsMatchIds[ftsKey])));
+  }
+
+  // Single batched query with OR for all scopes
+  const rows = db
+    .select()
+    .from(table)
+    .where(and(or(...scopeConditions), ...commonConditions))
+    .orderBy(sql`${table.createdAt} DESC`)
+    .limit(softCap)
+    .all();
+
+  // Map each entry to its scope index post-query
+  for (const row of rows) {
+    const entry = row as T;
+    // Find which scope this entry belongs to (first matching scope in chain)
+    const scopeIndex = scopeChain.findIndex(
+      (scope) =>
+        scope.scopeType === entry.scopeType &&
+        (scope.scopeId === null ? entry.scopeId === null : scope.scopeId === entry.scopeId)
+    );
+    result.push({ entry, scopeIndex: scopeIndex >= 0 ? scopeIndex : scopeChain.length });
+  }
+
+  // Sort by scope priority (lower index = higher priority), then by createdAt
+  result.sort((a, b) => {
+    if (a.scopeIndex !== b.scopeIndex) {
+      return a.scopeIndex - b.scopeIndex;
     }
+    // Secondary sort by createdAt (newer first)
+    const aTime = new Date(a.entry.createdAt ?? 0).getTime();
+    const bTime = new Date(b.entry.createdAt ?? 0).getTime();
+    return bTime - aTime;
+  });
 
-    // Type-specific extra filters (e.g., priority for guidelines)
-    applyExtraFilters?.(conditions, ctx);
-
-    // FTS5 ID filter
-    if (ftsMatchIds && ftsMatchIds[ftsKey].size > 0) {
-      conditions.push(inArray(table.id, Array.from(ftsMatchIds[ftsKey])));
-    }
-
-    const perScopeLimit = Math.max(softCap - result.length, limit);
-    const rows = db
-      .select()
-      .from(table)
-      .where(and(...conditions))
-      .orderBy(sql`${table.createdAt} DESC`)
-      .limit(perScopeLimit)
-      .all();
-
-    for (const row of rows) {
-      result.push({ entry: row as T, scopeIndex: index });
-    }
+  // Trim to soft cap if needed
+  if (result.length > softCap) {
+    result.length = softCap;
   }
 }
 
@@ -185,11 +215,11 @@ function fetchEntriesGeneric<T extends EntryUnion>(
  */
 function validateIsoDate(value: unknown, fieldName: string): string {
   if (typeof value !== 'string') {
-    throw new Error(`${fieldName} must be a string`);
+    throw createValidationError(fieldName, 'must be a string', 'Provide a date as a string value');
   }
   const isoRegex = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d{3})?Z?)?$/;
   if (!isoRegex.test(value)) {
-    throw new Error(`${fieldName} must be a valid ISO 8601 date string`);
+    throw createValidationError(fieldName, 'must be a valid ISO 8601 date string', 'Use format like 2024-01-15 or 2024-01-15T10:30:00Z');
   }
   return value;
 }

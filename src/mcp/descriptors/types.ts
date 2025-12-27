@@ -14,6 +14,7 @@
 
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
 import type { AppContext } from '../../core/context.js';
+import { createValidationError } from '../../core/errors.js';
 
 // =============================================================================
 // PARAM SCHEMA TYPES
@@ -297,7 +298,7 @@ export function descriptorToHandler(descriptor: AnyToolDescriptor): GeneratedHan
       if (descriptor.handler) {
         return descriptor.handler(params);
       }
-      throw new Error(`No handler defined for ${descriptor.name}`);
+      throw createValidationError('handler', `no handler defined for ${descriptor.name}`);
     };
   }
 
@@ -308,9 +309,10 @@ export function descriptorToHandler(descriptor: AnyToolDescriptor): GeneratedHan
 
     if (!actionDef) {
       const validActions = Object.keys(descriptor.actions);
-      throw new Error(
-        `Invalid action "${action}" for ${descriptor.name}. ` +
-          `Valid actions: ${validActions.join(', ')}`
+      throw createValidationError(
+        'action',
+        `invalid action "${action}" for ${descriptor.name}`,
+        `Valid actions: ${validActions.join(', ')}`
       );
     }
 
@@ -321,7 +323,7 @@ export function descriptorToHandler(descriptor: AnyToolDescriptor): GeneratedHan
     if (actionDef.handler) {
       return actionDef.handler(rest);
     }
-    throw new Error(`No handler defined for action "${action}" in ${descriptor.name}`);
+    throw createValidationError('handler', `no handler defined for action "${action}" in ${descriptor.name}`);
   };
 }
 

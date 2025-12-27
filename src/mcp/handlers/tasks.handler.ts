@@ -8,8 +8,6 @@
 import type { CreateKnowledgeInput } from '../../db/repositories/knowledge.js';
 import type { ListRelationsFilter } from '../../db/repositories/tags.js';
 import type { AppContext } from '../../core/context.js';
-import { projects } from '../../db/schema.js';
-import { eq } from 'drizzle-orm';
 import type { ScopeType } from '../../db/schema.js';
 import { createValidationError, createNotFoundError } from '../../core/errors.js';
 
@@ -64,8 +62,8 @@ export async function addTask(
     );
   }
 
-  const { db, repos } = context;
-  const { knowledge: knowledgeRepo, entryRelations: entryRelationRepo } = repos;
+  const { repos } = context;
+  const { knowledge: knowledgeRepo, entryRelations: entryRelationRepo, projects: projectRepo } = repos;
 
   // Create main task as a knowledge entry
   const mainTaskInput: CreateKnowledgeInput = {
@@ -138,7 +136,7 @@ export async function addTask(
 
   // Store decomposition metadata in project if projectId provided
   if (projectId) {
-    const project = db.select().from(projects).where(eq(projects.id, projectId)).get();
+    const project = await projectRepo.getById(projectId);
     if (project) {
       const metadata = (project.metadata as Record<string, unknown>) || {};
       const decompositionData = (metadata.decomposition as Record<string, unknown>) || {};
@@ -150,7 +148,7 @@ export async function addTask(
 
       metadata.decomposition = decompositionData;
 
-      db.update(projects).set({ metadata }).where(eq(projects.id, projectId)).run();
+      await projectRepo.update(projectId, { metadata });
     }
   }
 
