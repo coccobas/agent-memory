@@ -428,6 +428,10 @@ describe('Handler Factory', () => {
 
   describe('bulk_add', () => {
     it('should add multiple entries', async () => {
+      // Setup batch permission check to allow all
+      mockPermissionService.checkBatch.mockReturnValue(
+        new Map([['new-0', true], ['new-1', true]])
+      );
       mockRepo.create
         .mockResolvedValueOnce({ id: 'e-1', name: 'Entry 1' })
         .mockResolvedValueOnce({ id: 'e-2', name: 'Entry 2' });
@@ -446,6 +450,55 @@ describe('Handler Factory', () => {
       expect(result.count).toBe(2);
     });
 
+    it('should use checkBatch for permission checking', async () => {
+      mockPermissionService.checkBatch.mockReturnValue(
+        new Map([['new-0', true], ['new-1', true]])
+      );
+      mockRepo.create.mockResolvedValue({ id: 'e-1' });
+
+      await handlers.bulk_add(mockContext, {
+        agentId: 'agent-1',
+        scopeType: 'project',
+        scopeId: 'proj-1',
+        entries: [
+          { name: 'Entry 1', content: 'Content 1' },
+          { name: 'Entry 2', content: 'Content 2' },
+        ],
+      });
+
+      // Verify checkBatch was called with synthetic IDs
+      expect(mockPermissionService.checkBatch).toHaveBeenCalledWith(
+        'agent-1',
+        'write',
+        expect.arrayContaining([
+          expect.objectContaining({ id: 'new-0', scopeType: 'project', scopeId: 'proj-1' }),
+          expect.objectContaining({ id: 'new-1', scopeType: 'project', scopeId: 'proj-1' }),
+        ])
+      );
+    });
+
+    it('should fail-fast when any entry permission is denied', async () => {
+      // First entry allowed, second denied
+      mockPermissionService.checkBatch.mockReturnValue(
+        new Map([['new-0', true], ['new-1', false]])
+      );
+
+      await expect(
+        handlers.bulk_add(mockContext, {
+          agentId: 'agent-1',
+          scopeType: 'project',
+          scopeId: 'proj-1',
+          entries: [
+            { name: 'Entry 1', content: 'Content 1' },
+            { name: 'Entry 2', content: 'Content 2' },
+          ],
+        })
+      ).rejects.toThrow();
+
+      // Verify create was never called (fail-fast before any creation)
+      expect(mockRepo.create).not.toHaveBeenCalled();
+    });
+
     it('should throw on empty entries', async () => {
       await expect(
         handlers.bulk_add(mockContext, {
@@ -458,6 +511,7 @@ describe('Handler Factory', () => {
     });
 
     it('should allow per-entry scope overrides', async () => {
+      mockPermissionService.checkBatch.mockReturnValue(new Map([['new-0', true]]));
       mockRepo.create.mockResolvedValue({ id: 'e-1' });
 
       await handlers.bulk_add(mockContext, {
@@ -469,8 +523,41 @@ describe('Handler Factory', () => {
         ],
       });
 
+      // Verify checkBatch used entry-level scopeType override
+      // Note: scopeId falls back to default when not explicitly overridden
+      expect(mockPermissionService.checkBatch).toHaveBeenCalledWith(
+        'agent-1',
+        'write',
+        expect.arrayContaining([
+          expect.objectContaining({ id: 'new-0', scopeType: 'global' }),
+        ])
+      );
+
       expect(mockRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({ scopeType: 'global' })
+      );
+    });
+
+    it('should respect per-entry scopeId override', async () => {
+      mockPermissionService.checkBatch.mockReturnValue(new Map([['new-0', true]]));
+      mockRepo.create.mockResolvedValue({ id: 'e-1' });
+
+      await handlers.bulk_add(mockContext, {
+        agentId: 'agent-1',
+        scopeType: 'project',
+        scopeId: 'proj-1',
+        entries: [
+          { name: 'Entry 1', content: 'Content', scopeType: 'org', scopeId: 'org-1' },
+        ],
+      });
+
+      // Verify checkBatch used both entry-level overrides
+      expect(mockPermissionService.checkBatch).toHaveBeenCalledWith(
+        'agent-1',
+        'write',
+        expect.arrayContaining([
+          expect.objectContaining({ id: 'new-0', scopeType: 'org', scopeId: 'org-1' }),
+        ])
       );
     });
   });
@@ -480,6 +567,9 @@ describe('Handler Factory', () => {
       mockRepo.getById
         .mockResolvedValueOnce({ id: 'e-1', scopeType: 'project', scopeId: 'p-1' })
         .mockResolvedValueOnce({ id: 'e-2', scopeType: 'project', scopeId: 'p-1' });
+      mockPermissionService.checkBatch.mockReturnValue(
+        new Map([['e-1', true], ['e-2', true]])
+      );
       mockRepo.update
         .mockResolvedValue({ id: 'e-1', scopeType: 'project', scopeId: 'p-1' });
 
@@ -495,6 +585,57 @@ describe('Handler Factory', () => {
       expect(result.count).toBe(2);
     });
 
+    it('should use checkBatch for permission checking', async () => {
+      mockRepo.getById
+        .mockResolvedValueOnce({ id: 'e-1', scopeType: 'project', scopeId: 'p-1' })
+        .mockResolvedValueOnce({ id: 'e-2', scopeType: 'org', scopeId: 'org-1' });
+      mockPermissionService.checkBatch.mockReturnValue(
+        new Map([['e-1', true], ['e-2', true]])
+      );
+      mockRepo.update.mockResolvedValue({ id: 'e-1' });
+
+      await handlers.bulk_update(mockContext, {
+        agentId: 'agent-1',
+        updates: [
+          { id: 'e-1', content: 'Updated 1' },
+          { id: 'e-2', content: 'Updated 2' },
+        ],
+      });
+
+      // Verify checkBatch was called with actual entry IDs and scopes
+      expect(mockPermissionService.checkBatch).toHaveBeenCalledWith(
+        'agent-1',
+        'write',
+        expect.arrayContaining([
+          expect.objectContaining({ id: 'e-1', scopeType: 'project', scopeId: 'p-1' }),
+          expect.objectContaining({ id: 'e-2', scopeType: 'org', scopeId: 'org-1' }),
+        ])
+      );
+    });
+
+    it('should fail-fast when any entry permission is denied', async () => {
+      mockRepo.getById
+        .mockResolvedValueOnce({ id: 'e-1', scopeType: 'project', scopeId: 'p-1' })
+        .mockResolvedValueOnce({ id: 'e-2', scopeType: 'project', scopeId: 'p-1' });
+      // Second entry permission denied
+      mockPermissionService.checkBatch.mockReturnValue(
+        new Map([['e-1', true], ['e-2', false]])
+      );
+
+      await expect(
+        handlers.bulk_update(mockContext, {
+          agentId: 'agent-1',
+          updates: [
+            { id: 'e-1', content: 'Updated 1' },
+            { id: 'e-2', content: 'Updated 2' },
+          ],
+        })
+      ).rejects.toThrow();
+
+      // Verify update was never called (fail-fast before any update)
+      expect(mockRepo.update).not.toHaveBeenCalled();
+    });
+
     it('should throw on empty updates', async () => {
       await expect(
         handlers.bulk_update(mockContext, {
@@ -507,11 +648,12 @@ describe('Handler Factory', () => {
 
   describe('bulk_delete', () => {
     it('should delete multiple entries', async () => {
-      mockRepo.getById.mockResolvedValue({
-        id: 'e-1',
-        scopeType: 'project',
-        scopeId: 'p-1',
-      });
+      mockRepo.getById
+        .mockResolvedValueOnce({ id: 'e-1', scopeType: 'project', scopeId: 'p-1' })
+        .mockResolvedValueOnce({ id: 'e-2', scopeType: 'project', scopeId: 'p-1' });
+      mockPermissionService.checkBatch.mockReturnValue(
+        new Map([['e-1', true], ['e-2', true]])
+      );
       mockRepo.deactivate.mockResolvedValue(true);
 
       const result = await handlers.bulk_delete(mockContext, {
@@ -521,6 +663,51 @@ describe('Handler Factory', () => {
 
       expect(result.success).toBe(true);
       expect(result.count).toBe(2);
+    });
+
+    it('should use checkBatch for permission checking', async () => {
+      mockRepo.getById
+        .mockResolvedValueOnce({ id: 'e-1', scopeType: 'project', scopeId: 'p-1' })
+        .mockResolvedValueOnce({ id: 'e-2', scopeType: 'global', scopeId: null });
+      mockPermissionService.checkBatch.mockReturnValue(
+        new Map([['e-1', true], ['e-2', true]])
+      );
+      mockRepo.deactivate.mockResolvedValue(true);
+
+      await handlers.bulk_delete(mockContext, {
+        agentId: 'agent-1',
+        ids: ['e-1', 'e-2'],
+      });
+
+      // Verify checkBatch was called with actual entry IDs and scopes
+      expect(mockPermissionService.checkBatch).toHaveBeenCalledWith(
+        'agent-1',
+        'write',
+        expect.arrayContaining([
+          expect.objectContaining({ id: 'e-1', scopeType: 'project', scopeId: 'p-1' }),
+          expect.objectContaining({ id: 'e-2', scopeType: 'global', scopeId: null }),
+        ])
+      );
+    });
+
+    it('should fail-fast when any entry permission is denied', async () => {
+      mockRepo.getById
+        .mockResolvedValueOnce({ id: 'e-1', scopeType: 'project', scopeId: 'p-1' })
+        .mockResolvedValueOnce({ id: 'e-2', scopeType: 'project', scopeId: 'p-1' });
+      // Second entry permission denied
+      mockPermissionService.checkBatch.mockReturnValue(
+        new Map([['e-1', true], ['e-2', false]])
+      );
+
+      await expect(
+        handlers.bulk_delete(mockContext, {
+          agentId: 'agent-1',
+          ids: ['e-1', 'e-2'],
+        })
+      ).rejects.toThrow();
+
+      // Verify deactivate was never called (fail-fast before any deletion)
+      expect(mockRepo.deactivate).not.toHaveBeenCalled();
     });
 
     it('should throw on empty ids', async () => {

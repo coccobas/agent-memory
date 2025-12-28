@@ -46,6 +46,9 @@ import { queryRewriteSection } from './sections/queryRewrite.js';
 import { loraSection } from './sections/lora.js';
 import { feedbackSection } from './sections/feedback.js';
 import { circuitBreakerSection } from './sections/circuitBreaker.js';
+import { rerankSection } from './sections/rerank.js';
+import { hierarchicalSection } from './sections/hierarchical.js';
+import { searchSection } from './sections/search.js';
 
 // =============================================================================
 // TOP-LEVEL OPTIONS
@@ -103,6 +106,9 @@ export const configRegistry: ConfigRegistry = {
     lora: loraSection,
     feedback: feedbackSection,
     circuitBreaker: circuitBreakerSection,
+    rerank: rerankSection,
+    hierarchical: hierarchicalSection,
+    search: searchSection,
   },
 };
 

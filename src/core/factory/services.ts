@@ -31,6 +31,7 @@ import { FeedbackScoreCache } from '../../services/query/feedback-cache.js';
 import { LibrarianService } from '../../services/librarian/index.js';
 import { createLoraService } from '../../services/lora.service.js';
 import { createValidationError } from '../errors.js';
+import { QueryRewriteService } from '../../services/query-rewrite/index.js';
 
 const logger = createComponentLogger('services-factory');
 
@@ -236,6 +237,44 @@ export async function createServices(
   const loraService = createLoraService();
   logger.debug('LoRA service initialized');
 
+  // Query Rewrite Service - HyDE and query expansion
+  const queryRewriteService = config.queryRewrite.enabled
+    ? new QueryRewriteService(
+        {
+          enableHyDE: config.queryRewrite.hydeEnabled,
+          enableExpansion: config.queryRewrite.expansionEnabled,
+          expansion: {
+            useDictionary: config.queryRewrite.expansionUseDictionary,
+            useRelations: config.queryRewrite.expansionUseRelations,
+            useLLM: config.queryRewrite.expansionUseLLM,
+            maxExpansions: config.queryRewrite.maxExpansions,
+            expansionWeight: config.queryRewrite.expansionWeight,
+          },
+          hyde: {
+            provider: config.queryRewrite.provider as 'openai' | 'anthropic' | 'ollama' | 'disabled',
+            model: config.queryRewrite.model,
+            temperature: config.queryRewrite.hydeTemperature,
+            documentCount: config.queryRewrite.hydeDocumentCount,
+            maxTokensPerDoc: config.queryRewrite.hydeMaxTokens,
+          },
+        },
+        // Pass dependencies for HyDE generation
+        {
+          extractionService,
+          embeddingService,
+        }
+      )
+    : undefined;
+  if (queryRewriteService) {
+    logger.debug(
+      {
+        hydeEnabled: config.queryRewrite.hydeEnabled,
+        expansionEnabled: config.queryRewrite.expansionEnabled,
+      },
+      'Query rewrite service initialized'
+    );
+  }
+
   return {
     embedding: embeddingService,
     vector: vectorService,
@@ -252,5 +291,6 @@ export async function createServices(
     feedbackScoreCache: feedbackScoreCacheInstance,
     librarian: librarianService,
     lora: loraService,
+    queryRewrite: queryRewriteService,
   };
 }

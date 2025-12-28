@@ -333,6 +333,56 @@ export function escapeFts5QueryTokenized(input: string): string {
 }
 
 /**
+ * Convert query string to FTS5 OR query for better recall
+ *
+ * FTS5 uses implicit AND between terms. This function converts a query
+ * to use explicit OR between terms, so matching ANY term returns results.
+ * Useful for natural language questions where not all words need to match.
+ *
+ * Also filters out common stop words that add noise without improving recall.
+ *
+ * @param input - Raw search input
+ * @returns FTS5 query with OR between significant tokens
+ */
+export function escapeFts5QueryOr(input: string): string {
+  // Common English stop words to filter out
+  const stopWords = new Set([
+    'a', 'an', 'the', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
+    'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should',
+    'may', 'might', 'must', 'shall', 'can', 'need', 'dare', 'ought', 'used',
+    'to', 'of', 'in', 'for', 'on', 'with', 'at', 'by', 'from', 'as', 'into',
+    'through', 'during', 'before', 'after', 'above', 'below', 'between',
+    'and', 'but', 'or', 'nor', 'so', 'yet', 'both', 'either', 'neither',
+    'not', 'only', 'own', 'same', 'than', 'too', 'very', 'just',
+    'i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves',
+    'you', 'your', 'yours', 'yourself', 'yourselves',
+    'he', 'him', 'his', 'himself', 'she', 'her', 'hers', 'herself',
+    'it', 'its', 'itself', 'they', 'them', 'their', 'theirs', 'themselves',
+    'what', 'which', 'who', 'whom', 'this', 'that', 'these', 'those',
+    'when', 'where', 'why', 'how', 'all', 'each', 'every', 'any', 'some',
+    'go', 'went', 'gone', 'going', 'get', 'got', 'getting',
+  ]);
+
+  const tokens = input
+    // Remove quotes and asterisks
+    .replace(/["*]/g, '')
+    // Normalize to tokens
+    .replace(/[^a-zA-Z0-9]+/g, ' ')
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    // Filter stop words and short tokens
+    .filter(token => token.length >= 2 && !stopWords.has(token));
+
+  if (tokens.length === 0) {
+    return '';
+  }
+
+  // Join with OR for better recall
+  return tokens.join(' OR ');
+}
+
+/**
  * Check if FTS5 is available and tables exist
  */
 export function isFTSAvailable(): boolean {
@@ -347,5 +397,6 @@ export function isFTSAvailable(): boolean {
     return false;
   }
 }
+
 
 

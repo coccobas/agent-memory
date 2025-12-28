@@ -10,6 +10,10 @@ import type { Runtime } from '../runtime.js';
 import type { IEventAdapter } from '../adapters/interfaces.js';
 import type { EntryChangedEvent } from '../../utils/events.js';
 import type { FeedbackQueueProcessor } from '../../services/feedback/queue.js';
+import type { IQueryRewriteService } from '../../services/query-rewrite/types.js';
+import type { EntityIndex } from '../../services/query/entity-index.js';
+import type { ExtractedEntity } from '../../services/query/entity-extractor.js';
+import type { IEmbeddingService, IVectorService } from '../context.js';
 import { getDb, getPreparedStatement } from '../../db/connection.js';
 import {
   createDependencies,
@@ -24,6 +28,14 @@ import { createComponentLogger } from '../../utils/logger.js';
 export interface QueryPipelineOptions {
   /** Feedback queue for RL training data collection (optional) */
   feedbackQueue?: FeedbackQueueProcessor;
+  /** Query rewrite service for HyDE and expansion (optional) */
+  queryRewriteService?: IQueryRewriteService;
+  /** Entity index for entity-aware retrieval (optional) */
+  entityIndex?: EntityIndex;
+  /** Embedding service for neural re-ranking (optional) */
+  embeddingService?: IEmbeddingService;
+  /** Vector service for semantic similarity search (optional) */
+  vectorService?: IVectorService;
 }
 
 /**
@@ -50,6 +62,41 @@ export function createQueryPipeline(
       }
     : undefined;
 
+  // Wire query rewrite service if provided
+  const queryRewriteService = options?.queryRewriteService
+    ? {
+        rewrite: (input: Parameters<IQueryRewriteService['rewrite']>[0]) =>
+          options.queryRewriteService!.rewrite(input),
+        isAvailable: () => options.queryRewriteService!.isAvailable(),
+      }
+    : undefined;
+
+  // Wire entity index if provided
+  const entityIndex = options?.entityIndex
+    ? {
+        lookupMultiple: (entities: ExtractedEntity[]) =>
+          options.entityIndex!.lookupMultiple(entities),
+      }
+    : undefined;
+
+  // Wire embedding service if provided
+  const embeddingService = options?.embeddingService
+    ? {
+        embed: (text: string) => options.embeddingService!.embed(text),
+        embedBatch: (texts: string[]) => options.embeddingService!.embedBatch(texts),
+        isAvailable: () => options.embeddingService!.isAvailable(),
+      }
+    : undefined;
+
+  // Wire vector service if provided
+  const vectorService = options?.vectorService
+    ? {
+        searchSimilar: (embedding: number[], entryTypes: string[], limit?: number) =>
+          options.vectorService!.searchSimilar(embedding, entryTypes, limit),
+        isAvailable: () => options.vectorService!.isAvailable(),
+      }
+    : undefined;
+
   return createDependencies({
     getDb: () => getDb(),
     getPreparedStatement: (sql: string) => getPreparedStatement(sql),
@@ -57,6 +104,10 @@ export function createQueryPipeline(
     perfLog: config.logging.performance,
     logger,
     feedback,
+    queryRewriteService,
+    entityIndex,
+    embeddingService,
+    vectorService,
   });
 }
 

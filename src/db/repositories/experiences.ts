@@ -112,7 +112,8 @@ export function createExperienceRepository(deps: DatabaseDeps): IExperienceRepos
         const experienceId = generateId();
         const versionId = generateId();
 
-        // Create the experience entry
+        // Create the experience entry with null currentVersionId
+        // (FTS INSERT trigger fires here but with empty content - that's OK)
         const entry: NewExperience = {
           id: experienceId,
           scopeType: input.scopeType,
@@ -120,7 +121,7 @@ export function createExperienceRepository(deps: DatabaseDeps): IExperienceRepos
           title: input.title,
           level: input.level ?? 'case',
           category: input.category,
-          currentVersionId: versionId,
+          currentVersionId: null,
           isActive: true,
           createdBy: input.createdBy,
         };
@@ -164,6 +165,12 @@ export function createExperienceRepository(deps: DatabaseDeps): IExperienceRepos
             db.insert(experienceTrajectorySteps).values(stepEntry).run();
           });
         }
+
+        // Update currentVersionId - this triggers FTS UPDATE which populates content
+        db.update(experiences)
+          .set({ currentVersionId: versionId })
+          .where(eq(experiences.id, experienceId))
+          .run();
 
         const result = getByIdSync(experienceId, true);
         if (!result) {
@@ -471,6 +478,7 @@ export function createExperienceRepository(deps: DatabaseDeps): IExperienceRepos
           const strategyId = generateId();
           const versionId = generateId();
 
+          // Create with null currentVersionId (FTS INSERT trigger fires with empty content)
           const strategyEntry: NewExperience = {
             id: strategyId,
             scopeType: existing.scopeType,
@@ -478,7 +486,7 @@ export function createExperienceRepository(deps: DatabaseDeps): IExperienceRepos
             title: `Strategy: ${existing.title}`,
             level: 'strategy',
             category: existing.category,
-            currentVersionId: versionId,
+            currentVersionId: null,
             isActive: true,
             createdBy: input.promotedBy,
           };
@@ -514,6 +522,12 @@ export function createExperienceRepository(deps: DatabaseDeps): IExperienceRepos
 
           db.insert(experienceVersions).values(version).run();
 
+          // Update currentVersionId - triggers FTS UPDATE with proper content
+          db.update(experiences)
+            .set({ currentVersionId: versionId })
+            .where(eq(experiences.id, strategyId))
+            .run();
+
           const result = getByIdSync(strategyId);
           if (!result) {
             throw createConflictError('experience', 'failed to create strategy experience');
@@ -534,13 +548,14 @@ export function createExperienceRepository(deps: DatabaseDeps): IExperienceRepos
           const toolId = generateId();
           const toolVersionId = generateId();
 
+          // Create with null currentVersionId (FTS INSERT trigger fires with empty content)
           const newTool: NewTool = {
             id: toolId,
             scopeType: existing.scopeType,
             scopeId: existing.scopeId,
             name: input.toolName,
             category: input.toolCategory ?? 'function',
-            currentVersionId: toolVersionId,
+            currentVersionId: null,
             isActive: true,
             createdBy: input.promotedBy,
           };
@@ -560,6 +575,12 @@ export function createExperienceRepository(deps: DatabaseDeps): IExperienceRepos
           };
 
           db.insert(toolVersions).values(toolVersion).run();
+
+          // Update currentVersionId - triggers FTS UPDATE with proper content
+          db.update(tools)
+            .set({ currentVersionId: toolVersionId })
+            .where(eq(tools.id, toolId))
+            .run();
 
           // Create promotion relation: strategy --promoted_to--> tool
           const relationEntry: NewEntryRelation = {

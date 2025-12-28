@@ -11,6 +11,7 @@
 
 import { IntentClassifier } from './classifier.js';
 import { QueryExpander } from './expander.js';
+import { HyDEGenerator } from './hyde.js';
 import type {
   IQueryRewriteService,
   RewriteInput,
@@ -19,7 +20,10 @@ import type {
   RewriteStrategy,
   ClassificationResult,
   ExpansionConfig,
+  HyDEConfig,
 } from './types.js';
+import type { ExtractionService } from '../extraction.service.js';
+import type { EmbeddingService } from '../embedding.service.js';
 
 /**
  * Configuration for QueryRewriteService
@@ -31,6 +35,18 @@ export interface QueryRewriteServiceConfig {
   enableHyDE?: boolean;
   /** Enable expansion by default */
   enableExpansion?: boolean;
+  /** HyDE configuration (required when enableHyDE is true) */
+  hyde?: HyDEConfig;
+}
+
+/**
+ * Dependencies for QueryRewriteService (for HyDE)
+ */
+export interface QueryRewriteServiceDeps {
+  /** Extraction service for HyDE document generation */
+  extractionService?: ExtractionService;
+  /** Embedding service for HyDE embeddings */
+  embeddingService?: EmbeddingService;
 }
 
 /**
@@ -77,15 +93,16 @@ const DEFAULT_EXPANSION_CONFIG: ExpansionConfig = {
 export class QueryRewriteService implements IQueryRewriteService {
   private classifier: IntentClassifier;
   private expander: QueryExpander | null = null;
-  private hydeGenerator: unknown | null = null; // Will be typed when HyDE is implemented
+  private hydeGenerator: HyDEGenerator | null = null;
   private config: QueryRewriteServiceConfig;
 
   /**
    * Creates a new QueryRewriteService
    *
    * @param config - Service configuration
+   * @param deps - Optional dependencies for HyDE (extraction and embedding services)
    */
-  constructor(config: QueryRewriteServiceConfig = {}) {
+  constructor(config: QueryRewriteServiceConfig = {}, deps?: QueryRewriteServiceDeps) {
     this.config = {
       enableExpansion: config.enableExpansion ?? true,
       enableHyDE: config.enableHyDE ?? false,
@@ -93,6 +110,7 @@ export class QueryRewriteService implements IQueryRewriteService {
         ...DEFAULT_EXPANSION_CONFIG,
         ...config.expansion,
       },
+      hyde: config.hyde,
     };
 
     // Always create classifier (lightweight)
@@ -103,7 +121,14 @@ export class QueryRewriteService implements IQueryRewriteService {
       this.expander = new QueryExpander(this.config.expansion!);
     }
 
-    // HyDE generator initialization (not yet implemented - see class @todo)
+    // Create HyDE generator if enabled and dependencies are available
+    if (this.config.enableHyDE && deps?.extractionService && deps?.embeddingService && config.hyde) {
+      this.hydeGenerator = new HyDEGenerator(
+        deps.extractionService,
+        deps.embeddingService,
+        config.hyde
+      );
+    }
   }
 
   /**
@@ -154,9 +179,24 @@ export class QueryRewriteService implements IQueryRewriteService {
       }
     }
 
-    // HyDE strategy (not yet implemented - see class @todo)
-    if (enableHyDE && this.hydeGenerator) {
-      // HyDE document generation will be added here
+    // HyDE strategy - generate hypothetical documents and embed them
+    if (enableHyDE && this.hydeGenerator && this.hydeGenerator.isAvailable()) {
+      const hydeResult = await this.hydeGenerator.generate(input.originalQuery, classification.intent);
+
+      // Add each HyDE document as a rewritten query with its embedding
+      for (let i = 0; i < hydeResult.documents.length; i++) {
+        const doc = hydeResult.documents[i];
+        const embedding = hydeResult.embeddings[i];
+
+        if (doc && embedding) {
+          queries.push({
+            text: doc,
+            embedding, // Pre-computed embedding for semantic search
+            source: 'hyde',
+            weight: 0.9, // HyDE documents get high weight (but less than original)
+          });
+        }
+      }
     }
 
     // Step 4: Determine strategy

@@ -9,7 +9,7 @@
  */
 
 export { resolveStage } from './resolve.js';
-export { rewriteStage, type RewriteStageContext } from './rewrite.js';
+export { rewriteStage, rewriteStageAsync, type RewriteStageContext } from './rewrite.js';
 export { ftsStage } from './fts.js';
 export { relationsStage } from './relations.js';
 export { fetchStage, fetchStageAsync } from './fetch.js';
@@ -35,3 +35,28 @@ export {
   prewarmFeedbackCache,
   type FeedbackPipelineContext,
 } from './feedback.js';
+export {
+  createRerankStage,
+  rerankStageNoop,
+  shouldApplyRerank,
+  getRerankStats,
+  DEFAULT_RERANK_CONFIG,
+  type RerankConfig,
+  type RerankDependencies,
+  type RerankPipelineContext,
+} from './rerank.js';
+export {
+  createHierarchicalStage,
+  hierarchicalStageNoop,
+  shouldApplyHierarchical,
+  getHierarchicalStats,
+  filterByHierarchicalCandidates,
+  DEFAULT_HIERARCHICAL_CONFIG,
+  type HierarchicalConfig,
+  type HierarchicalDependencies,
+  type HierarchicalPipelineContext,
+} from './hierarchical.js';
+export {
+  semanticStageAsync,
+  type SemanticStageContext,
+} from './semantic.js';

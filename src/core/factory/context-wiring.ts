@@ -29,6 +29,7 @@ import type { ICacheAdapter } from '../adapters/interfaces.js';
 
 import { createServices, type ServiceDependencies } from './services.js';
 import { createQueryPipeline, wireQueryCache } from './query-pipeline.js';
+import { EntityIndex } from '../../services/query/entity-index.js';
 
 /**
  * Input for wireContext - all backend-specific resources resolved
@@ -130,9 +131,16 @@ export async function wireContext(input: WireContextInput): Promise<AppContext> 
   );
   services.capture = captureService;
 
-  // Create query pipeline with feedback queue for RL training
+  // Create entity index for entity-aware retrieval
+  const entityIndex = new EntityIndex(db);
+
+  // Create query pipeline with feedback queue, query rewrite service, entity index, embedding service, and vector service
   const queryDeps = createQueryPipeline(config, runtime, {
     feedbackQueue: services.feedbackQueue,
+    queryRewriteService: services.queryRewrite,
+    entityIndex,
+    embeddingService: services.embedding,
+    vectorService: services.vector,
   });
 
   // Wire query cache invalidation using the event adapter

@@ -84,7 +84,8 @@ export function createGuidelineRepository(deps: DatabaseDeps): IGuidelineReposit
         const guidelineId = generateId();
         const versionId = generateId();
 
-        // Create the guideline entry
+        // Create the guideline entry with null currentVersionId
+        // (FTS INSERT trigger fires here but with empty content - that's OK)
         const guideline: NewGuideline = {
           id: guidelineId,
           scopeType: input.scopeType,
@@ -92,7 +93,7 @@ export function createGuidelineRepository(deps: DatabaseDeps): IGuidelineReposit
           name: input.name,
           category: input.category,
           priority: input.priority ?? 50,
-          currentVersionId: versionId,
+          currentVersionId: null,
           isActive: true,
           createdBy: input.createdBy,
         };
@@ -112,6 +113,12 @@ export function createGuidelineRepository(deps: DatabaseDeps): IGuidelineReposit
         };
 
         db.insert(guidelineVersions).values(version).run();
+
+        // Update currentVersionId - this triggers FTS UPDATE which populates content
+        db.update(guidelines)
+          .set({ currentVersionId: versionId })
+          .where(eq(guidelines.id, guidelineId))
+          .run();
 
         const result = getByIdSync(guidelineId);
         if (!result) {

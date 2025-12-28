@@ -17,9 +17,6 @@ import type {
 
 const logger = createComponentLogger('lancedb-store');
 
-// Configuration from centralized config
-const DEFAULT_VECTOR_DB_PATH = config.vectorDb.path;
-
 /**
  * Validate and sanitize identifier for use in LanceDB filter queries
  * Uses whitelist approach to prevent SQL injection
@@ -54,7 +51,9 @@ export class LanceDbVectorStore implements IVectorStore {
   private ensureTablePromise: Promise<{ createdWithRecord: boolean }> | null = null;
 
   constructor(dbPath?: string, distanceMetric?: DistanceMetric) {
-    this.dbPath = dbPath || DEFAULT_VECTOR_DB_PATH;
+    // Prefer env var at instantiation time so tests/benchmarks can override paths
+    // without requiring config rebuilds.
+    this.dbPath = dbPath || process.env.AGENT_MEMORY_VECTOR_DB_PATH || config.vectorDb.path;
     this.distanceMetric = distanceMetric || config.vectorDb.distanceMetric;
   }
 
@@ -221,11 +220,13 @@ export class LanceDbVectorStore implements IVectorStore {
       const validatedEntryType = validateIdentifier(filter.entryType, 'entryType');
       const validatedEntryId = validateIdentifier(filter.entryId, 'entryId');
 
-      let filterPredicate = `"entryType" = '${validatedEntryType}' AND "entryId" = '${validatedEntryId}'`;
+      // LanceDB filter syntax requires backticks for case-sensitive field names.
+      // Double quotes do not behave as identifiers here.
+      let filterPredicate = `\`entryType\` = '${validatedEntryType}' AND \`entryId\` = '${validatedEntryId}'`;
 
       if (filter.versionId) {
         const validatedVersionId = validateIdentifier(filter.versionId, 'versionId');
-        filterPredicate += ` AND "versionId" = '${validatedVersionId}'`;
+        filterPredicate += ` AND \`versionId\` = '${validatedVersionId}'`;
       }
 
       if (filter.excludeVersionId) {
@@ -233,12 +234,15 @@ export class LanceDbVectorStore implements IVectorStore {
           filter.excludeVersionId,
           'excludeVersionId'
         );
-        filterPredicate += ` AND "versionId" != '${validatedExcludeVersionId}'`;
+        filterPredicate += ` AND \`versionId\` != '${validatedExcludeVersionId}'`;
       }
 
       await this.table.delete(filterPredicate);
     } catch (error) {
-      logger.warn({ error, filter }, 'Failed to delete embeddings');
+      logger.warn(
+        { error: error instanceof Error ? error.message : String(error), filter },
+        'Failed to delete embeddings'
+      );
     }
   }
 
@@ -260,7 +264,7 @@ export class LanceDbVectorStore implements IVectorStore {
         const typeFilter = options.entryTypes
           .map((t) => {
             const validated = validateIdentifier(t, 'entryType');
-            return `"entryType" = '${validated}'`;
+            return `\`entryType\` = '${validated}'`;
           })
           .join(' OR ');
         query = query.filter(`(${typeFilter})`);
@@ -318,7 +322,7 @@ export class LanceDbVectorStore implements IVectorStore {
         return [];
       }
 
-      logger.error({ error }, 'Unexpected error during vector search');
+      logger.error({ error: errorMessage }, 'Unexpected error during vector search');
       throw error;
     }
   }

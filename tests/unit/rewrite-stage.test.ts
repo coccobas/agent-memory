@@ -126,8 +126,27 @@ describe('rewriteStage', () => {
     });
   });
 
-  describe('expansion enabled', () => {
-    it('should include original query when expansion is enabled', () => {
+  // Note: The sync rewriteStage is a lightweight fallback that:
+  // - Always returns strategy 'direct' (ignores enableExpansion, enableHyDE, etc.)
+  // - Uses rewriteIntent/rewriteStrategy properties (not rewrite.intent/strategy)
+  // - Does NOT produce a 'rewrite' object - that requires the async version with QueryRewriteService
+  // - Only performs intent classification on the original query
+
+  describe('sync stage behavior (fallback mode)', () => {
+    it('should always use direct strategy regardless of enabled features', () => {
+      const ctx = createContext({
+        params: { enableExpansion: true, enableHyDE: true },
+        search: 'test query',
+      });
+
+      const result = rewriteStage(ctx);
+
+      // Sync stage always uses 'direct' strategy
+      expect(result.rewriteStrategy).toBe('direct');
+      expect(result.rewrite).toBeUndefined();
+    });
+
+    it('should return original query only', () => {
       const ctx = createContext({
         params: { enableExpansion: true },
         search: 'test query',
@@ -135,7 +154,7 @@ describe('rewriteStage', () => {
 
       const result = rewriteStage(ctx);
 
-      expect(result.searchQueries.length).toBeGreaterThanOrEqual(1);
+      expect(result.searchQueries).toHaveLength(1);
       expect(result.searchQueries[0]).toMatchObject({
         text: 'test query',
         weight: 1.0,
@@ -143,48 +162,19 @@ describe('rewriteStage', () => {
       });
     });
 
-    it('should set strategy to expansion when only expansion is enabled', () => {
+    it('should perform intent classification even without service', () => {
       const ctx = createContext({
-        params: { enableExpansion: true },
-        search: 'test query',
-      });
-
-      const result = rewriteStage(ctx);
-
-      expect(result.rewrite).toBeDefined();
-      expect(result.rewrite!.strategy).toBe('expansion');
-    });
-
-    it('should include intent classification with expansion enabled', () => {
-      const ctx = createContext({
-        params: { enableExpansion: true },
+        params: {},
         search: 'how to configure the system',
       });
 
       const result = rewriteStage(ctx);
 
-      expect(result.rewrite).toBeDefined();
-      expect(result.rewrite!.intent).toBeDefined();
-      expect(['lookup', 'how_to', 'debug', 'explore', 'compare', 'configure']).toContain(
-        result.rewrite!.intent
-      );
+      expect(result.rewriteIntent).toBeDefined();
+      expect(result.rewriteStrategy).toBe('direct');
     });
 
-    it('should handle expansion with complex queries', () => {
-      const ctx = createContext({
-        params: { enableExpansion: true },
-        search: 'fix the authentication error in production',
-      });
-
-      const result = rewriteStage(ctx);
-
-      expect(result.searchQueries.length).toBeGreaterThanOrEqual(1);
-      expect(result.rewrite).toBeDefined();
-    });
-  });
-
-  describe('HyDE enabled', () => {
-    it('should set strategy to hyde when only HyDE is enabled', () => {
+    it('should ignore enableHyDE in sync mode', () => {
       const ctx = createContext({
         params: { enableHyDE: true },
         search: 'test query',
@@ -192,41 +182,12 @@ describe('rewriteStage', () => {
 
       const result = rewriteStage(ctx);
 
-      expect(result.rewrite).toBeDefined();
-      expect(result.rewrite!.strategy).toBe('hyde');
+      // Sync stage ignores HyDE - needs async service
+      expect(result.rewriteStrategy).toBe('direct');
+      expect(result.searchQueries).toHaveLength(1);
     });
 
-    it('should include original query when HyDE is enabled', () => {
-      const ctx = createContext({
-        params: { enableHyDE: true },
-        search: 'test query',
-      });
-
-      const result = rewriteStage(ctx);
-
-      expect(result.searchQueries.length).toBeGreaterThanOrEqual(1);
-      expect(result.searchQueries[0]).toMatchObject({
-        text: 'test query',
-        weight: 1.0,
-        source: 'original',
-      });
-    });
-
-    it('should classify intent with HyDE enabled', () => {
-      const ctx = createContext({
-        params: { enableHyDE: true },
-        search: 'what is the authentication flow',
-      });
-
-      const result = rewriteStage(ctx);
-
-      expect(result.rewrite).toBeDefined();
-      expect(result.rewrite!.intent).toBeDefined();
-    });
-  });
-
-  describe('decomposition enabled', () => {
-    it('should set strategy to multi_hop when only decomposition is enabled', () => {
+    it('should ignore enableDecomposition in sync mode', () => {
       const ctx = createContext({
         params: { enableDecomposition: true },
         search: 'test query',
@@ -234,105 +195,8 @@ describe('rewriteStage', () => {
 
       const result = rewriteStage(ctx);
 
-      expect(result.rewrite).toBeDefined();
-      expect(result.rewrite!.strategy).toBe('multi_hop');
-    });
-
-    it('should include original query when decomposition is enabled', () => {
-      const ctx = createContext({
-        params: { enableDecomposition: true },
-        search: 'test query',
-      });
-
-      const result = rewriteStage(ctx);
-
-      expect(result.searchQueries.length).toBeGreaterThanOrEqual(1);
-      expect(result.searchQueries[0]).toMatchObject({
-        text: 'test query',
-        weight: 1.0,
-        source: 'original',
-      });
-    });
-  });
-
-  describe('strategy selection', () => {
-    it('should select hybrid strategy when HyDE and expansion are enabled', () => {
-      const ctx = createContext({
-        params: {
-          enableHyDE: true,
-          enableExpansion: true,
-        },
-        search: 'test query',
-      });
-
-      const result = rewriteStage(ctx);
-
-      expect(result.rewrite).toBeDefined();
-      expect(result.rewrite!.strategy).toBe('hybrid');
-    });
-
-    it('should prefer hybrid over multi_hop when all features enabled', () => {
-      const ctx = createContext({
-        params: {
-          enableHyDE: true,
-          enableExpansion: true,
-          enableDecomposition: true,
-        },
-        search: 'test query',
-      });
-
-      const result = rewriteStage(ctx);
-
-      expect(result.rewrite).toBeDefined();
-      expect(result.rewrite!.strategy).toBe('hybrid');
-    });
-
-    it('should select expansion strategy when only expansion is enabled', () => {
-      const ctx = createContext({
-        params: { enableExpansion: true },
-        search: 'test query',
-      });
-
-      const result = rewriteStage(ctx);
-
-      expect(result.rewrite).toBeDefined();
-      expect(result.rewrite!.strategy).toBe('expansion');
-    });
-
-    it('should select hyde strategy when only HyDE is enabled', () => {
-      const ctx = createContext({
-        params: { enableHyDE: true },
-        search: 'test query',
-      });
-
-      const result = rewriteStage(ctx);
-
-      expect(result.rewrite).toBeDefined();
-      expect(result.rewrite!.strategy).toBe('hyde');
-    });
-
-    it('should select multi_hop strategy when only decomposition is enabled', () => {
-      const ctx = createContext({
-        params: { enableDecomposition: true },
-        search: 'test query',
-      });
-
-      const result = rewriteStage(ctx);
-
-      expect(result.rewrite).toBeDefined();
-      expect(result.rewrite!.strategy).toBe('multi_hop');
-    });
-
-    it('should select direct strategy when no features are enabled', () => {
-      const ctx = createContext({
-        params: {},
-        search: 'test query',
-      });
-
-      const result = rewriteStage(ctx);
-
-      // When no rewrite features are enabled, no rewrite result is created
-      expect(result.rewrite).toBeUndefined();
+      // Sync stage ignores decomposition - needs async service
+      expect(result.rewriteStrategy).toBe('direct');
       expect(result.searchQueries).toHaveLength(1);
     });
   });
@@ -340,74 +204,68 @@ describe('rewriteStage', () => {
   describe('intent classification', () => {
     it('should classify how_to queries correctly', () => {
       const ctx = createContext({
-        params: { enableExpansion: true },
+        params: {},
         search: 'how to configure the database',
       });
 
       const result = rewriteStage(ctx);
 
-      expect(result.rewrite).toBeDefined();
-      expect(result.rewrite!.intent).toBe('how_to');
+      expect(result.rewriteIntent).toBe('how_to');
     });
 
     it('should classify debug queries correctly', () => {
       const ctx = createContext({
-        params: { enableExpansion: true },
+        params: {},
         search: 'error connecting to database',
       });
 
       const result = rewriteStage(ctx);
 
-      expect(result.rewrite).toBeDefined();
-      expect(result.rewrite!.intent).toBe('debug');
+      expect(result.rewriteIntent).toBe('debug');
     });
 
     it('should classify lookup queries correctly', () => {
       const ctx = createContext({
-        params: { enableExpansion: true },
+        params: {},
         search: 'what is the database schema',
       });
 
       const result = rewriteStage(ctx);
 
-      expect(result.rewrite).toBeDefined();
-      expect(result.rewrite!.intent).toBe('lookup');
+      expect(result.rewriteIntent).toBe('lookup');
     });
 
     it('should classify compare queries correctly', () => {
       const ctx = createContext({
-        params: { enableExpansion: true },
+        params: {},
         search: 'postgres vs mysql',
       });
 
       const result = rewriteStage(ctx);
 
-      expect(result.rewrite).toBeDefined();
-      expect(result.rewrite!.intent).toBe('compare');
+      expect(result.rewriteIntent).toBe('compare');
     });
 
     it('should classify configure queries correctly', () => {
       const ctx = createContext({
-        params: { enableExpansion: true },
+        params: {},
         search: 'setup environment variables',
       });
 
       const result = rewriteStage(ctx);
 
-      expect(result.rewrite).toBeDefined();
-      expect(result.rewrite!.intent).toBe('configure');
+      expect(result.rewriteIntent).toBe('configure');
     });
 
     it('should default to explore for ambiguous queries', () => {
       const ctx = createContext({
-        params: { enableExpansion: true },
+        params: {},
         search: 'random stuff things whatever',
       });
 
       const result = rewriteStage(ctx);
 
-      expect(result.rewrite).toBeDefined();
-      expect(result.rewrite!.intent).toBe('explore');
+      expect(result.rewriteIntent).toBe('explore');
     });
   });
 
@@ -500,7 +358,11 @@ describe('rewriteStage', () => {
   });
 
   describe('rewrite result metadata', () => {
-    it('should include processingTimeMs in rewrite result', () => {
+    // Note: The sync rewriteStage is a lightweight fallback that doesn't produce
+    // a `rewrite` metadata object. Full rewrite metadata is only available with
+    // the async version using QueryRewriteService.
+
+    it('should not include rewrite metadata in sync stage (no QueryRewriteService)', () => {
       const ctx = createContext({
         params: { enableExpansion: true },
         search: 'test query',
@@ -508,13 +370,14 @@ describe('rewriteStage', () => {
 
       const result = rewriteStage(ctx);
 
-      expect(result.rewrite).toBeDefined();
-      expect(result.rewrite!.processingTimeMs).toBeDefined();
-      expect(typeof result.rewrite!.processingTimeMs).toBe('number');
-      expect(result.rewrite!.processingTimeMs).toBeGreaterThanOrEqual(0);
+      // Sync stage doesn't produce rewrite metadata
+      expect(result.rewrite).toBeUndefined();
+      // But should still produce searchQueries
+      expect(result.searchQueries).toHaveLength(1);
+      expect(result.searchQueries[0].text).toBe('test query');
     });
 
-    it('should include rewrittenQueries in rewrite result', () => {
+    it('should include intent and strategy without full rewrite metadata', () => {
       const ctx = createContext({
         params: { enableExpansion: true },
         search: 'test query',
@@ -522,13 +385,12 @@ describe('rewriteStage', () => {
 
       const result = rewriteStage(ctx);
 
-      expect(result.rewrite).toBeDefined();
-      expect(result.rewrite!.rewrittenQueries).toBeDefined();
-      expect(Array.isArray(result.rewrite!.rewrittenQueries)).toBe(true);
-      expect(result.rewrite!.rewrittenQueries.length).toBeGreaterThan(0);
+      // Sync stage provides intent classification
+      expect(result.rewriteIntent).toBeDefined();
+      expect(result.rewriteStrategy).toBe('direct');
     });
 
-    it('should match searchQueries with rewrittenQueries', () => {
+    it('should map searchQueries correctly without rewrite metadata', () => {
       const ctx = createContext({
         params: { enableExpansion: true },
         search: 'test query',
@@ -536,16 +398,12 @@ describe('rewriteStage', () => {
 
       const result = rewriteStage(ctx);
 
-      expect(result.rewrite).toBeDefined();
-      expect(result.searchQueries.length).toBe(result.rewrite!.rewrittenQueries.length);
-
-      // Verify mapping is correct
-      result.searchQueries.forEach((sq, idx) => {
-        const rq = result.rewrite!.rewrittenQueries[idx];
-        expect(sq.text).toBe(rq.text);
-        expect(sq.weight).toBe(rq.weight);
-        expect(sq.source).toBe(rq.source);
-        expect(sq.embedding).toBe(rq.embedding);
+      // Sync stage produces single original query
+      expect(result.searchQueries).toHaveLength(1);
+      expect(result.searchQueries[0]).toEqual({
+        text: 'test query',
+        weight: 1.0,
+        source: 'original',
       });
     });
   });
@@ -584,7 +442,7 @@ describe('rewriteStage', () => {
       const result = rewriteStage(ctx);
 
       expect(result.searchQueries.length).toBeGreaterThanOrEqual(1);
-      expect(result.rewrite).toBeDefined();
+      expect(result.searchQueries[0].text).toBe('テスト查询 тест 🔍');
     });
 
     it('should handle whitespace-only queries as empty', () => {

@@ -111,7 +111,25 @@ export class EmbeddingService {
    * Check if embeddings are available
    */
   isAvailable(): boolean {
-    return this.provider !== 'disabled';
+    if (this.provider === 'disabled') return false;
+
+    // Avoid running network-backed embeddings in unit tests by default.
+    // Tests can opt-in explicitly if needed.
+    const isTestEnv =
+      process.env.NODE_ENV === 'test' ||
+      process.env.VITEST === 'true' ||
+      process.env.VITEST_WORKER_ID !== undefined ||
+      process.env.VITEST_POOL_ID !== undefined;
+    if (isTestEnv && this.provider === 'openai') {
+      return process.env.AGENT_MEMORY_TEST_ALLOW_OPENAI_EMBEDDINGS === 'true' && this.openaiClient !== null;
+    }
+
+    if (this.provider === 'openai') {
+      // Only available if an API key was configured at construction time
+      return this.openaiClient !== null;
+    }
+
+    return true;
   }
 
   /**

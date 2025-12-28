@@ -80,14 +80,15 @@ export function createToolRepository(deps: DatabaseDeps): IToolRepository {
         const toolId = generateId();
         const versionId = generateId();
 
-        // Create the tool entry
+        // Create the tool entry with null currentVersionId
+        // (FTS INSERT trigger fires here but with empty content - that's OK)
         const tool: NewTool = {
           id: toolId,
           scopeType: input.scopeType,
           scopeId: input.scopeId,
           name: input.name,
           category: input.category,
-          currentVersionId: versionId,
+          currentVersionId: null,
           isActive: true,
           createdBy: input.createdBy,
         };
@@ -108,6 +109,12 @@ export function createToolRepository(deps: DatabaseDeps): IToolRepository {
         };
 
         db.insert(toolVersions).values(version).run();
+
+        // Update currentVersionId - this triggers FTS UPDATE which populates content
+        db.update(tools)
+          .set({ currentVersionId: versionId })
+          .where(eq(tools.id, toolId))
+          .run();
 
         const result = getByIdSync(toolId);
         if (!result) {

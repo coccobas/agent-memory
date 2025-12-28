@@ -19,6 +19,7 @@ import type { EntryUnion, FilteredEntry, FilterStageResult } from '../types.js';
 import { getEntryKeyValue, QUERY_TYPE_TO_TABLE_NAME } from '../type-maps.js';
 import { textMatches, fuzzyTextMatches, regexTextMatches } from '../../../utils/text-matching.js';
 import { filterByTags } from './tags.js';
+import type { StrategyPipelineContext } from './strategy.js';
 
 interface DedupedEntry<T> {
   entry: T;
@@ -175,9 +176,14 @@ function filterEntriesOfType<T extends EntryUnion>(
     }
 
     // Text search
+    // If we already filtered by ftsMatchIds from the FTS stage, skip secondary text matching
+    // This avoids double-filtering with different FTS query strategies
     let textMatched = false;
     if (search) {
-      if (useFts5 && fts5MatchingRowids && rowidMap) {
+      if (allowedByFts5) {
+        // Already passed FTS filter in the FTS stage - entry was in ftsMatchIds
+        textMatched = true;
+      } else if (useFts5 && fts5MatchingRowids && rowidMap) {
         const rowid = rowidMap.get(id);
         if (rowid !== undefined && fts5MatchingRowids.has(rowid)) {
           textMatched = true;
@@ -188,7 +194,14 @@ function filterEntriesOfType<T extends EntryUnion>(
         textMatched = matchFunc(searchField, search);
       }
 
-      if (!textMatched) continue;
+      // In semantic/hybrid mode, also allow entries with semantic matches
+      // This prevents filtering out semantically relevant entries that don't match text
+      const strategyCtx = ctx as StrategyPipelineContext;
+      const searchStrategy = strategyCtx.searchStrategy;
+      const hasSemanticMatch = ctx.semanticScores?.has(id) ?? false;
+      const isSemanticMode = searchStrategy === 'semantic' || searchStrategy === 'hybrid';
+
+      if (!textMatched && !(isSemanticMode && hasSemanticMatch)) continue;
     }
 
     // Compute tag match count

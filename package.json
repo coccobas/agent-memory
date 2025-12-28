@@ -46,6 +46,7 @@
     "bench:query": "vitest bench --run tests/benchmarks/query.bench.ts",
     "bench:write": "vitest bench --run tests/benchmarks/write.bench.ts",
     "bench:search": "vitest bench --run tests/benchmarks/search.bench.ts",
+    "bench:locomo": "npx tsx tests/benchmarks/run-locomo-production.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",

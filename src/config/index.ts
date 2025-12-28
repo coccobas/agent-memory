@@ -262,6 +262,38 @@ export interface Config {
     resetTimeoutMs: number;
     successThreshold: number;
   };
+  queryRewrite: {
+    enabled: boolean;
+    hydeEnabled: boolean;
+    hydeDocumentCount: number;
+    hydeTemperature: number;
+    hydeMaxTokens: number;
+    expansionEnabled: boolean;
+    expansionUseDictionary: boolean;
+    expansionUseRelations: boolean;
+    expansionUseLLM: boolean;
+    maxExpansions: number;
+    expansionWeight: number;
+    decompositionEnabled: boolean;
+    intentClassificationMode: 'pattern' | 'llm' | 'hybrid';
+    provider: 'openai' | 'anthropic' | 'ollama' | 'disabled';
+    model: string | undefined;
+  };
+  rerank: {
+    enabled: boolean;
+    topK: number;
+    alpha: number;
+    minScoreThreshold: number;
+    semanticQueriesOnly: boolean;
+  };
+  hierarchical: {
+    enabled: boolean;
+    minEntriesThreshold: number;
+    maxCandidates: number;
+    expansionFactor: number;
+    minSimilarity: number;
+    semanticQueriesOnly: boolean;
+  };
 }
 
 // =============================================================================
@@ -271,34 +303,135 @@ export interface Config {
 const configSchema = buildConfigSchema(configRegistry);
 
 // =============================================================================
-// NESTED CONFIG BUILDERS
+// NESTED CONFIG BUILDERS (Type-safe versions)
 // =============================================================================
 
 /**
- * Build nested option values from exported option objects
+ * Helper to get a number from env with fallback to default
  */
-function buildNestedOptions<
-  T extends Record<string, { envKey: string; defaultValue: unknown; parse?: string }>,
->(options: T): Record<keyof T, unknown> {
-  const result: Record<string, unknown> = {};
-  for (const [key, opt] of Object.entries(options)) {
-    const envValue = process.env[opt.envKey];
-    if (envValue === undefined || envValue === '') {
-      result[key] = opt.defaultValue;
-    } else if (opt.parse === 'int') {
-      result[key] = parseInt_(envValue, opt.defaultValue as number);
-    } else if (opt.parse === 'number') {
-      result[key] = parseNumber(envValue, opt.defaultValue as number);
-    } else if (opt.parse === 'boolean') {
-      result[key] = parseBoolean(envValue, opt.defaultValue as boolean);
-    } else if (opt.parse === undefined || opt.parse === 'string') {
-      result[key] = envValue;
-    } else {
-      console.warn(`Unknown parse directive '${opt.parse}' for config option '${opt.envKey}'. Using raw string.`);
-      result[key] = envValue;
-    }
+function getEnvNumber(envKey: string, defaultValue: number): number {
+  const envValue = process.env[envKey];
+  if (envValue === undefined || envValue === '') {
+    return defaultValue;
   }
-  return result as Record<keyof T, unknown>;
+  return parseNumber(envValue, defaultValue);
+}
+
+/**
+ * Helper to get an integer from env with fallback to default
+ */
+function getEnvInt(envKey: string, defaultValue: number): number {
+  const envValue = process.env[envKey];
+  if (envValue === undefined || envValue === '') {
+    return defaultValue;
+  }
+  return parseInt_(envValue, defaultValue);
+}
+
+/**
+ * Helper to get a boolean from env with fallback to default
+ */
+function getEnvBoolean(envKey: string, defaultValue: boolean): boolean {
+  const envValue = process.env[envKey];
+  if (envValue === undefined || envValue === '') {
+    return defaultValue;
+  }
+  return parseBoolean(envValue, defaultValue);
+}
+
+/**
+ * Build extraction confidence thresholds with proper typing
+ */
+function buildExtractionThresholds(): Config['extraction']['confidenceThresholds'] {
+  return {
+    guideline: getEnvNumber(extractionConfidenceThresholds.guideline.envKey, extractionConfidenceThresholds.guideline.defaultValue),
+    knowledge: getEnvNumber(extractionConfidenceThresholds.knowledge.envKey, extractionConfidenceThresholds.knowledge.defaultValue),
+    tool: getEnvNumber(extractionConfidenceThresholds.tool.envKey, extractionConfidenceThresholds.tool.defaultValue),
+    entity: getEnvNumber(extractionConfidenceThresholds.entity.envKey, extractionConfidenceThresholds.entity.defaultValue),
+    relationship: getEnvNumber(extractionConfidenceThresholds.relationship.envKey, extractionConfidenceThresholds.relationship.defaultValue),
+  };
+}
+
+/**
+ * Build rate limit per-agent config with proper typing
+ */
+function buildRateLimitPerAgent(): Config['rateLimit']['perAgent'] {
+  return {
+    maxRequests: getEnvInt(rateLimitPerAgentOptions.maxRequests.envKey, rateLimitPerAgentOptions.maxRequests.defaultValue),
+    windowMs: getEnvInt(rateLimitPerAgentOptions.windowMs.envKey, rateLimitPerAgentOptions.windowMs.defaultValue),
+  };
+}
+
+/**
+ * Build rate limit global config with proper typing
+ */
+function buildRateLimitGlobal(): Config['rateLimit']['global'] {
+  return {
+    maxRequests: getEnvInt(rateLimitGlobalOptions.maxRequests.envKey, rateLimitGlobalOptions.maxRequests.defaultValue),
+    windowMs: getEnvInt(rateLimitGlobalOptions.windowMs.envKey, rateLimitGlobalOptions.windowMs.defaultValue),
+  };
+}
+
+/**
+ * Build rate limit burst config with proper typing
+ */
+function buildRateLimitBurst(): Config['rateLimit']['burst'] {
+  return {
+    maxRequests: getEnvInt(rateLimitBurstOptions.maxRequests.envKey, rateLimitBurstOptions.maxRequests.defaultValue),
+    windowMs: getEnvInt(rateLimitBurstOptions.windowMs.envKey, rateLimitBurstOptions.windowMs.defaultValue),
+  };
+}
+
+/**
+ * Build recency decay half-life config with proper typing
+ */
+function buildRecencyDecayHalfLife(): Config['recency']['decayHalfLifeDays'] {
+  return {
+    guideline: getEnvInt(recencyDecayHalfLifeOptions.guideline.envKey, recencyDecayHalfLifeOptions.guideline.defaultValue),
+    knowledge: getEnvInt(recencyDecayHalfLifeOptions.knowledge.envKey, recencyDecayHalfLifeOptions.knowledge.defaultValue),
+    tool: getEnvInt(recencyDecayHalfLifeOptions.tool.envKey, recencyDecayHalfLifeOptions.tool.defaultValue),
+  };
+}
+
+/**
+ * Build scoring weights config with proper typing
+ */
+function buildScoringWeights(): Config['scoring']['weights'] {
+  return {
+    explicitRelation: getEnvInt(scoringWeightOptions.explicitRelation.envKey, scoringWeightOptions.explicitRelation.defaultValue),
+    tagMatch: getEnvInt(scoringWeightOptions.tagMatch.envKey, scoringWeightOptions.tagMatch.defaultValue),
+    scopeProximity: getEnvInt(scoringWeightOptions.scopeProximity.envKey, scoringWeightOptions.scopeProximity.defaultValue),
+    textMatch: getEnvInt(scoringWeightOptions.textMatch.envKey, scoringWeightOptions.textMatch.defaultValue),
+    priorityMax: getEnvInt(scoringWeightOptions.priorityMax.envKey, scoringWeightOptions.priorityMax.defaultValue),
+    semanticMax: getEnvInt(scoringWeightOptions.semanticMax.envKey, scoringWeightOptions.semanticMax.defaultValue),
+    recencyMax: getEnvInt(scoringWeightOptions.recencyMax.envKey, scoringWeightOptions.recencyMax.defaultValue),
+  };
+}
+
+/**
+ * Build feedback scoring config with proper typing
+ */
+function buildFeedbackScoring(): Config['scoring']['feedbackScoring'] {
+  return {
+    enabled: getEnvBoolean(feedbackScoringOptions.enabled.envKey, feedbackScoringOptions.enabled.defaultValue),
+    boostPerPositive: getEnvNumber(feedbackScoringOptions.boostPerPositive.envKey, feedbackScoringOptions.boostPerPositive.defaultValue),
+    boostMax: getEnvNumber(feedbackScoringOptions.boostMax.envKey, feedbackScoringOptions.boostMax.defaultValue),
+    penaltyPerNegative: getEnvNumber(feedbackScoringOptions.penaltyPerNegative.envKey, feedbackScoringOptions.penaltyPerNegative.defaultValue),
+    penaltyMax: getEnvNumber(feedbackScoringOptions.penaltyMax.envKey, feedbackScoringOptions.penaltyMax.defaultValue),
+    cacheTTLMs: getEnvInt(feedbackScoringOptions.cacheTTLMs.envKey, feedbackScoringOptions.cacheTTLMs.defaultValue),
+    cacheMaxSize: getEnvInt(feedbackScoringOptions.cacheMaxSize.envKey, feedbackScoringOptions.cacheMaxSize.defaultValue),
+  };
+}
+
+/**
+ * Build entity scoring config with proper typing
+ */
+function buildEntityScoring(): Config['scoring']['entityScoring'] {
+  return {
+    enabled: getEnvBoolean(entityScoringOptions.enabled.envKey, entityScoringOptions.enabled.defaultValue),
+    exactMatchBoost: getEnvInt(entityScoringOptions.exactMatchBoost.envKey, entityScoringOptions.exactMatchBoost.defaultValue),
+    partialMatchBoost: getEnvInt(entityScoringOptions.partialMatchBoost.envKey, entityScoringOptions.partialMatchBoost.defaultValue),
+  };
 }
 
 // =============================================================================
@@ -310,10 +443,10 @@ function buildNestedOptions<
  * This is the single source of truth - all env var definitions live in the registry.
  */
 export function buildConfig(): Config {
-  // Build base config from registry
+  // Build base config from registry (double-cast needed as registry returns Record<string, unknown>)
   const baseConfig = buildConfigFromRegistry(configRegistry) as unknown as Config;
 
-  // Add nested structures that aren't directly in the registry
+  // Add nested structures using type-safe builders (no casts needed)
   const config: Config = {
     ...baseConfig,
 
@@ -326,32 +459,28 @@ export function buildConfig(): Config {
     // Add nested extraction thresholds
     extraction: {
       ...baseConfig.extraction,
-      confidenceThresholds: buildNestedOptions(
-        extractionConfidenceThresholds
-      ) as Config['extraction']['confidenceThresholds'],
+      confidenceThresholds: buildExtractionThresholds(),
     },
 
     // Add nested rate limit options
     rateLimit: {
       enabled: baseConfig.rateLimit.enabled,
-      perAgent: buildNestedOptions(rateLimitPerAgentOptions) as Config['rateLimit']['perAgent'],
-      global: buildNestedOptions(rateLimitGlobalOptions) as Config['rateLimit']['global'],
-      burst: buildNestedOptions(rateLimitBurstOptions) as Config['rateLimit']['burst'],
+      perAgent: buildRateLimitPerAgent(),
+      global: buildRateLimitGlobal(),
+      burst: buildRateLimitBurst(),
     },
 
     // Add nested recency decay options
     recency: {
       ...baseConfig.recency,
-      decayHalfLifeDays: buildNestedOptions(
-        recencyDecayHalfLifeOptions
-      ) as Config['recency']['decayHalfLifeDays'],
+      decayHalfLifeDays: buildRecencyDecayHalfLife(),
     },
 
     // Add nested scoring weights, feedback scoring, and entity scoring
     scoring: {
-      weights: buildNestedOptions(scoringWeightOptions) as Config['scoring']['weights'],
-      feedbackScoring: buildNestedOptions(feedbackScoringOptions) as Config['scoring']['feedbackScoring'],
-      entityScoring: buildNestedOptions(entityScoringOptions) as Config['scoring']['entityScoring'],
+      weights: buildScoringWeights(),
+      feedbackScoring: buildFeedbackScoring(),
+      entityScoring: buildEntityScoring(),
     },
   };
 

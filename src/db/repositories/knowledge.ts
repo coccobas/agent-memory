@@ -84,14 +84,15 @@ export function createKnowledgeRepository(deps: DatabaseDeps): IKnowledgeReposit
         const knowledgeId = generateId();
         const versionId = generateId();
 
-        // Create the knowledge entry
+        // Create the knowledge entry with null currentVersionId
+        // (FTS INSERT trigger fires here but with empty content - that's OK)
         const entry: NewKnowledge = {
           id: knowledgeId,
           scopeType: input.scopeType,
           scopeId: input.scopeId,
           title: input.title,
           category: input.category,
-          currentVersionId: versionId,
+          currentVersionId: null,
           isActive: true,
           createdBy: input.createdBy,
         };
@@ -113,6 +114,12 @@ export function createKnowledgeRepository(deps: DatabaseDeps): IKnowledgeReposit
         };
 
         db.insert(knowledgeVersions).values(version).run();
+
+        // Update currentVersionId - this triggers FTS UPDATE which populates content
+        db.update(knowledge)
+          .set({ currentVersionId: versionId })
+          .where(eq(knowledge.id, knowledgeId))
+          .run();
 
         const result = getByIdSync(knowledgeId);
         if (!result) {

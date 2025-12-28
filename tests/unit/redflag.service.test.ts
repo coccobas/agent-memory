@@ -71,7 +71,7 @@ describe('redflag.service', () => {
     it('should detect malformed JSON', async () => {
       const flags = await detectRedFlags({
         type: 'tool',
-        content: 'This has { invalid json structure }',
+        content: 'Config: {"name": "test", invalid}',
       });
 
       // Should detect malformed JSON pattern
@@ -81,6 +81,27 @@ describe('redflag.service', () => {
       if (hasJsonFlag) {
         const jsonFlag = flags.find((f) => f.pattern === 'malformed_json');
         expect(jsonFlag?.severity).toBe('high');
+      }
+    });
+
+    it('should not flag non-JSON bracket content', async () => {
+      // Common patterns in conversation/documentation that shouldn't trigger
+      const testCases = [
+        '[Image: A photo of a sunset]',
+        'The user [laughs] and says hello',
+        'Use {placeholder} in the template',
+        'Array syntax: array[0]',
+        'See [documentation] for more info',
+      ];
+
+      for (const content of testCases) {
+        const flags = await detectRedFlags({
+          type: 'knowledge',
+          content,
+        });
+
+        const hasJsonFlag = flags.some((f) => f.pattern === 'malformed_json');
+        expect(hasJsonFlag).toBe(false);
       }
     });
 
@@ -162,7 +183,8 @@ describe('redflag.service', () => {
     });
 
     it('should detect multiple red flags', async () => {
-      const content = 'a'.repeat(10001) + ' { invalid json }';
+      // Content with both overly_long_content AND malformed_json patterns
+      const content = 'a'.repeat(10001) + ' {"name": invalid json}';
 
       const flags = await detectRedFlags({
         type: 'tool',
@@ -265,5 +287,6 @@ describe('redflag.service', () => {
     });
   });
 });
+
 
 

@@ -26,6 +26,7 @@ import type { FeedbackScoreCache } from '../services/query/feedback-cache.js';
 import type { ExperiencePromotionService } from '../services/experience/index.js';
 import type { ObserveCommitService } from '../services/observe/index.js';
 import type { LoraService } from '../services/lora.service.js';
+import type { IQueryRewriteService } from '../services/query-rewrite/types.js';
 
 /**
  * Service interfaces for AppContext
@@ -173,6 +174,8 @@ export interface AppContextServices {
   observeCommit?: ObserveCommitService;
   /** LoRA service for exporting guidelines as training data */
   lora?: LoraService;
+  /** Query rewrite service for HyDE and query expansion */
+  queryRewrite?: IQueryRewriteService;
 }
 
 /**

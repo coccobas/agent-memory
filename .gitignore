@@ -46,12 +46,14 @@ coverage/
 # Benchmarks
 data/benchmark/
 benchmarks/results.json
+tests/benchmarks/data/*.json
 
 # Environment
 .env
 .env.*
 .env.local
 .env.*.local
+.env copy.example
 
 # Temporary files
 *.tmp

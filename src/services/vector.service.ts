@@ -213,11 +213,14 @@ export class VectorService implements IVectorService {
       await this.store.store(record);
 
       // Remove old versions (keep current)
-      await this.store.delete({
-        entryType,
-        entryId,
-        excludeVersionId: versionId,
-      });
+      // Can be disabled for benchmarks or debugging with AGENT_MEMORY_VECTOR_SKIP_DELETE_ON_STORE=true.
+      if (process.env.AGENT_MEMORY_VECTOR_SKIP_DELETE_ON_STORE !== 'true') {
+        await this.store.delete({
+          entryType,
+          entryId,
+          excludeVersionId: versionId,
+        });
+      }
     } catch (error) {
       throw createVectorDbError('store', error instanceof Error ? error.message : String(error));
     }

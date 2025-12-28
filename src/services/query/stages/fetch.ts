@@ -3,6 +3,7 @@
  *
  * Fetches entries from the database for each type.
  * Applies scope, date filters, and FTS5 ID filtering at the DB level.
+ * Also fetches entries from semantic search results (semanticScores).
  *
  * Uses injected dependencies for DB access to support testing with mocks.
  */
@@ -345,6 +346,62 @@ function fetchKnowledgeWithTemporal(
 }
 
 // =============================================================================
+// SEMANTIC ENTRY FETCH
+// =============================================================================
+
+/**
+ * Fetches entries by ID from semantic search results that weren't already fetched.
+ * This ensures semantically relevant entries are included even if they're outside
+ * the normal scope-based fetch criteria.
+ */
+function fetchSemanticEntries<T extends EntryUnion>(
+  db: DbInstance,
+  table: typeof tools | typeof guidelines | typeof knowledge | typeof experiences,
+  existingIds: Set<string>,
+  semanticIds: string[],
+  result: Array<{ entry: T; scopeIndex: number }>,
+  scopeChainLength: number
+): void {
+  // Find IDs that are in semantic results but not already fetched
+  const missingIds = semanticIds.filter((id) => !existingIds.has(id));
+
+  if (missingIds.length === 0) return;
+
+  // Fetch by ID in batches
+  const batchSize = 100;
+  for (let i = 0; i < missingIds.length; i += batchSize) {
+    const batch = missingIds.slice(i, i + batchSize);
+    const rows = db
+      .select()
+      .from(table)
+      .where(and(inArray(table.id, batch), eq(table.isActive, true)))
+      .all();
+
+    for (const row of rows) {
+      const entry = row as T;
+      // Use scope chain length as index to indicate lower priority than scope-based entries
+      result.push({ entry, scopeIndex: scopeChainLength });
+      existingIds.add(entry.id);
+    }
+  }
+}
+
+/**
+ * Extracts semantic entry IDs for a specific type from the semanticScores map.
+ * The vectorService stores entries with their entry type prefix.
+ */
+function getSemanticIdsForType(
+  semanticScores: Map<string, number> | undefined,
+  _entryType: QueryEntryType
+): string[] {
+  if (!semanticScores || semanticScores.size === 0) return [];
+
+  // semanticScores contains entry IDs directly (no type prefix)
+  // All IDs in the map are potentially relevant
+  return Array.from(semanticScores.keys());
+}
+
+// =============================================================================
 // FETCH STAGE
 // =============================================================================
 
@@ -353,10 +410,11 @@ function fetchKnowledgeWithTemporal(
  *
  * Uses ctx.deps.getDb() for database access instead of calling getDb() directly.
  * Applies adaptive headroom calculation and per-type result limiting.
+ * Also fetches entries from semantic search results (semanticScores).
  */
 export function fetchStage(ctx: PipelineContext): PipelineContext {
   const db = ctx.deps.getDb();
-  const { types, limit } = ctx;
+  const { types, limit, semanticScores, scopeChain } = ctx;
 
   const fetchedEntries: PipelineContext['fetchedEntries'] = {
     tools: [],
@@ -385,6 +443,32 @@ export function fetchStage(ctx: PipelineContext): PipelineContext {
     }
   }
 
+  // Also fetch entries from semantic search results that weren't already fetched
+  if (semanticScores && semanticScores.size > 0) {
+    const scopeChainLen = scopeChain.length;
+
+    if (types.includes('tools')) {
+      const existingIds = new Set(fetchedEntries.tools.map((e) => e.entry.id));
+      const semanticIds = getSemanticIdsForType(semanticScores, 'tool');
+      fetchSemanticEntries(db, tools, existingIds, semanticIds, fetchedEntries.tools, scopeChainLen);
+    }
+    if (types.includes('guidelines')) {
+      const existingIds = new Set(fetchedEntries.guidelines.map((e) => e.entry.id));
+      const semanticIds = getSemanticIdsForType(semanticScores, 'guideline');
+      fetchSemanticEntries(db, guidelines, existingIds, semanticIds, fetchedEntries.guidelines, scopeChainLen);
+    }
+    if (types.includes('knowledge')) {
+      const existingIds = new Set(fetchedEntries.knowledge.map((e) => e.entry.id));
+      const semanticIds = getSemanticIdsForType(semanticScores, 'knowledge');
+      fetchSemanticEntries(db, knowledge, existingIds, semanticIds, fetchedEntries.knowledge, scopeChainLen);
+    }
+    if (types.includes('experiences')) {
+      const existingIds = new Set(fetchedEntries.experiences.map((e) => e.entry.id));
+      const semanticIds = getSemanticIdsForType(semanticScores, 'experience');
+      fetchSemanticEntries(db, experiences, existingIds, semanticIds, fetchedEntries.experiences, scopeChainLen);
+    }
+  }
+
   return {
     ...ctx,
     fetchedEntries,
@@ -404,7 +488,7 @@ export function fetchStage(ctx: PipelineContext): PipelineContext {
  */
 export async function fetchStageAsync(ctx: PipelineContext): Promise<PipelineContext> {
   const db = ctx.deps.getDb();
-  const { types, limit } = ctx;
+  const { types, limit, semanticScores, scopeChain } = ctx;
 
   const fetchedEntries: PipelineContext['fetchedEntries'] = {
     tools: [],
@@ -466,6 +550,32 @@ export async function fetchStageAsync(ctx: PipelineContext): Promise<PipelineCon
 
   // Execute all fetches in parallel
   await Promise.all(fetchPromises);
+
+  // Also fetch entries from semantic search results that weren't already fetched
+  if (semanticScores && semanticScores.size > 0) {
+    const scopeChainLen = scopeChain.length;
+
+    if (types.includes('tools')) {
+      const existingIds = new Set(fetchedEntries.tools.map((e) => e.entry.id));
+      const semanticIds = getSemanticIdsForType(semanticScores, 'tool');
+      fetchSemanticEntries(db, tools, existingIds, semanticIds, fetchedEntries.tools, scopeChainLen);
+    }
+    if (types.includes('guidelines')) {
+      const existingIds = new Set(fetchedEntries.guidelines.map((e) => e.entry.id));
+      const semanticIds = getSemanticIdsForType(semanticScores, 'guideline');
+      fetchSemanticEntries(db, guidelines, existingIds, semanticIds, fetchedEntries.guidelines, scopeChainLen);
+    }
+    if (types.includes('knowledge')) {
+      const existingIds = new Set(fetchedEntries.knowledge.map((e) => e.entry.id));
+      const semanticIds = getSemanticIdsForType(semanticScores, 'knowledge');
+      fetchSemanticEntries(db, knowledge, existingIds, semanticIds, fetchedEntries.knowledge, scopeChainLen);
+    }
+    if (types.includes('experiences')) {
+      const existingIds = new Set(fetchedEntries.experiences.map((e) => e.entry.id));
+      const semanticIds = getSemanticIdsForType(semanticScores, 'experience');
+      fetchSemanticEntries(db, experiences, existingIds, semanticIds, fetchedEntries.experiences, scopeChainLen);
+    }
+  }
 
   return {
     ...ctx,

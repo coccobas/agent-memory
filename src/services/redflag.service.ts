@@ -108,11 +108,12 @@ async function detectRedFlagsImpl(
   }
 
   // Built-in pattern checks
-  // Check for malformed JSON
-  if (entry.content.includes('{') || entry.content.includes('[')) {
+  // Check for malformed JSON - only flag structures that look like intended JSON
+  // Skip common non-JSON patterns like [Image: ...], [action], {placeholder}
+  if (entry.content.includes('{"') || entry.content.includes('[{') || entry.content.includes('["')) {
     try {
-      // Try to find JSON-like structures
-      const jsonMatches = entry.content.match(/\{[^}]*\}|\[[^\]]*\]/g);
+      // Match JSON-like structures: objects starting with {" or arrays starting with [{ or ["
+      const jsonMatches = entry.content.match(/\{"[^}]*\}|\[\{[^\]]*\]|\["[^\]]*\]/g);
       if (jsonMatches) {
         for (const match of jsonMatches) {
           try {

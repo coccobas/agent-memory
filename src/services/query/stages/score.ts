@@ -44,6 +44,28 @@ import {
   getEntityMatchBoost,
   type EntityFilterPipelineContext,
 } from './entity-filter.js';
+import type { SearchStrategy, StrategyPipelineContext } from './strategy.js';
+
+// Access search config for hybridAlpha (may not be in Config interface yet)
+const SEARCH_CONFIG = (config as { search?: { hybridAlpha?: number } }).search;
+
+/**
+ * Compute hybrid score blending FTS5 and semantic scores.
+ * Used when searchStrategy is 'hybrid'.
+ */
+function computeHybridBoost(
+  semanticScore: number | undefined,
+  ftsScore: number | undefined,
+  alpha: number
+): number {
+  // If no semantic score, return 0 (no boost)
+  if (semanticScore === undefined) return 0;
+
+  // Blend: alpha * semantic + (1-alpha) * fts
+  // If no FTS score, treat as 0.
+  const sparse = ftsScore ?? 0;
+  return alpha * semanticScore + (1 - alpha) * sparse;
+}
 
 // Scoring weights from centralized config
 const SCORE_WEIGHTS = config.scoring.weights;
@@ -73,6 +95,10 @@ interface ScoreParams {
   useUpdatedAt?: boolean;
   semanticScore?: number;
   entityMatchBoost?: number;
+  // Hybrid blending parameters
+  searchStrategy?: SearchStrategy;
+  ftsScore?: number;
+  hybridAlpha?: number;
 }
 
 interface ScoreResult {
@@ -89,6 +115,8 @@ interface LightScoreParams {
   textMatched: boolean;
   priority: number | null;
   entityMatchBoost?: number;
+  semanticScore?: number;
+  ftsScore?: number;
 }
 
 /**
@@ -96,6 +124,7 @@ interface LightScoreParams {
  * Only uses cheap calculations (no Date parsing, no recency decay).
  *
  * This approximates the final score well enough to identify top candidates.
+ * Includes semantic score to ensure semantically relevant entries aren't filtered out.
  */
 function computeLightScore(params: LightScoreParams): number {
   let score = 0;
@@ -126,9 +155,19 @@ function computeLightScore(params: LightScoreParams): number {
     score += SCORE_WEIGHTS.textMatch;
   }
 
+  // FTS score boost (cheap signal for keyword and hybrid searches)
+  if (params.ftsScore !== undefined) {
+    score += params.ftsScore * SCORE_WEIGHTS.textMatch;
+  }
+
   // Priority boost (for guidelines, 0-100 range)
   if (params.priority !== null) {
     score += params.priority * (SCORE_WEIGHTS.priorityMax / 100);
+  }
+
+  // Semantic score boost (ensures semantically relevant entries aren't filtered out in Phase 1)
+  if (params.semanticScore !== undefined) {
+    score += params.semanticScore * SCORE_WEIGHTS.semanticMax;
   }
 
   return score;
@@ -172,9 +211,21 @@ function computeScore(params: ScoreParams): ScoreResult {
     score += params.priority * (SCORE_WEIGHTS.priorityMax / 100);
   }
 
-  // Semantic similarity boost
+  // Semantic similarity boost (with hybrid blending when in hybrid mode)
   if (params.semanticScore !== undefined) {
-    score += params.semanticScore * SCORE_WEIGHTS.semanticMax;
+    if (params.searchStrategy === 'hybrid') {
+      // In hybrid mode, blend semantic and FTS scores
+      const alpha = params.hybridAlpha ?? 0.7;
+      const hybridBoost = computeHybridBoost(
+        params.semanticScore,
+        params.ftsScore,
+        alpha
+      );
+      score += hybridBoost * SCORE_WEIGHTS.semanticMax;
+    } else {
+      // Pure semantic score
+      score += params.semanticScore * SCORE_WEIGHTS.semanticMax;
+    }
   }
 
   // Recency score calculation (EXPENSIVE - Date parsing and math)
@@ -266,7 +317,19 @@ function buildResult<T extends EntryUnion>(
   entityMatchBoost?: number
 ): QueryResultItem {
   const { entry, scopeIndex, tags, textMatched, matchingTagCount, hasExplicitRelation } = filtered;
-  const { scopeChain, semanticScores } = ctx;
+  const { scopeChain, semanticScores, ftsMatchIds } = ctx;
+
+  // Get searchStrategy from context (added by strategy stage)
+  const strategyCtx = ctx as StrategyPipelineContext;
+  const searchStrategy = strategyCtx.searchStrategy;
+
+  // Determine if entry has an FTS match (for hybrid scoring)
+  const entryType = resultConfig.type;
+  const hasFtsMatch = ftsMatchIds?.[entryType]?.has(entry.id) ?? false;
+  const ftsScore = ctx.ftsScores?.get(entry.id) ?? (hasFtsMatch ? 1.0 : 0);
+
+  // Get hybridAlpha from config (default 0.7)
+  const hybridAlpha = SEARCH_CONFIG?.hybridAlpha ?? 0.7;
 
   const { score: baseScore, recencyScore, ageDays } = computeScore({
     hasExplicitRelation,
@@ -282,6 +345,10 @@ function buildResult<T extends EntryUnion>(
     decayFunction: ctx.params.decayFunction,
     useUpdatedAt: ctx.params.useUpdatedAt,
     entityMatchBoost,
+    // Hybrid blending parameters
+    searchStrategy,
+    ftsScore,
+    hybridAlpha,
   });
 
   // Apply feedback multiplier if available
@@ -324,6 +391,7 @@ function buildResult<T extends EntryUnion>(
 /**
  * Compute light score for a filtered entry.
  * Fast approximation using only cheap calculations.
+ * Includes semantic score to ensure semantically relevant entries make it to Phase 2.
  */
 function computeLightScoreForItem<T extends EntryUnion>(
   filtered: FilteredEntry<T>,
@@ -332,7 +400,10 @@ function computeLightScoreForItem<T extends EntryUnion>(
   entityMatchBoost?: number
 ): number {
   const { entry, scopeIndex, textMatched, matchingTagCount, hasExplicitRelation } = filtered;
-  const { scopeChain } = ctx;
+  const { scopeChain, semanticScores } = ctx;
+
+  // Best-effort sparse score (BM25-derived) if available
+  const ftsScore = ctx.ftsScores?.get(entry.id);
 
   return computeLightScore({
     hasExplicitRelation,
@@ -342,6 +413,8 @@ function computeLightScoreForItem<T extends EntryUnion>(
     textMatched,
     priority: config.getPriority(entry),
     entityMatchBoost,
+    semanticScore: semanticScores?.get(entry.id),
+    ftsScore,
   });
 }
 

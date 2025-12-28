@@ -194,6 +194,7 @@ export interface DefaultQuery extends BaseQueryParams, DateRangeFilter, RecencyO
   enableExpansion?: boolean;
   enableDecomposition?: boolean;
   disableRewrite?: boolean;
+  maxExpansions?: number;
 }
 
 /**

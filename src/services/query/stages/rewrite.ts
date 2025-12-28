@@ -8,25 +8,15 @@
  *
  * Extends PipelineContext with rewritten queries that downstream stages
  * (especially FTS) can use to improve recall and precision.
- *
- * @todo Make pipeline async to support QueryExpander's async methods.
- * @todo Implement HyDE generator integration for semantic rewriting.
- * @todo Implement query decomposition for multi-hop reasoning.
  */
 
 import type { PipelineContext } from '../pipeline.js';
-import type { RewrittenQuery, RewriteResult } from '../../query-rewrite/types.js';
 import { IntentClassifier } from '../../query-rewrite/classifier.js';
-// QueryExpander import commented out until async pipeline is implemented
-// import { QueryExpander } from '../../query-rewrite/expander.js';
 
 /**
  * Extended pipeline context with rewrite results
  */
 export interface RewriteStageContext extends PipelineContext {
-  /** Rewrite result with intent classification and strategy metadata */
-  rewrite?: RewriteResult;
-
   /**
    * Search queries to execute (including original and rewritten)
    * Used by downstream stages (FTS, semantic) to perform multi-query search
@@ -44,43 +34,48 @@ export interface RewriteStageContext extends PipelineContext {
 }
 
 /**
- * Rewrite stage configuration
- * Can be overridden via params or injected dependencies
+ * Synchronous rewrite stage (fallback when service not available)
+ *
+ * Only performs intent classification, returns original query.
+ * Use rewriteStageAsync for full expansion/HyDE support.
  */
-interface RewriteConfig {
-  /** Maximum number of expansions to generate */
-  maxExpansions: number;
-  /** Weight for expanded queries relative to original */
-  expansionWeight: number;
-  /** Weight for HyDE-generated queries */
-  hydeWeight: number;
+export function rewriteStage(ctx: PipelineContext): RewriteStageContext {
+  const { params, search } = ctx;
+
+  // Early return if rewriting is disabled or no search
+  if (params.disableRewrite === true || !search) {
+    return {
+      ...ctx,
+      searchQueries: search ? [{ text: search, weight: 1.0, source: 'original' }] : [],
+    };
+  }
+
+  // Classify intent (synchronous)
+  const classifier = new IntentClassifier();
+  const classification = classifier.classify(search);
+
+  return {
+    ...ctx,
+    searchQueries: [{ text: search, weight: 1.0, source: 'original' }],
+    rewriteIntent: classification.intent,
+    rewriteStrategy: 'direct',
+  };
 }
 
 /**
- * Default rewrite configuration
- */
-const DEFAULT_CONFIG: RewriteConfig = {
-  maxExpansions: 3,
-  expansionWeight: 0.7,
-  hydeWeight: 0.9,
-};
-
-/**
- * Rewrite stage - transforms queries using HyDE, expansion, or decomposition
+ * Async rewrite stage - transforms queries using HyDE, expansion, or decomposition
+ *
+ * Uses the QueryRewriteService from dependencies if available.
+ * Falls back to synchronous stage if service not provided.
  *
  * Strategy selection:
  * 1. If params.disableRewrite is true → pass through with original query only
  * 2. If no search query → pass through with empty searchQueries
- * 3. If HyDE enabled (params.enableHyDE) → generate hypothetical documents
- * 4. If expansion enabled (params.enableExpansion) → expand with synonyms/relations
- * 5. If decomposition enabled (params.enableDecomposition) → break into sub-queries
- * 6. Default → use original query only
- *
- * The rewrite service (if available) is accessed via dependencies.
- * If no rewrite service is available, falls back to basic expansion.
+ * 3. If service available and enabled → use full rewrite service
+ * 4. Fallback → use synchronous stage (original query only)
  */
-export function rewriteStage(ctx: PipelineContext): RewriteStageContext {
-  const { params, search } = ctx;
+export async function rewriteStageAsync(ctx: PipelineContext): Promise<RewriteStageContext> {
+  const { params, search, deps } = ctx;
 
   // Early return if rewriting is disabled
   if (params.disableRewrite === true) {
@@ -98,112 +93,62 @@ export function rewriteStage(ctx: PipelineContext): RewriteStageContext {
     };
   }
 
-  // Check if any rewrite features are enabled
+  // Check if rewrite service is available and any rewrite feature is enabled
+  const service = deps.queryRewriteService;
   const anyRewriteEnabled =
     params.enableHyDE === true ||
     params.enableExpansion === true ||
     params.enableDecomposition === true;
 
-  if (!anyRewriteEnabled) {
-    // No rewrite requested - use original query only
+  if (!service || !service.isAvailable() || !anyRewriteEnabled) {
+    // Fall back to synchronous stage
+    return rewriteStage(ctx);
+  }
+
+  // Call the async rewrite service
+  try {
+    const result = await service.rewrite({
+      originalQuery: search,
+      options: {
+        enableHyDE: params.enableHyDE === true,
+        enableExpansion: params.enableExpansion === true,
+        maxExpansions: params.maxExpansions as number | undefined,
+      },
+    });
+
+    // Log rewrite results if perf logging is enabled
+    if (deps.perfLog && deps.logger && result.rewrittenQueries.length > 1) {
+      deps.logger.debug(
+        {
+          originalQuery: search,
+          expandedCount: result.rewrittenQueries.length - 1,
+          intent: result.intent,
+          strategy: result.strategy,
+          processingTimeMs: result.processingTimeMs,
+        },
+        'query_rewrite completed'
+      );
+    }
+
     return {
       ...ctx,
-      searchQueries: [{ text: search, weight: 1.0, source: 'original' }],
+      searchQueries: result.rewrittenQueries.map(rq => ({
+        text: rq.text,
+        embedding: rq.embedding,
+        weight: rq.weight,
+        source: rq.source,
+      })),
+      rewriteIntent: result.intent,
+      rewriteStrategy: result.strategy,
     };
+  } catch (error) {
+    // Log error and fall back to original query
+    if (deps.logger) {
+      deps.logger.debug(
+        { error: String(error), query: search },
+        'query_rewrite failed, using original query'
+      );
+    }
+    return rewriteStage(ctx);
   }
-
-  // Perform query rewriting
-  const rewriteResult = performRewrite(ctx);
-
-  return {
-    ...ctx,
-    rewrite: rewriteResult,
-    searchQueries: rewriteResult.rewrittenQueries.map(rq => ({
-      text: rq.text,
-      embedding: rq.embedding,
-      weight: rq.weight,
-      source: rq.source,
-    })),
-  };
-}
-
-/**
- * Performs query rewriting based on enabled features
- *
- * This is the core rewriting logic. It can be extended to call a full
- * rewrite service when available, but currently implements basic expansion.
- */
-function performRewrite(ctx: PipelineContext): RewriteResult {
-  const { params, search } = ctx;
-  const startMs = Date.now();
-  const config = DEFAULT_CONFIG;
-
-  if (!search) {
-    // Should not reach here due to early return, but handle gracefully
-    return {
-      rewrittenQueries: [],
-      intent: 'explore',
-      strategy: 'direct',
-      processingTimeMs: 0,
-    };
-  }
-
-  // Classify intent
-  const classifier = new IntentClassifier();
-  const classification = classifier.classify(search);
-
-  const rewrittenQueries: RewrittenQuery[] = [];
-
-  // Always include the original query with weight 1.0
-  rewrittenQueries.push({
-    text: search,
-    source: 'original',
-    weight: 1.0,
-  });
-
-  // Expansion-based rewriting
-  if (params.enableExpansion === true) {
-    const expansions = performExpansion(search, config);
-    rewrittenQueries.push(...expansions);
-  }
-
-  // HyDE-based rewriting (not yet implemented - see module @todo)
-  if (params.enableHyDE === true) {
-    // HyDE generator will be called here when implemented
-  }
-
-  // Decomposition-based rewriting (not yet implemented - see module @todo)
-  if (params.enableDecomposition === true) {
-    // Query planner will be called here when implemented
-  }
-
-  // Determine strategy based on what was actually used
-  let strategy: RewriteResult['strategy'] = 'direct';
-  if (params.enableHyDE && params.enableExpansion) {
-    strategy = 'hybrid';
-  } else if (params.enableHyDE) {
-    strategy = 'hyde';
-  } else if (params.enableExpansion) {
-    strategy = 'expansion';
-  } else if (params.enableDecomposition) {
-    strategy = 'multi_hop';
-  }
-
-  return {
-    rewrittenQueries,
-    intent: classification.intent,
-    strategy,
-    processingTimeMs: Date.now() - startMs,
-  };
-}
-
-/**
- * Performs query expansion using the QueryExpander.
- *
- * Currently returns empty array because QueryExpander.expand() is async
- * but pipeline stages are synchronous. See module @todo for async pipeline.
- */
-function performExpansion(_query: string, _config: RewriteConfig): RewrittenQuery[] {
-  // Expansion requires async pipeline - returns empty for now
-  return [];
 }

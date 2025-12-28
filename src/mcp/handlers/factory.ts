@@ -177,6 +177,39 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
     }
   }
 
+  /**
+   * Batch permission check for multiple entries.
+   * Uses checkBatch() for efficiency - single DB query instead of N queries.
+   * Throws on first denied permission (fail-fast).
+   *
+   * @param entries - Array of entries with id, scopeType, scopeId
+   * @throws PermissionError if any entry fails permission check
+   */
+  function requirePermissionBatch(
+    context: AppContext,
+    agentId: string,
+    permission: 'read' | 'write' | 'delete',
+    entries: Array<{ id: string; scopeType: ScopeType; scopeId: string | null }>
+  ): void {
+    if (entries.length === 0) return;
+
+    const batchEntries = entries.map((e) => ({
+      id: e.id,
+      entryType: config.entryType,
+      scopeType: e.scopeType,
+      scopeId: e.scopeId,
+    }));
+
+    const results = context.services!.permission.checkBatch(agentId, permission, batchEntries);
+
+    // Fail-fast: throw on first denied permission
+    for (const entry of entries) {
+      if (results.get(entry.id) !== true) {
+        throw createPermissionError(permission, config.entryType, entry.id);
+      }
+    }
+  }
+
   // Helper: Get entry by ID and verify it exists
   async function getExistingEntry(
     repo: EntryRepository<TEntry, TCreateInput, TUpdateInput>,
@@ -639,22 +672,29 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
         );
       }
 
-      // Check permissions for all entries
-      for (const entry of entries) {
+      // Collect permission check entries with synthetic IDs (for new entries)
+      // Uses batch check for efficiency - single DB query instead of N queries
+      const permissionEntries: Array<{ id: string; scopeType: ScopeType; scopeId: string | null }> = [];
+      for (let i = 0; i < entries.length; i++) {
+        const entry = entries[i];
         if (!isObject(entry)) continue;
         const entryObj = entry;
         const entryScopeType = isScopeType(entryObj.scopeType)
           ? entryObj.scopeType
           : defaultScopeType;
         const entryScopeId = isString(entryObj.scopeId) ? entryObj.scopeId : defaultScopeId;
-        requirePermission(
-          context,
-          agentId,
-          'write',
-          entryScopeType as ScopeType,
-          entryScopeId ?? null
-        );
+
+        if (!entryScopeType) continue; // Will fail validation in transaction
+
+        permissionEntries.push({
+          id: `new-${i}`, // Synthetic ID for batch check result tracking
+          scopeType: entryScopeType,
+          scopeId: entryScopeId ?? null,
+        });
       }
+
+      // Batch permission check (fail-fast on first denied)
+      requirePermissionBatch(context, agentId, 'write', permissionEntries);
 
       // Execute in transaction for atomicity
       // Note: repo methods return Promises but SQLite is sync underneath,
@@ -720,7 +760,9 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
         );
       }
 
-      // Check permissions for all entries (await repo calls outside transaction)
+      // Fetch all existing entries and collect permission check info
+      // Uses batch permission check for efficiency - single DB query instead of N queries
+      const permissionEntries: Array<{ id: string; scopeType: ScopeType; scopeId: string | null }> = [];
       for (const update of updates) {
         if (!isObject(update)) continue;
         const updateObj = update;
@@ -730,15 +772,15 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
         if (!existingEntry) {
           throw createNotFoundError(config.entryType, id);
         }
-        requirePermission(
-          context,
-          agentId,
-          'write',
-          existingEntry.scopeType,
-          existingEntry.scopeId,
-          id
-        );
+        permissionEntries.push({
+          id,
+          scopeType: existingEntry.scopeType,
+          scopeId: existingEntry.scopeId,
+        });
       }
+
+      // Batch permission check (fail-fast on first denied)
+      requirePermissionBatch(context, agentId, 'write', permissionEntries);
 
       // Execute in transaction
       // Note: repo methods return Promises but SQLite is sync underneath
@@ -824,21 +866,23 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
         );
       }
 
-      // Check permissions for all entries (await repo calls outside transaction)
+      // Fetch all existing entries and collect permission check info
+      // Uses batch permission check for efficiency - single DB query instead of N queries
+      const permissionEntries: Array<{ id: string; scopeType: ScopeType; scopeId: string | null }> = [];
       for (const id of ids) {
         const existingEntry = await repo.getById(id);
         if (!existingEntry) {
           throw createNotFoundError(config.entryType, id);
         }
-        requirePermission(
-          context,
-          agentId,
-          'write',
-          existingEntry.scopeType,
-          existingEntry.scopeId,
-          id
-        );
+        permissionEntries.push({
+          id,
+          scopeType: existingEntry.scopeType,
+          scopeId: existingEntry.scopeId,
+        });
       }
+
+      // Batch permission check (fail-fast on first denied)
+      requirePermissionBatch(context, agentId, 'write', permissionEntries);
 
       // Execute in transaction
       // Note: repo methods return Promises but SQLite is sync underneath

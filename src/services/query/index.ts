@@ -24,6 +24,7 @@ import type { MemoryQueryParams } from '../../core/types.js';
 import type { MemoryQueryResult, PipelineContext, PipelineDependencies } from './pipeline.js';
 import { createPipelineContext, buildQueryResult } from './pipeline.js';
 import { resolveStage } from './stages/resolve.js';
+import { rewriteStageAsync } from './stages/rewrite.js';
 import { ftsStage } from './stages/fts.js';
 import { relationsStage } from './stages/relations.js';
 import { fetchStage, fetchStageAsync } from './stages/fetch.js';
@@ -32,12 +33,19 @@ import { filterStage } from './stages/filter.js';
 import { feedbackStage, feedbackStageAsync } from './stages/feedback.js';
 import { scoreStage } from './stages/score.js';
 import { formatStage } from './stages/format.js';
+import { createRerankStage } from './stages/rerank.js';
+import { createHierarchicalStage, filterByHierarchicalCandidates, type HierarchicalPipelineContext } from './stages/hierarchical.js';
+import { strategyStageAsync } from './stages/strategy.js';
+import { semanticStageAsync } from './stages/semantic.js';
+import { getEntityExtractor } from './entity-extractor.js';
+import { config as appConfig } from '../../config/index.js';
+import type { EntityFilterResult, EntityFilterPipelineContext } from './stages/entity-filter.js';
 
 // Import from modular submodules (avoids circular dependency with query.service.ts)
 import { resolveScopeChain } from './scope-chain.js';
 import { getTagsForEntries } from './tags-helper.js';
 import { traverseRelationGraph } from './graph-traversal.js';
-import { executeFts5Search, executeFts5Query } from './fts-search.js';
+import { createFtsSearchFunctions } from './fts-search.js';
 import type { DbClient } from '../../db/connection.js';
 import type Database from 'better-sqlite3';
 import type { ScopeType } from '../../db/schema.js';
@@ -194,6 +202,16 @@ export interface QueryPipelineOptions {
   logger: Logger;
   /** Feedback queue interface for RL training (optional) */
   feedback?: PipelineDependencies['feedback'];
+  /** Query rewrite service for HyDE and expansion (optional) */
+  queryRewriteService?: PipelineDependencies['queryRewriteService'];
+  /** Entity index for entity-aware retrieval (optional) */
+  entityIndex?: PipelineDependencies['entityIndex'];
+  /** Embedding service for neural re-ranking (optional) */
+  embeddingService?: PipelineDependencies['embeddingService'];
+  /** Hierarchical retriever for coarse-to-fine search (optional) */
+  hierarchicalRetriever?: PipelineDependencies['hierarchicalRetriever'];
+  /** Vector service for semantic similarity search (optional) */
+  vectorService?: PipelineDependencies['vectorService'];
 }
 
 /**
@@ -206,13 +224,18 @@ export interface QueryPipelineOptions {
  * @returns PipelineDependencies for use with executeQueryPipeline
  */
 export function createDependencies(options: QueryPipelineOptions): PipelineDependencies {
-  const { getDb, getPreparedStatement, cache, perfLog, logger, feedback } = options;
+  const { getDb, getPreparedStatement, cache, perfLog, logger, feedback, queryRewriteService, entityIndex, embeddingService, hierarchicalRetriever, vectorService } = options;
+
+  // Use factory-created FTS functions when custom getPreparedStatement is provided
+  // This enables proper DI for benchmarks and tests
+  const ftsFunctions = createFtsSearchFunctions(getPreparedStatement);
 
   return {
     getDb,
     getPreparedStatement,
-    executeFts5Search,
-    executeFts5Query,
+    executeFts5Search: ftsFunctions.executeFts5Search,
+    executeFts5SearchWithScores: ftsFunctions.executeFts5SearchWithScores,
+    executeFts5Query: ftsFunctions.executeFts5Query,
     // Wrap getTagsForEntries to pass db from deps
     getTagsForEntries: (entryType, entryIds) => getTagsForEntries(entryType, entryIds, getDb()),
     // Wrap traverseRelationGraph to handle type compatibility
@@ -236,7 +259,77 @@ export function createDependencies(options: QueryPipelineOptions): PipelineDepen
       info: (data, message) => logger.info(data, message),
     },
     feedback,
+    queryRewriteService,
+    entityIndex,
+    embeddingService,
+    hierarchicalRetriever,
+    vectorService,
   };
+}
+
+// =============================================================================
+// ENTITY FILTER STAGE
+// =============================================================================
+
+/**
+ * Entity filter stage - extracts entities from search and looks up matching entries.
+ *
+ * Uses deps.entityIndex if available, otherwise skips.
+ * Populates ctx.entityFilter for use by the score stage.
+ */
+function entityFilterStage(ctx: PipelineContext): PipelineContext {
+  const { search, deps } = ctx;
+
+  // Skip if entity index not available or entity scoring disabled
+  if (!deps.entityIndex || !appConfig.scoring.entityScoring.enabled || !search) {
+    return ctx;
+  }
+
+  const extractor = getEntityExtractor();
+  const extractedEntities = extractor.extract(search);
+
+  // If no entities extracted, skip filtering
+  if (extractedEntities.length === 0) {
+    return ctx;
+  }
+
+  // Look up matching entry IDs - wrap in try-catch for missing table graceful handling
+  let matchCountByEntry: Map<string, number>;
+  try {
+    matchCountByEntry = deps.entityIndex.lookupMultiple(extractedEntities);
+  } catch {
+    // Entity index table may not exist yet - gracefully skip entity filtering
+    return ctx;
+  }
+
+  // Build the matched entry IDs set
+  const matchedEntryIds = new Set<string>(matchCountByEntry.keys());
+
+  // Create the entity filter result
+  const entityFilter: EntityFilterResult = {
+    extractedEntities,
+    matchedEntryIds,
+    matchCountByEntry,
+    entityCount: extractedEntities.length,
+    filterApplied: matchedEntryIds.size > 0,
+  };
+
+  // Log entity extraction results if perf logging enabled
+  if (deps.perfLog && deps.logger && extractedEntities.length > 0) {
+    deps.logger.debug(
+      {
+        entityCount: extractedEntities.length,
+        matchedEntries: matchedEntryIds.size,
+        entityTypes: [...new Set(extractedEntities.map(e => e.type))],
+      },
+      'entity_filter completed'
+    );
+  }
+
+  return {
+    ...ctx,
+    entityFilter,
+  } as EntityFilterPipelineContext;
 }
 
 // =============================================================================
@@ -333,6 +426,7 @@ export function executeQueryPipelineSync(
   ctx = ftsStage(ctx);
   ctx = relationsStage(ctx);
   ctx = fetchStage(ctx);
+  ctx = entityFilterStage(ctx);
 
   // Conditional stage ordering for tag loading optimization:
   // - If tag filtering is needed: load tags BEFORE filtering (current behavior)
@@ -437,11 +531,38 @@ export async function executeQueryPipelineAsync(
 
   // Synchronous stages (pure computation or already optimized)
   ctx = resolveStage(ctx);
+
+  // Strategy stage - determines optimal retrieval strategy based on query analysis
+  ctx = await strategyStageAsync(ctx);
+
+  // Async rewrite stage - expands queries with synonyms/HyDE if enabled
+  ctx = await rewriteStageAsync(ctx);
+
+  // Hierarchical retrieval stage - coarse-to-fine search through summaries
+  if (deps.hierarchicalRetriever && appConfig.hierarchical?.enabled) {
+    const hierarchicalStage = createHierarchicalStage({
+      retriever: deps.hierarchicalRetriever,
+      hasSummaries: deps.hierarchicalRetriever.hasSummaries,
+      config: appConfig.hierarchical,
+    });
+    ctx = await hierarchicalStage(ctx);
+  }
+
+  // Semantic stage - vector similarity search using embeddings
+  ctx = await semanticStageAsync(ctx);
+
+  // FTS and relations use expanded queries from rewrite stage
   ctx = ftsStage(ctx);
   ctx = relationsStage(ctx);
 
   // Async fetch stage - parallel per-type fetching
   ctx = await fetchStageAsync(ctx);
+
+  // Apply hierarchical candidate filtering if hierarchical retrieval was used
+  ctx = filterByHierarchicalCandidates(ctx as HierarchicalPipelineContext);
+
+  // Entity filter stage - extracts entities and looks up matching entries
+  ctx = entityFilterStage(ctx);
 
   // Conditional stage ordering for tag loading optimization:
   // - If tag filtering is needed: load tags BEFORE filtering (current behavior)
@@ -463,8 +584,18 @@ export async function executeQueryPipelineAsync(
   // Run score stage (uses filtered property and feedbackScores)
   const scoredCtx = scoreStage(feedbackCtx);
 
+  // Run neural re-ranking stage (if embedding service available and config enabled)
+  let rerankedCtx = scoredCtx;
+  if (deps.embeddingService && appConfig.rerank?.enabled) {
+    const rerankStage = createRerankStage({
+      embeddingService: deps.embeddingService,
+      config: appConfig.rerank,
+    });
+    rerankedCtx = await rerankStage(scoredCtx);
+  }
+
   // Run format stage
-  const formattedCtx = formatStage(scoredCtx);
+  const formattedCtx = formatStage(rerankedCtx);
 
   const result = buildQueryResult(formattedCtx);
 
