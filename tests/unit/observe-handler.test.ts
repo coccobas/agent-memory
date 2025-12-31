@@ -203,11 +203,12 @@ describe('Observe Handler', () => {
       ).rejects.toThrow('context');
     });
 
-    it('should throw when scopeId missing for non-global scope', async () => {
+    it('should throw when scopeId missing for non-global scope with autoStore', async () => {
       await expect(
         observeHandlers.extract(mockContext, {
           context: 'Test context',
           scopeType: 'project',
+          autoStore: true,
         })
       ).rejects.toThrow('scopeId');
     });

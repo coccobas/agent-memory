@@ -104,7 +104,7 @@ export async function createServer(context: AppContext): Promise<Server> {
   }
 
   // Seed built-in graph types (if graph repositories are available)
-  if (context.repos.typeRegistry) {
+  if (context.repos?.typeRegistry) {
     try {
       logger.debug('Seeding built-in graph types...');
       await context.repos.typeRegistry.seedBuiltinTypes();
