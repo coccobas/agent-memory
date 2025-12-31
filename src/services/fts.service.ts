@@ -341,6 +341,10 @@ export function escapeFts5QueryTokenized(input: string): string {
  *
  * Also filters out common stop words that add noise without improving recall.
  *
+ * Prefix matching: Short tokens (< 6 chars) and non-dictionary words get a
+ * trailing * for prefix matching. This helps match partial words like
+ * "secur" -> "security", "auth" -> "authentication".
+ *
  * @param input - Raw search input
  * @returns FTS5 query with OR between significant tokens
  */
@@ -363,6 +367,17 @@ export function escapeFts5QueryOr(input: string): string {
     'go', 'went', 'gone', 'going', 'get', 'got', 'getting',
   ]);
 
+  // Common complete English words that shouldn't have prefix matching
+  // This avoids matching "test*" when "test" is a complete word
+  const completeWords = new Set([
+    'test', 'tests', 'code', 'file', 'files', 'data', 'type', 'types',
+    'user', 'users', 'name', 'names', 'time', 'date', 'error', 'errors',
+    'list', 'array', 'object', 'class', 'function', 'method', 'string',
+    'number', 'boolean', 'null', 'undefined', 'true', 'false', 'return',
+    'async', 'await', 'import', 'export', 'default', 'const', 'let', 'var',
+    'docker', 'build', 'deploy', 'api', 'rest', 'http', 'json', 'sql',
+  ]);
+
   const tokens = input
     // Remove quotes and asterisks
     .replace(/["*]/g, '')
@@ -378,8 +393,20 @@ export function escapeFts5QueryOr(input: string): string {
     return '';
   }
 
+  // Apply prefix matching for short tokens that aren't complete words
+  // This helps match partial words like "secur" -> "security"
+  const processedTokens = tokens.map(token => {
+    // Add prefix wildcard for:
+    // 1. Short tokens (< 6 chars) that aren't known complete words
+    // 2. This helps match partial words while avoiding over-matching
+    if (token.length < 6 && !completeWords.has(token)) {
+      return `${token}*`;
+    }
+    return token;
+  });
+
   // Join with OR for better recall
-  return tokens.join(' OR ');
+  return processedTokens.join(' OR ');
 }
 
 /**
