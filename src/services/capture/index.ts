@@ -537,6 +537,8 @@ export type {
   ExperienceCaptureResult,
   KnowledgeCaptureResult,
   TrajectoryStep,
+  ExtractionWindow,
+  CaptureSessionState,
 } from './types.js';
 export { ExperienceCaptureModule, createExperienceCaptureModule } from './experience.module.js';
 export { KnowledgeCaptureModule, createKnowledgeCaptureModule, type KnowledgeModuleDeps } from './knowledge.module.js';

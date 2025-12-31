@@ -43,3 +43,44 @@ export type MessageRole = 'user' | 'agent' | 'system';
  * Verification action type enum
  */
 export type VerificationActionType = 'pre_check' | 'post_check' | 'acknowledge';
+
+// =============================================================================
+// GRAPH TYPES (Flexible Knowledge Graph)
+// =============================================================================
+
+/**
+ * Graph entry type - used for polymorphic associations in graph system
+ * Represents the type of a graph node (maps to node_types.name)
+ */
+export type GraphEntryType = string; // Dynamic - defined by user via type registry
+
+/**
+ * Graph relation type - used for edge types
+ * Represents the type of a graph edge (maps to edge_types.name)
+ */
+export type GraphRelationType = string; // Dynamic - defined by user via type registry
+
+/**
+ * Edge direction for graph traversal
+ */
+export type EdgeDirection = 'out' | 'in' | 'both';
+
+/**
+ * Graph traversal options
+ */
+export interface GraphTraversalOptions {
+  edgeTypes?: string[];
+  direction?: EdgeDirection;
+  maxDepth?: number;
+  nodeTypeFilter?: string[];
+  limit?: number;
+}
+
+/**
+ * Graph path result
+ */
+export interface GraphPath {
+  nodes: Array<{ id: string; type: string; name: string }>;
+  edges: Array<{ id: string; type: string; sourceId: string; targetId: string }>;
+  totalDepth: number;
+}

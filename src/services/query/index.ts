@@ -44,7 +44,7 @@ import type { EntityFilterResult, EntityFilterPipelineContext } from './stages/e
 // Import from modular submodules (avoids circular dependency with query.service.ts)
 import { resolveScopeChain } from './scope-chain.js';
 import { getTagsForEntries } from './tags-helper.js';
-import { traverseRelationGraph } from './graph-traversal.js';
+import { traverseRelationGraph, createGraphTraversalFunctions } from './graph-traversal.js';
 import { createFtsSearchFunctions } from './fts-search.js';
 import type { DbClient } from '../../db/connection.js';
 import type Database from 'better-sqlite3';
@@ -93,6 +93,8 @@ export function getQueryCacheKey(params: MemoryQueryParams): string | null {
     params.tags?.include?.slice().sort().join(',') ?? '',
     params.tags?.require?.slice().sort().join(',') ?? '',
     params.tags?.exclude?.slice().sort().join(',') ?? '',
+    params.priority?.min?.toString() ?? '',
+    params.priority?.max?.toString() ?? '',
   ];
 
   const paramHash = fnv1aHash(keyParts.join('|'));
@@ -230,6 +232,9 @@ export function createDependencies(options: QueryPipelineOptions): PipelineDepen
   // This enables proper DI for benchmarks and tests
   const ftsFunctions = createFtsSearchFunctions(getPreparedStatement);
 
+  // Use factory-created graph traversal functions for DI
+  const graphFunctions = createGraphTraversalFunctions(getPreparedStatement);
+
   return {
     getDb,
     getPreparedStatement,
@@ -238,9 +243,9 @@ export function createDependencies(options: QueryPipelineOptions): PipelineDepen
     executeFts5Query: ftsFunctions.executeFts5Query,
     // Wrap getTagsForEntries to pass db from deps
     getTagsForEntries: (entryType, entryIds) => getTagsForEntries(entryType, entryIds, getDb()),
-    // Wrap traverseRelationGraph to handle type compatibility
+    // Wrap traverseRelationGraph with injected db (uses factory-created function)
     traverseRelationGraph: (startType, startId, graphOptions) => {
-      return traverseRelationGraph(
+      return graphFunctions.traverseRelationGraph(
         startType as 'tool' | 'guideline' | 'knowledge' | 'project',
         startId,
         graphOptions as Parameters<typeof traverseRelationGraph>[2]

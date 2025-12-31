@@ -297,4 +297,82 @@ describe('Scope Management Integration', () => {
       expect(result.sessions.length).toBeGreaterThan(0);
     });
   });
+
+  describe('Project findByPath', () => {
+    it('should find project by exact rootPath match', async () => {
+      const result = await scopeHandlers.projectCreate(ctx, {
+        adminKey: TEST_ADMIN_KEY,
+        name: 'Path Test Project',
+        rootPath: '/users/test/my-project',
+      });
+
+      const found = await ctx.repos.projects.findByPath('/users/test/my-project');
+      expect(found).toBeDefined();
+      expect(found!.id).toBe(result.project.id);
+    });
+
+    it('should find project when path is subdirectory of rootPath', async () => {
+      const result = await scopeHandlers.projectCreate(ctx, {
+        adminKey: TEST_ADMIN_KEY,
+        name: 'Parent Project',
+        rootPath: '/users/test/parent',
+      });
+
+      const found = await ctx.repos.projects.findByPath('/users/test/parent/src/components');
+      expect(found).toBeDefined();
+      expect(found!.id).toBe(result.project.id);
+    });
+
+    it('should return most specific match when multiple projects match', async () => {
+      // Create parent project
+      await scopeHandlers.projectCreate(ctx, {
+        adminKey: TEST_ADMIN_KEY,
+        name: 'Outer Project',
+        rootPath: '/workspace',
+      });
+
+      // Create nested project (more specific)
+      const nestedResult = await scopeHandlers.projectCreate(ctx, {
+        adminKey: TEST_ADMIN_KEY,
+        name: 'Nested Project',
+        rootPath: '/workspace/packages/core',
+      });
+
+      // Search for path inside nested project - should return nested, not outer
+      const found = await ctx.repos.projects.findByPath('/workspace/packages/core/src/index.ts');
+      expect(found).toBeDefined();
+      expect(found!.id).toBe(nestedResult.project.id);
+      expect(found!.name).toBe('Nested Project');
+    });
+
+    it('should return undefined when no project matches', async () => {
+      const found = await ctx.repos.projects.findByPath('/some/random/path/that/does/not/exist');
+      expect(found).toBeUndefined();
+    });
+
+    it('should handle trailing slashes', async () => {
+      const result = await scopeHandlers.projectCreate(ctx, {
+        adminKey: TEST_ADMIN_KEY,
+        name: 'Trailing Slash Project',
+        rootPath: '/users/test/trailing/',
+      });
+
+      // Path without trailing slash should still match
+      const found = await ctx.repos.projects.findByPath('/users/test/trailing');
+      expect(found).toBeDefined();
+      expect(found!.id).toBe(result.project.id);
+    });
+
+    it('should not match partial directory names', async () => {
+      await scopeHandlers.projectCreate(ctx, {
+        adminKey: TEST_ADMIN_KEY,
+        name: 'Foo Project',
+        rootPath: '/test/foo',
+      });
+
+      // '/test/foobar' should NOT match '/test/foo' - it's a different directory
+      const found = await ctx.repos.projects.findByPath('/test/foobar');
+      expect(found).toBeUndefined();
+    });
+  });
 });

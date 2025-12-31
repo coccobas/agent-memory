@@ -23,6 +23,8 @@ import { createToolRepository } from '../../db/repositories/tools.js';
 import { createConversationRepository } from '../../db/repositories/conversations.js';
 import { createConflictRepository } from '../../db/repositories/conflicts.js';
 import { createExperienceRepository } from '../../db/repositories/experiences.js';
+import { createNodeRepository, createEdgeRepository } from '../../db/repositories/graph/index.js';
+import { createTypeRegistry } from '../../services/graph/index.js';
 
 /**
  * Create all repositories with injected dependencies
@@ -33,6 +35,11 @@ import { createExperienceRepository } from '../../db/repositories/experiences.js
 export function createRepositories(deps: DatabaseDeps): Repositories {
   // TagRepo is created first as it's a dependency for entryTags
   const tagRepo = createTagRepository(deps);
+
+  // Graph repositories (NodeRepo is dependency for EdgeRepo)
+  const typeRegistry = createTypeRegistry(deps);
+  const nodeRepo = createNodeRepository(deps);
+  const edgeRepo = createEdgeRepository(deps, nodeRepo);
 
   return {
     tags: tagRepo,
@@ -48,5 +55,9 @@ export function createRepositories(deps: DatabaseDeps): Repositories {
     conversations: createConversationRepository(deps),
     conflicts: createConflictRepository(deps),
     experiences: createExperienceRepository(deps),
+    // Graph repositories (Flexible Knowledge Graph)
+    typeRegistry,
+    graphNodes: nodeRepo,
+    graphEdges: edgeRepo,
   };
 }

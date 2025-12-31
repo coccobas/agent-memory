@@ -6,11 +6,30 @@
  */
 
 import { and, eq } from 'drizzle-orm';
-import { getPreparedStatement, type DbClient } from '../../db/connection.js';
+import { getPreparedStatement as getGlobalPreparedStatement, type DbClient } from '../../db/connection.js';
 import { entryRelations, type RelationType } from '../../db/schema.js';
 import { createComponentLogger } from '../../utils/logger.js';
+import type { Statement } from 'better-sqlite3';
 
 const logger = createComponentLogger('graph-traversal');
+
+/**
+ * Type for getPreparedStatement function
+ */
+export type GetPreparedStatementFn = (sql: string) => Statement;
+
+// Module-level variable to support injected getPreparedStatement
+let injectedGetPreparedStatement: GetPreparedStatementFn | null = null;
+
+/**
+ * Get the active getPreparedStatement function (injected or global)
+ */
+function getPreparedStatement(sql: string): Statement {
+  if (injectedGetPreparedStatement) {
+    return injectedGetPreparedStatement(sql);
+  }
+  return getGlobalPreparedStatement(sql);
+}
 
 // =============================================================================
 // PRE-DEFINED CTE QUERIES (for prepared statement caching)
@@ -413,4 +432,42 @@ export function traverseRelationGraph(
   }
 
   return result;
+}
+
+// =============================================================================
+// FACTORY FUNCTION FOR DEPENDENCY INJECTION
+// =============================================================================
+
+/**
+ * Graph traversal functions interface
+ */
+export interface GraphTraversalFunctions {
+  traverseRelationGraph: typeof traverseRelationGraph;
+}
+
+/**
+ * Create graph traversal functions with injected dependencies.
+ *
+ * This allows tests and benchmarks to use their own database connection
+ * instead of the global one.
+ *
+ * @param customGetPreparedStatement - Custom prepared statement function for DI
+ * @returns Graph traversal functions using the custom connection
+ */
+export function createGraphTraversalFunctions(
+  customGetPreparedStatement: GetPreparedStatementFn
+): GraphTraversalFunctions {
+  // Set the injected function
+  injectedGetPreparedStatement = customGetPreparedStatement;
+
+  return {
+    traverseRelationGraph,
+  };
+}
+
+/**
+ * Reset injected getPreparedStatement to use global (for cleanup after tests)
+ */
+export function resetGraphTraversalInjection(): void {
+  injectedGetPreparedStatement = null;
 }

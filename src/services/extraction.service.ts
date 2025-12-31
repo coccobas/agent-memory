@@ -19,6 +19,7 @@ import {
   createSizeLimitError,
   createServiceUnavailableError,
 } from '../core/errors.js';
+import { ensureAtomicity, createAtomicityConfig } from './extraction/atomicity.js';
 
 const logger = createComponentLogger('extraction');
 
@@ -268,7 +269,14 @@ const EXTRACTION_SYSTEM_PROMPT = `You are an AI memory extraction assistant. You
 
 Extract the following types:
 
-1. **Guidelines** - Rules, standards, or patterns that should be followed (e.g., "always use TypeScript strict mode", "never commit secrets")
+1. **Guidelines** - Rules, standards, or patterns that should be followed. These can be:
+   - **Explicit**: Direct commands using "always", "never", "must", "should" (e.g., "always use TypeScript strict mode", "never commit secrets")
+   - **Implicit**: Standards implied by descriptions of how things work:
+     - "We follow [methodology/pattern]" → Extract as guideline to follow that methodology
+     - "Our [code/API/service] follows [standard/convention]" → Extract as guideline to conform to that standard
+     - "The codebase is organized as [pattern]" → Extract as guideline to maintain that organization
+     - "We use [approach] for [purpose]" → Extract as guideline to continue using that approach
+     - "[Team] decided to [approach]" → Extract as guideline if it establishes ongoing practice
 
 2. **Knowledge** - Facts, decisions, or context worth remembering (e.g., "We chose PostgreSQL because...", "The API uses REST not GraphQL")
 
@@ -299,6 +307,57 @@ Only extract genuinely useful information. Skip:
 - Information already commonly known
 - Vague or ambiguous statements
 - Generic entities (e.g., "the database" without a specific name)
+
+## CRITICAL: Noise Resistance
+
+Do NOT extract the following types of content:
+
+1. **Status Updates & Progress Reports** - "I'm working on X", "Just finished Y", "Almost done with Z"
+   These are transient status indicators, not permanent knowledge worth storing.
+
+2. **Personal Preferences Without Team Mandate** - "I prefer X", "I like using Y"
+   Only extract preferences that are explicitly stated as team standards or project requirements.
+
+3. **Dismissed or Rejected Technologies** - "We don't use X", "We tried Y but it didn't work"
+   Negative decisions about what NOT to use are generally not actionable guidelines unless they include specific rationale worth preserving.
+
+4. **Transient Code Review Feedback** - "Can you move this here?", "Please rename this variable"
+   One-off review comments that apply only to a specific change are not reusable knowledge.
+
+5. **Questions and Requests** - "Can you help me with X?", "What do you think about Y?"
+   Questions themselves are not extractable knowledge - only answers and decisions are.
+
+6. **Casual Conversation & Off-Topic Content** - Greetings, thanks, unrelated discussions
+   Social content has no long-term knowledge value.
+
+## CRITICAL: Atomicity Requirement
+
+Each extracted entry MUST be atomic - containing exactly ONE concept, rule, decision, or fact.
+
+### What is Atomic?
+- ONE guideline = ONE rule or constraint
+- ONE knowledge = ONE fact or ONE decision
+- ONE tool = ONE command or function
+
+### Examples of NON-ATOMIC (BAD):
+- Guideline: "Always use TypeScript strict mode and never use any type" (TWO rules)
+- Knowledge: "We chose PostgreSQL for persistence and Redis for caching" (TWO decisions)
+- Tool: "Use prettier for formatting; use eslint for linting" (TWO tools)
+
+### Examples of ATOMIC (GOOD):
+- Guideline: "Always use TypeScript strict mode" (ONE rule)
+- Guideline: "Never use the any type in TypeScript" (ONE rule)
+- Knowledge: "We chose PostgreSQL for database persistence" (ONE decision)
+- Knowledge: "We use Redis for caching" (ONE decision)
+- Tool: "Use prettier for code formatting" (ONE tool)
+
+### Splitting Guidance:
+If you identify compound information, extract it as MULTIPLE SEPARATE entries:
+- Each entry gets its own name/title
+- Each entry maintains appropriate confidence
+- Related entries can share tags
+
+DO NOT combine multiple rules, facts, or tools into single entries. When in doubt, split.
 
 Return your response as a JSON object with this exact structure:
 {
@@ -583,6 +642,24 @@ export class ExtractionService {
       }
 
       result.processingTimeMs = Date.now() - startTime;
+
+      // Apply atomicity validation and splitting if enabled
+      if (config.extraction.atomicityEnabled) {
+        const atomicityConfig = createAtomicityConfig(config.extraction);
+        const originalCount = result.entries.length;
+        result.entries = ensureAtomicity(result.entries, atomicityConfig);
+
+        if (result.entries.length !== originalCount) {
+          logger.debug(
+            {
+              originalCount,
+              atomicCount: result.entries.length,
+              splitMode: config.extraction.atomicitySplitMode,
+            },
+            'Atomicity processing applied'
+          );
+        }
+      }
 
       logger.debug(
         {

@@ -14,6 +14,7 @@ Actions: add, update, get, list, history, deactivate, delete, bulk_add, bulk_upd
 When to store: After making a decision, learning a fact, or establishing context worth remembering.
 Example: {"action":"add","title":"API uses REST","content":"This project uses REST API, not GraphQL","scopeType":"project","category":"decision"}`,
   commonParams: {
+    agentId: { type: 'string', description: 'Agent identifier (required for write operations)' },
     id: { type: 'string', description: 'Knowledge ID' },
     title: { type: 'string', description: 'Knowledge title' },
     scopeType: { type: 'string', enum: ['global', 'org', 'project', 'session'] },

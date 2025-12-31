@@ -88,9 +88,20 @@ export const queryHandlers = {
       );
     }
 
+    // Get scope and auto-detect project if needed
+    let scope = getOptionalParam(params, 'scope', isValidScope);
+    if (scope?.type === 'project' && !scope.id) {
+      const cwd = process.cwd();
+      const project = await context.repos.projects.findByPath(cwd);
+      if (project) {
+        scope = { ...scope, id: project.id };
+        logger.debug({ cwd, projectId: project.id, projectName: project.name }, 'Auto-detected project from cwd');
+      }
+    }
+
     const queryParamsWithoutAgent: MemoryQueryParams = {
       types: requestedTypes,
-      scope: getOptionalParam(params, 'scope', isValidScope),
+      scope,
       search: getOptionalParam(params, 'search', isString),
       tags: getOptionalParam(params, 'tags', isObject),
       relatedTo: (() => {
@@ -117,6 +128,8 @@ export const queryHandlers = {
       // Temporal filtering (knowledge entries only)
       atTime: getOptionalParam(params, 'atTime', isString),
       validDuring: getOptionalParam(params, 'validDuring', isValidDuringPeriod),
+      // Priority filtering (guidelines only)
+      priority: getOptionalParam(params, 'priority', isObject),
     };
 
     // Permissions: deny by default, allow per requested type/scope
@@ -188,10 +201,13 @@ export const queryHandlers = {
    * Convenience wrapper that returns aggregated context for a scope.
    * It queries tools, guidelines, and knowledge with inheritance enabled
    * and groups results by type.
+   *
+   * When scopeType is 'project' and scopeId is not provided, automatically
+   * detects the project by matching process.cwd() against project rootPath values.
    */
   async context(context: AppContext, params: Record<string, unknown>) {
     const scopeType = getRequiredParam(params, 'scopeType', isScopeType);
-    const scopeId = getOptionalParam(params, 'scopeId', isString);
+    let scopeId = getOptionalParam(params, 'scopeId', isString);
     const inherit = getOptionalParam(params, 'inherit', isBoolean) ?? true;
     const compact = getOptionalParam(params, 'compact', isBoolean) ?? false;
     const limitPerType = getOptionalParam(params, 'limitPerType', isNumber);
@@ -199,6 +215,16 @@ export const queryHandlers = {
     const agentId = getOptionalParam(params, 'agentId', isString);
     const semanticSearch = getOptionalParam(params, 'semanticSearch', isBoolean);
     const search = getOptionalParam(params, 'search', isString);
+
+    // Auto-detect project from cwd if scopeType is 'project' and scopeId not provided
+    if (scopeType === 'project' && !scopeId) {
+      const cwd = process.cwd();
+      const project = await context.repos.projects.findByPath(cwd);
+      if (project) {
+        scopeId = project.id;
+        logger.debug({ cwd, projectId: project.id, projectName: project.name }, 'Auto-detected project from cwd');
+      }
+    }
 
     const allowedTypes = (['tools', 'guidelines', 'knowledge', 'experiences'] as const).filter((type) =>
       context.services!.permission.check(

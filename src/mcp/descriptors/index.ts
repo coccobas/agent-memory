@@ -45,6 +45,8 @@ import { memoryRlDescriptor } from './memory_rl.js';
 import { memoryLatentDescriptor } from './memory_latent.js';
 import { memorySummarizeDescriptor } from './memory_summarize.js';
 import { memoryLoraDescriptor } from './memory_lora.js';
+import { graphNodeDescriptor } from './graph_node.js';
+import { graphEdgeDescriptor } from './graph_edge.js';
 
 import { type AnyToolDescriptor, descriptorToTool, descriptorToHandler } from './types.js';
 
@@ -120,6 +122,10 @@ export const allDescriptors: AnyToolDescriptor[] = [
   memorySummarizeDescriptor,
   // LoRA Training Data Export
   memoryLoraDescriptor,
+  // Graph Nodes (Flexible Knowledge Graph)
+  graphNodeDescriptor,
+  // Graph Edges (Flexible Knowledge Graph)
+  graphEdgeDescriptor,
 ];
 
 /**
@@ -174,4 +180,6 @@ export {
   memoryLatentDescriptor,
   memorySummarizeDescriptor,
   memoryLoraDescriptor,
+  graphNodeDescriptor,
+  graphEdgeDescriptor,
 };

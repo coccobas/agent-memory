@@ -1,0 +1,874 @@
+{
+  "timestamp": "2025-12-30T15:49:28.020Z",
+  "config": {
+    "testCasesRun": 35,
+    "semanticEnabled": false,
+    "fts5Enabled": true,
+    "defaultK": 10
+  },
+  "seedDataStats": {
+    "totalEntries": 31,
+    "byType": {
+      "guidelines": 12,
+      "knowledge": 10,
+      "tools": 9
+    },
+    "scopes": [
+      "global",
+      "org:org-query-bench",
+      "project:proj-query-bench"
+    ]
+  },
+  "overall": {
+    "totalTestCases": 35,
+    "skippedCount": 2,
+    "errorCount": 0,
+    "avgPrecisionAtK": 0.10303030303030306,
+    "avgRecallAtK": 0.5454545454545454,
+    "avgMrr": 0.45707070707070707,
+    "avgNdcg": 0.5152668558570729,
+    "byDifficulty": {
+      "easy": {
+        "count": 16,
+        "avgPrecision": 0.15625000000000003,
+        "avgRecall": 0.7916666666666666,
+        "avgMrr": 0.6875,
+        "avgNdcg": 0.7893030190569617
+      },
+      "medium": {
+        "count": 11,
+        "avgPrecision": 0.045454545454545456,
+        "avgRecall": 0.36363636363636365,
+        "avgMrr": 0.25,
+        "avgNdcg": 0.29737825261041917
+      },
+      "hard": {
+        "count": 6,
+        "avgPrecision": 0.06666666666666667,
+        "avgRecall": 0.2222222222222222,
+        "avgMrr": 0.2222222222222222,
+        "avgNdcg": 0.1839661932762353
+      }
+    },
+    "byCategory": {
+      "Exact Keywords": {
+        "count": 4,
+        "avgPrecision": 0.22499999999999998,
+        "avgRecall": 1,
+        "avgMrr": 1,
+        "avgNdcg": 0.9944453404076262
+      },
+      "Partial Keywords": {
+        "count": 2,
+        "avgPrecision": 0.15,
+        "avgRecall": 0.5,
+        "avgMrr": 0.5,
+        "avgNdcg": 0.48984043537878785
+      },
+      "Multiple Keywords": {
+        "count": 3,
+        "avgPrecision": 0.10000000000000002,
+        "avgRecall": 1,
+        "avgMrr": 0.5833333333333334,
+        "avgNdcg": 0.7570535929048704
+      },
+      "Scope Filtering": {
+        "count": 3,
+        "avgPrecision": 0.03333333333333333,
+        "avgRecall": 0.3333333333333333,
+        "avgMrr": 0.3333333333333333,
+        "avgNdcg": 0.3333333333333333
+      },
+      "Scope Inheritance": {
+        "count": 2,
+        "avgPrecision": 0.1,
+        "avgRecall": 1,
+        "avgMrr": 1,
+        "avgNdcg": 1
+      },
+      "Type Filtering": {
+        "count": 3,
+        "avgPrecision": 0.13333333333333333,
+        "avgRecall": 0.3333333333333333,
+        "avgMrr": 0.3333333333333333,
+        "avgNdcg": 0.3333333333333333
+      },
+      "Tag Filtering": {
+        "count": 3,
+        "avgPrecision": 0,
+        "avgRecall": 0,
+        "avgMrr": 0,
+        "avgNdcg": 0
+      },
+      "Priority Filtering": {
+        "count": 2,
+        "avgPrecision": 0,
+        "avgRecall": 0,
+        "avgMrr": 0,
+        "avgNdcg": 0
+      },
+      "Combined Filters": {
+        "count": 4,
+        "avgPrecision": 0.125,
+        "avgRecall": 0.25,
+        "avgMrr": 0.5,
+        "avgNdcg": 0.2951207115251234
+      },
+      "Noise Rejection": {
+        "count": 2,
+        "avgPrecision": 0,
+        "avgRecall": 1,
+        "avgMrr": 0,
+        "avgNdcg": 1
+      },
+      "Edge Cases": {
+        "count": 3,
+        "avgPrecision": 0.2333333333333333,
+        "avgRecall": 1,
+        "avgMrr": 0.7777777777777777,
+        "avgNdcg": 0.8649001286934074
+      },
+      "Relation Traversal": {
+        "count": 2,
+        "avgPrecision": 0,
+        "avgRecall": 0,
+        "avgMrr": 0,
+        "avgNdcg": 0
+      }
+    },
+    "processing": {
+      "totalTimeMs": 24,
+      "avgTimePerQuery": 0.7272727272727273,
+      "minTimeMs": 0,
+      "maxTimeMs": 6
+    }
+  },
+  "testCaseResults": [
+    {
+      "testCaseId": "ke-001",
+      "testCaseName": "Exact keyword: TypeScript",
+      "category": "keyword-exact",
+      "difficulty": "easy",
+      "returnedCount": 3,
+      "relevantCount": 3,
+      "precisionAtK": 0.3,
+      "recallAtK": 1,
+      "mrr": 1,
+      "ndcg": 1,
+      "k": 10,
+      "returnedIds": [
+        "6b352b04-744e-45a6-815f-8611de36751a",
+        "dc695090-e74f-48c9-abc6-da4f693d7361",
+        "9fe45c86-5162-4f16-90a0-9fcd329d7457"
+      ],
+      "missedIds": [],
+      "unexpectedIds": [],
+      "processingTimeMs": 4
+    },
+    {
+      "testCaseId": "ke-002",
+      "testCaseName": "Exact keyword: PostgreSQL",
+      "category": "keyword-exact",
+      "difficulty": "easy",
+      "returnedCount": 1,
+      "relevantCount": 1,
+      "precisionAtK": 0.1,
+      "recallAtK": 1,
+      "mrr": 1,
+      "ndcg": 1,
+      "k": 10,
+      "returnedIds": [
+        "35fb14a7-004a-48f3-850b-dec9c15cf9d5"
+      ],
+      "missedIds": [],
+      "unexpectedIds": [],
+      "processingTimeMs": 1
+    },
+    {
+      "testCaseId": "ke-003",
+      "testCaseName": "Exact keyword: authentication",
+      "category": "keyword-exact",
+      "difficulty": "easy",
+      "returnedCount": 3,
+      "relevantCount": 3,
+      "precisionAtK": 0.3,
+      "recallAtK": 1,
+      "mrr": 1,
+      "ndcg": 0.9777813616305049,
+      "k": 10,
+      "returnedIds": [
+        "2ba99681-22e6-4885-bd08-c67ddfc366b4",
+        "b7f06926-c7f9-4a27-ad1e-f1fb6b4d221a",
+        "891fbbd5-5715-4ce6-bc79-3f8be930f21e"
+      ],
+      "missedIds": [],
+      "unexpectedIds": [],
+      "processingTimeMs": 6
+    },
+    {
+      "testCaseId": "ke-004",
+      "testCaseName": "Exact keyword: Docker",
+      "category": "keyword-exact",
+      "difficulty": "easy",
+      "returnedCount": 2,
+      "relevantCount": 2,
+      "precisionAtK": 0.2,
+      "recallAtK": 1,
+      "mrr": 1,
+      "ndcg": 1,
+      "k": 10,
+      "returnedIds": [
+        "0728660a-7fc3-476f-9199-61a3aaf46655",
+        "0856c7d0-b077-45da-9e07-493cd4d13263"
+      ],
+      "missedIds": [],
+      "unexpectedIds": [],
+      "processingTimeMs": 1
+    },
+    {
+      "testCaseId": "kp-001",
+      "testCaseName": "Partial keyword: test (matches testing, test)",
+      "category": "keyword-partial",
+      "difficulty": "easy",
+      "returnedCount": 4,
+      "relevantCount": 3,
+      "precisionAtK": 0.3,
+      "recallAtK": 1,
+      "mrr": 1,
+      "ndcg": 0.9796808707575757,
+      "k": 10,
+      "returnedIds": [
+        "61e48fa0-cfeb-4833-8ba7-0adb3212b153",
+        "db7ac318-1f2f-4a70-a36c-241b29e3c78e",
+        "12195a53-3a58-4730-bc1b-6ac1d6ff4dd6",
+        "a1419698-a9c1-4885-9934-6d1db55c22d8"
+      ],
+      "missedIds": [],
+      "unexpectedIds": [],
+      "processingTimeMs": 1
+    },
+    {
+      "testCaseId": "kp-002",
+      "testCaseName": "Partial keyword: secur (matches security, secrets)",
+      "category": "keyword-partial",
+      "difficulty": "medium",
+      "returnedCount": 0,
+      "relevantCount": 3,
+      "precisionAtK": 0,
+      "recallAtK": 0,
+      "mrr": 0,
+      "ndcg": 0,
+      "k": 10,
+      "returnedIds": [],
+      "missedIds": [
+        "g-no-secrets",
+        "g-input-validation",
+        "g-auth-required"
+      ],
+      "unexpectedIds": [],
+      "processingTimeMs": 0
+    },
+    {
+      "testCaseId": "km-001",
+      "testCaseName": "Multi-word: strict mode",
+      "category": "keyword-multi",
+      "difficulty": "easy",
+      "returnedCount": 1,
+      "relevantCount": 1,
+      "precisionAtK": 0.1,
+      "recallAtK": 1,
+      "mrr": 1,
+      "ndcg": 1,
+      "k": 10,
+      "returnedIds": [
+        "6b352b04-744e-45a6-815f-8611de36751a"
+      ],
+      "missedIds": [],
+      "unexpectedIds": [],
+      "processingTimeMs": 1
+    },
+    {
+      "testCaseId": "km-002",
+      "testCaseName": "Multi-word: database migration",
+      "category": "keyword-multi",
+      "difficulty": "medium",
+      "returnedCount": 6,
+      "relevantCount": 1,
+      "precisionAtK": 0.1,
+      "recallAtK": 1,
+      "mrr": 0.5,
+      "ndcg": 0.639909328045346,
+      "k": 10,
+      "returnedIds": [
+        "0728660a-7fc3-476f-9199-61a3aaf46655",
+        "cec0db45-ac04-402c-8f1c-07bcdf91e781",
+        "12195a53-3a58-4730-bc1b-6ac1d6ff4dd6",
+        "35fb14a7-004a-48f3-850b-dec9c15cf9d5",
+        "43a1709b-219b-47a3-9e1d-b99a6af2c1c2",
+        "aa6dcb42-dbfc-40e3-a7b2-5db0d6cab76b"
+      ],
+      "missedIds": [],
+      "unexpectedIds": [],
+      "processingTimeMs": 1
+    },
+    {
+      "testCaseId": "km-003",
+      "testCaseName": "Multi-word: API endpoint users",
+      "category": "keyword-multi",
+      "difficulty": "medium",
+      "returnedCount": 8,
+      "relevantCount": 1,
+      "precisionAtK": 0.1,
+      "recallAtK": 1,
+      "mrr": 0.25,
+      "ndcg": 0.631251450669265,
+      "k": 10,
+      "returnedIds": [
+        "2ba99681-22e6-4885-bd08-c67ddfc366b4",
+        "82796831-a0cf-49a6-9f20-86cd342fff0a",
+        "2ce9f1cc-f1c1-4f51-a1e2-713dc9de5699",
+        "38ee64eb-2dd3-4e5d-997b-127054810194",
+        "b7f06926-c7f9-4a27-ad1e-f1fb6b4d221a",
+        "1fdd4e4a-e124-4996-b260-835e0ec9e0ca",
+        "f3275800-661c-4759-b545-bfe9e70afb60",
+        "3a2e3a3c-f908-4541-9053-786cfca12fb0"
+      ],
+      "missedIds": [],
+      "unexpectedIds": [],
+      "processingTimeMs": 0
+    },
+    {
+      "testCaseId": "sf-001",
+      "testCaseName": "Project scope only (no inheritance)",
+      "category": "scope-filtering",
+      "difficulty": "medium",
+      "returnedCount": 0,
+      "relevantCount": 1,
+      "precisionAtK": 0,
+      "recallAtK": 0,
+      "mrr": 0,
+      "ndcg": 0,
+      "k": 10,
+      "returnedIds": [],
+      "missedIds": [
+        "g-auth-required"
+      ],
+      "unexpectedIds": [],
+      "processingTimeMs": 0
+    },
+    {
+      "testCaseId": "sf-002",
+      "testCaseName": "Org scope only",
+      "category": "scope-filtering",
+      "difficulty": "medium",
+      "returnedCount": 0,
+      "relevantCount": 2,
+      "precisionAtK": 0,
+      "recallAtK": 0,
+      "mrr": 0,
+      "ndcg": 0,
+      "k": 10,
+      "returnedIds": [],
+      "missedIds": [
+        "g-no-secrets",
+        "g-input-validation"
+      ],
+      "unexpectedIds": [],
+      "processingTimeMs": 0
+    },
+    {
+      "testCaseId": "sf-003",
+      "testCaseName": "Global scope only",
+      "category": "scope-filtering",
+      "difficulty": "medium",
+      "returnedCount": 1,
+      "relevantCount": 1,
+      "precisionAtK": 0.1,
+      "recallAtK": 1,
+      "mrr": 1,
+      "ndcg": 1,
+      "k": 10,
+      "returnedIds": [
+        "befcfb72-94cb-4f30-bee6-5512749c61c4"
+      ],
+      "missedIds": [],
+      "unexpectedIds": [],
+      "processingTimeMs": 1
+    },
+    {
+      "testCaseId": "si-001",
+      "testCaseName": "Project with org inheritance",
+      "category": "scope-inheritance",
+      "difficulty": "easy",
+      "returnedCount": 1,
+      "relevantCount": 1,
+      "precisionAtK": 0.1,
+      "recallAtK": 1,
+      "mrr": 1,
+      "ndcg": 1,
+      "k": 10,
+      "returnedIds": [
+        "82796831-a0cf-49a6-9f20-86cd342fff0a"
+      ],
+      "missedIds": [],
+      "unexpectedIds": [],
+      "processingTimeMs": 0
+    },
+    {
+      "testCaseId": "si-002",
+      "testCaseName": "Project inherits global SOLID principles",
+      "category": "scope-inheritance",
+      "difficulty": "easy",
+      "returnedCount": 1,
+      "relevantCount": 1,
+      "precisionAtK": 0.1,
+      "recallAtK": 1,
+      "mrr": 1,
+      "ndcg": 1,
+      "k": 10,
+      "returnedIds": [
+        "befcfb72-94cb-4f30-bee6-5512749c61c4"
+      ],
+      "missedIds": [],
+      "unexpectedIds": [],
+      "processingTimeMs": 1
+    },
+    {
+      "testCaseId": "tf-001",
+      "testCaseName": "Guidelines only",
+      "category": "type-filtering",
+      "difficulty": "easy",
+      "returnedCount": 0,
+      "relevantCount": 2,
+      "precisionAtK": 0,
+      "recallAtK": 0,
+      "mrr": 0,
+      "ndcg": 0,
+      "k": 10,
+      "returnedIds": [],
+      "missedIds": [
+        "g-typescript-strict",
+        "g-no-any"
+      ],
+      "unexpectedIds": [],
+      "processingTimeMs": 0
+    },
+    {
+      "testCaseId": "tf-002",
+      "testCaseName": "Tools only",
+      "category": "type-filtering",
+      "difficulty": "easy",
+      "returnedCount": 0,
+      "relevantCount": 3,
+      "precisionAtK": 0,
+      "recallAtK": 0,
+      "mrr": 0,
+      "ndcg": 0,
+      "k": 10,
+      "returnedIds": [],
+      "missedIds": [
+        "t-npm-build",
+        "t-npm-test",
+        "t-npm-lint"
+      ],
+      "unexpectedIds": [],
+      "processingTimeMs": 0
+    },
+    {
+      "testCaseId": "tf-003",
+      "testCaseName": "Knowledge only",
+      "category": "type-filtering",
+      "difficulty": "easy",
+      "returnedCount": 4,
+      "relevantCount": 4,
+      "precisionAtK": 0.4,
+      "recallAtK": 1,
+      "mrr": 1,
+      "ndcg": 1,
+      "k": 10,
+      "returnedIds": [
+        "35fb14a7-004a-48f3-850b-dec9c15cf9d5",
+        "43a1709b-219b-47a3-9e1d-b99a6af2c1c2",
+        "1fdd4e4a-e124-4996-b260-835e0ec9e0ca",
+        "891fbbd5-5715-4ce6-bc79-3f8be930f21e"
+      ],
+      "missedIds": [],
+      "unexpectedIds": [],
+      "processingTimeMs": 0
+    },
+    {
+      "testCaseId": "tg-001",
+      "testCaseName": "Tag include: testing",
+      "category": "tag-filtering",
+      "difficulty": "easy",
+      "returnedCount": 0,
+      "relevantCount": 2,
+      "precisionAtK": 0,
+      "recallAtK": 0,
+      "mrr": 0,
+      "ndcg": 0,
+      "k": 10,
+      "returnedIds": [],
+      "missedIds": [
+        "g-test-coverage",
+        "t-npm-test"
+      ],
+      "unexpectedIds": [],
+      "processingTimeMs": 1
+    },
+    {
+      "testCaseId": "tg-002",
+      "testCaseName": "Tag require: security AND api",
+      "category": "tag-filtering",
+      "difficulty": "medium",
+      "returnedCount": 0,
+      "relevantCount": 1,
+      "precisionAtK": 0,
+      "recallAtK": 0,
+      "mrr": 0,
+      "ndcg": 0,
+      "k": 10,
+      "returnedIds": [],
+      "missedIds": [
+        "g-auth-required"
+      ],
+      "unexpectedIds": [],
+      "processingTimeMs": 1
+    },
+    {
+      "testCaseId": "tg-003",
+      "testCaseName": "Tag exclude: deprecated",
+      "category": "tag-filtering",
+      "difficulty": "medium",
+      "returnedCount": 0,
+      "relevantCount": 1,
+      "precisionAtK": 0,
+      "recallAtK": 0,
+      "mrr": 0,
+      "ndcg": 0,
+      "k": 10,
+      "returnedIds": [],
+      "missedIds": [
+        "g-max-line-length"
+      ],
+      "unexpectedIds": [],
+      "processingTimeMs": 0
+    },
+    {
+      "testCaseId": "pf-001",
+      "testCaseName": "High priority guidelines only (90+)",
+      "category": "priority-filtering",
+      "difficulty": "medium",
+      "returnedCount": 0,
+      "relevantCount": 5,
+      "precisionAtK": 0,
+      "recallAtK": 0,
+      "mrr": 0,
+      "ndcg": 0,
+      "k": 10,
+      "returnedIds": [],
+      "missedIds": [
+        "g-no-secrets",
+        "g-typescript-strict",
+        "g-input-validation",
+        "g-no-any",
+        "g-auth-required"
+      ],
+      "unexpectedIds": [],
+      "processingTimeMs": 0
+    },
+    {
+      "testCaseId": "pf-002",
+      "testCaseName": "Medium priority guidelines (60-85)",
+      "category": "priority-filtering",
+      "difficulty": "medium",
+      "returnedCount": 0,
+      "relevantCount": 6,
+      "precisionAtK": 0,
+      "recallAtK": 0,
+      "mrr": 0,
+      "ndcg": 0,
+      "k": 10,
+      "returnedIds": [],
+      "missedIds": [
+        "g-test-coverage",
+        "g-unit-tests",
+        "g-naming-convention",
+        "g-max-line-length",
+        "g-solid-principles",
+        "g-dependency-injection"
+      ],
+      "unexpectedIds": [],
+      "processingTimeMs": 0
+    },
+    {
+      "testCaseId": "cf-001",
+      "testCaseName": "Type + Tag + Search",
+      "category": "combined-filters",
+      "difficulty": "hard",
+      "returnedCount": 0,
+      "relevantCount": 2,
+      "precisionAtK": 0,
+      "recallAtK": 0,
+      "mrr": 0,
+      "ndcg": 0,
+      "k": 10,
+      "returnedIds": [],
+      "missedIds": [
+        "t-api-users",
+        "t-api-auth"
+      ],
+      "unexpectedIds": [],
+      "processingTimeMs": 0
+    },
+    {
+      "testCaseId": "cf-002",
+      "testCaseName": "Scope + Type + Priority",
+      "category": "combined-filters",
+      "difficulty": "hard",
+      "returnedCount": 0,
+      "relevantCount": 2,
+      "precisionAtK": 0,
+      "recallAtK": 0,
+      "mrr": 0,
+      "ndcg": 0,
+      "k": 10,
+      "returnedIds": [],
+      "missedIds": [
+        "g-no-secrets",
+        "g-input-validation"
+      ],
+      "unexpectedIds": [],
+      "processingTimeMs": 0
+    },
+    {
+      "testCaseId": "cf-003",
+      "testCaseName": "Search + Multiple Types + Inheritance",
+      "category": "combined-filters",
+      "difficulty": "hard",
+      "returnedCount": 3,
+      "relevantCount": 3,
+      "precisionAtK": 0.1,
+      "recallAtK": 0.3333333333333333,
+      "mrr": 1,
+      "ndcg": 0.5090967735771897,
+      "k": 10,
+      "returnedIds": [
+        "35fb14a7-004a-48f3-850b-dec9c15cf9d5",
+        "43a1709b-219b-47a3-9e1d-b99a6af2c1c2",
+        "aa6dcb42-dbfc-40e3-a7b2-5db0d6cab76b"
+      ],
+      "missedIds": [
+        "t-db-migrate",
+        "t-db-seed"
+      ],
+      "unexpectedIds": [],
+      "processingTimeMs": 0
+    },
+    {
+      "testCaseId": "nr-001",
+      "testCaseName": "Irrelevant search term",
+      "category": "noise-rejection",
+      "difficulty": "easy",
+      "returnedCount": 0,
+      "relevantCount": 0,
+      "precisionAtK": 0,
+      "recallAtK": 1,
+      "mrr": 0,
+      "ndcg": 1,
+      "k": 10,
+      "returnedIds": [],
+      "missedIds": [],
+      "unexpectedIds": [],
+      "processingTimeMs": 1
+    },
+    {
+      "testCaseId": "nr-002",
+      "testCaseName": "Empty search with wrong scope",
+      "category": "noise-rejection",
+      "difficulty": "easy",
+      "returnedCount": 3,
+      "relevantCount": 0,
+      "precisionAtK": 0,
+      "recallAtK": 1,
+      "mrr": 0,
+      "ndcg": 1,
+      "k": 10,
+      "returnedIds": [
+        "6b352b04-744e-45a6-815f-8611de36751a",
+        "dc695090-e74f-48c9-abc6-da4f693d7361",
+        "9fe45c86-5162-4f16-90a0-9fcd329d7457"
+      ],
+      "missedIds": [],
+      "unexpectedIds": [],
+      "processingTimeMs": 0
+    },
+    {
+      "testCaseId": "ctx-001",
+      "testCaseName": "Context action returns all types",
+      "category": "combined-filters",
+      "difficulty": "easy",
+      "returnedCount": 5,
+      "relevantCount": 3,
+      "precisionAtK": 0.4,
+      "recallAtK": 0.6666666666666666,
+      "mrr": 1,
+      "ndcg": 0.6713860725233041,
+      "k": 5,
+      "returnedIds": [
+        "6b352b04-744e-45a6-815f-8611de36751a",
+        "dc695090-e74f-48c9-abc6-da4f693d7361",
+        "7c20a9af-93d2-4090-aa62-9581b1cf2cb8",
+        "9fe45c86-5162-4f16-90a0-9fcd329d7457",
+        "a1419698-a9c1-4885-9934-6d1db55c22d8"
+      ],
+      "missedIds": [
+        "k-postgres-decision"
+      ],
+      "unexpectedIds": [],
+      "processingTimeMs": 1
+    },
+    {
+      "testCaseId": "ec-001",
+      "testCaseName": "Special characters in search",
+      "category": "edge-cases",
+      "difficulty": "hard",
+      "returnedCount": 6,
+      "relevantCount": 3,
+      "precisionAtK": 0.3,
+      "recallAtK": 1,
+      "mrr": 0.3333333333333333,
+      "ndcg": 0.5947003860802221,
+      "k": 10,
+      "returnedIds": [
+        "2ba99681-22e6-4885-bd08-c67ddfc366b4",
+        "82796831-a0cf-49a6-9f20-86cd342fff0a",
+        "38ee64eb-2dd3-4e5d-997b-127054810194",
+        "b7f06926-c7f9-4a27-ad1e-f1fb6b4d221a",
+        "1fdd4e4a-e124-4996-b260-835e0ec9e0ca",
+        "f3275800-661c-4759-b545-bfe9e70afb60"
+      ],
+      "missedIds": [],
+      "unexpectedIds": [],
+      "processingTimeMs": 0
+    },
+    {
+      "testCaseId": "ec-002",
+      "testCaseName": "Case insensitive search",
+      "category": "edge-cases",
+      "difficulty": "easy",
+      "returnedCount": 3,
+      "relevantCount": 2,
+      "precisionAtK": 0.2,
+      "recallAtK": 1,
+      "mrr": 1,
+      "ndcg": 1,
+      "k": 10,
+      "returnedIds": [
+        "6b352b04-744e-45a6-815f-8611de36751a",
+        "dc695090-e74f-48c9-abc6-da4f693d7361",
+        "9fe45c86-5162-4f16-90a0-9fcd329d7457"
+      ],
+      "missedIds": [],
+      "unexpectedIds": [],
+      "processingTimeMs": 1
+    },
+    {
+      "testCaseId": "ec-003",
+      "testCaseName": "Very short search term",
+      "category": "edge-cases",
+      "difficulty": "medium",
+      "returnedCount": 2,
+      "relevantCount": 2,
+      "precisionAtK": 0.2,
+      "recallAtK": 1,
+      "mrr": 1,
+      "ndcg": 1,
+      "k": 10,
+      "returnedIds": [
+        "12195a53-3a58-4730-bc1b-6ac1d6ff4dd6",
+        "cec0db45-ac04-402c-8f1c-07bcdf91e781"
+      ],
+      "missedIds": [],
+      "unexpectedIds": [],
+      "processingTimeMs": 0
+    },
+    {
+      "testCaseId": "ss-001",
+      "testCaseName": "Semantic: code quality (no exact match)",
+      "category": "semantic-similarity",
+      "difficulty": "hard",
+      "returnedCount": 0,
+      "relevantCount": 0,
+      "precisionAtK": 0,
+      "recallAtK": 0,
+      "mrr": 0,
+      "ndcg": 0,
+      "k": 10,
+      "returnedIds": [],
+      "missedIds": [],
+      "unexpectedIds": [],
+      "processingTimeMs": 0,
+      "skipped": true,
+      "skipReason": "Semantic search not available"
+    },
+    {
+      "testCaseId": "ss-002",
+      "testCaseName": "Semantic: how to run tests",
+      "category": "semantic-similarity",
+      "difficulty": "hard",
+      "returnedCount": 0,
+      "relevantCount": 0,
+      "precisionAtK": 0,
+      "recallAtK": 0,
+      "mrr": 0,
+      "ndcg": 0,
+      "k": 10,
+      "returnedIds": [],
+      "missedIds": [],
+      "unexpectedIds": [],
+      "processingTimeMs": 0,
+      "skipped": true,
+      "skipReason": "Semantic search not available"
+    },
+    {
+      "testCaseId": "rt-001",
+      "testCaseName": "Find entries related to TypeScript strict",
+      "category": "relation-traversal",
+      "difficulty": "hard",
+      "returnedCount": 0,
+      "relevantCount": 2,
+      "precisionAtK": 0,
+      "recallAtK": 0,
+      "mrr": 0,
+      "ndcg": 0,
+      "k": 10,
+      "returnedIds": [],
+      "missedIds": [
+        "g-no-any",
+        "t-npm-build"
+      ],
+      "unexpectedIds": [],
+      "processingTimeMs": 1
+    },
+    {
+      "testCaseId": "rt-002",
+      "testCaseName": "Find tools that apply to testing guidelines",
+      "category": "relation-traversal",
+      "difficulty": "hard",
+      "returnedCount": 0,
+      "relevantCount": 1,
+      "precisionAtK": 0,
+      "recallAtK": 0,
+      "mrr": 0,
+      "ndcg": 0,
+      "k": 10,
+      "returnedIds": [],
+      "missedIds": [
+        "t-npm-test"
+      ],
+      "unexpectedIds": [],
+      "processingTimeMs": 1
+    }
+  ]
+}

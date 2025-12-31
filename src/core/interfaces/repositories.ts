@@ -27,6 +27,14 @@ import type {
   ExperienceLevel,
   ExperienceSource,
   ScopeType,
+  // Graph types
+  NodeType,
+  EdgeType,
+  GraphNode,
+  NodeVersion,
+  GraphEdge,
+  GraphTraversalOptions,
+  GraphPath,
 } from '../../db/schema.js';
 import type { PaginationOptions } from '../../db/repositories/base.js';
 import type { IConflictRepository, ListConflictsFilter } from '../../db/repositories/conflicts.js';
@@ -169,6 +177,12 @@ export interface IProjectRepository {
   create(input: CreateProjectInput): Promise<Project>;
   getById(id: string): Promise<Project | undefined>;
   getByName(name: string, orgId?: string): Promise<Project | undefined>;
+  /**
+   * Find a project by filesystem path.
+   * Returns the project whose rootPath matches or is a parent of the given path.
+   * If multiple projects match, returns the most specific one (longest rootPath).
+   */
+  findByPath(path: string): Promise<Project | undefined>;
   list(filter?: ListProjectsFilter, options?: PaginationOptions): Promise<Project[]>;
   update(id: string, input: UpdateProjectInput): Promise<Project | undefined>;
   delete(id: string): Promise<boolean>;
@@ -940,6 +954,184 @@ export interface IVerificationRepository {
 }
 
 // =============================================================================
+// TYPE REGISTRY (Flexible Knowledge Graph)
+// =============================================================================
+
+/** Input for registering a new node type */
+export interface RegisterNodeTypeInput {
+  name: string;
+  /** JSON Schema for validating node properties */
+  schema: Record<string, unknown>;
+  description?: string;
+  parentTypeName?: string;
+  createdBy?: string;
+}
+
+/** Input for registering a new edge type */
+export interface RegisterEdgeTypeInput {
+  name: string;
+  /** JSON Schema for validating edge properties */
+  schema?: Record<string, unknown>;
+  description?: string;
+  isDirected?: boolean;
+  inverseName?: string;
+  /** Allowed source node type names */
+  sourceConstraints?: string[];
+  /** Allowed target node type names */
+  targetConstraints?: string[];
+  createdBy?: string;
+}
+
+/** Validation result from type registry */
+export interface TypeValidationResult {
+  valid: boolean;
+  errors?: string[];
+}
+
+export interface ITypeRegistry {
+  // Node types
+  registerNodeType(input: RegisterNodeTypeInput): Promise<NodeType>;
+  getNodeType(name: string): Promise<NodeType | undefined>;
+  getNodeTypeById(id: string): Promise<NodeType | undefined>;
+  listNodeTypes(options?: { includeBuiltin?: boolean }): Promise<NodeType[]>;
+  validateNodeProperties(typeName: string, properties: unknown): Promise<TypeValidationResult>;
+  deleteNodeType(name: string): Promise<boolean>;
+
+  // Edge types
+  registerEdgeType(input: RegisterEdgeTypeInput): Promise<EdgeType>;
+  getEdgeType(name: string): Promise<EdgeType | undefined>;
+  getEdgeTypeById(id: string): Promise<EdgeType | undefined>;
+  listEdgeTypes(options?: { includeBuiltin?: boolean }): Promise<EdgeType[]>;
+  validateEdgeProperties(typeName: string, properties: unknown): Promise<TypeValidationResult>;
+  deleteEdgeType(name: string): Promise<boolean>;
+
+  // Seed built-in types
+  seedBuiltinTypes(): Promise<void>;
+}
+
+// =============================================================================
+// NODE REPOSITORY (Graph Nodes)
+// =============================================================================
+
+/** Input for creating a graph node */
+export interface CreateGraphNodeInput {
+  nodeTypeName: string;
+  scopeType: ScopeType;
+  scopeId?: string;
+  name: string;
+  properties?: Record<string, unknown>;
+  validFrom?: string;
+  validUntil?: string;
+  createdBy?: string;
+}
+
+/** Input for updating a graph node */
+export interface UpdateGraphNodeInput {
+  name?: string;
+  properties?: Record<string, unknown>;
+  validFrom?: string;
+  validUntil?: string;
+  changeReason?: string;
+  updatedBy?: string;
+}
+
+/** Filter for listing graph nodes */
+export interface ListGraphNodesFilter {
+  nodeTypeName?: string;
+  nodeTypeId?: string;
+  scopeType?: ScopeType;
+  scopeId?: string;
+  isActive?: boolean;
+  includeInactive?: boolean;
+  inherit?: boolean;
+}
+
+/** Node with current version */
+export interface GraphNodeWithVersion extends GraphNode {
+  nodeTypeName: string;
+  currentVersion?: NodeVersion;
+}
+
+export interface INodeRepository {
+  create(input: CreateGraphNodeInput): Promise<GraphNodeWithVersion>;
+  getById(id: string): Promise<GraphNodeWithVersion | undefined>;
+  getByName(
+    name: string,
+    nodeTypeName: string,
+    scopeType: ScopeType,
+    scopeId?: string,
+    inherit?: boolean
+  ): Promise<GraphNodeWithVersion | undefined>;
+  list(filter?: ListGraphNodesFilter, options?: PaginationOptions): Promise<GraphNodeWithVersion[]>;
+  update(id: string, input: UpdateGraphNodeInput): Promise<GraphNodeWithVersion | undefined>;
+  getHistory(nodeId: string): Promise<NodeVersion[]>;
+  deactivate(id: string): Promise<boolean>;
+  reactivate(id: string): Promise<boolean>;
+  delete(id: string): Promise<boolean>;
+  updateAccessMetrics(id: string): Promise<void>;
+}
+
+// =============================================================================
+// EDGE REPOSITORY (Graph Edges)
+// =============================================================================
+
+/** Input for creating a graph edge */
+export interface CreateGraphEdgeInput {
+  edgeTypeName: string;
+  sourceId: string;
+  targetId: string;
+  properties?: Record<string, unknown>;
+  weight?: number;
+  createdBy?: string;
+}
+
+/** Input for updating a graph edge */
+export interface UpdateGraphEdgeInput {
+  properties?: Record<string, unknown>;
+  weight?: number;
+}
+
+/** Filter for listing graph edges */
+export interface ListGraphEdgesFilter {
+  edgeTypeName?: string;
+  edgeTypeId?: string;
+  sourceId?: string;
+  targetId?: string;
+}
+
+/** Edge with type name resolved */
+export interface GraphEdgeWithType extends GraphEdge {
+  edgeTypeName: string;
+  isDirected: boolean;
+  inverseName: string | null;
+}
+
+export interface IEdgeRepository {
+  create(input: CreateGraphEdgeInput): Promise<GraphEdgeWithType>;
+  getById(id: string): Promise<GraphEdgeWithType | undefined>;
+  list(filter?: ListGraphEdgesFilter, options?: PaginationOptions): Promise<GraphEdgeWithType[]>;
+  update(id: string, input: UpdateGraphEdgeInput): Promise<GraphEdgeWithType | undefined>;
+  delete(id: string): Promise<boolean>;
+
+  // Graph traversal
+  getOutgoingEdges(nodeId: string, edgeTypeName?: string): Promise<GraphEdgeWithType[]>;
+  getIncomingEdges(nodeId: string, edgeTypeName?: string): Promise<GraphEdgeWithType[]>;
+  getNeighbors(
+    nodeId: string,
+    options?: GraphTraversalOptions
+  ): Promise<GraphNodeWithVersion[]>;
+  traverse(
+    startNodeId: string,
+    options?: GraphTraversalOptions
+  ): Promise<GraphNodeWithVersion[]>;
+  findPaths(
+    startNodeId: string,
+    endNodeId: string,
+    maxDepth?: number
+  ): Promise<GraphPath[]>;
+}
+
+// =============================================================================
 // AGGREGATED REPOSITORIES TYPE
 // =============================================================================
 
@@ -963,4 +1155,8 @@ export interface Repositories {
   verification?: IVerificationRepository;
   voting?: IVotingRepository;
   analytics?: IAnalyticsRepository;
+  // Graph repositories (Flexible Knowledge Graph)
+  typeRegistry?: ITypeRegistry;
+  graphNodes?: INodeRepository;
+  graphEdges?: IEdgeRepository;
 }

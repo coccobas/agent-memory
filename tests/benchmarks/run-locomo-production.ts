@@ -99,6 +99,8 @@ Examples:
   process.exit(0);
 }
 
+const LOCOMO_VECTOR_PATH = './data/benchmark/locomo-production-vectors.lance';
+
 // Enable embeddings and rerank in config
 process.env.AGENT_MEMORY_RERANK_ENABLED = 'true';
 process.env.AGENT_MEMORY_RERANK_TOP_K = '20';
@@ -108,6 +110,8 @@ process.env.AGENT_MEMORY_QUERY_REWRITE_ENABLED = String(hydeEnabled || expansion
 process.env.AGENT_MEMORY_HYDE_ENABLED = String(hydeEnabled);
 process.env.AGENT_MEMORY_HYDE_DOCUMENT_COUNT = '1';
 process.env.AGENT_MEMORY_QUERY_EXPANSION_ENABLED = String(expansionEnabled);
+// Isolate vectors per benchmark run to avoid cross-run dimension conflicts.
+process.env.AGENT_MEMORY_VECTOR_DB_PATH = LOCOMO_VECTOR_PATH;
 
 // Use dynamic imports so env vars take effect before config is built
 const Database = (await import('better-sqlite3')).default;
@@ -121,11 +125,13 @@ const { createRuntime, extractRuntimeConfig, shutdownRuntime } = await import('.
 const { createRepositories } = await import('../../src/core/factory/repositories.js');
 const { createAdaptersWithConfig } = await import('../../src/core/adapters/index.js');
 const { wireContext } = await import('../../src/core/factory/context-wiring.js');
+const { registerContext, resetContainer } = await import('../../src/core/container.js');
 const { executeQueryPipelineAsync, createDependencies } = await import('../../src/services/query/index.js');
 const { extract: observeExtract } = await import('../../src/mcp/handlers/observe/extract.handler.js');
 const { getEmbeddingQueueStats } = await import('../../src/db/repositories/embedding-hooks.js');
 const { LRUCache } = await import('../../src/utils/lru-cache.js');
 const pino = (await import('pino')).default;
+const { rm } = await import('node:fs/promises');
 
 // Real LoCoMo imports
 const { loadLoCoMoDataset, getDatasetStats } = await import('./locomo-adapter.js');
@@ -148,6 +154,7 @@ async function setupProductionContext(): Promise<{
 }> {
   ensureDataDirectory('benchmark');
   cleanupDbFiles(LOCOMO_DB_PATH);
+  await rm(LOCOMO_VECTOR_PATH, { recursive: true, force: true });
 
   const sqlite = new Database(LOCOMO_DB_PATH);
   sqlite.pragma('journal_mode = WAL');
@@ -204,6 +211,10 @@ async function setupProductionContext(): Promise<{
     dbType: 'sqlite',
   });
 
+  // Some production utilities still depend on the process-wide DI container
+  // (e.g., duplicate detection uses getPreparedStatement()).
+  registerContext(ctx);
+
   // Initialize vector service for semantic search
   if (ctx.services.vector) {
     await ctx.services.vector.initialize();
@@ -214,6 +225,8 @@ async function setupProductionContext(): Promise<{
     await adapters.closeRedis();
     sqlite.close();
     cleanupDbFiles(LOCOMO_DB_PATH);
+    await rm(LOCOMO_VECTOR_PATH, { recursive: true, force: true });
+    resetContainer();
   };
 
   return { ctx, projectId, sqlite, db, cleanup };

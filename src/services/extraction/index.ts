@@ -91,3 +91,34 @@ export {
   TriggerIntegration,
   createTriggerIntegration,
 } from './trigger-orchestrator.js';
+
+// =============================================================================
+// INCREMENTAL EXTRACTION
+// =============================================================================
+
+export {
+  IncrementalExtractor,
+  createIncrementalExtractor,
+  type IncrementalExtractorConfig,
+  type IncrementalExtractionResult,
+  DEFAULT_INCREMENTAL_CONFIG,
+} from './incremental.js';
+
+export {
+  IncrementalMemoryObserver,
+  createIncrementalMemoryObserver,
+} from './incremental-observer.js';
+
+// =============================================================================
+// ATOMICITY - Ensure entries contain one concept each
+// =============================================================================
+
+export {
+  detectCompoundEntry,
+  splitCompoundEntry,
+  ensureAtomicity,
+  createAtomicityConfig,
+  type AtomicityConfig,
+  type DetectionResult,
+  type AtomicityResult,
+} from './atomicity.js';

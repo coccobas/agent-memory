@@ -94,6 +94,20 @@ export interface Config {
       entity: number;
       relationship: number;
     };
+    // Incremental extraction
+    incrementalEnabled: boolean;
+    incrementalWindowSize: number;
+    incrementalWindowOverlap: number;
+    incrementalMinTokens: number;
+    incrementalMaxTokens: number;
+    // Trigger detection
+    triggerDetectionEnabled: boolean;
+    triggerCooldownMs: number;
+    // Atomicity - ensure entries contain one concept each
+    atomicityEnabled: boolean;
+    atomicitySplitMode: 'silent' | 'log' | 'disabled';
+    atomicityMaxSplits: number;
+    atomicityContentThreshold: number;
   };
   logging: {
     level: 'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'trace';

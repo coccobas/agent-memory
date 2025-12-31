@@ -51,11 +51,12 @@ export async function extract(appContext: AppContext, params: Record<string, unk
     | undefined;
   const agentId = getOptionalParam(params, 'agentId', isString);
 
-  // Validate scope
-  if (scopeType !== 'global' && !scopeId) {
+  // Validate scope - only required when autoStore is true
+  // For pure extraction testing, scope is optional (duplicate detection uses null scopeId)
+  if (autoStore && scopeType !== 'global' && !scopeId) {
     throw createValidationError(
       'scopeId',
-      `is required for ${scopeType} scope`,
+      `is required for ${scopeType} scope when autoStore is enabled`,
       'Provide the ID of the parent scope'
     );
   }

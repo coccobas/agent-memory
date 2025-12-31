@@ -14,6 +14,7 @@ Actions: add, update, get, list, history, deactivate, delete, bulk_add, bulk_upd
 When to store: After successfully using a tool/command that could be reused.
 Example: {"action":"add","name":"docker-build","description":"Build Docker image","scopeType":"project","category":"cli"}`,
   commonParams: {
+    agentId: { type: 'string', description: 'Agent identifier (required for write operations)' },
     id: { type: 'string', description: 'Tool ID' },
     name: { type: 'string', description: 'Tool name' },
     scopeType: {

@@ -157,7 +157,7 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
   // Helper: Check permission and throw if denied
   function requirePermission(
     context: AppContext,
-    agentId: string,
+    agentId: string | undefined,
     permission: 'read' | 'write' | 'delete',
     scopeType: ScopeType,
     scopeId: string | null,
@@ -430,7 +430,7 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
       const scopeType = getOptionalParam(params, 'scopeType', isScopeType);
       const scopeId = getOptionalParam(params, 'scopeId', isString);
       const inherit = getOptionalParam(params, 'inherit', isBoolean);
-      const agentId = getRequiredParam(params, 'agentId', isString);
+      const agentId = getOptionalParam(params, 'agentId', isString);
 
       if (!id && !nameOrTitle) {
         throw createValidationError(
@@ -487,7 +487,7 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
      */
     async list(context: AppContext, params: Record<string, unknown>) {
       const repo = config.getRepo(context);
-      const agentId = getRequiredParam(params, 'agentId', isString);
+      const agentId = getOptionalParam(params, 'agentId', isString);
       const scopeType = getOptionalParam(params, 'scopeType', isScopeType);
       const scopeId = getOptionalParam(params, 'scopeId', isString);
       const includeInactive = getOptionalParam(params, 'includeInactive', isBoolean);
@@ -554,7 +554,7 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
     async history(context: AppContext, params: Record<string, unknown>) {
       const repo = config.getRepo(context);
       const id = getRequiredParam(params, 'id', isString);
-      const agentId = getRequiredParam(params, 'agentId', isString);
+      const agentId = getOptionalParam(params, 'agentId', isString);
 
       const entry = await getExistingEntry(repo, id);
       requirePermission(context, agentId, 'read', entry.scopeType, entry.scopeId, id);

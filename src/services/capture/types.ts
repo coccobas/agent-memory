@@ -255,6 +255,23 @@ export interface CaptureSessionState {
   // Capture tracking
   captureCount: number;
   lastCaptureTime?: number;
+
+  // Incremental extraction tracking
+  lastExtractionTurnIndex: number;
+  extractedContentHashes: Set<string>;
+  extractionSummaries: string[];
+}
+
+/**
+ * A window of turns for incremental extraction
+ */
+export interface ExtractionWindow {
+  sessionId: string;
+  turns: TurnData[];
+  startIndex: number;
+  endIndex: number;
+  tokenCount: number;
+  newTurnCount: number;
 }
 
 /**

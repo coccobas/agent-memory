@@ -14,6 +14,7 @@ Actions: add, update, get, list, history, deactivate, delete, bulk_add, bulk_upd
 When to store: When user establishes a coding standard, pattern preference, or rule.
 Example: {"action":"add","name":"no-any","content":"Never use 'any' type","scopeType":"project","category":"code_style","priority":90}`,
   commonParams: {
+    agentId: { type: 'string', description: 'Agent identifier (required for write operations)' },
     id: { type: 'string', description: 'Guideline ID' },
     name: { type: 'string', description: 'Guideline name' },
     scopeType: { type: 'string', enum: ['global', 'org', 'project', 'session'] },

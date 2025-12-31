@@ -59,6 +59,10 @@ export class CaptureStateManager {
       contentHashes: new Set(),
       capturedIds: new Set(),
       captureCount: 0,
+      // Incremental extraction tracking
+      lastExtractionTurnIndex: 0,
+      extractedContentHashes: new Set(),
+      extractionSummaries: [],
     };
   }
 
@@ -242,6 +246,68 @@ export class CaptureStateManager {
     }
 
     return cleared;
+  }
+
+  // =============================================================================
+  // INCREMENTAL EXTRACTION WINDOW TRACKING
+  // =============================================================================
+
+  /**
+   * Advance the extraction window after a successful extraction
+   */
+  advanceExtractionWindow(sessionId: string, newTurnIndex: number): void {
+    const state = this.sessions.get(sessionId);
+    if (state) {
+      state.lastExtractionTurnIndex = newTurnIndex;
+    }
+  }
+
+  /**
+   * Get the last extraction turn index
+   */
+  getLastExtractionTurnIndex(sessionId: string): number {
+    const state = this.sessions.get(sessionId);
+    return state?.lastExtractionTurnIndex ?? 0;
+  }
+
+  /**
+   * Register an extracted content hash for incremental deduplication
+   */
+  registerExtractedHash(sessionId: string, contentHash: string): void {
+    const state = this.sessions.get(sessionId);
+    if (state) {
+      state.extractedContentHashes.add(contentHash);
+    }
+  }
+
+  /**
+   * Check if content was already extracted in this session
+   */
+  isAlreadyExtracted(sessionId: string, contentHash: string): boolean {
+    const state = this.sessions.get(sessionId);
+    return state?.extractedContentHashes.has(contentHash) ?? false;
+  }
+
+  /**
+   * Add an extraction summary for context
+   */
+  addExtractionSummary(sessionId: string, summary: string): void {
+    const state = this.sessions.get(sessionId);
+    if (state) {
+      state.extractionSummaries.push(summary);
+      // Keep only last 5 summaries to avoid memory bloat
+      if (state.extractionSummaries.length > 5) {
+        state.extractionSummaries.shift();
+      }
+    }
+  }
+
+  /**
+   * Get extraction summaries for context injection
+   */
+  getExtractionSummaries(sessionId: string): string[] {
+    const state = this.sessions.get(sessionId);
+    return state?.extractionSummaries ?? [];
   }
 
   // =============================================================================

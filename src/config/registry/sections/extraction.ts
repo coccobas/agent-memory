@@ -93,6 +93,85 @@ export const extractionSection: ConfigSectionMeta = {
       schema: z.number().min(0).max(1),
       parse: 'number',
     },
+    // Incremental extraction options
+    incrementalEnabled: {
+      envKey: 'AGENT_MEMORY_INCREMENTAL_ENABLED',
+      defaultValue: true,
+      description: 'Enable incremental extraction during conversations.',
+      schema: z.boolean(),
+      parse: 'boolean',
+    },
+    incrementalWindowSize: {
+      envKey: 'AGENT_MEMORY_INCREMENTAL_WINDOW_SIZE',
+      defaultValue: 10,
+      description: 'Maximum turns to include in an incremental extraction window.',
+      schema: z.number().int().min(3).max(50),
+      parse: 'int',
+    },
+    incrementalWindowOverlap: {
+      envKey: 'AGENT_MEMORY_INCREMENTAL_WINDOW_OVERLAP',
+      defaultValue: 3,
+      description: 'Number of turns to overlap between extraction windows for context.',
+      schema: z.number().int().min(0).max(10),
+      parse: 'int',
+    },
+    incrementalMinTokens: {
+      envKey: 'AGENT_MEMORY_INCREMENTAL_MIN_TOKENS',
+      defaultValue: 500,
+      description: 'Minimum tokens required to trigger incremental extraction.',
+      schema: z.number().int().min(100),
+      parse: 'int',
+    },
+    incrementalMaxTokens: {
+      envKey: 'AGENT_MEMORY_INCREMENTAL_MAX_TOKENS',
+      defaultValue: 4000,
+      description: 'Maximum tokens per incremental extraction window.',
+      schema: z.number().int().min(500),
+      parse: 'int',
+    },
+    // Trigger detection options
+    triggerDetectionEnabled: {
+      envKey: 'AGENT_MEMORY_TRIGGER_DETECTION_ENABLED',
+      defaultValue: true,
+      description: 'Enable automatic trigger detection for extraction.',
+      schema: z.boolean(),
+      parse: 'boolean',
+    },
+    triggerCooldownMs: {
+      envKey: 'AGENT_MEMORY_TRIGGER_COOLDOWN_MS',
+      defaultValue: 30000,
+      description: 'Cooldown period between trigger-based extractions (ms).',
+      schema: z.number().int().min(0),
+      parse: 'int',
+    },
+    // Atomicity options - ensure extracted entries contain one concept each
+    atomicityEnabled: {
+      envKey: 'AGENT_MEMORY_EXTRACTION_ATOMICITY_ENABLED',
+      defaultValue: true,
+      description: 'Enable automatic atomicity validation and splitting of compound entries.',
+      schema: z.boolean(),
+      parse: 'boolean',
+    },
+    atomicitySplitMode: {
+      envKey: 'AGENT_MEMORY_EXTRACTION_ATOMICITY_SPLIT_MODE',
+      defaultValue: 'silent',
+      description: 'How to handle compound entry splitting: silent (auto-split), log (split with logging), disabled (detect only).',
+      schema: z.enum(['silent', 'log', 'disabled']),
+    },
+    atomicityMaxSplits: {
+      envKey: 'AGENT_MEMORY_EXTRACTION_ATOMICITY_MAX_SPLITS',
+      defaultValue: 5,
+      description: 'Maximum number of atomic entries to create from a single compound entry.',
+      schema: z.number().int().min(2).max(10),
+      parse: 'int',
+    },
+    atomicityContentThreshold: {
+      envKey: 'AGENT_MEMORY_EXTRACTION_ATOMICITY_CONTENT_THRESHOLD',
+      defaultValue: 300,
+      description: 'Content length (chars) above which to apply stricter atomicity checks.',
+      schema: z.number().int().min(100).max(1000),
+      parse: 'int',
+    },
   },
 };
 

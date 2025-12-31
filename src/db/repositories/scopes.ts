@@ -171,6 +171,37 @@ export function createProjectRepository(deps: DatabaseDeps): IProjectRepository 
         .get();
     },
 
+    async findByPath(path: string): Promise<Project | undefined> {
+      // Get all projects with a rootPath set
+      const allProjects = db
+        .select()
+        .from(projects)
+        .where(sql`${projects.rootPath} IS NOT NULL AND ${projects.rootPath} != ''`)
+        .all();
+
+      // Normalize the search path (remove trailing slash)
+      const normalizedPath = path.replace(/\/+$/, '');
+
+      // Find projects whose rootPath matches or is a parent of the given path
+      const matchingProjects = allProjects.filter((project) => {
+        if (!project.rootPath) return false;
+        const normalizedRootPath = project.rootPath.replace(/\/+$/, '');
+        // Check if path starts with rootPath (exact match or subdirectory)
+        return normalizedPath === normalizedRootPath || normalizedPath.startsWith(normalizedRootPath + '/');
+      });
+
+      if (matchingProjects.length === 0) {
+        return undefined;
+      }
+
+      // Return the most specific match (longest rootPath)
+      return matchingProjects.reduce((best, current) => {
+        const bestLen = best.rootPath?.length ?? 0;
+        const currentLen = current.rootPath?.length ?? 0;
+        return currentLen > bestLen ? current : best;
+      });
+    },
+
     async list(
       filter: ListProjectsFilter = {},
       options: PaginationOptions = {}

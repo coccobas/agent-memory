@@ -32,6 +32,13 @@ import { LibrarianService } from '../../services/librarian/index.js';
 import { createLoraService } from '../../services/lora.service.js';
 import { createValidationError } from '../errors.js';
 import { QueryRewriteService } from '../../services/query-rewrite/index.js';
+// Incremental extraction
+import { createTriggerOrchestrator } from '../../services/extraction/trigger-orchestrator.js';
+import {
+  createIncrementalExtractor,
+  type IncrementalExtractorConfig,
+} from '../../services/extraction/incremental.js';
+import { createIncrementalMemoryObserver } from '../../services/extraction/incremental-observer.js';
 
 const logger = createComponentLogger('services-factory');
 
@@ -275,6 +282,64 @@ export async function createServices(
     );
   }
 
+  // === Incremental Extraction Services ===
+
+  // Incremental Extractor - sliding window extraction
+  const incrementalExtractorConfig: IncrementalExtractorConfig = {
+    enabled: config.extraction.incrementalEnabled,
+    windowSize: config.extraction.incrementalWindowSize,
+    windowOverlap: config.extraction.incrementalWindowOverlap,
+    minWindowTokens: config.extraction.incrementalMinTokens,
+    maxWindowTokens: config.extraction.incrementalMaxTokens,
+    minNewTurns: 2, // Default: require at least 2 new turns
+  };
+
+  const incrementalExtractor = config.extraction.incrementalEnabled
+    ? createIncrementalExtractor(
+        captureStateManager,
+        extractionService.isAvailable() ? extractionService : null,
+        incrementalExtractorConfig
+      )
+    : undefined;
+
+  if (incrementalExtractor) {
+    logger.debug(
+      {
+        windowSize: incrementalExtractorConfig.windowSize,
+        windowOverlap: incrementalExtractorConfig.windowOverlap,
+      },
+      'Incremental extractor initialized'
+    );
+  }
+
+  // Trigger Orchestrator - auto-detection of extraction triggers
+  // Note: Observer is created but ObserveCommitService is not available yet
+  // (it requires repositories which are created after services)
+  // The observer will log extractions but not store them until commit service is wired
+  const triggerOrchestrator =
+    config.extraction.triggerDetectionEnabled && incrementalExtractor
+      ? createTriggerOrchestrator(
+          {
+            enabled: config.extraction.triggerDetectionEnabled,
+            cooldownMs: config.extraction.triggerCooldownMs,
+          },
+          // Create observer without commit service initially
+          // Commit service can be set later via setObserver() if needed
+          createIncrementalMemoryObserver(
+            incrementalExtractor,
+            null, // ObserveCommitService will be wired later
+            'trigger-orchestrator'
+          )
+        )
+      : undefined;
+
+  if (triggerOrchestrator) {
+    logger.debug(
+      { cooldownMs: config.extraction.triggerCooldownMs },
+      'Trigger orchestrator initialized'
+    );
+  }
+
   return {
     embedding: embeddingService,
     vector: vectorService,
@@ -292,5 +357,8 @@ export async function createServices(
     librarian: librarianService,
     lora: loraService,
     queryRewrite: queryRewriteService,
+    // Incremental extraction services
+    triggerOrchestrator,
+    incrementalExtractor,
   };
 }

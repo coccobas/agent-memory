@@ -52,11 +52,19 @@ function computeAdaptiveHeadroom(ctx: PipelineContext): number {
     }
   }
 
-  // If tag filters are present (require or exclude arrays), use moderate headroom
+  // If tag filters are present (require or exclude arrays), calculate headroom
+  // When there's no FTS search, we need higher headroom because tag filtering happens AFTER fetch
   if (params.tags) {
     const hasRequire = Array.isArray(params.tags.require) && params.tags.require.length > 0;
     const hasExclude = Array.isArray(params.tags.exclude) && params.tags.exclude.length > 0;
     if (hasRequire || hasExclude) {
+      // If no FTS matches (no search term), use much higher headroom to ensure
+      // we fetch enough entries to find those with the required tags
+      const hasFtsMatches = ftsMatchIds && Object.values(ftsMatchIds).some(set => set.size > 0);
+      if (!hasFtsMatches) {
+        // No search term - need to fetch many more entries for tag filtering
+        return 5.0;
+      }
       return 1.5;
     }
   }
@@ -163,6 +171,11 @@ function fetchEntriesGeneric<T extends EntryUnion>(
   // FTS5 ID filter
   if (ftsMatchIds && ftsMatchIds[ftsKey].size > 0) {
     commonConditions.push(inArray(table.id, Array.from(ftsMatchIds[ftsKey])));
+  }
+
+  // Relation traversal ID filter - fetch only related entries when relatedTo is specified
+  if (params.relatedTo && ctx.relatedIds && ctx.relatedIds[ftsKey]?.size > 0) {
+    commonConditions.push(inArray(table.id, Array.from(ctx.relatedIds[ftsKey])));
   }
 
   // Single batched query with OR for all scopes

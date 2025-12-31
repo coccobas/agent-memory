@@ -103,6 +103,18 @@ export async function createServer(context: AppContext): Promise<Server> {
     // Continue anyway - tags aren't critical
   }
 
+  // Seed built-in graph types (if graph repositories are available)
+  if (context.repos.typeRegistry) {
+    try {
+      logger.debug('Seeding built-in graph types...');
+      await context.repos.typeRegistry.seedBuiltinTypes();
+      logger.debug('Graph types seeded successfully');
+    } catch (error) {
+      logger.warn({ error }, 'Failed to seed graph types');
+      // Continue anyway - will fail gracefully when graph tools are used
+    }
+  }
+
   // Cleanup stale file locks
   try {
     const expiredCount = await context.repos.fileLocks.cleanupExpiredLocks();

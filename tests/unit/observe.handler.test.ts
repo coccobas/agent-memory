@@ -80,7 +80,7 @@ describe('observe handler', () => {
       await expect(observeHandlers.extract(ctx, { scopeType: 'global' })).rejects.toThrow();
     });
 
-    it('should require scopeId for non-global scope', async () => {
+    it('should require scopeId for non-global scope when autoStore is enabled', async () => {
       // Force disabled to avoid needing actual LLM
       const originalProvider = process.env.AGENT_MEMORY_EXTRACTION_PROVIDER;
       process.env.AGENT_MEMORY_EXTRACTION_PROVIDER = 'disabled';
@@ -89,10 +89,12 @@ describe('observe handler', () => {
       reloadConfig();
       resetExtractionServiceState();
 
+      // scopeId is only required when autoStore is true
       await expect(
         observeHandlers.extract(ctx, {
           context: 'Test context',
           scopeType: 'project',
+          autoStore: true,
           // Missing scopeId
         })
       ).rejects.toThrow('scopeId');

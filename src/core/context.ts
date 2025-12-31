@@ -27,6 +27,8 @@ import type { ExperiencePromotionService } from '../services/experience/index.js
 import type { ObserveCommitService } from '../services/observe/index.js';
 import type { LoraService } from '../services/lora.service.js';
 import type { IQueryRewriteService } from '../services/query-rewrite/types.js';
+import type { TriggerOrchestrator } from '../services/extraction/trigger-orchestrator.js';
+import type { IncrementalExtractor } from '../services/extraction/incremental.js';
 
 /**
  * Service interfaces for AppContext
@@ -176,6 +178,10 @@ export interface AppContextServices {
   lora?: LoraService;
   /** Query rewrite service for HyDE and query expansion */
   queryRewrite?: IQueryRewriteService;
+  /** Trigger orchestrator for auto-detection extraction triggers */
+  triggerOrchestrator?: TriggerOrchestrator;
+  /** Incremental extractor for sliding window extraction */
+  incrementalExtractor?: IncrementalExtractor;
 }
 
 /**

@@ -209,6 +209,43 @@ export const conversationHandlers = {
           );
         });
       }
+
+      // Trigger incremental extraction via TriggerOrchestrator (non-blocking)
+      const triggerOrchestrator = context.services.triggerOrchestrator;
+      if (triggerOrchestrator) {
+        // Build message for trigger detection
+        const triggerMessage = {
+          id: message.id,
+          role: role as 'user' | 'assistant' | 'system',
+          content,
+          timestamp: new Date().toISOString(),
+          metadata: {
+            sessionId: conversation.sessionId,
+            toolName: toolsUsed?.[0],
+            toolSuccess: true,
+          },
+        };
+
+        // Build session context for trigger detection
+        const sessionContext = {
+          sessionId: conversation.sessionId,
+          projectId: conversation.projectId || undefined,
+          agentId,
+          messages: [triggerMessage], // Current message for detection
+          extractionCount: 0,
+          recentErrors: [],
+        };
+
+        triggerOrchestrator.processMessage(triggerMessage, sessionContext).catch(error => {
+          logger.error(
+            {
+              sessionId: conversation.sessionId,
+              error: error instanceof Error ? error.message : String(error),
+            },
+            'Trigger processing failed'
+          );
+        });
+      }
     }
 
     return formatTimestamps({

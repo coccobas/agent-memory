@@ -111,6 +111,7 @@ function filterEntriesOfType<T extends EntryUnion>(
         relevantTags[id] = tagsByEntry[id];
       }
     }
+
     allowedByTags = filterByTags(relevantTags, params.tags);
   }
 
