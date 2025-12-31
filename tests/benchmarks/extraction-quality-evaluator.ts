@@ -3,6 +3,7 @@
  *
  * Evaluates extraction quality against ground truth test cases.
  * Calculates precision, recall, F1 scores, and proxy metrics.
+ * Optionally computes semantic metrics (BERTScore, Groundedness).
  */
 
 import type {
@@ -16,6 +17,14 @@ import type {
   ExtractionTestCategory,
 } from './extraction-quality-types.js';
 import { EXTRACTION_CATEGORY_NAMES } from './extraction-quality-types.js';
+import type { EmbeddingService } from '../../src/services/embedding.service.js';
+import {
+  BERTScoreEvaluator,
+  GroundednessEvaluator,
+  aggregateBERTScores,
+  aggregateGroundednessResults,
+} from './metrics/index.js';
+import type { AggregatedSemanticMetrics } from './metrics/index.js';
 
 /**
  * Extracted entry from the extraction service
@@ -47,6 +56,20 @@ interface ExtractionResult {
  * Extract function signature
  */
 type ExtractFn = (context: string, contextType: string) => Promise<ExtractionResult>;
+
+/**
+ * Semantic evaluation configuration
+ */
+export interface SemanticEvalConfig {
+  /** Enable semantic metrics */
+  enabled: boolean;
+  /** Embedding service for computing embeddings */
+  embeddingService: EmbeddingService;
+  /** BERTScore threshold (default: 0.85) */
+  bertScoreThreshold?: number;
+  /** Groundedness threshold (default: 0.7) */
+  groundednessThreshold?: number;
+}
 
 /**
  * Check if an extracted entry matches an expected entry
@@ -194,10 +217,15 @@ function checkNoiseExtracted(
 
 /**
  * Evaluate a single test case
+ *
+ * @param testCase The test case to evaluate
+ * @param extractFn The extraction function to test
+ * @param semanticConfig Optional semantic evaluation config (BERTScore, Groundedness)
  */
 export async function evaluateTestCase(
   testCase: ExtractionTestCase,
-  extractFn: ExtractFn
+  extractFn: ExtractFn,
+  semanticConfig?: SemanticEvalConfig
 ): Promise<TestCaseResult> {
   const startTime = Date.now();
 
@@ -236,6 +264,52 @@ export async function evaluateTestCase(
     // Check for noise extraction
     const noiseExtracted = checkNoiseExtracted(result.entries, testCase.shouldNotExtract);
 
+    // Compute semantic metrics if enabled
+    let semanticMetrics: TestCaseResult['semanticMetrics'];
+
+    if (semanticConfig?.enabled && result.entries.length > 0) {
+      const { embeddingService, bertScoreThreshold = 0.85, groundednessThreshold = 0.7 } = semanticConfig;
+
+      // Build reference text from expected entries
+      const expectedContent = testCase.expectedEntries
+        .map(e => e.mustContain.join(' '))
+        .join('. ');
+
+      // Build extracted content
+      const extractedContent = result.entries
+        .map(e => e.content)
+        .join('. ');
+
+      // Calculate BERTScore if we have both expected and extracted
+      if (expectedContent && extractedContent) {
+        try {
+          const bertEvaluator = new BERTScoreEvaluator(embeddingService);
+          const bertScore = await bertEvaluator.calculateBERTScore(expectedContent, extractedContent);
+          semanticMetrics = { ...semanticMetrics, bertScore };
+        } catch (e) {
+          // Silently skip if embeddings fail
+        }
+      }
+
+      // Calculate Groundedness against source context
+      if (extractedContent && testCase.context) {
+        try {
+          const groundednessEvaluator = new GroundednessEvaluator(embeddingService, {
+            enabled: true,
+            threshold: groundednessThreshold,
+            fragmentSize: 'sentence',
+          });
+          const groundedness = await groundednessEvaluator.evaluateGroundedness(
+            extractedContent,
+            testCase.context
+          );
+          semanticMetrics = { ...semanticMetrics, groundedness };
+        } catch (e) {
+          // Silently skip if embeddings fail
+        }
+      }
+    }
+
     return {
       testCaseId: testCase.id,
       testCaseName: testCase.name,
@@ -252,6 +326,7 @@ export async function evaluateTestCase(
       noiseExtracted,
       processingTimeMs,
       tokensUsed: result.tokensUsed || 0,
+      semanticMetrics,
     };
   } catch (error) {
     return {
@@ -409,6 +484,39 @@ export function aggregateResults(results: TestCaseResult[]): AggregatedExtractio
     }
   }
 
+  // Aggregate semantic metrics if any test cases have them
+  let semanticMetrics: AggregatedSemanticMetrics | undefined;
+
+  const resultsWithSemantic = validResults.filter(r => r.semanticMetrics);
+  if (resultsWithSemantic.length > 0) {
+    const bertScores = resultsWithSemantic
+      .map(r => r.semanticMetrics?.bertScore)
+      .filter((b): b is NonNullable<typeof b> => b !== undefined);
+
+    const groundednessResults = resultsWithSemantic
+      .map(r => r.semanticMetrics?.groundedness)
+      .filter((g): g is NonNullable<typeof g> => g !== undefined);
+
+    if (bertScores.length > 0 || groundednessResults.length > 0) {
+      semanticMetrics = {
+        testCasesEvaluated: resultsWithSemantic.length,
+      };
+
+      if (bertScores.length > 0) {
+        const aggregatedBert = aggregateBERTScores(bertScores);
+        semanticMetrics.avgBERTScoreF1 = aggregatedBert.f1;
+        semanticMetrics.avgBERTScorePrecision = aggregatedBert.precision;
+        semanticMetrics.avgBERTScoreRecall = aggregatedBert.recall;
+      }
+
+      if (groundednessResults.length > 0) {
+        const aggregatedGroundedness = aggregateGroundednessResults(groundednessResults);
+        semanticMetrics.avgGroundednessScore = aggregatedGroundedness.avgScore;
+        semanticMetrics.ungroundedRate = aggregatedGroundedness.ungroundedRate;
+      }
+    }
+  }
+
   return {
     totalTestCases: results.length,
     errorCount,
@@ -418,7 +526,19 @@ export function aggregateResults(results: TestCaseResult[]): AggregatedExtractio
     byDifficulty,
     byCategory,
     proxyMetrics: calculateProxyMetrics(validResults),
+    semanticMetrics,
   };
+}
+
+/**
+ * Benchmark run configuration
+ */
+export interface BenchmarkConfig {
+  provider: string;
+  model: string;
+  atomicityEnabled: boolean;
+  /** Optional semantic evaluation config */
+  semanticConfig?: SemanticEvalConfig;
 }
 
 /**
@@ -427,7 +547,7 @@ export function aggregateResults(results: TestCaseResult[]): AggregatedExtractio
 export async function runBenchmark(
   testCases: ExtractionTestCase[],
   extractFn: ExtractFn,
-  config: { provider: string; model: string; atomicityEnabled: boolean },
+  config: BenchmarkConfig,
   onProgress?: (completed: number, total: number, current: string) => void
 ): Promise<ExtractionBenchmarkResults> {
   const results: TestCaseResult[] = [];
@@ -439,7 +559,7 @@ export async function runBenchmark(
       onProgress(i, testCases.length, testCase.name);
     }
 
-    const result = await evaluateTestCase(testCase, extractFn);
+    const result = await evaluateTestCase(testCase, extractFn, config.semanticConfig);
     results.push(result);
   }
 
@@ -450,8 +570,13 @@ export async function runBenchmark(
   return {
     timestamp: new Date().toISOString(),
     config: {
-      ...config,
+      provider: config.provider,
+      model: config.model,
+      atomicityEnabled: config.atomicityEnabled,
       testCasesRun: testCases.length,
+      semanticMetricsEnabled: config.semanticConfig?.enabled ?? false,
+      bertScoreThreshold: config.semanticConfig?.bertScoreThreshold,
+      groundednessThreshold: config.semanticConfig?.groundednessThreshold,
     },
     overall: aggregateResults(results),
     testCaseResults: results,
@@ -469,6 +594,7 @@ export function printBenchmarkResults(results: ExtractionBenchmarkResults): void
   console.log(`Model: ${results.config.model}`);
   console.log(`Test Cases: ${results.config.testCasesRun}`);
   console.log(`Atomicity: ${results.config.atomicityEnabled ? 'Enabled' : 'Disabled'}`);
+  console.log(`Semantic Metrics: ${results.config.semanticMetricsEnabled ? 'Enabled' : 'Disabled'}`);
   console.log('========================================\n');
 
   const o = results.overall;
@@ -477,6 +603,21 @@ export function printBenchmarkResults(results: ExtractionBenchmarkResults): void
   console.log(`  Recall:     ${(o.avgRecall * 100).toFixed(1)}%`);
   console.log(`  F1 Score:   ${(o.avgF1Score * 100).toFixed(1)}%`);
   console.log(`  Errors:     ${o.errorCount}`);
+
+  // Print semantic metrics if available
+  if (o.semanticMetrics) {
+    console.log('\nSEMANTIC METRICS:');
+    console.log(`  Test Cases Evaluated: ${o.semanticMetrics.testCasesEvaluated}`);
+    if (o.semanticMetrics.avgBERTScoreF1 !== undefined) {
+      console.log(`  BERTScore F1:         ${o.semanticMetrics.avgBERTScoreF1.toFixed(3)}`);
+      console.log(`  BERTScore Precision:  ${o.semanticMetrics.avgBERTScorePrecision?.toFixed(3) ?? 'N/A'}`);
+      console.log(`  BERTScore Recall:     ${o.semanticMetrics.avgBERTScoreRecall?.toFixed(3) ?? 'N/A'}`);
+    }
+    if (o.semanticMetrics.avgGroundednessScore !== undefined) {
+      console.log(`  Groundedness:         ${(o.semanticMetrics.avgGroundednessScore * 100).toFixed(1)}%`);
+      console.log(`  Hallucination Rate:   ${((o.semanticMetrics.ungroundedRate ?? 0) * 100).toFixed(1)}%`);
+    }
+  }
 
   console.log('\nBY DIFFICULTY:');
   console.log('Difficulty | Count | Precision | Recall  | F1');

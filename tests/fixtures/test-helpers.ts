@@ -53,6 +53,8 @@ import { createToolRepository } from '../../src/db/repositories/tools.js';
 import { createConversationRepository } from '../../src/db/repositories/conversations.js';
 import { createConflictRepository } from '../../src/db/repositories/conflicts.js';
 import { createExperienceRepository } from '../../src/db/repositories/experiences.js';
+import { createTaskRepository } from '../../src/db/repositories/tasks.js';
+import { createEvidenceRepository } from '../../src/db/repositories/evidence.js';
 import { PermissionService, type ParentScopeValue } from '../../src/services/permission.service.js';
 import { VerificationService } from '../../src/services/verification.service.js';
 import { createExperiencePromotionService } from '../../src/services/experience/index.js';
@@ -91,6 +93,8 @@ export function createTestRepositories(testDb: TestDb): Repositories {
     conversations: createConversationRepository(dbDeps),
     conflicts: createConflictRepository(dbDeps),
     experiences: createExperienceRepository({ ...dbDeps, toolRepo }),
+    tasks: createTaskRepository(dbDeps),
+    evidence: createEvidenceRepository(dbDeps),
   };
 }
 
@@ -266,6 +270,8 @@ export function registerTestContext(testDb: TestDb): AppContext {
     conversations: createConversationRepository(dbDeps),
     conflicts: createConflictRepository(dbDeps),
     experiences: createExperienceRepository({ ...dbDeps, toolRepo }),
+    tasks: createTaskRepository(dbDeps),
+    evidence: createEvidenceRepository(dbDeps),
   };
 
   // Create permission cache adapter

@@ -1,31 +1,49 @@
 /**
  * Task decomposition handlers
  *
- * Tasks are stored as knowledge entries with special relations for decomposition tracking.
- * This allows tracking parent-child relationships between tasks and subtasks.
+ * Supports two modes via `entryType`:
+ * - 'task': Uses the tasks table with parentTaskId for hierarchy
+ * - 'knowledge': Uses knowledge entries with relations (default, backward compatible)
  */
 
 import type { CreateKnowledgeInput } from '../../db/repositories/knowledge.js';
 import type { ListRelationsFilter } from '../../db/repositories/tags.js';
 import type { AppContext } from '../../core/context.js';
-import type { ScopeType } from '../../db/schema.js';
+import type {
+  ScopeType,
+  TaskType,
+  TaskDomain,
+  TaskSeverity,
+  TaskUrgency,
+} from '../../db/schema.js';
 import { createValidationError, createNotFoundError } from '../../core/errors.js';
 
+export type DecompositionEntryType = 'task' | 'knowledge';
+
 export interface TaskAddParams {
-  parentTask?: string; // ID of parent task (knowledge entry)
+  entryType?: DecompositionEntryType; // Default: 'knowledge' for backward compatibility
+  parentTask?: string; // ID of parent task/knowledge entry
   subtasks: string[]; // Array of subtask descriptions/names
   decompositionStrategy?: 'maximal' | 'balanced' | 'minimal';
   scopeType: ScopeType;
   scopeId?: string;
   projectId?: string; // For storing decomposition metadata
   createdBy?: string;
+
+  // Task-specific fields (only used when entryType='task')
+  taskType?: TaskType;
+  taskDomain?: TaskDomain;
+  severity?: TaskSeverity;
+  urgency?: TaskUrgency;
 }
 
 export interface TaskGetParams {
+  entryType?: DecompositionEntryType;
   taskId: string;
 }
 
 export interface TaskListParams {
+  entryType?: DecompositionEntryType;
   parentTaskId?: string;
   scopeType?: ScopeType;
   scopeId?: string;
@@ -35,16 +53,21 @@ export interface TaskListParams {
 
 /**
  * Add a task with subtasks, creating decomposition relationships
+ *
+ * When entryType='task': Creates entries in tasks table with parentTaskId hierarchy
+ * When entryType='knowledge' (default): Creates knowledge entries with relations
  */
 export async function addTask(
   context: AppContext,
   params: TaskAddParams
 ): Promise<{
   success: boolean;
+  entryType: DecompositionEntryType;
   task: { id: string; title: string };
   subtasks: Array<{ id: string; title: string }>;
 }> {
   const {
+    entryType = 'knowledge', // Default for backward compatibility
     parentTask,
     subtasks,
     decompositionStrategy = 'balanced',
@@ -52,6 +75,11 @@ export async function addTask(
     scopeId,
     projectId,
     createdBy,
+    // Task-specific fields
+    taskType = 'other',
+    taskDomain,
+    severity,
+    urgency,
   } = params;
 
   if (!subtasks || subtasks.length === 0) {
@@ -63,6 +91,87 @@ export async function addTask(
   }
 
   const { repos } = context;
+
+  // ========================================
+  // TASK MODE: Use tasks table
+  // ========================================
+  if (entryType === 'task') {
+    const { tasks: tasksRepo, projects: projectRepo } = repos;
+
+    if (!tasksRepo) {
+      throw createValidationError(
+        'entryType',
+        'tasks repository not available',
+        'Ensure tasks repository is configured'
+      );
+    }
+
+    // Create main task in tasks table
+    const mainTask = await tasksRepo.create({
+      scopeType,
+      scopeId,
+      title: `Task with ${subtasks.length} subtask(s)`,
+      description: `Decomposition strategy: ${decompositionStrategy}\nSubtasks: ${subtasks.join(', ')}`,
+      taskType,
+      taskDomain,
+      severity,
+      urgency,
+      parentTaskId: parentTask, // Link to parent if provided
+      createdBy,
+    });
+
+    // Create subtasks in tasks table with parentTaskId pointing to main task
+    const createdSubtasks = [];
+    for (const subtaskDesc of subtasks) {
+      const subtask = await tasksRepo.create({
+        scopeType,
+        scopeId,
+        title: subtaskDesc,
+        description: `Subtask of ${mainTask.id}`,
+        taskType,
+        taskDomain,
+        severity,
+        urgency,
+        parentTaskId: mainTask.id,
+        createdBy,
+      });
+      createdSubtasks.push(subtask);
+    }
+
+    // Store decomposition metadata in project if projectId provided
+    if (projectId && projectRepo) {
+      const project = await projectRepo.getById(projectId);
+      if (project) {
+        const metadata = (project.metadata as Record<string, unknown>) || {};
+        const decompositionData = (metadata.decomposition as Record<string, unknown>) || {};
+        decompositionData[mainTask.id] = {
+          strategy: decompositionStrategy,
+          subtaskCount: subtasks.length,
+          depth: parentTask ? 1 : 0,
+          entryType: 'task',
+        };
+        metadata.decomposition = decompositionData;
+        await projectRepo.update(projectId, { metadata });
+      }
+    }
+
+    return {
+      success: true,
+      entryType: 'task',
+      task: {
+        id: mainTask.id,
+        title: mainTask.title,
+      },
+      subtasks: createdSubtasks.map((s) => ({
+        id: s.id,
+        title: s.title,
+      })),
+    };
+  }
+
+  // ========================================
+  // KNOWLEDGE MODE: Use knowledge entries with relations (default)
+  // ========================================
   const { knowledge: knowledgeRepo, entryRelations: entryRelationRepo, projects: projectRepo } = repos;
 
   // Create main task as a knowledge entry
@@ -143,7 +252,8 @@ export async function addTask(
       decompositionData[mainTask.id] = {
         strategy: decompositionStrategy,
         subtaskCount: subtasks.length,
-        depth: parentTask ? 1 : 0, // Simple depth calculation
+        depth: parentTask ? 1 : 0,
+        entryType: 'knowledge',
       };
 
       metadata.decomposition = decompositionData;
@@ -154,6 +264,7 @@ export async function addTask(
 
   return {
     success: true,
+    entryType: 'knowledge',
     task: {
       id: mainTask.id,
       title: mainTask.title,
@@ -167,11 +278,15 @@ export async function addTask(
 
 /**
  * Get a task and its subtasks
+ *
+ * When entryType='task': Looks up in tasks table, uses getSubtasks()
+ * When entryType='knowledge' (default): Looks up in knowledge table, uses relations
  */
 export async function getTask(
   context: AppContext,
   params: TaskGetParams
 ): Promise<{
+  entryType: DecompositionEntryType;
   task: {
     id: string;
     title: string;
@@ -180,8 +295,62 @@ export async function getTask(
   subtasks: Array<{ id: string; title: string }>;
   parentTask?: { id: string; title: string };
 }> {
-  const { taskId } = params;
+  const { taskId, entryType = 'knowledge' } = params;
   const { repos } = context;
+
+  // ========================================
+  // TASK MODE: Use tasks table
+  // ========================================
+  if (entryType === 'task') {
+    const { tasks: tasksRepo } = repos;
+
+    if (!tasksRepo) {
+      throw createValidationError(
+        'entryType',
+        'tasks repository not available',
+        'Ensure tasks repository is configured'
+      );
+    }
+
+    const task = await tasksRepo.getById(taskId);
+    if (!task) {
+      throw createNotFoundError('Task', taskId);
+    }
+
+    // Get subtasks using built-in parentTaskId
+    const subtaskEntries = await tasksRepo.getSubtasks(taskId);
+    const subtasks = subtaskEntries.map((s) => ({
+      id: s.id,
+      title: s.title,
+    }));
+
+    // Get parent task if this task has a parentTaskId
+    let parentTask: { id: string; title: string } | undefined;
+    if (task.parentTaskId) {
+      const parent = await tasksRepo.getById(task.parentTaskId);
+      if (parent) {
+        parentTask = {
+          id: parent.id,
+          title: parent.title,
+        };
+      }
+    }
+
+    return {
+      entryType: 'task',
+      task: {
+        id: task.id,
+        title: task.title,
+        content: task.description || '',
+      },
+      subtasks,
+      parentTask,
+    };
+  }
+
+  // ========================================
+  // KNOWLEDGE MODE: Use knowledge entries with relations (default)
+  // ========================================
   const { knowledge: knowledgeRepo, entryRelations: entryRelationRepo } = repos;
 
   const task = await knowledgeRepo.getById(taskId);
@@ -233,6 +402,7 @@ export async function getTask(
   }
 
   return {
+    entryType: 'knowledge',
     task: {
       id: task.id,
       title: task.title,
@@ -245,11 +415,15 @@ export async function getTask(
 
 /**
  * List tasks, optionally filtered by parent or scope
+ *
+ * When entryType='task': Lists from tasks table using parentTaskId filter
+ * When entryType='knowledge' (default): Lists from knowledge entries with relations
  */
 export async function listTasks(
   context: AppContext,
   params: TaskListParams
 ): Promise<{
+  entryType: DecompositionEntryType;
   tasks: Array<{
     id: string;
     title: string;
@@ -259,8 +433,63 @@ export async function listTasks(
     returnedCount: number;
   };
 }> {
-  const { parentTaskId, scopeType, scopeId, limit = 20, offset = 0 } = params;
+  const { entryType = 'knowledge', parentTaskId, scopeType, scopeId, limit = 20, offset = 0 } = params;
   const { repos } = context;
+
+  // ========================================
+  // TASK MODE: Use tasks table
+  // ========================================
+  if (entryType === 'task') {
+    const { tasks: tasksRepo } = repos;
+
+    if (!tasksRepo) {
+      throw createValidationError(
+        'entryType',
+        'tasks repository not available',
+        'Ensure tasks repository is configured'
+      );
+    }
+
+    // Build filter for tasks table
+    const filter: {
+      scopeType?: ScopeType;
+      scopeId?: string;
+      parentTaskId?: string;
+      includeInactive?: boolean;
+    } = {
+      includeInactive: false,
+    };
+
+    if (scopeType) filter.scopeType = scopeType;
+    if (scopeId) filter.scopeId = scopeId;
+    if (parentTaskId) filter.parentTaskId = parentTaskId;
+
+    const taskEntries = await tasksRepo.list(filter, { limit, offset });
+
+    // Get subtask counts for each task
+    const tasksWithCounts = await Promise.all(
+      taskEntries.map(async (task) => {
+        const subtasks = await tasksRepo.getSubtasks(task.id);
+        return {
+          id: task.id,
+          title: task.title,
+          subtaskCount: subtasks.length,
+        };
+      })
+    );
+
+    return {
+      entryType: 'task',
+      tasks: tasksWithCounts,
+      meta: {
+        returnedCount: tasksWithCounts.length,
+      },
+    };
+  }
+
+  // ========================================
+  // KNOWLEDGE MODE: Use knowledge entries with relations (default)
+  // ========================================
   const { knowledge: knowledgeRepo, entryRelations: entryRelationRepo } = repos;
 
   let taskIds: string[] = [];
@@ -331,12 +560,15 @@ export async function listTasks(
     });
   }
 
+  const filteredTasks = tasks.filter(
+    (t): t is { id: string; title: string; subtaskCount: number } => t !== null
+  );
+
   return {
-    tasks: tasks.filter(
-      (t): t is { id: string; title: string; subtaskCount: number } => t !== null
-    ),
+    entryType: 'knowledge',
+    tasks: filteredTasks,
     meta: {
-      returnedCount: tasks.length,
+      returnedCount: filteredTasks.length,
     },
   };
 }

@@ -38,6 +38,8 @@ import type {
 } from '../../db/schema.js';
 import type { PaginationOptions } from '../../db/repositories/base.js';
 import type { IConflictRepository, ListConflictsFilter } from '../../db/repositories/conflicts.js';
+import type { ITaskRepository } from '../../db/repositories/tasks.js';
+import type { IEvidenceRepository } from '../../db/repositories/evidence.js';
 
 // Narrower type for conversation context entry types (excludes 'project')
 export type ContextEntryType = 'tool' | 'guideline' | 'knowledge';
@@ -293,6 +295,8 @@ export interface GuidelineWithVersion extends Guideline {
 export interface IGuidelineRepository {
   create(input: CreateGuidelineInput): Promise<GuidelineWithVersion>;
   getById(id: string): Promise<GuidelineWithVersion | undefined>;
+  /** Batch fetch by IDs using SQL IN clause for efficiency */
+  getByIds(ids: string[]): Promise<GuidelineWithVersion[]>;
   getByName(
     name: string,
     scopeType: ScopeType,
@@ -356,6 +360,8 @@ export interface KnowledgeWithVersion extends Knowledge {
 export interface IKnowledgeRepository {
   create(input: CreateKnowledgeInput): Promise<KnowledgeWithVersion>;
   getById(id: string): Promise<KnowledgeWithVersion | undefined>;
+  /** Batch fetch by IDs using SQL IN clause for efficiency */
+  getByIds(ids: string[]): Promise<KnowledgeWithVersion[]>;
   getByTitle(
     title: string,
     scopeType: ScopeType,
@@ -411,6 +417,8 @@ export interface ToolWithVersion extends Tool {
 export interface IToolRepository {
   create(input: CreateToolInput): Promise<ToolWithVersion>;
   getById(id: string): Promise<ToolWithVersion | undefined>;
+  /** Batch fetch by IDs using SQL IN clause for efficiency */
+  getByIds(ids: string[]): Promise<ToolWithVersion[]>;
   getByName(
     name: string,
     scopeType: ScopeType,
@@ -1159,4 +1167,7 @@ export interface Repositories {
   typeRegistry?: ITypeRegistry;
   graphNodes?: INodeRepository;
   graphEdges?: IEdgeRepository;
+  // Task and Evidence repositories
+  tasks?: ITaskRepository;
+  evidence?: IEvidenceRepository;
 }

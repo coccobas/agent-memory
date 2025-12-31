@@ -23,9 +23,9 @@ import { queryTypeToEntryType } from '../type-maps.js';
 export function ftsStage(ctx: PipelineContext): PipelineContext {
   const { params, search, searchQueries, types, deps } = ctx;
 
-  // Use FTS5 if strategy is 'fts5' or 'hybrid', or if explicitly requested
+  // Use FTS5 only if strategy is 'fts5' or 'hybrid' (strategy stage already considered params)
   const searchStrategy = (ctx as any).searchStrategy as string | undefined;
-  const useFts5 = ((searchStrategy === 'fts5' || searchStrategy === 'hybrid') || params.useFts5 === true) && !!search;
+  const useFts5 = (searchStrategy === 'fts5' || searchStrategy === 'hybrid') && !!search;
 
   if (deps.logger && deps.perfLog) {
     deps.logger.debug(

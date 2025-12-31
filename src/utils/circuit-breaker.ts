@@ -8,12 +8,18 @@
  * - AGENT_MEMORY_CB_FAILURE_THRESHOLD: Number of failures before opening (default: 5)
  * - AGENT_MEMORY_CB_RESET_TIMEOUT_MS: Time before attempting to close (default: 30000)
  * - AGENT_MEMORY_CB_SUCCESS_THRESHOLD: Successes needed to close (default: 2)
+ *
+ * For distributed deployments, use the stateAdapter option to share state via Redis.
  */
 
 import { CircuitBreakerError } from '../core/errors.js';
 import { defaultContainer } from '../core/container.js';
 import { createComponentLogger } from './logger.js';
 import { config } from '../config/index.js';
+import type {
+  ICircuitBreakerStateAdapter,
+  CircuitBreakerStateConfig,
+} from '../core/adapters/interfaces.js';
 
 const logger = createComponentLogger('circuit-breaker');
 
@@ -30,6 +36,12 @@ export interface CircuitBreakerConfig {
   successThreshold: number;
   /** Optional: Function to determine if an error should count as a failure */
   isFailure?: (error: Error) => boolean;
+  /**
+   * Optional: State adapter for distributed circuit breaker.
+   * When provided, state is managed by the adapter (e.g., Redis) for sharing across instances.
+   * When not provided, uses local in-memory state (default behavior).
+   */
+  stateAdapter?: ICircuitBreakerStateAdapter;
 }
 
 export interface CircuitBreakerStats {
@@ -56,21 +68,57 @@ const DEFAULT_CONFIG: Omit<CircuitBreakerConfig, 'name'> = {
 
 /**
  * Circuit Breaker implementation
+ *
+ * Supports both local (in-memory) and distributed (via state adapter) modes:
+ * - Local mode (default): State is kept in memory, suitable for single-instance deployments.
+ * - Distributed mode: State is managed by an adapter (e.g., Redis) for sharing across instances.
  */
 export class CircuitBreaker {
+  // Local state (used when no stateAdapter is provided)
   private state: CircuitState = 'CLOSED';
   private failures = 0;
   private successes = 0;
   private lastFailureTime: number | null = null;
   private lastSuccessTime: number | null = null;
   private nextAttemptTime: number | null = null;
+
+  // Stats (always tracked locally for metrics)
   private totalCalls = 0;
   private totalFailures = 0;
   private totalSuccesses = 0;
-  private config: Required<CircuitBreakerConfig>;
 
-  constructor(config: CircuitBreakerConfig) {
-    this.config = { ...DEFAULT_CONFIG, ...config } as Required<CircuitBreakerConfig>;
+  private config: Required<Omit<CircuitBreakerConfig, 'stateAdapter'>> & { stateAdapter?: ICircuitBreakerStateAdapter };
+  private stateAdapter?: ICircuitBreakerStateAdapter;
+
+  constructor(cbConfig: CircuitBreakerConfig) {
+    this.config = { ...DEFAULT_CONFIG, ...cbConfig } as Required<Omit<CircuitBreakerConfig, 'stateAdapter'>> & { stateAdapter?: ICircuitBreakerStateAdapter };
+    this.stateAdapter = cbConfig.stateAdapter;
+
+    if (this.stateAdapter) {
+      logger.debug({ service: cbConfig.name }, 'Circuit breaker using distributed state adapter');
+    }
+  }
+
+  /**
+   * Get state adapter config for distributed mode.
+   */
+  private getStateConfig(): CircuitBreakerStateConfig {
+    return {
+      failureThreshold: this.config.failureThreshold,
+      resetTimeoutMs: this.config.resetTimeoutMs,
+      successThreshold: this.config.successThreshold,
+    };
+  }
+
+  /**
+   * Convert distributed state to local CircuitState.
+   */
+  private toCircuitState(state: 'closed' | 'open' | 'half-open'): CircuitState {
+    switch (state) {
+      case 'closed': return 'CLOSED';
+      case 'open': return 'OPEN';
+      case 'half-open': return 'HALF_OPEN';
+    }
   }
 
   /**
@@ -79,6 +127,52 @@ export class CircuitBreaker {
   async execute<T>(fn: () => Promise<T>): Promise<T> {
     this.totalCalls++;
 
+    // Distributed mode: check state from adapter
+    if (this.stateAdapter) {
+      return this.executeWithAdapter(fn);
+    }
+
+    // Local mode: use in-memory state
+    return this.executeLocal(fn);
+  }
+
+  /**
+   * Execute with distributed state adapter.
+   */
+  private async executeWithAdapter<T>(fn: () => Promise<T>): Promise<T> {
+    // Get current state from adapter
+    const currentState = await this.stateAdapter!.getState(this.config.name);
+
+    // Check if circuit is open
+    if (currentState?.state === 'open') {
+      const now = Date.now();
+      if (currentState.nextAttemptTime && now < currentState.nextAttemptTime) {
+        throw new CircuitBreakerError(this.config.name, currentState.nextAttemptTime);
+      }
+      // Ready to transition to half-open - will happen on next getState
+    }
+
+    try {
+      const result = await fn();
+      await this.onSuccessWithAdapter();
+      return result;
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      if (this.config.isFailure(err)) {
+        await this.onFailureWithAdapter(err);
+        const wrappedError = new Error(`[CircuitBreaker:${this.config.name}] ${err.message}`);
+        wrappedError.cause = err;
+        wrappedError.name = 'CircuitBreakerWrappedError';
+        throw wrappedError;
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Execute with local in-memory state.
+   */
+  private async executeLocal<T>(fn: () => Promise<T>): Promise<T> {
     // Check if circuit is open
     if (this.state === 'OPEN') {
       if (Date.now() < (this.nextAttemptTime ?? 0)) {
@@ -96,7 +190,6 @@ export class CircuitBreaker {
       const err = error instanceof Error ? error : new Error(String(error));
       if (this.config.isFailure(err)) {
         this.onFailure(err);
-        // Wrap the error with circuit breaker context for better debugging
         const wrappedError = new Error(`[CircuitBreaker:${this.config.name}] ${err.message}`);
         wrappedError.cause = err;
         wrappedError.name = 'CircuitBreakerWrappedError';
@@ -107,7 +200,7 @@ export class CircuitBreaker {
   }
 
   /**
-   * Handle successful call
+   * Handle successful call (local mode)
    */
   private onSuccess(): void {
     this.successes++;
@@ -125,7 +218,25 @@ export class CircuitBreaker {
   }
 
   /**
-   * Handle failed call
+   * Handle successful call (distributed mode)
+   */
+  private async onSuccessWithAdapter(): Promise<void> {
+    this.totalSuccesses++;
+    this.lastSuccessTime = Date.now();
+
+    const newState = await this.stateAdapter!.recordSuccess(
+      this.config.name,
+      this.getStateConfig()
+    );
+
+    // Update local state for stats
+    this.state = this.toCircuitState(newState.state);
+    this.failures = newState.failures;
+    this.successes = newState.successes;
+  }
+
+  /**
+   * Handle failed call (local mode)
    */
   private onFailure(error: Error): void {
     this.failures++;
@@ -144,7 +255,28 @@ export class CircuitBreaker {
   }
 
   /**
-   * Transition to a new state
+   * Handle failed call (distributed mode)
+   */
+  private async onFailureWithAdapter(error: Error): Promise<void> {
+    this.totalFailures++;
+    this.lastFailureTime = Date.now();
+
+    logger.warn({ service: this.config.name, error: error.message }, 'Circuit breaker failure');
+
+    const newState = await this.stateAdapter!.recordFailure(
+      this.config.name,
+      this.getStateConfig()
+    );
+
+    // Update local state for stats
+    this.state = this.toCircuitState(newState.state);
+    this.failures = newState.failures;
+    this.successes = newState.successes;
+    this.nextAttemptTime = newState.nextAttemptTime ?? null;
+  }
+
+  /**
+   * Transition to a new state (local mode only)
    */
   private transitionTo(newState: CircuitState): void {
     const oldState = this.state;
@@ -190,6 +322,30 @@ export class CircuitBreaker {
   }
 
   /**
+   * Get current stats with fresh distributed state (async version).
+   * For distributed mode, fetches current state from adapter.
+   */
+  async getDistributedStats(): Promise<CircuitBreakerStats> {
+    if (this.stateAdapter) {
+      const state = await this.stateAdapter.getState(this.config.name);
+      if (state) {
+        return {
+          state: this.toCircuitState(state.state),
+          failures: state.failures,
+          successes: state.successes,
+          lastFailureTime: state.lastFailureTime ?? null,
+          lastSuccessTime: this.lastSuccessTime,
+          totalCalls: this.totalCalls,
+          totalFailures: this.totalFailures,
+          totalSuccesses: this.totalSuccesses,
+        };
+      }
+    }
+
+    return this.getStats();
+  }
+
+  /**
    * Get the service name
    */
   getName(): string {
@@ -204,9 +360,32 @@ export class CircuitBreaker {
   }
 
   /**
+   * Check if circuit is open (async version for distributed mode).
+   */
+  async isOpenAsync(): Promise<boolean> {
+    if (this.stateAdapter) {
+      const state = await this.stateAdapter.getState(this.config.name);
+      if (state) {
+        return state.state === 'open';
+      }
+    }
+    return this.isOpen();
+  }
+
+  /**
    * Force the circuit to close (for testing/admin)
    */
   forceClose(): void {
+    this.transitionTo('CLOSED');
+  }
+
+  /**
+   * Force the circuit to close (async version for distributed mode)
+   */
+  async forceCloseAsync(): Promise<void> {
+    if (this.stateAdapter) {
+      await this.stateAdapter.reset(this.config.name);
+    }
     this.transitionTo('CLOSED');
   }
 
@@ -215,6 +394,29 @@ export class CircuitBreaker {
    */
   forceOpen(): void {
     this.transitionTo('OPEN');
+  }
+
+  /**
+   * Force the circuit to open (async version for distributed mode)
+   */
+  async forceOpenAsync(): Promise<void> {
+    if (this.stateAdapter) {
+      await this.stateAdapter.setState(this.config.name, {
+        state: 'open',
+        failures: this.config.failureThreshold,
+        successes: 0,
+        lastFailureTime: Date.now(),
+        nextAttemptTime: Date.now() + this.config.resetTimeoutMs,
+      });
+    }
+    this.transitionTo('OPEN');
+  }
+
+  /**
+   * Check if using distributed state adapter.
+   */
+  isDistributed(): boolean {
+    return this.stateAdapter !== undefined;
   }
 }
 

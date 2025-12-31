@@ -21,6 +21,7 @@ import { memoryTagDescriptor } from './memory_tag.js';
 import { memoryRelationDescriptor } from './memory_relation.js';
 import { memoryFileLockDescriptor } from './memory_file_lock.js';
 import { memoryQueryDescriptor } from './memory_query.js';
+import { memoryDecompositionDescriptor } from './memory_decomposition.js';
 import { memoryTaskDescriptor } from './memory_task.js';
 import { memoryVotingDescriptor } from './memory_voting.js';
 import { memoryAnalyticsDescriptor } from './memory_analytics.js';
@@ -47,6 +48,11 @@ import { memorySummarizeDescriptor } from './memory_summarize.js';
 import { memoryLoraDescriptor } from './memory_lora.js';
 import { graphNodeDescriptor } from './graph_node.js';
 import { graphEdgeDescriptor } from './graph_edge.js';
+import { memoryContextDescriptor } from './memory_context.js';
+import { memoryQuickstartDescriptor } from './memory_quickstart.js';
+import { memoryRememberDescriptor } from './memory_remember.js';
+import { memorySuggestDescriptor } from './memory_suggest.js';
+import { memoryEvidenceDescriptor } from './memory_evidence.js';
 
 import { type AnyToolDescriptor, descriptorToTool, descriptorToHandler } from './types.js';
 
@@ -75,6 +81,8 @@ export const allDescriptors: AnyToolDescriptor[] = [
   // Query
   memoryQueryDescriptor,
   // Task Decomposition
+  memoryDecompositionDescriptor,
+  // Work Items and Tasks
   memoryTaskDescriptor,
   // Multi-Agent Voting
   memoryVotingDescriptor,
@@ -126,6 +134,16 @@ export const allDescriptors: AnyToolDescriptor[] = [
   graphNodeDescriptor,
   // Graph Edges (Flexible Knowledge Graph)
   graphEdgeDescriptor,
+  // Context Detection Diagnostic
+  memoryContextDescriptor,
+  // Quickstart (composite tool)
+  memoryQuickstartDescriptor,
+  // Natural language memory store
+  memoryRememberDescriptor,
+  // Proactive storage suggestions
+  memorySuggestDescriptor,
+  // Immutable Evidence Artifacts
+  memoryEvidenceDescriptor,
 ];
 
 /**
@@ -156,6 +174,7 @@ export {
   memoryRelationDescriptor,
   memoryFileLockDescriptor,
   memoryQueryDescriptor,
+  memoryDecompositionDescriptor,
   memoryTaskDescriptor,
   memoryVotingDescriptor,
   memoryAnalyticsDescriptor,
@@ -182,4 +201,9 @@ export {
   memoryLoraDescriptor,
   graphNodeDescriptor,
   graphEdgeDescriptor,
+  memoryContextDescriptor,
+  memoryQuickstartDescriptor,
+  memoryRememberDescriptor,
+  memorySuggestDescriptor,
+  memoryEvidenceDescriptor,
 };

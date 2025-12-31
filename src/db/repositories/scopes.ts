@@ -20,6 +20,61 @@ import { generateId, now, type PaginationOptions, DEFAULT_LIMIT, MAX_LIMIT } fro
 import { invalidateScopeChainCache } from '../../services/query.service.js';
 import type { DatabaseDeps } from '../../core/types.js';
 import { createConflictError } from '../../core/errors.js';
+
+// =============================================================================
+// FINDBYPATH CACHE (Request-scoped caching for project lookups)
+// =============================================================================
+
+interface FindByPathCacheEntry {
+  project: Project | undefined;
+  timestamp: number;
+}
+
+// Cache for findByPath results - short TTL for request-scoped caching
+const findByPathCache = new Map<string, FindByPathCacheEntry>();
+const FINDBYPATH_CACHE_TTL_MS = 5000; // 5 seconds - suitable for rapid sequential requests
+const FINDBYPATH_CACHE_MAX_SIZE = 100;
+
+/**
+ * Get cached findByPath result if still valid
+ */
+function getCachedFindByPath(path: string): Project | undefined | null {
+  const entry = findByPathCache.get(path);
+  if (!entry) return null; // null = not in cache
+
+  if (Date.now() - entry.timestamp > FINDBYPATH_CACHE_TTL_MS) {
+    findByPathCache.delete(path);
+    return null; // expired
+  }
+
+  return entry.project; // can be undefined (meaning no project found)
+}
+
+/**
+ * Cache findByPath result
+ */
+function setCachedFindByPath(path: string, project: Project | undefined): void {
+  // Evict oldest entries if cache is full
+  if (findByPathCache.size >= FINDBYPATH_CACHE_MAX_SIZE) {
+    const oldestKey = findByPathCache.keys().next().value;
+    if (oldestKey) {
+      findByPathCache.delete(oldestKey);
+    }
+  }
+
+  findByPathCache.set(path, {
+    project,
+    timestamp: Date.now(),
+  });
+}
+
+/**
+ * Invalidate all findByPath cache entries
+ * Called when projects are created, updated, or deleted
+ */
+function invalidateFindByPathCache(): void {
+  findByPathCache.clear();
+}
 import type {
   IOrganizationRepository,
   IProjectRepository,
@@ -148,6 +203,7 @@ export function createProjectRepository(deps: DatabaseDeps): IProjectRepository 
         throw createConflictError('project', `failed to create with id ${id}`);
       }
       invalidateScopeChainCache('project', id);
+      invalidateFindByPathCache(); // Invalidate path cache when projects change
       return result;
     },
 
@@ -172,6 +228,12 @@ export function createProjectRepository(deps: DatabaseDeps): IProjectRepository 
     },
 
     async findByPath(path: string): Promise<Project | undefined> {
+      // Check cache first
+      const cached = getCachedFindByPath(path);
+      if (cached !== null) {
+        return cached; // Cache hit (can be undefined meaning "no project found")
+      }
+
       // Get all projects with a rootPath set
       const allProjects = db
         .select()
@@ -191,15 +253,19 @@ export function createProjectRepository(deps: DatabaseDeps): IProjectRepository 
       });
 
       if (matchingProjects.length === 0) {
+        setCachedFindByPath(path, undefined);
         return undefined;
       }
 
       // Return the most specific match (longest rootPath)
-      return matchingProjects.reduce((best, current) => {
+      const result = matchingProjects.reduce((best, current) => {
         const bestLen = best.rootPath?.length ?? 0;
         const currentLen = current.rootPath?.length ?? 0;
         return currentLen > bestLen ? current : best;
       });
+
+      setCachedFindByPath(path, result);
+      return result;
     },
 
     async list(
@@ -236,6 +302,7 @@ export function createProjectRepository(deps: DatabaseDeps): IProjectRepository 
       const result = await repo.getById(id);
       if (result) {
         invalidateScopeChainCache('project', id);
+        invalidateFindByPathCache(); // Invalidate path cache when projects change
       }
       return result;
     },
@@ -244,6 +311,7 @@ export function createProjectRepository(deps: DatabaseDeps): IProjectRepository 
       const result = db.delete(projects).where(eq(projects.id, id)).run();
       if (result.changes > 0) {
         invalidateScopeChainCache('project', id);
+        invalidateFindByPathCache(); // Invalidate path cache when projects change
       }
       return result.changes > 0;
     },

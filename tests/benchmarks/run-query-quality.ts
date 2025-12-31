@@ -439,8 +439,15 @@ function createProductionQueryFunction(
         atTime: params.atTime,
         limit: params.limit || defaultK,
         useFts5: params.useFts5 !== false,
+        fuzzy: params.fuzzy,
+        regex: params.regex,
+        fields: params.fields,
         semanticSearch: enableEmbeddings && params.semanticSearch,
         relatedTo: relatedTo || undefined,
+        includeInactive: params.includeInactive,
+        createdAfter: params.createdAfter,
+        createdBefore: params.createdBefore,
+        validDuring: params.validDuring,
       };
 
       const result = await executeQueryPipelineAsync(pipelineParams, pipelineDeps);

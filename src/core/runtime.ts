@@ -78,6 +78,12 @@ export interface EmbeddingPipeline {
     model: string;
     provider: 'openai' | 'local' | 'disabled';
   }>;
+  /** Batch embed multiple texts in a single API call (10-100x faster) */
+  embedBatch?: (texts: string[]) => Promise<{
+    embeddings: number[][];
+    model: string;
+    provider: 'openai' | 'local' | 'disabled';
+  }>;
   storeEmbedding: (
     entryType: EntryType,
     entryId: string,

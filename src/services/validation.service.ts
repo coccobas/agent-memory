@@ -236,6 +236,70 @@ function isSafeRegexPattern(pattern: string): boolean {
 }
 
 /**
+ * Pre-compiled regex patterns for detecting ReDoS (Regular Expression Denial of Service) vulnerabilities.
+ *
+ * These patterns are compiled once at module load time rather than on every call to
+ * detectRedosPatterns(). This is a defense-in-depth approach focusing on practical
+ * patterns that commonly cause DoS. It does not provide complete ReDoS prevention
+ * (which is computationally hard) but catches common attack patterns.
+ *
+ * Security: Prevents Regular Expression Denial of Service attacks by detecting
+ * patterns that could cause catastrophic backtracking.
+ */
+const REDOS_DANGER_PATTERNS = [
+  // === NESTED QUANTIFIERS ===
+  // These cause exponential backtracking: (a+)+, (a*)+, (a?)*, (a?)+
+  /\([^)]*[+*?]\)[+*?]/,
+
+  // Quantified groups with trailing quantifier: (x){2,}+, (a)*{1,5}, (test)+{2,}
+  /\([^)]*\)[+*?]?\{/,
+
+  // Multiple consecutive quantifiers (ignoring lazy modifiers)
+  // Check for: +++, ***, ???, but also ++*, *+?, etc.
+  // First remove lazy modifiers (?) that follow quantifiers, then check for duplicates
+  /[+*][+*]/,
+
+  // Character class with quantifier and brace: [a-z]+{, [0-9]*{2,}
+  /\[[^\]]*\][+*?]\{/,
+
+  // === OVERLAPPING ALTERNATIONS ===
+  // Patterns like (a|a)+, (ab|a)+, (a|ab)* that cause backtracking
+  // Simplified check: alternation with quantifier that might overlap
+  /\([^)]*\|[^)]*\)[+*]/,
+
+  // === EXPONENTIAL BACKTRACKING PATTERNS ===
+  // Nested quantifiers with optional elements: (a+b?)+ causes exponential growth
+  // Pattern: quantified group containing quantified element followed by optional element
+  /\([^)]*[+*][^)]*[?]\)[+*]/,
+
+  // Pattern with multiple quantifiers: (a*b*)+
+  /\([^)]*[+*?][^)]*[+*?]\)[+*]/,
+
+  // === CATASTROPHIC PATTERNS WITH REPETITION ===
+  // Greedy quantifiers on both sides: .*.*+, .+.++, .*x.*+
+  /\.\*[^)]*\.\*[+*]/,
+  /\.\+[^)]*\.\+[+*]/,
+
+  // Pattern: (x+x+)+ - repeated elements with quantifiers
+  /\([^)]*[+*][^)]*[+*]\)\+/,
+
+  // === ALTERNATION WITH NESTED QUANTIFIERS ===
+  // Complex alternations that can cause backtracking: (a+|b+)+, (x*|y*)*
+  /\([^)]*[+*]\|[^)]*[+*]\)[+*]/,
+
+  // === EXCESSIVE REPETITION BOUNDS ===
+  // Very large repetition counts: .{1,99999}, a{100,}, [a-z]{1,10000}
+  // This checks for bounds >= 1000
+  /\{[^}]*,\s*([1-9]\d{3,}|[1-9]\d\d\d+)\}/,
+  /\{\s*([1-9]\d{3,}|[1-9]\d\d\d+)\s*,/,
+
+  // === WORD BOUNDARIES WITH GREEDY QUANTIFIERS ===
+  // Patterns like \b.*\b that can cause excessive backtracking
+  /\\b[^)]*\.\*[^)]*\\b/,
+  /\\b[^)]*\.\+[^)]*\\b/,
+] as const;
+
+/**
  * Detect common ReDoS vulnerability patterns in regex.
  * Returns true if pattern is SAFE, false if DANGEROUS.
  *
@@ -247,61 +311,7 @@ function isSafeRegexPattern(pattern: string): boolean {
  * @returns true if pattern appears safe, false if potentially dangerous
  */
 export function detectRedosPatterns(pattern: string): boolean {
-  // Detect dangerous patterns: nested quantifiers that cause catastrophic backtracking
-  const dangerousPatterns = [
-    // === NESTED QUANTIFIERS ===
-    // These cause exponential backtracking: (a+)+, (a*)+, (a?)*, (a?)+
-    /\([^)]*[+*?]\)[+*?]/,
-
-    // Quantified groups with trailing quantifier: (x){2,}+, (a)*{1,5}, (test)+{2,}
-    /\([^)]*\)[+*?]?\{/,
-
-    // Multiple consecutive quantifiers (ignoring lazy modifiers)
-    // Check for: +++, ***, ???, but also ++*, *+?, etc.
-    // First remove lazy modifiers (?) that follow quantifiers, then check for duplicates
-    /[+*][+*]/,
-
-    // Character class with quantifier and brace: [a-z]+{, [0-9]*{2,}
-    /\[[^\]]*\][+*?]\{/,
-
-    // === OVERLAPPING ALTERNATIONS ===
-    // Patterns like (a|a)+, (ab|a)+, (a|ab)* that cause backtracking
-    // Simplified check: alternation with quantifier that might overlap
-    /\([^)]*\|[^)]*\)[+*]/,
-
-    // === EXPONENTIAL BACKTRACKING PATTERNS ===
-    // Nested quantifiers with optional elements: (a+b?)+ causes exponential growth
-    // Pattern: quantified group containing quantified element followed by optional element
-    /\([^)]*[+*][^)]*[?]\)[+*]/,
-
-    // Pattern with multiple quantifiers: (a*b*)+
-    /\([^)]*[+*?][^)]*[+*?]\)[+*]/,
-
-    // === CATASTROPHIC PATTERNS WITH REPETITION ===
-    // Greedy quantifiers on both sides: .*.*+, .+.++, .*x.*+
-    /\.\*[^)]*\.\*[+*]/,
-    /\.\+[^)]*\.\+[+*]/,
-
-    // Pattern: (x+x+)+ - repeated elements with quantifiers
-    /\([^)]*[+*][^)]*[+*]\)\+/,
-
-    // === ALTERNATION WITH NESTED QUANTIFIERS ===
-    // Complex alternations that can cause backtracking: (a+|b+)+, (x*|y*)*
-    /\([^)]*[+*]\|[^)]*[+*]\)[+*]/,
-
-    // === EXCESSIVE REPETITION BOUNDS ===
-    // Very large repetition counts: .{1,99999}, a{100,}, [a-z]{1,10000}
-    // This checks for bounds >= 1000
-    /\{[^}]*,\s*([1-9]\d{3,}|[1-9]\d\d\d+)\}/,
-    /\{\s*([1-9]\d{3,}|[1-9]\d\d\d+)\s*,/,
-
-    // === WORD BOUNDARIES WITH GREEDY QUANTIFIERS ===
-    // Patterns like \b.*\b that can cause excessive backtracking
-    /\\b[^)]*\.\*[^)]*\\b/,
-    /\\b[^)]*\.\+[^)]*\\b/,
-  ];
-
-  for (const dangerous of dangerousPatterns) {
+  for (const dangerous of REDOS_DANGER_PATTERNS) {
     if (dangerous.test(pattern)) {
       return false;
     }

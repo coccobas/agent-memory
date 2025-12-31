@@ -12,6 +12,9 @@ export type {
   ILockAdapter,
   IEventAdapter,
   IRateLimiterAdapter,
+  ICircuitBreakerStateAdapter,
+  CircuitBreakerState,
+  CircuitBreakerStateConfig,
   LockInfo,
   AcquireLockOptions,
   AcquireLockResult,
@@ -45,6 +48,10 @@ export {
   LocalRateLimiterAdapter,
   createLocalRateLimiterAdapter,
 } from './local-rate-limiter.adapter.js';
+export {
+  LocalCircuitBreakerAdapter,
+  createLocalCircuitBreakerAdapter,
+} from './local-circuit-breaker.adapter.js';
 
 // Implementations - Redis (distributed)
 export {
@@ -67,6 +74,12 @@ export {
   createRedisRateLimiterAdapter,
   type RedisRateLimiterConfig,
 } from './redis-rate-limiter.adapter.js';
+export {
+  RedisCircuitBreakerAdapter,
+  createRedisCircuitBreakerAdapter,
+  type RedisCircuitBreakerConfig,
+  type RedisCircuitBreakerFailMode,
+} from './redis-circuit-breaker.adapter.js';
 
 // Dependencies for factory
 import type Database from 'better-sqlite3';

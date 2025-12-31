@@ -29,5 +29,31 @@ export const circuitBreakerSection: ConfigSectionMeta = {
       description: 'Number of successful calls in HALF_OPEN state required to close the circuit.',
       schema: z.number().int().min(1),
     },
+    useRedis: {
+      envKey: 'AGENT_MEMORY_CB_USE_REDIS',
+      defaultValue: false,
+      description: 'Use Redis for distributed circuit breaker state sharing.',
+      schema: z.boolean(),
+    },
+    keyPrefix: {
+      envKey: 'AGENT_MEMORY_CB_KEY_PREFIX',
+      defaultValue: 'agentmem:cb:',
+      description: 'Key prefix for circuit breaker state in Redis.',
+      schema: z.string(),
+    },
+    failMode: {
+      envKey: 'AGENT_MEMORY_CB_FAIL_MODE',
+      defaultValue: 'local-fallback',
+      description: 'Behavior when Redis is unavailable: local-fallback (use local state), closed (treat as closed), open (treat as open).',
+      schema: z.enum(['local-fallback', 'closed', 'open']),
+      allowedValues: ['local-fallback', 'closed', 'open'] as const,
+    },
+    stateTTLMs: {
+      envKey: 'AGENT_MEMORY_CB_STATE_TTL_MS',
+      defaultValue: 300000,
+      description: 'TTL for circuit breaker state in Redis (default: 5 minutes).',
+      schema: z.number().int().min(1000),
+      parse: 'int',
+    },
   },
 };

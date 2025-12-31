@@ -1,4 +1,4 @@
-import { connect, type Connection, type Table } from '@lancedb/lancedb';
+import { connect, Index, type Connection, type Table } from '@lancedb/lancedb';
 import { dirname } from 'node:path';
 import { existsSync, mkdirSync } from 'node:fs';
 import { createComponentLogger } from '../../utils/logger.js';
@@ -14,6 +14,8 @@ import type {
   SearchResult,
   VectorRecord,
 } from '../../core/interfaces/vector.service.js';
+
+export type QuantizationType = 'none' | 'sq' | 'pq';
 
 const logger = createComponentLogger('lancedb-store');
 
@@ -47,14 +49,25 @@ export class LanceDbVectorStore implements IVectorStore {
   private dbPath: string;
   private expectedDimension: number | null = null;
   private distanceMetric: DistanceMetric;
+  private quantization: QuantizationType;
+  private indexThreshold: number;
+  private indexCreated = false;
   private initPromise: Promise<void> | null = null;
   private ensureTablePromise: Promise<{ createdWithRecord: boolean }> | null = null;
+  private createIndexPromise: Promise<void> | null = null;
 
-  constructor(dbPath?: string, distanceMetric?: DistanceMetric) {
+  constructor(
+    dbPath?: string,
+    distanceMetric?: DistanceMetric,
+    quantization?: QuantizationType,
+    indexThreshold?: number
+  ) {
     // Prefer env var at instantiation time so tests/benchmarks can override paths
     // without requiring config rebuilds.
     this.dbPath = dbPath || process.env.AGENT_MEMORY_VECTOR_DB_PATH || config.vectorDb.path;
     this.distanceMetric = distanceMetric || config.vectorDb.distanceMetric;
+    this.quantization = quantization || (config.vectorDb as Record<string, unknown>).quantization as QuantizationType || 'none';
+    this.indexThreshold = indexThreshold || (config.vectorDb as Record<string, unknown>).indexThreshold as number || 256;
   }
 
   getDistanceMetric(): DistanceMetric {
@@ -202,9 +215,100 @@ export class LanceDbVectorStore implements IVectorStore {
       if (!this.table) return;
 
       await this.table.add([record]);
+
+      // Check if we should create a quantized index
+      if (this.quantization !== 'none' && !this.indexCreated) {
+        void this.maybeCreateIndex();
+      }
     } catch (error) {
       throw createVectorDbError('store', error instanceof Error ? error.message : String(error));
     }
+  }
+
+  /**
+   * Create a quantized index if the table has enough rows.
+   * This is called automatically after storing records.
+   */
+  private async maybeCreateIndex(): Promise<void> {
+    if (this.indexCreated || this.quantization === 'none' || !this.table) return;
+
+    // Prevent concurrent index creation
+    if (this.createIndexPromise) {
+      return this.createIndexPromise;
+    }
+
+    this.createIndexPromise = (async () => {
+      try {
+        const count = await this.table!.countRows();
+        if (count < this.indexThreshold) {
+          return;
+        }
+
+        logger.info(
+          { count, threshold: this.indexThreshold, quantization: this.quantization },
+          'Creating quantized vector index'
+        );
+
+        // Create the appropriate index based on quantization type
+        let indexConfig;
+        if (this.quantization === 'sq') {
+          // Scalar Quantization - ~4x compression
+          indexConfig = Index.hnswSq({
+            m: 16,          // Connections per node
+            efConstruction: 150, // Build-time quality
+          });
+        } else if (this.quantization === 'pq') {
+          // Product Quantization - ~8-32x compression
+          // num_sub_vectors should divide the embedding dimension
+          const dimension = this.expectedDimension || 1536;
+          const numSubVectors = Math.min(96, Math.floor(dimension / 8));
+          indexConfig = Index.ivfPq({
+            numPartitions: Math.max(1, Math.floor(Math.sqrt(count))),
+            numSubVectors,
+            numBits: 8,
+          });
+        } else {
+          return;
+        }
+
+        await this.table!.createIndex('vector', { config: indexConfig });
+        this.indexCreated = true;
+        logger.info(
+          { quantization: this.quantization },
+          'Quantized vector index created successfully'
+        );
+      } catch (error) {
+        // Index creation is best-effort - don't fail the operation
+        logger.warn(
+          { error: error instanceof Error ? error.message : String(error) },
+          'Failed to create quantized index (search will still work, just slower)'
+        );
+      }
+    })().finally(() => {
+      this.createIndexPromise = null;
+    });
+
+    return this.createIndexPromise;
+  }
+
+  /**
+   * Force creation of a quantized index regardless of row count.
+   * Useful for testing or when you know you have enough data.
+   */
+  async createIndex(): Promise<void> {
+    if (this.quantization === 'none') {
+      logger.info('Quantization is disabled, skipping index creation');
+      return;
+    }
+
+    // Reset flag to force creation
+    this.indexCreated = false;
+    const originalThreshold = this.indexThreshold;
+    this.indexThreshold = 0; // Temporarily set to 0 to force creation
+
+    await this.maybeCreateIndex();
+
+    this.indexThreshold = originalThreshold;
   }
 
   async delete(filter: {

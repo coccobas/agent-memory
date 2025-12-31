@@ -30,5 +30,12 @@ export const restSection: ConfigSectionMeta = {
       schema: z.number().int().min(1).max(65535),
       parse: 'port',
     },
+    bodyLimit: {
+      envKey: 'AGENT_MEMORY_REST_BODY_LIMIT',
+      defaultValue: 1048576,
+      description: 'Maximum request body size in bytes (default: 1 MiB).',
+      schema: z.number().int().min(1024).max(104857600),
+      parse: 'int',
+    },
   },
 };

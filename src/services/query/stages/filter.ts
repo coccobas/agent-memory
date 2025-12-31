@@ -16,7 +16,7 @@
 import type { PipelineContext, QueryType, QueryEntryType } from '../pipeline.js';
 import type { Guideline, Tag } from '../../../db/schema.js';
 import type { EntryUnion, FilteredEntry, FilterStageResult } from '../types.js';
-import { getEntryKeyValue, QUERY_TYPE_TO_TABLE_NAME } from '../type-maps.js';
+import { getEntryKeyValue, getEntrySearchableText, QUERY_TYPE_TO_TABLE_NAME } from '../type-maps.js';
 import { textMatches, fuzzyTextMatches, regexTextMatches } from '../../../utils/text-matching.js';
 import { filterByTags } from './tags.js';
 import type { StrategyPipelineContext } from './strategy.js';
@@ -190,9 +190,16 @@ function filterEntriesOfType<T extends EntryUnion>(
           textMatched = true;
         }
       } else {
-        // Regular text matching - use the name/title field based on type
-        const searchField = getEntryKeyValue(entry, type);
-        textMatched = matchFunc(searchField, search);
+        // Regular text matching
+        // For fuzzy/regex, search all relevant fields (name/title + content/description)
+        // For exact text match, use just the key field for backward compatibility
+        if (params.fuzzy || params.regex) {
+          const searchableText = getEntrySearchableText(entry, type);
+          textMatched = matchFunc(searchableText, search);
+        } else {
+          const searchField = getEntryKeyValue(entry, type);
+          textMatched = matchFunc(searchField, search);
+        }
       }
 
       // In semantic/hybrid mode, also allow entries with semantic matches

@@ -4,7 +4,7 @@
  * Factory function that accepts DatabaseDeps for dependency injection.
  */
 
-import { eq, and, desc, asc } from 'drizzle-orm';
+import { eq, and, desc, asc, inArray } from 'drizzle-orm';
 import { transactionWithRetry } from '../connection.js';
 import {
   tools,
@@ -139,6 +139,26 @@ export function createToolRepository(deps: DatabaseDeps): IToolRepository {
 
     async getById(id: string): Promise<ToolWithVersion | undefined> {
       return getByIdSync(id);
+    },
+
+    async getByIds(ids: string[]): Promise<ToolWithVersion[]> {
+      if (ids.length === 0) return [];
+
+      const toolsList = db
+        .select()
+        .from(tools)
+        .where(inArray(tools.id, ids))
+        .all();
+
+      if (toolsList.length === 0) return [];
+
+      const versionsMap = batchFetchVersionsWithDb<ToolVersion>(
+        db,
+        toolVersions,
+        toolsList.map((t) => t.currentVersionId)
+      );
+
+      return attachVersions(toolsList, versionsMap);
     },
 
     async getByName(

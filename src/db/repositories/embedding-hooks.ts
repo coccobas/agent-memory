@@ -24,11 +24,21 @@ interface EmbeddingInput {
   text: string;
 }
 
+export type EmbeddingResult = {
+  embedding: number[];
+  model: string;
+  provider: 'openai' | 'local' | 'disabled';
+};
+
 export type EmbeddingPipeline = {
   isAvailable: () => boolean;
-  embed: (
-    text: string
-  ) => Promise<{ embedding: number[]; model: string; provider: 'openai' | 'local' | 'disabled' }>;
+  embed: (text: string) => Promise<EmbeddingResult>;
+  /** Batch embed multiple texts in a single API call (10-100x faster) */
+  embedBatch?: (texts: string[]) => Promise<{
+    embeddings: number[][];
+    model: string;
+    provider: 'openai' | 'local' | 'disabled';
+  }>;
   storeEmbedding: (
     entryType: EntryType,
     entryId: string,
@@ -97,6 +107,21 @@ function getRetryDelayMs(): number {
 }
 
 /**
+ * Get the batch size for embedding API calls.
+ * Batching multiple texts into a single API call is 10-100x faster.
+ * Default: 20 (OpenAI recommends up to 2048 inputs per batch)
+ */
+function getBatchSize(): number {
+  const raw = (config.embedding as Record<string, unknown>)?.batchSize;
+  const n = typeof raw === 'number' && Number.isFinite(raw) ? raw : 20;
+  return Math.max(1, Math.min(100, Math.floor(n)));
+}
+
+// Stats for batch processing
+let batchesProcessed = 0;
+let totalBatchedItems = 0;
+
+/**
  * Stats for the embedding queue
  */
 export interface EmbeddingQueueStats {
@@ -116,6 +141,12 @@ export interface EmbeddingQueueStats {
   failedPendingRetry: number;
   /** Maximum concurrent jobs allowed */
   maxConcurrency: number;
+  /** Number of batch API calls made (each can contain multiple items) */
+  batchesProcessed: number;
+  /** Total items processed via batching */
+  totalBatchedItems: number;
+  /** Current batch size configuration */
+  batchSize: number;
 }
 
 /**
@@ -131,6 +162,9 @@ export function getEmbeddingQueueStats(): EmbeddingQueueStats {
     retried: retriedCount,
     failedPendingRetry: failedJobs.size,
     maxConcurrency: getMaxConcurrency(),
+    batchesProcessed,
+    totalBatchedItems,
+    batchSize: getBatchSize(),
   };
 }
 
@@ -140,6 +174,9 @@ function getMaxConcurrency(): number {
   return Math.max(1, Math.floor(n));
 }
 
+/**
+ * Process a single embedding job (fallback when batch not available)
+ */
 async function runEmbeddingJob(input: QueuedEmbeddingInput): Promise<void> {
   const pipeline = embeddingPipeline;
   if (!pipeline) return;
@@ -207,8 +244,200 @@ async function runEmbeddingJob(input: QueuedEmbeddingInput): Promise<void> {
   timer.end();
 }
 
+/**
+ * Process multiple embedding jobs in a single batch API call.
+ * This is 10-100x faster than individual calls when using OpenAI.
+ */
+async function runBatchEmbeddingJobs(jobs: QueuedEmbeddingInput[]): Promise<void> {
+  const pipeline = embeddingPipeline;
+  if (!pipeline || !pipeline.embedBatch || jobs.length === 0) return;
+
+  // Skip if embeddings are disabled
+  if (!pipeline.isAvailable()) {
+    return;
+  }
+
+  // Start metrics timer for entire batch
+  const timer = embeddingDuration.startTimer({ provider: 'pipeline' });
+
+  // Filter out stale jobs before making the API call
+  const freshJobs = jobs.filter((job) => {
+    const latestSeq = latestSeqByKey.get(job.__key);
+    if (latestSeq !== job.__seq) {
+      skippedStaleCount++;
+      return false;
+    }
+    return true;
+  });
+
+  if (freshJobs.length === 0) {
+    timer.end();
+    return;
+  }
+
+  // Extract texts for batch embedding
+  const texts = freshJobs.map((job) => job.text);
+
+  // Generate embeddings in batch
+  const result = await pipeline.embedBatch(texts);
+
+  // Track batch stats
+  batchesProcessed++;
+  totalBatchedItems += freshJobs.length;
+
+  const db = getDb();
+  const now = new Date().toISOString();
+
+  // Store each embedding and track in database
+  for (let i = 0; i < freshJobs.length; i++) {
+    const job = freshJobs[i]!;
+    const embedding = result.embeddings[i];
+
+    if (!embedding) {
+      logger.warn({ job: job.__key, index: i }, 'Batch embedding missing for job');
+      continue;
+    }
+
+    // Check again for stale (could have changed during API call)
+    const latestSeq = latestSeqByKey.get(job.__key);
+    if (latestSeq !== job.__seq) {
+      skippedStaleCount++;
+      continue;
+    }
+
+    // Store in vector database
+    await pipeline.storeEmbedding(
+      job.entryType,
+      job.entryId,
+      job.versionId,
+      job.text,
+      embedding,
+      result.model
+    );
+
+    // Track in database
+    db.insert(entryEmbeddings)
+      .values({
+        id: generateId(),
+        entryType: job.entryType,
+        entryId: job.entryId,
+        versionId: job.versionId,
+        hasEmbedding: true,
+        embeddingModel: result.model,
+        embeddingProvider: result.provider,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: [entryEmbeddings.entryType, entryEmbeddings.entryId, entryEmbeddings.versionId],
+        set: {
+          hasEmbedding: true,
+          embeddingModel: result.model,
+          embeddingProvider: result.provider,
+          updatedAt: now,
+        },
+      })
+      .run();
+
+    processedCount++;
+    embeddingCounter.inc({ provider: result.provider, status: 'success' });
+  }
+
+  timer.end();
+  logger.debug({ batchSize: freshJobs.length }, 'Batch embedding completed');
+}
+
 function drainQueue(): void {
   const max = getMaxConcurrency();
+  const pipeline = embeddingPipeline;
+  const canBatch = pipeline?.embedBatch != null;
+  const batchSize = getBatchSize();
+
+  // If batching is available and we have multiple items, process as batch
+  if (canBatch && queue.length >= 2 && inFlight < max) {
+    // Collect up to batchSize jobs
+    const jobsToProcess: QueuedEmbeddingInput[] = [];
+    const keysToProcess: EmbeddingQueueKey[] = [];
+    const jobAttempts: Map<EmbeddingQueueKey, number> = new Map();
+
+    while (jobsToProcess.length < batchSize && queue.length > 0) {
+      const key = queue.shift();
+      if (!key) break;
+      enqueued.delete(key);
+
+      const job = pendingByEntry.get(key);
+      if (!job) continue;
+      pendingByEntry.delete(key);
+
+      // Track retry attempt numbers
+      const existingFailed = failedJobs.get(key);
+      const attemptNumber = existingFailed ? existingFailed.attempts + 1 : 1;
+      jobAttempts.set(key, attemptNumber);
+
+      jobsToProcess.push(job);
+      keysToProcess.push(key);
+    }
+
+    if (jobsToProcess.length > 0) {
+      inFlight += 1; // Count entire batch as 1 in-flight operation
+      void runBatchEmbeddingJobs(jobsToProcess)
+        .then(() => {
+          // Track successful retries
+          for (const key of keysToProcess) {
+            if (failedJobs.has(key)) {
+              retriedCount++;
+              failedJobs.delete(key);
+            }
+          }
+        })
+        .catch((error) => {
+          // Batch failed - track all jobs for retry
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          const maxRetries = getMaxRetries();
+          embeddingCounter.inc({ provider: 'pipeline', status: 'error' });
+
+          for (let i = 0; i < jobsToProcess.length; i++) {
+            const job = jobsToProcess[i]!;
+            const key = keysToProcess[i]!;
+            const attemptNumber = jobAttempts.get(key) ?? 1;
+
+            if (attemptNumber < maxRetries) {
+              failedJobs.set(key, {
+                input: job,
+                attempts: attemptNumber,
+                lastError: errorMsg,
+                lastAttemptAt: Date.now(),
+              });
+            } else {
+              failedCount++;
+              failedJobs.delete(key);
+              getEmbeddingDLQ().add({
+                type: 'embedding',
+                operation: 'generateAndStore',
+                payload: {
+                  entryType: job.entryType,
+                  entryId: job.entryId,
+                  text: job.text.substring(0, 100),
+                },
+                error: errorMsg,
+                metadata: { versionId: job.versionId, attempts: attemptNumber },
+              });
+            }
+          }
+          logger.error(
+            { error: errorMsg, batchSize: jobsToProcess.length },
+            'Batch embedding failed'
+          );
+        })
+        .finally(() => {
+          inFlight -= 1;
+          drainQueue();
+        });
+    }
+    return;
+  }
+
+  // Fallback: process jobs individually (when batch not available or single item)
   while (inFlight < max && queue.length > 0) {
     const key = queue.shift();
     if (!key) break;
@@ -369,6 +598,8 @@ export function resetEmbeddingQueueForTests(): void {
   failedCount = 0;
   skippedStaleCount = 0;
   retriedCount = 0;
+  batchesProcessed = 0;
+  totalBatchedItems = 0;
 }
 
 /**

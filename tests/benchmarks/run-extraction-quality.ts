@@ -4,20 +4,24 @@
  *
  * Runs the extraction quality benchmark against ground truth test cases.
  * Measures precision, recall, F1, and proxy metrics.
+ * Optionally computes semantic metrics (BERTScore, Groundedness).
  *
  * Usage:
  *   npx tsx tests/benchmarks/run-extraction-quality.ts [options]
  *
  * Options:
- *   --category CAT    Only run tests in this category
- *   --difficulty D    Only run tests with this difficulty (easy|medium|hard)
- *   --limit N         Limit to first N test cases
- *   --provider P      Extraction provider (openai|anthropic|ollama)
- *   --model M         Model to use
- *   --save FILE       Save results to JSON file
- *   --compare FILE    Compare against baseline results file
- *   --debug           Show detailed output for each test case
- *   --help, -h        Show this help
+ *   --category CAT        Only run tests in this category
+ *   --difficulty D        Only run tests with this difficulty (easy|medium|hard)
+ *   --limit N             Limit to first N test cases
+ *   --provider P          Extraction provider (openai|anthropic|ollama)
+ *   --model M             Model to use
+ *   --save FILE           Save results to JSON file
+ *   --compare FILE        Compare against baseline results file
+ *   --debug               Show detailed output for each test case
+ *   --semantic            Enable semantic metrics (BERTScore, Groundedness)
+ *   --bert-threshold N    BERTScore similarity threshold (default: 0.85)
+ *   --grounded-threshold N  Groundedness threshold (default: 0.7)
+ *   --help, -h            Show this help
  */
 
 // Load .env file FIRST
@@ -43,6 +47,9 @@ const provider = getArgValue('--provider') || 'openai';
 const model = getArgValue('--model');
 const saveFile = getArgValue('--save');
 const compareFile = getArgValue('--compare');
+const semanticEnabled = args.includes('--semantic');
+const bertThreshold = getArgValue('--bert-threshold') ? parseFloat(getArgValue('--bert-threshold')!) : 0.85;
+const groundedThreshold = getArgValue('--grounded-threshold') ? parseFloat(getArgValue('--grounded-threshold')!) : 0.7;
 
 if (showHelp) {
   console.log(`
@@ -54,19 +61,22 @@ Measures precision, recall, F1 scores, and proxy metrics.
 Usage: npx tsx tests/benchmarks/run-extraction-quality.ts [options]
 
 Options:
-  --category CAT    Only run tests in this category
-                    Categories: guidelines-explicit, guidelines-implicit,
-                    guidelines-compound, knowledge-decisions, knowledge-facts,
-                    knowledge-temporal, tools-cli, tools-api, mixed-content,
-                    noise-resistance, edge-cases
-  --difficulty D    Only run tests with this difficulty (easy|medium|hard)
-  --limit N         Limit to first N test cases
-  --provider P      Extraction provider (openai|anthropic|ollama)
-  --model M         Model to use (default: provider's default)
-  --save FILE       Save results to JSON file
-  --compare FILE    Compare against baseline results file
-  --debug           Show detailed output for each test case
-  --help, -h        Show this help
+  --category CAT           Only run tests in this category
+                           Categories: guidelines-explicit, guidelines-implicit,
+                           guidelines-compound, knowledge-decisions, knowledge-facts,
+                           knowledge-temporal, tools-cli, tools-api, mixed-content,
+                           noise-resistance, edge-cases
+  --difficulty D           Only run tests with this difficulty (easy|medium|hard)
+  --limit N                Limit to first N test cases
+  --provider P             Extraction provider (openai|anthropic|ollama)
+  --model M                Model to use (default: provider's default)
+  --save FILE              Save results to JSON file
+  --compare FILE           Compare against baseline results file
+  --debug                  Show detailed output for each test case
+  --semantic               Enable semantic metrics (BERTScore, Groundedness)
+  --bert-threshold N       BERTScore similarity threshold (default: 0.85)
+  --grounded-threshold N   Groundedness threshold (default: 0.7)
+  --help, -h               Show this help
 
 Examples:
   npx tsx tests/benchmarks/run-extraction-quality.ts
@@ -74,6 +84,7 @@ Examples:
   npx tsx tests/benchmarks/run-extraction-quality.ts --difficulty hard --debug
   npx tsx tests/benchmarks/run-extraction-quality.ts --limit 10 --save baseline.json
   npx tsx tests/benchmarks/run-extraction-quality.ts --compare baseline.json
+  npx tsx tests/benchmarks/run-extraction-quality.ts --semantic --limit 20
 `);
   process.exit(0);
 }
@@ -81,9 +92,11 @@ Examples:
 // Dynamic imports
 const { config: appConfig } = await import('../../src/config/index.js');
 const { ExtractionService } = await import('../../src/services/extraction.service.js');
+const { EmbeddingService } = await import('../../src/services/embedding.service.js');
 const { EXTRACTION_TEST_CASES, getDatasetStats } = await import('./extraction-quality-dataset.js');
 const { runBenchmark, printBenchmarkResults, compareBenchmarks } = await import('./extraction-quality-evaluator.js');
 import type { ExtractionBenchmarkResults } from './extraction-quality-types.js';
+import type { SemanticEvalConfig } from './extraction-quality-evaluator.js';
 
 // =============================================================================
 // SETUP
@@ -139,9 +152,30 @@ async function main() {
   console.log(`Provider: ${extractionConfig.provider}`);
   console.log(`Model: ${extractionConfig[`${extractionConfig.provider}Model` as keyof typeof extractionConfig]}`);
   console.log(`Atomicity: ${appConfig.extraction.atomicityEnabled ? 'Enabled' : 'Disabled'}`);
+  console.log(`Semantic Metrics: ${semanticEnabled ? 'Enabled' : 'Disabled'}`);
+  if (semanticEnabled) {
+    console.log(`  BERTScore Threshold: ${bertThreshold}`);
+    console.log(`  Groundedness Threshold: ${groundedThreshold}`);
+  }
   console.log('');
 
   const extractionService = new ExtractionService(extractionConfig);
+
+  // Create semantic config if enabled
+  let semanticConfig: SemanticEvalConfig | undefined;
+  if (semanticEnabled) {
+    const embeddingService = new EmbeddingService();
+    if (!embeddingService.isAvailable()) {
+      console.error('Warning: Embedding service not available. Semantic metrics will be skipped.');
+    } else {
+      semanticConfig = {
+        enabled: true,
+        embeddingService,
+        bertScoreThreshold: bertThreshold,
+        groundednessThreshold: groundedThreshold,
+      };
+    }
+  }
 
   // Create extract function wrapper
   const extractFn = async (context: string, contextType: string) => {
@@ -178,6 +212,7 @@ async function main() {
       provider: extractionConfig.provider,
       model: String(extractionConfig[`${extractionConfig.provider}Model` as keyof typeof extractionConfig]),
       atomicityEnabled: appConfig.extraction.atomicityEnabled,
+      semanticConfig,
     },
     (completed, total, current) => {
       const percent = Math.floor((completed / total) * 100);

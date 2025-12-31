@@ -25,6 +25,8 @@ import { createConflictRepository } from '../../db/repositories/conflicts.js';
 import { createExperienceRepository } from '../../db/repositories/experiences.js';
 import { createNodeRepository, createEdgeRepository } from '../../db/repositories/graph/index.js';
 import { createTypeRegistry } from '../../services/graph/index.js';
+import { createTaskRepository } from '../../db/repositories/tasks.js';
+import { createEvidenceRepository } from '../../db/repositories/evidence.js';
 
 /**
  * Create all repositories with injected dependencies
@@ -59,5 +61,8 @@ export function createRepositories(deps: DatabaseDeps): Repositories {
     typeRegistry,
     graphNodes: nodeRepo,
     graphEdges: edgeRepo,
+    // Task and Evidence repositories
+    tasks: createTaskRepository(deps),
+    evidence: createEvidenceRepository(deps),
   };
 }

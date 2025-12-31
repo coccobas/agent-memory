@@ -19,16 +19,18 @@ import {
   configRegistry,
   buildConfigSchema,
   buildConfigFromRegistry,
-  extractionConfidenceThresholds,
-  rateLimitPerAgentOptions,
-  rateLimitGlobalOptions,
-  rateLimitBurstOptions,
-  recencyDecayHalfLifeOptions,
-  scoringWeightOptions,
-  feedbackScoringOptions,
-  entityScoringOptions,
 } from './registry/index.js';
-import { parseInt_, parseNumber, parseBoolean, projectRoot } from './registry/parsers.js';
+import { projectRoot } from './registry/parsers.js';
+import {
+  buildExtractionThresholds,
+  buildRateLimitPerAgent,
+  buildRateLimitGlobal,
+  buildRateLimitBurst,
+  buildRecencyDecayHalfLife,
+  buildScoringWeights,
+  buildFeedbackScoring,
+  buildEntityScoring,
+} from './builders/index.js';
 
 // =============================================================================
 // CONFIGURATION INTERFACE
@@ -65,12 +67,15 @@ export interface Config {
     backend: 'auto' | 'pgvector' | 'lancedb';
     path: string;
     distanceMetric: 'cosine' | 'l2' | 'dot';
+    quantization: 'none' | 'sq' | 'pq';
+    indexThreshold: number;
   };
   embedding: {
     provider: 'openai' | 'local' | 'disabled';
     openaiApiKey: string | undefined;
     openaiModel: string;
     maxConcurrency: number;
+    batchSize: number;
     maxRetries: number;
     retryDelayMs: number;
   };
@@ -231,6 +236,7 @@ export interface Config {
     enabled: boolean;
     host: string;
     port: number;
+    bodyLimit: number;
   };
   security: {
     restAuthDisabled: boolean;
@@ -308,6 +314,24 @@ export interface Config {
     minSimilarity: number;
     semanticQueriesOnly: boolean;
   };
+  autoContext: {
+    enabled: boolean;
+    defaultAgentId: string;
+    cacheTTLMs: number;
+    autoSession: boolean;
+    autoSessionName: string;
+  };
+  classification: {
+    highConfidenceThreshold: number;
+    lowConfidenceThreshold: number;
+    enableLLMFallback: boolean;
+    feedbackDecayDays: number;
+    maxPatternBoost: number;
+    maxPatternPenalty: number;
+    cacheSize: number;
+    cacheTTLMs: number;
+    learningRate: number;
+  };
 }
 
 // =============================================================================
@@ -315,138 +339,6 @@ export interface Config {
 // =============================================================================
 
 const configSchema = buildConfigSchema(configRegistry);
-
-// =============================================================================
-// NESTED CONFIG BUILDERS (Type-safe versions)
-// =============================================================================
-
-/**
- * Helper to get a number from env with fallback to default
- */
-function getEnvNumber(envKey: string, defaultValue: number): number {
-  const envValue = process.env[envKey];
-  if (envValue === undefined || envValue === '') {
-    return defaultValue;
-  }
-  return parseNumber(envValue, defaultValue);
-}
-
-/**
- * Helper to get an integer from env with fallback to default
- */
-function getEnvInt(envKey: string, defaultValue: number): number {
-  const envValue = process.env[envKey];
-  if (envValue === undefined || envValue === '') {
-    return defaultValue;
-  }
-  return parseInt_(envValue, defaultValue);
-}
-
-/**
- * Helper to get a boolean from env with fallback to default
- */
-function getEnvBoolean(envKey: string, defaultValue: boolean): boolean {
-  const envValue = process.env[envKey];
-  if (envValue === undefined || envValue === '') {
-    return defaultValue;
-  }
-  return parseBoolean(envValue, defaultValue);
-}
-
-/**
- * Build extraction confidence thresholds with proper typing
- */
-function buildExtractionThresholds(): Config['extraction']['confidenceThresholds'] {
-  return {
-    guideline: getEnvNumber(extractionConfidenceThresholds.guideline.envKey, extractionConfidenceThresholds.guideline.defaultValue),
-    knowledge: getEnvNumber(extractionConfidenceThresholds.knowledge.envKey, extractionConfidenceThresholds.knowledge.defaultValue),
-    tool: getEnvNumber(extractionConfidenceThresholds.tool.envKey, extractionConfidenceThresholds.tool.defaultValue),
-    entity: getEnvNumber(extractionConfidenceThresholds.entity.envKey, extractionConfidenceThresholds.entity.defaultValue),
-    relationship: getEnvNumber(extractionConfidenceThresholds.relationship.envKey, extractionConfidenceThresholds.relationship.defaultValue),
-  };
-}
-
-/**
- * Build rate limit per-agent config with proper typing
- */
-function buildRateLimitPerAgent(): Config['rateLimit']['perAgent'] {
-  return {
-    maxRequests: getEnvInt(rateLimitPerAgentOptions.maxRequests.envKey, rateLimitPerAgentOptions.maxRequests.defaultValue),
-    windowMs: getEnvInt(rateLimitPerAgentOptions.windowMs.envKey, rateLimitPerAgentOptions.windowMs.defaultValue),
-  };
-}
-
-/**
- * Build rate limit global config with proper typing
- */
-function buildRateLimitGlobal(): Config['rateLimit']['global'] {
-  return {
-    maxRequests: getEnvInt(rateLimitGlobalOptions.maxRequests.envKey, rateLimitGlobalOptions.maxRequests.defaultValue),
-    windowMs: getEnvInt(rateLimitGlobalOptions.windowMs.envKey, rateLimitGlobalOptions.windowMs.defaultValue),
-  };
-}
-
-/**
- * Build rate limit burst config with proper typing
- */
-function buildRateLimitBurst(): Config['rateLimit']['burst'] {
-  return {
-    maxRequests: getEnvInt(rateLimitBurstOptions.maxRequests.envKey, rateLimitBurstOptions.maxRequests.defaultValue),
-    windowMs: getEnvInt(rateLimitBurstOptions.windowMs.envKey, rateLimitBurstOptions.windowMs.defaultValue),
-  };
-}
-
-/**
- * Build recency decay half-life config with proper typing
- */
-function buildRecencyDecayHalfLife(): Config['recency']['decayHalfLifeDays'] {
-  return {
-    guideline: getEnvInt(recencyDecayHalfLifeOptions.guideline.envKey, recencyDecayHalfLifeOptions.guideline.defaultValue),
-    knowledge: getEnvInt(recencyDecayHalfLifeOptions.knowledge.envKey, recencyDecayHalfLifeOptions.knowledge.defaultValue),
-    tool: getEnvInt(recencyDecayHalfLifeOptions.tool.envKey, recencyDecayHalfLifeOptions.tool.defaultValue),
-  };
-}
-
-/**
- * Build scoring weights config with proper typing
- */
-function buildScoringWeights(): Config['scoring']['weights'] {
-  return {
-    explicitRelation: getEnvInt(scoringWeightOptions.explicitRelation.envKey, scoringWeightOptions.explicitRelation.defaultValue),
-    tagMatch: getEnvInt(scoringWeightOptions.tagMatch.envKey, scoringWeightOptions.tagMatch.defaultValue),
-    scopeProximity: getEnvInt(scoringWeightOptions.scopeProximity.envKey, scoringWeightOptions.scopeProximity.defaultValue),
-    textMatch: getEnvInt(scoringWeightOptions.textMatch.envKey, scoringWeightOptions.textMatch.defaultValue),
-    priorityMax: getEnvInt(scoringWeightOptions.priorityMax.envKey, scoringWeightOptions.priorityMax.defaultValue),
-    semanticMax: getEnvInt(scoringWeightOptions.semanticMax.envKey, scoringWeightOptions.semanticMax.defaultValue),
-    recencyMax: getEnvInt(scoringWeightOptions.recencyMax.envKey, scoringWeightOptions.recencyMax.defaultValue),
-  };
-}
-
-/**
- * Build feedback scoring config with proper typing
- */
-function buildFeedbackScoring(): Config['scoring']['feedbackScoring'] {
-  return {
-    enabled: getEnvBoolean(feedbackScoringOptions.enabled.envKey, feedbackScoringOptions.enabled.defaultValue),
-    boostPerPositive: getEnvNumber(feedbackScoringOptions.boostPerPositive.envKey, feedbackScoringOptions.boostPerPositive.defaultValue),
-    boostMax: getEnvNumber(feedbackScoringOptions.boostMax.envKey, feedbackScoringOptions.boostMax.defaultValue),
-    penaltyPerNegative: getEnvNumber(feedbackScoringOptions.penaltyPerNegative.envKey, feedbackScoringOptions.penaltyPerNegative.defaultValue),
-    penaltyMax: getEnvNumber(feedbackScoringOptions.penaltyMax.envKey, feedbackScoringOptions.penaltyMax.defaultValue),
-    cacheTTLMs: getEnvInt(feedbackScoringOptions.cacheTTLMs.envKey, feedbackScoringOptions.cacheTTLMs.defaultValue),
-    cacheMaxSize: getEnvInt(feedbackScoringOptions.cacheMaxSize.envKey, feedbackScoringOptions.cacheMaxSize.defaultValue),
-  };
-}
-
-/**
- * Build entity scoring config with proper typing
- */
-function buildEntityScoring(): Config['scoring']['entityScoring'] {
-  return {
-    enabled: getEnvBoolean(entityScoringOptions.enabled.envKey, entityScoringOptions.enabled.defaultValue),
-    exactMatchBoost: getEnvInt(entityScoringOptions.exactMatchBoost.envKey, entityScoringOptions.exactMatchBoost.defaultValue),
-    partialMatchBoost: getEnvInt(entityScoringOptions.partialMatchBoost.envKey, entityScoringOptions.partialMatchBoost.defaultValue),
-  };
-}
 
 // =============================================================================
 // BUILD CONFIGURATION

@@ -73,6 +73,11 @@ export interface EntryRepository<TEntry extends BaseEntry, TCreateInput, TUpdate
     scopeId?: string,
     inherit?: boolean
   ): Promise<TEntry | undefined>;
+  /**
+   * Batch fetch multiple entries by ID (optional, defaults to sequential getById)
+   * Uses SQL IN clause for efficiency when implemented
+   */
+  getByIds?(ids: string[]): Promise<TEntry[]>;
   list(
     filter: { scopeType?: ScopeType; scopeId?: string; includeInactive?: boolean },
     pagination?: { limit?: number; offset?: number }
@@ -696,6 +701,37 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
       // Batch permission check (fail-fast on first denied)
       requirePermissionBatch(context, agentId, 'write', permissionEntries);
 
+      // Parallel validation of all entries (fail-fast on first invalid)
+      const validationService = createValidationService(context.repos.guidelines);
+      const validationPromises = entries.map(async (entry, i) => {
+        if (!isObject(entry)) return null;
+        const entryObj = entry;
+        const scopeType = isScopeType(entryObj.scopeType) ? entryObj.scopeType : defaultScopeType;
+        const scopeId = isString(entryObj.scopeId) ? entryObj.scopeId : defaultScopeId;
+        if (!scopeType) return null; // Will fail later
+
+        const validationData = config.getValidationData(entryObj);
+        const result = await validationService.validateEntry(
+          config.entryType,
+          validationData,
+          scopeType,
+          scopeId ?? undefined
+        );
+        return { index: i, result };
+      });
+      const validationResults = await Promise.all(validationPromises);
+
+      // Check for validation errors
+      for (const vr of validationResults) {
+        if (vr && !vr.result.valid) {
+          throw createValidationError(
+            `entries[${vr.index}]`,
+            `Validation failed: ${vr.result.errors.map((e: { message: string }) => e.message).join(', ')}`,
+            'Check the validation errors and correct the input data'
+          );
+        }
+      }
+
       // Execute in transaction for atomicity
       // Note: repo methods return Promises but SQLite is sync underneath,
       // so promises resolve immediately within the sync transaction callback
@@ -760,15 +796,33 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
         );
       }
 
-      // Fetch all existing entries and collect permission check info
-      // Uses batch permission check for efficiency - single DB query instead of N queries
-      const permissionEntries: Array<{ id: string; scopeType: ScopeType; scopeId: string | null }> = [];
+      // Extract IDs and validate they are strings
+      const ids: string[] = [];
       for (const update of updates) {
         if (!isObject(update)) continue;
-        const updateObj = update;
-        const id = updateObj.id;
+        const id = update.id;
         if (!isString(id)) continue;
-        const existingEntry = await repo.getById(id);
+        ids.push(id);
+      }
+
+      // Batch fetch all entries using SQL IN clause (single query instead of N queries)
+      const existingEntries = repo.getByIds ? await repo.getByIds(ids) : [];
+      const entriesMap = new Map(existingEntries.map((e) => [e.id, e]));
+
+      // Fall back to sequential fetch if getByIds not available or returned incomplete
+      if (!repo.getByIds || existingEntries.length !== ids.length) {
+        for (const id of ids) {
+          if (!entriesMap.has(id)) {
+            const entry = await repo.getById(id);
+            if (entry) entriesMap.set(id, entry);
+          }
+        }
+      }
+
+      // Validate all entries exist and collect permission info
+      const permissionEntries: Array<{ id: string; scopeType: ScopeType; scopeId: string | null }> = [];
+      for (const id of ids) {
+        const existingEntry = entriesMap.get(id);
         if (!existingEntry) {
           throw createNotFoundError(config.entryType, id);
         }
@@ -781,6 +835,39 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
 
       // Batch permission check (fail-fast on first denied)
       requirePermissionBatch(context, agentId, 'write', permissionEntries);
+
+      // Parallel validation of all updates (fail-fast on first invalid)
+      const validationService = createValidationService(context.repos.guidelines);
+      const validationPromises = updates.map(async (update, i) => {
+        if (!isObject(update)) return null;
+        const updateObj = update;
+        const id = updateObj.id;
+        if (!isString(id)) return null;
+
+        const existingEntry = entriesMap.get(id);
+        if (!existingEntry) return null;
+
+        const validationData = config.getValidationData(updateObj, existingEntry);
+        const result = await validationService.validateEntry(
+          config.entryType,
+          validationData,
+          existingEntry.scopeType,
+          existingEntry.scopeId ?? undefined
+        );
+        return { index: i, id, result };
+      });
+      const validationResults = await Promise.all(validationPromises);
+
+      // Check for validation errors
+      for (const vr of validationResults) {
+        if (vr && !vr.result.valid) {
+          throw createValidationError(
+            `updates[${vr.index}]`,
+            `Validation failed for ${vr.id}: ${vr.result.errors.map((e: { message: string }) => e.message).join(', ')}`,
+            'Check the validation errors and correct the input data'
+          );
+        }
+      }
 
       // Execute in transaction
       // Note: repo methods return Promises but SQLite is sync underneath
@@ -866,11 +953,24 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
         );
       }
 
-      // Fetch all existing entries and collect permission check info
-      // Uses batch permission check for efficiency - single DB query instead of N queries
+      // Batch fetch all entries using SQL IN clause (single query instead of N queries)
+      const existingEntries = repo.getByIds ? await repo.getByIds(ids) : [];
+      const entriesMap = new Map(existingEntries.map((e) => [e.id, e]));
+
+      // Fall back to sequential fetch if getByIds not available or returned incomplete
+      if (!repo.getByIds || existingEntries.length !== ids.length) {
+        for (const id of ids) {
+          if (!entriesMap.has(id)) {
+            const entry = await repo.getById(id);
+            if (entry) entriesMap.set(id, entry);
+          }
+        }
+      }
+
+      // Validate all entries exist and collect permission info
       const permissionEntries: Array<{ id: string; scopeType: ScopeType; scopeId: string | null }> = [];
       for (const id of ids) {
-        const existingEntry = await repo.getById(id);
+        const existingEntry = entriesMap.get(id);
         if (!existingEntry) {
           throw createNotFoundError(config.entryType, id);
         }

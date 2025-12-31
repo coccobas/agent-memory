@@ -71,7 +71,7 @@ describe('REST API Tools Endpoints', () => {
   });
 
   describe('GET /v1/tools - List Tools', () => {
-    it('should return list of all 29 tools', async () => {
+    it('should return list of all MCP tools', async () => {
       const app = await createServer(context);
 
       const res = await app.inject({
@@ -95,7 +95,7 @@ describe('REST API Tools Endpoints', () => {
       // Verify response structure
       expect(body.tools).toBeDefined();
       expect(Array.isArray(body.tools)).toBe(true);
-      expect(body.count).toBe(36); // Expect all 36 MCP tools (including graph_node, graph_edge)
+      expect(body.count).toBe(42); // Expect all 42 MCP tools (including graph_node, graph_edge, memory_context, memory_remember, memory_suggest, memory_quickstart, memory_task, memory_evidence)
 
       // Verify specific tools are present
       const toolNames = body.tools.map((t) => t.name);

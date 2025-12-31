@@ -1251,6 +1251,708 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     difficulty: 'hard',
     notes: 'Negated statements can still be valuable knowledge',
   },
+
+  // ===========================================================================
+  // CODE CONTEXT (4 cases)
+  // ===========================================================================
+  {
+    id: 'cc-001',
+    name: 'Code with inline IMPORTANT comment',
+    category: 'code-context',
+    context: `// IMPORTANT: Always validate user input before processing
+function processUserData(data: unknown) {
+  // TODO: Add rate limiting
+  return data;
+}`,
+    contextType: 'code',
+    expectedEntries: [
+      { type: 'guideline', mustContain: ['validate', 'user input'] },
+    ],
+    difficulty: 'medium',
+    notes: 'Should extract guideline from IMPORTANT comment',
+  },
+  {
+    id: 'cc-002',
+    name: 'Code with JSDoc documentation',
+    category: 'code-context',
+    context: `/**
+ * @description Authenticates user with JWT tokens
+ * @security All tokens must be validated server-side
+ * @param token - The JWT token to validate
+ * @returns User object if valid
+ */
+function authenticateUser(token: string): User {
+  return validateAndDecode(token);
+}`,
+    contextType: 'code',
+    expectedEntries: [
+      { type: 'knowledge', mustContain: ['JWT', 'token'] },
+      { type: 'guideline', mustContain: ['token', 'validated', 'server'] },
+    ],
+    difficulty: 'hard',
+    notes: 'Should extract from JSDoc @security and @description',
+  },
+  {
+    id: 'cc-003',
+    name: 'Config file patterns',
+    category: 'code-context',
+    context: `// tsconfig.json configuration
+{
+  "compilerOptions": {
+    "strict": true,        // REQUIRED: Always use strict mode
+    "noImplicitAny": true, // REQUIRED: No implicit any types
+    "target": "ES2022"
+  }
+}`,
+    contextType: 'code',
+    expectedEntries: [
+      { type: 'guideline', mustContain: ['strict', 'mode'] },
+      { type: 'guideline', mustContain: ['implicit', 'any'] },
+    ],
+    difficulty: 'hard',
+    notes: 'Should extract from config file comments',
+  },
+  {
+    id: 'cc-004',
+    name: 'Code with TODO/FIXME comments',
+    category: 'code-context',
+    context: `class DatabaseConnection {
+  // FIXME: Connection pool size hardcoded, should be configurable
+  private poolSize = 10;
+
+  // TODO: Add retry logic with exponential backoff
+  async connect() {
+    return this.pool.connect();
+  }
+}`,
+    contextType: 'code',
+    expectedEntries: [
+      { type: 'knowledge', mustContain: ['connection pool', 'configurable'] },
+      { type: 'knowledge', mustContain: ['retry', 'exponential backoff'] },
+    ],
+    difficulty: 'medium',
+    notes: 'Should extract actionable items from TODO/FIXME',
+  },
+
+  // ===========================================================================
+  // CONSTRAINTS (3 cases)
+  // ===========================================================================
+  {
+    id: 'cn-001',
+    name: 'API performance constraint',
+    category: 'constraints',
+    context: 'The API must respond within 200ms for 99th percentile latency. Any endpoint exceeding this SLA requires optimization.',
+    contextType: 'conversation',
+    expectedEntries: [
+      { type: 'guideline', mustContain: ['200ms', 'latency'] },
+    ],
+    difficulty: 'medium',
+  },
+  {
+    id: 'cn-002',
+    name: 'Data format constraint',
+    category: 'constraints',
+    context: 'User IDs must be UUIDs, never sequential integers. This prevents enumeration attacks and information disclosure.',
+    contextType: 'conversation',
+    expectedEntries: [
+      { type: 'guideline', mustContain: ['UUID', 'sequential'] },
+    ],
+    difficulty: 'easy',
+  },
+  {
+    id: 'cn-003',
+    name: 'Security logging constraint',
+    category: 'constraints',
+    context: 'PII must never be logged. This includes email addresses, phone numbers, and IP addresses. Mask sensitive data before logging.',
+    contextType: 'conversation',
+    expectedEntries: [
+      { type: 'guideline', mustContain: ['PII', 'never', 'log'], category: 'security' },
+      { type: 'guideline', mustContain: ['mask', 'sensitive'] },
+    ],
+    difficulty: 'medium',
+  },
+
+  // ===========================================================================
+  // EXAMPLES (3 cases)
+  // ===========================================================================
+  {
+    id: 'ex-001',
+    name: 'Good/bad code examples',
+    category: 'examples',
+    context: `Error handling pattern:
+Good: throw new AppError('User not found', 404);
+Bad: throw new Error('error');
+Always include error code and descriptive message.`,
+    contextType: 'conversation',
+    expectedEntries: [
+      { type: 'guideline', mustContain: ['error', 'code', 'message'] },
+    ],
+    difficulty: 'medium',
+    notes: 'Should extract the pattern with examples',
+  },
+  {
+    id: 'ex-002',
+    name: 'Pattern with example',
+    category: 'examples',
+    context: 'Use the repository pattern for data access. For example, UserRepository handles all user-related database operations, ProductRepository for products.',
+    contextType: 'conversation',
+    expectedEntries: [
+      { type: 'guideline', mustContain: ['repository pattern', 'data access'] },
+      { type: 'knowledge', mustContain: ['UserRepository', 'user'] },
+    ],
+    difficulty: 'medium',
+  },
+  {
+    id: 'ex-003',
+    name: 'Anti-pattern example',
+    category: 'examples',
+    context: 'Avoid the God object anti-pattern. Bad example: UserManager class with 50+ methods handling authentication, profile, billing, and notifications. Split into focused services.',
+    contextType: 'conversation',
+    expectedEntries: [
+      { type: 'guideline', mustContain: ['God object', 'avoid'] },
+      { type: 'guideline', mustContain: ['focused', 'service'] },
+    ],
+    difficulty: 'hard',
+  },
+
+  // ===========================================================================
+  // SOURCE ATTRIBUTION (3 cases)
+  // ===========================================================================
+  {
+    id: 'sa-001',
+    name: 'External RFC reference',
+    category: 'source-attribution',
+    context: 'According to RFC 7807, all API error responses should include a type URI, title, status, and detail field. We follow this standard.',
+    contextType: 'conversation',
+    expectedEntries: [
+      { type: 'guideline', mustContain: ['RFC 7807', 'error response'] },
+    ],
+    difficulty: 'medium',
+    notes: 'Should capture the RFC reference as source',
+  },
+  {
+    id: 'sa-002',
+    name: 'Internal ADR reference',
+    category: 'source-attribution',
+    context: 'Per ADR-003, we use event sourcing for the order management domain. This was decided in Q2 2024 to support audit requirements.',
+    contextType: 'conversation',
+    expectedEntries: [
+      { type: 'knowledge', mustContain: ['ADR-003', 'event sourcing'], category: 'decision' },
+    ],
+    difficulty: 'medium',
+  },
+  {
+    id: 'sa-003',
+    name: 'Link reference',
+    category: 'source-attribution',
+    context: 'For deployment procedures, see https://docs.internal.com/deployment. All deployments must follow the runbook documented there.',
+    contextType: 'conversation',
+    expectedEntries: [
+      { type: 'knowledge', mustContain: ['deployment', 'runbook'] },
+    ],
+    difficulty: 'easy',
+  },
+
+  // ===========================================================================
+  // MCP/FUNCTION TOOLS (4 cases)
+  // ===========================================================================
+  {
+    id: 'tf-001',
+    name: 'MCP tool definition',
+    category: 'tools-mcp',
+    context: 'Use the memory_query MCP tool with action: context to load project context at conversation start. Always include inherit: true.',
+    contextType: 'conversation',
+    expectedEntries: [
+      { type: 'tool', mustContain: ['memory_query', 'context'], category: 'mcp' },
+      { type: 'guideline', mustContain: ['inherit: true'] },
+    ],
+    difficulty: 'medium',
+  },
+  {
+    id: 'tf-002',
+    name: 'Function signature',
+    category: 'tools-function',
+    context: 'Call validateInput(data: unknown): Result<T> to validate all incoming data. It returns either Ok<T> or Err<ValidationError>.',
+    contextType: 'conversation',
+    expectedEntries: [
+      { type: 'tool', mustContain: ['validateInput', 'Result'], category: 'function' },
+    ],
+    difficulty: 'medium',
+  },
+  {
+    id: 'tf-003',
+    name: 'API with body params',
+    category: 'tools-api',
+    context: 'POST /api/users with body {name: string, email: string, role: "admin" | "user"}. Returns 201 with the created user object.',
+    contextType: 'conversation',
+    expectedEntries: [
+      { type: 'tool', mustContain: ['POST', '/api/users'], category: 'api' },
+    ],
+    difficulty: 'easy',
+  },
+  {
+    id: 'tf-004',
+    name: 'CLI with flags',
+    category: 'tools-cli',
+    context: 'Use `npm run build -- --watch --sourcemap` for development builds with live reload and debugging support.',
+    contextType: 'conversation',
+    expectedEntries: [
+      { type: 'tool', mustContain: ['npm run build', '--watch', '--sourcemap'], category: 'cli' },
+    ],
+    difficulty: 'easy',
+  },
+
+  // ===========================================================================
+  // CONFIDENCE LEVELS (3 cases)
+  // ===========================================================================
+  {
+    id: 'cl-001',
+    name: 'High confidence fact',
+    category: 'confidence-levels',
+    context: 'The production database is PostgreSQL 16.1 running on AWS RDS in us-east-1a.',
+    contextType: 'conversation',
+    expectedEntries: [
+      { type: 'knowledge', mustContain: ['PostgreSQL 16.1', 'RDS'], category: 'fact', confidence: 0.9 },
+    ],
+    difficulty: 'easy',
+  },
+  {
+    id: 'cl-002',
+    name: 'Uncertain knowledge',
+    category: 'confidence-levels',
+    context: 'I think the API timeout is set to 30 seconds, but I need to verify this with the infrastructure team.',
+    contextType: 'conversation',
+    expectedEntries: [
+      { type: 'knowledge', mustContain: ['timeout', '30 seconds'], confidence: 0.5 },
+    ],
+    difficulty: 'medium',
+    notes: 'Should extract with low confidence due to uncertainty markers',
+  },
+  {
+    id: 'cl-003',
+    name: 'Tentative decision',
+    category: 'confidence-levels',
+    context: 'We are leaning towards using Redis for the cache layer, but this is not final. Need to evaluate Memcached as well.',
+    contextType: 'conversation',
+    expectedEntries: [
+      { type: 'knowledge', mustContain: ['Redis', 'cache'], category: 'context', confidence: 0.6 },
+    ],
+    difficulty: 'hard',
+    notes: 'Tentative decisions should be extracted with medium confidence',
+  },
+
+  // ===========================================================================
+  // ADVERSARIAL: INFORMAL SPEECH (5 cases)
+  // ===========================================================================
+  {
+    id: 'adv-is-001',
+    name: 'Informal speech - slang and abbreviations',
+    category: 'informal-speech',
+    context: 'yo so basically we gotta use typescript strict mode, its like super important. also dont use any type lol',
+    contextType: 'conversation',
+    expectedEntries: [
+      { type: 'guideline', mustContain: ['TypeScript', 'strict'] },
+      { type: 'guideline', mustContain: ['any', 'type'] },
+    ],
+    difficulty: 'hard',
+    notes: 'Should extract guidelines despite casual language',
+  },
+  {
+    id: 'adv-is-002',
+    name: 'Informal speech - casual tech chat',
+    category: 'informal-speech',
+    context: 'btw the db is postgres running on rds, probs version 15 or smth. works pretty well tbh',
+    contextType: 'conversation',
+    expectedEntries: [
+      { type: 'knowledge', mustContain: ['PostgreSQL', 'RDS'] },
+    ],
+    difficulty: 'hard',
+    notes: 'Extract facts from abbreviations and casual language',
+  },
+  {
+    id: 'adv-is-003',
+    name: 'Informal speech - emoji and expressions',
+    category: 'informal-speech',
+    context: 'omg yes!! always run tests before pushing :) its like rule #1 around here haha. srsly tho, CI will fail if u dont',
+    contextType: 'conversation',
+    expectedEntries: [
+      { type: 'guideline', mustContain: ['test', 'push'] },
+    ],
+    difficulty: 'hard',
+    notes: 'Extract guideline despite emojis and expressions',
+  },
+  {
+    id: 'adv-is-004',
+    name: 'Informal speech - phonetic spelling',
+    category: 'informal-speech',
+    context: 'u kno wat, we shud prolly use react hooks instead of class components. its way better 4 state mgmt',
+    contextType: 'conversation',
+    expectedEntries: [
+      { type: 'guideline', mustContain: ['React', 'hooks'] },
+    ],
+    difficulty: 'hard',
+    notes: 'Handle phonetic/text-speak spelling',
+  },
+  {
+    id: 'adv-is-005',
+    name: 'Informal speech - mixed formality',
+    category: 'informal-speech',
+    context: 'The authentication flow uses JWT tokens (pretty standard stuff). oh and make sure to validate on server side cuz client validation is kinda pointless lol',
+    contextType: 'conversation',
+    expectedEntries: [
+      { type: 'knowledge', mustContain: ['JWT', 'authentication'] },
+      { type: 'guideline', mustContain: ['validate', 'server'] },
+    ],
+    difficulty: 'hard',
+    notes: 'Mixed formal and informal language',
+  },
+
+  // ===========================================================================
+  // ADVERSARIAL: TYPOS AND FRAGMENTS (5 cases)
+  // ===========================================================================
+  {
+    id: 'adv-tf-001',
+    name: 'Typos - common misspellings',
+    category: 'typos-fragments',
+    context: 'We use Typescirpt for all frotend code. The databse is Postgress on AWS.',
+    contextType: 'conversation',
+    expectedEntries: [
+      { type: 'knowledge', mustContain: ['TypeScript', 'frontend'] },
+      { type: 'knowledge', mustContain: ['PostgreSQL', 'AWS'] },
+    ],
+    difficulty: 'hard',
+    notes: 'Should recognize misspelled technology names',
+  },
+  {
+    id: 'adv-tf-002',
+    name: 'Fragments - incomplete sentences',
+    category: 'typos-fragments',
+    context: 'For deployment... npm run deploy. Never on Fridays though. Also the staging env -',
+    contextType: 'conversation',
+    expectedEntries: [
+      { type: 'tool', mustContain: ['npm', 'deploy'] },
+      { type: 'guideline', mustContain: ['Friday', 'deploy'] },
+    ],
+    difficulty: 'hard',
+    notes: 'Extract from incomplete/truncated text',
+  },
+  {
+    id: 'adv-tf-003',
+    name: 'Typos - keyboard adjacent errors',
+    category: 'typos-fragments',
+    context: 'teh api runs on poirt 3000. authetication uses jwts. aslways validate inptu.',
+    contextType: 'conversation',
+    expectedEntries: [
+      { type: 'knowledge', mustContain: ['API', 'port', '3000'] },
+      { type: 'knowledge', mustContain: ['JWT', 'authentication'] },
+      { type: 'guideline', mustContain: ['validate', 'input'] },
+    ],
+    difficulty: 'hard',
+    notes: 'Handle keyboard-adjacent typos (teh, poirt, etc)',
+  },
+  {
+    id: 'adv-tf-004',
+    name: 'Fragments - bullet point style',
+    category: 'typos-fragments',
+    context: '- postgres\n- redis for cache\n- node 20\n- strict mode\n- tests required',
+    contextType: 'conversation',
+    expectedEntries: [
+      { type: 'knowledge', mustContain: ['PostgreSQL'] },
+      { type: 'knowledge', mustContain: ['Redis', 'cache'] },
+      { type: 'knowledge', mustContain: ['Node', '20'] },
+    ],
+    difficulty: 'medium',
+    notes: 'Extract from minimal bullet points',
+  },
+  {
+    id: 'adv-tf-005',
+    name: 'Typos - autocorrect errors',
+    category: 'typos-fragments',
+    context: 'We use Reactive instead of Angular. The Docs server runs on port 8080. Always commit with descriptive massages.',
+    contextType: 'conversation',
+    expectedEntries: [
+      { type: 'knowledge', mustContain: ['React', 'Angular'] },
+      { type: 'knowledge', mustContain: ['Docker', 'port', '8080'] },
+      { type: 'guideline', mustContain: ['commit', 'message'] },
+    ],
+    difficulty: 'hard',
+    notes: 'Autocorrect changed React->Reactive, Docker->Docs, messages->massages',
+  },
+
+  // ===========================================================================
+  // ADVERSARIAL: ENTANGLED FACTS (5 cases)
+  // ===========================================================================
+  {
+    id: 'adv-ef-001',
+    name: 'Entangled facts - parenthetical info',
+    category: 'entangled-facts',
+    context: 'Our API (which runs on port 3000 btw) uses REST (not GraphQL despite what some people think) and requires authentication (JWT with RS256).',
+    contextType: 'conversation',
+    expectedEntries: [
+      { type: 'knowledge', mustContain: ['API', 'port', '3000'] },
+      { type: 'knowledge', mustContain: ['REST'] },
+      { type: 'knowledge', mustContain: ['JWT', 'RS256'] },
+    ],
+    difficulty: 'hard',
+    notes: 'Multiple facts embedded in parentheticals',
+  },
+  {
+    id: 'adv-ef-002',
+    name: 'Entangled facts - run-on sentence',
+    category: 'entangled-facts',
+    context: 'So we use PostgreSQL for the main database but Redis handles caching and sessions while Elasticsearch powers search and the whole thing runs on Kubernetes in AWS with Terraform managing infrastructure.',
+    contextType: 'conversation',
+    expectedEntries: [
+      { type: 'knowledge', mustContain: ['PostgreSQL', 'database'] },
+      { type: 'knowledge', mustContain: ['Redis', 'caching'] },
+      { type: 'knowledge', mustContain: ['Elasticsearch', 'search'] },
+      { type: 'knowledge', mustContain: ['Kubernetes', 'AWS'] },
+    ],
+    difficulty: 'hard',
+    notes: 'Multiple facts in one run-on sentence',
+  },
+  {
+    id: 'adv-ef-003',
+    name: 'Entangled facts - nested clauses',
+    category: 'entangled-facts',
+    context: 'The service, which was written in Go because we needed performance, connects to the database (PostgreSQL, naturally) using connection pooling that the DevOps team configured.',
+    contextType: 'conversation',
+    expectedEntries: [
+      { type: 'knowledge', mustContain: ['Go', 'performance'] },
+      { type: 'knowledge', mustContain: ['PostgreSQL'] },
+      { type: 'knowledge', mustContain: ['connection', 'pooling'] },
+    ],
+    difficulty: 'hard',
+    notes: 'Facts buried in nested clauses',
+  },
+  {
+    id: 'adv-ef-004',
+    name: 'Entangled facts - comparison context',
+    category: 'entangled-facts',
+    context: 'Unlike the old system that used MongoDB and was deployed on Heroku, we now use PostgreSQL on AWS RDS with Docker containers orchestrated by ECS.',
+    contextType: 'conversation',
+    expectedEntries: [
+      { type: 'knowledge', mustContain: ['PostgreSQL', 'RDS'] },
+      { type: 'knowledge', mustContain: ['Docker', 'ECS'] },
+    ],
+    shouldNotExtract: ['MongoDB', 'Heroku'],
+    difficulty: 'hard',
+    notes: 'Current facts mixed with deprecated facts',
+  },
+  {
+    id: 'adv-ef-005',
+    name: 'Entangled facts - conditional context',
+    category: 'entangled-facts',
+    context: 'When deploying to production (not staging which uses different settings) you need to use the npm run deploy:prod command and make sure the VPN is connected unless you are in the office network.',
+    contextType: 'conversation',
+    expectedEntries: [
+      { type: 'tool', mustContain: ['npm', 'deploy:prod'] },
+      { type: 'guideline', mustContain: ['VPN', 'production'] },
+    ],
+    difficulty: 'hard',
+    notes: 'Facts with conditional qualifiers',
+  },
+
+  // ===========================================================================
+  // ADVERSARIAL: SUGGESTIONS VS STANDARDS (5 cases)
+  // ===========================================================================
+  {
+    id: 'adv-ss-001',
+    name: 'Suggestions vs standards - personal preference',
+    category: 'suggestions-vs-standards',
+    context: 'I personally think we should use Prettier for formatting. It makes the code look nicer.',
+    contextType: 'conversation',
+    expectedEntries: [],
+    shouldNotExtract: ['Prettier', 'formatting'],
+    difficulty: 'hard',
+    notes: 'Personal opinion should not become a guideline',
+  },
+  {
+    id: 'adv-ss-002',
+    name: 'Suggestions vs standards - team standard',
+    category: 'suggestions-vs-standards',
+    context: 'The team has decided that we use Prettier for formatting. This is now our standard.',
+    contextType: 'conversation',
+    expectedEntries: [
+      { type: 'guideline', mustContain: ['Prettier', 'formatting'] },
+    ],
+    difficulty: 'medium',
+    notes: 'Explicit team decision is a guideline',
+  },
+  {
+    id: 'adv-ss-003',
+    name: 'Suggestions vs standards - maybe/might',
+    category: 'suggestions-vs-standards',
+    context: 'We might want to consider using TypeScript strict mode. It could help catch more bugs maybe.',
+    contextType: 'conversation',
+    expectedEntries: [],
+    shouldNotExtract: ['TypeScript', 'strict'],
+    difficulty: 'hard',
+    notes: 'Uncertain suggestions should not become guidelines',
+  },
+  {
+    id: 'adv-ss-004',
+    name: 'Suggestions vs standards - proposal',
+    category: 'suggestions-vs-standards',
+    context: 'I propose that all new services use GraphQL instead of REST. This is still up for discussion in next weeks meeting.',
+    contextType: 'conversation',
+    expectedEntries: [],
+    shouldNotExtract: ['GraphQL', 'REST'],
+    difficulty: 'hard',
+    notes: 'Proposals pending discussion are not standards',
+  },
+  {
+    id: 'adv-ss-005',
+    name: 'Suggestions vs standards - approved proposal',
+    category: 'suggestions-vs-standards',
+    context: 'After discussion, the team approved using GraphQL for all new services. REST endpoints will be deprecated.',
+    contextType: 'conversation',
+    expectedEntries: [
+      { type: 'guideline', mustContain: ['GraphQL', 'services'] },
+      { type: 'knowledge', mustContain: ['REST', 'deprecated'] },
+    ],
+    difficulty: 'medium',
+    notes: 'Approved proposal becomes a guideline',
+  },
+
+  // ===========================================================================
+  // ADVERSARIAL: IMPLICIT IN EXPLICIT (5 cases)
+  // ===========================================================================
+  {
+    id: 'adv-ie-001',
+    name: 'Implicit in explicit - reliability statement',
+    category: 'implicit-in-explicit',
+    context: 'We use PostgreSQL because it provides excellent reliability and ACID compliance.',
+    contextType: 'conversation',
+    expectedEntries: [
+      { type: 'knowledge', mustContain: ['PostgreSQL'] },
+      { type: 'guideline', mustContain: ['ACID', 'reliability'] },
+    ],
+    difficulty: 'hard',
+    notes: 'Implicit guideline about ACID/reliability requirements hidden in fact',
+  },
+  {
+    id: 'adv-ie-002',
+    name: 'Implicit in explicit - security context',
+    category: 'implicit-in-explicit',
+    context: 'The payment service handles credit card data, so it runs in an isolated VPC with encryption at rest.',
+    contextType: 'conversation',
+    expectedEntries: [
+      { type: 'knowledge', mustContain: ['payment', 'VPC'] },
+      { type: 'guideline', mustContain: ['credit card', 'encryption'] },
+    ],
+    difficulty: 'hard',
+    notes: 'Implicit security guideline in architecture fact',
+  },
+  {
+    id: 'adv-ie-003',
+    name: 'Implicit in explicit - performance choice',
+    category: 'implicit-in-explicit',
+    context: 'The search feature uses Elasticsearch to ensure sub-second response times.',
+    contextType: 'conversation',
+    expectedEntries: [
+      { type: 'knowledge', mustContain: ['Elasticsearch', 'search'] },
+      { type: 'guideline', mustContain: ['response time', 'sub-second'] },
+    ],
+    difficulty: 'hard',
+    notes: 'Implicit performance requirement in technology choice',
+  },
+  {
+    id: 'adv-ie-004',
+    name: 'Implicit in explicit - compliance reason',
+    category: 'implicit-in-explicit',
+    context: 'User data is stored in the EU region due to GDPR requirements.',
+    contextType: 'conversation',
+    expectedEntries: [
+      { type: 'knowledge', mustContain: ['EU', 'region'] },
+      { type: 'guideline', mustContain: ['GDPR', 'data'] },
+    ],
+    difficulty: 'hard',
+    notes: 'Implicit compliance guideline in storage fact',
+  },
+  {
+    id: 'adv-ie-005',
+    name: 'Implicit in explicit - scalability architecture',
+    category: 'implicit-in-explicit',
+    context: 'We chose microservices architecture to handle the expected growth to 10M users.',
+    contextType: 'conversation',
+    expectedEntries: [
+      { type: 'knowledge', mustContain: ['microservices'] },
+      { type: 'knowledge', mustContain: ['10M', 'users'] },
+    ],
+    difficulty: 'hard',
+    notes: 'Implicit scalability requirement in architecture decision',
+  },
+
+  // ===========================================================================
+  // ADVERSARIAL: TEMPORAL CONFLICTS (5 cases)
+  // ===========================================================================
+  {
+    id: 'adv-tc-001',
+    name: 'Temporal conflicts - framework change',
+    category: 'temporal-conflicts',
+    context: 'We used to use Angular for everything. As of last month, all new development uses React. Angular code is being migrated.',
+    contextType: 'conversation',
+    expectedEntries: [
+      { type: 'guideline', mustContain: ['React', 'new'] },
+      { type: 'knowledge', mustContain: ['Angular', 'migrat'] },
+    ],
+    difficulty: 'hard',
+    notes: 'Should prioritize current state (React) over historical (Angular)',
+  },
+  {
+    id: 'adv-tc-002',
+    name: 'Temporal conflicts - policy update',
+    category: 'temporal-conflicts',
+    context: 'The old policy required 3 reviewers for PRs. We changed this to 2 reviewers last sprint because it was slowing us down.',
+    contextType: 'conversation',
+    expectedEntries: [
+      { type: 'guideline', mustContain: ['2', 'reviewer'] },
+    ],
+    shouldNotExtract: ['3 reviewers'],
+    difficulty: 'hard',
+    notes: 'Should extract current policy, not old one',
+  },
+  {
+    id: 'adv-tc-003',
+    name: 'Temporal conflicts - deprecation',
+    category: 'temporal-conflicts',
+    context: 'The v1 API is deprecated. Use v2 API for all new integrations. v1 will be removed in 6 months.',
+    contextType: 'conversation',
+    expectedEntries: [
+      { type: 'guideline', mustContain: ['v2', 'API'] },
+      { type: 'knowledge', mustContain: ['v1', 'deprecated'] },
+    ],
+    difficulty: 'medium',
+    notes: 'Should capture both current recommendation and deprecation status',
+  },
+  {
+    id: 'adv-tc-004',
+    name: 'Temporal conflicts - reversed decision',
+    category: 'temporal-conflicts',
+    context: 'Initially we decided to use MongoDB. After performance testing, we reversed this and went with PostgreSQL instead.',
+    contextType: 'conversation',
+    expectedEntries: [
+      { type: 'knowledge', mustContain: ['PostgreSQL'] },
+    ],
+    shouldNotExtract: ['MongoDB'],
+    difficulty: 'hard',
+    notes: 'Should only extract final decision, not reversed one',
+  },
+  {
+    id: 'adv-tc-005',
+    name: 'Temporal conflicts - incremental updates',
+    category: 'temporal-conflicts',
+    context: 'Node 16 is EOL. We upgraded to Node 18 last quarter. Planning to move to Node 20 next month.',
+    contextType: 'conversation',
+    expectedEntries: [
+      { type: 'knowledge', mustContain: ['Node', '18'] },
+      { type: 'knowledge', mustContain: ['Node', '20', 'planning'] },
+    ],
+    shouldNotExtract: ['Node 16'],
+    difficulty: 'hard',
+    notes: 'Should extract current (18) and planned (20), not EOL version',
+  },
 ];
 
 /**

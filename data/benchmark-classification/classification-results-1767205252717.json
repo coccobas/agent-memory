@@ -1,0 +1,825 @@
+{
+  "timestamp": "2025-12-31T18:20:52.717Z",
+  "config": {
+    "testCasesRun": 48,
+    "llmFallbackEnabled": false,
+    "highConfidenceThreshold": 0.85,
+    "lowConfidenceThreshold": 0.6
+  },
+  "overall": {
+    "totalTestCases": 48,
+    "correctCount": 45,
+    "accuracy": 0.9375,
+    "correctWithAlternativesCount": 47,
+    "accuracyWithAlternatives": 0.9791666666666666,
+    "errorCount": 0,
+    "byType": {
+      "guideline": {
+        "tp": 16,
+        "fp": 0,
+        "fn": 1,
+        "tn": 31,
+        "precision": 1,
+        "recall": 0.9411764705882353,
+        "f1": 0.9696969696969697
+      },
+      "knowledge": {
+        "tp": 19,
+        "fp": 2,
+        "fn": 1,
+        "tn": 26,
+        "precision": 0.9047619047619048,
+        "recall": 0.95,
+        "f1": 0.9268292682926829
+      },
+      "tool": {
+        "tp": 10,
+        "fp": 1,
+        "fn": 1,
+        "tn": 36,
+        "precision": 0.9090909090909091,
+        "recall": 0.9090909090909091,
+        "f1": 0.9090909090909091
+      }
+    },
+    "byCategory": {
+      "imperative-rule": {
+        "count": 4,
+        "correct": 4,
+        "accuracy": 1,
+        "avgConfidence": 0.9125
+      },
+      "prohibition": {
+        "count": 4,
+        "correct": 4,
+        "accuracy": 1,
+        "avgConfidence": 0.875
+      },
+      "team-standard": {
+        "count": 3,
+        "correct": 2,
+        "accuracy": 0.6666666666666666,
+        "avgConfidence": 0.7333333333333334
+      },
+      "preference": {
+        "count": 3,
+        "correct": 3,
+        "accuracy": 1,
+        "avgConfidence": 0.8333333333333334
+      },
+      "decision": {
+        "count": 4,
+        "correct": 4,
+        "accuracy": 1,
+        "avgConfidence": 0.925
+      },
+      "fact": {
+        "count": 4,
+        "correct": 4,
+        "accuracy": 1,
+        "avgConfidence": 0.7625
+      },
+      "system-description": {
+        "count": 5,
+        "correct": 5,
+        "accuracy": 1,
+        "avgConfidence": 0.74
+      },
+      "cli-command": {
+        "count": 5,
+        "correct": 5,
+        "accuracy": 1,
+        "avgConfidence": 0.9
+      },
+      "git-command": {
+        "count": 3,
+        "correct": 3,
+        "accuracy": 1,
+        "avgConfidence": 0.85
+      },
+      "script": {
+        "count": 2,
+        "correct": 2,
+        "accuracy": 1,
+        "avgConfidence": 0.95
+      },
+      "ambiguous": {
+        "count": 5,
+        "correct": 5,
+        "accuracy": 1,
+        "avgConfidence": 0.61
+      },
+      "edge-case": {
+        "count": 6,
+        "correct": 4,
+        "accuracy": 0.6666666666666666,
+        "avgConfidence": 0.6783333333333332
+      }
+    },
+    "byDifficulty": {
+      "easy": {
+        "count": 28,
+        "correct": 28,
+        "accuracy": 1,
+        "avgConfidence": 0.8750000000000001
+      },
+      "medium": {
+        "count": 12,
+        "correct": 11,
+        "accuracy": 0.9166666666666666,
+        "avgConfidence": 0.7666666666666667
+      },
+      "hard": {
+        "count": 8,
+        "correct": 6,
+        "accuracy": 0.75,
+        "avgConfidence": 0.58375
+      }
+    },
+    "confidenceCorrelation": {
+      "avgConfidenceCorrect": 0.8144444444444445,
+      "avgConfidenceIncorrect": 0.5733333333333334,
+      "highConfidenceAccuracy": 1,
+      "lowConfidenceAccuracy": 0.7777777777777778
+    },
+    "confusionMatrix": [
+      {
+        "actual": "guideline",
+        "predicted": "guideline",
+        "count": 16
+      },
+      {
+        "actual": "guideline",
+        "predicted": "knowledge",
+        "count": 1
+      },
+      {
+        "actual": "guideline",
+        "predicted": "tool",
+        "count": 0
+      },
+      {
+        "actual": "knowledge",
+        "predicted": "guideline",
+        "count": 0
+      },
+      {
+        "actual": "knowledge",
+        "predicted": "knowledge",
+        "count": 19
+      },
+      {
+        "actual": "knowledge",
+        "predicted": "tool",
+        "count": 1
+      },
+      {
+        "actual": "tool",
+        "predicted": "guideline",
+        "count": 0
+      },
+      {
+        "actual": "tool",
+        "predicted": "knowledge",
+        "count": 1
+      },
+      {
+        "actual": "tool",
+        "predicted": "tool",
+        "count": 10
+      }
+    ],
+    "processing": {
+      "totalTimeMs": 20.71866799999998,
+      "avgTimePerClassification": 0.43163891666666626,
+      "minTimeMs": 0.004292000000020835,
+      "maxTimeMs": 7.4297919999999635
+    }
+  },
+  "testCaseResults": [
+    {
+      "testCaseId": "g-imp-001",
+      "text": "Rule: always use TypeScript strict mode",
+      "expectedType": "guideline",
+      "predictedType": "guideline",
+      "confidence": 0.95,
+      "method": "regex",
+      "correct": true,
+      "correctWithAlternatives": true,
+      "category": "imperative-rule",
+      "difficulty": "easy",
+      "processingTimeMs": 7.4297919999999635
+    },
+    {
+      "testCaseId": "g-imp-002",
+      "text": "Must use async/await for all asynchronous operations",
+      "expectedType": "guideline",
+      "predictedType": "guideline",
+      "confidence": 0.9,
+      "method": "regex",
+      "correct": true,
+      "correctWithAlternatives": true,
+      "category": "imperative-rule",
+      "difficulty": "easy",
+      "processingTimeMs": 2.0170420000000036
+    },
+    {
+      "testCaseId": "g-imp-003",
+      "text": "Always write unit tests for new features",
+      "expectedType": "guideline",
+      "predictedType": "guideline",
+      "confidence": 0.9,
+      "method": "regex",
+      "correct": true,
+      "correctWithAlternatives": true,
+      "category": "imperative-rule",
+      "difficulty": "easy",
+      "processingTimeMs": 0.05824999999998681
+    },
+    {
+      "testCaseId": "g-imp-004",
+      "text": "Never commit directly to main branch",
+      "expectedType": "guideline",
+      "predictedType": "guideline",
+      "confidence": 0.9,
+      "method": "regex",
+      "correct": true,
+      "correctWithAlternatives": true,
+      "category": "imperative-rule",
+      "difficulty": "easy",
+      "processingTimeMs": 0.027625000000000455
+    },
+    {
+      "testCaseId": "g-proh-001",
+      "text": "Don't use var in TypeScript code",
+      "expectedType": "guideline",
+      "predictedType": "guideline",
+      "confidence": 0.95,
+      "method": "regex",
+      "correct": true,
+      "correctWithAlternatives": true,
+      "category": "prohibition",
+      "difficulty": "easy",
+      "processingTimeMs": 0.9994590000000017
+    },
+    {
+      "testCaseId": "g-proh-002",
+      "text": "Avoid using any type whenever possible",
+      "expectedType": "guideline",
+      "predictedType": "guideline",
+      "confidence": 0.8,
+      "method": "regex",
+      "correct": true,
+      "correctWithAlternatives": true,
+      "category": "prohibition",
+      "difficulty": "easy",
+      "processingTimeMs": 0.5088750000000459
+    },
+    {
+      "testCaseId": "g-proh-003",
+      "text": "Do not store secrets in code",
+      "expectedType": "guideline",
+      "predictedType": "guideline",
+      "confidence": 0.9,
+      "method": "regex",
+      "correct": true,
+      "correctWithAlternatives": true,
+      "category": "prohibition",
+      "difficulty": "easy",
+      "processingTimeMs": 0.03195799999997462
+    },
+    {
+      "testCaseId": "g-proh-004",
+      "text": "We should never skip code review",
+      "expectedType": "guideline",
+      "predictedType": "guideline",
+      "confidence": 0.85,
+      "method": "regex",
+      "correct": true,
+      "correctWithAlternatives": true,
+      "category": "prohibition",
+      "difficulty": "medium",
+      "processingTimeMs": 0.695541999999989
+    },
+    {
+      "testCaseId": "g-team-001",
+      "text": "We always use dependency injection",
+      "expectedType": "guideline",
+      "predictedType": "guideline",
+      "confidence": 0.85,
+      "method": "regex",
+      "correct": true,
+      "correctWithAlternatives": true,
+      "category": "team-standard",
+      "difficulty": "easy",
+      "processingTimeMs": 0.05454099999997197
+    },
+    {
+      "testCaseId": "g-team-002",
+      "text": "We must run linting before commits",
+      "expectedType": "guideline",
+      "predictedType": "guideline",
+      "confidence": 0.85,
+      "method": "regex",
+      "correct": true,
+      "correctWithAlternatives": true,
+      "category": "team-standard",
+      "difficulty": "easy",
+      "processingTimeMs": 0.06691599999999198
+    },
+    {
+      "testCaseId": "g-team-003",
+      "text": "Our standard is to use ESLint with strict rules",
+      "expectedType": "guideline",
+      "predictedType": "knowledge",
+      "confidence": 0.5,
+      "method": "regex",
+      "correct": false,
+      "correctWithAlternatives": false,
+      "category": "team-standard",
+      "difficulty": "medium",
+      "processingTimeMs": 0.018167000000005373
+    },
+    {
+      "testCaseId": "g-pref-001",
+      "text": "Prefer const over let for variable declarations",
+      "expectedType": "guideline",
+      "predictedType": "guideline",
+      "confidence": 0.9,
+      "method": "regex",
+      "correct": true,
+      "correctWithAlternatives": true,
+      "category": "preference",
+      "difficulty": "easy",
+      "processingTimeMs": 0.5010410000000434
+    },
+    {
+      "testCaseId": "g-pref-002",
+      "text": "Use named exports instead of default exports",
+      "expectedType": "guideline",
+      "predictedType": "guideline",
+      "confidence": 0.8,
+      "method": "regex",
+      "correct": true,
+      "correctWithAlternatives": true,
+      "category": "preference",
+      "difficulty": "medium",
+      "processingTimeMs": 0.013750000000015916
+    },
+    {
+      "testCaseId": "g-pref-003",
+      "text": "Prefer functional components over class components",
+      "expectedType": "guideline",
+      "predictedType": "guideline",
+      "confidence": 0.8,
+      "method": "regex",
+      "correct": true,
+      "correctWithAlternatives": true,
+      "category": "preference",
+      "difficulty": "easy",
+      "processingTimeMs": 0.011290999999971518
+    },
+    {
+      "testCaseId": "k-dec-001",
+      "text": "We decided to use PostgreSQL for production",
+      "expectedType": "knowledge",
+      "predictedType": "knowledge",
+      "confidence": 0.9,
+      "method": "regex",
+      "correct": true,
+      "correctWithAlternatives": true,
+      "category": "decision",
+      "difficulty": "easy",
+      "processingTimeMs": 0.4212089999999762
+    },
+    {
+      "testCaseId": "k-dec-002",
+      "text": "Decision: use React for the frontend framework",
+      "expectedType": "knowledge",
+      "predictedType": "knowledge",
+      "confidence": 0.95,
+      "method": "regex",
+      "correct": true,
+      "correctWithAlternatives": true,
+      "category": "decision",
+      "difficulty": "easy",
+      "processingTimeMs": 0.5054589999999735
+    },
+    {
+      "testCaseId": "k-dec-003",
+      "text": "We chose TypeScript over JavaScript because of type safety",
+      "expectedType": "knowledge",
+      "predictedType": "knowledge",
+      "confidence": 0.9,
+      "method": "regex",
+      "correct": true,
+      "correctWithAlternatives": true,
+      "category": "decision",
+      "difficulty": "easy",
+      "processingTimeMs": 0.015709000000015294
+    },
+    {
+      "testCaseId": "k-dec-004",
+      "text": "After evaluating Redis and Memcached, we picked Redis",
+      "expectedType": "knowledge",
+      "predictedType": "knowledge",
+      "confidence": 0.95,
+      "method": "regex",
+      "correct": true,
+      "correctWithAlternatives": true,
+      "category": "decision",
+      "difficulty": "medium",
+      "processingTimeMs": 0.3975000000000364
+    },
+    {
+      "testCaseId": "k-fact-001",
+      "text": "The API rate limit is 1000 requests per minute",
+      "expectedType": "knowledge",
+      "predictedType": "knowledge",
+      "confidence": 0.5,
+      "method": "regex",
+      "correct": true,
+      "correctWithAlternatives": true,
+      "category": "fact",
+      "difficulty": "easy",
+      "processingTimeMs": 0.013291999999978543
+    },
+    {
+      "testCaseId": "k-fact-002",
+      "text": "Fact: the database schema was last updated in Q4 2024",
+      "expectedType": "knowledge",
+      "predictedType": "knowledge",
+      "confidence": 0.9,
+      "method": "regex",
+      "correct": true,
+      "correctWithAlternatives": true,
+      "category": "fact",
+      "difficulty": "easy",
+      "processingTimeMs": 0.39383299999997234
+    },
+    {
+      "testCaseId": "k-fact-003",
+      "text": "Note: authentication tokens expire after 24 hours",
+      "expectedType": "knowledge",
+      "predictedType": "knowledge",
+      "confidence": 0.9,
+      "method": "regex",
+      "correct": true,
+      "correctWithAlternatives": true,
+      "category": "fact",
+      "difficulty": "easy",
+      "processingTimeMs": 0.009542000000010376
+    },
+    {
+      "testCaseId": "k-fact-004",
+      "text": "The production server is located in AWS us-east-1",
+      "expectedType": "knowledge",
+      "predictedType": "knowledge",
+      "confidence": 0.75,
+      "method": "regex",
+      "correct": true,
+      "correctWithAlternatives": true,
+      "category": "fact",
+      "difficulty": "medium",
+      "processingTimeMs": 0.36566699999997354
+    },
+    {
+      "testCaseId": "k-sys-001",
+      "text": "Our API uses REST, not GraphQL",
+      "expectedType": "knowledge",
+      "predictedType": "knowledge",
+      "confidence": 0.8,
+      "method": "regex",
+      "correct": true,
+      "correctWithAlternatives": true,
+      "category": "system-description",
+      "difficulty": "easy",
+      "processingTimeMs": 0.3878750000000082
+    },
+    {
+      "testCaseId": "k-sys-002",
+      "text": "The backend is built with Node.js and Express",
+      "expectedType": "knowledge",
+      "predictedType": "knowledge",
+      "confidence": 0.8,
+      "method": "regex",
+      "correct": true,
+      "correctWithAlternatives": true,
+      "category": "system-description",
+      "difficulty": "medium",
+      "processingTimeMs": 0.014291999999954896
+    },
+    {
+      "testCaseId": "k-sys-003",
+      "text": "Our system handles approximately 10,000 requests per second",
+      "expectedType": "knowledge",
+      "predictedType": "knowledge",
+      "confidence": 0.5,
+      "method": "regex",
+      "correct": true,
+      "correctWithAlternatives": true,
+      "category": "system-description",
+      "difficulty": "medium",
+      "processingTimeMs": 0.00791700000002038
+    },
+    {
+      "testCaseId": "k-sys-004",
+      "text": "We use Redis for caching and session storage",
+      "expectedType": "knowledge",
+      "predictedType": "knowledge",
+      "confidence": 0.75,
+      "method": "regex",
+      "correct": true,
+      "correctWithAlternatives": true,
+      "category": "system-description",
+      "difficulty": "medium",
+      "processingTimeMs": 1.9654590000000098
+    },
+    {
+      "testCaseId": "k-sys-005",
+      "text": "Remember that the database is sharded across 4 nodes",
+      "expectedType": "knowledge",
+      "predictedType": "knowledge",
+      "confidence": 0.85,
+      "method": "regex",
+      "correct": true,
+      "correctWithAlternatives": true,
+      "category": "system-description",
+      "difficulty": "easy",
+      "processingTimeMs": 0.35345799999998917
+    },
+    {
+      "testCaseId": "t-cli-001",
+      "text": "Command: npm run build",
+      "expectedType": "tool",
+      "predictedType": "tool",
+      "confidence": 0.95,
+      "method": "regex",
+      "correct": true,
+      "correctWithAlternatives": true,
+      "category": "cli-command",
+      "difficulty": "easy",
+      "processingTimeMs": 1.385249999999985
+    },
+    {
+      "testCaseId": "t-cli-002",
+      "text": "npm run test to execute all tests",
+      "expectedType": "tool",
+      "predictedType": "tool",
+      "confidence": 0.9,
+      "method": "regex",
+      "correct": true,
+      "correctWithAlternatives": true,
+      "category": "cli-command",
+      "difficulty": "easy",
+      "processingTimeMs": 0.03454099999999016
+    },
+    {
+      "testCaseId": "t-cli-003",
+      "text": "yarn install to setup dependencies",
+      "expectedType": "tool",
+      "predictedType": "tool",
+      "confidence": 0.85,
+      "method": "regex",
+      "correct": true,
+      "correctWithAlternatives": true,
+      "category": "cli-command",
+      "difficulty": "easy",
+      "processingTimeMs": 0.5552920000000086
+    },
+    {
+      "testCaseId": "t-cli-004",
+      "text": "Run `npm start` to start the development server",
+      "expectedType": "tool",
+      "predictedType": "tool",
+      "confidence": 0.95,
+      "method": "regex",
+      "correct": true,
+      "correctWithAlternatives": true,
+      "category": "cli-command",
+      "difficulty": "easy",
+      "processingTimeMs": 0.35058300000002873
+    },
+    {
+      "testCaseId": "t-cli-005",
+      "text": "docker-compose up -d to start all services",
+      "expectedType": "tool",
+      "predictedType": "tool",
+      "confidence": 0.85,
+      "method": "regex",
+      "correct": true,
+      "correctWithAlternatives": true,
+      "category": "cli-command",
+      "difficulty": "easy",
+      "processingTimeMs": 0.34129100000001245
+    },
+    {
+      "testCaseId": "t-git-001",
+      "text": "git checkout -b feature/new-feature to create a new branch",
+      "expectedType": "tool",
+      "predictedType": "tool",
+      "confidence": 0.85,
+      "method": "regex",
+      "correct": true,
+      "correctWithAlternatives": true,
+      "category": "git-command",
+      "difficulty": "easy",
+      "processingTimeMs": 0.31825000000003456
+    },
+    {
+      "testCaseId": "t-git-002",
+      "text": "git push origin main --force to force push (be careful!)",
+      "expectedType": "tool",
+      "predictedType": "tool",
+      "confidence": 0.85,
+      "method": "regex",
+      "correct": true,
+      "correctWithAlternatives": true,
+      "category": "git-command",
+      "difficulty": "easy",
+      "processingTimeMs": 0.007624999999961801
+    },
+    {
+      "testCaseId": "t-git-003",
+      "text": "git rebase -i HEAD~5 for interactive rebase",
+      "expectedType": "tool",
+      "predictedType": "tool",
+      "confidence": 0.85,
+      "method": "regex",
+      "correct": true,
+      "correctWithAlternatives": true,
+      "category": "git-command",
+      "difficulty": "medium",
+      "processingTimeMs": 0.005375000000015007
+    },
+    {
+      "testCaseId": "t-scr-001",
+      "text": "Script: ./deploy.sh production",
+      "expectedType": "tool",
+      "predictedType": "tool",
+      "confidence": 0.95,
+      "method": "regex",
+      "correct": true,
+      "correctWithAlternatives": true,
+      "category": "script",
+      "difficulty": "easy",
+      "processingTimeMs": 0.004292000000020835
+    },
+    {
+      "testCaseId": "t-scr-002",
+      "text": "Execute make build to compile the project",
+      "expectedType": "tool",
+      "predictedType": "tool",
+      "confidence": 0.95,
+      "method": "regex",
+      "correct": true,
+      "correctWithAlternatives": true,
+      "category": "script",
+      "difficulty": "easy",
+      "processingTimeMs": 0.33045900000001893
+    },
+    {
+      "testCaseId": "a-001",
+      "text": "Testing is important for code quality",
+      "expectedType": "knowledge",
+      "predictedType": "knowledge",
+      "confidence": 0.5,
+      "method": "regex",
+      "correct": true,
+      "correctWithAlternatives": true,
+      "category": "ambiguous",
+      "difficulty": "hard",
+      "processingTimeMs": 0.008957999999950061
+    },
+    {
+      "testCaseId": "a-002",
+      "text": "Use proper error handling throughout the application",
+      "expectedType": "guideline",
+      "predictedType": "guideline",
+      "confidence": 0.8,
+      "method": "regex",
+      "correct": true,
+      "correctWithAlternatives": true,
+      "category": "ambiguous",
+      "difficulty": "medium",
+      "processingTimeMs": 0.006291000000032909
+    },
+    {
+      "testCaseId": "a-003",
+      "text": "The team has good code review practices",
+      "expectedType": "knowledge",
+      "predictedType": "knowledge",
+      "confidence": 0.5,
+      "method": "regex",
+      "correct": true,
+      "correctWithAlternatives": true,
+      "category": "ambiguous",
+      "difficulty": "hard",
+      "processingTimeMs": 0.004541000000017448
+    },
+    {
+      "testCaseId": "a-004",
+      "text": "We use TypeScript for type safety",
+      "expectedType": "knowledge",
+      "predictedType": "knowledge",
+      "confidence": 0.75,
+      "method": "regex",
+      "correct": true,
+      "correctWithAlternatives": true,
+      "category": "ambiguous",
+      "difficulty": "medium",
+      "processingTimeMs": 0.005832999999995536
+    },
+    {
+      "testCaseId": "a-005",
+      "text": "Good documentation makes onboarding easier",
+      "expectedType": "knowledge",
+      "predictedType": "knowledge",
+      "confidence": 0.5,
+      "method": "regex",
+      "correct": true,
+      "correctWithAlternatives": true,
+      "category": "ambiguous",
+      "difficulty": "hard",
+      "processingTimeMs": 0.00458400000002257
+    },
+    {
+      "testCaseId": "e-001",
+      "text": "",
+      "expectedType": "knowledge",
+      "predictedType": "knowledge",
+      "confidence": 0.5,
+      "method": "regex",
+      "correct": true,
+      "correctWithAlternatives": true,
+      "category": "edge-case",
+      "difficulty": "hard",
+      "processingTimeMs": 0.00570799999997007
+    },
+    {
+      "testCaseId": "e-002",
+      "text": "PostgreSQL",
+      "expectedType": "knowledge",
+      "predictedType": "knowledge",
+      "confidence": 0.5,
+      "method": "regex",
+      "correct": true,
+      "correctWithAlternatives": true,
+      "category": "edge-case",
+      "difficulty": "hard",
+      "processingTimeMs": 0.004542000000014923
+    },
+    {
+      "testCaseId": "e-003",
+      "text": "npm",
+      "expectedType": "tool",
+      "predictedType": "knowledge",
+      "confidence": 0.5,
+      "method": "regex",
+      "correct": false,
+      "correctWithAlternatives": true,
+      "category": "edge-case",
+      "difficulty": "hard",
+      "processingTimeMs": 0.008209000000022115
+    },
+    {
+      "testCaseId": "e-004",
+      "text": "ALWAYS USE CAPS FOR IMPORTANT RULES",
+      "expectedType": "guideline",
+      "predictedType": "guideline",
+      "confidence": 0.9,
+      "method": "regex",
+      "correct": true,
+      "correctWithAlternatives": true,
+      "category": "edge-case",
+      "difficulty": "medium",
+      "processingTimeMs": 0.005083000000013271
+    },
+    {
+      "testCaseId": "e-005",
+      "text": "rule always must never require prefer",
+      "expectedType": "guideline",
+      "predictedType": "guideline",
+      "confidence": 0.95,
+      "method": "regex",
+      "correct": true,
+      "correctWithAlternatives": true,
+      "category": "edge-case",
+      "difficulty": "hard",
+      "processingTimeMs": 0.004500000000007276
+    },
+    {
+      "testCaseId": "e-006",
+      "text": "We decided to always use npm run test before merging",
+      "expectedType": "knowledge",
+      "predictedType": "tool",
+      "confidence": 0.72,
+      "method": "regex",
+      "correct": false,
+      "correctWithAlternatives": true,
+      "category": "edge-case",
+      "difficulty": "hard",
+      "processingTimeMs": 0.04199999999997317
+    }
+  ]
+}

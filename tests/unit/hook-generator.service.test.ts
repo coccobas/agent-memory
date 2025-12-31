@@ -213,12 +213,13 @@ describe('hook-generator.service', () => {
       });
 
       expect(result.success).toBe(true);
-      expect(result.hooks).toHaveLength(5); // PreToolUse + Stop + UserPromptSubmit + SessionEnd + settings
+      expect(result.hooks).toHaveLength(6); // PreToolUse + Stop + UserPromptSubmit + SessionEnd + settings + CLAUDE.md.snippet
       expect(result.hooks.some((h) => h.filePath.includes('pretooluse.sh'))).toBe(true);
       expect(result.hooks.some((h) => h.filePath.includes('stop.sh'))).toBe(true);
       expect(result.hooks.some((h) => h.filePath.includes('userpromptsubmit.sh'))).toBe(true);
       expect(result.hooks.some((h) => h.filePath.includes('session-end.sh'))).toBe(true);
       expect(result.hooks.some((h) => h.filePath.endsWith('.claude/settings.json'))).toBe(true);
+      expect(result.hooks.some((h) => h.filePath.includes('CLAUDE.md.snippet'))).toBe(true);
     });
 
     it('should generate Cursor rules', () => {
@@ -276,7 +277,7 @@ describe('hook-generator.service', () => {
       const installResult = installHooks(result.hooks);
 
       expect(installResult.success).toBe(true);
-      expect(installResult.installed).toHaveLength(5);
+      expect(installResult.installed).toHaveLength(6);
       expect(installResult.errors).toHaveLength(0);
 
       // Verify files were created
@@ -287,6 +288,7 @@ describe('hook-generator.service', () => {
       );
       expect(existsSync(join(TEST_PROJECT_PATH, '.claude', 'hooks', 'session-end.sh'))).toBe(true);
       expect(existsSync(join(TEST_PROJECT_PATH, '.claude', 'settings.json'))).toBe(true);
+      expect(existsSync(join(TEST_PROJECT_PATH, '.claude', 'CLAUDE.md.snippet'))).toBe(true);
     });
 
     it('should make shell scripts executable', () => {

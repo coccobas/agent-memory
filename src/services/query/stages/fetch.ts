@@ -244,118 +244,141 @@ function validateIsoDate(value: unknown, fieldName: string): string {
 // =============================================================================
 
 /**
- * Fetch knowledge entries with temporal filtering.
- * When atTime or validDuring is specified, joins with knowledge_versions
- * to filter by temporal validity.
+ * Knowledge entry with content from version (extended type for query pipeline)
  */
-function fetchKnowledgeWithTemporal(
-  db: DbInstance,
+export type KnowledgeWithContent = Knowledge & { content?: string | null };
+
+/**
+ * Fetch knowledge entries with content from versions table.
+ * Always joins with knowledge_versions to get content for fuzzy/text search.
+ * When atTime or validDuring is specified, also filters by temporal validity.
+ */
+function fetchKnowledgeWithContent(
+  _db: DbInstance,
   ctx: PipelineContext,
-  result: Array<{ entry: Knowledge; scopeIndex: number }>,
+  result: Array<{ entry: KnowledgeWithContent; scopeIndex: number }>,
   softCap: number
 ): void {
-  const { scopeChain, params, ftsMatchIds, limit } = ctx;
+  const { scopeChain, params, ftsMatchIds } = ctx;
   const config = FETCH_CONFIGS.knowledge;
   const { ftsKey } = config;
 
   // Check if temporal filtering is needed
   const hasTemporal = params.atTime || params.validDuring;
 
-  for (let index = 0; index < scopeChain.length; index++) {
-    if (result.length >= softCap) break;
-
-    const scope = scopeChain[index]!;
-    const perScopeLimit = Math.max(softCap - result.length, limit);
-
-    if (hasTemporal) {
-      // Use raw SQL with join for temporal filtering
-      // Validate all temporal parameters to prevent SQL injection
-      const atTime = params.atTime;
-      const validDuring = params.validDuring;
-
-      let temporalConditions = '';
-      const queryParams: unknown[] = [
-        scope.scopeType,
-        scope.scopeId ?? null,
-      ];
-
-      if (atTime) {
-        // Validate atTime parameter
-        const validatedAtTime = validateIsoDate(atTime, 'atTime');
-
-        // Entry is valid at a specific point in time
-        // valid_from <= atTime (or null) AND valid_until > atTime (or null)
-        temporalConditions = `
-          AND (kv.valid_from IS NULL OR kv.valid_from <= ?)
-          AND (kv.valid_until IS NULL OR kv.valid_until > ?)
-        `;
-        queryParams.push(validatedAtTime, validatedAtTime);
-      } else if (validDuring) {
-        // Validate validDuring parameters
-        const validatedStart = validateIsoDate(validDuring.start, 'validDuring.start');
-        const validatedEnd = validateIsoDate(validDuring.end, 'validDuring.end');
-
-        // Entry is valid during a period (overlaps with the period)
-        // valid_from <= end AND valid_until >= start (accounting for nulls)
-        temporalConditions = `
-          AND (kv.valid_from IS NULL OR kv.valid_from <= ?)
-          AND (kv.valid_until IS NULL OR kv.valid_until >= ?)
-        `;
-        queryParams.push(validatedEnd, validatedStart);
-      }
-
-      // Build date filter conditions with validation
-      let dateConditions = '';
-      if (params.createdAfter) {
-        const validatedCreatedAfter = validateIsoDate(params.createdAfter, 'createdAfter');
-        dateConditions += ` AND k.created_at >= ?`;
-        queryParams.push(validatedCreatedAfter);
-      }
-      if (params.createdBefore) {
-        const validatedCreatedBefore = validateIsoDate(params.createdBefore, 'createdBefore');
-        dateConditions += ` AND k.created_at <= ?`;
-        queryParams.push(validatedCreatedBefore);
-      }
-
-      // Build FTS filter condition
-      let ftsCondition = '';
-      if (ftsMatchIds && ftsMatchIds[ftsKey].size > 0) {
-        const ids = Array.from(ftsMatchIds[ftsKey]);
-        const placeholders = ids.map(() => '?').join(',');
-        ftsCondition = ` AND k.id IN (${placeholders})`;
-        queryParams.push(...ids);
-      }
-
-      queryParams.push(perScopeLimit);
-
-      const sqlQuery = `
-        SELECT DISTINCT k.*
-        FROM knowledge k
-        INNER JOIN knowledge_versions kv ON k.current_version_id = kv.id
-        WHERE k.scope_type = ?
-          AND (k.scope_id = ? OR (k.scope_id IS NULL AND ? IS NULL))
-          AND k.is_active = 1
-          ${temporalConditions}
-          ${dateConditions}
-          ${ftsCondition}
-        ORDER BY k.created_at DESC
-        LIMIT ?
-      `;
-
-      // Adjust query params for the NULL check
-      queryParams.splice(2, 0, scope.scopeId ?? null);
-
-      const stmt = ctx.deps.getPreparedStatement(sqlQuery);
-      const rows = stmt.all(...queryParams) as Knowledge[];
-
-      for (const row of rows) {
-        result.push({ entry: row, scopeIndex: index });
-      }
+  // Build scope OR conditions for batched query
+  const scopeConditions: string[] = [];
+  const scopeParams: unknown[] = [];
+  for (const scope of scopeChain) {
+    if (scope.scopeId === null) {
+      scopeConditions.push('(k.scope_type = ? AND k.scope_id IS NULL)');
+      scopeParams.push(scope.scopeType);
     } else {
-      // No temporal filtering, use standard fetch
-      fetchEntriesGeneric(db, config, ctx, result, softCap);
-      break; // fetchEntriesGeneric handles all scopes
+      scopeConditions.push('(k.scope_type = ? AND k.scope_id = ?)');
+      scopeParams.push(scope.scopeType, scope.scopeId);
     }
+  }
+
+  const queryParams: unknown[] = [...scopeParams];
+
+  // Build temporal conditions
+  let temporalConditions = '';
+  if (hasTemporal) {
+    const atTime = params.atTime;
+    const validDuring = params.validDuring;
+
+    if (atTime) {
+      const validatedAtTime = validateIsoDate(atTime, 'atTime');
+      temporalConditions = `
+        AND (kv.valid_from IS NULL OR kv.valid_from <= ?)
+        AND (kv.valid_until IS NULL OR kv.valid_until > ?)
+      `;
+      queryParams.push(validatedAtTime, validatedAtTime);
+    } else if (validDuring) {
+      const validatedStart = validateIsoDate(validDuring.start, 'validDuring.start');
+      const validatedEnd = validateIsoDate(validDuring.end, 'validDuring.end');
+      temporalConditions = `
+        AND (kv.valid_from IS NULL OR kv.valid_from <= ?)
+        AND (kv.valid_until IS NULL OR kv.valid_until >= ?)
+      `;
+      queryParams.push(validatedEnd, validatedStart);
+    }
+  }
+
+  // Build date filter conditions
+  let dateConditions = '';
+  if (params.createdAfter) {
+    const validatedCreatedAfter = validateIsoDate(params.createdAfter, 'createdAfter');
+    dateConditions += ` AND k.created_at >= ?`;
+    queryParams.push(validatedCreatedAfter);
+  }
+  if (params.createdBefore) {
+    const validatedCreatedBefore = validateIsoDate(params.createdBefore, 'createdBefore');
+    dateConditions += ` AND k.created_at <= ?`;
+    queryParams.push(validatedCreatedBefore);
+  }
+
+  // Build FTS filter condition
+  let ftsCondition = '';
+  if (ftsMatchIds && ftsMatchIds[ftsKey].size > 0) {
+    const ids = Array.from(ftsMatchIds[ftsKey]);
+    const placeholders = ids.map(() => '?').join(',');
+    ftsCondition = ` AND k.id IN (${placeholders})`;
+    queryParams.push(...ids);
+  }
+
+  // Build relation traversal ID filter
+  let relationCondition = '';
+  if (params.relatedTo && ctx.relatedIds && ctx.relatedIds[ftsKey]?.size > 0) {
+    const ids = Array.from(ctx.relatedIds[ftsKey]);
+    const placeholders = ids.map(() => '?').join(',');
+    relationCondition = ` AND k.id IN (${placeholders})`;
+    queryParams.push(...ids);
+  }
+
+  queryParams.push(softCap);
+
+  // Single batched query with scope OR, includes kv.content for text search
+  const sqlQuery = `
+    SELECT DISTINCT k.*, kv.content
+    FROM knowledge k
+    INNER JOIN knowledge_versions kv ON k.current_version_id = kv.id
+    WHERE (${scopeConditions.join(' OR ')})
+      AND k.is_active = 1
+      ${temporalConditions}
+      ${dateConditions}
+      ${ftsCondition}
+      ${relationCondition}
+    ORDER BY k.created_at DESC
+    LIMIT ?
+  `;
+
+  const stmt = ctx.deps.getPreparedStatement(sqlQuery);
+  const rows = stmt.all(...queryParams) as KnowledgeWithContent[];
+
+  // Map each entry to its scope index post-query
+  for (const row of rows) {
+    const scopeIndex = scopeChain.findIndex(
+      (scope) =>
+        scope.scopeType === row.scopeType &&
+        (scope.scopeId === null ? row.scopeId === null : scope.scopeId === row.scopeId)
+    );
+    result.push({ entry: row, scopeIndex: scopeIndex >= 0 ? scopeIndex : scopeChain.length });
+  }
+
+  // Sort by scope priority (lower index = higher priority), then by createdAt
+  result.sort((a, b) => {
+    if (a.scopeIndex !== b.scopeIndex) {
+      return a.scopeIndex - b.scopeIndex;
+    }
+    const aTime = new Date(a.entry.createdAt ?? 0).getTime();
+    const bTime = new Date(b.entry.createdAt ?? 0).getTime();
+    return bTime - aTime;
+  });
+
+  // Trim to soft cap if needed
+  if (result.length > softCap) {
+    result.length = softCap;
   }
 }
 
@@ -450,8 +473,8 @@ export function fetchStage(ctx: PipelineContext): PipelineContext {
     } else if (type === 'guidelines') {
       fetchEntriesGeneric(db, FETCH_CONFIGS.guidelines, ctx, fetchedEntries.guidelines, perTypeSoftCap);
     } else if (type === 'knowledge') {
-      // Use temporal-aware fetch for knowledge (handles atTime/validDuring)
-      fetchKnowledgeWithTemporal(db, ctx, fetchedEntries.knowledge, perTypeSoftCap);
+      // Use content-aware fetch for knowledge (joins with versions to get content for fuzzy search)
+      fetchKnowledgeWithContent(db, ctx, fetchedEntries.knowledge as Array<{ entry: KnowledgeWithContent; scopeIndex: number }>, perTypeSoftCap);
     } else if (type === 'experiences') {
       fetchEntriesGeneric(db, FETCH_CONFIGS.experiences, ctx, fetchedEntries.experiences, perTypeSoftCap);
     }
@@ -544,8 +567,8 @@ export async function fetchStageAsync(ctx: PipelineContext): Promise<PipelineCon
       fetchPromises.push(
         new Promise((resolve) => {
           setImmediate(() => {
-            // Use temporal-aware fetch for knowledge (handles atTime/validDuring)
-            fetchKnowledgeWithTemporal(db, ctx, fetchedEntries.knowledge, perTypeSoftCap);
+            // Use content-aware fetch for knowledge (joins with versions to get content for fuzzy search)
+            fetchKnowledgeWithContent(db, ctx, fetchedEntries.knowledge as Array<{ entry: KnowledgeWithContent; scopeIndex: number }>, perTypeSoftCap);
             resolve();
           });
         })

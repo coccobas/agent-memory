@@ -29,6 +29,8 @@ import type { LoraService } from '../services/lora.service.js';
 import type { IQueryRewriteService } from '../services/query-rewrite/types.js';
 import type { TriggerOrchestrator } from '../services/extraction/trigger-orchestrator.js';
 import type { IncrementalExtractor } from '../services/extraction/incremental.js';
+import type { IContextDetectionService } from '../services/context-detection.service.js';
+import type { IClassificationService } from '../services/classification/index.js';
 
 /**
  * Service interfaces for AppContext
@@ -133,56 +135,129 @@ export interface IHierarchicalSummarizationService {
   }>;
 }
 
+// ============================================================================
+// SERVICE GROUP INTERFACES
+// ============================================================================
+
 /**
- * Services container
- *
- * Service optionality:
- * - Required services are always created by the factory
- * - Optional services may be disabled via configuration or lazy-initialized
- *
- * Permission is required for all authorization checks
+ * Core services - always available, required for basic operation.
+ * These services are created during application bootstrap and are never optional.
  */
-export interface AppContextServices {
-  // === Always Created (Required) ===
-  permission: PermissionService; // Required - all code paths must have permission service
+export interface CoreServices {
+  /** Permission service for authorization checks - required for all code paths */
+  permission: PermissionService;
   /** Feedback service for RL training data collection */
   feedback: FeedbackService;
   /** Feedback queue processor for batched retrieval recording */
   feedbackQueue: FeedbackQueueProcessor;
   /** Reinforcement learning service for policy decisions */
   rl: RLService;
-  /** Capture state manager for session state */
+}
+
+/**
+ * AI/ML services - configuration-dependent.
+ * Availability depends on provider configuration (OpenAI, Anthropic, Ollama, etc.)
+ * and feature flags. May be disabled in minimal deployments.
+ */
+export interface AIServices {
+  /** Embedding service for text vectorization */
+  embedding?: IEmbeddingService;
+  /** Vector storage and similarity search */
+  vector?: IVectorService;
+  /** LLM-based extraction of entries from conversations */
+  extraction?: IExtractionService;
+  /** Hybrid entry type classification (rule-based + semantic + LLM) */
+  classification?: IClassificationService;
+  /** Hierarchical summary generation for entry clusters */
+  summarization?: IHierarchicalSummarizationService;
+}
+
+/**
+ * Session and capture services - manage session lifecycle and entry capture.
+ * These services handle the capture flow from observation to storage.
+ */
+export interface SessionServices {
+  /** Capture state manager for session state tracking */
   captureState: CaptureStateManager;
+  /** Capture service for session-scoped entry capture */
+  capture?: CaptureService;
+  /** Librarian service for pattern detection and promotion */
+  librarian?: LibrarianService;
+  /** Experience promotion service for case->strategy->skill promotions */
+  experiencePromotion?: ExperiencePromotionService;
+  /** Observe commit service for storing extracted entries */
+  observeCommit?: ObserveCommitService;
+}
+
+/**
+ * Query enhancement services - improve query accuracy and scoring.
+ * These services enhance retrieval quality through entity extraction,
+ * scoring, and query rewriting.
+ */
+export interface QueryServices {
   /** Entity extractor for text entity extraction */
   entityExtractor: EntityExtractor;
   /** Feedback score cache for retrieval scoring */
   feedbackScoreCache: FeedbackScoreCache;
-
-  // === Configuration-Dependent (Optional) ===
-  embedding?: IEmbeddingService;
-  vector?: IVectorService;
-  extraction?: IExtractionService;
-  verification?: VerificationService;
-  summarization?: IHierarchicalSummarizationService;
-
-  // === Lazy-Initialized (Optional) ===
-  /** Librarian service for pattern detection and promotion */
-  librarian?: LibrarianService;
-  /** Capture service for session-scoped entry capture */
-  capture?: CaptureService;
-  /** Experience promotion service for case→strategy→skill promotions */
-  experiencePromotion?: ExperiencePromotionService;
-  /** Observe commit service for storing extracted entries */
-  observeCommit?: ObserveCommitService;
-  /** LoRA service for exporting guidelines as training data */
-  lora?: LoraService;
   /** Query rewrite service for HyDE and query expansion */
   queryRewrite?: IQueryRewriteService;
+}
+
+/**
+ * Extraction pipeline services - handle automatic extraction triggers.
+ * These services orchestrate when and how extraction occurs.
+ */
+export interface ExtractionPipelineServices {
   /** Trigger orchestrator for auto-detection extraction triggers */
   triggerOrchestrator?: TriggerOrchestrator;
   /** Incremental extractor for sliding window extraction */
   incrementalExtractor?: IncrementalExtractor;
 }
+
+/**
+ * Utility services - miscellaneous services for specific features.
+ * These services provide auxiliary functionality that may or may not be needed.
+ */
+export interface UtilityServices {
+  /** Verification service for entry validation */
+  verification?: VerificationService;
+  /** LoRA service for exporting guidelines as training data */
+  lora?: LoraService;
+  /** Context detection service for auto-detecting project/session from cwd */
+  contextDetection?: IContextDetectionService;
+}
+
+// ============================================================================
+// COMBINED SERVICES CONTAINER
+// ============================================================================
+
+/**
+ * Services container - combines all service groups.
+ *
+ * This interface extends all service group interfaces, providing a unified
+ * view of all available services. The grouping is for documentation and
+ * organizational purposes - existing code accessing `context.services.xxx`
+ * continues to work unchanged.
+ *
+ * Service optionality:
+ * - Required services (from CoreServices, parts of SessionServices/QueryServices)
+ *   are always created by the factory
+ * - Optional services may be disabled via configuration or lazy-initialized
+ *
+ * @see CoreServices - Always available, required for basic operation
+ * @see AIServices - Configuration-dependent AI/ML services
+ * @see SessionServices - Session lifecycle and capture management
+ * @see QueryServices - Query enhancement and scoring
+ * @see ExtractionPipelineServices - Automatic extraction triggers
+ * @see UtilityServices - Miscellaneous auxiliary services
+ */
+export interface AppContextServices
+  extends CoreServices,
+    AIServices,
+    SessionServices,
+    QueryServices,
+    ExtractionPipelineServices,
+    UtilityServices {}
 
 /**
  * Unified adapter interface for handler injection.

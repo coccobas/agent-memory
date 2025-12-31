@@ -7,17 +7,18 @@
  * ## Strategy Selection Order
  *
  * 1. If no search query, use 'like' as neutral (no search needed)
- * 2. Explicit user override via params.semanticSearch/useFts5
- * 3. Config-based default strategy
- * 4. Auto-detect based on embedding coverage
- * 5. Fallback to FTS5
+ * 2. Fuzzy/regex search requires 'like' (FTS5 can't do these)
+ * 3. Explicit user override via params.semanticSearch/useFts5
+ * 4. Config-based default strategy
+ * 5. Auto-detect based on embedding coverage
+ * 6. Fallback to FTS5
  *
  * ## Strategies
  *
  * - 'hybrid': Combines FTS5 + semantic search for best results
  * - 'semantic': Pure vector similarity search
  * - 'fts5': Full-text search using SQLite FTS5
- * - 'like': Legacy LIKE-based search (fallback)
+ * - 'like': Legacy LIKE-based search (fallback), used for fuzzy/regex
  */
 
 import type { PipelineContext } from '../pipeline.js';
@@ -49,18 +50,21 @@ async function resolveSearchStrategy(ctx: PipelineContext): Promise<SearchStrate
   // 1. No search query = no strategy needed, use 'like' as neutral
   if (!ctx.search) return 'like';
 
-  // 2. Explicit user override wins
+  // 2. Fuzzy/regex search requires 'like' strategy (FTS5 can't do fuzzy matching)
+  if (params.fuzzy === true || params.regex === true) return 'like';
+
+  // 3. Explicit user override wins
   if (params.semanticSearch === true && params.useFts5 === true) return 'hybrid';
   if (params.semanticSearch === true) return 'semantic';
   if (params.useFts5 === true) return 'fts5';
 
-  // 3. Config-based default
+  // 4. Config-based default
   // Access search config with type assertion since it may not be in interface yet
   const searchConfig = (config as { search?: { defaultStrategy?: string; autoSemanticThreshold?: number } }).search;
   const configStrategy = searchConfig?.defaultStrategy ?? 'auto';
   if (configStrategy !== 'auto') return configStrategy as SearchStrategy;
 
-  // 4. Auto-detect based on embedding coverage
+  // 5. Auto-detect based on embedding coverage
   // Map ScopeDescriptor to ScopeChainElement format expected by coverage service
   const scopeElements: ScopeChainElement[] = scopeChain.map(sd => ({
     type: sd.scopeType,
@@ -81,7 +85,7 @@ async function resolveSearchStrategy(ctx: PipelineContext): Promise<SearchStrate
   const threshold = searchConfig?.autoSemanticThreshold ?? 0.8;
   if (coverage.ratio >= threshold) return 'hybrid';
 
-  // 5. Fallback to FTS5
+  // 6. Fallback to FTS5
   return 'fts5';
 }
 

@@ -39,6 +39,8 @@ import {
   type IncrementalExtractorConfig,
 } from '../../services/extraction/incremental.js';
 import { createIncrementalMemoryObserver } from '../../services/extraction/incremental-observer.js';
+// Classification service
+import { createClassificationService } from '../../services/classification/index.js';
 
 const logger = createComponentLogger('services-factory');
 
@@ -146,6 +148,7 @@ export async function createServices(
     registerEmbeddingPipeline(runtime, {
       isAvailable: () => embeddingService.isAvailable(),
       embed: async (text) => embeddingService.embed(text),
+      embedBatch: async (texts) => embeddingService.embedBatch(texts),
       storeEmbedding: async (entryType, entryId, versionId, text, embedding, model) => {
         await vectorService.storeEmbedding(entryType, entryId, versionId, text, embedding, model);
       },
@@ -340,6 +343,21 @@ export async function createServices(
     );
   }
 
+  // Classification Service - hybrid regex/LLM classification with learning
+  const classificationService = createClassificationService(
+    db,
+    config,
+    extractionService.isAvailable() ? extractionService : null
+  );
+  logger.debug(
+    {
+      llmFallback: config.classification.enableLLMFallback,
+      highThreshold: config.classification.highConfidenceThreshold,
+      lowThreshold: config.classification.lowConfidenceThreshold,
+    },
+    'Classification service initialized'
+  );
+
   return {
     embedding: embeddingService,
     vector: vectorService,
@@ -360,5 +378,7 @@ export async function createServices(
     // Incremental extraction services
     triggerOrchestrator,
     incrementalExtractor,
+    // Classification service
+    classification: classificationService,
   };
 }

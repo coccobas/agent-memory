@@ -4,7 +4,7 @@
  * Factory function that accepts DatabaseDeps for dependency injection.
  */
 
-import { eq, and, desc, asc } from 'drizzle-orm';
+import { eq, and, desc, asc, inArray } from 'drizzle-orm';
 import { transactionWithRetry } from '../connection.js';
 import {
   guidelines,
@@ -143,6 +143,26 @@ export function createGuidelineRepository(deps: DatabaseDeps): IGuidelineReposit
 
     async getById(id: string): Promise<GuidelineWithVersion | undefined> {
       return getByIdSync(id);
+    },
+
+    async getByIds(ids: string[]): Promise<GuidelineWithVersion[]> {
+      if (ids.length === 0) return [];
+
+      const guidelinesList = db
+        .select()
+        .from(guidelines)
+        .where(inArray(guidelines.id, ids))
+        .all();
+
+      if (guidelinesList.length === 0) return [];
+
+      const versionsMap = batchFetchVersionsWithDb<GuidelineVersion>(
+        db,
+        guidelineVersions,
+        guidelinesList.map((g) => g.currentVersionId)
+      );
+
+      return attachVersions(guidelinesList, versionsMap);
     },
 
     async getByName(

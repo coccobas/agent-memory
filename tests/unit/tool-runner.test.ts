@@ -56,7 +56,14 @@ describe('tool-runner', () => {
       locks: {} as any,
       events: {} as any,
       rateLimiter: {} as any,
-      config: {} as any,
+      config: {
+        autoContext: {
+          enabled: false, // Disabled for unit tests
+          defaultAgentId: 'test-agent',
+          cacheTTLMs: 5000,
+        },
+      } as any,
+      services: {}, // No contextDetection service in unit tests
       shutdown: vi.fn(),
     } as unknown as AppContext;
   });

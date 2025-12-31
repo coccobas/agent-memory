@@ -119,3 +119,37 @@ export function getEntryKeyValue(entry: EntryUnion, type: QueryType): string {
   }
   return (entry as { name: string }).name ?? '';
 }
+
+/**
+ * Get searchable text from an entry (combines name/title with content/description).
+ *
+ * @param entry - The entry object (Tool, Guideline, Knowledge, or Experience)
+ * @param type - The query type to determine which fields to use
+ * @returns Combined searchable text from all relevant fields
+ */
+export function getEntrySearchableText(entry: EntryUnion, type: QueryType): string {
+  const parts: string[] = [];
+
+  // Add name/title
+  if (type === 'knowledge' || type === 'experiences') {
+    const title = (entry as { title?: string }).title;
+    if (title) parts.push(title);
+  } else {
+    const name = (entry as { name?: string }).name;
+    if (name) parts.push(name);
+  }
+
+  // Add content (guidelines, knowledge, experiences have 'content')
+  if (type === 'guidelines' || type === 'knowledge' || type === 'experiences') {
+    const content = (entry as { content?: string }).content;
+    if (content) parts.push(content);
+  }
+
+  // Add description (tools have 'description')
+  if (type === 'tools') {
+    const description = (entry as { description?: string }).description;
+    if (description) parts.push(description);
+  }
+
+  return parts.join(' ');
+}

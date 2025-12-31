@@ -132,15 +132,27 @@ export interface QueryTestParams {
   useFts5?: boolean;
   /** Enable fuzzy matching */
   fuzzy?: boolean;
+  /** Enable regex pattern matching */
+  regex?: boolean;
+  /** Field-specific search (limit search to these fields) */
+  fields?: Array<'name' | 'content' | 'description' | 'title'>;
   /** Max results to return */
   limit?: number;
+  /** Offset for pagination */
+  offset?: number;
   /** Priority filter for guidelines */
   priority?: { min?: number; max?: number };
+  /** Confidence filter for knowledge */
+  confidence?: { min?: number; max?: number };
   /** Date filters */
   createdAfter?: string;
   createdBefore?: string;
-  /** Temporal query for knowledge */
+  /** Temporal query for knowledge (point-in-time) */
   atTime?: string;
+  /** Temporal query for knowledge (period) */
+  validDuring?: { start: string; end: string };
+  /** Include inactive entries */
+  includeInactive?: boolean;
   /** Related entries filter */
   relatedTo?: {
     id: string;
@@ -159,17 +171,31 @@ export type QueryTestCategory =
   | 'keyword-partial'      // Partial/substring matches
   | 'keyword-multi'        // Multiple keywords
   | 'fts5-ranking'         // FTS5 BM25 ranking quality
+  | 'fts5-operators'       // FTS5 AND, OR, NOT, phrase operators
   | 'semantic-similarity'  // Semantic/vector search
+  | 'fuzzy-search'         // Fuzzy/typo-tolerant search
+  | 'regex-search'         // Regex pattern search
+  | 'field-search'         // Field-specific search
   | 'scope-filtering'      // Scope-based filtering
   | 'scope-inheritance'    // Scope chain inheritance
   | 'type-filtering'       // Filter by entry type
   | 'tag-filtering'        // Tag-based queries
   | 'priority-filtering'   // Guideline priority filtering
-  | 'temporal-filtering'   // Date-based queries
+  | 'confidence-filtering' // Knowledge confidence filtering
+  | 'date-filtering'       // Created date filtering
+  | 'temporal-filtering'   // Date-based queries (legacy)
+  | 'temporal-validity'    // Valid from/until temporal filtering
+  | 'inactive-filtering'   // Active/inactive entry filtering
   | 'relation-traversal'   // Graph relation queries
   | 'combined-filters'     // Multiple filters combined
   | 'noise-rejection'      // Should return few/no results
-  | 'edge-cases';          // Unusual queries
+  | 'pagination'           // Offset/limit tests
+  | 'edge-cases'           // Unusual queries
+  // Adversarial categories
+  | 'typo-queries'         // Queries with typos: "posqtgress", "authentcation"
+  | 'vague-queries'        // Vague queries: "database stuff", "how do test"
+  | 'multi-intent'         // Multiple intents: "deployment AND auth requirements"
+  | 'synonym-gaps';        // Search "database", expect "postgres" results
 
 /**
  * Category display names
@@ -179,17 +205,31 @@ export const QUERY_CATEGORY_NAMES: Record<QueryTestCategory, string> = {
   'keyword-partial': 'Partial Keywords',
   'keyword-multi': 'Multiple Keywords',
   'fts5-ranking': 'FTS5 Ranking',
+  'fts5-operators': 'FTS5 Operators',
   'semantic-similarity': 'Semantic Search',
+  'fuzzy-search': 'Fuzzy Search',
+  'regex-search': 'Regex Search',
+  'field-search': 'Field Search',
   'scope-filtering': 'Scope Filtering',
   'scope-inheritance': 'Scope Inheritance',
   'type-filtering': 'Type Filtering',
   'tag-filtering': 'Tag Filtering',
   'priority-filtering': 'Priority Filtering',
+  'confidence-filtering': 'Confidence Filtering',
+  'date-filtering': 'Date Filtering',
   'temporal-filtering': 'Temporal Filtering',
+  'temporal-validity': 'Temporal Validity',
+  'inactive-filtering': 'Inactive Filtering',
   'relation-traversal': 'Relation Traversal',
   'combined-filters': 'Combined Filters',
   'noise-rejection': 'Noise Rejection',
+  'pagination': 'Pagination',
   'edge-cases': 'Edge Cases',
+  // Adversarial categories
+  'typo-queries': 'Typo Queries',
+  'vague-queries': 'Vague Queries',
+  'multi-intent': 'Multi-Intent',
+  'synonym-gaps': 'Synonym Gaps',
 };
 
 /**

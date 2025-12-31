@@ -35,5 +35,21 @@ export const vectorDbSection: ConfigSectionMeta = {
       schema: z.enum(['cosine', 'l2', 'dot']),
       allowedValues: ['cosine', 'l2', 'dot'] as const,
     },
+    quantization: {
+      envKey: 'AGENT_MEMORY_VECTOR_QUANTIZATION',
+      defaultValue: 'none',
+      description:
+        'Vector quantization type: none, sq (scalar ~4x), pq (product ~8-32x). Reduces storage but may affect accuracy.',
+      schema: z.enum(['none', 'sq', 'pq']),
+      allowedValues: ['none', 'sq', 'pq'] as const,
+    },
+    indexThreshold: {
+      envKey: 'AGENT_MEMORY_VECTOR_INDEX_THRESHOLD',
+      defaultValue: 256,
+      description:
+        'Minimum number of vectors before creating a quantized index. LanceDB recommends at least 256.',
+      schema: z.number().int().min(1),
+      parse: 'int',
+    },
   },
 };

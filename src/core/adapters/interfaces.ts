@@ -261,6 +261,80 @@ export interface IRateLimiterAdapter {
 }
 
 // =============================================================================
+// CIRCUIT BREAKER ADAPTER
+// =============================================================================
+
+/**
+ * Circuit breaker state for distributed state sharing.
+ */
+export interface CircuitBreakerState {
+  state: 'closed' | 'open' | 'half-open';
+  failures: number;
+  successes: number;
+  lastFailureTime?: number;
+  nextAttemptTime?: number;
+}
+
+/**
+ * Configuration for circuit breaker state adapter.
+ */
+export interface CircuitBreakerStateConfig {
+  failureThreshold: number;
+  resetTimeoutMs: number;
+  successThreshold: number;
+}
+
+/**
+ * Abstract circuit breaker state adapter interface.
+ * Wraps circuit breaker state storage (local, Redis, etc.)
+ * for distributed state sharing across instances.
+ */
+export interface ICircuitBreakerStateAdapter {
+  /**
+   * Get the current state for a service.
+   * @param serviceName - The name of the service
+   * @returns The current circuit breaker state or null if not found
+   */
+  getState(serviceName: string): Promise<CircuitBreakerState | null>;
+
+  /**
+   * Set the state for a service.
+   * @param serviceName - The name of the service
+   * @param state - The new circuit breaker state
+   */
+  setState(serviceName: string, state: CircuitBreakerState): Promise<void>;
+
+  /**
+   * Record a failure and return the updated state.
+   * Atomically increments failure count and handles state transitions.
+   * @param serviceName - The name of the service
+   * @param config - Circuit breaker configuration
+   * @returns The updated circuit breaker state
+   */
+  recordFailure(serviceName: string, config: CircuitBreakerStateConfig): Promise<CircuitBreakerState>;
+
+  /**
+   * Record a success and return the updated state.
+   * Atomically increments success count and handles state transitions.
+   * @param serviceName - The name of the service
+   * @param config - Circuit breaker configuration
+   * @returns The updated circuit breaker state
+   */
+  recordSuccess(serviceName: string, config: CircuitBreakerStateConfig): Promise<CircuitBreakerState>;
+
+  /**
+   * Reset the circuit breaker state for a service.
+   * @param serviceName - The name of the service
+   */
+  reset(serviceName: string): Promise<void>;
+
+  /**
+   * Reset all circuit breaker states.
+   */
+  resetAll(): Promise<void>;
+}
+
+// =============================================================================
 // ADAPTERS COLLECTION
 // =============================================================================
 

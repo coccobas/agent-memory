@@ -134,7 +134,7 @@ describe.skipIf(!embeddingsAvailable)('Backfill Service', () => {
 
     expect(progress.total).toBe(5);
     expect(progress.processed).toBe(5);
-  }, 45000); // Increased timeout for batch processing
+  }, 90000); // Increased timeout for batch processing (model init can be slow)
 
   it('should track progress with callback', { timeout: 60000 }, async () => {
     createTestTool(db, 'progress-tool-1', 'global');

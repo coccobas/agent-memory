@@ -63,8 +63,8 @@ export function closeDb(): void {
     try {
       const sqlite = getContainerSqlite();
       sqlite.close();
-    } catch {
-      // Ignore close errors
+    } catch (error) {
+      logger.debug({ error }, 'Error closing database connection (non-fatal)');
     }
     containerClearPreparedStatementCache();
     stopHealthCheckInterval();

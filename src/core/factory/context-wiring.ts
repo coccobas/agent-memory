@@ -30,6 +30,7 @@ import type { ICacheAdapter } from '../adapters/interfaces.js';
 import { createServices, type ServiceDependencies } from './services.js';
 import { createQueryPipeline, wireQueryCache } from './query-pipeline.js';
 import { EntityIndex } from '../../services/query/entity-index.js';
+import { createContextDetectionService } from '../../services/context-detection.service.js';
 
 /**
  * Input for wireContext - all backend-specific resources resolved
@@ -130,6 +131,14 @@ export async function wireContext(input: WireContextInput): Promise<AppContext> 
     }
   );
   services.capture = captureService;
+
+  // Create ContextDetectionService (needs repos for project/session lookup)
+  const contextDetectionService = createContextDetectionService(
+    config,
+    repos.projects,
+    repos.sessions
+  );
+  services.contextDetection = contextDetectionService;
 
   // Create entity index for entity-aware retrieval
   const entityIndex = new EntityIndex(db);

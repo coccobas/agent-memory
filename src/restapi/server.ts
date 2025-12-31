@@ -108,7 +108,7 @@ export async function createServer(context: AppContext): Promise<FastifyInstance
     // Fastify v5 expects a config object here; we keep Fastify logging off and rely on our own logger.
     logger: false,
     disableRequestLogging: true,
-    bodyLimit: 1024 * 1024, // 1 MiB
+    bodyLimit: config.rest.bodyLimit,
     connectionTimeout: 30000, // 30 second connection timeout
     requestTimeout: 60000, // 60 second request timeout to prevent resource exhaustion
     trustProxy: process.env.AGENT_MEMORY_REST_TRUST_PROXY === 'true', // Enable trustProxy to use Fastify's built-in IP parsing (HIGH-001 fix)

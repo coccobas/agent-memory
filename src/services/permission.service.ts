@@ -50,6 +50,14 @@ export type BatchPermissionResult = Map<string, boolean>;
  */
 export type ParentScopeValue = { type: ScopeType; id: string | null } | null;
 
+/**
+ * Cache value type for permission check results
+ */
+export interface PermissionCheckCacheValue {
+  result: boolean;
+  timestamp: number;
+}
+
 // =============================================================================
 // PERMISSION SERVICE CLASS
 // =============================================================================
@@ -69,7 +77,15 @@ export class PermissionService {
   private permissionsExistCache: { value: boolean; timestamp: number } | null = null;
   private hasWarnedAboutPermissiveMode = false;
 
+  /**
+   * Cache for permission check results
+   * Key format: {agentId}:{action}:{entryType}:{entryId}:{scopeType}:{scopeId}
+   */
+  private readonly permissionCheckCache = new Map<string, PermissionCheckCacheValue>();
+
   private static readonly PERMISSIONS_EXIST_CACHE_TTL_MS = 30 * 1000; // 30 seconds
+  private static readonly PERMISSION_CHECK_CACHE_TTL_MS = 30 * 1000; // 30 seconds
+  private static readonly PERMISSION_CHECK_CACHE_MAX_SIZE = 1000; // Limit memory usage
 
   constructor(db: DbClient, cacheAdapter: ICacheAdapter<ParentScopeValue>) {
     this.db = db;
@@ -112,11 +128,65 @@ export class PermissionService {
   }
 
   /**
-   * Invalidate the permissions existence cache
+   * Invalidate all permission caches
    */
   invalidateCache(): void {
     this.permissionsExistCache = null;
     this.parentScopeCache.clear();
+    this.permissionCheckCache.clear();
+  }
+
+  /**
+   * Build cache key for permission check
+   */
+  private buildPermissionCheckCacheKey(
+    agentId: string,
+    action: Action,
+    entryType: EntryType,
+    entryId: string | null | undefined,
+    scopeType: ScopeType,
+    scopeId: string | null | undefined
+  ): string {
+    return `${agentId}:${action}:${entryType}:${entryId ?? ''}:${scopeType}:${scopeId ?? ''}`;
+  }
+
+  /**
+   * Get cached permission check result
+   */
+  private getCachedPermissionCheck(cacheKey: string): boolean | undefined {
+    const cached = this.permissionCheckCache.get(cacheKey);
+    if (!cached) return undefined;
+
+    const now = Date.now();
+    if (now - cached.timestamp > PermissionService.PERMISSION_CHECK_CACHE_TTL_MS) {
+      this.permissionCheckCache.delete(cacheKey);
+      return undefined;
+    }
+
+    // Refresh position in Map for true LRU behavior:
+    // Delete and re-insert to move entry to end of iteration order
+    this.permissionCheckCache.delete(cacheKey);
+    this.permissionCheckCache.set(cacheKey, cached);
+
+    return cached.result;
+  }
+
+  /**
+   * Set cached permission check result
+   */
+  private setCachedPermissionCheck(cacheKey: string, result: boolean): void {
+    // Evict oldest entries if cache is too large
+    if (this.permissionCheckCache.size >= PermissionService.PERMISSION_CHECK_CACHE_MAX_SIZE) {
+      const oldestKey = this.permissionCheckCache.keys().next().value;
+      if (oldestKey) {
+        this.permissionCheckCache.delete(oldestKey);
+      }
+    }
+
+    this.permissionCheckCache.set(cacheKey, {
+      result,
+      timestamp: Date.now(),
+    });
   }
 
   /**
@@ -344,11 +414,26 @@ export class PermissionService {
       return true;
     }
 
+    // Check cache first
+    const cacheKey = this.buildPermissionCheckCacheKey(
+      agentId,
+      action,
+      entryType,
+      entryId,
+      scopeType,
+      scopeId
+    );
+    const cachedResult = this.getCachedPermissionCheck(cacheKey);
+    if (cachedResult !== undefined) {
+      return cachedResult;
+    }
+
     if (!this.checkPermissionsExist()) {
       this.logger.debug(
         { agentId, action, entryType, scopeType },
         'Access denied: no permissions configured'
       );
+      this.setCachedPermissionCheck(cacheKey, false);
       return false;
     }
 
@@ -363,10 +448,12 @@ export class PermissionService {
         { agentId, action, entryType, scopeType, scopeId },
         'Access denied: no matching permissions'
       );
+      this.setCachedPermissionCheck(cacheKey, false);
       return false;
     }
 
     if (this.hasAnyRequiredLevel(matchingPerms, requiredPermission)) {
+      this.setCachedPermissionCheck(cacheKey, true);
       return true;
     }
 
@@ -379,6 +466,7 @@ export class PermissionService {
       },
       'Access denied: insufficient permission level'
     );
+    this.setCachedPermissionCheck(cacheKey, false);
     return false;
   }
 
@@ -525,7 +613,9 @@ export class PermissionService {
       })
       .run();
 
+    // Invalidate all caches - permission change affects check results
     this.permissionsExistCache = null;
+    this.permissionCheckCache.clear();
   }
 
   /**
@@ -576,7 +666,10 @@ export class PermissionService {
       .delete(permissions)
       .where(and(...conditions))
       .run();
+
+    // Invalidate all caches - permission change affects check results
     this.permissionsExistCache = null;
+    this.permissionCheckCache.clear();
   }
 
   /**

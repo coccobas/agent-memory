@@ -8,6 +8,38 @@
  */
 
 /**
+ * Pre-compiled regex patterns for sanitizing error messages.
+ *
+ * These patterns are compiled once at module load time rather than on every
+ * call to sanitizeErrorMessage(). This provides significant performance
+ * improvement in high-throughput error handling scenarios.
+ *
+ * Security: Used to prevent information disclosure attacks by redacting
+ * sensitive data like file paths, IP addresses, and connection strings.
+ */
+const SANITIZE_PATTERNS = {
+  /** Unix paths: /Users/..., /home/..., /var/..., /etc/..., /root/..., /srv/..., etc. */
+  unixPaths:
+    /\/(?:Users|home|var|tmp|etc|opt|usr|private|root|srv|mnt|lib|bin|sbin|proc|sys|boot|dev|run)\/[^\s:,)'"]+/gi,
+
+  /** Windows paths: C:\Users\..., D:\... */
+  windowsPaths: /[A-Z]:\\[^\s:,)'"]+/gi,
+
+  /** IPv4 addresses */
+  ipv4Addresses:
+    /\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b/g,
+
+  /** Connection strings with credentials (postgres, mysql, redis, mongodb, amqp) */
+  connectionStrings: /(?:postgres|postgresql|mysql|redis|mongodb|amqp):\/\/[^:]+:[^@]+@[^\s]+/gi,
+
+  /** Stack trace lines with function names and locations */
+  stackTraceWithParens: /at\s+[\w.<>]+\s+\([^)]+\)/g,
+
+  /** Stack trace lines with file:line:column format */
+  stackTraceWithLocation: /at\s+[^\s]+:[0-9]+:[0-9]+/g,
+} as const;
+
+/**
  * Sanitize error messages to remove sensitive information in production.
  * This prevents exposure of internal paths, stack traces, and system details.
  *
@@ -21,26 +53,12 @@ export function sanitizeErrorMessage(message: string): string {
 
   // Redact file system paths (Unix and Windows)
   const sanitized = message
-    // Unix paths: /Users/..., /home/..., /var/..., /etc/..., /root/..., /srv/..., etc.
-    .replace(
-      /\/(?:Users|home|var|tmp|etc|opt|usr|private|root|srv|mnt|lib|bin|sbin|proc|sys|boot|dev|run)\/[^\s:,)'"]+/gi,
-      '[REDACTED_PATH]'
-    )
-    // Windows paths: C:\Users\..., D:\...
-    .replace(/[A-Z]:\\[^\s:,)'"]+/gi, '[REDACTED_PATH]')
-    // IPv4 addresses
-    .replace(
-      /\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b/g,
-      '[REDACTED_IP]'
-    )
-    // Connection strings with credentials (postgres, mysql, redis, mongodb, amqp)
-    .replace(
-      /(?:postgres|postgresql|mysql|redis|mongodb|amqp):\/\/[^:]+:[^@]+@[^\s]+/gi,
-      '[REDACTED_CONNECTION_STRING]'
-    )
-    // Stack trace lines
-    .replace(/at\s+[\w.<>]+\s+\([^)]+\)/g, '[REDACTED_STACK]')
-    .replace(/at\s+[^\s]+:[0-9]+:[0-9]+/g, '[REDACTED_STACK]');
+    .replace(SANITIZE_PATTERNS.unixPaths, '[REDACTED_PATH]')
+    .replace(SANITIZE_PATTERNS.windowsPaths, '[REDACTED_PATH]')
+    .replace(SANITIZE_PATTERNS.ipv4Addresses, '[REDACTED_IP]')
+    .replace(SANITIZE_PATTERNS.connectionStrings, '[REDACTED_CONNECTION_STRING]')
+    .replace(SANITIZE_PATTERNS.stackTraceWithParens, '[REDACTED_STACK]')
+    .replace(SANITIZE_PATTERNS.stackTraceWithLocation, '[REDACTED_STACK]');
 
   return sanitized;
 }

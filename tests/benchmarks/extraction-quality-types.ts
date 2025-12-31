@@ -5,6 +5,12 @@
  * Measures precision, recall, and quality of extracted entries.
  */
 
+import type {
+  BERTScoreResult,
+  GroundednessResult,
+  AggregatedSemanticMetrics,
+} from './metrics/index.js';
+
 /**
  * Expected extraction from a test case
  */
@@ -23,6 +29,9 @@ export interface ExpectedEntry {
 
   /** Optional: minimum confidence threshold */
   minConfidence?: number;
+
+  /** Optional: expected confidence value (for confidence-levels tests) */
+  confidence?: number;
 
   /** Optional: expected priority (for guidelines) */
   priority?: number;
@@ -76,11 +85,25 @@ export type ExtractionTestCategory =
   | 'tools-cli'                // Command line tools
   | 'tools-api'                // API endpoints
   | 'tools-scripts'            // Scripts and automation
+  | 'tools-mcp'                // MCP tool definitions
+  | 'tools-function'           // Function signatures
   | 'mixed-content'            // Multiple types in one context
   | 'noise-resistance'         // Should extract little/nothing
   | 'edge-cases'               // Unusual patterns
   | 'atomicity'                // Compound statements to split
-  | 'deduplication';           // Similar/duplicate content
+  | 'deduplication'            // Similar/duplicate content
+  | 'code-context'             // Code with IMPORTANT/TODO/JSDoc
+  | 'constraints'              // Performance/data/security constraints
+  | 'examples'                 // Good/bad code examples
+  | 'source-attribution'       // RFC/ADR/link references
+  | 'confidence-levels'        // High/low/uncertain knowledge
+  // Adversarial categories
+  | 'informal-speech'          // Slang, typos, casual language
+  | 'typos-fragments'          // Incomplete sentences, typos
+  | 'entangled-facts'          // Multiple facts in messy sentences
+  | 'suggestions-vs-standards' // "I think we should" vs "We should"
+  | 'implicit-in-explicit'     // Guidelines hidden in facts
+  | 'temporal-conflicts';      // Old rule contradicted by new
 
 /**
  * Category display names
@@ -95,11 +118,25 @@ export const EXTRACTION_CATEGORY_NAMES: Record<ExtractionTestCategory, string> =
   'tools-cli': 'CLI Tools',
   'tools-api': 'API Tools',
   'tools-scripts': 'Scripts',
+  'tools-mcp': 'MCP Tools',
+  'tools-function': 'Function Tools',
   'mixed-content': 'Mixed Content',
   'noise-resistance': 'Noise Resistance',
   'edge-cases': 'Edge Cases',
   'atomicity': 'Atomicity',
   'deduplication': 'Deduplication',
+  'code-context': 'Code Context',
+  'constraints': 'Constraints',
+  'examples': 'Examples',
+  'source-attribution': 'Source Attribution',
+  'confidence-levels': 'Confidence Levels',
+  // Adversarial categories
+  'informal-speech': 'Informal Speech',
+  'typos-fragments': 'Typos & Fragments',
+  'entangled-facts': 'Entangled Facts',
+  'suggestions-vs-standards': 'Suggestions vs Standards',
+  'implicit-in-explicit': 'Implicit in Explicit',
+  'temporal-conflicts': 'Temporal Conflicts',
 };
 
 /**
@@ -181,6 +218,14 @@ export interface TestCaseResult {
 
   /** Any errors during extraction */
   error?: string;
+
+  /** Optional semantic metrics (expensive, requires embeddings) */
+  semanticMetrics?: {
+    /** BERTScore comparing extracted content to expected content */
+    bertScore?: BERTScoreResult;
+    /** Groundedness of extracted content in source context */
+    groundedness?: GroundednessResult;
+  };
 }
 
 /**
@@ -277,6 +322,9 @@ export interface AggregatedExtractionMetrics {
 
   /** Aggregated proxy metrics */
   proxyMetrics: ExtractionProxyMetrics;
+
+  /** Aggregated semantic metrics (optional, expensive) */
+  semanticMetrics?: AggregatedSemanticMetrics;
 }
 
 /**
@@ -292,6 +340,12 @@ export interface ExtractionBenchmarkResults {
     model: string;
     atomicityEnabled: boolean;
     testCasesRun: number;
+    /** Whether semantic metrics (BERTScore, Groundedness) were enabled */
+    semanticMetricsEnabled: boolean;
+    /** BERTScore similarity threshold */
+    bertScoreThreshold?: number;
+    /** Groundedness similarity threshold */
+    groundednessThreshold?: number;
   };
 
   /** Overall metrics */

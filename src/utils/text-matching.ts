@@ -32,10 +32,6 @@ export const MAX_REGEX_PATTERN_LENGTH = 500;
  */
 const REGEX_CACHE_MAX_SIZE = 100;
 
-/**
- * Default fuzzy matching threshold (70% similarity required).
- */
-const DEFAULT_FUZZY_THRESHOLD = 0.7;
 
 // =============================================================================
 // ReDoS PROTECTION
@@ -242,19 +238,58 @@ export function textMatches(text: string | null | undefined, search: string): bo
 }
 
 /**
- * Fuzzy text matching using Levenshtein distance.
+ * Tokenize text into words for fuzzy matching.
+ * Splits on whitespace and common punctuation.
+ */
+function tokenize(text: string): string[] {
+  return text.toLowerCase().split(/[\s\-_.,;:!?()[\]{}'"]+/).filter(w => w.length > 0);
+}
+
+/**
+ * Check if a single word fuzzy-matches a search term.
+ * Uses a scaled threshold based on word length.
+ */
+function wordFuzzyMatches(word: string, searchTerm: string): boolean {
+  // Exact match
+  if (word === searchTerm) return true;
+
+  // Single character words require exact match (1 edit = 100% different)
+  if (searchTerm.length === 1 || word.length === 1) {
+    return false;
+  }
+
+  // For very short words (2-3 chars), require exact match or 1 edit
+  if (searchTerm.length <= 3) {
+    return levenshteinDistance(word, searchTerm, 1) <= 1;
+  }
+
+  // For longer words, use scaled threshold
+  // Allow ~30% edits, minimum 1, maximum based on length
+  const maxAllowedDistance = Math.max(1, Math.floor(searchTerm.length * 0.3));
+  const distance = levenshteinDistance(word, searchTerm, maxAllowedDistance);
+
+  return distance <= maxAllowedDistance;
+}
+
+/**
+ * Fuzzy text matching using word-level Levenshtein distance.
  *
  * Features:
  * - Fast path: checks for exact substring match first
- * - Threshold-based: requires 70% similarity by default
- * - Early termination: uses maxDistance for efficiency
+ * - Word-level matching: tokenizes text and checks each word
+ * - Handles multi-word search queries
+ * - Threshold scales with word length
  *
  * @param text - The text to search in
  * @param search - The string to search for
- * @returns true if text is similar enough to search
+ * @returns true if any word in text fuzzy-matches any search term
  */
 export function fuzzyTextMatches(text: string | null | undefined, search: string): boolean {
+  // Empty text always returns false (nothing to match against)
   if (!text) return false;
+
+  // Empty search matches everything (no filter = match all)
+  if (!search) return true;
 
   const textLower = text.toLowerCase();
   const searchLower = search.toLowerCase();
@@ -264,14 +299,33 @@ export function fuzzyTextMatches(text: string | null | undefined, search: string
     return true;
   }
 
-  // Calculate maximum allowed distance for threshold
-  const maxLen = Math.max(textLower.length, searchLower.length);
-  const maxAllowedDistance = Math.floor(maxLen * (1 - DEFAULT_FUZZY_THRESHOLD));
+  // Tokenize both text and search query
+  const textWords = tokenize(textLower);
+  const searchTerms = tokenize(searchLower);
 
-  // Use early termination for efficiency
-  const distance = levenshteinDistance(textLower, searchLower, maxAllowedDistance);
+  if (textWords.length === 0 || searchTerms.length === 0) {
+    return false;
+  }
 
-  return distance <= maxAllowedDistance;
+  // For each search term, check if any word in text fuzzy-matches
+  for (const searchTerm of searchTerms) {
+    let termMatched = false;
+
+    for (const word of textWords) {
+      if (wordFuzzyMatches(word, searchTerm)) {
+        termMatched = true;
+        break;
+      }
+    }
+
+    // If any search term doesn't match, return false
+    // (all search terms must match for multi-word queries)
+    if (!termMatched) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 /**

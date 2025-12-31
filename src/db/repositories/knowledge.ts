@@ -4,7 +4,7 @@
  * Factory function that accepts DatabaseDeps for dependency injection.
  */
 
-import { eq, and, desc, asc } from 'drizzle-orm';
+import { eq, and, desc, asc, inArray } from 'drizzle-orm';
 import { transactionWithRetry } from '../connection.js';
 import {
   knowledge,
@@ -144,6 +144,26 @@ export function createKnowledgeRepository(deps: DatabaseDeps): IKnowledgeReposit
 
     async getById(id: string): Promise<KnowledgeWithVersion | undefined> {
       return getByIdSync(id);
+    },
+
+    async getByIds(ids: string[]): Promise<KnowledgeWithVersion[]> {
+      if (ids.length === 0) return [];
+
+      const knowledgeList = db
+        .select()
+        .from(knowledge)
+        .where(inArray(knowledge.id, ids))
+        .all();
+
+      if (knowledgeList.length === 0) return [];
+
+      const versionsMap = batchFetchVersionsWithDb<KnowledgeVersion>(
+        db,
+        knowledgeVersions,
+        knowledgeList.map((k) => k.currentVersionId)
+      );
+
+      return attachVersions(knowledgeList, versionsMap);
     },
 
     async getByTitle(

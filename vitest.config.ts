@@ -11,6 +11,8 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    testTimeout: 10000, // 10 second default for tests
+    hookTimeout: 10000, // 10 seconds for beforeEach/afterEach
     include: ['tests/**/*.test.ts'],
     exclude: ['tests/benchmarks/**'],
     // Enable dev mode for tests to auto-fix migration checksum mismatches

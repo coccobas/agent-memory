@@ -49,6 +49,8 @@ import { circuitBreakerSection } from './sections/circuitBreaker.js';
 import { rerankSection } from './sections/rerank.js';
 import { hierarchicalSection } from './sections/hierarchical.js';
 import { searchSection } from './sections/search.js';
+import { autoContextSection } from './sections/autoContext.js';
+import { classificationSection } from './sections/classification.js';
 
 // =============================================================================
 // TOP-LEVEL OPTIONS
@@ -109,6 +111,8 @@ export const configRegistry: ConfigRegistry = {
     rerank: rerankSection,
     hierarchical: hierarchicalSection,
     search: searchSection,
+    autoContext: autoContextSection,
+    classification: classificationSection,
   },
 };
 

@@ -13,6 +13,7 @@ Agent Memory is the high-speed memory layer for AI agents—persistent, permissi
 | Deploy with Docker | [Docker Guide](guides/docker.md) |
 | Use PostgreSQL | [PostgreSQL Setup](guides/postgresql-setup.md) |
 | Scale to multiple nodes | [Redis Distributed](guides/redis-distributed.md) |
+| Plan for scale | [Scaling Guide](SCALING.md) |
 | Understand the API | [MCP Tools Reference](reference/mcp-tools.md) |
 
 ---
@@ -53,6 +54,7 @@ How to accomplish specific tasks:
 - [Performance Tuning](guides/performance.md) — Optimization
 
 **Operations**
+- [Scaling Guide](SCALING.md) — Deployment tiers and migration
 - [Troubleshooting](guides/troubleshooting.md) — Common issues
 - [Security](guides/security.md) — Production security
 

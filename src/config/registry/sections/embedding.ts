@@ -40,6 +40,14 @@ export const embeddingSection: ConfigSectionMeta = {
       schema: z.number().int().min(1),
       parse: 'int',
     },
+    batchSize: {
+      envKey: 'AGENT_MEMORY_EMBEDDING_BATCH_SIZE',
+      defaultValue: 20,
+      description:
+        'Number of texts to batch in a single API call. Batching is 10-100x faster. Max 100.',
+      schema: z.number().int().min(1).max(100),
+      parse: 'int',
+    },
     maxRetries: {
       envKey: 'AGENT_MEMORY_EMBEDDING_MAX_RETRIES',
       defaultValue: 3,
