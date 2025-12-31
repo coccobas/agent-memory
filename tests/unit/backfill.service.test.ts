@@ -93,9 +93,9 @@ describe.skipIf(!embeddingsAvailable)('Backfill Service', () => {
     expect(progress.total).toBe(3);
     expect(progress.processed).toBe(3);
     expect(progress.inProgress).toBe(false);
-  }, 20000); // Increased timeout for embedding operations
+  }, 60000); // Increased timeout for embedding operations (model init can be slow)
 
-  it('should process only specified entry types', { timeout: 20000 }, async () => {
+  it('should process only specified entry types', { timeout: 60000 }, async () => {
     // Create multiple entries
     createTestTool(db, 'test-tool-1', 'global');
     createTestTool(db, 'test-tool-2', 'global');
@@ -136,7 +136,7 @@ describe.skipIf(!embeddingsAvailable)('Backfill Service', () => {
     expect(progress.processed).toBe(5);
   }, 45000); // Increased timeout for batch processing
 
-  it('should track progress with callback', { timeout: 20000 }, async () => {
+  it('should track progress with callback', { timeout: 60000 }, async () => {
     createTestTool(db, 'progress-tool-1', 'global');
     createTestTool(db, 'progress-tool-2', 'global');
 
@@ -164,7 +164,7 @@ describe.skipIf(!embeddingsAvailable)('Backfill Service', () => {
     expect(finalUpdate.processed).toBe(progress.processed);
   });
 
-  it('should track succeeded and failed counts', { timeout: 20000 }, async () => {
+  it('should track succeeded and failed counts', { timeout: 60000 }, async () => {
     // Create valid tools
     createTestTool(db, 'valid-tool', 'global', undefined, 'function', 'Valid description');
 

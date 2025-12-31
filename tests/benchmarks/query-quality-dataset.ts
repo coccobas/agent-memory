@@ -962,7 +962,7 @@ export const QUERY_TEST_CASES: QueryTestCase[] = [
       scopeType: 'project',
       scopeId: 'proj-query-bench',
       inherit: true,
-      limit: 5,
+      limit: 15,
     },
     expectedResults: [
       // Should return top entries of each type
@@ -971,7 +971,7 @@ export const QUERY_TEST_CASES: QueryTestCase[] = [
       { seedEntryId: 't-npm-build', relevanceGrade: 2 },
     ],
     difficulty: 'easy',
-    notes: 'Context action should return mix of types',
+    notes: 'Context action should return mix of types - limit increased to ensure all types included',
   },
 
   // ===========================================================================

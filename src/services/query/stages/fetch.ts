@@ -52,12 +52,13 @@ function computeAdaptiveHeadroom(ctx: PipelineContext): number {
     }
   }
 
-  // If tag filters are present (require or exclude arrays), calculate headroom
+  // If tag filters are present (include, require or exclude arrays), calculate headroom
   // When there's no FTS search, we need higher headroom because tag filtering happens AFTER fetch
   if (params.tags) {
+    const hasInclude = Array.isArray(params.tags.include) && params.tags.include.length > 0;
     const hasRequire = Array.isArray(params.tags.require) && params.tags.require.length > 0;
     const hasExclude = Array.isArray(params.tags.exclude) && params.tags.exclude.length > 0;
-    if (hasRequire || hasExclude) {
+    if (hasInclude || hasRequire || hasExclude) {
       // If no FTS matches (no search term), use much higher headroom to ensure
       // we fetch enough entries to find those with the required tags
       const hasFtsMatches = ftsMatchIds && Object.values(ftsMatchIds).some(set => set.size > 0);
