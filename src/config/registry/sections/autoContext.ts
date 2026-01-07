@@ -44,5 +44,26 @@ export const autoContextSection: ConfigSectionMeta = {
       description: 'Default name for auto-created sessions.',
       schema: z.string(),
     },
+    sessionTimeoutEnabled: {
+      envKey: 'AGENT_MEMORY_SESSION_TIMEOUT_ENABLED',
+      defaultValue: true,
+      description: 'Enable automatic session timeout for inactive sessions.',
+      schema: z.boolean(),
+      parse: 'boolean',
+    },
+    sessionInactivityMs: {
+      envKey: 'AGENT_MEMORY_SESSION_INACTIVITY_MS',
+      defaultValue: 1800000, // 30 minutes
+      description: 'Milliseconds of inactivity before auto-ending a session.',
+      schema: z.number().int().min(60000), // At least 1 minute
+      parse: 'int',
+    },
+    sessionTimeoutCheckMs: {
+      envKey: 'AGENT_MEMORY_SESSION_TIMEOUT_CHECK_MS',
+      defaultValue: 300000, // 5 minutes
+      description: 'Interval in milliseconds between timeout checks.',
+      schema: z.number().int().min(10000), // At least 10 seconds
+      parse: 'int',
+    },
   },
 };

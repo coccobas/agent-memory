@@ -230,7 +230,7 @@ export interface Config {
     displayTimezone: string;
   };
   output: {
-    format: 'json' | 'compact';
+    format: 'json' | 'compact' | 'terminal';
   };
   rest: {
     enabled: boolean;
@@ -320,6 +320,18 @@ export interface Config {
     cacheTTLMs: number;
     autoSession: boolean;
     autoSessionName: string;
+    sessionTimeoutEnabled: boolean;
+    sessionInactivityMs: number;
+    sessionTimeoutCheckMs: number;
+  };
+  autoTagging: {
+    enabled: boolean;
+    maxTags: number;
+    minConfidence: number;
+    skipIfUserProvided: boolean;
+  };
+  tools: {
+    visibility: 'core' | 'standard' | 'advanced' | 'all';
   };
   classification: {
     highConfidenceThreshold: number;
@@ -331,6 +343,13 @@ export interface Config {
     cacheSize: number;
     cacheTTLMs: number;
     learningRate: number;
+  };
+  extractionHook: {
+    enabled: boolean;
+    confidenceThreshold: number;
+    maxSuggestionsPerResponse: number;
+    cooldownMs: number;
+    scanOnWriteOps: boolean;
   };
 }
 

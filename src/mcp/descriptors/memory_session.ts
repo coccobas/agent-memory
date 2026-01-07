@@ -8,24 +8,16 @@ import type { SessionStartParams, SessionEndParams, SessionListParams } from '..
 
 export const memorySessionDescriptor: ToolDescriptor = {
   name: 'memory_session',
-  description: `Manage working sessions (group related work together).
-
-Actions: start, end, list
-
-Workflow: Start a session at beginning of a task, end when complete. Sessions group related memory entries.
-Example: {"action":"start","projectId":"proj-123","name":"Add auth feature","purpose":"Implement user authentication"}`,
+  visibility: 'core',
+  description: 'Manage working sessions. Actions: start, end, list',
   commonParams: {
-    projectId: { type: 'string', description: 'Parent project ID (start)' },
-    name: { type: 'string', description: 'Session name (start)' },
-    purpose: { type: 'string', description: 'Session purpose (start)' },
-    agentId: { type: 'string', description: 'Agent/IDE identifier (start)' },
-    metadata: { type: 'object', description: 'Session metadata (start)' },
-    id: { type: 'string', description: 'Session ID (end)' },
-    status: {
-      type: 'string',
-      enum: ['completed', 'discarded', 'active', 'paused'],
-      description: 'End status (end) or filter (list)',
-    },
+    projectId: { type: 'string' },
+    name: { type: 'string' },
+    purpose: { type: 'string' },
+    agentId: { type: 'string' },
+    metadata: { type: 'object' },
+    id: { type: 'string' },
+    status: { type: 'string', enum: ['completed', 'discarded', 'active', 'paused'] },
     limit: { type: 'number' },
     offset: { type: 'number' },
   },

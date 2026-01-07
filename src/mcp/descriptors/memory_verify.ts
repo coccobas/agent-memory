@@ -7,6 +7,7 @@ import { verificationHandlers } from '../handlers/verification.handler.js';
 
 export const memoryVerifyDescriptor: ToolDescriptor = {
   name: 'memory_verify',
+  visibility: 'system',
   description: `Verify actions against critical guidelines with active intervention.
 
 Actions:

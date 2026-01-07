@@ -50,7 +50,10 @@ import { rerankSection } from './sections/rerank.js';
 import { hierarchicalSection } from './sections/hierarchical.js';
 import { searchSection } from './sections/search.js';
 import { autoContextSection } from './sections/autoContext.js';
+import { autoTaggingSection } from './sections/autoTagging.js';
+import { toolsSection } from './sections/tools.js';
 import { classificationSection } from './sections/classification.js';
+import { extractionHookSection } from './sections/extractionHook.js';
 
 // =============================================================================
 // TOP-LEVEL OPTIONS
@@ -112,7 +115,10 @@ export const configRegistry: ConfigRegistry = {
     hierarchical: hierarchicalSection,
     search: searchSection,
     autoContext: autoContextSection,
+    autoTagging: autoTaggingSection,
+    tools: toolsSection,
     classification: classificationSection,
+    extractionHook: extractionHookSection,
   },
 };
 

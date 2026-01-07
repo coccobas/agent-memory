@@ -1,0 +1,642 @@
+/**
+ * Terminal Formatter - Rich terminal visualizations for MCP responses
+ *
+ * Provides tree views, status icons, unicode boxes, and badges for
+ * better visual representation in terminal environments.
+ */
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Icons and Symbols
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const icons = {
+  // Status
+  healthy: '●',
+  degraded: '◐',
+  error: '○',
+  active: '●',
+  inactive: '○',
+
+  // Checkmarks
+  success: '✓',
+  failure: '✗',
+  warning: '⚠',
+
+  // Types
+  guideline: '📋',
+  knowledge: '💡',
+  tool: '🔧',
+  task: '☐',
+  session: '⏱',
+  project: '📁',
+
+  // Tree
+  branch: '├──',
+  lastBranch: '└──',
+  vertical: '│',
+  indent: '   ',
+} as const;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Box Drawing Characters
+// ─────────────────────────────────────────────────────────────────────────────
+
+const box = {
+  topLeft: '╭',
+  topRight: '╮',
+  bottomLeft: '╰',
+  bottomRight: '╯',
+  horizontal: '─',
+  vertical: '│',
+  teeRight: '├',
+  teeLeft: '┤',
+} as const;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helper Functions
+// ─────────────────────────────────────────────────────────────────────────────
+
+function truncate(str: string, maxLen: number): string {
+  if (str.length <= maxLen) return str;
+  return str.slice(0, maxLen - 1) + '…';
+}
+
+function padRight(str: string, len: number): string {
+  return str + ' '.repeat(Math.max(0, len - str.length));
+}
+
+function padLeft(str: string, len: number): string {
+  return ' '.repeat(Math.max(0, len - str.length)) + str;
+}
+
+function repeat(char: string, count: number): string {
+  return char.repeat(Math.max(0, count));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Status Line
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface StatusLineOptions {
+  status: 'healthy' | 'degraded' | 'error';
+  items: Array<{ label: string; value: string; status?: 'active' | 'inactive' }>;
+}
+
+/**
+ * Format a status line with icons
+ *
+ * Example: ● Healthy  │  Session: ● active  │  DB: ● connected
+ */
+export function formatStatusLine(options: StatusLineOptions): string {
+  const statusIcon = icons[options.status];
+  const statusLabel = options.status.charAt(0).toUpperCase() + options.status.slice(1);
+
+  const parts = [`${statusIcon} ${statusLabel}`];
+
+  for (const item of options.items) {
+    const itemIcon = item.status ? icons[item.status] : '';
+    parts.push(`${item.label}: ${itemIcon} ${item.value}`.trim());
+  }
+
+  return parts.join('  │  ');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Badges
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Format compact badges
+ *
+ * Example: [10 guidelines] [10 knowledge] [session: active]
+ */
+export function formatBadges(items: Array<{ label: string; value?: string | number }>): string {
+  return items
+    .map((item) => {
+      if (item.value !== undefined) {
+        return `[${item.value} ${item.label}]`;
+      }
+      return `[${item.label}]`;
+    })
+    .join(' ');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tree View
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface TreeNode {
+  label: string;
+  icon?: string;
+  children?: TreeNode[];
+  meta?: string; // Additional info shown after label
+}
+
+/**
+ * Format a tree structure
+ *
+ * Example:
+ * Memory Context
+ * ├── 📋 Guidelines (10)
+ * │   ├── workflow (7)
+ * │   └── code_style (3)
+ * └── 💡 Knowledge (10)
+ */
+export function formatTree(root: TreeNode, prefix = ''): string {
+  const lines: string[] = [];
+  const icon = root.icon ? `${root.icon} ` : '';
+  const meta = root.meta ? ` ${root.meta}` : '';
+
+  lines.push(`${prefix}${icon}${root.label}${meta}`);
+
+  if (root.children && root.children.length > 0) {
+    const childPrefix = prefix ? prefix.replace(icons.branch, icons.vertical + '  ').replace(icons.lastBranch, '   ') : '';
+
+    root.children.forEach((child, index) => {
+      const isLast = index === root.children!.length - 1;
+      const connector = isLast ? icons.lastBranch : icons.branch;
+
+      // For nested children, we need to add proper indentation
+      const nestedPrefix = childPrefix + (isLast ? '    ' : icons.vertical + '   ');
+
+      if (child.children && child.children.length > 0) {
+        const childIcon = child.icon ? `${child.icon} ` : '';
+        const childMeta = child.meta ? ` ${child.meta}` : '';
+        lines.push(`${childPrefix}${connector} ${childIcon}${child.label}${childMeta}`);
+
+        child.children.forEach((grandchild, gIndex) => {
+          const gIsLast = gIndex === child.children!.length - 1;
+          const gConnector = gIsLast ? icons.lastBranch : icons.branch;
+          const gIcon = grandchild.icon ? `${grandchild.icon} ` : '';
+          const gMeta = grandchild.meta ? ` ${grandchild.meta}` : '';
+          lines.push(`${nestedPrefix}${gConnector} ${gIcon}${grandchild.label}${gMeta}`);
+        });
+      } else {
+        const childIcon = child.icon ? `${child.icon} ` : '';
+        const childMeta = child.meta ? ` ${child.meta}` : '';
+        lines.push(`${childPrefix}${connector} ${childIcon}${child.label}${childMeta}`);
+      }
+    });
+  }
+
+  return lines.join('\n');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Unicode Box
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface BoxOptions {
+  title?: string;
+  width?: number;
+}
+
+/**
+ * Format content in a unicode box
+ *
+ * Example:
+ * ╭─ Critical Guideline ─────────────────────────────╮
+ * │ no-business-logic-in-handlers          [P: 95]   │
+ * │ MCP handlers must be thin orchestration only.    │
+ * ╰──────────────────────────────────────────────────╯
+ */
+export function formatBox(lines: string[], options: BoxOptions = {}): string {
+  const width = options.width || Math.max(...lines.map((l) => l.length), 40) + 4;
+  const innerWidth = width - 2; // Account for side borders
+
+  const result: string[] = [];
+
+  // Top border with optional title
+  if (options.title) {
+    const titlePart = `${box.horizontal} ${options.title} `;
+    const remainingWidth = width - titlePart.length - 2;
+    result.push(`${box.topLeft}${titlePart}${repeat(box.horizontal, remainingWidth)}${box.topRight}`);
+  } else {
+    result.push(`${box.topLeft}${repeat(box.horizontal, width - 2)}${box.topRight}`);
+  }
+
+  // Content lines
+  for (const line of lines) {
+    const paddedLine = padRight(line, innerWidth);
+    result.push(`${box.vertical} ${truncate(paddedLine, innerWidth - 1)}${box.vertical}`);
+  }
+
+  // Bottom border
+  result.push(`${box.bottomLeft}${repeat(box.horizontal, width - 2)}${box.bottomRight}`);
+
+  return result.join('\n');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Bar Chart
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface BarChartItem {
+  label: string;
+  value: number;
+}
+
+/**
+ * Format a horizontal bar chart
+ *
+ * Example:
+ * workflow   ███████░░░░░░░░  7
+ * fact       ████████░░░░░░░  8
+ * code_style ███░░░░░░░░░░░░  3
+ */
+export function formatBarChart(items: BarChartItem[], options: { maxWidth?: number; labelWidth?: number } = {}): string {
+  if (items.length === 0) return '';
+
+  const maxValue = Math.max(...items.map((i) => i.value));
+  const maxWidth = options.maxWidth || 15;
+  const labelWidth = options.labelWidth || Math.max(...items.map((i) => i.label.length));
+
+  return items
+    .map((item) => {
+      const label = padRight(item.label, labelWidth);
+      const filledWidth = Math.round((item.value / maxValue) * maxWidth);
+      const emptyWidth = maxWidth - filledWidth;
+      const bar = '█'.repeat(filledWidth) + '░'.repeat(emptyWidth);
+      return `${label} ${bar}  ${item.value}`;
+    })
+    .join('\n');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Table
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface TableOptions {
+  headers?: string[];
+  alignRight?: number[]; // Column indices to right-align
+}
+
+/**
+ * Format data as a table with unicode borders
+ *
+ * Example:
+ * ╭─────────────────┬───────────────────────╮
+ * │ Metric          │ Value                 │
+ * ├─────────────────┼───────────────────────┤
+ * │ Total Entries   │ 20                    │
+ * ╰─────────────────┴───────────────────────╯
+ */
+export function formatTable(rows: string[][], options: TableOptions = {}): string {
+  if (rows.length === 0) return '';
+
+  // Calculate column widths
+  const colWidths: number[] = [];
+  const allRows = options.headers ? [options.headers, ...rows] : rows;
+
+  for (const row of allRows) {
+    row.forEach((cell, i) => {
+      colWidths[i] = Math.max(colWidths[i] || 0, cell.length);
+    });
+  }
+
+  const formatRow = (row: string[], leftBorder: string, separator: string, rightBorder: string): string => {
+    const cells = row.map((cell, i) => {
+      const width = colWidths[i] ?? cell.length;
+      if (options.alignRight?.includes(i)) {
+        return padLeft(cell, width);
+      }
+      return padRight(cell, width);
+    });
+    return `${leftBorder} ${cells.join(` ${separator} `)} ${rightBorder}`;
+  };
+
+  const result: string[] = [];
+
+  // Top border
+  const topBorder = `╭${colWidths.map((w) => repeat('─', w + 2)).join('┬')}╮`;
+  result.push(topBorder);
+
+  // Headers
+  if (options.headers) {
+    result.push(formatRow(options.headers, '│', '│', '│'));
+    // Header separator
+    const headerSep = `├${colWidths.map((w) => repeat('─', w + 2)).join('┼')}┤`;
+    result.push(headerSep);
+  }
+
+  // Data rows
+  for (const row of rows) {
+    result.push(formatRow(row, '│', '│', '│'));
+  }
+
+  // Bottom border
+  const bottomBorder = `╰${colWidths.map((w) => repeat('─', w + 2)).join('┴')}╯`;
+  result.push(bottomBorder);
+
+  return result.join('\n');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Hierarchical Context Formatter (Terminal Version)
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface HierarchicalContext {
+  summary: {
+    totalEntries: number;
+    byType: Record<string, number>;
+    byCategory: Record<string, number>;
+    lastUpdated: string;
+  };
+  critical: Array<{
+    id: string;
+    type: string;
+    title: string;
+    snippet: string;
+    priority?: number;
+    category?: string;
+  }>;
+  recent: Array<{
+    id: string;
+    type: string;
+    title: string;
+    snippet: string;
+    accessedAt?: string;
+    category?: string;
+  }>;
+  categories: string[];
+  meta: {
+    scopeType: string;
+    scopeId: string | null;
+    tokenSavings: string;
+  };
+  _context?: {
+    project?: { name: string; rootPath: string };
+    session?: { name: string; status: string };
+  };
+}
+
+/**
+ * Format hierarchical context response for terminal display
+ */
+export function formatHierarchicalContextTerminal(ctx: HierarchicalContext): string {
+  const lines: string[] = [];
+
+  // Status line
+  const statusItems: Array<{ label: string; value: string; status?: 'active' | 'inactive' }> = [];
+  if (ctx._context?.session) {
+    statusItems.push({
+      label: 'Session',
+      value: ctx._context.session.name,
+      status: ctx._context.session.status === 'active' ? 'active' : 'inactive',
+    });
+  }
+  lines.push(formatStatusLine({ status: 'healthy', items: statusItems }));
+  lines.push('');
+
+  // Badges summary
+  const badges = [
+    { label: 'entries', value: ctx.summary.totalEntries },
+    { label: 'guidelines', value: ctx.summary.byType.guideline || 0 },
+    { label: 'knowledge', value: ctx.summary.byType.knowledge || 0 },
+  ];
+  if (ctx.summary.byType.tool) {
+    badges.push({ label: 'tools', value: ctx.summary.byType.tool });
+  }
+  lines.push(formatBadges(badges));
+  lines.push('');
+
+  // Tree view of types with categories
+  const typeChildren: TreeNode[] = [];
+  if (ctx.summary.byType.guideline) {
+    const guidelineCategories = Object.entries(ctx.summary.byCategory)
+      .filter(([cat]) => ctx.critical.some((c) => c.category === cat) || ctx.recent.some((r) => r.type === 'guideline' && r.category === cat))
+      .map(([cat, count]) => ({ label: cat, meta: `(${count})` }));
+    typeChildren.push({
+      label: 'Guidelines',
+      icon: icons.guideline,
+      meta: `(${ctx.summary.byType.guideline})`,
+      children: guidelineCategories.length > 0 ? guidelineCategories : undefined,
+    });
+  }
+  if (ctx.summary.byType.knowledge) {
+    typeChildren.push({
+      label: 'Knowledge',
+      icon: icons.knowledge,
+      meta: `(${ctx.summary.byType.knowledge})`,
+    });
+  }
+  if (ctx.summary.byType.tool) {
+    typeChildren.push({
+      label: 'Tools',
+      icon: icons.tool,
+      meta: `(${ctx.summary.byType.tool})`,
+    });
+  }
+
+  const tree: TreeNode = {
+    label: 'Memory',
+    children: typeChildren,
+  };
+  lines.push(formatTree(tree));
+  lines.push('');
+
+  // Critical guidelines in boxes
+  if (ctx.critical.length > 0) {
+    lines.push('Critical Guidelines:');
+    for (const item of ctx.critical.slice(0, 3)) {
+      const priority = item.priority ? `[P: ${item.priority}]` : '';
+      lines.push(
+        formatBox([`${item.title}  ${priority}`, truncate(item.snippet, 50)], {
+          title: item.category || 'guideline',
+          width: 56,
+        })
+      );
+    }
+    lines.push('');
+  }
+
+  // Bar chart of categories
+  if (Object.keys(ctx.summary.byCategory).length > 1) {
+    lines.push('Categories:');
+    const barItems = Object.entries(ctx.summary.byCategory)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 5)
+      .map(([label, value]) => ({ label, value }));
+    lines.push(formatBarChart(barItems, { maxWidth: 12, labelWidth: 12 }));
+    lines.push('');
+  }
+
+  // Project info
+  if (ctx._context?.project) {
+    lines.push(`${icons.project} ${ctx._context.project.name}`);
+    lines.push(`   ${ctx._context.project.rootPath}`);
+  }
+
+  return lines.join('\n');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Health Response Formatter
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface HealthResponse {
+  status: string;
+  database: { connected: boolean; path?: string };
+  memory?: { heapUsed?: number; heapTotal?: number };
+  uptime?: number;
+}
+
+/**
+ * Format health check response for terminal display
+ */
+export function formatHealthTerminal(health: HealthResponse): string {
+  const lines: string[] = [];
+
+  // Status line
+  const status = health.status === 'healthy' ? 'healthy' : health.status === 'degraded' ? 'degraded' : 'error';
+  lines.push(
+    formatStatusLine({
+      status,
+      items: [{ label: 'DB', value: health.database.connected ? 'connected' : 'disconnected', status: health.database.connected ? 'active' : 'inactive' }],
+    })
+  );
+  lines.push('');
+
+  // Details table
+  const rows: string[][] = [];
+  rows.push(['Status', health.status]);
+  rows.push(['Database', health.database.connected ? 'Connected' : 'Disconnected']);
+  if (health.database.path) {
+    rows.push(['DB Path', truncate(health.database.path, 40)]);
+  }
+  if (health.uptime !== undefined) {
+    const uptimeStr = health.uptime > 3600 ? `${Math.floor(health.uptime / 3600)}h ${Math.floor((health.uptime % 3600) / 60)}m` : `${Math.floor(health.uptime / 60)}m ${health.uptime % 60}s`;
+    rows.push(['Uptime', uptimeStr]);
+  }
+
+  lines.push(formatTable(rows, { headers: ['Metric', 'Value'] }));
+
+  return lines.join('\n');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// List Response Formatter
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface ListItem {
+  id: string;
+  name?: string;
+  title?: string;
+  priority?: number;
+  category?: string;
+  status?: string;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Status Dashboard Formatter
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface StatusResponse {
+  project: { id: string; name: string; rootPath?: string } | null;
+  session: { id: string; name: string; status: string } | null;
+  counts: { guidelines: number; knowledge: number; tools: number; sessions: number };
+  topEntries?: {
+    guidelines: Array<{ id: string; name: string; priority: number }>;
+    knowledge: Array<{ id: string; title: string }>;
+  };
+}
+
+/**
+ * Format status dashboard response for terminal display
+ *
+ * Example output:
+ * Project: Agent Memory (/Users/.../Memory)
+ * Session: Fix auth bug (active)
+ * Entries: 11 guidelines, 20 knowledge, 0 tools
+ * Sessions: 13 total
+ */
+export function formatStatusTerminal(status: StatusResponse): string {
+  const lines: string[] = [];
+
+  // Project line
+  if (status.project) {
+    const path = status.project.rootPath ? ` (${truncate(status.project.rootPath, 40)})` : '';
+    lines.push(`${icons.project} Project: ${status.project.name}${path}`);
+  } else {
+    lines.push(`${icons.project} Project: (not detected)`);
+  }
+
+  // Session line
+  if (status.session) {
+    const statusIcon = status.session.status === 'active' ? icons.active : icons.inactive;
+    lines.push(`${icons.session} Session: ${status.session.name} ${statusIcon} ${status.session.status}`);
+  } else {
+    lines.push(`${icons.session} Session: (none active)`);
+  }
+
+  // Counts line
+  const countParts: string[] = [];
+  if (status.counts.guidelines > 0) countParts.push(`${status.counts.guidelines} guidelines`);
+  if (status.counts.knowledge > 0) countParts.push(`${status.counts.knowledge} knowledge`);
+  if (status.counts.tools > 0) countParts.push(`${status.counts.tools} tools`);
+  if (countParts.length === 0) countParts.push('0 entries');
+  lines.push(`Entries: ${countParts.join(', ')}`);
+
+  // Sessions count
+  lines.push(`Sessions: ${status.counts.sessions} total`);
+
+  // Top entries (optional)
+  if (status.topEntries) {
+    if (status.topEntries.guidelines.length > 0) {
+      lines.push('');
+      lines.push(`${icons.guideline} Top Guidelines:`);
+      for (const g of status.topEntries.guidelines.slice(0, 5)) {
+        lines.push(`  ${icons.branch} ${g.name} [P: ${g.priority}]`);
+      }
+    }
+    if (status.topEntries.knowledge.length > 0) {
+      lines.push('');
+      lines.push(`${icons.knowledge} Top Knowledge:`);
+      for (const k of status.topEntries.knowledge.slice(0, 5)) {
+        lines.push(`  ${icons.branch} ${k.title}`);
+      }
+    }
+  }
+
+  return lines.join('\n');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// List Response Formatter
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Format list response for terminal display
+ */
+export function formatListTerminal(items: ListItem[], type: string): string {
+  if (items.length === 0) {
+    return `No ${type} found.`;
+  }
+
+  const lines: string[] = [];
+  lines.push(formatBadges([{ label: type, value: items.length }]));
+  lines.push('');
+
+  // Tree view of items
+  const children: TreeNode[] = items.slice(0, 10).map((item) => {
+    const label = item.name || item.title || item.id.slice(0, 8);
+    const meta = item.priority ? `[P: ${item.priority}]` : item.status ? `[${item.status}]` : '';
+    return { label, meta };
+  });
+
+  if (items.length > 10) {
+    children.push({ label: `... and ${items.length - 10} more`, meta: '' });
+  }
+
+  const icon = type === 'guidelines' ? icons.guideline : type === 'knowledge' ? icons.knowledge : type === 'tools' ? icons.tool : '';
+
+  lines.push(
+    formatTree({
+      label: type.charAt(0).toUpperCase() + type.slice(1),
+      icon,
+      children,
+    })
+  );
+
+  return lines.join('\n');
+}

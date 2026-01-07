@@ -8,16 +8,17 @@ import type { OrgCreateParams, OrgListParams } from '../types.js';
 
 export const memoryOrgDescriptor: ToolDescriptor = {
   name: 'memory_org',
+  visibility: 'standard',
   description: 'Manage organizations. Actions: create, list',
   commonParams: {
-    limit: { type: 'number', description: 'Max results (list, default 20)' },
-    offset: { type: 'number', description: 'Skip N results (list)' },
+    limit: { type: 'number' },
+    offset: { type: 'number' },
   },
   actions: {
     create: {
       params: {
-        name: { type: 'string', description: 'Organization name (create)' },
-        metadata: { type: 'object', description: 'Optional metadata (create)' },
+        name: { type: 'string' },
+        metadata: { type: 'object' },
       },
       contextHandler: (ctx, p) =>
         scopeHandlers.orgCreate(ctx, p as unknown as OrgCreateParams & { adminKey?: string }),

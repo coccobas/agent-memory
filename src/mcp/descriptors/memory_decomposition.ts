@@ -19,6 +19,7 @@ import {
 
 export const memoryDecompositionDescriptor: ToolDescriptor = {
   name: 'memory_decomposition',
+  visibility: 'advanced',
   description: `Manage task decomposition - breaking down larger tasks into subtasks.
 
 Actions: add, get, list

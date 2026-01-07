@@ -10,6 +10,7 @@ import type { SimpleToolDescriptor } from './types.js';
 
 export const memoryContextDescriptor: SimpleToolDescriptor = {
   name: 'memory_context',
+  visibility: 'advanced',
   description: `Show auto-detected context for debugging.
 
 Actions: show, refresh

@@ -9,6 +9,7 @@ import { graphEdgeHandlers } from '../handlers/graph-edges.handler.js';
 
 export const graphEdgeDescriptor: ToolDescriptor = {
   name: 'graph_edge',
+  visibility: 'system',
   description: `Manage graph edges and perform traversal in the flexible knowledge graph.
 
 Actions: add, get, list, update, delete, neighbors, traverse, paths

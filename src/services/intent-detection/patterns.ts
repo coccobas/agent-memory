@@ -1,0 +1,309 @@
+/**
+ * Intent Detection Patterns
+ *
+ * Regex-based patterns for detecting user intent from natural language.
+ * No LLM needed for basic operations - pattern matching is fast and deterministic.
+ */
+
+// =============================================================================
+// INTENT TYPES
+// =============================================================================
+
+export type Intent =
+  | 'store'
+  | 'retrieve'
+  | 'session_start'
+  | 'session_end'
+  | 'forget'
+  | 'list'
+  | 'update'
+  | 'unknown';
+
+export interface IntentMatch {
+  intent: Intent;
+  confidence: number;
+  patterns: string[];
+  extractedParams: Record<string, string>;
+}
+
+// =============================================================================
+// PATTERN DEFINITIONS
+// =============================================================================
+
+/**
+ * Intent patterns - ordered by specificity (most specific first)
+ */
+const INTENT_PATTERNS: Record<Intent, RegExp[]> = {
+  // Session management
+  session_start: [
+    /^(start|begin)\s+(a\s+)?(new\s+)?(session|work(ing)?)\s+(on|for)\s+/i,
+    /^(let'?s?\s+)?(start|begin)\s+(working\s+on|a\s+session)/i,
+    /^working\s+on\s+/i,
+    /^new\s+session\s+(for|on)?\s*/i,
+  ],
+  session_end: [
+    /^(end|finish|done|complete|close)\s+(the\s+)?(current\s+)?session/i,
+    /^(i'?m\s+)?done\s+(with\s+)?(this|the\s+session|working)/i,
+    /^(finish|end)\s+working/i,
+    /^session\s+(done|complete|finished|ended)/i,
+  ],
+
+  // Storage operations
+  store: [
+    /^remember\s+(that\s+)?/i,
+    /^store\s+(this|the|a)?\s*/i,
+    /^(add|save)\s+(a\s+)?(new\s+)?(guideline|knowledge|tool|rule|fact)/i,
+    /^rule:\s*/i,
+    /^guideline:\s*/i,
+    /^fact:\s*/i,
+    /^(we\s+)?(always|never|should|must)\s+/i,
+    /^(our\s+)?(standard|convention|rule|policy)\s+is\s+/i,
+    /^(we\s+)?(decided|chose|agreed)\s+(to|that)\s+/i,
+  ],
+
+  // Retrieval operations
+  retrieve: [
+    /^(what|how|where|when|why)\s+(do|does|did|is|are|was|were|should)\s+/i,
+    /^(find|search|look\s+up|get)\s+/i,
+    /^(show|tell)\s+(me\s+)?(about\s+)?/i,
+    /^(do\s+we\s+have|is\s+there)\s+(any\s+)?(info|information|knowledge|guidelines?)\s+/i,
+    /^(what'?s?\s+)?(the|our)\s+/i,
+    /^(recall|retrieve)\s+/i,
+  ],
+
+  // Deletion/forgetting
+  forget: [
+    /^(forget|remove|delete)\s+(the\s+)?(old\s+)?/i,
+    /^(don'?t\s+)?remember\s+/i,
+    /^(clear|erase|purge)\s+/i,
+    /^(obsolete|outdated):\s*/i,
+  ],
+
+  // Listing
+  list: [
+    /^list\s+(all\s+)?(my\s+)?(the\s+)?/i,
+    /^show\s+(all\s+)?(my\s+)?(the\s+)?(guidelines?|knowledge|tools?|rules?)/i,
+    /^(what|which)\s+(guidelines?|knowledge|tools?|rules?)\s+(do\s+we\s+have|are\s+there)/i,
+    /^(get|fetch)\s+(all\s+)?/i,
+  ],
+
+  // Update operations
+  update: [
+    /^update\s+(the\s+)?/i,
+    /^(change|modify|edit)\s+(the\s+)?/i,
+    /^(revise|correct)\s+/i,
+  ],
+
+  // Unknown - no patterns, fallback
+  unknown: [],
+};
+
+/**
+ * Entry type detection patterns
+ */
+const ENTRY_TYPE_PATTERNS: Record<'guideline' | 'knowledge' | 'tool', RegExp[]> = {
+  guideline: [
+    /\b(guideline|rule|standard|convention|policy|must|should|always|never)\b/i,
+    /\b(best\s+practice|coding\s+style|code\s+style)\b/i,
+  ],
+  knowledge: [
+    /\b(knowledge|fact|decision|context|reference|chose|decided|uses|architecture)\b/i,
+    /\b(we\s+use|the\s+system|project\s+uses)\b/i,
+  ],
+  tool: [
+    /\b(tool|command|script|cli|function|api|mcp)\b/i,
+    /\b(npm|npx|yarn|pnpm|docker|git)\b/i,
+  ],
+};
+
+/**
+ * Category detection patterns
+ */
+const CATEGORY_PATTERNS: Record<string, RegExp[]> = {
+  security: [/\b(security|auth|password|token|encrypt|secret|permission)\b/i],
+  code_style: [/\b(style|format|naming|indent|lint|prettier|eslint)\b/i],
+  testing: [/\b(test|spec|coverage|mock|jest|vitest|pytest)\b/i],
+  performance: [/\b(performance|optimize|fast|slow|memory|cache)\b/i],
+  workflow: [/\b(workflow|process|deploy|ci\/cd|pipeline)\b/i],
+  decision: [/\b(decided|chose|selected|picked|went\s+with)\b/i],
+  fact: [/\b(uses|runs\s+on|is\s+a|architecture|structure)\b/i],
+};
+
+// =============================================================================
+// PATTERN MATCHING
+// =============================================================================
+
+/**
+ * Detect intent from natural language input
+ */
+export function detectIntent(text: string): IntentMatch {
+  const normalizedText = text.trim();
+
+  // Try each intent pattern in order of specificity
+  for (const [intent, patterns] of Object.entries(INTENT_PATTERNS) as [Intent, RegExp[]][]) {
+    if (intent === 'unknown') continue;
+
+    const matchedPatterns: string[] = [];
+    for (const pattern of patterns) {
+      if (pattern.test(normalizedText)) {
+        matchedPatterns.push(pattern.source);
+      }
+    }
+
+    if (matchedPatterns.length > 0) {
+      return {
+        intent,
+        confidence: Math.min(1, 0.6 + matchedPatterns.length * 0.15),
+        patterns: matchedPatterns,
+        extractedParams: extractParams(normalizedText, intent),
+      };
+    }
+  }
+
+  // Try to infer from entry type mentions
+  const entryType = detectEntryType(normalizedText);
+  if (entryType) {
+    // Likely a store operation if entry type is mentioned
+    return {
+      intent: 'store',
+      confidence: 0.5,
+      patterns: [],
+      extractedParams: { entryType, content: normalizedText },
+    };
+  }
+
+  return {
+    intent: 'unknown',
+    confidence: 0,
+    patterns: [],
+    extractedParams: {},
+  };
+}
+
+/**
+ * Detect entry type from text
+ */
+export function detectEntryType(text: string): 'guideline' | 'knowledge' | 'tool' | undefined {
+  const scores: Record<string, number> = {
+    guideline: 0,
+    knowledge: 0,
+    tool: 0,
+  };
+
+  for (const [type, patterns] of Object.entries(ENTRY_TYPE_PATTERNS)) {
+    for (const pattern of patterns) {
+      if (pattern.test(text)) {
+        if (type in scores) {
+          scores[type] = (scores[type] ?? 0) + 1;
+        }
+      }
+    }
+  }
+
+  const maxScore = Math.max(...Object.values(scores));
+  if (maxScore === 0) return undefined;
+
+  const winner = Object.entries(scores).find(([, score]) => score === maxScore)?.[0];
+  return winner as 'guideline' | 'knowledge' | 'tool' | undefined;
+}
+
+/**
+ * Detect category from text
+ */
+export function detectCategory(text: string): string | undefined {
+  for (const [category, patterns] of Object.entries(CATEGORY_PATTERNS)) {
+    for (const pattern of patterns) {
+      if (pattern.test(text)) {
+        return category;
+      }
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Extract parameters based on intent
+ */
+function extractParams(text: string, intent: Intent): Record<string, string> {
+  const params: Record<string, string> = {};
+
+  switch (intent) {
+    case 'session_start': {
+      // Extract session name from "start working on X" or similar
+      const match = text.match(/(?:on|for)\s+["']?([^"'\n]+)["']?\s*$/i);
+      if (match && match[1]) {
+        params.sessionName = match[1].trim();
+      }
+      break;
+    }
+    case 'store': {
+      // Extract content after trigger phrases
+      let content = text
+        .replace(/^remember\s+(that\s+)?/i, '')
+        .replace(/^store\s+(this|the|a)?\s*/i, '')
+        .replace(/^(guideline|rule|fact):\s*/i, '')
+        .trim();
+      params.content = content;
+      params.entryType = detectEntryType(text) ?? 'knowledge';
+      params.category = detectCategory(text) ?? 'fact';
+      break;
+    }
+    case 'retrieve': {
+      // Extract search query
+      let query = text
+        .replace(/^(what|how|where|when|why)\s+(do|does|did|is|are|was|were|should)\s+/i, '')
+        .replace(/^(find|search|look\s+up|get|show|tell\s+me\s+about)\s+/i, '')
+        .trim();
+      params.query = query;
+      break;
+    }
+    case 'forget': {
+      // Extract what to forget
+      let target = text
+        .replace(/^(forget|remove|delete)\s+(the\s+)?(old\s+)?/i, '')
+        .trim();
+      params.target = target;
+      break;
+    }
+    case 'list': {
+      // Detect what to list
+      const entryType = detectEntryType(text);
+      if (entryType) {
+        params.entryType = entryType;
+      }
+      break;
+    }
+    case 'update': {
+      // Extract target
+      let target = text
+        .replace(/^(update|change|modify|edit)\s+(the\s+)?/i, '')
+        .trim();
+      params.target = target;
+      break;
+    }
+  }
+
+  return params;
+}
+
+/**
+ * Extract title/name from content for storage
+ */
+export function extractTitleFromContent(content: string, maxLength: number = 50): string {
+  // Try to extract a meaningful title from the content
+  const lines = content.split('\n');
+  let title = (lines[0] ?? '').trim();
+
+  // Remove common prefixes
+  title = title
+    .replace(/^(we\s+)?(always|never|should|must)\s+/i, '')
+    .replace(/^(our\s+)?(standard|rule)\s+(is\s+)?/i, '')
+    .replace(/^(the\s+)?/i, '');
+
+  // Truncate if too long
+  if (title.length > maxLength) {
+    title = title.substring(0, maxLength - 3) + '...';
+  }
+
+  return title || 'Untitled';
+}

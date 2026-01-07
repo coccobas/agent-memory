@@ -8,6 +8,7 @@ import type { ConflictListParams, ConflictResolveParams } from '../types.js';
 
 export const memoryConflictDescriptor: ToolDescriptor = {
   name: 'memory_conflict',
+  visibility: 'system',
   description: 'Manage version conflicts. Actions: list, resolve',
   commonParams: {
     entryType: {

@@ -53,8 +53,45 @@ import { memoryQuickstartDescriptor } from './memory_quickstart.js';
 import { memoryRememberDescriptor } from './memory_remember.js';
 import { memorySuggestDescriptor } from './memory_suggest.js';
 import { memoryEvidenceDescriptor } from './memory_evidence.js';
+import { memoryDescriptor } from './memory.js';
+import { memoryExtractionApproveDescriptor } from './memory_extraction_approve.js';
+import { memoryStatusDescriptor } from './memory_status.js';
 
-import { type AnyToolDescriptor, descriptorToTool, descriptorToHandler } from './types.js';
+import { type AnyToolDescriptor, type VisibilityLevel, descriptorToTool, descriptorToHandler } from './types.js';
+
+/**
+ * Valid visibility level configuration options
+ */
+type VisibilityConfig = 'core' | 'standard' | 'advanced' | 'all';
+
+/**
+ * Visibility hierarchy - each level includes all lower levels
+ */
+const VISIBILITY_HIERARCHY: Record<VisibilityConfig, VisibilityLevel[]> = {
+  core: ['core'],
+  standard: ['core', 'standard'],
+  advanced: ['core', 'standard', 'advanced'],
+  all: ['core', 'standard', 'advanced', 'system'],
+};
+
+/**
+ * Get effective visibility level for a descriptor
+ * Defaults to 'standard' if not specified
+ */
+function getVisibility(descriptor: AnyToolDescriptor): VisibilityLevel {
+  return descriptor.visibility ?? 'standard';
+}
+
+/**
+ * Filter descriptors by visibility level
+ */
+export function filterByVisibility(
+  descriptors: AnyToolDescriptor[],
+  visibilityLevel: VisibilityConfig = 'standard'
+): AnyToolDescriptor[] {
+  const allowedLevels = VISIBILITY_HIERARCHY[visibilityLevel];
+  return descriptors.filter((d) => allowedLevels.includes(getVisibility(d)));
+}
 
 /**
  * All tool descriptors in registration order
@@ -144,19 +181,37 @@ export const allDescriptors: AnyToolDescriptor[] = [
   memorySuggestDescriptor,
   // Immutable Evidence Artifacts
   memoryEvidenceDescriptor,
+  // Unified Natural Language Interface (simplified entry point)
+  memoryDescriptor,
+  // Extraction Approval (for approving auto-detected suggestions)
+  memoryExtractionApproveDescriptor,
+  // Status Dashboard (user-facing summary)
+  memoryStatusDescriptor,
 ];
 
 /**
- * Generated MCP TOOLS array
+ * Generated MCP TOOLS array (all tools)
  *
  * Use this as a drop-in replacement for the manually-defined TOOLS in server.ts
  */
 export const GENERATED_TOOLS = allDescriptors.map(descriptorToTool);
 
 /**
- * Generated bundled handlers
+ * Generate filtered TOOLS array based on visibility level
+ * Use this for progressive disclosure of tools
+ */
+export function getFilteredTools(visibilityLevel: VisibilityConfig = 'standard') {
+  return filterByVisibility(allDescriptors, visibilityLevel).map(descriptorToTool);
+}
+
+// Export the visibility config type for use in other modules
+export type { VisibilityConfig };
+
+/**
+ * Generated bundled handlers (always includes all handlers)
  *
  * Use this as a drop-in replacement for bundledHandlers in dispatch.ts
+ * Note: Handlers for all tools are always available, even if tool is hidden from listing
  */
 export const GENERATED_HANDLERS = Object.fromEntries(
   allDescriptors.map((d) => [d.name, descriptorToHandler(d)])
@@ -206,4 +261,7 @@ export {
   memoryRememberDescriptor,
   memorySuggestDescriptor,
   memoryEvidenceDescriptor,
+  memoryDescriptor,
+  memoryExtractionApproveDescriptor,
+  memoryStatusDescriptor,
 };

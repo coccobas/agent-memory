@@ -8,6 +8,8 @@ import { executeQueryPipeline } from '../../services/query/index.js';
 import { logAction } from '../../services/audit.service.js';
 import { createConversationService } from '../../services/conversation.service.js';
 import { createComponentLogger } from '../../utils/logger.js';
+import { formatHierarchicalContext } from '../../services/context/hierarchical-formatter.js';
+import { enrichResultsWithVersionContent } from '../../services/context/version-enricher.js';
 
 import type { MemoryQueryParams } from '../types.js';
 
@@ -210,6 +212,7 @@ export const queryHandlers = {
     let scopeId = getOptionalParam(params, 'scopeId', isString);
     const inherit = getOptionalParam(params, 'inherit', isBoolean) ?? true;
     const compact = getOptionalParam(params, 'compact', isBoolean) ?? false;
+    const hierarchical = getOptionalParam(params, 'hierarchical', isBoolean) ?? false;
     const limitPerType = getOptionalParam(params, 'limitPerType', isNumber);
     // agentId optional for read operations
     const agentId = getOptionalParam(params, 'agentId', isString);
@@ -258,6 +261,16 @@ export const queryHandlers = {
     // Execute query using the modular pipeline with context-injected dependencies
     const result = await executeQueryPipeline(queryParams, context.queryDeps);
 
+    // Return hierarchical format if requested (~1.5k tokens vs ~15k tokens)
+    if (hierarchical) {
+      // Enrich results with version content for snippet extraction
+      const enrichedResults = enrichResultsWithVersionContent(result.results, context.db);
+      return formatTimestamps(
+        formatHierarchicalContext(enrichedResults, scopeType, scopeId ?? null)
+      );
+    }
+
+    // Standard full response format
     const tools = result.results.filter((r) => r.type === 'tool');
     const guidelines = result.results.filter((r) => r.type === 'guideline');
     const knowledge = result.results.filter((r) => r.type === 'knowledge');

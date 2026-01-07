@@ -14,16 +14,17 @@ import type {
 
 export const memoryTagDescriptor: ToolDescriptor = {
   name: 'memory_tag',
+  visibility: 'core',
   description: 'Manage tags. Actions: create, list, attach, detach, for_entry',
   commonParams: {
-    agentId: { type: 'string', description: 'Agent identifier for access control/auditing' },
-    name: { type: 'string', description: 'Tag name (unique)' },
+    agentId: { type: 'string' },
+    name: { type: 'string' },
     category: { type: 'string', enum: ['language', 'domain', 'category', 'meta', 'custom'] },
     description: { type: 'string' },
     entryType: { type: 'string', enum: ['tool', 'guideline', 'knowledge', 'project'] },
     entryId: { type: 'string' },
-    tagId: { type: 'string', description: 'Tag ID' },
-    tagName: { type: 'string', description: 'Tag name (creates if not exists)' },
+    tagId: { type: 'string' },
+    tagName: { type: 'string' },
     isPredefined: { type: 'boolean' },
     limit: { type: 'number' },
     offset: { type: 'number' },

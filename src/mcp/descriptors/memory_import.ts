@@ -7,6 +7,7 @@ import { importHandlers } from '../handlers/import.handler.js';
 
 export const memoryImportDescriptor: ToolDescriptor = {
   name: 'memory_import',
+  visibility: 'system',
   description: 'Import memory entries from various formats. Actions: import',
   required: ['content'],
   commonParams: {

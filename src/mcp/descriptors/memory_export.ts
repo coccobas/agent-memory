@@ -7,6 +7,7 @@ import { exportHandlers } from '../handlers/export.handler.js';
 
 export const memoryExportDescriptor: ToolDescriptor = {
   name: 'memory_export',
+  visibility: 'system',
   description: 'Export memory entries to various formats. Actions: export',
   commonParams: {
     agentId: { type: 'string', description: 'Agent identifier for access control/auditing' },

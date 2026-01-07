@@ -24,179 +24,108 @@ User asks question → Search memory → Found? → Use it
                                    → Not found? → Explore files → Store findings
 ```
 
-## Essential Flow
+---
 
-```
-0. SETUP PERMISSIONS → 1. QUERY CONTEXT → 2. START SESSION → 3. CHECK DUPLICATES → 4. STORE → 5. TAG → 6. END SESSION
-```
+## Default Workflow
 
-### 0. Prerequisites: Permission Setup (One-Time Admin Task)
+Use these three tools for all standard operations:
 
-The system uses **deny-by-default permissions**. Before agents can write data, an admin must grant access.
+### 1. Session Start (Every Conversation)
 
-**Option A: Permissive mode (development)**
-```bash
-export AGENT_MEMORY_PERMISSIONS_MODE=permissive
-```
-
-**Option B: Grant permissions (production)**
-Tool: `memory_permission`
 ```json
-{"action": "grant", "agent_id": "<agent-id>", "scope_type": "project", "scope_id": "<project-id>", "entry_type": "knowledge", "permission": "write", "admin_key": "<admin-key>"}
+{"sessionName": "Fix auth bug"}
 ```
+Tool: `memory_quickstart` - Loads context + starts session. **Always include sessionName.**
 
-Grant for each entry type (`knowledge`, `guideline`, `tool`) the agent needs to write.
+### 2. Query / Search
 
-**Common permission errors:**
-| Error Code | Meaning | Fix |
-|------------|---------|-----|
-| E6000 | Permission denied | Grant write permission or use permissive mode |
+```json
+{"text": "What do we know about authentication?"}
+```
+Tool: `memory` - Natural language queries. Use for all searches.
 
-**Note:** `agentId` is only required for **write operations** (add, update, deactivate). Read operations (`context`, `search`, `list`, `get`) work without agentId in permissive mode.
+### 3. Store
+
+```json
+{"text": "Remember that we use TypeScript strict mode"}
+```
+Tool: `memory_remember` - Auto-detects type, category, and tags.
+
+**Key benefits:**
+- **Auto-detection**: projectId, agentId, and scopeId are auto-detected from working directory
+- **Auto-tagging**: Tags are inferred automatically from content
+- **Duplicate checking**: Built-in duplicate detection
 
 ---
 
-### 1. Query Context FIRST (Every Conversation)
+## Exceptions: When to Use Structured Tools
 
-```json
-{"action": "context", "scopeType": "project", "inherit": true}
-```
-Tool: `memory_query`. If project unknown, use `memory_project` action `list` first.
+Use structured tools **only** for these specific scenarios:
 
-### 1b. Search Before Exploring (When Answering Questions)
+| Scenario | Tool | Example |
+|----------|------|---------|
+| Bulk add (3+ entries) | `memory_guideline`, `memory_knowledge`, or `memory_tool` | `{"action": "bulk_add", "entries": [...]}` |
+| Query by relations | `memory_query` | `{"action": "search", "relatedTo": {...}}` |
+| Query by temporal validity | `memory_query` | `{"action": "search", "atTime": "..."}` |
+| Hierarchical context (token savings) | `memory_query` | `{"action": "context", "hierarchical": true}` |
+| Explicit tag management | `memory_tag` | `{"action": "attach", ...}` |
+| Update existing entry | `memory_guideline`, `memory_knowledge`, or `memory_tool` | `{"action": "update", "id": "..."}` |
+| Deactivate entry | `memory_guideline`, `memory_knowledge`, or `memory_tool` | `{"action": "deactivate", "id": "..."}` |
+| Permission management | `memory_permission` | `{"action": "grant", ...}` |
+| End session explicitly | `memory_session` | `{"action": "end", "id": "..."}` |
 
-**Before using Grep, Glob, Read, or Task tools**, search memory:
-```json
-{"action": "search", "search": "<topic>", "types": ["knowledge", "guidelines", "tools"], "scope": {"type": "project", "inherit": true}}
-```
-Only explore the filesystem if memory doesn't have the answer.
+**If your task is not in this table, use the default workflow.**
 
-### 2. Start Session
+---
 
-```json
-{"action": "start", "projectId": "<id>", "name": "<task>", "agentId": "cursor-ai"}
-```
-Tool: `memory_session`
+## Exception Details
 
-### 3. Check Before Storing (CRITICAL)
+### Bulk Add (3+ entries)
 
-**ALWAYS query before storing to prevent duplicates:**
-```json
-{"action": "search", "types": ["guidelines"], "search": "<topic>", "scope": {"type": "project", "inherit": true}}
-```
-Tool: `memory_query`
-
-- Similar exists → Update existing
-- Contradictory → Ask user
-- Duplicate → Skip
-- New → Store
-
-### 4. Store Entries
-
-**Guideline** (rules, standards): `memory_guideline` action `add`
-```json
-{"action": "add", "scopeType": "project", "scopeId": "<id>", "name": "<name>", "content": "<text>"}
-```
-
-**Knowledge** (facts, decisions): `memory_knowledge` action `add`
-```json
-{"action": "add", "scopeType": "project", "scopeId": "<id>", "title": "<title>", "content": "<text>"}
-```
-
-**Tool** (commands, scripts): `memory_tool` action `add`
-```json
-{"action": "add", "scopeType": "project", "scopeId": "<id>", "name": "<name>"}
-```
-
-#### Bulk Store (Multiple Entries)
-
-For multiple entries, use `bulk_add`. **Top-level `scopeType` and `scopeId` apply to all entries** (entries can override):
-
-**Bulk Guidelines:** `memory_guideline` action `bulk_add`
 ```json
 {"action": "bulk_add", "scopeType": "project", "scopeId": "<id>", "entries": [
-  {"name": "rule-1", "content": "...", "priority": 90},
-  {"name": "rule-2", "content": "...", "category": "security"}
+  {"name": "rule-1", "content": "..."},
+  {"name": "rule-2", "content": "..."},
+  {"name": "rule-3", "content": "..."}
 ]}
 ```
+Tool: `memory_guideline`, `memory_knowledge`, or `memory_tool`
 
-**Bulk Knowledge:** `memory_knowledge` action `bulk_add`
+### Hierarchical Context (90% Token Savings)
+
 ```json
-{"action": "bulk_add", "scopeType": "project", "scopeId": "<id>", "entries": [
-  {"title": "fact-1", "content": "...", "category": "decision"},
-  {"title": "fact-2", "content": "..."}
-]}
+{"action": "context", "scopeType": "project", "hierarchical": true}
 ```
+Tool: `memory_query` - Returns ~1.5k tokens instead of ~15k.
 
-**Bulk Tools:** `memory_tool` action `bulk_add`
-```json
-{"action": "bulk_add", "scopeType": "project", "scopeId": "<id>", "entries": [
-  {"name": "cmd-1", "description": "...", "category": "cli"},
-  {"name": "cmd-2", "description": "..."}
-]}
-```
-
-**Response:** Returns `{entries: [...], count: N}`. Tag each entry by its returned ID.
-
-### 5. Tag Immediately After Storing
+### Tag Management
 
 ```json
 {"action": "attach", "entryType": "guideline", "entryId": "<id>", "tagName": "<tag>"}
 ```
-Tool: `memory_tag`. Use 2-3 tags minimum.
+Tool: `memory_tag` - Use when `memory_remember` auto-tagging is insufficient.
 
-### 6. End Session
+### Permission Setup (One-Time Admin Task)
 
+**Development:** `export AGENT_MEMORY_PERMISSIONS_MODE=permissive`
+
+**Production:**
 ```json
-{"action": "end", "id": "<session-id>", "status": "completed"}
+{"action": "grant", "agent_id": "<agent-id>", "scope_type": "project", "scope_id": "<project-id>", "entry_type": "knowledge", "permission": "write", "admin_key": "<admin-key>"}
 ```
-Tool: `memory_session`
-
----
-
-## CRITICAL: Avoid These Errors
-
-| Error | Wrong | Correct |
-|-------|-------|---------|
-| Missing agentId (writes) | `{"action": "add", ...}` | `{"action": "add", "agentId": "<id>", ...}` |
-| Missing scopeId | `{"scopeType": "project"}` | `{"scopeType": "project", "scopeId": "<id>"}` |
-| Plural entryType | `"entryType": "guidelines"` | `"entryType": "guideline"` |
-| Wrong action | `memory_project` action `add` | `memory_project` action `create` |
-| Wrong action | `memory_guideline` action `create` | `memory_guideline` action `add` |
-| Missing tag params | `{"action": "attach", "entryId": "x"}` | `{"action": "attach", "entryType": "guideline", "entryId": "x", "tagName": "y"}` |
-
-**agentId is REQUIRED** for write operations only (add, update, deactivate). Read operations (`context`, `search`, `list`, `get`) do not require agentId.
-**scopeId is REQUIRED** when scopeType is `project`, `org`, or `session`. Only `global` scope needs no scopeId.
-
----
-
-## Action Quick Reference
-
-| Tool | Actions |
-|------|---------|
-| memory_query | `context`, `search` |
-| memory_guideline | `add`, `update`, `get`, `list`, `deactivate`, `bulk_add` |
-| memory_knowledge | `add`, `update`, `get`, `list`, `deactivate`, `bulk_add` |
-| memory_tool | `add`, `update`, `get`, `list`, `deactivate`, `bulk_add` |
-| memory_project | `create`, `list`, `get`, `update`, `delete` |
-| memory_org | `create`, `list` |
-| memory_session | `start`, `end`, `list` |
-| memory_tag | `attach`, `detach`, `create`, `list`, `for_entry` |
-| memory_relation | `create`, `list`, `delete` |
-
-**For parameters:** See `@auto-memory-reference`
+Tool: `memory_permission`
 
 ---
 
 ## When to Store What
 
-| Trigger | Store As | Category |
-|---------|----------|----------|
-| "We always/never do X" | Guideline | `code_style`/`workflow` |
-| "Our standard is..." | Guideline | `code_style` |
-| "We chose X because..." | Knowledge | `decision` |
-| "The system uses..." | Knowledge | `fact` |
-| CLI command, script | Tool | `cli`/`function` |
+| Trigger | Type |
+|---------|------|
+| "We always/never do X" | Guideline |
+| "Our standard is..." | Guideline |
+| "We chose X because..." | Knowledge |
+| "The system uses..." | Knowledge |
+| CLI command, script | Tool |
 
 **Guideline** = affects how agent works (rules, standards)
 **Knowledge** = describes what exists (facts, decisions)
@@ -211,24 +140,23 @@ Tool: `memory_session`
 | `global` | Universal standards |
 | `session` | Temporary/experimental |
 
-Always use `inherit: true` in queries.
+---
+
+## Common Errors (When Using Structured Tools)
+
+| Error | Wrong | Correct |
+|-------|-------|---------|
+| Missing scopeId | `{"scopeType": "project"}` | `{"scopeType": "project", "scopeId": "<id>"}` |
+| Plural entryType | `"entryType": "guidelines"` | `"entryType": "guideline"` |
+| Wrong action | `memory_project` action `add` | `memory_project` action `create` |
+
+**Note:** `scopeId` is required when scopeType is `project`, `org`, or `session`. Only `global` scope needs no scopeId.
 
 ---
 
-## Rules Summary
+**Full parameter reference:** `@auto-memory-reference`
+**Examples:** `@auto-memory-examples`
+**Advanced features:** `@auto-memory-advanced`
 
-1. **Setup permissions FIRST** - One-time admin task (Step 0)
-2. **Query context FIRST** - Every conversation
-3. **Include agentId** - Required for all write operations
-4. **Check before storing** - Prevent duplicates
-5. **Tag everything** - 2-3 tags minimum
-6. **Use correct action** - `add` for entries, `create` for scopes
-7. **Include scopeId** - Required for non-global scopes
-8. **Use singular entryType** - `guideline` not `guidelines`
-
----
-
-**Details:** `@auto-memory-reference` | **Examples:** `@auto-memory-examples` | **Advanced:** `@auto-memory-advanced`
-
-@version "1.0.0"
-@last_updated "2025-12-20"
+@version "3.0.0"
+@last_updated "2026-01-01"

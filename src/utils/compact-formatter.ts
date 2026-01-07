@@ -2,9 +2,19 @@
  * Compact output formatter for MCP responses
  *
  * Converts verbose JSON responses to human-readable single-line summaries.
+ * Terminal mode provides rich formatting with trees, boxes, and icons.
  */
 
 import { config } from '../config/index.js';
+import {
+  formatHierarchicalContextTerminal,
+  formatHealthTerminal,
+  formatListTerminal,
+  formatStatusTerminal,
+  formatStatusLine,
+  formatBadges,
+  icons,
+} from './terminal-formatter.js';
 
 function truncate(str: string, maxLen: number): string {
   if (str.length <= maxLen) return str;
@@ -73,6 +83,36 @@ function analyzeResult(result: unknown): { type: string; summary: string } {
         s.id
       )}, status:${String(s.status || '')})`,
     };
+  }
+
+  // Quickstart response (combined context + session)
+  if (isRecord(result.quickstart)) {
+    const qs = result.quickstart;
+    const sessionAction = qs.sessionAction;
+
+    if (sessionAction === 'resumed') {
+      const resumedName = qs.resumedSessionName || 'unnamed';
+      return {
+        type: 'quickstart',
+        summary: `✓ Context loaded, resumed session "${truncate(String(resumedName), 25)}"`,
+      };
+    } else if (sessionAction === 'created') {
+      const createdName = qs.requestedSessionName || 'unnamed';
+      return {
+        type: 'quickstart',
+        summary: `✓ Context loaded, started session "${truncate(String(createdName), 25)}"`,
+      };
+    } else if (sessionAction === 'error') {
+      return {
+        type: 'quickstart',
+        summary: '✓ Context loaded (session start failed)',
+      };
+    } else {
+      return {
+        type: 'quickstart',
+        summary: '✓ Context loaded',
+      };
+    }
   }
 
   // Project operations
@@ -171,9 +211,132 @@ function analyzeResult(result: unknown): { type: string; summary: string } {
 }
 
 /**
+ * Format result for terminal mode with rich visualizations
+ */
+function formatTerminalOutput(result: unknown): string | null {
+  if (!isRecord(result)) {
+    return null;
+  }
+
+  // Hierarchical context response
+  if ('summary' in result && isRecord(result.summary) && 'totalEntries' in result.summary) {
+    return formatHierarchicalContextTerminal(result as unknown as Parameters<typeof formatHierarchicalContextTerminal>[0]);
+  }
+
+  // Health check response (infrastructure)
+  if (typeof result.status === 'string' && 'database' in result && isRecord(result.database)) {
+    return formatHealthTerminal(result as unknown as Parameters<typeof formatHealthTerminal>[0]);
+  }
+
+  // Status dashboard response (user-facing)
+  if ('counts' in result && isRecord(result.counts) && 'guidelines' in result.counts) {
+    return formatStatusTerminal(result as unknown as Parameters<typeof formatStatusTerminal>[0]);
+  }
+
+  // List responses
+  if (Array.isArray(result.guidelines) && result.guidelines.length > 0) {
+    return formatListTerminal(result.guidelines as Parameters<typeof formatListTerminal>[0], 'guidelines');
+  }
+  if (Array.isArray(result.knowledge) && result.knowledge.length > 0) {
+    return formatListTerminal(result.knowledge as Parameters<typeof formatListTerminal>[0], 'knowledge');
+  }
+  if (Array.isArray(result.tools) && result.tools.length > 0) {
+    return formatListTerminal(result.tools as Parameters<typeof formatListTerminal>[0], 'tools');
+  }
+
+  // Session started/ended
+  if (result.success === true && isRecord(result.session)) {
+    const s = result.session as Record<string, unknown>;
+    const action = s.endedAt ? 'Ended' : 'Started';
+    const status = s.status === 'active' ? 'active' : 'inactive';
+    return formatStatusLine({
+      status: 'healthy',
+      items: [
+        { label: action, value: String(s.name || ''), status: status as 'active' | 'inactive' },
+      ],
+    });
+  }
+
+  // Quickstart response (combined context + session)
+  if (isRecord(result.quickstart)) {
+    const qs = result.quickstart as Record<string, unknown>;
+    const sessionAction = qs.sessionAction;
+    const items: Array<{ label: string; value: string; status?: 'active' | 'inactive' }> = [];
+
+    if (sessionAction === 'resumed') {
+      items.push({
+        label: 'Resumed',
+        value: String(qs.resumedSessionName || 'unnamed'),
+        status: 'active',
+      });
+    } else if (sessionAction === 'created') {
+      items.push({
+        label: 'Started',
+        value: String(qs.requestedSessionName || 'unnamed'),
+        status: 'active',
+      });
+    } else if (sessionAction === 'error') {
+      items.push({
+        label: 'Session',
+        value: 'failed to start',
+        status: 'inactive',
+      });
+    }
+
+    items.push({ label: 'Context', value: 'loaded' });
+
+    return formatStatusLine({
+      status: 'healthy',
+      items,
+    });
+  }
+
+  // Success with stored entry - use badges
+  if (result.success === true) {
+    if (isRecord(result.guideline)) {
+      const g = result.guideline;
+      return `${icons.success} ${formatBadges([
+        { label: 'guideline' },
+        { label: truncate(String(g.name || ''), 25) },
+      ])}`;
+    }
+    if (isRecord(result.knowledge)) {
+      const k = result.knowledge;
+      return `${icons.success} ${formatBadges([
+        { label: 'knowledge' },
+        { label: truncate(String(k.title || ''), 25) },
+      ])}`;
+    }
+    if (isRecord(result.tool)) {
+      const t = result.tool;
+      return `${icons.success} ${formatBadges([
+        { label: 'tool' },
+        { label: truncate(String(t.name || ''), 25) },
+      ])}`;
+    }
+  }
+
+  // Error response
+  if ('error' in result && result.error) {
+    const code = typeof result.code === 'string' ? `[${result.code}]` : '';
+    return `${icons.failure} ${code} ${truncate(String(result.error), 70)}`;
+  }
+
+  return null; // Fall back to compact or JSON
+}
+
+/**
  * Format result for output based on config
  */
 export function formatOutput(result: unknown): string {
+  if (config.output.format === 'terminal') {
+    const terminalOutput = formatTerminalOutput(result);
+    if (terminalOutput) {
+      return terminalOutput;
+    }
+    // Fall back to compact for unhandled types
+    return analyzeResult(result).summary;
+  }
   if (config.output.format === 'compact') {
     return analyzeResult(result).summary;
   }

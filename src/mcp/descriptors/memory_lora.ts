@@ -10,6 +10,7 @@ import { loraHandlers } from '../handlers/lora.handler.js';
 
 export const memoryLoraDescriptor: ToolDescriptor = {
   name: 'memory_lora',
+  visibility: 'advanced',
   description: `Export guidelines as LoRA training data for model fine-tuning.
 
 Actions: export, list_adapters, generate_script

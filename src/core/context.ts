@@ -30,7 +30,10 @@ import type { IQueryRewriteService } from '../services/query-rewrite/types.js';
 import type { TriggerOrchestrator } from '../services/extraction/trigger-orchestrator.js';
 import type { IncrementalExtractor } from '../services/extraction/incremental.js';
 import type { IContextDetectionService } from '../services/context-detection.service.js';
+import type { ISessionTimeoutService } from '../services/session-timeout.service.js';
+import type { IAutoTaggingService } from '../services/auto-tagging.service.js';
 import type { IClassificationService } from '../services/classification/index.js';
+import type { IExtractionHookService } from '../services/extraction-hook.service.js';
 
 /**
  * Service interfaces for AppContext
@@ -225,6 +228,12 @@ export interface UtilityServices {
   lora?: LoraService;
   /** Context detection service for auto-detecting project/session from cwd */
   contextDetection?: IContextDetectionService;
+  /** Session timeout service for auto-ending inactive sessions */
+  sessionTimeout?: ISessionTimeoutService;
+  /** Auto-tagging service for automatic tag inference */
+  autoTagging?: IAutoTaggingService;
+  /** Extraction hook service for proactive pattern detection */
+  extractionHook?: IExtractionHookService;
 }
 
 // ============================================================================

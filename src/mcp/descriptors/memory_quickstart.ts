@@ -15,41 +15,15 @@ import type { SessionStartParams } from '../types.js';
 
 export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
   name: 'memory_quickstart',
-  description: `One-call setup for memory context and session.
-
-Combines context loading + optional session start into a single call.
-Auto-detects project from working directory if not specified.
-
-Example: {"sessionName":"Fix auth bug"}
-Example: {"sessionName":"Add feature","sessionPurpose":"Implement dark mode"}
-Example: {} (just load context, no session)
-
-Returns: context (guidelines, knowledge, tools) + session info if started.`,
+  visibility: 'core',
+  description: 'One-call setup for memory context and session. Auto-detects project from cwd.',
   params: {
-    sessionName: {
-      type: 'string',
-      description: 'Optional: Start a session with this name. If omitted, only loads context.',
-    },
-    sessionPurpose: {
-      type: 'string',
-      description: 'Optional: Purpose/description for the session',
-    },
-    projectId: {
-      type: 'string',
-      description: 'Optional: Project ID (auto-detected from cwd if not provided)',
-    },
-    agentId: {
-      type: 'string',
-      description: 'Optional: Agent identifier (auto-detected if not provided)',
-    },
-    inherit: {
-      type: 'boolean',
-      description: 'Include parent scopes in context (default: true)',
-    },
-    limitPerType: {
-      type: 'number',
-      description: 'Max entries per type in context (default: 10)',
-    },
+    sessionName: { type: 'string', description: 'Start session with this name' },
+    sessionPurpose: { type: 'string' },
+    projectId: { type: 'string' },
+    agentId: { type: 'string' },
+    inherit: { type: 'boolean' },
+    limitPerType: { type: 'number' },
   },
   contextHandler: async (ctx, args) => {
     const sessionName = args?.sessionName as string | undefined;
@@ -73,36 +47,64 @@ Returns: context (guidelines, knowledge, tools) + session info if started.`,
     };
     const detectedProjectId = projectId ?? contextWithMeta?._context?.project?.id;
 
-    // Step 2: Optionally start session
+    // Step 2: Optionally start session (or resume existing active session)
     let sessionResult: Record<string, unknown> | null = null;
+    let sessionAction: 'created' | 'resumed' | 'none' | 'error' = 'none';
+    let existingSessionName: string | null = null;
+
     if (sessionName && detectedProjectId) {
       try {
-        const sessionParams: SessionStartParams = {
-          projectId: detectedProjectId as string,
-          name: sessionName,
-          purpose: sessionPurpose,
-          agentId,
-        };
-        sessionResult = (await scopeHandlers.sessionStart(ctx, sessionParams)) as Record<
-          string,
-          unknown
-        >;
+        // Check for existing active session in this project
+        const activeSessions = await ctx.repos.sessions.list(
+          { projectId: detectedProjectId, status: 'active' },
+          { limit: 1 }
+        );
+
+        const existingSession = activeSessions[0];
+        if (existingSession) {
+          // Resume existing session instead of creating new one
+          existingSessionName = existingSession.name ?? null;
+          sessionResult = {
+            success: true,
+            session: existingSession,
+            resumed: true,
+          };
+          sessionAction = 'resumed';
+        } else {
+          // Create new session
+          const sessionParams: SessionStartParams = {
+            projectId: detectedProjectId as string,
+            name: sessionName,
+            purpose: sessionPurpose,
+            agentId,
+          };
+          sessionResult = (await scopeHandlers.sessionStart(ctx, sessionParams)) as Record<
+            string,
+            unknown
+          >;
+          sessionAction = 'created';
+        }
       } catch (error) {
         // Session start failed, include error in response but don't fail the whole call
         sessionResult = {
           error: 'Failed to start session',
           message: error instanceof Error ? error.message : String(error),
         };
+        sessionAction = 'error';
       }
     }
 
-    // Build combined response
+    // Build combined response with clear action indicator
     return {
       context: contextResult,
       session: sessionResult,
       quickstart: {
         contextLoaded: true,
-        sessionStarted: sessionResult !== null && !('error' in (sessionResult || {})),
+        sessionAction,
+        sessionStarted: sessionAction === 'created',
+        sessionResumed: sessionAction === 'resumed',
+        resumedSessionName: existingSessionName,
+        requestedSessionName: sessionName,
         projectId: detectedProjectId,
       },
     };

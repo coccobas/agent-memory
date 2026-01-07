@@ -14,6 +14,7 @@ import type {
 
 export const memoryProjectDescriptor: ToolDescriptor = {
   name: 'memory_project',
+  visibility: 'core',
   description: 'Manage projects. Actions: create, list, get, update',
   commonParams: {
     id: { type: 'string', description: 'Project ID (get, update)' },

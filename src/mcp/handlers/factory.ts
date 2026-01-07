@@ -335,6 +335,29 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
         );
       }
 
+      // Auto-tag the entry (non-critical - graceful degradation)
+      let autoTagResult: { tags: string[]; skipped: boolean } | undefined;
+      if (context.services.autoTagging) {
+        const entryCategory = (entry as { category?: string }).category;
+        autoTagResult = await safeAsync(
+          () =>
+            context.services.autoTagging!.applyTags(
+              config.entryType as 'guideline' | 'knowledge' | 'tool',
+              entry.id,
+              content,
+              { category: entryCategory }
+            ),
+          { name: 'autoTagging', entryType: config.entryType, entryId: entry.id },
+          { tags: [], suggestions: [], skipped: true }
+        );
+        if (autoTagResult.tags.length > 0) {
+          logger.debug(
+            { entryType: config.entryType, entryId: entry.id, tags: autoTagResult.tags },
+            'Auto-tagged entry'
+          );
+        }
+      }
+
       // Log audit
       logAction(
         {
@@ -352,6 +375,7 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
         success: true,
         [config.responseKey]: entry,
         redFlags: redFlags.length > 0 ? redFlags : undefined,
+        autoTags: autoTagResult?.tags.length ? autoTagResult.tags : undefined,
       });
     },
 
@@ -661,6 +685,9 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
 
     /**
      * Bulk add multiple entries in a transaction
+     *
+     * Auto-deduplication: If an entry with the same name/title already exists
+     * in the same scope, it will be updated instead of creating a duplicate.
      */
     async bulk_add(context: AppContext, params: Record<string, unknown>) {
       const repo = config.getRepo(context);
@@ -677,7 +704,35 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
         );
       }
 
-      // Collect permission check entries with synthetic IDs (for new entries)
+      // Pre-check for existing entries to enable auto-deduplication
+      // Map: "scopeType:scopeId:name" -> existing entry
+      const existingEntriesMap = new Map<string, TEntry>();
+      for (const entry of entries) {
+        if (!isObject(entry)) continue;
+        const entryObj = entry;
+        const scopeType = isScopeType(entryObj.scopeType) ? entryObj.scopeType : defaultScopeType;
+        const scopeId = isString(entryObj.scopeId) ? entryObj.scopeId : defaultScopeId;
+        if (!scopeType) continue;
+
+        const nameValue = safeSync(
+          () => config.getNameValue(entryObj),
+          { name: 'getNameValue', entryType: config.entryType },
+          ''
+        );
+        if (!nameValue) continue;
+
+        // Check if entry already exists using appropriate lookup method
+        const lookupFn = config.nameField === 'title' ? repo.getByTitle : repo.getByName;
+        if (lookupFn) {
+          const existing = await lookupFn.call(repo, nameValue, scopeType, scopeId, false);
+          if (existing) {
+            const key = `${scopeType}:${scopeId ?? ''}:${nameValue}`;
+            existingEntriesMap.set(key, existing);
+          }
+        }
+      }
+
+      // Collect permission check entries
       // Uses batch check for efficiency - single DB query instead of N queries
       const permissionEntries: Array<{ id: string; scopeType: ScopeType; scopeId: string | null }> = [];
       for (let i = 0; i < entries.length; i++) {
@@ -691,8 +746,17 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
 
         if (!entryScopeType) continue; // Will fail validation in transaction
 
+        // Use existing entry ID if found, otherwise synthetic ID
+        const nameValue = safeSync(
+          () => config.getNameValue(entryObj),
+          { name: 'getNameValue', entryType: config.entryType },
+          ''
+        );
+        const key = `${entryScopeType}:${entryScopeId ?? ''}:${nameValue}`;
+        const existing = existingEntriesMap.get(key);
+
         permissionEntries.push({
-          id: `new-${i}`, // Synthetic ID for batch check result tracking
+          id: existing?.id ?? `new-${i}`,
           scopeType: entryScopeType,
           scopeId: entryScopeId ?? null,
         });
@@ -710,7 +774,16 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
         const scopeId = isString(entryObj.scopeId) ? entryObj.scopeId : defaultScopeId;
         if (!scopeType) return null; // Will fail later
 
-        const validationData = config.getValidationData(entryObj);
+        // Get existing entry for validation context
+        const nameValue = safeSync(
+          () => config.getNameValue(entryObj),
+          { name: 'getNameValue', entryType: config.entryType },
+          ''
+        );
+        const key = `${scopeType}:${scopeId ?? ''}:${nameValue}`;
+        const existingEntry = existingEntriesMap.get(key);
+
+        const validationData = config.getValidationData(entryObj, existingEntry);
         const result = await validationService.validateEntry(
           config.entryType,
           validationData,
@@ -731,6 +804,10 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
           );
         }
       }
+
+      // Track created vs updated entries
+      let createdCount = 0;
+      let updatedCount = 0;
 
       // Execute in transaction for atomicity
       // Note: repo methods return Promises but SQLite is sync underneath,
@@ -765,18 +842,42 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
             );
           }
 
-          const input = config.extractAddParams(entryObj, { scopeType, scopeId });
-          return repo.create(input);
+          // Check if entry already exists - update instead of create
+          const nameValue = config.getNameValue(entryObj);
+          const key = `${scopeType}:${scopeId ?? ''}:${nameValue}`;
+          const existingEntry = existingEntriesMap.get(key);
+
+          if (existingEntry) {
+            // Update existing entry
+            const updateInput = config.extractUpdateParams(entryObj);
+            updatedCount++;
+            return repo.update(existingEntry.id, updateInput);
+          } else {
+            // Create new entry
+            const input = config.extractAddParams(entryObj, { scopeType, scopeId });
+            createdCount++;
+            return repo.create(input);
+          }
         });
       });
 
       // Await all promises (already resolved since SQLite is sync)
       const results = await Promise.all(promises);
 
+      // Log deduplication activity
+      if (updatedCount > 0) {
+        logger.info(
+          { createdCount, updatedCount, entryType: config.entryType },
+          'Bulk add completed with auto-deduplication'
+        );
+      }
+
       return formatTimestamps({
         success: true,
         [config.responseListKey]: results,
         count: results.length,
+        created: createdCount,
+        updated: updatedCount,
       });
     },
 

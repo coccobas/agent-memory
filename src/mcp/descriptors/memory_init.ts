@@ -7,6 +7,7 @@ import { initHandlers } from '../handlers/init.handler.js';
 
 export const memoryInitDescriptor: ToolDescriptor = {
   name: 'memory_init',
+  visibility: 'system',
   description:
     'Manage database initialization and migrations. Actions: init (initialize/migrate), status (check migration status), reset (reset database - WARNING: deletes all data)',
   commonParams: {

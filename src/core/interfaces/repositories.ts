@@ -271,6 +271,8 @@ export interface CreateGuidelineInput {
 }
 
 export interface UpdateGuidelineInput {
+  scopeType?: ScopeType;
+  scopeId?: string | null;
   category?: string;
   priority?: number;
   content?: string;
@@ -331,6 +333,8 @@ export interface CreateKnowledgeInput {
 }
 
 export interface UpdateKnowledgeInput {
+  scopeType?: ScopeType;
+  scopeId?: string | null;
   category?: 'decision' | 'fact' | 'context' | 'reference';
   content?: string;
   source?: string;

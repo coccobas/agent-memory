@@ -7,6 +7,7 @@ import { rlHandlers } from '../handlers/rl.handler.js';
 
 export const memoryRlDescriptor: ToolDescriptor = {
   name: 'memory_rl',
+  visibility: 'advanced',
   description: `Manage RL policies for memory operations.
 
 Actions: status, train, evaluate, enable, config, export_dataset, load_model, list_models, compare

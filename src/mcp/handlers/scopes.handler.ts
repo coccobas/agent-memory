@@ -26,6 +26,8 @@ import { getCriticalGuidelinesForSession } from '../../services/critical-guideli
 import { requireAdminKey } from '../../utils/admin.js';
 import { createValidationError, createNotFoundError } from '../../core/errors.js';
 import { createComponentLogger } from '../../utils/logger.js';
+import { findSimilarGroups, consolidate } from '../../services/consolidation.service.js';
+import { generateAndStoreSummary } from '../../services/summary.service.js';
 
 const logger = createComponentLogger('scopes');
 import type {
@@ -207,6 +209,27 @@ export const scopeHandlers = {
     const agentId = getOptionalParam(params, 'agentId', isString);
     const metadata = getOptionalParam(params, 'metadata', isObject);
 
+    // End any active sessions for this project and trigger maintenance
+    if (projectId) {
+      const activeSessions = await context.repos.sessions.list(
+        { projectId, status: 'active' },
+        { limit: 10 }
+      );
+
+      for (const activeSession of activeSessions) {
+        await context.repos.sessions.end(activeSession.id, 'completed');
+        logger.debug(
+          { sessionId: activeSession.id, projectId },
+          'Auto-ended stale session on new session start'
+        );
+      }
+
+      // Trigger maintenance for the project (non-blocking)
+      if (activeSessions.length > 0) {
+        triggerSessionEndMaintenance(projectId, context);
+      }
+    }
+
     const input: CreateSessionInput = {
       projectId,
       name,
@@ -232,8 +255,47 @@ export const scopeHandlers = {
   },
 
   async sessionEnd(context: AppContext, params: SessionEndParams) {
-    const id = getRequiredParam(params, 'id', isString);
+    let id = getOptionalParam(params, 'id', isString);
     const status = getOptionalParam(params, 'status', isSessionStatus);
+
+    // Auto-detect session if id not provided
+    if (!id) {
+      const contextDetection = context.services.contextDetection;
+      if (contextDetection) {
+        const detected = await contextDetection.detect();
+        if (detected.session) {
+          id = detected.session.id;
+          logger.debug({ sessionId: id, source: detected.session.source }, 'Auto-detected session for end');
+        }
+      }
+
+      // Still no id - check for any active session in current project
+      if (!id) {
+        const detected = context.services.contextDetection
+          ? await context.services.contextDetection.detect()
+          : null;
+        const projectId = detected?.project?.id;
+
+        const activeSessions = await context.repos.sessions.list(
+          { projectId, status: 'active' },
+          { limit: 1 }
+        );
+
+        const activeSession = activeSessions[0];
+        if (activeSession) {
+          id = activeSession.id;
+          logger.debug({ sessionId: id }, 'Found active session for end');
+        }
+      }
+
+      if (!id) {
+        throw createValidationError(
+          'id',
+          'is required',
+          'No session id provided and no active session found. Either provide a session id or start a session first.'
+        );
+      }
+    }
 
     const session = await context.repos.sessions.end(
       id,
@@ -269,6 +331,11 @@ export const scopeHandlers = {
 
     // Record task outcome for RL feedback (non-blocking)
     recordSessionOutcome(id, status ?? 'completed', context.services.feedback);
+
+    // Trigger auto-consolidation and summary generation (non-blocking)
+    if (status !== 'discarded' && session.projectId) {
+      triggerSessionEndMaintenance(session.projectId, context);
+    }
 
     return formatTimestamps({ success: true, session });
   },
@@ -371,4 +438,94 @@ function getConfidenceForStatus(
     default:
       return 0.3;
   }
+}
+
+/**
+ * Trigger maintenance tasks on session end
+ *
+ * Runs consolidation and summary generation in the background.
+ * These are non-blocking and fire-and-forget.
+ */
+function triggerSessionEndMaintenance(
+  projectId: string,
+  context: AppContext
+): void {
+  // Fire-and-forget async maintenance
+  setImmediate(async () => {
+    try {
+      // Check if we have the required services for consolidation
+      const hasConsolidationServices = context.services?.embedding && context.services?.vector;
+
+      if (hasConsolidationServices) {
+        // Find similar entries (discovery only, no deduplication)
+        const groups = await findSimilarGroups({
+          scopeType: 'project',
+          scopeId: projectId,
+          entryTypes: ['guideline', 'knowledge', 'tool'],
+          threshold: 0.85,
+          limit: 10,
+          db: context.db,
+          services: {
+            embedding: context.services.embedding!,
+            vector: context.services.vector!,
+          },
+        });
+
+        if (groups.length > 0) {
+          logger.info(
+            { projectId, similarGroups: groups.length },
+            'Found similar entries during session end maintenance'
+          );
+
+          // Auto-dedupe if groups have high similarity (> 0.95)
+          const highSimilarityGroups = groups.filter(g => g.averageSimilarity > 0.95);
+          if (highSimilarityGroups.length > 0) {
+            const result = await consolidate({
+              scopeType: 'project',
+              scopeId: projectId,
+              entryTypes: ['guideline', 'knowledge', 'tool'],
+              strategy: 'dedupe',
+              threshold: 0.95,
+              limit: 5,
+              dryRun: false,
+              consolidatedBy: 'session-end-maintenance',
+              db: context.db,
+              services: {
+                embedding: context.services.embedding!,
+                vector: context.services.vector!,
+              },
+            });
+
+            if (result.entriesDeactivated > 0) {
+              logger.info(
+                { projectId, deactivated: result.entriesDeactivated },
+                'Auto-deduplicated entries during session end'
+              );
+            }
+          }
+        }
+      }
+
+      // Generate/update project summary
+      const project = await context.repos.projects.getById(projectId);
+      if (project) {
+        const summaryResult = await generateAndStoreSummary(context.db, {
+          projectId,
+          projectName: project.name,
+        });
+
+        if (summaryResult.stored) {
+          logger.debug(
+            { projectId, knowledgeId: summaryResult.knowledgeId },
+            'Updated project summary during session end'
+          );
+        }
+      }
+    } catch (error) {
+      logger.error(
+        { projectId, error: error instanceof Error ? error.message : String(error) },
+        'Session end maintenance failed'
+      );
+    }
+  });
 }

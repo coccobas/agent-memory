@@ -14,6 +14,7 @@ import type {
 
 export const memoryAnalyticsDescriptor: ToolDescriptor = {
   name: 'memory_analytics',
+  visibility: 'advanced',
   description:
     'Get usage analytics and trends from audit log. Actions: get_stats, get_trends, get_subtask_stats, get_error_correlation, get_low_diversity',
   commonParams: {

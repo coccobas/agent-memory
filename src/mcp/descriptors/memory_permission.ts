@@ -7,30 +7,19 @@ import { permissionHandlers } from '../handlers/permissions.handler.js';
 
 export const memoryPermissionDescriptor: ToolDescriptor = {
   name: 'memory_permission',
+  visibility: 'standard',
   description: 'Manage permissions. Actions: grant, revoke, check, list',
   commonParams: {
-    admin_key: { type: 'string', description: 'Admin key (grant, revoke, list)' },
-    agent_id: { type: 'string', description: 'Agent identifier (grant, revoke, check, list)' },
-    scope_type: {
-      type: 'string',
-      enum: ['global', 'org', 'project', 'session'],
-      description: 'Scope type (grant, revoke, check, list)',
-    },
-    scope_id: { type: 'string', description: 'Scope ID (grant, revoke, check, list)' },
-    entry_type: {
-      type: 'string',
-      enum: ['tool', 'guideline', 'knowledge'],
-      description: 'Entry type (grant, revoke, check, list)',
-    },
-    permission: {
-      type: 'string',
-      enum: ['read', 'write', 'admin'],
-      description: 'Permission level (grant)',
-    },
-    created_by: { type: 'string', description: 'Creator identifier (grant)' },
-    permission_id: { type: 'string', description: 'Permission ID (revoke)' },
-    limit: { type: 'number', description: 'Max results (list, default: all)' },
-    offset: { type: 'number', description: 'Skip N results (list)' },
+    admin_key: { type: 'string' },
+    agent_id: { type: 'string' },
+    scope_type: { type: 'string', enum: ['global', 'org', 'project', 'session'] },
+    scope_id: { type: 'string' },
+    entry_type: { type: 'string', enum: ['tool', 'guideline', 'knowledge'] },
+    permission: { type: 'string', enum: ['read', 'write', 'admin'] },
+    created_by: { type: 'string' },
+    permission_id: { type: 'string' },
+    limit: { type: 'number' },
+    offset: { type: 'number' },
   },
   actions: {
     grant: { contextHandler: permissionHandlers.grant },

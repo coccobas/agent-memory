@@ -10,6 +10,7 @@ import { latentMemoryHandlers } from '../handlers/latent-memory.handler.js';
 
 export const memoryLatentDescriptor: ToolDescriptor = {
   name: 'memory_latent',
+  visibility: 'advanced',
   description: `Manage latent memory and KV-cache for efficient context injection.
 
 Latent memory provides optimized, pre-processed representations of memory entries

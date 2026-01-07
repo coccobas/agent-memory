@@ -8,6 +8,7 @@ import type { ConsolidationParams } from '../types.js';
 
 export const memoryConsolidateDescriptor: ToolDescriptor = {
   name: 'memory_consolidate',
+  visibility: 'advanced',
   description: `Consolidate similar memory entries to reduce redundancy and improve coherence.
 
 Actions:

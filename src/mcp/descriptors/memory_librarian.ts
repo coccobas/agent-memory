@@ -13,6 +13,7 @@ import { librarianHandlers } from '../handlers/librarian.handler.js';
 
 export const memory_librarian: ToolDescriptor = {
   name: 'memory_librarian',
+  visibility: 'advanced',
   description: `Manage the Librarian Agent for pattern detection and promotion recommendations.
 
 Actions:

@@ -14,6 +14,7 @@ import { experienceHandlers } from '../handlers/experiences.handler.js';
 
 export const memoryExperienceDescriptor: ToolDescriptor = {
   name: 'memory_experience',
+  visibility: 'advanced',
   description: `Manage experiential memory - learned patterns from past interactions.
 
 Actions: add, update, get, list, history, deactivate, delete, bulk_add, bulk_update, bulk_delete, promote, record_outcome, add_step, get_trajectory, record_case, capture_from_transcript

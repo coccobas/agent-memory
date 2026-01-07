@@ -269,11 +269,18 @@ export function createGuidelineRepository(deps: DatabaseDeps): IGuidelineReposit
           : false;
 
         // Update guideline metadata if needed
-        if (input.category !== undefined || input.priority !== undefined) {
+        if (
+          input.category !== undefined ||
+          input.priority !== undefined ||
+          input.scopeType !== undefined ||
+          input.scopeId !== undefined
+        ) {
           db.update(guidelines)
             .set({
               ...(input.category !== undefined && { category: input.category }),
               ...(input.priority !== undefined && { priority: input.priority }),
+              ...(input.scopeType !== undefined && { scopeType: input.scopeType }),
+              ...(input.scopeId !== undefined && { scopeId: input.scopeId }),
             })
             .where(eq(guidelines.id, id))
             .run();

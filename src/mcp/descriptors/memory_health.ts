@@ -25,6 +25,7 @@ import { config } from '../../config/index.js';
 
 export const memoryHealthDescriptor: SimpleToolDescriptor = {
   name: 'memory_health',
+  visibility: 'system',
   description: `Check server health and database status. Returns version, database stats, and cache info.
 
 Use this to verify the memory server is working or to get entry counts.`,

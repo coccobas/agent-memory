@@ -7,6 +7,7 @@ import { feedbackHandlers } from '../handlers/feedback.handler.js';
 
 export const memoryFeedbackDescriptor: ToolDescriptor = {
   name: 'memory_feedback',
+  visibility: 'advanced',
   description: `Query and export RL feedback data for training.
 
 Actions: list_retrievals, list_outcomes, list_decisions, export, stats

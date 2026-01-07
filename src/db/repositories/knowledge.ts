@@ -266,8 +266,19 @@ export function createKnowledgeRepository(deps: DatabaseDeps): IKnowledgeReposit
           : false;
 
         // Update knowledge metadata if needed
-        if (input.category !== undefined) {
-          db.update(knowledge).set({ category: input.category }).where(eq(knowledge.id, id)).run();
+        if (
+          input.category !== undefined ||
+          input.scopeType !== undefined ||
+          input.scopeId !== undefined
+        ) {
+          db.update(knowledge)
+            .set({
+              ...(input.category !== undefined && { category: input.category }),
+              ...(input.scopeType !== undefined && { scopeType: input.scopeType }),
+              ...(input.scopeId !== undefined && { scopeId: input.scopeId }),
+            })
+            .where(eq(knowledge.id, id))
+            .run();
         }
 
         // Create new version

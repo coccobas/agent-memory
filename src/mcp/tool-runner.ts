@@ -128,6 +128,11 @@ export async function runTool(
     const result = await handler(context, enrichedArgs);
     logger.debug({ tool: name }, 'Tool call successful');
 
+    // Record session activity for timeout tracking
+    if (context.services.sessionTimeout && detectedContext?.session?.id) {
+      context.services.sessionTimeout.recordActivity(detectedContext.session.id);
+    }
+
     // Add _context to response if auto-detection was used
     const finalResult =
       detectedContext && typeof result === 'object' && result !== null

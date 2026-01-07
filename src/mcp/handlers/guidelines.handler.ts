@@ -16,6 +16,7 @@ import {
   isString,
   isNumber,
   isExamplesObject,
+  isScopeType,
 } from '../../utils/type-guards.js';
 import type { ScopeType } from '../../db/schema.js';
 import type { AppContext } from '../../core/context.js';
@@ -48,6 +49,8 @@ function extractAddParams(
 }
 
 function extractUpdateParams(params: Record<string, unknown>): UpdateGuidelineInput {
+  const scopeType = getOptionalParam(params, 'scopeType', isScopeType);
+  const scopeId = getOptionalParam(params, 'scopeId', isString);
   const category = getOptionalParam(params, 'category', isString);
   const priority = getOptionalParam(params, 'priority', isNumber);
   const content = getOptionalParam(params, 'content', isString);
@@ -57,6 +60,8 @@ function extractUpdateParams(params: Record<string, unknown>): UpdateGuidelineIn
   const updatedBy = getOptionalParam(params, 'updatedBy', isString);
 
   const input: UpdateGuidelineInput = {};
+  if (scopeType !== undefined) input.scopeType = scopeType as ScopeType;
+  if (scopeId !== undefined) input.scopeId = scopeId;
   if (category !== undefined) input.category = category;
   if (priority !== undefined) input.priority = priority;
   if (content !== undefined) input.content = content;
@@ -81,7 +86,8 @@ function getValidationData(
   existingEntry?: GuidelineWithVersion
 ): Record<string, unknown> {
   const name = existingEntry?.name ?? getOptionalParam(params, 'name', isString);
-  const content = getOptionalParam(params, 'content', isString);
+  const content =
+    getOptionalParam(params, 'content', isString) ?? existingEntry?.currentVersion?.content;
   const rationale = getOptionalParam(params, 'rationale', isString);
   const priority = getOptionalParam(params, 'priority', isNumber);
   const category = getOptionalParam(params, 'category', isString);

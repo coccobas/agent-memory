@@ -7,6 +7,7 @@ import { hooksHandlers } from '../handlers/hooks.handler.js';
 
 export const memoryHookDescriptor: ToolDescriptor = {
   name: 'memory_hook',
+  visibility: 'system',
   description: `Generate and manage IDE verification hooks.
 
 Actions:

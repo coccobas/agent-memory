@@ -9,6 +9,7 @@ import { handleForgetting, type ForgettingInput } from '../handlers/forgetting.h
 
 export const memoryForgetDescriptor: ToolDescriptor = {
   name: 'memory_forget',
+  visibility: 'advanced',
   description: `Manage memory forgetting and decay. Actions: analyze, forget, status
 
 Actions:

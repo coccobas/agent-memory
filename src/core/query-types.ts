@@ -195,6 +195,72 @@ export interface DefaultQuery extends BaseQueryParams, DateRangeFilter, RecencyO
   enableDecomposition?: boolean;
   disableRewrite?: boolean;
   maxExpansions?: number;
+  // Hierarchical context params
+  /** Return hierarchical overview instead of full entries (~1.5k vs ~15k tokens) */
+  hierarchical?: boolean;
+}
+
+// =============================================================================
+// HIERARCHICAL CONTEXT TYPES
+// =============================================================================
+
+/**
+ * Entry types for hierarchical context items
+ */
+export type HierarchicalEntryType = 'tool' | 'guideline' | 'knowledge' | 'experience';
+
+/**
+ * Compact item representation for hierarchical context response
+ */
+export interface HierarchicalContextItem {
+  id: string;
+  type: HierarchicalEntryType;
+  title: string;
+  snippet: string;
+  priority?: number;      // For guidelines
+  accessedAt?: string;    // For recent items
+  category?: string;
+}
+
+/**
+ * Summary statistics for hierarchical context
+ */
+export interface HierarchicalContextSummary {
+  totalEntries: number;
+  byType: Record<string, number>;
+  byCategory: Record<string, number>;
+  lastUpdated: string;
+}
+
+/**
+ * Expand action hints for drilling down
+ */
+export interface HierarchicalExpandActions {
+  byCategory: { tool: string; example: Record<string, unknown> };
+  bySearch: { tool: string; example: Record<string, unknown> };
+  fullContext: { tool: string; example: Record<string, unknown> };
+}
+
+/**
+ * Response metadata for hierarchical context
+ */
+export interface HierarchicalResponseMeta {
+  scopeType: string;
+  scopeId: string | null;
+  tokenSavings: string;
+}
+
+/**
+ * Hierarchical context response format
+ * Returns compact overview (~1.5k tokens) instead of full entries (~15k tokens)
+ */
+export interface HierarchicalContextResult {
+  summary: HierarchicalContextSummary;
+  critical: HierarchicalContextItem[];
+  recent: HierarchicalContextItem[];
+  categories: string[];
+  expand: HierarchicalExpandActions;
+  meta: HierarchicalResponseMeta;
 }
 
 /**

@@ -14,6 +14,7 @@ import type {
 
 export const memoryFileLockDescriptor: ToolDescriptor = {
   name: 'memory_file_lock',
+  visibility: 'advanced',
   description:
     'Manage file locks for multi-agent coordination. Actions: checkout, checkin, status, list, force_unlock',
   commonParams: {

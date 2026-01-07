@@ -126,4 +126,67 @@ describe('memory_context integration', () => {
       expect(t.scopeId).toBe(projectId);
     });
   });
+
+  it('returns hierarchical context format when hierarchical is true', async () => {
+    const response = await queryHandlers.context(context, {
+      agentId: AGENT_ID,
+      scopeType: 'project',
+      scopeId: projectId,
+      inherit: true,
+      hierarchical: true,
+    });
+
+    // Should have hierarchical structure instead of full entries
+    expect(response.summary).toBeDefined();
+    expect(response.summary.totalEntries).toBeGreaterThan(0);
+    expect(response.summary.byType).toBeDefined();
+    expect(response.summary.byCategory).toBeDefined();
+    expect(response.summary.lastUpdated).toBeDefined();
+
+    expect(response.critical).toBeDefined();
+    expect(Array.isArray(response.critical)).toBe(true);
+
+    expect(response.recent).toBeDefined();
+    expect(Array.isArray(response.recent)).toBe(true);
+
+    expect(response.categories).toBeDefined();
+    expect(Array.isArray(response.categories)).toBe(true);
+
+    expect(response.expand).toBeDefined();
+    expect(response.expand.byCategory).toBeDefined();
+    expect(response.expand.bySearch).toBeDefined();
+    expect(response.expand.fullContext).toBeDefined();
+
+    expect(response.meta).toBeDefined();
+    expect(response.meta.scopeType).toBe('project');
+    expect(response.meta.scopeId).toBe(projectId);
+    expect(response.meta.tokenSavings).toBeDefined();
+
+    // Should NOT have the full entry arrays
+    expect(response.tools).toBeUndefined();
+    expect(response.guidelines).toBeUndefined();
+    expect(response.knowledge).toBeUndefined();
+  });
+
+  it('hierarchical context items have snippets, not full content', async () => {
+    const response = await queryHandlers.context(context, {
+      agentId: AGENT_ID,
+      scopeType: 'session',
+      scopeId: sessionId,
+      inherit: true,
+      hierarchical: true,
+    });
+
+    // Check that recent items have proper structure
+    expect(response.recent.length).toBeGreaterThan(0);
+    const item = response.recent[0];
+    expect(item.id).toBeDefined();
+    expect(item.type).toBeDefined();
+    expect(item.title).toBeDefined();
+    expect(item.snippet).toBeDefined();
+    // Snippets should be compact
+    expect(item.snippet.length).toBeLessThanOrEqual(160);
+    // Snippets should NOT be empty (version content should be populated)
+    expect(item.snippet.length).toBeGreaterThan(0);
+  });
 });

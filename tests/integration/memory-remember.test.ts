@@ -575,4 +575,70 @@ describe('memory_remember Integration Tests', () => {
       expect(storedEntries.guidelines[0]?.priority).toBe(50);
     });
   });
+
+  describe('Title Extraction', () => {
+    it('should extract title from first sentence', async () => {
+      const { ctx, storedEntries } = createMockContext(db, classificationService);
+
+      await memoryRememberDescriptor.contextHandler!(ctx as never, {
+        text: 'We use PostgreSQL for production. It handles our scale well.',
+      });
+
+      expect(storedEntries.knowledge[0]?.title).toBe('We use PostgreSQL for production');
+    });
+
+    it('should handle multi-line input by using first line only', async () => {
+      const { ctx, storedEntries } = createMockContext(db, classificationService);
+
+      await memoryRememberDescriptor.contextHandler!(ctx as never, {
+        text: 'Service Layer Architecture Overview\n\nThe service layer handles business logic.',
+      });
+
+      // Should use first line, not include newline or content after it
+      expect(storedEntries.knowledge[0]?.title).toBe('Service Layer Architecture Overview');
+      expect(storedEntries.knowledge[0]?.title).not.toContain('\n');
+      expect(storedEntries.knowledge[0]?.title).not.toContain('The');
+    });
+
+    it('should truncate long titles at word boundaries', async () => {
+      const { ctx, storedEntries } = createMockContext(db, classificationService);
+
+      // Create a title that's over 80 chars
+      const longText = 'This is a very long title that contains many words and should be truncated at a word boundary rather than cutting mid-word';
+
+      await memoryRememberDescriptor.contextHandler!(ctx as never, {
+        text: longText,
+      });
+
+      const title = storedEntries.knowledge[0]?.title as string;
+      expect(title.length).toBeLessThanOrEqual(80);
+      expect(title).toMatch(/\.\.\.$/); // Should end with ...
+      // Should end at a word boundary (complete word + ...)
+      // The title should end with "at..." (complete word), not "trunca..." (mid-word)
+      expect(title).toMatch(/\s\w+\.\.\.$/); // Space + complete word + ...
+    });
+
+    it('should not truncate titles under 80 chars', async () => {
+      const { ctx, storedEntries } = createMockContext(db, classificationService);
+
+      const shortTitle = 'This is a reasonably short title that fits';
+
+      await memoryRememberDescriptor.contextHandler!(ctx as never, {
+        text: shortTitle,
+      });
+
+      expect(storedEntries.knowledge[0]?.title).toBe(shortTitle);
+      expect(storedEntries.knowledge[0]?.title).not.toContain('...');
+    });
+
+    it('should handle Windows-style line endings (CRLF)', async () => {
+      const { ctx, storedEntries } = createMockContext(db, classificationService);
+
+      await memoryRememberDescriptor.contextHandler!(ctx as never, {
+        text: 'First Line Title\r\n\r\nSecond paragraph content.',
+      });
+
+      expect(storedEntries.knowledge[0]?.title).toBe('First Line Title');
+    });
+  });
 });

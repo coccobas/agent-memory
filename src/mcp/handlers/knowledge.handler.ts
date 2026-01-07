@@ -16,6 +16,7 @@ import {
   isString,
   isNumber,
   isISODateString,
+  isScopeType,
 } from '../../utils/type-guards.js';
 import type { ScopeType } from '../../db/schema.js';
 import type { AppContext } from '../../core/context.js';
@@ -52,6 +53,8 @@ function extractAddParams(
 }
 
 function extractUpdateParams(params: Record<string, unknown>): UpdateKnowledgeInput {
+  const scopeType = getOptionalParam(params, 'scopeType', isScopeType);
+  const scopeId = getOptionalParam(params, 'scopeId', isString);
   const category = getOptionalParam(params, 'category', isString) as KnowledgeCategory;
   const content = getOptionalParam(params, 'content', isString);
   const source = getOptionalParam(params, 'source', isString);
@@ -63,6 +66,8 @@ function extractUpdateParams(params: Record<string, unknown>): UpdateKnowledgeIn
   const updatedBy = getOptionalParam(params, 'updatedBy', isString);
 
   const input: UpdateKnowledgeInput = {};
+  if (scopeType !== undefined) input.scopeType = scopeType as ScopeType;
+  if (scopeId !== undefined) input.scopeId = scopeId;
   if (category !== undefined) input.category = category;
   if (content !== undefined) input.content = content;
   if (source !== undefined) input.source = source;
@@ -89,7 +94,8 @@ function getValidationData(
   existingEntry?: KnowledgeWithVersion
 ): Record<string, unknown> {
   const title = existingEntry?.title ?? getOptionalParam(params, 'title', isString);
-  const content = getOptionalParam(params, 'content', isString);
+  const content =
+    getOptionalParam(params, 'content', isString) ?? existingEntry?.currentVersion?.content;
   const source = getOptionalParam(params, 'source', isString);
   const confidence = getOptionalParam(params, 'confidence', isNumber);
   const validFrom = getOptionalParam(params, 'validFrom', isISODateString);

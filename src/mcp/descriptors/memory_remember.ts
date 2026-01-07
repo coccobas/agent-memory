@@ -31,9 +31,18 @@ function extractContent(text: string): { title: string; content: string } {
   }
 
   // Generate a title from the first part
-  const firstSentence = (content.split(/[.!?]/)[0] ?? content).trim();
-  const title =
-    firstSentence.length > 60 ? firstSentence.slice(0, 57) + '...' : firstSentence;
+  // First, get the first line (handle multi-line input)
+  const firstLine = content.split(/[\r\n]+/)[0]?.trim() ?? content.trim();
+  // Then get the first sentence from that line
+  const firstSentence = (firstLine.split(/[.!?]/)[0] ?? firstLine).trim();
+
+  // Smart truncation: prefer word boundaries, max 80 chars
+  let title = firstSentence;
+  if (title.length > 80) {
+    // Find last space before char 77 to avoid mid-word cut
+    const cutPoint = title.lastIndexOf(' ', 77);
+    title = cutPoint > 40 ? title.slice(0, cutPoint) + '...' : title.slice(0, 77) + '...'
+  }
 
   return { title, content: content.trim() };
 }
@@ -72,34 +81,13 @@ function inferCategory(
 
 export const memoryRememberDescriptor: SimpleToolDescriptor = {
   name: 'memory_remember',
-  description: `Store memories using natural language.
-
-Examples:
-- "Remember that we use TypeScript strict mode"
-- "Rule: always use async/await over callbacks"
-- "The API uses REST, not GraphQL"
-- "We decided to use PostgreSQL for production"
-
-Auto-detects entry type (guideline, knowledge, tool) and category from content.`,
+  visibility: 'core',
+  description: 'Store memories using natural language. Auto-detects type (guideline, knowledge, tool) and category.',
   params: {
-    text: {
-      type: 'string',
-      description: 'Natural language description of what to remember',
-    },
-    forceType: {
-      type: 'string',
-      enum: ['guideline', 'knowledge', 'tool'],
-      description: 'Optional: force a specific entry type',
-    },
-    priority: {
-      type: 'number',
-      description: 'Optional: priority for guidelines (0-100, default 50)',
-    },
-    tags: {
-      type: 'array',
-      items: { type: 'string' },
-      description: 'Optional: tags to attach',
-    },
+    text: { type: 'string', description: 'What to remember' },
+    forceType: { type: 'string', enum: ['guideline', 'knowledge', 'tool'] },
+    priority: { type: 'number' },
+    tags: { type: 'array', items: { type: 'string' } },
   },
   required: ['text'],
   contextHandler: async (ctx, args) => {

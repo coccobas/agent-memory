@@ -31,6 +31,9 @@ import { createServices, type ServiceDependencies } from './services.js';
 import { createQueryPipeline, wireQueryCache } from './query-pipeline.js';
 import { EntityIndex } from '../../services/query/entity-index.js';
 import { createContextDetectionService } from '../../services/context-detection.service.js';
+import { createSessionTimeoutService } from '../../services/session-timeout.service.js';
+import { createAutoTaggingService } from '../../services/auto-tagging.service.js';
+import { createExtractionHookService } from '../../services/extraction-hook.service.js';
 
 /**
  * Input for wireContext - all backend-specific resources resolved
@@ -139,6 +142,20 @@ export async function wireContext(input: WireContextInput): Promise<AppContext> 
     repos.sessions
   );
   services.contextDetection = contextDetectionService;
+
+  // Create SessionTimeoutService (auto-ends inactive sessions)
+  const sessionTimeoutService = createSessionTimeoutService(config, repos.sessions);
+  services.sessionTimeout = sessionTimeoutService;
+  // Start the timeout checker (runs in background, unref'd to not block process exit)
+  sessionTimeoutService.start();
+
+  // Create AutoTaggingService (auto-infers and attaches tags)
+  const autoTaggingService = createAutoTaggingService(config, repos.tags, repos.entryTags);
+  services.autoTagging = autoTaggingService;
+
+  // Create ExtractionHookService (proactive pattern detection)
+  const extractionHookService = createExtractionHookService(config);
+  services.extractionHook = extractionHookService;
 
   // Create entity index for entity-aware retrieval
   const entityIndex = new EntityIndex(db);

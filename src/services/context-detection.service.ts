@@ -259,6 +259,11 @@ export class ContextDetectionService implements IContextDetectionService {
       enriched.projectId = detected.project.id;
     }
 
+    // Enrich sessionId (for tools that use sessionId directly)
+    if (!enriched.sessionId && detected.session) {
+      enriched.sessionId = detected.session.id;
+    }
+
     // Enrich agentId (always set if not provided)
     if (!enriched.agentId) {
       enriched.agentId = detected.agentId.value;

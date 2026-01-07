@@ -13,6 +13,7 @@ import { summarizeHandlers } from '../handlers/summarize.handler.js';
 
 export const memorySummarizeDescriptor: ToolDescriptor = {
   name: 'memory_summarize',
+  visibility: 'advanced',
   description: `Manage hierarchical summaries for efficient memory retrieval at scale.
 
 **EXPERIMENTAL**: This feature is under active development. Most actions will return

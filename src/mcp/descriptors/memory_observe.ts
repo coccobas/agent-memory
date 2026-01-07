@@ -7,6 +7,7 @@ import { observeHandlers } from '../handlers/observe.handler.js';
 
 export const memoryObserveDescriptor: ToolDescriptor = {
   name: 'memory_observe',
+  visibility: 'advanced',
   description: `Extract memory entries from conversation/code context using LLM analysis.
 
 Actions:

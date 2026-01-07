@@ -7,6 +7,7 @@ import { backupHandlers } from '../handlers/backup.handler.js';
 
 export const memoryBackupDescriptor: ToolDescriptor = {
   name: 'memory_backup',
+  visibility: 'system',
   description:
     'Manage database backups. Actions: create (create backup), list (list all backups), cleanup (remove old backups), restore (restore from backup)',
   commonParams: {

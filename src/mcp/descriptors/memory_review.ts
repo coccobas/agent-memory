@@ -7,6 +7,7 @@ import { reviewHandlers } from '../handlers/review.handler.js';
 
 export const memoryReviewDescriptor: ToolDescriptor = {
   name: 'memory_review',
+  visibility: 'advanced',
   description: `Review candidate memory entries from a session.
 
 Actions:

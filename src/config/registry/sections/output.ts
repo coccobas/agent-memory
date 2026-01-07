@@ -14,8 +14,8 @@ export const outputSection: ConfigSectionMeta = {
     format: {
       envKey: 'AGENT_MEMORY_OUTPUT_FORMAT',
       defaultValue: 'json',
-      description: 'Output format: json or compact.',
-      schema: z.enum(['json', 'compact']),
+      description: 'Output format: json (verbose), compact (one-line), or terminal (rich formatting).',
+      schema: z.enum(['json', 'compact', 'terminal']),
     },
   },
 };

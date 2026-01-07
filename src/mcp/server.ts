@@ -51,7 +51,7 @@ import { config } from '../config/index.js';
 import type { AppContext } from '../core/context.js';
 
 // Import generated tools from descriptors
-import { GENERATED_TOOLS } from './descriptors/index.js';
+import { getFilteredTools } from './descriptors/index.js';
 
 // =============================================================================
 // BUNDLED TOOL DEFINITIONS
@@ -61,8 +61,9 @@ import { GENERATED_TOOLS } from './descriptors/index.js';
 /**
  * MCP Tool definitions
  * Generated from unified descriptors in src/mcp/descriptors/
+ * Filtered by visibility level from config (default: 'standard')
  */
-export const TOOLS: Tool[] = GENERATED_TOOLS;
+export const TOOLS: Tool[] = getFilteredTools(config.tools.visibility);
 
 // =============================================================================
 // SERVER SETUP
