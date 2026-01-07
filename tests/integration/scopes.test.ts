@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
+import { and, eq } from 'drizzle-orm';
 import {
   setupTestDb,
   cleanupTestDb,
@@ -8,6 +9,7 @@ import {
   createTestContext,
 } from '../fixtures/test-helpers.js';
 import * as schema from '../../src/db/schema.js';
+import { sessions } from '../../src/db/schema.js';
 import type { AppContext } from '../../src/core/context.js';
 
 const TEST_DB_PATH = './data/test-scopes.db';
@@ -263,7 +265,22 @@ describe('Scope Management Integration', () => {
       expect(result.session.status).toBe('discarded');
     });
 
-    it('should require id for ending session', async () => {
+    it('should require id when no active sessions exist', async () => {
+      // End all active sessions in the project first
+      const activeSessions = db
+        .select()
+        .from(sessions)
+        .where(and(eq(sessions.projectId, projectId), eq(sessions.status, 'active')))
+        .all();
+
+      for (const session of activeSessions) {
+        db.update(sessions)
+          .set({ status: 'completed', endedAt: new Date().toISOString() })
+          .where(eq(sessions.id, session.id))
+          .run();
+      }
+
+      // Now sessionEnd({}) should throw since there are no active sessions
       await expect(scopeHandlers.sessionEnd(ctx, {})).rejects.toThrow(/id.*is required/);
     });
 
