@@ -68,16 +68,16 @@ if [ -z "\${AGENT_MEMORY_DB_PATH:-}" ]; then
   export AGENT_MEMORY_DB_PATH="\${HOME}/.agent-memory/memory.db"
 fi
 
-# Prefer a locally installed binary; fallback to npx.
-if command -v agent-memory >/dev/null 2>&1; then
-  AM_CMD=(agent-memory)
-else
-  AM_CMD=(npx -y agent-memory@latest)
+# Require agent-memory to be installed (npx fallback removed - npm placeholder is broken)
+if ! command -v agent-memory >/dev/null 2>&1; then
+  echo "Error: agent-memory not found in PATH." >&2
+  echo "Fix: Run 'npm link' in the agent-memory project directory, or install globally." >&2
+  exit 2
 fi
 
 AGENT_ID="\${AGENT_ID:-claude-code}"
 
-exec "\${AM_CMD[@]}" hook pretooluse${projectId ? ` --project-id "${projectId}"` : ''} --agent-id "\${AGENT_ID}"
+exec agent-memory hook pretooluse${projectId ? ` --project-id "${projectId}"` : ''} --agent-id "\${AGENT_ID}"
 `;
 }
 
@@ -164,15 +164,16 @@ if [ -z "\${AGENT_MEMORY_DB_PATH:-}" ]; then
   export AGENT_MEMORY_DB_PATH="\${HOME}/.agent-memory/memory.db"
 fi
 
-if command -v agent-memory >/dev/null 2>&1; then
-  AM_CMD=(agent-memory)
-else
-  AM_CMD=(npx -y agent-memory@latest)
+# Require agent-memory to be installed (npx fallback removed - npm placeholder is broken)
+if ! command -v agent-memory >/dev/null 2>&1; then
+  echo "Error: agent-memory not found in PATH." >&2
+  echo "Fix: Run 'npm link' in the agent-memory project directory, or install globally." >&2
+  exit 2
 fi
 
 AGENT_ID="\${AGENT_ID:-claude-code}"
 
-exec "\${AM_CMD[@]}" hook stop${projectId ? ` --project-id "${projectId}"` : ''} --agent-id "\${AGENT_ID}"
+exec agent-memory hook stop${projectId ? ` --project-id "${projectId}"` : ''} --agent-id "\${AGENT_ID}"
 `;
 }
 
@@ -206,13 +207,14 @@ if [ -z "\${AGENT_MEMORY_DB_PATH:-}" ]; then
   export AGENT_MEMORY_DB_PATH="\${HOME}/.agent-memory/memory.db"
 fi
 
-if command -v agent-memory >/dev/null 2>&1; then
-  AM_CMD=(agent-memory)
-else
-  AM_CMD=(npx -y agent-memory@latest)
+# Require agent-memory to be installed (npx fallback removed - npm placeholder is broken)
+if ! command -v agent-memory >/dev/null 2>&1; then
+  echo "Error: agent-memory not found in PATH." >&2
+  echo "Fix: Run 'npm link' in the agent-memory project directory, or install globally." >&2
+  exit 2
 fi
 
-exec "\${AM_CMD[@]}" hook userpromptsubmit${projectId ? ` --project-id "${projectId}"` : ''}${autoContext ? ' --auto-context' : ''}
+exec agent-memory hook userpromptsubmit${projectId ? ` --project-id "${projectId}"` : ''}${autoContext ? ' --auto-context' : ''}
 `;
 }
 
@@ -318,15 +320,16 @@ if [ -z "\${AGENT_MEMORY_DB_PATH:-}" ]; then
   export AGENT_MEMORY_DB_PATH="\${HOME}/.agent-memory/memory.db"
 fi
 
-if command -v agent-memory >/dev/null 2>&1; then
-  AM_CMD=(agent-memory)
-else
-  AM_CMD=(npx -y agent-memory@latest)
+# Require agent-memory to be installed (npx fallback removed - npm placeholder is broken)
+if ! command -v agent-memory >/dev/null 2>&1; then
+  echo "Error: agent-memory not found in PATH." >&2
+  echo "Fix: Run 'npm link' in the agent-memory project directory, or install globally." >&2
+  exit 2
 fi
 
 AGENT_ID="\${AGENT_ID:-claude-code}"
 
-exec "\${AM_CMD[@]}" hook session-end${projectId ? ` --project-id "${projectId}"` : ''} --agent-id "\${AGENT_ID}"
+exec agent-memory hook session-end${projectId ? ` --project-id "${projectId}"` : ''} --agent-id "\${AGENT_ID}"
 `;
 }
 

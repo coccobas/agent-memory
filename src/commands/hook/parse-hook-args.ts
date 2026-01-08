@@ -5,11 +5,13 @@ export function parseHookArgs(argv: string[]): {
   projectId?: string;
   agentId?: string;
   autoExtract?: boolean;
+  autoContext?: boolean;
 } {
   const subcommand = argv[0] || '';
   let projectId: string | undefined;
   let agentId: string | undefined;
   let autoExtract: boolean | undefined;
+  let autoContext: boolean | undefined;
 
   for (let i = 1; i < argv.length; i++) {
     const arg = argv[i] ?? '';
@@ -23,10 +25,12 @@ export function parseHookArgs(argv: string[]): {
       agentId = arg.split('=')[1];
     } else if (arg === '--auto-extract') {
       autoExtract = true;
+    } else if (arg === '--auto-context') {
+      autoContext = true;
     } else if (arg.startsWith('-')) {
       throw new HookCliError(2, `Unknown option: ${arg}`);
     }
   }
 
-  return { subcommand, projectId, agentId, autoExtract };
+  return { subcommand, projectId, agentId, autoExtract, autoContext };
 }
