@@ -84,7 +84,7 @@ describe('hook-generator.service', () => {
       const script = generateClaudeCodeHookScript();
 
       expect(script).toContain('AGENT_MEMORY_DB_PATH');
-      expect(script).toContain('agent-memory@latest');
+      expect(script).toContain('agent-memory not found in PATH');
       expect(script).toContain('hook pretooluse');
     });
 

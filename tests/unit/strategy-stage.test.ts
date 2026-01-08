@@ -33,6 +33,7 @@ function createContext(overrides: Partial<PipelineContext> = {}): PipelineContex
     params: {},
     deps: {
       getDb: () => ({} as any),
+      getSqlite: () => ({} as any),
       logger: undefined,
       perfLog: false,
     } as any,
