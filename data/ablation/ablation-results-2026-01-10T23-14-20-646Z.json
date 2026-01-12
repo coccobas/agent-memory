@@ -1,0 +1,135 @@
+{
+  "timestamp": "2026-01-10T23:14:20.646Z",
+  "results": [
+    {
+      "config": {
+        "name": "baseline",
+        "storage": "raw",
+        "prefixes": false
+      },
+      "mrr": 0.625,
+      "recall": {
+        "k1": 0.625,
+        "k5": 1,
+        "k10": 1,
+        "k20": 1
+      },
+      "perCategory": {
+        "singleHop": 0.25,
+        "multiHop": 1,
+        "commonsense": 0
+      },
+      "memoryCount": 10,
+      "durationMs": 2062,
+      "totalQueries": 2,
+      "hitRate": 1,
+      "mrrPct": "62.5",
+      "recallPct": {
+        "k1": "62.5",
+        "k5": "100.0",
+        "k10": "100.0",
+        "k20": "100.0"
+      }
+    },
+    {
+      "config": {
+        "name": "raw+prefixes",
+        "storage": "raw",
+        "prefixes": true
+      },
+      "mrr": 0.6,
+      "recall": {
+        "k1": 0.6,
+        "k5": 1,
+        "k10": 1,
+        "k20": 1
+      },
+      "perCategory": {
+        "singleHop": 0.2,
+        "multiHop": 1,
+        "commonsense": 0
+      },
+      "memoryCount": 10,
+      "durationMs": 2385,
+      "totalQueries": 2,
+      "hitRate": 1,
+      "mrrPct": "60.0",
+      "recallPct": {
+        "k1": "60.0",
+        "k5": "100.0",
+        "k10": "100.0",
+        "k20": "100.0"
+      }
+    },
+    {
+      "config": {
+        "name": "extraction",
+        "storage": "extraction",
+        "prefixes": false
+      },
+      "mrr": 0.625,
+      "recall": {
+        "k1": 0.625,
+        "k5": 1,
+        "k10": 1,
+        "k20": 1
+      },
+      "perCategory": {
+        "singleHop": 0.25,
+        "multiHop": 1,
+        "commonsense": 0
+      },
+      "memoryCount": 16,
+      "durationMs": 98456,
+      "totalQueries": 2,
+      "hitRate": 1,
+      "mrrPct": "62.5",
+      "recallPct": {
+        "k1": "62.5",
+        "k5": "100.0",
+        "k10": "100.0",
+        "k20": "100.0"
+      }
+    },
+    {
+      "config": {
+        "name": "extraction+prefixes",
+        "storage": "extraction",
+        "prefixes": true
+      },
+      "mrr": 0.6,
+      "recall": {
+        "k1": 0.6,
+        "k5": 1,
+        "k10": 1,
+        "k20": 1
+      },
+      "perCategory": {
+        "singleHop": 0.2,
+        "multiHop": 1,
+        "commonsense": 0
+      },
+      "memoryCount": 11,
+      "durationMs": 73678,
+      "totalQueries": 2,
+      "hitRate": 1,
+      "mrrPct": "60.0",
+      "recallPct": {
+        "k1": "60.0",
+        "k5": "100.0",
+        "k10": "100.0",
+        "k20": "100.0"
+      }
+    }
+  ],
+  "diagnosis": [
+    "",
+    "DIAGNOSIS:",
+    "✗ Prefixes HURT raw storage: -2.5%",
+    "○ Extraction neutral: 0.0%",
+    "✗ Prefixes HURT extraction: -2.5%",
+    "",
+    "→ Best config: baseline (MRR=62.5%)",
+    "  Use this as base for secondary parameter tuning"
+  ]
+}

@@ -297,6 +297,10 @@ function fetchKnowledgeWithContent(
     } else if (validDuring) {
       const validatedStart = validateIsoDate(validDuring.start, 'validDuring.start');
       const validatedEnd = validateIsoDate(validDuring.end, 'validDuring.end');
+      // Validate date range: start must not be after end
+      if (new Date(validatedStart).getTime() > new Date(validatedEnd).getTime()) {
+        throw createValidationError('validDuring', 'start date must be before or equal to end date', 'Ensure validDuring.start <= validDuring.end');
+      }
       temporalConditions = `
         AND (kv.valid_from IS NULL OR kv.valid_from <= ?)
         AND (kv.valid_until IS NULL OR kv.valid_until >= ?)

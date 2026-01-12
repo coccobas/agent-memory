@@ -1,0 +1,306 @@
+{
+  "timestamp": "2026-01-11T05:53:28.849Z",
+  "results": [
+    {
+      "config": {
+        "name": "extraction",
+        "storage": "extraction",
+        "prefixes": false
+      },
+      "mrr": 0.5491471215351812,
+      "recall": {
+        "k1": 0.5491471215351812,
+        "k5": 0.6654228855721392,
+        "k10": 0.8047263681592041,
+        "k20": 0.8084577114427861
+      },
+      "perCategory": {
+        "singleHop": 0.738095238095238,
+        "multiHop": 0.8452380952380951,
+        "commonsense": 0.462910052910053,
+        "temporal": 1,
+        "adversarial": 0.32703703703703707
+      },
+      "memoryCount": 341,
+      "durationMs": 2140139,
+      "totalQueries": 67,
+      "hitRate": 0.835820895522388,
+      "mrrPct": "54.9",
+      "recallPct": {
+        "k1": "54.9",
+        "k5": "66.5",
+        "k10": "80.5",
+        "k20": "80.8"
+      }
+    },
+    {
+      "config": {
+        "name": "rerank-0.7",
+        "storage": "extraction",
+        "prefixes": false,
+        "rerankAlpha": 0.7
+      },
+      "mrr": 0.5495735607675906,
+      "recall": {
+        "k1": 0.5495735607675906,
+        "k5": 0.6654228855721392,
+        "k10": 0.7885572139303482,
+        "k20": 0.7972636815920399
+      },
+      "perCategory": {
+        "singleHop": 0.5918367346938777,
+        "multiHop": 0.7857142857142857,
+        "commonsense": 0.48115079365079366,
+        "temporal": 1,
+        "adversarial": 0.41626984126984123
+      },
+      "memoryCount": 321,
+      "durationMs": 2043969,
+      "totalQueries": 67,
+      "hitRate": 0.8208955223880597,
+      "mrrPct": "55.0",
+      "recallPct": {
+        "k1": "55.0",
+        "k5": "66.5",
+        "k10": "78.9",
+        "k20": "79.7"
+      }
+    },
+    {
+      "config": {
+        "name": "rerank-0.8",
+        "storage": "extraction",
+        "prefixes": false,
+        "rerankAlpha": 0.8
+      },
+      "mrr": 0.521203506278133,
+      "recall": {
+        "k1": 0.521203506278133,
+        "k5": 0.6517412935323383,
+        "k10": 0.7487562189054727,
+        "k20": 0.7574626865671642
+      },
+      "perCategory": {
+        "singleHop": 0.5619047619047619,
+        "multiHop": 0.7142857142857143,
+        "commonsense": 0.45263227513227505,
+        "temporal": 1,
+        "adversarial": 0.4272222222222222
+      },
+      "memoryCount": 292,
+      "durationMs": 2020127,
+      "totalQueries": 67,
+      "hitRate": 0.7761194029850746,
+      "mrrPct": "52.1",
+      "recallPct": {
+        "k1": "52.1",
+        "k5": "65.2",
+        "k10": "74.9",
+        "k20": "75.7"
+      }
+    },
+    {
+      "config": {
+        "name": "rerank-1.0",
+        "storage": "extraction",
+        "prefixes": false,
+        "rerankAlpha": 1
+      },
+      "mrr": 0.5168567336477784,
+      "recall": {
+        "k1": 0.5168567336477784,
+        "k5": 0.6890547263681592,
+        "k10": 0.7450248756218906,
+        "k20": 0.8383084577114429
+      },
+      "perCategory": {
+        "singleHop": 0.5238095238095238,
+        "multiHop": 0.8979591836734694,
+        "commonsense": 0.42953703703703705,
+        "temporal": 1,
+        "adversarial": 0.30034632034632036
+      },
+      "memoryCount": 298,
+      "durationMs": 1926327,
+      "totalQueries": 67,
+      "hitRate": 0.7611940298507462,
+      "mrrPct": "51.7",
+      "recallPct": {
+        "k1": "51.7",
+        "k5": "68.9",
+        "k10": "74.5",
+        "k20": "83.8"
+      }
+    },
+    {
+      "config": {
+        "name": "hybrid-0.5",
+        "storage": "extraction",
+        "prefixes": false,
+        "hybridAlpha": 0.5
+      },
+      "mrr": 0.5169035773513386,
+      "recall": {
+        "k1": 0.5169035773513386,
+        "k5": 0.6069651741293534,
+        "k10": 0.7151741293532339,
+        "k20": 0.7226368159203981
+      },
+      "perCategory": {
+        "singleHop": 0.6071428571428571,
+        "multiHop": 0.8928571428571429,
+        "commonsense": 0.40210317460317463,
+        "temporal": 1,
+        "adversarial": 0.3212962962962963
+      },
+      "memoryCount": 310,
+      "durationMs": 2071016,
+      "totalQueries": 67,
+      "hitRate": 0.7313432835820896,
+      "mrrPct": "51.7",
+      "recallPct": {
+        "k1": "51.7",
+        "k5": "60.7",
+        "k10": "71.5",
+        "k20": "72.3"
+      }
+    },
+    {
+      "config": {
+        "name": "hybrid-0.0",
+        "storage": "extraction",
+        "prefixes": false,
+        "hybridAlpha": 0
+      },
+      "mrr": 0.5463768251474459,
+      "recall": {
+        "k1": 0.5463768251474459,
+        "k5": 0.654228855721393,
+        "k10": 0.7512437810945273,
+        "k20": 0.8793532338308458
+      },
+      "perCategory": {
+        "singleHop": 0.6023809523809524,
+        "multiHop": 0.8212197159565581,
+        "commonsense": 0.49450570871623506,
+        "temporal": 1,
+        "adversarial": 0.33722222222222226
+      },
+      "memoryCount": 315,
+      "durationMs": 2112363,
+      "totalQueries": 67,
+      "hitRate": 0.7910447761194029,
+      "mrrPct": "54.6",
+      "recallPct": {
+        "k1": "54.6",
+        "k5": "65.4",
+        "k10": "75.1",
+        "k20": "87.9"
+      }
+    },
+    {
+      "config": {
+        "name": "hyde-enabled",
+        "storage": "extraction",
+        "prefixes": false,
+        "hydeEnabled": true
+      },
+      "mrr": 0.5279565376580301,
+      "recall": {
+        "k1": 0.5279565376580301,
+        "k5": 0.6393034825870646,
+        "k10": 0.7139303482587064,
+        "k20": 0.8009950248756219
+      },
+      "perCategory": {
+        "singleHop": 0.5714285714285714,
+        "multiHop": 0.8571428571428571,
+        "commonsense": 0.41052910052910047,
+        "temporal": 1,
+        "adversarial": 0.4038143338143338
+      },
+      "memoryCount": 308,
+      "durationMs": 2009781,
+      "totalQueries": 67,
+      "hitRate": 0.746268656716418,
+      "mrrPct": "52.8",
+      "recallPct": {
+        "k1": "52.8",
+        "k5": "63.9",
+        "k10": "71.4",
+        "k20": "80.1"
+      }
+    },
+    {
+      "config": {
+        "name": "topk-30",
+        "storage": "extraction",
+        "prefixes": false,
+        "rerankTopK": 30
+      },
+      "mrr": 0.5098029588897617,
+      "recall": {
+        "k1": 0.5098029588897617,
+        "k5": 0.6990049751243781,
+        "k10": 0.7562189054726369,
+        "k20": 0.7823383084577115
+      },
+      "perCategory": {
+        "singleHop": 0.7857142857142857,
+        "multiHop": 0.7857142857142857,
+        "commonsense": 0.3334722222222222,
+        "temporal": 1,
+        "adversarial": 0.4435087719298246
+      },
+      "memoryCount": 314,
+      "durationMs": 2037090,
+      "totalQueries": 67,
+      "hitRate": 0.7761194029850746,
+      "mrrPct": "51.0",
+      "recallPct": {
+        "k1": "51.0",
+        "k5": "69.9",
+        "k10": "75.6",
+        "k20": "78.2"
+      }
+    },
+    {
+      "config": {
+        "name": "topk-100",
+        "storage": "extraction",
+        "prefixes": false,
+        "rerankTopK": 100
+      },
+      "mrr": 0.5697701966358684,
+      "recall": {
+        "k1": 0.5697701966358684,
+        "k5": 0.6952736318407959,
+        "k10": 0.8333333333333333,
+        "k20": 0.8532338308457712
+      },
+      "perCategory": {
+        "singleHop": 0.6607142857142857,
+        "multiHop": 0.8571428571428571,
+        "commonsense": 0.4830555555555555,
+        "temporal": 1,
+        "adversarial": 0.40386243386243387
+      },
+      "memoryCount": 327,
+      "durationMs": 2081293,
+      "totalQueries": 67,
+      "hitRate": 0.8507462686567164,
+      "mrrPct": "57.0",
+      "recallPct": {
+        "k1": "57.0",
+        "k5": "69.5",
+        "k10": "83.3",
+        "k20": "85.3"
+      }
+    }
+  ],
+  "diagnosis": [
+    "",
+    "DIAGNOSIS:",
+    "⚠️  No baseline (raw, no prefixes) found"
+  ]
+}

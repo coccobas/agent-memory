@@ -10,6 +10,31 @@ import type { DbClient } from '../../db/connection.js';
 import { projects, sessions, type ScopeType } from '../../db/schema.js';
 import { LRUCache } from '../../utils/lru-cache.js';
 import { getRuntime, isRuntimeRegistered } from '../../core/container.js';
+import { createValidationError } from '../../core/errors.js';
+
+// =============================================================================
+// UUID VALIDATION
+// =============================================================================
+
+/**
+ * Validates that a string is a valid UUID format.
+ * Accepts UUIDs with or without hyphens.
+ */
+const UUID_REGEX = /^[0-9a-f]{8}-?[0-9a-f]{4}-?[1-5][0-9a-f]{3}-?[89ab][0-9a-f]{3}-?[0-9a-f]{12}$/i;
+
+function validateScopeId(id: string | undefined, scopeType: ScopeType): string | undefined {
+  if (id === undefined || id === null) return undefined;
+
+  // Validate UUID format for non-global scopes
+  if (!UUID_REGEX.test(id)) {
+    throw createValidationError(
+      `${scopeType}Id`,
+      `Invalid ${scopeType} ID format: must be a valid UUID`,
+      'Provide a valid UUID like "123e4567-e89b-12d3-a456-426614174000"'
+    );
+  }
+  return id;
+}
 
 // =============================================================================
 // TYPES
@@ -114,6 +139,11 @@ export function resolveScopeChain(
       chain.push({ scopeType, scopeId });
     }
   };
+
+  // Validate scope ID format before any database operations
+  if (input.type !== 'global' && input.id) {
+    validateScopeId(input.id, input.type);
+  }
 
   // Start from requested scope
   switch (input.type) {

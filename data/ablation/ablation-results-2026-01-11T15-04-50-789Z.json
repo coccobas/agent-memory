@@ -1,0 +1,42 @@
+{
+  "timestamp": "2026-01-11T15:04:50.789Z",
+  "results": [
+    {
+      "config": {
+        "name": "optimal",
+        "storage": "extraction",
+        "prefixes": false,
+        "rerankTopK": 100,
+        "hydeEnabled": false
+      },
+      "mrr": 0.43998599439775904,
+      "recall": {
+        "k1": 0.43998599439775904,
+        "k5": 0.7647058823529411,
+        "k10": 0.8235294117647058,
+        "k20": 0.8823529411764706
+      },
+      "perCategory": {
+        "singleHop": 0.25,
+        "multiHop": 0.75,
+        "commonsense": 0.3541666666666667,
+        "temporal": 1,
+        "adversarial": 0.2136904761904762
+      },
+      "memoryCount": 63,
+      "durationMs": 538329,
+      "totalQueries": 17,
+      "hitRate": 0.8235294117647058,
+      "mrrPct": "44.0",
+      "recallPct": {
+        "k1": "44.0",
+        "k5": "76.5",
+        "k10": "82.4",
+        "k20": "88.2"
+      }
+    }
+  ],
+  "diagnosis": [
+    "Insufficient data for diagnosis"
+  ]
+}
