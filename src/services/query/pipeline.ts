@@ -40,6 +40,11 @@ export interface PipelineDependencies {
   getDb: () => DbInstance;
 
   /**
+   * Get the raw SQLite database instance (better-sqlite3)
+   */
+  getSqlite: () => Database.Database;
+
+  /**
    * Get a prepared statement (cached)
    */
   getPreparedStatement: (sql: string) => Database.Statement;
@@ -150,7 +155,7 @@ export interface PipelineDependencies {
   };
 
   /**
-   * Query rewrite service for HyDE and expansion.
+   * Query rewrite service for HyDE, expansion, and decomposition.
    * Optional - if not provided, query rewriting is skipped.
    */
   queryRewriteService?: {
@@ -160,6 +165,7 @@ export interface PipelineDependencies {
       options?: {
         enableHyDE?: boolean;
         enableExpansion?: boolean;
+        enableDecomposition?: boolean;
         maxExpansions?: number;
       };
     }) => Promise<{

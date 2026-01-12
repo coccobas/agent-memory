@@ -1,7 +1,7 @@
 /**
  * Entity Extractor
  *
- * Extracts entities from text using regex patterns.
+ * Extracts entities from text using regex patterns with fuzzy matching support.
  * Used for entity-aware retrieval in the query pipeline.
  *
  * Entity types:
@@ -12,9 +12,21 @@
  * - ERROR_CODE: Error codes like E1234, TypeError, ENOENT
  * - COMMAND: CLI commands like npm run, git commit, docker build
  * - CUSTOM: User-defined entities (not auto-extracted)
+ *
+ * Semantic types (for richer entity understanding):
+ * - person: Names of people (detected heuristically)
+ * - organization: Company/org names
+ * - location: Geographic locations
+ * - concept: Abstract technical concepts
+ * - unknown: Default when type cannot be determined
  */
 
 import type { EntityType } from '../../db/schema/entity-index.js';
+
+/**
+ * Semantic entity type for richer understanding
+ */
+export type SemanticEntityType = 'person' | 'organization' | 'location' | 'concept' | 'unknown';
 
 /**
  * Extracted entity with type and value
@@ -26,6 +38,12 @@ export interface ExtractedEntity {
   value: string;
   /** The normalized value (lowercase, trimmed) for matching */
   normalizedValue: string;
+  /** Confidence score (0-1) for the extraction */
+  confidence?: number;
+  /** Semantic type for richer understanding */
+  semanticType?: SemanticEntityType;
+  /** Fuzzy matching variants for improved recall */
+  variants?: string[];
 }
 
 /**
@@ -292,11 +310,198 @@ function normalizeValue(type: EntityType, value: string): string {
 }
 
 /**
+ * Generate fuzzy matching variants for an entity value
+ * Used to improve recall in entity-based retrieval
+ */
+function generateVariants(type: EntityType, value: string): string[] {
+  const variants: Set<string> = new Set();
+
+  // Always include the original and normalized
+  variants.add(value);
+  variants.add(value.toLowerCase());
+
+  switch (type) {
+    case 'FUNCTION_NAME':
+      // Split camelCase/PascalCase into words
+      const words = value.split(/(?=[A-Z])|_/).filter(w => w.length > 0);
+      if (words.length > 1) {
+        // Add individual words (lowercased)
+        words.forEach(w => variants.add(w.toLowerCase()));
+        // Add joined versions
+        variants.add(words.join('_').toLowerCase()); // snake_case
+        variants.add(words.join('-').toLowerCase()); // kebab-case
+        variants.add(words.join('').toLowerCase());  // concatenated
+      }
+      break;
+
+    case 'FILE_PATH':
+      // Extract filename without extension
+      const filename = value.split('/').pop() || value;
+      variants.add(filename.toLowerCase());
+      // Extract base name without extension
+      const baseName = filename.split('.')[0];
+      if (baseName) {
+        variants.add(baseName.toLowerCase());
+      }
+      break;
+
+    case 'PACKAGE_NAME':
+      // Handle scoped packages (@org/pkg)
+      if (value.startsWith('@')) {
+        const [scope, pkg] = value.slice(1).split('/');
+        if (pkg && scope) {
+          variants.add(pkg.toLowerCase());
+          variants.add(scope.toLowerCase());
+        }
+      }
+      // Handle hyphenated packages
+      const parts = value.replace('@', '').split(/[-/]/);
+      parts.forEach(p => {
+        if (p.length > 2) variants.add(p.toLowerCase());
+      });
+      break;
+
+    case 'ERROR_CODE':
+      // Add without prefix (E, ERR_, etc.)
+      const stripped = value.replace(/^(E|ERR_|Error$|Exception$)/i, '');
+      if (stripped && stripped !== value) {
+        variants.add(stripped.toLowerCase());
+      }
+      break;
+
+    case 'COMMAND':
+      // Split command into tool and subcommand
+      const cmdParts = value.split(/\s+/);
+      if (cmdParts.length > 1 && cmdParts[0]) {
+        variants.add(cmdParts[0].toLowerCase()); // Just the tool
+        variants.add(cmdParts.slice(1).join(' ').toLowerCase()); // Just the subcommand
+      }
+      break;
+  }
+
+  return Array.from(variants);
+}
+
+/**
+ * Infer semantic entity type from the value and context
+ */
+function inferSemanticType(type: EntityType, value: string): SemanticEntityType {
+  switch (type) {
+    case 'FUNCTION_NAME':
+    case 'ERROR_CODE':
+    case 'COMMAND':
+      return 'concept';
+
+    case 'FILE_PATH':
+    case 'PACKAGE_NAME':
+      return 'concept';
+
+    case 'URL':
+      // URLs could reference organizations
+      if (/\.(org|com|io|co|inc)\//.test(value)) {
+        return 'organization';
+      }
+      return 'unknown';
+
+    case 'CUSTOM':
+      // Try to infer from value patterns
+      // Names with common suffixes
+      if (/Inc\.?$|LLC$|Corp\.?$|Ltd\.?$|Company$/i.test(value)) {
+        return 'organization';
+      }
+      // Names that look like personal names (First Last pattern)
+      if (/^[A-Z][a-z]+ [A-Z][a-z]+$/.test(value)) {
+        return 'person';
+      }
+      // Geographic patterns
+      if (/City|State|Country|Region|Province/i.test(value)) {
+        return 'location';
+      }
+      return 'unknown';
+
+    default:
+      return 'unknown';
+  }
+}
+
+/**
+ * Calculate confidence score for an extracted entity
+ */
+function calculateConfidence(type: EntityType, value: string): number {
+  // Base confidence varies by entity type
+  let confidence = 0.7; // Default base confidence
+
+  switch (type) {
+    case 'FILE_PATH':
+      // Higher confidence if it has a valid extension
+      if (/\.\w{1,5}$/.test(value)) confidence = 0.9;
+      break;
+
+    case 'FUNCTION_NAME':
+      // Higher confidence for longer, well-formed names
+      if (value.length >= 5 && /^[a-z].*[A-Z]/.test(value)) {
+        confidence = 0.85; // camelCase
+      } else if (/^[A-Z].*[a-z].*[A-Z]/.test(value)) {
+        confidence = 0.85; // PascalCase
+      } else if (/_/.test(value) && value.length >= 5) {
+        confidence = 0.85; // snake_case
+      }
+      break;
+
+    case 'PACKAGE_NAME':
+      // Higher confidence for scoped packages
+      if (value.startsWith('@')) confidence = 0.95;
+      else if (value.includes('/')) confidence = 0.9;
+      else confidence = 0.75; // Could be false positive
+      break;
+
+    case 'URL':
+      // URLs are very reliable
+      confidence = 0.95;
+      break;
+
+    case 'ERROR_CODE':
+      // Higher confidence for known patterns
+      if (/Error$|Exception$/i.test(value)) confidence = 0.9;
+      else if (/^E[A-Z0-9]+$/.test(value)) confidence = 0.85;
+      break;
+
+    case 'COMMAND':
+      // Commands with recognized tools are more reliable
+      if (/^(npm|yarn|pnpm|git|docker)\s/.test(value)) {
+        confidence = 0.9;
+      }
+      break;
+  }
+
+  return confidence;
+}
+
+/**
+ * Extraction options for entity matching
+ */
+interface ExtractionOptions {
+  includeFuzzy?: boolean;
+  includeConfidence?: boolean;
+  includeSemanticType?: boolean;
+}
+
+/**
  * Extract all matches for a pattern from text
  */
-function extractMatches(text: string, pattern: RegExp, type: EntityType): ExtractedEntity[] {
+function extractMatches(
+  text: string,
+  pattern: RegExp,
+  type: EntityType,
+  options: ExtractionOptions = {}
+): ExtractedEntity[] {
   const results: ExtractedEntity[] = [];
   const seen = new Set<string>();
+
+  // Default options
+  const includeFuzzy = options.includeFuzzy ?? false;
+  const includeConfidence = options.includeConfidence ?? true;
+  const includeSemanticType = options.includeSemanticType ?? false;
 
   // Reset regex state
   pattern.lastIndex = 0;
@@ -320,11 +525,26 @@ function extractMatches(text: string, pattern: RegExp, type: EntityType): Extrac
     if (seen.has(key)) continue;
     seen.add(key);
 
-    results.push({
+    const entity: ExtractedEntity = {
       type,
       value,
       normalizedValue,
-    });
+    };
+
+    // Add optional fields
+    if (includeConfidence) {
+      entity.confidence = calculateConfidence(type, value);
+    }
+
+    if (includeSemanticType) {
+      entity.semanticType = inferSemanticType(type, value);
+    }
+
+    if (includeFuzzy) {
+      entity.variants = generateVariants(type, value);
+    }
+
+    results.push(entity);
   }
 
   return results;
@@ -334,22 +554,34 @@ function extractMatches(text: string, pattern: RegExp, type: EntityType): Extrac
  * Entity extractor class
  */
 export class EntityExtractor {
+  private defaultOptions: ExtractionOptions;
+
+  constructor(options?: ExtractionOptions) {
+    this.defaultOptions = {
+      includeFuzzy: options?.includeFuzzy ?? false,
+      includeConfidence: options?.includeConfidence ?? true,
+      includeSemanticType: options?.includeSemanticType ?? false,
+    };
+  }
+
   /**
    * Extract entities from text
    *
    * @param text - The text to extract entities from
+   * @param options - Override default extraction options
    * @returns Array of extracted entities
    */
-  extract(text: string): ExtractedEntity[] {
+  extract(text: string, options?: ExtractionOptions): ExtractedEntity[] {
     if (!text || typeof text !== 'string') {
       return [];
     }
 
+    const opts = { ...this.defaultOptions, ...options };
     const entities: ExtractedEntity[] = [];
 
     // Extract each entity type
     for (const [type, pattern] of Object.entries(ENTITY_PATTERNS)) {
-      const matches = extractMatches(text, pattern, type as EntityType);
+      const matches = extractMatches(text, pattern, type as EntityType, opts);
       entities.push(...matches);
     }
 
@@ -357,13 +589,29 @@ export class EntityExtractor {
   }
 
   /**
+   * Extract entities with fuzzy matching variants for improved recall
+   * This is a convenience method that enables fuzzy matching by default
+   *
+   * @param text - The text to extract entities from
+   * @returns Array of extracted entities with variants
+   */
+  extractWithVariants(text: string): ExtractedEntity[] {
+    return this.extract(text, { includeFuzzy: true, includeSemanticType: true });
+  }
+
+  /**
    * Extract entities of a specific type
    *
    * @param text - The text to extract entities from
    * @param type - The entity type to extract
+   * @param options - Override default extraction options
    * @returns Array of extracted entities of the specified type
    */
-  extractType(text: string, type: Exclude<EntityType, 'CUSTOM'>): ExtractedEntity[] {
+  extractType(
+    text: string,
+    type: Exclude<EntityType, 'CUSTOM'>,
+    options?: ExtractionOptions
+  ): ExtractedEntity[] {
     if (!text || typeof text !== 'string') {
       return [];
     }
@@ -373,7 +621,8 @@ export class EntityExtractor {
       return [];
     }
 
-    return extractMatches(text, pattern, type);
+    const opts = { ...this.defaultOptions, ...options };
+    return extractMatches(text, pattern, type, opts);
   }
 
   /**
@@ -395,6 +644,31 @@ export class EntityExtractor {
     }
 
     return false;
+  }
+
+  /**
+   * Filter entities by minimum confidence threshold
+   *
+   * @param entities - Entities to filter
+   * @param minConfidence - Minimum confidence score (0-1)
+   * @returns Filtered entities
+   */
+  filterByConfidence(entities: ExtractedEntity[], minConfidence: number): ExtractedEntity[] {
+    return entities.filter(e => (e.confidence ?? 0) >= minConfidence);
+  }
+
+  /**
+   * Get all variants for an entity (for fuzzy matching in retrieval)
+   *
+   * @param entity - Entity to get variants for
+   * @returns Array of all variant strings (including original)
+   */
+  getVariants(entity: ExtractedEntity): string[] {
+    if (entity.variants && entity.variants.length > 0) {
+      return entity.variants;
+    }
+    // Generate variants on demand if not already present
+    return generateVariants(entity.type, entity.value);
   }
 }
 

@@ -4,6 +4,7 @@
 
 import type { CreateTagInput } from '../../db/repositories/tags.js';
 import type { AppContext } from '../../core/context.js';
+import { logAction } from '../../services/audit.service.js';
 import {
   getRequiredParam,
   getOptionalParam,
@@ -26,7 +27,7 @@ import type {
 export const tagHandlers = {
   async create(context: AppContext, params: TagCreateParams) {
     // Require caller identity for auditing consistency (even though tags aren't permissioned directly)
-    getRequiredParam(params, 'agentId', isString);
+    const agentId = getRequiredParam(params, 'agentId', isString);
     const name = getRequiredParam(params, 'name', isString);
     const category = getOptionalParam(params, 'category', isTagCategory);
     const description = getOptionalParam(params, 'description', isString);
@@ -44,6 +45,20 @@ export const tagHandlers = {
     };
 
     const tag = await context.repos.tags.create(input);
+
+    // Log audit
+    logAction(
+      {
+        agentId,
+        action: 'create',
+        entryType: 'tag' as const,
+        entryId: tag.id,
+        scopeType: 'global',
+        scopeId: null,
+      },
+      context.db
+    );
+
     return { success: true, tag, existed: false };
   },
 
@@ -102,6 +117,19 @@ export const tagHandlers = {
       action: 'update',
     });
 
+    // Log audit
+    logAction(
+      {
+        agentId,
+        action: 'update',
+        entryType,
+        entryId,
+        scopeType,
+        scopeId,
+      },
+      context.db
+    );
+
     return { success: true, entryTag };
   },
 
@@ -128,6 +156,19 @@ export const tagHandlers = {
         scopeId,
         action: 'update',
       });
+
+      // Log audit
+      logAction(
+        {
+          agentId,
+          action: 'update',
+          entryType,
+          entryId,
+          scopeType,
+          scopeId,
+        },
+        context.db
+      );
     }
     return { success };
   },

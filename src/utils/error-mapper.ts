@@ -1,4 +1,4 @@
-import { AgentMemoryError, ErrorCodes } from '../core/errors.js';
+import { AgentMemoryError, ErrorCodes, sanitizeErrorMessage } from '../core/errors.js';
 import { createComponentLogger } from './logger.js';
 
 const logger = createComponentLogger('error-mapper');
@@ -11,16 +11,31 @@ export interface MappedError {
 }
 
 /**
+ * Sanitize details object to prevent information disclosure
+ */
+function sanitizeDetails(details: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(details).map(([k, v]) => [
+      k,
+      typeof v === 'string' ? sanitizeErrorMessage(v) : v,
+    ])
+  );
+}
+
+/**
  * Map any error to a standardized internal format
+ *
+ * Security: All error messages are sanitized in production to prevent
+ * information disclosure (file paths, stack traces, system details).
  */
 export function mapError(error: unknown): MappedError {
   // 1. Handle Known AgentMemoryError
   if (error instanceof AgentMemoryError) {
     return {
-      message: error.message,
+      message: sanitizeErrorMessage(error.message),
       code: error.code,
       statusCode: getStatusCodeForErrorCode(error.code),
-      details: error.context,
+      details: error.context ? sanitizeDetails(error.context) : undefined,
     };
   }
 
@@ -29,7 +44,7 @@ export function mapError(error: unknown): MappedError {
     const statusCode = (error as { statusCode: number }).statusCode;
     const message = error instanceof Error ? error.message : 'Request failed';
     return {
-      message,
+      message: sanitizeErrorMessage(message),
       code: 'HTTP_ERROR',
       statusCode,
     };
@@ -41,18 +56,18 @@ export function mapError(error: unknown): MappedError {
 
     // Heuristic mapping for common errors
     if (message.includes('Validation error') || message.includes('is required')) {
-      return { message, code: ErrorCodes.INVALID_PARAMETER, statusCode: 400 };
+      return { message: sanitizeErrorMessage(message), code: ErrorCodes.INVALID_PARAMETER, statusCode: 400 };
     }
     if (message.includes('not found')) {
-      return { message, code: ErrorCodes.NOT_FOUND, statusCode: 404 };
+      return { message: sanitizeErrorMessage(message), code: ErrorCodes.NOT_FOUND, statusCode: 404 };
     }
     if (message.includes('Permission denied')) {
-      return { message, code: ErrorCodes.PERMISSION_DENIED, statusCode: 403 };
+      return { message: sanitizeErrorMessage(message), code: ErrorCodes.PERMISSION_DENIED, statusCode: 403 };
     }
 
     logger.warn({ error: message }, 'Unmapped internal error');
     return {
-      message: error.message,
+      message: sanitizeErrorMessage(error.message),
       code: ErrorCodes.INTERNAL_ERROR,
       statusCode: 500,
     };
@@ -61,7 +76,7 @@ export function mapError(error: unknown): MappedError {
   // 4. Fallback
   logger.warn({ error: String(error) }, 'Unmapped unknown error');
   return {
-    message: String(error),
+    message: sanitizeErrorMessage(String(error)),
     code: ErrorCodes.UNKNOWN_ERROR,
     statusCode: 500,
   };

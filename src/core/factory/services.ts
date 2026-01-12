@@ -8,6 +8,7 @@ import type { Pool } from 'pg';
 import type { Config } from '../../config/index.js';
 import type { Runtime } from '../runtime.js';
 import { registerEmbeddingPipeline } from '../runtime.js';
+import { registerEmbeddingPipeline as registerEmbeddingHooks } from '../../db/repositories/embedding-hooks.js';
 import type { AppContextServices, IVectorService } from '../context.js';
 import { EmbeddingService } from '../../services/embedding.service.js';
 import { VectorService } from '../../services/vector.service.js';
@@ -96,6 +97,10 @@ export async function createServices(
     provider: config.embedding.provider,
     openaiApiKey: config.embedding.openaiApiKey,
     openaiModel: config.embedding.openaiModel,
+    // LM Studio configuration (reads from env vars if not in config)
+    lmStudioBaseUrl: process.env.AGENT_MEMORY_LM_STUDIO_BASE_URL,
+    lmStudioModel: process.env.AGENT_MEMORY_LM_STUDIO_EMBEDDING_MODEL,
+    lmStudioInstruction: process.env.AGENT_MEMORY_LM_STUDIO_EMBEDDING_INSTRUCTION,
   });
 
   // Determine vector store: overrides > config.backend > auto-detect > default
@@ -145,14 +150,24 @@ export async function createServices(
 
   // Wire embedding pipeline to runtime
   if (!runtime.embeddingPipeline) {
-    registerEmbeddingPipeline(runtime, {
+    const pipeline = {
       isAvailable: () => embeddingService.isAvailable(),
-      embed: async (text) => embeddingService.embed(text),
-      embedBatch: async (texts) => embeddingService.embedBatch(texts),
-      storeEmbedding: async (entryType, entryId, versionId, text, embedding, model) => {
+      embed: async (text: string, type?: 'query' | 'document') => embeddingService.embed(text, type),
+      embedBatch: async (texts: string[], type?: 'query' | 'document') => embeddingService.embedBatch(texts, type),
+      storeEmbedding: async (
+        entryType: string,
+        entryId: string,
+        versionId: string,
+        text: string,
+        embedding: number[],
+        model: string
+      ) => {
         await vectorService.storeEmbedding(entryType, entryId, versionId, text, embedding, model);
       },
-    });
+    };
+    registerEmbeddingPipeline(runtime, pipeline);
+    // Also wire embedding hooks module so repository operations trigger embeddings
+    registerEmbeddingHooks(pipeline);
   }
 
   // Register vector cleanup hook for entry deletion
@@ -247,12 +262,13 @@ export async function createServices(
   const loraService = createLoraService();
   logger.debug('LoRA service initialized');
 
-  // Query Rewrite Service - HyDE and query expansion
+  // Query Rewrite Service - HyDE, expansion, and decomposition
   const queryRewriteService = config.queryRewrite.enabled
     ? new QueryRewriteService(
         {
           enableHyDE: config.queryRewrite.hydeEnabled,
           enableExpansion: config.queryRewrite.expansionEnabled,
+          enableDecomposition: config.queryRewrite.decompositionEnabled,
           expansion: {
             useDictionary: config.queryRewrite.expansionUseDictionary,
             useRelations: config.queryRewrite.expansionUseRelations,
@@ -280,6 +296,7 @@ export async function createServices(
       {
         hydeEnabled: config.queryRewrite.hydeEnabled,
         expansionEnabled: config.queryRewrite.expansionEnabled,
+        decompositionEnabled: config.queryRewrite.decompositionEnabled,
       },
       'Query rewrite service initialized'
     );

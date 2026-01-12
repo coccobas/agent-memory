@@ -25,6 +25,7 @@ export const memoryProjectDescriptor: ToolDescriptor = {
     metadata: { type: 'object', description: 'Optional metadata' },
     limit: { type: 'number' },
     offset: { type: 'number' },
+    admin_key: { type: 'string', description: 'Admin key (required for create/update/delete)' },
   },
   actions: {
     create: {

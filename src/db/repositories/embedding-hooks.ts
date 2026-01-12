@@ -27,17 +27,26 @@ interface EmbeddingInput {
 export type EmbeddingResult = {
   embedding: number[];
   model: string;
-  provider: 'openai' | 'local' | 'disabled';
+  provider: 'openai' | 'lmstudio' | 'local' | 'disabled';
 };
 
 export type EmbeddingPipeline = {
   isAvailable: () => boolean;
-  embed: (text: string) => Promise<EmbeddingResult>;
-  /** Batch embed multiple texts in a single API call (10-100x faster) */
-  embedBatch?: (texts: string[]) => Promise<{
+  /**
+   * Generate embedding for text
+   * @param text - Text to embed
+   * @param type - 'query' for search queries, 'document' for stored memories (default: 'query')
+   */
+  embed: (text: string, type?: 'query' | 'document') => Promise<EmbeddingResult>;
+  /**
+   * Batch embed multiple texts in a single API call (10-100x faster)
+   * @param texts - Texts to embed
+   * @param type - 'query' for search queries, 'document' for stored memories (default: 'document')
+   */
+  embedBatch?: (texts: string[], type?: 'query' | 'document') => Promise<{
     embeddings: number[][];
     model: string;
-    provider: 'openai' | 'local' | 'disabled';
+    provider: 'openai' | 'lmstudio' | 'local' | 'disabled';
   }>;
   storeEmbedding: (
     entryType: EntryType,
@@ -59,6 +68,11 @@ let embeddingPipeline: EmbeddingPipeline | null = null;
  */
 export function registerEmbeddingPipeline(pipeline: EmbeddingPipeline | null): void {
   embeddingPipeline = pipeline;
+  if (pipeline) {
+    logger.info('Embedding pipeline registered with embedding-hooks module');
+  } else {
+    logger.info('Embedding pipeline cleared from embedding-hooks module');
+  }
 }
 
 // =============================================================================
@@ -189,8 +203,8 @@ async function runEmbeddingJob(input: QueuedEmbeddingInput): Promise<void> {
   // Start metrics timer
   const timer = embeddingDuration.startTimer({ provider: 'pipeline' });
 
-  // Generate embedding
-  const result = await pipeline.embed(input.text);
+  // Generate embedding (use 'document' type for stored memories)
+  const result = await pipeline.embed(input.text, 'document');
 
   // If a newer job was enqueued for this entry, do not persist stale embeddings.
   const latestSeq = latestSeqByKey.get(input.__key);
@@ -278,8 +292,8 @@ async function runBatchEmbeddingJobs(jobs: QueuedEmbeddingInput[]): Promise<void
   // Extract texts for batch embedding
   const texts = freshJobs.map((job) => job.text);
 
-  // Generate embeddings in batch
-  const result = await pipeline.embedBatch(texts);
+  // Generate embeddings in batch (use 'document' type for stored memories)
+  const result = await pipeline.embedBatch(texts, 'document');
 
   // Track batch stats
   batchesProcessed++;
@@ -521,6 +535,7 @@ function enqueueEmbeddingJob(input: EmbeddingInput): void {
     enqueued.add(key);
     queue.push(key);
   }
+  logger.debug({ key, pipelineAvailable: embeddingPipeline !== null }, 'Embedding job enqueued');
   drainQueue();
 }
 

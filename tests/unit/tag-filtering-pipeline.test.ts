@@ -208,6 +208,7 @@ describe('Tag Filtering Pipeline', () => {
       // Create pipeline dependencies
       const deps = createDependencies({
         getDb: () => testDb.db,
+        getSqlite: () => testDb.sqlite,
         getPreparedStatement: (sql: string) => testDb.sqlite.prepare(sql),
         cache: new LRUCache(100, 10 * 1024 * 1024),
         perfLog: true,
@@ -284,6 +285,7 @@ describe('Tag Filtering Pipeline', () => {
     it('should return only entries with ALL required tags', async () => {
       const deps = createDependencies({
         getDb: () => testDb.db,
+        getSqlite: () => testDb.sqlite,
         getPreparedStatement: (sql: string) => testDb.sqlite.prepare(sql),
         cache: new LRUCache(100, 10 * 1024 * 1024),
         perfLog: true,
@@ -353,6 +355,7 @@ describe('Tag Filtering Pipeline', () => {
     it('should exclude entries with the excluded tag', async () => {
       const deps = createDependencies({
         getDb: () => testDb.db,
+        getSqlite: () => testDb.sqlite,
         getPreparedStatement: (sql: string) => testDb.sqlite.prepare(sql),
         cache: new LRUCache(100, 10 * 1024 * 1024),
         perfLog: true,
@@ -422,6 +425,7 @@ describe('Tag Filtering Pipeline', () => {
     it('should filter by tags even without a search term', async () => {
       const deps = createDependencies({
         getDb: () => testDb.db,
+        getSqlite: () => testDb.sqlite,
         getPreparedStatement: (sql: string) => testDb.sqlite.prepare(sql),
         cache: new LRUCache(100, 10 * 1024 * 1024),
         perfLog: true,

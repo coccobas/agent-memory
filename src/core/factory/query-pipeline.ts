@@ -14,7 +14,7 @@ import type { IQueryRewriteService } from '../../services/query-rewrite/types.js
 import type { EntityIndex } from '../../services/query/entity-index.js';
 import type { ExtractedEntity } from '../../services/query/entity-extractor.js';
 import type { IEmbeddingService, IVectorService } from '../context.js';
-import { getDb, getPreparedStatement } from '../../db/connection.js';
+import { getDb, getSqlite, getPreparedStatement } from '../../db/connection.js';
 import {
   createDependencies,
   wireQueryCacheInvalidation,
@@ -99,6 +99,7 @@ export function createQueryPipeline(
 
   return createDependencies({
     getDb: () => getDb(),
+    getSqlite: () => getSqlite(),
     getPreparedStatement: (sql: string) => getPreparedStatement(sql),
     cache: runtime.queryCache.cache,
     perfLog: config.logging.performance,

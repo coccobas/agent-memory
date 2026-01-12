@@ -134,11 +134,12 @@ export function resolveDataPath(envVar: string | undefined, relativePath: string
 
 /**
  * Determine embedding provider with fallback logic.
- * Returns 'openai' if API key is set, otherwise 'local'.
+ * Returns 'openai' if API key is set, 'lmstudio' if configured, otherwise 'local'.
  */
-export function getEmbeddingProvider(): 'openai' | 'local' | 'disabled' {
+export function getEmbeddingProvider(): 'openai' | 'lmstudio' | 'local' | 'disabled' {
   const providerEnv = process.env.AGENT_MEMORY_EMBEDDING_PROVIDER?.toLowerCase();
   if (providerEnv === 'disabled') return 'disabled';
+  if (providerEnv === 'lmstudio') return 'lmstudio';
   if (providerEnv === 'local') return 'local';
   if (providerEnv === 'openai') return 'openai';
   // Default: openai if API key provided, otherwise local

@@ -134,6 +134,7 @@ export function createTestQueryDeps(): PipelineDependencies {
   const logger = createComponentLogger('query-pipeline-test');
   return createDependencies({
     getDb: () => getDb(),
+    getSqlite: () => getSqlite(),
     getPreparedStatement: (sql: string) => getPreparedStatement(sql),
     cache: runtime.queryCache.cache,
     perfLog: false,

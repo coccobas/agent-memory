@@ -40,7 +40,8 @@ function getRelatedEntryIdsWithTraversal(
 
   const sourceType = relatedTo.type as QueryEntryType;
   const sourceId = relatedTo.id;
-  const depth = relatedTo.depth ?? 1;
+  // Default depth increased from 1 to 2 for better multi-hop retrieval
+  const depth = relatedTo.depth ?? 2;
   const direction = relatedTo.direction ?? 'both';
   const maxResults = relatedTo.maxResults ?? 100;
 

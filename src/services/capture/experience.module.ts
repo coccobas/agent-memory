@@ -411,6 +411,8 @@ export class ExperienceCaptureModule implements CaptureModule<ExperienceCaptureR
           response_format: { type: 'json_object' },
           temperature: config.extraction.temperature,
           max_tokens: config.extraction.maxTokens,
+          // reasoning_effort for models with extended thinking
+          ...(config.extraction.openaiReasoningEffort ? { reasoning_effort: config.extraction.openaiReasoningEffort } : {}),
         });
 
         const content = response.choices[0]?.message?.content;

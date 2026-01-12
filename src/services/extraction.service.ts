@@ -411,6 +411,179 @@ Return your response as a JSON object with this exact structure:
   ]
 }`;
 
+// =============================================================================
+// PERSONAL MEMORY EXTRACTION PROMPT
+// =============================================================================
+
+/**
+ * Extraction prompt optimized for personal/conversational memory.
+ * Use for: chat assistants, personal memory apps, LoCoMo-style benchmarks.
+ *
+ * Key differences from technical prompt:
+ * - Categories for personal info, events, relationships
+ * - No noise filtering for casual conversation
+ * - Entity types for people, places, dates
+ * - Focus on factual information extraction
+ */
+const PERSONAL_EXTRACTION_SYSTEM_PROMPT = `You are a personal memory extraction assistant. Extract facts, events, and information about people from conversations.
+
+## What to Extract
+
+1. **Knowledge** - Facts worth remembering:
+   - **person_info**: Names, identities, professions, characteristics (e.g., "Sarah is a teacher", "John is transgender")
+   - **event**: Activities, occurrences with dates/times (e.g., "Sarah went to the gym on May 5th")
+   - **preference**: Likes, dislikes, favorites (e.g., "John loves hiking")
+   - **relationship**: Connections between people (e.g., "Sarah and John are siblings")
+   - **plan**: Future intentions (e.g., "Sarah is planning to visit Paris next month")
+   - **location**: Where people live/work/visited (e.g., "John lives in Boston")
+
+2. **Entities** - Named things mentioned:
+   - **person**: People mentioned by name
+   - **location**: Places, cities, venues
+   - **organization**: Companies, schools, groups
+   - **date**: Specific dates or time periods
+   - **activity**: Hobbies, sports, events
+
+3. **Relationships** - Connections between entities:
+   - **knows**: Person knows another person
+   - **lives_in**: Person lives in location
+   - **works_at**: Person works at organization
+   - **participated_in**: Person participated in activity/event
+   - **related_to**: General relationship
+
+## Extraction Rules
+
+- Extract ALL factual information, even from casual conversation
+- Include specific dates, times, and numbers when mentioned
+- Preserve exact names and proper nouns
+- Assign confidence based on how directly something was stated:
+  - 0.9+: Explicitly stated fact
+  - 0.7-0.9: Clearly implied
+  - 0.5-0.7: Inferred from context
+- Each entry should be atomic (ONE fact per entry)
+
+## What NOT to Extract
+
+- Greetings and pleasantries without information content
+- Questions that aren't answered
+- Hypotheticals that didn't happen
+- Generic statements without specifics
+
+Return a JSON object:
+{
+  "guidelines": [],
+  "knowledge": [
+    {
+      "title": "string (short descriptive title)",
+      "content": "string (the specific fact, 1-2 sentences)",
+      "category": "string (person_info | event | preference | relationship | plan | location)",
+      "confidence": "number (0-1)",
+      "source": "string (who this is about, e.g., 'Sarah', 'the user')",
+      "suggestedTags": ["string"]
+    }
+  ],
+  "tools": [],
+  "entities": [
+    {
+      "name": "string (proper name)",
+      "entityType": "string (person | location | organization | date | activity)",
+      "description": "string (brief description)",
+      "confidence": "number (0-1)"
+    }
+  ],
+  "relationships": [
+    {
+      "sourceRef": "string (entity name)",
+      "sourceType": "string (entity)",
+      "targetRef": "string (entity name)",
+      "targetType": "string (entity)",
+      "relationType": "string (knows | lives_in | works_at | participated_in | related_to)",
+      "confidence": "number (0-1)"
+    }
+  ]
+}
+
+## Example
+
+Input: "Caroline went to an LGBTQ support group on May 7th 2023. She's a transgender woman who's thinking about adoption."
+
+Output:
+{
+  "guidelines": [],
+  "knowledge": [
+    {
+      "title": "Caroline attended LGBTQ support group",
+      "content": "Caroline went to an LGBTQ support group on May 7th 2023.",
+      "category": "event",
+      "confidence": 0.95,
+      "source": "Caroline",
+      "suggestedTags": ["caroline", "lgbtq", "support-group"]
+    },
+    {
+      "title": "Caroline is transgender",
+      "content": "Caroline is a transgender woman.",
+      "category": "person_info",
+      "confidence": 0.95,
+      "source": "Caroline",
+      "suggestedTags": ["caroline", "identity"]
+    },
+    {
+      "title": "Caroline considering adoption",
+      "content": "Caroline is thinking about adoption.",
+      "category": "plan",
+      "confidence": 0.85,
+      "source": "Caroline",
+      "suggestedTags": ["caroline", "adoption"]
+    }
+  ],
+  "tools": [],
+  "entities": [
+    {"name": "Caroline", "entityType": "person", "description": "Transgender woman considering adoption", "confidence": 0.95},
+    {"name": "May 7th 2023", "entityType": "date", "description": "Date of LGBTQ support group visit", "confidence": 0.95},
+    {"name": "LGBTQ support group", "entityType": "organization", "description": "Support group Caroline attended", "confidence": 0.9}
+  ],
+  "relationships": [
+    {"sourceRef": "Caroline", "sourceType": "entity", "targetRef": "LGBTQ support group", "targetType": "entity", "relationType": "participated_in", "confidence": 0.95}
+  ]
+}`;
+
+/**
+ * Get the appropriate extraction prompt based on mode
+ */
+function getExtractionPrompt(mode: 'technical' | 'personal' | 'auto', context?: string): string {
+  if (mode === 'personal') {
+    return PERSONAL_EXTRACTION_SYSTEM_PROMPT;
+  }
+  if (mode === 'technical') {
+    return EXTRACTION_SYSTEM_PROMPT;
+  }
+  // Auto mode: detect from content
+  if (context) {
+    // Simple heuristics for auto-detection
+    const technicalIndicators = [
+      /\bfunction\b/i, /\bclass\b/i, /\bimport\b/i, /\bexport\b/i,
+      /\bconst\b/i, /\blet\b/i, /\bvar\b/i, /\breturn\b/i,
+      /\bapi\b/i, /\bdatabase\b/i, /\bserver\b/i, /\bdeployment\b/i,
+      /\bgit\b/i, /\bnpm\b/i, /\bdocker\b/i, /\bkubernetes\b/i,
+    ];
+    const personalIndicators = [
+      /\b(went|visited|attended|met)\b/i,
+      /\b(birthday|wedding|vacation|trip)\b/i,
+      /\b(family|friend|brother|sister|mother|father)\b/i,
+      /\b(love|hate|favorite|prefer)\b/i,
+      /\b(feel|feeling|happy|sad|excited)\b/i,
+    ];
+
+    const technicalScore = technicalIndicators.filter(r => r.test(context)).length;
+    const personalScore = personalIndicators.filter(r => r.test(context)).length;
+
+    if (personalScore > technicalScore) {
+      return PERSONAL_EXTRACTION_SYSTEM_PROMPT;
+    }
+  }
+  return EXTRACTION_SYSTEM_PROMPT;
+}
+
 function buildUserPrompt(input: ExtractionInput): string {
   const parts: string[] = [];
 
@@ -698,12 +871,15 @@ export class ExtractionService {
         const response = await client.chat.completions.create({
           model: this.openaiModel,
           messages: [
-            { role: 'system', content: EXTRACTION_SYSTEM_PROMPT },
+            { role: 'system', content: getExtractionPrompt(config.extraction.mode, input.context) },
             { role: 'user', content: buildUserPrompt(input) },
           ],
-          response_format: { type: 'json_object' },
+          // response_format disabled for LM Studio compatibility when openaiJsonMode=false
+          ...(config.extraction.openaiJsonMode ? { response_format: { type: 'json_object' as const } } : {}),
           temperature: config.extraction.temperature,
           max_tokens: config.extraction.maxTokens,
+          // reasoning_effort for o1/o3 models or LM Studio with extended thinking
+          ...(config.extraction.openaiReasoningEffort ? { reasoning_effort: config.extraction.openaiReasoningEffort } : {}),
         });
 
         const content = response.choices[0]?.message?.content;
@@ -746,7 +922,7 @@ export class ExtractionService {
         const response = await client.messages.create({
           model: this.anthropicModel,
           max_tokens: config.extraction.maxTokens,
-          system: EXTRACTION_SYSTEM_PROMPT,
+          system: getExtractionPrompt(config.extraction.mode, input.context),
           messages: [{ role: 'user', content: buildUserPrompt(input) }],
         });
 
@@ -804,7 +980,7 @@ export class ExtractionService {
             signal: abortController.signal,
             body: JSON.stringify({
               model: this.ollamaModel,
-              prompt: `${EXTRACTION_SYSTEM_PROMPT}\n\n${buildUserPrompt(input)}`,
+              prompt: `${getExtractionPrompt(config.extraction.mode, input.context)}\n\n${buildUserPrompt(input)}`,
               format: 'json',
               stream: false,
               options: {

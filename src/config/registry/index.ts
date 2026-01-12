@@ -54,6 +54,7 @@ import { autoTaggingSection } from './sections/autoTagging.js';
 import { toolsSection } from './sections/tools.js';
 import { classificationSection } from './sections/classification.js';
 import { extractionHookSection } from './sections/extractionHook.js';
+import { crossEncoderSection } from './sections/crossEncoder.js';
 
 // =============================================================================
 // TOP-LEVEL OPTIONS
@@ -119,6 +120,7 @@ export const configRegistry: ConfigRegistry = {
     tools: toolsSection,
     classification: classificationSection,
     extractionHook: extractionHookSection,
+    crossEncoder: crossEncoderSection,
   },
 };
 

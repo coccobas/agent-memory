@@ -77,7 +77,7 @@ async function resolveSearchStrategy(ctx: PipelineContext): Promise<SearchStrate
   );
 
   const coverage = await getEmbeddingCoverage(
-    ctx.deps.getDb() as unknown as Parameters<typeof getEmbeddingCoverage>[0],
+    ctx.deps.getSqlite(),
     scopeElements,
     entryTypes
   );

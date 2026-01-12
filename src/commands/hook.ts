@@ -127,7 +127,7 @@ export async function runHookCommand(argv: string[]): Promise<void> {
     const input = await readHookInputFromStdin();
 
     if (sub === 'pretooluse') {
-      const result = runPreToolUseCommand({ projectId, agentId, input });
+      const result = await runPreToolUseCommand({ projectId, agentId, input });
       for (const line of result.stdout) writeStdout(line);
       for (const line of result.stderr) writeStderr(line);
       process.exit(result.exitCode);

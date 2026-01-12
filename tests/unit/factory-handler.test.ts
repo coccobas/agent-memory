@@ -728,4 +728,255 @@ describe('Handler Factory', () => {
       ).rejects.toThrow('not a string');
     });
   });
+
+  /**
+   * Cache Invalidation Event Tests
+   *
+   * These tests verify that all mutation operations emit cache invalidation events.
+   * Without these events, caches can serve stale data after mutations.
+   *
+   * See ADR-0021: Event-Driven Cache Invalidation
+   */
+  describe('cache invalidation events', () => {
+    let mockEventEmit: ReturnType<typeof vi.fn>;
+    let contextWithEvents: AppContext;
+
+    beforeEach(() => {
+      mockEventEmit = vi.fn();
+      contextWithEvents = {
+        ...mockContext,
+        unifiedAdapters: {
+          event: {
+            emit: mockEventEmit,
+          },
+        } as any,
+      };
+    });
+
+    it('should emit event on add (create)', async () => {
+      mockRepo.create.mockResolvedValue({
+        id: 'entry-1',
+        name: 'Test',
+        content: 'Content',
+        scopeType: 'project',
+        scopeId: 'proj-1',
+        isActive: true,
+        createdAt: new Date().toISOString(),
+      });
+
+      await handlers.add(contextWithEvents, {
+        scopeType: 'project',
+        scopeId: 'proj-1',
+        agentId: 'agent-1',
+        name: 'Test',
+        content: 'Content',
+      });
+
+      expect(mockEventEmit).toHaveBeenCalledWith({
+        entryType: 'guideline',
+        entryId: 'entry-1',
+        scopeType: 'project',
+        scopeId: 'proj-1',
+        action: 'create',
+      });
+    });
+
+    it('should emit event on update', async () => {
+      mockRepo.getById.mockResolvedValue({
+        id: 'entry-1',
+        scopeType: 'project',
+        scopeId: 'proj-1',
+        isActive: true,
+      });
+      mockRepo.update.mockResolvedValue({
+        id: 'entry-1',
+        content: 'Updated',
+        scopeType: 'project',
+        scopeId: 'proj-1',
+      });
+
+      await handlers.update(contextWithEvents, {
+        id: 'entry-1',
+        agentId: 'agent-1',
+        content: 'Updated',
+      });
+
+      expect(mockEventEmit).toHaveBeenCalledWith({
+        entryType: 'guideline',
+        entryId: 'entry-1',
+        scopeType: 'project',
+        scopeId: 'proj-1',
+        action: 'update',
+      });
+    });
+
+    it('should emit event on deactivate', async () => {
+      mockRepo.getById.mockResolvedValue({
+        id: 'entry-1',
+        scopeType: 'project',
+        scopeId: 'proj-1',
+      });
+      mockRepo.deactivate.mockResolvedValue(true);
+
+      await handlers.deactivate(contextWithEvents, {
+        id: 'entry-1',
+        agentId: 'agent-1',
+      });
+
+      expect(mockEventEmit).toHaveBeenCalledWith({
+        entryType: 'guideline',
+        entryId: 'entry-1',
+        scopeType: 'project',
+        scopeId: 'proj-1',
+        action: 'deactivate',
+      });
+    });
+
+    it('should emit event on delete', async () => {
+      mockRepo.getById.mockResolvedValue({
+        id: 'entry-1',
+        scopeType: 'project',
+        scopeId: 'proj-1',
+      });
+      mockRepo.delete.mockResolvedValue(true);
+
+      await handlers.delete(contextWithEvents, {
+        id: 'entry-1',
+        agentId: 'agent-1',
+      });
+
+      expect(mockEventEmit).toHaveBeenCalledWith({
+        entryType: 'guideline',
+        entryId: 'entry-1',
+        scopeType: 'project',
+        scopeId: 'proj-1',
+        action: 'delete',
+      });
+    });
+
+    it('should emit events on bulk_add', async () => {
+      mockPermissionService.checkBatch.mockReturnValue(
+        new Map([['new-0', true], ['new-1', true]])
+      );
+      mockRepo.create
+        .mockResolvedValueOnce({ id: 'e-1', name: 'Entry 1', scopeType: 'project', scopeId: 'proj-1' })
+        .mockResolvedValueOnce({ id: 'e-2', name: 'Entry 2', scopeType: 'project', scopeId: 'proj-1' });
+
+      await handlers.bulk_add(contextWithEvents, {
+        agentId: 'agent-1',
+        scopeType: 'project',
+        scopeId: 'proj-1',
+        entries: [
+          { name: 'Entry 1', content: 'Content 1' },
+          { name: 'Entry 2', content: 'Content 2' },
+        ],
+      });
+
+      expect(mockEventEmit).toHaveBeenCalledTimes(2);
+      expect(mockEventEmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entryType: 'guideline',
+          entryId: 'e-1',
+          action: 'create',
+        })
+      );
+      expect(mockEventEmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entryType: 'guideline',
+          entryId: 'e-2',
+          action: 'create',
+        })
+      );
+    });
+
+    it('should emit events on bulk_update', async () => {
+      mockRepo.getById
+        .mockResolvedValueOnce({ id: 'e-1', scopeType: 'project', scopeId: 'p-1' })
+        .mockResolvedValueOnce({ id: 'e-2', scopeType: 'project', scopeId: 'p-1' });
+      mockPermissionService.checkBatch.mockReturnValue(
+        new Map([['e-1', true], ['e-2', true]])
+      );
+      mockRepo.update
+        .mockResolvedValueOnce({ id: 'e-1', scopeType: 'project', scopeId: 'p-1' })
+        .mockResolvedValueOnce({ id: 'e-2', scopeType: 'project', scopeId: 'p-1' });
+
+      await handlers.bulk_update(contextWithEvents, {
+        agentId: 'agent-1',
+        updates: [
+          { id: 'e-1', content: 'Updated 1' },
+          { id: 'e-2', content: 'Updated 2' },
+        ],
+      });
+
+      expect(mockEventEmit).toHaveBeenCalledTimes(2);
+      expect(mockEventEmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entryType: 'guideline',
+          entryId: 'e-1',
+          action: 'update',
+        })
+      );
+      expect(mockEventEmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entryType: 'guideline',
+          entryId: 'e-2',
+          action: 'update',
+        })
+      );
+    });
+
+    it('should emit events on bulk_delete', async () => {
+      mockRepo.getById
+        .mockResolvedValueOnce({ id: 'e-1', scopeType: 'project', scopeId: 'p-1' })
+        .mockResolvedValueOnce({ id: 'e-2', scopeType: 'project', scopeId: 'p-1' });
+      mockPermissionService.checkBatch.mockReturnValue(
+        new Map([['e-1', true], ['e-2', true]])
+      );
+      mockRepo.deactivate.mockResolvedValue(true);
+
+      await handlers.bulk_delete(contextWithEvents, {
+        agentId: 'agent-1',
+        ids: ['e-1', 'e-2'],
+      });
+
+      expect(mockEventEmit).toHaveBeenCalledTimes(2);
+      expect(mockEventEmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entryType: 'guideline',
+          entryId: 'e-1',
+          action: 'deactivate',
+        })
+      );
+      expect(mockEventEmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entryType: 'guideline',
+          entryId: 'e-2',
+          action: 'deactivate',
+        })
+      );
+    });
+
+    it('should handle missing unifiedAdapters gracefully', async () => {
+      // Context without unifiedAdapters should not throw
+      mockRepo.create.mockResolvedValue({
+        id: 'entry-1',
+        name: 'Test',
+        scopeType: 'project',
+        scopeId: 'proj-1',
+        isActive: true,
+        createdAt: new Date().toISOString(),
+      });
+
+      // This should not throw even without unifiedAdapters
+      const result = await handlers.add(mockContext, {
+        scopeType: 'project',
+        scopeId: 'proj-1',
+        agentId: 'agent-1',
+        name: 'Test',
+        content: 'Content',
+      });
+
+      expect(result.success).toBe(true);
+    });
+  });
 });

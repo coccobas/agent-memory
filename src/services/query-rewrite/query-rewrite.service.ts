@@ -12,6 +12,7 @@
 import { IntentClassifier } from './classifier.js';
 import { QueryExpander } from './expander.js';
 import { HyDEGenerator } from './hyde.js';
+import { QueryDecomposer, type QueryDecomposerConfig } from './decomposer.js';
 import type {
   IQueryRewriteService,
   RewriteInput,
@@ -21,9 +22,13 @@ import type {
   ClassificationResult,
   ExpansionConfig,
   HyDEConfig,
+  QueryPlan,
 } from './types.js';
 import type { ExtractionService } from '../extraction.service.js';
 import type { EmbeddingService } from '../embedding.service.js';
+import { createComponentLogger } from '../../utils/logger.js';
+
+const logger = createComponentLogger('query-rewrite');
 
 /**
  * Configuration for QueryRewriteService
@@ -35,8 +40,20 @@ export interface QueryRewriteServiceConfig {
   enableHyDE?: boolean;
   /** Enable expansion by default */
   enableExpansion?: boolean;
+  /** Enable multi-hop query decomposition */
+  enableDecomposition?: boolean;
   /** HyDE configuration (required when enableHyDE is true) */
   hyde?: HyDEConfig;
+  /** Decomposition configuration */
+  decomposition?: Partial<QueryDecomposerConfig>;
+}
+
+/**
+ * Extended rewrite result with decomposition plan
+ */
+export interface ExtendedRewriteResult extends RewriteResult {
+  /** Query decomposition plan (when strategy is 'multi_hop') */
+  decompositionPlan?: QueryPlan;
 }
 
 /**
@@ -94,6 +111,7 @@ export class QueryRewriteService implements IQueryRewriteService {
   private classifier: IntentClassifier;
   private expander: QueryExpander | null = null;
   private hydeGenerator: HyDEGenerator | null = null;
+  private decomposer: QueryDecomposer | null = null;
   private config: QueryRewriteServiceConfig;
 
   /**
@@ -106,11 +124,13 @@ export class QueryRewriteService implements IQueryRewriteService {
     this.config = {
       enableExpansion: config.enableExpansion ?? true,
       enableHyDE: config.enableHyDE ?? false,
+      enableDecomposition: config.enableDecomposition ?? false,
       expansion: {
         ...DEFAULT_EXPANSION_CONFIG,
         ...config.expansion,
       },
       hyde: config.hyde,
+      decomposition: config.decomposition,
     };
 
     // Always create classifier (lightweight)
@@ -129,6 +149,14 @@ export class QueryRewriteService implements IQueryRewriteService {
         config.hyde
       );
     }
+
+    // Create decomposer if enabled
+    if (this.config.enableDecomposition) {
+      this.decomposer = new QueryDecomposer(
+        deps?.extractionService ?? null,
+        this.config.decomposition
+      );
+    }
   }
 
   /**
@@ -138,9 +166,9 @@ export class QueryRewriteService implements IQueryRewriteService {
    * Determines strategy based on enabled options and combines results.
    *
    * @param input - Rewrite input with query and options
-   * @returns Rewrite result with all query variations
+   * @returns Rewrite result with all query variations (and decomposition plan if applicable)
    */
-  async rewrite(input: RewriteInput): Promise<RewriteResult> {
+  async rewrite(input: RewriteInput): Promise<ExtendedRewriteResult> {
     const startTime = Date.now();
     const queries: RewrittenQuery[] = [];
 
@@ -150,15 +178,55 @@ export class QueryRewriteService implements IQueryRewriteService {
         ? { intent: input.queryType, confidence: 1.0, method: 'provided' as const }
         : await this.classifier.classifyAsync(input.originalQuery);
 
-    // Step 2: Always include original query with weight 1.0
-    queries.push({
-      text: input.originalQuery,
-      source: 'original',
-      weight: 1.0,
-    });
-
-    // Step 3: Apply enabled strategies
+    // Step 2: Check for decomposition (before adding original query)
     const opts = input.options ?? {};
+    const enableDecomposition = opts.enableDecomposition ?? this.config.enableDecomposition ?? false;
+    let decompositionPlan: QueryPlan | undefined;
+
+    if (enableDecomposition && this.decomposer) {
+      const analysis = this.decomposer.analyzeQuery(input.originalQuery);
+
+      if (analysis.needsDecomposition) {
+        try {
+          decompositionPlan = await this.decomposer.decompose(
+            input.originalQuery,
+            classification.intent
+          );
+
+          // Add sub-queries as rewritten queries
+          for (const subQuery of decompositionPlan.subQueries) {
+            queries.push({
+              text: subQuery.query,
+              source: 'decomposition',
+              weight: 0.95, // High weight for decomposed queries
+              subQueryIndex: subQuery.index,
+            });
+          }
+
+          logger.debug(
+            {
+              query: input.originalQuery.slice(0, 50),
+              subQueryCount: decompositionPlan.subQueries.length,
+              executionOrder: decompositionPlan.executionOrder,
+            },
+            'Query decomposed into sub-queries'
+          );
+        } catch (error) {
+          logger.warn({ error }, 'Query decomposition failed, using original query');
+        }
+      }
+    }
+
+    // Step 3: Always include original query with weight 1.0 (if not decomposed, or as fallback)
+    if (!decompositionPlan || decompositionPlan.subQueries.length === 0) {
+      queries.push({
+        text: input.originalQuery,
+        source: 'original',
+        weight: 1.0,
+      });
+    }
+
+    // Step 4: Apply other enabled strategies
     const enableExpansion = opts.enableExpansion ?? this.config.enableExpansion ?? false;
     const enableHyDE = opts.enableHyDE ?? this.config.enableHyDE ?? false;
 
@@ -199,13 +267,13 @@ export class QueryRewriteService implements IQueryRewriteService {
       }
     }
 
-    // Step 4: Determine strategy
-    const strategy = this.determineStrategy(enableHyDE, enableExpansion);
+    // Step 5: Determine strategy
+    const strategy = this.determineStrategy(enableHyDE, enableExpansion, decompositionPlan);
 
-    // Step 5: Sort by weight descending (original first if tied)
+    // Step 6: Sort by weight descending (original first if tied)
     const sortedQueries = this.sortQueries(queries);
 
-    // Step 6: Calculate processing time
+    // Step 7: Calculate processing time
     const processingTimeMs = Date.now() - startTime;
 
     return {
@@ -213,6 +281,7 @@ export class QueryRewriteService implements IQueryRewriteService {
       intent: classification.intent,
       strategy,
       processingTimeMs,
+      decompositionPlan,
     };
   }
 
@@ -237,9 +306,20 @@ export class QueryRewriteService implements IQueryRewriteService {
     return (
       this.config.enableExpansion === true ||
       this.config.enableHyDE === true ||
+      this.config.enableDecomposition === true ||
       this.expander != null ||
-      this.hydeGenerator != null
+      this.hydeGenerator != null ||
+      this.decomposer != null
     );
+  }
+
+  /**
+   * Check if decomposition is available
+   *
+   * @returns True if decomposer is initialized
+   */
+  isDecompositionAvailable(): boolean {
+    return this.decomposer != null;
   }
 
   /**
@@ -247,9 +327,18 @@ export class QueryRewriteService implements IQueryRewriteService {
    *
    * @param enableHyDE - Whether HyDE is enabled
    * @param enableExpansion - Whether expansion is enabled
+   * @param decompositionPlan - Decomposition plan if decomposition was used
    * @returns The strategy being used
    */
-  private determineStrategy(enableHyDE: boolean, enableExpansion: boolean): RewriteStrategy {
+  private determineStrategy(
+    enableHyDE: boolean,
+    enableExpansion: boolean,
+    decompositionPlan?: QueryPlan
+  ): RewriteStrategy {
+    // Multi-hop takes precedence if decomposition occurred
+    if (decompositionPlan && decompositionPlan.subQueries.length > 1) {
+      return 'multi_hop';
+    }
     if (enableHyDE && enableExpansion) {
       return 'hybrid';
     }

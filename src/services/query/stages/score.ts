@@ -45,9 +45,68 @@ import {
   type EntityFilterPipelineContext,
 } from './entity-filter.js';
 import type { SearchStrategy, StrategyPipelineContext } from './strategy.js';
+import type { QueryIntent } from '../../query-rewrite/types.js';
 
 // Access search config for hybridAlpha (may not be in Config interface yet)
 const SEARCH_CONFIG = (config as { search?: { hybridAlpha?: number } }).search;
+
+// =============================================================================
+// INTENT-AWARE MEMORY TYPE WEIGHTS
+// =============================================================================
+
+/**
+ * Memory type weight multipliers based on query intent.
+ * These boost or reduce scores based on how well the memory type
+ * matches what the user is likely looking for.
+ *
+ * Values are multipliers: 1.0 = no change, >1.0 = boost, <1.0 = reduce
+ */
+const INTENT_TYPE_WEIGHTS: Record<QueryIntent, Record<QueryEntryType, number>> = {
+  lookup: { knowledge: 1.15, guideline: 0.95, tool: 0.95, experience: 0.9 },
+  how_to: { guideline: 1.15, experience: 1.1, tool: 1.0, knowledge: 0.95 },
+  debug: { experience: 1.15, knowledge: 1.05, guideline: 0.95, tool: 0.95 },
+  explore: { knowledge: 1.0, guideline: 1.0, experience: 1.0, tool: 1.0 },
+  compare: { knowledge: 1.1, experience: 1.05, guideline: 0.95, tool: 0.95 },
+  configure: { guideline: 1.15, tool: 1.1, knowledge: 0.95, experience: 0.95 },
+};
+
+/**
+ * Intent-aware hybrid alpha selection.
+ * Adjusts the semantic vs FTS blend based on query intent.
+ *
+ * Higher alpha = more semantic weight (concept-based)
+ * Lower alpha = more FTS weight (keyword-based)
+ */
+const INTENT_HYBRID_ALPHA: Record<QueryIntent, number> = {
+  lookup: 0.5,        // More FTS for exact fact lookups
+  how_to: 0.7,        // Balanced for procedural queries
+  debug: 0.6,         // Slight FTS bias for error messages/codes
+  explore: 0.8,       // More semantic for open-ended discovery
+  compare: 0.75,      // Balanced leaning semantic
+  configure: 0.6,     // More FTS for config keys/settings
+};
+
+/**
+ * Get intent-aware hybrid alpha.
+ * Falls back to config value if intent unknown.
+ */
+function getIntentHybridAlpha(intent: string | undefined, configAlpha: number): number {
+  if (!intent || !(intent in INTENT_HYBRID_ALPHA)) {
+    return configAlpha;
+  }
+  return INTENT_HYBRID_ALPHA[intent as QueryIntent];
+}
+
+/**
+ * Get intent-based weight multiplier for a memory type.
+ * Returns 1.0 (no change) if intent is unknown.
+ */
+function getIntentTypeWeight(intent: string | undefined, entryType: QueryEntryType): number {
+  if (!intent || !(intent in INTENT_TYPE_WEIGHTS)) {
+    return 1.0;
+  }
+  return INTENT_TYPE_WEIGHTS[intent as QueryIntent][entryType] ?? 1.0;
+}
 
 /**
  * Compute hybrid score blending FTS5 and semantic scores.
@@ -328,8 +387,9 @@ function buildResult<T extends EntryUnion>(
   const hasFtsMatch = ftsMatchIds?.[entryType]?.has(entry.id) ?? false;
   const ftsScore = ctx.ftsScores?.get(entry.id) ?? (hasFtsMatch ? 1.0 : 0);
 
-  // Get hybridAlpha from config (default 0.7)
-  const hybridAlpha = SEARCH_CONFIG?.hybridAlpha ?? 0.7;
+  // Get hybridAlpha - intent-aware with config fallback
+  const configAlpha = SEARCH_CONFIG?.hybridAlpha ?? 0.7;
+  const hybridAlpha = getIntentHybridAlpha(ctx.rewriteIntent, configAlpha);
 
   const { score: baseScore, recencyScore, ageDays } = computeScore({
     hasExplicitRelation,
@@ -363,6 +423,11 @@ function buildResult<T extends EntryUnion>(
     }
   }
 
+  // Apply intent-aware memory type weight
+  // Boosts/reduces score based on how well entry type matches query intent
+  const intentWeight = getIntentTypeWeight(ctx.rewriteIntent, resultConfig.type);
+  finalScore *= intentWeight;
+
   // Build base result with common fields
   const baseResult = {
     type: resultConfig.type,
@@ -374,6 +439,7 @@ function buildResult<T extends EntryUnion>(
     recencyScore,
     ageDays,
     feedbackMultiplier, // Include for debugging/transparency
+    intentWeight, // Include for debugging/transparency
   };
 
   // Add entity-specific field using dynamic key
@@ -472,38 +538,48 @@ export function scoreStage(ctx: PipelineContext): PipelineContext {
     entityBoost: number | undefined;
   }> = [];
 
+  // Get intent-based weights for each entry type
+  const toolWeight = getIntentTypeWeight(ctx.rewriteIntent, 'tool');
+  const guidelineWeight = getIntentTypeWeight(ctx.rewriteIntent, 'guideline');
+  const knowledgeWeight = getIntentTypeWeight(ctx.rewriteIntent, 'knowledge');
+  const experienceWeight = getIntentTypeWeight(ctx.rewriteIntent, 'experience');
+
   for (const item of filtered.tools) {
     const entityBoost = computeEntityBoost(item.entry.id);
+    const baseScore = computeLightScoreForItem(item, ctx, RESULT_CONFIGS.tool, entityBoost);
     lightScoredItems.push({
       filtered: item as FilteredEntry<EntryUnion>,
-      lightScore: computeLightScoreForItem(item, ctx, RESULT_CONFIGS.tool, entityBoost),
+      lightScore: baseScore * toolWeight,
       config: RESULT_CONFIGS.tool as ResultConfig<EntryUnion>,
       entityBoost,
     });
   }
   for (const item of filtered.guidelines) {
     const entityBoost = computeEntityBoost(item.entry.id);
+    const baseScore = computeLightScoreForItem(item, ctx, RESULT_CONFIGS.guideline, entityBoost);
     lightScoredItems.push({
       filtered: item as FilteredEntry<EntryUnion>,
-      lightScore: computeLightScoreForItem(item, ctx, RESULT_CONFIGS.guideline, entityBoost),
+      lightScore: baseScore * guidelineWeight,
       config: RESULT_CONFIGS.guideline as ResultConfig<EntryUnion>,
       entityBoost,
     });
   }
   for (const item of filtered.knowledge) {
     const entityBoost = computeEntityBoost(item.entry.id);
+    const baseScore = computeLightScoreForItem(item, ctx, RESULT_CONFIGS.knowledge, entityBoost);
     lightScoredItems.push({
       filtered: item as FilteredEntry<EntryUnion>,
-      lightScore: computeLightScoreForItem(item, ctx, RESULT_CONFIGS.knowledge, entityBoost),
+      lightScore: baseScore * knowledgeWeight,
       config: RESULT_CONFIGS.knowledge as ResultConfig<EntryUnion>,
       entityBoost,
     });
   }
   for (const item of filtered.experiences) {
     const entityBoost = computeEntityBoost(item.entry.id);
+    const baseScore = computeLightScoreForItem(item, ctx, RESULT_CONFIGS.experience, entityBoost);
     lightScoredItems.push({
       filtered: item as FilteredEntry<EntryUnion>,
-      lightScore: computeLightScoreForItem(item, ctx, RESULT_CONFIGS.experience, entityBoost),
+      lightScore: baseScore * experienceWeight,
       config: RESULT_CONFIGS.experience as ResultConfig<EntryUnion>,
       entityBoost,
     });

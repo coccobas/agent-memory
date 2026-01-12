@@ -518,6 +518,30 @@ export const errorCounter = metrics.counter('agentmem_errors_total', {
 });
 
 // =============================================================================
+// HOOK METRICS
+// =============================================================================
+
+// Session end metrics
+export const sessionEndCounter = metrics.counter('agentmem_session_end_total', {
+  help: 'Total number of session end hook invocations',
+  labelNames: ['status'], // success, failed, skipped
+});
+
+export const transcriptIngestDuration = metrics.histogram('agentmem_transcript_ingest_seconds', {
+  help: 'Transcript ingestion duration in seconds',
+  labelNames: ['result'], // completed, truncated, empty
+  buckets: [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10],
+});
+
+export const transcriptLinesCounter = metrics.counter('agentmem_transcript_lines_total', {
+  help: 'Total number of transcript lines processed',
+});
+
+export const transcriptMessagesCounter = metrics.counter('agentmem_transcript_messages_total', {
+  help: 'Total number of messages appended to conversations',
+});
+
+// =============================================================================
 // POOL METRICS UTILITIES
 // =============================================================================
 

@@ -60,3 +60,14 @@ export {
   semanticStageAsync,
   type SemanticStageContext,
 } from './semantic.js';
+export {
+  createCrossEncoderStage,
+  createOpenAICrossEncoderService,
+  buildScoringPrompt,
+  parseScoresResponse,
+  DEFAULT_CROSS_ENCODER_CONFIG,
+  type CrossEncoderConfig,
+  type CrossEncoderDependencies,
+  type CrossEncoderLLMService,
+  type CrossEncoderPipelineContext,
+} from './cross-encoder-rerank.js';

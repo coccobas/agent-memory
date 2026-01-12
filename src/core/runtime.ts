@@ -17,6 +17,7 @@ import { LRUCache } from '../utils/lru-cache.js';
 import type { MemoryQueryResult } from '../services/query/pipeline.js';
 import { MemoryCoordinator } from './memory-coordinator.js';
 import { createEventBus, type EntryChangedEvent } from '../utils/events.js';
+import type { EmbeddingProvider } from './context.js';
 
 // Re-export for backward compatibility
 export { MemoryCoordinator } from './memory-coordinator.js';
@@ -76,13 +77,13 @@ export interface EmbeddingPipeline {
   embed: (text: string) => Promise<{
     embedding: number[];
     model: string;
-    provider: 'openai' | 'local' | 'disabled';
+    provider: EmbeddingProvider;
   }>;
   /** Batch embed multiple texts in a single API call (10-100x faster) */
   embedBatch?: (texts: string[]) => Promise<{
     embeddings: number[][];
     model: string;
-    provider: 'openai' | 'local' | 'disabled';
+    provider: EmbeddingProvider;
   }>;
   storeEmbedding: (
     entryType: EntryType,

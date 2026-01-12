@@ -382,6 +382,7 @@ function createProductionQueryFunction(
   // Create pipeline dependencies with our LOCAL database
   const pipelineDeps = createDependencies({
     getDb: () => db as unknown as ReturnType<typeof drizzle>,
+    getSqlite: () => sqlite,
     getPreparedStatement: (sql: string) => sqlite.prepare(sql),
     cache: queryCache as typeof queryCache,
     perfLog: debugMode,

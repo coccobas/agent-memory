@@ -71,7 +71,7 @@ export interface Config {
     indexThreshold: number;
   };
   embedding: {
-    provider: 'openai' | 'local' | 'disabled';
+    provider: 'openai' | 'lmstudio' | 'local' | 'disabled';
     openaiApiKey: string | undefined;
     openaiModel: string;
     maxConcurrency: number;
@@ -80,11 +80,14 @@ export interface Config {
     retryDelayMs: number;
   };
   extraction: {
+    mode: 'technical' | 'personal' | 'auto';
     provider: 'openai' | 'anthropic' | 'ollama' | 'disabled';
     openaiApiKey: string | undefined;
     openaiBaseUrl: string | undefined;
     strictBaseUrlAllowlist: boolean;
     openaiModel: string;
+    openaiJsonMode: boolean;
+    openaiReasoningEffort: 'low' | 'medium' | 'high' | undefined;
     anthropicApiKey: string | undefined;
     anthropicModel: string;
     ollamaBaseUrl: string;
@@ -108,6 +111,8 @@ export interface Config {
     // Trigger detection
     triggerDetectionEnabled: boolean;
     triggerCooldownMs: number;
+    // Timeout
+    timeoutMs: number;
     // Atomicity - ensure entries contain one concept each
     atomicityEnabled: boolean;
     atomicitySplitMode: 'silent' | 'log' | 'disabled';
@@ -305,6 +310,15 @@ export interface Config {
     alpha: number;
     minScoreThreshold: number;
     semanticQueriesOnly: boolean;
+  };
+  crossEncoder: {
+    enabled: boolean;
+    topK: number;
+    alpha: number;
+    temperature: number;
+    timeoutMs: number;
+    model: string | undefined;
+    baseUrl: string | undefined;
   };
   hierarchical: {
     enabled: boolean;

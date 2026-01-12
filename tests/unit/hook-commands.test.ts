@@ -27,7 +27,20 @@ vi.mock('../../src/commands/hook/state-file.js', () => ({
 }));
 
 vi.mock('../../src/commands/hook/transcript-ingest.js', () => ({
-  ingestTranscript: vi.fn(),
+  ingestTranscript: vi.fn(() => ({ appended: 0, linesRead: 0, wasTruncated: false })),
+}));
+
+vi.mock('../../src/services/memory-injection.service.js', () => ({
+  getMemoryInjectionService: vi.fn(() => ({
+    getContext: vi.fn(() => Promise.resolve({
+      success: true,
+      injectedContext: '',
+      entries: [],
+      detectedIntent: 'explore',
+      processingTimeMs: 0,
+      message: 'No context',
+    })),
+  })),
 }));
 
 vi.mock('../../src/commands/hook/session-summary.js', () => ({
@@ -81,7 +94,7 @@ describe('runPreToolUseCommand', () => {
     vi.clearAllMocks();
   });
 
-  it('should return exit code 0 when action is allowed', () => {
+  it('should return exit code 0 when action is allowed', async () => {
     vi.mocked(verifyAction).mockReturnValue({
       allowed: true,
       blocked: false,
@@ -90,7 +103,7 @@ describe('runPreToolUseCommand', () => {
       requiresConfirmation: false,
     });
 
-    const result = runPreToolUseCommand({
+    const result = await runPreToolUseCommand({
       projectId: 'proj-123',
       agentId: 'claude-code',
       input: {
@@ -99,6 +112,7 @@ describe('runPreToolUseCommand', () => {
         tool_name: 'Write',
         tool_input: { file_path: '/path/to/file.ts', content: 'code' },
       },
+      config: { injectContext: false }, // Disable injection for verification tests
     });
 
     expect(result.exitCode).toBe(0);
@@ -115,7 +129,7 @@ describe('runPreToolUseCommand', () => {
     );
   });
 
-  it('should return exit code 2 with violations when action is blocked', () => {
+  it('should return exit code 2 with violations when action is blocked', async () => {
     vi.mocked(verifyAction).mockReturnValue({
       allowed: false,
       blocked: true,
@@ -131,19 +145,20 @@ describe('runPreToolUseCommand', () => {
       requiresConfirmation: false,
     });
 
-    const result = runPreToolUseCommand({
+    const result = await runPreToolUseCommand({
       input: {
         session_id: 'sess-123',
         tool_name: 'Write',
         tool_input: { file_path: '/path/secrets.ts' },
       },
+      config: { injectContext: false },
     });
 
     expect(result.exitCode).toBe(2);
     expect(result.stderr).toContain('Contains secret');
   });
 
-  it('should use default message when no violation messages', () => {
+  it('should use default message when no violation messages', async () => {
     vi.mocked(verifyAction).mockReturnValue({
       allowed: false,
       blocked: true,
@@ -152,15 +167,16 @@ describe('runPreToolUseCommand', () => {
       requiresConfirmation: false,
     });
 
-    const result = runPreToolUseCommand({
+    const result = await runPreToolUseCommand({
       input: { tool_name: 'Bash', tool_input: { command: 'rm -rf /' } },
+      config: { injectContext: false },
     });
 
     expect(result.exitCode).toBe(2);
     expect(result.stderr).toContain('Blocked by critical guideline');
   });
 
-  it('should handle bash tool as command action type', () => {
+  it('should handle bash tool as command action type', async () => {
     vi.mocked(verifyAction).mockReturnValue({
       allowed: true,
       blocked: false,
@@ -169,11 +185,12 @@ describe('runPreToolUseCommand', () => {
       requiresConfirmation: false,
     });
 
-    runPreToolUseCommand({
+    await runPreToolUseCommand({
       input: {
         tool_name: 'Bash',
         tool_input: { command: 'npm install' },
       },
+      config: { injectContext: false },
     });
 
     expect(verifyAction).toHaveBeenCalledWith(
@@ -186,7 +203,7 @@ describe('runPreToolUseCommand', () => {
     );
   });
 
-  it('should handle unknown tools as other action type', () => {
+  it('should handle unknown tools as other action type', async () => {
     vi.mocked(verifyAction).mockReturnValue({
       allowed: true,
       blocked: false,
@@ -195,11 +212,12 @@ describe('runPreToolUseCommand', () => {
       requiresConfirmation: false,
     });
 
-    runPreToolUseCommand({
+    await runPreToolUseCommand({
       input: {
         tool_name: 'UnknownTool',
         tool_input: { some: 'data' },
       },
+      config: { injectContext: false },
     });
 
     expect(verifyAction).toHaveBeenCalledWith(

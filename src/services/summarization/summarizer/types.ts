@@ -140,13 +140,15 @@ export interface SummarizerConfig {
   temperature?: number;
   /** Enable batch processing optimizations */
   enableBatching?: boolean;
+  /** Reasoning effort for models with extended thinking (o1/o3, LM Studio) */
+  reasoningEffort?: 'low' | 'medium' | 'high';
 }
 
 /**
  * Default summarizer configuration
  */
 export const DEFAULT_SUMMARIZER_CONFIG: Required<
-  Omit<SummarizerConfig, 'openaiApiKey' | 'anthropicApiKey' | 'openaiBaseUrl'>
+  Omit<SummarizerConfig, 'openaiApiKey' | 'anthropicApiKey' | 'openaiBaseUrl' | 'reasoningEffort'>
 > = {
   provider: 'disabled',
   model: undefined as unknown as string, // Will be set based on provider

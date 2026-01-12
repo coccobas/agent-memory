@@ -112,6 +112,7 @@ export async function rewriteStageAsync(ctx: PipelineContext): Promise<RewriteSt
       options: {
         enableHyDE: params.enableHyDE === true,
         enableExpansion: params.enableExpansion === true,
+        enableDecomposition: params.enableDecomposition === true,
         maxExpansions: params.maxExpansions as number | undefined,
       },
     });

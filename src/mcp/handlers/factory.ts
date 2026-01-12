@@ -358,6 +358,15 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
         }
       }
 
+      // Emit entry changed event (cache listens for these)
+      context.unifiedAdapters?.event.emit({
+        entryType: config.entryType,
+        entryId: entry.id,
+        scopeType,
+        scopeId: scopeId ?? null,
+        action: 'create',
+      });
+
       // Log audit
       logAction(
         {
@@ -617,6 +626,15 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
         throw createNotFoundError(config.entryType, id);
       }
 
+      // Emit entry changed event (cache listens for these)
+      context.unifiedAdapters?.event.emit({
+        entryType: config.entryType,
+        entryId: id,
+        scopeType: existingEntry.scopeType,
+        scopeId: existingEntry.scopeId ?? null,
+        action: 'deactivate',
+      });
+
       // Log audit
       logAction(
         {
@@ -864,6 +882,36 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
       // Await all promises (already resolved since SQLite is sync)
       const results = await Promise.all(promises);
 
+      // Emit events after transaction completes successfully
+      for (const result of results) {
+        if (result) {
+          context.unifiedAdapters?.event.emit({
+            entryType: config.entryType,
+            entryId: result.id,
+            scopeType: result.scopeType,
+            scopeId: result.scopeId ?? null,
+            action: 'create', // bulk_add creates or updates, emit as create for cache invalidation
+          });
+        }
+      }
+
+      // Log audit for each entry
+      for (const result of results) {
+        if (result) {
+          logAction(
+            {
+              agentId,
+              action: 'create',
+              entryType: config.entryType,
+              entryId: result.id,
+              scopeType: result.scopeType,
+              scopeId: result.scopeId ?? null,
+            },
+            context.db
+          );
+        }
+      }
+
       // Log deduplication activity
       if (updatedCount > 0) {
         logger.info(
@@ -1017,6 +1065,21 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
         });
       }
 
+      // Log audit for each entry
+      for (const result of results) {
+        logAction(
+          {
+            agentId,
+            action: 'update',
+            entryType: config.entryType,
+            entryId: result.id,
+            scopeType: result.scopeType,
+            scopeId: result.scopeId ?? null,
+          },
+          context.db
+        );
+      }
+
       return formatTimestamps({
         success: true,
         [config.responseListKey]: results,
@@ -1100,6 +1163,38 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
 
       // Await all promises (already resolved since SQLite is sync)
       const results = await Promise.all(promises);
+
+      // Emit events after transaction completes successfully
+      for (const id of ids) {
+        const entry = entriesMap.get(id);
+        if (entry) {
+          context.unifiedAdapters?.event.emit({
+            entryType: config.entryType,
+            entryId: id,
+            scopeType: entry.scopeType,
+            scopeId: entry.scopeId ?? null,
+            action: 'deactivate',
+          });
+        }
+      }
+
+      // Log audit for each entry
+      for (const id of ids) {
+        const entry = entriesMap.get(id);
+        if (entry) {
+          logAction(
+            {
+              agentId,
+              action: 'delete',
+              entryType: config.entryType,
+              entryId: id,
+              scopeType: entry.scopeType,
+              scopeId: entry.scopeId ?? null,
+            },
+            context.db
+          );
+        }
+      }
 
       return formatTimestamps({ success: true, deleted: results, count: results.length });
     },

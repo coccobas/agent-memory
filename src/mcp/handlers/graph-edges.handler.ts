@@ -11,7 +11,8 @@ import {
   isString,
   isNumber,
 } from '../../utils/type-guards.js';
-import { createValidationError, createNotFoundError } from '../../core/errors.js';
+import { createValidationError, createNotFoundError, createPermissionError } from '../../core/errors.js';
+import { logAction } from '../../services/audit.service.js';
 import type { GraphTraversalOptions } from '../../db/schema/types.js';
 
 // Type guard for objects
@@ -27,6 +28,30 @@ function isStringArray(value: unknown): value is string[] {
 // Type guard for edge direction
 function isEdgeDirection(value: unknown): value is 'out' | 'in' | 'both' {
   return value === 'out' || value === 'in' || value === 'both';
+}
+
+/**
+ * Check permission for graph operations
+ * Graph operations use 'knowledge' entry type as they are knowledge-graph related
+ */
+function requireGraphPermission(
+  context: AppContext,
+  agentId: string | undefined,
+  permission: 'read' | 'write' | 'delete'
+): void {
+  // Graph edges are global scope - use knowledge entry type for permission checking
+  const hasPermission = context.services!.permission.check(
+    agentId,
+    permission,
+    'knowledge', // Graph operations are knowledge-related
+    null,
+    'global',
+    null
+  );
+
+  if (!hasPermission) {
+    throw createPermissionError(permission, 'graph_edge');
+  }
 }
 
 /**
@@ -53,12 +78,16 @@ export const graphEdgeHandlers = {
   async add(context: AppContext, params: Record<string, unknown>) {
     const { edgeRepo } = ensureGraphRepos(context);
 
+    const agentId = getRequiredParam(params, 'agentId', isString);
     const edgeTypeName = getRequiredParam(params, 'edgeTypeName', isString);
     const sourceId = getRequiredParam(params, 'sourceId', isString);
     const targetId = getRequiredParam(params, 'targetId', isString);
     const properties = getOptionalParam(params, 'properties', isObject);
     const weight = getOptionalParam(params, 'weight', isNumber);
     const createdBy = getOptionalParam(params, 'createdBy', isString);
+
+    // Check permission
+    requireGraphPermission(context, agentId, 'write');
 
     const edge = await edgeRepo.create({
       edgeTypeName,
@@ -69,6 +98,19 @@ export const graphEdgeHandlers = {
       createdBy,
     });
 
+    // Log audit
+    logAction(
+      {
+        agentId,
+        action: 'create',
+        entryType: 'graph_edge' as const,
+        entryId: edge.id,
+        scopeType: 'global',
+        scopeId: null,
+      },
+      context.db
+    );
+
     return { success: true, edge };
   },
 
@@ -78,7 +120,11 @@ export const graphEdgeHandlers = {
   async get(context: AppContext, params: Record<string, unknown>) {
     const { edgeRepo } = ensureGraphRepos(context);
 
+    const agentId = getOptionalParam(params, 'agentId', isString);
     const id = getRequiredParam(params, 'id', isString);
+
+    // Check permission
+    requireGraphPermission(context, agentId, 'read');
 
     const edge = await edgeRepo.getById(id);
     if (!edge) {
@@ -94,11 +140,15 @@ export const graphEdgeHandlers = {
   async list(context: AppContext, params: Record<string, unknown>) {
     const { edgeRepo } = ensureGraphRepos(context);
 
+    const agentId = getOptionalParam(params, 'agentId', isString);
     const edgeTypeName = getOptionalParam(params, 'edgeTypeName', isString);
     const sourceId = getOptionalParam(params, 'sourceId', isString);
     const targetId = getOptionalParam(params, 'targetId', isString);
     const limit = getOptionalParam(params, 'limit', isNumber) ?? 20;
     const offset = getOptionalParam(params, 'offset', isNumber) ?? 0;
+
+    // Check permission
+    requireGraphPermission(context, agentId, 'read');
 
     const edges = await edgeRepo.list(
       { edgeTypeName, sourceId, targetId },
@@ -121,15 +171,32 @@ export const graphEdgeHandlers = {
   async update(context: AppContext, params: Record<string, unknown>) {
     const { edgeRepo } = ensureGraphRepos(context);
 
+    const agentId = getRequiredParam(params, 'agentId', isString);
     const id = getRequiredParam(params, 'id', isString);
     const properties = getOptionalParam(params, 'properties', isObject);
     const weight = getOptionalParam(params, 'weight', isNumber);
+
+    // Check permission
+    requireGraphPermission(context, agentId, 'write');
 
     const edge = await edgeRepo.update(id, { properties, weight });
 
     if (!edge) {
       throw createNotFoundError('edge', id);
     }
+
+    // Log audit
+    logAction(
+      {
+        agentId,
+        action: 'update',
+        entryType: 'graph_edge' as const,
+        entryId: id,
+        scopeType: 'global',
+        scopeId: null,
+      },
+      context.db
+    );
 
     return { success: true, edge };
   },
@@ -140,12 +207,29 @@ export const graphEdgeHandlers = {
   async delete(context: AppContext, params: Record<string, unknown>) {
     const { edgeRepo } = ensureGraphRepos(context);
 
+    const agentId = getRequiredParam(params, 'agentId', isString);
     const id = getRequiredParam(params, 'id', isString);
+
+    // Check permission
+    requireGraphPermission(context, agentId, 'write');
 
     const success = await edgeRepo.delete(id);
     if (!success) {
       throw createNotFoundError('edge', id);
     }
+
+    // Log audit
+    logAction(
+      {
+        agentId,
+        action: 'delete',
+        entryType: 'graph_edge' as const,
+        entryId: id,
+        scopeType: 'global',
+        scopeId: null,
+      },
+      context.db
+    );
 
     return { success };
   },
@@ -156,11 +240,15 @@ export const graphEdgeHandlers = {
   async neighbors(context: AppContext, params: Record<string, unknown>) {
     const { edgeRepo } = ensureGraphRepos(context);
 
+    const agentId = getOptionalParam(params, 'agentId', isString);
     const nodeId = getRequiredParam(params, 'nodeId', isString);
     const edgeTypes = getOptionalParam(params, 'edgeTypes', isStringArray);
     const direction = getOptionalParam(params, 'direction', isEdgeDirection);
     const nodeTypeFilter = getOptionalParam(params, 'nodeTypeFilter', isStringArray);
     const limit = getOptionalParam(params, 'limit', isNumber);
+
+    // Check permission
+    requireGraphPermission(context, agentId, 'read');
 
     const options: GraphTraversalOptions = {
       edgeTypes,
@@ -185,12 +273,16 @@ export const graphEdgeHandlers = {
   async traverse(context: AppContext, params: Record<string, unknown>) {
     const { edgeRepo } = ensureGraphRepos(context);
 
+    const agentId = getOptionalParam(params, 'agentId', isString);
     const startNodeId = getRequiredParam(params, 'startNodeId', isString);
     const edgeTypes = getOptionalParam(params, 'edgeTypes', isStringArray);
     const direction = getOptionalParam(params, 'direction', isEdgeDirection);
     const maxDepth = getOptionalParam(params, 'maxDepth', isNumber);
     const nodeTypeFilter = getOptionalParam(params, 'nodeTypeFilter', isStringArray);
     const limit = getOptionalParam(params, 'limit', isNumber);
+
+    // Check permission
+    requireGraphPermission(context, agentId, 'read');
 
     const options: GraphTraversalOptions = {
       edgeTypes,
@@ -217,9 +309,13 @@ export const graphEdgeHandlers = {
   async paths(context: AppContext, params: Record<string, unknown>) {
     const { edgeRepo } = ensureGraphRepos(context);
 
+    const agentId = getOptionalParam(params, 'agentId', isString);
     const startNodeId = getRequiredParam(params, 'startNodeId', isString);
     const endNodeId = getRequiredParam(params, 'endNodeId', isString);
     const maxDepth = getOptionalParam(params, 'maxDepth', isNumber);
+
+    // Check permission
+    requireGraphPermission(context, agentId, 'read');
 
     const paths = await edgeRepo.findPaths(startNodeId, endNodeId, maxDepth);
 

@@ -14,12 +14,12 @@
  *
  * Options:
  *   --sessions N      Number of sessions to run (default: 1)
- *   --dialogues N     Limit dialogues per session (for quick testing)
+ *   --dialogues N     Dialogues per session (default: 50, ~15 QA pairs)
  *   --hyde            Enable HyDE during query (default: on)
  *   --no-hyde         Disable HyDE during query
  *   --expand          Enable query expansion during query (default: on)
  *   --no-expand       Disable query expansion during query
- *   --chunk-size N    Dialogues per extraction call (default: 3)
+ *   --chunk-size N    Dialogues per extraction call (default: 1)
  *   --debug           Show detailed query results
  *   --help, -h        Show this help
  */
@@ -48,23 +48,36 @@ if (sessionsIdx >= 0 && args[sessionsIdx + 1]) {
   maxSessions = parseInt(args[sessionsIdx + 1], 10) || 1;
 }
 
-// Parse --dialogues N (limit dialogues per session for quick testing)
-let maxDialogues = Infinity;
+// Parse --dialogues N (limit dialogues per session)
+// Default: 50 dialogues gives ~15 QA pairs - good balance of speed and statistical significance
+let maxDialogues = 50;
 const dialoguesIdx = args.findIndex(a => a === '--dialogues');
 if (dialoguesIdx >= 0 && args[dialoguesIdx + 1]) {
-  maxDialogues = parseInt(args[dialoguesIdx + 1], 10) || Infinity;
+  maxDialogues = parseInt(args[dialoguesIdx + 1], 10) || 50;
 }
 
 // Parse --chunk-size N (dialogues per extraction call)
-let chunkSize = 3;
+// Default: 1 dialogue per extraction for precise entry-to-dialogue mapping (63.9% MRR vs 29.7% at chunk-size=8)
+let chunkSize = 1;
 const chunkSizeIdx = args.findIndex(a => a === '--chunk-size');
 if (chunkSizeIdx >= 0 && args[chunkSizeIdx + 1]) {
-  chunkSize = parseInt(args[chunkSizeIdx + 1], 10) || 3;
+  chunkSize = parseInt(args[chunkSizeIdx + 1], 10) || 1;
+}
+
+// Parse --overlap N (dialogues to overlap between chunks for context continuity)
+// Default: 0 overlap with chunk-size=1 (each dialogue extracted independently)
+let chunkOverlap = 0;
+const overlapIdx = args.findIndex(a => a === '--overlap');
+if (overlapIdx >= 0 && args[overlapIdx + 1]) {
+  chunkOverlap = parseInt(args[overlapIdx + 1], 10) || 0;
 }
 
 // Parse HyDE/expansion flags (default on)
 const hydeEnabled = hasFlag('--no-hyde') ? false : true;
 const expansionEnabled = hasFlag('--no-expand') ? false : true;
+
+// Parse --raw flag (bypass LLM extraction, ingest dialogues directly)
+const rawIngestionMode = hasFlag('--raw');
 
 if (showHelp) {
   console.log(`
@@ -80,12 +93,14 @@ Usage: npx tsx tests/benchmarks/run-locomo-production.ts [options]
 
 Options:
   --sessions N      Number of sessions to run (default: 1)
-  --dialogues N     Limit dialogues per session (for quick testing)
+  --dialogues N     Dialogues per session (default: 50, ~15 QA pairs)
   --hyde            Enable HyDE during query (default: on)
   --no-hyde         Disable HyDE during query
   --expand          Enable query expansion during query (default: on)
   --no-expand       Disable query expansion during query
-  --chunk-size N    Dialogues per extraction call (default: 3)
+  --chunk-size N    Dialogues per extraction call (default: 1)
+  --overlap N       Dialogues to overlap between chunks (default: 0)
+  --raw             Bypass LLM extraction, ingest raw dialogues directly (for testing retrieval)
   --debug           Show detailed query results
   --help, -h        Show this help
 
@@ -101,14 +116,14 @@ Examples:
 
 const LOCOMO_VECTOR_PATH = './data/benchmark/locomo-production-vectors.lance';
 
-// Enable embeddings and rerank in config
-process.env.AGENT_MEMORY_RERANK_ENABLED = 'true';
-process.env.AGENT_MEMORY_RERANK_TOP_K = '20';
-process.env.AGENT_MEMORY_RERANK_ALPHA = '0.7';
-// Query rewrite features (controlled by CLI flags)
+// Enable embeddings and rerank in config (use env vars with fallbacks)
+process.env.AGENT_MEMORY_RERANK_ENABLED = process.env.AGENT_MEMORY_RERANK_ENABLED ?? 'true';
+process.env.AGENT_MEMORY_RERANK_TOP_K = process.env.AGENT_MEMORY_RERANK_TOP_K ?? '20';
+process.env.AGENT_MEMORY_RERANK_ALPHA = process.env.AGENT_MEMORY_RERANK_ALPHA ?? '0.7';
+// Query rewrite features (controlled by CLI flags, but respect env overrides)
 process.env.AGENT_MEMORY_QUERY_REWRITE_ENABLED = String(hydeEnabled || expansionEnabled);
 process.env.AGENT_MEMORY_HYDE_ENABLED = String(hydeEnabled);
-process.env.AGENT_MEMORY_HYDE_DOCUMENT_COUNT = '1';
+process.env.AGENT_MEMORY_HYDE_DOCUMENT_COUNT = process.env.AGENT_MEMORY_HYDE_DOCUMENT_COUNT ?? '1';
 process.env.AGENT_MEMORY_QUERY_EXPANSION_ENABLED = String(expansionEnabled);
 // Isolate vectors per benchmark run to avoid cross-run dimension conflicts.
 process.env.AGENT_MEMORY_VECTOR_DB_PATH = LOCOMO_VECTOR_PATH;
@@ -128,7 +143,7 @@ const { wireContext } = await import('../../src/core/factory/context-wiring.js')
 const { registerContext, resetContainer } = await import('../../src/core/container.js');
 const { executeQueryPipelineAsync, createDependencies } = await import('../../src/services/query/index.js');
 const { extract: observeExtract } = await import('../../src/mcp/handlers/observe/extract.handler.js');
-const { getEmbeddingQueueStats } = await import('../../src/db/repositories/embedding-hooks.js');
+const { getEmbeddingQueueStats, generateEmbeddingAsync } = await import('../../src/db/repositories/embedding-hooks.js');
 const { LRUCache } = await import('../../src/utils/lru-cache.js');
 const pino = (await import('pino')).default;
 const { rm } = await import('node:fs/promises');
@@ -247,9 +262,10 @@ async function ingestWithProductionExtraction(
 ): Promise<Map<string, string[]>> {
   const entryIdToDiaIds = new Map<string, string[]>();
 
-  // Chunk dialogues into groups for extraction
+  // Chunk dialogues into groups for extraction with overlap for context continuity
   const chunks: LoCoMoDialogue[][] = [];
-  for (let i = 0; i < dialogues.length; i += chunkSize) {
+  const step = Math.max(1, chunkSize - chunkOverlap);
+  for (let i = 0; i < dialogues.length; i += step) {
     chunks.push(dialogues.slice(i, i + chunkSize));
   }
 
@@ -270,13 +286,21 @@ async function ingestWithProductionExtraction(
         scopeType,
         scopeId,
         autoStore: true,
-        focusAreas: ['facts', 'decisions'],
+        focusAreas: ['facts', 'decisions', 'events', 'preferences', 'relationships'],
         agentId: 'locomo-bench',
       });
 
       const diaIds = chunk.map(d => d.dia_id);
       const storedEntries = res.stored?.entries ?? [];
       const storedEntities = res.stored?.entities ?? [];
+
+      // Debug: log extraction details
+      if (debugMode) {
+        const totalExtracted = res.meta?.totalExtracted ?? 0;
+        const aboveThreshold = res.meta?.aboveThreshold ?? 0;
+        const duplicates = res.meta?.duplicatesFound ?? 0;
+        console.log(`    Chunk: extracted=${totalExtracted} aboveThreshold=${aboveThreshold} duplicates=${duplicates} stored=${storedEntries.length + storedEntities.length}`);
+      }
 
       for (const stored of [...storedEntries, ...storedEntities]) {
         entryIdToDiaIds.set(stored.id, diaIds);
@@ -309,6 +333,79 @@ async function ingestWithProductionExtraction(
 }
 
 // =============================================================================
+// RAW INGESTION (bypass LLM extraction for baseline testing)
+// =============================================================================
+
+async function ingestRawDialogues(
+  ctx: AppContext,
+  dialogues: LoCoMoDialogue[],
+  scopeType: 'project' | 'session',
+  scopeId: string,
+  db: ReturnType<typeof drizzle>
+): Promise<Map<string, string[]>> {
+  const entryIdToDiaIds = new Map<string, string[]>();
+
+  for (const dialogue of dialogues) {
+    const entryId = generateId();
+    const versionId = generateId();
+
+    // Insert knowledge entry
+    db.insert(schema.knowledge).values({
+      id: entryId,
+      scopeType,
+      scopeId,
+      title: `${dialogue.speaker}: ${dialogue.dia_id}`,
+      category: 'fact',
+      currentVersionId: versionId,
+      isActive: true,
+      createdBy: 'locomo-bench-raw',
+    }).run();
+
+    // Insert version with dialogue content
+    db.insert(schema.knowledgeVersions).values({
+      id: versionId,
+      knowledgeId: entryId,
+      versionNum: 1,
+      content: dialogue.text,
+      source: 'locomo-dialogue',
+      confidence: 1.0,
+      createdBy: 'locomo-bench-raw',
+    }).run();
+
+    // 1:1 mapping - each entry maps to exactly one dialogue ID
+    entryIdToDiaIds.set(entryId, [dialogue.dia_id]);
+
+    // Manually queue embedding (bypassing repository hooks)
+    generateEmbeddingAsync({
+      entryType: 'knowledge',
+      entryId,
+      versionId,
+      content: dialogue.text,
+      title: `${dialogue.speaker}: ${dialogue.dia_id}`,
+    });
+  }
+
+  // Wait for embedding queue to drain
+  // Wait for async embedding hooks to finish
+  const waitStart = Date.now();
+  const timeoutMs = 10 * 60 * 1000; // 10 minutes
+  while (Date.now() - waitStart < timeoutMs) {
+    const stats = getEmbeddingQueueStats();
+    if (stats.pending === 0 && stats.inFlight === 0) break;
+    if (debugMode) {
+      process.stdout.write(
+        `  Waiting for embeddings... pending=${stats.pending} inFlight=${stats.inFlight}\r`
+      );
+    }
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  if (debugMode) process.stdout.write('\n');
+
+  console.log(`  Ingested ${dialogues.length} raw dialogues (1:1 mapping)`);
+  return entryIdToDiaIds;
+}
+
+// =============================================================================
 // QUERY FUNCTION
 // =============================================================================
 
@@ -325,6 +422,7 @@ function createProductionQueryFunction(
   // instead of using the global getDb() from connection.ts
   const pipelineDeps = createDependencies({
     getDb: () => db as unknown as ReturnType<typeof drizzle>,
+    getSqlite: () => sqlite,
     getPreparedStatement: (sql: string) => sqlite.prepare(sql),
     cache: queryCache as typeof queryCache,
     perfLog: debugMode,
@@ -355,7 +453,7 @@ function createProductionQueryFunction(
         search: question,
         scope: { type: 'session' as const, id: sessionId, inherit: true },
         types: ['knowledge'],
-        limit: 20,
+        limit: 40,
         useFts5: true,
         semanticSearch: true,
         // Enable HyDE for better semantic matching
@@ -398,7 +496,8 @@ async function runProductionBenchmark() {
     console.log(`Dialogues limit: ${maxDialogues} per session`);
   }
   console.log(`Query rewrite: hyde=${hydeEnabled} expansion=${expansionEnabled}`);
-  console.log(`Ingestion: chunkSize=${chunkSize}`);
+  console.log(`Ingestion: chunkSize=${chunkSize}, overlap=${chunkOverlap}`);
+  console.log(`Retrieval: limit=40`);
   console.log('========================================\n');
 
   // Load dataset
@@ -453,13 +552,10 @@ async function runProductionBenchmark() {
         metadata: { source: 'locomo-benchmark' },
       });
 
-      // Ingest dialogues using production extraction
-      const entryIdToDiaIds = await ingestWithProductionExtraction(
-        ctx,
-        session.dialogues,
-        'session',
-        session.sessionId
-      );
+      // Ingest dialogues - either via LLM extraction or raw ingestion
+      const entryIdToDiaIds = rawIngestionMode
+        ? await ingestRawDialogues(ctx, session.dialogues, 'session', session.sessionId, db)
+        : await ingestWithProductionExtraction(ctx, session.dialogues, 'session', session.sessionId);
 
       // Create production query function (with local db for pipeline)
       const queryFn = createProductionQueryFunction(ctx, session.sessionId, sqlite, db);
@@ -520,4 +616,9 @@ async function runProductionBenchmark() {
 // MAIN
 // =============================================================================
 
-runProductionBenchmark().catch(console.error);
+runProductionBenchmark()
+  .then(() => process.exit(0))
+  .catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });

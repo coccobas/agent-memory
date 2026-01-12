@@ -367,6 +367,8 @@ export class LLMSummarizer {
           response_format: { type: 'json_object' },
           temperature: this.config.temperature,
           max_tokens: this.config.maxTokens,
+          // reasoning_effort for models with extended thinking
+          ...(this.config.reasoningEffort ? { reasoning_effort: this.config.reasoningEffort } : {}),
         });
 
         const content = response.choices[0]?.message?.content;

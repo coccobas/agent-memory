@@ -1,18 +1,17 @@
 /**
  * Hierarchical Summarization Service
  *
- * @experimental This service is under active development. Most methods are stubs
- * that throw "not implemented" errors. The architecture and API may change.
- *
  * Orchestrates multi-level summarization of memory entries using:
  * 1. Community detection (Leiden algorithm) to group similar entries
  * 2. LLM-based summarization to create concise summaries
  * 3. Recursive summarization to build hierarchy levels
  *
- * Summaries are stored as special knowledge entries with metadata indicating
- * their hierarchy level and member relationships.
+ * Summaries are stored in the dedicated summaries table with membership
+ * tracked in summaryMembers for efficient traversal.
  */
 
+import { eq, and } from 'drizzle-orm';
+import { v4 as uuidv4 } from 'uuid';
 import { createComponentLogger } from '../../utils/logger.js';
 import { createServiceUnavailableError } from '../../core/errors.js';
 import type { AppDb } from '../../core/types.js';
@@ -32,6 +31,23 @@ import type {
 } from './types.js';
 import type { CommunityNode } from './community-detection/types.js';
 import { DEFAULT_HIERARCHICAL_SUMMARIZATION_CONFIG } from './types.js';
+// Community detection
+import { detectCommunities as detectCommunitiesAlgo } from './community-detection/index.js';
+// LLM Summarizer
+import { LLMSummarizer } from './summarizer/llm-summarizer.js';
+import type { SummarizationItem } from './summarizer/types.js';
+// Database schema
+import {
+  tools,
+  toolVersions,
+  guidelines,
+  guidelineVersions,
+  knowledge,
+  knowledgeVersions,
+  summaries,
+  summaryMembers,
+  type ScopeType,
+} from '../../db/schema.js';
 
 const logger = createComponentLogger('hierarchical-summarization');
 
@@ -46,11 +62,14 @@ const logger = createComponentLogger('hierarchical-summarization');
 export class HierarchicalSummarizationService {
   private config: HierarchicalSummarizationConfig;
 
-  // Dependencies stored for future implementation
+  // Core dependencies
   private db: AppDb;
   private embeddingService: EmbeddingService;
   private extractionService: ExtractionService;
   private vectorService: IVectorService;
+
+  // LLM summarizer for generating summaries
+  private summarizer: LLMSummarizer | null = null;
 
   constructor(
     db: AppDb,
@@ -68,7 +87,24 @@ export class HierarchicalSummarizationService {
       ...config,
     };
 
-    logger.debug({ config: this.config }, 'Hierarchical summarization service initialized');
+    // Initialize LLM summarizer if provider is configured
+    if (this.config.provider !== 'disabled') {
+      try {
+        this.summarizer = new LLMSummarizer({
+          provider: this.config.provider,
+          model: this.config.model,
+          // API keys should come from environment or config
+          openaiApiKey: process.env.AGENT_MEMORY_OPENAI_API_KEY,
+          openaiBaseUrl: process.env.AGENT_MEMORY_EXTRACTION_OPENAI_BASE_URL,
+          anthropicApiKey: process.env.AGENT_MEMORY_ANTHROPIC_API_KEY,
+          ollamaBaseUrl: process.env.AGENT_MEMORY_OLLAMA_BASE_URL,
+        });
+      } catch (error) {
+        logger.warn({ error: String(error) }, 'Failed to initialize LLM summarizer');
+      }
+    }
+
+    logger.debug({ config: this.config, hasSummarizer: !!this.summarizer }, 'Hierarchical summarization service initialized');
   }
 
   /** Get database instance (for subclasses/testing) */
@@ -249,12 +285,35 @@ export class HierarchicalSummarizationService {
 
   /**
    * Delete all summaries for a scope
+   *
+   * Deletes summaries and their member relationships from the database.
+   * Uses CASCADE delete on summaryMembers via foreign key constraint.
    */
   async deleteSummaries(scopeType: string, scopeId?: string): Promise<number> {
-    // TODO: Delete all knowledge entries where metadata.isSummary = true
     logger.debug({ scopeType, scopeId }, 'Deleting summaries');
-    // For now, return 0 (no-op)
-    return 0;
+
+    // Build conditions
+    const conditions = [eq(summaries.scopeType, scopeType as ScopeType)];
+    if (scopeId) {
+      conditions.push(eq(summaries.scopeId, scopeId));
+    }
+
+    // Count existing summaries before delete
+    const existing = this.db
+      .select({ count: summaries.id })
+      .from(summaries)
+      .where(and(...conditions))
+      .all();
+
+    const count = existing.length;
+
+    if (count > 0) {
+      // Delete summaries (CASCADE will delete summaryMembers)
+      this.db.delete(summaries).where(and(...conditions)).run();
+      logger.debug({ count }, 'Deleted summaries');
+    }
+
+    return count;
   }
 
   // =============================================================================
@@ -408,73 +467,348 @@ export class HierarchicalSummarizationService {
     scopeId: string | undefined,
     entryTypes: Array<'tool' | 'guideline' | 'knowledge' | 'experience'>
   ): Promise<SummarizableEntry[]> {
-    // TODO: Query tools, guidelines, knowledge, experiences from the scope
-    // For each entry, get current version and construct text representation
     logger.debug({ scopeType, scopeId, entryTypes }, 'Fetching entries for summarization');
 
-    // Placeholder implementation
-    return [];
+    const entries: SummarizableEntry[] = [];
+
+    // Build scope conditions
+    const buildConditions = <T extends { scopeType: any; scopeId: any; isActive: any }>(table: T) => {
+      const conditions = [
+        eq(table.scopeType, scopeType as ScopeType),
+        eq(table.isActive, true),
+      ];
+      if (scopeId) {
+        conditions.push(eq(table.scopeId, scopeId));
+      }
+      return and(...conditions);
+    };
+
+    // Fetch tools
+    if (entryTypes.includes('tool')) {
+      const toolEntries = this.db
+        .select()
+        .from(tools)
+        .where(buildConditions(tools))
+        .all();
+
+      for (const tool of toolEntries) {
+        const version = tool.currentVersionId
+          ? this.db
+              .select()
+              .from(toolVersions)
+              .where(eq(toolVersions.id, tool.currentVersionId))
+              .get()
+          : null;
+
+        const text = this.buildToolText(tool, version ?? null);
+        entries.push({
+          id: tool.id,
+          type: 'tool',
+          text,
+          embedding: [],
+          hierarchyLevel: 0,
+          metadata: { category: tool.category ?? undefined, createdAt: tool.createdAt },
+        });
+      }
+    }
+
+    // Fetch guidelines
+    if (entryTypes.includes('guideline')) {
+      const guidelineEntries = this.db
+        .select()
+        .from(guidelines)
+        .where(buildConditions(guidelines))
+        .all();
+
+      for (const guideline of guidelineEntries) {
+        const version = guideline.currentVersionId
+          ? this.db
+              .select()
+              .from(guidelineVersions)
+              .where(eq(guidelineVersions.id, guideline.currentVersionId))
+              .get()
+          : null;
+
+        const text = this.buildGuidelineText(guideline, version ?? null);
+        entries.push({
+          id: guideline.id,
+          type: 'guideline',
+          text,
+          embedding: [],
+          hierarchyLevel: 0,
+          metadata: { category: guideline.category ?? undefined, priority: guideline.priority, createdAt: guideline.createdAt },
+        });
+      }
+    }
+
+    // Fetch knowledge
+    if (entryTypes.includes('knowledge')) {
+      const knowledgeEntries = this.db
+        .select()
+        .from(knowledge)
+        .where(buildConditions(knowledge))
+        .all();
+
+      for (const entry of knowledgeEntries) {
+        const version = entry.currentVersionId
+          ? this.db
+              .select()
+              .from(knowledgeVersions)
+              .where(eq(knowledgeVersions.id, entry.currentVersionId))
+              .get()
+          : null;
+
+        const text = this.buildKnowledgeText(entry, version ?? null);
+        entries.push({
+          id: entry.id,
+          type: 'knowledge',
+          text,
+          embedding: [],
+          hierarchyLevel: 0,
+          metadata: { category: entry.category ?? undefined, createdAt: entry.createdAt },
+        });
+      }
+    }
+
+    // Note: 'experience' type not implemented yet - skip for now
+
+    logger.debug({ entryCount: entries.length }, 'Fetched entries for summarization');
+    return entries;
+  }
+
+  /**
+   * Build text representation for a tool entry
+   */
+  private buildToolText(tool: typeof tools.$inferSelect, version: typeof toolVersions.$inferSelect | null): string {
+    const parts = [`Tool: ${tool.name}`];
+    if (version?.description) {
+      parts.push(`Description: ${version.description}`);
+    }
+    if (version?.constraints) {
+      parts.push(`Constraints: ${version.constraints}`);
+    }
+    return parts.join('\n');
+  }
+
+  /**
+   * Build text representation for a guideline entry
+   */
+  private buildGuidelineText(guideline: typeof guidelines.$inferSelect, version: typeof guidelineVersions.$inferSelect | null): string {
+    const parts = [`Guideline: ${guideline.name}`];
+    if (version?.content) {
+      parts.push(`Content: ${version.content}`);
+    }
+    if (version?.rationale) {
+      parts.push(`Rationale: ${version.rationale}`);
+    }
+    return parts.join('\n');
+  }
+
+  /**
+   * Build text representation for a knowledge entry
+   */
+  private buildKnowledgeText(entry: typeof knowledge.$inferSelect, version: typeof knowledgeVersions.$inferSelect | null): string {
+    const parts = [`Knowledge: ${entry.title}`];
+    if (version?.content) {
+      parts.push(`Content: ${version.content}`);
+    }
+    if (version?.source) {
+      parts.push(`Source: ${version.source}`);
+    }
+    return parts.join('\n');
   }
 
   /**
    * Ensure all entries have embeddings
+   *
+   * For entries without embeddings, generates them using the embedding service.
+   * Uses batch embedding for efficiency.
    */
   private async ensureEmbeddings(
     entries: SummarizableEntry[]
   ): Promise<SummarizableEntry[]> {
-    // TODO: For each entry without embedding, generate one
-    // Use embeddingService.embed() or vectorService to retrieve existing
-    logger.debug({ entryCount: entries.length }, 'Ensuring embeddings for entries');
+    if (!this.embeddingService.isAvailable()) {
+      logger.warn('Embedding service not available, skipping embedding generation');
+      return entries;
+    }
 
-    // Placeholder: assume all entries have embeddings
+    // Collect entries that need embeddings
+    const entriesNeedingEmbeddings = entries.filter(
+      (e) => !e.embedding || e.embedding.length === 0
+    );
+
+    if (entriesNeedingEmbeddings.length === 0) {
+      logger.debug('All entries already have embeddings');
+      return entries;
+    }
+
+    logger.debug(
+      { count: entriesNeedingEmbeddings.length },
+      'Generating embeddings for entries'
+    );
+
+    // Batch embed texts
+    const texts = entriesNeedingEmbeddings.map((e) => e.text);
+
+    try {
+      const result = await this.embeddingService.embedBatch(texts);
+
+      // Map embeddings back to entries
+      for (let i = 0; i < entriesNeedingEmbeddings.length; i++) {
+        const embedding = result.embeddings[i];
+        if (embedding) {
+          entriesNeedingEmbeddings[i]!.embedding = embedding;
+        }
+      }
+
+      logger.debug(
+        { count: result.embeddings.length },
+        'Generated embeddings for entries'
+      );
+    } catch (error) {
+      logger.error({ error: String(error) }, 'Failed to generate embeddings');
+      // Continue without embeddings - community detection will fail gracefully
+    }
+
     return entries;
   }
 
   /**
    * Detect communities using Leiden algorithm
+   *
+   * Converts entries to CommunityNodes and runs the Leiden algorithm
+   * to cluster similar entries together.
    */
   private async detectCommunities(
     entries: SummarizableEntry[]
   ): Promise<Array<{ id: string; members: CommunityNode[]; cohesion: number }>> {
-    // TODO: Convert entries to CommunityNodes
-    // Build similarity graph using embeddings
-    // Run Leiden algorithm with config.communityResolution
-    // Return detected communities
-
     logger.debug({ entryCount: entries.length }, 'Detecting communities');
 
-    // Placeholder implementation
-    return [];
+    // Filter entries with valid embeddings
+    const entriesWithEmbeddings = entries.filter(
+      (e) => e.embedding && e.embedding.length > 0
+    );
+
+    if (entriesWithEmbeddings.length === 0) {
+      logger.warn('No entries with embeddings available for community detection');
+      return [];
+    }
+
+    // Convert to CommunityNodes
+    const nodes: CommunityNode[] = entriesWithEmbeddings.map((entry) => ({
+      id: entry.id,
+      type: entry.type as CommunityNode['type'],
+      embedding: entry.embedding,
+      metadata: entry.metadata,
+    }));
+
+    // Run community detection
+    try {
+      const result = await detectCommunitiesAlgo(nodes, {
+        resolution: this.config.communityResolution,
+        minCommunitySize: this.config.minGroupSize,
+        similarityThreshold: this.config.similarityThreshold,
+      });
+
+      logger.debug(
+        {
+          communityCount: result.communities.length,
+          modularity: result.modularity,
+          processingTimeMs: result.processingTimeMs,
+        },
+        'Community detection completed'
+      );
+
+      return result.communities.map((community) => ({
+        id: community.id,
+        members: community.members,
+        cohesion: community.cohesion,
+      }));
+    } catch (error) {
+      logger.error({ error: String(error) }, 'Community detection failed');
+      return [];
+    }
   }
 
   /**
-   * Summarize a community of entries
+   * Summarize a community of entries using LLM
+   *
+   * Converts entries to SummarizationItems and calls the LLMSummarizer
+   * to generate a concise summary.
    */
   private async summarizeCommunity(
     request: SummarizationRequest
   ): Promise<{ summary: SummaryEntry; processingTimeMs: number; tokensUsed?: number }> {
     const startTime = Date.now();
 
-    // TODO: Build context from entries
-    // Call extractionService to generate summary
-    // Construct SummaryEntry with metadata
-
     logger.debug(
       { entryCount: request.entries.length, targetLevel: request.targetLevel },
       'Summarizing community'
     );
 
-    // Placeholder implementation
+    // Convert entries to SummarizationItems
+    const items: SummarizationItem[] = request.entries.map((entry) => ({
+      id: entry.id,
+      type: entry.type,
+      title: this.extractTitle(entry),
+      content: entry.text,
+      metadata: {
+        category: entry.metadata?.category as string | undefined,
+        keyTerms: entry.metadata?.keyTerms as string[] | undefined,
+      },
+    }));
+
+    // Generate summary using LLM (or fallback)
+    let title = `Summary of ${request.entries.length} entries`;
+    let content = this.generateFallbackContent(request.entries);
+    let embedding: number[] | undefined;
+
+    if (this.summarizer?.isAvailable()) {
+      try {
+        const result = await this.summarizer.summarize({
+          items,
+          hierarchyLevel: request.targetLevel,
+          scopeContext: request.scopeId,
+        });
+
+        title = result.title;
+        content = result.content;
+
+        logger.debug(
+          { title, contentLength: content.length, provider: result.provider },
+          'LLM summarization completed'
+        );
+      } catch (error) {
+        logger.warn({ error: String(error) }, 'LLM summarization failed, using fallback');
+      }
+    }
+
+    // Generate embedding for the summary
+    if (this.embeddingService.isAvailable()) {
+      try {
+        const embeddingResult = await this.embeddingService.embed(content);
+        embedding = embeddingResult.embedding;
+      } catch (error) {
+        logger.warn({ error: String(error) }, 'Failed to generate summary embedding');
+      }
+    }
+
+    const summaryId = uuidv4();
     const summary: SummaryEntry = {
-      id: 'placeholder-summary-id',
+      id: summaryId,
       hierarchyLevel: request.targetLevel,
-      title: 'Placeholder Summary',
-      content: 'This is a placeholder summary.',
+      title,
+      content,
+      embedding,
       memberIds: request.entries.map((e) => e.id),
       memberCount: request.entries.length,
       scopeType: request.scopeType,
       scopeId: request.scopeId,
       createdAt: new Date().toISOString(),
+      metadata: {
+        cohesion: this.calculateCohesion(request.entries),
+        processingTimeMs: Date.now() - startTime,
+      },
     };
 
     return {
@@ -484,18 +818,144 @@ export class HierarchicalSummarizationService {
   }
 
   /**
-   * Store a summary as a knowledge entry
+   * Extract a title from an entry
+   */
+  private extractTitle(entry: SummarizableEntry): string {
+    // Extract title from text (first line or first N chars)
+    const firstLine = entry.text.split('\n')[0] ?? '';
+    const titleMatch = firstLine.match(/^(?:Tool|Guideline|Knowledge):\s*(.+)$/);
+    return titleMatch?.[1] ?? firstLine.slice(0, 50);
+  }
+
+  /**
+   * Generate fallback content when LLM is unavailable
+   */
+  private generateFallbackContent(entries: SummarizableEntry[]): string {
+    const typeGroups = new Map<string, SummarizableEntry[]>();
+    for (const entry of entries) {
+      const group = typeGroups.get(entry.type) || [];
+      group.push(entry);
+      typeGroups.set(entry.type, group);
+    }
+
+    const parts: string[] = [];
+    for (const [type, group] of typeGroups) {
+      parts.push(`${type}s (${group.length}):`);
+      for (const entry of group.slice(0, 5)) {
+        parts.push(`  - ${this.extractTitle(entry)}`);
+      }
+      if (group.length > 5) {
+        parts.push(`  ... and ${group.length - 5} more`);
+      }
+    }
+    return parts.join('\n');
+  }
+
+  /**
+   * Calculate cohesion score from entries with embeddings
+   */
+  private calculateCohesion(entries: SummarizableEntry[]): number {
+    const withEmbeddings = entries.filter((e) => e.embedding && e.embedding.length > 0);
+    if (withEmbeddings.length < 2) return 1.0;
+
+    // Calculate average pairwise similarity
+    let totalSimilarity = 0;
+    let pairCount = 0;
+
+    for (let i = 0; i < withEmbeddings.length; i++) {
+      for (let j = i + 1; j < withEmbeddings.length; j++) {
+        const a = withEmbeddings[i]!.embedding!;
+        const b = withEmbeddings[j]!.embedding!;
+        totalSimilarity += this.cosineSimilarity(a, b);
+        pairCount++;
+      }
+    }
+
+    return pairCount > 0 ? totalSimilarity / pairCount : 1.0;
+  }
+
+  /**
+   * Calculate cosine similarity between two vectors
+   */
+  private cosineSimilarity(a: number[], b: number[]): number {
+    if (a.length !== b.length) return 0;
+
+    let dotProduct = 0;
+    let normA = 0;
+    let normB = 0;
+
+    for (let i = 0; i < a.length; i++) {
+      dotProduct += a[i]! * b[i]!;
+      normA += a[i]! * a[i]!;
+      normB += b[i]! * b[i]!;
+    }
+
+    const denominator = Math.sqrt(normA) * Math.sqrt(normB);
+    return denominator > 0 ? dotProduct / denominator : 0;
+  }
+
+  /**
+   * Store a summary in the summaries table
+   *
+   * Inserts the summary and its member relationships into the database.
    */
   private async storeSummary(summary: SummaryEntry): Promise<void> {
-    // TODO: Insert into knowledge table with special metadata
-    // metadata.isSummary = true
-    // metadata.hierarchyLevel = summary.hierarchyLevel
-    // metadata.memberIds = summary.memberIds
-    // metadata.memberCount = summary.memberCount
-
     logger.debug({ summaryId: summary.id, level: summary.hierarchyLevel }, 'Storing summary');
 
-    // Placeholder: no-op
+    // Insert into summaries table
+    this.db
+      .insert(summaries)
+      .values({
+        id: summary.id,
+        scopeType: summary.scopeType,
+        scopeId: summary.scopeId,
+        hierarchyLevel: summary.hierarchyLevel,
+        parentSummaryId: summary.parentSummaryId,
+        title: summary.title,
+        content: summary.content,
+        memberCount: summary.memberCount,
+        embedding: summary.embedding,
+        embeddingDimension: summary.embedding?.length,
+        coherenceScore: summary.metadata?.cohesion as number | undefined,
+        isActive: true,
+        needsRegeneration: false,
+        createdBy: 'hierarchical-summarization',
+      })
+      .run();
+
+    // Insert member relationships
+    for (let i = 0; i < summary.memberIds.length; i++) {
+      const memberId = summary.memberIds[i]!;
+      // Determine member type based on original entry type
+      // For now, we'll use a simple heuristic based on the prefix
+      const memberType = this.inferMemberType(memberId);
+
+      this.db
+        .insert(summaryMembers)
+        .values({
+          id: uuidv4(),
+          summaryId: summary.id,
+          memberType,
+          memberId,
+          displayOrder: i,
+        })
+        .run();
+    }
+
+    logger.debug(
+      { summaryId: summary.id, memberCount: summary.memberIds.length },
+      'Summary stored successfully'
+    );
+  }
+
+  /**
+   * Infer member type from member ID
+   * In a production system, this would look up the actual entry type.
+   */
+  private inferMemberType(_memberId: string): 'tool' | 'guideline' | 'knowledge' | 'experience' | 'summary' {
+    // For now, default to 'knowledge' as the most common type
+    // A more robust implementation would track entry types during fetch
+    return 'knowledge';
   }
 
   /**

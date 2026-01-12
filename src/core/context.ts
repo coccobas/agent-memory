@@ -39,7 +39,7 @@ import type { IExtractionHookService } from '../services/extraction-hook.service
  * Service interfaces for AppContext
  * Using interfaces to allow flexible implementations and testing
  */
-export type EmbeddingProvider = 'openai' | 'local' | 'disabled';
+export type EmbeddingProvider = 'openai' | 'lmstudio' | 'local' | 'disabled';
 
 export interface IEmbeddingService {
   isAvailable(): boolean;

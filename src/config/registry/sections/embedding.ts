@@ -15,8 +15,9 @@ export const embeddingSection: ConfigSectionMeta = {
     provider: {
       envKey: 'AGENT_MEMORY_EMBEDDING_PROVIDER',
       defaultValue: 'local',
-      description: 'Embedding provider: openai (requires API key), local (built-in), or disabled.',
-      schema: z.enum(['openai', 'local', 'disabled']),
+      description:
+        'Embedding provider: openai (requires API key), lmstudio (local LM Studio), local (built-in), or disabled.',
+      schema: z.enum(['openai', 'lmstudio', 'local', 'disabled']),
       // Custom parser with auto-detection based on API key
       parse: () => getEmbeddingProvider(),
     },

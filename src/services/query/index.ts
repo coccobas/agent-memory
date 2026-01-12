@@ -34,6 +34,7 @@ import { feedbackStage, feedbackStageAsync } from './stages/feedback.js';
 import { scoreStage } from './stages/score.js';
 import { formatStage } from './stages/format.js';
 import { createRerankStage } from './stages/rerank.js';
+import { createCrossEncoderStage, createOpenAICrossEncoderService } from './stages/cross-encoder-rerank.js';
 import { createHierarchicalStage, filterByHierarchicalCandidates, type HierarchicalPipelineContext } from './stages/hierarchical.js';
 import { strategyStageAsync } from './stages/strategy.js';
 import { semanticStageAsync } from './stages/semantic.js';
@@ -194,6 +195,8 @@ export function wireQueryCacheInvalidation(
 export interface QueryPipelineOptions {
   /** Get the Drizzle database instance */
   getDb: () => DbClient;
+  /** Get the raw SQLite database instance (better-sqlite3) */
+  getSqlite: () => Database.Database;
   /** Get a prepared statement (cached) */
   getPreparedStatement: (sql: string) => Database.Statement;
   /** The query result cache (owned by Runtime) */
@@ -226,7 +229,7 @@ export interface QueryPipelineOptions {
  * @returns PipelineDependencies for use with executeQueryPipeline
  */
 export function createDependencies(options: QueryPipelineOptions): PipelineDependencies {
-  const { getDb, getPreparedStatement, cache, perfLog, logger, feedback, queryRewriteService, entityIndex, embeddingService, hierarchicalRetriever, vectorService } = options;
+  const { getDb, getSqlite, getPreparedStatement, cache, perfLog, logger, feedback, queryRewriteService, entityIndex, embeddingService, hierarchicalRetriever, vectorService } = options;
 
   // Use factory-created FTS functions when custom getPreparedStatement is provided
   // This enables proper DI for benchmarks and tests
@@ -237,6 +240,7 @@ export function createDependencies(options: QueryPipelineOptions): PipelineDepen
 
   return {
     getDb,
+    getSqlite,
     getPreparedStatement,
     executeFts5Search: ftsFunctions.executeFts5Search,
     executeFts5SearchWithScores: ftsFunctions.executeFts5SearchWithScores,
@@ -599,8 +603,51 @@ export async function executeQueryPipelineAsync(
     rerankedCtx = await rerankStage(scoredCtx);
   }
 
+  // Run LLM-based cross-encoder re-ranking (if enabled)
+  // This is more accurate than bi-encoder but slower, used on smaller candidate set
+  let crossEncoderCtx = rerankedCtx;
+  const crossEncoderBaseUrl = appConfig.crossEncoder?.baseUrl ?? appConfig.extraction?.openaiBaseUrl;
+  if (appConfig.crossEncoder?.enabled && crossEncoderBaseUrl) {
+    // Use dedicated cross-encoder model if configured, otherwise fall back to extraction model
+    const crossEncoderModel = appConfig.crossEncoder.model ?? appConfig.extraction?.openaiModel;
+
+    if (deps.logger) {
+      deps.logger.debug(
+        { topK: appConfig.crossEncoder.topK, alpha: appConfig.crossEncoder.alpha, model: crossEncoderModel },
+        'cross-encoder stage starting'
+      );
+    }
+
+    const crossEncoderService = createOpenAICrossEncoderService({
+      baseUrl: crossEncoderBaseUrl,
+      model: crossEncoderModel,
+      apiKey: appConfig.extraction?.openaiApiKey,
+      temperature: appConfig.crossEncoder.temperature,
+      timeoutMs: appConfig.crossEncoder.timeoutMs,
+      // Use extraction reasoning effort for cross-encoder scoring
+      reasoningEffort: appConfig.extraction?.openaiReasoningEffort,
+    });
+
+    if (crossEncoderService.isAvailable()) {
+      const crossEncoderStage = createCrossEncoderStage({
+        llmService: crossEncoderService,
+        config: appConfig.crossEncoder,
+      });
+      crossEncoderCtx = await crossEncoderStage(rerankedCtx);
+
+      // Log if cross-encoder was applied
+      const ceCtx = crossEncoderCtx as { crossEncoder?: { applied: boolean; candidatesScored: number } };
+      if (ceCtx.crossEncoder?.applied && deps.logger) {
+        deps.logger.debug(
+          { candidatesScored: ceCtx.crossEncoder.candidatesScored },
+          'cross-encoder stage completed'
+        );
+      }
+    }
+  }
+
   // Run format stage
-  const formattedCtx = formatStage(rerankedCtx);
+  const formattedCtx = formatStage(crossEncoderCtx);
 
   const result = buildQueryResult(formattedCtx);
 

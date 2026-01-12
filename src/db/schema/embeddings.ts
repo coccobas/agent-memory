@@ -17,7 +17,7 @@ export const entryEmbeddings = sqliteTable(
     versionId: text('version_id').notNull(),
     hasEmbedding: integer('has_embedding', { mode: 'boolean' }).default(false).notNull(),
     embeddingModel: text('embedding_model'),
-    embeddingProvider: text('embedding_provider', { enum: ['openai', 'local', 'disabled'] }),
+    embeddingProvider: text('embedding_provider', { enum: ['openai', 'lmstudio', 'local', 'disabled'] }),
     createdAt: text('created_at')
       .default(sql`CURRENT_TIMESTAMP`)
       .notNull(),

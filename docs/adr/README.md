@@ -15,6 +15,19 @@ This directory contains Architecture Decision Records (ADRs) that document signi
 | [0012](./0012-mcp-descriptor-system.md) | MCP Descriptor System | Accepted | 2024-12 |
 | [0013](./0013-multi-backend-abstraction.md) | Multi-Backend Abstraction | Accepted | 2024-12 |
 | [0014](./0014-embedding-async-pattern.md) | Embedding Async Pattern | Accepted | 2024-12 |
+| [0015](./0015-scaling-strategy.md) | Scaling Strategy | Accepted | 2024-12 |
+| [0016](./0016-query-pipeline-architecture.md) | Query Pipeline Architecture | Accepted | 2026-01 |
+| [0017](./0017-unified-adapter-pattern.md) | Unified Adapter Pattern | Accepted | 2026-01 |
+| [0018](./0018-crud-handler-factory.md) | CRUD Handler Factory Pattern | Accepted | 2026-01 |
+| [0019](./0019-configuration-registry.md) | Configuration Registry System | Accepted | 2026-01 |
+| [0020](./0020-hybrid-di-container.md) | Hybrid DI Container | Accepted | 2026-01 |
+| [0021](./0021-event-driven-cache-invalidation.md) | Event-Driven Cache Invalidation | Accepted | 2026-01 |
+| [0022](./0022-embedding-queue-mechanics.md) | Embedding Queue Mechanics | Accepted | 2026-01 |
+| [0023](./0023-memory-coordinator.md) | Memory Coordinator | Accepted | 2026-01 |
+| [0024](./0024-error-sanitization.md) | Error Sanitization Strategy | Accepted | 2026-01 |
+| [0025](./0025-test-isolation-pattern.md) | Test Isolation Pattern | Accepted | 2026-01 |
+| [0026](./0026-hook-plugin-system.md) | Hook/Plugin System | Accepted | 2026-01 |
+| [0027](./0027-lru-cache-implementation.md) | LRU Cache Implementation | Accepted | 2026-01 |
 
 ## ADR Numbering
 

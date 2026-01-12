@@ -41,6 +41,7 @@ async function test() {
   const queryCache = new LRUCache<unknown>(100, 10 * 1024 * 1024);
   const pipelineDeps = createDependencies({
     getDb: () => db,
+    getSqlite: () => sqlite,
     getPreparedStatement: (sql: string) => sqlite.prepare(sql),
     cache: queryCache as any,
     perfLog: true,

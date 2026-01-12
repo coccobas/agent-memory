@@ -4,6 +4,7 @@
 
 import type { CreateRelationInput } from '../../db/repositories/tags.js';
 import type { AppContext } from '../../core/context.js';
+import { logAction } from '../../services/audit.service.js';
 import {
   getRequiredParam,
   getOptionalParam,
@@ -48,6 +49,20 @@ export const relationHandlers = {
     };
 
     const relation = await context.repos.entryRelations.create(input);
+
+    // Log audit
+    logAction(
+      {
+        agentId,
+        action: 'create',
+        entryType: 'relation' as const,
+        entryId: relation.id,
+        scopeType: 'global',
+        scopeId: null,
+      },
+      context.db
+    );
+
     return { success: true, relation };
   },
 
@@ -111,6 +126,8 @@ export const relationHandlers = {
 
     let success = false;
 
+    let deletedId: string | undefined;
+
     if (id) {
       const rel = await context.repos.entryRelations.getById(id);
       if (!rel) return { success: false };
@@ -124,6 +141,7 @@ export const relationHandlers = {
         });
       }
       success = await context.repos.entryRelations.delete(id);
+      deletedId = id;
     } else if (sourceType && sourceId && targetType && targetId && relationType) {
       await requireEntryPermission(context, {
         agentId,
@@ -138,11 +156,27 @@ export const relationHandlers = {
         targetId,
         relationType
       );
+      deletedId = `${sourceType}:${sourceId}->${targetType}:${targetId}`;
     } else {
       throw createValidationError(
         'id or (sourceType, sourceId, targetType, targetId, relationType)',
         'is required',
         'Provide either relation id or all entry identifiers'
+      );
+    }
+
+    // Log audit
+    if (success && deletedId) {
+      logAction(
+        {
+          agentId,
+          action: 'delete',
+          entryType: 'relation' as const,
+          entryId: deletedId,
+          scopeType: 'global',
+          scopeId: null,
+        },
+        context.db
       );
     }
 
