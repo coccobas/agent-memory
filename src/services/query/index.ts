@@ -306,8 +306,18 @@ function entityFilterStage(ctx: PipelineContext): PipelineContext {
   let matchCountByEntry: Map<string, number>;
   try {
     matchCountByEntry = deps.entityIndex.lookupMultiple(extractedEntities);
-  } catch {
+  } catch (error) {
     // Entity index table may not exist yet - gracefully skip entity filtering
+    if (deps.logger) {
+      deps.logger.debug(
+        {
+          error: error instanceof Error ? error.message : String(error),
+          extractedEntityCount: extractedEntities.length,
+          entityTypes: [...new Set(extractedEntities.map(e => e.type))],
+        },
+        'entity_index lookup failed - skipping entity filtering'
+      );
+    }
     return ctx;
   }
 

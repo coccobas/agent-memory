@@ -14,6 +14,7 @@
 
 import type { PipelineContext } from '../pipeline.js';
 import type { SearchStrategy } from './strategy.js';
+import { AgentMemoryError, ErrorCodes } from '../../../core/errors.js';
 
 /**
  * Extended pipeline context with semantic search results
@@ -167,12 +168,41 @@ export async function semanticStageAsync(ctx: PipelineContext): Promise<Pipeline
       queryEmbedding,
     } as SemanticStageContext;
   } catch (error) {
-    // Log error and continue without semantic search
+    // Classify error and log appropriately
     if (deps.logger) {
-      deps.logger.debug(
-        { error: error instanceof Error ? error.message : String(error) },
-        'semantic stage failed, continuing without semantic scores'
-      );
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorCode = error instanceof AgentMemoryError ? error.code : undefined;
+
+      // Expected errors (embeddings disabled) - log at debug level
+      if (errorCode === ErrorCodes.EMBEDDING_DISABLED) {
+        deps.logger.debug(
+          { error: errorMessage },
+          'semantic stage skipped: embeddings disabled'
+        );
+      }
+      // Transient errors (network, timeout) - log at warn level
+      else if (
+        errorCode === ErrorCodes.NETWORK_ERROR ||
+        errorCode === ErrorCodes.TIMEOUT ||
+        errorCode === ErrorCodes.SERVICE_UNAVAILABLE
+      ) {
+        deps.logger.warn(
+          { error: errorMessage, errorCode, retriable: true },
+          'semantic stage failed with transient error - continuing without semantic scores'
+        );
+      }
+      // Unexpected errors - log at warn level with full context
+      else {
+        deps.logger.warn(
+          {
+            error: errorMessage,
+            errorCode,
+            errorType: error?.constructor?.name,
+            search: search?.substring(0, 100), // Truncate for privacy
+          },
+          'semantic stage failed unexpectedly - continuing without semantic scores'
+        );
+      }
     }
     return ctx;
   }
