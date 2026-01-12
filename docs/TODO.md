@@ -40,7 +40,7 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 
 #### Missing Features
 - [ ] 17. **No Query Result Invalidation on Cascade Deletes** - `index.ts:178-186` doesn't handle cascading
-- [ ] 18. **Missing Limit Enforcement in FTS Scored Results** - `fts-search.ts:299` may return extra results
+- [x] 18. **Missing Limit Enforcement in FTS Scored Results** - FIXED: Added limit slicing in fallback path
 - [ ] 19. **No Support for Excluding Search Terms** - Missing `-term` syntax support
 - [ ] 20. **Missing Query Analytics** - No structured success/failure rate capture
 - [ ] 21. **No Result Diversification** - Results could all be from same scope/category
@@ -53,7 +53,7 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 - [ ] 26. **Feedback Multiplier Doesn't Account for Recency** - `feedback-cache.ts:267-285` old feedback distorts
 - [ ] 27. **Cached Feedback Has No Invalidation Trigger** - `feedback-cache.ts:130-133` no auto-invalidation
 - [ ] 28. **Post-Filter Tags Stage Has Resource Overhead** - `filter.ts:450-451` no batching optimization
-- [ ] 29. **Cross-Encoder Re-ranking Score Blending Not Configurable** - `index.ts:608-628` hardcoded alpha 0.5
+- [x] 29. **Cross-Encoder Re-ranking Score Blending Not Configurable** - VERIFIED: alpha IS configurable via AGENT_MEMORY_CROSS_ENCODER_ALPHA
 - [ ] 30. **Hierarchical Filtering May Drop Relevant Results** - `index.ts:571` doesn't re-score results
 
 #### Configuration
@@ -64,10 +64,10 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 - [ ] 35. **FTS BM25 Normalization Formula Not Documented** - `fts-search.ts:280-286` formula unclear
 
 #### Edge Cases
-- [ ] 36. **No Handling for Very Large Embeddings** - Divide-by-zero in cosineSimilarity for zero-length
-- [ ] 37. **Empty Type Array Not Validated** - `resolve.ts:26-29` uses defaults silently
-- [ ] 38. **Negative Limit Values Not Prevented** - `resolve.ts:36` Math.min with negatives unexpected
-- [ ] 39. **No Handling for Circular Relations** - Graph traversal doesn't detect cycles
+- [x] 36. **No Handling for Very Large Embeddings** - VERIFIED: cosineSimilarity handles zero-length/magnitude (returns 0.0)
+- [x] 37. **Empty Type Array Not Validated** - VERIFIED: resolve.ts:26-29 correctly falls back to DEFAULT_TYPES
+- [x] 38. **Negative Limit Values Not Prevented** - VERIFIED: resolve.ts:36 checks `> 0` before using value
+- [x] 39. **No Handling for Circular Relations** - VERIFIED: CTE uses UNION+DISTINCT, BFS uses visited Set
 - [ ] 40. **Missing Memory Pressure Handling** - Large result sets could exhaust memory
 
 #### Architecture

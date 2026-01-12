@@ -364,10 +364,15 @@ export function executeFts5SearchWithScores(
   } catch (error) {
     logger.warn({ error }, 'FTS5 scored search failed, falling back to boolean-only search');
     const matches = executeFts5Search(search, types);
-    for (const id of matches.tool) result.tool.push({ id, score: 1.0 });
-    for (const id of matches.guideline) result.guideline.push({ id, score: 1.0 });
-    for (const id of matches.knowledge) result.knowledge.push({ id, score: 1.0 });
-    for (const id of matches.experience) result.experience.push({ id, score: 1.0 });
+    // Apply limit to fallback results to match scored behavior
+    const toolIds = [...matches.tool].slice(0, limit);
+    const guidelineIds = [...matches.guideline].slice(0, limit);
+    const knowledgeIds = [...matches.knowledge].slice(0, limit);
+    const experienceIds = [...matches.experience].slice(0, limit);
+    for (const id of toolIds) result.tool.push({ id, score: 1.0 });
+    for (const id of guidelineIds) result.guideline.push({ id, score: 1.0 });
+    for (const id of knowledgeIds) result.knowledge.push({ id, score: 1.0 });
+    for (const id of experienceIds) result.experience.push({ id, score: 1.0 });
   }
 
   // Ensure best-first ordering
@@ -624,10 +629,15 @@ export function createFtsSearchFunctions(
     } catch (error) {
       logger.warn({ error }, 'FTS5 scored search failed, falling back to boolean-only search');
       const matches = executeFts5SearchWithDb(search, types);
-      for (const id of matches.tool) result.tool.push({ id, score: 1.0 });
-      for (const id of matches.guideline) result.guideline.push({ id, score: 1.0 });
-      for (const id of matches.knowledge) result.knowledge.push({ id, score: 1.0 });
-      for (const id of matches.experience) result.experience.push({ id, score: 1.0 });
+      // Apply limit to fallback results to match scored behavior
+      const toolIds = [...matches.tool].slice(0, limit);
+      const guidelineIds = [...matches.guideline].slice(0, limit);
+      const knowledgeIds = [...matches.knowledge].slice(0, limit);
+      const experienceIds = [...matches.experience].slice(0, limit);
+      for (const id of toolIds) result.tool.push({ id, score: 1.0 });
+      for (const id of guidelineIds) result.guideline.push({ id, score: 1.0 });
+      for (const id of knowledgeIds) result.knowledge.push({ id, score: 1.0 });
+      for (const id of experienceIds) result.experience.push({ id, score: 1.0 });
     }
 
     for (const type of Object.keys(result) as QueryEntryType[]) {
