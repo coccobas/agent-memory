@@ -297,7 +297,7 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 - [ ] 210. **EmbeddingQueueStats doesn't track latency percentiles** - Can't identify slow ops
 - [ ] 211. **No per-provider metrics** - Can't compare OpenAI vs LMStudio performance
 - [ ] 212. **Embedding failures logged but not queryable** - No way to find all failed entries
-- [ ] 213. **Dimension mismatch errors don't suggest remediation** - Should say "clear and re-embed"
+- [x] 213. **Dimension mismatch errors don't suggest remediation** - VERIFIED: vector.service.ts:245 includes suggestion: 'Ensure the query embedding uses the same model as stored embeddings'
 - [ ] 214. **Cache hit/miss not logged** - Can't optimize cache size
 
 #### Performance & Scaling
