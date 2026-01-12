@@ -269,8 +269,8 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 
 #### Integration Issues
 - [ ] 190. **No atomic transaction for embedding + DB metadata writes** - Inconsistency risk
-- [ ] 191. **Query embedding asymmetry not documented** - 'query' vs 'document' type difference
-- [ ] 192. **Semantic stage assumes dimensionality matching** - No dimension check before search
+- [x] 191. **Query embedding asymmetry not documented** - VERIFIED: JSDoc at lines 59-66 documents lmStudioQueryInstruction vs lmStudioDocumentInstruction
+- [x] 192. **Semantic stage assumes dimensionality matching** - VERIFIED: Dimension check is in vector.service.ts:238-253 (correct architectural layer)
 - [ ] 193. **HyDE embedding weight application is ad-hoc** - Max score without confidence
 - [ ] 194. **Batch embedding doesn't preserve original text order** - Could mismatch embeddings
 - [ ] 195. **Embedding cache not considered in query pipeline** - Could serve stale embeddings
