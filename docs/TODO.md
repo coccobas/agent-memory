@@ -154,10 +154,10 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 - [x] 99. **API Key Exposure in Logs** - VERIFIED: Pino logger has built-in redaction for apiKey, openaiApiKey, token, secret, password paths (logger.ts:62-82)
 - [x] 100. **Missing Rate Limit Handling** - VERIFIED: RateLimitError exists, 429 handled in tool-runner.ts and auth.ts
 - [ ] 101. **Timeout Values Inconsistent** - Different services use different timeouts
-- [ ] 102. **Environment Variable Parsing Issues** - `extraction.service.ts:967-970` no validation
+- [x] 102. **Environment Variable Parsing Issues** - VERIFIED: Lines 968-971 validate with isNaN check, Math.max(1000) min, fallback to 30000
 
 #### Performance
-- [ ] 103. **No Input Length Validation Before Processing** - Wastes API credits on oversized inputs
+- [x] 103. **No Input Length Validation Before Processing** - VERIFIED: Lines 780-783 check context.length > MAX_CONTEXT_LENGTH before API call
 - [ ] 104. **Regex Compilation Not Cached** - Creates new RegExp objects in loops
 - [ ] 105. **No Request Deduplication** - Identical extraction requests processed independently
 - [ ] 106. **Memory Growth in Long Sessions** - seen sets hold references forever
@@ -171,7 +171,7 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 
 #### Error Handling
 - [ ] 112. **Provider Mismatch Not Detected** - Config vs key mismatch fails late
-- [ ] 113. **Missing Network Error Classification** - Can't distinguish timeout vs connection refused
+- [x] 113. **Missing Network Error Classification** - VERIFIED: isRetryableNetworkError() classifies timeout, econnreset, econnrefused, socket hang up, 502/503/504
 - [x] 114. **No Circuit Breaker Pattern** - VERIFIED: DLQ has circuit breaker (useCircuitBreaker: true), rate-limiter has burst protection
 - [ ] 115. **Parsing Error Recovery Non-Obvious** - Inconsistent behavior on parse failure
 
