@@ -120,7 +120,7 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 - [ ] 75. **Hash-Based Duplicate Detection Weak** - `experience.module.ts:290-291` no semantic similarity
 - [ ] 76. **No Batch Experience Creation** - `experience.module.ts:224-238` creates one-by-one
 - [ ] 77. **Provider Fallback Chain Missing** - `experience.module.ts:124` no fallback providers
-- [ ] 78. **Metric Aggregation Inaccurate** - `experience.module.ts:360` Set could have duplicates
+- [x] 78. **Metric Aggregation Inaccurate** - VERIFIED: uniqueToolsUsed is Set<string> (types.ts:47, state.ts:79) - no duplicates by definition
 - [ ] 79. **Silent Failure on Transcript Format Issue** - `experience.module.ts:378-392` no validation
 - [ ] 80. **No Content Validation Before DB Write** - Experience stored without validation
 
