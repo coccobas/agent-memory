@@ -91,13 +91,13 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 - [ ] 52. **SSRF Validation Incomplete** - `extraction.service.ts:85-90` IPv6 zone IDs not handled
 - [ ] 53. **No Rate Limiting Between Requests** - No internal throttling for API calls
 - [ ] 54. **Provider State Tracking Issue** - `extraction.service.ts:647` module-level state shared
-- [ ] 55. **Missing Temperature Validation** - `extraction.service.ts:879` no range check 0-2
+- [x] 55. **Missing Temperature Validation** - VERIFIED: Config schema validates with z.number().min(0).max(2)
 - [ ] 56. **Timeout Not Cancellable** - `extraction.service.ts:752` timeout promise memory leak
 - [ ] 57. **Missing Ollama Response Validation** - `extraction.service.ts:1005` no schema validation
 - [ ] 58. **Parsing Fallback Is Silent** - `extraction.service.ts:1102-1106` can't distinguish parse error
 
 #### Extraction Hook Service
-- [ ] 59. **Regex State Management Vulnerability** - `extraction-hook.service.ts:247` global regex `.lastIndex` issue
+- [x] 59. **Regex State Management Vulnerability** - VERIFIED: Line 247 correctly resets lastIndex = 0 before each pattern
 - [ ] 60. **Hash Collision Vulnerability** - `extraction-hook.service.ts:312-320` uses weak JavaScript hash
 - [ ] 61. **Hardcoded Confidence Thresholds** - Pattern confidence values hardcoded
 - [ ] 62. **No Max Pattern Match Limit** - `extraction-hook.service.ts:277` could match millions of times
@@ -112,7 +112,7 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 - [ ] 69. **Entity Type Inference Weak** - `entity-extractor.ts:388-425` heuristic fragile
 - [ ] 70. **Variants Generation Incomplete** - `entity-extractor.ts:316-383` no transliteration
 - [ ] 71. **Confidence Calculation Hardcoded** - `entity-extractor.ts:430-478` no tuning capability
-- [ ] 72. **Singleton Pattern Issue** - `entity-extractor.ts:684-689` causes test pollution
+- [x] 72. **Singleton Pattern Issue** - ANALYZED: Already @deprecated, recommends DI via context.services.entityExtractor
 
 #### Experience Capture
 - [ ] 73. **Incomplete Trajectory Extraction** - `experience.module.ts:73-78` missing error details
@@ -127,7 +127,7 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 #### Hierarchical Summarization
 - [ ] 81. **Summarizer Initialization Error Swallowed** - `hierarchical-summarization.service.ts:92-104`
 - [ ] 82. **inferMemberType Hardcoded Fallback** - `hierarchical-summarization.service.ts:954-959` always 'knowledge'
-- [ ] 83. **No Recursive Depth Limit** - buildHierarchyRecursive could infinitely recurse
+- [x] 83. **No Recursive Depth Limit** - VERIFIED: Line 337 checks currentLevel > maxLevels to bound recursion
 - [ ] 84. **Embedding Cache Not Implemented** - `hierarchical-summarization.service.ts:627-674`
 - [ ] 85. **Community Cohesion Not Validated** - `hierarchical-summarization.service.ts:403-407`
 - [ ] 86. **Member Type Inference Lost** - `hierarchical-summarization.service.ts:929-959`
@@ -136,7 +136,7 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 - [ ] 87. **Decomposition Plan Not Validated** - `query-rewrite.service.ts:187` could be empty
 - [ ] 88. **Query Weight Normalization Missing** - `query-rewrite.service.ts:273` different scales
 - [ ] 89. **HyDE Embedding Memory Not Freed** - `query-rewrite.service.ts:251-268` embeddings stored
-- [ ] 90. **Singleton Reset Needed in Tests** - `query-rewrite.service.ts:425-447` test pollution
+- [x] 90. **Singleton Reset Needed in Tests** - VERIFIED: resetQueryRewriteService() exists at lines 446-448
 
 #### LLM Summarizer
 - [ ] 91. **Default Model Hardcoded** - `llm-summarizer.ts:149-159` requires code change
