@@ -31,12 +31,12 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 - [x] 10. **No Prepared Statement Caching for Dynamic Queries** - `fetch.ts:356` - ALREADY IMPLEMENTED: Uses `getPreparedStatement()` for caching
 
 #### Error Handling
-- [ ] 11. **Silent Failures in Entity Index Lookup** - `index.ts:305-312` doesn't log which entries missed
-- [ ] 12. **No Recovery from Semantic Stage Failures** - `semantic.ts:169-178` treats all errors identically
-- [ ] 13. **Graph Traversal Max Results Silently Discarded** - `graph-traversal.ts:46` no truncation indicator
-- [ ] 14. **FTS Search Fallback Not Logged** - `fts-search.ts:136-140` falls back silently to LIKE
-- [ ] 15. **Query Rewrite Service Failures Hide Error Details** - `rewrite.ts:145-154` loses stack traces
-- [ ] 16. **No Handling for Empty Search String** - `pipeline.ts:305` treats empty string as "no search"
+- [x] 11. **Silent Failures in Entity Index Lookup** - `index.ts:309-321` - FIXED: Added debug logging with error details and entity info
+- [x] 12. **No Recovery from Semantic Stage Failures** - `semantic.ts:170-208` - FIXED: Classified errors by type with appropriate log levels
+- [x] 13. **Graph Traversal Max Results Silently Discarded** - `graph-traversal.ts` - FIXED: Added truncation logging for both CTE and BFS
+- [x] 14. **FTS Search Fallback Not Logged** - `fts-search.ts` - FIXED: Added debug logging for stopword fallback
+- [x] 15. **Query Rewrite Service Failures Hide Error Details** - `rewrite.ts:145-165` - FIXED: Now logs full error details with stack trace
+- [x] 16. **No Handling for Empty Search String** - `resolve.ts:39-50` - FIXED: Added logging and clarifying comments
 
 #### Missing Features
 - [ ] 17. **No Query Result Invalidation on Cascade Deletes** - `index.ts:178-186` doesn't handle cascading
