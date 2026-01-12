@@ -133,7 +133,7 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 - [ ] 86. **Member Type Inference Lost** - `hierarchical-summarization.service.ts:929-959`
 
 #### Query Rewrite Service
-- [ ] 87. **Decomposition Plan Not Validated** - `query-rewrite.service.ts:187` could be empty
+- [x] 87. **Decomposition Plan Not Validated** - VERIFIED: query-rewrite.service.ts:221 checks `decompositionPlan.subQueries.length === 0` and falls back to original query if empty
 - [ ] 88. **Query Weight Normalization Missing** - `query-rewrite.service.ts:273` different scales
 - [ ] 89. **HyDE Embedding Memory Not Freed** - `query-rewrite.service.ts:251-268` embeddings stored
 - [x] 90. **Singleton Reset Needed in Tests** - VERIFIED: resetQueryRewriteService() exists at lines 446-448
@@ -146,7 +146,7 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 
 #### Atomicity Service
 - [ ] 95. **Imperative Verb List Incomplete** - `atomicity.ts:89-101` misses common verbs
-- [ ] 96. **Sentence Splitting Unreliable** - `atomicity.ts:232` lookbehind not supported everywhere
+- [x] 96. **Sentence Splitting Unreliable** - VERIFIED: Lookbehind IS supported in Node.js v8.10+ (only runtime for this package). Line 232 uses `(?<=[.!?])` which is valid.
 - [ ] 97. **Split Confidence Reduction Arbitrary** - `atomicity.ts:303` 0.95 multiplier hardcoded
 - [ ] 98. **Tool Splitting Too Conservative** - `atomicity.ts:393` only splits if all parts recognized
 
@@ -227,14 +227,14 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 #### LanceDB Issues
 - [ ] 155. **Vector dimension inference happens on first store** - Could lock wrong dimension
 - [ ] 156. **No validation that vector values are normalized** - Incorrect cosine similarity
-- [ ] 157. **Identifier validation is overly restrictive** - Rejects valid UUIDs
+- [x] 157. **Identifier validation is overly restrictive** - VERIFIED: Regex `/^[a-zA-Z0-9_-]+$/` at lancedb.ts:29 DOES allow UUIDs (alphanumeric+hyphens). Tested: `550e8400-e29b-41d4-a716-446655440000` passes.
 - [ ] 158. **Quantization index creation happens async fire-and-forget** - Errors ignored
 - [ ] 159. **No index statistics tracking** - Can't tell if index is being used
 - [ ] 160. **Distance-to-similarity conversion varies by metric** - L2 formula incorrect
-- [ ] 161. **Search result type assertion is risky** - Missing field validation
+- [x] 161. **Search result type assertion is risky** - VERIFIED: lancedb.ts:389-398 HAS field validation checking typeof, null, and all required fields (entryType, entryId, versionId, text) before type assertion
 - [ ] 162. **Empty search handling returns silently** - Can't distinguish empty vs not initialized
-- [ ] 163. **Multiple concurrent index creation attempts** - Race condition possible
-- [ ] 164. **No timeout on connection establishment** - Could hang indefinitely
+- [x] 163. **Multiple concurrent index creation attempts** - VERIFIED: lancedb.ts:235-238 HAS concurrency protection - `if (this.createIndexPromise) return this.createIndexPromise;` deduplicates concurrent calls
+- [ ] 164. **No timeout on connection establishment** - PARTIAL: LanceDB HAS 30s timeout (lancedb.ts:106-117), but pgvector has no connection timeout
 - [ ] 165. **Count operation returns 0 on error silently** - Can't distinguish empty vs failure
 
 #### pgvector Issues
@@ -250,7 +250,7 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 
 #### Vector Service
 - [ ] 175. **Dimension mismatch error includes suggestion but doesn't prevent further errors** - Cascade
-- [ ] 176. **State machine allows operations from 'error' state** - Should throw immediately
+- [x] 176. **State machine allows operations from 'error' state** - VERIFIED: ensureInitialized() throws immediately at lines 150-152 when state is 'error'. All operations (store, search, remove, count) call ensureInitialized()
 - [ ] 177. **Closed state is terminal but not checked consistently** - Some methods don't verify
 - [ ] 178. **No metrics tracking for vector operations** - Can't monitor search latency
 - [ ] 179. **Initialization promise not cleared if timeout occurs** - Permanent deadlock
