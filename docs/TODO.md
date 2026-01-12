@@ -288,7 +288,7 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 - [ ] 203. **EmbeddingDisabledError doesn't distinguish intentionally disabled vs unavailable** - Retry confusion
 - [x] 204. **Empty text error doesn't trim/normalize first** - VERIFIED: embedding.service.ts:234 trims text before checking empty
 - [ ] 205. **Network errors during embedding assumed transient** - Some are permanent
-- [ ] 206. **Vector store initialization failure allows operations to proceed** - Service returns false
+- [x] 206. **Vector store initialization failure allows operations to proceed** - VERIFIED: Error state throws (vector.service.ts:150-152), isAvailable() enables graceful degradation (intentional)
 - [ ] 207. **Dead Letter Queue has no expiration** - Failed jobs accumulate forever
 - [x] 208. **No mechanism to manually retry DLQ entries** - VERIFIED: `retryFailedEmbeddings()` and `reindex --retry-failed` CLI command exist
 
