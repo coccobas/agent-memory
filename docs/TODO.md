@@ -202,10 +202,10 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 - [ ] 133. **LM Studio dimension detection race condition** - Concurrent detection possible
 - [ ] 134. **Local model lazy loading not thread-safe** - Race on pipeline initialization
 - [ ] 135. **Float32Array conversion loses precision** - Rounding errors accumulate
-- [ ] 136. **No embedding model version tracking** - Incompatible embeddings possible
+- [x] 136. **No embedding model version tracking** - VERIFIED: embedding_model column exists and is populated via embedding-hooks.ts
 - [ ] 137. **Disabled provider throws instead of graceful degradation** - Should return sentinel
 - [ ] 138. **Max cache size never decreased** - Only evicts, never shrinks
-- [ ] 139. **No warning on dimension mismatch** - Silently accepts wrong dimensions
+- [x] 139. **No warning on dimension mismatch** - VERIFIED: logger.warn at lancedb.ts:88 and pgvector.ts:88 logs dimension mismatch
 
 #### Embedding Hooks & Queue
 - [ ] 140. **Sequence number can overflow** - No protection in long-running processes
@@ -241,7 +241,7 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 - [ ] 166. **HNSW index parameters hardcoded** - m=16, ef_construction=64 not configurable
 - [ ] 167. **Dimension validation is overly strict** - 10,000 limit may be too low
 - [ ] 168. **Vector string conversion has precision loss** - Floating-point truncation
-- [ ] 169. **Search query has SQL injection vulnerability** - entryTypes not fully parameterized
+- [x] 169. **Search query has SQL injection vulnerability** - VERIFIED SAFE: entryTypes uses parameterized $2 with ANY() operator
 - [ ] 170. **ALTER TABLE to specify dimension is risky** - Could fail with existing data
 - [ ] 171. **Distance-to-similarity conversion for dot product incorrect** - Formula wrong
 - [ ] 172. **Pool client release in finally block could throw** - Masks previous error
