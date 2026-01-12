@@ -51,13 +51,13 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 - [x] 24. **Semantic Score Deduplication Issue** - VERIFIED: weight IS applied at line 130 (score * weight), max-score dedup is intentional
 - [x] 25. **Phase 1 Light Score May Not Preserve Top Candidates** - ANALYZED: 1.5x buffer is intentional trade-off for performance, could increase if recall issues arise
 - [ ] 26. **Feedback Multiplier Doesn't Account for Recency** - `feedback-cache.ts:267-285` old feedback distorts
-- [ ] 27. **Cached Feedback Has No Invalidation Trigger** - `feedback-cache.ts:130-133` no auto-invalidation
+- [x] 27. **Cached Feedback Has No Invalidation Trigger** - VERIFIED: feedback/index.ts:300-311 invalidates cache when outcomes are recorded
 - [ ] 28. **Post-Filter Tags Stage Has Resource Overhead** - `filter.ts:450-451` no batching optimization
 - [x] 29. **Cross-Encoder Re-ranking Score Blending Not Configurable** - VERIFIED: alpha IS configurable via AGENT_MEMORY_CROSS_ENCODER_ALPHA
 - [ ] 30. **Hierarchical Filtering May Drop Relevant Results** - `index.ts:571` doesn't re-score results
 
 #### Configuration
-- [ ] 31. **Hardcoded Timeout Missing** - No timeout on embedding/vector calls in semantic.ts
+- [x] 31. **Hardcoded Timeout Missing** - VERIFIED: Embedding service has 60s timeout (embedding.service.ts:149,161)
 - [x] 32. **No Circuit Breaker for External Services** - VERIFIED: DLQ has useCircuitBreaker, rate limiter has burst protection, withRetry has backoff
 - [ ] 33. **Scope Chain Cache TTL Not Configurable** - `scope-chain.ts:31` 10-minute TTL hardcoded
 - [ ] 34. **Feedback Cache TTL Not Applied Consistently** - `feedback-cache.ts:80` TTL inconsistent
