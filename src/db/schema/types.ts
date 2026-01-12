@@ -13,6 +13,11 @@ export type ScopeType = 'global' | 'org' | 'project' | 'session';
 export type EntryType = 'tool' | 'guideline' | 'knowledge' | 'project' | 'experience';
 
 /**
+ * Extended entry type for audit logging (includes non-core entity types)
+ */
+export type AuditEntryType = EntryType | 'graph_node' | 'graph_edge' | 'relation' | 'tag';
+
+/**
  * Permission entry type (subset of EntryType - excludes 'project')
  */
 export type PermissionEntryType = 'tool' | 'guideline' | 'knowledge';

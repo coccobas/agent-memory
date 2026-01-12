@@ -8,7 +8,7 @@
 import type { DbClient } from '../db/connection.js';
 import { auditLog } from '../db/schema.js';
 import { generateId } from '../db/repositories/base.js';
-import type { ScopeType, EntryType } from '../db/schema.js';
+import type { ScopeType, AuditEntryType } from '../db/schema.js';
 import { createComponentLogger } from '../utils/logger.js';
 import { config } from '../config/index.js';
 import { sanitizeForLogging } from '../utils/sanitize.js';
@@ -28,7 +28,7 @@ export type AuditAction =
 export interface AuditLogParams {
   agentId?: string;
   action: AuditAction;
-  entryType?: EntryType;
+  entryType?: AuditEntryType;
   entryId?: string;
   scopeType?: ScopeType;
   scopeId?: string | null;
@@ -52,8 +52,11 @@ export function logAction(params: AuditLogParams, db: DbClient): void {
     try {
       const id = generateId();
 
-      // Filter out 'project' from entryType as it's not supported in audit log schema
-      const entryType = params.entryType === 'project' ? null : (params.entryType ?? null);
+      // Filter to only entry types supported by audit log schema
+      const supportedTypes = new Set(['tool', 'guideline', 'knowledge', 'experience']);
+      const entryType = params.entryType && supportedTypes.has(params.entryType)
+        ? (params.entryType as 'tool' | 'guideline' | 'knowledge' | 'experience')
+        : null;
 
       // Sanitize and size-limit queryParams to avoid persisting secrets or unbounded payloads
       let queryParams: unknown = null;

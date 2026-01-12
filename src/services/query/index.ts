@@ -266,6 +266,7 @@ export function createDependencies(options: QueryPipelineOptions): PipelineDepen
     logger: {
       debug: (data, message) => logger.debug(data, message),
       info: (data, message) => logger.info(data, message),
+      warn: (data, message) => logger.warn(data, message),
     },
     feedback,
     queryRewriteService,

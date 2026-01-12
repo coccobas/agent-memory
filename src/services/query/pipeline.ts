@@ -124,6 +124,7 @@ export interface PipelineDependencies {
   logger?: {
     debug: (data: Record<string, unknown>, message: string) => void;
     info: (data: Record<string, unknown>, message: string) => void;
+    warn: (data: Record<string, unknown>, message: string) => void;
   };
 
   /**
