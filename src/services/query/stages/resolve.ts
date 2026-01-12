@@ -36,8 +36,18 @@ export function resolveStage(ctx: PipelineContext): PipelineContext {
   const rawLimit = params.limit && params.limit > 0 ? params.limit : config.pagination.defaultLimit;
   const limit = Math.min(Math.floor(rawLimit), config.pagination.maxLimit);
 
-  // Resolve search
-  const search = params.search?.trim() || undefined;
+  // Resolve search - normalize empty/whitespace-only to undefined (no search filter)
+  // Empty search means "return entries without text filtering" rather than "return nothing"
+  const rawSearch = params.search?.trim();
+  const search = rawSearch || undefined;
+
+  // Log if search was normalized (helps debug cases where users expect different behavior)
+  if (params.search && !search && deps.logger) {
+    deps.logger.debug(
+      { originalSearch: params.search.substring(0, 20), normalized: 'undefined' },
+      'empty/whitespace search normalized to undefined - no text filtering will be applied'
+    );
+  }
 
   return {
     ...ctx,

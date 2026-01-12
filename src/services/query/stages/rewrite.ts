@@ -143,10 +143,21 @@ export async function rewriteStageAsync(ctx: PipelineContext): Promise<RewriteSt
       rewriteStrategy: result.strategy,
     };
   } catch (error) {
-    // Log error and fall back to original query
+    // Log error with full details and fall back to original query
     if (deps.logger) {
-      deps.logger.debug(
-        { error: String(error), query: search },
+      const errorDetails = error instanceof Error
+        ? {
+            message: error.message,
+            name: error.name,
+            stack: error.stack?.split('\n').slice(0, 5).join('\n'), // First 5 stack frames
+          }
+        : { message: String(error) };
+
+      deps.logger.warn(
+        {
+          ...errorDetails,
+          query: search?.substring(0, 100), // Truncate for privacy
+        },
         'query_rewrite failed, using original query'
       );
     }
