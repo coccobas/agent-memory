@@ -152,7 +152,7 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 
 #### Configuration & Security
 - [ ] 99. **API Key Exposure in Logs** - Extraction errors may contain auth tokens
-- [ ] 100. **Missing Rate Limit Handling** - No HTTP 429 detection or backoff
+- [x] 100. **Missing Rate Limit Handling** - VERIFIED: RateLimitError exists, 429 handled in tool-runner.ts and auth.ts
 - [ ] 101. **Timeout Values Inconsistent** - Different services use different timeouts
 - [ ] 102. **Environment Variable Parsing Issues** - `extraction.service.ts:967-970` no validation
 
@@ -303,7 +303,7 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 #### Performance & Scaling
 - [ ] 215. **Embedding cache size fixed at 1000 entries** - Should be configurable
 - [ ] 216. **No embedding result deduplication** - API called each time if not in cache
-- [ ] 217. **Vector search limit multiplied by 3 for hybrid search** - Unexplained factor
+- [x] 217. **Vector search limit multiplied by 3 for hybrid search** - ANALYZED: Comment at semantic.ts:126 explains purpose (fetch more for scoring), factor could be configurable
 - [ ] 218. **No pre-warming of popular embeddings** - Cold start slow
 - [ ] 219. **Batch processing doesn't pipeline** - Waits for response before next batch
 - [ ] 220. **L2 distance formula in LanceDB incorrect** - Bounds to [0,0.5] not [0,1]
