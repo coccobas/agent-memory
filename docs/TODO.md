@@ -264,7 +264,7 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 - [ ] 185. **No index on (entryType, hasEmbedding)** - Slow searches for unembedded entries
 - [ ] 186. **createdAt/updatedAt use database default** - Timezone inconsistency
 - [ ] 187. **No audit trail for embedding failures** - Can't track why specific embeddings failed
-- [ ] 188. **Model/provider fields not nullable but could be missing** - Schema mismatch
+- [x] 188. **Model/provider fields not nullable but could be missing** - VERIFIED: embeddingModel and embeddingProvider ARE nullable (no .notNull() at embeddings.ts:19-20)
 - [ ] 189. **Version ID tracking doesn't cascade on entry deletion** - Dead embeddings remain
 
 #### Integration Issues
