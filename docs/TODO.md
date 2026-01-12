@@ -58,7 +58,7 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 
 #### Configuration
 - [ ] 31. **Hardcoded Timeout Missing** - No timeout on embedding/vector calls in semantic.ts
-- [ ] 32. **No Circuit Breaker for External Services** - No retry/circuit breaker pattern
+- [x] 32. **No Circuit Breaker for External Services** - VERIFIED: DLQ has useCircuitBreaker, rate limiter has burst protection, withRetry has backoff
 - [ ] 33. **Scope Chain Cache TTL Not Configurable** - `scope-chain.ts:31` 10-minute TTL hardcoded
 - [ ] 34. **Feedback Cache TTL Not Applied Consistently** - `feedback-cache.ts:80` TTL inconsistent
 - [x] 35. **FTS BM25 Normalization Formula Not Documented** - FIXED: Added comprehensive JSDoc with formula explanation
@@ -89,7 +89,7 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 - [ ] 50. **No Deduplication Within Single Extraction** - Multiple identical entries possible
 - [ ] 51. **Missing Error Context in Retry** - `extraction.service.ts:905-906` no error context in logs
 - [ ] 52. **SSRF Validation Incomplete** - `extraction.service.ts:85-90` IPv6 zone IDs not handled
-- [ ] 53. **No Rate Limiting Between Requests** - No internal throttling for API calls
+- [x] 53. **No Rate Limiting Between Requests** - VERIFIED: Token bucket rate limiter exists (rate-limiter-core.ts) with per-agent, global, and burst limits
 - [ ] 54. **Provider State Tracking Issue** - `extraction.service.ts:647` module-level state shared
 - [x] 55. **Missing Temperature Validation** - VERIFIED: Config schema validates with z.number().min(0).max(2)
 - [ ] 56. **Timeout Not Cancellable** - `extraction.service.ts:752` timeout promise memory leak
@@ -172,13 +172,13 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 #### Error Handling
 - [ ] 112. **Provider Mismatch Not Detected** - Config vs key mismatch fails late
 - [ ] 113. **Missing Network Error Classification** - Can't distinguish timeout vs connection refused
-- [ ] 114. **No Circuit Breaker Pattern** - Keeps calling provider after repeated failures
+- [x] 114. **No Circuit Breaker Pattern** - VERIFIED: DLQ has circuit breaker (useCircuitBreaker: true), rate-limiter has burst protection
 - [ ] 115. **Parsing Error Recovery Non-Obvious** - Inconsistent behavior on parse failure
 
 #### Edge Cases
 - [ ] 116. **Empty Extraction Results Ambiguous** - Can't tell if LLM returned nothing vs failed
 - [ ] 117. **Very Long Entity Names** - No truncation, could exceed DB column limits
-- [ ] 118. **Circular Relationships** - No cycle validation in relationship extraction
+- [x] 118. **Circular Relationships** - VERIFIED: CTE uses UNION+DISTINCT, BFS uses visited Set (see task 39)
 - [ ] 119. **Unicode Handling** - Entity extraction patterns assume ASCII
 - [ ] 120. **Deeply Nested Structures** - Experience trajectory has no max depth limit
 
@@ -198,7 +198,7 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 - [ ] 129. **Instruction wrapping inconsistency** - wrapWithInstruction called differently
 - [ ] 130. **Missing embedding tokenization validation** - Token limits not checked before API call
 - [ ] 131. **OpenAI batch size not configurable** - Hardcoded to 2048 limit
-- [ ] 132. **No retry exponential backoff** - Generic withRetry used without backoff
+- [x] 132. **No retry exponential backoff** - VERIFIED: retry.ts uses backoffMultiplier, DLQ has exponential backoff, configurable via AGENT_MEMORY_RETRY_BACKOFF_MULTIPLIER
 - [ ] 133. **LM Studio dimension detection race condition** - Concurrent detection possible
 - [ ] 134. **Local model lazy loading not thread-safe** - Race on pipeline initialization
 - [ ] 135. **Float32Array conversion loses precision** - Rounding errors accumulate
@@ -215,7 +215,7 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 - [ ] 144. **Retry delay calculation doesn't account for clock skew** - Timing issues
 - [ ] 145. **Concurrent batch processing leak** - All jobs retry together instead of individually
 - [ ] 146. **Dead Letter Queue only stores first 100 chars** - Loses context for large entries
-- [ ] 147. **No circuit breaker pattern** - Queue exhausts retries immediately on service failure
+- [x] 147. **No circuit breaker pattern** - VERIFIED: DLQ has `useCircuitBreaker: true` in default config (dead-letter-queue.ts:78)
 - [ ] 148. **Stale job skipping doesn't clean up entry embeddings** - Orphaned rows remain
 - [ ] 149. **Batch job failure atomicity issue** - Inconsistency between vector DB and metadata
 - [ ] 150. **No maximum batch processing time** - Large batches could timeout
@@ -286,11 +286,11 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 
 #### Error Handling & Resilience
 - [ ] 203. **EmbeddingDisabledError doesn't distinguish intentionally disabled vs unavailable** - Retry confusion
-- [ ] 204. **Empty text error doesn't trim/normalize first** - Whitespace-only rejected
+- [x] 204. **Empty text error doesn't trim/normalize first** - VERIFIED: embedding.service.ts:234 trims text before checking empty
 - [ ] 205. **Network errors during embedding assumed transient** - Some are permanent
 - [ ] 206. **Vector store initialization failure allows operations to proceed** - Service returns false
 - [ ] 207. **Dead Letter Queue has no expiration** - Failed jobs accumulate forever
-- [ ] 208. **No mechanism to manually retry DLQ entries** - Failed embeddings lost
+- [x] 208. **No mechanism to manually retry DLQ entries** - VERIFIED: `retryFailedEmbeddings()` and `reindex --retry-failed` CLI command exist
 
 #### Observability & Debugging
 - [ ] 209. **No distributed tracing for embedding operations** - Can't correlate to query
@@ -318,14 +318,14 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 - [ ] 227. **Floating point precision edge cases** - NaN, Infinity, -0 accepted without validation
 
 #### Missing Features
-- [ ] 228. **No embedding versioning** - Can't track which model version produced result
-- [ ] 229. **No way to update embeddings for changed entries** - Modification detection missing
-- [ ] 230. **No bulk re-embedding capability** - Must wait for queue one-by-one
-- [ ] 231. **No embedding similarity statistics** - Can't identify low-quality embeddings
-- [ ] 232. **No search result explanation** - Can't explain why entry was retrieved
-- [ ] 233. **No embedding model switching support** - Manual migration required
-- [ ] 234. **No incremental indexing progress** - Long operations have no progress indicator
-- [ ] 235. **No cost tracking** - Can't audit embedding API usage costs
+- [x] 228. **No embedding versioning** - VERIFIED: embedding_model column tracks model version (see task 136)
+- [x] 229. **No way to update embeddings for changed entries** - VERIFIED: `generateEmbeddingAsync()` called in all repository update methods (guidelines.ts:316, knowledge.ts:314, tools.ts:285, experiences.ts:341)
+- [x] 230. **No bulk re-embedding capability** - VERIFIED: `reindex` command provides bulk re-embedding via `backfillEmbeddings()` with batch processing
+- [ ] 231. **No embedding similarity statistics** - ANALYZED: No quality auditing exists; RL has avgSimilarity for training only
+- [ ] 232. **No search result explanation** - ANALYZED: No end-user explainability feature exists
+- [x] 233. **No embedding model switching support** - VERIFIED: Model configurable via env/config, `embedding_model` stored per embedding for tracking
+- [x] 234. **No incremental indexing progress** - VERIFIED: `reindex` command has `onProgress` callback showing percent complete
+- [ ] 235. **No cost tracking** - ANALYZED: No runtime embedding API usage cost tracking exists
 
 ---
 
