@@ -256,6 +256,20 @@ export function traverseRelationGraphCTE(
       }
     }
 
+    // Log truncation warning if max results reached
+    if (rows.length >= maxResults) {
+      logger.debug(
+        {
+          startType,
+          startId,
+          maxResults,
+          actualCount: rows.length,
+          truncated: true,
+        },
+        'graph traversal results may be truncated - max results reached'
+      );
+    }
+
     return result;
   } catch (error) {
     // CTE failed, return null to fall back to BFS
@@ -429,6 +443,21 @@ export function traverseRelationGraph(
       visited.add(neighborKey);
       queue.push([{ type: neighbor.type, id: neighbor.id }, currentDepth + 1]);
     }
+  }
+
+  // Log truncation warning if max results reached
+  if (resultCount >= maxResults) {
+    logger.debug(
+      {
+        startType,
+        startId,
+        maxResults,
+        actualCount: resultCount,
+        truncated: true,
+        method: 'BFS',
+      },
+      'graph traversal results truncated - max results reached'
+    );
   }
 
   return result;

@@ -136,6 +136,14 @@ export function executeFts5Query(
     const escapedQuery = escapeFts5QueryOr(searchQuery);
     if (!escapedQuery) {
       // All tokens were stopwords, fall back to LIKE
+      logger.debug(
+        {
+          entryType,
+          searchQuery: searchQuery.substring(0, 50), // Truncate for privacy
+          reason: 'all_stopwords',
+        },
+        'FTS5 query empty after escaping - falling back to LIKE search'
+      );
       return executeLikeSearch(entryType, searchQuery, fields);
     }
 
@@ -486,6 +494,14 @@ export function createFtsSearchFunctions(
       const escapedQuery = escapeFts5QueryOr(searchQuery);
       if (!escapedQuery) {
         // All tokens were stopwords, fall back to LIKE
+        logger.debug(
+          {
+            entryType,
+            searchQuery: searchQuery.substring(0, 50), // Truncate for privacy
+            reason: 'all_stopwords',
+          },
+          'FTS5 query empty after escaping - falling back to LIKE search'
+        );
         return executeLikeSearchWithDb(entryType, searchQuery, fields);
       }
 
