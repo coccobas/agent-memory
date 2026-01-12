@@ -276,12 +276,12 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 - [ ] 195. **Embedding cache not considered in query pipeline** - Could serve stale embeddings
 
 #### Configuration & Scaling
-- [ ] 196. **Batch size configuration lacks upper bound validation** - Could request huge batches
+- [x] 196. **Batch size configuration lacks upper bound validation** - VERIFIED: Zod schema z.number().int().min(1).max(100) at embedding.ts:49
 - [ ] 197. **Max concurrency default not justified** - 16 for SQLite, 4 for embeddings arbitrary
 - [ ] 198. **No adaptive batch sizing based on response times** - Fixed size regardless of load
-- [ ] 199. **Retry delay exponential backoff could exceed timeout** - No maximum cap
+- [x] 199. **Retry delay exponential backoff could exceed timeout** - VERIFIED: Math.min(delay, opts.maxDelayMs) at retry.ts:55 caps delay
 - [ ] 200. **No sample of successful vs failed embedding models** - Can't identify reliability
-- [ ] 201. **Vector DB quantization thresholds not configurable** - 256 embeddings hardcoded
+- [x] 201. **Vector DB quantization thresholds not configurable** - VERIFIED: Configurable via AGENT_MEMORY_VECTOR_INDEX_THRESHOLD (vectorDb.ts:46-52)
 - [ ] 202. **No warmup phase for embedding models** - First embedding slow
 
 #### Error Handling & Resilience
