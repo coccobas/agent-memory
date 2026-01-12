@@ -255,7 +255,7 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 - [ ] 178. **No metrics tracking for vector operations** - Can't monitor search latency
 - [ ] 179. **Initialization promise not cleared if timeout occurs** - Permanent deadlock
 - [ ] 180. **Delete operation doesn't verify deletion success** - Silent failure possible
-- [ ] 181. **Automatic old version deletion on store could fail silently** - Env var masks failures
+- [x] 181. **Automatic old version deletion on store could fail silently** - VERIFIED: Errors are caught and rethrown (vector.service.ts:224-226), env var only skips deletion
 - [ ] 182. **No batch delete operation** - Deletes one-by-one
 - [ ] 183. **Search limit parameter not validated** - Negative/zero values possible
 
