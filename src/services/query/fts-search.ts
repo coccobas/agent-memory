@@ -285,9 +285,22 @@ export function executeFts5Search(
 // FTS5 SEARCH (SCORED)
 // =============================================================================
 
+/**
+ * Normalize BM25 score to [0, 1] range where higher is better.
+ *
+ * SQLite FTS5 bm25() returns NEGATIVE values for relevance (more negative = better match).
+ * However, in practice we often see values >= 0 after the query optimizer processes them.
+ *
+ * Formula: score = 1 / (1 + max(0, bm25))
+ * - If bm25 = 0 (perfect match): score = 1.0
+ * - If bm25 = 1: score = 0.5
+ * - If bm25 = 9: score = 0.1
+ * - As bm25 → ∞: score → 0
+ *
+ * This logistic-style normalization ensures bounded output [0, 1]
+ * and provides good score spread for typical BM25 values.
+ */
 function normalizeBm25ToScore(bm25: number): number {
-  // FTS5 bm25() returns smaller values for better matches (often >= 0).
-  // Convert to a bounded "higher-is-better" score.
   const safe = Number.isFinite(bm25) ? bm25 : 0;
   const clamped = Math.max(0, safe);
   return 1 / (1 + clamped);

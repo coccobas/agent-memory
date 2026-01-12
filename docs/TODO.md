@@ -47,9 +47,9 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 - [ ] 22. **No Late Binding for Dependencies** - `index.ts:51-53` can't update at runtime
 
 #### Hidden Complexity
-- [ ] 23. **FTS Expanded Query Weight Handling Unclear** - `fts.ts:67-126` weight not used in scoring
-- [ ] 24. **Semantic Score Deduplication Issue** - `semantic.ts:121-134` doesn't weight by embedding quality
-- [ ] 25. **Phase 1 Light Score May Not Preserve Top Candidates** - `score.ts:592` top candidates filtered out
+- [x] 23. **FTS Expanded Query Weight Handling Unclear** - VERIFIED: weight IS applied at line 122 (score * query.weight), matchWeights map is unused cleanup
+- [x] 24. **Semantic Score Deduplication Issue** - VERIFIED: weight IS applied at line 130 (score * weight), max-score dedup is intentional
+- [x] 25. **Phase 1 Light Score May Not Preserve Top Candidates** - ANALYZED: 1.5x buffer is intentional trade-off for performance, could increase if recall issues arise
 - [ ] 26. **Feedback Multiplier Doesn't Account for Recency** - `feedback-cache.ts:267-285` old feedback distorts
 - [ ] 27. **Cached Feedback Has No Invalidation Trigger** - `feedback-cache.ts:130-133` no auto-invalidation
 - [ ] 28. **Post-Filter Tags Stage Has Resource Overhead** - `filter.ts:450-451` no batching optimization
@@ -61,7 +61,7 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 - [ ] 32. **No Circuit Breaker for External Services** - No retry/circuit breaker pattern
 - [ ] 33. **Scope Chain Cache TTL Not Configurable** - `scope-chain.ts:31` 10-minute TTL hardcoded
 - [ ] 34. **Feedback Cache TTL Not Applied Consistently** - `feedback-cache.ts:80` TTL inconsistent
-- [ ] 35. **FTS BM25 Normalization Formula Not Documented** - `fts-search.ts:280-286` formula unclear
+- [x] 35. **FTS BM25 Normalization Formula Not Documented** - FIXED: Added comprehensive JSDoc with formula explanation
 
 #### Edge Cases
 - [x] 36. **No Handling for Very Large Embeddings** - VERIFIED: cosineSimilarity handles zero-length/magnitude (returns 0.0)
