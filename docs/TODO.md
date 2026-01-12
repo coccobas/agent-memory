@@ -17,18 +17,18 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 ### QUERY PIPELINE (Tasks 1-44)
 
 #### Critical Security
-- [ ] 1. **SQL Injection Risk in FTS Stage** - `fts-search.ts:95` uses dynamic table names via string interpolation
-- [ ] 2. **Unsafe Table Name Interpolation in Rerank** - `rerank.ts:160-220` dynamic SQL building without full validation
-- [ ] 3. **Missing Validation in Knowledge Temporal Fetch** - `fetch.ts:292-305` doesn't validate date ranges (start > end)
-- [ ] 4. **No Input Validation for Scope Chain Cache** - `scope-chain.ts:80-89` no UUID validation on returned IDs
+- [x] 1. **SQL Injection Risk in FTS Stage** - `fts-search.ts:95` - VERIFIED SECURE: Table names derived from TypeScript enum via switch statement, no user input reaches SQL
+- [x] 2. **Unsafe Table Name Interpolation in Rerank** - `rerank.ts:160-220` - VERIFIED SECURE: Table names are hardcoded constants, uses parameterized IN clauses
+- [x] 3. **Missing Validation in Knowledge Temporal Fetch** - `fetch.ts:297-303` - FIXED: Added validation that start date must be <= end date
+- [x] 4. **No Input Validation for Scope Chain Cache** - `scope-chain.ts:143-146` - FIXED: Added UUID format validation for scope IDs
 
 #### Performance
-- [ ] 5. **Inefficient Light Scoring Phase** - `score.ts:547-586` creates 4 separate loops through entries
-- [ ] 6. **Redundant Scope Chain Resolution** - `scope-chain.ts:90-93` doesn't cache negative lookups
-- [ ] 7. **No Pagination Cursor Support** - `pipeline.ts:408` always returns `nextCursor: undefined`
-- [ ] 8. **Fetch Headroom Too Conservative** - `fetch.ts:30-75` uses 2.0x-5.0x multipliers unnecessarily
-- [ ] 9. **Semantic Entry Fetch Inefficiency** - `fetch.ts:394-424` doesn't deduplicate IDs across types
-- [ ] 10. **No Prepared Statement Caching for Dynamic Queries** - `fetch.ts:139` rebuilds queries each time
+- [x] 5. **Inefficient Light Scoring Phase** - `score.ts:547-586` - ANALYZED: 4 loops are O(n) total, each processes only its type. Code style issue, not performance.
+- [x] 6. **Redundant Scope Chain Resolution** - `scope-chain.ts` - ANALYZED: Cache DOES store results even when entities don't exist. Not a real issue.
+- [ ] 7. **No Pagination Cursor Support** - `pipeline.ts:408` always returns `nextCursor: undefined` - VALID: Missing feature
+- [x] 8. **Fetch Headroom Too Conservative** - `fetch.ts:30-75` - ANALYZED: Adaptive headroom (1.2x-5.0x) is intentional based on filter selectivity
+- [x] 9. **Semantic Entry Fetch Inefficiency** - `fetch.ts:394-424` - ANALYZED: Uses Map.keys() which is inherently deduplicated
+- [x] 10. **No Prepared Statement Caching for Dynamic Queries** - `fetch.ts:356` - ALREADY IMPLEMENTED: Uses `getPreparedStatement()` for caching
 
 #### Error Handling
 - [ ] 11. **Silent Failures in Entity Index Lookup** - `index.ts:305-312` doesn't log which entries missed
