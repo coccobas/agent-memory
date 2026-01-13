@@ -229,7 +229,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 | # | Issue | File | Impact |
 |---|-------|------|--------|
 | 180 | Type assertion without validation | `memory_context.ts:28` | Wrong action executes silently | ✅ FIXED |
-| 181 | Audit logging silent failures (fire-and-forget) | `audit.service.ts:50-95` | Critical audit gaps |
+| 181 | Audit logging silent failures (fire-and-forget) | `audit.service.ts:50-95` | Critical audit gaps | ✅ FIXED |
 | 182 | Query handler lost correlation | `query.handler.ts:177-182` | Untraceable async errors | ✅ FIXED |
 
 #### MEDIUM
@@ -608,10 +608,10 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 | # | Issue | File | Impact | Status |
 |---|-------|------|--------|--------|
 | 341 | Missing agentId validation in list | `factory.ts:528-576` | Information disclosure without auth | ✅ FIXED |
-| 342 | Scope inheritance validation gap | `permission.service.ts:248-275` | Unintended global fallback | |
+| 342 | Scope inheritance validation gap | `permission.service.ts:248-275` | Unintended global fallback | ✅ FIXED |
 | 343 | Project entries bypass all checks | `permission.service.ts:413-415, 507-515` | Any agent can modify projects | ✅ FIXED |
 | 344 | Admin key timing inconsistency | `scopes.handler.ts:154-156, 178-180` | Cross-tenant project modification | ✅ VERIFIED SAFE |
-| 345 | Permission cache invalidation incomplete | `permission.service.ts:616-619, 670-672` | 30s stale permission window |
+| 345 | Permission cache invalidation incomplete | `permission.service.ts:616-619, 670-672` | 30s stale permission window | ✅ DOCUMENTED |
 | 346 | Cache key collision null vs undefined | `permission.service.ts:149-150` | Wrong permission applied | ✅ FIXED |
 
 ### 18b. CLI, Cron, and Remaining Edge Cases (10 issues)

@@ -247,6 +247,12 @@ export class PermissionService {
         // Session table may not exist
       }
       if (!result) {
+        // Bug #342 fix: Log warning when session has no projectId - this causes global fallback
+        // which may grant unintended permissions. Orphan sessions should be rare.
+        this.logger.debug(
+          { scopeType, scopeId, fallback: 'global' },
+          'Session scope falling back to global - session has no projectId or not found'
+        );
         result = { type: 'global', id: null };
       }
     } else if (scopeType === 'project' && scopeId) {
@@ -259,6 +265,11 @@ export class PermissionService {
         // Project table may not exist
       }
       if (!result) {
+        // Bug #342 fix: Log when project has no orgId - this causes global fallback
+        this.logger.debug(
+          { scopeType, scopeId, fallback: 'global' },
+          'Project scope falling back to global - project has no orgId or not found'
+        );
         result = { type: 'global', id: null };
       }
     } else if (scopeType === 'org') {
@@ -638,6 +649,9 @@ export class PermissionService {
       .run();
 
     // Bug #10 fix: Increment version and invalidate caches
+    // Bug #345 note: This only invalidates local caches. In multi-instance deployments,
+    // other instances will have stale caches until their TTL expires or they restart.
+    // For strong consistency in distributed setups, use Redis-backed cache with pub/sub invalidation.
     this.cacheVersion++;
     this.permissionsExistCache = null;
     this.permissionCheckCache.clear();
