@@ -372,7 +372,14 @@ export function createOpenAICrossEncoderService(options: {
           choices: Array<{ message: { content: string } }>;
         };
 
-        const content = data.choices[0]?.message?.content ?? '';
+        // Bug #263 fix: Validate response structure instead of silent fallback
+        if (!data.choices || data.choices.length === 0) {
+          throw new Error('LLM response missing choices array');
+        }
+        const content = data.choices[0]?.message?.content;
+        if (content === undefined || content === null) {
+          throw new Error('LLM response missing message content');
+        }
         return parseScoresResponse(content, documents.map((d) => d.id));
       } catch (error) {
         if (error instanceof Error && error.name === 'AbortError') {
