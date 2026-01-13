@@ -18,9 +18,9 @@ import type {
 } from './types.js';
 import {
   buildSimilarityGraph,
-  calculateCohesion,
   computeNodeCentroid,
   calculateDetailedCohesion,
+  // Bug #210: calculateCohesion removed - use detailedCohesion.avgSimilarity instead
 } from './similarity.js';
 
 // =============================================================================
@@ -438,8 +438,10 @@ export async function detectCommunitiesLeiden(
     }
 
     const centroid = computeNodeCentroid(members);
-    const cohesion = calculateCohesion(members);
+    // Bug #210 fix: Use detailedCohesion.avgSimilarity instead of separate calculateCohesion call
+    // This avoids computing pairwise similarities twice (O(n²) operation)
     const detailedCohesion = calculateDetailedCohesion(members);
+    const cohesion = detailedCohesion.avgSimilarity;
 
     // Count node types
     const typeCounts = new Map<string, number>();
