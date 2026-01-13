@@ -1446,11 +1446,13 @@ export class ExtractionService {
       parsed = JSON.parse(jsonContent) as typeof parsed;
     } catch (error) {
       // Task 58: Make parsing fallback visible with detailed error context
+      // Bug #248 fix: Include stack trace for debugging parse failures
       const parseError = error instanceof Error ? error : new Error(String(error));
       logger.warn(
         {
           parseError: parseError.message,
           parseErrorName: parseError.name,
+          parseStack: parseError.stack?.split('\n').slice(0, 5).join('\n'), // Bug #248: Include stack
           contentLength: jsonContent.length,
           contentPreview: jsonContent.slice(0, 200),
           hadMarkdownBlock: content.includes('```'),

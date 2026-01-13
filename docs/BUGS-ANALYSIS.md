@@ -361,7 +361,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 | 238 | Cosine NaN/Infinity in vectors | `math.ts:191-193` | Wrong similarity result | ✅ FIXED - NaN/Infinity checks added |
 | 239 | Query index boundary empty | `decomposer.ts:311-420` | Edge case on no entities |
 | 240 | Extract response off-by-one | `extraction.service.ts:154-161` | 1 byte past limit |
-| 241 | Slice with negative bounds | `text-matching.ts:349` | Wrong truncation |
+| 241 | Slice with negative bounds | `text-matching.ts:349` | Wrong truncation | ✅ Already safe - constant is positive |
 | 242 | Stream chunk delimiter | `extraction.service.ts:162` | UTF-8 handled by decoder |
 | 243 | Zero vector edge case | `math.ts:212-218` | Guard exists but precision |
 
@@ -382,7 +382,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 #### MEDIUM
 | # | Issue | File | Impact |
 |---|-------|------|--------|
-| 248 | JSON parse loses stack trace | `extraction.service.ts:1333-1347` | Harder debugging |
+| 248 | JSON parse loses stack trace | `extraction.service.ts:1333-1347` | Harder debugging | ✅ FIXED - parseStack added to log |
 | 249 | Graph truncation no fallback signal | `graph-traversal.ts:260-270` | Incomplete results silently |
 | 250 | Feedback queue finally block risk | `queue.ts:365-367` | Worker count inconsistency |
 | 251 | Audit fire-and-forget silent | `audit.service.ts:89-94` | Lost audit data |
