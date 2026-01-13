@@ -465,14 +465,24 @@ export class LanceDbVectorStore implements IVectorStore {
     }
   }
 
+  /**
+   * Convert distance to similarity score (0-1)
+   * Task 220: Fixed L2 formula to properly map any distance to [0,1]
+   */
   private distanceToSimilarity(distance: number): number {
     if (this.distanceMetric === 'cosine') {
+      // Cosine distance is 1 - cosine_similarity, so similarity = 1 - distance
       return Math.max(0, Math.min(1, 1 - distance));
     } else if (this.distanceMetric === 'l2') {
-      return Math.max(0, 1 - distance / 2);
+      // L2 distance: use inverse formula that handles any distance range
+      // Maps [0, ∞) to (0, 1], closer vectors have higher similarity
+      return Math.max(0, 1 / (1 + distance));
     } else if (this.distanceMetric === 'dot') {
+      // Dot product: LanceDB returns negative inner product
+      // For normalized vectors, this ranges from -1 (similar) to 1 (opposite)
       return Math.max(0, Math.min(1, (1 - distance) / 2));
     }
+    // Default: inverse formula for unknown metrics
     return 1 / (1 + distance);
   }
 }

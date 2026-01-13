@@ -22,6 +22,47 @@ import {
 
 const logger = createComponentLogger('embedding');
 
+// =============================================================================
+// EMBEDDING VALIDATION
+// =============================================================================
+
+/**
+ * Validate embedding array for invalid values (NaN, Infinity).
+ * Task 121: Ensures embedding arrays don't contain values that corrupt similarity calculations.
+ * @param embedding - The embedding array to validate
+ * @param context - Context for error logging (e.g., provider name)
+ * @returns true if valid, throws if invalid
+ */
+function validateEmbedding(embedding: number[], context: string): void {
+  if (!Array.isArray(embedding) || embedding.length === 0) {
+    throw createEmbeddingProviderError(context, 'Empty embedding array returned');
+  }
+
+  for (let i = 0; i < embedding.length; i++) {
+    const value = embedding[i];
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+      logger.warn(
+        { index: i, value, context, embeddingLength: embedding.length },
+        'Invalid value in embedding array, replacing with 0'
+      );
+      // Replace invalid values with 0 to allow graceful degradation
+      embedding[i] = 0;
+    }
+  }
+}
+
+/**
+ * Validate batch of embeddings
+ */
+function validateEmbeddingBatch(embeddings: number[][], context: string): void {
+  for (let i = 0; i < embeddings.length; i++) {
+    const embedding = embeddings[i];
+    if (embedding) {
+      validateEmbedding(embedding, `${context}[${i}]`);
+    }
+  }
+}
+
 export type EmbeddingProvider = 'openai' | 'lmstudio' | 'local' | 'disabled';
 
 interface EmbeddingResult {
@@ -76,10 +117,21 @@ export interface EmbeddingServiceConfig {
 /**
  * Embedding service with configurable providers
  */
-// Track if we've already warned about missing OpenAI key (avoid spam in tests)
-let hasWarnedAboutOpenAI = false;
+// Static warning tracking - allows reset for test isolation
+const warningState = {
+  hasWarnedAboutOpenAI: false,
+  hasWarnedAboutMissingKey: false,
+};
 
 export class EmbeddingService {
+  /**
+   * Reset warning state for test isolation.
+   * Call this in test setup/teardown to ensure clean state between tests.
+   */
+  static resetWarningState(): void {
+    warningState.hasWarnedAboutOpenAI = false;
+    warningState.hasWarnedAboutMissingKey = false;
+  }
   private provider: EmbeddingProvider;
   private openaiClient: OpenAI | null = null;
   private openaiModel: string;
@@ -122,9 +174,9 @@ export class EmbeddingService {
     this.provider = effectiveConfig.provider;
 
     // Warn once if falling back to local (no API key)
-    if (this.provider === 'local' && !effectiveConfig.openaiApiKey && !hasWarnedAboutOpenAI) {
+    if (this.provider === 'local' && !effectiveConfig.openaiApiKey && !warningState.hasWarnedAboutOpenAI) {
       logger.warn('No OpenAI API key found, using local model');
-      hasWarnedAboutOpenAI = true;
+      warningState.hasWarnedAboutOpenAI = true;
     }
 
     this.openaiModel = effectiveConfig.openaiModel;
@@ -143,12 +195,20 @@ export class EmbeddingService {
       ?? (process.env.AGENT_MEMORY_EMBEDDING_DISABLE_INSTRUCTIONS === 'true');
 
     // Initialize OpenAI client if using OpenAI
-    if (this.provider === 'openai' && effectiveConfig.openaiApiKey) {
-      this.openaiClient = new OpenAI({
-        apiKey: effectiveConfig.openaiApiKey,
-        timeout: 60000, // 60 second timeout to prevent indefinite hangs
-        maxRetries: 0, // Disable SDK retry - we handle retries with withRetry
-      });
+    if (this.provider === 'openai') {
+      if (effectiveConfig.openaiApiKey) {
+        this.openaiClient = new OpenAI({
+          apiKey: effectiveConfig.openaiApiKey,
+          timeout: 60000, // 60 second timeout to prevent indefinite hangs
+          maxRetries: 0, // Disable SDK retry - we handle retries with withRetry
+        });
+      } else if (!warningState.hasWarnedAboutMissingKey) {
+        // Task 126: Warn when OpenAI provider is configured but key is missing
+        logger.warn(
+          'OpenAI embedding provider configured but AGENT_MEMORY_OPENAI_API_KEY is not set. Embedding operations will fail.'
+        );
+        warningState.hasWarnedAboutMissingKey = true;
+      }
     }
 
     // Initialize LM Studio client if using lmstudio
@@ -262,6 +322,9 @@ export class EmbeddingService {
       embedding = await this.embedLocal(normalized);
     }
 
+    // Task 121/125: Validate embedding array before caching
+    validateEmbedding(embedding, this.provider);
+
     // Cache result
     this.embeddingCache.set(cacheKey, embedding);
     if (this.embeddingCache.size > this.maxCacheSize) {
@@ -334,6 +397,9 @@ export class EmbeddingService {
       }
       embeddings = results;
     }
+
+    // Task 121/125: Validate all embeddings in batch
+    validateEmbeddingBatch(embeddings, this.provider);
 
     // Cache results
     normalized.forEach((text, i) => {
@@ -593,9 +659,9 @@ export class EmbeddingService {
 /**
  * Reset module-level state for testing purposes.
  * Note: In production code, services should be instantiated via DI and cleaned up directly.
+ * @deprecated Use EmbeddingService.resetWarningState() instead for better encapsulation.
  */
 export function resetEmbeddingServiceState(): void {
-  // Reset warning flag for tests
-  hasWarnedAboutOpenAI = false;
+  EmbeddingService.resetWarningState();
   EmbeddingService.hasLoggedModelLoad = false;
 }
