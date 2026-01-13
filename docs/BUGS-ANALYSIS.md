@@ -272,7 +272,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 #### LOW
 | # | Issue | File | Impact |
 |---|-------|------|--------|
-| 198 | Debug log startup silent failures | `logger.ts:32-46` | Debug logs never collected |
+| 198 | Debug log startup silent failures | `logger.ts:32-46` | Debug logs never collected | ✅ FIXED - mkdir + stderr |
 | 199 | Error type loss in generic handler | `rewrite.ts:148-154` | Error classification lost | ✅ FIXED - logs typeof |
 | 200 | Missing metric labels | `metrics.ts:420-435` | Incomplete observability |
 | 201 | Pagination cursor logging insufficient | `resolve.ts:55` | Hard to debug cursor issues | ✅ FIXED - enhanced context |
