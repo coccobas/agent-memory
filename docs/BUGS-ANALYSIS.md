@@ -516,11 +516,11 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 |---|-------|------|--------|
 | 302 | LanceDB Promise.race timeout cleanup | `lancedb.ts:109-117` | Timer leak per connection | ✅ FIXED - clearTimeout in finally |
 | 303 | Query executor Promise.race timeout | `executor.ts:256-257` | Event loop timer leak | ✅ FIXED - via Bug #247 fix |
-| 304 | Promise.all no fail-fast (factory) | `factory.ts:788-813` | Wasted validation work |
-| 305 | Latent memory trackAccess fire-and-forget | `latent-memory.service.ts:534` | Incomplete access history |
+| 304 | Promise.all no fail-fast (factory) | `factory.ts:788-813` | Wasted validation work | ✅ ACCEPTABLE - validation is cheap |
+| 305 | Latent memory trackAccess fire-and-forget | `latent-memory.service.ts:534` | Incomplete access history | ✅ ACCEPTABLE - has .catch() logging |
 | 306 | Session timeout checker no backpressure | `session-timeout.service.ts:137` | Concurrent check pile-up |
 | 307 | Health service check no backpressure | `health.service.ts:132` | Concurrent health explosions |
-| 308 | Config reload fire-and-forget | `config-reload.ts:308` | Silent reload failures |
+| 308 | Config reload fire-and-forget | `config-reload.ts:308` | Silent reload failures | ✅ ACCEPTABLE - has .catch() + ERROR log |
 | 309 | Dead letter queue retry no backpressure | `dead-letter-queue.ts:362` | Concurrent retry pile-up |
 | 310 | Process shutdown void promise race | `server.ts:232, 244, 261` | Race on process termination |
 
@@ -634,8 +634,8 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 #### LOW
 | # | Issue | File | Impact |
 |---|-------|------|--------|
-| 354 | Stdin timeout race condition | `stdin.ts:30` | Orphaned timeout callback |
-| 355 | OpenAPI spec stale cache | `routes/v1.ts:8-24` | Stale API spec |
+| 354 | Stdin timeout race condition | `stdin.ts:30` | Orphaned timeout callback | ✅ FIXED - cleanup() on all paths |
+| 355 | OpenAPI spec stale cache | `routes/v1.ts:8-24` | Stale API spec | ✅ BY DESIGN - specs stable per deployment |
 | 356 | Config reload partial failure hidden | `config-reload.ts:378-388` | Misleading success status | ✅ FIXED - errors tracked |
 
 ---
