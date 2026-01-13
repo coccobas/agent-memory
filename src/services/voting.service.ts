@@ -111,7 +111,10 @@ export function calculateConsensus(taskId: string, k: number = 1, db: DbClient):
       voteValue: JSON.parse(voteValue) as unknown,
       count: data.count,
       agents: data.agents,
-      avgConfidence: data.confidences.reduce((a, b) => a + b, 0) / data.confidences.length,
+      // Bug #256 fix: Guard against NaN when confidences array is empty (0/0)
+      avgConfidence: data.confidences.length > 0
+        ? data.confidences.reduce((a, b) => a + b, 0) / data.confidences.length
+        : 0,
     }))
     .sort((a, b) => b.count - a.count);
 

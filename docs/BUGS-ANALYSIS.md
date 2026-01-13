@@ -404,7 +404,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 #### MEDIUM
 | # | Issue | File | Impact |
 |---|-------|------|--------|
-| 256 | Voting service type coercion | `voting.service.ts:111, 152, 169` | Consensus calculation failure |
+| 256 | Voting service type coercion | `voting.service.ts:111, 152, 169` | Consensus calculation failure | ✅ FIXED - division guard |
 | 257 | Redis rate limiter array bounds | `redis-rate-limiter.adapter.ts:374-376` | NaN in rate limiting stats | ✅ FIXED - Number.isFinite guards |
 | 258 | Cross-encoder LLM type assertion | `cross-encoder-rerank.ts:280` | NaN scores from LLM | ✅ FIXED - Number.isFinite guard |
 | 259 | Double type casting (as unknown as) | `compact-formatter.ts:223, 228, 233` | Output formatting crashes |
@@ -564,7 +564,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 #### LOW
 | # | Issue | File | Impact |
 |---|-------|------|--------|
-| 326 | HyDE fallback not warned | `hyde.ts:222-224` | Degraded quality unnoticed |
+| 326 | HyDE fallback not warned | `hyde.ts:222-224` | Degraded quality unnoticed | ✅ Already handled - error logged at level ERROR |
 | 327 | Network error classification broad | `retry.ts:87-99` | Inconsistent retry behavior |
 | 328 | No adaptive backoff for rate limits | `retry.ts:36-59` | Ignores Retry-After header | ✅ FIXED - same as #315 |
 | 329 | Timeout promises not cleaned | Various | Memory accumulation |
