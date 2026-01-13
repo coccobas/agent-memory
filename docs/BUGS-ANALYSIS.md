@@ -280,11 +280,11 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 ### 13c. Algorithm Complexity and Performance (10 issues)
 
 #### HIGH
-| # | Issue | File | Impact |
-|---|-------|------|--------|
-| 202 | O(n²) pairwise similarity in Leiden | `similarity.ts:165-222` | Slow summarization (500K ops for 1K nodes) |
-| 203 | Repeated modularity recalculation O(iterations×E) | `leiden.ts:309-346` | Slow community detection |
-| 204 | Modularity gain O(n) assignment scan | `leiden.ts:141-192` | 100M operations for large graphs |
+| # | Issue | File | Impact | Status |
+|---|-------|------|--------|--------|
+| 202 | O(n²) pairwise similarity in Leiden | `similarity.ts:165-222` | Slow summarization (500K ops for 1K nodes) | ⚠️ DOCUMENTED - inherent complexity |
+| 203 | Repeated modularity recalculation O(iterations×E) | `leiden.ts:309-346` | Slow community detection | ✅ FIXED - cached degree sums |
+| 204 | Modularity gain O(n) assignment scan | `leiden.ts:141-192` | 100M operations for large graphs | ✅ FIXED - O(neighbors) now |
 
 #### MEDIUM
 | # | Issue | File | Impact |
@@ -506,10 +506,10 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 | 299 | ConnectionGuard double-checked locking | `connection-guard.ts:15-36` | Duplicate connections | ✅ FIXED |
 
 #### HIGH
-| # | Issue | File | Impact |
-|---|-------|------|--------|
-| 300 | Redis cache async fire-and-forget | `redis-cache.adapter.ts:217, 274, 336` | Silent data loss on crash |
-| 301 | Redis event publish fire-and-forget | `redis-event.adapter.ts:262` | Multi-instance inconsistency |
+| # | Issue | File | Impact | Status |
+|---|-------|------|--------|--------|
+| 300 | Redis cache async fire-and-forget | `redis-cache.adapter.ts:217, 274, 336` | Silent data loss on crash | ❌ NOT A BUG - intentional design |
+| 301 | Redis event publish fire-and-forget | `redis-event.adapter.ts:262` | Multi-instance inconsistency | ❌ NOT A BUG - intentional design |
 
 #### MEDIUM
 | # | Issue | File | Impact |
@@ -543,13 +543,13 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 | 314 | Cross-encoder timeout not in finally | `cross-encoder-rerank.ts:318-340` | Memory leak on error paths | ✅ FIXED |
 
 #### HIGH
-| # | Issue | File | Impact |
-|---|-------|------|--------|
-| 315 | Rate limit headers never parsed | `extraction.service.ts`, `embedding.service.ts` | Sudden 429 errors |
+| # | Issue | File | Impact | Status |
+|---|-------|------|--------|--------|
+| 315 | Rate limit headers never parsed | `extraction.service.ts`, `embedding.service.ts` | Sudden 429 errors | ✅ FIXED - retry.ts uses headers |
 | 316 | Ollama retry logic incomplete | `extraction.service.ts:1246-1252` | No retry on 500/502/503/504 | ✅ FIXED |
 | 317 | JSON parse returns empty silently | `extraction.service.ts:1331-1347` | Silent data loss | ✅ FIXED |
-| 318 | No streaming for large extractions | `extraction.service.ts:1051-1063` | Connection pool exhaustion |
-| 319 | Token/context length not validated | `extraction.service.ts:809-810` | Model context overflow |
+| 318 | No streaming for large extractions | `extraction.service.ts:1051-1063` | Connection pool exhaustion | ⚠️ DOCUMENTED - warning added |
+| 319 | Token/context length not validated | `extraction.service.ts:809-810` | Model context overflow | ✅ FIXED - token estimation added |
 
 #### MEDIUM
 | # | Issue | File | Impact |
@@ -566,7 +566,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 |---|-------|------|--------|
 | 326 | HyDE fallback not warned | `hyde.ts:222-224` | Degraded quality unnoticed |
 | 327 | Network error classification broad | `retry.ts:87-99` | Inconsistent retry behavior |
-| 328 | No adaptive backoff for rate limits | `retry.ts:36-59` | Ignores Retry-After header |
+| 328 | No adaptive backoff for rate limits | `retry.ts:36-59` | Ignores Retry-After header | ✅ FIXED - same as #315 |
 | 329 | Timeout promises not cleaned | Various | Memory accumulation |
 
 ### 17b. Serialization and Deserialization (8 issues)
