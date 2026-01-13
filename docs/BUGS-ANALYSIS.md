@@ -406,7 +406,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 |---|-------|------|--------|
 | 256 | Voting service type coercion | `voting.service.ts:111, 152, 169` | Consensus calculation failure |
 | 257 | Redis rate limiter array bounds | `redis-rate-limiter.adapter.ts:374-376` | NaN in rate limiting stats | ✅ FIXED - Number.isFinite guards |
-| 258 | Cross-encoder LLM type assertion | `cross-encoder-rerank.ts:280` | NaN scores from LLM |
+| 258 | Cross-encoder LLM type assertion | `cross-encoder-rerank.ts:280` | NaN scores from LLM | ✅ FIXED - Number.isFinite guard |
 | 259 | Double type casting (as unknown as) | `compact-formatter.ts:223, 228, 233` | Output formatting crashes |
 | 260 | Object.assign prototype pollution | `config/index.ts:467` | Potential prototype pollution |
 
@@ -555,10 +555,10 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 | # | Issue | File | Impact |
 |---|-------|------|--------|
 | 320 | LM Studio dimension race condition | `embedding.service.ts:589-591` | Dimension inconsistency |
-| 321 | Cross-encoder score range not validated | `cross-encoder-rerank.ts:280-286` | Silent score clamping |
+| 321 | Cross-encoder score range not validated | `cross-encoder-rerank.ts:280-286` | Silent score clamping | ✅ FIXED - adaptive normalization + clamping |
 | 322 | Empty choices array not detected | `extraction.service.ts:1065` | Unclear error message |
 | 323 | Ollama response structure not validated | `extraction.service.ts:1206-1229` | Invalid extractions stored |
-| 324 | OpenAI batch sparse response | `embedding.service.ts:524-529` | NaN in embeddings |
+| 324 | OpenAI batch sparse response | `embedding.service.ts:524-529` | NaN in embeddings | ✅ FIXED - count + NaN validation |
 | 325 | LM Studio URL not validated | `embedding.service.ts:235` | Data exfiltration risk |
 
 #### LOW

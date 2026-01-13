@@ -528,7 +528,26 @@ export class EmbeddingService {
           input: texts,
         });
 
-        return response.data.map((d) => d.embedding);
+        // Bug #324 fix: Validate response array matches input count
+        // OpenAI may return sparse response on partial batch failure
+        if (response.data.length !== texts.length) {
+          throw createEmbeddingProviderError(
+            'OpenAI',
+            `batch response mismatch: expected ${texts.length} embeddings, got ${response.data.length}`
+          );
+        }
+
+        // Bug #324 fix: Validate each embedding is valid (not empty or containing NaN)
+        return response.data.map((d, i) => {
+          if (!d.embedding || d.embedding.length === 0) {
+            throw createEmbeddingProviderError('OpenAI', `empty embedding at index ${i}`);
+          }
+          // Check for NaN values that could propagate silently
+          if (d.embedding.some(v => !Number.isFinite(v))) {
+            throw createEmbeddingProviderError('OpenAI', `invalid embedding values at index ${i}`);
+          }
+          return d.embedding;
+        });
       },
       {
         retryableErrors: isRetryableNetworkError,

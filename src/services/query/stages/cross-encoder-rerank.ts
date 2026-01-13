@@ -301,10 +301,15 @@ export function parseScoresResponse(
     }
 
     // Normalize scores to 0-1 range with adaptive divisor
-    return parsed.map((item) => ({
-      id: item.id,
-      score: Math.min(1, Math.max(0, (item.score ?? 0) / divisor)),
-    }));
+    // Bug #258 fix: Guard against NaN from LLM type assertion
+    return parsed.map((item) => {
+      const rawScore = Number(item.score);
+      const normalizedScore = Number.isFinite(rawScore) ? rawScore / divisor : 0.5;
+      return {
+        id: item.id,
+        score: Math.min(1, Math.max(0, normalizedScore)),
+      };
+    });
   } catch {
     // If parsing fails, return neutral scores
     return documentIds.map((id) => ({ id, score: 0.5 }));
