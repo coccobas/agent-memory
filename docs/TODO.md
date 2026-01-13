@@ -82,12 +82,12 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 
 #### Extraction Service Core
 - [ ] 45. **Missing Batch Processing** - No batch embedding support for large extractions
-- [ ] 46. **Hardcoded MAX_CONTEXT_LENGTH** - `extraction.service.ts:27` 100KB limit hardcoded
+- [x] 46. **Hardcoded MAX_CONTEXT_LENGTH** - FIXED: Added AGENT_MEMORY_EXTRACTION_MAX_CONTEXT_LENGTH config option (default 100KB, range 10KB-1MB)
 - [ ] 47. **No Partial Extraction Retry** - Entire result lost if extraction fails partway
-- [ ] 48. **Missing Input Validation for contextType** - Not validated against allowed values
-- [ ] 49. **Confidence Score Normalization Issue** - `extraction.service.ts:1125` no warning on invalid values
+- [x] 48. **Missing Input Validation for contextType** - FIXED: Added runtime validation with warning log, defaults to 'mixed' on invalid value
+- [x] 49. **Confidence Score Normalization Issue** - FIXED: Added normalizeConfidence() helper that logs warning when confidence is outside [0,1] range
 - [ ] 50. **No Deduplication Within Single Extraction** - Multiple identical entries possible
-- [ ] 51. **Missing Error Context in Retry** - `extraction.service.ts:905-906` no error context in logs
+- [x] 51. **Missing Error Context in Retry** - FIXED: Enhanced retry logs with full error context (name, message, stack, provider, model)
 - [ ] 52. **SSRF Validation Incomplete** - `extraction.service.ts:85-90` IPv6 zone IDs not handled
 - [x] 53. **No Rate Limiting Between Requests** - VERIFIED: Token bucket rate limiter exists (rate-limiter-core.ts) with per-agent, global, and burst limits
 - [ ] 54. **Provider State Tracking Issue** - `extraction.service.ts:647` module-level state shared

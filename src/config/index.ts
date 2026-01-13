@@ -111,8 +111,9 @@ export interface Config {
     // Trigger detection
     triggerDetectionEnabled: boolean;
     triggerCooldownMs: number;
-    // Timeout
+    // Timeout and limits
     timeoutMs: number;
+    maxContextLength: number;
     // Atomicity - ensure entries contain one concept each
     atomicityEnabled: boolean;
     atomicitySplitMode: 'silent' | 'log' | 'disabled';

@@ -112,6 +112,13 @@ export const extractionSection: ConfigSectionMeta = {
       schema: z.number().int().min(5000).max(300000),
       parse: 'int',
     },
+    maxContextLength: {
+      envKey: 'AGENT_MEMORY_EXTRACTION_MAX_CONTEXT_LENGTH',
+      defaultValue: 100000,
+      description: 'Maximum context size in characters for extraction (security limit to prevent DoS).',
+      schema: z.number().int().min(10000).max(1000000),
+      parse: 'int',
+    },
     confidenceThreshold: {
       envKey: 'AGENT_MEMORY_EXTRACTION_CONFIDENCE_THRESHOLD',
       defaultValue: 0.7,

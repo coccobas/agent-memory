@@ -23,11 +23,9 @@ import { ensureAtomicity, createAtomicityConfig } from './extraction/atomicity.j
 
 const logger = createComponentLogger('extraction');
 
-// Security: Maximum context size to prevent DoS and API quota exhaustion
-const MAX_CONTEXT_LENGTH = 100000; // 100KB limit
-
-// Extraction timeout to prevent hanging requests (30 seconds)
-const EXTRACTION_TIMEOUT_MS = 30000;
+// Valid contextType values for runtime validation
+const VALID_CONTEXT_TYPES = ['conversation', 'code', 'mixed'] as const;
+type ContextType = (typeof VALID_CONTEXT_TYPES)[number];
 
 // Security: Allowed OpenAI-compatible hosts (add your approved hosts here)
 // localhost only allowed in development mode, not production
@@ -778,8 +776,18 @@ export class ExtractionService {
     }
 
     // Security: Prevent DoS and API quota exhaustion with large context
-    if (input.context.length > MAX_CONTEXT_LENGTH) {
-      throw createSizeLimitError('context', MAX_CONTEXT_LENGTH, input.context.length, 'characters');
+    const maxContextLength = config.extraction.maxContextLength;
+    if (input.context.length > maxContextLength) {
+      throw createSizeLimitError('context', maxContextLength, input.context.length, 'characters');
+    }
+
+    // Validate contextType if provided
+    if (input.contextType && !VALID_CONTEXT_TYPES.includes(input.contextType as ContextType)) {
+      logger.warn(
+        { provided: input.contextType, valid: VALID_CONTEXT_TYPES },
+        'Invalid contextType provided, defaulting to mixed'
+      );
+      input.contextType = 'mixed';
     }
 
     const startTime = Date.now();
@@ -792,21 +800,21 @@ export class ExtractionService {
         case 'openai':
           result = await this.withTimeout(
             this.extractOpenAI(input),
-            EXTRACTION_TIMEOUT_MS,
+            config.extraction.timeoutMs,
             'OpenAI extraction'
           );
           break;
         case 'anthropic':
           result = await this.withTimeout(
             this.extractAnthropic(input),
-            EXTRACTION_TIMEOUT_MS,
+            config.extraction.timeoutMs,
             'Anthropic extraction'
           );
           break;
         case 'ollama':
           result = await this.withTimeout(
             this.extractOllama(input),
-            EXTRACTION_TIMEOUT_MS,
+            config.extraction.timeoutMs,
             'Ollama extraction'
           );
           break;
@@ -902,7 +910,17 @@ export class ExtractionService {
       {
         retryableErrors: isRetryableNetworkError,
         onRetry: (error, attempt) => {
-          logger.warn({ error: error.message, attempt }, 'Retrying OpenAI extraction');
+          logger.warn(
+            {
+              error: error.message,
+              errorName: error.name,
+              stack: error.stack,
+              attempt,
+              provider: 'openai',
+              model: this.openaiModel,
+            },
+            'Retrying OpenAI extraction after error'
+          );
         },
       }
     );
@@ -947,7 +965,17 @@ export class ExtractionService {
       {
         retryableErrors: isRetryableNetworkError,
         onRetry: (error, attempt) => {
-          logger.warn({ error: error.message, attempt }, 'Retrying Anthropic extraction');
+          logger.warn(
+            {
+              error: error.message,
+              errorName: error.name,
+              stack: error.stack,
+              attempt,
+              provider: 'anthropic',
+              model: this.anthropicModel,
+            },
+            'Retrying Anthropic extraction after error'
+          );
         },
       }
     );
@@ -1031,7 +1059,18 @@ export class ExtractionService {
           );
         },
         onRetry: (error, attempt) => {
-          logger.warn({ error: error.message, attempt }, 'Retrying Ollama extraction');
+          logger.warn(
+            {
+              error: error.message,
+              errorName: error.name,
+              stack: error.stack,
+              attempt,
+              provider: 'ollama',
+              model: this.ollamaModel,
+              baseUrl: this.ollamaBaseUrl,
+            },
+            'Retrying Ollama extraction after error'
+          );
         },
       }
     );
@@ -1110,6 +1149,18 @@ export class ExtractionService {
     const entities: ExtractedEntity[] = [];
     const relationships: ExtractedRelationship[] = [];
 
+    // Helper to normalize confidence with warning on invalid values
+    const normalizeConfidence = (value: unknown, context: string): number => {
+      if (typeof value !== 'number') return 0.5;
+      if (value < 0 || value > 1) {
+        logger.warn(
+          { value, context, normalized: Math.min(1, Math.max(0, value)) },
+          'Confidence score out of valid range [0,1], normalizing'
+        );
+      }
+      return Math.min(1, Math.max(0, value));
+    };
+
     // Normalize guidelines
     if (Array.isArray(parsed.guidelines)) {
       for (const g of parsed.guidelines) {
@@ -1121,8 +1172,7 @@ export class ExtractionService {
             category: g.category,
             priority:
               typeof g.priority === 'number' ? Math.min(100, Math.max(0, g.priority)) : undefined,
-            confidence:
-              typeof g.confidence === 'number' ? Math.min(1, Math.max(0, g.confidence)) : 0.5,
+            confidence: normalizeConfidence(g.confidence, `guideline:${g.name}`),
             rationale: g.rationale,
             suggestedTags: g.suggestedTags,
           });
@@ -1139,8 +1189,7 @@ export class ExtractionService {
             title: k.title,
             content: k.content,
             category: k.category,
-            confidence:
-              typeof k.confidence === 'number' ? Math.min(1, Math.max(0, k.confidence)) : 0.5,
+            confidence: normalizeConfidence(k.confidence, `knowledge:${k.title}`),
             rationale: k.source, // Map source to rationale for consistency
             suggestedTags: k.suggestedTags,
           });
@@ -1157,8 +1206,7 @@ export class ExtractionService {
             name: this.toKebabCase(t.name),
             content: t.description,
             category: t.category,
-            confidence:
-              typeof t.confidence === 'number' ? Math.min(1, Math.max(0, t.confidence)) : 0.5,
+            confidence: normalizeConfidence(t.confidence, `tool:${t.name}`),
             suggestedTags: t.suggestedTags,
           });
         }
@@ -1180,8 +1228,7 @@ export class ExtractionService {
             name: e.name,
             entityType: e.entityType as EntityType,
             description: e.description,
-            confidence:
-              typeof e.confidence === 'number' ? Math.min(1, Math.max(0, e.confidence)) : 0.5,
+            confidence: normalizeConfidence(e.confidence, `entity:${e.name}`),
           });
         }
       }
@@ -1213,8 +1260,7 @@ export class ExtractionService {
             targetRef: r.targetRef,
             targetType: r.targetType as 'guideline' | 'knowledge' | 'tool' | 'entity',
             relationType: r.relationType as ExtractedRelationType,
-            confidence:
-              typeof r.confidence === 'number' ? Math.min(1, Math.max(0, r.confidence)) : 0.5,
+            confidence: normalizeConfidence(r.confidence, `relationship:${r.sourceRef}->${r.targetRef}`),
           });
         }
       }
