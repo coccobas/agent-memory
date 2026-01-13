@@ -244,7 +244,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 #### LOW
 | # | Issue | File | Impact |
 |---|-------|------|--------|
-| 188 | Redundant action validation | `tool-validator.ts:35` + `tools.controller.ts:147` | Code redundancy |
+| 188 | Redundant action validation | `tool-validator.ts:35` + `tools.controller.ts:147` | Code redundancy | ✅ ACCEPTABLE - defense in depth |
 
 ### 13b. Logging and Observability (14 issues)
 
@@ -480,11 +480,11 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 #### MEDIUM
 | # | Issue | File | Impact |
 |---|-------|------|--------|
-| 286 | Session timeout interval cleanup missing | `session-timeout.service.ts:136-149` | Orphaned timer |
+| 286 | Session timeout interval cleanup missing | `session-timeout.service.ts:136-149` | Orphaned timer | ✅ SAFE - stop() clears + .unref() |
 | 287 | Health monitor reconnect no mutex | `health.service.ts:196-199` | Concurrent reconnection attempts |
 | 288 | LanceDB index creation orphaned promises | `lancedb.ts:221` | CPU wasted on retries |
-| 289 | Extraction timeout ID leak edge case | `extraction.service.ts:771-785` | Edge case timer leak |
-| 290 | Memory coordinator interval cleanup | `memory-coordinator.ts:139-158` | Orphaned background task |
+| 289 | Extraction timeout ID leak edge case | `extraction.service.ts:771-785` | Edge case timer leak | ✅ FIXED - clearTimeout in finally |
+| 290 | Memory coordinator interval cleanup | `memory-coordinator.ts:139-158` | Orphaned background task | ✅ SAFE - stopMonitoring() + .unref() |
 | 291 | Feedback queue worker timeout | `queue.ts:344` | Orphaned promise callbacks |
 | 292 | Redis event subscriber duplicate handlers | `redis-event.adapter.ts:176-205` | Duplicate message processing |
 | 293 | LanceDB connection timeout not cleared | `lancedb.ts:106-120` | Dangling setTimeout | ✅ FIXED - see Bug #302 |
@@ -495,8 +495,8 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 | 294 | PostgreSQL pool no error handler | `postgresql.adapter.ts:145-147` | No stale connection visibility | ✅ FIXED - pool error handler |
 | 295 | Fire-and-forget publish no retry | `redis-event.adapter.ts:262-264` | Silent event loss |
 | 296 | Query cache unsubscribe race window | `runtime.ts:197-199` | Millisecond stale cache window |
-| 297 | PostgreSQL transaction safe but subtle | `postgresql.adapter.ts:236-294` | Complexity risk |
-| 298 | Backup DB verification (safe) | `backup.service.ts:84-99` | Actually safe |
+| 297 | PostgreSQL transaction safe but subtle | `postgresql.adapter.ts:236-294` | Complexity risk | ✅ ACCEPTABLE - well-documented |
+| 298 | Backup DB verification (safe) | `backup.service.ts:84-99` | Actually safe | ✅ VERIFIED SAFE |
 
 ### 16b. Async/Await and Promise Patterns (14 issues)
 
@@ -528,7 +528,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 | # | Issue | File | Impact |
 |---|-------|------|--------|
 | 311 | Promise.then batch error propagation | `factory.ts:1045, 1155` | Partial batch failure |
-| 312 | SQLite adapter promise callback escape | `sqlite.adapter.ts:131-139` | Well-guarded, safe |
+| 312 | SQLite adapter promise callback escape | `sqlite.adapter.ts:131-139` | Well-guarded, safe | ✅ VERIFIED SAFE |
 
 ---
 
@@ -565,7 +565,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 | # | Issue | File | Impact |
 |---|-------|------|--------|
 | 326 | HyDE fallback not warned | `hyde.ts:222-224` | Degraded quality unnoticed | ✅ Already handled - error logged at level ERROR |
-| 327 | Network error classification broad | `retry.ts:87-99` | Inconsistent retry behavior |
+| 327 | Network error classification broad | `retry.ts:87-99` | Inconsistent retry behavior | ✅ BY DESIGN - broad is correct for retries |
 | 328 | No adaptive backoff for rate limits | `retry.ts:36-59` | Ignores Retry-After header | ✅ FIXED - same as #315 |
 | 329 | Timeout promises not cleaned | Various | Memory accumulation |
 
@@ -589,7 +589,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 | # | Issue | File | Impact |
 |---|-------|------|--------|
 | 336 | Base64 encoding inconsistency | `base.ts:97, 108` | Silent pagination failures | ✅ FIXED - base64url + backwards compat |
-| 337 | Hardcoded UTF-8 assumption | `transcript-cursor.ts:70` | Garbled transcript on non-UTF8 |
+| 337 | Hardcoded UTF-8 assumption | `transcript-cursor.ts:70` | Garbled transcript on non-UTF8 | ✅ BY DESIGN - UTF-8 is JSON standard |
 
 ---
 
