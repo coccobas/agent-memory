@@ -582,7 +582,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 | # | Issue | File | Impact |
 |---|-------|------|--------|
 | 333 | Unicode hash collision (charCodeAt) | `extraction-hook.service.ts:600-607` | Duplicate detection broken | ✅ FIXED |
-| 334 | Deep clone loses type info | `config/index.ts:478` | Config integrity in tests |
+| 334 | Deep clone loses type info | `config/index.ts:478` | Config integrity in tests | ✅ NOT AN ISSUE |
 | 335 | Unguarded JSON.parse in handler | `rl.handler.ts:439` | Handler crash on invalid input | ✅ FIXED |
 
 #### MEDIUM
@@ -601,16 +601,16 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 | # | Issue | File | Impact | Status |
 |---|-------|------|--------|--------|
 | 338 | TOCTOU: permission check after fetch | `factory.ts:482-504` | Unauthorized access after revocation | ✅ FIXED |
-| 339 | Permissive mode in staging environments | `permission.service.ts:286-310` | Full auth bypass in non-prod | |
+| 339 | Permissive mode in staging environments | `permission.service.ts:286-310` | Full auth bypass in non-prod | ✅ FIXED |
 | 340 | entryId=null escalates to type-level | `factory.ts:163-183` | Privilege escalation | ✅ FIXED |
 
 #### HIGH
 | # | Issue | File | Impact | Status |
 |---|-------|------|--------|--------|
-| 341 | Missing agentId validation in list | `factory.ts:528-576` | Information disclosure without auth | |
+| 341 | Missing agentId validation in list | `factory.ts:528-576` | Information disclosure without auth | ✅ FIXED |
 | 342 | Scope inheritance validation gap | `permission.service.ts:248-275` | Unintended global fallback | |
 | 343 | Project entries bypass all checks | `permission.service.ts:413-415, 507-515` | Any agent can modify projects | ✅ FIXED |
-| 344 | Admin key timing inconsistency | `scopes.handler.ts:154-156, 178-180` | Cross-tenant project modification |
+| 344 | Admin key timing inconsistency | `scopes.handler.ts:154-156, 178-180` | Cross-tenant project modification | ✅ VERIFIED SAFE |
 | 345 | Permission cache invalidation incomplete | `permission.service.ts:616-619, 670-672` | 30s stale permission window |
 | 346 | Cache key collision null vs undefined | `permission.service.ts:149-150` | Wrong permission applied | ✅ FIXED |
 

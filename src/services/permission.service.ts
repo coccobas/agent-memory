@@ -318,11 +318,14 @@ export class PermissionService {
       return false;
     }
 
-    // SECURITY: Block permissive mode in production
-    if (process.env.NODE_ENV === 'production') {
+    // SECURITY: Block permissive mode in production and production-like environments
+    // Bug #339 fix: Also block staging, preprod, and other non-development environments
+    const env = process.env.NODE_ENV?.toLowerCase() ?? '';
+    const blockedEnvironments = ['production', 'prod', 'staging', 'preprod', 'pre-prod', 'uat'];
+    if (blockedEnvironments.includes(env)) {
       throw createValidationError(
         'AGENT_MEMORY_PERMISSIONS_MODE',
-        'permissive mode is FORBIDDEN in production',
+        `permissive mode is FORBIDDEN in ${process.env.NODE_ENV}`,
         'Remove this environment variable and configure explicit permissions'
       );
     }
