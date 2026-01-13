@@ -25,7 +25,7 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 #### Performance
 - [x] 5. **Inefficient Light Scoring Phase** - `score.ts:547-586` - ANALYZED: 4 loops are O(n) total, each processes only its type. Code style issue, not performance.
 - [x] 6. **Redundant Scope Chain Resolution** - `scope-chain.ts` - ANALYZED: Cache DOES store results even when entities don't exist. Not a real issue.
-- [ ] 7. **No Pagination Cursor Support** - `pipeline.ts:408` always returns `nextCursor: undefined` - VALID: Missing feature
+- [ ] 7. **No Pagination Cursor Support** - `pipeline.ts:408` always returns `nextCursor: undefined` - **DECISION: IMPLEMENT**
 - [x] 8. **Fetch Headroom Too Conservative** - `fetch.ts:30-75` - ANALYZED: Adaptive headroom (1.2x-5.0x) is intentional based on filter selectivity
 - [x] 9. **Semantic Entry Fetch Inefficiency** - `fetch.ts:394-424` - ANALYZED: Uses Map.keys() which is inherently deduplicated
 - [x] 10. **No Prepared Statement Caching for Dynamic Queries** - `fetch.ts:356` - ALREADY IMPLEMENTED: Uses `getPreparedStatement()` for caching
@@ -39,28 +39,28 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 - [x] 16. **No Handling for Empty Search String** - `resolve.ts:39-50` - FIXED: Added logging and clarifying comments
 
 #### Missing Features
-- [ ] 17. **No Query Result Invalidation on Cascade Deletes** - `index.ts:178-186` doesn't handle cascading
+- [ ] 17. **No Query Result Invalidation on Cascade Deletes** - `index.ts:178-186` doesn't handle cascading - **DECISION: IMPLEMENT**
 - [x] 18. **Missing Limit Enforcement in FTS Scored Results** - FIXED: Added limit slicing in fallback path
-- [ ] 19. **No Support for Excluding Search Terms** - Missing `-term` syntax support
-- [ ] 20. **Missing Query Analytics** - No structured success/failure rate capture
-- [ ] 21. **No Result Diversification** - Results could all be from same scope/category
-- [ ] 22. **No Late Binding for Dependencies** - `index.ts:51-53` can't update at runtime
+- [x] 19. **No Support for Excluding Search Terms** - Missing `-term` syntax support - **DECISION: BACKLOG**
+- [x] 20. **Missing Query Analytics** - No structured success/failure rate capture - **DECISION: BACKLOG**
+- [x] 21. **No Result Diversification** - Results could all be from same scope/category - **DECISION: BACKLOG**
+- [ ] 22. **No Late Binding for Dependencies** - `index.ts:51-53` can't update at runtime - **DECISION: IMPLEMENT**
 
 #### Hidden Complexity
 - [x] 23. **FTS Expanded Query Weight Handling Unclear** - VERIFIED: weight IS applied at line 122 (score * query.weight), matchWeights map is unused cleanup
 - [x] 24. **Semantic Score Deduplication Issue** - VERIFIED: weight IS applied at line 130 (score * weight), max-score dedup is intentional
 - [x] 25. **Phase 1 Light Score May Not Preserve Top Candidates** - ANALYZED: 1.5x buffer is intentional trade-off for performance, could increase if recall issues arise
-- [ ] 26. **Feedback Multiplier Doesn't Account for Recency** - `feedback-cache.ts:267-285` old feedback distorts
+- [x] 26. **Feedback Multiplier Doesn't Account for Recency** - `feedback-cache.ts:267-285` old feedback distorts - **DECISION: WONTFIX**
 - [x] 27. **Cached Feedback Has No Invalidation Trigger** - VERIFIED: feedback/index.ts:300-311 invalidates cache when outcomes are recorded
-- [ ] 28. **Post-Filter Tags Stage Has Resource Overhead** - `filter.ts:450-451` no batching optimization
+- [ ] 28. **Post-Filter Tags Stage Has Resource Overhead** - `filter.ts:450-451` no batching optimization - **DECISION: IMPLEMENT**
 - [x] 29. **Cross-Encoder Re-ranking Score Blending Not Configurable** - VERIFIED: alpha IS configurable via AGENT_MEMORY_CROSS_ENCODER_ALPHA
-- [ ] 30. **Hierarchical Filtering May Drop Relevant Results** - `index.ts:571` doesn't re-score results
+- [ ] 30. **Hierarchical Filtering May Drop Relevant Results** - `index.ts:571` doesn't re-score results - **DECISION: IMPLEMENT**
 
 #### Configuration
 - [x] 31. **Hardcoded Timeout Missing** - VERIFIED: Embedding service has 60s timeout (embedding.service.ts:149,161)
 - [x] 32. **No Circuit Breaker for External Services** - VERIFIED: DLQ has useCircuitBreaker, rate limiter has burst protection, withRetry has backoff
-- [ ] 33. **Scope Chain Cache TTL Not Configurable** - `scope-chain.ts:31` 10-minute TTL hardcoded
-- [ ] 34. **Feedback Cache TTL Not Applied Consistently** - `feedback-cache.ts:80` TTL inconsistent
+- [ ] 33. **Scope Chain Cache TTL Not Configurable** - `scope-chain.ts:31` 10-minute TTL hardcoded - **DECISION: IMPLEMENT**
+- [ ] 34. **Feedback Cache TTL Not Applied Consistently** - `feedback-cache.ts:80` TTL inconsistent - **DECISION: IMPLEMENT**
 - [x] 35. **FTS BM25 Normalization Formula Not Documented** - FIXED: Added comprehensive JSDoc with formula explanation
 
 #### Edge Cases
@@ -72,18 +72,18 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 
 #### Architecture
 - [x] 41. **Context Type Safety Issues** - ANALYZED: Type casts are TypeScript pattern for progressive context enrichment. Would need branded types or type guards to eliminate.
-- [ ] 42. **Pipeline Stage Ordering Not Validated** - Stages could be reordered silently (enhancement)
-- [ ] 43. **Missing Dry-Run Mode** - Can't validate query without executing (enhancement)
-- [ ] 44. **Limited Observable Telemetry** - Only basic timing logged, no decision visibility (enhancement)
+- [ ] 42. **Pipeline Stage Ordering Not Validated** - Stages could be reordered silently - **DECISION: IMPLEMENT**
+- [ ] 43. **Missing Dry-Run Mode** - Can't validate query without executing - **DECISION: IMPLEMENT**
+- [ ] 44. **Limited Observable Telemetry** - Only basic timing logged, no decision visibility - **DECISION: IMPLEMENT**
 
 ---
 
 ### EXTRACTION SERVICES (Tasks 45-120)
 
 #### Extraction Service Core
-- [ ] 45. **Missing Batch Processing** - No batch embedding support for large extractions
+- [ ] 45. **Missing Batch Processing** - No batch embedding support for large extractions - **DECISION: IMPLEMENT**
 - [x] 46. **Hardcoded MAX_CONTEXT_LENGTH** - FIXED: Added AGENT_MEMORY_EXTRACTION_MAX_CONTEXT_LENGTH config option (default 100KB, range 10KB-1MB)
-- [ ] 47. **No Partial Extraction Retry** - Entire result lost if extraction fails partway
+- [ ] 47. **No Partial Extraction Retry** - Entire result lost if extraction fails partway - **DECISION: IMPLEMENT**
 - [x] 48. **Missing Input Validation for contextType** - FIXED: Added runtime validation with warning log, defaults to 'mixed' on invalid value
 - [x] 49. **Confidence Score Normalization Issue** - FIXED: Added normalizeConfidence() helper that logs warning when confidence is outside [0,1] range
 - [x] 50. **No Deduplication Within Single Extraction** - FIXED: Added deduplicateEntries(), deduplicateEntities(), deduplicateRelationships() helpers that keep highest confidence on duplicates
@@ -99,11 +99,11 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 #### Extraction Hook Service
 - [x] 59. **Regex State Management Vulnerability** - VERIFIED: Line 247 correctly resets lastIndex = 0 before each pattern
 - [x] 60. **Hash Collision Vulnerability** - FIXED: Replaced djb2 with FNV-1a hash + content length for better distribution
-- [ ] 61. **Hardcoded Confidence Thresholds** - Pattern confidence values hardcoded (enhancement: could make configurable)
+- [ ] 61. **Hardcoded Confidence Thresholds** - Pattern confidence values hardcoded - **DECISION: IMPLEMENT**
 - [x] 62. **No Max Pattern Match Limit** - FIXED: Added MAX_MATCHES_PER_PATTERN=100 limit with debug logging when reached
-- [ ] 63. **Pattern Efficiency Issue** - Global regexes processed sequentially (enhancement: could parallelize)
+- [ ] 63. **Pattern Efficiency Issue** - Global regexes processed sequentially - **DECISION: IMPLEMENT**
 - [x] 64. **Cooldown Resolution Too Coarse** - VERIFIED: Date.now() has 1ms precision, adequate for 5-30 second cooldowns
-- [ ] 65. **No Extraction Patterns for Errors** - Missing error handling pattern detection (enhancement)
+- [ ] 65. **No Extraction Patterns for Errors** - Missing error handling pattern detection - **DECISION: IMPLEMENT**
 
 #### Entity Extraction Service
 - [x] 66. **Function Name Extraction Too Aggressive** - ANALYZED: Enhancement - could add more exclusion patterns but current regex is reasonable
@@ -189,8 +189,8 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 #### Embedding Service Core
 - [x] 121. **No validation of embedding array elements** - FIXED: Added validateEmbedding() and validateEmbeddingBatch() helpers that check for NaN/Infinity and replace with 0
 - [x] 122. **Cache key collision vulnerability** - ANALYZED: Non-issue - cache keys are used as-is with Map.get(), not parsed back. Format `provider:type:text` is unambiguous.
-- [ ] 123. **Missing cache statistics** - No hit/miss rate metrics (enhancement)
-- [ ] 124. **Hardcoded embedding dimensions** - Should be fetched from model metadata (enhancement)
+- [ ] 123. **Missing cache statistics** - No hit/miss rate metrics - **DECISION: IMPLEMENT**
+- [ ] 124. **Hardcoded embedding dimensions** - Should be fetched from model metadata - **DECISION: IMPLEMENT**
 - [x] 125. **No embedding output validation** - FIXED: validateEmbedding() checks array length and value validity after API call
 - [x] 126. **Silent provider fallback risk** - FIXED: Added warning when OpenAI provider configured but API key missing
 - [x] 127. **Memory leak potential in cache eviction** - ANALYZED: Batch eviction exists at line 392-396, evicts until under limit
@@ -401,10 +401,8 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 
 _Ideas and tasks for future consideration:_
 
-- [ ] Add cross-encoder re-ranking toggle for production benchmarks
-- [ ] Implement query decomposition for multi-hop retrieval
-- [ ] Add Cursor IDE hook support
-- [ ] Add VS Code IDE hook support
+- [ ] Add cross-encoder re-ranking toggle for production benchmarks - **DECISION: IMPLEMENT**
+- [ ] Implement query decomposition for multi-hop retrieval - **DECISION: IMPLEMENT**
 - [ ] PostgreSQL performance benchmarks vs SQLite
 
 ---
