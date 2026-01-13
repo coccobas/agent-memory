@@ -260,11 +260,13 @@ export class PgVectorStore implements IVectorStore {
       SELECT entry_type, entry_id, version_id, text, embedding ${operator} $1::vector AS distance
       FROM vector_embeddings
     `;
-    const params: (string | number)[] = [vectorStr];
+    // Bug #268 fix: Use broader type to allow arrays for ANY() queries
+    // pg driver correctly converts string[] to PostgreSQL array literals
+    const params: (string | number | string[])[] = [vectorStr];
 
     if (options.entryTypes && options.entryTypes.length > 0) {
       query += ' WHERE entry_type = ANY($2)';
-      params.push(options.entryTypes as unknown as string);
+      params.push(options.entryTypes);
     }
 
     query += ` ORDER BY embedding ${operator} $1::vector LIMIT $${params.length + 1}`;

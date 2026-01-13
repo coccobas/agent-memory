@@ -407,7 +407,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 | 256 | Voting service type coercion | `voting.service.ts:111, 152, 169` | Consensus calculation failure | ✅ FIXED - division guard |
 | 257 | Redis rate limiter array bounds | `redis-rate-limiter.adapter.ts:374-376` | NaN in rate limiting stats | ✅ FIXED - Number.isFinite guards |
 | 258 | Cross-encoder LLM type assertion | `cross-encoder-rerank.ts:280` | NaN scores from LLM | ✅ FIXED - Number.isFinite guard |
-| 259 | Double type casting (as unknown as) | `compact-formatter.ts:223, 228, 233` | Output formatting crashes |
+| 259 | Double type casting (as unknown as) | `compact-formatter.ts:223, 228, 233` | Output formatting crashes | ✅ ACCEPTABLE - runtime guards before cast |
 | 260 | Object.assign prototype pollution | `config/index.ts:467` | Potential prototype pollution | ✅ FIXED - key filtering |
 
 #### LOW
@@ -427,10 +427,10 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 #### MEDIUM
 | # | Issue | File | Impact | Status |
 |---|-------|------|--------|--------|
-| 265 | SQL template literal concatenation | `pgvector.ts:259-270` | Risky SQL construction pattern | |
+| 265 | SQL template literal concatenation | `pgvector.ts:259-270` | Risky SQL construction pattern | ✅ SAFE - operator from constant Record |
 | 266 | Unvalidated OFFSET lower bound | `entry-utils.ts:47-61` | Accepts negative pagination | ✅ FIXED |
 | 267 | LIKE wildcards not escaped | `conversations.ts:381, 389` | Incorrect search results | ✅ FIXED |
-| 268 | Unsafe array type casting | `pgvector.ts:265-267` | Type safety bypassed | |
+| 268 | Unsafe array type casting | `pgvector.ts:265-267` | Type safety bypassed | ✅ FIXED - proper type definition |
 
 #### LOW
 | # | Issue | File | Impact | Status |
@@ -554,7 +554,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 #### MEDIUM
 | # | Issue | File | Impact |
 |---|-------|------|--------|
-| 320 | LM Studio dimension race condition | `embedding.service.ts:589-591` | Dimension inconsistency |
+| 320 | LM Studio dimension race condition | `embedding.service.ts:589-591` | Dimension inconsistency | ✅ LOW RISK - both detect same value |
 | 321 | Cross-encoder score range not validated | `cross-encoder-rerank.ts:280-286` | Silent score clamping | ✅ FIXED - adaptive normalization + clamping |
 | 322 | Empty choices array not detected | `extraction.service.ts:1065` | Unclear error message | ✅ FIXED - specific error for empty choices |
 | 323 | Ollama response structure not validated | `extraction.service.ts:1206-1229` | Invalid extractions stored | ✅ Already fixed - full validation exists |
@@ -588,7 +588,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 #### MEDIUM
 | # | Issue | File | Impact |
 |---|-------|------|--------|
-| 336 | Base64 encoding inconsistency | `base.ts:97, 108` | Silent pagination failures |
+| 336 | Base64 encoding inconsistency | `base.ts:97, 108` | Silent pagination failures | ✅ FIXED - base64url + backwards compat |
 | 337 | Hardcoded UTF-8 assumption | `transcript-cursor.ts:70` | Garbled transcript on non-UTF8 |
 
 ---

@@ -87,25 +87,35 @@ interface CursorPayload {
 }
 
 /**
- * Encode an offset into a cursor string (base64 JSON)
+ * Encode an offset into a cursor string (base64url JSON)
+ *
+ * Bug #336 fix: Use base64url for URL-safe encoding consistency with pagination.ts
  *
  * @param offset - The offset to encode
- * @returns Base64-encoded cursor string
+ * @returns Base64url-encoded cursor string
  */
 export function encodeCursor(offset: number): string {
   const payload: CursorPayload = { offset };
-  return Buffer.from(JSON.stringify(payload)).toString('base64');
+  return Buffer.from(JSON.stringify(payload)).toString('base64url');
 }
 
 /**
  * Decode a cursor string back into an offset
  *
- * @param cursor - Base64-encoded cursor string
+ * Bug #336 fix: Accept both base64url and legacy base64 for backwards compatibility
+ *
+ * @param cursor - Base64url-encoded cursor string (also accepts legacy base64)
  * @returns Decoded payload or null if invalid
  */
 export function decodeCursor(cursor: string): CursorPayload | null {
   try {
-    const json = Buffer.from(cursor, 'base64').toString('utf8');
+    // Try base64url first (new format), then base64 (legacy)
+    let json: string;
+    try {
+      json = Buffer.from(cursor, 'base64url').toString('utf8');
+    } catch {
+      json = Buffer.from(cursor, 'base64').toString('utf8');
+    }
     const payload = JSON.parse(json) as CursorPayload;
     if (typeof payload.offset === 'number' && payload.offset >= 0) {
       return payload;
