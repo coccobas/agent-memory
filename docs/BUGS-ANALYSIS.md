@@ -115,14 +115,14 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 | 9 | Rate limit bypass when disabled | `rate-limiter-core.ts:104-110` | DoS vulnerability | ✅ FIXED |
 | 10 | Permission cache race condition | `permission.service.ts:616-673` | Stale permissions for 30s | ✅ FIXED |
 | 11 | File lock expire-and-insert race | `file_locks.ts:79-118` | Permanent lock on NULL expiry | ✅ FIXED |
-| 12 | API key exposure in logs | `hierarchical-summarization.service.ts:97-100` | Credential leak | |
+| 12 | API key exposure in logs | `hierarchical-summarization.service.ts:97-100` | Credential leak | ✅ VERIFIED SAFE |
 | 13 | Unfiltered error logging | `error-mapper.ts:68-73` | SQL/path disclosure | ✅ FIXED |
 
 ### Data Integrity
 
 | # | Issue | File | Impact | Status |
 |---|-------|------|--------|--------|
-| 14 | Audit logging silent failures | `audit.service.ts:49-96` | Compliance gaps | |
+| 14 | Audit logging silent failures | `audit.service.ts:49-96` | Compliance gaps | ✅ FIXED |
 | 15 | FTS score MAX vs ADD | `fts.ts:124` | Multi-query broken | ✅ FIXED |
 | 16 | Entity lookup case mismatch | `entity-index.ts:168-217` | Inconsistent retrieval | ✅ FIXED |
 | 17 | Scope chain null lookup | `scope-chain.ts:169` | Wrong inheritance | ✅ FIXED |
@@ -136,11 +136,11 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 
 | # | Issue | File | Impact |
 |---|-------|------|--------|
-| 23 | HyDE embedding cache stampede | `semantic.ts:79-106` | Duplicate API calls |
-| 24 | Extraction service infinite loop | `extraction.service.ts:150-170` | Hung requests |
-| 25 | LLM summarizer infinite loop | `llm-summarizer.ts:61-79` | Resource exhaustion |
+| 23 | HyDE embedding cache stampede | `semantic.ts:79-106` | Duplicate API calls | ✅ FIXED |
+| 24 | Extraction service infinite loop | `extraction.service.ts:150-170` | Hung requests | ✅ FIXED |
+| 25 | LLM summarizer infinite loop | `llm-summarizer.ts:61-79` | Resource exhaustion | ✅ FIXED |
 | 26 | Hardcoded memory multiplier | `semantic.ts:126-127` | OOM on large limits |
-| 27 | Vector store init race | `lancedb.ts:151-206` | Both processes fail |
+| 27 | Vector store init race | `lancedb.ts:151-206` | Both processes fail | ✅ FIXED |
 | 28 | Redis sync/async API confusion | `redis-cache.adapter.ts:200-223` | Always returns undefined |
 
 ### Correctness

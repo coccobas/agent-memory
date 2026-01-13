@@ -16,6 +16,35 @@ import type { PipelineContext } from '../pipeline.js';
 import type { SearchStrategy } from './strategy.js';
 import { AgentMemoryError, ErrorCodes } from '../../../core/errors.js';
 
+// Bug #23 fix: Request coalescing map to prevent cache stampede
+// When multiple concurrent requests need the same embedding, only one API call is made
+// Key: search query text, Value: pending promise for the embedding result
+const pendingEmbeddings = new Map<string, Promise<{ embedding: number[] }>>();
+
+/**
+ * Get or create an embedding with request coalescing
+ * Multiple concurrent requests for the same query share a single API call
+ */
+async function getEmbeddingWithCoalescing(
+  embeddingService: { embed(text: string): Promise<{ embedding: number[] }> },
+  text: string
+): Promise<{ embedding: number[] }> {
+  // Check if there's already a pending request for this text
+  const pending = pendingEmbeddings.get(text);
+  if (pending) {
+    return pending;
+  }
+
+  // Create new request and store the promise
+  const promise = embeddingService.embed(text).finally(() => {
+    // Clean up after completion (success or failure)
+    pendingEmbeddings.delete(text);
+  });
+
+  pendingEmbeddings.set(text, promise);
+  return promise;
+}
+
 /**
  * Extended pipeline context with semantic search results
  */
@@ -100,7 +129,8 @@ export async function semanticStageAsync(ctx: PipelineContext): Promise<Pipeline
       }
     } else {
       // Fall back to embedding the original query
-      const queryResult = await deps.embeddingService.embed(search);
+      // Bug #23 fix: Use request coalescing to prevent duplicate API calls
+      const queryResult = await getEmbeddingWithCoalescing(deps.embeddingService, search);
       queryEmbedding = queryResult.embedding;
       embeddingsToSearch = [{ embedding: queryResult.embedding, weight: 1.0 }];
     }

@@ -161,44 +161,69 @@ export class LanceDbVectorStore implements IVectorStore {
         throw createVectorNotInitializedError();
       }
 
-      try {
-        const tableNames = await this.connection.tableNames();
-        if (tableNames.includes(this.tableName)) {
+      // Bug #27 fix: Retry with exponential backoff for inter-process races
+      // When multiple processes initialize simultaneously, one may fail transiently
+      const MAX_RETRIES = 3;
+      const INITIAL_DELAY_MS = 100;
+
+      for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        try {
+          const tableNames = await this.connection.tableNames();
+          if (tableNames.includes(this.tableName)) {
+            this.table = await this.connection.openTable(this.tableName);
+            return { createdWithRecord: false };
+          }
+        } catch (error) {
+          logger.debug({ error, attempt }, 'Could not list tables, will try open/create table');
+        }
+
+        try {
           this.table = await this.connection.openTable(this.tableName);
           return { createdWithRecord: false };
+        } catch (error) {
+          logger.debug(
+            { error: error instanceof Error ? error.message : String(error), attempt },
+            'Failed to open vector table, will try to create it'
+          );
         }
-      } catch (error) {
-        logger.debug({ error }, 'Could not list tables, will try open/create table');
+
+        if (!recordForCreate) {
+          throw createVectorDbError(
+            'ensureTable',
+            'Table is missing and no record provided to create it'
+          );
+        }
+
+        try {
+          this.table = await this.connection.createTable(this.tableName, [recordForCreate]);
+          return { createdWithRecord: true };
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          logger.debug(
+            { error: errorMessage, attempt },
+            'Failed to create vector table, will retry open'
+          );
+
+          // Bug #27 fix: Wait before retry with exponential backoff
+          if (attempt < MAX_RETRIES - 1) {
+            const delay = INITIAL_DELAY_MS * Math.pow(2, attempt);
+            await new Promise((resolve) => setTimeout(resolve, delay));
+
+            // Try to open again after delay (another process may have created it)
+            try {
+              this.table = await this.connection.openTable(this.tableName);
+              return { createdWithRecord: false };
+            } catch {
+              // Continue to next retry iteration
+              logger.debug({ attempt }, 'Retry open also failed, will retry full cycle');
+            }
+          }
+        }
       }
 
-      try {
-        this.table = await this.connection.openTable(this.tableName);
-        return { createdWithRecord: false };
-      } catch (error) {
-        logger.debug(
-          { error: error instanceof Error ? error.message : String(error) },
-          'Failed to open vector table, will try to create it'
-        );
-      }
-
-      if (!recordForCreate) {
-        throw createVectorDbError(
-          'ensureTable',
-          'Table is missing and no record provided to create it'
-        );
-      }
-
-      try {
-        this.table = await this.connection.createTable(this.tableName, [recordForCreate]);
-        return { createdWithRecord: true };
-      } catch (error) {
-        logger.debug(
-          { error: error instanceof Error ? error.message : String(error) },
-          'Failed to create vector table, will try to open it'
-        );
-        this.table = await this.connection.openTable(this.tableName);
-        return { createdWithRecord: false };
-      }
+      // Final attempt after all retries exhausted
+      this.table = await this.connection.openTable(this.tableName);
+      return { createdWithRecord: false };
     })().finally(() => {
       this.ensureTablePromise = null;
     });

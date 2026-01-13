@@ -85,3 +85,4 @@ docs/guides/security.md
 
 # Prompts (not tracked)
 prompts/
+data/test-classification/*.db

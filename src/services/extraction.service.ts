@@ -146,9 +146,28 @@ async function readResponseWithLimit(
   const chunks: string[] = [];
   let totalBytes = 0;
 
+  // Bug #24 fix: Per-read timeout to prevent hung requests
+  // If reading takes longer than 30 seconds for a single chunk, abort
+  const READ_TIMEOUT_MS = 30000;
+
   try {
     while (true) {
-      const { done, value } = await reader.read();
+      // Bug #24 fix: Check if abort was requested before each read
+      if (abortController.signal.aborted) {
+        throw createExtractionError('response', 'request aborted');
+      }
+
+      // Bug #24 fix: Add timeout to each read operation
+      const readPromise = reader.read();
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        const id = setTimeout(() => {
+          reject(createExtractionError('response', 'stream read timeout - server not responding'));
+        }, READ_TIMEOUT_MS);
+        // Clean up timeout if read completes first
+        readPromise.finally(() => clearTimeout(id));
+      });
+
+      const { done, value } = await Promise.race([readPromise, timeoutPromise]);
       if (done) break;
 
       totalBytes += value.byteLength;
