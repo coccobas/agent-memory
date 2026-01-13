@@ -12,6 +12,7 @@ import { createHash } from 'node:crypto';
 import type Database from 'better-sqlite3';
 import { createComponentLogger } from '../utils/logger.js';
 import { config } from '../config/index.js';
+import { clearPreparedStatementCache } from './connection.js';
 
 const logger = createComponentLogger('init');
 
@@ -346,6 +347,15 @@ export function initializeDatabase(
 
         applyMigration(sqlite, migration.name, migration.path, options);
         result.migrationsApplied.push(migration.name);
+      }
+
+      // Bug #31 fix: Clear prepared statement cache after schema changes
+      // Migrations may alter table structure, making cached statements invalid
+      if (result.migrationsApplied.length > 0) {
+        clearPreparedStatementCache();
+        if (options.verbose) {
+          logger.info('Cleared prepared statement cache after migrations');
+        }
       }
 
       result.success = true;

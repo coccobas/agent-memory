@@ -139,8 +139,13 @@ function fetchEntriesGeneric<T extends EntryUnion>(
   result: Array<{ entry: T; scopeIndex: number }>,
   softCap: number
 ): void {
-  const { scopeChain, params, ftsMatchIds } = ctx;
+  const { params, ftsMatchIds } = ctx;
   const { table, ftsKey, applyExtraFilters } = config;
+
+  // Bug #33 fix: Defensive copy of scopeChain to prevent mutation during query execution
+  // The same scopeChain reference is used for building conditions and post-query sorting
+  // If ctx.scopeChain were mutated during execution, the sort order would be wrong
+  const scopeChain = [...ctx.scopeChain];
 
   // Build scope conditions for all scopes in the chain (batched approach)
   // This replaces N separate queries with a single query using OR

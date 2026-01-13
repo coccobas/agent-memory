@@ -537,10 +537,22 @@ export function createTaskRepository(deps: DatabaseDeps): ITaskRepository {
         const newBlockers = [...currentBlockers, blockerId];
         const now = new Date().toISOString();
 
+        // Bug #29 fix: Store previous status in metadata before transitioning to blocked
+        // This allows restoring the correct status when blockers are removed
+        const currentMetadata = existing.metadata
+          ? (JSON.parse(existing.metadata) as Record<string, unknown>)
+          : {};
+
+        // Only store previousStatus if we're not already blocked
+        if (existing.status !== 'blocked' && !currentMetadata.previousStatus) {
+          currentMetadata.previousStatus = existing.status;
+        }
+
         db.update(tasks)
           .set({
             blockedBy: serializeBlockedBy(newBlockers),
             status: 'blocked', // Auto-transition to blocked status
+            metadata: serializeMetadata(currentMetadata),
             updatedAt: now,
             updatedBy,
           })
@@ -576,12 +588,28 @@ export function createTaskRepository(deps: DatabaseDeps): ITaskRepository {
           updatedBy,
         };
 
-        // If no more blockers, transition out of blocked status
-        // Bug #29 note: We transition to 'open' as we don't track pre-blocked status.
-        // A more robust solution would store the previous status in metadata.
-        // For now, 'open' is a safe default that doesn't incorrectly mark as 'done'.
+        // Bug #29 fix: If no more blockers, restore previous status from metadata
+        // This preserves the correct workflow state (e.g., in_progress stays in_progress)
         if (newBlockers.length === 0 && existing.status === 'blocked') {
-          updates.status = 'open';
+          const currentMetadata = existing.metadata
+            ? (JSON.parse(existing.metadata) as Record<string, unknown>)
+            : {};
+
+          // Restore previous status if stored, otherwise default to 'open'
+          const previousStatus = currentMetadata.previousStatus as TaskStatus | undefined;
+          // Validate the stored status is a valid TaskStatus before using it
+          const validStatuses: TaskStatus[] = ['backlog', 'open', 'in_progress', 'blocked', 'review', 'done', 'wont_do'];
+          updates.status = previousStatus && validStatuses.includes(previousStatus)
+            ? previousStatus
+            : 'open';
+
+          // Clear previousStatus from metadata since we've restored it
+          if (currentMetadata.previousStatus) {
+            delete currentMetadata.previousStatus;
+            updates.metadata = Object.keys(currentMetadata).length > 0
+              ? serializeMetadata(currentMetadata)
+              : null;
+          }
         }
 
         db.update(tasks).set(updates).where(eq(tasks.id, taskId)).run();

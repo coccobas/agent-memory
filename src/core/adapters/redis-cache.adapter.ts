@@ -194,8 +194,15 @@ export class RedisCacheAdapter<T = unknown> implements ICacheAdapter<T> {
   }
 
   /**
-   * Get a value from cache.
+   * Get a value from cache (synchronous).
    * Uses local cache as L1, Redis as L2.
+   *
+   * Bug #28 IMPORTANT: This sync method only returns L1 (local) cache hits.
+   * If the value is only in Redis (L2), it returns undefined and queues
+   * an async fetch to warm L1. For guaranteed retrieval, use getAsync().
+   *
+   * Design: L1 (local) provides sync access, L2 (Redis) provides durability.
+   * The async fetch warms L1 so subsequent sync calls will hit.
    */
   get(key: string): T | undefined {
     const fullKey = this.keyPrefix + key;
@@ -211,11 +218,16 @@ export class RedisCacheAdapter<T = unknown> implements ICacheAdapter<T> {
       this.localCache.delete(fullKey);
     }
 
-    // For sync interface, we can't truly await Redis
-    // Queue an async fetch that updates local cache
+    // Bug #28 fix: For sync interface, we can't await Redis
+    // Queue an async fetch that updates local cache for next call
+    // Log at debug level to help diagnose "always undefined" issues
     if (this.client && this.connectionGuard.connected) {
+      logger.debug(
+        { key },
+        'Sync get() L1 miss - queuing async L2 fetch. Use getAsync() for guaranteed retrieval.'
+      );
       this.fetchAsync(fullKey).catch((error) => {
-        logger.debug({ error, key }, 'Async fetch failed');
+        logger.debug({ error, key }, 'Async L2 fetch failed');
       });
     }
 

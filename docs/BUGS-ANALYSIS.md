@@ -150,7 +150,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 | 29 | Status override in removeBlocker | `tasks.ts:524-543` | Forced status change |
 | 30 | bulk_add TOCTOU race | `factory.ts:725-751` | Duplicate entries |
 | 31 | Prepared statement cache stale | `connection.ts:136-148` | Schema mismatch |
-| 32 | JSON parsing no validation | `decomposer.ts:395-410` | Invalid indices |
+| 32 | JSON parsing no validation | `decomposer.ts:395-410` | Invalid indices | ✅ FIXED |
 | 33 | Scope chain index race | `fetch.ts:194-200` | Wrong sort order |
 
 ---

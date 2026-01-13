@@ -869,7 +869,24 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
           // Check if entry already exists - update instead of create
           const nameValue = config.getNameValue(entryObj);
           const key = `${scopeType}:${scopeId ?? ''}:${nameValue}`;
-          const existingEntry = existingEntriesMap.get(key);
+
+          // Bug #30 fix: Re-check for existing entry INSIDE transaction to prevent TOCTOU race
+          // The pre-check (existingEntriesMap) is used for validation, but we re-check here
+          // to handle concurrent bulk_add calls that might have created the entry
+          let existingEntry = existingEntriesMap.get(key);
+
+          // Re-lookup inside transaction for race safety
+          const lookupFn = config.nameField === 'title' ? repo.getByTitle : repo.getByName;
+          if (!existingEntry && lookupFn) {
+            // Sync lookup inside transaction - won't actually await since SQLite is sync
+            const freshLookup = lookupFn.call(repo, nameValue, scopeType, scopeId, false);
+            if (freshLookup && 'then' in freshLookup) {
+              // Handle promise case (though SQLite resolves sync)
+              existingEntry = undefined; // Can't await in sync transaction, use cached result
+            } else {
+              existingEntry = freshLookup as TEntry | undefined;
+            }
+          }
 
           if (existingEntry) {
             // Update existing entry

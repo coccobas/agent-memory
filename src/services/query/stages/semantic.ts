@@ -149,11 +149,16 @@ export async function semanticStageAsync(ctx: PipelineContext): Promise<Pipeline
 
       // Search with each embedding and combine results (max score wins)
       let totalResults = 0;
+      // Bug #26 fix: Cap the candidate multiplier to prevent OOM on large limits
+      // Fetch 3x candidates for scoring, but cap at 1000 to prevent memory issues
+      const MAX_CANDIDATES = 1000;
+      const candidateLimit = Math.min(limit * 3, MAX_CANDIDATES);
+
       for (const { embedding, weight } of embeddingsToSearch) {
         const results = await deps.vectorService.searchSimilar(
           embedding,
           entryTypes,
-          limit * 3 // Fetch more candidates for scoring stage to filter
+          candidateLimit
         );
 
         for (const r of results) {
