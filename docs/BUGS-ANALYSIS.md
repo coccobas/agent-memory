@@ -289,9 +289,9 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 #### MEDIUM
 | # | Issue | File | Impact |
 |---|-------|------|--------|
-| 205 | Degree recalculation every modularity call | `leiden.ts:78-84` | 500K wasted calculations |
+| 205 | Degree recalculation every modularity call | `leiden.ts:78-84` | 500K wasted calculations | ✅ FIXED - pre-computed |
 | 206 | Tags helper post-query filtering vs SQL WHERE | `tags-helper.ts:60-110` | Memory + bandwidth waste |
-| 207 | Graph traversal silent truncation no signal | `graph-traversal.ts:260-271` | Incomplete query results |
+| 207 | Graph traversal silent truncation no signal | `graph-traversal.ts:260-271` | Incomplete query results | ✅ FIXED - see Bug #194 |
 | 208 | Degree recalculation in moveNodesLocally | `leiden.ts:206-213` | Redundant computation |
 
 #### LOW
@@ -343,12 +343,12 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 | # | Issue | File | Impact | Status |
 |---|-------|------|--------|--------|
 | 226 | Pagination cursor DoS (no size limit) | `pagination.ts:172` | Memory exhaustion | ✅ FIXED |
-| 227 | Heap pressure division by zero | `lru-cache.ts:306` | Forced aggressive eviction | |
-| 228 | Filter rowidMap null state | `filter.ts:131-188` | TypeError on null access | |
+| 227 | Heap pressure division by zero | `lru-cache.ts:306` | Forced aggressive eviction | ✅ FIXED |
+| 228 | Filter rowidMap null state | `filter.ts:131-188` | TypeError on null access | ✅ Already safe |
 | 229 | Semantic HyDE weak embedding | `semantic.ts:93` | Poor search quality | |
 | 230 | Timestamp parsing silent failure | `timestamp-formatter.ts:32` | Silent data loss | ✅ Already handled |
-| 231 | Rate limiter negative overflow | `rate-limiter-core.ts:82` | Integer overflow |
-| 232 | Transcript UTF-8 truncation | `transcript-cursor.ts:70` | Corrupted JSON parsing |
+| 231 | Rate limiter negative overflow | `rate-limiter-core.ts:82` | Integer overflow | ✅ FIXED |
+| 232 | Transcript UTF-8 truncation | `transcript-cursor.ts:70` | Corrupted JSON parsing | ✅ FIXED |
 | 233 | Levenshtein array bounds hidden | `text-matching.ts:200` | Hidden null access |
 | 234 | LCS array bounds non-null assertions | `math.ts:102-113` | Potential bounds issues |
 | 235 | Empty array division guard unclear | `math.ts:43` | NaN propagation risk |
