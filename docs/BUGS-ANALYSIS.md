@@ -357,7 +357,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 | # | Issue | File | Impact |
 |---|-------|------|--------|
 | 236 | Mean calculation edge case | `math.ts:300-302` | Defensive only |
-| 237 | Normalize precision loss | `math.ts:343-344` | Subnormal float issues |
+| 237 | Normalize precision loss | `math.ts:343-344` | Subnormal float issues | ✅ FIXED - Number.isFinite checks |
 | 238 | Cosine NaN/Infinity in vectors | `math.ts:191-193` | Wrong similarity result | ✅ FIXED - NaN/Infinity checks added |
 | 239 | Query index boundary empty | `decomposer.ts:311-420` | Edge case on no entities |
 | 240 | Extract response off-by-one | `extraction.service.ts:154-161` | 1 byte past limit |
