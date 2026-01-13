@@ -374,16 +374,20 @@ class ConfigReloader {
 
   /**
    * Notify all registered callbacks
+   * Bug #356 fix: Track callback failures and add to result errors
    */
   private notifyCallbacks(result: ReloadResult): void {
     for (const callback of this.callbacks) {
       try {
         callback(result);
       } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
         logger.error(
-          { error: error instanceof Error ? error.message : String(error) },
+          { error: errorMsg },
           'Reload callback failed'
         );
+        // Bug #356 fix: Track callback failures in result for visibility
+        result.errors.push(`Callback failed: ${errorMsg}`);
       }
     }
   }

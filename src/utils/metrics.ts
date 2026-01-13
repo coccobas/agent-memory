@@ -402,30 +402,33 @@ export class MetricsRegistry {
 
   /**
    * Format process-level metrics
+   * Bug #200 fix: Added service label for better metric identification
    */
   private formatProcessMetrics(): string {
     const lines: string[] = [];
     const mem = process.memoryUsage();
     const uptime = process.uptime();
+    // Bug #200 fix: Add service label for metric identification in multi-service environments
+    const serviceLabel = '{service="agent-memory"}';
 
     lines.push('# HELP process_heap_bytes Process heap size in bytes');
     lines.push('# TYPE process_heap_bytes gauge');
-    lines.push(`process_heap_bytes ${mem.heapUsed}`);
+    lines.push(`process_heap_bytes${serviceLabel} ${mem.heapUsed}`);
 
     lines.push('');
     lines.push('# HELP process_heap_total_bytes Process total heap size in bytes');
     lines.push('# TYPE process_heap_total_bytes gauge');
-    lines.push(`process_heap_total_bytes ${mem.heapTotal}`);
+    lines.push(`process_heap_total_bytes${serviceLabel} ${mem.heapTotal}`);
 
     lines.push('');
     lines.push('# HELP process_rss_bytes Process resident set size in bytes');
     lines.push('# TYPE process_rss_bytes gauge');
-    lines.push(`process_rss_bytes ${mem.rss}`);
+    lines.push(`process_rss_bytes${serviceLabel} ${mem.rss}`);
 
     lines.push('');
     lines.push('# HELP process_uptime_seconds Process uptime in seconds');
     lines.push('# TYPE process_uptime_seconds gauge');
-    lines.push(`process_uptime_seconds ${uptime}`);
+    lines.push(`process_uptime_seconds${serviceLabel} ${uptime}`);
 
     return lines.join('\n');
   }

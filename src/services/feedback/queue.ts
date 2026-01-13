@@ -360,7 +360,15 @@ export class FeedbackQueueProcessor {
           },
           'Worker failed to process batch'
         );
-        this.addToDLQ(batch.items, error);
+        // Bug #250 fix: Wrap DLQ call to prevent exception in catch from breaking worker count
+        try {
+          this.addToDLQ(batch.items, error);
+        } catch (dlqError) {
+          logger.error(
+            { error: dlqError instanceof Error ? dlqError.message : String(dlqError) },
+            'Failed to add items to DLQ'
+          );
+        }
         this.failures++;
       } finally {
         this.activeWorkerCount--;
