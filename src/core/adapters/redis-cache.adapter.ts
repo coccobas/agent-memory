@@ -151,7 +151,15 @@ export class RedisCacheAdapter<T = unknown> implements ICacheAdapter<T> {
       if (channel !== this.invalidationChannel) return;
 
       try {
-        const { key, type } = JSON.parse(message) as { key: string; type: 'delete' | 'clear' };
+        // Bug #255 fix: Validate parsed JSON structure instead of unsafe type assertion
+        const parsed: unknown = JSON.parse(message);
+        if (typeof parsed !== 'object' || parsed === null) {
+          return; // Invalid message structure
+        }
+
+        const msgObj = parsed as Record<string, unknown>;
+        const type = msgObj.type;
+        const key = msgObj.key;
 
         if (type === 'clear') {
           // Clear all local cache entries with our prefix
@@ -160,7 +168,7 @@ export class RedisCacheAdapter<T = unknown> implements ICacheAdapter<T> {
               this.localCache.delete(fullKey);
             }
           }
-        } else if (type === 'delete' && key) {
+        } else if (type === 'delete' && typeof key === 'string' && key) {
           // Delete specific key from local cache
           this.localCache.delete(key);
         }

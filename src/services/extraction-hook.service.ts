@@ -587,6 +587,7 @@ export class ExtractionHookService implements IExtractionHookService {
   /**
    * FNV-1a hash for content deduplication.
    * Task 60: Improved from djb2 to FNV-1a for better distribution and collision resistance.
+   * Bug #333 fix: Use codePointAt to properly handle Unicode characters outside BMP (emoji, etc.)
    * Includes content length in hash to further reduce collision probability.
    */
   private hashContent(content: string): string {
@@ -596,10 +597,17 @@ export class ExtractionHookService implements IExtractionHookService {
     const FNV_OFFSET = 0x811c9dc5;
 
     let hash = FNV_OFFSET;
-    for (let i = 0; i < normalized.length; i++) {
-      hash ^= normalized.charCodeAt(i);
-      // Multiply by FNV prime (use Math.imul for 32-bit multiplication)
+    // Bug #333 fix: Iterate by code points instead of code units to handle Unicode correctly
+    for (const char of normalized) {
+      const codePoint = char.codePointAt(0) ?? 0;
+      // XOR both low and high bytes of the code point for better distribution
+      hash ^= codePoint & 0xffff;
       hash = Math.imul(hash, FNV_PRIME);
+      if (codePoint > 0xffff) {
+        // For characters outside BMP, also include the high bits
+        hash ^= codePoint >>> 16;
+        hash = Math.imul(hash, FNV_PRIME);
+      }
     }
 
     // Include length in hash output for additional collision resistance

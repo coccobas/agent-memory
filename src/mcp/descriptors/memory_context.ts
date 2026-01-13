@@ -25,7 +25,13 @@ Example: {"action":"show"} → returns detected context`,
     },
   },
   contextHandler: async (ctx, args) => {
-    const action = (args?.action as string) ?? 'show';
+    // Bug #180 fix: Validate action value instead of just casting
+    const rawAction = args?.action;
+    const validActions = ['show', 'refresh'] as const;
+    const action: 'show' | 'refresh' =
+      typeof rawAction === 'string' && validActions.includes(rawAction as 'show' | 'refresh')
+        ? (rawAction as 'show' | 'refresh')
+        : 'show';
 
     const contextDetection = ctx.services.contextDetection;
     if (!contextDetection) {

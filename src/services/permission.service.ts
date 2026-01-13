@@ -161,7 +161,14 @@ export class PermissionService {
     scopeType: ScopeType,
     scopeId: string | null | undefined
   ): string {
-    return `${agentId}:${action}:${entryType}:${entryId ?? ''}:${scopeType}:${scopeId ?? ''}`;
+    // Bug #346 fix: Distinguish null vs undefined to prevent cache key collisions
+    // Using distinct markers: 'N' for null, 'U' for undefined, actual value otherwise
+    const normalizeNullish = (val: string | null | undefined): string => {
+      if (val === null) return '\x00N'; // Null marker (unlikely to appear in IDs)
+      if (val === undefined) return '\x00U'; // Undefined marker
+      return val;
+    };
+    return `${agentId}:${action}:${entryType}:${normalizeNullish(entryId)}:${scopeType}:${normalizeNullish(scopeId)}`;
   }
 
   /**

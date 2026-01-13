@@ -228,7 +228,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 #### HIGH
 | # | Issue | File | Impact |
 |---|-------|------|--------|
-| 180 | Type assertion without validation | `memory_context.ts:28` | Wrong action executes silently |
+| 180 | Type assertion without validation | `memory_context.ts:28` | Wrong action executes silently | ✅ FIXED |
 | 181 | Audit logging silent failures (fire-and-forget) | `audit.service.ts:50-95` | Critical audit gaps |
 | 182 | Query handler lost correlation | `query.handler.ts:177-182` | Untraceable async errors |
 
@@ -398,8 +398,8 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 #### HIGH
 | # | Issue | File | Impact |
 |---|-------|------|--------|
-| 254 | Unsafe JSON.parse type assertion (lock) | `redis-lock.adapter.ts:317` | Distributed lock failure |
-| 255 | Unsafe JSON.parse (cache invalidation) | `redis-cache.adapter.ts:154` | Silent cache consistency violation |
+| 254 | Unsafe JSON.parse type assertion (lock) | `redis-lock.adapter.ts:317` | Distributed lock failure | ✅ FIXED |
+| 255 | Unsafe JSON.parse (cache invalidation) | `redis-cache.adapter.ts:154` | Silent cache consistency violation | ✅ FIXED |
 
 #### MEDIUM
 | # | Issue | File | Impact |
@@ -581,9 +581,9 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 #### HIGH
 | # | Issue | File | Impact |
 |---|-------|------|--------|
-| 333 | Unicode hash collision (charCodeAt) | `extraction-hook.service.ts:600-607` | Duplicate detection broken |
+| 333 | Unicode hash collision (charCodeAt) | `extraction-hook.service.ts:600-607` | Duplicate detection broken | ✅ FIXED |
 | 334 | Deep clone loses type info | `config/index.ts:478` | Config integrity in tests |
-| 335 | Unguarded JSON.parse in handler | `rl.handler.ts:439` | Handler crash on invalid input |
+| 335 | Unguarded JSON.parse in handler | `rl.handler.ts:439` | Handler crash on invalid input | ✅ FIXED |
 
 #### MEDIUM
 | # | Issue | File | Impact |
@@ -612,7 +612,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 | 343 | Project entries bypass all checks | `permission.service.ts:413-415, 507-515` | Any agent can modify projects | ✅ FIXED |
 | 344 | Admin key timing inconsistency | `scopes.handler.ts:154-156, 178-180` | Cross-tenant project modification |
 | 345 | Permission cache invalidation incomplete | `permission.service.ts:616-619, 670-672` | 30s stale permission window |
-| 346 | Cache key collision null vs undefined | `permission.service.ts:149-150` | Wrong permission applied |
+| 346 | Cache key collision null vs undefined | `permission.service.ts:149-150` | Wrong permission applied | ✅ FIXED |
 
 ### 18b. CLI, Cron, and Remaining Edge Cases (10 issues)
 

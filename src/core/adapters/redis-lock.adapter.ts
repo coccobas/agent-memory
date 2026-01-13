@@ -314,11 +314,27 @@ export class RedisLockAdapter implements ILockAdapter {
       try {
         const lockData = await this.client.get(fullKey);
         if (lockData) {
-          const record = JSON.parse(lockData) as RedisLockRecord;
-          if (record.token === token) {
-            await this.client.del(fullKey);
+          // Bug #254 fix: Validate parsed JSON structure instead of unsafe type assertion
+          let record: unknown;
+          try {
+            record = JSON.parse(lockData);
+          } catch {
+            logger.warn({ key }, 'Invalid JSON in lock record, treating as no lock');
             this.localTokens.delete(fullKey);
-            return true;
+            return false;
+          }
+          // Validate the record has the expected token field
+          if (
+            typeof record === 'object' &&
+            record !== null &&
+            'token' in record &&
+            typeof (record as { token: unknown }).token === 'string'
+          ) {
+            if ((record as RedisLockRecord).token === token) {
+              await this.client.del(fullKey);
+              this.localTokens.delete(fullKey);
+              return true;
+            }
           }
         }
         // Token didn't match - clean up local token
