@@ -235,7 +235,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 #### MEDIUM
 | # | Issue | File | Impact |
 |---|-------|------|--------|
-| 183 | Pattern of unsafe type coercion | `tool-runner.ts:273` | Type safety bypass |
+| 183 | Pattern of unsafe type coercion | `tool-runner.ts:273` | Type safety bypass | ✅ FIXED - typeof validation |
 | 184 | Schema-handler action enum mismatch | `memory_consolidate.ts:45-48` | Contract violation |
 | 185 | SimpleToolDescriptor action dispatch inconsistency | `types.ts:315-326` | API contract mismatch |
 | 186 | Response format mismatch MCP vs REST | `tool-runner.ts:160` + `mcp-rest-adapter.ts:114` | Protocol inconsistency |
@@ -290,7 +290,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 | # | Issue | File | Impact |
 |---|-------|------|--------|
 | 205 | Degree recalculation every modularity call | `leiden.ts:78-84` | 500K wasted calculations | ✅ FIXED - pre-computed |
-| 206 | Tags helper post-query filtering vs SQL WHERE | `tags-helper.ts:60-110` | Memory + bandwidth waste |
+| 206 | Tags helper post-query filtering vs SQL WHERE | `tags-helper.ts:60-110` | Memory + bandwidth waste | ✅ FIXED - SQL OR conditions |
 | 207 | Graph traversal silent truncation no signal | `graph-traversal.ts:260-271` | Incomplete query results | ✅ FIXED - see Bug #194 |
 | 208 | Degree recalculation in moveNodesLocally | `leiden.ts:206-213` | Redundant computation | ✅ FIXED - pre-computed via #205 |
 
@@ -298,7 +298,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 | # | Issue | File | Impact |
 |---|-------|------|--------|
 | 209 | O(n²) cohesion per community | `similarity.ts:252-266` | Slow cohesion computation |
-| 210 | Duplicate cohesion+detailedCohesion calculation | `leiden.ts:365-367` | Wasteful recalculation |
+| 210 | Duplicate cohesion+detailedCohesion calculation | `leiden.ts:365-367` | Wasteful recalculation | ✅ FIXED - uses avgSimilarity |
 | 211 | Entity index unbounded allRows array | `entity-index.ts:94-108` | Memory spike on bulk ops | ✅ FIXED |
 
 ---
@@ -408,7 +408,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 | 257 | Redis rate limiter array bounds | `redis-rate-limiter.adapter.ts:374-376` | NaN in rate limiting stats | ✅ FIXED - Number.isFinite guards |
 | 258 | Cross-encoder LLM type assertion | `cross-encoder-rerank.ts:280` | NaN scores from LLM | ✅ FIXED - Number.isFinite guard |
 | 259 | Double type casting (as unknown as) | `compact-formatter.ts:223, 228, 233` | Output formatting crashes |
-| 260 | Object.assign prototype pollution | `config/index.ts:467` | Potential prototype pollution |
+| 260 | Object.assign prototype pollution | `config/index.ts:467` | Potential prototype pollution | ✅ FIXED - key filtering |
 
 #### LOW
 | # | Issue | File | Impact |
@@ -447,14 +447,14 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 #### MEDIUM
 | # | Issue | File | Impact |
 |---|-------|------|--------|
-| 271 | Type coercion - rate limiter fail mode | `redis-rate-limiter.adapter.ts:206` | Invalid fail mode accepted |
-| 272 | Type coercion - circuit breaker mode | `redis-circuit-breaker.adapter.ts:255` | Invalid fail mode accepted |
-| 273 | Unvalidated Number() parsing | `extraction.service.ts:1167-1171` | Extreme timeout values |
-| 274 | Unvalidated parseInt() parsing | `pretooluse-command.ts:37` | Silent decimal truncation |
-| 275 | Type coercion - injection format | `pretooluse-command.ts:31` | Invalid format accepted |
+| 271 | Type coercion - rate limiter fail mode | `redis-rate-limiter.adapter.ts:206` | Invalid fail mode accepted | ✅ FIXED - validation added |
+| 272 | Type coercion - circuit breaker mode | `redis-circuit-breaker.adapter.ts:255` | Invalid fail mode accepted | ✅ FIXED - validation added |
+| 273 | Unvalidated Number() parsing | `extraction.service.ts:1167-1171` | Extreme timeout values | ✅ FIXED - bounds clamp [1s, 5min] |
+| 274 | Unvalidated parseInt() parsing | `pretooluse-command.ts:37` | Silent decimal truncation | ✅ FIXED - Number.isFinite check |
+| 275 | Type coercion - injection format | `pretooluse-command.ts:31` | Invalid format accepted | ✅ FIXED - validation added |
 | 276 | Unvalidated env var pass-through | `factory/services.ts:101-103` | Silent configuration errors |
 | 277 | No hot reload on env change | `permissions.ts:14-15` | Config changes not reflected |
-| 278 | Case-sensitive boolean parsing | `server.ts:114` | Trust proxy fails silently |
+| 278 | Case-sensitive boolean parsing | `server.ts:114` | Trust proxy fails silently | ✅ FIXED - case-insensitive |
 | 279 | Silent invalid CORS origin drop | `server.ts:73-87` | Security misconfiguration |
 | 280 | Custom parser bypasses registry | `database.ts:47-53` | Config coherence gap |
 | 281 | Custom parser bypasses registry | `backup.ts:35-41` | Config coherence gap |
@@ -462,7 +462,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 #### LOW
 | # | Issue | File | Impact |
 |---|-------|------|--------|
-| 282 | Case-sensitive boolean parsing | `vector.service.ts:217` | Debug flag not honored |
+| 282 | Case-sensitive boolean parsing | `vector.service.ts:217` | Debug flag not honored | ✅ FIXED - case-insensitive |
 
 ---
 
@@ -514,7 +514,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 #### MEDIUM
 | # | Issue | File | Impact |
 |---|-------|------|--------|
-| 302 | LanceDB Promise.race timeout cleanup | `lancedb.ts:109-117` | Timer leak per connection |
+| 302 | LanceDB Promise.race timeout cleanup | `lancedb.ts:109-117` | Timer leak per connection | ✅ FIXED - clearTimeout in finally |
 | 303 | Query executor Promise.race timeout | `executor.ts:256-257` | Event loop timer leak |
 | 304 | Promise.all no fail-fast (factory) | `factory.ts:788-813` | Wasted validation work |
 | 305 | Latent memory trackAccess fire-and-forget | `latent-memory.service.ts:534` | Incomplete access history |
@@ -626,7 +626,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 | # | Issue | File | Impact | Status |
 |---|-------|------|--------|--------|
 | 349 | split()[1] undefined not validated | `parse-hook-args.ts:21` | Undefined propagates downstream | ✅ FIXED |
-| 350 | Cron schedule edge case validation | `backup-scheduler.service.ts:64` | Silent scheduling failure | |
+| 350 | Cron schedule edge case validation | `backup-scheduler.service.ts:64` | Silent scheduling failure | ✅ FIXED - try-catch added |
 | 351 | Health check reconnection race | `health.service.ts:389` | Connection pool exhaustion | ✅ FIXED |
 | 352 | Health check division by zero | `health.service.ts:239` | False degraded status | ✅ Already guarded |
 | 353 | Metrics registry unbounded growth | `metrics.ts:276-295` | Slow memory leak | ✅ FIXED
