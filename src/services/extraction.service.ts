@@ -1280,11 +1280,24 @@ export class ExtractionService {
       },
       {
         retryableErrors: (error: Error) => {
-          // Retry on connection errors to Ollama
+          // Bug #316 fix: Retry on connection errors AND server errors to Ollama
+          const msg = error.message.toLowerCase();
           return (
-            error.message.includes('ECONNREFUSED') ||
-            error.message.includes('fetch failed') ||
-            error.message.includes('network')
+            // Connection errors
+            msg.includes('econnrefused') ||
+            msg.includes('fetch failed') ||
+            msg.includes('network') ||
+            msg.includes('timeout') ||
+            msg.includes('socket') ||
+            // Server errors (5xx)
+            msg.includes('500') ||
+            msg.includes('502') ||
+            msg.includes('503') ||
+            msg.includes('504') ||
+            msg.includes('internal server error') ||
+            msg.includes('bad gateway') ||
+            msg.includes('service unavailable') ||
+            msg.includes('gateway timeout')
           );
         },
         onRetry: (error, attempt) => {

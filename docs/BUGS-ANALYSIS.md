@@ -546,7 +546,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 | # | Issue | File | Impact |
 |---|-------|------|--------|
 | 315 | Rate limit headers never parsed | `extraction.service.ts`, `embedding.service.ts` | Sudden 429 errors |
-| 316 | Ollama retry logic incomplete | `extraction.service.ts:1246-1252` | No retry on 500/502/503/504 |
+| 316 | Ollama retry logic incomplete | `extraction.service.ts:1246-1252` | No retry on 500/502/503/504 | ✅ FIXED |
 | 317 | JSON parse returns empty silently | `extraction.service.ts:1331-1347` | Silent data loss |
 | 318 | No streaming for large extractions | `extraction.service.ts:1051-1063` | Connection pool exhaustion |
 | 319 | Token/context length not validated | `extraction.service.ts:809-810` | Model context overflow |
