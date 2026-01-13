@@ -87,10 +87,11 @@ function parseCorsOrigins(envValue: string | undefined): string[] | false {
     }
   }
 
+  // Bug #279 fix: Log at error level since this is a security misconfiguration
   if (invalidOrigins.length > 0) {
-    restLogger.warn(
-      { invalidOrigins },
-      'Invalid CORS origins ignored. Origins must be valid http:// or https:// URLs.'
+    restLogger.error(
+      { invalidOrigins, validOrigins },
+      'SECURITY: Invalid CORS origins ignored. Check AGENT_MEMORY_REST_CORS_ORIGINS env var. Origins must be valid http:// or https:// URLs.'
     );
   }
 
