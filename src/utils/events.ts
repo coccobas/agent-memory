@@ -45,12 +45,27 @@ export type EntryChangedHandler = (event: EntryChangedEvent) => void;
  */
 export class EventBus implements IEventAdapterExtended {
   private handlers: Set<EntryChangedHandler> = new Set();
+  // Bug #215 fix: Limit max handlers to prevent unbounded memory growth
+  private static readonly MAX_HANDLERS = 1000;
+  private maxHandlersWarned = false;
 
   /**
    * Subscribe to entry change events.
    * Returns an unsubscribe function.
    */
   subscribe(handler: EntryChangedHandler): () => void {
+    // Bug #215 fix: Warn if handlers are accumulating excessively
+    if (this.handlers.size >= EventBus.MAX_HANDLERS) {
+      if (!this.maxHandlersWarned) {
+        logger.warn(
+          { currentCount: this.handlers.size, maxHandlers: EventBus.MAX_HANDLERS },
+          'EventBus handler limit reached - check for missing unsubscribe calls'
+        );
+        this.maxHandlersWarned = true;
+      }
+      // Don't add more handlers to prevent memory growth
+      return () => {}; // Return no-op unsubscribe
+    }
     this.handlers.add(handler);
     return () => {
       this.handlers.delete(handler);

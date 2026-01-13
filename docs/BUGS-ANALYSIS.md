@@ -312,8 +312,8 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 #### MEDIUM
 | # | Issue | File | Impact | Status |
 |---|-------|------|--------|--------|
-| 214 | Event handler memory leak (Redis) | `redis-event.adapter.ts:245-249` | Unbounded handler growth | |
-| 215 | Event handler memory leak (local bus) | `events.ts:54-58` | Steady memory accumulation | |
+| 214 | Event handler memory leak (Redis) | `redis-event.adapter.ts:245-249` | Unbounded handler growth | ✅ FIXED |
+| 215 | Event handler memory leak (local bus) | `events.ts:54-58` | Steady memory accumulation | ✅ FIXED |
 | 216 | Query cache event listener cleanup race | `query-pipeline.ts:129-137` | Orphaned subscriptions | |
 | 217 | Session activity map unbounded growth | `session-timeout.service.ts:57-74` | Slow memory leak | ✅ FIXED |
 | 218 | Health monitor reconnect no mutex | `health.service.ts:196-199` | Connection pool exhaustion | |
@@ -470,7 +470,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 | # | Issue | File | Impact | Status |
 |---|-------|------|--------|--------|
 | 283 | Unbounded session activity map | `session-timeout.service.ts:57` | Memory leak, eventual OOM | ✅ FIXED |
-| 284 | Redis event handlers no cleanup on disconnect | `redis-event.adapter.ts:245-249` | Handler accumulation on reconnect | |
+| 284 | Redis event handlers no cleanup on disconnect | `redis-event.adapter.ts:245-249` | Handler accumulation on reconnect | ✅ FIXED |
 | 285 | Redis cache async fetch no backpressure | `redis-cache.adapter.ts:216-219` | Connection pool exhaustion | |
 
 #### MEDIUM

@@ -214,6 +214,7 @@ export class RedisEventAdapter implements IEventAdapterExtended {
 
   /**
    * Close Redis connections.
+   * Bug #214 fix: Clear handlers on disconnect to prevent accumulation on reconnect
    */
   async close(): Promise<void> {
     if (this.subClient) {
@@ -226,6 +227,9 @@ export class RedisEventAdapter implements IEventAdapterExtended {
       await this.pubClient.quit();
       this.pubClient = null;
     }
+
+    // Bug #214 fix: Clear handlers to prevent memory leak on reconnect
+    this.handlers.clear();
 
     this.connected = false;
     logger.info('Redis event adapter closed');
