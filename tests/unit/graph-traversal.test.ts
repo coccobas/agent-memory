@@ -11,6 +11,7 @@ vi.mock('../../src/utils/logger.js', () => ({
   createComponentLogger: vi.fn().mockReturnValue({
     debug: vi.fn(),
     info: vi.fn(),
+    warn: vi.fn(),
     error: vi.fn(),
   }),
 }));

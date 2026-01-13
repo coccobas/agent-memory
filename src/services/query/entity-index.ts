@@ -16,6 +16,9 @@ import type { DbClient } from '../../db/connection.js';
 import { entityIndex, type EntityType, type NewEntityIndexRow } from '../../db/schema/entity-index.js';
 import { EntityExtractor, type ExtractedEntity } from './entity-extractor.js';
 import type { QueryEntryType } from './types.js';
+import { createComponentLogger } from '../../utils/logger.js';
+
+const logger = createComponentLogger('entity-index');
 
 /**
  * Entity lookup result
@@ -109,6 +112,19 @@ export class EntityIndex {
 
     if (allRows.length === 0) {
       return 0;
+    }
+
+    // Bug #211 fix: Warn when entity array grows large (potential memory issue)
+    const LARGE_BATCH_THRESHOLD = 10000;
+    if (allRows.length > LARGE_BATCH_THRESHOLD) {
+      logger.warn(
+        {
+          entityCount: allRows.length,
+          entryCount: entries.length,
+          avgEntitiesPerEntry: Math.round(allRows.length / entries.length),
+        },
+        'Large entity batch detected - consider processing entries in smaller batches to reduce memory usage'
+      );
     }
 
     // Remove existing entities for all entries being indexed

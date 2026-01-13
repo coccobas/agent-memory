@@ -264,7 +264,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 |---|-------|------|--------|
 | 192 | Session maintenance no correlation | `scopes.handler.ts:454-530` | Maintenance failures undetected |
 | 193 | Cache set silent errors | `latent-memory.service.ts:448-450` | Silent cache degradation |
-| 194 | Graph truncation no metrics | `graph-traversal.ts:261-270` | Silent data loss |
+| 194 | Graph truncation no metrics | `graph-traversal.ts:261-270` | Silent data loss | ✅ FIXED |
 | 195 | Audit truncation silent | `audit.service.ts:69-72` | Audit quality degradation |
 | 196 | Missing correlation IDs in fire-and-forget | `fetch.ts:555+`, `stats.service.ts:139` | Broken distributed tracing |
 | 197 | Incomplete error context in semantic stage | `semantic.ts:170-208` | Poor error diagnosis |
@@ -299,7 +299,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 |---|-------|------|--------|
 | 209 | O(n²) cohesion per community | `similarity.ts:252-266` | Slow cohesion computation |
 | 210 | Duplicate cohesion+detailedCohesion calculation | `leiden.ts:365-367` | Wasteful recalculation |
-| 211 | Entity index unbounded allRows array | `entity-index.ts:94-108` | Memory spike on bulk ops |
+| 211 | Entity index unbounded allRows array | `entity-index.ts:94-108` | Memory spike on bulk ops | ✅ FIXED |
 
 ---
 

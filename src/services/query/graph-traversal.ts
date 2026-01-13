@@ -256,17 +256,23 @@ export function traverseRelationGraphCTE(
       }
     }
 
-    // Log truncation warning if max results reached
+    // Bug #194 fix: Log truncation at warn level (was debug) to ensure visibility
+    // This is important for query quality - truncation means incomplete results
     if (rows.length >= maxResults) {
-      logger.debug(
+      logger.warn(
         {
           startType,
           startId,
           maxResults,
           actualCount: rows.length,
           truncated: true,
+          resultCounts: {
+            tool: result.tool.size,
+            guideline: result.guideline.size,
+            knowledge: result.knowledge.size,
+          },
         },
-        'graph traversal results may be truncated - max results reached'
+        'Graph traversal truncated - query may return incomplete results. Consider increasing maxResults or narrowing scope.'
       );
     }
 
