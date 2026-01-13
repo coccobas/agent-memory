@@ -25,6 +25,9 @@ import { type PaginationOptions } from './base.js';
 import { normalizePagination, buildScopeConditions } from './entry-utils.js';
 import type { DatabaseDeps } from '../../core/types.js';
 import { createNotFoundError, createValidationError } from '../../core/errors.js';
+import { createComponentLogger } from '../../utils/logger.js';
+
+const logger = createComponentLogger('tasks-repository');
 
 // =============================================================================
 // INPUT/OUTPUT TYPES
@@ -137,13 +140,22 @@ function generateTaskId(): string {
 
 /**
  * Parse blockedBy JSON field to array
+ * Bug #205 fix: Log JSON parse failures instead of silently returning empty array
  */
 function parseBlockedBy(blockedByJson: string | null): string[] {
   if (!blockedByJson) return [];
   try {
     const parsed = JSON.parse(blockedByJson);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
+    if (!Array.isArray(parsed)) {
+      logger.warn({ blockedByJson: blockedByJson.substring(0, 100) }, 'blockedBy is not an array, returning empty');
+      return [];
+    }
+    return parsed;
+  } catch (error) {
+    logger.warn(
+      { error: error instanceof Error ? error.message : String(error), jsonLength: blockedByJson.length },
+      'Failed to parse blockedBy JSON, returning empty array'
+    );
     return [];
   }
 }

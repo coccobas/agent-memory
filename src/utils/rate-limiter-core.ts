@@ -73,18 +73,10 @@ export class RateLimiter {
     resetMs: number;
     retryAfterMs?: number;
   } {
-    // Bug #9 fix: Check if rate limiting is disabled FIRST, before any bucket operations
-    // Previously this check was after burst bucket decrement, which was incorrect
-    if (!this.config.enabled) {
-      return {
-        allowed: true,
-        remaining: this.config.maxRequests,
-        resetMs: 0,
-      };
-    }
-
     const now = Date.now();
 
+    // Burst protection ALWAYS applies regardless of enabled state
+    // This is a safety valve to prevent rapid-fire requests even when rate limiting is "disabled"
     const burstRefillRate = this.config.minBurstProtection / 1000;
 
     let burstBucket = this.burstBuckets.get(key);
@@ -118,6 +110,16 @@ export class RateLimiter {
     }
 
     burstBucket.tokens -= 1;
+
+    // Bug #9 fix: Skip main rate limiting when disabled, but AFTER burst protection
+    // This ensures burst protection still applies as a safety valve
+    if (!this.config.enabled) {
+      return {
+        allowed: true,
+        remaining: this.config.maxRequests,
+        resetMs: 0,
+      };
+    }
 
     const refillRate = this.config.maxRequests / this.config.windowMs;
 

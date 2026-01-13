@@ -143,13 +143,16 @@ export async function rewriteStageAsync(ctx: PipelineContext): Promise<RewriteSt
       rewriteStrategy: result.strategy,
     };
   } catch (error) {
-    // Log error with full details and fall back to original query
+    // Log error and fall back to original query
+    // Bug #190 fix: Don't log stack traces in production to prevent information disclosure
     if (deps.logger) {
+      const isProduction = process.env.NODE_ENV === 'production';
       const errorDetails = error instanceof Error
         ? {
             message: error.message,
             name: error.name,
-            stack: error.stack?.split('\n').slice(0, 5).join('\n'), // First 5 stack frames
+            // Only include stack traces in non-production environments
+            ...(isProduction ? {} : { stack: error.stack?.split('\n').slice(0, 5).join('\n') }),
           }
         : { message: String(error) };
 

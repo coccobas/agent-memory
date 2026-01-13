@@ -203,7 +203,11 @@ export function executeFts5Query(
     return matchingRowids;
   } catch (error) {
     // If FTS5 fails (e.g., table doesn't exist), fall back to LIKE search
-    logger.warn({ entryType, ftsQuery, error }, 'FTS5 query failed, falling back to LIKE search');
+    // Bug #191 fix: Don't log ftsQuery as it may contain PII/sensitive search terms
+    logger.warn(
+      { entryType, queryLength: ftsQuery?.length ?? 0, error: error instanceof Error ? error.message : String(error) },
+      'FTS5 query failed, falling back to LIKE search'
+    );
     return executeLikeSearch(entryType, searchQuery, fields);
   }
 }
