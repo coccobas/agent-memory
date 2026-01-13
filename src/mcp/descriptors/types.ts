@@ -316,11 +316,14 @@ export function descriptorToHandler(descriptor: AnyToolDescriptor): GeneratedHan
   if (!isActionBasedDescriptor(descriptor)) {
     // Simple tool - prefer contextHandler, fall back to legacy handler
     return (context: AppContext, params: Record<string, unknown>) => {
+      // Bug #185 fix: Strip 'action' param if present for consistency with action-based tools
+      // This prevents unexpected 'action' param leaking into simple tool handlers
+      const { action: _action, ...rest } = params;
       if (descriptor.contextHandler) {
-        return descriptor.contextHandler(context, params);
+        return descriptor.contextHandler(context, rest);
       }
       if (descriptor.handler) {
-        return descriptor.handler(params);
+        return descriptor.handler(rest);
       }
       throw createValidationError('handler', `no handler defined for ${descriptor.name}`);
     };

@@ -236,10 +236,10 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 | # | Issue | File | Impact |
 |---|-------|------|--------|
 | 183 | Pattern of unsafe type coercion | `tool-runner.ts:273` | Type safety bypass | ✅ FIXED - typeof validation |
-| 184 | Schema-handler action enum mismatch | `memory_consolidate.ts:45-48` | Contract violation |
-| 185 | SimpleToolDescriptor action dispatch inconsistency | `types.ts:315-326` | API contract mismatch |
-| 186 | Response format mismatch MCP vs REST | `tool-runner.ts:160` + `mcp-rest-adapter.ts:114` | Protocol inconsistency |
-| 187 | Error response type mismatch | `consolidation.handler.ts:127` | Inconsistent error serialization |
+| 184 | Schema-handler action enum mismatch | `memory_consolidate.ts:45-48` | Contract violation | ✅ VERIFIED - enums consistent |
+| 185 | SimpleToolDescriptor action dispatch inconsistency | `types.ts:315-326` | API contract mismatch | ✅ FIXED - strips action param |
+| 186 | Response format mismatch MCP vs REST | `tool-runner.ts:160` + `mcp-rest-adapter.ts:114` | Protocol inconsistency | ❌ NOT A BUG - intentional protocol-specific format |
+| 187 | Error response type mismatch | `consolidation.handler.ts:127` | Inconsistent error serialization | ❌ NOT A BUG - unified error mapper handles all |
 
 #### LOW
 | # | Issue | File | Impact |
@@ -326,10 +326,10 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 #### LOW
 | # | Issue | File | Impact |
 |---|-------|------|--------|
-| 220 | Fire-and-forget in Redis publish | `redis-event.adapter.ts:262-264` | Cache inconsistency |
-| 221 | Fire-and-forget in feedback queue | `queue.ts:345` | Orphaned timers on stop |
-| 222 | Promise race timeout initialization | `extraction.service.ts:774-778` | Edge case timeout leak |
-| 223 | Redis cache unbounded async fetches | `redis-cache.adapter.ts:217-219` | Promise queue growth |
+| 220 | Fire-and-forget in Redis publish | `redis-event.adapter.ts:262-264` | Cache inconsistency | ✅ ACCEPTABLE - has .catch() with logging |
+| 221 | Fire-and-forget in feedback queue | `queue.ts:345` | Orphaned timers on stop | ✅ ACCEPTABLE - 10ms sleep, exits on next loop |
+| 222 | Promise race timeout initialization | `extraction.service.ts:774-778` | Edge case timeout leak | ✅ FIXED - clearTimeout in finally |
+| 223 | Redis cache unbounded async fetches | `redis-cache.adapter.ts:217-219` | Promise queue growth | ✅ FIXED - via Bug #285 MAX_PENDING_OPS |
 
 ### 14b. Input Validation Edge Cases (20 issues)
 
@@ -345,7 +345,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 | 226 | Pagination cursor DoS (no size limit) | `pagination.ts:172` | Memory exhaustion | ✅ FIXED |
 | 227 | Heap pressure division by zero | `lru-cache.ts:306` | Forced aggressive eviction | ✅ FIXED |
 | 228 | Filter rowidMap null state | `filter.ts:131-188` | TypeError on null access | ✅ Already safe |
-| 229 | Semantic HyDE weak embedding | `semantic.ts:93` | Poor search quality | |
+| 229 | Semantic HyDE weak embedding | `semantic.ts:93` | Poor search quality | ⚠️ QUALITY - not a code bug |
 | 230 | Timestamp parsing silent failure | `timestamp-formatter.ts:32` | Silent data loss | ✅ Already handled |
 | 231 | Rate limiter negative overflow | `rate-limiter-core.ts:82` | Integer overflow | ✅ FIXED |
 | 232 | Transcript UTF-8 truncation | `transcript-cursor.ts:70` | Corrupted JSON parsing | ✅ FIXED |
@@ -515,7 +515,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 | # | Issue | File | Impact |
 |---|-------|------|--------|
 | 302 | LanceDB Promise.race timeout cleanup | `lancedb.ts:109-117` | Timer leak per connection | ✅ FIXED - clearTimeout in finally |
-| 303 | Query executor Promise.race timeout | `executor.ts:256-257` | Event loop timer leak |
+| 303 | Query executor Promise.race timeout | `executor.ts:256-257` | Event loop timer leak | ✅ FIXED - via Bug #247 fix |
 | 304 | Promise.all no fail-fast (factory) | `factory.ts:788-813` | Wasted validation work |
 | 305 | Latent memory trackAccess fire-and-forget | `latent-memory.service.ts:534` | Incomplete access history |
 | 306 | Session timeout checker no backpressure | `session-timeout.service.ts:137` | Concurrent check pile-up |
