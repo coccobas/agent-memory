@@ -77,16 +77,15 @@ export class FeedbackScoreCache {
     return `${entryType}:${entryId}`;
   }
 
-  /**
-   * Check if a cached entry is still valid (not expired)
-   */
-  private isValid(entry: FeedbackCacheEntry): boolean {
-    return Date.now() - entry.cachedAt < this.config.ttlMs;
-  }
+  // Bug #18 fix: Removed redundant isValid() method.
+  // TTL is now handled by LRUCache (see Task 34 in constructor).
+  // Double TTL checking caused a race condition where entries could pass
+  // LRUCache's check but fail the separate isValid() check due to time drift.
 
   /**
    * Get feedback score for a single entry.
-   * Returns cached value if available and valid, otherwise returns null.
+   * Returns cached value if available, otherwise returns null.
+   * TTL expiration is handled by LRUCache.
    */
   get(entryType: QueryEntryType, entryId: string): EntryFeedbackScore | null {
     if (!this.config.enabled) {
@@ -94,9 +93,10 @@ export class FeedbackScoreCache {
     }
 
     const key = this.getCacheKey(entryType, entryId);
+    // Bug #18 fix: LRUCache handles TTL expiration automatically
     const cached = this.cache.get(key);
 
-    if (cached && this.isValid(cached)) {
+    if (cached) {
       return {
         positiveCount: cached.positiveCount,
         negativeCount: cached.negativeCount,

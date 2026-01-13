@@ -56,6 +56,8 @@ export type ParentScopeValue = { type: ScopeType; id: string | null } | null;
 export interface PermissionCheckCacheValue {
   result: boolean;
   timestamp: number;
+  /** Bug #10 fix: Version at time of caching for invalidation detection */
+  version: number;
 }
 
 // =============================================================================
@@ -74,8 +76,15 @@ export class PermissionService {
   private readonly db: DbClient;
   private readonly logger = createComponentLogger('permission');
   private readonly parentScopeCache: ICacheAdapter<ParentScopeValue>;
-  private permissionsExistCache: { value: boolean; timestamp: number } | null = null;
+  private permissionsExistCache: { value: boolean; timestamp: number; version: number } | null =
+    null;
   private hasWarnedAboutPermissiveMode = false;
+
+  /**
+   * Bug #10 fix: Version counter for cache invalidation.
+   * Incremented on any permission change to detect stale cache entries.
+   */
+  private cacheVersion = 0;
 
   /**
    * Cache for permission check results
@@ -104,9 +113,12 @@ export class PermissionService {
    */
   private checkPermissionsExist(): boolean {
     const now = Date.now();
+    const currentVersion = this.cacheVersion;
 
+    // Bug #10 fix: Also validate version matches to detect invalidation
     if (
       this.permissionsExistCache &&
+      this.permissionsExistCache.version === currentVersion &&
       now - this.permissionsExistCache.timestamp < PermissionService.PERMISSIONS_EXIST_CACHE_TTL_MS
     ) {
       return this.permissionsExistCache.value;
@@ -115,12 +127,12 @@ export class PermissionService {
     try {
       const result = this.db.select().from(permissions).limit(1).get();
       const exists = result !== undefined;
-      this.permissionsExistCache = { value: exists, timestamp: now };
+      this.permissionsExistCache = { value: exists, timestamp: now, version: currentVersion };
       return exists;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       if (errorMessage.includes('no such table') || errorMessage.includes('permissions')) {
-        this.permissionsExistCache = { value: false, timestamp: now };
+        this.permissionsExistCache = { value: false, timestamp: now, version: currentVersion };
         return false;
       }
       throw error;
@@ -131,6 +143,8 @@ export class PermissionService {
    * Invalidate all permission caches
    */
   invalidateCache(): void {
+    // Bug #10 fix: Increment version to invalidate any in-flight cache reads
+    this.cacheVersion++;
     this.permissionsExistCache = null;
     this.parentScopeCache.clear();
     this.permissionCheckCache.clear();
@@ -158,7 +172,13 @@ export class PermissionService {
     if (!cached) return undefined;
 
     const now = Date.now();
-    if (now - cached.timestamp > PermissionService.PERMISSION_CHECK_CACHE_TTL_MS) {
+    const currentVersion = this.cacheVersion;
+
+    // Bug #10 fix: Validate version matches to detect invalidation
+    if (
+      cached.version !== currentVersion ||
+      now - cached.timestamp > PermissionService.PERMISSION_CHECK_CACHE_TTL_MS
+    ) {
       this.permissionCheckCache.delete(cacheKey);
       return undefined;
     }
@@ -183,9 +203,11 @@ export class PermissionService {
       }
     }
 
+    // Bug #10 fix: Include version for invalidation detection
     this.permissionCheckCache.set(cacheKey, {
       result,
       timestamp: Date.now(),
+      version: this.cacheVersion,
     });
   }
 
@@ -605,7 +627,8 @@ export class PermissionService {
       })
       .run();
 
-    // Invalidate all caches - permission change affects check results
+    // Bug #10 fix: Increment version and invalidate caches
+    this.cacheVersion++;
     this.permissionsExistCache = null;
     this.permissionCheckCache.clear();
   }
@@ -659,7 +682,8 @@ export class PermissionService {
       .where(and(...conditions))
       .run();
 
-    // Invalidate all caches - permission change affects check results
+    // Bug #10 fix: Increment version and invalidate caches
+    this.cacheVersion++;
     this.permissionsExistCache = null;
     this.permissionCheckCache.clear();
   }

@@ -113,7 +113,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 | # | Issue | File | Impact | Status |
 |---|-------|------|--------|--------|
 | 9 | Rate limit bypass when disabled | `rate-limiter-core.ts:104-110` | DoS vulnerability | ✅ FIXED |
-| 10 | Permission cache race condition | `permission.service.ts:616-673` | Stale permissions for 30s | |
+| 10 | Permission cache race condition | `permission.service.ts:616-673` | Stale permissions for 30s | ✅ FIXED |
 | 11 | File lock expire-and-insert race | `file_locks.ts:79-118` | Permanent lock on NULL expiry | ✅ FIXED |
 | 12 | API key exposure in logs | `hierarchical-summarization.service.ts:97-100` | Credential leak | |
 | 13 | Unfiltered error logging | `error-mapper.ts:68-73` | SQL/path disclosure | ✅ FIXED |
@@ -126,7 +126,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 | 15 | FTS score MAX vs ADD | `fts.ts:124` | Multi-query broken | ✅ FIXED |
 | 16 | Entity lookup case mismatch | `entity-index.ts:168-217` | Inconsistent retrieval | ✅ FIXED |
 | 17 | Scope chain null lookup | `scope-chain.ts:169` | Wrong inheritance | ✅ FIXED |
-| 18 | Double TTL check race | `feedback-cache.ts:83-204` | Stale scores | |
+| 18 | Double TTL check race | `feedback-cache.ts:83-204` | Stale scores | ✅ FIXED |
 | 19 | Project deletion no cascade | `scopes.ts:310-317` | Orphaned entries | ✅ FIXED |
 | 20 | Organization deletion no cascade | `scopes.ts:164-170` | Orphaned projects | ✅ FIXED |
 | 21 | Circular blocker cycle undetected | `tasks.ts:471-513` | Deadlock state | ✅ FIXED |
@@ -318,7 +318,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 |---|-------|------|--------|--------|
 | 214 | Event handler memory leak (Redis) | `redis-event.adapter.ts:245-249` | Unbounded handler growth | ✅ FIXED |
 | 215 | Event handler memory leak (local bus) | `events.ts:54-58` | Steady memory accumulation | ✅ FIXED |
-| 216 | Query cache event listener cleanup race | `query-pipeline.ts:129-137` | Orphaned subscriptions | |
+| 216 | Query cache event listener cleanup race | `query-pipeline.ts:129-137` | Orphaned subscriptions | ✅ FIXED |
 | 217 | Session activity map unbounded growth | `session-timeout.service.ts:57-74` | Slow memory leak | ✅ FIXED |
 | 218 | Health monitor reconnect no mutex | `health.service.ts:196-199` | Connection pool exhaustion | ✅ FIXED |
 | 219 | setInterval without guaranteed cleanup | `session-timeout.service.ts:136` | Dangling timers |

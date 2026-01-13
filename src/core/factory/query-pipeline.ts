@@ -112,6 +112,11 @@ export function createQueryPipeline(
   });
 }
 
+// Bug #216 fix: Track wiring state to prevent race conditions
+// The check-then-set pattern in wireQueryCache was not atomic, allowing
+// concurrent calls to create orphaned subscriptions
+const wiringInProgress = new WeakMap<Runtime, boolean>();
+
 /**
  * Wire query cache invalidation to entry change events
  *
@@ -126,12 +131,32 @@ export function wireQueryCache(
   runtime: Runtime,
   logger?: Logger
 ): void {
-  if (!runtime.queryCache.unsubscribe) {
-    const effectiveLogger = logger ?? createComponentLogger('query-cache');
-    runtime.queryCache.unsubscribe = wireQueryCacheInvalidation(
-      eventAdapter,
-      runtime.queryCache.cache,
-      effectiveLogger
-    );
+  // Bug #216 fix: Use double-check locking pattern to prevent orphaned subscriptions
+  // First check without lock (fast path)
+  if (runtime.queryCache.unsubscribe) {
+    return;
+  }
+
+  // Check if wiring is already in progress for this runtime
+  if (wiringInProgress.get(runtime)) {
+    return;
+  }
+
+  // Mark wiring as in progress before setting up subscription
+  wiringInProgress.set(runtime, true);
+
+  try {
+    // Second check after acquiring "lock" (another call may have completed)
+    if (!runtime.queryCache.unsubscribe) {
+      const effectiveLogger = logger ?? createComponentLogger('query-cache');
+      runtime.queryCache.unsubscribe = wireQueryCacheInvalidation(
+        eventAdapter,
+        runtime.queryCache.cache,
+        effectiveLogger
+      );
+    }
+  } finally {
+    // Always clear the in-progress flag
+    wiringInProgress.delete(runtime);
   }
 }
