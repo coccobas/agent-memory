@@ -48,11 +48,12 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 
 ## CRITICAL Issues (P0)
 
-### 1. Project Type Permission Bypass
+### 1. Project Type Permission Bypass ✅ FIXED
 - **File:** `src/services/permission.service.ts:413-415`
 - **Issue:** Hardcoded `return true` for all project entry types
 - **Impact:** Any agent can read/write ANY project without permission
 - **Fix:** Remove hardcoded bypass, implement proper permission check
+- **Status:** Fixed - removed hardcoded project bypass in check() method
 
 ### 2. LRU Cache totalBytes Corruption
 - **File:** `src/utils/lru-cache.ts:44-103`
@@ -60,23 +61,26 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 - **Impact:** Memory tracking corruption → OOM crash
 - **Fix:** Use atomic operations or mutex for totalBytes
 
-### 3. Embedding Cache Mutation
+### 3. Embedding Cache Mutation ✅ FIXED
 - **File:** `src/services/embedding.service.ts:329-442`
 - **Issue:** Inconsistent copy-on-return pattern allows mutation of cached embeddings
 - **Impact:** Silent data corruption in search results
 - **Fix:** Always copy arrays when returning from cache
+- **Status:** Fixed - now returns defensive copies
 
-### 4. Prompt Injection in Query Decomposition
+### 4. Prompt Injection in Query Decomposition ✅ FIXED
 - **File:** `src/services/query-rewrite/decomposer.ts:103-131`
 - **Issue:** User query interpolated directly into LLM prompt
 - **Impact:** Arbitrary prompt injection, logic bypass
 - **Fix:** Use structured prompting (JSON mode), escape user input
+- **Status:** Fixed - user input now escaped
 
-### 5. Prompt Injection in HyDE
+### 5. Prompt Injection in HyDE ✅ FIXED
 - **File:** `src/services/query-rewrite/hyde.ts:29-59`
 - **Issue:** Same as #4, user query not escaped
 - **Impact:** Information disclosure, retrieval bypass
 - **Fix:** Escape all user inputs in prompts
+- **Status:** Fixed - user input now escaped
 
 ### 6. Migration 0005 Data Loss Risk
 - **File:** `src/db/migrations/0005_add_task_decomposition.sql`
@@ -102,27 +106,27 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 
 ### Security
 
-| # | Issue | File | Impact |
-|---|-------|------|--------|
-| 9 | Rate limit bypass when disabled | `rate-limiter-core.ts:104-110` | DoS vulnerability |
-| 10 | Permission cache race condition | `permission.service.ts:616-673` | Stale permissions for 30s |
-| 11 | File lock expire-and-insert race | `file_locks.ts:79-118` | Permanent lock on NULL expiry |
-| 12 | API key exposure in logs | `hierarchical-summarization.service.ts:97-100` | Credential leak |
-| 13 | Unfiltered error logging | `error-mapper.ts:68-73` | SQL/path disclosure |
+| # | Issue | File | Impact | Status |
+|---|-------|------|--------|--------|
+| 9 | Rate limit bypass when disabled | `rate-limiter-core.ts:104-110` | DoS vulnerability | ✅ FIXED |
+| 10 | Permission cache race condition | `permission.service.ts:616-673` | Stale permissions for 30s | |
+| 11 | File lock expire-and-insert race | `file_locks.ts:79-118` | Permanent lock on NULL expiry | ✅ FIXED |
+| 12 | API key exposure in logs | `hierarchical-summarization.service.ts:97-100` | Credential leak | |
+| 13 | Unfiltered error logging | `error-mapper.ts:68-73` | SQL/path disclosure | ✅ FIXED |
 
 ### Data Integrity
 
-| # | Issue | File | Impact |
-|---|-------|------|--------|
-| 14 | Audit logging silent failures | `audit.service.ts:49-96` | Compliance gaps |
-| 15 | FTS score MAX vs ADD | `fts.ts:124` | Multi-query broken |
-| 16 | Entity lookup case mismatch | `entity-index.ts:168-217` | Inconsistent retrieval |
-| 17 | Scope chain null lookup | `scope-chain.ts:169` | Wrong inheritance |
-| 18 | Double TTL check race | `feedback-cache.ts:83-204` | Stale scores |
-| 19 | Project deletion no cascade | `scopes.ts:310-317` | Orphaned entries |
-| 20 | Organization deletion no cascade | `scopes.ts:164-170` | Orphaned projects |
-| 21 | Circular blocker cycle undetected | `tasks.ts:471-513` | Deadlock state |
-| 22 | Version number race condition | `experiences.ts:644-676` | Duplicate versions |
+| # | Issue | File | Impact | Status |
+|---|-------|------|--------|--------|
+| 14 | Audit logging silent failures | `audit.service.ts:49-96` | Compliance gaps | |
+| 15 | FTS score MAX vs ADD | `fts.ts:124` | Multi-query broken | ✅ FIXED |
+| 16 | Entity lookup case mismatch | `entity-index.ts:168-217` | Inconsistent retrieval | ✅ FIXED |
+| 17 | Scope chain null lookup | `scope-chain.ts:169` | Wrong inheritance | |
+| 18 | Double TTL check race | `feedback-cache.ts:83-204` | Stale scores | |
+| 19 | Project deletion no cascade | `scopes.ts:310-317` | Orphaned entries | ✅ FIXED |
+| 20 | Organization deletion no cascade | `scopes.ts:164-170` | Orphaned projects | ✅ FIXED |
+| 21 | Circular blocker cycle undetected | `tasks.ts:471-513` | Deadlock state | ✅ FIXED |
+| 22 | Version number race condition | `experiences.ts:644-676` | Duplicate versions | |
 
 ### Performance
 
@@ -152,7 +156,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 ### Caching & Memory
 - LRU get() TTL refresh race (`lru-cache.ts:66-81`)
 - Memory pressure check window (`lru-cache.ts:293-309`)
-- Session activity unbounded growth (`session-timeout.service.ts:78-123`)
+- Session activity unbounded growth (`session-timeout.service.ts:78-123`) ✅ FIXED - Bug #283/#217
 - Cache eviction race in batch (`embedding.service.ts:436-442`)
 - Embedding dimension mismatch (`rerank.ts:312-326`)
 
@@ -246,10 +250,10 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 | 189 | Audit logging fire-and-forget silent failures | `audit.service.ts:50-95` | Audit trail gaps |
 
 #### HIGH
-| # | Issue | File | Impact |
-|---|-------|------|--------|
-| 190 | Stack trace exposure in production logs | `rewrite.ts:152` | Information disclosure |
-| 191 | FTS query logging exposes search terms (PII) | `fts-search.ts:206` | Privacy risk |
+| # | Issue | File | Impact | Status |
+|---|-------|------|--------|--------|
+| 190 | Stack trace exposure in production logs | `rewrite.ts:152` | Information disclosure | ✅ FIXED |
+| 191 | FTS query logging exposes search terms (PII) | `fts-search.ts:206` | Privacy risk | ✅ FIXED |
 
 #### MEDIUM
 | # | Issue | File | Impact |
@@ -300,19 +304,19 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 ### 14a. Concurrency and State Management (12 issues)
 
 #### HIGH
-| # | Issue | File | Impact |
-|---|-------|------|--------|
-| 212 | ConnectionGuard double-checked locking race | `connection-guard.ts:15-36` | Duplicate Redis connections |
-| 213 | Module-level singleton state race | `container.ts:544` | Health monitor use-after-free |
+| # | Issue | File | Impact | Status |
+|---|-------|------|--------|--------|
+| 212 | ConnectionGuard double-checked locking race | `connection-guard.ts:15-36` | Duplicate Redis connections | ✅ FIXED |
+| 213 | Module-level singleton state race | `container.ts:544` | Health monitor use-after-free | |
 
 #### MEDIUM
-| # | Issue | File | Impact |
-|---|-------|------|--------|
-| 214 | Event handler memory leak (Redis) | `redis-event.adapter.ts:245-249` | Unbounded handler growth |
-| 215 | Event handler memory leak (local bus) | `events.ts:54-58` | Steady memory accumulation |
-| 216 | Query cache event listener cleanup race | `query-pipeline.ts:129-137` | Orphaned subscriptions |
-| 217 | Session activity map unbounded growth | `session-timeout.service.ts:57-74` | Slow memory leak |
-| 218 | Health monitor reconnect no mutex | `health.service.ts:196-199` | Connection pool exhaustion |
+| # | Issue | File | Impact | Status |
+|---|-------|------|--------|--------|
+| 214 | Event handler memory leak (Redis) | `redis-event.adapter.ts:245-249` | Unbounded handler growth | |
+| 215 | Event handler memory leak (local bus) | `events.ts:54-58` | Steady memory accumulation | |
+| 216 | Query cache event listener cleanup race | `query-pipeline.ts:129-137` | Orphaned subscriptions | |
+| 217 | Session activity map unbounded growth | `session-timeout.service.ts:57-74` | Slow memory leak | ✅ FIXED |
+| 218 | Health monitor reconnect no mutex | `health.service.ts:196-199` | Connection pool exhaustion | |
 | 219 | setInterval without guaranteed cleanup | `session-timeout.service.ts:136` | Dangling timers |
 
 #### LOW
@@ -326,19 +330,19 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 ### 14b. Input Validation Edge Cases (20 issues)
 
 #### CRITICAL
-| # | Issue | File | Impact |
-|---|-------|------|--------|
-| 224 | Score normalization range mismatch | `cross-encoder-rerank.ts:285` | Silent score corruption |
-| 225 | Rate limiter division by zero | `rate-limiter-core.ts:112` | No rate limiting |
+| # | Issue | File | Impact | Status |
+|---|-------|------|--------|--------|
+| 224 | Score normalization range mismatch | `cross-encoder-rerank.ts:285` | Silent score corruption | |
+| 225 | Rate limiter division by zero | `rate-limiter-core.ts:112` | No rate limiting | ✅ FIXED |
 
 #### MEDIUM
-| # | Issue | File | Impact |
-|---|-------|------|--------|
-| 226 | Pagination cursor DoS (no size limit) | `pagination.ts:172` | Memory exhaustion |
-| 227 | Heap pressure division by zero | `lru-cache.ts:306` | Forced aggressive eviction |
-| 228 | Filter rowidMap null state | `filter.ts:131-188` | TypeError on null access |
-| 229 | Semantic HyDE weak embedding | `semantic.ts:93` | Poor search quality |
-| 230 | Timestamp parsing silent failure | `timestamp-formatter.ts:32` | Silent data loss |
+| # | Issue | File | Impact | Status |
+|---|-------|------|--------|--------|
+| 226 | Pagination cursor DoS (no size limit) | `pagination.ts:172` | Memory exhaustion | ✅ FIXED |
+| 227 | Heap pressure division by zero | `lru-cache.ts:306` | Forced aggressive eviction | |
+| 228 | Filter rowidMap null state | `filter.ts:131-188` | TypeError on null access | |
+| 229 | Semantic HyDE weak embedding | `semantic.ts:93` | Poor search quality | |
+| 230 | Timestamp parsing silent failure | `timestamp-formatter.ts:32` | Silent data loss | ✅ Already handled |
 | 231 | Rate limiter negative overflow | `rate-limiter-core.ts:82` | Integer overflow |
 | 232 | Transcript UTF-8 truncation | `transcript-cursor.ts:70` | Corrupted JSON parsing |
 | 233 | Levenshtein array bounds hidden | `text-matching.ts:200` | Hidden null access |
@@ -417,24 +421,24 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 | 264 | N+1 query pattern in graph nodes | `node.repository.ts:270-290` | O(N) queries per page |
 
 #### MEDIUM
-| # | Issue | File | Impact |
-|---|-------|------|--------|
-| 265 | SQL template literal concatenation | `pgvector.ts:259-270` | Risky SQL construction pattern |
-| 266 | Unvalidated OFFSET lower bound | `entry-utils.ts:47-61` | Accepts negative pagination |
-| 267 | LIKE wildcards not escaped | `conversations.ts:381, 389` | Incorrect search results |
-| 268 | Unsafe array type casting | `pgvector.ts:265-267` | Type safety bypassed |
+| # | Issue | File | Impact | Status |
+|---|-------|------|--------|--------|
+| 265 | SQL template literal concatenation | `pgvector.ts:259-270` | Risky SQL construction pattern | |
+| 266 | Unvalidated OFFSET lower bound | `entry-utils.ts:47-61` | Accepts negative pagination | ✅ FIXED |
+| 267 | LIKE wildcards not escaped | `conversations.ts:381, 389` | Incorrect search results | ✅ FIXED |
+| 268 | Unsafe array type casting | `pgvector.ts:265-267` | Type safety bypassed | |
 
 #### LOW
-| # | Issue | File | Impact |
-|---|-------|------|--------|
-| 269 | Offset validation missing | `entry-utils.ts:61` | Accepts invalid pagination |
+| # | Issue | File | Impact | Status |
+|---|-------|------|--------|--------|
+| 269 | Offset validation missing | `entry-utils.ts:61` | Accepts invalid pagination | ✅ FIXED |
 
 ### 15c. Configuration and Environment Handling (13 issues)
 
 #### MEDIUM-HIGH
-| # | Issue | File | Impact |
-|---|-------|------|--------|
-| 270 | Whitespace-only HMAC secret accepted | `pagination.ts:56-62` | Cryptographic weakness |
+| # | Issue | File | Impact | Status |
+|---|-------|------|--------|--------|
+| 270 | Whitespace-only HMAC secret accepted | `pagination.ts:56-62` | Cryptographic weakness | ✅ FIXED |
 
 #### MEDIUM
 | # | Issue | File | Impact |
@@ -463,11 +467,11 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 ### 16a. Resource Management and Cleanup (16 issues)
 
 #### HIGH
-| # | Issue | File | Impact |
-|---|-------|------|--------|
-| 283 | Unbounded session activity map | `session-timeout.service.ts:57` | Memory leak, eventual OOM |
-| 284 | Redis event handlers no cleanup on disconnect | `redis-event.adapter.ts:245-249` | Handler accumulation on reconnect |
-| 285 | Redis cache async fetch no backpressure | `redis-cache.adapter.ts:216-219` | Connection pool exhaustion |
+| # | Issue | File | Impact | Status |
+|---|-------|------|--------|--------|
+| 283 | Unbounded session activity map | `session-timeout.service.ts:57` | Memory leak, eventual OOM | ✅ FIXED |
+| 284 | Redis event handlers no cleanup on disconnect | `redis-event.adapter.ts:245-249` | Handler accumulation on reconnect | |
+| 285 | Redis cache async fetch no backpressure | `redis-cache.adapter.ts:216-219` | Connection pool exhaustion | |
 
 #### MEDIUM
 | # | Issue | File | Impact |
@@ -493,9 +497,9 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 ### 16b. Async/Await and Promise Patterns (14 issues)
 
 #### CRITICAL
-| # | Issue | File | Impact |
-|---|-------|------|--------|
-| 299 | ConnectionGuard double-checked locking | `connection-guard.ts:15-36` | Duplicate connections |
+| # | Issue | File | Impact | Status |
+|---|-------|------|--------|--------|
+| 299 | ConnectionGuard double-checked locking | `connection-guard.ts:15-36` | Duplicate connections | ✅ FIXED |
 
 #### HIGH
 | # | Issue | File | Impact |
@@ -529,10 +533,10 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 ### 17a. External API Integrations (17 issues)
 
 #### CRITICAL
-| # | Issue | File | Impact |
-|---|-------|------|--------|
-| 313 | Ollama timeout race condition | `extraction.service.ts:1173-1174` | Memory leak, uninitialized timeout |
-| 314 | Cross-encoder timeout not in finally | `cross-encoder-rerank.ts:318-340` | Memory leak on error paths |
+| # | Issue | File | Impact | Status |
+|---|-------|------|--------|--------|
+| 313 | Ollama timeout race condition | `extraction.service.ts:1173-1174` | Memory leak, uninitialized timeout | |
+| 314 | Cross-encoder timeout not in finally | `cross-encoder-rerank.ts:318-340` | Memory leak on error paths | ✅ FIXED |
 
 #### HIGH
 | # | Issue | File | Impact |
@@ -564,11 +568,11 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 ### 17b. Serialization and Deserialization (8 issues)
 
 #### CRITICAL
-| # | Issue | File | Impact |
-|---|-------|------|--------|
-| 330 | Base64 vs Base64url mismatch | `pagination.ts:75, 99-100, 149` | Cursor verification fails randomly |
-| 331 | JSONL parsing unguarded per-line | `rl.handler.ts:499-502, 602-605` | Single bad line crashes batch |
-| 332 | LRU cache circular reference | `lru-cache.ts:248` | Application crash on circular data |
+| # | Issue | File | Impact | Status |
+|---|-------|------|--------|--------|
+| 330 | Base64 vs Base64url mismatch | `pagination.ts:75, 99-100, 149` | Cursor verification fails randomly | ✅ FIXED |
+| 331 | JSONL parsing unguarded per-line | `rl.handler.ts:499-502, 602-605` | Single bad line crashes batch | ✅ FIXED |
+| 332 | LRU cache circular reference | `lru-cache.ts:248` | Application crash on circular data | ✅ FIXED |
 
 #### HIGH
 | # | Issue | File | Impact |
@@ -590,18 +594,18 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 ### 18a. Authorization and Access Control (9 issues)
 
 #### CRITICAL
-| # | Issue | File | Impact |
-|---|-------|------|--------|
-| 338 | TOCTOU: permission check after fetch | `factory.ts:482-504` | Unauthorized access after revocation |
-| 339 | Permissive mode in staging environments | `permission.service.ts:286-310` | Full auth bypass in non-prod |
-| 340 | entryId=null escalates to type-level | `factory.ts:163-183` | Privilege escalation |
+| # | Issue | File | Impact | Status |
+|---|-------|------|--------|--------|
+| 338 | TOCTOU: permission check after fetch | `factory.ts:482-504` | Unauthorized access after revocation | ✅ FIXED |
+| 339 | Permissive mode in staging environments | `permission.service.ts:286-310` | Full auth bypass in non-prod | |
+| 340 | entryId=null escalates to type-level | `factory.ts:163-183` | Privilege escalation | ✅ FIXED |
 
 #### HIGH
-| # | Issue | File | Impact |
-|---|-------|------|--------|
-| 341 | Missing agentId validation in list | `factory.ts:528-576` | Information disclosure without auth |
-| 342 | Scope inheritance validation gap | `permission.service.ts:248-275` | Unintended global fallback |
-| 343 | Project entries bypass all checks | `permission.service.ts:413-415, 507-515` | Any agent can modify projects |
+| # | Issue | File | Impact | Status |
+|---|-------|------|--------|--------|
+| 341 | Missing agentId validation in list | `factory.ts:528-576` | Information disclosure without auth | |
+| 342 | Scope inheritance validation gap | `permission.service.ts:248-275` | Unintended global fallback | |
+| 343 | Project entries bypass all checks | `permission.service.ts:413-415, 507-515` | Any agent can modify projects | ✅ FIXED |
 | 344 | Admin key timing inconsistency | `scopes.handler.ts:154-156, 178-180` | Cross-tenant project modification |
 | 345 | Permission cache invalidation incomplete | `permission.service.ts:616-619, 670-672` | 30s stale permission window |
 | 346 | Cache key collision null vs undefined | `permission.service.ts:149-150` | Wrong permission applied |
@@ -609,19 +613,19 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 ### 18b. CLI, Cron, and Remaining Edge Cases (10 issues)
 
 #### HIGH
-| # | Issue | File | Impact |
-|---|-------|------|--------|
-| 347 | CLI argv[++i] bounds not checked | `parse-hook-args.ts:19`, `verify-response.ts:78` | Silent invalid argument acceptance |
-| 348 | Stdin unbounded buffer accumulation | `stdin.ts:23` | Memory exhaustion DoS |
+| # | Issue | File | Impact | Status |
+|---|-------|------|--------|--------|
+| 347 | CLI argv[++i] bounds not checked | `parse-hook-args.ts:19`, `verify-response.ts:78` | Silent invalid argument acceptance | ✅ FIXED |
+| 348 | Stdin unbounded buffer accumulation | `stdin.ts:23` | Memory exhaustion DoS | ✅ FIXED |
 
 #### MEDIUM
-| # | Issue | File | Impact |
-|---|-------|------|--------|
-| 349 | split()[1] undefined not validated | `parse-hook-args.ts:21` | Undefined propagates downstream |
-| 350 | Cron schedule edge case validation | `backup-scheduler.service.ts:64` | Silent scheduling failure |
-| 351 | Health check reconnection race | `health.service.ts:389` | Connection pool exhaustion |
-| 352 | Health check division by zero | `health.service.ts:239` | False degraded status |
-| 353 | Metrics registry unbounded growth | `metrics.ts:276-295` | Slow memory leak |
+| # | Issue | File | Impact | Status |
+|---|-------|------|--------|--------|
+| 349 | split()[1] undefined not validated | `parse-hook-args.ts:21` | Undefined propagates downstream | ✅ FIXED |
+| 350 | Cron schedule edge case validation | `backup-scheduler.service.ts:64` | Silent scheduling failure | |
+| 351 | Health check reconnection race | `health.service.ts:389` | Connection pool exhaustion | |
+| 352 | Health check division by zero | `health.service.ts:239` | False degraded status | |
+| 353 | Metrics registry unbounded growth | `metrics.ts:276-295` | Slow memory leak | ✅ FIXED
 
 #### LOW
 | # | Issue | File | Impact |
@@ -655,7 +659,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 ### Long-term (P3)
 1. Add documentation for all environment variables
 2. Improve test isolation for stateful services
-3. Add metrics cardinality controls
+3. Add metrics cardinality controls ✅ DONE - Bug #353
 4. Review and update outdated documentation
 
 ---

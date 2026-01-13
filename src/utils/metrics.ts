@@ -99,12 +99,16 @@ abstract class Metric {
   abstract reset(): void;
 }
 
+// Bug #353 fix: Maximum cardinality per metric to prevent unbounded memory growth
+const MAX_CARDINALITY = 1000;
+
 /**
  * Counter metric - can only increase
  */
 export class Counter extends Metric {
   readonly type = 'counter' as const;
   private values: Map<string, MetricValue> = new Map();
+  private cardinalityWarned = false;
 
   inc(labels: Labels = {}, value: number = 1): void {
     if (value < 0) {
@@ -116,6 +120,17 @@ export class Counter extends Metric {
     if (existing) {
       existing.value += value;
     } else {
+      // Bug #353 fix: Check cardinality limit before adding new label combination
+      if (this.values.size >= MAX_CARDINALITY) {
+        if (!this.cardinalityWarned) {
+          logger.warn(
+            { metric: this.name, maxCardinality: MAX_CARDINALITY },
+            'Counter cardinality limit reached, new label combinations will be dropped'
+          );
+          this.cardinalityWarned = true;
+        }
+        return;
+      }
       this.values.set(key, { value, labels });
     }
   }
@@ -146,9 +161,21 @@ export class Counter extends Metric {
 export class Gauge extends Metric {
   readonly type = 'gauge' as const;
   private values: Map<string, MetricValue> = new Map();
+  private cardinalityWarned = false;
 
   set(value: number, labels: Labels = {}): void {
     const key = this.labelsToKey(labels);
+    // Bug #353 fix: Check cardinality limit before adding new label combination
+    if (!this.values.has(key) && this.values.size >= MAX_CARDINALITY) {
+      if (!this.cardinalityWarned) {
+        logger.warn(
+          { metric: this.name, maxCardinality: MAX_CARDINALITY },
+          'Gauge cardinality limit reached, new label combinations will be dropped'
+        );
+        this.cardinalityWarned = true;
+      }
+      return;
+    }
     this.values.set(key, { value, labels });
   }
 
@@ -158,6 +185,17 @@ export class Gauge extends Metric {
     if (existing) {
       existing.value += value;
     } else {
+      // Bug #353 fix: Check cardinality limit before adding new label combination
+      if (this.values.size >= MAX_CARDINALITY) {
+        if (!this.cardinalityWarned) {
+          logger.warn(
+            { metric: this.name, maxCardinality: MAX_CARDINALITY },
+            'Gauge cardinality limit reached, new label combinations will be dropped'
+          );
+          this.cardinalityWarned = true;
+        }
+        return;
+      }
       this.values.set(key, { value, labels });
     }
   }
@@ -200,10 +238,23 @@ export class Histogram extends Metric {
     this.buckets = options.buckets ?? [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10];
   }
 
+  private cardinalityWarned = false;
+
   observe(value: number, labels: Labels = {}): void {
     const key = this.labelsToKey(labels);
     let hv = this.values.get(key);
     if (!hv) {
+      // Bug #353 fix: Check cardinality limit before adding new label combination
+      if (this.values.size >= MAX_CARDINALITY) {
+        if (!this.cardinalityWarned) {
+          logger.warn(
+            { metric: this.name, maxCardinality: MAX_CARDINALITY },
+            'Histogram cardinality limit reached, new label combinations will be dropped'
+          );
+          this.cardinalityWarned = true;
+        }
+        return;
+      }
       hv = {
         buckets: new Map(this.buckets.map((b) => [b, 0])),
         sum: 0,

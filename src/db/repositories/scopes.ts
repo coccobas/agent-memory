@@ -9,6 +9,9 @@ import {
   organizations,
   projects,
   sessions,
+  tools,
+  guidelines,
+  knowledge,
   type Organization,
   type NewOrganization,
   type Project,
@@ -20,6 +23,9 @@ import { generateId, now, type PaginationOptions, DEFAULT_LIMIT, MAX_LIMIT } fro
 import { invalidateScopeChainCache } from '../../services/query.service.js';
 import type { DatabaseDeps } from '../../core/types.js';
 import { createConflictError } from '../../core/errors.js';
+import { createComponentLogger } from '../../utils/logger.js';
+
+const logger = createComponentLogger('scopes-repo');
 
 // =============================================================================
 // FINDBYPATH CACHE (Request-scoped caching for project lookups)
@@ -162,9 +168,56 @@ export function createOrganizationRepository(deps: DatabaseDeps): IOrganizationR
     },
 
     async delete(id: string): Promise<boolean> {
+      // Bug #20 fix: Cascade delete org-scoped entries before deleting organization
+      // Delete entries that reference this org
+      const toolsDeleted = db.delete(tools)
+        .where(and(eq(tools.scopeType, 'org'), eq(tools.scopeId, id)))
+        .run().changes;
+      const guidelinesDeleted = db.delete(guidelines)
+        .where(and(eq(guidelines.scopeType, 'org'), eq(guidelines.scopeId, id)))
+        .run().changes;
+      const knowledgeDeleted = db.delete(knowledge)
+        .where(and(eq(knowledge.scopeType, 'org'), eq(knowledge.scopeId, id)))
+        .run().changes;
+
+      // Delete child projects (which will cascade to their entries)
+      const childProjects = db.select({ id: projects.id })
+        .from(projects)
+        .where(eq(projects.orgId, id))
+        .all();
+
+      for (const project of childProjects) {
+        // Delete project-scoped entries
+        db.delete(tools)
+          .where(and(eq(tools.scopeType, 'project'), eq(tools.scopeId, project.id)))
+          .run();
+        db.delete(guidelines)
+          .where(and(eq(guidelines.scopeType, 'project'), eq(guidelines.scopeId, project.id)))
+          .run();
+        db.delete(knowledge)
+          .where(and(eq(knowledge.scopeType, 'project'), eq(knowledge.scopeId, project.id)))
+          .run();
+        // Sessions cascade via FK constraint
+      }
+
+      // Delete child projects
+      const projectsDeleted = db.delete(projects)
+        .where(eq(projects.orgId, id))
+        .run().changes;
+
       const result = db.delete(organizations).where(eq(organizations.id, id)).run();
       if (result.changes > 0) {
         invalidateScopeChainCache('org', id);
+        logger.info(
+          {
+            orgId: id,
+            projectsDeleted,
+            toolsDeleted,
+            guidelinesDeleted,
+            knowledgeDeleted,
+          },
+          'Organization deleted with cascade'
+        );
       }
       return result.changes > 0;
     },
@@ -308,10 +361,32 @@ export function createProjectRepository(deps: DatabaseDeps): IProjectRepository 
     },
 
     async delete(id: string): Promise<boolean> {
+      // Bug #19 fix: Cascade delete project-scoped entries before deleting project
+      const toolsDeleted = db.delete(tools)
+        .where(and(eq(tools.scopeType, 'project'), eq(tools.scopeId, id)))
+        .run().changes;
+      const guidelinesDeleted = db.delete(guidelines)
+        .where(and(eq(guidelines.scopeType, 'project'), eq(guidelines.scopeId, id)))
+        .run().changes;
+      const knowledgeDeleted = db.delete(knowledge)
+        .where(and(eq(knowledge.scopeType, 'project'), eq(knowledge.scopeId, id)))
+        .run().changes;
+
+      // Sessions will cascade via FK constraint
+
       const result = db.delete(projects).where(eq(projects.id, id)).run();
       if (result.changes > 0) {
         invalidateScopeChainCache('project', id);
         invalidateFindByPathCache(); // Invalidate path cache when projects change
+        logger.info(
+          {
+            projectId: id,
+            toolsDeleted,
+            guidelinesDeleted,
+            knowledgeDeleted,
+          },
+          'Project deleted with cascade'
+        );
       }
       return result.changes > 0;
     },

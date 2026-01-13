@@ -59,6 +59,8 @@ export class SessionTimeoutService implements ISessionTimeoutService {
   private readonly inactivityMs: number;
   private readonly checkIntervalMs: number;
   private readonly enabled: boolean;
+  // Bug #283/#217 fix: Cap the number of tracked sessions to prevent unbounded memory growth
+  private static readonly MAX_TRACKED_SESSIONS = 10000;
 
   constructor(
     config: Config,
@@ -71,6 +73,21 @@ export class SessionTimeoutService implements ISessionTimeoutService {
 
   recordActivity(sessionId: string): void {
     if (!this.enabled) return;
+
+    // Bug #283/#217 fix: Enforce max tracked sessions to prevent unbounded growth
+    // If at capacity and this is a new session, evict the oldest entry first
+    if (
+      !this.activityMap.has(sessionId) &&
+      this.activityMap.size >= SessionTimeoutService.MAX_TRACKED_SESSIONS
+    ) {
+      // Find and remove the oldest entry (first inserted due to Map ordering)
+      const oldestKey = this.activityMap.keys().next().value;
+      if (oldestKey) {
+        this.activityMap.delete(oldestKey);
+        logger.debug({ evictedSessionId: oldestKey }, 'Evicted oldest session from activity map');
+      }
+    }
+
     this.activityMap.set(sessionId, Date.now());
     logger.debug({ sessionId }, 'Recorded session activity');
   }
