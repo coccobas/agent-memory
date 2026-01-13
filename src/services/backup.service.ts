@@ -124,8 +124,15 @@ export async function createDatabaseBackup(customName?: string): Promise<BackupR
           sqlite.pragma('wal_checkpoint(TRUNCATE)');
           logger.debug('WAL checkpoint completed before backup');
         }
-      } catch {
-        // Continue with backup even if checkpoint fails
+      } catch (checkpointError) {
+        // Bug #252 fix: Log checkpoint errors instead of silently ignoring
+        // Continue with backup as checkpoint is optimization, not required
+        logger.warn(
+          {
+            error: checkpointError instanceof Error ? checkpointError.message : String(checkpointError),
+          },
+          'WAL checkpoint failed before backup - backup will continue but may include uncommitted WAL data'
+        );
       }
     }
 

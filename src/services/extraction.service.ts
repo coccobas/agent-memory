@@ -946,7 +946,10 @@ export class ExtractionService {
 
       return result;
     } catch (error) {
+      // Bug #253 fix: Preserve error type and stack trace for debugging
       const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorType = error instanceof Error ? error.constructor.name : typeof error;
+      const errorStack = error instanceof Error ? error.stack?.split('\n').slice(0, 5).join('\n') : undefined;
 
       // Task 47: Try partial retry if enabled
       if (input.enablePartialRetry) {
@@ -954,6 +957,8 @@ export class ExtractionService {
           {
             provider: this.provider,
             error: errorMessage,
+            errorType,
+            stack: errorStack,
           },
           'Extraction failed, attempting partial retry with simplified context'
         );
@@ -1011,10 +1016,13 @@ export class ExtractionService {
         }
       }
 
+      // Bug #253 fix: Include error type and stack in final error log
       logger.error(
         {
           provider: this.provider,
           error: errorMessage,
+          errorType,
+          stack: errorStack,
         },
         'Extraction failed'
       );
