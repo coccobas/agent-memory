@@ -180,12 +180,17 @@ const EXTRACTION_PATTERNS: ExtractionPattern[] = [
 // IMPLEMENTATION
 // =============================================================================
 
+// Maximum matches per pattern to prevent runaway regex matching (DoS protection)
+const MAX_MATCHES_PER_PATTERN = 100;
+
 export class ExtractionHookService implements IExtractionHookService {
   private readonly enabled: boolean;
   private readonly confidenceThreshold: number;
   private readonly maxSuggestions: number;
   private readonly cooldownMs: number;
   private readonly scanOnWriteOps: boolean;
+  // Task 64: Using Date.now() is adequate for cooldowns >= 1 second
+  // (1ms precision vs typical 5-30 second cooldowns)
   private lastScanTime: number = 0;
 
   constructor(config: Config) {
@@ -247,7 +252,18 @@ export class ExtractionHookService implements IExtractionHookService {
       patternDef.pattern.lastIndex = 0;
 
       let match: RegExpExecArray | null;
+      let patternMatchCount = 0;
       while ((match = patternDef.pattern.exec(content)) !== null) {
+        // Task 62: Limit matches per pattern to prevent runaway regex on large inputs
+        patternMatchCount++;
+        if (patternMatchCount > MAX_MATCHES_PER_PATTERN) {
+          logger.debug(
+            { pattern: patternDef.pattern.source.substring(0, 50), limit: MAX_MATCHES_PER_PATTERN },
+            'Pattern match limit reached, skipping remaining matches'
+          );
+          break;
+        }
+
         const title = patternDef.titleExtractor(match);
         const extractedContent = patternDef.contentExtractor(match, content);
 
@@ -307,17 +323,26 @@ export class ExtractionHookService implements IExtractionHookService {
   }
 
   /**
-   * Simple hash for content deduplication
+   * FNV-1a hash for content deduplication.
+   * Task 60: Improved from djb2 to FNV-1a for better distribution and collision resistance.
+   * Includes content length in hash to further reduce collision probability.
    */
   private hashContent(content: string): string {
     const normalized = content.toLowerCase().replace(/\s+/g, ' ').trim();
-    let hash = 0;
+    // FNV-1a 32-bit constants
+    const FNV_PRIME = 0x01000193;
+    const FNV_OFFSET = 0x811c9dc5;
+
+    let hash = FNV_OFFSET;
     for (let i = 0; i < normalized.length; i++) {
-      const char = normalized.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convert to 32-bit integer
+      hash ^= normalized.charCodeAt(i);
+      // Multiply by FNV prime (use Math.imul for 32-bit multiplication)
+      hash = Math.imul(hash, FNV_PRIME);
     }
-    return hash.toString(16);
+
+    // Include length in hash output for additional collision resistance
+    const lengthHash = (normalized.length >>> 0).toString(16).padStart(4, '0');
+    return `${(hash >>> 0).toString(16)}-${lengthHash}`;
   }
 }
 

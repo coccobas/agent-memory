@@ -57,7 +57,19 @@ function validateExternalUrl(urlString: string, allowPrivate: boolean = false): 
 
   if (!allowPrivate) {
     // Check for private/internal IP ranges
-    const hostname = url.hostname.toLowerCase();
+    let hostname = url.hostname.toLowerCase();
+
+    // Security: Strip IPv6 zone IDs (e.g., fe80::1%eth0) as they can bypass SSRF protections
+    // Zone IDs are URL-encoded as %25 in URLs
+    if (hostname.includes('%25') || hostname.includes('%')) {
+      // Strip zone ID and log a warning
+      const originalHostname = hostname;
+      hostname = hostname.split('%25')[0]!.split('%')[0]!;
+      logger.warn(
+        { original: originalHostname, stripped: hostname },
+        'SSRF protection: Stripped IPv6 zone ID from hostname'
+      );
+    }
 
     // Security: Block integer IP format before pattern checks
     if (isIntegerIpFormat(hostname)) {
@@ -641,8 +653,11 @@ export interface ExtractionServiceConfig {
   ollamaModel: string;
 }
 
-// Track if we've already warned about missing API keys (avoid spam in tests)
-let hasWarnedAboutProvider = false;
+// Static warning tracking - allows reset for test isolation
+// Use ExtractionService.resetWarningState() in tests
+const warningState = {
+  hasWarnedDisabled: false,
+};
 
 export class ExtractionService {
   private provider: ExtractionProvider;
@@ -652,6 +667,14 @@ export class ExtractionService {
   private anthropicModel: string;
   private ollamaBaseUrl: string;
   private ollamaModel: string;
+
+  /**
+   * Reset warning state for test isolation.
+   * Call this in test setup/teardown to ensure clean state between tests.
+   */
+  static resetWarningState(): void {
+    warningState.hasWarnedDisabled = false;
+  }
 
   /**
    * Create an ExtractionService instance
@@ -672,12 +695,12 @@ export class ExtractionService {
 
     this.provider = effectiveConfig.provider;
 
-    // Warn once if disabled
-    if (this.provider === 'disabled' && !hasWarnedAboutProvider) {
+    // Warn once globally if disabled (use static state for de-duplication across instances)
+    if (this.provider === 'disabled' && !warningState.hasWarnedDisabled) {
       logger.warn(
         'Extraction provider is disabled. Set AGENT_MEMORY_EXTRACTION_PROVIDER to enable.'
       );
-      hasWarnedAboutProvider = true;
+      warningState.hasWarnedDisabled = true;
     }
 
     this.openaiModel = effectiveConfig.openaiModel;
@@ -1030,9 +1053,30 @@ export class ExtractionService {
             abortController
           );
 
-          const data = JSON.parse(responseText) as { response: string };
-          if (!data.response) {
-            throw createExtractionError('ollama', 'no response in data');
+          // Validate Ollama response structure
+          let data: { response?: unknown; error?: string };
+          try {
+            data = JSON.parse(responseText) as typeof data;
+          } catch (parseError) {
+            logger.warn(
+              { responseText: responseText.slice(0, 200) },
+              'Failed to parse Ollama response as JSON'
+            );
+            throw createExtractionError('ollama', 'invalid JSON response');
+          }
+
+          // Check for Ollama-specific error response
+          if (data.error) {
+            throw createExtractionError('ollama', `API error: ${data.error}`);
+          }
+
+          // Validate response field exists and is string
+          if (typeof data.response !== 'string' || data.response.length === 0) {
+            logger.warn(
+              { responseType: typeof data.response, hasResponse: 'response' in data },
+              'Ollama response missing or invalid response field'
+            );
+            throw createExtractionError('ollama', 'no valid response in data');
           }
 
           const parsed = this.parseExtractionResponse(data.response);
@@ -1138,9 +1182,27 @@ export class ExtractionService {
     try {
       parsed = JSON.parse(jsonContent) as typeof parsed;
     } catch (error) {
+      // Task 58: Make parsing fallback visible with detailed error context
+      const parseError = error instanceof Error ? error : new Error(String(error));
       logger.warn(
-        { content: jsonContent.slice(0, 200) },
-        'Failed to parse extraction response as JSON'
+        {
+          parseError: parseError.message,
+          parseErrorName: parseError.name,
+          contentLength: jsonContent.length,
+          contentPreview: jsonContent.slice(0, 200),
+          hadMarkdownBlock: content.includes('```'),
+          reason: 'JSON_PARSE_FAILURE',
+        },
+        'Extraction response parse failure - returning empty results'
+      );
+      return { entries: [], entities: [], relationships: [] };
+    }
+
+    // Validate parsed structure has expected shape
+    if (typeof parsed !== 'object' || parsed === null) {
+      logger.warn(
+        { parsedType: typeof parsed, reason: 'INVALID_RESPONSE_STRUCTURE' },
+        'Extraction response is not an object - returning empty results'
       );
       return { entries: [], entities: [], relationships: [] };
     }
@@ -1266,7 +1328,89 @@ export class ExtractionService {
       }
     }
 
-    return { entries, entities, relationships };
+    // Task 50: Deduplicate within single extraction to prevent identical entries
+    const deduplicatedEntries = this.deduplicateEntries(entries);
+    const deduplicatedEntities = this.deduplicateEntities(entities);
+    const deduplicatedRelationships = this.deduplicateRelationships(relationships);
+
+    // Log if duplicates were found
+    const entriesRemoved = entries.length - deduplicatedEntries.length;
+    const entitiesRemoved = entities.length - deduplicatedEntities.length;
+    const relationsRemoved = relationships.length - deduplicatedRelationships.length;
+    if (entriesRemoved > 0 || entitiesRemoved > 0 || relationsRemoved > 0) {
+      logger.debug(
+        {
+          entriesRemoved,
+          entitiesRemoved,
+          relationsRemoved,
+          originalCounts: {
+            entries: entries.length,
+            entities: entities.length,
+            relationships: relationships.length,
+          },
+        },
+        'Removed duplicate items from extraction'
+      );
+    }
+
+    return {
+      entries: deduplicatedEntries,
+      entities: deduplicatedEntities,
+      relationships: deduplicatedRelationships,
+    };
+  }
+
+  /**
+   * Deduplicate extracted entries by type + name/title key.
+   * Keeps the entry with higher confidence when duplicates exist.
+   */
+  private deduplicateEntries(entries: ExtractedEntry[]): ExtractedEntry[] {
+    const seen = new Map<string, ExtractedEntry>();
+    for (const entry of entries) {
+      const key =
+        entry.type === 'knowledge'
+          ? `knowledge:${entry.title?.toLowerCase()}`
+          : `${entry.type}:${entry.name?.toLowerCase()}`;
+      const existing = seen.get(key);
+      if (!existing || (entry.confidence ?? 0) > (existing.confidence ?? 0)) {
+        seen.set(key, entry);
+      }
+    }
+    return Array.from(seen.values());
+  }
+
+  /**
+   * Deduplicate extracted entities by name + entityType.
+   * Keeps the entity with higher confidence when duplicates exist.
+   */
+  private deduplicateEntities(entities: ExtractedEntity[]): ExtractedEntity[] {
+    const seen = new Map<string, ExtractedEntity>();
+    for (const entity of entities) {
+      const key = `${entity.entityType}:${entity.name.toLowerCase()}`;
+      const existing = seen.get(key);
+      if (!existing || (entity.confidence ?? 0) > (existing.confidence ?? 0)) {
+        seen.set(key, entity);
+      }
+    }
+    return Array.from(seen.values());
+  }
+
+  /**
+   * Deduplicate extracted relationships by source + target + relationType.
+   * Keeps the relationship with higher confidence when duplicates exist.
+   */
+  private deduplicateRelationships(
+    relationships: ExtractedRelationship[]
+  ): ExtractedRelationship[] {
+    const seen = new Map<string, ExtractedRelationship>();
+    for (const rel of relationships) {
+      const key = `${rel.sourceRef}:${rel.sourceType}->${rel.targetRef}:${rel.targetType}:${rel.relationType}`;
+      const existing = seen.get(key);
+      if (!existing || (rel.confidence ?? 0) > (existing.confidence ?? 0)) {
+        seen.set(key, rel);
+      }
+    }
+    return Array.from(seen.values());
   }
 
   /**
@@ -1283,7 +1427,8 @@ export class ExtractionService {
 /**
  * Reset module-level state for testing purposes.
  * Note: In production code, services should be instantiated via DI and cleaned up directly.
+ * @deprecated Use ExtractionService.resetWarningState() instead for better encapsulation.
  */
 export function resetExtractionServiceState(): void {
-  hasWarnedAboutProvider = false;
+  ExtractionService.resetWarningState();
 }
