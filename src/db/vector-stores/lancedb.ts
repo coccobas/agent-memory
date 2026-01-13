@@ -104,19 +104,24 @@ export class LanceDbVectorStore implements IVectorStore {
     }
 
     // Connect to LanceDB with timeout
+    // Bug #302 fix: Clear timeout to prevent timer leak
     const CONNECTION_TIMEOUT_MS = 30000; // 30 seconds
     const connectionPromise = connect(this.dbPath);
-    const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(
         () => reject(new Error(`Vector DB connection timeout after ${CONNECTION_TIMEOUT_MS}ms`)),
         CONNECTION_TIMEOUT_MS
-      )
-    );
+      );
+    });
 
     try {
       this.connection = await Promise.race([connectionPromise, timeoutPromise]);
     } catch (error) {
       throw createVectorDbError('connect', error instanceof Error ? error.message : String(error));
+    } finally {
+      // Bug #302 fix: Always clear the timeout to prevent timer leak
+      if (timeoutId) clearTimeout(timeoutId);
     }
 
     // Check if table exists - errors here are OK, table will be created on first use
