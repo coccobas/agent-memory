@@ -49,9 +49,22 @@ export async function withRetry<T>(fn: () => Promise<T>, options: RetryOptions =
       }
 
       opts.onRetry(lastError, attempt);
-      logger.warn({ error: lastError.message, attempt }, 'Retrying operation');
 
-      await new Promise((resolve) => setTimeout(resolve, delay));
+      // Bug #315 fix: Use retry-after from API response if available
+      const apiRetryAfter = extractRetryAfterMs(error);
+      const actualDelay = apiRetryAfter ?? delay;
+
+      logger.warn(
+        {
+          error: lastError.message,
+          attempt,
+          delayMs: actualDelay,
+          fromHeader: apiRetryAfter !== undefined,
+        },
+        'Retrying operation'
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, actualDelay));
       delay = Math.min(delay * opts.backoffMultiplier, opts.maxDelayMs);
     }
   }
@@ -97,4 +110,73 @@ export function isRetryableNetworkError(error: Error): boolean {
     message.includes('502') ||
     message.includes('504')
   );
+}
+
+/**
+ * Bug #315 fix: Extract retry-after delay from API error responses.
+ *
+ * Both OpenAI and Anthropic SDKs include rate limit information in errors:
+ * - OpenAI: error.headers?.['retry-after'] or error.headers?.['x-ratelimit-reset-requests']
+ * - Anthropic: error.headers?.['retry-after']
+ *
+ * @param error - The error to extract retry-after from
+ * @returns Delay in milliseconds, or undefined if not available
+ */
+export function extractRetryAfterMs(error: unknown): number | undefined {
+  if (!error || typeof error !== 'object') {
+    return undefined;
+  }
+
+  // Try to extract headers from SDK errors
+  const errorObj = error as Record<string, unknown>;
+  const headers = errorObj.headers as Record<string, string | undefined> | undefined;
+
+  if (!headers) {
+    return undefined;
+  }
+
+  // Try Retry-After header (standard HTTP header, in seconds)
+  const retryAfter = headers['retry-after'];
+  if (retryAfter) {
+    const seconds = parseInt(retryAfter, 10);
+    if (!Number.isNaN(seconds) && seconds > 0) {
+      logger.debug({ retryAfterSeconds: seconds }, 'Bug #315: Parsed Retry-After header from API error');
+      return seconds * 1000;
+    }
+  }
+
+  // Try x-ratelimit-reset-requests (OpenAI specific, time until reset)
+  const resetRequests = headers['x-ratelimit-reset-requests'];
+  if (resetRequests) {
+    // Format is like "1s", "500ms", "1m30s"
+    const match = resetRequests.match(/^(?:(\d+)m)?(?:(\d+)s)?(?:(\d+)ms)?$/);
+    if (match) {
+      const minutes = parseInt(match[1] || '0', 10);
+      const seconds = parseInt(match[2] || '0', 10);
+      const ms = parseInt(match[3] || '0', 10);
+      const totalMs = minutes * 60000 + seconds * 1000 + ms;
+      if (totalMs > 0) {
+        logger.debug({ resetMs: totalMs, raw: resetRequests }, 'Bug #315: Parsed x-ratelimit-reset-requests header');
+        return totalMs;
+      }
+    }
+  }
+
+  // Try x-ratelimit-reset-tokens (OpenAI specific for token limits)
+  const resetTokens = headers['x-ratelimit-reset-tokens'];
+  if (resetTokens) {
+    const match = resetTokens.match(/^(?:(\d+)m)?(?:(\d+)s)?(?:(\d+)ms)?$/);
+    if (match) {
+      const minutes = parseInt(match[1] || '0', 10);
+      const seconds = parseInt(match[2] || '0', 10);
+      const ms = parseInt(match[3] || '0', 10);
+      const totalMs = minutes * 60000 + seconds * 1000 + ms;
+      if (totalMs > 0) {
+        logger.debug({ resetMs: totalMs, raw: resetTokens }, 'Bug #315: Parsed x-ratelimit-reset-tokens header');
+        return totalMs;
+      }
+    }
+  }
+
+  return undefined;
 }

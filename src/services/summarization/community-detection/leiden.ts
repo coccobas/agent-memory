@@ -136,7 +136,53 @@ function buildCommunityStructure(assignment: CommunityAssignment): CommunityStru
 }
 
 /**
- * Calculate modularity gain from moving a node to a new community
+ * Bug #203/#204 fix: Pre-computed community degree sums for O(1) lookup.
+ * This avoids the O(n) scan over all assignments in calculateModularityGain.
+ */
+type CommunityDegreeSums = Map<string, number>;
+
+/**
+ * Initialize community degree sums from assignments and degrees.
+ * Called once before the move phase, then updated incrementally.
+ */
+function initializeCommunityDegreeSums(
+  assignment: CommunityAssignment,
+  degrees: Map<string, number>
+): CommunityDegreeSums {
+  const sums = new Map<string, number>();
+  for (const [nodeId, communityId] of assignment) {
+    const degree = degrees.get(nodeId) || 0;
+    sums.set(communityId, (sums.get(communityId) || 0) + degree);
+  }
+  return sums;
+}
+
+/**
+ * Update community degree sums when a node moves to a new community.
+ * O(1) operation instead of O(n) recalculation.
+ */
+function updateCommunityDegreeSums(
+  sums: CommunityDegreeSums,
+  _nodeId: string, // Unused but kept for consistency with other functions
+  oldCommunityId: string,
+  newCommunityId: string,
+  nodeDegree: number
+): void {
+  // Remove from old community
+  const oldSum = sums.get(oldCommunityId) || 0;
+  sums.set(oldCommunityId, oldSum - nodeDegree);
+
+  // Add to new community
+  const newSum = sums.get(newCommunityId) || 0;
+  sums.set(newCommunityId, newSum + nodeDegree);
+}
+
+/**
+ * Calculate modularity gain from moving a node to a new community.
+ *
+ * Bug #203/#204 fix: Now uses pre-computed communityDegreeSums for O(1) lookup
+ * instead of O(n) scan over all assignments. This changes the complexity from
+ * O(n) per call to O(neighbors) per call.
  */
 function calculateModularityGain(
   nodeId: string,
@@ -145,7 +191,8 @@ function calculateModularityGain(
   assignment: CommunityAssignment,
   degrees: Map<string, number>,
   totalWeight: number,
-  resolution: number
+  resolution: number,
+  communityDegreeSums: CommunityDegreeSums // Bug #203/#204: Use cached sums
 ): number {
   const oldCommunityId = assignment.get(nodeId)!;
   if (oldCommunityId === newCommunityId) {
@@ -157,10 +204,8 @@ function calculateModularityGain(
 
   let edgesToOldCommunity = 0;
   let edgesToNewCommunity = 0;
-  let oldCommunityDegree = 0;
-  let newCommunityDegree = 0;
 
-  // Calculate connections and degrees
+  // Calculate connections - O(neighbors)
   for (const { nodeId: neighborId, weight } of neighbors) {
     const neighborCommunity = assignment.get(neighborId);
 
@@ -172,16 +217,10 @@ function calculateModularityGain(
     }
   }
 
-  // Calculate community degrees
-  for (const [otherId, community] of assignment) {
-    const degree = degrees.get(otherId) || 0;
-    if (community === oldCommunityId && otherId !== nodeId) {
-      oldCommunityDegree += degree;
-    }
-    if (community === newCommunityId) {
-      newCommunityDegree += degree;
-    }
-  }
+  // Bug #203/#204 fix: O(1) lookup instead of O(n) scan
+  // Note: oldCommunityDegree excludes the moving node
+  const oldCommunityDegree = (communityDegreeSums.get(oldCommunityId) || 0) - nodeDegree;
+  const newCommunityDegree = communityDegreeSums.get(newCommunityId) || 0;
 
   const m2 = totalWeight;
   const gain =
@@ -195,6 +234,10 @@ function calculateModularityGain(
  * Move nodes locally to optimize modularity
  *
  * This is the core of the Leiden algorithm's "move" phase.
+ *
+ * Bug #203/#204 fix: Uses pre-computed community degree sums that are
+ * updated incrementally when nodes move. This reduces complexity from
+ * O(n²) to O(n × avg_neighbors).
  */
 function moveNodesLocally(
   adjacencyList: AdjacencyList,
@@ -211,6 +254,9 @@ function moveNodesLocally(
     const degree = neighbors.reduce((sum, n) => sum + n.weight, 0);
     degrees.set(nodeId, degree);
   }
+
+  // Bug #203/#204 fix: Initialize community degree sums for O(1) lookup
+  const communityDegreeSums = initializeCommunityDegreeSums(assignment, degrees);
 
   // Shuffle node order for randomization
   const nodeIds = Array.from(adjacencyList.keys());
@@ -242,7 +288,8 @@ function moveNodesLocally(
         assignment,
         degrees,
         totalWeight,
-        resolution
+        resolution,
+        communityDegreeSums // Bug #203/#204: Pass cached sums
       );
 
       if (gain > bestGain) {
@@ -253,6 +300,16 @@ function moveNodesLocally(
 
     // Move node if beneficial
     if (bestCommunity !== currentCommunity) {
+      // Bug #203/#204 fix: Update cached sums incrementally - O(1) instead of O(n)
+      const nodeDegree = degrees.get(nodeId) || 0;
+      updateCommunityDegreeSums(
+        communityDegreeSums,
+        nodeId,
+        currentCommunity,
+        bestCommunity,
+        nodeDegree
+      );
+
       assignment.set(nodeId, bestCommunity);
       improved = true;
     }

@@ -12,6 +12,9 @@ import type {
   AdjacencyList,
 } from './types.js';
 import { createValidationError } from '../../../core/errors.js';
+import { createComponentLogger } from '../../../utils/logger.js';
+
+const logger = createComponentLogger('similarity');
 
 // =============================================================================
 // COSINE SIMILARITY
@@ -158,6 +161,11 @@ export function computeNodeCentroid(nodes: CommunityNode[]): number[] | undefine
  * Creates a graph where nodes are connected if their similarity exceeds
  * the threshold. Only nodes with embeddings are included.
  *
+ * Bug #202 NOTE: This is O(n²) in the number of nodes due to pairwise
+ * similarity computation. For large graphs (1000+ nodes), this can be slow.
+ * Future optimization could use approximate nearest neighbor (ANN) algorithms
+ * like LSH (Locality-Sensitive Hashing) or HNSW (Hierarchical Navigable Small Worlds).
+ *
  * @param nodes Array of community nodes
  * @param threshold Minimum similarity to create an edge (0-1)
  * @returns Similarity graph with nodes, edges, and adjacency list
@@ -172,6 +180,19 @@ export function buildSimilarityGraph(
   const edges: SimilarityEdge[] = [];
   const adjacencyList: AdjacencyList = new Map();
   let totalWeight = 0;
+
+  // Bug #202: Warn about O(n²) complexity for large graphs
+  const pairCount = (nodesWithEmbeddings.length * (nodesWithEmbeddings.length - 1)) / 2;
+  if (pairCount > 100000) {
+    logger.warn(
+      {
+        nodeCount: nodesWithEmbeddings.length,
+        pairCount,
+        estimatedOps: pairCount,
+      },
+      'Bug #202: Large similarity graph - O(n²) computation may be slow. Consider using smaller batches or higher similarity threshold.'
+    );
+  }
 
   // Initialize adjacency list
   for (const node of nodesWithEmbeddings) {

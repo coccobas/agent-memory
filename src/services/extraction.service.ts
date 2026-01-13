@@ -829,6 +829,50 @@ export class ExtractionService {
       throw createSizeLimitError('context', maxContextLength, input.context.length, 'characters');
     }
 
+    // Bug #319 fix: Estimate tokens and warn if approaching model context limits
+    // Rough estimation: ~4 characters per token for English, ~2 for CJK
+    // Also need to account for system prompt and output tokens
+    const estimatedInputTokens = Math.ceil(input.context.length / 3.5); // Conservative estimate
+    const systemPromptTokens = 1500; // Approximate extraction prompt size
+    const outputTokens = config.extraction.maxTokens;
+    const totalEstimatedTokens = estimatedInputTokens + systemPromptTokens + outputTokens;
+
+    // Common model context limits (conservative estimates)
+    const modelContextLimits: Record<string, number> = {
+      'gpt-4o-mini': 128000,
+      'gpt-4o': 128000,
+      'gpt-4-turbo': 128000,
+      'gpt-3.5-turbo': 16385,
+      'claude-3-5-sonnet-20241022': 200000,
+      'claude-3-sonnet-20240229': 200000,
+      'claude-3-opus-20240229': 200000,
+    };
+
+    const modelLimit =
+      modelContextLimits[this.openaiModel] ||
+      modelContextLimits[this.anthropicModel] ||
+      8000; // Conservative fallback for unknown models
+
+    if (totalEstimatedTokens > modelLimit * 0.9) {
+      logger.warn(
+        {
+          estimatedInputTokens,
+          systemPromptTokens,
+          outputTokens,
+          totalEstimatedTokens,
+          modelLimit,
+          model: this.provider === 'openai' ? this.openaiModel : this.anthropicModel,
+          contextLength: input.context.length,
+        },
+        'Bug #319: Context may exceed model token limit. Consider splitting into smaller chunks.'
+      );
+    } else if (totalEstimatedTokens > modelLimit * 0.7) {
+      logger.debug(
+        { totalEstimatedTokens, modelLimit },
+        'Bug #319: Context approaching model token limit'
+      );
+    }
+
     // Validate contextType if provided
     if (input.contextType && !VALID_CONTEXT_TYPES.includes(input.contextType as ContextType)) {
       logger.warn(
@@ -982,6 +1026,15 @@ export class ExtractionService {
    * Task 45: Batch extraction - process multiple inputs with controlled concurrency.
    * Useful for processing large documents split into chunks.
    *
+   * Bug #318 NOTE: For very large batches (100+ inputs), consider:
+   * - Using lower concurrency (1-2) to reduce connection pressure
+   * - Processing in smaller sub-batches with delays between them
+   * - Monitoring API rate limits (see Bug #315 fix for retry-after handling)
+   *
+   * Current implementation processes batches sequentially with limited concurrency
+   * to prevent connection pool exhaustion. Streaming is not implemented as it would
+   * require significant architectural changes to handle partial results.
+   *
    * @param inputs - Array of extraction inputs
    * @param options - Batch processing options
    * @returns Array of results (same order as inputs)
@@ -989,13 +1042,25 @@ export class ExtractionService {
   async extractBatch(
     inputs: ExtractionInput[],
     options?: {
-      /** Max concurrent extractions (default: 3) */
+      /** Max concurrent extractions (default: 3). Use lower values for large batches. */
       concurrency?: number;
       /** Continue on individual errors (default: true) */
       continueOnError?: boolean;
     }
   ): Promise<Array<ExtractionResult | { error: string; index: number }>> {
     const concurrency = options?.concurrency ?? 3;
+
+    // Bug #318 fix: Warn about potential connection pool exhaustion with large batches
+    if (inputs.length > 100) {
+      logger.warn(
+        {
+          inputCount: inputs.length,
+          concurrency,
+          recommendedConcurrency: Math.min(2, concurrency),
+        },
+        'Large batch extraction detected. Consider reducing concurrency to prevent connection pool exhaustion.'
+      );
+    }
     const continueOnError = options?.continueOnError ?? true;
 
     if (inputs.length === 0) {

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { withRetry, isRetryableDbError, isRetryableNetworkError } from '../../src/utils/retry.js';
+import { withRetry, isRetryableDbError, isRetryableNetworkError, extractRetryAfterMs } from '../../src/utils/retry.js';
 
 vi.mock('../../src/utils/logger.js', () => ({
   logger: {
@@ -133,6 +133,76 @@ describe('Retry Utilities', () => {
     it('should return false for non-retryable errors', () => {
       expect(isRetryableNetworkError(new Error('404 Not Found'))).toBe(false);
       expect(isRetryableNetworkError(new Error('400 Bad Request'))).toBe(false);
+    });
+  });
+
+  describe('extractRetryAfterMs (Bug #315)', () => {
+    it('should return undefined for null/undefined', () => {
+      expect(extractRetryAfterMs(null)).toBeUndefined();
+      expect(extractRetryAfterMs(undefined)).toBeUndefined();
+    });
+
+    it('should return undefined for non-object', () => {
+      expect(extractRetryAfterMs('string')).toBeUndefined();
+      expect(extractRetryAfterMs(123)).toBeUndefined();
+    });
+
+    it('should return undefined for object without headers', () => {
+      expect(extractRetryAfterMs({})).toBeUndefined();
+      expect(extractRetryAfterMs({ message: 'error' })).toBeUndefined();
+    });
+
+    it('should parse Retry-After header in seconds', () => {
+      const error = { headers: { 'retry-after': '5' } };
+      expect(extractRetryAfterMs(error)).toBe(5000);
+    });
+
+    it('should return undefined for invalid Retry-After', () => {
+      expect(extractRetryAfterMs({ headers: { 'retry-after': 'invalid' } })).toBeUndefined();
+      expect(extractRetryAfterMs({ headers: { 'retry-after': '0' } })).toBeUndefined();
+      expect(extractRetryAfterMs({ headers: { 'retry-after': '-5' } })).toBeUndefined();
+    });
+
+    it('should parse OpenAI x-ratelimit-reset-requests header', () => {
+      // Simple seconds
+      expect(extractRetryAfterMs({ headers: { 'x-ratelimit-reset-requests': '10s' } })).toBe(10000);
+      // Milliseconds
+      expect(extractRetryAfterMs({ headers: { 'x-ratelimit-reset-requests': '500ms' } })).toBe(500);
+      // Minutes and seconds
+      expect(extractRetryAfterMs({ headers: { 'x-ratelimit-reset-requests': '1m30s' } })).toBe(90000);
+      // Just minutes
+      expect(extractRetryAfterMs({ headers: { 'x-ratelimit-reset-requests': '2m' } })).toBe(120000);
+    });
+
+    it('should parse OpenAI x-ratelimit-reset-tokens header', () => {
+      expect(extractRetryAfterMs({ headers: { 'x-ratelimit-reset-tokens': '5s' } })).toBe(5000);
+      expect(extractRetryAfterMs({ headers: { 'x-ratelimit-reset-tokens': '1m' } })).toBe(60000);
+    });
+
+    it('should prefer Retry-After over other headers', () => {
+      const error = {
+        headers: {
+          'retry-after': '10',
+          'x-ratelimit-reset-requests': '30s',
+          'x-ratelimit-reset-tokens': '60s',
+        },
+      };
+      expect(extractRetryAfterMs(error)).toBe(10000);
+    });
+
+    it('should work with real-world OpenAI error shape', () => {
+      // Simulating OpenAI SDK error structure
+      const openaiError = {
+        message: 'Rate limit exceeded',
+        status: 429,
+        headers: {
+          'retry-after': '2',
+          'x-ratelimit-limit-requests': '10000',
+          'x-ratelimit-remaining-requests': '0',
+          'x-ratelimit-reset-requests': '1s',
+        },
+      };
+      expect(extractRetryAfterMs(openaiError)).toBe(2000);
     });
   });
 });
