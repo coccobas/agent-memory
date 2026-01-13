@@ -376,8 +376,8 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 | # | Issue | File | Impact |
 |---|-------|------|--------|
 | 245 | Extraction partial retry masks error | `extraction.service.ts:920-939` | Data loss - empty result | ✅ FIXED |
-| 246 | Batch promises error collection delay | `extraction.service.ts:1001-1023` | Unreported batch failures |
-| 247 | Subquery timeout not propagated | `executor.ts:180+` | Silent query degradation |
+| 246 | Batch promises error collection delay | `extraction.service.ts:1001-1023` | Unreported batch failures | ✅ FIXED |
+| 247 | Subquery timeout not propagated | `executor.ts:180+` | Silent query degradation | ✅ FIXED |
 
 #### MEDIUM
 | # | Issue | File | Impact |

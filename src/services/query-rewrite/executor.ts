@@ -249,13 +249,16 @@ export class SubQueryExecutor {
   private async executeOne(subQuery: SubQuery, queryFn: QueryFn): Promise<SubQueryResult> {
     const startTime = Date.now();
 
+    // Bug #247 fix: Clean up timeout timer to prevent memory leak
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
     try {
       // Execute with timeout
       const entries = await Promise.race([
         queryFn(subQuery.query),
-        new Promise<ResultEntry[]>((_, reject) =>
-          setTimeout(() => reject(new Error('Timeout')), this.config.timeoutMs)
-        ),
+        new Promise<ResultEntry[]>((_, reject) => {
+          timeoutId = setTimeout(() => reject(new Error('Timeout')), this.config.timeoutMs);
+        }),
       ]);
 
       return {
@@ -278,6 +281,11 @@ export class SubQueryExecutor {
         success: false,
         error: errorMessage,
       };
+    } finally {
+      // Bug #247 fix: Always clear timeout to prevent memory leak
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId);
+      }
     }
   }
 
