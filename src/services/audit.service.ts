@@ -66,6 +66,16 @@ export function logAction(params: AuditLogParams, db: DbClient): void {
         if (serialized.length <= config.validation.metadataMaxBytes) {
           queryParams = sanitized;
         } else {
+          // Bug #195 fix: Log when audit data is truncated for visibility
+          logger.debug(
+            {
+              action: params.action,
+              entryType: params.entryType,
+              originalBytes: serialized.length,
+              maxBytes: config.validation.metadataMaxBytes,
+            },
+            'Audit queryParams truncated due to size limit'
+          );
           queryParams = {
             truncated: true,
             originalBytes: serialized.length,

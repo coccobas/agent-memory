@@ -370,10 +370,15 @@ export class RedisRateLimiterAdapter implements IRateLimiterAdapter {
         result = await this.client.eval(TOKEN_BUCKET_LUA, 1, fullKey, ...args) as unknown[];
       }
 
+      // Bug #257 fix: Guard against NaN from undefined/invalid array elements
+      // Number(undefined) returns NaN which would propagate through rate limiting
+      const allowed = Number(result[0]);
+      const remaining = Number(result[1]);
+      const resetAfter = Number(result[2]);
       return [
-        Number(result[0]),
-        Number(result[1]),
-        Number(result[2]),
+        Number.isFinite(allowed) ? allowed : 0,
+        Number.isFinite(remaining) ? remaining : 0,
+        Number.isFinite(resetAfter) ? resetAfter : this.windowMs,
       ];
     } catch (error) {
       logger.error({ error, key }, 'Token bucket script failed');
@@ -411,10 +416,14 @@ export class RedisRateLimiterAdapter implements IRateLimiterAdapter {
         result = await this.client.eval(GET_STATS_LUA, 1, fullKey, ...args) as unknown[];
       }
 
+      // Bug #262 fix: Guard against NaN from undefined/invalid array elements
+      const count = Number(result[0]);
+      const remaining = Number(result[1]);
+      const windowMs = Number(result[2]);
       return [
-        Number(result[0]),
-        Number(result[1]),
-        Number(result[2]),
+        Number.isFinite(count) ? count : 0,
+        Number.isFinite(remaining) ? remaining : this.maxRequests,
+        Number.isFinite(windowMs) ? windowMs : this.windowMs,
       ];
     } catch (error) {
       logger.error({ error, key }, 'Get stats script failed');

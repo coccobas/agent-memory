@@ -48,6 +48,13 @@ export function cosineSimilarity(a: number[], b: number[]): number {
   for (let i = 0; i < a.length; i++) {
     const valA = a[i]!;
     const valB = b[i]!;
+
+    // Bug #238 fix: Check for NaN/Infinity in vector components
+    // NaN propagates silently through calculations causing wrong results
+    if (!Number.isFinite(valA) || !Number.isFinite(valB)) {
+      return 0.0; // Return 0 similarity for invalid vectors
+    }
+
     dotProduct += valA * valB;
     normA += valA * valA;
     normB += valB * valB;
@@ -59,7 +66,9 @@ export function cosineSimilarity(a: number[], b: number[]): number {
     return 0.0;
   }
 
-  return dotProduct / magnitude;
+  // Bug #238 fix: Final guard against NaN/Infinity in result
+  const result = dotProduct / magnitude;
+  return Number.isFinite(result) ? result : 0.0;
 }
 
 /**

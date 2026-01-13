@@ -227,6 +227,7 @@ export async function semanticStageAsync(ctx: PipelineContext): Promise<Pipeline
         );
       }
       // Unexpected errors - log at warn level with full context
+      // Bug #197 fix: Include stack trace for unexpected errors to help diagnosis
       else {
         deps.logger.warn(
           {
@@ -234,6 +235,7 @@ export async function semanticStageAsync(ctx: PipelineContext): Promise<Pipeline
             errorCode,
             errorType: error?.constructor?.name,
             search: search?.substring(0, 100), // Truncate for privacy
+            stack: error instanceof Error ? error.stack?.split('\n').slice(0, 5).join('\n') : undefined,
           },
           'semantic stage failed unexpectedly - continuing without semantic scores'
         );

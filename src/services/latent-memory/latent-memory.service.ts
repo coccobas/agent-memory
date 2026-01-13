@@ -445,8 +445,12 @@ export class LatentMemoryService {
         // Update cache
         if (this.config.enableCache && this.kvCache?.isAvailable()) {
           const cacheKey = this.getCacheKey(sourceType, sourceId);
-          await this.kvCache.set(cacheKey, found, this.config.cacheTtlSeconds).catch(() => {
-            // Ignore cache errors
+          await this.kvCache.set(cacheKey, found, this.config.cacheTtlSeconds).catch((error) => {
+            // Bug #193 fix: Log cache errors instead of silent swallow
+            logger.debug(
+              { cacheKey, error: error instanceof Error ? error.message : String(error) },
+              'Cache set failed during findBySource lookup'
+            );
           });
         }
         return found;

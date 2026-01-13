@@ -48,7 +48,10 @@ export function resolveStage(ctx: PipelineContext): PipelineContext {
   if (params.cursor) {
     try {
       const cursorData = PaginationCursor.decode(params.cursor);
-      offset = typeof cursorData.offset === 'number' ? Math.max(0, Math.floor(cursorData.offset)) : 0;
+      // Bug #261 fix: typeof 'number' doesn't catch NaN - use Number.isFinite instead
+      // Convert to number first since cursorData.offset may be unknown type
+      const parsedOffset = Number(cursorData.offset);
+      offset = Number.isFinite(parsedOffset) ? Math.max(0, Math.floor(parsedOffset)) : 0;
     } catch {
       // Invalid cursor - fall back to offset param or 0
       if (deps.logger) {

@@ -263,11 +263,11 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 | # | Issue | File | Impact |
 |---|-------|------|--------|
 | 192 | Session maintenance no correlation | `scopes.handler.ts:454-530` | Maintenance failures undetected | ✅ FIXED |
-| 193 | Cache set silent errors | `latent-memory.service.ts:448-450` | Silent cache degradation |
+| 193 | Cache set silent errors | `latent-memory.service.ts:448-450` | Silent cache degradation | ✅ FIXED - logging added |
 | 194 | Graph truncation no metrics | `graph-traversal.ts:261-270` | Silent data loss | ✅ FIXED |
-| 195 | Audit truncation silent | `audit.service.ts:69-72` | Audit quality degradation |
+| 195 | Audit truncation silent | `audit.service.ts:69-72` | Audit quality degradation | ✅ FIXED - debug logging added |
 | 196 | Missing correlation IDs in fire-and-forget | `fetch.ts:555+`, `stats.service.ts:139` | Broken distributed tracing | ✅ FIXED |
-| 197 | Incomplete error context in semantic stage | `semantic.ts:170-208` | Poor error diagnosis |
+| 197 | Incomplete error context in semantic stage | `semantic.ts:170-208` | Poor error diagnosis | ✅ FIXED - stack trace added |
 
 #### LOW
 | # | Issue | File | Impact |
@@ -292,7 +292,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 | 205 | Degree recalculation every modularity call | `leiden.ts:78-84` | 500K wasted calculations | ✅ FIXED - pre-computed |
 | 206 | Tags helper post-query filtering vs SQL WHERE | `tags-helper.ts:60-110` | Memory + bandwidth waste |
 | 207 | Graph traversal silent truncation no signal | `graph-traversal.ts:260-271` | Incomplete query results | ✅ FIXED - see Bug #194 |
-| 208 | Degree recalculation in moveNodesLocally | `leiden.ts:206-213` | Redundant computation |
+| 208 | Degree recalculation in moveNodesLocally | `leiden.ts:206-213` | Redundant computation | ✅ FIXED - pre-computed via #205 |
 
 #### LOW
 | # | Issue | File | Impact |
@@ -349,16 +349,16 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 | 230 | Timestamp parsing silent failure | `timestamp-formatter.ts:32` | Silent data loss | ✅ Already handled |
 | 231 | Rate limiter negative overflow | `rate-limiter-core.ts:82` | Integer overflow | ✅ FIXED |
 | 232 | Transcript UTF-8 truncation | `transcript-cursor.ts:70` | Corrupted JSON parsing | ✅ FIXED |
-| 233 | Levenshtein array bounds hidden | `text-matching.ts:200` | Hidden null access |
-| 234 | LCS array bounds non-null assertions | `math.ts:102-113` | Potential bounds issues |
-| 235 | Empty array division guard unclear | `math.ts:43` | NaN propagation risk |
+| 233 | Levenshtein array bounds hidden | `text-matching.ts:200` | Hidden null access | ✅ Already safe - bounds match array size |
+| 234 | LCS array bounds non-null assertions | `math.ts:102-113` | Potential bounds issues | ✅ Already safe - dp array initialized |
+| 235 | Empty array division guard unclear | `math.ts:43` | NaN propagation risk | ✅ Already safe - size checks before division |
 
 #### LOW
 | # | Issue | File | Impact |
 |---|-------|------|--------|
 | 236 | Mean calculation edge case | `math.ts:300-302` | Defensive only |
 | 237 | Normalize precision loss | `math.ts:343-344` | Subnormal float issues |
-| 238 | Cosine NaN/Infinity in vectors | `math.ts:191-193` | Wrong similarity result |
+| 238 | Cosine NaN/Infinity in vectors | `math.ts:191-193` | Wrong similarity result | ✅ FIXED - NaN/Infinity checks added |
 | 239 | Query index boundary empty | `decomposer.ts:311-420` | Edge case on no entities |
 | 240 | Extract response off-by-one | `extraction.service.ts:154-161` | 1 byte past limit |
 | 241 | Slice with negative bounds | `text-matching.ts:349` | Wrong truncation |
@@ -405,7 +405,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 | # | Issue | File | Impact |
 |---|-------|------|--------|
 | 256 | Voting service type coercion | `voting.service.ts:111, 152, 169` | Consensus calculation failure |
-| 257 | Redis rate limiter array bounds | `redis-rate-limiter.adapter.ts:374-376` | NaN in rate limiting stats |
+| 257 | Redis rate limiter array bounds | `redis-rate-limiter.adapter.ts:374-376` | NaN in rate limiting stats | ✅ FIXED - Number.isFinite guards |
 | 258 | Cross-encoder LLM type assertion | `cross-encoder-rerank.ts:280` | NaN scores from LLM |
 | 259 | Double type casting (as unknown as) | `compact-formatter.ts:223, 228, 233` | Output formatting crashes |
 | 260 | Object.assign prototype pollution | `config/index.ts:467` | Potential prototype pollution |
@@ -413,8 +413,8 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 #### LOW
 | # | Issue | File | Impact |
 |---|-------|------|--------|
-| 261 | NaN not caught by typeof | `resolve.ts:51` | Pagination offset NaN |
-| 262 | Array bounds stats issue | `redis-rate-limiter.adapter.ts:415-417` | NaN in stats reporting |
+| 261 | NaN not caught by typeof | `resolve.ts:51` | Pagination offset NaN | ✅ FIXED - Number.isFinite check |
+| 262 | Array bounds stats issue | `redis-rate-limiter.adapter.ts:415-417` | NaN in stats reporting | ✅ FIXED - Number.isFinite guards |
 | 263 | Optional chaining masks validation | `cross-encoder-rerank.ts:347-351` | Silent score fallback |
 
 ### 15b. SQL Construction and Database Safety (6 issues)
