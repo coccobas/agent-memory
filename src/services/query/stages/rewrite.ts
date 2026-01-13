@@ -147,6 +147,7 @@ export async function rewriteStageAsync(ctx: PipelineContext): Promise<RewriteSt
     // Bug #190 fix: Don't log stack traces in production to prevent information disclosure
     if (deps.logger) {
       const isProduction = process.env.NODE_ENV === 'production';
+      // Bug #199 fix: Preserve error type info for all error types
       const errorDetails = error instanceof Error
         ? {
             message: error.message,
@@ -154,7 +155,7 @@ export async function rewriteStageAsync(ctx: PipelineContext): Promise<RewriteSt
             // Only include stack traces in non-production environments
             ...(isProduction ? {} : { stack: error.stack?.split('\n').slice(0, 5).join('\n') }),
           }
-        : { message: String(error) };
+        : { message: String(error), type: typeof error };
 
       deps.logger.warn(
         {

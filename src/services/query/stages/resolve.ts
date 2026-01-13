@@ -52,10 +52,18 @@ export function resolveStage(ctx: PipelineContext): PipelineContext {
       // Convert to number first since cursorData.offset may be unknown type
       const parsedOffset = Number(cursorData.offset);
       offset = Number.isFinite(parsedOffset) ? Math.max(0, Math.floor(parsedOffset)) : 0;
-    } catch {
+    } catch (cursorError) {
+      // Bug #201 fix: Include more context for debugging cursor issues
       // Invalid cursor - fall back to offset param or 0
       if (deps.logger) {
-        deps.logger.debug({ cursor: params.cursor.substring(0, 20) }, 'Invalid pagination cursor, using offset 0');
+        deps.logger.debug(
+          {
+            cursor: params.cursor.substring(0, 50),
+            cursorLength: params.cursor.length,
+            error: cursorError instanceof Error ? cursorError.message : String(cursorError),
+          },
+          'Invalid pagination cursor, using offset 0'
+        );
       }
     }
   } else if (params.offset !== undefined && params.offset > 0) {
