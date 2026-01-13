@@ -5,6 +5,9 @@
  */
 
 import type { AppContext } from '../../core/context.js';
+import { createComponentLogger } from '../../utils/logger.js';
+
+const logger = createComponentLogger('rl-handler');
 import type { IFileSystemAdapter } from '../../core/adapters/index.js';
 import { createLocalFileSystemAdapter } from '../../core/adapters/index.js';
 import { createValidationError } from '../../core/errors.js';
@@ -495,11 +498,17 @@ async function evaluateModel(
   let dataset;
   if (datasetPath) {
     // Load dataset from file (JSONL format expected)
+    // Bug #331 fix: Parse each line with error handling to prevent single bad line crashing batch
     const content = await fs.readFile(datasetPath, 'utf-8');
-    const examples = content
-      .split('\n')
-      .filter((line: string) => line.trim())
-      .map((line: string) => JSON.parse(line));
+    const examples: unknown[] = [];
+    const lines = content.split('\n').filter((line: string) => line.trim());
+    for (let i = 0; i < lines.length; i++) {
+      try {
+        examples.push(JSON.parse(lines[i]!));
+      } catch (error) {
+        logger.warn({ line: i + 1, error }, 'Skipping invalid JSONL line in dataset');
+      }
+    }
 
     dataset = {
       eval: examples,
@@ -596,13 +605,19 @@ async function compareModels(
   }
 
   // Build or load dataset
+  // Bug #331 fix: Parse each line with error handling to prevent single bad line crashing batch
   let dataset;
   if (datasetPath) {
     const content = await fs.readFile(datasetPath, 'utf-8');
-    const examples = content
-      .split('\n')
-      .filter((line: string) => line.trim())
-      .map((line: string) => JSON.parse(line));
+    const examples: unknown[] = [];
+    const lines = content.split('\n').filter((line: string) => line.trim());
+    for (let i = 0; i < lines.length; i++) {
+      try {
+        examples.push(JSON.parse(lines[i]!));
+      } catch (error) {
+        logger.warn({ line: i + 1, error }, 'Skipping invalid JSONL line in dataset');
+      }
+    }
 
     dataset = {
       eval: examples,

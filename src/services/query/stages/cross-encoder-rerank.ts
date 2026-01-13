@@ -159,8 +159,12 @@ export function createCrossEncoderStage(
     const startMs = Date.now();
     const { results, search } = ctx;
 
+    // Check query-level toggle first, then fall back to global config
+    // Allows per-query enable/disable for benchmarking and A/B testing
+    const enabled = ctx.params.useCrossEncoder ?? effectiveConfig.enabled;
+
     // Early return if disabled or no results
-    if (!effectiveConfig.enabled || results.length === 0 || !search) {
+    if (!enabled || results.length === 0 || !search) {
       return ctx as CrossEncoderPipelineContext;
     }
 
@@ -310,10 +314,10 @@ export function createOpenAICrossEncoderService(options: {
 
       const prompt = buildScoringPrompt(query, documents);
 
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
+      try {
         const response = await fetch(`${baseUrl}/chat/completions`, {
           method: 'POST',
           headers: {
@@ -333,8 +337,6 @@ export function createOpenAICrossEncoderService(options: {
           signal: controller.signal,
         });
 
-        clearTimeout(timeoutId);
-
         if (!response.ok) {
           available = false;
           throw new Error(`LLM API error: ${response.status}`);
@@ -351,6 +353,9 @@ export function createOpenAICrossEncoderService(options: {
           throw new Error('Cross-encoder scoring timed out');
         }
         throw error;
+      } finally {
+        // Bug #314 fix: Clear timeout in finally block to prevent memory leak on error paths
+        clearTimeout(timeoutId);
       }
     },
   };

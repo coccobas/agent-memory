@@ -74,6 +74,8 @@ export interface HierarchicalPipelineContext extends PipelineContext {
   hierarchical?: {
     applied: boolean;
     candidateIds: Set<string>;
+    /** Task 30: Preserve hierarchical scores for re-scoring in later stages */
+    candidateScores: Map<string, number>;
     levelsTraversed: number;
     totalTimeMs: number;
   };
@@ -169,8 +171,11 @@ export function createHierarchicalStage(
         minSimilarity: effectiveConfig.minSimilarity,
       });
 
-      // Extract candidate IDs from retrieved entries
+      // Task 30: Extract candidate IDs and preserve scores for re-scoring
       const candidateIds = new Set<string>(result.entries.map((e: RetrievedEntry) => e.id));
+      const candidateScores = new Map<string, number>(
+        result.entries.map((e: RetrievedEntry) => [e.id, e.score])
+      );
 
       // Log performance
       if (ctx.deps.perfLog && ctx.deps.logger) {
@@ -189,6 +194,7 @@ export function createHierarchicalStage(
         hierarchical: {
           applied: true,
           candidateIds,
+          candidateScores,
           levelsTraversed: result.steps.length,
           totalTimeMs: Date.now() - startMs,
         },
@@ -262,6 +268,7 @@ export function getHierarchicalStats(ctx: PipelineContext): {
  * Filter entries using hierarchical candidates
  *
  * When hierarchical retrieval has run, use its candidate IDs to filter/boost results.
+ * Task 30: Now also merges hierarchical scores into semanticScores for proper re-ranking.
  */
 export function filterByHierarchicalCandidates(
   ctx: HierarchicalPipelineContext
@@ -270,7 +277,7 @@ export function filterByHierarchicalCandidates(
     return ctx;
   }
 
-  const candidateIds = ctx.hierarchical.candidateIds;
+  const { candidateIds, candidateScores } = ctx.hierarchical;
 
   // Filter fetched entries to only include hierarchical candidates
   const filteredEntries = {
@@ -280,8 +287,25 @@ export function filterByHierarchicalCandidates(
     experiences: ctx.fetchedEntries.experiences.filter(e => candidateIds.has(e.entry.id)),
   };
 
+  // Task 30: Merge hierarchical scores into semantic scores
+  // Use existing semantic scores as base, add/update with hierarchical scores
+  const mergedSemanticScores = new Map<string, number>(ctx.semanticScores ?? []);
+
+  for (const [id, hierarchicalScore] of candidateScores) {
+    const existingScore = mergedSemanticScores.get(id);
+    if (existingScore !== undefined) {
+      // Blend existing semantic score with hierarchical score
+      // Use max to preserve the higher signal
+      mergedSemanticScores.set(id, Math.max(existingScore, hierarchicalScore));
+    } else {
+      // Add hierarchical score as semantic score
+      mergedSemanticScores.set(id, hierarchicalScore);
+    }
+  }
+
   return {
     ...ctx,
     fetchedEntries: filteredEntries,
+    semanticScores: mergedSemanticScores,
   };
 }

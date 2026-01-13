@@ -34,6 +34,7 @@ import type {
   QueryEntryType,
   FilteredEntry,
 } from '../pipeline.js';
+import { PIPELINE_STAGES, markStageCompleted, validateStagePrerequisites } from '../pipeline.js';
 import { config } from '../../../config/index.js';
 import {
   getFeedbackMultiplier,
@@ -506,11 +507,14 @@ export interface PipelineContextWithFeedback extends PipelineContext {
  * Applies feedback multipliers from ctx.feedbackScores if available.
  */
 export function scoreStage(ctx: PipelineContext): PipelineContext {
+  // Task 42: Validate prerequisites
+  validateStagePrerequisites(ctx, PIPELINE_STAGES.SCORE);
+
   // ctx.filtered is now properly typed (no more unsafe cast needed)
   const filtered = ctx.filtered;
   if (!filtered) {
     // Filter stage was not run - return empty results
-    return { ...ctx, results: [] };
+    return markStageCompleted({ ...ctx, results: [] }, PIPELINE_STAGES.SCORE);
   }
 
   const limit = ctx.params.limit ?? 100;
@@ -619,10 +623,11 @@ export function scoreStage(ctx: PipelineContext): PipelineContext {
     return bCreated.localeCompare(aCreated);
   });
 
-  return {
+  // Task 42: Mark stage completed
+  return markStageCompleted({
     ...ctx,
     results,
-  };
+  }, PIPELINE_STAGES.SCORE);
 }
 
 function getCreatedAt(item: QueryResultItem): string {

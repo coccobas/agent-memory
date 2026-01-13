@@ -488,6 +488,33 @@ export function createTaskRepository(deps: DatabaseDeps): ITaskRepository {
           throw createValidationError('blockerId', 'task cannot block itself');
         }
 
+        // Bug #21 fix: Detect circular blocker chains to prevent deadlock state
+        // Check if taskId is in the blocker's chain (would create a cycle)
+        const visited = new Set<string>();
+        const queue = [blockerId];
+        while (queue.length > 0) {
+          const current = queue.shift()!;
+          if (current === taskId) {
+            throw createValidationError(
+              'blockerId',
+              'would create a circular dependency',
+              `Adding ${blockerId} as blocker would create a cycle back to ${taskId}`
+            );
+          }
+          if (visited.has(current)) continue;
+          visited.add(current);
+
+          const task = getByIdSync(current);
+          if (task) {
+            const blockers = parseBlockedBy(task.blockedBy);
+            for (const b of blockers) {
+              if (!visited.has(b)) {
+                queue.push(b);
+              }
+            }
+          }
+        }
+
         const currentBlockers = parseBlockedBy(existing.blockedBy);
 
         // Check if already blocked by this task
@@ -538,8 +565,11 @@ export function createTaskRepository(deps: DatabaseDeps): ITaskRepository {
         };
 
         // If no more blockers, transition out of blocked status
+        // Bug #29 note: We transition to 'open' as we don't track pre-blocked status.
+        // A more robust solution would store the previous status in metadata.
+        // For now, 'open' is a safe default that doesn't incorrectly mark as 'done'.
         if (newBlockers.length === 0 && existing.status === 'blocked') {
-          updates.status = 'open'; // Return to open status when unblocked
+          updates.status = 'open';
         }
 
         db.update(tasks).set(updates).where(eq(tasks.id, taskId)).run();

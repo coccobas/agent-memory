@@ -61,8 +61,12 @@ export class FeedbackScoreCache {
       enabled: cacheConfig?.enabled ?? true,
     };
 
+    // Task 34: Pass TTL to LRUCache for consistent expiration behavior
+    // Previously, LRUCache didn't know about TTL, so expired entries could
+    // remain in cache (though isValid() would reject them). Now both are synced.
     this.cache = new LRUCache<FeedbackCacheEntry>({
       maxSize: this.config.maxSize,
+      ttlMs: this.config.ttlMs,
     });
   }
 

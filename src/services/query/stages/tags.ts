@@ -78,13 +78,12 @@ export function filterByTags(
  * Tags stage - loads tags for all fetched entries
  *
  * Uses ctx.deps.getTagsForEntries() instead of calling the global function directly.
+ * Task 28: Now uses batched version when available for better performance.
  *
  * This is used when tag filtering is required (before filter stage).
  */
 export function tagsStage(ctx: PipelineContext): PipelineContext {
   const { fetchedEntries, deps } = ctx;
-
-  const tagsByEntry: Record<string, Tag[]> = {};
 
   // Collect all entry IDs by type
   const toolIds = fetchedEntries.tools.map((e) => e.entry.id);
@@ -92,18 +91,32 @@ export function tagsStage(ctx: PipelineContext): PipelineContext {
   const knowledgeIds = fetchedEntries.knowledge.map((e) => e.entry.id);
   const experienceIds = fetchedEntries.experiences.map((e) => e.entry.id);
 
-  // Batch load tags for each type using injected dependency
-  if (toolIds.length > 0) {
-    Object.assign(tagsByEntry, deps.getTagsForEntries('tool', toolIds));
-  }
-  if (guidelineIds.length > 0) {
-    Object.assign(tagsByEntry, deps.getTagsForEntries('guideline', guidelineIds));
-  }
-  if (knowledgeIds.length > 0) {
-    Object.assign(tagsByEntry, deps.getTagsForEntries('knowledge', knowledgeIds));
-  }
-  if (experienceIds.length > 0) {
-    Object.assign(tagsByEntry, deps.getTagsForEntries('experience', experienceIds));
+  let tagsByEntry: Record<string, Tag[]>;
+
+  // Task 28: Use batched version if available (single DB call for all types)
+  if (deps.getTagsForEntriesBatch) {
+    const entriesByType = new Map<'tool' | 'guideline' | 'knowledge' | 'experience', string[]>();
+    if (toolIds.length > 0) entriesByType.set('tool', toolIds);
+    if (guidelineIds.length > 0) entriesByType.set('guideline', guidelineIds);
+    if (knowledgeIds.length > 0) entriesByType.set('knowledge', knowledgeIds);
+    if (experienceIds.length > 0) entriesByType.set('experience', experienceIds);
+
+    tagsByEntry = deps.getTagsForEntriesBatch(entriesByType);
+  } else {
+    // Fallback: batch load tags for each type separately
+    tagsByEntry = {};
+    if (toolIds.length > 0) {
+      Object.assign(tagsByEntry, deps.getTagsForEntries('tool', toolIds));
+    }
+    if (guidelineIds.length > 0) {
+      Object.assign(tagsByEntry, deps.getTagsForEntries('guideline', guidelineIds));
+    }
+    if (knowledgeIds.length > 0) {
+      Object.assign(tagsByEntry, deps.getTagsForEntries('knowledge', knowledgeIds));
+    }
+    if (experienceIds.length > 0) {
+      Object.assign(tagsByEntry, deps.getTagsForEntries('experience', experienceIds));
+    }
   }
 
   return {
@@ -116,6 +129,7 @@ export function tagsStage(ctx: PipelineContext): PipelineContext {
  * Post-filter tags stage - loads tags only for filtered entries
  *
  * This is a memory optimization that loads tags only for entries that passed filtering.
+ * Task 28: Now uses batched version when available for better performance.
  * Used when tag filtering is NOT required (after filter stage).
  */
 export function postFilterTagsStage(ctx: PipelineContext): PipelineContext {
@@ -126,26 +140,38 @@ export function postFilterTagsStage(ctx: PipelineContext): PipelineContext {
     return ctx;
   }
 
-  const tagsByEntry: Record<string, Tag[]> = {};
-
   // Collect entry IDs only from filtered entries
   const toolIds = filtered.tools.map((e) => e.entry.id);
   const guidelineIds = filtered.guidelines.map((e) => e.entry.id);
   const knowledgeIds = filtered.knowledge.map((e) => e.entry.id);
   const experienceIds = filtered.experiences.map((e) => e.entry.id);
 
-  // Batch load tags for each type using injected dependency
-  if (toolIds.length > 0) {
-    Object.assign(tagsByEntry, deps.getTagsForEntries('tool', toolIds));
-  }
-  if (guidelineIds.length > 0) {
-    Object.assign(tagsByEntry, deps.getTagsForEntries('guideline', guidelineIds));
-  }
-  if (knowledgeIds.length > 0) {
-    Object.assign(tagsByEntry, deps.getTagsForEntries('knowledge', knowledgeIds));
-  }
-  if (experienceIds.length > 0) {
-    Object.assign(tagsByEntry, deps.getTagsForEntries('experience', experienceIds));
+  let tagsByEntry: Record<string, Tag[]>;
+
+  // Task 28: Use batched version if available (single DB call for all types)
+  if (deps.getTagsForEntriesBatch) {
+    const entriesByType = new Map<'tool' | 'guideline' | 'knowledge' | 'experience', string[]>();
+    if (toolIds.length > 0) entriesByType.set('tool', toolIds);
+    if (guidelineIds.length > 0) entriesByType.set('guideline', guidelineIds);
+    if (knowledgeIds.length > 0) entriesByType.set('knowledge', knowledgeIds);
+    if (experienceIds.length > 0) entriesByType.set('experience', experienceIds);
+
+    tagsByEntry = deps.getTagsForEntriesBatch(entriesByType);
+  } else {
+    // Fallback: batch load tags for each type separately
+    tagsByEntry = {};
+    if (toolIds.length > 0) {
+      Object.assign(tagsByEntry, deps.getTagsForEntries('tool', toolIds));
+    }
+    if (guidelineIds.length > 0) {
+      Object.assign(tagsByEntry, deps.getTagsForEntries('guideline', guidelineIds));
+    }
+    if (knowledgeIds.length > 0) {
+      Object.assign(tagsByEntry, deps.getTagsForEntries('knowledge', knowledgeIds));
+    }
+    if (experienceIds.length > 0) {
+      Object.assign(tagsByEntry, deps.getTagsForEntries('experience', experienceIds));
+    }
   }
 
   return {

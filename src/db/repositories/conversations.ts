@@ -5,6 +5,17 @@
  */
 
 import { eq, and, or, like, desc, asc, sql, inArray } from 'drizzle-orm';
+
+/**
+ * Bug #267 fix: Escape SQL LIKE wildcards in user input.
+ * Without this, users can inject % or _ to match unintended patterns.
+ */
+function escapeLikePattern(input: string): string {
+  return input
+    .replace(/\\/g, '\\\\')  // Escape backslash first
+    .replace(/%/g, '\\%')     // Escape percent
+    .replace(/_/g, '\\_');    // Escape underscore
+}
 import { transactionWithDb } from '../connection.js';
 import {
   conversations,
@@ -374,11 +385,14 @@ export function createConversationRepository(deps: DatabaseDeps): IConversationR
       const limit = Math.min(filter?.limit ?? DEFAULT_LIMIT, MAX_LIMIT);
       const offset = filter?.offset ?? 0;
 
+      // Bug #267: Escape LIKE wildcards in search query to prevent pattern injection
+      const escapedQuery = escapeLikePattern(searchQuery);
+
       // Also search in message content by finding conversations with matching messages
       const matchingMessageConversations = db
         .selectDistinct({ conversationId: conversationMessages.conversationId })
         .from(conversationMessages)
-        .where(like(conversationMessages.content, `%${searchQuery}%`))
+        .where(like(conversationMessages.content, `%${escapedQuery}%`))
         .all();
 
       const conversationIds = matchingMessageConversations.map((m) => m.conversationId);
@@ -386,7 +400,7 @@ export function createConversationRepository(deps: DatabaseDeps): IConversationR
       const searchConditions = [];
 
       // Search in conversation titles (handle nullable title)
-      searchConditions.push(like(conversations.title, `%${searchQuery}%`));
+      searchConditions.push(like(conversations.title, `%${escapedQuery}%`));
 
       // Also match conversations with matching messages
       if (conversationIds.length > 0) {

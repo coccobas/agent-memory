@@ -22,40 +22,78 @@ import { createComponentLogger } from '../../utils/logger.js';
 const logger = createComponentLogger('hyde');
 
 /**
+ * Escape user input to prevent prompt injection attacks.
+ * Bug #5 fix: Sanitize user queries before embedding in prompts.
+ */
+function escapeQueryForPrompt(input: string): string {
+  return input
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, ' ')
+    .replace(/\r/g, '')
+    .slice(0, 2000); // Limit length to prevent context overflow
+}
+
+/**
  * Intent-specific prompts for generating hypothetical documents
  * Each prompt guides the LLM to generate a document that would realistically
  * answer the query in the agent memory system.
+ *
+ * Bug #5 fix: User queries are escaped before embedding in prompts.
  */
 const HYDE_PROMPTS: Record<QueryIntent, (query: string) => string> = {
-  lookup: (query: string) =>
-    `Write a factual knowledge entry that would answer this question: ${query}\n\n` +
-    `Format as a clear, concise knowledge entry that directly provides the requested information. ` +
-    `Include specific details, names, and context.`,
+  lookup: (query: string) => {
+    const escaped = escapeQueryForPrompt(query);
+    return (
+      `Write a factual knowledge entry that would answer this question: ${escaped}\n\n` +
+      `Format as a clear, concise knowledge entry that directly provides the requested information. ` +
+      `Include specific details, names, and context.`
+    );
+  },
 
-  how_to: (query: string) =>
-    `Write a step-by-step guideline that would help with: ${query}\n\n` +
-    `Format as a procedural guideline with numbered steps. Include prerequisites, ` +
-    `specific commands or code examples, and expected outcomes.`,
+  how_to: (query: string) => {
+    const escaped = escapeQueryForPrompt(query);
+    return (
+      `Write a step-by-step guideline that would help with: ${escaped}\n\n` +
+      `Format as a procedural guideline with numbered steps. Include prerequisites, ` +
+      `specific commands or code examples, and expected outcomes.`
+    );
+  },
 
-  debug: (query: string) =>
-    `Write a solution entry for this error or problem: ${query}\n\n` +
-    `Format as a troubleshooting entry that explains the root cause and provides ` +
-    `a step-by-step solution. Include diagnostic steps and prevention tips.`,
+  debug: (query: string) => {
+    const escaped = escapeQueryForPrompt(query);
+    return (
+      `Write a solution entry for this error or problem: ${escaped}\n\n` +
+      `Format as a troubleshooting entry that explains the root cause and provides ` +
+      `a step-by-step solution. Include diagnostic steps and prevention tips.`
+    );
+  },
 
-  explore: (query: string) =>
-    `Write related knowledge entries about: ${query}\n\n` +
-    `Format as informative entries covering different aspects of this topic. ` +
-    `Include background context, related concepts, and practical applications.`,
+  explore: (query: string) => {
+    const escaped = escapeQueryForPrompt(query);
+    return (
+      `Write related knowledge entries about: ${escaped}\n\n` +
+      `Format as informative entries covering different aspects of this topic. ` +
+      `Include background context, related concepts, and practical applications.`
+    );
+  },
 
-  compare: (query: string) =>
-    `Write a comparison entry for: ${query}\n\n` +
-    `Format as a comparative analysis that presents different options, their pros/cons, ` +
-    `use cases, and recommendations for when to choose each option.`,
+  compare: (query: string) => {
+    const escaped = escapeQueryForPrompt(query);
+    return (
+      `Write a comparison entry for: ${escaped}\n\n` +
+      `Format as a comparative analysis that presents different options, their pros/cons, ` +
+      `use cases, and recommendations for when to choose each option.`
+    );
+  },
 
-  configure: (query: string) =>
-    `Write a configuration guide for: ${query}\n\n` +
-    `Format as a setup/configuration entry with specific settings, required parameters, ` +
-    `example configurations, and common customization options.`,
+  configure: (query: string) => {
+    const escaped = escapeQueryForPrompt(query);
+    return (
+      `Write a configuration guide for: ${escaped}\n\n` +
+      `Format as a setup/configuration entry with specific settings, required parameters, ` +
+      `example configurations, and common customization options.`
+    );
+  },
 };
 
 /**

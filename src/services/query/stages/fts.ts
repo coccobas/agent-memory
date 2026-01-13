@@ -113,7 +113,11 @@ export function ftsStage(ctx: PipelineContext): PipelineContext {
       }
     }
 
-    // Merge scored results into ftsScores (max weighted score wins)
+    // Merge scored results into ftsScores
+    // Bug #15 note: Using MAX when same entry matches multiple queries.
+    // This treats expanded queries as alternatives (best match wins).
+    // Using ADD would treat them as conjunctive (more matches = better).
+    // MAX is preferred to avoid score inflation from redundant matches.
     if (scoredResults && ftsScores) {
       for (const [entryType, hits] of Object.entries(scoredResults) as Array<
         [QueryEntryType, Array<{ id: string; score: number }>]

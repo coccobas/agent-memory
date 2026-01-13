@@ -410,9 +410,8 @@ export class PermissionService {
       return false;
     }
 
-    if (entryType === 'project') {
-      return true;
-    }
+    // Project entries require proper permission checks like other entry types
+    // The hardcoded bypass was a security vulnerability (Bug #1 from BUGS-ANALYSIS.md)
 
     // Check cache first
     const cacheKey = this.buildPermissionCheckCacheKey(
@@ -504,19 +503,9 @@ export class PermissionService {
       return results;
     }
 
-    // Handle project entries (always allowed)
-    const nonProjectEntries: BatchPermissionEntry[] = [];
-    for (const entry of entries) {
-      if (entry.entryType === 'project') {
-        results.set(entry.id, true);
-      } else {
-        nonProjectEntries.push(entry);
-      }
-    }
-
-    if (nonProjectEntries.length === 0) {
-      return results;
-    }
+    // All entry types (including project) require proper permission checks
+    // Bug #343 fix: removed the project bypass that allowed any agent to modify projects
+    const nonProjectEntries = entries;
 
     if (!this.checkPermissionsExist()) {
       for (const entry of nonProjectEntries) {
@@ -589,6 +578,9 @@ export class PermissionService {
     entryId?: string | null;
     permission: PermissionLevel;
   }): void {
+    // Bug #343 note: Project permissions cannot be stored in the permissions table as the schema
+    // only allows 'tool', 'guideline', 'knowledge', 'experience'. Projects use organizational
+    // membership for access control. Silently skip project grants.
     if (params.entryType === 'project') {
       return;
     }

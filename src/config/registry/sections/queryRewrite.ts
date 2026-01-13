@@ -95,6 +95,27 @@ export const queryRewriteSection: ConfigSectionMeta = {
       schema: z.boolean(),
       parse: 'boolean',
     },
+    decompositionThreshold: {
+      envKey: 'AGENT_MEMORY_DECOMPOSITION_THRESHOLD',
+      defaultValue: 0.7,
+      description: 'Confidence threshold for pattern-based decomposition detection (0-1).',
+      schema: z.number().min(0).max(1),
+      parse: 'number',
+    },
+    decompositionMaxSubQueries: {
+      envKey: 'AGENT_MEMORY_DECOMPOSITION_MAX_SUB_QUERIES',
+      defaultValue: 5,
+      description: 'Maximum number of sub-queries to generate from decomposition.',
+      schema: z.number().int().min(1).max(10),
+      parse: 'int',
+    },
+    decompositionUseLLM: {
+      envKey: 'AGENT_MEMORY_DECOMPOSITION_USE_LLM',
+      defaultValue: false,
+      description: 'Use LLM for complex query decomposition (slower, more accurate).',
+      schema: z.boolean(),
+      parse: 'boolean',
+    },
     intentClassificationMode: {
       envKey: 'AGENT_MEMORY_INTENT_CLASSIFICATION_MODE',
       defaultValue: 'pattern',

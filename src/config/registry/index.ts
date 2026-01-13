@@ -55,6 +55,7 @@ import { toolsSection } from './sections/tools.js';
 import { classificationSection } from './sections/classification.js';
 import { extractionHookSection } from './sections/extractionHook.js';
 import { crossEncoderSection } from './sections/crossEncoder.js';
+import { suggestSection } from './sections/suggest.js';
 
 // =============================================================================
 // TOP-LEVEL OPTIONS
@@ -121,6 +122,7 @@ export const configRegistry: ConfigRegistry = {
     classification: classificationSection,
     extractionHook: extractionHookSection,
     crossEncoder: crossEncoderSection,
+    suggest: suggestSection,
   },
 };
 

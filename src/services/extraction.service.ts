@@ -256,11 +256,17 @@ export interface ExtractionResult {
   provider: ExtractionProvider;
   tokensUsed?: number;
   processingTimeMs: number;
+  /** Task 47: Indicates if result is partial due to error during extraction */
+  partial?: boolean;
+  /** Task 47: Error message if partial result */
+  partialError?: string;
 }
 
 export interface ExtractionInput {
   context: string; // Raw conversation/code context
   contextType?: 'conversation' | 'code' | 'mixed';
+  /** Task 47: Enable partial retry with reduced context on failure */
+  enablePartialRetry?: boolean;
   focusAreas?: ('decisions' | 'facts' | 'rules' | 'tools')[];
   existingSummary?: string; // Previous context for continuity
   scopeHint?: {
@@ -877,15 +883,158 @@ export class ExtractionService {
 
       return result;
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+
+      // Task 47: Try partial retry if enabled
+      if (input.enablePartialRetry) {
+        logger.warn(
+          {
+            provider: this.provider,
+            error: errorMessage,
+          },
+          'Extraction failed, attempting partial retry with simplified context'
+        );
+
+        try {
+          // Retry with reduced context (first 50%)
+          const reducedContext = input.context.slice(0, Math.floor(input.context.length * 0.5));
+          const partialResult = await this.extract({
+            ...input,
+            context: reducedContext,
+            enablePartialRetry: false, // Don't recurse
+          });
+
+          partialResult.partial = true;
+          partialResult.partialError = `Original extraction failed: ${errorMessage}. Recovered with reduced context (50%).`;
+          partialResult.processingTimeMs = Date.now() - startTime;
+
+          logger.info(
+            {
+              entriesRecovered: partialResult.entries.length,
+              contextReduction: '50%',
+            },
+            'Partial extraction recovery successful'
+          );
+
+          return partialResult;
+        } catch (retryError) {
+          logger.warn(
+            { retryError: retryError instanceof Error ? retryError.message : String(retryError) },
+            'Partial retry also failed, returning empty partial result'
+          );
+
+          // Return empty partial result instead of throwing
+          return {
+            entries: [],
+            entities: [],
+            relationships: [],
+            model: this.provider === 'openai' ? this.openaiModel :
+                   this.provider === 'anthropic' ? this.anthropicModel :
+                   this.ollamaModel,
+            provider: this.provider,
+            processingTimeMs: Date.now() - startTime,
+            partial: true,
+            partialError: `Extraction failed: ${errorMessage}. Partial retry also failed.`,
+          };
+        }
+      }
+
       logger.error(
         {
           provider: this.provider,
-          error: error instanceof Error ? error.message : String(error),
+          error: errorMessage,
         },
         'Extraction failed'
       );
       throw error;
     }
+  }
+
+  /**
+   * Task 45: Batch extraction - process multiple inputs with controlled concurrency.
+   * Useful for processing large documents split into chunks.
+   *
+   * @param inputs - Array of extraction inputs
+   * @param options - Batch processing options
+   * @returns Array of results (same order as inputs)
+   */
+  async extractBatch(
+    inputs: ExtractionInput[],
+    options?: {
+      /** Max concurrent extractions (default: 3) */
+      concurrency?: number;
+      /** Continue on individual errors (default: true) */
+      continueOnError?: boolean;
+    }
+  ): Promise<Array<ExtractionResult | { error: string; index: number }>> {
+    const concurrency = options?.concurrency ?? 3;
+    const continueOnError = options?.continueOnError ?? true;
+
+    if (inputs.length === 0) {
+      return [];
+    }
+
+    if (this.provider === 'disabled') {
+      return inputs.map(() => ({
+        entries: [],
+        entities: [],
+        relationships: [],
+        model: 'disabled',
+        provider: 'disabled',
+        processingTimeMs: 0,
+      }));
+    }
+
+    const startTime = Date.now();
+    logger.info(
+      { inputCount: inputs.length, concurrency },
+      'Starting batch extraction'
+    );
+
+    const results: Array<ExtractionResult | { error: string; index: number }> = new Array(inputs.length);
+    let processedCount = 0;
+    let errorCount = 0;
+
+    // Process in batches of 'concurrency' size
+    for (let i = 0; i < inputs.length; i += concurrency) {
+      const batch = inputs.slice(i, i + concurrency);
+      const batchPromises = batch.map(async (input, batchIndex) => {
+        const index = i + batchIndex;
+        try {
+          const result = await this.extract(input);
+          results[index] = result;
+          processedCount++;
+        } catch (error) {
+          errorCount++;
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          if (continueOnError) {
+            results[index] = { error: errorMessage, index };
+            logger.warn(
+              { index, error: errorMessage },
+              'Batch extraction item failed, continuing'
+            );
+          } else {
+            throw error;
+          }
+        }
+      });
+
+      await Promise.all(batchPromises);
+    }
+
+    const totalTimeMs = Date.now() - startTime;
+    logger.info(
+      {
+        totalCount: inputs.length,
+        processedCount,
+        errorCount,
+        totalTimeMs,
+        avgTimeMs: Math.round(totalTimeMs / inputs.length),
+      },
+      'Batch extraction completed'
+    );
+
+    return results;
   }
 
   /**

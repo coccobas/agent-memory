@@ -5,11 +5,14 @@
  * - types to query
  * - scope chain (using injected resolveScopeChain with DB lookups)
  * - limit
+ * - offset (from cursor or direct param)
  * - search term
  */
 
 import type { PipelineContext, QueryType } from '../pipeline.js';
+import { PIPELINE_STAGES, markStageCompleted, validateStagePrerequisites } from '../pipeline.js';
 import { config } from '../../../config/index.js';
+import { PaginationCursor } from '../../../utils/pagination.js';
 
 const DEFAULT_TYPES: readonly QueryType[] = ['tools', 'guidelines', 'knowledge', 'experiences'] as const;
 
@@ -20,6 +23,9 @@ const DEFAULT_TYPES: readonly QueryType[] = ['tools', 'guidelines', 'knowledge',
  * scope inheritance with DB lookups (session→project→org→global).
  */
 export function resolveStage(ctx: PipelineContext): PipelineContext {
+  // Task 42: Validate prerequisites (resolve has none)
+  validateStagePrerequisites(ctx, PIPELINE_STAGES.RESOLVE);
+
   const { params, deps } = ctx;
 
   // Resolve types
@@ -36,6 +42,23 @@ export function resolveStage(ctx: PipelineContext): PipelineContext {
   const rawLimit = params.limit && params.limit > 0 ? params.limit : config.pagination.defaultLimit;
   const limit = Math.min(Math.floor(rawLimit), config.pagination.maxLimit);
 
+  // Resolve offset (Task 7: Pagination cursor support)
+  // Priority: cursor > offset param > 0
+  let offset = 0;
+  if (params.cursor) {
+    try {
+      const cursorData = PaginationCursor.decode(params.cursor);
+      offset = typeof cursorData.offset === 'number' ? Math.max(0, Math.floor(cursorData.offset)) : 0;
+    } catch {
+      // Invalid cursor - fall back to offset param or 0
+      if (deps.logger) {
+        deps.logger.debug({ cursor: params.cursor.substring(0, 20) }, 'Invalid pagination cursor, using offset 0');
+      }
+    }
+  } else if (params.offset !== undefined && params.offset > 0) {
+    offset = Math.max(0, Math.floor(params.offset));
+  }
+
   // Resolve search - normalize empty/whitespace-only to undefined (no search filter)
   // Empty search means "return entries without text filtering" rather than "return nothing"
   const rawSearch = params.search?.trim();
@@ -49,11 +72,13 @@ export function resolveStage(ctx: PipelineContext): PipelineContext {
     );
   }
 
-  return {
+  // Task 42: Mark stage completed
+  return markStageCompleted({
     ...ctx,
     types,
     scopeChain,
     limit,
+    offset,
     search,
-  };
+  }, PIPELINE_STAGES.RESOLVE);
 }

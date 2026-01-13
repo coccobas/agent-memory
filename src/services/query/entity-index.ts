@@ -193,6 +193,9 @@ export class EntityIndex {
   /**
    * Look up entries by multiple entities (OR logic)
    *
+   * Bug #16 fix: Include both original and lowercase values for case-insensitive matching.
+   * This is consistent with the lookup() method behavior.
+   *
    * @param entities - Array of extracted entities to look up
    * @returns Map from entry ID to matched entity count
    */
@@ -201,7 +204,14 @@ export class EntityIndex {
       return new Map();
     }
 
+    // Include both original normalized values and lowercase versions
+    // This handles case-insensitive matching for paths, packages, URLs, commands
     const normalizedValues = entities.map((e) => e.normalizedValue);
+    const lowercaseValues = normalizedValues
+      .map((v) => v.toLowerCase())
+      .filter((v, i) => v !== normalizedValues[i]); // Only add if different
+
+    const allValues = [...new Set([...normalizedValues, ...lowercaseValues])];
 
     const rows = this.db
       .select({
@@ -209,7 +219,7 @@ export class EntityIndex {
         matchCount: sql<number>`COUNT(*)`.as('match_count'),
       })
       .from(entityIndex)
-      .where(inArray(entityIndex.entityValue, normalizedValues))
+      .where(inArray(entityIndex.entityValue, allValues))
       .groupBy(entityIndex.entryId)
       .all();
 

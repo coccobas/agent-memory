@@ -463,13 +463,24 @@ describe('PaginationCursor', () => {
       expect(decoded.threshold).toBe(0.9999);
     });
 
-    it('should handle very long strings', () => {
-      const longString = 'a'.repeat(10000);
+    it('should handle reasonably long strings', () => {
+      // Bug #226 fix: Cursor size is now limited to 10KB to prevent DoS
+      // Use a smaller string that fits within the limit
+      const longString = 'a'.repeat(5000);
       const data: CursorData = { search: longString };
       const cursor = PaginationCursor.encode(data);
       const decoded = PaginationCursor.decode(cursor);
 
       expect(decoded.search).toBe(longString);
+    });
+
+    it('should reject cursors exceeding size limit', () => {
+      // Bug #226 fix: Very large cursors are rejected to prevent DoS
+      const veryLongString = 'a'.repeat(20000);
+      const data: CursorData = { search: veryLongString };
+      const cursor = PaginationCursor.encode(data);
+
+      expect(() => PaginationCursor.decode(cursor)).toThrow('cursor exceeds maximum size');
     });
 
     it('should maintain type information through encoding/decoding', () => {

@@ -112,6 +112,13 @@ export interface EmbeddingServiceConfig {
    * Default: false (uses instruction wrapping)
    */
   disableInstructions?: boolean;
+  // Task 124: Configurable embedding dimensions
+  /** OpenAI embedding dimension (default: 1536 for text-embedding-3-small) */
+  openaiDimension?: number;
+  /** LM Studio embedding dimension (default: 1024, auto-detected on first call) */
+  lmstudioDimension?: number;
+  /** Local model embedding dimension (default: 384 for all-MiniLM-L6-v2) */
+  localDimension?: number;
 }
 
 /**
@@ -143,6 +150,10 @@ export class EmbeddingService {
   private lmStudioDocumentInstruction: string;
   private lmStudioEmbeddingDimension: number | null = null;
   private disableInstructions: boolean;
+  // Task 124: Configurable embedding dimensions (loaded from config)
+  private openaiDimension: number;
+  private lmstudioDefaultDimension: number;
+  private localDimension: number;
   // Pipeline type from @xenova/transformers - library doesn't export proper types
   private localPipeline:
     | ((
@@ -154,6 +165,9 @@ export class EmbeddingService {
   private localModelName = 'Xenova/all-MiniLM-L6-v2'; // 384-dim embeddings
   private embeddingCache = new Map<string, number[]>();
   private maxCacheSize = 1000;
+  // Task 123: Cache statistics tracking
+  private cacheHits = 0;
+  private cacheMisses = 0;
   public static hasLoggedModelLoad = false; // Public for test reset access
 
   /**
@@ -193,6 +207,11 @@ export class EmbeddingService {
     // Ablation testing: disable instruction wrapping entirely
     this.disableInstructions = effectiveConfig.disableInstructions
       ?? (process.env.AGENT_MEMORY_EMBEDDING_DISABLE_INSTRUCTIONS === 'true');
+
+    // Task 124: Initialize configurable embedding dimensions
+    this.openaiDimension = effectiveConfig.openaiDimension ?? config.embedding.openaiDimension;
+    this.lmstudioDefaultDimension = effectiveConfig.lmstudioDimension ?? config.embedding.lmstudioDimension;
+    this.localDimension = effectiveConfig.localDimension ?? config.embedding.localDimension;
 
     // Initialize OpenAI client if using OpenAI
     if (this.provider === 'openai') {
@@ -261,20 +280,20 @@ export class EmbeddingService {
   }
 
   /**
-   * Get embedding dimensionality for the current provider
+   * Get embedding dimensionality for the current provider.
+   * Task 124: Now uses configurable dimensions from config/env vars.
    */
   getEmbeddingDimension(): number {
     switch (this.provider) {
       case 'openai':
-        // text-embedding-3-small is 1536 dimensions
-        return 1536;
+        // Default: 1536 for text-embedding-3-small, configurable via AGENT_MEMORY_EMBEDDING_OPENAI_DIMENSION
+        return this.openaiDimension;
       case 'lmstudio':
-        // Qwen3 Embedding 0.6B typically outputs 1024 dimensions
-        // Will be auto-detected on first embedding call
-        return this.lmStudioEmbeddingDimension ?? 1024;
+        // Auto-detected on first call, falls back to config (default 1024)
+        return this.lmStudioEmbeddingDimension ?? this.lmstudioDefaultDimension;
       case 'local':
-        // all-MiniLM-L6-v2 is 384 dimensions
-        return 384;
+        // Default: 384 for all-MiniLM-L6-v2, configurable via AGENT_MEMORY_EMBEDDING_LOCAL_DIMENSION
+        return this.localDimension;
       default:
         return 0;
     }
@@ -301,6 +320,8 @@ export class EmbeddingService {
     const cacheKey = `${this.provider}:${type}:${normalized}`;
     const cached = this.embeddingCache.get(cacheKey);
     if (cached) {
+      // Task 123: Track cache hit
+      this.cacheHits++;
       // Move to end of Map (most recently used) by deleting and re-inserting
       this.embeddingCache.delete(cacheKey);
       this.embeddingCache.set(cacheKey, cached);
@@ -310,6 +331,9 @@ export class EmbeddingService {
         provider: this.provider,
       };
     }
+
+    // Task 123: Track cache miss
+    this.cacheMisses++;
 
     // Generate embedding
     let embedding: number[];
@@ -418,7 +442,9 @@ export class EmbeddingService {
     }
 
     return {
-      embeddings,
+      // Bug #3 fix: Return copies of embeddings to prevent cache corruption
+      // Callers may mutate returned arrays, which would corrupt cached values
+      embeddings: embeddings.map((e) => [...e]),
       model: this.getModelName(),
       provider: this.provider,
     };
@@ -429,6 +455,30 @@ export class EmbeddingService {
    */
   clearCache(): void {
     this.embeddingCache.clear();
+    // Reset statistics when cache is cleared
+    this.cacheHits = 0;
+    this.cacheMisses = 0;
+  }
+
+  /**
+   * Task 123: Get cache statistics for monitoring and debugging
+   * Returns hit/miss counts and calculated hit rate
+   */
+  getCacheStats(): {
+    size: number;
+    maxSize: number;
+    hits: number;
+    misses: number;
+    hitRate: number;
+  } {
+    const total = this.cacheHits + this.cacheMisses;
+    return {
+      size: this.embeddingCache.size,
+      maxSize: this.maxCacheSize,
+      hits: this.cacheHits,
+      misses: this.cacheMisses,
+      hitRate: total > 0 ? this.cacheHits / total : 0,
+    };
   }
 
   /**

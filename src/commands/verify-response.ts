@@ -64,6 +64,15 @@ function parseArgs(argv: string[]): CLIOptions {
     quiet: false,
   };
 
+  // Bug #347 fix: Helper to safely get next argument value
+  const getNextArg = (i: number, argName: string): string => {
+    if (i + 1 >= argv.length) {
+      writeStderr(`Missing value for ${argName}`);
+      process.exit(2);
+    }
+    return argv[i + 1] ?? '';
+  };
+
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i] ?? '';
 
@@ -75,23 +84,28 @@ function parseArgs(argv: string[]): CLIOptions {
     } else if (arg === '--quiet' || arg === '-q') {
       options.quiet = true;
     } else if (arg === '--content') {
-      options.content = argv[++i] ?? '';
+      options.content = getNextArg(i, arg);
+      i++;
     } else if (arg.startsWith('--content=')) {
       options.content = arg.slice('--content='.length);
     } else if (arg === '--file') {
-      options.filePath = resolve(argv[++i] ?? '');
+      options.filePath = resolve(getNextArg(i, arg));
+      i++;
     } else if (arg.startsWith('--file=')) {
       options.filePath = resolve(arg.slice('--file='.length));
     } else if (arg === '--session-id' || arg === '--session') {
-      options.sessionId = argv[++i] ?? '';
+      options.sessionId = getNextArg(i, arg);
+      i++;
     } else if (arg.startsWith('--session-id=') || arg.startsWith('--session=')) {
-      options.sessionId = arg.split('=')[1];
+      options.sessionId = arg.split('=')[1] ?? '';
     } else if (arg === '--project-id' || arg === '--project') {
-      options.projectId = argv[++i] ?? '';
+      options.projectId = getNextArg(i, arg);
+      i++;
     } else if (arg.startsWith('--project-id=') || arg.startsWith('--project=')) {
-      options.projectId = arg.split('=')[1];
+      options.projectId = arg.split('=')[1] ?? '';
     } else if (arg === '--type') {
-      const type = argv[++i] ?? '';
+      const type = getNextArg(i, arg);
+      i++;
       if (['file_write', 'code_generate', 'api_call', 'command', 'other'].includes(type)) {
         options.actionType = type as CLIOptions['actionType'];
       }
@@ -101,7 +115,8 @@ function parseArgs(argv: string[]): CLIOptions {
         options.actionType = type as CLIOptions['actionType'];
       }
     } else if (arg === '--description') {
-      options.description = argv[++i] ?? '';
+      options.description = getNextArg(i, arg);
+      i++;
     } else if (arg.startsWith('--description=')) {
       options.description = arg.slice('--description='.length);
     } else if (arg.startsWith('-')) {

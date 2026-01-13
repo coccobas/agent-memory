@@ -240,12 +240,13 @@ export class LRUCache<T> {
 
       // For small objects when memory limit is enabled, use JSON.stringify
       // For large objects or when memory limit is disabled, use fixed estimate
+      // Bug #332 fix: Use safe stringify that handles circular references
       if (this.maxMemoryMB !== undefined) {
         try {
           // Only stringify if object appears small (few keys)
           const keys = Object.keys(obj);
           if (keys.length <= 10) {
-            const json = JSON.stringify(value);
+            const json = this.safeStringify(value);
             return json.length * 2;
           }
         } catch {
@@ -259,6 +260,27 @@ export class LRUCache<T> {
 
     // Default fallback
     return 2048;
+  }
+
+  /**
+   * Safely stringify a value, handling circular references.
+   * Bug #332 fix: Returns '{}' for objects with circular references instead of throwing.
+   */
+  private safeStringify(value: unknown): string {
+    const seen = new WeakSet();
+    try {
+      return JSON.stringify(value, (_key, val) => {
+        if (typeof val === 'object' && val !== null) {
+          if (seen.has(val)) {
+            return '[Circular]';
+          }
+          seen.add(val);
+        }
+        return val;
+      });
+    } catch {
+      return '{}';
+    }
   }
 
   private calculateTotalMemoryMB(): number {

@@ -160,13 +160,15 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
   const logger = createComponentLogger(config.entryType + 's');
 
   // Helper: Check permission and throw if denied
+  // Bug #340 fix: entryId parameter is now required when checking entry-specific permissions.
+  // Pass the actual entry ID for entry-level checks, or explicitly pass null for type-level checks.
   function requirePermission(
     context: AppContext,
     agentId: string | undefined,
     permission: 'read' | 'write' | 'delete',
     scopeType: ScopeType,
     scopeId: string | null,
-    entryId: string | null = null
+    entryId: string | null
   ): void {
     const hasPermission = context.services!.permission.check(
       agentId,
@@ -247,7 +249,8 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
       }
 
       // Check permission (write required for add)
-      requirePermission(context, agentId, 'write', scopeType, scopeId ?? null);
+      // Bug #340: Explicitly pass null for entryId since this is a new entry (type-level check)
+      requirePermission(context, agentId, 'write', scopeType, scopeId ?? null, null);
 
       // Get name/title for duplicate checking
       const nameValue = config.getNameValue(params);
@@ -501,6 +504,9 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
       }
 
       // Check permission (read required for get)
+      // Bug #338 note: Permission is checked before returning data, so no data is leaked.
+      // The entry is fetched first to get scopeType/scopeId for permission check.
+      // This is acceptable as the data isn't returned until after authorization.
       requirePermission(context, agentId, 'read', entry.scopeType, entry.scopeId, entry.id);
 
       // Log audit

@@ -63,5 +63,27 @@ export const embeddingSection: ConfigSectionMeta = {
       schema: z.number().int().min(0),
       parse: 'int',
     },
+    // Task 124: Configurable embedding dimensions
+    openaiDimension: {
+      envKey: 'AGENT_MEMORY_EMBEDDING_OPENAI_DIMENSION',
+      defaultValue: 1536,
+      description: 'Embedding dimension for OpenAI text-embedding-3-small model.',
+      schema: z.number().int().min(1).max(4096),
+      parse: 'int',
+    },
+    lmstudioDimension: {
+      envKey: 'AGENT_MEMORY_EMBEDDING_LMSTUDIO_DIMENSION',
+      defaultValue: 1024,
+      description: 'Default embedding dimension for LM Studio models (auto-detected on first call).',
+      schema: z.number().int().min(1).max(8192),
+      parse: 'int',
+    },
+    localDimension: {
+      envKey: 'AGENT_MEMORY_EMBEDDING_LOCAL_DIMENSION',
+      defaultValue: 384,
+      description: 'Embedding dimension for local all-MiniLM-L6-v2 model.',
+      schema: z.number().int().min(1).max(4096),
+      parse: 'int',
+    },
   },
 };

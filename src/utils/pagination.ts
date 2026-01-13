@@ -53,15 +53,17 @@ function getHmacSecret(): string {
 
   // Try environment variable first
   const envSecret = process.env.AGENT_MEMORY_CURSOR_SECRET;
-  if (envSecret && envSecret.length >= 32) {
-    hmacSecret = envSecret;
+  // Bug #270 fix: Trim whitespace and validate non-empty
+  const trimmedSecret = envSecret?.trim();
+  if (trimmedSecret && trimmedSecret.length >= 32) {
+    hmacSecret = trimmedSecret;
     return hmacSecret;
   }
 
   // Warn if using generated secret (won't persist across restarts)
-  if (envSecret && envSecret.length < 32) {
+  if (trimmedSecret && trimmedSecret.length < 32) {
     logger.warn('AGENT_MEMORY_CURSOR_SECRET is too short (minimum 32 characters), generating random secret');
-  } else if (!envSecret) {
+  } else if (!trimmedSecret) {
     logger.warn(
       'AGENT_MEMORY_CURSOR_SECRET not set, generating random secret. ' +
       'Pagination cursors will not survive server restarts. ' +
@@ -70,9 +72,10 @@ function getHmacSecret(): string {
   }
 
   // Generate random secret (insecure for multi-instance deployments)
+  // Bug #330 fix: Use base64url encoding to match verification (lines 99-100)
   const randomBytes = new Uint8Array(32);
   crypto.getRandomValues(randomBytes);
-  hmacSecret = Buffer.from(randomBytes).toString('base64');
+  hmacSecret = Buffer.from(randomBytes).toString('base64url');
   return hmacSecret;
 }
 
@@ -167,6 +170,13 @@ export class PaginationCursor {
    * ```
    */
   static decode(cursor: string): CursorData {
+    // Bug #226 fix: Enforce size limit to prevent DoS via large cursor strings
+    // A normal cursor is ~200-500 bytes, 10KB is very generous
+    const MAX_CURSOR_SIZE = 10 * 1024;
+    if (cursor.length > MAX_CURSOR_SIZE) {
+      throw createValidationError('cursor', `cursor exceeds maximum size of ${MAX_CURSOR_SIZE} bytes`);
+    }
+
     try {
       // Decode base64url
       const json = Buffer.from(cursor, 'base64url').toString('utf8');

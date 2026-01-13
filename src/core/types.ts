@@ -63,6 +63,8 @@ export type {
   DefaultQuery,
   TypedMemoryQuery,
   MemoryQueryParams,
+  // Task 43: Dry-run result type
+  DryRunResult,
 } from './query-types.js';
 
 export {

@@ -33,7 +33,8 @@ export type SuggestedCategory =
   | 'context'
   | 'cli'
   | 'function'
-  | 'api';
+  | 'api'
+  | 'error_handling'; // Task 65: Added for error extraction patterns
 
 export interface ExtractionSuggestion {
   /** Suggested entry type */
@@ -63,9 +64,16 @@ export interface ExtractionResult {
 
 export interface IExtractionHookService {
   /**
-   * Scan content for storable patterns
+   * Scan content for storable patterns (async for parallel processing)
+   * Task 63: Made async to support parallel pattern processing
    */
-  scan(content: string, context?: { category?: string }): ExtractionResult;
+  scan(content: string, context?: { category?: string }): Promise<ExtractionResult>;
+
+  /**
+   * Synchronous scan for backward compatibility
+   * @deprecated Use scan() instead for better performance with parallel processing
+   */
+  scanSync(content: string, context?: { category?: string }): ExtractionResult;
 
   /**
    * Check if cooldown is active
@@ -174,6 +182,77 @@ const EXTRACTION_PATTERNS: ExtractionPattern[] = [
     contentExtractor: (m) => (m[0] ?? '').trim(),
     confidence: 0.80,
   },
+
+  // Task 65: Error handling patterns
+  // Knowledge - error meanings and causes
+  {
+    type: 'knowledge',
+    category: 'error_handling',
+    pattern: /(?:this|the)\s+error\s+(?:`[^`]+`\s+)?(?:means|indicates|occurs\s+when|happens\s+when)\s+(.+?)(?:\.|$)/gi,
+    titleExtractor: (m) => `Error: ${(m[1] ?? '').substring(0, 40)}`.trim(),
+    contentExtractor: (m) => (m[0] ?? '').trim(),
+    confidence: 0.90,
+  },
+  {
+    type: 'knowledge',
+    category: 'error_handling',
+    pattern: /(?:if\s+you\s+(?:see|get)|when\s+you\s+(?:see|get))\s+(?:the\s+)?(?:error\s+)?[`'"](.+?)[`'"]\s*,?\s*(?:it\s+)?(?:means|is\s+because)\s+(.+?)(?:\.|$)/gi,
+    titleExtractor: (m) => `Error: ${(m[1] ?? '').substring(0, 40)}`.trim(),
+    contentExtractor: (m) => (m[0] ?? '').trim(),
+    confidence: 0.85,
+  },
+  {
+    type: 'knowledge',
+    category: 'error_handling',
+    pattern: /(?:error\s+code\s+)?([A-Z_]{2,}(?:_[A-Z0-9]+)*|E[A-Z]+\d*)\s+(?:means|indicates|is\s+(?:caused\s+by|due\s+to))\s+(.+?)(?:\.|$)/gi,
+    titleExtractor: (m) => `Error ${(m[1] ?? '')}`.trim(),
+    contentExtractor: (m) => (m[0] ?? '').trim(),
+    confidence: 0.85,
+  },
+
+  // Guidelines - how to handle/fix errors
+  {
+    type: 'guideline',
+    category: 'error_handling',
+    pattern: /(?:to\s+fix|to\s+resolve|to\s+handle)\s+(?:this\s+)?(?:error|issue|problem)\s*,?\s+(.+?)(?:\.|$)/gi,
+    titleExtractor: (m) => `Fix: ${(m[1] ?? '').substring(0, 40)}`.trim(),
+    contentExtractor: (m) => (m[0] ?? '').trim(),
+    confidence: 0.90,
+  },
+  {
+    type: 'guideline',
+    category: 'error_handling',
+    pattern: /(?:when|if)\s+(?:you\s+)?(?:see|get|encounter)\s+(?:this\s+)?(?:error|exception)\s*,?\s+(?:you\s+)?(?:should|need\s+to|must)\s+(.+?)(?:\.|$)/gi,
+    titleExtractor: (m) => `Handle: ${(m[1] ?? '').substring(0, 40)}`.trim(),
+    contentExtractor: (m) => (m[0] ?? '').trim(),
+    confidence: 0.85,
+  },
+  {
+    type: 'guideline',
+    category: 'error_handling',
+    pattern: /(?:always|never)\s+(?:catch|throw|handle|log)\s+(.+?)(?:\s+errors?|\s+exceptions?)(?:\.|$)/gi,
+    titleExtractor: (m) => `Error handling: ${(m[1] ?? '').substring(0, 35)}`.trim(),
+    contentExtractor: (m) => (m[0] ?? '').trim(),
+    confidence: 0.80,
+  },
+  {
+    type: 'guideline',
+    category: 'error_handling',
+    pattern: /(?:errors?\s+(?:should|must)\s+be)\s+(logged|reported|handled|retried|ignored|propagated)(?:\s+.+?)?(?:\.|$)/gi,
+    titleExtractor: (m) => `Errors should be ${(m[1] ?? '')}`.trim(),
+    contentExtractor: (m) => (m[0] ?? '').trim(),
+    confidence: 0.80,
+  },
+
+  // Knowledge - common error solutions
+  {
+    type: 'knowledge',
+    category: 'error_handling',
+    pattern: /(?:the\s+)?(?:solution|fix|workaround)\s+(?:for|to)\s+(?:this\s+)?(?:error|issue|problem)\s+(?:is|was)\s+(.+?)(?:\.|$)/gi,
+    titleExtractor: (m) => `Solution: ${(m[1] ?? '').substring(0, 40)}`.trim(),
+    contentExtractor: (m) => (m[0] ?? '').trim(),
+    confidence: 0.85,
+  },
 ];
 
 // =============================================================================
@@ -182,6 +261,37 @@ const EXTRACTION_PATTERNS: ExtractionPattern[] = [
 
 // Maximum matches per pattern to prevent runaway regex matching (DoS protection)
 const MAX_MATCHES_PER_PATTERN = 100;
+
+// Task 63: Pattern confidence tiers for parallel processing
+// Higher confidence patterns are processed first for early exit optimization
+const HIGH_CONFIDENCE_THRESHOLD = 0.85;
+const MEDIUM_CONFIDENCE_THRESHOLD = 0.75;
+
+/**
+ * Group patterns by confidence tier for parallel processing
+ */
+function groupPatternsByConfidence(
+  patterns: ExtractionPattern[],
+  minConfidence: number
+): { high: ExtractionPattern[]; medium: ExtractionPattern[]; low: ExtractionPattern[] } {
+  const high: ExtractionPattern[] = [];
+  const medium: ExtractionPattern[] = [];
+  const low: ExtractionPattern[] = [];
+
+  for (const pattern of patterns) {
+    if (pattern.confidence < minConfidence) continue;
+
+    if (pattern.confidence >= HIGH_CONFIDENCE_THRESHOLD) {
+      high.push(pattern);
+    } else if (pattern.confidence >= MEDIUM_CONFIDENCE_THRESHOLD) {
+      medium.push(pattern);
+    } else {
+      low.push(pattern);
+    }
+  }
+
+  return { high, medium, low };
+}
 
 export class ExtractionHookService implements IExtractionHookService {
   private readonly enabled: boolean;
@@ -192,6 +302,8 @@ export class ExtractionHookService implements IExtractionHookService {
   // Task 64: Using Date.now() is adequate for cooldowns >= 1 second
   // (1ms precision vs typical 5-30 second cooldowns)
   private lastScanTime: number = 0;
+  // Task 63: Pre-grouped patterns for efficient parallel processing
+  private readonly patternGroups: { high: ExtractionPattern[]; medium: ExtractionPattern[]; low: ExtractionPattern[] };
 
   constructor(config: Config) {
     this.enabled = config.extractionHook?.enabled ?? false;
@@ -199,9 +311,179 @@ export class ExtractionHookService implements IExtractionHookService {
     this.maxSuggestions = config.extractionHook?.maxSuggestionsPerResponse ?? 3;
     this.cooldownMs = config.extractionHook?.cooldownMs ?? 5000;
     this.scanOnWriteOps = config.extractionHook?.scanOnWriteOps ?? true;
+    // Pre-group patterns once at construction for efficiency
+    this.patternGroups = groupPatternsByConfidence(EXTRACTION_PATTERNS, this.confidenceThreshold);
   }
 
-  scan(content: string, _context?: { category?: string }): ExtractionResult {
+  /**
+   * Async scan with parallel pattern processing
+   * Task 63: Processes pattern groups in parallel for better performance
+   */
+  async scan(content: string, _context?: { category?: string }): Promise<ExtractionResult> {
+    // Check if enabled
+    if (!this.enabled) {
+      return {
+        suggestions: [],
+        skipped: true,
+        reason: 'Extraction hook disabled',
+      };
+    }
+
+    // Check if scan on write ops is disabled
+    if (!this.scanOnWriteOps) {
+      return {
+        suggestions: [],
+        skipped: true,
+        reason: 'Scan on write operations disabled',
+      };
+    }
+
+    // Check cooldown
+    if (this.isCooldownActive()) {
+      return {
+        suggestions: [],
+        skipped: true,
+        reason: 'Cooldown active',
+      };
+    }
+
+    // Skip if content is too short
+    if (content.length < 20) {
+      return {
+        suggestions: [],
+        skipped: true,
+        reason: 'Content too short',
+      };
+    }
+
+    // Task 63: Use parallel pattern processing by tier
+    const seenHashes = new Set<string>();
+    let allSuggestions: ExtractionSuggestion[] = [];
+
+    // Process high-confidence patterns first (in parallel within tier)
+    const { high, medium, low } = this.patternGroups;
+
+    // Process high tier
+    if (high.length > 0) {
+      const highResults = await Promise.all(
+        high.map((pattern) => this.processPattern(pattern, content, seenHashes))
+      );
+      allSuggestions.push(...highResults.flat());
+
+      // Early exit if we have enough high-confidence suggestions
+      if (allSuggestions.length >= this.maxSuggestions) {
+        logger.debug(
+          { tier: 'high', count: allSuggestions.length },
+          'Sufficient high-confidence suggestions found, skipping lower tiers'
+        );
+        return this.finalizeResults(allSuggestions);
+      }
+    }
+
+    // Process medium tier (in parallel)
+    if (medium.length > 0) {
+      const mediumResults = await Promise.all(
+        medium.map((pattern) => this.processPattern(pattern, content, seenHashes))
+      );
+      allSuggestions.push(...mediumResults.flat());
+
+      if (allSuggestions.length >= this.maxSuggestions * 2) {
+        return this.finalizeResults(allSuggestions);
+      }
+    }
+
+    // Process low tier (in parallel)
+    if (low.length > 0) {
+      const lowResults = await Promise.all(
+        low.map((pattern) => this.processPattern(pattern, content, seenHashes))
+      );
+      allSuggestions.push(...lowResults.flat());
+    }
+
+    return this.finalizeResults(allSuggestions);
+  }
+
+  /**
+   * Process a single pattern and return matches
+   * Task 63: Helper for parallel pattern processing
+   */
+  private processPattern(
+    patternDef: ExtractionPattern,
+    content: string,
+    seenHashes: Set<string>
+  ): ExtractionSuggestion[] {
+    const suggestions: ExtractionSuggestion[] = [];
+
+    // Create a new regex instance to avoid shared state issues in parallel execution
+    const regex = new RegExp(patternDef.pattern.source, patternDef.pattern.flags);
+
+    let match: RegExpExecArray | null;
+    let patternMatchCount = 0;
+
+    while ((match = regex.exec(content)) !== null) {
+      // Task 62: Limit matches per pattern to prevent runaway regex on large inputs
+      patternMatchCount++;
+      if (patternMatchCount > MAX_MATCHES_PER_PATTERN) {
+        logger.debug(
+          { pattern: patternDef.pattern.source.substring(0, 50), limit: MAX_MATCHES_PER_PATTERN },
+          'Pattern match limit reached, skipping remaining matches'
+        );
+        break;
+      }
+
+      const title = patternDef.titleExtractor(match);
+      const extractedContent = patternDef.contentExtractor(match, content);
+
+      // Skip empty extractions
+      if (!title || !extractedContent || extractedContent.length < 10) {
+        continue;
+      }
+
+      // Generate hash for deduplication
+      const hash = this.hashContent(extractedContent);
+      if (seenHashes.has(hash)) {
+        continue;
+      }
+      seenHashes.add(hash);
+
+      suggestions.push({
+        type: patternDef.type,
+        category: patternDef.category,
+        title,
+        content: extractedContent,
+        confidence: patternDef.confidence,
+        trigger: patternDef.pattern.source.substring(0, 50),
+        hash,
+      });
+    }
+
+    return suggestions;
+  }
+
+  /**
+   * Finalize results by sorting and limiting
+   */
+  private finalizeResults(suggestions: ExtractionSuggestion[]): ExtractionResult {
+    // Sort by confidence and take top N
+    suggestions.sort((a, b) => b.confidence - a.confidence);
+    const topSuggestions = suggestions.slice(0, this.maxSuggestions);
+
+    logger.debug(
+      { totalFound: suggestions.length, returned: topSuggestions.length },
+      'Extraction scan complete'
+    );
+
+    return {
+      suggestions: topSuggestions,
+      skipped: false,
+    };
+  }
+
+  /**
+   * Synchronous scan for backward compatibility
+   * @deprecated Use scan() instead for better performance with parallel processing
+   */
+  scanSync(content: string, _context?: { category?: string }): ExtractionResult {
     // Check if enabled
     if (!this.enabled) {
       return {
@@ -241,7 +523,7 @@ export class ExtractionHookService implements IExtractionHookService {
     const suggestions: ExtractionSuggestion[] = [];
     const seenHashes = new Set<string>();
 
-    // Apply all patterns
+    // Apply all patterns sequentially
     for (const patternDef of EXTRACTION_PATTERNS) {
       // Skip if base confidence is below threshold
       if (patternDef.confidence < this.confidenceThreshold) {
@@ -254,25 +536,18 @@ export class ExtractionHookService implements IExtractionHookService {
       let match: RegExpExecArray | null;
       let patternMatchCount = 0;
       while ((match = patternDef.pattern.exec(content)) !== null) {
-        // Task 62: Limit matches per pattern to prevent runaway regex on large inputs
         patternMatchCount++;
         if (patternMatchCount > MAX_MATCHES_PER_PATTERN) {
-          logger.debug(
-            { pattern: patternDef.pattern.source.substring(0, 50), limit: MAX_MATCHES_PER_PATTERN },
-            'Pattern match limit reached, skipping remaining matches'
-          );
           break;
         }
 
         const title = patternDef.titleExtractor(match);
         const extractedContent = patternDef.contentExtractor(match, content);
 
-        // Skip empty extractions
         if (!title || !extractedContent || extractedContent.length < 10) {
           continue;
         }
 
-        // Generate hash for deduplication
         const hash = this.hashContent(extractedContent);
         if (seenHashes.has(hash)) {
           continue;
@@ -289,26 +564,13 @@ export class ExtractionHookService implements IExtractionHookService {
           hash,
         });
 
-        // Stop if we have enough suggestions
         if (suggestions.length >= this.maxSuggestions * 2) {
           break;
         }
       }
     }
 
-    // Sort by confidence and take top N
-    suggestions.sort((a, b) => b.confidence - a.confidence);
-    const topSuggestions = suggestions.slice(0, this.maxSuggestions);
-
-    logger.debug(
-      { totalFound: suggestions.length, returned: topSuggestions.length },
-      'Extraction scan complete'
-    );
-
-    return {
-      suggestions: topSuggestions,
-      skipped: false,
-    };
+    return this.finalizeResults(suggestions);
   }
 
   isCooldownActive(): boolean {

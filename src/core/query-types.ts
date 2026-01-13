@@ -91,9 +91,19 @@ export interface BaseQueryParams {
   types?: QueryEntryType[];
   scope?: ScopeDescriptor;
   limit?: number;
+  /** Offset for pagination (alternative to cursor) */
+  offset?: number;
+  /** Pagination cursor from previous response (alternative to offset) */
+  cursor?: string;
   includeVersions?: boolean;
   includeInactive?: boolean;
   compact?: boolean;
+  /**
+   * Task 43: Dry-run mode - validate query without executing.
+   * Returns query plan and validation status without hitting the database.
+   * Useful for query builders, debugging, and validation.
+   */
+  dryRun?: boolean;
 }
 
 // =============================================================================
@@ -195,6 +205,13 @@ export interface DefaultQuery extends BaseQueryParams, DateRangeFilter, RecencyO
   enableDecomposition?: boolean;
   disableRewrite?: boolean;
   maxExpansions?: number;
+  // Re-ranking params
+  /**
+   * Enable/disable cross-encoder re-ranking for this query.
+   * Overrides global AGENT_MEMORY_CROSS_ENCODER_ENABLED setting.
+   * Useful for benchmarking and A/B testing.
+   */
+  useCrossEncoder?: boolean;
   // Hierarchical context params
   /** Return hierarchical overview instead of full entries (~1.5k vs ~15k tokens) */
   hierarchical?: boolean;
@@ -268,6 +285,48 @@ export interface HierarchicalContextResult {
  * Use DefaultQuery or TypedMemoryQuery for new code.
  */
 export type MemoryQueryParams = DefaultQuery;
+
+// =============================================================================
+// DRY-RUN RESULT TYPE
+// =============================================================================
+
+/**
+ * Task 43: Dry-run result - returned when dryRun=true
+ * Contains query plan and validation status without actual execution.
+ */
+export interface DryRunResult {
+  /** Query was validated successfully */
+  valid: boolean;
+  /** Validation errors if any */
+  errors: string[];
+  /** Query plan describing what would be executed */
+  plan: {
+    /** Resolved types to query */
+    types: QueryEntryType[];
+    /** Resolved scope chain */
+    scopeChain: Array<{ scopeType: string; scopeId: string | null }>;
+    /** Resolved limit */
+    limit: number;
+    /** Resolved offset */
+    offset: number;
+    /** Search term (if any) */
+    search?: string;
+    /** Determined search strategy */
+    strategy?: string;
+    /** Whether semantic search would be used */
+    semanticSearch: boolean;
+    /** Whether FTS would be used */
+    useFts5: boolean;
+    /** Tag filters to apply */
+    tagFilters?: { include?: string[]; require?: string[]; exclude?: string[] };
+    /** Relation traversal config */
+    relationConfig?: { type: string; id: string; depth?: number };
+  };
+  /** Estimated complexity (low/medium/high) */
+  complexity: 'low' | 'medium' | 'high';
+  /** Dry-run marker */
+  dryRun: true;
+}
 
 // =============================================================================
 // UNIFIED QUERY TYPE

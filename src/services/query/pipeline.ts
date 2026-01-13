@@ -9,6 +9,7 @@ import type { MemoryQueryParams, ResponseMeta } from '../../core/types.js';
 import type { ScopeType, Tool, Guideline, Knowledge, Experience, Tag } from '../../db/schema.js';
 import type { DbClient } from '../../db/connection.js';
 import type Database from 'better-sqlite3';
+import { PaginationCursor } from '../../utils/pagination.js';
 
 // Import shared types from types.ts to break circular dependency
 import type { QueryEntryType, QueryType, ScopeDescriptor, FilterStageResult } from './types.js';
@@ -77,9 +78,15 @@ export interface PipelineDependencies {
   ) => Set<number>;
 
   /**
-   * Get tags for entries (batched)
+   * Get tags for entries (batched per type)
    */
   getTagsForEntries: (entryType: QueryEntryType, entryIds: string[]) => Record<string, Tag[]>;
+
+  /**
+   * Task 28: Get tags for entries across multiple types in a single batch.
+   * More efficient than calling getTagsForEntries multiple times.
+   */
+  getTagsForEntriesBatch?: (entriesByType: Map<QueryEntryType, string[]>) => Record<string, Tag[]>;
 
   /**
    * Traverse relation graph
@@ -303,6 +310,7 @@ export interface PipelineContext {
   types: readonly QueryType[];
   scopeChain: ScopeDescriptor[];
   limit: number;
+  offset: number;
   search?: string;
 
   // Search strategy (determined by strategy stage)
@@ -349,6 +357,59 @@ export interface PipelineContext {
   startMs: number;
   cacheKey: string | null;
   cacheHit: boolean;
+
+  // Task 42: Stage tracking for validation
+  /** Set of completed stage names for ordering validation */
+  completedStages?: Set<string>;
+
+  // Task 44: Observable telemetry
+  /** Detailed telemetry for debugging and observability */
+  telemetry?: PipelineTelemetry;
+}
+
+// =============================================================================
+// TASK 44: OBSERVABLE TELEMETRY
+// =============================================================================
+
+/**
+ * Telemetry data for a single stage
+ */
+export interface StageTelemetry {
+  name: string;
+  startMs: number;
+  durationMs: number;
+  inputCount?: number;
+  outputCount?: number;
+  decisions?: Record<string, unknown>;
+}
+
+/**
+ * Pipeline telemetry - captures decisions and timing for each stage
+ */
+export interface PipelineTelemetry {
+  /** Overall pipeline timing */
+  totalMs: number;
+  /** Per-stage telemetry */
+  stages: StageTelemetry[];
+  /** Key decisions made during execution */
+  decisions: {
+    searchStrategy?: string;
+    usedSemanticSearch?: boolean;
+    usedFts5?: boolean;
+    usedHierarchical?: boolean;
+    usedReranking?: boolean;
+    usedCrossEncoder?: boolean;
+    cacheHit?: boolean;
+    tagFilterApplied?: boolean;
+    relationFilterApplied?: boolean;
+  };
+  /** Scoring summary */
+  scoring?: {
+    totalCandidates: number;
+    afterLightScoring: number;
+    afterFullScoring: number;
+    topScores: number[];
+  };
 }
 
 /**
@@ -369,6 +430,7 @@ export function createPipelineContext(
     types: [],
     scopeChain: [],
     limit: 20,
+    offset: 0,
     search: undefined,
     ftsMatchIds: null,
     ftsScores: null,
@@ -380,6 +442,184 @@ export function createPipelineContext(
     startMs: Date.now(),
     cacheKey: null,
     cacheHit: false,
+    // Task 42: Initialize stage tracking
+    completedStages: new Set(),
+  };
+}
+
+// =============================================================================
+// TASK 42: STAGE VALIDATION UTILITIES
+// =============================================================================
+
+/**
+ * Pipeline stage names for validation
+ */
+export const PIPELINE_STAGES = {
+  RESOLVE: 'resolve',
+  STRATEGY: 'strategy',
+  REWRITE: 'rewrite',
+  HIERARCHICAL: 'hierarchical',
+  SEMANTIC: 'semantic',
+  FTS: 'fts',
+  RELATIONS: 'relations',
+  FETCH: 'fetch',
+  ENTITY_FILTER: 'entity_filter',
+  TAGS: 'tags',
+  FILTER: 'filter',
+  FEEDBACK: 'feedback',
+  SCORE: 'score',
+  RERANK: 'rerank',
+  CROSS_ENCODER: 'cross_encoder',
+} as const;
+
+export type PipelineStageName = (typeof PIPELINE_STAGES)[keyof typeof PIPELINE_STAGES];
+
+/**
+ * Stage prerequisites - which stages must run before each stage
+ */
+const STAGE_PREREQUISITES: Record<PipelineStageName, PipelineStageName[]> = {
+  [PIPELINE_STAGES.RESOLVE]: [],
+  [PIPELINE_STAGES.STRATEGY]: [PIPELINE_STAGES.RESOLVE],
+  [PIPELINE_STAGES.REWRITE]: [PIPELINE_STAGES.RESOLVE],
+  [PIPELINE_STAGES.HIERARCHICAL]: [PIPELINE_STAGES.RESOLVE],
+  [PIPELINE_STAGES.SEMANTIC]: [PIPELINE_STAGES.RESOLVE],
+  [PIPELINE_STAGES.FTS]: [PIPELINE_STAGES.RESOLVE],
+  [PIPELINE_STAGES.RELATIONS]: [PIPELINE_STAGES.RESOLVE],
+  [PIPELINE_STAGES.FETCH]: [PIPELINE_STAGES.RESOLVE],
+  [PIPELINE_STAGES.ENTITY_FILTER]: [PIPELINE_STAGES.FETCH],
+  [PIPELINE_STAGES.TAGS]: [PIPELINE_STAGES.FETCH],
+  [PIPELINE_STAGES.FILTER]: [PIPELINE_STAGES.FETCH],
+  [PIPELINE_STAGES.FEEDBACK]: [PIPELINE_STAGES.FILTER],
+  [PIPELINE_STAGES.SCORE]: [PIPELINE_STAGES.FILTER],
+  [PIPELINE_STAGES.RERANK]: [PIPELINE_STAGES.SCORE],
+  [PIPELINE_STAGES.CROSS_ENCODER]: [PIPELINE_STAGES.SCORE],
+};
+
+/**
+ * Mark a stage as completed and return updated context
+ * @param ctx - Pipeline context
+ * @param stageName - Name of the completed stage
+ * @returns Updated context with stage marked as completed
+ */
+export function markStageCompleted(ctx: PipelineContext, stageName: PipelineStageName): PipelineContext {
+  const completedStages = new Set(ctx.completedStages ?? []);
+  completedStages.add(stageName);
+  return { ...ctx, completedStages };
+}
+
+/**
+ * Validate that all prerequisite stages have run before a stage
+ * Throws an error if prerequisites are not met (development only)
+ * @param ctx - Pipeline context
+ * @param stageName - Name of the stage about to run
+ * @throws Error if prerequisites are not met and NODE_ENV is not 'production'
+ */
+export function validateStagePrerequisites(ctx: PipelineContext, stageName: PipelineStageName): void {
+  // Skip validation in production for performance and in test mode to avoid breaking unit tests
+  // that test stages in isolation without running the full pipeline
+  if (process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'test') return;
+
+  const completedStages = ctx.completedStages ?? new Set();
+  const prerequisites = STAGE_PREREQUISITES[stageName] ?? [];
+
+  const missingPrerequisites = prerequisites.filter(prereq => !completedStages.has(prereq));
+
+  if (missingPrerequisites.length > 0) {
+    throw new Error(
+      `Pipeline stage ordering violation: '${stageName}' requires stages [${missingPrerequisites.join(', ')}] to run first. ` +
+      `Completed stages: [${Array.from(completedStages).join(', ')}]`
+    );
+  }
+}
+
+// =============================================================================
+// TASK 44: TELEMETRY HELPERS
+// =============================================================================
+
+/**
+ * Initialize telemetry for a pipeline context
+ */
+export function initializeTelemetry(ctx: PipelineContext): PipelineContext {
+  return {
+    ...ctx,
+    telemetry: {
+      totalMs: 0,
+      stages: [],
+      decisions: {},
+    },
+  };
+}
+
+/**
+ * Record telemetry for a completed stage
+ * @param ctx - Pipeline context
+ * @param stageName - Name of the completed stage
+ * @param startMs - Stage start timestamp
+ * @param options - Optional telemetry data
+ */
+export function recordStageTelemetry(
+  ctx: PipelineContext,
+  stageName: string,
+  startMs: number,
+  options?: {
+    inputCount?: number;
+    outputCount?: number;
+    decisions?: Record<string, unknown>;
+  }
+): PipelineContext {
+  if (!ctx.telemetry) return ctx;
+
+  const durationMs = Date.now() - startMs;
+  const stageTelemetry: StageTelemetry = {
+    name: stageName,
+    startMs,
+    durationMs,
+    ...options,
+  };
+
+  return {
+    ...ctx,
+    telemetry: {
+      ...ctx.telemetry,
+      stages: [...ctx.telemetry.stages, stageTelemetry],
+    },
+  };
+}
+
+/**
+ * Record a pipeline decision for telemetry
+ */
+export function recordDecision(
+  ctx: PipelineContext,
+  key: keyof PipelineTelemetry['decisions'],
+  value: boolean | string
+): PipelineContext {
+  if (!ctx.telemetry) return ctx;
+
+  return {
+    ...ctx,
+    telemetry: {
+      ...ctx.telemetry,
+      decisions: {
+        ...ctx.telemetry.decisions,
+        [key]: value,
+      },
+    },
+  };
+}
+
+/**
+ * Finalize telemetry with total time
+ */
+export function finalizeTelemetry(ctx: PipelineContext): PipelineContext {
+  if (!ctx.telemetry) return ctx;
+
+  return {
+    ...ctx,
+    telemetry: {
+      ...ctx.telemetry,
+      totalMs: Date.now() - ctx.startMs,
+    },
   };
 }
 
@@ -399,14 +639,28 @@ export async function executePipeline(
 
 /**
  * Build final result from context
+ * Task 7: Added pagination cursor support
  */
 export function buildQueryResult(ctx: PipelineContext): MemoryQueryResult {
+  const hasMore = ctx.results.length > ctx.limit;
+  const returnedCount = Math.min(ctx.results.length, ctx.limit);
+
+  // Generate next cursor if there are more results
+  let nextCursor: string | undefined;
+  if (hasMore) {
+    const nextOffset = ctx.offset + returnedCount;
+    nextCursor = PaginationCursor.encode({
+      offset: nextOffset,
+      limit: ctx.limit,
+    });
+  }
+
   const meta: ResponseMeta = {
     totalCount: ctx.results.length,
-    returnedCount: Math.min(ctx.results.length, ctx.limit),
-    truncated: ctx.results.length > ctx.limit,
-    hasMore: ctx.results.length > ctx.limit,
-    nextCursor: undefined,
+    returnedCount,
+    truncated: hasMore,
+    hasMore,
+    nextCursor,
   };
 
   return {

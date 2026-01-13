@@ -47,9 +47,9 @@ describe('parseHookArgs', () => {
       expect(result.projectId).toBe('proj-abc');
     });
 
-    it('should handle missing value after --project-id', () => {
-      const result = parseHookArgs(['start', '--project-id']);
-      expect(result.projectId).toBe('');
+    it('should throw error for missing value after --project-id', () => {
+      // Bug #347 fix: Now throws error instead of accepting empty value
+      expect(() => parseHookArgs(['start', '--project-id'])).toThrow('Missing value for --project-id');
     });
   });
 
@@ -151,10 +151,10 @@ describe('parseHookArgs', () => {
       expect(result.autoExtract).toBeUndefined();
     });
 
-    it('should handle empty = values', () => {
-      const result = parseHookArgs(['start', '--project-id=', '--agent-id=']);
-      expect(result.projectId).toBe('');
-      expect(result.agentId).toBe('');
+    it('should throw error for empty = values', () => {
+      // Bug #349 fix: Now throws error instead of accepting empty value
+      expect(() => parseHookArgs(['start', '--project-id='])).toThrow('Missing value for --project-id');
+      expect(() => parseHookArgs(['start', '--agent-id='])).toThrow('Missing value for --agent-id');
     });
   });
 });

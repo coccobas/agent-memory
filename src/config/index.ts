@@ -78,6 +78,10 @@ export interface Config {
     batchSize: number;
     maxRetries: number;
     retryDelayMs: number;
+    // Task 124: Configurable embedding dimensions
+    openaiDimension: number;
+    lmstudioDimension: number;
+    localDimension: number;
   };
   extraction: {
     mode: 'technical' | 'personal' | 'auto';
@@ -301,6 +305,9 @@ export interface Config {
     maxExpansions: number;
     expansionWeight: number;
     decompositionEnabled: boolean;
+    decompositionThreshold: number;
+    decompositionMaxSubQueries: number;
+    decompositionUseLLM: boolean;
     intentClassificationMode: 'pattern' | 'llm' | 'hybrid';
     provider: 'openai' | 'anthropic' | 'ollama' | 'disabled';
     model: string | undefined;
@@ -365,6 +372,11 @@ export interface Config {
     maxSuggestionsPerResponse: number;
     cooldownMs: number;
     scanOnWriteOps: boolean;
+  };
+  suggest: {
+    minConfidence: number;
+    maxSuggestions: number;
+    minContentLength: number;
   };
 }
 

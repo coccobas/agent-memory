@@ -37,6 +37,14 @@ export class RateLimiter {
   private static readonly DEFAULT_MIN_BURST_PROTECTION = 100;
 
   constructor(config: RateLimiterConfig) {
+    // Bug #225 fix: Validate windowMs to prevent division by zero
+    if (config.windowMs <= 0) {
+      throw new Error('RateLimiter windowMs must be greater than 0');
+    }
+    if (config.maxRequests <= 0) {
+      throw new Error('RateLimiter maxRequests must be greater than 0');
+    }
+
     this.config = {
       maxRequests: config.maxRequests,
       windowMs: config.windowMs,
@@ -65,6 +73,16 @@ export class RateLimiter {
     resetMs: number;
     retryAfterMs?: number;
   } {
+    // Bug #9 fix: Check if rate limiting is disabled FIRST, before any bucket operations
+    // Previously this check was after burst bucket decrement, which was incorrect
+    if (!this.config.enabled) {
+      return {
+        allowed: true,
+        remaining: this.config.maxRequests,
+        resetMs: 0,
+      };
+    }
+
     const now = Date.now();
 
     const burstRefillRate = this.config.minBurstProtection / 1000;
@@ -100,14 +118,6 @@ export class RateLimiter {
     }
 
     burstBucket.tokens -= 1;
-
-    if (!this.config.enabled) {
-      return {
-        allowed: true,
-        remaining: this.config.maxRequests,
-        resetMs: 0,
-      };
-    }
 
     const refillRate = this.config.maxRequests / this.config.windowMs;
 

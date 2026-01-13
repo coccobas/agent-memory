@@ -48,17 +48,23 @@ export function normalizePagination(options: PaginationOptions = {}): {
   limit: number;
   offset: number;
 } {
-  const limit = Math.min(options.limit ?? DEFAULT_LIMIT, MAX_LIMIT);
+  // Bug #266/#269 fix: Validate limit and offset are non-negative integers
+  const limit = Math.max(1, Math.min(options.limit ?? DEFAULT_LIMIT, MAX_LIMIT));
 
   // If cursor is provided, decode and use its offset
   if (options.cursor) {
     const decoded = decodeCursor(options.cursor);
     if (decoded) {
-      return { limit, offset: decoded.offset };
+      // Ensure decoded offset is non-negative
+      return { limit, offset: Math.max(0, decoded.offset) };
     }
   }
 
-  return { limit, offset: options.offset ?? 0 };
+  // Ensure offset is non-negative integer
+  const rawOffset = options.offset ?? 0;
+  const offset = Number.isInteger(rawOffset) && rawOffset >= 0 ? rawOffset : 0;
+
+  return { limit, offset };
 }
 
 // =============================================================================

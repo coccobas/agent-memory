@@ -6,6 +6,7 @@
  */
 
 import type { SimpleToolDescriptor } from './types.js';
+import { config as appConfig } from '../../config/index.js';
 
 /**
  * Patterns that indicate storeable content
@@ -79,8 +80,8 @@ function analyzeSuggestions(text: string): Suggestion[] {
         if (seen.has(normalized)) continue;
         seen.add(normalized);
 
-        // Skip very short matches
-        if (content.length < 15) continue;
+        // Skip very short matches (Task 61: configurable via appConfig.suggest.minContentLength)
+        if (content.length < appConfig.suggest.minContentLength) continue;
 
         suggestions.push({
           type: config.category,
@@ -119,11 +120,11 @@ Detects: guidelines, decisions, facts, tools/commands`,
     },
     minConfidence: {
       type: 'number',
-      description: 'Minimum confidence threshold (0-1, default 0.7)',
+      description: 'Minimum confidence threshold (0-1). Default from AGENT_MEMORY_SUGGEST_MIN_CONFIDENCE env var (0.7).',
     },
     maxSuggestions: {
       type: 'number',
-      description: 'Maximum number of suggestions to return (default 5)',
+      description: 'Maximum number of suggestions to return. Default from AGENT_MEMORY_SUGGEST_MAX_SUGGESTIONS env var (5).',
     },
   },
   required: ['text'],
@@ -133,8 +134,9 @@ Detects: guidelines, decisions, facts, tools/commands`,
       return { error: 'Text is required', suggestions: [] };
     }
 
-    const minConfidence = (args?.minConfidence as number) ?? 0.7;
-    const maxSuggestions = (args?.maxSuggestions as number) ?? 5;
+    // Task 61: Use config defaults, allow override via args
+    const minConfidence = (args?.minConfidence as number) ?? appConfig.suggest.minConfidence;
+    const maxSuggestions = (args?.maxSuggestions as number) ?? appConfig.suggest.maxSuggestions;
 
     // Analyze text
     const allSuggestions = analyzeSuggestions(text);

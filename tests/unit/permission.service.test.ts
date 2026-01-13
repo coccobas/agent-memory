@@ -57,9 +57,11 @@ describe('permission.service', () => {
       expect(result).toBe(false);
     });
 
-    it('should allow project entryType by default', () => {
+    it('should deny project entryType without proper membership', () => {
+      // Bug #1/#343 fix: Project entries NO LONGER bypass permission checks
+      // Projects require proper organizational membership for access
       const result = permissionService.check('agent-1', 'read', 'project', null, 'global', null);
-      expect(result).toBe(true);
+      expect(result).toBe(false);
     });
 
     it('should check read permission correctly', () => {
@@ -468,14 +470,15 @@ describe('permission.service', () => {
       expect(results.get('entry-2')).toBe(false);
     });
 
-    it('should allow project entries by default', () => {
+    it('should require permissions for project entries like other entry types', () => {
+      // Bug #1/#343 fix: Project entries NO LONGER bypass permission checks
       const entries = [
         { id: 'proj-1', entryType: 'project' as const, scopeType: 'global' as const, scopeId: null },
         { id: 'tool-1', entryType: 'tool' as const, scopeType: 'global' as const, scopeId: null },
       ];
       const results = permissionService.checkBatch('agent-batch-1', 'read', entries);
-      expect(results.get('proj-1')).toBe(true);
-      // tool-1 has no permission
+      // Both should be false without explicit permission
+      expect(results.get('proj-1')).toBe(false);
       expect(results.get('tool-1')).toBe(false);
     });
 
@@ -534,14 +537,18 @@ describe('permission.service', () => {
       expect(results.get('tool-1')).toBe(true);
     });
 
-    it('should handle only project entries in batch', () => {
+    it('should deny project entries in batch without organizational membership', () => {
+      // Bug #1/#343 fix: Project entries require proper permissions through organizational
+      // membership, not the permissions table (which doesn't support 'project' entry type).
+      // Without proper org membership, project access is denied.
       const entries = [
         { id: 'proj-1', entryType: 'project' as const, scopeType: 'global' as const, scopeId: null },
         { id: 'proj-2', entryType: 'project' as const, scopeType: 'global' as const, scopeId: null },
       ];
       const results = permissionService.checkBatch('agent-batch-5', 'read', entries);
-      expect(results.get('proj-1')).toBe(true);
-      expect(results.get('proj-2')).toBe(true);
+      // Should be false since no organizational membership grants project access
+      expect(results.get('proj-1')).toBe(false);
+      expect(results.get('proj-2')).toBe(false);
       expect(results.size).toBe(2);
     });
   });

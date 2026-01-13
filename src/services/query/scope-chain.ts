@@ -11,6 +11,7 @@ import { projects, sessions, type ScopeType } from '../../db/schema.js';
 import { LRUCache } from '../../utils/lru-cache.js';
 import { getRuntime, isRuntimeRegistered } from '../../core/container.js';
 import { createValidationError } from '../../core/errors.js';
+import { config } from '../../config/index.js';
 
 // =============================================================================
 // UUID VALIDATION
@@ -51,9 +52,10 @@ export interface ScopeDescriptor {
 
 // Add scope chain cache with shorter TTL (scope structure changes less often)
 // Increased from 100 to 500 for multi-tenant deployments
+// Task 33: TTL now configurable via AGENT_MEMORY_SCOPE_CACHE_TTL_MS (default 10 minutes)
 const scopeChainCache = new LRUCache<ScopeDescriptor[]>({
   maxSize: 500,
-  ttlMs: 10 * 60 * 1000, // 10 minutes
+  ttlMs: config.cache.scopeCacheTTLMs,
 });
 
 // Lazy registration with memory coordinator

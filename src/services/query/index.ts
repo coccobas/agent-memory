@@ -20,7 +20,7 @@ export * from './stages/index.js';
 export * from './entity-extractor.js';
 export * from './entity-index.js';
 
-import type { MemoryQueryParams } from '../../core/types.js';
+import type { MemoryQueryParams, DryRunResult, QueryEntryType as CoreQueryEntryType } from '../../core/types.js';
 import type { MemoryQueryResult, PipelineContext, PipelineDependencies } from './pipeline.js';
 import { createPipelineContext, buildQueryResult } from './pipeline.js';
 import { resolveStage } from './stages/resolve.js';
@@ -44,7 +44,7 @@ import type { EntityFilterResult, EntityFilterPipelineContext } from './stages/e
 
 // Import from modular submodules (avoids circular dependency with query.service.ts)
 import { resolveScopeChain } from './scope-chain.js';
-import { getTagsForEntries } from './tags-helper.js';
+import { getTagsForEntries, getTagsForEntriesBatch } from './tags-helper.js';
 import { traverseRelationGraph, createGraphTraversalFunctions } from './graph-traversal.js';
 import { createFtsSearchFunctions } from './fts-search.js';
 import type { DbClient } from '../../db/connection.js';
@@ -54,6 +54,111 @@ import type { LRUCache } from '../../utils/lru-cache.js';
 import type { Logger } from 'pino';
 import type { EntryChangedEvent } from '../../utils/events.js';
 import type { IEventAdapter } from '../../core/adapters/interfaces.js';
+
+// =============================================================================
+// TASK 43: DRY-RUN EXECUTION
+// =============================================================================
+
+/**
+ * Execute query in dry-run mode - validate and return plan without executing.
+ * Useful for query builders, debugging, and validation.
+ *
+ * @param params - Query parameters to validate
+ * @param deps - Pipeline dependencies
+ * @returns DryRunResult with validation status and query plan
+ */
+export function executeDryRun(
+  params: MemoryQueryParams,
+  deps: PipelineDependencies
+): DryRunResult {
+  const errors: string[] = [];
+
+  // Run resolve stage to normalize parameters
+  let ctx: PipelineContext;
+  try {
+    ctx = createPipelineContext(params, deps);
+    ctx = resolveStage(ctx);
+  } catch (error) {
+    return {
+      valid: false,
+      errors: [`Resolution failed: ${error instanceof Error ? error.message : String(error)}`],
+      plan: {
+        types: (params.types ?? ['tools', 'guidelines', 'knowledge', 'experiences']) as CoreQueryEntryType[],
+        scopeChain: [],
+        limit: params.limit ?? 20,
+        offset: params.offset ?? 0,
+        search: params.search,
+        semanticSearch: params.semanticSearch ?? false,
+        useFts5: params.useFts5 ?? false,
+      },
+      complexity: 'low',
+      dryRun: true,
+    };
+  }
+
+  // Validate parameters
+  if (params.limit !== undefined && (params.limit < 1 || params.limit > 1000)) {
+    errors.push(`Invalid limit: ${params.limit}. Must be between 1 and 1000.`);
+  }
+
+  if (params.semanticThreshold !== undefined && (params.semanticThreshold < 0 || params.semanticThreshold > 1)) {
+    errors.push(`Invalid semanticThreshold: ${params.semanticThreshold}. Must be between 0 and 1.`);
+  }
+
+  if (params.relatedTo?.depth !== undefined && params.relatedTo.depth > 10) {
+    errors.push(`Relation depth ${params.relatedTo.depth} exceeds maximum of 10.`);
+  }
+
+  // Determine strategy
+  let strategy = 'scan';
+  if (params.semanticSearch && params.search) {
+    strategy = 'semantic';
+  } else if (params.search) {
+    strategy = params.useFts5 ? 'fts5' : 'like';
+  } else if (params.relatedTo) {
+    strategy = 'relation';
+  } else if (params.tags?.require?.length || params.tags?.include?.length) {
+    strategy = 'tag';
+  }
+
+  // Estimate complexity
+  let complexity: 'low' | 'medium' | 'high' = 'low';
+  if (params.semanticSearch) {
+    complexity = 'high'; // Requires embeddings
+  } else if (params.relatedTo || (params.tags?.require?.length ?? 0) > 2) {
+    complexity = 'medium';
+  }
+
+  // Build plan
+  const plan = {
+    types: ctx.types as unknown as CoreQueryEntryType[],
+    scopeChain: ctx.scopeChain.map(s => ({ scopeType: s.scopeType, scopeId: s.scopeId })),
+    limit: ctx.limit,
+    offset: ctx.offset,
+    search: ctx.search,
+    strategy,
+    semanticSearch: params.semanticSearch ?? false,
+    useFts5: params.useFts5 ?? false,
+    tagFilters: params.tags ? {
+      include: params.tags.include,
+      require: params.tags.require,
+      exclude: params.tags.exclude,
+    } : undefined,
+    relationConfig: params.relatedTo ? {
+      type: params.relatedTo.type,
+      id: params.relatedTo.id,
+      depth: params.relatedTo.depth,
+    } : undefined,
+  };
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    plan,
+    complexity,
+    dryRun: true,
+  };
+}
 
 // =============================================================================
 // CACHE KEY GENERATION
@@ -169,6 +274,10 @@ export function invalidatePipelineCacheScope(
  * This should be called once during application startup (in factory.ts or cli.ts).
  * Returns an unsubscribe function that should be called during shutdown.
  *
+ * Task 17: On delete actions, invalidate ALL caches because relations can cross
+ * scopes - an entry in scope A might be related to entries in scope B, and those
+ * queries would return stale results if we only invalidate scope A.
+ *
  * @param eventAdapter - The event adapter to subscribe to
  * @param cache - The query cache to invalidate on entry changes
  * @param logger - Optional logger for debug output
@@ -180,7 +289,13 @@ export function wireQueryCacheInvalidation(
   logger?: Logger
 ): () => void {
   const handler = (event: EntryChangedEvent): void => {
-    invalidatePipelineCacheScope(cache, event.scopeType, event.scopeId, logger);
+    // Task 17: On delete, invalidate ALL caches due to cross-scope relations
+    if (event.action === 'delete') {
+      // Treat as global scope change to invalidate everything
+      invalidatePipelineCacheScope(cache, 'global', null, logger);
+    } else {
+      invalidatePipelineCacheScope(cache, event.scopeType, event.scopeId, logger);
+    }
   };
   return eventAdapter.subscribe(handler);
 }
@@ -220,16 +335,52 @@ export interface QueryPipelineOptions {
 }
 
 /**
+ * Optional dependencies that can be updated at runtime (Task 22: Late Binding)
+ */
+export interface UpdatableDependencies {
+  feedback?: PipelineDependencies['feedback'];
+  queryRewriteService?: PipelineDependencies['queryRewriteService'];
+  entityIndex?: PipelineDependencies['entityIndex'];
+  embeddingService?: PipelineDependencies['embeddingService'];
+  hierarchicalRetriever?: PipelineDependencies['hierarchicalRetriever'];
+  vectorService?: PipelineDependencies['vectorService'];
+}
+
+/**
+ * Extended dependencies with update capability for runtime configuration changes
+ */
+export interface MutablePipelineDependencies extends PipelineDependencies {
+  /**
+   * Update optional dependencies at runtime without recreating the pipeline.
+   * Task 22: Enables hot-swapping of services like embedding providers.
+   */
+  updateDependencies: (updates: Partial<UpdatableDependencies>) => void;
+}
+
+/**
  * Create pipeline dependencies from explicit options.
  *
  * This is the only way to create dependencies - all inputs are explicit,
  * no globals are accessed.
  *
+ * Task 22: Returns MutablePipelineDependencies with updateDependencies() method
+ * for runtime service swapping.
+ *
  * @param options - The options containing db accessors, cache, and config
- * @returns PipelineDependencies for use with executeQueryPipeline
+ * @returns MutablePipelineDependencies for use with executeQueryPipeline
  */
-export function createDependencies(options: QueryPipelineOptions): PipelineDependencies {
-  const { getDb, getSqlite, getPreparedStatement, cache, perfLog, logger, feedback, queryRewriteService, entityIndex, embeddingService, hierarchicalRetriever, vectorService } = options;
+export function createDependencies(options: QueryPipelineOptions): MutablePipelineDependencies {
+  const { getDb, getSqlite, getPreparedStatement, cache, perfLog, logger } = options;
+
+  // Task 22: Store mutable dependencies in a closure for late binding
+  const mutableDeps: UpdatableDependencies = {
+    feedback: options.feedback,
+    queryRewriteService: options.queryRewriteService,
+    entityIndex: options.entityIndex,
+    embeddingService: options.embeddingService,
+    hierarchicalRetriever: options.hierarchicalRetriever,
+    vectorService: options.vectorService,
+  };
 
   // Use factory-created FTS functions when custom getPreparedStatement is provided
   // This enables proper DI for benchmarks and tests
@@ -238,6 +389,7 @@ export function createDependencies(options: QueryPipelineOptions): PipelineDepen
   // Use factory-created graph traversal functions for DI
   const graphFunctions = createGraphTraversalFunctions(getPreparedStatement);
 
+  // Task 22: Return object with getters for mutable deps and update function
   return {
     getDb,
     getSqlite,
@@ -247,6 +399,8 @@ export function createDependencies(options: QueryPipelineOptions): PipelineDepen
     executeFts5Query: ftsFunctions.executeFts5Query,
     // Wrap getTagsForEntries to pass db from deps
     getTagsForEntries: (entryType, entryIds) => getTagsForEntries(entryType, entryIds, getDb()),
+    // Task 28: Batched version for better performance (single DB call for all types)
+    getTagsForEntriesBatch: (entriesByType) => getTagsForEntriesBatch(entriesByType, getDb()),
     // Wrap traverseRelationGraph with injected db (uses factory-created function)
     traverseRelationGraph: (startType, startId, graphOptions) => {
       return graphFunctions.traverseRelationGraph(
@@ -268,12 +422,23 @@ export function createDependencies(options: QueryPipelineOptions): PipelineDepen
       info: (data, message) => logger.info(data, message),
       warn: (data, message) => logger.warn(data, message),
     },
-    feedback,
-    queryRewriteService,
-    entityIndex,
-    embeddingService,
-    hierarchicalRetriever,
-    vectorService,
+    // Task 22: Use getters for mutable deps to enable late binding
+    get feedback() { return mutableDeps.feedback; },
+    get queryRewriteService() { return mutableDeps.queryRewriteService; },
+    get entityIndex() { return mutableDeps.entityIndex; },
+    get embeddingService() { return mutableDeps.embeddingService; },
+    get hierarchicalRetriever() { return mutableDeps.hierarchicalRetriever; },
+    get vectorService() { return mutableDeps.vectorService; },
+    // Task 22: Update function for runtime dependency swapping
+    updateDependencies(updates: Partial<UpdatableDependencies>) {
+      if (updates.feedback !== undefined) mutableDeps.feedback = updates.feedback;
+      if (updates.queryRewriteService !== undefined) mutableDeps.queryRewriteService = updates.queryRewriteService;
+      if (updates.entityIndex !== undefined) mutableDeps.entityIndex = updates.entityIndex;
+      if (updates.embeddingService !== undefined) mutableDeps.embeddingService = updates.embeddingService;
+      if (updates.hierarchicalRetriever !== undefined) mutableDeps.hierarchicalRetriever = updates.hierarchicalRetriever;
+      if (updates.vectorService !== undefined) mutableDeps.vectorService = updates.vectorService;
+      logger.debug({ updated: Object.keys(updates) }, 'Pipeline dependencies updated at runtime');
+    },
   };
 }
 
@@ -516,7 +681,12 @@ export function executeQueryPipelineSync(
 export async function executeQueryPipelineAsync(
   params: MemoryQueryParams,
   deps: PipelineDependencies
-): Promise<MemoryQueryResult> {
+): Promise<MemoryQueryResult | DryRunResult> {
+  // Task 43: Handle dry-run mode - return plan without executing
+  if (params.dryRun) {
+    return executeDryRun(params, deps);
+  }
+
   const startMs = deps.perfLog ? Date.now() : 0;
 
   // Check cache first
@@ -703,5 +873,11 @@ export async function executeQueryPipeline(
   params: MemoryQueryParams,
   deps: PipelineDependencies
 ): Promise<MemoryQueryResult> {
-  return executeQueryPipelineAsync(params, deps);
+  // For dry-run mode, use executeDryRun directly
+  if (params.dryRun) {
+    throw new Error('Use executeDryRun() for dry-run mode instead of executeQueryPipeline()');
+  }
+  const result = await executeQueryPipelineAsync(params, deps);
+  // Type assertion safe since we've excluded dryRun case above
+  return result as MemoryQueryResult;
 }
