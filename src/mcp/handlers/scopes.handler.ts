@@ -28,6 +28,7 @@ import { createValidationError, createNotFoundError } from '../../core/errors.js
 import { createComponentLogger } from '../../utils/logger.js';
 import { findSimilarGroups, consolidate } from '../../services/consolidation.service.js';
 import { generateAndStoreSummary } from '../../services/summary.service.js';
+import { getCorrelationId } from '../../utils/correlation.js';
 
 const logger = createComponentLogger('scopes');
 import type {
@@ -450,6 +451,9 @@ function triggerSessionEndMaintenance(
   projectId: string,
   context: AppContext
 ): void {
+  // Bug #192 fix: Capture correlation ID for async error tracing
+  const correlationId = getCorrelationId();
+
   // Fire-and-forget async maintenance
   setImmediate(async () => {
     try {
@@ -522,8 +526,9 @@ function triggerSessionEndMaintenance(
         }
       }
     } catch (error) {
+      // Bug #192 fix: Include correlation ID for distributed tracing
       logger.error(
-        { projectId, error: error instanceof Error ? error.message : String(error) },
+        { projectId, correlationId, error: error instanceof Error ? error.message : String(error) },
         'Session end maintenance failed'
       );
     }

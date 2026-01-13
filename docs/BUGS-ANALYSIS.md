@@ -262,11 +262,11 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 #### MEDIUM
 | # | Issue | File | Impact |
 |---|-------|------|--------|
-| 192 | Session maintenance no correlation | `scopes.handler.ts:454-530` | Maintenance failures undetected |
+| 192 | Session maintenance no correlation | `scopes.handler.ts:454-530` | Maintenance failures undetected | ✅ FIXED |
 | 193 | Cache set silent errors | `latent-memory.service.ts:448-450` | Silent cache degradation |
 | 194 | Graph truncation no metrics | `graph-traversal.ts:261-270` | Silent data loss | ✅ FIXED |
 | 195 | Audit truncation silent | `audit.service.ts:69-72` | Audit quality degradation |
-| 196 | Missing correlation IDs in fire-and-forget | `fetch.ts:555+`, `stats.service.ts:139` | Broken distributed tracing |
+| 196 | Missing correlation IDs in fire-and-forget | `fetch.ts:555+`, `stats.service.ts:139` | Broken distributed tracing | ✅ FIXED |
 | 197 | Incomplete error context in semantic stage | `semantic.ts:170-208` | Poor error diagnosis |
 
 #### LOW
@@ -311,7 +311,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 | # | Issue | File | Impact | Status |
 |---|-------|------|--------|--------|
 | 212 | ConnectionGuard double-checked locking race | `connection-guard.ts:15-36` | Duplicate Redis connections | ✅ FIXED |
-| 213 | Module-level singleton state race | `container.ts:544` | Health monitor use-after-free | |
+| 213 | Module-level singleton state race | `container.ts:544` | Health monitor use-after-free | ✅ FIXED |
 
 #### MEDIUM
 | # | Issue | File | Impact | Status |
@@ -321,7 +321,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 | 216 | Query cache event listener cleanup race | `query-pipeline.ts:129-137` | Orphaned subscriptions | ✅ FIXED |
 | 217 | Session activity map unbounded growth | `session-timeout.service.ts:57-74` | Slow memory leak | ✅ FIXED |
 | 218 | Health monitor reconnect no mutex | `health.service.ts:196-199` | Connection pool exhaustion | ✅ FIXED |
-| 219 | setInterval without guaranteed cleanup | `session-timeout.service.ts:136` | Dangling timers |
+| 219 | setInterval without guaranteed cleanup | `session-timeout.service.ts:136` | Dangling timers | ✅ FIXED |
 
 #### LOW
 | # | Issue | File | Impact |
@@ -475,7 +475,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 |---|-------|------|--------|--------|
 | 283 | Unbounded session activity map | `session-timeout.service.ts:57` | Memory leak, eventual OOM | ✅ FIXED |
 | 284 | Redis event handlers no cleanup on disconnect | `redis-event.adapter.ts:245-249` | Handler accumulation on reconnect | ✅ FIXED |
-| 285 | Redis cache async fetch no backpressure | `redis-cache.adapter.ts:216-219` | Connection pool exhaustion | |
+| 285 | Redis cache async fetch no backpressure | `redis-cache.adapter.ts:216-219` | Connection pool exhaustion | ✅ FIXED |
 
 #### MEDIUM
 | # | Issue | File | Impact |
@@ -547,7 +547,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 |---|-------|------|--------|
 | 315 | Rate limit headers never parsed | `extraction.service.ts`, `embedding.service.ts` | Sudden 429 errors |
 | 316 | Ollama retry logic incomplete | `extraction.service.ts:1246-1252` | No retry on 500/502/503/504 | ✅ FIXED |
-| 317 | JSON parse returns empty silently | `extraction.service.ts:1331-1347` | Silent data loss |
+| 317 | JSON parse returns empty silently | `extraction.service.ts:1331-1347` | Silent data loss | ✅ FIXED |
 | 318 | No streaming for large extractions | `extraction.service.ts:1051-1063` | Connection pool exhaustion |
 | 319 | Token/context length not validated | `extraction.service.ts:809-810` | Model context overflow |
 

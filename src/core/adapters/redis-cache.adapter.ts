@@ -17,6 +17,8 @@ type RedisOptions = import('ioredis').RedisOptions;
 
 const logger = createComponentLogger('redis-cache');
 const MAX_SCAN_ITERATIONS = 10000;
+// Bug #285 fix: Limit concurrent pending async operations to prevent connection pool exhaustion
+const MAX_PENDING_OPS = 100;
 
 /**
  * Configuration options for Redis cache adapter.
@@ -571,6 +573,16 @@ export class RedisCacheAdapter<T = unknown> implements ICacheAdapter<T> {
     const existing = this.pendingOps.get(fullKey);
     if (existing) {
       await existing;
+      return;
+    }
+
+    // Bug #285 fix: Backpressure - skip new fetches when at capacity
+    // This prevents connection pool exhaustion under high load
+    if (this.pendingOps.size >= MAX_PENDING_OPS) {
+      logger.debug(
+        { pendingCount: this.pendingOps.size, key: fullKey },
+        'Skipping async fetch - at max pending ops capacity'
+      );
       return;
     }
 

@@ -110,6 +110,7 @@ interface ContainerState {
   preparedStatementCache: LRUCache<Database.Statement>;
   healthCheckInterval: NodeJS.Timeout | null;
   healthMonitor: IHealthMonitor | null;
+  healthMonitorCreating: boolean; // Bug #213 fix: mutex flag for health monitor creation
 }
 
 // =============================================================================
@@ -146,6 +147,7 @@ export class Container {
       }),
       healthCheckInterval: null,
       healthMonitor: null,
+      healthMonitorCreating: false, // Bug #213 fix: mutex flag
     };
   }
 
@@ -461,8 +463,16 @@ export class Container {
    * @param factory - Factory function to create the health monitor if it doesn't exist
    */
   getHealthMonitor(factory?: () => IHealthMonitor): IHealthMonitor | null {
-    if (!this.state.healthMonitor && factory) {
-      this.state.healthMonitor = factory();
+    // Bug #213 fix: Use creating flag as mutex to prevent duplicate creation
+    // This handles the race condition where multiple callers see healthMonitor as null
+    // and all try to create it simultaneously
+    if (!this.state.healthMonitor && factory && !this.state.healthMonitorCreating) {
+      this.state.healthMonitorCreating = true;
+      try {
+        this.state.healthMonitor = factory();
+      } finally {
+        this.state.healthMonitorCreating = false;
+      }
     }
     return this.state.healthMonitor;
   }

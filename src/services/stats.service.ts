@@ -11,6 +11,7 @@ import { getSqlite } from '../db/connection.js';
 import { getRuntime, isRuntimeRegistered } from '../core/container.js';
 import type { TableCounts, StatsCache } from '../core/runtime.js';
 import { createComponentLogger } from '../utils/logger.js';
+import { getCorrelationId } from '../utils/correlation.js';
 
 // Re-export types for backward compatibility
 export type { TableCounts, StatsCache };
@@ -135,6 +136,9 @@ function triggerBackgroundRefresh(): void {
 
   cache.isRefreshing = true;
 
+  // Bug #196 fix: Capture correlation ID for async error tracing
+  const correlationId = getCorrelationId();
+
   // Use setImmediate to avoid blocking
   setImmediate(() => {
     try {
@@ -143,7 +147,8 @@ function triggerBackgroundRefresh(): void {
       cache.lastUpdated = Date.now();
       cache.isRefreshing = false;
     } catch (error) {
-      logger.error({ error }, 'Background refresh failed');
+      // Bug #196 fix: Include correlation ID for distributed tracing
+      logger.error({ error, correlationId }, 'Background refresh failed');
       cache.isRefreshing = false;
     }
   });
