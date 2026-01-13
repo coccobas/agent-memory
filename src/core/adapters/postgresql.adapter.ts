@@ -140,6 +140,14 @@ export class PostgreSQLStorageAdapter implements IStorageAdapter {
 
     this.pool = new Pool(poolConfig);
 
+    // Bug #294 fix: Add error handler for pool-level errors (stale connections, etc.)
+    this.pool.on('error', (error: Error) => {
+      logger.error(
+        { error: error.message, stack: error.stack?.split('\n').slice(0, 3).join('\n') },
+        'PostgreSQL pool error - connection may be stale'
+      );
+    });
+
     // Set statement timeout for all connections
     if (this.config.statementTimeoutMs > 0) {
       this.pool.on('connect', (client: PoolClient) => {
