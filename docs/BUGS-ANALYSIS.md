@@ -139,19 +139,19 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 | 23 | HyDE embedding cache stampede | `semantic.ts:79-106` | Duplicate API calls | ✅ FIXED |
 | 24 | Extraction service infinite loop | `extraction.service.ts:150-170` | Hung requests | ✅ FIXED |
 | 25 | LLM summarizer infinite loop | `llm-summarizer.ts:61-79` | Resource exhaustion | ✅ FIXED |
-| 26 | Hardcoded memory multiplier | `semantic.ts:126-127` | OOM on large limits |
+| 26 | Hardcoded memory multiplier | `semantic.ts:126-127` | OOM on large limits | ✅ FIXED |
 | 27 | Vector store init race | `lancedb.ts:151-206` | Both processes fail | ✅ FIXED |
-| 28 | Redis sync/async API confusion | `redis-cache.adapter.ts:200-223` | Always returns undefined |
+| 28 | Redis sync/async API confusion | `redis-cache.adapter.ts:200-223` | Always returns undefined | ✅ FIXED |
 
 ### Correctness
 
 | # | Issue | File | Impact |
 |---|-------|------|--------|
-| 29 | Status override in removeBlocker | `tasks.ts:524-543` | Forced status change |
-| 30 | bulk_add TOCTOU race | `factory.ts:725-751` | Duplicate entries |
-| 31 | Prepared statement cache stale | `connection.ts:136-148` | Schema mismatch |
+| 29 | Status override in removeBlocker | `tasks.ts:524-543` | Forced status change | ✅ FIXED |
+| 30 | bulk_add TOCTOU race | `factory.ts:725-751` | Duplicate entries | ✅ FIXED |
+| 31 | Prepared statement cache stale | `connection.ts:136-148` | Schema mismatch | ✅ FIXED |
 | 32 | JSON parsing no validation | `decomposer.ts:395-410` | Invalid indices | ✅ FIXED |
-| 33 | Scope chain index race | `fetch.ts:194-200` | Wrong sort order |
+| 33 | Scope chain index race | `fetch.ts:194-200` | Wrong sort order | ✅ FIXED |
 
 ---
 
