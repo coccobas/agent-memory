@@ -100,7 +100,8 @@ export class HealthMonitor {
   private checkInterval: NodeJS.Timeout | null = null;
   private lastCheckResult: SystemHealth | null = null;
   private reconnectAttempts = 0;
-  private reconnecting = false;
+  // Bug #351 fix: Use promise-based mutex to prevent concurrent reconnection attempts
+  private reconnectPromise: Promise<void> | null = null;
 
   constructor() {
     this.startTime = Date.now();
@@ -384,10 +385,16 @@ export class HealthMonitor {
 
   /**
    * Attempt to reconnect to the database
+   * Bug #351 fix: Use promise-based mutex to prevent concurrent reconnection
    */
-  private async attemptReconnection(): Promise<void> {
-    if (this.reconnecting || !this.storageAdapter) {
-      return;
+  private attemptReconnection(): Promise<void> {
+    // Return existing promise if reconnection is in progress
+    if (this.reconnectPromise) {
+      return this.reconnectPromise;
+    }
+
+    if (!this.storageAdapter) {
+      return Promise.resolve();
     }
 
     if (this.reconnectAttempts >= config.health.maxReconnectAttempts) {
@@ -395,26 +402,36 @@ export class HealthMonitor {
         { attempts: this.reconnectAttempts },
         'Max reconnection attempts reached, giving up'
       );
-      return;
+      return Promise.resolve();
     }
 
-    this.reconnecting = true;
     this.reconnectAttempts++;
+    this.reconnectPromise = this.doReconnection();
+    return this.reconnectPromise;
+  }
 
-    // Calculate backoff delay
-    const delay = Math.min(
-      config.health.reconnectBaseDelayMs * Math.pow(2, this.reconnectAttempts - 1),
-      config.health.reconnectMaxDelayMs
-    );
-
-    logger.info(
-      { attempt: this.reconnectAttempts, delayMs: delay },
-      'Attempting database reconnection'
-    );
-
-    await new Promise((resolve) => setTimeout(resolve, delay));
-
+  /**
+   * Internal reconnection logic
+   */
+  private async doReconnection(): Promise<void> {
     try {
+      // Calculate backoff delay
+      const delay = Math.min(
+        config.health.reconnectBaseDelayMs * Math.pow(2, this.reconnectAttempts - 1),
+        config.health.reconnectMaxDelayMs
+      );
+
+      logger.info(
+        { attempt: this.reconnectAttempts, delayMs: delay },
+        'Attempting database reconnection'
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, delay));
+
+      if (!this.storageAdapter) {
+        return;
+      }
+
       await this.storageAdapter.connect();
       const healthCheck = await this.storageAdapter.healthCheck();
 
@@ -431,7 +448,8 @@ export class HealthMonitor {
         'Database reconnection failed'
       );
     } finally {
-      this.reconnecting = false;
+      // Bug #351 fix: Clear the promise to allow future reconnection attempts
+      this.reconnectPromise = null;
     }
   }
 
