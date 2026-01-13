@@ -170,7 +170,15 @@ export function resolveScopeChain(
           const project = db.select().from(projects).where(eq(projects.id, projectId)).get();
           if (project?.orgId) {
             pushUnique('org', project.orgId);
+          } else {
+            // Bug #17 fix: Include org scope even if project has no orgId
+            // This ensures consistent inheritance chain: project -> org -> global
+            pushUnique('org', null);
           }
+        } else {
+          // Bug #17 fix: Include org scope when projectId is null
+          // This ensures inheritance doesn't skip the org level
+          pushUnique('org', null);
         }
         pushUnique('global', null);
       }
@@ -192,8 +200,19 @@ export function resolveScopeChain(
             .get();
           if (project?.orgId) {
             pushUnique('org', project.orgId);
+          } else {
+            // Bug #17 fix: Include org scope even if project has no orgId
+            pushUnique('org', null);
           }
+        } else {
+          // Bug #17 fix: Include project and org scope when session has no project
+          pushUnique('project', null);
+          pushUnique('org', null);
         }
+      } else if (inherit) {
+        // Bug #17 fix: Include all scope levels when sessionId is null
+        pushUnique('project', null);
+        pushUnique('org', null);
       }
 
       if (inherit) {

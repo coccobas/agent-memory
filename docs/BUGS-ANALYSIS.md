@@ -125,12 +125,12 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 | 14 | Audit logging silent failures | `audit.service.ts:49-96` | Compliance gaps | |
 | 15 | FTS score MAX vs ADD | `fts.ts:124` | Multi-query broken | ✅ FIXED |
 | 16 | Entity lookup case mismatch | `entity-index.ts:168-217` | Inconsistent retrieval | ✅ FIXED |
-| 17 | Scope chain null lookup | `scope-chain.ts:169` | Wrong inheritance | |
+| 17 | Scope chain null lookup | `scope-chain.ts:169` | Wrong inheritance | ✅ FIXED |
 | 18 | Double TTL check race | `feedback-cache.ts:83-204` | Stale scores | |
 | 19 | Project deletion no cascade | `scopes.ts:310-317` | Orphaned entries | ✅ FIXED |
 | 20 | Organization deletion no cascade | `scopes.ts:164-170` | Orphaned projects | ✅ FIXED |
 | 21 | Circular blocker cycle undetected | `tasks.ts:471-513` | Deadlock state | ✅ FIXED |
-| 22 | Version number race condition | `experiences.ts:644-676` | Duplicate versions | |
+| 22 | Version number race condition | `experiences.ts:644-676` | Duplicate versions | ✅ FIXED |
 
 ### Performance
 
@@ -320,7 +320,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 | 215 | Event handler memory leak (local bus) | `events.ts:54-58` | Steady memory accumulation | ✅ FIXED |
 | 216 | Query cache event listener cleanup race | `query-pipeline.ts:129-137` | Orphaned subscriptions | |
 | 217 | Session activity map unbounded growth | `session-timeout.service.ts:57-74` | Slow memory leak | ✅ FIXED |
-| 218 | Health monitor reconnect no mutex | `health.service.ts:196-199` | Connection pool exhaustion | |
+| 218 | Health monitor reconnect no mutex | `health.service.ts:196-199` | Connection pool exhaustion | ✅ FIXED |
 | 219 | setInterval without guaranteed cleanup | `session-timeout.service.ts:136` | Dangling timers |
 
 #### LOW

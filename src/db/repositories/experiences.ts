@@ -652,37 +652,55 @@ export function createExperienceRepository(deps: DatabaseDeps): IExperienceRepos
         }
 
         // If feedback provided, create a new version with updated confidence
+        // Bug #22 fix: Retry on unique constraint violation (concurrent version creation)
         if (input.feedback) {
-          const latestVersion = db
-            .select()
-            .from(experienceVersions)
-            .where(eq(experienceVersions.experienceId, id))
-            .orderBy(desc(experienceVersions.versionNum))
-            .get();
+          const MAX_VERSION_RETRIES = 3;
+          let versionCreated = false;
 
-          const newVersionNum = (latestVersion?.versionNum ?? 0) + 1;
-          const newVersionId = generateId();
+          for (let versionAttempt = 0; versionAttempt < MAX_VERSION_RETRIES && !versionCreated; versionAttempt++) {
+            const latestVersion = db
+              .select()
+              .from(experienceVersions)
+              .where(eq(experienceVersions.experienceId, id))
+              .orderBy(desc(experienceVersions.versionNum))
+              .get();
 
-          const newVersion: NewExperienceVersion = {
-            id: newVersionId,
-            experienceId: id,
-            versionNum: newVersionNum,
-            content: latestVersion?.content ?? '',
-            scenario: latestVersion?.scenario,
-            outcome: latestVersion?.outcome,
-            pattern: latestVersion?.pattern,
-            applicability: latestVersion?.applicability,
-            contraindications: latestVersion?.contraindications,
-            confidence: newConfidence,
-            source: latestVersion?.source,
-            changeReason: `Outcome recorded: ${input.success ? 'success' : 'failure'}. ${input.feedback}`,
-          };
+            const newVersionNum = (latestVersion?.versionNum ?? 0) + 1;
+            const newVersionId = generateId();
 
-          db.insert(experienceVersions).values(newVersion).run();
-          db.update(experiences)
-            .set({ currentVersionId: newVersionId })
-            .where(eq(experiences.id, id))
-            .run();
+            const newVersion: NewExperienceVersion = {
+              id: newVersionId,
+              experienceId: id,
+              versionNum: newVersionNum,
+              content: latestVersion?.content ?? '',
+              scenario: latestVersion?.scenario,
+              outcome: latestVersion?.outcome,
+              pattern: latestVersion?.pattern,
+              applicability: latestVersion?.applicability,
+              contraindications: latestVersion?.contraindications,
+              confidence: newConfidence,
+              source: latestVersion?.source,
+              changeReason: `Outcome recorded: ${input.success ? 'success' : 'failure'}. ${input.feedback}`,
+            };
+
+            try {
+              db.insert(experienceVersions).values(newVersion).run();
+              db.update(experiences)
+                .set({ currentVersionId: newVersionId })
+                .where(eq(experiences.id, id))
+                .run();
+              versionCreated = true;
+            } catch (error) {
+              // Bug #22 fix: Retry on unique constraint violation
+              const errorMessage = error instanceof Error ? error.message.toLowerCase() : '';
+              if (errorMessage.includes('unique') || errorMessage.includes('constraint')) {
+                // Version number collision - retry with fresh version number
+                continue;
+              }
+              // Non-constraint error - re-throw
+              throw error;
+            }
+          }
         }
 
         return getByIdSync(id);
