@@ -297,7 +297,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 #### LOW
 | # | Issue | File | Impact |
 |---|-------|------|--------|
-| 209 | O(n²) cohesion per community | `similarity.ts:252-266` | Slow cohesion computation |
+| 209 | O(n²) cohesion per community | `similarity.ts:252-266` | Slow cohesion computation | ⚠️ INHERENT - pairwise similarity required |
 | 210 | Duplicate cohesion+detailedCohesion calculation | `leiden.ts:365-367` | Wasteful recalculation | ✅ FIXED - uses avgSimilarity |
 | 211 | Entity index unbounded allRows array | `entity-index.ts:94-108` | Memory spike on bulk ops | ✅ FIXED |
 
@@ -356,14 +356,14 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 #### LOW
 | # | Issue | File | Impact |
 |---|-------|------|--------|
-| 236 | Mean calculation edge case | `math.ts:300-302` | Defensive only |
+| 236 | Mean calculation edge case | `math.ts:300-302` | Defensive only | ✅ ACCEPTABLE - defensive code |
 | 237 | Normalize precision loss | `math.ts:343-344` | Subnormal float issues | ✅ FIXED - Number.isFinite checks |
 | 238 | Cosine NaN/Infinity in vectors | `math.ts:191-193` | Wrong similarity result | ✅ FIXED - NaN/Infinity checks added |
 | 239 | Query index boundary empty | `decomposer.ts:311-420` | Edge case on no entities |
 | 240 | Extract response off-by-one | `extraction.service.ts:154-161` | 1 byte past limit |
 | 241 | Slice with negative bounds | `text-matching.ts:349` | Wrong truncation | ✅ Already safe - constant is positive |
-| 242 | Stream chunk delimiter | `extraction.service.ts:162` | UTF-8 handled by decoder |
-| 243 | Zero vector edge case | `math.ts:212-218` | Guard exists but precision |
+| 242 | Stream chunk delimiter | `extraction.service.ts:162` | UTF-8 handled by decoder | ✅ ALREADY HANDLED |
+| 243 | Zero vector edge case | `math.ts:212-218` | Guard exists but precision | ✅ FIXED - via Bug #238 |
 
 ### 14c. Error Propagation and Recovery (10 issues)
 
@@ -452,12 +452,12 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 | 273 | Unvalidated Number() parsing | `extraction.service.ts:1167-1171` | Extreme timeout values | ✅ FIXED - bounds clamp [1s, 5min] |
 | 274 | Unvalidated parseInt() parsing | `pretooluse-command.ts:37` | Silent decimal truncation | ✅ FIXED - Number.isFinite check |
 | 275 | Type coercion - injection format | `pretooluse-command.ts:31` | Invalid format accepted | ✅ FIXED - validation added |
-| 276 | Unvalidated env var pass-through | `factory/services.ts:101-103` | Silent configuration errors |
-| 277 | No hot reload on env change | `permissions.ts:14-15` | Config changes not reflected |
+| 276 | Unvalidated env var pass-through | `factory/services.ts:101-103` | Silent configuration errors | ⚠️ LOW RISK - env vars at startup |
+| 277 | No hot reload on env change | `permissions.ts:14-15` | Config changes not reflected | ⚠️ BY DESIGN - restart required |
 | 278 | Case-sensitive boolean parsing | `server.ts:114` | Trust proxy fails silently | ✅ FIXED - case-insensitive |
 | 279 | Silent invalid CORS origin drop | `server.ts:73-87` | Security misconfiguration | ✅ FIXED - error level logging |
-| 280 | Custom parser bypasses registry | `database.ts:47-53` | Config coherence gap |
-| 281 | Custom parser bypasses registry | `backup.ts:35-41` | Config coherence gap |
+| 280 | Custom parser bypasses registry | `database.ts:47-53` | Config coherence gap | ⚠️ DOCUMENTED - custom logic needed |
+| 281 | Custom parser bypasses registry | `backup.ts:35-41` | Config coherence gap | ⚠️ DOCUMENTED - custom logic needed |
 
 #### LOW
 | # | Issue | File | Impact |
@@ -493,8 +493,8 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 | # | Issue | File | Impact |
 |---|-------|------|--------|
 | 294 | PostgreSQL pool no error handler | `postgresql.adapter.ts:145-147` | No stale connection visibility | ✅ FIXED - pool error handler |
-| 295 | Fire-and-forget publish no retry | `redis-event.adapter.ts:262-264` | Silent event loss |
-| 296 | Query cache unsubscribe race window | `runtime.ts:197-199` | Millisecond stale cache window |
+| 295 | Fire-and-forget publish no retry | `redis-event.adapter.ts:262-264` | Silent event loss | ⚠️ BY DESIGN - local dispatch first |
+| 296 | Query cache unsubscribe race window | `runtime.ts:197-199` | Millisecond stale cache window | ⚠️ LOW RISK - ms window |
 | 297 | PostgreSQL transaction safe but subtle | `postgresql.adapter.ts:236-294` | Complexity risk | ✅ ACCEPTABLE - well-documented |
 | 298 | Backup DB verification (safe) | `backup.service.ts:84-99` | Actually safe | ✅ VERIFIED SAFE |
 
@@ -527,7 +527,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 #### LOW
 | # | Issue | File | Impact |
 |---|-------|------|--------|
-| 311 | Promise.then batch error propagation | `factory.ts:1045, 1155` | Partial batch failure |
+| 311 | Promise.then batch error propagation | `factory.ts:1045, 1155` | Partial batch failure | ⚠️ LOW RISK - errors collected |
 | 312 | SQLite adapter promise callback escape | `sqlite.adapter.ts:131-139` | Well-guarded, safe | ✅ VERIFIED SAFE |
 
 ---
@@ -567,7 +567,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 | 326 | HyDE fallback not warned | `hyde.ts:222-224` | Degraded quality unnoticed | ✅ Already handled - error logged at level ERROR |
 | 327 | Network error classification broad | `retry.ts:87-99` | Inconsistent retry behavior | ✅ BY DESIGN - broad is correct for retries |
 | 328 | No adaptive backoff for rate limits | `retry.ts:36-59` | Ignores Retry-After header | ✅ FIXED - same as #315 |
-| 329 | Timeout promises not cleaned | Various | Memory accumulation |
+| 329 | Timeout promises not cleaned | Various | Memory accumulation | ✅ MOSTLY FIXED - key areas addressed |
 
 ### 17b. Serialization and Deserialization (8 issues)
 
