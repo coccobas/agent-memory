@@ -274,7 +274,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 |---|-------|------|--------|
 | 198 | Debug log startup silent failures | `logger.ts:32-46` | Debug logs never collected | ✅ FIXED - mkdir + stderr |
 | 199 | Error type loss in generic handler | `rewrite.ts:148-154` | Error classification lost | ✅ FIXED - logs typeof |
-| 200 | Missing metric labels | `metrics.ts:420-435` | Incomplete observability |
+| 200 | Missing metric labels | `metrics.ts:420-435` | Incomplete observability | ✅ FIXED - service label |
 | 201 | Pagination cursor logging insufficient | `resolve.ts:55` | Hard to debug cursor issues | ✅ FIXED - enhanced context |
 
 ### 13c. Algorithm Complexity and Performance (10 issues)
@@ -384,7 +384,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 |---|-------|------|--------|
 | 248 | JSON parse loses stack trace | `extraction.service.ts:1333-1347` | Harder debugging | ✅ FIXED - parseStack added to log |
 | 249 | Graph truncation no fallback signal | `graph-traversal.ts:260-270` | Incomplete results silently |
-| 250 | Feedback queue finally block risk | `queue.ts:365-367` | Worker count inconsistency |
+| 250 | Feedback queue finally block risk | `queue.ts:365-367` | Worker count inconsistency | ✅ FIXED - DLQ try-catch |
 | 251 | Audit fire-and-forget silent | `audit.service.ts:89-94` | Lost audit data |
 | 252 | Backup checkpoint errors ignored | `backup.service.ts:127-129` | Inconsistent backup state | ✅ FIXED - logging added |
 | 253 | Error conversion loses type info | `extraction.service.ts:885-886` | Type/stack trace loss | ✅ FIXED - errorType + stack added |
@@ -636,7 +636,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 |---|-------|------|--------|
 | 354 | Stdin timeout race condition | `stdin.ts:30` | Orphaned timeout callback |
 | 355 | OpenAPI spec stale cache | `routes/v1.ts:8-24` | Stale API spec |
-| 356 | Config reload partial failure hidden | `config-reload.ts:378-388` | Misleading success status |
+| 356 | Config reload partial failure hidden | `config-reload.ts:378-388` | Misleading success status | ✅ FIXED - errors tracked |
 
 ---
 
