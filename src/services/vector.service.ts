@@ -214,7 +214,9 @@ export class VectorService implements IVectorService {
 
       // Remove old versions (keep current)
       // Can be disabled for benchmarks or debugging with AGENT_MEMORY_VECTOR_SKIP_DELETE_ON_STORE=true.
-      if (process.env.AGENT_MEMORY_VECTOR_SKIP_DELETE_ON_STORE !== 'true') {
+      // Bug #282 fix: Case-insensitive boolean check
+      const skipDelete = ['true', '1', 'yes'].includes((process.env.AGENT_MEMORY_VECTOR_SKIP_DELETE_ON_STORE ?? '').toLowerCase());
+      if (!skipDelete) {
         await this.store.delete({
           entryType,
           entryId,

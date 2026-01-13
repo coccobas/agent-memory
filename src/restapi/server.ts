@@ -111,7 +111,8 @@ export async function createServer(context: AppContext): Promise<FastifyInstance
     bodyLimit: config.rest.bodyLimit,
     connectionTimeout: 30000, // 30 second connection timeout
     requestTimeout: 60000, // 60 second request timeout to prevent resource exhaustion
-    trustProxy: process.env.AGENT_MEMORY_REST_TRUST_PROXY === 'true', // Enable trustProxy to use Fastify's built-in IP parsing (HIGH-001 fix)
+    // Bug #278 fix: Case-insensitive boolean parsing for trustProxy
+    trustProxy: ['true', '1', 'yes'].includes((process.env.AGENT_MEMORY_REST_TRUST_PROXY ?? '').toLowerCase()), // Enable trustProxy to use Fastify's built-in IP parsing (HIGH-001 fix)
   });
 
   // Register CORS plugin early, before other plugins and routes

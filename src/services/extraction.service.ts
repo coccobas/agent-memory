@@ -1269,10 +1269,11 @@ export class ExtractionService {
         // Security: Validate URL scheme (allow private IPs since Ollama is typically local)
         validateExternalUrl(url, true /* allowPrivate - Ollama is typically localhost */);
 
+        // Bug #273 fix: Add bounds validation for timeout (min 1s, max 5 min)
         const timeoutMsRaw = process.env.AGENT_MEMORY_OLLAMA_TIMEOUT_MS;
         const timeoutMs =
           timeoutMsRaw && !Number.isNaN(Number(timeoutMsRaw))
-            ? Math.max(1000, Number(timeoutMsRaw))
+            ? Math.min(300000, Math.max(1000, Number(timeoutMsRaw))) // Clamp to [1s, 5min]
             : 30000;
 
         const abortController = new AbortController();
