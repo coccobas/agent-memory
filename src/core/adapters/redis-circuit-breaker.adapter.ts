@@ -250,10 +250,13 @@ export class RedisCircuitBreakerAdapter implements ICircuitBreakerStateAdapter {
     this.keyPrefix = config.keyPrefix ?? 'agentmem:cb:';
     this.stateTTLMs = config.stateTTLMs ?? 300000; // 5 minutes default
 
-    // Get fail mode from config or environment variable
-    this.failMode = config.failMode ??
-      (process.env.AGENT_MEMORY_CB_FAIL_MODE as RedisCircuitBreakerFailMode) ??
-      'local-fallback';
+    // Bug #272 fix: Validate fail mode instead of unsafe type assertion
+    const envFailMode = process.env.AGENT_MEMORY_CB_FAIL_MODE;
+    const validFailModes = ['local-fallback', 'closed', 'open'] as const;
+    const validatedEnvMode = envFailMode && validFailModes.includes(envFailMode as RedisCircuitBreakerFailMode)
+      ? (envFailMode as RedisCircuitBreakerFailMode)
+      : undefined;
+    this.failMode = config.failMode ?? validatedEnvMode ?? 'local-fallback';
 
     // Initialize local fallback if needed
     if (this.failMode === 'local-fallback') {

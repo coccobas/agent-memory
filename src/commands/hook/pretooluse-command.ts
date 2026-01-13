@@ -28,13 +28,26 @@ export interface PreToolUseConfig {
  */
 function getConfig(overrides?: Partial<PreToolUseConfig>): PreToolUseConfig {
   const envInjectContext = process.env.AGENT_MEMORY_INJECT_CONTEXT;
-  const envContextFormat = process.env.AGENT_MEMORY_CONTEXT_FORMAT as InjectionFormat | undefined;
+  const envContextFormat = process.env.AGENT_MEMORY_CONTEXT_FORMAT;
   const envContextMaxEntries = process.env.AGENT_MEMORY_CONTEXT_MAX_ENTRIES;
+
+  // Bug #275 fix: Validate format instead of unsafe type assertion
+  const validFormats = ['markdown', 'json', 'natural_language'] as const;
+  const validatedFormat = envContextFormat && validFormats.includes(envContextFormat as InjectionFormat)
+    ? (envContextFormat as InjectionFormat)
+    : undefined;
+
+  // Bug #274 fix: Validate parseInt result to handle NaN and decimals
+  let parsedMaxEntries: number | undefined;
+  if (envContextMaxEntries) {
+    const parsed = parseInt(envContextMaxEntries, 10);
+    parsedMaxEntries = Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+  }
 
   return {
     injectContext: overrides?.injectContext ?? (envInjectContext !== 'false' && envInjectContext !== '0'),
-    contextFormat: overrides?.contextFormat ?? envContextFormat ?? 'markdown',
-    contextMaxEntries: overrides?.contextMaxEntries ?? (envContextMaxEntries ? parseInt(envContextMaxEntries, 10) : 5),
+    contextFormat: overrides?.contextFormat ?? validatedFormat ?? 'markdown',
+    contextMaxEntries: overrides?.contextMaxEntries ?? parsedMaxEntries ?? 5,
     contextToStdout: overrides?.contextToStdout ?? true,
     contextToStderr: overrides?.contextToStderr ?? true,
   };

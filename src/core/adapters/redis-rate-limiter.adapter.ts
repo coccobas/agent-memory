@@ -201,10 +201,13 @@ export class RedisRateLimiterAdapter implements IRateLimiterAdapter {
     // Calculate refill rate (tokens per millisecond)
     this.refillRate = this.maxRequests / this.windowMs;
 
-    // Get fail mode from config or environment variable
-    this.failMode = config.failMode ??
-      (process.env.AGENT_MEMORY_RATE_LIMIT_FAIL_MODE as RedisFailMode) ??
-      'local-fallback';
+    // Bug #271 fix: Validate fail mode instead of unsafe type assertion
+    const envFailMode = process.env.AGENT_MEMORY_RATE_LIMIT_FAIL_MODE;
+    const validFailModes = ['local-fallback', 'closed', 'open'] as const;
+    const validatedEnvMode = envFailMode && validFailModes.includes(envFailMode as RedisFailMode)
+      ? (envFailMode as RedisFailMode)
+      : undefined;
+    this.failMode = config.failMode ?? validatedEnvMode ?? 'local-fallback';
 
     // Initialize local fallback if needed
     if (this.failMode === 'local-fallback') {

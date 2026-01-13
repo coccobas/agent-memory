@@ -4,7 +4,7 @@
  * Provides efficient batch tag fetching for memory entries.
  */
 
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, or } from 'drizzle-orm';
 import type { DbClient } from '../../db/connection.js';
 import { tags, entryTags, type Tag } from '../../db/schema.js';
 
@@ -74,20 +74,24 @@ export function getTagsForEntriesBatch(
 
   if (allEntryIds.length === 0) return {};
 
-  // Build OR conditions for all entry types
-  // We need to query where (entryType, entryId) matches any of our entries
-  // Using a single IN clause on entryId and filtering by matching types
-  const entryTagRows = db
+  // Bug #206 fix: Build OR conditions to push filtering into SQL
+  // Instead of fetching all by entryId and filtering in JS, build proper WHERE clause
+  // Each entry type gets its own (entryType = X AND entryId IN (...)) condition
+  const typeConditions = [];
+  for (const [entryType, entryIds] of entriesByType) {
+    if (entryIds.length > 0) {
+      typeConditions.push(and(eq(entryTags.entryType, entryType), inArray(entryTags.entryId, entryIds)));
+    }
+  }
+
+  if (typeConditions.length === 0) return {};
+
+  // Single query with proper OR conditions - only fetches matching rows
+  const filteredRows = db
     .select()
     .from(entryTags)
-    .where(inArray(entryTags.entryId, allEntryIds))
+    .where(typeConditions.length === 1 ? typeConditions[0] : or(...typeConditions))
     .all();
-
-  // Filter to only include rows where entryType matches what we expect
-  const filteredRows = entryTagRows.filter((row) => {
-    const expectedType = entryTypeMap.get(row.entryId);
-    return expectedType === row.entryType;
-  });
 
   if (filteredRows.length === 0) return {};
 
