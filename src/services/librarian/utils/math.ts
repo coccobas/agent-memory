@@ -347,10 +347,18 @@ export function weightedMean(values: number[], weights: number[]): number {
 
 /**
  * Normalize a value to a 0-1 range given min and max bounds
+ * Bug #237 fix: Handle NaN/Infinity from subnormal float operations
  */
 export function normalize(value: number, min: number, max: number): number {
   if (max === min) return 0.5;
-  return Math.max(0, Math.min(1, (value - min) / (max - min)));
+  // Bug #237 fix: Check for invalid inputs that could cause precision issues
+  if (!Number.isFinite(value) || !Number.isFinite(min) || !Number.isFinite(max)) {
+    return 0.5; // Safe default for invalid inputs
+  }
+  const result = (value - min) / (max - min);
+  // Ensure result is finite and within bounds
+  if (!Number.isFinite(result)) return 0.5;
+  return Math.max(0, Math.min(1, result));
 }
 
 /**
