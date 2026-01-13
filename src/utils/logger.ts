@@ -9,7 +9,7 @@
  */
 
 import pino from 'pino';
-import { appendFile } from 'node:fs/promises';
+import { appendFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { isMcpServerMode } from './runtime.js';
 import { sanitizeForLogging } from './sanitize.js';
@@ -40,10 +40,14 @@ if (DEBUG_ENABLED && !isTest) {
       argv1: process.argv[1],
       platform: process.platform,
     }) + '\n';
+  // Bug #198 fix: Ensure log directory exists before writing
   // Fire-and-forget async write - don't block startup
-  appendFile(debugLogPath, logEntry).catch(() => {
-    // Ignore debug log errors - directory may not exist yet
-  });
+  mkdir(logDir, { recursive: true })
+    .then(() => appendFile(debugLogPath, logEntry))
+    .catch((err) => {
+      // Log to stderr as last resort since our logger isn't set up yet
+      process.stderr.write(`[agent-memory] Debug log failed: ${err instanceof Error ? err.message : String(err)}\n`);
+    });
 }
 
 /**
