@@ -383,9 +383,9 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 | # | Issue | File | Impact |
 |---|-------|------|--------|
 | 248 | JSON parse loses stack trace | `extraction.service.ts:1333-1347` | Harder debugging | ✅ FIXED - parseStack added to log |
-| 249 | Graph truncation no fallback signal | `graph-traversal.ts:260-270` | Incomplete results silently |
+| 249 | Graph truncation no fallback signal | `graph-traversal.ts:260-270` | Incomplete results silently | ✅ FIXED - via Bug #194 (WARN log) |
 | 250 | Feedback queue finally block risk | `queue.ts:365-367` | Worker count inconsistency | ✅ FIXED - DLQ try-catch |
-| 251 | Audit fire-and-forget silent | `audit.service.ts:89-94` | Lost audit data |
+| 251 | Audit fire-and-forget silent | `audit.service.ts:89-94` | Lost audit data | ✅ FIXED - via Bug #189 (WARN log) |
 | 252 | Backup checkpoint errors ignored | `backup.service.ts:127-129` | Inconsistent backup state | ✅ FIXED - logging added |
 | 253 | Error conversion loses type info | `extraction.service.ts:885-886` | Type/stack trace loss | ✅ FIXED - errorType + stack added |
 
