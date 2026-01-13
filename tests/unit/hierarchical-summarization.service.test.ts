@@ -9,6 +9,40 @@ import type {
   HierarchicalSummarizationConfig,
 } from '../../src/services/summarization/types.js';
 
+/**
+ * Creates a chainable mock DB that supports Drizzle ORM query patterns
+ */
+function createMockDb() {
+  const chainableMock: any = {
+    select: vi.fn(),
+    insert: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+    from: vi.fn(),
+    where: vi.fn(),
+    values: vi.fn(),
+    set: vi.fn(),
+    returning: vi.fn(),
+    get: vi.fn(),
+    all: vi.fn(),
+    run: vi.fn(),
+  };
+  // Make methods chainable
+  chainableMock.select.mockReturnValue(chainableMock);
+  chainableMock.insert.mockReturnValue(chainableMock);
+  chainableMock.update.mockReturnValue(chainableMock);
+  chainableMock.delete.mockReturnValue(chainableMock);
+  chainableMock.from.mockReturnValue(chainableMock);
+  chainableMock.where.mockReturnValue(chainableMock);
+  chainableMock.values.mockReturnValue(chainableMock);
+  chainableMock.set.mockReturnValue(chainableMock);
+  chainableMock.returning.mockReturnValue(chainableMock);
+  chainableMock.get.mockReturnValue(undefined);
+  chainableMock.all.mockReturnValue([]);
+  chainableMock.run.mockReturnValue({ changes: 0 });
+  return chainableMock;
+}
+
 describe('Hierarchical Summarization Service', () => {
   let service: HierarchicalSummarizationService;
   let mockDb: AppDb;
@@ -17,8 +51,8 @@ describe('Hierarchical Summarization Service', () => {
   let mockVectorService: IVectorService;
 
   beforeEach(() => {
-    // Create mock dependencies
-    mockDb = {} as AppDb;
+    // Create mock dependencies with chainable Drizzle ORM methods
+    mockDb = createMockDb() as unknown as AppDb;
 
     mockEmbeddingService = {
       isAvailable: vi.fn().mockReturnValue(true),
@@ -883,7 +917,8 @@ describe('Hierarchical Summarization Service', () => {
       const result = await summarizeCommunity(request);
 
       expect(result.summary).toBeDefined();
-      expect(result.summary.id).toBe('placeholder-summary-id');
+      // Summary now generates a real UUID instead of 'placeholder-summary-id'
+      expect(result.summary.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
       expect(result.summary.hierarchyLevel).toBe(1);
       expect(result.summary.memberIds).toEqual(['e1', 'e2']);
       expect(result.summary.memberCount).toBe(2);

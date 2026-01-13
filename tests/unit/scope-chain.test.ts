@@ -4,6 +4,12 @@ import * as connection from '../../src/db/connection.js';
 
 vi.mock('../../src/db/connection.js');
 
+// Valid UUIDs for testing (Task 4 added UUID validation)
+// UUID format requires version (1-5 at position 15) and variant (8/9/a/b at position 20)
+const TEST_PROJECT_1 = '00000000-0000-4000-8000-000000000001';
+const TEST_PROJECT_2 = '00000000-0000-4000-8000-000000000002';
+const TEST_ORG_1 = '00000000-0000-4000-8000-000000000010';
+
 describe('Scope Chain Caching', () => {
   // defined mutable mock object
   const mockDb: any = {
@@ -31,16 +37,16 @@ describe('Scope Chain Caching', () => {
 
   it('should cache resolved scope chain', () => {
     // Setup mock for project lookup
-    mockDb.get.mockReturnValue({ orgId: 'org-1' });
+    mockDb.get.mockReturnValue({ orgId: TEST_ORG_1 });
 
-    const input = { type: 'project' as const, id: 'proj-1', inherit: true };
+    const input = { type: 'project' as const, id: TEST_PROJECT_1, inherit: true };
 
     // First call - should hit DB
     const result1 = resolveScopeChain(input, mockDb);
     expect(mockDb.get).toHaveBeenCalledTimes(1);
     expect(result1).toEqual([
-      { scopeType: 'project', scopeId: 'proj-1' },
-      { scopeType: 'org', scopeId: 'org-1' },
+      { scopeType: 'project', scopeId: TEST_PROJECT_1 },
+      { scopeType: 'org', scopeId: TEST_ORG_1 },
       { scopeType: 'global', scopeId: null },
     ]);
 
@@ -53,28 +59,28 @@ describe('Scope Chain Caching', () => {
   });
 
   it('should invalidate cache', () => {
-    mockDb.get.mockReturnValue({ orgId: 'org-1' });
+    mockDb.get.mockReturnValue({ orgId: TEST_ORG_1 });
 
-    const input = { type: 'project' as const, id: 'proj-1', inherit: true };
+    const input = { type: 'project' as const, id: TEST_PROJECT_1, inherit: true };
 
     resolveScopeChain(input, mockDb);
     mockDb.get.mockClear();
 
-    invalidateScopeChainCache('project', 'proj-1');
+    invalidateScopeChainCache('project', TEST_PROJECT_1);
 
     resolveScopeChain(input, mockDb);
     expect(mockDb.get).toHaveBeenCalled();
   });
 
   it('should handle different inputs separately', () => {
-    mockDb.get.mockReturnValue({ orgId: 'org-1' });
+    mockDb.get.mockReturnValue({ orgId: TEST_ORG_1 });
 
     // Cache project 1
-    resolveScopeChain({ type: 'project', id: 'proj-1' }, mockDb);
+    resolveScopeChain({ type: 'project', id: TEST_PROJECT_1 }, mockDb);
     mockDb.get.mockClear();
 
     // Cache project 2 (different key)
-    resolveScopeChain({ type: 'project', id: 'proj-2' }, mockDb);
+    resolveScopeChain({ type: 'project', id: TEST_PROJECT_2 }, mockDb);
     expect(mockDb.get).toHaveBeenCalled();
   });
 });

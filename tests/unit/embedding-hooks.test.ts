@@ -255,7 +255,8 @@ describe('Embedding Hooks', () => {
       // Wait for async processing
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      expect(mockPipeline.embed).toHaveBeenCalledWith('Test tool');
+      // embed is now called with text and contentType 'document'
+      expect(mockPipeline.embed).toHaveBeenCalledWith('Test tool', 'document');
     });
 
     it('should track failed jobs for retry', async () => {

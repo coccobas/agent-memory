@@ -52,6 +52,24 @@ async function executeMemoryQuery(
   return executeQueryPipeline(params, createTestQueryDeps()) as Promise<MemoryQueryResult>;
 }
 
+// Valid UUIDs for testing (Task 4 added UUID validation)
+// UUID format requires version (1-5 at position 15) and variant (8/9/a/b at position 20)
+const TEST_ORG_1 = '00000001-0000-4000-8000-000000000001';
+const TEST_PROJECT_1 = '00000002-0000-4000-8000-000000000001';
+const TEST_SESSION_1 = '00000003-0000-4000-8000-000000000001';
+const TEST_PROJECT_QUERY = '00000002-0000-4000-8000-000000000002';
+const TEST_SESSION_QUERY = '00000003-0000-4000-8000-000000000002';
+const TEST_GUIDE_GLOBAL = '00000004-0000-4000-8000-000000000001';
+const TEST_GUIDE_PROJECT = '00000004-0000-4000-8000-000000000002';
+const TEST_GUIDE_SESSION = '00000004-0000-4000-8000-000000000003';
+const TEST_GV_GLOBAL = '00000005-0000-4000-8000-000000000001';
+const TEST_GV_PROJECT = '00000005-0000-4000-8000-000000000002';
+const TEST_GV_SESSION = '00000005-0000-4000-8000-000000000003';
+const TEST_PROJECT_CACHE = '00000002-0000-4000-8000-000000000003';
+const TEST_SESSION_CACHE = '00000003-0000-4000-8000-000000000003';
+const TEST_GUIDE_CACHE_PROJECT = '00000004-0000-4000-8000-000000000004';
+const TEST_GV_CACHE_PROJECT = '00000005-0000-4000-8000-000000000004';
+
 describe('query.service', () => {
   let unsubscribeCacheInvalidation: (() => void) | undefined;
   let testEventAdapter: ReturnType<typeof createLocalEventAdapter>;
@@ -142,10 +160,10 @@ describe('query.service', () => {
   });
 
   it('resolves scope inheritance chain for session → project → org → global', () => {
-    // Create org, project, session
-    const orgId = 'org-test';
-    const projectId = 'proj-test';
-    const sessionId = 'sess-test';
+    // Create org, project, session using valid UUIDs
+    const orgId = TEST_ORG_1;
+    const projectId = TEST_PROJECT_1;
+    const sessionId = TEST_SESSION_1;
 
     db.insert(schema.organizations)
       .values({
@@ -189,8 +207,8 @@ describe('query.service', () => {
   });
 
   it('returns guidelines ranked and filtered by scope and tags', async () => {
-    const projectId = 'proj-query';
-    const sessionId = 'sess-query';
+    const projectId = TEST_PROJECT_QUERY;
+    const sessionId = TEST_SESSION_QUERY;
 
     db.insert(schema.projects)
       .values({
@@ -211,7 +229,7 @@ describe('query.service', () => {
     // Global guideline
     db.insert(schema.guidelines)
       .values({
-        id: 'guide-global',
+        id: TEST_GUIDE_GLOBAL,
         scopeType: 'global',
         name: 'global_guideline',
         priority: 50,
@@ -221,8 +239,8 @@ describe('query.service', () => {
 
     db.insert(schema.guidelineVersions)
       .values({
-        id: 'gv-global-1',
-        guidelineId: 'guide-global',
+        id: TEST_GV_GLOBAL,
+        guidelineId: TEST_GUIDE_GLOBAL,
         versionNum: 1,
         content: 'Global content',
       })
@@ -231,7 +249,7 @@ describe('query.service', () => {
     // Project guideline with higher priority
     db.insert(schema.guidelines)
       .values({
-        id: 'guide-project',
+        id: TEST_GUIDE_PROJECT,
         scopeType: 'project',
         scopeId: projectId,
         name: 'project_guideline',
@@ -243,8 +261,8 @@ describe('query.service', () => {
 
     db.insert(schema.guidelineVersions)
       .values({
-        id: 'gv-project-1',
-        guidelineId: 'guide-project',
+        id: TEST_GV_PROJECT,
+        guidelineId: TEST_GUIDE_PROJECT,
         versionNum: 1,
         content: 'Project-specific content about authentication',
       })
@@ -264,7 +282,7 @@ describe('query.service', () => {
       .values({
         id: 'et-guide-project-security',
         entryType: 'guideline',
-        entryId: 'guide-project',
+        entryId: TEST_GUIDE_PROJECT,
         tagId: 'tag-security',
       })
       .run();
@@ -514,8 +532,8 @@ describe('query.service', () => {
     });
 
     it('invalidates session-scoped pipeline cache when a project entry changes (inheritance)', async () => {
-      const projectId = 'proj-cache-invalidation';
-      const sessionId = 'sess-cache-invalidation';
+      const projectId = TEST_PROJECT_CACHE;
+      const sessionId = TEST_SESSION_CACHE;
 
       db.insert(schema.projects)
         .values({
@@ -536,7 +554,7 @@ describe('query.service', () => {
       // Project guideline
       db.insert(schema.guidelines)
         .values({
-          id: 'guide-cache-project',
+          id: TEST_GUIDE_CACHE_PROJECT,
           scopeType: 'project',
           scopeId: projectId,
           name: 'cache_project_guideline',
@@ -547,8 +565,8 @@ describe('query.service', () => {
 
       db.insert(schema.guidelineVersions)
         .values({
-          id: 'gv-cache-project-1',
-          guidelineId: 'guide-cache-project',
+          id: TEST_GV_CACHE_PROJECT,
+          guidelineId: TEST_GUIDE_CACHE_PROJECT,
           versionNum: 1,
           content: 'Project cache guideline content',
         })
@@ -566,7 +584,7 @@ describe('query.service', () => {
       // Emit a project-scoped change; session queries inheriting from project must be invalidated.
       testEventAdapter.emit({
         entryType: 'guideline',
-        entryId: 'guide-cache-project',
+        entryId: TEST_GUIDE_CACHE_PROJECT,
         scopeType: 'project',
         scopeId: projectId,
         action: 'update',

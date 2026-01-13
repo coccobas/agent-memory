@@ -208,7 +208,7 @@ describe('semanticStageAsync', () => {
         embed: vi.fn().mockRejectedValue(new Error('Embedding failed')),
       };
 
-      const mockLogger = { debug: vi.fn() };
+      const mockLogger = { debug: vi.fn(), warn: vi.fn() };
 
       const ctx = createContext({
         search: 'test query',
@@ -225,7 +225,8 @@ describe('semanticStageAsync', () => {
 
       // Should return original context without crashing
       expect(result).toBe(ctx);
-      expect(mockLogger.debug).toHaveBeenCalledWith(
+      // Unexpected errors (non-embedding failures) use warn level
+      expect(mockLogger.warn).toHaveBeenCalledWith(
         expect.objectContaining({ error: 'Embedding failed' }),
         expect.stringContaining('failed')
       );
@@ -237,7 +238,7 @@ describe('semanticStageAsync', () => {
         embed: vi.fn().mockRejectedValue('String error'),
       };
 
-      const mockLogger = { debug: vi.fn() };
+      const mockLogger = { debug: vi.fn(), warn: vi.fn() };
 
       const ctx = createContext({
         search: 'test query',

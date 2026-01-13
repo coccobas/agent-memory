@@ -413,7 +413,8 @@ describe('Error Mapper', () => {
       const result = mapError(error);
 
       expect(result.code).toBe(ErrorCodes.INTERNAL_ERROR);
-      expect(result.details).toBe(context);
+      // Use toStrictEqual for deep object comparison (circular reference preserved)
+      expect(result.details).toStrictEqual(context);
     });
   });
 
