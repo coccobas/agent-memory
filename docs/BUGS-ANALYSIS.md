@@ -230,7 +230,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 |---|-------|------|--------|
 | 180 | Type assertion without validation | `memory_context.ts:28` | Wrong action executes silently | ✅ FIXED |
 | 181 | Audit logging silent failures (fire-and-forget) | `audit.service.ts:50-95` | Critical audit gaps |
-| 182 | Query handler lost correlation | `query.handler.ts:177-182` | Untraceable async errors |
+| 182 | Query handler lost correlation | `query.handler.ts:177-182` | Untraceable async errors | ✅ FIXED |
 
 #### MEDIUM
 | # | Issue | File | Impact |
@@ -375,7 +375,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 #### HIGH
 | # | Issue | File | Impact |
 |---|-------|------|--------|
-| 245 | Extraction partial retry masks error | `extraction.service.ts:920-939` | Data loss - empty result |
+| 245 | Extraction partial retry masks error | `extraction.service.ts:920-939` | Data loss - empty result | ✅ FIXED |
 | 246 | Batch promises error collection delay | `extraction.service.ts:1001-1023` | Unreported batch failures |
 | 247 | Subquery timeout not propagated | `executor.ts:180+` | Silent query degradation |
 
@@ -422,7 +422,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 #### HIGH
 | # | Issue | File | Impact |
 |---|-------|------|--------|
-| 264 | N+1 query pattern in graph nodes | `node.repository.ts:270-290` | O(N) queries per page |
+| 264 | N+1 query pattern in graph nodes | `node.repository.ts:270-290` | O(N) queries per page | ✅ FIXED |
 
 #### MEDIUM
 | # | Issue | File | Impact | Status |

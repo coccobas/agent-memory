@@ -5,7 +5,7 @@
  * Factory function that accepts DatabaseDeps for dependency injection.
  */
 
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { eq, and, desc, sql, inArray } from 'drizzle-orm';
 import { transactionWithRetry } from '../../connection.js';
 import {
   nodes,
@@ -266,28 +266,49 @@ export function createNodeRepository(deps: DatabaseDeps): INodeRepository {
               .offset(offset)
               .all();
 
-      // Fetch node types and versions
-      return results.map((node) => {
-        const nodeType = db
-          .select()
+      // Bug #264 fix: Batch fetch node types and versions to avoid N+1 query pattern
+      if (results.length === 0) {
+        return [];
+      }
+
+      // Collect unique IDs for batch queries
+      const nodeTypeIds = [...new Set(results.map((n) => n.nodeTypeId))];
+      const versionIds = results
+        .map((n) => n.currentVersionId)
+        .filter((id): id is string => id !== null);
+
+      // Batch fetch node types (1 query instead of N)
+      const nodeTypeMap = new Map<string, string>();
+      if (nodeTypeIds.length > 0) {
+        const types = db
+          .select({ id: nodeTypes.id, name: nodeTypes.name })
           .from(nodeTypes)
-          .where(eq(nodeTypes.id, node.nodeTypeId))
-          .get();
+          .where(inArray(nodeTypes.id, nodeTypeIds))
+          .all();
+        for (const t of types) {
+          nodeTypeMap.set(t.id, t.name);
+        }
+      }
 
-        const currentVersion = node.currentVersionId
-          ? db
-              .select()
-              .from(nodeVersions)
-              .where(eq(nodeVersions.id, node.currentVersionId))
-              .get()
-          : undefined;
+      // Batch fetch versions (1 query instead of N)
+      const versionMap = new Map<string, typeof nodeVersions.$inferSelect>();
+      if (versionIds.length > 0) {
+        const versions = db
+          .select()
+          .from(nodeVersions)
+          .where(inArray(nodeVersions.id, versionIds))
+          .all();
+        for (const v of versions) {
+          versionMap.set(v.id, v);
+        }
+      }
 
-        return {
-          ...node,
-          nodeTypeName: nodeType?.name ?? 'unknown',
-          currentVersion,
-        };
-      });
+      // Map results with pre-fetched data
+      return results.map((node) => ({
+        ...node,
+        nodeTypeName: nodeTypeMap.get(node.nodeTypeId) ?? 'unknown',
+        currentVersion: node.currentVersionId ? versionMap.get(node.currentVersionId) : undefined,
+      }));
     },
 
     async update(

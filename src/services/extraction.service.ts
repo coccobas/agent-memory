@@ -937,12 +937,21 @@ export class ExtractionService {
 
           return partialResult;
         } catch (retryError) {
-          logger.warn(
-            { retryError: retryError instanceof Error ? retryError.message : String(retryError) },
-            'Partial retry also failed, returning empty partial result'
+          const retryErrorMessage = retryError instanceof Error ? retryError.message : String(retryError);
+          // Bug #245 fix: Log at error level when both extraction and retry fail
+          // This ensures visibility into data loss scenarios
+          logger.error(
+            {
+              provider: this.provider,
+              originalError: errorMessage,
+              retryError: retryErrorMessage,
+              contextLength: input.context.length,
+            },
+            'Both extraction and partial retry failed - DATA LOSS: returning empty result'
           );
 
           // Return empty partial result instead of throwing
+          // Bug #245 fix: Include both error messages for debugging
           return {
             entries: [],
             entities: [],
@@ -953,7 +962,7 @@ export class ExtractionService {
             provider: this.provider,
             processingTimeMs: Date.now() - startTime,
             partial: true,
-            partialError: `Extraction failed: ${errorMessage}. Partial retry also failed.`,
+            partialError: `Extraction failed: ${errorMessage}. Partial retry also failed: ${retryErrorMessage}`,
           };
         }
       }

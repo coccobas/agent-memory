@@ -29,6 +29,7 @@ import {
 } from '../../utils/type-guards.js';
 import { formatTimestamps } from '../../utils/timestamp-formatter.js';
 import { createPermissionError, createValidationError } from '../../core/errors.js';
+import { getCorrelationId } from '../../utils/correlation.js';
 
 const queryTypeToEntryType = {
   tools: 'tool',
@@ -173,12 +174,15 @@ export const queryHandlers = {
     // Auto-link results to conversation if conversationId provided (fire-and-forget)
     if (conversationId && autoLinkContext !== false) {
       const conversationService = createConversationService(context.repos.conversations);
+      // Bug #182 fix: Capture correlation ID for async error tracing
+      const correlationId = getCorrelationId();
       // Use void + .catch() pattern to properly handle async errors without blocking
       void conversationService
         .autoLinkContextFromQuery(conversationId, messageId, result)
         .catch((error) => {
           // Log error but don't break the query response (non-critical operation)
-          logger.debug({ error, conversationId }, 'Auto-link context failed (non-critical)');
+          // Bug #182 fix: Include correlation ID for distributed tracing
+          logger.debug({ error, conversationId, correlationId }, 'Auto-link context failed (non-critical)');
         });
     }
 
