@@ -233,6 +233,28 @@ export class EmbeddingService {
     // Initialize LM Studio client if using lmstudio
     if (this.provider === 'lmstudio') {
       const baseUrl = effectiveConfig.lmStudioBaseUrl ?? 'http://localhost:1234/v1';
+
+      // Bug #325 fix: Validate LM Studio URL to prevent data exfiltration
+      // Only allow localhost and private network addresses
+      try {
+        const parsedUrl = new URL(baseUrl);
+        const hostname = parsedUrl.hostname.toLowerCase();
+        const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+        const isPrivateNetwork =
+          hostname.startsWith('10.') ||
+          hostname.startsWith('192.168.') ||
+          /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(hostname);
+
+        if (!isLocalhost && !isPrivateNetwork) {
+          logger.warn(
+            { baseUrl, hostname },
+            'LM Studio URL points to external network - this may expose embeddings to untrusted servers'
+          );
+        }
+      } catch {
+        logger.warn({ baseUrl }, 'Invalid LM Studio URL format');
+      }
+
       logger.info({ baseUrl, model: this.lmStudioModel }, 'Initializing LM Studio embedding client');
       this.lmStudioClient = new OpenAI({
         baseURL: baseUrl,

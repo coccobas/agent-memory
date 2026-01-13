@@ -1155,9 +1155,13 @@ export class ExtractionService {
           ...(config.extraction.openaiReasoningEffort ? { reasoning_effort: config.extraction.openaiReasoningEffort } : {}),
         });
 
+        // Bug #322 fix: Detect empty choices array specifically for clearer error message
+        if (!response.choices || response.choices.length === 0) {
+          throw createExtractionError('openai', 'empty choices array in response - model may have refused to respond');
+        }
         const content = response.choices[0]?.message?.content;
         if (!content) {
-          throw createExtractionError('openai', 'no content returned in response');
+          throw createExtractionError('openai', 'no content in message - response was empty');
         }
 
         const parsed = this.parseExtractionResponse(content);

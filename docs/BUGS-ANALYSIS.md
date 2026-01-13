@@ -556,10 +556,10 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 |---|-------|------|--------|
 | 320 | LM Studio dimension race condition | `embedding.service.ts:589-591` | Dimension inconsistency |
 | 321 | Cross-encoder score range not validated | `cross-encoder-rerank.ts:280-286` | Silent score clamping | ✅ FIXED - adaptive normalization + clamping |
-| 322 | Empty choices array not detected | `extraction.service.ts:1065` | Unclear error message |
-| 323 | Ollama response structure not validated | `extraction.service.ts:1206-1229` | Invalid extractions stored |
+| 322 | Empty choices array not detected | `extraction.service.ts:1065` | Unclear error message | ✅ FIXED - specific error for empty choices |
+| 323 | Ollama response structure not validated | `extraction.service.ts:1206-1229` | Invalid extractions stored | ✅ Already fixed - full validation exists |
 | 324 | OpenAI batch sparse response | `embedding.service.ts:524-529` | NaN in embeddings | ✅ FIXED - count + NaN validation |
-| 325 | LM Studio URL not validated | `embedding.service.ts:235` | Data exfiltration risk |
+| 325 | LM Studio URL not validated | `embedding.service.ts:235` | Data exfiltration risk | ✅ FIXED - warns on external URLs |
 
 #### LOW
 | # | Issue | File | Impact |
