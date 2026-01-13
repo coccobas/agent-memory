@@ -87,10 +87,17 @@ export function logAction(params: AuditLogParams, db: DbClient): void {
         })
         .run();
     } catch (error) {
-      // Silently ignore audit logging errors to prevent breaking the application
-      if (config.logging.performance) {
-        logger.error({ error }, 'Failed to log action');
-      }
+      // Bug #189 fix: Always log audit failures - audit gaps are compliance issues
+      // We don't throw to avoid breaking the application, but we must have visibility
+      logger.warn(
+        {
+          error: error instanceof Error ? error.message : String(error),
+          action: params.action,
+          entryType: params.entryType,
+          entryId: params.entryId,
+        },
+        'Audit log write failed - potential compliance gap'
+      );
     }
   });
 }

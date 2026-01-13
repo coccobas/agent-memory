@@ -5,7 +5,7 @@
  * Factory function that accepts DatabaseDeps for dependency injection.
  */
 
-import { eq, and, desc, asc } from 'drizzle-orm';
+import { eq, and, desc, asc, sql } from 'drizzle-orm';
 import { transactionWithRetry } from '../connection.js';
 import {
   experiences,
@@ -616,22 +616,32 @@ export function createExperienceRepository(deps: DatabaseDeps): IExperienceRepos
 
     async recordOutcome(id: string, input: RecordOutcomeInput): Promise<ExperienceWithVersion | undefined> {
       return await transactionWithRetry(sqlite, () => {
-        const existing = getByIdSync(id);
-        if (!existing) return undefined;
+        // Bug #8 fix: Use atomic SQL increments instead of read-modify-write
+        // This prevents race conditions where concurrent calls overwrite each other's updates
 
-        // Update metrics
-        const newUseCount = existing.useCount + 1;
-        const newSuccessCount = input.success ? existing.successCount + 1 : existing.successCount;
-        const newConfidence = newSuccessCount / newUseCount;
-
-        db.update(experiences)
+        // First, atomically update the counters using SQL expressions
+        const updateResult = db.update(experiences)
           .set({
-            useCount: newUseCount,
-            successCount: newSuccessCount,
+            useCount: sql`${experiences.useCount} + 1`,
+            successCount: input.success
+              ? sql`${experiences.successCount} + 1`
+              : experiences.successCount,
             lastUsedAt: new Date().toISOString(),
           })
           .where(eq(experiences.id, id))
           .run();
+
+        // If no rows updated, experience doesn't exist
+        if (updateResult.changes === 0) {
+          return undefined;
+        }
+
+        // Now fetch the updated record to get the new values
+        const existing = getByIdSync(id);
+        if (!existing) return undefined;
+
+        // Calculate confidence from the atomically-updated values
+        const newConfidence = existing.successCount / existing.useCount;
 
         // Always update confidence on current version
         if (existing.currentVersionId) {

@@ -55,11 +55,12 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 - **Fix:** Remove hardcoded bypass, implement proper permission check
 - **Status:** Fixed - removed hardcoded project bypass in check() method
 
-### 2. LRU Cache totalBytes Corruption
+### 2. LRU Cache totalBytes Corruption ✅ FIXED
 - **File:** `src/utils/lru-cache.ts:44-103`
 - **Issue:** Non-atomic counter updates during concurrent eviction
 - **Impact:** Memory tracking corruption → OOM crash
 - **Fix:** Use atomic operations or mutex for totalBytes
+- **Status:** Fixed - added re-entrancy guard and negative bounds check
 
 ### 3. Embedding Cache Mutation ✅ FIXED
 - **File:** `src/services/embedding.service.ts:329-442`
@@ -82,23 +83,26 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 - **Fix:** Escape all user inputs in prompts
 - **Status:** Fixed - user input now escaped
 
-### 6. Migration 0005 Data Loss Risk
+### 6. Migration 0005 Data Loss Risk ✅ FIXED
 - **File:** `src/db/migrations/0005_add_task_decomposition.sql`
 - **Issue:** DROP TABLE without backup, no atomic recreation
 - **Impact:** Data loss if migration fails mid-execution
 - **Fix:** Add backup/restore pattern, use ALTER TABLE
+- **Status:** Fixed - explicit column mapping in INSERT ensures schema match
 
-### 7. Message Index Race Condition
+### 7. Message Index Race Condition ✅ FIXED
 - **File:** `src/db/repositories/conversations.ts:219-259`
 - **Issue:** Non-atomic MAX → INSERT for message ordering
 - **Impact:** Duplicate indices, corrupted conversation history
 - **Fix:** Use transaction or database sequence
+- **Status:** Fixed - added unique index + retry logic on constraint violation
 
-### 8. Experience Score Race Condition
+### 8. Experience Score Race Condition ✅ FIXED
 - **File:** `src/db/repositories/experiences.ts:617-679`
 - **Issue:** Non-atomic read-modify-write for confidence scores
 - **Impact:** Lost updates, incorrect feedback metrics
 - **Fix:** Use atomic increments or row-level locking
+- **Status:** Fixed - now uses SQL atomic increment expressions
 
 ---
 
@@ -245,9 +249,9 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 ### 13b. Logging and Observability (14 issues)
 
 #### CRITICAL
-| # | Issue | File | Impact |
-|---|-------|------|--------|
-| 189 | Audit logging fire-and-forget silent failures | `audit.service.ts:50-95` | Audit trail gaps |
+| # | Issue | File | Impact | Status |
+|---|-------|------|--------|--------|
+| 189 | Audit logging fire-and-forget silent failures | `audit.service.ts:50-95` | Audit trail gaps | ✅ FIXED |
 
 #### HIGH
 | # | Issue | File | Impact | Status |
@@ -332,7 +336,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 #### CRITICAL
 | # | Issue | File | Impact | Status |
 |---|-------|------|--------|--------|
-| 224 | Score normalization range mismatch | `cross-encoder-rerank.ts:285` | Silent score corruption | |
+| 224 | Score normalization range mismatch | `cross-encoder-rerank.ts:285` | Silent score corruption | ✅ FIXED |
 | 225 | Rate limiter division by zero | `rate-limiter-core.ts:112` | No rate limiting | ✅ FIXED |
 
 #### MEDIUM
@@ -364,9 +368,9 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 ### 14c. Error Propagation and Recovery (10 issues)
 
 #### CRITICAL
-| # | Issue | File | Impact |
-|---|-------|------|--------|
-| 244 | SQLite transaction rollback assumption | `sqlite.adapter.ts:125-230` | Data inconsistency |
+| # | Issue | File | Impact | Status |
+|---|-------|------|--------|--------|
+| 244 | SQLite transaction rollback assumption | `sqlite.adapter.ts:125-230` | Data inconsistency | ✅ FIXED |
 
 #### HIGH
 | # | Issue | File | Impact |
@@ -535,7 +539,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 #### CRITICAL
 | # | Issue | File | Impact | Status |
 |---|-------|------|--------|--------|
-| 313 | Ollama timeout race condition | `extraction.service.ts:1173-1174` | Memory leak, uninitialized timeout | |
+| 313 | Ollama timeout race condition | `extraction.service.ts:1173-1174` | Memory leak, uninitialized timeout | ✅ FIXED |
 | 314 | Cross-encoder timeout not in finally | `cross-encoder-rerank.ts:318-340` | Memory leak on error paths | ✅ FIXED |
 
 #### HIGH

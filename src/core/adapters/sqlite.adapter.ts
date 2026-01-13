@@ -123,9 +123,21 @@ export class SQLiteStorageAdapter implements IStorageAdapter {
     this.transactionStartTime = startTime;
 
     try {
+      // Bug #244 fix: If fn() throws synchronously, we need to catch and re-throw
+      // inside the transaction to trigger rollback
+      let syncThrowError: Error | undefined;
+
       transactionWithDb(this.sqlite, () => {
-        // Immediately invoke the async function and capture the promise
-        const promise = fn();
+        // Bug #244 fix: Catch synchronous throws from fn() and re-throw them
+        // to ensure the transaction rolls back
+        let promise: Promise<T>;
+        try {
+          promise = fn();
+        } catch (syncError) {
+          // fn() threw synchronously - store it and throw to trigger rollback
+          syncThrowError = syncError instanceof Error ? syncError : new Error(String(syncError));
+          throw syncThrowError;
+        }
 
         // Check if the promise resolved synchronously (microtask)
         promise
@@ -138,6 +150,11 @@ export class SQLiteStorageAdapter implements IStorageAdapter {
             wasResolved = true;
           });
       });
+
+      // If there was a sync throw, the transaction was rolled back - re-throw
+      if (syncThrowError) {
+        throw syncThrowError;
+      }
 
       // Yield to microtask queue to let synchronously-resolved promises execute
       // This allows promises that resolve immediately (like synchronous Drizzle ops)

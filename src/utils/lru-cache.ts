@@ -32,6 +32,8 @@ export class LRUCache<T> {
   private totalBytes: number = 0; // Running total for O(1) memory tracking
   private lastMemoryCheck: number = 0; // Timestamp of last memory check
   private lastPressureResult: boolean = false; // Cached memory pressure result
+  // Bug #2 fix: Guard against re-entrant totalBytes updates during eviction callbacks
+  private inEviction: boolean = false;
 
   constructor(options: LRUCacheOptions<T>) {
     this.maxSize = options.maxSize;
@@ -95,9 +97,28 @@ export class LRUCache<T> {
   delete(key: string): boolean {
     const entry = this.cache.get(key);
     if (entry) {
-      this.totalBytes -= entry.size; // Update running total
-      this.onEvict?.(key, entry.value);
-      return this.cache.delete(key);
+      // Bug #2 fix: Capture size before deletion and update totalBytes atomically
+      // to prevent corruption from re-entrant onEvict callbacks
+      const entrySize = entry.size;
+      const deleted = this.cache.delete(key);
+      if (deleted) {
+        this.totalBytes -= entrySize;
+        // Bug #2 fix: Ensure totalBytes never goes negative (safety guard)
+        if (this.totalBytes < 0) {
+          this.totalBytes = 0;
+        }
+        // Call onEvict after totalBytes is updated to prevent re-entrancy issues
+        // If onEvict triggers another cache operation, totalBytes is already consistent
+        if (this.onEvict && !this.inEviction) {
+          this.inEviction = true;
+          try {
+            this.onEvict(key, entry.value);
+          } finally {
+            this.inEviction = false;
+          }
+        }
+      }
+      return deleted;
     }
     return false;
   }

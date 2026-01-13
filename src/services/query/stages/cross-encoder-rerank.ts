@@ -279,10 +279,31 @@ export function parseScoresResponse(
 
     const parsed = JSON.parse(jsonMatch[0]) as Array<{ id: string; score: number }>;
 
-    // Normalize scores to 0-1 range
+    // Bug #224 fix: Detect actual score range and normalize adaptively
+    // Some LLMs may return 0-100, 0-10, 1-5, or other ranges
+    const scores = parsed.map((item) => item.score ?? 0).filter((s) => typeof s === 'number' && !isNaN(s));
+
+    if (scores.length === 0) {
+      return documentIds.map((id) => ({ id, score: 0.5 }));
+    }
+
+    const maxScore = Math.max(...scores);
+    const minScore = Math.min(...scores);
+
+    // Determine normalization divisor based on detected range
+    let divisor = 10; // default: assume 0-10 as per prompt
+    if (maxScore > 10) {
+      // LLM returned percentage-like scores (0-100)
+      divisor = 100;
+    } else if (maxScore <= 5 && minScore >= 0) {
+      // LLM returned 0-5 or 1-5 scale
+      divisor = 5;
+    }
+
+    // Normalize scores to 0-1 range with adaptive divisor
     return parsed.map((item) => ({
       id: item.id,
-      score: Math.min(1, Math.max(0, (item.score ?? 0) / 10)),
+      score: Math.min(1, Math.max(0, (item.score ?? 0) / divisor)),
     }));
   } catch {
     // If parsing fails, return neutral scores

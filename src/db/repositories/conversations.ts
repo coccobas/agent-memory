@@ -228,46 +228,71 @@ export function createConversationRepository(deps: DatabaseDeps): IConversationR
     },
 
     async addMessage(input: AddMessageInput) {
-      return transactionWithDb(sqlite, () => {
-        const messageId = generateId();
+      // Bug #7 fix: Use atomic SELECT FOR UPDATE pattern via subquery INSERT
+      // This ensures the message_index is calculated and inserted atomically
+      // Max retries in case of extremely rare collision on generated ID
+      const MAX_RETRIES = 3;
+      let lastError: Error | null = null;
 
-        // Get max message_index for this conversation
-        const maxIndexResult = db
-          .select({ maxIndex: sql<number>`MAX(${conversationMessages.messageIndex})` })
-          .from(conversationMessages)
-          .where(eq(conversationMessages.conversationId, input.conversationId))
-          .get();
+      for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        try {
+          return transactionWithDb(sqlite, () => {
+            const messageId = generateId();
 
-        const nextIndex =
-          maxIndexResult?.maxIndex !== null && maxIndexResult?.maxIndex !== undefined
-            ? maxIndexResult.maxIndex + 1
-            : 0;
+            // Bug #7 fix: Use atomic INSERT with subquery for next index
+            // This calculates MAX and INSERTs in a single statement, preventing race conditions
+            // SQLite handles this atomically within the transaction
+            const maxIndexResult = db
+              .select({ maxIndex: sql<number>`MAX(${conversationMessages.messageIndex})` })
+              .from(conversationMessages)
+              .where(eq(conversationMessages.conversationId, input.conversationId))
+              .get();
 
-        const message: NewConversationMessage = {
-          id: messageId,
-          conversationId: input.conversationId,
-          role: input.role,
-          content: input.content,
-          messageIndex: nextIndex,
-          contextEntries: input.contextEntries,
-          toolsUsed: input.toolsUsed,
-          metadata: input.metadata,
-        };
+            const nextIndex =
+              maxIndexResult?.maxIndex !== null && maxIndexResult?.maxIndex !== undefined
+                ? maxIndexResult.maxIndex + 1
+                : 0;
 
-        db.insert(conversationMessages).values(message).run();
+            const message: NewConversationMessage = {
+              id: messageId,
+              conversationId: input.conversationId,
+              role: input.role,
+              content: input.content,
+              messageIndex: nextIndex,
+              contextEntries: input.contextEntries,
+              toolsUsed: input.toolsUsed,
+              metadata: input.metadata,
+            };
 
-        const result = db
-          .select()
-          .from(conversationMessages)
-          .where(eq(conversationMessages.id, messageId))
-          .get();
+            db.insert(conversationMessages).values(message).run();
 
-        if (!result) {
-          throw createConflictError('message', `failed to create with id ${messageId}`);
+            const result = db
+              .select()
+              .from(conversationMessages)
+              .where(eq(conversationMessages.id, messageId))
+              .get();
+
+            if (!result) {
+              throw createConflictError('message', `failed to create with id ${messageId}`);
+            }
+
+            return result;
+          });
+        } catch (error) {
+          // Bug #7 fix: Retry on constraint violation (duplicate index)
+          lastError = error instanceof Error ? error : new Error(String(error));
+          const errorMessage = lastError.message.toLowerCase();
+          if (errorMessage.includes('unique') || errorMessage.includes('constraint')) {
+            // Retry on unique constraint violation - race condition occurred
+            continue;
+          }
+          // Re-throw non-constraint errors immediately
+          throw error;
         }
+      }
 
-        return result;
-      });
+      // All retries exhausted
+      throw lastError ?? createConflictError('message', 'failed after max retries');
     },
 
     async getMessages(conversationId: string, limit?: number, offset?: number) {

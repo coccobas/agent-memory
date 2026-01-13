@@ -1171,9 +1171,14 @@ export class ExtractionService {
             : 30000;
 
         const abortController = new AbortController();
-        const timeoutId = setTimeout(() => abortController.abort(), timeoutMs);
+        // Bug #313 fix: Initialize timeoutId to null, set it inside try block
+        // This ensures the timeout is always cleared in finally, and avoids
+        // race conditions where setTimeout is called before try block
+        let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
         try {
+          // Bug #313 fix: Set timeout inside try block so it's guaranteed to be cleared
+          timeoutId = setTimeout(() => abortController.abort(), timeoutMs);
           const response = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1239,7 +1244,10 @@ export class ExtractionService {
             processingTimeMs: 0, // Will be set by caller
           };
         } finally {
-          clearTimeout(timeoutId);
+          // Bug #313 fix: Only clear timeout if it was set
+          if (timeoutId !== null) {
+            clearTimeout(timeoutId);
+          }
         }
       },
       {
