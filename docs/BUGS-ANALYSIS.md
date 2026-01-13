@@ -455,7 +455,7 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 | 276 | Unvalidated env var pass-through | `factory/services.ts:101-103` | Silent configuration errors |
 | 277 | No hot reload on env change | `permissions.ts:14-15` | Config changes not reflected |
 | 278 | Case-sensitive boolean parsing | `server.ts:114` | Trust proxy fails silently | ✅ FIXED - case-insensitive |
-| 279 | Silent invalid CORS origin drop | `server.ts:73-87` | Security misconfiguration |
+| 279 | Silent invalid CORS origin drop | `server.ts:73-87` | Security misconfiguration | ✅ FIXED - error level logging |
 | 280 | Custom parser bypasses registry | `database.ts:47-53` | Config coherence gap |
 | 281 | Custom parser bypasses registry | `backup.ts:35-41` | Config coherence gap |
 
