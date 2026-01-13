@@ -464,7 +464,13 @@ export function reloadConfig(): void {
   for (const key of Object.keys(newConfig) as Array<keyof Config>) {
     const section = newConfig[key];
     if (typeof section === 'object' && section !== null) {
-      Object.assign(config[key], section);
+      // Bug #260 fix: Guard against prototype pollution
+      // Only copy own enumerable properties, excluding dangerous keys
+      for (const prop of Object.keys(section)) {
+        if (prop !== '__proto__' && prop !== 'constructor' && prop !== 'prototype') {
+          (config[key] as Record<string, unknown>)[prop] = (section as Record<string, unknown>)[prop];
+        }
+      }
     }
   }
 }

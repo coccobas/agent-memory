@@ -269,8 +269,8 @@ async function maybeAutoCreateSession(
     return false;
   }
 
-  // Check if this is a write action
-  const action = args.action as string | undefined;
+  // Bug #183 fix: Validate action is a string instead of unsafe type assertion
+  const action = typeof args.action === 'string' ? args.action : undefined;
   if (!action || !WRITE_ACTIONS.has(action)) {
     return false;
   }

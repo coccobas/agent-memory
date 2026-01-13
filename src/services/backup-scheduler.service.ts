@@ -68,8 +68,10 @@ export function startBackupScheduler(config: BackupSchedulerConfig): boolean {
 
   currentConfig = config;
 
-  // Schedule the backup task
-  scheduledTask = cron.schedule(config.schedule, async () => {
+  // Bug #350 fix: Wrap schedule() in try-catch to handle edge cases
+  // Some expressions may pass validate() but fail during scheduling
+  try {
+    scheduledTask = cron.schedule(config.schedule, async () => {
     logger.info('Running scheduled backup');
     const startTime = Date.now();
 
@@ -122,7 +124,19 @@ export function startBackupScheduler(config: BackupSchedulerConfig): boolean {
         'Scheduled backup error'
       );
     }
-  });
+    });
+  } catch (scheduleError) {
+    // Bug #350 fix: Log and return false if schedule() throws
+    logger.error(
+      {
+        schedule: config.schedule,
+        error: scheduleError instanceof Error ? scheduleError.message : String(scheduleError),
+      },
+      'Failed to schedule backup task - cron expression may have edge case issues'
+    );
+    currentConfig = null;
+    return false;
+  }
 
   logger.info(
     {
