@@ -67,7 +67,42 @@ export function readTranscriptFromOffset(
       return { lines: [], nextByteOffset: fromByteOffset, wasTruncated: false };
     }
 
-    const content = buffer.toString('utf8', 0, bytesRead);
+    // Bug #232 fix: Handle UTF-8 truncation at buffer boundary
+    // UTF-8 multi-byte sequences can be split if we read an arbitrary number of bytes.
+    // We need to detect incomplete sequences at the end and exclude them.
+    let validBytes = bytesRead;
+    if (validBytes > 0) {
+      // Check for incomplete UTF-8 sequence at the end
+      // UTF-8 continuation bytes start with 10xxxxxx (0x80-0xBF)
+      // Start bytes: 0xxxxxxx (ASCII), 110xxxxx (2-byte), 1110xxxx (3-byte), 11110xxx (4-byte)
+      let i = validBytes - 1;
+      // Walk back through potential continuation bytes
+      while (i >= 0 && i >= validBytes - 4) {
+        const byte = buffer[i]!;
+        if ((byte & 0xc0) === 0x80) {
+          // Continuation byte - keep looking for start
+          i--;
+        } else if ((byte & 0x80) === 0x00) {
+          // ASCII byte - no truncation
+          break;
+        } else {
+          // Start byte found - check if sequence is complete
+          let expectedLength = 0;
+          if ((byte & 0xe0) === 0xc0) expectedLength = 2;
+          else if ((byte & 0xf0) === 0xe0) expectedLength = 3;
+          else if ((byte & 0xf8) === 0xf0) expectedLength = 4;
+
+          const actualLength = validBytes - i;
+          if (actualLength < expectedLength) {
+            // Incomplete sequence - truncate before this start byte
+            validBytes = i;
+          }
+          break;
+        }
+      }
+    }
+
+    const content = buffer.toString('utf8', 0, validBytes);
     const rawLines = content.split('\n');
 
     // Process lines, handling the last potentially incomplete line

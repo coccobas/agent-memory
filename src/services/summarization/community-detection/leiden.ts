@@ -64,11 +64,31 @@ type CommunityStructure = Map<string, Set<string>>;
  * @param resolution Resolution parameter (default 1.0)
  * @returns Modularity score (range: -0.5 to 1.0)
  */
+/**
+ * Bug #205 fix: Pre-compute node degrees once and reuse.
+ * Degrees are the sum of edge weights for each node and don't change
+ * during the algorithm since the graph structure is fixed.
+ */
+function computeNodeDegrees(adjacencyList: AdjacencyList): Map<string, number> {
+  const degrees = new Map<string, number>();
+  for (const [nodeId, neighbors] of adjacencyList) {
+    const degree = neighbors.reduce((sum, n) => sum + n.weight, 0);
+    degrees.set(nodeId, degree);
+  }
+  return degrees;
+}
+
+/**
+ * Calculate modularity of a partition.
+ *
+ * Bug #205 fix: Now accepts pre-computed degrees to avoid redundant calculation.
+ */
 function calculateModularity(
   adjacencyList: AdjacencyList,
   assignment: CommunityAssignment,
   totalWeight: number,
-  resolution = 1.0
+  resolution: number,
+  degrees: Map<string, number> // Bug #205: Use pre-computed degrees
 ): number {
   if (totalWeight === 0) {
     return 0;
@@ -76,14 +96,7 @@ function calculateModularity(
 
   let modularity = 0;
 
-  // Calculate node degrees (sum of edge weights)
-  const degrees = new Map<string, number>();
-  for (const [nodeId, neighbors] of adjacencyList) {
-    const degree = neighbors.reduce((sum, n) => sum + n.weight, 0);
-    degrees.set(nodeId, degree);
-  }
-
-  // Calculate modularity
+  // Calculate modularity using pre-computed degrees
   for (const [nodeId, neighbors] of adjacencyList) {
     const communityI = assignment.get(nodeId);
     const degreeI = degrees.get(nodeId) || 0;
@@ -363,6 +376,9 @@ export async function detectCommunitiesLeiden(
   // Initialize assignments
   let assignment = initializeAssignments(graph.nodes.map(n => n.id));
 
+  // Bug #205 fix: Pre-compute degrees once and reuse throughout algorithm
+  const degrees = computeNodeDegrees(graph.adjacencyList);
+
   // Iteratively optimize
   let iteration = 0;
   let converged = false;
@@ -370,7 +386,8 @@ export async function detectCommunitiesLeiden(
     graph.adjacencyList,
     assignment,
     graph.totalWeight,
-    cfg.resolution
+    cfg.resolution,
+    degrees // Bug #205: Pass pre-computed degrees
   );
 
   while (iteration < cfg.maxIterations && !converged) {
@@ -388,7 +405,8 @@ export async function detectCommunitiesLeiden(
       graph.adjacencyList,
       assignment,
       graph.totalWeight,
-      cfg.resolution
+      cfg.resolution,
+      degrees // Bug #205: Pass pre-computed degrees
     );
 
     const qualityDelta = currentModularity - previousModularity;
@@ -450,7 +468,8 @@ export async function detectCommunitiesLeiden(
     graph.adjacencyList,
     assignment,
     graph.totalWeight,
-    cfg.resolution
+    cfg.resolution,
+    degrees // Bug #205: Pass pre-computed degrees
   );
 
   return {

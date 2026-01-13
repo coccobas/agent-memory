@@ -45,11 +45,18 @@ export class RateLimiter {
       throw new Error('RateLimiter maxRequests must be greater than 0');
     }
 
+    // Bug #231 fix: Validate minBurstProtection to prevent division by zero
+    // and negative overflow in token calculations
+    const burstProtection = config.minBurstProtection ?? RateLimiter.DEFAULT_MIN_BURST_PROTECTION;
+    if (burstProtection <= 0) {
+      throw new Error('RateLimiter minBurstProtection must be greater than 0');
+    }
+
     this.config = {
       maxRequests: config.maxRequests,
       windowMs: config.windowMs,
       enabled: config.enabled ?? true,
-      minBurstProtection: config.minBurstProtection ?? RateLimiter.DEFAULT_MIN_BURST_PROTECTION,
+      minBurstProtection: burstProtection,
     };
 
     this.startCleanup();

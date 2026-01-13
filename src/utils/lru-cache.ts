@@ -346,6 +346,14 @@ export class LRUCache<T> {
     const usage = process.memoryUsage();
     const heapUsedMB = usage.heapUsed / 1024 / 1024;
     const heapTotalMB = usage.heapTotal / 1024 / 1024;
+
+    // Bug #227 fix: Guard against division by zero if heapTotal is 0
+    // This can happen in edge cases during process startup or in constrained environments
+    if (heapTotalMB <= 0) {
+      this.lastPressureResult = false; // Assume no pressure if we can't determine
+      return this.lastPressureResult;
+    }
+
     this.lastPressureResult = heapUsedMB / heapTotalMB > HEAP_PRESSURE_THRESHOLD;
 
     return this.lastPressureResult;
