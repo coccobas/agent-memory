@@ -167,7 +167,15 @@ export async function wireContext(input: WireContextInput): Promise<AppContext> 
       repos.typeRegistry
     );
     services.graphSync = graphSyncService;
-    logger.debug('Graph sync service initialized');
+
+    // Register graph sync hooks so repository operations trigger graph sync
+    const { registerGraphSyncService } = await import('../../db/repositories/graph-sync-hooks.js');
+    registerGraphSyncService(graphSyncService, {
+      autoSync: config.graph.autoSync,
+      captureEnabled: config.graph.captureEnabled,
+    });
+
+    logger.debug('Graph sync service initialized and registered with hooks');
   }
 
   // Create ReembeddingService now that db is available

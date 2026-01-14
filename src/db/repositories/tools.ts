@@ -23,6 +23,7 @@ import {
 } from './base.js';
 import { createConflictError } from '../../core/errors.js';
 import { generateEmbeddingAsync, extractTextForEmbedding } from './embedding-hooks.js';
+import { syncEntryToNodeAsync } from './graph-sync-hooks.js';
 import {
   normalizePagination,
   buildScopeConditions,
@@ -131,6 +132,20 @@ export function createToolRepository(deps: DatabaseDeps): IToolRepository {
           entryId: toolId,
           versionId: versionId,
           text,
+        });
+
+        // Sync to graph node asynchronously (fire-and-forget)
+        syncEntryToNodeAsync({
+          entryType: 'tool',
+          entryId: toolId,
+          name: input.name,
+          scopeType: input.scopeType,
+          scopeId: input.scopeId,
+          properties: {
+            category: input.category,
+            description: input.description,
+          },
+          createdBy: input.createdBy,
         });
 
         return result;

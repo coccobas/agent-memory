@@ -32,6 +32,7 @@ import {
   checkAndLogConflictWithDb,
 } from './base.js';
 import { generateEmbeddingAsync, extractTextForEmbedding } from './embedding-hooks.js';
+import { syncEntryToNodeAsync } from './graph-sync-hooks.js';
 import {
   normalizePagination,
   buildScopeConditions,
@@ -188,6 +189,22 @@ export function createExperienceRepository(deps: DatabaseDeps): IExperienceRepos
           entryId: experienceId,
           versionId: versionId,
           text,
+        });
+
+        // Sync to graph node asynchronously (fire-and-forget)
+        syncEntryToNodeAsync({
+          entryType: 'experience',
+          entryId: experienceId,
+          name: input.title,
+          scopeType: input.scopeType,
+          scopeId: input.scopeId,
+          properties: {
+            level: input.level ?? 'case',
+            category: input.category,
+            source: input.source ?? 'user',
+            confidence: input.confidence ?? 0.5,
+          },
+          createdBy: input.createdBy,
         });
 
         return result;

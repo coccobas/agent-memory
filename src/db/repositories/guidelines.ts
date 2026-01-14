@@ -23,6 +23,7 @@ import {
 } from './base.js';
 import { createConflictError } from '../../core/errors.js';
 import { generateEmbeddingAsync, extractTextForEmbedding } from './embedding-hooks.js';
+import { syncEntryToNodeAsync } from './graph-sync-hooks.js';
 import {
   normalizePagination,
   buildScopeConditions,
@@ -135,6 +136,20 @@ export function createGuidelineRepository(deps: DatabaseDeps): IGuidelineReposit
           entryId: guidelineId,
           versionId: versionId,
           text,
+        });
+
+        // Sync to graph node asynchronously (fire-and-forget)
+        syncEntryToNodeAsync({
+          entryType: 'guideline',
+          entryId: guidelineId,
+          name: input.name,
+          scopeType: input.scopeType,
+          scopeId: input.scopeId,
+          properties: {
+            category: input.category,
+            priority: input.priority ?? 50,
+          },
+          createdBy: input.createdBy,
         });
 
         return result;

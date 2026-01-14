@@ -23,6 +23,7 @@ import {
 } from './base.js';
 import { createConflictError } from '../../core/errors.js';
 import { generateEmbeddingAsync, extractTextForEmbedding } from './embedding-hooks.js';
+import { syncEntryToNodeAsync } from './graph-sync-hooks.js';
 import {
   normalizePagination,
   buildScopeConditions,
@@ -136,6 +137,21 @@ export function createKnowledgeRepository(deps: DatabaseDeps): IKnowledgeReposit
           entryId: knowledgeId,
           versionId: versionId,
           text,
+        });
+
+        // Sync to graph node asynchronously (fire-and-forget)
+        syncEntryToNodeAsync({
+          entryType: 'knowledge',
+          entryId: knowledgeId,
+          name: input.title,
+          scopeType: input.scopeType,
+          scopeId: input.scopeId,
+          properties: {
+            category: input.category,
+            source: input.source,
+            confidence: input.confidence,
+          },
+          createdBy: input.createdBy,
         });
 
         return result;
