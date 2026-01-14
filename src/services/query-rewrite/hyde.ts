@@ -228,63 +228,19 @@ export class HyDEGenerator {
    * @returns Array of generated document texts
    */
   private async generateDocuments(query: string, intent: QueryIntent): Promise<string[]> {
-    // Build the prompt based on intent
-    const userPrompt = HYDE_PROMPTS[intent](query);
-
-    // Build context for extraction service (reserved for future prompt variations)
-    // Note: context variable intentionally unused - reserved for future prompt variations
-    void `${HYDE_SYSTEM_PROMPT}\n\n${userPrompt}`;
-
-    // For HyDE, we're not extracting structured entries, just generating text
-    // We'll use the extraction service's raw generation capability
-    // Since ExtractionService doesn't have a raw generate method, we'll construct
-    // a prompt that asks for multiple document variations
-
-    const fullPrompt = this.buildMultiDocumentPrompt(query, intent);
-
-    // Use extraction service to generate text
-    // We'll extract the "knowledge" entries as our hypothetical documents
-    const result = await this.extractionService.extract({
-      context: fullPrompt,
-      contextType: 'mixed',
-      focusAreas: ['facts'],
+    // Use the extraction service's generate() method for raw text generation
+    const result = await this.extractionService.generate({
+      systemPrompt: HYDE_SYSTEM_PROMPT,
+      userPrompt: HYDE_PROMPTS[intent](query),
+      count: this.config.documentCount,
+      temperature: this.config.temperature,
+      maxTokens: this.config.maxTokensPerDoc,
     });
 
-    // Extract document texts from knowledge entries
-    const documents = result.entries
-      .filter((entry) => entry.type === 'knowledge')
-      .map((entry) => entry.content)
-      .slice(0, this.config.documentCount);
-
-    // If we didn't get enough documents, fall back to a single document
-    if (documents.length === 0) {
-      logger.warn({ query, intent }, 'No documents generated, using fallback');
-      documents.push(this.generateFallbackDocument(query, intent));
-    }
-
-    return documents;
-  }
-
-  /**
-   * Build a prompt that requests multiple document variations
-   *
-   * @param query - The search query
-   * @param intent - Query intent
-   * @returns Prompt text
-   */
-  private buildMultiDocumentPrompt(query: string, intent: QueryIntent): string {
-    const basePrompt = HYDE_PROMPTS[intent](query);
-
-    return `${basePrompt}
-
-Generate ${this.config.documentCount} different variations of this hypothetical document.
-Each variation should approach the topic from a slightly different angle or level of detail.
-
-For each variation, create a knowledge entry with:
-- title: A descriptive title for this variation
-- content: The full hypothetical document text
-
-Make each variation realistic and useful for answering the query: "${query}"`;
+    // Return generated texts, or fallback if generation failed
+    return result.texts.length > 0
+      ? result.texts
+      : [this.generateFallbackDocument(query, intent)];
   }
 
   /**
