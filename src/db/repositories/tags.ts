@@ -22,6 +22,7 @@ import { generateId, type PaginationOptions, DEFAULT_LIMIT, MAX_LIMIT } from './
 import type { DatabaseDeps } from '../../core/types.js';
 import { createValidationError, createConflictError } from '../../core/errors.js';
 import { transactionWithDb } from '../connection.js';
+import { syncRelationToEdgeAsync } from './graph-sync-hooks.js';
 import type {
   ITagRepository,
   IEntryTagRepository,
@@ -460,6 +461,28 @@ export function createEntryRelationRepository(deps: DatabaseDeps): IEntryRelatio
       if (!result) {
         throw createConflictError('entry_relation', `failed to create with id ${id}`);
       }
+
+      // Sync to graph edge asynchronously (fire-and-forget)
+      // Only sync supported relation types (not promoted_to) and entry types (not project)
+      const supportedRelations = ['applies_to', 'depends_on', 'conflicts_with', 'related_to', 'parent_task', 'subtask_of'];
+      const supportedEntryTypes = ['guideline', 'knowledge', 'tool', 'experience', 'task'];
+
+      if (
+        supportedRelations.includes(input.relationType) &&
+        supportedEntryTypes.includes(input.sourceType) &&
+        supportedEntryTypes.includes(input.targetType)
+      ) {
+        syncRelationToEdgeAsync({
+          relationType: input.relationType as 'applies_to' | 'depends_on' | 'conflicts_with' | 'related_to' | 'parent_task' | 'subtask_of',
+          sourceEntryId: input.sourceId,
+          sourceEntryType: input.sourceType as 'knowledge' | 'guideline' | 'tool' | 'experience' | 'task',
+          targetEntryId: input.targetId,
+          targetEntryType: input.targetType as 'knowledge' | 'guideline' | 'tool' | 'experience' | 'task',
+          properties: {},
+          createdBy: input.createdBy,
+        });
+      }
+
       return result;
     },
 
