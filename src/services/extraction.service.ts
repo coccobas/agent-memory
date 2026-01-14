@@ -1054,6 +1054,115 @@ export class ExtractionService {
   }
 
   /**
+   * Generate raw text using LLM
+   *
+   * This method is distinct from extract() - it generates free-form text
+   * rather than structured memory entries. Used by HyDE for generating
+   * hypothetical documents and other services that need raw text generation.
+   *
+   * @param input - Generation input (system prompt, user prompt, count, temperature, maxTokens)
+   * @returns Generation result with texts and metadata
+   */
+  async generate(input: GenerationInput): Promise<GenerationResult> {
+    if (this.provider === 'disabled') {
+      return {
+        texts: [],
+        model: 'disabled',
+        provider: 'disabled',
+        processingTimeMs: 0,
+      };
+    }
+
+    // Validate inputs
+    if (!input.systemPrompt || input.systemPrompt.trim().length === 0) {
+      throw createValidationError('systemPrompt', 'cannot be empty');
+    }
+    if (!input.userPrompt || input.userPrompt.trim().length === 0) {
+      throw createValidationError('userPrompt', 'cannot be empty');
+    }
+
+    // Validate count
+    const count = input.count ?? 1;
+    if (count < 1 || count > 5) {
+      throw createValidationError('count', 'must be between 1 and 5');
+    }
+
+    // Validate temperature
+    const temperature = input.temperature ?? 0.7;
+    if (temperature < 0 || temperature > 2) {
+      throw createValidationError('temperature', 'must be between 0 and 2');
+    }
+
+    // Validate maxTokens
+    const maxTokens = input.maxTokens ?? 512;
+    if (maxTokens < 1 || maxTokens > 4096) {
+      throw createValidationError('maxTokens', 'must be between 1 and 4096');
+    }
+
+    const startTime = Date.now();
+
+    try {
+      let result: GenerationResult;
+
+      // Wrap provider calls with timeout
+      switch (this.provider) {
+        case 'openai':
+          result = await this.withTimeout(
+            this.generateOpenAI(input),
+            config.extraction.timeoutMs,
+            'OpenAI generation'
+          );
+          break;
+        case 'anthropic':
+          result = await this.withTimeout(
+            this.generateAnthropic(input),
+            config.extraction.timeoutMs,
+            'Anthropic generation'
+          );
+          break;
+        case 'ollama':
+          result = await this.withTimeout(
+            this.generateOllama(input),
+            config.extraction.timeoutMs,
+            'Ollama generation'
+          );
+          break;
+        default:
+          throw createValidationError('provider', `unknown extraction provider: ${String(this.provider)}`);
+      }
+
+      result.processingTimeMs = Date.now() - startTime;
+
+      logger.debug(
+        {
+          provider: result.provider,
+          model: result.model,
+          textsGenerated: result.texts.length,
+          processingTimeMs: result.processingTimeMs,
+        },
+        'Generation completed'
+      );
+
+      return result;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorType = error instanceof Error ? error.constructor.name : typeof error;
+      const errorStack = error instanceof Error ? error.stack?.split('\n').slice(0, 5).join('\n') : undefined;
+
+      logger.error(
+        {
+          provider: this.provider,
+          error: errorMessage,
+          errorType,
+          stack: errorStack,
+        },
+        'Generation failed'
+      );
+      throw error;
+    }
+  }
+
+  /**
    * Task 45: Batch extraction - process multiple inputs with controlled concurrency.
    * Useful for processing large documents split into chunks.
    *
