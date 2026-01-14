@@ -135,6 +135,8 @@ export function createNodeRepository(deps: DatabaseDeps): INodeRepository {
           currentVersionId: null,
           isActive: true,
           accessCount: 0,
+          entryId: input.entryId ?? null,
+          entryType: input.entryType ?? null,
           createdAt: timestamp,
           createdBy: input.createdBy ?? null,
           updatedAt: timestamp,
@@ -202,6 +204,21 @@ export function createNodeRepository(deps: DatabaseDeps): INodeRepository {
             eq(nodes.name, name)
           )
         )
+        .get();
+
+      if (!node) return undefined;
+      return getByIdSync(node.id);
+    },
+
+    async getByEntry(
+      entryType: 'knowledge' | 'guideline' | 'tool' | 'experience' | 'task',
+      entryId: string
+    ): Promise<GraphNodeWithVersion | undefined> {
+      // Use the idx_nodes_entry index for fast lookup
+      const node = db
+        .select()
+        .from(nodes)
+        .where(and(eq(nodes.entryType, entryType), eq(nodes.entryId, entryId)))
         .get();
 
       if (!node) return undefined;

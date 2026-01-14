@@ -108,17 +108,15 @@ export class GraphSyncService {
         return null;
       }
 
-      // Create node with entry_id and entry_type for reverse lookup
+      // Create node with entryId and entryType for bidirectional mapping
       const node = await this.nodeRepo.create({
         nodeTypeName: metadata.entryType,
         scopeType: metadata.scopeType,
         scopeId: metadata.scopeId,
         name: metadata.name,
-        properties: {
-          ...metadata.properties,
-          entry_id: metadata.entryId,
-          entry_type: metadata.entryType,
-        },
+        properties: metadata.properties,
+        entryId: metadata.entryId,
+        entryType: metadata.entryType,
         createdBy: metadata.createdBy,
       });
 
@@ -241,6 +239,8 @@ export class GraphSyncService {
   /**
    * Find a graph node by entry ID and type
    *
+   * Uses idx_nodes_entry index for fast lookup.
+   *
    * @param entryType - Entry type
    * @param entryId - Entry ID
    * @returns Node if found, undefined otherwise
@@ -250,14 +250,11 @@ export class GraphSyncService {
     entryId: string
   ): Promise<GraphNodeWithVersion | undefined> {
     try {
-      // List nodes of this type and filter by entry_id property
-      // TODO: Add index on properties.entry_id for performance
-      const nodes = await this.nodeRepo.list({ nodeTypeName: entryType }, { limit: 1000 });
-
-      return nodes.find((n) => {
-        const props = n.properties as Record<string, unknown> | null;
-        return props?.entry_id === entryId;
-      });
+      // Use indexed lookup (much faster than filtering properties)
+      return await this.nodeRepo.getByEntry(
+        entryType as 'knowledge' | 'guideline' | 'tool' | 'experience' | 'task',
+        entryId
+      );
     } catch (error) {
       logger.warn(
         { entryType, entryId, error: error instanceof Error ? error.message : String(error) },

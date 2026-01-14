@@ -113,6 +113,10 @@ export const nodes = sqliteTable(
     /** Access tracking for forgetting/decay */
     lastAccessedAt: text('last_accessed_at'),
     accessCount: integer('access_count').default(0).notNull(),
+    /** Link to original entry (knowledge, guideline, tool, etc.) */
+    entryId: text('entry_id'),
+    /** Type of the linked entry */
+    entryType: text('entry_type', { enum: ['knowledge', 'guideline', 'tool', 'experience', 'task'] }),
     createdAt: text('created_at')
       .default(sql`CURRENT_TIMESTAMP`)
       .notNull(),
@@ -127,6 +131,10 @@ export const nodes = sqliteTable(
     uniqueIndex('idx_nodes_scope_name').on(table.nodeTypeId, table.scopeType, table.scopeId, table.name),
     index('idx_nodes_active').on(table.isActive),
     index('idx_nodes_created').on(table.createdAt),
+    // Index for entry → node lookups
+    index('idx_nodes_entry').on(table.entryType, table.entryId),
+    // Unique constraint to prevent duplicate entry mappings
+    uniqueIndex('idx_nodes_entry_unique').on(table.entryType, table.entryId),
   ]
 );
 

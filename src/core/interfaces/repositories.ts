@@ -1034,6 +1034,10 @@ export interface CreateGraphNodeInput {
   properties?: Record<string, unknown>;
   validFrom?: string;
   validUntil?: string;
+  /** Link to original entry (for bidirectional mapping) */
+  entryId?: string;
+  /** Type of the linked entry */
+  entryType?: 'knowledge' | 'guideline' | 'tool' | 'experience' | 'task';
   createdBy?: string;
 }
 
@@ -1073,6 +1077,11 @@ export interface INodeRepository {
     scopeType: ScopeType,
     scopeId?: string,
     inherit?: boolean
+  ): Promise<GraphNodeWithVersion | undefined>;
+  /** Find a node by its linked entry ID and type (for bidirectional mapping) */
+  getByEntry(
+    entryType: 'knowledge' | 'guideline' | 'tool' | 'experience' | 'task',
+    entryId: string
   ): Promise<GraphNodeWithVersion | undefined>;
   list(filter?: ListGraphNodesFilter, options?: PaginationOptions): Promise<GraphNodeWithVersion[]>;
   update(id: string, input: UpdateGraphNodeInput): Promise<GraphNodeWithVersion | undefined>;
