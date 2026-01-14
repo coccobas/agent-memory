@@ -750,7 +750,7 @@ export class ExtractionService {
       this.openaiClient = new OpenAI({
         apiKey: effectiveConfig.openaiApiKey,
         baseURL: effectiveConfig.openaiBaseUrl || undefined,
-        timeout: 120000, // 120 second timeout for LLM calls (can be longer than embeddings)
+        timeout: 600000, // 10 minute timeout for slow local LLMs
         maxRetries: 0, // Disable SDK retry - we handle retries with withRetry
       });
     }

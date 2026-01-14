@@ -111,7 +111,7 @@ export async function createServer(context: AppContext): Promise<FastifyInstance
     disableRequestLogging: true,
     bodyLimit: config.rest.bodyLimit,
     connectionTimeout: 30000, // 30 second connection timeout
-    requestTimeout: 60000, // 60 second request timeout to prevent resource exhaustion
+    requestTimeout: Number(process.env.AGENT_MEMORY_REST_REQUEST_TIMEOUT_MS) || 60000, // default 60s, increase for slow LLM extraction
     // Bug #278 fix: Case-insensitive boolean parsing for trustProxy
     trustProxy: ['true', '1', 'yes'].includes((process.env.AGENT_MEMORY_REST_TRUST_PROXY ?? '').toLowerCase()), // Enable trustProxy to use Fastify's built-in IP parsing (HIGH-001 fix)
   });

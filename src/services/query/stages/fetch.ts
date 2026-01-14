@@ -13,6 +13,7 @@ import type { Tool, Guideline, Knowledge, Experience } from '../../../db/schema.
 import { eq, and, or, isNull, inArray, sql } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
 import type { PipelineContext, QueryEntryType, DbInstance } from '../pipeline.js';
+import { PIPELINE_STAGES, markStageCompleted } from '../pipeline.js';
 import { createValidationError } from '../../../core/errors.js';
 
 // =============================================================================
@@ -515,10 +516,10 @@ export function fetchStage(ctx: PipelineContext): PipelineContext {
     }
   }
 
-  return {
+  return markStageCompleted({
     ...ctx,
     fetchedEntries,
-  };
+  }, PIPELINE_STAGES.FETCH);
 }
 
 // =============================================================================
@@ -623,8 +624,8 @@ export async function fetchStageAsync(ctx: PipelineContext): Promise<PipelineCon
     }
   }
 
-  return {
+  return markStageCompleted({
     ...ctx,
     fetchedEntries,
-  };
+  }, PIPELINE_STAGES.FETCH);
 }

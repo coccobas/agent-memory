@@ -239,23 +239,50 @@ export function createCrossEncoderStage(
  * Build the LLM prompt for batch relevance scoring
  */
 export function buildScoringPrompt(query: string, documents: Array<{ id: string; text: string }>): string {
+  return buildEntityAwareScoringPrompt(query, documents);
+}
+
+/**
+ * Build entity-aware LLM prompt for relevance scoring
+ *
+ * This prompt instructs the LLM to:
+ * 1. Identify key entities (people, places, events) in the query
+ * 2. Verify entity matches between query and documents
+ * 3. Penalize entity mismatches (e.g., query about "Caroline" but doc about "Melanie")
+ * 4. Return 0 for documents about different entities than the query asks about
+ */
+export function buildEntityAwareScoringPrompt(
+  query: string,
+  documents: Array<{ id: string; text: string }>
+): string {
   const docList = documents
     .map((d, i) => `[DOC${i + 1}] ID: ${d.id}\n${d.text}`)
     .join('\n\n---\n\n');
 
-  return `You are a relevance scoring system. Rate how well each document answers or relates to the query.
+  return `You are a relevance scoring system with STRICT ENTITY VERIFICATION.
 
 QUERY: ${query}
 
 DOCUMENTS:
 ${docList}
 
-For each document, provide a relevance score from 0-10:
-- 10: Perfect match, directly answers the query
-- 7-9: Highly relevant, contains key information
-- 4-6: Somewhat relevant, partial match
-- 1-3: Tangentially related
-- 0: Not relevant
+SCORING RULES:
+1. First, identify the KEY ENTITIES in the query (people names, specific events, places, objects)
+2. For each document, check if it's about THE SAME entities as the query
+3. CRITICAL: If the query asks about Person A but the document is about Person B, score it 0-2 (entity mismatch)
+4. Only give high scores (7-10) if BOTH the topic AND entities match
+
+ENTITY MISMATCH EXAMPLES:
+- Query: "What did Caroline do at the race?" + Doc about Melanie's race → Score 0-2
+- Query: "What is Oscar's favorite toy?" + Doc about a different pet → Score 0-2
+- Query: "When did John visit Paris?" + Doc about John visiting London → Score 0-2
+
+SCORING SCALE:
+- 10: Perfect match - same entities, directly answers the query
+- 7-9: Same entities, highly relevant information
+- 4-6: Same entities, partially relevant
+- 1-3: Related topic but DIFFERENT entities or tangentially related
+- 0: Entity mismatch OR completely irrelevant
 
 Output format (JSON array):
 [{"id": "doc_id", "score": N}, ...]

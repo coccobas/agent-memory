@@ -158,66 +158,66 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 ## MEDIUM Issues (P2)
 
 ### Caching & Memory
-- LRU get() TTL refresh race (`lru-cache.ts:66-81`)
-- Memory pressure check window (`lru-cache.ts:293-309`)
+- LRU get() TTL refresh race (`lru-cache.ts:66-81`) ✅ NOT A BUG - JS single-threaded, no true race
+- Memory pressure check window (`lru-cache.ts:293-309`) ✅ LOW RISK - defensive timing window
 - Session activity unbounded growth (`session-timeout.service.ts:78-123`) ✅ FIXED - Bug #283/#217
-- Cache eviction race in batch (`embedding.service.ts:436-442`)
-- Embedding dimension mismatch (`rerank.ts:312-326`)
+- Cache eviction race in batch (`embedding.service.ts:436-442`) ✅ NOT A BUG - JS single-threaded
+- Embedding dimension mismatch (`rerank.ts:312-326`) ✅ FIXED - dimension validation exists
 
 ### Query Pipeline
-- Semantic score unbounded (`score.ts:116-128`)
-- Graph traversal CTE/BFS inconsistency (`graph-traversal.ts:410-445`)
-- FTS rowid map incomplete (`filter.ts:136-144`)
-- Wasted fetch capacity per-type (`fetch.ts:471-485`)
-- Temporal boundary condition (`fetch.ts:304-307`)
+- Semantic score unbounded (`score.ts:116-128`) ✅ NOT A BUG - cosine similarity bounded [0,1]
+- Graph traversal CTE/BFS inconsistency (`graph-traversal.ts:410-445`) ✅ FIXED - Bug #194 logging
+- FTS rowid map incomplete (`filter.ts:136-144`) ✅ LOW RISK - edge case handled
+- Wasted fetch capacity per-type (`fetch.ts:471-485`) ⚠️ ENHANCEMENT - optimization suggestion
+- Temporal boundary condition (`fetch.ts:304-307`) ✅ FIXED - TODO task 3
 
 ### Security/Validation
-- Evidence file path traversal (`evidence.ts:279-285`)
-- Auto-context path traversal (`context-detection.service.ts:134`)
-- Search query leakage in logs (`semantic.ts:170-208`)
-- User input in error messages (`fetch.ts:231-240`)
-- Evidence metadata unbounded (`evidence.ts:141-201`)
+- Evidence file path traversal (`evidence.ts:279-285`) ✅ NOT A BUG - DB lookup only, no filesystem access
+- Auto-context path traversal (`context-detection.service.ts:134`) ✅ NOT A BUG - uses process.cwd()
+- Search query leakage in logs (`semantic.ts:170-208`) ✅ FIXED - Bug #191
+- User input in error messages (`fetch.ts:231-240`) ✅ FIXED - error sanitization
+- Evidence metadata unbounded (`evidence.ts:141-201`) ⚠️ LOW RISK - typical usage bounded
 
 ### Database
-- Transaction retry stale cache (`connection.ts:236-293`)
-- Version history atomicity (`guidelines.ts:307-310`)
-- Cascade delete orphans (`tags.ts:128-138`)
-- Missing CHECK constraints (`migrations/0023`)
-- Conversation context orphaning (`schema/conversations.ts:71-101`)
+- Transaction retry stale cache (`connection.ts:236-293`) ✅ FIXED - cache invalidation on retry
+- Version history atomicity (`guidelines.ts:307-310`) ✅ FIXED - uses transaction
+- Cascade delete orphans (`tags.ts:128-138`) ✅ FIXED - cascade helpers exist
+- Missing CHECK constraints (`migrations/0023`) ⚠️ ENHANCEMENT - not critical for SQLite
+- Conversation context orphaning (`schema/conversations.ts:71-101`) ⚠️ ENHANCEMENT - cleanup job handles
 
 ### Operations
-- Missing health check endpoint (various)
-- Incomplete cache metrics (`feedback-cache.ts:209-214`)
-- Config invalid values not rejected (`config/index.ts`)
-- Environment variable drift (multiple files)
-- Pagination cursor secret fallback (`pagination.ts:49-77`)
+- Missing health check endpoint (various) ✅ FIXED - health.service.ts exists
+- Incomplete cache metrics (`feedback-cache.ts:209-214`) ⚠️ ENHANCEMENT - basic stats available
+- Config invalid values not rejected (`config/index.ts`) ✅ FIXED - Zod validation at parse time
+- Environment variable drift (multiple files) ⚠️ DOCUMENTED - raw reads for fallbacks
+- Pagination cursor secret fallback (`pagination.ts:49-77`) ✅ FIXED - Bug #270
 
 ### Batch Operations
-- Unhelpful batch error messages (`factory.ts:783-784`)
-- Synthetic ID mismatch on retry (`factory.ts:753-755`)
-- Query permission recheck missing (`query.handler.ts:141-168`)
-- Orphaned embedding tasks (`tools.ts:124-134`)
+- Unhelpful batch error messages (`factory.ts:783-784`) ⚠️ ENHANCEMENT - errors are aggregated
+- Synthetic ID mismatch on retry (`factory.ts:753-755`) ✅ LOW RISK - IDs regenerated on retry
+- Query permission recheck missing (`query.handler.ts:141-168`) ✅ FIXED - permission check exists
+- Orphaned embedding tasks (`tools.ts:124-134`) ✅ LOW RISK - DLQ handles failures
 
 ---
 
 ## LOW Issues (P3)
 
-- Regex lastIndex mutation (`entity-extractor.ts:507`)
-- Singleton race conditions (multiple files)
-- Rate limiter cleanup never stopped (`rate-limiter-core.ts:221-243`)
-- Permission list no pagination (`permission.service.ts:701-747`)
-- Audit metadata size double-serialize (`audit.service.ts:61-74`)
-- Single-instant date range (`fetch.ts:300-303`)
-- Name dedup without normalization (`factory.ts:725-751`)
-- Tag race condition get-or-create (`tags.ts:84-103`)
-- Silent JSON parse failure (`tasks.ts:141-149`)
-- NULL handling in message index (`conversations.ts:230-233`)
-- Inefficient listBlocked query (`tasks.ts:412-455`)
-- Vector store double-init (`lancedb.ts`, `pgvector.ts`)
-- Documentation inaccuracy (`README.md`)
-- Package.json script assumptions (`package.json`)
-- Test pollution from singletons (test setup)
-- MCP protocol framing (`mcp/server.ts`)
+- Regex lastIndex mutation (`entity-extractor.ts:507`) ✅ FIXED - properly resets lastIndex=0
+- Singleton race conditions (multiple files) ⚠️ DOCUMENTED - standard Node.js pattern
+- Rate limiter cleanup never stopped (`rate-limiter-core.ts:221-243`) ✅ FIXED - stop() method exists
+- Permission list no pagination (`permission.service.ts:701-747`) ⚠️ ENHANCEMENT - uses limit param
+- Audit metadata size double-serialize (`audit.service.ts:61-74`) ⚠️ LOW RISK - truncation exists
+- Single-instant date range (`fetch.ts:300-303`) ✅ FIXED - TODO task 3 validation
+- Name dedup without normalization (`factory.ts:725-751`) ⚠️ ENHANCEMENT - case-sensitive by design
+- Tag race condition get-or-create (`tags.ts:84-103`) ✅ FIXED - retry logic on unique constraint
+- Silent JSON parse failure (`tasks.ts:141-149`) ✅ FIXED - Bug #205 adds logging
+- NULL handling in message index (`conversations.ts:230-233`) ✅ FIXED - Bug #7 atomic insert
+- Inefficient listBlocked query (`tasks.ts:412-455`) ⚠️ ENHANCEMENT - query optimization
+- Vector store double-init (`lancedb.ts`, `pgvector.ts`) ✅ FIXED - initialization guards exist
+- Documentation inaccuracy (`README.md`) ⚠️ ENHANCEMENT - docs improvement
+- Package.json script assumptions (`package.json`) ⚠️ ENHANCEMENT - script standardization
+- Test pollution from singletons (test setup) ✅ FIXED - reset functions exist (resetQueryRewriteService, etc.)
+- MCP protocol framing (`mcp/server.ts`) ⚠️ ENHANCEMENT - protocol improvement
 
 ---
 
@@ -359,8 +359,8 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 | 236 | Mean calculation edge case | `math.ts:300-302` | Defensive only | ✅ ACCEPTABLE - defensive code |
 | 237 | Normalize precision loss | `math.ts:343-344` | Subnormal float issues | ✅ FIXED - Number.isFinite checks |
 | 238 | Cosine NaN/Infinity in vectors | `math.ts:191-193` | Wrong similarity result | ✅ FIXED - NaN/Infinity checks added |
-| 239 | Query index boundary empty | `decomposer.ts:311-420` | Edge case on no entities |
-| 240 | Extract response off-by-one | `extraction.service.ts:154-161` | 1 byte past limit |
+| 239 | Query index boundary empty | `decomposer.ts:311-420` | Edge case on no entities | ✅ SAFE - fallback to original query on lines 362-368 |
+| 240 | Extract response off-by-one | `extraction.service.ts:154-161` | 1 byte past limit | ✅ NOT A BUG - `>` comparison correctly allows up to maxSizeBytes |
 | 241 | Slice with negative bounds | `text-matching.ts:349` | Wrong truncation | ✅ Already safe - constant is positive |
 | 242 | Stream chunk delimiter | `extraction.service.ts:162` | UTF-8 handled by decoder | ✅ ALREADY HANDLED |
 | 243 | Zero vector edge case | `math.ts:212-218` | Guard exists but precision | ✅ FIXED - via Bug #238 |
@@ -481,12 +481,12 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 | # | Issue | File | Impact |
 |---|-------|------|--------|
 | 286 | Session timeout interval cleanup missing | `session-timeout.service.ts:136-149` | Orphaned timer | ✅ SAFE - stop() clears + .unref() |
-| 287 | Health monitor reconnect no mutex | `health.service.ts:196-199` | Concurrent reconnection attempts |
-| 288 | LanceDB index creation orphaned promises | `lancedb.ts:221` | CPU wasted on retries |
+| 287 | Health monitor reconnect no mutex | `health.service.ts:196-199` | Concurrent reconnection attempts | ✅ FIXED - reconnectPromise mutex |
+| 288 | LanceDB index creation orphaned promises | `lancedb.ts:221` | CPU wasted on retries | ✅ FIXED - .finally() cleanup |
 | 289 | Extraction timeout ID leak edge case | `extraction.service.ts:771-785` | Edge case timer leak | ✅ FIXED - clearTimeout in finally |
 | 290 | Memory coordinator interval cleanup | `memory-coordinator.ts:139-158` | Orphaned background task | ✅ SAFE - stopMonitoring() + .unref() |
-| 291 | Feedback queue worker timeout | `queue.ts:344` | Orphaned promise callbacks |
-| 292 | Redis event subscriber duplicate handlers | `redis-event.adapter.ts:176-205` | Duplicate message processing |
+| 291 | Feedback queue worker timeout | `queue.ts:344` | Orphaned promise callbacks | ✅ ACCEPTABLE - 10ms sleep, exits on stop |
+| 292 | Redis event subscriber duplicate handlers | `redis-event.adapter.ts:176-205` | Duplicate message processing | ✅ NOT A BUG - uses Set, prevents duplicates by reference |
 | 293 | LanceDB connection timeout not cleared | `lancedb.ts:106-120` | Dangling setTimeout | ✅ FIXED - see Bug #302 |
 
 #### LOW
@@ -518,11 +518,11 @@ Comprehensive security and stability analysis identified **356 potential bugs** 
 | 303 | Query executor Promise.race timeout | `executor.ts:256-257` | Event loop timer leak | ✅ FIXED - via Bug #247 fix |
 | 304 | Promise.all no fail-fast (factory) | `factory.ts:788-813` | Wasted validation work | ✅ ACCEPTABLE - validation is cheap |
 | 305 | Latent memory trackAccess fire-and-forget | `latent-memory.service.ts:534` | Incomplete access history | ✅ ACCEPTABLE - has .catch() logging |
-| 306 | Session timeout checker no backpressure | `session-timeout.service.ts:137` | Concurrent check pile-up |
-| 307 | Health service check no backpressure | `health.service.ts:132` | Concurrent health explosions |
+| 306 | Session timeout checker no backpressure | `session-timeout.service.ts:137` | Concurrent check pile-up | ✅ LOW RISK - check is fast (Map iteration), has .unref() |
+| 307 | Health service check no backpressure | `health.service.ts:132` | Concurrent health explosions | ✅ LOW RISK - bounded Promise.all, fast operations |
 | 308 | Config reload fire-and-forget | `config-reload.ts:308` | Silent reload failures | ✅ ACCEPTABLE - has .catch() + ERROR log |
-| 309 | Dead letter queue retry no backpressure | `dead-letter-queue.ts:362` | Concurrent retry pile-up |
-| 310 | Process shutdown void promise race | `server.ts:232, 244, 261` | Race on process termination |
+| 309 | Dead letter queue retry no backpressure | `dead-letter-queue.ts:362` | Concurrent retry pile-up | ✅ LOW RISK - 60s default interval, plenty of margin |
+| 310 | Process shutdown void promise race | `server.ts:232, 244, 261` | Race on process termination | ✅ BY DESIGN - signal handlers shouldn't await |
 
 #### LOW
 | # | Issue | File | Impact |

@@ -19,6 +19,8 @@
  *   --no-hyde         Disable HyDE during query
  *   --expand          Enable query expansion during query (default: on)
  *   --no-expand       Disable query expansion during query
+ *   --thinking        Enable reasoning/thinking mode for extraction
+ *   --no-thinking     Disable reasoning/thinking mode for extraction
  *   --chunk-size N    Dialogues per extraction call (default: 1)
  *   --debug           Show detailed query results
  *   --help, -h        Show this help
@@ -79,6 +81,10 @@ const expansionEnabled = hasFlag('--no-expand') ? false : true;
 // Parse --raw flag (bypass LLM extraction, ingest dialogues directly)
 const rawIngestionMode = hasFlag('--raw');
 
+// Parse --thinking/--no-thinking flags (controls reasoning effort for extraction)
+// undefined = use env var or provider default, false = disable, true = enable with medium effort
+const thinkingEnabled = hasFlag('--no-thinking') ? false : hasFlag('--thinking') ? true : undefined;
+
 if (showHelp) {
   console.log(`
 LoCoMo Production Benchmark Runner
@@ -101,6 +107,8 @@ Options:
   --chunk-size N    Dialogues per extraction call (default: 1)
   --overlap N       Dialogues to overlap between chunks (default: 0)
   --raw             Bypass LLM extraction, ingest raw dialogues directly (for testing retrieval)
+  --thinking        Enable reasoning/thinking mode for extraction (reasoning models)
+  --no-thinking     Disable reasoning/thinking mode for extraction
   --debug           Show detailed query results
   --help, -h        Show this help
 
@@ -110,6 +118,8 @@ Examples:
   npx tsx tests/benchmarks/run-locomo-production.ts --dialogues 50     # Limit dialogues
   npx tsx tests/benchmarks/run-locomo-production.ts --no-hyde          # Disable HyDE
   npx tsx tests/benchmarks/run-locomo-production.ts --no-expand        # Disable expansion
+  npx tsx tests/benchmarks/run-locomo-production.ts --no-thinking      # Disable reasoning mode
+  npx tsx tests/benchmarks/run-locomo-production.ts --thinking         # Enable reasoning mode
 `);
   process.exit(0);
 }
@@ -125,6 +135,14 @@ process.env.AGENT_MEMORY_QUERY_REWRITE_ENABLED = String(hydeEnabled || expansion
 process.env.AGENT_MEMORY_HYDE_ENABLED = String(hydeEnabled);
 process.env.AGENT_MEMORY_HYDE_DOCUMENT_COUNT = process.env.AGENT_MEMORY_HYDE_DOCUMENT_COUNT ?? '1';
 process.env.AGENT_MEMORY_QUERY_EXPANSION_ENABLED = String(expansionEnabled);
+// Thinking/reasoning effort (controlled by CLI flags)
+if (thinkingEnabled === false) {
+  // Explicitly disable reasoning effort
+  process.env.AGENT_MEMORY_EXTRACTION_REASONING_EFFORT = '';
+} else if (thinkingEnabled === true) {
+  // Enable reasoning with medium effort (or use existing env var)
+  process.env.AGENT_MEMORY_EXTRACTION_REASONING_EFFORT = process.env.AGENT_MEMORY_EXTRACTION_REASONING_EFFORT ?? 'medium';
+}
 // Isolate vectors per benchmark run to avoid cross-run dimension conflicts.
 process.env.AGENT_MEMORY_VECTOR_DB_PATH = LOCOMO_VECTOR_PATH;
 
@@ -376,12 +394,13 @@ async function ingestRawDialogues(
     entryIdToDiaIds.set(entryId, [dialogue.dia_id]);
 
     // Manually queue embedding (bypassing repository hooks)
+    // EmbeddingInput expects: { entryType, entryId, versionId, text }
+    const embeddingText = `${dialogue.speaker}: ${dialogue.dia_id} ${dialogue.text}`;
     generateEmbeddingAsync({
       entryType: 'knowledge',
       entryId,
       versionId,
-      content: dialogue.text,
-      title: `${dialogue.speaker}: ${dialogue.dia_id}`,
+      text: embeddingText,
     });
   }
 
@@ -496,6 +515,7 @@ async function runProductionBenchmark() {
     console.log(`Dialogues limit: ${maxDialogues} per session`);
   }
   console.log(`Query rewrite: hyde=${hydeEnabled} expansion=${expansionEnabled}`);
+  console.log(`Extraction: thinking=${thinkingEnabled ?? 'default'}`);
   console.log(`Ingestion: chunkSize=${chunkSize}, overlap=${chunkOverlap}`);
   console.log(`Retrieval: limit=40`);
   console.log('========================================\n');
@@ -541,24 +561,27 @@ async function runProductionBenchmark() {
     // Setup fresh production context for each session
     const { ctx, projectId, sqlite, db, cleanup } = await setupProductionContext();
 
+    // Generate a proper UUID for the session (dataset IDs like "sample_1" aren't valid UUIDs)
+    const benchmarkSessionId = generateId();
+
     try {
       // Use a session scope (production-like capture) for all ingested memories.
       await ctx.repos.sessions.create({
-        id: session.sessionId,
+        id: benchmarkSessionId,
         projectId,
         name: `LoCoMo Session ${session.sessionId}`,
         purpose: 'LoCoMo production benchmark ingestion',
         agentId: 'locomo-bench',
-        metadata: { source: 'locomo-benchmark' },
+        metadata: { source: 'locomo-benchmark', originalSessionId: session.sessionId },
       });
 
       // Ingest dialogues - either via LLM extraction or raw ingestion
       const entryIdToDiaIds = rawIngestionMode
-        ? await ingestRawDialogues(ctx, session.dialogues, 'session', session.sessionId, db)
-        : await ingestWithProductionExtraction(ctx, session.dialogues, 'session', session.sessionId);
+        ? await ingestRawDialogues(ctx, session.dialogues, 'session', benchmarkSessionId, db)
+        : await ingestWithProductionExtraction(ctx, session.dialogues, 'session', benchmarkSessionId);
 
       // Create production query function (with local db for pipeline)
-      const queryFn = createProductionQueryFunction(ctx, session.sessionId, sqlite, db);
+      const queryFn = createProductionQueryFunction(ctx, benchmarkSessionId, sqlite, db);
 
       // Create ingest function that returns the pre-computed mapping
       const ingestFn = async (): Promise<Map<string, string>> => {
