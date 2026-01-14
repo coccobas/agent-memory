@@ -105,14 +105,31 @@ export async function createServer(context: AppContext): Promise<Server> {
   }
 
   // Seed built-in graph types (if graph repositories are available)
+  // Fail fast if seeding fails - indicates database schema issue
   if (context.repos?.typeRegistry) {
-    try {
-      logger.debug('Seeding built-in graph types...');
-      await context.repos.typeRegistry.seedBuiltinTypes();
-      logger.debug('Graph types seeded successfully');
-    } catch (error) {
-      logger.warn({ error }, 'Failed to seed graph types');
-      // Continue anyway - will fail gracefully when graph tools are used
+    logger.debug('Seeding built-in graph types...');
+    await context.repos.typeRegistry.seedBuiltinTypes();
+
+    // Verify seeding succeeded
+    const nodeTypes = await context.repos.typeRegistry.listNodeTypes({ includeBuiltin: true });
+    const edgeTypes = await context.repos.typeRegistry.listEdgeTypes({ includeBuiltin: true });
+
+    logger.info(
+      {
+        nodeTypes: nodeTypes.length,
+        edgeTypes: edgeTypes.length,
+        nodeTypeNames: nodeTypes.map((t) => t.name).slice(0, 10), // First 10
+        edgeTypeNames: edgeTypes.map((t) => t.name).slice(0, 10), // First 10
+      },
+      'Graph types seeded and verified'
+    );
+
+    // Fail fast if no types were inserted
+    if (nodeTypes.length === 0 || edgeTypes.length === 0) {
+      throw new Error(
+        `Graph initialization failed: ${nodeTypes.length} node types and ${edgeTypes.length} edge types found. ` +
+          `Expected non-zero. Database schema may be missing graph tables.`
+      );
     }
   }
 

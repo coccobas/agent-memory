@@ -395,90 +395,132 @@ export function createTypeRegistry(deps: DatabaseDeps): ITypeRegistry {
     async seedBuiltinTypes(): Promise<void> {
       logger.info('Seeding built-in node and edge types...');
 
-      // Seed node types
-      for (const typeDef of BUILTIN_NODE_TYPES) {
-        const existing = db
-          .select()
-          .from(nodeTypes)
-          .where(eq(nodeTypes.name, typeDef.name))
-          .get();
+      let nodeTypesCreated = 0;
+      let edgeTypesCreated = 0;
 
-        if (!existing) {
-          const id = generateId();
-          db.insert(nodeTypes)
-            .values({
-              id,
-              name: typeDef.name,
-              schema: typeDef.schema,
-              description: typeDef.description,
-              parentTypeId: null, // Resolved after all types created
-              isBuiltin: true,
-              createdAt: now(),
-              createdBy: 'system',
-            })
-            .run();
-          logger.debug({ name: typeDef.name }, 'Created built-in node type');
-        }
-      }
-
-      // Resolve parent type references
-      for (const typeDef of BUILTIN_NODE_TYPES) {
-        if (typeDef.parentTypeName) {
-          const parent = db
+      try {
+        // Seed node types
+        for (const typeDef of BUILTIN_NODE_TYPES) {
+          const existing = db
             .select()
             .from(nodeTypes)
-            .where(eq(nodeTypes.name, typeDef.parentTypeName))
+            .where(eq(nodeTypes.name, typeDef.name))
             .get();
 
-          if (parent) {
-            db.update(nodeTypes)
-              .set({ parentTypeId: parent.id })
-              .where(eq(nodeTypes.name, typeDef.name))
+          if (!existing) {
+            const id = generateId();
+            db.insert(nodeTypes)
+              .values({
+                id,
+                name: typeDef.name,
+                schema: typeDef.schema,
+                description: typeDef.description,
+                parentTypeId: null, // Resolved after all types created
+                isBuiltin: true,
+                createdAt: now(),
+                createdBy: 'system',
+              })
               .run();
+            nodeTypesCreated++;
+            logger.debug({ name: typeDef.name }, 'Created built-in node type');
+          } else {
+            logger.debug({ name: typeDef.name }, 'Built-in node type already exists');
           }
         }
-      }
 
-      // Seed edge types
-      for (const typeDef of BUILTIN_EDGE_TYPES) {
-        const existing = db
-          .select()
-          .from(edgeTypes)
-          .where(eq(edgeTypes.name, typeDef.name))
-          .get();
+        // Resolve parent type references
+        for (const typeDef of BUILTIN_NODE_TYPES) {
+          if (typeDef.parentTypeName) {
+            const parent = db
+              .select()
+              .from(nodeTypes)
+              .where(eq(nodeTypes.name, typeDef.parentTypeName))
+              .get();
 
-        if (!existing) {
-          const id = generateId();
-          db.insert(edgeTypes)
-            .values({
-              id,
-              name: typeDef.name,
-              schema: typeDef.schema ?? null,
-              description: typeDef.description,
-              isDirected: typeDef.isDirected ?? true,
-              inverseName: typeDef.inverseName ?? null,
-              sourceConstraints: typeDef.sourceConstraints ?? null,
-              targetConstraints: typeDef.targetConstraints ?? null,
-              isBuiltin: true,
-              createdAt: now(),
-              createdBy: 'system',
-            })
-            .run();
-          logger.debug({ name: typeDef.name }, 'Created built-in edge type');
+            if (parent) {
+              db.update(nodeTypes)
+                .set({ parentTypeId: parent.id })
+                .where(eq(nodeTypes.name, typeDef.name))
+                .run();
+            }
+          }
         }
+
+        // Seed edge types
+        for (const typeDef of BUILTIN_EDGE_TYPES) {
+          const existing = db
+            .select()
+            .from(edgeTypes)
+            .where(eq(edgeTypes.name, typeDef.name))
+            .get();
+
+          if (!existing) {
+            const id = generateId();
+            db.insert(edgeTypes)
+              .values({
+                id,
+                name: typeDef.name,
+                schema: typeDef.schema ?? null,
+                description: typeDef.description,
+                isDirected: typeDef.isDirected ?? true,
+                inverseName: typeDef.inverseName ?? null,
+                sourceConstraints: typeDef.sourceConstraints ?? null,
+                targetConstraints: typeDef.targetConstraints ?? null,
+                isBuiltin: true,
+                createdAt: now(),
+                createdBy: 'system',
+              })
+              .run();
+            edgeTypesCreated++;
+            logger.debug({ name: typeDef.name }, 'Created built-in edge type');
+          } else {
+            logger.debug({ name: typeDef.name }, 'Built-in edge type already exists');
+          }
+        }
+
+        // Refresh caches
+        refreshNodeTypeMappings();
+        refreshEdgeTypeMappings();
+
+        // Verify counts
+        const nodeTypesCount = db.select().from(nodeTypes).all().length;
+        const edgeTypesCount = db.select().from(edgeTypes).all().length;
+
+        logger.info(
+          {
+            nodeTypesCreated,
+            edgeTypesCreated,
+            totalNodeTypes: nodeTypesCount,
+            totalEdgeTypes: edgeTypesCount,
+            expectedNodeTypes: BUILTIN_NODE_TYPES.length,
+            expectedEdgeTypes: BUILTIN_EDGE_TYPES.length,
+          },
+          'Built-in types seeded'
+        );
+
+        // Fail fast if no types were seeded and tables are empty
+        if (nodeTypesCount === 0 || edgeTypesCount === 0) {
+          throw new Error(
+            `Graph type seeding failed: ${nodeTypesCount} node types and ${edgeTypesCount} edge types in database. ` +
+              `Expected at least ${BUILTIN_NODE_TYPES.length} node types and ${BUILTIN_EDGE_TYPES.length} edge types. ` +
+              `This indicates a database schema issue. Run migrations to ensure graph tables exist.`
+          );
+        }
+      } catch (error) {
+        // Log detailed error and re-throw
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        logger.error(
+          {
+            error: errorMessage,
+            nodeTypesCreated,
+            edgeTypesCreated,
+            expectedNodeTypes: BUILTIN_NODE_TYPES.length,
+            expectedEdgeTypes: BUILTIN_EDGE_TYPES.length,
+          },
+          'Failed to seed built-in graph types'
+        );
+        throw error;
       }
-
-      // Refresh caches
-      refreshNodeTypeMappings();
-      refreshEdgeTypeMappings();
-
-      logger.info(
-        {
-          nodeTypes: BUILTIN_NODE_TYPES.length,
-          edgeTypes: BUILTIN_EDGE_TYPES.length,
-        },
-        'Built-in types seeded'
-      );
     },
   };
 }
