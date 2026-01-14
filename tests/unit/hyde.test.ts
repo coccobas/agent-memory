@@ -13,12 +13,12 @@ describe('HyDEGenerator', () => {
     mockExtractionService = {
       isAvailable: vi.fn().mockReturnValue(true),
       getProvider: vi.fn().mockReturnValue('openai'),
-      extract: vi.fn().mockResolvedValue({
-        entries: [
-          { type: 'knowledge', content: 'Generated document 1' },
-          { type: 'knowledge', content: 'Generated document 2' },
-        ],
-        confidence: 0.9,
+      generate: vi.fn().mockResolvedValue({
+        texts: ['Generated document 1', 'Generated document 2'],
+        model: 'gpt-4o-mini',
+        provider: 'openai',
+        tokensUsed: 150,
+        processingTimeMs: 500,
       }),
     } as unknown as ExtractionService;
 
@@ -37,6 +37,8 @@ describe('HyDEGenerator', () => {
     defaultConfig = {
       provider: 'openai',
       documentCount: 3,
+      temperature: 0.7,
+      maxTokensPerDoc: 512,
     };
   });
 
@@ -154,7 +156,7 @@ describe('HyDEGenerator', () => {
       const result = await generator.generate('How to configure ESLint?', 'how_to');
 
       expect(result.documents).toHaveLength(2);
-      expect(mockExtractionService.extract).toHaveBeenCalled();
+      expect(mockExtractionService.generate).toHaveBeenCalled();
     });
 
     it('should generate documents for debug intent', async () => {
@@ -223,9 +225,11 @@ describe('HyDEGenerator', () => {
 
   describe('generate with fallback', () => {
     it('should use fallback when no documents generated', async () => {
-      vi.mocked(mockExtractionService.extract).mockResolvedValue({
-        entries: [],
-        confidence: 0.5,
+      vi.mocked(mockExtractionService.generate).mockResolvedValue({
+        texts: [],
+        model: 'gpt-4o-mini',
+        provider: 'openai',
+        processingTimeMs: 100,
       });
 
       const generator = new HyDEGenerator(
@@ -241,9 +245,11 @@ describe('HyDEGenerator', () => {
     });
 
     it('should generate fallback for lookup intent', async () => {
-      vi.mocked(mockExtractionService.extract).mockResolvedValue({
-        entries: [],
-        confidence: 0.5,
+      vi.mocked(mockExtractionService.generate).mockResolvedValue({
+        texts: [],
+        model: 'gpt-4o-mini',
+        provider: 'openai',
+        processingTimeMs: 100,
       });
 
       const generator = new HyDEGenerator(
@@ -258,9 +264,11 @@ describe('HyDEGenerator', () => {
     });
 
     it('should generate fallback for how_to intent', async () => {
-      vi.mocked(mockExtractionService.extract).mockResolvedValue({
-        entries: [],
-        confidence: 0.5,
+      vi.mocked(mockExtractionService.generate).mockResolvedValue({
+        texts: [],
+        model: 'gpt-4o-mini',
+        provider: 'openai',
+        processingTimeMs: 100,
       });
 
       const generator = new HyDEGenerator(
@@ -275,9 +283,11 @@ describe('HyDEGenerator', () => {
     });
 
     it('should generate fallback for debug intent', async () => {
-      vi.mocked(mockExtractionService.extract).mockResolvedValue({
-        entries: [],
-        confidence: 0.5,
+      vi.mocked(mockExtractionService.generate).mockResolvedValue({
+        texts: [],
+        model: 'gpt-4o-mini',
+        provider: 'openai',
+        processingTimeMs: 100,
       });
 
       const generator = new HyDEGenerator(
@@ -292,9 +302,11 @@ describe('HyDEGenerator', () => {
     });
 
     it('should generate fallback for explore intent', async () => {
-      vi.mocked(mockExtractionService.extract).mockResolvedValue({
-        entries: [],
-        confidence: 0.5,
+      vi.mocked(mockExtractionService.generate).mockResolvedValue({
+        texts: [],
+        model: 'gpt-4o-mini',
+        provider: 'openai',
+        processingTimeMs: 100,
       });
 
       const generator = new HyDEGenerator(
@@ -309,9 +321,11 @@ describe('HyDEGenerator', () => {
     });
 
     it('should generate fallback for compare intent', async () => {
-      vi.mocked(mockExtractionService.extract).mockResolvedValue({
-        entries: [],
-        confidence: 0.5,
+      vi.mocked(mockExtractionService.generate).mockResolvedValue({
+        texts: [],
+        model: 'gpt-4o-mini',
+        provider: 'openai',
+        processingTimeMs: 100,
       });
 
       const generator = new HyDEGenerator(
@@ -326,9 +340,11 @@ describe('HyDEGenerator', () => {
     });
 
     it('should generate fallback for configure intent', async () => {
-      vi.mocked(mockExtractionService.extract).mockResolvedValue({
-        entries: [],
-        confidence: 0.5,
+      vi.mocked(mockExtractionService.generate).mockResolvedValue({
+        texts: [],
+        model: 'gpt-4o-mini',
+        provider: 'openai',
+        processingTimeMs: 100,
       });
 
       const generator = new HyDEGenerator(
@@ -344,8 +360,8 @@ describe('HyDEGenerator', () => {
   });
 
   describe('generate with errors', () => {
-    it('should return empty result on extraction error', async () => {
-      vi.mocked(mockExtractionService.extract).mockRejectedValue(new Error('API error'));
+    it('should return empty result on generation error', async () => {
+      vi.mocked(mockExtractionService.generate).mockRejectedValue(new Error('API error'));
 
       const generator = new HyDEGenerator(
         mockExtractionService,
@@ -377,7 +393,7 @@ describe('HyDEGenerator', () => {
     });
 
     it('should handle non-Error thrown values', async () => {
-      vi.mocked(mockExtractionService.extract).mockRejectedValue('string error');
+      vi.mocked(mockExtractionService.generate).mockRejectedValue('string error');
 
       const generator = new HyDEGenerator(
         mockExtractionService,
@@ -447,18 +463,7 @@ describe('HyDEGenerator', () => {
   });
 
   describe('documentCount limit', () => {
-    it('should limit documents to configured count', async () => {
-      vi.mocked(mockExtractionService.extract).mockResolvedValue({
-        entries: [
-          { type: 'knowledge', content: 'Doc 1' },
-          { type: 'knowledge', content: 'Doc 2' },
-          { type: 'knowledge', content: 'Doc 3' },
-          { type: 'knowledge', content: 'Doc 4' },
-          { type: 'knowledge', content: 'Doc 5' },
-        ],
-        confidence: 0.9,
-      });
-
+    it('should request configured document count from generate()', async () => {
       const config: HyDEConfig = { ...defaultConfig, documentCount: 2 };
       const generator = new HyDEGenerator(
         mockExtractionService,
@@ -466,32 +471,55 @@ describe('HyDEGenerator', () => {
         config
       );
 
-      const result = await generator.generate('test query', 'lookup');
+      await generator.generate('test query', 'lookup');
 
-      expect(result.documents.length).toBeLessThanOrEqual(2);
+      expect(mockExtractionService.generate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          count: 2,
+        })
+      );
     });
   });
 
-  describe('entry type filtering', () => {
-    it('should only use knowledge type entries', async () => {
-      vi.mocked(mockExtractionService.extract).mockResolvedValue({
-        entries: [
-          { type: 'guideline', content: 'Guideline content' },
-          { type: 'knowledge', content: 'Knowledge content' },
-          { type: 'tool', content: 'Tool content' },
-        ],
-        confidence: 0.9,
-      });
+  describe('generate() parameters', () => {
+    it('should pass correct parameters to ExtractionService.generate()', async () => {
+      const config: HyDEConfig = {
+        provider: 'openai',
+        documentCount: 3,
+        temperature: 0.8,
+        maxTokensPerDoc: 256,
+      };
+      const generator = new HyDEGenerator(
+        mockExtractionService,
+        mockEmbeddingService,
+        config
+      );
 
+      await generator.generate('test query', 'lookup');
+
+      expect(mockExtractionService.generate).toHaveBeenCalledWith({
+        systemPrompt: expect.stringContaining('technical documentation generator'),
+        userPrompt: expect.stringContaining('test query'),
+        count: 3,
+        temperature: 0.8,
+        maxTokens: 256,
+      });
+    });
+
+    it('should use intent-specific prompts', async () => {
       const generator = new HyDEGenerator(
         mockExtractionService,
         mockEmbeddingService,
         defaultConfig
       );
 
-      const result = await generator.generate('test query', 'lookup');
+      await generator.generate('How to setup TypeScript?', 'how_to');
 
-      expect(result.documents).toEqual(['Knowledge content']);
+      expect(mockExtractionService.generate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userPrompt: expect.stringContaining('step-by-step guideline'),
+        })
+      );
     });
   });
 });
