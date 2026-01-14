@@ -3,6 +3,9 @@
  *
  * Provides multi-hop relation traversal using recursive CTE
  * with BFS fallback for cycle detection.
+ *
+ * Supports both legacy (entry_relations) and new (edges) tables.
+ * Controlled by AGENT_MEMORY_GRAPH_TRAVERSAL config flag.
  */
 
 import { and, eq } from 'drizzle-orm';
@@ -10,6 +13,8 @@ import { getPreparedStatement as getGlobalPreparedStatement, type DbClient } fro
 import { entryRelations, type RelationType } from '../../db/schema.js';
 import { createComponentLogger } from '../../utils/logger.js';
 import type { Statement } from 'better-sqlite3';
+import { traverseGraphEdges } from './graph-traversal-edges.js';
+import { config } from '../../config/index.js';
 
 const logger = createComponentLogger('graph-traversal');
 
@@ -366,6 +371,9 @@ function getAdjacentNodes(
  * Traverse the relation graph to find related entries.
  * Uses recursive CTE for fast multi-hop queries, falls back to BFS if CTE fails.
  *
+ * Supports both legacy (entry_relations) and new (edges) tables.
+ * Use AGENT_MEMORY_GRAPH_TRAVERSAL=true to enable edges-based traversal.
+ *
  * @param startType - Type of the starting node
  * @param startId - ID of the starting node
  * @param options - Traversal options (depth 1-5, direction, relationType, maxResults)
@@ -383,8 +391,21 @@ export function traverseRelationGraph(
   } = {},
   db?: DbClient
 ): Record<QueryEntryType, Set<string>> {
-  // Try CTE-based traversal first (faster for multi-hop queries)
-  // Falls back to BFS if CTE fails (e.g., SQLite version issues)
+  // Check if edges-based traversal is enabled
+  const useEdgesTable = config?.graph?.traversalEnabled ?? false;
+
+  if (useEdgesTable) {
+    // Use new edges-based traversal
+    logger.debug({ startType, startId }, 'Using edges-based graph traversal');
+    const edgeResult = traverseGraphEdges(startType, startId, options);
+    if (edgeResult !== null) {
+      return edgeResult;
+    }
+    // Fall through to legacy if edges traversal fails
+    logger.warn('Edges-based traversal failed, falling back to entry_relations');
+  }
+
+  // Try legacy CTE-based traversal (entry_relations table)
   const cteResult = traverseRelationGraphCTE(startType, startId, options);
   if (cteResult !== null) {
     return cteResult;
