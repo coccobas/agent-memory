@@ -228,6 +228,25 @@ export class VectorService implements IVectorService {
     }
   }
 
+  /**
+   * Callback triggered when dimension mismatch is detected.
+   * Set by the application to trigger background re-embedding.
+   */
+  private onDimensionMismatch?: (
+    queryDimension: number,
+    storedDimension: number
+  ) => void;
+
+  /**
+   * Set a callback to be triggered when dimension mismatch is detected.
+   * This allows the application to trigger background re-embedding.
+   */
+  setDimensionMismatchCallback(
+    callback: (queryDimension: number, storedDimension: number) => void
+  ): void {
+    this.onDimensionMismatch = callback;
+  }
+
   async searchSimilar(
     embedding: number[],
     entryTypes: string[],
@@ -235,23 +254,32 @@ export class VectorService implements IVectorService {
   ): Promise<SearchResult[]> {
     await this.ensureInitialized();
 
-    // Validate dimension
+    // Check dimension mismatch - handle gracefully instead of throwing
     const expectedDim = this.store.getExpectedDimension();
     if (expectedDim !== null && embedding.length !== expectedDim) {
-      const error = createVectorDbError(
-        'searchSimilar',
-        `Embedding dimension mismatch: query has ${embedding.length} dimensions, but stored embeddings have ${expectedDim} dimensions`,
+      logger.warn(
         {
           queryDimension: embedding.length,
           storedDimension: expectedDim,
-          suggestion: 'Ensure the query embedding uses the same model as stored embeddings',
+          action: 'returning_empty_triggering_reembedding',
+        },
+        'Embedding dimension mismatch detected - returning empty results and triggering re-embedding'
+      );
+
+      // Trigger re-embedding callback if set (non-blocking)
+      if (this.onDimensionMismatch) {
+        try {
+          this.onDimensionMismatch(embedding.length, expectedDim);
+        } catch (callbackError) {
+          logger.debug(
+            { error: callbackError instanceof Error ? callbackError.message : String(callbackError) },
+            'Dimension mismatch callback failed'
+          );
         }
-      );
-      logger.error(
-        { queryDimension: embedding.length, storedDimension: expectedDim, error },
-        'Search embedding dimension mismatch'
-      );
-      throw error;
+      }
+
+      // Return empty results - allows FTS5 fallback
+      return [];
     }
 
     return this.store.search(embedding, {

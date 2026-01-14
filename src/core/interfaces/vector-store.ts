@@ -70,4 +70,25 @@ export interface IVectorStore {
    * and clean up old version files (optional - not all backends support this)
    */
   compact?(): Promise<void>;
+
+  /**
+   * Get metadata about stored embeddings (entry IDs, models, dimensions).
+   * Used for identifying entries that need re-embedding after model change.
+   */
+  getEmbeddingMetadata?(options?: {
+    entryTypes?: string[];
+    limit?: number;
+  }): Promise<Array<{
+    entryType: string;
+    entryId: string;
+    versionId: string;
+    model: string;
+    dimension: number;
+  }>>;
+
+  /**
+   * Get the dimension of stored embeddings by sampling existing records.
+   * Returns null if no embeddings exist.
+   */
+  getStoredDimension?(): Promise<number | null>;
 }

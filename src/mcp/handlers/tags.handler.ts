@@ -32,14 +32,20 @@ export const tagHandlers = {
     const category = getOptionalParam(params, 'category', isTagCategory);
     const description = getOptionalParam(params, 'description', isString);
 
+    // Validate tag name is non-empty
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      throw createValidationError('name', 'cannot be empty', 'Provide a non-empty tag name');
+    }
+
     // Check if tag already exists
-    const existing = await context.repos.tags.getByName(name);
+    const existing = await context.repos.tags.getByName(trimmedName);
     if (existing) {
       return { success: true, tag: existing, existed: true };
     }
 
     const input: CreateTagInput = {
-      name,
+      name: trimmedName,
       category,
       description,
     };
@@ -137,7 +143,27 @@ export const tagHandlers = {
     const agentId = getRequiredParam(params, 'agentId', isString);
     const entryType = getRequiredParam(params, 'entryType', isEntryType);
     const entryId = getRequiredParam(params, 'entryId', isString);
-    const tagId = getRequiredParam(params, 'tagId', isString);
+
+    // Accept either tagId or tagName (consistent with attach)
+    let tagId = getOptionalParam(params, 'tagId', isString);
+    const tagName = getOptionalParam(params, 'tagName', isString);
+
+    if (!tagId && !tagName) {
+      throw createValidationError(
+        'tagId or tagName',
+        'is required',
+        'Provide either tagId or tagName to detach'
+      );
+    }
+
+    // If tagName provided, look up the tagId
+    if (!tagId && tagName) {
+      const tag = await context.repos.tags.getByName(tagName);
+      if (!tag) {
+        throw createValidationError('tagName', `tag "${tagName}" not found`, 'Check the tag name exists');
+      }
+      tagId = tag.id;
+    }
 
     const { scopeType, scopeId } = await requireEntryPermissionWithScope(context, {
       agentId,
@@ -146,7 +172,7 @@ export const tagHandlers = {
       entryId,
     });
 
-    const success = await context.repos.entryTags.detach(entryType, entryId, tagId);
+    const success = await context.repos.entryTags.detach(entryType, entryId, tagId!);
 
     if (success) {
       context.unifiedAdapters?.event.emit({

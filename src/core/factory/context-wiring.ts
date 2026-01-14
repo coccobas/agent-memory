@@ -157,6 +157,15 @@ export async function wireContext(input: WireContextInput): Promise<AppContext> 
   const extractionHookService = createExtractionHookService(config);
   services.extractionHook = extractionHookService;
 
+  // Create ReembeddingService now that db is available
+  // This enables automatic re-embedding when dimension mismatch is detected
+  if (services._createReembeddingService) {
+    services.reembedding = services._createReembeddingService(db);
+    if (services.reembedding) {
+      logger.debug('Re-embedding service created for dimension mismatch auto-fix');
+    }
+  }
+
   // Create entity index for entity-aware retrieval
   const entityIndex = new EntityIndex(db);
 

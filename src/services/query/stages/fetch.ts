@@ -400,6 +400,8 @@ function fetchKnowledgeWithContent(
  * Fetches entries by ID from semantic search results that weren't already fetched.
  * This ensures semantically relevant entries are included even if they're outside
  * the normal scope-based fetch criteria.
+ *
+ * Bug fix: Now filters by scope chain to respect inherit: false and scope isolation.
  */
 function fetchSemanticEntries<T extends EntryUnion>(
   db: DbInstance,
@@ -407,27 +409,51 @@ function fetchSemanticEntries<T extends EntryUnion>(
   existingIds: Set<string>,
   semanticIds: string[],
   result: Array<{ entry: T; scopeIndex: number }>,
-  scopeChainLength: number
+  scopeChain: PipelineContext['scopeChain']
 ): void {
   // Find IDs that are in semantic results but not already fetched
   const missingIds = semanticIds.filter((id) => !existingIds.has(id));
 
   if (missingIds.length === 0) return;
 
-  // Fetch by ID in batches
+  // Build scope conditions for filtering (same as main fetch)
+  const scopeConditions: SQL[] = [];
+  for (const scope of scopeChain) {
+    const scopeCondition =
+      scope.scopeId === null
+        ? and(eq(table.scopeType, scope.scopeType), isNull(table.scopeId))
+        : and(eq(table.scopeType, scope.scopeType), eq(table.scopeId, scope.scopeId));
+    if (scopeCondition) {
+      scopeConditions.push(scopeCondition);
+    }
+  }
+
+  // Fetch by ID in batches, filtering by scope chain
   const batchSize = 100;
   for (let i = 0; i < missingIds.length; i += batchSize) {
     const batch = missingIds.slice(i, i + batchSize);
     const rows = db
       .select()
       .from(table)
-      .where(and(inArray(table.id, batch), eq(table.isActive, true)))
+      .where(
+        and(
+          inArray(table.id, batch),
+          eq(table.isActive, true),
+          or(...scopeConditions)
+        )
+      )
       .all();
 
     for (const row of rows) {
       const entry = row as T;
-      // Use scope chain length as index to indicate lower priority than scope-based entries
-      result.push({ entry, scopeIndex: scopeChainLength });
+      // Find scope index for proper priority sorting
+      const scopeIndex = scopeChain.findIndex(
+        (scope) =>
+          scope.scopeType === entry.scopeType &&
+          (scope.scopeId === null ? entry.scopeId === null : scope.scopeId === entry.scopeId)
+      );
+      // Use scopeChain.length as fallback if entry doesn't match any scope (shouldn't happen)
+      result.push({ entry, scopeIndex: scopeIndex >= 0 ? scopeIndex : scopeChain.length });
       existingIds.add(entry.id);
     }
   }
@@ -491,28 +517,27 @@ export function fetchStage(ctx: PipelineContext): PipelineContext {
   }
 
   // Also fetch entries from semantic search results that weren't already fetched
+  // Bug fix: Pass scopeChain instead of length to enable scope filtering
   if (semanticScores && semanticScores.size > 0) {
-    const scopeChainLen = scopeChain.length;
-
     if (types.includes('tools')) {
       const existingIds = new Set(fetchedEntries.tools.map((e) => e.entry.id));
       const semanticIds = getSemanticIdsForType(semanticScores, 'tool');
-      fetchSemanticEntries(db, tools, existingIds, semanticIds, fetchedEntries.tools, scopeChainLen);
+      fetchSemanticEntries(db, tools, existingIds, semanticIds, fetchedEntries.tools, scopeChain);
     }
     if (types.includes('guidelines')) {
       const existingIds = new Set(fetchedEntries.guidelines.map((e) => e.entry.id));
       const semanticIds = getSemanticIdsForType(semanticScores, 'guideline');
-      fetchSemanticEntries(db, guidelines, existingIds, semanticIds, fetchedEntries.guidelines, scopeChainLen);
+      fetchSemanticEntries(db, guidelines, existingIds, semanticIds, fetchedEntries.guidelines, scopeChain);
     }
     if (types.includes('knowledge')) {
       const existingIds = new Set(fetchedEntries.knowledge.map((e) => e.entry.id));
       const semanticIds = getSemanticIdsForType(semanticScores, 'knowledge');
-      fetchSemanticEntries(db, knowledge, existingIds, semanticIds, fetchedEntries.knowledge, scopeChainLen);
+      fetchSemanticEntries(db, knowledge, existingIds, semanticIds, fetchedEntries.knowledge, scopeChain);
     }
     if (types.includes('experiences')) {
       const existingIds = new Set(fetchedEntries.experiences.map((e) => e.entry.id));
       const semanticIds = getSemanticIdsForType(semanticScores, 'experience');
-      fetchSemanticEntries(db, experiences, existingIds, semanticIds, fetchedEntries.experiences, scopeChainLen);
+      fetchSemanticEntries(db, experiences, existingIds, semanticIds, fetchedEntries.experiences, scopeChain);
     }
   }
 
@@ -599,28 +624,27 @@ export async function fetchStageAsync(ctx: PipelineContext): Promise<PipelineCon
   await Promise.all(fetchPromises);
 
   // Also fetch entries from semantic search results that weren't already fetched
+  // Bug fix: Pass scopeChain instead of length to enable scope filtering
   if (semanticScores && semanticScores.size > 0) {
-    const scopeChainLen = scopeChain.length;
-
     if (types.includes('tools')) {
       const existingIds = new Set(fetchedEntries.tools.map((e) => e.entry.id));
       const semanticIds = getSemanticIdsForType(semanticScores, 'tool');
-      fetchSemanticEntries(db, tools, existingIds, semanticIds, fetchedEntries.tools, scopeChainLen);
+      fetchSemanticEntries(db, tools, existingIds, semanticIds, fetchedEntries.tools, scopeChain);
     }
     if (types.includes('guidelines')) {
       const existingIds = new Set(fetchedEntries.guidelines.map((e) => e.entry.id));
       const semanticIds = getSemanticIdsForType(semanticScores, 'guideline');
-      fetchSemanticEntries(db, guidelines, existingIds, semanticIds, fetchedEntries.guidelines, scopeChainLen);
+      fetchSemanticEntries(db, guidelines, existingIds, semanticIds, fetchedEntries.guidelines, scopeChain);
     }
     if (types.includes('knowledge')) {
       const existingIds = new Set(fetchedEntries.knowledge.map((e) => e.entry.id));
       const semanticIds = getSemanticIdsForType(semanticScores, 'knowledge');
-      fetchSemanticEntries(db, knowledge, existingIds, semanticIds, fetchedEntries.knowledge, scopeChainLen);
+      fetchSemanticEntries(db, knowledge, existingIds, semanticIds, fetchedEntries.knowledge, scopeChain);
     }
     if (types.includes('experiences')) {
       const existingIds = new Set(fetchedEntries.experiences.map((e) => e.entry.id));
       const semanticIds = getSemanticIdsForType(semanticScores, 'experience');
-      fetchSemanticEntries(db, experiences, existingIds, semanticIds, fetchedEntries.experiences, scopeChainLen);
+      fetchSemanticEntries(db, experiences, existingIds, semanticIds, fetchedEntries.experiences, scopeChain);
     }
   }
 

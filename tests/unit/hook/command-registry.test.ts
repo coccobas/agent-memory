@@ -189,7 +189,8 @@ describe('command-registry', () => {
       expect(argNames).toContain('approve');
       expect(argNames).toContain('reject');
       expect(argNames).toContain('skip');
-      expect(argCommands.length).toBe(4);
+      expect(argNames).toContain('remember');
+      expect(argCommands.length).toBe(5);
     });
   });
 });

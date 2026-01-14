@@ -91,8 +91,25 @@ export const queryHandlers = {
       );
     }
 
-    // Get scope and auto-detect project if needed
+    // Get scope - support both object format and separate scopeType/scopeId params
     let scope = getOptionalParam(params, 'scope', isValidScope);
+
+    // If scope object not provided, build from scopeType/scopeId params
+    if (!scope) {
+      const scopeTypeParam = getOptionalParam(params, 'scopeType', isScopeType);
+      const scopeIdParam = getOptionalParam(params, 'scopeId', isString);
+      const inheritParam = getOptionalParam(params, 'inherit', isBoolean);
+
+      if (scopeTypeParam) {
+        scope = {
+          type: scopeTypeParam,
+          id: scopeIdParam,
+          inherit: inheritParam,
+        };
+      }
+    }
+
+    // Auto-detect project if scope type is project but no id provided
     if (scope?.type === 'project' && !scope.id) {
       const cwd = process.cwd();
       const project = await context.repos.projects.findByPath(cwd);
@@ -128,6 +145,10 @@ export const queryHandlers = {
       compact: getOptionalParam(params, 'compact', isBoolean),
       semanticSearch: getOptionalParam(params, 'semanticSearch', isBoolean),
       semanticThreshold: getOptionalParam(params, 'semanticThreshold', isNumber),
+      // FTS5 and search mode parameters
+      useFts5: getOptionalParam(params, 'useFts5', isBoolean),
+      fuzzy: getOptionalParam(params, 'fuzzy', isBoolean),
+      regex: getOptionalParam(params, 'regex', isBoolean),
       // Temporal filtering (knowledge entries only)
       atTime: getOptionalParam(params, 'atTime', isString),
       validDuring: getOptionalParam(params, 'validDuring', isValidDuringPeriod),

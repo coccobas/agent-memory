@@ -42,6 +42,8 @@ import {
 import { createIncrementalMemoryObserver } from '../../services/extraction/incremental-observer.js';
 // Classification service
 import { createClassificationService } from '../../services/classification/index.js';
+// Re-embedding service for dimension mismatch auto-fix
+import { ReembeddingService } from '../../services/reembedding.service.js';
 
 const logger = createComponentLogger('services-factory');
 
@@ -174,6 +176,66 @@ export async function createServices(
   registerVectorCleanupHook(async (entryType, entryId) => {
     await vectorService.removeEmbedding(entryType, entryId);
   });
+
+  // Create re-embedding service for dimension mismatch auto-fix
+  // Note: We need to defer creation until db is available, so we create a trigger function
+  let reembeddingService: ReembeddingService | undefined;
+  let reembeddingTriggered = false;
+
+  // Wire dimension mismatch callback to trigger re-embedding
+  if (vectorService instanceof VectorService && vectorStore) {
+    (vectorService as VectorService).setDimensionMismatchCallback(
+      (_queryDimension: number, _storedDimension: number) => {
+        // Only trigger once per session to avoid spamming
+        if (reembeddingTriggered) {
+          logger.debug('Re-embedding already triggered this session');
+          return;
+        }
+        reembeddingTriggered = true;
+
+        // Lazily create and trigger re-embedding service
+        // Note: We check for reembeddingService existence in case db becomes available later
+        if (!reembeddingService) {
+          logger.info(
+            { queryDimension: _queryDimension, storedDimension: _storedDimension },
+            'Dimension mismatch detected - re-embedding will be triggered once db is available'
+          );
+        } else {
+          logger.info(
+            { queryDimension: _queryDimension, storedDimension: _storedDimension },
+            'Dimension mismatch detected - triggering background re-embedding'
+          );
+          // Fire and forget - don't block the search
+          void reembeddingService.triggerIfNeeded().catch((error) => {
+            logger.error(
+              { error: error instanceof Error ? error.message : String(error) },
+              'Failed to trigger re-embedding'
+            );
+          });
+        }
+      }
+    );
+  }
+
+  // Factory function to create re-embedding service once db is available
+  // Called by context factory after db is set up
+  const createReembeddingService = (database: AppDb): ReembeddingService | undefined => {
+    if (!embeddingService.isAvailable() || !vectorStore) {
+      return undefined;
+    }
+    reembeddingService = new ReembeddingService(
+      embeddingService,
+      vectorStore,
+      database,
+      {
+        batchSize: 10,
+        batchDelayMs: 100,
+        maxEntriesPerRun: 1000,
+        enabled: true,
+      }
+    );
+    return reembeddingService;
+  };
 
   // Create permission service (cache adapter is required via deps)
   if (!deps?.permissionCacheAdapter) {
@@ -397,5 +459,7 @@ export async function createServices(
     incrementalExtractor,
     // Classification service
     classification: classificationService,
+    // Re-embedding service factory (call with db to create the service)
+    _createReembeddingService: createReembeddingService,
   };
 }

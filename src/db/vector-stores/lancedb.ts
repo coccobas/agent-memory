@@ -473,6 +473,91 @@ export class LanceDbVectorStore implements IVectorStore {
     }
   }
 
+  /**
+   * Get all unique entry IDs with their embedding metadata.
+   * Used for identifying entries that need re-embedding after model change.
+   *
+   * @param options Optional filters
+   * @returns Array of entry metadata including model and dimension info
+   */
+  async getEmbeddingMetadata(options?: {
+    entryTypes?: string[];
+    limit?: number;
+  }): Promise<Array<{
+    entryType: string;
+    entryId: string;
+    versionId: string;
+    model: string;
+    dimension: number;
+  }>> {
+    await this.ensureInitialized();
+    if (!this.table) return [];
+
+    try {
+      let query = this.table.query();
+
+      // Apply entry type filter if provided
+      if (options?.entryTypes && options.entryTypes.length > 0) {
+        const typeFilter = options.entryTypes
+          .map((t) => {
+            const validated = validateIdentifier(t, 'entryType');
+            return `\`entryType\` = '${validated}'`;
+          })
+          .join(' OR ');
+        query = query.filter(`(${typeFilter})`);
+      }
+
+      // Apply limit if provided
+      if (options?.limit) {
+        query = query.limit(options.limit);
+      }
+
+      // Select only the fields we need (avoid loading vectors into memory)
+      query = query.select(['entryType', 'entryId', 'versionId', 'model', 'vector']);
+
+      const results = await query.toArray();
+
+      return results
+        .filter((r): r is Record<string, unknown> => typeof r === 'object' && r !== null)
+        .map((r) => ({
+          entryType: String(r.entryType ?? ''),
+          entryId: String(r.entryId ?? ''),
+          versionId: String(r.versionId ?? ''),
+          model: String(r.model ?? 'unknown'),
+          dimension: Array.isArray(r.vector) ? r.vector.length : 0,
+        }));
+    } catch (error) {
+      logger.warn(
+        { error: error instanceof Error ? error.message : String(error) },
+        'Failed to get embedding metadata'
+      );
+      return [];
+    }
+  }
+
+  /**
+   * Get the stored embedding dimension by sampling existing records.
+   * Returns null if no embeddings exist.
+   */
+  async getStoredDimension(): Promise<number | null> {
+    await this.ensureInitialized();
+    if (!this.table) return null;
+
+    try {
+      // Sample one record to get dimension
+      const results = await this.table.query().limit(1).select(['vector']).toArray();
+      if (results.length === 0) return null;
+
+      const first = results[0] as Record<string, unknown>;
+      if (Array.isArray(first?.vector)) {
+        return first.vector.length;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
   close(): void {
     this.connection = null;
     this.table = null;

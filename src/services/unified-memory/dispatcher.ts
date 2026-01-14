@@ -7,6 +7,7 @@
 
 import type { AppContext } from '../../core/context.js';
 import type { IntentDetectionResult } from '../intent-detection/index.js';
+import { executeQueryPipeline } from '../query/index.js';
 import { createComponentLogger } from '../../utils/logger.js';
 
 const logger = createComponentLogger('unified-memory-dispatcher');
@@ -229,66 +230,43 @@ async function handleRetrieve(
     };
   }
 
-  // Search across all entry types
-  const results: DispatchResult['results'] = [];
-  const lowerQuery = query.toLowerCase();
-
-  // Search guidelines
-  const guidelines = await context.repos.guidelines.list(
-    { scopeType: projectId ? 'project' : 'global', scopeId: projectId },
-    { limit: 10 }
+  // Use proper FTS-based search via query pipeline instead of list+filter
+  // This ensures ALL entries are searched, not just the first N
+  const queryResult = await executeQueryPipeline(
+    {
+      search: query,
+      types: ['tools', 'guidelines', 'knowledge'],
+      scope: projectId
+        ? { type: 'project', id: projectId, inherit: true }
+        : { type: 'global', inherit: true },
+      limit: 20,
+      useFts5: true,
+    },
+    context.queryDeps
   );
-  for (const g of guidelines) {
-    // Access content from currentVersion if available
-    const content = g.currentVersion?.content ?? '';
-    if (g.name.toLowerCase().includes(lowerQuery) ||
-        content.toLowerCase().includes(lowerQuery)) {
-      results.push({
-        type: 'guideline',
-        id: g.id,
-        name: g.name,
-        score: 0.8,
-      });
-    }
-  }
 
-  // Search knowledge
-  const knowledge = await context.repos.knowledge.list(
-    { scopeType: projectId ? 'project' : 'global', scopeId: projectId },
-    { limit: 10 }
-  );
-  for (const k of knowledge) {
-    // Access content from currentVersion if available
-    const content = k.currentVersion?.content ?? '';
-    if (k.title.toLowerCase().includes(lowerQuery) ||
-        content.toLowerCase().includes(lowerQuery)) {
-      results.push({
-        type: 'knowledge',
-        id: k.id,
-        title: k.title,
-        score: 0.8,
-      });
-    }
-  }
+  // Map query results to dispatch results format
+  const results: DispatchResult['results'] = queryResult.results.map((r) => {
+    // Extract name/title from nested entity objects
+    let name: string | undefined;
+    let title: string | undefined;
 
-  // Search tools
-  const tools = await context.repos.tools.list(
-    { scopeType: projectId ? 'project' : 'global', scopeId: projectId },
-    { limit: 10 }
-  );
-  for (const t of tools) {
-    // Access description from currentVersion if available
-    const description = t.currentVersion?.description ?? '';
-    if (t.name.toLowerCase().includes(lowerQuery) ||
-        description.toLowerCase().includes(lowerQuery)) {
-      results.push({
-        type: 'tool',
-        id: t.id,
-        name: t.name,
-        score: 0.8,
-      });
+    if (r.type === 'tool' && 'tool' in r) {
+      name = r.tool.name;
+    } else if (r.type === 'guideline' && 'guideline' in r) {
+      name = r.guideline.name;
+    } else if (r.type === 'knowledge' && 'knowledge' in r) {
+      title = r.knowledge.title;
     }
-  }
+
+    return {
+      type: r.type,
+      id: r.id,
+      ...(title ? { title } : {}),
+      ...(name ? { name } : {}),
+      score: r.score,
+    };
+  });
 
   if (results.length === 0) {
     return {

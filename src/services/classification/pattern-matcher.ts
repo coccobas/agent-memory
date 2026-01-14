@@ -71,6 +71,13 @@ const GUIDELINE_PATTERNS: WeightedPattern[] = [
     description: 'Team rule pattern',
   },
   {
+    id: 'guideline_our_standard',
+    regex: /^(our|the)\s+(standard|convention|rule|policy)\s+(is|should be)\b/i,
+    type: 'guideline',
+    baseWeight: 0.85,
+    description: 'Team standard declaration',
+  },
+  {
     id: 'guideline_prefer_avoid',
     regex: /^(use|prefer|avoid|require)\s+/i,
     type: 'guideline',
@@ -302,9 +309,9 @@ export class PatternMatcher {
       };
     }
 
-    // Find the best match
+    // Find the best match (prefer earlier patterns on tie - guidelines before tools)
     const bestMatch = matches.reduce((a, b) =>
-      a.adjustedScore > b.adjustedScore ? a : b
+      a.adjustedScore >= b.adjustedScore ? a : b
     );
 
     // Calculate confidence based on match quality

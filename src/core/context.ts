@@ -34,6 +34,7 @@ import type { ISessionTimeoutService } from '../services/session-timeout.service
 import type { IAutoTaggingService } from '../services/auto-tagging.service.js';
 import type { IClassificationService } from '../services/classification/index.js';
 import type { IExtractionHookService } from '../services/extraction-hook.service.js';
+import type { ReembeddingService } from '../services/reembedding.service.js';
 
 /**
  * Service interfaces for AppContext
@@ -234,6 +235,10 @@ export interface UtilityServices {
   autoTagging?: IAutoTaggingService;
   /** Extraction hook service for proactive pattern detection */
   extractionHook?: IExtractionHookService;
+  /** Re-embedding service for fixing dimension mismatches */
+  reembedding?: ReembeddingService;
+  /** Factory function to create re-embedding service (internal use) */
+  _createReembeddingService?: (db: AppDb) => ReembeddingService | undefined;
 }
 
 // ============================================================================
