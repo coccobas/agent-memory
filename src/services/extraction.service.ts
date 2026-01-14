@@ -1227,6 +1227,78 @@ export class ExtractionService {
   }
 
   /**
+   * Generate text using OpenAI API
+   * For HyDE and other services that need raw text generation
+   */
+  private async generateOpenAI(input: GenerationInput): Promise<GenerationResult> {
+    const client = this.openaiClient;
+    if (!client) {
+      throw createServiceUnavailableError('OpenAI', 'client not initialized. Check AGENT_MEMORY_OPENAI_API_KEY');
+    }
+
+    const count = Math.min(Math.max(input.count ?? 1, 1), 5); // Clamp 1-5
+    const temperature = input.temperature ?? 0.7;
+    const maxTokens = input.maxTokens ?? 512;
+
+    return withRetry(
+      async () => {
+        // Generate multiple variations in parallel for efficiency
+        const promises = Array.from({ length: count }, async () => {
+          const response = await client.chat.completions.create({
+            model: this.openaiModel,
+            messages: [
+              { role: 'system', content: input.systemPrompt },
+              { role: 'user', content: input.userPrompt },
+            ],
+            temperature,
+            max_tokens: maxTokens,
+          });
+
+          if (!response.choices || response.choices.length === 0) {
+            throw createExtractionError('openai', 'empty choices array in response');
+          }
+          const content = response.choices[0]?.message?.content;
+          if (!content) {
+            throw createExtractionError('openai', 'no content in message');
+          }
+
+          return {
+            text: content,
+            tokens: response.usage?.total_tokens ?? 0,
+          };
+        });
+
+        const results = await Promise.all(promises);
+        const totalTokens = results.reduce((sum, r) => sum + r.tokens, 0);
+
+        return {
+          texts: results.map((r) => r.text),
+          model: this.openaiModel,
+          provider: 'openai' as const,
+          tokensUsed: totalTokens,
+          processingTimeMs: 0, // Will be set by caller
+        };
+      },
+      {
+        retryableErrors: isRetryableNetworkError,
+        onRetry: (error, attempt) => {
+          logger.warn(
+            {
+              error: error.message,
+              errorName: error.name,
+              stack: error.stack,
+              attempt,
+              provider: 'openai',
+              model: this.openaiModel,
+            },
+            'Retrying OpenAI generation after error'
+          );
+        },
+      }
+    );
+  }
+
+  /**
    * Extract using Anthropic API
    */
   private async extractAnthropic(input: ExtractionInput): Promise<ExtractionResult> {
@@ -1275,6 +1347,74 @@ export class ExtractionService {
               model: this.anthropicModel,
             },
             'Retrying Anthropic extraction after error'
+          );
+        },
+      }
+    );
+  }
+
+  /**
+   * Generate text using Anthropic API
+   * For HyDE and other services that need raw text generation
+   */
+  private async generateAnthropic(input: GenerationInput): Promise<GenerationResult> {
+    const client = this.anthropicClient;
+    if (!client) {
+      throw createServiceUnavailableError('Anthropic', 'client not initialized. Check AGENT_MEMORY_ANTHROPIC_API_KEY');
+    }
+
+    const count = Math.min(Math.max(input.count ?? 1, 1), 5); // Clamp 1-5
+    const temperature = input.temperature ?? 0.7;
+    const maxTokens = input.maxTokens ?? 512;
+
+    return withRetry(
+      async () => {
+        // Generate multiple variations in parallel for efficiency
+        const promises = Array.from({ length: count }, async () => {
+          const response = await client.messages.create({
+            model: this.anthropicModel,
+            max_tokens: maxTokens,
+            temperature,
+            system: input.systemPrompt,
+            messages: [{ role: 'user', content: input.userPrompt }],
+          });
+
+          // Extract text content from response
+          const textBlock = response.content.find((block) => block.type === 'text');
+          if (!textBlock || textBlock.type !== 'text') {
+            throw createExtractionError('anthropic', 'no text content returned in response');
+          }
+
+          return {
+            text: textBlock.text,
+            tokens: response.usage.input_tokens + response.usage.output_tokens,
+          };
+        });
+
+        const results = await Promise.all(promises);
+        const totalTokens = results.reduce((sum, r) => sum + r.tokens, 0);
+
+        return {
+          texts: results.map((r) => r.text),
+          model: this.anthropicModel,
+          provider: 'anthropic' as const,
+          tokensUsed: totalTokens,
+          processingTimeMs: 0, // Will be set by caller
+        };
+      },
+      {
+        retryableErrors: isRetryableNetworkError,
+        onRetry: (error, attempt) => {
+          logger.warn(
+            {
+              error: error.message,
+              errorName: error.name,
+              stack: error.stack,
+              attempt,
+              provider: 'anthropic',
+              model: this.anthropicModel,
+            },
+            'Retrying Anthropic generation after error'
           );
         },
       }
@@ -1413,6 +1553,132 @@ export class ExtractionService {
               baseUrl: this.ollamaBaseUrl,
             },
             'Retrying Ollama extraction after error'
+          );
+        },
+      }
+    );
+  }
+
+  /**
+   * Generate text using Ollama (local LLM)
+   * For HyDE and other services that need raw text generation
+   * Note: Generates sequentially since Ollama is typically single-threaded
+   */
+  private async generateOllama(input: GenerationInput): Promise<GenerationResult> {
+    const url = `${this.ollamaBaseUrl}/api/generate`;
+
+    const count = Math.min(Math.max(input.count ?? 1, 1), 5); // Clamp 1-5
+    const temperature = input.temperature ?? 0.7;
+    const maxTokens = input.maxTokens ?? 512;
+
+    return withRetry(
+      async () => {
+        const texts: string[] = [];
+
+        // Generate sequentially (Ollama is typically single-threaded on local GPU)
+        for (let i = 0; i < count; i++) {
+          // Security: Validate URL scheme
+          validateExternalUrl(url, true /* allowPrivate - Ollama is typically localhost */);
+
+          const timeoutMsRaw = process.env.AGENT_MEMORY_OLLAMA_TIMEOUT_MS;
+          const timeoutMs =
+            timeoutMsRaw && !Number.isNaN(Number(timeoutMsRaw))
+              ? Math.min(300000, Math.max(1000, Number(timeoutMsRaw)))
+              : 30000;
+
+          const abortController = new AbortController();
+          let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+          try {
+            timeoutId = setTimeout(() => abortController.abort(), timeoutMs);
+            const response = await fetch(url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              signal: abortController.signal,
+              body: JSON.stringify({
+                model: this.ollamaModel,
+                prompt: `${input.systemPrompt}\n\n${input.userPrompt}`,
+                stream: false,
+                options: {
+                  temperature,
+                  num_predict: maxTokens,
+                },
+              }),
+            });
+
+            if (!response.ok) {
+              throw createExtractionError('ollama', `request failed: ${response.status} ${response.statusText}`);
+            }
+
+            // Security: Stream response with size limit
+            const maxResponseSize = 10 * 1024 * 1024; // 10MB max
+            const responseText = await readResponseWithLimit(
+              response,
+              maxResponseSize,
+              abortController
+            );
+
+            let data: { response?: unknown; error?: string };
+            try {
+              data = JSON.parse(responseText) as typeof data;
+            } catch (parseError) {
+              throw createExtractionError('ollama', 'invalid JSON response');
+            }
+
+            if (data.error) {
+              throw createExtractionError('ollama', `API error: ${data.error}`);
+            }
+
+            if (typeof data.response !== 'string' || data.response.length === 0) {
+              throw createExtractionError('ollama', 'no valid response in data');
+            }
+
+            texts.push(data.response);
+          } finally {
+            if (timeoutId !== null) {
+              clearTimeout(timeoutId);
+            }
+          }
+        }
+
+        return {
+          texts,
+          model: this.ollamaModel,
+          provider: 'ollama' as const,
+          processingTimeMs: 0, // Will be set by caller
+        };
+      },
+      {
+        retryableErrors: (error: Error) => {
+          const msg = error.message.toLowerCase();
+          return (
+            msg.includes('econnrefused') ||
+            msg.includes('fetch failed') ||
+            msg.includes('network') ||
+            msg.includes('timeout') ||
+            msg.includes('socket') ||
+            msg.includes('500') ||
+            msg.includes('502') ||
+            msg.includes('503') ||
+            msg.includes('504') ||
+            msg.includes('internal server error') ||
+            msg.includes('bad gateway') ||
+            msg.includes('service unavailable') ||
+            msg.includes('gateway timeout')
+          );
+        },
+        onRetry: (error, attempt) => {
+          logger.warn(
+            {
+              error: error.message,
+              errorName: error.name,
+              stack: error.stack,
+              attempt,
+              provider: 'ollama',
+              model: this.ollamaModel,
+              baseUrl: this.ollamaBaseUrl,
+            },
+            'Retrying Ollama generation after error'
           );
         },
       }
