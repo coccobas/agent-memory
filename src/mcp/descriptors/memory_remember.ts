@@ -221,6 +221,14 @@ export const memoryRememberDescriptor: SimpleToolDescriptor = {
         }
       }
 
+      // Build human-readable display
+      const typeIcon = entryType === 'guideline' ? '📋' : entryType === 'knowledge' ? '💡' : '🔧';
+      const truncatedTitle = title.length > 50 ? title.slice(0, 47) + '...' : title;
+      const confidenceStr = classificationResult.confidence < 0.7
+        ? ` (${Math.round(classificationResult.confidence * 100)}% confidence)`
+        : '';
+      const _display = `${typeIcon} Stored ${entryType} (${category})${confidenceStr}\n📝 ${truncatedTitle}`;
+
       return {
         success: true,
         stored: {
@@ -243,6 +251,7 @@ export const memoryRememberDescriptor: SimpleToolDescriptor = {
           classificationResult.confidence < 0.7
             ? `Low confidence (${Math.round(classificationResult.confidence * 100)}%). Use forceType if incorrect.`
             : undefined,
+        _display,
         ...resultData,
       };
     } catch (error) {

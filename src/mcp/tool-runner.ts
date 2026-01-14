@@ -7,6 +7,7 @@ import { mapError } from '../utils/error-mapper.js';
 import { createInvalidActionError, formatError } from './errors.js';
 import { TOOL_LABELS } from './constants.js';
 import type { DetectedContext } from '../services/context-detection.service.js';
+import { getGitBranch, formatBranchForSession } from '../utils/git.js';
 
 /**
  * Build a compact badge string from detected context
@@ -45,6 +46,14 @@ const WRITE_ACTIONS = new Set([
   'bulk_update',
   'create', // for memory_org/project
   'start', // for memory_session (but we skip this one)
+]);
+
+/**
+ * Simple tools (no action param) that should trigger auto-session creation
+ * These are write operations that don't use the action-based pattern
+ */
+const SIMPLE_WRITE_TOOLS = new Set([
+  'memory_remember', // Natural language storage
 ]);
 
 /**
@@ -227,13 +236,21 @@ export async function runTool(
 
 /**
  * Infer a meaningful session name from the operation context
+ * Priority: git branch > explicit name/title > content > tool-based name
  */
 function inferSessionName(
   toolName: string,
   _action: string,
   args: Record<string, unknown>,
-  defaultName: string
+  defaultName: string,
+  cwd?: string
 ): string {
+  // First priority: git branch name (most reliable indicator of what user is working on)
+  const gitBranch = getGitBranch(cwd);
+  if (gitBranch && gitBranch !== 'main' && gitBranch !== 'master') {
+    return formatBranchForSession(gitBranch);
+  }
+
   // Try to extract a meaningful name from the args
   const name = args.name as string | undefined;
   const title = args.title as string | undefined;
@@ -296,9 +313,15 @@ async function maybeAutoCreateSession(
     return false;
   }
 
+  // Check if this is a simple write tool (no action param)
+  const isSimpleWriteTool = SIMPLE_WRITE_TOOLS.has(toolName);
+
   // Bug #183 fix: Validate action is a string instead of unsafe type assertion
   const action = typeof args.action === 'string' ? args.action : undefined;
-  if (!action || !WRITE_ACTIONS.has(action)) {
+  const isWriteAction = action && WRITE_ACTIONS.has(action);
+
+  // Must be either a simple write tool or an action-based write
+  if (!isSimpleWriteTool && !isWriteAction) {
     return false;
   }
 
@@ -315,11 +338,14 @@ async function maybeAutoCreateSession(
 
   // Create auto-session with smart naming
   try {
-    const sessionName = inferSessionName(toolName, action, args, context.config.autoContext.autoSessionName);
+    const effectiveAction = action ?? 'store'; // Default action for simple write tools
+    const cwd = detectedContext?.project?.rootPath ?? process.cwd();
+    const sessionName = inferSessionName(toolName, effectiveAction, args, context.config.autoContext.autoSessionName, cwd);
+    const purposeText = action ? `action:${action}` : 'operation';
     const session = await context.repos.sessions.create({
       projectId,
       name: sessionName,
-      purpose: `Auto-created for ${toolName} action:${action}`,
+      purpose: `Auto-created for ${toolName} ${purposeText}`,
       agentId: detectedContext?.agentId?.value ?? context.config.autoContext.defaultAgentId,
     });
 

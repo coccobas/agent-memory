@@ -338,6 +338,9 @@ export const scopeHandlers = {
       triggerSessionEndMaintenance(session.projectId, context);
     }
 
+    // Clear context detection cache to prevent stale session data
+    context.services.contextDetection?.clearCache();
+
     return formatTimestamps({ success: true, session });
   },
 

@@ -249,10 +249,14 @@ function extractParams(text: string, intent: Intent): Record<string, string> {
       break;
     }
     case 'retrieve': {
-      // Extract search query
+      // Extract search query - progressively strip common question patterns
       let query = text
         .replace(/^(what|how|where|when|why)\s+(do|does|did|is|are|was|were|should)\s+/i, '')
         .replace(/^(find|search|look\s+up|get|show|tell\s+me\s+about)\s+/i, '')
+        // Clean up "we/you/I know about", "we have about", etc.
+        .replace(/^(we|you|i|they)\s+(know|have|store|remember)\s+(about\s+)?/i, '')
+        // Clean up trailing question words
+        .replace(/\?+$/, '')
         .trim();
       params.query = query;
       break;
