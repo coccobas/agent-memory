@@ -11,8 +11,13 @@
  * - Idempotent (safe to retry)
  */
 
-import type { INodeRepository, IEdgeRepository, ITypeRegistry } from '../../core/interfaces/repositories.js';
-import type { GraphNodeWithVersion, GraphEdgeWithType } from '../../db/schema/graph.js';
+import type {
+  INodeRepository,
+  IEdgeRepository,
+  ITypeRegistry,
+  GraphNodeWithVersion,
+  GraphEdgeWithType,
+} from '../../core/interfaces/repositories.js';
 import type { ScopeType } from '../../db/schema.js';
 import { createComponentLogger } from '../../utils/logger.js';
 

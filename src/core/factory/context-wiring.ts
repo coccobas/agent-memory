@@ -157,6 +157,19 @@ export async function wireContext(input: WireContextInput): Promise<AppContext> 
   const extractionHookService = createExtractionHookService(config);
   services.extractionHook = extractionHookService;
 
+  // Create GraphSyncService (entry-to-node and relation-to-edge synchronization)
+  // Only create if graph repositories are available
+  if (repos.graphNodes && repos.graphEdges && repos.typeRegistry) {
+    const { createGraphSyncService } = await import('../../services/graph/sync.service.js');
+    const graphSyncService = createGraphSyncService(
+      repos.graphNodes,
+      repos.graphEdges,
+      repos.typeRegistry
+    );
+    services.graphSync = graphSyncService;
+    logger.debug('Graph sync service initialized');
+  }
+
   // Create ReembeddingService now that db is available
   // This enables automatic re-embedding when dimension mismatch is detected
   if (services._createReembeddingService) {

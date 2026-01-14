@@ -219,6 +219,15 @@ export interface ExtractionPipelineServices {
 }
 
 /**
+ * Graph services - knowledge graph synchronization and management.
+ * These services handle graph node/edge creation and maintenance.
+ */
+export interface GraphServices {
+  /** Graph sync service for automatic entry-to-node and relation-to-edge synchronization */
+  graphSync?: import('../services/graph/sync.service.js').GraphSyncService;
+}
+
+/**
  * Utility services - miscellaneous services for specific features.
  * These services provide auxiliary functionality that may or may not be needed.
  */
@@ -263,6 +272,7 @@ export interface UtilityServices {
  * @see SessionServices - Session lifecycle and capture management
  * @see QueryServices - Query enhancement and scoring
  * @see ExtractionPipelineServices - Automatic extraction triggers
+ * @see GraphServices - Knowledge graph synchronization and management
  * @see UtilityServices - Miscellaneous auxiliary services
  */
 export interface AppContextServices
@@ -271,6 +281,7 @@ export interface AppContextServices
     SessionServices,
     QueryServices,
     ExtractionPipelineServices,
+    GraphServices,
     UtilityServices {}
 
 /**
