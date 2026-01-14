@@ -78,6 +78,7 @@ export interface Config {
     batchSize: number;
     maxRetries: number;
     retryDelayMs: number;
+    timeoutMs: number;
     // Task 124: Configurable embedding dimensions
     openaiDimension: number;
     lmstudioDimension: number;
@@ -377,6 +378,11 @@ export interface Config {
     minConfidence: number;
     maxSuggestions: number;
     minContentLength: number;
+  };
+  graph: {
+    autoSync: boolean;
+    traversalEnabled: boolean;
+    captureEnabled: boolean;
   };
 }
 
