@@ -296,6 +296,29 @@ export interface ExtractionInput {
   };
 }
 
+/**
+ * Input for text generation (distinct from structured extraction)
+ * Used by HyDE and other services that need raw text generation
+ */
+export interface GenerationInput {
+  systemPrompt: string;
+  userPrompt: string;
+  count?: number; // 1-5 variations (default: 1)
+  temperature?: number; // 0-2 (default: 0.7)
+  maxTokens?: number; // Max tokens per generation (default: 512)
+}
+
+/**
+ * Result from text generation
+ */
+export interface GenerationResult {
+  texts: string[];
+  model: string;
+  provider: ExtractionProvider;
+  tokensUsed?: number;
+  processingTimeMs: number;
+}
+
 // =============================================================================
 // EXTRACTION PROMPTS
 // =============================================================================
