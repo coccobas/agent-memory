@@ -48,6 +48,7 @@ import { memorySummarizeDescriptor } from './memory_summarize.js';
 import { memoryLoraDescriptor } from './memory_lora.js';
 import { graphNodeDescriptor } from './graph_node.js';
 import { graphEdgeDescriptor } from './graph_edge.js';
+import { memoryGraphStatusDescriptor } from './memory_graph_status.js';
 import { memoryContextDescriptor } from './memory_context.js';
 import { memoryQuickstartDescriptor } from './memory_quickstart.js';
 import { memoryRememberDescriptor } from './memory_remember.js';
@@ -171,6 +172,8 @@ export const allDescriptors: AnyToolDescriptor[] = [
   graphNodeDescriptor,
   // Graph Edges (Flexible Knowledge Graph)
   graphEdgeDescriptor,
+  // Graph Status (Diagnostic)
+  memoryGraphStatusDescriptor,
   // Context Detection Diagnostic
   memoryContextDescriptor,
   // Quickstart (composite tool)
@@ -256,6 +259,7 @@ export {
   memoryLoraDescriptor,
   graphNodeDescriptor,
   graphEdgeDescriptor,
+  memoryGraphStatusDescriptor,
   memoryContextDescriptor,
   memoryQuickstartDescriptor,
   memoryRememberDescriptor,
