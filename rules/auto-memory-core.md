@@ -132,6 +132,53 @@ Tool: `memory_permission`
 
 ---
 
+## Proactive Storage (In-Flow)
+
+<important>
+Proactively suggest storing memories when you observe these patterns in conversation.
+Don't wait for explicit "remember" requests - be helpful!
+</important>
+
+### When to Suggest Storing
+
+| Pattern Observed | Suggest Storing As |
+|-----------------|-------------------|
+| User explains a rule: "we always...", "never do...", "must..." | Guideline |
+| User explains a decision: "we decided to...", "we chose X because..." | Knowledge (decision) |
+| User describes architecture: "the system works by...", "X handles Y" | Knowledge (fact) |
+| User shares a command: "run this...", "use this script..." | Tool |
+| User corrects you: "actually, we do it this way..." | Guideline or Knowledge |
+| User explains workaround: "the trick is...", "to fix that, you need to..." | Knowledge (context) |
+
+### How to Suggest
+
+After recognizing a pattern, respond with:
+
+```
+I noticed you described [pattern]. Would you like me to store this as a [type]?
+
+> [summary of what would be stored]
+
+This would help future sessions remember this automatically.
+```
+
+Or simply store directly if the user has established they want proactive storage:
+
+```
+✓ Stored [type]: "[brief title]"
+```
+
+### Quick Storage Command
+
+Users can also store quickly via:
+```
+!am remember <text to store>
+```
+
+Example: `!am remember We use ESLint with the Airbnb config`
+
+---
+
 ## Scope Selection
 
 | Scope | Use When |
@@ -158,5 +205,5 @@ Tool: `memory_permission`
 **Examples:** `@auto-memory-examples`
 **Advanced features:** `@auto-memory-advanced`
 
-@version "3.0.0"
-@last_updated "2026-01-01"
+@version "3.1.0"
+@last_updated "2026-01-14"

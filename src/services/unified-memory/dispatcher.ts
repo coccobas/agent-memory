@@ -43,6 +43,8 @@ export interface DispatchResult {
     sessionId?: string;
     agentId?: string;
   };
+  /** Human-readable summary of retrieved results */
+  _highlights?: string;
 }
 
 export interface DispatcherDeps {
@@ -294,14 +296,29 @@ async function handleRetrieve(
       status: 'not_found',
       message: `No results found for "${query}"`,
       results: [],
+      _highlights: `No memories match "${query}"`,
     };
   }
+
+  // Build highlights summary
+  const topMatches = results.slice(0, 5);
+  const matchNames = topMatches.map(r => r.name ?? r.title ?? r.id.slice(0, 8)).join(', ');
+  const typeBreakdown: Record<string, number> = {};
+  for (const r of results) {
+    typeBreakdown[r.type] = (typeBreakdown[r.type] ?? 0) + 1;
+  }
+  const typeSummary = Object.entries(typeBreakdown)
+    .map(([type, count]) => `${count} ${type}${count > 1 ? 's' : ''}`)
+    .join(', ');
+
+  const _highlights = `Found ${results.length} memories (${typeSummary}): ${matchNames}${results.length > 5 ? '...' : ''}`;
 
   return {
     action: 'retrieve',
     status: 'success',
     message: `Found ${results.length} result(s) for "${query}"`,
     results,
+    _highlights,
   };
 }
 

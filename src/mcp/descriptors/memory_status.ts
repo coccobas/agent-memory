@@ -9,7 +9,7 @@
 
 import type { SimpleToolDescriptor } from './types.js';
 import type { AppContext } from '../../core/context.js';
-import { getCachedStats } from '../../services/stats.service.js';
+import { formatStatusTerminal } from '../../utils/terminal-formatter.js';
 
 export interface StatusResult {
   project: {
@@ -32,6 +32,8 @@ export interface StatusResult {
     guidelines: Array<{ id: string; name: string; priority: number }>;
     knowledge: Array<{ id: string; title: string }>;
   };
+  /** Human-readable formatted dashboard for display */
+  _display?: string;
 }
 
 export const memoryStatusDescriptor: SimpleToolDescriptor = {
@@ -60,34 +62,47 @@ Returns: project, session, counts (guidelines, knowledge, tools, sessions)`,
       ? (await ctx.services.contextDetection.enrichParams({})).detected
       : { project: null, session: null };
 
-    // Get global counts from cached stats service (efficient single query)
-    const stats = getCachedStats();
+    // Build scope filter for project-scoped counts
+    const projectId = detected.project?.id;
+    const scopeFilter = projectId
+      ? { scopeType: 'project' as const, scopeId: projectId }
+      : {};
 
-    // Optionally get top entries
+    // Get project-scoped counts by fetching lists
+    // This ensures counts match what the user sees when listing entries
+    // Using a high limit to get accurate counts (could be optimized with COUNT queries later)
+    const [guidelinesList, knowledgeList, toolsList, sessionsList] = await Promise.all([
+      ctx.repos.guidelines.list(scopeFilter, { limit: 10000 }),
+      ctx.repos.knowledge.list(scopeFilter, { limit: 10000 }),
+      ctx.repos.tools.list(scopeFilter, { limit: 10000 }),
+      projectId
+        ? ctx.repos.sessions.list({ projectId }, { limit: 10000 })
+        : Promise.resolve([]),
+    ]);
+
+    const guidelinesCount = guidelinesList.length;
+    const knowledgeCount = knowledgeList.length;
+    const toolsCount = toolsList.length;
+    const sessionsCount = sessionsList.length;
+
+    // Optionally get top entries (reuse already-fetched lists)
     let topEntries: StatusResult['topEntries'] | undefined;
     if (includeTopEntries) {
-      const projectId = detected.project?.id;
-      const scopeFilter = projectId ? { scopeType: 'project' as const, scopeId: projectId } : {};
-
-      const [guidelines, knowledge] = await Promise.all([
-        ctx.repos.guidelines.list(scopeFilter, { limit: 5 }),
-        ctx.repos.knowledge.list(scopeFilter, { limit: 5 }),
-      ]);
-
       topEntries = {
-        guidelines: guidelines.map((g) => ({
+        guidelines: guidelinesList.slice(0, 5).map((g) => ({
           id: g.id,
           name: g.name,
           priority: g.priority,
         })),
-        knowledge: knowledge.map((k) => ({
+        knowledge: knowledgeList.slice(0, 5).map((k) => ({
           id: k.id,
           title: k.title,
         })),
       };
     }
 
-    return {
+    // Build the result object
+    const result: StatusResult = {
       project: detected.project
         ? {
             id: detected.project.id,
@@ -103,12 +118,17 @@ Returns: project, session, counts (guidelines, knowledge, tools, sessions)`,
           }
         : null,
       counts: {
-        guidelines: stats.guidelines,
-        knowledge: stats.knowledge,
-        tools: stats.tools,
-        sessions: stats.sessions,
+        guidelines: guidelinesCount,
+        knowledge: knowledgeCount,
+        tools: toolsCount,
+        sessions: sessionsCount,
       },
       topEntries,
     };
+
+    // Add human-readable formatted display
+    result._display = formatStatusTerminal(result);
+
+    return result;
   },
 };

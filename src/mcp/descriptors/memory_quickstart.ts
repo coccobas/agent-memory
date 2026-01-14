@@ -12,6 +12,64 @@ import type { SimpleToolDescriptor } from './types.js';
 import { queryHandlers } from '../handlers/query.handler.js';
 import { scopeHandlers } from '../handlers/scopes.handler.js';
 import type { SessionStartParams } from '../types.js';
+import { formatBadges, icons } from '../../utils/terminal-formatter.js';
+
+interface QuickstartSummary {
+  sessionLine: string;
+  countsLine: string;
+  criticalLine?: string;
+}
+
+/**
+ * Build a human-readable summary for quickstart response
+ */
+function buildQuickstartSummary(
+  sessionAction: 'created' | 'resumed' | 'none' | 'error',
+  sessionName: string | null,
+  projectName: string | null,
+  contextResult: Record<string, unknown>
+): QuickstartSummary {
+  // Session line
+  let sessionLine: string;
+  const sessionIcon = sessionAction === 'created' || sessionAction === 'resumed' ? icons.active : icons.inactive;
+  if (sessionAction === 'created') {
+    sessionLine = `${icons.session} Session: ${sessionName} ${sessionIcon} created`;
+  } else if (sessionAction === 'resumed') {
+    sessionLine = `${icons.session} Session: ${sessionName} ${sessionIcon} resumed`;
+  } else if (sessionAction === 'error') {
+    sessionLine = `${icons.session} Session: ${icons.failure} failed to start`;
+  } else {
+    sessionLine = `${icons.session} Session: (none)`;
+  }
+
+  // Counts from context
+  const ctx = contextResult as {
+    guidelines?: unknown[];
+    knowledge?: unknown[];
+    tools?: unknown[];
+  };
+  const guidelineCount = ctx.guidelines?.length ?? 0;
+  const knowledgeCount = ctx.knowledge?.length ?? 0;
+  const toolCount = ctx.tools?.length ?? 0;
+
+  const badges = [];
+  if (guidelineCount > 0) badges.push({ label: 'guidelines', value: guidelineCount });
+  if (knowledgeCount > 0) badges.push({ label: 'knowledge', value: knowledgeCount });
+  if (toolCount > 0) badges.push({ label: 'tools', value: toolCount });
+
+  const countsLine = badges.length > 0
+    ? `${icons.project} ${projectName ?? 'Project'}: ${formatBadges(badges)}`
+    : `${icons.project} ${projectName ?? 'Project'}: (empty)`;
+
+  // Critical guidelines (priority >= 90)
+  const guidelines = ctx.guidelines as Array<{ name?: string; priority?: number }> | undefined;
+  const criticalGuidelines = guidelines?.filter((g) => (g.priority ?? 0) >= 90) ?? [];
+  const criticalLine = criticalGuidelines.length > 0
+    ? `${icons.warning} Critical: ${criticalGuidelines.map((g) => g.name).join(', ')}`
+    : undefined;
+
+  return { sessionLine, countsLine, criticalLine };
+}
 
 export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
   name: 'memory_quickstart',
@@ -94,6 +152,25 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
       }
     }
 
+    // Extract project name for summary
+    const projectName = (contextWithMeta?._context?.project as { name?: string } | undefined)?.name ?? null;
+
+    // Build human-readable summary
+    const effectiveSessionName = existingSessionName ?? sessionName ?? null;
+    const summary = buildQuickstartSummary(
+      sessionAction,
+      effectiveSessionName,
+      projectName,
+      contextResult as Record<string, unknown>
+    );
+
+    // Build _display string
+    const displayLines = [summary.sessionLine, summary.countsLine];
+    if (summary.criticalLine) {
+      displayLines.push(summary.criticalLine);
+    }
+    const _display = displayLines.join('\n');
+
     // Build combined response with clear action indicator
     return {
       context: contextResult,
@@ -107,6 +184,7 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
         requestedSessionName: sessionName,
         projectId: detectedProjectId,
       },
+      _display,
     };
   },
 };

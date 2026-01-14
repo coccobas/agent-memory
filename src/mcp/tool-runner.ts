@@ -9,6 +9,33 @@ import { TOOL_LABELS } from './constants.js';
 import type { DetectedContext } from '../services/context-detection.service.js';
 
 /**
+ * Build a compact badge string from detected context
+ * Format: "[Project: name | Session: status]"
+ */
+function buildContextBadge(ctx: DetectedContext): string {
+  const parts: string[] = [];
+
+  if (ctx.project) {
+    // Truncate project name to 20 chars
+    const name = ctx.project.name.length > 20
+      ? ctx.project.name.slice(0, 17) + '...'
+      : ctx.project.name;
+    parts.push(`Project: ${name}`);
+  }
+
+  if (ctx.session) {
+    const status = ctx.session.status === 'active' ? '● active' : '○ ' + ctx.session.status;
+    parts.push(`Session: ${status}`);
+  }
+
+  if (parts.length === 0) {
+    return '[Memory: not configured]';
+  }
+
+  return `[${parts.join(' | ')}]`;
+}
+
+/**
  * Write actions that should trigger auto-session creation
  */
 const WRITE_ACTIONS = new Set([
@@ -133,10 +160,10 @@ export async function runTool(
       context.services.sessionTimeout.recordActivity(detectedContext.session.id);
     }
 
-    // Add _context to response if auto-detection was used
+    // Add _context and _badge to response if auto-detection was used
     const finalResult =
       detectedContext && typeof result === 'object' && result !== null
-        ? { ...result, _context: detectedContext }
+        ? { ...result, _context: { ...detectedContext, _badge: buildContextBadge(detectedContext) } }
         : result;
 
     // Format result based on output mode (compact or JSON)

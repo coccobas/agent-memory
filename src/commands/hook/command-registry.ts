@@ -43,6 +43,7 @@ import { handleShow } from './handlers/show.handler.js';
 import { handleApprove } from './handlers/approve.handler.js';
 import { handleReject } from './handlers/reject.handler.js';
 import { handleSkip } from './handlers/skip.handler.js';
+import { handleRemember } from './handlers/remember.handler.js';
 
 /**
  * Registry of all available !am commands
@@ -113,6 +114,14 @@ export const commandRegistry: HookCommandDescriptor[] = [
     description: 'Remove from review queue',
     requiresArg: true,
     handler: handleSkip,
+  },
+  {
+    name: 'remember',
+    aliases: ['store', 'save'],
+    usage: '<text>',
+    description: 'Quick store a memory',
+    requiresArg: true,
+    handler: handleRemember,
   },
 ];
 
