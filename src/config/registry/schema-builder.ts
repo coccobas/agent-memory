@@ -237,7 +237,12 @@ function parseEnvValue<T>(option: ConfigOptionMeta<T>, envValue: string | undefi
   // Determine parser type
   const parserType: ParserType = option.parse ?? inferParserFromSchema(option.schema);
 
-  // Handle undefined/empty env value
+  // Handle path parser specially - needs to resolve default values too
+  if (parserType === 'path') {
+    return resolveDataPath(envValue, defaultValue as string) as T;
+  }
+
+  // Handle undefined/empty env value for other parsers
   if (envValue === undefined || envValue === '') {
     return defaultValue;
   }
@@ -254,9 +259,6 @@ function parseEnvValue<T>(option: ConfigOptionMeta<T>, envValue: string | undefi
 
     case 'port':
       return parsePort(envValue, defaultValue as number) as T;
-
-    case 'path':
-      return resolveDataPath(envValue, defaultValue as string) as T;
 
     case 'string':
       if (option.allowedValues) {
