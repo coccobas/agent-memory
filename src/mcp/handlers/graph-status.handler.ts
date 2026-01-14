@@ -38,8 +38,8 @@ export const graphStatusHandlers = {
     const edgeTypes = await typeRegistry.listEdgeTypes({ includeBuiltin: true });
 
     // Get all nodes and edges (for counting - should add count methods in future)
-    const nodes = await nodeRepo.list({ scopeType: 'global', limit: 10000 });
-    const edges = await edgeRepo.list({ scopeType: 'global', limit: 10000 });
+    const nodes = await nodeRepo.list({ scopeType: 'global' }, { limit: 10000 });
+    const edges = await edgeRepo.list({}, { limit: 10000 });
 
     return {
       content: [
