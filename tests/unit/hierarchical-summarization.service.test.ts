@@ -26,6 +26,8 @@ function createMockDb() {
     get: vi.fn(),
     all: vi.fn(),
     run: vi.fn(),
+    orderBy: vi.fn(),
+    limit: vi.fn(),
   };
   // Make methods chainable
   chainableMock.select.mockReturnValue(chainableMock);
@@ -37,6 +39,8 @@ function createMockDb() {
   chainableMock.values.mockReturnValue(chainableMock);
   chainableMock.set.mockReturnValue(chainableMock);
   chainableMock.returning.mockReturnValue(chainableMock);
+  chainableMock.orderBy.mockReturnValue(chainableMock);
+  chainableMock.limit.mockReturnValue(chainableMock);
   chainableMock.get.mockReturnValue(undefined);
   chainableMock.all.mockReturnValue([]);
   chainableMock.run.mockReturnValue({ changes: 0 });
@@ -583,44 +587,271 @@ describe('Hierarchical Summarization Service', () => {
     });
   });
 
-  describe('Unimplemented Methods', () => {
-    it('getSummary should throw not implemented error', async () => {
-      await expect(service.getSummary('test-id')).rejects.toThrow('getSummary is unavailable: not implemented');
+  describe('Query Methods', () => {
+    const mockSummaryRow = {
+      id: 'summary-123',
+      hierarchyLevel: 1,
+      title: 'Test Summary',
+      content: 'Summary content',
+      parentSummaryId: null,
+      memberCount: 3,
+      embedding: JSON.stringify([0.1, 0.2, 0.3]),
+      scopeType: 'project',
+      scopeId: 'project-456',
+      createdAt: '2026-01-15T00:00:00Z',
+      updatedAt: null,
+      coherenceScore: 0.85,
+      isActive: true,
+    };
+
+    const mockMemberRows = [
+      { memberId: 'entry-1', memberType: 'knowledge' },
+      { memberId: 'entry-2', memberType: 'knowledge' },
+      { memberId: 'entry-3', memberType: 'guideline' },
+    ];
+
+    describe('getSummary', () => {
+      it('should retrieve summary by ID with members', async () => {
+        const mockDb = createMockDb();
+        mockDb.get.mockReturnValueOnce(mockSummaryRow);
+        mockDb.all.mockReturnValueOnce(mockMemberRows);
+
+        const testService = new HierarchicalSummarizationService(
+          mockDb as unknown as AppDb,
+          mockEmbeddingService,
+          mockExtractionService,
+          mockVectorService,
+          { provider: 'disabled' }
+        );
+
+        const result = await testService.getSummary('summary-123');
+
+        expect(result).toBeDefined();
+        expect(result?.id).toBe('summary-123');
+        expect(result?.hierarchyLevel).toBe(1);
+        expect(result?.memberIds).toHaveLength(3);
+        expect(result?.memberIds).toContain('entry-1');
+        expect(result?.memberIds).toContain('entry-2');
+        expect(result?.memberIds).toContain('entry-3');
+      });
+
+      it('should return null for non-existent summary', async () => {
+        const mockDb = createMockDb();
+        mockDb.get.mockReturnValueOnce(null);
+
+        const testService = new HierarchicalSummarizationService(
+          mockDb as unknown as AppDb,
+          mockEmbeddingService,
+          mockExtractionService,
+          mockVectorService,
+          { provider: 'disabled' }
+        );
+
+        const result = await testService.getSummary('non-existent');
+        expect(result).toBeNull();
+      });
     });
 
-    it('getSummariesAtLevel should throw not implemented error', async () => {
-      await expect(service.getSummariesAtLevel(1, 'project', 'test-id')).rejects.toThrow(
-        'getSummariesAtLevel is unavailable: not implemented'
-      );
+    describe('getSummariesAtLevel', () => {
+      it('should retrieve summaries at specified level', async () => {
+        const mockDb = createMockDb();
+        mockDb.all.mockReturnValueOnce([mockSummaryRow]).mockReturnValue(mockMemberRows);
+
+        const testService = new HierarchicalSummarizationService(
+          mockDb as unknown as AppDb,
+          mockEmbeddingService,
+          mockExtractionService,
+          mockVectorService,
+          { provider: 'disabled' }
+        );
+
+        const results = await testService.getSummariesAtLevel(1, 'project', 'project-456');
+
+        expect(results).toHaveLength(1);
+        expect(results[0].hierarchyLevel).toBe(1);
+        expect(results[0].memberIds).toHaveLength(3);
+      });
+
+      it('should work without scopeId for global scope', async () => {
+        const mockDb = createMockDb();
+        mockDb.all.mockReturnValueOnce([]).mockReturnValue([]);
+
+        const testService = new HierarchicalSummarizationService(
+          mockDb as unknown as AppDb,
+          mockEmbeddingService,
+          mockExtractionService,
+          mockVectorService,
+          { provider: 'disabled' }
+        );
+
+        const results = await testService.getSummariesAtLevel(1, 'global');
+        expect(results).toHaveLength(0);
+      });
     });
 
-    it('getSummariesAtLevel should work with different levels', async () => {
-      await expect(service.getSummariesAtLevel(2, 'org', 'org-id')).rejects.toThrow(
-        'getSummariesAtLevel is unavailable: not implemented'
-      );
-      await expect(service.getSummariesAtLevel(3, 'global')).rejects.toThrow('getSummariesAtLevel is unavailable: not implemented');
+    describe('getChildSummaries', () => {
+      it('should retrieve child summaries of parent', async () => {
+        const childSummary = { ...mockSummaryRow, parentSummaryId: 'parent-123' };
+        const mockDb = createMockDb();
+        mockDb.all.mockReturnValueOnce([childSummary]).mockReturnValue(mockMemberRows);
+
+        const testService = new HierarchicalSummarizationService(
+          mockDb as unknown as AppDb,
+          mockEmbeddingService,
+          mockExtractionService,
+          mockVectorService,
+          { provider: 'disabled' }
+        );
+
+        const results = await testService.getChildSummaries('parent-123');
+
+        expect(results).toHaveLength(1);
+        expect(results[0].parentSummaryId).toBe('parent-123');
+      });
+
+      it('should return empty array when no children exist', async () => {
+        const mockDb = createMockDb();
+        mockDb.all.mockReturnValueOnce([]);
+
+        const testService = new HierarchicalSummarizationService(
+          mockDb as unknown as AppDb,
+          mockEmbeddingService,
+          mockExtractionService,
+          mockVectorService,
+          { provider: 'disabled' }
+        );
+
+        const results = await testService.getChildSummaries('parent-123');
+        expect(results).toHaveLength(0);
+      });
     });
 
-    it('getChildSummaries should throw not implemented error', async () => {
-      await expect(service.getChildSummaries('parent-id')).rejects.toThrow('getChildSummaries is unavailable: not implemented');
+    describe('searchSummaries', () => {
+      it('should use semantic search when embeddings available', async () => {
+        const mockEmbedService = {
+          isAvailable: vi.fn().mockReturnValue(true),
+          embed: vi.fn().mockResolvedValue({ embedding: [0.1, 0.2] }),
+        } as unknown as EmbeddingService;
+
+        const mockVectorSvc = {
+          searchSimilar: vi.fn().mockResolvedValue([
+            { entryId: 'summary-123', similarity: 0.95 },
+          ]),
+        } as unknown as IVectorService;
+
+        const mockDb = createMockDb();
+        mockDb.get.mockReturnValueOnce(mockSummaryRow);
+        mockDb.all.mockReturnValueOnce(mockMemberRows);
+
+        const testService = new HierarchicalSummarizationService(
+          mockDb as unknown as AppDb,
+          mockEmbedService,
+          mockExtractionService,
+          mockVectorSvc,
+          { provider: 'disabled' }
+        );
+
+        const results = await testService.searchSummaries('test query');
+
+        expect(mockVectorSvc.searchSimilar).toHaveBeenCalledWith([0.1, 0.2], ['summary'], 20);
+        expect(results).toHaveLength(1);
+      });
+
+      it('should fallback to text search when embeddings unavailable', async () => {
+        const mockEmbedService = {
+          isAvailable: vi.fn().mockReturnValue(false),
+        } as unknown as EmbeddingService;
+
+        const mockDb = createMockDb();
+        mockDb.all.mockReturnValueOnce([mockSummaryRow]).mockReturnValue(mockMemberRows);
+
+        const testService = new HierarchicalSummarizationService(
+          mockDb as unknown as AppDb,
+          mockEmbedService,
+          mockExtractionService,
+          mockVectorService,
+          { provider: 'disabled' }
+        );
+
+        const results = await testService.searchSummaries('test query');
+        expect(results).toHaveLength(1);
+      });
+
+      it('should apply filters in text search', async () => {
+        const mockEmbedService = {
+          isAvailable: vi.fn().mockReturnValue(false),
+        } as unknown as EmbeddingService;
+
+        const mockDb = createMockDb();
+        mockDb.all.mockReturnValueOnce([mockSummaryRow]).mockReturnValue(mockMemberRows);
+
+        const testService = new HierarchicalSummarizationService(
+          mockDb as unknown as AppDb,
+          mockEmbedService,
+          mockExtractionService,
+          mockVectorService,
+          { provider: 'disabled' }
+        );
+
+        const results = await testService.searchSummaries('test query', {
+          level: 1,
+          scopeType: 'project',
+          scopeId: 'project-456',
+          limit: 5,
+        });
+
+        expect(results).toHaveLength(1);
+      });
     });
 
-    it('searchSummaries should throw not implemented error', async () => {
-      await expect(service.searchSummaries('test query')).rejects.toThrow('searchSummaries is unavailable: not implemented');
-    });
+    describe('getStatus', () => {
+      it('should calculate status statistics correctly', async () => {
+        const mockSummaries = [
+          { hierarchyLevel: 1, memberCount: 10, createdAt: '2026-01-15T00:00:00Z' },
+          { hierarchyLevel: 1, memberCount: 12, createdAt: '2026-01-15T01:00:00Z' },
+          { hierarchyLevel: 2, memberCount: 3, createdAt: '2026-01-15T02:00:00Z' },
+          { hierarchyLevel: 3, memberCount: 1, createdAt: '2026-01-15T03:00:00Z' },
+        ];
 
-    it('searchSummaries should accept options', async () => {
-      await expect(
-        service.searchSummaries('test query', { level: 1, limit: 10 })
-      ).rejects.toThrow('searchSummaries is unavailable: not implemented');
-    });
+        const mockDb = createMockDb();
+        mockDb.all.mockReturnValueOnce(mockSummaries);
 
-    it('getStatus should throw not implemented error', async () => {
-      await expect(service.getStatus('project', 'test-id')).rejects.toThrow('getStatus is unavailable: not implemented');
-    });
+        const testService = new HierarchicalSummarizationService(
+          mockDb as unknown as AppDb,
+          mockEmbeddingService,
+          mockExtractionService,
+          mockVectorService,
+          { provider: 'disabled' }
+        );
 
-    it('getStatus should work without scopeId for global', async () => {
-      await expect(service.getStatus('global')).rejects.toThrow('getStatus is unavailable: not implemented');
+        const status = await testService.getStatus('project', 'project-456');
+
+        expect(status.summaryCount).toBe(4);
+        expect(status.countByLevel.level1).toBe(2);
+        expect(status.countByLevel.level2).toBe(1);
+        expect(status.countByLevel.level3).toBe(1);
+        expect(status.entriesCovered).toBe(22); // 10 + 12
+        expect(status.lastBuilt).toBe('2026-01-15T03:00:00Z');
+      });
+
+      it('should work without scopeId for global scope', async () => {
+        const mockDb = createMockDb();
+        mockDb.all.mockReturnValueOnce([]);
+
+        const testService = new HierarchicalSummarizationService(
+          mockDb as unknown as AppDb,
+          mockEmbeddingService,
+          mockExtractionService,
+          mockVectorService,
+          { provider: 'disabled' }
+        );
+
+        const status = await testService.getStatus('global');
+
+        expect(status.summaryCount).toBe(0);
+        expect(status.entriesCovered).toBe(0);
+        expect(status.lastBuilt).toBeUndefined();
+      });
     });
   });
 

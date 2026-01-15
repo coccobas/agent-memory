@@ -104,15 +104,15 @@ const INTENT_PATTERNS: Record<Intent, RegExp[]> = {
  */
 const ENTRY_TYPE_PATTERNS: Record<'guideline' | 'knowledge' | 'tool', RegExp[]> = {
   guideline: [
-    /\b(guideline|rule|standard|convention|policy|must|should|always|never)\b/i,
-    /\b(best\s+practice|coding\s+style|code\s+style)\b/i,
+    /\b(guidelines?|rules?|standards?|conventions?|policies?|must|should|always|never)\b/i,
+    /\b(best\s+practices?|coding\s+style|code\s+style)\b/i,
   ],
   knowledge: [
-    /\b(knowledge|fact|decision|context|reference|chose|decided|uses|architecture)\b/i,
+    /\b(knowledge|facts?|decisions?|contexts?|references?|chose|decided|uses|architecture)\b/i,
     /\b(we\s+use|the\s+system|project\s+uses)\b/i,
   ],
   tool: [
-    /\b(tool|command|script|cli|function|api|mcp)\b/i,
+    /\b(tools?|commands?|scripts?|cli|functions?|apis?|mcp)\b/i,
     /\b(npm|npx|yarn|pnpm|docker|git)\b/i,
   ],
 };

@@ -38,6 +38,17 @@ function extractContent(text: string): { title: string; content: string } {
 
   // Smart truncation: prefer word boundaries, max 80 chars
   let title = firstSentence;
+
+  // Fallback: if title is empty (e.g., content starts with . or ?), use firstLine or content
+  if (!title) {
+    title = firstLine || content.trim();
+  }
+
+  // Final fallback: if still empty, use "Untitled"
+  if (!title) {
+    title = 'Untitled';
+  }
+
   if (title.length > 80) {
     // Find last space before char 77 to avoid mid-word cut
     const cutPoint = title.lastIndexOf(' ', 77);

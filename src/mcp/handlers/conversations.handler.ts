@@ -255,7 +255,10 @@ export const conversationHandlers = {
   },
 
   async get(context: AppContext, params: Record<string, unknown>) {
-    const id = getRequiredParam(params, 'id', isString);
+    // Accept both 'id' and 'conversationId' for consistency with other conversation actions
+    const id = params.id ? getRequiredParam(params, 'id', isString)
+             : params.conversationId ? getRequiredParam(params, 'conversationId', isString)
+             : (() => { throw createValidationError('id', 'missing required parameter', "Provide 'id' or 'conversationId'"); })();
     const includeMessages = getOptionalParam(params, 'includeMessages', isBoolean);
     const includeContext = getOptionalParam(params, 'includeContext', isBoolean);
     const agentId = getOptionalParam(params, 'agentId', isString);
@@ -358,7 +361,10 @@ export const conversationHandlers = {
   },
 
   async update(context: AppContext, params: Record<string, unknown>) {
-    const id = getRequiredParam(params, 'id', isString);
+    // Accept both 'id' and 'conversationId' for consistency with other conversation actions
+    const id = params.id ? getRequiredParam(params, 'id', isString)
+             : params.conversationId ? getRequiredParam(params, 'conversationId', isString)
+             : (() => { throw createValidationError('id', 'missing required parameter', "Provide 'id' or 'conversationId'"); })();
     const title = getOptionalParam(params, 'title', isString);
     const status = getOptionalParam(params, 'status', isConversationStatus);
     const metadata = getOptionalParam(params, 'metadata', isObject);
@@ -609,7 +615,10 @@ export const conversationHandlers = {
   },
 
   async end(context: AppContext, params: Record<string, unknown>) {
-    const id = getRequiredParam(params, 'id', isString);
+    // Accept both 'id' and 'conversationId' for consistency with other conversation actions
+    const id = params.id ? getRequiredParam(params, 'id', isString)
+             : params.conversationId ? getRequiredParam(params, 'conversationId', isString)
+             : (() => { throw createValidationError('id', 'missing required parameter', "Provide 'id' or 'conversationId'"); })();
     const generateSummary = getOptionalParam(params, 'generateSummary', isBoolean);
     // Security: agentId required for audit trail on write operations
     const agentId = getRequiredParam(params, 'agentId', isString);
@@ -668,7 +677,10 @@ export const conversationHandlers = {
   },
 
   async archive(context: AppContext, params: Record<string, unknown>) {
-    const id = getRequiredParam(params, 'id', isString);
+    // Accept both 'id' and 'conversationId' for consistency with other conversation actions
+    const id = params.id ? getRequiredParam(params, 'id', isString)
+             : params.conversationId ? getRequiredParam(params, 'conversationId', isString)
+             : (() => { throw createValidationError('id', 'missing required parameter', "Provide 'id' or 'conversationId'"); })();
     // Security: agentId required for audit trail on write operations
     const agentId = getRequiredParam(params, 'agentId', isString);
 

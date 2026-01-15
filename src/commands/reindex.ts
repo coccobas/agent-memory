@@ -194,6 +194,7 @@ export async function runReindexCommand(args: string[]): Promise<void> {
     provider: config.embedding.provider,
     openaiApiKey: config.embedding.openaiApiKey,
     openaiModel: config.embedding.openaiModel,
+    timeoutMs: config.embedding.timeoutMs,
   });
 
   const vectorService = new VectorService();

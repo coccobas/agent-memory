@@ -255,6 +255,46 @@ function validateIsoDate(value: unknown, fieldName: string): string {
 export type KnowledgeWithContent = Knowledge & { content?: string | null };
 
 /**
+ * Raw SQL row type (snake_case column names from the database)
+ */
+interface RawKnowledgeRow {
+  id: string;
+  scope_type: string;
+  scope_id: string | null;
+  title: string;
+  category: string | null;
+  current_version_id: string | null;
+  is_active: number;
+  created_at: string;
+  created_by: string | null;
+  last_accessed_at: string | null;
+  access_count: number | null;
+  content: string | null;
+}
+
+/**
+ * Convert raw SQL row (snake_case) to Knowledge type (camelCase).
+ * This is necessary because raw SQL queries return database column names,
+ * while the rest of the pipeline expects Drizzle's camelCase property names.
+ */
+function mapRawToKnowledge(raw: RawKnowledgeRow): KnowledgeWithContent {
+  return {
+    id: raw.id,
+    scopeType: raw.scope_type as 'global' | 'org' | 'project' | 'session',
+    scopeId: raw.scope_id,
+    title: raw.title,
+    category: raw.category as 'decision' | 'fact' | 'context' | 'reference' | null,
+    currentVersionId: raw.current_version_id,
+    isActive: Boolean(raw.is_active),
+    createdAt: raw.created_at,
+    createdBy: raw.created_by,
+    lastAccessedAt: raw.last_accessed_at,
+    accessCount: raw.access_count ?? 0,
+    content: raw.content,
+  };
+}
+
+/**
  * Fetch knowledge entries with content from versions table.
  * Always joins with knowledge_versions to get content for fuzzy/text search.
  * When atTime or validDuring is specified, also filters by temporal validity.
@@ -364,16 +404,18 @@ function fetchKnowledgeWithContent(
   `;
 
   const stmt = ctx.deps.getPreparedStatement(sqlQuery);
-  const rows = stmt.all(...queryParams) as KnowledgeWithContent[];
+  const rawRows = stmt.all(...queryParams) as RawKnowledgeRow[];
 
   // Map each entry to its scope index post-query
-  for (const row of rows) {
+  // Convert raw SQL rows (snake_case) to Knowledge type (camelCase)
+  for (const rawRow of rawRows) {
+    const entry = mapRawToKnowledge(rawRow);
     const scopeIndex = scopeChain.findIndex(
       (scope) =>
-        scope.scopeType === row.scopeType &&
-        (scope.scopeId === null ? row.scopeId === null : scope.scopeId === row.scopeId)
+        scope.scopeType === entry.scopeType &&
+        (scope.scopeId === null ? entry.scopeId === null : scope.scopeId === entry.scopeId)
     );
-    result.push({ entry: row, scopeIndex: scopeIndex >= 0 ? scopeIndex : scopeChain.length });
+    result.push({ entry, scopeIndex: scopeIndex >= 0 ? scopeIndex : scopeChain.length });
   }
 
   // Sort by scope priority (lower index = higher priority), then by createdAt

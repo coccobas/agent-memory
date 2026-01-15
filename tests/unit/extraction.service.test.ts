@@ -70,10 +70,10 @@ describe('Extraction Service', () => {
     // Only test if service is available
     if (service.isAvailable()) {
       await expect(service.extract({ context: '' })).rejects.toThrow(
-        'Cannot extract from empty context'
+        'context - cannot be empty'
       );
       await expect(service.extract({ context: '   ' })).rejects.toThrow(
-        'Cannot extract from empty context'
+        'context - cannot be empty'
       );
     }
   });
@@ -108,7 +108,7 @@ describe('Extraction Service', () => {
   });
 
   describe('provider configuration', () => {
-    it('should default to disabled when no API keys provided', async () => {
+    it('should default to openai (LM Studio compatible) when no API keys provided', async () => {
       // Save original values
       const originalProvider = process.env.AGENT_MEMORY_EXTRACTION_PROVIDER;
       const originalOpenaiKey = process.env.AGENT_MEMORY_OPENAI_API_KEY;
@@ -125,7 +125,8 @@ describe('Extraction Service', () => {
       resetExtractionServiceState();
       const testService = new ExtractionService();
 
-      expect(testService.getProvider()).toBe('disabled');
+      // Defaults to openai which works with LM Studio's OpenAI-compatible API
+      expect(testService.getProvider()).toBe('openai');
 
       // Restore
       if (originalProvider) process.env.AGENT_MEMORY_EXTRACTION_PROVIDER = originalProvider;

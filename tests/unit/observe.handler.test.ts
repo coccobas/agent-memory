@@ -116,8 +116,11 @@ describe('observe handler', () => {
       reloadConfig();
       resetExtractionServiceState();
 
+      // Create a new context with disabled extraction service
+      const disabledCtx = await createTestContext(testDb);
+
       await expect(
-        observeHandlers.extract(ctx, {
+        observeHandlers.extract(disabledCtx, {
           context: 'Test context',
           scopeType: 'global',
         })

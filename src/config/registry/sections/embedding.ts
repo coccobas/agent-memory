@@ -14,9 +14,9 @@ export const embeddingSection: ConfigSectionMeta = {
   options: {
     provider: {
       envKey: 'AGENT_MEMORY_EMBEDDING_PROVIDER',
-      defaultValue: 'local',
+      defaultValue: 'lmstudio',
       description:
-        'Embedding provider: openai (requires API key), lmstudio (local LM Studio), local (built-in), or disabled.',
+        'Embedding provider: lmstudio (default, uses Qwen embeddings), openai (requires API key), local (built-in), or disabled.',
       schema: z.enum(['openai', 'lmstudio', 'local', 'disabled']),
       // Custom parser with auto-detection based on API key
       parse: () => getEmbeddingProvider(),
@@ -61,6 +61,13 @@ export const embeddingSection: ConfigSectionMeta = {
       defaultValue: 1000,
       description: 'Base delay in ms between retries (doubles each attempt).',
       schema: z.number().int().min(0),
+      parse: 'int',
+    },
+    timeoutMs: {
+      envKey: 'AGENT_MEMORY_EMBEDDING_TIMEOUT_MS',
+      defaultValue: 60000,
+      description: 'Timeout in ms for embedding API requests. Increase for slow models or high load.',
+      schema: z.number().int().min(1000),
       parse: 'int',
     },
     // Task 124: Configurable embedding dimensions

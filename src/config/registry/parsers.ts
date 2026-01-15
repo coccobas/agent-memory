@@ -134,7 +134,7 @@ export function resolveDataPath(envVar: string | undefined, relativePath: string
 
 /**
  * Determine embedding provider with fallback logic.
- * Returns 'openai' if API key is set, 'lmstudio' if configured, otherwise 'local'.
+ * Returns 'openai' if API key is set, otherwise defaults to 'lmstudio' (Qwen embeddings).
  */
 export function getEmbeddingProvider(): 'openai' | 'lmstudio' | 'local' | 'disabled' {
   const providerEnv = process.env.AGENT_MEMORY_EMBEDDING_PROVIDER?.toLowerCase();
@@ -142,13 +142,13 @@ export function getEmbeddingProvider(): 'openai' | 'lmstudio' | 'local' | 'disab
   if (providerEnv === 'lmstudio') return 'lmstudio';
   if (providerEnv === 'local') return 'local';
   if (providerEnv === 'openai') return 'openai';
-  // Default: openai if API key provided, otherwise local
-  return process.env.AGENT_MEMORY_OPENAI_API_KEY ? 'openai' : 'local';
+  // Default: openai if API key provided, otherwise lmstudio (Qwen embeddings)
+  return process.env.AGENT_MEMORY_OPENAI_API_KEY ? 'openai' : 'lmstudio';
 }
 
 /**
  * Determine extraction provider with fallback logic.
- * Checks for API keys in order: OpenAI > Anthropic > disabled.
+ * Defaults to 'openai' (works with LM Studio via OpenAI-compatible API).
  */
 export function getExtractionProvider(): 'openai' | 'anthropic' | 'ollama' | 'disabled' {
   const providerEnv = process.env.AGENT_MEMORY_EXTRACTION_PROVIDER?.toLowerCase();
@@ -156,8 +156,6 @@ export function getExtractionProvider(): 'openai' | 'anthropic' | 'ollama' | 'di
   if (providerEnv === 'ollama') return 'ollama';
   if (providerEnv === 'anthropic') return 'anthropic';
   if (providerEnv === 'openai') return 'openai';
-  // Default: check for API keys in order of preference
-  if (process.env.AGENT_MEMORY_OPENAI_API_KEY) return 'openai';
-  if (process.env.AGENT_MEMORY_ANTHROPIC_API_KEY) return 'anthropic';
-  return 'disabled';
+  // Default: openai (works with LM Studio's OpenAI-compatible API)
+  return 'openai';
 }

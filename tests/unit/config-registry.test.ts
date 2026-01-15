@@ -312,8 +312,8 @@ describe('config parsers', () => {
       expect(getEmbeddingProvider()).toBe('openai');
     });
 
-    it('should return "local" if no API key (default)', () => {
-      expect(getEmbeddingProvider()).toBe('local');
+    it('should return "lmstudio" if no API key (default)', () => {
+      expect(getEmbeddingProvider()).toBe('lmstudio');
     });
   });
 
@@ -357,13 +357,15 @@ describe('config parsers', () => {
       expect(getExtractionProvider()).toBe('openai');
     });
 
-    it('should use Anthropic if only Anthropic key present', () => {
+    it('should default to openai (LM Studio compatible) regardless of API keys', () => {
+      // The implementation now defaults to openai which works with LM Studio's OpenAI-compatible API
       process.env.AGENT_MEMORY_ANTHROPIC_API_KEY = 'sk-ant-test';
-      expect(getExtractionProvider()).toBe('anthropic');
+      expect(getExtractionProvider()).toBe('openai');
     });
 
-    it('should return "disabled" if no API keys', () => {
-      expect(getExtractionProvider()).toBe('disabled');
+    it('should return "openai" by default (LM Studio compatible)', () => {
+      // No API keys needed - defaults to openai which works with LM Studio
+      expect(getExtractionProvider()).toBe('openai');
     });
   });
 });

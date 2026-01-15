@@ -124,14 +124,14 @@ export const queryRewriteSection: ConfigSectionMeta = {
     },
     provider: {
       envKey: 'AGENT_MEMORY_QUERY_REWRITE_PROVIDER',
-      defaultValue: 'ollama',
-      description: 'LLM provider for HyDE and LLM-based expansion.',
+      defaultValue: 'openai',
+      description: 'LLM provider for HyDE and LLM-based expansion (defaults to LM Studio via OpenAI-compatible API).',
       schema: z.enum(['openai', 'anthropic', 'ollama', 'disabled']),
     },
     model: {
       envKey: 'AGENT_MEMORY_QUERY_REWRITE_MODEL',
-      defaultValue: undefined,
-      description: 'Model override for query rewriting (uses provider default if not set).',
+      defaultValue: 'oss-120b',
+      description: 'Model for query rewriting (defaults to OSS 120B via LM Studio).',
       schema: z.string().optional(),
     },
   },

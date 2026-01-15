@@ -19,7 +19,18 @@
  *   npm run backfill:edges -- --create-nodes  # Create missing nodes
  */
 
-import { getAppContext } from '../dist/core/factory/context.js';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
+import { loadEnv } from '../dist/config/env.js';
+
+// Load .env before importing config
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const projectRoot = resolve(__dirname, '..');
+loadEnv(projectRoot);
+
+import { createAppContext } from '../dist/core/factory/index.js';
+import { buildConfig } from '../dist/config/index.js';
+import { createRuntime, extractRuntimeConfig, shutdownRuntime } from '../dist/core/runtime.js';
 import { createComponentLogger } from '../dist/utils/logger.js';
 
 const logger = createComponentLogger('backfill:edges');
@@ -65,10 +76,14 @@ const SUPPORTED_ENTRY_TYPES = ['knowledge', 'guideline', 'tool', 'experience', '
  * Backfill edges for all entry relations
  */
 async function backfillEdges(options: BackfillOptions): Promise<BackfillStats> {
-  const context = await getAppContext();
+  // Initialize app context
+  const config = buildConfig();
+  const runtime = createRuntime(extractRuntimeConfig(config));
+  const context = await createAppContext(config, runtime);
   const { repos, services } = context;
 
   if (!repos.graphNodes || !repos.graphEdges || !services.graphSync || !repos.entryRelations) {
+    await shutdownRuntime(runtime);
     throw new Error('Graph services not available. Ensure graph tables are initialized.');
   }
 
@@ -225,6 +240,9 @@ async function backfillEdges(options: BackfillOptions): Promise<BackfillStats> {
     offset += options.batchSize;
     logger.info({ processed: stats.total, created: stats.created }, 'Progress');
   } while (batch.length === options.batchSize);
+
+  // Cleanup
+  await shutdownRuntime(runtime);
 
   return stats;
 }

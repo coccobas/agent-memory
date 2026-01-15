@@ -1112,10 +1112,26 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
 
     /**
      * Bulk delete (deactivate) multiple entries in a transaction
+     * Accepts either:
+     *   - ids: string[] - array of entry IDs
+     *   - entries: Array<{id: string}> - array of objects with id property (for consistency with bulk_add/bulk_update)
      */
     async bulk_delete(context: AppContext, params: Record<string, unknown>) {
       const repo = config.getRepo(context);
-      const idsParam = getRequiredParam(params, 'ids', isArray);
+      // Accept both 'ids' array and 'entries' array format for flexibility
+      let idsParam: unknown[];
+      if (params.ids && isArray(params.ids)) {
+        idsParam = params.ids;
+      } else if (params.entries && isArray(params.entries)) {
+        // Extract IDs from entries array (e.g., [{id: "..."}, {id: "..."}])
+        idsParam = (params.entries as Array<Record<string, unknown>>).map((entry) => entry.id);
+      } else {
+        throw createValidationError(
+          'ids',
+          'missing required parameter',
+          `Provide either 'ids' (array of strings) or 'entries' (array of {id: string} objects)`
+        );
+      }
       const agentId = getRequiredParam(params, 'agentId', isString);
 
       // Validate all IDs are strings

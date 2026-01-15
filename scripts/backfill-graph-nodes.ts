@@ -17,7 +17,18 @@
  *   npm run backfill:nodes -- --verbose # Detailed logging
  */
 
-import { getAppContext } from '../dist/core/factory/context.js';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
+import { loadEnv } from '../dist/config/env.js';
+
+// Load .env before importing config
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const projectRoot = resolve(__dirname, '..');
+loadEnv(projectRoot);
+
+import { createAppContext } from '../dist/core/factory/index.js';
+import { buildConfig } from '../dist/config/index.js';
+import { createRuntime, extractRuntimeConfig, shutdownRuntime } from '../dist/core/runtime.js';
 import { createComponentLogger } from '../dist/utils/logger.js';
 
 const logger = createComponentLogger('backfill:nodes');
@@ -67,10 +78,14 @@ interface BackfillOptions {
  * Backfill nodes for all entries
  */
 async function backfillNodes(options: BackfillOptions): Promise<BackfillStats> {
-  const context = await getAppContext();
+  // Initialize app context
+  const config = buildConfig();
+  const runtime = createRuntime(extractRuntimeConfig(config));
+  const context = await createAppContext(config, runtime);
   const { repos, services } = context;
 
   if (!repos.graphNodes || !services.graphSync) {
+    await shutdownRuntime(runtime);
     throw new Error('Graph services not available. Ensure graph tables are initialized.');
   }
 
@@ -102,6 +117,9 @@ async function backfillNodes(options: BackfillOptions): Promise<BackfillStats> {
   if (repos.experiences) {
     await backfillExperiences(context, options, stats);
   }
+
+  // Cleanup
+  await shutdownRuntime(runtime);
 
   return stats;
 }

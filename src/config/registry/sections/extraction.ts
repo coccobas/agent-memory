@@ -20,8 +20,8 @@ export const extractionSection: ConfigSectionMeta = {
     },
     provider: {
       envKey: 'AGENT_MEMORY_EXTRACTION_PROVIDER',
-      defaultValue: 'disabled',
-      description: 'Extraction provider: openai, anthropic, ollama, or disabled.',
+      defaultValue: 'openai',
+      description: 'Extraction provider: openai (default, works with LM Studio), anthropic, ollama, or disabled.',
       schema: z.enum(['openai', 'anthropic', 'ollama', 'disabled']),
       // Custom parser with auto-detection based on API keys
       parse: () => getExtractionProvider(),
@@ -35,8 +35,8 @@ export const extractionSection: ConfigSectionMeta = {
     },
     openaiBaseUrl: {
       envKey: 'AGENT_MEMORY_EXTRACTION_OPENAI_BASE_URL',
-      defaultValue: undefined,
-      description: 'Custom OpenAI-compatible API base URL (for LM Studio, LocalAI, etc.).',
+      defaultValue: 'http://localhost:1234/v1',
+      description: 'Custom OpenAI-compatible API base URL (defaults to LM Studio).',
       schema: z.string().optional(),
     },
     strictBaseUrlAllowlist: {
@@ -49,14 +49,14 @@ export const extractionSection: ConfigSectionMeta = {
     },
     openaiModel: {
       envKey: 'AGENT_MEMORY_EXTRACTION_OPENAI_MODEL',
-      defaultValue: 'gpt-4o-mini',
-      description: 'OpenAI model to use for extraction.',
+      defaultValue: 'oss-120b',
+      description: 'Model to use for extraction (defaults to local OSS 120B via LM Studio).',
       schema: z.string(),
     },
     openaiJsonMode: {
       envKey: 'AGENT_MEMORY_EXTRACTION_OPENAI_JSON_MODE',
-      defaultValue: true,
-      description: 'Enable response_format: json_object. Disable for LM Studio compatibility.',
+      defaultValue: false,
+      description: 'Enable response_format: json_object. Disabled by default for LM Studio compatibility.',
       schema: z.boolean(),
       parse: 'boolean',
     },
@@ -107,8 +107,8 @@ export const extractionSection: ConfigSectionMeta = {
     },
     timeoutMs: {
       envKey: 'AGENT_MEMORY_EXTRACTION_TIMEOUT_MS',
-      defaultValue: 30000,
-      description: 'Timeout for extraction requests in milliseconds. Increase for slower local LLMs.',
+      defaultValue: 120000,
+      description: 'Timeout for extraction requests in milliseconds (defaults to 120s for local LLMs).',
       schema: z.number().int().min(5000).max(300000),
       parse: 'int',
     },

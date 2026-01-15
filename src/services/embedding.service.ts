@@ -119,6 +119,8 @@ export interface EmbeddingServiceConfig {
   lmstudioDimension?: number;
   /** Local model embedding dimension (default: 384 for all-MiniLM-L6-v2) */
   localDimension?: number;
+  /** Timeout in ms for embedding API requests (default: 60000) */
+  timeoutMs?: number;
 }
 
 /**
@@ -218,7 +220,7 @@ export class EmbeddingService {
       if (effectiveConfig.openaiApiKey) {
         this.openaiClient = new OpenAI({
           apiKey: effectiveConfig.openaiApiKey,
-          timeout: 60000, // 60 second timeout to prevent indefinite hangs
+          timeout: effectiveConfig.timeoutMs ?? 60000,
           maxRetries: 0, // Disable SDK retry - we handle retries with withRetry
         });
       } else if (!warningState.hasWarnedAboutMissingKey) {
@@ -259,7 +261,7 @@ export class EmbeddingService {
       this.lmStudioClient = new OpenAI({
         baseURL: baseUrl,
         apiKey: 'not-needed', // LM Studio doesn't require API key
-        timeout: 60000,
+        timeout: effectiveConfig.timeoutMs ?? 60000,
         maxRetries: 0,
       });
     }

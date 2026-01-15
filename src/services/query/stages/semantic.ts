@@ -138,7 +138,11 @@ export async function semanticStageAsync(ctx: PipelineContext): Promise<Pipeline
     // 2. Search vector store for similar entries using all embeddings
     const semanticScores = new Map<string, number>();
 
-    if (deps.vectorService && deps.vectorService.isAvailable()) {
+    // Note: We check only if vectorService exists, not isAvailable().
+    // isAvailable() returns false before initialization, but searchSimilar()
+    // triggers lazy initialization via ensureInitialized(). The try/catch
+    // below handles any initialization errors gracefully.
+    if (deps.vectorService) {
       // Convert query types to entry types (e.g., 'tools' -> 'tool')
       const entryTypes = types.map((t) => {
         if (t === 'tools') return 'tool';
@@ -184,7 +188,7 @@ export async function semanticStageAsync(ctx: PipelineContext): Promise<Pipeline
         );
       }
     } else {
-      // Vector service not available - just store embedding for potential use in reranking
+      // Vector service not configured - just store embedding for potential use in reranking
       if (deps.logger && deps.perfLog) {
         deps.logger.debug(
           {
@@ -192,7 +196,7 @@ export async function semanticStageAsync(ctx: PipelineContext): Promise<Pipeline
             embeddingDim: queryEmbedding.length,
             timeMs: Date.now() - startMs,
           },
-          'semantic stage completed (no vector service)'
+          'semantic stage completed (no vector service configured)'
         );
       }
     }

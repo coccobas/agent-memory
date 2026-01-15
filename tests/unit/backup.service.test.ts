@@ -198,7 +198,7 @@ describe('Backup Service', () => {
 
         // Assert
         expect(result.success).toBe(true);
-        expect(result.backupPath).toBe('backups/my-custom-backup.db');
+        expect(result.backupPath).toMatch(/backups\/my-custom-backup\.db$/);
         expect(result.message).toBe('Database backed up successfully (WAL-safe)');
       });
 
@@ -219,7 +219,7 @@ describe('Backup Service', () => {
         expect(mockDb.backup).toHaveBeenCalled(); // Attempted
         expect(mockDb.pragma).toHaveBeenCalledWith('wal_checkpoint(TRUNCATE)');
         expect(fs.copyFileSync).toHaveBeenCalledWith(
-          'memory.db',
+          expect.stringMatching(/memory\.db$/),
           result.backupPath
         );
       });
@@ -237,7 +237,7 @@ describe('Backup Service', () => {
         expect(result.backupPath).toBeDefined();
         expect(result.message).toBe('Database backed up successfully');
         expect(fs.copyFileSync).toHaveBeenCalledWith(
-          'memory.db',
+          expect.stringMatching(/memory\.db$/),
           result.backupPath
         );
       });
@@ -245,8 +245,11 @@ describe('Backup Service', () => {
       it('should create backup directory if it does not exist', async () => {
         // Setup
         vi.mocked(fs.existsSync).mockImplementation((p) => {
-          if (p === 'memory.db') return true;
-          if (p === 'backups') return false;
+          const pathStr = String(p);
+          // Check for database path (absolute path ending with memory.db)
+          if (pathStr.includes('memory.db')) return true;
+          // Check for backup directory (absolute path ending with backups)
+          if (pathStr.includes('backups') && !pathStr.includes('.db')) return false;
           return false;
         });
         vi.mocked(container.isDatabaseInitialized).mockReturnValue(false);
@@ -256,7 +259,10 @@ describe('Backup Service', () => {
 
         // Assert
         expect(result.success).toBe(true);
-        expect(fs.mkdirSync).toHaveBeenCalledWith('backups', { recursive: true });
+        expect(fs.mkdirSync).toHaveBeenCalledWith(
+          expect.stringMatching(/backups$/),
+          { recursive: true }
+        );
         expect(fs.copyFileSync).toHaveBeenCalled();
       });
     });
@@ -302,7 +308,7 @@ describe('Backup Service', () => {
         const result = await createDatabaseBackup('backup-2024-12-25_v1.0');
 
         expect(result.success).toBe(true);
-        expect(result.backupPath).toBe('backups/backup-2024-12-25_v1.0.db');
+        expect(result.backupPath).toMatch(/backups\/backup-2024-12-25_v1\.0\.db$/);
       });
 
       it('should sanitize custom name by removing invalid characters', async () => {
@@ -363,8 +369,11 @@ describe('Backup Service', () => {
 
       it('should handle mkdirSync errors gracefully', async () => {
         vi.mocked(fs.existsSync).mockImplementation((p) => {
-          if (p === 'memory.db') return true;
-          if (p === 'backups') return false;
+          const pathStr = String(p);
+          // Check for database path (absolute path ending with memory.db)
+          if (pathStr.includes('memory.db')) return true;
+          // Check for backup directory (absolute path ending with backups)
+          if (pathStr.includes('backups') && !pathStr.includes('.db')) return false;
           return false;
         });
         vi.mocked(fs.mkdirSync).mockImplementation(() => {
@@ -482,7 +491,7 @@ describe('Backup Service', () => {
 
       expect(result).toHaveLength(1);
       expect(result[0]?.filename).toBe('backup1.db');
-      expect(result[0]?.path).toBe('backups/backup1.db');
+      expect(result[0]?.path).toMatch(/backups\/backup1\.db$/); // Match path ending with relative path
       expect(result[0]?.size).toBe(2048);
       expect(result[0]?.createdAt).toEqual(testDate);
     });
@@ -763,7 +772,7 @@ describe('Backup Service', () => {
         await restoreFromBackup('backup1.db');
 
         // Safety backup should be created with 'pre-restore-safety' name
-        expect(mockDb.backup).toHaveBeenCalledWith('backups/pre-restore-safety.db');
+        expect(mockDb.backup).toHaveBeenCalledWith(expect.stringMatching(/backups\/pre-restore-safety\.db$/));
       });
 
       it('should restore even when current database does not exist', async () => {
@@ -831,8 +840,8 @@ describe('Backup Service', () => {
         expect(result.success).toBe(true);
         // Should resolve to backup directory + basename only
         expect(fs.copyFileSync).toHaveBeenCalledWith(
-          'backups/backup.db',
-          'memory.db'
+          expect.stringMatching(/backups\/backup\.db$/),
+          expect.stringMatching(/memory\.db$/)
         );
       });
     });
@@ -922,8 +931,8 @@ describe('Backup Service', () => {
 
         expect(result.success).toBe(true);
         expect(fs.copyFileSync).toHaveBeenCalledWith(
-          'backups/memory-backup-2024-12-25T10-30-45-123Z.db',
-          'memory.db'
+          expect.stringMatching(/backups\/memory-backup-2024-12-25T10-30-45-123Z\.db$/),
+          expect.stringMatching(/memory\.db$/)
         );
       });
 

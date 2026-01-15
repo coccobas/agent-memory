@@ -29,8 +29,8 @@ describe('Embedding Service', () => {
 
   it('should determine provider based on environment', () => {
     const provider = service.getProvider();
-    // Should be 'local' or 'openai' depending on API key presence
-    expect(['openai', 'local', 'disabled']).toContain(provider);
+    // Should be 'lmstudio' (default), 'openai', 'local', or 'disabled'
+    expect(['openai', 'lmstudio', 'local', 'disabled']).toContain(provider);
   });
 
   it('should report availability correctly', () => {
@@ -46,10 +46,13 @@ describe('Embedding Service', () => {
 
   it('should return correct embedding dimensions', () => {
     const dimensions = service.getEmbeddingDimension();
+    const provider = service.getProvider();
 
-    if (service.getProvider() === 'openai') {
+    if (provider === 'openai') {
       expect(dimensions).toBe(1536); // text-embedding-3-small
-    } else if (service.getProvider() === 'local') {
+    } else if (provider === 'lmstudio') {
+      expect(dimensions).toBe(1024); // Qwen or other LM Studio model
+    } else if (provider === 'local') {
       expect(dimensions).toBe(384); // all-MiniLM-L6-v2
     } else {
       expect(dimensions).toBe(0); // disabled
