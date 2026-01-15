@@ -50,9 +50,7 @@ function generateCsrfToken(): string {
  * @returns HMAC signature
  */
 function createTokenSignature(token: string, agentId: string, secret: string): string {
-  return createHmac('sha256', secret)
-    .update(`${token}:${agentId}`)
-    .digest('base64');
+  return createHmac('sha256', secret).update(`${token}:${agentId}`).digest('base64');
 }
 
 /**
@@ -77,8 +75,9 @@ function verifyCsrfToken(
     const expectedBuffer = Buffer.from(expectedSignature);
 
     // Timing-safe comparison prevents timing attacks
-    return tokenBuffer.length === expectedBuffer.length &&
-           timingSafeEqual(tokenBuffer, expectedBuffer);
+    return (
+      tokenBuffer.length === expectedBuffer.length && timingSafeEqual(tokenBuffer, expectedBuffer)
+    );
   } catch (error) {
     csrfLogger.warn({ error }, 'CSRF token verification failed');
     return false;
@@ -136,7 +135,7 @@ export function registerCsrfProtection(app: FastifyInstance, config: CsrfConfig)
     const url = request.raw.url || request.url;
 
     // Skip exempt paths
-    if (typeof url === 'string' && exemptPaths.some(path => url.startsWith(path))) {
+    if (typeof url === 'string' && exemptPaths.some((path) => url.startsWith(path))) {
       return;
     }
 
@@ -171,7 +170,7 @@ export function registerCsrfProtection(app: FastifyInstance, config: CsrfConfig)
     const url = request.raw.url || request.url;
 
     // Skip exempt paths
-    if (typeof url === 'string' && exemptPaths.some(path => url.startsWith(path))) {
+    if (typeof url === 'string' && exemptPaths.some((path) => url.startsWith(path))) {
       return;
     }
 
@@ -218,7 +217,8 @@ export function registerCsrfProtection(app: FastifyInstance, config: CsrfConfig)
         error: 'CSRF token validation failed',
         code: 'CSRF_TOKEN_MISSING',
         details: {
-          message: 'CSRF token required. Include X-CSRF-Token header with value from AGENT_MEMORY_CSRF cookie.',
+          message:
+            'CSRF token required. Include X-CSRF-Token header with value from AGENT_MEMORY_CSRF cookie.',
         },
       });
       return;

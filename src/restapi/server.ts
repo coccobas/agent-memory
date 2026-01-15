@@ -128,7 +128,14 @@ export async function createServer(context: AppContext): Promise<FastifyInstance
     origin: parseCorsOrigins(process.env.AGENT_MEMORY_REST_CORS_ORIGINS),
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Agent-ID', 'X-Request-ID', 'X-API-Key', 'X-CSRF-Token'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'X-Agent-ID',
+      'X-Request-ID',
+      'X-API-Key',
+      'X-CSRF-Token',
+    ],
     exposedHeaders: [
       'X-Request-ID',
       'Retry-After',
@@ -170,7 +177,10 @@ export async function createServer(context: AppContext): Promise<FastifyInstance
   });
 
   // HIGH-003 fix: Cookie support and CSRF protection
-  const csrfSecret = config.security.csrfSecret || config.security.restApiKey || 'dev-secret-min-32-chars-required-here';
+  const csrfSecret =
+    config.security.csrfSecret ||
+    config.security.restApiKey ||
+    'dev-secret-min-32-chars-required-here';
 
   await app.register(cookie, {
     secret: csrfSecret,

@@ -39,6 +39,9 @@ export {
   calculateDetailedCohesion,
 } from './similarity.js';
 
+// Export optimized ANN similarity (HIGH-PERF fix for Bug #202)
+export { buildSimilarityGraphLSH, buildSimilarityGraphAdaptive } from './ann-similarity.js';
+
 // Export algorithm implementations
 export { detectCommunitiesLeiden } from './leiden.js';
 export { detectCommunitiesConnected, singleLinkageClustering } from './connected-components.js';
@@ -99,7 +102,10 @@ export async function detectCommunities(
     case 'connected':
       return detectCommunitiesConnected(nodes, config);
     default:
-      throw createValidationError('algorithm', `unknown community detection algorithm "${algorithm}"`);
+      throw createValidationError(
+        'algorithm',
+        `unknown community detection algorithm "${String(algorithm)}"`
+      );
   }
 }
 
@@ -174,9 +180,7 @@ export async function batchDetectCommunities(
   config?: CommunityDetectionConfig,
   algorithm: CommunityDetectionAlgorithm = 'leiden'
 ): Promise<CommunityDetectionResult[]> {
-  return Promise.all(
-    nodeSets.map(nodes => detectCommunities(nodes, config, algorithm))
-  );
+  return Promise.all(nodeSets.map((nodes) => detectCommunities(nodes, config, algorithm)));
 }
 
 /**

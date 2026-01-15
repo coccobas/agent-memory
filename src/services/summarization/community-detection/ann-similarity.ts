@@ -38,9 +38,9 @@ interface LSHConfig {
  * Default LSH configuration balances speed and accuracy
  */
 const DEFAULT_LSH_CONFIG: LSHConfig = {
-  numTables: 5,        // 5 independent hash tables
-  numHyperplanes: 10,  // 10 bits per hash = 1024 buckets
-  maxCandidates: 100,  // Consider top 100 candidates per node
+  numTables: 5, // 5 independent hash tables
+  numHyperplanes: 10, // 10 bits per hash = 1024 buckets
+  maxCandidates: 100, // Consider top 100 candidates per node
 };
 
 /**
@@ -209,9 +209,7 @@ function findCandidates(
     // Also check nearby buckets (Hamming distance 1) for better recall
     // Flip each bit and check those buckets
     for (let i = 0; i < hash.length && candidates.size < maxCandidates; i++) {
-      const flipped = hash.substring(0, i) +
-                      (hash[i] === '1' ? '0' : '1') +
-                      hash.substring(i + 1);
+      const flipped = hash.substring(0, i) + (hash[i] === '1' ? '0' : '1') + hash.substring(i + 1);
 
       const nearbyMatches = table.get(flipped) || [];
       for (const id of nearbyMatches) {
@@ -260,10 +258,7 @@ export function buildSimilarityGraphLSH(
 
   // For small graphs (<100 nodes), use brute force (faster due to overhead)
   if (nodesWithEmbeddings.length < 100) {
-    logger.debug(
-      { nodeCount: nodesWithEmbeddings.length },
-      'Using brute force for small graph'
-    );
+    logger.debug({ nodeCount: nodesWithEmbeddings.length }, 'Using brute force for small graph');
     // Use the statically imported brute-force implementation
     return buildSimilarityGraph(nodesWithEmbeddings, threshold);
   }
@@ -299,9 +294,8 @@ export function buildSimilarityGraphLSH(
     // Compute exact similarity for each candidate
     for (const candidateId of candidates) {
       // Skip if already processed (undirected graph)
-      const pairKey = nodeA.id < candidateId
-        ? `${nodeA.id}:${candidateId}`
-        : `${candidateId}:${nodeA.id}`;
+      const pairKey =
+        nodeA.id < candidateId ? `${nodeA.id}:${candidateId}` : `${candidateId}:${nodeA.id}`;
 
       if (processedPairs.has(pairKey)) continue;
       processedPairs.add(pairKey);

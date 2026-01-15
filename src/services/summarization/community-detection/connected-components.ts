@@ -8,18 +8,16 @@
  * Uses Union-Find (Disjoint Set Union) data structure for efficient component detection.
  */
 
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
+
 import type {
   CommunityNode,
   CommunityDetectionResult,
   CommunityDetectionConfig,
   Community,
 } from './types.js';
-import {
-  buildSimilarityGraph,
-  calculateCohesion,
-  computeNodeCentroid,
-  calculateDetailedCohesion,
-} from './similarity.js';
+import { calculateCohesion, computeNodeCentroid, calculateDetailedCohesion } from './similarity.js';
+import { buildSimilarityGraphAdaptive } from './ann-similarity.js'; // Bug #202 fix
 
 // =============================================================================
 // UNION-FIND DATA STRUCTURE
@@ -141,7 +139,7 @@ export async function detectCommunitiesConnected(
   };
 
   // Build similarity graph
-  const graph = buildSimilarityGraph(nodes, cfg.similarityThreshold);
+  const graph = buildSimilarityGraphAdaptive(nodes, cfg.similarityThreshold);
 
   if (graph.nodes.length === 0) {
     return {
@@ -156,7 +154,7 @@ export async function detectCommunitiesConnected(
   }
 
   // Initialize union-find with all nodes
-  const nodeIds = graph.nodes.map(n => n.id);
+  const nodeIds = graph.nodes.map((n) => n.id);
   const unionFind = new UnionFind(nodeIds);
 
   // Union nodes that are connected (have edges between them)
@@ -168,13 +166,13 @@ export async function detectCommunitiesConnected(
   const components = unionFind.getComponents();
 
   // Build communities from components
-  const nodeMap = new Map(graph.nodes.map(n => [n.id, n]));
+  const nodeMap = new Map(graph.nodes.map((n) => [n.id, n]));
   const communities: Community[] = [];
   let communityIndex = 0;
 
   for (const [, memberIds] of components) {
     const members = Array.from(memberIds)
-      .map(id => nodeMap.get(id))
+      .map((id) => nodeMap.get(id))
       .filter((n): n is CommunityNode => n !== undefined);
 
     // Filter out communities smaller than minimum size
@@ -300,19 +298,16 @@ function calculateSimpleModularity(
  * @param threshold Similarity threshold for merging
  * @returns Communities formed by single-linkage clustering
  */
-export function singleLinkageClustering(
-  nodes: CommunityNode[],
-  threshold: number
-): Community[] {
+export function singleLinkageClustering(nodes: CommunityNode[], threshold: number): Community[] {
   // Build similarity graph
-  const graph = buildSimilarityGraph(nodes, threshold);
+  const graph = buildSimilarityGraphAdaptive(nodes, threshold);
 
   if (graph.nodes.length === 0) {
     return [];
   }
 
   // Use union-find for single-linkage clustering
-  const nodeIds = graph.nodes.map(n => n.id);
+  const nodeIds = graph.nodes.map((n) => n.id);
   const unionFind = new UnionFind(nodeIds);
 
   // Sort edges by weight (descending) for better communities
@@ -325,13 +320,13 @@ export function singleLinkageClustering(
 
   // Get components
   const components = unionFind.getComponents();
-  const nodeMap = new Map(graph.nodes.map(n => [n.id, n]));
+  const nodeMap = new Map(graph.nodes.map((n) => [n.id, n]));
   const communities: Community[] = [];
   let communityIndex = 0;
 
   for (const memberIds of components.values()) {
     const members = Array.from(memberIds)
-      .map(id => nodeMap.get(id))
+      .map((id) => nodeMap.get(id))
       .filter((n): n is CommunityNode => n !== undefined);
 
     if (members.length === 0) {

@@ -3,14 +3,14 @@
  *
  * Provides functions for calculating similarity between nodes,
  * building similarity graphs, and computing centroids.
+ *
+ * NOTE: Non-null assertions are used for array/embedding access after validation
+ * in mathematical algorithms.
  */
 
-import type {
-  CommunityNode,
-  SimilarityGraph,
-  SimilarityEdge,
-  AdjacencyList,
-} from './types.js';
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
+
+import type { CommunityNode, SimilarityGraph, SimilarityEdge, AdjacencyList } from './types.js';
 import { createValidationError } from '../../../core/errors.js';
 import { createComponentLogger } from '../../../utils/logger.js';
 
@@ -78,15 +78,12 @@ export function cosineSimilarity(a: number[], b: number[]): number {
  * @param otherNodes Target nodes to compare against
  * @returns Array of similarities in the same order as otherNodes
  */
-export function pairwiseSimilarities(
-  node: CommunityNode,
-  otherNodes: CommunityNode[]
-): number[] {
+export function pairwiseSimilarities(node: CommunityNode, otherNodes: CommunityNode[]): number[] {
   if (!node.embedding) {
     return otherNodes.map(() => 0);
   }
 
-  return otherNodes.map(other => {
+  return otherNodes.map((other) => {
     if (!other.embedding) {
       return 0;
     }
@@ -113,7 +110,7 @@ export function computeCentroid(embeddings: number[][]): number[] | undefined {
   }
 
   // Filter out empty embeddings
-  const validEmbeddings = embeddings.filter(e => e.length > 0);
+  const validEmbeddings = embeddings.filter((e) => e.length > 0);
   if (validEmbeddings.length === 0) {
     return undefined;
   }
@@ -123,7 +120,10 @@ export function computeCentroid(embeddings: number[][]): number[] | undefined {
   // Verify all embeddings have the same dimension
   for (const embedding of validEmbeddings) {
     if (embedding.length !== dimension) {
-      throw createValidationError('embeddings', `dimension mismatch: expected ${dimension}, got ${embedding.length}`);
+      throw createValidationError(
+        'embeddings',
+        `dimension mismatch: expected ${dimension}, got ${embedding.length}`
+      );
     }
   }
 
@@ -153,9 +153,7 @@ export function computeCentroid(embeddings: number[][]): number[] | undefined {
  * @returns Centroid embedding, or undefined if no nodes have embeddings
  */
 export function computeNodeCentroid(nodes: CommunityNode[]): number[] | undefined {
-  const embeddings = nodes
-    .map(n => n.embedding)
-    .filter((e): e is number[] => e !== undefined);
+  const embeddings = nodes.map((n) => n.embedding).filter((e): e is number[] => e !== undefined);
 
   return computeCentroid(embeddings);
 }
@@ -179,12 +177,9 @@ export function computeNodeCentroid(nodes: CommunityNode[]): number[] | undefine
  * @param threshold Minimum similarity to create an edge (0-1)
  * @returns Similarity graph with nodes, edges, and adjacency list
  */
-export function buildSimilarityGraph(
-  nodes: CommunityNode[],
-  threshold: number
-): SimilarityGraph {
+export function buildSimilarityGraph(nodes: CommunityNode[], threshold: number): SimilarityGraph {
   // Filter nodes that have embeddings
-  const nodesWithEmbeddings = nodes.filter(n => n.embedding !== undefined);
+  const nodesWithEmbeddings = nodes.filter((n) => n.embedding !== undefined);
 
   const edges: SimilarityEdge[] = [];
   const adjacencyList: AdjacencyList = new Map();
@@ -215,10 +210,7 @@ export function buildSimilarityGraph(
     for (let j = i + 1; j < nodesWithEmbeddings.length; j++) {
       const nodeB = nodesWithEmbeddings[j]!;
 
-      const similarity = cosineSimilarity(
-        nodeA.embedding!,
-        nodeB.embedding!
-      );
+      const similarity = cosineSimilarity(nodeA.embedding!, nodeB.embedding!);
 
       // Only create edge if similarity exceeds threshold
       if (similarity >= threshold) {
@@ -269,7 +261,7 @@ export function calculateCohesion(nodes: CommunityNode[]): number {
     return 1.0; // Single node or empty community is perfectly cohesive
   }
 
-  const nodesWithEmbeddings = nodes.filter(n => n.embedding !== undefined);
+  const nodesWithEmbeddings = nodes.filter((n) => n.embedding !== undefined);
 
   if (nodesWithEmbeddings.length <= 1) {
     return 1.0; // Can't measure cohesion without embeddings
@@ -285,10 +277,7 @@ export function calculateCohesion(nodes: CommunityNode[]): number {
     for (let j = i + 1; j < nodesWithEmbeddings.length; j++) {
       const nodeB = nodesWithEmbeddings[j]!;
 
-      const similarity = cosineSimilarity(
-        nodeA.embedding!,
-        nodeB.embedding!
-      );
+      const similarity = cosineSimilarity(nodeA.embedding!, nodeB.embedding!);
 
       totalSimilarity += similarity;
       pairCount++;
@@ -321,7 +310,7 @@ export function calculateDetailedCohesion(nodes: CommunityNode[]): {
     };
   }
 
-  const nodesWithEmbeddings = nodes.filter(n => n.embedding !== undefined);
+  const nodesWithEmbeddings = nodes.filter((n) => n.embedding !== undefined);
 
   if (nodesWithEmbeddings.length <= 1) {
     return {
@@ -342,10 +331,7 @@ export function calculateDetailedCohesion(nodes: CommunityNode[]): {
     for (let j = i + 1; j < nodesWithEmbeddings.length; j++) {
       const nodeB = nodesWithEmbeddings[j]!;
 
-      const similarity = cosineSimilarity(
-        nodeA.embedding!,
-        nodeB.embedding!
-      );
+      const similarity = cosineSimilarity(nodeA.embedding!, nodeB.embedding!);
 
       totalSimilarity += similarity;
       minSimilarity = Math.min(minSimilarity, similarity);

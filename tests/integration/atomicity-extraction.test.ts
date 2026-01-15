@@ -48,17 +48,18 @@ describe('extraction atomicity integration', () => {
       relationships: [],
     };
 
-    // Create service with OpenAI provider
+    // Create service with LM Studio (OpenAI-compatible API)
     const service = new ExtractionService({
       provider: 'openai',
-      openaiApiKey: 'test-key',
-      openaiModel: 'gpt-4o-mini',
+      openaiApiKey: 'lm-studio', // LM Studio doesn't validate API keys
+      openaiModel: 'oss-120b',
+      openaiBaseUrl: 'http://localhost:1234/v1',
       anthropicModel: 'claude-3-5-sonnet-20241022',
       ollamaBaseUrl: 'http://localhost:11434',
       ollamaModel: 'llama3.2',
     });
 
-    // Mock the OpenAI client's create method
+    // Mock the provider's OpenAI client
     const mockCreate = vi.fn().mockResolvedValue({
       choices: [
         {
@@ -70,14 +71,17 @@ describe('extraction atomicity integration', () => {
       usage: { total_tokens: 100 },
     });
 
-    // Access private client and mock it
-    (service as any).openaiClient = {
-      chat: {
-        completions: {
-          create: mockCreate,
+    // Access the provider's client and mock it
+    const provider = (service as any).extractionProvider;
+    if (provider?.client) {
+      provider.client = {
+        chat: {
+          completions: {
+            create: mockCreate,
+          },
         },
-      },
-    };
+      };
+    }
 
     // Enable atomicity
     config.extraction.atomicityEnabled = true;
@@ -131,8 +135,9 @@ describe('extraction atomicity integration', () => {
 
     const service = new ExtractionService({
       provider: 'openai',
-      openaiApiKey: 'test-key',
-      openaiModel: 'gpt-4o-mini',
+      openaiApiKey: 'lm-studio',
+      openaiModel: 'oss-120b',
+      openaiBaseUrl: 'http://localhost:1234/v1',
       anthropicModel: 'claude-3-5-sonnet-20241022',
       ollamaBaseUrl: 'http://localhost:11434',
       ollamaModel: 'llama3.2',
@@ -149,13 +154,16 @@ describe('extraction atomicity integration', () => {
       usage: { total_tokens: 50 },
     });
 
-    (service as any).openaiClient = {
-      chat: {
-        completions: {
-          create: mockCreate,
+    const provider = (service as any).extractionProvider;
+    if (provider?.client) {
+      provider.client = {
+        chat: {
+          completions: {
+            create: mockCreate,
+          },
         },
-      },
-    };
+      };
+    }
 
     config.extraction.atomicityEnabled = true;
 
@@ -191,8 +199,9 @@ describe('extraction atomicity integration', () => {
 
     const service = new ExtractionService({
       provider: 'openai',
-      openaiApiKey: 'test-key',
-      openaiModel: 'gpt-4o-mini',
+      openaiApiKey: 'lm-studio',
+      openaiModel: 'oss-120b',
+      openaiBaseUrl: 'http://localhost:1234/v1',
       anthropicModel: 'claude-3-5-sonnet-20241022',
       ollamaBaseUrl: 'http://localhost:11434',
       ollamaModel: 'llama3.2',
@@ -209,13 +218,16 @@ describe('extraction atomicity integration', () => {
       usage: { total_tokens: 50 },
     });
 
-    (service as any).openaiClient = {
-      chat: {
-        completions: {
-          create: mockCreate,
+    const provider = (service as any).extractionProvider;
+    if (provider?.client) {
+      provider.client = {
+        chat: {
+          completions: {
+            create: mockCreate,
+          },
         },
-      },
-    };
+      };
+    }
 
     // Disable atomicity
     config.extraction.atomicityEnabled = false;
@@ -251,8 +263,9 @@ describe('extraction atomicity integration', () => {
 
     const service = new ExtractionService({
       provider: 'openai',
-      openaiApiKey: 'test-key',
-      openaiModel: 'gpt-4o-mini',
+      openaiApiKey: 'lm-studio',
+      openaiModel: 'oss-120b',
+      openaiBaseUrl: 'http://localhost:1234/v1',
       anthropicModel: 'claude-3-5-sonnet-20241022',
       ollamaBaseUrl: 'http://localhost:11434',
       ollamaModel: 'llama3.2',
@@ -269,13 +282,16 @@ describe('extraction atomicity integration', () => {
       usage: { total_tokens: 50 },
     });
 
-    (service as any).openaiClient = {
-      chat: {
-        completions: {
-          create: mockCreate,
+    const provider = (service as any).extractionProvider;
+    if (provider?.client) {
+      provider.client = {
+        chat: {
+          completions: {
+            create: mockCreate,
+          },
         },
-      },
-    };
+      };
+    }
 
     config.extraction.atomicityEnabled = true;
     config.extraction.atomicityMaxSplits = 3; // Limit to 3

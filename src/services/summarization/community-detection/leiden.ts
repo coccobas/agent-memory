@@ -7,7 +7,11 @@
  *
  * Reference: Traag, V.A., Waltman, L. & van Eck, N.J. "From Louvain to Leiden:
  * guaranteeing well-connected communities." Sci Rep 9, 5233 (2019).
+ *
+ * NOTE: Non-null assertions used for Map/Set access after validation in graph algorithms.
  */
+
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 
 import type {
   CommunityNode,
@@ -17,11 +21,11 @@ import type {
   AdjacencyList,
 } from './types.js';
 import {
-  buildSimilarityGraph,
   computeNodeCentroid,
   calculateDetailedCohesion,
   // Bug #210: calculateCohesion removed - use detailedCohesion.avgSimilarity instead
 } from './similarity.js';
+import { buildSimilarityGraphAdaptive } from './ann-similarity.js'; // Bug #202 fix: O(n²) → O(n*k)
 
 // =============================================================================
 // TYPES
@@ -237,8 +241,9 @@ function calculateModularityGain(
 
   const m2 = totalWeight;
   const gain =
-    (edgesToNewCommunity - edgesToOldCommunity) -
-    resolution * nodeDegree * (newCommunityDegree - oldCommunityDegree) / m2;
+    edgesToNewCommunity -
+    edgesToOldCommunity -
+    (resolution * nodeDegree * (newCommunityDegree - oldCommunityDegree)) / m2;
 
   return gain;
 }
@@ -357,8 +362,8 @@ export async function detectCommunitiesLeiden(
     randomSeed: config?.randomSeed ?? 42,
   };
 
-  // Build similarity graph
-  const graph = buildSimilarityGraph(nodes, cfg.similarityThreshold);
+  // Build similarity graph (Bug #202 fix: uses LSH for large graphs)
+  const graph = buildSimilarityGraphAdaptive(nodes, cfg.similarityThreshold);
 
   if (graph.nodes.length === 0) {
     return {
@@ -374,7 +379,7 @@ export async function detectCommunitiesLeiden(
   }
 
   // Initialize assignments
-  let assignment = initializeAssignments(graph.nodes.map(n => n.id));
+  let assignment = initializeAssignments(graph.nodes.map((n) => n.id));
 
   // Bug #205 fix: Pre-compute degrees once and reuse throughout algorithm
   const degrees = computeNodeDegrees(graph.adjacencyList);
@@ -422,14 +427,14 @@ export async function detectCommunitiesLeiden(
 
   // Build final communities
   const structure = buildCommunityStructure(assignment);
-  const nodeMap = new Map(graph.nodes.map(n => [n.id, n]));
+  const nodeMap = new Map(graph.nodes.map((n) => [n.id, n]));
 
   const communities: Community[] = [];
   let communityIndex = 0;
 
   for (const [, memberIds] of structure) {
     const members = Array.from(memberIds)
-      .map(id => nodeMap.get(id))
+      .map((id) => nodeMap.get(id))
       .filter((n): n is CommunityNode => n !== undefined);
 
     // Filter out communities smaller than minimum size

@@ -13,7 +13,11 @@
 import { createComponentLogger } from '../utils/logger.js';
 import { CircuitBreaker } from '../utils/circuit-breaker.js';
 import { config } from '../config/index.js';
-import { createValidationError, createExtractionError, createSizeLimitError } from '../core/errors.js';
+import {
+  createValidationError,
+  createExtractionError,
+  createSizeLimitError,
+} from '../core/errors.js';
 import { ensureAtomicity, createAtomicityConfig } from './extraction/atomicity.js';
 import { OpenAIProvider } from './extraction/providers/openai.provider.js';
 import { AnthropicProvider } from './extraction/providers/anthropic.provider.js';
@@ -134,9 +138,7 @@ export class ExtractionService {
    * Create the appropriate extraction provider based on configuration.
    * Returns null if required API keys are missing (matching original behavior).
    */
-  private createProvider(
-    effectiveConfig: ExtractionServiceConfig
-  ): IExtractionProvider | null {
+  private createProvider(effectiveConfig: ExtractionServiceConfig): IExtractionProvider | null {
     switch (this.provider) {
       case 'openai':
         // Only create provider if API key is available (matches original behavior)
