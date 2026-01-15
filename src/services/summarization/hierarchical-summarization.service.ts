@@ -10,7 +10,7 @@
  * tracked in summaryMembers for efficient traversal.
  */
 
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql, or } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 import { createComponentLogger } from '../../utils/logger.js';
 import { createServiceUnavailableError } from '../../core/errors.js';
@@ -234,10 +234,66 @@ export class HierarchicalSummarizationService {
    * Get a summary by ID
    */
   async getSummary(id: string): Promise<SummaryEntry | null> {
-    // TODO: Query knowledge table for summary with this ID
-    // Filter by metadata.isSummary = true
-    logger.debug({ id }, 'Getting summary by ID');
-    throw createServiceUnavailableError('getSummary', 'not implemented');
+    const startMs = Date.now();
+
+    try {
+      // Query summary by ID
+      const summaryRow = this.db
+        .select()
+        .from(summaries)
+        .where(and(eq(summaries.id, id), eq(summaries.isActive, true)))
+        .get();
+
+      if (!summaryRow) {
+        return null;
+      }
+
+      // Query members
+      const memberRows = this.db
+        .select({
+          memberId: summaryMembers.memberId,
+          memberType: summaryMembers.memberType,
+        })
+        .from(summaryMembers)
+        .where(eq(summaryMembers.summaryId, id))
+        .orderBy(summaryMembers.displayOrder)
+        .all();
+
+      // Build SummaryEntry
+      // Note: Drizzle with mode: 'json' automatically parses embedding
+      const entry: SummaryEntry = {
+        id: summaryRow.id,
+        hierarchyLevel: summaryRow.hierarchyLevel as HierarchyLevel,
+        title: summaryRow.title,
+        content: summaryRow.content,
+        parentSummaryId: summaryRow.parentSummaryId ?? undefined,
+        memberIds: memberRows.map((m) => m.memberId),
+        memberCount: summaryRow.memberCount ?? memberRows.length,
+        embedding: summaryRow.embedding ?? undefined,
+        scopeType: summaryRow.scopeType,
+        scopeId: summaryRow.scopeId ?? undefined,
+        createdAt: summaryRow.createdAt,
+        updatedAt: summaryRow.updatedAt ?? undefined,
+        metadata: {
+          cohesion: summaryRow.coherenceScore ?? undefined,
+        },
+      };
+
+      logger.debug(
+        {
+          summaryId: id,
+          hierarchyLevel: entry.hierarchyLevel,
+          memberCount: entry.memberCount,
+          processingTimeMs: Date.now() - startMs,
+        },
+        'Retrieved summary by ID'
+      );
+
+      return entry;
+    } catch (error) {
+      logger.error({ error, summaryId: id }, 'Failed to get summary');
+      throw error;
+    }
   }
 
   /**
@@ -248,39 +304,347 @@ export class HierarchicalSummarizationService {
     scopeType: string,
     scopeId?: string
   ): Promise<SummaryEntry[]> {
-    // TODO: Query knowledge table for summaries at this level
-    logger.debug({ level, scopeType, scopeId }, 'Getting summaries at level');
-    throw createServiceUnavailableError('getSummariesAtLevel', 'not implemented');
+    const startMs = Date.now();
+
+    try {
+      // Build conditions
+      const conditions = [
+        eq(summaries.hierarchyLevel, level),
+        eq(summaries.scopeType, scopeType as ScopeType),
+        eq(summaries.isActive, true),
+      ];
+
+      if (scopeId) {
+        conditions.push(eq(summaries.scopeId, scopeId));
+      }
+
+      // Query summaries at level
+      const summaryRows = this.db
+        .select()
+        .from(summaries)
+        .where(and(...conditions))
+        .orderBy(summaries.createdAt)
+        .all();
+
+      // Fetch members for each summary
+      const entries: SummaryEntry[] = [];
+      for (const summaryRow of summaryRows) {
+        const memberRows = this.db
+          .select({
+            memberId: summaryMembers.memberId,
+            memberType: summaryMembers.memberType,
+          })
+          .from(summaryMembers)
+          .where(eq(summaryMembers.summaryId, summaryRow.id))
+          .orderBy(summaryMembers.displayOrder)
+          .all();
+
+        entries.push({
+          id: summaryRow.id,
+          hierarchyLevel: summaryRow.hierarchyLevel as HierarchyLevel,
+          title: summaryRow.title,
+          content: summaryRow.content,
+          parentSummaryId: summaryRow.parentSummaryId ?? undefined,
+          memberIds: memberRows.map((m) => m.memberId),
+          memberCount: summaryRow.memberCount ?? memberRows.length,
+          embedding: summaryRow.embedding ?? undefined,
+          scopeType: summaryRow.scopeType,
+          scopeId: summaryRow.scopeId ?? undefined,
+          createdAt: summaryRow.createdAt,
+          updatedAt: summaryRow.updatedAt ?? undefined,
+          metadata: {
+            cohesion: summaryRow.coherenceScore ?? undefined,
+          },
+        });
+      }
+
+      logger.debug(
+        {
+          level,
+          scopeType,
+          scopeId,
+          summaryCount: entries.length,
+          processingTimeMs: Date.now() - startMs,
+        },
+        'Retrieved summaries at level'
+      );
+
+      return entries;
+    } catch (error) {
+      logger.error({ error, level, scopeType, scopeId }, 'Failed to get summaries at level');
+      throw error;
+    }
   }
 
   /**
    * Get children of a summary (entries or lower-level summaries)
    */
   async getChildSummaries(parentId: string): Promise<SummaryEntry[]> {
-    // TODO: Query summaries where parentSummaryId = parentId
-    logger.debug({ parentId }, 'Getting child summaries');
-    throw createServiceUnavailableError('getChildSummaries', 'not implemented');
+    const startMs = Date.now();
+
+    try {
+      // Query summaries by parent ID
+      const summaryRows = this.db
+        .select()
+        .from(summaries)
+        .where(and(eq(summaries.parentSummaryId, parentId), eq(summaries.isActive, true)))
+        .orderBy(summaries.hierarchyLevel, summaries.createdAt)
+        .all();
+
+      // Fetch members for each summary
+      const entries: SummaryEntry[] = [];
+      for (const summaryRow of summaryRows) {
+        const memberRows = this.db
+          .select({
+            memberId: summaryMembers.memberId,
+            memberType: summaryMembers.memberType,
+          })
+          .from(summaryMembers)
+          .where(eq(summaryMembers.summaryId, summaryRow.id))
+          .orderBy(summaryMembers.displayOrder)
+          .all();
+
+        entries.push({
+          id: summaryRow.id,
+          hierarchyLevel: summaryRow.hierarchyLevel as HierarchyLevel,
+          title: summaryRow.title,
+          content: summaryRow.content,
+          parentSummaryId: summaryRow.parentSummaryId ?? undefined,
+          memberIds: memberRows.map((m) => m.memberId),
+          memberCount: summaryRow.memberCount ?? memberRows.length,
+          embedding: summaryRow.embedding ?? undefined,
+          scopeType: summaryRow.scopeType,
+          scopeId: summaryRow.scopeId ?? undefined,
+          createdAt: summaryRow.createdAt,
+          updatedAt: summaryRow.updatedAt ?? undefined,
+          metadata: {
+            cohesion: summaryRow.coherenceScore ?? undefined,
+          },
+        });
+      }
+
+      logger.debug(
+        {
+          parentId,
+          childCount: entries.length,
+          processingTimeMs: Date.now() - startMs,
+        },
+        'Retrieved child summaries'
+      );
+
+      return entries;
+    } catch (error) {
+      logger.error({ error, parentId }, 'Failed to get child summaries');
+      throw error;
+    }
   }
 
   /**
    * Search summaries using semantic or text search
    */
-  async searchSummaries(
-    _query: string,
-    _options?: SearchSummariesOptions
-  ): Promise<SummaryEntry[]> {
-    // TODO: Use vector service for semantic search or FTS for text search
-    logger.debug({ query: _query, options: _options }, 'Searching summaries');
-    throw createServiceUnavailableError('searchSummaries', 'not implemented');
+  async searchSummaries(query: string, options?: SearchSummariesOptions): Promise<SummaryEntry[]> {
+    const startMs = Date.now();
+    const limit = options?.limit ?? 10;
+
+    try {
+      // Strategy 1: Semantic search if embeddings available
+      if (this.embeddingService.isAvailable() && this.vectorService) {
+        const embedResult = await this.embeddingService.embed(query);
+        const searchResults = await this.vectorService.searchSimilar(
+          embedResult.embedding,
+          ['summary'],
+          limit * 2 // Get extra for filtering
+        );
+
+        const entries: SummaryEntry[] = [];
+        for (const result of searchResults) {
+          if (entries.length >= limit) break;
+
+          const summary = await this.getSummary(result.entryId);
+          if (!summary) continue;
+
+          // Apply filters
+          if (options?.level !== undefined && summary.hierarchyLevel !== options.level) {
+            continue;
+          }
+          if (options?.scopeType && summary.scopeType !== options.scopeType) {
+            continue;
+          }
+          if (options?.scopeId && summary.scopeId !== options.scopeId) {
+            continue;
+          }
+
+          entries.push(summary);
+        }
+
+        logger.debug(
+          {
+            query,
+            strategy: 'semantic',
+            resultCount: entries.length,
+            processingTimeMs: Date.now() - startMs,
+          },
+          'Searched summaries'
+        );
+
+        return entries;
+      }
+
+      // Strategy 2: Fallback to text search
+      const conditions: any[] = [eq(summaries.isActive, true)];
+
+      // Text search condition
+      conditions.push(
+        or(
+          sql`${summaries.title} LIKE ${`%${query}%`}`,
+          sql`${summaries.content} LIKE ${`%${query}%`}`
+        )
+      );
+
+      // Apply optional filters
+      if (options?.level !== undefined) {
+        conditions.push(eq(summaries.hierarchyLevel, options.level));
+      }
+      if (options?.scopeType) {
+        conditions.push(eq(summaries.scopeType, options.scopeType as ScopeType));
+      }
+      if (options?.scopeId) {
+        conditions.push(eq(summaries.scopeId, options.scopeId));
+      }
+
+      const summaryRows = this.db
+        .select()
+        .from(summaries)
+        .where(and(...conditions))
+        .limit(limit)
+        .all();
+
+      // Convert to entries
+      const entries: SummaryEntry[] = [];
+      for (const summaryRow of summaryRows) {
+        const memberRows = this.db
+          .select({
+            memberId: summaryMembers.memberId,
+            memberType: summaryMembers.memberType,
+          })
+          .from(summaryMembers)
+          .where(eq(summaryMembers.summaryId, summaryRow.id))
+          .orderBy(summaryMembers.displayOrder)
+          .all();
+
+        entries.push({
+          id: summaryRow.id,
+          hierarchyLevel: summaryRow.hierarchyLevel as HierarchyLevel,
+          title: summaryRow.title,
+          content: summaryRow.content,
+          parentSummaryId: summaryRow.parentSummaryId ?? undefined,
+          memberIds: memberRows.map((m) => m.memberId),
+          memberCount: summaryRow.memberCount ?? memberRows.length,
+          embedding: summaryRow.embedding ?? undefined,
+          scopeType: summaryRow.scopeType,
+          scopeId: summaryRow.scopeId ?? undefined,
+          createdAt: summaryRow.createdAt,
+          updatedAt: summaryRow.updatedAt ?? undefined,
+          metadata: {
+            cohesion: summaryRow.coherenceScore ?? undefined,
+          },
+        });
+      }
+
+      logger.debug(
+        {
+          query,
+          strategy: 'text',
+          resultCount: entries.length,
+          processingTimeMs: Date.now() - startMs,
+        },
+        'Searched summaries'
+      );
+
+      return entries;
+    } catch (error) {
+      logger.error({ error, query }, 'Failed to search summaries');
+      throw error;
+    }
   }
 
   /**
    * Get build status for a scope
    */
   async getStatus(scopeType: string, scopeId?: string): Promise<SummaryBuildStatus> {
-    // TODO: Query summaries and count by level
-    logger.debug({ scopeType, scopeId }, 'Getting summary build status');
-    throw createServiceUnavailableError('getStatus', 'not implemented');
+    const startMs = Date.now();
+
+    try {
+      // Build conditions
+      const conditions = [
+        eq(summaries.scopeType, scopeType as ScopeType),
+        eq(summaries.isActive, true),
+      ];
+
+      if (scopeId) {
+        conditions.push(eq(summaries.scopeId, scopeId));
+      }
+
+      // Query all summaries in scope
+      const allSummaries = this.db
+        .select({
+          hierarchyLevel: summaries.hierarchyLevel,
+          memberCount: summaries.memberCount,
+          createdAt: summaries.createdAt,
+        })
+        .from(summaries)
+        .where(and(...conditions))
+        .all();
+
+      // Calculate statistics
+      const countByLevel: { level1: number; level2: number; level3: number } = {
+        level1: 0,
+        level2: 0,
+        level3: 0,
+      };
+      let entriesCovered = 0;
+      let lastBuilt: string | undefined;
+
+      for (const summary of allSummaries) {
+        // Count by level
+        if (summary.hierarchyLevel === 1) {
+          countByLevel.level1++;
+          // Only count level 1 to avoid double-counting
+          entriesCovered += summary.memberCount ?? 0;
+        } else if (summary.hierarchyLevel === 2) {
+          countByLevel.level2++;
+        } else if (summary.hierarchyLevel === 3) {
+          countByLevel.level3++;
+        }
+
+        // Track latest build time
+        if (!lastBuilt || summary.createdAt > lastBuilt) {
+          lastBuilt = summary.createdAt;
+        }
+      }
+
+      const status: SummaryBuildStatus = {
+        lastBuilt,
+        summaryCount: allSummaries.length,
+        countByLevel,
+        entriesCovered,
+      };
+
+      logger.debug(
+        {
+          scopeType,
+          scopeId,
+          status,
+          processingTimeMs: Date.now() - startMs,
+        },
+        'Retrieved summarization status'
+      );
+
+      return status;
+    } catch (error) {
+      logger.error({ error, scopeType, scopeId }, 'Failed to get summarization status');
+      throw error;
+    }
   }
 
   /**
@@ -903,6 +1267,7 @@ export class HierarchicalSummarizationService {
     logger.debug({ summaryId: summary.id, level: summary.hierarchyLevel }, 'Storing summary');
 
     // Insert into summaries table
+    // Note: Drizzle with mode: 'json' handles serialization automatically
     this.db
       .insert(summaries)
       .values({
@@ -946,6 +1311,26 @@ export class HierarchicalSummarizationService {
       { summaryId: summary.id, memberCount: summary.memberIds.length },
       'Summary stored successfully'
     );
+
+    // Store in vector store for semantic search
+    if (summary.embedding && summary.embedding.length > 0 && this.vectorService) {
+      try {
+        await this.vectorService.storeEmbedding(
+          'summary', // entryType
+          summary.id, // entryId
+          summary.id, // indexId (same as entryId for summaries)
+          summary.content, // text content for fallback
+          summary.embedding,
+          this.embeddingService.getProvider()
+        );
+        logger.debug({ summaryId: summary.id }, 'Stored summary embedding in vector store');
+      } catch (error) {
+        logger.warn(
+          { error, summaryId: summary.id },
+          'Failed to store summary embedding in vector store (non-fatal)'
+        );
+      }
+    }
   }
 
   /**

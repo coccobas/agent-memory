@@ -375,13 +375,19 @@ export class LLMSummarizer {
 
     return withRetry(
       async () => {
+        // Check if using LM Studio (or other OpenAI-compatible endpoint)
+        const isLMStudio = this.config.openaiBaseUrl?.includes('localhost') ||
+                          this.config.openaiBaseUrl?.includes('127.0.0.1');
+
         const response = await client.chat.completions.create({
           model: this.config.model,
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt },
           ],
-          response_format: { type: 'json_object' },
+          // LM Studio doesn't support json_object, only json_schema or text
+          // For local endpoints, omit response_format and rely on prompt engineering
+          ...(isLMStudio ? {} : { response_format: { type: 'json_object' } }),
           temperature: this.config.temperature,
           max_tokens: this.config.maxTokens,
           // reasoning_effort for models with extended thinking
