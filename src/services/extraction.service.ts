@@ -1,26 +1,31 @@
 /**
- * Extraction service for LLM-based memory extraction
+ * Refactored extraction service using provider pattern
  *
  * Supports:
  * - OpenAI API (GPT-4o-mini, GPT-4o, etc.)
  * - Anthropic API (Claude 3.5 Sonnet, etc.)
  * - Local LLM via Ollama
  * - Disabled mode (returns empty extractions)
+ *
+ * Architecture: Provider pattern with circuit breaker protection
  */
 
-import { OpenAI } from 'openai';
-import Anthropic from '@anthropic-ai/sdk';
 import { createComponentLogger } from '../utils/logger.js';
-import { withRetry, isRetryableNetworkError } from '../utils/retry.js';
 import { CircuitBreaker } from '../utils/circuit-breaker.js';
 import { config } from '../config/index.js';
-import {
-  createValidationError,
-  createExtractionError,
-  createSizeLimitError,
-  createServiceUnavailableError,
-} from '../core/errors.js';
+import { createValidationError, createExtractionError, createSizeLimitError } from '../core/errors.js';
 import { ensureAtomicity, createAtomicityConfig } from './extraction/atomicity.js';
+import { OpenAIProvider } from './extraction/providers/openai.provider.js';
+import { AnthropicProvider } from './extraction/providers/anthropic.provider.js';
+import { OllamaProvider } from './extraction/providers/ollama.provider.js';
+import type {
+  IExtractionProvider,
+  ExtractionInput,
+  ExtractionResult,
+  GenerationInput,
+  GenerationResult,
+  ExtractionProvider,
+} from './extraction/providers/types.js';
 
 const logger = createComponentLogger('extraction');
 
@@ -28,669 +33,7 @@ const logger = createComponentLogger('extraction');
 const VALID_CONTEXT_TYPES = ['conversation', 'code', 'mixed'] as const;
 type ContextType = (typeof VALID_CONTEXT_TYPES)[number];
 
-// Security: Allowed OpenAI-compatible hosts (add your approved hosts here)
-// localhost only allowed in development mode, not production
-const ALLOWED_OPENAI_HOSTS = ['api.openai.com', 'api.anthropic.com'];
-
-/**
- * Detect integer IP format to prevent SSRF bypass
- * Examples: 2130706433 (decimal for 127.0.0.1), 0x7f000001 (hex)
- *
- * Security: Prevents SSRF bypass via integer IP representation
- */
-function isIntegerIpFormat(hostname: string): boolean {
-  return /^\d+$/.test(hostname) || /^0x[0-9a-fA-F]+$/i.test(hostname);
-}
-
-/**
- * Validate URL for SSRF protection.
- * Rejects private IP ranges and ensures only approved protocols.
- *
- * Security: Prevents Server-Side Request Forgery attacks.
- */
-function validateExternalUrl(urlString: string, allowPrivate: boolean = false): void {
-  const url = new URL(urlString);
-
-  // Check protocol
-  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-    throw createValidationError('url', `invalid scheme: ${url.protocol}. Only http/https allowed`);
-  }
-
-  if (!allowPrivate) {
-    // Check for private/internal IP ranges
-    let hostname = url.hostname.toLowerCase();
-
-    // Security: Strip IPv6 zone IDs (e.g., fe80::1%eth0) as they can bypass SSRF protections
-    // Zone IDs are URL-encoded as %25 in URLs
-    if (hostname.includes('%25') || hostname.includes('%')) {
-      // Strip zone ID and log a warning
-      const originalHostname = hostname;
-      hostname = hostname.split('%25')[0]!.split('%')[0]!;
-      logger.warn(
-        { original: originalHostname, stripped: hostname },
-        'SSRF protection: Stripped IPv6 zone ID from hostname'
-      );
-    }
-
-    // Security: Block integer IP format before pattern checks
-    if (isIntegerIpFormat(hostname)) {
-      throw createValidationError(
-        'hostname',
-        `SSRF protection: Integer IP format not allowed: ${hostname}. Use standard dotted notation`
-      );
-    }
-
-    // IPv4 private patterns
-    const privatePatterns = [
-      /^127\./, // 127.0.0.0/8 (loopback)
-      /^10\./, // 10.0.0.0/8 (private)
-      /^172\.(1[6-9]|2[0-9]|3[01])\./, // 172.16.0.0/12 (private)
-      /^192\.168\./, // 192.168.0.0/16 (private)
-      /^169\.254\./, // 169.254.0.0/16 (link-local, AWS metadata)
-      /^0\.0\.0\.0$/, // 0.0.0.0
-      /^localhost$/i, // localhost
-    ];
-
-    // IPv6 private patterns
-    const ipv6PrivatePatterns = [
-      /^\[?::1\]?$/i, // IPv6 loopback
-      /^\[?fe80:/i, // link-local
-      /^\[?fc[0-9a-f]{2}:/i, // unique local (fc00::/7)
-      /^\[?fd[0-9a-f]{2}:/i, // unique local (fd00::/8)
-      /^\[?ff[0-9a-f]{2}:/i, // multicast (ff00::/8)
-    ];
-
-    for (const pattern of privatePatterns) {
-      if (pattern.test(hostname)) {
-        throw createValidationError('hostname', `SSRF protection: Private/internal addresses not allowed: ${hostname}`);
-      }
-    }
-
-    for (const pattern of ipv6PrivatePatterns) {
-      if (pattern.test(hostname)) {
-        throw createValidationError('hostname', `SSRF protection: Private IPv6 addresses not allowed: ${hostname}`);
-      }
-    }
-  }
-}
-
-/**
- * Validate model name to prevent injection attacks.
- * Model names should only contain safe characters.
- *
- * Security: Prevents injection via malicious model names.
- */
-function isValidModelName(modelName: string): boolean {
-  // Allow alphanumeric, hyphens, underscores, colons (for tags like llama:7b), and dots
-  // Examples: llama2, llama:7b, gpt-4-turbo, mistral-7b-instruct-v0.2
-  const validPattern = /^[a-zA-Z0-9._:-]+$/;
-  return validPattern.test(modelName) && modelName.length <= 100;
-}
-
-/**
- * Read response body with size limit to prevent memory exhaustion.
- * Streams the response and aborts if it exceeds the maximum size.
- *
- * Security: Prevents memory exhaustion from malicious or oversized responses.
- */
-async function readResponseWithLimit(
-  response: Response,
-  maxSizeBytes: number,
-  abortController: AbortController
-): Promise<string> {
-  const reader = response.body?.getReader();
-  if (!reader) {
-    throw createExtractionError('response', 'body is not readable');
-  }
-
-  const decoder = new TextDecoder();
-  const chunks: string[] = [];
-  let totalBytes = 0;
-
-  // Bug #24 fix: Per-read timeout to prevent hung requests
-  // If reading takes longer than 30 seconds for a single chunk, abort
-  const READ_TIMEOUT_MS = 30000;
-
-  try {
-    while (true) {
-      // Bug #24 fix: Check if abort was requested before each read
-      if (abortController.signal.aborted) {
-        throw createExtractionError('response', 'request aborted');
-      }
-
-      // Bug #24 fix: Add timeout to each read operation
-      const readPromise = reader.read();
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        const id = setTimeout(() => {
-          reject(createExtractionError('response', 'stream read timeout - server not responding'));
-        }, READ_TIMEOUT_MS);
-        // Clean up timeout if read completes first
-        readPromise.finally(() => clearTimeout(id));
-      });
-
-      const { done, value } = await Promise.race([readPromise, timeoutPromise]);
-      if (done) break;
-
-      totalBytes += value.byteLength;
-
-      // Security: Abort if response exceeds size limit
-      if (totalBytes > maxSizeBytes) {
-        abortController.abort();
-        throw createSizeLimitError('response', maxSizeBytes, totalBytes, 'bytes');
-      }
-
-      chunks.push(decoder.decode(value, { stream: true }));
-    }
-
-    // Flush any remaining bytes
-    chunks.push(decoder.decode());
-    return chunks.join('');
-  } finally {
-    reader.releaseLock();
-  }
-}
-
-/**
- * Validate OpenAI-compatible base URL against allowlist.
- * When using custom base URLs, credentials may be sent to that server.
- *
- * Security: Prevents credential exposure to untrusted servers.
- * Set AGENT_MEMORY_EXTRACTION_STRICT_ALLOWLIST=true to enforce blocking.
- */
-function validateOpenAIBaseUrl(baseUrl: string | undefined): void {
-  if (!baseUrl) return; // Default API URL is fine
-
-  const url = new URL(baseUrl);
-  const hostname = url.hostname.toLowerCase();
-
-  // Security: Only allow localhost in development mode (NODE_ENV !== 'production')
-  if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    const isProduction = process.env.NODE_ENV === 'production';
-    if (isProduction) {
-      throw createValidationError(
-        'baseUrl',
-        'SSRF protection: localhost/127.0.0.1 not allowed in production. Use a public hostname or deploy with NODE_ENV !== production for development'
-      );
-    }
-    logger.debug({ baseUrl }, 'Using local OpenAI-compatible endpoint (development mode)');
-    return;
-  }
-
-  // Check against allowlist
-  if (!ALLOWED_OPENAI_HOSTS.includes(hostname)) {
-    // Strict mode: block non-allowlisted hosts (recommended for production)
-    if (config.extraction.strictBaseUrlAllowlist) {
-      throw createValidationError(
-        'baseUrl',
-        `not in allowlist: ${hostname}. Allowed hosts: ${ALLOWED_OPENAI_HOSTS.join(', ')}. Set AGENT_MEMORY_EXTRACTION_STRICT_ALLOWLIST=false to allow custom hosts`
-      );
-    }
-
-    // Permissive mode: warn but allow (for backward compatibility)
-    logger.warn(
-      { hostname },
-      'OpenAI base URL not in allowlist. Set AGENT_MEMORY_EXTRACTION_STRICT_ALLOWLIST=true to enforce blocking.'
-    );
-  }
-}
-
-export type ExtractionProvider = 'openai' | 'anthropic' | 'ollama' | 'disabled';
-
-export interface ExtractedEntry {
-  type: 'guideline' | 'knowledge' | 'tool';
-  name?: string; // For tools/guidelines
-  title?: string; // For knowledge
-  content: string;
-  category?: string;
-  priority?: number; // For guidelines (0-100)
-  confidence: number; // 0-1
-  rationale?: string; // Why this was extracted
-  suggestedTags?: string[];
-}
-
-export type EntityType = 'person' | 'technology' | 'component' | 'concept' | 'organization';
-
-export interface ExtractedEntity {
-  name: string;
-  entityType: EntityType;
-  description?: string;
-  confidence: number; // 0-1
-}
-
-export type ExtractedRelationType = 'depends_on' | 'related_to' | 'applies_to' | 'conflicts_with';
-
-export interface ExtractedRelationship {
-  sourceRef: string; // Name reference to extracted entry/entity
-  sourceType: 'guideline' | 'knowledge' | 'tool' | 'entity';
-  targetRef: string;
-  targetType: 'guideline' | 'knowledge' | 'tool' | 'entity';
-  relationType: ExtractedRelationType;
-  confidence: number; // 0-1
-}
-
-export interface ExtractionResult {
-  entries: ExtractedEntry[];
-  entities: ExtractedEntity[];
-  relationships: ExtractedRelationship[];
-  model: string;
-  provider: ExtractionProvider;
-  tokensUsed?: number;
-  processingTimeMs: number;
-  /** Task 47: Indicates if result is partial due to error during extraction */
-  partial?: boolean;
-  /** Task 47: Error message if partial result */
-  partialError?: string;
-}
-
-export interface ExtractionInput {
-  context: string; // Raw conversation/code context
-  contextType?: 'conversation' | 'code' | 'mixed';
-  /** Task 47: Enable partial retry with reduced context on failure */
-  enablePartialRetry?: boolean;
-  focusAreas?: ('decisions' | 'facts' | 'rules' | 'tools')[];
-  existingSummary?: string; // Previous context for continuity
-  scopeHint?: {
-    // Scope context for better extraction
-    projectName?: string;
-    language?: string;
-    domain?: string;
-  };
-}
-
-/**
- * Input for text generation (distinct from structured extraction)
- * Used by HyDE and other services that need raw text generation
- */
-export interface GenerationInput {
-  systemPrompt: string;
-  userPrompt: string;
-  count?: number; // 1-5 variations (default: 1)
-  temperature?: number; // 0-2 (default: 0.7)
-  maxTokens?: number; // Max tokens per generation (default: 512)
-}
-
-/**
- * Result from text generation
- */
-export interface GenerationResult {
-  texts: string[];
-  model: string;
-  provider: ExtractionProvider;
-  tokensUsed?: number;
-  processingTimeMs: number;
-}
-
-// =============================================================================
-// EXTRACTION PROMPTS
-// =============================================================================
-
-const EXTRACTION_SYSTEM_PROMPT = `You are an AI memory extraction assistant. Your job is to analyze conversation or code context and extract structured memory entries, entities, and relationships.
-
-Extract the following types:
-
-1. **Guidelines** - Rules, standards, or patterns that should be followed. These can be:
-   - **Explicit**: Direct commands using "always", "never", "must", "should" (e.g., "always use TypeScript strict mode", "never commit secrets")
-   - **Implicit**: Standards implied by descriptions of how things work:
-     - "We follow [methodology/pattern]" → Extract as guideline to follow that methodology
-     - "Our [code/API/service] follows [standard/convention]" → Extract as guideline to conform to that standard
-     - "The codebase is organized as [pattern]" → Extract as guideline to maintain that organization
-     - "We use [approach] for [purpose]" → Extract as guideline to continue using that approach
-     - "[Team] decided to [approach]" → Extract as guideline if it establishes ongoing practice
-
-2. **Knowledge** - Facts, decisions, or context worth remembering (e.g., "We chose PostgreSQL because...", "The API uses REST not GraphQL")
-
-3. **Tools** - Commands, scripts, or tool patterns that could be reused (e.g., "npm run build", "docker compose up")
-
-4. **Entities** - Named things referenced in the context:
-   - **technology**: libraries, frameworks, databases, APIs, languages (e.g., PostgreSQL, React, REST)
-   - **component**: services, modules, classes, functions (e.g., UserService, AuthMiddleware)
-   - **person**: team members, authors if relevant to the project
-   - **organization**: companies, teams, departments
-   - **concept**: patterns, architectures, methodologies (e.g., microservices, event-driven)
-
-5. **Relationships** - How extracted items relate to each other:
-   - **depends_on**: X requires/uses Y (e.g., "UserService depends_on PostgreSQL")
-   - **related_to**: X is associated with Y
-   - **applies_to**: guideline/rule X applies to entity/tool Y
-   - **conflicts_with**: X contradicts Y
-
-For each extraction:
-- Assign a confidence score (0-1) based on how clearly the information was stated
-- Use kebab-case for names/identifiers
-- Be specific and actionable
-- Include rationale when the "why" is mentioned
-
-Only extract genuinely useful information. Skip:
-- Temporary debugging steps
-- One-off commands that won't be reused
-- Information already commonly known
-- Vague or ambiguous statements
-- Generic entities (e.g., "the database" without a specific name)
-
-## CRITICAL: Noise Resistance
-
-Do NOT extract the following types of content:
-
-1. **Status Updates & Progress Reports** - "I'm working on X", "Just finished Y", "Almost done with Z"
-   These are transient status indicators, not permanent knowledge worth storing.
-
-2. **Personal Preferences Without Team Mandate** - "I prefer X", "I like using Y"
-   Only extract preferences that are explicitly stated as team standards or project requirements.
-
-3. **Dismissed or Rejected Technologies** - "We don't use X", "We tried Y but it didn't work"
-   Negative decisions about what NOT to use are generally not actionable guidelines unless they include specific rationale worth preserving.
-
-4. **Transient Code Review Feedback** - "Can you move this here?", "Please rename this variable"
-   One-off review comments that apply only to a specific change are not reusable knowledge.
-
-5. **Questions and Requests** - "Can you help me with X?", "What do you think about Y?"
-   Questions themselves are not extractable knowledge - only answers and decisions are.
-
-6. **Casual Conversation & Off-Topic Content** - Greetings, thanks, unrelated discussions
-   Social content has no long-term knowledge value.
-
-## CRITICAL: Atomicity Requirement
-
-Each extracted entry MUST be atomic - containing exactly ONE concept, rule, decision, or fact.
-
-### What is Atomic?
-- ONE guideline = ONE rule or constraint
-- ONE knowledge = ONE fact or ONE decision
-- ONE tool = ONE command or function
-
-### Examples of NON-ATOMIC (BAD):
-- Guideline: "Always use TypeScript strict mode and never use any type" (TWO rules)
-- Knowledge: "We chose PostgreSQL for persistence and Redis for caching" (TWO decisions)
-- Tool: "Use prettier for formatting; use eslint for linting" (TWO tools)
-
-### Examples of ATOMIC (GOOD):
-- Guideline: "Always use TypeScript strict mode" (ONE rule)
-- Guideline: "Never use the any type in TypeScript" (ONE rule)
-- Knowledge: "We chose PostgreSQL for database persistence" (ONE decision)
-- Knowledge: "We use Redis for caching" (ONE decision)
-- Tool: "Use prettier for code formatting" (ONE tool)
-
-### Splitting Guidance:
-If you identify compound information, extract it as MULTIPLE SEPARATE entries:
-- Each entry gets its own name/title
-- Each entry maintains appropriate confidence
-- Related entries can share tags
-
-DO NOT combine multiple rules, facts, or tools into single entries. When in doubt, split.
-
-Return your response as a JSON object with this exact structure:
-{
-  "guidelines": [
-    {
-      "name": "string (kebab-case identifier)",
-      "content": "string (the guideline rule text)",
-      "category": "string (one of: code_style, security, architecture, workflow, testing)",
-      "priority": "number (0-100, where 100 is critical)",
-      "rationale": "string (why this guideline exists, if mentioned)",
-      "confidence": "number (0-1)",
-      "suggestedTags": ["string"]
-    }
-  ],
-  "knowledge": [
-    {
-      "title": "string (descriptive title)",
-      "content": "string (the knowledge content)",
-      "category": "string (one of: decision, fact, context, reference)",
-      "confidence": "number (0-1)",
-      "source": "string (where this knowledge came from)",
-      "suggestedTags": ["string"]
-    }
-  ],
-  "tools": [
-    {
-      "name": "string (tool/command name)",
-      "description": "string (what the tool does)",
-      "category": "string (one of: cli, function, api, mcp)",
-      "confidence": "number (0-1)",
-      "suggestedTags": ["string"]
-    }
-  ],
-  "entities": [
-    {
-      "name": "string (the entity name, e.g., PostgreSQL, UserService)",
-      "entityType": "string (one of: person, technology, component, concept, organization)",
-      "description": "string (brief description of what this entity is)",
-      "confidence": "number (0-1)"
-    }
-  ],
-  "relationships": [
-    {
-      "sourceRef": "string (name of source entry/entity)",
-      "sourceType": "string (one of: guideline, knowledge, tool, entity)",
-      "targetRef": "string (name of target entry/entity)",
-      "targetType": "string (one of: guideline, knowledge, tool, entity)",
-      "relationType": "string (one of: depends_on, related_to, applies_to, conflicts_with)",
-      "confidence": "number (0-1)"
-    }
-  ]
-}`;
-
-// =============================================================================
-// PERSONAL MEMORY EXTRACTION PROMPT
-// =============================================================================
-
-/**
- * Extraction prompt optimized for personal/conversational memory.
- * Use for: chat assistants, personal memory apps, LoCoMo-style benchmarks.
- *
- * Key differences from technical prompt:
- * - Categories for personal info, events, relationships
- * - No noise filtering for casual conversation
- * - Entity types for people, places, dates
- * - Focus on factual information extraction
- */
-const PERSONAL_EXTRACTION_SYSTEM_PROMPT = `You are a personal memory extraction assistant. Extract facts, events, and information about people from conversations.
-
-## What to Extract
-
-1. **Knowledge** - Facts worth remembering:
-   - **person_info**: Names, identities, professions, characteristics (e.g., "Sarah is a teacher", "John is transgender")
-   - **event**: Activities, occurrences with dates/times (e.g., "Sarah went to the gym on May 5th")
-   - **preference**: Likes, dislikes, favorites (e.g., "John loves hiking")
-   - **relationship**: Connections between people (e.g., "Sarah and John are siblings")
-   - **plan**: Future intentions (e.g., "Sarah is planning to visit Paris next month")
-   - **location**: Where people live/work/visited (e.g., "John lives in Boston")
-
-2. **Entities** - Named things mentioned:
-   - **person**: People mentioned by name
-   - **location**: Places, cities, venues
-   - **organization**: Companies, schools, groups
-   - **date**: Specific dates or time periods
-   - **activity**: Hobbies, sports, events
-
-3. **Relationships** - Connections between entities:
-   - **knows**: Person knows another person
-   - **lives_in**: Person lives in location
-   - **works_at**: Person works at organization
-   - **participated_in**: Person participated in activity/event
-   - **related_to**: General relationship
-
-## Extraction Rules
-
-- Extract ALL factual information, even from casual conversation
-- Include specific dates, times, and numbers when mentioned
-- Preserve exact names and proper nouns
-- Assign confidence based on how directly something was stated:
-  - 0.9+: Explicitly stated fact
-  - 0.7-0.9: Clearly implied
-  - 0.5-0.7: Inferred from context
-- Each entry should be atomic (ONE fact per entry)
-
-## What NOT to Extract
-
-- Greetings and pleasantries without information content
-- Questions that aren't answered
-- Hypotheticals that didn't happen
-- Generic statements without specifics
-
-Return a JSON object:
-{
-  "guidelines": [],
-  "knowledge": [
-    {
-      "title": "string (short descriptive title)",
-      "content": "string (the specific fact, 1-2 sentences)",
-      "category": "string (person_info | event | preference | relationship | plan | location)",
-      "confidence": "number (0-1)",
-      "source": "string (who this is about, e.g., 'Sarah', 'the user')",
-      "suggestedTags": ["string"]
-    }
-  ],
-  "tools": [],
-  "entities": [
-    {
-      "name": "string (proper name)",
-      "entityType": "string (person | location | organization | date | activity)",
-      "description": "string (brief description)",
-      "confidence": "number (0-1)"
-    }
-  ],
-  "relationships": [
-    {
-      "sourceRef": "string (entity name)",
-      "sourceType": "string (entity)",
-      "targetRef": "string (entity name)",
-      "targetType": "string (entity)",
-      "relationType": "string (knows | lives_in | works_at | participated_in | related_to)",
-      "confidence": "number (0-1)"
-    }
-  ]
-}
-
-## Example
-
-Input: "Caroline went to an LGBTQ support group on May 7th 2023. She's a transgender woman who's thinking about adoption."
-
-Output:
-{
-  "guidelines": [],
-  "knowledge": [
-    {
-      "title": "Caroline attended LGBTQ support group",
-      "content": "Caroline went to an LGBTQ support group on May 7th 2023.",
-      "category": "event",
-      "confidence": 0.95,
-      "source": "Caroline",
-      "suggestedTags": ["caroline", "lgbtq", "support-group"]
-    },
-    {
-      "title": "Caroline is transgender",
-      "content": "Caroline is a transgender woman.",
-      "category": "person_info",
-      "confidence": 0.95,
-      "source": "Caroline",
-      "suggestedTags": ["caroline", "identity"]
-    },
-    {
-      "title": "Caroline considering adoption",
-      "content": "Caroline is thinking about adoption.",
-      "category": "plan",
-      "confidence": 0.85,
-      "source": "Caroline",
-      "suggestedTags": ["caroline", "adoption"]
-    }
-  ],
-  "tools": [],
-  "entities": [
-    {"name": "Caroline", "entityType": "person", "description": "Transgender woman considering adoption", "confidence": 0.95},
-    {"name": "May 7th 2023", "entityType": "date", "description": "Date of LGBTQ support group visit", "confidence": 0.95},
-    {"name": "LGBTQ support group", "entityType": "organization", "description": "Support group Caroline attended", "confidence": 0.9}
-  ],
-  "relationships": [
-    {"sourceRef": "Caroline", "sourceType": "entity", "targetRef": "LGBTQ support group", "targetType": "entity", "relationType": "participated_in", "confidence": 0.95}
-  ]
-}`;
-
-/**
- * Get the appropriate extraction prompt based on mode
- */
-function getExtractionPrompt(mode: 'technical' | 'personal' | 'auto', context?: string): string {
-  if (mode === 'personal') {
-    return PERSONAL_EXTRACTION_SYSTEM_PROMPT;
-  }
-  if (mode === 'technical') {
-    return EXTRACTION_SYSTEM_PROMPT;
-  }
-  // Auto mode: detect from content
-  if (context) {
-    // Simple heuristics for auto-detection
-    const technicalIndicators = [
-      /\bfunction\b/i, /\bclass\b/i, /\bimport\b/i, /\bexport\b/i,
-      /\bconst\b/i, /\blet\b/i, /\bvar\b/i, /\breturn\b/i,
-      /\bapi\b/i, /\bdatabase\b/i, /\bserver\b/i, /\bdeployment\b/i,
-      /\bgit\b/i, /\bnpm\b/i, /\bdocker\b/i, /\bkubernetes\b/i,
-    ];
-    const personalIndicators = [
-      /\b(went|visited|attended|met)\b/i,
-      /\b(birthday|wedding|vacation|trip)\b/i,
-      /\b(family|friend|brother|sister|mother|father)\b/i,
-      /\b(love|hate|favorite|prefer)\b/i,
-      /\b(feel|feeling|happy|sad|excited)\b/i,
-    ];
-
-    const technicalScore = technicalIndicators.filter(r => r.test(context)).length;
-    const personalScore = personalIndicators.filter(r => r.test(context)).length;
-
-    if (personalScore > technicalScore) {
-      return PERSONAL_EXTRACTION_SYSTEM_PROMPT;
-    }
-  }
-  return EXTRACTION_SYSTEM_PROMPT;
-}
-
-function buildUserPrompt(input: ExtractionInput): string {
-  const parts: string[] = [];
-
-  parts.push(
-    `Analyze the following ${input.contextType || 'mixed'} context and extract memory entries.`
-  );
-  parts.push('');
-
-  if (input.scopeHint?.projectName) {
-    parts.push(`Project: ${input.scopeHint.projectName}`);
-  }
-  if (input.scopeHint?.language) {
-    parts.push(`Language: ${input.scopeHint.language}`);
-  }
-  if (input.scopeHint?.domain) {
-    parts.push(`Domain: ${input.scopeHint.domain}`);
-  }
-  if (input.focusAreas?.length) {
-    parts.push(`Focus on extracting: ${input.focusAreas.join(', ')}`);
-  }
-  if (input.existingSummary) {
-    parts.push('');
-    parts.push('Previous context summary:');
-    parts.push(input.existingSummary);
-  }
-
-  parts.push('');
-  parts.push('Context to analyze:');
-  parts.push('"""');
-  parts.push(input.context);
-  parts.push('"""');
-  parts.push('');
-  parts.push(
-    'Return a JSON object with arrays for "guidelines", "knowledge", "tools", "entities", and "relationships".'
-  );
-  parts.push('If no entries of a particular type are found, return an empty array for that type.');
-
-  return parts.join('\n');
-}
-
-// =============================================================================
-// EXTRACTION SERVICE
-// =============================================================================
-
-/**
- * Configuration for ExtractionService
- * Allows explicit dependency injection instead of relying on global config
- */
+// Configuration interface for ExtractionService
 export interface ExtractionServiceConfig {
   provider: ExtractionProvider;
   openaiApiKey?: string;
@@ -702,20 +45,35 @@ export interface ExtractionServiceConfig {
   ollamaModel: string;
 }
 
-// Static warning tracking - allows reset for test isolation
-// Use ExtractionService.resetWarningState() in tests
+// Re-export types for backward compatibility
+export type {
+  ExtractionProvider,
+  ExtractionInput,
+  ExtractionResult,
+  GenerationInput,
+  GenerationResult,
+  ExtractedEntry,
+  ExtractedEntity,
+  ExtractedRelationship,
+  EntityType,
+  ExtractedRelationType,
+} from './extraction/providers/types.js';
+
+// Static warning state for test isolation
 const warningState = {
   hasWarnedDisabled: false,
+  hasWarnedTokens: false,
 };
 
+/**
+ * ExtractionService - orchestrates LLM-based memory extraction
+ *
+ * Uses provider pattern to support multiple LLM backends while
+ * providing unified API with circuit breaker protection.
+ */
 export class ExtractionService {
   private provider: ExtractionProvider;
-  private openaiClient: OpenAI | null = null;
-  private anthropicClient: Anthropic | null = null;
-  private openaiModel: string;
-  private anthropicModel: string;
-  private ollamaBaseUrl: string;
-  private ollamaModel: string;
+  private extractionProvider: IExtractionProvider | null = null;
   private circuitBreaker: CircuitBreaker;
 
   /**
@@ -724,6 +82,7 @@ export class ExtractionService {
    */
   static resetWarningState(): void {
     warningState.hasWarnedDisabled = false;
+    warningState.hasWarnedTokens = false;
   }
 
   /**
@@ -745,7 +104,7 @@ export class ExtractionService {
 
     this.provider = effectiveConfig.provider;
 
-    // Warn once globally if disabled (use static state for de-duplication across instances)
+    // Warn once globally if disabled
     if (this.provider === 'disabled' && !warningState.hasWarnedDisabled) {
       logger.warn(
         'Extraction provider is disabled. Set AGENT_MEMORY_EXTRACTION_PROVIDER to enable.'
@@ -753,40 +112,9 @@ export class ExtractionService {
       warningState.hasWarnedDisabled = true;
     }
 
-    this.openaiModel = effectiveConfig.openaiModel;
-    this.anthropicModel = effectiveConfig.anthropicModel;
-    this.ollamaBaseUrl = effectiveConfig.ollamaBaseUrl;
-
-    // Security: Validate Ollama model name to prevent injection
-    const rawOllamaModel = effectiveConfig.ollamaModel;
-    if (!isValidModelName(rawOllamaModel)) {
-      throw createValidationError(
-        'ollamaModel',
-        `invalid model name: "${rawOllamaModel}". Must only contain alphanumeric characters, hyphens, underscores, colons, and dots`
-      );
-    }
-    this.ollamaModel = rawOllamaModel;
-
-    // Initialize OpenAI client if using OpenAI (or OpenAI-compatible like LM Studio)
-    if (this.provider === 'openai' && effectiveConfig.openaiApiKey) {
-      // Security: Validate custom base URL to prevent credential exposure
-      validateOpenAIBaseUrl(effectiveConfig.openaiBaseUrl);
-
-      this.openaiClient = new OpenAI({
-        apiKey: effectiveConfig.openaiApiKey,
-        baseURL: effectiveConfig.openaiBaseUrl || undefined,
-        timeout: 600000, // 10 minute timeout for slow local LLMs
-        maxRetries: 0, // Disable SDK retry - we handle retries with withRetry
-      });
-    }
-
-    // Initialize Anthropic client if using Anthropic
-    if (this.provider === 'anthropic' && effectiveConfig.anthropicApiKey) {
-      this.anthropicClient = new Anthropic({
-        apiKey: effectiveConfig.anthropicApiKey,
-        timeout: 120000, // 120 second timeout
-        maxRetries: 0, // Disable SDK retry
-      });
+    // Initialize appropriate provider
+    if (this.provider !== 'disabled') {
+      this.extractionProvider = this.createProvider(effectiveConfig);
     }
 
     // Initialize circuit breaker for rate limiting and failure protection
@@ -803,6 +131,44 @@ export class ExtractionService {
   }
 
   /**
+   * Create the appropriate extraction provider based on configuration.
+   * Returns null if required API keys are missing (matching original behavior).
+   */
+  private createProvider(
+    effectiveConfig: ExtractionServiceConfig
+  ): IExtractionProvider | null {
+    switch (this.provider) {
+      case 'openai':
+        // Only create provider if API key is available (matches original behavior)
+        if (!effectiveConfig.openaiApiKey) {
+          return null;
+        }
+        return new OpenAIProvider(
+          effectiveConfig.openaiApiKey,
+          effectiveConfig.openaiModel,
+          effectiveConfig.openaiBaseUrl
+        );
+
+      case 'anthropic':
+        // Only create provider if API key is available (matches original behavior)
+        if (!effectiveConfig.anthropicApiKey) {
+          return null;
+        }
+        return new AnthropicProvider(
+          effectiveConfig.anthropicApiKey,
+          effectiveConfig.anthropicModel
+        );
+
+      case 'ollama':
+        return new OllamaProvider(effectiveConfig.ollamaBaseUrl, effectiveConfig.ollamaModel);
+
+      default:
+        logger.warn({ provider: this.provider }, 'Unsupported extraction provider');
+        return null;
+    }
+  }
+
+  /**
    * Get the current extraction provider
    */
   getProvider(): ExtractionProvider {
@@ -810,52 +176,30 @@ export class ExtractionService {
   }
 
   /**
-   * Check if extraction is available
+   * Check if extraction is available.
+   * Returns true only if provider is not disabled AND was successfully initialized.
    */
   isAvailable(): boolean {
-    return this.provider !== 'disabled';
-  }
-
-  /**
-   * Run a promise with a timeout
-   *
-   * @param promise - Promise to wrap with timeout
-   * @param timeoutMs - Timeout in milliseconds
-   * @param operation - Operation name for error message
-   * @returns Promise result or throws timeout error
-   */
-  private async withTimeout<T>(promise: Promise<T>, timeoutMs: number, operation: string): Promise<T> {
-    let timeoutId: ReturnType<typeof setTimeout>;
-
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      timeoutId = setTimeout(() => {
-        reject(createExtractionError(operation, `timed out after ${timeoutMs}ms`, { timeoutMs }));
-      }, timeoutMs);
-    });
-
-    try {
-      return await Promise.race([promise, timeoutPromise]);
-    } finally {
-      clearTimeout(timeoutId!);
-    }
+    return this.provider !== 'disabled' && this.extractionProvider !== null;
   }
 
   /**
    * Extract memory entries from context
    */
   async extract(input: ExtractionInput): Promise<ExtractionResult> {
-    if (this.provider === 'disabled') {
+    // Return empty result if provider is disabled or couldn't be initialized
+    if (this.provider === 'disabled' || !this.extractionProvider) {
       return {
         entries: [],
         entities: [],
         relationships: [],
-        model: 'disabled',
-        provider: 'disabled',
+        model: this.provider === 'disabled' ? 'disabled' : 'unavailable',
+        provider: this.provider === 'disabled' ? 'disabled' : this.provider,
         processingTimeMs: 0,
       };
     }
 
-    // Validate input
+    // Validate input: context cannot be empty
     if (!input.context || input.context.trim().length === 0) {
       throw createValidationError('context', 'cannot be empty');
     }
@@ -866,328 +210,117 @@ export class ExtractionService {
       throw createSizeLimitError('context', maxContextLength, input.context.length, 'characters');
     }
 
-    // Bug #319 fix: Estimate tokens and warn if approaching model context limits
-    // Rough estimation: ~4 characters per token for English, ~2 for CJK
-    // Also need to account for system prompt and output tokens
-    const estimatedInputTokens = Math.ceil(input.context.length / 3.5); // Conservative estimate
-    const systemPromptTokens = 1500; // Approximate extraction prompt size
-    const outputTokens = config.extraction.maxTokens;
-    const totalEstimatedTokens = estimatedInputTokens + systemPromptTokens + outputTokens;
-
-    // Common model context limits (conservative estimates)
-    const modelContextLimits: Record<string, number> = {
-      'gpt-4o-mini': 128000,
-      'gpt-4o': 128000,
-      'gpt-4-turbo': 128000,
-      'gpt-3.5-turbo': 16385,
-      'claude-3-5-sonnet-20241022': 200000,
-      'claude-3-sonnet-20240229': 200000,
-      'claude-3-opus-20240229': 200000,
-    };
-
-    const modelLimit =
-      modelContextLimits[this.openaiModel] ||
-      modelContextLimits[this.anthropicModel] ||
-      8000; // Conservative fallback for unknown models
-
-    if (totalEstimatedTokens > modelLimit * 0.9) {
-      logger.warn(
-        {
-          estimatedInputTokens,
-          systemPromptTokens,
-          outputTokens,
-          totalEstimatedTokens,
-          modelLimit,
-          model: this.provider === 'openai' ? this.openaiModel : this.anthropicModel,
-          contextLength: input.context.length,
-        },
-        'Bug #319: Context may exceed model token limit. Consider splitting into smaller chunks.'
-      );
-    } else if (totalEstimatedTokens > modelLimit * 0.7) {
-      logger.debug(
-        { totalEstimatedTokens, modelLimit },
-        'Bug #319: Context approaching model token limit'
-      );
-    }
-
-    // Validate contextType if provided
+    // Validate contextType
     if (input.contextType && !VALID_CONTEXT_TYPES.includes(input.contextType as ContextType)) {
+      throw createValidationError(
+        'contextType',
+        `invalid contextType: "${input.contextType}". Must be one of: ${VALID_CONTEXT_TYPES.join(', ')}`
+      );
+    }
+
+    // Warn about large context sizes
+    if (input.context.length > 50000 && !warningState.hasWarnedTokens) {
       logger.warn(
-        { provided: input.contextType, valid: VALID_CONTEXT_TYPES },
-        'Invalid contextType provided, defaulting to mixed'
+        { contextLength: input.context.length },
+        'Large context detected. This may exceed model token limits and cause truncation.'
       );
-      input.contextType = 'mixed';
+      warningState.hasWarnedTokens = true;
     }
 
-    const startTime = Date.now();
+    // Execute with circuit breaker protection
+    return this.circuitBreaker.execute(async () => {
+      const startTime = Date.now();
 
-    try {
-      // Wrap API calls with circuit breaker for rate limiting and failure protection
-      let result: ExtractionResult = await this.circuitBreaker.execute(async () => {
-        // Wrap provider calls with timeout to prevent hanging requests
-        switch (this.provider) {
-          case 'openai':
-            return await this.withTimeout(
-              this.extractOpenAI(input),
-              config.extraction.timeoutMs,
-              'OpenAI extraction'
-            );
-          case 'anthropic':
-            return await this.withTimeout(
-              this.extractAnthropic(input),
-              config.extraction.timeoutMs,
-              'Anthropic extraction'
-            );
-          case 'ollama':
-            return await this.withTimeout(
-              this.extractOllama(input),
-              config.extraction.timeoutMs,
-              'Ollama extraction'
-            );
-          default:
-            throw createValidationError('provider', `unknown extraction provider: ${String(this.provider)}`);
-        }
-      });
-
-      result.processingTimeMs = Date.now() - startTime;
-
-      // Apply atomicity validation and splitting if enabled
-      if (config.extraction.atomicityEnabled) {
-        const atomicityConfig = createAtomicityConfig(config.extraction);
-        const originalCount = result.entries.length;
-        result.entries = ensureAtomicity(result.entries, atomicityConfig);
-
-        if (result.entries.length !== originalCount) {
-          logger.debug(
-            {
-              originalCount,
-              atomicCount: result.entries.length,
-              splitMode: config.extraction.atomicitySplitMode,
-            },
-            'Atomicity processing applied'
-          );
-        }
+      if (!this.extractionProvider) {
+        throw createExtractionError('service', 'No extraction provider initialized');
       }
 
-      logger.debug(
-        {
-          provider: result.provider,
-          model: result.model,
-          entriesExtracted: result.entries.length,
-          processingTimeMs: result.processingTimeMs,
-        },
-        'Extraction completed'
-      );
+      try {
+        const result = await this.extractionProvider.extract(input);
 
-      return result;
-    } catch (error) {
-      // Bug #253 fix: Preserve error type and stack trace for debugging
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      const errorType = error instanceof Error ? error.constructor.name : typeof error;
-      const errorStack = error instanceof Error ? error.stack?.split('\n').slice(0, 5).join('\n') : undefined;
+        // Set processing time
+        result.processingTimeMs = Date.now() - startTime;
 
-      // Task 47: Try partial retry if enabled
-      if (input.enablePartialRetry) {
-        logger.warn(
+        // Apply atomicity validation if enabled in config
+        if (config.extraction.atomicityEnabled) {
+          const atomicityConfig = createAtomicityConfig(config.extraction);
+          const originalCount = result.entries.length;
+          result.entries = ensureAtomicity(result.entries, atomicityConfig);
+
+          if (result.entries.length !== originalCount) {
+            logger.info(
+              {
+                originalCount,
+                atomicCount: result.entries.length,
+                splitMode: config.extraction.atomicitySplitMode,
+              },
+              'Atomicity processing applied'
+            );
+          }
+        }
+
+        return result;
+      } catch (error) {
+        logger.error(
           {
+            error: error instanceof Error ? error.message : String(error),
             provider: this.provider,
-            error: errorMessage,
-            errorType,
-            stack: errorStack,
-          },
-          'Extraction failed, attempting partial retry with simplified context'
-        );
-
-        try {
-          // Retry with reduced context (first 50%)
-          const reducedContext = input.context.slice(0, Math.floor(input.context.length * 0.5));
-          const partialResult = await this.extract({
-            ...input,
-            context: reducedContext,
-            enablePartialRetry: false, // Don't recurse
-          });
-
-          partialResult.partial = true;
-          partialResult.partialError = `Original extraction failed: ${errorMessage}. Recovered with reduced context (50%).`;
-          partialResult.processingTimeMs = Date.now() - startTime;
-
-          logger.info(
-            {
-              entriesRecovered: partialResult.entries.length,
-              contextReduction: '50%',
-            },
-            'Partial extraction recovery successful'
-          );
-
-          return partialResult;
-        } catch (retryError) {
-          const retryErrorMessage = retryError instanceof Error ? retryError.message : String(retryError);
-          // Bug #245 fix: Log at error level when both extraction and retry fail
-          // This ensures visibility into data loss scenarios
-          logger.error(
-            {
-              provider: this.provider,
-              originalError: errorMessage,
-              retryError: retryErrorMessage,
-              contextLength: input.context.length,
-            },
-            'Both extraction and partial retry failed - DATA LOSS: returning empty result'
-          );
-
-          // Return empty partial result instead of throwing
-          // Bug #245 fix: Include both error messages for debugging
-          return {
-            entries: [],
-            entities: [],
-            relationships: [],
-            model: this.provider === 'openai' ? this.openaiModel :
-                   this.provider === 'anthropic' ? this.anthropicModel :
-                   this.ollamaModel,
-            provider: this.provider,
+            model: this.extractionProvider.getModel(),
+            contextLength: input.context.length,
             processingTimeMs: Date.now() - startTime,
-            partial: true,
-            partialError: `Extraction failed: ${errorMessage}. Partial retry also failed: ${retryErrorMessage}`,
-          };
-        }
+          },
+          'Extraction failed'
+        );
+        throw error;
       }
-
-      // Bug #253 fix: Include error type and stack in final error log
-      logger.error(
-        {
-          provider: this.provider,
-          error: errorMessage,
-          errorType,
-          stack: errorStack,
-        },
-        'Extraction failed'
-      );
-      throw error;
-    }
+    });
   }
 
   /**
-   * Generate raw text using LLM
-   *
-   * This method is distinct from extract() - it generates free-form text
-   * rather than structured memory entries. Used by HyDE for generating
-   * hypothetical documents and other services that need raw text generation.
-   *
-   * @param input - Generation input (system prompt, user prompt, count, temperature, maxTokens)
-   * @returns Generation result with texts and metadata
+   * Generate text variations (e.g., for guideline examples)
    */
   async generate(input: GenerationInput): Promise<GenerationResult> {
-    if (this.provider === 'disabled') {
+    // Return empty result if provider is disabled or couldn't be initialized
+    if (this.provider === 'disabled' || !this.extractionProvider) {
       return {
         texts: [],
-        model: 'disabled',
-        provider: 'disabled',
+        model: this.provider === 'disabled' ? 'disabled' : 'unavailable',
+        provider: this.provider === 'disabled' ? 'disabled' : this.provider,
         processingTimeMs: 0,
       };
     }
 
-    // Validate inputs
-    if (!input.systemPrompt || input.systemPrompt.trim().length === 0) {
-      throw createValidationError('systemPrompt', 'cannot be empty');
-    }
-    if (!input.userPrompt || input.userPrompt.trim().length === 0) {
-      throw createValidationError('userPrompt', 'cannot be empty');
-    }
+    return this.circuitBreaker.execute(async () => {
+      const startTime = Date.now();
 
-    // Validate count
-    const count = input.count ?? 1;
-    if (count < 1 || count > 5) {
-      throw createValidationError('count', 'must be between 1 and 5');
-    }
+      if (!this.extractionProvider) {
+        throw createExtractionError('service', 'No extraction provider initialized');
+      }
 
-    // Validate temperature
-    const temperature = input.temperature ?? 0.7;
-    if (temperature < 0 || temperature > 2) {
-      throw createValidationError('temperature', 'must be between 0 and 2');
-    }
+      try {
+        const result = await this.extractionProvider.generate(input);
 
-    // Validate maxTokens
-    const maxTokens = input.maxTokens ?? 512;
-    if (maxTokens < 1 || maxTokens > 4096) {
-      throw createValidationError('maxTokens', 'must be between 1 and 4096');
-    }
+        // Set processing time
+        result.processingTimeMs = Date.now() - startTime;
 
-    const startTime = Date.now();
-
-    try {
-      // Wrap API calls with circuit breaker for rate limiting and failure protection
-      let result: GenerationResult = await this.circuitBreaker.execute(async () => {
-        // Wrap provider calls with timeout
-        switch (this.provider) {
-          case 'openai':
-            return await this.withTimeout(
-              this.generateOpenAI(input),
-              config.extraction.timeoutMs,
-              'OpenAI generation'
-            );
-          case 'anthropic':
-            return await this.withTimeout(
-              this.generateAnthropic(input),
-              config.extraction.timeoutMs,
-              'Anthropic generation'
-            );
-          case 'ollama':
-            return await this.withTimeout(
-              this.generateOllama(input),
-              config.extraction.timeoutMs,
-              'Ollama generation'
-            );
-          default:
-            throw createValidationError('provider', `unknown extraction provider: ${String(this.provider)}`);
-        }
-      });
-
-      result.processingTimeMs = Date.now() - startTime;
-
-      logger.debug(
-        {
-          provider: result.provider,
-          model: result.model,
-          textsGenerated: result.texts.length,
-          processingTimeMs: result.processingTimeMs,
-        },
-        'Generation completed'
-      );
-
-      return result;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      const errorType = error instanceof Error ? error.constructor.name : typeof error;
-      const errorStack = error instanceof Error ? error.stack?.split('\n').slice(0, 5).join('\n') : undefined;
-
-      logger.error(
-        {
-          provider: this.provider,
-          error: errorMessage,
-          errorType,
-          stack: errorStack,
-        },
-        'Generation failed'
-      );
-      throw error;
-    }
+        return result;
+      } catch (error) {
+        logger.error(
+          {
+            error: error instanceof Error ? error.message : String(error),
+            provider: this.provider,
+            model: this.extractionProvider.getModel(),
+            processingTimeMs: Date.now() - startTime,
+          },
+          'Generation failed'
+        );
+        throw error;
+      }
+    });
   }
 
   /**
-   * Task 45: Batch extraction - process multiple inputs with controlled concurrency.
-   * Useful for processing large documents split into chunks.
-   *
-   * Bug #318 NOTE: For very large batches (100+ inputs), consider:
-   * - Using lower concurrency (1-2) to reduce connection pressure
-   * - Processing in smaller sub-batches with delays between them
-   * - Monitoring API rate limits (see Bug #315 fix for retry-after handling)
-   *
-   * Current implementation processes batches sequentially with limited concurrency
-   * to prevent connection pool exhaustion. Streaming is not implemented as it would
-   * require significant architectural changes to handle partial results.
-   *
-   * @param inputs - Array of extraction inputs
-   * @param options - Batch processing options
-   * @returns Array of results (same order as inputs)
+   * Extract from multiple contexts in batch with controlled concurrency
    */
   async extractBatch(
     inputs: ExtractionInput[],
@@ -1200,7 +333,7 @@ export class ExtractionService {
   ): Promise<Array<ExtractionResult | { error: string; index: number }>> {
     const concurrency = options?.concurrency ?? 3;
 
-    // Bug #318 fix: Warn about potential connection pool exhaustion with large batches
+    // Warn about potential connection pool exhaustion with large batches
     if (inputs.length > 100) {
       logger.warn(
         {
@@ -1211,6 +344,7 @@ export class ExtractionService {
         'Large batch extraction detected. Consider reducing concurrency to prevent connection pool exhaustion.'
       );
     }
+
     const continueOnError = options?.continueOnError ?? true;
 
     if (inputs.length === 0) {
@@ -1229,12 +363,11 @@ export class ExtractionService {
     }
 
     const startTime = Date.now();
-    logger.info(
-      { inputCount: inputs.length, concurrency },
-      'Starting batch extraction'
-    );
+    logger.info({ inputCount: inputs.length, concurrency }, 'Starting batch extraction');
 
-    const results: Array<ExtractionResult | { error: string; index: number }> = new Array(inputs.length);
+    const results: Array<ExtractionResult | { error: string; index: number }> = new Array<
+      ExtractionResult | { error: string; index: number }
+    >(inputs.length);
     let processedCount = 0;
     let errorCount = 0;
 
@@ -1242,20 +375,21 @@ export class ExtractionService {
     for (let i = 0; i < inputs.length; i += concurrency) {
       const batch = inputs.slice(i, i + concurrency);
       const batchPromises = batch.map(async (input, batchIndex) => {
-        const index = i + batchIndex;
+        const globalIndex = i + batchIndex;
         try {
           const result = await this.extract(input);
-          results[index] = result;
+          results[globalIndex] = result;
           processedCount++;
         } catch (error) {
           errorCount++;
           const errorMessage = error instanceof Error ? error.message : String(error);
+          logger.error(
+            { error: errorMessage, index: globalIndex },
+            'Batch extraction failed for input'
+          );
+
           if (continueOnError) {
-            results[index] = { error: errorMessage, index };
-            logger.warn(
-              { index, error: errorMessage },
-              'Batch extraction item failed, continuing'
-            );
+            results[globalIndex] = { error: errorMessage, index: globalIndex };
           } else {
             throw error;
           }
@@ -1268,9 +402,9 @@ export class ExtractionService {
     const totalTimeMs = Date.now() - startTime;
     logger.info(
       {
-        totalCount: inputs.length,
-        processedCount,
-        errorCount,
+        total: inputs.length,
+        processed: processedCount,
+        errors: errorCount,
         totalTimeMs,
         avgTimeMs: Math.round(totalTimeMs / inputs.length),
       },
@@ -1279,841 +413,19 @@ export class ExtractionService {
 
     return results;
   }
-
-  /**
-   * Extract using OpenAI API
-   */
-  private async extractOpenAI(input: ExtractionInput): Promise<ExtractionResult> {
-    const client = this.openaiClient;
-    if (!client) {
-      throw createServiceUnavailableError('OpenAI', 'client not initialized. Check AGENT_MEMORY_OPENAI_API_KEY');
-    }
-
-    return withRetry(
-      async () => {
-        const response = await client.chat.completions.create({
-          model: this.openaiModel,
-          messages: [
-            { role: 'system', content: getExtractionPrompt(config.extraction.mode, input.context) },
-            { role: 'user', content: buildUserPrompt(input) },
-          ],
-          // response_format disabled for LM Studio compatibility when openaiJsonMode=false
-          ...(config.extraction.openaiJsonMode ? { response_format: { type: 'json_object' as const } } : {}),
-          temperature: config.extraction.temperature,
-          max_tokens: config.extraction.maxTokens,
-          // reasoning_effort for o1/o3 models or LM Studio with extended thinking
-          ...(config.extraction.openaiReasoningEffort ? { reasoning_effort: config.extraction.openaiReasoningEffort } : {}),
-        });
-
-        // Bug #322 fix: Detect empty choices array specifically for clearer error message
-        if (!response.choices || response.choices.length === 0) {
-          throw createExtractionError('openai', 'empty choices array in response - model may have refused to respond');
-        }
-        const content = response.choices[0]?.message?.content;
-        if (!content) {
-          throw createExtractionError('openai', 'no content in message - response was empty');
-        }
-
-        const parsed = this.parseExtractionResponse(content);
-
-        return {
-          entries: parsed.entries,
-          entities: parsed.entities,
-          relationships: parsed.relationships,
-          model: this.openaiModel,
-          provider: 'openai' as const,
-          tokensUsed: response.usage?.total_tokens,
-          processingTimeMs: 0, // Will be set by caller
-        };
-      },
-      {
-        retryableErrors: isRetryableNetworkError,
-        onRetry: (error, attempt) => {
-          logger.warn(
-            {
-              error: error.message,
-              errorName: error.name,
-              stack: error.stack,
-              attempt,
-              provider: 'openai',
-              model: this.openaiModel,
-            },
-            'Retrying OpenAI extraction after error'
-          );
-        },
-      }
-    );
-  }
-
-  /**
-   * Generate text using OpenAI API
-   * For HyDE and other services that need raw text generation
-   */
-  private async generateOpenAI(input: GenerationInput): Promise<GenerationResult> {
-    const client = this.openaiClient;
-    if (!client) {
-      throw createServiceUnavailableError('OpenAI', 'client not initialized. Check AGENT_MEMORY_OPENAI_API_KEY');
-    }
-
-    const count = Math.min(Math.max(input.count ?? 1, 1), 5); // Clamp 1-5
-    const temperature = input.temperature ?? 0.7;
-    const maxTokens = input.maxTokens ?? 512;
-
-    return withRetry(
-      async () => {
-        // Generate multiple variations in parallel for efficiency
-        const promises = Array.from({ length: count }, async () => {
-          const response = await client.chat.completions.create({
-            model: this.openaiModel,
-            messages: [
-              { role: 'system', content: input.systemPrompt },
-              { role: 'user', content: input.userPrompt },
-            ],
-            temperature,
-            max_tokens: maxTokens,
-          });
-
-          if (!response.choices || response.choices.length === 0) {
-            throw createExtractionError('openai', 'empty choices array in response');
-          }
-          const content = response.choices[0]?.message?.content;
-          if (!content) {
-            throw createExtractionError('openai', 'no content in message');
-          }
-
-          return {
-            text: content,
-            tokens: response.usage?.total_tokens ?? 0,
-          };
-        });
-
-        const results = await Promise.all(promises);
-        const totalTokens = results.reduce((sum, r) => sum + r.tokens, 0);
-
-        return {
-          texts: results.map((r) => r.text),
-          model: this.openaiModel,
-          provider: 'openai' as const,
-          tokensUsed: totalTokens,
-          processingTimeMs: 0, // Will be set by caller
-        };
-      },
-      {
-        retryableErrors: isRetryableNetworkError,
-        onRetry: (error, attempt) => {
-          logger.warn(
-            {
-              error: error.message,
-              errorName: error.name,
-              stack: error.stack,
-              attempt,
-              provider: 'openai',
-              model: this.openaiModel,
-            },
-            'Retrying OpenAI generation after error'
-          );
-        },
-      }
-    );
-  }
-
-  /**
-   * Extract using Anthropic API
-   */
-  private async extractAnthropic(input: ExtractionInput): Promise<ExtractionResult> {
-    const client = this.anthropicClient;
-    if (!client) {
-      throw createServiceUnavailableError('Anthropic', 'client not initialized. Check AGENT_MEMORY_ANTHROPIC_API_KEY');
-    }
-
-    return withRetry(
-      async () => {
-        const response = await client.messages.create({
-          model: this.anthropicModel,
-          max_tokens: config.extraction.maxTokens,
-          system: getExtractionPrompt(config.extraction.mode, input.context),
-          messages: [{ role: 'user', content: buildUserPrompt(input) }],
-        });
-
-        // Extract text content from response
-        const textBlock = response.content.find((block) => block.type === 'text');
-        if (!textBlock || textBlock.type !== 'text') {
-          throw createExtractionError('anthropic', 'no text content returned in response');
-        }
-
-        const parsed = this.parseExtractionResponse(textBlock.text);
-
-        return {
-          entries: parsed.entries,
-          entities: parsed.entities,
-          relationships: parsed.relationships,
-          model: this.anthropicModel,
-          provider: 'anthropic' as const,
-          tokensUsed: response.usage.input_tokens + response.usage.output_tokens,
-          processingTimeMs: 0, // Will be set by caller
-        };
-      },
-      {
-        retryableErrors: isRetryableNetworkError,
-        onRetry: (error, attempt) => {
-          logger.warn(
-            {
-              error: error.message,
-              errorName: error.name,
-              stack: error.stack,
-              attempt,
-              provider: 'anthropic',
-              model: this.anthropicModel,
-            },
-            'Retrying Anthropic extraction after error'
-          );
-        },
-      }
-    );
-  }
-
-  /**
-   * Generate text using Anthropic API
-   * For HyDE and other services that need raw text generation
-   */
-  private async generateAnthropic(input: GenerationInput): Promise<GenerationResult> {
-    const client = this.anthropicClient;
-    if (!client) {
-      throw createServiceUnavailableError('Anthropic', 'client not initialized. Check AGENT_MEMORY_ANTHROPIC_API_KEY');
-    }
-
-    const count = Math.min(Math.max(input.count ?? 1, 1), 5); // Clamp 1-5
-    const temperature = input.temperature ?? 0.7;
-    const maxTokens = input.maxTokens ?? 512;
-
-    return withRetry(
-      async () => {
-        // Generate multiple variations in parallel for efficiency
-        const promises = Array.from({ length: count }, async () => {
-          const response = await client.messages.create({
-            model: this.anthropicModel,
-            max_tokens: maxTokens,
-            temperature,
-            system: input.systemPrompt,
-            messages: [{ role: 'user', content: input.userPrompt }],
-          });
-
-          // Extract text content from response
-          const textBlock = response.content.find((block) => block.type === 'text');
-          if (!textBlock || textBlock.type !== 'text') {
-            throw createExtractionError('anthropic', 'no text content returned in response');
-          }
-
-          return {
-            text: textBlock.text,
-            tokens: response.usage.input_tokens + response.usage.output_tokens,
-          };
-        });
-
-        const results = await Promise.all(promises);
-        const totalTokens = results.reduce((sum, r) => sum + r.tokens, 0);
-
-        return {
-          texts: results.map((r) => r.text),
-          model: this.anthropicModel,
-          provider: 'anthropic' as const,
-          tokensUsed: totalTokens,
-          processingTimeMs: 0, // Will be set by caller
-        };
-      },
-      {
-        retryableErrors: isRetryableNetworkError,
-        onRetry: (error, attempt) => {
-          logger.warn(
-            {
-              error: error.message,
-              errorName: error.name,
-              stack: error.stack,
-              attempt,
-              provider: 'anthropic',
-              model: this.anthropicModel,
-            },
-            'Retrying Anthropic generation after error'
-          );
-        },
-      }
-    );
-  }
-
-  /**
-   * Extract using Ollama (local LLM)
-   */
-  private async extractOllama(input: ExtractionInput): Promise<ExtractionResult> {
-    const url = `${this.ollamaBaseUrl}/api/generate`;
-
-    return withRetry(
-      async () => {
-        // Security: Validate URL scheme (allow private IPs since Ollama is typically local)
-        validateExternalUrl(url, true /* allowPrivate - Ollama is typically localhost */);
-
-        // Bug #273 fix: Add bounds validation for timeout (min 1s, max 5 min)
-        const timeoutMsRaw = process.env.AGENT_MEMORY_OLLAMA_TIMEOUT_MS;
-        const timeoutMs =
-          timeoutMsRaw && !Number.isNaN(Number(timeoutMsRaw))
-            ? Math.min(300000, Math.max(1000, Number(timeoutMsRaw))) // Clamp to [1s, 5min]
-            : 30000;
-
-        const abortController = new AbortController();
-        // Bug #313 fix: Initialize timeoutId to null, set it inside try block
-        // This ensures the timeout is always cleared in finally, and avoids
-        // race conditions where setTimeout is called before try block
-        let timeoutId: ReturnType<typeof setTimeout> | null = null;
-
-        try {
-          // Bug #313 fix: Set timeout inside try block so it's guaranteed to be cleared
-          timeoutId = setTimeout(() => abortController.abort(), timeoutMs);
-          const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            signal: abortController.signal,
-            body: JSON.stringify({
-              model: this.ollamaModel,
-              prompt: `${getExtractionPrompt(config.extraction.mode, input.context)}\n\n${buildUserPrompt(input)}`,
-              format: 'json',
-              stream: false,
-              options: {
-                temperature: config.extraction.temperature,
-                num_predict: config.extraction.maxTokens,
-              },
-            }),
-          });
-
-          if (!response.ok) {
-            throw createExtractionError('ollama', `request failed: ${response.status} ${response.statusText}`);
-          }
-
-          // Security: Stream response with size limit to prevent memory exhaustion
-          const maxResponseSize = 10 * 1024 * 1024; // 10MB max response
-          const responseText = await readResponseWithLimit(
-            response,
-            maxResponseSize,
-            abortController
-          );
-
-          // Validate Ollama response structure
-          let data: { response?: unknown; error?: string };
-          try {
-            data = JSON.parse(responseText) as typeof data;
-          } catch (parseError) {
-            logger.warn(
-              { responseText: responseText.slice(0, 200) },
-              'Failed to parse Ollama response as JSON'
-            );
-            throw createExtractionError('ollama', 'invalid JSON response');
-          }
-
-          // Check for Ollama-specific error response
-          if (data.error) {
-            throw createExtractionError('ollama', `API error: ${data.error}`);
-          }
-
-          // Validate response field exists and is string
-          if (typeof data.response !== 'string' || data.response.length === 0) {
-            logger.warn(
-              { responseType: typeof data.response, hasResponse: 'response' in data },
-              'Ollama response missing or invalid response field'
-            );
-            throw createExtractionError('ollama', 'no valid response in data');
-          }
-
-          const parsed = this.parseExtractionResponse(data.response);
-
-          return {
-            entries: parsed.entries,
-            entities: parsed.entities,
-            relationships: parsed.relationships,
-            model: this.ollamaModel,
-            provider: 'ollama' as const,
-            processingTimeMs: 0, // Will be set by caller
-          };
-        } finally {
-          // Bug #313 fix: Only clear timeout if it was set
-          if (timeoutId !== null) {
-            clearTimeout(timeoutId);
-          }
-        }
-      },
-      {
-        retryableErrors: (error: Error) => {
-          // Bug #316 fix: Retry on connection errors AND server errors to Ollama
-          const msg = error.message.toLowerCase();
-          return (
-            // Connection errors
-            msg.includes('econnrefused') ||
-            msg.includes('fetch failed') ||
-            msg.includes('network') ||
-            msg.includes('timeout') ||
-            msg.includes('socket') ||
-            // Server errors (5xx)
-            msg.includes('500') ||
-            msg.includes('502') ||
-            msg.includes('503') ||
-            msg.includes('504') ||
-            msg.includes('internal server error') ||
-            msg.includes('bad gateway') ||
-            msg.includes('service unavailable') ||
-            msg.includes('gateway timeout')
-          );
-        },
-        onRetry: (error, attempt) => {
-          logger.warn(
-            {
-              error: error.message,
-              errorName: error.name,
-              stack: error.stack,
-              attempt,
-              provider: 'ollama',
-              model: this.ollamaModel,
-              baseUrl: this.ollamaBaseUrl,
-            },
-            'Retrying Ollama extraction after error'
-          );
-        },
-      }
-    );
-  }
-
-  /**
-   * Generate text using Ollama (local LLM)
-   * For HyDE and other services that need raw text generation
-   * Note: Generates sequentially since Ollama is typically single-threaded
-   */
-  private async generateOllama(input: GenerationInput): Promise<GenerationResult> {
-    const url = `${this.ollamaBaseUrl}/api/generate`;
-
-    const count = Math.min(Math.max(input.count ?? 1, 1), 5); // Clamp 1-5
-    const temperature = input.temperature ?? 0.7;
-    const maxTokens = input.maxTokens ?? 512;
-
-    return withRetry(
-      async () => {
-        const texts: string[] = [];
-
-        // Generate sequentially (Ollama is typically single-threaded on local GPU)
-        for (let i = 0; i < count; i++) {
-          // Security: Validate URL scheme
-          validateExternalUrl(url, true /* allowPrivate - Ollama is typically localhost */);
-
-          const timeoutMsRaw = process.env.AGENT_MEMORY_OLLAMA_TIMEOUT_MS;
-          const timeoutMs =
-            timeoutMsRaw && !Number.isNaN(Number(timeoutMsRaw))
-              ? Math.min(300000, Math.max(1000, Number(timeoutMsRaw)))
-              : 30000;
-
-          const abortController = new AbortController();
-          let timeoutId: ReturnType<typeof setTimeout> | null = null;
-
-          try {
-            timeoutId = setTimeout(() => abortController.abort(), timeoutMs);
-            const response = await fetch(url, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              signal: abortController.signal,
-              body: JSON.stringify({
-                model: this.ollamaModel,
-                prompt: `${input.systemPrompt}\n\n${input.userPrompt}`,
-                stream: false,
-                options: {
-                  temperature,
-                  num_predict: maxTokens,
-                },
-              }),
-            });
-
-            if (!response.ok) {
-              throw createExtractionError('ollama', `request failed: ${response.status} ${response.statusText}`);
-            }
-
-            // Security: Stream response with size limit
-            const maxResponseSize = 10 * 1024 * 1024; // 10MB max
-            const responseText = await readResponseWithLimit(
-              response,
-              maxResponseSize,
-              abortController
-            );
-
-            let data: { response?: unknown; error?: string };
-            try {
-              data = JSON.parse(responseText) as typeof data;
-            } catch (parseError) {
-              throw createExtractionError('ollama', 'invalid JSON response');
-            }
-
-            if (data.error) {
-              throw createExtractionError('ollama', `API error: ${data.error}`);
-            }
-
-            if (typeof data.response !== 'string' || data.response.length === 0) {
-              throw createExtractionError('ollama', 'no valid response in data');
-            }
-
-            texts.push(data.response);
-          } finally {
-            if (timeoutId !== null) {
-              clearTimeout(timeoutId);
-            }
-          }
-        }
-
-        return {
-          texts,
-          model: this.ollamaModel,
-          provider: 'ollama' as const,
-          processingTimeMs: 0, // Will be set by caller
-        };
-      },
-      {
-        retryableErrors: (error: Error) => {
-          const msg = error.message.toLowerCase();
-          return (
-            msg.includes('econnrefused') ||
-            msg.includes('fetch failed') ||
-            msg.includes('network') ||
-            msg.includes('timeout') ||
-            msg.includes('socket') ||
-            msg.includes('500') ||
-            msg.includes('502') ||
-            msg.includes('503') ||
-            msg.includes('504') ||
-            msg.includes('internal server error') ||
-            msg.includes('bad gateway') ||
-            msg.includes('service unavailable') ||
-            msg.includes('gateway timeout')
-          );
-        },
-        onRetry: (error, attempt) => {
-          logger.warn(
-            {
-              error: error.message,
-              errorName: error.name,
-              stack: error.stack,
-              attempt,
-              provider: 'ollama',
-              model: this.ollamaModel,
-              baseUrl: this.ollamaBaseUrl,
-            },
-            'Retrying Ollama generation after error'
-          );
-        },
-      }
-    );
-  }
-
-  /**
-   * Parse and normalize extraction response from LLM
-   */
-  private parseExtractionResponse(content: string): {
-    entries: ExtractedEntry[];
-    entities: ExtractedEntity[];
-    relationships: ExtractedRelationship[];
-  } {
-    // Try to extract JSON from the response (handle markdown code blocks)
-    let jsonContent = content.trim();
-
-    // Remove markdown code blocks if present
-    const jsonMatch = jsonContent.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (jsonMatch && jsonMatch[1]) {
-      jsonContent = jsonMatch[1].trim();
-    }
-
-    // Parse JSON
-    let parsed: {
-      guidelines?: Array<{
-        name?: string;
-        content?: string;
-        category?: string;
-        priority?: number;
-        rationale?: string;
-        confidence?: number;
-        suggestedTags?: string[];
-      }>;
-      knowledge?: Array<{
-        title?: string;
-        content?: string;
-        category?: string;
-        confidence?: number;
-        source?: string;
-        suggestedTags?: string[];
-      }>;
-      tools?: Array<{
-        name?: string;
-        description?: string;
-        category?: string;
-        confidence?: number;
-        suggestedTags?: string[];
-      }>;
-      entities?: Array<{
-        name?: string;
-        entityType?: string;
-        description?: string;
-        confidence?: number;
-      }>;
-      relationships?: Array<{
-        sourceRef?: string;
-        sourceType?: string;
-        targetRef?: string;
-        targetType?: string;
-        relationType?: string;
-        confidence?: number;
-      }>;
-    };
-
-    try {
-      parsed = JSON.parse(jsonContent) as typeof parsed;
-    } catch (error) {
-      // Task 58: Make parsing fallback visible with detailed error context
-      // Bug #248 fix: Include stack trace for debugging parse failures
-      const parseError = error instanceof Error ? error : new Error(String(error));
-      logger.warn(
-        {
-          parseError: parseError.message,
-          parseErrorName: parseError.name,
-          parseStack: parseError.stack?.split('\n').slice(0, 5).join('\n'), // Bug #248: Include stack
-          contentLength: jsonContent.length,
-          contentPreview: jsonContent.slice(0, 200),
-          hadMarkdownBlock: content.includes('```'),
-          reason: 'JSON_PARSE_FAILURE',
-        },
-        'Extraction response parse failure - returning empty results'
-      );
-      return { entries: [], entities: [], relationships: [] };
-    }
-
-    // Validate parsed structure has expected shape
-    if (typeof parsed !== 'object' || parsed === null) {
-      logger.warn(
-        { parsedType: typeof parsed, reason: 'INVALID_RESPONSE_STRUCTURE' },
-        'Extraction response is not an object - returning empty results'
-      );
-      return { entries: [], entities: [], relationships: [] };
-    }
-
-    const entries: ExtractedEntry[] = [];
-    const entities: ExtractedEntity[] = [];
-    const relationships: ExtractedRelationship[] = [];
-
-    // Helper to normalize confidence with warning on invalid values
-    const normalizeConfidence = (value: unknown, context: string): number => {
-      if (typeof value !== 'number') return 0.5;
-      if (value < 0 || value > 1) {
-        logger.warn(
-          { value, context, normalized: Math.min(1, Math.max(0, value)) },
-          'Confidence score out of valid range [0,1], normalizing'
-        );
-      }
-      return Math.min(1, Math.max(0, value));
-    };
-
-    // Normalize guidelines
-    if (Array.isArray(parsed.guidelines)) {
-      for (const g of parsed.guidelines) {
-        if (g.name && g.content) {
-          entries.push({
-            type: 'guideline',
-            name: this.toKebabCase(g.name),
-            content: g.content,
-            category: g.category,
-            priority:
-              typeof g.priority === 'number' ? Math.min(100, Math.max(0, g.priority)) : undefined,
-            confidence: normalizeConfidence(g.confidence, `guideline:${g.name}`),
-            rationale: g.rationale,
-            suggestedTags: g.suggestedTags,
-          });
-        }
-      }
-    }
-
-    // Normalize knowledge
-    if (Array.isArray(parsed.knowledge)) {
-      for (const k of parsed.knowledge) {
-        if (k.title && k.content) {
-          entries.push({
-            type: 'knowledge',
-            title: k.title,
-            content: k.content,
-            category: k.category,
-            confidence: normalizeConfidence(k.confidence, `knowledge:${k.title}`),
-            rationale: k.source, // Map source to rationale for consistency
-            suggestedTags: k.suggestedTags,
-          });
-        }
-      }
-    }
-
-    // Normalize tools
-    if (Array.isArray(parsed.tools)) {
-      for (const t of parsed.tools) {
-        if (t.name && t.description) {
-          entries.push({
-            type: 'tool',
-            name: this.toKebabCase(t.name),
-            content: t.description,
-            category: t.category,
-            confidence: normalizeConfidence(t.confidence, `tool:${t.name}`),
-            suggestedTags: t.suggestedTags,
-          });
-        }
-      }
-    }
-
-    // Normalize entities
-    if (Array.isArray(parsed.entities)) {
-      const validEntityTypes: EntityType[] = [
-        'person',
-        'technology',
-        'component',
-        'concept',
-        'organization',
-      ];
-      for (const e of parsed.entities) {
-        if (e.name && e.entityType && validEntityTypes.includes(e.entityType as EntityType)) {
-          entities.push({
-            name: e.name,
-            entityType: e.entityType as EntityType,
-            description: e.description,
-            confidence: normalizeConfidence(e.confidence, `entity:${e.name}`),
-          });
-        }
-      }
-    }
-
-    // Normalize relationships
-    if (Array.isArray(parsed.relationships)) {
-      const validRelationTypes: ExtractedRelationType[] = [
-        'depends_on',
-        'related_to',
-        'applies_to',
-        'conflicts_with',
-      ];
-      const validSourceTypes = ['guideline', 'knowledge', 'tool', 'entity'];
-      for (const r of parsed.relationships) {
-        if (
-          r.sourceRef &&
-          r.sourceType &&
-          r.targetRef &&
-          r.targetType &&
-          r.relationType &&
-          validSourceTypes.includes(r.sourceType) &&
-          validSourceTypes.includes(r.targetType) &&
-          validRelationTypes.includes(r.relationType as ExtractedRelationType)
-        ) {
-          relationships.push({
-            sourceRef: r.sourceRef,
-            sourceType: r.sourceType as 'guideline' | 'knowledge' | 'tool' | 'entity',
-            targetRef: r.targetRef,
-            targetType: r.targetType as 'guideline' | 'knowledge' | 'tool' | 'entity',
-            relationType: r.relationType as ExtractedRelationType,
-            confidence: normalizeConfidence(r.confidence, `relationship:${r.sourceRef}->${r.targetRef}`),
-          });
-        }
-      }
-    }
-
-    // Task 50: Deduplicate within single extraction to prevent identical entries
-    const deduplicatedEntries = this.deduplicateEntries(entries);
-    const deduplicatedEntities = this.deduplicateEntities(entities);
-    const deduplicatedRelationships = this.deduplicateRelationships(relationships);
-
-    // Log if duplicates were found
-    const entriesRemoved = entries.length - deduplicatedEntries.length;
-    const entitiesRemoved = entities.length - deduplicatedEntities.length;
-    const relationsRemoved = relationships.length - deduplicatedRelationships.length;
-    if (entriesRemoved > 0 || entitiesRemoved > 0 || relationsRemoved > 0) {
-      logger.debug(
-        {
-          entriesRemoved,
-          entitiesRemoved,
-          relationsRemoved,
-          originalCounts: {
-            entries: entries.length,
-            entities: entities.length,
-            relationships: relationships.length,
-          },
-        },
-        'Removed duplicate items from extraction'
-      );
-    }
-
-    return {
-      entries: deduplicatedEntries,
-      entities: deduplicatedEntities,
-      relationships: deduplicatedRelationships,
-    };
-  }
-
-  /**
-   * Deduplicate extracted entries by type + name/title key.
-   * Keeps the entry with higher confidence when duplicates exist.
-   */
-  private deduplicateEntries(entries: ExtractedEntry[]): ExtractedEntry[] {
-    const seen = new Map<string, ExtractedEntry>();
-    for (const entry of entries) {
-      const key =
-        entry.type === 'knowledge'
-          ? `knowledge:${entry.title?.toLowerCase()}`
-          : `${entry.type}:${entry.name?.toLowerCase()}`;
-      const existing = seen.get(key);
-      if (!existing || (entry.confidence ?? 0) > (existing.confidence ?? 0)) {
-        seen.set(key, entry);
-      }
-    }
-    return Array.from(seen.values());
-  }
-
-  /**
-   * Deduplicate extracted entities by name + entityType.
-   * Keeps the entity with higher confidence when duplicates exist.
-   */
-  private deduplicateEntities(entities: ExtractedEntity[]): ExtractedEntity[] {
-    const seen = new Map<string, ExtractedEntity>();
-    for (const entity of entities) {
-      const key = `${entity.entityType}:${entity.name.toLowerCase()}`;
-      const existing = seen.get(key);
-      if (!existing || (entity.confidence ?? 0) > (existing.confidence ?? 0)) {
-        seen.set(key, entity);
-      }
-    }
-    return Array.from(seen.values());
-  }
-
-  /**
-   * Deduplicate extracted relationships by source + target + relationType.
-   * Keeps the relationship with higher confidence when duplicates exist.
-   */
-  private deduplicateRelationships(
-    relationships: ExtractedRelationship[]
-  ): ExtractedRelationship[] {
-    const seen = new Map<string, ExtractedRelationship>();
-    for (const rel of relationships) {
-      const key = `${rel.sourceRef}:${rel.sourceType}->${rel.targetRef}:${rel.targetType}:${rel.relationType}`;
-      const existing = seen.get(key);
-      if (!existing || (rel.confidence ?? 0) > (existing.confidence ?? 0)) {
-        seen.set(key, rel);
-      }
-    }
-    return Array.from(seen.values());
-  }
-
-  /**
-   * Convert string to kebab-case
-   */
-  private toKebabCase(str: string): string {
-    return str
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '');
-  }
 }
 
 /**
- * Reset module-level state for testing purposes.
- * Note: In production code, services should be instantiated via DI and cleaned up directly.
- * @deprecated Use ExtractionService.resetWarningState() instead for better encapsulation.
+ * Create a default ExtractionService instance using global config
+ */
+export function createExtractionService(
+  serviceConfig?: ExtractionServiceConfig
+): ExtractionService {
+  return new ExtractionService(serviceConfig);
+}
+
+/**
+ * @deprecated This function is no longer needed. Use ExtractionService.resetWarningState() instead.
  */
 export function resetExtractionServiceState(): void {
   ExtractionService.resetWarningState();
