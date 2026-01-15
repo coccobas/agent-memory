@@ -174,8 +174,9 @@ export class RedisCacheAdapter<T = unknown> implements ICacheAdapter<T> {
           // Delete specific key from local cache
           this.localCache.delete(key);
         }
-      } catch {
-        // Ignore malformed messages
+      } catch (error) {
+        // Ignore malformed messages - log for debugging
+        logger.debug({ error }, 'Ignoring malformed cache invalidation message');
       }
     });
   }
@@ -341,7 +342,8 @@ export class RedisCacheAdapter<T = unknown> implements ICacheAdapter<T> {
     try {
       const exists = await this.client.exists(fullKey);
       return exists === 1;
-    } catch {
+    } catch (error) {
+      logger.debug({ error, key }, 'Failed to check if key exists, returning false');
       return false;
     }
   }
@@ -379,7 +381,8 @@ export class RedisCacheAdapter<T = unknown> implements ICacheAdapter<T> {
       await this.publishInvalidation(fullKey, 'delete');
 
       return result > 0;
-    } catch {
+    } catch (error) {
+      logger.debug({ error, key }, 'Failed to delete key from Redis, returning false');
       return false;
     }
   }
@@ -398,8 +401,9 @@ export class RedisCacheAdapter<T = unknown> implements ICacheAdapter<T> {
         this.invalidationChannel,
         JSON.stringify({ key, type })
       );
-    } catch {
+    } catch (error) {
       // Ignore publish errors - best effort invalidation
+      logger.debug({ error, key, type }, 'Failed to publish invalidation message, best effort attempt');
     }
   }
 

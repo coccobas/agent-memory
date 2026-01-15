@@ -8,6 +8,9 @@
 import { readFileSync, readdirSync, statSync, existsSync } from 'fs';
 import { join, extname } from 'path';
 import { createNotFoundError, createValidationError } from '../../../core/errors.js';
+import { createComponentLogger } from '../../../utils/logger.js';
+
+const logger = createComponentLogger('model-loader');
 
 // =============================================================================
 // TYPES
@@ -356,7 +359,7 @@ export class ModelLoader {
         const content = readFileSync(metadataPath, 'utf-8');
         return JSON.parse(content) as ModelMetadata;
       } catch (error) {
-        console.warn(`Failed to parse metadata file ${metadataPath}:`, error);
+        logger.warn({ error, metadataPath }, 'Failed to parse metadata file');
       }
     }
 
@@ -369,7 +372,7 @@ export class ModelLoader {
           return data.metadata;
         }
       } catch (error) {
-        console.warn(`Failed to parse JSON model ${modelPath}:`, error);
+        logger.warn({ error, modelPath }, 'Failed to parse JSON model');
       }
     }
 

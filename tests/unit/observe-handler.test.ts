@@ -23,6 +23,15 @@ vi.mock('../../src/config/index.js', () => ({
         relationship: 0.8,
       },
     },
+    validation: {
+      nameMaxLength: 500,
+      titleMaxLength: 1000,
+      descriptionMaxLength: 5000,
+      contentMaxLength: 100000,
+      rationaleMaxLength: 5000,
+      examplesMaxBytes: 50000,
+      tagsMaxCount: 50,
+    },
   },
 }));
 

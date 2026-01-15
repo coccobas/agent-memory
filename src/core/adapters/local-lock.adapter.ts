@@ -13,6 +13,9 @@ import type {
   ListLocksFilter,
 } from './interfaces.js';
 import type { IFileLockRepository } from '../interfaces/repositories.js';
+import { createComponentLogger } from '../../utils/logger.js';
+
+const logger = createComponentLogger('local-lock-adapter');
 
 /**
  * Local lock adapter implementation.
@@ -53,7 +56,8 @@ export class LocalLockAdapter implements ILockAdapter {
     try {
       await this.repo.checkin(key, owner);
       return true;
-    } catch {
+    } catch (error) {
+      logger.debug({ error, key, owner }, 'Failed to release lock, returning false');
       return false;
     }
   }
@@ -63,7 +67,8 @@ export class LocalLockAdapter implements ILockAdapter {
       // forceUnlock requires an agentId for audit, use 'system' for forced releases
       await this.repo.forceUnlock(key, 'system', reason);
       return true;
-    } catch {
+    } catch (error) {
+      logger.debug({ error, key, reason }, 'Failed to force release lock, returning false');
       return false;
     }
   }

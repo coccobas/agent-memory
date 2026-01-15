@@ -263,7 +263,8 @@ export class SQLiteStorageAdapter implements IStorageAdapter {
       }
       this.sqlite.prepare('SELECT 1').get();
       return { ok: true, latencyMs: Date.now() - start };
-    } catch {
+    } catch (error) {
+      logger.debug({ error }, 'Health check failed, database not accessible');
       return { ok: false, latencyMs: Date.now() - start };
     }
   }

@@ -387,7 +387,8 @@ export class RedisLockAdapter implements ILockAdapter {
     try {
       const exists = await this.client.exists(fullKey);
       return exists === 1;
-    } catch {
+    } catch (error) {
+      logger.debug({ error, key }, 'Failed to check if lock exists, returning false');
       return false;
     }
   }

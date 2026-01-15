@@ -8,6 +8,7 @@
 import { v4 as uuid } from 'uuid';
 import { LMStudioClient, createLMStudioClient } from '../lm-studio/client.js';
 import type { LMStudioConfig } from '../lm-studio/types.js';
+import { createComponentLogger } from '../../utils/logger.js';
 import {
   CHARS_PER_TOKEN,
   type Chunk,
@@ -17,6 +18,8 @@ import {
   type ChunkRelationType,
   type ContentType,
 } from './types.js';
+
+const logger = createComponentLogger('llm-chunker');
 
 /**
  * Configuration for LLM-powered chunking
@@ -177,7 +180,7 @@ Type:`;
         return type as ContentType;
       }
     } catch (error) {
-      console.warn('Failed to detect content type via LLM:', error);
+      logger.warn({ error }, 'Failed to detect content type via LLM');
     }
 
     return 'text';
@@ -239,7 +242,7 @@ Respond with JSON only:
         return JSON.parse(jsonMatch[0]) as ChunkBoundaryResponse;
       }
     } catch (error) {
-      console.warn('Failed to find chunk boundaries via LLM:', error);
+      logger.warn({ error }, 'Failed to find chunk boundaries via LLM');
     }
 
     // Fallback: simple line-based chunking
@@ -370,7 +373,7 @@ Respond with JSON only:
       }
     } catch (error) {
       // Keep existing metadata on error
-      console.warn(`Failed to extract metadata for chunk ${chunk.index}:`, error);
+      logger.warn({ error, chunkIndex: chunk.index }, 'Failed to extract metadata for chunk');
     }
   }
 
@@ -424,7 +427,7 @@ Respond with JSON only:
         return this.convertRelations(relResponse, chunks);
       }
     } catch (error) {
-      console.warn('Failed to extract relations via LLM:', error);
+      logger.warn({ error }, 'Failed to extract relations via LLM');
     }
 
     // Fallback: sequential relations only

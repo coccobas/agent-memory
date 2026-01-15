@@ -256,8 +256,9 @@ export class PostgreSQLStorageAdapter implements IStorageAdapter {
         // Always rollback on error
         try {
           await client.query('ROLLBACK');
-        } catch {
-          // Ignore rollback errors
+        } catch (rollbackError) {
+          // Ignore rollback errors - connection may already be closed
+          logger.debug({ error: rollbackError }, 'Rollback failed during error handling, connection may be closed');
         }
 
         lastError = error instanceof Error ? error : new Error(String(error));
@@ -334,7 +335,8 @@ export class PostgreSQLStorageAdapter implements IStorageAdapter {
       }
       await this.pool.query('SELECT 1');
       return { ok: true, latencyMs: Date.now() - start };
-    } catch {
+    } catch (error) {
+      logger.debug({ error }, 'Health check failed, database not accessible');
       return { ok: false, latencyMs: Date.now() - start };
     }
   }

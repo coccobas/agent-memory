@@ -83,14 +83,11 @@ describe('BasePolicy', () => {
         throw new Error('Model inference failed');
       };
 
-      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-
       const result = await policy.decideWithFallback({ value: 75 });
 
+      // Should use fallback action when decide() throws
       expect(result.action).toBe('high');
-      expect(consoleSpy).toHaveBeenCalled();
-
-      consoleSpy.mockRestore();
+      expect(result.confidence).toBe(0.7);
     });
   });
 
