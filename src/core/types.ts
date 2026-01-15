@@ -85,6 +85,17 @@ export interface ResponseMeta {
   truncated: boolean;
   hasMore: boolean;
   nextCursor?: string;
+
+  // Query rewrite metadata (HyDE visibility)
+  rewrite?: {
+    strategy: string; // 'hyde' | 'expanded' | 'hybrid' | 'simple'
+    intent?: string; // 'lookup' | 'how_to' | 'debug' | 'explore' | 'compare' | 'configure'
+    queries?: Array<{
+      text: string; // Query or HyDE document (truncated to 200 chars)
+      source: 'original' | 'hyde' | 'expansion' | 'decomposition';
+      weight: number; // 0-1 importance
+    }>;
+  };
 }
 
 export interface MemoryContextParams {

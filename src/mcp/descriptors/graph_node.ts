@@ -9,7 +9,7 @@ import { graphNodeHandlers } from '../handlers/graph-nodes.handler.js';
 
 export const graphNodeDescriptor: ToolDescriptor = {
   name: 'graph_node',
-  visibility: 'system',
+  visibility: 'advanced',
   description: `Manage graph nodes in the flexible knowledge graph.
 
 Actions: add, get, list, update, history, deactivate, reactivate, delete

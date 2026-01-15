@@ -661,6 +661,19 @@ export function buildQueryResult(ctx: PipelineContext): MemoryQueryResult {
     truncated: hasMore,
     hasMore,
     nextCursor,
+
+    // Add query rewrite metadata (HyDE visibility)
+    ...(ctx.rewriteStrategy && {
+      rewrite: {
+        strategy: ctx.rewriteStrategy,
+        intent: ctx.rewriteIntent,
+        queries: ctx.searchQueries?.map(q => ({
+          text: q.text.substring(0, 200), // Truncate for readability
+          source: q.source,
+          weight: q.weight,
+        })),
+      },
+    }),
   };
 
   return {

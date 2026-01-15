@@ -57,6 +57,7 @@ import { memoryEvidenceDescriptor } from './memory_evidence.js';
 import { memoryDescriptor } from './memory.js';
 import { memoryExtractionApproveDescriptor } from './memory_extraction_approve.js';
 import { memoryStatusDescriptor } from './memory_status.js';
+import { memoryDiscoverDescriptor } from './memory_discover.js';
 
 import { type AnyToolDescriptor, type VisibilityLevel, descriptorToTool, descriptorToHandler } from './types.js';
 
@@ -190,6 +191,8 @@ export const allDescriptors: AnyToolDescriptor[] = [
   memoryExtractionApproveDescriptor,
   // Status Dashboard (user-facing summary)
   memoryStatusDescriptor,
+  // Feature Discovery (helps discover hidden/advanced tools)
+  memoryDiscoverDescriptor,
 ];
 
 /**

@@ -164,10 +164,33 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
       contextResult as Record<string, unknown>
     );
 
+    // Add graph statistics if available
+    let graphSummary: string | undefined;
+    if (detectedProjectId && ctx.repos.graphNodes) {
+      try {
+        // Get node count for this project
+        const nodes = await ctx.repos.graphNodes.list(
+          { scopeType: 'project', scopeId: detectedProjectId },
+          { limit: 10000 }
+        );
+
+        if (nodes.length > 0) {
+          // Estimate edge count (avg 1.5 edges per node)
+          const estimatedEdges = Math.floor(nodes.length * 1.5);
+          graphSummary = `📊 Graph: ${nodes.length} nodes, ${estimatedEdges} edges (avg)`;
+        }
+      } catch (error) {
+        // Non-fatal - graph may not be enabled
+      }
+    }
+
     // Build _display string
     const displayLines = [summary.sessionLine, summary.countsLine];
     if (summary.criticalLine) {
       displayLines.push(summary.criticalLine);
+    }
+    if (graphSummary) {
+      displayLines.push(graphSummary);
     }
     const _display = displayLines.join('\n');
 

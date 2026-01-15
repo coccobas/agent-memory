@@ -82,10 +82,26 @@ export class HierarchicalSummarizationService {
     this.embeddingService = embeddingService;
     this.extractionService = extractionService;
     this.vectorService = vectorService;
+
+    // If no provider explicitly set, inherit from extraction service
+    const effectiveProvider = config?.provider ?? (extractionService.isAvailable() ? 'openai' : 'disabled');
+
     this.config = {
       ...DEFAULT_HIERARCHICAL_SUMMARIZATION_CONFIG,
       ...config,
+      provider: effectiveProvider,
     };
+
+    logger.debug(
+      {
+        passedProvider: config?.provider,
+        extractionAvailable: extractionService.isAvailable(),
+        effectiveProvider,
+        finalProvider: this.config.provider,
+        defaultProvider: DEFAULT_HIERARCHICAL_SUMMARIZATION_CONFIG.provider,
+      },
+      'Summarization service config initialized'
+    );
 
     // Initialize LLM summarizer if provider is configured
     if (this.config.provider !== 'disabled') {

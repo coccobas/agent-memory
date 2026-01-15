@@ -10,7 +10,7 @@ import { graphStatusHandlers } from '../handlers/graph-status.handler.js';
 
 export const memoryGraphStatusDescriptor: ToolDescriptor = {
   name: 'memory_graph_status',
-  visibility: 'system',
+  visibility: 'standard',
   description: `Get diagnostic information about the knowledge graph's current state.
 
 Returns:

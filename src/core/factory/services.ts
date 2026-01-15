@@ -103,6 +103,7 @@ export async function createServices(
     lmStudioBaseUrl: process.env.AGENT_MEMORY_LM_STUDIO_BASE_URL,
     lmStudioModel: process.env.AGENT_MEMORY_LM_STUDIO_EMBEDDING_MODEL,
     lmStudioInstruction: process.env.AGENT_MEMORY_LM_STUDIO_EMBEDDING_INSTRUCTION,
+    timeoutMs: config.embedding.timeoutMs,
   });
 
   // Determine vector store: overrides > config.backend > auto-detect > default
@@ -250,19 +251,30 @@ export async function createServices(
   const verificationService = new VerificationService(db);
 
   // Create hierarchical summarization service
+  const summarizationConfig = {
+    provider: config.extraction.provider as 'openai' | 'anthropic' | 'ollama' | 'disabled',
+    model: config.extraction.openaiModel,
+    maxLevels: 3,
+    minGroupSize: 3,
+    similarityThreshold: 0.75,
+    communityResolution: 1.0,
+  };
+
+  logger.debug(
+    {
+      extractionProvider: config.extraction.provider,
+      extractionModel: config.extraction.openaiModel,
+      summarizationConfig,
+    },
+    'Creating summarization service with extraction config'
+  );
+
   const summarizationService = new HierarchicalSummarizationService(
     db,
     embeddingService,
     extractionService,
     vectorService,
-    {
-      provider: config.extraction.provider, // Use same provider as extraction
-      model: config.extraction.openaiModel, // Default model
-      maxLevels: 3,
-      minGroupSize: 3,
-      similarityThreshold: 0.75,
-      communityResolution: 1.0,
-    }
+    summarizationConfig
   );
 
   // === Phase 1 Architecture Migration: DI-managed services ===
