@@ -1,6 +1,8 @@
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { eq } from 'drizzle-orm';
+import * as fs from 'fs';
+import * as path from 'path';
 import * as schema from '../../src/db/schema.js';
 import { generateId } from '../../src/db/repositories/base.js';
 import { applyMigrations } from './migration-loader.js';
@@ -821,4 +823,72 @@ export function createTestExperience(
       .where(eq(schema.experienceVersions.id, versionId))
       .get()!,
   };
+}
+
+/**
+ * Clean up test database artifacts after test runs.
+ * Removes accumulated test database files from data/test-* directories.
+ *
+ * This function is called by the global test teardown to prevent
+ * disk space issues and git status noise.
+ */
+export function cleanupTestDatabases(): void {
+  // Pattern to match test database files
+  const testDbPattern = /^(flow-test|mcp-test|workflow-test)-\d+\.db$/;
+
+  // Get project root (two directories up from fixtures)
+  const projectRoot = path.resolve(__dirname, '../..');
+  const dataDir = path.join(projectRoot, 'data');
+
+  if (!fs.existsSync(dataDir)) {
+    return; // No data directory, nothing to clean
+  }
+
+  // Test subdirectories to clean
+  const testDirs = ['test-flow', 'test-mcp-calls', 'test-full-workflow'];
+  let cleanedCount = 0;
+
+  for (const subdir of testDirs) {
+    const dirPath = path.join(dataDir, subdir);
+
+    if (!fs.existsSync(dirPath)) {
+      continue; // Skip if directory doesn't exist
+    }
+
+    try {
+      const files = fs.readdirSync(dirPath);
+
+      for (const file of files) {
+        // Only delete test database files, not other files
+        if (testDbPattern.test(file)) {
+          const filePath = path.join(dirPath, file);
+
+          try {
+            fs.unlinkSync(filePath);
+            cleanedCount++;
+
+            // Also remove associated WAL and SHM files if they exist
+            const walPath = `${filePath}-wal`;
+            const shmPath = `${filePath}-shm`;
+
+            if (fs.existsSync(walPath)) {
+              fs.unlinkSync(walPath);
+            }
+            if (fs.existsSync(shmPath)) {
+              fs.unlinkSync(shmPath);
+            }
+          } catch (error) {
+            // Log but don't fail - file might be locked or in use
+            console.warn(`Failed to delete ${filePath}:`, error);
+          }
+        }
+      }
+    } catch (error) {
+      console.warn(`Failed to clean directory ${dirPath}:`, error);
+    }
+  }
+
+  if (cleanedCount > 0) {
+    console.log(`Cleaned up ${cleanedCount} test database files`);
+  }
 }

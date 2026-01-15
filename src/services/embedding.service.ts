@@ -12,6 +12,7 @@ import { OpenAI } from 'openai';
 import { pipeline } from '@xenova/transformers';
 import { createComponentLogger } from '../utils/logger.js';
 import { withRetry, isRetryableNetworkError } from '../utils/retry.js';
+import { CircuitBreaker } from '../utils/circuit-breaker.js';
 import { config } from '../config/index.js';
 import { yieldToEventLoop } from '../utils/yield.js';
 import {
@@ -171,6 +172,7 @@ export class EmbeddingService {
   private cacheHits = 0;
   private cacheMisses = 0;
   public static hasLoggedModelLoad = false; // Public for test reset access
+  private circuitBreaker: CircuitBreaker;
 
   /**
    * Create an EmbeddingService instance
@@ -265,6 +267,18 @@ export class EmbeddingService {
         maxRetries: 0,
       });
     }
+
+    // Initialize circuit breaker for rate limiting and failure protection
+    this.circuitBreaker = new CircuitBreaker({
+      name: 'embedding-service',
+      failureThreshold: config.circuitBreaker.failureThreshold,
+      resetTimeoutMs: config.circuitBreaker.resetTimeoutMs,
+      successThreshold: config.circuitBreaker.successThreshold,
+      isFailure: (error: Error) => {
+        // Only count embedding failures, not validation errors
+        return !(error.name === 'ValidationError' || error.name === 'EmbeddingEmptyTextError');
+      },
+    });
   }
 
   /**
@@ -359,16 +373,16 @@ export class EmbeddingService {
     // Task 123: Track cache miss
     this.cacheMisses++;
 
-    // Generate embedding
-    let embedding: number[];
-
-    if (this.provider === 'openai') {
-      embedding = await this.embedOpenAI(normalized);
-    } else if (this.provider === 'lmstudio') {
-      embedding = await this.embedLMStudio(normalized, type);
-    } else {
-      embedding = await this.embedLocal(normalized);
-    }
+    // Generate embedding with circuit breaker protection
+    let embedding: number[] = await this.circuitBreaker.execute(async () => {
+      if (this.provider === 'openai') {
+        return await this.embedOpenAI(normalized);
+      } else if (this.provider === 'lmstudio') {
+        return await this.embedLMStudio(normalized, type);
+      } else {
+        return await this.embedLocal(normalized);
+      }
+    });
 
     // Task 121/125: Validate embedding array before caching
     validateEmbedding(embedding, this.provider);
@@ -427,24 +441,24 @@ export class EmbeddingService {
     // Normalize texts
     const normalized = texts.map((t) => t.trim()).filter((t) => t.length > 0);
 
-    // Generate embeddings
-    let embeddings: number[][];
-
-    if (this.provider === 'openai') {
-      embeddings = await this.embedBatchOpenAI(normalized);
-    } else if (this.provider === 'lmstudio') {
-      embeddings = await this.embedBatchLMStudio(normalized, type);
-    } else {
-      // For local, run sequentially and periodically yield to avoid starving the event loop.
-      const results: number[][] = [];
-      for (let i = 0; i < normalized.length; i++) {
-        if (i > 0 && i % 5 === 0) {
-          await yieldToEventLoop();
+    // Generate embeddings with circuit breaker protection
+    let embeddings: number[][] = await this.circuitBreaker.execute(async () => {
+      if (this.provider === 'openai') {
+        return await this.embedBatchOpenAI(normalized);
+      } else if (this.provider === 'lmstudio') {
+        return await this.embedBatchLMStudio(normalized, type);
+      } else {
+        // For local, run sequentially and periodically yield to avoid starving the event loop.
+        const results: number[][] = [];
+        for (let i = 0; i < normalized.length; i++) {
+          if (i > 0 && i % 5 === 0) {
+            await yieldToEventLoop();
+          }
+          results.push(await this.embedLocal(normalized[i]!));
         }
-        results.push(await this.embedLocal(normalized[i]!));
+        return results;
       }
-      embeddings = results;
-    }
+    });
 
     // Task 121/125: Validate all embeddings in batch
     validateEmbeddingBatch(embeddings, this.provider);

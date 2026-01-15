@@ -20,6 +20,7 @@ import {
   cascadeDeleteRelatedRecordsWithDb,
   asyncVectorCleanup,
   checkAndLogConflictWithDb,
+  batchQueryByIds,
 } from './base.js';
 import { createConflictError } from '../../core/errors.js';
 import { generateEmbeddingAsync, extractTextForEmbedding } from './embedding-hooks.js';
@@ -159,11 +160,13 @@ export function createToolRepository(deps: DatabaseDeps): IToolRepository {
     async getByIds(ids: string[]): Promise<ToolWithVersion[]> {
       if (ids.length === 0) return [];
 
-      const toolsList = db
-        .select()
-        .from(tools)
-        .where(inArray(tools.id, ids))
-        .all();
+      // Use batch query with chunking to handle large ID arrays efficiently
+      const toolsList = batchQueryByIds<typeof tools.$inferSelect>(
+        db,
+        tools,
+        ids,
+        tools.id
+      );
 
       if (toolsList.length === 0) return [];
 

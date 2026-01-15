@@ -20,6 +20,7 @@ import {
   cascadeDeleteRelatedRecordsWithDb,
   asyncVectorCleanup,
   checkAndLogConflictWithDb,
+  batchQueryByIds,
 } from './base.js';
 import { createConflictError } from '../../core/errors.js';
 import { generateEmbeddingAsync, extractTextForEmbedding } from './embedding-hooks.js';
@@ -165,11 +166,13 @@ export function createKnowledgeRepository(deps: DatabaseDeps): IKnowledgeReposit
     async getByIds(ids: string[]): Promise<KnowledgeWithVersion[]> {
       if (ids.length === 0) return [];
 
-      const knowledgeList = db
-        .select()
-        .from(knowledge)
-        .where(inArray(knowledge.id, ids))
-        .all();
+      // Use batch query with chunking to handle large ID arrays efficiently
+      const knowledgeList = batchQueryByIds<typeof knowledge.$inferSelect>(
+        db,
+        knowledge,
+        ids,
+        knowledge.id
+      );
 
       if (knowledgeList.length === 0) return [];
 

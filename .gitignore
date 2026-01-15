@@ -87,6 +87,17 @@ docs/guides/security.md
 prompts/
 data/test-classification/*.db
 
+# Test database artifacts
+data/test-flow/*.db
+data/test-flow/*.db-wal
+data/test-flow/*.db-shm
+data/test-mcp-calls/*.db
+data/test-mcp-calls/*.db-wal
+data/test-mcp-calls/*.db-shm
+data/test-full-workflow/*.db
+data/test-full-workflow/*.db-wal
+data/test-full-workflow/*.db-shm
+
 # Test scripts
 test-*.mjs
 check-*.mjs

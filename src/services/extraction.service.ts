@@ -12,6 +12,7 @@ import { OpenAI } from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 import { createComponentLogger } from '../utils/logger.js';
 import { withRetry, isRetryableNetworkError } from '../utils/retry.js';
+import { CircuitBreaker } from '../utils/circuit-breaker.js';
 import { config } from '../config/index.js';
 import {
   createValidationError,
@@ -715,6 +716,7 @@ export class ExtractionService {
   private anthropicModel: string;
   private ollamaBaseUrl: string;
   private ollamaModel: string;
+  private circuitBreaker: CircuitBreaker;
 
   /**
    * Reset warning state for test isolation.
@@ -786,6 +788,18 @@ export class ExtractionService {
         maxRetries: 0, // Disable SDK retry
       });
     }
+
+    // Initialize circuit breaker for rate limiting and failure protection
+    this.circuitBreaker = new CircuitBreaker({
+      name: 'extraction-service',
+      failureThreshold: config.circuitBreaker.failureThreshold,
+      resetTimeoutMs: config.circuitBreaker.resetTimeoutMs,
+      successThreshold: config.circuitBreaker.successThreshold,
+      isFailure: (error: Error) => {
+        // Only count extraction failures, not validation errors
+        return !(error.name === 'ValidationError');
+      },
+    });
   }
 
   /**
@@ -908,34 +922,32 @@ export class ExtractionService {
     const startTime = Date.now();
 
     try {
-      let result: ExtractionResult;
-
-      // Wrap provider calls with timeout to prevent hanging requests
-      switch (this.provider) {
-        case 'openai':
-          result = await this.withTimeout(
-            this.extractOpenAI(input),
-            config.extraction.timeoutMs,
-            'OpenAI extraction'
-          );
-          break;
-        case 'anthropic':
-          result = await this.withTimeout(
-            this.extractAnthropic(input),
-            config.extraction.timeoutMs,
-            'Anthropic extraction'
-          );
-          break;
-        case 'ollama':
-          result = await this.withTimeout(
-            this.extractOllama(input),
-            config.extraction.timeoutMs,
-            'Ollama extraction'
-          );
-          break;
-        default:
-          throw createValidationError('provider', `unknown extraction provider: ${String(this.provider)}`);
-      }
+      // Wrap API calls with circuit breaker for rate limiting and failure protection
+      let result: ExtractionResult = await this.circuitBreaker.execute(async () => {
+        // Wrap provider calls with timeout to prevent hanging requests
+        switch (this.provider) {
+          case 'openai':
+            return await this.withTimeout(
+              this.extractOpenAI(input),
+              config.extraction.timeoutMs,
+              'OpenAI extraction'
+            );
+          case 'anthropic':
+            return await this.withTimeout(
+              this.extractAnthropic(input),
+              config.extraction.timeoutMs,
+              'Anthropic extraction'
+            );
+          case 'ollama':
+            return await this.withTimeout(
+              this.extractOllama(input),
+              config.extraction.timeoutMs,
+              'Ollama extraction'
+            );
+          default:
+            throw createValidationError('provider', `unknown extraction provider: ${String(this.provider)}`);
+        }
+      });
 
       result.processingTimeMs = Date.now() - startTime;
 
@@ -1102,34 +1114,32 @@ export class ExtractionService {
     const startTime = Date.now();
 
     try {
-      let result: GenerationResult;
-
-      // Wrap provider calls with timeout
-      switch (this.provider) {
-        case 'openai':
-          result = await this.withTimeout(
-            this.generateOpenAI(input),
-            config.extraction.timeoutMs,
-            'OpenAI generation'
-          );
-          break;
-        case 'anthropic':
-          result = await this.withTimeout(
-            this.generateAnthropic(input),
-            config.extraction.timeoutMs,
-            'Anthropic generation'
-          );
-          break;
-        case 'ollama':
-          result = await this.withTimeout(
-            this.generateOllama(input),
-            config.extraction.timeoutMs,
-            'Ollama generation'
-          );
-          break;
-        default:
-          throw createValidationError('provider', `unknown extraction provider: ${String(this.provider)}`);
-      }
+      // Wrap API calls with circuit breaker for rate limiting and failure protection
+      let result: GenerationResult = await this.circuitBreaker.execute(async () => {
+        // Wrap provider calls with timeout
+        switch (this.provider) {
+          case 'openai':
+            return await this.withTimeout(
+              this.generateOpenAI(input),
+              config.extraction.timeoutMs,
+              'OpenAI generation'
+            );
+          case 'anthropic':
+            return await this.withTimeout(
+              this.generateAnthropic(input),
+              config.extraction.timeoutMs,
+              'Anthropic generation'
+            );
+          case 'ollama':
+            return await this.withTimeout(
+              this.generateOllama(input),
+              config.extraction.timeoutMs,
+              'Ollama generation'
+            );
+          default:
+            throw createValidationError('provider', `unknown extraction provider: ${String(this.provider)}`);
+        }
+      });
 
       result.processingTimeMs = Date.now() - startTime;
 

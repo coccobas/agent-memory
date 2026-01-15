@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { eq, and, or } from 'drizzle-orm';
+import { eq, and, or, inArray } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import {
   entryTags,
@@ -294,4 +294,91 @@ export function checkAndLogConflictWithDb(
   }
 
   return false;
+}
+
+// =============================================================================
+// BATCH QUERY HELPERS (for large IN() clauses)
+// =============================================================================
+
+/**
+ * Default chunk size for large IN() queries.
+ * Prevents performance degradation with 1000+ IDs.
+ */
+export const DEFAULT_CHUNK_SIZE = 100;
+
+/**
+ * Chunk an array of IDs into smaller batches.
+ * Useful for preventing performance issues with large WHERE id IN (...) queries.
+ *
+ * @param ids - Array of IDs to chunk
+ * @param chunkSize - Size of each chunk (default: 100)
+ * @returns Array of ID chunks
+ *
+ * @example
+ * ```ts
+ * const ids = Array.from({ length: 250 }, (_, i) => `id-${i}`);
+ * const chunks = chunkIds(ids, 100);
+ * // Returns: [['id-0'...'id-99'], ['id-100'...'id-199'], ['id-200'...'id-249']]
+ * ```
+ */
+export function chunkIds(ids: string[], chunkSize: number = DEFAULT_CHUNK_SIZE): string[][] {
+  if (ids.length === 0) return [];
+  if (ids.length <= chunkSize) return [ids];
+
+  const chunks: string[][] = [];
+  for (let i = 0; i < ids.length; i += chunkSize) {
+    chunks.push(ids.slice(i, i + chunkSize));
+  }
+  return chunks;
+}
+
+/**
+ * Execute a batch query with automatic chunking for large ID arrays.
+ * Prevents performance degradation with 1000+ IDs by splitting into multiple queries.
+ *
+ * @param db - Database connection
+ * @param table - Drizzle table to query
+ * @param ids - Array of IDs to query
+ * @param idColumn - Column to match IDs against (default: table.id)
+ * @param additionalConditions - Optional additional WHERE conditions to AND with the ID filter
+ * @param chunkSize - Chunk size (default: 100)
+ * @returns Combined results from all chunks
+ *
+ * @example
+ * ```ts
+ * // Query with chunking
+ * const entries = await batchQueryByIds(
+ *   db,
+ *   tools,
+ *   largeIdArray,  // e.g., 2500 IDs
+ *   tools.id,
+ *   eq(tools.isActive, true)  // Additional condition
+ * );
+ * // Executes 25 queries (2500 / 100), each with max 100 IDs
+ * ```
+ */
+export function batchQueryByIds<T extends Record<string, any>>(
+  db: DrizzleDb,
+  table: any,
+  ids: string[],
+  idColumn?: any,
+  additionalConditions?: any,
+  chunkSize: number = DEFAULT_CHUNK_SIZE
+): T[] {
+  if (ids.length === 0) return [];
+
+  const column = idColumn ?? table.id;
+  const chunks = chunkIds(ids, chunkSize);
+  const results: T[] = [];
+
+  for (const chunk of chunks) {
+    const conditions = additionalConditions
+      ? and(inArray(column, chunk), additionalConditions)
+      : inArray(column, chunk);
+
+    const rows = db.select().from(table).where(conditions).all();
+    results.push(...(rows as T[]));
+  }
+
+  return results;
 }

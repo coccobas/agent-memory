@@ -20,6 +20,7 @@ import {
   cascadeDeleteRelatedRecordsWithDb,
   asyncVectorCleanup,
   checkAndLogConflictWithDb,
+  batchQueryByIds,
 } from './base.js';
 import { createConflictError } from '../../core/errors.js';
 import { generateEmbeddingAsync, extractTextForEmbedding } from './embedding-hooks.js';
@@ -163,11 +164,13 @@ export function createGuidelineRepository(deps: DatabaseDeps): IGuidelineReposit
     async getByIds(ids: string[]): Promise<GuidelineWithVersion[]> {
       if (ids.length === 0) return [];
 
-      const guidelinesList = db
-        .select()
-        .from(guidelines)
-        .where(inArray(guidelines.id, ids))
-        .all();
+      // Use batch query with chunking to handle large ID arrays efficiently
+      const guidelinesList = batchQueryByIds<typeof guidelines.$inferSelect>(
+        db,
+        guidelines,
+        ids,
+        guidelines.id
+      );
 
       if (guidelinesList.length === 0) return [];
 

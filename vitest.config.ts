@@ -145,6 +145,7 @@ export default defineConfig({
       },
     },
     setupFiles: ['tests/fixtures/setup.ts'],
+    globalTeardown: ['tests/teardown.ts'],
   },
   // Benchmark configuration
   bench: {
