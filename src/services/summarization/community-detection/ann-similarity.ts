@@ -77,7 +77,10 @@ function generateRandomHyperplane(dimension: number): Hyperplane {
   // Normalize to unit vector
   norm = Math.sqrt(norm);
   for (let i = 0; i < dimension; i++) {
-    vector[i]! /= norm;
+    const val = vector[i];
+    if (val !== undefined) {
+      vector[i] = val / norm;
+    }
   }
 
   return { vector };
@@ -102,7 +105,9 @@ function hashVector(vector: number[], hyperplanes: Hyperplane[]): string {
   for (const plane of hyperplanes) {
     let dotProduct = 0;
     for (let i = 0; i < vector.length; i++) {
-      dotProduct += vector[i]! * plane.vector[i]!;
+      const vecVal = vector[i] ?? 0;
+      const planeVal = plane.vector[i] ?? 0;
+      dotProduct += vecVal * planeVal;
     }
     hash += dotProduct >= 0 ? '1' : '0';
   }
@@ -147,7 +152,10 @@ function buildLSHIndex(
       if (!table.has(hash)) {
         table.set(hash, []);
       }
-      table.get(hash)!.push(node.id);
+      const bucket = table.get(hash);
+      if (bucket) {
+        bucket.push(node.id);
+      }
     }
 
     tables.push(table);
@@ -193,8 +201,9 @@ function findCandidates(
 
   // Query all hash tables
   for (let t = 0; t < tables.length; t++) {
-    const table = tables[t]!;
-    const planes = hyperplanes[t]!;
+    const table = tables[t];
+    const planes = hyperplanes[t];
+    if (!table || !planes) continue;
 
     const hash = hashVector(node.embedding, planes);
 
@@ -301,9 +310,9 @@ export function buildSimilarityGraphLSH(
       processedPairs.add(pairKey);
 
       const nodeB = nodeMap.get(candidateId);
-      if (!nodeB || !nodeB.embedding) continue;
+      if (!nodeB || !nodeB.embedding || !nodeA.embedding) continue;
 
-      const similarity = cosineSimilarity(nodeA.embedding!, nodeB.embedding);
+      const similarity = cosineSimilarity(nodeA.embedding, nodeB.embedding);
       comparisons++;
 
       // Only create edge if similarity exceeds threshold
@@ -315,14 +324,14 @@ export function buildSimilarityGraphLSH(
         });
 
         // Add to adjacency list (undirected graph)
-        adjacencyList.get(nodeA.id)!.push({
-          nodeId: nodeB.id,
-          weight: similarity,
-        });
-        adjacencyList.get(nodeB.id)!.push({
-          nodeId: nodeA.id,
-          weight: similarity,
-        });
+        const adjA = adjacencyList.get(nodeA.id);
+        const adjB = adjacencyList.get(nodeB.id);
+        if (adjA) {
+          adjA.push({ nodeId: nodeB.id, weight: similarity });
+        }
+        if (adjB) {
+          adjB.push({ nodeId: nodeA.id, weight: similarity });
+        }
 
         totalWeight += similarity * 2;
       }
