@@ -9,6 +9,22 @@ import type { DbClient } from '../db/connection.js';
 import { agentVotes } from '../db/schema.js';
 import { generateId } from '../db/repositories/base.js';
 import { eq } from 'drizzle-orm';
+import { createComponentLogger } from '../utils/logger.js';
+
+const logger = createComponentLogger('voting');
+
+/**
+ * Safely parse vote value from JSON string with error handling.
+ * Returns null if parsing fails (logged as error).
+ */
+function parseVoteValue(jsonString: string): unknown {
+  try {
+    return JSON.parse(jsonString);
+  } catch (error) {
+    logger.error({ error, jsonString: jsonString.substring(0, 100) }, 'Failed to parse vote value');
+    return null;
+  }
+}
 
 export interface RecordVoteParams {
   taskId: string;
@@ -108,7 +124,7 @@ export function calculateConsensus(taskId: string, k: number = 1, db: DbClient):
   // Convert to array and sort by count (descending)
   const voteDistribution = Array.from(voteMap.entries())
     .map(([voteValue, data]) => ({
-      voteValue: JSON.parse(voteValue) as unknown,
+      voteValue: parseVoteValue(voteValue),
       count: data.count,
       agents: data.agents,
       // Bug #256 fix: Guard against NaN when confidences array is empty (0/0)
@@ -152,7 +168,7 @@ export function calculateConsensus(taskId: string, k: number = 1, db: DbClient):
   const dissentingVotes: Array<{ agentId: string; vote: unknown; confidence: number }> = [];
   if (isConsensus && topVote) {
     for (const vote of votes) {
-      const parsedVote = JSON.parse(vote.voteValue) as unknown;
+      const parsedVote = parseVoteValue(vote.voteValue);
       const consensusValue = topVote.voteValue;
 
       // Deep equality check (simple string comparison for now)
@@ -169,7 +185,7 @@ export function calculateConsensus(taskId: string, k: number = 1, db: DbClient):
     for (const vote of votes) {
       dissentingVotes.push({
         agentId: vote.agentId,
-        vote: JSON.parse(vote.voteValue) as unknown,
+        vote: parseVoteValue(vote.voteValue),
         confidence: vote.confidence,
       });
     }
@@ -210,7 +226,7 @@ export function listVotes(
   return votes.map((vote) => ({
     id: vote.id,
     agentId: vote.agentId,
-    voteValue: JSON.parse(vote.voteValue) as unknown,
+    voteValue: parseVoteValue(vote.voteValue),
     confidence: vote.confidence,
     reasoning: vote.reasoning,
     createdAt: vote.createdAt,

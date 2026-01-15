@@ -56,6 +56,29 @@ import type { EntryChangedEvent } from '../../utils/events.js';
 import type { IEventAdapter } from '../../core/adapters/interfaces.js';
 
 // =============================================================================
+// TYPE GUARDS FOR SAFE TYPE CASTING
+// =============================================================================
+
+/**
+ * Type guard to validate QueryType array can be safely cast to CoreQueryEntryType array.
+ * Both types have the same string literal values, but this validates at runtime.
+ */
+function isQueryEntryTypeArray(types: unknown): types is CoreQueryEntryType[] {
+  if (!Array.isArray(types)) return false;
+  const validTypes: CoreQueryEntryType[] = ['tools', 'guidelines', 'knowledge', 'experiences'];
+  return types.every(t => typeof t === 'string' && validTypes.includes(t as CoreQueryEntryType));
+}
+
+/**
+ * Type guard to check if an object has a valid semanticScore property.
+ * semanticScore is added dynamically by the semantic stage and may not be present.
+ */
+function hasSemanticScore(r: unknown): r is { semanticScore?: number } {
+  return typeof r === 'object' && r !== null &&
+    ('semanticScore' in r ? typeof (r as Record<string, unknown>).semanticScore === 'number' : true);
+}
+
+// =============================================================================
 // TASK 43: DRY-RUN EXECUTION
 // =============================================================================
 
@@ -129,9 +152,28 @@ export function executeDryRun(
     complexity = 'medium';
   }
 
-  // Build plan
+  // Build plan - validate types before casting
+  if (!isQueryEntryTypeArray(ctx.types)) {
+    errors.push(`Invalid query entry types: ${JSON.stringify(ctx.types)}`);
+    return {
+      valid: false,
+      errors,
+      plan: {
+        types: ['tools', 'guidelines', 'knowledge'] as CoreQueryEntryType[],
+        scopeChain: [],
+        limit: params.limit ?? 20,
+        offset: params.offset ?? 0,
+        search: params.search,
+        semanticSearch: params.semanticSearch ?? false,
+        useFts5: params.useFts5 ?? false,
+      },
+      complexity: 'low',
+      dryRun: true,
+    };
+  }
+
   const plan = {
-    types: ctx.types as unknown as CoreQueryEntryType[],
+    types: ctx.types as CoreQueryEntryType[],
     scopeChain: ctx.scopeChain.map(s => ({ scopeType: s.scopeType, scopeId: s.scopeId })),
     limit: ctx.limit,
     offset: ctx.offset,
@@ -554,7 +596,7 @@ function recordRetrievalsForFeedback(
     entryId: r.id,
     retrievalRank: idx + 1,
     retrievalScore: r.score ?? 0,
-    semanticScore: (r as unknown as Record<string, unknown>).semanticScore as number | undefined,
+    semanticScore: hasSemanticScore(r) ? r.semanticScore : undefined,
   }));
 
   // Enqueue batch for processing (fire-and-forget)

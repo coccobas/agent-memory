@@ -24,6 +24,7 @@ import {
   isNumber,
   isArray,
 } from '../../../utils/type-guards.js';
+import { validateTextLength, SIZE_LIMITS } from '../../../services/validation.service.js';
 import { formatTimestamps } from '../../../utils/timestamp-formatter.js';
 import type { ScopeType } from '../../types.js';
 import type { ProcessedEntry, StoredEntry } from './types.js';
@@ -50,6 +51,9 @@ export async function extract(appContext: AppContext, params: Record<string, unk
     | ('decisions' | 'facts' | 'rules' | 'tools')[]
     | undefined;
   const agentId = getOptionalParam(params, 'agentId', isString);
+
+  // Validate input sizes
+  validateTextLength(context, 'context', SIZE_LIMITS.CONTENT_MAX_LENGTH);
 
   // Validate scope - only required when autoStore is true
   // For pure extraction testing, scope is optional (duplicate detection uses null scopeId)

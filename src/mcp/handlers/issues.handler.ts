@@ -9,14 +9,18 @@
 import type { AppContext } from '../../core/context.js';
 import type { ContextAwareHandler } from '../descriptors/types.js';
 import type {
-  ScopeType,
   TaskType,
   TaskDomain,
   TaskSeverity,
   TaskUrgency,
   TaskStatus,
-  Task,
 } from '../../db/schema.js';
+import type {
+  ITaskRepository,
+  CreateTaskInput,
+  UpdateTaskInput,
+  ListTasksFilter,
+} from '../../db/repositories/tasks.js';
 import {
   getRequiredParam,
   getOptionalParam,
@@ -27,7 +31,7 @@ import {
   isArrayOfStrings,
   isObject,
 } from '../../utils/type-guards.js';
-import { createValidationError, createNotFoundError } from '../../core/errors.js';
+import { createValidationError, createNotFoundError, createServiceUnavailableError } from '../../core/errors.js';
 import { formatTimestamps } from '../../utils/timestamp-formatter.js';
 import { logAction } from '../../services/audit.service.js';
 
@@ -75,92 +79,6 @@ function isTaskStatus(v: unknown): v is TaskStatus {
 // Repository Interface (to be implemented in db/repositories/tasks.ts)
 // =============================================================================
 
-/**
- * Input for creating a new task
- */
-export interface CreateTaskInput {
-  scopeType: ScopeType;
-  scopeId?: string;
-  title: string;
-  description: string;
-  taskType: TaskType;
-  taskDomain?: TaskDomain;
-  severity?: TaskSeverity;
-  urgency?: TaskUrgency;
-  category?: string;
-  status?: TaskStatus;
-  file?: string;
-  startLine?: number;
-  endLine?: number;
-  assignee?: string;
-  reporter?: string;
-  parentTaskId?: string;
-  dueDate?: string;
-  estimatedMinutes?: number;
-  tags?: string[];
-  metadata?: Record<string, unknown>;
-  createdBy?: string;
-}
-
-/**
- * Input for updating a task
- */
-export interface UpdateTaskInput {
-  title?: string;
-  description?: string;
-  taskType?: TaskType;
-  taskDomain?: TaskDomain;
-  severity?: TaskSeverity;
-  urgency?: TaskUrgency;
-  category?: string;
-  status?: TaskStatus;
-  resolution?: string;
-  file?: string;
-  startLine?: number;
-  endLine?: number;
-  assignee?: string;
-  parentTaskId?: string;
-  dueDate?: string;
-  startedAt?: string;
-  resolvedAt?: string;
-  estimatedMinutes?: number;
-  actualMinutes?: number;
-  tags?: string[];
-  metadata?: Record<string, unknown>;
-  updatedBy?: string;
-}
-
-/**
- * Filter for listing tasks
- */
-export interface ListTasksFilter {
-  scopeType?: ScopeType;
-  scopeId?: string;
-  status?: TaskStatus;
-  taskType?: TaskType;
-  severity?: TaskSeverity;
-  urgency?: TaskUrgency;
-  assignee?: string;
-  parentTaskId?: string;
-  includeInactive?: boolean;
-}
-
-/**
- * Task repository interface
- */
-export interface ITaskRepository {
-  create(input: CreateTaskInput): Promise<Task>;
-  getById(id: string): Promise<Task | undefined>;
-  list(filter?: ListTasksFilter, options?: { limit?: number; offset?: number }): Promise<Task[]>;
-  update(id: string, input: UpdateTaskInput): Promise<Task | undefined>;
-  deactivate(id: string): Promise<boolean>;
-  delete(id: string): Promise<boolean>;
-  getSubtasks(parentTaskId: string): Promise<Task[]>;
-  getBlockedTasks(filter?: ListTasksFilter): Promise<Task[]>;
-  addBlocker(taskId: string, blockerId: string): Promise<Task | undefined>;
-  removeBlocker(taskId: string, blockerId: string): Promise<Task | undefined>;
-}
-
 // =============================================================================
 // Handler Implementations
 // =============================================================================
@@ -173,22 +91,18 @@ const TASK_AUDIT_ENTRY_TYPE = 'knowledge' as any;
 /**
  * Get task repository from context, throw if not available
  *
- * Note: The task repository must be added to Repositories interface in
- * src/core/interfaces/repositories.ts as:
- *   tasks?: ITaskRepository;
+ * The task repository is optionally available in Repositories interface.
+ * This helper validates its presence before use.
  */
 function getTaskRepo(context: AppContext): ITaskRepository {
-  // Cast to any to access tasks which may not be in the type yet
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const repo = (context.repos as any).tasks;
+  const repo = context.repos.tasks;
   if (!repo) {
-    throw createValidationError(
-      'tasks',
-      'Task repository not available',
-      'Ensure the task repository is configured in the application context'
+    throw createServiceUnavailableError(
+      'Tasks',
+      'repository not initialized'
     );
   }
-  return repo as ITaskRepository;
+  return repo;
 }
 
 /**
@@ -635,12 +549,17 @@ const listBlockedHandler: ContextAwareHandler = async (
   const scopeType = getOptionalParam(params, 'scopeType', isScopeType);
   const scopeId = getOptionalParam(params, 'scopeId', isString);
 
-  const filter: ListTasksFilter = {
-    scopeType,
-    scopeId,
-  };
+  // Get all blocked tasks and filter manually if scope parameters provided
+  let tasks = await repo.listBlocked();
 
-  const tasks = await repo.getBlockedTasks(filter);
+  // Apply scope filtering if specified
+  if (scopeType || scopeId) {
+    tasks = tasks.filter((task) => {
+      if (scopeType && task.scopeType !== scopeType) return false;
+      if (scopeId && task.scopeId !== scopeId) return false;
+      return true;
+    });
+  }
 
   return formatTimestamps({
     tasks,

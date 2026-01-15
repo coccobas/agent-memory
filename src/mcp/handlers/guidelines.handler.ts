@@ -18,6 +18,11 @@ import {
   isExamplesObject,
   isScopeType,
 } from '../../utils/type-guards.js';
+import {
+  validateTextLength,
+  validateJsonSize,
+  SIZE_LIMITS,
+} from '../../services/validation.service.js';
 import type { ScopeType } from '../../db/schema.js';
 import type { AppContext } from '../../core/context.js';
 
@@ -34,6 +39,16 @@ function extractAddParams(
   const rationale = getOptionalParam(params, 'rationale', isString);
   const examples = getOptionalParam(params, 'examples', isExamplesObject);
   const createdBy = getOptionalParam(params, 'createdBy', isString);
+
+  // Validate input sizes
+  validateTextLength(name, 'name', SIZE_LIMITS.NAME_MAX_LENGTH);
+  validateTextLength(content, 'content', SIZE_LIMITS.CONTENT_MAX_LENGTH);
+  if (rationale) {
+    validateTextLength(rationale, 'rationale', SIZE_LIMITS.RATIONALE_MAX_LENGTH);
+  }
+  if (examples) {
+    validateJsonSize(examples, 'examples', SIZE_LIMITS.EXAMPLES_MAX_BYTES);
+  }
 
   return {
     scopeType: defaults.scopeType!,
@@ -58,6 +73,17 @@ function extractUpdateParams(params: Record<string, unknown>): UpdateGuidelineIn
   const examples = getOptionalParam(params, 'examples', isExamplesObject);
   const changeReason = getOptionalParam(params, 'changeReason', isString);
   const updatedBy = getOptionalParam(params, 'updatedBy', isString);
+
+  // Validate input sizes
+  if (content) {
+    validateTextLength(content, 'content', SIZE_LIMITS.CONTENT_MAX_LENGTH);
+  }
+  if (rationale) {
+    validateTextLength(rationale, 'rationale', SIZE_LIMITS.RATIONALE_MAX_LENGTH);
+  }
+  if (examples) {
+    validateJsonSize(examples, 'examples', SIZE_LIMITS.EXAMPLES_MAX_BYTES);
+  }
 
   const input: UpdateGuidelineInput = {};
   if (scopeType !== undefined) input.scopeType = scopeType as ScopeType;

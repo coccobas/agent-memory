@@ -21,6 +21,11 @@ import {
   isConversationStatus,
   isEntryType,
 } from '../../utils/type-guards.js';
+import {
+  validateTextLength,
+  validateArrayLength,
+  SIZE_LIMITS,
+} from '../../services/validation.service.js';
 import { formatTimestamps } from '../../utils/timestamp-formatter.js';
 import type { PermissionEntryType } from '../../db/schema.js';
 import { requirePermission } from '../helpers/permissions.js';
@@ -37,6 +42,11 @@ export const conversationHandlers = {
     const agentId = getRequiredParam(params, 'agentId', isString);
     const title = getOptionalParam(params, 'title', isString);
     const metadata = getOptionalParam(params, 'metadata', isObject);
+
+    // Validate input sizes
+    if (title) {
+      validateTextLength(title, 'title', SIZE_LIMITS.TITLE_MAX_LENGTH);
+    }
 
     if (!sessionId && !projectId) {
       throw createValidationError(
@@ -94,6 +104,15 @@ export const conversationHandlers = {
     const metadata = getOptionalParam(params, 'metadata', isObject);
     // Security: agentId required for audit trail on write operations
     const agentId = getRequiredParam(params, 'agentId', isString);
+
+    // Validate input sizes
+    validateTextLength(content, 'content', SIZE_LIMITS.CONTENT_MAX_LENGTH);
+    if (contextEntriesParam) {
+      validateArrayLength(contextEntriesParam, 'contextEntries', 50);
+    }
+    if (toolsUsedParam) {
+      validateArrayLength(toolsUsedParam, 'toolsUsed', 100);
+    }
 
     // Validate contextEntries structure
     const contextEntries: Array<{ type: PermissionEntryType; id: string }> | undefined =
@@ -371,6 +390,11 @@ export const conversationHandlers = {
     // Security: agentId required for audit trail on write operations
     const agentId = getRequiredParam(params, 'agentId', isString);
 
+    // Validate input sizes
+    if (title) {
+      validateTextLength(title, 'title', SIZE_LIMITS.TITLE_MAX_LENGTH);
+    }
+
     if (title === undefined && status === undefined && metadata === undefined) {
       throw createValidationError(
         'updates',
@@ -567,6 +591,9 @@ export const conversationHandlers = {
     const offset = getOptionalParam(params, 'offset', isNumber);
     // Note: agentId in ConversationSearchParams is for filtering, permission check uses filterAgentId
     const agentId = filterAgentId;
+
+    // Validate input sizes
+    validateTextLength(searchQuery, 'search', SIZE_LIMITS.CONTENT_MAX_LENGTH);
 
     // Check permission (read required)
     const searchScopeType = sessionId ? 'session' : projectId ? 'project' : 'global';

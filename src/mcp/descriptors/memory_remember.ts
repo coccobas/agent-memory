@@ -11,6 +11,8 @@
  */
 
 import type { SimpleToolDescriptor } from './types.js';
+import { validateTextLength, validateArrayLength, SIZE_LIMITS } from '../../services/validation.service.js';
+import { createValidationError } from '../../core/errors.js';
 
 /**
  * Extract the core content from natural language
@@ -110,6 +112,15 @@ export const memoryRememberDescriptor: SimpleToolDescriptor = {
     const forceType = args?.forceType as 'guideline' | 'knowledge' | 'tool' | undefined;
     const priority = (args?.priority as number) ?? 50;
     const tags = (args?.tags as string[]) ?? [];
+
+    // Validate input sizes
+    validateTextLength(text, 'text', SIZE_LIMITS.CONTENT_MAX_LENGTH);
+    if (tags.length > 0) {
+      validateArrayLength(tags, 'tags', SIZE_LIMITS.TAGS_MAX_COUNT);
+    }
+    if (priority < 0 || priority > 100) {
+      throw createValidationError('priority', 'Must be between 0 and 100');
+    }
 
     // Use classification service if available, otherwise fall back to simple detection
     let classificationResult: {

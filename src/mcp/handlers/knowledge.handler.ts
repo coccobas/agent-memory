@@ -18,6 +18,10 @@ import {
   isISODateString,
   isScopeType,
 } from '../../utils/type-guards.js';
+import {
+  validateTextLength,
+  SIZE_LIMITS,
+} from '../../services/validation.service.js';
 import type { ScopeType } from '../../db/schema.js';
 import type { AppContext } from '../../core/context.js';
 
@@ -37,6 +41,13 @@ function extractAddParams(
   const validFrom = getOptionalParam(params, 'validFrom', isISODateString);
   const validUntil = getOptionalParam(params, 'validUntil', isISODateString);
   const createdBy = getOptionalParam(params, 'createdBy', isString);
+
+  // Validate input sizes
+  validateTextLength(title, 'title', SIZE_LIMITS.TITLE_MAX_LENGTH);
+  validateTextLength(content, 'content', SIZE_LIMITS.CONTENT_MAX_LENGTH);
+  if (source) {
+    validateTextLength(source, 'source', SIZE_LIMITS.DESCRIPTION_MAX_LENGTH);
+  }
 
   return {
     scopeType: defaults.scopeType!,
@@ -64,6 +75,14 @@ function extractUpdateParams(params: Record<string, unknown>): UpdateKnowledgeIn
   const invalidatedBy = getOptionalParam(params, 'invalidatedBy', isString);
   const changeReason = getOptionalParam(params, 'changeReason', isString);
   const updatedBy = getOptionalParam(params, 'updatedBy', isString);
+
+  // Validate input sizes
+  if (content) {
+    validateTextLength(content, 'content', SIZE_LIMITS.CONTENT_MAX_LENGTH);
+  }
+  if (source) {
+    validateTextLength(source, 'source', SIZE_LIMITS.DESCRIPTION_MAX_LENGTH);
+  }
 
   const input: UpdateKnowledgeInput = {};
   if (scopeType !== undefined) input.scopeType = scopeType as ScopeType;
