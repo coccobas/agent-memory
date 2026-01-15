@@ -243,8 +243,9 @@ export class PermissionService {
         if (session?.projectId) {
           result = { type: 'project', id: session.projectId };
         }
-      } catch {
-        // Session table may not exist
+      } catch (error) {
+        // Session table may not exist or query failed
+        this.logger.debug({ error, scopeId }, 'Session lookup failed, assuming no parent project');
       }
       if (!result) {
         // Bug #342 fix: Log warning when session has no projectId - this causes global fallback

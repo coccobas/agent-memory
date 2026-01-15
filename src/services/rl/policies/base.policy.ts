@@ -8,6 +8,9 @@
  */
 
 import type { PolicyDecision } from '../types.js';
+import { createComponentLogger } from '../../../utils/logger.js';
+
+const logger = createComponentLogger('policy');
 
 // Re-export PolicyDecision for convenience
 export type { PolicyDecision };
@@ -97,7 +100,7 @@ export abstract class BasePolicy<TState, TAction> implements IPolicy<TState, TAc
       return await this.decide(state);
     } catch (error) {
       // Log error and fall back to rules
-      console.warn('Policy decision failed, using fallback:', error);
+      logger.warn({ error }, 'Policy decision failed, using fallback');
       return this.getFallback()(state);
     }
   }
