@@ -2,6 +2,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
 import compress from '@fastify/compress';
 import helmet from '@fastify/helmet';
+import cookie from '@fastify/cookie';
 
 import { createComponentLogger } from '../utils/logger.js';
 import type { AppContext } from '../core/context.js';
@@ -14,7 +15,7 @@ import { registerV1Routes } from './routes/v1.js';
 import { getHealthMonitor, resetHealthMonitor } from '../services/health.service.js';
 import { metrics } from '../utils/metrics.js';
 import { backpressure } from '../utils/backpressure.js';
-import { registerAuthMiddleware } from './middleware/index.js';
+import { registerAuthMiddleware, registerCsrfProtection } from './middleware/index.js';
 
 // Extend Fastify request to include authenticated agent ID, request ID, and rate limit info
 declare module 'fastify' {
@@ -75,7 +76,10 @@ function parseCorsOrigins(envValue: string | undefined): string[] | false {
     return false;
   }
 
-  const origins = envValue.split(',').map((o) => o.trim()).filter(Boolean);
+  const origins = envValue
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
   const validOrigins: string[] = [];
   const invalidOrigins: string[] = [];
 
@@ -113,7 +117,9 @@ export async function createServer(context: AppContext): Promise<FastifyInstance
     connectionTimeout: 30000, // 30 second connection timeout
     requestTimeout: Number(process.env.AGENT_MEMORY_REST_REQUEST_TIMEOUT_MS) || 60000, // default 60s, increase for slow LLM extraction
     // Bug #278 fix: Case-insensitive boolean parsing for trustProxy
-    trustProxy: ['true', '1', 'yes'].includes((process.env.AGENT_MEMORY_REST_TRUST_PROXY ?? '').toLowerCase()), // Enable trustProxy to use Fastify's built-in IP parsing (HIGH-001 fix)
+    trustProxy: ['true', '1', 'yes'].includes(
+      (process.env.AGENT_MEMORY_REST_TRUST_PROXY ?? '').toLowerCase()
+    ), // Enable trustProxy to use Fastify's built-in IP parsing (HIGH-001 fix)
   });
 
   // Register CORS plugin early, before other plugins and routes
@@ -122,7 +128,7 @@ export async function createServer(context: AppContext): Promise<FastifyInstance
     origin: parseCorsOrigins(process.env.AGENT_MEMORY_REST_CORS_ORIGINS),
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Agent-ID', 'X-Request-ID', 'X-API-Key'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Agent-ID', 'X-Request-ID', 'X-API-Key', 'X-CSRF-Token'],
     exposedHeaders: [
       'X-Request-ID',
       'Retry-After',
@@ -163,9 +169,35 @@ export async function createServer(context: AppContext): Promise<FastifyInstance
     encodings: ['gzip', 'deflate'], // Prefer gzip
   });
 
+  // HIGH-003 fix: Cookie support and CSRF protection
+  const csrfSecret = config.security.csrfSecret || config.security.restApiKey || 'dev-secret-min-32-chars-required-here';
+
+  await app.register(cookie, {
+    secret: csrfSecret,
+    parseOptions: {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+    },
+  });
+
   // Register authentication middleware (request ID, rate limits, content-type, auth)
   // See src/restapi/middleware/auth.ts for implementation details
   registerAuthMiddleware(app, context);
+
+  // HIGH-003 fix: CSRF protection for state-changing requests
+  // Must run AFTER auth middleware to access agentId
+  if (csrfSecret.length >= 32) {
+    registerCsrfProtection(app, {
+      secret: csrfSecret,
+      exemptPaths: ['/health', '/metrics', '/v1/openapi.json'],
+    });
+  } else {
+    restLogger.warn(
+      { secretLength: csrfSecret.length },
+      'CSRF protection disabled: secret too short (min 32 chars). Set AGENT_MEMORY_CSRF_SECRET or AGENT_MEMORY_REST_API_KEY.'
+    );
+  }
 
   app.get('/health', async () => {
     const healthMonitor = getHealthMonitor();
@@ -211,12 +243,12 @@ export async function createServer(context: AppContext): Promise<FastifyInstance
 
   // Prometheus metrics endpoint
   app.get('/metrics', async (_request, reply) => {
-    reply.header('Content-Type', 'text/plain; version=0.0.4; charset=utf-8');
+    void reply.header('Content-Type', 'text/plain; version=0.0.4; charset=utf-8');
     return metrics.format();
   });
 
   // Register Routes
-  registerV1Routes(app, context);
+  await registerV1Routes(app, context);
 
   app.setErrorHandler(async (error, request, reply) => {
     // HIGH-017: Include request ID in error logs for tracing
@@ -299,6 +331,21 @@ export async function runServer(): Promise<void> {
 
   process.on('SIGTERM', () => void shutdown('SIGTERM'));
   process.on('SIGINT', () => void shutdown('SIGINT'));
+
+  // Process error handlers
+  process.on('uncaughtException', (error) => {
+    restLogger.fatal({ error }, 'Uncaught exception in REST server');
+    void shutdown('uncaughtException').then(() => {
+      process.exit(1);
+    });
+  });
+
+  process.on('unhandledRejection', (reason) => {
+    restLogger.fatal({ reason }, 'Unhandled rejection in REST server');
+    void shutdown('unhandledRejection').then(() => {
+      process.exit(1);
+    });
+  });
 
   await app.listen({ host, port });
   restLogger.info({ host, port }, 'REST API listening');

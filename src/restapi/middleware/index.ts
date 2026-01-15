@@ -11,3 +11,5 @@ export {
   registerAuthHook,
   registerAuthMiddleware,
 } from './auth.js';
+
+export { registerCsrfProtection, type CsrfConfig } from './csrf.js';
