@@ -17,9 +17,9 @@ describe('Feedback-Based Scoring', () => {
     const defaultConfig: FeedbackScoringConfig = {
       enabled: true,
       boostPerPositive: 0.02, // +2% per positive
-      boostMax: 0.10, // max +10%
-      penaltyPerNegative: 0.10, // -10% per negative
-      penaltyMax: 0.50, // max -50%
+      boostMax: 0.1, // max +10%
+      penaltyPerNegative: 0.1, // -10% per negative
+      penaltyMax: 0.5, // max -50%
     };
 
     it('should return 1.0 for neutral feedback (netScore === 0)', () => {
@@ -76,7 +76,7 @@ describe('Feedback-Based Scoring', () => {
         };
 
         const multiplier = getFeedbackMultiplier(feedback, defaultConfig);
-        expect(multiplier).toBe(1.10);
+        expect(multiplier).toBe(1.1);
       });
 
       it('should cap boost at +10% even with more than 5 positives', () => {
@@ -87,7 +87,7 @@ describe('Feedback-Based Scoring', () => {
         };
 
         const multiplier = getFeedbackMultiplier(feedback, defaultConfig);
-        expect(multiplier).toBe(1.10);
+        expect(multiplier).toBe(1.1);
       });
     });
 
@@ -100,7 +100,7 @@ describe('Feedback-Based Scoring', () => {
         };
 
         const multiplier = getFeedbackMultiplier(feedback, defaultConfig);
-        expect(multiplier).toBe(0.90);
+        expect(multiplier).toBe(0.9);
       });
 
       it('should apply -20% penalty for 2 net negative', () => {
@@ -111,27 +111,42 @@ describe('Feedback-Based Scoring', () => {
         };
 
         const multiplier = getFeedbackMultiplier(feedback, defaultConfig);
-        expect(multiplier).toBe(0.80);
+        expect(multiplier).toBe(0.8);
       });
 
       it('should apply graduated penalties: -30%, -40%, -50%', () => {
-        expect(getFeedbackMultiplier({
-          positiveCount: 0,
-          negativeCount: 3,
-          netScore: -3,
-        }, defaultConfig)).toBe(0.70);
+        expect(
+          getFeedbackMultiplier(
+            {
+              positiveCount: 0,
+              negativeCount: 3,
+              netScore: -3,
+            },
+            defaultConfig
+          )
+        ).toBe(0.7);
 
-        expect(getFeedbackMultiplier({
-          positiveCount: 0,
-          negativeCount: 4,
-          netScore: -4,
-        }, defaultConfig)).toBe(0.60);
+        expect(
+          getFeedbackMultiplier(
+            {
+              positiveCount: 0,
+              negativeCount: 4,
+              netScore: -4,
+            },
+            defaultConfig
+          )
+        ).toBe(0.6);
 
-        expect(getFeedbackMultiplier({
-          positiveCount: 0,
-          negativeCount: 5,
-          netScore: -5,
-        }, defaultConfig)).toBe(0.50);
+        expect(
+          getFeedbackMultiplier(
+            {
+              positiveCount: 0,
+              negativeCount: 5,
+              netScore: -5,
+            },
+            defaultConfig
+          )
+        ).toBe(0.5);
       });
 
       it('should cap penalty at -50% (multiplier 0.5)', () => {
@@ -142,7 +157,7 @@ describe('Feedback-Based Scoring', () => {
         };
 
         const multiplier = getFeedbackMultiplier(feedback, defaultConfig);
-        expect(multiplier).toBe(0.50);
+        expect(multiplier).toBe(0.5);
       });
     });
 
@@ -156,7 +171,7 @@ describe('Feedback-Based Scoring', () => {
 
         const multiplier = getFeedbackMultiplier(feedback, defaultConfig);
         // Penalty of 10% per net negative, so -20%
-        expect(multiplier).toBe(0.80);
+        expect(multiplier).toBe(0.8);
       });
 
       it('should calculate boost based on positive count when positive', () => {
@@ -168,7 +183,7 @@ describe('Feedback-Based Scoring', () => {
 
         const multiplier = getFeedbackMultiplier(feedback, defaultConfig);
         // Boost is based on positiveCount (5 * 0.02 = 0.10 = max)
-        expect(multiplier).toBe(1.10);
+        expect(multiplier).toBe(1.1);
       });
     });
   });

@@ -94,7 +94,12 @@ export function getItemContent(item: QueryResultItem): string {
       return (version?.content as string) ?? '';
     case 'experience':
       // Experience version has content, scenario, outcome
-      return (version?.content as string) ?? (version?.scenario as string) ?? (version?.outcome as string) ?? '';
+      return (
+        (version?.content as string) ??
+        (version?.scenario as string) ??
+        (version?.outcome as string) ??
+        ''
+      );
     default:
       return '';
   }

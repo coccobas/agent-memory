@@ -162,10 +162,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "TypeScript",
-              "strict"
-            ],
+            "mustContain": ["TypeScript", "strict"],
             "category": "code_style"
           },
           "matched": true,
@@ -175,11 +172,7 @@
             "content": "We always use TypeScript strict mode in this project.",
             "category": "code_style",
             "confidence": 1,
-            "suggestedTags": [
-              "typescript",
-              "strict-mode",
-              "code-quality"
-            ]
+            "suggestedTags": ["typescript", "strict-mode", "code-quality"]
           },
           "matchScore": 1,
           "details": "Matched fragments: TypeScript, strict; Category matched"
@@ -205,10 +198,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "any",
-              "type"
-            ],
+            "mustContain": ["any", "type"],
             "category": "code_style"
           },
           "matched": true,
@@ -218,10 +208,7 @@
             "content": "Never use any type in TypeScript code.",
             "category": "code_style",
             "confidence": 1,
-            "suggestedTags": [
-              "typescript",
-              "code_quality"
-            ]
+            "suggestedTags": ["typescript", "code_quality"]
           },
           "matchScore": 1,
           "details": "Matched fragments: any, type; Category matched"
@@ -247,10 +234,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "API",
-              "HTTP status"
-            ]
+            "mustContain": ["API", "HTTP status"]
           },
           "matched": true,
           "matchedEntry": {
@@ -259,11 +243,7 @@
             "content": "All API endpoints must return proper HTTP status codes.",
             "category": "architecture",
             "confidence": 1,
-            "suggestedTags": [
-              "api",
-              "http",
-              "status-codes"
-            ]
+            "suggestedTags": ["api", "http", "status-codes"]
           },
           "matchScore": 1,
           "details": "Matched fragments: API, HTTP status"
@@ -289,10 +269,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "composition",
-              "inheritance"
-            ]
+            "mustContain": ["composition", "inheritance"]
           },
           "matched": true,
           "matchedEntry": {
@@ -301,10 +278,7 @@
             "content": "Developers should prefer composition over inheritance.",
             "category": "architecture",
             "confidence": 0.9,
-            "suggestedTags": [
-              "design-patterns",
-              "object-oriented"
-            ]
+            "suggestedTags": ["design-patterns", "object-oriented"]
           },
           "matchScore": 1,
           "details": "Matched fragments: composition, inheritance"
@@ -330,10 +304,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "global",
-              "variable"
-            ]
+            "mustContain": ["global", "variable"]
           },
           "matched": true,
           "matchedEntry": {
@@ -342,10 +313,7 @@
             "content": "Avoid using global variables in the codebase.",
             "category": "code_style",
             "confidence": 1,
-            "suggestedTags": [
-              "best-practice",
-              "code-quality"
-            ]
+            "suggestedTags": ["best-practice", "code-quality"]
           },
           "matchScore": 1,
           "details": "Matched fragments: global, variable"
@@ -371,9 +339,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "unit test"
-            ]
+            "mustContain": ["unit test"]
           },
           "matched": true,
           "matchedEntry": {
@@ -382,10 +348,7 @@
             "content": "Always write unit tests for new code",
             "category": "testing",
             "confidence": 1,
-            "suggestedTags": [
-              "coding-standards",
-              "testing"
-            ]
+            "suggestedTags": ["coding-standards", "testing"]
           },
           "matchScore": 1,
           "details": "Matched fragments: unit test"
@@ -393,10 +356,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "main branch",
-              "commit"
-            ]
+            "mustContain": ["main branch", "commit"]
           },
           "matched": true,
           "matchedEntry": {
@@ -405,10 +365,7 @@
             "content": "Never commit directly to main branch",
             "category": "workflow",
             "confidence": 1,
-            "suggestedTags": [
-              "coding-standards",
-              "workflow"
-            ]
+            "suggestedTags": ["coding-standards", "workflow"]
           },
           "matchScore": 1,
           "details": "Matched fragments: main branch, commit"
@@ -416,9 +373,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "variable name"
-            ]
+            "mustContain": ["variable name"]
           },
           "matched": true,
           "matchedEntry": {
@@ -427,10 +382,7 @@
             "content": "Use meaningful variable names",
             "category": "code_style",
             "confidence": 1,
-            "suggestedTags": [
-              "coding-standards",
-              "code-style"
-            ]
+            "suggestedTags": ["coding-standards", "code-style"]
           },
           "matchScore": 1,
           "details": "Matched fragments: variable name"
@@ -456,10 +408,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "sanitize",
-              "input"
-            ],
+            "mustContain": ["sanitize", "input"],
             "category": "security"
           },
           "matched": true,
@@ -469,10 +418,7 @@
             "content": "Always sanitize user input before processing.",
             "category": "security",
             "confidence": 1,
-            "suggestedTags": [
-              "security",
-              "input-validation"
-            ]
+            "suggestedTags": ["security", "input-validation"]
           },
           "matchScore": 1,
           "details": "Matched fragments: sanitize, input; Category matched"
@@ -480,10 +426,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "trust",
-              "external"
-            ],
+            "mustContain": ["trust", "external"],
             "category": "security"
           },
           "matched": true,
@@ -493,10 +436,7 @@
             "content": "Never trust data from external sources.",
             "category": "security",
             "confidence": 1,
-            "suggestedTags": [
-              "security",
-              "data-integrity"
-            ]
+            "suggestedTags": ["security", "data-integrity"]
           },
           "matchScore": 1,
           "details": "Matched fragments: trust, external; Category matched"
@@ -522,10 +462,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "lazy loading",
-              "image"
-            ]
+            "mustContain": ["lazy loading", "image"]
           },
           "matched": true,
           "matchedEntry": {
@@ -534,10 +471,7 @@
             "content": "Always use lazy loading for images.",
             "category": "performance",
             "confidence": 1,
-            "suggestedTags": [
-              "performance",
-              "optimization"
-            ]
+            "suggestedTags": ["performance", "optimization"]
           },
           "matchScore": 1,
           "details": "Matched fragments: lazy loading, image"
@@ -545,10 +479,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "main thread",
-              "blocking"
-            ]
+            "mustContain": ["main thread", "blocking"]
           },
           "matched": true,
           "matchedEntry": {
@@ -557,10 +488,7 @@
             "content": "Avoid blocking the main thread with heavy computations.",
             "category": "performance",
             "confidence": 1,
-            "suggestedTags": [
-              "performance",
-              "optimization"
-            ]
+            "suggestedTags": ["performance", "optimization"]
           },
           "matchScore": 1,
           "details": "Matched fragments: main thread, blocking"
@@ -586,10 +514,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "80%",
-              "coverage"
-            ],
+            "mustContain": ["80%", "coverage"],
             "category": "testing"
           },
           "matched": true,
@@ -599,10 +524,7 @@
             "content": "Tests must have at least 80% code coverage.",
             "category": "testing",
             "confidence": 1,
-            "suggestedTags": [
-              "testing",
-              "code-coverage"
-            ]
+            "suggestedTags": ["testing", "code-coverage"]
           },
           "matchScore": 1,
           "details": "Matched fragments: 80%, coverage; Category matched"
@@ -610,11 +532,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "mock",
-              "external",
-              "dependencies"
-            ],
+            "mustContain": ["mock", "external", "dependencies"],
             "category": "testing"
           },
           "matched": true,
@@ -624,10 +542,7 @@
             "content": "Always mock external dependencies in unit tests.",
             "category": "testing",
             "confidence": 1,
-            "suggestedTags": [
-              "testing",
-              "mocking"
-            ]
+            "suggestedTags": ["testing", "mocking"]
           },
           "matchScore": 1,
           "details": "Matched fragments: mock, external, dependencies; Category matched"
@@ -653,10 +568,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "JSDoc",
-              "public function"
-            ]
+            "mustContain": ["JSDoc", "public function"]
           },
           "matched": true,
           "matchedEntry": {
@@ -665,10 +577,7 @@
             "content": "Every public function must have JSDoc comments.",
             "category": "code_style",
             "confidence": 1,
-            "suggestedTags": [
-              "documentation",
-              "jsdoc"
-            ]
+            "suggestedTags": ["documentation", "jsdoc"]
           },
           "matchScore": 1,
           "details": "Matched fragments: JSDoc, public function"
@@ -676,10 +585,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "README",
-              "feature"
-            ]
+            "mustContain": ["README", "feature"]
           },
           "matched": true,
           "matchedEntry": {
@@ -688,10 +594,7 @@
             "content": "README files should be updated when adding new features.",
             "category": "workflow",
             "confidence": 1,
-            "suggestedTags": [
-              "documentation",
-              "readme"
-            ]
+            "suggestedTags": ["documentation", "readme"]
           },
           "matchScore": 1,
           "details": "Matched fragments: README, feature"
@@ -717,10 +620,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "PR",
-              "review"
-            ]
+            "mustContain": ["PR", "review"]
           },
           "matched": true,
           "matchedEntry": {
@@ -729,10 +629,7 @@
             "content": "Review every PR before merging",
             "category": "workflow",
             "confidence": 1,
-            "suggestedTags": [
-              "code review",
-              "quality assurance"
-            ]
+            "suggestedTags": ["code review", "quality assurance"]
           },
           "matchScore": 1,
           "details": "Matched fragments: PR, review"
@@ -758,9 +655,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "REST"
-            ]
+            "mustContain": ["REST"]
           },
           "matched": false,
           "matchScore": 0,
@@ -769,10 +664,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "plural",
-              "endpoint"
-            ]
+            "mustContain": ["plural", "endpoint"]
           },
           "matched": true,
           "matchedEntry": {
@@ -781,10 +673,7 @@
             "content": "Use plural nouns for resource endpoints like /users and /orders.",
             "category": "architecture",
             "confidence": 0.9,
-            "suggestedTags": [
-              "api",
-              "rest"
-            ]
+            "suggestedTags": ["api", "rest"]
           },
           "matchScore": 1,
           "details": "Matched fragments: plural, endpoint"
@@ -810,10 +699,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "ESLint",
-              "Airbnb"
-            ]
+            "mustContain": ["ESLint", "Airbnb"]
           },
           "matched": true,
           "matchedEntry": {
@@ -822,10 +708,7 @@
             "content": "We use ESLint with the Airbnb config.",
             "category": "code_style",
             "confidence": 1,
-            "suggestedTags": [
-              "eslint",
-              "airbnb"
-            ]
+            "suggestedTags": ["eslint", "airbnb"]
           },
           "matchScore": 1,
           "details": "Matched fragments: ESLint, Airbnb"
@@ -833,10 +716,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "Prettier",
-              "2-space"
-            ]
+            "mustContain": ["Prettier", "2-space"]
           },
           "matched": true,
           "matchedEntry": {
@@ -845,10 +725,7 @@
             "content": "Prettier handles formatting with 2-space indentation.",
             "category": "code_style",
             "confidence": 1,
-            "suggestedTags": [
-              "prettier",
-              "formatting"
-            ]
+            "suggestedTags": ["prettier", "formatting"]
           },
           "matchScore": 1,
           "details": "Matched fragments: Prettier, 2-space"
@@ -874,10 +751,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "hexagonal",
-              "architecture"
-            ]
+            "mustContain": ["hexagonal", "architecture"]
           },
           "matched": false,
           "matchScore": 0,
@@ -886,10 +760,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "domain",
-              "dependencies"
-            ]
+            "mustContain": ["domain", "dependencies"]
           },
           "matched": false,
           "matchScore": 0,
@@ -916,10 +787,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "CI/CD",
-              "deploy"
-            ]
+            "mustContain": ["CI/CD", "deploy"]
           },
           "matched": false,
           "matchScore": 0,
@@ -928,10 +796,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "server access",
-              "ops"
-            ]
+            "mustContain": ["server access", "ops"]
           },
           "matched": true,
           "matchedEntry": {
@@ -940,10 +805,7 @@
             "content": "Direct server access is restricted to ops team only.",
             "category": "security",
             "confidence": 1,
-            "suggestedTags": [
-              "security",
-              "access-control"
-            ]
+            "suggestedTags": ["security", "access-control"]
           },
           "matchScore": 1,
           "details": "Matched fragments: server access, ops"
@@ -969,9 +831,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "GitFlow"
-            ]
+            "mustContain": ["GitFlow"]
           },
           "matched": false,
           "matchScore": 0,
@@ -980,10 +840,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "feature/",
-              "branch"
-            ]
+            "mustContain": ["feature/", "branch"]
           },
           "matched": true,
           "matchedEntry": {
@@ -992,11 +849,7 @@
             "content": "Feature branches are prefixed with feature/ and hotfixes are prefixed with hotfix/",
             "category": "workflow",
             "confidence": 1,
-            "suggestedTags": [
-              "git",
-              "branching",
-              "gitflow"
-            ]
+            "suggestedTags": ["git", "branching", "gitflow"]
           },
           "matchScore": 1,
           "details": "Matched fragments: feature/, branch"
@@ -1022,10 +875,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "RFC 7807",
-              "error"
-            ]
+            "mustContain": ["RFC 7807", "error"]
           },
           "matched": false,
           "matchScore": 0,
@@ -1034,9 +884,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "error code"
-            ]
+            "mustContain": ["error code"]
           },
           "matched": false,
           "matchScore": 0,
@@ -1063,10 +911,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "PascalCase",
-              "component"
-            ]
+            "mustContain": ["PascalCase", "component"]
           },
           "matched": true,
           "matchedEntry": {
@@ -1075,11 +920,7 @@
             "content": "Components are named with PascalCase",
             "category": "code_style",
             "confidence": 0.9,
-            "suggestedTags": [
-              "naming",
-              "convention",
-              "code_style"
-            ]
+            "suggestedTags": ["naming", "convention", "code_style"]
           },
           "matchScore": 1,
           "details": "Matched fragments: PascalCase, component"
@@ -1087,10 +928,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "camelCase",
-              "function"
-            ]
+            "mustContain": ["camelCase", "function"]
           },
           "matched": true,
           "matchedEntry": {
@@ -1099,11 +937,7 @@
             "content": "Utility functions use camelCase",
             "category": "code_style",
             "confidence": 0.9,
-            "suggestedTags": [
-              "naming",
-              "convention",
-              "code_style"
-            ]
+            "suggestedTags": ["naming", "convention", "code_style"]
           },
           "matchScore": 1,
           "details": "Matched fragments: camelCase, function"
@@ -1129,9 +963,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "const"
-            ]
+            "mustContain": ["const"]
           },
           "matched": true,
           "matchedEntry": {
@@ -1140,10 +972,7 @@
             "content": "Always use const",
             "category": "code_style",
             "confidence": 1,
-            "suggestedTags": [
-              "const",
-              "variables"
-            ]
+            "suggestedTags": ["const", "variables"]
           },
           "matchScore": 1,
           "details": "Matched fragments: const"
@@ -1151,9 +980,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "var"
-            ]
+            "mustContain": ["var"]
           },
           "matched": true,
           "matchedEntry": {
@@ -1162,10 +989,7 @@
             "content": "Never use var",
             "category": "code_style",
             "confidence": 1,
-            "suggestedTags": [
-              "var",
-              "variables"
-            ]
+            "suggestedTags": ["var", "variables"]
           },
           "matchScore": 1,
           "details": "Matched fragments: var"
@@ -1173,9 +997,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "arrow function"
-            ]
+            "mustContain": ["arrow function"]
           },
           "matched": true,
           "matchedEntry": {
@@ -1184,10 +1006,7 @@
             "content": "Prefer arrow functions over regular functions",
             "category": "code_style",
             "confidence": 1,
-            "suggestedTags": [
-              "arrow-functions",
-              "functions"
-            ]
+            "suggestedTags": ["arrow-functions", "functions"]
           },
           "matchScore": 1,
           "details": "Matched fragments: arrow function"
@@ -1213,10 +1032,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "validate",
-              "input"
-            ]
+            "mustContain": ["validate", "input"]
           },
           "matched": true,
           "matchedEntry": {
@@ -1225,10 +1041,7 @@
             "content": "Always validate inputs and never trust user data.",
             "category": "security",
             "confidence": 1,
-            "suggestedTags": [
-              "security",
-              "input-validation"
-            ]
+            "suggestedTags": ["security", "input-validation"]
           },
           "matchScore": 1,
           "details": "Matched fragments: validate, input"
@@ -1236,10 +1049,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "trust",
-              "user"
-            ]
+            "mustContain": ["trust", "user"]
           },
           "matched": false,
           "matchScore": 0,
@@ -1248,10 +1058,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "sanitize",
-              "string"
-            ]
+            "mustContain": ["sanitize", "string"]
           },
           "matched": true,
           "matchedEntry": {
@@ -1260,10 +1067,7 @@
             "content": "Must sanitize all strings.",
             "category": "security",
             "confidence": 1,
-            "suggestedTags": [
-              "security",
-              "input-sanitization"
-            ]
+            "suggestedTags": ["security", "input-sanitization"]
           },
           "matchScore": 1,
           "details": "Matched fragments: sanitize, string"
@@ -1289,10 +1093,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "ESLint",
-              "linting"
-            ]
+            "mustContain": ["ESLint", "linting"]
           },
           "matched": false,
           "matchScore": 0,
@@ -1301,10 +1102,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "Prettier",
-              "formatting"
-            ]
+            "mustContain": ["Prettier", "formatting"]
           },
           "matched": false,
           "matchScore": 0,
@@ -1313,10 +1111,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "husky",
-              "pre-commit"
-            ]
+            "mustContain": ["husky", "pre-commit"]
           },
           "matched": false,
           "matchScore": 0,
@@ -1343,9 +1138,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "dependency injection"
-            ]
+            "mustContain": ["dependency injection"]
           },
           "matched": true,
           "matchedEntry": {
@@ -1354,10 +1147,7 @@
             "content": "Use dependency injection",
             "category": "architecture",
             "confidence": 1,
-            "suggestedTags": [
-              "architecture",
-              "dependency-injection"
-            ]
+            "suggestedTags": ["architecture", "dependency-injection"]
           },
           "matchScore": 1,
           "details": "Matched fragments: dependency injection"
@@ -1365,9 +1155,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "global state"
-            ]
+            "mustContain": ["global state"]
           },
           "matched": true,
           "matchedEntry": {
@@ -1376,10 +1164,7 @@
             "content": "Avoid global state",
             "category": "architecture",
             "confidence": 1,
-            "suggestedTags": [
-              "architecture",
-              "state-management"
-            ]
+            "suggestedTags": ["architecture", "state-management"]
           },
           "matchScore": 1,
           "details": "Matched fragments: global state"
@@ -1387,9 +1172,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "pure function"
-            ]
+            "mustContain": ["pure function"]
           },
           "matched": true,
           "matchedEntry": {
@@ -1398,10 +1181,7 @@
             "content": "Write pure functions when possible",
             "category": "code_style",
             "confidence": 1,
-            "suggestedTags": [
-              "code_style",
-              "functional-programming"
-            ]
+            "suggestedTags": ["code_style", "functional-programming"]
           },
           "matchScore": 1,
           "details": "Matched fragments: pure function"
@@ -1427,10 +1207,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "test",
-              "first"
-            ]
+            "mustContain": ["test", "first"]
           },
           "matched": true,
           "matchedEntry": {
@@ -1439,10 +1216,7 @@
             "content": "Always write tests first.",
             "category": "workflow",
             "confidence": 1,
-            "suggestedTags": [
-              "testing",
-              "best-practice"
-            ]
+            "suggestedTags": ["testing", "best-practice"]
           },
           "matchScore": 1,
           "details": "Matched fragments: test, first"
@@ -1450,9 +1224,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "code review"
-            ]
+            "mustContain": ["code review"]
           },
           "matched": true,
           "matchedEntry": {
@@ -1461,10 +1233,7 @@
             "content": "Never skip code review.",
             "category": "workflow",
             "confidence": 1,
-            "suggestedTags": [
-              "code-review",
-              "best-practice"
-            ]
+            "suggestedTags": ["code-review", "best-practice"]
           },
           "matchScore": 1,
           "details": "Matched fragments: code review"
@@ -1472,9 +1241,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "commit message"
-            ]
+            "mustContain": ["commit message"]
           },
           "matched": true,
           "matchedEntry": {
@@ -1483,10 +1250,7 @@
             "content": "Use meaningful commit messages.",
             "category": "workflow",
             "confidence": 1,
-            "suggestedTags": [
-              "git",
-              "commit-messages"
-            ]
+            "suggestedTags": ["git", "commit-messages"]
           },
           "matchScore": 1,
           "details": "Matched fragments: commit message"
@@ -1494,9 +1258,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "large PR"
-            ]
+            "mustContain": ["large PR"]
           },
           "matched": true,
           "matchedEntry": {
@@ -1505,10 +1267,7 @@
             "content": "Avoid large PRs.",
             "category": "workflow",
             "confidence": 1,
-            "suggestedTags": [
-              "pull-requests",
-              "best-practice"
-            ]
+            "suggestedTags": ["pull-requests", "best-practice"]
           },
           "matchScore": 1,
           "details": "Matched fragments: large PR"
@@ -1534,10 +1293,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "parameterized",
-              "query"
-            ]
+            "mustContain": ["parameterized", "query"]
           },
           "matched": true,
           "matchedEntry": {
@@ -1546,10 +1302,7 @@
             "content": "Always use parameterized queries",
             "category": "security",
             "confidence": 1,
-            "suggestedTags": [
-              "database",
-              "security"
-            ]
+            "suggestedTags": ["database", "security"]
           },
           "matchScore": 0.5,
           "details": "Matched fragments: parameterized"
@@ -1557,10 +1310,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "password",
-              "plain text"
-            ]
+            "mustContain": ["password", "plain text"]
           },
           "matched": true,
           "matchedEntry": {
@@ -1569,10 +1319,7 @@
             "content": "Never store passwords in plain text",
             "category": "security",
             "confidence": 1,
-            "suggestedTags": [
-              "database",
-              "security"
-            ]
+            "suggestedTags": ["database", "security"]
           },
           "matchScore": 1,
           "details": "Matched fragments: password, plain text"
@@ -1580,9 +1327,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "connection pool"
-            ]
+            "mustContain": ["connection pool"]
           },
           "matched": true,
           "matchedEntry": {
@@ -1591,10 +1336,7 @@
             "content": "Use connection pooling",
             "category": "performance",
             "confidence": 1,
-            "suggestedTags": [
-              "database",
-              "performance"
-            ]
+            "suggestedTags": ["database", "performance"]
           },
           "matchScore": 1,
           "details": "Matched fragments: connection pool"
@@ -1602,10 +1344,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "index",
-              "column"
-            ]
+            "mustContain": ["index", "column"]
           },
           "matched": true,
           "matchedEntry": {
@@ -1614,10 +1353,7 @@
             "content": "Index frequently queried columns",
             "category": "performance",
             "confidence": 1,
-            "suggestedTags": [
-              "database",
-              "performance"
-            ]
+            "suggestedTags": ["database", "performance"]
           },
           "matchScore": 1,
           "details": "Matched fragments: index, column"
@@ -1643,10 +1379,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "small",
-              "focused"
-            ]
+            "mustContain": ["small", "focused"]
           },
           "matched": true,
           "matchedEntry": {
@@ -1655,10 +1388,7 @@
             "content": "Functions should be small and focused.",
             "category": "code_style",
             "confidence": 0.9,
-            "suggestedTags": [
-              "functions",
-              "code_quality"
-            ]
+            "suggestedTags": ["functions", "code_quality"]
           },
           "matchScore": 1,
           "details": "Matched fragments: small, focused"
@@ -1666,9 +1396,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "one thing"
-            ]
+            "mustContain": ["one thing"]
           },
           "matched": true,
           "matchedEntry": {
@@ -1677,10 +1405,7 @@
             "content": "Each function should do one thing.",
             "category": "code_style",
             "confidence": 0.9,
-            "suggestedTags": [
-              "functions",
-              "code_quality"
-            ]
+            "suggestedTags": ["functions", "code_quality"]
           },
           "matchScore": 1,
           "details": "Matched fragments: one thing"
@@ -1688,10 +1413,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "function name",
-              "descriptive"
-            ]
+            "mustContain": ["function name", "descriptive"]
           },
           "matched": true,
           "matchedEntry": {
@@ -1700,10 +1422,7 @@
             "content": "Function names should be descriptive.",
             "category": "code_style",
             "confidence": 0.9,
-            "suggestedTags": [
-              "functions",
-              "naming_conventions"
-            ]
+            "suggestedTags": ["functions", "naming_conventions"]
           },
           "matchScore": 1,
           "details": "Matched fragments: function name, descriptive"
@@ -1729,10 +1448,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "PostgreSQL",
-              "database"
-            ],
+            "mustContain": ["PostgreSQL", "database"],
             "category": "decision"
           },
           "matched": true,
@@ -1742,11 +1458,7 @@
             "content": "We chose PostgreSQL for our database because of its reliability and JSON support.",
             "category": "decision",
             "confidence": 1,
-            "suggestedTags": [
-              "PostgreSQL",
-              "database",
-              "decision"
-            ]
+            "suggestedTags": ["PostgreSQL", "database", "decision"]
           },
           "matchScore": 1,
           "details": "Matched fragments: PostgreSQL, database; Category matched"
@@ -1772,10 +1484,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "React",
-              "frontend"
-            ],
+            "mustContain": ["React", "frontend"],
             "category": "decision"
           },
           "matched": true,
@@ -1785,10 +1494,7 @@
             "content": "We chose React for the frontend.",
             "category": "decision",
             "confidence": 1,
-            "suggestedTags": [
-              "frontend",
-              "React"
-            ]
+            "suggestedTags": ["frontend", "React"]
           },
           "matchScore": 1,
           "details": "Matched fragments: React, frontend; Category matched"
@@ -1796,10 +1502,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "Node.js",
-              "backend"
-            ],
+            "mustContain": ["Node.js", "backend"],
             "category": "decision"
           },
           "matched": true,
@@ -1809,10 +1512,7 @@
             "content": "We decided to use Node.js for the backend.",
             "category": "decision",
             "confidence": 1,
-            "suggestedTags": [
-              "backend",
-              "Node.js"
-            ]
+            "suggestedTags": ["backend", "Node.js"]
           },
           "matchScore": 1,
           "details": "Matched fragments: Node.js, backend; Category matched"
@@ -1820,10 +1520,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "AWS",
-              "hosting"
-            ],
+            "mustContain": ["AWS", "hosting"],
             "category": "decision"
           },
           "matched": true,
@@ -1833,10 +1530,7 @@
             "content": "We selected AWS for hosting.",
             "category": "decision",
             "confidence": 1,
-            "suggestedTags": [
-              "hosting",
-              "AWS"
-            ]
+            "suggestedTags": ["hosting", "AWS"]
           },
           "matchScore": 1,
           "details": "Matched fragments: AWS, hosting; Category matched"
@@ -1862,10 +1556,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "TypeScript",
-              "JavaScript"
-            ],
+            "mustContain": ["TypeScript", "JavaScript"],
             "category": "decision"
           },
           "matched": true,
@@ -1875,11 +1566,7 @@
             "content": "We decided to use TypeScript instead of JavaScript because type safety reduces runtime errors and improves IDE support.",
             "category": "decision",
             "confidence": 1,
-            "suggestedTags": [
-              "TypeScript",
-              "JavaScript",
-              "type safety"
-            ]
+            "suggestedTags": ["TypeScript", "JavaScript", "type safety"]
           },
           "matchScore": 1,
           "details": "Matched fragments: TypeScript, JavaScript; Category matched"
@@ -1905,10 +1592,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "microservice",
-              "architecture"
-            ],
+            "mustContain": ["microservice", "architecture"],
             "category": "decision"
           },
           "matched": true,
@@ -1918,10 +1602,7 @@
             "content": "The team decided to adopt microservices architecture.",
             "category": "decision",
             "confidence": 1,
-            "suggestedTags": [
-              "architecture",
-              "microservices"
-            ]
+            "suggestedTags": ["architecture", "microservices"]
           },
           "matchScore": 1,
           "details": "Matched fragments: microservice, architecture; Category matched"
@@ -1929,10 +1610,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "database",
-              "loose coupling"
-            ],
+            "mustContain": ["database", "loose coupling"],
             "category": "decision"
           },
           "matched": true,
@@ -1942,11 +1620,7 @@
             "content": "Each service will have its own database to ensure loose coupling.",
             "category": "decision",
             "confidence": 1,
-            "suggestedTags": [
-              "architecture",
-              "microservices",
-              "database"
-            ]
+            "suggestedTags": ["architecture", "microservices", "database"]
           },
           "matchScore": 1,
           "details": "Matched fragments: database, loose coupling; Category matched"
@@ -1972,10 +1646,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "Jest",
-              "testing"
-            ],
+            "mustContain": ["Jest", "testing"],
             "category": "decision"
           },
           "matched": true,
@@ -1985,11 +1656,7 @@
             "content": "We picked Jest for testing because it has good TypeScript support.",
             "category": "decision",
             "confidence": 1,
-            "suggestedTags": [
-              "testing",
-              "Jest",
-              "TypeScript"
-            ]
+            "suggestedTags": ["testing", "Jest", "TypeScript"]
           },
           "matchScore": 1,
           "details": "Matched fragments: Jest, testing; Category matched"
@@ -1997,10 +1664,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "Playwright",
-              "E2E"
-            ],
+            "mustContain": ["Playwright", "E2E"],
             "category": "decision"
           },
           "matched": true,
@@ -2010,11 +1674,7 @@
             "content": "For E2E tests, we went with Playwright.",
             "category": "decision",
             "confidence": 1,
-            "suggestedTags": [
-              "testing",
-              "Playwright",
-              "E2E"
-            ]
+            "suggestedTags": ["testing", "Playwright", "E2E"]
           },
           "matchScore": 1,
           "details": "Matched fragments: Playwright, E2E; Category matched"
@@ -2040,10 +1700,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "Kubernetes",
-              "Docker Swarm"
-            ],
+            "mustContain": ["Kubernetes", "Docker Swarm"],
             "category": "decision"
           },
           "matched": true,
@@ -2053,11 +1710,7 @@
             "content": "We opted for Kubernetes over Docker Swarm for orchestration.",
             "category": "decision",
             "confidence": 0.9,
-            "suggestedTags": [
-              "Kubernetes",
-              "Docker Swarm",
-              "orchestration"
-            ]
+            "suggestedTags": ["Kubernetes", "Docker Swarm", "orchestration"]
           },
           "matchScore": 1,
           "details": "Matched fragments: Kubernetes, Docker Swarm; Category matched"
@@ -2065,10 +1718,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "Terraform",
-              "infrastructure"
-            ],
+            "mustContain": ["Terraform", "infrastructure"],
             "category": "decision"
           },
           "matched": true,
@@ -2078,10 +1728,7 @@
             "content": "The team selected Terraform for infrastructure as code.",
             "category": "decision",
             "confidence": 0.9,
-            "suggestedTags": [
-              "Terraform",
-              "infrastructure as code"
-            ]
+            "suggestedTags": ["Terraform", "infrastructure as code"]
           },
           "matchScore": 1,
           "details": "Matched fragments: Terraform, infrastructure; Category matched"
@@ -2107,11 +1754,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "GraphQL",
-              "REST",
-              "API"
-            ],
+            "mustContain": ["GraphQL", "REST", "API"],
             "category": "decision"
           },
           "matched": true,
@@ -2121,11 +1764,7 @@
             "content": "We chose GraphQL over REST for our API.",
             "category": "decision",
             "confidence": 1,
-            "suggestedTags": [
-              "API",
-              "GraphQL",
-              "REST"
-            ]
+            "suggestedTags": ["API", "GraphQL", "REST"]
           },
           "matchScore": 1,
           "details": "Matched fragments: GraphQL, REST, API; Category matched"
@@ -2151,11 +1790,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "Zustand",
-              "Redux",
-              "state management"
-            ],
+            "mustContain": ["Zustand", "Redux", "state management"],
             "category": "decision"
           },
           "matched": true,
@@ -2165,11 +1800,7 @@
             "content": "We decided on Zustand instead of Redux for state management.",
             "category": "decision",
             "confidence": 0.9,
-            "suggestedTags": [
-              "state management",
-              "Zustand",
-              "Redux"
-            ]
+            "suggestedTags": ["state management", "Zustand", "Redux"]
           },
           "matchScore": 1,
           "details": "Matched fragments: Zustand, Redux, state management; Category matched"
@@ -2195,10 +1826,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "Auth0",
-              "authentication"
-            ],
+            "mustContain": ["Auth0", "authentication"],
             "category": "decision"
           },
           "matched": true,
@@ -2208,10 +1836,7 @@
             "content": "We selected Auth0 for authentication.",
             "category": "decision",
             "confidence": 1,
-            "suggestedTags": [
-              "authentication",
-              "Auth0"
-            ]
+            "suggestedTags": ["authentication", "Auth0"]
           },
           "matchScore": 1,
           "details": "Matched fragments: Auth0, authentication; Category matched"
@@ -2219,10 +1844,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "JWT",
-              "session"
-            ],
+            "mustContain": ["JWT", "session"],
             "category": "decision"
           },
           "matched": true,
@@ -2232,10 +1854,7 @@
             "content": "JWTs will be used for session management with 1-hour expiry.",
             "category": "decision",
             "confidence": 1,
-            "suggestedTags": [
-              "JWT",
-              "session management"
-            ]
+            "suggestedTags": ["JWT", "session management"]
           },
           "matchScore": 1,
           "details": "Matched fragments: JWT, session; Category matched"
@@ -2261,10 +1880,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "Redis",
-              "caching"
-            ],
+            "mustContain": ["Redis", "caching"],
             "category": "decision"
           },
           "matched": true,
@@ -2274,10 +1890,7 @@
             "content": "Redis was chosen for caching.",
             "category": "decision",
             "confidence": 1,
-            "suggestedTags": [
-              "caching",
-              "Redis"
-            ]
+            "suggestedTags": ["caching", "Redis"]
           },
           "matchScore": 1,
           "details": "Matched fragments: Redis, caching; Category matched"
@@ -2303,10 +1916,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "AWS RDS",
-              "us-east-1"
-            ],
+            "mustContain": ["AWS RDS", "us-east-1"],
             "category": "fact"
           },
           "matched": true,
@@ -2316,11 +1926,7 @@
             "content": "The main database is hosted on AWS RDS in the us-east-1 region.",
             "category": "fact",
             "confidence": 1,
-            "suggestedTags": [
-              "database",
-              "AWS",
-              "RDS"
-            ]
+            "suggestedTags": ["database", "AWS", "RDS"]
           },
           "matchScore": 1,
           "details": "Matched fragments: AWS RDS, us-east-1; Category matched"
@@ -2346,10 +1952,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "rate limit",
-              "100 requests"
-            ],
+            "mustContain": ["rate limit", "100 requests"],
             "category": "fact"
           },
           "matched": true,
@@ -2359,10 +1962,7 @@
             "content": "The API rate limit is set to 100 requests per minute per user.",
             "category": "fact",
             "confidence": 1,
-            "suggestedTags": [
-              "API",
-              "rate limit"
-            ]
+            "suggestedTags": ["API", "rate limit"]
           },
           "matchScore": 1,
           "details": "Matched fragments: rate limit, 100 requests; Category matched"
@@ -2388,10 +1988,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "frontend team",
-              "5"
-            ],
+            "mustContain": ["frontend team", "5"],
             "category": "fact"
           },
           "matched": true,
@@ -2401,10 +1998,7 @@
             "content": "The frontend team has 5 developers.",
             "category": "fact",
             "confidence": 1,
-            "suggestedTags": [
-              "frontend",
-              "team"
-            ]
+            "suggestedTags": ["frontend", "team"]
           },
           "matchScore": 1,
           "details": "Matched fragments: frontend team, 5; Category matched"
@@ -2412,10 +2006,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "backend team",
-              "3"
-            ],
+            "mustContain": ["backend team", "3"],
             "category": "fact"
           },
           "matched": true,
@@ -2425,10 +2016,7 @@
             "content": "The backend team consists of 3 senior engineers.",
             "category": "fact",
             "confidence": 1,
-            "suggestedTags": [
-              "backend",
-              "team"
-            ]
+            "suggestedTags": ["backend", "team"]
           },
           "matchScore": 1,
           "details": "Matched fragments: backend team, 3; Category matched"
@@ -2454,10 +2042,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "Node.js",
-              "20.10.0"
-            ],
+            "mustContain": ["Node.js", "20.10.0"],
             "category": "fact"
           },
           "matched": true,
@@ -2467,11 +2052,7 @@
             "content": "We are using Node.js v20.10.0 and npm v10.2.3 across all environments.",
             "category": "fact",
             "confidence": 1,
-            "suggestedTags": [
-              "Node.js",
-              "npm",
-              "version"
-            ]
+            "suggestedTags": ["Node.js", "npm", "version"]
           },
           "matchScore": 1,
           "details": "Matched fragments: Node.js, 20.10.0; Category matched"
@@ -2497,12 +2078,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "environment",
-              "development",
-              "staging",
-              "production"
-            ],
+            "mustContain": ["environment", "development", "staging", "production"],
             "category": "fact"
           },
           "matched": true,
@@ -2512,10 +2088,7 @@
             "content": "We have three environments: development, staging, and production.",
             "category": "fact",
             "confidence": 1,
-            "suggestedTags": [
-              "environment",
-              "configuration"
-            ]
+            "suggestedTags": ["environment", "configuration"]
           },
           "matchScore": 1,
           "details": "Matched fragments: environment, development, staging, production; Category matched"
@@ -2541,10 +2114,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "Stripe",
-              "payment"
-            ],
+            "mustContain": ["Stripe", "payment"],
             "category": "fact"
           },
           "matched": true,
@@ -2554,11 +2124,7 @@
             "content": "The payment system integrates with Stripe.",
             "category": "fact",
             "confidence": 1,
-            "suggestedTags": [
-              "payment",
-              "integration",
-              "Stripe"
-            ]
+            "suggestedTags": ["payment", "integration", "Stripe"]
           },
           "matchScore": 1,
           "details": "Matched fragments: Stripe, payment; Category matched"
@@ -2566,10 +2132,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "webhook",
-              "billing service"
-            ],
+            "mustContain": ["webhook", "billing service"],
             "category": "fact"
           },
           "matched": true,
@@ -2579,11 +2142,7 @@
             "content": "Webhook events are processed by the billing service.",
             "category": "fact",
             "confidence": 1,
-            "suggestedTags": [
-              "webhook",
-              "billing",
-              "service"
-            ]
+            "suggestedTags": ["webhook", "billing", "service"]
           },
           "matchScore": 1,
           "details": "Matched fragments: webhook, billing service; Category matched"
@@ -2609,11 +2168,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "deployment",
-              "Tuesday",
-              "2 PM"
-            ],
+            "mustContain": ["deployment", "Tuesday", "2 PM"],
             "category": "fact"
           },
           "matched": false,
@@ -2623,10 +2178,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "hotfix",
-              "approval"
-            ],
+            "mustContain": ["hotfix", "approval"],
             "category": "fact"
           },
           "matched": false,
@@ -2654,10 +2206,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "event-driven",
-              "architecture"
-            ],
+            "mustContain": ["event-driven", "architecture"],
             "category": "fact"
           },
           "matched": true,
@@ -2667,10 +2216,7 @@
             "content": "The system uses an event-driven architecture.",
             "category": "fact",
             "confidence": 0.9,
-            "suggestedTags": [
-              "architecture",
-              "event-driven"
-            ]
+            "suggestedTags": ["architecture", "event-driven"]
           },
           "matchScore": 1,
           "details": "Matched fragments: event-driven, architecture; Category matched"
@@ -2678,10 +2224,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "RabbitMQ",
-              "message"
-            ],
+            "mustContain": ["RabbitMQ", "message"],
             "category": "fact"
           },
           "matched": true,
@@ -2691,10 +2234,7 @@
             "content": "RabbitMQ handles message queuing between services.",
             "category": "fact",
             "confidence": 0.9,
-            "suggestedTags": [
-              "message-queuing",
-              "RabbitMQ"
-            ]
+            "suggestedTags": ["message-queuing", "RabbitMQ"]
           },
           "matchScore": 1,
           "details": "Matched fragments: RabbitMQ, message; Category matched"
@@ -2720,10 +2260,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "S3",
-              "prod-user-uploads"
-            ],
+            "mustContain": ["S3", "prod-user-uploads"],
             "category": "fact"
           },
           "matched": true,
@@ -2733,11 +2270,7 @@
             "content": "User uploads are stored in an S3 bucket named prod-user-uploads.",
             "category": "fact",
             "confidence": 1,
-            "suggestedTags": [
-              "S3",
-              "storage",
-              "uploads"
-            ]
+            "suggestedTags": ["S3", "storage", "uploads"]
           },
           "matchScore": 1,
           "details": "Matched fragments: S3, prod-user-uploads; Category matched"
@@ -2745,10 +2278,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "file size",
-              "10MB"
-            ],
+            "mustContain": ["file size", "10MB"],
             "category": "fact"
           },
           "matched": true,
@@ -2758,10 +2288,7 @@
             "content": "The maximum file size for uploads is 10MB.",
             "category": "fact",
             "confidence": 1,
-            "suggestedTags": [
-              "file size",
-              "uploads"
-            ]
+            "suggestedTags": ["file size", "uploads"]
           },
           "matchScore": 1,
           "details": "Matched fragments: file size, 10MB; Category matched"
@@ -2787,10 +2314,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "Datadog",
-              "monitoring"
-            ],
+            "mustContain": ["Datadog", "monitoring"],
             "category": "fact"
           },
           "matched": true,
@@ -2800,10 +2324,7 @@
             "content": "We use Datadog for monitoring.",
             "category": "fact",
             "confidence": 1,
-            "suggestedTags": [
-              "monitoring",
-              "Datadog"
-            ]
+            "suggestedTags": ["monitoring", "Datadog"]
           },
           "matchScore": 1,
           "details": "Matched fragments: Datadog, monitoring; Category matched"
@@ -2811,10 +2332,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "Slack",
-              "ops-alerts"
-            ],
+            "mustContain": ["Slack", "ops-alerts"],
             "category": "fact"
           },
           "matched": true,
@@ -2824,10 +2342,7 @@
             "content": "Alerts are sent to the #ops-alerts Slack channel.",
             "category": "fact",
             "confidence": 1,
-            "suggestedTags": [
-              "alerts",
-              "Slack"
-            ]
+            "suggestedTags": ["alerts", "Slack"]
           },
           "matchScore": 1,
           "details": "Matched fragments: Slack, ops-alerts; Category matched"
@@ -2853,11 +2368,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "PostgreSQL",
-              "migration",
-              "16"
-            ],
+            "mustContain": ["PostgreSQL", "migration", "16"],
             "category": "fact"
           },
           "matched": true,
@@ -2867,10 +2378,7 @@
             "content": "We are migrating from PostgreSQL 14 to PostgreSQL 16 starting January 2025.",
             "category": "decision",
             "confidence": 1,
-            "suggestedTags": [
-              "migration",
-              "PostgreSQL"
-            ]
+            "suggestedTags": ["migration", "PostgreSQL"]
           },
           "matchScore": 0.6166666666666666,
           "details": "Matched fragments: PostgreSQL, 16; Category mismatch: expected fact, got decision"
@@ -2896,11 +2404,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "v1 API",
-              "deprecated",
-              "March 2025"
-            ],
+            "mustContain": ["v1 API", "deprecated", "March 2025"],
             "category": "fact"
           },
           "matched": true,
@@ -2910,12 +2414,7 @@
             "content": "The v1 API will be deprecated in March 2025.",
             "category": "fact",
             "confidence": 1,
-            "suggestedTags": [
-              "API",
-              "deprecation",
-              "v1",
-              "v2"
-            ]
+            "suggestedTags": ["API", "deprecation", "v1", "v2"]
           },
           "matchScore": 1,
           "details": "Matched fragments: v1 API, deprecated, March 2025; Category matched"
@@ -2941,11 +2440,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "maintenance",
-              "Sunday",
-              "2 AM"
-            ],
+            "mustContain": ["maintenance", "Sunday", "2 AM"],
             "category": "fact"
           },
           "matched": true,
@@ -2955,11 +2450,7 @@
             "content": "Database maintenance windows are every Sunday from 2 AM to 4 AM UTC.",
             "category": "fact",
             "confidence": 1,
-            "suggestedTags": [
-              "database",
-              "maintenance",
-              "schedule"
-            ]
+            "suggestedTags": ["database", "maintenance", "schedule"]
           },
           "matchScore": 1,
           "details": "Matched fragments: maintenance, Sunday, 2 AM; Category matched"
@@ -2985,10 +2476,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "authentication",
-              "Q3 2024"
-            ],
+            "mustContain": ["authentication", "Q3 2024"],
             "category": "fact"
           },
           "matched": true,
@@ -2998,11 +2486,7 @@
             "content": "The new authentication system launched in Q3 2024.",
             "category": "fact",
             "confidence": 1,
-            "suggestedTags": [
-              "authentication",
-              "launch",
-              "Q3-2024"
-            ]
+            "suggestedTags": ["authentication", "launch", "Q3-2024"]
           },
           "matchScore": 1,
           "details": "Matched fragments: authentication, Q3 2024; Category matched"
@@ -3010,10 +2494,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "OAuth2",
-              "Q4 2024"
-            ],
+            "mustContain": ["OAuth2", "Q4 2024"],
             "category": "fact"
           },
           "matched": true,
@@ -3023,11 +2504,7 @@
             "content": "OAuth2 support was added in Q4 2024.",
             "category": "fact",
             "confidence": 1,
-            "suggestedTags": [
-              "authentication",
-              "OAuth2",
-              "Q4-2024"
-            ]
+            "suggestedTags": ["authentication", "OAuth2", "Q4-2024"]
           },
           "matchScore": 1,
           "details": "Matched fragments: OAuth2, Q4 2024; Category matched"
@@ -3053,10 +2530,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "Sprint 42",
-              "December 15"
-            ],
+            "mustContain": ["Sprint 42", "December 15"],
             "category": "fact"
           },
           "matched": true,
@@ -3066,10 +2540,7 @@
             "content": "Sprint 42 ends on December 15th.",
             "category": "fact",
             "confidence": 1,
-            "suggestedTags": [
-              "sprint",
-              "deadline"
-            ]
+            "suggestedTags": ["sprint", "deadline"]
           },
           "matchScore": 1,
           "details": "Matched fragments: Sprint 42, December 15; Category matched"
@@ -3095,9 +2566,7 @@
         {
           "expected": {
             "type": "tool",
-            "mustContain": [
-              "npm run build"
-            ],
+            "mustContain": ["npm run build"],
             "category": "cli"
           },
           "matched": false,
@@ -3125,9 +2594,7 @@
         {
           "expected": {
             "type": "tool",
-            "mustContain": [
-              "npm install"
-            ],
+            "mustContain": ["npm install"],
             "category": "cli"
           },
           "matched": false,
@@ -3137,9 +2604,7 @@
         {
           "expected": {
             "type": "tool",
-            "mustContain": [
-              "npm test"
-            ],
+            "mustContain": ["npm test"],
             "category": "cli"
           },
           "matched": false,
@@ -3149,9 +2614,7 @@
         {
           "expected": {
             "type": "tool",
-            "mustContain": [
-              "npm run lint"
-            ],
+            "mustContain": ["npm run lint"],
             "category": "cli"
           },
           "matched": false,
@@ -3179,9 +2642,7 @@
         {
           "expected": {
             "type": "tool",
-            "mustContain": [
-              "docker-compose up"
-            ],
+            "mustContain": ["docker-compose up"],
             "category": "cli"
           },
           "matched": false,
@@ -3191,9 +2652,7 @@
         {
           "expected": {
             "type": "tool",
-            "mustContain": [
-              "docker-compose build"
-            ],
+            "mustContain": ["docker-compose build"],
             "category": "cli"
           },
           "matched": false,
@@ -3221,9 +2680,7 @@
         {
           "expected": {
             "type": "tool",
-            "mustContain": [
-              "git checkout -b"
-            ],
+            "mustContain": ["git checkout -b"],
             "category": "cli"
           },
           "matched": false,
@@ -3233,9 +2690,7 @@
         {
           "expected": {
             "type": "tool",
-            "mustContain": [
-              "git push -u"
-            ],
+            "mustContain": ["git push -u"],
             "category": "cli"
           },
           "matched": false,
@@ -3263,9 +2718,7 @@
         {
           "expected": {
             "type": "tool",
-            "mustContain": [
-              "db:migrate"
-            ],
+            "mustContain": ["db:migrate"],
             "category": "cli"
           },
           "matched": false,
@@ -3275,9 +2728,7 @@
         {
           "expected": {
             "type": "tool",
-            "mustContain": [
-              "db:seed"
-            ],
+            "mustContain": ["db:seed"],
             "category": "cli"
           },
           "matched": false,
@@ -3305,9 +2756,7 @@
         {
           "expected": {
             "type": "tool",
-            "mustContain": [
-              "kubectl apply"
-            ],
+            "mustContain": ["kubectl apply"],
             "category": "cli"
           },
           "matched": false,
@@ -3317,9 +2766,7 @@
         {
           "expected": {
             "type": "tool",
-            "mustContain": [
-              "kubectl get pods"
-            ],
+            "mustContain": ["kubectl get pods"],
             "category": "cli"
           },
           "matched": false,
@@ -3347,9 +2794,7 @@
         {
           "expected": {
             "type": "tool",
-            "mustContain": [
-              "aws s3 cp"
-            ],
+            "mustContain": ["aws s3 cp"],
             "category": "cli"
           },
           "matched": false,
@@ -3359,9 +2804,7 @@
         {
           "expected": {
             "type": "tool",
-            "mustContain": [
-              "aws s3 ls"
-            ],
+            "mustContain": ["aws s3 ls"],
             "category": "cli"
           },
           "matched": false,
@@ -3389,9 +2832,7 @@
         {
           "expected": {
             "type": "tool",
-            "mustContain": [
-              "npm run dev"
-            ],
+            "mustContain": ["npm run dev"],
             "category": "cli"
           },
           "matched": false,
@@ -3419,10 +2860,7 @@
         {
           "expected": {
             "type": "tool",
-            "mustContain": [
-              "GET",
-              "/api/v1/users"
-            ],
+            "mustContain": ["GET", "/api/v1/users"],
             "category": "api"
           },
           "matched": false,
@@ -3432,10 +2870,7 @@
         {
           "expected": {
             "type": "tool",
-            "mustContain": [
-              "POST",
-              "/api/v1/users"
-            ],
+            "mustContain": ["POST", "/api/v1/users"],
             "category": "api"
           },
           "matched": false,
@@ -3463,10 +2898,7 @@
         {
           "expected": {
             "type": "tool",
-            "mustContain": [
-              "getUsers",
-              "query"
-            ],
+            "mustContain": ["getUsers", "query"],
             "category": "api"
           },
           "matched": false,
@@ -3476,10 +2908,7 @@
         {
           "expected": {
             "type": "tool",
-            "mustContain": [
-              "createUser",
-              "mutation"
-            ],
+            "mustContain": ["createUser", "mutation"],
             "category": "api"
           },
           "matched": false,
@@ -3507,10 +2936,7 @@
         {
           "expected": {
             "type": "tool",
-            "mustContain": [
-              "/webhooks/stripe",
-              "Stripe"
-            ],
+            "mustContain": ["/webhooks/stripe", "Stripe"],
             "category": "api"
           },
           "matched": false,
@@ -3538,9 +2964,7 @@
         {
           "expected": {
             "type": "tool",
-            "mustContain": [
-              "/health"
-            ],
+            "mustContain": ["/health"],
             "category": "api"
           },
           "matched": false,
@@ -3550,10 +2974,7 @@
         {
           "expected": {
             "type": "tool",
-            "mustContain": [
-              "/metrics",
-              "Prometheus"
-            ],
+            "mustContain": ["/metrics", "Prometheus"],
             "category": "api"
           },
           "matched": false,
@@ -3581,9 +3002,7 @@
         {
           "expected": {
             "type": "tool",
-            "mustContain": [
-              "/auth/login"
-            ],
+            "mustContain": ["/auth/login"],
             "category": "api"
           },
           "matched": false,
@@ -3593,9 +3012,7 @@
         {
           "expected": {
             "type": "tool",
-            "mustContain": [
-              "/auth/refresh"
-            ],
+            "mustContain": ["/auth/refresh"],
             "category": "api"
           },
           "matched": false,
@@ -3605,9 +3022,7 @@
         {
           "expected": {
             "type": "tool",
-            "mustContain": [
-              "/auth/logout"
-            ],
+            "mustContain": ["/auth/logout"],
             "category": "api"
           },
           "matched": false,
@@ -3635,10 +3050,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "React",
-              "frontend"
-            ],
+            "mustContain": ["React", "frontend"],
             "category": "decision"
           },
           "matched": true,
@@ -3648,11 +3060,7 @@
             "content": "We chose React for the frontend.",
             "category": "decision",
             "confidence": 1,
-            "suggestedTags": [
-              "React",
-              "frontend",
-              "technology_choice"
-            ]
+            "suggestedTags": ["React", "frontend", "technology_choice"]
           },
           "matchScore": 1,
           "details": "Matched fragments: React, frontend; Category matched"
@@ -3660,10 +3068,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "functional component",
-              "hook"
-            ]
+            "mustContain": ["functional component", "hook"]
           },
           "matched": true,
           "matchedEntry": {
@@ -3672,11 +3077,7 @@
             "content": "Always use functional components with hooks.",
             "category": "code_style",
             "confidence": 1,
-            "suggestedTags": [
-              "React",
-              "frontend",
-              "best_practices"
-            ]
+            "suggestedTags": ["React", "frontend", "best_practices"]
           },
           "matchScore": 1,
           "details": "Matched fragments: functional component, hook"
@@ -3684,9 +3085,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "class component"
-            ]
+            "mustContain": ["class component"]
           },
           "matched": true,
           "matchedEntry": {
@@ -3695,11 +3094,7 @@
             "content": "Never use class components.",
             "category": "code_style",
             "confidence": 1,
-            "suggestedTags": [
-              "React",
-              "frontend",
-              "best_practices"
-            ]
+            "suggestedTags": ["React", "frontend", "best_practices"]
           },
           "matchScore": 1,
           "details": "Matched fragments: class component"
@@ -3725,9 +3120,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "PostgreSQL 16"
-            ],
+            "mustContain": ["PostgreSQL 16"],
             "category": "fact"
           },
           "matched": true,
@@ -3737,10 +3130,7 @@
             "content": "The database runs on PostgreSQL 16.",
             "category": "fact",
             "confidence": 1,
-            "suggestedTags": [
-              "database",
-              "PostgreSQL"
-            ]
+            "suggestedTags": ["database", "PostgreSQL"]
           },
           "matchScore": 1,
           "details": "Matched fragments: PostgreSQL 16; Category matched"
@@ -3748,9 +3138,7 @@
         {
           "expected": {
             "type": "tool",
-            "mustContain": [
-              "npm run db:migrate"
-            ],
+            "mustContain": ["npm run db:migrate"],
             "category": "cli"
           },
           "matched": false,
@@ -3760,9 +3148,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "DATABASE_URL"
-            ],
+            "mustContain": ["DATABASE_URL"],
             "category": "fact"
           },
           "matched": true,
@@ -3772,10 +3158,7 @@
             "content": "The connection string is in DATABASE_URL.",
             "category": "fact",
             "confidence": 1,
-            "suggestedTags": [
-              "database",
-              "connection"
-            ]
+            "suggestedTags": ["database", "connection"]
           },
           "matchScore": 1,
           "details": "Matched fragments: DATABASE_URL; Category matched"
@@ -3801,10 +3184,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "ESLint",
-              "strict"
-            ],
+            "mustContain": ["ESLint", "strict"],
             "category": "decision"
           },
           "matched": true,
@@ -3814,10 +3194,7 @@
             "content": "We decided to use ESLint with strict rules.",
             "category": "decision",
             "confidence": 1,
-            "suggestedTags": [
-              "ESLint",
-              "linting"
-            ]
+            "suggestedTags": ["ESLint", "linting"]
           },
           "matchScore": 1,
           "details": "Matched fragments: ESLint, strict; Category matched"
@@ -3825,10 +3202,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "linting error",
-              "commit"
-            ]
+            "mustContain": ["linting error", "commit"]
           },
           "matched": true,
           "matchedEntry": {
@@ -3837,10 +3211,7 @@
             "content": "Always fix all linting errors before committing.",
             "category": "workflow",
             "confidence": 1,
-            "suggestedTags": [
-              "linting",
-              "commit"
-            ]
+            "suggestedTags": ["linting", "commit"]
           },
           "matchScore": 1,
           "details": "Matched fragments: linting error, commit"
@@ -3866,10 +3237,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "Node.js",
-              "Express"
-            ],
+            "mustContain": ["Node.js", "Express"],
             "category": "decision"
           },
           "matched": true,
@@ -3879,10 +3247,7 @@
             "content": "Our backend technology is Node.js with Express.",
             "category": "decision",
             "confidence": 1,
-            "suggestedTags": [
-              "Node.js",
-              "Express"
-            ]
+            "suggestedTags": ["Node.js", "Express"]
           },
           "matchScore": 1,
           "details": "Matched fragments: Node.js, Express; Category matched"
@@ -3890,10 +3255,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "PostgreSQL",
-              "5432"
-            ],
+            "mustContain": ["PostgreSQL", "5432"],
             "category": "fact"
           },
           "matched": true,
@@ -3903,10 +3265,7 @@
             "content": "We use PostgreSQL as our database, which runs on port 5432.",
             "category": "fact",
             "confidence": 1,
-            "suggestedTags": [
-              "PostgreSQL",
-              "database"
-            ]
+            "suggestedTags": ["PostgreSQL", "database"]
           },
           "matchScore": 1,
           "details": "Matched fragments: PostgreSQL, 5432; Category matched"
@@ -3914,9 +3273,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "prepared statement"
-            ]
+            "mustContain": ["prepared statement"]
           },
           "matched": true,
           "matchedEntry": {
@@ -3925,10 +3282,7 @@
             "content": "Always use prepared statements",
             "category": "security",
             "confidence": 1,
-            "suggestedTags": [
-              "security",
-              "database"
-            ]
+            "suggestedTags": ["security", "database"]
           },
           "matchScore": 1,
           "details": "Matched fragments: prepared statement"
@@ -3936,9 +3290,7 @@
         {
           "expected": {
             "type": "tool",
-            "mustContain": [
-              "docker-compose"
-            ],
+            "mustContain": ["docker-compose"],
             "category": "cli"
           },
           "matched": false,
@@ -3966,9 +3318,7 @@
         {
           "expected": {
             "type": "tool",
-            "mustContain": [
-              "npm install"
-            ],
+            "mustContain": ["npm install"],
             "category": "cli"
           },
           "matched": false,
@@ -3978,9 +3328,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "Node 20"
-            ],
+            "mustContain": ["Node 20"],
             "category": "fact"
           },
           "matched": true,
@@ -3990,10 +3338,7 @@
             "content": "Node 20 is required.",
             "category": "fact",
             "confidence": 1,
-            "suggestedTags": [
-              "node",
-              "version"
-            ]
+            "suggestedTags": ["node", "version"]
           },
           "matchScore": 1,
           "details": "Matched fragments: Node 20; Category matched"
@@ -4001,10 +3346,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "nvm",
-              "version"
-            ]
+            "mustContain": ["nvm", "version"]
           },
           "matched": true,
           "matchedEntry": {
@@ -4013,10 +3355,7 @@
             "content": "Always use nvm to manage Node.js versions.",
             "category": "workflow",
             "confidence": 1,
-            "suggestedTags": [
-              "node",
-              "version-management"
-            ]
+            "suggestedTags": ["node", "version-management"]
           },
           "matchScore": 1,
           "details": "Matched fragments: nvm, version"
@@ -4042,9 +3381,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "Vitest"
-            ],
+            "mustContain": ["Vitest"],
             "category": "decision"
           },
           "matched": true,
@@ -4054,10 +3391,7 @@
             "content": "We use Vitest for testing.",
             "category": "decision",
             "confidence": 0.9,
-            "suggestedTags": [
-              "testing",
-              "Vitest"
-            ]
+            "suggestedTags": ["testing", "Vitest"]
           },
           "matchScore": 1,
           "details": "Matched fragments: Vitest; Category matched"
@@ -4065,9 +3399,7 @@
         {
           "expected": {
             "type": "tool",
-            "mustContain": [
-              "npm test"
-            ],
+            "mustContain": ["npm test"],
             "category": "cli"
           },
           "matched": false,
@@ -4077,10 +3409,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "mock",
-              "external API"
-            ]
+            "mustContain": ["mock", "external API"]
           },
           "matched": true,
           "matchedEntry": {
@@ -4089,10 +3418,7 @@
             "content": "Always mock external APIs.",
             "category": "testing",
             "confidence": 0.9,
-            "suggestedTags": [
-              "testing",
-              "mocking"
-            ]
+            "suggestedTags": ["testing", "mocking"]
           },
           "matchScore": 1,
           "details": "Matched fragments: mock, external API"
@@ -4100,10 +3426,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "coverage",
-              "85%"
-            ],
+            "mustContain": ["coverage", "85%"],
             "category": "fact"
           },
           "matched": true,
@@ -4113,10 +3436,7 @@
             "content": "Test coverage is at 85%.",
             "category": "fact",
             "confidence": 0.8,
-            "suggestedTags": [
-              "testing",
-              "coverage"
-            ]
+            "suggestedTags": ["testing", "coverage"]
           },
           "matchScore": 1,
           "details": "Matched fragments: coverage, 85%; Category matched"
@@ -4142,9 +3462,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "AWS EKS"
-            ],
+            "mustContain": ["AWS EKS"],
             "category": "decision"
           },
           "matched": true,
@@ -4154,11 +3472,7 @@
             "content": "Deploy to AWS EKS.",
             "category": "decision",
             "confidence": 0.9,
-            "suggestedTags": [
-              "deployment",
-              "AWS",
-              "EKS"
-            ]
+            "suggestedTags": ["deployment", "AWS", "EKS"]
           },
           "matchScore": 1,
           "details": "Matched fragments: AWS EKS; Category matched"
@@ -4166,9 +3480,7 @@
         {
           "expected": {
             "type": "tool",
-            "mustContain": [
-              "kubectl apply"
-            ],
+            "mustContain": ["kubectl apply"],
             "category": "cli"
           },
           "matched": true,
@@ -4178,11 +3490,7 @@
             "content": "Use kubectl apply -f manifests/ to deploy resources.",
             "category": "cli",
             "confidence": 0.9,
-            "suggestedTags": [
-              "kubectl",
-              "deployment",
-              "AWS"
-            ]
+            "suggestedTags": ["kubectl", "deployment", "AWS"]
           },
           "matchScore": 1,
           "details": "Matched fragments: kubectl apply; Category matched"
@@ -4190,10 +3498,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "deploy",
-              "Friday"
-            ]
+            "mustContain": ["deploy", "Friday"]
           },
           "matched": true,
           "matchedEntry": {
@@ -4202,10 +3507,7 @@
             "content": "Never deploy on Fridays.",
             "category": "workflow",
             "confidence": 0.9,
-            "suggestedTags": [
-              "deployment",
-              "workflow"
-            ]
+            "suggestedTags": ["deployment", "workflow"]
           },
           "matchScore": 1,
           "details": "Matched fragments: deploy, Friday"
@@ -4213,10 +3515,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "version",
-              "2.3.0"
-            ],
+            "mustContain": ["version", "2.3.0"],
             "category": "fact"
           },
           "matched": true,
@@ -4226,10 +3525,7 @@
             "content": "Current version is 2.3.0.",
             "category": "fact",
             "confidence": 0.9,
-            "suggestedTags": [
-              "versioning",
-              "release"
-            ]
+            "suggestedTags": ["versioning", "release"]
           },
           "matchScore": 1,
           "details": "Matched fragments: version, 2.3.0; Category matched"
@@ -4255,10 +3551,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "REST",
-              "GraphQL"
-            ],
+            "mustContain": ["REST", "GraphQL"],
             "category": "decision"
           },
           "matched": true,
@@ -4268,10 +3561,7 @@
             "content": "We chose REST over GraphQL.",
             "category": "decision",
             "confidence": 1,
-            "suggestedTags": [
-              "api",
-              "design"
-            ]
+            "suggestedTags": ["api", "design"]
           },
           "matchScore": 1,
           "details": "Matched fragments: REST, GraphQL; Category matched"
@@ -4279,9 +3569,7 @@
         {
           "expected": {
             "type": "tool",
-            "mustContain": [
-              "GET /api/users"
-            ],
+            "mustContain": ["GET /api/users"],
             "category": "api"
           },
           "matched": false,
@@ -4291,10 +3579,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "404",
-              "missing"
-            ]
+            "mustContain": ["404", "missing"]
           },
           "matched": true,
           "matchedEntry": {
@@ -4303,10 +3588,7 @@
             "content": "Always return 404 for missing resources.",
             "category": "workflow",
             "confidence": 1,
-            "suggestedTags": [
-              "api",
-              "error-handling"
-            ]
+            "suggestedTags": ["api", "error-handling"]
           },
           "matchScore": 1,
           "details": "Matched fragments: 404, missing"
@@ -4380,10 +3662,7 @@
       "recall": 1,
       "f1Score": 0,
       "entryResults": [],
-      "noiseExtracted": [
-        "typo",
-        "line 42"
-      ],
+      "noiseExtracted": ["typo", "line 42"],
       "processingTimeMs": 4500,
       "tokensUsed": 1465
     },
@@ -4400,11 +3679,7 @@
       "recall": 1,
       "f1Score": 0,
       "entryResults": [],
-      "noiseExtracted": [
-        "yesterday",
-        "login page",
-        "tomorrow"
-      ],
+      "noiseExtracted": ["yesterday", "login page", "tomorrow"],
       "processingTimeMs": 4711,
       "tokensUsed": 1487
     },
@@ -4424,10 +3699,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "semantic versioning",
-              "release"
-            ]
+            "mustContain": ["semantic versioning", "release"]
           },
           "matched": true,
           "matchedEntry": {
@@ -4436,10 +3708,7 @@
             "content": "We always use semantic versioning for releases.",
             "category": "workflow",
             "confidence": 0.9,
-            "suggestedTags": [
-              "versioning",
-              "releases"
-            ]
+            "suggestedTags": ["versioning", "releases"]
           },
           "matchScore": 1,
           "details": "Matched fragments: semantic versioning, release"
@@ -4462,9 +3731,7 @@
       "recall": 1,
       "f1Score": 0,
       "entryResults": [],
-      "noiseExtracted": [
-        "Rust"
-      ],
+      "noiseExtracted": ["Rust"],
       "processingTimeMs": 5234,
       "tokensUsed": 1532
     },
@@ -4481,10 +3748,7 @@
       "recall": 1,
       "f1Score": 0,
       "entryResults": [],
-      "noiseExtracted": [
-        "VS Code",
-        "Vim"
-      ],
+      "noiseExtracted": ["VS Code", "Vim"],
       "processingTimeMs": 5337,
       "tokensUsed": 1517
     },
@@ -4521,9 +3785,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "TypeScript"
-            ]
+            "mustContain": ["TypeScript"]
           },
           "matched": true,
           "matchedEntry": {
@@ -4532,10 +3794,7 @@
             "content": "Use TypeScript.",
             "category": "code_style",
             "confidence": 0.9,
-            "suggestedTags": [
-              "typescript",
-              "coding"
-            ]
+            "suggestedTags": ["typescript", "coding"]
           },
           "matchScore": 1,
           "details": "Matched fragments: TypeScript"
@@ -4558,10 +3817,7 @@
       "recall": 1,
       "f1Score": 0,
       "entryResults": [],
-      "noiseExtracted": [
-        "host",
-        "port"
-      ],
+      "noiseExtracted": ["host", "port"],
       "processingTimeMs": 5530,
       "tokensUsed": 1551
     },
@@ -4581,10 +3837,7 @@
         {
           "expected": {
             "type": "guideline",
-            "mustContain": [
-              "semicolon",
-              "Prettier"
-            ]
+            "mustContain": ["semicolon", "Prettier"]
           },
           "matched": true,
           "matchedEntry": {
@@ -4593,10 +3846,7 @@
             "content": "Never use semicolons - let Prettier handle it.",
             "category": "code_style",
             "confidence": 0.9,
-            "suggestedTags": [
-              "prettier",
-              "code_style"
-            ]
+            "suggestedTags": ["prettier", "code_style"]
           },
           "matchScore": 1,
           "details": "Matched fragments: semicolon, Prettier"
@@ -4619,11 +3869,7 @@
       "recall": 1,
       "f1Score": 0,
       "entryResults": [],
-      "noiseExtracted": [
-        "TypeScript",
-        "Jest",
-        "React"
-      ],
+      "noiseExtracted": ["TypeScript", "Jest", "React"],
       "processingTimeMs": 6900,
       "tokensUsed": 1627
     },
@@ -4643,10 +3889,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "test coverage",
-              "not require"
-            ]
+            "mustContain": ["test coverage", "not require"]
           },
           "matched": false,
           "matchScore": 0,
@@ -4655,10 +3898,7 @@
         {
           "expected": {
             "type": "knowledge",
-            "mustContain": [
-              "linting",
-              "not enforce"
-            ]
+            "mustContain": ["linting", "not enforce"]
           },
           "matched": false,
           "matchScore": 0,

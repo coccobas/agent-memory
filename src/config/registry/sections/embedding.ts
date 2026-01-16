@@ -66,7 +66,8 @@ export const embeddingSection: ConfigSectionMeta = {
     timeoutMs: {
       envKey: 'AGENT_MEMORY_EMBEDDING_TIMEOUT_MS',
       defaultValue: 60000,
-      description: 'Timeout in ms for embedding API requests. Increase for slow models or high load.',
+      description:
+        'Timeout in ms for embedding API requests. Increase for slow models or high load.',
       schema: z.number().int().min(1000),
       parse: 'int',
     },
@@ -81,7 +82,8 @@ export const embeddingSection: ConfigSectionMeta = {
     lmstudioDimension: {
       envKey: 'AGENT_MEMORY_EMBEDDING_LMSTUDIO_DIMENSION',
       defaultValue: 1024,
-      description: 'Default embedding dimension for LM Studio models (auto-detected on first call).',
+      description:
+        'Default embedding dimension for LM Studio models (auto-detected on first call).',
       schema: z.number().int().min(1).max(8192),
       parse: 'int',
     },

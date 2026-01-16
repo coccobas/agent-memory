@@ -117,8 +117,7 @@ export class DatasetFormatService {
     const headers = 'prompt,chosen,rejected\n';
     const rows = pairs
       .map((p) => {
-        const escapeCsv = (str: string) =>
-          `"${str.replace(/"/g, '""').replace(/\n/g, ' ')}"`;
+        const escapeCsv = (str: string) => `"${str.replace(/"/g, '""').replace(/\n/g, ' ')}"`;
         return `${escapeCsv(p.prompt)},${escapeCsv(p.chosen)},${escapeCsv(p.rejected)}`;
       })
       .join('\n');

@@ -12,10 +12,12 @@
  * start with broad topics and progressively narrow down.
  */
 
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
+
 import { eq, and, desc, inArray } from 'drizzle-orm';
 import type { AppDb } from '../../../core/types.js';
 import { summaries, summaryMembers } from '../../../db/schema.js';
-import { EmbeddingService } from '../../embedding.service.js';
+import type { EmbeddingService } from '../../embedding.service.js';
 import { cosineSimilarity } from '../../librarian/utils/math.js';
 import { createComponentLogger } from '../../../utils/logger.js';
 import { createNotFoundError } from '../../../core/errors.js';
@@ -85,7 +87,10 @@ export class CoarseToFineRetriever {
 
     // Track candidates at each level
     let candidates = await this.getTopLevelSummaries(options, startLevel);
-    logger.debug({ candidateCount: candidates.length, level: startLevel }, 'Got top-level candidates');
+    logger.debug(
+      { candidateCount: candidates.length, level: startLevel },
+      'Got top-level candidates'
+    );
 
     // If no summaries exist, fall back to direct entry search
     if (candidates.length === 0) {
@@ -104,7 +109,7 @@ export class CoarseToFineRetriever {
 
       // Score candidates by similarity
       const scored = this.scoreSummaries(candidates, queryEmbedding);
-      const filtered = scored.filter(s => s.score >= minSimilarity);
+      const filtered = scored.filter((s) => s.score >= minSimilarity);
       const topK = filtered.slice(0, expansionFactor);
 
       logger.debug(
@@ -139,7 +144,10 @@ export class CoarseToFineRetriever {
 
       // Otherwise, expand to next level
       candidates = await this.expandToNextLevel(topK);
-      logger.debug({ level: level - 1, candidateCount: candidates.length }, 'Expanded to next level');
+      logger.debug(
+        { level: level - 1, candidateCount: candidates.length },
+        'Expanded to next level'
+      );
     }
 
     // Should not reach here, but handle gracefully
@@ -160,10 +168,7 @@ export class CoarseToFineRetriever {
   ): Promise<SummaryEntry[]> {
     const level = await this.getHighestLevel({ scopeType, scopeId });
 
-    const conditions = [
-      eq(summaries.hierarchyLevel, level),
-      eq(summaries.isActive, true),
-    ];
+    const conditions = [eq(summaries.hierarchyLevel, level), eq(summaries.isActive, true)];
 
     if (scopeType) {
       conditions.push(eq(summaries.scopeType, scopeType));
@@ -187,11 +192,7 @@ export class CoarseToFineRetriever {
    */
   async drillDown(summaryId: string, _query?: string): Promise<DrillDownResult> {
     // Get the summary
-    const summary = this.db
-      .select()
-      .from(summaries)
-      .where(eq(summaries.id, summaryId))
-      .get();
+    const summary = this.db.select().from(summaries).where(eq(summaries.id, summaryId)).get();
 
     if (!summary) {
       throw createNotFoundError('Summary', summaryId);
@@ -207,21 +208,22 @@ export class CoarseToFineRetriever {
 
     // Separate summary members from entry members
     const summaryMemberIds = memberRecords
-      .filter(m => m.memberType === 'summary')
-      .map(m => m.memberId);
+      .filter((m) => m.memberType === 'summary')
+      .map((m) => m.memberId);
 
-    const children = summaryMemberIds.length > 0
-      ? (this.db
-          .select()
-          .from(summaries)
-          .where(inArray(summaries.id, summaryMemberIds))
-          .all() as SummaryEntry[])
-      : [];
+    const children =
+      summaryMemberIds.length > 0
+        ? (this.db
+            .select()
+            .from(summaries)
+            .where(inArray(summaries.id, summaryMemberIds))
+            .all() as SummaryEntry[])
+        : [];
 
     // Get entry members
     const entryMembers = memberRecords
-      .filter(m => m.memberType !== 'summary')
-      .map(m => ({
+      .filter((m) => m.memberType !== 'summary')
+      .map((m) => ({
         id: m.memberId,
         type: m.memberType,
         score: m.contributionScore ?? 0,
@@ -279,10 +281,7 @@ export class CoarseToFineRetriever {
     options: Partial<CoarseToFineOptions>,
     level: number
   ): Promise<SummaryEntry[]> {
-    const conditions = [
-      eq(summaries.hierarchyLevel, level),
-      eq(summaries.isActive, true),
-    ];
+    const conditions = [eq(summaries.hierarchyLevel, level), eq(summaries.isActive, true)];
 
     if (options.scopeType) {
       conditions.push(eq(summaries.scopeType, options.scopeType));
@@ -308,7 +307,7 @@ export class CoarseToFineRetriever {
     queryEmbedding: number[]
   ): Array<SummaryEntry & { score: number }> {
     return candidates
-      .map(summary => {
+      .map((summary) => {
         if (!summary.embedding || summary.embedding.length === 0) {
           return { ...summary, score: 0 };
         }
@@ -318,7 +317,10 @@ export class CoarseToFineRetriever {
           return { ...summary, score };
         } catch (error) {
           logger.warn(
-            { summaryId: summary.id, error: error instanceof Error ? error.message : String(error) },
+            {
+              summaryId: summary.id,
+              error: error instanceof Error ? error.message : String(error),
+            },
             'Failed to compute similarity'
           );
           return { ...summary, score: 0 };
@@ -333,7 +335,7 @@ export class CoarseToFineRetriever {
   private async expandToNextLevel(
     parentSummaries: Array<SummaryEntry & { score: number }>
   ): Promise<SummaryEntry[]> {
-    const parentIds = parentSummaries.map(s => s.id);
+    const parentIds = parentSummaries.map((s) => s.id);
 
     if (parentIds.length === 0) {
       return [];
@@ -344,14 +346,11 @@ export class CoarseToFineRetriever {
       .select()
       .from(summaryMembers)
       .where(
-        and(
-          inArray(summaryMembers.summaryId, parentIds),
-          eq(summaryMembers.memberType, 'summary')
-        )
+        and(inArray(summaryMembers.summaryId, parentIds), eq(summaryMembers.memberType, 'summary'))
       )
       .all() as SummaryMemberEntry[];
 
-    const childIds = members.map(m => m.memberId);
+    const childIds = members.map((m) => m.memberId);
 
     if (childIds.length === 0) {
       return [];
@@ -361,12 +360,7 @@ export class CoarseToFineRetriever {
     const children = this.db
       .select()
       .from(summaries)
-      .where(
-        and(
-          inArray(summaries.id, childIds),
-          eq(summaries.isActive, true)
-        )
-      )
+      .where(and(inArray(summaries.id, childIds), eq(summaries.isActive, true)))
       .all();
 
     return children as SummaryEntry[];
@@ -381,7 +375,7 @@ export class CoarseToFineRetriever {
     options: CoarseToFineOptions
   ): Promise<RetrievedEntry[]> {
     const entries: RetrievedEntry[] = [];
-    const summaryIds = finalSummaries.map(s => s.id);
+    const summaryIds = finalSummaries.map((s) => s.id);
 
     if (summaryIds.length === 0) {
       return [];
@@ -396,12 +390,12 @@ export class CoarseToFineRetriever {
 
     // Filter by entry type if specified
     const filteredMembers = options.entryTypes
-      ? members.filter(m => options.entryTypes!.includes(m.memberType))
+      ? members.filter((m) => options.entryTypes!.includes(m.memberType))
       : members;
 
     // Build path information for each entry
     for (const member of filteredMembers) {
-      const parentSummary = finalSummaries.find(s => s.id === member.summaryId);
+      const parentSummary = finalSummaries.find((s) => s.id === member.summaryId);
       if (!parentSummary) continue;
 
       entries.push({

@@ -3,7 +3,11 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { strategyStageAsync, type SearchStrategy, type StrategyPipelineContext } from '../../src/services/query/stages/strategy.js';
+import {
+  strategyStageAsync,
+  type SearchStrategy,
+  type StrategyPipelineContext,
+} from '../../src/services/query/stages/strategy.js';
 import type { PipelineContext } from '../../src/services/query/pipeline.js';
 
 // Mock the config module
@@ -32,8 +36,8 @@ function createContext(overrides: Partial<PipelineContext> = {}): PipelineContex
   return {
     params: {},
     deps: {
-      getDb: () => ({} as any),
-      getSqlite: () => ({} as any),
+      getDb: () => ({}) as any,
+      getSqlite: () => ({}) as any,
       logger: undefined,
       perfLog: false,
     } as any,
@@ -42,7 +46,12 @@ function createContext(overrides: Partial<PipelineContext> = {}): PipelineContex
     limit: 20,
     search: undefined,
     ftsMatchIds: null,
-    relatedIds: { tool: new Set(), guideline: new Set(), knowledge: new Set(), experience: new Set() },
+    relatedIds: {
+      tool: new Set(),
+      guideline: new Set(),
+      knowledge: new Set(),
+      experience: new Set(),
+    },
     semanticScores: null,
     fetchedEntries: { tools: [], guidelines: [], knowledge: [], experiences: [] },
     tagsByEntry: {},

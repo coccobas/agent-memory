@@ -100,15 +100,11 @@ describe('Tags Handler', () => {
     });
 
     it('should throw when agentId is missing', async () => {
-      await expect(
-        tagHandlers.create(mockContext, { name: 'test-tag' })
-      ).rejects.toThrow();
+      await expect(tagHandlers.create(mockContext, { name: 'test-tag' })).rejects.toThrow();
     });
 
     it('should throw when name is missing', async () => {
-      await expect(
-        tagHandlers.create(mockContext, { agentId: 'agent-1' })
-      ).rejects.toThrow();
+      await expect(tagHandlers.create(mockContext, { agentId: 'agent-1' })).rejects.toThrow();
     });
   });
 

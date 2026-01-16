@@ -4,11 +4,43 @@
  * Get usage analytics via CLI.
  */
 
-import { Command } from 'commander';
+import type { Command } from 'commander';
 import { getCliContext, shutdownCliContext } from '../utils/context.js';
 import { formatOutput, type OutputFormat } from '../utils/output.js';
 import { handleCliError } from '../utils/errors.js';
 import { analyticsHandlers } from '../../mcp/handlers/analytics.handler.js';
+import { typedAction } from '../utils/typed-action.js';
+
+interface GetStatsOptions extends Record<string, unknown> {
+  scopeType?: string;
+  scopeId?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+interface GetTrendsOptions extends Record<string, unknown> {
+  scopeType?: string;
+  scopeId?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+interface GetSubtaskStatsOptions extends Record<string, unknown> {
+  projectId?: string;
+  subtaskType?: string;
+}
+
+interface GetErrorCorrelationOptions extends Record<string, unknown> {
+  agentA: string;
+  agentB: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+interface GetLowDiversityOptions extends Record<string, unknown> {
+  projectId?: string;
+  scopeId?: string;
+}
 
 export function addAnalyticsCommand(program: Command): void {
   const analytics = program.command('analytics').description('Get usage analytics and trends');
@@ -21,25 +53,27 @@ export function addAnalyticsCommand(program: Command): void {
     .option('--scope-id <id>', 'Scope ID')
     .option('--start-date <date>', 'Start date (ISO format)')
     .option('--end-date <date>', 'End date (ISO format)')
-    .action(async (options, cmd) => {
-      try {
-        const globalOpts = cmd.optsWithGlobals();
-        const context = await getCliContext();
+    .action(
+      typedAction<GetStatsOptions>(async (options, globalOpts) => {
+        try {
+          const context = await getCliContext();
 
-        const result = analyticsHandlers.get_stats(context, {
-          scopeType: options.scopeType,
-          scopeId: options.scopeId,
-          startDate: options.startDate,
-          endDate: options.endDate,
-        });
+          const result = analyticsHandlers.get_stats(context, {
+            scopeType: options.scopeType as 'global' | 'org' | 'project' | 'session' | undefined,
+            scopeId: options.scopeId,
+            startDate: options.startDate,
+            endDate: options.endDate,
+          });
 
-        console.log(formatOutput(result, globalOpts.format as OutputFormat));
-      } catch (error) {
-        handleCliError(error);
-      } finally {
-        await shutdownCliContext();
-      }
-    });
+          // eslint-disable-next-line no-console
+          console.log(formatOutput(result, globalOpts.format as OutputFormat));
+        } catch (error) {
+          handleCliError(error);
+        } finally {
+          await shutdownCliContext();
+        }
+      })
+    );
 
   // analytics get-trends
   analytics
@@ -49,25 +83,27 @@ export function addAnalyticsCommand(program: Command): void {
     .option('--scope-id <id>', 'Scope ID')
     .option('--start-date <date>', 'Start date (ISO format)')
     .option('--end-date <date>', 'End date (ISO format)')
-    .action(async (options, cmd) => {
-      try {
-        const globalOpts = cmd.optsWithGlobals();
-        const context = await getCliContext();
+    .action(
+      typedAction<GetTrendsOptions>(async (options, globalOpts) => {
+        try {
+          const context = await getCliContext();
 
-        const result = analyticsHandlers.get_trends(context, {
-          scopeType: options.scopeType,
-          scopeId: options.scopeId,
-          startDate: options.startDate,
-          endDate: options.endDate,
-        });
+          const result = analyticsHandlers.get_trends(context, {
+            scopeType: options.scopeType as 'global' | 'org' | 'project' | 'session' | undefined,
+            scopeId: options.scopeId,
+            startDate: options.startDate,
+            endDate: options.endDate,
+          });
 
-        console.log(formatOutput(result, globalOpts.format as OutputFormat));
-      } catch (error) {
-        handleCliError(error);
-      } finally {
-        await shutdownCliContext();
-      }
-    });
+          // eslint-disable-next-line no-console
+          console.log(formatOutput(result, globalOpts.format as OutputFormat));
+        } catch (error) {
+          handleCliError(error);
+        } finally {
+          await shutdownCliContext();
+        }
+      })
+    );
 
   // analytics get-subtask-stats
   analytics
@@ -75,23 +111,26 @@ export function addAnalyticsCommand(program: Command): void {
     .description('Get subtask statistics')
     .option('--project-id <id>', 'Project ID')
     .option('--subtask-type <type>', 'Subtask type filter')
-    .action(async (options, cmd) => {
-      try {
-        const globalOpts = cmd.optsWithGlobals();
-        const context = await getCliContext();
+    .action(
+      typedAction<GetSubtaskStatsOptions>(async (options, globalOpts) => {
+        try {
+          const context = await getCliContext();
 
-        const result = analyticsHandlers.get_subtask_stats(context, {
-          projectId: options.projectId,
-          subtaskType: options.subtaskType,
-        });
+          const result = analyticsHandlers.get_subtask_stats(context, {
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+            projectId: options.projectId!,
+            subtaskType: options.subtaskType,
+          });
 
-        console.log(formatOutput(result, globalOpts.format as OutputFormat));
-      } catch (error) {
-        handleCliError(error);
-      } finally {
-        await shutdownCliContext();
-      }
-    });
+          // eslint-disable-next-line no-console
+          console.log(formatOutput(result, globalOpts.format as OutputFormat));
+        } catch (error) {
+          handleCliError(error);
+        } finally {
+          await shutdownCliContext();
+        }
+      })
+    );
 
   // analytics get-error-correlation
   analytics
@@ -101,26 +140,29 @@ export function addAnalyticsCommand(program: Command): void {
     .requiredOption('--agent-b <id>', 'Second agent ID')
     .option('--start-date <date>', 'Start date (ISO format)')
     .option('--end-date <date>', 'End date (ISO format)')
-    .action(async (options, cmd) => {
-      try {
-        const globalOpts = cmd.optsWithGlobals();
-        const context = await getCliContext();
+    .action(
+      typedAction<GetErrorCorrelationOptions>(async (options, globalOpts) => {
+        try {
+          const context = await getCliContext();
 
-        const result = analyticsHandlers.get_error_correlation(context, {
-          agentA: options.agentA,
-          agentB: options.agentB,
-          timeWindow: options.startDate
-            ? { start: options.startDate, end: options.endDate }
-            : undefined,
-        });
+          const result = analyticsHandlers.get_error_correlation(context, {
+            agentA: options.agentA,
+            agentB: options.agentB,
+            timeWindow: options.startDate
+              ? // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+                { start: options.startDate, end: options.endDate! }
+              : undefined,
+          });
 
-        console.log(formatOutput(result, globalOpts.format as OutputFormat));
-      } catch (error) {
-        handleCliError(error);
-      } finally {
-        await shutdownCliContext();
-      }
-    });
+          // eslint-disable-next-line no-console
+          console.log(formatOutput(result, globalOpts.format as OutputFormat));
+        } catch (error) {
+          handleCliError(error);
+        } finally {
+          await shutdownCliContext();
+        }
+      })
+    );
 
   // analytics get-low-diversity
   analytics
@@ -128,21 +170,24 @@ export function addAnalyticsCommand(program: Command): void {
     .description('Get low diversity entries')
     .option('--project-id <id>', 'Project ID')
     .option('--scope-id <id>', 'Scope ID')
-    .action(async (options, cmd) => {
-      try {
-        const globalOpts = cmd.optsWithGlobals();
-        const context = await getCliContext();
+    .action(
+      typedAction<GetLowDiversityOptions>(async (options, globalOpts) => {
+        try {
+          const context = await getCliContext();
 
-        const result = analyticsHandlers.get_low_diversity(context, {
-          projectId: options.projectId,
-          scopeId: options.scopeId,
-        });
+          const result = analyticsHandlers.get_low_diversity(context, {
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+            projectId: options.projectId!,
+            scopeId: options.scopeId,
+          });
 
-        console.log(formatOutput(result, globalOpts.format as OutputFormat));
-      } catch (error) {
-        handleCliError(error);
-      } finally {
-        await shutdownCliContext();
-      }
-    });
+          // eslint-disable-next-line no-console
+          console.log(formatOutput(result, globalOpts.format as OutputFormat));
+        } catch (error) {
+          handleCliError(error);
+        } finally {
+          await shutdownCliContext();
+        }
+      })
+    );
 }

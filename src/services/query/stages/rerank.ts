@@ -163,11 +163,17 @@ function hydrateCandidateTexts(
         LEFT JOIN knowledge_versions kv ON kv.id = k.current_version_id
         WHERE k.id IN (${buildInClausePlaceholders(ids.length)})
       `;
-      const rows = ctx.deps
-        .getPreparedStatement(sql)
-        .all(...ids) as Array<{ id: string; title: string; content: string; source: string }>;
+      const rows = ctx.deps.getPreparedStatement(sql).all(...ids) as Array<{
+        id: string;
+        title: string;
+        content: string;
+        source: string;
+      }>;
       for (const r of rows) {
-        hydrated.set(r.id, safeJoinParts([r.title, r.content, r.source ? `source: ${r.source}` : '']));
+        hydrated.set(
+          r.id,
+          safeJoinParts([r.title, r.content, r.source ? `source: ${r.source}` : ''])
+        );
       }
     }
 
@@ -180,9 +186,12 @@ function hydrateCandidateTexts(
         LEFT JOIN guideline_versions gv ON gv.id = g.current_version_id
         WHERE g.id IN (${buildInClausePlaceholders(ids.length)})
       `;
-      const rows = ctx.deps
-        .getPreparedStatement(sql)
-        .all(...ids) as Array<{ id: string; name: string; content: string; rationale: string }>;
+      const rows = ctx.deps.getPreparedStatement(sql).all(...ids) as Array<{
+        id: string;
+        name: string;
+        content: string;
+        rationale: string;
+      }>;
       for (const r of rows) {
         hydrated.set(r.id, safeJoinParts([r.name, r.content, r.rationale]));
       }
@@ -197,9 +206,11 @@ function hydrateCandidateTexts(
         LEFT JOIN tool_versions tv ON tv.id = t.current_version_id
         WHERE t.id IN (${buildInClausePlaceholders(ids.length)})
       `;
-      const rows = ctx.deps
-        .getPreparedStatement(sql)
-        .all(...ids) as Array<{ id: string; name: string; description: string }>;
+      const rows = ctx.deps.getPreparedStatement(sql).all(...ids) as Array<{
+        id: string;
+        name: string;
+        description: string;
+      }>;
       for (const r of rows) {
         hydrated.set(r.id, safeJoinParts([r.name, r.description]));
       }
@@ -219,9 +230,7 @@ function hydrateCandidateTexts(
         LEFT JOIN experience_versions ev ON ev.id = e.current_version_id
         WHERE e.id IN (${buildInClausePlaceholders(ids.length)})
       `;
-      const rows = ctx.deps
-        .getPreparedStatement(sql)
-        .all(...ids) as Array<{
+      const rows = ctx.deps.getPreparedStatement(sql).all(...ids) as Array<{
         id: string;
         title: string;
         content: string;
@@ -312,7 +321,9 @@ export function createRerankStage(
       const queryEmbedding = await deps.embeddingService.embed(search);
 
       // Generate embeddings for all candidates in batch
-      const candidateTexts = candidates.map((item) => hydratedTexts.get(item.id) ?? getItemText(item));
+      const candidateTexts = candidates.map(
+        (item) => hydratedTexts.get(item.id) ?? getItemText(item)
+      );
       const candidateEmbeddings = await deps.embeddingService.embedBatch(candidateTexts);
 
       // Compute semantic scores and blend with original scores
@@ -333,8 +344,7 @@ export function createRerankStage(
 
         // Blend scores: alpha * semantic + (1-alpha) * original
         const blendedScore =
-          effectiveConfig.alpha * semanticScore +
-          (1 - effectiveConfig.alpha) * originalScore;
+          effectiveConfig.alpha * semanticScore + (1 - effectiveConfig.alpha) * originalScore;
 
         // Return item with updated score (don't add extra properties)
         return {

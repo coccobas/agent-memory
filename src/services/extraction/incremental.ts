@@ -141,7 +141,11 @@ export class IncrementalExtractor {
     let tokenCount = 0;
     let endIndex = overlapStart;
 
-    for (let i = overlapStart; i < transcript.length && i < overlapStart + this.config.windowSize; i++) {
+    for (
+      let i = overlapStart;
+      i < transcript.length && i < overlapStart + this.config.windowSize;
+      i++
+    ) {
       const turn = transcript[i];
       if (!turn) {
         continue;
@@ -208,9 +212,10 @@ export class IncrementalExtractor {
 
     // Get previous summaries for continuity
     const previousSummaries = this.stateManager.getExtractionSummaries(window.sessionId);
-    const summaryPrefix = previousSummaries.length > 0
-      ? `[Context from previous extraction]\n${previousSummaries.join('\n')}\n\n[Current conversation]\n`
-      : '';
+    const summaryPrefix =
+      previousSummaries.length > 0
+        ? `[Context from previous extraction]\n${previousSummaries.join('\n')}\n\n[Current conversation]\n`
+        : '';
 
     // Build context from window turns (with optional summary prefix)
     const context = summaryPrefix + this.buildContextFromWindow(window);

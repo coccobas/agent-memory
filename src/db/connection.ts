@@ -50,7 +50,10 @@ export interface ConnectionOptions {
  */
 export function getDb(_options: ConnectionOptions = {}): AppDb {
   if (!isDatabaseInitialized()) {
-    throw createServiceUnavailableError('Database', 'not initialized. Call createAppContext() first');
+    throw createServiceUnavailableError(
+      'Database',
+      'not initialized. Call createAppContext() first'
+    );
   }
   return getDatabase();
 }
@@ -79,7 +82,10 @@ export function closeDb(): void {
  */
 export function getSqlite(): Database.Database {
   if (!isDatabaseInitialized()) {
-    throw createServiceUnavailableError('Database', 'not initialized. Call createAppContext() first');
+    throw createServiceUnavailableError(
+      'Database',
+      'not initialized. Call createAppContext() first'
+    );
   }
   return getContainerSqlite();
 }

@@ -7,14 +7,9 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import type {
-  LoCoMoDialogue,
-  LoCoMoQAPair,
-  LoCoMoSession,
-} from './locomo-types.js';
+import type { LoCoMoDialogue, LoCoMoQAPair, LoCoMoSession } from './locomo-types.js';
 
-const LOCOMO_URL =
-  'https://raw.githubusercontent.com/snap-research/locomo/main/data/locomo10.json';
+const LOCOMO_URL = 'https://raw.githubusercontent.com/snap-research/locomo/main/data/locomo10.json';
 const DATA_DIR = path.join(import.meta.dirname, 'data');
 const LOCOMO_FILE = path.join(DATA_DIR, 'locomo10.json');
 
@@ -92,7 +87,7 @@ function parseDataset(samples: LoCoMoSample[]): LoCoMoSession[] {
 
     // Find all session keys (session_1, session_2, etc.)
     const sessionKeys = Object.keys(conversation)
-      .filter(k => /^session_\d+$/.test(k))
+      .filter((k) => /^session_\d+$/.test(k))
       .sort((a, b) => {
         const numA = parseInt(a.replace('session_', ''));
         const numB = parseInt(b.replace('session_', ''));
@@ -115,7 +110,7 @@ function parseDataset(samples: LoCoMoSample[]): LoCoMoSession[] {
     sessions.push({
       sessionId: `sample_${sampleIdx + 1}`,
       dateTime,
-      dialogues: allDialogues.filter(d => d && typeof d.text === 'string'),
+      dialogues: allDialogues.filter((d) => d && typeof d.text === 'string'),
       qaPairs: sample.qa || [],
     });
   }
@@ -138,10 +133,7 @@ export interface KnowledgeEntry {
 /**
  * Convert a LoCoMo dialogue to a knowledge entry
  */
-export function dialogueToKnowledge(
-  dialogue: LoCoMoDialogue,
-  sessionId: string
-): KnowledgeEntry {
+export function dialogueToKnowledge(dialogue: LoCoMoDialogue, sessionId: string): KnowledgeEntry {
   // Build content with speaker context
   let content = `${dialogue.speaker}: ${dialogue.text}`;
 
@@ -163,7 +155,7 @@ export function dialogueToKnowledge(
  * Convert all dialogues in a session to knowledge entries
  */
 export function sessionToKnowledgeEntries(session: LoCoMoSession): KnowledgeEntry[] {
-  return session.dialogues.map(dialogue => dialogueToKnowledge(dialogue, session.sessionId));
+  return session.dialogues.map((dialogue) => dialogueToKnowledge(dialogue, session.sessionId));
 }
 
 /**

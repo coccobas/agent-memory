@@ -220,7 +220,9 @@ function formatTerminalOutput(result: unknown): string | null {
 
   // Hierarchical context response
   if ('summary' in result && isRecord(result.summary) && 'totalEntries' in result.summary) {
-    return formatHierarchicalContextTerminal(result as unknown as Parameters<typeof formatHierarchicalContextTerminal>[0]);
+    return formatHierarchicalContextTerminal(
+      result as unknown as Parameters<typeof formatHierarchicalContextTerminal>[0]
+    );
   }
 
   // Health check response (infrastructure)
@@ -235,10 +237,16 @@ function formatTerminalOutput(result: unknown): string | null {
 
   // List responses
   if (Array.isArray(result.guidelines) && result.guidelines.length > 0) {
-    return formatListTerminal(result.guidelines as Parameters<typeof formatListTerminal>[0], 'guidelines');
+    return formatListTerminal(
+      result.guidelines as Parameters<typeof formatListTerminal>[0],
+      'guidelines'
+    );
   }
   if (Array.isArray(result.knowledge) && result.knowledge.length > 0) {
-    return formatListTerminal(result.knowledge as Parameters<typeof formatListTerminal>[0], 'knowledge');
+    return formatListTerminal(
+      result.knowledge as Parameters<typeof formatListTerminal>[0],
+      'knowledge'
+    );
   }
   if (Array.isArray(result.tools) && result.tools.length > 0) {
     return formatListTerminal(result.tools as Parameters<typeof formatListTerminal>[0], 'tools');
@@ -246,7 +254,7 @@ function formatTerminalOutput(result: unknown): string | null {
 
   // Session started/ended
   if (result.success === true && isRecord(result.session)) {
-    const s = result.session as Record<string, unknown>;
+    const s = result.session;
     const action = s.endedAt ? 'Ended' : 'Started';
     const status = s.status === 'active' ? 'active' : 'inactive';
     return formatStatusLine({
@@ -259,7 +267,7 @@ function formatTerminalOutput(result: unknown): string | null {
 
   // Quickstart response (combined context + session)
   if (isRecord(result.quickstart)) {
-    const qs = result.quickstart as Record<string, unknown>;
+    const qs = result.quickstart;
     const sessionAction = qs.sessionAction;
     const items: Array<{ label: string; value: string; status?: 'active' | 'inactive' }> = [];
 

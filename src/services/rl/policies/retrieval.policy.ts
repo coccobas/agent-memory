@@ -10,12 +10,7 @@
  */
 
 import { BasePolicy } from './base.policy.js';
-import type {
-  RetrievalState,
-  RetrievalAction,
-  PolicyDecision,
-  PolicyConfig,
-} from '../types.js';
+import type { RetrievalState, RetrievalAction, PolicyDecision, PolicyConfig } from '../types.js';
 
 // =============================================================================
 // RETRIEVAL POLICY

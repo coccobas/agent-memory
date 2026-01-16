@@ -160,7 +160,9 @@ export class Recommender {
     expiresAt.setDate(expiresAt.getDate() + this.options.expirationDays);
 
     // Get source experience IDs
-    const sourceExperienceIds = pattern.experiences.map((m: ExperienceWithTrajectory) => m.experience.id);
+    const sourceExperienceIds = pattern.experiences.map(
+      (m: ExperienceWithTrajectory) => m.experience.id
+    );
 
     const input: CreateRecommendationInput = {
       scopeType: targetScope.scopeType,
@@ -234,14 +236,17 @@ export class Recommender {
 
     // Get common scenario themes
     const scenarios = pattern.experiences
-      .map(m => m.experience.currentVersion?.scenario)
+      .map((m) => m.experience.currentVersion?.scenario)
       .filter((s): s is string => !!s);
 
     if (scenarios.length > 0) {
       // Extract common words
       const wordCounts = new Map<string, number>();
       for (const scenario of scenarios) {
-        const words = scenario.toLowerCase().split(/\s+/).filter(w => w.length > 4);
+        const words = scenario
+          .toLowerCase()
+          .split(/\s+/)
+          .filter((w) => w.length > 4);
         const seen = new Set<string>();
         for (const word of words) {
           if (!seen.has(word)) {
@@ -267,7 +272,9 @@ export class Recommender {
     const exemplarContent = pattern.exemplar.experience.currentVersion?.content;
     if (exemplarContent) {
       const summary = exemplarContent.slice(0, 200);
-      descriptions.push(`Exemplar approach: ${summary}${exemplarContent.length > 200 ? '...' : ''}`);
+      descriptions.push(
+        `Exemplar approach: ${summary}${exemplarContent.length > 200 ? '...' : ''}`
+      );
     }
 
     return descriptions.join('\n\n') || 'Pattern detected from similar experiences.';
@@ -305,7 +312,7 @@ export class Recommender {
     const contraindications: string[] = [];
 
     // Check for failed outcomes in the pattern
-    const failedMembers = pattern.experiences.filter(m => {
+    const failedMembers = pattern.experiences.filter((m) => {
       const outcome = m.experience.currentVersion?.outcome?.toLowerCase() ?? '';
       return outcome.includes('fail') || outcome.includes('error') || outcome.includes('issue');
     });
@@ -318,7 +325,9 @@ export class Recommender {
 
     // Add general contraindications based on pattern variance
     if (pattern.confidence < 0.8) {
-      contraindications.push('Pattern has moderate variance - may not apply to all similar situations');
+      contraindications.push(
+        'Pattern has moderate variance - may not apply to all similar situations'
+      );
     }
 
     return contraindications.join('\n') || 'No specific contraindications identified.';
@@ -335,14 +344,14 @@ export class Recommender {
     parts.push(`Quality confidence: ${(quality.adjustedConfidence * 100).toFixed(1)}%`);
 
     // Add quality check summary
-    const passedChecks = quality.checks.filter(c => c.passed);
-    const failedChecks = quality.checks.filter(c => !c.passed);
+    const passedChecks = quality.checks.filter((c) => c.passed);
+    const failedChecks = quality.checks.filter((c) => !c.passed);
 
     if (passedChecks.length > 0) {
-      parts.push(`Passed checks: ${passedChecks.map(c => c.name).join(', ')}`);
+      parts.push(`Passed checks: ${passedChecks.map((c) => c.name).join(', ')}`);
     }
     if (failedChecks.length > 0) {
-      parts.push(`Needs attention: ${failedChecks.map(c => c.name).join(', ')}`);
+      parts.push(`Needs attention: ${failedChecks.map((c) => c.name).join(', ')}`);
     }
 
     return parts.join('\n');

@@ -37,7 +37,10 @@ export const memoryQueryDescriptor: ToolDescriptor = {
       properties: {
         type: { type: 'string', enum: ['tool', 'guideline', 'knowledge', 'project'] },
         id: { type: 'string' },
-        relation: { type: 'string', enum: ['applies_to', 'depends_on', 'conflicts_with', 'related_to'] },
+        relation: {
+          type: 'string',
+          enum: ['applies_to', 'depends_on', 'conflicts_with', 'related_to'],
+        },
         depth: { type: 'number' },
         direction: { type: 'string', enum: ['forward', 'backward', 'both'] },
         maxResults: { type: 'number' },
@@ -58,12 +61,18 @@ export const memoryQueryDescriptor: ToolDescriptor = {
     semanticSearch: { type: 'boolean' },
     semanticThreshold: { type: 'number' },
     atTime: { type: 'string', description: 'ISO timestamp for temporal filter' },
-    validDuring: { type: 'object', properties: { start: { type: 'string' }, end: { type: 'string' } } },
+    validDuring: {
+      type: 'object',
+      properties: { start: { type: 'string' }, end: { type: 'string' } },
+    },
     scopeType: { type: 'string', enum: ['global', 'org', 'project', 'session'] },
     scopeId: { type: 'string' },
     inherit: { type: 'boolean', description: 'Include parent scopes (default true)' },
     compact: { type: 'boolean' },
-    hierarchical: { type: 'boolean', description: 'Return ~1.5k token summary instead of ~15k full entries' },
+    hierarchical: {
+      type: 'boolean',
+      description: 'Return ~1.5k token summary instead of ~15k full entries',
+    },
     limit: { type: 'number' },
   },
   actions: {

@@ -7,6 +7,8 @@
  * Eliminates ~40% code duplication across handler files.
  */
 
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
+
 import { transactionWithDb } from '../../db/connection.js';
 import { checkForDuplicates } from '../../services/duplicate.service.js';
 import { logAction } from '../../services/audit.service.js';
@@ -170,7 +172,7 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
     scopeId: string | null,
     entryId: string | null
   ): void {
-    const hasPermission = context.services!.permission.check(
+    const hasPermission = context.services.permission.check(
       agentId,
       permission,
       config.entryType,
@@ -207,7 +209,7 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
       scopeId: e.scopeId,
     }));
 
-    const results = context.services!.permission.checkBatch(agentId, permission, batchEntries);
+    const results = context.services.permission.checkBatch(agentId, permission, batchEntries);
 
     // Fail-fast: throw on first denied permission
     for (const entry of entries) {
@@ -259,13 +261,7 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
       // Uses safeSync for graceful degradation - duplicate check is non-critical
       const duplicateCheck = safeSync(
         () =>
-          checkForDuplicates(
-            config.entryType,
-            nameValue,
-            scopeType,
-            scopeId ?? null,
-            context.db
-          ),
+          checkForDuplicates(config.entryType, nameValue, scopeType, scopeId ?? null, context.db),
         { name: 'checkForDuplicates', entryType: config.entryType, nameValue },
         { isDuplicate: false, similarEntries: [] }
       );
@@ -572,7 +568,7 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
         scopeId: e.scopeId,
       }));
 
-      const permissionResults = context.services!.permission.checkBatch(
+      const permissionResults = context.services.permission.checkBatch(
         agentId,
         'read',
         batchEntries
@@ -746,9 +742,10 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
         if (!nameValue) continue;
 
         // Check if entry already exists using appropriate lookup method
-        const lookupFn = config.nameField === 'title' ? repo.getByTitle : repo.getByName;
+        const lookupFn =
+          config.nameField === 'title' ? repo.getByTitle?.bind(repo) : repo.getByName?.bind(repo);
         if (lookupFn) {
-          const existing = await lookupFn.call(repo, nameValue, scopeType, scopeId, false);
+          const existing = await lookupFn(nameValue, scopeType, scopeId, false);
           if (existing) {
             const key = `${scopeType}:${scopeId ?? ''}:${nameValue}`;
             existingEntriesMap.set(key, existing);
@@ -758,7 +755,8 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
 
       // Collect permission check entries
       // Uses batch check for efficiency - single DB query instead of N queries
-      const permissionEntries: Array<{ id: string; scopeType: ScopeType; scopeId: string | null }> = [];
+      const permissionEntries: Array<{ id: string; scopeType: ScopeType; scopeId: string | null }> =
+        [];
       for (let i = 0; i < entries.length; i++) {
         const entry = entries[i];
         if (!isObject(entry)) continue;
@@ -876,15 +874,22 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
           let existingEntry = existingEntriesMap.get(key);
 
           // Re-lookup inside transaction for race safety
-          const lookupFn = config.nameField === 'title' ? repo.getByTitle : repo.getByName;
+          const lookupFn =
+            config.nameField === 'title' ? repo.getByTitle?.bind(repo) : repo.getByName?.bind(repo);
           if (!existingEntry && lookupFn) {
             // Sync lookup inside transaction - won't actually await since SQLite is sync
-            const freshLookup = lookupFn.call(repo, nameValue, scopeType, scopeId, false);
-            if (freshLookup && 'then' in freshLookup) {
+            const freshLookup = lookupFn(nameValue, scopeType, scopeId, false);
+            // Check if result is a Promise (thenable) - can't await in sync transaction
+            const isPromise =
+              freshLookup != null &&
+              typeof freshLookup === 'object' &&
+              'then' in freshLookup &&
+              typeof (freshLookup as { then?: unknown }).then === 'function';
+            if (isPromise) {
               // Handle promise case (though SQLite resolves sync)
               existingEntry = undefined; // Can't await in sync transaction, use cached result
             } else {
-              existingEntry = freshLookup as TEntry | undefined;
+              existingEntry = freshLookup as unknown as TEntry | undefined;
             }
           }
 
@@ -992,7 +997,8 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
       }
 
       // Validate all entries exist and collect permission info
-      const permissionEntries: Array<{ id: string; scopeType: ScopeType; scopeId: string | null }> = [];
+      const permissionEntries: Array<{ id: string; scopeType: ScopeType; scopeId: string | null }> =
+        [];
       for (const id of ids) {
         const existingEntry = entriesMap.get(id);
         if (!existingEntry) {
@@ -1171,7 +1177,8 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
       }
 
       // Validate all entries exist and collect permission info
-      const permissionEntries: Array<{ id: string; scopeType: ScopeType; scopeId: string | null }> = [];
+      const permissionEntries: Array<{ id: string; scopeType: ScopeType; scopeId: string | null }> =
+        [];
       for (const id of ids) {
         const existingEntry = entriesMap.get(id);
         if (!existingEntry) {

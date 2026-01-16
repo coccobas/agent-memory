@@ -382,10 +382,7 @@ class ConfigReloader {
         callback(result);
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
-        logger.error(
-          { error: errorMsg },
-          'Reload callback failed'
-        );
+        logger.error({ error: errorMsg }, 'Reload callback failed');
         // Bug #356 fix: Track callback failures in result for visibility
         result.errors.push(`Callback failed: ${errorMsg}`);
       }

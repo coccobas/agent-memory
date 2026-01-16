@@ -298,9 +298,5 @@
       }
     }
   ],
-  "diagnosis": [
-    "",
-    "DIAGNOSIS:",
-    "⚠️  No baseline (raw, no prefixes) found"
-  ]
+  "diagnosis": ["", "DIAGNOSIS:", "⚠️  No baseline (raw, no prefixes) found"]
 }

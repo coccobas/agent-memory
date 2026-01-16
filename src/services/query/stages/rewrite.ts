@@ -113,7 +113,7 @@ export async function rewriteStageAsync(ctx: PipelineContext): Promise<RewriteSt
         enableHyDE: params.enableHyDE === true,
         enableExpansion: params.enableExpansion === true,
         enableDecomposition: params.enableDecomposition === true,
-        maxExpansions: params.maxExpansions as number | undefined,
+        maxExpansions: params.maxExpansions,
       },
     });
 
@@ -133,7 +133,7 @@ export async function rewriteStageAsync(ctx: PipelineContext): Promise<RewriteSt
 
     return {
       ...ctx,
-      searchQueries: result.rewrittenQueries.map(rq => ({
+      searchQueries: result.rewrittenQueries.map((rq) => ({
         text: rq.text,
         embedding: rq.embedding,
         weight: rq.weight,
@@ -148,14 +148,15 @@ export async function rewriteStageAsync(ctx: PipelineContext): Promise<RewriteSt
     if (deps.logger) {
       const isProduction = process.env.NODE_ENV === 'production';
       // Bug #199 fix: Preserve error type info for all error types
-      const errorDetails = error instanceof Error
-        ? {
-            message: error.message,
-            name: error.name,
-            // Only include stack traces in non-production environments
-            ...(isProduction ? {} : { stack: error.stack?.split('\n').slice(0, 5).join('\n') }),
-          }
-        : { message: String(error), type: typeof error };
+      const errorDetails =
+        error instanceof Error
+          ? {
+              message: error.message,
+              name: error.name,
+              // Only include stack traces in non-production environments
+              ...(isProduction ? {} : { stack: error.stack?.split('\n').slice(0, 5).join('\n') }),
+            }
+          : { message: String(error), type: typeof error };
 
       deps.logger.warn(
         {

@@ -72,10 +72,7 @@ export class ExtractionCollector {
       }
 
       // Get all retrievals for this entry
-      const retrievals = await this.retrievalRepo.getByEntry(
-        decision.entryType,
-        decision.entryId
-      );
+      const retrievals = await this.retrievalRepo.getByEntry(decision.entryType, decision.entryId);
 
       const retrievalCount = retrievals.length;
       const lastRetrievedAt = retrievals.length > 0 ? retrievals[0]?.retrievedAt : null;

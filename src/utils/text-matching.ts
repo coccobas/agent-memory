@@ -9,6 +9,8 @@
  * - Fast path for exact matches in fuzzy matching
  */
 
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
+
 import { createComponentLogger } from './logger.js';
 
 const logger = createComponentLogger('text-matching');
@@ -31,7 +33,6 @@ export const MAX_REGEX_PATTERN_LENGTH = 500;
  * Maximum number of compiled regex patterns to cache (LRU eviction).
  */
 const REGEX_CACHE_MAX_SIZE = 100;
-
 
 // =============================================================================
 // ReDoS PROTECTION
@@ -118,6 +119,7 @@ function getCachedRegex(pattern: string): RegExp | null {
           oldestKey = key;
         }
       }
+      // Safe: oldestKey guaranteed to be string if found in loop
       if (oldestKey) {
         regexCache.delete(oldestKey);
       }
@@ -184,8 +186,8 @@ export function levenshteinDistance(str1: string, str2: string, maxDistance?: nu
   if (len2 === 0) return len1;
 
   // Single-row algorithm: O(min(m,n)) space
-  let prevRow: number[] = new Array(len1 + 1);
-  let currRow: number[] = new Array(len1 + 1);
+  let prevRow: number[] = new Array<number>(len1 + 1);
+  let currRow: number[] = new Array<number>(len1 + 1);
 
   // Initialize first row
   for (let i = 0; i <= len1; i++) {
@@ -204,6 +206,7 @@ export function levenshteinDistance(str1: string, str2: string, maxDistance?: nu
         (prevRow[i - 1] ?? 0) + cost // substitution
       );
 
+      // Safe: currRow[i] just assigned in the line above
       if (currRow[i]! < rowMin) {
         rowMin = currRow[i]!;
       }
@@ -218,6 +221,7 @@ export function levenshteinDistance(str1: string, str2: string, maxDistance?: nu
     [prevRow, currRow] = [currRow, prevRow];
   }
 
+  // Safe: prevRow[len1] guaranteed to be a number (initialized and computed)
   return prevRow[len1] ?? 0;
 }
 
@@ -242,7 +246,10 @@ export function textMatches(text: string | null | undefined, search: string): bo
  * Splits on whitespace and common punctuation.
  */
 function tokenize(text: string): string[] {
-  return text.toLowerCase().split(/[\s\-_.,;:!?()[\]{}'"]+/).filter(w => w.length > 0);
+  return text
+    .toLowerCase()
+    .split(/[\s\-_.,;:!?()[\]{}'"]+/)
+    .filter((w) => w.length > 0);
 }
 
 /**

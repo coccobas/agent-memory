@@ -4,6 +4,8 @@
  * Examples demonstrating how to export RL training datasets in various formats.
  */
 
+/* eslint-disable no-console */
+
 import { buildExtractionDataset, buildRetrievalDataset } from '../dataset-builder.js';
 import { exportDataset, createExportOptions } from './index.js';
 import type { ExportFormat } from './types.js';
@@ -263,7 +265,7 @@ function formatBytes(bytes: number): string {
   const sizes = ['Bytes', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
 
-  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
 }
 
 // =============================================================================

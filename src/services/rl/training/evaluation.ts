@@ -707,7 +707,9 @@ export function computeRewardDistribution(rewards: number[]): RewardDistribution
   for (let i = 0; i < numBins; i++) {
     const binStart = min + i * binWidth;
     const binEnd = min + (i + 1) * binWidth;
-    const count = rewards.filter((r) => r >= binStart && (i === numBins - 1 ? r <= binEnd : r < binEnd)).length;
+    const count = rewards.filter(
+      (r) => r >= binStart && (i === numBins - 1 ? r <= binEnd : r < binEnd)
+    ).length;
 
     bins.push({
       bin: `[${binStart.toFixed(2)}, ${binEnd.toFixed(2)}${i === numBins - 1 ? ']' : ')'}`,
@@ -891,9 +893,7 @@ function approximateNormalCDF(z: number): number {
   const t = 1 / (1 + 0.2316419 * Math.abs(z));
   const d = 0.3989423 * Math.exp((-z * z) / 2);
   const p =
-    d *
-    t *
-    (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+    d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
 
   return z > 0 ? 1 - p : p;
 }
@@ -901,12 +901,7 @@ function approximateNormalCDF(z: number): number {
 /**
  * Compute Cohen's d effect size
  */
-function computeCohenD(
-  mean1: number,
-  mean2: number,
-  stdDev1: number,
-  stdDev2: number
-): number {
+function computeCohenD(mean1: number, mean2: number, stdDev1: number, stdDev2: number): number {
   const pooledStdDev = Math.sqrt((stdDev1 ** 2 + stdDev2 ** 2) / 2);
   return (mean2 - mean1) / pooledStdDev;
 }

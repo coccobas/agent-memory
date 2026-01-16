@@ -156,11 +156,7 @@ describe('Similarity Calculations', () => {
     });
 
     it('should filter out empty embeddings', () => {
-      const embeddings = [
-        [1, 2, 3],
-        [],
-        [3, 4, 5],
-      ];
+      const embeddings = [[1, 2, 3], [], [3, 4, 5]];
 
       const centroid = computeCentroid(embeddings);
 
@@ -193,10 +189,7 @@ describe('Similarity Calculations', () => {
 
     it('should handle high-dimensional embeddings', () => {
       const dim = 1536;
-      const embeddings = [
-        Array(dim).fill(1),
-        Array(dim).fill(3),
-      ];
+      const embeddings = [Array(dim).fill(1), Array(dim).fill(3)];
 
       const centroid = computeCentroid(embeddings);
 
@@ -262,7 +255,7 @@ describe('Similarity Calculations', () => {
 
       // Should have edge between node 1 and 2 (high similarity)
       const edge12 = graph.edges.find(
-        e => (e.from === '1' && e.to === '2') || (e.from === '2' && e.to === '1')
+        (e) => (e.from === '1' && e.to === '2') || (e.from === '2' && e.to === '1')
       );
       expect(edge12).toBeDefined();
       expect(edge12!.weight).toBeGreaterThan(0.8);
@@ -289,7 +282,7 @@ describe('Similarity Calculations', () => {
       const graph = buildSimilarityGraph(nodes, 0.5);
 
       expect(graph.nodes).toHaveLength(2);
-      expect(graph.nodes.every(n => n.embedding !== undefined)).toBe(true);
+      expect(graph.nodes.every((n) => n.embedding !== undefined)).toBe(true);
     });
 
     it('should create adjacency list for efficient traversal', () => {
@@ -329,9 +322,7 @@ describe('Similarity Calculations', () => {
     });
 
     it('should handle single node', () => {
-      const nodes: CommunityNode[] = [
-        { id: '1', type: 'knowledge', embedding: [1, 0, 0] },
-      ];
+      const nodes: CommunityNode[] = [{ id: '1', type: 'knowledge', embedding: [1, 0, 0] }];
 
       const graph = buildSimilarityGraph(nodes, 0.5);
 
@@ -342,9 +333,7 @@ describe('Similarity Calculations', () => {
 
   describe('calculateCohesion', () => {
     it('should return 1 for single node', () => {
-      const nodes: CommunityNode[] = [
-        { id: '1', type: 'knowledge', embedding: [1, 2, 3] },
-      ];
+      const nodes: CommunityNode[] = [{ id: '1', type: 'knowledge', embedding: [1, 2, 3] }];
 
       expect(calculateCohesion(nodes)).toBe(1.0);
     });
@@ -398,9 +387,7 @@ describe('Similarity Calculations', () => {
 
   describe('calculateDetailedCohesion', () => {
     it('should return perfect cohesion for single node', () => {
-      const nodes: CommunityNode[] = [
-        { id: '1', type: 'knowledge', embedding: [1, 2, 3] },
-      ];
+      const nodes: CommunityNode[] = [{ id: '1', type: 'knowledge', embedding: [1, 2, 3] }];
 
       const cohesion = calculateDetailedCohesion(nodes);
 

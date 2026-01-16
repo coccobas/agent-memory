@@ -5,9 +5,9 @@ services:
       dockerfile: Dockerfile
     image: agent-memory:latest
     container_name: agent-memory
-    command: ["node", "dist/cli.js", "rest"]
+    command: ['node', 'dist/cli.js', 'rest']
     ports:
-      - "8787:8787"
+      - '8787:8787'
     volumes:
       # Bind mount to shared data directory
       # Override AGENT_MEMORY_DATA_DIR to use a different host location

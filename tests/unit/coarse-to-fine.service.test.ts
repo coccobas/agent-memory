@@ -253,7 +253,8 @@ describe('CoarseToFineRetriever', () => {
     it('should start at specified start level', async () => {
       const mockGet = vi.fn().mockReturnValue({ maxLevel: 2 });
       const domainSummary = createMockSummary('domain-1', 2, [0.9, 0.1, 0.1]);
-      const mockAll = vi.fn()
+      const mockAll = vi
+        .fn()
         .mockReturnValueOnce([domainSummary]) // Level 2 summaries
         .mockReturnValueOnce([]) // No children
         .mockReturnValueOnce([]); // No members
@@ -351,7 +352,8 @@ describe('CoarseToFineRetriever', () => {
       ];
 
       const mockGet = vi.fn().mockReturnValue({ maxLevel: 2 });
-      const mockAll = vi.fn()
+      const mockAll = vi
+        .fn()
         .mockReturnValueOnce(summaries)
         .mockReturnValueOnce([]) // No children
         .mockReturnValueOnce([]); // No members
@@ -392,12 +394,13 @@ describe('CoarseToFineRetriever', () => {
       // Create summaries with varying similarity
       const summaries = [
         createMockSummary('domain-1', 2, [0.95, 0.05, 0.05]), // High similarity
-        createMockSummary('domain-2', 2, [0.4, 0.6, 0.0]),    // Low similarity
-        createMockSummary('domain-3', 2, [0.3, 0.7, 0.0]),    // Low similarity
+        createMockSummary('domain-2', 2, [0.4, 0.6, 0.0]), // Low similarity
+        createMockSummary('domain-3', 2, [0.3, 0.7, 0.0]), // Low similarity
       ];
 
       const mockGet = vi.fn().mockReturnValue({ maxLevel: 2 });
-      const mockAll = vi.fn()
+      const mockAll = vi
+        .fn()
         .mockReturnValueOnce(summaries)
         .mockReturnValueOnce([]) // No children
         .mockReturnValueOnce([]); // No members
@@ -438,11 +441,12 @@ describe('CoarseToFineRetriever', () => {
       const summaries = [
         createMockSummary('domain-1', 2, [0.95, 0.05, 0.05]),
         createMockSummary('domain-2', 2, null), // No embedding
-        createMockSummary('domain-3', 2, []),   // Empty embedding
+        createMockSummary('domain-3', 2, []), // Empty embedding
       ];
 
       const mockGet = vi.fn().mockReturnValue({ maxLevel: 2 });
-      const mockAll = vi.fn()
+      const mockAll = vi
+        .fn()
         .mockReturnValueOnce(summaries)
         .mockReturnValueOnce([]) // No children
         .mockReturnValueOnce([]); // No members
@@ -484,7 +488,8 @@ describe('CoarseToFineRetriever', () => {
       ];
 
       const mockGet = vi.fn().mockReturnValue({ maxLevel: 2 });
-      const mockAll = vi.fn()
+      const mockAll = vi
+        .fn()
         .mockReturnValueOnce(summaries)
         .mockReturnValueOnce([]) // No children
         .mockReturnValueOnce([]); // No members
@@ -529,9 +534,7 @@ describe('CoarseToFineRetriever', () => {
       );
 
       const mockGet = vi.fn().mockReturnValue({ maxLevel: 0 });
-      const mockAll = vi.fn()
-        .mockReturnValueOnce([chunkSummary])
-        .mockReturnValueOnce(members);
+      const mockAll = vi.fn().mockReturnValueOnce([chunkSummary]).mockReturnValueOnce(members);
 
       mockDb.select = vi.fn().mockReturnValue({
         from: vi.fn().mockReturnValue({
@@ -569,9 +572,7 @@ describe('CoarseToFineRetriever', () => {
       );
 
       const mockGet = vi.fn().mockReturnValue({ maxLevel: 0 });
-      const mockAll = vi.fn()
-        .mockReturnValueOnce([chunkSummary])
-        .mockReturnValueOnce(members);
+      const mockAll = vi.fn().mockReturnValueOnce([chunkSummary]).mockReturnValueOnce(members);
 
       mockDb.select = vi.fn().mockReturnValue({
         from: vi.fn().mockReturnValue({
@@ -611,9 +612,7 @@ describe('CoarseToFineRetriever', () => {
       ];
 
       const mockGet = vi.fn().mockReturnValue({ maxLevel: 0 });
-      const mockAll = vi.fn()
-        .mockReturnValueOnce([chunkSummary])
-        .mockReturnValueOnce(members);
+      const mockAll = vi.fn().mockReturnValueOnce([chunkSummary]).mockReturnValueOnce(members);
 
       mockDb.select = vi.fn().mockReturnValue({
         from: vi.fn().mockReturnValue({
@@ -640,7 +639,7 @@ describe('CoarseToFineRetriever', () => {
       const result = await retriever.retrieve(options);
 
       // All returned entries should be of the specified types
-      result.entries.forEach(entry => {
+      result.entries.forEach((entry) => {
         expect(['knowledge', 'guideline']).toContain(entry.type);
       });
     });
@@ -652,7 +651,8 @@ describe('CoarseToFineRetriever', () => {
       const domainSummary = createMockSummary('domain-1', 2, [0.9, 0.1, 0.1]);
 
       const mockGet = vi.fn().mockReturnValue({ maxLevel: 2 });
-      const mockAll = vi.fn()
+      const mockAll = vi
+        .fn()
         .mockReturnValueOnce([domainSummary])
         .mockReturnValueOnce([]) // No children
         .mockReturnValueOnce([]); // No members
@@ -683,7 +683,7 @@ describe('CoarseToFineRetriever', () => {
       expect(result.steps).toBeDefined();
       expect(Array.isArray(result.steps)).toBe(true);
 
-      result.steps.forEach(step => {
+      result.steps.forEach((step) => {
         expect(step).toHaveProperty('level');
         expect(step).toHaveProperty('summariesSearched');
         expect(step).toHaveProperty('summariesMatched');
@@ -823,13 +823,9 @@ describe('CoarseToFineRetriever', () => {
         createMockMember('summary-1', 'entry-1', 'knowledge', 0.85),
       ];
 
-      const mockGet = vi.fn()
-        .mockReturnValueOnce(summary)
-        .mockReturnValueOnce(undefined);
+      const mockGet = vi.fn().mockReturnValueOnce(summary).mockReturnValueOnce(undefined);
 
-      const mockAll = vi.fn()
-        .mockReturnValueOnce(members)
-        .mockReturnValueOnce([childSummary]);
+      const mockAll = vi.fn().mockReturnValueOnce(members).mockReturnValueOnce([childSummary]);
 
       const mockRun = vi.fn();
 
@@ -886,13 +882,9 @@ describe('CoarseToFineRetriever', () => {
         createMockMember('summary-1', 'entry-2', 'guideline', 0.8),
       ];
 
-      const mockGet = vi.fn()
-        .mockReturnValueOnce(summary)
-        .mockReturnValueOnce(undefined);
+      const mockGet = vi.fn().mockReturnValueOnce(summary).mockReturnValueOnce(undefined);
 
-      const mockAll = vi.fn()
-        .mockReturnValueOnce(members)
-        .mockReturnValueOnce([childSummary]);
+      const mockAll = vi.fn().mockReturnValueOnce(members).mockReturnValueOnce([childSummary]);
 
       const mockRun = vi.fn();
 
@@ -920,7 +912,7 @@ describe('CoarseToFineRetriever', () => {
 
       expect(result.children.length).toBe(1);
       expect(result.members.length).toBe(2); // Only entry members
-      expect(result.members.every(m => m.type !== 'summary')).toBe(true);
+      expect(result.members.every((m) => m.type !== 'summary')).toBe(true);
     });
 
     it('should update access tracking', async () => {
@@ -1040,7 +1032,8 @@ describe('CoarseToFineRetriever', () => {
       const level0Summary = createMockSummary('level-0', 0, [0.8, 0.2, 0.2]);
 
       const mockGet = vi.fn().mockReturnValue({ maxLevel: 3 });
-      const mockAll = vi.fn()
+      const mockAll = vi
+        .fn()
         .mockReturnValueOnce([level3Summary])
         .mockReturnValueOnce([createMockMember('level-3', 'level-2', 'summary')])
         .mockReturnValueOnce([level2Summary])
@@ -1152,9 +1145,7 @@ describe('CoarseToFineRetriever', () => {
       const member = createMockMember('chunk-1', 'entry-1', 'knowledge', 0.95);
 
       const mockGet = vi.fn().mockReturnValue({ maxLevel: 0 });
-      const mockAll = vi.fn()
-        .mockReturnValueOnce([chunkSummary])
-        .mockReturnValueOnce([member]);
+      const mockAll = vi.fn().mockReturnValueOnce([chunkSummary]).mockReturnValueOnce([member]);
 
       mockDb.select = vi.fn().mockReturnValue({
         from: vi.fn().mockReturnValue({
@@ -1200,9 +1191,7 @@ describe('CoarseToFineRetriever', () => {
       ];
 
       const mockGet = vi.fn().mockReturnValue({ maxLevel: 0 });
-      const mockAll = vi.fn()
-        .mockReturnValueOnce([chunkSummary])
-        .mockReturnValueOnce(members);
+      const mockAll = vi.fn().mockReturnValueOnce([chunkSummary]).mockReturnValueOnce(members);
 
       mockDb.select = vi.fn().mockReturnValue({
         from: vi.fn().mockReturnValue({
@@ -1229,9 +1218,7 @@ describe('CoarseToFineRetriever', () => {
 
       // Verify entries are sorted by score (descending)
       for (let i = 1; i < result.entries.length; i++) {
-        expect(result.entries[i - 1]!.score).toBeGreaterThanOrEqual(
-          result.entries[i]!.score
-        );
+        expect(result.entries[i - 1]!.score).toBeGreaterThanOrEqual(result.entries[i]!.score);
       }
     });
   });

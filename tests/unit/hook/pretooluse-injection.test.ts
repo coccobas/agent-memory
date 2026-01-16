@@ -43,7 +43,13 @@ describe('PreToolUse context injection', () => {
       success: true,
       injectedContext: '# Guidelines\n- Use TypeScript strict mode',
       entries: [
-        { type: 'guideline', id: 'g1', title: 'TypeScript Strict', content: '...', relevanceScore: 0.9 },
+        {
+          type: 'guideline',
+          id: 'g1',
+          title: 'TypeScript Strict',
+          content: '...',
+          relevanceScore: 0.9,
+        },
       ],
       detectedIntent: 'code',
       processingTimeMs: 15,
@@ -90,7 +96,9 @@ describe('PreToolUse context injection', () => {
     mockGetContext.mockResolvedValue({
       success: true,
       injectedContext: 'Some context',
-      entries: [{ type: 'knowledge', id: 'k1', title: 'Info', content: '...', relevanceScore: 0.8 }],
+      entries: [
+        { type: 'knowledge', id: 'k1', title: 'Info', content: '...', relevanceScore: 0.8 },
+      ],
       detectedIntent: 'explore',
       processingTimeMs: 10,
       message: 'OK',

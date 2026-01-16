@@ -111,11 +111,7 @@ export class OutcomeRepository {
    * Get a specific task outcome by ID
    */
   async getOutcomeById(id: string): Promise<TaskOutcome | undefined> {
-    const outcome = this.db
-      .select()
-      .from(taskOutcomes)
-      .where(eq(taskOutcomes.id, id))
-      .get();
+    const outcome = this.db.select().from(taskOutcomes).where(eq(taskOutcomes.id, id)).get();
 
     return outcome;
   }
@@ -169,10 +165,7 @@ export class OutcomeRepository {
   async countSuccessfulRetrievals(_entryId: string): Promise<number> {
     // This requires joining through memory_retrievals - we'll implement a simple version
     // In practice, you might want to add indexes or optimize this query
-    const allOutcomes = this.db
-      .select()
-      .from(retrievalOutcomes)
-      .all();
+    const allOutcomes = this.db.select().from(retrievalOutcomes).all();
 
     // Filter to successful outcomes (would be more efficient with a join)
     let count = 0;

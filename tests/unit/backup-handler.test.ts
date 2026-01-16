@@ -61,8 +61,18 @@ describe('Backup Handler', () => {
   describe('list', () => {
     it('should list backups', () => {
       const mockBackups = [
-        { filename: 'backup1.db', path: '/path/backup1.db', size: 1024, createdAt: new Date('2024-01-01') },
-        { filename: 'backup2.db', path: '/path/backup2.db', size: 2048, createdAt: new Date('2024-01-02') },
+        {
+          filename: 'backup1.db',
+          path: '/path/backup1.db',
+          size: 1024,
+          createdAt: new Date('2024-01-01'),
+        },
+        {
+          filename: 'backup2.db',
+          path: '/path/backup2.db',
+          size: 2048,
+          createdAt: new Date('2024-01-02'),
+        },
       ];
 
       vi.mocked(backupService.listBackups).mockReturnValue(mockBackups);

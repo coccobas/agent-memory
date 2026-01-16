@@ -31,7 +31,7 @@ const showHelp = args.includes('--help') || args.includes('-h');
 
 // Parse arguments
 const parseArg = (flag: string, defaultVal: string): string => {
-  const idx = args.findIndex(a => a === flag);
+  const idx = args.findIndex((a) => a === flag);
   return idx >= 0 && args[idx + 1] ? args[idx + 1]! : defaultVal;
 };
 
@@ -40,10 +40,18 @@ const maxDialogues = parseInt(parseArg('--dialogues', 'Infinity'), 10) || Infini
 const topK = parseInt(parseArg('--top-k', '5'), 10);
 // LLM provider and model configuration
 const llmProvider = process.env.AGENT_MEMORY_LOCOMO_PROVIDER || 'openai';
-const defaultGenerationModel = process.env.AGENT_MEMORY_EXTRACTION_OPENAI_MODEL || (llmProvider === 'anthropic' ? 'claude-3-5-haiku-20241022' : 'qwen2.5-7b-instruct');
+const defaultGenerationModel =
+  process.env.AGENT_MEMORY_EXTRACTION_OPENAI_MODEL ||
+  (llmProvider === 'anthropic' ? 'claude-3-5-haiku-20241022' : 'qwen2.5-7b-instruct');
 const defaultJudgeModel = process.env.AGENT_MEMORY_LOCOMO_JUDGE_MODEL || defaultGenerationModel;
-const generationModel = parseArg('--model', process.env.AGENT_MEMORY_LOCOMO_GENERATION_MODEL || defaultGenerationModel);
-const judgeModel = parseArg('--judge-model', process.env.AGENT_MEMORY_LOCOMO_JUDGE_MODEL || defaultJudgeModel);
+const generationModel = parseArg(
+  '--model',
+  process.env.AGENT_MEMORY_LOCOMO_GENERATION_MODEL || defaultGenerationModel
+);
+const judgeModel = parseArg(
+  '--judge-model',
+  process.env.AGENT_MEMORY_LOCOMO_JUDGE_MODEL || defaultJudgeModel
+);
 const rawIngestionMode = args.includes('--raw');
 
 if (showHelp) {
@@ -100,23 +108,23 @@ const { generateId } = await import('../../src/db/repositories/base.js');
 const { applyMigrations } = await import('../fixtures/migration-loader.js');
 const { cleanupDbFiles, ensureDataDirectory } = await import('../fixtures/db-utils.js');
 const { config: appConfig } = await import('../../src/config/index.js');
-const { createRuntime, extractRuntimeConfig, shutdownRuntime } = await import('../../src/core/runtime.js');
+const { createRuntime, extractRuntimeConfig, shutdownRuntime } =
+  await import('../../src/core/runtime.js');
 const { createRepositories } = await import('../../src/core/factory/repositories.js');
 const { createAdaptersWithConfig } = await import('../../src/core/adapters/index.js');
 const { wireContext } = await import('../../src/core/factory/context-wiring.js');
 const { registerContext, resetContainer } = await import('../../src/core/container.js');
-const { executeQueryPipelineAsync, createDependencies } = await import('../../src/services/query/index.js');
-const { getEmbeddingQueueStats, generateEmbeddingAsync } = await import('../../src/db/repositories/embedding-hooks.js');
+const { executeQueryPipelineAsync, createDependencies } =
+  await import('../../src/services/query/index.js');
+const { getEmbeddingQueueStats, generateEmbeddingAsync } =
+  await import('../../src/db/repositories/embedding-hooks.js');
 const { LRUCache } = await import('../../src/utils/lru-cache.js');
 const pino = (await import('pino')).default;
 const { rm } = await import('node:fs/promises');
 
 const { loadLoCoMoDataset, getDatasetStats } = await import('./locomo-adapter.js');
-const {
-  evaluateSessionOfficial,
-  compileOfficialResults,
-  printOfficialResults,
-} = await import('./locomo-official-evaluator.js');
+const { evaluateSessionOfficial, compileOfficialResults, printOfficialResults } =
+  await import('./locomo-official-evaluator.js');
 
 import type { LoCoMoDialogue } from './locomo-types.js';
 import type { AppContext } from '../../src/core/context.js';
@@ -146,12 +154,14 @@ async function setupContext(): Promise<{
   applyMigrations(sqlite);
 
   const projectId = generateId();
-  db.insert(schema.projects).values({
-    id: projectId,
-    name: 'LoCoMo Official Benchmark',
-    description: 'Official LoCoMo evaluation with LLM-as-Judge',
-    rootPath: '/locomo/official',
-  }).run();
+  db.insert(schema.projects)
+    .values({
+      id: projectId,
+      name: 'LoCoMo Official Benchmark',
+      description: 'Official LoCoMo evaluation with LLM-as-Judge',
+      rootPath: '/locomo/official',
+    })
+    .run();
 
   const config = appConfig;
   const runtimeConfig = extractRuntimeConfig(config);
@@ -209,26 +219,30 @@ async function ingestRawDialogues(
     const versionId = generateId();
     const content = `${dialogue.speaker}: ${dialogue.text}`;
 
-    db.insert(schema.knowledge).values({
-      id: entryId,
-      scopeType,
-      scopeId,
-      title: `${dialogue.speaker} (${dialogue.dia_id})`,
-      category: 'fact',
-      currentVersionId: versionId,
-      isActive: true,
-      createdBy: 'locomo-official',
-    }).run();
+    db.insert(schema.knowledge)
+      .values({
+        id: entryId,
+        scopeType,
+        scopeId,
+        title: `${dialogue.speaker} (${dialogue.dia_id})`,
+        category: 'fact',
+        currentVersionId: versionId,
+        isActive: true,
+        createdBy: 'locomo-official',
+      })
+      .run();
 
-    db.insert(schema.knowledgeVersions).values({
-      id: versionId,
-      knowledgeId: entryId,
-      versionNum: 1,
-      content,
-      source: 'locomo-dialogue',
-      confidence: 1.0,
-      createdBy: 'locomo-official',
-    }).run();
+    db.insert(schema.knowledgeVersions)
+      .values({
+        id: versionId,
+        knowledgeId: entryId,
+        versionNum: 1,
+        content,
+        source: 'locomo-dialogue',
+        confidence: 1.0,
+        createdBy: 'locomo-official',
+      })
+      .run();
 
     entryIdToContent.set(entryId, content);
 
@@ -249,7 +263,7 @@ async function ingestRawDialogues(
     if (debugMode) {
       process.stdout.write(`  Embeddings: pending=${stats.pending} inFlight=${stats.inFlight}\r`);
     }
-    await new Promise(r => setTimeout(r, 250));
+    await new Promise((r) => setTimeout(r, 250));
   }
   if (debugMode) process.stdout.write('\n');
 
@@ -278,20 +292,26 @@ function createQueryFunction(
     cache: queryCache as typeof queryCache,
     perfLog: debugMode,
     logger,
-    queryRewriteService: ctx.services.queryRewrite ? {
-      rewrite: (input) => ctx.services.queryRewrite!.rewrite(input),
-      isAvailable: () => ctx.services.queryRewrite!.isAvailable(),
-    } : undefined,
-    embeddingService: ctx.services.embedding ? {
-      embed: (text) => ctx.services.embedding!.embed(text),
-      embedBatch: (texts) => ctx.services.embedding!.embedBatch(texts),
-      isAvailable: () => ctx.services.embedding!.isAvailable(),
-    } : undefined,
-    vectorService: ctx.services.vector ? {
-      searchSimilar: (embedding, entryTypes, limit) =>
-        ctx.services.vector!.searchSimilar(embedding, entryTypes, limit),
-      isAvailable: () => ctx.services.vector!.isAvailable(),
-    } : undefined,
+    queryRewriteService: ctx.services.queryRewrite
+      ? {
+          rewrite: (input) => ctx.services.queryRewrite!.rewrite(input),
+          isAvailable: () => ctx.services.queryRewrite!.isAvailable(),
+        }
+      : undefined,
+    embeddingService: ctx.services.embedding
+      ? {
+          embed: (text) => ctx.services.embedding!.embed(text),
+          embedBatch: (texts) => ctx.services.embedding!.embedBatch(texts),
+          isAvailable: () => ctx.services.embedding!.isAvailable(),
+        }
+      : undefined,
+    vectorService: ctx.services.vector
+      ? {
+          searchSimilar: (embedding, entryTypes, limit) =>
+            ctx.services.vector!.searchSimilar(embedding, entryTypes, limit),
+          isAvailable: () => ctx.services.vector!.isAvailable(),
+        }
+      : undefined,
   });
 
   return async (question: string) => {
@@ -310,7 +330,7 @@ function createQueryFunction(
     );
 
     // Return results with content
-    return result.results.map(r => ({
+    return result.results.map((r) => ({
       id: r.id,
       content: entryIdToContent.get(r.id) || '',
     }));
@@ -339,22 +359,25 @@ async function runOfficialBenchmark() {
   console.log('Loading LoCoMo dataset...');
   const sessions = await loadLoCoMoDataset();
   const stats = getDatasetStats(sessions);
-  console.log(`Loaded: ${stats.totalSessions} sessions, ${stats.totalDialogues} dialogues, ${stats.totalQAPairs} QA pairs\n`);
+  console.log(
+    `Loaded: ${stats.totalSessions} sessions, ${stats.totalDialogues} dialogues, ${stats.totalQAPairs} QA pairs\n`
+  );
 
   // Limit sessions
   let sessionsToRun = sessions.slice(0, maxSessions);
 
   // Limit dialogues if requested
   if (maxDialogues < Infinity) {
-    sessionsToRun = sessionsToRun.map(session => {
+    sessionsToRun = sessionsToRun.map((session) => {
       const limitedDialogues = session.dialogues.slice(0, maxDialogues);
-      const dialogueIds = new Set(limitedDialogues.map(d => d.dia_id));
+      const dialogueIds = new Set(limitedDialogues.map((d) => d.dia_id));
 
       // Filter QA pairs - exclude adversarial (category 5) and keep only those with evidence in ingested dialogues
-      const filteredQaPairs = session.qaPairs.filter(qa =>
-        qa.category !== 5 && // Skip adversarial
-        qa.evidence.length > 0 &&
-        qa.evidence.every(eId => dialogueIds.has(eId))
+      const filteredQaPairs = session.qaPairs.filter(
+        (qa) =>
+          qa.category !== 5 && // Skip adversarial
+          qa.evidence.length > 0 &&
+          qa.evidence.every((eId) => dialogueIds.has(eId))
       );
 
       return {
@@ -365,7 +388,9 @@ async function runOfficialBenchmark() {
     });
 
     const totalFilteredQa = sessionsToRun.reduce((sum, s) => sum + s.qaPairs.length, 0);
-    console.log(`Filtered to ${totalFilteredQa} QA pairs (excluding adversarial, evidence in ingested dialogues)\n`);
+    console.log(
+      `Filtered to ${totalFilteredQa} QA pairs (excluding adversarial, evidence in ingested dialogues)\n`
+    );
   }
 
   // Run each session
@@ -373,8 +398,10 @@ async function runOfficialBenchmark() {
 
   for (const session of sessionsToRun) {
     // Filter out adversarial questions for this session too
-    const nonAdversarialQaPairs = session.qaPairs.filter(qa => qa.category !== 5);
-    console.log(`\nSession ${session.sessionId}: ${session.dialogues.length} dialogues, ${nonAdversarialQaPairs.length} QA pairs (excl. adversarial)`);
+    const nonAdversarialQaPairs = session.qaPairs.filter((qa) => qa.category !== 5);
+    console.log(
+      `\nSession ${session.sessionId}: ${session.dialogues.length} dialogues, ${nonAdversarialQaPairs.length} QA pairs (excl. adversarial)`
+    );
 
     const { ctx, sqlite, db, cleanup } = await setupContext();
 
@@ -382,7 +409,9 @@ async function runOfficialBenchmark() {
       // Create session
       await ctx.repos.sessions.create({
         id: session.sessionId,
-        projectId: ctx.repos.projects ? (await db.select().from(schema.projects).limit(1))[0]?.id || 'default' : 'default',
+        projectId: ctx.repos.projects
+          ? (await db.select().from(schema.projects).limit(1))[0]?.id || 'default'
+          : 'default',
         name: `LoCoMo Session ${session.sessionId}`,
         purpose: 'Official LoCoMo benchmark',
         agentId: 'locomo-official',
@@ -458,7 +487,7 @@ async function runOfficialBenchmark() {
 
 runOfficialBenchmark()
   .then(() => process.exit(0))
-  .catch(err => {
+  .catch((err) => {
     console.error(err);
     process.exit(1);
   });

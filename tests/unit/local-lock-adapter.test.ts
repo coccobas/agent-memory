@@ -3,7 +3,10 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { LocalLockAdapter, createLocalLockAdapter } from '../../src/core/adapters/local-lock.adapter.js';
+import {
+  LocalLockAdapter,
+  createLocalLockAdapter,
+} from '../../src/core/adapters/local-lock.adapter.js';
 import type { IFileLockRepository } from '../../src/core/interfaces/repositories.js';
 
 describe('LocalLockAdapter', () => {
@@ -85,7 +88,9 @@ describe('LocalLockAdapter', () => {
     it('should rethrow non-lock errors', async () => {
       mockRepo.checkout.mockRejectedValue(new Error('Database connection failed'));
 
-      await expect(adapter.acquire('/test/file.ts', 'agent-1')).rejects.toThrow('Database connection failed');
+      await expect(adapter.acquire('/test/file.ts', 'agent-1')).rejects.toThrow(
+        'Database connection failed'
+      );
     });
   });
 
@@ -111,7 +116,11 @@ describe('LocalLockAdapter', () => {
       const result = await adapter.forceRelease('/test/file.ts', 'Admin override');
 
       expect(result).toBe(true);
-      expect(mockRepo.forceUnlock).toHaveBeenCalledWith('/test/file.ts', 'system', 'Admin override');
+      expect(mockRepo.forceUnlock).toHaveBeenCalledWith(
+        '/test/file.ts',
+        'system',
+        'Admin override'
+      );
     });
 
     it('should force release without reason', async () => {

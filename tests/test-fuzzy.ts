@@ -15,16 +15,18 @@ async function test() {
   sqlite.pragma('foreign_keys = ON');
   const db = drizzle(sqlite, { schema }) as any;
   applyMigrations(sqlite);
-  
+
   const repos = createRepositories({ db, sqlite });
-  
-  // Create project  
-  db.insert(schema.projects).values({
-    id: 'proj-test',
-    name: 'Test Project',
-    rootPath: '/test',
-  }).run();
-  
+
+  // Create project
+  db.insert(schema.projects)
+    .values({
+      id: 'proj-test',
+      name: 'Test Project',
+      rootPath: '/test',
+    })
+    .run();
+
   // Create knowledge entry
   const k = await repos.knowledge.create({
     scopeType: 'project',
@@ -36,7 +38,7 @@ async function test() {
     createdBy: 'test',
   });
   console.log('Created knowledge entry:', k.id);
-  
+
   // Create pipeline dependencies
   const queryCache = new LRUCache<unknown>(100, 10 * 1024 * 1024);
   const pipelineDeps = createDependencies({
@@ -47,21 +49,24 @@ async function test() {
     perfLog: true,
     logger,
   });
-  
+
   // Test fuzzy query
   console.log('\n=== Testing fuzzy query for "postgres" ===');
-  const result = await executeQueryPipelineAsync({
-    action: 'search',
-    search: 'postgres',
-    scope: { type: 'project', id: 'proj-test', inherit: true },
-    fuzzy: true,
-  }, pipelineDeps);
-  
+  const result = await executeQueryPipelineAsync(
+    {
+      action: 'search',
+      search: 'postgres',
+      scope: { type: 'project', id: 'proj-test', inherit: true },
+      fuzzy: true,
+    },
+    pipelineDeps
+  );
+
   console.log('\nResults:', result.results.length);
-  result.results.forEach(r => {
+  result.results.forEach((r) => {
     console.log('-', r.type, r.id, (r as any).knowledge?.title);
   });
-  
+
   sqlite.close();
 }
 

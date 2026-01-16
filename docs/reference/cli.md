@@ -6,11 +6,11 @@ Complete command-line interface reference for Agent Memory.
 
 All commands support these global options:
 
-| Option | Description |
-|--------|-------------|
+| Option              | Description                                |
+| ------------------- | ------------------------------------------ |
 | `--format <format>` | Output format: `json` (default), `compact` |
-| `--agent-id <id>` | Agent identifier for audit trails |
-| `--help`, `-h` | Show help for command |
+| `--agent-id <id>`   | Agent identifier for audit trails          |
+| `--help`, `-h`      | Show help for command                      |
 
 ---
 
@@ -62,10 +62,10 @@ agent-memory query search --search "authentication" --types guidelines,knowledge
 
 **Subcommands:**
 
-| Command | Description |
-|---------|-------------|
+| Command   | Description                        |
+| --------- | ---------------------------------- |
 | `context` | Get aggregated context for a scope |
-| `search` | Search memory entries |
+| `search`  | Search memory entries              |
 
 **Options for `context`:**
 | Option | Description |
@@ -106,15 +106,15 @@ agent-memory guideline get --id guid-abc123
 
 **Subcommands:**
 
-| Command | Description |
-|---------|-------------|
-| `add` | Add a new guideline |
-| `update` | Update an existing guideline |
-| `get` | Get a guideline by ID |
-| `list` | List guidelines |
-| `deactivate` | Deactivate a guideline |
-| `history` | View version history |
-| `bulk-add` | Add multiple guidelines |
+| Command      | Description                  |
+| ------------ | ---------------------------- |
+| `add`        | Add a new guideline          |
+| `update`     | Update an existing guideline |
+| `get`        | Get a guideline by ID        |
+| `list`       | List guidelines              |
+| `deactivate` | Deactivate a guideline       |
+| `history`    | View version history         |
+| `bulk-add`   | Add multiple guidelines      |
 
 **Options for `add`:**
 | Option | Description |
@@ -193,13 +193,13 @@ agent-memory project get --id proj-123
 
 **Subcommands:**
 
-| Command | Description |
-|---------|-------------|
+| Command  | Description          |
+| -------- | -------------------- |
 | `create` | Create a new project |
-| `list` | List all projects |
-| `get` | Get project by ID |
-| `update` | Update a project |
-| `delete` | Delete a project |
+| `list`   | List all projects    |
+| `get`    | Get project by ID    |
+| `update` | Update a project     |
+| `delete` | Delete a project     |
 
 ---
 
@@ -234,11 +234,11 @@ agent-memory session end --id sess-abc123 --status completed
 
 **Subcommands:**
 
-| Command | Description |
-|---------|-------------|
+| Command | Description         |
+| ------- | ------------------- |
 | `start` | Start a new session |
-| `list` | List sessions |
-| `end` | End a session |
+| `list`  | List sessions       |
+| `end`   | End a session       |
 
 ---
 
@@ -261,12 +261,12 @@ agent-memory tag list
 
 **Subcommands:**
 
-| Command | Description |
-|---------|-------------|
-| `create` | Create a new tag |
-| `list` | List all tags |
-| `attach` | Attach tag to entry |
-| `detach` | Detach tag from entry |
+| Command     | Description            |
+| ----------- | ---------------------- |
+| `create`    | Create a new tag       |
+| `list`      | List all tags          |
+| `attach`    | Attach tag to entry    |
+| `detach`    | Detach tag from entry  |
 | `for-entry` | List tags for an entry |
 
 ---
@@ -308,13 +308,13 @@ agent-memory consolidate archive-stale --scope-type project --scope-id proj-123 
 
 **Subcommands:**
 
-| Command | Description |
-|---------|-------------|
-| `find-similar` | Find groups of similar entries |
-| `dedupe` | Remove near-duplicates |
-| `merge` | Combine similar entries |
-| `abstract` | Create relations without modifying |
-| `archive-stale` | Archive old entries |
+| Command         | Description                        |
+| --------------- | ---------------------------------- |
+| `find-similar`  | Find groups of similar entries     |
+| `dedupe`        | Remove near-duplicates             |
+| `merge`         | Combine similar entries            |
+| `abstract`      | Create relations without modifying |
+| `archive-stale` | Archive old entries                |
 
 **Common Options:**
 | Option | Description |
@@ -400,13 +400,13 @@ agent-memory analytics get-error-correlation --agent-a cursor --agent-b claude
 
 **Subcommands:**
 
-| Command | Description |
-|---------|-------------|
-| `get-stats` | Get usage statistics |
-| `get-trends` | Get usage trends over time |
-| `get-subtask-stats` | Get subtask statistics |
+| Command                 | Description                          |
+| ----------------------- | ------------------------------------ |
+| `get-stats`             | Get usage statistics                 |
+| `get-trends`            | Get usage trends over time           |
+| `get-subtask-stats`     | Get subtask statistics               |
 | `get-error-correlation` | Get error correlation between agents |
-| `get-low-diversity` | Find low diversity entries |
+| `get-low-diversity`     | Find low diversity entries           |
 
 ---
 
@@ -433,18 +433,18 @@ agent-memory conversation end --id conv-123 --generate-summary
 
 **Subcommands:**
 
-| Command | Description |
-|---------|-------------|
-| `start` | Start a new conversation |
-| `add-message` | Add message to conversation |
-| `get` | Get conversation by ID |
-| `list` | List conversations |
-| `update` | Update conversation |
-| `search` | Search conversations |
+| Command        | Description                       |
+| -------------- | --------------------------------- |
+| `start`        | Start a new conversation          |
+| `add-message`  | Add message to conversation       |
+| `get`          | Get conversation by ID            |
+| `list`         | List conversations                |
+| `update`       | Update conversation               |
+| `search`       | Search conversations              |
 | `link-context` | Link memory entry to conversation |
-| `get-context` | Get context links |
-| `end` | End a conversation |
-| `archive` | Archive a conversation |
+| `get-context`  | Get context links                 |
+| `end`          | End a conversation                |
+| `archive`      | Archive a conversation            |
 
 ---
 
@@ -612,15 +612,15 @@ agent-memory voting list --task-id task-123
 
 ## Environment Variables
 
-| Variable | Description |
-|----------|-------------|
-| `AGENT_MEMORY_MODE` | Server mode: `mcp`, `rest`, `both` |
-| `AGENT_MEMORY_DATA_DIR` | Base data directory |
-| `AGENT_MEMORY_DB_PATH` | SQLite database path |
-| `AGENT_MEMORY_DB_TYPE` | Database type: `sqlite`, `postgresql` |
-| `AGENT_MEMORY_REST_ENABLED` | Enable REST API |
-| `AGENT_MEMORY_REST_API_KEY` | REST API key |
-| `AGENT_MEMORY_OPENAI_API_KEY` | OpenAI API key (embeddings) |
+| Variable                      | Description                           |
+| ----------------------------- | ------------------------------------- |
+| `AGENT_MEMORY_MODE`           | Server mode: `mcp`, `rest`, `both`    |
+| `AGENT_MEMORY_DATA_DIR`       | Base data directory                   |
+| `AGENT_MEMORY_DB_PATH`        | SQLite database path                  |
+| `AGENT_MEMORY_DB_TYPE`        | Database type: `sqlite`, `postgresql` |
+| `AGENT_MEMORY_REST_ENABLED`   | Enable REST API                       |
+| `AGENT_MEMORY_REST_API_KEY`   | REST API key                          |
+| `AGENT_MEMORY_OPENAI_API_KEY` | OpenAI API key (embeddings)           |
 
 See [Environment Variables](environment-variables.md) for complete reference.
 
@@ -628,11 +628,11 @@ See [Environment Variables](environment-variables.md) for complete reference.
 
 ## Exit Codes
 
-| Code | Meaning |
-|------|---------|
-| 0 | Success |
-| 1 | General error |
-| 2 | Invalid arguments |
+| Code | Meaning           |
+| ---- | ----------------- |
+| 0    | Success           |
+| 1    | General error     |
+| 2    | Invalid arguments |
 
 ---
 

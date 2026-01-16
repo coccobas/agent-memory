@@ -302,7 +302,12 @@ describe('LoRA Export Service', () => {
       });
 
       it('should work with all formats', () => {
-        const formats: LoRAFormat[] = ['alpaca', 'sharegpt', 'openai-messages', 'anthropic-prompts'];
+        const formats: LoRAFormat[] = [
+          'alpaca',
+          'sharegpt',
+          'openai-messages',
+          'anthropic-prompts',
+        ];
 
         formats.forEach((format) => {
           const result = exportToJSONL(mockExamples, format);
@@ -521,7 +526,10 @@ describe('LoRA Export Service', () => {
         expect(result.files.eval).toBeTruthy();
 
         // Verify files exist
-        const trainExists = await fs.access(result.files.train).then(() => true).catch(() => false);
+        const trainExists = await fs
+          .access(result.files.train)
+          .then(() => true)
+          .catch(() => false);
         expect(trainExists).toBe(true);
       });
 
@@ -690,7 +698,10 @@ describe('LoRA Export Service', () => {
         expect(result.files.trainingScript).toBeTruthy();
 
         if (result.files.trainingScript) {
-          const scriptExists = await fs.access(result.files.trainingScript).then(() => true).catch(() => false);
+          const scriptExists = await fs
+            .access(result.files.trainingScript)
+            .then(() => true)
+            .catch(() => false);
           expect(scriptExists).toBe(true);
         }
       });
@@ -776,7 +787,10 @@ describe('LoRA Export Service', () => {
       ];
 
       for (const file of files) {
-        const exists = await fs.access(file).then(() => true).catch(() => false);
+        const exists = await fs
+          .access(file)
+          .then(() => true)
+          .catch(() => false);
         expect(exists).toBe(true);
       }
     });
@@ -1055,7 +1069,10 @@ describe('LoRA Export Service', () => {
 
       for (const file of requiredFiles) {
         if (file) {
-          const exists = await fs.access(file).then(() => true).catch(() => false);
+          const exists = await fs
+            .access(file)
+            .then(() => true)
+            .catch(() => false);
           expect(exists).toBe(true);
         }
       }

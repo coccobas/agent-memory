@@ -47,7 +47,9 @@ vi.mock('better-sqlite3', () => {
     constructor() {
       // If a test has set a custom mock instance, use that
       // Access via globalThis to work with vitest hoisting
-      const state = (globalThis as Record<string, unknown>).__mockDatabaseState as typeof mockDatabaseState | undefined;
+      const state = (globalThis as Record<string, unknown>).__mockDatabaseState as
+        | typeof mockDatabaseState
+        | undefined;
       if (state?.instance) {
         return state.instance as unknown as MockDatabase;
       }
@@ -259,10 +261,9 @@ describe('Backup Service', () => {
 
         // Assert
         expect(result.success).toBe(true);
-        expect(fs.mkdirSync).toHaveBeenCalledWith(
-          expect.stringMatching(/backups$/),
-          { recursive: true }
-        );
+        expect(fs.mkdirSync).toHaveBeenCalledWith(expect.stringMatching(/backups$/), {
+          recursive: true,
+        });
         expect(fs.copyFileSync).toHaveBeenCalled();
       });
     });
@@ -275,7 +276,9 @@ describe('Backup Service', () => {
 
         expect(result.success).toBe(false);
         expect(result.message).toContain('Invalid backup name');
-        expect(result.message).toContain('only alphanumeric, dots, hyphens, and underscores allowed');
+        expect(result.message).toContain(
+          'only alphanumeric, dots, hyphens, and underscores allowed'
+        );
       });
 
       it('should reject custom name with special characters', async () => {
@@ -498,11 +501,7 @@ describe('Backup Service', () => {
 
     it('should sort backups by creation date (newest first)', () => {
       vi.mocked(fs.existsSync).mockReturnValue(true);
-      vi.mocked(fs.readdirSync).mockReturnValue([
-        'backup1.db',
-        'backup2.db',
-        'backup3.db',
-      ] as any);
+      vi.mocked(fs.readdirSync).mockReturnValue(['backup1.db', 'backup2.db', 'backup3.db'] as any);
 
       const date1 = new Date('2024-12-23T10:00:00Z');
       const date2 = new Date('2024-12-25T10:00:00Z'); // Newest
@@ -658,11 +657,7 @@ describe('Backup Service', () => {
 
     it('should ignore deletion errors', () => {
       vi.mocked(fs.existsSync).mockReturnValue(true);
-      vi.mocked(fs.readdirSync).mockReturnValue([
-        'backup1.db',
-        'backup2.db',
-        'backup3.db',
-      ] as any);
+      vi.mocked(fs.readdirSync).mockReturnValue(['backup1.db', 'backup2.db', 'backup3.db'] as any);
 
       const dates = [
         new Date('2024-12-23T10:00:00Z'),
@@ -677,9 +672,11 @@ describe('Backup Service', () => {
       });
 
       // First unlinkSync succeeds, second fails
-      vi.mocked(fs.unlinkSync).mockImplementationOnce(() => {}).mockImplementationOnce(() => {
-        throw new Error('Permission denied');
-      });
+      vi.mocked(fs.unlinkSync)
+        .mockImplementationOnce(() => {})
+        .mockImplementationOnce(() => {
+          throw new Error('Permission denied');
+        });
 
       const result = cleanupBackups(1);
 
@@ -690,11 +687,7 @@ describe('Backup Service', () => {
 
     it('should delete oldest backups first', () => {
       vi.mocked(fs.existsSync).mockReturnValue(true);
-      vi.mocked(fs.readdirSync).mockReturnValue([
-        'old.db',
-        'new.db',
-        'middle.db',
-      ] as any);
+      vi.mocked(fs.readdirSync).mockReturnValue(['old.db', 'new.db', 'middle.db'] as any);
 
       vi.mocked(fs.statSync).mockImplementation((filePath) => {
         const filename = path.basename(filePath.toString());
@@ -772,7 +765,9 @@ describe('Backup Service', () => {
         await restoreFromBackup('backup1.db');
 
         // Safety backup should be created with 'pre-restore-safety' name
-        expect(mockDb.backup).toHaveBeenCalledWith(expect.stringMatching(/backups\/pre-restore-safety\.db$/));
+        expect(mockDb.backup).toHaveBeenCalledWith(
+          expect.stringMatching(/backups\/pre-restore-safety\.db$/)
+        );
       });
 
       it('should restore even when current database does not exist', async () => {

@@ -7,7 +7,10 @@
 
 import { writeFileSync, mkdirSync, existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import type { IGuidelineRepository, ListGuidelinesFilter } from '../core/interfaces/repositories.js';
+import type {
+  IGuidelineRepository,
+  ListGuidelinesFilter,
+} from '../core/interfaces/repositories.js';
 import { createValidationError, createNotFoundError } from '../core/errors.js';
 
 // =============================================================================
@@ -230,7 +233,11 @@ export class LoraService {
       case 'alpaca':
         return this.formatAlpaca(examples);
       default:
-        throw createValidationError('format', `Unsupported format: ${format}`, 'Use one of: huggingface, openai, anthropic, alpaca');
+        throw createValidationError(
+          'format',
+          `Unsupported format: ${String(format)}`,
+          'Use one of: huggingface, openai, anthropic, alpaca'
+        );
     }
   }
 
@@ -239,10 +246,12 @@ export class LoraService {
    */
   private formatHuggingFace(examples: TrainingExample[]): string {
     return examples
-      .map((ex) => JSON.stringify({
-        text: `<|user|>${ex.prompt}<|assistant|>${ex.completion}<|end|>`,
-        metadata: ex.metadata,
-      }))
+      .map((ex) =>
+        JSON.stringify({
+          text: `<|user|>${ex.prompt}<|assistant|>${ex.completion}<|end|>`,
+          metadata: ex.metadata,
+        })
+      )
       .join('\n');
   }
 
@@ -251,13 +260,19 @@ export class LoraService {
    */
   private formatOpenAI(examples: TrainingExample[]): string {
     return examples
-      .map((ex) => JSON.stringify({
-        messages: [
-          { role: 'system', content: 'You are a helpful assistant that provides guidance based on established guidelines.' },
-          { role: 'user', content: ex.prompt },
-          { role: 'assistant', content: ex.completion },
-        ],
-      }))
+      .map((ex) =>
+        JSON.stringify({
+          messages: [
+            {
+              role: 'system',
+              content:
+                'You are a helpful assistant that provides guidance based on established guidelines.',
+            },
+            { role: 'user', content: ex.prompt },
+            { role: 'assistant', content: ex.completion },
+          ],
+        })
+      )
       .join('\n');
   }
 
@@ -266,14 +281,17 @@ export class LoraService {
    */
   private formatAnthropic(examples: TrainingExample[]): string {
     return examples
-      .map((ex) => JSON.stringify({
-        system: 'You are a helpful assistant that provides guidance based on established guidelines.',
-        messages: [
-          { role: 'user', content: ex.prompt },
-          { role: 'assistant', content: ex.completion },
-        ],
-        metadata: ex.metadata,
-      }))
+      .map((ex) =>
+        JSON.stringify({
+          system:
+            'You are a helpful assistant that provides guidance based on established guidelines.',
+          messages: [
+            { role: 'user', content: ex.prompt },
+            { role: 'assistant', content: ex.completion },
+          ],
+          metadata: ex.metadata,
+        })
+      )
       .join('\n');
   }
 
@@ -282,12 +300,14 @@ export class LoraService {
    */
   private formatAlpaca(examples: TrainingExample[]): string {
     return examples
-      .map((ex) => JSON.stringify({
-        instruction: 'Provide guidance based on established guidelines.',
-        input: ex.prompt,
-        output: ex.completion,
-        metadata: ex.metadata,
-      }))
+      .map((ex) =>
+        JSON.stringify({
+          instruction: 'Provide guidance based on established guidelines.',
+          input: ex.prompt,
+          output: ex.completion,
+          metadata: ex.metadata,
+        })
+      )
       .join('\n');
   }
 

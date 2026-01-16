@@ -120,9 +120,7 @@ describe('Permissions Handler', () => {
     });
 
     it('should throw when neither permission_id nor agent_id provided', () => {
-      expect(() =>
-        permissionHandlers.revoke(mockContext, { admin_key: 'key' })
-      ).toThrow();
+      expect(() => permissionHandlers.revoke(mockContext, { admin_key: 'key' })).toThrow();
     });
 
     it('should require admin key', () => {
@@ -130,9 +128,9 @@ describe('Permissions Handler', () => {
         throw new Error('Admin key required');
       });
 
-      expect(() =>
-        permissionHandlers.revoke(mockContext, { agent_id: 'agent-1' })
-      ).toThrow('Admin key required');
+      expect(() => permissionHandlers.revoke(mockContext, { agent_id: 'agent-1' })).toThrow(
+        'Admin key required'
+      );
     });
   });
 

@@ -4,11 +4,36 @@
  * Generate and manage IDE verification hooks via CLI.
  */
 
-import { Command } from 'commander';
+import type { Command } from 'commander';
 import { getCliContext, shutdownCliContext } from '../utils/context.js';
 import { formatOutput, type OutputFormat } from '../utils/output.js';
 import { handleCliError } from '../utils/errors.js';
 import { hooksHandlers } from '../../mcp/handlers/hooks.handler.js';
+import { typedAction } from '../utils/typed-action.js';
+
+interface HookGenerateOptions extends Record<string, unknown> {
+  ide: string;
+  projectPath: string;
+  projectId?: string;
+  sessionId?: string;
+}
+
+interface HookInstallOptions extends Record<string, unknown> {
+  ide: string;
+  projectPath: string;
+  projectId?: string;
+  sessionId?: string;
+}
+
+interface HookStatusOptions extends Record<string, unknown> {
+  ide: string;
+  projectPath: string;
+}
+
+interface HookUninstallOptions extends Record<string, unknown> {
+  ide: string;
+  projectPath: string;
+}
 
 export function addHookCommand(program: Command): void {
   const hook = program.command('hook').description('Manage IDE verification hooks');
@@ -21,25 +46,27 @@ export function addHookCommand(program: Command): void {
     .requiredOption('--project-path <path>', 'Absolute path to the project directory')
     .option('--project-id <id>', 'Project ID for loading guidelines')
     .option('--session-id <id>', 'Session ID')
-    .action(async (options, cmd) => {
-      try {
-        const globalOpts = cmd.optsWithGlobals();
-        const context = await getCliContext();
+    .action(
+      typedAction<HookGenerateOptions>(async (options, globalOpts) => {
+        try {
+          const context = await getCliContext();
 
-        const result = hooksHandlers.generate(context, {
-          ide: options.ide,
-          projectPath: options.projectPath,
-          projectId: options.projectId,
-          sessionId: options.sessionId,
-        });
+          const result = hooksHandlers.generate(context, {
+            ide: options.ide,
+            projectPath: options.projectPath,
+            projectId: options.projectId,
+            sessionId: options.sessionId,
+          });
 
-        console.log(formatOutput(result, globalOpts.format as OutputFormat));
-      } catch (error) {
-        handleCliError(error);
-      } finally {
-        await shutdownCliContext();
-      }
-    });
+          // eslint-disable-next-line no-console
+          console.log(formatOutput(result, globalOpts.format as OutputFormat));
+        } catch (error) {
+          handleCliError(error);
+        } finally {
+          await shutdownCliContext();
+        }
+      })
+    );
 
   // hook install
   hook
@@ -49,25 +76,27 @@ export function addHookCommand(program: Command): void {
     .requiredOption('--project-path <path>', 'Absolute path to the project directory')
     .option('--project-id <id>', 'Project ID for loading guidelines')
     .option('--session-id <id>', 'Session ID')
-    .action(async (options, cmd) => {
-      try {
-        const globalOpts = cmd.optsWithGlobals();
-        const context = await getCliContext();
+    .action(
+      typedAction<HookInstallOptions>(async (options, globalOpts) => {
+        try {
+          const context = await getCliContext();
 
-        const result = hooksHandlers.install(context, {
-          ide: options.ide,
-          projectPath: options.projectPath,
-          projectId: options.projectId,
-          sessionId: options.sessionId,
-        });
+          const result = hooksHandlers.install(context, {
+            ide: options.ide,
+            projectPath: options.projectPath,
+            projectId: options.projectId,
+            sessionId: options.sessionId,
+          });
 
-        console.log(formatOutput(result, globalOpts.format as OutputFormat));
-      } catch (error) {
-        handleCliError(error);
-      } finally {
-        await shutdownCliContext();
-      }
-    });
+          // eslint-disable-next-line no-console
+          console.log(formatOutput(result, globalOpts.format as OutputFormat));
+        } catch (error) {
+          handleCliError(error);
+        } finally {
+          await shutdownCliContext();
+        }
+      })
+    );
 
   // hook status
   hook
@@ -75,23 +104,25 @@ export function addHookCommand(program: Command): void {
     .description('Check if hooks are installed for a project')
     .requiredOption('--ide <ide>', 'Target IDE: claude, cursor, vscode')
     .requiredOption('--project-path <path>', 'Absolute path to the project directory')
-    .action(async (options, cmd) => {
-      try {
-        const globalOpts = cmd.optsWithGlobals();
-        await getCliContext(); // Initialize context for proper shutdown
+    .action(
+      typedAction<HookStatusOptions>(async (options, globalOpts) => {
+        try {
+          await getCliContext(); // Initialize context for proper shutdown
 
-        const result = hooksHandlers.status({
-          ide: options.ide,
-          projectPath: options.projectPath,
-        });
+          const result = hooksHandlers.status({
+            ide: options.ide,
+            projectPath: options.projectPath,
+          });
 
-        console.log(formatOutput(result, globalOpts.format as OutputFormat));
-      } catch (error) {
-        handleCliError(error);
-      } finally {
-        await shutdownCliContext();
-      }
-    });
+          // eslint-disable-next-line no-console
+          console.log(formatOutput(result, globalOpts.format as OutputFormat));
+        } catch (error) {
+          handleCliError(error);
+        } finally {
+          await shutdownCliContext();
+        }
+      })
+    );
 
   // hook uninstall
   hook
@@ -99,21 +130,23 @@ export function addHookCommand(program: Command): void {
     .description('Remove installed hooks')
     .requiredOption('--ide <ide>', 'Target IDE: claude, cursor, vscode')
     .requiredOption('--project-path <path>', 'Absolute path to the project directory')
-    .action(async (options, cmd) => {
-      try {
-        const globalOpts = cmd.optsWithGlobals();
-        await getCliContext(); // Initialize context for proper shutdown
+    .action(
+      typedAction<HookUninstallOptions>(async (options, globalOpts) => {
+        try {
+          await getCliContext(); // Initialize context for proper shutdown
 
-        const result = hooksHandlers.uninstall({
-          ide: options.ide,
-          projectPath: options.projectPath,
-        });
+          const result = hooksHandlers.uninstall({
+            ide: options.ide,
+            projectPath: options.projectPath,
+          });
 
-        console.log(formatOutput(result, globalOpts.format as OutputFormat));
-      } catch (error) {
-        handleCliError(error);
-      } finally {
-        await shutdownCliContext();
-      }
-    });
+          // eslint-disable-next-line no-console
+          console.log(formatOutput(result, globalOpts.format as OutputFormat));
+        } catch (error) {
+          handleCliError(error);
+        } finally {
+          await shutdownCliContext();
+        }
+      })
+    );
 }

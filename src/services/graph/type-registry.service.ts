@@ -36,7 +36,9 @@ function validateAgainstSchema(
   }
 
   const dataObj = data as Record<string, unknown>;
-  const properties = schema.properties as Record<string, { type?: string; required?: boolean }> | undefined;
+  const properties = schema.properties as
+    | Record<string, { type?: string; required?: boolean }>
+    | undefined;
   const required = schema.required as string[] | undefined;
 
   // Check required fields
@@ -113,11 +115,7 @@ export function createTypeRegistry(deps: DatabaseDeps): ITypeRegistry {
 
     async registerNodeType(input: RegisterNodeTypeInput): Promise<NodeType> {
       // Check if type already exists
-      const existing = db
-        .select()
-        .from(nodeTypes)
-        .where(eq(nodeTypes.name, input.name))
-        .get();
+      const existing = db.select().from(nodeTypes).where(eq(nodeTypes.name, input.name)).get();
 
       if (existing) {
         throw new Error(`Node type '${input.name}' already exists`);
@@ -169,11 +167,7 @@ export function createTypeRegistry(deps: DatabaseDeps): ITypeRegistry {
       }
 
       // Query database
-      const result = db
-        .select()
-        .from(nodeTypes)
-        .where(eq(nodeTypes.name, name))
-        .get();
+      const result = db.select().from(nodeTypes).where(eq(nodeTypes.name, name)).get();
 
       if (result) {
         nodeTypeCache.set(result.id, result);
@@ -189,11 +183,7 @@ export function createTypeRegistry(deps: DatabaseDeps): ITypeRegistry {
       if (cached) return cached;
 
       // Query database
-      const result = db
-        .select()
-        .from(nodeTypes)
-        .where(eq(nodeTypes.id, id))
-        .get();
+      const result = db.select().from(nodeTypes).where(eq(nodeTypes.id, id)).get();
 
       if (result) {
         nodeTypeCache.set(result.id, result);
@@ -227,11 +217,7 @@ export function createTypeRegistry(deps: DatabaseDeps): ITypeRegistry {
     },
 
     async deleteNodeType(name: string): Promise<boolean> {
-      const existing = db
-        .select()
-        .from(nodeTypes)
-        .where(eq(nodeTypes.name, name))
-        .get();
+      const existing = db.select().from(nodeTypes).where(eq(nodeTypes.name, name)).get();
 
       if (!existing) {
         return false;
@@ -257,11 +243,7 @@ export function createTypeRegistry(deps: DatabaseDeps): ITypeRegistry {
 
     async registerEdgeType(input: RegisterEdgeTypeInput): Promise<EdgeType> {
       // Check if type already exists
-      const existing = db
-        .select()
-        .from(edgeTypes)
-        .where(eq(edgeTypes.name, input.name))
-        .get();
+      const existing = db.select().from(edgeTypes).where(eq(edgeTypes.name, input.name)).get();
 
       if (existing) {
         throw new Error(`Edge type '${input.name}' already exists`);
@@ -301,11 +283,7 @@ export function createTypeRegistry(deps: DatabaseDeps): ITypeRegistry {
       }
 
       // Query database
-      const result = db
-        .select()
-        .from(edgeTypes)
-        .where(eq(edgeTypes.name, name))
-        .get();
+      const result = db.select().from(edgeTypes).where(eq(edgeTypes.name, name)).get();
 
       if (result) {
         edgeTypeCache.set(result.id, result);
@@ -321,11 +299,7 @@ export function createTypeRegistry(deps: DatabaseDeps): ITypeRegistry {
       if (cached) return cached;
 
       // Query database
-      const result = db
-        .select()
-        .from(edgeTypes)
-        .where(eq(edgeTypes.id, id))
-        .get();
+      const result = db.select().from(edgeTypes).where(eq(edgeTypes.id, id)).get();
 
       if (result) {
         edgeTypeCache.set(result.id, result);
@@ -364,11 +338,7 @@ export function createTypeRegistry(deps: DatabaseDeps): ITypeRegistry {
     },
 
     async deleteEdgeType(name: string): Promise<boolean> {
-      const existing = db
-        .select()
-        .from(edgeTypes)
-        .where(eq(edgeTypes.name, name))
-        .get();
+      const existing = db.select().from(edgeTypes).where(eq(edgeTypes.name, name)).get();
 
       if (!existing) {
         return false;

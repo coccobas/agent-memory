@@ -13,7 +13,7 @@ import type { Config } from '../../config/index.js';
 import type { Runtime } from '../runtime.js';
 import { setRateLimiters } from '../runtime.js';
 import type { AppDb } from '../types.js';
-import type { AdaptersWithRedis, RedisAdapters } from '../adapters/index.js';
+import type { AdaptersWithRedis } from '../adapters/index.js';
 import { createLocalFileSystemAdapter } from '../adapters/index.js';
 import type { Repositories } from '../interfaces/repositories.js';
 import { createComponentLogger } from '../../utils/logger.js';
@@ -82,7 +82,9 @@ export async function wireContext(input: WireContextInput): Promise<AppContext> 
     // Redis mode: use Redis-backed cache adapter
     // Note: RedisCacheAdapter would need to be instantiated here if available
     // For now, we use memory cache as Redis cache adapter for permission scope is not yet implemented
-    logger.info('Permission scope cache: using in-memory cache (Redis permission cache not yet implemented)');
+    logger.info(
+      'Permission scope cache: using in-memory cache (Redis permission cache not yet implemented)'
+    );
     const lru = new LRUCache<ParentScopeValue>({ maxSize: 500, ttlMs: 5 * 60 * 1000 });
     permissionCacheAdapter = createMemoryCacheAdapter(lru);
     if (runtime.memoryCoordinator) {
@@ -119,20 +121,18 @@ export async function wireContext(input: WireContextInput): Promise<AppContext> 
 
   // Create CaptureService (needs repos, services, and optional extraction)
   // Cast extraction service to concrete type (KnowledgeModuleDeps expects ExtractionService, not interface)
-  const captureService = new CaptureService(
-    {
-      experienceRepo: repos.experiences,
-      knowledgeModuleDeps: {
-        knowledgeRepo: repos.knowledge,
-        guidelineRepo: repos.guidelines,
-        toolRepo: repos.tools,
-        extractionService: services.extraction as ExtractionService | undefined,
-      },
-      stateManager: services.captureState,
-      rlService: services.rl,
-      feedbackService: services.feedback,
-    }
-  );
+  const captureService = new CaptureService({
+    experienceRepo: repos.experiences,
+    knowledgeModuleDeps: {
+      knowledgeRepo: repos.knowledge,
+      guidelineRepo: repos.guidelines,
+      toolRepo: repos.tools,
+      extractionService: services.extraction as ExtractionService | undefined,
+    },
+    stateManager: services.captureState,
+    rlService: services.rl,
+    feedbackService: services.feedback,
+  });
   services.capture = captureService;
 
   // Create ContextDetectionService (needs repos for project/session lookup)
@@ -205,7 +205,7 @@ export async function wireContext(input: WireContextInput): Promise<AppContext> 
   // If Redis adapters were created and connected, swap rate limiters
   if (config.redis.enabled && 'redis' in adapters && adapters.redis) {
     logger.info('Swapping local rate limiters with Redis rate limiters');
-    const redisAdapters = adapters.redis as RedisAdapters;
+    const redisAdapters = adapters.redis;
     await setRateLimiters(runtime, redisAdapters.rateLimiters);
   }
 

@@ -3,11 +3,13 @@
 Enable AI-powered semantic search to find memories by meaning, not just keywords.
 
 **What you'll learn:**
+
 - How to enable semantic search with OpenAI or local embeddings
 - How to query using semantic search
 - How to tune threshold settings
 
 **Prerequisites:**
+
 - Completed [Quickstart](quickstart.md)
 - (Optional) OpenAI API key for best results
 
@@ -19,10 +21,10 @@ Enable AI-powered semantic search to find memories by meaning, not just keywords
 
 Semantic search finds conceptually similar content, even when exact keywords don't match:
 
-| Search Type | Query | Matches |
-|-------------|-------|---------|
-| **Keyword** | "JWT authentication" | Documents containing "JWT" or "authentication" |
-| **Semantic** | "how do we verify user identity" | Documents about auth, login, tokens, sessions |
+| Search Type  | Query                            | Matches                                        |
+| ------------ | -------------------------------- | ---------------------------------------------- |
+| **Keyword**  | "JWT authentication"             | Documents containing "JWT" or "authentication" |
+| **Semantic** | "how do we verify user identity" | Documents about auth, login, tokens, sessions  |
 
 ---
 
@@ -83,6 +85,7 @@ Check that semantic search is enabled:
 **Tool:** `memory_observe`
 
 Look for:
+
 ```json
 {
   "vectorDb": {
@@ -115,11 +118,11 @@ Search by meaning:
 
 The threshold controls how similar results must be (0-1):
 
-| Threshold | Results |
-|-----------|---------|
-| 0.9+ | Very strict, near-exact matches only |
-| 0.7-0.8 | **Default**, good relevance |
-| 0.5-0.6 | Broader, may include less relevant |
+| Threshold | Results                              |
+| --------- | ------------------------------------ |
+| 0.9+      | Very strict, near-exact matches only |
+| 0.7-0.8   | **Default**, good relevance          |
+| 0.5-0.6   | Broader, may include less relevant   |
 
 ```json
 {

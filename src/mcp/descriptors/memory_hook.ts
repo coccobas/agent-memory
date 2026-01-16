@@ -38,9 +38,9 @@ Supported IDEs: claude (Claude Code), cursor (Cursor), vscode (VS Code)`,
     },
   },
   actions: {
-    generate: { contextHandler: hooksHandlers.generate },
-    install: { contextHandler: hooksHandlers.install },
-    status: { handler: hooksHandlers.status },
-    uninstall: { handler: hooksHandlers.uninstall },
+    generate: { contextHandler: (ctx, params) => hooksHandlers.generate(ctx, params) },
+    install: { contextHandler: (ctx, params) => hooksHandlers.install(ctx, params) },
+    status: { handler: (params) => hooksHandlers.status(params) },
+    uninstall: { handler: (params) => hooksHandlers.uninstall(params) },
   },
 };

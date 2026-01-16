@@ -25,7 +25,8 @@ describe('atomicity detection', () => {
       const entry: ExtractedEntry = {
         type: 'guideline',
         name: 'naming',
-        content: 'Use camelCase for variables; Use PascalCase for classes; Use UPPER_CASE for constants',
+        content:
+          'Use camelCase for variables; Use PascalCase for classes; Use UPPER_CASE for constants',
         confidence: 0.9,
       };
       const result = detectCompoundEntry(entry);
@@ -61,7 +62,8 @@ describe('atomicity detection', () => {
       const entry: ExtractedEntry = {
         type: 'guideline',
         name: 'security-rules',
-        content: 'Always validate user input. Never trust client data. Must sanitize before database queries.',
+        content:
+          'Always validate user input. Never trust client data. Must sanitize before database queries.',
         confidence: 0.9,
       };
       const result = detectCompoundEntry(entry);
@@ -149,7 +151,8 @@ describe('atomicity splitting', () => {
       const entry: ExtractedEntry = {
         type: 'guideline',
         name: 'code-style-rules',
-        content: 'Use camelCase for variables; Use PascalCase for classes; Use UPPER_CASE for constants',
+        content:
+          'Use camelCase for variables; Use PascalCase for classes; Use UPPER_CASE for constants',
         confidence: 0.8,
         category: 'code_style',
         suggestedTags: ['naming'],

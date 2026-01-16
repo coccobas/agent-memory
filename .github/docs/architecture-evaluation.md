@@ -19,6 +19,7 @@ Agent Memory demonstrates a well-architected system with strong separation of co
 ### 1.1 Clean Architecture & Separation of Concerns
 
 **Strengths:**
+
 - **Container → Runtime → AppContext hierarchy** provides clear lifecycle management and dependency boundaries
 - **Adapter pattern** elegantly abstracts SQLite vs PostgreSQL vs Redis implementations
 - **Repository pattern** isolates database access from business logic
@@ -26,6 +27,7 @@ Agent Memory demonstrates a well-architected system with strong separation of co
 - **Factory functions** ensure deterministic, testable wiring
 
 **Evidence:**
+
 - `src/core/container.ts` - Process-scoped state management
 - `src/core/adapters/` - Pluggable storage/cache/lock/event adapters
 - `src/core/factory/context-wiring.ts` - Centralized wiring eliminates duplication
@@ -33,6 +35,7 @@ Agent Memory demonstrates a well-architected system with strong separation of co
 ### 1.2 Performance Optimizations
 
 **Strengths:**
+
 - **SQLite WAL mode** enables concurrent reads with single writer
 - **LRU query cache** in runtime with memory pressure awareness
 - **Prepared statement caching** reduces SQL parsing overhead
@@ -40,6 +43,7 @@ Agent Memory demonstrates a well-architected system with strong separation of co
 - **Async embedding generation** prevents blocking writes
 
 **Evidence:**
+
 - `src/core/runtime.ts` - Query cache with LRU eviction
 - `src/db/connection.ts` - Prepared statement cache
 - `README.md` - Performance benchmarks
@@ -47,6 +51,7 @@ Agent Memory demonstrates a well-architected system with strong separation of co
 ### 1.3 Security & Governance
 
 **Strengths:**
+
 - **Deny-by-default permissions** with explicit grant model
 - **Rate limiting** at per-agent, global, and burst levels
 - **SecurityService** with cached API key parsing (timing-safe)
@@ -55,6 +60,7 @@ Agent Memory demonstrates a well-architected system with strong separation of co
 - **File locking** for multi-agent coordination
 
 **Evidence:**
+
 - `src/services/security.service.ts` - Centralized auth/rate limiting
 - `src/services/permission.service.ts` - Permission enforcement
 - `docs/concepts/security.md` - Security model documentation
@@ -62,6 +68,7 @@ Agent Memory demonstrates a well-architected system with strong separation of co
 ### 1.4 Developer Experience
 
 **Strengths:**
+
 - **Type-safe** with TypeScript and Drizzle ORM
 - **Comprehensive test suite** (1200+ tests)
 - **Clear documentation** with examples and guides
@@ -69,6 +76,7 @@ Agent Memory demonstrates a well-architected system with strong separation of co
 - **IDE hooks** for runtime enforcement
 
 **Evidence:**
+
 - `tests/` - Extensive unit and integration tests
 - `docs/` - Well-structured documentation
 - `src/mcp/` and `src/restapi/` - Dual transport implementations
@@ -76,12 +84,14 @@ Agent Memory demonstrates a well-architected system with strong separation of co
 ### 1.5 Scalability Foundations
 
 **Strengths:**
+
 - **PostgreSQL adapter** ready for enterprise deployments
 - **Redis adapters** for distributed caching/locking/events
 - **Hierarchical scopes** (global → org → project → session) enable multi-tenancy
 - **Query pipeline** with pluggable stages (resolve → fetch → FTS → filter → score)
 
 **Evidence:**
+
 - `src/core/adapters/postgresql.adapter.ts` - Connection pooling
 - `src/core/adapters/redis-*.adapter.ts` - Distributed components
 - `src/services/query/pipeline.ts` - Modular query execution
@@ -95,6 +105,7 @@ Agent Memory demonstrates a well-architected system with strong separation of co
 **Issue:** SQLite uses a single connection with no pooling, while PostgreSQL has basic pooling but lacks connection health monitoring and automatic recovery.
 
 **Problems:**
+
 1. **SQLite single connection** - No connection pooling means concurrent writes can block
 2. **PostgreSQL pool defaults** - `poolMin: 2, poolMax: 10` may be insufficient for high concurrency
 3. **No connection health checks** - Dead connections may persist in pool
@@ -102,6 +113,7 @@ Agent Memory demonstrates a well-architected system with strong separation of co
 5. **No connection leak detection** - Unreleased connections could exhaust pool
 
 **Evidence:**
+
 ```142:152:src/config/index.ts
     /** Minimum connections in pool (default: 2) */
     poolMin: number;
@@ -122,6 +134,7 @@ Agent Memory demonstrates a well-architected system with strong separation of co
 **Issue:** Inconsistent error handling across layers, limited retry strategies, and no circuit breakers.
 
 **Problems:**
+
 1. **No circuit breaker pattern** - Repeated failures can cascade
 2. **Inconsistent error types** - Mix of custom errors and generic Error objects
 3. **Limited retry coverage** - Only PostgreSQL has retry logic for transient errors
@@ -129,6 +142,7 @@ Agent Memory demonstrates a well-architected system with strong separation of co
 5. **Transaction rollback gaps** - Some operations may not properly rollback on error
 
 **Evidence:**
+
 - `src/core/adapters/postgresql.adapter.ts` - Has retry logic but only for specific error codes
 - `src/db/repositories/` - No retry logic in repositories
 - Async embedding generation has no failure tracking
@@ -140,6 +154,7 @@ Agent Memory demonstrates a well-architected system with strong separation of co
 **Issue:** Limited operational visibility into system health, performance, and errors.
 
 **Problems:**
+
 1. **No metrics export** - No Prometheus/StatsD integration
 2. **Limited structured logging** - Logs exist but lack correlation IDs
 3. **No distributed tracing** - Cannot trace requests across services
@@ -147,6 +162,7 @@ Agent Memory demonstrates a well-architected system with strong separation of co
 5. **No alerting integration** - No hooks for PagerDuty, Slack, etc.
 
 **Evidence:**
+
 - `healthcheck.js` - Basic health check only
 - `src/utils/logger.ts` - Structured logging but no correlation IDs
 - No metrics collection infrastructure
@@ -158,6 +174,7 @@ Agent Memory demonstrates a well-architected system with strong separation of co
 **Issue:** Cache invalidation relies on event bus, but Redis event adapter may have delivery gaps.
 
 **Problems:**
+
 1. **Event delivery guarantees** - Redis pub/sub is "at most once", messages can be lost
 2. **No cache versioning** - Stale cache entries may persist after invalidation
 3. **Cross-instance coherence** - In-process cache + Redis cache can diverge
@@ -165,6 +182,7 @@ Agent Memory demonstrates a well-architected system with strong separation of co
 5. **TTL-based expiration** - No proactive invalidation on data changes
 
 **Evidence:**
+
 - `src/core/adapters/redis-event.adapter.ts` - Uses Redis pub/sub (fire-and-forget)
 - `src/core/runtime.ts` - LRU cache with TTL but no versioning
 
@@ -175,6 +193,7 @@ Agent Memory demonstrates a well-architected system with strong separation of co
 **Issue:** No explicit backpressure mechanisms or resource quotas.
 
 **Problems:**
+
 1. **No request queuing** - Requests fail immediately when rate limited
 2. **Memory pressure handling** - MemoryCoordinator exists but may not prevent OOM
 3. **No disk space monitoring** - SQLite can fill disk without warning
@@ -182,6 +201,7 @@ Agent Memory demonstrates a well-architected system with strong separation of co
 5. **No query timeout enforcement** - Long-running queries can block
 
 **Evidence:**
+
 - `src/core/memory-coordinator.ts` - Memory pressure awareness but no hard limits
 - `src/utils/rate-limiter-core.ts` - Rate limiting but no queuing
 
@@ -192,6 +212,7 @@ Agent Memory demonstrates a well-architected system with strong separation of co
 **Issue:** Configuration is procedural rather than schema-driven, making validation and documentation manual.
 
 **Problems:**
+
 1. **No schema validation** - Config parsing uses manual type coercion
 2. **No generated docs** - Environment variable docs must be maintained manually
 3. **No config hot-reload** - Changes require restart
@@ -199,6 +220,7 @@ Agent Memory demonstrates a well-architected system with strong separation of co
 5. **Type safety gaps** - Some config values use `string | undefined` instead of proper types
 
 **Evidence:**
+
 ```24:61:src/config/index.ts
 function parseBoolean(value: string | undefined, defaultValue: boolean): boolean {
   if (value === undefined || value === '') return defaultValue;
@@ -247,6 +269,7 @@ function parseString<T extends string>(
 **Issue:** While test coverage is good, some critical paths lack integration tests.
 
 **Problems:**
+
 1. **No chaos testing** - No tests for network partitions, DB failures
 2. **Limited load testing** - Benchmarks exist but no sustained load tests
 3. **No multi-instance tests** - Redis coordination not tested with multiple instances
@@ -284,6 +307,7 @@ function parseString<T extends string>(
    - **Trade-off:** Slightly higher latency on failures but better availability
 
 **Implementation:**
+
 ```typescript
 // Add to PostgreSQL adapter
 interface ConnectionHealth {
@@ -331,6 +355,7 @@ async getConnection(): Promise<PoolClient> {
    - **Trade-off:** Slightly slower but guarantees consistency
 
 **Implementation:**
+
 ```typescript
 // Error hierarchy
 export class MemoryError extends Error {
@@ -384,6 +409,7 @@ export class DatabaseError extends MemoryError {
    - **Trade-off:** Larger log volume but better searchability
 
 **Implementation:**
+
 ```typescript
 // Add to AppContext
 interface Metrics {
@@ -399,7 +425,7 @@ function metricsMiddleware(context: AppContext) {
     const start = Date.now();
     const correlationId = generateId();
     req.correlationId = correlationId;
-    
+
     try {
       await next();
       context.metrics.requests.inc();
@@ -444,6 +470,7 @@ function metricsMiddleware(context: AppContext) {
    - **Trade-off:** More complexity but better performance
 
 **Implementation:**
+
 ```typescript
 // Cache versioning
 interface CacheEntry<T> {
@@ -491,12 +518,13 @@ async function invalidateCache(scope: string): Promise<void> {
    - **Trade-off:** More configuration but better UX
 
 **Implementation:**
+
 ```typescript
 // Request queue
 class RequestQueue {
   private queue: Array<() => Promise<unknown>> = [];
   private maxSize: number;
-  
+
   async enqueue<T>(fn: () => Promise<T>): Promise<T> {
     if (this.queue.length >= this.maxSize) {
       throw new Error('Queue full');
@@ -542,6 +570,7 @@ class RequestQueue {
    - **Trade-off:** Complexity but better uptime
 
 **Implementation:**
+
 ```typescript
 // Zod schema
 import { z } from 'zod';
@@ -598,29 +627,29 @@ export function buildConfig(): Config {
 
 ### 4.1 High-Risk Areas
 
-| Risk | Likelihood | Impact | Mitigation |
-|------|-----------|--------|------------|
-| **Database connection exhaustion** | Medium | High | Implement connection pooling, health checks, leak detection |
-| **Data loss from failed async operations** | Medium | High | Add dead letter queue, retry logic, monitoring |
-| **Cache coherence issues in multi-instance** | Medium | Medium | Use Redis Streams, cache versioning, idempotency |
-| **Cascading failures** | Low | High | Implement circuit breakers, rate limiting, backpressure |
-| **OOM from unbounded queues** | Low | High | Add resource limits, queue size limits, monitoring |
+| Risk                                         | Likelihood | Impact | Mitigation                                                  |
+| -------------------------------------------- | ---------- | ------ | ----------------------------------------------------------- |
+| **Database connection exhaustion**           | Medium     | High   | Implement connection pooling, health checks, leak detection |
+| **Data loss from failed async operations**   | Medium     | High   | Add dead letter queue, retry logic, monitoring              |
+| **Cache coherence issues in multi-instance** | Medium     | Medium | Use Redis Streams, cache versioning, idempotency            |
+| **Cascading failures**                       | Low        | High   | Implement circuit breakers, rate limiting, backpressure     |
+| **OOM from unbounded queues**                | Low        | High   | Add resource limits, queue size limits, monitoring          |
 
 ### 4.2 Medium-Risk Areas
 
-| Risk | Likelihood | Impact | Mitigation |
-|------|-----------|--------|------------|
-| **Stale cache data** | Medium | Medium | Cache versioning, TTL tuning, invalidation events |
-| **Poor observability** | High | Medium | Add metrics, tracing, structured logging |
-| **Configuration errors** | Medium | Medium | Schema validation, generated docs, hot reload |
-| **Performance degradation under load** | Medium | Medium | Load testing, profiling, optimization |
+| Risk                                   | Likelihood | Impact | Mitigation                                        |
+| -------------------------------------- | ---------- | ------ | ------------------------------------------------- |
+| **Stale cache data**                   | Medium     | Medium | Cache versioning, TTL tuning, invalidation events |
+| **Poor observability**                 | High       | Medium | Add metrics, tracing, structured logging          |
+| **Configuration errors**               | Medium     | Medium | Schema validation, generated docs, hot reload     |
+| **Performance degradation under load** | Medium     | Medium | Load testing, profiling, optimization             |
 
 ### 4.3 Low-Risk Areas
 
-| Risk | Likelihood | Impact | Mitigation |
-|------|-----------|--------|------------|
-| **Test coverage gaps** | Low | Low | Add chaos tests, property-based tests |
-| **Documentation drift** | Medium | Low | Auto-generate docs from code/schema |
+| Risk                    | Likelihood | Impact | Mitigation                            |
+| ----------------------- | ---------- | ------ | ------------------------------------- |
+| **Test coverage gaps**  | Low        | Low    | Add chaos tests, property-based tests |
+| **Documentation drift** | Medium     | Low    | Auto-generate docs from code/schema   |
 
 ### 4.4 Mitigation Strategies
 
@@ -649,6 +678,7 @@ export function buildConfig(): Config {
 ### 5.1 Technology Stack Assessment
 
 **Current Stack:**
+
 - **SQLite** (default) - Free, embedded, single-instance
 - **PostgreSQL** (enterprise) - Open source, proven scalability
 - **Redis** (optional) - Open source, low cost
@@ -660,12 +690,14 @@ export function buildConfig(): Config {
 ### 5.2 Infrastructure Costs
 
 **Single-Instance (SQLite):**
+
 - **Compute:** Minimal (can run on small VM)
 - **Storage:** Local disk (cheap)
 - **Network:** None (local only)
 - **Total:** ~$5-20/month (small VM)
 
 **Multi-Instance (PostgreSQL + Redis):**
+
 - **Compute:** 2-3 VMs (app servers) - $50-150/month
 - **Database:** Managed PostgreSQL (AWS RDS, etc.) - $50-200/month
 - **Cache:** Managed Redis (AWS ElastiCache, etc.) - $20-100/month
@@ -677,11 +709,13 @@ export function buildConfig(): Config {
 ### 5.3 Operational Costs
 
 **Development:**
+
 - **Learning curve:** Low (standard stack)
 - **Maintenance:** Medium (good architecture reduces complexity)
 - **Tooling:** Free (open source tools)
 
 **Operations:**
+
 - **Monitoring:** Can use free tools (Prometheus, Grafana)
 - **Backups:** Standard database backup tools
 - **Scaling:** Horizontal scaling supported via adapters
@@ -696,6 +730,7 @@ export function buildConfig(): Config {
 4. **Use managed services** - For production (RDS, ElastiCache) to reduce ops burden
 
 **Trade-offs:**
+
 - **SQLite:** Free but limited to single instance
 - **PostgreSQL:** Higher cost but better scalability
 - **Managed vs Self-hosted:** Higher cost but lower operational burden
@@ -707,6 +742,7 @@ export function buildConfig(): Config {
 Agent Memory demonstrates **strong architectural foundations** with clean separation of concerns, adapter-based abstraction, and thoughtful performance optimizations. The system is **production-ready for small-to-medium scale deployments** but requires enhancements for large-scale, multi-instance deployments.
 
 ### Key Strengths
+
 - Clean architecture with clear boundaries
 - Excellent performance (sub-ms queries)
 - Strong security model
@@ -714,6 +750,7 @@ Agent Memory demonstrates **strong architectural foundations** with clean separa
 - Cost-effective technology stack
 
 ### Critical Improvements Needed
+
 1. **Connection management** - Pooling, health checks, leak detection
 2. **Error handling** - Standardized errors, circuit breakers, dead letter queue
 3. **Observability** - Metrics, tracing, enhanced logging
@@ -721,6 +758,7 @@ Agent Memory demonstrates **strong architectural foundations** with clean separa
 5. **Resource limits** - Backpressure, queue management
 
 ### Recommended Priority
+
 1. **High Priority:** Connection management, error handling (stability)
 2. **Medium Priority:** Observability, cache coherence (operational excellence)
 3. **Low Priority:** Configuration management, testing enhancements (developer experience)
@@ -730,8 +768,8 @@ The architecture is **well-positioned for growth** with the adapter pattern enab
 ---
 
 **Next Steps:**
+
 1. Review and prioritize recommendations with team
 2. Create implementation tickets for high-priority items
 3. Establish metrics baseline before making changes
 4. Plan phased rollout of improvements
-

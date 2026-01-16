@@ -33,7 +33,7 @@ const debugMode = args.includes('--debug');
 const enableEmbeddings = args.includes('--embeddings') || args.includes('-e');
 
 const getArgValue = (flag: string): string | undefined => {
-  const idx = args.findIndex(a => a === flag);
+  const idx = args.findIndex((a) => a === flag);
   return idx >= 0 && args[idx + 1] ? args[idx + 1] : undefined;
 };
 
@@ -100,12 +100,14 @@ const { generateId } = await import('../../src/db/repositories/base.js');
 const { applyMigrations } = await import('../fixtures/migration-loader.js');
 const { cleanupDbFiles, ensureDataDirectory } = await import('../fixtures/db-utils.js');
 const { config: appConfig } = await import('../../src/config/index.js');
-const { createRuntime, extractRuntimeConfig, shutdownRuntime } = await import('../../src/core/runtime.js');
+const { createRuntime, extractRuntimeConfig, shutdownRuntime } =
+  await import('../../src/core/runtime.js');
 const { createRepositories } = await import('../../src/core/factory/repositories.js');
 const { createAdaptersWithConfig } = await import('../../src/core/adapters/index.js');
 const { wireContext } = await import('../../src/core/factory/context-wiring.js');
 const { registerContext, resetContainer } = await import('../../src/core/container.js');
-const { executeQueryPipelineAsync, createDependencies } = await import('../../src/services/query/index.js');
+const { executeQueryPipelineAsync, createDependencies } =
+  await import('../../src/services/query/index.js');
 const { LRUCache } = await import('../../src/utils/lru-cache.js');
 const pino = (await import('pino')).default;
 const { rm } = await import('node:fs/promises');
@@ -113,13 +115,10 @@ const { writeFile, readFile } = await import('node:fs/promises');
 const { existsSync } = await import('node:fs');
 
 // Benchmark imports
-const { QUERY_SEED_DATA, QUERY_TEST_CASES, getQueryDatasetStats } = await import('./query-quality-dataset.js');
-const {
-  runQueryBenchmark,
-  printQueryBenchmarkResults,
-  compareQueryBenchmarks,
-  createIdMapper,
-} = await import('./query-quality-evaluator.js');
+const { QUERY_SEED_DATA, QUERY_TEST_CASES, getQueryDatasetStats } =
+  await import('./query-quality-dataset.js');
+const { runQueryBenchmark, printQueryBenchmarkResults, compareQueryBenchmarks, createIdMapper } =
+  await import('./query-quality-evaluator.js');
 
 import type { QueryTestCase, QueryBenchmarkResults } from './query-quality-types.js';
 import type { AppContext } from '../../src/core/context.js';
@@ -150,22 +149,26 @@ async function setupProductionContext(): Promise<{
   // Create org
   const orgId = QUERY_SEED_DATA.org?.id || generateId();
   if (QUERY_SEED_DATA.org) {
-    db.insert(schema.organizations).values({
-      id: orgId,
-      name: QUERY_SEED_DATA.org.name,
-    }).run();
+    db.insert(schema.organizations)
+      .values({
+        id: orgId,
+        name: QUERY_SEED_DATA.org.name,
+      })
+      .run();
   }
 
   // Create project
   const projectId = QUERY_SEED_DATA.project?.id || generateId();
   if (QUERY_SEED_DATA.project) {
-    db.insert(schema.projects).values({
-      id: projectId,
-      name: QUERY_SEED_DATA.project.name,
-      description: 'Query Quality Benchmark Project',
-      rootPath: QUERY_SEED_DATA.project.rootPath || '/query/benchmark',
-      orgId: QUERY_SEED_DATA.org ? orgId : undefined,
-    }).run();
+    db.insert(schema.projects)
+      .values({
+        id: projectId,
+        name: QUERY_SEED_DATA.project.name,
+        description: 'Query Quality Benchmark Project',
+        rootPath: QUERY_SEED_DATA.project.rootPath || '/query/benchmark',
+        orgId: QUERY_SEED_DATA.org ? orgId : undefined,
+      })
+      .run();
   }
 
   // Use config (already loaded with env vars applied)
@@ -311,14 +314,18 @@ async function seedTestData(
           } catch (tagErr) {
             // Log tag seeding failures for debugging
             if (debugMode) {
-              console.error(`  Failed to attach tag '${tagName}' to ${entry.id}: ${tagErr instanceof Error ? tagErr.message : String(tagErr)}`);
+              console.error(
+                `  Failed to attach tag '${tagName}' to ${entry.id}: ${tagErr instanceof Error ? tagErr.message : String(tagErr)}`
+              );
             }
           }
         }
       }
     } catch (error) {
       if (debugMode) {
-        console.error(`  Failed to seed ${entry.id}: ${error instanceof Error ? error.message : String(error)}`);
+        console.error(
+          `  Failed to seed ${entry.id}: ${error instanceof Error ? error.message : String(error)}`
+        );
       }
     }
   }
@@ -329,8 +336,8 @@ async function seedTestData(
     for (const rel of QUERY_SEED_DATA.relations) {
       const sourceDbId = seedToDbIdMap.get(rel.sourceId);
       const targetDbId = seedToDbIdMap.get(rel.targetId);
-      const sourceEntry = QUERY_SEED_DATA.entries.find(e => e.id === rel.sourceId);
-      const targetEntry = QUERY_SEED_DATA.entries.find(e => e.id === rel.targetId);
+      const sourceEntry = QUERY_SEED_DATA.entries.find((e) => e.id === rel.sourceId);
+      const targetEntry = QUERY_SEED_DATA.entries.find((e) => e.id === rel.targetId);
 
       if (sourceDbId && targetDbId && sourceEntry && targetEntry) {
         try {
@@ -346,12 +353,16 @@ async function seedTestData(
         } catch (err) {
           // Log relation seeding failures for debugging
           if (debugMode) {
-            console.error(`  Failed to seed relation ${rel.sourceId} -> ${rel.targetId}: ${err instanceof Error ? err.message : String(err)}`);
+            console.error(
+              `  Failed to seed relation ${rel.sourceId} -> ${rel.targetId}: ${err instanceof Error ? err.message : String(err)}`
+            );
           }
         }
       } else {
         if (debugMode) {
-          console.error(`  Skipping relation ${rel.sourceId} -> ${rel.targetId}: missing IDs (source=${!!sourceDbId}, target=${!!targetDbId})`);
+          console.error(
+            `  Skipping relation ${rel.sourceId} -> ${rel.targetId}: missing IDs (source=${!!sourceDbId}, target=${!!targetDbId})`
+          );
         }
       }
     }
@@ -360,7 +371,9 @@ async function seedTestData(
     console.log(`  Seeded ${relationsSeeded} relations`);
   }
 
-  console.log(`  Seeded ${seedToDbIdMap.size} entries, ${tagsSeeded} tags, ${relationsSeeded} relations`);
+  console.log(
+    `  Seeded ${seedToDbIdMap.size} entries, ${tagsSeeded} tags, ${relationsSeeded} relations`
+  );
   return seedToDbIdMap;
 }
 
@@ -388,20 +401,26 @@ function createProductionQueryFunction(
     perfLog: debugMode,
     logger,
     // Include production services from context
-    queryRewriteService: ctx.services.queryRewrite ? {
-      rewrite: (input) => ctx.services.queryRewrite!.rewrite(input),
-      isAvailable: () => ctx.services.queryRewrite!.isAvailable(),
-    } : undefined,
-    embeddingService: ctx.services.embedding ? {
-      embed: (text) => ctx.services.embedding!.embed(text),
-      embedBatch: (texts) => ctx.services.embedding!.embedBatch(texts),
-      isAvailable: () => ctx.services.embedding!.isAvailable(),
-    } : undefined,
-    vectorService: ctx.services.vector ? {
-      searchSimilar: (embedding, entryTypes, limit) =>
-        ctx.services.vector!.searchSimilar(embedding, entryTypes, limit),
-      isAvailable: () => ctx.services.vector!.isAvailable(),
-    } : undefined,
+    queryRewriteService: ctx.services.queryRewrite
+      ? {
+          rewrite: (input) => ctx.services.queryRewrite!.rewrite(input),
+          isAvailable: () => ctx.services.queryRewrite!.isAvailable(),
+        }
+      : undefined,
+    embeddingService: ctx.services.embedding
+      ? {
+          embed: (text) => ctx.services.embedding!.embed(text),
+          embedBatch: (texts) => ctx.services.embedding!.embedBatch(texts),
+          isAvailable: () => ctx.services.embedding!.isAvailable(),
+        }
+      : undefined,
+    vectorService: ctx.services.vector
+      ? {
+          searchSimilar: (embedding, entryTypes, limit) =>
+            ctx.services.vector!.searchSimilar(embedding, entryTypes, limit),
+          isAvailable: () => ctx.services.vector!.isAvailable(),
+        }
+      : undefined,
   });
 
   return async (params: QueryTestCase['query']) => {
@@ -433,7 +452,9 @@ function createProductionQueryFunction(
       const pipelineParams = {
         action: params.action,
         search: params.search,
-        scope: scopeId ? { type: params.scopeType, id: scopeId, inherit: params.inherit } : undefined,
+        scope: scopeId
+          ? { type: params.scopeType, id: scopeId, inherit: params.inherit }
+          : undefined,
         types,
         tags: params.tags,
         priority: params.priority,
@@ -454,7 +475,7 @@ function createProductionQueryFunction(
       const result = await executeQueryPipelineAsync(pipelineParams, pipelineDeps);
 
       return {
-        results: result.results.map(r => ({
+        results: result.results.map((r) => ({
           id: r.id,
           type: r.type,
           name: r.guideline?.name || r.tool?.name,
@@ -486,19 +507,21 @@ async function runBenchmark() {
   // Get dataset stats
   const stats = getQueryDatasetStats();
   console.log(`Dataset: ${stats.seedEntries} seed entries, ${stats.testCases} test cases`);
-  console.log(`By difficulty: easy=${stats.byDifficulty.easy}, medium=${stats.byDifficulty.medium}, hard=${stats.byDifficulty.hard}`);
+  console.log(
+    `By difficulty: easy=${stats.byDifficulty.easy}, medium=${stats.byDifficulty.medium}, hard=${stats.byDifficulty.hard}`
+  );
   console.log(`Embeddings: ${enableEmbeddings ? 'Enabled' : 'Disabled'}`);
 
   // Filter test cases
   let testCases = [...QUERY_TEST_CASES];
 
   if (category) {
-    testCases = testCases.filter(tc => tc.category === category);
+    testCases = testCases.filter((tc) => tc.category === category);
     console.log(`Filtering to category: ${category} (${testCases.length} cases)`);
   }
 
   if (difficulty) {
-    testCases = testCases.filter(tc => tc.difficulty === difficulty);
+    testCases = testCases.filter((tc) => tc.difficulty === difficulty);
     console.log(`Filtering to difficulty: ${difficulty} (${testCases.length} cases)`);
   }
 
@@ -531,9 +554,9 @@ async function runBenchmark() {
     const seedDataStats = {
       totalEntries: QUERY_SEED_DATA.entries.length,
       byType: {
-        guidelines: QUERY_SEED_DATA.entries.filter(e => e.type === 'guideline').length,
-        knowledge: QUERY_SEED_DATA.entries.filter(e => e.type === 'knowledge').length,
-        tools: QUERY_SEED_DATA.entries.filter(e => e.type === 'tool').length,
+        guidelines: QUERY_SEED_DATA.entries.filter((e) => e.type === 'guideline').length,
+        knowledge: QUERY_SEED_DATA.entries.filter((e) => e.type === 'knowledge').length,
+        tools: QUERY_SEED_DATA.entries.filter((e) => e.type === 'tool').length,
       },
       scopes: [
         'global',
@@ -557,7 +580,9 @@ async function runBenchmark() {
       (completed, total, current) => {
         const percent = Math.floor((completed / total) * 100);
         if (percent > lastPercent || completed === total) {
-          process.stdout.write(`\rProgress: ${percent}% (${completed}/${total}) - ${current.substring(0, 40).padEnd(40)}`);
+          process.stdout.write(
+            `\rProgress: ${percent}% (${completed}/${total}) - ${current.substring(0, 40).padEnd(40)}`
+          );
           lastPercent = percent;
         }
       }
@@ -574,7 +599,9 @@ async function runBenchmark() {
         console.log(`[${tc.testCaseId}] ${tc.testCaseName}`);
         console.log(`  Category: ${tc.category}, Difficulty: ${tc.difficulty}`);
         console.log(`  Returned: ${tc.returnedCount}, Relevant: ${tc.relevantCount}`);
-        console.log(`  P@K: ${(tc.precisionAtK * 100).toFixed(1)}%, R@K: ${(tc.recallAtK * 100).toFixed(1)}%, MRR: ${(tc.mrr * 100).toFixed(1)}%, nDCG: ${(tc.ndcg * 100).toFixed(1)}%`);
+        console.log(
+          `  P@K: ${(tc.precisionAtK * 100).toFixed(1)}%, R@K: ${(tc.recallAtK * 100).toFixed(1)}%, MRR: ${(tc.mrr * 100).toFixed(1)}%, nDCG: ${(tc.ndcg * 100).toFixed(1)}%`
+        );
 
         if (tc.error) {
           console.log(`  ERROR: ${tc.error}`);
@@ -623,7 +650,7 @@ async function runBenchmark() {
 // MAIN
 // =============================================================================
 
-runBenchmark().catch(error => {
+runBenchmark().catch((error) => {
   console.error('Benchmark failed:', error);
   process.exit(1);
 });

@@ -181,7 +181,9 @@ async function main() {
 
   console.log('\n   Chunks:');
   for (const chunk of codeResult.chunks) {
-    console.log(`   [${chunk.index}] ${chunk.tokenEstimate} tokens - ${chunk.metadata.definitions?.join(', ') || 'no definitions'}`);
+    console.log(
+      `   [${chunk.index}] ${chunk.tokenEstimate} tokens - ${chunk.metadata.definitions?.join(', ') || 'no definitions'}`
+    );
   }
 
   console.log('\n   Dependencies:');
@@ -189,8 +191,10 @@ async function main() {
   for (const rel of dependencyRelations) {
     const source = codeResult.chunks.find((c) => c.id === rel.sourceId);
     const target = codeResult.chunks.find((c) => c.id === rel.targetId);
-    const ref = rel.metadata?.reference as string || 'unknown';
-    console.log(`   "${source?.metadata.definitions?.[0] || 'chunk'}" depends on "${target?.metadata.definitions?.[0] || 'chunk'}" (${ref})`);
+    const ref = (rel.metadata?.reference as string) || 'unknown';
+    console.log(
+      `   "${source?.metadata.definitions?.[0] || 'chunk'}" depends on "${target?.metadata.definitions?.[0] || 'chunk'}" (${ref})`
+    );
   }
 
   // 2. Chunk markdown document
@@ -203,7 +207,9 @@ async function main() {
 
   console.log('\n   Sections:');
   for (const chunk of mdResult.chunks) {
-    console.log(`   [${chunk.index}] ${chunk.metadata.title || 'Untitled'} (${chunk.tokenEstimate} tokens)`);
+    console.log(
+      `   [${chunk.index}] ${chunk.metadata.title || 'Untitled'} (${chunk.tokenEstimate} tokens)`
+    );
   }
 
   // 3. Get related chunks
@@ -211,7 +217,9 @@ async function main() {
   if (codeResult.chunks.length > 0) {
     const firstChunk = codeResult.chunks[0]!;
     const related = chunker.getRelated(codeResult, firstChunk.id);
-    console.log(`   Chunk "${firstChunk.metadata.definitions?.[0] || 'first'}" has ${related.length} relations:`);
+    console.log(
+      `   Chunk "${firstChunk.metadata.definitions?.[0] || 'first'}" has ${related.length} relations:`
+    );
     for (const { chunk, relation } of related.slice(0, 5)) {
       console.log(`   - ${relation.type} → "${chunk.metadata.definitions?.[0] || 'chunk'}"`);
     }
@@ -242,9 +250,7 @@ ${chunk.content}
 Explain what AuthService does and its dependencies.`;
 
       try {
-        const response = await lmClient.chat([
-          { role: 'user', content: prompt },
-        ]);
+        const response = await lmClient.chat([{ role: 'user', content: prompt }]);
         console.log(`   Response: ${response.content.slice(0, 300)}...`);
       } catch (error) {
         console.log(`   ⚠️ LLM call failed: ${error}`);

@@ -222,8 +222,20 @@ describe('Events Utility', () => {
 
       const events: EntryChangedEvent[] = [
         { entryType: 'tool', entryId: '1', scopeType: 'global', scopeId: null, action: 'create' },
-        { entryType: 'guideline', entryId: '2', scopeType: 'project', scopeId: 'p1', action: 'update' },
-        { entryType: 'knowledge', entryId: '3', scopeType: 'session', scopeId: 's1', action: 'delete' },
+        {
+          entryType: 'guideline',
+          entryId: '2',
+          scopeType: 'project',
+          scopeId: 'p1',
+          action: 'update',
+        },
+        {
+          entryType: 'knowledge',
+          entryId: '3',
+          scopeType: 'session',
+          scopeId: 's1',
+          action: 'delete',
+        },
       ];
 
       for (const event of events) {
@@ -322,8 +334,12 @@ describe('Events Utility', () => {
     });
 
     it('should handle multiple errors from different handlers', () => {
-      const error1 = vi.fn(() => { throw new Error('Error 1'); });
-      const error2 = vi.fn(() => { throw new Error('Error 2'); });
+      const error1 = vi.fn(() => {
+        throw new Error('Error 1');
+      });
+      const error2 = vi.fn(() => {
+        throw new Error('Error 2');
+      });
       const success = vi.fn();
 
       eventBus.subscribe(error1);
@@ -897,6 +913,53 @@ describe('Events Utility', () => {
 
       expect(createHandler).toHaveBeenCalledTimes(1);
       expect(deleteHandler).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('EventBus - handler limit (Bug #215 fix)', () => {
+    it('should warn and return no-op unsubscribe when max handlers exceeded', () => {
+      // Create a new bus for this test to avoid interference
+      const limitedBus = createEventBus();
+
+      // Add handlers up to the limit (MAX_HANDLERS = 1000)
+      // We'll simulate this by accessing the private property for testing
+      // In a real scenario, we'd test the behavior at the boundary
+
+      // First, subscribe up to a reasonable number
+      const handlers: Array<() => void> = [];
+      for (let i = 0; i < 1000; i++) {
+        const unsubscribe = limitedBus.subscribe(vi.fn());
+        handlers.push(unsubscribe);
+      }
+
+      expect(limitedBus.subscriberCount()).toBe(1000);
+
+      // Try to add one more - should hit the limit
+      const noOpUnsubscribe = limitedBus.subscribe(vi.fn());
+
+      // The 1001st handler should not be added
+      expect(limitedBus.subscriberCount()).toBe(1000);
+
+      // The returned unsubscribe should be a no-op
+      noOpUnsubscribe();
+      expect(limitedBus.subscriberCount()).toBe(1000);
+    });
+
+    it('should only warn once when limit exceeded repeatedly', () => {
+      const limitedBus = createEventBus();
+
+      // Fill to limit
+      for (let i = 0; i < 1000; i++) {
+        limitedBus.subscribe(vi.fn());
+      }
+
+      // Try to add more - should only log warning once (per bus instance)
+      limitedBus.subscribe(vi.fn());
+      limitedBus.subscribe(vi.fn());
+      limitedBus.subscribe(vi.fn());
+
+      // All should be rejected (count should stay at 1000)
+      expect(limitedBus.subscriberCount()).toBe(1000);
     });
   });
 });

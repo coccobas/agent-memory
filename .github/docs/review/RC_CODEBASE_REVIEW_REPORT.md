@@ -44,6 +44,7 @@ Status: Resolved. Backup filenames are validated and resolved paths are constrai
 ### 4) Permissions default-open behavior (high severity in multi-agent / networked contexts)
 
 `src/services/permission.service.ts` grants full access if:
+
 - the permissions table exists but is empty, or
 - the permissions table doesn’t exist yet.
 

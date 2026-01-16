@@ -38,7 +38,9 @@ describe('ScalarQuantization', () => {
         bits: 8,
       };
 
-      expect(() => new ScalarQuantization(config)).toThrow('Validation error: inputDimension - must be positive');
+      expect(() => new ScalarQuantization(config)).toThrow(
+        'Validation error: inputDimension - must be positive'
+      );
     });
 
     it('should throw error when output dimension differs from input', () => {
@@ -155,7 +157,9 @@ describe('ScalarQuantization', () => {
       const compressor = new ScalarQuantization(config);
       const embedding = [0.1, 0.2]; // Only 2 elements
 
-      expect(() => compressor.compress(embedding)).toThrow('Validation error: embedding - dimension mismatch');
+      expect(() => compressor.compress(embedding)).toThrow(
+        'Validation error: embedding - dimension mismatch'
+      );
     });
 
     it('should auto-compute range from first embedding', () => {
@@ -255,7 +259,9 @@ describe('ScalarQuantization', () => {
       const compressor = new ScalarQuantization(config);
       const compressed = [0, 1, 2]; // Only 3 elements
 
-      expect(() => compressor.decompress(compressed)).toThrow('Validation error: compressed - dimension mismatch');
+      expect(() => compressor.decompress(compressed)).toThrow(
+        'Validation error: compressed - dimension mismatch'
+      );
     });
 
     it('should throw error if range not initialized', () => {
@@ -556,8 +562,12 @@ describe('ScalarQuantization', () => {
 
       const compressor = new ScalarQuantization(config);
 
-      expect(() => compressor.setRange(1, 1)).toThrow('Validation error: range - min must be less than max');
-      expect(() => compressor.setRange(1, 0)).toThrow('Validation error: range - min must be less than max');
+      expect(() => compressor.setRange(1, 1)).toThrow(
+        'Validation error: range - min must be less than max'
+      );
+      expect(() => compressor.setRange(1, 0)).toThrow(
+        'Validation error: range - min must be less than max'
+      );
     });
   });
 
@@ -674,7 +684,9 @@ describe('RandomProjection', () => {
       const compressor = new RandomProjection(config);
       const embedding = [0.1, 0.2]; // Only 2 elements
 
-      expect(() => compressor.compress(embedding)).toThrow('Validation error: embedding - dimension mismatch');
+      expect(() => compressor.compress(embedding)).toThrow(
+        'Validation error: embedding - dimension mismatch'
+      );
     });
 
     it('should produce deterministic results with same seed', () => {

@@ -8,11 +8,11 @@ Choose the right deployment mode for your use case.
 
 ## Quick Decision Guide
 
-| Mode | Instances | Writes/sec | Use Case |
-|------|-----------|------------|----------|
-| SQLite | 1 | ~50-100 | Development, single-user |
-| PostgreSQL | Multiple | ~500/instance | Production, teams |
-| PostgreSQL + Redis | Multiple | High | Enterprise, distributed |
+| Mode               | Instances | Writes/sec    | Use Case                 |
+| ------------------ | --------- | ------------- | ------------------------ |
+| SQLite             | 1         | ~50-100       | Development, single-user |
+| PostgreSQL         | Multiple  | ~500/instance | Production, teams        |
+| PostgreSQL + Redis | Multiple  | High          | Enterprise, distributed  |
 
 ---
 
@@ -31,12 +31,12 @@ agent-memory mcp
 >
 > Multiple processes accessing the same database file will cause `SQLITE_BUSY` or `SQLITE_LOCKED` errors.
 
-| Limitation | Impact |
-|------------|--------|
+| Limitation               | Impact                                                             |
+| ------------------------ | ------------------------------------------------------------------ |
 | Single-writer bottleneck | Only one write at a time (WAL mode improves but doesn't eliminate) |
-| File-based storage | No network access - database must be on local filesystem |
-| Instance-local caches | No cross-process cache synchronization |
-| No horizontal scaling | Cannot run multiple instances against same database |
+| File-based storage       | No network access - database must be on local filesystem           |
+| Instance-local caches    | No cross-process cache synchronization                             |
+| No horizontal scaling    | Cannot run multiple instances against same database                |
 
 ### When SQLite Works Well
 
@@ -48,6 +48,7 @@ agent-memory mcp
 ### When to Migrate
 
 Consider PostgreSQL when you need:
+
 - Multiple users or agents accessing simultaneously
 - Horizontal scaling (multiple instances)
 - Deployment to Kubernetes or similar orchestrators
@@ -97,12 +98,12 @@ agent-memory mcp
 
 ### What Redis Adds
 
-| Feature | Without Redis | With Redis |
-|---------|---------------|------------|
-| Cache | Instance-local | Distributed |
-| File locks | Instance-local | Cross-instance |
-| Events | Instance-local | Pub/sub across instances |
-| Rate limiting | Per-instance | Global |
+| Feature       | Without Redis  | With Redis               |
+| ------------- | -------------- | ------------------------ |
+| Cache         | Instance-local | Distributed              |
+| File locks    | Instance-local | Cross-instance           |
+| Events        | Instance-local | Pub/sub across instances |
+| Rate limiting | Per-instance   | Global                   |
 
 See: [Redis Distributed](redis-distributed.md)
 

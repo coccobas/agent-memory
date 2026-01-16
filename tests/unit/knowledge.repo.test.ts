@@ -198,8 +198,235 @@ describe('knowledgeRepo', () => {
       const knowledge = await knowledgeRepo.getById(created.id);
       expect(knowledge?.isActive).toBe(false);
     });
+
+    it('should return false for non-existent knowledge', async () => {
+      const result = await knowledgeRepo.deactivate('non-existent-id');
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('reactivate', () => {
+    it('should reactivate a deactivated knowledge entry', async () => {
+      const created = await knowledgeRepo.create({
+        scopeType: 'global',
+        title: 'reactivate-knowledge',
+        content: 'Content',
+      });
+
+      await knowledgeRepo.deactivate(created.id);
+      const deactivated = await knowledgeRepo.getById(created.id);
+      expect(deactivated?.isActive).toBe(false);
+
+      const result = await knowledgeRepo.reactivate(created.id);
+      expect(result).toBe(true);
+
+      const reactivated = await knowledgeRepo.getById(created.id);
+      expect(reactivated?.isActive).toBe(true);
+    });
+
+    it('should return false for non-existent knowledge', async () => {
+      const result = await knowledgeRepo.reactivate('non-existent-id');
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('delete', () => {
+    it('should delete knowledge and its versions', async () => {
+      const created = await knowledgeRepo.create({
+        scopeType: 'global',
+        title: 'delete-knowledge',
+        content: 'Content',
+      });
+
+      const result = await knowledgeRepo.delete(created.id);
+      expect(result).toBe(true);
+
+      const knowledge = await knowledgeRepo.getById(created.id);
+      expect(knowledge).toBeUndefined();
+    });
+
+    it('should return false for non-existent knowledge', async () => {
+      const result = await knowledgeRepo.delete('non-existent-id');
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('getByIds', () => {
+    it('should get multiple knowledge entries by IDs', async () => {
+      const knowledge1 = await knowledgeRepo.create({
+        scopeType: 'global',
+        title: 'getbyids-knowledge-1',
+        content: 'Content 1',
+      });
+
+      const knowledge2 = await knowledgeRepo.create({
+        scopeType: 'global',
+        title: 'getbyids-knowledge-2',
+        content: 'Content 2',
+      });
+
+      const entries = await knowledgeRepo.getByIds([knowledge1.id, knowledge2.id]);
+
+      expect(entries).toHaveLength(2);
+      expect(entries.map((e) => e.id).sort()).toEqual([knowledge1.id, knowledge2.id].sort());
+    });
+
+    it('should return empty array for empty IDs array', async () => {
+      const entries = await knowledgeRepo.getByIds([]);
+      expect(entries).toEqual([]);
+    });
+
+    it('should handle mix of existing and non-existing IDs', async () => {
+      const knowledge = await knowledgeRepo.create({
+        scopeType: 'global',
+        title: 'getbyids-mix-knowledge',
+        content: 'Content',
+      });
+
+      const entries = await knowledgeRepo.getByIds([knowledge.id, 'non-existent-id']);
+
+      expect(entries).toHaveLength(1);
+      expect(entries[0]?.id).toBe(knowledge.id);
+    });
+  });
+
+  describe('getByTitle', () => {
+    it('should get knowledge by title at exact scope', async () => {
+      await knowledgeRepo.create({
+        scopeType: 'global',
+        title: 'titled-knowledge',
+        content: 'Content',
+      });
+
+      const knowledge = await knowledgeRepo.getByTitle('titled-knowledge', 'global');
+
+      expect(knowledge).toBeDefined();
+      expect(knowledge?.title).toBe('titled-knowledge');
+    });
+
+    it('should return undefined for non-existent title', async () => {
+      const knowledge = await knowledgeRepo.getByTitle('non-existent-title', 'global');
+      expect(knowledge).toBeUndefined();
+    });
+
+    it('should inherit from global scope when not found at project scope', async () => {
+      const org = createTestOrg(testDb.db, 'Knowledge Inherit Org');
+      const project = createTestProject(testDb.db, 'Knowledge Inherit Project', org.id);
+
+      // Create knowledge at global scope
+      await knowledgeRepo.create({
+        scopeType: 'global',
+        title: 'inherited-knowledge',
+        content: 'Global content',
+      });
+
+      // Search at project scope with inherit=true (default)
+      const knowledge = await knowledgeRepo.getByTitle(
+        'inherited-knowledge',
+        'project',
+        project.id
+      );
+
+      expect(knowledge).toBeDefined();
+      expect(knowledge?.title).toBe('inherited-knowledge');
+      expect(knowledge?.scopeType).toBe('global');
+    });
+
+    it('should not inherit when inherit=false', async () => {
+      const org = createTestOrg(testDb.db, 'Knowledge No Inherit Org');
+      const project = createTestProject(testDb.db, 'Knowledge No Inherit Project', org.id);
+
+      // Create knowledge at global scope
+      await knowledgeRepo.create({
+        scopeType: 'global',
+        title: 'no-inherit-knowledge',
+        content: 'Global content',
+      });
+
+      // Search at project scope with inherit=false
+      const knowledge = await knowledgeRepo.getByTitle(
+        'no-inherit-knowledge',
+        'project',
+        project.id,
+        false
+      );
+
+      expect(knowledge).toBeUndefined();
+    });
+  });
+
+  describe('update edge cases', () => {
+    it('should return undefined when updating non-existent knowledge', async () => {
+      const result = await knowledgeRepo.update('non-existent-id', {
+        content: 'New content',
+      });
+
+      expect(result).toBeUndefined();
+    });
+
+    it('should update category', async () => {
+      const created = await knowledgeRepo.create({
+        scopeType: 'global',
+        title: 'update-category-knowledge',
+        content: 'Content',
+        category: 'fact',
+      });
+
+      const updated = await knowledgeRepo.update(created.id, {
+        category: 'decision',
+      });
+
+      expect(updated?.category).toBe('decision');
+    });
+
+    it('should update scope', async () => {
+      const org = createTestOrg(testDb.db, 'Knowledge Update Scope Org');
+      const project = createTestProject(testDb.db, 'Knowledge Update Scope Project', org.id);
+
+      const created = await knowledgeRepo.create({
+        scopeType: 'global',
+        title: 'update-scope-knowledge',
+        content: 'Content',
+      });
+
+      const updated = await knowledgeRepo.update(created.id, {
+        scopeType: 'project',
+        scopeId: project.id,
+      });
+
+      expect(updated?.scopeType).toBe('project');
+      expect(updated?.scopeId).toBe(project.id);
+    });
+
+    it('should invalidate knowledge', async () => {
+      const created = await knowledgeRepo.create({
+        scopeType: 'global',
+        title: 'invalidate-knowledge',
+        content: 'Content',
+      });
+
+      const updated = await knowledgeRepo.update(created.id, {
+        invalidatedBy: 'new-knowledge-id',
+      });
+
+      expect(updated?.currentVersion?.invalidatedBy).toBe('new-knowledge-id');
+    });
+  });
+
+  describe('create with project scope', () => {
+    it('should create knowledge at project scope', async () => {
+      const org = createTestOrg(testDb.db, 'Knowledge Create Org');
+      const project = createTestProject(testDb.db, 'Knowledge Create Project', org.id);
+
+      const knowledge = await knowledgeRepo.create({
+        scopeType: 'project',
+        scopeId: project.id,
+        title: 'project-knowledge',
+        content: 'Project content',
+      });
+
+      expect(knowledge.scopeType).toBe('project');
+      expect(knowledge.scopeId).toBe(project.id);
+    });
   });
 });
-
-
-

@@ -75,13 +75,23 @@ export class LocalCircuitBreakerAdapter implements ICircuitBreakerStateAdapter {
       // Immediately open on failure in half-open state
       updatedState.state = 'open';
       updatedState.nextAttemptTime = now + config.resetTimeoutMs;
-      logger.warn({ serviceName, failures: updatedState.failures }, 'Circuit breaker opened (from half-open)');
-    } else if (currentState.state === 'closed' && updatedState.failures >= config.failureThreshold) {
+      logger.warn(
+        { serviceName, failures: updatedState.failures },
+        'Circuit breaker opened (from half-open)'
+      );
+    } else if (
+      currentState.state === 'closed' &&
+      updatedState.failures >= config.failureThreshold
+    ) {
       // Open when failure threshold is reached
       updatedState.state = 'open';
       updatedState.nextAttemptTime = now + config.resetTimeoutMs;
       logger.warn(
-        { serviceName, failures: updatedState.failures, resetTime: new Date(updatedState.nextAttemptTime).toISOString() },
+        {
+          serviceName,
+          failures: updatedState.failures,
+          resetTime: new Date(updatedState.nextAttemptTime).toISOString(),
+        },
         'Circuit breaker opened'
       );
     }

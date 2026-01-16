@@ -4,6 +4,8 @@
  * Uses the generic handler factory to eliminate code duplication.
  */
 
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
+
 import {
   type CreateToolInput,
   type UpdateToolInput,

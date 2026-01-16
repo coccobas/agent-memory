@@ -8,6 +8,8 @@
  * - Disabled mode (falls back to text search only)
  */
 
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
+
 import { OpenAI } from 'openai';
 import { pipeline } from '@xenova/transformers';
 import { createComponentLogger } from '../utils/logger.js';
@@ -185,14 +187,19 @@ export class EmbeddingService {
       openaiApiKey: config.embedding.openaiApiKey,
       openaiModel: config.embedding.openaiModel,
       lmStudioBaseUrl: process.env.AGENT_MEMORY_LM_STUDIO_BASE_URL ?? 'http://localhost:1234/v1',
-      lmStudioModel: process.env.AGENT_MEMORY_LM_STUDIO_EMBEDDING_MODEL ?? 'text-embedding-qwen3-embedding-8b',
+      lmStudioModel:
+        process.env.AGENT_MEMORY_LM_STUDIO_EMBEDDING_MODEL ?? 'text-embedding-qwen3-embedding-8b',
       lmStudioInstruction: process.env.AGENT_MEMORY_LM_STUDIO_EMBEDDING_INSTRUCTION,
     };
 
     this.provider = effectiveConfig.provider;
 
     // Warn once if falling back to local (no API key)
-    if (this.provider === 'local' && !effectiveConfig.openaiApiKey && !warningState.hasWarnedAboutOpenAI) {
+    if (
+      this.provider === 'local' &&
+      !effectiveConfig.openaiApiKey &&
+      !warningState.hasWarnedAboutOpenAI
+    ) {
       logger.warn('No OpenAI API key found, using local model');
       warningState.hasWarnedAboutOpenAI = true;
     }
@@ -201,20 +208,24 @@ export class EmbeddingService {
     this.lmStudioModel = effectiveConfig.lmStudioModel ?? 'text-embedding-qwen3-embedding-8b';
     this.lmStudioInstruction = effectiveConfig.lmStudioInstruction ?? null;
     // Asymmetric instructions for query vs document embeddings
-    this.lmStudioQueryInstruction = effectiveConfig.lmStudioQueryInstruction
-      ?? process.env.AGENT_MEMORY_LM_STUDIO_QUERY_INSTRUCTION
-      ?? 'Retrieve memories that answer this question';
-    this.lmStudioDocumentInstruction = effectiveConfig.lmStudioDocumentInstruction
-      ?? process.env.AGENT_MEMORY_LM_STUDIO_DOCUMENT_INSTRUCTION
-      ?? 'Represent this memory for retrieval';
+    this.lmStudioQueryInstruction =
+      effectiveConfig.lmStudioQueryInstruction ??
+      process.env.AGENT_MEMORY_LM_STUDIO_QUERY_INSTRUCTION ??
+      'Retrieve memories that answer this question';
+    this.lmStudioDocumentInstruction =
+      effectiveConfig.lmStudioDocumentInstruction ??
+      process.env.AGENT_MEMORY_LM_STUDIO_DOCUMENT_INSTRUCTION ??
+      'Represent this memory for retrieval';
 
     // Ablation testing: disable instruction wrapping entirely
-    this.disableInstructions = effectiveConfig.disableInstructions
-      ?? (process.env.AGENT_MEMORY_EMBEDDING_DISABLE_INSTRUCTIONS === 'true');
+    this.disableInstructions =
+      effectiveConfig.disableInstructions ??
+      process.env.AGENT_MEMORY_EMBEDDING_DISABLE_INSTRUCTIONS === 'true';
 
     // Task 124: Initialize configurable embedding dimensions
     this.openaiDimension = effectiveConfig.openaiDimension ?? config.embedding.openaiDimension;
-    this.lmstudioDefaultDimension = effectiveConfig.lmstudioDimension ?? config.embedding.lmstudioDimension;
+    this.lmstudioDefaultDimension =
+      effectiveConfig.lmstudioDimension ?? config.embedding.lmstudioDimension;
     this.localDimension = effectiveConfig.localDimension ?? config.embedding.localDimension;
 
     // Initialize OpenAI client if using OpenAI
@@ -243,7 +254,8 @@ export class EmbeddingService {
       try {
         const parsedUrl = new URL(baseUrl);
         const hostname = parsedUrl.hostname.toLowerCase();
-        const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+        const isLocalhost =
+          hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
         const isPrivateNetwork =
           hostname.startsWith('10.') ||
           hostname.startsWith('192.168.') ||
@@ -259,7 +271,10 @@ export class EmbeddingService {
         logger.warn({ baseUrl }, 'Invalid LM Studio URL format');
       }
 
-      logger.info({ baseUrl, model: this.lmStudioModel }, 'Initializing LM Studio embedding client');
+      logger.info(
+        { baseUrl, model: this.lmStudioModel },
+        'Initializing LM Studio embedding client'
+      );
       this.lmStudioClient = new OpenAI({
         baseURL: baseUrl,
         apiKey: 'not-needed', // LM Studio doesn't require API key
@@ -302,7 +317,10 @@ export class EmbeddingService {
       process.env.VITEST_WORKER_ID !== undefined ||
       process.env.VITEST_POOL_ID !== undefined;
     if (isTestEnv && this.provider === 'openai') {
-      return process.env.AGENT_MEMORY_TEST_ALLOW_OPENAI_EMBEDDINGS === 'true' && this.openaiClient !== null;
+      return (
+        process.env.AGENT_MEMORY_TEST_ALLOW_OPENAI_EMBEDDINGS === 'true' &&
+        this.openaiClient !== null
+      );
     }
 
     if (this.provider === 'openai') {
@@ -374,7 +392,7 @@ export class EmbeddingService {
     this.cacheMisses++;
 
     // Generate embedding with circuit breaker protection
-    let embedding: number[] = await this.circuitBreaker.execute(async () => {
+    const embedding: number[] = await this.circuitBreaker.execute(async () => {
       if (this.provider === 'openai') {
         return await this.embedOpenAI(normalized);
       } else if (this.provider === 'lmstudio') {
@@ -425,7 +443,10 @@ export class EmbeddingService {
    * @param texts - The texts to embed
    * @param type - 'query' for search queries, 'document' for stored memories (default: 'document')
    */
-  async embedBatch(texts: string[], type: 'query' | 'document' = 'document'): Promise<EmbeddingBatchResult> {
+  async embedBatch(
+    texts: string[],
+    type: 'query' | 'document' = 'document'
+  ): Promise<EmbeddingBatchResult> {
     if (this.provider === 'disabled') {
       throw createEmbeddingDisabledError();
     }
@@ -442,7 +463,7 @@ export class EmbeddingService {
     const normalized = texts.map((t) => t.trim()).filter((t) => t.length > 0);
 
     // Generate embeddings with circuit breaker protection
-    let embeddings: number[][] = await this.circuitBreaker.execute(async () => {
+    const embeddings: number[][] = await this.circuitBreaker.execute(async () => {
       if (this.provider === 'openai') {
         return await this.embedBatchOpenAI(normalized);
       } else if (this.provider === 'lmstudio') {
@@ -581,7 +602,7 @@ export class EmbeddingService {
             throw createEmbeddingProviderError('OpenAI', `empty embedding at index ${i}`);
           }
           // Check for NaN values that could propagate silently
-          if (d.embedding.some(v => !Number.isFinite(v))) {
+          if (d.embedding.some((v) => !Number.isFinite(v))) {
             throw createEmbeddingProviderError('OpenAI', `invalid embedding values at index ${i}`);
           }
           return d.embedding;
@@ -607,9 +628,8 @@ export class EmbeddingService {
     }
 
     // Use asymmetric instructions for query vs document
-    const instruction = type === 'query'
-      ? this.lmStudioQueryInstruction
-      : this.lmStudioDocumentInstruction;
+    const instruction =
+      type === 'query' ? this.lmStudioQueryInstruction : this.lmStudioDocumentInstruction;
 
     // Fall back to legacy single instruction if asymmetric not configured
     const effectiveInstruction = instruction || this.lmStudioInstruction;
@@ -623,7 +643,10 @@ export class EmbeddingService {
   /**
    * Generate embedding using LM Studio
    */
-  private async embedLMStudio(text: string, type: 'query' | 'document' = 'query'): Promise<number[]> {
+  private async embedLMStudio(
+    text: string,
+    type: 'query' | 'document' = 'query'
+  ): Promise<number[]> {
     const client = this.lmStudioClient;
     if (!client) {
       throw createEmbeddingProviderError('LMStudio', 'Client not initialized');
@@ -647,7 +670,10 @@ export class EmbeddingService {
         // Auto-detect embedding dimension on first call
         if (this.lmStudioEmbeddingDimension === null) {
           this.lmStudioEmbeddingDimension = embedding.length;
-          logger.info({ dimension: embedding.length, model: this.lmStudioModel }, 'LM Studio embedding dimension detected');
+          logger.info(
+            { dimension: embedding.length, model: this.lmStudioModel },
+            'LM Studio embedding dimension detected'
+          );
         }
 
         return embedding;
@@ -664,7 +690,10 @@ export class EmbeddingService {
   /**
    * Generate embeddings in batch using LM Studio
    */
-  private async embedBatchLMStudio(texts: string[], type: 'query' | 'document' = 'document'): Promise<number[][]> {
+  private async embedBatchLMStudio(
+    texts: string[],
+    type: 'query' | 'document' = 'document'
+  ): Promise<number[][]> {
     const client = this.lmStudioClient;
     if (!client) {
       throw createEmbeddingProviderError('LMStudio', 'Client not initialized');
@@ -685,7 +714,10 @@ export class EmbeddingService {
         // Auto-detect embedding dimension on first call
         if (this.lmStudioEmbeddingDimension === null && embeddings[0]) {
           this.lmStudioEmbeddingDimension = embeddings[0].length;
-          logger.info({ dimension: embeddings[0].length, model: this.lmStudioModel }, 'LM Studio embedding dimension detected');
+          logger.info(
+            { dimension: embeddings[0].length, model: this.lmStudioModel },
+            'LM Studio embedding dimension detected'
+          );
         }
 
         return embeddings;

@@ -1137,19 +1137,9 @@ export interface IEdgeRepository {
   // Graph traversal
   getOutgoingEdges(nodeId: string, edgeTypeName?: string): Promise<GraphEdgeWithType[]>;
   getIncomingEdges(nodeId: string, edgeTypeName?: string): Promise<GraphEdgeWithType[]>;
-  getNeighbors(
-    nodeId: string,
-    options?: GraphTraversalOptions
-  ): Promise<GraphNodeWithVersion[]>;
-  traverse(
-    startNodeId: string,
-    options?: GraphTraversalOptions
-  ): Promise<GraphNodeWithVersion[]>;
-  findPaths(
-    startNodeId: string,
-    endNodeId: string,
-    maxDepth?: number
-  ): Promise<GraphPath[]>;
+  getNeighbors(nodeId: string, options?: GraphTraversalOptions): Promise<GraphNodeWithVersion[]>;
+  traverse(startNodeId: string, options?: GraphTraversalOptions): Promise<GraphNodeWithVersion[]>;
+  findPaths(startNodeId: string, endNodeId: string, maxDepth?: number): Promise<GraphPath[]>;
 }
 
 // =============================================================================

@@ -8,6 +8,13 @@
  *   --type <type>       Entry type to reindex: tools, guidelines, knowledge (default: all)
  *   --batch-size <n>    Batch size for processing (default: 50)
  *   --delay <ms>        Delay between batches in ms (default: 1000)
+ *
+ * NOTE: Console output is intentional for CLI command feedback.
+ */
+
+/* eslint-disable no-console */
+
+/**
  *   --force             Force regeneration even if embeddings exist
  *   --retry-failed      Retry failed embedding jobs from queue
  */
@@ -171,12 +178,12 @@ function printStats(db: DbClient): void {
 export async function runReindexCommand(args: string[]): Promise<void> {
   // Load environment
   const { loadEnv } = await import('../config/env.js');
-  const { resolve, dirname } = await import('node:path');
+  const path = await import('node:path');
   const { fileURLToPath } = await import('node:url');
 
   const __filename = fileURLToPath(import.meta.url);
-  const __dirname = dirname(__filename);
-  const projectRoot = resolve(__dirname, '../..');
+  const __dirname = path.dirname(__filename);
+  const projectRoot = path.resolve(__dirname, '../..');
   loadEnv(projectRoot);
 
   // Initialize services - getDb() will lazily initialize the database

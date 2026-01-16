@@ -24,14 +24,10 @@ import { QUERY_CATEGORY_NAMES } from './query-quality-types.js';
  * Calculate Precision at K
  * Precision@K = (relevant items in top K) / K
  */
-export function precisionAtK(
-  returnedIds: string[],
-  relevantIds: Set<string>,
-  k: number
-): number {
+export function precisionAtK(returnedIds: string[], relevantIds: Set<string>, k: number): number {
   if (k === 0) return 0;
   const topK = returnedIds.slice(0, k);
-  const relevantInTopK = topK.filter(id => relevantIds.has(id)).length;
+  const relevantInTopK = topK.filter((id) => relevantIds.has(id)).length;
   return relevantInTopK / k;
 }
 
@@ -39,14 +35,10 @@ export function precisionAtK(
  * Calculate Recall at K
  * Recall@K = (relevant items in top K) / (total relevant items)
  */
-export function recallAtK(
-  returnedIds: string[],
-  relevantIds: Set<string>,
-  k: number
-): number {
+export function recallAtK(returnedIds: string[], relevantIds: Set<string>, k: number): number {
   if (relevantIds.size === 0) return 1; // If no relevant items, perfect recall
   const topK = returnedIds.slice(0, k);
-  const relevantInTopK = topK.filter(id => relevantIds.has(id)).length;
+  const relevantInTopK = topK.filter((id) => relevantIds.has(id)).length;
   return relevantInTopK / relevantIds.size;
 }
 
@@ -54,10 +46,7 @@ export function recallAtK(
  * Calculate Mean Reciprocal Rank
  * MRR = 1 / (rank of first relevant result)
  */
-export function meanReciprocalRank(
-  returnedIds: string[],
-  relevantIds: Set<string>
-): number {
+export function meanReciprocalRank(returnedIds: string[], relevantIds: Set<string>): number {
   for (let i = 0; i < returnedIds.length; i++) {
     if (relevantIds.has(returnedIds[i]!)) {
       return 1 / (i + 1);
@@ -70,11 +59,7 @@ export function meanReciprocalRank(
  * Calculate Discounted Cumulative Gain
  * DCG = sum of (relevance / log2(rank + 1))
  */
-function dcg(
-  returnedIds: string[],
-  relevanceGrades: Map<string, number>,
-  k: number
-): number {
+function dcg(returnedIds: string[], relevanceGrades: Map<string, number>, k: number): number {
   let dcgScore = 0;
   const topK = returnedIds.slice(0, k);
 
@@ -91,10 +76,7 @@ function dcg(
 /**
  * Calculate Ideal DCG (DCG with perfect ranking)
  */
-function idealDcg(
-  relevanceGrades: Map<string, number>,
-  k: number
-): number {
+function idealDcg(relevanceGrades: Map<string, number>, k: number): number {
   // Sort relevance grades in descending order
   const sortedGrades = Array.from(relevanceGrades.values())
     .sort((a, b) => b - a)
@@ -137,9 +119,7 @@ export type IdMapper = (seedEntryId: string) => string | undefined;
 /**
  * Create an ID mapper from seed data and stored entries
  */
-export function createIdMapper(
-  seedToDbIdMap: Map<string, string>
-): IdMapper {
+export function createIdMapper(seedToDbIdMap: Map<string, string>): IdMapper {
   return (seedEntryId: string) => seedToDbIdMap.get(seedEntryId);
 }
 
@@ -231,11 +211,11 @@ export async function evaluateQueryTestCase(
   try {
     // Run the query
     const queryResult = await queryFn(testCase.query);
-    const processingTimeMs = queryResult.processingTimeMs || (Date.now() - startTime);
+    const processingTimeMs = queryResult.processingTimeMs || Date.now() - startTime;
 
     // Extract returned IDs
     const returnedDbIds = queryResult.results
-      .map(r => extractReturnedId(r))
+      .map((r) => extractReturnedId(r))
       .filter((id): id is string => id !== undefined);
 
     // Build expected data structures
@@ -306,14 +286,14 @@ export async function evaluateQueryTestCase(
       category: testCase.category,
       difficulty: testCase.difficulty,
       returnedCount: 0,
-      relevantCount: testCase.expectedResults.filter(e => e.relevanceGrade >= 2).length,
+      relevantCount: testCase.expectedResults.filter((e) => e.relevanceGrade >= 2).length,
       precisionAtK: 0,
       recallAtK: 0,
       mrr: 0,
       ndcg: 0,
       k: defaultK,
       returnedIds: [],
-      missedIds: testCase.expectedResults.map(e => e.seedEntryId),
+      missedIds: testCase.expectedResults.map((e) => e.seedEntryId),
       unexpectedIds: [],
       processingTimeMs: Date.now() - startTime,
       error: error instanceof Error ? error.message : String(error),
@@ -329,9 +309,9 @@ export async function evaluateQueryTestCase(
  * Aggregate results across all test cases
  */
 export function aggregateQueryResults(results: QueryTestCaseResult[]): AggregatedQueryMetrics {
-  const validResults = results.filter(r => !r.error && !r.skipped);
-  const skippedCount = results.filter(r => r.skipped).length;
-  const errorCount = results.filter(r => r.error).length;
+  const validResults = results.filter((r) => !r.error && !r.skipped);
+  const skippedCount = results.filter((r) => r.skipped).length;
+  const errorCount = results.filter((r) => r.error).length;
 
   if (validResults.length === 0) {
     return {
@@ -358,7 +338,8 @@ export function aggregateQueryResults(results: QueryTestCaseResult[]): Aggregate
   }
 
   // Overall averages
-  const avgPrecisionAtK = validResults.reduce((sum, r) => sum + r.precisionAtK, 0) / validResults.length;
+  const avgPrecisionAtK =
+    validResults.reduce((sum, r) => sum + r.precisionAtK, 0) / validResults.length;
   const avgRecallAtK = validResults.reduce((sum, r) => sum + r.recallAtK, 0) / validResults.length;
   const avgMrr = validResults.reduce((sum, r) => sum + r.mrr, 0) / validResults.length;
   const avgNdcg = validResults.reduce((sum, r) => sum + r.ndcg, 0) / validResults.length;
@@ -371,7 +352,7 @@ export function aggregateQueryResults(results: QueryTestCaseResult[]): Aggregate
   };
 
   for (const difficulty of ['easy', 'medium', 'hard'] as const) {
-    const diffResults = validResults.filter(r => r.difficulty === difficulty);
+    const diffResults = validResults.filter((r) => r.difficulty === difficulty);
     if (diffResults.length > 0) {
       byDifficulty[difficulty] = {
         count: diffResults.length,
@@ -384,11 +365,14 @@ export function aggregateQueryResults(results: QueryTestCaseResult[]): Aggregate
   }
 
   // By category
-  const byCategory: Record<string, { count: number; avgPrecision: number; avgRecall: number; avgMrr: number; avgNdcg: number }> = {};
-  const categories = Array.from(new Set(validResults.map(r => r.category)));
+  const byCategory: Record<
+    string,
+    { count: number; avgPrecision: number; avgRecall: number; avgMrr: number; avgNdcg: number }
+  > = {};
+  const categories = Array.from(new Set(validResults.map((r) => r.category)));
 
   for (const category of categories) {
-    const catResults = validResults.filter(r => r.category === category);
+    const catResults = validResults.filter((r) => r.category === category);
     if (catResults.length > 0) {
       const displayName = QUERY_CATEGORY_NAMES[category as QueryTestCategory] || category;
       byCategory[displayName] = {
@@ -402,7 +386,7 @@ export function aggregateQueryResults(results: QueryTestCaseResult[]): Aggregate
   }
 
   // Processing stats
-  const times = validResults.map(r => r.processingTimeMs);
+  const times = validResults.map((r) => r.processingTimeMs);
   const totalTimeMs = times.reduce((sum, t) => sum + t, 0);
 
   return {
@@ -501,7 +485,9 @@ export function printQueryBenchmarkResults(results: QueryBenchmarkResults): void
 
   console.log('SEED DATA:');
   console.log(`  Total Entries: ${results.seedDataStats.totalEntries}`);
-  console.log(`  By Type: G=${results.seedDataStats.byType.guidelines} K=${results.seedDataStats.byType.knowledge} T=${results.seedDataStats.byType.tools}`);
+  console.log(
+    `  By Type: G=${results.seedDataStats.byType.guidelines} K=${results.seedDataStats.byType.knowledge} T=${results.seedDataStats.byType.tools}`
+  );
   console.log(`  Scopes: ${results.seedDataStats.scopes.join(', ')}`);
 
   const o = results.overall;
@@ -520,10 +506,10 @@ export function printQueryBenchmarkResults(results: QueryBenchmarkResults): void
     const d = o.byDifficulty[diff];
     console.log(
       `${diff.padEnd(10)} | ${d.count.toString().padStart(5)} | ` +
-      `${(d.avgPrecision * 100).toFixed(1).padStart(6)}% | ` +
-      `${(d.avgRecall * 100).toFixed(1).padStart(6)}% | ` +
-      `${(d.avgMrr * 100).toFixed(1).padStart(6)}% | ` +
-      `${(d.avgNdcg * 100).toFixed(1).padStart(5)}%`
+        `${(d.avgPrecision * 100).toFixed(1).padStart(6)}% | ` +
+        `${(d.avgRecall * 100).toFixed(1).padStart(6)}% | ` +
+        `${(d.avgMrr * 100).toFixed(1).padStart(6)}% | ` +
+        `${(d.avgNdcg * 100).toFixed(1).padStart(5)}%`
     );
   }
 
@@ -531,16 +517,15 @@ export function printQueryBenchmarkResults(results: QueryBenchmarkResults): void
   console.log('Category              | Count | P@K     | R@K     | MRR     | nDCG');
   console.log('----------------------|-------|---------|---------|---------|--------');
 
-  const sortedCategories = Object.entries(o.byCategory)
-    .sort((a, b) => b[1].avgNdcg - a[1].avgNdcg);
+  const sortedCategories = Object.entries(o.byCategory).sort((a, b) => b[1].avgNdcg - a[1].avgNdcg);
 
   for (const [cat, m] of sortedCategories) {
     console.log(
       `${cat.substring(0, 21).padEnd(21)} | ${m.count.toString().padStart(5)} | ` +
-      `${(m.avgPrecision * 100).toFixed(1).padStart(6)}% | ` +
-      `${(m.avgRecall * 100).toFixed(1).padStart(6)}% | ` +
-      `${(m.avgMrr * 100).toFixed(1).padStart(6)}% | ` +
-      `${(m.avgNdcg * 100).toFixed(1).padStart(5)}%`
+        `${(m.avgPrecision * 100).toFixed(1).padStart(6)}% | ` +
+        `${(m.avgRecall * 100).toFixed(1).padStart(6)}% | ` +
+        `${(m.avgMrr * 100).toFixed(1).padStart(6)}% | ` +
+        `${(m.avgNdcg * 100).toFixed(1).padStart(5)}%`
     );
   }
 
@@ -552,7 +537,7 @@ export function printQueryBenchmarkResults(results: QueryBenchmarkResults): void
 
   // Show worst performing test cases
   const worstCases = results.testCaseResults
-    .filter(r => !r.error && !r.skipped)
+    .filter((r) => !r.error && !r.skipped)
     .sort((a, b) => a.ndcg - b.ndcg)
     .slice(0, 5);
 
@@ -560,7 +545,9 @@ export function printQueryBenchmarkResults(results: QueryBenchmarkResults): void
     console.log('\nWORST PERFORMING TEST CASES:');
     for (const tc of worstCases) {
       console.log(`  ${tc.testCaseId}: ${tc.testCaseName}`);
-      console.log(`    P@K=${(tc.precisionAtK * 100).toFixed(0)}% R@K=${(tc.recallAtK * 100).toFixed(0)}% MRR=${(tc.mrr * 100).toFixed(0)}% nDCG=${(tc.ndcg * 100).toFixed(0)}%`);
+      console.log(
+        `    P@K=${(tc.precisionAtK * 100).toFixed(0)}% R@K=${(tc.recallAtK * 100).toFixed(0)}% MRR=${(tc.mrr * 100).toFixed(0)}% nDCG=${(tc.ndcg * 100).toFixed(0)}%`
+      );
       if (tc.missedIds.length > 0) {
         console.log(`    Missed: ${tc.missedIds.join(', ')}`);
       }
@@ -571,7 +558,7 @@ export function printQueryBenchmarkResults(results: QueryBenchmarkResults): void
   }
 
   // Show skipped and error cases
-  const skippedCases = results.testCaseResults.filter(r => r.skipped);
+  const skippedCases = results.testCaseResults.filter((r) => r.skipped);
   if (skippedCases.length > 0) {
     console.log('\nSKIPPED CASES:');
     for (const tc of skippedCases) {
@@ -579,7 +566,7 @@ export function printQueryBenchmarkResults(results: QueryBenchmarkResults): void
     }
   }
 
-  const errorCases = results.testCaseResults.filter(r => r.error);
+  const errorCases = results.testCaseResults.filter((r) => r.error);
   if (errorCases.length > 0) {
     console.log('\nERROR CASES:');
     for (const tc of errorCases) {
@@ -614,23 +601,23 @@ export function compareQueryBenchmarks(
   console.log('----------------|----------|----------|--------');
   console.log(
     `Precision@K     | ${(baseline.overall.avgPrecisionAtK * 100).toFixed(1).padStart(7)}% | ` +
-    `${(current.overall.avgPrecisionAtK * 100).toFixed(1).padStart(7)}% | ` +
-    `${delta(current.overall.avgPrecisionAtK, baseline.overall.avgPrecisionAtK)}`
+      `${(current.overall.avgPrecisionAtK * 100).toFixed(1).padStart(7)}% | ` +
+      `${delta(current.overall.avgPrecisionAtK, baseline.overall.avgPrecisionAtK)}`
   );
   console.log(
     `Recall@K        | ${(baseline.overall.avgRecallAtK * 100).toFixed(1).padStart(7)}% | ` +
-    `${(current.overall.avgRecallAtK * 100).toFixed(1).padStart(7)}% | ` +
-    `${delta(current.overall.avgRecallAtK, baseline.overall.avgRecallAtK)}`
+      `${(current.overall.avgRecallAtK * 100).toFixed(1).padStart(7)}% | ` +
+      `${delta(current.overall.avgRecallAtK, baseline.overall.avgRecallAtK)}`
   );
   console.log(
     `MRR             | ${(baseline.overall.avgMrr * 100).toFixed(1).padStart(7)}% | ` +
-    `${(current.overall.avgMrr * 100).toFixed(1).padStart(7)}% | ` +
-    `${delta(current.overall.avgMrr, baseline.overall.avgMrr)}`
+      `${(current.overall.avgMrr * 100).toFixed(1).padStart(7)}% | ` +
+      `${delta(current.overall.avgMrr, baseline.overall.avgMrr)}`
   );
   console.log(
     `nDCG            | ${(baseline.overall.avgNdcg * 100).toFixed(1).padStart(7)}% | ` +
-    `${(current.overall.avgNdcg * 100).toFixed(1).padStart(7)}% | ` +
-    `${delta(current.overall.avgNdcg, baseline.overall.avgNdcg)}`
+      `${(current.overall.avgNdcg * 100).toFixed(1).padStart(7)}% | ` +
+      `${delta(current.overall.avgNdcg, baseline.overall.avgNdcg)}`
   );
 
   console.log('\n========================================\n');

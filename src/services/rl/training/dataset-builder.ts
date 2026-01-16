@@ -186,7 +186,7 @@ export async function buildRetrievalDataset(
     const queryLength = sample.queryText?.length ?? 0;
     const hasOperators = sample.queryText ? /[&|"()]/.test(sample.queryText) : false;
     const wordCount = sample.queryText ? sample.queryText.split(/\s+/).length : 0;
-    const queryComplexity = Math.min(1, (wordCount / 20) + (hasOperators ? 0.3 : 0));
+    const queryComplexity = Math.min(1, wordCount / 20 + (hasOperators ? 0.3 : 0));
 
     // Categorize query based on keywords
     const queryLower = sample.queryText?.toLowerCase() ?? '';
@@ -300,7 +300,9 @@ export async function buildConsolidationDataset(
     // Compute days since decision for lastAccessedDaysAgo estimate
     const decisionDate = new Date(sample.decidedAt);
     const now = new Date();
-    const daysSinceDecision = Math.floor((now.getTime() - decisionDate.getTime()) / (1000 * 60 * 60 * 24));
+    const daysSinceDecision = Math.floor(
+      (now.getTime() - decisionDate.getTime()) / (1000 * 60 * 60 * 24)
+    );
 
     const state: ConsolidationState = {
       groupFeatures: {

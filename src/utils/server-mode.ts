@@ -37,5 +37,8 @@ export function parseServerMode(argv: string[], envModeRaw?: string): ServerMode
   if (mode === '-r' || mode === 'r') return 'rest';
   if (mode === '-b' || mode === 'b') return 'both';
 
-  throw createValidationError('mode', `unknown mode '${mode}' - use --mcp (-m), --rest (-r), --both (-b), or AGENT_MEMORY_MODE`);
+  throw createValidationError(
+    'mode',
+    `unknown mode '${mode}' - use --mcp (-m), --rest (-r), --both (-b), or AGENT_MEMORY_MODE`
+  );
 }

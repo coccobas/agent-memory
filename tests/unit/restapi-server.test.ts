@@ -439,7 +439,7 @@ describe('REST API Server', () => {
         method: 'OPTIONS',
         url: '/v1/test',
         headers: {
-          'origin': 'http://localhost:3000',
+          origin: 'http://localhost:3000',
           'access-control-request-method': 'POST',
         },
       });

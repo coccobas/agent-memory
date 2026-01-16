@@ -44,6 +44,7 @@ securityLogger.logAuthFailure({
 ```
 
 **Output:**
+
 ```json
 {
   "level": "warn",
@@ -108,6 +109,7 @@ securityLogger.logSuspiciousActivity({
 ```
 
 **Severity:** Automatically determined by confidence level
+
 - `confidence > 0.8` → `HIGH` severity
 - `confidence ≤ 0.8` → `MEDIUM` severity
 
@@ -153,25 +155,25 @@ securityLogger.logSecurityEvent('custom_security_check', {
 
 ### Built-in Event Types
 
-| Event Type | Description | Typical Severity |
-|------------|-------------|------------------|
-| `auth_failure` | Failed authentication attempt | `MEDIUM` |
-| `rate_limit_exceeded` | Rate limit violation | `HIGH` (burst), `MEDIUM` (other) |
-| `permission_denied` | Access control failure | `MEDIUM` |
-| `suspicious_activity` | Potential security threat | `HIGH` or `MEDIUM` |
-| `invalid_input` | Malicious/malformed input | `MEDIUM` |
-| `unauthorized_access` | No credentials provided | `MEDIUM` |
-| `token_validation_failed` | Token verification failure | `MEDIUM` |
-| `security_policy_violation` | Policy breach | Varies |
+| Event Type                  | Description                   | Typical Severity                 |
+| --------------------------- | ----------------------------- | -------------------------------- |
+| `auth_failure`              | Failed authentication attempt | `MEDIUM`                         |
+| `rate_limit_exceeded`       | Rate limit violation          | `HIGH` (burst), `MEDIUM` (other) |
+| `permission_denied`         | Access control failure        | `MEDIUM`                         |
+| `suspicious_activity`       | Potential security threat     | `HIGH` or `MEDIUM`               |
+| `invalid_input`             | Malicious/malformed input     | `MEDIUM`                         |
+| `unauthorized_access`       | No credentials provided       | `MEDIUM`                         |
+| `token_validation_failed`   | Token verification failure    | `MEDIUM`                         |
+| `security_policy_violation` | Policy breach                 | Varies                           |
 
 ### Severity Levels
 
-| Severity | Log Level | Description | Use Cases |
-|----------|-----------|-------------|-----------|
-| `LOW` | `warn` | Informational security event | Anomalies, low-confidence detections |
-| `MEDIUM` | `warn` | Standard security violation | Failed auth, rate limits, permission denials |
-| `HIGH` | `error` | Serious security incident | Burst limit exceeded, high-confidence threats |
-| `CRITICAL` | `error` | Critical security breach | System compromise, data exfiltration |
+| Severity   | Log Level | Description                  | Use Cases                                     |
+| ---------- | --------- | ---------------------------- | --------------------------------------------- |
+| `LOW`      | `warn`    | Informational security event | Anomalies, low-confidence detections          |
+| `MEDIUM`   | `warn`    | Standard security violation  | Failed auth, rate limits, permission denials  |
+| `HIGH`     | `error`   | Serious security incident    | Burst limit exceeded, high-confidence threats |
+| `CRITICAL` | `error`   | Critical security breach     | System compromise, data exfiltration          |
 
 ## Event Details Structure
 
@@ -181,12 +183,12 @@ All security events include a common base structure with optional additional fie
 
 ```typescript
 interface BaseSecurityDetails {
-  ip?: string;              // Client IP address
-  userAgent?: string;       // User agent string
-  path?: string;            // Request path or endpoint
-  method?: string;          // HTTP method (GET, POST, etc.)
-  agentId?: string;         // Authenticated agent ID
-  requestId?: string;       // Request correlation ID
+  ip?: string; // Client IP address
+  userAgent?: string; // User agent string
+  path?: string; // Request path or endpoint
+  method?: string; // HTTP method (GET, POST, etc.)
+  agentId?: string; // Authenticated agent ID
+  requestId?: string; // Request correlation ID
   metadata?: Record<string, unknown>; // Additional context
 }
 ```
@@ -194,6 +196,7 @@ interface BaseSecurityDetails {
 ### Event-Specific Fields
 
 #### AuthFailureDetails
+
 ```typescript
 {
   reason: string;           // Required: Why auth failed
@@ -203,6 +206,7 @@ interface BaseSecurityDetails {
 ```
 
 #### RateLimitDetails
+
 ```typescript
 {
   limitType: 'burst' | 'global' | 'per-agent' | 'health'; // Required
@@ -214,6 +218,7 @@ interface BaseSecurityDetails {
 ```
 
 #### PermissionDeniedDetails
+
 ```typescript
 {
   resource: string;         // Required: Resource being accessed
@@ -224,6 +229,7 @@ interface BaseSecurityDetails {
 ```
 
 #### SuspiciousActivityDetails
+
 ```typescript
 {
   activityType: string;     // Required: Type of suspicious activity
@@ -304,6 +310,7 @@ Security logs can be consumed by monitoring systems for:
 ### Real-time Alerting
 
 Filter on high-severity events:
+
 ```bash
 # Example: Monitor for HIGH or CRITICAL security events
 cat logs/agent-memory.log | \
@@ -313,6 +320,7 @@ cat logs/agent-memory.log | \
 ### Pattern Detection
 
 Detect repeated failures from same source:
+
 ```bash
 # Example: Find IPs with multiple auth failures
 cat logs/agent-memory.log | \
@@ -323,6 +331,7 @@ cat logs/agent-memory.log | \
 ### Rate Limit Analysis
 
 Analyze rate limit violations:
+
 ```bash
 # Example: Count rate limit violations by type
 cat logs/agent-memory.log | \
@@ -340,6 +349,7 @@ All security event data is automatically sanitized using the existing sanitizati
 4. **Audit compliance** is maintained while protecting sensitive data
 
 Example sanitization:
+
 ```typescript
 // Input
 {
@@ -392,6 +402,7 @@ npm test -- tests/unit/security-logger.test.ts
 ```
 
 Tests cover:
+
 - All event types and severity levels
 - Data sanitization
 - Timestamp generation
@@ -408,12 +419,14 @@ Tests cover:
 ## Implementation Details
 
 **Source Files:**
+
 - `/src/utils/security-logger.ts` - SecurityLogger class and types
 - `/src/utils/sanitize.ts` - Data sanitization utilities
 - `/src/utils/logger.ts` - Base Pino logger configuration
 - `/tests/unit/security-logger.test.ts` - Comprehensive test suite
 
 **Integration Points:**
+
 - `SecurityService` - Authentication and rate limiting
 - `PermissionService` - Access control
 - `ValidationService` - Input validation

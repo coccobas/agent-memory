@@ -19,24 +19,24 @@ rules/
 
 These files are synced to IDE destinations and are relevant for **any project using Agent Memory**:
 
-| File | Purpose |
-|------|---------|
-| `auto-memory-core.md` | Essential Agent Memory workflow |
-| `auto-memory-advanced.md` | Advanced features, conflict resolution, maintenance |
-| `auto-memory-examples.md` | Practical usage examples and triggers |
-| `auto-memory-reference.md` | Complete reference for all 20 MCP tools |
-| `auto-memory-strategies.md` | Optimization strategies |
+| File                        | Purpose                                             |
+| --------------------------- | --------------------------------------------------- |
+| `auto-memory-core.md`       | Essential Agent Memory workflow                     |
+| `auto-memory-advanced.md`   | Advanced features, conflict resolution, maintenance |
+| `auto-memory-examples.md`   | Practical usage examples and triggers               |
+| `auto-memory-reference.md`  | Complete reference for all 20 MCP tools             |
+| `auto-memory-strategies.md` | Optimization strategies                             |
 
 ## Developer Rules (Not Synced)
 
 These files in `developer/` are only relevant when **working on the Agent Memory project itself**:
 
-| File | Purpose |
-|------|---------|
-| `developer/architecture.md` | Agent Memory internal architecture |
+| File                            | Purpose                                      |
+| ------------------------------- | -------------------------------------------- |
+| `developer/architecture.md`     | Agent Memory internal architecture           |
 | `developer/coding-standards.md` | TypeScript config, naming, project structure |
-| `developer/patterns.md` | Design patterns and conventions |
-| `developer/testing.md` | Testing guidelines and patterns |
+| `developer/patterns.md`         | Design patterns and conventions              |
+| `developer/testing.md`          | Testing guidelines and patterns              |
 
 These are excluded from sync via `.rulesignore` but are still loaded into `CLAUDE.md` for AI context when working on this project.
 
@@ -44,11 +44,11 @@ These are excluded from sync via `.rulesignore` but are still loaded into `CLAUD
 
 When you run `npm run sync-rules`, consumer rules are synced to:
 
-| IDE | Destination | Format |
-|-----|-------------|--------|
-| Cursor | `.cursor/rules/` | `.mdc` (with YAML frontmatter) |
-| VS Code | `.vscode/rules/` | `.md` |
-| Others | Various | `.md` |
+| IDE     | Destination      | Format                         |
+| ------- | ---------------- | ------------------------------ |
+| Cursor  | `.cursor/rules/` | `.mdc` (with YAML frontmatter) |
+| VS Code | `.vscode/rules/` | `.md`                          |
+| Others  | Various          | `.md`                          |
 
 ## Commands
 

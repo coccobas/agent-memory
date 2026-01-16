@@ -1,6 +1,6 @@
 ---
 description: Testing guidelines and patterns
-globs: ["tests/**/*.ts", "**/*.test.ts"]
+globs: ['tests/**/*.ts', '**/*.test.ts']
 alwaysApply: false
 ---
 
@@ -89,7 +89,10 @@ export function createTestProject(db: ReturnType<typeof drizzle>): Project {
   // Return created project
 }
 
-export function createTestKnowledge(db: ReturnType<typeof drizzle>, title: string): {
+export function createTestKnowledge(
+  db: ReturnType<typeof drizzle>,
+  title: string
+): {
   knowledge: KnowledgeWithVersion;
 } {
   // Create test knowledge entry
@@ -104,11 +107,13 @@ export function createTestKnowledge(db: ReturnType<typeof drizzle>, title: strin
 **Location**: `tests/unit/`
 
 **Pattern**:
+
 - Test each repository method
 - Test error cases
 - Test edge cases
 
 **Example**:
+
 ```typescript
 describe('knowledgeRepo', () => {
   it('should create a knowledge entry', () => {
@@ -117,11 +122,11 @@ describe('knowledgeRepo', () => {
       title: 'Test',
       content: 'Content',
     });
-    
+
     expect(knowledge.title).toBe('Test');
     expect(knowledge.currentVersion).toBeDefined();
   });
-  
+
   it('should return undefined for non-existent entry', () => {
     const knowledge = knowledgeRepo.getById('non-existent');
     expect(knowledge).toBeUndefined();
@@ -134,11 +139,13 @@ describe('knowledgeRepo', () => {
 **Location**: `tests/unit/`
 
 **Pattern**:
+
 - Test business logic
 - Test edge cases
 - Mock dependencies if needed
 
 **Example**:
+
 ```typescript
 describe('query.service', () => {
   it('should resolve scope chain with inheritance', () => {
@@ -147,7 +154,7 @@ describe('query.service', () => {
       id: sessionId,
       inherit: true,
     });
-    
+
     expect(chain).toHaveLength(4); // session, project, org, global
     expect(chain[0].scopeType).toBe('session');
   });
@@ -161,12 +168,14 @@ describe('query.service', () => {
 **Location**: `tests/integration/`
 
 **Pattern**:
+
 - Test full handler flow
 - Test parameter validation
 - Test permission checks
 - Test error handling
 
 **Example**:
+
 ```typescript
 describe('Knowledge Integration', () => {
   describe('memory_knowledge_add', () => {
@@ -178,12 +187,12 @@ describe('Knowledge Integration', () => {
         source: 'https://example.com',
         confidence: 0.9,
       });
-      
+
       expect(result.success).toBe(true);
       expect(result.knowledge).toBeDefined();
       expect(result.knowledge.title).toBe('Test Knowledge');
     });
-    
+
     it('should require scopeType', () => {
       expect(() => {
         knowledgeHandlers.add({ title: 'test', content: 'content' });
@@ -198,11 +207,13 @@ describe('Knowledge Integration', () => {
 **Location**: `tests/integration/`
 
 **Pattern**:
+
 - Test tool actions
 - Test error responses
 - Test response format
 
 **Example**:
+
 ```typescript
 describe('memory_knowledge tool', () => {
   it('should handle add action', async () => {
@@ -212,10 +223,10 @@ describe('memory_knowledge tool', () => {
       title: 'Test',
       content: 'Content',
     });
-    
+
     expect(result.success).toBe(true);
   });
-  
+
   it('should handle invalid action', async () => {
     expect(() => {
       bundledHandlers.memory_knowledge({
@@ -256,6 +267,7 @@ describe('memory_knowledge tool', () => {
 - **Format**: `should <expected behavior>`
 
 **Example**:
+
 ```typescript
 describe('knowledgeRepo', () => {
   describe('create', () => {
@@ -272,18 +284,19 @@ describe('knowledgeRepo', () => {
 - **Assert**: Verify the results
 
 **Example**:
+
 ```typescript
 it('should update knowledge and create new version', () => {
   // Arrange
   const { knowledge } = createTestKnowledge(db, 'update_test');
   const originalVersionId = knowledge.currentVersionId;
-  
+
   // Act
   const result = knowledgeHandlers.update({
     id: knowledge.id,
     content: 'Updated content',
   });
-  
+
   // Assert
   expect(result.success).toBe(true);
   expect(result.knowledge.currentVersionId).not.toBe(originalVersionId);
@@ -298,13 +311,14 @@ it('should update knowledge and create new version', () => {
 - **Concurrent operations**: Multiple agents, conflicts
 
 **Example**:
+
 ```typescript
 it('should handle empty search query', () => {
   const result = executeMemoryQuery({
     search: '',
     types: ['tools'],
   });
-  
+
   expect(result.results).toBeDefined();
 });
 
@@ -313,7 +327,7 @@ it('should handle limit exceeding max', () => {
     limit: 1000, // Exceeds MAX_LIMIT
     types: ['tools'],
   });
-  
+
   expect(result.meta.returnedCount).toBeLessThanOrEqual(MAX_LIMIT);
 });
 ```
@@ -325,6 +339,7 @@ it('should handle limit exceeding max', () => {
 - **File system**: Use test paths
 
 **Example**:
+
 ```typescript
 vi.mock('../../src/db/connection.js', async () => {
   const actual = await vi.importActual('../../src/db/connection.js');
@@ -342,6 +357,7 @@ vi.mock('../../src/db/connection.js', async () => {
 - **State**: Reset state between tests
 
 **Example**:
+
 ```typescript
 afterAll(() => {
   sqlite.close();
@@ -365,6 +381,7 @@ afterAll(() => {
 - **Filter**: Use `.only` or `.skip` for focused testing
 
 **Example**:
+
 ```typescript
 describe.only('Focus on this test', () => {
   it('should run this test', () => { ... });
@@ -382,6 +399,7 @@ it.skip('Skip this test', () => { ... });
 - **Pattern**: Factory functions
 
 **Example**:
+
 ```typescript
 export function createTestProject(db: ReturnType<typeof drizzle>, name = 'test-project'): Project {
   const projectId = generateId();
@@ -410,12 +428,13 @@ export function createTestProject(db: ReturnType<typeof drizzle>, name = 'test-p
 - **Benchmarks**: Use for performance-critical code
 
 **Example**:
+
 ```typescript
 it('should complete query within 50ms', () => {
   const start = Date.now();
   const result = executeMemoryQuery({ ... });
   const duration = Date.now() - start;
-  
+
   expect(duration).toBeLessThan(50);
 });
 ```
@@ -434,5 +453,3 @@ it('should complete query within 50ms', () => {
 2. **Mock not working**: Check import paths
 3. **Type errors**: Ensure test types match source types
 4. **Async issues**: Use `async/await` or return promises
-
-

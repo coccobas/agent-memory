@@ -151,7 +151,11 @@ describe('Import Service', () => {
           version: '1.0',
           entries: {
             tools: [
-              { scopeType: 'global', name: 'default-limit', currentVersion: { description: 'Test' } },
+              {
+                scopeType: 'global',
+                name: 'default-limit',
+                currentVersion: { description: 'Test' },
+              },
             ],
           },
         });
@@ -1378,6 +1382,3 @@ describe('Import Service', () => {
     });
   });
 });
-
-
-

@@ -7,12 +7,14 @@ Accepted
 ## Context
 
 Agent Memory needs caching for:
+
 - Query results (avoid re-executing expensive queries)
 - Feedback scores (avoid re-calculating)
 - Entity index (avoid re-building)
 - Scope resolution (avoid re-traversing)
 
 Requirements:
+
 - LRU eviction (least recently used items removed first)
 - TTL support (entries expire after time)
 - Memory-based limits (evict when memory pressure)
@@ -31,16 +33,16 @@ Implement a custom LRU cache combining count-based eviction, TTL expiration, mem
 // src/utils/lru-cache.ts
 interface CacheEntry<T> {
   value: T;
-  size: number;       // Estimated memory bytes
-  expiresAt: number;  // Timestamp or Infinity
+  size: number; // Estimated memory bytes
+  expiresAt: number; // Timestamp or Infinity
 }
 
 interface LRUCacheOptions {
-  maxSize?: number;           // Max entry count
-  maxMemoryMB?: number;       // Max memory in MB
-  ttlMs?: number;             // Default TTL in milliseconds
-  sizeEstimator?: (value: unknown) => number;  // Custom size estimation
-  onEvict?: (key: string, value: unknown) => void;  // Eviction callback
+  maxSize?: number; // Max entry count
+  maxMemoryMB?: number; // Max memory in MB
+  ttlMs?: number; // Default TTL in milliseconds
+  sizeEstimator?: (value: unknown) => number; // Custom size estimation
+  onEvict?: (key: string, value: unknown) => void; // Eviction callback
 }
 
 class LRUCache<T> {
@@ -192,13 +194,13 @@ evict(count: number): number {
 
 ### Performance Characteristics
 
-| Operation | Time Complexity | Notes |
-|-----------|-----------------|-------|
-| get | O(1) | Map lookup + delete + set |
-| set | O(1) amortized | May trigger O(k) evictions |
-| delete | O(1) | Map delete |
-| has | O(1) | Map has |
-| evict(n) | O(n) | n deletions |
+| Operation | Time Complexity | Notes                      |
+| --------- | --------------- | -------------------------- |
+| get       | O(1)            | Map lookup + delete + set  |
+| set       | O(1) amortized  | May trigger O(k) evictions |
+| delete    | O(1)            | Map delete                 |
+| has       | O(1)            | Map has                    |
+| evict(n)  | O(n)            | n deletions                |
 
 ### Usage Example
 
@@ -206,7 +208,7 @@ evict(count: number): number {
 const queryCache = new LRUCache<QueryResult>({
   maxSize: 1000,
   maxMemoryMB: 50,
-  ttlMs: 5 * 60 * 1000,  // 5 minutes
+  ttlMs: 5 * 60 * 1000, // 5 minutes
   sizeEstimator: (result: QueryResult) => {
     // Custom estimation for query results
     return result.entries.length * 500 + 100;
@@ -220,6 +222,7 @@ const queryCache = new LRUCache<QueryResult>({
 ## Consequences
 
 **Positive:**
+
 - No external dependencies for caching
 - Combined count/memory/TTL eviction
 - O(1) get/set operations
@@ -228,6 +231,7 @@ const queryCache = new LRUCache<QueryResult>({
 - Eviction callbacks for cleanup
 
 **Negative:**
+
 - Custom implementation to maintain
 - Size estimation is approximate
 - No distributed cache support (use Redis adapter for that)

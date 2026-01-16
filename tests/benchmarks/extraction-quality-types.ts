@@ -76,34 +76,34 @@ export interface ExtractionTestCase {
  * Test case categories for analysis
  */
 export type ExtractionTestCategory =
-  | 'guidelines-explicit'      // "Always do X", "Never do Y"
-  | 'guidelines-implicit'      // Implied rules from context
-  | 'guidelines-compound'      // Multiple rules in one statement
-  | 'knowledge-decisions'      // "We chose X because Y"
-  | 'knowledge-facts'          // Factual information
-  | 'knowledge-temporal'       // Time-sensitive information
-  | 'tools-cli'                // Command line tools
-  | 'tools-api'                // API endpoints
-  | 'tools-scripts'            // Scripts and automation
-  | 'tools-mcp'                // MCP tool definitions
-  | 'tools-function'           // Function signatures
-  | 'mixed-content'            // Multiple types in one context
-  | 'noise-resistance'         // Should extract little/nothing
-  | 'edge-cases'               // Unusual patterns
-  | 'atomicity'                // Compound statements to split
-  | 'deduplication'            // Similar/duplicate content
-  | 'code-context'             // Code with IMPORTANT/TODO/JSDoc
-  | 'constraints'              // Performance/data/security constraints
-  | 'examples'                 // Good/bad code examples
-  | 'source-attribution'       // RFC/ADR/link references
-  | 'confidence-levels'        // High/low/uncertain knowledge
+  | 'guidelines-explicit' // "Always do X", "Never do Y"
+  | 'guidelines-implicit' // Implied rules from context
+  | 'guidelines-compound' // Multiple rules in one statement
+  | 'knowledge-decisions' // "We chose X because Y"
+  | 'knowledge-facts' // Factual information
+  | 'knowledge-temporal' // Time-sensitive information
+  | 'tools-cli' // Command line tools
+  | 'tools-api' // API endpoints
+  | 'tools-scripts' // Scripts and automation
+  | 'tools-mcp' // MCP tool definitions
+  | 'tools-function' // Function signatures
+  | 'mixed-content' // Multiple types in one context
+  | 'noise-resistance' // Should extract little/nothing
+  | 'edge-cases' // Unusual patterns
+  | 'atomicity' // Compound statements to split
+  | 'deduplication' // Similar/duplicate content
+  | 'code-context' // Code with IMPORTANT/TODO/JSDoc
+  | 'constraints' // Performance/data/security constraints
+  | 'examples' // Good/bad code examples
+  | 'source-attribution' // RFC/ADR/link references
+  | 'confidence-levels' // High/low/uncertain knowledge
   // Adversarial categories
-  | 'informal-speech'          // Slang, typos, casual language
-  | 'typos-fragments'          // Incomplete sentences, typos
-  | 'entangled-facts'          // Multiple facts in messy sentences
+  | 'informal-speech' // Slang, typos, casual language
+  | 'typos-fragments' // Incomplete sentences, typos
+  | 'entangled-facts' // Multiple facts in messy sentences
   | 'suggestions-vs-standards' // "I think we should" vs "We should"
-  | 'implicit-in-explicit'     // Guidelines hidden in facts
-  | 'temporal-conflicts';      // Old rule contradicted by new
+  | 'implicit-in-explicit' // Guidelines hidden in facts
+  | 'temporal-conflicts'; // Old rule contradicted by new
 
 /**
  * Category display names
@@ -123,11 +123,11 @@ export const EXTRACTION_CATEGORY_NAMES: Record<ExtractionTestCategory, string> =
   'mixed-content': 'Mixed Content',
   'noise-resistance': 'Noise Resistance',
   'edge-cases': 'Edge Cases',
-  'atomicity': 'Atomicity',
-  'deduplication': 'Deduplication',
+  atomicity: 'Atomicity',
+  deduplication: 'Deduplication',
   'code-context': 'Code Context',
-  'constraints': 'Constraints',
-  'examples': 'Examples',
+  constraints: 'Constraints',
+  examples: 'Examples',
   'source-attribution': 'Source Attribution',
   'confidence-levels': 'Confidence Levels',
   // Adversarial categories
@@ -305,20 +305,26 @@ export interface AggregatedExtractionMetrics {
   avgF1Score: number;
 
   /** Precision by difficulty */
-  byDifficulty: Record<'easy' | 'medium' | 'hard', {
-    count: number;
-    avgPrecision: number;
-    avgRecall: number;
-    avgF1: number;
-  }>;
+  byDifficulty: Record<
+    'easy' | 'medium' | 'hard',
+    {
+      count: number;
+      avgPrecision: number;
+      avgRecall: number;
+      avgF1: number;
+    }
+  >;
 
   /** Metrics by category */
-  byCategory: Record<string, {
-    count: number;
-    avgPrecision: number;
-    avgRecall: number;
-    avgF1: number;
-  }>;
+  byCategory: Record<
+    string,
+    {
+      count: number;
+      avgPrecision: number;
+      avgRecall: number;
+      avgF1: number;
+    }
+  >;
 
   /** Aggregated proxy metrics */
   proxyMetrics: ExtractionProxyMetrics;

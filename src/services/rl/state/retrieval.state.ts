@@ -118,7 +118,7 @@ function detectKeywords(query: string): boolean {
   ];
 
   const lowerQuery = query.toLowerCase();
-  return keywords.some(keyword => lowerQuery.includes(keyword));
+  return keywords.some((keyword) => lowerQuery.includes(keyword));
 }
 
 /**
@@ -139,7 +139,7 @@ function computeQueryComplexity(query: string): number {
   if (words > 20) score += 0.1;
 
   // Multiple sentences
-  const sentences = query.split(/[.!?]+/).filter(s => s.trim().length > 0).length;
+  const sentences = query.split(/[.!?]+/).filter((s) => s.trim().length > 0).length;
   if (sentences > 1) score += 0.1;
   if (sentences > 2) score += 0.1;
 
@@ -176,9 +176,7 @@ function categorizeQuery(query: string): string {
 
   // Command/request
   if (
-    lowerQuery.match(
-      /^(show|list|find|search|get|fetch|retrieve|display|explain|tell|describe)\b/
-    )
+    lowerQuery.match(/^(show|list|find|search|get|fetch|retrieve|display|explain|tell|describe)\b/)
   ) {
     return 'command';
   }
@@ -189,9 +187,7 @@ function categorizeQuery(query: string): string {
   }
 
   // Technical/code
-  if (
-    lowerQuery.match(/\b(function|class|interface|type|implement|build|create|code)\b/)
-  ) {
+  if (lowerQuery.match(/\b(function|class|interface|type|implement|build|create|code)\b/)) {
     return 'technical';
   }
 

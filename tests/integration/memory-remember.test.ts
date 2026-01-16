@@ -547,7 +547,10 @@ describe('memory_remember Integration Tests', () => {
       });
 
       // Check if hint is present (depends on confidence level)
-      if ((result as { classification?: { confidence: number } }).classification?.confidence ?? 1 < 0.7) {
+      if (
+        (result as { classification?: { confidence: number } }).classification?.confidence ??
+        1 < 0.7
+      ) {
         expect(result).toHaveProperty('hint');
       }
     });
@@ -604,7 +607,8 @@ describe('memory_remember Integration Tests', () => {
       const { ctx, storedEntries } = createMockContext(db, classificationService);
 
       // Create a title that's over 80 chars
-      const longText = 'This is a very long title that contains many words and should be truncated at a word boundary rather than cutting mid-word';
+      const longText =
+        'This is a very long title that contains many words and should be truncated at a word boundary rather than cutting mid-word';
 
       await memoryRememberDescriptor.contextHandler!(ctx as never, {
         text: longText,

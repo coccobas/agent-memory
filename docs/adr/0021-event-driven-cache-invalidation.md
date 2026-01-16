@@ -7,6 +7,7 @@ Accepted
 ## Context
 
 Agent Memory uses multiple cache layers:
+
 - Query result cache (hot queries)
 - Feedback score cache (scoring lookups)
 - Entity index cache (entity matching)
@@ -28,6 +29,7 @@ class GuidelineRepository {
 ```
 
 We needed:
+
 - Decoupled cache invalidation
 - Support for multiple cache subscribers
 - Distributed invalidation (multi-instance deployments)
@@ -58,7 +60,7 @@ interface EntryChangedEvent {
 class GuidelineRepository {
   constructor(
     private db: Database,
-    private eventBus: IEventAdapter,
+    private eventBus: IEventAdapter
   ) {}
 
   async update(id: string, data: Partial<Guideline>): Promise<Guideline> {
@@ -83,10 +85,7 @@ class GuidelineRepository {
 
 ```typescript
 // src/core/factory/query-pipeline.ts
-function wireQueryCacheInvalidation(
-  eventBus: IEventAdapter,
-  queryCache: ICacheAdapter,
-) {
+function wireQueryCacheInvalidation(eventBus: IEventAdapter, queryCache: ICacheAdapter) {
   eventBus.subscribe('entry:changed', (event: EntryChangedEvent) => {
     // Invalidate queries that might include this entry
     const patterns = [
@@ -144,6 +143,7 @@ eventBus.subscribe('entry:changed', (event) => {
 ## Consequences
 
 **Positive:**
+
 - Repositories are decoupled from cache layers
 - Multiple caches can subscribe independently
 - Adding new caches doesn't require repository changes
@@ -152,6 +152,7 @@ eventBus.subscribe('entry:changed', (event) => {
 - Clear contract (EntryChangedEvent)
 
 **Negative:**
+
 - Eventual consistency (brief window of stale reads)
 - Event ordering not guaranteed across instances
 - Must remember to subscribe caches at startup

@@ -62,17 +62,17 @@ The Agent Memory extraction system implements a sophisticated multi-layered arch
 
 ### Key Files
 
-| Component | File | Purpose |
-|-----------|------|---------|
-| ExtractionService | `src/services/extraction.service.ts` | LLM-based extraction |
-| Extract Handler | `src/mcp/handlers/observe/extract.handler.ts` | MCP entry point |
-| Commit Handler | `src/mcp/handlers/observe/commit.handler.ts` | Entry storage |
-| TriggerDetector | `src/services/extraction/trigger-detector.ts` | Pattern detection |
-| TriggerOrchestrator | `src/services/extraction/trigger-orchestrator.ts` | Trigger coordination |
-| IncrementalExtractor | `src/services/extraction/incremental.ts` | Sliding window |
-| IncrementalObserver | `src/services/extraction/incremental-observer.ts` | Observer pattern |
-| CaptureStateManager | `src/services/capture/state.ts` | Session state |
-| Config | `src/config/registry/sections/extraction.ts` | Configuration |
+| Component            | File                                              | Purpose              |
+| -------------------- | ------------------------------------------------- | -------------------- |
+| ExtractionService    | `src/services/extraction.service.ts`              | LLM-based extraction |
+| Extract Handler      | `src/mcp/handlers/observe/extract.handler.ts`     | MCP entry point      |
+| Commit Handler       | `src/mcp/handlers/observe/commit.handler.ts`      | Entry storage        |
+| TriggerDetector      | `src/services/extraction/trigger-detector.ts`     | Pattern detection    |
+| TriggerOrchestrator  | `src/services/extraction/trigger-orchestrator.ts` | Trigger coordination |
+| IncrementalExtractor | `src/services/extraction/incremental.ts`          | Sliding window       |
+| IncrementalObserver  | `src/services/extraction/incremental-observer.ts` | Observer pattern     |
+| CaptureStateManager  | `src/services/capture/state.ts`                   | Session state        |
+| Config               | `src/config/registry/sections/extraction.ts`      | Configuration        |
 
 ---
 
@@ -80,12 +80,12 @@ The Agent Memory extraction system implements a sophisticated multi-layered arch
 
 ### 2.1 MCP Actions
 
-| Action | Purpose | Input | Output |
-|--------|---------|-------|--------|
-| `extract` | LLM-based extraction | context, scopeType, focusAreas | entries, entities, relationships |
-| `commit` | Store pre-extracted entries | entries[], sessionId, projectId | stored IDs |
-| `draft` | Generate extraction schemas | - | JSON schema + prompts |
-| `status` | Check extraction availability | - | provider, available, configured |
+| Action    | Purpose                       | Input                           | Output                           |
+| --------- | ----------------------------- | ------------------------------- | -------------------------------- |
+| `extract` | LLM-based extraction          | context, scopeType, focusAreas  | entries, entities, relationships |
+| `commit`  | Store pre-extracted entries   | entries[], sessionId, projectId | stored IDs                       |
+| `draft`   | Generate extraction schemas   | -                               | JSON schema + prompts            |
+| `status`  | Check extraction availability | -                               | provider, available, configured  |
 
 ### 2.2 Extraction Pipeline
 
@@ -109,12 +109,12 @@ Return structured result
 
 ### 2.3 Provider Configuration
 
-| Provider | Model Default | API Key Env | Notes |
-|----------|--------------|-------------|-------|
-| OpenAI | gpt-4o-mini | AGENT_MEMORY_OPENAI_API_KEY | Custom base URL support |
-| Anthropic | claude-3-5-sonnet | AGENT_MEMORY_ANTHROPIC_API_KEY | Native JSON mode |
-| Ollama | llama3.2 | - | Local, http://localhost:11434 |
-| Disabled | - | - | No-op mode |
+| Provider  | Model Default     | API Key Env                    | Notes                         |
+| --------- | ----------------- | ------------------------------ | ----------------------------- |
+| OpenAI    | gpt-4o-mini       | AGENT_MEMORY_OPENAI_API_KEY    | Custom base URL support       |
+| Anthropic | claude-3-5-sonnet | AGENT_MEMORY_ANTHROPIC_API_KEY | Native JSON mode              |
+| Ollama    | llama3.2          | -                              | Local, http://localhost:11434 |
+| Disabled  | -                 | -                              | No-op mode                    |
 
 **Auto-Detection Priority**: Anthropic → OpenAI → Ollama → Disabled
 
@@ -124,13 +124,13 @@ Return structured result
 
 ### 3.1 Trigger Types
 
-| Type | Detection | Focus Areas |
-|------|-----------|-------------|
-| `USER_CORRECTION` | "no", "actually", "undo", etc. | rules |
-| `ERROR_RECOVERY` | Error → success pattern | tools, decisions |
-| `ENTHUSIASM` | "perfect", "love it", etc. | facts, decisions |
-| `REPEATED_REQUEST` | Jaccard similarity ≥0.8 | rules, tools |
-| `SURPRISE_MOMENT` | **Not implemented** | facts, decisions |
+| Type               | Detection                      | Focus Areas      |
+| ------------------ | ------------------------------ | ---------------- |
+| `USER_CORRECTION`  | "no", "actually", "undo", etc. | rules            |
+| `ERROR_RECOVERY`   | Error → success pattern        | tools, decisions |
+| `ENTHUSIASM`       | "perfect", "love it", etc.     | facts, decisions |
+| `REPEATED_REQUEST` | Jaccard similarity ≥0.8        | rules, tools     |
+| `SURPRISE_MOMENT`  | **Not implemented**            | facts, decisions |
 
 ### 3.2 Confidence Scoring
 
@@ -163,13 +163,13 @@ ENTHUSIASM:
 
 ### 4.1 Configuration
 
-| Parameter | Default | Purpose |
-|-----------|---------|---------|
-| windowSize | 10 | Max turns per window |
-| windowOverlap | 3 | Overlap for context continuity |
-| minWindowTokens | 500 | Minimum to trigger extraction |
-| maxWindowTokens | 4000 | Hard limit per window |
-| minNewTurns | 2 | Require N new turns |
+| Parameter       | Default | Purpose                        |
+| --------------- | ------- | ------------------------------ |
+| windowSize      | 10      | Max turns per window           |
+| windowOverlap   | 3       | Overlap for context continuity |
+| minWindowTokens | 500     | Minimum to trigger extraction  |
+| maxWindowTokens | 4000    | Hard limit per window          |
+| minNewTurns     | 2       | Require N new turns            |
 
 ### 4.2 Sliding Window Algorithm
 
@@ -184,7 +184,9 @@ ENTHUSIASM:
 
 ```typescript
 // Content hash for deduplication
-normalized = content.toLowerCase().trim()
+normalized = content
+  .toLowerCase()
+  .trim()
   .replace(/\s+/g, ' ')
   .replace(/[^\w\s]/g, '');
 hash = sha256(normalized);
@@ -237,12 +239,12 @@ Integer IPs: Decimal (2130706433), Hex (0x7f000001)
 
 ### 6.2 Input Validation
 
-| Check | Limit |
-|-------|-------|
-| Context length | 100KB max |
-| Model name | Alphanumeric, hyphens, underscores, dots (100 chars) |
-| Response body | Configurable max size |
-| Timeout | 30 seconds |
+| Check          | Limit                                                |
+| -------------- | ---------------------------------------------------- |
+| Context length | 100KB max                                            |
+| Model name     | Alphanumeric, hyphens, underscores, dots (100 chars) |
+| Response body  | Configurable max size                                |
+| Timeout        | 30 seconds                                           |
 
 ### 6.3 API Key Protection
 
@@ -255,13 +257,13 @@ Integer IPs: Decimal (2130706433), Hex (0x7f000001)
 
 ### 7.1 Existing Tests
 
-| Test File | Coverage |
-|-----------|----------|
+| Test File                                        | Coverage                                 |
+| ------------------------------------------------ | ---------------------------------------- |
 | `tests/unit/extraction/trigger-detector.test.ts` | Correction detection, negation filtering |
-| `tests/unit/extraction/triggers.test.ts` | Type validation, config loading |
-| `tests/integration/observe.extract.test.ts` | Duplicate detection, auto-storage |
-| `tests/integration/observe.commit.test.ts` | Entry normalization, auto-promotion |
-| `tests/e2e/observe-protocol.test.ts` | MCP protocol compliance |
+| `tests/unit/extraction/triggers.test.ts`         | Type validation, config loading          |
+| `tests/integration/observe.extract.test.ts`      | Duplicate detection, auto-storage        |
+| `tests/integration/observe.commit.test.ts`       | Entry normalization, auto-promotion      |
+| `tests/e2e/observe-protocol.test.ts`             | MCP protocol compliance                  |
 
 ### 7.2 Coverage Gaps
 
@@ -281,12 +283,14 @@ Integer IPs: Decimal (2130706433), Hex (0x7f000001)
 ### 8.1 Critical (P0)
 
 #### Issue: Incomplete Surprise Moment Detection
+
 **Location**: `src/services/extraction/trigger-detector.ts`
 **Problem**: SURPRISE_MOMENT trigger type defined but never detected
 **Impact**: Feature doesn't work
 **Fix**: Implement detection or remove from enum
 
 #### Issue: Global Hash Map Memory Growth
+
 **Location**: `src/services/capture/state.ts`
 **Problem**: `globalHashes` Map grows indefinitely
 **Impact**: Memory leak over time
@@ -295,7 +299,9 @@ Integer IPs: Decimal (2130706433), Hex (0x7f000001)
 ### 8.2 High (P1)
 
 #### Issue: Scattered Deduplication Logic
+
 **Locations**:
+
 - `CaptureStateManager.isDuplicate()`
 - `IncrementalExtractor.deduplicateEntries()`
 - `helpers.ts storeEntry()`
@@ -305,8 +311,10 @@ Integer IPs: Decimal (2130706433), Hex (0x7f000001)
 **Fix**: Create `IDeduplicationService` interface
 
 #### Issue: Missing Extraction Metrics
+
 **Problem**: No observability into extraction quality
 **Fix**: Implement comprehensive metrics:
+
 ```typescript
 interface ExtractionMetrics {
   totalExtractions: number;
@@ -320,12 +328,14 @@ interface ExtractionMetrics {
 ### 8.3 Medium (P2)
 
 #### Issue: Performance - String Similarity O(N²)
+
 **Location**: `src/services/extraction/trigger-detector.ts:122-134`
 **Problem**: Jaccard coefficient on all message pairs
 **Impact**: Slow with large message histories
 **Fix**: Use embeddings for similarity, limit search window
 
 #### Issue: Token Estimation Accuracy
+
 **Location**: `src/services/extraction/incremental.ts:420-424`
 **Problem**: 4-chars-per-token approximation varies by model
 **Fix**: Provider-specific estimation factors
@@ -343,18 +353,18 @@ interface ExtractionMetrics {
 
 ### Priority Order
 
-| Priority | Issue | Effort | Impact |
-|----------|-------|--------|--------|
-| P0 | Fix global hash map memory leak | Low | High |
-| P0 | Implement/remove Surprise Moment | Low | Medium |
-| P1 | Consolidate deduplication service | Medium | High |
-| P1 | Add extraction metrics | Medium | High |
-| P1 | Improve similarity performance | High | Medium |
-| P2 | Remove CaptureService singleton | Low | Low |
-| P2 | Expand test coverage | High | Medium |
-| P3 | Document design decisions (ADRs) | Medium | Medium |
-| P3 | Refactor TriggerDetector | Medium | Low |
-| P3 | Extract magic numbers to constants | Low | Low |
+| Priority | Issue                              | Effort | Impact |
+| -------- | ---------------------------------- | ------ | ------ |
+| P0       | Fix global hash map memory leak    | Low    | High   |
+| P0       | Implement/remove Surprise Moment   | Low    | Medium |
+| P1       | Consolidate deduplication service  | Medium | High   |
+| P1       | Add extraction metrics             | Medium | High   |
+| P1       | Improve similarity performance     | High   | Medium |
+| P2       | Remove CaptureService singleton    | Low    | Low    |
+| P2       | Expand test coverage               | High   | Medium |
+| P3       | Document design decisions (ADRs)   | Medium | Medium |
+| P3       | Refactor TriggerDetector           | Medium | Low    |
+| P3       | Extract magic numbers to constants | Low    | Low    |
 
 ### Suggested ADRs to Create
 
@@ -369,20 +379,21 @@ interface ExtractionMetrics {
 
 ### Functional Testing (2025-12-30)
 
-| Test | Result | Notes |
-|------|--------|-------|
-| `memory_observe` status | ✅ Pass | provider=openai, available=true |
+| Test                     | Result  | Notes                                     |
+| ------------------------ | ------- | ----------------------------------------- |
+| `memory_observe` status  | ✅ Pass | provider=openai, available=true           |
 | `memory_observe` extract | ✅ Pass | Extracted guidelines, knowledge, entities |
-| `memory_observe` commit | ✅ Pass | Stored with auto-promote |
-| Entity extraction | ✅ Pass | PostgreSQL, MongoDB detected |
-| Relationship extraction | ✅ Pass | depends_on, conflicts_with |
-| Duplicate detection | ✅ Pass | Similar entries filtered |
+| `memory_observe` commit  | ✅ Pass | Stored with auto-promote                  |
+| Entity extraction        | ✅ Pass | PostgreSQL, MongoDB detected              |
+| Relationship extraction  | ✅ Pass | depends_on, conflicts_with                |
+| Duplicate detection      | ✅ Pass | Similar entries filtered                  |
 
 ### Sample Extraction Output
 
 **Input**: 4-turn conversation about TypeScript strict mode and PostgreSQL choice
 
 **Output**:
+
 - 1 guideline: `typescript-strict-mode` (priority 100)
 - 2 knowledge: `database choice`, `PostgreSQL features`
 - 2 entities: PostgreSQL (technology), MongoDB (technology)

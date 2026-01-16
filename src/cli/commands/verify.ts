@@ -4,12 +4,38 @@
  * Verify actions against guidelines via CLI.
  */
 
-import { Command } from 'commander';
+import type { Command } from 'commander';
 import { getCliContext, shutdownCliContext } from '../utils/context.js';
 import { formatOutput, type OutputFormat } from '../utils/output.js';
 import { handleCliError } from '../utils/errors.js';
 import { readStdin } from '../utils/stdin.js';
 import { verificationHandlers } from '../../mcp/handlers/verification.handler.js';
+import { typedAction } from '../utils/typed-action.js';
+
+interface VerifyPreCheckOptions extends Record<string, unknown> {
+  sessionId?: string;
+  projectId?: string;
+  actionType?: string;
+  description?: string;
+  filePath?: string;
+  content?: string;
+}
+
+interface VerifyPostCheckOptions extends Record<string, unknown> {
+  sessionId?: string;
+  projectId?: string;
+  content?: string;
+}
+
+interface VerifyAcknowledgeOptions extends Record<string, unknown> {
+  sessionId: string;
+  guidelineIds: string;
+}
+
+interface VerifyStatusOptions extends Record<string, unknown> {
+  sessionId: string;
+  projectId?: string;
+}
 
 export function addVerifyCommand(program: Command): void {
   const verify = program.command('verify').description('Verify actions against guidelines');
@@ -20,40 +46,45 @@ export function addVerifyCommand(program: Command): void {
     .description('Check an action before execution')
     .option('--session-id <id>', 'Session ID')
     .option('--project-id <id>', 'Project ID')
-    .option('--action-type <type>', 'Action type: file_write, code_generate, api_call, command, other')
+    .option(
+      '--action-type <type>',
+      'Action type: file_write, code_generate, api_call, command, other'
+    )
     .option('--description <text>', 'Action description')
     .option('--file-path <path>', 'File path (if applicable)')
     .option('--content <text>', 'Content being created/modified (or provide via stdin)')
-    .action(async (options, cmd) => {
-      try {
-        const globalOpts = cmd.optsWithGlobals();
-        const context = await getCliContext();
+    .action(
+      typedAction<VerifyPreCheckOptions>(async (options, globalOpts) => {
+        try {
+          const context = await getCliContext();
 
-        // Get content from option or stdin
-        let content = options.content;
-        if (!content) {
-          content = await readStdin();
+          // Get content from option or stdin
+          let content = options.content;
+          if (!content) {
+            content = await readStdin();
+          }
+
+          const result = verificationHandlers.preCheck(context, {
+            sessionId: options.sessionId,
+            projectId: options.projectId,
+            proposedAction: {
+              type: options.actionType || 'other',
+              description: options.description,
+              filePath: options.filePath,
+              content,
+            },
+            agentId: globalOpts.agentId,
+          });
+
+          // eslint-disable-next-line no-console
+          console.log(formatOutput(result, globalOpts.format as OutputFormat));
+        } catch (error) {
+          handleCliError(error);
+        } finally {
+          await shutdownCliContext();
         }
-
-        const result = verificationHandlers.preCheck(context, {
-          sessionId: options.sessionId,
-          projectId: options.projectId,
-          proposedAction: {
-            type: options.actionType || 'other',
-            description: options.description,
-            filePath: options.filePath,
-            content,
-          },
-          agentId: globalOpts.agentId,
-        });
-
-        console.log(formatOutput(result, globalOpts.format as OutputFormat));
-      } catch (error) {
-        handleCliError(error);
-      } finally {
-        await shutdownCliContext();
-      }
-    });
+      })
+    );
 
   // verify post-check
   verify
@@ -62,31 +93,33 @@ export function addVerifyCommand(program: Command): void {
     .option('--session-id <id>', 'Session ID')
     .option('--project-id <id>', 'Project ID')
     .option('--content <text>', 'Response content to verify (or provide via stdin)')
-    .action(async (options, cmd) => {
-      try {
-        const globalOpts = cmd.optsWithGlobals();
-        const context = await getCliContext();
+    .action(
+      typedAction<VerifyPostCheckOptions>(async (options, globalOpts) => {
+        try {
+          const context = await getCliContext();
 
-        // Get content from option or stdin
-        let content = options.content;
-        if (!content) {
-          content = await readStdin();
+          // Get content from option or stdin
+          let content = options.content;
+          if (!content) {
+            content = await readStdin();
+          }
+
+          const result = verificationHandlers.postCheck(context, {
+            sessionId: options.sessionId,
+            projectId: options.projectId,
+            content,
+            agentId: globalOpts.agentId,
+          });
+
+          // eslint-disable-next-line no-console
+          console.log(formatOutput(result, globalOpts.format as OutputFormat));
+        } catch (error) {
+          handleCliError(error);
+        } finally {
+          await shutdownCliContext();
         }
-
-        const result = verificationHandlers.postCheck(context, {
-          sessionId: options.sessionId,
-          projectId: options.projectId,
-          content,
-          agentId: globalOpts.agentId,
-        });
-
-        console.log(formatOutput(result, globalOpts.format as OutputFormat));
-      } catch (error) {
-        handleCliError(error);
-      } finally {
-        await shutdownCliContext();
-      }
-    });
+      })
+    );
 
   // verify acknowledge
   verify
@@ -94,26 +127,28 @@ export function addVerifyCommand(program: Command): void {
     .description('Acknowledge critical guidelines for a session')
     .requiredOption('--session-id <id>', 'Session ID')
     .requiredOption('--guideline-ids <ids>', 'Guideline IDs to acknowledge (comma-separated)')
-    .action(async (options, cmd) => {
-      try {
-        const globalOpts = cmd.optsWithGlobals();
-        const context = await getCliContext();
+    .action(
+      typedAction<VerifyAcknowledgeOptions>(async (options, globalOpts) => {
+        try {
+          const context = await getCliContext();
 
-        const guidelineIds = options.guidelineIds.split(',').map((id: string) => id.trim());
+          const guidelineIds = options.guidelineIds.split(',').map((id: string) => id.trim());
 
-        const result = verificationHandlers.acknowledge(context, {
-          sessionId: options.sessionId,
-          guidelineIds,
-          agentId: globalOpts.agentId,
-        });
+          const result = verificationHandlers.acknowledge(context, {
+            sessionId: options.sessionId,
+            guidelineIds,
+            agentId: globalOpts.agentId,
+          });
 
-        console.log(formatOutput(result, globalOpts.format as OutputFormat));
-      } catch (error) {
-        handleCliError(error);
-      } finally {
-        await shutdownCliContext();
-      }
-    });
+          // eslint-disable-next-line no-console
+          console.log(formatOutput(result, globalOpts.format as OutputFormat));
+        } catch (error) {
+          handleCliError(error);
+        } finally {
+          await shutdownCliContext();
+        }
+      })
+    );
 
   // verify status
   verify
@@ -121,21 +156,23 @@ export function addVerifyCommand(program: Command): void {
     .description('Get verification status for a session')
     .requiredOption('--session-id <id>', 'Session ID')
     .option('--project-id <id>', 'Project ID')
-    .action(async (options, cmd) => {
-      try {
-        const globalOpts = cmd.optsWithGlobals();
-        const context = await getCliContext();
+    .action(
+      typedAction<VerifyStatusOptions>(async (options, globalOpts) => {
+        try {
+          const context = await getCliContext();
 
-        const result = verificationHandlers.status(context, {
-          sessionId: options.sessionId,
-          projectId: options.projectId,
-        });
+          const result = verificationHandlers.status(context, {
+            sessionId: options.sessionId,
+            projectId: options.projectId,
+          });
 
-        console.log(formatOutput(result, globalOpts.format as OutputFormat));
-      } catch (error) {
-        handleCliError(error);
-      } finally {
-        await shutdownCliContext();
-      }
-    });
+          // eslint-disable-next-line no-console
+          console.log(formatOutput(result, globalOpts.format as OutputFormat));
+        } catch (error) {
+          handleCliError(error);
+        } finally {
+          await shutdownCliContext();
+        }
+      })
+    );
 }

@@ -4,17 +4,17 @@ Agent Memory is the high-speed memory layer for AI agents—persistent, permissi
 
 ## Choose Your Path
 
-| I want to... | Start here |
-|--------------|------------|
-| Get running in 2 minutes | [Quickstart](tutorials/quickstart.md) |
-| Learn the full workflow | [First Workflow Tutorial](tutorials/first-workflow.md) |
-| Set up my IDE | [IDE Setup Guide](guides/ide-setup.md) |
-| Enable semantic search | [Semantic Search Tutorial](tutorials/semantic-search-setup.md) |
-| Deploy with Docker | [Docker Guide](guides/docker.md) |
-| Use PostgreSQL | [PostgreSQL Setup](guides/postgresql-setup.md) |
-| Scale to multiple nodes | [Redis Distributed](guides/redis-distributed.md) |
-| Plan for scale | [Scaling Guide](SCALING.md) |
-| Understand the API | [MCP Tools Reference](reference/mcp-tools.md) |
+| I want to...             | Start here                                                     |
+| ------------------------ | -------------------------------------------------------------- |
+| Get running in 2 minutes | [Quickstart](tutorials/quickstart.md)                          |
+| Learn the full workflow  | [First Workflow Tutorial](tutorials/first-workflow.md)         |
+| Set up my IDE            | [IDE Setup Guide](guides/ide-setup.md)                         |
+| Enable semantic search   | [Semantic Search Tutorial](tutorials/semantic-search-setup.md) |
+| Deploy with Docker       | [Docker Guide](guides/docker.md)                               |
+| Use PostgreSQL           | [PostgreSQL Setup](guides/postgresql-setup.md)                 |
+| Scale to multiple nodes  | [Redis Distributed](guides/redis-distributed.md)               |
+| Plan for scale           | [Scaling Guide](SCALING.md)                                    |
+| Understand the API       | [MCP Tools Reference](reference/mcp-tools.md)                  |
 
 ---
 
@@ -36,6 +36,7 @@ Step-by-step lessons for beginners:
 How to accomplish specific tasks:
 
 **Setup**
+
 - [IDE Setup](guides/ide-setup.md) — Claude, Cursor, VS Code configuration
 - [Docker Deployment](guides/docker.md) — Container deployment
 - [PostgreSQL Setup](guides/postgresql-setup.md) — Enterprise database
@@ -44,16 +45,19 @@ How to accomplish specific tasks:
 - [Linux Setup](guides/platform/linux.md) — Linux-specific setup
 
 **Integration**
+
 - [Hooks & Enforcement](guides/hooks.md) — Runtime rule enforcement
 - [Rules Sync](guides/rules-sync.md) — Sync guidelines to IDE
 
 **Usage**
+
 - [Workflows](guides/workflows.md) — Common usage patterns
 - [Semantic Search](guides/semantic-search.md) — Vector search tuning
 - [Examples](guides/examples.md) — Usage examples
 - [Performance Tuning](guides/performance.md) — Optimization
 
 **Operations**
+
 - [Scaling Guide](SCALING.md) — Deployment tiers and migration
 - [Troubleshooting](guides/troubleshooting.md) — Common issues
 - [Security](guides/security.md) — Production security
@@ -81,11 +85,11 @@ Concepts and design decisions:
 
 ## Quick Links
 
-| Resource | Description |
-|----------|-------------|
-| [GitHub](https://github.com/anthropics/agent-memory) | Source code |
-| [Changelog](changelog.md) | Release notes |
-| [Contributing](contributing/) | How to contribute |
+| Resource                                             | Description       |
+| ---------------------------------------------------- | ----------------- |
+| [GitHub](https://github.com/anthropics/agent-memory) | Source code       |
+| [Changelog](changelog.md)                            | Release notes     |
+| [Contributing](contributing/)                        | How to contribute |
 
 ---
 

@@ -5,11 +5,7 @@
  * and Groundedness metrics. Tests the hierarchical summarization feature.
  */
 
-import type {
-  ROUGEScores,
-  BERTScoreResult,
-  GroundednessResult,
-} from './metrics/index.js';
+import type { ROUGEScores, BERTScoreResult, GroundednessResult } from './metrics/index.js';
 
 // =============================================================================
 // TEST CASE TYPES
@@ -60,27 +56,27 @@ export interface SummarizationTestCase {
  * Test case categories
  */
 export type SummarizationTestCategory =
-  | 'simple-aggregation'      // 2-3 related facts
-  | 'mixed-types'             // Guidelines + Knowledge + Tools
-  | 'hierarchical'            // Content forming natural hierarchy
-  | 'contradiction-handling'  // Conflicting information
-  | 'noise-resistance'        // Relevant + irrelevant content
-  | 'large-scale'             // 10+ entries
-  | 'temporal'                // Time-sensitive information
-  | 'domain-specific'         // Technical/domain-specific content
+  | 'simple-aggregation' // 2-3 related facts
+  | 'mixed-types' // Guidelines + Knowledge + Tools
+  | 'hierarchical' // Content forming natural hierarchy
+  | 'contradiction-handling' // Conflicting information
+  | 'noise-resistance' // Relevant + irrelevant content
+  | 'large-scale' // 10+ entries
+  | 'temporal' // Time-sensitive information
+  | 'domain-specific' // Technical/domain-specific content
   // New adversarial/realistic categories
-  | 'heavy-compression'       // 20-50 source entries needing aggressive compression
-  | 'length-constrained'      // Target word/sentence count
-  | 'redundancy-handling'     // 80%+ repeated/overlapping information
-  | 'scattered-info'          // Non-linear, chaotic inputs
-  | 'temporal-conflicts'      // Old vs new conflicting information
-  | 'multi-topic'             // 3+ distinct concerns mixed together
-  | 'authority-weighted'      // Some sources more authoritative than others
-  | 'partial-incomplete'      // Truncated/incomplete entries
-  | 'style-variations'        // Executive/technical/casual tone requirements
-  | 'true-contradictions'     // Team A says X, Team B says not-X
-  | 'extreme-noise'           // 80%+ irrelevant content
-  | 'ambiguous-importance';   // Unclear what matters most
+  | 'heavy-compression' // 20-50 source entries needing aggressive compression
+  | 'length-constrained' // Target word/sentence count
+  | 'redundancy-handling' // 80%+ repeated/overlapping information
+  | 'scattered-info' // Non-linear, chaotic inputs
+  | 'temporal-conflicts' // Old vs new conflicting information
+  | 'multi-topic' // 3+ distinct concerns mixed together
+  | 'authority-weighted' // Some sources more authoritative than others
+  | 'partial-incomplete' // Truncated/incomplete entries
+  | 'style-variations' // Executive/technical/casual tone requirements
+  | 'true-contradictions' // Team A says X, Team B says not-X
+  | 'extreme-noise' // 80%+ irrelevant content
+  | 'ambiguous-importance'; // Unclear what matters most
 
 /**
  * Category display names
@@ -88,11 +84,11 @@ export type SummarizationTestCategory =
 export const SUMMARIZATION_CATEGORY_NAMES: Record<SummarizationTestCategory, string> = {
   'simple-aggregation': 'Simple Aggregation',
   'mixed-types': 'Mixed Types',
-  'hierarchical': 'Hierarchical Content',
+  hierarchical: 'Hierarchical Content',
   'contradiction-handling': 'Contradiction Handling',
   'noise-resistance': 'Noise Resistance',
   'large-scale': 'Large Scale',
-  'temporal': 'Temporal',
+  temporal: 'Temporal',
   'domain-specific': 'Domain Specific',
   // New categories
   'heavy-compression': 'Heavy Compression',
@@ -199,20 +195,26 @@ export interface AggregatedSummarizationMetrics {
   };
 
   /** Metrics by difficulty */
-  byDifficulty: Record<'easy' | 'medium' | 'hard', {
-    count: number;
-    avgGroundedness: number;
-    avgCompressionRatio: number;
-    avgRougeL?: number;
-  }>;
+  byDifficulty: Record<
+    'easy' | 'medium' | 'hard',
+    {
+      count: number;
+      avgGroundedness: number;
+      avgCompressionRatio: number;
+      avgRougeL?: number;
+    }
+  >;
 
   /** Metrics by category */
-  byCategory: Record<string, {
-    count: number;
-    avgGroundedness: number;
-    avgCompressionRatio: number;
-    avgRougeL?: number;
-  }>;
+  byCategory: Record<
+    string,
+    {
+      count: number;
+      avgGroundedness: number;
+      avgCompressionRatio: number;
+      avgRougeL?: number;
+    }
+  >;
 
   /** Processing statistics */
   processing: {

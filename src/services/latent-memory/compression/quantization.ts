@@ -14,14 +14,14 @@
  * Quantization formula:
  * - quantized = round((value - min) / (max - min) * (2^bits - 1))
  * - dequantized = (quantized / (2^bits - 1)) * (max - min) + min
+ *
+ * NOTE: Non-null assertions used for array indexing after bounds checks in compression algorithms.
  */
 
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
+
 import { createValidationError } from '../../../core/errors.js';
-import type {
-  CompressionStrategy,
-  CompressionMethod,
-  QuantizationConfig,
-} from './types.js';
+import type { CompressionStrategy, CompressionMethod, QuantizationConfig } from './types.js';
 
 /**
  * Scalar Quantization compression strategy
@@ -146,7 +146,7 @@ export class ScalarQuantization implements CompressionStrategy {
     // Compute range from first embedding if needed
     this.updateRange(embedding);
 
-    const result = new Array(this.outputDim);
+    const result = new Array<number>(this.outputDim);
 
     for (let i = 0; i < embedding.length; i++) {
       // Normalize to [0, 1]
@@ -181,10 +181,13 @@ export class ScalarQuantization implements CompressionStrategy {
     }
 
     if (this.min === -Infinity || this.max === Infinity) {
-      throw createValidationError('normalizationRange', 'not initialized, compress an embedding first');
+      throw createValidationError(
+        'normalizationRange',
+        'not initialized, compress an embedding first'
+      );
     }
 
-    const result = new Array(this.inputDim);
+    const result = new Array<number>(this.inputDim);
 
     for (let i = 0; i < compressed.length; i++) {
       // Denormalize from [minValue, maxValue] to [0, 1]

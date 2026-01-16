@@ -6,11 +6,11 @@ Complete guide for deploying Agent Memory with Docker.
 
 Agent Memory supports multiple Docker deployment styles:
 
-| Style | Use Case | Connection |
-|-------|----------|------------|
-| **MCP (stdio)** | Claude Desktop, Cursor | Container stdin/stdout |
-| **REST (HTTP)** | Custom apps, APIs | HTTP on port 8787 |
-| **Multi-container** | Production, scaling | PostgreSQL + Redis |
+| Style               | Use Case               | Connection             |
+| ------------------- | ---------------------- | ---------------------- |
+| **MCP (stdio)**     | Claude Desktop, Cursor | Container stdin/stdout |
+| **REST (HTTP)**     | Custom apps, APIs      | HTTP on port 8787      |
+| **Multi-container** | Production, scaling    | PostgreSQL + Redis     |
 
 ---
 
@@ -53,6 +53,7 @@ curl http://localhost:8787/health
 ### Claude Desktop
 
 Config location:
+
 - **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
 - **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
 - **Linux:** `~/.config/Claude/claude_desktop_config.json`
@@ -115,11 +116,11 @@ services:
   agent-memory:
     image: ghcr.io/anthropics/agent-memory:latest
     ports:
-      - "8787:8787"
+      - '8787:8787'
     volumes:
       - ./data:/data
     environment:
-      AGENT_MEMORY_REST_ENABLED: "true"
+      AGENT_MEMORY_REST_ENABLED: 'true'
       AGENT_MEMORY_REST_API_KEY: ${AGENT_MEMORY_REST_API_KEY}
       AGENT_MEMORY_OPENAI_API_KEY: ${AGENT_MEMORY_OPENAI_API_KEY}
     restart: unless-stopped
@@ -161,7 +162,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U agent_memory"]
+      test: ['CMD-SHELL', 'pg_isready -U agent_memory']
       interval: 5s
       timeout: 5s
       retries: 5
@@ -169,14 +170,14 @@ services:
   agent-memory:
     image: ghcr.io/anthropics/agent-memory:latest
     ports:
-      - "8787:8787"
+      - '8787:8787'
     environment:
       AGENT_MEMORY_DB_TYPE: postgresql
       AGENT_MEMORY_PG_HOST: postgres
       AGENT_MEMORY_PG_DATABASE: agent_memory
       AGENT_MEMORY_PG_USER: agent_memory
       AGENT_MEMORY_PG_PASSWORD: ${PG_PASSWORD}
-      AGENT_MEMORY_REST_ENABLED: "true"
+      AGENT_MEMORY_REST_ENABLED: 'true'
       AGENT_MEMORY_REST_API_KEY: ${REST_API_KEY}
     depends_on:
       postgres:
@@ -203,7 +204,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U agent_memory"]
+      test: ['CMD-SHELL', 'pg_isready -U agent_memory']
       interval: 5s
       timeout: 5s
       retries: 5
@@ -214,7 +215,7 @@ services:
     volumes:
       - redisdata:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ['CMD', 'redis-cli', 'ping']
       interval: 5s
       timeout: 5s
       retries: 5
@@ -222,7 +223,7 @@ services:
   agent-memory:
     image: ghcr.io/anthropics/agent-memory:latest
     ports:
-      - "8787:8787"
+      - '8787:8787'
     environment:
       # Database
       AGENT_MEMORY_DB_TYPE: postgresql
@@ -231,10 +232,10 @@ services:
       AGENT_MEMORY_PG_USER: agent_memory
       AGENT_MEMORY_PG_PASSWORD: ${PG_PASSWORD}
       # Redis
-      AGENT_MEMORY_REDIS_ENABLED: "true"
+      AGENT_MEMORY_REDIS_ENABLED: 'true'
       AGENT_MEMORY_REDIS_HOST: redis
       # REST API
-      AGENT_MEMORY_REST_ENABLED: "true"
+      AGENT_MEMORY_REST_ENABLED: 'true'
       AGENT_MEMORY_REST_API_KEY: ${REST_API_KEY}
       # Embeddings
       AGENT_MEMORY_OPENAI_API_KEY: ${OPENAI_API_KEY}
@@ -286,9 +287,9 @@ services:
       AGENT_MEMORY_PG_DATABASE: agent_memory
       AGENT_MEMORY_PG_USER: agent_memory
       AGENT_MEMORY_PG_PASSWORD: ${PG_PASSWORD}
-      AGENT_MEMORY_REDIS_ENABLED: "true"
+      AGENT_MEMORY_REDIS_ENABLED: 'true'
       AGENT_MEMORY_REDIS_HOST: redis
-      AGENT_MEMORY_REST_ENABLED: "true"
+      AGENT_MEMORY_REST_ENABLED: 'true'
       AGENT_MEMORY_REST_API_KEY: ${REST_API_KEY}
     depends_on:
       - postgres
@@ -297,7 +298,7 @@ services:
   nginx:
     image: nginx:alpine
     ports:
-      - "8787:80"
+      - '8787:80'
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
@@ -397,13 +398,13 @@ docker run --env-file .env ...
 
 ### Recommended Variables
 
-| Variable | Description |
-|----------|-------------|
-| `AGENT_MEMORY_DATA_DIR` | Data directory (default: `/data`) |
-| `AGENT_MEMORY_REST_ENABLED` | Enable REST API |
-| `AGENT_MEMORY_REST_API_KEY` | API authentication key |
-| `AGENT_MEMORY_OPENAI_API_KEY` | OpenAI key for embeddings |
-| `AGENT_MEMORY_DB_TYPE` | `sqlite` or `postgresql` |
+| Variable                      | Description                       |
+| ----------------------------- | --------------------------------- |
+| `AGENT_MEMORY_DATA_DIR`       | Data directory (default: `/data`) |
+| `AGENT_MEMORY_REST_ENABLED`   | Enable REST API                   |
+| `AGENT_MEMORY_REST_API_KEY`   | API authentication key            |
+| `AGENT_MEMORY_OPENAI_API_KEY` | OpenAI key for embeddings         |
+| `AGENT_MEMORY_DB_TYPE`        | `sqlite` or `postgresql`          |
 
 See [Environment Variables](../reference/environment-variables.md) for full list.
 
@@ -423,7 +424,7 @@ curl http://localhost:8787/health
 services:
   agent-memory:
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8787/health"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:8787/health']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -461,8 +462,8 @@ services:
     logging:
       driver: json-file
       options:
-        max-size: "10m"
-        max-file: "3"
+        max-size: '10m'
+        max-file: '3'
 ```
 
 ---
@@ -501,7 +502,7 @@ services:
         limits:
           memory: 512M
     environment:
-      AGENT_MEMORY_CACHE_LIMIT_MB: "256"
+      AGENT_MEMORY_CACHE_LIMIT_MB: '256'
 ```
 
 ### Network Issues

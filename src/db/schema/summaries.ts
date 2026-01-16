@@ -116,7 +116,7 @@ export const summaryMembers = sqliteTable(
       .references(() => summaries.id, { onDelete: 'cascade' })
       .notNull(),
     memberType: text('member_type', {
-      enum: ['tool', 'guideline', 'knowledge', 'experience', 'summary']
+      enum: ['tool', 'guideline', 'knowledge', 'experience', 'summary'],
     }).notNull(),
     memberId: text('member_id').notNull(),
 
@@ -142,11 +142,7 @@ export const summaryMembers = sqliteTable(
     index('idx_summary_members_order').on(table.summaryId, table.displayOrder),
 
     // Uniqueness constraint - a member can only appear once per summary
-    uniqueIndex('idx_summary_members_unique').on(
-      table.summaryId,
-      table.memberType,
-      table.memberId
-    ),
+    uniqueIndex('idx_summary_members_unique').on(table.summaryId, table.memberType, table.memberId),
   ]
 );
 

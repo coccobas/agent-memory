@@ -8,7 +8,12 @@
  *
  * Summaries are stored in the dedicated summaries table with membership
  * tracked in summaryMembers for efficient traversal.
+ *
+ * NOTE: Non-null assertions used for array/Map access after validation checks
+ * and embedding operations in hierarchical algorithms.
  */
+
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 
 import { eq, and, sql, or } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
@@ -84,7 +89,8 @@ export class HierarchicalSummarizationService {
     this.vectorService = vectorService;
 
     // If no provider explicitly set, inherit from extraction service
-    const effectiveProvider = config?.provider ?? (extractionService.isAvailable() ? 'openai' : 'disabled');
+    const effectiveProvider =
+      config?.provider ?? (extractionService.isAvailable() ? 'openai' : 'disabled');
 
     this.config = {
       ...DEFAULT_HIERARCHICAL_SUMMARIZATION_CONFIG,
@@ -120,7 +126,10 @@ export class HierarchicalSummarizationService {
       }
     }
 
-    logger.debug({ config: this.config, hasSummarizer: !!this.summarizer }, 'Hierarchical summarization service initialized');
+    logger.debug(
+      { config: this.config, hasSummarizer: !!this.summarizer },
+      'Hierarchical summarization service initialized'
+    );
   }
 
   /** Get database instance (for subclasses/testing) */
@@ -180,7 +189,8 @@ export class HierarchicalSummarizationService {
     // Determine effective configuration
     const maxLevels = options.maxLevels ?? this.config.maxLevels;
     const minGroupSize = options.minGroupSize ?? this.config.minGroupSize;
-    const entryTypes = options.entryTypes ?? (['tool', 'guideline', 'knowledge', 'experience'] as const);
+    const entryTypes =
+      options.entryTypes ?? (['tool', 'guideline', 'knowledge', 'experience'] as const);
 
     // Delete existing summaries if force rebuild
     if (options.forceRebuild) {
@@ -507,6 +517,8 @@ export class HierarchicalSummarizationService {
       }
 
       // Strategy 2: Fallback to text search
+      // Drizzle conditions are complex - using any for dynamic condition building
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const conditions: any[] = [eq(summaries.isActive, true)];
 
       // Text search condition
@@ -531,6 +543,8 @@ export class HierarchicalSummarizationService {
       const summaryRows = this.db
         .select()
         .from(summaries)
+        // Drizzle conditions are complex - using any for flexibility
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
         .where(and(...conditions))
         .limit(limit)
         .all();
@@ -689,7 +703,10 @@ export class HierarchicalSummarizationService {
 
     if (count > 0) {
       // Delete summaries (CASCADE will delete summaryMembers)
-      this.db.delete(summaries).where(and(...conditions)).run();
+      this.db
+        .delete(summaries)
+        .where(and(...conditions))
+        .run();
       logger.debug({ count }, 'Deleted summaries');
     }
 
@@ -710,9 +727,11 @@ export class HierarchicalSummarizationService {
     minGroupSize: number,
     scopeType: 'global' | 'org' | 'project' | 'session',
     scopeId?: string
-  ): Promise<Omit<BuildSummariesResult, 'processingTimeMs' | 'stats'> & {
-    stats: { communitiesByLevel: number[]; avgCohesionByLevel: number[] };
-  }> {
+  ): Promise<
+    Omit<BuildSummariesResult, 'processingTimeMs' | 'stats'> & {
+      stats: { communitiesByLevel: number[]; avgCohesionByLevel: number[] };
+    }
+  > {
     // Base case: reached max levels or too few entries
     if (currentLevel > maxLevels || entries.length < minGroupSize) {
       return {
@@ -724,10 +743,7 @@ export class HierarchicalSummarizationService {
       };
     }
 
-    logger.debug(
-      { currentLevel, entryCount: entries.length },
-      'Building hierarchy level'
-    );
+    logger.debug({ currentLevel, entryCount: entries.length }, 'Building hierarchy level');
 
     // Step 1: Detect communities
     const communities = await this.detectCommunities(entries);
@@ -827,14 +843,8 @@ export class HierarchicalSummarizationService {
       },
       topLevelSummary: nextLevelResult.topLevelSummary,
       stats: {
-        communitiesByLevel: [
-          communities.length,
-          ...nextLevelResult.stats.communitiesByLevel,
-        ],
-        avgCohesionByLevel: [
-          avgCohesion,
-          ...nextLevelResult.stats.avgCohesionByLevel,
-        ],
+        communitiesByLevel: [communities.length, ...nextLevelResult.stats.communitiesByLevel],
+        avgCohesionByLevel: [avgCohesion, ...nextLevelResult.stats.avgCohesionByLevel],
       },
     };
   }
@@ -852,11 +862,12 @@ export class HierarchicalSummarizationService {
     const entries: SummarizableEntry[] = [];
 
     // Build scope conditions
-    const buildConditions = <T extends { scopeType: any; scopeId: any; isActive: any }>(table: T) => {
-      const conditions = [
-        eq(table.scopeType, scopeType as ScopeType),
-        eq(table.isActive, true),
-      ];
+    // Drizzle table types are complex - using any for generic table constraints
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const buildConditions = <T extends { scopeType: any; scopeId: any; isActive: any }>(
+      table: T
+    ) => {
+      const conditions = [eq(table.scopeType, scopeType as ScopeType), eq(table.isActive, true)];
       if (scopeId) {
         conditions.push(eq(table.scopeId, scopeId));
       }
@@ -865,11 +876,7 @@ export class HierarchicalSummarizationService {
 
     // Fetch tools
     if (entryTypes.includes('tool')) {
-      const toolEntries = this.db
-        .select()
-        .from(tools)
-        .where(buildConditions(tools))
-        .all();
+      const toolEntries = this.db.select().from(tools).where(buildConditions(tools)).all();
 
       for (const tool of toolEntries) {
         const version = tool.currentVersionId
@@ -916,7 +923,11 @@ export class HierarchicalSummarizationService {
           text,
           embedding: [],
           hierarchyLevel: 0,
-          metadata: { category: guideline.category ?? undefined, priority: guideline.priority, createdAt: guideline.createdAt },
+          metadata: {
+            category: guideline.category ?? undefined,
+            priority: guideline.priority,
+            createdAt: guideline.createdAt,
+          },
         });
       }
     }
@@ -959,7 +970,10 @@ export class HierarchicalSummarizationService {
   /**
    * Build text representation for a tool entry
    */
-  private buildToolText(tool: typeof tools.$inferSelect, version: typeof toolVersions.$inferSelect | null): string {
+  private buildToolText(
+    tool: typeof tools.$inferSelect,
+    version: typeof toolVersions.$inferSelect | null
+  ): string {
     const parts = [`Tool: ${tool.name}`];
     if (version?.description) {
       parts.push(`Description: ${version.description}`);
@@ -973,7 +987,10 @@ export class HierarchicalSummarizationService {
   /**
    * Build text representation for a guideline entry
    */
-  private buildGuidelineText(guideline: typeof guidelines.$inferSelect, version: typeof guidelineVersions.$inferSelect | null): string {
+  private buildGuidelineText(
+    guideline: typeof guidelines.$inferSelect,
+    version: typeof guidelineVersions.$inferSelect | null
+  ): string {
     const parts = [`Guideline: ${guideline.name}`];
     if (version?.content) {
       parts.push(`Content: ${version.content}`);
@@ -987,7 +1004,10 @@ export class HierarchicalSummarizationService {
   /**
    * Build text representation for a knowledge entry
    */
-  private buildKnowledgeText(entry: typeof knowledge.$inferSelect, version: typeof knowledgeVersions.$inferSelect | null): string {
+  private buildKnowledgeText(
+    entry: typeof knowledge.$inferSelect,
+    version: typeof knowledgeVersions.$inferSelect | null
+  ): string {
     const parts = [`Knowledge: ${entry.title}`];
     if (version?.content) {
       parts.push(`Content: ${version.content}`);
@@ -1004,9 +1024,7 @@ export class HierarchicalSummarizationService {
    * For entries without embeddings, generates them using the embedding service.
    * Uses batch embedding for efficiency.
    */
-  private async ensureEmbeddings(
-    entries: SummarizableEntry[]
-  ): Promise<SummarizableEntry[]> {
+  private async ensureEmbeddings(entries: SummarizableEntry[]): Promise<SummarizableEntry[]> {
     if (!this.embeddingService.isAvailable()) {
       logger.warn('Embedding service not available, skipping embedding generation');
       return entries;
@@ -1022,10 +1040,7 @@ export class HierarchicalSummarizationService {
       return entries;
     }
 
-    logger.debug(
-      { count: entriesNeedingEmbeddings.length },
-      'Generating embeddings for entries'
-    );
+    logger.debug({ count: entriesNeedingEmbeddings.length }, 'Generating embeddings for entries');
 
     // Batch embed texts
     const texts = entriesNeedingEmbeddings.map((e) => e.text);
@@ -1041,10 +1056,7 @@ export class HierarchicalSummarizationService {
         }
       }
 
-      logger.debug(
-        { count: result.embeddings.length },
-        'Generated embeddings for entries'
-      );
+      logger.debug({ count: result.embeddings.length }, 'Generated embeddings for entries');
     } catch (error) {
       logger.error({ error: String(error) }, 'Failed to generate embeddings');
       // Continue without embeddings - community detection will fail gracefully
@@ -1065,9 +1077,7 @@ export class HierarchicalSummarizationService {
     logger.debug({ entryCount: entries.length }, 'Detecting communities');
 
     // Filter entries with valid embeddings
-    const entriesWithEmbeddings = entries.filter(
-      (e) => e.embedding && e.embedding.length > 0
-    );
+    const entriesWithEmbeddings = entries.filter((e) => e.embedding && e.embedding.length > 0);
 
     if (entriesWithEmbeddings.length === 0) {
       logger.warn('No entries with embeddings available for community detection');
@@ -1244,8 +1254,8 @@ export class HierarchicalSummarizationService {
 
     for (let i = 0; i < withEmbeddings.length; i++) {
       for (let j = i + 1; j < withEmbeddings.length; j++) {
-        const a = withEmbeddings[i]!.embedding!;
-        const b = withEmbeddings[j]!.embedding!;
+        const a = withEmbeddings[i]!.embedding;
+        const b = withEmbeddings[j]!.embedding;
         totalSimilarity += this.cosineSimilarity(a, b);
         pairCount++;
       }
@@ -1297,7 +1307,7 @@ export class HierarchicalSummarizationService {
         memberCount: summary.memberCount,
         embedding: summary.embedding,
         embeddingDimension: summary.embedding?.length,
-        coherenceScore: summary.metadata?.cohesion as number | undefined,
+        coherenceScore: summary.metadata?.cohesion,
         isActive: true,
         needsRegeneration: false,
         createdBy: 'hierarchical-summarization',
@@ -1353,7 +1363,9 @@ export class HierarchicalSummarizationService {
    * Infer member type from member ID
    * In a production system, this would look up the actual entry type.
    */
-  private inferMemberType(_memberId: string): 'tool' | 'guideline' | 'knowledge' | 'experience' | 'summary' {
+  private inferMemberType(
+    _memberId: string
+  ): 'tool' | 'guideline' | 'knowledge' | 'experience' | 'summary' {
     // For now, default to 'knowledge' as the most common type
     // A more robust implementation would track entry types during fetch
     return 'knowledge';

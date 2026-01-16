@@ -73,8 +73,17 @@ function formatArrayAsTable(items: unknown[]): string {
   }
 
   // Select important keys for display (limit columns)
-  const allKeys = Object.keys(first as object);
-  const priorityKeys = ['id', 'name', 'title', 'status', 'scopeType', 'scopeId', 'createdAt', 'isActive'];
+  const allKeys = Object.keys(first);
+  const priorityKeys = [
+    'id',
+    'name',
+    'title',
+    'status',
+    'scopeType',
+    'scopeId',
+    'createdAt',
+    'isActive',
+  ];
   const keys = priorityKeys.filter((k) => allKeys.includes(k));
 
   // Add remaining keys up to max 8 columns
@@ -126,13 +135,13 @@ function formatMeta(obj: Record<string, unknown>): string {
   if ('meta' in obj && typeof obj.meta === 'object' && obj.meta) {
     const meta = obj.meta as Record<string, unknown>;
     const parts: string[] = [];
-    if ('returnedCount' in meta) parts.push(`Count: ${meta.returnedCount}`);
-    if ('count' in meta) parts.push(`Count: ${meta.count}`);
-    if ('hasMore' in meta) parts.push(`Has more: ${meta.hasMore}`);
+    if ('returnedCount' in meta) parts.push(`Count: ${String(meta.returnedCount)}`);
+    if ('count' in meta) parts.push(`Count: ${String(meta.count)}`);
+    if ('hasMore' in meta) parts.push(`Has more: ${String(meta.hasMore)}`);
     if (parts.length > 0) return parts.join(' | ') + '\n\n';
   }
   if ('count' in obj) {
-    return `Count: ${obj.count}\n\n`;
+    return `Count: ${String(obj.count)}\n\n`;
   }
   return '';
 }

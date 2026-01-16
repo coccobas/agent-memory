@@ -170,7 +170,10 @@ export class ContextDetectionService implements IContextDetectionService {
           rootPath: project.rootPath ?? undefined,
           source: 'cwd',
         };
-        logger.debug({ projectId: project.id, projectName: project.name }, 'Auto-detected project from cwd');
+        logger.debug(
+          { projectId: project.id, projectName: project.name },
+          'Auto-detected project from cwd'
+        );
       }
     } catch (error) {
       logger.warn({ error, cwd: workingDirectory }, 'Failed to detect project from cwd');

@@ -3,7 +3,12 @@
  *
  * This module provides functions to generate and store embeddings
  * when creating or updating memory entries.
+ *
+ * NOTE: Non-null assertions used for array access after validation
+ * in embedding generation operations.
  */
+
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 
 import { getDb } from '../connection.js';
 import { entryEmbeddings } from '../schema.js';
@@ -43,7 +48,10 @@ export type EmbeddingPipeline = {
    * @param texts - Texts to embed
    * @param type - 'query' for search queries, 'document' for stored memories (default: 'document')
    */
-  embedBatch?: (texts: string[], type?: 'query' | 'document') => Promise<{
+  embedBatch?: (
+    texts: string[],
+    type?: 'query' | 'document'
+  ) => Promise<{
     embeddings: number[][];
     model: string;
     provider: 'openai' | 'lmstudio' | 'local' | 'disabled';

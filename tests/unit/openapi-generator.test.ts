@@ -144,10 +144,12 @@ describe('OpenAPI Schema Converter', () => {
       expect(result.pathItem.post).toBeDefined();
       expect(result.pathItem.post?.summary).toBe('A test tool');
       expect(result.pathItem.post?.operationId).toBe('test_tool');
-      expect(result.pathItem.post?.requestBody?.content['application/json'].schema.properties).toHaveProperty(
-        'action'
-      );
-      expect(result.pathItem.post?.requestBody?.content['application/json'].schema.properties?.action).toEqual({
+      expect(
+        result.pathItem.post?.requestBody?.content['application/json'].schema.properties
+      ).toHaveProperty('action');
+      expect(
+        result.pathItem.post?.requestBody?.content['application/json'].schema.properties?.action
+      ).toEqual({
         type: 'string',
         enum: ['get', 'list'],
         description: 'Action to perform',
@@ -177,7 +179,8 @@ describe('OpenAPI Schema Converter', () => {
 
       const result = descriptorToOpenAPIPath(descriptor);
 
-      const props = result.pathItem.post?.requestBody?.content['application/json'].schema.properties;
+      const props =
+        result.pathItem.post?.requestBody?.content['application/json'].schema.properties;
       expect(props).toHaveProperty('common1');
       expect(props).toHaveProperty('specific1');
       expect(props).toHaveProperty('specific2');
@@ -199,7 +202,8 @@ describe('OpenAPI Schema Converter', () => {
 
       const result = descriptorToOpenAPIPath(descriptor);
 
-      const required = result.pathItem.post?.requestBody?.content['application/json'].schema.required;
+      const required =
+        result.pathItem.post?.requestBody?.content['application/json'].schema.required;
       expect(required).toContain('action');
       expect(required).toContain('id');
     });

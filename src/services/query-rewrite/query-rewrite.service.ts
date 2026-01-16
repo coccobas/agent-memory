@@ -9,6 +9,8 @@
  * Combines results from enabled strategies to improve retrieval quality.
  */
 
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
+
 import { IntentClassifier } from './classifier.js';
 import { QueryExpander } from './expander.js';
 import { HyDEGenerator } from './hyde.js';
@@ -142,7 +144,12 @@ export class QueryRewriteService implements IQueryRewriteService {
     }
 
     // Create HyDE generator if enabled and dependencies are available
-    if (this.config.enableHyDE && deps?.extractionService && deps?.embeddingService && config.hyde) {
+    if (
+      this.config.enableHyDE &&
+      deps?.extractionService &&
+      deps?.embeddingService &&
+      config.hyde
+    ) {
       this.hydeGenerator = new HyDEGenerator(
         deps.extractionService,
         deps.embeddingService,
@@ -180,7 +187,8 @@ export class QueryRewriteService implements IQueryRewriteService {
 
     // Step 2: Check for decomposition (before adding original query)
     const opts = input.options ?? {};
-    const enableDecomposition = opts.enableDecomposition ?? this.config.enableDecomposition ?? false;
+    const enableDecomposition =
+      opts.enableDecomposition ?? this.config.enableDecomposition ?? false;
     let decompositionPlan: QueryPlan | undefined;
 
     if (enableDecomposition && this.decomposer) {
@@ -249,7 +257,10 @@ export class QueryRewriteService implements IQueryRewriteService {
 
     // HyDE strategy - generate hypothetical documents and embed them
     if (enableHyDE && this.hydeGenerator && this.hydeGenerator.isAvailable()) {
-      const hydeResult = await this.hydeGenerator.generate(input.originalQuery, classification.intent);
+      const hydeResult = await this.hydeGenerator.generate(
+        input.originalQuery,
+        classification.intent
+      );
 
       // Add each HyDE document as a rewritten query with its embedding
       for (let i = 0; i < hydeResult.documents.length; i++) {

@@ -9,6 +9,8 @@
  * of re-reading the entire file each time.
  */
 
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
+
 import { openSync, readSync, closeSync, fstatSync, existsSync } from 'node:fs';
 
 export interface TranscriptReadResult {
@@ -78,6 +80,7 @@ export function readTranscriptFromOffset(
       let i = validBytes - 1;
       // Walk back through potential continuation bytes
       while (i >= 0 && i >= validBytes - 4) {
+        // Safe: i >= 0 checked in loop condition, buffer has validBytes bytes
         const byte = buffer[i]!;
         if ((byte & 0xc0) === 0x80) {
           // Continuation byte - keep looking for start

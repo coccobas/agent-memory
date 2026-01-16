@@ -136,7 +136,10 @@ Config location:
   "mcpServers": {
     "agent-memory": {
       "command": "node",
-      "args": ["C:\\Users\\YourName\\AppData\\Roaming\\npm\\node_modules\\agent-memory\\dist\\cli.js", "mcp"]
+      "args": [
+        "C:\\Users\\YourName\\AppData\\Roaming\\npm\\node_modules\\agent-memory\\dist\\cli.js",
+        "mcp"
+      ]
     }
   }
 }

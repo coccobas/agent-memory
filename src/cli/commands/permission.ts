@@ -4,11 +4,46 @@
  * Manage permissions via CLI.
  */
 
-import { Command } from 'commander';
+import type { Command } from 'commander';
 import { getCliContext, shutdownCliContext } from '../utils/context.js';
 import { formatOutput, type OutputFormat } from '../utils/output.js';
 import { handleCliError } from '../utils/errors.js';
 import { permissionHandlers } from '../../mcp/handlers/permissions.handler.js';
+import { typedAction } from '../utils/typed-action.js';
+
+interface PermissionGrantOptions extends Record<string, unknown> {
+  agentId: string;
+  scopeType?: string;
+  scopeId?: string;
+  entryType?: string;
+  permission?: string;
+  createdBy?: string;
+}
+
+interface PermissionRevokeOptions extends Record<string, unknown> {
+  permissionId?: string;
+  agentId?: string;
+  scopeType?: string;
+  scopeId?: string;
+  entryType?: string;
+}
+
+interface PermissionCheckOptions extends Record<string, unknown> {
+  agentId: string;
+  scopeType: string;
+  scopeId?: string;
+  entryType?: string;
+  action?: string;
+}
+
+interface PermissionListOptions extends Record<string, unknown> {
+  agentId?: string;
+  scopeType?: string;
+  scopeId?: string;
+  entryType?: string;
+  limit?: number;
+  offset?: number;
+}
 
 export function addPermissionCommand(program: Command): void {
   const permission = program.command('permission').description('Manage permissions');
@@ -23,28 +58,30 @@ export function addPermissionCommand(program: Command): void {
     .option('--entry-type <type>', 'Entry type: tool, guideline, knowledge')
     .option('--permission <level>', 'Permission level: read, write, admin', 'write')
     .option('--created-by <name>', 'Creator name')
-    .action(async (options, cmd) => {
-      try {
-        const globalOpts = cmd.optsWithGlobals();
-        const context = await getCliContext();
+    .action(
+      typedAction<PermissionGrantOptions>(async (options, globalOpts) => {
+        try {
+          const context = await getCliContext();
 
-        const result = permissionHandlers.grant(context, {
-          agent_id: options.agentId,
-          scope_type: options.scopeType,
-          scope_id: options.scopeId,
-          entry_type: options.entryType,
-          permission: options.permission,
-          created_by: options.createdBy,
-          admin_key: globalOpts.adminKey,
-        });
+          const result = permissionHandlers.grant(context, {
+            agent_id: options.agentId,
+            scope_type: options.scopeType,
+            scope_id: options.scopeId,
+            entry_type: options.entryType,
+            permission: options.permission,
+            created_by: options.createdBy,
+            admin_key: globalOpts.adminKey,
+          });
 
-        console.log(formatOutput(result, globalOpts.format as OutputFormat));
-      } catch (error) {
-        handleCliError(error);
-      } finally {
-        await shutdownCliContext();
-      }
-    });
+          // eslint-disable-next-line no-console
+          console.log(formatOutput(result, globalOpts.format as OutputFormat));
+        } catch (error) {
+          handleCliError(error);
+        } finally {
+          await shutdownCliContext();
+        }
+      })
+    );
 
   // permission revoke
   permission
@@ -55,27 +92,29 @@ export function addPermissionCommand(program: Command): void {
     .option('--scope-type <type>', 'Scope type (for agent-id lookup)')
     .option('--scope-id <id>', 'Scope ID (for agent-id lookup)')
     .option('--entry-type <type>', 'Entry type (for agent-id lookup)')
-    .action(async (options, cmd) => {
-      try {
-        const globalOpts = cmd.optsWithGlobals();
-        const context = await getCliContext();
+    .action(
+      typedAction<PermissionRevokeOptions>(async (options, globalOpts) => {
+        try {
+          const context = await getCliContext();
 
-        const result = permissionHandlers.revoke(context, {
-          permission_id: options.permissionId,
-          agent_id: options.agentId,
-          scope_type: options.scopeType,
-          scope_id: options.scopeId,
-          entry_type: options.entryType,
-          admin_key: globalOpts.adminKey,
-        });
+          const result = permissionHandlers.revoke(context, {
+            permission_id: options.permissionId,
+            agent_id: options.agentId,
+            scope_type: options.scopeType,
+            scope_id: options.scopeId,
+            entry_type: options.entryType,
+            admin_key: globalOpts.adminKey,
+          });
 
-        console.log(formatOutput(result, globalOpts.format as OutputFormat));
-      } catch (error) {
-        handleCliError(error);
-      } finally {
-        await shutdownCliContext();
-      }
-    });
+          // eslint-disable-next-line no-console
+          console.log(formatOutput(result, globalOpts.format as OutputFormat));
+        } catch (error) {
+          handleCliError(error);
+        } finally {
+          await shutdownCliContext();
+        }
+      })
+    );
 
   // permission check
   permission
@@ -86,26 +125,28 @@ export function addPermissionCommand(program: Command): void {
     .option('--scope-id <id>', 'Scope ID')
     .option('--entry-type <type>', 'Entry type')
     .option('--action <action>', 'Action to check: read, write', 'read')
-    .action(async (options, cmd) => {
-      try {
-        const globalOpts = cmd.optsWithGlobals();
-        const context = await getCliContext();
+    .action(
+      typedAction<PermissionCheckOptions>(async (options, globalOpts) => {
+        try {
+          const context = await getCliContext();
 
-        const result = permissionHandlers.check(context, {
-          agent_id: options.agentId,
-          scope_type: options.scopeType,
-          scope_id: options.scopeId,
-          entry_type: options.entryType,
-          checkAction: options.action,
-        });
+          const result = permissionHandlers.check(context, {
+            agent_id: options.agentId,
+            scope_type: options.scopeType,
+            scope_id: options.scopeId,
+            entry_type: options.entryType,
+            checkAction: options.action,
+          });
 
-        console.log(formatOutput(result, globalOpts.format as OutputFormat));
-      } catch (error) {
-        handleCliError(error);
-      } finally {
-        await shutdownCliContext();
-      }
-    });
+          // eslint-disable-next-line no-console
+          console.log(formatOutput(result, globalOpts.format as OutputFormat));
+        } catch (error) {
+          handleCliError(error);
+        } finally {
+          await shutdownCliContext();
+        }
+      })
+    );
 
   // permission list
   permission
@@ -117,26 +158,28 @@ export function addPermissionCommand(program: Command): void {
     .option('--entry-type <type>', 'Filter by entry type')
     .option('--limit <n>', 'Maximum entries to return', parseInt)
     .option('--offset <n>', 'Offset for pagination', parseInt)
-    .action(async (options, cmd) => {
-      try {
-        const globalOpts = cmd.optsWithGlobals();
-        const context = await getCliContext();
+    .action(
+      typedAction<PermissionListOptions>(async (options, globalOpts) => {
+        try {
+          const context = await getCliContext();
 
-        const result = permissionHandlers.list(context, {
-          agent_id: options.agentId,
-          scope_type: options.scopeType,
-          scope_id: options.scopeId,
-          entry_type: options.entryType,
-          limit: options.limit,
-          offset: options.offset,
-          admin_key: globalOpts.adminKey,
-        });
+          const result = permissionHandlers.list(context, {
+            agent_id: options.agentId,
+            scope_type: options.scopeType,
+            scope_id: options.scopeId,
+            entry_type: options.entryType,
+            limit: options.limit,
+            offset: options.offset,
+            admin_key: globalOpts.adminKey,
+          });
 
-        console.log(formatOutput(result, globalOpts.format as OutputFormat));
-      } catch (error) {
-        handleCliError(error);
-      } finally {
-        await shutdownCliContext();
-      }
-    });
+          // eslint-disable-next-line no-console
+          console.log(formatOutput(result, globalOpts.format as OutputFormat));
+        } catch (error) {
+          handleCliError(error);
+        } finally {
+          await shutdownCliContext();
+        }
+      })
+    );
 }

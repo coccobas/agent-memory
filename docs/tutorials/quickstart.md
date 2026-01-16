@@ -44,15 +44,15 @@ Add to your MCP client config:
 
 **Config locations:**
 
-| Client | Config File |
-|:-------|:------------|
-| Claude Desktop (macOS) | `~/Library/Application Support/Claude/claude_desktop_config.json` |
-| Claude Desktop (Linux) | `~/.config/claude/claude_desktop_config.json` |
-| Claude Desktop (Windows) | `%APPDATA%\Claude\claude_desktop_config.json` |
-| Claude Code | `~/.claude/claude_code_config.json` |
-| Cursor (project) | `.cursor/mcp.json` |
-| Cursor (user) | `~/.cursor/mcp.json` |
-| VS Code (workspace) | `.vscode/settings.json` |
+| Client                   | Config File                                                       |
+| :----------------------- | :---------------------------------------------------------------- |
+| Claude Desktop (macOS)   | `~/Library/Application Support/Claude/claude_desktop_config.json` |
+| Claude Desktop (Linux)   | `~/.config/claude/claude_desktop_config.json`                     |
+| Claude Desktop (Windows) | `%APPDATA%\Claude\claude_desktop_config.json`                     |
+| Claude Code              | `~/.claude/claude_code_config.json`                               |
+| Cursor (project)         | `.cursor/mcp.json`                                                |
+| Cursor (user)            | `~/.cursor/mcp.json`                                              |
+| VS Code (workspace)      | `.vscode/settings.json`                                           |
 
 ---
 

@@ -18,11 +18,11 @@ Configure Agent Memory with your IDE and MCP client.
 
 ### Configuration Location
 
-| OS | Path |
-|----|------|
-| macOS | `~/Library/Application Support/Claude/claude_desktop_config.json` |
-| Linux | `~/.config/claude/claude_desktop_config.json` |
-| Windows | `%APPDATA%\Claude\claude_desktop_config.json` |
+| OS      | Path                                                              |
+| ------- | ----------------------------------------------------------------- |
+| macOS   | `~/Library/Application Support/Claude/claude_desktop_config.json` |
+| Linux   | `~/.config/claude/claude_desktop_config.json`                     |
+| Windows | `%APPDATA%\Claude\claude_desktop_config.json`                     |
 
 ### Using npx (Recommended)
 
@@ -153,12 +153,12 @@ Or via MCP tool:
 
 ### Hook Events
 
-| Event | Description |
-|-------|-------------|
-| `pretooluse` | Before tool execution, can block |
-| `stop` | When session stops |
-| `userpromptsubmit` | When user submits prompt |
-| `session-end` | When session ends |
+| Event              | Description                      |
+| ------------------ | -------------------------------- |
+| `pretooluse`       | Before tool execution, can block |
+| `stop`             | When session stops               |
+| `userpromptsubmit` | When user submits prompt         |
+| `session-end`      | When session ends                |
 
 Hooks read JSON from stdin and can validate against memory guidelines.
 
@@ -267,14 +267,14 @@ Query via HTTP from your extension:
 const response = await fetch('http://127.0.0.1:8787/v1/query', {
   method: 'POST',
   headers: {
-    'Authorization': 'Bearer your-secret',
-    'Content-Type': 'application/json'
+    Authorization: 'Bearer your-secret',
+    'Content-Type': 'application/json',
   },
   body: JSON.stringify({
     agentId: 'vscode-extension',
     types: ['guidelines'],
-    scope: { type: 'project', inherit: true }
-  })
+    scope: { type: 'project', inherit: true },
+  }),
 });
 ```
 
@@ -478,12 +478,12 @@ If running multiple IDEs:
 
 ### Environment Variables for MCP Config
 
-| Variable | Description |
-|----------|-------------|
-| `AGENT_MEMORY_DATA_DIR` | Data storage location |
-| `AGENT_MEMORY_OPENAI_API_KEY` | Enable semantic search |
+| Variable                        | Description                          |
+| ------------------------------- | ------------------------------------ |
+| `AGENT_MEMORY_DATA_DIR`         | Data storage location                |
+| `AGENT_MEMORY_OPENAI_API_KEY`   | Enable semantic search               |
 | `AGENT_MEMORY_PERMISSIONS_MODE` | Set to `permissive` for single-agent |
-| `AGENT_MEMORY_DEBUG` | Enable debug logging |
+| `AGENT_MEMORY_DEBUG`            | Enable debug logging                 |
 
 ### Full Example
 

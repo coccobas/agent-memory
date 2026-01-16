@@ -22,7 +22,9 @@ export async function handleRemember(ctx: CommandContext): Promise<HookCommandRe
   const text = args.join(' ').trim();
 
   if (!text) {
-    return blocked('Usage: !am remember <text to store>\nExample: !am remember We use TypeScript strict mode');
+    return blocked(
+      'Usage: !am remember <text to store>\nExample: !am remember We use TypeScript strict mode'
+    );
   }
 
   if (!projectId) {
@@ -91,7 +93,9 @@ export async function handleRemember(ctx: CommandContext): Promise<HookCommandRe
     return {
       exitCode: 0,
       stdout: [],
-      stderr: [`✓ Stored ${storedType}: "${title.substring(0, 40)}${title.length > 40 ? '...' : ''}" (${entryId.slice(0, 8)})`],
+      stderr: [
+        `✓ Stored ${storedType}: "${title.substring(0, 40)}${title.length > 40 ? '...' : ''}" (${entryId.slice(0, 8)})`,
+      ],
     };
   } catch (error) {
     logger.error({ error, sessionId, projectId }, 'Failed to store memory');

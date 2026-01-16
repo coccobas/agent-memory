@@ -166,7 +166,10 @@ describe('HyDEGenerator', () => {
         defaultConfig
       );
 
-      const result = await generator.generate('Fix TypeError: undefined is not a function', 'debug');
+      const result = await generator.generate(
+        'Fix TypeError: undefined is not a function',
+        'debug'
+      );
 
       expect(result.documents).toHaveLength(2);
     });
@@ -214,7 +217,14 @@ describe('HyDEGenerator', () => {
         defaultConfig
       );
 
-      const intents: QueryIntent[] = ['lookup', 'how_to', 'debug', 'explore', 'compare', 'configure'];
+      const intents: QueryIntent[] = [
+        'lookup',
+        'how_to',
+        'debug',
+        'explore',
+        'compare',
+        'configure',
+      ];
 
       for (const intent of intents) {
         const result = await generator.generate('test query', intent);
@@ -465,11 +475,7 @@ describe('HyDEGenerator', () => {
   describe('documentCount limit', () => {
     it('should request configured document count from generate()', async () => {
       const config: HyDEConfig = { ...defaultConfig, documentCount: 2 };
-      const generator = new HyDEGenerator(
-        mockExtractionService,
-        mockEmbeddingService,
-        config
-      );
+      const generator = new HyDEGenerator(mockExtractionService, mockEmbeddingService, config);
 
       await generator.generate('test query', 'lookup');
 
@@ -489,11 +495,7 @@ describe('HyDEGenerator', () => {
         temperature: 0.8,
         maxTokensPerDoc: 256,
       };
-      const generator = new HyDEGenerator(
-        mockExtractionService,
-        mockEmbeddingService,
-        config
-      );
+      const generator = new HyDEGenerator(mockExtractionService, mockEmbeddingService, config);
 
       await generator.generate('test query', 'lookup');
 

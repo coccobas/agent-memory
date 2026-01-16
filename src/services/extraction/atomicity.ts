@@ -8,6 +8,8 @@
  * @module extraction/atomicity
  */
 
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
+
 import { createComponentLogger } from '../../utils/logger.js';
 import type { ExtractedEntry } from '../extraction.service.js';
 
@@ -78,7 +80,8 @@ const COMPOUND_PATTERNS: Array<{ pattern: RegExp; reason: string }> = [
   {
     // Enumerated list patterns
     // e.g., "1) Do X 2) Do Y" or "a) First thing b) Second thing"
-    pattern: /(^|\s)(1\)|2\)|a\)|b\)|first[,:]|second[,:]).+(2\)|3\)|b\)|c\)|second[,:]|third[,:])/i,
+    pattern:
+      /(^|\s)(1\)|2\)|a\)|b\)|first[,:]|second[,:]).+(2\)|3\)|b\)|c\)|second[,:]|third[,:])/i,
     reason: 'Enumerated list of items',
   },
 ];
@@ -320,7 +323,7 @@ function splitGuideline(entry: ExtractedEntry, maxSplits: number): ExtractedEntr
   if (parts && parts.length >= 2 && parts.length <= maxSplits) {
     return parts.map((part, i) => ({
       ...entry,
-      name: generateSplitName(baseName, i, parts!.length),
+      name: generateSplitName(baseName, i, parts.length),
       content: part.endsWith('.') ? part : `${part}.`,
       confidence: entry.confidence * 0.95,
     }));
@@ -396,7 +399,7 @@ function splitTool(entry: ExtractedEntry, maxSplits: number): ExtractedEntry[] {
     if (looksLikeDistinctTools) {
       return parts.map((part, i) => ({
         ...entry,
-        name: generateSplitName(baseName, i, parts!.length),
+        name: generateSplitName(baseName, i, parts.length),
         content: part,
         confidence: entry.confidence * 0.95,
       }));

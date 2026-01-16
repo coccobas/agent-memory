@@ -23,7 +23,11 @@
 
 import type { PipelineContext } from '../pipeline.js';
 import { config } from '../../../config/index.js';
-import { getEmbeddingCoverage, type ScopeChainElement, type EmbeddingEntryType } from '../../../services/embedding-coverage.service.js';
+import {
+  getEmbeddingCoverage,
+  type ScopeChainElement,
+  type EmbeddingEntryType,
+} from '../../../services/embedding-coverage.service.js';
 
 /**
  * Available search strategies (resolved, excludes 'auto')
@@ -60,27 +64,25 @@ async function resolveSearchStrategy(ctx: PipelineContext): Promise<SearchStrate
 
   // 4. Config-based default
   // Access search config with type assertion since it may not be in interface yet
-  const searchConfig = (config as { search?: { defaultStrategy?: string; autoSemanticThreshold?: number } }).search;
+  const searchConfig = (
+    config as { search?: { defaultStrategy?: string; autoSemanticThreshold?: number } }
+  ).search;
   const configStrategy = searchConfig?.defaultStrategy ?? 'auto';
   if (configStrategy !== 'auto') return configStrategy as SearchStrategy;
 
   // 5. Auto-detect based on embedding coverage
   // Map ScopeDescriptor to ScopeChainElement format expected by coverage service
-  const scopeElements: ScopeChainElement[] = scopeChain.map(sd => ({
+  const scopeElements: ScopeChainElement[] = scopeChain.map((sd) => ({
     type: sd.scopeType,
     id: sd.scopeId,
   }));
 
   // Map plural QueryType to singular EmbeddingEntryType
   const entryTypes: EmbeddingEntryType[] = types.map(
-    t => t.replace(/s$/, '') as EmbeddingEntryType
+    (t) => t.replace(/s$/, '') as EmbeddingEntryType
   );
 
-  const coverage = await getEmbeddingCoverage(
-    ctx.deps.getSqlite(),
-    scopeElements,
-    entryTypes
-  );
+  const coverage = await getEmbeddingCoverage(ctx.deps.getSqlite(), scopeElements, entryTypes);
 
   const threshold = searchConfig?.autoSemanticThreshold ?? 0.8;
   if (coverage.ratio >= threshold) return 'hybrid';

@@ -14,6 +14,7 @@ node dist/cli.js mcp
 ```
 
 Output example:
+
 ```
 [agent-memory] memory_query scope=project types=tools,guidelines results=15/42 durationMs=8 cached=false
 [agent-memory] memory_query scope=global types=guidelines results=5/5 durationMs=2 cached=true
@@ -42,6 +43,7 @@ node dist/cli.js mcp
 ### Issue: Database Locked Error
 
 **Symptoms:**
+
 ```
 Error: database is locked
 ```
@@ -49,16 +51,19 @@ Error: database is locked
 **Solutions:**
 
 1. **Check for other processes:**
+
    ```bash
    ps aux | grep node | grep agent-memory
    ```
 
 2. **Kill zombie processes:**
+
    ```bash
    pkill -f agent-memory
    ```
 
 3. **Remove lock files:**
+
    ```bash
    rm data/*.db-shm data/*.db-wal
    ```
@@ -72,11 +77,13 @@ Error: database is locked
 ### Issue: Conflicts Not Detected
 
 **Symptoms:**
+
 - Multiple rapid updates don't create conflict log entries
 
 **Debug Steps:**
 
 1. **Check conflict window timing:**
+
    ```json
    {
      "tool": "memory_tool",
@@ -98,6 +105,7 @@ Error: database is locked
    ```
 
 2. **List conflicts:**
+
    ```json
    {
      "tool": "memory_conflict",
@@ -122,25 +130,30 @@ Error: database is locked
 ### Issue: Slow Queries
 
 **Symptoms:**
+
 - Queries taking > 100ms
 
 **Debug Steps:**
 
 1. **Enable performance logging:**
+
    ```bash
    export AGENT_MEMORY_PERF=1
    ```
 
 2. **Check scope size:**
+
    ```json
    {
      "tool": "memory_health",
      "arguments": {}
    }
    ```
+
    Look at table counts - large tables slow down queries.
 
 3. **Use specific filters:**
+
    ```json
    {
      "tool": "memory_query",
@@ -175,11 +188,13 @@ Error: database is locked
 ### Issue: Entry Not Found
 
 **Symptoms:**
+
 - Query returns empty results when entry should exist
 
 **Debug Steps:**
 
 1. **Check if entry is active:**
+
    ```json
    {
      "tool": "memory_tool",
@@ -193,6 +208,7 @@ Error: database is locked
    ```
 
 2. **Verify scope hierarchy:**
+
    ```json
    {
      "tool": "memory_query",
@@ -224,11 +240,13 @@ Error: database is locked
 ### Issue: File Lock Timeout
 
 **Symptoms:**
+
 - Lock expires before work is complete
 
 **Solutions:**
 
 1. **Increase lock timeout:**
+
    ```json
    {
      "tool": "memory_file_lock",
@@ -242,6 +260,7 @@ Error: database is locked
    ```
 
 2. **List active locks:**
+
    ```json
    {
      "tool": "memory_file_lock",
@@ -266,6 +285,7 @@ Error: database is locked
 ### Issue: Migration Errors
 
 **Symptoms:**
+
 ```
 Error: Migration failed
 ```
@@ -273,6 +293,7 @@ Error: Migration failed
 **Debug Steps:**
 
 1. **Check migration status:**
+
    ```json
    {
      "tool": "memory_init",
@@ -283,11 +304,13 @@ Error: Migration failed
    ```
 
 2. **Backup current database:**
+
    ```bash
    npm run db:backup
    ```
 
 3. **Reset database (WARNING: deletes all data):**
+
    ```json
    {
      "tool": "memory_init",
@@ -370,7 +393,7 @@ Edit `src/db/connection.ts` to add SQL logging:
 
 ```typescript
 const sqlite = new Database(dbPath, {
-  verbose: console.log // Logs all SQL statements
+  verbose: console.log, // Logs all SQL statements
 });
 ```
 

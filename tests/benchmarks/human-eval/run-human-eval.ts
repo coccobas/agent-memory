@@ -36,10 +36,17 @@ program
 program
   .command('run', { isDefault: true })
   .description('Run interactive human evaluation')
-  .option('-b, --benchmark <type>', 'Benchmark type (extraction, summarization, query)', 'summarization')
+  .option(
+    '-b, --benchmark <type>',
+    'Benchmark type (extraction, summarization, query)',
+    'summarization'
+  )
   .option('-l, --limit <number>', 'Maximum items to evaluate', parseInt)
   .option('-c, --category <name>', 'Only evaluate items from this category')
-  .option('-d, --difficulty <level>', 'Only evaluate items with this difficulty (easy, medium, hard)')
+  .option(
+    '-d, --difficulty <level>',
+    'Only evaluate items with this difficulty (easy, medium, hard)'
+  )
   .option('-s, --seed <number>', 'Random seed for reproducible item selection', parseInt)
   .option('-r, --resume <sessionId>', 'Resume an existing session')
   .option('-e, --evaluator <id>', 'Evaluator ID for tracking', 'anonymous')

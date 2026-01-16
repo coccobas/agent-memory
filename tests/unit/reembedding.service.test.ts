@@ -46,9 +46,7 @@ class MockEmbeddingService implements IEmbeddingService {
     };
   }
 
-  async embedBatch(
-    texts: string[]
-  ): Promise<{ embeddings: number[][]; model: string }> {
+  async embedBatch(texts: string[]): Promise<{ embeddings: number[][]; model: string }> {
     return {
       embeddings: texts.map(() =>
         Array(this.dimension)
@@ -138,10 +136,7 @@ class MockVectorStore implements IVectorStore {
     return this.storedDimension;
   }
 
-  async getEmbeddingMetadata(options?: {
-    entryTypes?: string[];
-    limit?: number;
-  }): Promise<
+  async getEmbeddingMetadata(options?: { entryTypes?: string[]; limit?: number }): Promise<
     Array<{
       entryType: string;
       entryId: string;
@@ -338,11 +333,7 @@ describe('ReembeddingService', () => {
   describe('checkDimensionMismatch', () => {
     it('should detect no mismatch when dimensions match', async () => {
       const matchingVectorStore = new MockVectorStore(384); // Same as embedding service
-      const service = new ReembeddingService(
-        embeddingService,
-        matchingVectorStore,
-        db
-      );
+      const service = new ReembeddingService(embeddingService, matchingVectorStore, db);
 
       const result = await service.checkDimensionMismatch();
 
@@ -363,11 +354,7 @@ describe('ReembeddingService', () => {
 
     it('should report no mismatch when no stored embeddings exist', async () => {
       const emptyVectorStore = new MockVectorStore(null);
-      const service = new ReembeddingService(
-        embeddingService,
-        emptyVectorStore,
-        db
-      );
+      const service = new ReembeddingService(embeddingService, emptyVectorStore, db);
 
       const result = await service.checkDimensionMismatch();
 
@@ -400,11 +387,7 @@ describe('ReembeddingService', () => {
 
     it('should not trigger when dimensions match', async () => {
       const matchingVectorStore = new MockVectorStore(384);
-      const service = new ReembeddingService(
-        embeddingService,
-        matchingVectorStore,
-        db
-      );
+      const service = new ReembeddingService(embeddingService, matchingVectorStore, db);
 
       const triggered = await service.triggerIfNeeded();
 
@@ -556,12 +539,7 @@ describe('ReembeddingService', () => {
         enabled: true,
       };
 
-      const service = new ReembeddingService(
-        embeddingService,
-        vectorStore,
-        db,
-        config
-      );
+      const service = new ReembeddingService(embeddingService, vectorStore, db, config);
 
       // Should use custom config (tested by successful operation)
       await service.triggerIfNeeded();

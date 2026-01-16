@@ -92,7 +92,8 @@ export const validationSection: ConfigSectionMeta = {
     maxImportEntries: {
       envKey: 'AGENT_MEMORY_MAX_IMPORT_ENTRIES',
       defaultValue: 10000,
-      description: 'Maximum number of entries allowed per import operation to prevent resource exhaustion.',
+      description:
+        'Maximum number of entries allowed per import operation to prevent resource exhaustion.',
       schema: z.number().int().min(1),
     },
   },

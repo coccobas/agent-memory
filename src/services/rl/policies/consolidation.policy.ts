@@ -23,10 +23,7 @@ import type {
 // CONSOLIDATION POLICY
 // =============================================================================
 
-export class ConsolidationPolicy extends BasePolicy<
-  ConsolidationState,
-  ConsolidationAction
-> {
+export class ConsolidationPolicy extends BasePolicy<ConsolidationState, ConsolidationAction> {
   constructor(config: PolicyConfig) {
     super(config);
   }
@@ -39,9 +36,7 @@ export class ConsolidationPolicy extends BasePolicy<
    *       Load model via ModelLoader, run inference on state features,
    *       and return learned policy decision instead of fallback rules.
    */
-  async decide(
-    state: ConsolidationState
-  ): Promise<PolicyDecision<ConsolidationAction>> {
+  async decide(state: ConsolidationState): Promise<PolicyDecision<ConsolidationAction>> {
     return this.getFallback()(state);
   }
 

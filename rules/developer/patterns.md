@@ -1,6 +1,6 @@
 ---
 description: Design patterns and conventions used in the codebase
-globs: ["**/*.ts"]
+globs: ['**/*.ts']
 alwaysApply: false
 ---
 

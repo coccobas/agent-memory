@@ -115,7 +115,15 @@ describe('SQLiteFTSService', () => {
     });
 
     it('should handle search for guidelines', async () => {
-      createTestGuideline(db, 'fts-guideline', 'global', undefined, 'testing', 50, 'Searchable content');
+      createTestGuideline(
+        db,
+        'fts-guideline',
+        'global',
+        undefined,
+        'testing',
+        50,
+        'Searchable content'
+      );
       const service = new SQLiteFTSService(sqlite);
       const results = await service.search('searchable', ['guideline']);
       expect(results).toBeDefined();

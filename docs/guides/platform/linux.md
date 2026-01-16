@@ -165,16 +165,19 @@ direnv allow
 Config location varies by installation method:
 
 **Flatpak:**
+
 ```
 ~/.var/app/com.anthropic.claude-desktop/config/Claude/claude_desktop_config.json
 ```
 
 **Snap:**
+
 ```
 ~/snap/claude-desktop/current/.config/Claude/claude_desktop_config.json
 ```
 
 **Standard:**
+
 ```
 ~/.config/Claude/claude_desktop_config.json
 ```

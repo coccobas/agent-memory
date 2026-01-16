@@ -42,7 +42,7 @@ const summarizer = new LLMSummarizer({
   provider: 'openai',
   openaiApiKey: process.env.AGENT_MEMORY_OPENAI_API_KEY,
   maxTokens: 1024,
-  temperature: 0.3
+  temperature: 0.3,
 });
 
 // Summarize entries
@@ -53,15 +53,15 @@ const result = await summarizer.summarize({
       type: 'knowledge',
       title: 'Database Migration',
       content: 'Migrated from SQLite to PostgreSQL...',
-      metadata: { tags: ['database', 'migration'] }
-    }
+      metadata: { tags: ['database', 'migration'] },
+    },
   ],
   hierarchyLevel: 0,
-  scopeContext: 'Backend Infrastructure'
+  scopeContext: 'Backend Infrastructure',
 });
 
-console.log(result.title);    // "Database Migration Summary"
-console.log(result.content);  // Concise summary
+console.log(result.title); // "Database Migration Summary"
+console.log(result.content); // Concise summary
 console.log(result.keyTerms); // ["postgresql", "migration", ...]
 ```
 
@@ -70,14 +70,14 @@ console.log(result.keyTerms); // ["postgresql", "migration", ...]
 ```typescript
 interface SummarizerConfig {
   provider: 'openai' | 'anthropic' | 'ollama' | 'disabled';
-  model?: string;                    // Optional model override
-  openaiApiKey?: string;             // Required for OpenAI
-  anthropicApiKey?: string;          // Required for Anthropic
-  ollamaBaseUrl?: string;            // Ollama endpoint
-  openaiBaseUrl?: string;            // Custom OpenAI endpoint
-  maxTokens?: number;                // Default: 1024
-  temperature?: number;              // Default: 0.3
-  enableBatching?: boolean;          // Default: true
+  model?: string; // Optional model override
+  openaiApiKey?: string; // Required for OpenAI
+  anthropicApiKey?: string; // Required for Anthropic
+  ollamaBaseUrl?: string; // Ollama endpoint
+  openaiBaseUrl?: string; // Custom OpenAI endpoint
+  maxTokens?: number; // Default: 1024
+  temperature?: number; // Default: 0.3
+  enableBatching?: boolean; // Default: true
 }
 ```
 
@@ -97,7 +97,7 @@ Summarizes individual memory entries while preserving all critical technical det
 const result = await summarizer.summarize({
   items: [singleEntry],
   hierarchyLevel: 0,
-  scopeContext: 'Project Context'
+  scopeContext: 'Project Context',
 });
 ```
 
@@ -112,7 +112,7 @@ Identifies common themes across related entries and creates a coherent narrative
 const result = await summarizer.summarize({
   items: relatedEntries,
   hierarchyLevel: 1,
-  scopeContext: 'Feature Area'
+  scopeContext: 'Feature Area',
 });
 ```
 
@@ -128,7 +128,7 @@ const result = await summarizer.summarize({
   items: thematicSummaries,
   hierarchyLevel: 2,
   scopeContext: 'System Architecture',
-  focusAreas: ['scalability', 'security']
+  focusAreas: ['scalability', 'security'],
 });
 ```
 
@@ -144,7 +144,7 @@ const result = await summarizer.summarize({
   items: domainSummaries,
   hierarchyLevel: 3,
   scopeContext: 'Entire System',
-  focusAreas: ['priorities', 'risks']
+  focusAreas: ['priorities', 'risks'],
 });
 ```
 
@@ -161,46 +161,50 @@ Process multiple summarization requests efficiently:
 const results = await summarizer.summarizeBatch([
   { items: chunk1, hierarchyLevel: 0 },
   { items: chunk2, hierarchyLevel: 0 },
-  { items: chunk3, hierarchyLevel: 0 }
+  { items: chunk3, hierarchyLevel: 0 },
 ]);
 
-console.log(results.results.length);           // 3
-console.log(results.totalProcessingTimeMs);    // Total time
+console.log(results.results.length); // 3
+console.log(results.totalProcessingTimeMs); // Total time
 ```
 
 ### Using Different Providers
 
 #### OpenAI
+
 ```typescript
 const summarizer = new LLMSummarizer({
   provider: 'openai',
   openaiApiKey: process.env.OPENAI_API_KEY,
-  model: 'gpt-4o' // Override default
+  model: 'gpt-4o', // Override default
 });
 ```
 
 #### Anthropic
+
 ```typescript
 const summarizer = new LLMSummarizer({
   provider: 'anthropic',
   anthropicApiKey: process.env.ANTHROPIC_API_KEY,
-  model: 'claude-3-5-sonnet-20241022' // More powerful
+  model: 'claude-3-5-sonnet-20241022', // More powerful
 });
 ```
 
 #### Ollama (Local)
+
 ```typescript
 const summarizer = new LLMSummarizer({
   provider: 'ollama',
   ollamaBaseUrl: 'http://localhost:11434',
-  model: 'llama3.2'
+  model: 'llama3.2',
 });
 ```
 
 #### Fallback Mode (No LLM)
+
 ```typescript
 const summarizer = new LLMSummarizer({
-  provider: 'disabled'
+  provider: 'disabled',
 });
 // Uses key sentence extraction as fallback
 ```
@@ -213,7 +217,7 @@ Pass parent summaries for context continuity:
 // Level 1 summary
 const topicSummary = await summarizer.summarize({
   items: entries,
-  hierarchyLevel: 1
+  hierarchyLevel: 1,
 });
 
 // Level 2 summary with parent context
@@ -224,12 +228,12 @@ const domainSummary = await summarizer.summarize({
       type: 'summary',
       title: topicSummary.title,
       content: topicSummary.content,
-      metadata: { keyTerms: topicSummary.keyTerms }
+      metadata: { keyTerms: topicSummary.keyTerms },
     },
     // ... more topics
   ],
   hierarchyLevel: 2,
-  parentSummary: topicSummary.content
+  parentSummary: topicSummary.content,
 });
 ```
 
@@ -241,7 +245,7 @@ Guide summarization with specific focus areas:
 const result = await summarizer.summarize({
   items: entries,
   hierarchyLevel: 2,
-  focusAreas: ['security', 'performance', 'scalability']
+  focusAreas: ['security', 'performance', 'scalability'],
 });
 // Summary will emphasize these areas
 ```
@@ -252,13 +256,13 @@ All summarization results return:
 
 ```typescript
 interface SummarizationResult {
-  title: string;              // Descriptive title
-  content: string;            // Summary content
-  keyTerms: string[];         // Extracted key concepts
-  confidence: number;         // 0-1 confidence score
-  model?: string;             // Model used
-  provider?: LLMProvider;     // Provider used
-  processingTimeMs?: number;  // Processing time
+  title: string; // Descriptive title
+  content: string; // Summary content
+  keyTerms: string[]; // Extracted key concepts
+  confidence: number; // 0-1 confidence score
+  model?: string; // Model used
+  provider?: LLMProvider; // Provider used
+  processingTimeMs?: number; // Processing time
 }
 ```
 
@@ -286,7 +290,7 @@ const summarizer = new LLMSummarizer({
   openaiApiKey: config.extraction.openaiApiKey,
   anthropicApiKey: config.extraction.anthropicApiKey,
   ollamaBaseUrl: config.extraction.ollamaBaseUrl,
-  model: config.extraction.openaiModel
+  model: config.extraction.openaiModel,
 });
 ```
 
@@ -338,7 +342,7 @@ describe('LLMSummarizer', () => {
     const summarizer = new LLMSummarizer({ provider: 'disabled' });
     const result = await summarizer.summarize({
       items: [{ id: '1', type: 'knowledge', title: 'Test', content: 'Test content' }],
-      hierarchyLevel: 0
+      hierarchyLevel: 0,
     });
     expect(result.title).toBeDefined();
     expect(result.content).toBeDefined();
@@ -351,6 +355,7 @@ describe('LLMSummarizer', () => {
 ### LLMSummarizer
 
 #### Constructor
+
 ```typescript
 new LLMSummarizer(config: SummarizerConfig)
 ```
@@ -358,15 +363,19 @@ new LLMSummarizer(config: SummarizerConfig)
 #### Methods
 
 **summarize(request: SummarizationRequest): Promise<SummarizationResult>**
+
 - Summarize a group of items at a specific hierarchy level
 
 **summarizeBatch(requests: SummarizationRequest[]): Promise<BatchSummarizationResult>**
+
 - Batch process multiple summarization requests
 
 **isAvailable(): boolean**
+
 - Check if LLM provider is available (not disabled)
 
 **getProvider(): LLMProvider**
+
 - Get current provider name
 
 ## License

@@ -45,15 +45,17 @@ export const recommendations = sqliteTable(
     // Confidence and metrics
     confidence: real('confidence').notNull().default(0.5), // 0.0-1.0
     patternCount: integer('pattern_count').notNull().default(1), // Number of similar cases found
-    exemplarExperienceId: text('exemplar_experience_id')
-      .references(() => experiences.id, { onDelete: 'set null' }),
+    exemplarExperienceId: text('exemplar_experience_id').references(() => experiences.id, {
+      onDelete: 'set null',
+    }),
 
     // Source experiences (JSON array of IDs)
     sourceExperienceIds: text('source_experience_ids').notNull(), // JSON array
 
     // Result of approval
-    promotedExperienceId: text('promoted_experience_id')
-      .references(() => experiences.id, { onDelete: 'set null' }),
+    promotedExperienceId: text('promoted_experience_id').references(() => experiences.id, {
+      onDelete: 'set null',
+    }),
     promotedToolId: text('promoted_tool_id'), // If promoted to skill
 
     // Review metadata

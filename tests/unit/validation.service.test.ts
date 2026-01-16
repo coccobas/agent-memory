@@ -301,9 +301,7 @@ describe('validation.service', () => {
 
       expect(result.valid).toBe(false);
       expect(
-        result.errors.some(
-          (e) => e.field === 'validUntil' && e.message.includes('1970 or later')
-        )
+        result.errors.some((e) => e.field === 'validUntil' && e.message.includes('1970 or later'))
       ).toBe(true);
     });
 
@@ -319,9 +317,7 @@ describe('validation.service', () => {
 
       expect(result.valid).toBe(false);
       expect(
-        result.errors.some(
-          (e) => e.field === 'validUntil' && e.message.includes('2100 or earlier')
-        )
+        result.errors.some((e) => e.field === 'validUntil' && e.message.includes('2100 or earlier'))
       ).toBe(true);
     });
 
@@ -1007,6 +1003,3 @@ describe('detectRedosPatterns', () => {
     });
   });
 });
-
-
-

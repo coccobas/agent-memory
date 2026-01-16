@@ -4,7 +4,7 @@
  * Factory function that accepts DatabaseDeps for dependency injection.
  */
 
-import { eq, and, desc, asc, inArray } from 'drizzle-orm';
+import { eq, and, desc, asc } from 'drizzle-orm';
 import { transactionWithRetry } from '../connection.js';
 import {
   tools,
@@ -113,10 +113,7 @@ export function createToolRepository(deps: DatabaseDeps): IToolRepository {
         db.insert(toolVersions).values(version).run();
 
         // Update currentVersionId - this triggers FTS UPDATE which populates content
-        db.update(tools)
-          .set({ currentVersionId: versionId })
-          .where(eq(tools.id, toolId))
-          .run();
+        db.update(tools).set({ currentVersionId: versionId }).where(eq(tools.id, toolId)).run();
 
         const result = getByIdSync(toolId);
         if (!result) {
@@ -161,12 +158,7 @@ export function createToolRepository(deps: DatabaseDeps): IToolRepository {
       if (ids.length === 0) return [];
 
       // Use batch query with chunking to handle large ID arrays efficiently
-      const toolsList = batchQueryByIds<typeof tools.$inferSelect>(
-        db,
-        tools,
-        ids,
-        tools.id
-      );
+      const toolsList = batchQueryByIds<typeof tools.$inferSelect>(db, tools, ids, tools.id);
 
       if (toolsList.length === 0) return [];
 

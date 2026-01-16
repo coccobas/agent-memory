@@ -23,7 +23,7 @@ export function registerRequestIdHook(app: FastifyInstance): void {
   app.addHook('onRequest', async (request: FastifyRequest, reply: FastifyReply) => {
     const requestId = (request.headers['x-request-id'] as string) || randomUUID();
     request.requestId = requestId;
-    reply.header('X-Request-ID', requestId);
+    void reply.header('X-Request-ID', requestId);
   });
 }
 
@@ -38,9 +38,9 @@ export function registerRequestIdHook(app: FastifyInstance): void {
 export function registerRateLimitHeadersHook(app: FastifyInstance): void {
   app.addHook('onSend', async (request: FastifyRequest, reply: FastifyReply) => {
     if (request.rateLimitInfo) {
-      reply.header('X-RateLimit-Limit', String(request.rateLimitInfo.limit));
-      reply.header('X-RateLimit-Remaining', String(request.rateLimitInfo.remaining));
-      reply.header('X-RateLimit-Reset', String(request.rateLimitInfo.reset));
+      void reply.header('X-RateLimit-Limit', String(request.rateLimitInfo.limit));
+      void reply.header('X-RateLimit-Remaining', String(request.rateLimitInfo.remaining));
+      void reply.header('X-RateLimit-Reset', String(request.rateLimitInfo.reset));
     }
   });
 }
@@ -121,7 +121,10 @@ export function registerAuthHook(
 
           const healthCheck = await context.security.checkHealthRateLimit(clientIp);
           if (!healthCheck.allowed) {
-            reply.header('Retry-After', String(Math.ceil((healthCheck.retryAfterMs ?? 1000) / 1000)));
+            void reply.header(
+              'Retry-After',
+              String(Math.ceil((healthCheck.retryAfterMs ?? 1000) / 1000))
+            );
             await reply
               .status(429)
               .send({ error: 'Rate limit exceeded', code: 'RATE_LIMIT_EXCEEDED' });
@@ -158,14 +161,14 @@ export function registerAuthHook(
             : 'UNAUTHORIZED';
 
       if (result.retryAfterMs) {
-        reply.header('Retry-After', String(Math.ceil(result.retryAfterMs / 1000)));
+        void reply.header('Retry-After', String(Math.ceil(result.retryAfterMs / 1000)));
       }
 
       // Add rate limit headers for failed requests too
       if (result.rateLimitInfo) {
-        reply.header('X-RateLimit-Limit', String(result.rateLimitInfo.limit));
-        reply.header('X-RateLimit-Remaining', String(result.rateLimitInfo.remaining));
-        reply.header('X-RateLimit-Reset', String(result.rateLimitInfo.reset));
+        void reply.header('X-RateLimit-Limit', String(result.rateLimitInfo.limit));
+        void reply.header('X-RateLimit-Remaining', String(result.rateLimitInfo.remaining));
+        void reply.header('X-RateLimit-Reset', String(result.rateLimitInfo.reset));
       }
 
       await reply.status(result.statusCode || 401).send({

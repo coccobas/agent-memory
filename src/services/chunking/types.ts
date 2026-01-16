@@ -8,13 +8,13 @@
  * Chunk relation types
  */
 export type ChunkRelationType =
-  | 'parent_of'      // This chunk contains the target chunk
-  | 'child_of'       // This chunk is contained within target
-  | 'follows'        // This chunk comes after target (sequential)
-  | 'precedes'       // This chunk comes before target (sequential)
-  | 'references'     // This chunk references content in target
-  | 'depends_on'     // This chunk depends on target (e.g., imports, definitions)
-  | 'related_to';    // General semantic relationship
+  | 'parent_of' // This chunk contains the target chunk
+  | 'child_of' // This chunk is contained within target
+  | 'follows' // This chunk comes after target (sequential)
+  | 'precedes' // This chunk comes before target (sequential)
+  | 'references' // This chunk references content in target
+  | 'depends_on' // This chunk depends on target (e.g., imports, definitions)
+  | 'related_to'; // General semantic relationship
 
 /**
  * A relation between two chunks
@@ -36,11 +36,11 @@ export interface ChunkRelation {
  * Content type hints for chunking strategy
  */
 export type ContentType =
-  | 'text'           // Plain text / prose
-  | 'markdown'       // Markdown document
-  | 'code'           // Source code
-  | 'conversation'   // Chat/conversation transcript
-  | 'structured';    // JSON, YAML, etc.
+  | 'text' // Plain text / prose
+  | 'markdown' // Markdown document
+  | 'code' // Source code
+  | 'conversation' // Chat/conversation transcript
+  | 'structured'; // JSON, YAML, etc.
 
 /**
  * A single chunk of content
@@ -140,12 +140,12 @@ export interface ChunkingStats {
  * Chunking strategy
  */
 export type ChunkingStrategy =
-  | 'fixed'          // Fixed size chunks
-  | 'sentence'       // Sentence boundaries
-  | 'paragraph'      // Paragraph boundaries
-  | 'semantic'       // Semantic boundaries (sections, topics)
-  | 'code'           // Code-aware (functions, classes)
-  | 'hybrid';        // Combination of strategies
+  | 'fixed' // Fixed size chunks
+  | 'sentence' // Sentence boundaries
+  | 'paragraph' // Paragraph boundaries
+  | 'semantic' // Semantic boundaries (sections, topics)
+  | 'code' // Code-aware (functions, classes)
+  | 'hybrid'; // Combination of strategies
 
 /**
  * Configuration for chunking

@@ -7,11 +7,13 @@ Accepted
 ## Context
 
 The application needs to support multiple deployment scenarios:
+
 - **SQLite**: Local/embedded deployments, development, testing
 - **PostgreSQL**: Production deployments with high concurrency
 - **pgvector**: PostgreSQL with vector similarity search
 
 Each backend has different:
+
 - Connection management (file vs connection pool)
 - Transaction handling (sync vs async)
 - Vector search capabilities (none vs pgvector extension)
@@ -21,6 +23,7 @@ Each backend has different:
 Implement multi-backend support through adapter abstraction:
 
 **Storage Adapter Interface:**
+
 ```typescript
 interface IStorageAdapter {
   query<T>(sql: string, params?: unknown[]): Promise<T[]>;
@@ -31,11 +34,13 @@ interface IStorageAdapter {
 ```
 
 **Backend-Specific Implementations:**
+
 - `SQLiteStorageAdapter`: Uses better-sqlite3 (sync)
 - `PostgreSQLStorageAdapter`: Uses pg with connection pooling
 - `PgVectorAdapter`: Extends PostgreSQL with vector operations
 
 **Configuration:**
+
 ```bash
 # SQLite (default)
 AGENT_MEMORY_DB_PATH=./data/memory.db
@@ -48,6 +53,7 @@ AGENT_MEMORY_VECTOR_BACKEND=sqlite | pgvector
 ```
 
 **Transaction Handling:**
+
 - SQLite: `transactionWithRetry()` handles SQLITE_BUSY
 - PostgreSQL: Adapter handles deadlocks, serialization failures
 - Both use exponential backoff for retries
@@ -55,12 +61,14 @@ AGENT_MEMORY_VECTOR_BACKEND=sqlite | pgvector
 ## Consequences
 
 **Positive:**
+
 - Deploy anywhere (embedded to cloud)
 - Backend-appropriate optimizations
 - Vector search scales with pgvector
 - Same API regardless of backend
 
 **Negative:**
+
 - Complexity of maintaining multiple adapters
 - Testing matrix expands with backends
 - Some features may not be available on all backends

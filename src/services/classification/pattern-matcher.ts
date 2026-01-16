@@ -148,7 +148,8 @@ const KNOWLEDGE_PATTERNS: WeightedPattern[] = [
   },
   {
     id: 'knowledge_our_system',
-    regex: /\b(our|the)\s+(api|system|service|app|application|backend|frontend|database)\s+(is|are|uses?|has)\b/i,
+    regex:
+      /\b(our|the)\s+(api|system|service|app|application|backend|frontend|database)\s+(is|are|uses?|has)\b/i,
     type: 'knowledge',
     baseWeight: 0.8,
     description: 'System description',
@@ -310,9 +311,7 @@ export class PatternMatcher {
     }
 
     // Find the best match (prefer earlier patterns on tie - guidelines before tools)
-    const bestMatch = matches.reduce((a, b) =>
-      a.adjustedScore >= b.adjustedScore ? a : b
-    );
+    const bestMatch = matches.reduce((a, b) => (a.adjustedScore >= b.adjustedScore ? a : b));
 
     // Calculate confidence based on match quality
     const confidence = this.calculateConfidence(bestMatch, matches);
@@ -338,10 +337,7 @@ export class PatternMatcher {
   /**
    * Get the feedback multiplier for a pattern
    */
-  private async getPatternMultiplier(
-    patternId: string,
-    patternType: EntryType
-  ): Promise<number> {
+  private async getPatternMultiplier(patternId: string, patternType: EntryType): Promise<number> {
     // Check cache first
     const cached = this.confidenceCache.get(patternId);
     if (cached !== undefined) {

@@ -185,12 +185,14 @@ describe('DeadLetterQueue', () => {
     it('should update oldest entry tracker correctly after eviction', () => {
       const ids: string[] = [];
       for (let i = 0; i < 5; i++) {
-        ids.push(dlq.add({
-          type: 'embedding',
-          operation: `op${i}`,
-          payload: { index: i },
-          error: `error ${i}`,
-        }));
+        ids.push(
+          dlq.add({
+            type: 'embedding',
+            operation: `op${i}`,
+            payload: { index: i },
+            error: `error ${i}`,
+          })
+        );
         vi.advanceTimersByTime(10);
       }
 
@@ -323,7 +325,7 @@ describe('DeadLetterQueue', () => {
 
       const embeddings = dlq.getByType('embedding');
       expect(embeddings).toHaveLength(2);
-      expect(embeddings.every(e => e.type === 'embedding')).toBe(true);
+      expect(embeddings.every((e) => e.type === 'embedding')).toBe(true);
 
       const vectors = dlq.getByType('vector');
       expect(vectors).toHaveLength(1);
@@ -344,7 +346,7 @@ describe('DeadLetterQueue', () => {
         dlq.add({ type, operation: `op${i}`, payload: {}, error: `err${i}` });
       });
 
-      types.forEach(type => {
+      types.forEach((type) => {
         const entries = dlq.getByType(type);
         expect(entries).toHaveLength(1);
         expect(entries[0].type).toBe(type);
@@ -518,12 +520,14 @@ describe('DeadLetterQueue', () => {
 
       await dlq.retry(id);
 
-      expect(handler).toHaveBeenCalledWith(expect.objectContaining({
-        id,
-        type: 'embedding',
-        operation: 'generate',
-        payload,
-      }));
+      expect(handler).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id,
+          type: 'embedding',
+          operation: 'generate',
+          payload,
+        })
+      );
     });
 
     it('should update error message on failed retry', async () => {
@@ -649,7 +653,7 @@ describe('DeadLetterQueue', () => {
 
       const exhausted = dlq.getExhausted();
       expect(exhausted).toHaveLength(2);
-      expect(exhausted.every(e => e.attempts >= e.maxAttempts)).toBe(true);
+      expect(exhausted.every((e) => e.attempts >= e.maxAttempts)).toBe(true);
     });
 
     it('should clear only exhausted entries', () => {
@@ -750,7 +754,8 @@ describe('DeadLetterQueue', () => {
       dlq.get(id2)!.nextRetryAt = now - 1000;
       dlq.get(id3)!.nextRetryAt = now - 1000;
 
-      const handler = vi.fn()
+      const handler = vi
+        .fn()
         .mockResolvedValueOnce(undefined) // id1 succeeds
         .mockRejectedValueOnce(new Error('fail')) // id2 fails
         .mockResolvedValueOnce(undefined); // id3 succeeds
@@ -1199,17 +1204,19 @@ describe('DeadLetterQueue', () => {
 
       // Simulate concurrent adds
       for (let i = 0; i < 10; i++) {
-        ids.push(largeDlq.add({
-          type: 'embedding',
-          operation: `op${i}`,
-          payload: {},
-          error: `err${i}`,
-        }));
+        ids.push(
+          largeDlq.add({
+            type: 'embedding',
+            operation: `op${i}`,
+            payload: {},
+            error: `err${i}`,
+          })
+        );
       }
 
       // All should be unique and present
       expect(new Set(ids).size).toBe(10);
-      ids.forEach(id => {
+      ids.forEach((id) => {
         expect(largeDlq.get(id)).toBeDefined();
       });
 

@@ -201,8 +201,190 @@ describe('toolRepo', () => {
       const tool = await toolRepo.getById(created.id);
       expect(tool?.isActive).toBe(false);
     });
+
+    it('should return false for non-existent tool', async () => {
+      const result = await toolRepo.deactivate('non-existent-id');
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('reactivate', () => {
+    it('should reactivate a deactivated tool', async () => {
+      const created = await toolRepo.create({
+        scopeType: 'global',
+        name: 'reactivate-tool',
+        description: 'Description',
+      });
+
+      await toolRepo.deactivate(created.id);
+      const deactivated = await toolRepo.getById(created.id);
+      expect(deactivated?.isActive).toBe(false);
+
+      const result = await toolRepo.reactivate(created.id);
+      expect(result).toBe(true);
+
+      const reactivated = await toolRepo.getById(created.id);
+      expect(reactivated?.isActive).toBe(true);
+    });
+
+    it('should return false for non-existent tool', async () => {
+      const result = await toolRepo.reactivate('non-existent-id');
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('delete', () => {
+    it('should delete tool and its versions', async () => {
+      const created = await toolRepo.create({
+        scopeType: 'global',
+        name: 'delete-tool',
+        description: 'Description',
+      });
+
+      const result = await toolRepo.delete(created.id);
+      expect(result).toBe(true);
+
+      const tool = await toolRepo.getById(created.id);
+      expect(tool).toBeUndefined();
+    });
+
+    it('should return false for non-existent tool', async () => {
+      const result = await toolRepo.delete('non-existent-id');
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('getByIds', () => {
+    it('should get multiple tools by IDs', async () => {
+      const tool1 = await toolRepo.create({
+        scopeType: 'global',
+        name: 'getbyids-tool-1',
+        description: 'Description 1',
+      });
+
+      const tool2 = await toolRepo.create({
+        scopeType: 'global',
+        name: 'getbyids-tool-2',
+        description: 'Description 2',
+      });
+
+      const tools = await toolRepo.getByIds([tool1.id, tool2.id]);
+
+      expect(tools).toHaveLength(2);
+      expect(tools.map((t) => t.id).sort()).toEqual([tool1.id, tool2.id].sort());
+    });
+
+    it('should return empty array for empty IDs array', async () => {
+      const tools = await toolRepo.getByIds([]);
+      expect(tools).toEqual([]);
+    });
+
+    it('should handle mix of existing and non-existing IDs', async () => {
+      const tool = await toolRepo.create({
+        scopeType: 'global',
+        name: 'getbyids-mix-tool',
+        description: 'Description',
+      });
+
+      const tools = await toolRepo.getByIds([tool.id, 'non-existent-id']);
+
+      expect(tools).toHaveLength(1);
+      expect(tools[0]?.id).toBe(tool.id);
+    });
+  });
+
+  describe('getByName', () => {
+    it('should get tool by name at exact scope', async () => {
+      await toolRepo.create({
+        scopeType: 'global',
+        name: 'named-tool',
+        description: 'Description',
+      });
+
+      const tool = await toolRepo.getByName('named-tool', 'global');
+
+      expect(tool).toBeDefined();
+      expect(tool?.name).toBe('named-tool');
+    });
+
+    it('should return undefined for non-existent name', async () => {
+      const tool = await toolRepo.getByName('non-existent-name', 'global');
+      expect(tool).toBeUndefined();
+    });
+
+    it('should inherit from global scope when not found at project scope', async () => {
+      const org = createTestOrg(testDb.db, 'Tool Inherit Org');
+      const project = createTestProject(testDb.db, 'Tool Inherit Project', org.id);
+
+      // Create tool at global scope
+      await toolRepo.create({
+        scopeType: 'global',
+        name: 'inherited-tool',
+        description: 'Global description',
+      });
+
+      // Search at project scope with inherit=true (default)
+      const tool = await toolRepo.getByName('inherited-tool', 'project', project.id);
+
+      expect(tool).toBeDefined();
+      expect(tool?.name).toBe('inherited-tool');
+      expect(tool?.scopeType).toBe('global');
+    });
+
+    it('should not inherit when inherit=false', async () => {
+      const org = createTestOrg(testDb.db, 'Tool No Inherit Org');
+      const project = createTestProject(testDb.db, 'Tool No Inherit Project', org.id);
+
+      // Create tool at global scope
+      await toolRepo.create({
+        scopeType: 'global',
+        name: 'no-inherit-tool',
+        description: 'Global description',
+      });
+
+      // Search at project scope with inherit=false
+      const tool = await toolRepo.getByName('no-inherit-tool', 'project', project.id, false);
+
+      expect(tool).toBeUndefined();
+    });
+  });
+
+  describe('update edge cases', () => {
+    it('should return undefined when updating non-existent tool', async () => {
+      const result = await toolRepo.update('non-existent-id', {
+        description: 'New description',
+      });
+
+      expect(result).toBeUndefined();
+    });
+
+    it('should update constraints', async () => {
+      const created = await toolRepo.create({
+        scopeType: 'global',
+        name: 'update-constraints-tool',
+        description: 'Description',
+      });
+
+      const updated = await toolRepo.update(created.id, {
+        constraints: 'Use with caution',
+      });
+
+      expect(updated?.currentVersion?.constraints).toBe('Use with caution');
+    });
+
+    it('should update examples', async () => {
+      const created = await toolRepo.create({
+        scopeType: 'global',
+        name: 'update-examples-tool',
+        description: 'Description',
+        examples: [{ input: 'old', output: 'old' }],
+      });
+
+      const updated = await toolRepo.update(created.id, {
+        examples: [{ input: 'new', output: 'new' }],
+      });
+
+      expect(updated?.currentVersion?.examples).toEqual([{ input: 'new', output: 'new' }]);
+    });
   });
 });
-
-
-

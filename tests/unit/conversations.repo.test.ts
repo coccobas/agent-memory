@@ -508,6 +508,3 @@ describe('Conversations Repository', () => {
     });
   });
 });
-
-
-

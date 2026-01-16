@@ -24,6 +24,7 @@ tests/contract/
 ## When to Add Contract Tests
 
 Add contract tests when:
+
 - Adding a new public API endpoint
 - Changing the response structure of an existing endpoint
 - Adding or modifying MCP tool handlers

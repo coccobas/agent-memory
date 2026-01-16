@@ -66,10 +66,7 @@ export function cleanupVectorDb(vectorDbPath: string): void {
  * Clean up all test vector databases in the data/test directory.
  */
 export function cleanupTestVectorDbs(): void {
-  const testVectorPaths = [
-    './data/test/vectors.lance',
-    './data/test-vectors.lance',
-  ];
+  const testVectorPaths = ['./data/test/vectors.lance', './data/test-vectors.lance'];
   for (const path of testVectorPaths) {
     cleanupVectorDb(path);
   }

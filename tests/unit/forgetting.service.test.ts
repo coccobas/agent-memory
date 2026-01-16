@@ -254,7 +254,7 @@ describe('Frequency Strategy', () => {
     });
 
     it('should increase score with higher access counts', () => {
-      const scores = [1, 5, 10, 20].map(count => calculateFrequencyScore(count, 2));
+      const scores = [1, 5, 10, 20].map((count) => calculateFrequencyScore(count, 2));
       for (let i = 1; i < scores.length; i++) {
         expect(scores[i]).toBeGreaterThan(scores[i - 1]);
       }
@@ -712,8 +712,7 @@ describe('Combined Forgetting Strategy', () => {
       const frequencyScore = 0.6;
       const importanceScore = 0.7;
 
-      const combinedScore =
-        recencyScore * 0.35 + frequencyScore * 0.35 + importanceScore * 0.3;
+      const combinedScore = recencyScore * 0.35 + frequencyScore * 0.35 + importanceScore * 0.3;
 
       expect(combinedScore).toBeCloseTo(0.595, 3);
     });

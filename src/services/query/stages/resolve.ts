@@ -14,7 +14,12 @@ import { PIPELINE_STAGES, markStageCompleted, validateStagePrerequisites } from 
 import { config } from '../../../config/index.js';
 import { PaginationCursor } from '../../../utils/pagination.js';
 
-const DEFAULT_TYPES: readonly QueryType[] = ['tools', 'guidelines', 'knowledge', 'experiences'] as const;
+const DEFAULT_TYPES: readonly QueryType[] = [
+  'tools',
+  'guidelines',
+  'knowledge',
+  'experiences',
+] as const;
 
 /**
  * Resolve stage - normalizes query parameters
@@ -84,12 +89,15 @@ export function resolveStage(ctx: PipelineContext): PipelineContext {
   }
 
   // Task 42: Mark stage completed
-  return markStageCompleted({
-    ...ctx,
-    types,
-    scopeChain,
-    limit,
-    offset,
-    search,
-  }, PIPELINE_STAGES.RESOLVE);
+  return markStageCompleted(
+    {
+      ...ctx,
+      types,
+      scopeChain,
+      limit,
+      offset,
+      search,
+    },
+    PIPELINE_STAGES.RESOLVE
+  );
 }

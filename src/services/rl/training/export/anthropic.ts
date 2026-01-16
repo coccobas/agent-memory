@@ -3,7 +3,12 @@
  *
  * Export RL training data in Anthropic/Claude format.
  * Format: JSONL with prompt/completion pairs
+ *
+ * NOTE: This file uses dynamic state access for policy-specific properties.
+ * ESLint unsafe-member-access warnings are suppressed for format functions.
  */
+
+/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any */
 
 import type {
   ExtractionTrainingExample,
@@ -29,6 +34,8 @@ import type { PolicyType, ExportResult, AnthropicTrainingExample } from './types
  * @param includeMetadata - Include metadata in examples
  */
 export async function exportAnthropic(
+  // Dataset contains union of policy-specific example types - safe to use any here for flexibility
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   dataset: Dataset<any>,
   policy: PolicyType,
   outputPath: string,
@@ -200,8 +207,11 @@ function formatState(state: any, policy: PolicyType): string {
 
 /**
  * Format extraction state
+ * State object contains dynamic policy-specific properties accessed via string keys
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function formatExtractionState(state: any): string {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
   return `Current Context:
 • Turn number: ${state.contextFeatures.turnNumber}
 • Token count: ${state.contextFeatures.tokenCount}

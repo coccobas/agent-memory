@@ -29,8 +29,8 @@ export function splitIntoSentences(text: string): string[] {
   // Split on sentence boundaries
   const sentences = text
     .split(/(?<=[.!?])\s+/)
-    .map(s => s.trim())
-    .filter(s => s.length > 0);
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
 
   // If no sentences found, treat whole text as one
   if (sentences.length === 0 && text.trim().length > 0) {
@@ -69,10 +69,7 @@ export class BERTScoreEvaluator {
    * @param candidate Candidate text (generated)
    * @returns BERTScore result with precision, recall, F1
    */
-  async calculateBERTScore(
-    reference: string,
-    candidate: string
-  ): Promise<BERTScoreResult> {
+  async calculateBERTScore(reference: string, candidate: string): Promise<BERTScoreResult> {
     // Segment into sentences
     const refSentences = splitIntoSentences(reference);
     const candSentences = splitIntoSentences(candidate);
@@ -121,9 +118,7 @@ export class BERTScoreEvaluator {
     const recall = recallSum / refEmbeddings.length;
 
     // Calculate F1
-    const f1 = precision + recall > 0
-      ? (2 * precision * recall) / (precision + recall)
-      : 0;
+    const f1 = precision + recall > 0 ? (2 * precision * recall) / (precision + recall) : 0;
 
     return {
       precision,
@@ -183,9 +178,10 @@ export class BERTScoreEvaluator {
  * @param scores Array of BERTScore results
  * @returns Averaged BERTScore
  */
-export function aggregateBERTScores(
-  scores: BERTScoreResult[]
-): Omit<BERTScoreResult, 'embeddingModel' | 'embeddingProvider'> & {
+export function aggregateBERTScores(scores: BERTScoreResult[]): Omit<
+  BERTScoreResult,
+  'embeddingModel' | 'embeddingProvider'
+> & {
   embeddingModel: string;
   embeddingProvider: string;
 } {

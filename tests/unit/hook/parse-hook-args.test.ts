@@ -49,7 +49,9 @@ describe('parseHookArgs', () => {
 
     it('should throw error for missing value after --project-id', () => {
       // Bug #347 fix: Now throws error instead of accepting empty value
-      expect(() => parseHookArgs(['start', '--project-id'])).toThrow('Missing value for --project-id');
+      expect(() => parseHookArgs(['start', '--project-id'])).toThrow(
+        'Missing value for --project-id'
+      );
     });
   });
 
@@ -153,7 +155,9 @@ describe('parseHookArgs', () => {
 
     it('should throw error for empty = values', () => {
       // Bug #349 fix: Now throws error instead of accepting empty value
-      expect(() => parseHookArgs(['start', '--project-id='])).toThrow('Missing value for --project-id');
+      expect(() => parseHookArgs(['start', '--project-id='])).toThrow(
+        'Missing value for --project-id'
+      );
       expect(() => parseHookArgs(['start', '--agent-id='])).toThrow('Missing value for --agent-id');
     });
   });

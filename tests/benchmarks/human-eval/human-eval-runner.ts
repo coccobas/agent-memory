@@ -92,17 +92,21 @@ function displayItem(item: EvaluationCandidate, index: number, total: number): v
 
   console.log('\n📥 INPUT:');
   // Truncate long inputs
-  const inputPreview = item.input.length > 500 ? item.input.slice(0, 500) + '\n...(truncated)' : item.input;
+  const inputPreview =
+    item.input.length > 500 ? item.input.slice(0, 500) + '\n...(truncated)' : item.input;
   console.log(inputPreview);
 
   console.log('\n📤 OUTPUT:');
-  const outputPreview = item.output.length > 500 ? item.output.slice(0, 500) + '\n...(truncated)' : item.output;
+  const outputPreview =
+    item.output.length > 500 ? item.output.slice(0, 500) + '\n...(truncated)' : item.output;
   console.log(outputPreview);
 
   if (item.expectedOutput) {
     console.log('\n✓ EXPECTED:');
     const expectedPreview =
-      item.expectedOutput.length > 300 ? item.expectedOutput.slice(0, 300) + '\n...(truncated)' : item.expectedOutput;
+      item.expectedOutput.length > 300
+        ? item.expectedOutput.slice(0, 300) + '\n...(truncated)'
+        : item.expectedOutput;
     console.log(expectedPreview);
   }
 }
@@ -298,7 +302,9 @@ export async function runHumanEval(options: HumanEvalOptions): Promise<Evaluatio
     // Show confirmation
     const avgScore =
       Object.values(ratings).reduce((a, b) => a + b, 0) / Object.values(ratings).length;
-    console.log(`\n✅ Recorded (avg: ${avgScore.toFixed(1)}/5) | Time: ${evalTimeSeconds.toFixed(0)}s`);
+    console.log(
+      `\n✅ Recorded (avg: ${avgScore.toFixed(1)}/5) | Time: ${evalTimeSeconds.toFixed(0)}s`
+    );
 
     // Save after each evaluation
     saveSession(session, outputDir);

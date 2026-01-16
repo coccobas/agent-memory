@@ -25,13 +25,13 @@ agent-memory mcp
 
 ## When to Use Redis
 
-| Scenario | Redis Needed? |
-|----------|---------------|
-| Single server, single process | No |
-| Single server, multiple processes | Recommended |
-| Multiple servers | Yes |
-| High availability | Yes |
-| Shared cache across instances | Yes |
+| Scenario                          | Redis Needed? |
+| --------------------------------- | ------------- |
+| Single server, single process     | No            |
+| Single server, multiple processes | Recommended   |
+| Multiple servers                  | Yes           |
+| High availability                 | Yes           |
+| Shared cache across instances     | Yes           |
 
 ---
 
@@ -155,7 +155,7 @@ services:
     volumes:
       - redis-data:/data
     ports:
-      - "6379:6379"
+      - '6379:6379'
 
   postgres:
     image: postgres:16
@@ -174,7 +174,7 @@ services:
       AGENT_MEMORY_PG_DATABASE: agent_memory
       AGENT_MEMORY_PG_USER: agent_memory
       AGENT_MEMORY_PG_PASSWORD: secure-password
-      AGENT_MEMORY_REDIS_ENABLED: "true"
+      AGENT_MEMORY_REDIS_ENABLED: 'true'
       AGENT_MEMORY_REDIS_HOST: redis
     depends_on:
       - postgres
@@ -188,7 +188,7 @@ services:
       AGENT_MEMORY_PG_DATABASE: agent_memory
       AGENT_MEMORY_PG_USER: agent_memory
       AGENT_MEMORY_PG_PASSWORD: secure-password
-      AGENT_MEMORY_REDIS_ENABLED: "true"
+      AGENT_MEMORY_REDIS_ENABLED: 'true'
       AGENT_MEMORY_REDIS_HOST: redis
     depends_on:
       - postgres
@@ -306,6 +306,7 @@ AGENT_MEMORY_REDIS_URL=rediss://hostname:6379
 **Tool:** `memory_health`
 
 Response includes:
+
 ```json
 {
   "redis": {
@@ -340,6 +341,7 @@ Error: connect ECONNREFUSED 127.0.0.1:6379
 ```
 
 **Fix:** Ensure Redis is running:
+
 ```bash
 redis-cli ping
 ```
@@ -351,6 +353,7 @@ Error: NOAUTH Authentication required
 ```
 
 **Fix:** Set password:
+
 ```bash
 AGENT_MEMORY_REDIS_PASSWORD=your-password
 ```
@@ -377,23 +380,23 @@ AGENT_MEMORY_REDIS_CACHE_TTL_MS=1800000  # 30 minutes
 
 ## Environment Variables Reference
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `AGENT_MEMORY_REDIS_ENABLED` | `false` | Enable Redis |
-| `AGENT_MEMORY_REDIS_URL` | — | Connection URL (overrides host/port) |
-| `AGENT_MEMORY_REDIS_HOST` | `localhost` | Server hostname |
-| `AGENT_MEMORY_REDIS_PORT` | `6379` | Server port |
-| `AGENT_MEMORY_REDIS_PASSWORD` | — | Authentication password |
-| `AGENT_MEMORY_REDIS_DB` | `0` | Database number |
-| `AGENT_MEMORY_REDIS_TLS` | `false` | Enable TLS |
-| `AGENT_MEMORY_REDIS_KEY_PREFIX` | `agentmem:` | Key namespace |
-| `AGENT_MEMORY_REDIS_CACHE_TTL_MS` | `3600000` | Cache TTL (1 hour) |
-| `AGENT_MEMORY_REDIS_LOCK_TTL_MS` | `30000` | Lock TTL (30 sec) |
-| `AGENT_MEMORY_REDIS_LOCK_RETRY_COUNT` | `3` | Lock retry attempts |
-| `AGENT_MEMORY_REDIS_LOCK_RETRY_DELAY_MS` | `200` | Retry delay |
-| `AGENT_MEMORY_REDIS_EVENT_CHANNEL` | `agentmem:events` | Pub/sub channel |
-| `AGENT_MEMORY_REDIS_CONNECT_TIMEOUT_MS` | `10000` | Connection timeout |
-| `AGENT_MEMORY_REDIS_MAX_RETRIES` | `3` | Max request retries |
+| Variable                                 | Default           | Description                          |
+| ---------------------------------------- | ----------------- | ------------------------------------ |
+| `AGENT_MEMORY_REDIS_ENABLED`             | `false`           | Enable Redis                         |
+| `AGENT_MEMORY_REDIS_URL`                 | —                 | Connection URL (overrides host/port) |
+| `AGENT_MEMORY_REDIS_HOST`                | `localhost`       | Server hostname                      |
+| `AGENT_MEMORY_REDIS_PORT`                | `6379`            | Server port                          |
+| `AGENT_MEMORY_REDIS_PASSWORD`            | —                 | Authentication password              |
+| `AGENT_MEMORY_REDIS_DB`                  | `0`               | Database number                      |
+| `AGENT_MEMORY_REDIS_TLS`                 | `false`           | Enable TLS                           |
+| `AGENT_MEMORY_REDIS_KEY_PREFIX`          | `agentmem:`       | Key namespace                        |
+| `AGENT_MEMORY_REDIS_CACHE_TTL_MS`        | `3600000`         | Cache TTL (1 hour)                   |
+| `AGENT_MEMORY_REDIS_LOCK_TTL_MS`         | `30000`           | Lock TTL (30 sec)                    |
+| `AGENT_MEMORY_REDIS_LOCK_RETRY_COUNT`    | `3`               | Lock retry attempts                  |
+| `AGENT_MEMORY_REDIS_LOCK_RETRY_DELAY_MS` | `200`             | Retry delay                          |
+| `AGENT_MEMORY_REDIS_EVENT_CHANNEL`       | `agentmem:events` | Pub/sub channel                      |
+| `AGENT_MEMORY_REDIS_CONNECT_TIMEOUT_MS`  | `10000`           | Connection timeout                   |
+| `AGENT_MEMORY_REDIS_MAX_RETRIES`         | `3`               | Max request retries                  |
 
 ---
 

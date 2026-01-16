@@ -18,6 +18,7 @@ export async function registerToolRoutes(app: FastifyInstance, context: AppConte
 
   // Execute a tool by name with validation
   app.post('/v1/tools/:tool', {
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises -- Fastify preHandler supports async functions
     preHandler: validateToolRequest,
     handler: (req, rep) => toolsController.executeTool(req, rep),
   });

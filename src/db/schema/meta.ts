@@ -82,7 +82,9 @@ export const conflictLog = sqliteTable(
   'conflict_log',
   {
     id: text('id').primaryKey(),
-    entryType: text('entry_type', { enum: ['tool', 'guideline', 'knowledge', 'experience'] }).notNull(),
+    entryType: text('entry_type', {
+      enum: ['tool', 'guideline', 'knowledge', 'experience'],
+    }).notNull(),
     entryId: text('entry_id').notNull(),
     versionAId: text('version_a_id').notNull(),
     versionBId: text('version_b_id').notNull(),

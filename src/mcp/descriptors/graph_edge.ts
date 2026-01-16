@@ -51,34 +51,34 @@ Example: {"action":"traverse","startNodeId":"node-123","maxDepth":2,"edgeTypes":
   actions: {
     add: {
       required: ['edgeTypeName', 'sourceId', 'targetId'],
-      contextHandler: graphEdgeHandlers.add,
+      contextHandler: (ctx, params) => graphEdgeHandlers.add(ctx, params),
     },
     get: {
       required: ['id'],
-      contextHandler: graphEdgeHandlers.get,
+      contextHandler: (ctx, params) => graphEdgeHandlers.get(ctx, params),
     },
     list: {
-      contextHandler: graphEdgeHandlers.list,
+      contextHandler: (ctx, params) => graphEdgeHandlers.list(ctx, params),
     },
     update: {
       required: ['id'],
-      contextHandler: graphEdgeHandlers.update,
+      contextHandler: (ctx, params) => graphEdgeHandlers.update(ctx, params),
     },
     delete: {
       required: ['id'],
-      contextHandler: graphEdgeHandlers.delete,
+      contextHandler: (ctx, params) => graphEdgeHandlers.delete(ctx, params),
     },
     neighbors: {
       required: ['nodeId'],
-      contextHandler: graphEdgeHandlers.neighbors,
+      contextHandler: (ctx, params) => graphEdgeHandlers.neighbors(ctx, params),
     },
     traverse: {
       required: ['startNodeId'],
-      contextHandler: graphEdgeHandlers.traverse,
+      contextHandler: (ctx, params) => graphEdgeHandlers.traverse(ctx, params),
     },
     paths: {
       required: ['startNodeId', 'endNodeId'],
-      contextHandler: graphEdgeHandlers.paths,
+      contextHandler: (ctx, params) => graphEdgeHandlers.paths(ctx, params),
     },
   },
 };

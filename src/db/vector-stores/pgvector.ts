@@ -22,6 +22,40 @@ import type {
 
 const logger = createComponentLogger('pgvector-store');
 
+// =============================================================================
+// DATABASE ROW TYPES
+// =============================================================================
+
+/**
+ * Row type for _vector_meta table queries
+ */
+interface MetaRow {
+  key: string;
+  value: string;
+}
+
+/**
+ * Row type for vector search result queries
+ */
+interface SearchResultRow {
+  entry_type: string;
+  entry_id: string;
+  version_id: string | null;
+  text: string;
+  distance: string | number;
+}
+
+/**
+ * Row type for COUNT(*) queries
+ */
+interface CountRow {
+  count: string | number;
+}
+
+// =============================================================================
+// CONSTANTS
+// =============================================================================
+
 // pgvector distance operators by metric type
 const DISTANCE_OPERATORS: Record<DistanceMetric, string> = {
   cosine: '<=>',
@@ -43,10 +77,15 @@ const INDEX_OPS: Record<DistanceMetric, string> = {
  * @throws Error if the dimension is invalid
  */
 function validateDimension(dimension: unknown): number {
-  if (typeof dimension !== 'number' || !Number.isInteger(dimension) || dimension < 1 || dimension > 10000) {
+  if (
+    typeof dimension !== 'number' ||
+    !Number.isInteger(dimension) ||
+    dimension < 1 ||
+    dimension > 10000
+  ) {
     throw createValidationError(
       'dimension',
-      `invalid embedding dimension: ${dimension}`,
+      `invalid embedding dimension: ${String(dimension)}`,
       'Must be an integer between 1 and 10000'
     );
   }
@@ -113,9 +152,7 @@ export class PgVectorStore implements IVectorStore {
     const client = await this.pool.connect();
     try {
       // Verify pgvector extension exists
-      const extCheck = await client.query(
-        "SELECT 1 FROM pg_extension WHERE extname = 'vector'"
-      );
+      const extCheck = await client.query("SELECT 1 FROM pg_extension WHERE extname = 'vector'");
       if (extCheck.rowCount === 0) {
         throw createVectorDbError(
           'initialize',
@@ -135,11 +172,12 @@ export class PgVectorStore implements IVectorStore {
       }
 
       // Load dimension from meta table if it exists
-      const dimResult = await client.query(
+      const dimResult = await client.query<MetaRow>(
         "SELECT value FROM _vector_meta WHERE key = 'dimension'"
       );
       if (dimResult.rows.length > 0) {
-        this.expectedDimension = parseInt(dimResult.rows[0].value, 10);
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        this.expectedDimension = parseInt(dimResult.rows[0]!.value, 10);
         logger.debug({ dimension: this.expectedDimension }, 'Loaded vector dimension from meta');
       }
 
@@ -274,14 +312,16 @@ export class PgVectorStore implements IVectorStore {
 
     const client = await this.pool.connect();
     try {
-      const result = await client.query(query, params);
+      const result = await client.query<SearchResultRow>(query, params);
 
       return result.rows.map((row) => ({
         entryType: row.entry_type,
         entryId: row.entry_id,
-        versionId: row.version_id,
+        versionId: row.version_id ?? '',
         text: row.text,
-        score: this.distanceToSimilarity(parseFloat(row.distance)),
+        score: this.distanceToSimilarity(
+          parseFloat(typeof row.distance === 'string' ? row.distance : String(row.distance))
+        ),
       }));
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -308,8 +348,10 @@ export class PgVectorStore implements IVectorStore {
 
     const client = await this.pool.connect();
     try {
-      const result = await client.query('SELECT COUNT(*) FROM vector_embeddings');
-      return parseInt(result.rows[0].count, 10);
+      const result = await client.query<CountRow>('SELECT COUNT(*) FROM vector_embeddings');
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      const countValue = result.rows[0]!.count;
+      return parseInt(typeof countValue === 'string' ? countValue : String(countValue), 10);
     } catch {
       return 0;
     } finally {

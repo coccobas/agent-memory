@@ -27,7 +27,8 @@ function getService() {
 export const memoryDescriptor: SimpleToolDescriptor = {
   name: 'memory',
   visibility: 'core',
-  description: 'Natural language interface to memory. Store: "Remember X", Retrieve: "What about X?", Session: "Start/end task"',
+  description:
+    'Natural language interface to memory. Store: "Remember X", Retrieve: "What about X?", Session: "Start/end task"',
   params: {
     text: { type: 'string', description: 'Natural language request' },
     projectId: { type: 'string' },

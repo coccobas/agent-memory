@@ -12,6 +12,7 @@
  * Full schema type for BetterSQLite3Database generic parameter.
  * Use with: BetterSQLite3Database<AppSchema>
  */
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports -- typeof import() is the only way to get module type
 export type AppSchema = typeof import('./index.js');
 
 // =============================================================================

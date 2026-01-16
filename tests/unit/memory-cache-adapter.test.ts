@@ -1,5 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { createMemoryCacheAdapter, MemoryCacheAdapter, IterableLRUCache } from '../../src/core/adapters/memory-cache.adapter.js';
+import {
+  createMemoryCacheAdapter,
+  MemoryCacheAdapter,
+  IterableLRUCache,
+} from '../../src/core/adapters/memory-cache.adapter.js';
 import { LRUCache } from '../../src/utils/lru-cache.js';
 
 describe('MemoryCacheAdapter', () => {
@@ -125,8 +129,8 @@ describe('MemoryCacheAdapter', () => {
       adapter.set('user:2:profile', 'value2');
       adapter.set('item:1', 'value3');
 
-      const count = adapter.invalidateByPredicate((key) =>
-        key.includes('user') && key.includes('session')
+      const count = adapter.invalidateByPredicate(
+        (key) => key.includes('user') && key.includes('session')
       );
 
       expect(count).toBe(1);

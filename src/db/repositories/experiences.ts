@@ -211,7 +211,10 @@ export function createExperienceRepository(deps: DatabaseDeps): IExperienceRepos
       });
     },
 
-    async getById(id: string, includeTrajectory = false): Promise<ExperienceWithVersion | undefined> {
+    async getById(
+      id: string,
+      includeTrajectory = false
+    ): Promise<ExperienceWithVersion | undefined> {
       return getByIdSync(id, includeTrajectory);
     },
 
@@ -319,7 +322,10 @@ export function createExperienceRepository(deps: DatabaseDeps): IExperienceRepos
 
         // Update experience metadata if needed
         if (input.category !== undefined) {
-          db.update(experiences).set({ category: input.category }).where(eq(experiences.id, id)).run();
+          db.update(experiences)
+            .set({ category: input.category })
+            .where(eq(experiences.id, id))
+            .run();
         }
 
         // Create new version
@@ -391,7 +397,11 @@ export function createExperienceRepository(deps: DatabaseDeps): IExperienceRepos
     },
 
     async reactivate(id: string): Promise<boolean> {
-      const result = db.update(experiences).set({ isActive: true }).where(eq(experiences.id, id)).run();
+      const result = db
+        .update(experiences)
+        .set({ isActive: true })
+        .where(eq(experiences.id, id))
+        .run();
       return result.changes > 0;
     },
 
@@ -418,7 +428,10 @@ export function createExperienceRepository(deps: DatabaseDeps): IExperienceRepos
 
     // Experience-specific operations
 
-    async addStep(experienceId: string, step: TrajectoryStepInput): Promise<ExperienceTrajectoryStep> {
+    async addStep(
+      experienceId: string,
+      step: TrajectoryStepInput
+    ): Promise<ExperienceTrajectoryStep> {
       return await transactionWithRetry(sqlite, () => {
         const experience = getByIdSync(experienceId);
         if (!experience || !experience.currentVersion) {
@@ -488,7 +501,10 @@ export function createExperienceRepository(deps: DatabaseDeps): IExperienceRepos
         if (input.toLevel === 'strategy') {
           // Case → Strategy promotion
           if (existing.level !== 'case') {
-            throw createValidationError('level', 'can only promote case-level experiences to strategy');
+            throw createValidationError(
+              'level',
+              'can only promote case-level experiences to strategy'
+            );
           }
 
           // Create new strategy experience linked to this one
@@ -554,7 +570,10 @@ export function createExperienceRepository(deps: DatabaseDeps): IExperienceRepos
         } else if (input.toLevel === 'skill') {
           // Strategy → Skill promotion (creates linked memory_tool)
           if (existing.level !== 'strategy') {
-            throw createValidationError('level', 'can only promote strategy-level experiences to skill');
+            throw createValidationError(
+              'level',
+              'can only promote strategy-level experiences to skill'
+            );
           }
 
           if (!input.toolName) {
@@ -627,17 +646,21 @@ export function createExperienceRepository(deps: DatabaseDeps): IExperienceRepos
           };
         }
 
-        throw createValidationError('toLevel', `invalid promotion level: ${input.toLevel}`);
+        throw createValidationError('toLevel', `invalid promotion level: ${String(input.toLevel)}`);
       });
     },
 
-    async recordOutcome(id: string, input: RecordOutcomeInput): Promise<ExperienceWithVersion | undefined> {
+    async recordOutcome(
+      id: string,
+      input: RecordOutcomeInput
+    ): Promise<ExperienceWithVersion | undefined> {
       return await transactionWithRetry(sqlite, () => {
         // Bug #8 fix: Use atomic SQL increments instead of read-modify-write
         // This prevents race conditions where concurrent calls overwrite each other's updates
 
         // First, atomically update the counters using SQL expressions
-        const updateResult = db.update(experiences)
+        const updateResult = db
+          .update(experiences)
           .set({
             useCount: sql`${experiences.useCount} + 1`,
             successCount: input.success
@@ -674,7 +697,11 @@ export function createExperienceRepository(deps: DatabaseDeps): IExperienceRepos
           const MAX_VERSION_RETRIES = 3;
           let versionCreated = false;
 
-          for (let versionAttempt = 0; versionAttempt < MAX_VERSION_RETRIES && !versionCreated; versionAttempt++) {
+          for (
+            let versionAttempt = 0;
+            versionAttempt < MAX_VERSION_RETRIES && !versionCreated;
+            versionAttempt++
+          ) {
             const latestVersion = db
               .select()
               .from(experienceVersions)

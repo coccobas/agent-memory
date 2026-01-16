@@ -5,7 +5,10 @@
  * Supports filtering by scope, date range, and other criteria.
  */
 
-import type { ExperienceWithVersion, IExperienceRepository } from '../../../core/interfaces/repositories.js';
+import type {
+  ExperienceWithVersion,
+  IExperienceRepository,
+} from '../../../core/interfaces/repositories.js';
 import type { ExperienceTrajectoryStep, ScopeType } from '../../../db/schema.js';
 
 // =============================================================================
@@ -168,7 +171,7 @@ export class CaseCollector {
 
     // Filter out experiences that have already been promoted
     const unpromoted = result.experiences.filter(
-      ce => !ce.experience.promotedToToolId && !ce.experience.promotedFromId
+      (ce) => !ce.experience.promotedToToolId && !ce.experience.promotedFromId
     );
 
     return {
@@ -184,7 +187,7 @@ export class CaseCollector {
     const result = await this.collect(filter);
 
     // Filter to experiences with successful outcomes
-    const successful = result.experiences.filter(ce => {
+    const successful = result.experiences.filter((ce) => {
       const outcome = ce.experience.currentVersion?.outcome;
       if (!outcome) return false;
       const lowerOutcome = outcome.toLowerCase();

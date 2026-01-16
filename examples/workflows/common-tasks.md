@@ -68,10 +68,7 @@ Quick reference for common operations in Agent Memory.
       "test_path": "string (optional)",
       "verbose": "boolean"
     },
-    "examples": [
-      "pytest tests/",
-      "pytest tests/test_auth.py -v"
-    ],
+    "examples": ["pytest tests/", "pytest tests/test_auth.py -v"],
     "constraints": "Must be run from project root",
     "createdBy": "developer"
   }
@@ -96,9 +93,7 @@ Quick reference for common operations in Agent Memory.
       "good": [
         "try { await fetchData() } catch (err) { logger.error('Failed to fetch', { err }) }"
       ],
-      "bad": [
-        "await fetchData() // No error handling"
-      ]
+      "bad": ["await fetchData() // No error handling"]
     },
     "createdBy": "lead-dev"
   }

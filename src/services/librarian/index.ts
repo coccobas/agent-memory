@@ -146,7 +146,18 @@ export class LibrarianService {
           runId,
           request,
           collection,
-          patternDetection: { patterns: [], unmatched: [], processingTimeMs: 0, stats: { totalExperiences: 0, patternsFound: 0, experiencesInPatterns: 0, averagePatternSize: 0, embeddingsUsed: false } },
+          patternDetection: {
+            patterns: [],
+            unmatched: [],
+            processingTimeMs: 0,
+            stats: {
+              totalExperiences: 0,
+              patternsFound: 0,
+              experiencesInPatterns: 0,
+              averagePatternSize: 0,
+              embeddingsUsed: false,
+            },
+          },
           qualityEvaluations: [],
           recommendations: {
             recommendations: [],
@@ -175,14 +186,12 @@ export class LibrarianService {
 
       // Stage 2: Pattern Detection
       logger.debug({ runId, stage: 'pattern_detection' }, 'Detecting patterns');
-      const experiencesWithTrajectory = collection.experiences.map(ce => ({
+      const experiencesWithTrajectory = collection.experiences.map((ce) => ({
         experience: ce.experience,
         trajectory: ce.trajectory,
       }));
 
-      const patternDetection = await this.patternDetector.detectPatterns(
-        experiencesWithTrajectory
-      );
+      const patternDetection = await this.patternDetector.detectPatterns(experiencesWithTrajectory);
 
       logger.debug(
         { runId, patternsDetected: patternDetection.patterns.length },
@@ -195,7 +204,10 @@ export class LibrarianService {
       const feedbackService = this.feedbackService;
 
       if (rlService?.isEnabled() && rlService.getConsolidationPolicy().isEnabled()) {
-        logger.debug({ runId, stage: 'rl_consolidation_policy' }, 'Consulting RL consolidation policy');
+        logger.debug(
+          { runId, stage: 'rl_consolidation_policy' },
+          'Consulting RL consolidation policy'
+        );
 
         // Get total entries in scope for context
         const totalEntriesInScope = await this.getEntryCount(request.scopeType, request.scopeId);
@@ -302,14 +314,14 @@ export class LibrarianService {
 
       // Stage 4: Quality Evaluation
       logger.debug({ runId, stage: 'quality_evaluation' }, 'Evaluating pattern quality');
-      const qualityEvaluations = filteredPatterns.map(pattern => ({
+      const qualityEvaluations = filteredPatterns.map((pattern) => ({
         pattern,
         result: this.qualityGate.evaluate(pattern),
       }));
 
       // Stage 5: Recommendation Generation
       logger.debug({ runId, stage: 'recommendation_generation' }, 'Generating recommendations');
-      const evaluationMap = new Map(qualityEvaluations.map(e => [e.pattern, e.result]));
+      const evaluationMap = new Map(qualityEvaluations.map((e) => [e.pattern, e.result]));
 
       this.recommender.setOptions({
         analysisRunId: runId,
@@ -358,7 +370,10 @@ export class LibrarianService {
       };
 
       this.lastAnalysis = result;
-      logger.info({ runId, stats: result.stats, durationMs: result.timing.durationMs }, 'Analysis complete');
+      logger.info(
+        { runId, stats: result.stats, durationMs: result.timing.durationMs },
+        'Analysis complete'
+      );
 
       return result;
     } catch (error) {
@@ -471,4 +486,7 @@ export function resetLibrarianService(): void {
 
 // Re-export types
 export * from './types.js';
-export { createRecommendationStore, getRecommendationStore } from './recommendations/recommendation-store.js';
+export {
+  createRecommendationStore,
+  getRecommendationStore,
+} from './recommendations/recommendation-store.js';

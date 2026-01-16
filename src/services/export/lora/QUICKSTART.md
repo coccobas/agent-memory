@@ -4,12 +4,12 @@ Quick guide to exporting training data for LoRA fine-tuning.
 
 ## Format Overview
 
-| Format | Best For | File Type |
-|--------|----------|-----------|
-| **Alpaca** | General instruction following | JSONL |
-| **ShareGPT** | Multi-turn conversations | JSON |
-| **OpenAI Messages** | OpenAI fine-tuning API | JSONL |
-| **Anthropic Prompts** | Claude-style prompts | JSONL |
+| Format                | Best For                      | File Type |
+| --------------------- | ----------------------------- | --------- |
+| **Alpaca**            | General instruction following | JSONL     |
+| **ShareGPT**          | Multi-turn conversations      | JSON      |
+| **OpenAI Messages**   | OpenAI fine-tuning API        | JSONL     |
+| **Anthropic Prompts** | Claude-style prompts          | JSONL     |
 
 ## Quick Examples
 
@@ -20,11 +20,11 @@ import { exportToFormat } from './services/export/lora/formats/index.js';
 
 const examples = [
   {
-    system: "You are an AI assistant that follows coding guidelines.",
-    instruction: "How should I configure TypeScript?",
-    input: "",
-    output: "Always enable strict mode in tsconfig.json for maximum type safety.",
-  }
+    system: 'You are an AI assistant that follows coding guidelines.',
+    instruction: 'How should I configure TypeScript?',
+    input: '',
+    output: 'Always enable strict mode in tsconfig.json for maximum type safety.',
+  },
 ];
 
 const result = await exportToFormat(examples, {
@@ -46,7 +46,7 @@ const result = await exportToFormat(examples, {
   outputPath: './datasets/my-model',
   policy: 'extraction',
   targetModel: 'meta-llama/Llama-2-7b-hf',
-  generateScript: true,  // Generate train.py
+  generateScript: true, // Generate train.py
 });
 
 // Files created:
@@ -143,11 +143,11 @@ interface LoRAExportConfig {
   policy: 'extraction' | 'retrieval' | 'consolidation';
 
   // Optional
-  splitRatio?: number;           // Default: 0.1 (90/10 split)
-  includeGuidelines?: boolean;   // Default: true
-  maxExamples?: number;          // Limit total examples
-  targetModel?: string;          // Generate adapter config
-  generateScript?: boolean;      // Generate training script
+  splitRatio?: number; // Default: 0.1 (90/10 split)
+  includeGuidelines?: boolean; // Default: true
+  maxExamples?: number; // Limit total examples
+  targetModel?: string; // Generate adapter config
+  generateScript?: boolean; // Generate training script
   metadata?: Record<string, any>; // Additional metadata
 }
 ```
@@ -155,24 +155,28 @@ interface LoRAExportConfig {
 ## Format-Specific Notes
 
 ### Alpaca Format
+
 - ✅ Best for instruction following tasks
 - ✅ Simple, widely supported
 - ✅ Works with Axolotl, Alpaca-LoRA
 - ⚠️ Less suitable for multi-turn conversations
 
 ### ShareGPT Format
+
 - ✅ Best for conversational models
 - ✅ Supports system prompts
 - ✅ Multi-turn conversation support
 - ✅ Works with FastChat, Vicuna
 
 ### OpenAI Messages Format
+
 - ✅ Native OpenAI fine-tuning format
 - ✅ Validates token limits automatically
 - ✅ Direct upload to OpenAI API
 - ⚠️ Requires OpenAI API access
 
 ### Anthropic Prompts Format
+
 - ✅ Claude-style prompts
 - ✅ Good for few-shot learning
 - ✅ Compatible with prompt/completion training

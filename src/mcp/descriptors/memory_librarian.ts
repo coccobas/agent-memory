@@ -55,8 +55,14 @@ Example: {"action":"analyze","scopeType":"project","scopeId":"proj-123"}`,
   actions: {
     analyze: {
       params: {
-        lookbackDays: { description: 'Days to look back for experiences (default: 30)', type: 'number' },
-        dryRun: { description: 'If true, analyze without creating recommendations', type: 'boolean' },
+        lookbackDays: {
+          description: 'Days to look back for experiences (default: 30)',
+          type: 'number',
+        },
+        dryRun: {
+          description: 'If true, analyze without creating recommendations',
+          type: 'boolean',
+        },
       },
       contextHandler: librarianHandlers.analyze,
     },

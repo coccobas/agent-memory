@@ -15,13 +15,15 @@ export const extractionSection: ConfigSectionMeta = {
     mode: {
       envKey: 'AGENT_MEMORY_EXTRACTION_MODE',
       defaultValue: 'technical',
-      description: 'Extraction mode: technical (code/dev context), personal (conversations/people), or auto (detect from content).',
+      description:
+        'Extraction mode: technical (code/dev context), personal (conversations/people), or auto (detect from content).',
       schema: z.enum(['technical', 'personal', 'auto']),
     },
     provider: {
       envKey: 'AGENT_MEMORY_EXTRACTION_PROVIDER',
       defaultValue: 'openai',
-      description: 'Extraction provider: openai (default, works with LM Studio), anthropic, ollama, or disabled.',
+      description:
+        'Extraction provider: openai (default, works with LM Studio), anthropic, ollama, or disabled.',
       schema: z.enum(['openai', 'anthropic', 'ollama', 'disabled']),
       // Custom parser with auto-detection based on API keys
       parse: () => getExtractionProvider(),
@@ -41,9 +43,9 @@ export const extractionSection: ConfigSectionMeta = {
     },
     strictBaseUrlAllowlist: {
       envKey: 'AGENT_MEMORY_EXTRACTION_STRICT_ALLOWLIST',
-      defaultValue: false,
+      defaultValue: true,
       description:
-        'Enforce base URL allowlist (block non-allowed hosts). Set to true for production security.',
+        'Enforce base URL allowlist (block non-allowed hosts). Enabled by default for security. Set to false only for development/testing.',
       schema: z.boolean(),
       parse: 'boolean',
     },
@@ -56,14 +58,16 @@ export const extractionSection: ConfigSectionMeta = {
     openaiJsonMode: {
       envKey: 'AGENT_MEMORY_EXTRACTION_OPENAI_JSON_MODE',
       defaultValue: false,
-      description: 'Enable response_format: json_object. Disabled by default for LM Studio compatibility.',
+      description:
+        'Enable response_format: json_object. Disabled by default for LM Studio compatibility.',
       schema: z.boolean(),
       parse: 'boolean',
     },
     openaiReasoningEffort: {
       envKey: 'AGENT_MEMORY_EXTRACTION_REASONING_EFFORT',
       defaultValue: undefined,
-      description: 'Reasoning effort for extraction: low, medium, high. For reasoning models like o1/o3 or local models with extended thinking.',
+      description:
+        'Reasoning effort for extraction: low, medium, high. For reasoning models like o1/o3 or local models with extended thinking.',
       schema: z.enum(['low', 'medium', 'high']).optional(),
     },
     anthropicApiKey: {
@@ -108,14 +112,16 @@ export const extractionSection: ConfigSectionMeta = {
     timeoutMs: {
       envKey: 'AGENT_MEMORY_EXTRACTION_TIMEOUT_MS',
       defaultValue: 120000,
-      description: 'Timeout for extraction requests in milliseconds (defaults to 120s for local LLMs).',
+      description:
+        'Timeout for extraction requests in milliseconds (defaults to 120s for local LLMs).',
       schema: z.number().int().min(5000).max(300000),
       parse: 'int',
     },
     maxContextLength: {
       envKey: 'AGENT_MEMORY_EXTRACTION_MAX_CONTEXT_LENGTH',
       defaultValue: 100000,
-      description: 'Maximum context size in characters for extraction (security limit to prevent DoS).',
+      description:
+        'Maximum context size in characters for extraction (security limit to prevent DoS).',
       schema: z.number().int().min(10000).max(1000000),
       parse: 'int',
     },
@@ -188,7 +194,8 @@ export const extractionSection: ConfigSectionMeta = {
     atomicitySplitMode: {
       envKey: 'AGENT_MEMORY_EXTRACTION_ATOMICITY_SPLIT_MODE',
       defaultValue: 'silent',
-      description: 'How to handle compound entry splitting: silent (auto-split), log (split with logging), disabled (detect only).',
+      description:
+        'How to handle compound entry splitting: silent (auto-split), log (split with logging), disabled (detect only).',
       schema: z.enum(['silent', 'log', 'disabled']),
     },
     atomicityMaxSplits: {

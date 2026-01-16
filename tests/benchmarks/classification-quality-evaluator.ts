@@ -90,18 +90,17 @@ function buildConfusionMatrix(results: ClassificationTestResult[]): ConfusionMat
 export function calculateAggregatedMetrics(
   results: ClassificationTestResult[]
 ): AggregatedClassificationMetrics {
-  const validResults = results.filter(r => !r.error);
+  const validResults = results.filter((r) => !r.error);
   const errorCount = results.length - validResults.length;
 
   // Basic counts
   const totalTestCases = results.length;
-  const correctCount = validResults.filter(r => r.correct).length;
-  const correctWithAlternativesCount = validResults.filter(r => r.correctWithAlternatives).length;
+  const correctCount = validResults.filter((r) => r.correct).length;
+  const correctWithAlternativesCount = validResults.filter((r) => r.correctWithAlternatives).length;
 
   const accuracy = validResults.length > 0 ? correctCount / validResults.length : 0;
-  const accuracyWithAlternatives = validResults.length > 0
-    ? correctWithAlternativesCount / validResults.length
-    : 0;
+  const accuracyWithAlternatives =
+    validResults.length > 0 ? correctWithAlternativesCount / validResults.length : 0;
 
   // By type metrics
   const types: EntryType[] = ['guideline', 'knowledge', 'tool'];
@@ -111,18 +110,22 @@ export function calculateAggregatedMetrics(
   }
 
   // By category metrics
-  const categories = new Set(validResults.map(r => r.category));
-  const byCategory = {} as Record<ClassificationCategory, {
-    count: number;
-    correct: number;
-    accuracy: number;
-    avgConfidence: number;
-  }>;
+  const categories = new Set(validResults.map((r) => r.category));
+  const byCategory = {} as Record<
+    ClassificationCategory,
+    {
+      count: number;
+      correct: number;
+      accuracy: number;
+      avgConfidence: number;
+    }
+  >;
 
   for (const category of categories) {
-    const categoryResults = validResults.filter(r => r.category === category);
-    const correct = categoryResults.filter(r => r.correct).length;
-    const avgConfidence = categoryResults.reduce((sum, r) => sum + r.confidence, 0) / categoryResults.length;
+    const categoryResults = validResults.filter((r) => r.category === category);
+    const correct = categoryResults.filter((r) => r.correct).length;
+    const avgConfidence =
+      categoryResults.reduce((sum, r) => sum + r.confidence, 0) / categoryResults.length;
 
     byCategory[category] = {
       count: categoryResults.length,
@@ -134,19 +137,23 @@ export function calculateAggregatedMetrics(
 
   // By difficulty metrics
   const difficulties: Array<'easy' | 'medium' | 'hard'> = ['easy', 'medium', 'hard'];
-  const byDifficulty = {} as Record<'easy' | 'medium' | 'hard', {
-    count: number;
-    correct: number;
-    accuracy: number;
-    avgConfidence: number;
-  }>;
+  const byDifficulty = {} as Record<
+    'easy' | 'medium' | 'hard',
+    {
+      count: number;
+      correct: number;
+      accuracy: number;
+      avgConfidence: number;
+    }
+  >;
 
   for (const difficulty of difficulties) {
-    const diffResults = validResults.filter(r => r.difficulty === difficulty);
-    const correct = diffResults.filter(r => r.correct).length;
-    const avgConfidence = diffResults.length > 0
-      ? diffResults.reduce((sum, r) => sum + r.confidence, 0) / diffResults.length
-      : 0;
+    const diffResults = validResults.filter((r) => r.difficulty === difficulty);
+    const correct = diffResults.filter((r) => r.correct).length;
+    const avgConfidence =
+      diffResults.length > 0
+        ? diffResults.reduce((sum, r) => sum + r.confidence, 0) / diffResults.length
+        : 0;
 
     byDifficulty[difficulty] = {
       count: diffResults.length,
@@ -157,29 +164,33 @@ export function calculateAggregatedMetrics(
   }
 
   // Confidence correlation
-  const correctResults = validResults.filter(r => r.correct);
-  const incorrectResults = validResults.filter(r => !r.correct);
+  const correctResults = validResults.filter((r) => r.correct);
+  const incorrectResults = validResults.filter((r) => !r.correct);
 
-  const avgConfidenceCorrect = correctResults.length > 0
-    ? correctResults.reduce((sum, r) => sum + r.confidence, 0) / correctResults.length
-    : 0;
+  const avgConfidenceCorrect =
+    correctResults.length > 0
+      ? correctResults.reduce((sum, r) => sum + r.confidence, 0) / correctResults.length
+      : 0;
 
-  const avgConfidenceIncorrect = incorrectResults.length > 0
-    ? incorrectResults.reduce((sum, r) => sum + r.confidence, 0) / incorrectResults.length
-    : 0;
+  const avgConfidenceIncorrect =
+    incorrectResults.length > 0
+      ? incorrectResults.reduce((sum, r) => sum + r.confidence, 0) / incorrectResults.length
+      : 0;
 
-  const highConfidenceResults = validResults.filter(r => r.confidence > 0.8);
-  const highConfidenceAccuracy = highConfidenceResults.length > 0
-    ? highConfidenceResults.filter(r => r.correct).length / highConfidenceResults.length
-    : 0;
+  const highConfidenceResults = validResults.filter((r) => r.confidence > 0.8);
+  const highConfidenceAccuracy =
+    highConfidenceResults.length > 0
+      ? highConfidenceResults.filter((r) => r.correct).length / highConfidenceResults.length
+      : 0;
 
-  const lowConfidenceResults = validResults.filter(r => r.confidence < 0.6);
-  const lowConfidenceAccuracy = lowConfidenceResults.length > 0
-    ? lowConfidenceResults.filter(r => r.correct).length / lowConfidenceResults.length
-    : 0;
+  const lowConfidenceResults = validResults.filter((r) => r.confidence < 0.6);
+  const lowConfidenceAccuracy =
+    lowConfidenceResults.length > 0
+      ? lowConfidenceResults.filter((r) => r.correct).length / lowConfidenceResults.length
+      : 0;
 
   // Processing stats
-  const processingTimes = validResults.map(r => r.processingTimeMs);
+  const processingTimes = validResults.map((r) => r.processingTimeMs);
   const totalTimeMs = processingTimes.reduce((sum, t) => sum + t, 0);
 
   return {
@@ -223,8 +234,12 @@ export function formatMetricsReport(metrics: AggregatedClassificationMetrics): s
   lines.push('OVERALL METRICS');
   lines.push('───────────────────────────────────────────────────────────────────────');
   lines.push(`  Total Test Cases:      ${metrics.totalTestCases}`);
-  lines.push(`  Correct:               ${metrics.correctCount} (${(metrics.accuracy * 100).toFixed(1)}%)`);
-  lines.push(`  Correct (w/ alts):     ${metrics.correctWithAlternativesCount} (${(metrics.accuracyWithAlternatives * 100).toFixed(1)}%)`);
+  lines.push(
+    `  Correct:               ${metrics.correctCount} (${(metrics.accuracy * 100).toFixed(1)}%)`
+  );
+  lines.push(
+    `  Correct (w/ alts):     ${metrics.correctWithAlternativesCount} (${(metrics.accuracyWithAlternatives * 100).toFixed(1)}%)`
+  );
   lines.push(`  Errors:                ${metrics.errorCount}`);
   lines.push('');
 
@@ -255,10 +270,18 @@ export function formatMetricsReport(metrics: AggregatedClassificationMetrics): s
   // Confidence correlation
   lines.push('CONFIDENCE CORRELATION');
   lines.push('───────────────────────────────────────────────────────────────────────');
-  lines.push(`  Avg Confidence (Correct):    ${(metrics.confidenceCorrelation.avgConfidenceCorrect * 100).toFixed(1)}%`);
-  lines.push(`  Avg Confidence (Incorrect):  ${(metrics.confidenceCorrelation.avgConfidenceIncorrect * 100).toFixed(1)}%`);
-  lines.push(`  High Confidence (>80%) Acc:  ${(metrics.confidenceCorrelation.highConfidenceAccuracy * 100).toFixed(1)}%`);
-  lines.push(`  Low Confidence (<60%) Acc:   ${(metrics.confidenceCorrelation.lowConfidenceAccuracy * 100).toFixed(1)}%`);
+  lines.push(
+    `  Avg Confidence (Correct):    ${(metrics.confidenceCorrelation.avgConfidenceCorrect * 100).toFixed(1)}%`
+  );
+  lines.push(
+    `  Avg Confidence (Incorrect):  ${(metrics.confidenceCorrelation.avgConfidenceIncorrect * 100).toFixed(1)}%`
+  );
+  lines.push(
+    `  High Confidence (>80%) Acc:  ${(metrics.confidenceCorrelation.highConfidenceAccuracy * 100).toFixed(1)}%`
+  );
+  lines.push(
+    `  Low Confidence (<60%) Acc:   ${(metrics.confidenceCorrelation.lowConfidenceAccuracy * 100).toFixed(1)}%`
+  );
   lines.push('');
 
   // Confusion matrix
@@ -273,7 +296,7 @@ export function formatMetricsReport(metrics: AggregatedClassificationMetrics): s
     const row: number[] = [];
     for (const predicted of types) {
       const entry = metrics.confusionMatrix.find(
-        e => e.actual === actual && e.predicted === predicted
+        (e) => e.actual === actual && e.predicted === predicted
       );
       row.push(entry?.count ?? 0);
     }
@@ -295,8 +318,9 @@ export function formatMetricsReport(metrics: AggregatedClassificationMetrics): s
   // By category (summary)
   lines.push('METRICS BY CATEGORY');
   lines.push('───────────────────────────────────────────────────────────────────────');
-  const sortedCategories = Object.entries(metrics.byCategory)
-    .sort(([, a], [, b]) => b.accuracy - a.accuracy);
+  const sortedCategories = Object.entries(metrics.byCategory).sort(
+    ([, a], [, b]) => b.accuracy - a.accuracy
+  );
 
   for (const [cat, m] of sortedCategories) {
     lines.push(
@@ -315,7 +339,9 @@ export function formatMetricsReport(metrics: AggregatedClassificationMetrics): s
  */
 export async function runTestCase(
   testCase: ClassificationTestCase,
-  classifier: { classify(text: string): Promise<{ type: string; confidence: number; method: string }> }
+  classifier: {
+    classify(text: string): Promise<{ type: string; confidence: number; method: string }>;
+  }
 ): Promise<ClassificationTestResult> {
   const start = performance.now();
 
@@ -325,8 +351,8 @@ export async function runTestCase(
 
     const predictedType = result.type as EntryType;
     const correct = predictedType === testCase.expectedType;
-    const correctWithAlternatives = correct ||
-      (testCase.acceptableAlternatives?.includes(predictedType) ?? false);
+    const correctWithAlternatives =
+      correct || (testCase.acceptableAlternatives?.includes(predictedType) ?? false);
 
     return {
       testCaseId: testCase.id,

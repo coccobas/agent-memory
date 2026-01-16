@@ -268,10 +268,7 @@ export function registerEmbeddingPipeline(
  * @param runtime - The runtime to update
  * @param rateLimiters - The new rate limiters to use
  */
-export async function setRateLimiters(
-  runtime: Runtime,
-  rateLimiters: RateLimiters
-): Promise<void> {
+export async function setRateLimiters(runtime: Runtime, rateLimiters: RateLimiters): Promise<void> {
   logger.info('Swapping rate limiters');
 
   // Stop old rate limiters

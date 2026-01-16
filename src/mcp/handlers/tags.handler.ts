@@ -2,6 +2,8 @@
  * Tag handlers
  */
 
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
+
 import type { CreateTagInput } from '../../db/repositories/tags.js';
 import type { AppContext } from '../../core/context.js';
 import { logAction } from '../../services/audit.service.js';
@@ -160,7 +162,11 @@ export const tagHandlers = {
     if (!tagId && tagName) {
       const tag = await context.repos.tags.getByName(tagName);
       if (!tag) {
-        throw createValidationError('tagName', `tag "${tagName}" not found`, 'Check the tag name exists');
+        throw createValidationError(
+          'tagName',
+          `tag "${tagName}" not found`,
+          'Check the tag name exists'
+        );
       }
       tagId = tag.id;
     }

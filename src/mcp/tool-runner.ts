@@ -18,9 +18,8 @@ function buildContextBadge(ctx: DetectedContext): string {
 
   if (ctx.project) {
     // Truncate project name to 20 chars
-    const name = ctx.project.name.length > 20
-      ? ctx.project.name.slice(0, 17) + '...'
-      : ctx.project.name;
+    const name =
+      ctx.project.name.length > 20 ? ctx.project.name.slice(0, 17) + '...' : ctx.project.name;
     parts.push(`Project: ${name}`);
   }
 
@@ -172,7 +171,10 @@ export async function runTool(
     // Add _context and _badge to response if auto-detection was used
     const finalResult =
       detectedContext && typeof result === 'object' && result !== null
-        ? { ...result, _context: { ...detectedContext, _badge: buildContextBadge(detectedContext) } }
+        ? {
+            ...result,
+            _context: { ...detectedContext, _badge: buildContextBadge(detectedContext) },
+          }
         : result;
 
     // Format result based on output mode (compact or JSON)
@@ -266,7 +268,10 @@ function inferSessionName(
   }
   if (content) {
     // Extract first meaningful line
-    const firstLine = content.split('\n').find(line => line.trim().length > 0)?.trim();
+    const firstLine = content
+      .split('\n')
+      .find((line) => line.trim().length > 0)
+      ?.trim();
     if (firstLine && firstLine.length > 5) {
       return `Working on: ${truncate(firstLine, 40)}`;
     }
@@ -340,7 +345,13 @@ async function maybeAutoCreateSession(
   try {
     const effectiveAction = action ?? 'store'; // Default action for simple write tools
     const cwd = detectedContext?.project?.rootPath ?? process.cwd();
-    const sessionName = inferSessionName(toolName, effectiveAction, args, context.config.autoContext.autoSessionName, cwd);
+    const sessionName = inferSessionName(
+      toolName,
+      effectiveAction,
+      args,
+      context.config.autoContext.autoSessionName,
+      cwd
+    );
     const purposeText = action ? `action:${action}` : 'operation';
     const session = await context.repos.sessions.create({
       projectId,

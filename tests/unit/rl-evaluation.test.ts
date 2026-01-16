@@ -424,27 +424,28 @@ describe('RL Policy Evaluation', () => {
 
   describe('evaluatePolicyOnDataset', () => {
     it('should evaluate policy on dataset eval split', async () => {
-      const dataset: Dataset<{ state: ExtractionState; action: ExtractionAction; reward: number }> = {
-        train: [
-          {
-            state: createExtractionState(),
-            action: { decision: 'store' as const, entryType: 'knowledge' as const },
-            reward: 0.8,
-          },
-        ],
-        eval: [
-          {
-            state: createExtractionState({ similarEntryExists: true }),
-            action: { decision: 'skip' as const },
-            reward: 0.7,
-          },
-          {
-            state: createExtractionState(),
-            action: { decision: 'store' as const, entryType: 'guideline' as const },
-            reward: 0.9,
-          },
-        ],
-      };
+      const dataset: Dataset<{ state: ExtractionState; action: ExtractionAction; reward: number }> =
+        {
+          train: [
+            {
+              state: createExtractionState(),
+              action: { decision: 'store' as const, entryType: 'knowledge' as const },
+              reward: 0.8,
+            },
+          ],
+          eval: [
+            {
+              state: createExtractionState({ similarEntryExists: true }),
+              action: { decision: 'skip' as const },
+              reward: 0.7,
+            },
+            {
+              state: createExtractionState(),
+              action: { decision: 'store' as const, entryType: 'guideline' as const },
+              reward: 0.9,
+            },
+          ],
+        };
 
       const result = await evaluatePolicyOnDataset(policy, dataset);
 
@@ -455,16 +456,17 @@ describe('RL Policy Evaluation', () => {
     });
 
     it('should use eval split not train split', async () => {
-      const dataset: Dataset<{ state: ExtractionState; action: ExtractionAction; reward: number }> = {
-        train: [],
-        eval: [
-          {
-            state: createExtractionState({ similarEntryExists: true }),
-            action: { decision: 'skip' as const },
-            reward: 0.5,
-          },
-        ],
-      };
+      const dataset: Dataset<{ state: ExtractionState; action: ExtractionAction; reward: number }> =
+        {
+          train: [],
+          eval: [
+            {
+              state: createExtractionState({ similarEntryExists: true }),
+              action: { decision: 'skip' as const },
+              reward: 0.5,
+            },
+          ],
+        };
 
       const result = await evaluatePolicyOnDataset(policy, dataset);
 
@@ -478,21 +480,22 @@ describe('RL Policy Evaluation', () => {
       const policyA = new ExtractionPolicy({ enabled: true });
       const baselinePolicy = new ExtractionPolicy({ enabled: true });
 
-      const dataset: Dataset<{ state: ExtractionState; action: ExtractionAction; reward: number }> = {
-        train: [],
-        eval: [
-          {
-            state: createExtractionState({ similarEntryExists: true }),
-            action: { decision: 'skip' as const },
-            reward: 0.8,
-          },
-          {
-            state: createExtractionState(),
-            action: { decision: 'store' as const, entryType: 'knowledge' as const },
-            reward: 0.7,
-          },
-        ],
-      };
+      const dataset: Dataset<{ state: ExtractionState; action: ExtractionAction; reward: number }> =
+        {
+          train: [],
+          eval: [
+            {
+              state: createExtractionState({ similarEntryExists: true }),
+              action: { decision: 'skip' as const },
+              reward: 0.8,
+            },
+            {
+              state: createExtractionState(),
+              action: { decision: 'store' as const, entryType: 'knowledge' as const },
+              reward: 0.7,
+            },
+          ],
+        };
 
       const result = await comparePolicyAgainstBaseline(policyA, baselinePolicy, dataset);
 
@@ -531,8 +534,8 @@ describe('RL Policy Evaluation', () => {
       const result = computeRewardDistribution(rewards);
 
       expect(result.histogram.length).toBe(10);
-      expect(result.histogram.every(bin => bin.count >= 0)).toBe(true);
-      expect(result.histogram.every(bin => bin.percentage >= 0)).toBe(true);
+      expect(result.histogram.every((bin) => bin.count >= 0)).toBe(true);
+      expect(result.histogram.every((bin) => bin.percentage >= 0)).toBe(true);
 
       // Sum of counts should account for most rewards (some edge cases may be excluded)
       const totalCount = result.histogram.reduce((sum, bin) => sum + bin.count, 0);
@@ -600,10 +603,30 @@ describe('RL Policy Evaluation', () => {
       const day = 24 * 60 * 60 * 1000;
 
       const data = [
-        { state: createExtractionState(), action: { decision: 'store' as const }, reward: 0.7, timestamp: new Date(now - 14 * day).toISOString() },
-        { state: createExtractionState(), action: { decision: 'store' as const }, reward: 0.75, timestamp: new Date(now - 10 * day).toISOString() },
-        { state: createExtractionState(), action: { decision: 'store' as const }, reward: 0.8, timestamp: new Date(now - 5 * day).toISOString() },
-        { state: createExtractionState(), action: { decision: 'store' as const }, reward: 0.85, timestamp: new Date(now).toISOString() },
+        {
+          state: createExtractionState(),
+          action: { decision: 'store' as const },
+          reward: 0.7,
+          timestamp: new Date(now - 14 * day).toISOString(),
+        },
+        {
+          state: createExtractionState(),
+          action: { decision: 'store' as const },
+          reward: 0.75,
+          timestamp: new Date(now - 10 * day).toISOString(),
+        },
+        {
+          state: createExtractionState(),
+          action: { decision: 'store' as const },
+          reward: 0.8,
+          timestamp: new Date(now - 5 * day).toISOString(),
+        },
+        {
+          state: createExtractionState(),
+          action: { decision: 'store' as const },
+          reward: 0.85,
+          timestamp: new Date(now).toISOString(),
+        },
       ];
 
       const result = computeTemporalMetrics(data, 7 * day);
@@ -618,10 +641,30 @@ describe('RL Policy Evaluation', () => {
       const day = 24 * 60 * 60 * 1000;
 
       const data = [
-        { state: createExtractionState(), action: { decision: 'store' as const }, reward: 0.5, timestamp: new Date(now - 21 * day).toISOString() },
-        { state: createExtractionState(), action: { decision: 'store' as const }, reward: 0.6, timestamp: new Date(now - 14 * day).toISOString() },
-        { state: createExtractionState(), action: { decision: 'store' as const }, reward: 0.7, timestamp: new Date(now - 7 * day).toISOString() },
-        { state: createExtractionState(), action: { decision: 'store' as const }, reward: 0.9, timestamp: new Date(now).toISOString() },
+        {
+          state: createExtractionState(),
+          action: { decision: 'store' as const },
+          reward: 0.5,
+          timestamp: new Date(now - 21 * day).toISOString(),
+        },
+        {
+          state: createExtractionState(),
+          action: { decision: 'store' as const },
+          reward: 0.6,
+          timestamp: new Date(now - 14 * day).toISOString(),
+        },
+        {
+          state: createExtractionState(),
+          action: { decision: 'store' as const },
+          reward: 0.7,
+          timestamp: new Date(now - 7 * day).toISOString(),
+        },
+        {
+          state: createExtractionState(),
+          action: { decision: 'store' as const },
+          reward: 0.9,
+          timestamp: new Date(now).toISOString(),
+        },
       ];
 
       const result = computeTemporalMetrics(data, 7 * day);
@@ -634,10 +677,30 @@ describe('RL Policy Evaluation', () => {
       const day = 24 * 60 * 60 * 1000;
 
       const data = [
-        { state: createExtractionState(), action: { decision: 'store' as const }, reward: 0.9, timestamp: new Date(now - 21 * day).toISOString() },
-        { state: createExtractionState(), action: { decision: 'store' as const }, reward: 0.7, timestamp: new Date(now - 14 * day).toISOString() },
-        { state: createExtractionState(), action: { decision: 'store' as const }, reward: 0.5, timestamp: new Date(now - 7 * day).toISOString() },
-        { state: createExtractionState(), action: { decision: 'store' as const }, reward: 0.3, timestamp: new Date(now).toISOString() },
+        {
+          state: createExtractionState(),
+          action: { decision: 'store' as const },
+          reward: 0.9,
+          timestamp: new Date(now - 21 * day).toISOString(),
+        },
+        {
+          state: createExtractionState(),
+          action: { decision: 'store' as const },
+          reward: 0.7,
+          timestamp: new Date(now - 14 * day).toISOString(),
+        },
+        {
+          state: createExtractionState(),
+          action: { decision: 'store' as const },
+          reward: 0.5,
+          timestamp: new Date(now - 7 * day).toISOString(),
+        },
+        {
+          state: createExtractionState(),
+          action: { decision: 'store' as const },
+          reward: 0.3,
+          timestamp: new Date(now).toISOString(),
+        },
       ];
 
       const result = computeTemporalMetrics(data, 7 * day);
@@ -650,9 +713,24 @@ describe('RL Policy Evaluation', () => {
       const day = 24 * 60 * 60 * 1000;
 
       const data = [
-        { state: createExtractionState(), action: { decision: 'store' as const }, reward: 0.8, timestamp: new Date(now - 1 * day).toISOString() },
-        { state: createExtractionState(), action: { decision: 'store' as const }, reward: 0.7, timestamp: new Date(now - 2 * day).toISOString() },
-        { state: createExtractionState(), action: { decision: 'store' as const }, reward: 0.9, timestamp: new Date(now - 3 * day).toISOString() },
+        {
+          state: createExtractionState(),
+          action: { decision: 'store' as const },
+          reward: 0.8,
+          timestamp: new Date(now - 1 * day).toISOString(),
+        },
+        {
+          state: createExtractionState(),
+          action: { decision: 'store' as const },
+          reward: 0.7,
+          timestamp: new Date(now - 2 * day).toISOString(),
+        },
+        {
+          state: createExtractionState(),
+          action: { decision: 'store' as const },
+          reward: 0.9,
+          timestamp: new Date(now - 3 * day).toISOString(),
+        },
       ];
 
       const result = computeTemporalMetrics(data, 7 * day);
@@ -837,9 +915,9 @@ describe('RL Policy Evaluation', () => {
         metadata: {},
       };
 
-      await expect(
-        evaluator.evaluate(mockModel, [])
-      ).rejects.toThrow(/not yet implemented|model inference not found/i);
+      await expect(evaluator.evaluate(mockModel, [])).rejects.toThrow(
+        /not yet implemented|model inference not found/i
+      );
     });
 
     it('abTest should validate split ratio', async () => {
@@ -851,13 +929,13 @@ describe('RL Policy Evaluation', () => {
         metadata: {},
       };
 
-      await expect(
-        evaluator.abTest(mockModel, mockModel, [], 1.5)
-      ).rejects.toThrow(/splitRatio.*must be between 0 and 1/i);
+      await expect(evaluator.abTest(mockModel, mockModel, [], 1.5)).rejects.toThrow(
+        /splitRatio.*must be between 0 and 1/i
+      );
 
-      await expect(
-        evaluator.abTest(mockModel, mockModel, [], -0.5)
-      ).rejects.toThrow(/splitRatio.*must be between 0 and 1/i);
+      await expect(evaluator.abTest(mockModel, mockModel, [], -0.5)).rejects.toThrow(
+        /splitRatio.*must be between 0 and 1/i
+      );
     });
   });
 });

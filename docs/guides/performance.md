@@ -21,12 +21,12 @@ Agent Memory is optimized for read-heavy workloads typical of AI agent interacti
 
 ### Baseline Performance
 
-| Operation | Throughput | Latency (p99) |
-|-----------|------------|---------------|
-| Simple query | 4.5M ops/sec | < 0.3ms |
-| Scoped query with inheritance | 3.6M ops/sec | < 0.4ms |
-| Full-text search (FTS5) | 3.5M ops/sec | < 0.4ms |
-| Semantic search | 3.1M ops/sec | < 0.5ms |
+| Operation                     | Throughput   | Latency (p99) |
+| ----------------------------- | ------------ | ------------- |
+| Simple query                  | 4.5M ops/sec | < 0.3ms       |
+| Scoped query with inheritance | 3.6M ops/sec | < 0.4ms       |
+| Full-text search (FTS5)       | 3.5M ops/sec | < 0.4ms       |
+| Semantic search               | 3.1M ops/sec | < 0.5ms       |
 
 ### Factors Affecting Performance
 
@@ -126,7 +126,7 @@ Always specify reasonable limits:
 {
   "action": "search",
   "search": "query",
-  "limit": 20  // Don't fetch more than needed
+  "limit": 20 // Don't fetch more than needed
 }
 ```
 
@@ -138,7 +138,7 @@ Filter by entry type when possible:
 {
   "action": "search",
   "search": "style",
-  "types": ["guidelines"]  // Only search guidelines
+  "types": ["guidelines"] // Only search guidelines
 }
 ```
 
@@ -192,7 +192,7 @@ Bulk operations are significantly faster than individual calls.
   "scopeId": "proj-123",
   "entries": [
     { "name": "rule-1", "content": "..." },
-    { "name": "rule-2", "content": "..." },
+    { "name": "rule-2", "content": "..." }
     // ... up to 100 entries
   ]
 }
@@ -219,11 +219,11 @@ AGENT_MEMORY_BULK_OPERATION_MAX=100
 
 ### Performance Comparison
 
-| Operation | 100 Individual Calls | 1 Bulk Call |
-|-----------|---------------------|-------------|
-| Add guidelines | ~500ms | ~50ms |
-| Network overhead | 100 round trips | 1 round trip |
-| Transaction overhead | 100 transactions | 1 transaction |
+| Operation            | 100 Individual Calls | 1 Bulk Call   |
+| -------------------- | -------------------- | ------------- |
+| Add guidelines       | ~500ms               | ~50ms         |
+| Network overhead     | 100 round trips      | 1 round trip  |
+| Transaction overhead | 100 transactions     | 1 transaction |
 
 ---
 

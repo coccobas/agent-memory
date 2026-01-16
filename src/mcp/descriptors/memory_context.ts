@@ -20,7 +20,8 @@ Example: {"action":"show"} → returns detected context`,
   params: {
     action: {
       type: 'string',
-      description: 'Action to perform: "show" (display detected context) or "refresh" (clear cache and re-detect)',
+      description:
+        'Action to perform: "show" (display detected context) or "refresh" (clear cache and re-detect)',
       enum: ['show', 'refresh'],
     },
   },
@@ -37,7 +38,8 @@ Example: {"action":"show"} → returns detected context`,
     if (!contextDetection) {
       return {
         error: 'Context detection service not available',
-        message: 'The context detection service is not initialized. This may indicate a startup issue.',
+        message:
+          'The context detection service is not initialized. This may indicate a startup issue.',
       };
     }
 

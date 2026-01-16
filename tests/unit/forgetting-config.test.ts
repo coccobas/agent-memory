@@ -3,7 +3,10 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { forgettingConfigSchema, forgettingEnvMappings } from '../../src/config/registry/sections/forgetting.js';
+import {
+  forgettingConfigSchema,
+  forgettingEnvMappings,
+} from '../../src/config/registry/sections/forgetting.js';
 
 describe('forgettingConfigSchema', () => {
   describe('defaults', () => {
@@ -110,17 +113,35 @@ describe('forgettingEnvMappings', () => {
   it('should have all expected environment variable mappings', () => {
     expect(forgettingEnvMappings.enabled).toBe('AGENT_MEMORY_FORGETTING_ENABLED');
     expect(forgettingEnvMappings.schedule).toBe('AGENT_MEMORY_FORGETTING_SCHEDULE');
-    expect(forgettingEnvMappings['recency.enabled']).toBe('AGENT_MEMORY_FORGETTING_RECENCY_ENABLED');
-    expect(forgettingEnvMappings['recency.staleDays']).toBe('AGENT_MEMORY_FORGETTING_RECENCY_STALE_DAYS');
-    expect(forgettingEnvMappings['recency.threshold']).toBe('AGENT_MEMORY_FORGETTING_RECENCY_THRESHOLD');
-    expect(forgettingEnvMappings['frequency.enabled']).toBe('AGENT_MEMORY_FORGETTING_FREQUENCY_ENABLED');
-    expect(forgettingEnvMappings['frequency.minAccessCount']).toBe('AGENT_MEMORY_FORGETTING_FREQUENCY_MIN_ACCESS');
-    expect(forgettingEnvMappings['frequency.lookbackDays']).toBe('AGENT_MEMORY_FORGETTING_FREQUENCY_LOOKBACK_DAYS');
-    expect(forgettingEnvMappings['importance.enabled']).toBe('AGENT_MEMORY_FORGETTING_IMPORTANCE_ENABLED');
-    expect(forgettingEnvMappings['importance.threshold']).toBe('AGENT_MEMORY_FORGETTING_IMPORTANCE_THRESHOLD');
+    expect(forgettingEnvMappings['recency.enabled']).toBe(
+      'AGENT_MEMORY_FORGETTING_RECENCY_ENABLED'
+    );
+    expect(forgettingEnvMappings['recency.staleDays']).toBe(
+      'AGENT_MEMORY_FORGETTING_RECENCY_STALE_DAYS'
+    );
+    expect(forgettingEnvMappings['recency.threshold']).toBe(
+      'AGENT_MEMORY_FORGETTING_RECENCY_THRESHOLD'
+    );
+    expect(forgettingEnvMappings['frequency.enabled']).toBe(
+      'AGENT_MEMORY_FORGETTING_FREQUENCY_ENABLED'
+    );
+    expect(forgettingEnvMappings['frequency.minAccessCount']).toBe(
+      'AGENT_MEMORY_FORGETTING_FREQUENCY_MIN_ACCESS'
+    );
+    expect(forgettingEnvMappings['frequency.lookbackDays']).toBe(
+      'AGENT_MEMORY_FORGETTING_FREQUENCY_LOOKBACK_DAYS'
+    );
+    expect(forgettingEnvMappings['importance.enabled']).toBe(
+      'AGENT_MEMORY_FORGETTING_IMPORTANCE_ENABLED'
+    );
+    expect(forgettingEnvMappings['importance.threshold']).toBe(
+      'AGENT_MEMORY_FORGETTING_IMPORTANCE_THRESHOLD'
+    );
     expect(forgettingEnvMappings.dryRunDefault).toBe('AGENT_MEMORY_FORGETTING_DRY_RUN_DEFAULT');
     expect(forgettingEnvMappings.maxEntriesPerRun).toBe('AGENT_MEMORY_FORGETTING_MAX_ENTRIES');
     expect(forgettingEnvMappings.excludeCritical).toBe('AGENT_MEMORY_FORGETTING_EXCLUDE_CRITICAL');
-    expect(forgettingEnvMappings.excludeHighPriority).toBe('AGENT_MEMORY_FORGETTING_EXCLUDE_HIGH_PRIORITY');
+    expect(forgettingEnvMappings.excludeHighPriority).toBe(
+      'AGENT_MEMORY_FORGETTING_EXCLUDE_HIGH_PRIORITY'
+    );
   });
 });

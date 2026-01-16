@@ -10,38 +10,87 @@
  * - Requires `searchStrategy` in PipelineContext (from strategy stage)
  * - Adds `queryEmbedding?: number[]` to PipelineContext for downstream use
  * - Populates `semanticScores` map with entry IDs and similarity scores
+ *
+ * NOTE: Non-null assertions used for Map access after has() checks in cache operations.
  */
+
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 
 import type { PipelineContext } from '../pipeline.js';
 import type { SearchStrategy } from './strategy.js';
 import { AgentMemoryError, ErrorCodes } from '../../../core/errors.js';
+import { LRUCache } from 'lru-cache';
 
-// Bug #23 fix: Request coalescing map to prevent cache stampede
-// When multiple concurrent requests need the same embedding, only one API call is made
-// Key: search query text, Value: pending promise for the embedding result
-const pendingEmbeddings = new Map<string, Promise<{ embedding: number[] }>>();
+// =============================================================================
+// BOUNDED REQUEST COALESCING CACHE
+// =============================================================================
 
 /**
- * Get or create an embedding with request coalescing
- * Multiple concurrent requests for the same query share a single API call
+ * Cache entry for pending embedding requests.
+ * Stores both the promise and timestamp for debugging/monitoring.
+ */
+interface CacheEntry {
+  promise: Promise<{ embedding: number[] }>;
+  timestamp: number;
+}
+
+/**
+ * Bug #23 fix: Request coalescing cache with bounds to prevent memory exhaustion.
+ *
+ * Features:
+ * - LRU eviction: Least recently used entries are removed first
+ * - TTL: Entries expire after 60 seconds
+ * - Size limit: Maximum 1000 concurrent embedding requests
+ * - Automatic cleanup: TTL and eviction prevent unbounded growth
+ *
+ * Performance:
+ * - Prevents cache stampede (multiple requests for same query)
+ * - Bounded memory usage (~10MB max for 1000 entries)
+ * - No memory leaks from failed promises
+ */
+const pendingEmbeddings = new LRUCache<string, CacheEntry>({
+  max: 1000, // Max 1000 concurrent embedding requests
+  ttl: 60_000, // 1 minute TTL (60 seconds)
+  updateAgeOnGet: true, // LRU behavior - accessed entries stay fresh
+  // Dispose is called when entries are evicted or expired
+  dispose: (_value: CacheEntry, _key: string) => {
+    // Log eviction for monitoring (can be removed in production)
+    // Note: No cleanup needed as promise resolves/rejects independently
+  },
+});
+
+/**
+ * Get or create an embedding with bounded request coalescing.
+ * Multiple concurrent requests for the same query share a single API call.
+ *
+ * Memory Safety:
+ * - Cache is bounded by size (1000 entries) and TTL (60s)
+ * - Failed promises are cleaned up via finally()
+ * - LRU eviction prevents memory exhaustion
  */
 async function getEmbeddingWithCoalescing(
   embeddingService: { embed(text: string): Promise<{ embedding: number[] }> },
   text: string
 ): Promise<{ embedding: number[] }> {
   // Check if there's already a pending request for this text
-  const pending = pendingEmbeddings.get(text);
-  if (pending) {
-    return pending;
+  const cached = pendingEmbeddings.get(text);
+  if (cached) {
+    return cached.promise;
   }
 
   // Create new request and store the promise
   const promise = embeddingService.embed(text).finally(() => {
     // Clean up after completion (success or failure)
+    // This ensures failed promises don't persist in cache
     pendingEmbeddings.delete(text);
   });
 
-  pendingEmbeddings.set(text, promise);
+  // Store in LRU cache with timestamp
+  pendingEmbeddings.set(text, {
+    promise,
+    timestamp: Date.now(),
+  });
+
   return promise;
 }
 
@@ -105,8 +154,17 @@ export async function semanticStageAsync(ctx: PipelineContext): Promise<Pipeline
     const { types, limit } = ctx;
 
     // Check for HyDE embeddings from rewrite stage
-    const searchQueries = (ctx as { searchQueries?: Array<{ text: string; embedding?: number[]; weight: number; source: string }> }).searchQueries;
-    const hydeQueries = searchQueries?.filter(q => q.source === 'hyde' && q.embedding) ?? [];
+    const searchQueries = (
+      ctx as {
+        searchQueries?: Array<{
+          text: string;
+          embedding?: number[];
+          weight: number;
+          source: string;
+        }>;
+      }
+    ).searchQueries;
+    const hydeQueries = searchQueries?.filter((q) => q.source === 'hyde' && q.embedding) ?? [];
 
     // 1. Generate query embedding (use first HyDE embedding if available, otherwise embed original)
     let queryEmbedding: number[];
@@ -114,7 +172,7 @@ export async function semanticStageAsync(ctx: PipelineContext): Promise<Pipeline
 
     if (hydeQueries.length > 0) {
       // Use HyDE embeddings for semantic search
-      embeddingsToSearch = hydeQueries.map(q => ({
+      embeddingsToSearch = hydeQueries.map((q) => ({
         embedding: q.embedding!,
         weight: q.weight,
       }));
@@ -214,10 +272,7 @@ export async function semanticStageAsync(ctx: PipelineContext): Promise<Pipeline
 
       // Expected errors (embeddings disabled) - log at debug level
       if (errorCode === ErrorCodes.EMBEDDING_DISABLED) {
-        deps.logger.debug(
-          { error: errorMessage },
-          'semantic stage skipped: embeddings disabled'
-        );
+        deps.logger.debug({ error: errorMessage }, 'semantic stage skipped: embeddings disabled');
       }
       // Transient errors (network, timeout) - log at warn level
       else if (
@@ -239,7 +294,8 @@ export async function semanticStageAsync(ctx: PipelineContext): Promise<Pipeline
             errorCode,
             errorType: error?.constructor?.name,
             search: search?.substring(0, 100), // Truncate for privacy
-            stack: error instanceof Error ? error.stack?.split('\n').slice(0, 5).join('\n') : undefined,
+            stack:
+              error instanceof Error ? error.stack?.split('\n').slice(0, 5).join('\n') : undefined,
           },
           'semantic stage failed unexpectedly - continuing without semantic scores'
         );

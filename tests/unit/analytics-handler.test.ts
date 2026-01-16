@@ -171,15 +171,11 @@ describe('Analytics Handler', () => {
     });
 
     it('should throw when agentA is missing', () => {
-      expect(() =>
-        getErrorCorrelationHandler(mockContext, { agentB: 'agent-2' })
-      ).toThrow();
+      expect(() => getErrorCorrelationHandler(mockContext, { agentB: 'agent-2' })).toThrow();
     });
 
     it('should throw when agentB is missing', () => {
-      expect(() =>
-        getErrorCorrelationHandler(mockContext, { agentA: 'agent-1' })
-      ).toThrow();
+      expect(() => getErrorCorrelationHandler(mockContext, { agentA: 'agent-1' })).toThrow();
     });
 
     it('should pass time window filter', () => {
@@ -202,9 +198,7 @@ describe('Analytics Handler', () => {
   describe('getLowDiversityHandler', () => {
     it('should detect low diversity in project', () => {
       const mockResult = {
-        lowDiversityPairs: [
-          { agentA: 'agent-1', agentB: 'agent-2', similarity: 0.95 },
-        ],
+        lowDiversityPairs: [{ agentA: 'agent-1', agentB: 'agent-2', similarity: 0.95 }],
         threshold: 0.9,
       };
 
@@ -231,9 +225,7 @@ describe('Analytics Handler', () => {
     });
 
     it('should throw when neither projectId nor scopeId is provided', () => {
-      expect(() =>
-        getLowDiversityHandler(mockContext, {})
-      ).toThrow();
+      expect(() => getLowDiversityHandler(mockContext, {})).toThrow();
     });
   });
 

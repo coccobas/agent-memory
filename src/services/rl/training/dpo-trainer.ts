@@ -61,9 +61,7 @@ export interface DPOPair {
  * DPO requires pairs of (chosen, rejected) responses for the same prompt.
  * We construct pairs by grouping examples with similar state and comparing rewards.
  */
-export function formatExtractionForDPO(
-  examples: ExtractionTrainingExample[]
-): DPOPair[] {
+export function formatExtractionForDPO(examples: ExtractionTrainingExample[]): DPOPair[] {
   const pairs: DPOPair[] = [];
 
   // Group by similar state (using context hash as proxy)
@@ -389,9 +387,7 @@ export async function trainRetrievalPolicy(
 /**
  * Format consolidation examples for DPO training
  */
-export function formatConsolidationForDPO(
-  examples: ConsolidationTrainingExample[]
-): DPOPair[] {
+export function formatConsolidationForDPO(examples: ConsolidationTrainingExample[]): DPOPair[] {
   const pairs: DPOPair[] = [];
 
   // Group by similar state

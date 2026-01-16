@@ -22,7 +22,12 @@ vi.mock('node:fs', () => ({
 vi.mock('../../src/config/index.js', () => ({
   config: {
     logging: { level: 'info', debug: false, performance: false },
-    cache: { queryCacheTTLMs: 5000, scopeCacheTTLMs: 10000, pressureThreshold: 0.8, evictionTarget: 0.7 },
+    cache: {
+      queryCacheTTLMs: 5000,
+      scopeCacheTTLMs: 10000,
+      pressureThreshold: 0.8,
+      evictionTarget: 0.7,
+    },
     memory: { heapPressureThreshold: 0.9, checkIntervalMs: 60000 },
     rateLimit: {
       enabled: true,
@@ -123,7 +128,7 @@ describe('ConfigReloader', () => {
       await configReloader.reload();
       const before = configReloader.getLastReloadTime();
 
-      await new Promise(resolve => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, 10));
       await configReloader.reload();
       const after = configReloader.getLastReloadTime();
 
@@ -227,7 +232,7 @@ describe('ConfigReloader', () => {
       changeCallback?.('change');
 
       // Wait for debounced reload
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 50));
 
       expect(callback).toHaveBeenCalled();
     });
@@ -253,7 +258,7 @@ describe('ConfigReloader', () => {
       changeCallback?.('change');
 
       // Wait for debounce
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Should only reload once
       expect(callback).toHaveBeenCalledTimes(1);
@@ -294,7 +299,7 @@ describe('ConfigReloader', () => {
       configReloader.stopWatching();
 
       // Wait to ensure callback doesn't fire
-      await new Promise(resolve => setTimeout(resolve, 150));
+      await new Promise((resolve) => setTimeout(resolve, 150));
 
       expect(callback).not.toHaveBeenCalled();
     });
@@ -425,7 +430,7 @@ describe('ConfigReloader', () => {
       await configReloader.reload();
       const time1 = configReloader.getLastReloadTime();
 
-      await new Promise(resolve => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, 10));
 
       await configReloader.reload();
       const time2 = configReloader.getLastReloadTime();
@@ -527,7 +532,7 @@ describe('Edge Cases', () => {
     ]);
 
     expect(results).toHaveLength(3);
-    results.forEach(result => {
+    results.forEach((result) => {
       expect(result).toHaveProperty('success');
       expect(result).toHaveProperty('changes');
       expect(result).toHaveProperty('errors');
@@ -549,7 +554,7 @@ describe('Edge Cases', () => {
     // Trigger without event type
     changeCallback?.();
 
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await new Promise((resolve) => setTimeout(resolve, 50));
 
     // Should not crash
     expect(true).toBe(true);

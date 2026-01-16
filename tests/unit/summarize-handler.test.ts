@@ -281,9 +281,7 @@ describe('Summarize Handler', () => {
     });
 
     it('should throw when query is missing', async () => {
-      await expect(summarizeHandlers.search(mockContext, {})).rejects.toThrow(
-        'query'
-      );
+      await expect(summarizeHandlers.search(mockContext, {})).rejects.toThrow('query');
     });
 
     it('should throw when scopeId missing for non-global scope', async () => {
@@ -318,9 +316,7 @@ describe('Summarize Handler', () => {
     });
 
     it('should throw when summaryId is missing', async () => {
-      await expect(
-        summarizeHandlers.drill_down(mockContext, {})
-      ).rejects.toThrow('summaryId');
+      await expect(summarizeHandlers.drill_down(mockContext, {})).rejects.toThrow('summaryId');
     });
 
     it('should throw when summary not found', async () => {

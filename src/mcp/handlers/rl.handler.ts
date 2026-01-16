@@ -2,7 +2,12 @@
  * RL handlers
  *
  * Handlers for managing reinforcement learning policies
+ *
+ * NOTE: Non-null assertions used for Map/Record access after existence checks
+ * in model and policy management.
  */
+
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 
 import type { AppContext } from '../../core/context.js';
 import { createComponentLogger } from '../../utils/logger.js';
@@ -56,10 +61,7 @@ function getFileSystemAdapter(context: AppContext): IFileSystemAdapter {
 /**
  * Get RL service status and policy states
  */
-async function status(
-  context: AppContext,
-  _params: Record<string, unknown>
-): Promise<unknown> {
+async function status(context: AppContext, _params: Record<string, unknown>): Promise<unknown> {
   const rlService = context.services.rl;
   if (!rlService) {
     throw createValidationError('rl', 'RL service not available');
@@ -84,10 +86,7 @@ async function trainOriginal(
   const evalSplit = getOptionalParam(params, 'evalSplit', isNumber);
 
   if (!['extraction', 'retrieval', 'consolidation'].includes(policy)) {
-    throw createValidationError(
-      'policy',
-      'Policy must be extraction, retrieval, or consolidation'
-    );
+    throw createValidationError('policy', 'Policy must be extraction, retrieval, or consolidation');
   }
 
   // Build dataset parameters
@@ -131,18 +130,12 @@ async function trainOriginal(
 /**
  * Enable or disable a policy
  */
-async function enable(
-  context: AppContext,
-  params: Record<string, unknown>
-): Promise<unknown> {
+async function enable(context: AppContext, params: Record<string, unknown>): Promise<unknown> {
   const policy = getRequiredParam(params, 'policy', isString);
   const enabled = getRequiredParam(params, 'enabled', isBoolean);
 
   if (!['extraction', 'retrieval', 'consolidation'].includes(policy)) {
-    throw createValidationError(
-      'policy',
-      'Policy must be extraction, retrieval, or consolidation'
-    );
+    throw createValidationError('policy', 'Policy must be extraction, retrieval, or consolidation');
   }
 
   const rlService = context.services.rl;
@@ -234,10 +227,7 @@ async function exportDataset(
   const evalSplit = getOptionalParam(params, 'evalSplit', isNumber);
 
   if (!['extraction', 'retrieval', 'consolidation'].includes(policy)) {
-    throw createValidationError(
-      'policy',
-      'Policy must be extraction, retrieval, or consolidation'
-    );
+    throw createValidationError('policy', 'Policy must be extraction, retrieval, or consolidation');
   }
 
   // Validate format using service
@@ -287,10 +277,7 @@ async function exportDataset(
 
   // Security check: ensure path is within intended directory
   if (!resolvedPath.startsWith(outputDir)) {
-    throw createValidationError(
-      'outputPath',
-      'Output path would escape intended directory'
-    );
+    throw createValidationError('outputPath', 'Output path would escape intended directory');
   }
 
   await fs.writeFile(resolvedPath, content, 'utf-8');
@@ -316,10 +303,7 @@ async function trainPolicy(
   const configParam = getOptionalParam(params, 'config', isObject);
 
   if (!['extraction', 'retrieval', 'consolidation'].includes(policy)) {
-    throw createValidationError(
-      'policy',
-      'Policy must be extraction, retrieval, or consolidation'
-    );
+    throw createValidationError('policy', 'Policy must be extraction, retrieval, or consolidation');
   }
 
   // Use existing train handler logic with expanded params
@@ -329,19 +313,13 @@ async function trainPolicy(
 /**
  * Load a trained model
  */
-async function loadModel(
-  context: AppContext,
-  params: Record<string, unknown>
-): Promise<unknown> {
+async function loadModel(context: AppContext, params: Record<string, unknown>): Promise<unknown> {
   const fs = getFileSystemAdapter(context);
   const policy = getRequiredParam(params, 'policy', isString);
   const version = getOptionalParam(params, 'version', isString);
 
   if (!['extraction', 'retrieval', 'consolidation'].includes(policy)) {
-    throw createValidationError(
-      'policy',
-      'Policy must be extraction, retrieval, or consolidation'
-    );
+    throw createValidationError('policy', 'Policy must be extraction, retrieval, or consolidation');
   }
 
   const rlService = context.services.rl;
@@ -399,14 +377,13 @@ async function loadModel(
 /**
  * List available trained models
  */
-async function listModels(
-  context: AppContext,
-  _params: Record<string, unknown>
-): Promise<unknown> {
+async function listModels(context: AppContext, _params: Record<string, unknown>): Promise<unknown> {
   const fs = getFileSystemAdapter(context);
   const modelsBaseDir = fs.join(appConfig.paths.dataDir, 'models', 'rl');
   const policies = ['extraction', 'retrieval', 'consolidation'];
 
+  // Model list format varies by policy - using any for flexibility
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const models: Record<string, any[]> = {};
 
   for (const policy of policies) {
@@ -439,6 +416,8 @@ async function listModels(
       if (await fs.exists(metadataPath)) {
         try {
           const content = await fs.readFile(metadataPath, 'utf-8');
+          // JSON.parse returns unknown - metadata object structure is validated by usage
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           metadata = JSON.parse(content);
         } catch {
           // Ignore metadata read errors
@@ -483,10 +462,7 @@ async function evaluateModel(
   const datasetPath = getOptionalParam(params, 'datasetPath', isString);
 
   if (!['extraction', 'retrieval', 'consolidation'].includes(policy)) {
-    throw createValidationError(
-      'policy',
-      'Policy must be extraction, retrieval, or consolidation'
-    );
+    throw createValidationError('policy', 'Policy must be extraction, retrieval, or consolidation');
   }
 
   const rlService = context.services.rl;
@@ -546,11 +522,17 @@ async function evaluateModel(
   }
 
   // Evaluate (using type assertion for policy flexibility)
+  // RL policies have generic type parameters - safe to use any for dataset compatibility
   const result = await evaluatePolicy(
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
     policyInstance as any,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
     dataset.eval.map((ex: any) => ({
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
       state: ex.state,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
       expectedAction: ex.action,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
       reward: ex.reward,
     }))
   );
@@ -559,6 +541,7 @@ async function evaluateModel(
     success: true,
     policy,
     enabled: policyInstance.isEnabled(),
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any
     hasModel: !!(rlService.getConfig() as any)[policy]?.modelPath,
     datasetSize: dataset.eval.length,
     evaluation: result,
@@ -655,12 +638,18 @@ async function compareModels(
   }
 
   // Compare (for now, comparing policy against itself as placeholder)
+  // RL policies have generic type parameters - safe to use any for dataset compatibility
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
   const testData = dataset.eval.map((ex: any) => ({
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
     state: ex.state,
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
     expectedAction: ex.action,
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
     reward: ex.reward,
   }));
 
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
   const result = await comparePolicies(policyInstance as any, policyInstance as any, testData);
 
   return {

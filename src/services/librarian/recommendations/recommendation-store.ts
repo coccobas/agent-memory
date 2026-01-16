@@ -3,7 +3,12 @@
  *
  * CRUD operations for librarian-generated promotion recommendations.
  * Manages the lifecycle of recommendations from creation to approval/rejection.
+ *
+ * NOTE: Non-null assertions used for Drizzle ORM query builder results
+ * (and/or operations) after conditional construction.
  */
+
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 
 import { eq, and, desc, sql, inArray, lt, or, isNull, type SQL } from 'drizzle-orm';
 import { transactionWithRetry } from '../../../db/connection.js';
@@ -194,10 +199,7 @@ export function createRecommendationStore(deps: DatabaseDeps): IRecommendationSt
           // Include global + specified scope
           if (filter.scopeType === 'global') {
             conditions.push(
-              and(
-                eq(recommendations.scopeType, 'global'),
-                isNull(recommendations.scopeId)
-              )!
+              and(eq(recommendations.scopeType, 'global'), isNull(recommendations.scopeId))!
             );
           } else {
             conditions.push(
@@ -271,11 +273,7 @@ export function createRecommendationStore(deps: DatabaseDeps): IRecommendationSt
       input: UpdateRecommendationInput
     ): Promise<Recommendation | undefined> {
       return await transactionWithRetry(sqlite, () => {
-        const existing = db
-          .select()
-          .from(recommendations)
-          .where(eq(recommendations.id, id))
-          .get();
+        const existing = db.select().from(recommendations).where(eq(recommendations.id, id)).get();
         if (!existing) return undefined;
 
         const updates: Partial<Recommendation> = {
@@ -322,11 +320,7 @@ export function createRecommendationStore(deps: DatabaseDeps): IRecommendationSt
       });
     },
 
-    async skip(
-      id: string,
-      skippedBy: string,
-      notes?: string
-    ): Promise<Recommendation | undefined> {
+    async skip(id: string, skippedBy: string, notes?: string): Promise<Recommendation | undefined> {
       return store.update(id, {
         status: 'skipped',
         reviewedBy: skippedBy,
@@ -347,12 +341,7 @@ export function createRecommendationStore(deps: DatabaseDeps): IRecommendationSt
           status: 'expired',
           updatedAt: new Date().toISOString(),
         })
-        .where(
-          and(
-            eq(recommendations.status, 'pending'),
-            lt(recommendations.expiresAt, cutoff)
-          )
-        )
+        .where(and(eq(recommendations.status, 'pending'), lt(recommendations.expiresAt, cutoff)))
         .run();
 
       return result.changes;
@@ -382,10 +371,7 @@ export function createRecommendationStore(deps: DatabaseDeps): IRecommendationSt
         if (filter.inherit) {
           if (filter.scopeType === 'global') {
             conditions.push(
-              and(
-                eq(recommendations.scopeType, 'global'),
-                isNull(recommendations.scopeId)
-              )!
+              and(eq(recommendations.scopeType, 'global'), isNull(recommendations.scopeId))!
             );
           } else {
             conditions.push(

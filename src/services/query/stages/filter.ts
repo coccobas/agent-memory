@@ -17,7 +17,11 @@ import type { PipelineContext, QueryType, QueryEntryType } from '../pipeline.js'
 import { PIPELINE_STAGES, markStageCompleted } from '../pipeline.js';
 import type { Guideline, Tag } from '../../../db/schema.js';
 import type { EntryUnion, FilteredEntry, FilterStageResult } from '../types.js';
-import { getEntryKeyValue, getEntrySearchableText, QUERY_TYPE_TO_TABLE_NAME } from '../type-maps.js';
+import {
+  getEntryKeyValue,
+  getEntrySearchableText,
+  QUERY_TYPE_TO_TABLE_NAME,
+} from '../type-maps.js';
 import { textMatches, fuzzyTextMatches, regexTextMatches } from '../../../utils/text-matching.js';
 import { filterByTags } from './tags.js';
 import type { StrategyPipelineContext } from './strategy.js';
@@ -285,10 +289,13 @@ export function filterStage(ctx: PipelineContext): PipelineContext {
     );
   }
 
-  return markStageCompleted({
-    ...ctx,
-    filtered,
-    // Clear fetchedEntries to release memory - data is now in filtered
-    fetchedEntries: { tools: [], guidelines: [], knowledge: [], experiences: [] },
-  }, PIPELINE_STAGES.FILTER);
+  return markStageCompleted(
+    {
+      ...ctx,
+      filtered,
+      // Clear fetchedEntries to release memory - data is now in filtered
+      fetchedEntries: { tools: [], guidelines: [], knowledge: [], experiences: [] },
+    },
+    PIPELINE_STAGES.FILTER
+  );
 }

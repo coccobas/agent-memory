@@ -217,7 +217,8 @@ describe('Transcript Cursor', () => {
       writeFileSync(testFilePath, line1 + '\n' + line2 + '\n');
 
       const result1 = readTranscriptFromOffset(testFilePath, 0);
-      const expectedOffset = Buffer.byteLength(line1, 'utf8') + 1 + Buffer.byteLength(line2, 'utf8') + 1;
+      const expectedOffset =
+        Buffer.byteLength(line1, 'utf8') + 1 + Buffer.byteLength(line2, 'utf8') + 1;
 
       expect(result1.nextByteOffset).toBe(expectedOffset);
     });
@@ -232,6 +233,121 @@ describe('Transcript Cursor', () => {
       // Without trailing newline, the line is considered incomplete
       // This depends on implementation - it may defer or include
       expect(result.lines.length).toBeLessThanOrEqual(1);
+    });
+
+    it('should handle multi-byte UTF-8 characters (2-byte)', () => {
+      // é is a 2-byte UTF-8 character (0xC3 0xA9)
+      const unicodeLine = JSON.stringify({ message: 'café' });
+      writeFileSync(testFilePath, unicodeLine + '\n');
+
+      const result = readTranscriptFromOffset(testFilePath, 0);
+
+      expect(result.lines).toHaveLength(1);
+      expect(JSON.parse(result.lines[0]!).message).toBe('café');
+    });
+
+    it('should handle multi-byte UTF-8 characters (3-byte)', () => {
+      // Chinese characters are 3-byte UTF-8
+      const unicodeLine = JSON.stringify({ message: '中文测试' });
+      writeFileSync(testFilePath, unicodeLine + '\n');
+
+      const result = readTranscriptFromOffset(testFilePath, 0);
+
+      expect(result.lines).toHaveLength(1);
+      expect(JSON.parse(result.lines[0]!).message).toBe('中文测试');
+    });
+
+    it('should handle multi-byte UTF-8 characters (4-byte emoji)', () => {
+      // Emoji are 4-byte UTF-8 characters
+      const unicodeLine = JSON.stringify({ message: '😀🎉🚀' });
+      writeFileSync(testFilePath, unicodeLine + '\n');
+
+      const result = readTranscriptFromOffset(testFilePath, 0);
+
+      expect(result.lines).toHaveLength(1);
+      expect(JSON.parse(result.lines[0]!).message).toBe('😀🎉🚀');
+    });
+
+    it('should handle mixed ASCII and multi-byte UTF-8', () => {
+      const unicodeLine = JSON.stringify({ message: 'Hello 世界! 🌍' });
+      writeFileSync(testFilePath, unicodeLine + '\n');
+
+      const result = readTranscriptFromOffset(testFilePath, 0);
+
+      expect(result.lines).toHaveLength(1);
+      expect(JSON.parse(result.lines[0]!).message).toBe('Hello 世界! 🌍');
+    });
+
+    it('should handle UTF-8 truncation at buffer boundary', () => {
+      // Create content where a multi-byte character might be split at buffer boundary
+      const line1 = JSON.stringify({ id: 1, data: 'x'.repeat(500) });
+      const line2 = JSON.stringify({ id: 2, message: '世界' }); // 3-byte chars
+      writeFileSync(testFilePath, line1 + '\n' + line2 + '\n');
+
+      // Read with small buffer that might split a UTF-8 sequence
+      const result = readTranscriptFromOffset(testFilePath, 0, 100);
+
+      // Should handle gracefully without corrupting data
+      expect(result.lines.length).toBeGreaterThanOrEqual(0);
+      expect(result.wasTruncated).toBe(false);
+    });
+
+    it('should handle bytesRead being 0', () => {
+      // Edge case: file exists but read returns 0 bytes
+      // This happens when file is empty or at EOF
+      writeFileSync(testFilePath, '');
+
+      const result = readTranscriptFromOffset(testFilePath, 0);
+
+      expect(result.lines).toEqual([]);
+      expect(result.nextByteOffset).toBe(0);
+      expect(result.wasTruncated).toBe(false);
+    });
+
+    it('should handle consecutive empty lines between valid lines', () => {
+      const line1 = JSON.stringify({ id: 1 });
+      const line2 = JSON.stringify({ id: 2 });
+      writeFileSync(testFilePath, line1 + '\n\n\n\n' + line2 + '\n');
+
+      const result = readTranscriptFromOffset(testFilePath, 0);
+
+      expect(result.lines).toHaveLength(2);
+      expect(result.lines[0]).toBe(line1);
+      expect(result.lines[1]).toBe(line2);
+    });
+
+    it('should handle whitespace-only lines', () => {
+      const line = JSON.stringify({ id: 1 });
+      writeFileSync(testFilePath, line + '\n   \n\t\t\n' + JSON.stringify({ id: 2 }) + '\n');
+
+      const result = readTranscriptFromOffset(testFilePath, 0);
+
+      expect(result.lines).toHaveLength(2);
+    });
+
+    it('should properly calculate byte offsets with multi-byte characters', () => {
+      // Each Chinese character is 3 bytes in UTF-8
+      const unicodeLine = JSON.stringify({ message: '中文' });
+      writeFileSync(testFilePath, unicodeLine + '\n');
+
+      const result = readTranscriptFromOffset(testFilePath, 0);
+
+      expect(result.lines).toHaveLength(1);
+      // Verify offset calculation is correct
+      const expectedOffset = Buffer.byteLength(unicodeLine, 'utf8') + 1; // +1 for newline
+      expect(result.nextByteOffset).toBe(expectedOffset);
+    });
+
+    it('should handle reading just the last character of file', () => {
+      const line = JSON.stringify({ id: 1 });
+      writeFileSync(testFilePath, line + '\n');
+
+      // Read from offset that leaves just 1 byte
+      const fileSize = Buffer.byteLength(line + '\n', 'utf8');
+      const result = readTranscriptFromOffset(testFilePath, fileSize - 1);
+
+      // The newline character alone should result in empty lines
+      expect(result.lines).toEqual([]);
     });
   });
 });

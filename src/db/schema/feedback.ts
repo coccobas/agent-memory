@@ -64,12 +64,14 @@ export const memoryRetrievals = sqliteTable(
     queryEmbedding: text('query_embedding'), // Stored as blob/base64
 
     // Retrieved entry
-    entryType: text('entry_type', { enum: ['tool', 'guideline', 'knowledge', 'experience'] }).notNull(),
+    entryType: text('entry_type', {
+      enum: ['tool', 'guideline', 'knowledge', 'experience'],
+    }).notNull(),
     entryId: text('entry_id').notNull(),
 
     // Retrieval metrics
     retrievalRank: integer('retrieval_rank'), // Position in results (1-based)
-    retrievalScore: real('retrieval_score'),   // Score from query pipeline
+    retrievalScore: real('retrieval_score'), // Score from query pipeline
 
     // Timestamp
     retrievedAt: text('retrieved_at')
@@ -99,10 +101,10 @@ export const taskOutcomes = sqliteTable(
 
     // Outcome classification
     outcomeType: text('outcome_type', {
-      enum: ['success', 'failure', 'partial', 'unknown']
+      enum: ['success', 'failure', 'partial', 'unknown'],
     }).notNull(),
     outcomeSignal: text('outcome_signal', {
-      enum: ['session_status', 'explicit_feedback', 'inferred', 'error_absence']
+      enum: ['session_status', 'explicit_feedback', 'inferred', 'error_absence'],
     }),
     confidence: real('confidence').default(1.0).notNull(),
 
@@ -143,7 +145,7 @@ export const retrievalOutcomes = sqliteTable(
     // Attribution
     contributionScore: real('contribution_score'), // -1 to 1 (negative if harmful)
     attributionMethod: text('attribution_method', {
-      enum: ['last_touch', 'linear', 'attention']
+      enum: ['last_touch', 'linear', 'attention'],
     }),
 
     // Timestamp
@@ -179,7 +181,7 @@ export const extractionDecisions = sqliteTable(
 
     // Context
     contextHash: text('context_hash'), // Hash of conversation context
-    confidence: real('confidence'),     // Decision confidence
+    confidence: real('confidence'), // Decision confidence
 
     // Timestamp
     decidedAt: text('decided_at')
@@ -246,10 +248,10 @@ export const consolidationDecisions = sqliteTable(
 
     // Decision
     action: text('action', {
-      enum: ['merge', 'dedupe', 'archive', 'abstract', 'keep']
+      enum: ['merge', 'dedupe', 'archive', 'abstract', 'keep'],
     }).notNull(),
     sourceEntryIds: text('source_entry_ids').notNull(), // JSON array of entry IDs
-    targetEntryId: text('target_entry_id'),             // If merged: result entry ID
+    targetEntryId: text('target_entry_id'), // If merged: result entry ID
 
     // Metrics
     similarityScore: real('similarity_score'),

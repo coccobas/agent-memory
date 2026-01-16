@@ -3,7 +3,11 @@
  *
  * Demonstrates the complete workflow with mock data.
  * Can be used as a template for actual tests.
+ *
+ * NOTE: Console output is intentional for test feedback.
  */
+
+/* eslint-disable no-console */
 
 import { eq } from 'drizzle-orm';
 import type { AppDb } from '../../../core/types.js';
@@ -53,23 +57,25 @@ export async function setupMockHierarchy(db: AppDb): Promise<MockHierarchy> {
   ];
 
   for (const domain of domains) {
-    db.insert(summaries).values({
-      id: domain.id,
-      scopeType: 'project',
-      scopeId: projectId,
-      hierarchyLevel: 2,
-      parentSummaryId: null,
-      title: domain.title,
-      content: `High-level summary of ${domain.title}`,
-      memberCount: 0,
-      embedding: domain.embedding,
-      embeddingDimension: 3,
-      isActive: true,
-      needsRegeneration: false,
-      createdAt: now,
-      updatedAt: now,
-      accessCount: 0,
-    }).run();
+    db.insert(summaries)
+      .values({
+        id: domain.id,
+        scopeType: 'project',
+        scopeId: projectId,
+        hierarchyLevel: 2,
+        parentSummaryId: null,
+        title: domain.title,
+        content: `High-level summary of ${domain.title}`,
+        memberCount: 0,
+        embedding: domain.embedding,
+        embeddingDimension: 3,
+        isActive: true,
+        needsRegeneration: false,
+        createdAt: now,
+        updatedAt: now,
+        accessCount: 0,
+      })
+      .run();
   }
 
   // Level 1: Topic summaries
@@ -89,34 +95,38 @@ export async function setupMockHierarchy(db: AppDb): Promise<MockHierarchy> {
   ];
 
   for (const topic of topics) {
-    db.insert(summaries).values({
-      id: topic.id,
-      scopeType: 'project',
-      scopeId: projectId,
-      hierarchyLevel: 1,
-      parentSummaryId: topic.parentId,
-      title: topic.title,
-      content: `Topic summary for ${topic.title}`,
-      memberCount: 0,
-      embedding: topic.embedding,
-      embeddingDimension: 3,
-      isActive: true,
-      needsRegeneration: false,
-      createdAt: now,
-      updatedAt: now,
-      accessCount: 0,
-    }).run();
+    db.insert(summaries)
+      .values({
+        id: topic.id,
+        scopeType: 'project',
+        scopeId: projectId,
+        hierarchyLevel: 1,
+        parentSummaryId: topic.parentId,
+        title: topic.title,
+        content: `Topic summary for ${topic.title}`,
+        memberCount: 0,
+        embedding: topic.embedding,
+        embeddingDimension: 3,
+        isActive: true,
+        needsRegeneration: false,
+        createdAt: now,
+        updatedAt: now,
+        accessCount: 0,
+      })
+      .run();
 
     // Link topic to parent domain
-    db.insert(summaryMembers).values({
-      id: `member-${topic.id}`,
-      summaryId: topic.parentId,
-      memberType: 'summary',
-      memberId: topic.id,
-      contributionScore: 0.9,
-      displayOrder: 0,
-      createdAt: now,
-    }).run();
+    db.insert(summaryMembers)
+      .values({
+        id: `member-${topic.id}`,
+        summaryId: topic.parentId,
+        memberType: 'summary',
+        memberId: topic.id,
+        contributionScore: 0.9,
+        displayOrder: 0,
+        createdAt: now,
+      })
+      .run();
   }
 
   // Level 0: Chunk summaries
@@ -136,34 +146,38 @@ export async function setupMockHierarchy(db: AppDb): Promise<MockHierarchy> {
   ];
 
   for (const chunk of chunks) {
-    db.insert(summaries).values({
-      id: chunk.id,
-      scopeType: 'project',
-      scopeId: projectId,
-      hierarchyLevel: 0,
-      parentSummaryId: chunk.parentId,
-      title: chunk.title,
-      content: `Chunk summary for ${chunk.title}`,
-      memberCount: 0,
-      embedding: chunk.embedding,
-      embeddingDimension: 3,
-      isActive: true,
-      needsRegeneration: false,
-      createdAt: now,
-      updatedAt: now,
-      accessCount: 0,
-    }).run();
+    db.insert(summaries)
+      .values({
+        id: chunk.id,
+        scopeType: 'project',
+        scopeId: projectId,
+        hierarchyLevel: 0,
+        parentSummaryId: chunk.parentId,
+        title: chunk.title,
+        content: `Chunk summary for ${chunk.title}`,
+        memberCount: 0,
+        embedding: chunk.embedding,
+        embeddingDimension: 3,
+        isActive: true,
+        needsRegeneration: false,
+        createdAt: now,
+        updatedAt: now,
+        accessCount: 0,
+      })
+      .run();
 
     // Link chunk to parent topic
-    db.insert(summaryMembers).values({
-      id: `member-${chunk.id}`,
-      summaryId: chunk.parentId,
-      memberType: 'summary',
-      memberId: chunk.id,
-      contributionScore: 0.85,
-      displayOrder: 0,
-      createdAt: now,
-    }).run();
+    db.insert(summaryMembers)
+      .values({
+        id: `member-${chunk.id}`,
+        summaryId: chunk.parentId,
+        memberType: 'summary',
+        memberId: chunk.id,
+        contributionScore: 0.85,
+        displayOrder: 0,
+        createdAt: now,
+      })
+      .run();
   }
 
   // Base entries
@@ -174,15 +188,17 @@ export async function setupMockHierarchy(db: AppDb): Promise<MockHierarchy> {
   ];
 
   for (const entry of entries) {
-    db.insert(summaryMembers).values({
-      id: `member-${entry.id}`,
-      summaryId: entry.chunkId,
-      memberType: entry.type,
-      memberId: entry.id,
-      contributionScore: 0.8,
-      displayOrder: 0,
-      createdAt: now,
-    }).run();
+    db.insert(summaryMembers)
+      .values({
+        id: `member-${entry.id}`,
+        summaryId: entry.chunkId,
+        memberType: entry.type,
+        memberId: entry.id,
+        contributionScore: 0.8,
+        displayOrder: 0,
+        createdAt: now,
+      })
+      .run();
   }
 
   return { domains, topics, chunks, entries };
@@ -197,7 +213,9 @@ export async function testHierarchicalSearch(
 ): Promise<void> {
   console.log('Setting up mock hierarchy...');
   const hierarchy = await setupMockHierarchy(db);
-  console.log(`Created ${hierarchy.domains.length} domains, ${hierarchy.topics.length} topics, ${hierarchy.chunks.length} chunks`);
+  console.log(
+    `Created ${hierarchy.domains.length} domains, ${hierarchy.topics.length} topics, ${hierarchy.chunks.length} chunks`
+  );
 
   const retriever = new CoarseToFineRetriever(db, embeddingService);
 
@@ -219,7 +237,7 @@ export async function testHierarchicalSearch(
   console.log('\nTest 2: Browsing top-level summaries...');
   const topLevel = await retriever.getTopLevel('project', 'test-project');
   console.log(`Found ${topLevel.length} top-level summaries:`);
-  topLevel.forEach(s => console.log(`  - ${s.title} (level ${s.hierarchyLevel})`));
+  topLevel.forEach((s) => console.log(`  - ${s.title} (level ${s.hierarchyLevel})`));
 
   // Test 3: Drill down
   console.log('\nTest 3: Drilling down into Security domain...');

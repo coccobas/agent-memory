@@ -154,13 +154,56 @@ export class HealthMonitor {
 
   /**
    * Perform a full health check
+   * Uses Promise.allSettled for fault isolation - one component failure won't fail entire check
    */
   async performHealthCheck(): Promise<SystemHealth> {
-    const [databaseHealth, cacheHealth, redisHealth] = await Promise.all([
+    const [dbResult, cacheResult, redisResult] = await Promise.allSettled([
       this.checkDatabase(),
       this.checkCache(),
       this.checkRedis(),
     ]);
+
+    // Extract results with fault isolation - failed checks return unhealthy status
+    const databaseHealth: DatabaseHealth =
+      dbResult.status === 'fulfilled'
+        ? dbResult.value
+        : {
+            status: 'unhealthy',
+            type: config.dbType,
+            message: `Health check failed: ${dbResult.reason instanceof Error ? dbResult.reason.message : String(dbResult.reason)}`,
+          };
+
+    const cacheHealth: CacheHealth =
+      cacheResult.status === 'fulfilled'
+        ? cacheResult.value
+        : {
+            status: 'unhealthy',
+            size: 0,
+            memoryMB: 0,
+            message: `Health check failed: ${cacheResult.reason instanceof Error ? cacheResult.reason.message : String(cacheResult.reason)}`,
+          };
+
+    const redisHealth =
+      redisResult.status === 'fulfilled'
+        ? redisResult.value
+        : config.redis.enabled
+          ? {
+              status: 'unhealthy' as const,
+              connected: false,
+              message: `Health check failed: ${redisResult.reason instanceof Error ? redisResult.reason.message : String(redisResult.reason)}`,
+            }
+          : undefined;
+
+    // Log any failures
+    if (dbResult.status === 'rejected') {
+      logger.error({ error: dbResult.reason }, 'Database health check failed');
+    }
+    if (cacheResult.status === 'rejected') {
+      logger.error({ error: cacheResult.reason }, 'Cache health check failed');
+    }
+    if (redisResult.status === 'rejected' && config.redis.enabled) {
+      logger.error({ error: redisResult.reason }, 'Redis health check failed');
+    }
 
     const circuitBreakers = this.getCircuitBreakerHealth();
 
@@ -196,7 +239,7 @@ export class HealthMonitor {
 
     // Trigger reconnection if database is unhealthy
     if (databaseHealth.status === 'unhealthy' && config.dbType === 'postgresql') {
-      this.attemptReconnection();
+      void this.attemptReconnection();
     }
 
     return result;

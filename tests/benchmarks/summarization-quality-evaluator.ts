@@ -102,7 +102,7 @@ export async function evaluateTestCase(
 
   try {
     // Get source contents
-    const sourceContents = testCase.sourceEntries.map(e => e.content);
+    const sourceContents = testCase.sourceEntries.map((e) => e.content);
     const combinedSource = sourceContents.join(' ');
 
     // Generate summary
@@ -183,7 +183,7 @@ export async function evaluateTestCase(
 export function aggregateResults(
   results: SummarizationTestResult[]
 ): AggregatedSummarizationMetrics {
-  const validResults = results.filter(r => !r.error);
+  const validResults = results.filter((r) => !r.error);
   const errorCount = results.length - validResults.length;
 
   // Calculate averages
@@ -230,7 +230,8 @@ export function aggregateResults(
 
     if (result.keywordsFound || result.keywordsMissing) {
       totalFoundKeywords += result.keywordsFound?.length ?? 0;
-      totalExpectedKeywords += (result.keywordsFound?.length ?? 0) + (result.keywordsMissing?.length ?? 0);
+      totalExpectedKeywords +=
+        (result.keywordsFound?.length ?? 0) + (result.keywordsMissing?.length ?? 0);
     }
   }
 
@@ -244,61 +245,81 @@ export function aggregateResults(
   };
 
   for (const diff of ['easy', 'medium', 'hard'] as const) {
-    const diffResults = validResults.filter(r => r.difficulty === diff);
+    const diffResults = validResults.filter((r) => r.difficulty === diff);
     if (diffResults.length > 0) {
-      const rougeResults = diffResults.filter(r => r.rouge);
+      const rougeResults = diffResults.filter((r) => r.rouge);
       byDifficulty[diff] = {
         count: diffResults.length,
-        avgGroundedness: diffResults.reduce((s, r) => s + r.groundedness.score, 0) / diffResults.length,
-        avgCompressionRatio: diffResults.reduce((s, r) => s + r.compressionRatio, 0) / diffResults.length,
-        avgRougeL: rougeResults.length > 0
-          ? rougeResults.reduce((s, r) => s + (r.rouge?.rougeL.f1 ?? 0), 0) / rougeResults.length
-          : undefined,
+        avgGroundedness:
+          diffResults.reduce((s, r) => s + r.groundedness.score, 0) / diffResults.length,
+        avgCompressionRatio:
+          diffResults.reduce((s, r) => s + r.compressionRatio, 0) / diffResults.length,
+        avgRougeL:
+          rougeResults.length > 0
+            ? rougeResults.reduce((s, r) => s + (r.rouge?.rougeL.f1 ?? 0), 0) / rougeResults.length
+            : undefined,
       };
     }
   }
 
   // By category
-  const byCategory: Record<string, { count: number; avgGroundedness: number; avgCompressionRatio: number; avgRougeL?: number }> = {};
-  const categories = Array.from(new Set(validResults.map(r => r.category)));
+  const byCategory: Record<
+    string,
+    { count: number; avgGroundedness: number; avgCompressionRatio: number; avgRougeL?: number }
+  > = {};
+  const categories = Array.from(new Set(validResults.map((r) => r.category)));
 
   for (const category of categories) {
-    const catResults = validResults.filter(r => r.category === category);
+    const catResults = validResults.filter((r) => r.category === category);
     if (catResults.length > 0) {
-      const rougeResults = catResults.filter(r => r.rouge);
-      byCategory[SUMMARIZATION_CATEGORY_NAMES[category as SummarizationTestCategory] || category] = {
-        count: catResults.length,
-        avgGroundedness: catResults.reduce((s, r) => s + r.groundedness.score, 0) / catResults.length,
-        avgCompressionRatio: catResults.reduce((s, r) => s + r.compressionRatio, 0) / catResults.length,
-        avgRougeL: rougeResults.length > 0
-          ? rougeResults.reduce((s, r) => s + (r.rouge?.rougeL.f1 ?? 0), 0) / rougeResults.length
-          : undefined,
-      };
+      const rougeResults = catResults.filter((r) => r.rouge);
+      byCategory[SUMMARIZATION_CATEGORY_NAMES[category as SummarizationTestCategory] || category] =
+        {
+          count: catResults.length,
+          avgGroundedness:
+            catResults.reduce((s, r) => s + r.groundedness.score, 0) / catResults.length,
+          avgCompressionRatio:
+            catResults.reduce((s, r) => s + r.compressionRatio, 0) / catResults.length,
+          avgRougeL:
+            rougeResults.length > 0
+              ? rougeResults.reduce((s, r) => s + (r.rouge?.rougeL.f1 ?? 0), 0) /
+                rougeResults.length
+              : undefined,
+        };
     }
   }
 
   return {
     totalTestCases: results.length,
     errorCount,
-    avgRouge: rougeCount > 0 ? {
-      rouge1F1: rouge1Sum / rougeCount,
-      rouge2F1: rouge2Sum / rougeCount,
-      rougeLF1: rougeLSum / rougeCount,
-      testCasesWithReference: rougeCount,
-    } : undefined,
-    avgBERTScore: bertCount > 0 ? {
-      precision: bertPrecisionSum / bertCount,
-      recall: bertRecallSum / bertCount,
-      f1: bertF1Sum / bertCount,
-    } : undefined,
+    avgRouge:
+      rougeCount > 0
+        ? {
+            rouge1F1: rouge1Sum / rougeCount,
+            rouge2F1: rouge2Sum / rougeCount,
+            rougeLF1: rougeLSum / rougeCount,
+            testCasesWithReference: rougeCount,
+          }
+        : undefined,
+    avgBERTScore:
+      bertCount > 0
+        ? {
+            precision: bertPrecisionSum / bertCount,
+            recall: bertRecallSum / bertCount,
+            f1: bertF1Sum / bertCount,
+          }
+        : undefined,
     avgGroundednessScore: totalGroundedness / n,
     avgHallucinationRate: totalHallucinationRate / n,
     avgCompressionRatio: totalCompression / n,
-    keywordCoverage: totalExpectedKeywords > 0 ? {
-      totalExpected: totalExpectedKeywords,
-      totalFound: totalFoundKeywords,
-      coverageRate: totalFoundKeywords / totalExpectedKeywords,
-    } : undefined,
+    keywordCoverage:
+      totalExpectedKeywords > 0
+        ? {
+            totalExpected: totalExpectedKeywords,
+            totalFound: totalFoundKeywords,
+            coverageRate: totalFoundKeywords / totalExpectedKeywords,
+          }
+        : undefined,
     byDifficulty,
     byCategory,
     processing: {
@@ -398,9 +419,9 @@ export function printBenchmarkResults(results: SummarizationBenchmarkResults): v
     const rougeL = d.avgRougeL !== undefined ? d.avgRougeL.toFixed(3) : 'N/A';
     console.log(
       `${diff.padEnd(10)} | ${d.count.toString().padStart(5)} | ` +
-      `${(d.avgGroundedness * 100).toFixed(1).padStart(6)}% | ` +
-      `${d.avgCompressionRatio.toFixed(1).padStart(7)}x | ` +
-      `${rougeL.padStart(7)}`
+        `${(d.avgGroundedness * 100).toFixed(1).padStart(6)}% | ` +
+        `${d.avgCompressionRatio.toFixed(1).padStart(7)}x | ` +
+        `${rougeL.padStart(7)}`
     );
   }
 
@@ -408,16 +429,17 @@ export function printBenchmarkResults(results: SummarizationBenchmarkResults): v
   console.log('Category              | Count | Ground. | Compress | ROUGE-L');
   console.log('----------------------|-------|---------|----------|--------');
 
-  const sortedCategories = Object.entries(o.byCategory)
-    .sort((a, b) => b[1].avgGroundedness - a[1].avgGroundedness);
+  const sortedCategories = Object.entries(o.byCategory).sort(
+    (a, b) => b[1].avgGroundedness - a[1].avgGroundedness
+  );
 
   for (const [cat, m] of sortedCategories) {
     const rougeL = m.avgRougeL !== undefined ? m.avgRougeL.toFixed(3) : 'N/A';
     console.log(
       `${cat.substring(0, 21).padEnd(21)} | ${m.count.toString().padStart(5)} | ` +
-      `${(m.avgGroundedness * 100).toFixed(1).padStart(6)}% | ` +
-      `${m.avgCompressionRatio.toFixed(1).padStart(7)}x | ` +
-      `${rougeL.padStart(7)}`
+        `${(m.avgGroundedness * 100).toFixed(1).padStart(6)}% | ` +
+        `${m.avgCompressionRatio.toFixed(1).padStart(7)}x | ` +
+        `${rougeL.padStart(7)}`
     );
   }
 
@@ -427,7 +449,7 @@ export function printBenchmarkResults(results: SummarizationBenchmarkResults): v
 
   // Show worst performing test cases
   const worstCases = results.testCaseResults
-    .filter(r => !r.error)
+    .filter((r) => !r.error)
     .sort((a, b) => a.groundedness.score - b.groundedness.score)
     .slice(0, 5);
 
@@ -443,7 +465,7 @@ export function printBenchmarkResults(results: SummarizationBenchmarkResults): v
   }
 
   // Show error cases
-  const errorCases = results.testCaseResults.filter(r => r.error);
+  const errorCases = results.testCaseResults.filter((r) => r.error);
   if (errorCases.length > 0) {
     console.log('\nERROR CASES:');
     for (const tc of errorCases) {
@@ -478,20 +500,20 @@ export function compareBenchmarks(
   console.log('----------------|----------|----------|--------');
   console.log(
     `Groundedness    | ${(baseline.overall.avgGroundednessScore * 100).toFixed(1).padStart(7)}% | ` +
-    `${(current.overall.avgGroundednessScore * 100).toFixed(1).padStart(7)}% | ` +
-    `${delta(current.overall.avgGroundednessScore, baseline.overall.avgGroundednessScore)}`
+      `${(current.overall.avgGroundednessScore * 100).toFixed(1).padStart(7)}% | ` +
+      `${delta(current.overall.avgGroundednessScore, baseline.overall.avgGroundednessScore)}`
   );
   console.log(
     `Hallucination   | ${(baseline.overall.avgHallucinationRate * 100).toFixed(1).padStart(7)}% | ` +
-    `${(current.overall.avgHallucinationRate * 100).toFixed(1).padStart(7)}% | ` +
-    `${delta(current.overall.avgHallucinationRate, baseline.overall.avgHallucinationRate)}`
+      `${(current.overall.avgHallucinationRate * 100).toFixed(1).padStart(7)}% | ` +
+      `${delta(current.overall.avgHallucinationRate, baseline.overall.avgHallucinationRate)}`
   );
 
   if (current.overall.avgRouge && baseline.overall.avgRouge) {
     console.log(
       `ROUGE-L F1      | ${baseline.overall.avgRouge.rougeLF1.toFixed(3).padStart(8)} | ` +
-      `${current.overall.avgRouge.rougeLF1.toFixed(3).padStart(8)} | ` +
-      `${delta(current.overall.avgRouge.rougeLF1, baseline.overall.avgRouge.rougeLF1)}`
+        `${current.overall.avgRouge.rougeLF1.toFixed(3).padStart(8)} | ` +
+        `${delta(current.overall.avgRouge.rougeLF1, baseline.overall.avgRouge.rougeLF1)}`
     );
   }
 

@@ -10,6 +10,7 @@ import type {
   AnthropicPromptsExample,
   LoRAExportConfig,
   LoRAExportResult,
+  DatasetInfo,
 } from '../types.js';
 
 // =============================================================================
@@ -190,7 +191,7 @@ function convertToAnthropicPrompts(
 /**
  * Generate Anthropic usage guide
  */
-function generateAnthropicGuide(config: LoRAExportConfig, datasetInfo: any): string {
+function generateAnthropicGuide(config: LoRAExportConfig, datasetInfo: DatasetInfo): string {
   return `# Anthropic/Claude Fine-Tuning Dataset
 
 Dataset for training models on ${config.policy} policy decisions in Anthropic's prompt/completion format.

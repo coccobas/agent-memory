@@ -6,7 +6,8 @@
  */
 
 import type { IEventAdapter, EntryChangedEvent } from './interfaces.js';
-import { EventBus, createEventBus } from '../../utils/events.js';
+import type { EventBus } from '../../utils/events.js';
+import { createEventBus } from '../../utils/events.js';
 
 /**
  * Local event adapter implementation.

@@ -37,9 +37,7 @@ export interface ConsolidationStateParams {
 /**
  * Build consolidation state from entry group
  */
-export function buildConsolidationState(
-  params: ConsolidationStateParams
-): ConsolidationState {
+export function buildConsolidationState(params: ConsolidationStateParams): ConsolidationState {
   const { group, usageStats, scopeContext } = params;
 
   // Group features
@@ -79,14 +77,14 @@ function extractGroupFeatures(group: {
   const groupSize = group.entries.length;
 
   // Similarity metrics
-  const similarities = group.entries.map(e => e.similarity);
+  const similarities = group.entries.map((e) => e.similarity);
   const minSimilarity = Math.min(...similarities);
   const maxSimilarity = Math.max(...similarities);
   const avgSimilarity = group.avgSimilarity;
 
   // Entry types
-  const entryTypes = group.entries.map(e => e.type);
-  const uniqueTypes = Array.from(new Set(entryTypes)) as EntryType[];
+  const entryTypes = group.entries.map((e) => e.type);
+  const uniqueTypes = Array.from(new Set(entryTypes));
 
   return {
     groupSize,

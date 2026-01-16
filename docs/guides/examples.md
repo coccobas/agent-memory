@@ -35,10 +35,7 @@ Real-world examples of storing and querying memory.
           "const user: User = getUser()",
           "function greet(name: string): string { return `Hello ${name}` }"
         ],
-        "bad": [
-          "const user: any = getUser()",
-          "function greet(name) { return `Hello ${name}` }"
-        ]
+        "bad": ["const user: any = getUser()", "function greet(name) { return `Hello ${name}` }"]
       }
     },
     {
@@ -108,10 +105,7 @@ Real-world examples of storing and querying memory.
           "def get_user(user_id: int) -> User:",
           "def process_items(items: list[str]) -> dict[str, int]:"
         ],
-        "bad": [
-          "def get_user(user_id):",
-          "def process_items(items):"
-        ]
+        "bad": ["def get_user(user_id):", "def process_items(items):"]
       }
     },
     {
@@ -202,10 +196,7 @@ Real-world examples of storing and querying memory.
           "const apiKey = process.env.API_KEY",
           "const dbPassword = await secretManager.get('db-password')"
         ],
-        "bad": [
-          "const apiKey = 'sk-abc123...'",
-          "const dbPassword = 'mypassword123'"
-        ]
+        "bad": ["const apiKey = 'sk-abc123...'", "const dbPassword = 'mypassword123'"]
       }
     },
     {
@@ -277,20 +268,13 @@ Real-world examples of storing and querying memory.
       "name": "test",
       "description": "Run test suite",
       "category": "cli",
-      "examples": [
-        "npm test",
-        "npm test -- --watch",
-        "npm test -- --coverage"
-      ]
+      "examples": ["npm test", "npm test -- --watch", "npm test -- --coverage"]
     },
     {
       "name": "lint",
       "description": "Run ESLint and fix auto-fixable issues",
       "category": "cli",
-      "examples": [
-        "npm run lint",
-        "npm run lint:fix"
-      ]
+      "examples": ["npm run lint", "npm run lint:fix"]
     },
     {
       "name": "typecheck",
@@ -315,11 +299,7 @@ Real-world examples of storing and querying memory.
       "name": "db-migrate",
       "description": "Run database migrations",
       "category": "cli",
-      "examples": [
-        "npm run migrate:up",
-        "npm run migrate:down",
-        "npm run migrate:status"
-      ]
+      "examples": ["npm run migrate:up", "npm run migrate:down", "npm run migrate:status"]
     },
     {
       "name": "db-seed",

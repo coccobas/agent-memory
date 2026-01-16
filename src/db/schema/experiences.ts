@@ -35,7 +35,9 @@ export const experiences = sqliteTable(
 
     // Identity
     title: text('title').notNull(),
-    level: text('level', { enum: ['case', 'strategy'] }).notNull().default('case'),
+    level: text('level', { enum: ['case', 'strategy'] })
+      .notNull()
+      .default('case'),
     category: text('category'), // 'debugging', 'refactoring', 'api-design', etc.
 
     // Lifecycle
@@ -43,7 +45,9 @@ export const experiences = sqliteTable(
     isActive: integer('is_active', { mode: 'boolean' }).default(true).notNull(),
 
     // Promotion links
-    promotedToToolId: text('promoted_to_tool_id').references(() => tools.id, { onDelete: 'set null' }),
+    promotedToToolId: text('promoted_to_tool_id').references(() => tools.id, {
+      onDelete: 'set null',
+    }),
     promotedFromId: text('promoted_from_id'), // Self-reference to source experience
 
     // Metrics

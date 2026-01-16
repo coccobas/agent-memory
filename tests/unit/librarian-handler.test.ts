@@ -43,7 +43,9 @@ describe('Librarian Handler', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(librarianIndex.getLibrarianService).mockReturnValue(mockLibrarianService as any);
-    vi.mocked(librarianIndex.initializeLibrarianService).mockReturnValue(mockLibrarianService as any);
+    vi.mocked(librarianIndex.initializeLibrarianService).mockReturnValue(
+      mockLibrarianService as any
+    );
 
     mockContext = {
       db: {} as any,

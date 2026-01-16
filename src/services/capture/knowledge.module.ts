@@ -8,7 +8,11 @@
  * - Knowledge/guideline/tool extraction
  */
 
-import { ExtractionService, type ExtractionInput, type ExtractedEntry } from '../extraction.service.js';
+import {
+  ExtractionService,
+  type ExtractionInput,
+  type ExtractedEntry,
+} from '../extraction.service.js';
 import { createComponentLogger } from '../../utils/logger.js';
 import type {
   TurnData,
@@ -19,8 +23,12 @@ import type {
   CaptureModule,
 } from './types.js';
 import type { Knowledge, Guideline, Tool } from '../../db/schema.js';
-import type { IKnowledgeRepository, IGuidelineRepository, IToolRepository } from '../../core/interfaces/repositories.js';
-import { CaptureStateManager } from './state.js';
+import type {
+  IKnowledgeRepository,
+  IGuidelineRepository,
+  IToolRepository,
+} from '../../core/interfaces/repositories.js';
+import type { CaptureStateManager } from './state.js';
 
 const logger = createComponentLogger('capture:knowledge');
 
@@ -169,23 +177,25 @@ export class KnowledgeCaptureModule implements CaptureModule<KnowledgeCaptureRes
    * Format transcript for LLM consumption
    */
   private formatTranscript(transcript: TurnData[]): string {
-    return transcript.map(turn => {
-      const lines: string[] = [];
-      lines.push(`[${turn.role.toUpperCase()}]:`);
-      lines.push(turn.content);
+    return transcript
+      .map((turn) => {
+        const lines: string[] = [];
+        lines.push(`[${turn.role.toUpperCase()}]:`);
+        lines.push(turn.content);
 
-      if (turn.toolCalls && turn.toolCalls.length > 0) {
-        lines.push('Tool calls:');
-        for (const call of turn.toolCalls) {
-          lines.push(`  - ${call.name}: ${call.success ? 'success' : 'failed'}`);
-          if (call.output) {
-            lines.push(`    Output: ${JSON.stringify(call.output).slice(0, 200)}`);
+        if (turn.toolCalls && turn.toolCalls.length > 0) {
+          lines.push('Tool calls:');
+          for (const call of turn.toolCalls) {
+            lines.push(`  - ${call.name}: ${call.success ? 'success' : 'failed'}`);
+            if (call.output) {
+              lines.push(`    Output: ${JSON.stringify(call.output).slice(0, 200)}`);
+            }
           }
         }
-      }
 
-      return lines.join('\n');
-    }).join('\n\n');
+        return lines.join('\n');
+      })
+      .join('\n\n');
   }
 
   /**
@@ -198,8 +208,7 @@ export class KnowledgeCaptureModule implements CaptureModule<KnowledgeCaptureRes
 
     // Filter out 'experiences' as it's handled by ExperienceCaptureModule
     return focusAreas.filter(
-      (area): area is 'decisions' | 'facts' | 'rules' | 'tools' =>
-        area !== 'experiences'
+      (area): area is 'decisions' | 'facts' | 'rules' | 'tools' => area !== 'experiences'
     );
   }
 

@@ -72,10 +72,7 @@ describe('ConnectionGuard', () => {
         throw error;
       };
 
-      const promises = [
-        guard.connect(doConnect),
-        guard.connect(doConnect),
-      ];
+      const promises = [guard.connect(doConnect), guard.connect(doConnect)];
 
       await expect(Promise.all(promises)).rejects.toThrow('Connection failed');
       expect(callCount).toBe(1);

@@ -368,9 +368,7 @@ describe('Query Handler', () => {
 
     it('should include experiences in results', async () => {
       vi.mocked(queryPipeline.executeQueryPipeline).mockResolvedValue({
-        results: [
-          { type: 'experience', id: 'exp-1' },
-        ],
+        results: [{ type: 'experience', id: 'exp-1' }],
         meta: {},
       } as any);
 

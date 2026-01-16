@@ -73,7 +73,7 @@ export const CLASSIFICATION_TEST_CASES: ClassificationTestCase[] = [
   },
   {
     id: 'g-proh-004',
-    text: "We should never skip code review",
+    text: 'We should never skip code review',
     expectedType: 'guideline',
     category: 'prohibition',
     difficulty: 'medium',
@@ -450,21 +450,25 @@ export const CLASSIFICATION_TEST_CASES: ClassificationTestCase[] = [
  * Get test cases by category
  */
 export function getTestCasesByCategory(category: string): ClassificationTestCase[] {
-  return CLASSIFICATION_TEST_CASES.filter(tc => tc.category === category);
+  return CLASSIFICATION_TEST_CASES.filter((tc) => tc.category === category);
 }
 
 /**
  * Get test cases by difficulty
  */
-export function getTestCasesByDifficulty(difficulty: 'easy' | 'medium' | 'hard'): ClassificationTestCase[] {
-  return CLASSIFICATION_TEST_CASES.filter(tc => tc.difficulty === difficulty);
+export function getTestCasesByDifficulty(
+  difficulty: 'easy' | 'medium' | 'hard'
+): ClassificationTestCase[] {
+  return CLASSIFICATION_TEST_CASES.filter((tc) => tc.difficulty === difficulty);
 }
 
 /**
  * Get test cases by expected type
  */
-export function getTestCasesByType(type: 'guideline' | 'knowledge' | 'tool'): ClassificationTestCase[] {
-  return CLASSIFICATION_TEST_CASES.filter(tc => tc.expectedType === type);
+export function getTestCasesByType(
+  type: 'guideline' | 'knowledge' | 'tool'
+): ClassificationTestCase[] {
+  return CLASSIFICATION_TEST_CASES.filter((tc) => tc.expectedType === type);
 }
 
 /**

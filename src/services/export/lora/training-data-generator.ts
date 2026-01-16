@@ -96,7 +96,8 @@ export class TrainingDataGenerator {
    * Generate system prompt with guideline context
    */
   private generateSystemPrompt(guideline: GuidelineData): string {
-    const priority = guideline.priority >= 90 ? 'critical' : guideline.priority >= 70 ? 'high' : 'standard';
+    const priority =
+      guideline.priority >= 90 ? 'critical' : guideline.priority >= 70 ? 'high' : 'standard';
     const category = guideline.category || 'general';
 
     return `You are an AI assistant that strictly follows coding guidelines and best practices.

@@ -6,7 +6,10 @@
  */
 
 import type { SimpleToolDescriptor } from './types.js';
-import type { SuggestedCategory, SuggestedEntryType } from '../../services/extraction-hook.service.js';
+import type {
+  SuggestedCategory,
+  SuggestedEntryType,
+} from '../../services/extraction-hook.service.js';
 
 export const memoryExtractionApproveDescriptor: SimpleToolDescriptor = {
   name: 'memory_extraction_approve',
@@ -58,13 +61,15 @@ Parameters:
   required: [],
   contextHandler: async (ctx, args) => {
     const hash = args?.hash as string | undefined;
-    const suggestions = args?.suggestions as Array<{
-      type: SuggestedEntryType;
-      category: SuggestedCategory;
-      title: string;
-      content: string;
-      hash: string;
-    }> | undefined;
+    const suggestions = args?.suggestions as
+      | Array<{
+          type: SuggestedEntryType;
+          category: SuggestedCategory;
+          title: string;
+          content: string;
+          hash: string;
+        }>
+      | undefined;
     const modifyTitle = args?.modifyTitle as string | undefined;
     const modifyCategory = args?.modifyCategory as string | undefined;
     const tags = (args?.tags as string[]) ?? [];
@@ -129,7 +134,10 @@ Parameters:
             const guideline = await ctx.repos.guidelines.create({
               scopeType: 'project',
               scopeId: projectId,
-              name: title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 50),
+              name: title
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .slice(0, 50),
               content: suggestion.content,
               category,
               createdBy: agentId,
@@ -153,7 +161,10 @@ Parameters:
             const tool = await ctx.repos.tools.create({
               scopeType: 'project',
               scopeId: projectId,
-              name: title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 50),
+              name: title
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .slice(0, 50),
               description: suggestion.content,
               category: category as 'mcp' | 'cli' | 'function' | 'api',
               createdBy: agentId,

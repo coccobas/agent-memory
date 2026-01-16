@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { withRetry, isRetryableDbError, isRetryableNetworkError, extractRetryAfterMs } from '../../src/utils/retry.js';
+import {
+  withRetry,
+  isRetryableDbError,
+  isRetryableNetworkError,
+  extractRetryAfterMs,
+} from '../../src/utils/retry.js';
 
 vi.mock('../../src/utils/logger.js', () => ({
   logger: {
@@ -26,7 +31,8 @@ describe('Retry Utilities', () => {
     });
 
     it('should retry on failure and succeed', async () => {
-      const fn = vi.fn()
+      const fn = vi
+        .fn()
         .mockRejectedValueOnce(new Error('First failure'))
         .mockResolvedValue('success');
 
@@ -39,14 +45,14 @@ describe('Retry Utilities', () => {
     it('should throw after max attempts', async () => {
       const fn = vi.fn().mockRejectedValue(new Error('Always fails'));
 
-      await expect(withRetry(fn, { maxAttempts: 2, initialDelayMs: 1 })).rejects.toThrow('Always fails');
+      await expect(withRetry(fn, { maxAttempts: 2, initialDelayMs: 1 })).rejects.toThrow(
+        'Always fails'
+      );
       expect(fn).toHaveBeenCalledTimes(2);
     });
 
     it('should call onRetry callback', async () => {
-      const fn = vi.fn()
-        .mockRejectedValueOnce(new Error('Failure'))
-        .mockResolvedValue('success');
+      const fn = vi.fn().mockRejectedValueOnce(new Error('Failure')).mockResolvedValue('success');
       const onRetry = vi.fn();
 
       await withRetry(fn, { onRetry, initialDelayMs: 1 });
@@ -61,7 +67,9 @@ describe('Retry Utilities', () => {
       const retryableErrors = vi.fn((error) => error.message === 'retryable');
 
       // Should throw immediately without retrying
-      await expect(withRetry(fn, { retryableErrors, initialDelayMs: 1 })).rejects.toThrow('non-retryable');
+      await expect(withRetry(fn, { retryableErrors, initialDelayMs: 1 })).rejects.toThrow(
+        'non-retryable'
+      );
       expect(fn).toHaveBeenCalledTimes(1);
     });
 
@@ -169,7 +177,9 @@ describe('Retry Utilities', () => {
       // Milliseconds
       expect(extractRetryAfterMs({ headers: { 'x-ratelimit-reset-requests': '500ms' } })).toBe(500);
       // Minutes and seconds
-      expect(extractRetryAfterMs({ headers: { 'x-ratelimit-reset-requests': '1m30s' } })).toBe(90000);
+      expect(extractRetryAfterMs({ headers: { 'x-ratelimit-reset-requests': '1m30s' } })).toBe(
+        90000
+      );
       // Just minutes
       expect(extractRetryAfterMs({ headers: { 'x-ratelimit-reset-requests': '2m' } })).toBe(120000);
     });

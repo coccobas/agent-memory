@@ -12,18 +12,35 @@ export const memoryRelationDescriptor: ToolDescriptor = {
   commonParams: {
     agentId: { type: 'string' },
     id: { type: 'string' },
-    sourceType: { type: 'string', enum: ['tool', 'guideline', 'knowledge', 'project', 'experience'] },
+    sourceType: {
+      type: 'string',
+      enum: ['tool', 'guideline', 'knowledge', 'project', 'experience'],
+    },
     sourceId: { type: 'string' },
-    targetType: { type: 'string', enum: ['tool', 'guideline', 'knowledge', 'project', 'experience'] },
+    targetType: {
+      type: 'string',
+      enum: ['tool', 'guideline', 'knowledge', 'project', 'experience'],
+    },
     targetId: { type: 'string' },
-    relationType: { type: 'string', enum: ['applies_to', 'depends_on', 'conflicts_with', 'related_to', 'parent_task', 'subtask_of', 'promoted_to'] },
+    relationType: {
+      type: 'string',
+      enum: [
+        'applies_to',
+        'depends_on',
+        'conflicts_with',
+        'related_to',
+        'parent_task',
+        'subtask_of',
+        'promoted_to',
+      ],
+    },
     createdBy: { type: 'string' },
     limit: { type: 'number' },
     offset: { type: 'number' },
   },
   actions: {
-    create: { contextHandler: relationHandlers.create },
-    list: { contextHandler: relationHandlers.list },
-    delete: { contextHandler: relationHandlers.delete },
+    create: { contextHandler: (ctx, params) => relationHandlers.create(ctx, params) },
+    list: { contextHandler: (ctx, params) => relationHandlers.list(ctx, params) },
+    delete: { contextHandler: (ctx, params) => relationHandlers.delete(ctx, params) },
   },
 };

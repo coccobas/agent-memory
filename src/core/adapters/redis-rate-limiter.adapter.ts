@@ -13,6 +13,8 @@
  * For enterprise deployments with horizontal scaling.
  */
 
+/* eslint-disable @typescript-eslint/no-redundant-type-constituents -- ioredis types contain any */
+
 import type {
   IRateLimiterAdapter,
   RateLimitCheckResult,
@@ -24,6 +26,7 @@ import { LocalRateLimiterAdapter } from './local-rate-limiter.adapter.js';
 import { ConnectionGuard } from '../../utils/connection-guard.js';
 
 // Type imports for ioredis (actual import is dynamic to avoid loading when not used)
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports -- inline import() needed for dynamic type
 type Redis = import('ioredis').default;
 
 const logger = createComponentLogger('redis-rate-limiter');
@@ -57,7 +60,6 @@ export interface RedisRateLimiterConfig extends RateLimiterBucketConfig {
   /** Fail mode when Redis unavailable (default: 'local-fallback') */
   failMode?: RedisFailMode;
 }
-
 
 /**
  * Lua script for atomic token bucket check and consume.
@@ -204,9 +206,10 @@ export class RedisRateLimiterAdapter implements IRateLimiterAdapter {
     // Bug #271 fix: Validate fail mode instead of unsafe type assertion
     const envFailMode = process.env.AGENT_MEMORY_RATE_LIMIT_FAIL_MODE;
     const validFailModes = ['local-fallback', 'closed', 'open'] as const;
-    const validatedEnvMode = envFailMode && validFailModes.includes(envFailMode as RedisFailMode)
-      ? (envFailMode as RedisFailMode)
-      : undefined;
+    const validatedEnvMode =
+      envFailMode && validFailModes.includes(envFailMode as RedisFailMode)
+        ? (envFailMode as RedisFailMode)
+        : undefined;
     this.failMode = config.failMode ?? validatedEnvMode ?? 'local-fallback';
 
     // Initialize local fallback if needed
@@ -244,7 +247,7 @@ export class RedisRateLimiterAdapter implements IRateLimiterAdapter {
           this.client = new IORedis(options);
         }
 
-        const client = this.client!;
+        const client = this.client;
 
         client.on('connect', () => {
           logger.info('Redis rate limiter adapter connected');
@@ -314,7 +317,7 @@ export class RedisRateLimiterAdapter implements IRateLimiterAdapter {
         return [0, 0, 60000]; // Deny with 60s retry
 
       case 'local-fallback':
-      default:
+      default: {
         // Default: Use local in-memory rate limiter
         logger.warn(
           { key, failMode: this.failMode },
@@ -326,11 +329,8 @@ export class RedisRateLimiterAdapter implements IRateLimiterAdapter {
           return [0, 0, 60000];
         }
         const result = await this.localFallback.check(key);
-        return [
-          result.allowed ? 1 : 0,
-          result.remaining,
-          result.retryAfterMs ?? result.resetMs,
-        ];
+        return [result.allowed ? 1 : 0, result.remaining, result.retryAfterMs ?? result.resetMs];
+      }
     }
   }
 
@@ -347,13 +347,7 @@ export class RedisRateLimiterAdapter implements IRateLimiterAdapter {
 
     const fullKey = this.keyPrefix + key;
     const now = Date.now();
-    const args = [
-      this.maxRequests,
-      this.refillRate,
-      now,
-      this.windowMs,
-      this.minBurstProtection,
-    ];
+    const args = [this.maxRequests, this.refillRate, now, this.windowMs, this.minBurstProtection];
 
     try {
       let result: unknown[];
@@ -361,16 +355,21 @@ export class RedisRateLimiterAdapter implements IRateLimiterAdapter {
       if (this.tokenBucketSha) {
         // Use cached script SHA
         try {
-          result = await this.client.evalsha(this.tokenBucketSha, 1, fullKey, ...args) as unknown[];
+          result = (await this.client.evalsha(
+            this.tokenBucketSha,
+            1,
+            fullKey,
+            ...args
+          )) as unknown[];
         } catch (error) {
           // Script might have been flushed, reload
           logger.debug({ error }, 'Script SHA invalid, reloading');
           await this.loadScripts();
-          result = await this.client.eval(TOKEN_BUCKET_LUA, 1, fullKey, ...args) as unknown[];
+          result = (await this.client.eval(TOKEN_BUCKET_LUA, 1, fullKey, ...args)) as unknown[];
         }
       } else {
         // Use EVAL directly
-        result = await this.client.eval(TOKEN_BUCKET_LUA, 1, fullKey, ...args) as unknown[];
+        result = (await this.client.eval(TOKEN_BUCKET_LUA, 1, fullKey, ...args)) as unknown[];
       }
 
       // Bug #257 fix: Guard against NaN from undefined/invalid array elements
@@ -409,14 +408,14 @@ export class RedisRateLimiterAdapter implements IRateLimiterAdapter {
 
       if (this.getStatsSha) {
         try {
-          result = await this.client.evalsha(this.getStatsSha, 1, fullKey, ...args) as unknown[];
+          result = (await this.client.evalsha(this.getStatsSha, 1, fullKey, ...args)) as unknown[];
         } catch (error) {
           logger.debug({ error }, 'Script SHA invalid, reloading');
           await this.loadScripts();
-          result = await this.client.eval(GET_STATS_LUA, 1, fullKey, ...args) as unknown[];
+          result = (await this.client.eval(GET_STATS_LUA, 1, fullKey, ...args)) as unknown[];
         }
       } else {
-        result = await this.client.eval(GET_STATS_LUA, 1, fullKey, ...args) as unknown[];
+        result = (await this.client.eval(GET_STATS_LUA, 1, fullKey, ...args)) as unknown[];
       }
 
       // Bug #262 fix: Guard against NaN from undefined/invalid array elements
@@ -654,7 +653,7 @@ export function createRedisRateLimiterAdapter(
   const adapter = new RedisRateLimiterAdapter(config);
 
   // Auto-connect on creation
-  adapter.connect().catch((error) => {
+  adapter.connect().catch((error: unknown) => {
     logger.warn({ error }, 'Failed to auto-connect Redis rate limiter');
   });
 

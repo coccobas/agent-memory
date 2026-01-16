@@ -2,32 +2,33 @@
 
 ## Status
 
-| Component | Status |
-|-----------|--------|
-| **Experiences Entity** | ✅ IMPLEMENTED (Case → Strategy → Tool) |
-| **Query Pipeline Integration** | ✅ IMPLEMENTED (FTS5, all stages) |
-| **Promotion via Relations** | ✅ IMPLEMENTED (entry_relations with promoted_to) |
-| **Unified Capture Service** | ✅ IMPLEMENTED |
-| ↳ Session-end (experiences) | ✅ IMPLEMENTED (ExperienceCaptureModule) |
-| ↳ Turn-based (knowledge) | ✅ IMPLEMENTED (KnowledgeCaptureModule) |
-| ↳ Deduplication | ✅ IMPLEMENTED (SharedState with content hashing) |
-| ↳ MCP Actions | ✅ IMPLEMENTED (record_case, capture_from_transcript) |
-| ↳ Handler Hooks | ✅ IMPLEMENTED (session end, turn complete) |
-| **Librarian Agent** | ✅ IMPLEMENTED |
-| ↳ Math Utilities | ✅ IMPLEMENTED (Jaccard, LCS, Cosine, Edit Distance) |
-| ↳ Trajectory Similarity | ✅ IMPLEMENTED (14 action categories, 5 components) |
-| ↳ Pattern Detector | ✅ IMPLEMENTED (embedding + trajectory validation) |
-| ↳ Recommendations Schema | ✅ IMPLEMENTED (migration 0015) |
-| ↳ Quality Gate | ✅ IMPLEMENTED (auto-promote, review, reject thresholds) |
-| ↳ Librarian Service | ✅ IMPLEMENTED (scheduler, analyzer, recommender) |
-| ↳ MCP Handler | ✅ IMPLEMENTED (memory_librarian tool) |
-| **CLI & REST Extensions** | ✅ IMPLEMENTED (experience, librarian commands) |
+| Component                      | Status                                                   |
+| ------------------------------ | -------------------------------------------------------- |
+| **Experiences Entity**         | ✅ IMPLEMENTED (Case → Strategy → Tool)                  |
+| **Query Pipeline Integration** | ✅ IMPLEMENTED (FTS5, all stages)                        |
+| **Promotion via Relations**    | ✅ IMPLEMENTED (entry_relations with promoted_to)        |
+| **Unified Capture Service**    | ✅ IMPLEMENTED                                           |
+| ↳ Session-end (experiences)    | ✅ IMPLEMENTED (ExperienceCaptureModule)                 |
+| ↳ Turn-based (knowledge)       | ✅ IMPLEMENTED (KnowledgeCaptureModule)                  |
+| ↳ Deduplication                | ✅ IMPLEMENTED (SharedState with content hashing)        |
+| ↳ MCP Actions                  | ✅ IMPLEMENTED (record_case, capture_from_transcript)    |
+| ↳ Handler Hooks                | ✅ IMPLEMENTED (session end, turn complete)              |
+| **Librarian Agent**            | ✅ IMPLEMENTED                                           |
+| ↳ Math Utilities               | ✅ IMPLEMENTED (Jaccard, LCS, Cosine, Edit Distance)     |
+| ↳ Trajectory Similarity        | ✅ IMPLEMENTED (14 action categories, 5 components)      |
+| ↳ Pattern Detector             | ✅ IMPLEMENTED (embedding + trajectory validation)       |
+| ↳ Recommendations Schema       | ✅ IMPLEMENTED (migration 0015)                          |
+| ↳ Quality Gate                 | ✅ IMPLEMENTED (auto-promote, review, reject thresholds) |
+| ↳ Librarian Service            | ✅ IMPLEMENTED (scheduler, analyzer, recommender)        |
+| ↳ MCP Handler                  | ✅ IMPLEMENTED (memory_librarian tool)                   |
+| **CLI & REST Extensions**      | ✅ IMPLEMENTED (experience, librarian commands)          |
 
 ---
 
 ## Overview
 
 Add experiential learning capabilities to Agent Memory through:
+
 1. **Experiences** - Two-level abstraction: Case (concrete) → Strategy (abstract) → Tool (skill) ✅
 2. **Unified Capture Service** - Modular capture with shared state and deduplication
    - Session-end: Extract experiences with trajectories
@@ -37,16 +38,19 @@ Add experiential learning capabilities to Agent Memory through:
 ### Key Design Decisions
 
 **Skills are Tools promoted from Experiences** (not a separate entity)
+
 - Tools already have capability semantics (description, parameters, examples)
 - Avoids 4th entity type that would require duplicating infrastructure
 - Consistent with codebase patterns (Tools, Guidelines, Knowledge)
 - Promotion chain provides full provenance tracking
 
 **Hybrid Pattern Detection**
+
 - Stage 1: Embedding similarity on scenario+outcome text
 - Stage 2: Trajectory validation comparing action sequences
 
 **High-Confidence Auto-Promote**
+
 - Auto-promote if confidence >= 0.9
 - Queue for review if 0.7 <= confidence < 0.9
 - Reject if confidence < 0.7
@@ -58,43 +62,47 @@ Add experiential learning capabilities to Agent Memory through:
 ## Phase 1: Fix Promotion Mechanism
 
 ### Files to Modify
+
 - `src/db/schema/meta.ts` - Add relation types: `promoted_to`, `derived_from` (inverse queried via target)
 - `src/db/schema/types.ts` - Update `RelationType` enum
 - `src/db/migrations/0013_migrate_promotions_to_relations.sql` - Migrate embedded FKs
 - `src/db/repositories/experiences.ts` - Update `promote()` to use `entryRelations`
 
-*Relation direction note*: Only record the `promoted_to` relation; infer the inverse `derived_from` during `SELECT` via the relation target to avoid duplicated data in the migration.
+_Relation direction note_: Only record the `promoted_to` relation; infer the inverse `derived_from` during `SELECT` via the relation target to avoid duplicated data in the migration.
 
 ---
 
 ## Phase 2: Query Pipeline Integration
 
 ### Goal
+
 Make experiences discoverable in context/search queries (included by default).
 
 ### Files to Create
+
 - `src/db/migrations/0014_add_experiences_fts.sql` - FTS5 table with triggers
 
 ### Files to Modify
 
-| File | Changes |
-|------|---------|
-| `src/services/query/type-maps.ts` | Add `experiences: 'experience'` mappings |
-| `src/services/query/types.ts` | Add `ExperienceQueryResult`, update unions |
-| `src/services/query/pipeline.ts` | Add experience to context, result types |
-| `src/services/query/stages/resolve.ts` | Add `'experiences'` to `DEFAULT_TYPES` |
-| `src/services/query/stages/fetch.ts` | Add `FETCH_CONFIGS.experiences` |
-| `src/services/query/stages/filter.ts` | Add experience filtering |
-| `src/services/query/stages/score.ts` | Add experience scoring |
-| `src/services/query/stages/format.ts` | Add experience compact formatting |
-| `src/services/query/stages/tags.ts` | Load experience tags |
-| `src/services/query/stages/fts.ts` | Initialize `experience` in `ftsMatchIds` |
-| `src/services/query/stages/relations.ts` | Add experience to relation traversal |
-| `src/services/query/fts-search.ts` | Add experience FTS5 queries |
-| `src/services/fts.service.ts` | Add experience case in `searchFTS` |
-| `src/mcp/handlers/query.handler.ts` | Include experiences in context response |
+| File                                     | Changes                                    |
+| ---------------------------------------- | ------------------------------------------ |
+| `src/services/query/type-maps.ts`        | Add `experiences: 'experience'` mappings   |
+| `src/services/query/types.ts`            | Add `ExperienceQueryResult`, update unions |
+| `src/services/query/pipeline.ts`         | Add experience to context, result types    |
+| `src/services/query/stages/resolve.ts`   | Add `'experiences'` to `DEFAULT_TYPES`     |
+| `src/services/query/stages/fetch.ts`     | Add `FETCH_CONFIGS.experiences`            |
+| `src/services/query/stages/filter.ts`    | Add experience filtering                   |
+| `src/services/query/stages/score.ts`     | Add experience scoring                     |
+| `src/services/query/stages/format.ts`    | Add experience compact formatting          |
+| `src/services/query/stages/tags.ts`      | Load experience tags                       |
+| `src/services/query/stages/fts.ts`       | Initialize `experience` in `ftsMatchIds`   |
+| `src/services/query/stages/relations.ts` | Add experience to relation traversal       |
+| `src/services/query/fts-search.ts`       | Add experience FTS5 queries                |
+| `src/services/fts.service.ts`            | Add experience case in `searchFTS`         |
+| `src/mcp/handlers/query.handler.ts`      | Include experiences in context response    |
 
 ### FTS5 Schema
+
 ```sql
 CREATE VIRTUAL TABLE experiences_fts USING fts5(
   experience_id UNINDEXED,
@@ -140,6 +148,7 @@ The capture system uses a **hybrid architecture** with a coordinator managing mo
 ```
 
 **Why Hybrid?**
+
 - **Modules** handle their specific extraction logic and LLM prompts
 - **Coordinator** manages shared state and prevents duplication
 - Session-end module **skips content already captured** by turn-based module
@@ -147,26 +156,27 @@ The capture system uses a **hybrid architecture** with a coordinator managing mo
 
 ### Files to Create
 
-| File | Purpose |
-|------|---------|
-| `src/services/capture/index.ts` | CaptureService coordinator |
-| `src/services/capture/types.ts` | Shared types and interfaces |
-| `src/services/capture/state.ts` | SharedState management |
+| File                                        | Purpose                             |
+| ------------------------------------------- | ----------------------------------- |
+| `src/services/capture/index.ts`             | CaptureService coordinator          |
+| `src/services/capture/types.ts`             | Shared types and interfaces         |
+| `src/services/capture/state.ts`             | SharedState management              |
 | `src/services/capture/experience.module.ts` | Experience extraction (session-end) |
-| `src/services/capture/knowledge.module.ts` | Knowledge extraction (turn-based) |
-| `src/config/registry/sections/capture.ts` | Unified configuration |
+| `src/services/capture/knowledge.module.ts`  | Knowledge extraction (turn-based)   |
+| `src/config/registry/sections/capture.ts`   | Unified configuration               |
 
 ### Files to Modify
 
-| File | Changes |
-|------|---------|
-| `src/mcp/handlers/scopes.handler.ts` | Hook capture into `sessionEnd` |
-| `src/mcp/handlers/experiences.handler.ts` | Add `capture_from_transcript`, `record_case` |
-| `src/mcp/handlers/conversation.handler.ts` | Hook turn-based capture after messages |
-| `src/mcp/descriptors/memory_experience.ts` | Add new actions |
-| `src/core/context.ts` | Add `capture` service |
+| File                                       | Changes                                      |
+| ------------------------------------------ | -------------------------------------------- |
+| `src/mcp/handlers/scopes.handler.ts`       | Hook capture into `sessionEnd`               |
+| `src/mcp/handlers/experiences.handler.ts`  | Add `capture_from_transcript`, `record_case` |
+| `src/mcp/handlers/conversation.handler.ts` | Hook turn-based capture after messages       |
+| `src/mcp/descriptors/memory_experience.ts` | Add new actions                              |
+| `src/core/context.ts`                      | Add `capture` service                        |
 
 ### New MCP Actions
+
 ```typescript
 // Automatic capture from transcript (session-end)
 { action: 'capture_from_transcript', sessionId: 'sess_123', transcript: '...' }
@@ -219,7 +229,7 @@ export class CaptureService {
     const result = await this.experienceModule.capture({
       transcript,
       session,
-      excludeHashes: alreadyCaptured,  // Skip duplicates
+      excludeHashes: alreadyCaptured, // Skip duplicates
     });
 
     return result;
@@ -265,7 +275,9 @@ export class SharedState {
       content.title?.toLowerCase().trim(),
       content.scenario?.toLowerCase().trim(),
       content.content.slice(0, 1000).toLowerCase().trim(),
-    ].filter(Boolean).join('|');
+    ]
+      .filter(Boolean)
+      .join('|');
 
     return createHash('sha256').update(normalized).digest('hex').slice(0, 16);
   }
@@ -297,21 +309,24 @@ export class SharedState {
 ### LLM Extraction Prompts
 
 **Experience Extraction** (session-end):
+
 - Identify complete problem-solution cycles
 - Extract: title, category, scenario, outcome, success, steps
 - Each step: action, observation, reasoning, toolUsed, success
 - Confidence score (0-1) for each extracted task
 - Skip trivial/incomplete tasks
 
-*Safety note*: Redact secrets/credentials from transcripts before extraction and persist only the derived entries plus hashes—never store the raw transcript content.
+_Safety note_: Redact secrets/credentials from transcripts before extraction and persist only the derived entries plus hashes—never store the raw transcript content.
 
 **Knowledge Extraction** (turn-based):
+
 - Identify decisions, facts, and rules worth remembering
 - Extract: title, content, category (decision/fact/context)
 - Confidence score (0-1) for each entry
 - Skip trivial observations
 
 ### Configuration
+
 ```typescript
 capture: {
   enabled: boolean;                  // Default: true
@@ -353,20 +368,23 @@ capture: {
 
 ### Architecture
 ```
+
 Triggers: Cron Schedule | Session End
-              ↓
+↓
 LibrarianService.analyze()
-              ↓
+↓
 Pipeline:
-  1. CaseCollector → Gather case experiences
-  2. PatternDetector (Hybrid)
-     ├── Stage 1: Embedding similarity (semantic grouping)
-     └── Stage 2: Trajectory validation (action sequence matching)
-  3. QualityGate → Filter by confidence thresholds
-  4. Recommender → Generate promotion recommendations
-              ↓
-Auto-promote (≥0.9) | Queue for review (0.7-0.9) | Reject (<0.7)
-```
+
+1. CaseCollector → Gather case experiences
+2. PatternDetector (Hybrid)
+   ├── Stage 1: Embedding similarity (semantic grouping)
+   └── Stage 2: Trajectory validation (action sequence matching)
+3. QualityGate → Filter by confidence thresholds
+4. Recommender → Generate promotion recommendations
+   ↓
+   Auto-promote (≥0.9) | Queue for review (0.7-0.9) | Reject (<0.7)
+
+````
 
 ### Files to Create
 
@@ -397,34 +415,37 @@ Auto-promote (≥0.9) | Queue for review (0.7-0.9) | Reject (<0.7)
 const embedding = await services.embedding.embed(experienceText);
 const similar = await services.vector.searchSimilar(embedding, ['experience'], 20);
 // Group cases with similarity >= threshold (default 0.75)
-```
+````
 
 **Stage 2: Trajectory Validation**
+
 ```typescript
 interface TrajectorySimilarityResult {
-  score: number;              // Combined 0-1
-  actionTypeOverlap: number;  // Jaccard similarity of action types
-  toolOverlap: number;        // Jaccard similarity of tools used
-  sequenceAlignment: number;  // LCS-based alignment score
-  successPatternMatch: number;// Correlation of success flags
+  score: number; // Combined 0-1
+  actionTypeOverlap: number; // Jaccard similarity of action types
+  toolOverlap: number; // Jaccard similarity of tools used
+  sequenceAlignment: number; // LCS-based alignment score
+  successPatternMatch: number; // Correlation of success flags
 }
 
 // Weights for combined score
 const weights = {
-  actionType: 0.30,
+  actionType: 0.3,
   toolUsage: 0.25,
-  sequence: 0.30,
-  success: 0.15
+  sequence: 0.3,
+  success: 0.15,
 };
 ```
 
 **Action Type Normalization**
+
 ```typescript
 // Canonical action types for comparison
-'read' | 'write' | 'modify' | 'delete' | 'search' | 'execute' | 'debug' | 'other'
+'read' | 'write' | 'modify' | 'delete' | 'search' | 'execute' | 'debug' | 'other';
 ```
 
 ### Recommendations Schema
+
 ```sql
 CREATE TABLE librarian_recommendations (
   id TEXT PRIMARY KEY,
@@ -449,6 +470,7 @@ CREATE TABLE librarian_recommendations (
 ```
 
 ### MCP Actions
+
 ```typescript
 // Analysis
 { action: 'analyze', scopeType: 'project', scopeId: 'proj-123' }
@@ -465,27 +487,28 @@ CREATE TABLE librarian_recommendations (
 ```
 
 ### Configuration
+
 ```typescript
 librarian: {
-  enabled: boolean;                    // Default: false
-  schedule: string;                    // Cron, e.g., "0 2 * * *"
-  triggerOnSessionEnd: boolean;        // Default: true
+  enabled: boolean; // Default: false
+  schedule: string; // Cron, e.g., "0 2 * * *"
+  triggerOnSessionEnd: boolean; // Default: true
 
   // Pattern detection
-  minCasesForPattern: number;          // Default: 3
-  patternSimilarityThreshold: number;  // Default: 0.75
-  trajectoryThreshold: number;         // Default: 0.6
-  semanticWeight: number;              // Default: 0.5
-  trajectoryWeight: number;            // Default: 0.5
+  minCasesForPattern: number; // Default: 3
+  patternSimilarityThreshold: number; // Default: 0.75
+  trajectoryThreshold: number; // Default: 0.6
+  semanticWeight: number; // Default: 0.5
+  trajectoryWeight: number; // Default: 0.5
 
   // Promotion
-  autoPromoteEnabled: boolean;         // Default: false
-  autoPromoteThreshold: number;        // Default: 0.9
-  reviewThreshold: number;             // Default: 0.7
+  autoPromoteEnabled: boolean; // Default: false
+  autoPromoteThreshold: number; // Default: 0.9
+  reviewThreshold: number; // Default: 0.7
 
   // Maintenance
-  lookbackDays: number;                // Default: 30
-  recommendationTTLDays: number;       // Default: 14
+  lookbackDays: number; // Default: 30
+  recommendationTTLDays: number; // Default: 14
 }
 ```
 
@@ -494,6 +517,7 @@ librarian: {
 ## Phase 5: CLI & REST Extensions
 
 ### CLI Commands
+
 ```bash
 # Experiences
 agent-memory experience list --project-id <id> --level case
@@ -510,6 +534,7 @@ agent-memory librarian reject <id> --reason "..."
 ```
 
 ### REST Endpoints
+
 ```
 GET  /v1/experiences
 GET  /v1/experiences/:id
@@ -530,12 +555,14 @@ POST /v1/librarian/recommendations/:id/reject
 ## Implementation Order
 
 ### Week 1: Phase 1 + Phase 2 (Foundations)
+
 1. Migrate promotions to entryRelations
 2. Add experiences to query pipeline
 3. Create FTS5 table and triggers
 4. Update all pipeline stages
 
 ### Week 2: Phase 3 (Unified Capture Service)
+
 1. Create CaptureService coordinator and SharedState
 2. Implement ExperienceCaptureModule with LLM prompts
 3. Implement KnowledgeCaptureModule with threshold logic
@@ -544,6 +571,7 @@ POST /v1/librarian/recommendations/:id/reject
 6. Integrate with session-end and conversation handlers
 
 ### Week 3-4: Phase 4 (Librarian Core)
+
 1. Create trajectory similarity algorithm and `src/services/librarian/utils/math.ts`
 2. **Write unit tests for similarity algorithms**
 3. Implement hybrid pattern detector
@@ -552,6 +580,7 @@ POST /v1/librarian/recommendations/:id/reject
 6. Add configuration section
 
 ### Week 5: Phase 5 (CLI & REST)
+
 1. Add CLI commands
 2. Add REST endpoints
 3. Documentation and integration tests
@@ -561,6 +590,7 @@ POST /v1/librarian/recommendations/:id/reject
 ## Critical Files Summary
 
 ### To Create
+
 - `src/services/capture/index.ts` (CaptureService coordinator)
 - `src/services/capture/types.ts` (shared types)
 - `src/services/capture/state.ts` (SharedState + deduplication)
@@ -577,6 +607,7 @@ POST /v1/librarian/recommendations/:id/reject
 - `src/mcp/descriptors/memory_librarian.ts`
 
 ### To Modify
+
 - `src/db/schema/meta.ts` - Add relation types
 - `src/db/repositories/experiences.ts` - Use relations for promotion
 - `src/services/query/type-maps.ts` - Add experiences mappings
@@ -590,6 +621,7 @@ POST /v1/librarian/recommendations/:id/reject
 - `src/core/context.ts` - Add unified `capture` service
 
 ### Reference Patterns
+
 - `src/services/backup-scheduler.service.ts` - Scheduler pattern
 - `src/services/consolidation/discovery.ts` - Similarity detection
 - `src/services/extraction.service.ts` - LLM extraction pattern
@@ -613,10 +645,10 @@ export interface TrajectoryStep {
 }
 
 export interface TrajectorySimilarityResult {
-  score: number;               // Final combined score 0-1
-  actionTypeOverlap: number;   // Jaccard on canonical action types
-  toolOverlap: number;         // Jaccard on tools used
-  sequenceAlignment: number;   // LCS normalized score
+  score: number; // Final combined score 0-1
+  actionTypeOverlap: number; // Jaccard on canonical action types
+  toolOverlap: number; // Jaccard on tools used
+  sequenceAlignment: number; // LCS normalized score
   successPatternMatch: number; // Success flag correlation
 }
 
@@ -627,29 +659,35 @@ export interface TrajectorySimilarityResult {
 export function calculateTrajectorySimilarity(
   trajectory1: TrajectoryStep[],
   trajectory2: TrajectoryStep[],
-  weights = { actionType: 0.30, tool: 0.25, sequence: 0.30, success: 0.15 }
+  weights = { actionType: 0.3, tool: 0.25, sequence: 0.3, success: 0.15 }
 ): TrajectorySimilarityResult {
   // Handle empty trajectories
   if (trajectory1.length === 0 || trajectory2.length === 0) {
-    return { score: 0, actionTypeOverlap: 0, toolOverlap: 0,
-             sequenceAlignment: 0, successPatternMatch: 0 };
+    return {
+      score: 0,
+      actionTypeOverlap: 0,
+      toolOverlap: 0,
+      sequenceAlignment: 0,
+      successPatternMatch: 0,
+    };
   }
 
   // 1. Action Type Overlap (Jaccard)
-  const types1 = new Set(trajectory1.map(s => normalizeActionType(s.action)));
-  const types2 = new Set(trajectory2.map(s => normalizeActionType(s.action)));
+  const types1 = new Set(trajectory1.map((s) => normalizeActionType(s.action)));
+  const types2 = new Set(trajectory2.map((s) => normalizeActionType(s.action)));
   const actionTypeOverlap = jaccardSimilarity(types1, types2);
 
   // 2. Tool Usage Overlap (Jaccard)
-  const tools1 = new Set(trajectory1.map(s => s.toolUsed).filter(Boolean));
-  const tools2 = new Set(trajectory2.map(s => s.toolUsed).filter(Boolean));
-  const toolOverlap = (tools1.size === 0 && tools2.size === 0)
-    ? 0 // Avoid giving full similarity when nothing happened
-    : jaccardSimilarity(tools1, tools2);
+  const tools1 = new Set(trajectory1.map((s) => s.toolUsed).filter(Boolean));
+  const tools2 = new Set(trajectory2.map((s) => s.toolUsed).filter(Boolean));
+  const toolOverlap =
+    tools1.size === 0 && tools2.size === 0
+      ? 0 // Avoid giving full similarity when nothing happened
+      : jaccardSimilarity(tools1, tools2);
 
   // 3. Sequence Alignment (LCS)
-  const seq1 = trajectory1.map(s => normalizeActionType(s.action));
-  const seq2 = trajectory2.map(s => normalizeActionType(s.action));
+  const seq1 = trajectory1.map((s) => normalizeActionType(s.action));
+  const seq2 = trajectory2.map((s) => normalizeActionType(s.action));
   const lcsLen = longestCommonSubsequence(seq1, seq2);
   const sequenceAlignment = lcsLen / Math.max(seq1.length, seq2.length);
 
@@ -672,16 +710,16 @@ export function calculateTrajectorySimilarity(
 ```typescript
 // Canonical action types for cross-experience comparison
 type CanonicalActionType =
-  | 'read'     // Read, view, inspect, examine, check, look
-  | 'write'    // Write, create, add, insert, new
-  | 'modify'   // Update, edit, change, modify, fix, patch
-  | 'delete'   // Delete, remove, drop, clear
-  | 'search'   // Search, find, grep, locate, query
-  | 'execute'  // Run, execute, test, build, compile, deploy
-  | 'debug'    // Debug, log, trace, inspect, profile
+  | 'read' // Read, view, inspect, examine, check, look
+  | 'write' // Write, create, add, insert, new
+  | 'modify' // Update, edit, change, modify, fix, patch
+  | 'delete' // Delete, remove, drop, clear
+  | 'search' // Search, find, grep, locate, query
+  | 'execute' // Run, execute, test, build, compile, deploy
+  | 'debug' // Debug, log, trace, inspect, profile
   | 'navigate' // Open, goto, navigate, switch
-  | 'config'   // Configure, setup, install, initialize
-  | 'other';   // Fallback
+  | 'config' // Configure, setup, install, initialize
+  | 'other'; // Fallback
 
 const ACTION_PATTERNS: [RegExp, CanonicalActionType][] = [
   [/\b(read|view|inspect|examine|check|look|get|fetch|retrieve|load)\b/i, 'read'],
@@ -716,10 +754,7 @@ function longestCommonSubsequence<T>(seq1: T[], seq2: T[]): number {
   const m = seq1.length;
   const n = seq2.length;
 
-  const dp: number[][] = Array.from(
-    { length: m + 1 },
-    () => Array(n + 1).fill(0)
-  );
+  const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
 
   for (let i = 1; i <= m; i++) {
     for (let j = 1; j <= n; j++) {
@@ -735,15 +770,12 @@ function longestCommonSubsequence<T>(seq1: T[], seq2: T[]): number {
 }
 
 function jaccardSimilarity<T>(set1: Set<T>, set2: Set<T>): number {
-  const intersection = new Set([...set1].filter(x => set2.has(x)));
+  const intersection = new Set([...set1].filter((x) => set2.has(x)));
   const union = new Set([...set1, ...set2]);
   return union.size === 0 ? 0 : intersection.size / union.size;
 }
 
-function calculateSuccessCorrelation(
-  traj1: TrajectoryStep[],
-  traj2: TrajectoryStep[]
-): number {
+function calculateSuccessCorrelation(traj1: TrajectoryStep[], traj2: TrajectoryStep[]): number {
   const aligned: [TrajectoryStep, TrajectoryStep][] = [];
   const used2 = new Set<number>();
 
@@ -868,7 +900,7 @@ If no complete tasks found, return: {"tasks": []}`;
 
 ### B.2 User Prompt Builder
 
-```typescript
+````typescript
 export function buildExperienceExtractionPrompt(params: {
   transcript: string;
   projectName?: string;
@@ -909,7 +941,7 @@ export function buildExperienceExtractionPrompt(params: {
 
   return parts.join('\n');
 }
-```
+````
 
 ---
 
@@ -945,11 +977,11 @@ export function buildExperienceExtractionPrompt(params: {
 
 ```typescript
 export type RecommendationStatus =
-  | 'pending'   // Awaiting decision
-  | 'approved'  // Promotion executed
-  | 'rejected'  // Declined with reason
-  | 'skipped'   // Deferred for later
-  | 'expired';  // TTL exceeded
+  | 'pending' // Awaiting decision
+  | 'approved' // Promotion executed
+  | 'rejected' // Declined with reason
+  | 'skipped' // Deferred for later
+  | 'expired'; // TTL exceeded
 
 export const VALID_TRANSITIONS: StateTransition[] = [
   { from: 'pending', to: 'approved', action: 'approve', requires: ['agentId'] },
@@ -1090,10 +1122,7 @@ async function sessionEnd(context: AppContext, params: SessionEndParams) {
 
   if (params.status === 'completed' && context.services.capture) {
     // CaptureService handles deduplication internally
-    const result = await context.services.capture.onSessionEnd(
-      session,
-      params.transcript
-    );
+    const result = await context.services.capture.onSessionEnd(session, params.transcript);
 
     // Also trigger librarian if enabled
     if (context.config.librarian.triggerOnSessionEnd) {
@@ -1124,7 +1153,7 @@ async function addMessage(context: AppContext, params: AddMessageParams) {
       // Knowledge was captured - result contains new entries
       message.metadata = {
         ...message.metadata,
-        capturedEntryIds: result.entries.map(e => e.id),
+        capturedEntryIds: result.entries.map((e) => e.id),
       };
     }
   }
@@ -1133,7 +1162,8 @@ async function addMessage(context: AppContext, params: AddMessageParams) {
 }
 ```
 
-*Transcript sourcing & safety notes*
+_Transcript sourcing & safety notes_
+
 - `sessionEnd` should either receive a trimmed transcript payload (chunked to avoid token bloat) or rebuild the transcript from stored conversation entries keyed by `sessionId` before passing it to `CaptureService`.
 - Before handing transcripts to the experience extractor, run a redaction pass to strip secrets/credentials and persist only the derived experience/knowledge entries plus dedup hashes; transcripts themselves are not stored.
 
@@ -1162,8 +1192,8 @@ function shouldTriggerCapture(
     return { trigger: true, reason: 'token_threshold' };
   }
 
-  const avgToolCalls = metrics.toolCallsSinceLastCapture /
-                       Math.max(1, metrics.turnsSinceLastCapture);
+  const avgToolCalls =
+    metrics.toolCallsSinceLastCapture / Math.max(1, metrics.turnsSinceLastCapture);
   if (avgToolCalls >= config.thresholds.complexity) {
     return { trigger: true, reason: 'complexity_threshold' };
   }

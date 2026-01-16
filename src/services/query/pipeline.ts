@@ -53,10 +53,7 @@ export interface PipelineDependencies {
   /**
    * Execute FTS5 search query
    */
-  executeFts5Search: (
-    search: string,
-    types: QueryType[]
-  ) => Record<QueryEntryType, Set<string>>;
+  executeFts5Search: (search: string, types: QueryType[]) => Record<QueryEntryType, Set<string>>;
 
   /**
    * Execute FTS5 full-text search with per-entry relevance scores (BM25-derived).
@@ -140,15 +137,17 @@ export interface PipelineDependencies {
    */
   feedback?: {
     /** Enqueue batch for processing (preferred - has backpressure) */
-    enqueue: (batch: Array<{
-      sessionId: string;
-      queryText?: string;
-      entryType: 'tool' | 'guideline' | 'knowledge' | 'experience';
-      entryId: string;
-      retrievalRank: number;
-      retrievalScore: number;
-      semanticScore?: number;
-    }>) => boolean;
+    enqueue: (
+      batch: Array<{
+        sessionId: string;
+        queryText?: string;
+        entryType: 'tool' | 'guideline' | 'knowledge' | 'experience';
+        entryId: string;
+        retrievalRank: number;
+        retrievalScore: number;
+        semanticScore?: number;
+      }>
+    ) => boolean;
     /** Check if queue is accepting new items */
     isAccepting: () => boolean;
   };
@@ -219,11 +218,19 @@ export interface PipelineDependencies {
       minSimilarity?: number;
     }) => Promise<{
       entries: Array<{ id: string; type: string; score: number }>;
-      steps: Array<{ level: number; summariesSearched: number; summariesMatched: number; timeMs: number }>;
+      steps: Array<{
+        level: number;
+        summariesSearched: number;
+        summariesMatched: number;
+        timeMs: number;
+      }>;
       totalTimeMs: number;
     }>;
     /** Check if summaries exist for a scope */
-    hasSummaries: (scopeType: 'global' | 'org' | 'project' | 'session', scopeId?: string | null) => Promise<boolean>;
+    hasSummaries: (
+      scopeType: 'global' | 'org' | 'project' | 'session',
+      scopeId?: string | null
+    ) => Promise<boolean>;
   };
 
   /**
@@ -289,7 +296,11 @@ export interface ExperienceQueryResult extends QueryResultItemBase {
   versions?: unknown[];
 }
 
-export type QueryResultItem = ToolQueryResult | GuidelineQueryResult | KnowledgeQueryResult | ExperienceQueryResult;
+export type QueryResultItem =
+  | ToolQueryResult
+  | GuidelineQueryResult
+  | KnowledgeQueryResult
+  | ExperienceQueryResult;
 
 export interface MemoryQueryResult {
   results: QueryResultItem[];
@@ -434,7 +445,12 @@ export function createPipelineContext(
     search: undefined,
     ftsMatchIds: null,
     ftsScores: null,
-    relatedIds: { tool: new Set(), guideline: new Set(), knowledge: new Set(), experience: new Set() },
+    relatedIds: {
+      tool: new Set(),
+      guideline: new Set(),
+      knowledge: new Set(),
+      experience: new Set(),
+    },
     semanticScores: null,
     fetchedEntries: { tools: [], guidelines: [], knowledge: [], experiences: [] },
     tagsByEntry: {},
@@ -501,7 +517,10 @@ const STAGE_PREREQUISITES: Record<PipelineStageName, PipelineStageName[]> = {
  * @param stageName - Name of the completed stage
  * @returns Updated context with stage marked as completed
  */
-export function markStageCompleted(ctx: PipelineContext, stageName: PipelineStageName): PipelineContext {
+export function markStageCompleted(
+  ctx: PipelineContext,
+  stageName: PipelineStageName
+): PipelineContext {
   const completedStages = new Set(ctx.completedStages ?? []);
   completedStages.add(stageName);
   return { ...ctx, completedStages };
@@ -514,7 +533,10 @@ export function markStageCompleted(ctx: PipelineContext, stageName: PipelineStag
  * @param stageName - Name of the stage about to run
  * @throws Error if prerequisites are not met and NODE_ENV is not 'production'
  */
-export function validateStagePrerequisites(ctx: PipelineContext, stageName: PipelineStageName): void {
+export function validateStagePrerequisites(
+  ctx: PipelineContext,
+  stageName: PipelineStageName
+): void {
   // Skip validation in production for performance and in test mode to avoid breaking unit tests
   // that test stages in isolation without running the full pipeline
   if (process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'test') return;
@@ -522,12 +544,12 @@ export function validateStagePrerequisites(ctx: PipelineContext, stageName: Pipe
   const completedStages = ctx.completedStages ?? new Set();
   const prerequisites = STAGE_PREREQUISITES[stageName] ?? [];
 
-  const missingPrerequisites = prerequisites.filter(prereq => !completedStages.has(prereq));
+  const missingPrerequisites = prerequisites.filter((prereq) => !completedStages.has(prereq));
 
   if (missingPrerequisites.length > 0) {
     throw new Error(
       `Pipeline stage ordering violation: '${stageName}' requires stages [${missingPrerequisites.join(', ')}] to run first. ` +
-      `Completed stages: [${Array.from(completedStages).join(', ')}]`
+        `Completed stages: [${Array.from(completedStages).join(', ')}]`
     );
   }
 }
@@ -667,7 +689,7 @@ export function buildQueryResult(ctx: PipelineContext): MemoryQueryResult {
       rewrite: {
         strategy: ctx.rewriteStrategy,
         intent: ctx.rewriteIntent,
-        queries: ctx.searchQueries?.map(q => ({
+        queries: ctx.searchQueries?.map((q) => ({
           text: q.text.substring(0, 200), // Truncate for readability
           source: q.source,
           weight: q.weight,

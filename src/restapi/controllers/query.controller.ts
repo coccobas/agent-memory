@@ -43,7 +43,7 @@ export class QueryController {
     // Permission Check
     const deniedTypes = typesToCheck.filter(
       (type) =>
-        !this.context.services!.permission.check(
+        !this.context.services.permission.check(
           agentId,
           'read',
           queryTypeToEntryType[type],
@@ -73,7 +73,7 @@ export class QueryController {
     if (conversationId && autoLinkContext !== false) {
       try {
         const conversationService = createConversationService(this.context.repos.conversations);
-        conversationService.autoLinkContextFromQuery(conversationId, messageId, result);
+        void conversationService.autoLinkContextFromQuery(conversationId, messageId, result);
       } catch {
         // ignore auto-link errors
       }

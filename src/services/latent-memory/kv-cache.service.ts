@@ -352,9 +352,7 @@ export class KVCacheService {
     const l1HitRate = this.stats.totalGets > 0 ? this.stats.l1Hits / this.stats.totalGets : 0;
     const l2HitRate = this.stats.totalGets > 0 ? this.stats.l2Hits / this.stats.totalGets : 0;
     const overallHitRate =
-      this.stats.totalGets > 0
-        ? (this.stats.l1Hits + this.stats.l2Hits) / this.stats.totalGets
-        : 0;
+      this.stats.totalGets > 0 ? (this.stats.l1Hits + this.stats.l2Hits) / this.stats.totalGets : 0;
 
     return {
       totalGets: this.stats.totalGets,

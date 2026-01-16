@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as connectionModule from '../../src/db/connection.js';
-import { traverseRelationGraph, traverseRelationGraphCTE } from '../../src/services/query/graph-traversal.js';
+import {
+  traverseRelationGraph,
+  traverseRelationGraphCTE,
+} from '../../src/services/query/graph-traversal.js';
 
 // Mock dependencies
 vi.mock('../../src/db/connection.js', () => ({
@@ -43,9 +46,7 @@ describe('Graph Traversal', () => {
     });
 
     it('should traverse backward direction', () => {
-      mockStmt.all.mockReturnValue([
-        { node_type: 'tool', node_id: 't-2' },
-      ]);
+      mockStmt.all.mockReturnValue([{ node_type: 'tool', node_id: 't-2' }]);
 
       const result = traverseRelationGraphCTE('knowledge', 'k-1', {
         direction: 'backward',
@@ -70,9 +71,7 @@ describe('Graph Traversal', () => {
     });
 
     it('should filter by relation type', () => {
-      mockStmt.all.mockReturnValue([
-        { node_type: 'knowledge', node_id: 'k-1' },
-      ]);
+      mockStmt.all.mockReturnValue([{ node_type: 'knowledge', node_id: 'k-1' }]);
 
       const result = traverseRelationGraphCTE('tool', 't-1', {
         relationType: 'depends_on',
@@ -141,9 +140,7 @@ describe('Graph Traversal', () => {
     });
 
     it('should handle experience type', () => {
-      mockStmt.all.mockReturnValue([
-        { node_type: 'experience', node_id: 'exp-1' },
-      ]);
+      mockStmt.all.mockReturnValue([{ node_type: 'experience', node_id: 'exp-1' }]);
 
       const result = traverseRelationGraphCTE('tool', 't-1', {});
 
@@ -154,9 +151,7 @@ describe('Graph Traversal', () => {
 
   describe('traverseRelationGraph', () => {
     it('should use CTE result when available', () => {
-      mockStmt.all.mockReturnValue([
-        { node_type: 'knowledge', node_id: 'k-1' },
-      ]);
+      mockStmt.all.mockReturnValue([{ node_type: 'knowledge', node_id: 'k-1' }]);
 
       const result = traverseRelationGraph('tool', 't-1', {
         depth: 2,
@@ -176,9 +171,11 @@ describe('Graph Traversal', () => {
         select: vi.fn().mockReturnValue({
           from: vi.fn().mockReturnValue({
             where: vi.fn().mockReturnValue({
-              all: vi.fn().mockReturnValue([
-                { targetType: 'knowledge', targetId: 'k-1', relationType: 'related_to' },
-              ]),
+              all: vi
+                .fn()
+                .mockReturnValue([
+                  { targetType: 'knowledge', targetId: 'k-1', relationType: 'related_to' },
+                ]),
             }),
           }),
         }),

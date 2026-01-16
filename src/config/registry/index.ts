@@ -25,7 +25,12 @@ import {
 } from './sections/rateLimit.js';
 import { semanticSearchSection } from './sections/semanticSearch.js';
 import { recencySection, recencyDecayHalfLifeOptions } from './sections/recency.js';
-import { scoringSection, scoringWeightOptions, feedbackScoringOptions, entityScoringOptions } from './sections/scoring.js';
+import {
+  scoringSection,
+  scoringWeightOptions,
+  feedbackScoringOptions,
+  entityScoringOptions,
+} from './sections/scoring.js';
 import { validationSection } from './sections/validation.js';
 import { paginationSection } from './sections/pagination.js';
 import { healthSection } from './sections/health.js';

@@ -7,6 +7,8 @@
  * For enterprise deployments with horizontal scaling.
  */
 
+/* eslint-disable @typescript-eslint/no-redundant-type-constituents -- ioredis types contain any */
+
 import type {
   ILockAdapter,
   LockInfo,
@@ -18,6 +20,7 @@ import { createComponentLogger } from '../../utils/logger.js';
 import { ConnectionGuard } from '../../utils/connection-guard.js';
 
 // Type imports for ioredis (actual import is dynamic to avoid loading when not used)
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports -- inline import() needed for dynamic type
 type Redis = import('ioredis').default;
 
 const logger = createComponentLogger('redis-lock');
@@ -123,7 +126,7 @@ export class RedisLockAdapter implements ILockAdapter {
         this.client = new IORedis(options);
       }
 
-      const client = this.client!;
+      const client = this.client;
 
       client.on('connect', () => {
         this.connected = true;

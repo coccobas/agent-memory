@@ -143,7 +143,8 @@ export class Container {
       circuitBreakers: new Map(),
       preparedStatementCache: new LRUCache<Database.Statement>({
         maxSize: config.cache.maxPreparedStatements,
-        onEvict: (sql) => logger.debug({ sql: sql.substring(0, 50) }, 'Evicting prepared statement'),
+        onEvict: (sql) =>
+          logger.debug({ sql: sql.substring(0, 50) }, 'Evicting prepared statement'),
       }),
       healthCheckInterval: null,
       healthMonitor: null,
@@ -172,7 +173,7 @@ export class Container {
     // Shutdown runtime if registered
     if (this.state.runtime) {
       try {
-        shutdownRuntime(this.state.runtime);
+        void shutdownRuntime(this.state.runtime);
       } catch (error) {
         logger.debug({ error }, 'Runtime shutdown error (ignored)');
       }
@@ -239,7 +240,10 @@ export class Container {
    */
   getRuntime(): Runtime {
     if (!this.state.runtime) {
-      throw createServiceUnavailableError('runtime', 'not registered. Call registerRuntime() first at startup');
+      throw createServiceUnavailableError(
+        'runtime',
+        'not registered. Call registerRuntime() first at startup'
+      );
     }
     return this.state.runtime;
   }
@@ -283,7 +287,10 @@ export class Container {
    */
   getContext(): AppContext {
     if (!this.state.context) {
-      throw createServiceUnavailableError('AppContext', 'not registered. Call registerContext() first');
+      throw createServiceUnavailableError(
+        'AppContext',
+        'not registered. Call registerContext() first'
+      );
     }
     return this.state.context;
   }
@@ -320,7 +327,10 @@ export class Container {
    */
   getDatabase(): AppDb {
     if (!this.state.db) {
-      throw createServiceUnavailableError('database', 'not initialized. Call createAppContext() first');
+      throw createServiceUnavailableError(
+        'database',
+        'not initialized. Call createAppContext() first'
+      );
     }
     return this.state.db;
   }
@@ -397,7 +407,10 @@ export class Container {
    * @param sql - SQL query string
    * @param factory - Factory function to create the statement if it doesn't exist
    */
-  getPreparedStatement(sql: string, factory?: () => Database.Statement): Database.Statement | undefined {
+  getPreparedStatement(
+    sql: string,
+    factory?: () => Database.Statement
+  ): Database.Statement | undefined {
     let stmt = this.state.preparedStatementCache.get(sql);
     if (!stmt && factory) {
       stmt = factory();

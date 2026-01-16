@@ -311,7 +311,10 @@ export interface ICircuitBreakerStateAdapter {
    * @param config - Circuit breaker configuration
    * @returns The updated circuit breaker state
    */
-  recordFailure(serviceName: string, config: CircuitBreakerStateConfig): Promise<CircuitBreakerState>;
+  recordFailure(
+    serviceName: string,
+    config: CircuitBreakerStateConfig
+  ): Promise<CircuitBreakerState>;
 
   /**
    * Record a success and return the updated state.
@@ -320,7 +323,10 @@ export interface ICircuitBreakerStateAdapter {
    * @param config - Circuit breaker configuration
    * @returns The updated circuit breaker state
    */
-  recordSuccess(serviceName: string, config: CircuitBreakerStateConfig): Promise<CircuitBreakerState>;
+  recordSuccess(
+    serviceName: string,
+    config: CircuitBreakerStateConfig
+  ): Promise<CircuitBreakerState>;
 
   /**
    * Reset the circuit breaker state for a service.

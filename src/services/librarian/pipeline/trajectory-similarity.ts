@@ -5,6 +5,8 @@
  * to identify similar problem-solving patterns.
  */
 
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
+
 import type { ExperienceTrajectoryStep } from '../../../db/schema/experiences.js';
 import {
   jaccardSimilarityArrays,
@@ -21,8 +23,8 @@ import {
  * Normalized step for comparison
  */
 export interface NormalizedStep {
-  actionType: string;      // Canonical action type
-  toolCategory?: string;   // Category of tool used (if any)
+  actionType: string; // Canonical action type
+  toolCategory?: string; // Category of tool used (if any)
   success: boolean;
   hasObservation: boolean;
   hasReasoning: boolean;
@@ -36,11 +38,11 @@ export interface TrajectorySimilarityResult {
   similarity: number;
   /** Individual component scores */
   components: {
-    actionSequence: number;   // LCS-based sequence similarity
-    actionSet: number;        // Jaccard similarity of action types
-    toolSet: number;          // Jaccard similarity of tools used
-    outcomePattern: number;   // Success/failure pattern similarity
-    length: number;           // Length similarity
+    actionSequence: number; // LCS-based sequence similarity
+    actionSet: number; // Jaccard similarity of action types
+    toolSet: number; // Jaccard similarity of tools used
+    outcomePattern: number; // Success/failure pattern similarity
+    length: number; // Length similarity
   };
   /** Matching action pairs from LCS */
   matchingActions: Array<{ step1: number; step2: number; action: string }>;
@@ -57,60 +59,140 @@ export interface TrajectorySimilarityResult {
  */
 const ACTION_CATEGORIES: Record<string, string[]> = {
   read: [
-    'read', 'view', 'examine', 'inspect', 'look', 'check', 'review',
-    'analyze', 'study', 'observe', 'cat', 'less', 'head', 'tail',
+    'read',
+    'view',
+    'examine',
+    'inspect',
+    'look',
+    'check',
+    'review',
+    'analyze',
+    'study',
+    'observe',
+    'cat',
+    'less',
+    'head',
+    'tail',
   ],
   search: [
-    'search', 'find', 'locate', 'grep', 'query', 'lookup', 'discover',
-    'scan', 'explore', 'browse', 'rg', 'ag', 'find',
+    'search',
+    'find',
+    'locate',
+    'grep',
+    'query',
+    'lookup',
+    'discover',
+    'scan',
+    'explore',
+    'browse',
+    'rg',
+    'ag',
+    'find',
   ],
   write: [
-    'write', 'create', 'add', 'insert', 'append', 'generate', 'produce',
-    'compose', 'author', 'draft', 'touch', 'mkdir',
+    'write',
+    'create',
+    'add',
+    'insert',
+    'append',
+    'generate',
+    'produce',
+    'compose',
+    'author',
+    'draft',
+    'touch',
+    'mkdir',
   ],
   edit: [
-    'edit', 'modify', 'change', 'update', 'fix', 'patch', 'revise',
-    'refactor', 'rewrite', 'adjust', 'sed', 'awk',
+    'edit',
+    'modify',
+    'change',
+    'update',
+    'fix',
+    'patch',
+    'revise',
+    'refactor',
+    'rewrite',
+    'adjust',
+    'sed',
+    'awk',
   ],
-  delete: [
-    'delete', 'remove', 'erase', 'drop', 'clear', 'clean', 'purge',
-    'rm', 'rmdir', 'unlink',
-  ],
+  delete: ['delete', 'remove', 'erase', 'drop', 'clear', 'clean', 'purge', 'rm', 'rmdir', 'unlink'],
   execute: [
-    'execute', 'run', 'invoke', 'call', 'trigger', 'launch', 'start',
-    'perform', 'process', 'npm', 'node', 'python', 'bash', 'sh',
+    'execute',
+    'run',
+    'invoke',
+    'call',
+    'trigger',
+    'launch',
+    'start',
+    'perform',
+    'process',
+    'npm',
+    'node',
+    'python',
+    'bash',
+    'sh',
   ],
   test: [
-    'test', 'verify', 'validate', 'check', 'assert', 'confirm', 'ensure',
-    'jest', 'vitest', 'mocha', 'pytest',
+    'test',
+    'verify',
+    'validate',
+    'check',
+    'assert',
+    'confirm',
+    'ensure',
+    'jest',
+    'vitest',
+    'mocha',
+    'pytest',
   ],
   build: [
-    'build', 'compile', 'bundle', 'package', 'assemble', 'construct',
-    'tsc', 'webpack', 'rollup', 'vite',
+    'build',
+    'compile',
+    'bundle',
+    'package',
+    'assemble',
+    'construct',
+    'tsc',
+    'webpack',
+    'rollup',
+    'vite',
   ],
   install: [
-    'install', 'setup', 'configure', 'provision', 'deploy', 'initialize',
-    'npm install', 'yarn add', 'pip install',
+    'install',
+    'setup',
+    'configure',
+    'provision',
+    'deploy',
+    'initialize',
+    'npm install',
+    'yarn add',
+    'pip install',
   ],
   debug: [
-    'debug', 'trace', 'log', 'print', 'inspect', 'breakpoint', 'step',
-    'console.log', 'debugger',
+    'debug',
+    'trace',
+    'log',
+    'print',
+    'inspect',
+    'breakpoint',
+    'step',
+    'console.log',
+    'debugger',
   ],
-  navigate: [
-    'navigate', 'go', 'move', 'switch', 'open', 'access', 'enter',
-    'cd', 'pushd', 'popd',
-  ],
-  compare: [
-    'compare', 'diff', 'contrast', 'distinguish', 'differentiate',
-    'git diff', 'vimdiff',
-  ],
-  commit: [
-    'commit', 'save', 'store', 'persist', 'checkpoint',
-    'git commit', 'git add',
-  ],
+  navigate: ['navigate', 'go', 'move', 'switch', 'open', 'access', 'enter', 'cd', 'pushd', 'popd'],
+  compare: ['compare', 'diff', 'contrast', 'distinguish', 'differentiate', 'git diff', 'vimdiff'],
+  commit: ['commit', 'save', 'store', 'persist', 'checkpoint', 'git commit', 'git add'],
   revert: [
-    'revert', 'undo', 'rollback', 'restore', 'reset', 'checkout',
-    'git checkout', 'git reset',
+    'revert',
+    'undo',
+    'rollback',
+    'restore',
+    'reset',
+    'checkout',
+    'git checkout',
+    'git reset',
   ],
 };
 
@@ -149,28 +231,28 @@ export function normalizeToolCategory(tool: string | null | undefined): string |
 
   const lowerTool = tool.toLowerCase();
 
-  if (['grep', 'rg', 'ag', 'find', 'fd'].some(t => lowerTool.includes(t))) {
+  if (['grep', 'rg', 'ag', 'find', 'fd'].some((t) => lowerTool.includes(t))) {
     return 'search';
   }
-  if (['cat', 'less', 'head', 'tail', 'bat'].some(t => lowerTool.includes(t))) {
+  if (['cat', 'less', 'head', 'tail', 'bat'].some((t) => lowerTool.includes(t))) {
     return 'read';
   }
-  if (['sed', 'awk', 'vi', 'vim', 'nano', 'emacs'].some(t => lowerTool.includes(t))) {
+  if (['sed', 'awk', 'vi', 'vim', 'nano', 'emacs'].some((t) => lowerTool.includes(t))) {
     return 'edit';
   }
-  if (['git'].some(t => lowerTool.includes(t))) {
+  if (['git'].some((t) => lowerTool.includes(t))) {
     return 'vcs';
   }
-  if (['npm', 'yarn', 'pnpm', 'pip', 'cargo'].some(t => lowerTool.includes(t))) {
+  if (['npm', 'yarn', 'pnpm', 'pip', 'cargo'].some((t) => lowerTool.includes(t))) {
     return 'package';
   }
-  if (['tsc', 'node', 'python', 'bash', 'sh', 'zsh'].some(t => lowerTool.includes(t))) {
+  if (['tsc', 'node', 'python', 'bash', 'sh', 'zsh'].some((t) => lowerTool.includes(t))) {
     return 'runtime';
   }
-  if (['jest', 'vitest', 'mocha', 'pytest'].some(t => lowerTool.includes(t))) {
+  if (['jest', 'vitest', 'mocha', 'pytest'].some((t) => lowerTool.includes(t))) {
     return 'test';
   }
-  if (['docker', 'kubectl', 'terraform'].some(t => lowerTool.includes(t))) {
+  if (['docker', 'kubectl', 'terraform'].some((t) => lowerTool.includes(t))) {
     return 'infra';
   }
 
@@ -255,8 +337,8 @@ export function calculateTrajectorySimilarity(
   const norm2 = normalizeTrajectory(trajectory2);
 
   // Extract action type sequences
-  const actions1 = norm1.map(s => s.actionType);
-  const actions2 = norm2.map(s => s.actionType);
+  const actions1 = norm1.map((s) => s.actionType);
+  const actions2 = norm2.map((s) => s.actionType);
 
   // Calculate action sequence similarity (order matters)
   const actionSequenceSimilarity = lcsSimilarity(actions1, actions2);
@@ -265,15 +347,14 @@ export function calculateTrajectorySimilarity(
   const actionSetSimilarity = jaccardSimilarityArrays(actions1, actions2);
 
   // Extract tool categories
-  const tools1 = norm1.map(s => s.toolCategory).filter((t): t is string => t !== undefined);
-  const tools2 = norm2.map(s => s.toolCategory).filter((t): t is string => t !== undefined);
-  const toolSetSimilarity = tools1.length > 0 || tools2.length > 0
-    ? jaccardSimilarityArrays(tools1, tools2)
-    : 1.0; // If neither has tools, consider them similar
+  const tools1 = norm1.map((s) => s.toolCategory).filter((t): t is string => t !== undefined);
+  const tools2 = norm2.map((s) => s.toolCategory).filter((t): t is string => t !== undefined);
+  const toolSetSimilarity =
+    tools1.length > 0 || tools2.length > 0 ? jaccardSimilarityArrays(tools1, tools2) : 1.0; // If neither has tools, consider them similar
 
   // Calculate success pattern similarity
-  const outcomes1 = norm1.map(s => s.success);
-  const outcomes2 = norm2.map(s => s.success);
+  const outcomes1 = norm1.map((s) => s.success);
+  const outcomes2 = norm2.map((s) => s.success);
   const outcomePatternSimilarity = editDistanceSimilarity(outcomes1, outcomes2);
 
   // Calculate length similarity (penalize very different lengths)
@@ -295,17 +376,14 @@ export function calculateTrajectorySimilarity(
 
   // Weights for different components
   const weights = {
-    actionSequence: 0.35,  // Order matters most
-    actionSet: 0.25,       // But the types of actions matter too
-    toolSet: 0.15,         // Tools provide context
-    outcomePattern: 0.15,  // Similar outcome patterns matter
-    length: 0.10,          // Length is less important
+    actionSequence: 0.35, // Order matters most
+    actionSet: 0.25, // But the types of actions matter too
+    toolSet: 0.15, // Tools provide context
+    outcomePattern: 0.15, // Similar outcome patterns matter
+    length: 0.1, // Length is less important
   };
 
-  const similarity = weightedMean(
-    Object.values(components),
-    Object.values(weights)
-  );
+  const similarity = weightedMean(Object.values(components), Object.values(weights));
 
   // Confidence based on trajectory lengths
   const avgLen = (trajectory1.length + trajectory2.length) / 2;

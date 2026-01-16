@@ -343,7 +343,9 @@ describe('VersionedCache', () => {
       cache.set('key2', 20);
       cache.set('key3', 30);
 
-      const count = cache.invalidateByPredicate((key) => key.startsWith('key1') || key.startsWith('key3'));
+      const count = cache.invalidateByPredicate(
+        (key) => key.startsWith('key1') || key.startsWith('key3')
+      );
 
       expect(count).toBe(2);
       expect(cache.get('key1')).toBeUndefined();

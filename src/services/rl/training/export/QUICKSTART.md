@@ -209,7 +209,7 @@ await exportDataset(dataset, {
   format: 'jsonl',
   outputPath: './datasets/sample',
   policy: 'extraction',
-  maxExamples: 100,  // Small sample for testing
+  maxExamples: 100, // Small sample for testing
 });
 ```
 
@@ -221,7 +221,7 @@ await exportDataset(dataset, {
   outputPath: './datasets/reproducible',
   policy: 'extraction',
   shuffle: true,
-  seed: 42,  // Same seed = same split
+  seed: 42, // Same seed = same split
 });
 ```
 
@@ -232,7 +232,7 @@ await exportDataset(dataset, {
   format: 'openai',
   outputPath: './datasets/custom-split',
   policy: 'retrieval',
-  splitRatio: 0.1,  // 90% train, 10% eval
+  splitRatio: 0.1, // 90% train, 10% eval
 });
 ```
 
@@ -243,7 +243,7 @@ await exportDataset(dataset, {
   format: 'anthropic',
   outputPath: './datasets/clean',
   policy: 'extraction',
-  includeMetadata: false,  // Cleaner format
+  includeMetadata: false, // Cleaner format
 });
 ```
 

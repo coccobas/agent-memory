@@ -203,7 +203,11 @@ function createRealContext(
   sqlite: ReturnType<typeof Database>,
   db: ReturnType<typeof drizzle>,
   classificationService: ClassificationService
-): { context: AppContext; storedEntries: StoredEntry[]; setProject: (id: string, name?: string) => void } {
+): {
+  context: AppContext;
+  storedEntries: StoredEntry[];
+  setProject: (id: string, name?: string) => void;
+} {
   const storedEntries: StoredEntry[] = [];
   let idCounter = 0;
   const generateId = () => `wf-${++idCounter}-${Date.now().toString(36)}`;
@@ -226,8 +230,20 @@ function createRealContext(
             ${params.createdBy ? `'${params.createdBy}'` : 'NULL'}
           )
         `);
-        storedEntries.push({ id, type: 'guideline', scopeType: params.scopeType as string, scopeId: params.scopeId as string });
-        return { id, ...params, isActive: true, version: 1, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+        storedEntries.push({
+          id,
+          type: 'guideline',
+          scopeType: params.scopeType as string,
+          scopeId: params.scopeId as string,
+        });
+        return {
+          id,
+          ...params,
+          isActive: true,
+          version: 1,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
       }),
       findById: vi.fn(async (id: string) => {
         const rows = sqlite.prepare('SELECT * FROM guidelines WHERE id = ?').all(id);
@@ -251,7 +267,9 @@ function createRealContext(
         return { id, ...params };
       }),
       deactivate: vi.fn(async (id: string) => {
-        sqlite.exec(`UPDATE guidelines SET is_active = 0, updated_at = '${new Date().toISOString()}' WHERE id = '${id}'`);
+        sqlite.exec(
+          `UPDATE guidelines SET is_active = 0, updated_at = '${new Date().toISOString()}' WHERE id = '${id}'`
+        );
         return { id, isActive: false };
       }),
     },
@@ -270,8 +288,20 @@ function createRealContext(
             ${params.createdBy ? `'${params.createdBy}'` : 'NULL'}
           )
         `);
-        storedEntries.push({ id, type: 'knowledge', scopeType: params.scopeType as string, scopeId: params.scopeId as string });
-        return { id, ...params, isActive: true, version: 1, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+        storedEntries.push({
+          id,
+          type: 'knowledge',
+          scopeType: params.scopeType as string,
+          scopeId: params.scopeId as string,
+        });
+        return {
+          id,
+          ...params,
+          isActive: true,
+          version: 1,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
       }),
       findById: vi.fn(async (id: string) => {
         const rows = sqlite.prepare('SELECT * FROM knowledge WHERE id = ?').all(id);
@@ -294,7 +324,9 @@ function createRealContext(
         return { id, ...params };
       }),
       deactivate: vi.fn(async (id: string) => {
-        sqlite.exec(`UPDATE knowledge SET is_active = 0, updated_at = '${new Date().toISOString()}' WHERE id = '${id}'`);
+        sqlite.exec(
+          `UPDATE knowledge SET is_active = 0, updated_at = '${new Date().toISOString()}' WHERE id = '${id}'`
+        );
         return { id, isActive: false };
       }),
     },
@@ -313,8 +345,20 @@ function createRealContext(
             ${params.createdBy ? `'${params.createdBy}'` : 'NULL'}
           )
         `);
-        storedEntries.push({ id, type: 'tool', scopeType: params.scopeType as string, scopeId: params.scopeId as string });
-        return { id, ...params, isActive: true, version: 1, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+        storedEntries.push({
+          id,
+          type: 'tool',
+          scopeType: params.scopeType as string,
+          scopeId: params.scopeId as string,
+        });
+        return {
+          id,
+          ...params,
+          isActive: true,
+          version: 1,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
       }),
       findById: vi.fn(async (id: string) => {
         const rows = sqlite.prepare('SELECT * FROM tools WHERE id = ?').all(id);
@@ -351,28 +395,35 @@ function createRealContext(
       }),
       detach: vi.fn(async () => true),
       findByEntry: vi.fn(async (entryType: string, entryId: string) => {
-        return sqlite.prepare(`
+        return sqlite
+          .prepare(
+            `
           SELECT et.*, t.name as tag_name FROM entry_tags et
           JOIN tags t ON et.tag_id = t.id
           WHERE et.entry_type = ? AND et.entry_id = ?
-        `).all(entryType, entryId);
+        `
+          )
+          .all(entryType, entryId);
       }),
     },
     organizations: {
       create: vi.fn(async (params: Record<string, unknown>) => {
-        const id = params.id as string ?? generateId();
+        const id = (params.id as string) ?? generateId();
         sqlite.exec(`
           INSERT INTO organizations (id, name, description)
           VALUES ('${id}', '${String(params.name).replace(/'/g, "''")}', ${params.description ? `'${String(params.description).replace(/'/g, "''")}'` : 'NULL'})
         `);
         return { id, ...params };
       }),
-      findById: vi.fn(async (id: string) => sqlite.prepare('SELECT * FROM organizations WHERE id = ?').get(id) ?? null),
+      findById: vi.fn(
+        async (id: string) =>
+          sqlite.prepare('SELECT * FROM organizations WHERE id = ?').get(id) ?? null
+      ),
       list: vi.fn(async () => sqlite.prepare('SELECT * FROM organizations').all()),
     },
     projects: {
       create: vi.fn(async (params: Record<string, unknown>) => {
-        const id = params.id as string ?? generateId();
+        const id = (params.id as string) ?? generateId();
         sqlite.exec(`
           INSERT INTO projects (id, org_id, name, description, root_path)
           VALUES (
@@ -385,13 +436,21 @@ function createRealContext(
         `);
         return { id, ...params };
       }),
-      findById: vi.fn(async (id: string) => sqlite.prepare('SELECT * FROM projects WHERE id = ?').get(id) ?? null),
-      findByRootPath: vi.fn(async (path: string) => sqlite.prepare('SELECT * FROM projects WHERE root_path = ?').get(path) ?? null),
+      findById: vi.fn(
+        async (id: string) => sqlite.prepare('SELECT * FROM projects WHERE id = ?').get(id) ?? null
+      ),
+      findByRootPath: vi.fn(
+        async (path: string) =>
+          sqlite.prepare('SELECT * FROM projects WHERE root_path = ?').get(path) ?? null
+      ),
       list: vi.fn(async () => sqlite.prepare('SELECT * FROM projects').all()),
       update: vi.fn(async (id: string, params: Record<string, unknown>) => {
         const sets: string[] = [];
         if (params.name) sets.push(`name = '${String(params.name).replace(/'/g, "''")}'`);
-        if (params.description !== undefined) sets.push(`description = ${params.description ? `'${String(params.description).replace(/'/g, "''")}'` : 'NULL'}`);
+        if (params.description !== undefined)
+          sets.push(
+            `description = ${params.description ? `'${String(params.description).replace(/'/g, "''")}'` : 'NULL'}`
+          );
         sets.push(`updated_at = '${new Date().toISOString()}'`);
         if (sets.length > 0) {
           sqlite.exec(`UPDATE projects SET ${sets.join(', ')} WHERE id = '${id}'`);
@@ -415,9 +474,17 @@ function createRealContext(
         `);
         return { id, ...params, status: 'active', startedAt: new Date().toISOString() };
       }),
-      findById: vi.fn(async (id: string) => sqlite.prepare('SELECT * FROM sessions WHERE id = ?').get(id) ?? null),
+      findById: vi.fn(
+        async (id: string) => sqlite.prepare('SELECT * FROM sessions WHERE id = ?').get(id) ?? null
+      ),
       findActive: vi.fn(async (projectId: string) => {
-        return sqlite.prepare(`SELECT * FROM sessions WHERE project_id = ? AND status = 'active' ORDER BY started_at DESC LIMIT 1`).get(projectId) ?? null;
+        return (
+          sqlite
+            .prepare(
+              `SELECT * FROM sessions WHERE project_id = ? AND status = 'active' ORDER BY started_at DESC LIMIT 1`
+            )
+            .get(projectId) ?? null
+        );
       }),
       list: vi.fn(async (params: Record<string, unknown>) => {
         let query = 'SELECT * FROM sessions WHERE 1=1';
@@ -426,7 +493,9 @@ function createRealContext(
         return sqlite.prepare(query).all();
       }),
       end: vi.fn(async (id: string, status = 'completed') => {
-        sqlite.exec(`UPDATE sessions SET status = '${status}', ended_at = '${new Date().toISOString()}' WHERE id = '${id}'`);
+        sqlite.exec(
+          `UPDATE sessions SET status = '${status}', ended_at = '${new Date().toISOString()}' WHERE id = '${id}'`
+        );
         return { id, status };
       }),
     },
@@ -462,7 +531,9 @@ function createRealContext(
     classification: classificationService,
     contextDetection: {
       detect: vi.fn(async () => ({
-        project: currentProjectId ? { id: currentProjectId, name: currentProjectName ?? 'Test Project' } : null,
+        project: currentProjectId
+          ? { id: currentProjectId, name: currentProjectName ?? 'Test Project' }
+          : null,
         session: null,
         agentId: { value: 'test-agent', source: 'default' as const },
       })),
@@ -473,7 +544,9 @@ function createRealContext(
           agentId: params.agentId ?? 'test-agent',
         },
         detected: {
-          project: currentProjectId ? { id: currentProjectId, name: currentProjectName ?? 'Test Project' } : null,
+          project: currentProjectId
+            ? { id: currentProjectId, name: currentProjectName ?? 'Test Project' }
+            : null,
           session: null,
           agentId: { value: 'test-agent', source: 'default' as const },
         },
@@ -490,7 +563,8 @@ function createRealContext(
         const types = (params.types as string[]) ?? ['guidelines', 'knowledge', 'tools'];
 
         for (const type of types) {
-          const tableName = type === 'guidelines' ? 'guidelines' : type === 'knowledge' ? 'knowledge' : 'tools';
+          const tableName =
+            type === 'guidelines' ? 'guidelines' : type === 'knowledge' ? 'knowledge' : 'tools';
           let query = `SELECT *, '${type.replace(/s$/, '')}' as entry_type FROM ${tableName} WHERE is_active = 1`;
 
           if (params.search) {
@@ -526,12 +600,16 @@ function createRealContext(
         if (params.scopeType === 'session' && params.scopeId) {
           scopeChain.push({ type: 'session', id: params.scopeId as string });
           // Find parent project
-          const session = sqlite.prepare('SELECT project_id FROM sessions WHERE id = ?').get(params.scopeId as string) as { project_id: string } | undefined;
+          const session = sqlite
+            .prepare('SELECT project_id FROM sessions WHERE id = ?')
+            .get(params.scopeId as string) as { project_id: string } | undefined;
           if (session) scopeChain.push({ type: 'project', id: session.project_id });
         } else if (params.scopeType === 'project' && params.scopeId) {
           scopeChain.push({ type: 'project', id: params.scopeId as string });
           // Find parent org
-          const project = sqlite.prepare('SELECT org_id FROM projects WHERE id = ?').get(params.scopeId as string) as { org_id: string } | undefined;
+          const project = sqlite
+            .prepare('SELECT org_id FROM projects WHERE id = ?')
+            .get(params.scopeId as string) as { org_id: string } | undefined;
           if (project?.org_id) scopeChain.push({ type: 'org', id: project.org_id });
         } else if (params.scopeType === 'org' && params.scopeId) {
           scopeChain.push({ type: 'org', id: params.scopeId as string });
@@ -544,13 +622,24 @@ function createRealContext(
 
         // Query each scope level
         for (const scope of scopeChain) {
-          const scopeCondition = scope.type === 'global'
-            ? `scope_type = 'global'`
-            : `scope_type = '${scope.type}' AND scope_id = '${scope.id}'`;
+          const scopeCondition =
+            scope.type === 'global'
+              ? `scope_type = 'global'`
+              : `scope_type = '${scope.type}' AND scope_id = '${scope.id}'`;
 
-          guidelines.push(...sqlite.prepare(`SELECT * FROM guidelines WHERE is_active = 1 AND ${scopeCondition}`).all());
-          knowledge.push(...sqlite.prepare(`SELECT * FROM knowledge WHERE is_active = 1 AND ${scopeCondition}`).all());
-          tools.push(...sqlite.prepare(`SELECT * FROM tools WHERE is_active = 1 AND ${scopeCondition}`).all());
+          guidelines.push(
+            ...sqlite
+              .prepare(`SELECT * FROM guidelines WHERE is_active = 1 AND ${scopeCondition}`)
+              .all()
+          );
+          knowledge.push(
+            ...sqlite
+              .prepare(`SELECT * FROM knowledge WHERE is_active = 1 AND ${scopeCondition}`)
+              .all()
+          );
+          tools.push(
+            ...sqlite.prepare(`SELECT * FROM tools WHERE is_active = 1 AND ${scopeCondition}`).all()
+          );
         }
 
         return { guidelines, knowledge, tools };
@@ -700,7 +789,7 @@ describe('Full Workflow Integration Tests', () => {
       expect(endResult.status).toBe('completed');
 
       // 8. Verify session is ended
-      const session = await context.repos.sessions.findById(sessionId) as Record<string, unknown>;
+      const session = (await context.repos.sessions.findById(sessionId)) as Record<string, unknown>;
       expect(session?.status).toBe('completed');
       expect(session?.ended_at).toBeDefined();
     });
@@ -768,9 +857,15 @@ describe('Full Workflow Integration Tests', () => {
       expect(searchResult.total).toBe(3);
 
       // 3. Verify specific entries exist
-      const guidelines = searchResult.results.filter((r: Record<string, unknown>) => r.entry_type === 'guideline');
-      const knowledge = searchResult.results.filter((r: Record<string, unknown>) => r.entry_type === 'knowledge');
-      const tools = searchResult.results.filter((r: Record<string, unknown>) => r.entry_type === 'tool');
+      const guidelines = searchResult.results.filter(
+        (r: Record<string, unknown>) => r.entry_type === 'guideline'
+      );
+      const knowledge = searchResult.results.filter(
+        (r: Record<string, unknown>) => r.entry_type === 'knowledge'
+      );
+      const tools = searchResult.results.filter(
+        (r: Record<string, unknown>) => r.entry_type === 'tool'
+      );
 
       expect(guidelines).toHaveLength(1);
       expect(knowledge).toHaveLength(1);
@@ -778,7 +873,11 @@ describe('Full Workflow Integration Tests', () => {
     });
 
     it('should execute remember → update → query sequence', async () => {
-      const { context, storedEntries, setProject } = createRealContext(sqlite, db, classificationService);
+      const { context, storedEntries, setProject } = createRealContext(
+        sqlite,
+        db,
+        classificationService
+      );
       const project = await context.repos.projects.create({ name: 'Update Test' });
       setProject(project.id, 'Update Test');
 
@@ -790,7 +889,7 @@ describe('Full Workflow Integration Tests', () => {
       });
 
       // Get the stored entry ID
-      const guidelineEntry = storedEntries.find(e => e.type === 'guideline');
+      const guidelineEntry = storedEntries.find((e) => e.type === 'guideline');
       expect(guidelineEntry).toBeDefined();
 
       // 2. Update the guideline
@@ -800,13 +899,20 @@ describe('Full Workflow Integration Tests', () => {
       });
 
       // 3. Query and verify update
-      const updated = await context.repos.guidelines.findById(guidelineEntry!.id) as Record<string, unknown>;
+      const updated = (await context.repos.guidelines.findById(guidelineEntry!.id)) as Record<
+        string,
+        unknown
+      >;
       expect(updated?.content).toContain('prettier');
       expect(updated?.priority).toBe(90);
     });
 
     it('should execute remember → tag → search by tag sequence', async () => {
-      const { context, storedEntries, setProject } = createRealContext(sqlite, db, classificationService);
+      const { context, storedEntries, setProject } = createRealContext(
+        sqlite,
+        db,
+        classificationService
+      );
       const project = await context.repos.projects.create({ name: 'Tag Test' });
       setProject(project.id, 'Tag Test');
 
@@ -826,7 +932,7 @@ describe('Full Workflow Integration Tests', () => {
       // 2. Tag entries
       const securityTag = await context.repos.tags.getOrCreate('security');
 
-      for (const entry of storedEntries.filter(e => e.type === 'guideline')) {
+      for (const entry of storedEntries.filter((e) => e.type === 'guideline')) {
         await context.repos.entryTags.attach({
           entryType: 'guideline',
           entryId: entry.id,
@@ -835,7 +941,7 @@ describe('Full Workflow Integration Tests', () => {
       }
 
       // 3. Verify tags are attached
-      for (const entry of storedEntries.filter(e => e.type === 'guideline')) {
+      for (const entry of storedEntries.filter((e) => e.type === 'guideline')) {
         const tags = await context.repos.entryTags.findByEntry('guideline', entry.id);
         expect(tags.length).toBeGreaterThan(0);
         expect(tags.some((t: Record<string, unknown>) => t.tag_name === 'security')).toBe(true);
@@ -868,15 +974,23 @@ describe('Full Workflow Integration Tests', () => {
       expect(response2.classification?.wasForced).toBe(true);
 
       // 3. Verify correction was recorded for learning
-      const feedbackRows = sqlite.prepare(`
+      const feedbackRows = sqlite
+        .prepare(
+          `
         SELECT * FROM classification_feedback
         WHERE actual_type = 'knowledge' AND was_correct = 0
-      `).all();
+      `
+        )
+        .all();
       expect(feedbackRows.length).toBeGreaterThan(0);
     });
 
     it('should execute remember → relate → traverse sequence', async () => {
-      const { context, storedEntries, setProject } = createRealContext(sqlite, db, classificationService);
+      const { context, storedEntries, setProject } = createRealContext(
+        sqlite,
+        db,
+        classificationService
+      );
       const project = await context.repos.projects.create({ name: 'Relation Test' });
       setProject(project.id, 'Relation Test');
 
@@ -894,8 +1008,8 @@ describe('Full Workflow Integration Tests', () => {
       });
 
       // 2. Create relation between them
-      const guideline = storedEntries.find(e => e.type === 'guideline');
-      const knowledge = storedEntries.find(e => e.type === 'knowledge');
+      const guideline = storedEntries.find((e) => e.type === 'guideline');
+      const knowledge = storedEntries.find((e) => e.type === 'knowledge');
 
       await context.repos.relations.create({
         sourceType: 'guideline',
@@ -944,8 +1058,12 @@ describe('Full Workflow Integration Tests', () => {
 
       // Should include both global and project guidelines
       expect(contextResult.guidelines.length).toBe(2);
-      expect(contextResult.guidelines.some((g: Record<string, unknown>) => g.scope_type === 'global')).toBe(true);
-      expect(contextResult.guidelines.some((g: Record<string, unknown>) => g.scope_type === 'project')).toBe(true);
+      expect(
+        contextResult.guidelines.some((g: Record<string, unknown>) => g.scope_type === 'global')
+      ).toBe(true);
+      expect(
+        contextResult.guidelines.some((g: Record<string, unknown>) => g.scope_type === 'project')
+      ).toBe(true);
     });
 
     it('should inherit from global → org → project scope', async () => {
@@ -1006,14 +1124,44 @@ describe('Full Workflow Integration Tests', () => {
 
       // 1. Create full hierarchy
       const org = await context.repos.organizations.create({ name: 'Full Hierarchy Org' });
-      const project = await context.repos.projects.create({ name: 'Full Hierarchy Project', orgId: org.id });
-      const session = await context.repos.sessions.create({ projectId: project.id, name: 'Full Hierarchy Session', agentId: 'test' });
+      const project = await context.repos.projects.create({
+        name: 'Full Hierarchy Project',
+        orgId: org.id,
+      });
+      const session = await context.repos.sessions.create({
+        projectId: project.id,
+        name: 'Full Hierarchy Session',
+        agentId: 'test',
+      });
 
       // 2. Create entries at each level
-      await context.repos.knowledge.create({ scopeType: 'global', title: 'Global Fact', content: 'Company founded 2020', createdBy: 'test' });
-      await context.repos.knowledge.create({ scopeType: 'org', scopeId: org.id, title: 'Org Fact', content: 'Org uses microservices', createdBy: 'test' });
-      await context.repos.knowledge.create({ scopeType: 'project', scopeId: project.id, title: 'Project Fact', content: 'Project uses Node.js', createdBy: 'test' });
-      await context.repos.knowledge.create({ scopeType: 'session', scopeId: session.id, title: 'Session Fact', content: 'Working on auth feature', createdBy: 'test' });
+      await context.repos.knowledge.create({
+        scopeType: 'global',
+        title: 'Global Fact',
+        content: 'Company founded 2020',
+        createdBy: 'test',
+      });
+      await context.repos.knowledge.create({
+        scopeType: 'org',
+        scopeId: org.id,
+        title: 'Org Fact',
+        content: 'Org uses microservices',
+        createdBy: 'test',
+      });
+      await context.repos.knowledge.create({
+        scopeType: 'project',
+        scopeId: project.id,
+        title: 'Project Fact',
+        content: 'Project uses Node.js',
+        createdBy: 'test',
+      });
+      await context.repos.knowledge.create({
+        scopeType: 'session',
+        scopeId: session.id,
+        title: 'Session Fact',
+        content: 'Working on auth feature',
+        createdBy: 'test',
+      });
 
       // 3. Query session context with inheritance
       const contextResult = await context.services.query!.context({
@@ -1061,7 +1209,11 @@ describe('Full Workflow Integration Tests', () => {
     it('should allow session to override project rules', async () => {
       const { context } = createRealContext(sqlite, db, classificationService);
       const project = await context.repos.projects.create({ name: 'Override Test' });
-      const session = await context.repos.sessions.create({ projectId: project.id, name: 'Override Session', agentId: 'test' });
+      const session = await context.repos.sessions.create({
+        projectId: project.id,
+        name: 'Override Session',
+        agentId: 'test',
+      });
 
       // 1. Create project rule
       await context.repos.guidelines.create({
@@ -1092,8 +1244,12 @@ describe('Full Workflow Integration Tests', () => {
 
       // Both should be present, with session having higher priority
       expect(contextResult.guidelines.length).toBe(2);
-      const sessionRule = contextResult.guidelines.find((g: Record<string, unknown>) => g.scope_type === 'session');
-      const projectRule = contextResult.guidelines.find((g: Record<string, unknown>) => g.scope_type === 'project');
+      const sessionRule = contextResult.guidelines.find(
+        (g: Record<string, unknown>) => g.scope_type === 'session'
+      );
+      const projectRule = contextResult.guidelines.find(
+        (g: Record<string, unknown>) => g.scope_type === 'project'
+      );
       expect(sessionRule?.priority).toBeGreaterThan(projectRule?.priority ?? 0);
     });
   });
@@ -1117,7 +1273,11 @@ describe('Full Workflow Integration Tests', () => {
     it('should handle session end on already ended session', async () => {
       const { context } = createRealContext(sqlite, db, classificationService);
       const project = await context.repos.projects.create({ name: 'Double End Test' });
-      const session = await context.repos.sessions.create({ projectId: project.id, name: 'Test', agentId: 'test' });
+      const session = await context.repos.sessions.create({
+        projectId: project.id,
+        name: 'Test',
+        agentId: 'test',
+      });
 
       // End once
       await context.repos.sessions.end(session.id);
@@ -1130,7 +1290,11 @@ describe('Full Workflow Integration Tests', () => {
 
   describe('Concurrent Operations', () => {
     it('should handle concurrent remember operations', async () => {
-      const { context, storedEntries, setProject } = createRealContext(sqlite, db, classificationService);
+      const { context, storedEntries, setProject } = createRealContext(
+        sqlite,
+        db,
+        classificationService
+      );
       const project = await context.repos.projects.create({ name: 'Concurrent Test' });
       setProject(project.id, 'Concurrent Test');
 
@@ -1146,13 +1310,15 @@ describe('Full Workflow Integration Tests', () => {
       const results = await Promise.all(promises);
 
       // All should succeed
-      expect(results.every(r => {
-        const response = JSON.parse(r.content[0]?.text ?? '{}');
-        return response.success === true;
-      })).toBe(true);
+      expect(
+        results.every((r) => {
+          const response = JSON.parse(r.content[0]?.text ?? '{}');
+          return response.success === true;
+        })
+      ).toBe(true);
 
       // All should be stored
-      expect(storedEntries.filter(e => e.type === 'guideline')).toHaveLength(10);
+      expect(storedEntries.filter((e) => e.type === 'guideline')).toHaveLength(10);
     });
 
     it('should handle concurrent session operations', async () => {
@@ -1172,7 +1338,7 @@ describe('Full Workflow Integration Tests', () => {
 
       // All should be created
       expect(sessions).toHaveLength(5);
-      expect(sessions.every(s => s.status === 'active')).toBe(true);
+      expect(sessions.every((s) => s.status === 'active')).toBe(true);
     });
   });
 
@@ -1182,19 +1348,36 @@ describe('Full Workflow Integration Tests', () => {
 
       // Create full hierarchy
       const org = await context.repos.organizations.create({ name: 'Integrity Org' });
-      const project = await context.repos.projects.create({ name: 'Integrity Project', orgId: org.id });
-      const session = await context.repos.sessions.create({ projectId: project.id, name: 'Integrity Session', agentId: 'test' });
+      const project = await context.repos.projects.create({
+        name: 'Integrity Project',
+        orgId: org.id,
+      });
+      const session = await context.repos.sessions.create({
+        projectId: project.id,
+        name: 'Integrity Session',
+        agentId: 'test',
+      });
 
       // Verify references
-      const storedProject = await context.repos.projects.findById(project.id) as Record<string, unknown>;
+      const storedProject = (await context.repos.projects.findById(project.id)) as Record<
+        string,
+        unknown
+      >;
       expect(storedProject?.org_id).toBe(org.id);
 
-      const storedSession = await context.repos.sessions.findById(session.id) as Record<string, unknown>;
+      const storedSession = (await context.repos.sessions.findById(session.id)) as Record<
+        string,
+        unknown
+      >;
       expect(storedSession?.project_id).toBe(project.id);
     });
 
     it('should preserve entry versions on update', async () => {
-      const { context, storedEntries, setProject } = createRealContext(sqlite, db, classificationService);
+      const { context, storedEntries, setProject } = createRealContext(
+        sqlite,
+        db,
+        classificationService
+      );
       const project = await context.repos.projects.create({ name: 'Version Test' });
       setProject(project.id, 'Version Test');
 
@@ -1206,12 +1389,18 @@ describe('Full Workflow Integration Tests', () => {
       });
 
       const entry = storedEntries[0];
-      const original = await context.repos.guidelines.findById(entry!.id) as Record<string, unknown>;
+      const original = (await context.repos.guidelines.findById(entry!.id)) as Record<
+        string,
+        unknown
+      >;
       expect(original?.version).toBe(1);
 
       // Update should increment version (if implemented)
       await context.repos.guidelines.update(entry!.id, { content: 'Rule: version test updated' });
-      const updated = await context.repos.guidelines.findById(entry!.id) as Record<string, unknown>;
+      const updated = (await context.repos.guidelines.findById(entry!.id)) as Record<
+        string,
+        unknown
+      >;
       // Version tracking is implementation-dependent
       expect(updated?.content).toContain('updated');
     });

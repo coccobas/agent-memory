@@ -27,10 +27,7 @@ export function ftsStage(ctx: PipelineContext): PipelineContext {
   const useFts5 = (searchStrategy === 'fts5' || searchStrategy === 'hybrid') && !!search;
 
   if (deps.logger && deps.perfLog) {
-    deps.logger.debug(
-      { searchStrategy, useFts5, hasSearch: !!search },
-      'fts_stage_strategy_check'
-    );
+    deps.logger.debug({ searchStrategy, useFts5, hasSearch: !!search }, 'fts_stage_strategy_check');
   }
 
   // Debug FTS stage activation
@@ -47,9 +44,10 @@ export function ftsStage(ctx: PipelineContext): PipelineContext {
 
   // Determine which queries to run
   // Use expanded queries if available, otherwise just the original
-  const queriesToRun = searchQueries && searchQueries.length > 0
-    ? searchQueries
-    : [{ text: search, weight: 1.0, source: 'original' as const }];
+  const queriesToRun =
+    searchQueries && searchQueries.length > 0
+      ? searchQueries
+      : [{ text: search, weight: 1.0, source: 'original' as const }];
 
   // Initialize merged results
   const ftsMatchIds: Record<QueryEntryType, Set<string>> = {
@@ -86,12 +84,11 @@ export function ftsStage(ctx: PipelineContext): PipelineContext {
     // Debug FTS results
     if (deps.logger && deps.perfLog) {
       const counts = fts5Results
-        ? Object.entries(fts5Results).map(([t, s]) => `${t}:${(s as Set<string>).size}`).join(',')
+        ? Object.entries(fts5Results)
+            .map(([t, s]) => `${t}:${s.size}`)
+            .join(',')
         : 'null';
-      deps.logger.debug(
-        { query: query.text.substring(0, 50), counts },
-        'fts_query_result'
-      );
+      deps.logger.debug({ query: query.text.substring(0, 50), counts }, 'fts_query_result');
     }
 
     if (!fts5Results) continue;
@@ -138,7 +135,7 @@ export function ftsStage(ctx: PipelineContext): PipelineContext {
       {
         queryCount: queriesToRun.length,
         totalMatches,
-        queries: queriesToRun.map(q => q.text.substring(0, 50)),
+        queries: queriesToRun.map((q) => q.text.substring(0, 50)),
       },
       'fts_expanded_queries completed'
     );

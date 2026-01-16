@@ -209,9 +209,7 @@ export class DecisionRepository {
   /**
    * Create a new consolidation decision
    */
-  async createConsolidationDecision(
-    params: RecordConsolidationDecisionParams
-  ): Promise<string> {
+  async createConsolidationDecision(params: RecordConsolidationDecisionParams): Promise<string> {
     const id = generateId();
 
     const newDecision: NewConsolidationDecision = {

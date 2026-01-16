@@ -4,6 +4,8 @@
  * Uses the generic handler factory to eliminate code duplication.
  */
 
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
+
 import {
   type CreateKnowledgeInput,
   type UpdateKnowledgeInput,
@@ -18,10 +20,7 @@ import {
   isISODateString,
   isScopeType,
 } from '../../utils/type-guards.js';
-import {
-  validateTextLength,
-  SIZE_LIMITS,
-} from '../../services/validation.service.js';
+import { validateTextLength, SIZE_LIMITS } from '../../services/validation.service.js';
 import type { ScopeType } from '../../db/schema.js';
 import type { AppContext } from '../../core/context.js';
 

@@ -251,9 +251,7 @@ describe('Relations Handler', () => {
     });
 
     it('should throw when neither id nor entry identifiers provided', async () => {
-      await expect(
-        relationHandlers.delete(mockContext, { agentId: 'agent-1' })
-      ).rejects.toThrow();
+      await expect(relationHandlers.delete(mockContext, { agentId: 'agent-1' })).rejects.toThrow();
     });
 
     it('should skip permission check for project source type', async () => {

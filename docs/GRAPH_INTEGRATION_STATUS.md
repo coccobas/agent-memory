@@ -20,6 +20,7 @@
 **Root Cause:** `src/config/registry/schema-builder.ts` line 241-242 returned default values without passing them through the path parser.
 
 **Fix Applied:**
+
 ```typescript
 // Before: returned defaultValue directly for undefined env vars
 if (envValue === undefined || envValue === '') {
@@ -33,6 +34,7 @@ if (parserType === 'path') {
 ```
 
 **Result:** `config.database.path` now correctly resolves to:
+
 ```
 /Users/coccobas/Development/memory/agent-memory/data/memory.db
 ```
@@ -40,10 +42,12 @@ if (parserType === 'path') {
 ### 2. Graph Type Registry ✅
 
 **Seeded Successfully:**
+
 - 21 node types (entity, tool, guideline, knowledge, experience, etc.)
 - 17 edge types (related_to, depends_on, imports, contains, etc.)
 
 **Verification:**
+
 ```sql
 SELECT COUNT(*) FROM node_types;  -- 21
 SELECT COUNT(*) FROM edge_types;  -- 17
@@ -54,11 +58,13 @@ SELECT COUNT(*) FROM edge_types;  -- 17
 **Feature:** When you create a knowledge/guideline/tool entry, a graph node is automatically created.
 
 **How It Works:**
+
 - Post-creation hook in repositories
 - Fire-and-forget async call to `GraphSyncService`
 - Maps entry type to node type (knowledge → 'knowledge' node type)
 
 **Evidence:**
+
 ```sql
 -- Entry created: SQL Queries (5e3c2087-3e19-4caf-8337-918df59470c3)
 -- Node auto-created: 56ce64bc-4de9-445b-ae7f-b7e25c480893
@@ -71,6 +77,7 @@ WHERE entry_type = 'knowledge' AND entry_id = '5e3c2087-3e19-4caf-8337-918df5947
 ```
 
 **Logs:**
+
 ```
 {"component":"node-repository","nodeId":"56ce64bc...","type":"knowledge","name":"SQL Queries","msg":"Created node"}
 {"component":"graph-sync","entryType":"knowledge","entryId":"5e3c2087...","nodeId":"56ce64bc...","msg":"Synced entry to graph node"}
@@ -81,11 +88,13 @@ WHERE entry_type = 'knowledge' AND entry_id = '5e3c2087-3e19-4caf-8337-918df5947
 **Feature:** When you create a relation between entries, a graph edge is automatically created.
 
 **How It Works:**
+
 - Post-creation hook in `EntryRelationRepository`
 - Async call to `GraphSyncService.syncRelationToEdge()`
 - Maps relation type to edge type (depends_on → 'depends_on' edge type)
 
 **Evidence:**
+
 ```sql
 -- Relation created: SQL Queries depends_on Database Fundamentals
 -- Edge auto-created: 0dc04e4d-4b37-4da7-802f-6df75bb6ef78
@@ -100,6 +109,7 @@ WHERE n.entry_id = '5e3c2087-3e19-4caf-8337-918df59470c3';
 ```
 
 **Logs:**
+
 ```
 {"component":"edge-repository","edgeId":"0dc04e4d...","type":"depends_on","msg":"Created edge"}
 {"component":"graph-sync","relationType":"depends_on","edgeId":"0dc04e4d...","msg":"Synced relation to graph edge"}
@@ -114,15 +124,17 @@ WHERE n.entry_id = '5e3c2087-3e19-4caf-8337-918df59470c3';
 **Direct Testing Result**: `context.queryDeps.traverseRelationGraph()` **WORKS PERFECTLY**.
 
 **Evidence**:
+
 ```javascript
 const result = context.queryDeps.traverseRelationGraph('knowledge', sqlQueriesId, {
   depth: 1,
-  direction: 'forward'
+  direction: 'forward',
 });
 // Returns: { knowledge: Set(['485b77ec-51fe-4855-8278-0892a0ab06a0']), ... }
 ```
 
 **Both directions work**:
+
 - Forward: SQL Queries → finds Database Fundamentals ✓
 - Backward: Database Fundamentals → finds SQL Queries ✓
 
@@ -137,24 +149,28 @@ const result = context.queryDeps.traverseRelationGraph('knowledge', sqlQueriesId
 **Problem:** `executeQueryPipeline()` with `relatedTo` parameter returns 0 results even though traversal works.
 
 **Expected Behavior:**
+
 ```javascript
-traverseRelationGraph('knowledge', sqlId, { depth: 1, direction: 'forward' })
+traverseRelationGraph('knowledge', sqlId, { depth: 1, direction: 'forward' });
 // Should return: { knowledge: Set(['485b77ec-51fe-4855-8278-0892a0ab06a0']) }
 ```
 
 **Direct Call (WORKS)**:
+
 ```javascript
 context.queryDeps.traverseRelationGraph('knowledge', sqlQueriesId, {...})
 // Returns: { knowledge: Set(['485b77ec...']), ... } ✓
 ```
 
 **Query Pipeline (FAILS)**:
+
 ```javascript
 executeQueryPipeline({ scopeType: 'project', scopeId: 'test-final', relatedTo: {...} }, context.queryDeps)
 // Returns: { results: [], meta: { totalCount: 0 } } ✗
 ```
 
 **SQL Verification (WORKS):**
+
 ```sql
 -- Direct SQL query DOES find the related entry
 WITH RECURSIVE reachable(node_id, entry_type, entry_id, depth) AS (
@@ -180,15 +196,18 @@ SELECT entry_type, entry_id FROM reachable WHERE depth > 0;
 The graph traversal functions work perfectly. The query pipeline issue has two parts:
 
 **Part 1: Wrong Parameter Format**
+
 - Test was using: `scopeType: 'project', scopeId: 'test-final'` ✗
 - Should be: `scope: { type: 'project', id: 'test-final' }` ✓
 
 **Part 2: UUID Validation**
+
 - Scope resolution validates project IDs must be UUIDs
 - Test data uses `scope_id = 'test-final'` (not a UUID)
 - Validation rejects the query before it runs
 
 **Complete Flow**:
+
 1. ✅ Direct `traverseRelationGraph()` works - returns correct IDs
 2. ✅ `relationsStage()` works - populates `ctx.relatedIds`
 3. ❌ `resolveStage()` rejects non-UUID project IDs
@@ -196,6 +215,7 @@ The graph traversal functions work perfectly. The query pipeline issue has two p
 5. ❌ Fetch queries global scope - finds 0 entries
 
 **Evidence**:
+
 ```javascript
 // Relations stage output
 [RELATIONS DEBUG] Traversal result: {
@@ -316,10 +336,12 @@ $ LOG_LEVEL=debug node test-graph-diagnostic.mjs
 **Problem**: Test was using incorrect parameter format and non-UUID scope IDs.
 
 **Solution**:
+
 1. Use correct parameter format: `scope: { type: 'project', id: '<uuid>' }`
 2. Ensure project scope IDs are valid UUIDs
 
 **Verification Complete** (`test-graph-integration-complete.mjs`):
+
 ```
 ✅ Auto-sync creates graph nodes
 ✅ Auto-sync creates graph edges
@@ -329,6 +351,7 @@ $ LOG_LEVEL=debug node test-graph-diagnostic.mjs
 ```
 
 **Test Results**:
+
 - Created project with UUID
 - Created 2 knowledge entries with relation
 - Verified nodes auto-created
@@ -347,6 +370,7 @@ $ LOG_LEVEL=debug node test-graph-diagnostic.mjs
 ### Fix Options (Choose One)
 
 #### Option A: Fix Container Initialization (Recommended)
+
 - Debug DI container lifecycle
 - Ensure database is registered before traversal module loads
 - Add initialization checks/retries
@@ -354,6 +378,7 @@ $ LOG_LEVEL=debug node test-graph-diagnostic.mjs
 - **Impact:** Fixes root cause
 
 #### Option B: Bypass Prepared Statement Cache
+
 - Make traversal functions accept `db` parameter
 - Pass database directly from context
 - Remove dependency on global prepared statement cache
@@ -361,6 +386,7 @@ $ LOG_LEVEL=debug node test-graph-diagnostic.mjs
 - **Impact:** Quick fix, less optimal performance
 
 #### Option C: Use Direct SQLite Access
+
 - Import `getSqlite()` in traversal functions
 - Add try-catch with fallback to context.db
 - Graceful degradation
@@ -396,13 +422,16 @@ The graph integration is **fully functional**. Creating entries and relations au
 ## Files Changed
 
 ### Fixed
+
 - `src/config/registry/schema-builder.ts` - Path parser bug fix (lines 240-244)
 
 ### Created (Temporary - Can Delete)
+
 - `test-*.mjs` - Various diagnostic test scripts
 - `seed-graph-types.mjs` - Type registry seeding script
 
 ### Verified Working
+
 - `src/services/graph/sync.service.ts` - Graph sync implementation
 - `src/services/graph/type-registry.service.ts` - Type seeding
 - `src/db/repositories/*.ts` - Auto-sync hooks
@@ -428,11 +457,11 @@ const entry = await repos.knowledge.create({
 });
 
 // 2. Wait for async hook (200ms)
-await new Promise(resolve => setTimeout(resolve, 200));
+await new Promise((resolve) => setTimeout(resolve, 200));
 
 // 3. Verify node was created
 const node = await repos.graphNodes.getByEntry('knowledge', entry.id);
-console.log('Node created:', !!node);  // Should be true
+console.log('Node created:', !!node); // Should be true
 ```
 
 ### Query Graph Directly (SQL)
@@ -471,18 +500,22 @@ The knowledge graph integration is **fully functional and production-ready**:
 ✅ **Bidirectional**: Both forward and backward traversal work correctly
 
 **Usage Example**:
+
 ```javascript
 // Query entries related to a specific entry
-const result = await executeQueryPipeline({
-  scope: { type: 'project', id: '<project-uuid>' },
-  types: ['knowledge'],
-  relatedTo: {
-    type: 'knowledge',
-    id: '<entry-id>',
-    direction: 'forward',  // or 'backward' or 'both'
-    depth: 1
-  }
-}, context.queryDeps);
+const result = await executeQueryPipeline(
+  {
+    scope: { type: 'project', id: '<project-uuid>' },
+    types: ['knowledge'],
+    relatedTo: {
+      type: 'knowledge',
+      id: '<entry-id>',
+      direction: 'forward', // or 'backward' or 'both'
+      depth: 1,
+    },
+  },
+  context.queryDeps
+);
 
 // Returns entries that are related through the graph
 console.log(result.results); // Array of related entries

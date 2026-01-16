@@ -8,7 +8,10 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { ClassificationService, type ClassificationServiceConfig } from '../../src/services/classification/index.js';
+import {
+  ClassificationService,
+  type ClassificationServiceConfig,
+} from '../../src/services/classification/index.js';
 import { PatternMatcher } from '../../src/services/classification/pattern-matcher.js';
 import type { ClassificationRepository } from '../../src/services/classification/classification.repository.js';
 
@@ -18,17 +21,19 @@ const mockRepo: ClassificationRepository = {
   getFeedbackForPattern: vi.fn().mockResolvedValue([]),
   getPatternFeedbackStats: vi.fn().mockResolvedValue({ total: 0, correct: 0, incorrect: 0 }),
   getRecentFeedback: vi.fn().mockResolvedValue([]),
-  getOrCreatePatternConfidence: vi.fn().mockImplementation(async (patternId, patternType, baseWeight) => ({
-    id: `pc-${patternId}`,
-    patternId,
-    patternType,
-    baseWeight: baseWeight ?? 0.7,
-    feedbackMultiplier: 1.0,
-    totalMatches: 0,
-    correctMatches: 0,
-    incorrectMatches: 0,
-    updatedAt: new Date().toISOString(),
-  })),
+  getOrCreatePatternConfidence: vi
+    .fn()
+    .mockImplementation(async (patternId, patternType, baseWeight) => ({
+      id: `pc-${patternId}`,
+      patternId,
+      patternType,
+      baseWeight: baseWeight ?? 0.7,
+      feedbackMultiplier: 1.0,
+      totalMatches: 0,
+      correctMatches: 0,
+      incorrectMatches: 0,
+      updatedAt: new Date().toISOString(),
+    })),
   getPatternConfidence: vi.fn().mockImplementation(async (patternId) => ({
     id: `pc-${patternId}`,
     patternId,
@@ -124,7 +129,9 @@ describe('PatternMatcher', () => {
     });
 
     it('should match "Fact:" prefix', async () => {
-      const result = await patternMatcher.match('Fact: the API rate limit is 1000 requests per minute');
+      const result = await patternMatcher.match(
+        'Fact: the API rate limit is 1000 requests per minute'
+      );
       expect(result.type).toBe('knowledge');
       expect(result.confidence).toBeGreaterThanOrEqual(0.8);
     });
@@ -250,11 +257,7 @@ describe('ClassificationService', () => {
   describe('classify()', () => {
     it('should return forced type with confidence 1.0', async () => {
       const mockDb = createMockDb();
-      const service = new ClassificationService(
-        mockDb as never,
-        null,
-        defaultConfig
-      );
+      const service = new ClassificationService(mockDb as never, null, defaultConfig);
 
       const result = await service.classify('Some random text', 'tool');
       expect(result.type).toBe('tool');
@@ -264,11 +267,7 @@ describe('ClassificationService', () => {
 
     it('should use regex classification when no forceType', async () => {
       const mockDb = createMockDb();
-      const service = new ClassificationService(
-        mockDb as never,
-        null,
-        defaultConfig
-      );
+      const service = new ClassificationService(mockDb as never, null, defaultConfig);
 
       const result = await service.classify('Rule: always test your code');
       expect(result.type).toBe('guideline');
@@ -279,20 +278,25 @@ describe('ClassificationService', () => {
       // Set up mock to return a modified multiplier
       const modifiedMockRepo = {
         ...mockRepo,
-        getOrCreatePatternConfidence: vi.fn().mockImplementation(async (patternId, patternType, baseWeight) => ({
-          id: `pc-${patternId}`,
-          patternId,
-          patternType,
-          baseWeight: baseWeight ?? 0.7,
-          feedbackMultiplier: 1.1, // Modified from feedback
-          totalMatches: 5,
-          correctMatches: 4,
-          incorrectMatches: 1,
-          updatedAt: new Date().toISOString(),
-        })),
+        getOrCreatePatternConfidence: vi
+          .fn()
+          .mockImplementation(async (patternId, patternType, baseWeight) => ({
+            id: `pc-${patternId}`,
+            patternId,
+            patternType,
+            baseWeight: baseWeight ?? 0.7,
+            feedbackMultiplier: 1.1, // Modified from feedback
+            totalMatches: 5,
+            correctMatches: 4,
+            incorrectMatches: 1,
+            updatedAt: new Date().toISOString(),
+          })),
       };
 
-      const patternMatcher = new PatternMatcher(modifiedMockRepo as unknown as ClassificationRepository, defaultConfig);
+      const patternMatcher = new PatternMatcher(
+        modifiedMockRepo as unknown as ClassificationRepository,
+        defaultConfig
+      );
       const result = await patternMatcher.match('Rule: test code');
 
       expect(result.adjustedByFeedback).toBe(true);
@@ -302,11 +306,7 @@ describe('ClassificationService', () => {
   describe('recordCorrection()', () => {
     it('should not record when predicted equals actual', async () => {
       const mockDb = createMockDb();
-      const service = new ClassificationService(
-        mockDb as never,
-        null,
-        defaultConfig
-      );
+      const service = new ClassificationService(mockDb as never, null, defaultConfig);
 
       // When predicted equals actual, no correction is needed
       await service.recordCorrection('Some text', 'guideline', 'guideline');
@@ -320,22 +320,20 @@ describe('ClassificationService', () => {
   describe('isLLMAvailable()', () => {
     it('should return false when LLM fallback is disabled', async () => {
       const mockDb = createMockDb();
-      const service = new ClassificationService(
-        mockDb as never,
-        null,
-        { ...defaultConfig, enableLLMFallback: false }
-      );
+      const service = new ClassificationService(mockDb as never, null, {
+        ...defaultConfig,
+        enableLLMFallback: false,
+      });
 
       expect(service.isLLMAvailable()).toBe(false);
     });
 
     it('should return false when extraction service is null', async () => {
       const mockDb = createMockDb();
-      const service = new ClassificationService(
-        mockDb as never,
-        null,
-        { ...defaultConfig, enableLLMFallback: true }
-      );
+      const service = new ClassificationService(mockDb as never, null, {
+        ...defaultConfig,
+        enableLLMFallback: true,
+      });
 
       expect(service.isLLMAvailable()).toBe(false);
     });
@@ -347,11 +345,10 @@ describe('ClassificationService', () => {
         extractForClassification: vi.fn(),
       };
 
-      const service = new ClassificationService(
-        mockDb as never,
-        mockExtraction,
-        { ...defaultConfig, enableLLMFallback: true }
-      );
+      const service = new ClassificationService(mockDb as never, mockExtraction, {
+        ...defaultConfig,
+        enableLLMFallback: true,
+      });
 
       expect(service.isLLMAvailable()).toBe(true);
     });
@@ -370,7 +367,9 @@ describe('Confidence Calculation', () => {
     // "We always prefer X over Y" matches multiple guideline patterns
     const result = await patternMatcher.match('We always prefer TypeScript over JavaScript');
     // Should have at least one guideline match
-    expect(result.patternMatches.filter(m => m.type === 'guideline').length).toBeGreaterThanOrEqual(1);
+    expect(
+      result.patternMatches.filter((m) => m.type === 'guideline').length
+    ).toBeGreaterThanOrEqual(1);
     expect(result.confidence).toBeGreaterThanOrEqual(0.85);
   });
 
@@ -378,8 +377,8 @@ describe('Confidence Calculation', () => {
     // Text that could be both guideline and knowledge
     const result = await patternMatcher.match('We decided to always use TypeScript');
     // This should have matches for both types
-    const guidelineMatches = result.patternMatches.filter(m => m.type === 'guideline');
-    const knowledgeMatches = result.patternMatches.filter(m => m.type === 'knowledge');
+    const guidelineMatches = result.patternMatches.filter((m) => m.type === 'guideline');
+    const knowledgeMatches = result.patternMatches.filter((m) => m.type === 'knowledge');
 
     if (guidelineMatches.length > 0 && knowledgeMatches.length > 0) {
       // When there's competition, confidence should be lower than a pure match
@@ -391,11 +390,7 @@ describe('Confidence Calculation', () => {
 describe('Cache Behavior', () => {
   it('should cache classification results', async () => {
     const mockDb = createMockDb();
-    const service = new ClassificationService(
-      mockDb as never,
-      null,
-      defaultConfig
-    );
+    const service = new ClassificationService(mockDb as never, null, defaultConfig);
 
     // First call
     const result1 = await service.classify('Rule: test caching');
@@ -407,11 +402,7 @@ describe('Cache Behavior', () => {
 
   it('should not cache forced type results', async () => {
     const mockDb = createMockDb();
-    const service = new ClassificationService(
-      mockDb as never,
-      null,
-      defaultConfig
-    );
+    const service = new ClassificationService(mockDb as never, null, defaultConfig);
 
     // Force a type
     const forced = await service.classify('Some text', 'tool');

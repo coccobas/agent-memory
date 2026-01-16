@@ -134,7 +134,7 @@ export interface DeleteOrphanedParams {
  */
 export async function deleteOrphanedFiles(params: DeleteOrphanedParams): Promise<void> {
   const { destDir, sourceDir, options, syncedFiles, stats, operations } = params;
-  const { relative, join } = await import('node:path');
+  const path = await import('node:path');
   const { findAllRuleFiles } = await import('./walk.js');
 
   try {
@@ -147,9 +147,9 @@ export async function deleteOrphanedFiles(params: DeleteOrphanedParams): Promise
     for (const destFile of allDestFiles) {
       if (syncedFiles.has(destFile)) continue;
 
-      const destRelative = relative(destDir, destFile);
+      const destRelative = path.relative(destDir, destFile);
       const sourceRelative = destRelative.replace(/\.mdc$/, '.md');
-      const sourceEquivalent = join(sourceDir, sourceRelative);
+      const sourceEquivalent = path.join(sourceDir, sourceRelative);
 
       if (existsSync(sourceEquivalent)) continue;
 

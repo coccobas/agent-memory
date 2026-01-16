@@ -48,7 +48,13 @@ export interface EntrySyncMetadata {
  */
 export interface RelationSyncMetadata {
   /** Relation type (maps to edge type) */
-  relationType: 'applies_to' | 'depends_on' | 'conflicts_with' | 'related_to' | 'parent_task' | 'subtask_of';
+  relationType:
+    | 'applies_to'
+    | 'depends_on'
+    | 'conflicts_with'
+    | 'related_to'
+    | 'parent_task'
+    | 'subtask_of';
   /** Source entry ID */
   sourceEntryId: string;
   /** Source entry type */
@@ -157,7 +163,10 @@ export class GraphSyncService {
   async syncRelationToEdge(metadata: RelationSyncMetadata): Promise<GraphEdgeWithType | null> {
     try {
       // Find source node
-      const sourceNode = await this.findNodeByEntry(metadata.sourceEntryType, metadata.sourceEntryId);
+      const sourceNode = await this.findNodeByEntry(
+        metadata.sourceEntryType,
+        metadata.sourceEntryId
+      );
       if (!sourceNode) {
         logger.debug(
           { sourceType: metadata.sourceEntryType, sourceId: metadata.sourceEntryId },
@@ -167,7 +176,10 @@ export class GraphSyncService {
       }
 
       // Find target node
-      const targetNode = await this.findNodeByEntry(metadata.targetEntryType, metadata.targetEntryId);
+      const targetNode = await this.findNodeByEntry(
+        metadata.targetEntryType,
+        metadata.targetEntryId
+      );
       if (!targetNode) {
         logger.debug(
           { targetType: metadata.targetEntryType, targetId: metadata.targetEntryId },
@@ -177,7 +189,10 @@ export class GraphSyncService {
       }
 
       // Check if edge already exists
-      const existingEdges = await this.edgeRepo.getOutgoingEdges(sourceNode.id, metadata.relationType);
+      const existingEdges = await this.edgeRepo.getOutgoingEdges(
+        sourceNode.id,
+        metadata.relationType
+      );
       const alreadyExists = existingEdges.some((e) => e.targetId === targetNode.id);
       if (alreadyExists) {
         logger.debug(

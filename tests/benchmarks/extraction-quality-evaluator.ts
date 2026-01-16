@@ -74,27 +74,41 @@ export interface SemanticEvalConfig {
 /**
  * Check if an extracted entry matches an expected entry
  */
-function matchEntry(extracted: ExtractedEntry, expected: ExpectedEntry): { matches: boolean; score: number; details: string } {
+function matchEntry(
+  extracted: ExtractedEntry,
+  expected: ExpectedEntry
+): { matches: boolean; score: number; details: string } {
   // Type must match
   if (extracted.type !== expected.type) {
-    return { matches: false, score: 0, details: `Type mismatch: expected ${expected.type}, got ${extracted.type}` };
+    return {
+      matches: false,
+      score: 0,
+      details: `Type mismatch: expected ${expected.type}, got ${extracted.type}`,
+    };
   }
 
   // For tools, check both name and content fields since commands may be in name
-  const searchText = extracted.type === 'tool' && extracted.name
-    ? `${extracted.name} ${extracted.content}`.toLowerCase()
-    : extracted.content.toLowerCase();
+  const searchText =
+    extracted.type === 'tool' && extracted.name
+      ? `${extracted.name} ${extracted.content}`.toLowerCase()
+      : extracted.content.toLowerCase();
   const matchedFragments: string[] = [];
 
   // Helper to normalize text for comparison (handle kebab-case vs spaces)
-  const normalize = (text: string): string => text.toLowerCase().replace(/[-_\s]+/g, ' ').trim();
+  const normalize = (text: string): string =>
+    text
+      .toLowerCase()
+      .replace(/[-_\s]+/g, ' ')
+      .trim();
   const normalizedSearchText = normalize(searchText);
 
   for (const fragment of expected.mustContain) {
     const normalizedFragment = normalize(fragment);
     // Check both original and normalized versions
-    if (searchText.includes(fragment.toLowerCase()) ||
-        normalizedSearchText.includes(normalizedFragment)) {
+    if (
+      searchText.includes(fragment.toLowerCase()) ||
+      normalizedSearchText.includes(normalizedFragment)
+    ) {
       matchedFragments.push(fragment);
     }
   }
@@ -103,7 +117,7 @@ function matchEntry(extracted: ExtractedEntry, expected: ExpectedEntry): { match
     return {
       matches: false,
       score: 0,
-      details: `Content missing required fragments: ${expected.mustContain.join(', ')}`
+      details: `Content missing required fragments: ${expected.mustContain.join(', ')}`,
     };
   }
 
@@ -145,7 +159,8 @@ function findBestMatch(
   extractedEntries: ExtractedEntry[],
   usedIndices: Set<number>
 ): { matchResult: EntryMatchResult; usedIndex: number | null } {
-  let bestMatch: { entry: ExtractedEntry; score: number; details: string; index: number } | null = null;
+  let bestMatch: { entry: ExtractedEntry; score: number; details: string; index: number } | null =
+    null;
 
   for (let i = 0; i < extractedEntries.length; i++) {
     if (usedIndices.has(i)) continue;
@@ -232,7 +247,7 @@ export async function evaluateTestCase(
   try {
     // Run extraction
     const result = await extractFn(testCase.context, testCase.contextType);
-    const processingTimeMs = result.processingTimeMs || (Date.now() - startTime);
+    const processingTimeMs = result.processingTimeMs || Date.now() - startTime;
 
     // Match expected entries to extracted entries
     const usedIndices = new Set<number>();
@@ -247,19 +262,20 @@ export async function evaluateTestCase(
     }
 
     // Calculate metrics
-    const matchedCount = entryResults.filter(r => r.matched).length;
+    const matchedCount = entryResults.filter((r) => r.matched).length;
     const expectedCount = testCase.expectedEntries.length;
     const extractedCount = result.entries.length;
     const falsePositiveCount = extractedCount - usedIndices.size;
 
     // Precision: of the entries we extracted, how many were correct?
-    const precision = extractedCount > 0 ? usedIndices.size / extractedCount : (expectedCount === 0 ? 1 : 0);
+    const precision =
+      extractedCount > 0 ? usedIndices.size / extractedCount : expectedCount === 0 ? 1 : 0;
 
     // Recall: of the entries we should have extracted, how many did we get?
     const recall = expectedCount > 0 ? matchedCount / expectedCount : 1;
 
     // F1 score
-    const f1Score = precision + recall > 0 ? 2 * (precision * recall) / (precision + recall) : 0;
+    const f1Score = precision + recall > 0 ? (2 * (precision * recall)) / (precision + recall) : 0;
 
     // Check for noise extraction
     const noiseExtracted = checkNoiseExtracted(result.entries, testCase.shouldNotExtract);
@@ -268,23 +284,28 @@ export async function evaluateTestCase(
     let semanticMetrics: TestCaseResult['semanticMetrics'];
 
     if (semanticConfig?.enabled && result.entries.length > 0) {
-      const { embeddingService, bertScoreThreshold = 0.85, groundednessThreshold = 0.7 } = semanticConfig;
+      const {
+        embeddingService,
+        bertScoreThreshold = 0.85,
+        groundednessThreshold = 0.7,
+      } = semanticConfig;
 
       // Build reference text from expected entries
       const expectedContent = testCase.expectedEntries
-        .map(e => e.mustContain.join(' '))
+        .map((e) => e.mustContain.join(' '))
         .join('. ');
 
       // Build extracted content
-      const extractedContent = result.entries
-        .map(e => e.content)
-        .join('. ');
+      const extractedContent = result.entries.map((e) => e.content).join('. ');
 
       // Calculate BERTScore if we have both expected and extracted
       if (expectedContent && extractedContent) {
         try {
           const bertEvaluator = new BERTScoreEvaluator(embeddingService);
-          const bertScore = await bertEvaluator.calculateBERTScore(expectedContent, extractedContent);
+          const bertScore = await bertEvaluator.calculateBERTScore(
+            expectedContent,
+            extractedContent
+          );
           semanticMetrics = { ...semanticMetrics, bertScore };
         } catch (e) {
           // Silently skip if embeddings fail
@@ -390,9 +411,10 @@ function calculateProxyMetrics(results: TestCaseResult[]): ExtractionProxyMetric
 
   // Calculate confidence stats
   const avgConfidence = confidences.length > 0 ? totalConfidence / confidences.length : 0;
-  const variance = confidences.length > 0
-    ? confidences.reduce((sum, c) => sum + Math.pow(c - avgConfidence, 2), 0) / confidences.length
-    : 0;
+  const variance =
+    confidences.length > 0
+      ? confidences.reduce((sum, c) => sum + Math.pow(c - avgConfidence, 2), 0) / confidences.length
+      : 0;
   const stdDev = Math.sqrt(variance);
 
   return {
@@ -435,19 +457,22 @@ function calculateProxyMetrics(results: TestCaseResult[]): ExtractionProxyMetric
  * Aggregate results across all test cases
  */
 export function aggregateResults(results: TestCaseResult[]): AggregatedExtractionMetrics {
-  const validResults = results.filter(r => !r.error);
+  const validResults = results.filter((r) => !r.error);
   const errorCount = results.length - validResults.length;
 
   // Overall averages
-  const avgPrecision = validResults.length > 0
-    ? validResults.reduce((sum, r) => sum + r.precision, 0) / validResults.length
-    : 0;
-  const avgRecall = validResults.length > 0
-    ? validResults.reduce((sum, r) => sum + r.recall, 0) / validResults.length
-    : 0;
-  const avgF1Score = validResults.length > 0
-    ? validResults.reduce((sum, r) => sum + r.f1Score, 0) / validResults.length
-    : 0;
+  const avgPrecision =
+    validResults.length > 0
+      ? validResults.reduce((sum, r) => sum + r.precision, 0) / validResults.length
+      : 0;
+  const avgRecall =
+    validResults.length > 0
+      ? validResults.reduce((sum, r) => sum + r.recall, 0) / validResults.length
+      : 0;
+  const avgF1Score =
+    validResults.length > 0
+      ? validResults.reduce((sum, r) => sum + r.f1Score, 0) / validResults.length
+      : 0;
 
   // By difficulty
   const byDifficulty: AggregatedExtractionMetrics['byDifficulty'] = {
@@ -457,7 +482,7 @@ export function aggregateResults(results: TestCaseResult[]): AggregatedExtractio
   };
 
   for (const difficulty of ['easy', 'medium', 'hard'] as const) {
-    const diffResults = validResults.filter(r => r.difficulty === difficulty);
+    const diffResults = validResults.filter((r) => r.difficulty === difficulty);
     if (diffResults.length > 0) {
       byDifficulty[difficulty] = {
         count: diffResults.length,
@@ -469,11 +494,14 @@ export function aggregateResults(results: TestCaseResult[]): AggregatedExtractio
   }
 
   // By category
-  const byCategory: Record<string, { count: number; avgPrecision: number; avgRecall: number; avgF1: number }> = {};
-  const categories = Array.from(new Set(validResults.map(r => r.category)));
+  const byCategory: Record<
+    string,
+    { count: number; avgPrecision: number; avgRecall: number; avgF1: number }
+  > = {};
+  const categories = Array.from(new Set(validResults.map((r) => r.category)));
 
   for (const category of categories) {
-    const catResults = validResults.filter(r => r.category === category);
+    const catResults = validResults.filter((r) => r.category === category);
     if (catResults.length > 0) {
       byCategory[EXTRACTION_CATEGORY_NAMES[category as ExtractionTestCategory] || category] = {
         count: catResults.length,
@@ -487,14 +515,14 @@ export function aggregateResults(results: TestCaseResult[]): AggregatedExtractio
   // Aggregate semantic metrics if any test cases have them
   let semanticMetrics: AggregatedSemanticMetrics | undefined;
 
-  const resultsWithSemantic = validResults.filter(r => r.semanticMetrics);
+  const resultsWithSemantic = validResults.filter((r) => r.semanticMetrics);
   if (resultsWithSemantic.length > 0) {
     const bertScores = resultsWithSemantic
-      .map(r => r.semanticMetrics?.bertScore)
+      .map((r) => r.semanticMetrics?.bertScore)
       .filter((b): b is NonNullable<typeof b> => b !== undefined);
 
     const groundednessResults = resultsWithSemantic
-      .map(r => r.semanticMetrics?.groundedness)
+      .map((r) => r.semanticMetrics?.groundedness)
       .filter((g): g is NonNullable<typeof g> => g !== undefined);
 
     if (bertScores.length > 0 || groundednessResults.length > 0) {
@@ -594,7 +622,9 @@ export function printBenchmarkResults(results: ExtractionBenchmarkResults): void
   console.log(`Model: ${results.config.model}`);
   console.log(`Test Cases: ${results.config.testCasesRun}`);
   console.log(`Atomicity: ${results.config.atomicityEnabled ? 'Enabled' : 'Disabled'}`);
-  console.log(`Semantic Metrics: ${results.config.semanticMetricsEnabled ? 'Enabled' : 'Disabled'}`);
+  console.log(
+    `Semantic Metrics: ${results.config.semanticMetricsEnabled ? 'Enabled' : 'Disabled'}`
+  );
   console.log('========================================\n');
 
   const o = results.overall;
@@ -610,12 +640,20 @@ export function printBenchmarkResults(results: ExtractionBenchmarkResults): void
     console.log(`  Test Cases Evaluated: ${o.semanticMetrics.testCasesEvaluated}`);
     if (o.semanticMetrics.avgBERTScoreF1 !== undefined) {
       console.log(`  BERTScore F1:         ${o.semanticMetrics.avgBERTScoreF1.toFixed(3)}`);
-      console.log(`  BERTScore Precision:  ${o.semanticMetrics.avgBERTScorePrecision?.toFixed(3) ?? 'N/A'}`);
-      console.log(`  BERTScore Recall:     ${o.semanticMetrics.avgBERTScoreRecall?.toFixed(3) ?? 'N/A'}`);
+      console.log(
+        `  BERTScore Precision:  ${o.semanticMetrics.avgBERTScorePrecision?.toFixed(3) ?? 'N/A'}`
+      );
+      console.log(
+        `  BERTScore Recall:     ${o.semanticMetrics.avgBERTScoreRecall?.toFixed(3) ?? 'N/A'}`
+      );
     }
     if (o.semanticMetrics.avgGroundednessScore !== undefined) {
-      console.log(`  Groundedness:         ${(o.semanticMetrics.avgGroundednessScore * 100).toFixed(1)}%`);
-      console.log(`  Hallucination Rate:   ${((o.semanticMetrics.ungroundedRate ?? 0) * 100).toFixed(1)}%`);
+      console.log(
+        `  Groundedness:         ${(o.semanticMetrics.avgGroundednessScore * 100).toFixed(1)}%`
+      );
+      console.log(
+        `  Hallucination Rate:   ${((o.semanticMetrics.ungroundedRate ?? 0) * 100).toFixed(1)}%`
+      );
     }
   }
 
@@ -626,9 +664,9 @@ export function printBenchmarkResults(results: ExtractionBenchmarkResults): void
     const d = o.byDifficulty[diff];
     console.log(
       `${diff.padEnd(10)} | ${d.count.toString().padStart(5)} | ` +
-      `${(d.avgPrecision * 100).toFixed(1).padStart(8)}% | ` +
-      `${(d.avgRecall * 100).toFixed(1).padStart(6)}% | ` +
-      `${(d.avgF1 * 100).toFixed(1).padStart(5)}%`
+        `${(d.avgPrecision * 100).toFixed(1).padStart(8)}% | ` +
+        `${(d.avgRecall * 100).toFixed(1).padStart(6)}% | ` +
+        `${(d.avgF1 * 100).toFixed(1).padStart(5)}%`
     );
   }
 
@@ -636,23 +674,26 @@ export function printBenchmarkResults(results: ExtractionBenchmarkResults): void
   console.log('Category              | Count | Precision | Recall  | F1');
   console.log('----------------------|-------|-----------|---------|-------');
 
-  const sortedCategories = Object.entries(o.byCategory)
-    .sort((a, b) => b[1].avgF1 - a[1].avgF1);
+  const sortedCategories = Object.entries(o.byCategory).sort((a, b) => b[1].avgF1 - a[1].avgF1);
 
   for (const [cat, m] of sortedCategories) {
     console.log(
       `${cat.substring(0, 21).padEnd(21)} | ${m.count.toString().padStart(5)} | ` +
-      `${(m.avgPrecision * 100).toFixed(1).padStart(8)}% | ` +
-      `${(m.avgRecall * 100).toFixed(1).padStart(6)}% | ` +
-      `${(m.avgF1 * 100).toFixed(1).padStart(5)}%`
+        `${(m.avgPrecision * 100).toFixed(1).padStart(8)}% | ` +
+        `${(m.avgRecall * 100).toFixed(1).padStart(6)}% | ` +
+        `${(m.avgF1 * 100).toFixed(1).padStart(5)}%`
     );
   }
 
   console.log('\nPROXY METRICS:');
   const pm = o.proxyMetrics;
   console.log(`  Total Entries:      ${pm.totalEntries}`);
-  console.log(`  By Type:            G=${pm.byType.guidelines} K=${pm.byType.knowledge} T=${pm.byType.tools}`);
-  console.log(`  Confidence:         min=${pm.confidence.min.toFixed(2)} avg=${pm.confidence.avg.toFixed(2)} max=${pm.confidence.max.toFixed(2)}`);
+  console.log(
+    `  By Type:            G=${pm.byType.guidelines} K=${pm.byType.knowledge} T=${pm.byType.tools}`
+  );
+  console.log(
+    `  Confidence:         min=${pm.confidence.min.toFixed(2)} avg=${pm.confidence.avg.toFixed(2)} max=${pm.confidence.max.toFixed(2)}`
+  );
   console.log(`  Low Confidence:     ${pm.confidence.lowConfidenceCount} entries < 0.7`);
   console.log(`  Categories:         ${pm.categories.count} unique`);
   console.log(`  Avg Time/Entry:     ${pm.processing.avgTimePerEntry.toFixed(0)}ms`);
@@ -660,7 +701,7 @@ export function printBenchmarkResults(results: ExtractionBenchmarkResults): void
 
   // Show worst performing test cases
   const worstCases = results.testCaseResults
-    .filter(r => !r.error)
+    .filter((r) => !r.error)
     .sort((a, b) => a.f1Score - b.f1Score)
     .slice(0, 5);
 
@@ -668,13 +709,17 @@ export function printBenchmarkResults(results: ExtractionBenchmarkResults): void
     console.log('\nWORST PERFORMING TEST CASES:');
     for (const tc of worstCases) {
       console.log(`  ${tc.testCaseId}: ${tc.testCaseName}`);
-      console.log(`    P=${(tc.precision * 100).toFixed(0)}% R=${(tc.recall * 100).toFixed(0)}% F1=${(tc.f1Score * 100).toFixed(0)}%`);
-      console.log(`    Expected: ${tc.expectedCount}, Extracted: ${tc.extractedCount}, Matched: ${tc.matchedCount}`);
+      console.log(
+        `    P=${(tc.precision * 100).toFixed(0)}% R=${(tc.recall * 100).toFixed(0)}% F1=${(tc.f1Score * 100).toFixed(0)}%`
+      );
+      console.log(
+        `    Expected: ${tc.expectedCount}, Extracted: ${tc.extractedCount}, Matched: ${tc.matchedCount}`
+      );
     }
   }
 
   // Show error cases
-  const errorCases = results.testCaseResults.filter(r => r.error);
+  const errorCases = results.testCaseResults.filter((r) => r.error);
   if (errorCases.length > 0) {
     console.log('\nERROR CASES:');
     for (const tc of errorCases) {
@@ -709,18 +754,18 @@ export function compareBenchmarks(
   console.log('----------------|----------|----------|--------');
   console.log(
     `Precision       | ${(baseline.overall.avgPrecision * 100).toFixed(1).padStart(7)}% | ` +
-    `${(current.overall.avgPrecision * 100).toFixed(1).padStart(7)}% | ` +
-    `${delta(current.overall.avgPrecision, baseline.overall.avgPrecision)}`
+      `${(current.overall.avgPrecision * 100).toFixed(1).padStart(7)}% | ` +
+      `${delta(current.overall.avgPrecision, baseline.overall.avgPrecision)}`
   );
   console.log(
     `Recall          | ${(baseline.overall.avgRecall * 100).toFixed(1).padStart(7)}% | ` +
-    `${(current.overall.avgRecall * 100).toFixed(1).padStart(7)}% | ` +
-    `${delta(current.overall.avgRecall, baseline.overall.avgRecall)}`
+      `${(current.overall.avgRecall * 100).toFixed(1).padStart(7)}% | ` +
+      `${delta(current.overall.avgRecall, baseline.overall.avgRecall)}`
   );
   console.log(
     `F1 Score        | ${(baseline.overall.avgF1Score * 100).toFixed(1).padStart(7)}% | ` +
-    `${(current.overall.avgF1Score * 100).toFixed(1).padStart(7)}% | ` +
-    `${delta(current.overall.avgF1Score, baseline.overall.avgF1Score)}`
+      `${(current.overall.avgF1Score * 100).toFixed(1).padStart(7)}% | ` +
+      `${delta(current.overall.avgF1Score, baseline.overall.avgF1Score)}`
   );
 
   console.log('\n========================================\n');

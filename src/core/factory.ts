@@ -5,6 +5,8 @@
  * Sub-factories are located in ./factory/ for better organization.
  */
 
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
+
 import { existsSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import type { AppContext } from './context.js';
@@ -21,7 +23,6 @@ import {
   createAdaptersWithConfig,
   connectRedisAdapters,
   closeRedisAdapters,
-  type RedisAdapters,
 } from './adapters/index.js';
 
 /**
@@ -35,7 +36,6 @@ import {
  * @returns Fully initialized AppContext
  */
 export async function createAppContext(config: Config, runtime: Runtime): Promise<AppContext> {
-
   const logger = createComponentLogger('app');
 
   // For SQLite mode, ensure data directory exists
@@ -137,7 +137,7 @@ export async function shutdownAppContext(
   // Close Redis adapters if they exist
   if (context.adapters && 'redis' in context.adapters && context.adapters.redis) {
     logger.info('Closing Redis adapters');
-    await closeRedisAdapters(context.adapters.redis as RedisAdapters);
+    await closeRedisAdapters(context.adapters.redis);
   }
 
   // Close vector service if it exists

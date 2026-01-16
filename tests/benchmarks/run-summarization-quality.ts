@@ -35,7 +35,7 @@ const debugMode = args.includes('--debug');
 const enableBert = args.includes('--enable-bert');
 
 const getArgValue = (flag: string): string | undefined => {
-  const idx = args.findIndex(a => a === flag);
+  const idx = args.findIndex((a) => a === flag);
   return idx >= 0 && args[idx + 1] ? args[idx + 1] : undefined;
 };
 
@@ -44,7 +44,9 @@ const difficulty = getArgValue('--difficulty') as 'easy' | 'medium' | 'hard' | u
 const limit = getArgValue('--limit') ? parseInt(getArgValue('--limit')!, 10) : undefined;
 const provider = getArgValue('--provider') || 'mock';
 const model = getArgValue('--model');
-const groundedThreshold = getArgValue('--grounded-threshold') ? parseFloat(getArgValue('--grounded-threshold')!) : 0.7;
+const groundedThreshold = getArgValue('--grounded-threshold')
+  ? parseFloat(getArgValue('--grounded-threshold')!)
+  : 0.7;
 const saveFile = getArgValue('--save');
 const compareFile = getArgValue('--compare');
 
@@ -86,9 +88,12 @@ Examples:
 // Dynamic imports
 const { config: appConfig } = await import('../../src/config/index.js');
 const { EmbeddingService } = await import('../../src/services/embedding.service.js');
-const { LLMSummarizer } = await import('../../src/services/summarization/summarizer/llm-summarizer.js');
-const { SUMMARIZATION_TEST_CASES, getDatasetStats } = await import('./summarization-quality-dataset.js');
-const { runBenchmark, printBenchmarkResults, compareBenchmarks } = await import('./summarization-quality-evaluator.js');
+const { LLMSummarizer } =
+  await import('../../src/services/summarization/summarizer/llm-summarizer.js');
+const { SUMMARIZATION_TEST_CASES, getDatasetStats } =
+  await import('./summarization-quality-dataset.js');
+const { runBenchmark, printBenchmarkResults, compareBenchmarks } =
+  await import('./summarization-quality-evaluator.js');
 import type { SummarizationBenchmarkResults } from './summarization-quality-types.js';
 import type { SummarizeFn } from './summarization-quality-evaluator.js';
 
@@ -106,8 +111,8 @@ function createMockSummarizer(): SummarizeFn {
     const allContent = sourceContents.join(' ');
     const sentences = allContent
       .split(/(?<=[.!?])\s+/)
-      .map(s => s.trim())
-      .filter(s => s.length > 5);
+      .map((s) => s.trim())
+      .filter((s) => s.length > 5);
 
     // Take key sentences (first 3 or 30% whichever is less)
     const numSentences = Math.min(3, Math.ceil(sentences.length * 0.3));
@@ -128,20 +133,24 @@ async function main() {
 
   // Get dataset stats
   const stats = getDatasetStats();
-  console.log(`Dataset: ${stats.totalTestCases} test cases, ${stats.totalSourceEntries} source entries`);
-  console.log(`By difficulty: easy=${stats.byDifficulty.easy}, medium=${stats.byDifficulty.medium}, hard=${stats.byDifficulty.hard}`);
+  console.log(
+    `Dataset: ${stats.totalTestCases} test cases, ${stats.totalSourceEntries} source entries`
+  );
+  console.log(
+    `By difficulty: easy=${stats.byDifficulty.easy}, medium=${stats.byDifficulty.medium}, hard=${stats.byDifficulty.hard}`
+  );
   console.log(`Reference summaries: ${stats.casesWithExpectedSummary}`);
 
   // Filter test cases
   let testCases = [...SUMMARIZATION_TEST_CASES];
 
   if (category) {
-    testCases = testCases.filter(tc => tc.category === category);
+    testCases = testCases.filter((tc) => tc.category === category);
     console.log(`Filtering to category: ${category} (${testCases.length} cases)`);
   }
 
   if (difficulty) {
-    testCases = testCases.filter(tc => tc.difficulty === difficulty);
+    testCases = testCases.filter((tc) => tc.difficulty === difficulty);
     console.log(`Filtering to difficulty: ${difficulty} (${testCases.length} cases)`);
   }
 
@@ -226,7 +235,9 @@ async function main() {
     (completed, total, current) => {
       const percent = Math.floor((completed / total) * 100);
       if (percent > lastPercent || completed === total) {
-        process.stdout.write(`\rProgress: ${percent}% (${completed}/${total}) - ${current.substring(0, 40).padEnd(40)}`);
+        process.stdout.write(
+          `\rProgress: ${percent}% (${completed}/${total}) - ${current.substring(0, 40).padEnd(40)}`
+        );
         lastPercent = percent;
       }
     }
@@ -292,7 +303,7 @@ async function main() {
 // RUN
 // =============================================================================
 
-main().catch(error => {
+main().catch((error) => {
   console.error('Benchmark failed:', error);
   process.exit(1);
 });

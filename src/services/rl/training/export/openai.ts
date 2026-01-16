@@ -3,7 +3,12 @@
  *
  * Export RL training data in OpenAI fine-tuning format.
  * Format: JSONL with {"messages": [...]} structure
+ *
+ * NOTE: Converts dynamic policy-specific state to message format.
+ * ESLint unsafe-member-access warnings are suppressed for type conversions.
  */
+
+/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any */
 
 import type {
   ExtractionTrainingExample,
@@ -342,9 +347,11 @@ ${actionJson}
 /**
  * Validate messages against token limits
  */
-function validateMessages(
-  messages: OpenAIMessage[]
-): { valid: boolean; reason?: string; estimatedTokens?: number } {
+function validateMessages(messages: OpenAIMessage[]): {
+  valid: boolean;
+  reason?: string;
+  estimatedTokens?: number;
+} {
   // Estimate token counts
   let totalChars = 0;
   let promptChars = 0;

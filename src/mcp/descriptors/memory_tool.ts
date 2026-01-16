@@ -8,7 +8,8 @@ import { toolHandlers } from '../handlers/tools.handler.js';
 export const memoryToolDescriptor: ToolDescriptor = {
   name: 'memory_tool',
   visibility: 'core',
-  description: 'Manage tool definitions (reusable patterns). Actions: add, update, get, list, history, deactivate, delete, bulk_add, bulk_update, bulk_delete',
+  description:
+    'Manage tool definitions (reusable patterns). Actions: add, update, get, list, history, deactivate, delete, bulk_add, bulk_update, bulk_delete',
   commonParams: {
     agentId: { type: 'string', description: 'Required for writes' },
     id: { type: 'string' },

@@ -93,6 +93,8 @@ async function listDecisions(
 
   // Filter by sessionId if provided
   if (sessionId) {
+    // Policy decision samples have sessionId property - safe to access
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any
     decisions = decisions.filter((d: any) => d.sessionId === sessionId);
   }
 
@@ -161,10 +163,7 @@ async function exportTrainingData(
 /**
  * Get feedback collection statistics
  */
-async function stats(
-  context: AppContext,
-  params: Record<string, unknown>
-): Promise<unknown> {
+async function stats(context: AppContext, params: Record<string, unknown>): Promise<unknown> {
   const startDate = getOptionalParam(params, 'startDate', isString);
   const endDate = getOptionalParam(params, 'endDate', isString);
 

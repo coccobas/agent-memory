@@ -18,7 +18,7 @@ function createMockExperience(options: {
   id?: string;
   content?: string;
   scenario?: string;
-  outcome?: string | null;  // null = explicitly no outcome
+  outcome?: string | null; // null = explicitly no outcome
   confidence?: number;
 }): ExperienceWithVersion {
   return {
@@ -37,7 +37,9 @@ function createMockExperience(options: {
       id: 'v-1',
       experienceId: options.id ?? 'exp-1',
       version: 1,
-      content: options.content ?? 'This is test content that should be long enough to pass quality checks.',
+      content:
+        options.content ??
+        'This is test content that should be long enough to pass quality checks.',
       scenario: options.scenario ?? 'A typical scenario description.',
       // Use null to explicitly indicate no outcome; undefined uses default
       outcome: options.outcome === null ? undefined : (options.outcome ?? 'Successful resolution'),
@@ -76,18 +78,22 @@ function createMockPattern(options: {
     trajectoryLength = 3,
   } = options;
 
-  const outcome = outcomeType === 'success' ? 'Successfully resolved the issue'
-    : outcomeType === 'failure' ? 'Failed to resolve'
-    : outcomeType === 'mixed' ? 'Partial success'
-    : null;  // Use null to signal no outcome
+  const outcome =
+    outcomeType === 'success'
+      ? 'Successfully resolved the issue'
+      : outcomeType === 'failure'
+        ? 'Failed to resolve'
+        : outcomeType === 'mixed'
+          ? 'Partial success'
+          : null; // Use null to signal no outcome
 
-  const content = contentQuality === 'high'
-    ? 'This is a detailed content description that explains the experience fully and thoroughly.'
-    : 'Short';
+  const content =
+    contentQuality === 'high'
+      ? 'This is a detailed content description that explains the experience fully and thoroughly.'
+      : 'Short';
 
-  const scenario = contentQuality === 'high'
-    ? 'A well-documented scenario with full context.'
-    : 'Short';
+  const scenario =
+    contentQuality === 'high' ? 'A well-documented scenario with full context.' : 'Short';
 
   const trajectory = createMockTrajectory(trajectoryLength);
 
@@ -207,10 +213,10 @@ describe('Quality Gate', () => {
       const result = qualityGate.evaluate(pattern);
 
       expect(result.checks).toHaveLength(4);
-      expect(result.checks.map(c => c.name)).toContain('similarity');
-      expect(result.checks.map(c => c.name)).toContain('pattern_size');
-      expect(result.checks.map(c => c.name)).toContain('outcome_consistency');
-      expect(result.checks.map(c => c.name)).toContain('content_quality');
+      expect(result.checks.map((c) => c.name)).toContain('similarity');
+      expect(result.checks.map((c) => c.name)).toContain('pattern_size');
+      expect(result.checks.map((c) => c.name)).toContain('outcome_consistency');
+      expect(result.checks.map((c) => c.name)).toContain('content_quality');
     });
 
     it('should provide meaningful reasons', () => {
@@ -226,7 +232,7 @@ describe('Quality Gate', () => {
     it('should pass for high similarity', () => {
       const pattern = createMockPattern({ confidence: 0.85 });
       const result = qualityGate.evaluate(pattern);
-      const check = result.checks.find(c => c.name === 'similarity');
+      const check = result.checks.find((c) => c.name === 'similarity');
 
       expect(check?.passed).toBe(true);
       expect(check?.score).toBe(0.85);
@@ -235,7 +241,7 @@ describe('Quality Gate', () => {
     it('should fail for low similarity', () => {
       const pattern = createMockPattern({ confidence: 0.5 });
       const result = qualityGate.evaluate(pattern);
-      const check = result.checks.find(c => c.name === 'similarity');
+      const check = result.checks.find((c) => c.name === 'similarity');
 
       expect(check?.passed).toBe(false);
     });
@@ -249,8 +255,8 @@ describe('Quality Gate', () => {
       const smallResult = qualityGate.evaluate(smallPattern);
       const largeResult = qualityGate.evaluate(largePattern);
 
-      const smallCheck = smallResult.checks.find(c => c.name === 'pattern_size');
-      const largeCheck = largeResult.checks.find(c => c.name === 'pattern_size');
+      const smallCheck = smallResult.checks.find((c) => c.name === 'pattern_size');
+      const largeCheck = largeResult.checks.find((c) => c.name === 'pattern_size');
 
       expect(largeCheck?.score).toBeGreaterThan(smallCheck?.score ?? 0);
     });
@@ -258,7 +264,7 @@ describe('Quality Gate', () => {
     it('should fail for single-member patterns', () => {
       const pattern = createMockPattern({ memberCount: 1 });
       const result = qualityGate.evaluate(pattern);
-      const check = result.checks.find(c => c.name === 'pattern_size');
+      const check = result.checks.find((c) => c.name === 'pattern_size');
 
       expect(check?.passed).toBe(false);
     });
@@ -268,7 +274,7 @@ describe('Quality Gate', () => {
     it('should pass for consistent success outcomes', () => {
       const pattern = createMockPattern({ outcomeType: 'success' });
       const result = qualityGate.evaluate(pattern);
-      const check = result.checks.find(c => c.name === 'outcome_consistency');
+      const check = result.checks.find((c) => c.name === 'outcome_consistency');
 
       expect(check?.passed).toBe(true);
     });
@@ -276,7 +282,7 @@ describe('Quality Gate', () => {
     it('should handle patterns without outcome data', () => {
       const pattern = createMockPattern({ outcomeType: 'none' });
       const result = qualityGate.evaluate(pattern);
-      const check = result.checks.find(c => c.name === 'outcome_consistency');
+      const check = result.checks.find((c) => c.name === 'outcome_consistency');
 
       expect(check?.passed).toBe(true);
       expect(check?.score).toBe(0.7); // Neutral
@@ -290,7 +296,7 @@ describe('Quality Gate', () => {
         trajectoryLength: 3,
       });
       const result = qualityGate.evaluate(pattern);
-      const check = result.checks.find(c => c.name === 'content_quality');
+      const check = result.checks.find((c) => c.name === 'content_quality');
 
       expect(check?.passed).toBe(true);
     });
@@ -301,7 +307,7 @@ describe('Quality Gate', () => {
         trajectoryLength: 0,
       });
       const result = qualityGate.evaluate(pattern);
-      const check = result.checks.find(c => c.name === 'content_quality');
+      const check = result.checks.find((c) => c.name === 'content_quality');
 
       expect(check?.passed).toBe(false);
     });

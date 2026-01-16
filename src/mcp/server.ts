@@ -94,14 +94,18 @@ export async function createServer(context: AppContext): Promise<Server> {
     logger.warn({ error }, 'Failed to start health check interval');
   }
 
-  // Seed predefined tags
-  try {
+  // Seed predefined tags (fire-and-forget with proper error handling)
+  if (context.repos?.tags) {
     logger.debug('Seeding predefined tags...');
-    context.repos.tags.seedPredefined();
-    logger.debug('Tags seeded successfully');
-  } catch (error) {
-    logger.warn({ error }, 'Failed to seed tags');
-    // Continue anyway - tags aren't critical
+    void context.repos.tags
+      .seedPredefined()
+      .then(() => {
+        logger.debug('Tags seeded successfully');
+      })
+      .catch((error: unknown) => {
+        logger.warn({ error }, 'Failed to seed predefined tags');
+        // Continue anyway - tags aren't critical
+      });
   }
 
   // Seed built-in graph types (if graph repositories are available)

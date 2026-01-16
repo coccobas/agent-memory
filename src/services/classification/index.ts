@@ -10,11 +10,8 @@
 import { createComponentLogger } from '../../utils/logger.js';
 import type { Config } from '../../config/index.js';
 import type { DrizzleDb } from '../../db/repositories/base.js';
-import {
-  ClassificationRepository,
-  hashText,
-  createClassificationRepository,
-} from './classification.repository.js';
+import type { ClassificationRepository } from './classification.repository.js';
+import { hashText, createClassificationRepository } from './classification.repository.js';
 import { PatternMatcher, type PatternMatch } from './pattern-matcher.js';
 import { LRUCache } from '../../utils/lru-cache.js';
 
@@ -57,12 +54,14 @@ export interface IClassificationService {
     actualType: EntryType,
     sessionId?: string
   ): Promise<void>;
-  getPatternStats(): Promise<Array<{
-    patternId: string;
-    patternType: EntryType;
-    accuracy: number;
-    feedbackMultiplier: number;
-  }>>;
+  getPatternStats(): Promise<
+    Array<{
+      patternId: string;
+      patternType: EntryType;
+      accuracy: number;
+      feedbackMultiplier: number;
+    }>
+  >;
   isLLMAvailable(): boolean;
 }
 
@@ -176,7 +175,10 @@ export class ClassificationService implements IClassificationService {
           confidence: llmResult.confidence,
           method: 'llm',
           llmReasoning: llmResult.reasoning,
-          alternativeTypes: this.buildAlternativesFromMatches(llmResult.type, regexResult.patternMatches),
+          alternativeTypes: this.buildAlternativesFromMatches(
+            llmResult.type,
+            regexResult.patternMatches
+          ),
           adjustedByFeedback: false,
         };
         this.cache.set(cacheKey, result);
@@ -210,9 +212,7 @@ export class ClassificationService implements IClassificationService {
           confidence: llmResult.confidence,
           method: 'hybrid',
           llmReasoning: llmResult.reasoning,
-          alternativeTypes: [
-            { type: regexResult.type, confidence: regexResult.confidence },
-          ],
+          alternativeTypes: [{ type: regexResult.type, confidence: regexResult.confidence }],
           adjustedByFeedback: false,
         };
         this.cache.set(cacheKey, result);
@@ -231,7 +231,10 @@ export class ClassificationService implements IClassificationService {
       method: 'regex',
       patternMatches: regexResult.patternMatches,
       adjustedByFeedback: regexResult.adjustedByFeedback,
-      alternativeTypes: this.buildAlternativesFromMatches(regexResult.type, regexResult.patternMatches),
+      alternativeTypes: this.buildAlternativesFromMatches(
+        regexResult.type,
+        regexResult.patternMatches
+      ),
     };
     this.cache.set(cacheKey, result);
     return result;

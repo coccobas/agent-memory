@@ -7,6 +7,7 @@ Accepted
 ## Context
 
 Agent Memory needs to support multiple deployment topologies:
+
 - Local development: SQLite, in-memory cache, file locks
 - Single-server production: SQLite/PostgreSQL, LRU cache, file locks
 - Distributed production: PostgreSQL, Redis cache, Redis locks, Redis events
@@ -14,6 +15,7 @@ Agent Memory needs to support multiple deployment topologies:
 Without abstraction, code would be littered with `if (isPostgres)` checks, and adding new backends would require touching many files.
 
 We needed:
+
 - Pluggable infrastructure without code changes
 - Consistent interfaces across backend implementations
 - Runtime backend selection via configuration
@@ -70,14 +72,14 @@ interface ICircuitBreakerAdapter {
 
 ### Implementation Matrix
 
-| Interface | Local | Distributed |
-|-----------|-------|-------------|
-| IStorageAdapter | SQLiteAdapter | PostgresAdapter |
-| ICacheAdapter | LRUCacheAdapter | RedisCacheAdapter |
-| ILockAdapter | FileLockAdapter | RedisLockAdapter |
-| IEventAdapter | LocalEventAdapter | RedisEventAdapter |
-| IRateLimiterAdapter | TokenBucketAdapter | RedisRateLimiterAdapter |
-| ICircuitBreakerAdapter | LocalCircuitBreaker | (shared) |
+| Interface              | Local               | Distributed             |
+| ---------------------- | ------------------- | ----------------------- |
+| IStorageAdapter        | SQLiteAdapter       | PostgresAdapter         |
+| ICacheAdapter          | LRUCacheAdapter     | RedisCacheAdapter       |
+| ILockAdapter           | FileLockAdapter     | RedisLockAdapter        |
+| IEventAdapter          | LocalEventAdapter   | RedisEventAdapter       |
+| IRateLimiterAdapter    | TokenBucketAdapter  | RedisRateLimiterAdapter |
+| ICircuitBreakerAdapter | LocalCircuitBreaker | (shared)                |
 
 ### Adapter Selection
 
@@ -85,18 +87,21 @@ Adapters are selected at startup based on configuration:
 
 ```typescript
 // Container builds adapters based on config
-const storage = config.database.type === 'postgresql'
-  ? new PostgresAdapter(config.database)
-  : new SQLiteAdapter(config.database);
+const storage =
+  config.database.type === 'postgresql'
+    ? new PostgresAdapter(config.database)
+    : new SQLiteAdapter(config.database);
 
-const cache = config.cache.type === 'redis'
-  ? new RedisCacheAdapter(config.redis)
-  : new LRUCacheAdapter(config.cache);
+const cache =
+  config.cache.type === 'redis'
+    ? new RedisCacheAdapter(config.redis)
+    : new LRUCacheAdapter(config.cache);
 ```
 
 ### Async-First Design
 
 All adapter methods are async (return Promises) even when the underlying implementation is synchronous. This ensures:
+
 - Consistent API across implementations
 - Easy swapping between sync (SQLite) and async (PostgreSQL) backends
 - No breaking changes when upgrading from local to distributed
@@ -104,6 +109,7 @@ All adapter methods are async (return Promises) even when the underlying impleme
 ## Consequences
 
 **Positive:**
+
 - Backend changes require zero business logic modifications
 - Each adapter is independently testable
 - Clear contracts enable third-party implementations
@@ -111,6 +117,7 @@ All adapter methods are async (return Promises) even when the underlying impleme
 - Adapter composition enables hybrid deployments (e.g., SQLite + Redis cache)
 
 **Negative:**
+
 - Async overhead for synchronous operations (minimal in practice)
 - Interface must be lowest-common-denominator (can't use PostgreSQL-specific features through interface)
 - More files to maintain (interface + N implementations)

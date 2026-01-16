@@ -5,6 +5,8 @@
  * Factory function that accepts DatabaseDeps for dependency injection.
  */
 
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
+
 import { eq, and, desc, inArray } from 'drizzle-orm';
 import { transactionWithRetry } from '../../connection.js';
 import {
@@ -49,11 +51,7 @@ export function createEdgeRepository(
    * Resolve edge type ID from name
    */
   function resolveEdgeTypeId(typeName: string): string {
-    const edgeType = db
-      .select()
-      .from(edgeTypes)
-      .where(eq(edgeTypes.name, typeName))
-      .get();
+    const edgeType = db.select().from(edgeTypes).where(eq(edgeTypes.name, typeName)).get();
 
     if (!edgeType) {
       throw createValidationError('edgeTypeName', `Edge type '${typeName}' not found`);
@@ -68,11 +66,7 @@ export function createEdgeRepository(
     const edge = db.select().from(edges).where(eq(edges.id, id)).get();
     if (!edge) return undefined;
 
-    const edgeType = db
-      .select()
-      .from(edgeTypes)
-      .where(eq(edgeTypes.id, edge.edgeTypeId))
-      .get();
+    const edgeType = db.select().from(edgeTypes).where(eq(edgeTypes.id, edge.edgeTypeId)).get();
 
     return {
       ...edge,
@@ -89,11 +83,7 @@ export function createEdgeRepository(
     const node = db.select().from(nodes).where(eq(nodes.id, nodeId)).get();
     if (!node) return undefined;
 
-    const nodeType = db
-      .select()
-      .from(nodeTypes)
-      .where(eq(nodeTypes.id, node.nodeTypeId))
-      .get();
+    const nodeType = db.select().from(nodeTypes).where(eq(nodeTypes.id, node.nodeTypeId)).get();
 
     return nodeType?.name;
   }
@@ -110,42 +100,27 @@ export function createEdgeRepository(
         throw createValidationError('targetId', 'targetId is required');
       }
 
-      return await transactionWithRetry(sqlite!, () => {
+      return await transactionWithRetry(sqlite, () => {
         const edgeTypeId = resolveEdgeTypeId(input.edgeTypeName);
 
         // Validate source node exists
-        const sourceNode = db
-          .select()
-          .from(nodes)
-          .where(eq(nodes.id, input.sourceId))
-          .get();
+        const sourceNode = db.select().from(nodes).where(eq(nodes.id, input.sourceId)).get();
         if (!sourceNode) {
           throw createValidationError('sourceId', `Source node '${input.sourceId}' not found`);
         }
 
         // Validate target node exists
-        const targetNode = db
-          .select()
-          .from(nodes)
-          .where(eq(nodes.id, input.targetId))
-          .get();
+        const targetNode = db.select().from(nodes).where(eq(nodes.id, input.targetId)).get();
         if (!targetNode) {
           throw createValidationError('targetId', `Target node '${input.targetId}' not found`);
         }
 
         // Check edge type constraints
-        const edgeType = db
-          .select()
-          .from(edgeTypes)
-          .where(eq(edgeTypes.id, edgeTypeId))
-          .get();
+        const edgeType = db.select().from(edgeTypes).where(eq(edgeTypes.id, edgeTypeId)).get();
 
         if (edgeType?.sourceConstraints) {
           const sourceTypeName = getNodeTypeName(input.sourceId);
-          if (
-            sourceTypeName &&
-            !edgeType.sourceConstraints.includes(sourceTypeName)
-          ) {
+          if (sourceTypeName && !edgeType.sourceConstraints.includes(sourceTypeName)) {
             throw createValidationError(
               'sourceId',
               `Edge type '${input.edgeTypeName}' does not allow source type '${sourceTypeName}'`
@@ -155,10 +130,7 @@ export function createEdgeRepository(
 
         if (edgeType?.targetConstraints) {
           const targetTypeName = getNodeTypeName(input.targetId);
-          if (
-            targetTypeName &&
-            !edgeType.targetConstraints.includes(targetTypeName)
-          ) {
+          if (targetTypeName && !edgeType.targetConstraints.includes(targetTypeName)) {
             throw createValidationError(
               'targetId',
               `Edge type '${input.edgeTypeName}' does not allow target type '${targetTypeName}'`
@@ -276,11 +248,7 @@ export function createEdgeRepository(
 
       // Fetch edge types
       return results.map((edge) => {
-        const edgeType = db
-          .select()
-          .from(edgeTypes)
-          .where(eq(edgeTypes.id, edge.edgeTypeId))
-          .get();
+        const edgeType = db.select().from(edgeTypes).where(eq(edgeTypes.id, edge.edgeTypeId)).get();
 
         return {
           ...edge,
@@ -291,10 +259,7 @@ export function createEdgeRepository(
       });
     },
 
-    async update(
-      id: string,
-      input: UpdateGraphEdgeInput
-    ): Promise<GraphEdgeWithType | undefined> {
+    async update(id: string, input: UpdateGraphEdgeInput): Promise<GraphEdgeWithType | undefined> {
       const existing = db.select().from(edges).where(eq(edges.id, id)).get();
       if (!existing) return undefined;
 
@@ -325,18 +290,11 @@ export function createEdgeRepository(
       return true;
     },
 
-    async getOutgoingEdges(
-      nodeId: string,
-      edgeTypeName?: string
-    ): Promise<GraphEdgeWithType[]> {
+    async getOutgoingEdges(nodeId: string, edgeTypeName?: string): Promise<GraphEdgeWithType[]> {
       const conditions: ReturnType<typeof eq>[] = [eq(edges.sourceId, nodeId)];
 
       if (edgeTypeName) {
-        const edgeType = db
-          .select()
-          .from(edgeTypes)
-          .where(eq(edgeTypes.name, edgeTypeName))
-          .get();
+        const edgeType = db.select().from(edgeTypes).where(eq(edgeTypes.name, edgeTypeName)).get();
         if (edgeType) {
           conditions.push(eq(edges.edgeTypeId, edgeType.id));
         } else {
@@ -351,11 +309,7 @@ export function createEdgeRepository(
         .all();
 
       return results.map((edge) => {
-        const edgeType = db
-          .select()
-          .from(edgeTypes)
-          .where(eq(edgeTypes.id, edge.edgeTypeId))
-          .get();
+        const edgeType = db.select().from(edgeTypes).where(eq(edgeTypes.id, edge.edgeTypeId)).get();
 
         return {
           ...edge,
@@ -366,18 +320,11 @@ export function createEdgeRepository(
       });
     },
 
-    async getIncomingEdges(
-      nodeId: string,
-      edgeTypeName?: string
-    ): Promise<GraphEdgeWithType[]> {
+    async getIncomingEdges(nodeId: string, edgeTypeName?: string): Promise<GraphEdgeWithType[]> {
       const conditions: ReturnType<typeof eq>[] = [eq(edges.targetId, nodeId)];
 
       if (edgeTypeName) {
-        const edgeType = db
-          .select()
-          .from(edgeTypes)
-          .where(eq(edgeTypes.name, edgeTypeName))
-          .get();
+        const edgeType = db.select().from(edgeTypes).where(eq(edgeTypes.name, edgeTypeName)).get();
         if (edgeType) {
           conditions.push(eq(edges.edgeTypeId, edgeType.id));
         } else {
@@ -392,11 +339,7 @@ export function createEdgeRepository(
         .all();
 
       return results.map((edge) => {
-        const edgeType = db
-          .select()
-          .from(edgeTypes)
-          .where(eq(edgeTypes.id, edge.edgeTypeId))
-          .get();
+        const edgeType = db.select().from(edgeTypes).where(eq(edgeTypes.id, edge.edgeTypeId)).get();
 
         return {
           ...edge,
@@ -419,11 +362,7 @@ export function createEdgeRepository(
       if (options?.edgeTypes && options.edgeTypes.length > 0) {
         edgeTypeIds = [];
         for (const typeName of options.edgeTypes) {
-          const edgeType = db
-            .select()
-            .from(edgeTypes)
-            .where(eq(edgeTypes.name, typeName))
-            .get();
+          const edgeType = db.select().from(edgeTypes).where(eq(edgeTypes.name, typeName)).get();
           if (edgeType) {
             edgeTypeIds.push(edgeType.id);
           }
@@ -552,9 +491,7 @@ export function createEdgeRepository(
 
       stack.push({
         nodeId: startNodeId,
-        nodePath: [
-          { id: startNode.id, type: startNode.nodeTypeName, name: startNode.name },
-        ],
+        nodePath: [{ id: startNode.id, type: startNode.nodeTypeName, name: startNode.name }],
         edgePath: [],
       });
 

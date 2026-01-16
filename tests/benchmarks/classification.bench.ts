@@ -30,7 +30,7 @@ const SAMPLE_TEXTS = {
   // High confidence guideline patterns
   highConfidenceGuideline: 'Rule: always use TypeScript strict mode',
   imperativeGuideline: 'Must use async/await for all async operations',
-  prohibitionGuideline: "Never store secrets in code",
+  prohibitionGuideline: 'Never store secrets in code',
   preferenceGuideline: 'Prefer const over let for variable declarations',
 
   // High confidence knowledge patterns
@@ -51,7 +51,8 @@ const SAMPLE_TEXTS = {
   // Edge cases
   singleWord: 'PostgreSQL',
   empty: '',
-  longText: 'This is a very long text that describes our system architecture in detail. The backend is built with Node.js and Express, using PostgreSQL for data persistence. We always use TypeScript strict mode and prefer functional programming patterns. The team decided to use REST APIs over GraphQL after careful evaluation.',
+  longText:
+    'This is a very long text that describes our system architecture in detail. The backend is built with Node.js and Express, using PostgreSQL for data persistence. We always use TypeScript strict mode and prefer functional programming patterns. The team decided to use REST APIs over GraphQL after careful evaluation.',
 };
 
 let sqlite: ReturnType<typeof Database>;

@@ -124,9 +124,7 @@ describe('Feedback Handler', () => {
       const mockData = {
         extraction: { samples: [] },
         consolidation: {
-          samples: [
-            { id: 'con-1', decision: 'merge' },
-          ],
+          samples: [{ id: 'con-1', decision: 'merge' }],
         },
       };
       mockFeedbackService.exportTrainingData.mockResolvedValue(mockData);
@@ -185,9 +183,9 @@ describe('Feedback Handler', () => {
       };
       mockFeedbackService.exportTrainingData.mockResolvedValue(mockData);
 
-      const result = await feedbackHandlers.export(mockContext, {
+      const result = (await feedbackHandlers.export(mockContext, {
         policyType: 'extraction',
-      }) as any;
+      })) as any;
 
       expect(result.samples).toHaveLength(1);
       expect(result.count).toBe(1);
@@ -203,9 +201,9 @@ describe('Feedback Handler', () => {
       };
       mockFeedbackService.exportTrainingData.mockResolvedValue(mockData);
 
-      const result = await feedbackHandlers.export(mockContext, {
+      const result = (await feedbackHandlers.export(mockContext, {
         policyType: 'retrieval',
-      }) as any;
+      })) as any;
 
       expect(result.samples).toHaveLength(1);
     });
@@ -220,9 +218,9 @@ describe('Feedback Handler', () => {
       };
       mockFeedbackService.exportTrainingData.mockResolvedValue(mockData);
 
-      const result = await feedbackHandlers.export(mockContext, {
+      const result = (await feedbackHandlers.export(mockContext, {
         policyType: 'consolidation',
-      }) as any;
+      })) as any;
 
       expect(result.samples).toHaveLength(1);
     });
@@ -271,7 +269,7 @@ describe('Feedback Handler', () => {
       mockFeedbackService.exportTrainingData.mockResolvedValue(mockData);
       mockFeedbackService.getConfig.mockReturnValue(mockConfig);
 
-      const result = await feedbackHandlers.stats(mockContext, {}) as any;
+      const result = (await feedbackHandlers.stats(mockContext, {})) as any;
 
       expect(result.config).toEqual(mockConfig);
       expect(result.counts.retrievals).toBe(100);

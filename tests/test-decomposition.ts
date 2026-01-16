@@ -12,16 +12,18 @@ async function test() {
 
   // Test queries
   const queries = [
-    "What is our authentication system?",  // Simple
-    "What is our authentication system and how do we deploy to production?",  // Multi-topic
-    "What's the difference between JWT and session-based auth?",  // Comparison
-    "Why did we switch to PostgreSQL and what was the migration process?",  // Causal
+    'What is our authentication system?', // Simple
+    'What is our authentication system and how do we deploy to production?', // Multi-topic
+    "What's the difference between JWT and session-based auth?", // Comparison
+    'Why did we switch to PostgreSQL and what was the migration process?', // Causal
   ];
 
   for (const query of queries) {
     console.log(`Query: "${query}"`);
     const analysis = decomposer.analyzeQuery(query);
-    console.log(`  Analysis: needsDecomposition=${analysis.needsDecomposition}, type=${analysis.complexityType}, confidence=${analysis.confidence}`);
+    console.log(
+      `  Analysis: needsDecomposition=${analysis.needsDecomposition}, type=${analysis.complexityType}, confidence=${analysis.confidence}`
+    );
 
     if (analysis.needsDecomposition) {
       const plan = await decomposer.decompose(query);
@@ -52,7 +54,7 @@ async function test() {
     {
       subQuery: { index: 1, query: 'How to deploy?', purpose: 'Deploy info' },
       entries: [
-        { id: 'b', content: 'Auth B', type: 'knowledge', score: 0.95 },  // Overlap
+        { id: 'b', content: 'Auth B', type: 'knowledge', score: 0.95 }, // Overlap
         { id: 'd', content: 'Deploy D', type: 'knowledge', score: 0.85 },
         { id: 'e', content: 'Deploy E', type: 'knowledge', score: 0.75 },
       ],

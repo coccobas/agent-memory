@@ -55,7 +55,7 @@ describe('Connected Components Community Detection', () => {
       expect(result.communities.length).toBeGreaterThanOrEqual(1);
 
       // Each component should have at least minCommunitySize members
-      result.communities.forEach(community => {
+      result.communities.forEach((community) => {
         expect(community.members.length).toBeGreaterThanOrEqual(2);
       });
     });
@@ -74,7 +74,7 @@ describe('Connected Components Community Detection', () => {
       });
 
       // Should only include components with 3+ members
-      expect(result.communities.every(c => c.members.length >= 3)).toBe(true);
+      expect(result.communities.every((c) => c.members.length >= 3)).toBe(true);
     });
 
     it('should handle nodes without embeddings', async () => {
@@ -90,9 +90,9 @@ describe('Connected Components Community Detection', () => {
       });
 
       // Should only include nodes with embeddings
-      const allMembers = result.communities.flatMap(c => c.members);
-      expect(allMembers.every(m => m.embedding !== undefined)).toBe(true);
-      expect(allMembers.every(m => m.id !== '2')).toBe(true);
+      const allMembers = result.communities.flatMap((c) => c.members);
+      expect(allMembers.every((m) => m.embedding !== undefined)).toBe(true);
+      expect(allMembers.every((m) => m.id !== '2')).toBe(true);
     });
 
     it('should use default configuration when not provided', async () => {
@@ -174,7 +174,7 @@ describe('Connected Components Community Detection', () => {
         if (community.centroid) {
           expect(community.centroid).toBeDefined();
           expect(community.centroid.length).toBe(3);
-          expect(community.centroid.every(v => typeof v === 'number')).toBe(true);
+          expect(community.centroid.every((v) => typeof v === 'number')).toBe(true);
         }
       }
     });
@@ -234,11 +234,7 @@ describe('Connected Components Community Detection', () => {
       const nodes: CommunityNode[] = Array.from({ length: nodeCount }, (_, i) => ({
         id: String(i),
         type: 'knowledge' as const,
-        embedding: [
-          Math.cos(i * 0.1),
-          Math.sin(i * 0.1),
-          0,
-        ],
+        embedding: [Math.cos(i * 0.1), Math.sin(i * 0.1), 0],
       }));
 
       const startTime = performance.now();
@@ -346,8 +342,8 @@ describe('Connected Components Community Detection', () => {
       const communities = singleLinkageClustering(nodes, 0.5);
 
       // Should only include nodes with embeddings
-      const allMembers = communities.flatMap(c => c.members);
-      expect(allMembers.every(m => m.embedding !== undefined)).toBe(true);
+      const allMembers = communities.flatMap((c) => c.members);
+      expect(allMembers.every((m) => m.embedding !== undefined)).toBe(true);
     });
 
     it('should assign unique IDs to communities', () => {
@@ -362,11 +358,11 @@ describe('Connected Components Community Detection', () => {
 
       const communities = singleLinkageClustering(nodes, 0.5);
 
-      const ids = communities.map(c => c.id);
+      const ids = communities.map((c) => c.id);
       const uniqueIds = new Set(ids);
 
       expect(ids.length).toBe(uniqueIds.size); // All IDs should be unique
-      expect(communities.every(c => c.id.startsWith('linkage-'))).toBe(true);
+      expect(communities.every((c) => c.id.startsWith('linkage-'))).toBe(true);
     });
 
     it('should handle low threshold creating single cluster', () => {

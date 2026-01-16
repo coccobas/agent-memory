@@ -5,14 +5,8 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { CoarseToFineRetriever } from '../../src/services/summarization/retrieval/coarse-to-fine.js';
 import type { EmbeddingService } from '../../src/services/embedding.service.js';
-import {
-  setupTestDb,
-  cleanupTestDb,
-  schema,
-} from '../fixtures/test-helpers.js';
-import type {
-  CoarseToFineOptions,
-} from '../../src/services/summarization/retrieval/types.js';
+import { setupTestDb, cleanupTestDb, schema } from '../fixtures/test-helpers.js';
+import type { CoarseToFineOptions } from '../../src/services/summarization/retrieval/types.js';
 import { nanoid } from 'nanoid';
 import { eq } from 'drizzle-orm';
 
@@ -133,41 +127,49 @@ describe('CoarseToFineRetriever', () => {
       const knowledgeId = 'know-' + nanoid(8);
 
       // Create project
-      db.insert(schema.projects).values({
-        id: projectId,
-        name: 'Test Project',
-      }).run();
+      db.insert(schema.projects)
+        .values({
+          id: projectId,
+          name: 'Test Project',
+        })
+        .run();
 
       // Create knowledge entry
-      db.insert(schema.knowledge).values({
-        id: knowledgeId,
-        scopeType: 'project',
-        scopeId: projectId,
-        title: 'Test Knowledge',
-        content: 'This is test knowledge content',
-      }).run();
+      db.insert(schema.knowledge)
+        .values({
+          id: knowledgeId,
+          scopeType: 'project',
+          scopeId: projectId,
+          title: 'Test Knowledge',
+          content: 'This is test knowledge content',
+        })
+        .run();
 
       // Create level-0 summary with embedding
-      db.insert(schema.summaries).values({
-        id: summaryId,
-        scopeType: 'project',
-        scopeId: projectId,
-        hierarchyLevel: 0,
-        title: 'Test Summary',
-        content: 'Summary of test knowledge',
-        embedding: mockEmbedding as any, // Drizzle will handle JSON serialization
-        embeddingDimension: 384,
-        memberCount: 1,
-      }).run();
+      db.insert(schema.summaries)
+        .values({
+          id: summaryId,
+          scopeType: 'project',
+          scopeId: projectId,
+          hierarchyLevel: 0,
+          title: 'Test Summary',
+          content: 'Summary of test knowledge',
+          embedding: mockEmbedding as any, // Drizzle will handle JSON serialization
+          embeddingDimension: 384,
+          memberCount: 1,
+        })
+        .run();
 
       // Link knowledge to summary
-      db.insert(schema.summaryMembers).values({
-        id: 'mem-' + nanoid(8),
-        summaryId,
-        memberType: 'knowledge',
-        memberId: knowledgeId,
-        contributionScore: 0.9,
-      }).run();
+      db.insert(schema.summaryMembers)
+        .values({
+          id: 'mem-' + nanoid(8),
+          summaryId,
+          memberType: 'knowledge',
+          memberId: knowledgeId,
+          contributionScore: 0.9,
+        })
+        .run();
 
       const options: CoarseToFineOptions = {
         query: 'test query',
@@ -194,86 +196,102 @@ describe('CoarseToFineRetriever', () => {
       const knowledgeId = 'know-' + nanoid(8);
 
       // Create project
-      db.insert(schema.projects).values({
-        id: projectId,
-        name: 'Test Hierarchy Project',
-      }).run();
+      db.insert(schema.projects)
+        .values({
+          id: projectId,
+          name: 'Test Hierarchy Project',
+        })
+        .run();
 
       // Create knowledge entry
-      db.insert(schema.knowledge).values({
-        id: knowledgeId,
-        scopeType: 'project',
-        scopeId: projectId,
-        title: 'Hierarchical Knowledge',
-        content: 'Knowledge in hierarchy',
-      }).run();
+      db.insert(schema.knowledge)
+        .values({
+          id: knowledgeId,
+          scopeType: 'project',
+          scopeId: projectId,
+          title: 'Hierarchical Knowledge',
+          content: 'Knowledge in hierarchy',
+        })
+        .run();
 
       // Create level-2 summary (domain)
-      db.insert(schema.summaries).values({
-        id: level2SummaryId,
-        scopeType: 'project',
-        scopeId: projectId,
-        hierarchyLevel: 2,
-        title: 'Domain Summary',
-        content: 'High-level domain summary',
-        embedding: mockEmbedding as any,
-        embeddingDimension: 384,
-        memberCount: 1,
-      }).run();
+      db.insert(schema.summaries)
+        .values({
+          id: level2SummaryId,
+          scopeType: 'project',
+          scopeId: projectId,
+          hierarchyLevel: 2,
+          title: 'Domain Summary',
+          content: 'High-level domain summary',
+          embedding: mockEmbedding as any,
+          embeddingDimension: 384,
+          memberCount: 1,
+        })
+        .run();
 
       // Create level-1 summary (topic)
-      db.insert(schema.summaries).values({
-        id: level1SummaryId,
-        scopeType: 'project',
-        scopeId: projectId,
-        hierarchyLevel: 1,
-        parentSummaryId: level2SummaryId,
-        title: 'Topic Summary',
-        content: 'Mid-level topic summary',
-        embedding: mockEmbedding as any,
-        embeddingDimension: 384,
-        memberCount: 1,
-      }).run();
+      db.insert(schema.summaries)
+        .values({
+          id: level1SummaryId,
+          scopeType: 'project',
+          scopeId: projectId,
+          hierarchyLevel: 1,
+          parentSummaryId: level2SummaryId,
+          title: 'Topic Summary',
+          content: 'Mid-level topic summary',
+          embedding: mockEmbedding as any,
+          embeddingDimension: 384,
+          memberCount: 1,
+        })
+        .run();
 
       // Create level-0 summary (chunk)
-      db.insert(schema.summaries).values({
-        id: level0SummaryId,
-        scopeType: 'project',
-        scopeId: projectId,
-        hierarchyLevel: 0,
-        parentSummaryId: level1SummaryId,
-        title: 'Chunk Summary',
-        content: 'Low-level chunk summary',
-        embedding: mockEmbedding as any,
-        embeddingDimension: 384,
-        memberCount: 1,
-      }).run();
+      db.insert(schema.summaries)
+        .values({
+          id: level0SummaryId,
+          scopeType: 'project',
+          scopeId: projectId,
+          hierarchyLevel: 0,
+          parentSummaryId: level1SummaryId,
+          title: 'Chunk Summary',
+          content: 'Low-level chunk summary',
+          embedding: mockEmbedding as any,
+          embeddingDimension: 384,
+          memberCount: 1,
+        })
+        .run();
 
       // Link summaries in hierarchy
-      db.insert(schema.summaryMembers).values({
-        id: 'mem-l2-l1-' + nanoid(8),
-        summaryId: level2SummaryId,
-        memberType: 'summary',
-        memberId: level1SummaryId,
-        contributionScore: 0.9,
-      }).run();
+      db.insert(schema.summaryMembers)
+        .values({
+          id: 'mem-l2-l1-' + nanoid(8),
+          summaryId: level2SummaryId,
+          memberType: 'summary',
+          memberId: level1SummaryId,
+          contributionScore: 0.9,
+        })
+        .run();
 
-      db.insert(schema.summaryMembers).values({
-        id: 'mem-l1-l0-' + nanoid(8),
-        summaryId: level1SummaryId,
-        memberType: 'summary',
-        memberId: level0SummaryId,
-        contributionScore: 0.85,
-      }).run();
+      db.insert(schema.summaryMembers)
+        .values({
+          id: 'mem-l1-l0-' + nanoid(8),
+          summaryId: level1SummaryId,
+          memberType: 'summary',
+          memberId: level0SummaryId,
+          contributionScore: 0.85,
+        })
+        .run();
 
       // Link knowledge to level-0 summary
-      db.insert(schema.summaryMembers).values({
-        id: 'mem-l0-know-' + nanoid(8),
-        summaryId: level0SummaryId,
-        memberType: 'knowledge',
-        memberId: knowledgeId,
-        contributionScore: 0.8,
-      }).run();
+      db.insert(schema.summaryMembers)
+        .values({
+          id: 'mem-l0-know-' + nanoid(8),
+          summaryId: level0SummaryId,
+          memberType: 'knowledge',
+          memberId: knowledgeId,
+          contributionScore: 0.8,
+        })
+        .run();
 
       const options: CoarseToFineOptions = {
         query: 'test query',
@@ -299,58 +317,68 @@ describe('CoarseToFineRetriever', () => {
       const toolId = 'tool-' + nanoid(8);
 
       // Create project
-      db.insert(schema.projects).values({
-        id: projectId,
-        name: 'Filter Test Project',
-      }).run();
+      db.insert(schema.projects)
+        .values({
+          id: projectId,
+          name: 'Filter Test Project',
+        })
+        .run();
 
       // Create entries
-      db.insert(schema.knowledge).values({
-        id: knowledgeId,
-        scopeType: 'project',
-        scopeId: projectId,
-        title: 'Test Knowledge',
-        content: 'Knowledge content',
-      }).run();
+      db.insert(schema.knowledge)
+        .values({
+          id: knowledgeId,
+          scopeType: 'project',
+          scopeId: projectId,
+          title: 'Test Knowledge',
+          content: 'Knowledge content',
+        })
+        .run();
 
-      db.insert(schema.tools).values({
-        id: toolId,
-        scopeType: 'project',
-        scopeId: projectId,
-        name: 'test-tool',
-        description: 'Tool description',
-      }).run();
+      db.insert(schema.tools)
+        .values({
+          id: toolId,
+          scopeType: 'project',
+          scopeId: projectId,
+          name: 'test-tool',
+          description: 'Tool description',
+        })
+        .run();
 
       // Create summary
-      db.insert(schema.summaries).values({
-        id: summaryId,
-        scopeType: 'project',
-        scopeId: projectId,
-        hierarchyLevel: 0,
-        title: 'Mixed Summary',
-        content: 'Summary with multiple types',
-        embedding: mockEmbedding as any,
-        embeddingDimension: 384,
-        memberCount: 2,
-      }).run();
+      db.insert(schema.summaries)
+        .values({
+          id: summaryId,
+          scopeType: 'project',
+          scopeId: projectId,
+          hierarchyLevel: 0,
+          title: 'Mixed Summary',
+          content: 'Summary with multiple types',
+          embedding: mockEmbedding as any,
+          embeddingDimension: 384,
+          memberCount: 2,
+        })
+        .run();
 
       // Link both entries
-      db.insert(schema.summaryMembers).values([
-        {
-          id: 'mem-know-' + nanoid(8),
-          summaryId,
-          memberType: 'knowledge',
-          memberId: knowledgeId,
-          contributionScore: 0.9,
-        },
-        {
-          id: 'mem-tool-' + nanoid(8),
-          summaryId,
-          memberType: 'tool',
-          memberId: toolId,
-          contributionScore: 0.8,
-        },
-      ]).run();
+      db.insert(schema.summaryMembers)
+        .values([
+          {
+            id: 'mem-know-' + nanoid(8),
+            summaryId,
+            memberType: 'knowledge',
+            memberId: knowledgeId,
+            contributionScore: 0.9,
+          },
+          {
+            id: 'mem-tool-' + nanoid(8),
+            summaryId,
+            memberType: 'tool',
+            memberId: toolId,
+            contributionScore: 0.8,
+          },
+        ])
+        .run();
 
       const options: CoarseToFineOptions = {
         query: 'test query',
@@ -363,7 +391,7 @@ describe('CoarseToFineRetriever', () => {
 
       const result = await retriever.retrieve(options);
 
-      expect(result.entries.every(e => e.type === 'knowledge')).toBe(true);
+      expect(result.entries.every((e) => e.type === 'knowledge')).toBe(true);
     });
 
     it('should respect maxResults limit', async () => {
@@ -371,46 +399,54 @@ describe('CoarseToFineRetriever', () => {
       const summaryId = 'sum-limit-' + nanoid(8);
 
       // Create project
-      db.insert(schema.projects).values({
-        id: projectId,
-        name: 'Limit Test Project',
-      }).run();
+      db.insert(schema.projects)
+        .values({
+          id: projectId,
+          name: 'Limit Test Project',
+        })
+        .run();
 
       // Create multiple knowledge entries
       const knowledgeIds = Array.from({ length: 10 }, (_, i) => {
         const id = `know-${i}-` + nanoid(8);
-        db.insert(schema.knowledge).values({
-          id,
-          scopeType: 'project',
-          scopeId: projectId,
-          title: `Knowledge ${i}`,
-          content: `Content ${i}`,
-        }).run();
+        db.insert(schema.knowledge)
+          .values({
+            id,
+            scopeType: 'project',
+            scopeId: projectId,
+            title: `Knowledge ${i}`,
+            content: `Content ${i}`,
+          })
+          .run();
         return id;
       });
 
       // Create summary
-      db.insert(schema.summaries).values({
-        id: summaryId,
-        scopeType: 'project',
-        scopeId: projectId,
-        hierarchyLevel: 0,
-        title: 'Large Summary',
-        content: 'Summary with many members',
-        embedding: mockEmbedding as any,
-        embeddingDimension: 384,
-        memberCount: 10,
-      }).run();
+      db.insert(schema.summaries)
+        .values({
+          id: summaryId,
+          scopeType: 'project',
+          scopeId: projectId,
+          hierarchyLevel: 0,
+          title: 'Large Summary',
+          content: 'Summary with many members',
+          embedding: mockEmbedding as any,
+          embeddingDimension: 384,
+          memberCount: 10,
+        })
+        .run();
 
       // Link all entries
       knowledgeIds.forEach((knowId, i) => {
-        db.insert(schema.summaryMembers).values({
-          id: `mem-${i}-` + nanoid(8),
-          summaryId,
-          memberType: 'knowledge',
-          memberId: knowId,
-          contributionScore: 0.9 - (i * 0.05), // Descending scores
-        }).run();
+        db.insert(schema.summaryMembers)
+          .values({
+            id: `mem-${i}-` + nanoid(8),
+            summaryId,
+            memberType: 'knowledge',
+            memberId: knowId,
+            contributionScore: 0.9 - i * 0.05, // Descending scores
+          })
+          .run();
       });
 
       const options: CoarseToFineOptions = {
@@ -433,41 +469,49 @@ describe('CoarseToFineRetriever', () => {
       const knowledgeId = 'know-perf-' + nanoid(8);
 
       // Create project
-      db.insert(schema.projects).values({
-        id: projectId,
-        name: 'Performance Test Project',
-      }).run();
+      db.insert(schema.projects)
+        .values({
+          id: projectId,
+          name: 'Performance Test Project',
+        })
+        .run();
 
       // Create knowledge entry
-      db.insert(schema.knowledge).values({
-        id: knowledgeId,
-        scopeType: 'project',
-        scopeId: projectId,
-        title: 'Performance Knowledge',
-        content: 'Performance test content',
-      }).run();
+      db.insert(schema.knowledge)
+        .values({
+          id: knowledgeId,
+          scopeType: 'project',
+          scopeId: projectId,
+          title: 'Performance Knowledge',
+          content: 'Performance test content',
+        })
+        .run();
 
       // Create summary
-      db.insert(schema.summaries).values({
-        id: summaryId,
-        scopeType: 'project',
-        scopeId: projectId,
-        hierarchyLevel: 0,
-        title: 'Performance Summary',
-        content: 'Performance test summary',
-        embedding: mockEmbedding as any,
-        embeddingDimension: 384,
-        memberCount: 1,
-      }).run();
+      db.insert(schema.summaries)
+        .values({
+          id: summaryId,
+          scopeType: 'project',
+          scopeId: projectId,
+          hierarchyLevel: 0,
+          title: 'Performance Summary',
+          content: 'Performance test summary',
+          embedding: mockEmbedding as any,
+          embeddingDimension: 384,
+          memberCount: 1,
+        })
+        .run();
 
       // Link knowledge
-      db.insert(schema.summaryMembers).values({
-        id: 'mem-perf-' + nanoid(8),
-        summaryId,
-        memberType: 'knowledge',
-        memberId: knowledgeId,
-        contributionScore: 0.9,
-      }).run();
+      db.insert(schema.summaryMembers)
+        .values({
+          id: 'mem-perf-' + nanoid(8),
+          summaryId,
+          memberType: 'knowledge',
+          memberId: knowledgeId,
+          contributionScore: 0.9,
+        })
+        .run();
 
       const options: CoarseToFineOptions = {
         query: 'test query',
@@ -492,38 +536,42 @@ describe('CoarseToFineRetriever', () => {
       const summary2Id = 'sum-top-2-' + nanoid(8);
 
       // Create project
-      db.insert(schema.projects).values({
-        id: projectId,
-        name: 'Top Level Test Project',
-      }).run();
+      db.insert(schema.projects)
+        .values({
+          id: projectId,
+          name: 'Top Level Test Project',
+        })
+        .run();
 
       // Create level-2 summaries
-      db.insert(schema.summaries).values([
-        {
-          id: summary1Id,
-          scopeType: 'project',
-          scopeId: projectId,
-          hierarchyLevel: 2,
-          title: 'Top Summary 1',
-          content: 'First top-level summary',
-          embedding: mockEmbedding as any,
-          embeddingDimension: 384,
-          memberCount: 0,
-          accessCount: 10,
-        },
-        {
-          id: summary2Id,
-          scopeType: 'project',
-          scopeId: projectId,
-          hierarchyLevel: 2,
-          title: 'Top Summary 2',
-          content: 'Second top-level summary',
-          embedding: mockEmbedding as any,
-          embeddingDimension: 384,
-          memberCount: 0,
-          accessCount: 5,
-        },
-      ]).run();
+      db.insert(schema.summaries)
+        .values([
+          {
+            id: summary1Id,
+            scopeType: 'project',
+            scopeId: projectId,
+            hierarchyLevel: 2,
+            title: 'Top Summary 1',
+            content: 'First top-level summary',
+            embedding: mockEmbedding as any,
+            embeddingDimension: 384,
+            memberCount: 0,
+            accessCount: 10,
+          },
+          {
+            id: summary2Id,
+            scopeType: 'project',
+            scopeId: projectId,
+            hierarchyLevel: 2,
+            title: 'Top Summary 2',
+            content: 'Second top-level summary',
+            embedding: mockEmbedding as any,
+            embeddingDimension: 384,
+            memberCount: 0,
+            accessCount: 5,
+          },
+        ])
+        .run();
 
       const result = await retriever.getTopLevel('project', projectId);
 
@@ -548,65 +596,75 @@ describe('CoarseToFineRetriever', () => {
       const knowledgeId = 'know-drill-' + nanoid(8);
 
       // Create project
-      db.insert(schema.projects).values({
-        id: projectId,
-        name: 'Drill Down Test Project',
-      }).run();
+      db.insert(schema.projects)
+        .values({
+          id: projectId,
+          name: 'Drill Down Test Project',
+        })
+        .run();
 
       // Create knowledge entry
-      db.insert(schema.knowledge).values({
-        id: knowledgeId,
-        scopeType: 'project',
-        scopeId: projectId,
-        title: 'Drill Knowledge',
-        content: 'Drill down knowledge',
-      }).run();
+      db.insert(schema.knowledge)
+        .values({
+          id: knowledgeId,
+          scopeType: 'project',
+          scopeId: projectId,
+          title: 'Drill Knowledge',
+          content: 'Drill down knowledge',
+        })
+        .run();
 
       // Create parent summary (level 1)
-      db.insert(schema.summaries).values({
-        id: parentSummaryId,
-        scopeType: 'project',
-        scopeId: projectId,
-        hierarchyLevel: 1,
-        title: 'Parent Summary',
-        content: 'Parent summary content',
-        embedding: mockEmbedding as any,
-        embeddingDimension: 384,
-        memberCount: 2,
-        accessCount: 0,
-      }).run();
+      db.insert(schema.summaries)
+        .values({
+          id: parentSummaryId,
+          scopeType: 'project',
+          scopeId: projectId,
+          hierarchyLevel: 1,
+          title: 'Parent Summary',
+          content: 'Parent summary content',
+          embedding: mockEmbedding as any,
+          embeddingDimension: 384,
+          memberCount: 2,
+          accessCount: 0,
+        })
+        .run();
 
       // Create child summary (level 0)
-      db.insert(schema.summaries).values({
-        id: childSummaryId,
-        scopeType: 'project',
-        scopeId: projectId,
-        hierarchyLevel: 0,
-        parentSummaryId: parentSummaryId,
-        title: 'Child Summary',
-        content: 'Child summary content',
-        embedding: mockEmbedding as any,
-        embeddingDimension: 384,
-        memberCount: 0,
-      }).run();
+      db.insert(schema.summaries)
+        .values({
+          id: childSummaryId,
+          scopeType: 'project',
+          scopeId: projectId,
+          hierarchyLevel: 0,
+          parentSummaryId: parentSummaryId,
+          title: 'Child Summary',
+          content: 'Child summary content',
+          embedding: mockEmbedding as any,
+          embeddingDimension: 384,
+          memberCount: 0,
+        })
+        .run();
 
       // Link child summary and knowledge to parent
-      db.insert(schema.summaryMembers).values([
-        {
-          id: 'mem-child-' + nanoid(8),
-          summaryId: parentSummaryId,
-          memberType: 'summary',
-          memberId: childSummaryId,
-          contributionScore: 0.9,
-        },
-        {
-          id: 'mem-know-' + nanoid(8),
-          summaryId: parentSummaryId,
-          memberType: 'knowledge',
-          memberId: knowledgeId,
-          contributionScore: 0.85,
-        },
-      ]).run();
+      db.insert(schema.summaryMembers)
+        .values([
+          {
+            id: 'mem-child-' + nanoid(8),
+            summaryId: parentSummaryId,
+            memberType: 'summary',
+            memberId: childSummaryId,
+            contributionScore: 0.9,
+          },
+          {
+            id: 'mem-know-' + nanoid(8),
+            summaryId: parentSummaryId,
+            memberType: 'knowledge',
+            memberId: knowledgeId,
+            contributionScore: 0.85,
+          },
+        ])
+        .run();
 
       const result = await retriever.drillDown(parentSummaryId);
 
@@ -623,24 +681,28 @@ describe('CoarseToFineRetriever', () => {
       const summaryId = 'sum-access-' + nanoid(8);
 
       // Create project
-      db.insert(schema.projects).values({
-        id: projectId,
-        name: 'Access Test Project',
-      }).run();
+      db.insert(schema.projects)
+        .values({
+          id: projectId,
+          name: 'Access Test Project',
+        })
+        .run();
 
       // Create summary
-      db.insert(schema.summaries).values({
-        id: summaryId,
-        scopeType: 'project',
-        scopeId: projectId,
-        hierarchyLevel: 0,
-        title: 'Access Summary',
-        content: 'Access test summary',
-        embedding: mockEmbedding as any,
-        embeddingDimension: 384,
-        memberCount: 0,
-        accessCount: 0,
-      }).run();
+      db.insert(schema.summaries)
+        .values({
+          id: summaryId,
+          scopeType: 'project',
+          scopeId: projectId,
+          hierarchyLevel: 0,
+          title: 'Access Summary',
+          content: 'Access test summary',
+          embedding: mockEmbedding as any,
+          embeddingDimension: 384,
+          memberCount: 0,
+          accessCount: 0,
+        })
+        .run();
 
       const beforeAccess = db
         .select()

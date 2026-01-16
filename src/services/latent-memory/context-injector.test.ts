@@ -4,6 +4,8 @@
  * Run with: npx tsx src/services/latent-memory/context-injector.test.ts
  */
 
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any, no-console */
+
 import { ContextInjectorService, type LatentMemoryWithScore } from './context-injector.js';
 
 const testMemories: LatentMemoryWithScore[] = [
@@ -95,11 +97,13 @@ function testTokenBudget(): boolean {
     maxMemories: 10,
   });
 
-  const lines = result.content.split('\n').filter(line => line.startsWith('- '));
+  const lines = result.content.split('\n').filter((line) => line.startsWith('- '));
   // Very tight budget should limit to 1-2 memories max
   const pass = lines.length <= 2;
 
-  console.log(`✓ Token budget test: ${pass ? 'PASS' : 'FAIL'} (${result.tokensUsed} tokens, ${lines.length} memories, budget: 10)`);
+  console.log(
+    `✓ Token budget test: ${pass ? 'PASS' : 'FAIL'} (${result.tokensUsed} tokens, ${lines.length} memories, budget: 10)`
+  );
   return pass;
 }
 
@@ -144,7 +148,9 @@ function testTokenEstimation(): boolean {
 
   const pass = tokens1 > 0 && tokens2 > tokens1 && tokens2 === 12; // 9 words * 1.3 = 11.7 -> 12
 
-  console.log(`✓ Token estimation test: ${pass ? 'PASS' : 'FAIL'} ("${text1}" = ${tokens1} tokens, "${text2}" = ${tokens2} tokens)`);
+  console.log(
+    `✓ Token estimation test: ${pass ? 'PASS' : 'FAIL'} ("${text1}" = ${tokens1} tokens, "${text2}" = ${tokens2} tokens)`
+  );
   return pass;
 }
 

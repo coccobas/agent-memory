@@ -14,15 +14,10 @@
  * Reference: Achlioptas, D. (2003). Database-friendly random projections.
  */
 
-import {
-  createValidationError,
-  createServiceUnavailableError,
-} from '../../../core/errors.js';
-import type {
-  CompressionStrategy,
-  CompressionMethod,
-  RandomProjectionConfig,
-} from './types.js';
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
+
+import { createValidationError, createServiceUnavailableError } from '../../../core/errors.js';
+import type { CompressionStrategy, CompressionMethod, RandomProjectionConfig } from './types.js';
 
 /**
  * Seeded pseudo-random number generator (Mulberry32)
@@ -160,7 +155,9 @@ export class RandomProjection implements CompressionStrategy {
     // Lazy initialization of projection matrix
     this.initializeMatrix();
 
-    const result = new Array(this.outputDim).fill(0);
+    // TypeScript doesn't infer type from Array.fill() - explicit annotation needed
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const result: number[] = new Array(this.outputDim).fill(0);
 
     // Sparse matrix-vector multiplication
     for (let i = 0; i < this.outputDim; i++) {
@@ -189,7 +186,10 @@ export class RandomProjection implements CompressionStrategy {
    * but this is generally not useful for retrieval purposes.
    */
   decompress(): number[] {
-    throw createServiceUnavailableError('decompress', 'random projection does not support decompression (lossy transformation)');
+    throw createServiceUnavailableError(
+      'decompress',
+      'random projection does not support decompression (lossy transformation)'
+    );
   }
 
   /**

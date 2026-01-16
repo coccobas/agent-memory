@@ -473,10 +473,34 @@ describe('ContextInjectorService', () => {
   describe('score formatting', () => {
     it('should format percentages correctly', () => {
       const memoriesWithVariousScores: LatentMemoryWithScore[] = [
-        { id: '1', sourceType: 'knowledge', sourceId: 'k1', textPreview: 'Test', similarityScore: 0.001 },
-        { id: '2', sourceType: 'knowledge', sourceId: 'k2', textPreview: 'Test', similarityScore: 0.5 },
-        { id: '3', sourceType: 'knowledge', sourceId: 'k3', textPreview: 'Test', similarityScore: 0.999 },
-        { id: '4', sourceType: 'knowledge', sourceId: 'k4', textPreview: 'Test', similarityScore: 1.0 },
+        {
+          id: '1',
+          sourceType: 'knowledge',
+          sourceId: 'k1',
+          textPreview: 'Test',
+          similarityScore: 0.001,
+        },
+        {
+          id: '2',
+          sourceType: 'knowledge',
+          sourceId: 'k2',
+          textPreview: 'Test',
+          similarityScore: 0.5,
+        },
+        {
+          id: '3',
+          sourceType: 'knowledge',
+          sourceId: 'k3',
+          textPreview: 'Test',
+          similarityScore: 0.999,
+        },
+        {
+          id: '4',
+          sourceType: 'knowledge',
+          sourceId: 'k4',
+          textPreview: 'Test',
+          similarityScore: 1.0,
+        },
       ];
 
       const result = service.formatAsMarkdown(memoriesWithVariousScores, true, false);
@@ -581,9 +605,27 @@ describe('ContextInjectorService', () => {
   describe('grouping behavior', () => {
     it('should preserve order within groups', () => {
       const memories: LatentMemoryWithScore[] = [
-        { id: '1', sourceType: 'knowledge', sourceId: 'k1', textPreview: 'First knowledge', similarityScore: 0.9 },
-        { id: '2', sourceType: 'knowledge', sourceId: 'k2', textPreview: 'Second knowledge', similarityScore: 0.8 },
-        { id: '3', sourceType: 'tool', sourceId: 't1', textPreview: 'First tool', similarityScore: 0.7 },
+        {
+          id: '1',
+          sourceType: 'knowledge',
+          sourceId: 'k1',
+          textPreview: 'First knowledge',
+          similarityScore: 0.9,
+        },
+        {
+          id: '2',
+          sourceType: 'knowledge',
+          sourceId: 'k2',
+          textPreview: 'Second knowledge',
+          similarityScore: 0.8,
+        },
+        {
+          id: '3',
+          sourceType: 'tool',
+          sourceId: 't1',
+          textPreview: 'First tool',
+          similarityScore: 0.7,
+        },
       ];
 
       const result = service.formatAsMarkdown(memories, false, true);
@@ -598,10 +640,28 @@ describe('ContextInjectorService', () => {
 
     it('should handle mixed source types', () => {
       const mixedMemories: LatentMemoryWithScore[] = [
-        { id: '1', sourceType: 'knowledge', sourceId: 'k1', textPreview: 'K1', similarityScore: 0.95 },
+        {
+          id: '1',
+          sourceType: 'knowledge',
+          sourceId: 'k1',
+          textPreview: 'K1',
+          similarityScore: 0.95,
+        },
         { id: '2', sourceType: 'tool', sourceId: 't1', textPreview: 'T1', similarityScore: 0.9 },
-        { id: '3', sourceType: 'knowledge', sourceId: 'k2', textPreview: 'K2', similarityScore: 0.85 },
-        { id: '4', sourceType: 'guideline', sourceId: 'g1', textPreview: 'G1', similarityScore: 0.8 },
+        {
+          id: '3',
+          sourceType: 'knowledge',
+          sourceId: 'k2',
+          textPreview: 'K2',
+          similarityScore: 0.85,
+        },
+        {
+          id: '4',
+          sourceType: 'guideline',
+          sourceId: 'g1',
+          textPreview: 'G1',
+          similarityScore: 0.8,
+        },
       ];
 
       const result = service.formatAsMarkdown(mixedMemories, false, true);

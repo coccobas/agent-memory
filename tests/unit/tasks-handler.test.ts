@@ -71,7 +71,8 @@ describe('Tasks Handler', () => {
 
       // Second call should have parentTaskId set to main task
       expect(mockTasksRepo.create).toHaveBeenCalledTimes(2);
-      expect(mockTasksRepo.create).toHaveBeenNthCalledWith(2,
+      expect(mockTasksRepo.create).toHaveBeenNthCalledWith(
+        2,
         expect.objectContaining({
           parentTaskId: 'task-1',
         })
@@ -90,7 +91,8 @@ describe('Tasks Handler', () => {
       });
 
       // Main task should have parentTaskId set
-      expect(mockTasksRepo.create).toHaveBeenNthCalledWith(1,
+      expect(mockTasksRepo.create).toHaveBeenNthCalledWith(
+        1,
         expect.objectContaining({
           parentTaskId: 'parent-task-id',
         })
@@ -133,9 +135,7 @@ describe('Tasks Handler', () => {
         parentTaskId: null,
       };
       mockTasksRepo.getById.mockResolvedValue(task);
-      mockTasksRepo.getSubtasks.mockResolvedValue([
-        { id: 'subtask-1', title: 'Subtask 1' },
-      ]);
+      mockTasksRepo.getSubtasks.mockResolvedValue([{ id: 'subtask-1', title: 'Subtask 1' }]);
 
       const result = await getTask(mockContext, { taskId: 'task-1' });
 
@@ -146,9 +146,7 @@ describe('Tasks Handler', () => {
     it('should include parent task if exists', async () => {
       const task = { id: 'subtask-1', title: 'Subtask', description: '', parentTaskId: 'parent-1' };
       const parentTask = { id: 'parent-1', title: 'Parent Task' };
-      mockTasksRepo.getById
-        .mockResolvedValueOnce(task)
-        .mockResolvedValueOnce(parentTask);
+      mockTasksRepo.getById.mockResolvedValueOnce(task).mockResolvedValueOnce(parentTask);
       mockTasksRepo.getSubtasks.mockResolvedValue([]);
 
       const result = await getTask(mockContext, { taskId: 'subtask-1' });
@@ -183,9 +181,7 @@ describe('Tasks Handler', () => {
     });
 
     it('should filter by parent task', async () => {
-      mockTasksRepo.list.mockResolvedValue([
-        { id: 'subtask-1', title: 'Sub' },
-      ]);
+      mockTasksRepo.list.mockResolvedValue([{ id: 'subtask-1', title: 'Sub' }]);
       mockTasksRepo.getSubtasks.mockResolvedValue([]);
 
       await listTasks(mockContext, { parentTaskId: 'parent-1' });
@@ -199,17 +195,12 @@ describe('Tasks Handler', () => {
     });
 
     it('should apply pagination', async () => {
-      mockTasksRepo.list.mockResolvedValue([
-        { id: 'task-2', title: 'Task 2' },
-      ]);
+      mockTasksRepo.list.mockResolvedValue([{ id: 'task-2', title: 'Task 2' }]);
       mockTasksRepo.getSubtasks.mockResolvedValue([]);
 
       const result = await listTasks(mockContext, { limit: 1, offset: 1 });
 
-      expect(mockTasksRepo.list).toHaveBeenCalledWith(
-        expect.any(Object),
-        { limit: 1, offset: 1 }
-      );
+      expect(mockTasksRepo.list).toHaveBeenCalledWith(expect.any(Object), { limit: 1, offset: 1 });
       expect(result.tasks.length).toBeLessThanOrEqual(1);
     });
   });

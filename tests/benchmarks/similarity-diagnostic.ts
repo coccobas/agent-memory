@@ -11,7 +11,8 @@
 import 'dotenv/config';
 
 const { config: appConfig } = await import('../../src/config/index.js');
-const { createRuntime, extractRuntimeConfig, shutdownRuntime } = await import('../../src/core/runtime.js');
+const { createRuntime, extractRuntimeConfig, shutdownRuntime } =
+  await import('../../src/core/runtime.js');
 const { EmbeddingService } = await import('../../src/services/embedding.service.js');
 const { loadLoCoMoDataset } = await import('./locomo-adapter.js');
 const pino = (await import('pino')).default;
@@ -37,13 +38,12 @@ const sessions = await loadLoCoMoDataset();
 const session = sessions[0]!;
 
 // Get dialogues by ID
-const dialogueById = new Map(session.dialogues.map(d => [d.dia_id, d]));
+const dialogueById = new Map(session.dialogues.map((d) => [d.dia_id, d]));
 
 // Filter to single-hop questions (category 1) with evidence
-const singleHopQAs = session.qaPairs.filter(qa =>
-  qa.category === 1 &&
-  qa.evidence.length > 0 &&
-  qa.evidence.every(eId => dialogueById.has(eId))
+const singleHopQAs = session.qaPairs.filter(
+  (qa) =>
+    qa.category === 1 && qa.evidence.length > 0 && qa.evidence.every((eId) => dialogueById.has(eId))
 );
 
 console.log(`Found ${singleHopQAs.length} single-hop questions with evidence\n`);
@@ -161,20 +161,28 @@ for (const qa of testQAs) {
 
 // Summary - compare all approaches
 const avgNoPrefix = resultsNoPrefix.reduce((s, r) => s + r.similarity, 0) / resultsNoPrefix.length;
-const avgWithPrefix = resultsWithPrefix.reduce((s, r) => s + r.similarity, 0) / resultsWithPrefix.length;
-const avgGoldAnswer = resultsGoldAnswer.reduce((s, r) => s + r.similarity, 0) / resultsGoldAnswer.length;
-const lowNoPrefix = resultsNoPrefix.filter(r => r.similarity < 0.7).length;
-const lowWithPrefix = resultsWithPrefix.filter(r => r.similarity < 0.7).length;
-const lowGoldAnswer = resultsGoldAnswer.filter(r => r.similarity < 0.7).length;
+const avgWithPrefix =
+  resultsWithPrefix.reduce((s, r) => s + r.similarity, 0) / resultsWithPrefix.length;
+const avgGoldAnswer =
+  resultsGoldAnswer.reduce((s, r) => s + r.similarity, 0) / resultsGoldAnswer.length;
+const lowNoPrefix = resultsNoPrefix.filter((r) => r.similarity < 0.7).length;
+const lowWithPrefix = resultsWithPrefix.filter((r) => r.similarity < 0.7).length;
+const lowGoldAnswer = resultsGoldAnswer.filter((r) => r.similarity < 0.7).length;
 
 console.log('\n========================================');
 console.log('RESULTS COMPARISON');
 console.log('========================================');
 console.log(`                     | Raw Conv | +Prefix | Gold Answer`);
 console.log(`---------------------|----------|---------|------------`);
-console.log(`Average similarity   | ${avgNoPrefix.toFixed(4)}   | ${avgWithPrefix.toFixed(4)}  | ${avgGoldAnswer.toFixed(4)}`);
-console.log(`Low similarity (<0.7)| ${lowNoPrefix}/10     | ${lowWithPrefix}/10    | ${lowGoldAnswer}/10`);
-console.log(`vs Raw Conv          |          | +${((avgWithPrefix - avgNoPrefix) * 100).toFixed(1)}%   | +${((avgGoldAnswer - avgNoPrefix) * 100).toFixed(1)}%`);
+console.log(
+  `Average similarity   | ${avgNoPrefix.toFixed(4)}   | ${avgWithPrefix.toFixed(4)}  | ${avgGoldAnswer.toFixed(4)}`
+);
+console.log(
+  `Low similarity (<0.7)| ${lowNoPrefix}/10     | ${lowWithPrefix}/10    | ${lowGoldAnswer}/10`
+);
+console.log(
+  `vs Raw Conv          |          | +${((avgWithPrefix - avgNoPrefix) * 100).toFixed(1)}%   | +${((avgGoldAnswer - avgNoPrefix) * 100).toFixed(1)}%`
+);
 console.log('========================================');
 
 console.log('\nDIAGNOSIS:');
@@ -186,7 +194,9 @@ if (avgGoldAnswer > 0.7) {
 }
 
 if (avgWithPrefix > avgNoPrefix + 0.05) {
-  console.log('✓ Instruction prefixes help (+' + ((avgWithPrefix - avgNoPrefix) * 100).toFixed(1) + '%)');
+  console.log(
+    '✓ Instruction prefixes help (+' + ((avgWithPrefix - avgNoPrefix) * 100).toFixed(1) + '%)'
+  );
   console.log('  → Apply asymmetric prefixes to queries and documents');
 }
 

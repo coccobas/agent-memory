@@ -178,7 +178,8 @@ export interface ConversationContextQuery extends BaseQueryParams {
  * Allows all parameters but with optional strategy field.
  * This is the canonical query params type used throughout the codebase.
  */
-export interface DefaultQuery extends BaseQueryParams, DateRangeFilter, RecencyOptions, TemporalFilter {
+export interface DefaultQuery
+  extends BaseQueryParams, DateRangeFilter, RecencyOptions, TemporalFilter {
   strategy?: 'default' | undefined;
   // Search params
   search?: string;
@@ -234,8 +235,8 @@ export interface HierarchicalContextItem {
   type: HierarchicalEntryType;
   title: string;
   snippet: string;
-  priority?: number;      // For guidelines
-  accessedAt?: string;    // For recent items
+  priority?: number; // For guidelines
+  accessedAt?: string; // For recent items
   category?: string;
 }
 

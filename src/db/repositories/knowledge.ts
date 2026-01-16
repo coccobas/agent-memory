@@ -4,7 +4,7 @@
  * Factory function that accepts DatabaseDeps for dependency injection.
  */
 
-import { eq, and, desc, asc, inArray } from 'drizzle-orm';
+import { eq, and, desc, asc } from 'drizzle-orm';
 import { transactionWithRetry } from '../connection.js';
 import {
   knowledge,

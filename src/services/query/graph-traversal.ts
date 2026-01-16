@@ -9,7 +9,10 @@
  */
 
 import { and, eq } from 'drizzle-orm';
-import { getPreparedStatement as getGlobalPreparedStatement, type DbClient } from '../../db/connection.js';
+import {
+  getPreparedStatement as getGlobalPreparedStatement,
+  type DbClient,
+} from '../../db/connection.js';
 import { entryRelations, type RelationType } from '../../db/schema.js';
 import { createComponentLogger } from '../../utils/logger.js';
 import type { Statement } from 'better-sqlite3';
@@ -155,10 +158,7 @@ const CTE_BOTH_WITH_FILTER = `
 /**
  * Select the appropriate pre-defined CTE query based on direction and filter
  */
-function selectCTEQuery(
-  direction: TraversalDirection,
-  hasFilter: boolean
-): string | null {
+function selectCTEQuery(direction: TraversalDirection, hasFilter: boolean): string | null {
   if (direction === 'forward') {
     return hasFilter ? CTE_FORWARD_WITH_FILTER : CTE_FORWARD_NO_FILTER;
   } else if (direction === 'backward') {
@@ -227,16 +227,16 @@ export function traverseRelationGraphCTE(
 
     if (direction === 'forward') {
       params.push(maxDepth);
-      if (hasFilter) params.push(relationType!);
+      if (hasFilter) params.push(relationType);
     } else if (direction === 'backward') {
       params.push(maxDepth);
-      if (hasFilter) params.push(relationType!);
+      if (hasFilter) params.push(relationType);
     } else if (direction === 'both') {
       // Both directions need maxDepth twice (once for forward, once for backward)
       params.push(maxDepth);
-      if (hasFilter) params.push(relationType!);
+      if (hasFilter) params.push(relationType);
       params.push(maxDepth);
-      if (hasFilter) params.push(relationType!);
+      if (hasFilter) params.push(relationType);
     }
 
     // Add WHERE clause parameters
@@ -256,7 +256,12 @@ export function traverseRelationGraphCTE(
 
     for (const row of rows) {
       const nodeType = row.node_type as QueryEntryType;
-      if (nodeType === 'tool' || nodeType === 'guideline' || nodeType === 'knowledge' || nodeType === 'experience') {
+      if (
+        nodeType === 'tool' ||
+        nodeType === 'guideline' ||
+        nodeType === 'knowledge' ||
+        nodeType === 'experience'
+      ) {
         result[nodeType].add(row.node_id);
       }
     }
@@ -447,7 +452,12 @@ export function traverseRelationGraph(
     // Add to results if not start node and is a query entry type
     if (!isStartNode) {
       const entryType = currentNode.type as QueryEntryType;
-      if (entryType === 'tool' || entryType === 'guideline' || entryType === 'knowledge' || entryType === 'experience') {
+      if (
+        entryType === 'tool' ||
+        entryType === 'guideline' ||
+        entryType === 'knowledge' ||
+        entryType === 'experience'
+      ) {
         result[entryType].add(currentNode.id);
         resultCount++;
 

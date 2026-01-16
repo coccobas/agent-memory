@@ -10,7 +10,7 @@ export async function readHookInputFromStdin(): Promise<ClaudeHookInput> {
     let buf = '';
     process.stdin.setEncoding('utf8');
     process.stdin.on('data', (chunk) => {
-      buf += chunk;
+      buf += String(chunk);
     });
     process.stdin.on('end', () => resolvePromise(buf));
   });

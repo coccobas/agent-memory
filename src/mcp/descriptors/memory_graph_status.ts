@@ -27,7 +27,7 @@ This tool requires no parameters and provides a snapshot of the graph's health.`
   actions: {
     status: {
       required: [],
-      contextHandler: graphStatusHandlers.getStatus,
+      contextHandler: (ctx, params) => graphStatusHandlers.getStatus(ctx, params),
     },
   },
 };

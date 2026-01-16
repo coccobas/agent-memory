@@ -94,14 +94,18 @@ const { generateId } = await import('../../src/db/repositories/base.js');
 const { applyMigrations } = await import('../fixtures/migration-loader.js');
 const { cleanupDbFiles, ensureDataDirectory } = await import('../fixtures/db-utils.js');
 const { config: appConfig } = await import('../../src/config/index.js');
-const { createRuntime, extractRuntimeConfig, shutdownRuntime } = await import('../../src/core/runtime.js');
+const { createRuntime, extractRuntimeConfig, shutdownRuntime } =
+  await import('../../src/core/runtime.js');
 const { createRepositories } = await import('../../src/core/factory/repositories.js');
 const { createAdaptersWithConfig } = await import('../../src/core/adapters/index.js');
 const { wireContext } = await import('../../src/core/factory/context-wiring.js');
 const { registerContext, resetContainer } = await import('../../src/core/container.js');
-const { executeQueryPipelineAsync, createDependencies } = await import('../../src/services/query/index.js');
-const { extract: observeExtract } = await import('../../src/mcp/handlers/observe/extract.handler.js');
-const { getEmbeddingQueueStats, generateEmbeddingAsync } = await import('../../src/db/repositories/embedding-hooks.js');
+const { executeQueryPipelineAsync, createDependencies } =
+  await import('../../src/services/query/index.js');
+const { extract: observeExtract } =
+  await import('../../src/mcp/handlers/observe/extract.handler.js');
+const { getEmbeddingQueueStats, generateEmbeddingAsync } =
+  await import('../../src/db/repositories/embedding-hooks.js');
 const { LRUCache } = await import('../../src/utils/lru-cache.js');
 const pino = (await import('pino')).default;
 const { rm } = await import('node:fs/promises');
@@ -518,8 +522,7 @@ async function runAblationMatrix() {
       const dialogueIds = new Set(limitedDialogues.map((d) => d.dia_id));
 
       const filteredQaPairs = session.qaPairs.filter(
-        (qa) =>
-          qa.evidence.length > 0 && qa.evidence.every((eId) => dialogueIds.has(eId))
+        (qa) => qa.evidence.length > 0 && qa.evidence.every((eId) => dialogueIds.has(eId))
       );
 
       return {
@@ -530,9 +533,7 @@ async function runAblationMatrix() {
     });
 
     const totalFilteredQa = sessions.reduce((sum, s) => sum + s.qaPairs.length, 0);
-    console.log(
-      `Filtering to ${maxDialogues} dialogues/session → ${totalFilteredQa} QA pairs\n`
-    );
+    console.log(`Filtering to ${maxDialogues} dialogues/session → ${totalFilteredQa} QA pairs\n`);
   }
 
   const results: AblationResult[] = [];
@@ -588,10 +589,14 @@ async function runAblationMatrix() {
     // If --base-config is specified, use that directly
     if (baseConfigName) {
       const configMap: Record<string, AblationConfig> = {
-        'baseline': { name: 'baseline', storage: 'raw', prefixes: false },
+        baseline: { name: 'baseline', storage: 'raw', prefixes: false },
         'raw+prefixes': { name: 'raw+prefixes', storage: 'raw', prefixes: true },
-        'extraction': { name: 'extraction', storage: 'extraction', prefixes: false },
-        'extraction+prefixes': { name: 'extraction+prefixes', storage: 'extraction', prefixes: true },
+        extraction: { name: 'extraction', storage: 'extraction', prefixes: false },
+        'extraction+prefixes': {
+          name: 'extraction+prefixes',
+          storage: 'extraction',
+          prefixes: true,
+        },
       };
       baseConfig = configMap[baseConfigName];
       if (!baseConfig) {
@@ -611,7 +616,9 @@ async function runAblationMatrix() {
 
     if (baseConfig) {
       console.log('\n=== SECONDARY TESTS ===');
-      console.log(`Base config: ${baseConfig.name}${baseMRR ? ` (MRR=${(baseMRR * 100).toFixed(1)}%)` : ''}`);
+      console.log(
+        `Base config: ${baseConfig.name}${baseMRR ? ` (MRR=${(baseMRR * 100).toFixed(1)}%)` : ''}`
+      );
       console.log('Testing: parameter variations\n');
 
       const secondaryTests = getSecondaryTests(baseConfig);

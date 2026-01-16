@@ -15,6 +15,7 @@ Agent Memory needs to manage dependencies at two different scopes:
 Pure singleton patterns make testing difficult (shared state between tests). Pure request-scoped DI is wasteful for shared resources. We needed a hybrid approach.
 
 Additional requirements:
+
 - Avoid module-level singletons (import-time side effects)
 - Support test isolation (each test gets fresh state)
 - Enable lazy initialization (don't create resources until needed)
@@ -165,6 +166,7 @@ Testing:
 ## Consequences
 
 **Positive:**
+
 - Shared resources are created once, reused efficiently
 - Request isolation prevents cross-request contamination
 - Test isolation via `Container.resetInstance()`
@@ -173,6 +175,7 @@ Testing:
 - Services don't need to know about singleton patterns
 
 **Negative:**
+
 - Two-level abstraction adds complexity
 - Must remember to call `resetInstance()` in tests
 - Container initialization is async (must await before handling requests)

@@ -12,10 +12,10 @@ By default, the server will:
 
 ## Configuration
 
-| Variable | Default | Description |
-| --- | --- | --- |
-| `AGENT_MEMORY_SKIP_INIT` | `false` | Skip auto-initialization/migrations. |
-| `AGENT_MEMORY_DEV_MODE` | `false` | Enables dev-oriented behaviors. |
+| Variable                          | Default | Description                              |
+| --------------------------------- | ------- | ---------------------------------------- |
+| `AGENT_MEMORY_SKIP_INIT`          | `false` | Skip auto-initialization/migrations.     |
+| `AGENT_MEMORY_DEV_MODE`           | `false` | Enables dev-oriented behaviors.          |
 | `AGENT_MEMORY_AUTO_FIX_CHECKSUMS` | `false` | Auto-fix checksum mismatches (dev only). |
 
 ## Manual initialization via MCP

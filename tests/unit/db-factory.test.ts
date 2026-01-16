@@ -36,61 +36,62 @@ describe('Database Factory', () => {
     }
   });
 
-  const createTestConfig = (overrides: Partial<Config> = {}): Config => ({
-    dbType: 'sqlite',
-    database: {
-      path: TEST_DB_PATH,
-      busyTimeoutMs: 5000,
-      skipInit: false,
-      verbose: false,
-      ...overrides.database,
-    },
-    postgresql: {
-      host: 'localhost',
-      port: 5432,
-      database: 'test',
-      user: 'test',
-      password: 'test',
-      ssl: false,
-      maxConnections: 10,
-      ...overrides.postgresql,
-    },
-    cache: {
-      totalLimitMB: 100,
-      evictionTarget: 0.7,
-      pressureThreshold: 0.8,
-      queryCacheTtlMs: 30000,
-      queryCacheMaxSize: 1000,
-      ...(overrides as any).cache,
-    },
-    memory: {
-      checkIntervalMs: 60000,
-      ...(overrides as any).memory,
-    },
-    semanticSearch: {
-      enabled: false,
-      duplicateThreshold: 0.85,
-      ...(overrides as any).semanticSearch,
-    },
-    logging: {
-      level: 'info',
-      json: false,
-      ...(overrides as any).logging,
-    },
-    rateLimit: {
-      enabled: false,
-      requestsPerMinute: 100,
-      burstSize: 20,
-      ...(overrides as any).rateLimit,
-    },
-    rest: {
-      enabled: false,
-      host: 'localhost',
-      port: 3000,
-      ...(overrides as any).rest,
-    },
-    ...overrides,
-  } as Config);
+  const createTestConfig = (overrides: Partial<Config> = {}): Config =>
+    ({
+      dbType: 'sqlite',
+      database: {
+        path: TEST_DB_PATH,
+        busyTimeoutMs: 5000,
+        skipInit: false,
+        verbose: false,
+        ...overrides.database,
+      },
+      postgresql: {
+        host: 'localhost',
+        port: 5432,
+        database: 'test',
+        user: 'test',
+        password: 'test',
+        ssl: false,
+        maxConnections: 10,
+        ...overrides.postgresql,
+      },
+      cache: {
+        totalLimitMB: 100,
+        evictionTarget: 0.7,
+        pressureThreshold: 0.8,
+        queryCacheTtlMs: 30000,
+        queryCacheMaxSize: 1000,
+        ...(overrides as any).cache,
+      },
+      memory: {
+        checkIntervalMs: 60000,
+        ...(overrides as any).memory,
+      },
+      semanticSearch: {
+        enabled: false,
+        duplicateThreshold: 0.85,
+        ...(overrides as any).semanticSearch,
+      },
+      logging: {
+        level: 'info',
+        json: false,
+        ...(overrides as any).logging,
+      },
+      rateLimit: {
+        enabled: false,
+        requestsPerMinute: 100,
+        burstSize: 20,
+        ...(overrides as any).rateLimit,
+      },
+      rest: {
+        enabled: false,
+        host: 'localhost',
+        port: 3000,
+        ...(overrides as any).rest,
+      },
+      ...overrides,
+    }) as Config;
 
   describe('createDatabaseConnection', () => {
     describe('SQLite', () => {
@@ -233,7 +234,12 @@ describe('Database Factory', () => {
       it('should throw descriptive error for invalid database path', async () => {
         // Use an invalid path that will cause permission error
         const config = createTestConfig({
-          database: { path: '/root/impossible/path/test.db', busyTimeoutMs: 5000, skipInit: false, verbose: false },
+          database: {
+            path: '/root/impossible/path/test.db',
+            busyTimeoutMs: 5000,
+            skipInit: false,
+            verbose: false,
+          },
         });
 
         await expect(createDatabaseConnection(config)).rejects.toThrow();

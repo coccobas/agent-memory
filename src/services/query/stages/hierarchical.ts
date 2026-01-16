@@ -98,7 +98,12 @@ interface RetrieveOptions {
  */
 interface RetrieveResult {
   entries: RetrievedEntry[];
-  steps: Array<{ level: number; summariesSearched: number; summariesMatched: number; timeMs: number }>;
+  steps: Array<{
+    level: number;
+    summariesSearched: number;
+    summariesMatched: number;
+    timeMs: number;
+  }>;
   totalTimeMs: number;
 }
 
@@ -127,7 +132,9 @@ export function createHierarchicalStage(
     ...deps.config,
   };
 
-  return async function hierarchicalStage(ctx: PipelineContext): Promise<HierarchicalPipelineContext> {
+  return async function hierarchicalStage(
+    ctx: PipelineContext
+  ): Promise<HierarchicalPipelineContext> {
     const startMs = Date.now();
     const { search, params, scopeChain } = ctx;
 
@@ -270,9 +277,7 @@ export function getHierarchicalStats(ctx: PipelineContext): {
  * When hierarchical retrieval has run, use its candidate IDs to filter/boost results.
  * Task 30: Now also merges hierarchical scores into semanticScores for proper re-ranking.
  */
-export function filterByHierarchicalCandidates(
-  ctx: HierarchicalPipelineContext
-): PipelineContext {
+export function filterByHierarchicalCandidates(ctx: HierarchicalPipelineContext): PipelineContext {
   if (!ctx.hierarchical?.applied || ctx.hierarchical.candidateIds.size === 0) {
     return ctx;
   }
@@ -281,10 +286,10 @@ export function filterByHierarchicalCandidates(
 
   // Filter fetched entries to only include hierarchical candidates
   const filteredEntries = {
-    tools: ctx.fetchedEntries.tools.filter(e => candidateIds.has(e.entry.id)),
-    guidelines: ctx.fetchedEntries.guidelines.filter(e => candidateIds.has(e.entry.id)),
-    knowledge: ctx.fetchedEntries.knowledge.filter(e => candidateIds.has(e.entry.id)),
-    experiences: ctx.fetchedEntries.experiences.filter(e => candidateIds.has(e.entry.id)),
+    tools: ctx.fetchedEntries.tools.filter((e) => candidateIds.has(e.entry.id)),
+    guidelines: ctx.fetchedEntries.guidelines.filter((e) => candidateIds.has(e.entry.id)),
+    knowledge: ctx.fetchedEntries.knowledge.filter((e) => candidateIds.has(e.entry.id)),
+    experiences: ctx.fetchedEntries.experiences.filter((e) => candidateIds.has(e.entry.id)),
   };
 
   // Task 30: Merge hierarchical scores into semantic scores

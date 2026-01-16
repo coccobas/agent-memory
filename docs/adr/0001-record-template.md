@@ -16,18 +16,23 @@ Use the following template for all ADRs:
 # ADR-NNNN: Title
 
 ## Status
+
 Accepted | Deprecated | Superseded by ADR-XXXX
 
 ## Context
+
 What is the issue we're addressing?
 
 ## Decision
+
 What did we decide?
 
 ## Consequences
+
 What are the results (positive and negative)?
 
 ## References
+
 - Code locations: `src/path/file.ts:line`
 - Related ADRs: ADR-XXXX
 ```
@@ -35,11 +40,13 @@ What are the results (positive and negative)?
 ## Consequences
 
 **Positive:**
+
 - Consistent documentation format
 - Easy to find and reference decisions
 - Clear traceability from code to rationale
 
 **Negative:**
+
 - Overhead of maintaining documentation
 - Risk of ADRs becoming stale
 

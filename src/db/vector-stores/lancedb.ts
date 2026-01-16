@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
+
 import { connect, Index, type Connection, type Table } from '@lancedb/lancedb';
 import { dirname } from 'node:path';
 import { existsSync, mkdirSync } from 'node:fs';
@@ -66,8 +68,14 @@ export class LanceDbVectorStore implements IVectorStore {
     // without requiring config rebuilds.
     this.dbPath = dbPath || process.env.AGENT_MEMORY_VECTOR_DB_PATH || config.vectorDb.path;
     this.distanceMetric = distanceMetric || config.vectorDb.distanceMetric;
-    this.quantization = quantization || (config.vectorDb as Record<string, unknown>).quantization as QuantizationType || 'none';
-    this.indexThreshold = indexThreshold || (config.vectorDb as Record<string, unknown>).indexThreshold as number || 256;
+    this.quantization =
+      quantization ||
+      ((config.vectorDb as Record<string, unknown>).quantization as QuantizationType) ||
+      'none';
+    this.indexThreshold =
+      indexThreshold ||
+      ((config.vectorDb as Record<string, unknown>).indexThreshold as number) ||
+      256;
   }
 
   getDistanceMetric(): DistanceMetric {
@@ -284,7 +292,7 @@ export class LanceDbVectorStore implements IVectorStore {
         if (this.quantization === 'sq') {
           // Scalar Quantization - ~4x compression
           indexConfig = Index.hnswSq({
-            m: 16,          // Connections per node
+            m: 16, // Connections per node
             efConstruction: 150, // Build-time quality
           });
         } else if (this.quantization === 'pq') {
@@ -480,16 +488,15 @@ export class LanceDbVectorStore implements IVectorStore {
    * @param options Optional filters
    * @returns Array of entry metadata including model and dimension info
    */
-  async getEmbeddingMetadata(options?: {
-    entryTypes?: string[];
-    limit?: number;
-  }): Promise<Array<{
-    entryType: string;
-    entryId: string;
-    versionId: string;
-    model: string;
-    dimension: number;
-  }>> {
+  async getEmbeddingMetadata(options?: { entryTypes?: string[]; limit?: number }): Promise<
+    Array<{
+      entryType: string;
+      entryId: string;
+      versionId: string;
+      model: string;
+      dimension: number;
+    }>
+  > {
     await this.ensureInitialized();
     if (!this.table) return [];
 

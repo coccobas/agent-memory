@@ -97,25 +97,13 @@ export async function generateProjectSummary(
   logger.debug({ projectId }, 'Generating project summary');
 
   // Get guideline counts and top entries by category
-  const guidelinesByCategory = await getGuidelinesByCategory(
-    db,
-    projectId,
-    maxEntriesPerCategory
-  );
+  const guidelinesByCategory = await getGuidelinesByCategory(db, projectId, maxEntriesPerCategory);
 
   // Get knowledge counts and entries by category
-  const knowledgeByCategory = await getKnowledgeByCategory(
-    db,
-    projectId,
-    maxEntriesPerCategory
-  );
+  const knowledgeByCategory = await getKnowledgeByCategory(db, projectId, maxEntriesPerCategory);
 
   // Get tool counts and entries by category
-  const toolsByCategory = await getToolsByCategory(
-    db,
-    projectId,
-    maxEntriesPerCategory
-  );
+  const toolsByCategory = await getToolsByCategory(db, projectId, maxEntriesPerCategory);
 
   // Get top guidelines by priority
   const topGuidelines = await getTopGuidelines(db, projectId, maxTopGuidelines);
@@ -245,10 +233,7 @@ export async function generateAndStoreSummary(
       });
 
       // Update currentVersionId
-      await db
-        .update(knowledge)
-        .set({ currentVersionId: versionId })
-        .where(eq(knowledge.id, id));
+      await db.update(knowledge).set({ currentVersionId: versionId }).where(eq(knowledge.id, id));
 
       // Tag it for easy retrieval
       await ensureSummaryTag(db);
@@ -447,11 +432,7 @@ async function getToolsByCategory(
     })
     .from(tools)
     .where(
-      and(
-        eq(tools.scopeType, 'project'),
-        eq(tools.scopeId, projectId),
-        eq(tools.isActive, true)
-      )
+      and(eq(tools.scopeType, 'project'), eq(tools.scopeId, projectId), eq(tools.isActive, true))
     )
     .groupBy(tools.category);
 

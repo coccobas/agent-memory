@@ -5,6 +5,8 @@
  * Runs the librarian analysis pipeline on a configurable schedule.
  */
 
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
+
 import cron from 'node-cron';
 import { createComponentLogger } from '../../utils/logger.js';
 import type { LibrarianService } from './index.js';
@@ -129,11 +131,17 @@ export function startLibrarianScheduler(
         error: errorMessage,
       };
 
-      logger.error({ error: errorMessage, durationMs: Date.now() - startTime }, 'Scheduled librarian analysis failed');
+      logger.error(
+        { error: errorMessage, durationMs: Date.now() - startTime },
+        'Scheduled librarian analysis failed'
+      );
     }
   });
 
-  logger.info({ schedule: config.schedule, scopeType: config.defaultScopeType }, 'Librarian scheduler started');
+  logger.info(
+    { schedule: config.schedule, scopeType: config.defaultScopeType },
+    'Librarian scheduler started'
+  );
   return true;
 }
 
@@ -142,7 +150,7 @@ export function startLibrarianScheduler(
  */
 export function stopLibrarianScheduler(): void {
   if (scheduledTask) {
-    scheduledTask.stop();
+    void scheduledTask.stop();
     scheduledTask = null;
     logger.info('Librarian scheduler stopped');
   }
@@ -182,7 +190,13 @@ function getNextRunTime(): string | null {
       const [minute, hour, dayOfMonth, month, dayOfWeek] = parts;
 
       // Handle daily at specific time
-      if (minute !== '*' && hour !== '*' && dayOfMonth === '*' && month === '*' && dayOfWeek === '*') {
+      if (
+        minute !== '*' &&
+        hour !== '*' &&
+        dayOfMonth === '*' &&
+        month === '*' &&
+        dayOfWeek === '*'
+      ) {
         const nextRun = new Date(now);
         nextRun.setHours(parseInt(hour!, 10), parseInt(minute!, 10), 0, 0);
         if (nextRun <= now) {

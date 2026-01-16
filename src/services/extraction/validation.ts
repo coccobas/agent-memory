@@ -112,16 +112,23 @@ export function validateOpenAIBaseUrl(baseUrl: string | undefined, strictMode: b
   const url = new URL(baseUrl);
   const hostname = url.hostname.toLowerCase();
 
-  // Only allow localhost in development mode
+  // Only allow localhost in development mode OR when strict mode is disabled
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
     const isProduction = process.env.NODE_ENV === 'production';
-    if (isProduction) {
+    if (isProduction && strictMode) {
       throw createValidationError(
         'baseUrl',
-        'SSRF protection: localhost/127.0.0.1 not allowed in production'
+        'SSRF protection: localhost/127.0.0.1 not allowed in production. Set AGENT_MEMORY_EXTRACTION_STRICT_ALLOWLIST=false to override.'
       );
     }
-    logger.debug({ baseUrl }, 'Using local OpenAI-compatible endpoint (development mode)');
+    if (isProduction && !strictMode) {
+      logger.warn(
+        { baseUrl },
+        'Using localhost in production mode (AGENT_MEMORY_EXTRACTION_STRICT_ALLOWLIST=false). Ensure this is intentional.'
+      );
+    } else {
+      logger.debug({ baseUrl }, 'Using local OpenAI-compatible endpoint (development mode)');
+    }
     return;
   }
 

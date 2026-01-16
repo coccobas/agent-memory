@@ -3,8 +3,16 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { TriggerDetector, createTriggerDetector } from '../../../src/services/extraction/trigger-detector.js';
-import { TriggerType, DEFAULT_TRIGGER_CONFIG, type Message, type SessionContext } from '../../../src/services/extraction/triggers.js';
+import {
+  TriggerDetector,
+  createTriggerDetector,
+} from '../../../src/services/extraction/trigger-detector.js';
+import {
+  TriggerType,
+  DEFAULT_TRIGGER_CONFIG,
+  type Message,
+  type SessionContext,
+} from '../../../src/services/extraction/triggers.js';
 
 // Mock logger
 vi.mock('../../../src/utils/logger.js', () => ({
@@ -38,7 +46,11 @@ describe('TriggerDetector', () => {
   });
 
   describe('detectCorrection', () => {
-    function createMessage(role: 'user' | 'assistant', content: string, timestamp: number = Date.now()): Message {
+    function createMessage(
+      role: 'user' | 'assistant',
+      content: string,
+      timestamp: number = Date.now()
+    ): Message {
       return {
         id: `msg-${Math.random().toString(36).slice(2)}`,
         role,
@@ -50,7 +62,7 @@ describe('TriggerDetector', () => {
     it('should detect correction phrases', () => {
       const messages = [
         createMessage('assistant', 'I will create a function called processData', 1000),
-        createMessage('user', 'No, that\'s wrong. I wanted a class, not a function.', 2000),
+        createMessage('user', "No, that's wrong. I wanted a class, not a function.", 2000),
       ];
 
       const trigger = detector.detectCorrection(messages);
@@ -85,9 +97,7 @@ describe('TriggerDetector', () => {
     });
 
     it('should return null for single message', () => {
-      const messages = [
-        createMessage('user', 'No, that\'s wrong!'),
-      ];
+      const messages = [createMessage('user', "No, that's wrong!")];
 
       const trigger = detector.detectCorrection(messages);
       expect(trigger).toBeNull();
@@ -111,7 +121,7 @@ describe('TriggerDetector', () => {
 
       const strongMessages = [
         createMessage('assistant', 'Result is A', 1000),
-        createMessage('user', 'That\'s incorrect. Undo that and use B.', 2000),
+        createMessage('user', "That's incorrect. Undo that and use B.", 2000),
       ];
 
       const weakTrigger = detector.detectCorrection(weakMessages);
@@ -148,7 +158,7 @@ describe('TriggerDetector', () => {
     }
 
     it('should detect enthusiasm phrases', () => {
-      const message = createUserMessage('Perfect! That\'s exactly what I needed.');
+      const message = createUserMessage("Perfect! That's exactly what I needed.");
 
       const trigger = detector.detectEnthusiasm(message);
 
@@ -176,7 +186,7 @@ describe('TriggerDetector', () => {
       const message: Message = {
         id: 'msg-1',
         role: 'assistant',
-        content: 'Perfect! Here\'s the solution.',
+        content: "Perfect! Here's the solution.",
         timestamp: Date.now(),
       };
 
@@ -320,9 +330,7 @@ describe('TriggerDetector', () => {
       });
 
       // Use nearly identical messages for high similarity
-      const currentMessages = [
-        createMessage('user', 'configure database connection'),
-      ];
+      const currentMessages = [createMessage('user', 'configure database connection')];
 
       const historicalMessages = [
         createMessage('user', 'configure database connection'),
@@ -336,9 +344,7 @@ describe('TriggerDetector', () => {
     });
 
     it('should return null for no historical messages', () => {
-      const currentMessages = [
-        createMessage('user', 'How do I configure the database?'),
-      ];
+      const currentMessages = [createMessage('user', 'How do I configure the database?')];
 
       const trigger = detector.detectRepetition(currentMessages, []);
 
@@ -346,13 +352,9 @@ describe('TriggerDetector', () => {
     });
 
     it('should return null for no user messages', () => {
-      const currentMessages = [
-        createMessage('assistant', 'Here is the configuration...'),
-      ];
+      const currentMessages = [createMessage('assistant', 'Here is the configuration...')];
 
-      const historicalMessages = [
-        createMessage('user', 'Configure database'),
-      ];
+      const historicalMessages = [createMessage('user', 'Configure database')];
 
       const trigger = detector.detectRepetition(currentMessages, historicalMessages);
 
@@ -360,9 +362,7 @@ describe('TriggerDetector', () => {
     });
 
     it('should return null for dissimilar messages', () => {
-      const currentMessages = [
-        createMessage('user', 'What is the weather today?'),
-      ];
+      const currentMessages = [createMessage('user', 'What is the weather today?')];
 
       const historicalMessages = [
         createMessage('user', 'How do I fix the build error?'),
@@ -381,9 +381,7 @@ describe('TriggerDetector', () => {
         repetitionSimilarityThreshold: 0.2,
       });
 
-      const currentMessages = [
-        createMessage('user', 'reset user password'),
-      ];
+      const currentMessages = [createMessage('user', 'reset user password')];
 
       const historicalMessages = [
         createMessage('user', 'reset user password'),
@@ -410,7 +408,11 @@ describe('TriggerDetector', () => {
       };
     }
 
-    function createMessage(role: 'user' | 'assistant', content: string, timestamp: number = Date.now()): Message {
+    function createMessage(
+      role: 'user' | 'assistant',
+      content: string,
+      timestamp: number = Date.now()
+    ): Message {
       return {
         id: `msg-${Math.random().toString(36).slice(2)}`,
         role,
@@ -421,12 +423,14 @@ describe('TriggerDetector', () => {
 
     it('should detect multiple triggers', () => {
       const context = createSessionContext({
-        messages: [
-          createMessage('assistant', 'Created the function processData', 1000),
-        ],
+        messages: [createMessage('assistant', 'Created the function processData', 1000)],
       });
 
-      const newMessage = createMessage('user', 'No, actually that\'s wrong! Perfect that you tried though!', 2000);
+      const newMessage = createMessage(
+        'user',
+        "No, actually that's wrong! Perfect that you tried though!",
+        2000
+      );
 
       const triggers = detector.detectAll(newMessage, context);
 
@@ -436,17 +440,19 @@ describe('TriggerDetector', () => {
 
     it('should not trigger on assistant messages for corrections', () => {
       const context = createSessionContext({
-        messages: [
-          createMessage('user', 'Create a function', 1000),
-        ],
+        messages: [createMessage('user', 'Create a function', 1000)],
       });
 
-      const newMessage = createMessage('assistant', 'Actually, I think you should use a class instead.', 2000);
+      const newMessage = createMessage(
+        'assistant',
+        'Actually, I think you should use a class instead.',
+        2000
+      );
 
       const triggers = detector.detectAll(newMessage, context);
 
       // Corrections should only trigger for user messages
-      const corrections = triggers.filter(t => t.type === TriggerType.USER_CORRECTION);
+      const corrections = triggers.filter((t) => t.type === TriggerType.USER_CORRECTION);
       expect(corrections.length).toBe(0);
     });
 
@@ -464,7 +470,7 @@ describe('TriggerDetector', () => {
 
       const triggers = detector.detectAll(newMessage, context);
 
-      const repetitions = triggers.filter(t => t.type === TriggerType.REPEATED_REQUEST);
+      const repetitions = triggers.filter((t) => t.type === TriggerType.REPEATED_REQUEST);
       expect(repetitions.length).toBeGreaterThanOrEqual(0);
     });
 

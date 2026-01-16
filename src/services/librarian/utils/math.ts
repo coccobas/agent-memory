@@ -3,7 +3,12 @@
  *
  * Provides mathematical functions for similarity calculations
  * and sequence analysis used in pattern detection.
+ *
+ * NOTE: Non-null assertions are used throughout for array indexing and Map access
+ * after bounds checks and existence validation in algorithmic code.
  */
+
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 
 import { createValidationError } from '../../../core/errors.js';
 
@@ -79,6 +84,8 @@ export function longestCommonSubsequence<T>(
   // Build the LCS length table
   const dp: number[][] = [];
   for (let i = 0; i <= m; i++) {
+    // TypeScript doesn't infer type from Array.fill() - explicit annotation needed
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     dp[i] = new Array(n + 1).fill(0);
   }
 
@@ -134,7 +141,10 @@ export function lcsLength<T>(
   }
 
   // Use two rows for space optimization
+  // TypeScript doesn't infer type from Array.fill() - explicit annotation needed
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   let prevRow: number[] = new Array(n + 1).fill(0);
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   let currRow: number[] = new Array(n + 1).fill(0);
 
   for (let i = 1; i <= m; i++) {
@@ -190,7 +200,11 @@ export function lcsSimilarity<T>(
  */
 export function cosineSimilarity(vec1: number[], vec2: number[]): number {
   if (vec1.length !== vec2.length) {
-    throw createValidationError('vectors', `Vectors must have the same dimension (got ${vec1.length} and ${vec2.length})`, 'Ensure both vectors have equal length');
+    throw createValidationError(
+      'vectors',
+      `Vectors must have the same dimension (got ${vec1.length} and ${vec2.length})`,
+      'Ensure both vectors have equal length'
+    );
   }
 
   if (vec1.length === 0) {
@@ -252,6 +266,8 @@ export function editDistance<T>(
 
   // Use two rows for space optimization
   let prevRow: number[] = Array.from({ length: n + 1 }, (_, i) => i);
+  // TypeScript doesn't infer type from Array.fill() - explicit annotation needed
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   let currRow: number[] = new Array(n + 1).fill(0);
 
   for (let i = 1; i <= m; i++) {
@@ -263,11 +279,13 @@ export function editDistance<T>(
       if (comparator(s1Item, s2Item)) {
         currRow[j] = prevRow[j - 1]!;
       } else {
-        currRow[j] = 1 + Math.min(
-          prevRow[j]!,       // delete
-          currRow[j - 1]!,   // insert
-          prevRow[j - 1]!    // substitute
-        );
+        currRow[j] =
+          1 +
+          Math.min(
+            prevRow[j]!, // delete
+            currRow[j - 1]!, // insert
+            prevRow[j - 1]! // substitute
+          );
       }
     }
 
@@ -318,7 +336,7 @@ export function standardDeviation(values: number[]): number {
   if (values.length < 2) return 0;
 
   const avg = mean(values);
-  const squaredDiffs = values.map(val => Math.pow(val - avg, 2));
+  const squaredDiffs = values.map((val) => Math.pow(val - avg, 2));
   return Math.sqrt(mean(squaredDiffs));
 }
 
@@ -327,7 +345,11 @@ export function standardDeviation(values: number[]): number {
  */
 export function weightedMean(values: number[], weights: number[]): number {
   if (values.length !== weights.length) {
-    throw createValidationError('weights', `Values and weights must have the same length (got ${values.length} and ${weights.length})`, 'Ensure values and weights arrays have equal length');
+    throw createValidationError(
+      'weights',
+      `Values and weights must have the same length (got ${values.length} and ${weights.length})`,
+      'Ensure values and weights arrays have equal length'
+    );
   }
 
   if (values.length === 0) return 0;

@@ -8,7 +8,10 @@ import type { ScopeType } from '../../db/schema.js';
 import type { PatternGroup, PatternDetectionResult } from './pipeline/pattern-detector.js';
 import type { QualityGateResult } from './pipeline/quality-gate.js';
 import type { CollectionResult } from './pipeline/collector.js';
-import type { RecommendationGenerationResult, GeneratedRecommendation } from './pipeline/recommender.js';
+import type {
+  RecommendationGenerationResult,
+  GeneratedRecommendation,
+} from './pipeline/recommender.js';
 
 // =============================================================================
 // CONFIGURATION

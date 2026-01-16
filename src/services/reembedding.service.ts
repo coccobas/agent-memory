@@ -27,6 +27,8 @@
  * - **Progress tracking**: Logs progress for observability
  */
 
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
+
 import { createComponentLogger } from '../utils/logger.js';
 import type { IEmbeddingService } from '../core/context.js';
 import type { IVectorStore } from '../core/interfaces/vector-store.js';
@@ -137,10 +139,7 @@ export class ReembeddingService {
     const mismatch = storedDimension !== null && storedDimension !== currentDimension;
 
     if (mismatch) {
-      logger.info(
-        { storedDimension, currentDimension },
-        'Embedding dimension mismatch detected'
-      );
+      logger.info({ storedDimension, currentDimension }, 'Embedding dimension mismatch detected');
     }
 
     return { mismatch, storedDimension, currentDimension };
@@ -184,7 +183,10 @@ export class ReembeddingService {
 
     // Start background processing (don't await)
     this.runPromise = this.processQueue().catch((error) => {
-      logger.error({ error: error instanceof Error ? error.message : String(error) }, 'Re-embedding failed');
+      logger.error(
+        { error: error instanceof Error ? error.message : String(error) },
+        'Re-embedding failed'
+      );
       this.state = 'failed';
     });
 
@@ -279,7 +281,7 @@ export class ReembeddingService {
    */
   private async reembedEntry(entry: EntryRef): Promise<void> {
     // Fetch the entry content from the database
-    const text = await this.getEntryText(entry);
+    const text = this.getEntryText(entry);
     if (!text) {
       logger.debug({ ...entry }, 'Entry not found, skipping re-embedding');
       return;

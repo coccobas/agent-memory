@@ -106,7 +106,6 @@ export class EventBus implements IEventAdapterExtended {
   subscriberCount(): number {
     return this.handlers.size;
   }
-
 }
 
 // =============================================================================

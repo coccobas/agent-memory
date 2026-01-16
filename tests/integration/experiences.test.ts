@@ -159,7 +159,13 @@ describe('Experiences Integration', () => {
     });
 
     it('should update strategy-specific fields', async () => {
-      const { experience } = createTestExperience(db, 'strategy_update', 'global', undefined, 'strategy');
+      const { experience } = createTestExperience(
+        db,
+        'strategy_update',
+        'global',
+        undefined,
+        'strategy'
+      );
 
       const result = await experienceHandlers.update(context, {
         agentId: AGENT_ID,
@@ -182,7 +188,10 @@ describe('Experiences Integration', () => {
   describe('memory_experience_get', () => {
     it('should get experience by ID', async () => {
       const { experience } = createTestExperience(db, 'get_test');
-      const result = await experienceHandlers.get(context, { agentId: AGENT_ID, id: experience.id });
+      const result = await experienceHandlers.get(context, {
+        agentId: AGENT_ID,
+        id: experience.id,
+      });
 
       expect(result.experience).toBeDefined();
       expect(result.experience.id).toBe(experience.id);
@@ -314,7 +323,10 @@ describe('Experiences Integration', () => {
       });
 
       expect(result.success).toBe(true);
-      const fetched = await experienceHandlers.get(context, { agentId: AGENT_ID, id: experience.id });
+      const fetched = await experienceHandlers.get(context, {
+        agentId: AGENT_ID,
+        id: experience.id,
+      });
       expect(fetched.experience.isActive).toBe(false);
     });
   });
@@ -393,9 +405,21 @@ describe('Experiences Integration', () => {
       const { experience } = createTestExperience(db, 'confidence_test');
 
       // Record 3 successes and 1 failure
-      await experienceHandlers.record_outcome(context, { agentId: AGENT_ID, id: experience.id, success: true });
-      await experienceHandlers.record_outcome(context, { agentId: AGENT_ID, id: experience.id, success: true });
-      await experienceHandlers.record_outcome(context, { agentId: AGENT_ID, id: experience.id, success: false });
+      await experienceHandlers.record_outcome(context, {
+        agentId: AGENT_ID,
+        id: experience.id,
+        success: true,
+      });
+      await experienceHandlers.record_outcome(context, {
+        agentId: AGENT_ID,
+        id: experience.id,
+        success: true,
+      });
+      await experienceHandlers.record_outcome(context, {
+        agentId: AGENT_ID,
+        id: experience.id,
+        success: false,
+      });
       const result = await experienceHandlers.record_outcome(context, {
         agentId: AGENT_ID,
         id: experience.id,
@@ -482,7 +506,13 @@ describe('Experiences Integration', () => {
     });
 
     it('should reject invalid promotion paths', async () => {
-      const { experience } = createTestExperience(db, 'invalid_promote', 'global', undefined, 'case');
+      const { experience } = createTestExperience(
+        db,
+        'invalid_promote',
+        'global',
+        undefined,
+        'case'
+      );
 
       // Can't promote case directly to skill
       await expect(

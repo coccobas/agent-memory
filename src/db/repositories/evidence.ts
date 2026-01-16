@@ -228,11 +228,7 @@ export function createEvidenceRepository(deps: DatabaseDeps): IEvidenceRepositor
     },
 
     async deactivate(id: string): Promise<boolean> {
-      const result = db
-        .update(evidence)
-        .set({ isActive: false })
-        .where(eq(evidence.id, id))
-        .run();
+      const result = db.update(evidence).set({ isActive: false }).where(eq(evidence.id, id)).run();
 
       return result.changes > 0;
     },

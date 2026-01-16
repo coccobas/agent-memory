@@ -35,6 +35,7 @@ import type { IAutoTaggingService } from '../services/auto-tagging.service.js';
 import type { IClassificationService } from '../services/classification/index.js';
 import type { IExtractionHookService } from '../services/extraction-hook.service.js';
 import type { ReembeddingService } from '../services/reembedding.service.js';
+import type { GraphSyncService } from '../services/graph/sync.service.js';
 
 /**
  * Service interfaces for AppContext
@@ -224,7 +225,7 @@ export interface ExtractionPipelineServices {
  */
 export interface GraphServices {
   /** Graph sync service for automatic entry-to-node and relation-to-edge synchronization */
-  graphSync?: import('../services/graph/sync.service.js').GraphSyncService;
+  graphSync?: GraphSyncService;
 }
 
 /**
@@ -276,7 +277,8 @@ export interface UtilityServices {
  * @see UtilityServices - Miscellaneous auxiliary services
  */
 export interface AppContextServices
-  extends CoreServices,
+  extends
+    CoreServices,
     AIServices,
     SessionServices,
     QueryServices,

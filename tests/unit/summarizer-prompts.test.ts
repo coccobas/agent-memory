@@ -735,10 +735,7 @@ describe('buildPrompts - item iteration', () => {
   });
 
   it('should handle item type in iteration', () => {
-    const items = [
-      createTestItem({ type: 'knowledge' }),
-      createTestItem({ type: 'guideline' }),
-    ];
+    const items = [createTestItem({ type: 'knowledge' }), createTestItem({ type: 'guideline' })];
     const variables = createTestVariables(items, { levelName: 'topic' });
 
     const { userPrompt } = buildPrompts(1, variables);

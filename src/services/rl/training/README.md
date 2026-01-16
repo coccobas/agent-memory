@@ -9,12 +9,14 @@ This directory contains the training infrastructure for reinforcement learning p
 Builds training datasets from feedback data collected during production usage.
 
 **Features:**
+
 - Converts feedback samples to structured training examples
 - Splits data into train/eval sets
 - Supports extraction, retrieval, and consolidation policies
 - Filters by date range, confidence, sample count
 
 **Usage:**
+
 ```typescript
 import { buildExtractionDataset } from './dataset-builder.js';
 
@@ -34,12 +36,14 @@ console.log(`Train: ${dataset.train.length}, Eval: ${dataset.eval.length}`);
 Direct Preference Optimization trainer for policy learning.
 
 **Features:**
+
 - Preference-based learning from human feedback
 - Supports all three policy types
 - Exports trained models in multiple formats
 - Training configuration and hyperparameters
 
 **Usage:**
+
 ```typescript
 import { DPOTrainer } from './dpo-trainer.js';
 
@@ -58,6 +62,7 @@ console.log(`Model saved to: ${result.modelPath}`);
 Load and manage trained RL models.
 
 **Features:**
+
 - Automatic model discovery in models directory
 - Version management (latest, specific version)
 - Format preference (ONNX, SafeTensors, JSON, checkpoints)
@@ -66,12 +71,14 @@ Load and manage trained RL models.
 - Model caching for performance
 
 **Supported Formats:**
+
 - **ONNX** (`.onnx`) - Open Neural Network Exchange format
 - **SafeTensors** (`.safetensors`, `.st`) - Safe tensor serialization
 - **JSON** (`.json`) - Lightweight JSON format
 - **Checkpoint** (`.pt`, `.pth`, `.ckpt`) - PyTorch checkpoints
 
 **Usage:**
+
 ```typescript
 import { createModelLoader, getDefaultModelsDir } from './model-loader.js';
 
@@ -84,7 +91,7 @@ const loader = createModelLoader({
 
 // List available models
 const models = await loader.listModels();
-models.forEach(model => {
+models.forEach((model) => {
   console.log(`${model.policyType} v${model.version} (${model.modelFormat})`);
 });
 
@@ -143,6 +150,7 @@ Each model requires a companion metadata file (`<model>.metadata.json`):
 Comprehensive policy evaluation with advanced metrics.
 
 **Features:**
+
 - Baseline comparison (rule-based vs learned)
 - A/B testing with statistical significance
 - Reward distribution analysis
@@ -153,7 +161,9 @@ Comprehensive policy evaluation with advanced metrics.
 **Core Functions:**
 
 #### `evaluatePolicy(policy, testData)`
+
 Evaluate a policy on test data:
+
 ```typescript
 import { evaluatePolicy } from './evaluation.js';
 
@@ -164,7 +174,9 @@ console.log('F1 Score:', result.f1);
 ```
 
 #### `comparePolicies(policyA, policyB, testData)`
+
 Compare two policies:
+
 ```typescript
 import { comparePolicies } from './evaluation.js';
 
@@ -204,6 +216,7 @@ console.log('Recommendation:', abTest.details.recommendation);
 **Utility Functions:**
 
 #### Reward Distribution
+
 ```typescript
 import { computeRewardDistribution } from './evaluation.js';
 
@@ -215,6 +228,7 @@ console.log('Histogram:', distribution.histogram);
 ```
 
 #### Temporal Metrics
+
 ```typescript
 import { computeTemporalMetrics } from './evaluation.js';
 
@@ -225,8 +239,13 @@ console.log('Windows:', temporal.windows);
 ```
 
 #### Formatting
+
 ```typescript
-import { formatEvaluationReport, formatComparisonReport, formatABTestReport } from './evaluation.js';
+import {
+  formatEvaluationReport,
+  formatComparisonReport,
+  formatABTestReport,
+} from './evaluation.js';
 
 // Print detailed reports
 console.log(formatEvaluationReport(result));
@@ -244,6 +263,7 @@ console.log(formatABTestReport(abTestResult));
    - Consolidation actions and effects
 
 2. **Build Dataset**
+
    ```typescript
    const dataset = await buildExtractionDataset({
      startDate: '2024-01-01',
@@ -254,6 +274,7 @@ console.log(formatABTestReport(abTestResult));
    ```
 
 3. **Train Model**
+
    ```typescript
    const trainer = new DPOTrainer({
      policyType: 'extraction',
@@ -265,6 +286,7 @@ console.log(formatABTestReport(abTestResult));
    ```
 
 4. **Validate and Evaluate**
+
    ```typescript
    const loader = createModelLoader({ modelsDir: './models' });
    const model = await loader.loadModel('extraction', result.version);
@@ -279,6 +301,7 @@ console.log(formatABTestReport(abTestResult));
    ```
 
 5. **Compare with Baseline**
+
    ```typescript
    // Compare learned model with rule-based policy
    const comparison = await comparePolicies(ruleBasedPolicy, learnedPolicy, dataset.eval);
@@ -292,12 +315,14 @@ console.log(formatABTestReport(abTestResult));
 ### Evaluation Workflow
 
 1. **Load Model**
+
    ```typescript
    const loader = createModelLoader({ modelsDir: './models' });
    const model = await loader.getLatestModel('extraction');
    ```
 
 2. **Evaluate Performance**
+
    ```typescript
    const evaluator = new PolicyEvaluator();
    const result = await evaluator.evaluate(model, evalData);
@@ -306,6 +331,7 @@ console.log(formatABTestReport(abTestResult));
    ```
 
 3. **A/B Test (Optional)**
+
    ```typescript
    const modelV1 = await loader.loadModel('extraction', 'v1.0.0');
    const modelV2 = await loader.loadModel('extraction', 'v1.1.0');
@@ -315,6 +341,7 @@ console.log(formatABTestReport(abTestResult));
    ```
 
 4. **Monitor Over Time**
+
    ```typescript
    const temporal = computeTemporalMetrics(productionData, 7 * 24 * 60 * 60 * 1000);
 
@@ -351,9 +378,11 @@ models/ (default location)
 ## Future Enhancements
 
 ### Model Inference
+
 Currently, the PolicyEvaluator methods throw "not yet implemented" errors. To enable full functionality:
 
 1. **ONNX Runtime Integration**
+
    ```typescript
    import * as ort from 'onnxruntime-node';
 
@@ -363,6 +392,7 @@ Currently, the PolicyEvaluator methods throw "not yet implemented" errors. To en
    ```
 
 2. **SafeTensors Support**
+
    ```typescript
    import { loadSafetensors } from '@huggingface/safetensors';
 
@@ -394,6 +424,7 @@ Currently, the PolicyEvaluator methods throw "not yet implemented" errors. To en
 See `examples/model-evaluation-example.ts` for comprehensive usage examples.
 
 Run examples:
+
 ```bash
 npx tsx src/services/rl/training/examples/model-evaluation-example.ts
 ```

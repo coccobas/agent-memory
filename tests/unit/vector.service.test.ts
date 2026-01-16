@@ -204,55 +204,59 @@ describe('Vector Service', () => {
     }
   });
 
-  it.skip('should filter search results by entry type (flaky under load)', { timeout: 60000 }, async () => {
-    await service.initialize();
+  it.skip(
+    'should filter search results by entry type (flaky under load)',
+    { timeout: 60000 },
+    async () => {
+      await service.initialize();
 
-    const embedding1 = Array(384)
-      .fill(0)
-      .map(() => Math.random());
-    const embedding2 = Array(384)
-      .fill(0)
-      .map(() => Math.random());
-    const embedding3 = Array(384)
-      .fill(0)
-      .map(() => Math.random());
+      const embedding1 = Array(384)
+        .fill(0)
+        .map(() => Math.random());
+      const embedding2 = Array(384)
+        .fill(0)
+        .map(() => Math.random());
+      const embedding3 = Array(384)
+        .fill(0)
+        .map(() => Math.random());
 
-    await service.storeEmbedding('tool', 'tool-1', 'v1', 'Tool', embedding1, 'model');
-    await service.storeEmbedding(
-      'guideline',
-      'guideline-1',
-      'v1',
-      'Guideline',
-      embedding2,
-      'model'
-    );
-    await service.storeEmbedding(
-      'knowledge',
-      'knowledge-1',
-      'v1',
-      'Knowledge',
-      embedding3,
-      'model'
-    );
+      await service.storeEmbedding('tool', 'tool-1', 'v1', 'Tool', embedding1, 'model');
+      await service.storeEmbedding(
+        'guideline',
+        'guideline-1',
+        'v1',
+        'Guideline',
+        embedding2,
+        'model'
+      );
+      await service.storeEmbedding(
+        'knowledge',
+        'knowledge-1',
+        'v1',
+        'Knowledge',
+        embedding3,
+        'model'
+      );
 
-    // Search for only tools
-    const toolResults = await service.searchSimilar(embedding1, ['tool'], 10);
+      // Search for only tools
+      const toolResults = await service.searchSimilar(embedding1, ['tool'], 10);
 
-    if (toolResults.length > 0) {
-      toolResults.forEach((result) => {
-        expect(result.entryType).toBe('tool');
-      });
+      if (toolResults.length > 0) {
+        toolResults.forEach((result) => {
+          expect(result.entryType).toBe('tool');
+        });
+      }
+
+      // Search for multiple types
+      const multiResults = await service.searchSimilar(embedding1, ['tool', 'guideline'], 10);
+
+      if (multiResults.length > 0) {
+        multiResults.forEach((result) => {
+          expect(['tool', 'guideline']).toContain(result.entryType);
+        });
+      }
     }
-
-    // Search for multiple types
-    const multiResults = await service.searchSimilar(embedding1, ['tool', 'guideline'], 10);
-
-    if (multiResults.length > 0) {
-      multiResults.forEach((result) => {
-        expect(['tool', 'guideline']).toContain(result.entryType);
-      });
-    }
-  });
+  );
 
   it.skip('should respect limit parameter', { timeout: 30000 }, async () => {
     await service.initialize();
@@ -282,80 +286,88 @@ describe('Vector Service', () => {
     expect(results.length).toBeLessThanOrEqual(5);
   });
 
-  it.skip('should return results sorted by similarity (flaky under load)', { timeout: 20000 }, async () => {
-    await service.initialize();
+  it.skip(
+    'should return results sorted by similarity (flaky under load)',
+    { timeout: 20000 },
+    async () => {
+      await service.initialize();
 
-    const baseEmbedding = Array(384).fill(0.5);
+      const baseEmbedding = Array(384).fill(0.5);
 
-    // Store the base embedding
-    await service.storeEmbedding(
-      'tool',
-      'tool-1',
-      'version-1',
-      'Base tool',
-      baseEmbedding,
-      'test-model'
-    );
+      // Store the base embedding
+      await service.storeEmbedding(
+        'tool',
+        'tool-1',
+        'version-1',
+        'Base tool',
+        baseEmbedding,
+        'test-model'
+      );
 
-    // Store a very different embedding
-    const differentEmbedding = Array(384)
-      .fill(0)
-      .map(() => Math.random());
-    await service.storeEmbedding(
-      'tool',
-      'tool-2',
-      'version-1',
-      'Different tool',
-      differentEmbedding,
-      'test-model'
-    );
+      // Store a very different embedding
+      const differentEmbedding = Array(384)
+        .fill(0)
+        .map(() => Math.random());
+      await service.storeEmbedding(
+        'tool',
+        'tool-2',
+        'version-1',
+        'Different tool',
+        differentEmbedding,
+        'test-model'
+      );
 
-    // Search with embedding similar to base
-    const similarQuery = Array(384)
-      .fill(0)
-      .map(() => 0.5 + (Math.random() - 0.5) * 0.05);
-    const results = await service.searchSimilar(similarQuery, ['tool'], 10);
+      // Search with embedding similar to base
+      const similarQuery = Array(384)
+        .fill(0)
+        .map(() => 0.5 + (Math.random() - 0.5) * 0.05);
+      const results = await service.searchSimilar(similarQuery, ['tool'], 10);
 
-    if (results.length > 1) {
-      // Results should be sorted by score (descending)
-      for (let i = 0; i < results.length - 1; i++) {
-        expect(results[i].score).toBeGreaterThanOrEqual(results[i + 1].score);
+      if (results.length > 1) {
+        // Results should be sorted by score (descending)
+        for (let i = 0; i < results.length - 1; i++) {
+          expect(results[i].score).toBeGreaterThanOrEqual(results[i + 1].score);
+        }
       }
     }
-  });
+  );
 
-  it.skip('should get count of stored embeddings (flaky under load)', { timeout: 15000 }, async () => {
-    await service.initialize();
+  it.skip(
+    'should get count of stored embeddings (flaky under load)',
+    { timeout: 15000 },
+    async () => {
+      await service.initialize();
 
-    // Get initial count (might not be 0 if other tests ran)
-    const initialCount = await service.getCount();
+      // Get initial count (might not be 0 if other tests ran)
+      const initialCount = await service.getCount();
 
-    // Add embeddings
-    const embedding1 = Array(384)
-      .fill(0)
-      .map(() => Math.random());
-    await service.storeEmbedding('tool', 'tool-count-1', 'v1', 'Tool', embedding1, 'model');
+      // Add embeddings
+      const embedding1 = Array(384)
+        .fill(0)
+        .map(() => Math.random());
+      await service.storeEmbedding('tool', 'tool-count-1', 'v1', 'Tool', embedding1, 'model');
 
-    let count = await service.getCount();
-    // Use >= to handle parallel test execution adding entries
-    expect(count).toBeGreaterThanOrEqual(initialCount + 1);
+      let count = await service.getCount();
+      // Use >= to handle parallel test execution adding entries
+      expect(count).toBeGreaterThanOrEqual(initialCount + 1);
 
-    const embedding2 = Array(384)
-      .fill(0)
-      .map(() => Math.random());
-    await service.storeEmbedding(
-      'guideline',
-      'guideline-count-1',
-      'v1',
-      'Guideline',
-      embedding2,
-      'model'
-    );
+      const embedding2 = Array(384)
+        .fill(0)
+        .map(() => Math.random());
+      await service.storeEmbedding(
+        'guideline',
+        'guideline-count-1',
+        'v1',
+        'Guideline',
+        embedding2,
+        'model'
+      );
 
-    const finalCount = await service.getCount();
-    // Use >= to handle parallel test execution adding entries
-    expect(finalCount).toBeGreaterThanOrEqual(count + 1);
-  });
+      const finalCount = await service.getCount();
+      // Use >= to handle parallel test execution adding entries
+      expect(finalCount).toBeGreaterThanOrEqual(count + 1);
+    }
+  );
 
   it('should handle search with no results gracefully', { timeout: 400000 }, async () => {
     await service.initialize();
@@ -407,24 +419,28 @@ describe('Vector Service', () => {
     await expect(service.initialize()).resolves.not.toThrow();
   });
 
-  it.skip('should return similarity scores between 0 and 1 (flaky under load)', { timeout: 30000 }, async () => {
-    await service.initialize();
+  it.skip(
+    'should return similarity scores between 0 and 1 (flaky under load)',
+    { timeout: 30000 },
+    async () => {
+      await service.initialize();
 
-    const embedding = Array(384)
-      .fill(0)
-      .map(() => Math.random());
-    await service.storeEmbedding('tool', 'tool-1', 'v1', 'Tool', embedding, 'model');
+      const embedding = Array(384)
+        .fill(0)
+        .map(() => Math.random());
+      await service.storeEmbedding('tool', 'tool-1', 'v1', 'Tool', embedding, 'model');
 
-    const queryEmbedding = Array(384)
-      .fill(0)
-      .map(() => Math.random());
-    const results = await service.searchSimilar(queryEmbedding, ['tool'], 10);
+      const queryEmbedding = Array(384)
+        .fill(0)
+        .map(() => Math.random());
+      const results = await service.searchSimilar(queryEmbedding, ['tool'], 10);
 
-    results.forEach((result) => {
-      expect(result.score).toBeGreaterThanOrEqual(0);
-      expect(result.score).toBeLessThanOrEqual(1);
-    });
-  });
+      results.forEach((result) => {
+        expect(result.score).toBeGreaterThanOrEqual(0);
+        expect(result.score).toBeLessThanOrEqual(1);
+      });
+    }
+  );
 
   it.skip('should include text in search results', { timeout: 10000 }, async () => {
     await service.initialize();

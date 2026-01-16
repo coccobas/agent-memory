@@ -45,13 +45,13 @@ Runs the full validation suite: lint → format check → typecheck → tests. *
 
 ### Individual Checks
 
-| Command | What it does |
-|:--------|:-------------|
-| `npm run lint` | Run ESLint on src/ |
-| `npm run lint:fix` | Run ESLint and auto-fix issues |
-| `npm run format` | Format code with Prettier |
-| `npm run format:check` | Check formatting without changes |
-| `npm run typecheck` | Run TypeScript compiler (no emit) |
+| Command                | What it does                      |
+| :--------------------- | :-------------------------------- |
+| `npm run lint`         | Run ESLint on src/                |
+| `npm run lint:fix`     | Run ESLint and auto-fix issues    |
+| `npm run format`       | Format code with Prettier         |
+| `npm run format:check` | Check formatting without changes  |
+| `npm run typecheck`    | Run TypeScript compiler (no emit) |
 
 ### Tests
 

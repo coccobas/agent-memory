@@ -33,7 +33,10 @@ export async function runSessionEndCommand(params: {
     return { exitCode: 2, stdout: [], stderr: ['Missing transcript_path in hook input'] };
   }
 
-  logger.debug({ sessionId, transcriptPath, projectId, agentId }, 'Starting session end processing');
+  logger.debug(
+    { sessionId, transcriptPath, projectId, agentId },
+    'Starting session end processing'
+  );
 
   // Start timing the ingestion
   const timer = transcriptIngestDuration.startTimer();

@@ -244,7 +244,9 @@ function installForIDE(
   } else {
     if (!config.supportsGlobal) {
       if (!options.quiet) {
-        console.log(`  ⚠ ${config.name} only supports project-level rules, skipping global install`);
+        console.log(
+          `  ⚠ ${config.name} only supports project-level rules, skipping global install`
+        );
       }
       return { success: true, filesWritten: 0 };
     }
@@ -261,9 +263,7 @@ function installForIDE(
   if (config.format === 'single-md') {
     // Concatenate all files into one
     const targetFile =
-      ide === 'claude'
-        ? join(targetDir, 'CLAUDE.md')
-        : join(targetDir, 'copilot-instructions.md');
+      ide === 'claude' ? join(targetDir, 'CLAUDE.md') : join(targetDir, 'copilot-instructions.md');
 
     const content = ide === 'claude' ? concatenateForClaude(files) : concatenateForCopilot(files);
 

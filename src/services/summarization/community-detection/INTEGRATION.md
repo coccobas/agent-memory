@@ -37,20 +37,13 @@ export class HierarchicalSummarizationService {
   /**
    * Step 1: Collect memory entries and convert to community nodes
    */
-  async collectNodes(
-    scopeType: string,
-    scopeId: string
-  ): Promise<CommunityNode[]> {
+  async collectNodes(scopeType: string, scopeId: string): Promise<CommunityNode[]> {
     const nodes: CommunityNode[] = [];
 
     // Collect knowledge entries
     const knowledge = await this.db.query.knowledgeEntries.findMany({
       where: (k, { eq, and }) =>
-        and(
-          eq(k.scopeType, scopeType),
-          eq(k.scopeId, scopeId),
-          eq(k.isActive, true)
-        ),
+        and(eq(k.scopeType, scopeType), eq(k.scopeId, scopeId), eq(k.isActive, true)),
     });
 
     for (const entry of knowledge) {
@@ -68,11 +61,7 @@ export class HierarchicalSummarizationService {
     // Collect guidelines
     const guidelines = await this.db.query.guidelines.findMany({
       where: (g, { eq, and }) =>
-        and(
-          eq(g.scopeType, scopeType),
-          eq(g.scopeId, scopeId),
-          eq(g.isActive, true)
-        ),
+        and(eq(g.scopeType, scopeType), eq(g.scopeId, scopeId), eq(g.isActive, true)),
     });
 
     for (const guideline of guidelines) {
@@ -90,11 +79,7 @@ export class HierarchicalSummarizationService {
     // Collect tools
     const tools = await this.db.query.tools.findMany({
       where: (t, { eq, and }) =>
-        and(
-          eq(t.scopeType, scopeType),
-          eq(t.scopeId, scopeId),
-          eq(t.isActive, true)
-        ),
+        and(eq(t.scopeType, scopeType), eq(t.scopeId, scopeId), eq(t.isActive, true)),
     });
 
     for (const tool of tools) {
@@ -199,7 +184,7 @@ export class HierarchicalSummarizationService {
         memberCount: community.members.length,
         cohesion: community.cohesion,
         metadata: {
-          memberIds: community.members.map(m => m.id),
+          memberIds: community.members.map((m) => m.id),
           dominantTypes: community.metadata?.dominantTypes,
         },
       });
@@ -220,15 +205,8 @@ export class HierarchicalSummarizationService {
 
     // Level 0: Individual entries (not stored in levels array)
     // Level 1: First level communities
-    const level1Result = await this.detectMemoryCommunities(
-      scopeType,
-      scopeId
-    );
-    const level1Summaries = await this.generateCommunitySummaries(
-      level1Result,
-      scopeType,
-      scopeId
-    );
+    const level1Result = await this.detectMemoryCommunities(scopeType, scopeId);
+    const level1Summaries = await this.generateCommunitySummaries(level1Result, scopeType, scopeId);
     levels.push(level1Summaries);
 
     // Level 2+: Communities of communities
@@ -237,7 +215,7 @@ export class HierarchicalSummarizationService {
 
     while (currentLevel <= maxLevels && previousSummaries.length > 1) {
       // Convert summaries to nodes
-      const nodes: CommunityNode[] = previousSummaries.map(s => ({
+      const nodes: CommunityNode[] = previousSummaries.map((s) => ({
         id: s.id,
         type: 'summary',
         embedding: s.centroid,
@@ -257,8 +235,8 @@ export class HierarchicalSummarizationService {
       // Generate summaries for this level
       const summaries: Summary[] = [];
       for (const community of result.communities) {
-        const childSummaries = community.members.map(m =>
-          previousSummaries.find(s => s.id === m.id)!
+        const childSummaries = community.members.map(
+          (m) => previousSummaries.find((s) => s.id === m.id)!
         );
 
         const summary = await this.generateMetaSummary(childSummaries, {
@@ -276,7 +254,7 @@ export class HierarchicalSummarizationService {
           memberCount: community.members.length,
           cohesion: community.cohesion,
           metadata: {
-            childSummaryIds: community.members.map(m => m.id),
+            childSummaryIds: community.members.map((m) => m.id),
           },
         });
       }
@@ -308,19 +286,13 @@ export class HierarchicalSummarizationService {
     return [];
   }
 
-  private async generateSummary(
-    entries: any[],
-    context: any
-  ): Promise<string> {
+  private async generateSummary(entries: any[], context: any): Promise<string> {
     // Use LLM to generate summary
     // Implementation depends on your LLM service
     return 'Summary placeholder';
   }
 
-  private async generateMetaSummary(
-    childSummaries: Summary[],
-    context: any
-  ): Promise<string> {
+  private async generateMetaSummary(childSummaries: Summary[], context: any): Promise<string> {
     // Use LLM to generate meta-summary from child summaries
     // Implementation depends on your LLM service
     return 'Meta-summary placeholder';
@@ -357,10 +329,7 @@ export class SummaryQueryService {
   /**
    * Get summary at appropriate level based on desired abstraction
    */
-  async getSummaryAtLevel(
-    hierarchy: HierarchicalSummary,
-    targetLevel: number
-  ): Summary[] {
+  async getSummaryAtLevel(hierarchy: HierarchicalSummary, targetLevel: number): Summary[] {
     if (targetLevel >= hierarchy.levels.length) {
       // Return highest level available
       return hierarchy.levels[hierarchy.levels.length - 1] || [];
@@ -377,9 +346,7 @@ export class SummaryQueryService {
     queryEmbedding: number[],
     maxLevel?: number
   ): Promise<Summary | null> {
-    const searchLevels = maxLevel
-      ? hierarchy.levels.slice(0, maxLevel + 1)
-      : hierarchy.levels;
+    const searchLevels = maxLevel ? hierarchy.levels.slice(0, maxLevel + 1) : hierarchy.levels;
 
     let bestMatch: { summary: Summary; similarity: number } | null = null;
 
@@ -409,16 +376,13 @@ export class SummaryQueryService {
   /**
    * Drill down from high-level summary to specific entries
    */
-  async drillDown(
-    hierarchy: HierarchicalSummary,
-    summaryId: string
-  ): Promise<Summary[]> {
+  async drillDown(hierarchy: HierarchicalSummary, summaryId: string): Promise<Summary[]> {
     // Find the summary in the hierarchy
     let summary: Summary | undefined;
     let level = -1;
 
     for (let i = 0; i < hierarchy.levels.length; i++) {
-      const found = hierarchy.levels[i]?.find(s => s.id === summaryId);
+      const found = hierarchy.levels[i]?.find((s) => s.id === summaryId);
       if (found) {
         summary = found;
         level = i;
@@ -434,7 +398,7 @@ export class SummaryQueryService {
     const childIds = summary.metadata?.childSummaryIds || [];
     const previousLevel = hierarchy.levels[level - 1] || [];
 
-    return previousLevel.filter(s => childIds.includes(s.id));
+    return previousLevel.filter((s) => childIds.includes(s.id));
   }
 }
 ```
@@ -448,22 +412,14 @@ export class OptimizedHierarchicalService extends HierarchicalSummarizationServi
    */
   private communityCache = new Map<string, CommunityDetectionResult>();
 
-  async detectMemoryCommunities(
-    scopeType: string,
-    scopeId: string,
-    config?: any
-  ) {
+  async detectMemoryCommunities(scopeType: string, scopeId: string, config?: any) {
     const cacheKey = `${scopeType}:${scopeId}:${JSON.stringify(config)}`;
 
     if (this.communityCache.has(cacheKey)) {
       return this.communityCache.get(cacheKey)!;
     }
 
-    const result = await super.detectMemoryCommunities(
-      scopeType,
-      scopeId,
-      config
-    );
+    const result = await super.detectMemoryCommunities(scopeType, scopeId, config);
 
     this.communityCache.set(cacheKey, result);
     return result;
@@ -479,7 +435,7 @@ export class OptimizedHierarchicalService extends HierarchicalSummarizationServi
 
     // Process in parallel
     await Promise.all(
-      scopes.map(async scope => {
+      scopes.map(async (scope) => {
         const hierarchy = await this.buildHierarchy(scope.type, scope.id);
         results.set(`${scope.type}:${scope.id}`, hierarchy);
       })
@@ -506,10 +462,7 @@ export class OptimizedHierarchicalService extends HierarchicalSummarizationServi
       return this.incrementalUpdate(existingHierarchy, newEntries);
     } else {
       // Full rebuild
-      return this.buildHierarchy(
-        existingHierarchy.scopeType,
-        existingHierarchy.scopeId
-      );
+      return this.buildHierarchy(existingHierarchy.scopeType, existingHierarchy.scopeId);
     }
   }
 
@@ -555,10 +508,7 @@ describe('Hierarchical Summarization with Community Detection', () => {
   it('should maintain semantic coherence in communities', async () => {
     const service = new HierarchicalSummarizationService(db, embeddingService);
 
-    const result = await service.detectMemoryCommunities(
-      'project',
-      'test-project'
-    );
+    const result = await service.detectMemoryCommunities('project', 'test-project');
 
     // All communities should have acceptable cohesion
     for (const community of result.communities) {
@@ -570,10 +520,7 @@ describe('Hierarchical Summarization with Community Detection', () => {
     const queryService = new SummaryQueryService();
     const queryEmbedding = [0.1, 0.2, 0.3];
 
-    const summary = await queryService.findRelevantSummary(
-      hierarchy,
-      queryEmbedding
-    );
+    const summary = await queryService.findRelevantSummary(hierarchy, queryEmbedding);
 
     expect(summary).toBeDefined();
     expect(summary?.centroid).toBeDefined();

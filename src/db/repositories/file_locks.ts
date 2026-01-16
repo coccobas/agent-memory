@@ -57,7 +57,10 @@ export function createFileLockRepository(deps: DatabaseDeps): IFileLockRepositor
       // Calculate expiration
       const expiresIn = options.expiresIn ?? DEFAULT_LOCK_TIMEOUT_SECONDS;
       if (expiresIn > MAX_LOCK_TIMEOUT_SECONDS) {
-        throw createValidationError('expiresIn', `cannot exceed ${MAX_LOCK_TIMEOUT_SECONDS} seconds`);
+        throw createValidationError(
+          'expiresIn',
+          `cannot exceed ${MAX_LOCK_TIMEOUT_SECONDS} seconds`
+        );
       }
 
       const checkedOutAt = now();

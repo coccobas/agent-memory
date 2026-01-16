@@ -85,11 +85,7 @@ export async function safeAsync<T>(
  * @param fallback - Value to return on failure
  * @returns The operation result or fallback value
  */
-export function safeSync<T>(
-  operation: () => T,
-  context: SafeAsyncContext,
-  fallback: T
-): T {
+export function safeSync<T>(operation: () => T, context: SafeAsyncContext, fallback: T): T {
   try {
     return operation();
   } catch (error) {

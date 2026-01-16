@@ -61,6 +61,7 @@ async function readResponseWithLimit(
   const READ_TIMEOUT_MS = 30000;
 
   try {
+    // eslint-disable-next-line no-constant-condition -- intentional infinite loop with break condition
     while (true) {
       // Bug #25 fix: Check if abort was requested before each read
       if (abortController.signal.aborted) {
@@ -73,12 +74,20 @@ async function readResponseWithLimit(
         const id = setTimeout(() => {
           reject(createValidationError('response', 'stream read timeout - server not responding'));
         }, READ_TIMEOUT_MS);
-        readPromise.finally(() => clearTimeout(id));
+        void readPromise.finally(() => clearTimeout(id));
       });
 
-      const { done, value } = await Promise.race([readPromise, timeoutPromise]);
+      // TypeScript limitation: Promise.race with Promise<never> widens to any
+      // Safe to cast because timeoutPromise never resolves, only rejects
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      const { done, value } = (await Promise.race([readPromise, timeoutPromise])) as {
+        done: boolean;
+        value?: Uint8Array;
+      };
       if (done) break;
+      if (!value) break;
 
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       totalBytes += value.byteLength;
 
       if (totalBytes > maxSizeBytes) {
@@ -86,6 +95,7 @@ async function readResponseWithLimit(
         throw createSizeLimitError('response', maxSizeBytes, totalBytes, 'bytes');
       }
 
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       chunks.push(decoder.decode(value, { stream: true }));
     }
 
@@ -138,8 +148,7 @@ export class LLMSummarizer {
       ...config,
       // Set default model based on provider if not specified
       model:
-        config.model ||
-        this.getDefaultModel(config.provider || DEFAULT_SUMMARIZER_CONFIG.provider),
+        config.model || this.getDefaultModel(config.provider || DEFAULT_SUMMARIZER_CONFIG.provider),
     } as Required<SummarizerConfig>;
 
     // Validate model name
@@ -286,17 +295,16 @@ export class LLMSummarizer {
           result = await this.summarizeOpenAI(systemPrompt, userPrompt, request.hierarchyLevel);
           break;
         case 'anthropic':
-          result = await this.summarizeAnthropic(
-            systemPrompt,
-            userPrompt,
-            request.hierarchyLevel
-          );
+          result = await this.summarizeAnthropic(systemPrompt, userPrompt, request.hierarchyLevel);
           break;
         case 'ollama':
           result = await this.summarizeOllama(systemPrompt, userPrompt, request.hierarchyLevel);
           break;
         default:
-          throw createValidationError('provider', `unknown provider "${String(this.config.provider)}"`);
+          throw createValidationError(
+            'provider',
+            `unknown provider "${String(this.config.provider)}"`
+          );
       }
 
       result.processingTimeMs = Date.now() - startTime;
@@ -376,8 +384,9 @@ export class LLMSummarizer {
     return withRetry(
       async () => {
         // Check if using LM Studio (or other OpenAI-compatible endpoint)
-        const isLMStudio = this.config.openaiBaseUrl?.includes('localhost') ||
-                          this.config.openaiBaseUrl?.includes('127.0.0.1');
+        const isLMStudio =
+          this.config.openaiBaseUrl?.includes('localhost') ||
+          this.config.openaiBaseUrl?.includes('127.0.0.1');
 
         const response = await client.chat.completions.create({
           model: this.config.model,
@@ -482,7 +491,10 @@ export class LLMSummarizer {
           });
 
           if (!response.ok) {
-            throw createServiceUnavailableError('Ollama', `request failed: ${response.status} ${response.statusText}`);
+            throw createServiceUnavailableError(
+              'Ollama',
+              `request failed: ${response.status} ${response.statusText}`
+            );
           }
 
           const responseText = await readResponseWithLimit(

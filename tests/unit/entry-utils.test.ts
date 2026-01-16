@@ -3,10 +3,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import {
-  normalizePagination,
-  attachVersions,
-} from '../../src/db/repositories/entry-utils.js';
+import { normalizePagination, attachVersions } from '../../src/db/repositories/entry-utils.js';
 import * as baseModule from '../../src/db/repositories/base.js';
 
 // Mock the base module for cursor decoding
@@ -127,9 +124,7 @@ describe('entry-utils', () => {
     });
 
     it('should preserve original entry properties', () => {
-      const entries = [
-        { id: '1', currentVersionId: 'v1', name: 'Entry 1', custom: 'data' },
-      ];
+      const entries = [{ id: '1', currentVersionId: 'v1', name: 'Entry 1', custom: 'data' }];
       const versionsMap = new Map([['v1', { id: 'v1', content: 'Version' }]]);
 
       const result = attachVersions(entries, versionsMap);

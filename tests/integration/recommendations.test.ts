@@ -93,7 +93,7 @@ describe('Recommendation Store Integration', () => {
         exemplarExperienceId: exp1.experience.id,
       });
 
-      const exemplarSource = recommendation.sources?.find(s => s.isExemplar);
+      const exemplarSource = recommendation.sources?.find((s) => s.isExemplar);
       expect(exemplarSource).toBeDefined();
       expect(exemplarSource?.experienceId).toBe(exp1.experience.id);
     });
@@ -196,7 +196,7 @@ describe('Recommendation Store Integration', () => {
         minConfidence: 0.9,
       });
 
-      expect(results.every(r => r.confidence >= 0.9)).toBe(true);
+      expect(results.every((r) => r.confidence >= 0.9)).toBe(true);
     });
 
     it('should support pagination', async () => {
@@ -216,7 +216,10 @@ describe('Recommendation Store Integration', () => {
       }
 
       const page1 = await store.list({ scopeType: 'project', scopeId: project.id }, { limit: 2 });
-      const page2 = await store.list({ scopeType: 'project', scopeId: project.id }, { limit: 2, offset: 2 });
+      const page2 = await store.list(
+        { scopeType: 'project', scopeId: project.id },
+        { limit: 2, offset: 2 }
+      );
 
       expect(page1.length).toBeLessThanOrEqual(2);
       expect(page2.length).toBeLessThanOrEqual(2);
@@ -237,7 +240,13 @@ describe('Recommendation Store Integration', () => {
         sourceExperienceIds: [exp.experience.id],
       });
 
-      const approved = await store.approve(created.id, 'test-reviewer', undefined, undefined, 'Approved for promotion');
+      const approved = await store.approve(
+        created.id,
+        'test-reviewer',
+        undefined,
+        undefined,
+        'Approved for promotion'
+      );
 
       expect(approved?.status).toBe('approved');
       expect(approved?.reviewedBy).toBe('test-reviewer');

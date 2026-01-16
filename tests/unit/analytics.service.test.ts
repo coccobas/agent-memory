@@ -401,19 +401,25 @@ describe('analytics.service', () => {
     });
 
     it('should filter by date range', () => {
-      const stats = getSubtaskStats({
-        startDate: '2024-01-01T00:00:00.000Z',
-        endDate: '2024-12-31T23:59:59.999Z',
-      }, db);
+      const stats = getSubtaskStats(
+        {
+          startDate: '2024-01-01T00:00:00.000Z',
+          endDate: '2024-12-31T23:59:59.999Z',
+        },
+        db
+      );
 
       expect(stats).toBeDefined();
       expect(typeof stats.totalSubtasks).toBe('number');
     });
 
     it('should filter without projectId (uses subtask filter only)', () => {
-      const stats = getSubtaskStats({
-        subtaskType: 'test-subtask-type',
-      }, db);
+      const stats = getSubtaskStats(
+        {
+          subtaskType: 'test-subtask-type',
+        },
+        db
+      );
 
       expect(stats).toBeDefined();
     });
@@ -498,6 +504,3 @@ describe('analytics.service', () => {
     });
   });
 });
-
-
-

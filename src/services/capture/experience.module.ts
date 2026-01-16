@@ -8,6 +8,8 @@
  * - Explicit case recording
  */
 
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
+
 import { OpenAI } from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 import { createComponentLogger } from '../../utils/logger.js';
@@ -24,9 +26,12 @@ import type {
   RecordCaseParams,
   TrajectoryStep,
 } from './types.js';
-import type { IExperienceRepository, CreateExperienceInput } from '../../core/interfaces/repositories.js';
+import type {
+  IExperienceRepository,
+  CreateExperienceInput,
+} from '../../core/interfaces/repositories.js';
 import type { Experience } from '../../db/schema.js';
-import { CaptureStateManager } from './state.js';
+import type { CaptureStateManager } from './state.js';
 
 const logger = createComponentLogger('capture:experience');
 
@@ -121,7 +126,8 @@ export class ExperienceCaptureModule implements CaptureModule<ExperienceCaptureR
   ) {
     this.experienceRepo = experienceRepo;
     this.stateManager = stateManager;
-    this.provider = providerOverride ?? (config.extraction.provider as ExperienceExtractionProvider);
+    this.provider =
+      providerOverride ?? (config.extraction.provider as ExperienceExtractionProvider);
 
     // Initialize clients based on provider
     if (this.provider === 'openai' && config.extraction.openaiApiKey) {
@@ -195,7 +201,10 @@ export class ExperienceCaptureModule implements CaptureModule<ExperienceCaptureR
         // Check confidence threshold
         const confidenceThreshold = options.confidenceThreshold ?? 0.7;
         if (exp.confidence < confidenceThreshold) {
-          logger.debug({ title: exp.title, confidence: exp.confidence }, 'Experience below confidence threshold');
+          logger.debug(
+            { title: exp.title, confidence: exp.confidence },
+            'Experience below confidence threshold'
+          );
           continue;
         }
 
@@ -376,20 +385,22 @@ export class ExperienceCaptureModule implements CaptureModule<ExperienceCaptureR
    * Format transcript for LLM consumption
    */
   private formatTranscript(transcript: TurnData[]): string {
-    return transcript.map(turn => {
-      const lines: string[] = [];
-      lines.push(`[${turn.role.toUpperCase()}]:`);
-      lines.push(turn.content);
+    return transcript
+      .map((turn) => {
+        const lines: string[] = [];
+        lines.push(`[${turn.role.toUpperCase()}]:`);
+        lines.push(turn.content);
 
-      if (turn.toolCalls && turn.toolCalls.length > 0) {
-        lines.push('Tool calls:');
-        for (const call of turn.toolCalls) {
-          lines.push(`  - ${call.name}: ${call.success ? 'success' : 'failed'}`);
+        if (turn.toolCalls && turn.toolCalls.length > 0) {
+          lines.push('Tool calls:');
+          for (const call of turn.toolCalls) {
+            lines.push(`  - ${call.name}: ${call.success ? 'success' : 'failed'}`);
+          }
         }
-      }
 
-      return lines.join('\n');
-    }).join('\n\n');
+        return lines.join('\n');
+      })
+      .join('\n\n');
   }
 
   /**
@@ -397,7 +408,10 @@ export class ExperienceCaptureModule implements CaptureModule<ExperienceCaptureR
    */
   private async extractWithOpenAI(context: string): Promise<ExtractedExperience[]> {
     if (!this.openaiClient) {
-      throw createServiceUnavailableError('OpenAI', 'Client not initialized - check OPENAI_API_KEY configuration');
+      throw createServiceUnavailableError(
+        'OpenAI',
+        'Client not initialized - check OPENAI_API_KEY configuration'
+      );
     }
 
     return withRetry(
@@ -406,13 +420,18 @@ export class ExperienceCaptureModule implements CaptureModule<ExperienceCaptureR
           model: config.extraction.openaiModel,
           messages: [
             { role: 'system', content: EXPERIENCE_EXTRACTION_PROMPT },
-            { role: 'user', content: `Analyze this conversation and extract experiences:\n\n${context}` },
+            {
+              role: 'user',
+              content: `Analyze this conversation and extract experiences:\n\n${context}`,
+            },
           ],
           response_format: { type: 'json_object' },
           temperature: config.extraction.temperature,
           max_tokens: config.extraction.maxTokens,
           // reasoning_effort for models with extended thinking
-          ...(config.extraction.openaiReasoningEffort ? { reasoning_effort: config.extraction.openaiReasoningEffort } : {}),
+          ...(config.extraction.openaiReasoningEffort
+            ? { reasoning_effort: config.extraction.openaiReasoningEffort }
+            : {}),
         });
 
         const content = response.choices[0]?.message?.content;
@@ -436,7 +455,10 @@ export class ExperienceCaptureModule implements CaptureModule<ExperienceCaptureR
    */
   private async extractWithAnthropic(context: string): Promise<ExtractedExperience[]> {
     if (!this.anthropicClient) {
-      throw createServiceUnavailableError('Anthropic', 'Client not initialized - check ANTHROPIC_API_KEY configuration');
+      throw createServiceUnavailableError(
+        'Anthropic',
+        'Client not initialized - check ANTHROPIC_API_KEY configuration'
+      );
     }
 
     return withRetry(
@@ -446,7 +468,10 @@ export class ExperienceCaptureModule implements CaptureModule<ExperienceCaptureR
           max_tokens: config.extraction.maxTokens,
           system: EXPERIENCE_EXTRACTION_PROMPT,
           messages: [
-            { role: 'user', content: `Analyze this conversation and extract experiences:\n\n${context}` },
+            {
+              role: 'user',
+              content: `Analyze this conversation and extract experiences:\n\n${context}`,
+            },
           ],
         });
 
@@ -460,7 +485,10 @@ export class ExperienceCaptureModule implements CaptureModule<ExperienceCaptureR
       {
         retryableErrors: isRetryableNetworkError,
         onRetry: (error, attempt) => {
-          logger.warn({ error: error.message, attempt }, 'Retrying Anthropic experience extraction');
+          logger.warn(
+            { error: error.message, attempt },
+            'Retrying Anthropic experience extraction'
+          );
         },
       }
     );
@@ -490,10 +518,13 @@ export class ExperienceCaptureModule implements CaptureModule<ExperienceCaptureR
         });
 
         if (!response.ok) {
-          throw createServiceUnavailableError('Ollama', `Request failed with status ${response.status}`);
+          throw createServiceUnavailableError(
+            'Ollama',
+            `Request failed with status ${response.status}`
+          );
         }
 
-        const data = await response.json() as { response: string };
+        const data = (await response.json()) as { response: string };
         if (!data.response) {
           return [];
         }
@@ -502,10 +533,7 @@ export class ExperienceCaptureModule implements CaptureModule<ExperienceCaptureR
       },
       {
         retryableErrors: (error: Error) => {
-          return (
-            error.message.includes('ECONNREFUSED') ||
-            error.message.includes('fetch failed')
-          );
+          return error.message.includes('ECONNREFUSED') || error.message.includes('fetch failed');
         },
         onRetry: (error, attempt) => {
           logger.warn({ error: error.message, attempt }, 'Retrying Ollama experience extraction');
@@ -532,20 +560,19 @@ export class ExperienceCaptureModule implements CaptureModule<ExperienceCaptureR
         return [];
       }
 
-      return parsed.experiences.filter(exp =>
-        exp.title && exp.scenario && exp.outcome
-      ).map(exp => ({
-        title: exp.title,
-        scenario: exp.scenario,
-        outcome: exp.outcome,
-        content: exp.content || `${exp.scenario}\n\n${exp.outcome}`,
-        pattern: exp.pattern,
-        applicability: exp.applicability,
-        confidence: typeof exp.confidence === 'number'
-          ? Math.min(1, Math.max(0, exp.confidence))
-          : 0.5,
-        trajectory: exp.trajectory,
-      }));
+      return parsed.experiences
+        .filter((exp) => exp.title && exp.scenario && exp.outcome)
+        .map((exp) => ({
+          title: exp.title,
+          scenario: exp.scenario,
+          outcome: exp.outcome,
+          content: exp.content || `${exp.scenario}\n\n${exp.outcome}`,
+          pattern: exp.pattern,
+          applicability: exp.applicability,
+          confidence:
+            typeof exp.confidence === 'number' ? Math.min(1, Math.max(0, exp.confidence)) : 0.5,
+          trajectory: exp.trajectory,
+        }));
     } catch (error) {
       logger.warn(
         { content: content.slice(0, 200) },

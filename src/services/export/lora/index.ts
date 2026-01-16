@@ -4,7 +4,12 @@
  * Export guidelines as LoRA training data for fine-tuning language models.
  * Supports multiple formats (Alpaca, ShareGPT, OpenAI, Anthropic) and generates
  * adapter configurations and training scripts.
+ *
+ * NOTE: Handles dynamic guideline examples and properties for training data generation.
+ * ESLint unsafe warnings are suppressed for guideline data access.
  */
+
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any */
 
 import type { DbClient } from '../../../db/connection.js';
 import type {
@@ -116,12 +121,11 @@ export async function exportGuidelinesAsLoRA(
     await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2), 'utf-8');
 
     // Generate adapter config
-    let adapterConfigPath: string | undefined;
     const adapterConfig = generateAdapterConfig({
       modelType: config.targetModel,
     });
     const adapterConfigContent = generateAdapterConfigJSON(adapterConfig);
-    adapterConfigPath = path.join(outputDir, 'adapter_config.json');
+    const adapterConfigPath = path.join(outputDir, 'adapter_config.json');
     await fs.writeFile(adapterConfigPath, adapterConfigContent, 'utf-8');
 
     // Generate training script
@@ -214,7 +218,10 @@ export async function exportGuidelinesAsLoRA(
 /**
  * Query guidelines from database based on export config
  */
-async function queryGuidelines(db: DbClient, config: GuidelineExportConfig): Promise<GuidelineData[]> {
+async function queryGuidelines(
+  db: DbClient,
+  config: GuidelineExportConfig
+): Promise<GuidelineData[]> {
   const conditions = [];
   const filter = config.filter || {};
 

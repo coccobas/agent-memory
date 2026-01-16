@@ -3,7 +3,12 @@
  *
  * Export RL training data in HuggingFace datasets format.
  * Supports loading with: datasets.load_dataset('json', data_files='...')
+ *
+ * NOTE: Converts dynamic policy-specific state to HuggingFace format.
+ * ESLint unsafe-member-access warnings are suppressed for type conversions.
  */
+
+/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any */
 
 import type {
   ExtractionTrainingExample,

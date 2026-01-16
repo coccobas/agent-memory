@@ -66,7 +66,7 @@ console.log(`Found ${result.entries.length} entries in ${result.totalTimeMs}ms`)
 // Get domain-level summaries for browsing
 const domains = await retriever.getTopLevel('project', 'my-project');
 
-domains.forEach(domain => {
+domains.forEach((domain) => {
   console.log(`${domain.title} (${domain.memberCount} members)`);
 });
 ```
@@ -86,17 +86,17 @@ console.log(`Members: ${result.members.length}`);
 
 ### CoarseToFineOptions
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `query` | string | required | Search query text |
-| `queryEmbedding` | number[] | auto-generated | Pre-computed query embedding |
-| `scopeType` | ScopeType | undefined | Scope to search within |
-| `scopeId` | string | undefined | Scope identifier |
-| `maxResults` | number | 10 | Maximum entries to return |
-| `startLevel` | number | highest | Starting hierarchy level |
-| `expansionFactor` | number | 3 | Candidates to expand per level |
-| `minSimilarity` | number | 0.5 | Minimum similarity threshold |
-| `entryTypes` | string[] | all | Filter by entry types |
+| Option            | Type      | Default        | Description                    |
+| ----------------- | --------- | -------------- | ------------------------------ |
+| `query`           | string    | required       | Search query text              |
+| `queryEmbedding`  | number[]  | auto-generated | Pre-computed query embedding   |
+| `scopeType`       | ScopeType | undefined      | Scope to search within         |
+| `scopeId`         | string    | undefined      | Scope identifier               |
+| `maxResults`      | number    | 10             | Maximum entries to return      |
+| `startLevel`      | number    | highest        | Starting hierarchy level       |
+| `expansionFactor` | number    | 3              | Candidates to expand per level |
+| `minSimilarity`   | number    | 0.5            | Minimum similarity threshold   |
+| `entryTypes`      | string[]  | all            | Filter by entry types          |
 
 ## Result Structure
 
@@ -144,12 +144,12 @@ For a collection with 10,000 entries:
 ### Typical Performance
 
 | Collection Size | Flat Search | Hierarchical Search | Speedup |
-|-----------------|-------------|---------------------|---------|
+| --------------- | ----------- | ------------------- | ------- |
 | 1,000 entries   | ~100ms      | ~30ms               | 3.3x    |
 | 10,000 entries  | ~1,000ms    | ~50ms               | 20x     |
 | 100,000 entries | ~10,000ms   | ~80ms               | 125x    |
 
-*Actual performance depends on embedding service, hardware, and data distribution*
+_Actual performance depends on embedding service, hardware, and data distribution_
 
 ## Algorithm
 
@@ -173,7 +173,7 @@ For a collection with 10,000 entries:
 Uses cosine similarity between query embedding and summary embedding:
 
 ```typescript
-score = cosineSimilarity(queryEmbedding, summaryEmbedding)
+score = cosineSimilarity(queryEmbedding, summaryEmbedding);
 ```
 
 ### Path Tracking
@@ -192,12 +192,14 @@ Each result includes its path through the hierarchy:
 ### Database Schema
 
 Uses tables from `src/db/schema/summaries.ts`:
+
 - `summaries` - Hierarchical summary entries
 - `summaryMembers` - Many-to-many relationships
 
 ### Embedding Service
 
 Requires `EmbeddingService` for query embedding generation:
+
 - OpenAI API (text-embedding-3-small)
 - Local models (@xenova/transformers)
 - Disabled mode falls back to empty results

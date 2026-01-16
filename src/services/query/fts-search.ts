@@ -205,7 +205,11 @@ export function executeFts5Query(
     // If FTS5 fails (e.g., table doesn't exist), fall back to LIKE search
     // Bug #191 fix: Don't log ftsQuery as it may contain PII/sensitive search terms
     logger.warn(
-      { entryType, queryLength: ftsQuery?.length ?? 0, error: error instanceof Error ? error.message : String(error) },
+      {
+        entryType,
+        queryLength: ftsQuery?.length ?? 0,
+        error: error instanceof Error ? error.message : String(error),
+      },
       'FTS5 query failed, falling back to LIKE search'
     );
     return executeLikeSearch(entryType, searchQuery, fields);
@@ -685,7 +689,9 @@ export function createFtsSearchFunctions(
     const params: string[] = [];
 
     if (types.includes('tools')) {
-      queryParts.push(`SELECT 'tool' as type, tool_id as id FROM tools_fts WHERE tools_fts MATCH ?`);
+      queryParts.push(
+        `SELECT 'tool' as type, tool_id as id FROM tools_fts WHERE tools_fts MATCH ?`
+      );
       params.push(escapedSearch);
     }
 

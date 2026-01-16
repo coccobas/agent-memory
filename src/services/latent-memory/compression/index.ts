@@ -29,7 +29,12 @@
  *   bits: 8
  * });
  * ```
+ *
+ * NOTE: Non-null assertions used for array indexing in compression algorithms
+ * after bounds validation.
  */
+
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 
 import { createValidationError } from '../../../core/errors.js';
 
@@ -55,6 +60,8 @@ import type {
   CompressionConfig,
   RandomProjectionConfig,
   QuantizationConfig,
+  CompressionResult,
+  CompressionMetadata,
 } from './types.js';
 import { RandomProjection } from './random-projection.js';
 import { ScalarQuantization } from './quantization.js';
@@ -112,7 +119,10 @@ export function createCompressor(
     default: {
       // Exhaustive check for TypeScript
       const exhaustiveCheck: never = method;
-      throw createValidationError('method', `unsupported compression method: ${exhaustiveCheck}`);
+      throw createValidationError(
+        'method',
+        `unsupported compression method: ${String(exhaustiveCheck)}`
+      );
     }
   }
 }
@@ -158,10 +168,10 @@ export function createDefaultCompressor(seed = 42): RandomProjection {
 export function compressWithMetadata(
   embedding: number[],
   strategy: CompressionStrategy
-): import('./types.js').CompressionResult {
+): CompressionResult {
   const compressed = strategy.compress(embedding);
 
-  const metadata: import('./types.js').CompressionMetadata = {
+  const metadata: CompressionMetadata = {
     method: strategy.getName(),
     inputDimension: embedding.length,
     outputDimension: compressed.length,
@@ -183,7 +193,7 @@ export function compressWithMetadata(
   }
 
   // Calculate quality metrics if decompression is available
-  let quality: import('./types.js').CompressionResult['quality'];
+  let quality: CompressionResult['quality'];
   if (strategy.decompress && strategy instanceof ScalarQuantization) {
     const similarity = strategy.calculateSimilarity(embedding, compressed);
     const error = strategy.estimateError(embedding, compressed);

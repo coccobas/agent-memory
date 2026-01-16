@@ -66,11 +66,11 @@ Add to your MCP client config:
 
 Config file location:
 
-| OS | Path |
-|---|---|
-| macOS | `~/Library/Application Support/Claude/claude_desktop_config.json` |
-| Linux | `~/.config/claude/claude_desktop_config.json` |
-| Windows | `%APPDATA%\Claude\claude_desktop_config.json` |
+| OS      | Path                                                              |
+| ------- | ----------------------------------------------------------------- |
+| macOS   | `~/Library/Application Support/Claude/claude_desktop_config.json` |
+| Linux   | `~/.config/claude/claude_desktop_config.json`                     |
+| Windows | `%APPDATA%\Claude\claude_desktop_config.json`                     |
 
 ```json
 {
@@ -150,11 +150,11 @@ Config file location:
 
 ## 🎯 Three Memory Types
 
-| Type | Purpose | Example |
-|:-----|:--------|:--------|
-| 🔧 **Tools** | Command registry — CLI, APIs, scripts | `{"name": "test-coverage", "command": "npm run test:cov"}` |
-| 📏 **Guidelines** | Rules & standards — code style, security | `{"name": "no-any", "content": "Never use 'any' type"}` |
-| 💡 **Knowledge** | Facts & decisions — architecture, gotchas | `{"title": "Auth", "content": "Using JWT with RS256"}` |
+| Type              | Purpose                                   | Example                                                    |
+| :---------------- | :---------------------------------------- | :--------------------------------------------------------- |
+| 🔧 **Tools**      | Command registry — CLI, APIs, scripts     | `{"name": "test-coverage", "command": "npm run test:cov"}` |
+| 📏 **Guidelines** | Rules & standards — code style, security  | `{"name": "no-any", "content": "Never use 'any' type"}`    |
+| 💡 **Knowledge**  | Facts & decisions — architecture, gotchas | `{"title": "Auth", "content": "Using JWT with RS256"}`     |
 
 ---
 
@@ -162,22 +162,22 @@ Config file location:
 
 Built for speed. SQLite WAL mode + intelligent caching.
 
-| Operation | Throughput | p99 Latency |
-|:----------|:----------:|:-----------:|
-| Simple query | **4.5M ops/sec** | < 0.3ms |
-| Scoped + inheritance | **3.6M ops/sec** | < 0.4ms |
-| Full-text search | **3.5M ops/sec** | < 0.4ms |
-| Semantic search | **3.1M ops/sec** | < 0.5ms |
+| Operation            |    Throughput    | p99 Latency |
+| :------------------- | :--------------: | :---------: |
+| Simple query         | **4.5M ops/sec** |   < 0.3ms   |
+| Scoped + inheritance | **3.6M ops/sec** |   < 0.4ms   |
+| Full-text search     | **3.5M ops/sec** |   < 0.4ms   |
+| Semantic search      | **3.1M ops/sec** |   < 0.5ms   |
 
 ---
 
 ## ✨ Features
 
-| Smart Search | Multi-Agent Ready | Production Grade |
-|:-------------|:------------------|:-----------------|
-| Semantic search (OpenAI/local) | File locking | Version history |
-| Full-text search (FTS5) | Conflict detection | Query caching |
-| Hybrid search | Per-agent permissions | Rate limiting |
+| Smart Search                   | Multi-Agent Ready     | Production Grade |
+| :----------------------------- | :-------------------- | :--------------- |
+| Semantic search (OpenAI/local) | File locking          | Version history  |
+| Full-text search (FTS5)        | Conflict detection    | Query caching    |
+| Hybrid search                  | Per-agent permissions | Rate limiting    |
 
 ---
 
@@ -196,12 +196,12 @@ Runtime enforcement via pre/post tool call checks. Hooks intercept MCP tool exec
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-| Hook | Trigger | Purpose |
-|:-----|:--------|:--------|
-| **PreToolUse** | Before Edit/Write/Bash | Block unsafe actions before execution |
-| **Stop** | Session end attempt | Enforce memory review workflow |
-| **UserPromptSubmit** | User sends message | Parse `!am` commands for session control |
-| **SessionEnd** | Session terminates | Auto-ingest transcript to memory |
+| Hook                 | Trigger                | Purpose                                  |
+| :------------------- | :--------------------- | :--------------------------------------- |
+| **PreToolUse**       | Before Edit/Write/Bash | Block unsafe actions before execution    |
+| **Stop**             | Session end attempt    | Enforce memory review workflow           |
+| **UserPromptSubmit** | User sends message     | Parse `!am` commands for session control |
+| **SessionEnd**       | Session terminates     | Auto-ingest transcript to memory         |
 
 **Install hooks for Claude Code:**
 
@@ -230,12 +230,12 @@ npm run sync-rules:watch
 
 **What gets synced:**
 
-| Rule File | Content |
-|:----------|:--------|
-| `auto-memory-core.md` | Essential workflow (query → store → tag) |
-| `auto-memory-reference.md` | All 20+ MCP tools with parameters |
-| `auto-memory-examples.md` | Real-world usage patterns |
-| `auto-memory-strategies.md` | Optimization and best practices |
+| Rule File                   | Content                                  |
+| :-------------------------- | :--------------------------------------- |
+| `auto-memory-core.md`       | Essential workflow (query → store → tag) |
+| `auto-memory-reference.md`  | All 20+ MCP tools with parameters        |
+| `auto-memory-examples.md`   | Real-world usage patterns                |
+| `auto-memory-strategies.md` | Optimization and best practices          |
 
 [→ Rules Sync Guide](docs/guides/rules-sync.md)
 
@@ -254,10 +254,10 @@ AGENT_MEMORY_REST_ENABLED=true AGENT_MEMORY_REST_API_KEY=secret npx agent-memory
 AGENT_MEMORY_REST_ENABLED=true AGENT_MEMORY_REST_API_KEY=secret npx agent-memory both
 ```
 
-| Endpoint | Description |
-|----------|-------------|
-| `GET /health` | Health check |
-| `POST /v1/query` | Search memory |
+| Endpoint           | Description            |
+| ------------------ | ---------------------- |
+| `GET /health`      | Health check           |
+| `POST /v1/query`   | Search memory          |
 | `POST /v1/context` | Get aggregated context |
 
 ---
@@ -285,31 +285,31 @@ AGENT_MEMORY_PERMISSIONS_MODE=permissive
 
 ## 📚 Documentation
 
-| Resource | Description |
-|:---------|:------------|
-| [Quickstart](docs/quickstart.md) | Get running in 2 minutes |
-| [Installation](docs/installation.md) | npm, Docker, source |
-| [Getting Started](docs/getting-started.md) | Full setup guide |
-| [MCP Tools](docs/reference/mcp-tools.md) | All 20+ tools documented |
-| [Hooks Guide](docs/guides/hooks.md) | IDE hooks for enforcement |
-| [Rules Sync](docs/guides/rules-sync.md) | Sync guidelines to IDEs |
-| [IDE Setup](docs/guides/ide-setup.md) | Claude, Cursor, VS Code |
-| [Troubleshooting](docs/guides/troubleshooting.md) | Common issues |
+| Resource                                          | Description               |
+| :------------------------------------------------ | :------------------------ |
+| [Quickstart](docs/quickstart.md)                  | Get running in 2 minutes  |
+| [Installation](docs/installation.md)              | npm, Docker, source       |
+| [Getting Started](docs/getting-started.md)        | Full setup guide          |
+| [MCP Tools](docs/reference/mcp-tools.md)          | All 20+ tools documented  |
+| [Hooks Guide](docs/guides/hooks.md)               | IDE hooks for enforcement |
+| [Rules Sync](docs/guides/rules-sync.md)           | Sync guidelines to IDEs   |
+| [IDE Setup](docs/guides/ide-setup.md)             | Claude, Cursor, VS Code   |
+| [Troubleshooting](docs/guides/troubleshooting.md) | Common issues             |
 
 ---
 
 ## 🗺️ Roadmap
 
-| Feature | Status |
-|:--------|:-------|
-| macOS | ✅ Supported |
-| Windows | 🧪 Not tested |
-| Linux | 🧪 Not tested |
-| Claude Code hooks | ✅ Supported |
-| Cursor hooks | 🚧 In development |
-| VS Code hooks | 🚧 In development |
-| Other IDE hooks | 📋 Planned |
-| Task manager (status, assignment, priorities) | 📋 Planned |
+| Feature                                       | Status            |
+| :-------------------------------------------- | :---------------- |
+| macOS                                         | ✅ Supported      |
+| Windows                                       | 🧪 Not tested     |
+| Linux                                         | 🧪 Not tested     |
+| Claude Code hooks                             | ✅ Supported      |
+| Cursor hooks                                  | 🚧 In development |
+| VS Code hooks                                 | 🚧 In development |
+| Other IDE hooks                               | 📋 Planned        |
+| Task manager (status, assignment, priorities) | 📋 Planned        |
 
 [Request a feature](https://github.com/anthropics/agent-memory/issues)
 

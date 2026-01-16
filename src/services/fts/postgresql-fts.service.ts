@@ -8,7 +8,12 @@
  * - Phrase matching with tsquery
  * - Prefix matching with :*
  * - Highlighted snippets with ts_headline
+ *
+ * NOTE: PostgreSQL query results have dynamic row types.
+ * ESLint unsafe warnings are suppressed for database query results.
  */
+
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return */
 
 import type { Pool } from 'pg';
 import type { EntryType } from '../../db/schema/types.js';

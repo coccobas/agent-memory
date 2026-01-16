@@ -6,14 +6,7 @@
  * (suitable for CLI/server where blocking is acceptable).
  */
 
-import {
-  existsSync,
-  readFileSync,
-  readdirSync,
-  statSync,
-  writeFileSync,
-  mkdirSync,
-} from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync, writeFileSync, mkdirSync } from 'node:fs';
 import { resolve, join, basename, dirname } from 'node:path';
 import type { IFileSystemAdapter, FileStat } from './filesystem.adapter.js';
 

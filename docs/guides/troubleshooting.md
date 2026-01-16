@@ -60,16 +60,19 @@ gyp ERR! build error
 **Solution:** Install build tools:
 
 **macOS:**
+
 ```bash
 xcode-select --install
 ```
 
 **Ubuntu/Debian:**
+
 ```bash
 sudo apt-get install build-essential python3
 ```
 
 **Windows:**
+
 ```bash
 npm install --global windows-build-tools
 ```
@@ -189,6 +192,7 @@ Error: Database not initialized
 ```
 
 Or set environment variable:
+
 ```bash
 AGENT_MEMORY_SKIP_INIT=0 agent-memory mcp
 ```
@@ -342,6 +346,7 @@ AGENT_MEMORY_PERMISSIONS_MODE=permissive agent-memory rest
 ```
 
 Grant permissions to agent:
+
 ```json
 // Tool: memory_permission
 {
@@ -405,12 +410,13 @@ ls ~/.agent-memory/data/vectors.lance/
 ```
 
 Lower similarity threshold:
+
 ```json
 {
   "action": "search",
   "search": "query",
   "semanticSearch": true,
-  "semanticThreshold": 0.5  // Lower from default 0.7
+  "semanticThreshold": 0.5 // Lower from default 0.7
 }
 ```
 
@@ -444,6 +450,7 @@ AGENT_MEMORY_EMBEDDING_PROVIDER=local agent-memory mcp
 ```
 
 Batch operations:
+
 ```json
 // Use bulk_add instead of multiple add calls
 {
@@ -485,6 +492,7 @@ Grant explicit permissions:
 ```
 
 Check current permissions:
+
 ```json
 // Tool: memory_permission
 {
@@ -547,12 +555,13 @@ Limit query results:
 ```
 
 Use specific scope:
+
 ```json
 {
   "action": "context",
   "scopeType": "project",
   "scopeId": "proj-123",
-  "inherit": false  // Don't inherit from parent scopes
+  "inherit": false // Don't inherit from parent scopes
 }
 ```
 
@@ -649,25 +658,28 @@ grep "memory_guideline" ~/.agent-memory/logs/*.log
 
 ### Log Location
 
-| Installation | Log Directory |
-|--------------|---------------|
-| npm package | `~/.agent-memory/logs/` |
-| From source | `<project>/data/logs/` |
-| Docker | `/data/logs/` |
+| Installation | Log Directory           |
+| ------------ | ----------------------- |
+| npm package  | `~/.agent-memory/logs/` |
+| From source  | `<project>/data/logs/`  |
+| Docker       | `/data/logs/`           |
 
 ### Common Log Patterns
 
 **Successful operation:**
+
 ```
 [INFO] memory_guideline:add completed in 12ms
 ```
 
 **Error pattern:**
+
 ```
 [ERROR] memory_guideline:add failed: ValidationError: name is required
 ```
 
 **Performance warning:**
+
 ```
 [WARN] Query took 500ms, consider adding index
 ```

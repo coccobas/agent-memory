@@ -60,10 +60,16 @@ function validateCorrelationId(id: string): void {
     throw createValidationError('correlationId', 'must be a non-empty string');
   }
   if (id.length > MAX_CORRELATION_ID_LENGTH) {
-    throw createValidationError('correlationId', `exceeds maximum length of ${MAX_CORRELATION_ID_LENGTH} characters`);
+    throw createValidationError(
+      'correlationId',
+      `exceeds maximum length of ${MAX_CORRELATION_ID_LENGTH} characters`
+    );
   }
   if (!CORRELATION_ID_PATTERN.test(id)) {
-    throw createValidationError('correlationId', 'must contain only alphanumeric characters, underscores, and hyphens');
+    throw createValidationError(
+      'correlationId',
+      'must contain only alphanumeric characters, underscores, and hyphens'
+    );
   }
 }
 
@@ -76,7 +82,10 @@ function validateMetadata(metadata: Record<string, unknown> | undefined): void {
   try {
     const serialized = JSON.stringify(metadata);
     if (serialized.length > MAX_METADATA_SIZE_BYTES) {
-      throw createValidationError('metadata', `exceeds maximum size of ${MAX_METADATA_SIZE_BYTES} bytes`);
+      throw createValidationError(
+        'metadata',
+        `exceeds maximum size of ${MAX_METADATA_SIZE_BYTES} bytes`
+      );
     }
   } catch (error) {
     if (error instanceof Error && error.message.includes('maximum size')) throw error;

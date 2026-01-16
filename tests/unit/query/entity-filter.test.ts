@@ -45,7 +45,12 @@ function createTestContext(overrides: Partial<PipelineContext> = {}): PipelineCo
     limit: 20,
     search: undefined,
     ftsMatchIds: null,
-    relatedIds: { tool: new Set(), guideline: new Set(), knowledge: new Set(), experience: new Set() },
+    relatedIds: {
+      tool: new Set(),
+      guideline: new Set(),
+      knowledge: new Set(),
+      experience: new Set(),
+    },
     semanticScores: null,
     fetchedEntries: { tools: [], guidelines: [], knowledge: [], experiences: [] },
     tagsByEntry: {},
@@ -83,7 +88,10 @@ describe('EntityFilterStage', () => {
 
     it('should skip filtering when disabled', () => {
       const index = createMockEntityIndex();
-      const stage = createEntityFilterStage(index, { ...DEFAULT_ENTITY_FILTER_CONFIG, enabled: false });
+      const stage = createEntityFilterStage(index, {
+        ...DEFAULT_ENTITY_FILTER_CONFIG,
+        enabled: false,
+      });
 
       const ctx = createTestContext({ search: 'query with /src/file.ts' });
       const result = stage(ctx);
@@ -180,7 +188,9 @@ describe('EntityFilterStage', () => {
       const ctx: EntityFilterPipelineContext = {
         ...createTestContext(),
         entityFilter: {
-          extractedEntities: [{ type: 'FILE_PATH', value: '/src/file.ts', normalizedValue: '/src/file.ts' }],
+          extractedEntities: [
+            { type: 'FILE_PATH', value: '/src/file.ts', normalizedValue: '/src/file.ts' },
+          ],
           matchedEntryIds: new Set(['entry-2']),
           matchCountByEntry: new Map([['entry-2', 1]]),
           entityCount: 1,
@@ -242,7 +252,9 @@ describe('EntityFilterStage', () => {
       const ctx: EntityFilterPipelineContext = {
         ...createTestContext(),
         entityFilter: {
-          extractedEntities: [{ type: 'FILE_PATH', value: '/src/file.ts', normalizedValue: '/src/file.ts' }],
+          extractedEntities: [
+            { type: 'FILE_PATH', value: '/src/file.ts', normalizedValue: '/src/file.ts' },
+          ],
           matchedEntryIds: new Set(['entry-1']),
           matchCountByEntry: new Map([['entry-1', 1]]),
           entityCount: 1,

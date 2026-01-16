@@ -130,7 +130,9 @@ describe('QueryRewriteService', () => {
 
       // Should have classified the query
       expect(result.intent).toBeDefined();
-      expect(['lookup', 'how_to', 'debug', 'explore', 'compare', 'configure']).toContain(result.intent);
+      expect(['lookup', 'how_to', 'debug', 'explore', 'compare', 'configure']).toContain(
+        result.intent
+      );
     });
 
     it('should use provided queryType if available', async () => {
@@ -166,7 +168,7 @@ describe('QueryRewriteService', () => {
       expect(result.rewrittenQueries[0]?.source).toBe('original');
 
       // Check that some expanded queries exist
-      const hasExpansions = result.rewrittenQueries.some(q => q.source === 'expansion');
+      const hasExpansions = result.rewrittenQueries.some((q) => q.source === 'expansion');
       expect(hasExpansions).toBe(true);
     });
 
@@ -203,7 +205,7 @@ describe('QueryRewriteService', () => {
       const result = await service.rewrite(input);
 
       // Should have original + at most 2 expansions
-      const expansionCount = result.rewrittenQueries.filter(q => q.source === 'expansion').length;
+      const expansionCount = result.rewrittenQueries.filter((q) => q.source === 'expansion').length;
       expect(expansionCount).toBeLessThanOrEqual(2);
     });
 
@@ -229,7 +231,7 @@ describe('QueryRewriteService', () => {
       const result = await service.rewrite(input);
 
       // Should have original + at most 3 expansions
-      const expansionCount = result.rewrittenQueries.filter(q => q.source === 'expansion').length;
+      const expansionCount = result.rewrittenQueries.filter((q) => q.source === 'expansion').length;
       expect(expansionCount).toBeLessThanOrEqual(3);
     });
 
@@ -383,7 +385,7 @@ describe('QueryRewriteService', () => {
       });
 
       // Find an expansion query
-      const expandedQuery = result.rewrittenQueries.find(q => q.source === 'expansion');
+      const expandedQuery = result.rewrittenQueries.find((q) => q.source === 'expansion');
       if (expandedQuery) {
         // Weight should be less than or equal to 0.5 (expansionWeight)
         expect(expandedQuery.weight).toBeLessThanOrEqual(0.5);
@@ -398,7 +400,9 @@ describe('QueryRewriteService', () => {
       });
 
       expect(result.intent).toBeDefined();
-      expect(['lookup', 'how_to', 'debug', 'explore', 'compare', 'configure']).toContain(result.intent);
+      expect(['lookup', 'how_to', 'debug', 'explore', 'compare', 'configure']).toContain(
+        result.intent
+      );
     });
   });
 
@@ -426,12 +430,7 @@ describe('QueryRewriteService', () => {
     it('should handle different query types', async () => {
       const service = new QueryRewriteService();
 
-      const queries = [
-        'what is this',
-        'how to configure',
-        'error in code',
-        'compare options',
-      ];
+      const queries = ['what is this', 'how to configure', 'error in code', 'compare options'];
 
       for (const query of queries) {
         const result = await service.classifyIntent(query);

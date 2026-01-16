@@ -12,9 +12,9 @@ import { eq, and, or, like, desc, asc, sql, inArray } from 'drizzle-orm';
  */
 function escapeLikePattern(input: string): string {
   return input
-    .replace(/\\/g, '\\\\')  // Escape backslash first
-    .replace(/%/g, '\\%')     // Escape percent
-    .replace(/_/g, '\\_');    // Escape underscore
+    .replace(/\\/g, '\\\\') // Escape backslash first
+    .replace(/%/g, '\\%') // Escape percent
+    .replace(/_/g, '\\_'); // Escape underscore
 }
 import { transactionWithDb } from '../connection.js';
 import {

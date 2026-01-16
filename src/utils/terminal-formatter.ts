@@ -3,7 +3,11 @@
  *
  * Provides tree views, status icons, unicode boxes, and badges for
  * better visual representation in terminal environments.
+ *
+ * NOTE: Non-null assertions used for Map access after validation checks.
  */
+
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Icons and Symbols
@@ -150,9 +154,12 @@ export function formatTree(root: TreeNode, prefix = ''): string {
   lines.push(`${prefix}${icon}${root.label}${meta}`);
 
   if (root.children && root.children.length > 0) {
-    const childPrefix = prefix ? prefix.replace(icons.branch, icons.vertical + '  ').replace(icons.lastBranch, '   ') : '';
+    const childPrefix = prefix
+      ? prefix.replace(icons.branch, icons.vertical + '  ').replace(icons.lastBranch, '   ')
+      : '';
 
     root.children.forEach((child, index) => {
+      // Safe: root.children already verified to exist and be non-empty
       const isLast = index === root.children!.length - 1;
       const connector = isLast ? icons.lastBranch : icons.branch;
 
@@ -165,6 +172,7 @@ export function formatTree(root: TreeNode, prefix = ''): string {
         lines.push(`${childPrefix}${connector} ${childIcon}${child.label}${childMeta}`);
 
         child.children.forEach((grandchild, gIndex) => {
+          // Safe: child.children already verified to exist and be non-empty
           const gIsLast = gIndex === child.children!.length - 1;
           const gConnector = gIsLast ? icons.lastBranch : icons.branch;
           const gIcon = grandchild.icon ? `${grandchild.icon} ` : '';
@@ -210,7 +218,9 @@ export function formatBox(lines: string[], options: BoxOptions = {}): string {
   if (options.title) {
     const titlePart = `${box.horizontal} ${options.title} `;
     const remainingWidth = width - titlePart.length - 2;
-    result.push(`${box.topLeft}${titlePart}${repeat(box.horizontal, remainingWidth)}${box.topRight}`);
+    result.push(
+      `${box.topLeft}${titlePart}${repeat(box.horizontal, remainingWidth)}${box.topRight}`
+    );
   } else {
     result.push(`${box.topLeft}${repeat(box.horizontal, width - 2)}${box.topRight}`);
   }
@@ -244,7 +254,10 @@ export interface BarChartItem {
  * fact       ████████░░░░░░░  8
  * code_style ███░░░░░░░░░░░░  3
  */
-export function formatBarChart(items: BarChartItem[], options: { maxWidth?: number; labelWidth?: number } = {}): string {
+export function formatBarChart(
+  items: BarChartItem[],
+  options: { maxWidth?: number; labelWidth?: number } = {}
+): string {
   if (items.length === 0) return '';
 
   const maxValue = Math.max(...items.map((i) => i.value));
@@ -294,7 +307,12 @@ export function formatTable(rows: string[][], options: TableOptions = {}): strin
     });
   }
 
-  const formatRow = (row: string[], leftBorder: string, separator: string, rightBorder: string): string => {
+  const formatRow = (
+    row: string[],
+    leftBorder: string,
+    separator: string,
+    rightBorder: string
+  ): string => {
     const cells = row.map((cell, i) => {
       const width = colWidths[i] ?? cell.length;
       if (options.alignRight?.includes(i)) {
@@ -404,7 +422,11 @@ export function formatHierarchicalContextTerminal(ctx: HierarchicalContext): str
   const typeChildren: TreeNode[] = [];
   if (ctx.summary.byType.guideline) {
     const guidelineCategories = Object.entries(ctx.summary.byCategory)
-      .filter(([cat]) => ctx.critical.some((c) => c.category === cat) || ctx.recent.some((r) => r.type === 'guideline' && r.category === cat))
+      .filter(
+        ([cat]) =>
+          ctx.critical.some((c) => c.category === cat) ||
+          ctx.recent.some((r) => r.type === 'guideline' && r.category === cat)
+      )
       .map(([cat, count]) => ({ label: cat, meta: `(${count})` }));
     typeChildren.push({
       label: 'Guidelines',
@@ -488,11 +510,18 @@ export function formatHealthTerminal(health: HealthResponse): string {
   const lines: string[] = [];
 
   // Status line
-  const status = health.status === 'healthy' ? 'healthy' : health.status === 'degraded' ? 'degraded' : 'error';
+  const status =
+    health.status === 'healthy' ? 'healthy' : health.status === 'degraded' ? 'degraded' : 'error';
   lines.push(
     formatStatusLine({
       status,
-      items: [{ label: 'DB', value: health.database.connected ? 'connected' : 'disconnected', status: health.database.connected ? 'active' : 'inactive' }],
+      items: [
+        {
+          label: 'DB',
+          value: health.database.connected ? 'connected' : 'disconnected',
+          status: health.database.connected ? 'active' : 'inactive',
+        },
+      ],
     })
   );
   lines.push('');
@@ -505,7 +534,10 @@ export function formatHealthTerminal(health: HealthResponse): string {
     rows.push(['DB Path', truncate(health.database.path, 40)]);
   }
   if (health.uptime !== undefined) {
-    const uptimeStr = health.uptime > 3600 ? `${Math.floor(health.uptime / 3600)}h ${Math.floor((health.uptime % 3600) / 60)}m` : `${Math.floor(health.uptime / 60)}m ${health.uptime % 60}s`;
+    const uptimeStr =
+      health.uptime > 3600
+        ? `${Math.floor(health.uptime / 3600)}h ${Math.floor((health.uptime % 3600) / 60)}m`
+        : `${Math.floor(health.uptime / 60)}m ${health.uptime % 60}s`;
     rows.push(['Uptime', uptimeStr]);
   }
 
@@ -564,7 +596,9 @@ export function formatStatusTerminal(status: StatusResponse): string {
   // Session line
   if (status.session) {
     const statusIcon = status.session.status === 'active' ? icons.active : icons.inactive;
-    lines.push(`${icons.session} Session: ${status.session.name} ${statusIcon} ${status.session.status}`);
+    lines.push(
+      `${icons.session} Session: ${status.session.name} ${statusIcon} ${status.session.status}`
+    );
   } else {
     lines.push(`${icons.session} Session: (none active)`);
   }
@@ -628,7 +662,14 @@ export function formatListTerminal(items: ListItem[], type: string): string {
     children.push({ label: `... and ${items.length - 10} more`, meta: '' });
   }
 
-  const icon = type === 'guidelines' ? icons.guideline : type === 'knowledge' ? icons.knowledge : type === 'tools' ? icons.tool : '';
+  const icon =
+    type === 'guidelines'
+      ? icons.guideline
+      : type === 'knowledge'
+        ? icons.knowledge
+        : type === 'tools'
+          ? icons.tool
+          : '';
 
   lines.push(
     formatTree({

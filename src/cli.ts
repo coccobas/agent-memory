@@ -82,7 +82,13 @@ async function main() {
     // Note: 'review' and 'hook' are handled by existing legacy commands above
   ];
 
-  if (cliCommands.includes(command) || command === '--help' || command === '-h' || command === '--version' || command === '-V') {
+  if (
+    cliCommands.includes(command) ||
+    command === '--help' ||
+    command === '-h' ||
+    command === '--version' ||
+    command === '-V'
+  ) {
     const { runCli } = await import('./cli/index.js');
     await runCli(argv);
     return;
@@ -90,12 +96,12 @@ async function main() {
 
   // Load environment variables explicitly
   const { loadEnv } = await import('./config/env.js');
-  const { resolve, dirname } = await import('node:path');
+  const path = await import('node:path');
   const { fileURLToPath } = await import('node:url');
 
   const __filename = fileURLToPath(import.meta.url);
-  const __dirname = dirname(__filename);
-  const projectRoot = resolve(__dirname, '..');
+  const __dirname = path.dirname(__filename);
+  const projectRoot = path.resolve(__dirname, '..');
 
   loadEnv(projectRoot);
 
@@ -128,12 +134,30 @@ async function main() {
   }
 
   // Cleanup on shutdown
-  const cleanup = () => {
+  const cleanup = async () => {
     stopBackupScheduler();
-    shutdownRuntime(runtime);
+    await shutdownRuntime(runtime);
+    process.exit(0);
   };
-  process.on('SIGTERM', cleanup);
-  process.on('SIGINT', cleanup);
+
+  // Signal handlers
+  process.on('SIGTERM', () => void cleanup());
+  process.on('SIGINT', () => void cleanup());
+
+  // Process error handlers
+  process.on('uncaughtException', (error) => {
+    logger.fatal({ error }, 'Uncaught exception in CLI');
+    void cleanup().then(() => {
+      process.exit(1);
+    });
+  });
+
+  process.on('unhandledRejection', (reason) => {
+    logger.fatal({ reason }, 'Unhandled rejection in CLI');
+    void cleanup().then(() => {
+      process.exit(1);
+    });
+  });
 
   try {
     const mcpModulePath = './mcp/server.js';
@@ -157,7 +181,7 @@ async function main() {
       { error: error instanceof Error ? error.message : String(error) },
       'Server startup failed'
     );
-    cleanup();
+    void cleanup();
     process.exit(1);
   }
 }

@@ -161,7 +161,13 @@ function validateKnowledgeEntry(data: Record<string, unknown>, errors: Validatio
  * Validate date fields are valid ISO dates within acceptable range
  */
 function validateDateFields(data: Record<string, unknown>, errors: ValidationError[]): void {
-  const dateFields = ['validUntil', 'createdAfter', 'createdBefore', 'updatedAfter', 'updatedBefore'];
+  const dateFields = [
+    'validUntil',
+    'createdAfter',
+    'createdBefore',
+    'updatedAfter',
+    'updatedBefore',
+  ];
 
   for (const field of dateFields) {
     if (data[field] !== undefined && data[field] !== null) {
@@ -383,7 +389,11 @@ export function validateDateRange(date: string, fieldName: string): string {
 
   // Check if date is valid
   if (isNaN(parsedDate.getTime())) {
-    throw createValidationError(fieldName, 'must be a valid ISO 8601 date string', 'Use format like 2024-01-15 or 2024-01-15T10:30:00Z');
+    throw createValidationError(
+      fieldName,
+      'must be a valid ISO 8601 date string',
+      'Use format like 2024-01-15 or 2024-01-15T10:30:00Z'
+    );
   }
 
   // Extract year
@@ -391,11 +401,19 @@ export function validateDateRange(date: string, fieldName: string): string {
 
   // Validate year is within acceptable range
   if (year < DATE_RANGE.MIN_YEAR) {
-    throw createValidationError(fieldName, `year must be ${DATE_RANGE.MIN_YEAR} or later (got ${year})`, `Use a date from ${DATE_RANGE.MIN_YEAR} onwards`);
+    throw createValidationError(
+      fieldName,
+      `year must be ${DATE_RANGE.MIN_YEAR} or later (got ${year})`,
+      `Use a date from ${DATE_RANGE.MIN_YEAR} onwards`
+    );
   }
 
   if (year > DATE_RANGE.MAX_YEAR) {
-    throw createValidationError(fieldName, `year must be ${DATE_RANGE.MAX_YEAR} or earlier (got ${year})`, `Use a date before ${DATE_RANGE.MAX_YEAR}`);
+    throw createValidationError(
+      fieldName,
+      `year must be ${DATE_RANGE.MAX_YEAR} or earlier (got ${year})`,
+      `Use a date before ${DATE_RANGE.MAX_YEAR}`
+    );
   }
 
   // Return the original date string if valid
@@ -440,7 +458,14 @@ export function createValidationService(guidelineRepo: IGuidelineRepository): Va
       _scopeType: ScopeType,
       _scopeId?: string
     ): Promise<ValidationResult> {
-      return validateEntryImpl(guidelineRepo, validationRulesCache, entryType, data, _scopeType, _scopeId);
+      return validateEntryImpl(
+        guidelineRepo,
+        validationRulesCache,
+        entryType,
+        data,
+        _scopeType,
+        _scopeId
+      );
     },
 
     invalidateCache(): void {
@@ -654,6 +679,3 @@ async function validateEntryImpl(
     errors,
   };
 }
-
-
-

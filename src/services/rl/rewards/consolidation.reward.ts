@@ -135,8 +135,7 @@ export function computeConsolidationReward(
   }
 
   // Combine components
-  const totalReward =
-    retrievalReward + successReward + storageReward + actionPenalty;
+  const totalReward = retrievalReward + successReward + storageReward + actionPenalty;
 
   // Normalize to [-1, 1]
   const normalizedReward = Math.max(-1, Math.min(1, totalReward));

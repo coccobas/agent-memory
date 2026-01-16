@@ -19,10 +19,10 @@ Semantic search uses vector embeddings to find conceptually similar content, eve
 
 ### Comparison
 
-| Search Type | Query | Matches |
-|-------------|-------|---------|
-| **Keyword** | "JWT authentication" | Documents containing "JWT" or "authentication" |
-| **Semantic** | "how do we verify user identity" | Documents about auth, login, tokens, sessions |
+| Search Type  | Query                            | Matches                                        |
+| ------------ | -------------------------------- | ---------------------------------------------- |
+| **Keyword**  | "JWT authentication"             | Documents containing "JWT" or "authentication" |
+| **Semantic** | "how do we verify user identity" | Documents about auth, login, tokens, sessions  |
 
 ### How It Works
 
@@ -124,7 +124,7 @@ Higher threshold = more relevant but fewer results:
   "action": "search",
   "search": "error handling patterns",
   "semanticSearch": true,
-  "semanticThreshold": 0.8  // Only highly similar results
+  "semanticThreshold": 0.8 // Only highly similar results
 }
 ```
 
@@ -135,7 +135,7 @@ Lower threshold = more results but potentially less relevant:
   "action": "search",
   "search": "database operations",
   "semanticSearch": true,
-  "semanticThreshold": 0.5  // Broader results
+  "semanticThreshold": 0.5 // Broader results
 }
 ```
 
@@ -161,7 +161,7 @@ Lower threshold = more results but potentially less relevant:
   "action": "search",
   "search": "code formatting rules",
   "semanticSearch": true,
-  "types": ["guidelines"]  // Only search guidelines
+  "types": ["guidelines"] // Only search guidelines
 }
 ```
 
@@ -176,12 +176,12 @@ Lower threshold = more results but potentially less relevant:
 AGENT_MEMORY_SEMANTIC_THRESHOLD=0.7
 ```
 
-| Threshold | Use Case |
-|-----------|----------|
-| 0.9+ | Very strict, only near-exact matches |
-| 0.7-0.8 | Default, good relevance |
-| 0.5-0.6 | Broader search, may include less relevant |
-| < 0.5 | Very broad, useful for exploration |
+| Threshold | Use Case                                  |
+| --------- | ----------------------------------------- |
+| 0.9+      | Very strict, only near-exact matches      |
+| 0.7-0.8   | Default, good relevance                   |
+| 0.5-0.6   | Broader search, may include less relevant |
+| < 0.5     | Very broad, useful for exploration        |
 
 ### Score Weight in Hybrid Search
 
@@ -219,8 +219,8 @@ Hybrid search combines semantic and full-text search for best results.
 {
   "action": "search",
   "search": "JWT token validation",
-  "semanticSearch": true,  // Enable semantic
-  "useFts5": true          // Enable full-text
+  "semanticSearch": true, // Enable semantic
+  "useFts5": true // Enable full-text
 }
 ```
 
@@ -228,11 +228,11 @@ Hybrid search combines semantic and full-text search for best results.
 
 Query: "user authentication flow"
 
-| Result | Semantic Score | FTS Score | Combined |
-|--------|---------------|-----------|----------|
-| "JWT auth guide" | 0.92 | 0.85 | 0.90 |
-| "Login process" | 0.88 | 0.40 | 0.74 |
-| "Auth middleware" | 0.75 | 0.90 | 0.80 |
+| Result            | Semantic Score | FTS Score | Combined |
+| ----------------- | -------------- | --------- | -------- |
+| "JWT auth guide"  | 0.92           | 0.85      | 0.90     |
+| "Login process"   | 0.88           | 0.40      | 0.74     |
+| "Auth middleware" | 0.75           | 0.90      | 0.80     |
 
 ---
 
@@ -406,11 +406,11 @@ Better embeddings come from clear, descriptive text:
 
 ### 2. Use Appropriate Thresholds
 
-| Content Type | Recommended Threshold |
-|--------------|----------------------|
-| Guidelines | 0.7-0.8 (balanced) |
-| Knowledge | 0.6-0.7 (broader context) |
-| Tools | 0.8-0.9 (more specific) |
+| Content Type | Recommended Threshold     |
+| ------------ | ------------------------- |
+| Guidelines   | 0.7-0.8 (balanced)        |
+| Knowledge    | 0.6-0.7 (broader context) |
+| Tools        | 0.8-0.9 (more specific)   |
 
 ### 3. Combine with Tags
 
@@ -422,7 +422,7 @@ Tags provide exact filtering; semantic provides fuzzy matching:
   "search": "authentication",
   "semanticSearch": true,
   "tags": {
-    "include": ["security"]  // Must have security tag
+    "include": ["security"] // Must have security tag
   }
 }
 ```

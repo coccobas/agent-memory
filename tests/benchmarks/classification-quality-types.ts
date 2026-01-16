@@ -14,34 +14,34 @@ export type EntryType = 'guideline' | 'knowledge' | 'tool';
  * Classification test case category
  */
 export type ClassificationCategory =
-  | 'imperative-rule'       // "Always...", "Must...", "Never..."
-  | 'prohibition'           // "Don't...", "Avoid..."
-  | 'team-standard'         // "We always...", "Our standard is..."
-  | 'preference'            // "Prefer X over Y", "Use X instead of Y"
-  | 'decision'              // "We decided...", "We chose..."
-  | 'fact'                  // "The API uses...", "Our system is..."
-  | 'system-description'    // "Our backend...", "The database..."
-  | 'cli-command'           // "npm run...", "docker..."
-  | 'git-command'           // "git checkout...", "git push..."
-  | 'script'                // "Run `command`", "Execute..."
-  | 'ambiguous'             // Text that's genuinely hard to classify
-  | 'edge-case';            // Unusual patterns
+  | 'imperative-rule' // "Always...", "Must...", "Never..."
+  | 'prohibition' // "Don't...", "Avoid..."
+  | 'team-standard' // "We always...", "Our standard is..."
+  | 'preference' // "Prefer X over Y", "Use X instead of Y"
+  | 'decision' // "We decided...", "We chose..."
+  | 'fact' // "The API uses...", "Our system is..."
+  | 'system-description' // "Our backend...", "The database..."
+  | 'cli-command' // "npm run...", "docker..."
+  | 'git-command' // "git checkout...", "git push..."
+  | 'script' // "Run `command`", "Execute..."
+  | 'ambiguous' // Text that's genuinely hard to classify
+  | 'edge-case'; // Unusual patterns
 
 /**
  * Category display names
  */
 export const CLASSIFICATION_CATEGORY_NAMES: Record<ClassificationCategory, string> = {
   'imperative-rule': 'Imperative Rules',
-  'prohibition': 'Prohibitions',
+  prohibition: 'Prohibitions',
   'team-standard': 'Team Standards',
-  'preference': 'Preferences',
-  'decision': 'Decisions',
-  'fact': 'Facts',
+  preference: 'Preferences',
+  decision: 'Decisions',
+  fact: 'Facts',
   'system-description': 'System Descriptions',
   'cli-command': 'CLI Commands',
   'git-command': 'Git Commands',
-  'script': 'Scripts',
-  'ambiguous': 'Ambiguous',
+  script: 'Scripts',
+  ambiguous: 'Ambiguous',
   'edge-case': 'Edge Cases',
 };
 
@@ -143,19 +143,25 @@ export interface AggregatedClassificationMetrics {
   /** Metrics by entry type */
   byType: Record<EntryType, TypeMetrics>;
   /** Metrics by category */
-  byCategory: Record<ClassificationCategory, {
-    count: number;
-    correct: number;
-    accuracy: number;
-    avgConfidence: number;
-  }>;
+  byCategory: Record<
+    ClassificationCategory,
+    {
+      count: number;
+      correct: number;
+      accuracy: number;
+      avgConfidence: number;
+    }
+  >;
   /** Metrics by difficulty */
-  byDifficulty: Record<'easy' | 'medium' | 'hard', {
-    count: number;
-    correct: number;
-    accuracy: number;
-    avgConfidence: number;
-  }>;
+  byDifficulty: Record<
+    'easy' | 'medium' | 'hard',
+    {
+      count: number;
+      correct: number;
+      accuracy: number;
+      avgConfidence: number;
+    }
+  >;
   /** Confidence correlation */
   confidenceCorrelation: {
     /** Average confidence for correct predictions */

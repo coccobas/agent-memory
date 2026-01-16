@@ -5,16 +5,19 @@
  * Manages auto-promotion decisions, duplicate detection, and storage orchestration.
  */
 
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
+
 import type { Repositories } from '../../core/interfaces/repositories.js';
 import type { AppDb } from '../../core/types.js';
 import { checkForDuplicates } from '../duplicate.service.js';
 import { createComponentLogger } from '../../utils/logger.js';
 import type { ScopeType } from '../../db/schema.js';
+import type { ExtractedEntity, ExtractedRelationship } from '../extraction.service.js';
 import type {
-  ExtractedEntity,
-  ExtractedRelationship,
-} from '../extraction.service.js';
-import type { ProcessedEntry, StoredEntry, ObserveCommitEntry } from '../../mcp/handlers/observe/types.js';
+  ProcessedEntry,
+  StoredEntry,
+  ObserveCommitEntry,
+} from '../../mcp/handlers/observe/types.js';
 import {
   mergeSessionMetadata,
   ensureSessionIdExists,
@@ -363,10 +366,7 @@ export class ObserveCommitService {
   /**
    * Attach suggested tags to an entry
    */
-  private async attachSuggestedTags(
-    saved: StoredEntry,
-    suggestedTags?: string[]
-  ): Promise<void> {
+  private async attachSuggestedTags(saved: StoredEntry, suggestedTags?: string[]): Promise<void> {
     if (!Array.isArray(suggestedTags)) return;
 
     for (const tagName of suggestedTags) {

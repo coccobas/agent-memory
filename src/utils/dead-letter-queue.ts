@@ -162,7 +162,10 @@ export class DeadLetterQueue<T = unknown> {
     this.entries.set(id, dlqEntry);
 
     // Update oldest entry tracker if needed
-    if (this.oldestEntryId === null || now < (this.entries.get(this.oldestEntryId)?.createdAt ?? Infinity)) {
+    if (
+      this.oldestEntryId === null ||
+      now < (this.entries.get(this.oldestEntryId)?.createdAt ?? Infinity)
+    ) {
       this.oldestEntryId = id;
     }
 

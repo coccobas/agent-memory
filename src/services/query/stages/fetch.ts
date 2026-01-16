@@ -17,6 +17,28 @@ import { PIPELINE_STAGES, markStageCompleted } from '../pipeline.js';
 import { createValidationError } from '../../../core/errors.js';
 
 // =============================================================================
+// SCOPE INDEX OPTIMIZATION
+// =============================================================================
+
+/**
+ * Build scope lookup map for O(1) access.
+ * Pre-builds a map from scope keys to their indices for efficient lookup.
+ *
+ * Performance: O(m) where m = number of scopes
+ * Replaces O(n*m) complexity where n = number of entries
+ */
+function buildScopeIndexMap(scopeChain: PipelineContext['scopeChain']): Map<string, number> {
+  const map = new Map<string, number>();
+  scopeChain.forEach((scope, index) => {
+    const key = `${scope.scopeType}:${scope.scopeId ?? 'null'}`;
+    if (!map.has(key)) {
+      map.set(key, index);
+    }
+  });
+  return map;
+}
+
+// =============================================================================
 // ADAPTIVE HEADROOM CALCULATION
 // =============================================================================
 
@@ -33,10 +55,7 @@ function computeAdaptiveHeadroom(ctx: PipelineContext): number {
 
   // If FTS matches exist and total matches are less than limit, use minimal headroom
   if (ftsMatchIds) {
-    const totalMatches = Object.values(ftsMatchIds).reduce(
-      (sum, idSet) => sum + idSet.size,
-      0
-    );
+    const totalMatches = Object.values(ftsMatchIds).reduce((sum, idSet) => sum + idSet.size, 0);
     if (totalMatches < limit) {
       return 1.2;
     }
@@ -62,7 +81,7 @@ function computeAdaptiveHeadroom(ctx: PipelineContext): number {
     if (hasInclude || hasRequire || hasExclude) {
       // If no FTS matches (no search term), use much higher headroom to ensure
       // we fetch enough entries to find those with the required tags
-      const hasFtsMatches = ftsMatchIds && Object.values(ftsMatchIds).some(set => set.size > 0);
+      const hasFtsMatches = ftsMatchIds && Object.values(ftsMatchIds).some((set) => set.size > 0);
       if (!hasFtsMatches) {
         // No search term - need to fetch many more entries for tag filtering
         return 5.0;
@@ -194,16 +213,13 @@ function fetchEntriesGeneric<T extends EntryUnion>(
     .limit(softCap)
     .all();
 
-  // Map each entry to its scope index post-query
+  // Map each entry to its scope index post-query (optimized with O(1) lookup)
+  const scopeMap = buildScopeIndexMap(scopeChain);
   for (const row of rows) {
     const entry = row as T;
-    // Find which scope this entry belongs to (first matching scope in chain)
-    const scopeIndex = scopeChain.findIndex(
-      (scope) =>
-        scope.scopeType === entry.scopeType &&
-        (scope.scopeId === null ? entry.scopeId === null : scope.scopeId === entry.scopeId)
-    );
-    result.push({ entry, scopeIndex: scopeIndex >= 0 ? scopeIndex : scopeChain.length });
+    const key = `${entry.scopeType}:${entry.scopeId ?? 'null'}`;
+    const scopeIndex = scopeMap.get(key) ?? scopeChain.length;
+    result.push({ entry, scopeIndex });
   }
 
   // Sort by scope priority (lower index = higher priority), then by createdAt
@@ -240,7 +256,11 @@ function validateIsoDate(value: unknown, fieldName: string): string {
   }
   const isoRegex = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d{3})?Z?)?$/;
   if (!isoRegex.test(value)) {
-    throw createValidationError(fieldName, 'must be a valid ISO 8601 date string', 'Use format like 2024-01-15 or 2024-01-15T10:30:00Z');
+    throw createValidationError(
+      fieldName,
+      'must be a valid ISO 8601 date string',
+      'Use format like 2024-01-15 or 2024-01-15T10:30:00Z'
+    );
   }
   return value;
 }
@@ -345,7 +365,11 @@ function fetchKnowledgeWithContent(
       const validatedEnd = validateIsoDate(validDuring.end, 'validDuring.end');
       // Validate date range: start must not be after end
       if (new Date(validatedStart).getTime() > new Date(validatedEnd).getTime()) {
-        throw createValidationError('validDuring', 'start date must be before or equal to end date', 'Ensure validDuring.start <= validDuring.end');
+        throw createValidationError(
+          'validDuring',
+          'start date must be before or equal to end date',
+          'Ensure validDuring.start <= validDuring.end'
+        );
       }
       temporalConditions = `
         AND (kv.valid_from IS NULL OR kv.valid_from <= ?)
@@ -406,16 +430,14 @@ function fetchKnowledgeWithContent(
   const stmt = ctx.deps.getPreparedStatement(sqlQuery);
   const rawRows = stmt.all(...queryParams) as RawKnowledgeRow[];
 
-  // Map each entry to its scope index post-query
+  // Map each entry to its scope index post-query (optimized with O(1) lookup)
   // Convert raw SQL rows (snake_case) to Knowledge type (camelCase)
+  const scopeMap = buildScopeIndexMap(scopeChain);
   for (const rawRow of rawRows) {
     const entry = mapRawToKnowledge(rawRow);
-    const scopeIndex = scopeChain.findIndex(
-      (scope) =>
-        scope.scopeType === entry.scopeType &&
-        (scope.scopeId === null ? entry.scopeId === null : scope.scopeId === entry.scopeId)
-    );
-    result.push({ entry, scopeIndex: scopeIndex >= 0 ? scopeIndex : scopeChain.length });
+    const key = `${entry.scopeType}:${entry.scopeId ?? 'null'}`;
+    const scopeIndex = scopeMap.get(key) ?? scopeChain.length;
+    result.push({ entry, scopeIndex });
   }
 
   // Sort by scope priority (lower index = higher priority), then by createdAt
@@ -477,25 +499,15 @@ function fetchSemanticEntries<T extends EntryUnion>(
     const rows = db
       .select()
       .from(table)
-      .where(
-        and(
-          inArray(table.id, batch),
-          eq(table.isActive, true),
-          or(...scopeConditions)
-        )
-      )
+      .where(and(inArray(table.id, batch), eq(table.isActive, true), or(...scopeConditions)))
       .all();
 
+    const scopeMap = buildScopeIndexMap(scopeChain);
     for (const row of rows) {
       const entry = row as T;
-      // Find scope index for proper priority sorting
-      const scopeIndex = scopeChain.findIndex(
-        (scope) =>
-          scope.scopeType === entry.scopeType &&
-          (scope.scopeId === null ? entry.scopeId === null : scope.scopeId === entry.scopeId)
-      );
-      // Use scopeChain.length as fallback if entry doesn't match any scope (shouldn't happen)
-      result.push({ entry, scopeIndex: scopeIndex >= 0 ? scopeIndex : scopeChain.length });
+      const key = `${entry.scopeType}:${entry.scopeId ?? 'null'}`;
+      const scopeIndex = scopeMap.get(key) ?? scopeChain.length;
+      result.push({ entry, scopeIndex });
       existingIds.add(entry.id);
     }
   }
@@ -549,12 +561,29 @@ export function fetchStage(ctx: PipelineContext): PipelineContext {
     if (type === 'tools') {
       fetchEntriesGeneric(db, FETCH_CONFIGS.tools, ctx, fetchedEntries.tools, perTypeSoftCap);
     } else if (type === 'guidelines') {
-      fetchEntriesGeneric(db, FETCH_CONFIGS.guidelines, ctx, fetchedEntries.guidelines, perTypeSoftCap);
+      fetchEntriesGeneric(
+        db,
+        FETCH_CONFIGS.guidelines,
+        ctx,
+        fetchedEntries.guidelines,
+        perTypeSoftCap
+      );
     } else if (type === 'knowledge') {
       // Use content-aware fetch for knowledge (joins with versions to get content for fuzzy search)
-      fetchKnowledgeWithContent(db, ctx, fetchedEntries.knowledge as Array<{ entry: KnowledgeWithContent; scopeIndex: number }>, perTypeSoftCap);
+      fetchKnowledgeWithContent(
+        db,
+        ctx,
+        fetchedEntries.knowledge as Array<{ entry: KnowledgeWithContent; scopeIndex: number }>,
+        perTypeSoftCap
+      );
     } else if (type === 'experiences') {
-      fetchEntriesGeneric(db, FETCH_CONFIGS.experiences, ctx, fetchedEntries.experiences, perTypeSoftCap);
+      fetchEntriesGeneric(
+        db,
+        FETCH_CONFIGS.experiences,
+        ctx,
+        fetchedEntries.experiences,
+        perTypeSoftCap
+      );
     }
   }
 
@@ -569,24 +598,48 @@ export function fetchStage(ctx: PipelineContext): PipelineContext {
     if (types.includes('guidelines')) {
       const existingIds = new Set(fetchedEntries.guidelines.map((e) => e.entry.id));
       const semanticIds = getSemanticIdsForType(semanticScores, 'guideline');
-      fetchSemanticEntries(db, guidelines, existingIds, semanticIds, fetchedEntries.guidelines, scopeChain);
+      fetchSemanticEntries(
+        db,
+        guidelines,
+        existingIds,
+        semanticIds,
+        fetchedEntries.guidelines,
+        scopeChain
+      );
     }
     if (types.includes('knowledge')) {
       const existingIds = new Set(fetchedEntries.knowledge.map((e) => e.entry.id));
       const semanticIds = getSemanticIdsForType(semanticScores, 'knowledge');
-      fetchSemanticEntries(db, knowledge, existingIds, semanticIds, fetchedEntries.knowledge, scopeChain);
+      fetchSemanticEntries(
+        db,
+        knowledge,
+        existingIds,
+        semanticIds,
+        fetchedEntries.knowledge,
+        scopeChain
+      );
     }
     if (types.includes('experiences')) {
       const existingIds = new Set(fetchedEntries.experiences.map((e) => e.entry.id));
       const semanticIds = getSemanticIdsForType(semanticScores, 'experience');
-      fetchSemanticEntries(db, experiences, existingIds, semanticIds, fetchedEntries.experiences, scopeChain);
+      fetchSemanticEntries(
+        db,
+        experiences,
+        existingIds,
+        semanticIds,
+        fetchedEntries.experiences,
+        scopeChain
+      );
     }
   }
 
-  return markStageCompleted({
-    ...ctx,
-    fetchedEntries,
-  }, PIPELINE_STAGES.FETCH);
+  return markStageCompleted(
+    {
+      ...ctx,
+      fetchedEntries,
+    },
+    PIPELINE_STAGES.FETCH
+  );
 }
 
 // =============================================================================
@@ -635,7 +688,13 @@ export async function fetchStageAsync(ctx: PipelineContext): Promise<PipelineCon
       fetchPromises.push(
         new Promise((resolve) => {
           setImmediate(() => {
-            fetchEntriesGeneric(db, FETCH_CONFIGS.guidelines, ctx, fetchedEntries.guidelines, perTypeSoftCap);
+            fetchEntriesGeneric(
+              db,
+              FETCH_CONFIGS.guidelines,
+              ctx,
+              fetchedEntries.guidelines,
+              perTypeSoftCap
+            );
             resolve();
           });
         })
@@ -645,7 +704,15 @@ export async function fetchStageAsync(ctx: PipelineContext): Promise<PipelineCon
         new Promise((resolve) => {
           setImmediate(() => {
             // Use content-aware fetch for knowledge (joins with versions to get content for fuzzy search)
-            fetchKnowledgeWithContent(db, ctx, fetchedEntries.knowledge as Array<{ entry: KnowledgeWithContent; scopeIndex: number }>, perTypeSoftCap);
+            fetchKnowledgeWithContent(
+              db,
+              ctx,
+              fetchedEntries.knowledge as Array<{
+                entry: KnowledgeWithContent;
+                scopeIndex: number;
+              }>,
+              perTypeSoftCap
+            );
             resolve();
           });
         })
@@ -654,7 +721,13 @@ export async function fetchStageAsync(ctx: PipelineContext): Promise<PipelineCon
       fetchPromises.push(
         new Promise((resolve) => {
           setImmediate(() => {
-            fetchEntriesGeneric(db, FETCH_CONFIGS.experiences, ctx, fetchedEntries.experiences, perTypeSoftCap);
+            fetchEntriesGeneric(
+              db,
+              FETCH_CONFIGS.experiences,
+              ctx,
+              fetchedEntries.experiences,
+              perTypeSoftCap
+            );
             resolve();
           });
         })
@@ -676,22 +749,46 @@ export async function fetchStageAsync(ctx: PipelineContext): Promise<PipelineCon
     if (types.includes('guidelines')) {
       const existingIds = new Set(fetchedEntries.guidelines.map((e) => e.entry.id));
       const semanticIds = getSemanticIdsForType(semanticScores, 'guideline');
-      fetchSemanticEntries(db, guidelines, existingIds, semanticIds, fetchedEntries.guidelines, scopeChain);
+      fetchSemanticEntries(
+        db,
+        guidelines,
+        existingIds,
+        semanticIds,
+        fetchedEntries.guidelines,
+        scopeChain
+      );
     }
     if (types.includes('knowledge')) {
       const existingIds = new Set(fetchedEntries.knowledge.map((e) => e.entry.id));
       const semanticIds = getSemanticIdsForType(semanticScores, 'knowledge');
-      fetchSemanticEntries(db, knowledge, existingIds, semanticIds, fetchedEntries.knowledge, scopeChain);
+      fetchSemanticEntries(
+        db,
+        knowledge,
+        existingIds,
+        semanticIds,
+        fetchedEntries.knowledge,
+        scopeChain
+      );
     }
     if (types.includes('experiences')) {
       const existingIds = new Set(fetchedEntries.experiences.map((e) => e.entry.id));
       const semanticIds = getSemanticIdsForType(semanticScores, 'experience');
-      fetchSemanticEntries(db, experiences, existingIds, semanticIds, fetchedEntries.experiences, scopeChain);
+      fetchSemanticEntries(
+        db,
+        experiences,
+        existingIds,
+        semanticIds,
+        fetchedEntries.experiences,
+        scopeChain
+      );
     }
   }
 
-  return markStageCompleted({
-    ...ctx,
-    fetchedEntries,
-  }, PIPELINE_STAGES.FETCH);
+  return markStageCompleted(
+    {
+      ...ctx,
+      fetchedEntries,
+    },
+    PIPELINE_STAGES.FETCH
+  );
 }

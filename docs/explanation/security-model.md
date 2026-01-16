@@ -24,6 +24,7 @@ agent-memory rest
 ### MCP
 
 MCP runs over stdio and inherits the client's trust boundary. Control access through:
+
 - Client host configuration
 - OS-level permissions
 - Rate limiting (enabled by default)
@@ -41,11 +42,11 @@ Permissions are **deny-by-default**:
 
 ### Permission Levels
 
-| Level | Access |
-|-------|--------|
-| `read` | View entries in scope |
+| Level   | Access                         |
+| ------- | ------------------------------ |
+| `read`  | View entries in scope          |
 | `write` | Create, update, delete entries |
-| `admin` | Manage permissions for scope |
+| `admin` | Manage permissions for scope   |
 
 ### Granting Permissions
 
@@ -79,11 +80,11 @@ AGENT_MEMORY_PERMISSIONS_MODE=permissive
 
 Rate limiting protects against abuse:
 
-| Limit Type | Default | Description |
-|------------|---------|-------------|
-| Per-agent | 100/min | Requests per agent per minute |
-| Global | 1000/min | Total requests per minute |
-| Burst | 20/sec | Maximum burst requests |
+| Limit Type | Default  | Description                   |
+| ---------- | -------- | ----------------------------- |
+| Per-agent  | 100/min  | Requests per agent per minute |
+| Global     | 1000/min | Total requests per minute     |
+| Burst      | 20/sec   | Maximum burst requests        |
 
 ### Disable Rate Limiting
 
@@ -98,6 +99,7 @@ AGENT_MEMORY_RATE_LIMIT=0
 ### Path Traversal Protection
 
 Export and backup filenames are validated:
+
 - Absolute paths rejected
 - `../` sequences blocked
 - Final path must be within configured directory
@@ -106,12 +108,13 @@ Export and backup filenames are validated:
 
 Data paths default to user-writable locations:
 
-| Context | Default Path |
-|---------|--------------|
-| Running from source | `<repo>/data/` |
-| Installed via npm | `~/.agent-memory/data/` |
+| Context             | Default Path            |
+| ------------------- | ----------------------- |
+| Running from source | `<repo>/data/`          |
+| Installed via npm   | `~/.agent-memory/data/` |
 
 Override with:
+
 ```bash
 AGENT_MEMORY_DATA_DIR=/custom/path
 ```
@@ -129,13 +132,13 @@ AGENT_MEMORY_DATA_DIR=/custom/path
 
 ### Environment Variables for Secrets
 
-| Variable | Purpose |
-|----------|---------|
-| `AGENT_MEMORY_REST_API_KEY` | REST API authentication |
-| `AGENT_MEMORY_OPENAI_API_KEY` | Embeddings API |
-| `AGENT_MEMORY_ANTHROPIC_API_KEY` | Extraction API |
-| `AGENT_MEMORY_PG_PASSWORD` | PostgreSQL password |
-| `AGENT_MEMORY_REDIS_PASSWORD` | Redis password |
+| Variable                         | Purpose                 |
+| -------------------------------- | ----------------------- |
+| `AGENT_MEMORY_REST_API_KEY`      | REST API authentication |
+| `AGENT_MEMORY_OPENAI_API_KEY`    | Embeddings API          |
+| `AGENT_MEMORY_ANTHROPIC_API_KEY` | Extraction API          |
+| `AGENT_MEMORY_PG_PASSWORD`       | PostgreSQL password     |
+| `AGENT_MEMORY_REDIS_PASSWORD`    | Redis password          |
 
 ---
 
@@ -144,6 +147,7 @@ AGENT_MEMORY_DATA_DIR=/custom/path
 ### Redaction
 
 Sensitive fields are automatically redacted in logs:
+
 - `authorization`
 - `token`
 - `apiKey`
@@ -202,6 +206,7 @@ Prevent concurrent edits with file locks:
 ### Agent Identification
 
 Each agent should use a unique `agentId`:
+
 - Enables per-agent rate limiting
 - Enables per-agent permissions
 - Provides audit trail

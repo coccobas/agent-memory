@@ -11,6 +11,7 @@ import { requireAdminKey } from '../../utils/admin.js';
 interface InitParams {
   force?: boolean;
   verbose?: boolean;
+  admin_key?: string;
 }
 
 interface StatusParams {
@@ -20,6 +21,7 @@ interface StatusParams {
 interface ResetParams {
   confirm?: boolean;
   verbose?: boolean;
+  admin_key?: string;
 }
 
 /**

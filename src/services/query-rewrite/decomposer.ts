@@ -103,11 +103,7 @@ const COMPLEXITY_PATTERNS: Array<{
  */
 function escapeForPrompt(input: string): string {
   // Replace characters that could be used for prompt injection
-  return input
-    .replace(/"/g, '\\"')
-    .replace(/\n/g, ' ')
-    .replace(/\r/g, '')
-    .slice(0, 2000); // Limit length to prevent context overflow
+  return input.replace(/"/g, '\\"').replace(/\n/g, ' ').replace(/\r/g, '').slice(0, 2000); // Limit length to prevent context overflow
 }
 
 /**
@@ -270,10 +266,7 @@ export class QueryDecomposer {
       try {
         const llmPlan = await this.decomposeWithLLM(query, intent);
         if (llmPlan.subQueries.length > 1) {
-          logger.debug(
-            { subQueryCount: llmPlan.subQueries.length },
-            'Query decomposed via LLM'
-          );
+          logger.debug({ subQueryCount: llmPlan.subQueries.length }, 'Query decomposed via LLM');
           return llmPlan;
         }
       } catch (error) {
@@ -390,7 +383,10 @@ export class QueryDecomposer {
   private async decomposeWithLLM(query: string, _intent?: QueryIntent): Promise<QueryPlan> {
     if (!this.extractionService) {
       logger.debug('No extraction service available for LLM decomposition');
-      return { subQueries: [{ index: 0, query, purpose: 'Original query' }], executionOrder: 'parallel' };
+      return {
+        subQueries: [{ index: 0, query, purpose: 'Original query' }],
+        executionOrder: 'parallel',
+      };
     }
 
     try {
@@ -404,14 +400,20 @@ export class QueryDecomposer {
 
       if (!response) {
         logger.debug('No LLM response for decomposition, using pattern-based');
-        return { subQueries: [{ index: 0, query, purpose: 'Original query' }], executionOrder: 'parallel' };
+        return {
+          subQueries: [{ index: 0, query, purpose: 'Original query' }],
+          executionOrder: 'parallel',
+        };
       }
 
       // Parse the JSON response
       const jsonMatch = response.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
         logger.debug('No JSON found in LLM decomposition response');
-        return { subQueries: [{ index: 0, query, purpose: 'Original query' }], executionOrder: 'parallel' };
+        return {
+          subQueries: [{ index: 0, query, purpose: 'Original query' }],
+          executionOrder: 'parallel',
+        };
       }
 
       const parsed = JSON.parse(jsonMatch[0]) as {
@@ -427,7 +429,10 @@ export class QueryDecomposer {
 
       if (!parsed.shouldDecompose || !parsed.subQueries?.length) {
         logger.debug({ reason: parsed.reason }, 'LLM determined no decomposition needed');
-        return { subQueries: [{ index: 0, query, purpose: 'Original query' }], executionOrder: 'parallel' };
+        return {
+          subQueries: [{ index: 0, query, purpose: 'Original query' }],
+          executionOrder: 'parallel',
+        };
       }
 
       // Convert to SubQuery format with index validation
@@ -446,17 +451,16 @@ export class QueryDecomposer {
               : idx;
 
           // Validate dependsOn indices if present
-          const safeDependsOn =
-            Array.isArray(sq.dependsOn)
-              ? sq.dependsOn.filter(
-                  (dep) =>
-                    typeof dep === 'number' &&
-                    Number.isInteger(dep) &&
-                    dep >= 0 &&
-                    dep < parsed.subQueries.length &&
-                    dep !== safeIndex // Can't depend on self
-                )
-              : undefined;
+          const safeDependsOn = Array.isArray(sq.dependsOn)
+            ? sq.dependsOn.filter(
+                (dep) =>
+                  typeof dep === 'number' &&
+                  Number.isInteger(dep) &&
+                  dep >= 0 &&
+                  dep < parsed.subQueries.length &&
+                  dep !== safeIndex // Can't depend on self
+              )
+            : undefined;
 
           return {
             index: safeIndex,
@@ -481,8 +485,14 @@ export class QueryDecomposer {
         dependencies: hasDependencies ? this.buildDependencyMap(subQueries) : undefined,
       };
     } catch (error) {
-      logger.warn({ error: error instanceof Error ? error.message : String(error) }, 'LLM decomposition failed');
-      return { subQueries: [{ index: 0, query, purpose: 'Original query' }], executionOrder: 'parallel' };
+      logger.warn(
+        { error: error instanceof Error ? error.message : String(error) },
+        'LLM decomposition failed'
+      );
+      return {
+        subQueries: [{ index: 0, query, purpose: 'Original query' }],
+        executionOrder: 'parallel',
+      };
     }
   }
 
@@ -539,7 +549,9 @@ export class QueryDecomposer {
     }
 
     // Try splitting on just conjunctions
-    const conjParts = query.split(/\s+(?:and|also|as well as)\s+(?=\b(?:how|what|where|why|when|which)\b)/i);
+    const conjParts = query.split(
+      /\s+(?:and|also|as well as)\s+(?=\b(?:how|what|where|why|when|which)\b)/i
+    );
     if (conjParts.length > 1) {
       return conjParts.map((p) => p.trim());
     }
@@ -574,7 +586,9 @@ export class QueryDecomposer {
    */
   private splitTemporalCausal(query: string): string[] {
     const parts = query
-      .split(/\s*(?:and then|then|after that|because|therefore|so that|which caused|resulting in)\s*/i)
+      .split(
+        /\s*(?:and then|then|after that|because|therefore|so that|which caused|resulting in)\s*/i
+      )
       .filter(Boolean);
 
     return parts.length > 1 ? parts : [query];
@@ -616,9 +630,7 @@ let defaultDecomposer: QueryDecomposer | null = null;
 /**
  * Get the default decomposer instance
  */
-export function getQueryDecomposer(
-  extractionService?: ExtractionService
-): QueryDecomposer {
+export function getQueryDecomposer(extractionService?: ExtractionService): QueryDecomposer {
   if (!defaultDecomposer) {
     defaultDecomposer = new QueryDecomposer(extractionService ?? null);
   }

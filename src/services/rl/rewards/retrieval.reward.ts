@@ -44,9 +44,7 @@ export interface RetrievalRewardResult {
  * - Cost: penalty for retrieval (computation, latency)
  * - Relevance: bonus for high-quality results
  */
-export function computeRetrievalReward(
-  params: RetrievalRewardParams
-): RetrievalRewardResult {
+export function computeRetrievalReward(params: RetrievalRewardParams): RetrievalRewardResult {
   const {
     didRetrieve,
     retrievedCount = 0,
@@ -112,8 +110,7 @@ export function computeRetrievalReward(
   }
 
   // Combine components
-  const totalReward =
-    outcomeReward + contributionReward + costPenalty + relevanceBonus;
+  const totalReward = outcomeReward + contributionReward + costPenalty + relevanceBonus;
 
   // Normalize to [-1, 1]
   const normalizedReward = Math.max(-1, Math.min(1, totalReward));

@@ -28,7 +28,11 @@ export function exportToFormat(examples: TrainingExample[], format: LoRAFormat):
     case 'anthropic-prompts':
       return exportToAnthropicPrompts(examples);
     default:
-      throw createValidationError('format', `unsupported format: ${format}`, 'Use alpaca, sharegpt, openai-messages, or anthropic-prompts');
+      throw createValidationError(
+        'format',
+        `unsupported format: ${String(format)}`,
+        'Use alpaca, sharegpt, openai-messages, or anthropic-prompts'
+      );
   }
 }
 
@@ -61,9 +65,7 @@ function exportToShareGPT(examples: TrainingExample[]): string {
     }
 
     // Add user message
-    const userMessage = ex.input
-      ? `${ex.instruction}\n\nInput: ${ex.input}`
-      : ex.instruction;
+    const userMessage = ex.input ? `${ex.instruction}\n\nInput: ${ex.input}` : ex.instruction;
     conversations.push({
       from: 'human',
       value: userMessage,
@@ -97,9 +99,7 @@ function exportToOpenAIMessages(examples: TrainingExample[]): string {
     }
 
     // Add user message
-    const userMessage = ex.input
-      ? `${ex.instruction}\n\nInput: ${ex.input}`
-      : ex.instruction;
+    const userMessage = ex.input ? `${ex.instruction}\n\nInput: ${ex.input}` : ex.instruction;
     messages.push({
       role: 'user',
       content: userMessage,
@@ -147,6 +147,8 @@ function exportToAnthropicPrompts(examples: TrainingExample[]): string {
  * Export to JSONL format (one JSON per line)
  */
 export function exportToJSONL(examples: TrainingExample[], format: LoRAFormat): string {
+  // Different formats have different shapes - using any for flexibility
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const jsonObjects: any[] = [];
 
   for (const ex of examples) {

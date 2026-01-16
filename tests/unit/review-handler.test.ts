@@ -87,7 +87,12 @@ describe('Review Handler', () => {
   describe('list', () => {
     it('should list candidates from session', async () => {
       mockGuidelineRepo.list.mockResolvedValue([
-        { id: 'g-1', name: 'Test Guideline', isActive: true, currentVersion: { content: 'Content' } },
+        {
+          id: 'g-1',
+          name: 'Test Guideline',
+          isActive: true,
+          currentVersion: { content: 'Content' },
+        },
       ]);
       mockEntryTagsRepo.getTagsForEntry.mockResolvedValue([{ name: 'candidate' }]);
       mockSessionsRepo.getById.mockResolvedValue({ id: 'sess-1', projectId: 'proj-1' });
@@ -115,7 +120,12 @@ describe('Review Handler', () => {
 
     it('should find candidates with needs_review tag', async () => {
       mockKnowledgeRepo.list.mockResolvedValue([
-        { id: 'k-1', title: 'Test Knowledge', isActive: true, currentVersion: { content: 'Content' } },
+        {
+          id: 'k-1',
+          title: 'Test Knowledge',
+          isActive: true,
+          currentVersion: { content: 'Content' },
+        },
       ]);
       mockEntryTagsRepo.getTagsForEntry.mockResolvedValue([{ name: 'needs_review' }]);
       mockSessionsRepo.getById.mockResolvedValue({ id: 'sess-1' });
@@ -129,7 +139,12 @@ describe('Review Handler', () => {
   describe('show', () => {
     it('should show candidate details', async () => {
       mockGuidelineRepo.list.mockResolvedValue([
-        { id: 'g-1', name: 'Test', isActive: true, currentVersion: { content: 'Full content here' } },
+        {
+          id: 'g-1',
+          name: 'Test',
+          isActive: true,
+          currentVersion: { content: 'Full content here' },
+        },
       ]);
       mockEntryTagsRepo.getTagsForEntry.mockResolvedValue([{ name: 'candidate' }]);
 
@@ -143,9 +158,7 @@ describe('Review Handler', () => {
     });
 
     it('should throw when sessionId is missing', async () => {
-      await expect(
-        reviewHandlers.show(mockContext, { entryId: 'g-1' } as any)
-      ).rejects.toThrow();
+      await expect(reviewHandlers.show(mockContext, { entryId: 'g-1' } as any)).rejects.toThrow();
     });
 
     it('should return failure for non-existent entry', async () => {

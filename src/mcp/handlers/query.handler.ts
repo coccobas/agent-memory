@@ -39,7 +39,9 @@ const queryTypeToEntryType = {
 } as const;
 
 function isQueryType(value: string): value is keyof typeof queryTypeToEntryType {
-  return value === 'tools' || value === 'guidelines' || value === 'knowledge' || value === 'experiences';
+  return (
+    value === 'tools' || value === 'guidelines' || value === 'knowledge' || value === 'experiences'
+  );
 }
 
 export const queryHandlers = {
@@ -69,9 +71,7 @@ export const queryHandlers = {
     }
 
     // Helper to validate temporal validDuring object
-    function isValidDuringPeriod(
-      v: unknown
-    ): v is { start: string; end: string } {
+    function isValidDuringPeriod(v: unknown): v is { start: string; end: string } {
       if (!isObject(v)) return false;
       const obj = v;
       return isString(obj.start) && isString(obj.end);
@@ -115,7 +115,10 @@ export const queryHandlers = {
       const project = await context.repos.projects.findByPath(cwd);
       if (project) {
         scope = { ...scope, id: project.id };
-        logger.debug({ cwd, projectId: project.id, projectName: project.name }, 'Auto-detected project from cwd');
+        logger.debug(
+          { cwd, projectId: project.id, projectName: project.name },
+          'Auto-detected project from cwd'
+        );
       }
     }
 
@@ -160,10 +163,11 @@ export const queryHandlers = {
     const scopeType = queryParamsWithoutAgent.scope?.type ?? 'global';
     const scopeId = queryParamsWithoutAgent.scope?.id;
 
-    const typesToCheck = requestedTypes ?? (['tools', 'guidelines', 'knowledge', 'experiences'] as const);
+    const typesToCheck =
+      requestedTypes ?? (['tools', 'guidelines', 'knowledge', 'experiences'] as const);
     const deniedTypes = typesToCheck.filter(
       (type) =>
-        !context.services!.permission.check(
+        !context.services.permission.check(
           agentId,
           'read',
           queryTypeToEntryType[type],
@@ -200,10 +204,13 @@ export const queryHandlers = {
       // Use void + .catch() pattern to properly handle async errors without blocking
       void conversationService
         .autoLinkContextFromQuery(conversationId, messageId, result)
-        .catch((error) => {
+        .catch((error: unknown) => {
           // Log error but don't break the query response (non-critical operation)
           // Bug #182 fix: Include correlation ID for distributed tracing
-          logger.debug({ error, conversationId, correlationId }, 'Auto-link context failed (non-critical)');
+          logger.debug(
+            { error, conversationId, correlationId },
+            'Auto-link context failed (non-critical)'
+          );
         });
     }
 
@@ -250,19 +257,23 @@ export const queryHandlers = {
       const project = await context.repos.projects.findByPath(cwd);
       if (project) {
         scopeId = project.id;
-        logger.debug({ cwd, projectId: project.id, projectName: project.name }, 'Auto-detected project from cwd');
+        logger.debug(
+          { cwd, projectId: project.id, projectName: project.name },
+          'Auto-detected project from cwd'
+        );
       }
     }
 
-    const allowedTypes = (['tools', 'guidelines', 'knowledge', 'experiences'] as const).filter((type) =>
-      context.services!.permission.check(
-        agentId,
-        'read',
-        queryTypeToEntryType[type],
-        null,
-        scopeType,
-        scopeId ?? null
-      )
+    const allowedTypes = (['tools', 'guidelines', 'knowledge', 'experiences'] as const).filter(
+      (type) =>
+        context.services.permission.check(
+          agentId,
+          'read',
+          queryTypeToEntryType[type],
+          null,
+          scopeType,
+          scopeId ?? null
+        )
     );
 
     if (allowedTypes.length === 0) {

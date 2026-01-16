@@ -1,6 +1,6 @@
 ---
 description: Agent Memory architecture and how the software works
-globs: ["**/*.ts", "**/*.md"]
+globs: ['**/*.ts', '**/*.md']
 alwaysApply: true
 ---
 
@@ -14,6 +14,7 @@ Before making ANY architectural changes, modifying core infrastructure, or addin
 **`/architecture_final.md`** (project root, see “Architecture Guidelines (Mandatory)”)
 
 This document contains binding rules for:
+
 - Layered architecture and layer boundaries
 - Dependency injection patterns (NEVER use module-level singletons)
 - Service registry usage (access via `runtime.services.*`)
@@ -24,6 +25,7 @@ This document contains binding rules for:
 - Event system patterns
 
 **Key prohibitions:**
+
 - NO synchronous `require()` to break circular dependencies
 - NO module-level singletons or `getInstance()` patterns
 - NO business logic in MCP handlers
@@ -31,6 +33,7 @@ This document contains binding rules for:
 - NO hidden dependencies resolved at runtime
 
 **Enforcement:**
+
 - `npm run lint:architecture` (runs in `npm run validate` / CI) rejects new hidden-dependency patterns (eg. `require()` and new `get*Service()` singletons outside the legacy allowlist).
 
 Deviations from these guidelines require explicit user approval.
@@ -82,6 +85,7 @@ Agent Memory is an MCP (Model Context Protocol) server providing a structured me
   - Handle errors
 
 **Example handler pattern:**
+
 ```typescript
 export const knowledgeHandlers = {
   add(params: Record<string, unknown>) {
@@ -93,8 +97,8 @@ export const knowledgeHandlers = {
     // 6. Check for red flags
     // 7. Log audit
     // 8. Return result
-  }
-}
+  },
+};
 ```
 
 ### 3. Service Layer (`src/services/`)
@@ -125,6 +129,7 @@ export const knowledgeHandlers = {
   - Transaction management
 
 **Key patterns:**
+
 - All writes use `transaction()` wrapper for atomicity
 - Append-only versioning: every update creates new version
 - Conflict detection: checks if last write was within 5 seconds
@@ -149,6 +154,7 @@ Three main memory sections, each with identical patterns:
 3. **Knowledge** - Facts, decisions, context (architecture decisions, domain knowledge)
 
 Each section has:
+
 - Main table (e.g., `tools`) with metadata
 - Versions table (e.g., `tool_versions`) with append-only history
 - Same CRUD operations: `add`, `update`, `get`, `list`, `history`, `deactivate`
@@ -157,6 +163,7 @@ Each section has:
 ## Hierarchical Scoping
 
 **Scope hierarchy** (highest to lowest priority):
+
 1. **Session** - Temporary working context
 2. **Project** - Project-specific decisions and patterns
 3. **Organization** - Team-wide standards
@@ -165,6 +172,7 @@ Each section has:
 **Scope inheritance**: When querying a scope, can inherit from parent scopes (default: `inherit: true`)
 
 **Example**: Querying a session scope with `inherit: true` will search:
+
 - Session scope (highest priority)
 - Project scope (parent)
 - Organization scope (grandparent)

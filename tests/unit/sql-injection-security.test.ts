@@ -30,20 +30,25 @@ describe('SQL Injection Security Tests', () => {
       };
 
       // Malicious inputs that should be rejected
-      expect(() => validateIsoDate("'; DROP TABLE knowledge; --", 'atTime'))
-        .toThrow(/must be a valid ISO 8601 date string/);
+      expect(() => validateIsoDate("'; DROP TABLE knowledge; --", 'atTime')).toThrow(
+        /must be a valid ISO 8601 date string/
+      );
 
-      expect(() => validateIsoDate("'; DELETE FROM knowledge WHERE '1'='1", 'validDuring.start'))
-        .toThrow(/must be a valid ISO 8601 date string/);
+      expect(() =>
+        validateIsoDate("'; DELETE FROM knowledge WHERE '1'='1", 'validDuring.start')
+      ).toThrow(/must be a valid ISO 8601 date string/);
 
-      expect(() => validateIsoDate("2024-01-01' OR '1'='1", 'validDuring.end'))
-        .toThrow(/must be a valid ISO 8601 date string/);
+      expect(() => validateIsoDate("2024-01-01' OR '1'='1", 'validDuring.end')).toThrow(
+        /must be a valid ISO 8601 date string/
+      );
 
-      expect(() => validateIsoDate("'; UNION SELECT * FROM users; --", 'createdAfter'))
-        .toThrow(/must be a valid ISO 8601 date string/);
+      expect(() => validateIsoDate("'; UNION SELECT * FROM users; --", 'createdAfter')).toThrow(
+        /must be a valid ISO 8601 date string/
+      );
 
-      expect(() => validateIsoDate("2024-12-31'; DROP DATABASE agent_memory; --", 'createdBefore'))
-        .toThrow(/must be a valid ISO 8601 date string/);
+      expect(() =>
+        validateIsoDate("2024-12-31'; DROP DATABASE agent_memory; --", 'createdBefore')
+      ).toThrow(/must be a valid ISO 8601 date string/);
     });
 
     it('should accept valid ISO 8601 date strings', () => {
@@ -93,7 +98,12 @@ describe('SQL Injection Security Tests', () => {
   describe('CRIT-002: pgvector Dimension SQL Injection Prevention', () => {
     it('should validate dimension as positive integer', () => {
       const validateDimension = (dimension: unknown): number => {
-        if (typeof dimension !== 'number' || !Number.isInteger(dimension) || dimension < 1 || dimension > 10000) {
+        if (
+          typeof dimension !== 'number' ||
+          !Number.isInteger(dimension) ||
+          dimension < 1 ||
+          dimension > 10000
+        ) {
           throw new Error(
             `Invalid embedding dimension: ${dimension}. Must be integer between 1 and 10000.`
           );
@@ -113,7 +123,12 @@ describe('SQL Injection Security Tests', () => {
 
     it('should reject negative dimension values', () => {
       const validateDimension = (dimension: unknown): number => {
-        if (typeof dimension !== 'number' || !Number.isInteger(dimension) || dimension < 1 || dimension > 10000) {
+        if (
+          typeof dimension !== 'number' ||
+          !Number.isInteger(dimension) ||
+          dimension < 1 ||
+          dimension > 10000
+        ) {
           throw new Error(
             `Invalid embedding dimension: ${dimension}. Must be integer between 1 and 10000.`
           );
@@ -127,7 +142,12 @@ describe('SQL Injection Security Tests', () => {
 
     it('should reject zero dimension', () => {
       const validateDimension = (dimension: unknown): number => {
-        if (typeof dimension !== 'number' || !Number.isInteger(dimension) || dimension < 1 || dimension > 10000) {
+        if (
+          typeof dimension !== 'number' ||
+          !Number.isInteger(dimension) ||
+          dimension < 1 ||
+          dimension > 10000
+        ) {
           throw new Error(
             `Invalid embedding dimension: ${dimension}. Must be integer between 1 and 10000.`
           );
@@ -140,7 +160,12 @@ describe('SQL Injection Security Tests', () => {
 
     it('should reject dimension exceeding maximum', () => {
       const validateDimension = (dimension: unknown): number => {
-        if (typeof dimension !== 'number' || !Number.isInteger(dimension) || dimension < 1 || dimension > 10000) {
+        if (
+          typeof dimension !== 'number' ||
+          !Number.isInteger(dimension) ||
+          dimension < 1 ||
+          dimension > 10000
+        ) {
           throw new Error(
             `Invalid embedding dimension: ${dimension}. Must be integer between 1 and 10000.`
           );
@@ -155,7 +180,12 @@ describe('SQL Injection Security Tests', () => {
 
     it('should reject non-integer dimension values', () => {
       const validateDimension = (dimension: unknown): number => {
-        if (typeof dimension !== 'number' || !Number.isInteger(dimension) || dimension < 1 || dimension > 10000) {
+        if (
+          typeof dimension !== 'number' ||
+          !Number.isInteger(dimension) ||
+          dimension < 1 ||
+          dimension > 10000
+        ) {
           throw new Error(
             `Invalid embedding dimension: ${dimension}. Must be integer between 1 and 10000.`
           );
@@ -169,7 +199,12 @@ describe('SQL Injection Security Tests', () => {
 
     it('should reject non-number dimension values including SQL injection attempts', () => {
       const validateDimension = (dimension: unknown): number => {
-        if (typeof dimension !== 'number' || !Number.isInteger(dimension) || dimension < 1 || dimension > 10000) {
+        if (
+          typeof dimension !== 'number' ||
+          !Number.isInteger(dimension) ||
+          dimension < 1 ||
+          dimension > 10000
+        ) {
           throw new Error(
             `Invalid embedding dimension: ${dimension}. Must be integer between 1 and 10000.`
           );
@@ -178,15 +213,16 @@ describe('SQL Injection Security Tests', () => {
       };
 
       // SQL injection attempts
-      expect(() => validateDimension("128); DROP TABLE vector_embeddings; --"))
-        .toThrow(/Invalid embedding dimension/);
-      expect(() => validateDimension("1' OR '1'='1"))
-        .toThrow(/Invalid embedding dimension/);
-      expect(() => validateDimension("'; DELETE FROM vector_embeddings WHERE '1'='1"))
-        .toThrow(/Invalid embedding dimension/);
+      expect(() => validateDimension('128); DROP TABLE vector_embeddings; --')).toThrow(
+        /Invalid embedding dimension/
+      );
+      expect(() => validateDimension("1' OR '1'='1")).toThrow(/Invalid embedding dimension/);
+      expect(() => validateDimension("'; DELETE FROM vector_embeddings WHERE '1'='1")).toThrow(
+        /Invalid embedding dimension/
+      );
 
       // Other invalid types
-      expect(() => validateDimension("128")).toThrow(/Invalid embedding dimension/);
+      expect(() => validateDimension('128')).toThrow(/Invalid embedding dimension/);
       expect(() => validateDimension(null)).toThrow(/Invalid embedding dimension/);
       expect(() => validateDimension(undefined)).toThrow(/Invalid embedding dimension/);
       expect(() => validateDimension({ value: 128 })).toThrow(/Invalid embedding dimension/);
@@ -214,8 +250,9 @@ describe('SQL Injection Security Tests', () => {
       ];
 
       for (const attack of unicodeAttacks) {
-        expect(() => validateIsoDate(attack, 'atTime'))
-          .toThrow(/must be a valid ISO 8601 date string/);
+        expect(() => validateIsoDate(attack, 'atTime')).toThrow(
+          /must be a valid ISO 8601 date string/
+        );
       }
     });
   });

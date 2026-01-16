@@ -2,7 +2,12 @@
  * Query pipeline factory functions
  *
  * Creates query pipeline dependencies for the context.
+ *
+ * NOTE: Non-null assertions used for Map access after has() checks
+ * and config property access after validation.
  */
+
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 
 import type { Logger } from 'pino';
 import type { Config } from '../../config/index.js';

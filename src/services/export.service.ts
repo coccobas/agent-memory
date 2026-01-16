@@ -787,6 +787,3 @@ export function exportToOpenAPI(options: ExportOptions, db: DbClient): ExportRes
     },
   };
 }
-
-
-

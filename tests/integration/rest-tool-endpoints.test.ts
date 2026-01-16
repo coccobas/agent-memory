@@ -26,18 +26,27 @@ describe('REST Tool Endpoints', () => {
   let app: FastifyInstance;
   let context: AppContext;
   let testDb: TestDb;
-  let previousApiKey: string | undefined;
-  let previousPermMode: string | undefined;
-  let previousAdminKey: string | undefined;
+  // Store all auth-related env vars
+  const originalEnv: Record<string, string | undefined> = {};
 
   beforeAll(async () => {
+    // Save all auth-related env vars
+    originalEnv.AGENT_MEMORY_REST_API_KEY = process.env.AGENT_MEMORY_REST_API_KEY;
+    originalEnv.AGENT_MEMORY_API_KEY = process.env.AGENT_MEMORY_API_KEY;
+    originalEnv.AGENT_MEMORY_DEV_MODE = process.env.AGENT_MEMORY_DEV_MODE;
+    originalEnv.AGENT_MEMORY_ADMIN_KEY = process.env.AGENT_MEMORY_ADMIN_KEY;
+    originalEnv.AGENT_MEMORY_PERMISSIONS_MODE = process.env.AGENT_MEMORY_PERMISSIONS_MODE;
+    originalEnv.AGENT_MEMORY_ALLOW_PERMISSIVE = process.env.AGENT_MEMORY_ALLOW_PERMISSIVE;
+
     // Set up test environment
-    previousApiKey = process.env.AGENT_MEMORY_REST_API_KEY;
-    previousPermMode = process.env.AGENT_MEMORY_PERMISSIONS_MODE;
-    previousAdminKey = process.env.AGENT_MEMORY_ADMIN_KEY;
+    // NOTE: We don't enable DEV_MODE here because we want to test authentication
+    // But we DO enable PERMISSIONS_MODE=permissive to bypass permission checks
+    // The REST_API_KEY is used for authenticated requests
     process.env.AGENT_MEMORY_REST_API_KEY = REST_API_KEY;
-    process.env.AGENT_MEMORY_PERMISSIONS_MODE = 'permissive';
-    process.env.AGENT_MEMORY_ADMIN_KEY = TEST_ADMIN_KEY;
+    process.env.AGENT_MEMORY_API_KEY = TEST_ADMIN_KEY;
+    process.env.AGENT_MEMORY_PERMISSIONS_MODE = 'permissive'; // Enable permission bypass
+    delete process.env.AGENT_MEMORY_DEV_MODE; // Ensure dev mode is OFF for auth tests
+    delete process.env.AGENT_MEMORY_ALLOW_PERMISSIVE;
 
     testDb = setupTestDb(TEST_DB_PATH);
     context = await createTestContext(testDb);
@@ -47,9 +56,14 @@ describe('REST Tool Endpoints', () => {
   afterAll(async () => {
     await app?.close();
     cleanupTestDb(testDb);
-    process.env.AGENT_MEMORY_REST_API_KEY = previousApiKey;
-    process.env.AGENT_MEMORY_PERMISSIONS_MODE = previousPermMode;
-    process.env.AGENT_MEMORY_ADMIN_KEY = previousAdminKey;
+    // Restore all original env vars
+    for (const [key, value] of Object.entries(originalEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
   });
 
   describe('GET /v1/tools', () => {
@@ -62,7 +76,7 @@ describe('REST Tool Endpoints', () => {
 
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
-      
+
       expect(body).toHaveProperty('tools');
       expect(body).toHaveProperty('count');
       expect(Array.isArray(body.tools)).toBe(true);

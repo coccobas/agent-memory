@@ -136,17 +136,13 @@ export function findCommand(
 
   // First, try to find an exact match for compound command (e.g., "review off")
   const exactMatch = commandRegistry.find(
-    (desc) =>
-      desc.name === fullCommand ||
-      desc.aliases?.includes(fullCommand)
+    (desc) => desc.name === fullCommand || desc.aliases?.includes(fullCommand)
   );
   if (exactMatch) return exactMatch;
 
   // Then try matching just the primary command (for commands with arguments)
   const primaryMatch = commandRegistry.find(
-    (desc) =>
-      desc.name === command ||
-      desc.aliases?.includes(command)
+    (desc) => desc.name === command || desc.aliases?.includes(command)
   );
 
   return primaryMatch;

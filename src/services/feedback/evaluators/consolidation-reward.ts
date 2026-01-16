@@ -201,6 +201,8 @@ export function computeConsolidationRewardsBatch(
     // Parse source entry IDs to get count
     let sourceCount = 1;
     try {
+      // JSON.parse returns unknown - validate with Array.isArray before use
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const sourceIds = JSON.parse(decision.sourceEntryIds);
       sourceCount = Array.isArray(sourceIds) ? sourceIds.length : 1;
     } catch {

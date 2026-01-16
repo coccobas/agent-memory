@@ -64,7 +64,7 @@ export const permissionHandlers = {
     const entry_type = getOptionalParam(params, 'entry_type', isEntryType);
     const permission = getRequiredParam(params, 'permission', isPermissionLevel);
 
-    const perm = context.services!.permission.grant({
+    const perm = context.services.permission.grant({
       agentId: agent_id,
       scopeType: scope_type ?? undefined,
       scopeId: scope_id,
@@ -105,7 +105,7 @@ export const permissionHandlers = {
       );
     }
 
-    context.services!.permission.revoke({
+    context.services.permission.revoke({
       agentId: agent_id,
       scopeType: scope_type ?? undefined,
       scopeId: scope_id,
@@ -127,7 +127,7 @@ export const permissionHandlers = {
     const scope_id = getOptionalParam(params, 'scope_id', isString);
     const entry_type = getOptionalParam(params, 'entry_type', isEntryType);
 
-    const hasPermission = context.services!.permission.check(
+    const hasPermission = context.services.permission.check(
       agent_id,
       action,
       entry_type ?? 'tool',
@@ -158,7 +158,7 @@ export const permissionHandlers = {
     const limit = getOptionalParam(params, 'limit', isNumber);
     const offset = getOptionalParam(params, 'offset', isNumber);
 
-    const permissionsList = context.services!.permission.list({
+    const permissionsList = context.services.permission.list({
       agentId: agent_id,
       scopeType: scope_type ?? undefined,
       scopeId: scope_id ?? undefined,

@@ -13,11 +13,13 @@ The community detection system analyzes embeddings of memory entries (tools, gui
 The Leiden algorithm is an advanced community detection method that optimizes modularity - a measure of how well-separated communities are. It's an improvement over the popular Louvain algorithm with better guarantees on community quality.
 
 **Best for:**
+
 - Medium to large graphs (10+ nodes)
 - Dense similarity graphs (lower thresholds ~0.75)
 - When optimal community quality is important
 
 **Features:**
+
 - Iteratively optimizes modularity
 - Provides convergence guarantees
 - Adjustable resolution parameter
@@ -28,11 +30,13 @@ The Leiden algorithm is an advanced community detection method that optimizes mo
 A simple, fast algorithm that finds connected components in the similarity graph using Union-Find data structure. Two nodes are connected if their similarity exceeds the threshold.
 
 **Best for:**
+
 - Small graphs (<10 nodes)
 - Sparse graphs (high thresholds ~0.85)
 - When speed is more important than optimal quality
 
 **Features:**
+
 - Single-pass algorithm (very fast)
 - Clear separation of communities
 - Lower computational overhead
@@ -62,7 +66,7 @@ console.log(`Found ${result.communities.length} communities`);
 console.log(`Modularity: ${result.modularity}`);
 
 // Access communities
-result.communities.forEach(community => {
+result.communities.forEach((community) => {
   console.log(`Community ${community.id}: ${community.members.length} members`);
   console.log(`  Cohesion: ${community.cohesion}`);
   console.log(`  Types: ${community.metadata?.dominantTypes}`);
@@ -177,6 +181,7 @@ interface CommunityDetectionResult {
 ### Modularity
 
 Modularity measures the quality of a network partition:
+
 - **Range:** -0.5 to 1.0
 - **Interpretation:**
   - > 0.3: Good community structure
@@ -186,6 +191,7 @@ Modularity measures the quality of a network partition:
 ### Cohesion
 
 Cohesion measures how similar members within a community are:
+
 - **Range:** 0 to 1
 - **Calculation:** Average pairwise cosine similarity
 - **Interpretation:**
@@ -203,6 +209,7 @@ Cohesion measures how similar members within a community are:
 4. **Iteration:** Process repeats until convergence
 
 Time complexity: O(n × m × i) where:
+
 - n = number of nodes
 - m = number of edges
 - i = number of iterations (typically low)
@@ -214,6 +221,7 @@ Time complexity: O(n × m × i) where:
 3. **Component Extraction:** Extract communities from component structure
 
 Time complexity: O(n² + e × α(n)) where:
+
 - n = number of nodes
 - e = number of edges
 - α = inverse Ackermann function (effectively constant)
@@ -281,6 +289,6 @@ try {
 
 ## References
 
-1. Traag, V.A., Waltman, L. & van Eck, N.J. "From Louvain to Leiden: guaranteeing well-connected communities." *Sci Rep* 9, 5233 (2019).
-2. Blondel, V.D., Guillaume, J.L., Lambiotte, R. & Lefebvre, E. "Fast unfolding of communities in large networks." *J. Stat. Mech.* 2008, P10008 (2008).
-3. Newman, M.E.J. & Girvan, M. "Finding and evaluating community structure in networks." *Phys. Rev. E* 69, 026113 (2004).
+1. Traag, V.A., Waltman, L. & van Eck, N.J. "From Louvain to Leiden: guaranteeing well-connected communities." _Sci Rep_ 9, 5233 (2019).
+2. Blondel, V.D., Guillaume, J.L., Lambiotte, R. & Lefebvre, E. "Fast unfolding of communities in large networks." _J. Stat. Mech._ 2008, P10008 (2008).
+3. Newman, M.E.J. & Girvan, M. "Finding and evaluating community structure in networks." _Phys. Rev. E_ 69, 026113 (2004).

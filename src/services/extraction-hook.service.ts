@@ -118,13 +118,15 @@ const EXTRACTION_PATTERNS: ExtractionPattern[] = [
     pattern: /(?:our\s+)?(?:standard|convention|rule|policy)\s+(?:is\s+)?(?:to\s+)?(.+?)(?:\.|$)/gi,
     titleExtractor: (m) => (m[1] ?? '').substring(0, 50).trim(),
     contentExtractor: (m) => (m[0] ?? '').trim(),
-    confidence: 0.80,
+    confidence: 0.8,
   },
   {
     type: 'guideline',
     category: 'workflow',
-    pattern: /(?:before|after)\s+(?:you|we)\s+(.+?),\s+(?:you\s+)?(?:should|must|need\s+to)\s+(.+?)(?:\.|$)/gi,
-    titleExtractor: (m) => `${(m[1] ?? '').substring(0, 25)} → ${(m[2] ?? '').substring(0, 25)}`.trim(),
+    pattern:
+      /(?:before|after)\s+(?:you|we)\s+(.+?),\s+(?:you\s+)?(?:should|must|need\s+to)\s+(.+?)(?:\.|$)/gi,
+    titleExtractor: (m) =>
+      `${(m[1] ?? '').substring(0, 25)} → ${(m[2] ?? '').substring(0, 25)}`.trim(),
     contentExtractor: (m) => (m[0] ?? '').trim(),
     confidence: 0.75,
   },
@@ -133,10 +135,11 @@ const EXTRACTION_PATTERNS: ExtractionPattern[] = [
   {
     type: 'knowledge',
     category: 'decision',
-    pattern: /(?:we\s+)?(?:decided|chose|picked|selected|went\s+with)\s+(.+?)\s+(?:because|since|for|due\s+to)\s+(.+?)(?:\.|$)/gi,
+    pattern:
+      /(?:we\s+)?(?:decided|chose|picked|selected|went\s+with)\s+(.+?)\s+(?:because|since|for|due\s+to)\s+(.+?)(?:\.|$)/gi,
     titleExtractor: (m) => (m[1] ?? '').substring(0, 50).trim(),
     contentExtractor: (m) => (m[0] ?? '').trim(),
-    confidence: 0.90,
+    confidence: 0.9,
   },
   {
     type: 'knowledge',
@@ -151,7 +154,8 @@ const EXTRACTION_PATTERNS: ExtractionPattern[] = [
   {
     type: 'knowledge',
     category: 'fact',
-    pattern: /(?:the\s+)?(?:project|system|app|application|codebase)\s+(?:uses|runs\s+on|is\s+built\s+with)\s+(.+?)(?:\.|$)/gi,
+    pattern:
+      /(?:the\s+)?(?:project|system|app|application|codebase)\s+(?:uses|runs\s+on|is\s+built\s+with)\s+(.+?)(?:\.|$)/gi,
     titleExtractor: (m) => `Uses ${(m[1] ?? '').substring(0, 40)}`.trim(),
     contentExtractor: (m) => (m[0] ?? '').trim(),
     confidence: 0.85,
@@ -159,7 +163,8 @@ const EXTRACTION_PATTERNS: ExtractionPattern[] = [
   {
     type: 'knowledge',
     category: 'fact',
-    pattern: /(?:the\s+)?(.+?)\s+(?:is\s+located|lives|can\s+be\s+found)\s+(?:in|at)\s+(.+?)(?:\.|$)/gi,
+    pattern:
+      /(?:the\s+)?(.+?)\s+(?:is\s+located|lives|can\s+be\s+found)\s+(?:in|at)\s+(.+?)(?:\.|$)/gi,
     titleExtractor: (m) => `${(m[1] ?? '').substring(0, 30)} location`.trim(),
     contentExtractor: (m) => (m[0] ?? '').trim(),
     confidence: 0.75,
@@ -169,18 +174,20 @@ const EXTRACTION_PATTERNS: ExtractionPattern[] = [
   {
     type: 'tool',
     category: 'cli',
-    pattern: /(?:run|use|execute)\s+[`'"]?(npm\s+run\s+\w+|npx\s+\w+|yarn\s+\w+|pnpm\s+\w+)[`'"]?/gi,
+    pattern:
+      /(?:run|use|execute)\s+[`'"]?(npm\s+run\s+\w+|npx\s+\w+|yarn\s+\w+|pnpm\s+\w+)[`'"]?/gi,
     titleExtractor: (m) => (m[1] ?? '').trim(),
     contentExtractor: (m) => (m[0] ?? '').trim(),
-    confidence: 0.90,
+    confidence: 0.9,
   },
   {
     type: 'tool',
     category: 'cli',
-    pattern: /(?:to\s+)?(?:build|test|lint|deploy|start)\s+(?:the\s+)?(?:project|app)?,?\s+(?:run|use)\s+[`'"]?(.+?)[`'"]?(?:\.|$)/gi,
+    pattern:
+      /(?:to\s+)?(?:build|test|lint|deploy|start)\s+(?:the\s+)?(?:project|app)?,?\s+(?:run|use)\s+[`'"]?(.+?)[`'"]?(?:\.|$)/gi,
     titleExtractor: (m) => (m[1] ?? '').substring(0, 50).trim(),
     contentExtractor: (m) => (m[0] ?? '').trim(),
-    confidence: 0.80,
+    confidence: 0.8,
   },
 
   // Task 65: Error handling patterns
@@ -188,15 +195,17 @@ const EXTRACTION_PATTERNS: ExtractionPattern[] = [
   {
     type: 'knowledge',
     category: 'error_handling',
-    pattern: /(?:this|the)\s+error\s+(?:`[^`]+`\s+)?(?:means|indicates|occurs\s+when|happens\s+when)\s+(.+?)(?:\.|$)/gi,
+    pattern:
+      /(?:this|the)\s+error\s+(?:`[^`]+`\s+)?(?:means|indicates|occurs\s+when|happens\s+when)\s+(.+?)(?:\.|$)/gi,
     titleExtractor: (m) => `Error: ${(m[1] ?? '').substring(0, 40)}`.trim(),
     contentExtractor: (m) => (m[0] ?? '').trim(),
-    confidence: 0.90,
+    confidence: 0.9,
   },
   {
     type: 'knowledge',
     category: 'error_handling',
-    pattern: /(?:if\s+you\s+(?:see|get)|when\s+you\s+(?:see|get))\s+(?:the\s+)?(?:error\s+)?[`'"](.+?)[`'"]\s*,?\s*(?:it\s+)?(?:means|is\s+because)\s+(.+?)(?:\.|$)/gi,
+    pattern:
+      /(?:if\s+you\s+(?:see|get)|when\s+you\s+(?:see|get))\s+(?:the\s+)?(?:error\s+)?[`'"](.+?)[`'"]\s*,?\s*(?:it\s+)?(?:means|is\s+because)\s+(.+?)(?:\.|$)/gi,
     titleExtractor: (m) => `Error: ${(m[1] ?? '').substring(0, 40)}`.trim(),
     contentExtractor: (m) => (m[0] ?? '').trim(),
     confidence: 0.85,
@@ -204,8 +213,9 @@ const EXTRACTION_PATTERNS: ExtractionPattern[] = [
   {
     type: 'knowledge',
     category: 'error_handling',
-    pattern: /(?:error\s+code\s+)?([A-Z_]{2,}(?:_[A-Z0-9]+)*|E[A-Z]+\d*)\s+(?:means|indicates|is\s+(?:caused\s+by|due\s+to))\s+(.+?)(?:\.|$)/gi,
-    titleExtractor: (m) => `Error ${(m[1] ?? '')}`.trim(),
+    pattern:
+      /(?:error\s+code\s+)?([A-Z_]{2,}(?:_[A-Z0-9]+)*|E[A-Z]+\d*)\s+(?:means|indicates|is\s+(?:caused\s+by|due\s+to))\s+(.+?)(?:\.|$)/gi,
+    titleExtractor: (m) => `Error ${m[1] ?? ''}`.trim(),
     contentExtractor: (m) => (m[0] ?? '').trim(),
     confidence: 0.85,
   },
@@ -214,15 +224,17 @@ const EXTRACTION_PATTERNS: ExtractionPattern[] = [
   {
     type: 'guideline',
     category: 'error_handling',
-    pattern: /(?:to\s+fix|to\s+resolve|to\s+handle)\s+(?:this\s+)?(?:error|issue|problem)\s*,?\s+(.+?)(?:\.|$)/gi,
+    pattern:
+      /(?:to\s+fix|to\s+resolve|to\s+handle)\s+(?:this\s+)?(?:error|issue|problem)\s*,?\s+(.+?)(?:\.|$)/gi,
     titleExtractor: (m) => `Fix: ${(m[1] ?? '').substring(0, 40)}`.trim(),
     contentExtractor: (m) => (m[0] ?? '').trim(),
-    confidence: 0.90,
+    confidence: 0.9,
   },
   {
     type: 'guideline',
     category: 'error_handling',
-    pattern: /(?:when|if)\s+(?:you\s+)?(?:see|get|encounter)\s+(?:this\s+)?(?:error|exception)\s*,?\s+(?:you\s+)?(?:should|need\s+to|must)\s+(.+?)(?:\.|$)/gi,
+    pattern:
+      /(?:when|if)\s+(?:you\s+)?(?:see|get|encounter)\s+(?:this\s+)?(?:error|exception)\s*,?\s+(?:you\s+)?(?:should|need\s+to|must)\s+(.+?)(?:\.|$)/gi,
     titleExtractor: (m) => `Handle: ${(m[1] ?? '').substring(0, 40)}`.trim(),
     contentExtractor: (m) => (m[0] ?? '').trim(),
     confidence: 0.85,
@@ -230,25 +242,28 @@ const EXTRACTION_PATTERNS: ExtractionPattern[] = [
   {
     type: 'guideline',
     category: 'error_handling',
-    pattern: /(?:always|never)\s+(?:catch|throw|handle|log)\s+(.+?)(?:\s+errors?|\s+exceptions?)(?:\.|$)/gi,
+    pattern:
+      /(?:always|never)\s+(?:catch|throw|handle|log)\s+(.+?)(?:\s+errors?|\s+exceptions?)(?:\.|$)/gi,
     titleExtractor: (m) => `Error handling: ${(m[1] ?? '').substring(0, 35)}`.trim(),
     contentExtractor: (m) => (m[0] ?? '').trim(),
-    confidence: 0.80,
+    confidence: 0.8,
   },
   {
     type: 'guideline',
     category: 'error_handling',
-    pattern: /(?:errors?\s+(?:should|must)\s+be)\s+(logged|reported|handled|retried|ignored|propagated)(?:\s+.+?)?(?:\.|$)/gi,
-    titleExtractor: (m) => `Errors should be ${(m[1] ?? '')}`.trim(),
+    pattern:
+      /(?:errors?\s+(?:should|must)\s+be)\s+(logged|reported|handled|retried|ignored|propagated)(?:\s+.+?)?(?:\.|$)/gi,
+    titleExtractor: (m) => `Errors should be ${m[1] ?? ''}`.trim(),
     contentExtractor: (m) => (m[0] ?? '').trim(),
-    confidence: 0.80,
+    confidence: 0.8,
   },
 
   // Knowledge - common error solutions
   {
     type: 'knowledge',
     category: 'error_handling',
-    pattern: /(?:the\s+)?(?:solution|fix|workaround)\s+(?:for|to)\s+(?:this\s+)?(?:error|issue|problem)\s+(?:is|was)\s+(.+?)(?:\.|$)/gi,
+    pattern:
+      /(?:the\s+)?(?:solution|fix|workaround)\s+(?:for|to)\s+(?:this\s+)?(?:error|issue|problem)\s+(?:is|was)\s+(.+?)(?:\.|$)/gi,
     titleExtractor: (m) => `Solution: ${(m[1] ?? '').substring(0, 40)}`.trim(),
     contentExtractor: (m) => (m[0] ?? '').trim(),
     confidence: 0.85,
@@ -303,7 +318,11 @@ export class ExtractionHookService implements IExtractionHookService {
   // (1ms precision vs typical 5-30 second cooldowns)
   private lastScanTime: number = 0;
   // Task 63: Pre-grouped patterns for efficient parallel processing
-  private readonly patternGroups: { high: ExtractionPattern[]; medium: ExtractionPattern[]; low: ExtractionPattern[] };
+  private readonly patternGroups: {
+    high: ExtractionPattern[];
+    medium: ExtractionPattern[];
+    low: ExtractionPattern[];
+  };
 
   constructor(config: Config) {
     this.enabled = config.extractionHook?.enabled ?? false;
@@ -358,17 +377,23 @@ export class ExtractionHookService implements IExtractionHookService {
 
     // Task 63: Use parallel pattern processing by tier
     const seenHashes = new Set<string>();
-    let allSuggestions: ExtractionSuggestion[] = [];
+    const allSuggestions: ExtractionSuggestion[] = [];
 
     // Process high-confidence patterns first (in parallel within tier)
     const { high, medium, low } = this.patternGroups;
 
-    // Process high tier
+    // Process high tier (with fault isolation - one pattern failure won't fail the tier)
     if (high.length > 0) {
-      const highResults = await Promise.all(
-        high.map((pattern) => this.processPattern(pattern, content, seenHashes))
+      const highSettled = await Promise.allSettled(
+        high.map((pattern) => Promise.resolve(this.processPattern(pattern, content, seenHashes)))
       );
-      allSuggestions.push(...highResults.flat());
+      for (const result of highSettled) {
+        if (result.status === 'fulfilled') {
+          allSuggestions.push(...result.value);
+        } else {
+          logger.warn({ error: result.reason, tier: 'high' }, 'Pattern processing failed');
+        }
+      }
 
       // Early exit if we have enough high-confidence suggestions
       if (allSuggestions.length >= this.maxSuggestions) {
@@ -380,24 +405,36 @@ export class ExtractionHookService implements IExtractionHookService {
       }
     }
 
-    // Process medium tier (in parallel)
+    // Process medium tier (with fault isolation)
     if (medium.length > 0) {
-      const mediumResults = await Promise.all(
-        medium.map((pattern) => this.processPattern(pattern, content, seenHashes))
+      const mediumSettled = await Promise.allSettled(
+        medium.map((pattern) => Promise.resolve(this.processPattern(pattern, content, seenHashes)))
       );
-      allSuggestions.push(...mediumResults.flat());
+      for (const result of mediumSettled) {
+        if (result.status === 'fulfilled') {
+          allSuggestions.push(...result.value);
+        } else {
+          logger.warn({ error: result.reason, tier: 'medium' }, 'Pattern processing failed');
+        }
+      }
 
       if (allSuggestions.length >= this.maxSuggestions * 2) {
         return this.finalizeResults(allSuggestions);
       }
     }
 
-    // Process low tier (in parallel)
+    // Process low tier (with fault isolation)
     if (low.length > 0) {
-      const lowResults = await Promise.all(
-        low.map((pattern) => this.processPattern(pattern, content, seenHashes))
+      const lowSettled = await Promise.allSettled(
+        low.map((pattern) => Promise.resolve(this.processPattern(pattern, content, seenHashes)))
       );
-      allSuggestions.push(...lowResults.flat());
+      for (const result of lowSettled) {
+        if (result.status === 'fulfilled') {
+          allSuggestions.push(...result.value);
+        } else {
+          logger.warn({ error: result.reason, tier: 'low' }, 'Pattern processing failed');
+        }
+      }
     }
 
     return this.finalizeResults(allSuggestions);

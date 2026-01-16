@@ -9,12 +9,14 @@ Accepted
 ADR-0014 established that embeddings are generated asynchronously ("fire-and-forget"). However, it didn't specify the queue mechanics for managing concurrent embedding requests.
 
 Challenges:
+
 - Multiple updates to the same entry should only embed the latest version
 - Concurrent embedding requests can overwhelm the embedding service
 - Failed embeddings should be recoverable
 - Queue state should be observable for debugging
 
 We needed a queue system with:
+
 - Deduplication (skip stale versions)
 - Concurrency limiting
 - Failure handling with retry
@@ -30,17 +32,17 @@ Implement a fire-and-forget async embedding queue with deduplication, concurrenc
 // src/db/repositories/embedding-hooks.ts
 interface EmbeddingQueue {
   // Job deduplication: only latest version per entry
-  pendingByEntry: Map<string, EmbeddingJob>;  // entryKey → latest job
+  pendingByEntry: Map<string, EmbeddingJob>; // entryKey → latest job
 
   // FIFO processing order
-  queue: string[];  // entryKeys in arrival order
+  queue: string[]; // entryKeys in arrival order
 
   // Concurrency control
   inFlight: number;
-  maxConcurrency: number;  // default: 3
+  maxConcurrency: number; // default: 3
 
   // Version tracking for deduplication
-  latestSeqByKey: Map<string, number>;  // entryKey → sequence number
+  latestSeqByKey: Map<string, number>; // entryKey → sequence number
 
   // Failed jobs for manual intervention
   dlq: EmbeddingJob[];
@@ -51,7 +53,7 @@ interface EmbeddingJob {
   entryId: string;
   versionId: string;
   content: string;
-  seq: number;  // Monotonic sequence for ordering
+  seq: number; // Monotonic sequence for ordering
   attempts: number;
   lastError?: string;
 }
@@ -97,12 +99,12 @@ async function processQueue(): Promise<void> {
     const key = queue.shift()!;
     const job = pendingByEntry.get(key);
 
-    if (!job) continue;  // Already processed
+    if (!job) continue; // Already processed
 
     // Check if still latest (might have been superseded)
     if (job.seq < latestSeqByKey.get(key)!) {
       pendingByEntry.delete(key);
-      continue;  // Skip stale job
+      continue; // Skip stale job
     }
 
     inFlight++;
@@ -112,7 +114,7 @@ async function processQueue(): Promise<void> {
       .catch((error) => handleFailure(job, error))
       .finally(() => {
         inFlight--;
-        processQueue();  // Process next
+        processQueue(); // Process next
       });
   }
 }
@@ -194,6 +196,7 @@ function getQueueStats(): QueueStats {
 ## Consequences
 
 **Positive:**
+
 - Only latest version is embedded (saves API calls)
 - Concurrent requests don't overwhelm embedding service
 - Failed jobs are recoverable via DLQ
@@ -201,6 +204,7 @@ function getQueueStats(): QueueStats {
 - Memory-efficient (only stores latest job per entry)
 
 **Negative:**
+
 - In-memory queue loses state on restart (acceptable for embeddings)
 - DLQ requires manual intervention to retry
 - Complexity of deduplication logic

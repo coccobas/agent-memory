@@ -99,8 +99,16 @@ const FULL_SCHEMA = `
 const CLASSIFICATION_TEST_CASES = [
   // Guidelines
   { text: 'Rule: always use TypeScript', expectedType: 'guideline', pattern: 'rule-prefix' },
-  { text: 'Must use async/await for async operations', expectedType: 'guideline', pattern: 'must-prefix' },
-  { text: 'Never commit secrets to the repository', expectedType: 'guideline', pattern: 'never-prefix' },
+  {
+    text: 'Must use async/await for async operations',
+    expectedType: 'guideline',
+    pattern: 'must-prefix',
+  },
+  {
+    text: 'Never commit secrets to the repository',
+    expectedType: 'guideline',
+    pattern: 'never-prefix',
+  },
   { text: "Don't use var in TypeScript", expectedType: 'guideline', pattern: 'dont-prefix' },
   { text: 'Avoid using any type', expectedType: 'guideline', pattern: 'avoid-prefix' },
   { text: 'Always write unit tests', expectedType: 'guideline', pattern: 'always-prefix' },
@@ -109,11 +117,23 @@ const CLASSIFICATION_TEST_CASES = [
 
   // Knowledge
   { text: 'We decided to use PostgreSQL', expectedType: 'knowledge', pattern: 'we-decided' },
-  { text: 'We chose React because of its ecosystem', expectedType: 'knowledge', pattern: 'we-chose' },
+  {
+    text: 'We chose React because of its ecosystem',
+    expectedType: 'knowledge',
+    pattern: 'we-chose',
+  },
   { text: 'The API rate limit is 1000/min', expectedType: 'knowledge', pattern: 'fact' },
   { text: 'Our backend is built with Node.js', expectedType: 'knowledge', pattern: 'description' },
-  { text: 'Decision: use REST over GraphQL', expectedType: 'knowledge', pattern: 'decision-prefix' },
-  { text: 'Remember that tokens expire in 24h', expectedType: 'knowledge', pattern: 'remember-that' },
+  {
+    text: 'Decision: use REST over GraphQL',
+    expectedType: 'knowledge',
+    pattern: 'decision-prefix',
+  },
+  {
+    text: 'Remember that tokens expire in 24h',
+    expectedType: 'knowledge',
+    pattern: 'remember-that',
+  },
 
   // Tools
   { text: 'npm run build to compile', expectedType: 'tool', pattern: 'npm-command' },
@@ -347,7 +367,9 @@ describe('Classification → Storage Flow Tests', () => {
     it('should classify 100 items in under 100ms', async () => {
       const texts = CLASSIFICATION_TEST_CASES.map((tc) => tc.text);
       // Repeat to get 100 items
-      const batch = Array.from({ length: 5 }, () => texts).flat().slice(0, 100);
+      const batch = Array.from({ length: 5 }, () => texts)
+        .flat()
+        .slice(0, 100);
 
       const start = performance.now();
 
@@ -421,11 +443,7 @@ describe('Classification → Storage Flow Tests', () => {
     });
 
     it('should return lower confidence for ambiguous text', async () => {
-      const ambiguousTexts = [
-        'TypeScript is good',
-        'Consider using tests',
-        'The code quality',
-      ];
+      const ambiguousTexts = ['TypeScript is good', 'Consider using tests', 'The code quality'];
 
       for (const text of ambiguousTexts) {
         const result = await classificationService.classify(text);

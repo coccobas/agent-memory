@@ -142,6 +142,7 @@ agentmem_db_pool_connections{state="waiting"} 0
 ### Recommended Alerts
 
 #### High Pool Utilization
+
 ```yaml
 # Alert when pool is >80% utilized
 - alert: DatabasePoolHighUtilization
@@ -149,45 +150,50 @@ agentmem_db_pool_connections{state="waiting"} 0
     (agentmem_db_pool_size / agentmem_db_pool_max) > 0.8
   for: 5m
   annotations:
-    summary: "Database pool is highly utilized ({{ $value }}%)"
-    description: "Connection pool is running at {{ $value }}% capacity"
+    summary: 'Database pool is highly utilized ({{ $value }}%)'
+    description: 'Connection pool is running at {{ $value }}% capacity'
 ```
 
 #### Waiting Requests
+
 ```yaml
 # Alert when requests are waiting for connections
 - alert: DatabasePoolWaiting
   expr: agentmem_db_pool_waiting > 0
   for: 1m
   annotations:
-    summary: "Database pool has waiting requests"
-    description: "{{ $value }} requests are waiting for database connections"
+    summary: 'Database pool has waiting requests'
+    description: '{{ $value }} requests are waiting for database connections'
 ```
 
 #### Low Available Connections
+
 ```yaml
 # Alert when available connections are very low
 - alert: DatabasePoolLowAvailable
   expr: agentmem_db_pool_available < 2
   for: 2m
   annotations:
-    summary: "Low available database connections"
-    description: "Only {{ $value }} connections available in pool"
+    summary: 'Low available database connections'
+    description: 'Only {{ $value }} connections available in pool'
 ```
 
 ### Grafana Dashboard Queries
 
 #### Pool Utilization Percentage
+
 ```promql
 (agentmem_db_pool_size / agentmem_db_pool_max) * 100
 ```
 
 #### Active Connections Over Time
+
 ```promql
 agentmem_db_pool_connections{state="active"}
 ```
 
 #### Connection Pool Breakdown (Stacked)
+
 ```promql
 agentmem_db_pool_connections
 ```
@@ -200,6 +206,7 @@ The pool metrics include comprehensive tests:
 - **Integration Tests**: Verify metrics work with actual PostgreSQL adapter (requires PostgreSQL)
 
 Run tests:
+
 ```bash
 # Unit tests (always run)
 npm test -- tests/unit/pool-metrics.test.ts
@@ -215,11 +222,13 @@ AGENT_MEMORY_DB_TYPE=postgresql npm test -- tests/integration/pool-metrics.integ
 If metrics aren't updating:
 
 1. Verify the recorder is started:
+
    ```typescript
    recorder.start();
    ```
 
 2. Check that the adapter supports `getPoolStats()`:
+
    ```typescript
    if ('getPoolStats' in adapter) {
      console.log('Adapter supports pool stats');

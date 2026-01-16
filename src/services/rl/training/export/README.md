@@ -5,30 +5,35 @@ Export RL training datasets in multiple formats for use with various machine lea
 ## Supported Formats
 
 ### HuggingFace Datasets
+
 - **Format**: JSON with dataset_dict.json
 - **Use Case**: Loading with `datasets.load_dataset()`
 - **Features**: Full schema definition, README generation
 - **Output**: `train.json`, `test.json`, `dataset_dict.json`, `dataset_info.json`, `README.md`
 
 ### OpenAI Fine-Tuning
+
 - **Format**: JSONL with message structure
 - **Use Case**: OpenAI API fine-tuning
 - **Features**: Token validation, system/user/assistant messages
 - **Output**: `train.jsonl`, `eval.jsonl`, `metadata.json`, `USAGE.md`
 
 ### Anthropic/Claude
+
 - **Format**: JSONL with prompt/completion pairs
 - **Use Case**: Claude fine-tuning (when available)
 - **Features**: Human/Assistant format, reward interpretation
 - **Output**: `train.jsonl`, `eval.jsonl`, `dataset_info.json`, `GUIDE.md`
 
 ### CSV
+
 - **Format**: Comma-separated values
 - **Use Case**: Data analysis, visualization, Excel
 - **Features**: Flattened structure, analysis template
 - **Output**: `train.csv`, `eval.csv`, `combined.csv`, `data_dictionary.md`, `analysis_template.py`
 
 ### JSONL (Simple)
+
 - **Format**: One JSON object per line
 - **Use Case**: Custom processing pipelines
 - **Features**: Minimal structure, easy to parse
@@ -67,12 +72,12 @@ interface ExportOptions {
   format: 'huggingface' | 'openai' | 'anthropic' | 'csv' | 'jsonl';
   outputPath: string;
   policy: 'extraction' | 'retrieval' | 'consolidation';
-  includeMetadata?: boolean;      // Default: true
-  splitRatio?: number;             // Default: 0.2 (80/20 split)
-  shuffle?: boolean;               // Default: true
-  seed?: number;                   // For reproducible shuffling
-  maxExamples?: number;            // Limit for testing
-  compress?: boolean;              // Compress output (future)
+  includeMetadata?: boolean; // Default: true
+  splitRatio?: number; // Default: 0.2 (80/20 split)
+  shuffle?: boolean; // Default: true
+  seed?: number; // For reproducible shuffling
+  maxExamples?: number; // Limit for testing
+  compress?: boolean; // Compress output (future)
 }
 ```
 
@@ -117,9 +122,9 @@ const result = await exportDataset(dataset, {
   format: 'huggingface',
   outputPath: './datasets/custom',
   policy: 'extraction',
-  splitRatio: 0.1,  // 90/10 split
+  splitRatio: 0.1, // 90/10 split
   shuffle: true,
-  seed: 42,         // Reproducible
+  seed: 42, // Reproducible
 });
 ```
 
@@ -217,11 +222,13 @@ All formats contain the same core data:
 #### Extraction Policy
 
 State features:
+
 - `contextFeatures`: Turn info, token counts, tool calls
 - `memoryState`: Total entries, recent extractions, duplicates
 - `contentFeatures`: Decision/rule/fact/command flags, novelty, complexity
 
 Actions:
+
 - `decision`: store | skip | defer
 - `entryType`: knowledge | guideline | tool
 - `priority`: 0-100
@@ -229,11 +236,13 @@ Actions:
 #### Retrieval Policy
 
 State features:
+
 - `queryFeatures`: Query length, keywords, complexity, category
 - `contextFeatures`: Turn number, depth, tool calls, errors
 - `memoryStats`: Total entries, recent retrievals, success rate
 
 Actions:
+
 - `shouldRetrieve`: boolean
 - `scope`: global | org | project | session
 - `types`: Array of entry types
@@ -242,11 +251,13 @@ Actions:
 #### Consolidation Policy
 
 State features:
+
 - `groupFeatures`: Group size, similarity scores, entry types
 - `usageStats`: Retrievals, rank, success rate, last access
 - `scopeStats`: Scope type, total entries, duplicate ratio
 
 Actions:
+
 - `action`: merge | dedupe | archive | abstract | keep
 - `targetEntries`: Array of entry IDs
 - `mergeStrategy`: union | intersection | weighted
@@ -316,6 +327,7 @@ print(correlations.head(10))
 ## Validation
 
 Export functions automatically validate:
+
 - Token limits (OpenAI format)
 - Required fields
 - Data types
@@ -327,13 +339,13 @@ Validation warnings are returned in `ExportResult.warnings`.
 
 Export times by format (approximate):
 
-| Format | 1K examples | 10K examples | 100K examples |
-|--------|-------------|--------------|---------------|
-| JSONL | <1s | ~1s | ~10s |
-| CSV | ~1s | ~5s | ~30s |
-| HuggingFace | ~1s | ~5s | ~30s |
-| OpenAI | ~2s | ~10s | ~60s |
-| Anthropic | ~1s | ~5s | ~30s |
+| Format      | 1K examples | 10K examples | 100K examples |
+| ----------- | ----------- | ------------ | ------------- |
+| JSONL       | <1s         | ~1s          | ~10s          |
+| CSV         | ~1s         | ~5s          | ~30s          |
+| HuggingFace | ~1s         | ~5s          | ~30s          |
+| OpenAI      | ~2s         | ~10s         | ~60s          |
+| Anthropic   | ~1s         | ~5s          | ~30s          |
 
 Note: Times vary based on state/action complexity and metadata size.
 

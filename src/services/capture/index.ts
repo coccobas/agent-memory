@@ -8,18 +8,11 @@
  */
 
 import { createComponentLogger } from '../../utils/logger.js';
-import {
-  ExperienceCaptureModule,
-  createExperienceCaptureModule,
-} from './experience.module.js';
-import {
-  KnowledgeCaptureModule,
-  createKnowledgeCaptureModule,
-  type KnowledgeModuleDeps,
-} from './knowledge.module.js';
-import {
-  CaptureStateManager,
-} from './state.js';
+import type { ExperienceCaptureModule } from './experience.module.js';
+import { createExperienceCaptureModule } from './experience.module.js';
+import type { KnowledgeCaptureModule } from './knowledge.module.js';
+import { createKnowledgeCaptureModule, type KnowledgeModuleDeps } from './knowledge.module.js';
+import { CaptureStateManager } from './state.js';
 import type {
   TurnData,
   TurnMetrics,
@@ -167,10 +160,7 @@ export class CaptureService {
    * Simple content hash for deduplication and decision tracking
    */
   private hashContent(content: string): string {
-    return createHash('sha256')
-      .update(content.slice(0, 1000))
-      .digest('hex')
-      .slice(0, 16);
+    return createHash('sha256').update(content.slice(0, 1000)).digest('hex').slice(0, 16);
   }
 
   // =============================================================================
@@ -333,10 +323,7 @@ export class CaptureService {
   /**
    * Handle session end - extract experiences and knowledge
    */
-  async onSessionEnd(
-    sessionId: string,
-    options?: Partial<CaptureOptions>
-  ): Promise<CaptureResult> {
+  async onSessionEnd(sessionId: string, options?: Partial<CaptureOptions>): Promise<CaptureResult> {
     const startTime = Date.now();
     const result: CaptureResult = {
       experiences: {
@@ -541,4 +528,8 @@ export type {
   CaptureSessionState,
 } from './types.js';
 export { ExperienceCaptureModule, createExperienceCaptureModule } from './experience.module.js';
-export { KnowledgeCaptureModule, createKnowledgeCaptureModule, type KnowledgeModuleDeps } from './knowledge.module.js';
+export {
+  KnowledgeCaptureModule,
+  createKnowledgeCaptureModule,
+  type KnowledgeModuleDeps,
+} from './knowledge.module.js';

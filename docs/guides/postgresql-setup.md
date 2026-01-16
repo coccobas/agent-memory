@@ -27,13 +27,13 @@ agent-memory mcp
 
 ## When to Use PostgreSQL
 
-| Use Case | Recommended Backend |
-|----------|---------------------|
-| Single developer | SQLite (default) |
-| Small team, single server | SQLite |
-| Multiple servers | PostgreSQL |
-| High availability required | PostgreSQL |
-| Large datasets (10M+ entries) | PostgreSQL |
+| Use Case                      | Recommended Backend |
+| ----------------------------- | ------------------- |
+| Single developer              | SQLite (default)    |
+| Small team, single server     | SQLite              |
+| Multiple servers              | PostgreSQL          |
+| High availability required    | PostgreSQL          |
+| Large datasets (10M+ entries) | PostgreSQL          |
 
 ---
 
@@ -113,19 +113,19 @@ Check logs for migration output.
 
 PostgreSQL uses connection pooling for efficiency:
 
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `AGENT_MEMORY_PG_POOL_MIN` | 2 | Minimum connections kept open |
-| `AGENT_MEMORY_PG_POOL_MAX` | 10 | Maximum concurrent connections |
-| `AGENT_MEMORY_PG_IDLE_TIMEOUT_MS` | 30000 | Close idle connections after this time |
+| Setting                           | Default | Description                            |
+| --------------------------------- | ------- | -------------------------------------- |
+| `AGENT_MEMORY_PG_POOL_MIN`        | 2       | Minimum connections kept open          |
+| `AGENT_MEMORY_PG_POOL_MAX`        | 10      | Maximum concurrent connections         |
+| `AGENT_MEMORY_PG_IDLE_TIMEOUT_MS` | 30000   | Close idle connections after this time |
 
 ### Recommendations
 
-| Deployment | Min | Max |
-|------------|-----|-----|
-| Development | 1 | 5 |
-| Small production | 2 | 10 |
-| High traffic | 5 | 20 |
+| Deployment       | Min | Max |
+| ---------------- | --- | --- |
+| Development      | 1   | 5   |
+| Small production | 2   | 10  |
+| High traffic     | 5   | 20  |
 
 ---
 
@@ -140,6 +140,7 @@ AGENT_MEMORY_PG_SSL=true
 ### PostgreSQL Server SSL Setup
 
 In `postgresql.conf`:
+
 ```
 ssl = on
 ssl_cert_file = 'server.crt'
@@ -147,6 +148,7 @@ ssl_key_file = 'server.key'
 ```
 
 In `pg_hba.conf`:
+
 ```
 hostssl all all 0.0.0.0/0 md5
 ```
@@ -167,7 +169,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - '5432:5432'
 
   agent-memory:
     image: ghcr.io/anthropics/agent-memory:latest
@@ -229,6 +231,7 @@ Configure PostgreSQL as shown above.
 **Tool:** `memory_health`
 
 Response includes:
+
 ```json
 {
   "database": {
@@ -243,6 +246,7 @@ Response includes:
 ### PostgreSQL Logs
 
 Monitor PostgreSQL logs for connection issues:
+
 ```bash
 tail -f /var/log/postgresql/postgresql-16-main.log
 ```
@@ -258,6 +262,7 @@ Error: connect ECONNREFUSED 127.0.0.1:5432
 ```
 
 **Fix:** Ensure PostgreSQL is running:
+
 ```bash
 sudo systemctl status postgresql
 ```
@@ -277,6 +282,7 @@ Error: SSL/TLS required
 ```
 
 **Fix:** Enable SSL:
+
 ```bash
 AGENT_MEMORY_PG_SSL=true
 ```
@@ -288,6 +294,7 @@ Error: connection timed out
 ```
 
 **Fix:** Increase timeout:
+
 ```bash
 AGENT_MEMORY_PG_CONNECTION_TIMEOUT_MS=30000
 ```
@@ -296,20 +303,20 @@ AGENT_MEMORY_PG_CONNECTION_TIMEOUT_MS=30000
 
 ## Environment Variables Reference
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `AGENT_MEMORY_DB_TYPE` | `sqlite` | Set to `postgresql` |
-| `AGENT_MEMORY_PG_HOST` | `localhost` | Server hostname |
-| `AGENT_MEMORY_PG_PORT` | `5432` | Server port |
-| `AGENT_MEMORY_PG_DATABASE` | `agent_memory` | Database name |
-| `AGENT_MEMORY_PG_USER` | `postgres` | Username |
-| `AGENT_MEMORY_PG_PASSWORD` | — | Password |
-| `AGENT_MEMORY_PG_SSL` | `false` | Enable SSL |
-| `AGENT_MEMORY_PG_POOL_MIN` | `2` | Min pool connections |
-| `AGENT_MEMORY_PG_POOL_MAX` | `10` | Max pool connections |
-| `AGENT_MEMORY_PG_IDLE_TIMEOUT_MS` | `30000` | Idle connection timeout |
-| `AGENT_MEMORY_PG_CONNECTION_TIMEOUT_MS` | `10000` | Connection timeout |
-| `AGENT_MEMORY_PG_STATEMENT_TIMEOUT_MS` | `30000` | Query timeout |
+| Variable                                | Default        | Description             |
+| --------------------------------------- | -------------- | ----------------------- |
+| `AGENT_MEMORY_DB_TYPE`                  | `sqlite`       | Set to `postgresql`     |
+| `AGENT_MEMORY_PG_HOST`                  | `localhost`    | Server hostname         |
+| `AGENT_MEMORY_PG_PORT`                  | `5432`         | Server port             |
+| `AGENT_MEMORY_PG_DATABASE`              | `agent_memory` | Database name           |
+| `AGENT_MEMORY_PG_USER`                  | `postgres`     | Username                |
+| `AGENT_MEMORY_PG_PASSWORD`              | —              | Password                |
+| `AGENT_MEMORY_PG_SSL`                   | `false`        | Enable SSL              |
+| `AGENT_MEMORY_PG_POOL_MIN`              | `2`            | Min pool connections    |
+| `AGENT_MEMORY_PG_POOL_MAX`              | `10`           | Max pool connections    |
+| `AGENT_MEMORY_PG_IDLE_TIMEOUT_MS`       | `30000`        | Idle connection timeout |
+| `AGENT_MEMORY_PG_CONNECTION_TIMEOUT_MS` | `10000`        | Connection timeout      |
+| `AGENT_MEMORY_PG_STATEMENT_TIMEOUT_MS`  | `30000`        | Query timeout           |
 
 ---
 

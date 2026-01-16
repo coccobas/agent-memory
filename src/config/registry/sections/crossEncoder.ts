@@ -50,14 +50,16 @@ export const crossEncoderSection: ConfigSectionMeta = {
     model: {
       envKey: 'AGENT_MEMORY_CROSS_ENCODER_MODEL',
       defaultValue: undefined,
-      description: 'Optional model override for cross-encoder scoring. Uses extraction model if not set.',
+      description:
+        'Optional model override for cross-encoder scoring. Uses extraction model if not set.',
       schema: z.string().optional(),
       parse: 'string',
     },
     baseUrl: {
       envKey: 'AGENT_MEMORY_CROSS_ENCODER_BASE_URL',
       defaultValue: undefined,
-      description: 'Optional base URL override for cross-encoder LLM. Uses extraction endpoint if not set.',
+      description:
+        'Optional base URL override for cross-encoder LLM. Uses extraction endpoint if not set.',
       schema: z.string().optional(),
       parse: 'string',
     },

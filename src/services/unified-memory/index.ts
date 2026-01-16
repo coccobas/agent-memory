@@ -63,10 +63,7 @@ export class UnifiedMemoryService implements IUnifiedMemoryService {
   private readonly intentService: IIntentDetectionService;
   private readonly autoExecuteThreshold: number;
 
-  constructor(options?: {
-    confidenceThreshold?: number;
-    autoExecuteThreshold?: number;
-  }) {
+  constructor(options?: { confidenceThreshold?: number; autoExecuteThreshold?: number }) {
     this.intentService = createIntentDetectionService({
       confidenceThreshold: options?.confidenceThreshold ?? 0.7,
     });
@@ -96,9 +93,8 @@ export class UnifiedMemoryService implements IUnifiedMemoryService {
     const projectId = request.projectId ?? context?.project?.id;
     const sessionId = request.sessionId ?? context?.session?.id;
     // agentId is a DetectedAgentId object with value property
-    const agentIdValue = typeof context?.agentId === 'object' && context.agentId
-      ? context.agentId.value
-      : undefined;
+    const agentIdValue =
+      typeof context?.agentId === 'object' && context.agentId ? context.agentId.value : undefined;
     const agentId = request.agentId ?? agentIdValue ?? 'unified-memory';
 
     // Dispatch to appropriate handler

@@ -61,9 +61,9 @@ describe('Latent Memory Handler', () => {
       }),
     };
     mockVectorService = {
-      searchSimilar: vi.fn().mockResolvedValue([
-        { entryType: 'guideline', entryId: 'g-1', text: 'Test', score: 0.9 },
-      ]),
+      searchSimilar: vi
+        .fn()
+        .mockResolvedValue([{ entryType: 'guideline', entryId: 'g-1', text: 'Test', score: 0.9 }]),
     };
     mockContext = {
       db: {} as any,
@@ -239,9 +239,7 @@ describe('Latent Memory Handler', () => {
     });
 
     it('should throw when query is missing', async () => {
-      await expect(latentMemoryHandlers.search(mockContext, {})).rejects.toThrow(
-        'query'
-      );
+      await expect(latentMemoryHandlers.search(mockContext, {})).rejects.toThrow('query');
     });
 
     it('should throw when embedding service unavailable', async () => {
@@ -307,9 +305,9 @@ describe('Latent Memory Handler', () => {
     });
 
     it('should throw when neither sessionId nor conversationId provided', async () => {
-      await expect(
-        latentMemoryHandlers.inject(mockContext, {})
-      ).rejects.toThrow('sessionId or conversationId');
+      await expect(latentMemoryHandlers.inject(mockContext, {})).rejects.toThrow(
+        'sessionId or conversationId'
+      );
     });
   });
 
@@ -325,9 +323,7 @@ describe('Latent Memory Handler', () => {
     });
 
     it('should throw when sessionId is missing', async () => {
-      await expect(
-        latentMemoryHandlers.warm_session(mockContext, {})
-      ).rejects.toThrow('sessionId');
+      await expect(latentMemoryHandlers.warm_session(mockContext, {})).rejects.toThrow('sessionId');
     });
   });
 

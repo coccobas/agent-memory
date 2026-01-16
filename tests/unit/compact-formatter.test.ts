@@ -377,4 +377,76 @@ describe('Compact Formatter', () => {
       expect(result).toContain('–');
     });
   });
+
+  describe('Quickstart responses (compact)', () => {
+    it('should format quickstart with resumed session', () => {
+      const result = formatOutput({
+        quickstart: {
+          sessionAction: 'resumed',
+          resumedSessionName: 'My Work Session',
+        },
+      });
+      expect(result).toContain('✓');
+      expect(result).toContain('Context loaded');
+      expect(result).toContain('resumed session');
+      expect(result).toContain('My Work Session');
+    });
+
+    it('should format quickstart with created session', () => {
+      const result = formatOutput({
+        quickstart: {
+          sessionAction: 'created',
+          requestedSessionName: 'New Session',
+        },
+      });
+      expect(result).toContain('✓');
+      expect(result).toContain('Context loaded');
+      expect(result).toContain('started session');
+      expect(result).toContain('New Session');
+    });
+
+    it('should format quickstart with session error', () => {
+      const result = formatOutput({
+        quickstart: {
+          sessionAction: 'error',
+        },
+      });
+      expect(result).toContain('✓');
+      expect(result).toContain('Context loaded');
+      expect(result).toContain('session start failed');
+    });
+
+    it('should format quickstart without session action', () => {
+      const result = formatOutput({
+        quickstart: {},
+      });
+      expect(result).toContain('✓');
+      expect(result).toContain('Context loaded');
+    });
+  });
+
+  describe('Context response', () => {
+    it('should format context response with scope and totalCount', () => {
+      const result = formatOutput({
+        scope: { type: 'project', id: 'proj-12345678' },
+        guidelines: true, // truthy but not array
+        meta: { totalCount: 15 },
+      });
+      expect(result).toContain('✓');
+      expect(result).toContain('Context loaded');
+      expect(result).toContain('project');
+      expect(result).toContain('15 entries');
+    });
+
+    it('should format context response without meta', () => {
+      const result = formatOutput({
+        scope: { type: 'session', id: 'sess-12345678' },
+        knowledge: true,
+      });
+      expect(result).toContain('✓');
+      expect(result).toContain('Context loaded');
+      expect(result).toContain('session');
+      expect(result).toContain('0 entries');
+    });
+  });
 });

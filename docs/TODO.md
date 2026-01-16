@@ -17,12 +17,14 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 ### QUERY PIPELINE (Tasks 1-44)
 
 #### Critical Security
+
 - [x] 1. **SQL Injection Risk in FTS Stage** - `fts-search.ts:95` - VERIFIED SECURE: Table names derived from TypeScript enum via switch statement, no user input reaches SQL
 - [x] 2. **Unsafe Table Name Interpolation in Rerank** - `rerank.ts:160-220` - VERIFIED SECURE: Table names are hardcoded constants, uses parameterized IN clauses
 - [x] 3. **Missing Validation in Knowledge Temporal Fetch** - `fetch.ts:297-303` - FIXED: Added validation that start date must be <= end date
 - [x] 4. **No Input Validation for Scope Chain Cache** - `scope-chain.ts:143-146` - FIXED: Added UUID format validation for scope IDs
 
 #### Performance
+
 - [x] 5. **Inefficient Light Scoring Phase** - `score.ts:547-586` - ANALYZED: 4 loops are O(n) total, each processes only its type. Code style issue, not performance.
 - [x] 6. **Redundant Scope Chain Resolution** - `scope-chain.ts` - ANALYZED: Cache DOES store results even when entities don't exist. Not a real issue.
 - [x] 7. **No Pagination Cursor Support** - `pipeline.ts:408` - FIXED: Added cursor/offset params to BaseQueryParams, cursor decoding in resolve stage, cursor encoding in buildQueryResult
@@ -31,6 +33,7 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 - [x] 10. **No Prepared Statement Caching for Dynamic Queries** - `fetch.ts:356` - ALREADY IMPLEMENTED: Uses `getPreparedStatement()` for caching
 
 #### Error Handling
+
 - [x] 11. **Silent Failures in Entity Index Lookup** - `index.ts:309-321` - FIXED: Added debug logging with error details and entity info
 - [x] 12. **No Recovery from Semantic Stage Failures** - `semantic.ts:170-208` - FIXED: Classified errors by type with appropriate log levels
 - [x] 13. **Graph Traversal Max Results Silently Discarded** - `graph-traversal.ts` - FIXED: Added truncation logging for both CTE and BFS
@@ -39,6 +42,7 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 - [x] 16. **No Handling for Empty Search String** - `resolve.ts:39-50` - FIXED: Added logging and clarifying comments
 
 #### Missing Features
+
 - [x] 17. **No Query Result Invalidation on Cascade Deletes** - `index.ts:178-186` - FIXED: On delete actions, now invalidates ALL caches to handle cross-scope relations
 - [x] 18. **Missing Limit Enforcement in FTS Scored Results** - FIXED: Added limit slicing in fallback path
 - [x] 19. **No Support for Excluding Search Terms** - Missing `-term` syntax support - **DECISION: BACKLOG**
@@ -47,8 +51,9 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 - [x] 22. **No Late Binding for Dependencies** - `index.ts:51-53` - FIXED: Added MutablePipelineDependencies with updateDependencies() method for runtime service swapping
 
 #### Hidden Complexity
-- [x] 23. **FTS Expanded Query Weight Handling Unclear** - VERIFIED: weight IS applied at line 122 (score * query.weight), matchWeights map is unused cleanup
-- [x] 24. **Semantic Score Deduplication Issue** - VERIFIED: weight IS applied at line 130 (score * weight), max-score dedup is intentional
+
+- [x] 23. **FTS Expanded Query Weight Handling Unclear** - VERIFIED: weight IS applied at line 122 (score \* query.weight), matchWeights map is unused cleanup
+- [x] 24. **Semantic Score Deduplication Issue** - VERIFIED: weight IS applied at line 130 (score \* weight), max-score dedup is intentional
 - [x] 25. **Phase 1 Light Score May Not Preserve Top Candidates** - ANALYZED: 1.5x buffer is intentional trade-off for performance, could increase if recall issues arise
 - [x] 26. **Feedback Multiplier Doesn't Account for Recency** - `feedback-cache.ts:267-285` old feedback distorts - **DECISION: WONTFIX**
 - [x] 27. **Cached Feedback Has No Invalidation Trigger** - VERIFIED: feedback/index.ts:300-311 invalidates cache when outcomes are recorded
@@ -57,6 +62,7 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 - [x] 30. **Hierarchical Filtering May Drop Relevant Results** - FIXED: Now preserves candidateScores from retrieval and merges into semanticScores for proper re-ranking
 
 #### Configuration
+
 - [x] 31. **Hardcoded Timeout Missing** - VERIFIED: Embedding service has 60s timeout (embedding.service.ts:149,161)
 - [x] 32. **No Circuit Breaker for External Services** - VERIFIED: DLQ has useCircuitBreaker, rate limiter has burst protection, withRetry has backoff
 - [x] 33. **Scope Chain Cache TTL Not Configurable** - `scope-chain.ts:31` - FIXED: Now uses config.cache.scopeCacheTTLMs (AGENT_MEMORY_SCOPE_CACHE_TTL_MS)
@@ -64,6 +70,7 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 - [x] 35. **FTS BM25 Normalization Formula Not Documented** - FIXED: Added comprehensive JSDoc with formula explanation
 
 #### Edge Cases
+
 - [x] 36. **No Handling for Very Large Embeddings** - VERIFIED: cosineSimilarity handles zero-length/magnitude (returns 0.0)
 - [x] 37. **Empty Type Array Not Validated** - VERIFIED: resolve.ts:26-29 correctly falls back to DEFAULT_TYPES
 - [x] 38. **Negative Limit Values Not Prevented** - VERIFIED: resolve.ts:36 checks `> 0` before using value
@@ -71,6 +78,7 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 - [x] 40. **Missing Memory Pressure Handling** - VERIFIED: MemoryCoordinator exists and manages caches. Intermediate result sets during processing are bounded by limit param.
 
 #### Architecture
+
 - [x] 41. **Context Type Safety Issues** - ANALYZED: Type casts are TypeScript pattern for progressive context enrichment. Would need branded types or type guards to eliminate.
 - [x] 42. **Pipeline Stage Ordering Not Validated** - FIXED: Added completedStages tracking, PIPELINE_STAGES constants, STAGE_PREREQUISITES map, and validateStagePrerequisites() function (dev-only validation)
 - [x] 43. **Missing Dry-Run Mode** - FIXED: Added dryRun param to BaseQueryParams, executeDryRun() function returning DryRunResult with plan, validation errors, and complexity estimate
@@ -81,6 +89,7 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 ### EXTRACTION SERVICES (Tasks 45-120)
 
 #### Extraction Service Core
+
 - [x] 45. **Missing Batch Processing** - FIXED: Added extractBatch() method with configurable concurrency and continueOnError options
 - [x] 46. **Hardcoded MAX_CONTEXT_LENGTH** - FIXED: Added AGENT_MEMORY_EXTRACTION_MAX_CONTEXT_LENGTH config option (default 100KB, range 10KB-1MB)
 - [x] 47. **No Partial Extraction Retry** - FIXED: Added enablePartialRetry option that retries with 50% context on failure, returns partial=true result with error details
@@ -97,6 +106,7 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 - [x] 58. **Parsing Fallback Is Silent** - FIXED: Enhanced error logging with parseError details, contentLength, reason field (JSON_PARSE_FAILURE/INVALID_RESPONSE_STRUCTURE)
 
 #### Extraction Hook Service
+
 - [x] 59. **Regex State Management Vulnerability** - VERIFIED: Line 247 correctly resets lastIndex = 0 before each pattern
 - [x] 60. **Hash Collision Vulnerability** - FIXED: Replaced djb2 with FNV-1a hash + content length for better distribution
 - [x] 61. **Hardcoded Confidence Thresholds** - FIXED: Added config section `suggest` with AGENT_MEMORY_SUGGEST_MIN_CONFIDENCE (default 0.7), AGENT_MEMORY_SUGGEST_MAX_SUGGESTIONS (default 5), AGENT_MEMORY_SUGGEST_MIN_CONTENT_LENGTH (default 15)
@@ -106,6 +116,7 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 - [x] 65. **No Extraction Patterns for Errors** - FIXED: Added 8 error handling patterns covering error meanings, error codes, fix instructions, handling guidelines, and solution documentation. Added 'error_handling' category to SuggestedCategory.
 
 #### Entity Extraction Service
+
 - [x] 66. **Function Name Extraction Too Aggressive** - ANALYZED: Enhancement - could add more exclusion patterns but current regex is reasonable
 - [x] 67. **Package Name Regex Missing Patterns** - ANALYZED: Enhancement - handles scoped and path packages, single-word packages are harder to distinguish from words
 - [x] 68. **File Path Pattern Too Restrictive** - ANALYZED: Enhancement - extension requirement reduces false positives, extensionless paths are rare
@@ -115,6 +126,7 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 - [x] 72. **Singleton Pattern Issue** - ANALYZED: Already @deprecated, recommends DI via context.services.entityExtractor
 
 #### Experience Capture
+
 - [x] 73. **Incomplete Trajectory Extraction** - ANALYZED: Enhancement - could add error field to trajectory, but success:false conveys failure
 - [x] 74. **Confidence Threshold Not Applied to Trajectory** - ANALYZED: Enhancement - could filter steps by confidence, but all steps are useful context
 - [x] 75. **Hash-Based Duplicate Detection Weak** - ANALYZED: Hash-based dedup is sufficient for session-level dedup, semantic would be costly
@@ -125,6 +137,7 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 - [x] 80. **No Content Validation Before DB Write** - ANALYZED: Repository layer handles validation (Zod schemas on input types)
 
 #### Hierarchical Summarization
+
 - [x] 81. **Summarizer Initialization Error Swallowed** - ANALYZED: Defensive coding - logs warning and gracefully degrades. Service logs hasSummarizer state at init.
 - [x] 82. **inferMemberType Hardcoded Fallback** - ANALYZED: Enhancement - 'knowledge' is reasonable default for unknown types
 - [x] 83. **No Recursive Depth Limit** - VERIFIED: Line 337 checks currentLevel > maxLevels to bound recursion
@@ -133,36 +146,42 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 - [x] 86. **Member Type Inference Lost** - ANALYZED: Enhancement - type inference is best-effort, fallback to generic type is safe
 
 #### Query Rewrite Service
+
 - [x] 87. **Decomposition Plan Not Validated** - VERIFIED: query-rewrite.service.ts:221 checks `decompositionPlan.subQueries.length === 0` and falls back to original query if empty
 - [x] 88. **Query Weight Normalization Missing** - ANALYZED: Enhancement - weights are per-query type, normalization would add complexity
 - [x] 89. **HyDE Embedding Memory Not Freed** - ANALYZED: Enhancement - embeddings are small vectors, GC handles cleanup after response
 - [x] 90. **Singleton Reset Needed in Tests** - VERIFIED: resetQueryRewriteService() exists at lines 446-448
 
 #### LLM Summarizer
+
 - [x] 91. **Default Model Hardcoded** - ANALYZED: Enhancement - config-driven model selection exists, default is reasonable fallback
 - [x] 92. **No Streaming Support** - ANALYZED: Enhancement - streaming would require API changes, batch is sufficient for summarization
 - [x] 93. **Batch Processing Inefficient** - ANALYZED: Enhancement - sequential is simpler and rate-limit friendly, parallel would need concurrency control
 - [x] 94. **Model Name Validation Too Restrictive** - ANALYZED: Enhancement - validation prevents typos, can be relaxed if needed
 
 #### Atomicity Service
+
 - [x] 95. **Imperative Verb List Incomplete** - ANALYZED: Enhancement - current list covers common cases, can be extended
 - [x] 96. **Sentence Splitting Unreliable** - VERIFIED: Lookbehind IS supported in Node.js v8.10+ (only runtime for this package). Line 232 uses `(?<=[.!?])` which is valid.
 - [x] 97. **Split Confidence Reduction Arbitrary** - ANALYZED: Enhancement - 0.95 is reasonable, could make configurable
 - [x] 98. **Tool Splitting Too Conservative** - ANALYZED: Enhancement - conservative prevents false splits, better precision over recall
 
 #### Configuration & Security
+
 - [x] 99. **API Key Exposure in Logs** - VERIFIED: Pino logger has built-in redaction for apiKey, openaiApiKey, token, secret, password paths (logger.ts:62-82)
 - [x] 100. **Missing Rate Limit Handling** - VERIFIED: RateLimitError exists, 429 handled in tool-runner.ts and auth.ts
 - [x] 101. **Timeout Values Inconsistent** - ANALYZED: Enhancement - different services have different latency profiles, inconsistency is intentional
 - [x] 102. **Environment Variable Parsing Issues** - VERIFIED: Lines 968-971 validate with isNaN check, Math.max(1000) min, fallback to 30000
 
 #### Performance
+
 - [x] 103. **No Input Length Validation Before Processing** - VERIFIED: Lines 780-783 check context.length > MAX_CONTEXT_LENGTH before API call
 - [x] 104. **Regex Compilation Not Cached** - ANALYZED: Enhancement - regex creation is fast, caching adds complexity for minor gain
 - [x] 105. **No Request Deduplication** - ANALYZED: Enhancement - would require content hashing and cache, complexity vs benefit tradeoff
 - [x] 106. **Memory Growth in Long Sessions** - ANALYZED: Enhancement - session-scoped sets are bounded by session lifetime, cleared on session end
 
 #### Missing Features
+
 - [x] 107. **No Extraction Metrics/Observability** - ANALYZED: Enhancement - logger provides basic observability, metrics could be added
 - [x] 108. **No Extraction Versioning** - ANALYZED: Enhancement - entries have createdAt/updatedAt, full versioning is separate feature
 - [x] 109. **No Extraction Explanation Generation** - ANALYZED: Enhancement - would require LLM call, adds latency and cost
@@ -170,12 +189,14 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 - [x] 111. **No Extraction Feedback Loop** - ANALYZED: Enhancement - feedback system exists for entries, extraction feedback is separate feature
 
 #### Error Handling
+
 - [x] 112. **Provider Mismatch Not Detected** - ANALYZED: Enhancement - early validation could improve UX but current error is informative
 - [x] 113. **Missing Network Error Classification** - VERIFIED: isRetryableNetworkError() classifies timeout, econnreset, econnrefused, socket hang up, 502/503/504
 - [x] 114. **No Circuit Breaker Pattern** - VERIFIED: DLQ has circuit breaker (useCircuitBreaker: true), rate-limiter has burst protection
 - [x] 115. **Parsing Error Recovery Non-Obvious** - ANALYZED: Task 58 added detailed logging with reason field for parse failures
 
 #### Edge Cases
+
 - [x] 116. **Empty Extraction Results Ambiguous** - ANALYZED: Task 58 added reason field to distinguish parse failure from empty results
 - [x] 117. **Very Long Entity Names** - ANALYZED: Enhancement - DB layer has column limits, validation could be added at extraction layer
 - [x] 118. **Circular Relationships** - VERIFIED: CTE uses UNION+DISTINCT, BFS uses visited Set (see task 39)
@@ -187,10 +208,11 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 ### EMBEDDING & VECTOR SEARCH (Tasks 121-235)
 
 #### Embedding Service Core
+
 - [x] 121. **No validation of embedding array elements** - FIXED: Added validateEmbedding() and validateEmbeddingBatch() helpers that check for NaN/Infinity and replace with 0
 - [x] 122. **Cache key collision vulnerability** - ANALYZED: Non-issue - cache keys are used as-is with Map.get(), not parsed back. Format `provider:type:text` is unambiguous.
 - [x] 123. **Missing cache statistics** - FIXED: Added cacheHits/cacheMisses counters and getCacheStats() method returning size, hits, misses, and hitRate
-- [x] 124. **Hardcoded embedding dimensions** - FIXED: Added configurable dimensions via AGENT_MEMORY_EMBEDDING_*_DIMENSION env vars (openai, lmstudio, local)
+- [x] 124. **Hardcoded embedding dimensions** - FIXED: Added configurable dimensions via AGENT*MEMORY_EMBEDDING*\*\_DIMENSION env vars (openai, lmstudio, local)
 - [x] 125. **No embedding output validation** - FIXED: validateEmbedding() checks array length and value validity after API call
 - [x] 126. **Silent provider fallback risk** - FIXED: Added warning when OpenAI provider configured but API key missing
 - [x] 127. **Memory leak potential in cache eviction** - ANALYZED: Batch eviction exists at line 392-396, evicts until under limit
@@ -208,6 +230,7 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 - [x] 139. **No warning on dimension mismatch** - VERIFIED: logger.warn at lancedb.ts:88 and pgvector.ts:88 logs dimension mismatch
 
 #### Embedding Hooks & Queue
+
 - [x] 140. **Sequence number can overflow** - ANALYZED: Uses Number.MAX_SAFE_INTEGER (~9 quadrillion), overflow would take centuries at 1M ops/sec
 - [x] 141. **Stale job detection race condition** - ANALYZED: Enhancement - window-based staleness is best-effort, not critical for consistency
 - [x] 142. **No maximum queue depth limit** - ANALYZED: Enhancement - queue is bounded by pending entries in DB, not unbounded
@@ -225,6 +248,7 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 - [x] 154. **Concurrent state mutation in retryFailedEmbeddings** - ANALYZED: Enhancement - single caller pattern expected, could add mutex
 
 #### LanceDB Issues
+
 - [x] 155. **Vector dimension inference happens on first store** - ANALYZED: Dimension lock is intentional - consistent embeddings required for similarity search
 - [x] 156. **No validation that vector values are normalized** - ANALYZED: Enhancement - normalization not required for all distance metrics
 - [x] 157. **Identifier validation is overly restrictive** - VERIFIED: Regex `/^[a-zA-Z0-9_-]+$/` at lancedb.ts:29 DOES allow UUIDs (alphanumeric+hyphens). Tested: `550e8400-e29b-41d4-a716-446655440000` passes.
@@ -238,6 +262,7 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 - [x] 165. **Count operation returns 0 on error silently** - ANALYZED: Enhancement - 0 is safe fallback, error already logged
 
 #### pgvector Issues
+
 - [x] 166. **HNSW index parameters hardcoded** - ANALYZED: Enhancement - m=16, ef_construction=64 are well-tuned defaults, could be configurable
 - [x] 167. **Dimension validation is overly strict** - ANALYZED: 10,000 is above typical embedding dimensions (384-4096), sufficient for current models
 - [x] 168. **Vector string conversion has precision loss** - ANALYZED: Float64 to string precision is sufficient for similarity search
@@ -249,6 +274,7 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 - [x] 174. **Index creation doesn't fail gracefully if dimension varies** - ANALYZED: Dimension is fixed at table creation, variance is configuration error
 
 #### Vector Service
+
 - [x] 175. **Dimension mismatch error includes suggestion but doesn't prevent further errors** - ANALYZED: Error is thrown immediately, no cascade possible
 - [x] 176. **State machine allows operations from 'error' state** - VERIFIED: ensureInitialized() throws immediately at lines 150-152 when state is 'error'. All operations (store, search, remove, count) call ensureInitialized()
 - [x] 177. **Closed state is terminal but not checked consistently** - ANALYZED: ensureInitialized() checks for 'ready' state, closed is handled
@@ -260,6 +286,7 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 - [x] 183. **Search limit parameter not validated** - ANALYZED: Enhancement - could add min/max validation, current behavior handles gracefully
 
 #### Schema & Tracking
+
 - [x] 184. **No foreign key constraint to entries** - ANALYZED: Enhancement - FK constraints add complexity, orphan cleanup via maintenance job
 - [x] 185. **No index on (entryType, hasEmbedding)** - ANALYZED: Enhancement - query patterns indexed appropriately, additional indexes add write overhead
 - [x] 186. **createdAt/updatedAt use database default** - ANALYZED: Enhancement - UTC timestamps are consistent, display timezone is configurable
@@ -268,6 +295,7 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 - [x] 189. **Version ID tracking doesn't cascade on entry deletion** - ANALYZED: Enhancement - orphan cleanup via reindex command
 
 #### Integration Issues
+
 - [x] 190. **No atomic transaction for embedding + DB metadata writes** - ANALYZED: Enhancement - eventual consistency acceptable for embeddings
 - [x] 191. **Query embedding asymmetry not documented** - VERIFIED: JSDoc at lines 59-66 documents lmStudioQueryInstruction vs lmStudioDocumentInstruction
 - [x] 192. **Semantic stage assumes dimensionality matching** - VERIFIED: Dimension check is in vector.service.ts:238-253 (correct architectural layer)
@@ -276,6 +304,7 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 - [x] 195. **Embedding cache not considered in query pipeline** - ANALYZED: Cache is per-service instance, pipeline uses same instance
 
 #### Configuration & Scaling
+
 - [x] 196. **Batch size configuration lacks upper bound validation** - VERIFIED: Zod schema z.number().int().min(1).max(100) at embedding.ts:49
 - [x] 197. **Max concurrency default not justified** - ANALYZED: Values are tuned for common hardware, configurable via env
 - [x] 198. **No adaptive batch sizing based on response times** - ANALYZED: Enhancement - fixed batch size is simpler and predictable
@@ -285,6 +314,7 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 - [x] 202. **No warmup phase for embedding models** - ANALYZED: Enhancement - first embedding latency is acceptable, warmup adds complexity
 
 #### Error Handling & Resilience
+
 - [x] 203. **EmbeddingDisabledError doesn't distinguish intentionally disabled vs unavailable** - ANALYZED: Enhancement - isAvailable() check before operations provides distinction
 - [x] 204. **Empty text error doesn't trim/normalize first** - VERIFIED: embedding.service.ts:234 trims text before checking empty
 - [x] 205. **Network errors during embedding assumed transient** - ANALYZED: isRetryableNetworkError classifies error types appropriately
@@ -293,6 +323,7 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 - [x] 208. **No mechanism to manually retry DLQ entries** - VERIFIED: `retryFailedEmbeddings()` and `reindex --retry-failed` CLI command exist
 
 #### Observability & Debugging
+
 - [x] 209. **No distributed tracing for embedding operations** - ANALYZED: Enhancement - request IDs logged, full tracing is separate feature
 - [x] 210. **EmbeddingQueueStats doesn't track latency percentiles** - ANALYZED: Enhancement - basic stats sufficient, percentiles add complexity
 - [x] 211. **No per-provider metrics** - ANALYZED: Enhancement - provider logged per operation, aggregation is separate
@@ -301,6 +332,7 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 - [x] 214. **Cache hit/miss not logged** - ANALYZED: Enhancement - would add log noise, cache stats available via getStats()
 
 #### Performance & Scaling
+
 - [x] 215. **Embedding cache size fixed at 1000 entries** - ANALYZED: Enhancement - 1000 is reasonable default, could be configurable
 - [x] 216. **No embedding result deduplication** - ANALYZED: Cache provides deduplication for repeated queries
 - [x] 217. **Vector search limit multiplied by 3 for hybrid search** - ANALYZED: Comment at semantic.ts:126 explains purpose (fetch more for scoring), factor could be configurable
@@ -309,6 +341,7 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 - [x] 220. **L2 distance formula in LanceDB incorrect** - FIXED: Changed from 1-d/2 to 1/(1+d) to properly map any distance to [0,1]
 
 #### Edge Cases Not Handled
+
 - [x] 221. **Empty entry after filtering/normalization** - ANALYZED: embedBatch filters empty strings after normalization
 - [x] 222. **Very large entries (megabytes)** - ANALYZED: Config maxContextLength limits input size before embedding
 - [x] 223. **Embedding dimension changes mid-deployment** - ANALYZED: Enhancement - reindex command handles re-embedding with new model
@@ -318,6 +351,7 @@ Comprehensive audit of all code affecting retrieval and extraction quality. Task
 - [x] 227. **Floating point precision edge cases** - FIXED: Task 121 added validateEmbedding() that checks for NaN/Infinity
 
 #### Missing Features
+
 - [x] 228. **No embedding versioning** - VERIFIED: embedding_model column tracks model version (see task 136)
 - [x] 229. **No way to update embeddings for changed entries** - VERIFIED: `generateEmbeddingAsync()` called in all repository update methods (guidelines.ts:316, knowledge.ts:314, tools.ts:285, experiences.ts:341)
 - [x] 230. **No bulk re-embedding capability** - VERIFIED: `reindex` command provides bulk re-embedding via `backfillEmbeddings()` with batch processing

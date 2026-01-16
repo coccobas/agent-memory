@@ -90,12 +90,16 @@ describe('PaginationCursor', () => {
 
     it('should throw on missing data', () => {
       const noData = Buffer.from('{"signature":"abc"}').toString('base64url');
-      expect(() => PaginationCursor.decode(noData)).toThrow('Validation error: cursor.data - invalid cursor data');
+      expect(() => PaginationCursor.decode(noData)).toThrow(
+        'Validation error: cursor.data - invalid cursor data'
+      );
     });
 
     it('should throw on missing signature', () => {
       const noSig = Buffer.from('{"data":{"offset":1}}').toString('base64url');
-      expect(() => PaginationCursor.decode(noSig)).toThrow('Validation error: cursor.signature - invalid cursor signature');
+      expect(() => PaginationCursor.decode(noSig)).toThrow(
+        'Validation error: cursor.signature - invalid cursor signature'
+      );
     });
 
     it('should throw on tampered data', () => {
@@ -112,7 +116,7 @@ describe('PaginationCursor', () => {
       // Create a cursor that expires in 10ms
       const cursor = PaginationCursor.encode({ offset: 0 }, 10);
       // Wait for it to expire
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 50));
       expect(() => PaginationCursor.decode(cursor)).toThrow('expired');
     });
   });
@@ -129,7 +133,7 @@ describe('PaginationCursor', () => {
 
     it('should return false for expired cursor', async () => {
       const cursor = PaginationCursor.encode({ offset: 0 }, 10);
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 50));
       expect(PaginationCursor.isValid(cursor)).toBe(false);
     });
 

@@ -7,12 +7,14 @@ Accepted
 ## Context
 
 Error messages often contain sensitive information:
+
 - File paths (reveal server directory structure)
 - IP addresses (reveal network topology)
 - Connection strings (reveal credentials)
 - Stack traces (reveal code structure)
 
 In development, detailed errors aid debugging. In production, they create security risks. We needed a strategy that:
+
 - Prevents information disclosure in production
 - Maintains debuggability in development
 - Is performant (errors happen frequently)
@@ -56,13 +58,11 @@ Patterns are compiled once at module load, not per-error:
 
 ```typescript
 // Compiled once at startup
-const COMPILED_PATTERNS = Object.entries(SANITIZE_PATTERNS).map(
-  ([name, pattern]) => ({
-    name,
-    regex: new RegExp(pattern.source, pattern.flags),
-    replacement: `[${name.toUpperCase()}]`,
-  }),
-);
+const COMPILED_PATTERNS = Object.entries(SANITIZE_PATTERNS).map(([name, pattern]) => ({
+  name,
+  regex: new RegExp(pattern.source, pattern.flags),
+  replacement: `[${name.toUpperCase()}]`,
+}));
 ```
 
 ### Sanitization Function
@@ -70,7 +70,7 @@ const COMPILED_PATTERNS = Object.entries(SANITIZE_PATTERNS).map(
 ```typescript
 function sanitizeErrorMessage(message: string): string {
   if (process.env.NODE_ENV === 'development') {
-    return message;  // Full details in dev
+    return message; // Full details in dev
   }
 
   let sanitized = message;
@@ -109,7 +109,7 @@ class AppError extends Error {
   constructor(
     public code: ErrorCode,
     message: string,
-    public details?: unknown,
+    public details?: unknown
   ) {
     super(sanitizeErrorMessage(message));
     this.name = code;
@@ -118,7 +118,7 @@ class AppError extends Error {
   toJSON() {
     return {
       code: this.code,
-      message: this.message,  // Already sanitized
+      message: this.message, // Already sanitized
       // details omitted in production
       ...(process.env.NODE_ENV === 'development' && { details: this.details }),
     };
@@ -134,14 +134,13 @@ function handleError(error: unknown): MCPError {
   if (error instanceof AppError) {
     return {
       code: error.code,
-      message: error.message,  // Sanitized
+      message: error.message, // Sanitized
     };
   }
 
   // Unknown errors get generic message in production
-  const message = process.env.NODE_ENV === 'development'
-    ? String(error)
-    : 'An unexpected error occurred';
+  const message =
+    process.env.NODE_ENV === 'development' ? String(error) : 'An unexpected error occurred';
 
   return {
     code: 'E9999',
@@ -153,6 +152,7 @@ function handleError(error: unknown): MCPError {
 ## Consequences
 
 **Positive:**
+
 - No sensitive data in production error responses
 - Full debugging info available in development
 - Pre-compiled patterns are performant
@@ -160,6 +160,7 @@ function handleError(error: unknown): MCPError {
 - Patterns are centralized and auditable
 
 **Negative:**
+
 - Sanitized errors harder to debug in production (use logs instead)
 - Pattern maintenance required as new sensitive data types emerge
 - Risk of over-sanitization (removing useful info)

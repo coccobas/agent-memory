@@ -72,58 +72,60 @@ export function startBackupScheduler(config: BackupSchedulerConfig): boolean {
   // Some expressions may pass validate() but fail during scheduling
   try {
     scheduledTask = cron.schedule(config.schedule, async () => {
-    logger.info('Running scheduled backup');
-    const startTime = Date.now();
+      logger.info('Running scheduled backup');
+      const startTime = Date.now();
 
-    try {
-      // Create backup
-      const result = await createDatabaseBackup('scheduled');
+      try {
+        // Create backup
+        const result = await createDatabaseBackup('scheduled');
 
-      if (result.success) {
-        logger.info(
-          {
-            path: result.backupPath,
-            durationMs: Date.now() - startTime,
-          },
-          'Scheduled backup created successfully'
-        );
+        if (result.success) {
+          logger.info(
+            {
+              path: result.backupPath,
+              durationMs: Date.now() - startTime,
+            },
+            'Scheduled backup created successfully'
+          );
 
-        // Cleanup old backups
-        try {
-          const cleanup = await cleanupBackups(config.retentionCount);
-          if (cleanup.deleted.length > 0) {
-            logger.info(
+          // Cleanup old backups
+          try {
+            const cleanup = cleanupBackups(config.retentionCount);
+            if (cleanup.deleted.length > 0) {
+              logger.info(
+                {
+                  deleted: cleanup.deleted.length,
+                  kept: cleanup.kept.length,
+                },
+                'Old backups cleaned up'
+              );
+            }
+          } catch (cleanupError) {
+            logger.warn(
               {
-                deleted: cleanup.deleted.length,
-                kept: cleanup.kept.length,
+                error: cleanupError instanceof Error ? cleanupError.message : String(cleanupError),
               },
-              'Old backups cleaned up'
+              'Backup cleanup failed (backup was created successfully)'
             );
           }
-        } catch (cleanupError) {
-          logger.warn(
-            { error: cleanupError instanceof Error ? cleanupError.message : String(cleanupError) },
-            'Backup cleanup failed (backup was created successfully)'
+        } else {
+          logger.error(
+            {
+              message: result.message,
+              durationMs: Date.now() - startTime,
+            },
+            'Scheduled backup failed'
           );
         }
-      } else {
+      } catch (error) {
         logger.error(
           {
-            message: result.message,
+            error: error instanceof Error ? error.message : String(error),
             durationMs: Date.now() - startTime,
           },
-          'Scheduled backup failed'
+          'Scheduled backup error'
         );
       }
-    } catch (error) {
-      logger.error(
-        {
-          error: error instanceof Error ? error.message : String(error),
-          durationMs: Date.now() - startTime,
-        },
-        'Scheduled backup error'
-      );
-    }
     });
   } catch (scheduleError) {
     // Bug #350 fix: Log and return false if schedule() throws
@@ -154,7 +156,7 @@ export function startBackupScheduler(config: BackupSchedulerConfig): boolean {
  */
 export function stopBackupScheduler(): void {
   if (scheduledTask) {
-    scheduledTask.stop();
+    void scheduledTask.stop();
     scheduledTask = null;
     currentConfig = null;
     logger.info('Backup scheduler stopped');

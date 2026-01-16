@@ -193,9 +193,7 @@ export function filterByEntityMatch(
  * @param ctx - Pipeline context with entity filter result
  * @returns Statistics object or null if no entity filter applied
  */
-export function getEntityFilterStats(
-  ctx: EntityFilterPipelineContext
-): {
+export function getEntityFilterStats(ctx: EntityFilterPipelineContext): {
   entityCount: number;
   matchedEntryCount: number;
   filterApplied: boolean;

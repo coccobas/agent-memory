@@ -6,7 +6,11 @@
  *
  * Usage:
  *   agent-memory review [--session <id>] [--project <id>]
+ *
+ * NOTE: Console output is intentional for CLI command feedback.
  */
+
+/* eslint-disable no-console */
 
 import * as p from '@clack/prompts';
 import { getDb, getSqlite } from '../db/connection.js';

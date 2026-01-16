@@ -575,7 +575,9 @@ describe('Observe Handler', () => {
       // Mock service to return promoted to project result
       mockObserveCommitService.commit.mockResolvedValueOnce({
         stored: {
-          entries: [{ id: 'g-1', type: 'guideline', name: 'High Confidence Rule', scopeType: 'project' }],
+          entries: [
+            { id: 'g-1', type: 'guideline', name: 'High Confidence Rule', scopeType: 'project' },
+          ],
           entities: [],
           relationsCreated: 0,
         },
@@ -620,7 +622,9 @@ describe('Observe Handler', () => {
       // Mock service to return stored to session result with needsReview
       mockObserveCommitService.commit.mockResolvedValueOnce({
         stored: {
-          entries: [{ id: 'g-1', type: 'guideline', name: 'Low Confidence Rule', scopeType: 'session' }],
+          entries: [
+            { id: 'g-1', type: 'guideline', name: 'Low Confidence Rule', scopeType: 'session' },
+          ],
           entities: [],
           relationsCreated: 0,
         },

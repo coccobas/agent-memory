@@ -10,12 +10,7 @@
  */
 
 import { BasePolicy } from './base.policy.js';
-import type {
-  ExtractionState,
-  ExtractionAction,
-  PolicyDecision,
-  PolicyConfig,
-} from '../types.js';
+import type { ExtractionState, ExtractionAction, PolicyDecision, PolicyConfig } from '../types.js';
 
 // =============================================================================
 // EXTRACTION POLICY

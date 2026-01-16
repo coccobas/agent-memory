@@ -135,9 +135,7 @@ describe('Conflicts Handler', () => {
     });
 
     it('should throw when resolution is missing', async () => {
-      await expect(
-        conflictHandlers.resolve(mockContext, { id: 'conflict-1' })
-      ).rejects.toThrow();
+      await expect(conflictHandlers.resolve(mockContext, { id: 'conflict-1' })).rejects.toThrow();
     });
   });
 });

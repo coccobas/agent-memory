@@ -118,9 +118,13 @@ export function getZodTypeString(schema: z.ZodType): string {
   if (constructorName === 'ZodEnum' || constructorName === '$ZodEnum') {
     // Try to extract enum values
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // Zod schema introspection: accessing internal _def property to extract enum values.
+      // This is necessary for runtime schema documentation as Zod doesn't expose a public API.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
       const def = (schema as any)._def;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       if (def?.values) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return
         return def.values.map((v: string) => `\`${v}\``).join(' | ');
       }
     } catch {
@@ -131,9 +135,13 @@ export function getZodTypeString(schema: z.ZodType): string {
 
   if (constructorName === 'ZodOptional' || constructorName === '$ZodOptional') {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // Zod schema introspection: accessing internal _def property to extract inner type.
+      // This is necessary for recursive schema documentation as Zod doesn't expose a public API.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
       const def = (schema as any)._def;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       if (def?.innerType) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
         return `${getZodTypeString(def.innerType)} (optional)`;
       }
     } catch {
@@ -212,8 +220,11 @@ function inferParserFromSchema(schema: z.ZodType): ParserType {
   // Check for optional wrapper
   if (name === 'ZodOptional' || name === '$ZodOptional') {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // Zod schema introspection: accessing internal _def property to extract wrapped type.
+      // This is necessary for recursive parser inference as Zod doesn't expose a public API.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
       const inner = (schema as any)._def?.innerType;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       if (inner) return inferParserFromSchema(inner);
     } catch {
       // Fallback
@@ -262,11 +273,7 @@ function parseEnvValue<T>(option: ConfigOptionMeta<T>, envValue: string | undefi
 
     case 'string':
       if (option.allowedValues) {
-        return parseString(
-          envValue,
-          defaultValue as string,
-          option.allowedValues as readonly string[]
-        ) as T;
+        return parseString(envValue, defaultValue as string, option.allowedValues) as T;
       }
       return envValue as T;
 

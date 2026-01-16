@@ -59,9 +59,7 @@ export function createVerificationRepository(db: DrizzleDb): IVerificationReposi
       const result = db
         .select()
         .from(sessionGuidelineAcknowledgments)
-        .where(
-          eq(sessionGuidelineAcknowledgments.sessionId, input.sessionId)
-        )
+        .where(eq(sessionGuidelineAcknowledgments.sessionId, input.sessionId))
         .get();
 
       if (!result) {
@@ -138,11 +136,7 @@ export function createVerificationRepository(db: DrizzleDb): IVerificationReposi
      * Get verification rules for a guideline
      */
     async getVerificationRules(guidelineId: string): Promise<VerificationRules | null> {
-      const guideline = db
-        .select()
-        .from(guidelines)
-        .where(eq(guidelines.id, guidelineId))
-        .get();
+      const guideline = db.select().from(guidelines).where(eq(guidelines.id, guidelineId)).get();
 
       if (!guideline?.currentVersionId) {
         return null;

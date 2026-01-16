@@ -56,13 +56,25 @@ export function mapError(error: unknown): MappedError {
 
     // Heuristic mapping for common errors
     if (message.includes('Validation error') || message.includes('is required')) {
-      return { message: sanitizeErrorMessage(message), code: ErrorCodes.INVALID_PARAMETER, statusCode: 400 };
+      return {
+        message: sanitizeErrorMessage(message),
+        code: ErrorCodes.INVALID_PARAMETER,
+        statusCode: 400,
+      };
     }
     if (message.includes('not found')) {
-      return { message: sanitizeErrorMessage(message), code: ErrorCodes.NOT_FOUND, statusCode: 404 };
+      return {
+        message: sanitizeErrorMessage(message),
+        code: ErrorCodes.NOT_FOUND,
+        statusCode: 404,
+      };
     }
     if (message.includes('Permission denied')) {
-      return { message: sanitizeErrorMessage(message), code: ErrorCodes.PERMISSION_DENIED, statusCode: 403 };
+      return {
+        message: sanitizeErrorMessage(message),
+        code: ErrorCodes.PERMISSION_DENIED,
+        statusCode: 403,
+      };
     }
 
     logger.warn({ error: message }, 'Unmapped internal error');

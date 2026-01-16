@@ -5,6 +5,7 @@
 ## Overview
 
 LoCoMo (Long-term Conversational Memory) is a benchmark for evaluating very long-term conversational memory in LLM agents. It comprises conversations with:
+
 - **300 turns** average per conversation
 - **9,000 tokens** average length
 - **Up to 35 sessions** per conversation
@@ -12,13 +13,13 @@ LoCoMo (Long-term Conversational Memory) is a benchmark for evaluating very long
 
 ## Test Categories
 
-| Category | What It Tests | Current SOTA Gap |
-|----------|---------------|------------------|
-| **Single-hop QA** | Direct recall from one session | ~56% below human |
-| **Multi-hop QA** | Connecting info across sessions | Significant gap |
-| **Temporal QA** | Event ordering, recency, sequences | **73% below human** (weakest) |
-| **Adversarial QA** | Resistance to misleading queries | F1 drops to 12-22 |
-| **Event Summarization** | Causal/temporal relationship graphs | Hallucination issues |
+| Category                | What It Tests                       | Current SOTA Gap              |
+| ----------------------- | ----------------------------------- | ----------------------------- |
+| **Single-hop QA**       | Direct recall from one session      | ~56% below human              |
+| **Multi-hop QA**        | Connecting info across sessions     | Significant gap               |
+| **Temporal QA**         | Event ordering, recency, sequences  | **73% below human** (weakest) |
+| **Adversarial QA**      | Resistance to misleading queries    | F1 drops to 12-22             |
+| **Event Summarization** | Causal/temporal relationship graphs | Hallucination issues          |
 
 ### Scoring Methodology
 
@@ -49,6 +50,7 @@ Raw: "I got promoted to senior engineer last Tuesday"
 ### 2. Graph-Based Memory (Best for Temporal)
 
 [Mem0^g](https://arxiv.org/html/2504.19413v1) achieves highest temporal scores (F1=51.55) using:
+
 - **Entities** as nodes with type classifications and embeddings
 - **Relationships** as labeled triplets (source → relation → target)
 - **Explicit temporal metadata** on edges
@@ -77,6 +79,7 @@ Best results use **≤1,000 tokens** from memory for QA input, far below full-hi
 ### 5. Incremental Memory Updates
 
 Mem0 uses LLM-driven operations:
+
 - **ADD** - New information
 - **UPDATE** - Modified existing fact
 - **DELETE** - Invalidated information
@@ -103,12 +106,12 @@ Entities (nodes)          Relationships (edges)
 
 ### Performance Results
 
-| Metric | Mem0 vs Baseline |
-|--------|------------------|
-| Response latency | 91% lower p95 |
-| Token cost | 90% reduction |
-| LLM-as-Judge | 26% improvement |
-| Temporal QA | Highest F1 (51.55) |
+| Metric           | Mem0 vs Baseline   |
+| ---------------- | ------------------ |
+| Response latency | 91% lower p95      |
+| Token cost       | 90% reduction      |
+| LLM-as-Judge     | 26% improvement    |
+| Temporal QA      | Highest F1 (51.55) |
 
 ---
 
@@ -117,6 +120,7 @@ Entities (nodes)          Relationships (edges)
 ### Temporal Reasoning (Biggest Gap)
 
 Models struggle with:
+
 - Event ordering ("What happened first?")
 - Recency queries ("What did we discuss recently?")
 - Duration/intervals ("How long ago?")
@@ -127,6 +131,7 @@ Even with optimized retrieval or long context, temporal accuracy lags by ≥50 p
 ### Adversarial Queries
 
 All models exhibit drastically lower scores on adversarial QA:
+
 - F1 drops to 12-22
 - Vulnerable to misleading prompts despite expanded context windows
 - Long-context models exhibit significant hallucinations
@@ -134,6 +139,7 @@ All models exhibit drastically lower scores on adversarial QA:
 ### Multi-hop Reasoning
 
 Connecting information across multiple sessions requires:
+
 - Explicit relationship modeling
 - Entity coreference resolution
 - Graph traversal capabilities
@@ -144,14 +150,14 @@ Connecting information across multiple sessions requires:
 
 ### Priority Matrix
 
-| Priority | Enhancement | LoCoMo Impact |
-|----------|-------------|---------------|
-| 🔴 High | Temporal metadata on entries | Temporal QA (+50%) |
-| 🔴 High | Entity-relationship graph | Multi-hop QA (+30%) |
-| 🟡 Medium | BM25 hybrid retrieval | Overall recall (+20%) |
-| 🟡 Medium | Cross-encoder reranking | Precision (+15%) |
-| 🟢 Lower | Event sequencing index | Temporal ordering |
-| 🟢 Lower | Adversarial detection | Hallucination reduction |
+| Priority  | Enhancement                  | LoCoMo Impact           |
+| --------- | ---------------------------- | ----------------------- |
+| 🔴 High   | Temporal metadata on entries | Temporal QA (+50%)      |
+| 🔴 High   | Entity-relationship graph    | Multi-hop QA (+30%)     |
+| 🟡 Medium | BM25 hybrid retrieval        | Overall recall (+20%)   |
+| 🟡 Medium | Cross-encoder reranking      | Precision (+15%)        |
+| 🟢 Lower  | Event sequencing index       | Temporal ordering       |
+| 🟢 Lower  | Adversarial detection        | Hallucination reduction |
 
 ### Implementation Phases
 

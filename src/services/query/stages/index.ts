@@ -56,10 +56,7 @@ export {
   type HierarchicalDependencies,
   type HierarchicalPipelineContext,
 } from './hierarchical.js';
-export {
-  semanticStageAsync,
-  type SemanticStageContext,
-} from './semantic.js';
+export { semanticStageAsync, type SemanticStageContext } from './semantic.js';
 export {
   createCrossEncoderStage,
   createOpenAICrossEncoderService,

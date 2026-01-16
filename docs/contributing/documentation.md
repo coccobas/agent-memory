@@ -15,21 +15,21 @@ Standards and patterns for writing Agent Memory documentation.
 
 All documentation follows the [Diátaxis framework](https://diataxis.fr/):
 
-| Type | Purpose | Style | Location |
-|------|---------|-------|----------|
-| **Tutorial** | Learning | "Let's do X together" | `docs/tutorials/` |
-| **Guide** | Accomplishing | "How to do X" | `docs/guides/` |
-| **Reference** | Information | "X is Y" | `docs/reference/` |
-| **Explanation** | Understanding | "X works because..." | `docs/explanation/` |
+| Type            | Purpose       | Style                 | Location            |
+| --------------- | ------------- | --------------------- | ------------------- |
+| **Tutorial**    | Learning      | "Let's do X together" | `docs/tutorials/`   |
+| **Guide**       | Accomplishing | "How to do X"         | `docs/guides/`      |
+| **Reference**   | Information   | "X is Y"              | `docs/reference/`   |
+| **Explanation** | Understanding | "X works because..."  | `docs/explanation/` |
 
 ### When to Use Each
 
-| User Question | Document Type |
-|---------------|---------------|
-| "I'm new, teach me" | Tutorial |
-| "How do I accomplish X?" | Guide |
-| "What are all the options?" | Reference |
-| "Why does it work this way?" | Explanation |
+| User Question                | Document Type |
+| ---------------------------- | ------------- |
+| "I'm new, teach me"          | Tutorial      |
+| "How do I accomplish X?"     | Guide         |
+| "What are all the options?"  | Reference     |
+| "Why does it work this way?" | Explanation   |
 
 ---
 
@@ -51,6 +51,7 @@ Guides/Platform/           ✗
 ### Required Sections by Type
 
 **Tutorial:**
+
 ```markdown
 # Title
 
@@ -63,9 +64,11 @@ One-sentence description.
 ---
 
 ## Step 1: First Step
+
 ...
 
 ## Step N: Final Step
+
 ...
 
 ---
@@ -76,6 +79,7 @@ One-sentence description.
 ```
 
 **Guide:**
+
 ```markdown
 # Title
 
@@ -89,6 +93,7 @@ One-sentence description of what this guide helps you accomplish.
 ---
 
 ## Section 1
+
 ...
 
 ---
@@ -96,6 +101,7 @@ One-sentence description of what this guide helps you accomplish.
 ## Troubleshooting (if applicable)
 
 ### Common Issue
+
 **Cause:** ...
 **Fix:** ...
 
@@ -107,6 +113,7 @@ One-sentence description of what this guide helps you accomplish.
 ```
 
 **Reference:**
+
 ```markdown
 # Title
 
@@ -114,9 +121,9 @@ Brief description of what this reference covers.
 
 ## Section 1
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `name` | string | Yes | ... |
+| Parameter | Type   | Required | Description |
+| --------- | ------ | -------- | ----------- |
+| `name`    | string | Yes      | ...         |
 
 ---
 
@@ -126,6 +133,7 @@ Brief description of what this reference covers.
 ```
 
 **Explanation:**
+
 ```markdown
 # Title
 
@@ -158,13 +166,17 @@ Detailed explanation with diagrams if helpful.
 ### Formatting
 
 **Headings:**
+
 ```markdown
 # Document Title (H1) - One per document
+
 ## Major Section (H2)
+
 ### Subsection (H3)
 ```
 
 **Code blocks:**
+
 ````markdown
 ```bash
 # Shell commands
@@ -185,29 +197,35 @@ const result = await service.query();
 ````
 
 **Inline code:**
+
 ```markdown
 Use `memory_query` with action `context`.
 Set `AGENT_MEMORY_DEBUG=true` to enable.
 ```
 
 **Tables:**
+
 ```markdown
 | Column 1 | Column 2 | Column 3 |
-|----------|----------|----------|
+| -------- | -------- | -------- |
 | Value 1  | Value 2  | Value 3  |
 ```
 
 **Lists:**
+
 ```markdown
 Unordered (options, features):
+
 - Item 1
 - Item 2
 
 Ordered (steps, sequences):
+
 1. First step
 2. Second step
 
 Definition-style:
+
 - **Term** - Definition
 - **Term** - Definition
 ```
@@ -216,17 +234,17 @@ Definition-style:
 
 When documenting MCP tools, use this format:
 
-```markdown
+````markdown
 ### `tool_name`
 
 Brief description of what this tool does.
 
 **Actions:** `action1`, `action2`, `action3`
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `action` | string | Yes | Action to perform |
-| `param1` | string | No | Description |
+| Parameter | Type   | Required | Description       |
+| --------- | ------ | -------- | ----------------- |
+| `action`  | string | Yes      | Action to perform |
+| `param1`  | string | No       | Description       |
 
 **Example:**
 
@@ -236,9 +254,11 @@ Brief description of what this tool does.
   "param1": "value"
 }
 ```
+````
 
 **Tool:** `tool_name`
-```
+
+````
 
 ### Environment Variables
 
@@ -246,11 +266,11 @@ Brief description of what this tool does.
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `AGENT_MEMORY_VAR_NAME` | `default` | Description of what this controls. |
-```
+````
 
 ### CLI Commands
 
-```markdown
+````markdown
 ### command-name
 
 Description of what this command does.
@@ -258,6 +278,7 @@ Description of what this command does.
 ```bash
 agent-memory command-name [options]
 ```
+````
 
 **Options:**
 | Option | Short | Description |
@@ -265,10 +286,12 @@ agent-memory command-name [options]
 | `--option` | `-o` | What this option does |
 
 **Example:**
+
 ```bash
 agent-memory command-name --option value
 ```
-```
+
+````
 
 ---
 
@@ -282,15 +305,17 @@ Use relative paths from the current file:
 # From docs/tutorials/quickstart.md
 [IDE Setup](../guides/ide-setup.md)
 [MCP Tools](../reference/mcp-tools.md)
-```
+````
 
 ### Link Style
 
 ```markdown
 # Inline (preferred for flow)
+
 See [IDE Setup](../guides/ide-setup.md) for configuration details.
 
 # Reference list (for "See Also" sections)
+
 - [IDE Setup](../guides/ide-setup.md) - Configure your IDE
 - [Docker Guide](../guides/docker.md) - Container deployment
 ```
@@ -298,6 +323,7 @@ See [IDE Setup](../guides/ide-setup.md) for configuration details.
 ### Avoiding Broken Links
 
 Before committing, verify links:
+
 ```bash
 # Find all markdown links
 grep -r '\[.*\](.*\.md)' docs/
@@ -315,16 +341,18 @@ Some documentation is auto-generated. Do not edit between markers:
 
 ```markdown
 <!-- AUTO-GENERATED:SECTION-START -->
+
 This content is auto-generated.
 Do not edit manually.
+
 <!-- AUTO-GENERATED:SECTION-END -->
 ```
 
 ### Auto-Generated Files
 
-| File | Generator | Command |
-|------|-----------|---------|
-| `reference/environment-variables.md` | Config registry | `npm run docs:generate:env` |
+| File                                    | Generator       | Command                     |
+| --------------------------------------- | --------------- | --------------------------- |
+| `reference/environment-variables.md`    | Config registry | `npm run docs:generate:env` |
 | `reference/mcp-tools.md` (tool schemas) | MCP descriptors | `npm run docs:generate:mcp` |
 
 ---
@@ -334,11 +362,15 @@ Do not edit manually.
 Use ASCII diagrams for simple flows:
 
 ```markdown
+
 ```
-┌─────────┐     ┌─────────┐     ┌─────────┐
-│ Client  │────▶│ Server  │────▶│   DB    │
-└─────────┘     └─────────┘     └─────────┘
+
+┌─────────┐ ┌─────────┐ ┌─────────┐
+│ Client │────▶│ Server │────▶│ DB │
+└─────────┘ └─────────┘ └─────────┘
+
 ```
+
 ```
 
 For complex diagrams, use Mermaid (if supported by renderer):
@@ -357,7 +389,7 @@ graph LR
 
 ### Good Example
 
-```markdown
+````markdown
 ## Step 3: Create a Project
 
 Projects organize your memories by codebase. Create one:
@@ -369,11 +401,13 @@ Projects organize your memories by codebase. Create one:
   "rootPath": "/path/to/project"
 }
 ```
+````
 
 **Tool:** `memory_project`
 
 You'll receive a response with the project `id`. Save this for future operations.
-```
+
+````
 
 ### Bad Example
 
@@ -384,9 +418,10 @@ You need to create a project. Projects are containers for memories.
 To create a project you use the memory_project tool with the create
 action. You need to provide a name and optionally a rootPath. The
 response will include an id which you should save.
-```
+````
 
 **Why it's bad:**
+
 - No code example
 - Wall of text
 - Missing tool reference format

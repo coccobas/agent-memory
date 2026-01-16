@@ -102,7 +102,10 @@ async function createSQLiteConnection(configuration: Config): Promise<SQLiteConn
 
     if (!result.success) {
       logger.error({ errors: result.errors }, 'Database initialization failed');
-      throw createServiceUnavailableError('database', `initialization failed: ${result.errors.join(', ')}`);
+      throw createServiceUnavailableError(
+        'database',
+        `initialization failed: ${result.errors.join(', ')}`
+      );
     }
 
     if (configuration.database.verbose && result.migrationsApplied.length > 0) {
@@ -149,13 +152,13 @@ async function runPostgreSQLMigrations(
   verbose: boolean
 ): Promise<void> {
   const { readFileSync, readdirSync, existsSync: fsExistsSync } = await import('node:fs');
-  const { join, dirname: pathDirname } = await import('node:path');
+  const path = await import('node:path');
   const { fileURLToPath } = await import('node:url');
 
   // Get the migrations directory path
   const __filename = fileURLToPath(import.meta.url);
-  const __dirname = pathDirname(__filename);
-  const migrationsDir = join(__dirname, 'migrations', 'postgresql');
+  const __dirname = path.dirname(__filename);
+  const migrationsDir = path.join(__dirname, 'migrations', 'postgresql');
 
   if (!fsExistsSync(migrationsDir)) {
     logger.warn({ migrationsDir }, 'PostgreSQL migrations directory not found');
@@ -187,7 +190,7 @@ async function runPostgreSQLMigrations(
       continue;
     }
 
-    const sql = readFileSync(join(migrationsDir, file), 'utf-8');
+    const sql = readFileSync(path.join(migrationsDir, file), 'utf-8');
 
     try {
       await adapter.executeRaw(sql);

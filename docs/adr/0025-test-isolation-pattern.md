@@ -7,6 +7,7 @@ Accepted
 ## Context
 
 Agent Memory has 1200+ tests that need to run:
+
 - In parallel (for speed)
 - Without shared state (for reliability)
 - Against real databases (for accuracy)
@@ -28,6 +29,7 @@ test('test B', () => {
 ```
 
 We needed:
+
 - Per-test database isolation
 - Factory-based dependency creation
 - Parallel test execution support
@@ -43,7 +45,7 @@ Use factory functions to create test fixtures with injected dependencies, avoidi
 // tests/fixtures/test-helpers.ts
 export async function setupTestDb(): Promise<TestContext> {
   // Create unique in-memory database per test
-  const dbPath = `:memory:`;  // Or unique file path for persistence
+  const dbPath = `:memory:`; // Or unique file path for persistence
   const db = await createDatabase({ type: 'sqlite', path: dbPath });
 
   // Run migrations
@@ -78,7 +80,7 @@ export function createTestRepositories(db: Database): Repositories {
 ```typescript
 export function createTestServices(
   repos: Repositories,
-  overrides?: Partial<ServiceDependencies>,
+  overrides?: Partial<ServiceDependencies>
 ): Services {
   const deps: ServiceDependencies = {
     cache: new LRUCacheAdapter({ maxSize: 100 }),
@@ -199,6 +201,7 @@ expect(mockEmbeddingService.generate).toHaveBeenCalled();
 ## Consequences
 
 **Positive:**
+
 - Tests run in parallel without interference
 - Each test has predictable starting state
 - Same factory pattern as production code
@@ -206,6 +209,7 @@ expect(mockEmbeddingService.generate).toHaveBeenCalled();
 - Failures are reproducible (no shared state)
 
 **Negative:**
+
 - Test setup overhead (creating database per test)
 - Must remember to use factories, not imports
 - Integration tests slower than unit tests with mocks

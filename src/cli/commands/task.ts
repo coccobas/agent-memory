@@ -4,13 +4,36 @@
  * Manage task decomposition via CLI.
  */
 
-import { Command } from 'commander';
+import type { Command } from 'commander';
+import type { ScopeType } from '../../db/schema/types.js';
 import { getCliContext, shutdownCliContext } from '../utils/context.js';
 import { formatOutput, type OutputFormat } from '../utils/output.js';
 import { handleCliError } from '../utils/errors.js';
 import { readStdinJson } from '../utils/stdin.js';
 import { taskHandlers } from '../../mcp/handlers/tasks.handler.js';
 import { createValidationError } from '../../core/errors.js';
+import { typedAction } from '../utils/typed-action.js';
+
+interface TaskAddOptions extends Record<string, unknown> {
+  parentTask?: string;
+  decompositionStrategy?: string;
+  scopeType: string;
+  scopeId?: string;
+  projectId?: string;
+  createdBy?: string;
+}
+
+interface TaskGetOptions extends Record<string, unknown> {
+  id: string;
+}
+
+interface TaskListOptions extends Record<string, unknown> {
+  parentTaskId?: string;
+  scopeType?: string;
+  scopeId?: string;
+  limit?: number;
+  offset?: number;
+}
 
 export function addTaskCommand(program: Command): void {
   const task = program.command('task').description('Manage task decomposition');
@@ -20,60 +43,72 @@ export function addTaskCommand(program: Command): void {
     .command('add')
     .description('Add a task with subtasks (reads subtasks from stdin as JSON array)')
     .option('--parent-task <id>', 'Parent task ID')
-    .option('--decomposition-strategy <strategy>', 'Strategy: maximal, balanced, minimal', 'balanced')
+    .option(
+      '--decomposition-strategy <strategy>',
+      'Strategy: maximal, balanced, minimal',
+      'balanced'
+    )
     .requiredOption('--scope-type <type>', 'Scope type')
     .option('--scope-id <id>', 'Scope ID')
     .option('--project-id <id>', 'Project ID')
     .option('--created-by <name>', 'Creator name')
-    .action(async (options, cmd) => {
-      try {
-        const globalOpts = cmd.optsWithGlobals();
-        const context = await getCliContext();
+    .action(
+      typedAction<TaskAddOptions>(async (options, globalOpts) => {
+        try {
+          const context = await getCliContext();
 
-        const subtasks = await readStdinJson<string[]>();
-        if (!subtasks || !Array.isArray(subtasks)) {
-          throw createValidationError('subtasks', 'is required via stdin as JSON array');
+          const subtasks = await readStdinJson<string[]>();
+          if (!subtasks || !Array.isArray(subtasks)) {
+            throw createValidationError('subtasks', 'is required via stdin as JSON array');
+          }
+
+          const result = await taskHandlers.add(context, {
+            parentTask: options.parentTask,
+            subtasks,
+            decompositionStrategy: options.decompositionStrategy as
+              | 'minimal'
+              | 'maximal'
+              | 'balanced'
+              | undefined,
+            scopeType: (options.scopeType ?? 'project') as ScopeType,
+            scopeId: options.scopeId,
+            projectId: options.projectId,
+            createdBy: options.createdBy,
+          });
+
+          // eslint-disable-next-line no-console
+          console.log(formatOutput(result, globalOpts.format as OutputFormat));
+        } catch (error) {
+          handleCliError(error);
+        } finally {
+          await shutdownCliContext();
         }
-
-        const result = await taskHandlers.add(context, {
-          parentTask: options.parentTask,
-          subtasks,
-          decompositionStrategy: options.decompositionStrategy,
-          scopeType: options.scopeType,
-          scopeId: options.scopeId,
-          projectId: options.projectId,
-          createdBy: options.createdBy,
-        });
-
-        console.log(formatOutput(result, globalOpts.format as OutputFormat));
-      } catch (error) {
-        handleCliError(error);
-      } finally {
-        await shutdownCliContext();
-      }
-    });
+      })
+    );
 
   // task get
   task
     .command('get')
     .description('Get a task by ID')
     .requiredOption('--id <id>', 'Task ID')
-    .action(async (options, cmd) => {
-      try {
-        const globalOpts = cmd.optsWithGlobals();
-        const context = await getCliContext();
+    .action(
+      typedAction<TaskGetOptions>(async (options, globalOpts) => {
+        try {
+          const context = await getCliContext();
 
-        const result = await taskHandlers.get(context, {
-          taskId: options.id,
-        });
+          const result = await taskHandlers.get(context, {
+            taskId: options.id,
+          });
 
-        console.log(formatOutput(result, globalOpts.format as OutputFormat));
-      } catch (error) {
-        handleCliError(error);
-      } finally {
-        await shutdownCliContext();
-      }
-    });
+          // eslint-disable-next-line no-console
+          console.log(formatOutput(result, globalOpts.format as OutputFormat));
+        } catch (error) {
+          handleCliError(error);
+        } finally {
+          await shutdownCliContext();
+        }
+      })
+    );
 
   // task list
   task
@@ -84,24 +119,26 @@ export function addTaskCommand(program: Command): void {
     .option('--scope-id <id>', 'Filter by scope ID')
     .option('--limit <n>', 'Maximum entries to return', parseInt)
     .option('--offset <n>', 'Offset for pagination', parseInt)
-    .action(async (options, cmd) => {
-      try {
-        const globalOpts = cmd.optsWithGlobals();
-        const context = await getCliContext();
+    .action(
+      typedAction<TaskListOptions>(async (options, globalOpts) => {
+        try {
+          const context = await getCliContext();
 
-        const result = await taskHandlers.list(context, {
-          parentTaskId: options.parentTaskId,
-          scopeType: options.scopeType,
-          scopeId: options.scopeId,
-          limit: options.limit,
-          offset: options.offset,
-        });
+          const result = await taskHandlers.list(context, {
+            parentTaskId: options.parentTaskId,
+            scopeType: (options.scopeType ?? 'project') as ScopeType,
+            scopeId: options.scopeId,
+            limit: options.limit,
+            offset: options.offset,
+          });
 
-        console.log(formatOutput(result, globalOpts.format as OutputFormat));
-      } catch (error) {
-        handleCliError(error);
-      } finally {
-        await shutdownCliContext();
-      }
-    });
+          // eslint-disable-next-line no-console
+          console.log(formatOutput(result, globalOpts.format as OutputFormat));
+        } catch (error) {
+          handleCliError(error);
+        } finally {
+          await shutdownCliContext();
+        }
+      })
+    );
 }

@@ -127,7 +127,8 @@ export class ToolsController {
 
     // Extract action and params from body
     const executeBody = body as ExecuteToolBody;
-    const action = executeBody.action && isString(executeBody.action) ? executeBody.action : undefined;
+    const action =
+      executeBody.action && isString(executeBody.action) ? executeBody.action : undefined;
 
     // Build params object from body
     // If params is provided, use it; otherwise use the entire body (excluding action)

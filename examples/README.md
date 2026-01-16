@@ -40,4 +40,3 @@ sqlite3 /path/to/your/memory.db < examples/bootstrap-data.sql
 - In production, you would generate UUIDs dynamically
 - The data includes examples of all major features: scoping, versioning, tagging, and relations
 - You can modify this file to match your specific needs
-

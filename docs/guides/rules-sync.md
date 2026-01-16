@@ -58,12 +58,12 @@ Shows what would change without writing files.
 
 ## Supported IDEs
 
-| IDE | Format | Destination | Notes |
-|:----|:-------|:------------|:------|
+| IDE         | Format       | Destination           | Notes                  |
+| :---------- | :----------- | :-------------------- | :--------------------- |
 | Claude Code | Single `.md` | `~/.claude/CLAUDE.md` | Concatenates all rules |
-| Cursor | `.mdc` files | `.cursor/rules/` | One file per rule |
-| VS Code | `.md` files | `.vscode/rules/` | One file per rule |
-| Generic | `.md` files | `.ide-rules/` | Fallback format |
+| Cursor      | `.mdc` files | `.cursor/rules/`      | One file per rule      |
+| VS Code     | `.md` files  | `.vscode/rules/`      | One file per rule      |
+| Generic     | `.md` files  | `.ide-rules/`         | Fallback format        |
 
 ---
 
@@ -73,24 +73,24 @@ Shows what would change without writing files.
 
 These are synced to all IDEs:
 
-| File | Purpose |
-|:-----|:--------|
-| `auto-memory-core.md` | Essential workflow: query → store → tag |
-| `auto-memory-reference.md` | Complete reference for all 20+ MCP tools |
-| `auto-memory-examples.md` | Real-world usage patterns and triggers |
-| `auto-memory-strategies.md` | Optimization and best practices |
-| `auto-memory-advanced.md` | Advanced features, conflict resolution |
+| File                        | Purpose                                  |
+| :-------------------------- | :--------------------------------------- |
+| `auto-memory-core.md`       | Essential workflow: query → store → tag  |
+| `auto-memory-reference.md`  | Complete reference for all 20+ MCP tools |
+| `auto-memory-examples.md`   | Real-world usage patterns and triggers   |
+| `auto-memory-strategies.md` | Optimization and best practices          |
+| `auto-memory-advanced.md`   | Advanced features, conflict resolution   |
 
 ### Developer Rules (Not Synced)
 
 These are for Agent Memory contributors only:
 
-| File | Purpose |
-|:-----|:--------|
-| `developer/architecture.md` | Internal architecture |
+| File                            | Purpose                |
+| :------------------------------ | :--------------------- |
+| `developer/architecture.md`     | Internal architecture  |
 | `developer/coding-standards.md` | TypeScript conventions |
-| `developer/patterns.md` | Design patterns |
-| `developer/testing.md` | Testing guidelines |
+| `developer/patterns.md`         | Design patterns        |
+| `developer/testing.md`          | Testing guidelines     |
 
 Developer rules are excluded via `.rulesignore`.
 
@@ -102,13 +102,13 @@ Developer rules are excluded via `.rulesignore`.
 npm run sync-rules -- [options]
 ```
 
-| Option | Description | Default |
-|:-------|:------------|:--------|
-| `--ide <name>` | Target IDE (claude, cursor, vscode) | Auto-detect |
-| `--project` | Sync to project directory | User-level |
-| `--verify` | Show changes without writing | false |
-| `--backup` | Backup existing files before overwrite | false |
-| `--verbose` | Show detailed output | false |
+| Option         | Description                            | Default     |
+| :------------- | :------------------------------------- | :---------- |
+| `--ide <name>` | Target IDE (claude, cursor, vscode)    | Auto-detect |
+| `--project`    | Sync to project directory              | User-level  |
+| `--verify`     | Show changes without writing           | false       |
+| `--backup`     | Backup existing files before overwrite | false       |
+| `--verbose`    | Show detailed output                   | false       |
 
 ### Examples
 
@@ -176,7 +176,6 @@ description: Agent Memory core workflow
 globs:
 alwaysApply: true
 ---
-
 # Agent Memory Workflow
 ...
 ```
@@ -306,10 +305,10 @@ ls .cursor/rules/*.mdc
 
 Rules sync complements the hooks system:
 
-| Feature | Purpose |
-|:--------|:--------|
-| **Rules Sync** | Teach AI how to use memory (documentation) |
-| **Hooks** | Enforce guidelines at runtime (enforcement) |
+| Feature        | Purpose                                     |
+| :------------- | :------------------------------------------ |
+| **Rules Sync** | Teach AI how to use memory (documentation)  |
+| **Hooks**      | Enforce guidelines at runtime (enforcement) |
 
 Use both for complete integration:
 

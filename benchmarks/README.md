@@ -21,61 +21,61 @@ npm run bench:search  # Search performance comparison
 
 Measures query latency for various operations:
 
-| Benchmark | Description |
-|-----------|-------------|
-| Simple query - global scope | Basic query on global guidelines |
-| Scoped query - project with inheritance | Query with scope chain traversal |
-| Search query - text matching | Query with text search parameter |
-| FTS5 search query | Full-text search using SQLite FTS5 |
-| Complex query - multiple filters | Combined scope, search, and priority filters |
-| Query with versions included | Query with version history |
-| Query with recency scoring | Exponential decay recency boost |
-| Query all types | Query guidelines, knowledge, and tools |
+| Benchmark                               | Description                                  |
+| --------------------------------------- | -------------------------------------------- |
+| Simple query - global scope             | Basic query on global guidelines             |
+| Scoped query - project with inheritance | Query with scope chain traversal             |
+| Search query - text matching            | Query with text search parameter             |
+| FTS5 search query                       | Full-text search using SQLite FTS5           |
+| Complex query - multiple filters        | Combined scope, search, and priority filters |
+| Query with versions included            | Query with version history                   |
+| Query with recency scoring              | Exponential decay recency boost              |
+| Query all types                         | Query guidelines, knowledge, and tools       |
 
 ### Write Benchmarks (`write.bench.ts`)
 
 Measures write throughput:
 
-| Benchmark | Description |
-|-----------|-------------|
-| Single guideline insert | Insert one guideline with version |
-| Single knowledge insert | Insert one knowledge entry with version |
-| Bulk guideline insert (10) | Insert 10 guidelines in sequence |
-| Guideline update | Add new version to existing guideline |
-| Tag creation | Create a new tag |
-| Tag attachment | Attach tag to entry |
-| Project creation | Create new project |
-| Session creation | Create new session |
+| Benchmark                  | Description                             |
+| -------------------------- | --------------------------------------- |
+| Single guideline insert    | Insert one guideline with version       |
+| Single knowledge insert    | Insert one knowledge entry with version |
+| Bulk guideline insert (10) | Insert 10 guidelines in sequence        |
+| Guideline update           | Add new version to existing guideline   |
+| Tag creation               | Create a new tag                        |
+| Tag attachment             | Attach tag to entry                     |
+| Project creation           | Create new project                      |
+| Session creation           | Create new session                      |
 
 ### Search Benchmarks (`search.bench.ts`)
 
 Compares search strategies:
 
-| Benchmark | Description |
-|-----------|-------------|
-| LIKE search (baseline) | Standard SQL LIKE pattern matching |
-| FTS5 search | SQLite full-text search |
-| FTS5 multi-word search | Multi-term FTS5 query |
-| Fuzzy search | Levenshtein distance matching |
-| Regex search | Regular expression pattern matching |
+| Benchmark              | Description                         |
+| ---------------------- | ----------------------------------- |
+| LIKE search (baseline) | Standard SQL LIKE pattern matching  |
+| FTS5 search            | SQLite full-text search             |
+| FTS5 multi-word search | Multi-term FTS5 query               |
+| Fuzzy search           | Levenshtein distance matching       |
+| Regex search           | Regular expression pattern matching |
 
 ## Performance Targets
 
 ### Query Latency
 
-| Metric | Target | Notes |
-|--------|--------|-------|
-| p50 | < 5ms | Simple global query |
-| p95 | < 20ms | Complex scoped query |
-| p99 | < 50ms | Full-text search with filters |
+| Metric | Target | Notes                         |
+| ------ | ------ | ----------------------------- |
+| p50    | < 5ms  | Simple global query           |
+| p95    | < 20ms | Complex scoped query          |
+| p99    | < 50ms | Full-text search with filters |
 
 ### Write Throughput
 
-| Operation | Target |
-|-----------|--------|
-| Single insert | > 100 ops/sec |
-| Bulk insert (10) | > 50 ops/sec |
-| Update (new version) | > 80 ops/sec |
+| Operation            | Target        |
+| -------------------- | ------------- |
+| Single insert        | > 100 ops/sec |
+| Bulk insert (10)     | > 50 ops/sec  |
+| Update (new version) | > 80 ops/sec  |
 
 ## Environment
 
@@ -112,7 +112,11 @@ Example:
 
 ```typescript
 import { describe, bench, beforeAll, afterAll } from 'vitest';
-import { setupBenchmarkDb, cleanupBenchmarkDb, type BenchDb } from './fixtures/benchmark-helpers.js';
+import {
+  setupBenchmarkDb,
+  cleanupBenchmarkDb,
+  type BenchDb,
+} from './fixtures/benchmark-helpers.js';
 
 let benchDb: BenchDb;
 
@@ -126,9 +130,13 @@ describe('My Benchmarks', () => {
     cleanupBenchmarkDb();
   });
 
-  bench('my operation', () => {
-    // Code to benchmark
-  }, { iterations: 100, warmupIterations: 10 });
+  bench(
+    'my operation',
+    () => {
+      // Code to benchmark
+    },
+    { iterations: 100, warmupIterations: 10 }
+  );
 });
 ```
 
@@ -138,6 +146,7 @@ Last updated: 2025-12-18
 System: Run `npm run bench:run` to establish baseline on your machine
 
 Results will vary based on:
+
 - CPU speed and architecture
 - Available memory
 - Disk I/O performance

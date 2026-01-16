@@ -84,10 +84,14 @@ describe('Correlation Context - Sync Operations', () => {
     });
 
     it('should set metadata when provided', () => {
-      withCorrelationId('test-id', () => {
-        const context = getCorrelationContext();
-        expect(context?.metadata).toEqual({ key: 'value' });
-      }, { metadata: { key: 'value' } });
+      withCorrelationId(
+        'test-id',
+        () => {
+          const context = getCorrelationContext();
+          expect(context?.metadata).toEqual({ key: 'value' });
+        },
+        { metadata: { key: 'value' } }
+      );
     });
 
     it('should throw on invalid correlation ID format', () => {
@@ -196,10 +200,13 @@ describe('Correlation Context - Sync Operations', () => {
     });
 
     it('should support child metadata', () => {
-      withChildCorrelationId(() => {
-        const context = getCorrelationContext();
-        expect(context?.metadata).toEqual({ child: true });
-      }, { metadata: { child: true } });
+      withChildCorrelationId(
+        () => {
+          const context = getCorrelationContext();
+          expect(context?.metadata).toEqual({ child: true });
+        },
+        { metadata: { child: true } }
+      );
     });
   });
 });
@@ -217,7 +224,7 @@ describe('Correlation Context - Async Operations', () => {
       await withCorrelationIdAsync('test-id', async () => {
         expect(getCorrelationId()).toBe('test-id');
 
-        await new Promise(resolve => setTimeout(resolve, 10));
+        await new Promise((resolve) => setTimeout(resolve, 10));
 
         expect(getCorrelationId()).toBe('test-id');
       });
@@ -268,7 +275,7 @@ describe('Correlation Context - Async Operations', () => {
     it('should maintain context across async operations', async () => {
       await withNewCorrelationIdAsync(async () => {
         const id1 = getCorrelationId();
-        await new Promise(resolve => setTimeout(resolve, 10));
+        await new Promise((resolve) => setTimeout(resolve, 10));
         const id2 = getCorrelationId();
         expect(id1).toBe(id2);
       });
@@ -290,7 +297,7 @@ describe('Correlation Context - Async Operations', () => {
       await withCorrelationIdAsync('parent-id', async () => {
         await withChildCorrelationIdAsync(async () => {
           const context1 = getCorrelationContext();
-          await new Promise(resolve => setTimeout(resolve, 10));
+          await new Promise((resolve) => setTimeout(resolve, 10));
           const context2 = getCorrelationContext();
           expect(context1?.correlationId).toBe(context2?.correlationId);
           expect(context2?.parentId).toBe('parent-id');
@@ -319,23 +326,31 @@ describe('Correlation Context Accessors', () => {
     });
 
     it('should return full context object', () => {
-      withCorrelationId('test-id', () => {
-        const context = getCorrelationContext();
-        expect(context).toMatchObject({
-          correlationId: 'test-id',
-        });
-        expect(context?.startTime).toBeGreaterThan(0);
-      }, { parentId: 'parent-id', metadata: { key: 'value' } });
+      withCorrelationId(
+        'test-id',
+        () => {
+          const context = getCorrelationContext();
+          expect(context).toMatchObject({
+            correlationId: 'test-id',
+          });
+          expect(context?.startTime).toBeGreaterThan(0);
+        },
+        { parentId: 'parent-id', metadata: { key: 'value' } }
+      );
     });
 
     it('should include all context properties', () => {
-      withCorrelationId('test-id', () => {
-        const context = getCorrelationContext();
-        expect(context).toHaveProperty('correlationId');
-        expect(context).toHaveProperty('startTime');
-        expect(context).toHaveProperty('parentId');
-        expect(context).toHaveProperty('metadata');
-      }, { parentId: 'parent-id', metadata: { test: true } });
+      withCorrelationId(
+        'test-id',
+        () => {
+          const context = getCorrelationContext();
+          expect(context).toHaveProperty('correlationId');
+          expect(context).toHaveProperty('startTime');
+          expect(context).toHaveProperty('parentId');
+          expect(context).toHaveProperty('metadata');
+        },
+        { parentId: 'parent-id', metadata: { test: true } }
+      );
     });
   });
 
@@ -346,7 +361,7 @@ describe('Correlation Context Accessors', () => {
 
     it('should return elapsed time in milliseconds', async () => {
       await withCorrelationIdAsync('test-id', async () => {
-        await new Promise(resolve => setTimeout(resolve, 50));
+        await new Promise((resolve) => setTimeout(resolve, 50));
         const elapsed = getCorrelationElapsedMs();
         expect(elapsed).toBeGreaterThanOrEqual(45);
         expect(elapsed).toBeLessThan(200);
@@ -356,7 +371,7 @@ describe('Correlation Context Accessors', () => {
     it('should increase over time', async () => {
       await withCorrelationIdAsync('test-id', async () => {
         const elapsed1 = getCorrelationElapsedMs();
-        await new Promise(resolve => setTimeout(resolve, 20));
+        await new Promise((resolve) => setTimeout(resolve, 20));
         const elapsed2 = getCorrelationElapsedMs();
         expect(elapsed2).toBeGreaterThan(elapsed1);
       });
@@ -384,15 +399,19 @@ describe('Correlation Context Accessors', () => {
     });
 
     it('should merge with existing metadata', () => {
-      withCorrelationId('test-id', () => {
-        addCorrelationMetadata('new', 'data');
+      withCorrelationId(
+        'test-id',
+        () => {
+          addCorrelationMetadata('new', 'data');
 
-        const context = getCorrelationContext();
-        expect(context?.metadata).toEqual({
-          existing: true,
-          new: 'data',
-        });
-      }, { metadata: { existing: true } });
+          const context = getCorrelationContext();
+          expect(context?.metadata).toEqual({
+            existing: true,
+            new: 'data',
+          });
+        },
+        { metadata: { existing: true } }
+      );
     });
   });
 });
@@ -414,13 +433,17 @@ describe('Logging Helpers', () => {
     });
 
     it('should include parent ID when present', () => {
-      withCorrelationId('test-id', () => {
-        const fields = getCorrelationLogFields();
-        expect(fields).toEqual({
-          correlationId: 'test-id',
-          parentCorrelationId: 'parent-id',
-        });
-      }, { parentId: 'parent-id' });
+      withCorrelationId(
+        'test-id',
+        () => {
+          const fields = getCorrelationLogFields();
+          expect(fields).toEqual({
+            correlationId: 'test-id',
+            parentCorrelationId: 'parent-id',
+          });
+        },
+        { parentId: 'parent-id' }
+      );
     });
 
     it('should not include parent ID when absent', () => {
@@ -433,11 +456,15 @@ describe('Logging Helpers', () => {
 
   describe('correlationLoggerMixin', () => {
     it('should return same as getCorrelationLogFields', () => {
-      withCorrelationId('test-id', () => {
-        const mixinFields = correlationLoggerMixin();
-        const logFields = getCorrelationLogFields();
-        expect(mixinFields).toEqual(logFields);
-      }, { parentId: 'parent-id' });
+      withCorrelationId(
+        'test-id',
+        () => {
+          const mixinFields = correlationLoggerMixin();
+          const logFields = getCorrelationLogFields();
+          expect(mixinFields).toEqual(logFields);
+        },
+        { parentId: 'parent-id' }
+      );
     });
 
     it('should return empty object outside context', () => {
@@ -509,22 +536,26 @@ describe('Edge Cases', () => {
   it('should handle maximum metadata size', () => {
     const metadata = { data: 'x'.repeat(4000) };
 
-    withCorrelationId('test-id', () => {
-      const context = getCorrelationContext();
-      expect(context?.metadata).toBeTruthy();
-    }, { metadata });
+    withCorrelationId(
+      'test-id',
+      () => {
+        const context = getCorrelationContext();
+        expect(context?.metadata).toBeTruthy();
+      },
+      { metadata }
+    );
   });
 
   it('should handle concurrent async contexts', async () => {
     const results = await Promise.all([
       withNewCorrelationIdAsync(async () => {
         const id = getCorrelationId();
-        await new Promise(resolve => setTimeout(resolve, 10));
+        await new Promise((resolve) => setTimeout(resolve, 10));
         return id;
       }),
       withNewCorrelationIdAsync(async () => {
         const id = getCorrelationId();
-        await new Promise(resolve => setTimeout(resolve, 10));
+        await new Promise((resolve) => setTimeout(resolve, 10));
         return id;
       }),
     ]);

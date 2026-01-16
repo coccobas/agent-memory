@@ -1,6 +1,7 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, beforeAll, afterAll } from 'vitest';
 import { SecurityService } from '../../src/services/security.service.js';
 import type { Config } from '../../src/config/index.js';
+import { resetWarningFlags } from '../../src/config/auth.js';
 
 /**
  * Create a minimal test config with specified API keys configuration
@@ -25,6 +26,36 @@ function createTestConfig(overrides: Partial<Config['security']> = {}): Config {
 }
 
 describe('SecurityService', () => {
+  // Store original auth-related env vars
+  const originalEnv: Record<string, string | undefined> = {};
+
+  beforeAll(() => {
+    // Save auth-related env vars
+    originalEnv.AGENT_MEMORY_DEV_MODE = process.env.AGENT_MEMORY_DEV_MODE;
+    originalEnv.AGENT_MEMORY_API_KEY = process.env.AGENT_MEMORY_API_KEY;
+    originalEnv.AGENT_MEMORY_PERMISSIONS_MODE = process.env.AGENT_MEMORY_PERMISSIONS_MODE;
+    originalEnv.AGENT_MEMORY_ALLOW_PERMISSIVE = process.env.AGENT_MEMORY_ALLOW_PERMISSIVE;
+
+    // Clear auth vars for clean test state
+    delete process.env.AGENT_MEMORY_DEV_MODE;
+    delete process.env.AGENT_MEMORY_API_KEY;
+    delete process.env.AGENT_MEMORY_PERMISSIONS_MODE;
+    delete process.env.AGENT_MEMORY_ALLOW_PERMISSIVE;
+
+    resetWarningFlags();
+  });
+
+  afterAll(() => {
+    // Restore original env vars
+    for (const [key, value] of Object.entries(originalEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+    resetWarningFlags();
+  });
   describe('API Key Parsing', () => {
     describe('JSON Array Format', () => {
       it('should parse valid JSON array with key/agentId objects', () => {

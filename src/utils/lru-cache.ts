@@ -288,15 +288,19 @@ export class LRUCache<T> {
    * Bug #332 fix: Returns '{}' for objects with circular references instead of throwing.
    */
   private safeStringify(value: unknown): string {
-    const seen = new WeakSet();
+    const seen = new WeakSet<object>();
     try {
-      return JSON.stringify(value, (_key, val) => {
+      return JSON.stringify(value, (_key, val: unknown) => {
         if (typeof val === 'object' && val !== null) {
+          // Type guard ensures val is object, safe for WeakSet operations
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
           if (seen.has(val)) {
             return '[Circular]';
           }
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
           seen.add(val);
         }
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
         return val;
       });
     } catch {

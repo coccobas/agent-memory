@@ -4,39 +4,35 @@
  * Main coordinator for RL training data collection.
  * Tracks retrievals, outcomes, and decisions to generate training datasets
  * for extraction, retrieval, and consolidation policies.
+ *
+ * NOTE: Non-null assertions used for Map access after existence checks
+ * in attribution calculations.
  */
+
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 
 import type { DatabaseDeps } from '../../core/types.js';
 import { createComponentLogger } from '../../utils/logger.js';
 import { now } from '../../db/repositories/base.js';
 
 // Repositories
-import {
-  RetrievalRepository,
-  createRetrievalRepository,
-} from './repositories/retrieval.repository.js';
-import {
-  OutcomeRepository,
-  createOutcomeRepository,
-} from './repositories/outcome.repository.js';
-import {
-  DecisionRepository,
-  createDecisionRepository,
-} from './repositories/decision.repository.js';
+import type { RetrievalRepository } from './repositories/retrieval.repository.js';
+import { createRetrievalRepository } from './repositories/retrieval.repository.js';
+import type { OutcomeRepository } from './repositories/outcome.repository.js';
+import { createOutcomeRepository } from './repositories/outcome.repository.js';
+import type { DecisionRepository } from './repositories/decision.repository.js';
+import { createDecisionRepository } from './repositories/decision.repository.js';
 
 // Feedback score cache
 import { getFeedbackScoreCache } from '../query/feedback-cache.js';
 
 // Collectors
-import {
-  RetrievalCollector,
-  createRetrievalCollector,
-} from './collectors/retrieval.collector.js';
-import { OutcomeCollector, createOutcomeCollector } from './collectors/outcome.collector.js';
-import {
-  ExtractionCollector,
-  createExtractionCollector,
-} from './collectors/extraction.collector.js';
+import type { RetrievalCollector } from './collectors/retrieval.collector.js';
+import { createRetrievalCollector } from './collectors/retrieval.collector.js';
+import type { OutcomeCollector } from './collectors/outcome.collector.js';
+import { createOutcomeCollector } from './collectors/outcome.collector.js';
+import type { ExtractionCollector } from './collectors/extraction.collector.js';
+import { createExtractionCollector } from './collectors/extraction.collector.js';
 
 // Evaluators
 import {
@@ -66,10 +62,7 @@ import type {
   ContributionScore,
 } from './types.js';
 import { DEFAULT_FEEDBACK_CONFIG } from './types.js';
-import type {
-  MemoryRetrieval,
-  AttributionMethod,
-} from '../../db/schema/feedback.js';
+import type { MemoryRetrieval, AttributionMethod } from '../../db/schema/feedback.js';
 
 const logger = createComponentLogger('feedback');
 
@@ -139,10 +132,7 @@ export class FeedbackService {
     }
 
     // Fire-and-forget if configured
-    if (
-      this.config.async.enabled &&
-      this.config.async.asyncOperations.includes('retrieval')
-    ) {
+    if (this.config.async.enabled && this.config.async.asyncOperations.includes('retrieval')) {
       this.retrievalCollector.recordRetrieval(params).catch((error) => {
         logger.error(
           { err: error, sessionId: params.sessionId, entryId: params.entryId },
@@ -164,10 +154,7 @@ export class FeedbackService {
     }
 
     // Fire-and-forget if configured
-    if (
-      this.config.async.enabled &&
-      this.config.async.asyncOperations.includes('retrieval')
-    ) {
+    if (this.config.async.enabled && this.config.async.asyncOperations.includes('retrieval')) {
       this.retrievalCollector.recordRetrievalBatch(params).catch((error) => {
         logger.error(
           { err: error, batchSize: params.length },
@@ -207,10 +194,7 @@ export class FeedbackService {
     }
 
     // Fire-and-forget if configured
-    if (
-      this.config.async.enabled &&
-      this.config.async.asyncOperations.includes('outcome')
-    ) {
+    if (this.config.async.enabled && this.config.async.asyncOperations.includes('outcome')) {
       this.outcomeCollector.recordOutcome(params).catch((error) => {
         logger.error(
           { err: error, sessionId: params.sessionId, outcomeType: params.outcomeType },
@@ -242,9 +226,7 @@ export class FeedbackService {
       return;
     }
 
-    const retrievals = await Promise.all(
-      retrievalIds.map((id) => this.retrievalRepo.getById(id))
-    );
+    const retrievals = await Promise.all(retrievalIds.map((id) => this.retrievalRepo.getById(id)));
     const validRetrievals = retrievals.filter((r): r is MemoryRetrieval => r !== undefined);
 
     if (validRetrievals.length === 0) {
@@ -271,10 +253,7 @@ export class FeedbackService {
     }
 
     // Fire-and-forget if configured
-    if (
-      this.config.async.enabled &&
-      this.config.async.asyncOperations.includes('attribution')
-    ) {
+    if (this.config.async.enabled && this.config.async.asyncOperations.includes('attribution')) {
       this.outcomeCollector
         .linkRetrievalsToOutcome(outcomeId, retrievalIds, scores, method)
         .catch((error) => {
@@ -336,9 +315,7 @@ export class FeedbackService {
   /**
    * Evaluate the outcome of an extraction decision
    */
-  async evaluateExtractionOutcome(
-    decisionId: string
-  ): Promise<ExtractionOutcomeResult | null> {
+  async evaluateExtractionOutcome(decisionId: string): Promise<ExtractionOutcomeResult | null> {
     if (!this.config.enabled) {
       return null;
     }
@@ -353,9 +330,7 @@ export class FeedbackService {
   /**
    * Record a consolidation decision
    */
-  async recordConsolidationDecision(
-    params: RecordConsolidationDecisionParams
-  ): Promise<string> {
+  async recordConsolidationDecision(params: RecordConsolidationDecisionParams): Promise<string> {
     if (!this.config.enabled) {
       return '';
     }
@@ -384,13 +359,14 @@ export class FeedbackService {
       return null;
     }
 
-    const evaluationWindowDays =
-      windowDays ?? this.config.consolidation.evaluationWindowDays;
+    const evaluationWindowDays = windowDays ?? this.config.consolidation.evaluationWindowDays;
 
     // Placeholder metrics - see method @todo for real implementation
     const preMetrics: ConsolidationMetrics = {
       retrievalRate: 0.5,
       successRate: 0.6,
+      // JSON.parse returns unknown - type validation happens at deserialization
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
       storageCount: JSON.parse(decision.sourceEntryIds).length,
     };
 
@@ -506,8 +482,10 @@ export class FeedbackService {
     }
 
     // Fetch consolidation decisions
-    const allConsolidationDecisions =
-      await this.decisionRepo.getConsolidationDecisionsByDateRange(startDate, endDate);
+    const allConsolidationDecisions = await this.decisionRepo.getConsolidationDecisionsByDateRange(
+      startDate,
+      endDate
+    );
     const consolidationSamples: ConsolidationTrainingSample[] = [];
 
     for (const decision of allConsolidationDecisions) {
@@ -518,6 +496,8 @@ export class FeedbackService {
         scopeType: decision.scopeType,
         scopeId: decision.scopeId ?? undefined,
         action: decision.action,
+        // JSON.parse returns unknown - type validation happens at deserialization
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         sourceEntryIds: JSON.parse(decision.sourceEntryIds),
         targetEntryId: decision.targetEntryId ?? undefined,
         similarityScore: decision.similarityScore ?? undefined,
@@ -565,9 +545,7 @@ export class FeedbackService {
     }
 
     // Compute stats
-    const successCount = filteredRetrievalSamples.filter(
-      (s) => s.outcomeType === 'success'
-    ).length;
+    const successCount = filteredRetrievalSamples.filter((s) => s.outcomeType === 'success').length;
     const totalWithOutcome = filteredRetrievalSamples.filter((s) => s.outcomeType).length;
     const successRate = totalWithOutcome > 0 ? successCount / totalWithOutcome : 0;
 

@@ -52,14 +52,18 @@ for (const q of testQueries) {
   }
 
   try {
-    const results = sqlite.prepare(`
+    const results = sqlite
+      .prepare(
+        `
       SELECT knowledge_id, title, content
       FROM knowledge_fts
       WHERE knowledge_fts MATCH ?
-    `).all(orQuery);
+    `
+      )
+      .all(orQuery);
     console.log(`"${q}" -> ${results.length} result(s)`);
     if (results.length > 0) {
-      console.log(`  Match: ${(results[0] as {title: string}).title}`);
+      console.log(`  Match: ${(results[0] as { title: string }).title}`);
     }
   } catch (err) {
     console.log(`"${q}" -> ERROR: ${err}`);

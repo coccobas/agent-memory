@@ -103,29 +103,30 @@ console.log(`Level 1: ${status.countByLevel.level1}`);
 
 ### HierarchicalSummarizationConfig
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `maxLevels` | number | 3 | Maximum hierarchy depth (1-3) |
-| `minGroupSize` | number | 3 | Minimum entries required for a summary |
-| `similarityThreshold` | number | 0.75 | Similarity threshold for grouping (0-1) |
-| `communityResolution` | number | 1.0 | Leiden resolution parameter |
-| `provider` | string | 'disabled' | LLM provider ('openai', 'anthropic', 'ollama', 'disabled') |
-| `model` | string? | undefined | Model name override |
+| Option                | Type    | Default    | Description                                                |
+| --------------------- | ------- | ---------- | ---------------------------------------------------------- |
+| `maxLevels`           | number  | 3          | Maximum hierarchy depth (1-3)                              |
+| `minGroupSize`        | number  | 3          | Minimum entries required for a summary                     |
+| `similarityThreshold` | number  | 0.75       | Similarity threshold for grouping (0-1)                    |
+| `communityResolution` | number  | 1.0        | Leiden resolution parameter                                |
+| `provider`            | string  | 'disabled' | LLM provider ('openai', 'anthropic', 'ollama', 'disabled') |
+| `model`               | string? | undefined  | Model name override                                        |
 
 ### BuildSummariesOptions
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `scopeType` | string | required | Scope type ('global', 'org', 'project', 'session') |
-| `scopeId` | string? | undefined | Scope ID (required for non-global scopes) |
-| `entryTypes` | string[]? | all types | Entry types to include |
-| `forceRebuild` | boolean? | false | Force rebuild even if summaries exist |
-| `maxLevels` | number? | undefined | Override config.maxLevels |
-| `minGroupSize` | number? | undefined | Override config.minGroupSize |
+| Option         | Type      | Default   | Description                                        |
+| -------------- | --------- | --------- | -------------------------------------------------- |
+| `scopeType`    | string    | required  | Scope type ('global', 'org', 'project', 'session') |
+| `scopeId`      | string?   | undefined | Scope ID (required for non-global scopes)          |
+| `entryTypes`   | string[]? | all types | Entry types to include                             |
+| `forceRebuild` | boolean?  | false     | Force rebuild even if summaries exist              |
+| `maxLevels`    | number?   | undefined | Override config.maxLevels                          |
+| `minGroupSize` | number?   | undefined | Override config.minGroupSize                       |
 
 ## Implementation Status
 
 ### ✅ Completed
+
 - Core types and interfaces
 - Service skeleton with proper DI
 - Integration with service factory
@@ -205,6 +206,7 @@ See `community-detection/types.ts` for full type definitions.
 ## Error Handling
 
 The service validates:
+
 - Provider is configured (not 'disabled')
 - Scope parameters are valid
 - Embeddings are available

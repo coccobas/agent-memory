@@ -36,9 +36,7 @@ describe('Consolidation Handler', () => {
           primaryName: 'Guideline 1',
           entryType: 'guideline',
           averageSimilarity: 0.9,
-          members: [
-            { id: 'g-2', name: 'Similar Guideline', similarity: 0.9 },
-          ],
+          members: [{ id: 'g-2', name: 'Similar Guideline', similarity: 0.9 }],
         },
       ]);
 

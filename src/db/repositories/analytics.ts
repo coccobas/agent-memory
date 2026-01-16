@@ -132,7 +132,9 @@ export function createAnalyticsRepository(db: DrizzleDb): IAnalyticsRepository {
           queryParams: auditLog.queryParams,
         })
         .from(auditLog)
-        .where(and(eq(auditLog.action, 'query'), sql`${auditLog.queryParams} IS NOT NULL`, whereClause))
+        .where(
+          and(eq(auditLog.action, 'query'), sql`${auditLog.queryParams} IS NOT NULL`, whereClause)
+        )
         .limit(1000)
         .all();
 
@@ -294,7 +296,10 @@ export function createAnalyticsRepository(db: DrizzleDb): IAnalyticsRepository {
 
       if (params.projectId) {
         conditions.push(
-          and(eq(auditLog.scopeType, 'project'), eq(auditLog.scopeId, params.projectId)) as SQL<unknown>
+          and(
+            eq(auditLog.scopeType, 'project'),
+            eq(auditLog.scopeId, params.projectId)
+          ) as SQL<unknown>
         );
       }
 
@@ -318,7 +323,10 @@ export function createAnalyticsRepository(db: DrizzleDb): IAnalyticsRepository {
         .all();
 
       // Group by subtaskType
-      const subtaskTypeMap = new Map<string, { total: number; completed: number; failed: number }>();
+      const subtaskTypeMap = new Map<
+        string,
+        { total: number; completed: number; failed: number }
+      >();
       for (const task of subtasks) {
         if (!task.subtaskType) continue;
         const stats = subtaskTypeMap.get(task.subtaskType) || { total: 0, completed: 0, failed: 0 };

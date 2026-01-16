@@ -5,11 +5,11 @@
 import 'dotenv/config';
 process.env.AGENT_MEMORY_PERMISSIONS_MODE = 'permissive';
 
-const { setupTestDb, registerTestContext, cleanupTestDb } = await import(
-  '../fixtures/test-helpers.js'
-);
+const { setupTestDb, registerTestContext, cleanupTestDb } =
+  await import('../fixtures/test-helpers.js');
 const { knowledgeHandlers } = await import('../../src/mcp/handlers/knowledge.handler.js');
-const { executeQueryPipelineAsync, executeQueryPipelineSync } = await import('../../src/services/query/index.js');
+const { executeQueryPipelineAsync, executeQueryPipelineSync } =
+  await import('../../src/services/query/index.js');
 
 const DB_PATH = './data/benchmark/debug-test.db';
 
@@ -20,11 +20,18 @@ async function main() {
 
   // Check FTS tables
   console.log('\nChecking FTS tables...');
-  const tables = testDb.sqlite.prepare(`
+  const tables = testDb.sqlite
+    .prepare(
+      `
     SELECT name FROM sqlite_master
     WHERE type='table' AND name LIKE '%fts%'
-  `).all();
-  console.log('FTS tables:', tables.map((t: { name: string }) => t.name));
+  `
+    )
+    .all();
+  console.log(
+    'FTS tables:',
+    tables.map((t: { name: string }) => t.name)
+  );
 
   console.log('Creating project...');
   const project = await context.repos.projects.create({
@@ -48,9 +55,13 @@ async function main() {
   // Check FTS content
   console.log('\nChecking knowledge_fts content...');
   try {
-    const ftsContent = testDb.sqlite.prepare(`
+    const ftsContent = testDb.sqlite
+      .prepare(
+        `
       SELECT * FROM knowledge_fts LIMIT 5
-    `).all();
+    `
+      )
+      .all();
     console.log('FTS entries:', ftsContent.length);
     if (ftsContent.length > 0) {
       console.log('First FTS entry:', JSON.stringify(ftsContent[0]));
@@ -61,9 +72,13 @@ async function main() {
 
   // Check knowledge versions table (snake_case in DB)
   console.log('\nChecking knowledge versions...');
-  const versions = testDb.sqlite.prepare(`
+  const versions = testDb.sqlite
+    .prepare(
+      `
     SELECT id, knowledge_id, content FROM knowledge_versions LIMIT 5
-  `).all();
+  `
+    )
+    .all();
   console.log('Knowledge versions:', versions.length);
   if (versions.length > 0) {
     console.log('First version:', JSON.stringify(versions[0]));
@@ -71,16 +86,27 @@ async function main() {
 
   // Check triggers
   console.log('\nChecking triggers...');
-  const triggers = testDb.sqlite.prepare(`
+  const triggers = testDb.sqlite
+    .prepare(
+      `
     SELECT name FROM sqlite_master WHERE type='trigger' AND name LIKE 'knowledge%'
-  `).all();
-  console.log('Knowledge triggers:', triggers.map((t: {name: string}) => t.name));
+  `
+    )
+    .all();
+  console.log(
+    'Knowledge triggers:',
+    triggers.map((t: { name: string }) => t.name)
+  );
 
   // Check knowledge table state
   console.log('\nChecking knowledge table...');
-  const knowledge = testDb.sqlite.prepare(`
+  const knowledge = testDb.sqlite
+    .prepare(
+      `
     SELECT id, title, current_version_id FROM knowledge LIMIT 5
-  `).all() as Array<{id: string, title: string, current_version_id: string}>;
+  `
+    )
+    .all() as Array<{ id: string; title: string; current_version_id: string }>;
   console.log('Knowledge entries:', knowledge.length);
   if (knowledge.length > 0) {
     console.log('First knowledge:', JSON.stringify(knowledge[0]));
@@ -90,22 +116,34 @@ async function main() {
   console.log('\nManually rebuilding FTS for first entry...');
   const entry = knowledge[0];
   if (entry) {
-    testDb.sqlite.prepare(`
+    testDb.sqlite
+      .prepare(
+        `
       DELETE FROM knowledge_fts WHERE knowledge_id = ?
-    `).run(entry.id);
+    `
+      )
+      .run(entry.id);
 
-    testDb.sqlite.prepare(`
+    testDb.sqlite
+      .prepare(
+        `
       INSERT INTO knowledge_fts(knowledge_id, title, content, source)
       SELECT k.id, k.title, COALESCE(kv.content, ''), COALESCE(kv.source, '')
       FROM knowledge k
       LEFT JOIN knowledge_versions kv ON k.current_version_id = kv.id
       WHERE k.id = ?
-    `).run(entry.id);
+    `
+      )
+      .run(entry.id);
 
     // Check FTS again
-    const ftsAfterRebuild = testDb.sqlite.prepare(`
+    const ftsAfterRebuild = testDb.sqlite
+      .prepare(
+        `
       SELECT * FROM knowledge_fts WHERE knowledge_id = ?
-    `).get(entry.id);
+    `
+      )
+      .get(entry.id);
     console.log('FTS after rebuild:', JSON.stringify(ftsAfterRebuild));
   }
 
@@ -133,9 +171,13 @@ async function main() {
 
   // Check if entry matches scope
   console.log('\nChecking entry scope...');
-  const entryScope = testDb.sqlite.prepare(`
+  const entryScope = testDb.sqlite
+    .prepare(
+      `
     SELECT id, scope_type, scope_id FROM knowledge WHERE id = ?
-  `).get(entry?.id);
+  `
+    )
+    .get(entry?.id);
   console.log('Entry scope:', JSON.stringify(entryScope));
 
   // Try listing all knowledge with project scope (no search term)
@@ -184,7 +226,7 @@ async function main() {
   console.log('\nQuerying via ASYNC pipeline...');
   const queryResult = await executeQueryPipelineAsync(
     {
-      search: 'Caroline',  // Use simple query
+      search: 'Caroline', // Use simple query
       scope: { type: 'project', id: project.id, inherit: true },
       types: ['knowledge'],
       limit: 10,
@@ -210,9 +252,13 @@ async function main() {
   // Test FTS5 directly
   console.log('\nTesting FTS5 directly...');
   try {
-    const ftsQuery = testDb.sqlite.prepare(`
+    const ftsQuery = testDb.sqlite
+      .prepare(
+        `
       SELECT rowid, * FROM knowledge_fts WHERE knowledge_fts MATCH 'Caroline'
-    `).all();
+    `
+      )
+      .all();
     console.log('Direct FTS5 results:', ftsQuery.length);
   } catch (e) {
     console.log('Direct FTS5 error:', (e as Error).message);
@@ -223,7 +269,7 @@ async function main() {
   console.log('Done!');
 }
 
-main().catch(err => {
+main().catch((err) => {
   console.error('Error:', err);
   cleanupTestDb(DB_PATH);
   process.exit(1);

@@ -10,17 +10,17 @@ Scale Agent Memory from single-developer setups to enterprise deployments.
 
 Choose your deployment tier based on these metrics:
 
-| Metric | SQLite | PostgreSQL | PostgreSQL + Redis |
-|--------|--------|------------|-------------------|
-| **Writes/second** | < 50 | < 500/instance | < 5000+ cluster |
-| **Instances** | 1 | Many | Many |
-| **Concurrent connections** | 1 writer | Pool (2-20) | Pool + distributed |
-| **Cache scope** | Instance-local | Instance-local | Distributed |
-| **File locks** | Instance-local | Instance-local | Cross-instance |
-| **Event propagation** | N/A | N/A | Pub/sub |
-| **Database size** | < 10 GB | TB+ | TB+ |
-| **Setup complexity** | None | Moderate | Higher |
-| **Best for** | Dev, single-user | Production, teams | Enterprise, HA |
+| Metric                     | SQLite           | PostgreSQL        | PostgreSQL + Redis |
+| -------------------------- | ---------------- | ----------------- | ------------------ |
+| **Writes/second**          | < 50             | < 500/instance    | < 5000+ cluster    |
+| **Instances**              | 1                | Many              | Many               |
+| **Concurrent connections** | 1 writer         | Pool (2-20)       | Pool + distributed |
+| **Cache scope**            | Instance-local   | Instance-local    | Distributed        |
+| **File locks**             | Instance-local   | Instance-local    | Cross-instance     |
+| **Event propagation**      | N/A              | N/A               | Pub/sub            |
+| **Database size**          | < 10 GB          | TB+               | TB+                |
+| **Setup complexity**       | None             | Moderate          | Higher             |
+| **Best for**               | Dev, single-user | Production, teams | Enterprise, HA     |
 
 **Start simple.** Begin with SQLite and migrate when you hit limitations.
 
@@ -33,6 +33,7 @@ Choose your deployment tier based on these metrics:
 SQLite is excellent for getting started but has inherent constraints:
 
 **Single Writer:**
+
 ```
 Process A: WRITE (holds lock)
 Process B: WRITE (blocked) --> SQLITE_BUSY error after timeout
@@ -41,12 +42,14 @@ Process B: WRITE (blocked) --> SQLITE_BUSY error after timeout
 SQLite uses file-level locking. WAL mode improves concurrency (readers don't block writers) but only one writer can operate at a time.
 
 **Configuration:**
+
 ```bash
 # Busy timeout - how long to wait for locks (default: 5000ms)
 AGENT_MEMORY_DB_BUSY_TIMEOUT_MS=5000
 ```
 
 **Warning Signs:**
+
 - `SQLITE_BUSY` errors in logs
 - `SQLITE_LOCKED` errors during concurrent access
 - Increasing write latency under load
@@ -57,6 +60,7 @@ AGENT_MEMORY_DB_BUSY_TIMEOUT_MS=5000
 PostgreSQL handles most production workloads efficiently:
 
 **Connection Pooling:**
+
 ```
 Instance A --> Pool (5 connections) --> PostgreSQL
 Instance B --> Pool (5 connections) --> PostgreSQL
@@ -66,6 +70,7 @@ Instance C --> Pool (5 connections) --> PostgreSQL
 Each instance maintains its own connection pool, enabling true concurrent writes.
 
 **Configuration:**
+
 ```bash
 AGENT_MEMORY_DB_TYPE=postgresql
 AGENT_MEMORY_PG_POOL_MIN=2
@@ -80,6 +85,7 @@ AGENT_MEMORY_PG_POOL_MAX=10
 | High traffic | 5 | 20 | Increase for concurrent load |
 
 **Warning Signs:**
+
 - Connection pool exhaustion (all connections busy)
 - Cache inconsistency between instances
 - File lock conflicts across instances
@@ -90,18 +96,21 @@ AGENT_MEMORY_PG_POOL_MAX=10
 Redis adds distributed coordination capabilities:
 
 **Without Redis:**
+
 ```
 Instance A: Updates entry --> Local cache invalidated
 Instance B: Cache still holds stale data --> Serves stale response
 ```
 
 **With Redis:**
+
 ```
 Instance A: Updates entry --> Publishes event to Redis
 Instance B: Receives event --> Invalidates local cache --> Fresh data
 ```
 
 **Redis Provides:**
+
 - **Distributed Cache:** Shared query results across instances
 - **Cross-Instance Locks:** File locks work across all instances
 - **Event Broadcasting:** Cache invalidation propagates everywhere
@@ -128,6 +137,7 @@ Save the exported JSON file.
 **Step 2: Configure PostgreSQL**
 
 Create the database:
+
 ```sql
 CREATE DATABASE agent_memory;
 CREATE USER agent_memory_user WITH PASSWORD 'secure-password';
@@ -228,6 +238,7 @@ AGENT_MEMORY_CB_SUCCESS_THRESHOLD=2
 ```
 
 **States:**
+
 - **Closed:** Normal operation, requests pass through
 - **Open:** Requests fail fast, no external calls
 - **Half-Open:** Limited requests to test recovery
@@ -273,6 +284,7 @@ AGENT_MEMORY_RATE_LIMIT=0
 Balance freshness vs. performance:
 
 **Query Cache:**
+
 ```bash
 # How long to cache query results (default: 5 minutes)
 AGENT_MEMORY_QUERY_CACHE_TTL_MS=300000
@@ -285,12 +297,14 @@ AGENT_MEMORY_QUERY_CACHE_MEMORY_MB=200
 ```
 
 **Scope Cache:**
+
 ```bash
 # How long to cache scope chains (default: 10 minutes)
 AGENT_MEMORY_SCOPE_CACHE_TTL_MS=600000
 ```
 
 **Redis Cache (when enabled):**
+
 ```bash
 # Distributed cache TTL (default: 1 hour)
 AGENT_MEMORY_REDIS_CACHE_TTL_MS=3600000
@@ -306,6 +320,7 @@ AGENT_MEMORY_REDIS_CACHE_TTL_MS=3600000
 ### Connection Pool Sizing
 
 **PostgreSQL:**
+
 ```bash
 # Minimum connections (kept open)
 AGENT_MEMORY_PG_POOL_MIN=2
@@ -324,6 +339,7 @@ AGENT_MEMORY_PG_STATEMENT_TIMEOUT_MS=30000
 ```
 
 **Sizing Formula:**
+
 ```
 max_pool_per_instance = (target_concurrent_queries * 1.5)
 total_pg_connections = instances * max_pool_per_instance
@@ -377,6 +393,7 @@ Use the built-in health check:
 ```
 
 **Response Fields:**
+
 ```json
 {
   "status": "healthy",
@@ -405,6 +422,7 @@ Use the built-in health check:
 ### Recommended Alert Rules
 
 **High Priority:**
+
 ```yaml
 # Database connection failure
 - alert: DatabaseConnectionFailed
@@ -424,6 +442,7 @@ Use the built-in health check:
 ```
 
 **Medium Priority:**
+
 ```yaml
 # Low cache hit rate
 - alert: LowCacheHitRate
@@ -456,6 +475,7 @@ AGENT_MEMORY_LOG_LEVEL=debug
 ```
 
 Logs include:
+
 - Query execution time
 - Cache hit/miss events
 - Connection pool status
@@ -495,6 +515,7 @@ Logs include:
 ### Running Your Own Benchmarks
 
 **Built-in Benchmark:**
+
 ```bash
 # Run query quality benchmark
 npm run benchmark:query
@@ -506,18 +527,21 @@ npm run benchmark:extraction
 **Custom Load Testing:**
 
 1. **Baseline your current setup:**
+
 ```bash
 AGENT_MEMORY_PERF=1 agent-memory mcp
 # Monitor logs for operation timing
 ```
 
 2. **Identify bottlenecks:**
+
 - High query latency: Increase cache size/TTL
 - Pool exhaustion: Increase pool size
 - Write contention: Consider PostgreSQL
 - Cross-instance issues: Add Redis
 
 3. **Test at scale:**
+
 ```bash
 # Simulate multiple agents
 for i in {1..10}; do

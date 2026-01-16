@@ -131,11 +131,7 @@ export async function cleanupIsolatedDb(paths: {
 }): Promise<void> {
   try {
     // Remove SQLite files
-    const dbFiles = [
-      paths.dbPath,
-      `${paths.dbPath}-shm`,
-      `${paths.dbPath}-wal`,
-    ];
+    const dbFiles = [paths.dbPath, `${paths.dbPath}-shm`, `${paths.dbPath}-wal`];
     for (const file of dbFiles) {
       if (existsSync(file)) {
         await rm(file, { force: true });
@@ -168,10 +164,7 @@ export function setEnvForConfig(config: AblationConfig): () => void {
   };
 
   // Toggle instruction prefixes
-  setEnv(
-    'AGENT_MEMORY_EMBEDDING_DISABLE_INSTRUCTIONS',
-    config.prefixes ? 'false' : 'true'
-  );
+  setEnv('AGENT_MEMORY_EMBEDDING_DISABLE_INSTRUCTIONS', config.prefixes ? 'false' : 'true');
 
   // Set rerank alpha if specified
   if (config.rerankAlpha !== undefined) {
@@ -272,10 +265,7 @@ export function calculateMetrics(results: {
 /**
  * Format results as an ASCII comparison table
  */
-export function formatResultsTable(
-  results: AblationResult[],
-  baselineIndex = 0
-): string {
+export function formatResultsTable(results: AblationResult[], baselineIndex = 0): string {
   if (results.length === 0) return 'No results to display';
 
   const baseline = results[baselineIndex];
@@ -290,19 +280,13 @@ export function formatResultsTable(
   lines.push('');
 
   // Main metrics table
-  lines.push(
-    '| Configuration          | MRR    | Δ Baseline | R@1   | R@5   | R@10  | Hit@10 |'
-  );
-  lines.push(
-    '|------------------------|--------|------------|-------|-------|-------|--------|'
-  );
+  lines.push('| Configuration          | MRR    | Δ Baseline | R@1   | R@5   | R@10  | Hit@10 |');
+  lines.push('|------------------------|--------|------------|-------|-------|-------|--------|');
 
   for (const result of results) {
     const delta = result.mrr - baseline.mrr;
     const deltaStr =
-      result === baseline
-        ? '-'
-        : `${delta >= 0 ? '+' : ''}${(delta * 100).toFixed(1)}%`;
+      result === baseline ? '-' : `${delta >= 0 ? '+' : ''}${(delta * 100).toFixed(1)}%`;
 
     lines.push(
       `| ${result.config.name.padEnd(22)} | ` +
@@ -318,12 +302,8 @@ export function formatResultsTable(
   // Per-category breakdown
   lines.push('');
   lines.push('PER-CATEGORY BREAKDOWN (MRR)');
-  lines.push(
-    '| Configuration          | Single-Hop | Multi-Hop | Commonsense |'
-  );
-  lines.push(
-    '|------------------------|------------|-----------|-------------|'
-  );
+  lines.push('| Configuration          | Single-Hop | Multi-Hop | Commonsense |');
+  lines.push('|------------------------|------------|-----------|-------------|');
 
   for (const result of results) {
     lines.push(
@@ -348,18 +328,14 @@ export function generateDiagnosis(results: AblationResult[]): string[] {
   lines.push('DIAGNOSIS:');
 
   // Find baseline (raw, no prefixes)
-  const baseline = results.find(
-    (r) => r.config.storage === 'raw' && !r.config.prefixes
-  );
+  const baseline = results.find((r) => r.config.storage === 'raw' && !r.config.prefixes);
   if (!baseline) {
     lines.push('⚠️  No baseline (raw, no prefixes) found');
     return lines;
   }
 
   // Find raw+prefixes
-  const rawPrefixes = results.find(
-    (r) => r.config.storage === 'raw' && r.config.prefixes
-  );
+  const rawPrefixes = results.find((r) => r.config.storage === 'raw' && r.config.prefixes);
   if (rawPrefixes) {
     const delta = rawPrefixes.mrr - baseline.mrr;
     const pct = (delta * 100).toFixed(1);
@@ -469,9 +445,7 @@ export const PRIMARY_TESTS: AblationConfig[] = [
  * Secondary parameter sweep tests
  * Run these on the best primary configuration
  */
-export function getSecondaryTests(
-  baseConfig: AblationConfig
-): AblationConfig[] {
+export function getSecondaryTests(baseConfig: AblationConfig): AblationConfig[] {
   return [
     { ...baseConfig, name: 'rerank-0.7', rerankAlpha: 0.7 },
     { ...baseConfig, name: 'rerank-0.8', rerankAlpha: 0.8 },

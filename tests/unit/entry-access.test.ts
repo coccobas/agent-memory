@@ -30,7 +30,20 @@ let context: AppContext;
 let permissionService: PermissionService;
 
 describe('entry-access utility', () => {
+  // Store original auth-related env vars
+  const originalEnv: Record<string, string | undefined> = {};
+
   beforeAll(() => {
+    // Save and clear all auth-related env vars for clean test state
+    originalEnv.AGENT_MEMORY_PERMISSIONS_MODE = process.env.AGENT_MEMORY_PERMISSIONS_MODE;
+    originalEnv.AGENT_MEMORY_DEV_MODE = process.env.AGENT_MEMORY_DEV_MODE;
+    originalEnv.AGENT_MEMORY_ALLOW_PERMISSIVE = process.env.AGENT_MEMORY_ALLOW_PERMISSIVE;
+
+    // Disable permissive/dev mode for permission tests
+    delete process.env.AGENT_MEMORY_PERMISSIONS_MODE;
+    delete process.env.AGENT_MEMORY_DEV_MODE;
+    delete process.env.AGENT_MEMORY_ALLOW_PERMISSIVE;
+
     testDb = setupTestDb(TEST_DB_PATH);
     repos = createTestRepositories(testDb);
     context = registerTestContext(testDb);
@@ -38,6 +51,14 @@ describe('entry-access utility', () => {
   });
 
   afterAll(() => {
+    // Restore all original env vars
+    for (const [key, value] of Object.entries(originalEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
     testDb.sqlite.close();
     cleanupTestDb(TEST_DB_PATH);
     resetContainer();

@@ -14,7 +14,8 @@
  */
 
 import { BoundedQueue } from '../../utils/backpressure.js';
-import { DeadLetterQueue, getGeneralDLQ } from '../../utils/dead-letter-queue.js';
+import type { DeadLetterQueue } from '../../utils/dead-letter-queue.js';
+import { getGeneralDLQ } from '../../utils/dead-letter-queue.js';
 import { createComponentLogger } from '../../utils/logger.js';
 import type { FeedbackService } from './index.js';
 import type { RecordRetrievalParams } from './types.js';
@@ -108,10 +109,7 @@ export class FeedbackQueueProcessor {
   private pendingBatch: RecordRetrievalParams[] = [];
   private batchTimeoutHandle: NodeJS.Timeout | null = null;
 
-  constructor(
-    feedbackService: FeedbackService,
-    config: Partial<FeedbackQueueConfig> = {}
-  ) {
+  constructor(feedbackService: FeedbackService, config: Partial<FeedbackQueueConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
     this.feedbackService = feedbackService;
     this.queue = new BoundedQueue<QueuedBatch>({
@@ -153,10 +151,7 @@ export class FeedbackQueueProcessor {
       this.workers.push(worker);
     }
 
-    logger.info(
-      { workerCount: this.config.workerConcurrency },
-      'FeedbackQueueProcessor started'
-    );
+    logger.info({ workerCount: this.config.workerConcurrency }, 'FeedbackQueueProcessor started');
   }
 
   /**
@@ -207,10 +202,7 @@ export class FeedbackQueueProcessor {
       return;
     }
 
-    logger.info(
-      { queueDepth: this.queue.size() },
-      'Draining FeedbackQueueProcessor'
-    );
+    logger.info({ queueDepth: this.queue.size() }, 'Draining FeedbackQueueProcessor');
 
     // Flush any pending batch first
     this.flushPendingBatch();
@@ -321,10 +313,7 @@ export class FeedbackQueueProcessor {
     const success = this.queue.offer(queuedBatch);
     if (!success) {
       // Queue is full - add to DLQ
-      logger.warn(
-        { batchSize: batch.length },
-        'Feedback queue full, sending batch to DLQ'
-      );
+      logger.warn({ batchSize: batch.length }, 'Feedback queue full, sending batch to DLQ');
       this.addToDLQ(batch, new Error('Queue full - backpressure'));
       this.failures++;
     }
@@ -385,23 +374,18 @@ export class FeedbackQueueProcessor {
     const startTime = Date.now();
     const queueLatency = startTime - batch.queuedAt;
 
-    try {
-      await this.feedbackService.recordRetrievalBatch(batch.items);
+    await this.feedbackService.recordRetrievalBatch(batch.items);
 
-      const processingTime = Date.now() - startTime;
-      logger.debug(
-        {
-          workerId,
-          batchSize: batch.items.length,
-          queueLatencyMs: queueLatency,
-          processingTimeMs: processingTime,
-        },
-        'Batch processed successfully'
-      );
-    } catch (error) {
-      // Re-throw to be handled by the worker loop
-      throw error;
-    }
+    const processingTime = Date.now() - startTime;
+    logger.debug(
+      {
+        workerId,
+        batchSize: batch.items.length,
+        queueLatencyMs: queueLatency,
+        processingTimeMs: processingTime,
+      },
+      'Batch processed successfully'
+    );
   }
 
   /**
@@ -422,10 +406,7 @@ export class FeedbackQueueProcessor {
       },
     });
 
-    logger.debug(
-      { itemCount: items.length, error: errorMessage },
-      'Added failed batch to DLQ'
-    );
+    logger.debug({ itemCount: items.length, error: errorMessage }, 'Added failed batch to DLQ');
   }
 }
 

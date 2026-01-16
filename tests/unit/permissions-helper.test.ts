@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { requirePermission, requireAgentId, checkPermissionForFilter } from '../../src/mcp/helpers/permissions.js';
+import {
+  requirePermission,
+  requireAgentId,
+  checkPermissionForFilter,
+} from '../../src/mcp/helpers/permissions.js';
 import type { PermissionService } from '../../src/services/permission.service.js';
 
 describe('Permissions Helper', () => {
@@ -152,7 +156,9 @@ describe('Permissions Helper', () => {
     });
 
     it('should throw when agentId is undefined in strict mode', () => {
-      expect(() => requireAgentId(undefined)).toThrow(/agentId.*must be provided|Authentication required/i);
+      expect(() => requireAgentId(undefined)).toThrow(
+        /agentId.*must be provided|Authentication required/i
+      );
     });
 
     it('should pass when agentId is undefined in permissive mode', () => {

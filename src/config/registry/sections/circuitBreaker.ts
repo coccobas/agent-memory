@@ -44,7 +44,8 @@ export const circuitBreakerSection: ConfigSectionMeta = {
     failMode: {
       envKey: 'AGENT_MEMORY_CB_FAIL_MODE',
       defaultValue: 'local-fallback',
-      description: 'Behavior when Redis is unavailable: local-fallback (use local state), closed (treat as closed), open (treat as open).',
+      description:
+        'Behavior when Redis is unavailable: local-fallback (use local state), closed (treat as closed), open (treat as open).',
       schema: z.enum(['local-fallback', 'closed', 'open']),
       allowedValues: ['local-fallback', 'closed', 'open'] as const,
     },

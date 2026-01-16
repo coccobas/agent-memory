@@ -7,12 +7,18 @@
  * For enterprise deployments with horizontal scaling.
  */
 
+/* eslint-disable @typescript-eslint/no-redundant-type-constituents -- ioredis types contain any */
+
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
+
 import type { ICacheAdapter } from './interfaces.js';
 import { createComponentLogger } from '../../utils/logger.js';
 import { ConnectionGuard } from '../../utils/connection-guard.js';
 
 // Type imports for ioredis (actual import is dynamic to avoid loading when not used)
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports -- inline import() needed for dynamic type
 type Redis = import('ioredis').default;
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports -- inline import() needed for dynamic type
 type RedisOptions = import('ioredis').RedisOptions;
 
 const logger = createComponentLogger('redis-cache');
@@ -106,7 +112,7 @@ export class RedisCacheAdapter<T = unknown> implements ICacheAdapter<T> {
         this.client = new IORedis(options);
       }
 
-      const client = this.client!;
+      const client = this.client;
 
       // Handle connection events
       client.on('connect', () => {
@@ -134,6 +140,7 @@ export class RedisCacheAdapter<T = unknown> implements ICacheAdapter<T> {
    * Set up pub/sub subscriber for cross-instance cache invalidation.
    */
   private async setupInvalidationSubscriber(
+    // eslint-disable-next-line @typescript-eslint/consistent-type-imports -- inline import() needed for constructor type
     IORedis: typeof import('ioredis').default,
     options: RedisOptions
   ): Promise<void> {
@@ -237,7 +244,7 @@ export class RedisCacheAdapter<T = unknown> implements ICacheAdapter<T> {
         { key },
         'Sync get() L1 miss - queuing async L2 fetch. Use getAsync() for guaranteed retrieval.'
       );
-      this.fetchAsync(fullKey).catch((error) => {
+      this.fetchAsync(fullKey).catch((error: unknown) => {
         logger.debug({ error, key }, 'Async L2 fetch failed');
       });
     }
@@ -294,7 +301,7 @@ export class RedisCacheAdapter<T = unknown> implements ICacheAdapter<T> {
 
     // Queue async Redis set
     if (this.client && this.connectionGuard.connected) {
-      this.setAsync(key, value, ttlMs).catch((error) => {
+      this.setAsync(key, value, ttlMs).catch((error: unknown) => {
         logger.debug({ error, key }, 'Async set failed');
       });
     }
@@ -357,7 +364,7 @@ export class RedisCacheAdapter<T = unknown> implements ICacheAdapter<T> {
 
     // Queue async Redis delete
     if (this.client && this.connectionGuard.connected) {
-      this.deleteAsync(key).catch((error) => {
+      this.deleteAsync(key).catch((error: unknown) => {
         logger.debug({ error, key }, 'Async delete failed');
       });
     }
@@ -390,20 +397,17 @@ export class RedisCacheAdapter<T = unknown> implements ICacheAdapter<T> {
   /**
    * Publish cache invalidation message to other instances.
    */
-  private async publishInvalidation(
-    key: string,
-    type: 'delete' | 'clear'
-  ): Promise<void> {
+  private async publishInvalidation(key: string, type: 'delete' | 'clear'): Promise<void> {
     if (!this.client || !this.connectionGuard.connected) return;
 
     try {
-      await this.client.publish(
-        this.invalidationChannel,
-        JSON.stringify({ key, type })
-      );
+      await this.client.publish(this.invalidationChannel, JSON.stringify({ key, type }));
     } catch (error) {
       // Ignore publish errors - best effort invalidation
-      logger.debug({ error, key, type }, 'Failed to publish invalidation message, best effort attempt');
+      logger.debug(
+        { error, key, type },
+        'Failed to publish invalidation message, best effort attempt'
+      );
     }
   }
 
@@ -415,7 +419,7 @@ export class RedisCacheAdapter<T = unknown> implements ICacheAdapter<T> {
 
     // Queue async Redis clear
     if (this.client && this.connectionGuard.connected) {
-      this.clearAsync().catch((error) => {
+      this.clearAsync().catch((error: unknown) => {
         logger.warn({ error }, 'Async clear failed');
       });
     }
@@ -478,7 +482,7 @@ export class RedisCacheAdapter<T = unknown> implements ICacheAdapter<T> {
 
     // Queue async Redis invalidation
     if (this.client && this.connectionGuard.connected) {
-      this.invalidateByPrefixAsync(prefix).catch((error) => {
+      this.invalidateByPrefixAsync(prefix).catch((error: unknown) => {
         logger.debug({ error, prefix }, 'Async invalidate by prefix failed');
       });
     }

@@ -89,11 +89,7 @@ const INTENT_PATTERNS: Record<Intent, RegExp[]> = {
   ],
 
   // Update operations
-  update: [
-    /^update\s+(the\s+)?/i,
-    /^(change|modify|edit)\s+(the\s+)?/i,
-    /^(revise|correct)\s+/i,
-  ],
+  update: [/^update\s+(the\s+)?/i, /^(change|modify|edit)\s+(the\s+)?/i, /^(revise|correct)\s+/i],
 
   // Unknown - no patterns, fallback
   unknown: [],
@@ -239,7 +235,7 @@ function extractParams(text: string, intent: Intent): Record<string, string> {
     }
     case 'store': {
       // Extract content after trigger phrases
-      let content = text
+      const content = text
         .replace(/^remember\s+(that\s+)?/i, '')
         .replace(/^store\s+(this|the|a)?\s*/i, '')
         .replace(/^(guideline|rule|fact):\s*/i, '')
@@ -251,8 +247,11 @@ function extractParams(text: string, intent: Intent): Record<string, string> {
     }
     case 'retrieve': {
       // Extract search query - progressively strip common question patterns
-      let query = text
-        .replace(/^(what|how|where|when|why)\s+(do|does|did|is|are|was|were|should|can|could|would)\s+/i, '')
+      const query = text
+        .replace(
+          /^(what|how|where|when|why)\s+(do|does|did|is|are|was|were|should|can|could|would)\s+/i,
+          ''
+        )
         .replace(/^(what|anything)\s+about\s+/i, '')
         .replace(/^(find|search|look\s+up|get|show|tell\s+me\s+about)\s+/i, '')
         // Clean up "we/you/I know about", "we have about", etc.
@@ -267,9 +266,7 @@ function extractParams(text: string, intent: Intent): Record<string, string> {
     }
     case 'forget': {
       // Extract what to forget
-      let target = text
-        .replace(/^(forget|remove|delete)\s+(the\s+)?(old\s+)?/i, '')
-        .trim();
+      const target = text.replace(/^(forget|remove|delete)\s+(the\s+)?(old\s+)?/i, '').trim();
       params.target = target;
       break;
     }
@@ -283,9 +280,7 @@ function extractParams(text: string, intent: Intent): Record<string, string> {
     }
     case 'update': {
       // Extract target
-      let target = text
-        .replace(/^(update|change|modify|edit)\s+(the\s+)?/i, '')
-        .trim();
+      const target = text.replace(/^(update|change|modify|edit)\s+(the\s+)?/i, '').trim();
       params.target = target;
       break;
     }

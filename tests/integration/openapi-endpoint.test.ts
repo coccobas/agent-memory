@@ -5,7 +5,12 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { createServer } from '../../src/restapi/server.js';
-import { createTestContext, setupTestDb, cleanupTestDb, type TestDb } from '../fixtures/test-helpers.js';
+import {
+  createTestContext,
+  setupTestDb,
+  cleanupTestDb,
+  type TestDb,
+} from '../fixtures/test-helpers.js';
 import type { AppContext } from '../../src/core/context.js';
 
 const TEST_DB_PATH = 'data/test/openapi-endpoint-test.db';

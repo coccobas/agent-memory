@@ -14,10 +14,7 @@
 
 import type { PipelineContext, QueryEntryType } from '../pipeline.js';
 import { config } from '../../../config/index.js';
-import {
-  getFeedbackScoreCache,
-  type FeedbackScoreCache,
-} from '../feedback-cache.js';
+import { getFeedbackScoreCache, type FeedbackScoreCache } from '../feedback-cache.js';
 import type { EntryFeedbackScore } from '../../feedback/repositories/retrieval.repository.js';
 
 /**

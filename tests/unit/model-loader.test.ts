@@ -98,13 +98,7 @@ describe('Model Loader', () => {
 
     it('should detect model format from file extension', async () => {
       createMockModel(testModelsDir, 'model.onnx', 'extraction', 'onnx', 'v1.0.0');
-      createMockModel(
-        testModelsDir,
-        'model.safetensors',
-        'retrieval',
-        'safetensors',
-        'v1.0.0'
-      );
+      createMockModel(testModelsDir, 'model.safetensors', 'retrieval', 'safetensors', 'v1.0.0');
       createMockModel(testModelsDir, 'model.json', 'consolidation', 'json', 'v1.0.0');
       createMockModel(testModelsDir, 'model.pt', 'extraction', 'checkpoint', 'v1.0.0');
 
@@ -185,9 +179,7 @@ describe('Model Loader', () => {
     });
 
     it('should throw error if no models found for policy type', async () => {
-      await expect(loader.loadModel('extraction')).rejects.toThrow(
-        'model not found: extraction'
-      );
+      await expect(loader.loadModel('extraction')).rejects.toThrow('model not found: extraction');
     });
 
     it('should throw error if specific version not found', async () => {
@@ -384,10 +376,7 @@ describe('Model Loader', () => {
         },
       };
 
-      vol.writeFileSync(
-        modelPath.replace('.onnx', '.metadata.json'),
-        JSON.stringify(metadata)
-      );
+      vol.writeFileSync(modelPath.replace('.onnx', '.metadata.json'), JSON.stringify(metadata));
 
       const result = await loader.validateModel(modelPath);
 

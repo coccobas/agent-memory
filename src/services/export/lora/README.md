@@ -17,6 +17,7 @@ The LoRA export feature converts Agent Memory guidelines into structured trainin
 ## Supported Formats
 
 ### 1. Alpaca Format
+
 ```json
 {
   "instruction": "Follow this code_style guideline: Use TypeScript strict mode",
@@ -26,28 +27,31 @@ The LoRA export feature converts Agent Memory guidelines into structured trainin
 ```
 
 ### 2. ShareGPT Format
+
 ```json
 {
   "conversations": [
-    {"from": "system", "value": "You are an AI assistant..."},
-    {"from": "human", "value": "How should you handle TypeScript configuration?"},
-    {"from": "gpt", "value": "Always enable strict mode..."}
+    { "from": "system", "value": "You are an AI assistant..." },
+    { "from": "human", "value": "How should you handle TypeScript configuration?" },
+    { "from": "gpt", "value": "Always enable strict mode..." }
   ]
 }
 ```
 
 ### 3. OpenAI Messages Format
+
 ```json
 {
   "messages": [
-    {"role": "system", "content": "You are an AI assistant..."},
-    {"role": "user", "content": "How should you handle TypeScript configuration?"},
-    {"role": "assistant", "content": "Always enable strict mode..."}
+    { "role": "system", "content": "You are an AI assistant..." },
+    { "role": "user", "content": "How should you handle TypeScript configuration?" },
+    { "role": "assistant", "content": "Always enable strict mode..." }
   ]
 }
 ```
 
 ### 4. Anthropic Prompts Format
+
 ```json
 {
   "prompt": "You are an AI assistant...\n\nHow should you handle TypeScript configuration?",
@@ -92,7 +96,7 @@ const result = await exportGuidelinesAsLoRA(db, {
   // Generation options
   examplesPerGuideline: 5,
   includeNegative: true,
-  splitRatio: 0.15,  // 85% train, 15% eval
+  splitRatio: 0.15, // 85% train, 15% eval
 
   // Model configuration
   targetModel: 'llama',
@@ -215,11 +219,11 @@ The export automatically configures adapter settings for popular architectures:
 
 Default configurations by model size:
 
-| Size   | Rank | Alpha | Dropout | Use Case                    |
-|--------|------|-------|---------|----------------------------|
+| Size   | Rank | Alpha | Dropout | Use Case                      |
+| ------ | ---- | ----- | ------- | ----------------------------- |
 | Small  | 8    | 16    | 0.05    | Quick experiments, <3B params |
-| Medium | 16   | 32    | 0.05    | General use, 3-13B params    |
-| Large  | 32   | 64    | 0.10    | Large models, 13B+ params    |
+| Medium | 16   | 32    | 0.05    | General use, 3-13B params     |
+| Large  | 32   | 64    | 0.10    | Large models, 13B+ params     |
 
 ### Target Modules
 
@@ -227,13 +231,13 @@ Different architectures require different target modules:
 
 ```typescript
 // LLaMA/Mistral
-target_modules: ['q_proj', 'k_proj', 'v_proj', 'o_proj', 'gate_proj', 'up_proj', 'down_proj']
+target_modules: ['q_proj', 'k_proj', 'v_proj', 'o_proj', 'gate_proj', 'up_proj', 'down_proj'];
 
 // GPT-2
-target_modules: ['c_attn', 'c_proj', 'c_fc']
+target_modules: ['c_attn', 'c_proj', 'c_fc'];
 
 // T5
-target_modules: ['q', 'v', 'k', 'o', 'wi', 'wo']
+target_modules: ['q', 'v', 'k', 'o', 'wi', 'wo'];
 ```
 
 ## Advanced Features
@@ -266,7 +270,9 @@ Focus on high-priority guidelines:
 
 ```typescript
 filter: {
-  priority: { min: 90 }  // Only critical guidelines
+  priority: {
+    min: 90;
+  } // Only critical guidelines
 }
 ```
 
@@ -313,7 +319,7 @@ The fine-tuned model can be used with Agent Memory's RL system:
 
 ```typescript
 // Use custom model for extraction
-config.rl.extractionModelPath = './lora-output'
+config.rl.extractionModelPath = './lora-output';
 ```
 
 ## Troubleshooting
@@ -321,21 +327,25 @@ config.rl.extractionModelPath = './lora-output'
 ### Common Issues
 
 **No guidelines found**
+
 - Check filter criteria
 - Verify scope and tags
 - Ensure guidelines are active
 
 **Low-quality examples**
+
 - Increase `examplesPerGuideline`
 - Add more detailed guideline content
 - Include rationale in guidelines
 
 **Training fails**
+
 - Reduce batch size
 - Lower learning rate
 - Check GPU memory
 
 **Model doesn't follow guidelines**
+
 - Include contrastive examples
 - Increase training epochs
 - Use higher priority guidelines
@@ -348,6 +358,7 @@ config.rl.extractionModelPath = './lora-output'
 Main export function.
 
 **Parameters:**
+
 - `db: DbClient` - Database client
 - `config: GuidelineExportConfig` - Export configuration
 
@@ -394,16 +405,19 @@ interface LoRAExportResult {
 ## Resources
 
 ### Documentation
+
 - [PEFT Library](https://github.com/huggingface/peft)
 - [LoRA Paper](https://arxiv.org/abs/2106.09685)
 - [Hugging Face Datasets](https://huggingface.co/docs/datasets/)
 
 ### Model Hubs
+
 - [Hugging Face Models](https://huggingface.co/models)
 - [Meta LLaMA](https://ai.meta.com/llama/)
 - [Mistral AI](https://mistral.ai/)
 
 ### Training Guides
+
 - [Fine-tuning LLMs with LoRA](https://huggingface.co/docs/peft/task_guides/lora)
 - [Efficient Fine-tuning](https://github.com/huggingface/peft#-usage)
 

@@ -20,7 +20,8 @@ async function main() {
       process.env.AGENT_MEMORY_LM_STUDIO_EMBEDDING_MODEL ?? 'text-embedding-qwen3-embedding-8b',
     // Qwen3 Embedding uses instruction-based format for best results
     lmStudioInstruction:
-      process.env.AGENT_MEMORY_LM_STUDIO_EMBEDDING_INSTRUCTION ?? 'Retrieve semantically similar text.',
+      process.env.AGENT_MEMORY_LM_STUDIO_EMBEDDING_INSTRUCTION ??
+      'Retrieve semantically similar text.',
   });
 
   // Check if service is available
@@ -95,7 +96,9 @@ async function main() {
   for (let i = 0; i < batchResult.embeddings.length; i++) {
     for (let j = i + 1; j < batchResult.embeddings.length; j++) {
       const sim = cosine(batchResult.embeddings[i]!, batchResult.embeddings[j]!);
-      console.log(`  "${batchTexts[i]?.slice(0, 30)}..." <-> "${batchTexts[j]?.slice(0, 30)}...": ${sim.toFixed(4)}`);
+      console.log(
+        `  "${batchTexts[i]?.slice(0, 30)}..." <-> "${batchTexts[j]?.slice(0, 30)}...": ${sim.toFixed(4)}`
+      );
     }
   }
 
@@ -123,7 +126,9 @@ async function main() {
   console.log(`  2 <-> 3 (SQL vs cooking): ${sim23.toFixed(4)}`);
 
   if (sim12 > sim13 && sim12 > sim23) {
-    console.log('\nModel correctly identifies that texts 1 and 2 are most similar (both database-related).');
+    console.log(
+      '\nModel correctly identifies that texts 1 and 2 are most similar (both database-related).'
+    );
   } else {
     console.log('\nWarning: Unexpected similarity ranking.');
   }

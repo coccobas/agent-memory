@@ -102,8 +102,7 @@ export function computeExtractionReward(
 
   // Weighted combination
   const reward =
-    config.retrievalFrequencyWeight * normalizedFrequency +
-    config.successRateWeight * successRate;
+    config.retrievalFrequencyWeight * normalizedFrequency + config.successRateWeight * successRate;
 
   // Scale to reward range
   return reward * config.retrievalSuccessReward;
@@ -196,9 +195,7 @@ export interface ExtractionRewardStats {
   };
 }
 
-export function computeExtractionRewardStats(
-  rewards: Map<string, number>
-): ExtractionRewardStats {
+export function computeExtractionRewardStats(rewards: Map<string, number>): ExtractionRewardStats {
   const rewardValues = Array.from(rewards.values());
 
   if (rewardValues.length === 0) {

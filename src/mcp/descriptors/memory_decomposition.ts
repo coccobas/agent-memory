@@ -35,7 +35,8 @@ Example (knowledge mode): {"action":"add","subtasks":["Research options","Docume
     entryType: {
       type: 'string',
       enum: ['task', 'knowledge'],
-      description: 'Target entry type: task (uses tasks table) or knowledge (uses knowledge entries with relations). Default: knowledge',
+      description:
+        'Target entry type: task (uses tasks table) or knowledge (uses knowledge entries with relations). Default: knowledge',
     },
 
     // Common parameters
@@ -68,7 +69,8 @@ Example (knowledge mode): {"action":"add","subtasks":["Research options","Docume
     taskDomain: {
       type: 'string',
       enum: ['agent', 'physical'],
-      description: 'Task domain: agent (auto-transitions) or physical (manual). Only for entryType=task',
+      description:
+        'Task domain: agent (auto-transitions) or physical (manual). Only for entryType=task',
     },
     severity: {
       type: 'string',

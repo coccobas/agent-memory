@@ -59,7 +59,12 @@ import { memoryExtractionApproveDescriptor } from './memory_extraction_approve.j
 import { memoryStatusDescriptor } from './memory_status.js';
 import { memoryDiscoverDescriptor } from './memory_discover.js';
 
-import { type AnyToolDescriptor, type VisibilityLevel, descriptorToTool, descriptorToHandler } from './types.js';
+import {
+  type AnyToolDescriptor,
+  type VisibilityLevel,
+  descriptorToTool,
+  descriptorToHandler,
+} from './types.js';
 
 /**
  * Valid visibility level configuration options

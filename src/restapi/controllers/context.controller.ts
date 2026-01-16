@@ -38,7 +38,7 @@ export class ContextController {
     if (!agentId) return reply.status(401).send({ error: 'Unauthorized' });
 
     const allowedTypes = (['tools', 'guidelines', 'knowledge'] as const).filter((type) =>
-      this.context.services!.permission.check(
+      this.context.services.permission.check(
         agentId,
         'read',
         queryTypeToEntryType[type],

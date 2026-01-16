@@ -182,7 +182,11 @@ export class QualityGate {
     for (const member of pattern.experiences) {
       if (member.experience.currentVersion?.outcome) {
         const outcome = member.experience.currentVersion.outcome.toLowerCase();
-        if (outcome.includes('success') || outcome.includes('resolved') || outcome.includes('fixed')) {
+        if (
+          outcome.includes('success') ||
+          outcome.includes('resolved') ||
+          outcome.includes('fixed')
+        ) {
           successCount++;
         }
         totalCount++;
@@ -279,11 +283,11 @@ export class QualityGate {
     checks: QualityCheck[]
   ): { disposition: QualityDisposition; reason: string } {
     const failedCritical = checks.some(
-      c => !c.passed && (c.name === 'pattern_size' || c.name === 'similarity')
+      (c) => !c.passed && (c.name === 'pattern_size' || c.name === 'similarity')
     );
 
     if (failedCritical) {
-      const failedNames = checks.filter(c => !c.passed).map(c => c.name);
+      const failedNames = checks.filter((c) => !c.passed).map((c) => c.name);
       return {
         disposition: 'reject',
         reason: `Failed critical checks: ${failedNames.join(', ')}`,
@@ -326,11 +330,8 @@ export class QualityGate {
   /**
    * Get patterns by disposition
    */
-  filterByDisposition(
-    patterns: PatternGroup[],
-    disposition: QualityDisposition
-  ): PatternGroup[] {
-    return patterns.filter(p => this.evaluate(p).disposition === disposition);
+  filterByDisposition(patterns: PatternGroup[], disposition: QualityDisposition): PatternGroup[] {
+    return patterns.filter((p) => this.evaluate(p).disposition === disposition);
   }
 
   /**

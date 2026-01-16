@@ -278,12 +278,7 @@ describe('loadVersionsBatched', () => {
   it('should handle mix of existent and non-existent IDs', () => {
     const { tool } = createTestTool(db, 'existing-tool', 'global');
 
-    const result = loadVersionsBatched(
-      db,
-      [tool.id, 'non-existent-id'],
-      [],
-      []
-    );
+    const result = loadVersionsBatched(db, [tool.id, 'non-existent-id'], [], []);
 
     expect(result.tools.size).toBe(1);
     expect(result.tools.has(tool.id)).toBe(true);
@@ -329,7 +324,14 @@ describe('loadVersionsBatched', () => {
   });
 
   it('should preserve version content correctly', () => {
-    const { tool, version } = createTestTool(db, 'content-test', 'global', undefined, 'function', 'Custom description');
+    const { tool, version } = createTestTool(
+      db,
+      'content-test',
+      'global',
+      undefined,
+      'function',
+      'Custom description'
+    );
 
     const result = loadVersionsBatched(db, [tool.id], [], []);
 

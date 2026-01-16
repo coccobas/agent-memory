@@ -12,12 +12,16 @@ export const entryEmbeddings = sqliteTable(
   'entry_embeddings',
   {
     id: text('id').primaryKey(),
-    entryType: text('entry_type', { enum: ['tool', 'guideline', 'knowledge', 'experience'] }).notNull(),
+    entryType: text('entry_type', {
+      enum: ['tool', 'guideline', 'knowledge', 'experience'],
+    }).notNull(),
     entryId: text('entry_id').notNull(),
     versionId: text('version_id').notNull(),
     hasEmbedding: integer('has_embedding', { mode: 'boolean' }).default(false).notNull(),
     embeddingModel: text('embedding_model'),
-    embeddingProvider: text('embedding_provider', { enum: ['openai', 'lmstudio', 'local', 'disabled'] }),
+    embeddingProvider: text('embedding_provider', {
+      enum: ['openai', 'lmstudio', 'local', 'disabled'],
+    }),
     createdAt: text('created_at')
       .default(sql`CURRENT_TIMESTAMP`)
       .notNull(),

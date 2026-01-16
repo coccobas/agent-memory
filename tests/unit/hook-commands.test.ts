@@ -32,14 +32,16 @@ vi.mock('../../src/commands/hook/transcript-ingest.js', () => ({
 
 vi.mock('../../src/services/memory-injection.service.js', () => ({
   getMemoryInjectionService: vi.fn(() => ({
-    getContext: vi.fn(() => Promise.resolve({
-      success: true,
-      injectedContext: '',
-      entries: [],
-      detectedIntent: 'explore',
-      processingTimeMs: 0,
-      message: 'No context',
-    })),
+    getContext: vi.fn(() =>
+      Promise.resolve({
+        success: true,
+        injectedContext: '',
+        entries: [],
+        detectedIntent: 'explore',
+        processingTimeMs: 0,
+        message: 'No context',
+      })
+    ),
   })),
 }));
 

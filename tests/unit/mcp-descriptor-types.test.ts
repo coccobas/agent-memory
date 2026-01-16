@@ -222,8 +222,7 @@ describe('MCP Descriptor Types', () => {
       const descriptor: SimpleToolDescriptor = {
         name: 'test',
         description: 'Test',
-        handler: (params: Record<string, unknown>) =>
-          `Hello ${params.name as string}`,
+        handler: (params: Record<string, unknown>) => `Hello ${params.name as string}`,
       };
 
       const handler = descriptorToHandler(descriptor);

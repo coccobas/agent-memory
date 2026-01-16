@@ -60,7 +60,7 @@ export const conversationHandlers = {
     const scopeType = sessionId ? 'session' : 'project';
     const scopeId = sessionId || projectId || null;
     requirePermission(
-      context.services!.permission,
+      context.services.permission,
       agentId,
       'write',
       scopeType,
@@ -179,7 +179,7 @@ export const conversationHandlers = {
     const addMsgScopeType = conversation.sessionId ? 'session' : 'project';
     const addMsgScopeId = conversation.sessionId || conversation.projectId || null;
     requirePermission(
-      context.services!.permission,
+      context.services.permission,
       agentId,
       'write',
       addMsgScopeType,
@@ -218,12 +218,15 @@ export const conversationHandlers = {
         const turnData: TurnData = {
           role: turnRole as 'user' | 'assistant' | 'system',
           content,
-          toolCalls: toolsUsed?.map(name => ({ name, input: {}, success: true })),
+          toolCalls: toolsUsed?.map((name) => ({ name, input: {}, success: true })),
           timestamp: new Date().toISOString(),
         };
-        captureService.onTurnComplete(conversation.sessionId, turnData).catch(error => {
+        captureService.onTurnComplete(conversation.sessionId, turnData).catch((error) => {
           logger.error(
-            { sessionId: conversation.sessionId, error: error instanceof Error ? error.message : String(error) },
+            {
+              sessionId: conversation.sessionId,
+              error: error instanceof Error ? error.message : String(error),
+            },
             'Turn capture failed'
           );
         });
@@ -255,7 +258,7 @@ export const conversationHandlers = {
           recentErrors: [],
         };
 
-        triggerOrchestrator.processMessage(triggerMessage, sessionContext).catch(error => {
+        triggerOrchestrator.processMessage(triggerMessage, sessionContext).catch((error) => {
           logger.error(
             {
               sessionId: conversation.sessionId,
@@ -275,9 +278,17 @@ export const conversationHandlers = {
 
   async get(context: AppContext, params: Record<string, unknown>) {
     // Accept both 'id' and 'conversationId' for consistency with other conversation actions
-    const id = params.id ? getRequiredParam(params, 'id', isString)
-             : params.conversationId ? getRequiredParam(params, 'conversationId', isString)
-             : (() => { throw createValidationError('id', 'missing required parameter', "Provide 'id' or 'conversationId'"); })();
+    const id = params.id
+      ? getRequiredParam(params, 'id', isString)
+      : params.conversationId
+        ? getRequiredParam(params, 'conversationId', isString)
+        : (() => {
+            throw createValidationError(
+              'id',
+              'missing required parameter',
+              "Provide 'id' or 'conversationId'"
+            );
+          })();
     const includeMessages = getOptionalParam(params, 'includeMessages', isBoolean);
     const includeContext = getOptionalParam(params, 'includeContext', isBoolean);
     const agentId = getOptionalParam(params, 'agentId', isString);
@@ -295,7 +306,7 @@ export const conversationHandlers = {
     const getScopeType = conversation.sessionId ? 'session' : 'project';
     const getScopeId = conversation.sessionId || conversation.projectId || null;
     requirePermission(
-      context.services!.permission,
+      context.services.permission,
       agentId,
       'read',
       getScopeType,
@@ -336,7 +347,7 @@ export const conversationHandlers = {
     const listScopeType = sessionId ? 'session' : projectId ? 'project' : 'global';
     const listScopeId = sessionId || projectId || null;
     requirePermission(
-      context.services!.permission,
+      context.services.permission,
       agentId,
       'read',
       listScopeType,
@@ -381,9 +392,17 @@ export const conversationHandlers = {
 
   async update(context: AppContext, params: Record<string, unknown>) {
     // Accept both 'id' and 'conversationId' for consistency with other conversation actions
-    const id = params.id ? getRequiredParam(params, 'id', isString)
-             : params.conversationId ? getRequiredParam(params, 'conversationId', isString)
-             : (() => { throw createValidationError('id', 'missing required parameter', "Provide 'id' or 'conversationId'"); })();
+    const id = params.id
+      ? getRequiredParam(params, 'id', isString)
+      : params.conversationId
+        ? getRequiredParam(params, 'conversationId', isString)
+        : (() => {
+            throw createValidationError(
+              'id',
+              'missing required parameter',
+              "Provide 'id' or 'conversationId'"
+            );
+          })();
     const title = getOptionalParam(params, 'title', isString);
     const status = getOptionalParam(params, 'status', isConversationStatus);
     const metadata = getOptionalParam(params, 'metadata', isObject);
@@ -413,7 +432,7 @@ export const conversationHandlers = {
     const updateScopeType = existing.sessionId ? 'session' : 'project';
     const updateScopeId = existing.sessionId || existing.projectId || null;
     requirePermission(
-      context.services!.permission,
+      context.services.permission,
       agentId,
       'write',
       updateScopeType,
@@ -469,7 +488,7 @@ export const conversationHandlers = {
     const linkScopeType = conversation.sessionId ? 'session' : 'project';
     const linkScopeId = conversation.sessionId || conversation.projectId || null;
     requirePermission(
-      context.services!.permission,
+      context.services.permission,
       agentId,
       'read',
       linkScopeType,
@@ -477,7 +496,7 @@ export const conversationHandlers = {
       entryType
     );
     requirePermission(
-      context.services!.permission,
+      context.services.permission,
       agentId,
       'write',
       linkScopeType,
@@ -539,7 +558,7 @@ export const conversationHandlers = {
       const ctxScopeType = conversation.sessionId ? 'session' : 'project';
       const ctxScopeId = conversation.sessionId || conversation.projectId || null;
       requirePermission(
-        context.services!.permission,
+        context.services.permission,
         agentId,
         'read',
         ctxScopeType,
@@ -559,7 +578,7 @@ export const conversationHandlers = {
       }
 
       // Check permission (read required)
-      requirePermission(context.services!.permission, agentId, 'read', 'global', null, entryType);
+      requirePermission(context.services.permission, agentId, 'read', 'global', null, entryType);
 
       contexts = await context.repos.conversations.getContextForEntry(entryType, entryId);
     }
@@ -599,7 +618,7 @@ export const conversationHandlers = {
     const searchScopeType = sessionId ? 'session' : projectId ? 'project' : 'global';
     const searchScopeId = sessionId || projectId || null;
     requirePermission(
-      context.services!.permission,
+      context.services.permission,
       agentId,
       'read',
       searchScopeType,
@@ -643,9 +662,17 @@ export const conversationHandlers = {
 
   async end(context: AppContext, params: Record<string, unknown>) {
     // Accept both 'id' and 'conversationId' for consistency with other conversation actions
-    const id = params.id ? getRequiredParam(params, 'id', isString)
-             : params.conversationId ? getRequiredParam(params, 'conversationId', isString)
-             : (() => { throw createValidationError('id', 'missing required parameter', "Provide 'id' or 'conversationId'"); })();
+    const id = params.id
+      ? getRequiredParam(params, 'id', isString)
+      : params.conversationId
+        ? getRequiredParam(params, 'conversationId', isString)
+        : (() => {
+            throw createValidationError(
+              'id',
+              'missing required parameter',
+              "Provide 'id' or 'conversationId'"
+            );
+          })();
     const generateSummary = getOptionalParam(params, 'generateSummary', isBoolean);
     // Security: agentId required for audit trail on write operations
     const agentId = getRequiredParam(params, 'agentId', isString);
@@ -660,7 +687,7 @@ export const conversationHandlers = {
     const endScopeType = existing.sessionId ? 'session' : 'project';
     const endScopeId = existing.sessionId || existing.projectId || null;
     requirePermission(
-      context.services!.permission,
+      context.services.permission,
       agentId,
       'write',
       endScopeType,
@@ -705,9 +732,17 @@ export const conversationHandlers = {
 
   async archive(context: AppContext, params: Record<string, unknown>) {
     // Accept both 'id' and 'conversationId' for consistency with other conversation actions
-    const id = params.id ? getRequiredParam(params, 'id', isString)
-             : params.conversationId ? getRequiredParam(params, 'conversationId', isString)
-             : (() => { throw createValidationError('id', 'missing required parameter', "Provide 'id' or 'conversationId'"); })();
+    const id = params.id
+      ? getRequiredParam(params, 'id', isString)
+      : params.conversationId
+        ? getRequiredParam(params, 'conversationId', isString)
+        : (() => {
+            throw createValidationError(
+              'id',
+              'missing required parameter',
+              "Provide 'id' or 'conversationId'"
+            );
+          })();
     // Security: agentId required for audit trail on write operations
     const agentId = getRequiredParam(params, 'agentId', isString);
 
@@ -721,7 +756,7 @@ export const conversationHandlers = {
     const archiveScopeType = existing.sessionId ? 'session' : 'project';
     const archiveScopeId = existing.sessionId || existing.projectId || null;
     requirePermission(
-      context.services!.permission,
+      context.services.permission,
       agentId,
       'write',
       archiveScopeType,

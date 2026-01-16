@@ -32,12 +32,14 @@ The retry logic is implemented as an async function that uses non-blocking `setT
 ## Consequences
 
 **Positive:**
+
 - Resilient to transient database contention
 - Configurable retry behavior via config system
 - Non-blocking delays (doesn't freeze event loop)
 - Explicit error logging for debugging
 
 **Negative:**
+
 - Added latency on retry (by design)
 - Slightly more complex error handling code
 - PostgreSQL mode bypasses this logic (handled by adapter layer)

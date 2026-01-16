@@ -21,7 +21,8 @@ import type {
   TriggerStats,
 } from './triggers.js';
 import { TriggerType, DEFAULT_TRIGGER_CONFIG } from './triggers.js';
-import { TriggerDetector, createTriggerDetector } from './trigger-detector.js';
+import type { TriggerDetector } from './trigger-detector.js';
+import { createTriggerDetector } from './trigger-detector.js';
 
 const logger = createComponentLogger('trigger-orchestrator');
 
@@ -80,10 +81,7 @@ export class TriggerOrchestrator implements ITriggerOrchestrator {
    * @param context - Session context
    * @returns Promise with detected trigger events
    */
-  async processMessage(
-    message: Message,
-    context: SessionContext
-  ): Promise<TriggerEvent[]> {
+  async processMessage(message: Message, context: SessionContext): Promise<TriggerEvent[]> {
     if (!this.config.enabled) {
       logger.debug('Trigger detection is disabled');
       return [];
@@ -102,10 +100,7 @@ export class TriggerOrchestrator implements ITriggerOrchestrator {
 
     // Check cooldown
     if (!this.isExtractionAllowed(context)) {
-      logger.debug(
-        { sessionId: context.sessionId },
-        'Extraction blocked by cooldown'
-      );
+      logger.debug({ sessionId: context.sessionId }, 'Extraction blocked by cooldown');
       this.stats.cooldownFiltered++;
       return [];
     }
@@ -123,9 +118,7 @@ export class TriggerOrchestrator implements ITriggerOrchestrator {
     }
 
     // Filter by confidence threshold
-    const qualifyingTriggers = triggers.filter(
-      t => t.score >= this.config.minConfidenceScore
-    );
+    const qualifyingTriggers = triggers.filter((t) => t.score >= this.config.minConfidenceScore);
 
     if (qualifyingTriggers.length === 0) {
       logger.debug(
@@ -144,7 +137,7 @@ export class TriggerOrchestrator implements ITriggerOrchestrator {
       {
         sessionId: context.sessionId,
         triggerCount: qualifyingTriggers.length,
-        types: qualifyingTriggers.map(t => t.type),
+        types: qualifyingTriggers.map((t) => t.type),
         topScore: topTrigger?.score ?? 0,
       },
       'Triggers detected'
@@ -311,8 +304,7 @@ export class TriggerOrchestrator implements ITriggerOrchestrator {
     // Update running average confidence
     const prevTotal = this.stats.totalDetected - 1;
     const prevAvg = this.stats.avgConfidence;
-    this.stats.avgConfidence =
-      (prevAvg * prevTotal + trigger.score) / this.stats.totalDetected;
+    this.stats.avgConfidence = (prevAvg * prevTotal + trigger.score) / this.stats.totalDetected;
   }
 }
 
@@ -396,9 +388,7 @@ export function createTriggerOrchestrator(
  * @param config - Optional configuration override
  * @returns TriggerOrchestrator with logging observer
  */
-export function createLoggingOrchestrator(
-  config?: Partial<TriggerConfig>
-): TriggerOrchestrator {
+export function createLoggingOrchestrator(config?: Partial<TriggerConfig>): TriggerOrchestrator {
   return new TriggerOrchestrator(config, new LoggingMemoryObserver());
 }
 
@@ -418,10 +408,7 @@ export class TriggerIntegration {
   private orchestrator: TriggerOrchestrator;
   private enabled: boolean;
 
-  constructor(
-    config?: Partial<TriggerConfig>,
-    observer?: IMemoryObserver
-  ) {
+  constructor(config?: Partial<TriggerConfig>, observer?: IMemoryObserver) {
     this.orchestrator = createTriggerOrchestrator(config, observer);
     this.enabled = config?.enabled ?? DEFAULT_TRIGGER_CONFIG.enabled;
   }
@@ -429,10 +416,7 @@ export class TriggerIntegration {
   /**
    * Process a message and return any detected triggers.
    */
-  async processMessage(
-    message: Message,
-    context: SessionContext
-  ): Promise<TriggerEvent[]> {
+  async processMessage(message: Message, context: SessionContext): Promise<TriggerEvent[]> {
     if (!this.enabled) {
       return [];
     }

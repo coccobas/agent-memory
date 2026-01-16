@@ -75,16 +75,15 @@ export interface IVectorStore {
    * Get metadata about stored embeddings (entry IDs, models, dimensions).
    * Used for identifying entries that need re-embedding after model change.
    */
-  getEmbeddingMetadata?(options?: {
-    entryTypes?: string[];
-    limit?: number;
-  }): Promise<Array<{
-    entryType: string;
-    entryId: string;
-    versionId: string;
-    model: string;
-    dimension: number;
-  }>>;
+  getEmbeddingMetadata?(options?: { entryTypes?: string[]; limit?: number }): Promise<
+    Array<{
+      entryType: string;
+      entryId: string;
+      versionId: string;
+      model: string;
+      dimension: number;
+    }>
+  >;
 
   /**
    * Get the dimension of stored embeddings by sampling existing records.

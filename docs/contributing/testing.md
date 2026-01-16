@@ -30,12 +30,12 @@ Agent Memory uses [Vitest](https://vitest.dev/) as its test framework. The test 
 
 Coverage requirements:
 
-| Metric | Threshold |
-|--------|-----------|
-| Statements | 80% |
-| Branches | 70% |
-| Functions | 80% |
-| Lines | 80% |
+| Metric     | Threshold |
+| ---------- | --------- |
+| Statements | 80%       |
+| Branches   | 70%       |
+| Functions  | 80%       |
+| Lines      | 80%       |
 
 ---
 
@@ -230,11 +230,7 @@ describe('permission mode tests', () => {
 Use unique database paths per test file to prevent interference:
 
 ```typescript
-import {
-  setupTestDb,
-  cleanupTestDb,
-  registerTestContext,
-} from '../fixtures/test-helpers.js';
+import { setupTestDb, cleanupTestDb, registerTestContext } from '../fixtures/test-helpers.js';
 
 const TEST_DB_PATH = './data/test-my-feature.db';
 

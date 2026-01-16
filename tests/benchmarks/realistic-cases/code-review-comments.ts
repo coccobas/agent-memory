@@ -103,7 +103,7 @@ Author:
       },
       {
         type: 'knowledge',
-        mustContain: ['CONCURRENTLY', 'doesn\'t lock', 'table'],
+        mustContain: ['CONCURRENTLY', "doesn't lock", 'table'],
         category: 'fact',
       },
     ],

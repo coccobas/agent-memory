@@ -19,13 +19,13 @@ Agent Memory supports large-scale, multi-agent workflows for distributed AI syst
 
 Agent Memory provides infrastructure for coordinating multiple AI agents working on the same project:
 
-| Feature | Purpose |
-|---------|---------|
+| Feature            | Purpose                                 |
+| ------------------ | --------------------------------------- |
 | Task decomposition | Break work into parallelizable subtasks |
-| Voting & consensus | Coordinate agent decisions |
-| File locking | Prevent concurrent file modifications |
-| Conflict detection | Identify and resolve memory conflicts |
-| Permissions | Control agent access to scopes |
+| Voting & consensus | Coordinate agent decisions              |
+| File locking       | Prevent concurrent file modifications   |
+| Conflict detection | Identify and resolve memory conflicts   |
+| Permissions        | Control agent access to scopes          |
 
 ---
 
@@ -92,11 +92,11 @@ Break large tasks into subtasks that can be parallelized.
 
 ### Decomposition Strategies
 
-| Strategy | Description |
-|----------|-------------|
-| `maximal` | Many small, fine-grained tasks |
-| `balanced` | Moderate task size (default) |
-| `minimal` | Fewer, larger tasks |
+| Strategy   | Description                    |
+| ---------- | ------------------------------ |
+| `maximal`  | Many small, fine-grained tasks |
+| `balanced` | Moderate task size (default)   |
+| `minimal`  | Fewer, larger tasks            |
 
 ### Get Task Status
 
@@ -148,7 +148,7 @@ When multiple agents need to agree on an approach.
 {
   "action": "get_consensus",
   "taskId": "task-123",
-  "k": 2  // Require 2-vote margin
+  "k": 2 // Require 2-vote margin
 }
 ```
 
@@ -198,7 +198,7 @@ Prevent concurrent modifications to the same file.
   "file_path": "/path/to/project/src/auth.ts",
   "agent_id": "agent-1",
   "project_id": "proj-123",
-  "expires_in": 3600  // Lock expires in 1 hour
+  "expires_in": 3600 // Lock expires in 1 hour
 }
 ```
 
@@ -274,7 +274,7 @@ Conflicts are automatically detected when:
 {
   "action": "list",
   "entryType": "guideline",
-  "resolved": false  // Only unresolved
+  "resolved": false // Only unresolved
 }
 ```
 
@@ -478,7 +478,7 @@ Track multi-agent performance.
 
 ```json
 {
-  "agentId": "agent-1"  // Required for proper tracking
+  "agentId": "agent-1" // Required for proper tracking
 }
 ```
 

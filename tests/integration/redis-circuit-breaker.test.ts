@@ -288,9 +288,9 @@ describe('LocalCircuitBreakerAdapter', () => {
       expect(stats.state).toBe('OPEN');
 
       // Should throw CircuitBreakerError
-      await expect(
-        breaker.execute(async () => 'should not run')
-      ).rejects.toThrow(/Circuit breaker open/);
+      await expect(breaker.execute(async () => 'should not run')).rejects.toThrow(
+        /Circuit breaker open/
+      );
 
       // Wait for reset
       await new Promise((resolve) => setTimeout(resolve, 150));
@@ -671,9 +671,9 @@ describe.skipIf(!REDIS_ENABLED)('RedisCircuitBreakerAdapter Integration', () => 
       expect(stats.state).toBe('OPEN');
 
       // Should throw CircuitBreakerError
-      await expect(
-        breaker.execute(async () => 'should not run')
-      ).rejects.toThrow(/Circuit breaker open/);
+      await expect(breaker.execute(async () => 'should not run')).rejects.toThrow(
+        /Circuit breaker open/
+      );
 
       // Wait for reset
       await new Promise((resolve) => setTimeout(resolve, 150));
@@ -732,13 +732,13 @@ describe.skipIf(!REDIS_ENABLED)('RedisCircuitBreakerAdapter Integration', () => 
       expect(stats2.state).toBe('OPEN');
 
       // Both should reject new requests
-      await expect(
-        breaker1.execute(async () => 'should fail')
-      ).rejects.toThrow(/Circuit breaker open/);
+      await expect(breaker1.execute(async () => 'should fail')).rejects.toThrow(
+        /Circuit breaker open/
+      );
 
-      await expect(
-        breaker2.execute(async () => 'should also fail')
-      ).rejects.toThrow(/Circuit breaker open/);
+      await expect(breaker2.execute(async () => 'should also fail')).rejects.toThrow(
+        /Circuit breaker open/
+      );
     });
   });
 

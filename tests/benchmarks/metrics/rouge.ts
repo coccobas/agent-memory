@@ -22,9 +22,9 @@ import type { ROUGEScores, ROUGEVariantScore } from './metric-types.js';
 export function tokenize(text: string): string[] {
   return text
     .toLowerCase()
-    .replace(/[^\w\s]/g, ' ')  // Replace punctuation with spaces
-    .split(/\s+/)               // Split on whitespace
-    .filter(token => token.length > 0);
+    .replace(/[^\w\s]/g, ' ') // Replace punctuation with spaces
+    .split(/\s+/) // Split on whitespace
+    .filter((token) => token.length > 0);
 }
 
 /**
@@ -61,11 +61,7 @@ export function getNgrams(tokens: string[], n: number): Map<string, number> {
  * @param n N-gram size (1 for ROUGE-1, 2 for ROUGE-2)
  * @returns Precision, recall, and F1 scores
  */
-export function rougeN(
-  reference: string,
-  candidate: string,
-  n: number
-): ROUGEVariantScore {
+export function rougeN(reference: string, candidate: string, n: number): ROUGEVariantScore {
   const refTokens = tokenize(reference);
   const candTokens = tokenize(candidate);
 
@@ -86,9 +82,7 @@ export function rougeN(
   // Calculate precision, recall, F1
   const precision = candTotal > 0 ? overlapCount / candTotal : 0;
   const recall = refTotal > 0 ? overlapCount / refTotal : 0;
-  const f1 = precision + recall > 0
-    ? (2 * precision * recall) / (precision + recall)
-    : 0;
+  const f1 = precision + recall > 0 ? (2 * precision * recall) / (precision + recall) : 0;
 
   return { precision, recall, f1 };
 }
@@ -164,9 +158,7 @@ export function rougeL(reference: string, candidate: string): ROUGEVariantScore 
 
   const precision = candTokens.length > 0 ? lcs / candTokens.length : 0;
   const recall = refTokens.length > 0 ? lcs / refTokens.length : 0;
-  const f1 = precision + recall > 0
-    ? (2 * precision * recall) / (precision + recall)
-    : 0;
+  const f1 = precision + recall > 0 ? (2 * precision * recall) / (precision + recall) : 0;
 
   return { precision, recall, f1 };
 }
@@ -199,9 +191,7 @@ export function calculateROUGE(reference: string, candidate: string): ROUGEScore
 export function calculateROUGEBatch(
   pairs: Array<{ reference: string; candidate: string }>
 ): ROUGEScores[] {
-  return pairs.map(({ reference, candidate }) =>
-    calculateROUGE(reference, candidate)
-  );
+  return pairs.map(({ reference, candidate }) => calculateROUGE(reference, candidate));
 }
 
 /**

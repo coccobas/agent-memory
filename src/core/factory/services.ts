@@ -115,7 +115,10 @@ export async function createServices(
     if (backend === 'pgvector') {
       // Explicitly requested pgvector
       if (!deps?.pgPool) {
-        throw createValidationError('pgPool', 'is required for pgvector backend (dbType: postgresql)');
+        throw createValidationError(
+          'pgPool',
+          'is required for pgvector backend (dbType: postgresql)'
+        );
       }
       // Dynamic import for ESM compatibility
       const { PgVectorStore } = await import('../../db/vector-stores/pgvector.js');
@@ -155,8 +158,10 @@ export async function createServices(
   if (!runtime.embeddingPipeline) {
     const pipeline = {
       isAvailable: () => embeddingService.isAvailable(),
-      embed: async (text: string, type?: 'query' | 'document') => embeddingService.embed(text, type),
-      embedBatch: async (texts: string[], type?: 'query' | 'document') => embeddingService.embedBatch(texts, type),
+      embed: async (text: string, type?: 'query' | 'document') =>
+        embeddingService.embed(text, type),
+      embedBatch: async (texts: string[], type?: 'query' | 'document') =>
+        embeddingService.embedBatch(texts, type),
       storeEmbedding: async (
         entryType: string,
         entryId: string,
@@ -185,7 +190,7 @@ export async function createServices(
 
   // Wire dimension mismatch callback to trigger re-embedding
   if (vectorService instanceof VectorService && vectorStore) {
-    (vectorService as VectorService).setDimensionMismatchCallback(
+    vectorService.setDimensionMismatchCallback(
       (_queryDimension: number, _storedDimension: number) => {
         // Only trigger once per session to avoid spamming
         if (reembeddingTriggered) {
@@ -224,17 +229,12 @@ export async function createServices(
     if (!embeddingService.isAvailable() || !vectorStore) {
       return undefined;
     }
-    reembeddingService = new ReembeddingService(
-      embeddingService,
-      vectorStore,
-      database,
-      {
-        batchSize: 10,
-        batchDelayMs: 100,
-        maxEntriesPerRun: 1000,
-        enabled: true,
-      }
-    );
+    reembeddingService = new ReembeddingService(embeddingService, vectorStore, database, {
+      batchSize: 10,
+      batchDelayMs: 100,
+      maxEntriesPerRun: 1000,
+      enabled: true,
+    });
     return reembeddingService;
   };
 
@@ -351,7 +351,11 @@ export async function createServices(
             expansionWeight: config.queryRewrite.expansionWeight,
           },
           hyde: {
-            provider: config.queryRewrite.provider as 'openai' | 'anthropic' | 'ollama' | 'disabled',
+            provider: config.queryRewrite.provider as
+              | 'openai'
+              | 'anthropic'
+              | 'ollama'
+              | 'disabled',
             model: config.queryRewrite.model,
             temperature: config.queryRewrite.hydeTemperature,
             documentCount: config.queryRewrite.hydeDocumentCount,

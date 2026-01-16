@@ -14,51 +14,51 @@ Your Agent Memory system is **significantly more feature-complete** than most co
 
 ### Tier 1: Funded, Production-Ready Platforms
 
-| Platform | Funding | Key Differentiators | Gaps vs. Agent Memory |
-|----------|---------|---------------------|----------------------|
-| **Mem0** | Y Combinator | Hybrid graph+vector+KV architecture, 66.9% LoCoMo accuracy, 1.44s latency | No verification/enforcement, no IDE integration, no multi-agent coordination |
-| **Letta** (MemGPT) | $10M (Felicis) | OS-inspired memory hierarchy, 74% LoCoMo with filesystem approach, ADE visual builder | No consolidation, no observation extraction, no rule enforcement |
-| **Zep** | Y Combinator (W24) | Temporal Knowledge Graphs (Graphiti), SOC 2 compliant, bi-temporal model | No skill/tool memory, no verification hooks, no consolidation |
-| **LangMem** | LangChain ecosystem | Semantic/procedural/episodic types, LangChain native | Limited to LangChain users, no multi-agent coordination |
+| Platform           | Funding             | Key Differentiators                                                                   | Gaps vs. Agent Memory                                                        |
+| ------------------ | ------------------- | ------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| **Mem0**           | Y Combinator        | Hybrid graph+vector+KV architecture, 66.9% LoCoMo accuracy, 1.44s latency             | No verification/enforcement, no IDE integration, no multi-agent coordination |
+| **Letta** (MemGPT) | $10M (Felicis)      | OS-inspired memory hierarchy, 74% LoCoMo with filesystem approach, ADE visual builder | No consolidation, no observation extraction, no rule enforcement             |
+| **Zep**            | Y Combinator (W24)  | Temporal Knowledge Graphs (Graphiti), SOC 2 compliant, bi-temporal model              | No skill/tool memory, no verification hooks, no consolidation                |
+| **LangMem**        | LangChain ecosystem | Semantic/procedural/episodic types, LangChain native                                  | Limited to LangChain users, no multi-agent coordination                      |
 
 ### Tier 2: Research-to-Commercial Transition
 
-| System | Source | Innovation | Gaps |
-|--------|--------|-----------|------|
-| **GraphRAG** | Microsoft | Hierarchical community graphs | Query-only, no write operations |
-| **HippoRAG** | Academic | Neuro-inspired dual-layer (semantic+episodic) | No runtime enforcement |
-| **A-MEM** | Academic | Card-based networked memory | No multi-agent support |
+| System       | Source    | Innovation                                    | Gaps                            |
+| ------------ | --------- | --------------------------------------------- | ------------------------------- |
+| **GraphRAG** | Microsoft | Hierarchical community graphs                 | Query-only, no write operations |
+| **HippoRAG** | Academic  | Neuro-inspired dual-layer (semantic+episodic) | No runtime enforcement          |
+| **A-MEM**    | Academic  | Card-based networked memory                   | No multi-agent support          |
 
 ---
 
 ## 2. Feature Comparison Matrix
 
-| Capability | Agent Memory | Mem0 | Letta | Zep | LangMem |
-|------------|-------------|------|-------|-----|---------|
-| **Memory Types** |||||
-| Guidelines/Rules | ✅ Critical+Priority | ❌ | ❌ | ❌ | ❌ |
-| Knowledge/Facts | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Tools/Skills | ✅ MCP integration | ❌ | Limited | ❌ | ❌ |
-| Experiential | ✅ Case→Strategy→Skill | ✅ | ✅ | ✅ | ✅ |
-| **Architecture** |||||
-| Scope Hierarchy | ✅ 4-level (Global→Org→Project→Session) | Session/User | 2-tier | Session | User/Session |
-| Knowledge Graph | ✅ Relations | ✅ Graph variant | ❌ | ✅ Temporal KG | ❌ |
-| Vector Search | ✅ LanceDB + FTS5 | ✅ Qdrant/etc | ✅ | ✅ | ✅ |
-| **Dynamics** |||||
-| Auto-Observation | ✅ LLM extraction | ❌ | ❌ | ❌ | ❌ |
-| Consolidation | ✅ dedupe/merge/archive | ❌ | ❌ | ❌ | ❌ |
-| Memory Forgetting | ✅ Multi-strategy | ❌ | ✅ | ✅ Temporal decay | ❌ |
-| **Enforcement** |||||
-| Pre-execution Verification | ✅ Critical guidelines | ❌ | ❌ | ❌ | ❌ |
-| IDE Hooks | ✅ Claude/Cursor/VS Code | ❌ | ❌ | ❌ | ❌ |
-| **Multi-Agent** |||||
-| File Locking | ✅ Distributed (Redis) | ❌ | ❌ | ❌ | ❌ |
-| Voting/Consensus | ✅ First-to-Ahead-by-k | ❌ | ❌ | ❌ | ❌ |
-| Shared Memory | ✅ Scope inheritance | ❌ | ❌ | ❌ | ❌ |
-| **Infrastructure** |||||
-| Transport | ✅ MCP + REST | REST | REST/Streaming | REST | Python SDK |
-| Multi-DB | ✅ SQLite + PostgreSQL + Redis | Multi-vector DBs | SQLite/Postgres | Postgres | In-memory |
-| Self-hosting | ✅ Open source | Sparse docs | ✅ Open source | Cloud-only (CE limited) | ✅ |
+| Capability                 | Agent Memory                            | Mem0             | Letta           | Zep                     | LangMem      |
+| -------------------------- | --------------------------------------- | ---------------- | --------------- | ----------------------- | ------------ |
+| **Memory Types**           |                                         |                  |                 |                         |
+| Guidelines/Rules           | ✅ Critical+Priority                    | ❌               | ❌              | ❌                      | ❌           |
+| Knowledge/Facts            | ✅                                      | ✅               | ✅              | ✅                      | ✅           |
+| Tools/Skills               | ✅ MCP integration                      | ❌               | Limited         | ❌                      | ❌           |
+| Experiential               | ✅ Case→Strategy→Skill                  | ✅               | ✅              | ✅                      | ✅           |
+| **Architecture**           |                                         |                  |                 |                         |
+| Scope Hierarchy            | ✅ 4-level (Global→Org→Project→Session) | Session/User     | 2-tier          | Session                 | User/Session |
+| Knowledge Graph            | ✅ Relations                            | ✅ Graph variant | ❌              | ✅ Temporal KG          | ❌           |
+| Vector Search              | ✅ LanceDB + FTS5                       | ✅ Qdrant/etc    | ✅              | ✅                      | ✅           |
+| **Dynamics**               |                                         |                  |                 |                         |
+| Auto-Observation           | ✅ LLM extraction                       | ❌               | ❌              | ❌                      | ❌           |
+| Consolidation              | ✅ dedupe/merge/archive                 | ❌               | ❌              | ❌                      | ❌           |
+| Memory Forgetting          | ✅ Multi-strategy                       | ❌               | ✅              | ✅ Temporal decay       | ❌           |
+| **Enforcement**            |                                         |                  |                 |                         |
+| Pre-execution Verification | ✅ Critical guidelines                  | ❌               | ❌              | ❌                      | ❌           |
+| IDE Hooks                  | ✅ Claude/Cursor/VS Code                | ❌               | ❌              | ❌                      | ❌           |
+| **Multi-Agent**            |                                         |                  |                 |                         |
+| File Locking               | ✅ Distributed (Redis)                  | ❌               | ❌              | ❌                      | ❌           |
+| Voting/Consensus           | ✅ First-to-Ahead-by-k                  | ❌               | ❌              | ❌                      | ❌           |
+| Shared Memory              | ✅ Scope inheritance                    | ❌               | ❌              | ❌                      | ❌           |
+| **Infrastructure**         |                                         |                  |                 |                         |
+| Transport                  | ✅ MCP + REST                           | REST             | REST/Streaming  | REST                    | Python SDK   |
+| Multi-DB                   | ✅ SQLite + PostgreSQL + Redis          | Multi-vector DBs | SQLite/Postgres | Postgres                | In-memory    |
+| Self-hosting               | ✅ Open source                          | Sparse docs      | ✅ Open source  | Cloud-only (CE limited) | ✅           |
 
 ---
 
@@ -71,6 +71,7 @@ Based on the arXiv taxonomy and commercial landscape, here are your **priority g
 #### 1. ~~Experiential Memory (Case/Strategy/Skill)~~ ✅ IMPLEMENTED (v0.9.9)
 
 > **Status:** Fully implemented in v0.9.9. See `memory_experience` MCP tool and `experience` CLI command.
+>
 > - Case-based memory with trajectories and outcomes
 > - Strategy-level abstraction via promotion
 > - Skill compilation via promotion to Tools
@@ -79,6 +80,7 @@ Based on the arXiv taxonomy and commercial landscape, here are your **priority g
 #### 2. ~~Memory Forgetting Mechanisms~~ ✅ IMPLEMENTED (v0.9.10)
 
 > **Status:** Fully implemented via `memory_forget` MCP tool and `forget` CLI command.
+>
 > - Multiple strategies: `recency`, `frequency`, `importance`, `combined`
 > - Configurable thresholds and staleDays parameters
 > - Dry-run mode for safe analysis before execution
@@ -87,6 +89,7 @@ Based on the arXiv taxonomy and commercial landscape, here are your **priority g
 #### 3. ~~Reinforcement Learning for Memory Operations~~ ✅ IMPLEMENTED (v0.9.10)
 
 > **Status:** Implemented via `memory_rl` MCP tool and `rl` CLI command.
+>
 > - Feedback collection for memory operations (store, retrieve, consolidate)
 > - Reward signal processing for policy optimization
 > - Training data export for external RL pipelines
@@ -101,6 +104,7 @@ Based on the arXiv taxonomy and commercial landscape, here are your **priority g
 Zep and GraphRAG lead here with community graphs.
 
 > **Status:** Fully implemented in v0.9.11. See `memory_summarize` MCP tool.
+>
 > - Leiden algorithm for community detection on embedding similarity
 > - 4-level hierarchy: chunk → topic → domain → global
 > - LLM-based summarization with level-aware prompts
@@ -110,6 +114,7 @@ Zep and GraphRAG lead here with community graphs.
 #### 5. ~~Temporal Knowledge Graphs~~ ✅ IMPLEMENTED
 
 > **Status:** Implemented in knowledge entries and query pipeline.
+>
 > - `validFrom` / `validUntil` timestamps on knowledge entries
 > - Temporal query operators: `atTime`, `validDuring` (period queries)
 > - `invalidatedBy` field for linking superseding entries
@@ -120,6 +125,7 @@ Zep and GraphRAG lead here with community graphs.
 The paper shows latent memory (MemGen, M+) as high-performance alternative.
 
 > **Status:** Fully implemented in v0.9.11. See `memory_latent` MCP tool.
+>
 > - Tiered KV-cache: L1 (in-memory LRU) + L2 (persistent SQLite/Redis)
 > - Embedding compression: Random projection (1536→256 dims), scalar quantization
 > - Context injection: JSON, Markdown, and natural language formats
@@ -133,6 +139,7 @@ The paper shows latent memory (MemGen, M+) as high-performance alternative.
 PRIME, HyDE, ComoRAG do this for better retrieval.
 
 > **Status:** Fully implemented in v0.9.11. Integrated into query pipeline.
+>
 > - HyDE (Hypothetical Document Embedding) with intent-specific prompts
 > - Intent classification: lookup, how_to, debug, explore, compare, configure
 > - Query expansion with 50+ programming synonyms dictionary
@@ -144,6 +151,7 @@ PRIME, HyDE, ComoRAG do this for better retrieval.
 ROME, MEMIT, LoRA-based knowledge injection.
 
 > **Status:** Fully implemented in v0.9.11. See `memory_lora` MCP tool.
+>
 > - Export guidelines → LoRA training data
 > - Multiple formats: Alpaca, ShareGPT, OpenAI Messages, Anthropic Prompts
 > - Automatic training script generation with PEFT configuration
@@ -224,63 +232,63 @@ You're positioned as an **infrastructure/governance-first** memory system, while
 
 ### Token-Level Memory (Flat/1D)
 
-| Method | Type | Task |
-|--------|------|------|
-| Reflexion | Experiential | QA, Reasoning, Coding |
-| Memento | Experiential | Reasoning |
-| JARVIS-1 | Experiential | Game |
-| ExpeL | Experiential | Reasoning |
+| Method             | Type         | Task                    |
+| ------------------ | ------------ | ----------------------- |
+| Reflexion          | Experiential | QA, Reasoning, Coding   |
+| Memento            | Experiential | Reasoning               |
+| JARVIS-1           | Experiential | Game                    |
+| ExpeL              | Experiential | Reasoning               |
 | Buffer of Thoughts | Experiential | Game, Reasoning, Coding |
-| Voyager | Experiential | Game |
-| MemGPT | Factual | Long-conv QA, Doc QA |
-| MemoryBank | Factual | Emotional Companion |
-| Mem0 | Factual | Long-conv QA |
-| MovieChat | Factual | Video Understanding |
-| VideoAgent | Factual | Video Understanding |
+| Voyager            | Experiential | Game                    |
+| MemGPT             | Factual      | Long-conv QA, Doc QA    |
+| MemoryBank         | Factual      | Emotional Companion     |
+| Mem0               | Factual      | Long-conv QA            |
+| MovieChat          | Factual      | Video Understanding     |
+| VideoAgent         | Factual      | Video Understanding     |
 
 ### Token-Level Memory (Planar/2D)
 
-| Method | Type | Task |
-|--------|------|------|
+| Method  | Type    | Task         |
+| ------- | ------- | ------------ |
 | D-SMART | Factual | Long-conv QA |
-| HAT | Factual | Long-conv QA |
+| HAT     | Factual | Long-conv QA |
 | MemTree | Factual | Long-conv QA |
-| A-MEM | Factual | Long-conv QA |
-| Ret-LLM | Factual | QA |
-| HuaTuo | Factual | Medical QA |
+| A-MEM   | Factual | Long-conv QA |
+| Ret-LLM | Factual | QA           |
+| HuaTuo  | Factual | Medical QA   |
 
 ### Token-Level Memory (Hierarchical/3D)
 
-| Method | Type | Task |
-|--------|------|------|
-| GraphRAG | Factual | QA, Summarization |
-| H-Mem | Factual | Long-conv QA |
-| HippoRAG | Factual | QA |
-| Zep | Factual | Long-conv QA |
-| AriGraph | Factual | Game |
+| Method   | Type         | Task               |
+| -------- | ------------ | ------------------ |
+| GraphRAG | Factual      | QA, Summarization  |
+| H-Mem    | Factual      | Long-conv QA       |
+| HippoRAG | Factual      | QA                 |
+| Zep      | Factual      | Long-conv QA       |
+| AriGraph | Factual      | Game               |
 | G-Memory | Experiential | QA, Game, Embodied |
 
 ### Parametric Memory
 
-| Method | Phase | Task |
-|--------|-------|------|
-| MEND | Post-Train | QA, Fact Checking |
-| ROME | Post-Train | Model Editing |
-| ToolFormer | Post-Train | Tool Calling |
-| K-Adapter | Adapter | QA, Classification |
-| WISE | Adapter | QA, Hallucination |
+| Method     | Phase      | Task               |
+| ---------- | ---------- | ------------------ |
+| MEND       | Post-Train | QA, Fact Checking  |
+| ROME       | Post-Train | Model Editing      |
+| ToolFormer | Post-Train | Tool Calling       |
+| K-Adapter  | Adapter    | QA, Classification |
+| WISE       | Adapter    | QA, Hallucination  |
 
 ### Latent Memory
 
-| Method | Origin | Task |
-|--------|--------|------|
-| Gist | Generate | Long-context Compression |
-| AutoCompressor | Generate | QA, Compression |
-| MemoryLLM | Generate | Long-conv QA, Model Editing |
-| MemGen | Generate | QA, Math, Code, Embodied |
-| Titans | Generate | QA, Language Modeling |
-| SnapKV | Transform | Language Modeling |
-| H2O | Transform | QA, Language Modeling |
+| Method         | Origin    | Task                        |
+| -------------- | --------- | --------------------------- |
+| Gist           | Generate  | Long-context Compression    |
+| AutoCompressor | Generate  | QA, Compression             |
+| MemoryLLM      | Generate  | Long-conv QA, Model Editing |
+| MemGen         | Generate  | QA, Math, Code, Embodied    |
+| Titans         | Generate  | QA, Language Modeling       |
+| SnapKV         | Transform | Language Modeling           |
+| H2O            | Transform | QA, Language Modeling       |
 
 ---
 
@@ -307,23 +315,23 @@ You're positioned as an **infrastructure/governance-first** memory system, while
 
 ## 9. Gaps Closed (v0.9.9 - v0.9.10)
 
-| Gap | Solution | Version | Competitive Impact |
-|-----|----------|---------|-------------------|
-| No experiential memory | `memory_experience` + Librarian Agent | v0.9.9 | Now matches Letta, Mem0 on agent learning |
-| No memory forgetting | `memory_forget` with 4 strategies | v0.9.10 | Now matches Zep on temporal decay |
-| No temporal knowledge | `validFrom`/`validUntil` + query operators | v0.9.10 | Approaching Zep's bi-temporal model |
-| No RL infrastructure | `memory_rl` feedback + training export | v0.9.10 | Foundation for RL-optimized memory |
-| Single-hop relations | Multi-hop traversal (1-5 depth) | v0.9.x | Matches GraphRAG on graph queries |
+| Gap                    | Solution                                   | Version | Competitive Impact                        |
+| ---------------------- | ------------------------------------------ | ------- | ----------------------------------------- |
+| No experiential memory | `memory_experience` + Librarian Agent      | v0.9.9  | Now matches Letta, Mem0 on agent learning |
+| No memory forgetting   | `memory_forget` with 4 strategies          | v0.9.10 | Now matches Zep on temporal decay         |
+| No temporal knowledge  | `validFrom`/`validUntil` + query operators | v0.9.10 | Approaching Zep's bi-temporal model       |
+| No RL infrastructure   | `memory_rl` feedback + training export     | v0.9.10 | Foundation for RL-optimized memory        |
+| Single-hop relations   | Multi-hop traversal (1-5 depth)            | v0.9.x  | Matches GraphRAG on graph queries         |
 
 ### Remaining Gaps
 
-| Gap | Priority | Competitors with Feature |
-|-----|----------|-------------------------|
-| Hierarchical summarization | Medium | GraphRAG, Zep |
-| Query rewriting (HyDE) | Medium | PRIME, ComoRAG |
-| Latent memory / KV-cache | Medium | MemGen, M+ |
-| Full RL policy training | Low | Mem1, MemAgent |
-| Parametric export (LoRA) | Low | ROME, MEMIT |
+| Gap                        | Priority | Competitors with Feature |
+| -------------------------- | -------- | ------------------------ |
+| Hierarchical summarization | Medium   | GraphRAG, Zep            |
+| Query rewriting (HyDE)     | Medium   | PRIME, ComoRAG           |
+| Latent memory / KV-cache   | Medium   | MemGen, M+               |
+| Full RL policy training    | Low      | Mem1, MemAgent           |
+| Parametric export (LoRA)   | Low      | ROME, MEMIT              |
 
 ---
 

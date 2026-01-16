@@ -25,19 +25,26 @@ import { issueHandlers } from '../handlers/issues.handler.js';
 export const memoryTaskDescriptor: ToolDescriptor = {
   name: 'memory_task',
   visibility: 'standard',
-  description: 'Manage work items (bugs, features, tasks). Actions: add, update, get, list, deactivate, delete, update_status, list_by_status, list_blocked, get_subtasks, add_blocker, remove_blocker',
+  description:
+    'Manage work items (bugs, features, tasks). Actions: add, update, get, list, deactivate, delete, update_status, list_by_status, list_blocked, get_subtasks, add_blocker, remove_blocker',
   commonParams: {
     id: { type: 'string' },
     title: { type: 'string' },
     description: { type: 'string' },
     scopeType: { type: 'string', enum: ['global', 'org', 'project', 'session'] },
     scopeId: { type: 'string' },
-    taskType: { type: 'string', enum: ['bug', 'feature', 'improvement', 'debt', 'research', 'question', 'other'] },
+    taskType: {
+      type: 'string',
+      enum: ['bug', 'feature', 'improvement', 'debt', 'research', 'question', 'other'],
+    },
     taskDomain: { type: 'string', enum: ['agent', 'physical'] },
     severity: { type: 'string', enum: ['critical', 'high', 'medium', 'low'] },
     urgency: { type: 'string', enum: ['immediate', 'soon', 'normal', 'later'] },
     category: { type: 'string' },
-    status: { type: 'string', enum: ['backlog', 'open', 'in_progress', 'blocked', 'review', 'done', 'wont_do'] },
+    status: {
+      type: 'string',
+      enum: ['backlog', 'open', 'in_progress', 'blocked', 'review', 'done', 'wont_do'],
+    },
     resolution: { type: 'string' },
     file: { type: 'string' },
     startLine: { type: 'number' },

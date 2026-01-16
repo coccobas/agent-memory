@@ -9,6 +9,8 @@
  * work with both SQLite (sync) and PostgreSQL (async).
  */
 
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
+
 import type Database from 'better-sqlite3';
 import type { AppDb } from '../types.js';
 import type { IStorageAdapter } from './interfaces.js';
@@ -145,8 +147,9 @@ export class SQLiteStorageAdapter implements IStorageAdapter {
             resultValue = value;
             wasResolved = true;
           })
-          .catch((error) => {
-            resultError = error;
+          .catch((error: unknown) => {
+            // Error type from catch is unknown - ensure it's an Error object
+            resultError = error instanceof Error ? error : new Error(String(error));
             wasResolved = true;
           });
       });

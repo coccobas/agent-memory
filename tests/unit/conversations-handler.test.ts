@@ -192,9 +192,7 @@ describe('Conversations Handler', () => {
     it('should throw when conversation not found', async () => {
       mockConversationsRepo.getById.mockResolvedValue(null);
 
-      await expect(
-        conversationHandlers.get(mockContext, { id: 'nonexistent' })
-      ).rejects.toThrow();
+      await expect(conversationHandlers.get(mockContext, { id: 'nonexistent' })).rejects.toThrow();
     });
 
     it('should pass include options', async () => {
@@ -374,7 +372,11 @@ describe('Conversations Handler', () => {
 
   describe('linkContext', () => {
     it('should link context to conversation', async () => {
-      const mockLinkedContext = { conversationId: 'conv-1', entryType: 'knowledge', entryId: 'k-1' };
+      const mockLinkedContext = {
+        conversationId: 'conv-1',
+        entryType: 'knowledge',
+        entryId: 'k-1',
+      };
       mockConversationsRepo.getById.mockResolvedValue({ id: 'conv-1' });
       mockConversationsRepo.linkContext.mockResolvedValue(mockLinkedContext);
 

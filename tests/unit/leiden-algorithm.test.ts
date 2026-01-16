@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { detectCommunitiesLeiden } from '../../src/services/summarization/community-detection/leiden.js';
-import type { CommunityNode, CommunityDetectionConfig } from '../../src/services/summarization/community-detection/types.js';
+import type {
+  CommunityNode,
+  CommunityDetectionConfig,
+} from '../../src/services/summarization/community-detection/types.js';
 
 describe('Leiden Community Detection', () => {
   describe('detectCommunitiesLeiden', () => {
@@ -66,7 +69,7 @@ describe('Leiden Community Detection', () => {
       });
 
       // Should not include the isolated node as a community
-      expect(result.communities.every(c => c.members.length >= 3)).toBe(true);
+      expect(result.communities.every((c) => c.members.length >= 3)).toBe(true);
     });
 
     it('should handle nodes without embeddings', async () => {
@@ -81,8 +84,8 @@ describe('Leiden Community Detection', () => {
       });
 
       // Should only include nodes with embeddings in communities
-      const allMembers = result.communities.flatMap(c => c.members);
-      expect(allMembers.every(m => m.embedding !== undefined)).toBe(true);
+      const allMembers = result.communities.flatMap((c) => c.members);
+      expect(allMembers.every((m) => m.embedding !== undefined)).toBe(true);
     });
 
     it('should use default configuration when not provided', async () => {
@@ -192,11 +195,7 @@ describe('Leiden Community Detection', () => {
       const nodes: CommunityNode[] = Array.from({ length: 15 }, (_, i) => ({
         id: String(i),
         type: 'knowledge' as const,
-        embedding: [
-          Math.cos((i % 3) * Math.PI / 3),
-          Math.sin((i % 3) * Math.PI / 3),
-          0,
-        ],
+        embedding: [Math.cos(((i % 3) * Math.PI) / 3), Math.sin(((i % 3) * Math.PI) / 3), 0],
       }));
 
       const result = await detectCommunitiesLeiden(nodes, {
@@ -230,9 +229,27 @@ describe('Leiden Community Detection', () => {
     it('should handle high-dimensional embeddings', async () => {
       const dim = 1536;
       const nodes: CommunityNode[] = [
-        { id: '1', type: 'knowledge', embedding: Array(dim).fill(1).map((_, i) => i % 2) },
-        { id: '2', type: 'knowledge', embedding: Array(dim).fill(1).map((_, i) => i % 2) },
-        { id: '3', type: 'knowledge', embedding: Array(dim).fill(1).map((_, i) => (i + 1) % 2) },
+        {
+          id: '1',
+          type: 'knowledge',
+          embedding: Array(dim)
+            .fill(1)
+            .map((_, i) => i % 2),
+        },
+        {
+          id: '2',
+          type: 'knowledge',
+          embedding: Array(dim)
+            .fill(1)
+            .map((_, i) => i % 2),
+        },
+        {
+          id: '3',
+          type: 'knowledge',
+          embedding: Array(dim)
+            .fill(1)
+            .map((_, i) => (i + 1) % 2),
+        },
       ];
 
       const result = await detectCommunitiesLeiden(nodes, {
@@ -261,7 +278,7 @@ describe('Leiden Community Detection', () => {
         if (community.centroid) {
           expect(community.centroid).toBeDefined();
           expect(community.centroid.length).toBe(3);
-          expect(community.centroid.every(v => typeof v === 'number')).toBe(true);
+          expect(community.centroid.every((v) => typeof v === 'number')).toBe(true);
         }
       }
     });
@@ -331,11 +348,7 @@ describe('Leiden Community Detection', () => {
       const nodes: CommunityNode[] = Array.from({ length: nodeCount }, (_, i) => ({
         id: String(i),
         type: 'knowledge' as const,
-        embedding: [
-          Math.cos(i * 0.1),
-          Math.sin(i * 0.1),
-          Math.cos(i * 0.2),
-        ],
+        embedding: [Math.cos(i * 0.1), Math.sin(i * 0.1), Math.cos(i * 0.2)],
       }));
 
       const startTime = performance.now();

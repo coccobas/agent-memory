@@ -455,7 +455,14 @@ describe('Security: Path Traversal Prevention', () => {
         const userDir = join(TEST_ROOT, 'user-rules');
         mkdirSync(userDir, { recursive: true });
 
-        const destPath = getDestinationPath(sourcePath, sourceDir, 'cursor', outputDir, true, userDir);
+        const destPath = getDestinationPath(
+          sourcePath,
+          sourceDir,
+          'cursor',
+          outputDir,
+          true,
+          userDir
+        );
 
         expect(destPath).toContain(userDir);
         expect(destPath).toContain('test.mdc');
@@ -624,7 +631,7 @@ describe('Security: Path Traversal Prevention', () => {
         join(ALLOWED_DIR, 'file.multiple.dots.md'),
       ];
 
-      validPaths.forEach(path => {
+      validPaths.forEach((path) => {
         expect(isPathSafe(path, ALLOWED_DIR)).toBe(true);
       });
     });
@@ -639,7 +646,7 @@ describe('Security: Path Traversal Prevention', () => {
         '....//....//....//etc/passwd',
       ];
 
-      attackPatterns.forEach(pattern => {
+      attackPatterns.forEach((pattern) => {
         const maliciousPath = join(ALLOWED_DIR, pattern);
         const result = isPathSafe(maliciousPath, ALLOWED_DIR);
 

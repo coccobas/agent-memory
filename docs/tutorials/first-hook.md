@@ -3,11 +3,13 @@
 Set up runtime enforcement so your agent follows guidelines automatically.
 
 **What you'll learn:**
+
 - How hooks enforce guidelines at runtime
 - How to install and configure hooks
 - How to test that enforcement is working
 
 **Prerequisites:**
+
 - Completed [First Workflow](first-workflow.md)
 - Using Claude Code (hooks are currently Claude Code only)
 
@@ -94,6 +96,7 @@ Check that hooks are installed:
 **Tool:** `memory_hook`
 
 You should see:
+
 ```json
 {
   "installed": true,
@@ -112,6 +115,7 @@ Add a console.log statement to debug the login function
 ```
 
 The PreToolUse hook should:
+
 1. Check the proposed code against guidelines
 2. Find it violates "no-console-log"
 3. Block the action and suggest using the logger instead

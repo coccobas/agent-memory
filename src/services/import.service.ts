@@ -825,6 +825,3 @@ async function importFromOpenAPIImpl(
 
   return result;
 }
-
-
-

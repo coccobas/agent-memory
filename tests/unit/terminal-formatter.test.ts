@@ -48,10 +48,7 @@ describe('Terminal Formatter', () => {
     });
 
     it('should format badges without values', () => {
-      const result = formatBadges([
-        { label: 'active' },
-        { label: 'healthy' },
-      ]);
+      const result = formatBadges([{ label: 'active' }, { label: 'healthy' }]);
       expect(result).toBe('[active] [healthy]');
     });
   });
@@ -60,10 +57,7 @@ describe('Terminal Formatter', () => {
     it('should format a simple tree', () => {
       const result = formatTree({
         label: 'Root',
-        children: [
-          { label: 'Child 1' },
-          { label: 'Child 2' },
-        ],
+        children: [{ label: 'Child 1' }, { label: 'Child 2' }],
       });
       expect(result).toContain('Root');
       expect(result).toContain('├──');

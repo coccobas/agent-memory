@@ -53,11 +53,7 @@ export function createVotingRepository(db: DrizzleDb): IVotingRepository {
      * Get all votes for a task
      */
     async getVotesForTask(taskId: string): Promise<VoteRecord[]> {
-      const votes = db
-        .select()
-        .from(agentVotes)
-        .where(eq(agentVotes.taskId, taskId))
-        .all();
+      const votes = db.select().from(agentVotes).where(eq(agentVotes.taskId, taskId)).all();
 
       return votes.map((vote) => ({
         id: vote.id,

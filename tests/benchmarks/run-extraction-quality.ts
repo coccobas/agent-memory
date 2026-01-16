@@ -36,7 +36,7 @@ const showHelp = args.includes('--help') || args.includes('-h');
 const debugMode = args.includes('--debug');
 
 const getArgValue = (flag: string): string | undefined => {
-  const idx = args.findIndex(a => a === flag);
+  const idx = args.findIndex((a) => a === flag);
   return idx >= 0 && args[idx + 1] ? args[idx + 1] : undefined;
 };
 
@@ -48,8 +48,12 @@ const model = getArgValue('--model');
 const saveFile = getArgValue('--save');
 const compareFile = getArgValue('--compare');
 const semanticEnabled = args.includes('--semantic');
-const bertThreshold = getArgValue('--bert-threshold') ? parseFloat(getArgValue('--bert-threshold')!) : 0.85;
-const groundedThreshold = getArgValue('--grounded-threshold') ? parseFloat(getArgValue('--grounded-threshold')!) : 0.7;
+const bertThreshold = getArgValue('--bert-threshold')
+  ? parseFloat(getArgValue('--bert-threshold')!)
+  : 0.85;
+const groundedThreshold = getArgValue('--grounded-threshold')
+  ? parseFloat(getArgValue('--grounded-threshold')!)
+  : 0.7;
 
 if (showHelp) {
   console.log(`
@@ -94,7 +98,8 @@ const { config: appConfig } = await import('../../src/config/index.js');
 const { ExtractionService } = await import('../../src/services/extraction.service.js');
 const { EmbeddingService } = await import('../../src/services/embedding.service.js');
 const { EXTRACTION_TEST_CASES, getDatasetStats } = await import('./extraction-quality-dataset.js');
-const { runBenchmark, printBenchmarkResults, compareBenchmarks } = await import('./extraction-quality-evaluator.js');
+const { runBenchmark, printBenchmarkResults, compareBenchmarks } =
+  await import('./extraction-quality-evaluator.js');
 import type { ExtractionBenchmarkResults } from './extraction-quality-types.js';
 import type { SemanticEvalConfig } from './extraction-quality-evaluator.js';
 
@@ -109,19 +114,23 @@ async function main() {
 
   // Get dataset stats
   const stats = getDatasetStats();
-  console.log(`Dataset: ${stats.totalTestCases} test cases, ${stats.totalExpectedEntries} expected entries`);
-  console.log(`By difficulty: easy=${stats.byDifficulty.easy}, medium=${stats.byDifficulty.medium}, hard=${stats.byDifficulty.hard}`);
+  console.log(
+    `Dataset: ${stats.totalTestCases} test cases, ${stats.totalExpectedEntries} expected entries`
+  );
+  console.log(
+    `By difficulty: easy=${stats.byDifficulty.easy}, medium=${stats.byDifficulty.medium}, hard=${stats.byDifficulty.hard}`
+  );
 
   // Filter test cases
   let testCases = [...EXTRACTION_TEST_CASES];
 
   if (category) {
-    testCases = testCases.filter(tc => tc.category === category);
+    testCases = testCases.filter((tc) => tc.category === category);
     console.log(`Filtering to category: ${category} (${testCases.length} cases)`);
   }
 
   if (difficulty) {
-    testCases = testCases.filter(tc => tc.difficulty === difficulty);
+    testCases = testCases.filter((tc) => tc.difficulty === difficulty);
     console.log(`Filtering to difficulty: ${difficulty} (${testCases.length} cases)`);
   }
 
@@ -150,7 +159,9 @@ async function main() {
   };
 
   console.log(`Provider: ${extractionConfig.provider}`);
-  console.log(`Model: ${extractionConfig[`${extractionConfig.provider}Model` as keyof typeof extractionConfig]}`);
+  console.log(
+    `Model: ${extractionConfig[`${extractionConfig.provider}Model` as keyof typeof extractionConfig]}`
+  );
   console.log(`Atomicity: ${appConfig.extraction.atomicityEnabled ? 'Enabled' : 'Disabled'}`);
   console.log(`Semantic Metrics: ${semanticEnabled ? 'Enabled' : 'Disabled'}`);
   if (semanticEnabled) {
@@ -189,7 +200,7 @@ async function main() {
     });
 
     return {
-      entries: result.entries.map(e => ({
+      entries: result.entries.map((e) => ({
         type: e.type,
         name: e.name,
         title: e.title,
@@ -210,14 +221,18 @@ async function main() {
     extractFn,
     {
       provider: extractionConfig.provider,
-      model: String(extractionConfig[`${extractionConfig.provider}Model` as keyof typeof extractionConfig]),
+      model: String(
+        extractionConfig[`${extractionConfig.provider}Model` as keyof typeof extractionConfig]
+      ),
       atomicityEnabled: appConfig.extraction.atomicityEnabled,
       semanticConfig,
     },
     (completed, total, current) => {
       const percent = Math.floor((completed / total) * 100);
       if (percent > lastPercent || completed === total) {
-        process.stdout.write(`\rProgress: ${percent}% (${completed}/${total}) - ${current.substring(0, 40).padEnd(40)}`);
+        process.stdout.write(
+          `\rProgress: ${percent}% (${completed}/${total}) - ${current.substring(0, 40).padEnd(40)}`
+        );
         lastPercent = percent;
       }
     }
@@ -233,8 +248,12 @@ async function main() {
     for (const tc of results.testCaseResults) {
       console.log(`[${tc.testCaseId}] ${tc.testCaseName}`);
       console.log(`  Category: ${tc.category}, Difficulty: ${tc.difficulty}`);
-      console.log(`  Expected: ${tc.expectedCount}, Extracted: ${tc.extractedCount}, Matched: ${tc.matchedCount}`);
-      console.log(`  Precision: ${(tc.precision * 100).toFixed(1)}%, Recall: ${(tc.recall * 100).toFixed(1)}%, F1: ${(tc.f1Score * 100).toFixed(1)}%`);
+      console.log(
+        `  Expected: ${tc.expectedCount}, Extracted: ${tc.extractedCount}, Matched: ${tc.matchedCount}`
+      );
+      console.log(
+        `  Precision: ${(tc.precision * 100).toFixed(1)}%, Recall: ${(tc.recall * 100).toFixed(1)}%, F1: ${(tc.f1Score * 100).toFixed(1)}%`
+      );
 
       if (tc.error) {
         console.log(`  ERROR: ${tc.error}`);
@@ -242,7 +261,9 @@ async function main() {
 
       for (const entry of tc.entryResults) {
         const status = entry.matched ? '✓' : '✗';
-        console.log(`  ${status} [${entry.expected.type}] ${entry.expected.mustContain.join(', ')}`);
+        console.log(
+          `  ${status} [${entry.expected.type}] ${entry.expected.mustContain.join(', ')}`
+        );
         console.log(`    ${entry.details}`);
       }
 
@@ -281,7 +302,7 @@ async function main() {
 // MAIN
 // =============================================================================
 
-main().catch(error => {
+main().catch((error) => {
   console.error('Benchmark failed:', error);
   process.exit(1);
 });

@@ -44,7 +44,8 @@ export interface LoRAExportConfig {
   /** Generate training script stub */
   generateScript?: boolean;
 
-  /** Additional metadata */
+  /** Additional metadata - flexible key-value pairs */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   metadata?: Record<string, any>;
 }
 
@@ -215,6 +216,8 @@ export interface TrainingExample {
     category?: string | null;
     priority?: number;
     tags?: string[];
+    // Index signature for flexible training data properties
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     [key: string]: any;
   };
 }
@@ -318,4 +321,72 @@ export interface GuidelineExportConfig {
 
   /** Random seed for reproducibility */
   seed?: number;
+}
+
+// =============================================================================
+// DATASET INFO & MANIFEST
+// =============================================================================
+
+/**
+ * Dataset split information
+ */
+export interface DatasetSplit {
+  /** Number of examples in this split */
+  num_examples: number;
+}
+
+/**
+ * Dataset information file structure
+ */
+export interface DatasetInfo {
+  /** Dataset name */
+  dataset_name?: string;
+
+  /** Format type */
+  format?: string;
+
+  /** Dataset description */
+  description?: string;
+
+  /** Dataset version */
+  version: string;
+
+  /** Feature definitions */
+  features?: Record<string, unknown>;
+
+  /** Split information (train/eval/test) */
+  splits: {
+    train: DatasetSplit;
+    eval: DatasetSplit;
+    test?: DatasetSplit;
+  };
+
+  /** Whether guidelines are included in examples */
+  includeGuidelines?: boolean;
+
+  /** Additional metadata */
+  [key: string]: unknown;
+}
+
+/**
+ * OpenAI manifest file structure
+ */
+export interface OpenAIManifest extends DatasetInfo {
+  /** OpenAI-specific purpose field */
+  purpose?: string;
+
+  /** Total number of examples */
+  totalExamples?: number;
+
+  /** Number of training examples */
+  trainExamples?: number;
+
+  /** Number of evaluation examples */
+  evalExamples?: number;
+
+  /** Estimated total tokens */
+  estimatedTokens?: number;
+
+  /** Creation timestamp */
+  createdAt?: string;
 }

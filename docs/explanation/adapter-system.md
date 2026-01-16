@@ -31,41 +31,49 @@ Agent Memory uses an adapter pattern to abstract persistence backends. This allo
 ### StorageAdapter
 
 Handles database operations:
+
 - Query execution
 - Transaction management
 - Connection pooling
 
 **Implementations:**
+
 - `SQLiteAdapter` - Default, single-node
 - `PostgreSQLAdapter` - Enterprise, distributed
 
 ### LockAdapter
 
 Handles distributed locking:
+
 - File locks for multi-agent coordination
 - Transaction locks
 
 **Implementations:**
+
 - `InMemoryLockAdapter` - Default, single-process
 - `RedisLockAdapter` - Distributed, multi-node
 
 ### CacheAdapter
 
 Handles query caching:
+
 - LRU cache management
 - Cache invalidation
 
 **Implementations:**
+
 - `InMemoryCacheAdapter` - Default, per-process
 - `RedisCacheAdapter` - Distributed, shared across nodes
 
 ### EventAdapter
 
 Handles cross-process events:
+
 - Cache invalidation broadcasts
 - Real-time updates
 
 **Implementations:**
+
 - `InMemoryEventAdapter` - Default, single-process
 - `RedisEventAdapter` - Pub/sub across nodes
 
@@ -117,6 +125,7 @@ AGENT_MEMORY_REDIS_PORT=6379
 ```
 
 This switches:
+
 - `LockAdapter` → `RedisLockAdapter`
 - `CacheAdapter` → `RedisCacheAdapter`
 - `EventAdapter` → `RedisEventAdapter`
@@ -135,14 +144,13 @@ const dbType = config.dbType; // 'sqlite' or 'postgresql'
 const redisEnabled = config.redis.enabled;
 
 // Select storage adapter
-const storageAdapter = dbType === 'postgresql'
-  ? new PostgreSQLAdapter(config.postgresql)
-  : new SQLiteAdapter(config.database);
+const storageAdapter =
+  dbType === 'postgresql'
+    ? new PostgreSQLAdapter(config.postgresql)
+    : new SQLiteAdapter(config.database);
 
 // Select distributed adapters
-const lockAdapter = redisEnabled
-  ? new RedisLockAdapter(config.redis)
-  : new InMemoryLockAdapter();
+const lockAdapter = redisEnabled ? new RedisLockAdapter(config.redis) : new InMemoryLockAdapter();
 ```
 
 ### Service Independence
@@ -171,6 +179,7 @@ class QueryService {
 To add a new backend (e.g., MySQL):
 
 1. **Implement the adapter interface:**
+
    ```typescript
    class MySQLAdapter implements StorageAdapter {
      query(sql: string, params: unknown[]): Promise<unknown[]>;
@@ -180,11 +189,14 @@ To add a new backend (e.g., MySQL):
    ```
 
 2. **Add configuration section:**
+
    ```typescript
    // src/config/registry/sections/mysql.ts
    export const mysqlSection = {
      name: 'mysql',
-     options: { /* ... */ }
+     options: {
+       /* ... */
+     },
    };
    ```
 
@@ -216,12 +228,12 @@ expect(testAdapter.queries).toContain('test');
 
 ## Benefits
 
-| Benefit | Description |
-|---------|-------------|
-| **Flexibility** | Swap backends without code changes |
-| **Testability** | Mock adapters for unit tests |
-| **Scalability** | Start with SQLite, scale to PostgreSQL |
-| **Isolation** | Business logic doesn't know about SQL dialects |
+| Benefit         | Description                                    |
+| --------------- | ---------------------------------------------- |
+| **Flexibility** | Swap backends without code changes             |
+| **Testability** | Mock adapters for unit tests                   |
+| **Scalability** | Start with SQLite, scale to PostgreSQL         |
+| **Isolation**   | Business logic doesn't know about SQL dialects |
 
 ---
 

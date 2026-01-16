@@ -21,6 +21,7 @@ npm run validate
 ```
 
 This runs:
+
 - TypeScript type checking
 - ESLint
 - Prettier formatting
@@ -60,6 +61,7 @@ See [Testing Guide](testing.md) for test patterns.
 ## Documentation
 
 When adding features:
+
 - Update relevant docs in `docs/`
 - Follow [Documentation Guidelines](documentation.md) for style and structure
 - Run `npm run docs:generate:env` if adding env vars

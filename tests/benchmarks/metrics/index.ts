@@ -37,11 +37,7 @@ export {
 } from './rouge.js';
 
 // BERTScore
-export {
-  BERTScoreEvaluator,
-  splitIntoSentences,
-  aggregateBERTScores,
-} from './bert-score.js';
+export { BERTScoreEvaluator, splitIntoSentences, aggregateBERTScores } from './bert-score.js';
 
 // Groundedness
 export {

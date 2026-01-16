@@ -90,9 +90,7 @@ describe('RL Handler', () => {
         services: {} as any,
       };
 
-      await expect(rlHandlers.status(noRlContext, {})).rejects.toThrow(
-        /RL service not available/i
-      );
+      await expect(rlHandlers.status(noRlContext, {})).rejects.toThrow(/RL service not available/i);
     });
   });
 
@@ -228,9 +226,7 @@ describe('RL Handler', () => {
     });
 
     it('should throw on invalid policy', async () => {
-      await expect(
-        rlHandlers.train(mockContext, { policy: 'invalid' })
-      ).rejects.toThrow('policy');
+      await expect(rlHandlers.train(mockContext, { policy: 'invalid' })).rejects.toThrow('policy');
     });
   });
 
@@ -290,15 +286,15 @@ describe('RL Handler', () => {
         services: {} as any,
       };
 
-      await expect(
-        rlHandlers.evaluate(noRlContext, { policy: 'extraction' })
-      ).rejects.toThrow(/RL service not available/i);
+      await expect(rlHandlers.evaluate(noRlContext, { policy: 'extraction' })).rejects.toThrow(
+        /RL service not available/i
+      );
     });
 
     it('should throw on invalid policy', async () => {
-      await expect(
-        rlHandlers.evaluate(mockContext, { policy: 'invalid' })
-      ).rejects.toThrow('policy');
+      await expect(rlHandlers.evaluate(mockContext, { policy: 'invalid' })).rejects.toThrow(
+        'policy'
+      );
     });
   });
 
@@ -544,9 +540,7 @@ describe('RL Handler', () => {
 
     it('should evaluate using dataset from file', async () => {
       const { readFileSync } = await import('node:fs');
-      vi.mocked(readFileSync).mockReturnValue(
-        '{"state":{},"action":{},"reward":1}' as any
-      );
+      vi.mocked(readFileSync).mockReturnValue('{"state":{},"action":{},"reward":1}' as any);
       vi.mocked(training.evaluatePolicy).mockResolvedValue({} as any);
 
       const result = await rlHandlers.evaluate(mockContext, {
@@ -593,9 +587,9 @@ describe('RL Handler', () => {
       vi.mocked(readdirSync).mockReturnValue(['file.txt'] as any);
       vi.mocked(statSync).mockReturnValue({ isDirectory: () => false } as any);
 
-      await expect(
-        rlHandlers.load_model(mockContext, { policy: 'extraction' })
-      ).rejects.toThrow('No trained models');
+      await expect(rlHandlers.load_model(mockContext, { policy: 'extraction' })).rejects.toThrow(
+        'No trained models'
+      );
     });
 
     it('should throw when RL service not available', async () => {
@@ -609,9 +603,9 @@ describe('RL Handler', () => {
         services: {} as any,
       };
 
-      await expect(
-        rlHandlers.load_model(noRlContext, { policy: 'extraction' })
-      ).rejects.toThrow(/RL service not available/i);
+      await expect(rlHandlers.load_model(noRlContext, { policy: 'extraction' })).rejects.toThrow(
+        /RL service not available/i
+      );
     });
   });
 
@@ -624,11 +618,13 @@ describe('RL Handler', () => {
       });
       vi.mocked(readdirSync).mockReturnValue(['v1', 'v2'] as any);
       vi.mocked(statSync).mockReturnValue({ isDirectory: () => true } as any);
-      vi.mocked(readFileSync).mockReturnValue(JSON.stringify({
-        createdAt: '2024-01-01T00:00:00Z',
-        trainPairs: 100,
-        evalPairs: 20,
-      }));
+      vi.mocked(readFileSync).mockReturnValue(
+        JSON.stringify({
+          createdAt: '2024-01-01T00:00:00Z',
+          trainPairs: 100,
+          evalPairs: 20,
+        })
+      );
 
       const result = await rlHandlers.list_models(mockContext, {});
 

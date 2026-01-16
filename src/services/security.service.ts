@@ -4,6 +4,7 @@ import { securityLogger } from '../utils/security-logger.js';
 import type { Config } from '../config/index.js';
 import type { IRateLimiterAdapter } from '../core/adapters/interfaces.js';
 import { createLocalRateLimiterAdapter } from '../core/adapters/local-rate-limiter.adapter.js';
+import { getUnifiedApiKey, isDevMode } from '../config/auth.js';
 
 const logger = createComponentLogger('security');
 
@@ -176,13 +177,17 @@ export class SecurityService {
 
     try {
       // Try JSON first
+      // JSON.parse returns unknown - validate structure before use
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
         return parsed.filter(
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           (item) => item && typeof item.key === 'string' && typeof item.agentId === 'string'
         ) as AuthMapping[];
       }
       if (typeof parsed === 'object' && parsed !== null) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
         return Object.entries(parsed)
           .map(([key, agentId]) => ({
             key,
@@ -234,6 +239,12 @@ export class SecurityService {
       return this.restAgentId;
     }
 
+    // 3. Check unified API key (new simplified config)
+    const unifiedKey = getUnifiedApiKey();
+    if (unifiedKey && safeEqual(token, unifiedKey)) {
+      return this.restAgentId;
+    }
+
     return null;
   }
 
@@ -249,6 +260,27 @@ export class SecurityService {
     args?: Record<string, unknown>;
     skipAuth?: boolean;
   }): Promise<SecurityResult> {
+    // DEV MODE: Bypass all authentication
+    if (isDevMode()) {
+      logger.debug('Dev mode enabled - bypassing authentication');
+      // Still do rate limiting even in dev mode
+      const limitResult = await this.checkRateLimits('dev-mode-agent');
+      return {
+        authorized: true,
+        context: { agentId: 'dev-mode-agent' },
+        rateLimitInfo:
+          limitResult.limit !== undefined &&
+          limitResult.remaining !== undefined &&
+          limitResult.reset !== undefined
+            ? {
+                limit: limitResult.limit,
+                remaining: limitResult.remaining,
+                reset: limitResult.reset,
+              }
+            : undefined,
+      };
+    }
+
     // 1. Resolve Identity
     let agentId: string | undefined;
     let tokenProvided = false;
@@ -367,9 +399,15 @@ export class SecurityService {
   }
 
   isAuthConfigured(): boolean {
+    // In dev mode, auth is effectively "configured" (bypassed)
+    if (isDevMode()) {
+      return true;
+    }
+
     return Boolean(
       (this.restApiKeys && this.restApiKeys.length > 0) ||
-      (this.restApiKey && this.restApiKey.length > 0)
+        (this.restApiKey && this.restApiKey.length > 0) ||
+        getUnifiedApiKey()
     );
   }
 

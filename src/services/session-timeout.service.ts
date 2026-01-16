@@ -133,7 +133,10 @@ export class SessionTimeoutService implements ISessionTimeoutService {
     }
 
     if (endedCount > 0) {
-      logger.info({ endedCount, totalTracked: this.activityMap.size }, 'Session timeout check complete');
+      logger.info(
+        { endedCount, totalTracked: this.activityMap.size },
+        'Session timeout check complete'
+      );
     }
 
     return endedCount;

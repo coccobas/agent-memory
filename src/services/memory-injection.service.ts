@@ -148,23 +148,26 @@ function extractContextFromToolParams(
 ): string {
   switch (toolName) {
     case 'Edit':
-    case 'Write':
+    case 'Write': {
       // Extract file path and content hints
-      const filePath = params.file_path || params.filePath || '';
+      const filePath = String(params.file_path || params.filePath || '');
       const content = params.content || params.new_string || '';
       return `${filePath} ${typeof content === 'string' ? content.slice(0, 200) : ''}`;
+    }
 
-    case 'Bash':
+    case 'Bash': {
       // Extract command
       const command = params.command || '';
       return typeof command === 'string' ? command : '';
+    }
 
     case 'Read':
     case 'Glob':
-    case 'Grep':
+    case 'Grep': {
       // Extract path/pattern
       const path = params.file_path || params.path || params.pattern || '';
       return typeof path === 'string' ? path : '';
+    }
 
     default:
       // Generic extraction
@@ -234,7 +237,9 @@ function formatAsMarkdown(entries: InjectedMemoryEntry[]): string {
   for (const [type, typeEntries] of byType) {
     sections.push(`### ${typeLabels[type] || type}\n`);
     for (const entry of typeEntries) {
-      sections.push(`- **${entry.title}**: ${entry.content.slice(0, 200)}${entry.content.length > 200 ? '...' : ''}\n`);
+      sections.push(
+        `- **${entry.title}**: ${entry.content.slice(0, 200)}${entry.content.length > 200 ? '...' : ''}\n`
+      );
     }
   }
 
@@ -343,10 +348,7 @@ export class MemoryInjectionService {
     const startTime = Date.now();
 
     // Check if injection is enabled for this tool
-    if (
-      !this.config.enabled ||
-      !this.config.injectableTools.includes(request.toolName)
-    ) {
+    if (!this.config.enabled || !this.config.injectableTools.includes(request.toolName)) {
       return {
         success: true,
         injectedContext: '',
@@ -364,9 +366,7 @@ export class MemoryInjectionService {
         : '';
 
       // Combine with conversation context
-      const fullContext = [request.conversationContext, toolContext]
-        .filter(Boolean)
-        .join(' ');
+      const fullContext = [request.conversationContext, toolContext].filter(Boolean).join(' ');
 
       // Classify intent
       const classification = this.classifier.classify(fullContext || request.toolName);
@@ -485,20 +485,35 @@ export class MemoryInjectionService {
 
       try {
         if (type === 'guideline') {
-          const guidelineEntries = await this.queryGuidelines(scopeConditions, extractedEntities, limit);
+          const guidelineEntries = await this.queryGuidelines(
+            scopeConditions,
+            extractedEntities,
+            limit
+          );
           entries.push(...guidelineEntries);
         } else if (type === 'knowledge') {
-          const knowledgeEntries = await this.queryKnowledge(scopeConditions, extractedEntities, limit);
+          const knowledgeEntries = await this.queryKnowledge(
+            scopeConditions,
+            extractedEntities,
+            limit
+          );
           entries.push(...knowledgeEntries);
         } else if (type === 'tool') {
           const toolEntries = await this.queryTools(scopeConditions, extractedEntities, limit);
           entries.push(...toolEntries);
         } else if (type === 'experience') {
-          const experienceEntries = await this.queryExperiences(scopeConditions, extractedEntities, limit);
+          const experienceEntries = await this.queryExperiences(
+            scopeConditions,
+            extractedEntities,
+            limit
+          );
           entries.push(...experienceEntries);
         }
       } catch (error) {
-        logger.warn({ type, error: error instanceof Error ? error.message : String(error) }, 'Failed to query entries');
+        logger.warn(
+          { type, error: error instanceof Error ? error.message : String(error) },
+          'Failed to query entries'
+        );
       }
 
       // Stop if we have enough entries
@@ -530,9 +545,7 @@ export class MemoryInjectionService {
     extractedEntities: Array<{ normalizedValue: string }>,
     limit: number
   ): Promise<InjectedMemoryEntry[]> {
-    const whereClause = scopeConditions.length > 1
-      ? or(...scopeConditions)
-      : scopeConditions[0];
+    const whereClause = scopeConditions.length > 1 ? or(...scopeConditions) : scopeConditions[0];
 
     const rows = this._db
       .select({
@@ -567,9 +580,7 @@ export class MemoryInjectionService {
     extractedEntities: Array<{ normalizedValue: string }>,
     limit: number
   ): Promise<InjectedMemoryEntry[]> {
-    const whereClause = scopeConditions.length > 1
-      ? or(...scopeConditions)
-      : scopeConditions[0];
+    const whereClause = scopeConditions.length > 1 ? or(...scopeConditions) : scopeConditions[0];
 
     const rows = this._db
       .select({
@@ -602,9 +613,7 @@ export class MemoryInjectionService {
     extractedEntities: Array<{ normalizedValue: string }>,
     limit: number
   ): Promise<InjectedMemoryEntry[]> {
-    const whereClause = scopeConditions.length > 1
-      ? or(...scopeConditions)
-      : scopeConditions[0];
+    const whereClause = scopeConditions.length > 1 ? or(...scopeConditions) : scopeConditions[0];
 
     const rows = this._db
       .select({
@@ -636,9 +645,7 @@ export class MemoryInjectionService {
     extractedEntities: Array<{ normalizedValue: string }>,
     limit: number
   ): Promise<InjectedMemoryEntry[]> {
-    const whereClause = scopeConditions.length > 1
-      ? or(...scopeConditions)
-      : scopeConditions[0];
+    const whereClause = scopeConditions.length > 1 ? or(...scopeConditions) : scopeConditions[0];
 
     const rows = this._db
       .select({
@@ -683,7 +690,7 @@ export class MemoryInjectionService {
     }
 
     // Score from 0.3 (no matches) to 1.0 (all entities match)
-    return 0.3 + (0.7 * (matchCount / extractedEntities.length));
+    return 0.3 + 0.7 * (matchCount / extractedEntities.length);
   }
 
   /**
@@ -691,8 +698,7 @@ export class MemoryInjectionService {
    */
   shouldInject(toolName: string): boolean {
     return (
-      this.config.enabled &&
-      this.config.injectableTools.includes(toolName as InjectableToolType)
+      this.config.enabled && this.config.injectableTools.includes(toolName as InjectableToolType)
     );
   }
 

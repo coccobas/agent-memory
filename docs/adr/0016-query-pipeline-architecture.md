@@ -9,6 +9,7 @@ Accepted
 Memory retrieval requires multiple processing steps: scope resolution, query expansion, full-text search, semantic search, filtering, scoring, and re-ranking. These operations have complex interdependencies and need to be configurable per-query. A monolithic query function would be difficult to test, maintain, and extend.
 
 We needed an architecture that:
+
 - Allows stages to be enabled/disabled independently
 - Supports both sync and async execution paths
 - Makes each stage independently testable
@@ -44,27 +45,28 @@ Query → [Resolve] → [Rewrite] → [Strategy] → [Semantic] → [FTS] → [R
 
 ### Stage Inventory
 
-| Stage | Purpose | Sync | Async |
-|-------|---------|------|-------|
-| resolve | Resolve scope chain | Yes | Yes |
-| rewrite | HyDE + query expansion | No | Yes |
-| strategy | Select search strategy | No | Yes |
-| semantic | Vector similarity search | No | Yes |
-| fts | Full-text search (FTS5) | Yes | Yes |
-| relations | Graph traversal | Yes | Yes |
-| fetch | Batch load entries | Yes | Yes |
-| hierarchical | Coarse-to-fine retrieval | No | Yes |
-| filter | Apply query filters | Yes | Yes |
-| tags | Tag-based filtering | Yes | Yes |
-| feedback | Apply feedback scores | Yes | Yes |
-| score | Multi-factor ranking | Yes | Yes |
-| rerank | Neural re-ranking | No | Yes |
-| cross-encoder | LLM-based re-ranking | No | Yes |
-| format | Shape output | Yes | Yes |
+| Stage         | Purpose                  | Sync | Async |
+| ------------- | ------------------------ | ---- | ----- |
+| resolve       | Resolve scope chain      | Yes  | Yes   |
+| rewrite       | HyDE + query expansion   | No   | Yes   |
+| strategy      | Select search strategy   | No   | Yes   |
+| semantic      | Vector similarity search | No   | Yes   |
+| fts           | Full-text search (FTS5)  | Yes  | Yes   |
+| relations     | Graph traversal          | Yes  | Yes   |
+| fetch         | Batch load entries       | Yes  | Yes   |
+| hierarchical  | Coarse-to-fine retrieval | No   | Yes   |
+| filter        | Apply query filters      | Yes  | Yes   |
+| tags          | Tag-based filtering      | Yes  | Yes   |
+| feedback      | Apply feedback scores    | Yes  | Yes   |
+| score         | Multi-factor ranking     | Yes  | Yes   |
+| rerank        | Neural re-ranking        | No   | Yes   |
+| cross-encoder | LLM-based re-ranking     | No   | Yes   |
+| format        | Shape output             | Yes  | Yes   |
 
 ### Two-Phase Scoring
 
 The score stage uses two-phase scoring for efficiency:
+
 1. **Light scoring**: Fast score for all candidates
 2. **Full scoring**: Detailed score for top 1.5x limit candidates
 
@@ -73,6 +75,7 @@ This avoids expensive scoring on candidates that won't make the cut.
 ## Consequences
 
 **Positive:**
+
 - Each stage is independently testable with mock contexts
 - New stages can be added without modifying existing code
 - Performance-sensitive queries can skip expensive stages (async-only)
@@ -80,6 +83,7 @@ This avoids expensive scoring on candidates that won't make the cut.
 - Stage timing enables performance profiling
 
 **Negative:**
+
 - Context object can grow large with intermediate results
 - Stage ordering is implicit (must maintain correct sequence)
 - Some stages have hidden dependencies (e.g., fetch requires candidate IDs from FTS/semantic)

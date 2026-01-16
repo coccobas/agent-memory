@@ -10,24 +10,24 @@
 
 All components have been implemented and are ready for use:
 
-| Component | Status | Files |
-|-----------|--------|-------|
-| Feedback Schema | ✅ Complete | `src/db/migrations/0018_add_rl_feedback.sql`, `src/db/schema/feedback.ts` |
-| Feedback Service | ✅ Complete | `src/services/feedback/` (11 files) |
-| Query Pipeline Integration | ✅ Complete | `src/services/query/index.ts` |
-| Session Outcome Recording | ✅ Complete | `src/mcp/handlers/scopes.handler.ts` |
-| RL Config Section | ✅ Complete | `src/config/registry/sections/rl.ts` |
-| Base Policy Interface | ✅ Complete | `src/services/rl/policies/base.policy.ts` |
-| Extraction Policy | ✅ Complete | `src/services/rl/policies/extraction.policy.ts` |
-| Retrieval Policy | ✅ Complete | `src/services/rl/policies/retrieval.policy.ts` |
-| Consolidation Policy | ✅ Complete | `src/services/rl/policies/consolidation.policy.ts` |
-| State Builders | ✅ Complete | `src/services/rl/state/` (3 files) |
-| Reward Calculators | ✅ Complete | `src/services/rl/rewards/` (3 files) |
-| Training Infrastructure | ✅ Complete | `src/services/rl/training/` (4 files) |
-| Capture Service Integration | ✅ Complete | `src/services/capture/index.ts` |
-| Librarian Integration | ✅ Complete | `src/services/librarian/index.ts` |
-| MCP Handlers | ✅ Complete | `src/mcp/handlers/feedback.handler.ts`, `src/mcp/handlers/rl.handler.ts` |
-| CLI Commands | ✅ Complete | `src/cli/commands/rl.ts` |
+| Component                   | Status      | Files                                                                     |
+| --------------------------- | ----------- | ------------------------------------------------------------------------- |
+| Feedback Schema             | ✅ Complete | `src/db/migrations/0018_add_rl_feedback.sql`, `src/db/schema/feedback.ts` |
+| Feedback Service            | ✅ Complete | `src/services/feedback/` (11 files)                                       |
+| Query Pipeline Integration  | ✅ Complete | `src/services/query/index.ts`                                             |
+| Session Outcome Recording   | ✅ Complete | `src/mcp/handlers/scopes.handler.ts`                                      |
+| RL Config Section           | ✅ Complete | `src/config/registry/sections/rl.ts`                                      |
+| Base Policy Interface       | ✅ Complete | `src/services/rl/policies/base.policy.ts`                                 |
+| Extraction Policy           | ✅ Complete | `src/services/rl/policies/extraction.policy.ts`                           |
+| Retrieval Policy            | ✅ Complete | `src/services/rl/policies/retrieval.policy.ts`                            |
+| Consolidation Policy        | ✅ Complete | `src/services/rl/policies/consolidation.policy.ts`                        |
+| State Builders              | ✅ Complete | `src/services/rl/state/` (3 files)                                        |
+| Reward Calculators          | ✅ Complete | `src/services/rl/rewards/` (3 files)                                      |
+| Training Infrastructure     | ✅ Complete | `src/services/rl/training/` (4 files)                                     |
+| Capture Service Integration | ✅ Complete | `src/services/capture/index.ts`                                           |
+| Librarian Integration       | ✅ Complete | `src/services/librarian/index.ts`                                         |
+| MCP Handlers                | ✅ Complete | `src/mcp/handlers/feedback.handler.ts`, `src/mcp/handlers/rl.handler.ts`  |
+| CLI Commands                | ✅ Complete | `src/cli/commands/rl.ts`                                                  |
 
 ### Quick Start
 
@@ -61,6 +61,7 @@ export AGENT_MEMORY_RL_EXTRACTION_ENABLED=false
 ## Executive Summary
 
 This plan implements three RL-optimized policies for memory operations:
+
 1. **Extraction Policy** - What to store
 2. **Retrieval Policy** - When to retrieve
 3. **Consolidation Policy** - How to consolidate
@@ -255,7 +256,10 @@ interface IFeedbackService {
 
   // Consolidation tracking
   recordConsolidationDecision(params: ConsolidationDecisionParams): Promise<string>;
-  evaluateConsolidationOutcome(decisionId: string, windowDays: number): Promise<ConsolidationOutcomeResult>;
+  evaluateConsolidationOutcome(
+    decisionId: string,
+    windowDays: number
+  ): Promise<ConsolidationOutcomeResult>;
 
   // Training data export
   exportTrainingData(params: ExportParams): Promise<TrainingDataset>;
@@ -265,6 +269,7 @@ interface IFeedbackService {
 ### 1.3 Integration Points
 
 **Query Pipeline Integration** (`src/services/query/pipeline.ts`):
+
 ```typescript
 // After Stage 8 (FORMAT), add feedback recording
 async function executePipeline(params: QueryParams): Promise<QueryResult> {
@@ -279,7 +284,7 @@ async function executePipeline(params: QueryParams): Promise<QueryResult> {
         entryType: r.type,
         entryId: r.id,
         retrievalRank: idx + 1,
-        retrievalScore: r.score
+        retrievalScore: r.score,
       }))
     );
   }
@@ -289,6 +294,7 @@ async function executePipeline(params: QueryParams): Promise<QueryResult> {
 ```
 
 **Capture Service Integration** (`src/services/capture/index.ts`):
+
 ```typescript
 // Record extraction decisions
 async onTurnComplete(sessionId: string, turn: TurnInfo): Promise<CaptureResult> {
@@ -311,6 +317,7 @@ async onTurnComplete(sessionId: string, turn: TurnInfo): Promise<CaptureResult> 
 ```
 
 **Session End Hook** (`src/mcp/handlers/scopes.handler.ts`):
+
 ```typescript
 // Infer outcome from session end state
 async handleSessionEnd(sessionId: string, status: string): Promise<void> {
@@ -333,15 +340,16 @@ async handleSessionEnd(sessionId: string, status: string): Promise<void> {
 
 Multiple signals for determining task success:
 
-| Signal | Confidence | Detection Method |
-|--------|------------|------------------|
-| Explicit user feedback | 1.0 | User says "that worked" / "that's wrong" |
-| Session status | 0.7 | `completed` vs `discarded` |
-| Error absence | 0.6 | No tool errors in subsequent turns |
-| Follow-up queries | 0.5 | User asks related questions (partial success) |
-| Retry patterns | 0.3 | User retries same task (failure signal) |
+| Signal                 | Confidence | Detection Method                              |
+| ---------------------- | ---------- | --------------------------------------------- |
+| Explicit user feedback | 1.0        | User says "that worked" / "that's wrong"      |
+| Session status         | 0.7        | `completed` vs `discarded`                    |
+| Error absence          | 0.6        | No tool errors in subsequent turns            |
+| Follow-up queries      | 0.5        | User asks related questions (partial success) |
+| Retry patterns         | 0.3        | User retries same task (failure signal)       |
 
 **LLM-based outcome inference** (optional, high accuracy):
+
 ```typescript
 async function inferOutcomeFromTranscript(
   transcript: Message[],
@@ -400,30 +408,30 @@ async function inferOutcomeFromTranscript(
 ```typescript
 interface ExtractionState {
   // Context features
-  contextEmbedding: number[];        // Embedding of conversation context
+  contextEmbedding: number[]; // Embedding of conversation context
   turnFeatures: {
     turnNumber: number;
     tokenCount: number;
     toolCallCount: number;
     hasError: boolean;
-    topicShift: number;              // Cosine distance from previous turn
+    topicShift: number; // Cosine distance from previous turn
   };
 
   // Memory state features
   memoryState: {
     totalEntries: number;
-    recentExtractions: number;       // Extractions in last N turns
-    similarEntryExists: boolean;     // Embedding similarity > 0.9
-    scopeCapacity: number;           // Entries / max capacity
+    recentExtractions: number; // Extractions in last N turns
+    similarEntryExists: boolean; // Embedding similarity > 0.9
+    scopeCapacity: number; // Entries / max capacity
   };
 
   // Content features
   contentFeatures: {
-    hasDecision: boolean;            // Contains "we decided", "let's use"
-    hasRule: boolean;                // Contains "always", "never", "must"
-    hasFact: boolean;                // Contains factual statements
-    hasCommand: boolean;             // Contains CLI/tool invocations
-    noveltyScore: number;            // 1 - max similarity to existing
+    hasDecision: boolean; // Contains "we decided", "let's use"
+    hasRule: boolean; // Contains "always", "never", "must"
+    hasFact: boolean; // Contains factual statements
+    hasCommand: boolean; // Contains CLI/tool invocations
+    noveltyScore: number; // 1 - max similarity to existing
   };
 }
 ```
@@ -461,12 +469,12 @@ function computeExtractionReward(
 }
 
 const DEFAULT_REWARD_CONFIG = {
-  retrievalValue: 0.1,        // Per retrieval
-  successBonus: 0.5,          // Per successful use
-  storageCostPerEntry: 0.05,  // Fixed cost
-  redundancyPenalty: 0.3,     // If duplicate
+  retrievalValue: 0.1, // Per retrieval
+  successBonus: 0.5, // Per successful use
+  storageCostPerEntry: 0.05, // Fixed cost
+  redundancyPenalty: 0.3, // If duplicate
   missedOpportunityCost: 0.2, // Skipped useful content
-  deferralCost: 0.01          // Per deferral
+  deferralCost: 0.01, // Per deferral
 };
 ```
 
@@ -485,10 +493,10 @@ src/services/rl/extraction/
 ```typescript
 interface TrainingExample {
   state: ExtractionState;
-  chosenAction: ExtractionAction;      // What we did
-  rejectedAction: ExtractionAction;    // Alternative
-  chosenReward: number;                // Observed reward
-  rejectedReward: number;              // Counterfactual (estimated)
+  chosenAction: ExtractionAction; // What we did
+  rejectedAction: ExtractionAction; // Alternative
+  chosenReward: number; // Observed reward
+  rejectedReward: number; // Counterfactual (estimated)
 }
 
 async function trainExtractionPolicy(
@@ -496,17 +504,17 @@ async function trainExtractionPolicy(
   baseModel: string
 ): Promise<TrainedPolicy> {
   // 1. Format as DPO pairs
-  const dpoPairs = dataset.map(ex => ({
+  const dpoPairs = dataset.map((ex) => ({
     prompt: formatStateAsPrompt(ex.state),
     chosen: formatActionAsResponse(ex.chosenAction),
-    rejected: formatActionAsResponse(ex.rejectedAction)
+    rejected: formatActionAsResponse(ex.rejectedAction),
   }));
 
   // 2. Fine-tune with DPO loss
   const trainedModel = await dpoTrain(baseModel, dpoPairs, {
     learningRate: 1e-6,
     epochs: 3,
-    beta: 0.1  // KL penalty
+    beta: 0.1, // KL penalty
   });
 
   return new TrainedPolicy(trainedModel);
@@ -534,7 +542,7 @@ class CaptureService {
       decision: action.decision,
       entryType: action.entryType,
       confidence: action.confidence,
-      contextHash: hashState(state)
+      contextHash: hashState(state),
     });
 
     if (action.decision === 'store') {
@@ -589,7 +597,7 @@ interface RetrievalState {
     queryLength: number;
     hasQuestionMark: boolean;
     taskType: 'code' | 'debug' | 'explain' | 'create' | 'other';
-    complexity: number;            // Estimated from query
+    complexity: number; // Estimated from query
   };
 
   // Context features
@@ -597,13 +605,13 @@ interface RetrievalState {
     conversationLength: number;
     recentToolCalls: string[];
     hasRecentError: boolean;
-    topicContinuity: number;       // Same topic as previous turns
+    topicContinuity: number; // Same topic as previous turns
   };
 
   // Memory statistics
   memoryStats: {
     totalEntriesInScope: number;
-    relevantEntriesEstimate: number;  // From lightweight search
+    relevantEntriesEstimate: number; // From lightweight search
     lastRetrievalTurnsAgo: number;
     lastRetrievalWasUseful: boolean | null;
   };
@@ -622,7 +630,7 @@ interface RetrievalState {
 function computeRetrievalReward(
   action: RetrievalAction,
   outcome: TaskOutcome,
-  baseline: TaskOutcome,  // Counterfactual without retrieval
+  baseline: TaskOutcome, // Counterfactual without retrieval
   latencyMs: number,
   config: RewardConfig
 ): number {
@@ -640,9 +648,7 @@ function computeRetrievalReward(
     }
     // Penalty for incorrectly skipping
     // (retrieval would have helped)
-    return baseline.successScore > outcome.successScore
-      ? -config.missedRetrievalPenalty
-      : 0;
+    return baseline.successScore > outcome.successScore ? -config.missedRetrievalPenalty : 0;
   }
 }
 
@@ -651,7 +657,7 @@ const DEFAULT_RETRIEVAL_REWARD_CONFIG = {
   tokenCost: 0.0001,
   successThreshold: 0.8,
   skipBonus: 0.05,
-  missedRetrievalPenalty: 0.3
+  missedRetrievalPenalty: 0.3,
 };
 ```
 
@@ -680,7 +686,7 @@ class NearestNeighborEstimator implements CounterfactualEstimator {
   ): Promise<OutcomeDistribution> {
     // Find similar states where retrieval was used
     const similar = await this.findSimilarStates(state, historicalData, {
-      filter: { wasRetrievalUsed: true }
+      filter: { wasRetrievalUsed: true },
     });
 
     // Aggregate outcomes
@@ -708,7 +714,7 @@ async function shouldQueryMemory(
     sessionId: context.sessionId,
     decision: decision.shouldRetrieve,
     scope: decision.retrievalScope,
-    types: decision.retrievalTypes
+    types: decision.retrievalTypes,
   });
 
   return decision;
@@ -756,8 +762,8 @@ interface ConsolidationState {
     entryCount: number;
     avgSimilarity: number;
     maxSimilarity: number;
-    entryTypes: string[];          // Types in group
-    ageSpreadDays: number;         // Oldest - newest
+    entryTypes: string[]; // Types in group
+    ageSpreadDays: number; // Oldest - newest
     totalTokens: number;
   };
 
@@ -766,22 +772,22 @@ interface ConsolidationState {
     avgRetrievalCount: number;
     avgSuccessRate: number;
     lastUsedDaysAgo: number;
-    usageVariance: number;         // Some used a lot, others not
+    usageVariance: number; // Some used a lot, others not
   };
 
   // Scope statistics
   scopeStats: {
     totalEntries: number;
-    capacityUsed: number;          // Percentage
-    duplicateRatio: number;        // Estimated duplicates
-    staleRatio: number;            // Entries not used in N days
+    capacityUsed: number; // Percentage
+    duplicateRatio: number; // Estimated duplicates
+    staleRatio: number; // Entries not used in N days
   };
 
   // Content analysis
   contentAnalysis: {
-    informationOverlap: number;    // Redundant information
-    contradictions: boolean;       // Conflicting facts
-    hierarchyPotential: number;    // Can be abstracted
+    informationOverlap: number; // Redundant information
+    contradictions: boolean; // Conflicting facts
+    hierarchyPotential: number; // Can be abstracted
   };
 }
 ```
@@ -805,7 +811,8 @@ function computeConsolidationReward(
   const informationLoss = estimateInformationLoss(action, preMetrics, postMetrics);
 
   // Query latency improvement
-  const latencyImprovement = (preMetrics.avgQueryLatency - postMetrics.avgQueryLatency) * config.latencyValue;
+  const latencyImprovement =
+    (preMetrics.avgQueryLatency - postMetrics.avgQueryLatency) * config.latencyValue;
 
   return (
     retrievalDelta * config.retrievalWeight +
@@ -821,7 +828,7 @@ const DEFAULT_CONSOLIDATION_REWARD_CONFIG = {
   informationWeight: 0.3,
   latencyWeight: 0.1,
   storageValue: 0.01,
-  latencyValue: 0.05
+  latencyValue: 0.05,
 };
 ```
 
@@ -849,13 +856,13 @@ class ConsolidationPolicyStage implements PipelineStage {
         scopeId: context.scopeId,
         action: action.action,
         sourceEntryIds: group.entryIds,
-        similarityScore: group.similarity
+        similarityScore: group.similarity,
       });
 
       decisions.push({
         group,
         action,
-        state
+        state,
       });
     }
 
@@ -929,7 +936,7 @@ interface RLToolActions {
   };
 
   // Status
-  status: {};  // Get training status, deployed versions
+  status: {}; // Get training status, deployed versions
 }
 ```
 
@@ -939,7 +946,7 @@ interface RLToolActions {
 // src/config/registry/sections/rl.ts
 
 interface RLConfig {
-  enabled: boolean;              // Master kill switch
+  enabled: boolean; // Master kill switch
 
   feedback: {
     enabled: boolean;
@@ -949,55 +956,55 @@ interface RLConfig {
   };
 
   extraction: {
-    enabled: boolean;            // Toggle learned vs threshold
+    enabled: boolean; // Toggle learned vs threshold
     modelPath?: string;
   };
 
   retrieval: {
-    enabled: boolean;            // Toggle learned vs always-retrieve
+    enabled: boolean; // Toggle learned vs always-retrieve
     modelPath?: string;
   };
 
   consolidation: {
-    enabled: boolean;            // Toggle learned vs threshold
+    enabled: boolean; // Toggle learned vs threshold
     modelPath?: string;
   };
 
   training: {
-    schedule: string;           // Cron expression
+    schedule: string; // Cron expression
     minExamplesRequired: number;
-    evaluationSplit: number;    // Train/eval split
+    evaluationSplit: number; // Train/eval split
     modelStoragePath: string;
   };
 }
 
 const DEFAULT_RL_CONFIG: RLConfig = {
-  enabled: true,               // On by default once deployed
+  enabled: true, // On by default once deployed
 
   feedback: {
-    enabled: true,             // Always collect feedback
+    enabled: true, // Always collect feedback
     outcomeInference: 'rule_based',
-    attributionMethod: 'linear'
+    attributionMethod: 'linear',
   },
 
   extraction: {
-    enabled: true              // Use learned policy
+    enabled: true, // Use learned policy
   },
 
   retrieval: {
-    enabled: true              // Use learned policy
+    enabled: true, // Use learned policy
   },
 
   consolidation: {
-    enabled: true              // Use learned policy
+    enabled: true, // Use learned policy
   },
 
   training: {
-    schedule: '0 3 * * 0',     // Weekly at 3am Sunday
+    schedule: '0 3 * * 0', // Weekly at 3am Sunday
     minExamplesRequired: 1000,
     evaluationSplit: 0.2,
-    modelStoragePath: './models/rl'
-  }
+    modelStoragePath: './models/rl',
+  },
 };
 
 // To disable RL entirely, set:
@@ -1011,64 +1018,65 @@ const DEFAULT_RL_CONFIG: RLConfig = {
 
 ### Phase 1: Feedback Foundation (4-6 weeks)
 
-| Task | Subagent | Files |
-|------|----------|-------|
-| Database schema | sql-pro | `src/db/migrations/0018_*.sql` |
-| Feedback service | typescript-pro | `src/services/feedback/` |
-| Query pipeline integration | typescript-pro | `src/services/query/pipeline.ts` |
-| Capture service integration | typescript-pro | `src/services/capture/index.ts` |
-| Session end hooks | typescript-pro | `src/mcp/handlers/scopes.handler.ts` |
-| Outcome inference (rule-based) | typescript-pro | `src/services/feedback/evaluators/` |
-| MCP handler | typescript-pro | `src/mcp/handlers/feedback.handler.ts` |
+| Task                           | Subagent       | Files                                  |
+| ------------------------------ | -------------- | -------------------------------------- |
+| Database schema                | sql-pro        | `src/db/migrations/0018_*.sql`         |
+| Feedback service               | typescript-pro | `src/services/feedback/`               |
+| Query pipeline integration     | typescript-pro | `src/services/query/pipeline.ts`       |
+| Capture service integration    | typescript-pro | `src/services/capture/index.ts`        |
+| Session end hooks              | typescript-pro | `src/mcp/handlers/scopes.handler.ts`   |
+| Outcome inference (rule-based) | typescript-pro | `src/services/feedback/evaluators/`    |
+| MCP handler                    | typescript-pro | `src/mcp/handlers/feedback.handler.ts` |
 
 **Deliverable:** Feedback collection running in production, accumulating training data.
 
 ### Phase 2: Extraction Policy (3-4 weeks)
 
-| Task | Subagent | Files |
-|------|----------|-------|
-| State builder | typescript-pro | `src/services/rl/extraction/state.ts` |
-| Reward calculator | typescript-pro | `src/services/rl/extraction/reward.ts` |
-| Dataset builder | data-engineer | `src/services/rl/dataset/` |
-| DPO trainer | ml-engineer | `src/services/rl/trainer/dpo.trainer.ts` |
-| Policy inference | ml-engineer | `src/services/rl/extraction/inference.ts` |
-| Capture integration | typescript-pro | `src/services/capture/index.ts` |
+| Task                | Subagent       | Files                                     |
+| ------------------- | -------------- | ----------------------------------------- |
+| State builder       | typescript-pro | `src/services/rl/extraction/state.ts`     |
+| Reward calculator   | typescript-pro | `src/services/rl/extraction/reward.ts`    |
+| Dataset builder     | data-engineer  | `src/services/rl/dataset/`                |
+| DPO trainer         | ml-engineer    | `src/services/rl/trainer/dpo.trainer.ts`  |
+| Policy inference    | ml-engineer    | `src/services/rl/extraction/inference.ts` |
+| Capture integration | typescript-pro | `src/services/capture/index.ts`           |
 
 **Deliverable:** Learned extraction policy with 10%+ improvement over thresholds.
 
 ### Phase 3: Retrieval Policy (3-4 weeks)
 
-| Task | Subagent | Files |
-|------|----------|-------|
-| State builder | typescript-pro | `src/services/rl/retrieval/state.ts` |
+| Task                     | Subagent       | Files                                         |
+| ------------------------ | -------------- | --------------------------------------------- |
+| State builder            | typescript-pro | `src/services/rl/retrieval/state.ts`          |
 | Counterfactual estimator | data-scientist | `src/services/rl/retrieval/counterfactual.ts` |
-| Reward calculator | typescript-pro | `src/services/rl/retrieval/reward.ts` |
-| Policy trainer | ml-engineer | `src/services/rl/trainer/` |
-| Agent integration hook | typescript-pro | (external integration) |
+| Reward calculator        | typescript-pro | `src/services/rl/retrieval/reward.ts`         |
+| Policy trainer           | ml-engineer    | `src/services/rl/trainer/`                    |
+| Agent integration hook   | typescript-pro | (external integration)                        |
 
 **Deliverable:** Retrieval policy reducing unnecessary queries by 20%+.
 
 ### Phase 4: Consolidation Policy (2-3 weeks)
 
-| Task | Subagent | Files |
-|------|----------|-------|
-| State builder | typescript-pro | `src/services/rl/consolidation/state.ts` |
-| Reward calculator | typescript-pro | `src/services/rl/consolidation/reward.ts` |
-| Librarian integration | typescript-pro | `src/services/librarian/pipeline/` |
-| Policy trainer | ml-engineer | `src/services/rl/trainer/` |
+| Task                  | Subagent       | Files                                     |
+| --------------------- | -------------- | ----------------------------------------- |
+| State builder         | typescript-pro | `src/services/rl/consolidation/state.ts`  |
+| Reward calculator     | typescript-pro | `src/services/rl/consolidation/reward.ts` |
+| Librarian integration | typescript-pro | `src/services/librarian/pipeline/`        |
+| Policy trainer        | ml-engineer    | `src/services/rl/trainer/`                |
 
 **Deliverable:** Consolidation policy maintaining retrieval quality while reducing storage 15%+.
 
 ### Phase 5: Production Hardening (1-2 weeks)
 
-| Task | Subagent | Files |
-|------|----------|-------|
-| Feature flag integration | typescript-pro | `src/config/registry/sections/rl.ts` |
-| Fallback logic | typescript-pro | All policy files |
-| Metrics logging | typescript-pro | `src/services/rl/metrics.ts` |
-| Documentation | technical-writer | `docs/rl-*.md` |
+| Task                     | Subagent         | Files                                |
+| ------------------------ | ---------------- | ------------------------------------ |
+| Feature flag integration | typescript-pro   | `src/config/registry/sections/rl.ts` |
+| Fallback logic           | typescript-pro   | All policy files                     |
+| Metrics logging          | typescript-pro   | `src/services/rl/metrics.ts`         |
+| Documentation            | technical-writer | `docs/rl-*.md`                       |
 
 **Kill Switch Behavior:**
+
 - `rl.enabled = false` → All policies fall back to threshold-based rules
 - `rl.extraction.enabled = false` → Extraction uses existing capture thresholds
 - `rl.retrieval.enabled = false` → Always retrieves (current behavior)
@@ -1078,27 +1086,27 @@ const DEFAULT_RL_CONFIG: RLConfig = {
 
 ## Success Metrics
 
-| Metric | Baseline | Target | Measurement |
-|--------|----------|--------|-------------|
-| Extraction precision | ~70% (threshold) | 85%+ | % of stored entries retrieved at least once |
-| Extraction recall | ~60% | 75%+ | % of useful content that was stored |
-| Retrieval efficiency | 100% (always retrieve) | 70% queries | Queries where retrieval was necessary |
-| Retrieval latency | N/A | -30% | Avg latency reduction from skipping |
-| Consolidation effectiveness | Manual | 15% storage reduction | Entries consolidated without quality loss |
-| Task success rate | Baseline | +5% | Improvement from better memory |
+| Metric                      | Baseline               | Target                | Measurement                                 |
+| --------------------------- | ---------------------- | --------------------- | ------------------------------------------- |
+| Extraction precision        | ~70% (threshold)       | 85%+                  | % of stored entries retrieved at least once |
+| Extraction recall           | ~60%                   | 75%+                  | % of useful content that was stored         |
+| Retrieval efficiency        | 100% (always retrieve) | 70% queries           | Queries where retrieval was necessary       |
+| Retrieval latency           | N/A                    | -30%                  | Avg latency reduction from skipping         |
+| Consolidation effectiveness | Manual                 | 15% storage reduction | Entries consolidated without quality loss   |
+| Task success rate           | Baseline               | +5%                   | Improvement from better memory              |
 
 ---
 
 ## Risk Mitigation
 
-| Risk | Mitigation |
-|------|------------|
+| Risk                       | Mitigation                                                        |
+| -------------------------- | ----------------------------------------------------------------- |
 | Insufficient training data | Start feedback collection immediately; use synthetic augmentation |
-| Reward hacking | Multiple reward signals; human evaluation sampling |
-| Distribution shift | Continuous monitoring; periodic retraining |
-| Latency regression | Lightweight policy models; caching; async training |
-| Policy failure | Feature flag kill switch; automatic fallback to thresholds |
-| Model degradation | Offline evaluation before deployment; metrics alerting |
+| Reward hacking             | Multiple reward signals; human evaluation sampling                |
+| Distribution shift         | Continuous monitoring; periodic retraining                        |
+| Latency regression         | Lightweight policy models; caching; async training                |
+| Policy failure             | Feature flag kill switch; automatic fallback to thresholds        |
+| Model degradation          | Offline evaluation before deployment; metrics alerting            |
 
 ---
 

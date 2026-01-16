@@ -52,13 +52,13 @@ export interface ExtractedEntity {
 const ENTITY_PATTERNS: Record<Exclude<EntityType, 'CUSTOM'>, RegExp> = {
   // File paths: /path/to/file.ext, ./relative/path.ts, ../parent/file.js
   // Must have at least one slash and end with .extension
-  FILE_PATH: /(?:^|[\s"'`({\[])([.]{0,2}\/[\w\-./]+\.\w{1,10})(?:[\s"'`)\]}]|$)/g,
+  FILE_PATH: /(?:^|[\s"'`({[])([.]{0,2}\/[\w\-./]+\.\w{1,10})(?:[\s"'`)\]}]|$)/g,
 
   // Function names: camelCase, PascalCase, snake_case (2+ chars, not all caps)
   // Must start with lowercase or uppercase letter, contain letters and possibly numbers
   // Exclude common words and keywords
   FUNCTION_NAME:
-    /(?:^|[\s.`"'({\[])([a-zA-Z][a-zA-Z0-9]*(?:_[a-zA-Z0-9]+)*(?:[A-Z][a-zA-Z0-9]*)*)(?:[\s()`"'\]}).,;:]|$)/g,
+    /(?:^|[\s.`"'({[])([a-zA-Z][a-zA-Z0-9]*(?:_[a-zA-Z0-9]+)*(?:[A-Z][a-zA-Z0-9]*)*)(?:[\s()`"'\]}).,;:]|$)/g,
 
   // Package names: @org/package, lodash, react-dom
   // Scoped: @scope/package-name
@@ -321,20 +321,21 @@ function generateVariants(type: EntityType, value: string): string[] {
   variants.add(value.toLowerCase());
 
   switch (type) {
-    case 'FUNCTION_NAME':
+    case 'FUNCTION_NAME': {
       // Split camelCase/PascalCase into words
-      const words = value.split(/(?=[A-Z])|_/).filter(w => w.length > 0);
+      const words = value.split(/(?=[A-Z])|_/).filter((w) => w.length > 0);
       if (words.length > 1) {
         // Add individual words (lowercased)
-        words.forEach(w => variants.add(w.toLowerCase()));
+        words.forEach((w) => variants.add(w.toLowerCase()));
         // Add joined versions
         variants.add(words.join('_').toLowerCase()); // snake_case
         variants.add(words.join('-').toLowerCase()); // kebab-case
-        variants.add(words.join('').toLowerCase());  // concatenated
+        variants.add(words.join('').toLowerCase()); // concatenated
       }
       break;
+    }
 
-    case 'FILE_PATH':
+    case 'FILE_PATH': {
       // Extract filename without extension
       const filename = value.split('/').pop() || value;
       variants.add(filename.toLowerCase());
@@ -344,8 +345,9 @@ function generateVariants(type: EntityType, value: string): string[] {
         variants.add(baseName.toLowerCase());
       }
       break;
+    }
 
-    case 'PACKAGE_NAME':
+    case 'PACKAGE_NAME': {
       // Handle scoped packages (@org/pkg)
       if (value.startsWith('@')) {
         const [scope, pkg] = value.slice(1).split('/');
@@ -356,20 +358,22 @@ function generateVariants(type: EntityType, value: string): string[] {
       }
       // Handle hyphenated packages
       const parts = value.replace('@', '').split(/[-/]/);
-      parts.forEach(p => {
+      parts.forEach((p) => {
         if (p.length > 2) variants.add(p.toLowerCase());
       });
       break;
+    }
 
-    case 'ERROR_CODE':
+    case 'ERROR_CODE': {
       // Add without prefix (E, ERR_, etc.)
       const stripped = value.replace(/^(E|ERR_|Error$|Exception$)/i, '');
       if (stripped && stripped !== value) {
         variants.add(stripped.toLowerCase());
       }
       break;
+    }
 
-    case 'COMMAND':
+    case 'COMMAND': {
       // Split command into tool and subcommand
       const cmdParts = value.split(/\s+/);
       if (cmdParts.length > 1 && cmdParts[0]) {
@@ -377,6 +381,7 @@ function generateVariants(type: EntityType, value: string): string[] {
         variants.add(cmdParts.slice(1).join(' ').toLowerCase()); // Just the subcommand
       }
       break;
+    }
   }
 
   return Array.from(variants);
@@ -654,7 +659,7 @@ export class EntityExtractor {
    * @returns Filtered entities
    */
   filterByConfidence(entities: ExtractedEntity[], minConfidence: number): ExtractedEntity[] {
-    return entities.filter(e => (e.confidence ?? 0) >= minConfidence);
+    return entities.filter((e) => (e.confidence ?? 0) >= minConfidence);
   }
 
   /**

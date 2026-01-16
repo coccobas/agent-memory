@@ -229,8 +229,6 @@ export class LMStudioClient {
 /**
  * Create a pre-configured LM Studio client
  */
-export function createLMStudioClient(
-  config: Partial<LMStudioConfig> = {}
-): LMStudioClient {
+export function createLMStudioClient(config: Partial<LMStudioConfig> = {}): LMStudioClient {
   return new LMStudioClient(config);
 }

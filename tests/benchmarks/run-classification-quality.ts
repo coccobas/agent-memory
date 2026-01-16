@@ -19,7 +19,10 @@ import {
   formatMetricsReport,
   runTestCase,
 } from './classification-quality-evaluator.js';
-import type { ClassificationTestResult, ClassificationBenchmarkResults } from './classification-quality-types.js';
+import type {
+  ClassificationTestResult,
+  ClassificationBenchmarkResults,
+} from './classification-quality-types.js';
 import { ClassificationService } from '../../src/services/classification/index.js';
 import type { ClassificationServiceConfig } from '../../src/services/classification/index.js';
 
@@ -156,20 +159,32 @@ async function main() {
   const passTool = metrics.byType['tool']!.precision >= 0.9;
 
   console.log('SUCCESS CRITERIA:');
-  console.log(`  Overall Accuracy ≥85%:     ${passOverall ? '✓ PASS' : '✗ FAIL'} (${(metrics.accuracy * 100).toFixed(1)}%)`);
-  console.log(`  Guideline Precision ≥90%:  ${passGuideline ? '✓ PASS' : '✗ FAIL'} (${(metrics.byType['guideline']!.precision * 100).toFixed(1)}%)`);
-  console.log(`  Knowledge Precision ≥80%:  ${passKnowledge ? '✓ PASS' : '✗ FAIL'} (${(metrics.byType['knowledge']!.precision * 100).toFixed(1)}%)`);
-  console.log(`  Tool Precision ≥90%:       ${passTool ? '✓ PASS' : '✗ FAIL'} (${(metrics.byType['tool']!.precision * 100).toFixed(1)}%)`);
+  console.log(
+    `  Overall Accuracy ≥85%:     ${passOverall ? '✓ PASS' : '✗ FAIL'} (${(metrics.accuracy * 100).toFixed(1)}%)`
+  );
+  console.log(
+    `  Guideline Precision ≥90%:  ${passGuideline ? '✓ PASS' : '✗ FAIL'} (${(metrics.byType['guideline']!.precision * 100).toFixed(1)}%)`
+  );
+  console.log(
+    `  Knowledge Precision ≥80%:  ${passKnowledge ? '✓ PASS' : '✗ FAIL'} (${(metrics.byType['knowledge']!.precision * 100).toFixed(1)}%)`
+  );
+  console.log(
+    `  Tool Precision ≥90%:       ${passTool ? '✓ PASS' : '✗ FAIL'} (${(metrics.byType['tool']!.precision * 100).toFixed(1)}%)`
+  );
   console.log('');
 
   // Show failed cases
-  const failedCases = results.filter(r => !r.correct && !r.error);
+  const failedCases = results.filter((r) => !r.correct && !r.error);
   if (failedCases.length > 0) {
     console.log('FAILED TEST CASES:');
     console.log('───────────────────────────────────────────────────────────────────────');
     for (const failed of failedCases) {
-      console.log(`  [${failed.testCaseId}] "${failed.text.slice(0, 50)}${failed.text.length > 50 ? '...' : ''}"`);
-      console.log(`    Expected: ${failed.expectedType}, Got: ${failed.predictedType} (conf: ${(failed.confidence * 100).toFixed(0)}%)`);
+      console.log(
+        `  [${failed.testCaseId}] "${failed.text.slice(0, 50)}${failed.text.length > 50 ? '...' : ''}"`
+      );
+      console.log(
+        `    Expected: ${failed.expectedType}, Got: ${failed.predictedType} (conf: ${(failed.confidence * 100).toFixed(0)}%)`
+      );
     }
     console.log('');
   }

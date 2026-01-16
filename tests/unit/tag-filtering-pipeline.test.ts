@@ -16,10 +16,7 @@ import {
   createTestRepositories,
   type TestDb,
 } from '../fixtures/test-helpers.js';
-import {
-  executeQueryPipelineAsync,
-  createDependencies,
-} from '../../src/services/query/index.js';
+import { executeQueryPipelineAsync, createDependencies } from '../../src/services/query/index.js';
 import { LRUCache } from '../../src/utils/lru-cache.js';
 import pino from 'pino';
 
@@ -95,11 +92,7 @@ describe('Tag Filtering Pipeline', () => {
       expect(entryTag.entryId).toBe(guideline.id);
 
       // Verify tag was created
-      const tag = testDb.db
-        .select()
-        .from(schema.tags)
-        .where(eq(schema.tags.name, 'testing'))
-        .get();
+      const tag = testDb.db.select().from(schema.tags).where(eq(schema.tags.name, 'testing')).get();
       expect(tag).toBeDefined();
       expect(tag?.name).toBe('testing');
 

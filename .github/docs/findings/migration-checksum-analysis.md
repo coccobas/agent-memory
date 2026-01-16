@@ -55,6 +55,7 @@ Migration checksums serve as an **integrity verification mechanism** to ensure t
 The checksum validation is **extremely sensitive** - any change to a migration file, no matter how minor, will cause a mismatch:
 
 **Common triggers:**
+
 - ✅ IDE auto-formatting (even if Prettier is disabled)
 - ✅ Manual edits during development/testing
 - ✅ Git merge conflicts
@@ -67,6 +68,7 @@ The checksum validation is **extremely sensitive** - any change to a migration f
 ### Real-World Impact
 
 **Scenario 1: Developer opens migration file**
+
 ```
 1. Developer opens `0002_add_embeddings_tracking.sql` in IDE
 2. IDE auto-formats SQL (even though Prettier ignores it)
@@ -76,6 +78,7 @@ The checksum validation is **extremely sensitive** - any change to a migration f
 ```
 
 **Scenario 2: Testing migration changes**
+
 ```
 1. Developer wants to test a migration change
 2. Makes small edit to see effect
@@ -84,6 +87,7 @@ The checksum validation is **extremely sensitive** - any change to a migration f
 ```
 
 **Scenario 3: Git operations**
+
 ```
 1. Developer pulls latest changes
 2. Git merge modifies migration file (conflict resolution)
@@ -170,15 +174,18 @@ Add an environment variable to relax checksum validation in development:
 
 ```typescript
 // src/db/init.ts
-const isDevelopment = process.env.NODE_ENV === 'development' || 
-                      process.env.AGENT_MEMORY_DEV_MODE === 'true';
+const isDevelopment =
+  process.env.NODE_ENV === 'development' || process.env.AGENT_MEMORY_DEV_MODE === 'true';
 
 if (storedChecksum !== currentChecksum) {
   if (isDevelopment) {
     // Auto-update checksum in dev mode
-    logger.warn({ migration: file.name }, 
-      'Migration file modified - auto-updating checksum in dev mode');
-    sqlite.prepare('UPDATE _migrations SET checksum = ? WHERE name = ?')
+    logger.warn(
+      { migration: file.name },
+      'Migration file modified - auto-updating checksum in dev mode'
+    );
+    sqlite
+      .prepare('UPDATE _migrations SET checksum = ? WHERE name = ?')
       .run(currentChecksum, file.name);
     continue; // Skip error
   } else {
@@ -190,6 +197,7 @@ if (storedChecksum !== currentChecksum) {
 ```
 
 **Benefits:**
+
 - No breaking changes to production behavior
 - Seamless development experience
 - Maintains production safety
@@ -200,12 +208,15 @@ Log warnings instead of failing, with option to auto-fix:
 
 ```typescript
 if (storedChecksum !== currentChecksum) {
-  logger.warn({
-    migration: file.name,
-    stored: storedChecksum,
-    current: currentChecksum
-  }, 'Migration file checksum mismatch');
-  
+  logger.warn(
+    {
+      migration: file.name,
+      stored: storedChecksum,
+      current: currentChecksum,
+    },
+    'Migration file checksum mismatch'
+  );
+
   // Option to auto-fix
   if (config.database.autoFixChecksums) {
     updateChecksum(file.name, currentChecksum);
@@ -220,12 +231,11 @@ if (storedChecksum !== currentChecksum) {
 Use different databases for development vs production:
 
 ```typescript
-const dbPath = process.env.NODE_ENV === 'development'
-  ? './data/memory-dev.db'
-  : './data/memory.db';
+const dbPath = process.env.NODE_ENV === 'development' ? './data/memory-dev.db' : './data/memory.db';
 ```
 
 **Benefits:**
+
 - Development changes don't affect production
 - Can reset dev database without consequences
 - Clear separation of concerns
@@ -258,6 +268,7 @@ const normalizedCurrent = normalizeForChecksum(currentContent);
 **Best approach:** Combine Option 1 (Development Mode) with Option 3 (Separate Databases)
 
 1. **Add development mode flag:**
+
    ```typescript
    // config/index.ts
    database: {
@@ -267,6 +278,7 @@ const normalizedCurrent = normalizeForChecksum(currentContent);
    ```
 
 2. **Use separate dev database:**
+
    ```typescript
    const dbPath = config.database.devMode
      ? config.database.devPath || './data/memory-dev.db'
@@ -307,20 +319,3 @@ The migration checksum system provides valuable production safety but creates si
 **Priority:** Medium-High  
 **Impact:** High developer productivity improvement  
 **Risk:** Low (if implemented correctly with environment-based controls)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

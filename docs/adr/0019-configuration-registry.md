@@ -7,6 +7,7 @@ Accepted
 ## Context
 
 Agent Memory has 100+ configuration options spanning database, caching, embedding, scoring, rate limiting, and more. The original approach used scattered `process.env` reads with inline defaults, leading to:
+
 - No single source of truth for available options
 - Inconsistent parsing (some used `parseInt`, others `Number()`)
 - No validation (invalid values discovered at runtime)
@@ -14,6 +15,7 @@ Agent Memory has 100+ configuration options spanning database, caching, embeddin
 - Difficult to discover available configuration
 
 We needed a system that:
+
 - Declares all options in one place
 - Validates configuration at startup
 - Provides type-safe access
@@ -28,12 +30,12 @@ Implement a declarative configuration registry where each option declares its en
 
 ```typescript
 interface ConfigOptionMeta<T> {
-  envKey: string;              // AGENT_MEMORY_*
-  defaultValue: T;             // Fallback if not set
-  schema: ZodSchema<T>;        // Validation schema
+  envKey: string; // AGENT_MEMORY_*
+  defaultValue: T; // Fallback if not set
+  schema: ZodSchema<T>; // Validation schema
   parser: (value: string) => T; // String → typed value
-  description?: string;        // For documentation
-  secret?: boolean;            // Redact in logs
+  description?: string; // For documentation
+  secret?: boolean; // Redact in logs
 }
 
 // Registry is a nested object matching config shape
@@ -86,7 +88,7 @@ export const parseBoolean = (v: string) => v === 'true' || v === '1';
 export const parseInt = (v: string) => Number.parseInt(v, 10);
 export const parseFloat = (v: string) => Number.parseFloat(v);
 export const parsePath = (v: string) => path.resolve(v);
-export const parseArray = (v: string) => v.split(',').map(s => s.trim());
+export const parseArray = (v: string) => v.split(',').map((s) => s.trim());
 export const parseJson = <T>(v: string) => JSON.parse(v) as T;
 ```
 
@@ -101,9 +103,7 @@ function loadConfig(): Config {
     for (const [key, meta] of Object.entries(options)) {
       const envValue = process.env[meta.envKey];
       const rawValue = envValue ?? meta.defaultValue;
-      const parsed = typeof rawValue === 'string'
-        ? meta.parser(rawValue)
-        : rawValue;
+      const parsed = typeof rawValue === 'string' ? meta.parser(rawValue) : rawValue;
 
       // Validate with Zod
       const result = meta.schema.safeParse(parsed);
@@ -143,6 +143,7 @@ function generateEnvDocs(): string {
 ## Consequences
 
 **Positive:**
+
 - Single source of truth for all configuration
 - Startup validation catches misconfigurations immediately
 - Full TypeScript inference from schemas
@@ -152,6 +153,7 @@ function generateEnvDocs(): string {
 - Parsers are reusable and tested
 
 **Negative:**
+
 - Initial setup overhead (defining all options)
 - Registry must be updated when adding options (easy to forget)
 - Zod dependency for validation

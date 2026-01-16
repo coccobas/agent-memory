@@ -110,11 +110,7 @@ export class FeedbackScoreCache {
   /**
    * Set feedback score for a single entry in cache
    */
-  set(
-    entryType: QueryEntryType,
-    entryId: string,
-    score: EntryFeedbackScore
-  ): void {
+  set(entryType: QueryEntryType, entryId: string, score: EntryFeedbackScore): void {
     if (!this.config.enabled) {
       return;
     }
@@ -243,9 +239,9 @@ export interface FeedbackScoringConfig {
 export const DEFAULT_FEEDBACK_SCORING_CONFIG: FeedbackScoringConfig = {
   enabled: true,
   boostPerPositive: 0.02, // +2% per positive
-  boostMax: 0.10, // max +10%
-  penaltyPerNegative: 0.10, // -10% per negative
-  penaltyMax: 0.50, // max -50%
+  boostMax: 0.1, // max +10%
+  penaltyPerNegative: 0.1, // -10% per negative
+  penaltyMax: 0.5, // max -50%
 };
 
 /**
@@ -270,17 +266,11 @@ export function getFeedbackMultiplier(
 
   if (feedback.netScore > 0) {
     // Positive feedback: apply boost
-    const boost = Math.min(
-      feedback.positiveCount * cfg.boostPerPositive,
-      cfg.boostMax
-    );
+    const boost = Math.min(feedback.positiveCount * cfg.boostPerPositive, cfg.boostMax);
     return 1.0 + boost;
   } else if (feedback.netScore < 0) {
     // Negative feedback: apply graduated penalty
-    const penalty = Math.min(
-      Math.abs(feedback.netScore) * cfg.penaltyPerNegative,
-      cfg.penaltyMax
-    );
+    const penalty = Math.min(Math.abs(feedback.netScore) * cfg.penaltyPerNegative, cfg.penaltyMax);
     return 1.0 - penalty;
   }
 

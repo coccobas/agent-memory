@@ -25,7 +25,6 @@ import type {
 import type { Dataset } from '../../src/services/rl/training/dataset-builder.js';
 
 describe('DPO Trainer', () => {
-
   describe('formatExtractionForDPO', () => {
     it('should format extraction examples into DPO pairs', () => {
       const examples: ExtractionTrainingExample[] = [
@@ -412,7 +411,9 @@ describe('DPO Trainer', () => {
       expect(existsSync(join(testOutputDir, 'extraction_metadata.json'))).toBe(true);
 
       // Verify metadata content
-      const metadata = JSON.parse(readFileSync(join(testOutputDir, 'extraction_metadata.json'), 'utf-8'));
+      const metadata = JSON.parse(
+        readFileSync(join(testOutputDir, 'extraction_metadata.json'), 'utf-8')
+      );
       expect(metadata.config.modelName).toBe('extraction-model');
       expect(metadata.trainPairs).toBeGreaterThanOrEqual(100);
     });
@@ -537,7 +538,12 @@ describe('DPO Trainer', () => {
                 hasKeywords: hasKw,
                 semanticCategory: cat,
               }),
-              action: { shouldRetrieve: true, scope: 'project', types: ['knowledge'], maxResults: 10 },
+              action: {
+                shouldRetrieve: true,
+                scope: 'project',
+                types: ['knowledge'],
+                maxResults: 10,
+              },
               reward: 0.9,
               metadata: { sessionId: `session-${l}-${hasKw}-${cat}`, outcomeType: 'retrieval' },
             });
@@ -594,8 +600,10 @@ describe('DPO Trainer', () => {
     });
 
     it('should format consolidation dataset for training', () => {
-      const dataset: Dataset<ConsolidationTrainingExample> =
-        createMockConsolidationDataset(150, 50);
+      const dataset: Dataset<ConsolidationTrainingExample> = createMockConsolidationDataset(
+        150,
+        50
+      );
 
       const trainPairs = formatConsolidationForDPO(dataset.train);
       const evalPairs = formatConsolidationForDPO(dataset.eval);
@@ -635,14 +643,20 @@ describe('DPO Trainer', () => {
               state: createMockConsolidationStateWithScope(g, s / 10, scope),
               action: { action: 'merge', targetEntries: ['entry-1'], mergeStrategy: 'union' },
               reward: 0.9,
-              metadata: { decisionId: `decision-${g}-${s}-${scope}`, entryIds: ['entry-1', 'entry-2'] },
+              metadata: {
+                decisionId: `decision-${g}-${s}-${scope}`,
+                entryIds: ['entry-1', 'entry-2'],
+              },
             });
             // Low reward example
             train.push({
               state: createMockConsolidationStateWithScope(g, s / 10, scope),
               action: { action: 'keep', mergeStrategy: 'union' },
               reward: 0.1,
-              metadata: { decisionId: `decision-${g}-${s}-${scope}-alt`, entryIds: ['entry-1', 'entry-2'] },
+              metadata: {
+                decisionId: `decision-${g}-${s}-${scope}-alt`,
+                entryIds: ['entry-1', 'entry-2'],
+              },
             });
           }
         }

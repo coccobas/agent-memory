@@ -104,10 +104,7 @@ describe('Librarian Math Utilities', () => {
     });
 
     it('should work with string sequences', () => {
-      const result = longestCommonSubsequence(
-        ['a', 'b', 'c', 'd'],
-        ['b', 'c', 'e']
-      );
+      const result = longestCommonSubsequence(['a', 'b', 'c', 'd'], ['b', 'c', 'e']);
       expect(result).toEqual(['b', 'c']);
     });
   });

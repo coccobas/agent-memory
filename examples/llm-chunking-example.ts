@@ -297,8 +297,10 @@ async function main() {
     const target = result.chunks.find((c) => c.id === rel.targetId);
 
     if (source && target) {
-      const sourceName = source.metadata.definitions?.[0] || source.metadata.title || `Chunk ${source.index}`;
-      const targetName = target.metadata.definitions?.[0] || target.metadata.title || `Chunk ${target.index}`;
+      const sourceName =
+        source.metadata.definitions?.[0] || source.metadata.title || `Chunk ${source.index}`;
+      const targetName =
+        target.metadata.definitions?.[0] || target.metadata.title || `Chunk ${target.index}`;
       const reason = rel.metadata?.reason ? ` (${rel.metadata.reason})` : '';
 
       console.log(`  ${sourceName} ──[${rel.type}]──> ${targetName}${reason}`);
@@ -318,11 +320,15 @@ async function main() {
     if (deps.length > 0 || dependents.length > 0) {
       console.log(`\n${name}:`);
       if (deps.length > 0) {
-        const depNames = deps.map((d) => d.metadata.definitions?.[0] || d.metadata.title || `Chunk ${d.index}`);
+        const depNames = deps.map(
+          (d) => d.metadata.definitions?.[0] || d.metadata.title || `Chunk ${d.index}`
+        );
         console.log(`  Depends on: ${depNames.join(', ')}`);
       }
       if (dependents.length > 0) {
-        const depNames = dependents.map((d) => d.metadata.definitions?.[0] || d.metadata.title || `Chunk ${d.index}`);
+        const depNames = dependents.map(
+          (d) => d.metadata.definitions?.[0] || d.metadata.title || `Chunk ${d.index}`
+        );
         console.log(`  Used by: ${depNames.join(', ')}`);
       }
     }

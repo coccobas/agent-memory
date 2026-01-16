@@ -263,9 +263,7 @@ describe('DoS Prevention', () => {
         });
 
         // Simulate 20 concurrent requests
-        const promises = Array.from({ length: 20 }, () =>
-          rateLimiter.check('concurrent-attacker')
-        );
+        const promises = Array.from({ length: 20 }, () => rateLimiter.check('concurrent-attacker'));
 
         const results = await Promise.all(promises);
         const allowed = results.filter((r) => r.allowed).length;
@@ -460,11 +458,7 @@ describe('DoS Prevention', () => {
         });
 
         expect(() => {
-          validateArrayLength(
-            bulkEntries,
-            'bulk entries',
-            SIZE_LIMITS.BULK_OPERATION_MAX
-          );
+          validateArrayLength(bulkEntries, 'bulk entries', SIZE_LIMITS.BULK_OPERATION_MAX);
         }).toThrow(/exceeds maximum/);
       });
     });
@@ -648,9 +642,7 @@ describe('DoS Prevention', () => {
       it('should accept safe patterns', () => {
         expect(detectRedosPatterns('^[a-z0-9-_]+$')).toBe(true);
         expect(detectRedosPatterns('\\d{4}-\\d{2}-\\d{2}')).toBe(true);
-        expect(detectRedosPatterns('[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}')).toBe(
-          true
-        );
+        expect(detectRedosPatterns('[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}')).toBe(true);
       });
 
       it('should reject real-world ReDoS attack patterns', () => {
@@ -731,11 +723,7 @@ describe('DoS Prevention', () => {
       });
 
       it('should prevent wildcard explosion in FTS', () => {
-        const wildcardQueries = [
-          '*****',
-          'a* b* c* d* e*',
-          '*test*',
-        ];
+        const wildcardQueries = ['*****', 'a* b* c* d* e*', '*test*'];
 
         // Wildcard at start/end is expensive
         wildcardQueries.forEach((query) => {
@@ -771,7 +759,9 @@ describe('DoS Prevention', () => {
           activeEmbeddings--;
         }
 
-        const requests = Array(10).fill(null).map(() => generateEmbedding());
+        const requests = Array(10)
+          .fill(null)
+          .map(() => generateEmbedding());
 
         // Should handle throttling
         await expect(Promise.all(requests)).rejects.toThrow();

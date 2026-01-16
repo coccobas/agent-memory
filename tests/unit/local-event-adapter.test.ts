@@ -105,9 +105,24 @@ describe('LocalEventAdapter', () => {
       adapter.subscribe(handler);
 
       const events = [
-        { type: 'entry_created' as const, entryType: 'tool' as const, entryId: '1', timestamp: new Date().toISOString() },
-        { type: 'entry_updated' as const, entryType: 'guideline' as const, entryId: '2', timestamp: new Date().toISOString() },
-        { type: 'entry_deleted' as const, entryType: 'knowledge' as const, entryId: '3', timestamp: new Date().toISOString() },
+        {
+          type: 'entry_created' as const,
+          entryType: 'tool' as const,
+          entryId: '1',
+          timestamp: new Date().toISOString(),
+        },
+        {
+          type: 'entry_updated' as const,
+          entryType: 'guideline' as const,
+          entryId: '2',
+          timestamp: new Date().toISOString(),
+        },
+        {
+          type: 'entry_deleted' as const,
+          entryType: 'knowledge' as const,
+          entryId: '3',
+          timestamp: new Date().toISOString(),
+        },
       ];
 
       for (const event of events) {

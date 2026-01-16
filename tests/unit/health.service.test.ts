@@ -313,9 +313,7 @@ describe('HealthMonitor', () => {
     });
 
     it('should return unhealthy when database check throws', async () => {
-      vi.mocked(mockStorageAdapter.healthCheck).mockRejectedValue(
-        new Error('Connection timeout')
-      );
+      vi.mocked(mockStorageAdapter.healthCheck).mockRejectedValue(new Error('Connection timeout'));
 
       const health = await monitor.performHealthCheck();
 
@@ -518,7 +516,7 @@ describe('HealthMonitor', () => {
       ]);
 
       expect(results).toHaveLength(3);
-      results.forEach(result => {
+      results.forEach((result) => {
         expect(result.database.status).toBe('unhealthy');
       });
     });
@@ -529,9 +527,7 @@ describe('HealthMonitor', () => {
         latencyMs: 0,
       });
 
-      vi.mocked(mockStorageAdapter.connect).mockRejectedValue(
-        new Error('Reconnection failed')
-      );
+      vi.mocked(mockStorageAdapter.connect).mockRejectedValue(new Error('Reconnection failed'));
 
       await monitor.performHealthCheck();
       await vi.runAllTimersAsync();
@@ -676,11 +672,7 @@ describe('Singleton functions', () => {
     });
 
     it('should return same instance across multiple calls', () => {
-      const instances = [
-        getHealthMonitor(),
-        getHealthMonitor(),
-        getHealthMonitor(),
-      ];
+      const instances = [getHealthMonitor(), getHealthMonitor(), getHealthMonitor()];
 
       expect(instances[0]).toBe(instances[1]);
       expect(instances[1]).toBe(instances[2]);

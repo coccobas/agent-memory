@@ -117,11 +117,7 @@ export interface CaptureModule<TResult> {
   /**
    * Process transcript and extract entries
    */
-  capture(
-    transcript: TurnData[],
-    metrics: TurnMetrics,
-    options: CaptureOptions
-  ): Promise<TResult>;
+  capture(transcript: TurnData[], metrics: TurnMetrics, options: CaptureOptions): Promise<TResult>;
 
   /**
    * Check if capture should be triggered based on thresholds

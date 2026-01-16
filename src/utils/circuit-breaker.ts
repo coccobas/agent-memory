@@ -10,7 +10,11 @@
  * - AGENT_MEMORY_CB_SUCCESS_THRESHOLD: Successes needed to close (default: 2)
  *
  * For distributed deployments, use the stateAdapter option to share state via Redis.
+ *
+ * NOTE: Non-null assertions used for Map access after has() checks in state management.
  */
+
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 
 import { CircuitBreakerError } from '../core/errors.js';
 import { defaultContainer } from '../core/container.js';
@@ -87,11 +91,15 @@ export class CircuitBreaker {
   private totalFailures = 0;
   private totalSuccesses = 0;
 
-  private config: Required<Omit<CircuitBreakerConfig, 'stateAdapter'>> & { stateAdapter?: ICircuitBreakerStateAdapter };
+  private config: Required<Omit<CircuitBreakerConfig, 'stateAdapter'>> & {
+    stateAdapter?: ICircuitBreakerStateAdapter;
+  };
   private stateAdapter?: ICircuitBreakerStateAdapter;
 
   constructor(cbConfig: CircuitBreakerConfig) {
-    this.config = { ...DEFAULT_CONFIG, ...cbConfig } as Required<Omit<CircuitBreakerConfig, 'stateAdapter'>> & { stateAdapter?: ICircuitBreakerStateAdapter };
+    this.config = { ...DEFAULT_CONFIG, ...cbConfig } as Required<
+      Omit<CircuitBreakerConfig, 'stateAdapter'>
+    > & { stateAdapter?: ICircuitBreakerStateAdapter };
     this.stateAdapter = cbConfig.stateAdapter;
 
     if (this.stateAdapter) {
@@ -115,9 +123,12 @@ export class CircuitBreaker {
    */
   private toCircuitState(state: 'closed' | 'open' | 'half-open'): CircuitState {
     switch (state) {
-      case 'closed': return 'CLOSED';
-      case 'open': return 'OPEN';
-      case 'half-open': return 'HALF_OPEN';
+      case 'closed':
+        return 'CLOSED';
+      case 'open':
+        return 'OPEN';
+      case 'half-open':
+        return 'HALF_OPEN';
     }
   }
 
@@ -140,6 +151,7 @@ export class CircuitBreaker {
    * Execute with distributed state adapter.
    */
   private async executeWithAdapter<T>(fn: () => Promise<T>): Promise<T> {
+    // Safe: stateAdapter guaranteed to exist when this method is called
     // Get current state from adapter
     const currentState = await this.stateAdapter!.getState(this.config.name);
 
@@ -224,6 +236,7 @@ export class CircuitBreaker {
     this.totalSuccesses++;
     this.lastSuccessTime = Date.now();
 
+    // Safe: stateAdapter guaranteed to exist when this method is called
     const newState = await this.stateAdapter!.recordSuccess(
       this.config.name,
       this.getStateConfig()
@@ -263,6 +276,7 @@ export class CircuitBreaker {
 
     logger.warn({ service: this.config.name, error: error.message }, 'Circuit breaker failure');
 
+    // Safe: stateAdapter guaranteed to exist when this method is called
     const newState = await this.stateAdapter!.recordFailure(
       this.config.name,
       this.getStateConfig()

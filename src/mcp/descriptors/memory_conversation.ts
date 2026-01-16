@@ -8,7 +8,8 @@ import { conversationHandlers } from '../handlers/conversations.handler.js';
 export const memoryConversationDescriptor: ToolDescriptor = {
   name: 'memory_conversation',
   visibility: 'standard',
-  description: 'Manage conversation history. Actions: start, add_message, get, list, update, link_context, get_context, search, end, archive',
+  description:
+    'Manage conversation history. Actions: start, add_message, get, list, update, link_context, get_context, search, end, archive',
   commonParams: {
     sessionId: { type: 'string' },
     projectId: { type: 'string' },
@@ -33,15 +34,17 @@ export const memoryConversationDescriptor: ToolDescriptor = {
     offset: { type: 'number' },
   },
   actions: {
-    start: { contextHandler: conversationHandlers.start },
-    add_message: { contextHandler: conversationHandlers.addMessage },
-    get: { contextHandler: conversationHandlers.get },
-    list: { contextHandler: conversationHandlers.list },
-    update: { contextHandler: conversationHandlers.update },
-    link_context: { contextHandler: conversationHandlers.linkContext },
-    get_context: { contextHandler: conversationHandlers.getContext },
-    search: { contextHandler: conversationHandlers.search },
-    end: { contextHandler: conversationHandlers.end },
-    archive: { contextHandler: conversationHandlers.archive },
+    start: { contextHandler: (ctx, params) => conversationHandlers.start(ctx, params) },
+    add_message: { contextHandler: (ctx, params) => conversationHandlers.addMessage(ctx, params) },
+    get: { contextHandler: (ctx, params) => conversationHandlers.get(ctx, params) },
+    list: { contextHandler: (ctx, params) => conversationHandlers.list(ctx, params) },
+    update: { contextHandler: (ctx, params) => conversationHandlers.update(ctx, params) },
+    link_context: {
+      contextHandler: (ctx, params) => conversationHandlers.linkContext(ctx, params),
+    },
+    get_context: { contextHandler: (ctx, params) => conversationHandlers.getContext(ctx, params) },
+    search: { contextHandler: (ctx, params) => conversationHandlers.search(ctx, params) },
+    end: { contextHandler: (ctx, params) => conversationHandlers.end(ctx, params) },
+    archive: { contextHandler: (ctx, params) => conversationHandlers.archive(ctx, params) },
   },
 };

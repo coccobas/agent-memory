@@ -13,11 +13,11 @@ Global            → Universal patterns (security, best practices)
         └── Session → Working context (ephemeral)
 ```
 
-| Scope | Purpose | Inheritance |
-|-------|---------|-------------|
-| **Global** | Universal rules and patterns | Root (no parent) |
-| **Org** | Team/organization standards | Inherits from Global |
-| **Project** | Project-specific knowledge | Inherits from Org |
+| Scope       | Purpose                      | Inheritance           |
+| ----------- | ---------------------------- | --------------------- |
+| **Global**  | Universal rules and patterns | Root (no parent)      |
+| **Org**     | Team/organization standards  | Inherits from Global  |
+| **Project** | Project-specific knowledge   | Inherits from Org     |
 | **Session** | Working context, experiments | Inherits from Project |
 
 ### Inheritance Behavior
@@ -34,6 +34,7 @@ When querying with `inherit: true`:
 ```
 
 Results include:
+
 1. Project-scoped entries
 2. Organization-scoped entries (if project has an org)
 3. Global-scoped entries
@@ -46,13 +47,13 @@ Results include:
 
 Rules and best practices that affect agent behavior.
 
-| Field | Description |
-|-------|-------------|
-| `name` | Unique identifier (e.g., "no-any-type") |
-| `content` | The rule text |
-| `category` | Optional category (e.g., "code_style", "security") |
-| `priority` | 0-100, higher = more important |
-| `rationale` | Why this guideline exists |
+| Field       | Description                                        |
+| ----------- | -------------------------------------------------- |
+| `name`      | Unique identifier (e.g., "no-any-type")            |
+| `content`   | The rule text                                      |
+| `category`  | Optional category (e.g., "code_style", "security") |
+| `priority`  | 0-100, higher = more important                     |
+| `rationale` | Why this guideline exists                          |
 
 **When to use:** "We always...", "Never...", coding standards, security policies.
 
@@ -60,14 +61,14 @@ Rules and best practices that affect agent behavior.
 
 Facts, decisions, and contextual information.
 
-| Field | Description |
-|-------|-------------|
-| `title` | Descriptive title |
-| `content` | The fact or decision |
-| `category` | `decision`, `fact`, `context`, `reference` |
-| `confidence` | 0-1, how certain is this knowledge |
-| `source` | Where this knowledge came from |
-| `validUntil` | Optional expiration date |
+| Field        | Description                                |
+| ------------ | ------------------------------------------ |
+| `title`      | Descriptive title                          |
+| `content`    | The fact or decision                       |
+| `category`   | `decision`, `fact`, `context`, `reference` |
+| `confidence` | 0-1, how certain is this knowledge         |
+| `source`     | Where this knowledge came from             |
+| `validUntil` | Optional expiration date                   |
 
 **When to use:** "We chose X because...", "The system uses...", architectural decisions.
 
@@ -75,14 +76,14 @@ Facts, decisions, and contextual information.
 
 Operational knowledge like CLI commands, API calls, or workflow patterns.
 
-| Field | Description |
-|-------|-------------|
-| `name` | Tool name (e.g., "docker-build") |
-| `description` | What this tool does |
-| `category` | `mcp`, `cli`, `function`, `api` |
-| `parameters` | JSON schema for parameters |
-| `examples` | Usage examples |
-| `constraints` | Usage constraints |
+| Field         | Description                      |
+| ------------- | -------------------------------- |
+| `name`        | Tool name (e.g., "docker-build") |
+| `description` | What this tool does              |
+| `category`    | `mcp`, `cli`, `function`, `api`  |
+| `parameters`  | JSON schema for parameters       |
+| `examples`    | Usage examples                   |
+| `constraints` | Usage constraints                |
 
 **When to use:** CLI commands, API endpoints, scripts, reusable patterns.
 
@@ -133,13 +134,13 @@ Tags categorize entries and enable filtering:
 
 ### Tag Categories
 
-| Category | Purpose |
-|----------|---------|
+| Category   | Purpose                                   |
+| ---------- | ----------------------------------------- |
 | `language` | Programming language (typescript, python) |
-| `domain` | Domain area (security, performance) |
+| `domain`   | Domain area (security, performance)       |
 | `category` | Entry category (code_style, architecture) |
-| `meta` | Metadata (deprecated, experimental) |
-| `custom` | User-defined tags |
+| `meta`     | Metadata (deprecated, experimental)       |
+| `custom`   | User-defined tags                         |
 
 ### Filtering by Tags
 
@@ -159,14 +160,14 @@ Tags categorize entries and enable filtering:
 
 Relations link entries across types:
 
-| Relation Type | Meaning |
-|---------------|---------|
-| `applies_to` | Guideline applies to knowledge/tool |
-| `depends_on` | Entry depends on another |
-| `conflicts_with` | Entries are mutually exclusive |
-| `related_to` | General relationship |
-| `parent_task` | Task hierarchy |
-| `subtask_of` | Task hierarchy |
+| Relation Type    | Meaning                             |
+| ---------------- | ----------------------------------- |
+| `applies_to`     | Guideline applies to knowledge/tool |
+| `depends_on`     | Entry depends on another            |
+| `conflicts_with` | Entries are mutually exclusive      |
+| `related_to`     | General relationship                |
+| `parent_task`    | Task hierarchy                      |
+| `subtask_of`     | Task hierarchy                      |
 
 ### Creating Relations
 
@@ -189,11 +190,11 @@ Relations link entries across types:
 
 Permissions control who can read/write entries:
 
-| Permission | Access |
-|------------|--------|
-| `read` | View entries |
-| `write` | Create, update, delete entries |
-| `admin` | Manage permissions |
+| Permission | Access                         |
+| ---------- | ------------------------------ |
+| `read`     | View entries                   |
+| `write`    | Create, update, delete entries |
+| `admin`    | Manage permissions             |
 
 ### Default Behavior
 

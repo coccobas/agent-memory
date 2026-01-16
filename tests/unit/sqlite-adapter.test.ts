@@ -226,7 +226,9 @@ describe('SQLiteStorageAdapter', () => {
     });
 
     it('should handle special characters in parameters', async () => {
-      sqlite.prepare('INSERT INTO test_items (name, value) VALUES (?, ?)').run("item'with'quotes", 400);
+      sqlite
+        .prepare('INSERT INTO test_items (name, value) VALUES (?, ?)')
+        .run("item'with'quotes", 400);
 
       const result = await adapter.executeRawSingle<{ name: string }>(
         'SELECT name FROM test_items WHERE name = ?',

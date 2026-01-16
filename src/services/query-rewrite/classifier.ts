@@ -5,11 +5,7 @@
  * Fast pattern-based classification covers most common cases.
  */
 
-import type {
-  QueryIntent,
-  ClassificationResult,
-  ClassificationMethod,
-} from './types.js';
+import type { QueryIntent, ClassificationResult, ClassificationMethod } from './types.js';
 
 /**
  * Pattern definition for intent matching

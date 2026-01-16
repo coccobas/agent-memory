@@ -455,8 +455,20 @@ describe('CaptureStateManager', () => {
 
       const config: CaptureConfig = {
         enabled: true,
-        sessionEnd: { enabled: true, minTurns: 3, minTokens: 500, extractExperiences: true, extractKnowledge: true },
-        turnBased: { enabled: false, triggerAfterTurns: 10, triggerAfterTokens: 5000, triggerOnToolError: true, maxCapturesPerSession: 5 },
+        sessionEnd: {
+          enabled: true,
+          minTurns: 3,
+          minTokens: 500,
+          extractExperiences: true,
+          extractKnowledge: true,
+        },
+        turnBased: {
+          enabled: false,
+          triggerAfterTurns: 10,
+          triggerAfterTokens: 5000,
+          triggerOnToolError: true,
+          maxCapturesPerSession: 5,
+        },
         deduplication: { enabled: true, similarityThreshold: 0.9, hashAlgorithm: 'sha256' },
         confidence: { experience: 0.7, knowledge: 0.7, guideline: 0.75, tool: 0.65 },
       };
@@ -472,8 +484,20 @@ describe('CaptureStateManager', () => {
 
       const config: CaptureConfig = {
         enabled: true,
-        sessionEnd: { enabled: true, minTurns: 3, minTokens: 500, extractExperiences: true, extractKnowledge: true },
-        turnBased: { enabled: false, triggerAfterTurns: 10, triggerAfterTokens: 5000, triggerOnToolError: true, maxCapturesPerSession: 5 },
+        sessionEnd: {
+          enabled: true,
+          minTurns: 3,
+          minTokens: 500,
+          extractExperiences: true,
+          extractKnowledge: true,
+        },
+        turnBased: {
+          enabled: false,
+          triggerAfterTurns: 10,
+          triggerAfterTokens: 5000,
+          triggerOnToolError: true,
+          maxCapturesPerSession: 5,
+        },
         deduplication: { enabled: false, similarityThreshold: 0.9, hashAlgorithm: 'sha256' },
         confidence: { experience: 0.7, knowledge: 0.7, guideline: 0.75, tool: 0.65 },
       };
@@ -504,7 +528,7 @@ describe('CaptureStateManager', () => {
       stateManager.registerHash(hash2, 'knowledge', 'entry-2');
 
       // Wait a tiny bit to ensure hashes are "old"
-      await new Promise(resolve => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, 10));
 
       // Clear hashes older than 5ms (should clear both)
       const cleared = stateManager.clearOldHashes(5);
@@ -1237,9 +1261,7 @@ describe('KnowledgeCaptureModule', () => {
 
   describe('Knowledge Capture', () => {
     it('should handle unavailable extraction service', async () => {
-      const transcript: TurnData[] = [
-        { role: 'user', content: 'Test' },
-      ];
+      const transcript: TurnData[] = [{ role: 'user', content: 'Test' }];
 
       const metrics: TurnMetrics = {
         turnCount: 1,
@@ -1503,7 +1525,7 @@ describe('CaptureService Integration', () => {
       stateManager.registerHash('hash2', 'knowledge', 'entry-2');
 
       // Wait a tiny bit to ensure hashes are "old"
-      await new Promise(resolve => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, 10));
 
       // Clear hashes older than 5ms
       const cleared = service.clearOldHashes(5);

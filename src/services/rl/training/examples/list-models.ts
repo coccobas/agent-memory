@@ -8,6 +8,8 @@
  *   npx tsx src/services/rl/training/examples/list-models.ts [modelsDir]
  */
 
+/* eslint-disable no-console */
+
 import { createModelLoader, getDefaultModelsDir } from '../model-loader.js';
 
 async function main(): Promise<void> {
@@ -107,8 +109,10 @@ async function main(): Promise<void> {
 
 // Run if executed directly
 if (import.meta.url === `file://${process.argv[1]}`) {
-  main().catch((error) => {
-    console.error('Error:', error.message);
+  main().catch((error: unknown) => {
+    // Error type from catch is unknown - safely access message property
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    console.error('Error:', (error as Error).message);
     process.exit(1);
   });
 }

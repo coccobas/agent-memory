@@ -159,8 +159,7 @@ Provide a domain-level synthesis as JSON:
 const LEVEL_2_CONFIG: LevelPromptConfig = {
   systemPrompt: LEVEL_2_SYSTEM_PROMPT,
   userPromptTemplate: LEVEL_2_USER_TEMPLATE,
-  focusInstructions:
-    'Synthesize architectural patterns and create actionable domain knowledge',
+  focusInstructions: 'Synthesize architectural patterns and create actionable domain knowledge',
   outputFormat: 'JSON with domain title, comprehensive summary, key concepts, confidence',
 };
 
@@ -326,7 +325,10 @@ function handleItemIteration(template: string, items: PromptVariables['items']):
       // Handle metadata
       if (item.metadata?.tags) {
         itemText = itemText.replace(/\{\{this\.metadata\.tags\}\}/g, item.metadata.tags.join(', '));
-        itemText = itemText.replace(/\{\{#if this\.metadata\.tags\}\}([\s\S]*?)\{\{\/if\}\}/g, '$1');
+        itemText = itemText.replace(
+          /\{\{#if this\.metadata\.tags\}\}([\s\S]*?)\{\{\/if\}\}/g,
+          '$1'
+        );
       } else {
         itemText = itemText.replace(/\{\{#if this\.metadata\.tags\}\}[\s\S]*?\{\{\/if\}\}/g, '');
       }
@@ -379,7 +381,7 @@ export function getFallbackSummary(
   const firstItem = items[0];
   const title =
     items.length === 1
-      ? firstItem?.title ?? 'Untitled'
+      ? (firstItem?.title ?? 'Untitled')
       : `Summary of ${items.length} ${firstItem?.type ?? 'item'}s`;
 
   // Extract key sentences (first sentence from each item)

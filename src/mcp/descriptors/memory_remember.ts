@@ -11,7 +11,11 @@
  */
 
 import type { SimpleToolDescriptor } from './types.js';
-import { validateTextLength, validateArrayLength, SIZE_LIMITS } from '../../services/validation.service.js';
+import {
+  validateTextLength,
+  validateArrayLength,
+  SIZE_LIMITS,
+} from '../../services/validation.service.js';
 import { createValidationError } from '../../core/errors.js';
 
 /**
@@ -54,7 +58,7 @@ function extractContent(text: string): { title: string; content: string } {
   if (title.length > 80) {
     // Find last space before char 77 to avoid mid-word cut
     const cutPoint = title.lastIndexOf(' ', 77);
-    title = cutPoint > 40 ? title.slice(0, cutPoint) + '...' : title.slice(0, 77) + '...'
+    title = cutPoint > 40 ? title.slice(0, cutPoint) + '...' : title.slice(0, 77) + '...';
   }
 
   return { title, content: content.trim() };
@@ -63,10 +67,7 @@ function extractContent(text: string): { title: string; content: string } {
 /**
  * Infer category from content
  */
-function inferCategory(
-  entryType: 'guideline' | 'knowledge' | 'tool',
-  content: string
-): string {
+function inferCategory(entryType: 'guideline' | 'knowledge' | 'tool', content: string): string {
   const lower = content.toLowerCase();
 
   if (entryType === 'guideline') {
@@ -95,7 +96,8 @@ function inferCategory(
 export const memoryRememberDescriptor: SimpleToolDescriptor = {
   name: 'memory_remember',
   visibility: 'core',
-  description: 'Store memories using natural language. Auto-detects type (guideline, knowledge, tool) and category.',
+  description:
+    'Store memories using natural language. Auto-detects type (guideline, knowledge, tool) and category.',
   params: {
     text: { type: 'string', description: 'What to remember' },
     forceType: { type: 'string', enum: ['guideline', 'knowledge', 'tool'] },
@@ -187,7 +189,10 @@ export const memoryRememberDescriptor: SimpleToolDescriptor = {
           const guideline = await ctx.repos.guidelines.create({
             scopeType: 'project',
             scopeId: projectId,
-            name: title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 50),
+            name: title
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, '-')
+              .slice(0, 50),
             content,
             category,
             priority,
@@ -214,7 +219,10 @@ export const memoryRememberDescriptor: SimpleToolDescriptor = {
           const tool = await ctx.repos.tools.create({
             scopeType: 'project',
             scopeId: projectId,
-            name: title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 50),
+            name: title
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, '-')
+              .slice(0, 50),
             description: content,
             category: category as 'mcp' | 'cli' | 'function' | 'api',
             createdBy: agentId,
@@ -246,9 +254,10 @@ export const memoryRememberDescriptor: SimpleToolDescriptor = {
       // Build human-readable display
       const typeIcon = entryType === 'guideline' ? '📋' : entryType === 'knowledge' ? '💡' : '🔧';
       const truncatedTitle = title.length > 50 ? title.slice(0, 47) + '...' : title;
-      const confidenceStr = classificationResult.confidence < 0.7
-        ? ` (${Math.round(classificationResult.confidence * 100)}% confidence)`
-        : '';
+      const confidenceStr =
+        classificationResult.confidence < 0.7
+          ? ` (${Math.round(classificationResult.confidence * 100)}% confidence)`
+          : '';
       const _display = `${typeIcon} Stored ${entryType} (${category})${confidenceStr}\n📝 ${truncatedTitle}`;
 
       return {

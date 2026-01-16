@@ -6,7 +6,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { consolidate } from '../../src/services/consolidation/orchestrator.js';
 import * as discovery from '../../src/services/consolidation/discovery.js';
 import * as strategies from '../../src/services/consolidation/strategies/index.js';
-import type { SimilarityGroup, ConsolidationParams } from '../../src/services/consolidation/types.js';
+import type {
+  SimilarityGroup,
+  ConsolidationParams,
+} from '../../src/services/consolidation/types.js';
 import type { ConsolidationStrategy } from '../../src/services/consolidation/strategy.interface.js';
 
 vi.mock('../../src/services/consolidation/discovery.js');
@@ -82,11 +85,7 @@ describe('Consolidation Orchestrator', () => {
       expect(result.groupsFound).toBe(1);
       expect(result.groups).toEqual(mockGroups);
       expect(strategies.getStrategy).toHaveBeenCalledWith('dedupe');
-      expect(mockStrategy.execute).toHaveBeenCalledWith(
-        mockGroups[0],
-        undefined,
-        mockDb
-      );
+      expect(mockStrategy.execute).toHaveBeenCalledWith(mockGroups[0], undefined, mockDb);
     });
 
     it('should use correct strategy based on params', async () => {
@@ -185,11 +184,7 @@ describe('Consolidation Orchestrator', () => {
 
       await consolidate(createParams({ consolidatedBy: 'agent-123' }));
 
-      expect(mockStrategy.execute).toHaveBeenCalledWith(
-        expect.anything(),
-        'agent-123',
-        mockDb
-      );
+      expect(mockStrategy.execute).toHaveBeenCalledWith(expect.anything(), 'agent-123', mockDb);
     });
 
     it('should collect errors from failed strategy executions', async () => {
@@ -371,13 +366,15 @@ describe('Consolidation Orchestrator', () => {
     it('should pass all params to findSimilarGroups', async () => {
       vi.mocked(discovery.findSimilarGroups).mockResolvedValue([]);
 
-      await consolidate(createParams({
-        scopeType: 'org',
-        scopeId: 'org-456',
-        entryTypes: ['guideline', 'knowledge'],
-        threshold: 0.75,
-        limit: 50,
-      }));
+      await consolidate(
+        createParams({
+          scopeType: 'org',
+          scopeId: 'org-456',
+          entryTypes: ['guideline', 'knowledge'],
+          threshold: 0.75,
+          limit: 50,
+        })
+      );
 
       expect(discovery.findSimilarGroups).toHaveBeenCalledWith(
         expect.objectContaining({

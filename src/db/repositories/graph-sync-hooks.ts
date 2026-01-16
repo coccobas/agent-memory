@@ -8,7 +8,11 @@
  * Pattern inspired by embedding-hooks.ts for async non-fatal operations.
  */
 
-import type { GraphSyncService, EntrySyncMetadata, RelationSyncMetadata } from '../../services/graph/sync.service.js';
+import type {
+  GraphSyncService,
+  EntrySyncMetadata,
+  RelationSyncMetadata,
+} from '../../services/graph/sync.service.js';
 import { createComponentLogger } from '../../utils/logger.js';
 
 const logger = createComponentLogger('graph-sync-hooks');

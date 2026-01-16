@@ -7,7 +7,11 @@ The training infrastructure builds datasets from feedback data and provides a DP
 ## Building Datasets
 
 ```typescript
-import { buildExtractionDataset, buildRetrievalDataset, buildConsolidationDataset } from './services/rl/training';
+import {
+  buildExtractionDataset,
+  buildRetrievalDataset,
+  buildConsolidationDataset,
+} from './services/rl/training';
 
 // Build extraction training dataset
 const extractionDataset = await buildExtractionDataset({
@@ -51,7 +55,7 @@ if (result.success) {
 import { evaluatePolicy, comparePolicies, formatEvaluationReport } from './services/rl/training';
 
 // Evaluate a single policy
-const testData = extractionDataset.eval.map(ex => ({
+const testData = extractionDataset.eval.map((ex) => ({
   state: ex.state,
   expectedAction: ex.action,
   reward: ex.reward,
@@ -128,7 +132,7 @@ Use bootstrap resampling to estimate confidence intervals:
 ```typescript
 import { computeConfidenceInterval } from './services/rl/training';
 
-const rewards = testData.map(d => d.reward);
+const rewards = testData.map((d) => d.reward);
 const ci = computeConfidenceInterval(rewards, 0.95);
 
 console.log(`Mean reward: ${ci.mean.toFixed(4)}`);

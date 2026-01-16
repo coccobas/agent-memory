@@ -22,18 +22,27 @@ let testDb: ReturnType<typeof setupTestDb>;
 let sqlite: ReturnType<typeof setupTestDb>['sqlite'];
 let db: ReturnType<typeof setupTestDb>['db'];
 let context: AppContext;
-let previousApiKey: string | undefined;
-let previousRestAgentId: string | undefined;
-let previousPermMode: string | undefined;
+// Store all auth-related env vars
+const originalEnv: Record<string, string | undefined> = {};
 
 describe('REST API Integration', () => {
   beforeAll(async () => {
-    previousApiKey = process.env.AGENT_MEMORY_REST_API_KEY;
-    previousRestAgentId = process.env.AGENT_MEMORY_REST_AGENT_ID;
-    previousPermMode = process.env.AGENT_MEMORY_PERMISSIONS_MODE;
+    // Save all auth-related env vars
+    originalEnv.AGENT_MEMORY_REST_API_KEY = process.env.AGENT_MEMORY_REST_API_KEY;
+    originalEnv.AGENT_MEMORY_REST_AGENT_ID = process.env.AGENT_MEMORY_REST_AGENT_ID;
+    originalEnv.AGENT_MEMORY_PERMISSIONS_MODE = process.env.AGENT_MEMORY_PERMISSIONS_MODE;
+    originalEnv.AGENT_MEMORY_DEV_MODE = process.env.AGENT_MEMORY_DEV_MODE;
+    originalEnv.AGENT_MEMORY_API_KEY = process.env.AGENT_MEMORY_API_KEY;
+    originalEnv.AGENT_MEMORY_ALLOW_PERMISSIVE = process.env.AGENT_MEMORY_ALLOW_PERMISSIVE;
+
+    // Set up test environment
+    // NOTE: We don't enable DEV_MODE here because we want to test authentication
     process.env.AGENT_MEMORY_REST_API_KEY = REST_API_KEY;
     process.env.AGENT_MEMORY_REST_AGENT_ID = REST_AGENT_ID;
     process.env.AGENT_MEMORY_PERMISSIONS_MODE = 'permissive';
+    delete process.env.AGENT_MEMORY_DEV_MODE; // Ensure dev mode is OFF for auth tests
+    delete process.env.AGENT_MEMORY_ALLOW_PERMISSIVE;
+
     testDb = setupTestDb(TEST_DB_PATH);
     sqlite = testDb.sqlite;
     db = testDb.db;
@@ -43,9 +52,14 @@ describe('REST API Integration', () => {
   afterAll(() => {
     sqlite.close();
     cleanupTestDb(TEST_DB_PATH);
-    process.env.AGENT_MEMORY_REST_API_KEY = previousApiKey;
-    process.env.AGENT_MEMORY_REST_AGENT_ID = previousRestAgentId;
-    process.env.AGENT_MEMORY_PERMISSIONS_MODE = previousPermMode;
+    // Restore all original env vars
+    for (const [key, value] of Object.entries(originalEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
   });
 
   it('GET /health returns ok', async () => {

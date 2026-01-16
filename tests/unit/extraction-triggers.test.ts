@@ -41,7 +41,8 @@ describe('ExtractionTriggersService', () => {
     });
 
     it('should detect recovery triggers', () => {
-      const text = 'After debugging, I found the issue was a race condition. Fixed it by adding a mutex.';
+      const text =
+        'After debugging, I found the issue was a race condition. Fixed it by adding a mutex.';
       const result = service.detect(text);
 
       const recoveryTriggers = result.triggers.filter((t) => t.type === 'recovery');

@@ -4,11 +4,37 @@
  * Review candidate memory entries via CLI.
  */
 
-import { Command } from 'commander';
+import type { Command } from 'commander';
 import { getCliContext, shutdownCliContext } from '../utils/context.js';
 import { formatOutput, type OutputFormat } from '../utils/output.js';
 import { handleCliError } from '../utils/errors.js';
 import { reviewHandlers } from '../../mcp/handlers/review.handler.js';
+import { typedAction } from '../utils/typed-action.js';
+
+interface ReviewListOptions extends Record<string, unknown> {
+  sessionId: string;
+}
+
+interface ReviewShowOptions extends Record<string, unknown> {
+  sessionId: string;
+  entryId: string;
+}
+
+interface ReviewApproveOptions extends Record<string, unknown> {
+  sessionId: string;
+  entryId: string;
+  projectId?: string;
+}
+
+interface ReviewRejectOptions extends Record<string, unknown> {
+  sessionId: string;
+  entryId: string;
+}
+
+interface ReviewSkipOptions extends Record<string, unknown> {
+  sessionId: string;
+  entryId: string;
+}
 
 export function addReviewCommand(program: Command): void {
   const review = program.command('review').description('Review candidate memory entries');
@@ -18,22 +44,24 @@ export function addReviewCommand(program: Command): void {
     .command('list')
     .description('List candidates pending review')
     .requiredOption('--session-id <id>', 'Session ID')
-    .action(async (options, cmd) => {
-      try {
-        const globalOpts = cmd.optsWithGlobals();
-        const context = await getCliContext();
+    .action(
+      typedAction<ReviewListOptions>(async (options, globalOpts) => {
+        try {
+          const context = await getCliContext();
 
-        const result = await reviewHandlers.list(context, {
-          sessionId: options.sessionId,
-        });
+          const result = await reviewHandlers.list(context, {
+            sessionId: options.sessionId,
+          });
 
-        console.log(formatOutput(result, globalOpts.format as OutputFormat));
-      } catch (error) {
-        handleCliError(error);
-      } finally {
-        await shutdownCliContext();
-      }
-    });
+          // eslint-disable-next-line no-console
+          console.log(formatOutput(result, globalOpts.format as OutputFormat));
+        } catch (error) {
+          handleCliError(error);
+        } finally {
+          await shutdownCliContext();
+        }
+      })
+    );
 
   // review show
   review
@@ -41,23 +69,25 @@ export function addReviewCommand(program: Command): void {
     .description('Show full details of a candidate')
     .requiredOption('--session-id <id>', 'Session ID')
     .requiredOption('--entry-id <id>', 'Entry ID or short ID')
-    .action(async (options, cmd) => {
-      try {
-        const globalOpts = cmd.optsWithGlobals();
-        const context = await getCliContext();
+    .action(
+      typedAction<ReviewShowOptions>(async (options, globalOpts) => {
+        try {
+          const context = await getCliContext();
 
-        const result = await reviewHandlers.show(context, {
-          sessionId: options.sessionId,
-          entryId: options.entryId,
-        });
+          const result = await reviewHandlers.show(context, {
+            sessionId: options.sessionId,
+            entryId: options.entryId,
+          });
 
-        console.log(formatOutput(result, globalOpts.format as OutputFormat));
-      } catch (error) {
-        handleCliError(error);
-      } finally {
-        await shutdownCliContext();
-      }
-    });
+          // eslint-disable-next-line no-console
+          console.log(formatOutput(result, globalOpts.format as OutputFormat));
+        } catch (error) {
+          handleCliError(error);
+        } finally {
+          await shutdownCliContext();
+        }
+      })
+    );
 
   // review approve
   review
@@ -66,24 +96,26 @@ export function addReviewCommand(program: Command): void {
     .requiredOption('--session-id <id>', 'Session ID')
     .requiredOption('--entry-id <id>', 'Entry ID')
     .option('--project-id <id>', 'Target project ID (optional, derived from session)')
-    .action(async (options, cmd) => {
-      try {
-        const globalOpts = cmd.optsWithGlobals();
-        const context = await getCliContext();
+    .action(
+      typedAction<ReviewApproveOptions>(async (options, globalOpts) => {
+        try {
+          const context = await getCliContext();
 
-        const result = await reviewHandlers.approve(context, {
-          sessionId: options.sessionId,
-          entryId: options.entryId,
-          projectId: options.projectId,
-        });
+          const result = await reviewHandlers.approve(context, {
+            sessionId: options.sessionId,
+            entryId: options.entryId,
+            projectId: options.projectId,
+          });
 
-        console.log(formatOutput(result, globalOpts.format as OutputFormat));
-      } catch (error) {
-        handleCliError(error);
-      } finally {
-        await shutdownCliContext();
-      }
-    });
+          // eslint-disable-next-line no-console
+          console.log(formatOutput(result, globalOpts.format as OutputFormat));
+        } catch (error) {
+          handleCliError(error);
+        } finally {
+          await shutdownCliContext();
+        }
+      })
+    );
 
   // review reject
   review
@@ -91,23 +123,25 @@ export function addReviewCommand(program: Command): void {
     .description('Deactivate/reject a candidate')
     .requiredOption('--session-id <id>', 'Session ID')
     .requiredOption('--entry-id <id>', 'Entry ID')
-    .action(async (options, cmd) => {
-      try {
-        const globalOpts = cmd.optsWithGlobals();
-        const context = await getCliContext();
+    .action(
+      typedAction<ReviewRejectOptions>(async (options, globalOpts) => {
+        try {
+          const context = await getCliContext();
 
-        const result = await reviewHandlers.reject(context, {
-          sessionId: options.sessionId,
-          entryId: options.entryId,
-        });
+          const result = await reviewHandlers.reject(context, {
+            sessionId: options.sessionId,
+            entryId: options.entryId,
+          });
 
-        console.log(formatOutput(result, globalOpts.format as OutputFormat));
-      } catch (error) {
-        handleCliError(error);
-      } finally {
-        await shutdownCliContext();
-      }
-    });
+          // eslint-disable-next-line no-console
+          console.log(formatOutput(result, globalOpts.format as OutputFormat));
+        } catch (error) {
+          handleCliError(error);
+        } finally {
+          await shutdownCliContext();
+        }
+      })
+    );
 
   // review skip
   review
@@ -115,21 +149,23 @@ export function addReviewCommand(program: Command): void {
     .description('Remove from review queue without action')
     .requiredOption('--session-id <id>', 'Session ID')
     .requiredOption('--entry-id <id>', 'Entry ID')
-    .action(async (options, cmd) => {
-      try {
-        const globalOpts = cmd.optsWithGlobals();
-        const context = await getCliContext();
+    .action(
+      typedAction<ReviewSkipOptions>(async (options, globalOpts) => {
+        try {
+          const context = await getCliContext();
 
-        const result = await reviewHandlers.skip(context, {
-          sessionId: options.sessionId,
-          entryId: options.entryId,
-        });
+          const result = await reviewHandlers.skip(context, {
+            sessionId: options.sessionId,
+            entryId: options.entryId,
+          });
 
-        console.log(formatOutput(result, globalOpts.format as OutputFormat));
-      } catch (error) {
-        handleCliError(error);
-      } finally {
-        await shutdownCliContext();
-      }
-    });
+          // eslint-disable-next-line no-console
+          console.log(formatOutput(result, globalOpts.format as OutputFormat));
+        } catch (error) {
+          handleCliError(error);
+        } finally {
+          await shutdownCliContext();
+        }
+      })
+    );
 }

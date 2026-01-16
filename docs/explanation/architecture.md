@@ -36,27 +36,33 @@ For the canonical system-wide architecture (including mandatory architecture gui
 ```
 
 ### MCP Server (`src/mcp/*`)
+
 - JSON-RPC over stdio
 - Tools for querying, writing, and managing memory entries
 
 ### REST API (`src/restapi/*`)
+
 - HTTP wrapper for read-only access (`/v1/query`, `/v1/context`)
 - Requires API key authentication
 
 ### Database Layer (`src/db/*`)
+
 - **SQLite** (default) - better-sqlite3 for single-node deployments
 - **PostgreSQL** (enterprise) - For distributed/high-availability deployments
 - Drizzle ORM for schema and migrations
 
 ### Vector Store (`@lancedb/lancedb`)
+
 - Optional semantic search embeddings stored in LanceDB
 
 ### Redis (optional)
+
 - Distributed caching
 - Distributed locking for multi-node coordination
 - Event pub/sub for cache invalidation
 
 ### Services (`src/services/*`)
+
 - Business logic: permissions, queries, extraction, backups, etc.
 
 ---
@@ -65,12 +71,12 @@ For the canonical system-wide architecture (including mandatory architecture gui
 
 Agent Memory supports two database backends:
 
-| Feature | SQLite (Default) | PostgreSQL |
-|---------|-----------------|------------|
-| Deployment | Single node | Multi-node/distributed |
-| Setup | Zero config | Requires server |
-| Best for | Development, small teams | Enterprise, high availability |
-| Performance | Fast for local | Connection pooling |
+| Feature     | SQLite (Default)         | PostgreSQL                    |
+| ----------- | ------------------------ | ----------------------------- |
+| Deployment  | Single node              | Multi-node/distributed        |
+| Setup       | Zero config              | Requires server               |
+| Best for    | Development, small teams | Enterprise, high availability |
+| Performance | Fast for local           | Connection pooling            |
 
 ### Choosing a Backend
 
@@ -100,6 +106,7 @@ agent-memory mcp
 ```
 
 Redis provides:
+
 - **Distributed caching** - Share query cache across nodes
 - **Distributed locks** - Coordinate file locks across instances
 - **Event pub/sub** - Invalidate caches when data changes
@@ -132,6 +139,7 @@ Agent Memory uses an adapter pattern to abstract persistence:
 ```
 
 This allows:
+
 - Swapping backends without changing business logic
 - Testing with in-memory implementations
 - Adding new backends (e.g., MySQL) without refactoring

@@ -7,12 +7,14 @@ Accepted
 ## Context
 
 Agent Memory has extension points where external services need to integrate:
+
 - Embedding generation (OpenAI, local models, custom providers)
 - Entity extraction (custom NLP pipelines)
 - Summarization (different LLM providers)
 - IDE hooks (Claude Code, Cursor, VS Code)
 
 Hardcoding these integrations creates tight coupling and limits extensibility. We needed:
+
 - Registration points for external implementations
 - Lifecycle management for plugins
 - Discovery mechanism for available hooks
@@ -30,18 +32,18 @@ interface HookDefinition {
   name: string;
   description: string;
   trigger: HookTrigger;
-  schema: ZodSchema;  // Input validation
+  schema: ZodSchema; // Input validation
 }
 
 type HookTrigger =
-  | 'pre_tool_use'      // Before MCP tool execution
-  | 'post_tool_use'     // After MCP tool execution
-  | 'session_start'     // When session begins
-  | 'session_end'       // When session ends
-  | 'entry_created'     // When entry is added
-  | 'entry_updated'     // When entry is modified
-  | 'embedding_needed'  // When embedding should be generated
-  | 'extraction_needed' // When entities should be extracted
+  | 'pre_tool_use' // Before MCP tool execution
+  | 'post_tool_use' // After MCP tool execution
+  | 'session_start' // When session begins
+  | 'session_end' // When session ends
+  | 'entry_created' // When entry is added
+  | 'entry_updated' // When entry is modified
+  | 'embedding_needed' // When embedding should be generated
+  | 'extraction_needed'; // When entities should be extracted
 ```
 
 ### Hook Registration
@@ -69,7 +71,7 @@ class HookRegistry {
 
     for (const handler of handlers) {
       result = await handler(context, result);
-      if (!result.proceed) break;  // Hook blocked execution
+      if (!result.proceed) break; // Hook blocked execution
     }
 
     return result;
@@ -83,7 +85,7 @@ class HookRegistry {
 // src/db/repositories/embedding-hooks.ts
 export function registerEmbeddingPipeline(
   repository: GuidelineRepository | KnowledgeRepository | ToolRepository,
-  embeddingService: IEmbeddingService,
+  embeddingService: IEmbeddingService
 ): void {
   // Hook into entry creation/update
   repository.on('afterCreate', async (entry) => {
@@ -112,7 +114,7 @@ class HookGeneratorService {
   async generateHookScript(
     ide: 'claude' | 'cursor' | 'vscode',
     hookType: 'pre_tool_use' | 'session_end' | 'user_prompt_submit',
-    config: HookConfig,
+    config: HookConfig
   ): Promise<string> {
     const template = this.getTemplate(ide, hookType);
     return this.renderTemplate(template, config);
@@ -208,6 +210,7 @@ class OllamaEmbeddingPlugin implements AgentMemoryPlugin {
 ## Consequences
 
 **Positive:**
+
 - Clear extension points for third-party integrations
 - Repositories decoupled from embedding/extraction services
 - IDE hooks are generated, not hardcoded
@@ -215,6 +218,7 @@ class OllamaEmbeddingPlugin implements AgentMemoryPlugin {
 - MCP tool for hook management
 
 **Negative:**
+
 - Hook execution adds overhead to operations
 - Plugin errors can affect core functionality
 - Hook ordering can be complex with multiple plugins

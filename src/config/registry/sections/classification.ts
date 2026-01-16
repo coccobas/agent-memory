@@ -23,8 +23,7 @@ export const classificationSection: ConfigSectionMeta = {
     lowConfidenceThreshold: {
       envKey: 'AGENT_MEMORY_CLASSIFICATION_LOW_THRESHOLD',
       defaultValue: 0.6,
-      description:
-        'Confidence threshold below which LLM fallback is always used (if available).',
+      description: 'Confidence threshold below which LLM fallback is always used (if available).',
       schema: z.number().min(0).max(1),
       parse: 'number',
     },

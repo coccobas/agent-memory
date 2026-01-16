@@ -3,10 +3,16 @@
  *
  * Uses a local LLM (via LM Studio) to intelligently chunk text
  * with semantic understanding of boundaries, relations, and dependencies.
+ *
+ * NOTE: Non-null assertions used for array indexing after validation
+ * in chunk processing operations.
  */
 
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
+
 import { v4 as uuid } from 'uuid';
-import { LMStudioClient, createLMStudioClient } from '../lm-studio/client.js';
+import type { LMStudioClient } from '../lm-studio/client.js';
+import { createLMStudioClient } from '../lm-studio/client.js';
 import type { LMStudioConfig } from '../lm-studio/types.js';
 import { createComponentLogger } from '../../utils/logger.js';
 import {
@@ -170,10 +176,10 @@ ${sample}
 Type:`;
 
     try {
-      const response = await this.client.chat(
-        [{ role: 'user', content: prompt }],
-        { temperature: 0.1, maxTokens: 10 }
-      );
+      const response = await this.client.chat([{ role: 'user', content: prompt }], {
+        temperature: 0.1,
+        maxTokens: 10,
+      });
 
       const type = response.content.trim().toLowerCase();
       if (['code', 'markdown', 'conversation', 'structured', 'text'].includes(type)) {
@@ -195,9 +201,7 @@ Type:`;
     contentType: ContentType
   ): Promise<ChunkBoundaryResponse> {
     // Add line numbers for reference
-    const numberedText = lines
-      .map((line, i) => `${i + 1}: ${line}`)
-      .join('\n');
+    const numberedText = lines.map((line, i) => `${i + 1}: ${line}`).join('\n');
 
     const prompt = `You are a document chunking assistant. Analyze this ${contentType} document and identify logical chunk boundaries.
 
@@ -231,10 +235,10 @@ Respond with JSON only:
 }`;
 
     try {
-      const response = await this.client.chat(
-        [{ role: 'user', content: prompt }],
-        { temperature: this.config.temperature, maxTokens: 2000 }
-      );
+      const response = await this.client.chat([{ role: 'user', content: prompt }], {
+        temperature: this.config.temperature,
+        maxTokens: 2000,
+      });
 
       // Extract JSON from response
       const jsonMatch = response.content.match(/\{[\s\S]*\}/);
@@ -352,10 +356,10 @@ Respond with JSON only:
 }`;
 
     try {
-      const response = await this.client.chat(
-        [{ role: 'user', content: prompt }],
-        { temperature: 0.1, maxTokens: 500 }
-      );
+      const response = await this.client.chat([{ role: 'user', content: prompt }], {
+        temperature: 0.1,
+        maxTokens: 500,
+      });
 
       const jsonMatch = response.content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
@@ -416,10 +420,10 @@ Respond with JSON only:
 }`;
 
     try {
-      const response = await this.client.chat(
-        [{ role: 'user', content: prompt }],
-        { temperature: 0.2, maxTokens: 1000 }
-      );
+      const response = await this.client.chat([{ role: 'user', content: prompt }], {
+        temperature: 0.2,
+        maxTokens: 1000,
+      });
 
       const jsonMatch = response.content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
@@ -437,10 +441,7 @@ Respond with JSON only:
   /**
    * Convert LLM relation response to ChunkRelation objects
    */
-  private convertRelations(
-    response: ChunkRelationResponse,
-    chunks: Chunk[]
-  ): ChunkRelation[] {
+  private convertRelations(response: ChunkRelationResponse, chunks: Chunk[]): ChunkRelation[] {
     const relations: ChunkRelation[] = [];
 
     // Add sequential relations
@@ -522,7 +523,8 @@ Respond with JSON only:
 
     return {
       totalChunks: chunks.length,
-      avgChunkSize: sizes.length > 0 ? Math.round(sizes.reduce((a, b) => a + b, 0) / sizes.length) : 0,
+      avgChunkSize:
+        sizes.length > 0 ? Math.round(sizes.reduce((a, b) => a + b, 0) / sizes.length) : 0,
       minChunkSize: sizes.length > 0 ? Math.min(...sizes) : 0,
       maxChunkSize: sizes.length > 0 ? Math.max(...sizes) : 0,
       totalRelations: relations.length,
@@ -556,8 +558,6 @@ Respond with JSON only:
 /**
  * Create an LLM-powered chunking service
  */
-export function createLLMChunkingService(
-  config?: Partial<LLMChunkingConfig>
-): LLMChunkingService {
+export function createLLMChunkingService(config?: Partial<LLMChunkingConfig>): LLMChunkingService {
   return new LLMChunkingService(config);
 }

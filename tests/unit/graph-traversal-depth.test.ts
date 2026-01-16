@@ -69,10 +69,13 @@ describe('Graph Traversal Depth - Edge Cases', () => {
 
   describe('Cycle Detection', () => {
     it('should detect simple cycle (A -> B -> A)', () => {
-      const graph = createCyclicGraph(['A', 'B'], [
+      const graph = createCyclicGraph(
         ['A', 'B'],
-        ['B', 'A'],
-      ]);
+        [
+          ['A', 'B'],
+          ['B', 'A'],
+        ]
+      );
 
       const result = traverseGraph(graph, 'A', { maxDepth: 10 });
 
@@ -82,11 +85,14 @@ describe('Graph Traversal Depth - Edge Cases', () => {
     });
 
     it('should detect longer cycle (A -> B -> C -> A)', () => {
-      const graph = createCyclicGraph(['A', 'B', 'C'], [
-        ['A', 'B'],
-        ['B', 'C'],
-        ['C', 'A'],
-      ]);
+      const graph = createCyclicGraph(
+        ['A', 'B', 'C'],
+        [
+          ['A', 'B'],
+          ['B', 'C'],
+          ['C', 'A'],
+        ]
+      );
 
       const result = traverseGraph(graph, 'A', { maxDepth: 20 });
 
@@ -104,13 +110,16 @@ describe('Graph Traversal Depth - Edge Cases', () => {
     });
 
     it('should handle graph with multiple cycles', () => {
-      const graph = createCyclicGraph(['A', 'B', 'C', 'D'], [
-        ['A', 'B'],
-        ['B', 'A'],
-        ['C', 'D'],
-        ['D', 'C'],
-        ['A', 'C'],
-      ]);
+      const graph = createCyclicGraph(
+        ['A', 'B', 'C', 'D'],
+        [
+          ['A', 'B'],
+          ['B', 'A'],
+          ['C', 'D'],
+          ['D', 'C'],
+          ['A', 'C'],
+        ]
+      );
 
       const result = traverseGraph(graph, 'A', { maxDepth: 20 });
 
@@ -119,11 +128,14 @@ describe('Graph Traversal Depth - Edge Cases', () => {
     });
 
     it('should handle DAG (no cycles)', () => {
-      const graph = createCyclicGraph(['A', 'B', 'C'], [
-        ['A', 'B'],
-        ['A', 'C'],
-        ['B', 'C'],
-      ]);
+      const graph = createCyclicGraph(
+        ['A', 'B', 'C'],
+        [
+          ['A', 'B'],
+          ['A', 'C'],
+          ['B', 'C'],
+        ]
+      );
 
       const result = traverseGraph(graph, 'A', { maxDepth: 10 });
 
@@ -438,7 +450,11 @@ function createTypedGraph(): Graph {
   return graph;
 }
 
-function traverseGraph(graph: Graph, startNode: string, options: TraversalOptions): TraversalResult {
+function traverseGraph(
+  graph: Graph,
+  startNode: string,
+  options: TraversalOptions
+): TraversalResult {
   if (!graph.nodes.includes(startNode)) {
     return { visited: [], hasCycle: false, error: 'Start node not found' };
   }

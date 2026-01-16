@@ -151,7 +151,7 @@ export class PostgreSQLStorageAdapter implements IStorageAdapter {
     // Set statement timeout for all connections
     if (this.config.statementTimeoutMs > 0) {
       this.pool.on('connect', (client: PoolClient) => {
-        client.query(`SET statement_timeout = ${this.config.statementTimeoutMs}`);
+        void client.query(`SET statement_timeout = ${this.config.statementTimeoutMs}`);
       });
     }
 
@@ -258,7 +258,10 @@ export class PostgreSQLStorageAdapter implements IStorageAdapter {
           await client.query('ROLLBACK');
         } catch (rollbackError) {
           // Ignore rollback errors - connection may already be closed
-          logger.debug({ error: rollbackError }, 'Rollback failed during error handling, connection may be closed');
+          logger.debug(
+            { error: rollbackError },
+            'Rollback failed during error handling, connection may be closed'
+          );
         }
 
         lastError = error instanceof Error ? error : new Error(String(error));

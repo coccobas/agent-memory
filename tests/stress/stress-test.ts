@@ -10,7 +10,12 @@
  * Run with: npx tsx tests/stress/stress-test.ts
  */
 
-import { setupTestDb, cleanupTestDb, createTestContext, type TestDb } from '../fixtures/test-helpers.js';
+import {
+  setupTestDb,
+  cleanupTestDb,
+  createTestContext,
+  type TestDb,
+} from '../fixtures/test-helpers.js';
 import { guidelineHandlers } from '../../src/mcp/handlers/guidelines.handler.js';
 import { knowledgeHandlers } from '../../src/mcp/handlers/knowledge.handler.js';
 import { toolHandlers } from '../../src/mcp/handlers/tools.handler.js';
@@ -134,48 +139,56 @@ async function testConcurrentMcpCalls(ctx: AppContext, projectId: string): Promi
         case 0:
           // Add guideline
           operations.push(
-            guidelineHandlers.add(ctx, {
-              name: `stress-guideline-${batch}-${i}`,
-              content: `Stress test guideline content for batch ${batch} operation ${i}. This contains enough text to be meaningful.`,
-              category: 'testing',
-              scopeType: 'project',
-              scopeId: projectId,
-              agentId: STRESS_TEST_AGENT_ID,
-            }).catch(logError)
+            guidelineHandlers
+              .add(ctx, {
+                name: `stress-guideline-${batch}-${i}`,
+                content: `Stress test guideline content for batch ${batch} operation ${i}. This contains enough text to be meaningful.`,
+                category: 'testing',
+                scopeType: 'project',
+                scopeId: projectId,
+                agentId: STRESS_TEST_AGENT_ID,
+              })
+              .catch(logError)
           );
           break;
         case 1:
           // Add knowledge
           operations.push(
-            knowledgeHandlers.add(ctx, {
-              title: `Stress knowledge ${batch}-${i}`,
-              content: `Stress test knowledge entry for batch ${batch} operation ${i}. Contains factual information for testing.`,
-              category: 'fact',
-              scopeType: 'project',
-              scopeId: projectId,
-              agentId: STRESS_TEST_AGENT_ID,
-            }).catch(logError)
+            knowledgeHandlers
+              .add(ctx, {
+                title: `Stress knowledge ${batch}-${i}`,
+                content: `Stress test knowledge entry for batch ${batch} operation ${i}. Contains factual information for testing.`,
+                category: 'fact',
+                scopeType: 'project',
+                scopeId: projectId,
+                agentId: STRESS_TEST_AGENT_ID,
+              })
+              .catch(logError)
           );
           break;
         case 2:
           // Query search
           operations.push(
-            queryHandlers.query(ctx, {
-              search: `stress test batch ${batch}`,
-              scopeType: 'project',
-              scopeId: projectId,
-              limit: 10,
-            }).catch(logError)
+            queryHandlers
+              .query(ctx, {
+                search: `stress test batch ${batch}`,
+                scopeType: 'project',
+                scopeId: projectId,
+                limit: 10,
+              })
+              .catch(logError)
           );
           break;
         case 3:
           // Query context
           operations.push(
-            queryHandlers.context(ctx, {
-              scopeType: 'project',
-              scopeId: projectId,
-              limit: 5,
-            }).catch(logError)
+            queryHandlers
+              .context(ctx, {
+                scopeType: 'project',
+                scopeId: projectId,
+                limit: 5,
+              })
+              .catch(logError)
           );
           break;
       }
@@ -239,7 +252,9 @@ async function testLargeDataVolume(ctx: AppContext, projectId: string): Promise<
       if (errors === 0) console.error('\n   First guideline error:', (e as Error).message);
       errors += batch;
     }
-    process.stdout.write(`\r   Guidelines: ${Math.min(i + batchSize, guidelinesCount)}/${guidelinesCount}`);
+    process.stdout.write(
+      `\r   Guidelines: ${Math.min(i + batchSize, guidelinesCount)}/${guidelinesCount}`
+    );
   }
 
   // Create knowledge in batches
@@ -261,10 +276,13 @@ async function testLargeDataVolume(ctx: AppContext, projectId: string): Promise<
       });
       created += batch;
     } catch (e) {
-      if (errors === 0 || (errors - Math.floor(errors / 50) * 50 === 0)) console.error('\n   Knowledge error:', (e as Error).message);
+      if (errors === 0 || errors - Math.floor(errors / 50) * 50 === 0)
+        console.error('\n   Knowledge error:', (e as Error).message);
       errors += batch;
     }
-    process.stdout.write(`\r   Knowledge: ${Math.min(i + batchSize, knowledgeCount)}/${knowledgeCount}`);
+    process.stdout.write(
+      `\r   Knowledge: ${Math.min(i + batchSize, knowledgeCount)}/${knowledgeCount}`
+    );
   }
 
   // Create tools in batches
@@ -303,12 +321,12 @@ async function testLargeDataVolume(ctx: AppContext, projectId: string): Promise<
   let offset = 0;
   let totalResults = 0;
   while (true) {
-    const result = await queryHandlers.query(ctx, {
+    const result = (await queryHandlers.query(ctx, {
       scopeType: 'project',
       scopeId: projectId,
       limit: 100,
       offset,
-    }) as { results: unknown[]; meta: { hasMore: boolean } };
+    })) as { results: unknown[]; meta: { hasMore: boolean } };
     totalResults += result.results.length;
     if (!result.meta.hasMore) break;
     offset += 100;
@@ -319,14 +337,19 @@ async function testLargeDataVolume(ctx: AppContext, projectId: string): Promise<
 
   // Test context retrieval
   const contextStart = performance.now();
-  const contextResult = await queryHandlers.context(ctx, {
+  const contextResult = (await queryHandlers.context(ctx, {
     scopeType: 'project',
     scopeId: projectId,
-  }) as { tools: unknown[]; guidelines: unknown[]; knowledge: unknown[]; experiences: unknown[] };
+  })) as { tools: unknown[]; guidelines: unknown[]; knowledge: unknown[]; experiences: unknown[] };
   const contextDuration = performance.now() - contextStart;
-  const contextCount = contextResult.tools.length + contextResult.guidelines.length +
-                       contextResult.knowledge.length + contextResult.experiences.length;
-  console.log(`   Context retrieval: ${contextCount} entries in ${formatDuration(contextDuration)}`);
+  const contextCount =
+    contextResult.tools.length +
+    contextResult.guidelines.length +
+    contextResult.knowledge.length +
+    contextResult.experiences.length;
+  console.log(
+    `   Context retrieval: ${contextCount} entries in ${formatDuration(contextDuration)}`
+  );
 
   return {
     name: 'Large Data Volume',
@@ -377,13 +400,17 @@ async function testSemanticSearchLoad(ctx: AppContext, projectId: string): Promi
       const query = sampleQueries[(completed + i) % sampleQueries.length];
 
       operations.push(
-        queryHandlers.query(ctx, {
-          search: query,
-          scopeType: 'project',
-          scopeId: projectId,
-          semanticSearch: true,
-          limit: 20,
-        }).catch(() => { errors++; })
+        queryHandlers
+          .query(ctx, {
+            search: query,
+            scopeType: 'project',
+            scopeId: projectId,
+            semanticSearch: true,
+            limit: 20,
+          })
+          .catch(() => {
+            errors++;
+          })
       );
     }
 
@@ -580,18 +607,20 @@ async function testMultiAgentAccess(ctx: AppContext, projectId: string): Promise
               break;
             case 4:
               // Update an entry from this agent
-              const listResult = await guidelineHandlers.list(ctx, {
+              const listResult = (await guidelineHandlers.list(ctx, {
                 scopeType: 'project',
                 scopeId: projectId,
                 limit: 5,
-              }) as { entries?: Array<{ id: string; name: string }> };
+              })) as { entries?: Array<{ id: string; name: string }> };
               if (listResult.entries?.length) {
                 const entry = listResult.entries[0];
-                await guidelineHandlers.update(ctx, {
-                  id: entry.id,
-                  content: `Updated by agent ${agentNum} at ${Date.now()}`,
-                  agentId,
-                }).catch(() => {}); // Ignore update conflicts
+                await guidelineHandlers
+                  .update(ctx, {
+                    id: entry.id,
+                    content: `Updated by agent ${agentNum} at ${Date.now()}`,
+                    agentId,
+                  })
+                  .catch(() => {}); // Ignore update conflicts
               }
               break;
           }
@@ -695,7 +724,9 @@ async function testMemoryPressure(ctx: AppContext, projectId: string): Promise<S
   // Check memory usage if available
   if (typeof process.memoryUsage === 'function') {
     const mem = process.memoryUsage();
-    console.log(`   Memory: heap=${Math.round(mem.heapUsed / 1024 / 1024)}MB, rss=${Math.round(mem.rss / 1024 / 1024)}MB`);
+    console.log(
+      `   Memory: heap=${Math.round(mem.heapUsed / 1024 / 1024)}MB, rss=${Math.round(mem.rss / 1024 / 1024)}MB`
+    );
   }
 
   const duration = performance.now() - start;
@@ -846,7 +877,10 @@ async function testComplexQueries(ctx: AppContext, projectId: string): Promise<S
 // TEST 8: EMBEDDING BACKPRESSURE
 // =============================================================================
 
-async function testEmbeddingBackpressure(ctx: AppContext, projectId: string): Promise<StressResult> {
+async function testEmbeddingBackpressure(
+  ctx: AppContext,
+  projectId: string
+): Promise<StressResult> {
   console.log('\n⏳ Test 8: Embedding Backpressure');
   console.log('==================================');
 
@@ -882,19 +916,21 @@ async function testEmbeddingBackpressure(ctx: AppContext, projectId: string): Pr
       const uniqueText = `${sampleTexts[textIdx]} (batch ${batch}, entry ${i}, ts=${Date.now()})`;
 
       batchPromises.push(
-        knowledgeHandlers.add(ctx, {
-          title: `Embedding test ${batch}-${i}`,
-          content: uniqueText,
-          category: 'fact',
-          scopeType: 'project',
-          scopeId: projectId,
-          agentId: STRESS_TEST_AGENT_ID,
-        }).catch((e) => {
-          errors++;
-          if (!firstError) {
-            firstError = (e as Error).message || String(e);
-          }
-        })
+        knowledgeHandlers
+          .add(ctx, {
+            title: `Embedding test ${batch}-${i}`,
+            content: uniqueText,
+            category: 'fact',
+            scopeType: 'project',
+            scopeId: projectId,
+            agentId: STRESS_TEST_AGENT_ID,
+          })
+          .catch((e) => {
+            errors++;
+            if (!firstError) {
+              firstError = (e as Error).message || String(e);
+            }
+          })
       );
     }
 
@@ -912,13 +948,17 @@ async function testEmbeddingBackpressure(ctx: AppContext, projectId: string): Pr
   const searchPromises: Promise<unknown>[] = [];
   for (let i = 0; i < 10; i++) {
     searchPromises.push(
-      queryHandlers.query(ctx, {
-        search: sampleTexts[i % sampleTexts.length],
-        semanticSearch: true,
-        scopeType: 'project',
-        scopeId: projectId,
-        limit: 10,
-      }).catch(() => { errors++; })
+      queryHandlers
+        .query(ctx, {
+          search: sampleTexts[i % sampleTexts.length],
+          semanticSearch: true,
+          scopeType: 'project',
+          scopeId: projectId,
+          limit: 10,
+        })
+        .catch(() => {
+          errors++;
+        })
     );
   }
 
@@ -953,11 +993,11 @@ async function cleanupStressTestData(ctx: AppContext, projectId: string) {
 
   for (const prefix of prefixes) {
     try {
-      const guidelines = await guidelineHandlers.list(ctx, {
+      const guidelines = (await guidelineHandlers.list(ctx, {
         scopeType: 'project',
         scopeId: projectId,
         limit: 1000,
-      }) as { entries: Array<{ id: string; name: string }> };
+      })) as { entries: Array<{ id: string; name: string }> };
 
       for (const g of guidelines.entries) {
         if (g.name.startsWith(prefix)) {
@@ -1041,12 +1081,13 @@ async function main() {
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log(`📊 TOTAL: ${totalOps} operations in ${formatDuration(totalDuration)}`);
     console.log(`   Average throughput: ${((totalOps / totalDuration) * 1000).toFixed(2)} ops/sec`);
-    console.log(`   Total errors: ${totalErrors} (${((totalErrors / totalOps) * 100).toFixed(2)}%)`);
+    console.log(
+      `   Total errors: ${totalErrors} (${((totalErrors / totalOps) * 100).toFixed(2)}%)`
+    );
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     // Cleanup stress test data
     await cleanupStressTestData(ctx, projectId);
-
   } catch (error) {
     console.error('\n❌ Stress test failed:', error);
     process.exitCode = 1;

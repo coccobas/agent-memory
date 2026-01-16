@@ -55,9 +55,21 @@ export function enrichResultsWithVersionContent(
 
   // Batch fetch all versions
   const toolVersionsMap = fetchVersions<ToolVersion>(db, toolVersions, toolVersionIds);
-  const guidelineVersionsMap = fetchVersions<GuidelineVersion>(db, guidelineVersions, guidelineVersionIds);
-  const knowledgeVersionsMap = fetchVersions<KnowledgeVersion>(db, knowledgeVersions, knowledgeVersionIds);
-  const experienceVersionsMap = fetchVersions<ExperienceVersion>(db, experienceVersions, experienceVersionIds);
+  const guidelineVersionsMap = fetchVersions<GuidelineVersion>(
+    db,
+    guidelineVersions,
+    guidelineVersionIds
+  );
+  const knowledgeVersionsMap = fetchVersions<KnowledgeVersion>(
+    db,
+    knowledgeVersions,
+    knowledgeVersionIds
+  );
+  const experienceVersionsMap = fetchVersions<ExperienceVersion>(
+    db,
+    experienceVersions,
+    experienceVersionIds
+  );
 
   // Attach versions to results
   return results.map((r): QueryResultItem => {

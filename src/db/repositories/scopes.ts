@@ -170,18 +170,22 @@ export function createOrganizationRepository(deps: DatabaseDeps): IOrganizationR
     async delete(id: string): Promise<boolean> {
       // Bug #20 fix: Cascade delete org-scoped entries before deleting organization
       // Delete entries that reference this org
-      const toolsDeleted = db.delete(tools)
+      const toolsDeleted = db
+        .delete(tools)
         .where(and(eq(tools.scopeType, 'org'), eq(tools.scopeId, id)))
         .run().changes;
-      const guidelinesDeleted = db.delete(guidelines)
+      const guidelinesDeleted = db
+        .delete(guidelines)
         .where(and(eq(guidelines.scopeType, 'org'), eq(guidelines.scopeId, id)))
         .run().changes;
-      const knowledgeDeleted = db.delete(knowledge)
+      const knowledgeDeleted = db
+        .delete(knowledge)
         .where(and(eq(knowledge.scopeType, 'org'), eq(knowledge.scopeId, id)))
         .run().changes;
 
       // Delete child projects (which will cascade to their entries)
-      const childProjects = db.select({ id: projects.id })
+      const childProjects = db
+        .select({ id: projects.id })
         .from(projects)
         .where(eq(projects.orgId, id))
         .all();
@@ -201,9 +205,7 @@ export function createOrganizationRepository(deps: DatabaseDeps): IOrganizationR
       }
 
       // Delete child projects
-      const projectsDeleted = db.delete(projects)
-        .where(eq(projects.orgId, id))
-        .run().changes;
+      const projectsDeleted = db.delete(projects).where(eq(projects.orgId, id)).run().changes;
 
       const result = db.delete(organizations).where(eq(organizations.id, id)).run();
       if (result.changes > 0) {
@@ -302,7 +304,10 @@ export function createProjectRepository(deps: DatabaseDeps): IProjectRepository 
         if (!project.rootPath) return false;
         const normalizedRootPath = project.rootPath.replace(/\/+$/, '');
         // Check if path starts with rootPath (exact match or subdirectory)
-        return normalizedPath === normalizedRootPath || normalizedPath.startsWith(normalizedRootPath + '/');
+        return (
+          normalizedPath === normalizedRootPath ||
+          normalizedPath.startsWith(normalizedRootPath + '/')
+        );
       });
 
       if (matchingProjects.length === 0) {
@@ -362,13 +367,16 @@ export function createProjectRepository(deps: DatabaseDeps): IProjectRepository 
 
     async delete(id: string): Promise<boolean> {
       // Bug #19 fix: Cascade delete project-scoped entries before deleting project
-      const toolsDeleted = db.delete(tools)
+      const toolsDeleted = db
+        .delete(tools)
         .where(and(eq(tools.scopeType, 'project'), eq(tools.scopeId, id)))
         .run().changes;
-      const guidelinesDeleted = db.delete(guidelines)
+      const guidelinesDeleted = db
+        .delete(guidelines)
         .where(and(eq(guidelines.scopeType, 'project'), eq(guidelines.scopeId, id)))
         .run().changes;
-      const knowledgeDeleted = db.delete(knowledge)
+      const knowledgeDeleted = db
+        .delete(knowledge)
         .where(and(eq(knowledge.scopeType, 'project'), eq(knowledge.scopeId, id)))
         .run().changes;
 

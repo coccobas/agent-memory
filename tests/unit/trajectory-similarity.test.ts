@@ -257,15 +257,57 @@ describe('Trajectory Similarity', () => {
 
     it('should calculate reasonable similarity for similar trajectories', () => {
       const steps1: ExperienceTrajectoryStep[] = [
-        { id: '1', experienceId: 'exp-1', stepOrder: 0, action: 'Read config', success: true, createdAt: new Date().toISOString() },
-        { id: '2', experienceId: 'exp-1', stepOrder: 1, action: 'Edit code', success: true, createdAt: new Date().toISOString() },
-        { id: '3', experienceId: 'exp-1', stepOrder: 2, action: 'Run tests', success: true, createdAt: new Date().toISOString() },
+        {
+          id: '1',
+          experienceId: 'exp-1',
+          stepOrder: 0,
+          action: 'Read config',
+          success: true,
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: '2',
+          experienceId: 'exp-1',
+          stepOrder: 1,
+          action: 'Edit code',
+          success: true,
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: '3',
+          experienceId: 'exp-1',
+          stepOrder: 2,
+          action: 'Run tests',
+          success: true,
+          createdAt: new Date().toISOString(),
+        },
       ];
 
       const steps2: ExperienceTrajectoryStep[] = [
-        { id: '1', experienceId: 'exp-2', stepOrder: 0, action: 'View config file', success: true, createdAt: new Date().toISOString() },
-        { id: '2', experienceId: 'exp-2', stepOrder: 1, action: 'Modify source', success: true, createdAt: new Date().toISOString() },
-        { id: '3', experienceId: 'exp-2', stepOrder: 2, action: 'Execute test suite', success: true, createdAt: new Date().toISOString() },
+        {
+          id: '1',
+          experienceId: 'exp-2',
+          stepOrder: 0,
+          action: 'View config file',
+          success: true,
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: '2',
+          experienceId: 'exp-2',
+          stepOrder: 1,
+          action: 'Modify source',
+          success: true,
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: '3',
+          experienceId: 'exp-2',
+          stepOrder: 2,
+          action: 'Execute test suite',
+          success: true,
+          createdAt: new Date().toISOString(),
+        },
       ];
 
       const result = calculateTrajectorySimilarity(steps1, steps2);
@@ -277,13 +319,41 @@ describe('Trajectory Similarity', () => {
 
     it('should calculate low similarity for different trajectories', () => {
       const steps1: ExperienceTrajectoryStep[] = [
-        { id: '1', experienceId: 'exp-1', stepOrder: 0, action: 'Read file', success: true, createdAt: new Date().toISOString() },
-        { id: '2', experienceId: 'exp-1', stepOrder: 1, action: 'Search for function', success: true, createdAt: new Date().toISOString() },
+        {
+          id: '1',
+          experienceId: 'exp-1',
+          stepOrder: 0,
+          action: 'Read file',
+          success: true,
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: '2',
+          experienceId: 'exp-1',
+          stepOrder: 1,
+          action: 'Search for function',
+          success: true,
+          createdAt: new Date().toISOString(),
+        },
       ];
 
       const steps2: ExperienceTrajectoryStep[] = [
-        { id: '1', experienceId: 'exp-2', stepOrder: 0, action: 'Delete file', success: false, createdAt: new Date().toISOString() },
-        { id: '2', experienceId: 'exp-2', stepOrder: 1, action: 'Install package', success: false, createdAt: new Date().toISOString() },
+        {
+          id: '1',
+          experienceId: 'exp-2',
+          stepOrder: 0,
+          action: 'Delete file',
+          success: false,
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: '2',
+          experienceId: 'exp-2',
+          stepOrder: 1,
+          action: 'Install package',
+          success: false,
+          createdAt: new Date().toISOString(),
+        },
       ];
 
       const result = calculateTrajectorySimilarity(steps1, steps2);
@@ -296,13 +366,37 @@ describe('Trajectory Similarity', () => {
 
     it('should include matching actions in result', () => {
       const steps1: ExperienceTrajectoryStep[] = [
-        { id: '1', experienceId: 'exp-1', stepOrder: 0, action: 'Read file', createdAt: new Date().toISOString() },
-        { id: '2', experienceId: 'exp-1', stepOrder: 1, action: 'Edit code', createdAt: new Date().toISOString() },
+        {
+          id: '1',
+          experienceId: 'exp-1',
+          stepOrder: 0,
+          action: 'Read file',
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: '2',
+          experienceId: 'exp-1',
+          stepOrder: 1,
+          action: 'Edit code',
+          createdAt: new Date().toISOString(),
+        },
       ];
 
       const steps2: ExperienceTrajectoryStep[] = [
-        { id: '1', experienceId: 'exp-2', stepOrder: 0, action: 'View config', createdAt: new Date().toISOString() },
-        { id: '2', experienceId: 'exp-2', stepOrder: 1, action: 'Modify source', createdAt: new Date().toISOString() },
+        {
+          id: '1',
+          experienceId: 'exp-2',
+          stepOrder: 0,
+          action: 'View config',
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: '2',
+          experienceId: 'exp-2',
+          stepOrder: 1,
+          action: 'Modify source',
+          createdAt: new Date().toISOString(),
+        },
       ];
 
       const result = calculateTrajectorySimilarity(steps1, steps2);
@@ -313,14 +407,44 @@ describe('Trajectory Similarity', () => {
 
     it('should penalize different lengths', () => {
       const shortSteps: ExperienceTrajectoryStep[] = [
-        { id: '1', experienceId: 'exp-1', stepOrder: 0, action: 'Read file', createdAt: new Date().toISOString() },
+        {
+          id: '1',
+          experienceId: 'exp-1',
+          stepOrder: 0,
+          action: 'Read file',
+          createdAt: new Date().toISOString(),
+        },
       ];
 
       const longSteps: ExperienceTrajectoryStep[] = [
-        { id: '1', experienceId: 'exp-2', stepOrder: 0, action: 'Read file', createdAt: new Date().toISOString() },
-        { id: '2', experienceId: 'exp-2', stepOrder: 1, action: 'Edit code', createdAt: new Date().toISOString() },
-        { id: '3', experienceId: 'exp-2', stepOrder: 2, action: 'Run tests', createdAt: new Date().toISOString() },
-        { id: '4', experienceId: 'exp-2', stepOrder: 3, action: 'Build project', createdAt: new Date().toISOString() },
+        {
+          id: '1',
+          experienceId: 'exp-2',
+          stepOrder: 0,
+          action: 'Read file',
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: '2',
+          experienceId: 'exp-2',
+          stepOrder: 1,
+          action: 'Edit code',
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: '3',
+          experienceId: 'exp-2',
+          stepOrder: 2,
+          action: 'Run tests',
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: '4',
+          experienceId: 'exp-2',
+          stepOrder: 3,
+          action: 'Build project',
+          createdAt: new Date().toISOString(),
+        },
       ];
 
       const result = calculateTrajectorySimilarity(shortSteps, longSteps);
@@ -332,9 +456,27 @@ describe('Trajectory Similarity', () => {
   describe('areTrajectoriessimilar', () => {
     it('should return true for very similar trajectories', () => {
       const steps: ExperienceTrajectoryStep[] = [
-        { id: '1', experienceId: 'exp-1', stepOrder: 0, action: 'Read config', createdAt: new Date().toISOString() },
-        { id: '2', experienceId: 'exp-1', stepOrder: 1, action: 'Edit code', createdAt: new Date().toISOString() },
-        { id: '3', experienceId: 'exp-1', stepOrder: 2, action: 'Run tests', createdAt: new Date().toISOString() },
+        {
+          id: '1',
+          experienceId: 'exp-1',
+          stepOrder: 0,
+          action: 'Read config',
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: '2',
+          experienceId: 'exp-1',
+          stepOrder: 1,
+          action: 'Edit code',
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: '3',
+          experienceId: 'exp-1',
+          stepOrder: 2,
+          action: 'Run tests',
+          createdAt: new Date().toISOString(),
+        },
       ];
 
       expect(areTrajectoriessimilar(steps, steps)).toBe(true);
@@ -342,11 +484,23 @@ describe('Trajectory Similarity', () => {
 
     it('should return false for very different trajectories', () => {
       const steps1: ExperienceTrajectoryStep[] = [
-        { id: '1', experienceId: 'exp-1', stepOrder: 0, action: 'Read file', createdAt: new Date().toISOString() },
+        {
+          id: '1',
+          experienceId: 'exp-1',
+          stepOrder: 0,
+          action: 'Read file',
+          createdAt: new Date().toISOString(),
+        },
       ];
 
       const steps2: ExperienceTrajectoryStep[] = [
-        { id: '1', experienceId: 'exp-2', stepOrder: 0, action: 'Delete everything', createdAt: new Date().toISOString() },
+        {
+          id: '1',
+          experienceId: 'exp-2',
+          stepOrder: 0,
+          action: 'Delete everything',
+          createdAt: new Date().toISOString(),
+        },
       ];
 
       expect(areTrajectoriessimilar(steps1, steps2)).toBe(false);
@@ -354,13 +508,37 @@ describe('Trajectory Similarity', () => {
 
     it('should respect custom threshold', () => {
       const steps1: ExperienceTrajectoryStep[] = [
-        { id: '1', experienceId: 'exp-1', stepOrder: 0, action: 'Read file', createdAt: new Date().toISOString() },
-        { id: '2', experienceId: 'exp-1', stepOrder: 1, action: 'Edit code', createdAt: new Date().toISOString() },
+        {
+          id: '1',
+          experienceId: 'exp-1',
+          stepOrder: 0,
+          action: 'Read file',
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: '2',
+          experienceId: 'exp-1',
+          stepOrder: 1,
+          action: 'Edit code',
+          createdAt: new Date().toISOString(),
+        },
       ];
 
       const steps2: ExperienceTrajectoryStep[] = [
-        { id: '1', experienceId: 'exp-2', stepOrder: 0, action: 'View config', createdAt: new Date().toISOString() },
-        { id: '2', experienceId: 'exp-2', stepOrder: 1, action: 'Delete file', createdAt: new Date().toISOString() },
+        {
+          id: '1',
+          experienceId: 'exp-2',
+          stepOrder: 0,
+          action: 'View config',
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: '2',
+          experienceId: 'exp-2',
+          stepOrder: 1,
+          action: 'Delete file',
+          createdAt: new Date().toISOString(),
+        },
       ];
 
       // May pass with low threshold

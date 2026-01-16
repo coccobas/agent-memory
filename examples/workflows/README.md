@@ -196,19 +196,23 @@ const server = await createServer(context);
 ### Common Issues
 
 **Database locked error:**
+
 - Close other connections to the database
 - Kill zombie processes: `ps aux | grep node | grep agent-memory`
 
 **Conflicts not detecting:**
+
 - Ensure updates happen within 5 seconds for conflict detection
 - Check that both updates have the same base version
 
 **Slow queries:**
+
 - Enable performance logging: `AGENT_MEMORY_PERF=1`
 - Check your scope sizes - large scopes take longer
 - Use more specific filters (tags, categories)
 
 **Memory not found:**
+
 - Check scope inheritance - set `inherit: true` to search parent scopes
 - Verify the scope IDs are correct
 - Check if entries are active (not deactivated)

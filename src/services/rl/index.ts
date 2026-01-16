@@ -11,12 +11,12 @@
  */
 
 import { createComponentLogger } from '../../utils/logger.js';
-import { ExtractionPolicy, createExtractionPolicy } from './policies/extraction.policy.js';
-import { RetrievalPolicy, createRetrievalPolicy } from './policies/retrieval.policy.js';
-import {
-  ConsolidationPolicy,
-  createConsolidationPolicy,
-} from './policies/consolidation.policy.js';
+import type { ExtractionPolicy } from './policies/extraction.policy.js';
+import { createExtractionPolicy } from './policies/extraction.policy.js';
+import type { RetrievalPolicy } from './policies/retrieval.policy.js';
+import { createRetrievalPolicy } from './policies/retrieval.policy.js';
+import type { ConsolidationPolicy } from './policies/consolidation.policy.js';
+import { createConsolidationPolicy } from './policies/consolidation.policy.js';
 import type { RLServiceConfig } from './types.js';
 
 const logger = createComponentLogger('rl-service');
@@ -91,8 +91,7 @@ export class RLService {
       },
       consolidation: {
         enabled: config.consolidation?.enabled ?? DEFAULT_CONFIG.consolidation.enabled,
-        modelPath:
-          config.consolidation?.modelPath ?? DEFAULT_CONFIG.consolidation.modelPath,
+        modelPath: config.consolidation?.modelPath ?? DEFAULT_CONFIG.consolidation.modelPath,
       },
     };
   }
@@ -172,10 +171,7 @@ export class RLService {
         config.consolidation.modelPath !== oldConfig.consolidation.modelPath)
     ) {
       this.consolidationPolicy.updateConfig(config.consolidation);
-      logger.info(
-        { config: config.consolidation },
-        'Consolidation policy config updated'
-      );
+      logger.info({ config: config.consolidation }, 'Consolidation policy config updated');
     }
 
     logger.info({ enabled: this.config.enabled }, 'RL Service config updated');
@@ -289,10 +285,7 @@ export {
   computeRetrievalReward,
   computeRetrievalOutcomeScore,
 } from './rewards/retrieval.reward.js';
-export type {
-  RetrievalRewardParams,
-  RetrievalRewardResult,
-} from './rewards/retrieval.reward.js';
+export type { RetrievalRewardParams, RetrievalRewardResult } from './rewards/retrieval.reward.js';
 
 export {
   computeConsolidationReward,

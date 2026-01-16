@@ -1,26 +1,22 @@
 {
-  "globs": [
-    "README.md",
-    "CHANGELOG.md",
-    "docs/**/*.md"
-  ],
+  "globs": ["README.md", "CHANGELOG.md", "docs/**/*.md"],
   "ignores": [
     "node_modules/**",
     "dist/**",
     "coverage/**",
     "data/**",
     "docs/findings/**",
-    "docs/review/**"
+    "docs/review/**",
   ],
   "config": {
     "MD013": {
       "line_length": 160,
-      "tables": false
+      "tables": false,
     },
     "MD031": false,
     "MD040": false,
     "MD033": false,
     "MD041": false,
-    "MD060": false
-  }
+    "MD060": false,
+  },
 }

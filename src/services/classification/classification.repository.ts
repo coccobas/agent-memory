@@ -4,6 +4,8 @@
  * CRUD operations for classification_feedback and pattern_confidence tables
  */
 
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
+
 import { eq, desc, gte } from 'drizzle-orm';
 import type { DrizzleDb } from '../../db/repositories/base.js';
 import { generateId, now } from '../../db/repositories/base.js';
@@ -236,10 +238,7 @@ export class ClassificationRepository {
       .where(eq(patternConfidence.patternId, patternId))
       .run();
 
-    logger.debug(
-      { patternId, wasCorrect, newMultiplier },
-      'Pattern confidence updated'
-    );
+    logger.debug({ patternId, wasCorrect, newMultiplier }, 'Pattern confidence updated');
   }
 
   /**

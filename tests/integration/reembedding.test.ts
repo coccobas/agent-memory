@@ -43,9 +43,7 @@ class MockEmbeddingService implements IEmbeddingService {
     };
   }
 
-  async embedBatch(
-    texts: string[]
-  ): Promise<{ embeddings: number[][]; model: string }> {
+  async embedBatch(texts: string[]): Promise<{ embeddings: number[][]; model: string }> {
     const results = await Promise.all(texts.map((t) => this.embed(t)));
     return {
       embeddings: results.map((r) => r.embedding),
@@ -245,11 +243,7 @@ describe('ReembeddingService Integration', () => {
 
   it('should create reembedding service successfully', { timeout: 10000 }, async () => {
     const embeddingService = new MockEmbeddingService(384);
-    const reembeddingService = new ReembeddingService(
-      embeddingService,
-      vectorStore,
-      db
-    );
+    const reembeddingService = new ReembeddingService(embeddingService, vectorStore, db);
 
     // Service should start in idle state
     expect(reembeddingService.getState()).toBe('idle');
@@ -263,11 +257,7 @@ describe('ReembeddingService Integration', () => {
 
   it('should report no mismatch when no embeddings exist', { timeout: 10000 }, async () => {
     const embeddingService = new MockEmbeddingService(384);
-    const reembeddingService = new ReembeddingService(
-      embeddingService,
-      vectorStore,
-      db
-    );
+    const reembeddingService = new ReembeddingService(embeddingService, vectorStore, db);
 
     const result = await reembeddingService.checkDimensionMismatch();
 
@@ -279,11 +269,7 @@ describe('ReembeddingService Integration', () => {
 
   it('should not trigger when no entries need re-embedding', { timeout: 10000 }, async () => {
     const embeddingService = new MockEmbeddingService(384);
-    const reembeddingService = new ReembeddingService(
-      embeddingService,
-      vectorStore,
-      db
-    );
+    const reembeddingService = new ReembeddingService(embeddingService, vectorStore, db);
 
     // No embeddings stored, so no mismatch, so should not trigger
     const triggered = await reembeddingService.triggerIfNeeded();
@@ -306,12 +292,9 @@ describe('ReembeddingService Integration', () => {
     });
 
     const embeddingService768 = new MockEmbeddingService(768);
-    const reembeddingService = new ReembeddingService(
-      embeddingService768,
-      vectorStore,
-      db,
-      { enabled: false }
-    );
+    const reembeddingService = new ReembeddingService(embeddingService768, vectorStore, db, {
+      enabled: false,
+    });
 
     const triggered = await reembeddingService.triggerIfNeeded();
     expect(triggered).toBe(false);

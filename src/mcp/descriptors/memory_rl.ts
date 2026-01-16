@@ -37,7 +37,10 @@ Example: {"action":"compare","policyA":"extraction","policyB":"extraction"}`,
     enabled: { type: 'boolean', description: 'Enable/disable policy' },
     modelPath: { type: 'string', description: 'Path to trained model file' },
     version: { type: 'string', description: 'Model version to load (default: latest)' },
-    config: { type: 'object', description: 'Policy configuration (epochs, batchSize, learningRate, beta, outputPath)' },
+    config: {
+      type: 'object',
+      description: 'Policy configuration (epochs, batchSize, learningRate, beta, outputPath)',
+    },
     format: {
       type: 'string',
       enum: ['huggingface', 'openai', 'csv', 'jsonl'],

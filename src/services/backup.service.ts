@@ -129,7 +129,8 @@ export async function createDatabaseBackup(customName?: string): Promise<BackupR
         // Continue with backup as checkpoint is optimization, not required
         logger.warn(
           {
-            error: checkpointError instanceof Error ? checkpointError.message : String(checkpointError),
+            error:
+              checkpointError instanceof Error ? checkpointError.message : String(checkpointError),
           },
           'WAL checkpoint failed before backup - backup will continue but may include uncommitted WAL data'
         );

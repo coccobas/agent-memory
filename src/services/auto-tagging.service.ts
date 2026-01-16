@@ -76,16 +76,83 @@ const TAG_KEYWORDS: Record<string, string[]> = {
   angular: ['angular', 'ng', '@angular'],
 
   // Domains
-  security: ['security', 'auth', 'authentication', 'authorization', 'password', 'token', 'jwt', 'oauth', 'secret', 'encrypt', 'hash', 'csrf', 'xss', 'sql injection'],
+  security: [
+    'security',
+    'auth',
+    'authentication',
+    'authorization',
+    'password',
+    'token',
+    'jwt',
+    'oauth',
+    'secret',
+    'encrypt',
+    'hash',
+    'csrf',
+    'xss',
+    'sql injection',
+  ],
   api: ['api', 'rest', 'graphql', 'endpoint', 'http', 'request', 'response', 'openapi', 'swagger'],
-  database: ['database', 'sql', 'query', 'postgres', 'mysql', 'sqlite', 'mongodb', 'redis', 'orm', 'migration'],
-  testing: ['test', 'spec', 'coverage', 'mock', 'stub', 'jest', 'vitest', 'mocha', 'pytest', 'assert', 'expect'],
-  performance: ['performance', 'optimize', 'fast', 'slow', 'latency', 'cache', 'memory', 'cpu', 'benchmark'],
-  devops: ['docker', 'kubernetes', 'k8s', 'ci/cd', 'pipeline', 'deploy', 'container', 'helm', 'terraform'],
+  database: [
+    'database',
+    'sql',
+    'query',
+    'postgres',
+    'mysql',
+    'sqlite',
+    'mongodb',
+    'redis',
+    'orm',
+    'migration',
+  ],
+  testing: [
+    'test',
+    'spec',
+    'coverage',
+    'mock',
+    'stub',
+    'jest',
+    'vitest',
+    'mocha',
+    'pytest',
+    'assert',
+    'expect',
+  ],
+  performance: [
+    'performance',
+    'optimize',
+    'fast',
+    'slow',
+    'latency',
+    'cache',
+    'memory',
+    'cpu',
+    'benchmark',
+  ],
+  devops: [
+    'docker',
+    'kubernetes',
+    'k8s',
+    'ci/cd',
+    'pipeline',
+    'deploy',
+    'container',
+    'helm',
+    'terraform',
+  ],
   documentation: ['documentation', 'docs', 'readme', 'jsdoc', 'docstring', 'comment'],
 
   // Patterns
-  architecture: ['architecture', 'design', 'pattern', 'solid', 'clean', 'layer', 'module', 'service'],
+  architecture: [
+    'architecture',
+    'design',
+    'pattern',
+    'solid',
+    'clean',
+    'layer',
+    'module',
+    'service',
+  ],
   refactoring: ['refactor', 'rename', 'extract', 'inline', 'move', 'cleanup'],
   debugging: ['debug', 'fix', 'bug', 'issue', 'error', 'exception', 'stack trace', 'breakpoint'],
   configuration: ['config', 'configuration', 'settings', 'env', 'environment', 'options'],
@@ -149,7 +216,7 @@ export class AutoTaggingService implements IAutoTaggingService {
     // Keyword matching
     for (const [tagName, keywords] of Object.entries(TAG_KEYWORDS)) {
       let matchCount = 0;
-      let matchedKeywords: string[] = [];
+      const matchedKeywords: string[] = [];
 
       for (const keyword of keywords) {
         // Check for exact word match or substring match for multi-word keywords
@@ -253,7 +320,12 @@ export class AutoTaggingService implements IAutoTaggingService {
         appliedTags.push(tagName);
       } catch (error) {
         logger.warn(
-          { tagName, entryType, entryId, error: error instanceof Error ? error.message : String(error) },
+          {
+            tagName,
+            entryType,
+            entryId,
+            error: error instanceof Error ? error.message : String(error),
+          },
           'Failed to apply tag'
         );
       }

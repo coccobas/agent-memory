@@ -126,11 +126,7 @@ describe('Voting Handler', () => {
       });
 
       expect(result.k).toBe(3);
-      expect(votingService.calculateConsensus).toHaveBeenCalledWith(
-        'task-1',
-        3,
-        mockContext.db
-      );
+      expect(votingService.calculateConsensus).toHaveBeenCalledWith('task-1', 3, mockContext.db);
     });
 
     it('should throw when taskId is missing', async () => {
@@ -138,9 +134,7 @@ describe('Voting Handler', () => {
     });
 
     it('should throw when k is less than 1', async () => {
-      await expect(
-        getConsensusHandler(mockContext, { taskId: 'task-1', k: 0 })
-      ).rejects.toThrow();
+      await expect(getConsensusHandler(mockContext, { taskId: 'task-1', k: 0 })).rejects.toThrow();
     });
 
     it('should include dissenting votes in result', async () => {
@@ -148,9 +142,7 @@ describe('Voting Handler', () => {
         consensus: 'option-a',
         voteCount: 4,
         confidence: 0.75,
-        dissentingVotes: [
-          { agentId: 'agent-3', vote: 'option-b', confidence: 0.6 },
-        ],
+        dissentingVotes: [{ agentId: 'agent-3', vote: 'option-b', confidence: 0.6 }],
         voteDistribution: [],
       };
       vi.mocked(votingService.calculateConsensus).mockReturnValue(mockConsensus);

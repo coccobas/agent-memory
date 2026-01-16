@@ -73,9 +73,7 @@ describe('Verification Handler', () => {
     it('should block action when violations detected', () => {
       mockVerificationService.verifyAction.mockReturnValue({
         blocked: true,
-        violations: [
-          { guidelineId: 'g-1', guideline: 'No secrets', reason: 'Contains API key' },
-        ],
+        violations: [{ guidelineId: 'g-1', guideline: 'No secrets', reason: 'Contains API key' }],
         warnings: [],
       });
 
@@ -302,9 +300,7 @@ describe('Verification Handler', () => {
     });
 
     it('should throw when sessionId is missing', () => {
-      expect(() =>
-        verificationHandlers.status(mockContext, {})
-      ).toThrow('sessionId');
+      expect(() => verificationHandlers.status(mockContext, {})).toThrow('sessionId');
     });
 
     it('should show acknowledged status for each guideline', () => {

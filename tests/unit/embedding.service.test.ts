@@ -60,17 +60,14 @@ describe('Embedding Service', () => {
   });
 
   it('should throw error when embeddings disabled', async () => {
-    await withTestEnv(
-      { AGENT_MEMORY_EMBEDDING_PROVIDER: 'disabled' },
-      async () => {
-        resetEmbeddingServiceState();
-        const disabledService = new EmbeddingService();
+    await withTestEnv({ AGENT_MEMORY_EMBEDDING_PROVIDER: 'disabled' }, async () => {
+      resetEmbeddingServiceState();
+      const disabledService = new EmbeddingService();
 
-        await expect(disabledService.embed('test')).rejects.toThrow('Embeddings are disabled');
+      await expect(disabledService.embed('test')).rejects.toThrow('Embeddings are disabled');
 
-        disabledService.cleanup();
-      }
-    );
+      disabledService.cleanup();
+    });
   });
 
   it('should reject empty text', async () => {
@@ -83,6 +80,3 @@ describe('Embedding Service', () => {
   // Note: Actual embedding generation tests would require API keys or local model setup
   // Those are integration tests rather than unit tests
 });
-
-
-

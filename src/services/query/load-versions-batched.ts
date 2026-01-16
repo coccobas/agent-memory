@@ -33,8 +33,9 @@ import {
   type GuidelineVersion,
   type KnowledgeVersion,
 } from '../../db/schema.js';
+import type { getDb } from '../../db/connection.js';
 
-type Db = ReturnType<typeof import('../../db/connection.js').getDb>;
+type Db = ReturnType<typeof getDb>;
 
 /**
  * Load version history for multiple entries in batched queries.

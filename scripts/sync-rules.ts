@@ -45,18 +45,16 @@ const SUPPORTED_IDES = Object.keys(IDE_DESTINATIONS);
 function findMemoryProjectRoot(): string {
   // Get the directory where this script is located
   const scriptDir = dirname(fileURLToPath(import.meta.url));
-  
+
   // Start from the script directory and walk up
   let currentDir = resolve(scriptDir);
   const root = resolve('/');
-  
+
   while (currentDir !== root) {
     const packageJsonPath = join(currentDir, 'package.json');
     if (existsSync(packageJsonPath)) {
       try {
-        const packageJson = JSON.parse(
-          readFileSync(packageJsonPath, 'utf-8')
-        );
+        const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
         if (packageJson.name === 'agent-memory') {
           return currentDir;
         }
@@ -64,7 +62,7 @@ function findMemoryProjectRoot(): string {
         // Continue searching if package.json is invalid
       }
     }
-    
+
     // Move up one directory
     const parentDir = dirname(currentDir);
     if (parentDir === currentDir) {
@@ -72,7 +70,7 @@ function findMemoryProjectRoot(): string {
     }
     currentDir = parentDir;
   }
-  
+
   // Fallback: if we can't find it, assume the script is in the project root
   // (walk up from scripts/ to project root)
   return resolve(scriptDir, '..');
@@ -191,7 +189,6 @@ Examples:
 `);
 }
 
-
 /**
  * Write operations to log file
  */
@@ -218,7 +215,7 @@ async function main() {
     // Find the Memory project root (where rules/ is located)
     const memoryProjectRoot = findMemoryProjectRoot();
     const sourceDir = join(memoryProjectRoot, 'rules');
-    
+
     // Use current working directory as output (where user runs the command)
     const workspacePath = process.cwd();
     const outputDir = options.output ? resolve(options.output) : workspacePath;
@@ -239,7 +236,9 @@ async function main() {
       if (detection.ide) {
         ide = detection.ide;
         if (!options.quiet) {
-          console.log(`Detected IDE: ${ide} (confidence: ${(detection.confidence * 100).toFixed(0)}%)`);
+          console.log(
+            `Detected IDE: ${ide} (confidence: ${(detection.confidence * 100).toFixed(0)}%)`
+          );
         }
       } else {
         if (!options.quiet) {
@@ -362,7 +361,10 @@ async function main() {
     // Determine exit code
     if (totalStats.errors > 0) {
       process.exit(1);
-    } else if (options.verify && (totalStats.added > 0 || totalStats.updated > 0 || totalStats.deleted > 0)) {
+    } else if (
+      options.verify &&
+      (totalStats.added > 0 || totalStats.updated > 0 || totalStats.deleted > 0)
+    ) {
       // Verification mode found differences
       process.exit(2);
     } else {
@@ -378,4 +380,3 @@ main().catch((error) => {
   console.error('Fatal error:', error);
   process.exit(1);
 });
-

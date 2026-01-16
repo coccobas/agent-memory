@@ -8,12 +8,15 @@
  * (Redis requirement for pub/sub).
  */
 
+/* eslint-disable @typescript-eslint/no-redundant-type-constituents -- ioredis types contain any */
+
 import { z } from 'zod';
 import type { IEventAdapterExtended, EntryChangedEvent } from '../interfaces/event-adapter.js';
 import { createComponentLogger } from '../../utils/logger.js';
 import { ConnectionGuard } from '../../utils/connection-guard.js';
 
 // Type imports for ioredis (actual import is dynamic to avoid loading when not used)
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports -- inline import() needed for dynamic type
 type Redis = import('ioredis').default;
 
 const logger = createComponentLogger('redis-event');
@@ -136,8 +139,8 @@ export class RedisEventAdapter implements IEventAdapterExtended {
         this.subClient = new IORedis(options);
       }
 
-      const pubClient = this.pubClient!;
-      const subClient = this.subClient!;
+      const pubClient = this.pubClient;
+      const subClient = this.subClient;
 
       // Set up event handlers for publisher
       pubClient.on('connect', () => {
@@ -178,7 +181,7 @@ export class RedisEventAdapter implements IEventAdapterExtended {
         if (channel !== this.channel) return;
 
         try {
-          const parsed = JSON.parse(message);
+          const parsed: unknown = JSON.parse(message);
 
           // Validate message structure with Zod
           const validationResult = RedisEventMessageSchema.safeParse(parsed);
@@ -263,7 +266,7 @@ export class RedisEventAdapter implements IEventAdapterExtended {
 
     // Publish to Redis if connected
     if (this.pubClient && this.connected) {
-      this.publishAsync(event).catch((error) => {
+      this.publishAsync(event).catch((error: unknown) => {
         logger.warn({ error, event }, 'Failed to publish event to Redis');
       });
     }

@@ -32,7 +32,9 @@ export const vectorEmbeddings = pgTable(
   'vector_embeddings',
   {
     id: text('id').primaryKey(),
-    entryType: text('entry_type', { enum: ['tool', 'guideline', 'knowledge', 'experience'] }).notNull(),
+    entryType: text('entry_type', {
+      enum: ['tool', 'guideline', 'knowledge', 'experience'],
+    }).notNull(),
     entryId: text('entry_id').notNull(),
     versionId: text('version_id').notNull(),
     text: text('text').notNull(),

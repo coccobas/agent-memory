@@ -4,14 +4,14 @@ Agent Memory uses structured error codes for programmatic error handling. All er
 
 ## Error Categories
 
-| Range | Category | Description |
-|-------|----------|-------------|
-| E1000-E1999 | Validation | Input validation failures |
-| E2000-E2999 | Resource | Resource-related errors (not found, conflicts) |
-| E3000-E3999 | Locks | File lock errors |
-| E4000-E4999 | Database | Database and migration errors |
-| E5000-E5999 | System | Internal and unknown errors |
-| E6000-E6999 | Permission | Access control errors |
+| Range       | Category   | Description                                    |
+| ----------- | ---------- | ---------------------------------------------- |
+| E1000-E1999 | Validation | Input validation failures                      |
+| E2000-E2999 | Resource   | Resource-related errors (not found, conflicts) |
+| E3000-E3999 | Locks      | File lock errors                               |
+| E4000-E4999 | Database   | Database and migration errors                  |
+| E5000-E5999 | System     | Internal and unknown errors                    |
+| E6000-E6999 | Permission | Access control errors                          |
 
 ---
 
@@ -25,6 +25,7 @@ Agent Memory uses structured error codes for programmatic error handling. All er
 **Description:** A required field was not provided in the request.
 
 **Example:**
+
 ```json
 {
   "error": "Validation error: scopeType - required field missing",
@@ -47,6 +48,7 @@ Agent Memory uses structured error codes for programmatic error handling. All er
 **Valid Values:** `global`, `org`, `project`, `session`
 
 **Example:**
+
 ```json
 {
   "error": "Invalid scope type: 'invalid'",
@@ -63,6 +65,7 @@ Agent Memory uses structured error codes for programmatic error handling. All er
 **Description:** The action specified is not valid for the tool.
 
 **Example:**
+
 ```json
 {
   "error": "Invalid action 'invalid' for tool 'memory_guideline'",
@@ -84,6 +87,7 @@ Agent Memory uses structured error codes for programmatic error handling. All er
 **Description:** The file path provided is invalid or malformed.
 
 **Example:**
+
 ```json
 {
   "error": "Invalid file path: path cannot be empty",
@@ -100,6 +104,7 @@ Agent Memory uses structured error codes for programmatic error handling. All er
 **Description:** A parameter value is invalid.
 
 **Example:**
+
 ```json
 {
   "error": "Invalid parameter: limit must be between 1 and 100",
@@ -123,6 +128,7 @@ Agent Memory uses structured error codes for programmatic error handling. All er
 **Description:** The requested resource was not found.
 
 **Example:**
+
 ```json
 {
   "error": "guideline not found: gl_abc123",
@@ -144,6 +150,7 @@ Agent Memory uses structured error codes for programmatic error handling. All er
 **Description:** Attempted to create a resource that already exists.
 
 **Example:**
+
 ```json
 {
   "error": "Tool with name 'my-tool' already exists in this scope",
@@ -160,6 +167,7 @@ Agent Memory uses structured error codes for programmatic error handling. All er
 **Description:** A conflict was detected, typically from concurrent writes.
 
 **Example:**
+
 ```json
 {
   "error": "Conflict detected: guideline - concurrent update within 5 seconds",
@@ -187,6 +195,7 @@ Agent Memory uses structured error codes for programmatic error handling. All er
 **Description:** The file is currently locked by another agent.
 
 **Example:**
+
 ```json
 {
   "error": "File is locked: /src/index.ts (locked by: agent-2)",
@@ -208,6 +217,7 @@ Agent Memory uses structured error codes for programmatic error handling. All er
 **Description:** The specified lock does not exist.
 
 **Example:**
+
 ```json
 {
   "error": "Lock not found for file: /src/missing.ts",
@@ -224,6 +234,7 @@ Agent Memory uses structured error codes for programmatic error handling. All er
 **Description:** The lock has expired.
 
 **Example:**
+
 ```json
 {
   "error": "Lock expired for file: /src/index.ts",
@@ -247,6 +258,7 @@ Agent Memory uses structured error codes for programmatic error handling. All er
 **Description:** A general database operation failed.
 
 **Example:**
+
 ```json
 {
   "error": "Database error: constraint violation",
@@ -263,6 +275,7 @@ Agent Memory uses structured error codes for programmatic error handling. All er
 **Description:** A database migration failed.
 
 **Example:**
+
 ```json
 {
   "error": "Migration failed: 0005_add_permissions.sql",
@@ -286,6 +299,7 @@ Agent Memory uses structured error codes for programmatic error handling. All er
 **Description:** An unexpected error occurred.
 
 **Example:**
+
 ```json
 {
   "error": "An unexpected error occurred",
@@ -302,6 +316,7 @@ Agent Memory uses structured error codes for programmatic error handling. All er
 **Description:** An internal server error occurred.
 
 **Example:**
+
 ```json
 {
   "error": "Internal error: failed to generate embedding",
@@ -325,6 +340,7 @@ Agent Memory uses structured error codes for programmatic error handling. All er
 **Description:** The agent does not have permission for the requested operation.
 
 **Example:**
+
 ```json
 {
   "error": "Permission denied: write access required for guideline gl_abc123",

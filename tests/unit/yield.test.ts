@@ -79,14 +79,10 @@ describe('yieldToEventLoop', () => {
   });
 
   it('should allow multiple concurrent yields', async () => {
-    const results = await Promise.all([
-      yieldToEventLoop(),
-      yieldToEventLoop(),
-      yieldToEventLoop(),
-    ]);
+    const results = await Promise.all([yieldToEventLoop(), yieldToEventLoop(), yieldToEventLoop()]);
 
     expect(results).toHaveLength(3);
-    results.forEach(result => {
+    results.forEach((result) => {
       expect(result).toBeUndefined();
     });
   });
@@ -145,9 +141,13 @@ describe('yieldToEventLoop', () => {
     let counter = 0;
 
     await yieldToEventLoop()
-      .then(() => { counter++; })
+      .then(() => {
+        counter++;
+      })
       .then(() => yieldToEventLoop())
-      .then(() => { counter++; });
+      .then(() => {
+        counter++;
+      });
 
     expect(counter).toBe(2);
   });
@@ -173,7 +173,7 @@ describe('yieldToEventLoop', () => {
     Promise.resolve().then(() => order.push('microtask-2'));
 
     // Wait for microtasks
-    await new Promise(resolve => setImmediate(resolve));
+    await new Promise((resolve) => setImmediate(resolve));
 
     // Microtask-1 should run before yield, microtask-2 after
     expect(order).toContain('microtask-1');
@@ -204,7 +204,7 @@ describe('yieldToEventLoop', () => {
 
     for (let i = 0; i < data.length; i += batchSize) {
       const batch = data.slice(i, i + batchSize);
-      results.push(...batch.map(x => x * 2));
+      results.push(...batch.map((x) => x * 2));
 
       // Yield after each batch
       await yieldToEventLoop();
@@ -261,7 +261,7 @@ describe('yieldToEventLoop - Real-world scenarios', () => {
 
       await yieldToEventLoop();
 
-      return 1 + await recursiveProcess(depth - 1);
+      return 1 + (await recursiveProcess(depth - 1));
     };
 
     const result = await recursiveProcess(50);

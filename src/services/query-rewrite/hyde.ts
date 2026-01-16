@@ -26,11 +26,7 @@ const logger = createComponentLogger('hyde');
  * Bug #5 fix: Sanitize user queries before embedding in prompts.
  */
 function escapeQueryForPrompt(input: string): string {
-  return input
-    .replace(/"/g, '\\"')
-    .replace(/\n/g, ' ')
-    .replace(/\r/g, '')
-    .slice(0, 2000); // Limit length to prevent context overflow
+  return input.replace(/"/g, '\\"').replace(/\n/g, ' ').replace(/\r/g, '').slice(0, 2000); // Limit length to prevent context overflow
 }
 
 /**
@@ -238,9 +234,7 @@ export class HyDEGenerator {
     });
 
     // Return generated texts, or fallback if generation failed
-    return result.texts.length > 0
-      ? result.texts
-      : [this.generateFallbackDocument(query, intent)];
+    return result.texts.length > 0 ? result.texts : [this.generateFallbackDocument(query, intent)];
   }
 
   /**

@@ -10,6 +10,7 @@ import type {
   OpenAIMessagesExample,
   LoRAExportConfig,
   LoRAExportResult,
+  OpenAIManifest,
 } from '../types.js';
 
 // =============================================================================
@@ -59,10 +60,16 @@ export async function exportOpenAIMessagesFormat(
     const evalExamples = examples.slice(splitIndex);
 
     // Convert to OpenAI format with validation
-    const { data: trainData, warnings: trainWarnings, tokens: trainTokens } =
-      convertToOpenAIMessages(trainExamples, config.includeGuidelines);
-    const { data: evalData, warnings: evalWarnings, tokens: evalTokens } =
-      convertToOpenAIMessages(evalExamples, config.includeGuidelines);
+    const {
+      data: trainData,
+      warnings: trainWarnings,
+      tokens: trainTokens,
+    } = convertToOpenAIMessages(trainExamples, config.includeGuidelines);
+    const {
+      data: evalData,
+      warnings: evalWarnings,
+      tokens: evalTokens,
+    } = convertToOpenAIMessages(evalExamples, config.includeGuidelines);
 
     warnings.push(...trainWarnings, ...evalWarnings);
     totalTokens = trainTokens + evalTokens;
@@ -76,7 +83,12 @@ export async function exportOpenAIMessagesFormat(
     await fs.writeFile(evalPath, evalData.map((ex) => JSON.stringify(ex)).join('\n'));
 
     // Create manifest file
-    const manifest = {
+    const manifest: OpenAIManifest = {
+      version: '1.0.0',
+      splits: {
+        train: { num_examples: trainData.length },
+        eval: { num_examples: evalData.length },
+      },
       purpose: 'fine-tune',
       format: 'openai-messages',
       policy: config.policy,
@@ -244,9 +256,11 @@ function createOpenAIMessages(
 /**
  * Validate messages against OpenAI token limits
  */
-function validateTokenLimits(
-  messages: OpenAIMessagesExample['messages']
-): { valid: boolean; reason?: string; estimatedTokens?: number } {
+function validateTokenLimits(messages: OpenAIMessagesExample['messages']): {
+  valid: boolean;
+  reason?: string;
+  estimatedTokens?: number;
+} {
   // Estimate token counts
   let totalChars = 0;
   let promptChars = 0;
@@ -305,7 +319,7 @@ function validateTokenLimits(
 /**
  * Generate OpenAI usage guide
  */
-function generateOpenAIUsageGuide(config: LoRAExportConfig, manifest: any): string {
+function generateOpenAIUsageGuide(config: LoRAExportConfig, manifest: OpenAIManifest): string {
   return `# OpenAI Fine-Tuning Dataset
 
 Dataset for fine-tuning OpenAI models on ${config.policy} policy decisions.
@@ -317,7 +331,7 @@ Dataset for fine-tuning OpenAI models on ${config.policy} policy decisions.
 - **Total Examples**: ${manifest.totalExamples}
 - **Training Examples**: ${manifest.trainExamples}
 - **Evaluation Examples**: ${manifest.evalExamples}
-- **Estimated Tokens**: ${manifest.estimatedTokens.toLocaleString()}
+- **Estimated Tokens**: ${manifest.estimatedTokens?.toLocaleString() ?? 'Unknown'}
 - **System Prompts**: ${manifest.includeGuidelines ? 'Included' : 'Not included'}
 - **Created**: ${manifest.createdAt}
 
@@ -484,7 +498,7 @@ For **gpt-3.5-turbo**:
 - Usage: ~$0.012 per 1K tokens (input) + $0.016 per 1K tokens (output)
 
 **Estimated cost for this dataset**:
-- Training cost: ~$${((manifest.estimatedTokens / 1000) * 0.008).toFixed(2)}
+- Training cost: ~$${(((manifest.estimatedTokens ?? 0) / 1000) * 0.008).toFixed(2)}
 - Per-inference cost: Same as base model fine-tuning rates
 
 Check current pricing at: https://openai.com/pricing

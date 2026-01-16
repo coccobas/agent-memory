@@ -1,13 +1,15 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
-import { allDescriptors, isActionBasedDescriptor, type AnyToolDescriptor } from '../../mcp/descriptors/index.js';
+import {
+  allDescriptors,
+  isActionBasedDescriptor,
+  type AnyToolDescriptor,
+} from '../../mcp/descriptors/index.js';
 import { isObject } from '../../utils/type-guards.js';
 
 /**
  * Build a lookup map of tool name -> descriptor
  */
-const descriptorMap = new Map<string, AnyToolDescriptor>(
-  allDescriptors.map((d) => [d.name, d])
-);
+const descriptorMap = new Map<string, AnyToolDescriptor>(allDescriptors.map((d) => [d.name, d]));
 
 /**
  * Validation middleware for tool execution requests
@@ -37,7 +39,7 @@ export async function validateToolRequest(
 
     // Validate body is an object
     if (!isObject(body)) {
-      reply.status(400).send({
+      await reply.status(400).send({
         success: false,
         error: {
           message: 'Request body must be an object',
@@ -52,7 +54,7 @@ export async function validateToolRequest(
     // Validate action is provided
     if (action === undefined || action === null) {
       const validActions = Object.keys(descriptor.actions);
-      reply.status(400).send({
+      await reply.status(400).send({
         success: false,
         error: {
           message: `Missing required parameter 'action' for tool '${toolName}'`,
@@ -67,7 +69,7 @@ export async function validateToolRequest(
 
     // Validate action is a string
     if (typeof action !== 'string') {
-      reply.status(400).send({
+      await reply.status(400).send({
         success: false,
         error: {
           message: `Parameter 'action' must be a string`,
@@ -80,7 +82,7 @@ export async function validateToolRequest(
     // Validate action is valid for this tool
     if (!descriptor.actions[action]) {
       const validActions = Object.keys(descriptor.actions);
-      reply.status(400).send({
+      await reply.status(400).send({
         success: false,
         error: {
           message: `Invalid action '${action}' for tool '${toolName}'`,

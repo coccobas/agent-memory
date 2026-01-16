@@ -140,10 +140,7 @@ export class CaptureStateManager {
   /**
    * Generate a content hash for deduplication
    */
-  generateContentHash(
-    content: string,
-    algorithm: 'sha256' | 'md5' = 'sha256'
-  ): string {
+  generateContentHash(content: string, algorithm: 'sha256' | 'md5' = 'sha256'): string {
     // Normalize content before hashing
     const normalized = this.normalizeContent(content);
     return createHash(algorithm).update(normalized).digest('hex');
@@ -179,11 +176,7 @@ export class CaptureStateManager {
   /**
    * Check if content is a duplicate (session or global)
    */
-  isDuplicate(
-    contentHash: string,
-    sessionId?: string,
-    config?: CaptureConfig
-  ): boolean {
+  isDuplicate(contentHash: string, sessionId?: string, config?: CaptureConfig): boolean {
     if (!config?.deduplication?.enabled) {
       return false;
     }
@@ -352,10 +345,7 @@ export class CaptureStateManager {
   /**
    * Check if session-end capture should be triggered
    */
-  shouldTriggerSessionEndCapture(
-    metrics: TurnMetrics,
-    config: CaptureConfig
-  ): boolean {
+  shouldTriggerSessionEndCapture(metrics: TurnMetrics, config: CaptureConfig): boolean {
     if (!config.sessionEnd.enabled) {
       return false;
     }

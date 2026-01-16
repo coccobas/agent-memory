@@ -11,6 +11,7 @@ Comprehensive test suite for SQL injection prevention across the codebase. Tests
 **Purpose**: Prevents SQL injection in temporal query parameters.
 
 **Coverage**:
+
 - ✅ Valid ISO 8601 date formats (YYYY-MM-DD, with time, with milliseconds, with Z timezone)
 - ✅ SQL injection with single quotes (`'; DROP TABLE--`)
 - ✅ SQL injection with comment markers (`--`, `/* */`, `#`)
@@ -22,13 +23,14 @@ Comprehensive test suite for SQL injection prevention across the codebase. Tests
 - ✅ Boundary testing (years 1000-9999, leap years, Unix epoch limits)
 
 **Attack Vectors Tested** (55 tests):
+
 ```typescript
 // Example payloads that are BLOCKED:
-"2024-01-01'; DROP TABLE knowledge--"
-"2024-01-01' OR '1'='1"
-"2024-01-01' UNION SELECT * FROM knowledge--"
-"2024-01-01; DELETE FROM users;"
-"2024-01-01' AND SLEEP(5)--"
+"2024-01-01'; DROP TABLE knowledge--";
+"2024-01-01' OR '1'='1";
+"2024-01-01' UNION SELECT * FROM knowledge--";
+'2024-01-01; DELETE FROM users;';
+"2024-01-01' AND SLEEP(5)--";
 ```
 
 ### 2. FTS5 Query Escaping (`fts.service.ts`)
@@ -36,6 +38,7 @@ Comprehensive test suite for SQL injection prevention across the codebase. Tests
 **Purpose**: Prevents SQL injection in full-text search queries.
 
 **Coverage**:
+
 - ✅ `escapeFts5Query()` - Preserves structure, escapes quotes, wraps operators
 - ✅ `escapeFts5Quotes()` - Simple double-quote escaping
 - ✅ `escapeFts5QueryTokenized()` - Converts to safe tokens for similarity matching
@@ -45,10 +48,11 @@ Comprehensive test suite for SQL injection prevention across the codebase. Tests
 - ✅ Real-world attack vectors (SQL comments, quote escaping, control characters)
 
 **Functions Tested**:
+
 ```typescript
-escapeFts5Query('test" OR "1"="1')        // Neutralized
-escapeFts5QueryTokenized('test; DROP--')  // Tokenized to safe text
-searchFTS(maliciousQuery, types)          // Safe execution
+escapeFts5Query('test" OR "1"="1'); // Neutralized
+escapeFts5QueryTokenized('test; DROP--'); // Tokenized to safe text
+searchFTS(maliciousQuery, types); // Safe execution
 ```
 
 ### 3. pgvector Dimension Validation (`validateDimension` in `src/db/vector-stores/pgvector.ts`)
@@ -56,6 +60,7 @@ searchFTS(maliciousQuery, types)          // Safe execution
 **Purpose**: Prevents SQL injection in vector database operations, specifically in `ALTER TABLE` statements that set vector dimensions.
 
 **Coverage**:
+
 - ✅ Valid dimension range (1-10000)
 - ✅ Common embedding dimensions (384, 768, 1024, 1536, 2048)
 - ✅ Non-integer rejection (floats, NaN, Infinity)
@@ -66,12 +71,13 @@ searchFTS(maliciousQuery, types)          // Safe execution
 - ✅ Type coercion prevention (no string-to-number conversion)
 
 **Attack Vectors Blocked**:
+
 ```typescript
 // Example payloads that are BLOCKED:
-"768; DROP TABLE vector_embeddings--"
-"768) WITH (malicious_option = true)"
-"768' OR '1'='1"
-'768' // String coercion prevented
+'768; DROP TABLE vector_embeddings--';
+'768) WITH (malicious_option = true)';
+"768' OR '1'='1";
+'768'; // String coercion prevented
 ```
 
 ## Path Traversal Prevention (`path-traversal.test.ts`)
@@ -83,6 +89,7 @@ Comprehensive test suite for path traversal attack prevention across file operat
 **Purpose**: Prevents directory traversal attacks in file path operations.
 
 **Coverage**:
+
 - ✅ Directory traversal attacks (`../`, `../../`)
 - ✅ Encoded path traversal (`%2e%2e%2f`, `..%2f`)
 - ✅ Null byte injection (`\x00`)
@@ -93,6 +100,7 @@ Comprehensive test suite for path traversal attack prevention across file operat
 - ✅ Edge cases (empty paths, very long chains, unicode)
 
 **Attack Vectors Tested** (72 tests):
+
 ```typescript
 // Example payloads that are BLOCKED:
 "/allowed/../restricted/secret.md"
@@ -107,6 +115,7 @@ Comprehensive test suite for path traversal attack prevention across file operat
 **Purpose**: Prevents path traversal in IDE file synchronization operations.
 
 **Coverage**:
+
 - ✅ Source path validation (reject `..` in relative paths)
 - ✅ Null byte detection in filenames
 - ✅ Destination path boundary validation
@@ -117,8 +126,9 @@ Comprehensive test suite for path traversal attack prevention across file operat
 - ✅ TOCTOU protection (validation on resolved paths)
 
 **Functions Tested**:
+
 ```typescript
-getDestinationPath(sourcePath, sourceDir, ide, outputDir)
+getDestinationPath(sourcePath, sourceDir, ide, outputDir);
 // Validates source is within sourceDir
 // Ensures destination is within IDE-specific directory
 ```
@@ -128,6 +138,7 @@ getDestinationPath(sourcePath, sourceDir, ide, outputDir)
 **Purpose**: Validates export file paths don't escape allowed directories.
 
 **Coverage**:
+
 - ✅ Export path boundary validation
 - ✅ Traversal attempt rejection
 - ✅ Filename special character handling
@@ -169,6 +180,7 @@ getDestinationPath(sourcePath, sourceDir, ide, outputDir)
 ### Key Security Insights
 
 **URL Encoding Doesn't Bypass Node.js:**
+
 ```typescript
 // Node.js path.resolve() doesn't decode URL encoding
 '/allowed/%2e%2e/file.md' → '/allowed/%2e%2e/file.md'
@@ -177,6 +189,7 @@ getDestinationPath(sourcePath, sourceDir, ide, outputDir)
 ```
 
 **Platform-Specific Behavior:**
+
 ```typescript
 // Unix: Backslashes are literal characters
 '/allowed\\..\\restricted' → File named literally "\..\restricted"
@@ -214,11 +227,13 @@ npm run test:coverage -- tests/security/
 ## Security Testing Strategy
 
 ### 1. Input Validation Boundary Testing
+
 - Test minimum and maximum valid values
 - Test just below and above boundaries
 - Test special numeric values (NaN, Infinity, -0)
 
 ### 2. SQL Injection Attack Simulation
+
 - **Quote-based**: Single quotes, double quotes, backticks
 - **Comment-based**: `--`, `/* */`, `#`
 - **Operator-based**: `OR`, `AND`, `UNION`, `SELECT`
@@ -228,12 +243,14 @@ npm run test:coverage -- tests/security/
 - **Polyglot**: Works across multiple contexts
 
 ### 3. Real-world Attack Vectors
+
 - OWASP Top 10 SQL injection patterns
 - Database-specific attacks (SQLite, PostgreSQL)
 - Encoded payloads (URL encoding, HTML entities)
 - Control characters and special characters
 
 ### 4. Defense Verification
+
 - Parameterized queries (via Drizzle ORM)
 - Input validation (regex, type checking, range checking)
 - Output encoding (FTS5 escaping)
@@ -251,42 +268,46 @@ npm run test:coverage -- tests/security/
 ## Validation Functions Reference
 
 ### `validateIsoDate(value: unknown, fieldName: string): string`
+
 **Location**: `src/services/query/stages/fetch.ts` (lines 186-195)
 
 **Regex**: `/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d{3})?Z?)?$/`
 
 **Accepts**:
+
 - `2024-01-01`
 - `2024-01-01T12:30:45`
 - `2024-01-01T12:30:45.123`
 - `2024-01-01T12:30:45Z`
 
 **Rejects**:
+
 - Non-strings
 - Invalid formats
 - SQL injection payloads
 - Any extra characters
 
 ### `validateDimension(dimension: unknown): number`
+
 **Location**: `src/db/vector-stores/pgvector.ts` (lines 44-51)
 
 **Validation**:
+
 ```typescript
-typeof dimension !== 'number'
-|| !Number.isInteger(dimension)
-|| dimension < 1
-|| dimension > 10000
+typeof dimension !== 'number' || !Number.isInteger(dimension) || dimension < 1 || dimension > 10000;
 ```
 
 **Accepts**: Integer 1-10000
 
 **Rejects**:
+
 - Non-numbers
 - Floats
 - Out of range
 - Special values (NaN, Infinity)
 
 ### FTS5 Escaping Functions
+
 **Location**: `src/services/fts.service.ts` (lines 230-277)
 
 1. **`escapeFts5Query(query: string): string`**
@@ -304,6 +325,7 @@ typeof dimension !== 'number'
    - For fuzzy/similarity matching
 
 ### Path Validation Functions
+
 **Location**: `src/utils/paths.ts`
 
 **`isPathSafe(inputPath: string, allowedRoot?: string): boolean`**
@@ -311,6 +333,7 @@ typeof dimension !== 'number'
 **Purpose**: Validates that a path is safe and optionally within allowed root.
 
 **Validation Logic**:
+
 ```typescript
 // 1. Check for null bytes
 if (inputPath.includes('\0')) return false;
@@ -329,10 +352,12 @@ return true;
 ```
 
 **Accepts**:
+
 - Paths within allowed root (when specified)
 - Any path (when no root specified)
 
 **Rejects**:
+
 - Paths with null bytes (`\x00`)
 - Paths outside allowed root
 - Paths that traverse to parent directories
@@ -344,12 +369,15 @@ return true;
 **Purpose**: Safely compute destination path for file sync operations.
 
 **Security Checks**:
+
 ```typescript
 // 1. Check relative path for traversal
 const relativePath = relative(sourceDir, sourcePath);
-if (relativePath.startsWith('..') ||
-    relativePath.includes('/..') ||
-    relativePath.includes('\\..')) {
+if (
+  relativePath.startsWith('..') ||
+  relativePath.includes('/..') ||
+  relativePath.includes('\\..')
+) {
   throw new Error('Path traversal detected');
 }
 
@@ -377,12 +405,14 @@ When adding new security tests:
 ## References
 
 ### SQL Injection
+
 - [OWASP SQL Injection](https://owasp.org/www-community/attacks/SQL_Injection)
 - [FTS5 Documentation](https://www.sqlite.org/fts5.html)
 - [pgvector Security Considerations](https://github.com/pgvector/pgvector#security)
 - [CWE-89: SQL Injection](https://cwe.mitre.org/data/definitions/89.html)
 
 ### Path Traversal
+
 - [OWASP Path Traversal](https://owasp.org/www-community/attacks/Path_Traversal)
 - [CWE-22: Path Traversal](https://cwe.mitre.org/data/definitions/22.html)
 - [CWE-23: Relative Path Traversal](https://cwe.mitre.org/data/definitions/23.html)
@@ -390,12 +420,14 @@ When adding new security tests:
 - [Node.js Path Module Security](https://nodejs.org/api/path.html)
 
 ### General
+
 - [OWASP Testing Guide](https://owasp.org/www-project-web-security-testing-guide/)
 - [OWASP Top 10](https://owasp.org/www-project-top-ten/)
 
 ## Automated Security Scanning
 
 Consider integrating:
+
 - ✅ Static analysis (TypeScript strict mode)
 - ✅ Unit tests (this suite)
 - 🔄 SAST tools (semgrep, CodeQL)

@@ -15,11 +15,7 @@
  *   console.log(config.database.path);
  */
 
-import {
-  configRegistry,
-  buildConfigSchema,
-  buildConfigFromRegistry,
-} from './registry/index.js';
+import { configRegistry, buildConfigSchema, buildConfigFromRegistry } from './registry/index.js';
 import { projectRoot } from './registry/parsers.js';
 import {
   buildExtractionThresholds,
@@ -254,6 +250,7 @@ export interface Config {
     restApiKey: string | undefined;
     restApiKeys: string | undefined;
     restAgentId: string;
+    csrfSecret: string | undefined;
   };
   paths: {
     dataDir: string;
@@ -474,7 +471,9 @@ export function reloadConfig(): void {
       // Only copy own enumerable properties, excluding dangerous keys
       for (const prop of Object.keys(section)) {
         if (prop !== '__proto__' && prop !== 'constructor' && prop !== 'prototype') {
-          (config[key] as Record<string, unknown>)[prop] = (section as Record<string, unknown>)[prop];
+          (config[key] as Record<string, unknown>)[prop] = (section as Record<string, unknown>)[
+            prop
+          ];
         }
       }
     }

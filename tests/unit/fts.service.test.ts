@@ -431,6 +431,3 @@ describe('fts.service', () => {
     });
   });
 });
-
-
-

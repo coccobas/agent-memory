@@ -82,8 +82,15 @@ function getArray(obj: JsonSchema, key: string): unknown[] | undefined {
   return Array.isArray(v) ? v : undefined;
 }
 
-function generateToolMarkdown(tool: { name: string; description?: string; inputSchema?: unknown }): string {
-  const schema = tool.inputSchema && typeof tool.inputSchema === 'object' ? (tool.inputSchema as JsonSchema) : null;
+function generateToolMarkdown(tool: {
+  name: string;
+  description?: string;
+  inputSchema?: unknown;
+}): string {
+  const schema =
+    tool.inputSchema && typeof tool.inputSchema === 'object'
+      ? (tool.inputSchema as JsonSchema)
+      : null;
   const props = schema ? getObject(schema, 'properties') : undefined;
   const required = schema ? (getArray(schema, 'required') ?? []) : [];
   const requiredSet = new Set(required.map((v) => String(v)));
@@ -146,7 +153,8 @@ function generateMarkdown(): string {
   indexLines.push('|---|---|---|');
 
   for (const t of toolsSorted) {
-    const schema = t.inputSchema && typeof t.inputSchema === 'object' ? (t.inputSchema as JsonSchema) : null;
+    const schema =
+      t.inputSchema && typeof t.inputSchema === 'object' ? (t.inputSchema as JsonSchema) : null;
     const props = schema ? getObject(schema, 'properties') : undefined;
     const actionSchema = props ? getObject(props, 'action') : undefined;
     const actions = actionSchema ? (getArray(actionSchema, 'enum') ?? []) : [];
@@ -189,7 +197,9 @@ function main(): void {
   if (checkOnly) {
     if (next !== current) {
       // Keep output short; diff is handled by git.
-      process.stderr.write('docs/reference/mcp-tools.md is out of date. Run `npm run docs:generate:mcp-tools`.\n');
+      process.stderr.write(
+        'docs/reference/mcp-tools.md is out of date. Run `npm run docs:generate:mcp-tools`.\n'
+      );
       process.exit(1);
     }
     process.stdout.write('docs/reference/mcp-tools.md is up to date.\n');

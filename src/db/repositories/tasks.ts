@@ -7,6 +7,8 @@
  * Factory function that accepts DatabaseDeps for dependency injection.
  */
 
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
+
 import { eq, and, desc, asc, inArray } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { transactionWithRetry } from '../connection.js';
@@ -145,15 +147,24 @@ function generateTaskId(): string {
 function parseBlockedBy(blockedByJson: string | null): string[] {
   if (!blockedByJson) return [];
   try {
+    // JSON.parse returns unknown - validate it's an array
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const parsed = JSON.parse(blockedByJson);
     if (!Array.isArray(parsed)) {
-      logger.warn({ blockedByJson: blockedByJson.substring(0, 100) }, 'blockedBy is not an array, returning empty');
+      logger.warn(
+        { blockedByJson: blockedByJson.substring(0, 100) },
+        'blockedBy is not an array, returning empty'
+      );
       return [];
     }
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return parsed;
   } catch (error) {
     logger.warn(
-      { error: error instanceof Error ? error.message : String(error), jsonLength: blockedByJson.length },
+      {
+        error: error instanceof Error ? error.message : String(error),
+        jsonLength: blockedByJson.length,
+      },
       'Failed to parse blockedBy JSON, returning empty array'
     );
     return [];
@@ -256,10 +267,7 @@ export function createTaskRepository(deps: DatabaseDeps): ITaskRepository {
         .all();
     },
 
-    async list(
-      filter: ListTasksFilter = {},
-      options: PaginationOptions = {}
-    ): Promise<Task[]> {
+    async list(filter: ListTasksFilter = {}, options: PaginationOptions = {}): Promise<Task[]> {
       const { limit, offset } = normalizePagination(options);
 
       // Build conditions using shared utility + task-specific conditions
@@ -426,12 +434,7 @@ export function createTaskRepository(deps: DatabaseDeps): ITaskRepository {
       const blockedTasks = db
         .select()
         .from(tasks)
-        .where(
-          and(
-            eq(tasks.isActive, true),
-            eq(tasks.status, 'blocked')
-          )
-        )
+        .where(and(eq(tasks.isActive, true), eq(tasks.status, 'blocked')))
         .all();
 
       // Also find tasks that have blockedBy set (even if not in blocked status)
@@ -440,7 +443,7 @@ export function createTaskRepository(deps: DatabaseDeps): ITaskRepository {
         .from(tasks)
         .where(
           and(
-            eq(tasks.isActive, true),
+            eq(tasks.isActive, true)
             // blockedBy is not null and not empty
             // Note: This is a basic check; we check non-null
             // In practice, we need to filter in code for non-empty arrays
@@ -470,12 +473,7 @@ export function createTaskRepository(deps: DatabaseDeps): ITaskRepository {
       return db
         .select()
         .from(tasks)
-        .where(
-          and(
-            eq(tasks.parentTaskId, parentTaskId),
-            eq(tasks.isActive, true)
-          )
-        )
+        .where(and(eq(tasks.parentTaskId, parentTaskId), eq(tasks.isActive, true)))
         .orderBy(asc(tasks.createdAt))
         .all();
     },
@@ -598,17 +596,23 @@ export function createTaskRepository(deps: DatabaseDeps): ITaskRepository {
           // Restore previous status if stored, otherwise default to 'open'
           const previousStatus = currentMetadata.previousStatus as TaskStatus | undefined;
           // Validate the stored status is a valid TaskStatus before using it
-          const validStatuses: TaskStatus[] = ['backlog', 'open', 'in_progress', 'blocked', 'review', 'done', 'wont_do'];
-          updates.status = previousStatus && validStatuses.includes(previousStatus)
-            ? previousStatus
-            : 'open';
+          const validStatuses: TaskStatus[] = [
+            'backlog',
+            'open',
+            'in_progress',
+            'blocked',
+            'review',
+            'done',
+            'wont_do',
+          ];
+          updates.status =
+            previousStatus && validStatuses.includes(previousStatus) ? previousStatus : 'open';
 
           // Clear previousStatus from metadata since we've restored it
           if (currentMetadata.previousStatus) {
             delete currentMetadata.previousStatus;
-            updates.metadata = Object.keys(currentMetadata).length > 0
-              ? serializeMetadata(currentMetadata)
-              : null;
+            updates.metadata =
+              Object.keys(currentMetadata).length > 0 ? serializeMetadata(currentMetadata) : null;
           }
         }
 

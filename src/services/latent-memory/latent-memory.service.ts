@@ -18,10 +18,7 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import { createComponentLogger } from '../../utils/logger.js';
-import {
-  createServiceUnavailableError,
-  createValidationError,
-} from '../../core/errors.js';
+import { createServiceUnavailableError, createValidationError } from '../../core/errors.js';
 import type { EmbeddingService } from '../embedding.service.js';
 import type { VectorService } from '../vector.service.js';
 import type { LatentMemory } from '../../db/schema/latent-memories.js';
@@ -330,7 +327,10 @@ export class LatentMemoryService {
       model
     );
 
-    logger.debug({ id, sourceType, sourceId, dimension: vectorEmbedding.length }, 'Stored in vector DB');
+    logger.debug(
+      { id, sourceType, sourceId, dimension: vectorEmbedding.length },
+      'Stored in vector DB'
+    );
 
     // Build latent memory object
     const latentMemory: LatentMemory = {
@@ -474,14 +474,20 @@ export class LatentMemoryService {
    * @param options - Search options
    * @returns Similar latent memories with scores
    */
-  async findSimilar(query: string, options: FindSimilarOptions = {}): Promise<SimilarLatentMemory[]> {
+  async findSimilar(
+    query: string,
+    options: FindSimilarOptions = {}
+  ): Promise<SimilarLatentMemory[]> {
     if (!this.isAvailable()) {
       throw createServiceUnavailableError('LatentMemoryService', 'embeddings or vectors disabled');
     }
 
     const { limit = 20, minScore = 0.0, sourceTypes, sessionId } = options;
 
-    logger.debug({ query: query.substring(0, 50), limit, minScore, sourceTypes }, 'Finding similar memories');
+    logger.debug(
+      { query: query.substring(0, 50), limit, minScore, sourceTypes },
+      'Finding similar memories'
+    );
 
     // Step 1: Embed query
     const { embedding: fullEmbedding } = await this.embeddingService.embed(query);
@@ -491,7 +497,10 @@ export class LatentMemoryService {
     if (this.config.enableCompression && this.compression) {
       try {
         queryEmbedding = this.compression.compress(fullEmbedding);
-        logger.debug({ originalDim: fullEmbedding.length, compressedDim: queryEmbedding.length }, 'Query compressed');
+        logger.debug(
+          { originalDim: fullEmbedding.length, compressedDim: queryEmbedding.length },
+          'Query compressed'
+        );
       } catch (error) {
         logger.warn(
           { error: error instanceof Error ? error.message : String(error) },
@@ -595,7 +604,10 @@ export class LatentMemoryService {
       // Cache key is source-based, but we don't have source info here
       // Cache will naturally expire based on TTL
     } catch (error) {
-      logger.warn({ error: error instanceof Error ? error.message : String(error), id }, 'Failed to track access');
+      logger.warn(
+        { error: error instanceof Error ? error.message : String(error), id },
+        'Failed to track access'
+      );
     }
   }
 
@@ -676,7 +688,10 @@ export class LatentMemoryService {
       await this.kvCache.clear();
       logger.info('Cache cleared');
     } catch (error) {
-      logger.error({ error: error instanceof Error ? error.message : String(error) }, 'Failed to clear cache');
+      logger.error(
+        { error: error instanceof Error ? error.message : String(error) },
+        'Failed to clear cache'
+      );
       throw error;
     }
   }

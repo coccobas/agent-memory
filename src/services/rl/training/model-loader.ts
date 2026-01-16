@@ -352,7 +352,10 @@ export class ModelLoader {
    */
   private async loadMetadata(modelPath: string): Promise<ModelMetadata | null> {
     // Try companion metadata file first
-    const metadataPath = modelPath.replace(/\.(onnx|safetensors|st|json|pt|pth|ckpt)$/, '.metadata.json');
+    const metadataPath = modelPath.replace(
+      /\.(onnx|safetensors|st|json|pt|pth|ckpt)$/,
+      '.metadata.json'
+    );
 
     if (existsSync(metadataPath)) {
       try {
@@ -464,7 +467,9 @@ export function formatModelInfo(model: LoadedModel): string {
 
   lines.push('Training Info:');
   lines.push(`  Trained: ${new Date(model.metadata.trainedAt).toLocaleString()}`);
-  lines.push(`  Examples: ${model.metadata.datasetStats.trainExamples} train, ${model.metadata.datasetStats.evalExamples} eval`);
+  lines.push(
+    `  Examples: ${model.metadata.datasetStats.trainExamples} train, ${model.metadata.datasetStats.evalExamples} eval`
+  );
   lines.push(
     `  Date Range: ${model.metadata.datasetStats.dateRange.start} to ${model.metadata.datasetStats.dateRange.end}`
   );

@@ -5,7 +5,13 @@
  * token usage from ~15k to ~1.5k tokens while preserving essential information.
  */
 
-import { extractSnippet, getItemTitle, getItemContent, getItemCategory, getItemCreatedAt } from '../../utils/snippet.js';
+import {
+  extractSnippet,
+  getItemTitle,
+  getItemContent,
+  getItemCategory,
+  getItemCreatedAt,
+} from '../../utils/snippet.js';
 import type { QueryResultItem } from '../query/pipeline.js';
 import type {
   HierarchicalContextResult,
@@ -87,8 +93,9 @@ function buildSummary(results: QueryResultItem[]): HierarchicalContextSummary {
  */
 function extractCriticalItems(results: QueryResultItem[]): HierarchicalContextItem[] {
   return results
-    .filter((r): r is QueryResultItem & { type: 'guideline' } =>
-      r.type === 'guideline' && (r.guideline?.priority ?? 50) >= 90
+    .filter(
+      (r): r is QueryResultItem & { type: 'guideline' } =>
+        r.type === 'guideline' && (r.guideline?.priority ?? 50) >= 90
     )
     .sort((a, b) => (b.guideline?.priority ?? 0) - (a.guideline?.priority ?? 0))
     .slice(0, 5)
@@ -148,10 +155,7 @@ function extractCategories(results: QueryResultItem[]): string[] {
 /**
  * Build expand action hints for drilling down
  */
-function buildExpandActions(
-  scopeType: string,
-  scopeId: string | null
-): HierarchicalExpandActions {
+function buildExpandActions(scopeType: string, scopeId: string | null): HierarchicalExpandActions {
   const scopeParams: Record<string, unknown> = { scopeType };
   if (scopeId) {
     scopeParams.scopeId = scopeId;

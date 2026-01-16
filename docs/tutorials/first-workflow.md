@@ -3,12 +3,14 @@
 Learn the complete Agent Memory workflow: create a project, start a session, store memories, and query them.
 
 **What you'll learn:**
+
 - How to create and manage projects
 - How to use sessions to group work
 - The three memory types: guidelines, knowledge, tools
 - How to query and search your memories
 
 **Prerequisites:**
+
 - Completed [Quickstart](quickstart.md)
 - Agent Memory running and connected to your IDE
 
@@ -20,11 +22,11 @@ Learn the complete Agent Memory workflow: create a project, start a session, sto
 
 Before we start, let's understand what we're storing:
 
-| Type | Purpose | When to Use |
-|:-----|:--------|:------------|
-| **Guideline** | Rules that affect behavior | "We always...", "Never..." |
-| **Knowledge** | Facts and decisions | "We chose X because...", "The system uses..." |
-| **Tool** | Command registry | CLI commands, API endpoints, scripts |
+| Type          | Purpose                    | When to Use                                   |
+| :------------ | :------------------------- | :-------------------------------------------- |
+| **Guideline** | Rules that affect behavior | "We always...", "Never..."                    |
+| **Knowledge** | Facts and decisions        | "We chose X because...", "The system uses..." |
+| **Tool**      | Command registry           | CLI commands, API endpoints, scripts          |
 
 ---
 
@@ -187,26 +189,26 @@ When you query with `inherit: true`, you get memories from all parent scopes.
 
 ## Common Mistakes to Avoid
 
-| Wrong | Correct |
-|:------|:--------|
+| Wrong                                      | Correct                                         |
+| :----------------------------------------- | :---------------------------------------------- |
 | `"scopeType": "project"` (missing scopeId) | `"scopeType": "project", "scopeId": "proj-..."` |
-| `"entryType": "guidelines"` | `"entryType": "guideline"` (singular) |
-| `memory_project` action `add` | `memory_project` action `create` |
-| `memory_guideline` action `create` | `memory_guideline` action `add` |
+| `"entryType": "guidelines"`                | `"entryType": "guideline"` (singular)           |
+| `memory_project` action `add`              | `memory_project` action `create`                |
+| `memory_guideline` action `create`         | `memory_guideline` action `add`                 |
 
 ---
 
 ## Quick Reference
 
-| Tool | Actions |
-|:-----|:--------|
-| `memory_query` | `context`, `search` |
-| `memory_project` | `create`, `list`, `get` |
-| `memory_session` | `start`, `end`, `list` |
+| Tool               | Actions                             |
+| :----------------- | :---------------------------------- |
+| `memory_query`     | `context`, `search`                 |
+| `memory_project`   | `create`, `list`, `get`             |
+| `memory_session`   | `start`, `end`, `list`              |
 | `memory_guideline` | `add`, `update`, `list`, `bulk_add` |
 | `memory_knowledge` | `add`, `update`, `list`, `bulk_add` |
-| `memory_tool` | `add`, `update`, `list`, `bulk_add` |
-| `memory_tag` | `attach`, `detach`, `list` |
+| `memory_tool`      | `add`, `update`, `list`, `bulk_add` |
+| `memory_tag`       | `attach`, `detach`, `list`          |
 
 ---
 

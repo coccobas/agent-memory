@@ -97,9 +97,7 @@ describe('Pattern Detector', () => {
 
   describe('detectPatterns', () => {
     it('should return empty patterns when fewer than minExperiences', async () => {
-      const experiences = [
-        createExperienceWithTrajectory('exp-1', ['read', 'edit']),
-      ];
+      const experiences = [createExperienceWithTrajectory('exp-1', ['read', 'edit'])];
 
       const result = await detector.detectPatterns(experiences);
 
@@ -213,7 +211,10 @@ describe('Pattern Detector', () => {
 
     it('should calculate success rate', async () => {
       const experiences = [
-        createExperienceWithTrajectory('exp-1', ['read', 'edit'], { useCount: 10, successCount: 8 }),
+        createExperienceWithTrajectory('exp-1', ['read', 'edit'], {
+          useCount: 10,
+          successCount: 8,
+        }),
         createExperienceWithTrajectory('exp-2', ['read', 'edit'], { useCount: 5, successCount: 4 }),
       ];
 
@@ -382,9 +383,7 @@ describe('Pattern Detector', () => {
     });
 
     it('should handle single experience', async () => {
-      const experiences = [
-        createExperienceWithTrajectory('exp-1', ['read', 'edit', 'test']),
-      ];
+      const experiences = [createExperienceWithTrajectory('exp-1', ['read', 'edit', 'test'])];
 
       const result = await detector.detectPatterns(experiences);
 
@@ -432,8 +431,9 @@ describe('Pattern Detector', () => {
 
       if (result.patterns.length > 1) {
         for (let i = 1; i < result.patterns.length; i++) {
-          expect(result.patterns[i - 1]!.confidence)
-            .toBeGreaterThanOrEqual(result.patterns[i]!.confidence);
+          expect(result.patterns[i - 1]!.confidence).toBeGreaterThanOrEqual(
+            result.patterns[i]!.confidence
+          );
         }
       }
     });

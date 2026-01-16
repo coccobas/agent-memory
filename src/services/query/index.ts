@@ -20,7 +20,11 @@ export * from './stages/index.js';
 export * from './entity-extractor.js';
 export * from './entity-index.js';
 
-import type { MemoryQueryParams, DryRunResult, QueryEntryType as CoreQueryEntryType } from '../../core/types.js';
+import type {
+  MemoryQueryParams,
+  DryRunResult,
+  QueryEntryType as CoreQueryEntryType,
+} from '../../core/types.js';
 import type { MemoryQueryResult, PipelineContext, PipelineDependencies } from './pipeline.js';
 import { createPipelineContext, buildQueryResult } from './pipeline.js';
 import { resolveStage } from './stages/resolve.js';
@@ -34,8 +38,15 @@ import { feedbackStage, feedbackStageAsync } from './stages/feedback.js';
 import { scoreStage } from './stages/score.js';
 import { formatStage } from './stages/format.js';
 import { createRerankStage } from './stages/rerank.js';
-import { createCrossEncoderStage, createOpenAICrossEncoderService } from './stages/cross-encoder-rerank.js';
-import { createHierarchicalStage, filterByHierarchicalCandidates, type HierarchicalPipelineContext } from './stages/hierarchical.js';
+import {
+  createCrossEncoderStage,
+  createOpenAICrossEncoderService,
+} from './stages/cross-encoder-rerank.js';
+import {
+  createHierarchicalStage,
+  filterByHierarchicalCandidates,
+  type HierarchicalPipelineContext,
+} from './stages/hierarchical.js';
 import { strategyStageAsync } from './stages/strategy.js';
 import { semanticStageAsync } from './stages/semantic.js';
 import { getEntityExtractor } from './entity-extractor.js';
@@ -45,7 +56,8 @@ import type { EntityFilterResult, EntityFilterPipelineContext } from './stages/e
 // Import from modular submodules (avoids circular dependency with query.service.ts)
 import { resolveScopeChain } from './scope-chain.js';
 import { getTagsForEntries, getTagsForEntriesBatch } from './tags-helper.js';
-import { traverseRelationGraph, createGraphTraversalFunctions } from './graph-traversal.js';
+import type { traverseRelationGraph } from './graph-traversal.js';
+import { createGraphTraversalFunctions } from './graph-traversal.js';
 import { createFtsSearchFunctions } from './fts-search.js';
 import type { DbClient } from '../../db/connection.js';
 import type Database from 'better-sqlite3';
@@ -66,7 +78,7 @@ import type { IEventAdapter } from '../../core/adapters/interfaces.js';
 function isQueryEntryTypeArray(types: unknown): types is CoreQueryEntryType[] {
   if (!Array.isArray(types)) return false;
   const validTypes: CoreQueryEntryType[] = ['tools', 'guidelines', 'knowledge', 'experiences'];
-  return types.every(t => typeof t === 'string' && validTypes.includes(t as CoreQueryEntryType));
+  return types.every((t) => typeof t === 'string' && validTypes.includes(t as CoreQueryEntryType));
 }
 
 /**
@@ -74,8 +86,11 @@ function isQueryEntryTypeArray(types: unknown): types is CoreQueryEntryType[] {
  * semanticScore is added dynamically by the semantic stage and may not be present.
  */
 function hasSemanticScore(r: unknown): r is { semanticScore?: number } {
-  return typeof r === 'object' && r !== null &&
-    ('semanticScore' in r ? typeof (r as Record<string, unknown>).semanticScore === 'number' : true);
+  return (
+    typeof r === 'object' &&
+    r !== null &&
+    ('semanticScore' in r ? typeof (r as Record<string, unknown>).semanticScore === 'number' : true)
+  );
 }
 
 // =============================================================================
@@ -90,10 +105,7 @@ function hasSemanticScore(r: unknown): r is { semanticScore?: number } {
  * @param deps - Pipeline dependencies
  * @returns DryRunResult with validation status and query plan
  */
-export function executeDryRun(
-  params: MemoryQueryParams,
-  deps: PipelineDependencies
-): DryRunResult {
+export function executeDryRun(params: MemoryQueryParams, deps: PipelineDependencies): DryRunResult {
   const errors: string[] = [];
 
   // Run resolve stage to normalize parameters
@@ -106,7 +118,7 @@ export function executeDryRun(
       valid: false,
       errors: [`Resolution failed: ${error instanceof Error ? error.message : String(error)}`],
       plan: {
-        types: (params.types ?? ['tools', 'guidelines', 'knowledge', 'experiences']) as CoreQueryEntryType[],
+        types: params.types ?? ['tools', 'guidelines', 'knowledge', 'experiences'],
         scopeChain: [],
         limit: params.limit ?? 20,
         offset: params.offset ?? 0,
@@ -124,7 +136,10 @@ export function executeDryRun(
     errors.push(`Invalid limit: ${params.limit}. Must be between 1 and 1000.`);
   }
 
-  if (params.semanticThreshold !== undefined && (params.semanticThreshold < 0 || params.semanticThreshold > 1)) {
+  if (
+    params.semanticThreshold !== undefined &&
+    (params.semanticThreshold < 0 || params.semanticThreshold > 1)
+  ) {
     errors.push(`Invalid semanticThreshold: ${params.semanticThreshold}. Must be between 0 and 1.`);
   }
 
@@ -173,24 +188,28 @@ export function executeDryRun(
   }
 
   const plan = {
-    types: ctx.types as CoreQueryEntryType[],
-    scopeChain: ctx.scopeChain.map(s => ({ scopeType: s.scopeType, scopeId: s.scopeId })),
+    types: ctx.types,
+    scopeChain: ctx.scopeChain.map((s) => ({ scopeType: s.scopeType, scopeId: s.scopeId })),
     limit: ctx.limit,
     offset: ctx.offset,
     search: ctx.search,
     strategy,
     semanticSearch: params.semanticSearch ?? false,
     useFts5: params.useFts5 ?? false,
-    tagFilters: params.tags ? {
-      include: params.tags.include,
-      require: params.tags.require,
-      exclude: params.tags.exclude,
-    } : undefined,
-    relationConfig: params.relatedTo ? {
-      type: params.relatedTo.type,
-      id: params.relatedTo.id,
-      depth: params.relatedTo.depth,
-    } : undefined,
+    tagFilters: params.tags
+      ? {
+          include: params.tags.include,
+          require: params.tags.require,
+          exclude: params.tags.exclude,
+        }
+      : undefined,
+    relationConfig: params.relatedTo
+      ? {
+          type: params.relatedTo.type,
+          id: params.relatedTo.id,
+          depth: params.relatedTo.depth,
+        }
+      : undefined,
   };
 
   return {
@@ -465,19 +484,34 @@ export function createDependencies(options: QueryPipelineOptions): MutablePipeli
       warn: (data, message) => logger.warn(data, message),
     },
     // Task 22: Use getters for mutable deps to enable late binding
-    get feedback() { return mutableDeps.feedback; },
-    get queryRewriteService() { return mutableDeps.queryRewriteService; },
-    get entityIndex() { return mutableDeps.entityIndex; },
-    get embeddingService() { return mutableDeps.embeddingService; },
-    get hierarchicalRetriever() { return mutableDeps.hierarchicalRetriever; },
-    get vectorService() { return mutableDeps.vectorService; },
+    get feedback() {
+      return mutableDeps.feedback;
+    },
+    get queryRewriteService() {
+      return mutableDeps.queryRewriteService;
+    },
+    get entityIndex() {
+      return mutableDeps.entityIndex;
+    },
+    get embeddingService() {
+      return mutableDeps.embeddingService;
+    },
+    get hierarchicalRetriever() {
+      return mutableDeps.hierarchicalRetriever;
+    },
+    get vectorService() {
+      return mutableDeps.vectorService;
+    },
     // Task 22: Update function for runtime dependency swapping
     updateDependencies(updates: Partial<UpdatableDependencies>) {
       if (updates.feedback !== undefined) mutableDeps.feedback = updates.feedback;
-      if (updates.queryRewriteService !== undefined) mutableDeps.queryRewriteService = updates.queryRewriteService;
+      if (updates.queryRewriteService !== undefined)
+        mutableDeps.queryRewriteService = updates.queryRewriteService;
       if (updates.entityIndex !== undefined) mutableDeps.entityIndex = updates.entityIndex;
-      if (updates.embeddingService !== undefined) mutableDeps.embeddingService = updates.embeddingService;
-      if (updates.hierarchicalRetriever !== undefined) mutableDeps.hierarchicalRetriever = updates.hierarchicalRetriever;
+      if (updates.embeddingService !== undefined)
+        mutableDeps.embeddingService = updates.embeddingService;
+      if (updates.hierarchicalRetriever !== undefined)
+        mutableDeps.hierarchicalRetriever = updates.hierarchicalRetriever;
       if (updates.vectorService !== undefined) mutableDeps.vectorService = updates.vectorService;
       logger.debug({ updated: Object.keys(updates) }, 'Pipeline dependencies updated at runtime');
     },
@@ -521,7 +555,7 @@ function entityFilterStage(ctx: PipelineContext): PipelineContext {
         {
           error: error instanceof Error ? error.message : String(error),
           extractedEntityCount: extractedEntities.length,
-          entityTypes: [...new Set(extractedEntities.map(e => e.type))],
+          entityTypes: [...new Set(extractedEntities.map((e) => e.type))],
         },
         'entity_index lookup failed - skipping entity filtering'
       );
@@ -547,7 +581,7 @@ function entityFilterStage(ctx: PipelineContext): PipelineContext {
       {
         entityCount: extractedEntities.length,
         matchedEntries: matchedEntryIds.size,
-        entityTypes: [...new Set(extractedEntities.map(e => e.type))],
+        entityTypes: [...new Set(extractedEntities.map((e) => e.type))],
       },
       'entity_filter completed'
     );
@@ -604,20 +638,22 @@ function recordRetrievalsForFeedback(
 }
 
 /**
- * Synchronous query pipeline execution (core implementation)
+ * Async query pipeline execution (core implementation)
+ * Note: Previously synchronous, now async due to async sorting optimization in scoreStage.
  *
  * Features:
  * - Query result caching (respects cache from deps)
  * - Performance logging (when deps.perfLog is true)
  * - Dependency injection for testability
+ * - Async sorting in scoreStage prevents event loop blocking
  *
  * @param params - Query parameters
  * @param deps - Dependencies (use createDependencies() to create)
  */
-export function executeQueryPipelineSync(
+export async function executeQueryPipelineSync(
   params: MemoryQueryParams,
   deps: PipelineDependencies
-): MemoryQueryResult {
+): Promise<MemoryQueryResult> {
   const startMs = deps.perfLog ? Date.now() : 0;
 
   // Check cache first
@@ -672,8 +708,8 @@ export function executeQueryPipelineSync(
   // Load feedback scores for filtered entries (for feedback-based scoring)
   const feedbackCtx = feedbackStage(filteredCtx);
 
-  // Run score stage (uses filtered property and feedbackScores)
-  const scoredCtx = scoreStage(feedbackCtx);
+  // Run score stage (uses filtered property and feedbackScores) - async for non-blocking sort
+  const scoredCtx = await scoreStage(feedbackCtx);
 
   // Run format stage
   const formattedCtx = formatStage(scoredCtx);
@@ -813,8 +849,8 @@ export async function executeQueryPipelineAsync(
   // Async feedback stage - DB fallback for cache misses
   const feedbackCtx = await feedbackStageAsync(filteredCtx);
 
-  // Run score stage (uses filtered property and feedbackScores)
-  const scoredCtx = scoreStage(feedbackCtx);
+  // Run score stage (uses filtered property and feedbackScores) - async for non-blocking sort
+  const scoredCtx = await scoreStage(feedbackCtx);
 
   // Run neural re-ranking stage (if embedding service available and config enabled)
   let rerankedCtx = scoredCtx;
@@ -829,14 +865,19 @@ export async function executeQueryPipelineAsync(
   // Run LLM-based cross-encoder re-ranking (if enabled)
   // This is more accurate than bi-encoder but slower, used on smaller candidate set
   let crossEncoderCtx = rerankedCtx;
-  const crossEncoderBaseUrl = appConfig.crossEncoder?.baseUrl ?? appConfig.extraction?.openaiBaseUrl;
+  const crossEncoderBaseUrl =
+    appConfig.crossEncoder?.baseUrl ?? appConfig.extraction?.openaiBaseUrl;
   if (appConfig.crossEncoder?.enabled && crossEncoderBaseUrl) {
     // Use dedicated cross-encoder model if configured, otherwise fall back to extraction model
     const crossEncoderModel = appConfig.crossEncoder.model ?? appConfig.extraction?.openaiModel;
 
     if (deps.logger) {
       deps.logger.debug(
-        { topK: appConfig.crossEncoder.topK, alpha: appConfig.crossEncoder.alpha, model: crossEncoderModel },
+        {
+          topK: appConfig.crossEncoder.topK,
+          alpha: appConfig.crossEncoder.alpha,
+          model: crossEncoderModel,
+        },
         'cross-encoder stage starting'
       );
     }
@@ -859,7 +900,9 @@ export async function executeQueryPipelineAsync(
       crossEncoderCtx = await crossEncoderStage(rerankedCtx);
 
       // Log if cross-encoder was applied
-      const ceCtx = crossEncoderCtx as { crossEncoder?: { applied: boolean; candidatesScored: number } };
+      const ceCtx = crossEncoderCtx as {
+        crossEncoder?: { applied: boolean; candidatesScored: number };
+      };
       if (ceCtx.crossEncoder?.applied && deps.logger) {
         deps.logger.debug(
           { candidatesScored: ceCtx.crossEncoder.candidatesScored },

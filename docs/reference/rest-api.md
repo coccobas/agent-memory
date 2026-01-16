@@ -35,15 +35,15 @@ agent-memory both
 
 ## Configuration
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `AGENT_MEMORY_REST_ENABLED` | `false` | Enable REST API server |
-| `AGENT_MEMORY_REST_HOST` | `127.0.0.1` | Server bind address |
-| `AGENT_MEMORY_REST_PORT` | `8787` | Server port |
-| `AGENT_MEMORY_REST_API_KEY` | — | Single API key for authentication |
-| `AGENT_MEMORY_REST_API_KEYS` | — | Multiple keys (JSON or CSV `key:agentId`) |
-| `AGENT_MEMORY_REST_AGENT_ID` | `rest-api` | Default agent ID for requests |
-| `AGENT_MEMORY_REST_AUTH_DISABLED` | `false` | Disable auth (not recommended) |
+| Variable                          | Default     | Description                               |
+| --------------------------------- | ----------- | ----------------------------------------- |
+| `AGENT_MEMORY_REST_ENABLED`       | `false`     | Enable REST API server                    |
+| `AGENT_MEMORY_REST_HOST`          | `127.0.0.1` | Server bind address                       |
+| `AGENT_MEMORY_REST_PORT`          | `8787`      | Server port                               |
+| `AGENT_MEMORY_REST_API_KEY`       | —           | Single API key for authentication         |
+| `AGENT_MEMORY_REST_API_KEYS`      | —           | Multiple keys (JSON or CSV `key:agentId`) |
+| `AGENT_MEMORY_REST_AGENT_ID`      | `rest-api`  | Default agent ID for requests             |
+| `AGENT_MEMORY_REST_AUTH_DISABLED` | `false`     | Disable auth (not recommended)            |
 
 ---
 
@@ -52,10 +52,12 @@ agent-memory both
 Include in every request (except `/health`):
 
 **Header Options:**
+
 - `Authorization: Bearer <API_KEY>`
 - `X-API-Key: <API_KEY>`
 
 **Example:**
+
 ```bash
 curl http://127.0.0.1:8787/v1/context \
   -H "Authorization: Bearer your-secret-key" \
@@ -76,6 +78,7 @@ curl http://127.0.0.1:8787/health
 ```
 
 **Response:**
+
 ```json
 {
   "ok": true,
@@ -119,6 +122,7 @@ curl http://127.0.0.1:8787/v1/tools \
 ```
 
 **Response:**
+
 ```json
 {
   "tools": [
@@ -138,6 +142,7 @@ curl http://127.0.0.1:8787/v1/tools \
 Execute any MCP tool via REST. This provides full access to all Agent Memory functionality.
 
 **Request:**
+
 ```bash
 curl -X POST http://127.0.0.1:8787/v1/tools/memory_guideline \
   -H "Authorization: Bearer your-secret-key" \
@@ -156,6 +161,7 @@ curl -X POST http://127.0.0.1:8787/v1/tools/memory_guideline \
 The request body matches the MCP tool's input schema. See [MCP Tools Reference](mcp-tools.md) for each tool's parameters.
 
 **Example - Create a project:**
+
 ```bash
 curl -X POST http://127.0.0.1:8787/v1/tools/memory_project \
   -H "Authorization: Bearer your-secret-key" \
@@ -168,6 +174,7 @@ curl -X POST http://127.0.0.1:8787/v1/tools/memory_project \
 ```
 
 **Example - Start a session:**
+
 ```bash
 curl -X POST http://127.0.0.1:8787/v1/tools/memory_session \
   -H "Authorization: Bearer your-secret-key" \
@@ -187,6 +194,7 @@ curl -X POST http://127.0.0.1:8787/v1/tools/memory_session \
 Search memory entries with filters.
 
 **Request:**
+
 ```bash
 curl -X POST http://127.0.0.1:8787/v1/query \
   -H "Authorization: Bearer your-secret-key" \
@@ -208,20 +216,21 @@ curl -X POST http://127.0.0.1:8787/v1/query \
 
 **Parameters:**
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `agentId` | string | Agent identifier for audit |
-| `types` | array | Entry types: `tools`, `guidelines`, `knowledge` |
-| `scope.type` | string | Scope level: `global`, `org`, `project`, `session` |
-| `scope.id` | string | Scope ID (required for non-global) |
-| `scope.inherit` | boolean | Include parent scopes |
-| `search` | string | Free-text search query |
-| `semanticSearch` | boolean | Enable semantic/vector search |
-| `semanticThreshold` | number | Similarity threshold (0-1) |
-| `limit` | number | Max results (default: 20) |
-| `offset` | number | Skip N results |
+| Parameter           | Type    | Description                                        |
+| ------------------- | ------- | -------------------------------------------------- |
+| `agentId`           | string  | Agent identifier for audit                         |
+| `types`             | array   | Entry types: `tools`, `guidelines`, `knowledge`    |
+| `scope.type`        | string  | Scope level: `global`, `org`, `project`, `session` |
+| `scope.id`          | string  | Scope ID (required for non-global)                 |
+| `scope.inherit`     | boolean | Include parent scopes                              |
+| `search`            | string  | Free-text search query                             |
+| `semanticSearch`    | boolean | Enable semantic/vector search                      |
+| `semanticThreshold` | number  | Similarity threshold (0-1)                         |
+| `limit`             | number  | Max results (default: 20)                          |
+| `offset`            | number  | Skip N results                                     |
 
 **Response:**
+
 ```json
 {
   "results": {
@@ -244,6 +253,7 @@ curl -X POST http://127.0.0.1:8787/v1/query \
 Get aggregated context for a scope. Equivalent to `memory_query` action `context`.
 
 **Request:**
+
 ```bash
 curl -X POST http://127.0.0.1:8787/v1/context \
   -H "Authorization: Bearer your-secret-key" \
@@ -260,16 +270,17 @@ curl -X POST http://127.0.0.1:8787/v1/context \
 
 **Parameters:**
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `agentId` | string | Agent identifier |
-| `scopeType` | string | Scope level |
-| `scopeId` | string | Scope ID |
-| `inherit` | boolean | Include parent scopes (default: true) |
-| `compact` | boolean | Return compact results |
-| `limitPerType` | number | Max entries per type |
+| Parameter      | Type    | Description                           |
+| -------------- | ------- | ------------------------------------- |
+| `agentId`      | string  | Agent identifier                      |
+| `scopeType`    | string  | Scope level                           |
+| `scopeId`      | string  | Scope ID                              |
+| `inherit`      | boolean | Include parent scopes (default: true) |
+| `compact`      | boolean | Return compact results                |
+| `limitPerType` | number  | Max entries per type                  |
 
 **Response:**
+
 ```json
 {
   "scope": {
@@ -303,14 +314,14 @@ Errors return a JSON payload with an error message:
 
 ### HTTP Status Codes
 
-| Status | Meaning |
-|--------|---------|
-| 200 | Success |
-| 400 | Invalid request parameters |
-| 401 | Missing or invalid API key |
-| 403 | Insufficient permissions |
-| 429 | Rate limited |
-| 500 | Server error |
+| Status | Meaning                    |
+| ------ | -------------------------- |
+| 200    | Success                    |
+| 400    | Invalid request parameters |
+| 401    | Missing or invalid API key |
+| 403    | Insufficient permissions   |
+| 429    | Rate limited               |
+| 500    | Server error               |
 
 ### Rate Limiting
 
@@ -330,11 +341,13 @@ The REST API enforces rate limits. When exceeded:
 For multi-tenant setups, configure multiple API keys:
 
 **JSON format:**
+
 ```bash
 AGENT_MEMORY_REST_API_KEYS='[{"key":"key1","agentId":"app-a"},{"key":"key2","agentId":"app-b"}]'
 ```
 
 **CSV format:**
+
 ```bash
 AGENT_MEMORY_REST_API_KEYS='key1:app-a,key2:app-b'
 ```
@@ -391,14 +404,14 @@ async function searchMemory(query) {
   const response = await fetch(`${API_URL}/v1/query`, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${API_KEY}`,
-      'Content-Type': 'application/json'
+      Authorization: `Bearer ${API_KEY}`,
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify({
       search: query,
       types: ['guidelines', 'knowledge'],
-      scope: { type: 'global', inherit: true }
-    })
+      scope: { type: 'global', inherit: true },
+    }),
   });
   return response.json();
 }

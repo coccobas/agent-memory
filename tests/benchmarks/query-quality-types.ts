@@ -167,35 +167,35 @@ export interface QueryTestParams {
  * Query test category
  */
 export type QueryTestCategory =
-  | 'keyword-exact'        // Exact keyword matches
-  | 'keyword-partial'      // Partial/substring matches
-  | 'keyword-multi'        // Multiple keywords
-  | 'fts5-ranking'         // FTS5 BM25 ranking quality
-  | 'fts5-operators'       // FTS5 AND, OR, NOT, phrase operators
-  | 'semantic-similarity'  // Semantic/vector search
-  | 'fuzzy-search'         // Fuzzy/typo-tolerant search
-  | 'regex-search'         // Regex pattern search
-  | 'field-search'         // Field-specific search
-  | 'scope-filtering'      // Scope-based filtering
-  | 'scope-inheritance'    // Scope chain inheritance
-  | 'type-filtering'       // Filter by entry type
-  | 'tag-filtering'        // Tag-based queries
-  | 'priority-filtering'   // Guideline priority filtering
+  | 'keyword-exact' // Exact keyword matches
+  | 'keyword-partial' // Partial/substring matches
+  | 'keyword-multi' // Multiple keywords
+  | 'fts5-ranking' // FTS5 BM25 ranking quality
+  | 'fts5-operators' // FTS5 AND, OR, NOT, phrase operators
+  | 'semantic-similarity' // Semantic/vector search
+  | 'fuzzy-search' // Fuzzy/typo-tolerant search
+  | 'regex-search' // Regex pattern search
+  | 'field-search' // Field-specific search
+  | 'scope-filtering' // Scope-based filtering
+  | 'scope-inheritance' // Scope chain inheritance
+  | 'type-filtering' // Filter by entry type
+  | 'tag-filtering' // Tag-based queries
+  | 'priority-filtering' // Guideline priority filtering
   | 'confidence-filtering' // Knowledge confidence filtering
-  | 'date-filtering'       // Created date filtering
-  | 'temporal-filtering'   // Date-based queries (legacy)
-  | 'temporal-validity'    // Valid from/until temporal filtering
-  | 'inactive-filtering'   // Active/inactive entry filtering
-  | 'relation-traversal'   // Graph relation queries
-  | 'combined-filters'     // Multiple filters combined
-  | 'noise-rejection'      // Should return few/no results
-  | 'pagination'           // Offset/limit tests
-  | 'edge-cases'           // Unusual queries
+  | 'date-filtering' // Created date filtering
+  | 'temporal-filtering' // Date-based queries (legacy)
+  | 'temporal-validity' // Valid from/until temporal filtering
+  | 'inactive-filtering' // Active/inactive entry filtering
+  | 'relation-traversal' // Graph relation queries
+  | 'combined-filters' // Multiple filters combined
+  | 'noise-rejection' // Should return few/no results
+  | 'pagination' // Offset/limit tests
+  | 'edge-cases' // Unusual queries
   // Adversarial categories
-  | 'typo-queries'         // Queries with typos: "posqtgress", "authentcation"
-  | 'vague-queries'        // Vague queries: "database stuff", "how do test"
-  | 'multi-intent'         // Multiple intents: "deployment AND auth requirements"
-  | 'synonym-gaps';        // Search "database", expect "postgres" results
+  | 'typo-queries' // Queries with typos: "posqtgress", "authentcation"
+  | 'vague-queries' // Vague queries: "database stuff", "how do test"
+  | 'multi-intent' // Multiple intents: "deployment AND auth requirements"
+  | 'synonym-gaps'; // Search "database", expect "postgres" results
 
 /**
  * Category display names
@@ -223,7 +223,7 @@ export const QUERY_CATEGORY_NAMES: Record<QueryTestCategory, string> = {
   'relation-traversal': 'Relation Traversal',
   'combined-filters': 'Combined Filters',
   'noise-rejection': 'Noise Rejection',
-  'pagination': 'Pagination',
+  pagination: 'Pagination',
   'edge-cases': 'Edge Cases',
   // Adversarial categories
   'typo-queries': 'Typo Queries',
@@ -318,21 +318,27 @@ export interface AggregatedQueryMetrics {
   /** Average nDCG */
   avgNdcg: number;
   /** Metrics by difficulty */
-  byDifficulty: Record<'easy' | 'medium' | 'hard', {
-    count: number;
-    avgPrecision: number;
-    avgRecall: number;
-    avgMrr: number;
-    avgNdcg: number;
-  }>;
+  byDifficulty: Record<
+    'easy' | 'medium' | 'hard',
+    {
+      count: number;
+      avgPrecision: number;
+      avgRecall: number;
+      avgMrr: number;
+      avgNdcg: number;
+    }
+  >;
   /** Metrics by category */
-  byCategory: Record<string, {
-    count: number;
-    avgPrecision: number;
-    avgRecall: number;
-    avgMrr: number;
-    avgNdcg: number;
-  }>;
+  byCategory: Record<
+    string,
+    {
+      count: number;
+      avgPrecision: number;
+      avgRecall: number;
+      avgMrr: number;
+      avgNdcg: number;
+    }
+  >;
   /** Processing stats */
   processing: {
     totalTimeMs: number;

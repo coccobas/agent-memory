@@ -12,7 +12,14 @@ import { sql } from 'drizzle-orm';
 /**
  * Task type enum - categorizes the nature of the task
  */
-export type TaskType = 'bug' | 'feature' | 'improvement' | 'debt' | 'research' | 'question' | 'other';
+export type TaskType =
+  | 'bug'
+  | 'feature'
+  | 'improvement'
+  | 'debt'
+  | 'research'
+  | 'question'
+  | 'other';
 
 /**
  * Task domain enum - determines workflow automation
@@ -34,7 +41,14 @@ export type TaskUrgency = 'immediate' | 'soon' | 'normal' | 'later';
 /**
  * Task status enum - workflow states
  */
-export type TaskStatus = 'backlog' | 'open' | 'in_progress' | 'blocked' | 'review' | 'done' | 'wont_do';
+export type TaskStatus =
+  | 'backlog'
+  | 'open'
+  | 'in_progress'
+  | 'blocked'
+  | 'review'
+  | 'done'
+  | 'wont_do';
 
 /**
  * Tasks - work items and issues to track
@@ -51,14 +65,26 @@ export const tasks = sqliteTable(
     // Identity
     title: text('title').notNull(), // max 200 chars enforced at application level
     description: text('description').notNull(),
-    taskType: text('task_type', { enum: ['bug', 'feature', 'improvement', 'debt', 'research', 'question', 'other'] }).notNull(),
-    taskDomain: text('task_domain', { enum: ['agent', 'physical'] }).notNull().default('agent'),
-    severity: text('severity', { enum: ['critical', 'high', 'medium', 'low'] }).notNull().default('medium'),
-    urgency: text('urgency', { enum: ['immediate', 'soon', 'normal', 'later'] }).notNull().default('normal'),
+    taskType: text('task_type', {
+      enum: ['bug', 'feature', 'improvement', 'debt', 'research', 'question', 'other'],
+    }).notNull(),
+    taskDomain: text('task_domain', { enum: ['agent', 'physical'] })
+      .notNull()
+      .default('agent'),
+    severity: text('severity', { enum: ['critical', 'high', 'medium', 'low'] })
+      .notNull()
+      .default('medium'),
+    urgency: text('urgency', { enum: ['immediate', 'soon', 'normal', 'later'] })
+      .notNull()
+      .default('normal'),
     category: text('category'), // Optional grouping category
 
     // Workflow
-    status: text('status', { enum: ['backlog', 'open', 'in_progress', 'blocked', 'review', 'done', 'wont_do'] }).notNull().default('open'),
+    status: text('status', {
+      enum: ['backlog', 'open', 'in_progress', 'blocked', 'review', 'done', 'wont_do'],
+    })
+      .notNull()
+      .default('open'),
     resolution: text('resolution'), // Explanation when done/wont_do
 
     // Location (optional file reference)

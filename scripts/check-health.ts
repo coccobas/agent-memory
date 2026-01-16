@@ -47,7 +47,8 @@ async function tryFullMode(): Promise<HealthStats | null> {
     }
 
     const cacheStats = getRuntime().queryCache.cache.stats;
-    const dbPath = process.env.AGENT_MEMORY_DB_PATH || join(homedir(), '.agent-memory', 'memory.db');
+    const dbPath =
+      process.env.AGENT_MEMORY_DB_PATH || join(homedir(), '.agent-memory', 'memory.db');
 
     const stats: HealthStats = {
       serverVersion: VERSION,
@@ -67,16 +68,42 @@ async function tryFullMode(): Promise<HealthStats | null> {
 
     // Count entries in each table
     stats.tables = {
-      organizations: (sqlite.prepare('SELECT COUNT(*) as count FROM organizations').get() as { count: number }).count,
-      projects: (sqlite.prepare('SELECT COUNT(*) as count FROM projects').get() as { count: number }).count,
-      sessions: (sqlite.prepare('SELECT COUNT(*) as count FROM sessions').get() as { count: number }).count,
-      tools: (sqlite.prepare('SELECT COUNT(*) as count FROM tools WHERE is_active = 1').get() as { count: number }).count,
-      guidelines: (sqlite.prepare('SELECT COUNT(*) as count FROM guidelines WHERE is_active = 1').get() as { count: number }).count,
-      knowledge: (sqlite.prepare('SELECT COUNT(*) as count FROM knowledge WHERE is_active = 1').get() as { count: number }).count,
+      organizations: (
+        sqlite.prepare('SELECT COUNT(*) as count FROM organizations').get() as { count: number }
+      ).count,
+      projects: (
+        sqlite.prepare('SELECT COUNT(*) as count FROM projects').get() as { count: number }
+      ).count,
+      sessions: (
+        sqlite.prepare('SELECT COUNT(*) as count FROM sessions').get() as { count: number }
+      ).count,
+      tools: (
+        sqlite.prepare('SELECT COUNT(*) as count FROM tools WHERE is_active = 1').get() as {
+          count: number;
+        }
+      ).count,
+      guidelines: (
+        sqlite.prepare('SELECT COUNT(*) as count FROM guidelines WHERE is_active = 1').get() as {
+          count: number;
+        }
+      ).count,
+      knowledge: (
+        sqlite.prepare('SELECT COUNT(*) as count FROM knowledge WHERE is_active = 1').get() as {
+          count: number;
+        }
+      ).count,
       tags: (sqlite.prepare('SELECT COUNT(*) as count FROM tags').get() as { count: number }).count,
-      fileLocks: (sqlite.prepare('SELECT COUNT(*) as count FROM file_locks').get() as { count: number }).count,
-      conflicts: (sqlite.prepare('SELECT COUNT(*) as count FROM conflict_log WHERE resolved = 0').get() as { count: number }).count,
-      auditLog: (sqlite.prepare('SELECT COUNT(*) as count FROM audit_log').get() as { count: number }).count,
+      fileLocks: (
+        sqlite.prepare('SELECT COUNT(*) as count FROM file_locks').get() as { count: number }
+      ).count,
+      conflicts: (
+        sqlite.prepare('SELECT COUNT(*) as count FROM conflict_log WHERE resolved = 0').get() as {
+          count: number;
+        }
+      ).count,
+      auditLog: (
+        sqlite.prepare('SELECT COUNT(*) as count FROM audit_log').get() as { count: number }
+      ).count,
     };
 
     await shutdownCliContext();
@@ -121,7 +148,9 @@ async function directMode(): Promise<HealthStats> {
     const sqlite = new Database(dbPath, { readonly: true });
 
     // Check integrity
-    const integrityResult = sqlite.prepare('PRAGMA integrity_check').get() as { integrity_check: string };
+    const integrityResult = sqlite.prepare('PRAGMA integrity_check').get() as {
+      integrity_check: string;
+    };
     stats.database.integrityOk = integrityResult.integrity_check === 'ok';
 
     // Check WAL mode
@@ -135,16 +164,42 @@ async function directMode(): Promise<HealthStats> {
 
     // Count entries in each table
     stats.tables = {
-      organizations: (sqlite.prepare('SELECT COUNT(*) as count FROM organizations').get() as { count: number }).count,
-      projects: (sqlite.prepare('SELECT COUNT(*) as count FROM projects').get() as { count: number }).count,
-      sessions: (sqlite.prepare('SELECT COUNT(*) as count FROM sessions').get() as { count: number }).count,
-      tools: (sqlite.prepare('SELECT COUNT(*) as count FROM tools WHERE is_active = 1').get() as { count: number }).count,
-      guidelines: (sqlite.prepare('SELECT COUNT(*) as count FROM guidelines WHERE is_active = 1').get() as { count: number }).count,
-      knowledge: (sqlite.prepare('SELECT COUNT(*) as count FROM knowledge WHERE is_active = 1').get() as { count: number }).count,
+      organizations: (
+        sqlite.prepare('SELECT COUNT(*) as count FROM organizations').get() as { count: number }
+      ).count,
+      projects: (
+        sqlite.prepare('SELECT COUNT(*) as count FROM projects').get() as { count: number }
+      ).count,
+      sessions: (
+        sqlite.prepare('SELECT COUNT(*) as count FROM sessions').get() as { count: number }
+      ).count,
+      tools: (
+        sqlite.prepare('SELECT COUNT(*) as count FROM tools WHERE is_active = 1').get() as {
+          count: number;
+        }
+      ).count,
+      guidelines: (
+        sqlite.prepare('SELECT COUNT(*) as count FROM guidelines WHERE is_active = 1').get() as {
+          count: number;
+        }
+      ).count,
+      knowledge: (
+        sqlite.prepare('SELECT COUNT(*) as count FROM knowledge WHERE is_active = 1').get() as {
+          count: number;
+        }
+      ).count,
       tags: (sqlite.prepare('SELECT COUNT(*) as count FROM tags').get() as { count: number }).count,
-      fileLocks: (sqlite.prepare('SELECT COUNT(*) as count FROM file_locks').get() as { count: number }).count,
-      conflicts: (sqlite.prepare('SELECT COUNT(*) as count FROM conflict_log WHERE resolved = 0').get() as { count: number }).count,
-      auditLog: (sqlite.prepare('SELECT COUNT(*) as count FROM audit_log').get() as { count: number }).count,
+      fileLocks: (
+        sqlite.prepare('SELECT COUNT(*) as count FROM file_locks').get() as { count: number }
+      ).count,
+      conflicts: (
+        sqlite.prepare('SELECT COUNT(*) as count FROM conflict_log WHERE resolved = 0').get() as {
+          count: number;
+        }
+      ).count,
+      auditLog: (
+        sqlite.prepare('SELECT COUNT(*) as count FROM audit_log').get() as { count: number }
+      ).count,
     };
 
     sqlite.close();

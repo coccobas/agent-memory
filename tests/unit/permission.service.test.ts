@@ -21,12 +21,19 @@ let db: ReturnType<typeof setupTestDb>['db'];
 let permissionService: PermissionService;
 
 describe('permission.service', () => {
-  let previousPermMode: string | undefined;
+  // Store original auth-related env vars
+  const originalEnv: Record<string, string | undefined> = {};
 
   beforeAll(() => {
-    // Disable permissive mode for permission tests
-    previousPermMode = process.env.AGENT_MEMORY_PERMISSIONS_MODE;
+    // Save and clear all auth-related env vars for clean test state
+    originalEnv.AGENT_MEMORY_PERMISSIONS_MODE = process.env.AGENT_MEMORY_PERMISSIONS_MODE;
+    originalEnv.AGENT_MEMORY_DEV_MODE = process.env.AGENT_MEMORY_DEV_MODE;
+    originalEnv.AGENT_MEMORY_ALLOW_PERMISSIVE = process.env.AGENT_MEMORY_ALLOW_PERMISSIVE;
+
+    // Disable permissive/dev mode for permission tests
     delete process.env.AGENT_MEMORY_PERMISSIONS_MODE;
+    delete process.env.AGENT_MEMORY_DEV_MODE;
+    delete process.env.AGENT_MEMORY_ALLOW_PERMISSIVE;
 
     const testDb = setupTestDb(TEST_DB_PATH);
     sqlite = testDb.sqlite;
@@ -37,9 +44,13 @@ describe('permission.service', () => {
   });
 
   afterAll(() => {
-    // Restore previous permission mode
-    if (previousPermMode !== undefined) {
-      process.env.AGENT_MEMORY_PERMISSIONS_MODE = previousPermMode;
+    // Restore all original env vars
+    for (const [key, value] of Object.entries(originalEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
     }
     sqlite.close();
     cleanupTestDb(TEST_DB_PATH);
@@ -463,7 +474,12 @@ describe('permission.service', () => {
     it('should deny all entries when agentId is null', () => {
       const entries = [
         { id: 'entry-1', entryType: 'tool' as const, scopeType: 'global' as const, scopeId: null },
-        { id: 'entry-2', entryType: 'guideline' as const, scopeType: 'global' as const, scopeId: null },
+        {
+          id: 'entry-2',
+          entryType: 'guideline' as const,
+          scopeType: 'global' as const,
+          scopeId: null,
+        },
       ];
       const results = permissionService.checkBatch(null, 'read', entries);
       expect(results.get('entry-1')).toBe(false);
@@ -473,7 +489,12 @@ describe('permission.service', () => {
     it('should require permissions for project entries like other entry types', () => {
       // Bug #1/#343 fix: Project entries NO LONGER bypass permission checks
       const entries = [
-        { id: 'proj-1', entryType: 'project' as const, scopeType: 'global' as const, scopeId: null },
+        {
+          id: 'proj-1',
+          entryType: 'project' as const,
+          scopeType: 'global' as const,
+          scopeId: null,
+        },
         { id: 'tool-1', entryType: 'tool' as const, scopeType: 'global' as const, scopeId: null },
       ];
       const results = permissionService.checkBatch('agent-batch-1', 'read', entries);
@@ -492,7 +513,12 @@ describe('permission.service', () => {
 
       const entries = [
         { id: 'tool-1', entryType: 'tool' as const, scopeType: 'global' as const, scopeId: null },
-        { id: 'guide-1', entryType: 'guideline' as const, scopeType: 'global' as const, scopeId: null },
+        {
+          id: 'guide-1',
+          entryType: 'guideline' as const,
+          scopeType: 'global' as const,
+          scopeId: null,
+        },
       ];
       const results = permissionService.checkBatch('agent-batch-2', 'read', entries);
       expect(results.get('tool-1')).toBe(true);
@@ -530,7 +556,12 @@ describe('permission.service', () => {
       });
 
       const entries = [
-        { id: 'tool-1', entryType: 'tool' as const, scopeType: 'project' as const, scopeId: project.id },
+        {
+          id: 'tool-1',
+          entryType: 'tool' as const,
+          scopeType: 'project' as const,
+          scopeId: project.id,
+        },
       ];
       const results = permissionService.checkBatch('agent-batch-4', 'read', entries);
       // Should inherit permission from org
@@ -542,8 +573,18 @@ describe('permission.service', () => {
       // membership, not the permissions table (which doesn't support 'project' entry type).
       // Without proper org membership, project access is denied.
       const entries = [
-        { id: 'proj-1', entryType: 'project' as const, scopeType: 'global' as const, scopeId: null },
-        { id: 'proj-2', entryType: 'project' as const, scopeType: 'global' as const, scopeId: null },
+        {
+          id: 'proj-1',
+          entryType: 'project' as const,
+          scopeType: 'global' as const,
+          scopeId: null,
+        },
+        {
+          id: 'proj-2',
+          entryType: 'project' as const,
+          scopeType: 'global' as const,
+          scopeId: null,
+        },
       ];
       const results = permissionService.checkBatch('agent-batch-5', 'read', entries);
       // Should be false since no organizational membership grants project access
@@ -563,13 +604,17 @@ describe('permission.service', () => {
       });
 
       // First check should work
-      expect(permissionService.check('agent-cache-1', 'read', 'tool', null, 'global', null)).toBe(true);
+      expect(permissionService.check('agent-cache-1', 'read', 'tool', null, 'global', null)).toBe(
+        true
+      );
 
       // Invalidate cache
       permissionService.invalidateCache();
 
       // Check should still work after invalidation
-      expect(permissionService.check('agent-cache-1', 'read', 'tool', null, 'global', null)).toBe(true);
+      expect(permissionService.check('agent-cache-1', 'read', 'tool', null, 'global', null)).toBe(
+        true
+      );
     });
   });
 
@@ -587,7 +632,9 @@ describe('permission.service', () => {
       });
 
       // Should have permission on project scope due to org inheritance
-      expect(permissionService.check('agent-inherit-1', 'write', 'tool', null, 'project', project.id)).toBe(true);
+      expect(
+        permissionService.check('agent-inherit-1', 'write', 'tool', null, 'project', project.id)
+      ).toBe(true);
     });
 
     it('should inherit permissions from global to project', () => {
@@ -602,7 +649,9 @@ describe('permission.service', () => {
       });
 
       // Should have permission on project scope due to global inheritance
-      expect(permissionService.check('agent-inherit-2', 'read', 'guideline', null, 'project', project.id)).toBe(true);
+      expect(
+        permissionService.check('agent-inherit-2', 'read', 'guideline', null, 'project', project.id)
+      ).toBe(true);
     });
 
     it('should check org scope permissions', () => {
@@ -616,7 +665,9 @@ describe('permission.service', () => {
         permission: 'admin',
       });
 
-      expect(permissionService.check('agent-org-1', 'delete', 'knowledge', null, 'org', org.id)).toBe(true);
+      expect(
+        permissionService.check('agent-org-1', 'delete', 'knowledge', null, 'org', org.id)
+      ).toBe(true);
     });
 
     it('should handle session to project inheritance', () => {
@@ -625,13 +676,15 @@ describe('permission.service', () => {
 
       // Create a session
       const sessionId = `sess-${Date.now()}`;
-      db.insert(schema.sessions).values({
-        id: sessionId,
-        projectId: project.id,
-        name: 'Test Session',
-        status: 'active',
-        agentId: 'test-agent',
-      }).run();
+      db.insert(schema.sessions)
+        .values({
+          id: sessionId,
+          projectId: project.id,
+          name: 'Test Session',
+          status: 'active',
+          agentId: 'test-agent',
+        })
+        .run();
 
       permissionService.grant({
         agentId: 'agent-session-1',
@@ -642,7 +695,9 @@ describe('permission.service', () => {
       });
 
       // Should inherit permission from project when checking session scope
-      expect(permissionService.check('agent-session-1', 'write', 'tool', null, 'session', sessionId)).toBe(true);
+      expect(
+        permissionService.check('agent-session-1', 'write', 'tool', null, 'session', sessionId)
+      ).toBe(true);
     });
   });
 
@@ -719,6 +774,3 @@ describe('permission.service', () => {
     });
   });
 });
-
-
-

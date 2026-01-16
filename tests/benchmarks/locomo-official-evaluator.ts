@@ -22,15 +22,23 @@ import { LOCOMO_CATEGORIES } from './locomo-types.js';
 // LLM provider configuration
 // Set AGENT_MEMORY_LOCOMO_PROVIDER=anthropic to use Claude (recommended for accurate results)
 const LLM_PROVIDER = process.env.AGENT_MEMORY_LOCOMO_PROVIDER || 'openai'; // 'openai' or 'anthropic'
-const LLM_BASE_URL = process.env.AGENT_MEMORY_EXTRACTION_OPENAI_BASE_URL || process.env.AGENT_MEMORY_EXTRACTION_BASE_URL || process.env.OPENAI_BASE_URL || 'http://localhost:1234/v1';
-const LLM_API_KEY = process.env.AGENT_MEMORY_EXTRACTION_API_KEY || process.env.OPENAI_API_KEY || 'lm-studio';
+const LLM_BASE_URL =
+  process.env.AGENT_MEMORY_EXTRACTION_OPENAI_BASE_URL ||
+  process.env.AGENT_MEMORY_EXTRACTION_BASE_URL ||
+  process.env.OPENAI_BASE_URL ||
+  'http://localhost:1234/v1';
+const LLM_API_KEY =
+  process.env.AGENT_MEMORY_EXTRACTION_API_KEY || process.env.OPENAI_API_KEY || 'lm-studio';
 
 // Separate models for generation and judging
 // Generation model: smaller/faster model for answering questions
 // Judge model: should be larger/more capable for accurate evaluation
-const DEFAULT_GENERATION_MODEL = process.env.AGENT_MEMORY_EXTRACTION_OPENAI_MODEL || (LLM_PROVIDER === 'anthropic' ? 'claude-3-5-haiku-20241022' : 'qwen2.5-7b-instruct');
+const DEFAULT_GENERATION_MODEL =
+  process.env.AGENT_MEMORY_EXTRACTION_OPENAI_MODEL ||
+  (LLM_PROVIDER === 'anthropic' ? 'claude-3-5-haiku-20241022' : 'qwen2.5-7b-instruct');
 const DEFAULT_JUDGE_MODEL = process.env.AGENT_MEMORY_LOCOMO_JUDGE_MODEL || DEFAULT_GENERATION_MODEL;
-const LLM_GENERATION_MODEL = process.env.AGENT_MEMORY_LOCOMO_GENERATION_MODEL || DEFAULT_GENERATION_MODEL;
+const LLM_GENERATION_MODEL =
+  process.env.AGENT_MEMORY_LOCOMO_GENERATION_MODEL || DEFAULT_GENERATION_MODEL;
 const LLM_JUDGE_MODEL = process.env.AGENT_MEMORY_LOCOMO_JUDGE_MODEL || DEFAULT_JUDGE_MODEL;
 
 // ============================================================================
@@ -92,7 +100,7 @@ function tokenize(text: string | null | undefined): string[] {
     .toLowerCase()
     .replace(/[^\w\s]/g, ' ')
     .split(/\s+/)
-    .filter(t => t.length > 0);
+    .filter((t) => t.length > 0);
 }
 
 /**
@@ -152,9 +160,8 @@ export function calculateBleu1(generated: string, gold: string): number {
   const precision = matches / genTokens.length;
 
   // Brevity penalty
-  const bp = genTokens.length >= goldTokens.length
-    ? 1
-    : Math.exp(1 - goldTokens.length / genTokens.length);
+  const bp =
+    genTokens.length >= goldTokens.length ? 1 : Math.exp(1 - goldTokens.length / genTokens.length);
 
   return bp * precision;
 }
@@ -191,11 +198,13 @@ export async function generateAnswer(
   context: string[],
   model: string = LLM_GENERATION_MODEL
 ): Promise<string> {
-  const contextText = context.length > 0
-    ? context.map((c, i) => `[${i + 1}] ${c}`).join('\n\n')
-    : 'No relevant context found.';
+  const contextText =
+    context.length > 0
+      ? context.map((c, i) => `[${i + 1}] ${c}`).join('\n\n')
+      : 'No relevant context found.';
 
-  const systemPrompt = 'You are a helpful assistant that answers questions based on conversation context. Always respond with plain text answers, never JSON or structured data.';
+  const systemPrompt =
+    'You are a helpful assistant that answers questions based on conversation context. Always respond with plain text answers, never JSON or structured data.';
   const userPrompt = `Based on the following conversation history, answer this question in plain text.
 
 CONVERSATION HISTORY:
@@ -211,9 +220,9 @@ Provide a brief, direct answer in plain text (not JSON). If you cannot determine
       model,
       max_tokens: 500,
       system: systemPrompt,
-      messages: [{ role: 'user', content: userPrompt }]
+      messages: [{ role: 'user', content: userPrompt }],
     });
-    const textBlock = response.content.find(b => b.type === 'text');
+    const textBlock = response.content.find((b) => b.type === 'text');
     return textBlock?.text?.trim() || '';
   } else {
     const client = getOpenAIClient();
@@ -223,8 +232,8 @@ Provide a brief, direct answer in plain text (not JSON). If you cannot determine
       temperature: 0.3,
       messages: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ]
+        { role: 'user', content: userPrompt },
+      ],
     });
     return response.choices[0]?.message?.content?.trim() || '';
   }
@@ -268,16 +277,16 @@ Verdict: [CORRECT or INCORRECT]`;
     const response = await client.messages.create({
       model,
       max_tokens: 300,
-      messages: [{ role: 'user', content: prompt }]
+      messages: [{ role: 'user', content: prompt }],
     });
-    const textBlock = response.content.find(b => b.type === 'text');
+    const textBlock = response.content.find((b) => b.type === 'text');
     text = textBlock?.text || '';
   } else {
     const client = getOpenAIClient();
     const response = await client.chat.completions.create({
       model,
       max_tokens: 300,
-      messages: [{ role: 'user', content: prompt }]
+      messages: [{ role: 'user', content: prompt }],
     });
     text = response.choices[0]?.message?.content || '';
   }
@@ -315,18 +324,14 @@ export async function evaluateQAPairOfficial(
     judgeModel?: string;
   } = {}
 ): Promise<OfficialQAResult> {
-  const {
-    topK = 5,
-    generationModel = LLM_GENERATION_MODEL,
-    judgeModel = LLM_JUDGE_MODEL
-  } = config;
+  const { topK = 5, generationModel = LLM_GENERATION_MODEL, judgeModel = LLM_JUDGE_MODEL } = config;
 
   // 1. Retrieve context
   const results = await queryFn(qa.question);
   const retrievedContext = results
     .slice(0, topK)
-    .map(r => r.content || '')
-    .filter(c => c.length > 0);
+    .map((r) => r.content || '')
+    .filter((c) => c.length > 0);
 
   // 2. Generate answer
   let generatedAnswer: string;
@@ -336,7 +341,9 @@ export async function evaluateQAPairOfficial(
       generatedAnswer = String(generatedAnswer || '');
     }
   } catch (err) {
-    console.error(`  [ERROR] Answer generation failed: ${err instanceof Error ? err.message : String(err)}`);
+    console.error(
+      `  [ERROR] Answer generation failed: ${err instanceof Error ? err.message : String(err)}`
+    );
     generatedAnswer = '';
   }
 
@@ -349,7 +356,9 @@ export async function evaluateQAPairOfficial(
   try {
     judgeResult = await judgeAnswer(qa.question, qa.answer, generatedAnswer, judgeModel);
   } catch (err) {
-    console.error(`  [ERROR] Judge evaluation failed: ${err instanceof Error ? err.message : String(err)}`);
+    console.error(
+      `  [ERROR] Judge evaluation failed: ${err instanceof Error ? err.message : String(err)}`
+    );
     judgeResult = { score: 0, reasoning: 'Evaluation error' };
   }
 
@@ -385,7 +394,8 @@ export function aggregateOfficialMetrics(results: OfficialQAResult[]): OfficialM
   const avgJudgeScore = results.reduce((sum, r) => sum + r.judgeScore, 0) / n;
 
   // Calculate std dev for judge score
-  const variance = results.reduce((sum, r) => sum + Math.pow(r.judgeScore - avgJudgeScore, 2), 0) / n;
+  const variance =
+    results.reduce((sum, r) => sum + Math.pow(r.judgeScore - avgJudgeScore, 2), 0) / n;
   const judgeScoreStd = Math.sqrt(variance);
 
   return {
@@ -503,7 +513,9 @@ export function printOfficialResults(results: OfficialBenchmarkResults): void {
   console.log('OVERALL METRICS:');
   console.log(`  F1:           ${(o.avgF1 * 100).toFixed(1)}%`);
   console.log(`  BLEU-1:       ${(o.avgBleu1 * 100).toFixed(1)}%`);
-  console.log(`  J (Judge):    ${(o.avgJudgeScore * 100).toFixed(1)}%${o.judgeScoreStd ? ` ± ${(o.judgeScoreStd * 100).toFixed(1)}%` : ''}`);
+  console.log(
+    `  J (Judge):    ${(o.avgJudgeScore * 100).toFixed(1)}%${o.judgeScoreStd ? ` ± ${(o.judgeScoreStd * 100).toFixed(1)}%` : ''}`
+  );
 
   // Per-category breakdown
   console.log('\nBY CATEGORY:');
@@ -516,9 +528,9 @@ export function printOfficialResults(results: OfficialBenchmarkResults): void {
     if (m) {
       console.log(
         `${cat.padEnd(13)} | ${m.totalQueries.toString().padStart(5)} | ` +
-        `${(m.avgF1 * 100).toFixed(1).padStart(5)}% | ` +
-        `${(m.avgBleu1 * 100).toFixed(1).padStart(5)}% | ` +
-        `${(m.avgJudgeScore * 100).toFixed(1).padStart(5)}%`
+          `${(m.avgF1 * 100).toFixed(1).padStart(5)}% | ` +
+          `${(m.avgBleu1 * 100).toFixed(1).padStart(5)}% | ` +
+          `${(m.avgJudgeScore * 100).toFixed(1).padStart(5)}%`
       );
     }
   }

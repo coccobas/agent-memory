@@ -293,14 +293,14 @@ Returns whether the extraction provider is configured (OpenAI, Anthropic, or Oll
 
 **Parameters:**
 
-| Parameter | Description |
-|-----------|-------------|
-| `context` | Raw conversation or code to analyze |
-| `contextType` | `conversation`, `code`, or `mixed` |
-| `focusAreas` | Optional: `decisions`, `facts`, `rules`, `tools` |
-| `autoStore` | Store entries above confidence threshold |
-| `autoPromote` | Promote high-confidence entries to project scope |
-| `autoPromoteThreshold` | Threshold for auto-promotion (default: 0.85) |
+| Parameter              | Description                                      |
+| ---------------------- | ------------------------------------------------ |
+| `context`              | Raw conversation or code to analyze              |
+| `contextType`          | `conversation`, `code`, or `mixed`               |
+| `focusAreas`           | Optional: `decisions`, `facts`, `rules`, `tools` |
+| `autoStore`            | Store entries above confidence threshold         |
+| `autoPromote`          | Promote high-confidence entries to project scope |
+| `autoPromoteThreshold` | Threshold for auto-promotion (default: 0.85)     |
 
 ### Extract from Code Context
 
@@ -410,6 +410,7 @@ Returns entries tagged with `candidate` or `needs_review`.
 ```
 
 This:
+
 1. Creates a copy of the entry in project scope
 2. Removes candidate tags from the session entry
 3. Creates a relation between the entries
@@ -448,14 +449,14 @@ For bulk review, use the interactive TUI:
 agent-memory review --session sess-ghi789 --project proj-def456
 ```
 
-| Key | Action |
-|-----|--------|
-| ↑/↓ | Navigate entries |
+| Key   | Action           |
+| ----- | ---------------- |
+| ↑/↓   | Navigate entries |
 | Space | Toggle selection |
-| a | Approve selected |
-| r | Reject selected |
-| s | Skip selected |
-| q | Quit |
+| a     | Approve selected |
+| r     | Reject selected  |
+| s     | Skip selected    |
+| q     | Quit             |
 
 ---
 
@@ -497,9 +498,7 @@ Track conversation history and link it to memory entries for context.
   "role": "agent",
   "content": "For JWT tokens, I recommend using short-lived access tokens (1 hour) with refresh tokens (7 days).",
   "toolsUsed": ["memory_query"],
-  "contextEntries": [
-    {"type": "knowledge", "id": "know-xyz789"}
-  ]
+  "contextEntries": [{ "type": "knowledge", "id": "know-xyz789" }]
 }
 ```
 
@@ -999,12 +998,12 @@ Minimum 2-3 tags per entry for discoverability.
 
 ### 4. Use Appropriate Scopes
 
-| Scope | Use For |
-|-------|---------|
-| `global` | Universal standards (security, best practices) |
-| `org` | Team-wide conventions |
-| `project` | Project-specific rules and facts |
-| `session` | Temporary/experimental knowledge |
+| Scope     | Use For                                        |
+| --------- | ---------------------------------------------- |
+| `global`  | Universal standards (security, best practices) |
+| `org`     | Team-wide conventions                          |
+| `project` | Project-specific rules and facts               |
+| `session` | Temporary/experimental knowledge               |
 
 ### 5. Promote Validated Knowledge
 

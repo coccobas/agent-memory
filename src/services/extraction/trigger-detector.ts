@@ -120,14 +120,22 @@ function isQuestion(text: string, questionIndicators: string[]): boolean {
  * @returns Similarity score between 0 and 1
  */
 function calculateTextSimilarity(text1: string, text2: string): number {
-  const words1 = new Set(normalizeText(text1).split(/\s+/).filter(w => w.length > 2));
-  const words2 = new Set(normalizeText(text2).split(/\s+/).filter(w => w.length > 2));
+  const words1 = new Set(
+    normalizeText(text1)
+      .split(/\s+/)
+      .filter((w) => w.length > 2)
+  );
+  const words2 = new Set(
+    normalizeText(text2)
+      .split(/\s+/)
+      .filter((w) => w.length > 2)
+  );
 
   if (words1.size === 0 || words2.size === 0) {
     return 0;
   }
 
-  const intersection = new Set([...words1].filter(w => words2.has(w)));
+  const intersection = new Set([...words1].filter((w) => words2.has(w)));
   const union = new Set([...words1, ...words2]);
 
   return intersection.size / union.size;
@@ -183,16 +191,13 @@ export class TriggerDetector implements ITriggerDetector {
    * @param config - Optional config override
    * @returns Trigger event if detected, null otherwise
    */
-  detectCorrection(
-    messages: Message[],
-    config: TriggerConfig = this.config
-  ): TriggerEvent | null {
+  detectCorrection(messages: Message[], config: TriggerConfig = this.config): TriggerEvent | null {
     if (messages.length < 2) {
       return null;
     }
 
     // Get the most recent user message
-    const recentUserMessages = messages.filter(m => m.role === 'user');
+    const recentUserMessages = messages.filter((m) => m.role === 'user');
     if (recentUserMessages.length === 0) {
       return null;
     }
@@ -213,16 +218,13 @@ export class TriggerDetector implements ITriggerDetector {
     // Check for negation that would invalidate the match
     // (e.g., "that's not wrong" should not trigger)
     if (hasNegationContext(content, matchResult.position ?? 0, config.negationPhrases)) {
-      logger.debug(
-        { phrase: matchResult.matchedPhrase },
-        'Correction phrase found but negated'
-      );
+      logger.debug({ phrase: matchResult.matchedPhrase }, 'Correction phrase found but negated');
       return null;
     }
 
     // Find the previous assistant message that might have been corrected
     const previousAssistantMessages = messages.filter(
-      m => m.role === 'assistant' && m.timestamp < latestUserMessage.timestamp
+      (m) => m.role === 'assistant' && m.timestamp < latestUserMessage.timestamp
     );
 
     if (previousAssistantMessages.length === 0) {
@@ -238,8 +240,8 @@ export class TriggerDetector implements ITriggerDetector {
     let score = 0.6; // Base score for any correction phrase
 
     // Boost for stronger correction phrases
-    const strongPhrases = ['wrong', 'incorrect', 'undo', 'revert', 'that\'s not'];
-    if (strongPhrases.some(p => matchResult.matchedPhrase?.toLowerCase().includes(p))) {
+    const strongPhrases = ['wrong', 'incorrect', 'undo', 'revert', "that's not"];
+    if (strongPhrases.some((p) => matchResult.matchedPhrase?.toLowerCase().includes(p))) {
       score += 0.15;
     }
 
@@ -311,13 +313,13 @@ export class TriggerDetector implements ITriggerDetector {
   ): TriggerEvent | null {
     // Check if there are any unrecovered errors in recent history
     const unresolvedErrors = context.recentErrors.filter(
-      e => !e.recoverySuccessful && e.recoveryAttempted
+      (e) => !e.recoverySuccessful && e.recoveryAttempted
     );
 
     if (unresolvedErrors.length === 0) {
       // Check message metadata for errors
       const errorMessages = messages.filter(
-        m => m.metadata?.hasError && !m.metadata?.toolSuccess
+        (m) => m.metadata?.hasError && !m.metadata?.toolSuccess
       );
 
       if (errorMessages.length === 0) {
@@ -343,16 +345,12 @@ export class TriggerDetector implements ITriggerDetector {
     ];
 
     // Check for tool success in messages
-    const hasToolSuccess = recentMessages.some(
-      m => m.metadata?.toolSuccess === true
-    );
+    const hasToolSuccess = recentMessages.some((m) => m.metadata?.toolSuccess === true);
 
     // Check for verbal success indicators from user
-    const userMessages = recentMessages.filter(m => m.role === 'user');
-    const hasVerbalSuccess = userMessages.some(m =>
-      successIndicators.some(indicator =>
-        normalizeText(m.content).includes(indicator)
-      )
+    const userMessages = recentMessages.filter((m) => m.role === 'user');
+    const hasVerbalSuccess = userMessages.some((m) =>
+      successIndicators.some((indicator) => normalizeText(m.content).includes(indicator))
     );
 
     if (!hasToolSuccess && !hasVerbalSuccess) {
@@ -360,10 +358,11 @@ export class TriggerDetector implements ITriggerDetector {
     }
 
     // Find the error and the recovery
-    const errorMessage = messages.find(m => m.metadata?.hasError);
+    const errorMessage = messages.find((m) => m.metadata?.hasError);
     const successMessage = recentMessages.find(
-      m => m.metadata?.toolSuccess ||
-        successIndicators.some(i => normalizeText(m.content).includes(i))
+      (m) =>
+        m.metadata?.toolSuccess ||
+        successIndicators.some((i) => normalizeText(m.content).includes(i))
     );
 
     if (!errorMessage || !successMessage) {
@@ -435,10 +434,7 @@ export class TriggerDetector implements ITriggerDetector {
    * @param config - Optional config override
    * @returns Trigger event if detected, null otherwise
    */
-  detectEnthusiasm(
-    message: Message,
-    config: TriggerConfig = this.config
-  ): TriggerEvent | null {
+  detectEnthusiasm(message: Message, config: TriggerConfig = this.config): TriggerEvent | null {
     // Only analyze user messages
     if (message.role !== 'user') {
       return null;
@@ -460,10 +456,7 @@ export class TriggerDetector implements ITriggerDetector {
 
     // Check for negation context
     if (hasNegationContext(content, matchResult.position ?? 0, config.negationPhrases)) {
-      logger.debug(
-        { phrase: matchResult.matchedPhrase },
-        'Enthusiasm phrase found but negated'
-      );
+      logger.debug({ phrase: matchResult.matchedPhrase }, 'Enthusiasm phrase found but negated');
       return null;
     }
 
@@ -472,7 +465,7 @@ export class TriggerDetector implements ITriggerDetector {
 
     // Strong enthusiasm phrases get a boost
     const strongPhrases = ['perfect', 'exactly', 'love it', 'amazing', 'excellent', 'brilliant'];
-    if (strongPhrases.some(p => matchResult.matchedPhrase?.toLowerCase().includes(p))) {
+    if (strongPhrases.some((p) => matchResult.matchedPhrase?.toLowerCase().includes(p))) {
       score += 0.2;
     }
 
@@ -493,7 +486,7 @@ export class TriggerDetector implements ITriggerDetector {
     }
 
     // Multiple enthusiasm phrases boost confidence
-    const allMatches = config.enthusiasmPhrases.filter(phrase =>
+    const allMatches = config.enthusiasmPhrases.filter((phrase) =>
       normalizeText(content).includes(normalizeText(phrase))
     );
     if (allMatches.length > 1) {
@@ -560,13 +553,13 @@ export class TriggerDetector implements ITriggerDetector {
     }
 
     // Get user messages from current session
-    const currentUserMessages = currentMessages.filter(m => m.role === 'user');
+    const currentUserMessages = currentMessages.filter((m) => m.role === 'user');
     if (currentUserMessages.length === 0) {
       return null;
     }
 
     // Get user messages from historical sessions
-    const historicalUserMessages = historicalMessages.filter(m => m.role === 'user');
+    const historicalUserMessages = historicalMessages.filter((m) => m.role === 'user');
     if (historicalUserMessages.length === 0) {
       return null;
     }
@@ -581,10 +574,7 @@ export class TriggerDetector implements ITriggerDetector {
     const similarMessages: Array<{ message: Message; similarity: number }> = [];
 
     for (const historicalMsg of historicalUserMessages) {
-      const similarity = calculateTextSimilarity(
-        latestMessage.content,
-        historicalMsg.content
-      );
+      const similarity = calculateTextSimilarity(latestMessage.content, historicalMsg.content);
 
       if (similarity >= config.repetitionSimilarityThreshold) {
         similarMessages.push({ message: historicalMsg, similarity });
@@ -593,10 +583,7 @@ export class TriggerDetector implements ITriggerDetector {
 
     // Also check within current session (excluding the latest message itself)
     for (const currentMsg of currentUserMessages.slice(0, -1)) {
-      const similarity = calculateTextSimilarity(
-        latestMessage.content,
-        currentMsg.content
-      );
+      const similarity = calculateTextSimilarity(latestMessage.content, currentMsg.content);
 
       if (similarity >= config.repetitionSimilarityThreshold) {
         similarMessages.push({ message: currentMsg, similarity });
@@ -631,13 +618,13 @@ export class TriggerDetector implements ITriggerDetector {
     // Get unique session IDs from similar messages
     const uniqueSessions = new Set(
       similarMessages
-        .filter(m => m.message.metadata?.sessionId)
-        .map(m => m.message.metadata?.sessionId)
+        .filter((m) => m.message.metadata?.sessionId)
+        .map((m) => m.message.metadata?.sessionId)
     );
 
     const triggerContext: TriggerContext = {
       triggeringMessages: [latestMessage],
-      previousMessages: similarMessages.slice(0, 3).map(m => m.message),
+      previousMessages: similarMessages.slice(0, 3).map((m) => m.message),
     };
 
     logger.debug(
@@ -730,15 +717,10 @@ export class TriggerDetector implements ITriggerDetector {
    * @param correctionContent - The correction message
    * @returns Description of what was wrong
    */
-  private extractWhatWasWrong(
-    correctedContent: string,
-    _correctionContent: string
-  ): string {
+  private extractWhatWasWrong(correctedContent: string, _correctionContent: string): string {
     // Simple extraction: take first 200 chars of corrected content
     const truncated = correctedContent.slice(0, 200);
-    return truncated.length < correctedContent.length
-      ? `${truncated}...`
-      : truncated;
+    return truncated.length < correctedContent.length ? `${truncated}...` : truncated;
   }
 
   /**
@@ -779,12 +761,9 @@ export class TriggerDetector implements ITriggerDetector {
    * @param successMessage - The message indicating success
    * @returns Description of the successful approach
    */
-  private extractSuccessfulApproach(
-    messages: Message[],
-    successMessage: Message
-  ): string {
+  private extractSuccessfulApproach(messages: Message[], successMessage: Message): string {
     // Look for assistant message before the success
-    const successIndex = messages.findIndex(m => m.id === successMessage.id);
+    const successIndex = messages.findIndex((m) => m.id === successMessage.id);
     if (successIndex > 0) {
       for (let i = successIndex - 1; i >= 0; i--) {
         const msg = messages[i];

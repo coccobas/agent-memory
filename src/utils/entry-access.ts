@@ -38,7 +38,7 @@ export async function requireEntryPermission(
 ): Promise<void> {
   const { scopeType, scopeId } = await getEntryScope(context, params.entryType, params.entryId);
   if (
-    !context.services!.permission.check(
+    !context.services.permission.check(
       params.agentId,
       params.action,
       params.entryType,
@@ -62,7 +62,7 @@ export async function requireEntryPermissionWithScope(
 ): Promise<{ scopeType: ScopeType; scopeId: string | null }> {
   const { scopeType, scopeId } = await getEntryScope(context, params.entryType, params.entryId);
   if (
-    !context.services!.permission.check(
+    !context.services.permission.check(
       params.agentId,
       params.action,
       params.entryType,

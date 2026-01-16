@@ -4,7 +4,11 @@
  * Identifies patterns across multiple experiences using a two-stage approach:
  * 1. Embedding similarity on scenario + outcome for initial clustering
  * 2. Trajectory validation to confirm behavioral similarity
+ *
+ * NOTE: Non-null assertions are used for embeddings array access after validation checks.
  */
+
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 
 import type { ExperienceWithVersion } from '../../../core/interfaces/repositories.js';
 import type { ExperienceTrajectoryStep } from '../../../db/schema/experiences.js';
@@ -104,10 +108,7 @@ export class PatternDetector {
   private config: PatternDetectorConfig;
   private embeddingService?: IEmbeddingService;
 
-  constructor(
-    config: Partial<PatternDetectorConfig> = {},
-    embeddingService?: IEmbeddingService
-  ) {
+  constructor(config: Partial<PatternDetectorConfig> = {}, embeddingService?: IEmbeddingService) {
     this.config = {
       embeddingThreshold: config.embeddingThreshold ?? 0.7,
       trajectoryThreshold: config.trajectoryThreshold ?? 0.6,
@@ -121,9 +122,7 @@ export class PatternDetector {
   /**
    * Detect patterns in a set of experiences
    */
-  async detectPatterns(
-    experiences: ExperienceWithTrajectory[]
-  ): Promise<PatternDetectionResult> {
+  async detectPatterns(experiences: ExperienceWithTrajectory[]): Promise<PatternDetectionResult> {
     const startTime = Date.now();
 
     // Limit experiences for performance
@@ -159,12 +158,8 @@ export class PatternDetector {
     const patterns = await this.validatePatterns(clusters);
 
     // Identify unmatched experiences
-    const matchedIds = new Set(
-      patterns.flatMap(p => p.experiences.map(e => e.experience.id))
-    );
-    const unmatched = limitedExperiences.filter(
-      e => !matchedIds.has(e.experience.id)
-    );
+    const matchedIds = new Set(patterns.flatMap((p) => p.experiences.map((e) => e.experience.id)));
+    const unmatched = limitedExperiences.filter((e) => !matchedIds.has(e.experience.id));
 
     const processingTimeMs = Date.now() - startTime;
 
@@ -176,9 +171,7 @@ export class PatternDetector {
         totalExperiences: limitedExperiences.length,
         patternsFound: patterns.length,
         experiencesInPatterns: matchedIds.size,
-        averagePatternSize: patterns.length > 0
-          ? matchedIds.size / patterns.length
-          : 0,
+        averagePatternSize: patterns.length > 0 ? matchedIds.size / patterns.length : 0,
         embeddingsUsed: embeddingsAvailable,
       },
     };
@@ -187,21 +180,17 @@ export class PatternDetector {
   /**
    * Compute embeddings for experiences if embedding service is available
    */
-  private async computeEmbeddings(
-    experiences: ExperienceWithTrajectory[]
-  ): Promise<boolean> {
+  private async computeEmbeddings(experiences: ExperienceWithTrajectory[]): Promise<boolean> {
     if (!this.embeddingService?.isAvailable()) {
       return false;
     }
 
     try {
-      const textsToEmbed = experiences.map(exp => {
+      const textsToEmbed = experiences.map((exp) => {
         const version = exp.experience.currentVersion;
-        return [
-          version?.scenario ?? '',
-          version?.outcome ?? '',
-          version?.content ?? '',
-        ].filter(Boolean).join(' ');
+        return [version?.scenario ?? '', version?.outcome ?? '', version?.content ?? '']
+          .filter(Boolean)
+          .join(' ');
       });
 
       const result = await this.embeddingService.embedBatch(textsToEmbed);
@@ -244,10 +233,7 @@ export class PatternDetector {
         if (similarity >= this.config.embeddingThreshold) {
           // Validate with trajectory if required
           if (this.config.requireTrajectoryValidation) {
-            const trajSim = calculateTrajectorySimilarity(
-              exp1.trajectory,
-              exp2.trajectory
-            );
+            const trajSim = calculateTrajectorySimilarity(exp1.trajectory, exp2.trajectory);
             if (trajSim.similarity < this.config.trajectoryThreshold) {
               continue;
             }
@@ -281,10 +267,7 @@ export class PatternDetector {
       for (let j = i + 1; j < experiences.length; j++) {
         const exp2 = experiences[j]!;
 
-        const trajSim = calculateTrajectorySimilarity(
-          exp1.trajectory,
-          exp2.trajectory
-        );
+        const trajSim = calculateTrajectorySimilarity(exp1.trajectory, exp2.trajectory);
 
         if (trajSim.similarity >= this.config.trajectoryThreshold) {
           similarPairs.get(exp1.experience.id)!.add(exp2.experience.id);
@@ -308,7 +291,7 @@ export class PatternDetector {
     experiences: ExperienceWithTrajectory[],
     similarPairs: Map<string, Set<string>>
   ): ExperienceWithTrajectory[][] {
-    const expMap = new Map(experiences.map(e => [e.experience.id, e]));
+    const expMap = new Map(experiences.map((e) => [e.experience.id, e]));
     const visited = new Set<string>();
     const clusters: ExperienceWithTrajectory[][] = [];
 
@@ -351,9 +334,7 @@ export class PatternDetector {
   /**
    * Validate and finalize pattern groups
    */
-  private async validatePatterns(
-    clusters: ExperienceWithTrajectory[][]
-  ): Promise<PatternGroup[]> {
+  private async validatePatterns(clusters: ExperienceWithTrajectory[][]): Promise<PatternGroup[]> {
     const patterns: PatternGroup[] = [];
 
     for (const cluster of clusters) {
@@ -372,9 +353,7 @@ export class PatternDetector {
   /**
    * Build a pattern group from a cluster of experiences
    */
-  private buildPatternGroup(
-    experiences: ExperienceWithTrajectory[]
-  ): PatternGroup {
+  private buildPatternGroup(experiences: ExperienceWithTrajectory[]): PatternGroup {
     const firstExp = experiences[0]!;
 
     // Calculate embedding similarities
@@ -386,9 +365,7 @@ export class PatternDetector {
           const exp1 = experiences[i]!;
           const exp2 = experiences[j]!;
           if (exp1.embedding && exp2.embedding) {
-            embedSims.push(
-              cosineSimilarity(exp1.embedding, exp2.embedding)
-            );
+            embedSims.push(cosineSimilarity(exp1.embedding, exp2.embedding));
           }
         }
       }
@@ -401,17 +378,11 @@ export class PatternDetector {
       for (let j = i + 1; j < experiences.length; j++) {
         const exp1 = experiences[i]!;
         const exp2 = experiences[j]!;
-        trajSims.push(
-          calculateTrajectorySimilarity(
-            exp1.trajectory,
-            exp2.trajectory
-          )
-        );
+        trajSims.push(calculateTrajectorySimilarity(exp1.trajectory, exp2.trajectory));
       }
     }
-    const trajectorySimilarity = trajSims.length > 0
-      ? mean(trajSims.map(t => t.similarity))
-      : 1.0;
+    const trajectorySimilarity =
+      trajSims.length > 0 ? mean(trajSims.map((t) => t.similarity)) : 1.0;
 
     // Find exemplar (experience with highest success and most steps)
     const exemplar = experiences.reduce<ExperienceWithTrajectory>((best, exp) => {
@@ -461,9 +432,7 @@ export class PatternDetector {
     if (experiences.length === 0) return [];
 
     // Get action sequences
-    const actionSequences = experiences.map(exp =>
-      exp.trajectory.map(step => step.action)
-    );
+    const actionSequences = experiences.map((exp) => exp.trajectory.map((step) => step.action));
 
     if (actionSequences.length === 1) {
       return actionSequences[0] ?? [];
@@ -486,27 +455,20 @@ export class PatternDetector {
     // Order by average position
     const avgPosition = new Map<string, number>();
     for (const action of commonActions) {
-      const positions = actionSequences
-        .map(seq => seq.indexOf(action))
-        .filter(p => p >= 0);
+      const positions = actionSequences.map((seq) => seq.indexOf(action)).filter((p) => p >= 0);
       avgPosition.set(action, mean(positions));
     }
 
-    return commonActions.sort((a, b) =>
-      (avgPosition.get(a) ?? 0) - (avgPosition.get(b) ?? 0)
-    );
+    return commonActions.sort((a, b) => (avgPosition.get(a) ?? 0) - (avgPosition.get(b) ?? 0));
   }
 
   /**
    * Suggest a pattern description based on experiences
    */
-  private suggestPattern(
-    experiences: ExperienceWithTrajectory[],
-    commonActions: string[]
-  ): string {
+  private suggestPattern(experiences: ExperienceWithTrajectory[], commonActions: string[]): string {
     // Use the exemplar's scenario as base
     const scenarios = experiences
-      .map(e => e.experience.currentVersion?.scenario)
+      .map((e) => e.experience.currentVersion?.scenario)
       .filter((s): s is string => !!s);
 
     if (scenarios.length === 0) {
@@ -514,15 +476,21 @@ export class PatternDetector {
     }
 
     // Find common words in scenarios
-    const wordSets = scenarios.map(s =>
-      new Set(s.toLowerCase().split(/\s+/).filter(w => w.length > 3))
+    const wordSets = scenarios.map(
+      (s) =>
+        new Set(
+          s
+            .toLowerCase()
+            .split(/\s+/)
+            .filter((w) => w.length > 3)
+        )
     );
 
     const commonWords = new Set<string>();
     const firstWordSet = wordSets[0];
     if (firstWordSet) {
       for (const word of firstWordSet) {
-        if (wordSets.every(set => set.has(word))) {
+        if (wordSets.every((set) => set.has(word))) {
           commonWords.add(word);
         }
       }
@@ -555,11 +523,7 @@ export class PatternDetector {
     const successFactor = successRate;
 
     // Weighted combination
-    return (
-      countFactor * 0.3 +
-      similarityFactor * 0.5 +
-      successFactor * 0.2
-    );
+    return countFactor * 0.3 + similarityFactor * 0.5 + successFactor * 0.2;
   }
 }
 

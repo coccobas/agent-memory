@@ -5,13 +5,12 @@
  */
 
 import type { AppContext } from '../../core/context.js';
+import { getRequiredParam, getOptionalParam, isString, isNumber } from '../../utils/type-guards.js';
 import {
-  getRequiredParam,
-  getOptionalParam,
-  isString,
-  isNumber,
-} from '../../utils/type-guards.js';
-import { createValidationError, createNotFoundError, createPermissionError } from '../../core/errors.js';
+  createValidationError,
+  createNotFoundError,
+  createPermissionError,
+} from '../../core/errors.js';
 import { logAction } from '../../services/audit.service.js';
 import type { GraphTraversalOptions } from '../../db/schema/types.js';
 
@@ -40,7 +39,7 @@ function requireGraphPermission(
   permission: 'read' | 'write' | 'delete'
 ): void {
   // Graph edges are global scope - use knowledge entry type for permission checking
-  const hasPermission = context.services!.permission.check(
+  const hasPermission = context.services.permission.check(
     agentId,
     permission,
     'knowledge', // Graph operations are knowledge-related
@@ -150,10 +149,7 @@ export const graphEdgeHandlers = {
     // Check permission
     requireGraphPermission(context, agentId, 'read');
 
-    const edges = await edgeRepo.list(
-      { edgeTypeName, sourceId, targetId },
-      { limit, offset }
-    );
+    const edges = await edgeRepo.list({ edgeTypeName, sourceId, targetId }, { limit, offset });
 
     return {
       edges,

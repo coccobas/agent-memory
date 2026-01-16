@@ -8,6 +8,8 @@
  * - add_step (add trajectory step)
  */
 
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
+
 import {
   type CreateExperienceInput,
   type UpdateExperienceInput,
@@ -82,9 +84,13 @@ function extractAddParams(
   if (stepsParam !== undefined && isArrayOfObjects(stepsParam)) {
     steps = stepsParam.map((step) => {
       if (!isObject(step)) {
-        throw createValidationError('steps', 'each step must be an object', 'Provide valid step objects');
+        throw createValidationError(
+          'steps',
+          'each step must be an object',
+          'Provide valid step objects'
+        );
       }
-      const stepObj = step as Record<string, unknown>;
+      const stepObj = step;
       return {
         action: getRequiredParam(stepObj, 'action', isString),
         observation: getOptionalParam(stepObj, 'observation', isString),
@@ -159,8 +165,7 @@ function getValidationData(
   // For updates, use existing content if not provided in params
   const content =
     getOptionalParam(params, 'content', isString) ?? existingEntry?.currentVersion?.content;
-  const level =
-    getOptionalParam(params, 'level', isExperienceLevel) ?? existingEntry?.level;
+  const level = getOptionalParam(params, 'level', isExperienceLevel) ?? existingEntry?.level;
   const category = getOptionalParam(params, 'category', isString) ?? existingEntry?.category;
 
   return { title, content, level, category };
@@ -407,9 +412,13 @@ const recordCaseHandler: ContextAwareHandler = async (
   if (trajectoryParam !== undefined && isArrayOfObjects(trajectoryParam)) {
     trajectory = trajectoryParam.map((step) => {
       if (!isObject(step)) {
-        throw createValidationError('trajectory', 'each step must be an object', 'Provide valid step objects');
+        throw createValidationError(
+          'trajectory',
+          'each step must be an object',
+          'Provide valid step objects'
+        );
       }
-      const stepObj = step as Record<string, unknown>;
+      const stepObj = step;
       return {
         action: getRequiredParam(stepObj, 'action', isString),
         observation: getOptionalParam(stepObj, 'observation', isString),
@@ -460,7 +469,7 @@ const recordCaseHandler: ContextAwareHandler = async (
 
   return formatTimestamps({
     success: true,
-    experiences: result.experiences.map(e => ({
+    experiences: result.experiences.map((e) => ({
       id: e.experience.id,
       title: e.experience.title,
       confidence: e.confidence,
@@ -479,9 +488,13 @@ const captureFromTranscriptHandler: ContextAwareHandler = async (
   const transcriptParam = getRequiredParam(params, 'transcript', isArrayOfObjects);
   const transcript: TurnData[] = transcriptParam.map((turn) => {
     if (!isObject(turn)) {
-      throw createValidationError('transcript', 'each turn must be an object', 'Provide valid turn objects');
+      throw createValidationError(
+        'transcript',
+        'each turn must be an object',
+        'Provide valid turn objects'
+      );
     }
-    const turnObj = turn as Record<string, unknown>;
+    const turnObj = turn;
     const role = getRequiredParam(turnObj, 'role', isRole);
     const content = getRequiredParam(turnObj, 'content', isString);
     const timestamp = getOptionalParam(turnObj, 'timestamp', isString);
@@ -493,9 +506,13 @@ const captureFromTranscriptHandler: ContextAwareHandler = async (
     if (toolCallsParam !== undefined && isArrayOfObjects(toolCallsParam)) {
       toolCalls = toolCallsParam.map((call) => {
         if (!isObject(call)) {
-          throw createValidationError('toolCalls', 'each call must be an object', 'Provide valid call objects');
+          throw createValidationError(
+            'toolCalls',
+            'each call must be an object',
+            'Provide valid call objects'
+          );
         }
-        const callObj = call as Record<string, unknown>;
+        const callObj = call;
         return {
           name: getRequiredParam(callObj, 'name', isString),
           input: (callObj.input as Record<string, unknown>) ?? {},
@@ -521,15 +538,13 @@ const captureFromTranscriptHandler: ContextAwareHandler = async (
   // Build metrics from transcript
   const metrics = {
     turnCount: transcript.length,
-    userTurnCount: transcript.filter(t => t.role === 'user').length,
-    assistantTurnCount: transcript.filter(t => t.role === 'assistant').length,
+    userTurnCount: transcript.filter((t) => t.role === 'user').length,
+    assistantTurnCount: transcript.filter((t) => t.role === 'assistant').length,
     totalTokens: transcript.reduce((sum, t) => sum + (t.tokenCount ?? 0), 0),
     toolCallCount: transcript.reduce((sum, t) => sum + (t.toolCalls?.length ?? 0), 0),
-    uniqueToolsUsed: new Set(
-      transcript.flatMap(t => t.toolCalls?.map(c => c.name) ?? [])
-    ),
+    uniqueToolsUsed: new Set(transcript.flatMap((t) => t.toolCalls?.map((c) => c.name) ?? [])),
     errorCount: transcript.reduce(
-      (sum, t) => sum + (t.toolCalls?.filter(c => c.success === false).length ?? 0),
+      (sum, t) => sum + (t.toolCalls?.filter((c) => c.success === false).length ?? 0),
       0
     ),
     startTime: Date.now(),
@@ -571,7 +586,7 @@ const captureFromTranscriptHandler: ContextAwareHandler = async (
 
   return formatTimestamps({
     success: true,
-    experiences: result.experiences.map(e => ({
+    experiences: result.experiences.map((e) => ({
       id: e.experience.id,
       title: e.experience.title,
       confidence: e.confidence,

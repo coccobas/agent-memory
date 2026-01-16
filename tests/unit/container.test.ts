@@ -61,9 +61,7 @@ describe('Container', () => {
       });
 
       it('should throw when getting unregistered runtime', () => {
-        expect(() => container.getRuntime()).toThrow(
-          'runtime is unavailable: not registered'
-        );
+        expect(() => container.getRuntime()).toThrow('runtime is unavailable: not registered');
       });
 
       it('should report runtime not registered initially', () => {
@@ -93,18 +91,14 @@ describe('Container', () => {
       });
 
       it('should throw when getting uninitialized database', () => {
-        expect(() => container.getDatabase()).toThrow(
-          'database is unavailable: not initialized'
-        );
+        expect(() => container.getDatabase()).toThrow('database is unavailable: not initialized');
       });
 
       it('should throw when getting sqlite in PostgreSQL mode', () => {
         const mockDb = { query: vi.fn() } as unknown as AppDb;
         container.registerDatabase(mockDb);
 
-        expect(() => container.getSqlite()).toThrow(
-          /sqlite.*unavailable|not available/i
-        );
+        expect(() => container.getSqlite()).toThrow(/sqlite.*unavailable|not available/i);
       });
 
       it('should clear database registration', () => {
@@ -133,9 +127,7 @@ describe('Container', () => {
       });
 
       it('should throw when getting unregistered context', () => {
-        expect(() => container.getContext()).toThrow(
-          'AppContext is unavailable: not registered'
-        );
+        expect(() => container.getContext()).toThrow('AppContext is unavailable: not registered');
       });
 
       it('should report context not registered initially', () => {

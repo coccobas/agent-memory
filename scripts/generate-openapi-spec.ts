@@ -19,7 +19,8 @@ import { generateOpenAPISpec } from '../src/restapi/openapi/generator.js';
 const args = process.argv.slice(2);
 const outputIndex = args.indexOf('--output');
 const defaultOutput = resolve(process.cwd(), 'openapi.json');
-const outputPath = outputIndex !== -1 && args[outputIndex + 1] ? args[outputIndex + 1] : defaultOutput;
+const outputPath =
+  outputIndex !== -1 && args[outputIndex + 1] ? args[outputIndex + 1] : defaultOutput;
 
 try {
   console.log('Generating OpenAPI specification...');

@@ -25,8 +25,8 @@ import type { GroundednessResult, GroundednessDetail, GroundednessConfig } from 
 export function splitIntoSentences(text: string): string[] {
   const sentences = text
     .split(/(?<=[.!?])\s+/)
-    .map(s => s.trim())
-    .filter(s => s.length > 0);
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
 
   if (sentences.length === 0 && text.trim().length > 0) {
     return [text.trim()];
@@ -46,8 +46,8 @@ export function splitIntoSentences(text: string): string[] {
 export function splitIntoPhrases(text: string): string[] {
   const phrases = text
     .split(/[,;.!?]\s*/)
-    .map(s => s.trim())
-    .filter(s => s.length > 3);  // Filter very short fragments
+    .map((s) => s.trim())
+    .filter((s) => s.length > 3); // Filter very short fragments
 
   if (phrases.length === 0 && text.trim().length > 0) {
     return [text.trim()];
@@ -63,10 +63,7 @@ export function splitIntoPhrases(text: string): string[] {
  * @param fragmentSize 'sentence' or 'phrase'
  * @returns Array of fragments
  */
-export function fragmentText(
-  text: string,
-  fragmentSize: 'sentence' | 'phrase'
-): string[] {
+export function fragmentText(text: string, fragmentSize: 'sentence' | 'phrase'): string[] {
   if (fragmentSize === 'phrase') {
     return splitIntoPhrases(text);
   }
@@ -93,10 +90,7 @@ export class GroundednessEvaluator {
   private embeddingService: EmbeddingService;
   private config: GroundednessConfig;
 
-  constructor(
-    embeddingService: EmbeddingService,
-    config: Partial<GroundednessConfig> = {}
-  ) {
+  constructor(embeddingService: EmbeddingService, config: Partial<GroundednessConfig> = {}) {
     this.embeddingService = embeddingService;
     this.config = { ...DEFAULT_CONFIG, ...config };
   }
@@ -126,7 +120,7 @@ export class GroundednessEvaluator {
     // Handle edge cases
     if (extractedFragments.length === 0) {
       return {
-        score: 1.0,  // Nothing extracted = nothing ungrounded
+        score: 1.0, // Nothing extracted = nothing ungrounded
         groundedFragments: [],
         ungroundedFragments: [],
         details: [],
@@ -136,10 +130,10 @@ export class GroundednessEvaluator {
 
     if (sourceFragments.length === 0) {
       return {
-        score: 0.0,  // No source = nothing can be grounded
+        score: 0.0, // No source = nothing can be grounded
         groundedFragments: [],
         ungroundedFragments: extractedFragments,
-        details: extractedFragments.map(f => ({
+        details: extractedFragments.map((f) => ({
           extractedFragment: f,
           sourceFragment: null,
           similarity: 0,
@@ -250,9 +244,7 @@ export class GroundednessEvaluator {
  * @param results Array of groundedness results
  * @returns Aggregated statistics
  */
-export function aggregateGroundednessResults(
-  results: GroundednessResult[]
-): {
+export function aggregateGroundednessResults(results: GroundednessResult[]): {
   avgScore: number;
   totalGrounded: number;
   totalUngrounded: number;

@@ -4,11 +4,73 @@
  * Manage conversations via CLI.
  */
 
-import { Command } from 'commander';
+import type { Command } from 'commander';
 import { getCliContext, shutdownCliContext } from '../utils/context.js';
 import { formatOutput, type OutputFormat } from '../utils/output.js';
 import { handleCliError } from '../utils/errors.js';
 import { conversationHandlers } from '../../mcp/handlers/conversations.handler.js';
+import { typedAction } from '../utils/typed-action.js';
+
+interface ConversationStartOptions extends Record<string, unknown> {
+  sessionId?: string;
+  projectId?: string;
+  title?: string;
+}
+
+interface ConversationAddMessageOptions extends Record<string, unknown> {
+  conversationId: string;
+  role: string;
+  content: string;
+}
+
+interface ConversationGetOptions extends Record<string, unknown> {
+  id: string;
+  includeMessages?: boolean;
+  includeContext?: boolean;
+}
+
+interface ConversationListOptions extends Record<string, unknown> {
+  sessionId?: string;
+  projectId?: string;
+  status?: string;
+  limit?: number;
+  offset?: number;
+}
+
+interface ConversationUpdateOptions extends Record<string, unknown> {
+  id: string;
+  title?: string;
+}
+
+interface ConversationLinkContextOptions extends Record<string, unknown> {
+  conversationId: string;
+  messageId?: string;
+  entryType: string;
+  entryId: string;
+  relevanceScore?: number;
+}
+
+interface ConversationGetContextOptions extends Record<string, unknown> {
+  entryType: string;
+  entryId: string;
+}
+
+interface ConversationSearchOptions extends Record<string, unknown> {
+  search: string;
+  sessionId?: string;
+  projectId?: string;
+  limit?: number;
+  offset?: number;
+}
+
+interface ConversationEndOptions extends Record<string, unknown> {
+  id: string;
+  generateSummary?: boolean;
+}
+
+interface ConversationArchiveOptions extends Record<string, unknown> {
+  id: string;
+}
 
 export function addConversationCommand(program: Command): void {
   const conversation = program.command('conversation').description('Manage conversation history');
@@ -20,25 +82,27 @@ export function addConversationCommand(program: Command): void {
     .option('--session-id <id>', 'Session ID')
     .option('--project-id <id>', 'Project ID')
     .option('--title <text>', 'Conversation title')
-    .action(async (options, cmd) => {
-      try {
-        const globalOpts = cmd.optsWithGlobals();
-        const context = await getCliContext();
+    .action(
+      typedAction<ConversationStartOptions>(async (options, globalOpts) => {
+        try {
+          const context = await getCliContext();
 
-        const result = await conversationHandlers.start(context, {
-          sessionId: options.sessionId,
-          projectId: options.projectId,
-          title: options.title,
-          agentId: globalOpts.agentId,
-        });
+          const result = await conversationHandlers.start(context, {
+            sessionId: options.sessionId,
+            projectId: options.projectId,
+            title: options.title,
+            agentId: globalOpts.agentId,
+          });
 
-        console.log(formatOutput(result, globalOpts.format as OutputFormat));
-      } catch (error) {
-        handleCliError(error);
-      } finally {
-        await shutdownCliContext();
-      }
-    });
+          // eslint-disable-next-line no-console
+          console.log(formatOutput(result, globalOpts.format as OutputFormat));
+        } catch (error) {
+          handleCliError(error);
+        } finally {
+          await shutdownCliContext();
+        }
+      })
+    );
 
   // conversation add-message
   conversation
@@ -47,25 +111,27 @@ export function addConversationCommand(program: Command): void {
     .requiredOption('--conversation-id <id>', 'Conversation ID')
     .requiredOption('--role <role>', 'Message role: user, agent, system')
     .requiredOption('--content <text>', 'Message content')
-    .action(async (options, cmd) => {
-      try {
-        const globalOpts = cmd.optsWithGlobals();
-        const context = await getCliContext();
+    .action(
+      typedAction<ConversationAddMessageOptions>(async (options, globalOpts) => {
+        try {
+          const context = await getCliContext();
 
-        const result = await conversationHandlers.addMessage(context, {
-          conversationId: options.conversationId,
-          role: options.role,
-          content: options.content,
-          agentId: globalOpts.agentId,
-        });
+          const result = await conversationHandlers.addMessage(context, {
+            conversationId: options.conversationId,
+            role: options.role,
+            content: options.content,
+            agentId: globalOpts.agentId,
+          });
 
-        console.log(formatOutput(result, globalOpts.format as OutputFormat));
-      } catch (error) {
-        handleCliError(error);
-      } finally {
-        await shutdownCliContext();
-      }
-    });
+          // eslint-disable-next-line no-console
+          console.log(formatOutput(result, globalOpts.format as OutputFormat));
+        } catch (error) {
+          handleCliError(error);
+        } finally {
+          await shutdownCliContext();
+        }
+      })
+    );
 
   // conversation get
   conversation
@@ -74,25 +140,27 @@ export function addConversationCommand(program: Command): void {
     .requiredOption('--id <id>', 'Conversation ID')
     .option('--include-messages', 'Include messages')
     .option('--include-context', 'Include context links')
-    .action(async (options, cmd) => {
-      try {
-        const globalOpts = cmd.optsWithGlobals();
-        const context = await getCliContext();
+    .action(
+      typedAction<ConversationGetOptions>(async (options, globalOpts) => {
+        try {
+          const context = await getCliContext();
 
-        const result = await conversationHandlers.get(context, {
-          id: options.id,
-          includeMessages: options.includeMessages,
-          includeContext: options.includeContext,
-          agentId: globalOpts.agentId,
-        });
+          const result = await conversationHandlers.get(context, {
+            id: options.id,
+            includeMessages: options.includeMessages,
+            includeContext: options.includeContext,
+            agentId: globalOpts.agentId,
+          });
 
-        console.log(formatOutput(result, globalOpts.format as OutputFormat));
-      } catch (error) {
-        handleCliError(error);
-      } finally {
-        await shutdownCliContext();
-      }
-    });
+          // eslint-disable-next-line no-console
+          console.log(formatOutput(result, globalOpts.format as OutputFormat));
+        } catch (error) {
+          handleCliError(error);
+        } finally {
+          await shutdownCliContext();
+        }
+      })
+    );
 
   // conversation list
   conversation
@@ -103,27 +171,29 @@ export function addConversationCommand(program: Command): void {
     .option('--status <status>', 'Filter by status: active, completed, archived')
     .option('--limit <n>', 'Maximum entries to return', parseInt)
     .option('--offset <n>', 'Offset for pagination', parseInt)
-    .action(async (options, cmd) => {
-      try {
-        const globalOpts = cmd.optsWithGlobals();
-        const context = await getCliContext();
+    .action(
+      typedAction<ConversationListOptions>(async (options, globalOpts) => {
+        try {
+          const context = await getCliContext();
 
-        const result = await conversationHandlers.list(context, {
-          sessionId: options.sessionId,
-          projectId: options.projectId,
-          status: options.status,
-          limit: options.limit,
-          offset: options.offset,
-          agentId: globalOpts.agentId,
-        });
+          const result = await conversationHandlers.list(context, {
+            sessionId: options.sessionId,
+            projectId: options.projectId,
+            status: options.status,
+            limit: options.limit,
+            offset: options.offset,
+            agentId: globalOpts.agentId,
+          });
 
-        console.log(formatOutput(result, globalOpts.format as OutputFormat));
-      } catch (error) {
-        handleCliError(error);
-      } finally {
-        await shutdownCliContext();
-      }
-    });
+          // eslint-disable-next-line no-console
+          console.log(formatOutput(result, globalOpts.format as OutputFormat));
+        } catch (error) {
+          handleCliError(error);
+        } finally {
+          await shutdownCliContext();
+        }
+      })
+    );
 
   // conversation update
   conversation
@@ -131,23 +201,25 @@ export function addConversationCommand(program: Command): void {
     .description('Update a conversation')
     .requiredOption('--id <id>', 'Conversation ID')
     .option('--title <text>', 'New title')
-    .action(async (options, cmd) => {
-      try {
-        const globalOpts = cmd.optsWithGlobals();
-        const context = await getCliContext();
+    .action(
+      typedAction<ConversationUpdateOptions>(async (options, globalOpts) => {
+        try {
+          const context = await getCliContext();
 
-        const result = await conversationHandlers.update(context, {
-          id: options.id,
-          title: options.title,
-        });
+          const result = await conversationHandlers.update(context, {
+            id: options.id,
+            title: options.title,
+          });
 
-        console.log(formatOutput(result, globalOpts.format as OutputFormat));
-      } catch (error) {
-        handleCliError(error);
-      } finally {
-        await shutdownCliContext();
-      }
-    });
+          // eslint-disable-next-line no-console
+          console.log(formatOutput(result, globalOpts.format as OutputFormat));
+        } catch (error) {
+          handleCliError(error);
+        } finally {
+          await shutdownCliContext();
+        }
+      })
+    );
 
   // conversation link-context
   conversation
@@ -158,27 +230,29 @@ export function addConversationCommand(program: Command): void {
     .requiredOption('--entry-type <type>', 'Entry type: tool, guideline, knowledge')
     .requiredOption('--entry-id <id>', 'Entry ID')
     .option('--relevance-score <n>', 'Relevance score 0-1', parseFloat)
-    .action(async (options, cmd) => {
-      try {
-        const globalOpts = cmd.optsWithGlobals();
-        const context = await getCliContext();
+    .action(
+      typedAction<ConversationLinkContextOptions>(async (options, globalOpts) => {
+        try {
+          const context = await getCliContext();
 
-        const result = await conversationHandlers.linkContext(context, {
-          conversationId: options.conversationId,
-          messageId: options.messageId,
-          entryType: options.entryType,
-          entryId: options.entryId,
-          relevanceScore: options.relevanceScore,
-          agentId: globalOpts.agentId,
-        });
+          const result = await conversationHandlers.linkContext(context, {
+            conversationId: options.conversationId,
+            messageId: options.messageId,
+            entryType: options.entryType,
+            entryId: options.entryId,
+            relevanceScore: options.relevanceScore,
+            agentId: globalOpts.agentId,
+          });
 
-        console.log(formatOutput(result, globalOpts.format as OutputFormat));
-      } catch (error) {
-        handleCliError(error);
-      } finally {
-        await shutdownCliContext();
-      }
-    });
+          // eslint-disable-next-line no-console
+          console.log(formatOutput(result, globalOpts.format as OutputFormat));
+        } catch (error) {
+          handleCliError(error);
+        } finally {
+          await shutdownCliContext();
+        }
+      })
+    );
 
   // conversation get-context
   conversation
@@ -186,23 +260,25 @@ export function addConversationCommand(program: Command): void {
     .description('Get context links for an entry')
     .requiredOption('--entry-type <type>', 'Entry type: tool, guideline, knowledge')
     .requiredOption('--entry-id <id>', 'Entry ID')
-    .action(async (options, cmd) => {
-      try {
-        const globalOpts = cmd.optsWithGlobals();
-        const context = await getCliContext();
+    .action(
+      typedAction<ConversationGetContextOptions>(async (options, globalOpts) => {
+        try {
+          const context = await getCliContext();
 
-        const result = await conversationHandlers.getContext(context, {
-          entryType: options.entryType,
-          entryId: options.entryId,
-        });
+          const result = await conversationHandlers.getContext(context, {
+            entryType: options.entryType,
+            entryId: options.entryId,
+          });
 
-        console.log(formatOutput(result, globalOpts.format as OutputFormat));
-      } catch (error) {
-        handleCliError(error);
-      } finally {
-        await shutdownCliContext();
-      }
-    });
+          // eslint-disable-next-line no-console
+          console.log(formatOutput(result, globalOpts.format as OutputFormat));
+        } catch (error) {
+          handleCliError(error);
+        } finally {
+          await shutdownCliContext();
+        }
+      })
+    );
 
   // conversation search
   conversation
@@ -213,27 +289,29 @@ export function addConversationCommand(program: Command): void {
     .option('--project-id <id>', 'Filter by project ID')
     .option('--limit <n>', 'Maximum entries to return', parseInt)
     .option('--offset <n>', 'Offset for pagination', parseInt)
-    .action(async (options, cmd) => {
-      try {
-        const globalOpts = cmd.optsWithGlobals();
-        const context = await getCliContext();
+    .action(
+      typedAction<ConversationSearchOptions>(async (options, globalOpts) => {
+        try {
+          const context = await getCliContext();
 
-        const result = await conversationHandlers.search(context, {
-          search: options.search,
-          sessionId: options.sessionId,
-          projectId: options.projectId,
-          limit: options.limit,
-          offset: options.offset,
-          agentId: globalOpts.agentId,
-        });
+          const result = await conversationHandlers.search(context, {
+            search: options.search,
+            sessionId: options.sessionId,
+            projectId: options.projectId,
+            limit: options.limit,
+            offset: options.offset,
+            agentId: globalOpts.agentId,
+          });
 
-        console.log(formatOutput(result, globalOpts.format as OutputFormat));
-      } catch (error) {
-        handleCliError(error);
-      } finally {
-        await shutdownCliContext();
-      }
-    });
+          // eslint-disable-next-line no-console
+          console.log(formatOutput(result, globalOpts.format as OutputFormat));
+        } catch (error) {
+          handleCliError(error);
+        } finally {
+          await shutdownCliContext();
+        }
+      })
+    );
 
   // conversation end
   conversation
@@ -241,43 +319,47 @@ export function addConversationCommand(program: Command): void {
     .description('End a conversation')
     .requiredOption('--id <id>', 'Conversation ID')
     .option('--generate-summary', 'Generate summary when ending')
-    .action(async (options, cmd) => {
-      try {
-        const globalOpts = cmd.optsWithGlobals();
-        const context = await getCliContext();
+    .action(
+      typedAction<ConversationEndOptions>(async (options, globalOpts) => {
+        try {
+          const context = await getCliContext();
 
-        const result = await conversationHandlers.end(context, {
-          id: options.id,
-          generateSummary: options.generateSummary,
-        });
+          const result = await conversationHandlers.end(context, {
+            id: options.id,
+            generateSummary: options.generateSummary,
+          });
 
-        console.log(formatOutput(result, globalOpts.format as OutputFormat));
-      } catch (error) {
-        handleCliError(error);
-      } finally {
-        await shutdownCliContext();
-      }
-    });
+          // eslint-disable-next-line no-console
+          console.log(formatOutput(result, globalOpts.format as OutputFormat));
+        } catch (error) {
+          handleCliError(error);
+        } finally {
+          await shutdownCliContext();
+        }
+      })
+    );
 
   // conversation archive
   conversation
     .command('archive')
     .description('Archive a conversation')
     .requiredOption('--id <id>', 'Conversation ID')
-    .action(async (options, cmd) => {
-      try {
-        const globalOpts = cmd.optsWithGlobals();
-        const context = await getCliContext();
+    .action(
+      typedAction<ConversationArchiveOptions>(async (options, globalOpts) => {
+        try {
+          const context = await getCliContext();
 
-        const result = await conversationHandlers.archive(context, {
-          id: options.id,
-        });
+          const result = await conversationHandlers.archive(context, {
+            id: options.id,
+          });
 
-        console.log(formatOutput(result, globalOpts.format as OutputFormat));
-      } catch (error) {
-        handleCliError(error);
-      } finally {
-        await shutdownCliContext();
-      }
-    });
+          // eslint-disable-next-line no-console
+          console.log(formatOutput(result, globalOpts.format as OutputFormat));
+        } catch (error) {
+          handleCliError(error);
+        } finally {
+          await shutdownCliContext();
+        }
+      })
+    );
 }

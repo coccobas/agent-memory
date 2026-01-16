@@ -4,6 +4,8 @@
  * Finds groups of semantically similar entries for consolidation.
  */
 
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
+
 import { createComponentLogger } from '../../utils/logger.js';
 import { config } from '../../config/index.js';
 import type { FindSimilarParams, SimilarityGroup } from './types.js';

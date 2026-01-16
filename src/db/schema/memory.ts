@@ -29,6 +29,8 @@ export const tools = sqliteTable(
   (table) => [
     index('idx_tools_scope').on(table.scopeType, table.scopeId),
     uniqueIndex('idx_tools_scope_name').on(table.scopeType, table.scopeId, table.name),
+    index('idx_tools_active').on(table.isActive),
+    index('idx_tools_created').on(table.createdAt),
   ]
 );
 
@@ -85,6 +87,8 @@ export const guidelines = sqliteTable(
   (table) => [
     index('idx_guidelines_scope').on(table.scopeType, table.scopeId),
     uniqueIndex('idx_guidelines_scope_name').on(table.scopeType, table.scopeId, table.name),
+    index('idx_guidelines_active').on(table.isActive),
+    index('idx_guidelines_created').on(table.createdAt),
   ]
 );
 
@@ -146,6 +150,8 @@ export const knowledge = sqliteTable(
   (table) => [
     index('idx_knowledge_scope').on(table.scopeType, table.scopeId),
     uniqueIndex('idx_knowledge_scope_title').on(table.scopeType, table.scopeId, table.title),
+    index('idx_knowledge_active').on(table.isActive),
+    index('idx_knowledge_created').on(table.createdAt),
   ]
 );
 

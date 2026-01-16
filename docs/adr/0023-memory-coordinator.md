@@ -7,6 +7,7 @@ Accepted
 ## Context
 
 Agent Memory uses multiple in-memory caches:
+
 - Query result cache
 - Feedback score cache
 - Entity index
@@ -14,11 +15,13 @@ Agent Memory uses multiple in-memory caches:
 - Embedding vector cache
 
 Each cache has its own size limit, but they share process memory. Without coordination:
+
 - Total memory can exceed process limits
 - Low-priority caches can starve high-priority ones
 - Memory pressure is discovered too late (OOM)
 
 We needed:
+
 - Process-wide memory monitoring
 - Priority-based eviction across caches
 - Proactive eviction before OOM
@@ -35,14 +38,14 @@ Implement a MemoryCoordinator that monitors total heap usage across registered c
 interface RegisteredCache {
   name: string;
   cache: ICacheAdapter;
-  priority: number;  // 0-10, higher = keep longer
-  getMemoryUsage: () => number;  // bytes
+  priority: number; // 0-10, higher = keep longer
+  getMemoryUsage: () => number; // bytes
 }
 
 class MemoryCoordinator {
   private caches: RegisteredCache[] = [];
   private maxMemoryBytes: number;
-  private pressureThreshold: number;  // 0.0-1.0
+  private pressureThreshold: number; // 0.0-1.0
   private checkIntervalMs: number;
   private intervalId?: NodeJS.Timeout;
 
@@ -56,7 +59,7 @@ class MemoryCoordinator {
     name: string,
     cache: ICacheAdapter,
     priority: number,
-    getMemoryUsage: () => number,
+    getMemoryUsage: () => number
   ): void {
     this.caches.push({ name, cache, priority, getMemoryUsage });
     // Sort by priority (ascending) for eviction order
@@ -64,10 +67,7 @@ class MemoryCoordinator {
   }
 
   start(): void {
-    this.intervalId = setInterval(
-      () => this.checkPressure(),
-      this.checkIntervalMs,
-    );
+    this.intervalId = setInterval(() => this.checkPressure(), this.checkIntervalMs);
   }
 
   stop(): void {
@@ -136,13 +136,13 @@ coordinator.register('scope-cache', scopeCache, 7, () => scopeCache.memoryUsage(
 coordinator.register('embedding-cache', embeddingCache, 4, () => embeddingCache.memoryUsage());
 ```
 
-| Cache | Priority | Rationale |
-|-------|----------|-----------|
-| Query cache | 8 | Most expensive to rebuild, user-facing |
-| Scope cache | 7 | Frequently accessed, cheap to rebuild |
-| Entity index | 5 | Medium cost to rebuild |
-| Embedding cache | 4 | Can re-fetch from DB |
-| Feedback cache | 3 | Least critical, easily rebuilt |
+| Cache           | Priority | Rationale                              |
+| --------------- | -------- | -------------------------------------- |
+| Query cache     | 8        | Most expensive to rebuild, user-facing |
+| Scope cache     | 7        | Frequently accessed, cheap to rebuild  |
+| Entity index    | 5        | Medium cost to rebuild                 |
+| Embedding cache | 4        | Can re-fetch from DB                   |
+| Feedback cache  | 3        | Least critical, easily rebuilt         |
 
 ### Memory Usage Estimation
 
@@ -174,6 +174,7 @@ class LRUCache implements ICacheAdapter {
 ## Consequences
 
 **Positive:**
+
 - Prevents OOM by proactive eviction
 - Priority-based eviction preserves important caches
 - Per-cache memory visibility for debugging
@@ -181,6 +182,7 @@ class LRUCache implements ICacheAdapter {
 - Graceful degradation (eviction before crash)
 
 **Negative:**
+
 - Periodic checking adds overhead (mitigated by long intervals)
 - Memory estimation is approximate (JSON.stringify or heuristics)
 - Eviction can cause temporary performance degradation

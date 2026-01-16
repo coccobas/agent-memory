@@ -116,7 +116,9 @@ export const nodes = sqliteTable(
     /** Link to original entry (knowledge, guideline, tool, etc.) */
     entryId: text('entry_id'),
     /** Type of the linked entry */
-    entryType: text('entry_type', { enum: ['knowledge', 'guideline', 'tool', 'experience', 'task'] }),
+    entryType: text('entry_type', {
+      enum: ['knowledge', 'guideline', 'tool', 'experience', 'task'],
+    }),
     createdAt: text('created_at')
       .default(sql`CURRENT_TIMESTAMP`)
       .notNull(),
@@ -128,7 +130,12 @@ export const nodes = sqliteTable(
   (table) => [
     index('idx_nodes_type').on(table.nodeTypeId),
     index('idx_nodes_scope').on(table.scopeType, table.scopeId),
-    uniqueIndex('idx_nodes_scope_name').on(table.nodeTypeId, table.scopeType, table.scopeId, table.name),
+    uniqueIndex('idx_nodes_scope_name').on(
+      table.nodeTypeId,
+      table.scopeType,
+      table.scopeId,
+      table.name
+    ),
     index('idx_nodes_active').on(table.isActive),
     index('idx_nodes_created').on(table.createdAt),
     // Index for entry → node lookups
@@ -268,7 +275,9 @@ export const nodeEmbeddings = sqliteTable(
     versionId: text('version_id').notNull(),
     hasEmbedding: integer('has_embedding', { mode: 'boolean' }).default(false).notNull(),
     embeddingModel: text('embedding_model'),
-    embeddingProvider: text('embedding_provider', { enum: ['openai', 'lmstudio', 'local', 'disabled'] }),
+    embeddingProvider: text('embedding_provider', {
+      enum: ['openai', 'lmstudio', 'local', 'disabled'],
+    }),
     createdAt: text('created_at')
       .default(sql`CURRENT_TIMESTAMP`)
       .notNull(),

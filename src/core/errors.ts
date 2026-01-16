@@ -224,7 +224,8 @@ export class ErrorBuilder {
     const builder = new ErrorBuilder();
     builder.code = ErrorCodes.CONFLICT;
     builder.context = { resource };
-    builder.suggestion = 'Check for recent updates and resolve the conflict using memory_conflict tool';
+    builder.suggestion =
+      'Check for recent updates and resolve the conflict using memory_conflict tool';
     return builder;
   }
 
@@ -246,7 +247,8 @@ export class ErrorBuilder {
     const builder = new ErrorBuilder();
     builder.code = ErrorCodes.CIRCUIT_BREAKER_OPEN;
     builder.context = { service: serviceName };
-    builder.suggestion = 'The service is experiencing issues. Wait for recovery or check service health.';
+    builder.suggestion =
+      'The service is experiencing issues. Wait for recovery or check service health.';
     return builder;
   }
 

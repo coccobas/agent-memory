@@ -4,9 +4,15 @@ import { PatternDetector } from '../../src/services/librarian/pipeline/pattern-d
 import { QualityGate } from '../../src/services/librarian/pipeline/quality-gate.js';
 import { Recommender } from '../../src/services/librarian/pipeline/recommender.js';
 import type { DatabaseDeps } from '../../src/core/types.js';
-import type { IExperienceRepository, ExperienceWithVersion } from '../../src/core/interfaces/repositories.js';
+import type {
+  IExperienceRepository,
+  ExperienceWithVersion,
+} from '../../src/core/interfaces/repositories.js';
 import type { ExperienceTrajectoryStep } from '../../src/db/schema/experiences.js';
-import type { IRecommendationStore, CreateRecommendationInput } from '../../src/services/librarian/recommendations/recommendation-store.js';
+import type {
+  IRecommendationStore,
+  CreateRecommendationInput,
+} from '../../src/services/librarian/recommendations/recommendation-store.js';
 import type { AnalysisRequest, LibrarianConfig } from '../../src/services/librarian/types.js';
 import type { PatternGroup } from '../../src/services/librarian/pipeline/pattern-detector.js';
 import type { QualityGateResult } from '../../src/services/librarian/pipeline/quality-gate.js';
@@ -16,7 +22,9 @@ import { generateId } from '../../src/db/repositories/base.js';
 // TEST HELPERS
 // =============================================================================
 
-function createMockExperience(overrides: Partial<ExperienceWithVersion> = {}): ExperienceWithVersion {
+function createMockExperience(
+  overrides: Partial<ExperienceWithVersion> = {}
+): ExperienceWithVersion {
   const id = generateId();
   return {
     id,
@@ -68,7 +76,7 @@ function createMockExperienceRepo(): IExperienceRepository {
 
   const repo: any = {
     list: vi.fn().mockImplementation(async () => [...experiences]),
-    getById: vi.fn().mockImplementation(async (id: string) => experiences.find(e => e.id === id)),
+    getById: vi.fn().mockImplementation(async (id: string) => experiences.find((e) => e.id === id)),
     getTrajectory: vi.fn().mockImplementation(async (id: string) => trajectories.get(id) || []),
     addToExperiences: (exp: ExperienceWithVersion, traj: ExperienceTrajectoryStep[]) => {
       experiences.push(exp);
@@ -84,34 +92,39 @@ function createMockRecommendationStore(): IRecommendationStore {
 
   return {
     create: vi.fn(async (input: CreateRecommendationInput) => {
-      const rec = { id: generateId(), ...input, status: 'pending', createdAt: new Date().toISOString() };
+      const rec = {
+        id: generateId(),
+        ...input,
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+      };
       recommendations.push(rec);
       return rec as any;
     }),
-    getById: vi.fn(async (id: string) => recommendations.find(r => r.id === id)),
+    getById: vi.fn(async (id: string) => recommendations.find((r) => r.id === id)),
     list: vi.fn(async () => recommendations),
     update: vi.fn(async (id: string, updates: any) => {
-      const rec = recommendations.find(r => r.id === id);
+      const rec = recommendations.find((r) => r.id === id);
       if (rec) Object.assign(rec, updates);
       return rec;
     }),
     approve: vi.fn(async (id: string) => {
-      const rec = recommendations.find(r => r.id === id);
+      const rec = recommendations.find((r) => r.id === id);
       if (rec) rec.status = 'approved';
       return rec;
     }),
     reject: vi.fn(async (id: string) => {
-      const rec = recommendations.find(r => r.id === id);
+      const rec = recommendations.find((r) => r.id === id);
       if (rec) rec.status = 'rejected';
       return rec;
     }),
     skip: vi.fn(async (id: string) => {
-      const rec = recommendations.find(r => r.id === id);
+      const rec = recommendations.find((r) => r.id === id);
       if (rec) rec.status = 'skipped';
       return rec;
     }),
     expire: vi.fn(async (id: string) => {
-      const rec = recommendations.find(r => r.id === id);
+      const rec = recommendations.find((r) => r.id === id);
       if (rec) rec.status = 'expired';
       return rec;
     }),
@@ -119,7 +132,7 @@ function createMockRecommendationStore(): IRecommendationStore {
     delete: vi.fn(async () => true),
     count: vi.fn(async (filter?: any) => {
       if (!filter?.status) return recommendations.length;
-      return recommendations.filter(r => r.status === filter.status).length;
+      return recommendations.filter((r) => r.status === filter.status).length;
     }),
   };
 }
@@ -532,7 +545,8 @@ describe('QualityGate', () => {
         experienceId: 'exp-1',
         version: 1,
         scenario: 'Test scenario with sufficient detail',
-        content: 'This is a detailed content explaining the solution approach taken to solve the problem.',
+        content:
+          'This is a detailed content explaining the solution approach taken to solve the problem.',
         outcome: 'Successfully resolved the issue',
         createdAt: new Date().toISOString(),
         createdBy: 'test',
@@ -613,10 +627,10 @@ describe('QualityGate', () => {
       const result = qualityGate.evaluate(mockPattern);
 
       expect(result.checks).toHaveLength(4);
-      expect(result.checks.find(c => c.name === 'similarity')).toBeDefined();
-      expect(result.checks.find(c => c.name === 'pattern_size')).toBeDefined();
-      expect(result.checks.find(c => c.name === 'outcome_consistency')).toBeDefined();
-      expect(result.checks.find(c => c.name === 'content_quality')).toBeDefined();
+      expect(result.checks.find((c) => c.name === 'similarity')).toBeDefined();
+      expect(result.checks.find((c) => c.name === 'pattern_size')).toBeDefined();
+      expect(result.checks.find((c) => c.name === 'outcome_consistency')).toBeDefined();
+      expect(result.checks.find((c) => c.name === 'content_quality')).toBeDefined();
     });
 
     it('should handle patterns without outcome data', () => {
@@ -630,7 +644,7 @@ describe('QualityGate', () => {
 
       const result = qualityGate.evaluate(mockPattern);
 
-      const outcomeCheck = result.checks.find(c => c.name === 'outcome_consistency');
+      const outcomeCheck = result.checks.find((c) => c.name === 'outcome_consistency');
       // When no outcomes are available, neutral score of 0.7 is used
       expect(outcomeCheck?.score).toBe(0.7);
       expect(outcomeCheck?.message).toBe('No outcome data available');
@@ -719,9 +733,7 @@ describe('Recommender', () => {
 
     mockPattern = {
       id: 'pattern-1',
-      experiences: [
-        { experience: exp, trajectory: createMockTrajectory(3) },
-      ],
+      experiences: [{ experience: exp, trajectory: createMockTrajectory(3) }],
       exemplar: { experience: exp, trajectory: createMockTrajectory(3) },
       embeddingSimilarity: 0.85,
       trajectorySimilarity: 0.8,
@@ -749,11 +761,10 @@ describe('Recommender', () => {
     it('should generate recommendations for review disposition', () => {
       const evaluations = new Map([[mockPattern, mockQualityResult]]);
 
-      const result = recommender.generateRecommendations(
-        [mockPattern],
-        evaluations,
-        { scopeType: 'project', scopeId: 'test-project' }
-      );
+      const result = recommender.generateRecommendations([mockPattern], evaluations, {
+        scopeType: 'project',
+        scopeId: 'test-project',
+      });
 
       expect(result.recommendations).toHaveLength(1);
       expect(result.autoPromoted).toHaveLength(0);
@@ -766,11 +777,10 @@ describe('Recommender', () => {
       mockQualityResult.disposition = 'auto_promote';
       const evaluations = new Map([[mockPattern, mockQualityResult]]);
 
-      const result = recommender.generateRecommendations(
-        [mockPattern],
-        evaluations,
-        { scopeType: 'project', scopeId: 'test-project' }
-      );
+      const result = recommender.generateRecommendations([mockPattern], evaluations, {
+        scopeType: 'project',
+        scopeId: 'test-project',
+      });
 
       expect(result.autoPromoted).toHaveLength(1);
       expect(result.recommendations).toHaveLength(0);
@@ -781,11 +791,10 @@ describe('Recommender', () => {
       mockQualityResult.disposition = 'reject';
       const evaluations = new Map([[mockPattern, mockQualityResult]]);
 
-      const result = recommender.generateRecommendations(
-        [mockPattern],
-        evaluations,
-        { scopeType: 'project', scopeId: 'test-project' }
-      );
+      const result = recommender.generateRecommendations([mockPattern], evaluations, {
+        scopeType: 'project',
+        scopeId: 'test-project',
+      });
 
       expect(result.rejected).toHaveLength(1);
       expect(result.recommendations).toHaveLength(0);
@@ -795,11 +804,10 @@ describe('Recommender', () => {
     it('should generate proper recommendation input structure', () => {
       const evaluations = new Map([[mockPattern, mockQualityResult]]);
 
-      const result = recommender.generateRecommendations(
-        [mockPattern],
-        evaluations,
-        { scopeType: 'project', scopeId: 'test-project' }
-      );
+      const result = recommender.generateRecommendations([mockPattern], evaluations, {
+        scopeType: 'project',
+        scopeId: 'test-project',
+      });
 
       const rec = result.recommendations[0]!;
       expect(rec.input.scopeType).toBe('project');
@@ -818,11 +826,10 @@ describe('Recommender', () => {
     it('should include expiration date', () => {
       const evaluations = new Map([[mockPattern, mockQualityResult]]);
 
-      const result = recommender.generateRecommendations(
-        [mockPattern],
-        evaluations,
-        { scopeType: 'project', scopeId: 'test-project' }
-      );
+      const result = recommender.generateRecommendations([mockPattern], evaluations, {
+        scopeType: 'project',
+        scopeId: 'test-project',
+      });
 
       const rec = result.recommendations[0]!;
       expect(rec.input.expiresAt).toBeDefined();
@@ -839,11 +846,10 @@ describe('Recommender', () => {
       const mockStore = createMockRecommendationStore();
       const evaluations = new Map([[mockPattern, mockQualityResult]]);
 
-      const result = recommender.generateRecommendations(
-        [mockPattern],
-        evaluations,
-        { scopeType: 'project', scopeId: 'test-project' }
-      );
+      const result = recommender.generateRecommendations([mockPattern], evaluations, {
+        scopeType: 'project',
+        scopeId: 'test-project',
+      });
 
       await recommender.storeRecommendations(result.recommendations, mockStore);
 
@@ -859,11 +865,10 @@ describe('Recommender', () => {
         [pattern2, mockQualityResult],
       ]);
 
-      const result = recommender.generateRecommendations(
-        [mockPattern, pattern2],
-        evaluations,
-        { scopeType: 'project', scopeId: 'test-project' }
-      );
+      const result = recommender.generateRecommendations([mockPattern, pattern2], evaluations, {
+        scopeType: 'project',
+        scopeId: 'test-project',
+      });
 
       await recommender.storeRecommendations(result.recommendations, mockStore);
 
@@ -879,11 +884,10 @@ describe('Recommender', () => {
       });
 
       const evaluations = new Map([[mockPattern, mockQualityResult]]);
-      const result = recommender.generateRecommendations(
-        [mockPattern],
-        evaluations,
-        { scopeType: 'project', scopeId: 'test-project' }
-      );
+      const result = recommender.generateRecommendations([mockPattern], evaluations, {
+        scopeType: 'project',
+        scopeId: 'test-project',
+      });
 
       const rec = result.recommendations[0]!;
       expect(rec.input.analysisRunId).toBe('new-run-id');

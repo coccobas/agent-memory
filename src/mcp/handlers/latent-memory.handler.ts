@@ -10,12 +10,7 @@
 
 import type { AppContext } from '../../core/context.js';
 import { createValidationError, createNotFoundError } from '../../core/errors.js';
-import {
-  getRequiredParam,
-  getOptionalParam,
-  isString,
-  isNumber,
-} from '../../utils/type-guards.js';
+import { getRequiredParam, getOptionalParam, isString, isNumber } from '../../utils/type-guards.js';
 import { formatTimestamps } from '../../utils/timestamp-formatter.js';
 
 /**
@@ -33,10 +28,7 @@ type LatentOutputFormat = 'json' | 'markdown' | 'natural_language';
  */
 function isSourceType(value: unknown): value is LatentSourceType {
   return (
-    value === 'tool' ||
-    value === 'guideline' ||
-    value === 'knowledge' ||
-    value === 'experience'
+    value === 'tool' || value === 'guideline' || value === 'knowledge' || value === 'experience'
   );
 }
 
@@ -106,7 +98,11 @@ async function createLatentMemory(
         sourceContent = `${sourceEntry.title}\n${sourceEntry.currentVersion?.content || ''}`;
         break;
       default:
-        throw createValidationError('sourceType', 'is invalid', 'Must be tool, guideline, knowledge, or experience');
+        throw createValidationError(
+          'sourceType',
+          'is invalid',
+          'Must be tool, guideline, knowledge, or experience'
+        );
     }
   }
 
@@ -280,9 +276,10 @@ async function injectContext(
   }
 
   // Rough token estimate (4 chars per token)
-  const tokenEstimate = typeof formattedContext === 'string'
-    ? Math.ceil(formattedContext.length / 4)
-    : Math.ceil(JSON.stringify(formattedContext).length / 4);
+  const tokenEstimate =
+    typeof formattedContext === 'string'
+      ? Math.ceil(formattedContext.length / 4)
+      : Math.ceil(JSON.stringify(formattedContext).length / 4);
 
   return formatTimestamps({
     context: formattedContext,
@@ -357,7 +354,6 @@ async function pruneCache(
   entriesRemoved: number;
   bytesFreed: number;
 }> {
-
   // Note: This is a placeholder - actual implementation would:
   // 1. Query entries not accessed in staleDays
   // 2. Remove them from KV-cache

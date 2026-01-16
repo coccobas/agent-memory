@@ -46,7 +46,10 @@ export class RetrievalRepository {
 
     this.db.insert(memoryRetrievals).values(newRetrieval).run();
 
-    logger.debug({ id, sessionId: params.sessionId, entryType: params.entryType }, 'Retrieval recorded');
+    logger.debug(
+      { id, sessionId: params.sessionId, entryType: params.entryType },
+      'Retrieval recorded'
+    );
 
     return id;
   }
@@ -79,7 +82,10 @@ export class RetrievalRepository {
 
     this.db.insert(memoryRetrievals).values(retrievals).run();
 
-    logger.debug({ count: ids.length, sessionId: params[0]?.sessionId }, 'Batch retrievals recorded');
+    logger.debug(
+      { count: ids.length, sessionId: params[0]?.sessionId },
+      'Batch retrievals recorded'
+    );
 
     return ids;
   }
@@ -101,16 +107,14 @@ export class RetrievalRepository {
   /**
    * Get all retrievals for a specific entry
    */
-  async getByEntry(entryType: MemoryRetrieval['entryType'], entryId: string): Promise<MemoryRetrieval[]> {
+  async getByEntry(
+    entryType: MemoryRetrieval['entryType'],
+    entryId: string
+  ): Promise<MemoryRetrieval[]> {
     const retrievals = this.db
       .select()
       .from(memoryRetrievals)
-      .where(
-        and(
-          eq(memoryRetrievals.entryType, entryType),
-          eq(memoryRetrievals.entryId, entryId)
-        )
-      )
+      .where(and(eq(memoryRetrievals.entryType, entryType), eq(memoryRetrievals.entryId, entryId)))
       .orderBy(desc(memoryRetrievals.retrievedAt))
       .all();
 
@@ -206,12 +210,7 @@ export async function getEntryFeedback(
   const entryRetrievals = db
     .select({ id: memoryRetrievals.id })
     .from(memoryRetrievals)
-    .where(
-      and(
-        eq(memoryRetrievals.entryType, entryType),
-        eq(memoryRetrievals.entryId, entryId)
-      )
-    )
+    .where(and(eq(memoryRetrievals.entryType, entryType), eq(memoryRetrievals.entryId, entryId)))
     .all();
 
   if (entryRetrievals.length === 0) {

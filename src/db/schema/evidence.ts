@@ -42,7 +42,17 @@ export const evidence = sqliteTable(
     title: text('title').notNull(),
     description: text('description'),
     evidenceType: text('evidence_type', {
-      enum: ['screenshot', 'log', 'snippet', 'output', 'benchmark', 'link', 'document', 'quote', 'other'],
+      enum: [
+        'screenshot',
+        'log',
+        'snippet',
+        'output',
+        'benchmark',
+        'link',
+        'document',
+        'quote',
+        'other',
+      ],
     }).notNull(),
 
     // Content - one of these should be populated

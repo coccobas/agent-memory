@@ -18,7 +18,7 @@ describe('IntentClassifier', () => {
     });
 
     it('should have patterns for all intents except explore', () => {
-      const intents = classifier.getSupportedIntents().filter(i => i !== 'explore');
+      const intents = classifier.getSupportedIntents().filter((i) => i !== 'explore');
       for (const intent of intents) {
         const patterns = classifier.getPatternsForIntent(intent);
         expect(patterns.length).toBeGreaterThan(0);
@@ -222,7 +222,7 @@ describe('IntentClassifier', () => {
       expect(result.intent).toBe('debug');
     });
 
-    it("should classify queries with \"what's wrong\"", () => {
+    it('should classify queries with "what\'s wrong"', () => {
       const result = classifier.classify("what's wrong with this code");
       expect(result.intent).toBe('debug');
     });
@@ -232,7 +232,7 @@ describe('IntentClassifier', () => {
       expect(result.intent).toBe('debug');
     });
 
-    it("should classify queries with \"can't\"", () => {
+    it('should classify queries with "can\'t"', () => {
       const result = classifier.classify("can't connect to the database");
       expect(result.intent).toBe('debug');
     });
@@ -645,7 +645,7 @@ describe('IntentClassifier', () => {
     it('should return patterns for how_to intent', () => {
       const patterns = classifier.getPatternsForIntent('how_to');
       expect(patterns.length).toBeGreaterThan(0);
-      expect(patterns.every(p => p instanceof RegExp)).toBe(true);
+      expect(patterns.every((p) => p instanceof RegExp)).toBe(true);
     });
 
     it('should return patterns for debug intent', () => {

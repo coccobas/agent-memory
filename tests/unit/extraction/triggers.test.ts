@@ -183,9 +183,7 @@ describe('TriggerDetector', () => {
     });
 
     it('should return null for insufficient messages', () => {
-      const messages: Message[] = [
-        createMessage({ role: 'user', content: 'No, that is wrong.' }),
-      ];
+      const messages: Message[] = [createMessage({ role: 'user', content: 'No, that is wrong.' })];
 
       const result = detector.detectCorrection(messages);
 
@@ -439,7 +437,10 @@ describe('TriggerDetector', () => {
         }),
       ];
 
-      const result = detectorWithLowerThreshold.detectRepetition(currentMessages, historicalMessages);
+      const result = detectorWithLowerThreshold.detectRepetition(
+        currentMessages,
+        historicalMessages
+      );
 
       expect(result).not.toBeNull();
       expect(result?.type).toBe(TriggerType.REPEATED_REQUEST);
@@ -462,7 +463,10 @@ describe('TriggerDetector', () => {
         createMessage({ role: 'user', content: 'strict mode typescript enable' }),
       ];
 
-      const result = detectorWithLowerThreshold.detectRepetition(currentMessages, historicalMessages);
+      const result = detectorWithLowerThreshold.detectRepetition(
+        currentMessages,
+        historicalMessages
+      );
 
       expect(result).not.toBeNull();
       expect(result?.suggestedEntryType).toBe('guideline');
@@ -522,7 +526,7 @@ describe('TriggerDetector', () => {
 
       // Should detect enthusiasm at minimum
       expect(results.length).toBeGreaterThanOrEqual(1);
-      expect(results.some(r => r.type === TriggerType.ENTHUSIASM)).toBe(true);
+      expect(results.some((r) => r.type === TriggerType.ENTHUSIASM)).toBe(true);
     });
 
     it('should return empty array for neutral messages', () => {
@@ -553,10 +557,7 @@ describe('TriggerOrchestrator', () => {
   beforeEach(() => {
     resetMessageCounter();
     mockObserver = createMockObserver();
-    orchestrator = createTriggerOrchestrator(
-      { enabled: true, cooldownMs: 0 },
-      mockObserver
-    );
+    orchestrator = createTriggerOrchestrator({ enabled: true, cooldownMs: 0 }, mockObserver);
   });
 
   describe('processMessage', () => {
@@ -591,10 +592,7 @@ describe('TriggerOrchestrator', () => {
     });
 
     it('should respect cooldown period', async () => {
-      orchestrator = createTriggerOrchestrator(
-        { enabled: true, cooldownMs: 60000 },
-        mockObserver
-      );
+      orchestrator = createTriggerOrchestrator({ enabled: true, cooldownMs: 60000 }, mockObserver);
 
       const message1 = createMessage({
         role: 'user',
@@ -636,10 +634,7 @@ describe('TriggerOrchestrator', () => {
     it('should handle invalid message gracefully', async () => {
       const context = createSessionContext();
 
-      const triggers = await orchestrator.processMessage(
-        null as unknown as Message,
-        context
-      );
+      const triggers = await orchestrator.processMessage(null as unknown as Message, context);
 
       expect(triggers).toEqual([]);
     });
@@ -690,10 +685,7 @@ describe('TriggerOrchestrator', () => {
     });
 
     it('should block extraction during cooldown', async () => {
-      orchestrator = createTriggerOrchestrator(
-        { cooldownMs: 60000 },
-        mockObserver
-      );
+      orchestrator = createTriggerOrchestrator({ cooldownMs: 60000 }, mockObserver);
 
       const context = createSessionContext();
 

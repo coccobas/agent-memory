@@ -144,7 +144,7 @@ describe('SQL Injection Prevention', () => {
       it('should reject SQL injection with UNION attacks', () => {
         const maliciousDates = [
           "2024-01-01' UNION SELECT * FROM knowledge--",
-          "2024-01-01 UNION ALL SELECT NULL,NULL,NULL--",
+          '2024-01-01 UNION ALL SELECT NULL,NULL,NULL--',
           "2024-01-01' UNION SELECT password FROM users--",
         ];
 
@@ -474,11 +474,7 @@ describe('SQL Injection Prevention', () => {
 
       it('should prevent operator injection through search', () => {
         // FTS5 has operators like NEAR, OR, AND, NOT
-        const operatorQueries = [
-          'term1 NEAR/5 term2',
-          'term1 OR term2',
-          'NOT important',
-        ];
+        const operatorQueries = ['term1 NEAR/5 term2', 'term1 OR term2', 'NOT important'];
 
         operatorQueries.forEach((query) => {
           expect(() => {
@@ -561,10 +557,10 @@ describe('SQL Injection Prevention', () => {
     describe('SQL Injection Prevention in Dimension', () => {
       it('should reject SQL injection in dimension parameter', () => {
         const maliciousDimensions: unknown[] = [
-          "768; DROP TABLE vector_embeddings--",
+          '768; DROP TABLE vector_embeddings--',
           "1024' OR '1'='1",
-          "768 UNION SELECT * FROM vector_embeddings--",
-          "768; DELETE FROM vector_embeddings WHERE 1=1--",
+          '768 UNION SELECT * FROM vector_embeddings--',
+          '768; DELETE FROM vector_embeddings WHERE 1=1--',
         ];
 
         maliciousDimensions.forEach((dim) => {
@@ -669,10 +665,7 @@ describe('SQL Injection Prevention', () => {
   describe('Integration: Query Pipeline Security', () => {
     it('should safely handle temporal queries with malicious dates', () => {
       // This tests the full pipeline with temporal filtering
-      const maliciousDates = [
-        "2024-01-01'; DROP TABLE knowledge--",
-        "2024-01-01' OR '1'='1",
-      ];
+      const maliciousDates = ["2024-01-01'; DROP TABLE knowledge--", "2024-01-01' OR '1'='1"];
 
       maliciousDates.forEach((date) => {
         expect(() => {
@@ -724,7 +717,7 @@ describe('SQL Injection Prevention', () => {
     it('should prevent polyglot injections', () => {
       // Payloads that work across multiple contexts
       const polyglots = [
-        "SLEEP(1) /*' or SLEEP(1) or '\" or SLEEP(1) or \"*/",
+        'SLEEP(1) /*\' or SLEEP(1) or \'" or SLEEP(1) or "*/',
         "'; DROP TABLE knowledge; SELECT '",
       ];
 

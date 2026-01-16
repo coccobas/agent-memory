@@ -16,7 +16,9 @@ export const entryEmbeddings = pgTable(
     versionId: text('version_id').notNull(),
     hasEmbedding: boolean('has_embedding').default(false).notNull(),
     embeddingModel: text('embedding_model'),
-    embeddingProvider: text('embedding_provider', { enum: ['openai', 'lmstudio', 'local', 'disabled'] }),
+    embeddingProvider: text('embedding_provider', {
+      enum: ['openai', 'lmstudio', 'local', 'disabled'],
+    }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },

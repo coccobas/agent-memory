@@ -175,10 +175,7 @@ describe('Scopes Handler', () => {
 
       await scopeHandlers.projectList(mockContext, { orgId: 'org-1' });
 
-      expect(mockProjectsRepo.list).toHaveBeenCalledWith(
-        { orgId: 'org-1' },
-        expect.anything()
-      );
+      expect(mockProjectsRepo.list).toHaveBeenCalledWith({ orgId: 'org-1' }, expect.anything());
     });
 
     it('should get project by id', async () => {
@@ -210,9 +207,7 @@ describe('Scopes Handler', () => {
     it('should throw when project not found', async () => {
       mockProjectsRepo.getById.mockResolvedValue(null);
 
-      await expect(
-        scopeHandlers.projectGet(mockContext, { id: 'nonexistent' })
-      ).rejects.toThrow();
+      await expect(scopeHandlers.projectGet(mockContext, { id: 'nonexistent' })).rejects.toThrow();
     });
 
     it('should update project', async () => {
@@ -338,16 +333,11 @@ describe('Scopes Handler', () => {
     it('should throw when session not found', async () => {
       mockSessionsRepo.end.mockResolvedValue(null);
 
-      await expect(
-        scopeHandlers.sessionEnd(mockContext, { id: 'nonexistent' })
-      ).rejects.toThrow();
+      await expect(scopeHandlers.sessionEnd(mockContext, { id: 'nonexistent' })).rejects.toThrow();
     });
 
     it('should list sessions', async () => {
-      mockSessionsRepo.list.mockResolvedValue([
-        { id: 'sess-1' },
-        { id: 'sess-2' },
-      ]);
+      mockSessionsRepo.list.mockResolvedValue([{ id: 'sess-1' }, { id: 'sess-2' }]);
 
       const result = await scopeHandlers.sessionList(mockContext, {});
 

@@ -5,6 +5,8 @@
  * Helps prevent creating duplicate entries.
  */
 
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
+
 import { getPreparedStatement, type DbClient } from '../db/connection.js';
 import { tools, guidelines, knowledge } from '../db/schema.js';
 import { eq, and, isNull, inArray } from 'drizzle-orm';
@@ -43,6 +45,8 @@ function levenshteinDistance(str1: string, str2: string, maxDistance?: number): 
   let prevRow: number[] = Array(len1 + 1)
     .fill(0)
     .map((_, i) => i);
+  // TypeScript doesn't infer type from Array.fill() - explicit annotation needed
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   let currRow: number[] = Array(len1 + 1).fill(0);
 
   for (let j = 1; j <= len2; j++) {
@@ -236,6 +240,3 @@ export function checkForDuplicates(
     similarEntries: similar,
   };
 }
-
-
-

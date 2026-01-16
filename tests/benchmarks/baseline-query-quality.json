@@ -13,11 +13,7 @@
       "knowledge": 10,
       "tools": 9
     },
-    "scopes": [
-      "global",
-      "org:org-query-bench",
-      "project:proj-query-bench"
-    ]
+    "scopes": ["global", "org:org-query-bench", "project:proj-query-bench"]
   },
   "overall": {
     "totalTestCases": 35,
@@ -177,9 +173,7 @@
       "mrr": 1,
       "ndcg": 1,
       "k": 10,
-      "returnedIds": [
-        "35fb14a7-004a-48f3-850b-dec9c15cf9d5"
-      ],
+      "returnedIds": ["35fb14a7-004a-48f3-850b-dec9c15cf9d5"],
       "missedIds": [],
       "unexpectedIds": [],
       "processingTimeMs": 1
@@ -260,11 +254,7 @@
       "ndcg": 0,
       "k": 10,
       "returnedIds": [],
-      "missedIds": [
-        "g-no-secrets",
-        "g-input-validation",
-        "g-auth-required"
-      ],
+      "missedIds": ["g-no-secrets", "g-input-validation", "g-auth-required"],
       "unexpectedIds": [],
       "processingTimeMs": 0
     },
@@ -280,9 +270,7 @@
       "mrr": 1,
       "ndcg": 1,
       "k": 10,
-      "returnedIds": [
-        "6b352b04-744e-45a6-815f-8611de36751a"
-      ],
+      "returnedIds": ["6b352b04-744e-45a6-815f-8611de36751a"],
       "missedIds": [],
       "unexpectedIds": [],
       "processingTimeMs": 1
@@ -350,9 +338,7 @@
       "ndcg": 0,
       "k": 10,
       "returnedIds": [],
-      "missedIds": [
-        "g-auth-required"
-      ],
+      "missedIds": ["g-auth-required"],
       "unexpectedIds": [],
       "processingTimeMs": 0
     },
@@ -369,10 +355,7 @@
       "ndcg": 0,
       "k": 10,
       "returnedIds": [],
-      "missedIds": [
-        "g-no-secrets",
-        "g-input-validation"
-      ],
+      "missedIds": ["g-no-secrets", "g-input-validation"],
       "unexpectedIds": [],
       "processingTimeMs": 0
     },
@@ -388,9 +371,7 @@
       "mrr": 1,
       "ndcg": 1,
       "k": 10,
-      "returnedIds": [
-        "befcfb72-94cb-4f30-bee6-5512749c61c4"
-      ],
+      "returnedIds": ["befcfb72-94cb-4f30-bee6-5512749c61c4"],
       "missedIds": [],
       "unexpectedIds": [],
       "processingTimeMs": 1
@@ -407,9 +388,7 @@
       "mrr": 1,
       "ndcg": 1,
       "k": 10,
-      "returnedIds": [
-        "82796831-a0cf-49a6-9f20-86cd342fff0a"
-      ],
+      "returnedIds": ["82796831-a0cf-49a6-9f20-86cd342fff0a"],
       "missedIds": [],
       "unexpectedIds": [],
       "processingTimeMs": 0
@@ -426,9 +405,7 @@
       "mrr": 1,
       "ndcg": 1,
       "k": 10,
-      "returnedIds": [
-        "befcfb72-94cb-4f30-bee6-5512749c61c4"
-      ],
+      "returnedIds": ["befcfb72-94cb-4f30-bee6-5512749c61c4"],
       "missedIds": [],
       "unexpectedIds": [],
       "processingTimeMs": 1
@@ -446,10 +423,7 @@
       "ndcg": 0,
       "k": 10,
       "returnedIds": [],
-      "missedIds": [
-        "g-typescript-strict",
-        "g-no-any"
-      ],
+      "missedIds": ["g-typescript-strict", "g-no-any"],
       "unexpectedIds": [],
       "processingTimeMs": 0
     },
@@ -466,11 +440,7 @@
       "ndcg": 0,
       "k": 10,
       "returnedIds": [],
-      "missedIds": [
-        "t-npm-build",
-        "t-npm-test",
-        "t-npm-lint"
-      ],
+      "missedIds": ["t-npm-build", "t-npm-test", "t-npm-lint"],
       "unexpectedIds": [],
       "processingTimeMs": 0
     },
@@ -509,10 +479,7 @@
       "ndcg": 0,
       "k": 10,
       "returnedIds": [],
-      "missedIds": [
-        "g-test-coverage",
-        "t-npm-test"
-      ],
+      "missedIds": ["g-test-coverage", "t-npm-test"],
       "unexpectedIds": [],
       "processingTimeMs": 1
     },
@@ -529,9 +496,7 @@
       "ndcg": 0,
       "k": 10,
       "returnedIds": [],
-      "missedIds": [
-        "g-auth-required"
-      ],
+      "missedIds": ["g-auth-required"],
       "unexpectedIds": [],
       "processingTimeMs": 1
     },
@@ -548,9 +513,7 @@
       "ndcg": 0,
       "k": 10,
       "returnedIds": [],
-      "missedIds": [
-        "g-max-line-length"
-      ],
+      "missedIds": ["g-max-line-length"],
       "unexpectedIds": [],
       "processingTimeMs": 0
     },
@@ -614,10 +577,7 @@
       "ndcg": 0,
       "k": 10,
       "returnedIds": [],
-      "missedIds": [
-        "t-api-users",
-        "t-api-auth"
-      ],
+      "missedIds": ["t-api-users", "t-api-auth"],
       "unexpectedIds": [],
       "processingTimeMs": 0
     },
@@ -634,10 +594,7 @@
       "ndcg": 0,
       "k": 10,
       "returnedIds": [],
-      "missedIds": [
-        "g-no-secrets",
-        "g-input-validation"
-      ],
+      "missedIds": ["g-no-secrets", "g-input-validation"],
       "unexpectedIds": [],
       "processingTimeMs": 0
     },
@@ -658,10 +615,7 @@
         "43a1709b-219b-47a3-9e1d-b99a6af2c1c2",
         "aa6dcb42-dbfc-40e3-a7b2-5db0d6cab76b"
       ],
-      "missedIds": [
-        "t-db-migrate",
-        "t-db-seed"
-      ],
+      "missedIds": ["t-db-migrate", "t-db-seed"],
       "unexpectedIds": [],
       "processingTimeMs": 0
     },
@@ -722,9 +676,7 @@
         "9fe45c86-5162-4f16-90a0-9fcd329d7457",
         "a1419698-a9c1-4885-9934-6d1db55c22d8"
       ],
-      "missedIds": [
-        "k-postgres-decision"
-      ],
+      "missedIds": ["k-postgres-decision"],
       "unexpectedIds": [],
       "processingTimeMs": 1
     },
@@ -844,10 +796,7 @@
       "ndcg": 0,
       "k": 10,
       "returnedIds": [],
-      "missedIds": [
-        "g-no-any",
-        "t-npm-build"
-      ],
+      "missedIds": ["g-no-any", "t-npm-build"],
       "unexpectedIds": [],
       "processingTimeMs": 1
     },
@@ -864,9 +813,7 @@
       "ndcg": 0,
       "k": 10,
       "returnedIds": [],
-      "missedIds": [
-        "t-npm-test"
-      ],
+      "missedIds": ["t-npm-test"],
       "unexpectedIds": [],
       "processingTimeMs": 1
     }

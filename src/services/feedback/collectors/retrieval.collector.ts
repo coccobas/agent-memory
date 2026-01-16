@@ -79,8 +79,6 @@ export class RetrievalCollector {
 /**
  * Factory function to create a retrieval collector
  */
-export function createRetrievalCollector(
-  retrievalRepo: RetrievalRepository
-): RetrievalCollector {
+export function createRetrievalCollector(retrievalRepo: RetrievalRepository): RetrievalCollector {
   return new RetrievalCollector(retrievalRepo);
 }

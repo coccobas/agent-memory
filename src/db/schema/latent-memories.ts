@@ -22,17 +22,14 @@ export const latentMemories = sqliteTable(
 
     // Source reference
     sourceType: text('source_type', {
-      enum: ['tool', 'guideline', 'knowledge', 'experience', 'conversation']
+      enum: ['tool', 'guideline', 'knowledge', 'experience', 'conversation'],
     }).notNull(),
     sourceId: text('source_id').notNull(),
     sourceVersionId: text('source_version_id'),
 
     // Embeddings (stored as JSON arrays)
-    fullEmbedding: text('full_embedding', { mode: 'json' })
-      .$type<number[]>()
-      .notNull(),
-    reducedEmbedding: text('reduced_embedding', { mode: 'json' })
-      .$type<number[]>(),
+    fullEmbedding: text('full_embedding', { mode: 'json' }).$type<number[]>().notNull(),
+    reducedEmbedding: text('reduced_embedding', { mode: 'json' }).$type<number[]>(),
 
     // Embedding dimensions
     fullDimension: integer('full_dimension').notNull(),
@@ -40,8 +37,10 @@ export const latentMemories = sqliteTable(
 
     // Compression method used
     compressionMethod: text('compression_method', {
-      enum: ['pca', 'random_projection', 'quantized', 'none']
-    }).default('none').notNull(),
+      enum: ['pca', 'random_projection', 'quantized', 'none'],
+    })
+      .default('none')
+      .notNull(),
 
     // Text preview for debugging and display
     textPreview: text('text_preview'),

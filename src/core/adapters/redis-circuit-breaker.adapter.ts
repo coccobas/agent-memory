@@ -13,6 +13,13 @@
  * For enterprise deployments with horizontal scaling.
  */
 
+/**
+ * NOTE: Non-null assertions used for Redis data access after existence checks
+ * and Map lookups after has() validation.
+ */
+
+/* eslint-disable @typescript-eslint/no-redundant-type-constituents, @typescript-eslint/no-non-null-assertion */
+
 import type {
   ICircuitBreakerStateAdapter,
   CircuitBreakerState,
@@ -23,6 +30,7 @@ import { LocalCircuitBreakerAdapter } from './local-circuit-breaker.adapter.js';
 import { ConnectionGuard } from '../../utils/connection-guard.js';
 
 // Type imports for ioredis (actual import is dynamic to avoid loading when not used)
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports -- inline import() needed for dynamic type
 type Redis = import('ioredis').default;
 
 const logger = createComponentLogger('redis-circuit-breaker');
@@ -213,12 +221,19 @@ function parseState(json: string | null): CircuitBreakerState | null {
   if (!json) return null;
 
   try {
+    // JSON.parse returns unknown - cast to expected shape after parsing
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const parsed = JSON.parse(json);
     return {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
       state: parsed.state,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
       failures: parsed.failures,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
       successes: parsed.successes,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
       lastFailureTime: parsed.lastFailureTime,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
       nextAttemptTime: parsed.nextAttemptTime,
     };
   } catch (error) {
@@ -253,9 +268,10 @@ export class RedisCircuitBreakerAdapter implements ICircuitBreakerStateAdapter {
     // Bug #272 fix: Validate fail mode instead of unsafe type assertion
     const envFailMode = process.env.AGENT_MEMORY_CB_FAIL_MODE;
     const validFailModes = ['local-fallback', 'closed', 'open'] as const;
-    const validatedEnvMode = envFailMode && validFailModes.includes(envFailMode as RedisCircuitBreakerFailMode)
-      ? (envFailMode as RedisCircuitBreakerFailMode)
-      : undefined;
+    const validatedEnvMode =
+      envFailMode && validFailModes.includes(envFailMode as RedisCircuitBreakerFailMode)
+        ? (envFailMode as RedisCircuitBreakerFailMode)
+        : undefined;
     this.failMode = config.failMode ?? validatedEnvMode ?? 'local-fallback';
 
     // Initialize local fallback if needed
@@ -287,7 +303,7 @@ export class RedisCircuitBreakerAdapter implements ICircuitBreakerStateAdapter {
         this.client = new IORedis(options);
       }
 
-      const client = this.client!;
+      const client = this.client;
 
       client.on('connect', () => {
         logger.info('Redis circuit breaker adapter connected');
@@ -340,7 +356,10 @@ export class RedisCircuitBreakerAdapter implements ICircuitBreakerStateAdapter {
       this.recordSuccessSha = (await this.client.script('LOAD', RECORD_SUCCESS_LUA)) as string;
       logger.debug({ sha: this.recordSuccessSha }, 'Loaded RECORD_SUCCESS_LUA script');
 
-      this.checkAndTransitionSha = (await this.client.script('LOAD', CHECK_AND_TRANSITION_LUA)) as string;
+      this.checkAndTransitionSha = (await this.client.script(
+        'LOAD',
+        CHECK_AND_TRANSITION_LUA
+      )) as string;
       logger.debug({ sha: this.checkAndTransitionSha }, 'Loaded CHECK_AND_TRANSITION_LUA script');
     } catch (error) {
       logger.warn({ error }, 'Failed to load Lua scripts, will use EVAL');
@@ -419,32 +438,32 @@ export class RedisCircuitBreakerAdapter implements ICircuitBreakerStateAdapter {
 
       if (this.checkAndTransitionSha) {
         try {
-          result = await this.client!.evalsha(
+          result = (await this.client!.evalsha(
             this.checkAndTransitionSha,
             1,
             key,
             now,
             this.stateTTLMs
-          ) as string | null;
+          )) as string | null;
         } catch {
           // Script might have been flushed, reload and use EVAL
           await this.loadScripts();
-          result = await this.client!.eval(
+          result = (await this.client!.eval(
             CHECK_AND_TRANSITION_LUA,
             1,
             key,
             now,
             this.stateTTLMs
-          ) as string | null;
+          )) as string | null;
         }
       } else {
-        result = await this.client!.eval(
+        result = (await this.client!.eval(
           CHECK_AND_TRANSITION_LUA,
           1,
           key,
           now,
           this.stateTTLMs
-        ) as string | null;
+        )) as string | null;
       }
 
       return parseState(result);
@@ -510,7 +529,7 @@ export class RedisCircuitBreakerAdapter implements ICircuitBreakerStateAdapter {
 
       if (this.recordFailureSha) {
         try {
-          result = await this.client!.evalsha(
+          result = (await this.client!.evalsha(
             this.recordFailureSha,
             1,
             key,
@@ -518,11 +537,11 @@ export class RedisCircuitBreakerAdapter implements ICircuitBreakerStateAdapter {
             config.resetTimeoutMs,
             now,
             this.stateTTLMs
-          ) as string;
+          )) as string;
         } catch {
           // Script might have been flushed, reload and use EVAL
           await this.loadScripts();
-          result = await this.client!.eval(
+          result = (await this.client!.eval(
             RECORD_FAILURE_LUA,
             1,
             key,
@@ -530,10 +549,10 @@ export class RedisCircuitBreakerAdapter implements ICircuitBreakerStateAdapter {
             config.resetTimeoutMs,
             now,
             this.stateTTLMs
-          ) as string;
+          )) as string;
         }
       } else {
-        result = await this.client!.eval(
+        result = (await this.client!.eval(
           RECORD_FAILURE_LUA,
           1,
           key,
@@ -541,7 +560,7 @@ export class RedisCircuitBreakerAdapter implements ICircuitBreakerStateAdapter {
           config.resetTimeoutMs,
           now,
           this.stateTTLMs
-        ) as string;
+        )) as string;
       }
 
       const state = parseState(result);
@@ -592,35 +611,35 @@ export class RedisCircuitBreakerAdapter implements ICircuitBreakerStateAdapter {
 
       if (this.recordSuccessSha) {
         try {
-          result = await this.client!.evalsha(
+          result = (await this.client!.evalsha(
             this.recordSuccessSha,
             1,
             key,
             config.successThreshold,
             now,
             this.stateTTLMs
-          ) as string;
+          )) as string;
         } catch {
           // Script might have been flushed, reload and use EVAL
           await this.loadScripts();
-          result = await this.client!.eval(
+          result = (await this.client!.eval(
             RECORD_SUCCESS_LUA,
             1,
             key,
             config.successThreshold,
             now,
             this.stateTTLMs
-          ) as string;
+          )) as string;
         }
       } else {
-        result = await this.client!.eval(
+        result = (await this.client!.eval(
           RECORD_SUCCESS_LUA,
           1,
           key,
           config.successThreshold,
           now,
           this.stateTTLMs
-        ) as string;
+        )) as string;
       }
 
       const state = parseState(result);

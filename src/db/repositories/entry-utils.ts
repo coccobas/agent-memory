@@ -5,6 +5,8 @@
  * Reduces duplication without requiring structural changes to existing repos.
  */
 
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
+
 import { eq, and, isNull, inArray, type SQL } from 'drizzle-orm';
 import type { ScopeType } from '../schema.js';
 import {

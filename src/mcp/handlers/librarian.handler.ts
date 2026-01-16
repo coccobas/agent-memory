@@ -73,7 +73,7 @@ const analyze: ContextAwareHandler = async (context, params) => {
         dryRun: result.dryRun,
         timing: result.timing,
         stats: result.stats,
-        recommendations: result.generatedRecommendations.map(rec => ({
+        recommendations: result.generatedRecommendations.map((rec) => ({
           title: rec.input.title,
           confidence: rec.input.confidence,
           patternCount: rec.input.patternCount,
@@ -168,7 +168,7 @@ const list_recommendations: ContextAwareHandler = async (context, params) => {
 
     return {
       success: true,
-      recommendations: recommendations.map(rec => ({
+      recommendations: recommendations.map((rec) => ({
         id: rec.id,
         title: rec.title,
         type: rec.type,
@@ -227,6 +227,8 @@ const show_recommendation: ContextAwareHandler = async (context, params) => {
       success: true,
       recommendation: {
         ...recommendation,
+        // JSON.parse returns unknown - parse string array from DB
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         sourceExperienceIds: JSON.parse(recommendation.sourceExperienceIds),
       },
     };
@@ -367,11 +369,7 @@ const reject: ContextAwareHandler = async (context, params) => {
   const store = service.getRecommendationStore();
 
   try {
-    const updated = await store.reject(
-      recommendationId,
-      reviewedBy ?? 'mcp-handler',
-      notes
-    );
+    const updated = await store.reject(recommendationId, reviewedBy ?? 'mcp-handler', notes);
 
     if (!updated) {
       return {
@@ -421,11 +419,7 @@ const skip: ContextAwareHandler = async (context, params) => {
   const store = service.getRecommendationStore();
 
   try {
-    const updated = await store.skip(
-      recommendationId,
-      reviewedBy ?? 'mcp-handler',
-      notes
-    );
+    const updated = await store.skip(recommendationId, reviewedBy ?? 'mcp-handler', notes);
 
     if (!updated) {
       return {

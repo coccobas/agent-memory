@@ -6,7 +6,6 @@ import type {
   SummarizerConfig,
 } from '../../src/services/summarization/summarizer/types.js';
 
-
 describe('LLM Summarizer', () => {
   describe('Constructor and Configuration', () => {
     it('should create summarizer with disabled provider', () => {
@@ -84,12 +83,9 @@ describe('LLM Summarizer', () => {
     });
 
     it('should set default model based on provider', () => {
-      const configs: SummarizerConfig[] = [
-        { provider: 'disabled' },
-        { provider: 'ollama' },
-      ];
+      const configs: SummarizerConfig[] = [{ provider: 'disabled' }, { provider: 'ollama' }];
 
-      configs.forEach(config => {
+      configs.forEach((config) => {
         const summarizer = new LLMSummarizer(config);
         expect(summarizer.getProvider()).toBe(config.provider);
       });
@@ -516,7 +512,7 @@ describe('LLM Summarizer', () => {
       const result = await summarizer.summarize(request);
 
       // Should not include words like 'the', 'and', 'but'
-      expect(result.keyTerms.every(term => term.length > 4)).toBe(true);
+      expect(result.keyTerms.every((term) => term.length > 4)).toBe(true);
     });
 
     it('should handle empty content gracefully', async () => {
@@ -551,7 +547,7 @@ describe('LLM Summarizer', () => {
         'model:latest',
       ];
 
-      validNames.forEach(model => {
+      validNames.forEach((model) => {
         expect(() => new LLMSummarizer({ provider: 'disabled', model })).not.toThrow();
       });
     });
@@ -559,12 +555,12 @@ describe('LLM Summarizer', () => {
     it('should reject model names with invalid characters', () => {
       const invalidNames = [
         '../../../etc/passwd', // Contains forward slashes
-        'model/../../bad',     // Contains forward slashes
-        'model\x00name',       // Contains null byte
-        'model name',          // Contains space
+        'model/../../bad', // Contains forward slashes
+        'model\x00name', // Contains null byte
+        'model name', // Contains space
       ];
 
-      invalidNames.forEach(model => {
+      invalidNames.forEach((model) => {
         expect(() => new LLMSummarizer({ provider: 'disabled', model })).toThrow();
       });
     });
@@ -696,9 +692,7 @@ describe('LLM Summarizer', () => {
 
     it('should handle guideline item type', async () => {
       const request: SummarizationRequest = {
-        items: [
-          { id: '1', type: 'guideline', title: 'Style Guide', content: 'Use TypeScript.' },
-        ],
+        items: [{ id: '1', type: 'guideline', title: 'Style Guide', content: 'Use TypeScript.' }],
         hierarchyLevel: 0,
       };
 
@@ -708,9 +702,7 @@ describe('LLM Summarizer', () => {
 
     it('should handle tool item type', async () => {
       const request: SummarizationRequest = {
-        items: [
-          { id: '1', type: 'tool', title: 'npm test', content: 'Run tests.' },
-        ],
+        items: [{ id: '1', type: 'tool', title: 'npm test', content: 'Run tests.' }],
         hierarchyLevel: 0,
       };
 
@@ -767,9 +759,7 @@ describe('LLM Summarizer', () => {
 
     it('should handle items with no title', async () => {
       const request: SummarizationRequest = {
-        items: [
-          { id: '1', type: 'knowledge', title: '', content: 'Content without title.' },
-        ],
+        items: [{ id: '1', type: 'knowledge', title: '', content: 'Content without title.' }],
         hierarchyLevel: 0,
       };
 
@@ -1091,10 +1081,7 @@ describe('LLM Summarizer', () => {
       ]);
 
       // Total time should be sum of individual times
-      const individualTimes = result.results.reduce(
-        (sum, r) => sum + (r.processingTimeMs || 0),
-        0
-      );
+      const individualTimes = result.results.reduce((sum, r) => sum + (r.processingTimeMs || 0), 0);
       expect(result.totalProcessingTimeMs).toBeGreaterThanOrEqual(individualTimes);
     });
   });
@@ -1195,7 +1182,8 @@ describe('LLM Summarizer', () => {
     it('should handle markdown code blocks with json tag', () => {
       const parseResponse = (summarizer as any).parseResponse.bind(summarizer);
 
-      const content = '```json\n{"title": "FromCodeBlock", "content": "Extracted from code block"}\n```';
+      const content =
+        '```json\n{"title": "FromCodeBlock", "content": "Extracted from code block"}\n```';
 
       const result = parseResponse(content, 0, 'anthropic');
 
@@ -1237,7 +1225,7 @@ describe('LLM Summarizer', () => {
 
       const providers = ['openai', 'anthropic', 'ollama', 'disabled'];
 
-      providers.forEach(provider => {
+      providers.forEach((provider) => {
         const result = parseResponse('{"content": "test"}', 0, provider);
         expect(result.provider).toBe(provider);
       });

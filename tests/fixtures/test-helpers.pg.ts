@@ -65,7 +65,11 @@ export async function runMigrations(pool: Pool): Promise<void> {
       await pool.query(sql);
     } catch (error) {
       // Skip pgvector migration if extension is not available
-      if (file.includes('pgvector') && error instanceof Error && error.message.includes('extension "vector" is not available')) {
+      if (
+        file.includes('pgvector') &&
+        error instanceof Error &&
+        error.message.includes('extension "vector" is not available')
+      ) {
         console.log(`Skipping ${file}: pgvector extension not available`);
         continue;
       }

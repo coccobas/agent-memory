@@ -7,11 +7,13 @@ Accepted
 ## Context
 
 Agent Memory has three primary entry types (guidelines, knowledge, tools) that share identical CRUD operations:
+
 - add, update, get, list, delete, deactivate
 - history (version tracking)
 - bulk_add, bulk_update, bulk_delete
 
 Implementing these operations separately for each type resulted in ~400 lines of nearly identical code per type, with only entity-specific validation differing. This led to:
+
 - Code duplication (~1200 lines of redundant code)
 - Inconsistent behavior across types (bug fixes applied unevenly)
 - Difficult maintenance (changes required in 3+ places)
@@ -24,16 +26,16 @@ Generate standardized CRUD handlers using a factory pattern. Each entry type pro
 
 ```typescript
 interface CrudHandlerConfig<T> {
-  entityName: string;                    // 'guideline' | 'knowledge' | 'tool'
-  repository: Repository<T>;             // Type-specific repository
+  entityName: string; // 'guideline' | 'knowledge' | 'tool'
+  repository: Repository<T>; // Type-specific repository
   schema: {
-    add: ZodSchema;                      // Validation for add action
-    update: ZodSchema;                   // Validation for update action
+    add: ZodSchema; // Validation for add action
+    update: ZodSchema; // Validation for update action
     // ... other action schemas
   };
   transform?: {
-    beforeAdd?: (input: unknown) => T;   // Pre-processing hooks
-    afterGet?: (entity: T) => unknown;   // Post-processing hooks
+    beforeAdd?: (input: unknown) => T; // Pre-processing hooks
+    afterGet?: (entity: T) => unknown; // Post-processing hooks
   };
 }
 
@@ -79,7 +81,7 @@ export const guidelineHandlers = createCrudHandlers({
   transform: {
     beforeAdd: (input) => ({
       ...input,
-      priority: input.priority ?? 50,  // Default priority
+      priority: input.priority ?? 50, // Default priority
     }),
   },
 });
@@ -92,10 +94,10 @@ The factory supports middleware injection for cross-cutting concerns:
 ```typescript
 createCrudHandlers(config, {
   middleware: [
-    permissionMiddleware,      // Check agent permissions
-    validationMiddleware,      // Validate input schemas
-    auditMiddleware,           // Log all mutations
-    rateLimitMiddleware,       // Throttle requests
+    permissionMiddleware, // Check agent permissions
+    validationMiddleware, // Validate input schemas
+    auditMiddleware, // Log all mutations
+    rateLimitMiddleware, // Throttle requests
   ],
 });
 ```
@@ -103,6 +105,7 @@ createCrudHandlers(config, {
 ## Consequences
 
 **Positive:**
+
 - ~70% reduction in handler code (1200 → 350 lines)
 - Guaranteed consistent behavior across all entry types
 - Bug fixes apply to all types automatically
@@ -111,6 +114,7 @@ createCrudHandlers(config, {
 - Easier to test (test factory once, trust generated handlers)
 
 **Negative:**
+
 - Factory abstraction adds indirection (harder to trace specific behavior)
 - Type-specific edge cases require factory extension points
 - Debugging requires understanding factory internals

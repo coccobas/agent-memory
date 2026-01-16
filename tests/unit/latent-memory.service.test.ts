@@ -375,11 +375,7 @@ describe('LatentMemoryService', () => {
 
       await service.getLatentMemory('knowledge', 'entry-123');
 
-      expect(mockKVCache.set).toHaveBeenCalledWith(
-        'latent:knowledge:entry-123',
-        mockMemory,
-        3600
-      );
+      expect(mockKVCache.set).toHaveBeenCalledWith('latent:knowledge:entry-123', mockMemory, 3600);
     });
 
     it('should return undefined when memory not found', async () => {
@@ -683,11 +679,15 @@ describe('LatentMemoryService', () => {
     });
 
     it('should validate staleDays parameter (zero)', async () => {
-      await expect(service.pruneStale(0)).rejects.toThrow('Validation error: staleDays - must be greater than 0');
+      await expect(service.pruneStale(0)).rejects.toThrow(
+        'Validation error: staleDays - must be greater than 0'
+      );
     });
 
     it('should validate staleDays parameter (negative)', async () => {
-      await expect(service.pruneStale(-5)).rejects.toThrow('Validation error: staleDays - must be greater than 0');
+      await expect(service.pruneStale(-5)).rejects.toThrow(
+        'Validation error: staleDays - must be greater than 0'
+      );
     });
 
     it('should handle missing repository gracefully', async () => {

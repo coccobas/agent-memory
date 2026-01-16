@@ -8,7 +8,8 @@ import { knowledgeHandlers } from '../handlers/knowledge.handler.js';
 export const memoryKnowledgeDescriptor: ToolDescriptor = {
   name: 'memory_knowledge',
   visibility: 'core',
-  description: 'Manage knowledge entries (facts, decisions, context). Actions: add, update, get, list, history, deactivate, delete, bulk_add, bulk_update, bulk_delete',
+  description:
+    'Manage knowledge entries (facts, decisions, context). Actions: add, update, get, list, history, deactivate, delete, bulk_add, bulk_update, bulk_delete',
   commonParams: {
     agentId: { type: 'string', description: 'Required for writes' },
     id: { type: 'string' },

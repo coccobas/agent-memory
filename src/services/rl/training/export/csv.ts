@@ -3,7 +3,14 @@
  *
  * Export RL training data in CSV format for analysis and visualization.
  * Flattens nested state/action structures into tabular format.
+ *
+ * NOTE: Flattens dynamic policy-specific properties into CSV columns.
+ * ESLint unsafe-member-access warnings are suppressed for dynamic access.
  */
+
+/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any */
+
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 
 import type {
   ExtractionTrainingExample,
@@ -155,7 +162,11 @@ function flattenObject(obj: any, prefix: string, result: CSVRow): void {
     } else if (typeof value === 'object' && !(value instanceof Date)) {
       // Recursively flatten nested objects
       flattenObject(value, newKey, result);
-    } else if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    } else if (
+      typeof value === 'string' ||
+      typeof value === 'number' ||
+      typeof value === 'boolean'
+    ) {
       result[newKey] = value;
     } else {
       // Handle any other types by converting to string

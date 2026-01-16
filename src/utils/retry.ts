@@ -140,7 +140,10 @@ export function extractRetryAfterMs(error: unknown): number | undefined {
   if (retryAfter) {
     const seconds = parseInt(retryAfter, 10);
     if (!Number.isNaN(seconds) && seconds > 0) {
-      logger.debug({ retryAfterSeconds: seconds }, 'Bug #315: Parsed Retry-After header from API error');
+      logger.debug(
+        { retryAfterSeconds: seconds },
+        'Bug #315: Parsed Retry-After header from API error'
+      );
       return seconds * 1000;
     }
   }
@@ -156,7 +159,10 @@ export function extractRetryAfterMs(error: unknown): number | undefined {
       const ms = parseInt(match[3] || '0', 10);
       const totalMs = minutes * 60000 + seconds * 1000 + ms;
       if (totalMs > 0) {
-        logger.debug({ resetMs: totalMs, raw: resetRequests }, 'Bug #315: Parsed x-ratelimit-reset-requests header');
+        logger.debug(
+          { resetMs: totalMs, raw: resetRequests },
+          'Bug #315: Parsed x-ratelimit-reset-requests header'
+        );
         return totalMs;
       }
     }
@@ -172,7 +178,10 @@ export function extractRetryAfterMs(error: unknown): number | undefined {
       const ms = parseInt(match[3] || '0', 10);
       const totalMs = minutes * 60000 + seconds * 1000 + ms;
       if (totalMs > 0) {
-        logger.debug({ resetMs: totalMs, raw: resetTokens }, 'Bug #315: Parsed x-ratelimit-reset-tokens header');
+        logger.debug(
+          { resetMs: totalMs, raw: resetTokens },
+          'Bug #315: Parsed x-ratelimit-reset-tokens header'
+        );
         return totalMs;
       }
     }

@@ -7,16 +7,19 @@ Accepted
 ## Context
 
 Agent Memory supports multiple backend configurations to address different deployment scales:
+
 - **SQLite**: Embedded database for local development and small deployments
 - **PostgreSQL**: Production-grade database with connection pooling
 - **Redis**: Distributed caching, locking, and event coordination
 
 Without unified documentation, users lack clear guidance on:
+
 - When to migrate between backends
 - Performance thresholds and scaling limits
 - Which configuration fits their deployment topology
 
 This leads to:
+
 - Premature optimization (using PostgreSQL + Redis for single-user setups)
 - Under-provisioning (SQLite for multi-instance deployments)
 - Operational issues from mismatched backend choices
@@ -28,6 +31,7 @@ Document the official three-tier scaling path with clear thresholds and migratio
 ### Tier 1: SQLite (Default)
 
 **Characteristics:**
+
 - Single process deployment only
 - File-based storage with WAL mode
 - Single writer with reader concurrency
@@ -42,6 +46,7 @@ Document the official three-tier scaling path with clear thresholds and migratio
 | Database size | < 10 GB practical |
 
 **Best For:**
+
 - Local development and testing
 - Single-user CLI tools
 - Edge deployments and embedded applications
@@ -49,6 +54,7 @@ Document the official three-tier scaling path with clear thresholds and migratio
 
 **Migration Trigger:**
 Migrate to PostgreSQL when experiencing:
+
 - `SQLITE_BUSY` or `SQLITE_LOCKED` errors
 - Need for multiple application instances
 - Horizontal scaling requirements
@@ -57,6 +63,7 @@ Migrate to PostgreSQL when experiencing:
 ### Tier 2: PostgreSQL
 
 **Characteristics:**
+
 - Multi-instance capable via connection pooling
 - True concurrent writes
 - Network-accessible database
@@ -71,6 +78,7 @@ Migrate to PostgreSQL when experiencing:
 | Database size | PostgreSQL limits (TB+) |
 
 **Best For:**
+
 - Production deployments
 - Medium-sized teams
 - Multi-agent coordination
@@ -78,6 +86,7 @@ Migrate to PostgreSQL when experiencing:
 
 **Migration Trigger:**
 Add Redis when experiencing:
+
 - Cache inconsistency across instances
 - File lock coordination failures
 - Event synchronization needs
@@ -86,6 +95,7 @@ Add Redis when experiencing:
 ### Tier 3: PostgreSQL + Redis
 
 **Characteristics:**
+
 - Distributed caching across instances
 - Cross-instance file locking
 - Pub/sub event broadcasting
@@ -100,6 +110,7 @@ Add Redis when experiencing:
 | Lock coordination | Cross-instance |
 
 **Best For:**
+
 - Enterprise deployments
 - Large-scale multi-agent systems
 - High availability with distributed caching
@@ -108,6 +119,7 @@ Add Redis when experiencing:
 ## Consequences
 
 **Positive:**
+
 - Clear migration triggers prevent premature optimization
 - Predictable performance characteristics per tier
 - Documented upgrade path reduces migration risk
@@ -115,6 +127,7 @@ Add Redis when experiencing:
 - Operational runbooks can reference tier-specific guidance
 
 **Negative:**
+
 - Commits to specific scaling recommendations that may not fit edge cases
 - Thresholds are estimates and depend on workload characteristics
 - May require updates as performance characteristics evolve

@@ -105,7 +105,7 @@ describe('MemoryCoordinator', () => {
       coordinator.register('cache3', cache3, 5); // Normal
 
       const breakdown = coordinator.getMemoryBreakdown();
-      const priorities = breakdown.map(b => b.priority);
+      const priorities = breakdown.map((b) => b.priority);
 
       expect(priorities).toContain(0); // Clamped from -5
       expect(priorities).toContain(10); // Clamped from 15

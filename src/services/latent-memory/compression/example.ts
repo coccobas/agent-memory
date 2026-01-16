@@ -3,7 +3,12 @@
  *
  * Demonstrates usage of random projection and scalar quantization
  * for embedding compression in latent memory systems.
+ *
+ * NOTE: Non-null assertions used for array indexing in example code
+ * after array construction with known bounds.
  */
+
+/* eslint-disable no-console, @typescript-eslint/no-non-null-assertion */
 
 import {
   createCompressor,
@@ -35,8 +40,18 @@ export function exampleRandomProjection(): void {
   console.log(`Memory saved: ${((1 - compressed.length / embedding.length) * 100).toFixed(1)}%`);
 
   // Show sample values
-  console.log(`\nSample original values: [${embedding.slice(0, 5).map((v) => v.toFixed(4)).join(', ')}...]`);
-  console.log(`Sample compressed values: [${compressed.slice(0, 5).map((v) => v.toFixed(4)).join(', ')}...]`);
+  console.log(
+    `\nSample original values: [${embedding
+      .slice(0, 5)
+      .map((v) => v.toFixed(4))
+      .join(', ')}...]`
+  );
+  console.log(
+    `Sample compressed values: [${compressed
+      .slice(0, 5)
+      .map((v) => v.toFixed(4))
+      .join(', ')}...]`
+  );
 }
 
 /**
@@ -68,7 +83,9 @@ export function exampleScalarQuantization(): void {
   const error = compressor.estimateError(embedding, compressed);
 
   console.log(`Bits per value: 8 (int8)`);
-  console.log(`Memory per embedding: ${embedding.length * 4} bytes -> ${compressed.length * 1} bytes`);
+  console.log(
+    `Memory per embedding: ${embedding.length * 4} bytes -> ${compressed.length * 1} bytes`
+  );
   console.log(`Memory savings: ${(compressor.getMemorySavings() * 100).toFixed(1)}%`);
   console.log(`\nQuality metrics:`);
   console.log(`  Cosine similarity: ${similarity.toFixed(6)}`);

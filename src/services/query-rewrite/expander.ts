@@ -110,7 +110,7 @@ function tokenize(query: string): string[] {
     .toLowerCase()
     .replace(/[^\w\s]/g, ' ') // Replace punctuation with spaces
     .split(/\s+/)
-    .filter(token => token.length > 0);
+    .filter((token) => token.length > 0);
 }
 
 /**
@@ -121,15 +121,15 @@ function findSynonyms(token: string): string[] {
 
   // Direct lookup (token is canonical)
   if (PROGRAMMING_SYNONYMS[token]) {
-    PROGRAMMING_SYNONYMS[token].forEach(syn => synonyms.add(syn));
+    PROGRAMMING_SYNONYMS[token].forEach((syn) => synonyms.add(syn));
   }
 
   // Reverse lookup (token is a synonym)
   const canonical = REVERSE_SYNONYM_MAP.get(token);
   if (canonical) {
-    canonical.forEach(can => {
+    canonical.forEach((can) => {
       synonyms.add(can);
-      PROGRAMMING_SYNONYMS[can]?.forEach(syn => synonyms.add(syn));
+      PROGRAMMING_SYNONYMS[can]?.forEach((syn) => synonyms.add(syn));
     });
   }
 
@@ -168,10 +168,7 @@ export class QueryExpander {
    * @param config - Expansion configuration
    * @param relationTraverser - Optional function to traverse relation graph
    */
-  constructor(
-    config: ExpansionConfig,
-    relationTraverser?: RelationGraphTraverser
-  ) {
+  constructor(config: ExpansionConfig, relationTraverser?: RelationGraphTraverser) {
     this.config = config;
     this.relationTraverser = relationTraverser;
   }
@@ -319,7 +316,7 @@ export class QueryExpander {
 
           // Confidence decreases with distance
           // Distance 1: 0.7, Distance 2: 0.5
-          const confidence = Math.max(0.3, 0.9 - (distance * 0.2));
+          const confidence = Math.max(0.3, 0.9 - distance * 0.2);
 
           expansions.push({
             text: expandedText,

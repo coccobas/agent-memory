@@ -6,7 +6,12 @@ import * as path from 'path';
 import * as schema from '../../src/db/schema.js';
 import { generateId } from '../../src/db/repositories/base.js';
 import { applyMigrations } from './migration-loader.js';
-import { cleanupDbFiles, ensureDataDirectory, cleanupVectorDb, cleanupTestVectorDbs } from './db-utils.js';
+import {
+  cleanupDbFiles,
+  ensureDataDirectory,
+  cleanupVectorDb,
+  cleanupTestVectorDbs,
+} from './db-utils.js';
 import {
   registerDatabase,
   resetContainer,
@@ -27,10 +32,7 @@ import type { AppContext } from '../../src/core/context.js';
 import type { DatabaseDeps } from '../../src/core/types.js';
 import type { Repositories } from '../../src/core/interfaces/repositories.js';
 import { buildConfig, type Config } from '../../src/config/index.js';
-import {
-  createDependencies,
-  type PipelineDependencies,
-} from '../../src/services/query/index.js';
+import { createDependencies, type PipelineDependencies } from '../../src/services/query/index.js';
 import { wireQueryCache } from '../../src/core/factory/query-pipeline.js';
 import { createLocalEventAdapter } from '../../src/core/adapters/local-event.adapter.js';
 import { LocalFileSystemAdapter } from '../../src/core/adapters/local-filesystem.adapter.js';

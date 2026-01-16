@@ -464,7 +464,14 @@ export function createEntryRelationRepository(deps: DatabaseDeps): IEntryRelatio
 
       // Sync to graph edge asynchronously (fire-and-forget)
       // Only sync supported relation types (not promoted_to) and entry types (not project)
-      const supportedRelations = ['applies_to', 'depends_on', 'conflicts_with', 'related_to', 'parent_task', 'subtask_of'];
+      const supportedRelations = [
+        'applies_to',
+        'depends_on',
+        'conflicts_with',
+        'related_to',
+        'parent_task',
+        'subtask_of',
+      ];
       const supportedEntryTypes = ['guideline', 'knowledge', 'tool', 'experience', 'task'];
 
       if (
@@ -473,11 +480,27 @@ export function createEntryRelationRepository(deps: DatabaseDeps): IEntryRelatio
         supportedEntryTypes.includes(input.targetType)
       ) {
         syncRelationToEdgeAsync({
-          relationType: input.relationType as 'applies_to' | 'depends_on' | 'conflicts_with' | 'related_to' | 'parent_task' | 'subtask_of',
+          relationType: input.relationType as
+            | 'applies_to'
+            | 'depends_on'
+            | 'conflicts_with'
+            | 'related_to'
+            | 'parent_task'
+            | 'subtask_of',
           sourceEntryId: input.sourceId,
-          sourceEntryType: input.sourceType as 'knowledge' | 'guideline' | 'tool' | 'experience' | 'task',
+          sourceEntryType: input.sourceType as
+            | 'knowledge'
+            | 'guideline'
+            | 'tool'
+            | 'experience'
+            | 'task',
           targetEntryId: input.targetId,
-          targetEntryType: input.targetType as 'knowledge' | 'guideline' | 'tool' | 'experience' | 'task',
+          targetEntryType: input.targetType as
+            | 'knowledge'
+            | 'guideline'
+            | 'tool'
+            | 'experience'
+            | 'task',
           properties: {},
           createdBy: input.createdBy,
         });

@@ -33,7 +33,9 @@ describe('parseQueryBody', () => {
     });
 
     it('should throw on invalid conversationId', () => {
-      expect(() => parseQueryBody({ conversationId: 123 })).toThrow(/conversationId.*invalid type/i);
+      expect(() => parseQueryBody({ conversationId: 123 })).toThrow(
+        /conversationId.*invalid type/i
+      );
     });
   });
 
@@ -98,13 +100,17 @@ describe('parseQueryBody', () => {
     });
 
     it('should throw on scope with non-string id', () => {
-      expect(() => parseQueryBody({ scope: { type: 'project', id: 123 } })).toThrow(/scope.*invalid type/i);
+      expect(() => parseQueryBody({ scope: { type: 'project', id: 123 } })).toThrow(
+        /scope.*invalid type/i
+      );
     });
 
     it('should throw on scope with non-boolean inherit', () => {
-      expect(() => parseQueryBody({
-        scope: { type: 'project', inherit: 'true' },
-      })).toThrow(/scope.*invalid type/i);
+      expect(() =>
+        parseQueryBody({
+          scope: { type: 'project', inherit: 'true' },
+        })
+      ).toThrow(/scope.*invalid type/i);
     });
   });
 
@@ -205,9 +211,11 @@ describe('parseQueryBody', () => {
     });
 
     it('should throw on invalid direction', () => {
-      expect(() => parseQueryBody({
-        relatedTo: { type: 'tool', id: 'tool-1', direction: 'invalid' },
-      })).toThrow(/direction.*invalid type/i);
+      expect(() =>
+        parseQueryBody({
+          relatedTo: { type: 'tool', id: 'tool-1', direction: 'invalid' },
+        })
+      ).toThrow(/direction.*invalid type/i);
     });
   });
 

@@ -22,9 +22,9 @@ export const memoryPermissionDescriptor: ToolDescriptor = {
     offset: { type: 'number' },
   },
   actions: {
-    grant: { contextHandler: permissionHandlers.grant },
-    revoke: { contextHandler: permissionHandlers.revoke },
-    check: { contextHandler: permissionHandlers.check },
-    list: { contextHandler: permissionHandlers.list },
+    grant: { contextHandler: (ctx, params) => permissionHandlers.grant(ctx, params) },
+    revoke: { contextHandler: (ctx, params) => permissionHandlers.revoke(ctx, params) },
+    check: { contextHandler: (ctx, params) => permissionHandlers.check(ctx, params) },
+    list: { contextHandler: (ctx, params) => permissionHandlers.list(ctx, params) },
   },
 };

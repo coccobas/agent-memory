@@ -9,12 +9,14 @@ This document establishes the error handling policy for the agent-memory project
 ### 1. SERVICE LAYER
 
 **Rules:**
+
 - Throw `AgentMemoryError` or subclasses (DatabaseError, ValidationError, etc.)
 - Log at error level with structured context
 - Never swallow errors silently
 - Include relevant context in error objects
 
 **Example:**
+
 ```typescript
 import { createComponentLogger } from '../utils/logger.js';
 import { createDatabaseError } from '../core/errors.js';
@@ -36,12 +38,14 @@ try {
 ### 2. REPOSITORY LAYER
 
 **Rules:**
+
 - Throw `DatabaseError` for DB failures
 - Wrap third-party errors with context
 - Log at debug level for expected cases (e.g., not found)
 - Log at error level for unexpected failures
 
 **Example:**
+
 ```typescript
 import { createComponentLogger } from '../utils/logger.js';
 import { createDatabaseError } from '../core/errors.js';
@@ -69,12 +73,14 @@ async function getById(id: string): Promise<Entity | undefined> {
 ### 3. HANDLER LAYER (MCP)
 
 **Rules:**
+
 - Catch service errors
 - Convert to MCP-formatted error responses
 - Return error objects, don't throw
 - Sanitize error messages in production
 
 **Example:**
+
 ```typescript
 export async function myHandler(context: AppContext, params: Record<string, unknown>) {
   try {
@@ -99,12 +105,14 @@ export async function myHandler(context: AppContext, params: Record<string, unkn
 ### 4. RETRY LOGIC
 
 **Rules:**
+
 - Use `RetryExhaustedError` after max attempts
 - Log each retry at debug level
 - Log final failure at error level
 - Include attempt count in context
 
 **Example:**
+
 ```typescript
 let lastError: Error | undefined;
 for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -124,11 +132,13 @@ throw new RetryExhaustedError('operation', maxRetries, lastError);
 ## Timeout Handling
 
 **Rules:**
+
 - Wrap timeout errors with context
 - Include timeout value in error message
 - Use `TimeoutError` subclass when available
 
 **Example:**
+
 ```typescript
 try {
   const response = await this.client.chat.completions.create({
@@ -139,11 +149,10 @@ try {
 } catch (error) {
   if (error.name === 'TimeoutError' || error.code === 'ETIMEDOUT') {
     logger.error({ timeoutMs: this.config.timeoutMs }, 'Operation timed out');
-    throw new TimeoutError(
-      'extraction',
-      this.config.timeoutMs,
-      { provider: this.config.provider, model: this.config.model }
-    );
+    throw new TimeoutError('extraction', this.config.timeoutMs, {
+      provider: this.config.provider,
+      model: this.config.model,
+    });
   }
   throw error;
 }
@@ -176,12 +185,14 @@ try {
 ## Error Context Guidelines
 
 **Always include:**
+
 - Operation being performed
 - Relevant IDs (entryId, projectId, etc.)
 - Configuration values (timeouts, limits)
 - User-provided input (sanitized)
 
 **Never include:**
+
 - Passwords or API keys
 - Full request/response bodies (use summaries)
 - PII without consent
@@ -190,6 +201,7 @@ try {
 ## Testing Error Paths
 
 **All error handlers must have tests:**
+
 ```typescript
 it('should handle database errors gracefully', async () => {
   // Mock failure
@@ -219,12 +231,12 @@ When updating error handling in existing code:
 
 ## Summary
 
-| Layer | Throw | Log Level | Return Errors |
-|-------|-------|-----------|---------------|
-| Service | ✅ AgentMemoryError subclasses | error | ❌ Propagate up |
-| Repository | ✅ DatabaseError | error (unexpected), debug (expected) | ❌ Propagate up |
-| Handler (MCP) | ❌ Catch and format | error | ✅ Formatted response |
-| Retry Logic | ✅ RetryExhaustedError | debug (per attempt), error (final) | ❌ Propagate up |
+| Layer         | Throw                          | Log Level                            | Return Errors         |
+| ------------- | ------------------------------ | ------------------------------------ | --------------------- |
+| Service       | ✅ AgentMemoryError subclasses | error                                | ❌ Propagate up       |
+| Repository    | ✅ DatabaseError               | error (unexpected), debug (expected) | ❌ Propagate up       |
+| Handler (MCP) | ❌ Catch and format            | error                                | ✅ Formatted response |
+| Retry Logic   | ✅ RetryExhaustedError         | debug (per attempt), error (final)   | ❌ Propagate up       |
 
 ## See Also
 

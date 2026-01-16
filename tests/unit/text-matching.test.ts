@@ -284,7 +284,7 @@ describe('Text Matching Utilities', () => {
         expect(regexTextMatches('TESTING', 'testing')).toBe(true);
       });
 
-      it('should not match when pattern doesn\'t match', () => {
+      it("should not match when pattern doesn't match", () => {
         expect(regexTextMatches('hello', 'xyz')).toBe(false);
         expect(regexTextMatches('test', '\\d+')).toBe(false);
       });

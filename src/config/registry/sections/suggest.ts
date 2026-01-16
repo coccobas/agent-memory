@@ -15,7 +15,8 @@ export const suggestSection: ConfigSectionMeta = {
     minConfidence: {
       envKey: 'AGENT_MEMORY_SUGGEST_MIN_CONFIDENCE',
       defaultValue: 0.7,
-      description: 'Minimum confidence threshold for suggestions (0-1). Suggestions below this threshold are filtered out.',
+      description:
+        'Minimum confidence threshold for suggestions (0-1). Suggestions below this threshold are filtered out.',
       schema: z.number().min(0).max(1),
       parse: 'number' as const,
     },
@@ -29,7 +30,8 @@ export const suggestSection: ConfigSectionMeta = {
     minContentLength: {
       envKey: 'AGENT_MEMORY_SUGGEST_MIN_CONTENT_LENGTH',
       defaultValue: 15,
-      description: 'Minimum character length for matched content to be considered a valid suggestion.',
+      description:
+        'Minimum character length for matched content to be considered a valid suggestion.',
       schema: z.number().int().min(1).max(500),
       parse: 'int' as const,
     },

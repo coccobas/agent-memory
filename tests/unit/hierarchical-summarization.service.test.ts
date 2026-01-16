@@ -151,7 +151,7 @@ describe('Hierarchical Summarization Service', () => {
     it('should handle different scope types', () => {
       const scopeTypes = ['project', 'org', 'global'] as const;
 
-      scopeTypes.forEach(scopeType => {
+      scopeTypes.forEach((scopeType) => {
         const options: BuildSummariesOptions = {
           scopeType,
           scopeId: scopeType === 'global' ? undefined : 'test-id',
@@ -168,7 +168,7 @@ describe('Hierarchical Summarization Service', () => {
         ['knowledge', 'guideline', 'tool', 'experience'],
       ] as const;
 
-      entryTypeSets.forEach(entryTypes => {
+      entryTypeSets.forEach((entryTypes) => {
         const options: BuildSummariesOptions = {
           scopeType: 'project',
           scopeId: 'test-project',
@@ -182,7 +182,7 @@ describe('Hierarchical Summarization Service', () => {
 
   describe('Configuration Validation', () => {
     it('should accept valid maxLevels values', () => {
-      [1, 2, 3].forEach(maxLevels => {
+      [1, 2, 3].forEach((maxLevels) => {
         const config: Partial<HierarchicalSummarizationConfig> = {
           maxLevels,
           provider: 'disabled',
@@ -201,7 +201,7 @@ describe('Hierarchical Summarization Service', () => {
     });
 
     it('should accept valid minGroupSize values', () => {
-      [2, 3, 5, 10].forEach(minGroupSize => {
+      [2, 3, 5, 10].forEach((minGroupSize) => {
         const config: Partial<HierarchicalSummarizationConfig> = {
           minGroupSize,
           provider: 'disabled',
@@ -220,7 +220,7 @@ describe('Hierarchical Summarization Service', () => {
     });
 
     it('should accept valid similarity threshold values', () => {
-      [0.5, 0.7, 0.75, 0.9].forEach(similarityThreshold => {
+      [0.5, 0.7, 0.75, 0.9].forEach((similarityThreshold) => {
         const config: Partial<HierarchicalSummarizationConfig> = {
           similarityThreshold,
           provider: 'disabled',
@@ -239,7 +239,7 @@ describe('Hierarchical Summarization Service', () => {
     });
 
     it('should accept different LLM providers', () => {
-      ['openai', 'anthropic', 'ollama', 'disabled'].forEach(provider => {
+      ['openai', 'anthropic', 'ollama', 'disabled'].forEach((provider) => {
         const config: Partial<HierarchicalSummarizationConfig> = {
           provider: provider as any,
         };
@@ -340,13 +340,9 @@ describe('Hierarchical Summarization Service', () => {
 
   describe('Type Safety', () => {
     it('should enforce valid scope types', () => {
-      const validScopes: Array<'project' | 'org' | 'global'> = [
-        'project',
-        'org',
-        'global',
-      ];
+      const validScopes: Array<'project' | 'org' | 'global'> = ['project', 'org', 'global'];
 
-      validScopes.forEach(scopeType => {
+      validScopes.forEach((scopeType) => {
         const options: BuildSummariesOptions = {
           scopeType,
           scopeId: scopeType === 'global' ? undefined : 'test-id',
@@ -734,9 +730,7 @@ describe('Hierarchical Summarization Service', () => {
         } as unknown as EmbeddingService;
 
         const mockVectorSvc = {
-          searchSimilar: vi.fn().mockResolvedValue([
-            { entryId: 'summary-123', similarity: 0.95 },
-          ]),
+          searchSimilar: vi.fn().mockResolvedValue([{ entryId: 'summary-123', similarity: 0.95 }]),
         } as unknown as IVectorService;
 
         const mockDb = createMockDb();
@@ -1149,7 +1143,9 @@ describe('Hierarchical Summarization Service', () => {
 
       expect(result.summary).toBeDefined();
       // Summary now generates a real UUID instead of 'placeholder-summary-id'
-      expect(result.summary.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+      expect(result.summary.id).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+      );
       expect(result.summary.hierarchyLevel).toBe(1);
       expect(result.summary.memberIds).toEqual(['e1', 'e2']);
       expect(result.summary.memberCount).toBe(2);

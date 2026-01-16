@@ -58,9 +58,11 @@ describe('LoRA Handler', () => {
             targetModel: options.targetModel,
             format: options.format || 'huggingface',
             stats: {
-              totalExamples: options.includeExamples ? baseExamples + additionalExamples : baseExamples,
+              totalExamples: options.includeExamples
+                ? baseExamples + additionalExamples
+                : baseExamples,
               trainCount: 9,
-              evalCount: 1
+              evalCount: 1,
             },
             files: [],
           };
@@ -69,10 +71,14 @@ describe('LoRA Handler', () => {
       listAdapters: vi.fn().mockResolvedValue({ success: true, adapters: [] }),
       generateScript: vi.fn().mockImplementation((model, format, _dataPath, _output) => {
         const scripts: Record<string, string> = {
-          huggingface: 'from transformers import SFTTrainer\nfrom peft import LoraConfig\nfrom datasets import load_dataset\ntrainer = SFTTrainer()',
-          openai: 'import openai\nclient = openai.Client()\nclient.fine_tuning.jobs.create()\nFineTuningJob.create()\n# OpenAI',
-          anthropic: 'import anthropic\nclient = anthropic.Anthropic()\nfine_tune.create()\n# Anthropic',
-          alpaca: 'from transformers import SFTTrainer\ndef format_alpaca(example):\n  return example\n# Alpaca',
+          huggingface:
+            'from transformers import SFTTrainer\nfrom peft import LoraConfig\nfrom datasets import load_dataset\ntrainer = SFTTrainer()',
+          openai:
+            'import openai\nclient = openai.Client()\nclient.fine_tuning.jobs.create()\nFineTuningJob.create()\n# OpenAI',
+          anthropic:
+            'import anthropic\nclient = anthropic.Anthropic()\nfine_tune.create()\n# Anthropic',
+          alpaca:
+            'from transformers import SFTTrainer\ndef format_alpaca(example):\n  return example\n# Alpaca',
         };
         return Promise.resolve({
           success: true,

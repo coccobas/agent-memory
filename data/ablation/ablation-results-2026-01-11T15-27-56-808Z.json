@@ -34,7 +34,5 @@
       }
     }
   ],
-  "diagnosis": [
-    "Insufficient data for diagnosis"
-  ]
+  "diagnosis": ["Insufficient data for diagnosis"]
 }

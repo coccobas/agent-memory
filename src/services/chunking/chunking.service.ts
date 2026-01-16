@@ -2,7 +2,12 @@
  * Chunking Service
  *
  * Splits text into chunks with relation and dependency tracking
+ *
+ * NOTE: Non-null assertions used for array indexing in chunk processing
+ * after bounds checks and array iteration.
  */
+
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 
 import { v4 as uuid } from 'uuid';
 import {
@@ -88,7 +93,7 @@ export class ChunkingService {
       /^(import|export|const|let|var|function|class|interface|type)\s/m,
       /^(def|class|import|from|async)\s/m,
       /^(package|func|type|struct|import)\s/m,
-      /^\s*[{}\[\]];?\s*$/m,
+      /^\s*[{}[\]];?\s*$/m,
     ];
     if (codePatterns.some((p) => p.test(text))) {
       return 'code';
@@ -105,7 +110,7 @@ export class ChunkingService {
     }
 
     // Check for structured data
-    if (/^\s*[{\[]/.test(text) && /[}\]]\s*$/.test(text)) {
+    if (/^\s*[{[]/.test(text) && /[}\]]\s*$/.test(text)) {
       return 'structured';
     }
 
@@ -154,15 +159,17 @@ export class ChunkingService {
       const endPos = Math.min(position + config.targetSize, text.length);
       const content = text.slice(position, endPos);
 
-      chunks.push(this.createChunk({
-        content,
-        startOffset: position,
-        endOffset: endPos,
-        index,
-        sourceId,
-        contentType,
-        level: 0,
-      }));
+      chunks.push(
+        this.createChunk({
+          content,
+          startOffset: position,
+          endOffset: endPos,
+          index,
+          sourceId,
+          contentType,
+          level: 0,
+        })
+      );
 
       position = endPos - config.overlap;
       if (position >= text.length - config.minSize) break;
@@ -323,9 +330,7 @@ export class ChunkingService {
    * Split conversation into turns
    */
   private splitConversationTurns(text: string): string[] {
-    return text
-      .split(/(?=^(?:user|assistant|human|ai|system):)/im)
-      .filter((t) => t.trim());
+    return text.split(/(?=^(?:user|assistant|human|ai|system):)/im).filter((t) => t.trim());
   }
 
   /**
@@ -350,13 +355,15 @@ export class ChunkingService {
       if (unitSize > config.maxSize) {
         // Flush current
         if (currentContent.length > 0) {
-          chunks.push(this.createChunkFromContent(
-            currentContent.join('\n\n'),
-            originalText,
-            index++,
-            sourceId,
-            contentType
-          ));
+          chunks.push(
+            this.createChunkFromContent(
+              currentContent.join('\n\n'),
+              originalText,
+              index++,
+              sourceId,
+              contentType
+            )
+          );
           currentContent = [];
           currentSize = 0;
         }
@@ -372,13 +379,15 @@ export class ChunkingService {
 
       // Check if adding this unit exceeds target
       if (currentSize + unitSize > config.targetSize && currentContent.length > 0) {
-        chunks.push(this.createChunkFromContent(
-          currentContent.join('\n\n'),
-          originalText,
-          index++,
-          sourceId,
-          contentType
-        ));
+        chunks.push(
+          this.createChunkFromContent(
+            currentContent.join('\n\n'),
+            originalText,
+            index++,
+            sourceId,
+            contentType
+          )
+        );
 
         // Start new chunk with overlap
         if (config.overlap > 0 && currentContent.length > 0) {
@@ -402,13 +411,15 @@ export class ChunkingService {
 
     // Flush remaining
     if (currentContent.length > 0) {
-      chunks.push(this.createChunkFromContent(
-        currentContent.join('\n\n'),
-        originalText,
-        index,
-        sourceId,
-        contentType
-      ));
+      chunks.push(
+        this.createChunkFromContent(
+          currentContent.join('\n\n'),
+          originalText,
+          index,
+          sourceId,
+          contentType
+        )
+      );
     }
 
     // Update total chunks count
@@ -504,7 +515,9 @@ export class ChunkingService {
       }
 
       // Extract exports
-      const exports = content.match(/^export\s+(?:default\s+)?(?:const|let|var|function|class|interface|type)\s+(\w+)/gm);
+      const exports = content.match(
+        /^export\s+(?:default\s+)?(?:const|let|var|function|class|interface|type)\s+(\w+)/gm
+      );
       if (exports) {
         metadata.exports = exports.map((e) => {
           const match = e.match(/(?:const|let|var|function|class|interface|type)\s+(\w+)/);
@@ -652,7 +665,8 @@ export class ChunkingService {
 
     return {
       totalChunks: chunks.length,
-      avgChunkSize: sizes.length > 0 ? Math.round(sizes.reduce((a, b) => a + b, 0) / sizes.length) : 0,
+      avgChunkSize:
+        sizes.length > 0 ? Math.round(sizes.reduce((a, b) => a + b, 0) / sizes.length) : 0,
       minChunkSize: sizes.length > 0 ? Math.min(...sizes) : 0,
       maxChunkSize: sizes.length > 0 ? Math.max(...sizes) : 0,
       totalRelations: relations.length,

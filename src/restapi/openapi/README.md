@@ -9,14 +9,18 @@ The OpenAPI schema is generated from the same tool descriptors that power the MC
 ## Components
 
 ### schema-converter.ts
+
 Converts MCP parameter schemas to OpenAPI 3.0 format:
+
 - `paramSchemaToOpenAPI()` - Convert individual ParamSchema to OpenAPISchema
 - `paramSchemasToProperties()` - Convert multiple parameters
 - `descriptorToOpenAPIPath()` - Generate complete path and operation from tool descriptor
 - `getStandardResponses()` - Standard error responses (200, 400, 401, 403, 404, 429)
 
 ### generator.ts
+
 Generates the complete OpenAPI specification:
+
 - `generateOpenAPISpec()` - Create full spec from all descriptors
 - Includes metadata, servers, security schemes, tags
 - Adds meta endpoints (list tools, OpenAPI spec endpoint)
@@ -46,7 +50,9 @@ import { descriptorToOpenAPIPath } from './restapi/openapi/schema-converter.js';
 const spec = generateOpenAPISpec();
 
 // Convert individual descriptor
-const myDescriptor = { /* ... */ };
+const myDescriptor = {
+  /* ... */
+};
 const { path, pathItem } = descriptorToOpenAPIPath(myDescriptor);
 ```
 
@@ -68,6 +74,7 @@ The generated spec includes:
 ## Features
 
 ### Automatic Conversion
+
 - MCP param schemas → OpenAPI schemas
 - Action enums for action-based tools
 - Common params + action-specific params merged
@@ -75,10 +82,13 @@ The generated spec includes:
 - Standard error responses
 
 ### Type Safety
+
 All conversion functions are fully typed with TypeScript interfaces matching OpenAPI 3.0 spec.
 
 ### Validation
+
 Standard responses include error codes and examples:
+
 - E1000-E1999: Validation errors
 - E2000-E2999: Not found errors
 - E3000-E3999: Conflict errors
@@ -90,11 +100,13 @@ Standard responses include error codes and examples:
 ## Testing
 
 Run unit tests:
+
 ```bash
 npm test openapi-generator.test.ts
 ```
 
 Tests cover:
+
 - Schema conversion (string, number, boolean, object, array, enum)
 - Descriptor to path conversion
 - Action-based vs simple descriptors
@@ -106,6 +118,7 @@ Tests cover:
 ## Integration
 
 The OpenAPI spec can be used with:
+
 - Swagger UI / ReDoc for documentation
 - API clients (OpenAPI Generator, openapi-typescript)
 - Testing tools (Postman, Insomnia)
@@ -114,6 +127,7 @@ The OpenAPI spec can be used with:
 ## Maintenance
 
 When adding new MCP tools:
+
 1. Add descriptor to `src/mcp/descriptors/`
 2. Export from `src/mcp/descriptors/index.ts`
 3. Regenerate spec: `npm run docs:generate:openapi`

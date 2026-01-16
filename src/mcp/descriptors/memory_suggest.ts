@@ -33,8 +33,14 @@ const STOREABLE_PATTERNS = {
   },
   fact: {
     patterns: [
-      { regex: /our (api|system|service|app|application) (uses?|is|has|supports?) ([^.!?]+)/gi, weight: 0.85 },
-      { regex: /(the|our) ([a-z]+) (is|are) (located|stored|found) (in|at) ([^.!?]+)/gi, weight: 0.8 },
+      {
+        regex: /our (api|system|service|app|application) (uses?|is|has|supports?) ([^.!?]+)/gi,
+        weight: 0.85,
+      },
+      {
+        regex: /(the|our) ([a-z]+) (is|are) (located|stored|found) (in|at) ([^.!?]+)/gi,
+        weight: 0.8,
+      },
       { regex: /we use ([a-z]+) for ([^.!?]+)/gi, weight: 0.75 },
       { regex: /(database|backend|frontend|api) (is|uses) ([^.!?]+)/gi, weight: 0.8 },
     ],
@@ -120,11 +126,13 @@ Detects: guidelines, decisions, facts, tools/commands`,
     },
     minConfidence: {
       type: 'number',
-      description: 'Minimum confidence threshold (0-1). Default from AGENT_MEMORY_SUGGEST_MIN_CONFIDENCE env var (0.7).',
+      description:
+        'Minimum confidence threshold (0-1). Default from AGENT_MEMORY_SUGGEST_MIN_CONFIDENCE env var (0.7).',
     },
     maxSuggestions: {
       type: 'number',
-      description: 'Maximum number of suggestions to return. Default from AGENT_MEMORY_SUGGEST_MAX_SUGGESTIONS env var (5).',
+      description:
+        'Maximum number of suggestions to return. Default from AGENT_MEMORY_SUGGEST_MAX_SUGGESTIONS env var (5).',
     },
   },
   required: ['text'],

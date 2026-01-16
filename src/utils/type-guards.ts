@@ -352,6 +352,3 @@ export function isExperienceSource(
 ): value is 'observation' | 'reflection' | 'user' | 'promotion' {
   return isString(value) && ['observation', 'reflection', 'user', 'promotion'].includes(value);
 }
-
-
-

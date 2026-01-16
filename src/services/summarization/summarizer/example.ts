@@ -5,6 +5,8 @@
  * at different levels with various configurations.
  */
 
+/* eslint-disable no-console */
+
 import { LLMSummarizer } from './llm-summarizer.js';
 import type { SummarizationRequest, SummarizationItem } from './types.js';
 

@@ -1,6 +1,6 @@
 ---
 description: Coding standards and how we write software
-globs: ["**/*.ts"]
+globs: ['**/*.ts']
 alwaysApply: true
 ---
 
@@ -46,6 +46,7 @@ alwaysApply: true
 - **Type assertions**: Minimize use, prefer type guards
 
 **Example:**
+
 ```typescript
 // Good
 import type { KnowledgeAddParams } from '../types.js';
@@ -86,6 +87,7 @@ src/
 5. **Exports**: At end
 
 **Example:**
+
 ```typescript
 // External imports
 import { eq, and } from 'drizzle-orm';
@@ -117,6 +119,7 @@ export const knowledgeRepo = { ... };
 - **Methods**: `create`, `getById`, `getBy{Field}`, `list`, `update`, `getHistory`, `deactivate`
 
 **Example:**
+
 ```typescript
 export const knowledgeRepo = {
   create(input: CreateKnowledgeInput): KnowledgeWithVersion {
@@ -124,11 +127,11 @@ export const knowledgeRepo = {
       // Implementation
     });
   },
-  
+
   getById(id: string): KnowledgeWithVersion | undefined {
     // Implementation
   },
-  
+
   // ... other methods
 };
 ```
@@ -148,28 +151,29 @@ export const knowledgeRepo = {
 - **Pattern**: Export object with action methods matching tool actions
 
 **Handler structure:**
+
 ```typescript
 export const knowledgeHandlers = {
   add(params: Record<string, unknown>) {
     // 1. Cast params
     const { scopeType, title, content } = cast<KnowledgeAddParams>(params);
-    
+
     // 2. Validate
     if (!scopeType) throw new Error('scopeType is required');
-    
+
     // 3. Check permissions
     if (agentId && !checkPermission(...)) {
       throw new Error('Permission denied');
     }
-    
+
     // 4. Business logic (duplicate check, validation, etc.)
-    
+
     // 5. Call repository
     const knowledge = knowledgeRepo.create(input);
-    
+
     // 6. Log audit
     logAction({ ... });
-    
+
     // 7. Return result
     return { success: true, knowledge };
   }
@@ -186,14 +190,14 @@ export const knowledgeHandlers = {
 - **Formatting**: `formatError()` converts to MCP response format
 
 **Usage:**
+
 ```typescript
 import { AgentMemoryError, ErrorCodes } from '../errors.js';
 
-throw new AgentMemoryError(
-  'Knowledge entry not found',
-  ErrorCodes.NOT_FOUND,
-  { resource: 'knowledge', identifier: id }
-);
+throw new AgentMemoryError('Knowledge entry not found', ErrorCodes.NOT_FOUND, {
+  resource: 'knowledge',
+  identifier: id,
+});
 ```
 
 ### Error Codes
@@ -217,6 +221,7 @@ throw new AgentMemoryError(
 - **Pattern**: Return value from transaction callback
 
 **Example:**
+
 ```typescript
 return transaction(() => {
   const db = getDb();
@@ -236,6 +241,7 @@ return transaction(() => {
 - **Validation service**: Use `validateEntry()` for complex validation
 
 **Example:**
+
 ```typescript
 const { scopeType, title, content } = cast<KnowledgeAddParams>(params);
 
@@ -245,7 +251,7 @@ if (!content) throw new Error('content is required');
 
 const validation = validateEntry('knowledge', { title, content }, scopeType, scopeId);
 if (!validation.valid) {
-  throw new Error(`Validation failed: ${validation.errors.map(e => e.message).join(', ')}`);
+  throw new Error(`Validation failed: ${validation.errors.map((e) => e.message).join(', ')}`);
 }
 ```
 
@@ -258,6 +264,7 @@ if (!validation.valid) {
 - **Examples**: Include usage examples for complex functions
 
 **Example:**
+
 ```typescript
 /**
  * Create a new knowledge entry with initial version
@@ -298,6 +305,7 @@ create(input: CreateKnowledgeInput): KnowledgeWithVersion { ... }
 - **Coverage**: Target ~78% (current baseline)
 
 **Example:**
+
 ```typescript
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { setupTestDb, cleanupTestDb } from '../fixtures/test-helpers.js';
@@ -306,11 +314,11 @@ describe('Knowledge Integration', () => {
   beforeAll(() => {
     // Setup
   });
-  
+
   afterAll(() => {
     // Cleanup
   });
-  
+
   it('should add a knowledge entry', () => {
     // Test
   });
@@ -327,6 +335,7 @@ describe('Knowledge Integration', () => {
 - **Footer**: Optional, reference issues
 
 **Example:**
+
 ```
 feat: add file lock timeout validation
 
@@ -349,5 +358,3 @@ feat: add file lock timeout validation
 - **Environment variable**: `AGENT_MEMORY_PERF=1`
 - **Logging**: Query type, parameters, duration, result counts
 - **Format**: `[agent-memory] memory_query scope=project types=tools,guidelines results=15/42 durationMs=8`
-
-

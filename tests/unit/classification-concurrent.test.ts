@@ -110,17 +110,15 @@ describe('Classification Concurrent Stress Tests', () => {
     it('should handle 100 parallel classifications of different texts', async () => {
       const texts = Array.from({ length: 100 }, (_, i) => `Rule: test rule ${i}`);
 
-      const results = await Promise.all(
-        texts.map(text => classificationService.classify(text))
-      );
+      const results = await Promise.all(texts.map((text) => classificationService.classify(text)));
 
       // All should complete without error
       expect(results).toHaveLength(100);
-      expect(results.every(r => r.type !== undefined)).toBe(true);
-      expect(results.every(r => r.confidence >= 0 && r.confidence <= 1)).toBe(true);
+      expect(results.every((r) => r.type !== undefined)).toBe(true);
+      expect(results.every((r) => r.confidence >= 0 && r.confidence <= 1)).toBe(true);
 
       // All should be classified as guidelines (Rule: prefix)
-      expect(results.every(r => r.type === 'guideline')).toBe(true);
+      expect(results.every((r) => r.type === 'guideline')).toBe(true);
     });
 
     it('should handle cache race condition (same text concurrent)', async () => {
@@ -135,8 +133,8 @@ describe('Classification Concurrent Stress Tests', () => {
       expect(results).toHaveLength(concurrency);
 
       // All results should be identical
-      const types = new Set(results.map(r => r.type));
-      const confidences = new Set(results.map(r => r.confidence));
+      const types = new Set(results.map((r) => r.type));
+      const confidences = new Set(results.map((r) => r.confidence));
 
       expect(types.size).toBe(1);
       expect(confidences.size).toBe(1);
@@ -159,11 +157,11 @@ describe('Classification Concurrent Stress Tests', () => {
       const shuffled = texts.sort(() => Math.random() - 0.5);
 
       const results = await Promise.all(
-        shuffled.map(text => classificationService.classify(text))
+        shuffled.map((text) => classificationService.classify(text))
       );
 
       expect(results).toHaveLength(100);
-      expect(results.every(r => ['guideline', 'knowledge', 'tool'].includes(r.type))).toBe(true);
+      expect(results.every((r) => ['guideline', 'knowledge', 'tool'].includes(r.type))).toBe(true);
     });
 
     it('should maintain consistency under sustained load', async () => {
@@ -183,7 +181,7 @@ describe('Classification Concurrent Stress Tests', () => {
       expect(allResults).toHaveLength(rounds * perRound);
 
       // All results should be consistent
-      const types = new Set(allResults.map(r => r.type));
+      const types = new Set(allResults.map((r) => r.type));
       expect(types.size).toBe(1);
     });
   });
@@ -199,19 +197,14 @@ describe('Classification Concurrent Stress Tests', () => {
 
       // Execute all corrections in parallel
       const results = await Promise.allSettled(
-        corrections.map(c =>
-          classificationService.recordCorrection(
-            c.text,
-            c.predicted,
-            c.actual,
-            c.sessionId
-          )
+        corrections.map((c) =>
+          classificationService.recordCorrection(c.text, c.predicted, c.actual, c.sessionId)
         )
       );
 
       // All should complete (either fulfilled or rejected gracefully)
-      const fulfilled = results.filter(r => r.status === 'fulfilled');
-      const rejected = results.filter(r => r.status === 'rejected');
+      const fulfilled = results.filter((r) => r.status === 'fulfilled');
+      const rejected = results.filter((r) => r.status === 'rejected');
 
       // Most should succeed (some may fail due to DB constraints, which is acceptable)
       expect(fulfilled.length).toBeGreaterThan(rejected.length);
@@ -234,7 +227,7 @@ describe('Classification Concurrent Stress Tests', () => {
       );
 
       // At least some should succeed
-      const fulfilled = results.filter(r => r.status === 'fulfilled');
+      const fulfilled = results.filter((r) => r.status === 'fulfilled');
       expect(fulfilled.length).toBeGreaterThan(0);
     });
 
@@ -255,9 +248,7 @@ describe('Classification Concurrent Stress Tests', () => {
           );
         } else {
           // Classification
-          operations.push(
-            classificationService.classify(`Rule: test ${i}`)
-          );
+          operations.push(classificationService.classify(`Rule: test ${i}`));
         }
       }
 
@@ -267,7 +258,7 @@ describe('Classification Concurrent Stress Tests', () => {
       expect(results).toHaveLength(50);
 
       // Most should succeed
-      const fulfilled = results.filter(r => r.status === 'fulfilled');
+      const fulfilled = results.filter((r) => r.status === 'fulfilled');
       expect(fulfilled.length).toBeGreaterThan(40);
     });
   });
@@ -336,12 +327,10 @@ describe('Classification Concurrent Stress Tests', () => {
       // Classify more texts than cache size
       const texts = Array.from({ length: 50 }, (_, i) => `Rule: overflow test ${i}`);
 
-      const results = await Promise.all(
-        texts.map(text => smallCacheService.classify(text))
-      );
+      const results = await Promise.all(texts.map((text) => smallCacheService.classify(text)));
 
       expect(results).toHaveLength(50);
-      expect(results.every(r => r.type === 'guideline')).toBe(true);
+      expect(results.every((r) => r.type === 'guideline')).toBe(true);
     });
 
     it('should handle cache expiry during operation', async () => {
@@ -357,7 +346,7 @@ describe('Classification Concurrent Stress Tests', () => {
       const result1 = await shortTTLService.classify(text);
 
       // Wait for cache to expire
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 50));
 
       // Second classification (should re-classify after expiry)
       const result2 = await shortTTLService.classify(text);
@@ -399,11 +388,11 @@ describe('Classification Concurrent Stress Tests', () => {
 
       // Run classifications
       const results = await Promise.allSettled(
-        texts.map(text => classificationService.classify(text))
+        texts.map((text) => classificationService.classify(text))
       );
 
       // Check that some succeeded
-      const fulfilled = results.filter(r => r.status === 'fulfilled');
+      const fulfilled = results.filter((r) => r.status === 'fulfilled');
       expect(fulfilled.length).toBeGreaterThan(0);
     });
   });
@@ -415,7 +404,7 @@ describe('Classification Concurrent Stress Tests', () => {
       // Perform many operations
       for (let batch = 0; batch < 10; batch++) {
         const texts = Array.from({ length: 100 }, (_, i) => `Rule: memory test ${batch}-${i}`);
-        await Promise.all(texts.map(text => classificationService.classify(text)));
+        await Promise.all(texts.map((text) => classificationService.classify(text)));
       }
 
       // Force garbage collection if available

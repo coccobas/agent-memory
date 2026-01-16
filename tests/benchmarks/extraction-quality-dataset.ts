@@ -115,7 +115,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'ge-007',
     name: 'Security guideline',
     category: 'guidelines-explicit',
-    context: 'Always sanitize user input before processing. Never trust data from external sources.',
+    context:
+      'Always sanitize user input before processing. Never trust data from external sources.',
     contextType: 'conversation',
     expectedEntries: [
       {
@@ -135,7 +136,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'ge-008',
     name: 'Performance guideline',
     category: 'guidelines-explicit',
-    context: 'Always use lazy loading for images. Avoid blocking the main thread with heavy computations.',
+    context:
+      'Always use lazy loading for images. Avoid blocking the main thread with heavy computations.',
     contextType: 'conversation',
     expectedEntries: [
       {
@@ -153,7 +155,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'ge-009',
     name: 'Testing guideline',
     category: 'guidelines-explicit',
-    context: 'Tests must have at least 80% code coverage. Always mock external dependencies in unit tests.',
+    context:
+      'Tests must have at least 80% code coverage. Always mock external dependencies in unit tests.',
     contextType: 'conversation',
     expectedEntries: [
       {
@@ -173,7 +176,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'ge-010',
     name: 'Documentation guideline',
     category: 'guidelines-explicit',
-    context: 'Every public function must have JSDoc comments. README files should be updated when adding new features.',
+    context:
+      'Every public function must have JSDoc comments. README files should be updated when adding new features.',
     contextType: 'conversation',
     expectedEntries: [
       {
@@ -195,7 +199,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'gi-001',
     name: 'Implied standard from practice',
     category: 'guidelines-implicit',
-    context: 'In our team, we review every PR before merging. Code review is essential for quality.',
+    context:
+      'In our team, we review every PR before merging. Code review is essential for quality.',
     contextType: 'conversation',
     expectedEntries: [
       {
@@ -209,7 +214,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'gi-002',
     name: 'Convention from description',
     category: 'guidelines-implicit',
-    context: 'Our API follows REST conventions. We use plural nouns for resource endpoints like /users and /orders.',
+    context:
+      'Our API follows REST conventions. We use plural nouns for resource endpoints like /users and /orders.',
     contextType: 'conversation',
     expectedEntries: [
       {
@@ -227,7 +233,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'gi-003',
     name: 'Standard from context',
     category: 'guidelines-implicit',
-    context: 'We use ESLint with the Airbnb config. Prettier handles formatting with 2-space indentation.',
+    context:
+      'We use ESLint with the Airbnb config. Prettier handles formatting with 2-space indentation.',
     contextType: 'conversation',
     expectedEntries: [
       {
@@ -245,7 +252,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'gi-004',
     name: 'Architecture pattern implied',
     category: 'guidelines-implicit',
-    context: 'Our services are organized in a hexagonal architecture. The domain layer has no external dependencies.',
+    context:
+      'Our services are organized in a hexagonal architecture. The domain layer has no external dependencies.',
     contextType: 'conversation',
     expectedEntries: [
       {
@@ -263,7 +271,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'gi-005',
     name: 'Process standard implied',
     category: 'guidelines-implicit',
-    context: 'Deployments happen through our CI/CD pipeline. Direct server access is restricted to ops team only.',
+    context:
+      'Deployments happen through our CI/CD pipeline. Direct server access is restricted to ops team only.',
     contextType: 'conversation',
     expectedEntries: [
       {
@@ -281,7 +290,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'gi-006',
     name: 'Git workflow implied',
     category: 'guidelines-implicit',
-    context: 'We follow GitFlow. Feature branches are prefixed with feature/, and hotfixes go to the hotfix/ prefix.',
+    context:
+      'We follow GitFlow. Feature branches are prefixed with feature/, and hotfixes go to the hotfix/ prefix.',
     contextType: 'conversation',
     expectedEntries: [
       {
@@ -299,7 +309,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'gi-007',
     name: 'Error handling standard',
     category: 'guidelines-implicit',
-    context: 'Our error responses follow RFC 7807 format. Every error includes a unique error code for debugging.',
+    context:
+      'Our error responses follow RFC 7807 format. Every error includes a unique error code for debugging.',
     contextType: 'conversation',
     expectedEntries: [
       {
@@ -317,7 +328,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'gi-008',
     name: 'Naming convention implied',
     category: 'guidelines-implicit',
-    context: 'Components are named with PascalCase like UserProfile. Utility functions use camelCase like formatDate.',
+    context:
+      'Components are named with PascalCase like UserProfile. Utility functions use camelCase like formatDate.',
     contextType: 'conversation',
     expectedEntries: [
       {
@@ -365,7 +377,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'gc-003',
     name: 'Additionally marker',
     category: 'guidelines-compound',
-    context: 'Use ESLint for linting. Additionally, configure Prettier for formatting. Furthermore, enable husky for pre-commit hooks.',
+    context:
+      'Use ESLint for linting. Additionally, configure Prettier for formatting. Furthermore, enable husky for pre-commit hooks.',
     contextType: 'conversation',
     expectedEntries: [
       { type: 'guideline', mustContain: ['ESLint', 'linting'] },
@@ -378,7 +391,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'gc-004',
     name: 'Enumerated list',
     category: 'guidelines-compound',
-    context: '1) Use dependency injection 2) Avoid global state 3) Write pure functions when possible.',
+    context:
+      '1) Use dependency injection 2) Avoid global state 3) Write pure functions when possible.',
     contextType: 'conversation',
     expectedEntries: [
       { type: 'guideline', mustContain: ['dependency injection'] },
@@ -391,7 +405,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'gc-005',
     name: 'Multiple imperative sentences',
     category: 'guidelines-compound',
-    context: 'Always write tests first. Never skip code review. Use meaningful commit messages. Avoid large PRs.',
+    context:
+      'Always write tests first. Never skip code review. Use meaningful commit messages. Avoid large PRs.',
     contextType: 'conversation',
     expectedEntries: [
       { type: 'guideline', mustContain: ['test', 'first'] },
@@ -423,7 +438,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'gc-007',
     name: 'Also pattern compound',
     category: 'guidelines-compound',
-    context: 'Functions should be small and focused. Also, each function should do one thing. Also, function names should be descriptive.',
+    context:
+      'Functions should be small and focused. Also, each function should do one thing. Also, function names should be descriptive.',
     contextType: 'conversation',
     expectedEntries: [
       { type: 'guideline', mustContain: ['small', 'focused'] },
@@ -455,7 +471,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'kd-002',
     name: 'Multiple decisions',
     category: 'knowledge-decisions',
-    context: 'We chose React for the frontend. We also decided to use Node.js for the backend. We selected AWS for hosting.',
+    context:
+      'We chose React for the frontend. We also decided to use Node.js for the backend. We selected AWS for hosting.',
     contextType: 'conversation',
     expectedEntries: [
       { type: 'knowledge', mustContain: ['React', 'frontend'], category: 'decision' },
@@ -468,7 +485,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'kd-003',
     name: 'Decision with rationale',
     category: 'knowledge-decisions',
-    context: 'We decided to use TypeScript instead of JavaScript because type safety reduces runtime errors and improves IDE support.',
+    context:
+      'We decided to use TypeScript instead of JavaScript because type safety reduces runtime errors and improves IDE support.',
     contextType: 'conversation',
     expectedEntries: [
       {
@@ -483,7 +501,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'kd-004',
     name: 'Architecture decision',
     category: 'knowledge-decisions',
-    context: 'The team decided to adopt microservices architecture. Each service will have its own database to ensure loose coupling.',
+    context:
+      'The team decided to adopt microservices architecture. Each service will have its own database to ensure loose coupling.',
     contextType: 'conversation',
     expectedEntries: [
       {
@@ -503,7 +522,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'kd-005',
     name: 'Tool selection decision',
     category: 'knowledge-decisions',
-    context: 'We picked Jest for testing because it has good TypeScript support. For E2E tests, we went with Playwright.',
+    context:
+      'We picked Jest for testing because it has good TypeScript support. For E2E tests, we went with Playwright.',
     contextType: 'conversation',
     expectedEntries: [
       { type: 'knowledge', mustContain: ['Jest', 'testing'], category: 'decision' },
@@ -515,7 +535,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'kd-006',
     name: 'Infrastructure decision',
     category: 'knowledge-decisions',
-    context: 'We opted for Kubernetes over Docker Swarm for orchestration. The team selected Terraform for infrastructure as code.',
+    context:
+      'We opted for Kubernetes over Docker Swarm for orchestration. The team selected Terraform for infrastructure as code.',
     contextType: 'conversation',
     expectedEntries: [
       { type: 'knowledge', mustContain: ['Kubernetes', 'Docker Swarm'], category: 'decision' },
@@ -527,7 +548,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'kd-007',
     name: 'API design decision',
     category: 'knowledge-decisions',
-    context: 'We chose GraphQL over REST for our API. This decision was made because the frontend needs flexible queries.',
+    context:
+      'We chose GraphQL over REST for our API. This decision was made because the frontend needs flexible queries.',
     contextType: 'conversation',
     expectedEntries: [
       {
@@ -542,7 +564,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'kd-008',
     name: 'State management decision',
     category: 'knowledge-decisions',
-    context: 'For state management, we decided on Zustand instead of Redux. It is simpler and has less boilerplate.',
+    context:
+      'For state management, we decided on Zustand instead of Redux. It is simpler and has less boilerplate.',
     contextType: 'conversation',
     expectedEntries: [
       {
@@ -557,7 +580,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'kd-009',
     name: 'Authentication decision',
     category: 'knowledge-decisions',
-    context: 'We selected Auth0 for authentication. JWTs will be used for session management with 1-hour expiry.',
+    context:
+      'We selected Auth0 for authentication. JWTs will be used for session management with 1-hour expiry.',
     contextType: 'conversation',
     expectedEntries: [
       { type: 'knowledge', mustContain: ['Auth0', 'authentication'], category: 'decision' },
@@ -645,7 +669,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'kf-005',
     name: 'Environment fact',
     category: 'knowledge-facts',
-    context: 'We have three environments: development, staging, and production. Staging mirrors production configuration.',
+    context:
+      'We have three environments: development, staging, and production. Staging mirrors production configuration.',
     contextType: 'conversation',
     expectedEntries: [
       {
@@ -660,7 +685,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'kf-006',
     name: 'Integration fact',
     category: 'knowledge-facts',
-    context: 'The payment system integrates with Stripe. Webhook events are processed by the billing service.',
+    context:
+      'The payment system integrates with Stripe. Webhook events are processed by the billing service.',
     contextType: 'conversation',
     expectedEntries: [
       { type: 'knowledge', mustContain: ['Stripe', 'payment'], category: 'fact' },
@@ -672,7 +698,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'kf-007',
     name: 'Deployment fact',
     category: 'knowledge-facts',
-    context: 'Deployments happen every Tuesday at 2 PM UTC. Hotfixes can be deployed anytime with approval.',
+    context:
+      'Deployments happen every Tuesday at 2 PM UTC. Hotfixes can be deployed anytime with approval.',
     contextType: 'conversation',
     expectedEntries: [
       { type: 'knowledge', mustContain: ['deployment', 'Tuesday', '2 PM'], category: 'fact' },
@@ -684,7 +711,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'kf-008',
     name: 'Architecture fact',
     category: 'knowledge-facts',
-    context: 'The system uses an event-driven architecture. RabbitMQ handles message queuing between services.',
+    context:
+      'The system uses an event-driven architecture. RabbitMQ handles message queuing between services.',
     contextType: 'conversation',
     expectedEntries: [
       { type: 'knowledge', mustContain: ['event-driven', 'architecture'], category: 'fact' },
@@ -696,7 +724,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'kf-009',
     name: 'Storage fact',
     category: 'knowledge-facts',
-    context: 'User uploads are stored in S3 bucket named prod-user-uploads. Maximum file size is 10MB.',
+    context:
+      'User uploads are stored in S3 bucket named prod-user-uploads. Maximum file size is 10MB.',
     contextType: 'conversation',
     expectedEntries: [
       {
@@ -747,7 +776,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'kt-002',
     name: 'Deprecation notice',
     category: 'knowledge-temporal',
-    context: 'The v1 API will be deprecated in March 2025. All clients should migrate to v2 before then.',
+    context:
+      'The v1 API will be deprecated in March 2025. All clients should migrate to v2 before then.',
     contextType: 'conversation',
     expectedEntries: [
       {
@@ -777,7 +807,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'kt-004',
     name: 'Feature timeline',
     category: 'knowledge-temporal',
-    context: 'The new authentication system launched in Q3 2024. OAuth2 support was added in Q4 2024.',
+    context:
+      'The new authentication system launched in Q3 2024. OAuth2 support was added in Q4 2024.',
     contextType: 'conversation',
     expectedEntries: [
       { type: 'knowledge', mustContain: ['authentication', 'Q3 2024'], category: 'fact' },
@@ -823,7 +854,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'tc-002',
     name: 'Multiple CLI commands',
     category: 'tools-cli',
-    context: 'Use npm install to install dependencies. Run npm test for testing. Use npm run lint to check code style.',
+    context:
+      'Use npm install to install dependencies. Run npm test for testing. Use npm run lint to check code style.',
     contextType: 'conversation',
     expectedEntries: [
       { type: 'tool', mustContain: ['npm install'], category: 'cli' },
@@ -836,7 +868,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'tc-003',
     name: 'Docker commands',
     category: 'tools-cli',
-    context: 'Start the dev environment with docker-compose up -d. To rebuild, use docker-compose build --no-cache.',
+    context:
+      'Start the dev environment with docker-compose up -d. To rebuild, use docker-compose build --no-cache.',
     contextType: 'conversation',
     expectedEntries: [
       { type: 'tool', mustContain: ['docker-compose up'], category: 'cli' },
@@ -848,7 +881,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'tc-004',
     name: 'Git commands',
     category: 'tools-cli',
-    context: 'Create a new branch with git checkout -b feature/name. Push with git push -u origin feature/name.',
+    context:
+      'Create a new branch with git checkout -b feature/name. Push with git push -u origin feature/name.',
     contextType: 'conversation',
     expectedEntries: [
       { type: 'tool', mustContain: ['git checkout -b'], category: 'cli' },
@@ -872,7 +906,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'tc-006',
     name: 'Kubernetes commands',
     category: 'tools-cli',
-    context: 'Deploy to staging with kubectl apply -f k8s/staging/. Check pod status using kubectl get pods -n staging.',
+    context:
+      'Deploy to staging with kubectl apply -f k8s/staging/. Check pod status using kubectl get pods -n staging.',
     contextType: 'conversation',
     expectedEntries: [
       { type: 'tool', mustContain: ['kubectl apply'], category: 'cli' },
@@ -884,7 +919,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'tc-007',
     name: 'AWS CLI commands',
     category: 'tools-cli',
-    context: 'Upload to S3 with aws s3 cp ./dist s3://bucket-name --recursive. List buckets using aws s3 ls.',
+    context:
+      'Upload to S3 with aws s3 cp ./dist s3://bucket-name --recursive. List buckets using aws s3 ls.',
     contextType: 'conversation',
     expectedEntries: [
       { type: 'tool', mustContain: ['aws s3 cp'], category: 'cli' },
@@ -896,7 +932,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'tc-008',
     name: 'Development server',
     category: 'tools-cli',
-    context: 'Start the development server with npm run dev. It runs on http://localhost:3000 by default.',
+    context:
+      'Start the development server with npm run dev. It runs on http://localhost:3000 by default.',
     contextType: 'conversation',
     expectedEntries: [
       {
@@ -927,7 +964,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'ta-002',
     name: 'GraphQL operation',
     category: 'tools-api',
-    context: 'Use the getUsers query to fetch users. The createUser mutation handles user creation.',
+    context:
+      'Use the getUsers query to fetch users. The createUser mutation handles user creation.',
     contextType: 'conversation',
     expectedEntries: [
       { type: 'tool', mustContain: ['getUsers', 'query'], category: 'api' },
@@ -939,7 +977,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'ta-003',
     name: 'Webhook endpoint',
     category: 'tools-api',
-    context: 'Stripe webhooks are received at POST /webhooks/stripe. The endpoint requires signature validation.',
+    context:
+      'Stripe webhooks are received at POST /webhooks/stripe. The endpoint requires signature validation.',
     contextType: 'conversation',
     expectedEntries: [
       {
@@ -954,7 +993,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'ta-004',
     name: 'Internal API',
     category: 'tools-api',
-    context: 'The health check endpoint is GET /health. Metrics are exposed at GET /metrics for Prometheus.',
+    context:
+      'The health check endpoint is GET /health. Metrics are exposed at GET /metrics for Prometheus.',
     contextType: 'conversation',
     expectedEntries: [
       { type: 'tool', mustContain: ['/health'], category: 'api' },
@@ -966,7 +1006,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'ta-005',
     name: 'Authentication API',
     category: 'tools-api',
-    context: 'Login via POST /auth/login. Refresh tokens with POST /auth/refresh. Logout at POST /auth/logout.',
+    context:
+      'Login via POST /auth/login. Refresh tokens with POST /auth/refresh. Logout at POST /auth/logout.',
     contextType: 'conversation',
     expectedEntries: [
       { type: 'tool', mustContain: ['/auth/login'], category: 'api' },
@@ -983,7 +1024,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'mx-001',
     name: 'Guidelines and decisions',
     category: 'mixed-content',
-    context: 'We chose React for the frontend. Always use functional components with hooks. Never use class components.',
+    context:
+      'We chose React for the frontend. Always use functional components with hooks. Never use class components.',
     contextType: 'conversation',
     expectedEntries: [
       { type: 'knowledge', mustContain: ['React', 'frontend'], category: 'decision' },
@@ -996,7 +1038,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'mx-002',
     name: 'Facts and tools',
     category: 'mixed-content',
-    context: 'The database runs on PostgreSQL 16. Use npm run db:migrate for migrations. The connection string is in DATABASE_URL.',
+    context:
+      'The database runs on PostgreSQL 16. Use npm run db:migrate for migrations. The connection string is in DATABASE_URL.',
     contextType: 'conversation',
     expectedEntries: [
       { type: 'knowledge', mustContain: ['PostgreSQL 16'], category: 'fact' },
@@ -1009,7 +1052,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'mx-003',
     name: 'Decision with guideline',
     category: 'mixed-content',
-    context: 'We decided to use ESLint with strict rules. Always fix all linting errors before committing.',
+    context:
+      'We decided to use ESLint with strict rules. Always fix all linting errors before committing.',
     contextType: 'conversation',
     expectedEntries: [
       { type: 'knowledge', mustContain: ['ESLint', 'strict'], category: 'decision' },
@@ -1039,7 +1083,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'mx-005',
     name: 'Setup instructions',
     category: 'mixed-content',
-    context: 'Clone the repo and run npm install. Node 20 is required. Always use nvm to manage versions.',
+    context:
+      'Clone the repo and run npm install. Node 20 is required. Always use nvm to manage versions.',
     contextType: 'conversation',
     expectedEntries: [
       { type: 'tool', mustContain: ['npm install'], category: 'cli' },
@@ -1052,7 +1097,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'mx-006',
     name: 'Testing setup',
     category: 'mixed-content',
-    context: 'We use Vitest for testing (decision). Run tests with npm test. Always mock external APIs. Test coverage is at 85%.',
+    context:
+      'We use Vitest for testing (decision). Run tests with npm test. Always mock external APIs. Test coverage is at 85%.',
     contextType: 'conversation',
     expectedEntries: [
       { type: 'knowledge', mustContain: ['Vitest'], category: 'decision' },
@@ -1066,7 +1112,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'mx-007',
     name: 'Deployment context',
     category: 'mixed-content',
-    context: 'Deploy to AWS EKS (decision). Use kubectl apply -f manifests/. Never deploy on Fridays. Current version is 2.3.0.',
+    context:
+      'Deploy to AWS EKS (decision). Use kubectl apply -f manifests/. Never deploy on Fridays. Current version is 2.3.0.',
     contextType: 'conversation',
     expectedEntries: [
       { type: 'knowledge', mustContain: ['AWS EKS'], category: 'decision' },
@@ -1080,7 +1127,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'mx-008',
     name: 'API design context',
     category: 'mixed-content',
-    context: 'We chose REST over GraphQL. Use GET /api/users for listing. Always return 404 for missing resources.',
+    context:
+      'We chose REST over GraphQL. Use GET /api/users for listing. Always return 404 for missing resources.',
     contextType: 'conversation',
     expectedEntries: [
       { type: 'knowledge', mustContain: ['REST', 'GraphQL'], category: 'decision' },
@@ -1107,7 +1155,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'nr-002',
     name: 'Debugging discussion',
     category: 'noise-resistance',
-    context: 'I tried console.log but it did not help. Let me check the network tab. Oh, I see the error now.',
+    context:
+      'I tried console.log but it did not help. Let me check the network tab. Oh, I see the error now.',
     contextType: 'conversation',
     expectedEntries: [],
     shouldNotExtract: ['console.log', 'network tab'],
@@ -1117,7 +1166,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'nr-003',
     name: 'Meeting scheduling',
     category: 'noise-resistance',
-    context: 'Can we meet at 3pm? Actually, 4pm works better for me. Let me send a calendar invite.',
+    context:
+      'Can we meet at 3pm? Actually, 4pm works better for me. Let me send a calendar invite.',
     contextType: 'conversation',
     expectedEntries: [],
     shouldNotExtract: ['3pm', '4pm', 'calendar'],
@@ -1127,7 +1177,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'nr-004',
     name: 'Code review comments',
     category: 'noise-resistance',
-    context: 'Nice work! I left a few comments. Can you fix the typo on line 42? Also, the variable name could be better.',
+    context:
+      'Nice work! I left a few comments. Can you fix the typo on line 42? Also, the variable name could be better.',
     contextType: 'conversation',
     expectedEntries: [],
     shouldNotExtract: ['typo', 'line 42'],
@@ -1137,7 +1188,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'nr-005',
     name: 'Status update',
     category: 'noise-resistance',
-    context: 'I finished the login page yesterday. Today I am working on the dashboard. Should be done by tomorrow.',
+    context:
+      'I finished the login page yesterday. Today I am working on the dashboard. Should be done by tomorrow.',
     contextType: 'conversation',
     expectedEntries: [],
     shouldNotExtract: ['yesterday', 'tomorrow', 'login page'],
@@ -1147,11 +1199,10 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'nr-006',
     name: 'Mixed signal and noise',
     category: 'noise-resistance',
-    context: 'Hey, good morning! By the way, we always use semantic versioning for releases. Anyway, did you watch the new show?',
+    context:
+      'Hey, good morning! By the way, we always use semantic versioning for releases. Anyway, did you watch the new show?',
     contextType: 'conversation',
-    expectedEntries: [
-      { type: 'guideline', mustContain: ['semantic versioning', 'release'] },
-    ],
+    expectedEntries: [{ type: 'guideline', mustContain: ['semantic versioning', 'release'] }],
     shouldNotExtract: ['good morning', 'show'],
     difficulty: 'hard',
   },
@@ -1159,7 +1210,8 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     id: 'nr-007',
     name: 'Off-topic technical',
     category: 'noise-resistance',
-    context: 'I read an article about Rust. It seems interesting but we do not use it here. Maybe someday.',
+    context:
+      'I read an article about Rust. It seems interesting but we do not use it here. Maybe someday.',
     contextType: 'conversation',
     expectedEntries: [],
     shouldNotExtract: ['Rust', 'article'],
@@ -1195,9 +1247,7 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     category: 'edge-cases',
     context: 'Use TypeScript.',
     contextType: 'conversation',
-    expectedEntries: [
-      { type: 'guideline', mustContain: ['TypeScript'] },
-    ],
+    expectedEntries: [{ type: 'guideline', mustContain: ['TypeScript'] }],
     difficulty: 'medium',
   },
   {
@@ -1221,9 +1271,7 @@ export const EXTRACTION_TEST_CASES: ExtractionTestCase[] = [
     category: 'edge-cases',
     context: 'Always use semicolons. Actually, never use semicolons - let Prettier handle it.',
     contextType: 'conversation',
-    expectedEntries: [
-      { type: 'guideline', mustContain: ['semicolon', 'Prettier'] },
-    ],
+    expectedEntries: [{ type: 'guideline', mustContain: ['semicolon', 'Prettier'] }],
     difficulty: 'hard',
     notes: 'Should extract the final/corrected guideline',
   },
@@ -1265,9 +1313,7 @@ function processUserData(data: unknown) {
   return data;
 }`,
     contextType: 'code',
-    expectedEntries: [
-      { type: 'guideline', mustContain: ['validate', 'user input'] },
-    ],
+    expectedEntries: [{ type: 'guideline', mustContain: ['validate', 'user input'] }],
     difficulty: 'medium',
     notes: 'Should extract guideline from IMPORTANT comment',
   },
@@ -1341,29 +1387,28 @@ function authenticateUser(token: string): User {
     id: 'cn-001',
     name: 'API performance constraint',
     category: 'constraints',
-    context: 'The API must respond within 200ms for 99th percentile latency. Any endpoint exceeding this SLA requires optimization.',
+    context:
+      'The API must respond within 200ms for 99th percentile latency. Any endpoint exceeding this SLA requires optimization.',
     contextType: 'conversation',
-    expectedEntries: [
-      { type: 'guideline', mustContain: ['200ms', 'latency'] },
-    ],
+    expectedEntries: [{ type: 'guideline', mustContain: ['200ms', 'latency'] }],
     difficulty: 'medium',
   },
   {
     id: 'cn-002',
     name: 'Data format constraint',
     category: 'constraints',
-    context: 'User IDs must be UUIDs, never sequential integers. This prevents enumeration attacks and information disclosure.',
+    context:
+      'User IDs must be UUIDs, never sequential integers. This prevents enumeration attacks and information disclosure.',
     contextType: 'conversation',
-    expectedEntries: [
-      { type: 'guideline', mustContain: ['UUID', 'sequential'] },
-    ],
+    expectedEntries: [{ type: 'guideline', mustContain: ['UUID', 'sequential'] }],
     difficulty: 'easy',
   },
   {
     id: 'cn-003',
     name: 'Security logging constraint',
     category: 'constraints',
-    context: 'PII must never be logged. This includes email addresses, phone numbers, and IP addresses. Mask sensitive data before logging.',
+    context:
+      'PII must never be logged. This includes email addresses, phone numbers, and IP addresses. Mask sensitive data before logging.',
     contextType: 'conversation',
     expectedEntries: [
       { type: 'guideline', mustContain: ['PII', 'never', 'log'], category: 'security' },
@@ -1384,9 +1429,7 @@ Good: throw new AppError('User not found', 404);
 Bad: throw new Error('error');
 Always include error code and descriptive message.`,
     contextType: 'conversation',
-    expectedEntries: [
-      { type: 'guideline', mustContain: ['error', 'code', 'message'] },
-    ],
+    expectedEntries: [{ type: 'guideline', mustContain: ['error', 'code', 'message'] }],
     difficulty: 'medium',
     notes: 'Should extract the pattern with examples',
   },
@@ -1394,7 +1437,8 @@ Always include error code and descriptive message.`,
     id: 'ex-002',
     name: 'Pattern with example',
     category: 'examples',
-    context: 'Use the repository pattern for data access. For example, UserRepository handles all user-related database operations, ProductRepository for products.',
+    context:
+      'Use the repository pattern for data access. For example, UserRepository handles all user-related database operations, ProductRepository for products.',
     contextType: 'conversation',
     expectedEntries: [
       { type: 'guideline', mustContain: ['repository pattern', 'data access'] },
@@ -1406,7 +1450,8 @@ Always include error code and descriptive message.`,
     id: 'ex-003',
     name: 'Anti-pattern example',
     category: 'examples',
-    context: 'Avoid the God object anti-pattern. Bad example: UserManager class with 50+ methods handling authentication, profile, billing, and notifications. Split into focused services.',
+    context:
+      'Avoid the God object anti-pattern. Bad example: UserManager class with 50+ methods handling authentication, profile, billing, and notifications. Split into focused services.',
     contextType: 'conversation',
     expectedEntries: [
       { type: 'guideline', mustContain: ['God object', 'avoid'] },
@@ -1422,11 +1467,10 @@ Always include error code and descriptive message.`,
     id: 'sa-001',
     name: 'External RFC reference',
     category: 'source-attribution',
-    context: 'According to RFC 7807, all API error responses should include a type URI, title, status, and detail field. We follow this standard.',
+    context:
+      'According to RFC 7807, all API error responses should include a type URI, title, status, and detail field. We follow this standard.',
     contextType: 'conversation',
-    expectedEntries: [
-      { type: 'guideline', mustContain: ['RFC 7807', 'error response'] },
-    ],
+    expectedEntries: [{ type: 'guideline', mustContain: ['RFC 7807', 'error response'] }],
     difficulty: 'medium',
     notes: 'Should capture the RFC reference as source',
   },
@@ -1434,7 +1478,8 @@ Always include error code and descriptive message.`,
     id: 'sa-002',
     name: 'Internal ADR reference',
     category: 'source-attribution',
-    context: 'Per ADR-003, we use event sourcing for the order management domain. This was decided in Q2 2024 to support audit requirements.',
+    context:
+      'Per ADR-003, we use event sourcing for the order management domain. This was decided in Q2 2024 to support audit requirements.',
     contextType: 'conversation',
     expectedEntries: [
       { type: 'knowledge', mustContain: ['ADR-003', 'event sourcing'], category: 'decision' },
@@ -1445,11 +1490,10 @@ Always include error code and descriptive message.`,
     id: 'sa-003',
     name: 'Link reference',
     category: 'source-attribution',
-    context: 'For deployment procedures, see https://docs.internal.com/deployment. All deployments must follow the runbook documented there.',
+    context:
+      'For deployment procedures, see https://docs.internal.com/deployment. All deployments must follow the runbook documented there.',
     contextType: 'conversation',
-    expectedEntries: [
-      { type: 'knowledge', mustContain: ['deployment', 'runbook'] },
-    ],
+    expectedEntries: [{ type: 'knowledge', mustContain: ['deployment', 'runbook'] }],
     difficulty: 'easy',
   },
 
@@ -1460,7 +1504,8 @@ Always include error code and descriptive message.`,
     id: 'tf-001',
     name: 'MCP tool definition',
     category: 'tools-mcp',
-    context: 'Use the memory_query MCP tool with action: context to load project context at conversation start. Always include inherit: true.',
+    context:
+      'Use the memory_query MCP tool with action: context to load project context at conversation start. Always include inherit: true.',
     contextType: 'conversation',
     expectedEntries: [
       { type: 'tool', mustContain: ['memory_query', 'context'], category: 'mcp' },
@@ -1472,7 +1517,8 @@ Always include error code and descriptive message.`,
     id: 'tf-002',
     name: 'Function signature',
     category: 'tools-function',
-    context: 'Call validateInput(data: unknown): Result<T> to validate all incoming data. It returns either Ok<T> or Err<ValidationError>.',
+    context:
+      'Call validateInput(data: unknown): Result<T> to validate all incoming data. It returns either Ok<T> or Err<ValidationError>.',
     contextType: 'conversation',
     expectedEntries: [
       { type: 'tool', mustContain: ['validateInput', 'Result'], category: 'function' },
@@ -1483,18 +1529,18 @@ Always include error code and descriptive message.`,
     id: 'tf-003',
     name: 'API with body params',
     category: 'tools-api',
-    context: 'POST /api/users with body {name: string, email: string, role: "admin" | "user"}. Returns 201 with the created user object.',
+    context:
+      'POST /api/users with body {name: string, email: string, role: "admin" | "user"}. Returns 201 with the created user object.',
     contextType: 'conversation',
-    expectedEntries: [
-      { type: 'tool', mustContain: ['POST', '/api/users'], category: 'api' },
-    ],
+    expectedEntries: [{ type: 'tool', mustContain: ['POST', '/api/users'], category: 'api' }],
     difficulty: 'easy',
   },
   {
     id: 'tf-004',
     name: 'CLI with flags',
     category: 'tools-cli',
-    context: 'Use `npm run build -- --watch --sourcemap` for development builds with live reload and debugging support.',
+    context:
+      'Use `npm run build -- --watch --sourcemap` for development builds with live reload and debugging support.',
     contextType: 'conversation',
     expectedEntries: [
       { type: 'tool', mustContain: ['npm run build', '--watch', '--sourcemap'], category: 'cli' },
@@ -1512,7 +1558,12 @@ Always include error code and descriptive message.`,
     context: 'The production database is PostgreSQL 16.1 running on AWS RDS in us-east-1a.',
     contextType: 'conversation',
     expectedEntries: [
-      { type: 'knowledge', mustContain: ['PostgreSQL 16.1', 'RDS'], category: 'fact', confidence: 0.9 },
+      {
+        type: 'knowledge',
+        mustContain: ['PostgreSQL 16.1', 'RDS'],
+        category: 'fact',
+        confidence: 0.9,
+      },
     ],
     difficulty: 'easy',
   },
@@ -1520,7 +1571,8 @@ Always include error code and descriptive message.`,
     id: 'cl-002',
     name: 'Uncertain knowledge',
     category: 'confidence-levels',
-    context: 'I think the API timeout is set to 30 seconds, but I need to verify this with the infrastructure team.',
+    context:
+      'I think the API timeout is set to 30 seconds, but I need to verify this with the infrastructure team.',
     contextType: 'conversation',
     expectedEntries: [
       { type: 'knowledge', mustContain: ['timeout', '30 seconds'], confidence: 0.5 },
@@ -1532,7 +1584,8 @@ Always include error code and descriptive message.`,
     id: 'cl-003',
     name: 'Tentative decision',
     category: 'confidence-levels',
-    context: 'We are leaning towards using Redis for the cache layer, but this is not final. Need to evaluate Memcached as well.',
+    context:
+      'We are leaning towards using Redis for the cache layer, but this is not final. Need to evaluate Memcached as well.',
     contextType: 'conversation',
     expectedEntries: [
       { type: 'knowledge', mustContain: ['Redis', 'cache'], category: 'context', confidence: 0.6 },
@@ -1548,7 +1601,8 @@ Always include error code and descriptive message.`,
     id: 'adv-is-001',
     name: 'Informal speech - slang and abbreviations',
     category: 'informal-speech',
-    context: 'yo so basically we gotta use typescript strict mode, its like super important. also dont use any type lol',
+    context:
+      'yo so basically we gotta use typescript strict mode, its like super important. also dont use any type lol',
     contextType: 'conversation',
     expectedEntries: [
       { type: 'guideline', mustContain: ['TypeScript', 'strict'] },
@@ -1561,11 +1615,10 @@ Always include error code and descriptive message.`,
     id: 'adv-is-002',
     name: 'Informal speech - casual tech chat',
     category: 'informal-speech',
-    context: 'btw the db is postgres running on rds, probs version 15 or smth. works pretty well tbh',
+    context:
+      'btw the db is postgres running on rds, probs version 15 or smth. works pretty well tbh',
     contextType: 'conversation',
-    expectedEntries: [
-      { type: 'knowledge', mustContain: ['PostgreSQL', 'RDS'] },
-    ],
+    expectedEntries: [{ type: 'knowledge', mustContain: ['PostgreSQL', 'RDS'] }],
     difficulty: 'hard',
     notes: 'Extract facts from abbreviations and casual language',
   },
@@ -1573,11 +1626,10 @@ Always include error code and descriptive message.`,
     id: 'adv-is-003',
     name: 'Informal speech - emoji and expressions',
     category: 'informal-speech',
-    context: 'omg yes!! always run tests before pushing :) its like rule #1 around here haha. srsly tho, CI will fail if u dont',
+    context:
+      'omg yes!! always run tests before pushing :) its like rule #1 around here haha. srsly tho, CI will fail if u dont',
     contextType: 'conversation',
-    expectedEntries: [
-      { type: 'guideline', mustContain: ['test', 'push'] },
-    ],
+    expectedEntries: [{ type: 'guideline', mustContain: ['test', 'push'] }],
     difficulty: 'hard',
     notes: 'Extract guideline despite emojis and expressions',
   },
@@ -1585,11 +1637,10 @@ Always include error code and descriptive message.`,
     id: 'adv-is-004',
     name: 'Informal speech - phonetic spelling',
     category: 'informal-speech',
-    context: 'u kno wat, we shud prolly use react hooks instead of class components. its way better 4 state mgmt',
+    context:
+      'u kno wat, we shud prolly use react hooks instead of class components. its way better 4 state mgmt',
     contextType: 'conversation',
-    expectedEntries: [
-      { type: 'guideline', mustContain: ['React', 'hooks'] },
-    ],
+    expectedEntries: [{ type: 'guideline', mustContain: ['React', 'hooks'] }],
     difficulty: 'hard',
     notes: 'Handle phonetic/text-speak spelling',
   },
@@ -1597,7 +1648,8 @@ Always include error code and descriptive message.`,
     id: 'adv-is-005',
     name: 'Informal speech - mixed formality',
     category: 'informal-speech',
-    context: 'The authentication flow uses JWT tokens (pretty standard stuff). oh and make sure to validate on server side cuz client validation is kinda pointless lol',
+    context:
+      'The authentication flow uses JWT tokens (pretty standard stuff). oh and make sure to validate on server side cuz client validation is kinda pointless lol',
     contextType: 'conversation',
     expectedEntries: [
       { type: 'knowledge', mustContain: ['JWT', 'authentication'] },
@@ -1668,7 +1720,8 @@ Always include error code and descriptive message.`,
     id: 'adv-tf-005',
     name: 'Typos - autocorrect errors',
     category: 'typos-fragments',
-    context: 'We use Reactive instead of Angular. The Docs server runs on port 8080. Always commit with descriptive massages.',
+    context:
+      'We use Reactive instead of Angular. The Docs server runs on port 8080. Always commit with descriptive massages.',
     contextType: 'conversation',
     expectedEntries: [
       { type: 'knowledge', mustContain: ['React', 'Angular'] },
@@ -1686,7 +1739,8 @@ Always include error code and descriptive message.`,
     id: 'adv-ef-001',
     name: 'Entangled facts - parenthetical info',
     category: 'entangled-facts',
-    context: 'Our API (which runs on port 3000 btw) uses REST (not GraphQL despite what some people think) and requires authentication (JWT with RS256).',
+    context:
+      'Our API (which runs on port 3000 btw) uses REST (not GraphQL despite what some people think) and requires authentication (JWT with RS256).',
     contextType: 'conversation',
     expectedEntries: [
       { type: 'knowledge', mustContain: ['API', 'port', '3000'] },
@@ -1700,7 +1754,8 @@ Always include error code and descriptive message.`,
     id: 'adv-ef-002',
     name: 'Entangled facts - run-on sentence',
     category: 'entangled-facts',
-    context: 'So we use PostgreSQL for the main database but Redis handles caching and sessions while Elasticsearch powers search and the whole thing runs on Kubernetes in AWS with Terraform managing infrastructure.',
+    context:
+      'So we use PostgreSQL for the main database but Redis handles caching and sessions while Elasticsearch powers search and the whole thing runs on Kubernetes in AWS with Terraform managing infrastructure.',
     contextType: 'conversation',
     expectedEntries: [
       { type: 'knowledge', mustContain: ['PostgreSQL', 'database'] },
@@ -1715,7 +1770,8 @@ Always include error code and descriptive message.`,
     id: 'adv-ef-003',
     name: 'Entangled facts - nested clauses',
     category: 'entangled-facts',
-    context: 'The service, which was written in Go because we needed performance, connects to the database (PostgreSQL, naturally) using connection pooling that the DevOps team configured.',
+    context:
+      'The service, which was written in Go because we needed performance, connects to the database (PostgreSQL, naturally) using connection pooling that the DevOps team configured.',
     contextType: 'conversation',
     expectedEntries: [
       { type: 'knowledge', mustContain: ['Go', 'performance'] },
@@ -1729,7 +1785,8 @@ Always include error code and descriptive message.`,
     id: 'adv-ef-004',
     name: 'Entangled facts - comparison context',
     category: 'entangled-facts',
-    context: 'Unlike the old system that used MongoDB and was deployed on Heroku, we now use PostgreSQL on AWS RDS with Docker containers orchestrated by ECS.',
+    context:
+      'Unlike the old system that used MongoDB and was deployed on Heroku, we now use PostgreSQL on AWS RDS with Docker containers orchestrated by ECS.',
     contextType: 'conversation',
     expectedEntries: [
       { type: 'knowledge', mustContain: ['PostgreSQL', 'RDS'] },
@@ -1743,7 +1800,8 @@ Always include error code and descriptive message.`,
     id: 'adv-ef-005',
     name: 'Entangled facts - conditional context',
     category: 'entangled-facts',
-    context: 'When deploying to production (not staging which uses different settings) you need to use the npm run deploy:prod command and make sure the VPN is connected unless you are in the office network.',
+    context:
+      'When deploying to production (not staging which uses different settings) you need to use the npm run deploy:prod command and make sure the VPN is connected unless you are in the office network.',
     contextType: 'conversation',
     expectedEntries: [
       { type: 'tool', mustContain: ['npm', 'deploy:prod'] },
@@ -1760,7 +1818,8 @@ Always include error code and descriptive message.`,
     id: 'adv-ss-001',
     name: 'Suggestions vs standards - personal preference',
     category: 'suggestions-vs-standards',
-    context: 'I personally think we should use Prettier for formatting. It makes the code look nicer.',
+    context:
+      'I personally think we should use Prettier for formatting. It makes the code look nicer.',
     contextType: 'conversation',
     expectedEntries: [],
     shouldNotExtract: ['Prettier', 'formatting'],
@@ -1773,9 +1832,7 @@ Always include error code and descriptive message.`,
     category: 'suggestions-vs-standards',
     context: 'The team has decided that we use Prettier for formatting. This is now our standard.',
     contextType: 'conversation',
-    expectedEntries: [
-      { type: 'guideline', mustContain: ['Prettier', 'formatting'] },
-    ],
+    expectedEntries: [{ type: 'guideline', mustContain: ['Prettier', 'formatting'] }],
     difficulty: 'medium',
     notes: 'Explicit team decision is a guideline',
   },
@@ -1783,7 +1840,8 @@ Always include error code and descriptive message.`,
     id: 'adv-ss-003',
     name: 'Suggestions vs standards - maybe/might',
     category: 'suggestions-vs-standards',
-    context: 'We might want to consider using TypeScript strict mode. It could help catch more bugs maybe.',
+    context:
+      'We might want to consider using TypeScript strict mode. It could help catch more bugs maybe.',
     contextType: 'conversation',
     expectedEntries: [],
     shouldNotExtract: ['TypeScript', 'strict'],
@@ -1794,7 +1852,8 @@ Always include error code and descriptive message.`,
     id: 'adv-ss-004',
     name: 'Suggestions vs standards - proposal',
     category: 'suggestions-vs-standards',
-    context: 'I propose that all new services use GraphQL instead of REST. This is still up for discussion in next weeks meeting.',
+    context:
+      'I propose that all new services use GraphQL instead of REST. This is still up for discussion in next weeks meeting.',
     contextType: 'conversation',
     expectedEntries: [],
     shouldNotExtract: ['GraphQL', 'REST'],
@@ -1805,7 +1864,8 @@ Always include error code and descriptive message.`,
     id: 'adv-ss-005',
     name: 'Suggestions vs standards - approved proposal',
     category: 'suggestions-vs-standards',
-    context: 'After discussion, the team approved using GraphQL for all new services. REST endpoints will be deprecated.',
+    context:
+      'After discussion, the team approved using GraphQL for all new services. REST endpoints will be deprecated.',
     contextType: 'conversation',
     expectedEntries: [
       { type: 'guideline', mustContain: ['GraphQL', 'services'] },
@@ -1835,7 +1895,8 @@ Always include error code and descriptive message.`,
     id: 'adv-ie-002',
     name: 'Implicit in explicit - security context',
     category: 'implicit-in-explicit',
-    context: 'The payment service handles credit card data, so it runs in an isolated VPC with encryption at rest.',
+    context:
+      'The payment service handles credit card data, so it runs in an isolated VPC with encryption at rest.',
     contextType: 'conversation',
     expectedEntries: [
       { type: 'knowledge', mustContain: ['payment', 'VPC'] },
@@ -1891,7 +1952,8 @@ Always include error code and descriptive message.`,
     id: 'adv-tc-001',
     name: 'Temporal conflicts - framework change',
     category: 'temporal-conflicts',
-    context: 'We used to use Angular for everything. As of last month, all new development uses React. Angular code is being migrated.',
+    context:
+      'We used to use Angular for everything. As of last month, all new development uses React. Angular code is being migrated.',
     contextType: 'conversation',
     expectedEntries: [
       { type: 'guideline', mustContain: ['React', 'new'] },
@@ -1904,11 +1966,10 @@ Always include error code and descriptive message.`,
     id: 'adv-tc-002',
     name: 'Temporal conflicts - policy update',
     category: 'temporal-conflicts',
-    context: 'The old policy required 3 reviewers for PRs. We changed this to 2 reviewers last sprint because it was slowing us down.',
+    context:
+      'The old policy required 3 reviewers for PRs. We changed this to 2 reviewers last sprint because it was slowing us down.',
     contextType: 'conversation',
-    expectedEntries: [
-      { type: 'guideline', mustContain: ['2', 'reviewer'] },
-    ],
+    expectedEntries: [{ type: 'guideline', mustContain: ['2', 'reviewer'] }],
     shouldNotExtract: ['3 reviewers'],
     difficulty: 'hard',
     notes: 'Should extract current policy, not old one',
@@ -1917,7 +1978,8 @@ Always include error code and descriptive message.`,
     id: 'adv-tc-003',
     name: 'Temporal conflicts - deprecation',
     category: 'temporal-conflicts',
-    context: 'The v1 API is deprecated. Use v2 API for all new integrations. v1 will be removed in 6 months.',
+    context:
+      'The v1 API is deprecated. Use v2 API for all new integrations. v1 will be removed in 6 months.',
     contextType: 'conversation',
     expectedEntries: [
       { type: 'guideline', mustContain: ['v2', 'API'] },
@@ -1930,11 +1992,10 @@ Always include error code and descriptive message.`,
     id: 'adv-tc-004',
     name: 'Temporal conflicts - reversed decision',
     category: 'temporal-conflicts',
-    context: 'Initially we decided to use MongoDB. After performance testing, we reversed this and went with PostgreSQL instead.',
+    context:
+      'Initially we decided to use MongoDB. After performance testing, we reversed this and went with PostgreSQL instead.',
     contextType: 'conversation',
-    expectedEntries: [
-      { type: 'knowledge', mustContain: ['PostgreSQL'] },
-    ],
+    expectedEntries: [{ type: 'knowledge', mustContain: ['PostgreSQL'] }],
     shouldNotExtract: ['MongoDB'],
     difficulty: 'hard',
     notes: 'Should only extract final decision, not reversed one',
@@ -1943,7 +2004,8 @@ Always include error code and descriptive message.`,
     id: 'adv-tc-005',
     name: 'Temporal conflicts - incremental updates',
     category: 'temporal-conflicts',
-    context: 'Node 16 is EOL. We upgraded to Node 18 last quarter. Planning to move to Node 20 next month.',
+    context:
+      'Node 16 is EOL. We upgraded to Node 18 last quarter. Planning to move to Node 20 next month.',
     contextType: 'conversation',
     expectedEntries: [
       { type: 'knowledge', mustContain: ['Node', '18'] },
@@ -1959,14 +2021,16 @@ Always include error code and descriptive message.`,
  * Get test cases by category
  */
 export function getTestCasesByCategory(category: string): ExtractionTestCase[] {
-  return EXTRACTION_TEST_CASES.filter(tc => tc.category === category);
+  return EXTRACTION_TEST_CASES.filter((tc) => tc.category === category);
 }
 
 /**
  * Get test cases by difficulty
  */
-export function getTestCasesByDifficulty(difficulty: 'easy' | 'medium' | 'hard'): ExtractionTestCase[] {
-  return EXTRACTION_TEST_CASES.filter(tc => tc.difficulty === difficulty);
+export function getTestCasesByDifficulty(
+  difficulty: 'easy' | 'medium' | 'hard'
+): ExtractionTestCase[] {
+  return EXTRACTION_TEST_CASES.filter((tc) => tc.difficulty === difficulty);
 }
 
 /**

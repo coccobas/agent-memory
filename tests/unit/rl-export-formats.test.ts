@@ -18,7 +18,11 @@ import { exportAnthropic } from '../../src/services/rl/training/export/anthropic
 import { exportCSV } from '../../src/services/rl/training/export/csv.js';
 import { exportHuggingFace } from '../../src/services/rl/training/export/huggingface.js';
 import { exportOpenAI } from '../../src/services/rl/training/export/openai.js';
-import { exportDataset, detectFormat, createExportOptions } from '../../src/services/rl/training/export/index.js';
+import {
+  exportDataset,
+  detectFormat,
+  createExportOptions,
+} from '../../src/services/rl/training/export/index.js';
 
 // Mock fs/promises module
 vi.mock('fs/promises', async () => {
@@ -33,7 +37,9 @@ vi.mock('fs/promises', async () => {
 /**
  * Create sample extraction training example
  */
-function createExtractionExample(overrides?: Partial<ExtractionTrainingExample>): ExtractionTrainingExample {
+function createExtractionExample(
+  overrides?: Partial<ExtractionTrainingExample>
+): ExtractionTrainingExample {
   return {
     state: {
       contextFeatures: {
@@ -76,7 +82,9 @@ function createExtractionExample(overrides?: Partial<ExtractionTrainingExample>)
 /**
  * Create sample retrieval training example
  */
-function createRetrievalExample(overrides?: Partial<RetrievalTrainingExample>): RetrievalTrainingExample {
+function createRetrievalExample(
+  overrides?: Partial<RetrievalTrainingExample>
+): RetrievalTrainingExample {
   return {
     state: {
       queryFeatures: {
@@ -115,7 +123,9 @@ function createRetrievalExample(overrides?: Partial<RetrievalTrainingExample>): 
 /**
  * Create sample consolidation training example
  */
-function createConsolidationExample(overrides?: Partial<ConsolidationTrainingExample>): ConsolidationTrainingExample {
+function createConsolidationExample(
+  overrides?: Partial<ConsolidationTrainingExample>
+): ConsolidationTrainingExample {
   return {
     state: {
       groupFeatures: {
@@ -201,7 +211,7 @@ describe('Anthropic Export Format', () => {
 
     // Check train.jsonl exists and has correct format
     const trainContent = vol.readFileSync('/test/output/train.jsonl', 'utf-8') as string;
-    const trainLines = trainContent.split('\n').filter(line => line.trim());
+    const trainLines = trainContent.split('\n').filter((line) => line.trim());
     expect(trainLines).toHaveLength(8);
 
     const firstExample = JSON.parse(trainLines[0]!);
@@ -218,7 +228,7 @@ describe('Anthropic Export Format', () => {
     const result = await exportAnthropic(dataset, 'extraction', '/test/metadata', true);
 
     const trainContent = vol.readFileSync('/test/metadata/train.jsonl', 'utf-8') as string;
-    const trainLines = trainContent.split('\n').filter(line => line.trim());
+    const trainLines = trainContent.split('\n').filter((line) => line.trim());
     const example = JSON.parse(trainLines[0]!);
 
     expect(example).toHaveProperty('metadata');
@@ -233,7 +243,7 @@ describe('Anthropic Export Format', () => {
     const result = await exportAnthropic(dataset, 'extraction', '/test/no-metadata', false);
 
     const trainContent = vol.readFileSync('/test/no-metadata/train.jsonl', 'utf-8') as string;
-    const trainLines = trainContent.split('\n').filter(line => line.trim());
+    const trainLines = trainContent.split('\n').filter((line) => line.trim());
     const example = JSON.parse(trainLines[0]!);
 
     expect(example).not.toHaveProperty('metadata');
@@ -246,7 +256,7 @@ describe('Anthropic Export Format', () => {
     const result = await exportAnthropic(dataset, 'retrieval', '/test/retrieval');
 
     const trainContent = vol.readFileSync('/test/retrieval/train.jsonl', 'utf-8') as string;
-    const trainLines = trainContent.split('\n').filter(line => line.trim());
+    const trainLines = trainContent.split('\n').filter((line) => line.trim());
     const example = JSON.parse(trainLines[0]!);
 
     expect(example.prompt).toContain('retrieve information from memory');
@@ -261,7 +271,7 @@ describe('Anthropic Export Format', () => {
     const result = await exportAnthropic(dataset, 'consolidation', '/test/consolidation');
 
     const trainContent = vol.readFileSync('/test/consolidation/train.jsonl', 'utf-8') as string;
-    const trainLines = trainContent.split('\n').filter(line => line.trim());
+    const trainLines = trainContent.split('\n').filter((line) => line.trim());
     const example = JSON.parse(trainLines[0]!);
 
     expect(example.prompt).toContain('memory consolidation');
@@ -276,7 +286,7 @@ describe('Anthropic Export Format', () => {
     const result = await exportAnthropic(dataset, 'extraction', '/test/reward');
 
     const trainContent = vol.readFileSync('/test/reward/train.jsonl', 'utf-8') as string;
-    const trainLines = trainContent.split('\n').filter(line => line.trim());
+    const trainLines = trainContent.split('\n').filter((line) => line.trim());
     const example = JSON.parse(trainLines[0]!);
 
     expect(example.completion).toContain('reward of 0.950');
@@ -340,7 +350,7 @@ describe('Anthropic Export Format', () => {
     expect(result.success).toBe(true);
 
     const trainContent = vol.readFileSync('/test/special/train.jsonl', 'utf-8') as string;
-    const trainLines = trainContent.split('\n').filter(line => line.trim());
+    const trainLines = trainContent.split('\n').filter((line) => line.trim());
     const parsed = JSON.parse(trainLines[0]!);
 
     expect(parsed.metadata.sessionId).toBe('sess-"quoted"');
@@ -473,9 +483,9 @@ describe('CSV Export Format', () => {
     expect(lines[0]!).toMatch(/^split,/);
 
     // Data rows should have 'train' or 'eval'
-    const dataRows = lines.slice(1).filter(line => line.trim());
-    const trainRows = dataRows.filter(row => row.startsWith('train,'));
-    const evalRows = dataRows.filter(row => row.startsWith('eval,'));
+    const dataRows = lines.slice(1).filter((line) => line.trim());
+    const trainRows = dataRows.filter((row) => row.startsWith('train,'));
+    const evalRows = dataRows.filter((row) => row.startsWith('eval,'));
 
     expect(trainRows.length).toBe(8);
     expect(evalRows.length).toBe(2);
@@ -501,7 +511,10 @@ describe('CSV Export Format', () => {
 
     await exportCSV(dataset, 'extraction', '/test/analysis');
 
-    const templateContent = vol.readFileSync('/test/analysis/analysis_template.py', 'utf-8') as string;
+    const templateContent = vol.readFileSync(
+      '/test/analysis/analysis_template.py',
+      'utf-8'
+    ) as string;
 
     expect(templateContent).toContain('#!/usr/bin/env python3');
     expect(templateContent).toContain('import pandas as pd');
@@ -559,8 +572,8 @@ describe('CSV Export Format', () => {
     expect(columns[0]).toBe('reward');
 
     // State columns should come before action columns
-    const stateIdx = columns.findIndex(c => c.startsWith('state.'));
-    const actionIdx = columns.findIndex(c => c.startsWith('action.'));
+    const stateIdx = columns.findIndex((c) => c.startsWith('state.'));
+    const actionIdx = columns.findIndex((c) => c.startsWith('action.'));
     expect(stateIdx).toBeGreaterThan(0);
     expect(actionIdx).toBeGreaterThan(stateIdx);
   });
@@ -789,7 +802,7 @@ describe('OpenAI Export Format', () => {
     expect(result.files).toHaveLength(4); // train, eval, metadata, usage
 
     const trainContent = vol.readFileSync('/test/openai/train.jsonl', 'utf-8') as string;
-    const trainLines = trainContent.split('\n').filter(line => line.trim());
+    const trainLines = trainContent.split('\n').filter((line) => line.trim());
 
     expect(trainLines).toHaveLength(8);
 
@@ -806,7 +819,7 @@ describe('OpenAI Export Format', () => {
     await exportOpenAI(dataset, 'extraction', '/test/openai-msg');
 
     const trainContent = vol.readFileSync('/test/openai-msg/train.jsonl', 'utf-8') as string;
-    const trainLines = trainContent.split('\n').filter(line => line.trim());
+    const trainLines = trainContent.split('\n').filter((line) => line.trim());
     const example = JSON.parse(trainLines[0]!);
 
     const messages = example.messages;
@@ -826,7 +839,7 @@ describe('OpenAI Export Format', () => {
     await exportOpenAI(dataset, 'extraction', '/test/openai-ext');
 
     const trainContent = vol.readFileSync('/test/openai-ext/train.jsonl', 'utf-8') as string;
-    const trainLines = trainContent.split('\n').filter(line => line.trim());
+    const trainLines = trainContent.split('\n').filter((line) => line.trim());
     const example = JSON.parse(trainLines[0]!);
 
     const userMessage = example.messages[1].content;
@@ -844,7 +857,7 @@ describe('OpenAI Export Format', () => {
     await exportOpenAI(dataset, 'retrieval', '/test/openai-ret');
 
     const trainContent = vol.readFileSync('/test/openai-ret/train.jsonl', 'utf-8') as string;
-    const trainLines = trainContent.split('\n').filter(line => line.trim());
+    const trainLines = trainContent.split('\n').filter((line) => line.trim());
     const example = JSON.parse(trainLines[0]!);
 
     const userMessage = example.messages[1].content;
@@ -860,7 +873,7 @@ describe('OpenAI Export Format', () => {
     await exportOpenAI(dataset, 'consolidation', '/test/openai-cons');
 
     const trainContent = vol.readFileSync('/test/openai-cons/train.jsonl', 'utf-8') as string;
-    const trainLines = trainContent.split('\n').filter(line => line.trim());
+    const trainLines = trainContent.split('\n').filter((line) => line.trim());
     const example = JSON.parse(trainLines[0]!);
 
     const userMessage = example.messages[1].content;
@@ -877,7 +890,7 @@ describe('OpenAI Export Format', () => {
     await exportOpenAI(dataset, 'extraction', '/test/openai-action');
 
     const trainContent = vol.readFileSync('/test/openai-action/train.jsonl', 'utf-8') as string;
-    const trainLines = trainContent.split('\n').filter(line => line.trim());
+    const trainLines = trainContent.split('\n').filter((line) => line.trim());
     const example = JSON.parse(trainLines[0]!);
 
     const assistantMessage = example.messages[2].content;
@@ -972,7 +985,7 @@ describe('Export Orchestration', () => {
     expect(result.format).toBe('jsonl');
 
     const trainContent = vol.readFileSync('/test/jsonl/train.jsonl', 'utf-8') as string;
-    const trainLines = trainContent.split('\n').filter(line => line.trim());
+    const trainLines = trainContent.split('\n').filter((line) => line.trim());
 
     expect(trainLines).toHaveLength(4);
 
@@ -1069,8 +1082,8 @@ describe('Export Orchestration', () => {
     const trainContent = vol.readFileSync('/test/shuffled/train.jsonl', 'utf-8') as string;
     const rewards = trainContent
       .split('\n')
-      .filter(line => line.trim())
-      .map(line => JSON.parse(line).reward);
+      .filter((line) => line.trim())
+      .map((line) => JSON.parse(line).reward);
 
     // Check that rewards are not in sequential order
     const isSequential = rewards.every((r, i) => i === 0 || r === rewards[i - 1]! + 0.1);
@@ -1328,7 +1341,7 @@ describe('Edge Cases', () => {
     expect(result.success).toBe(true);
 
     const trainContent = vol.readFileSync('/test/unicode/train.jsonl', 'utf-8') as string;
-    const trainLines = trainContent.split('\n').filter(line => line.trim());
+    const trainLines = trainContent.split('\n').filter((line) => line.trim());
     const parsed = JSON.parse(trainLines[0]!);
 
     expect(parsed.metadata.description).toContain('你好');
@@ -1358,7 +1371,7 @@ describe('Edge Cases', () => {
     expect(result.success).toBe(true);
 
     const trainContent = vol.readFileSync('/test/missing-fields/train.jsonl', 'utf-8') as string;
-    const trainLines = trainContent.split('\n').filter(line => line.trim());
+    const trainLines = trainContent.split('\n').filter((line) => line.trim());
     const parsed = JSON.parse(trainLines[0]!);
 
     expect(parsed.action.decision).toBe('skip');

@@ -45,7 +45,7 @@ export function getRealisticCasesStats(): {
       'meeting-notes': MEETING_NOTES_CASES.length,
       'code-reviews': CODE_REVIEW_CASES.length,
       'issue-discussions': ISSUE_DISCUSSION_CASES.length,
-      'documentation': DOCUMENTATION_CASES.length,
+      documentation: DOCUMENTATION_CASES.length,
     },
     byDifficulty: {} as Record<string, number>,
     byCategory: {} as Record<string, number>,

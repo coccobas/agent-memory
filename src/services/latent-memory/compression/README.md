@@ -26,7 +26,7 @@ const compressor = createCompressor('random_projection', {
   inputDimension: 1536,
   outputDimension: 256,
   seed: 42, // For reproducibility
-  sparsity: 3
+  sparsity: 3,
 });
 
 // Compress embedding
@@ -50,7 +50,7 @@ const compressor = createCompressor('quantized', {
   outputDimension: 1536, // Same as input
   bits: 8,
   min: -1.0, // Optional: set if known
-  max: 1.0
+  max: 1.0,
 });
 
 const embedding = new Array(1536).fill(0).map(() => Math.random());
@@ -71,6 +71,7 @@ console.log(compressor.calculateSimilarity(embedding, compressed));
 Create a compression strategy instance.
 
 **Parameters:**
+
 - `method: 'random_projection' | 'quantized'` - Compression method
 - `config: CompressionConfig` - Configuration object
 
@@ -81,6 +82,7 @@ Create a compression strategy instance.
 Create default random projection compressor (1536 -> 256 dims).
 
 **Parameters:**
+
 - `seed?: number` - Random seed (default: 42)
 
 **Returns:** `RandomProjection`
@@ -107,6 +109,7 @@ new RandomProjection(config: RandomProjectionConfig)
 ```
 
 **Config:**
+
 - `inputDimension: number` - Input embedding size
 - `outputDimension: number` - Target compressed size
 - `seed?: number` - Random seed for reproducibility
@@ -133,6 +136,7 @@ new ScalarQuantization(config: QuantizationConfig)
 ```
 
 **Config:**
+
 - `inputDimension: number` - Input embedding size
 - `outputDimension: number` - Must equal inputDimension
 - `bits?: 8 | 16` - Quantization bits (default: 8)
@@ -195,25 +199,25 @@ console.log(`Memory saved: ${perf.memorySavingsPercent.toFixed(1)}%`);
 
 ### Random Projection
 
-| Metric | Value |
-|--------|-------|
-| Compression time | ~0.05ms per 1536->256 |
-| Memory overhead | ~20KB for projection matrix |
-| Compression ratio | 6x (1536 -> 256) |
-| Distance preservation | ~10% error with 256 dims |
-| Similarity preservation | 0.98+ cosine similarity |
-| Decompression | Not supported (lossy) |
+| Metric                  | Value                       |
+| ----------------------- | --------------------------- |
+| Compression time        | ~0.05ms per 1536->256       |
+| Memory overhead         | ~20KB for projection matrix |
+| Compression ratio       | 6x (1536 -> 256)            |
+| Distance preservation   | ~10% error with 256 dims    |
+| Similarity preservation | 0.98+ cosine similarity     |
+| Decompression           | Not supported (lossy)       |
 
 ### Scalar Quantization
 
-| Metric | Value (8-bit) |
-|--------|---------------|
-| Compression time | ~0.01ms per 1536 dims |
-| Memory overhead | Minimal |
-| Compression ratio | 4x (float32 -> int8) |
-| Reconstruction error | <1% typical |
+| Metric                  | Value (8-bit)            |
+| ----------------------- | ------------------------ |
+| Compression time        | ~0.01ms per 1536 dims    |
+| Memory overhead         | Minimal                  |
+| Compression ratio       | 4x (float32 -> int8)     |
+| Reconstruction error    | <1% typical              |
 | Similarity preservation | 0.999+ cosine similarity |
-| Decompression | Supported (approximate) |
+| Decompression           | Supported (approximate)  |
 
 ## Use Cases
 
@@ -242,14 +246,14 @@ For maximum compression, apply both strategies:
 const rp = createCompressor('random_projection', {
   inputDimension: 1536,
   outputDimension: 256,
-  seed: 42
+  seed: 42,
 });
 
 // 2. Quantize: float32 -> int8
 const quant = createCompressor('quantized', {
   inputDimension: 256,
   outputDimension: 256,
-  bits: 8
+  bits: 8,
 });
 
 const compressed = quant.compress(rp.compress(embedding));
@@ -271,6 +275,7 @@ where `ε` is the desired relative error.
 ### Sparse Random Projection
 
 Uses Achlioptas's sparse distribution for efficiency:
+
 - Values: {-1, 0, +1}
 - Probabilities: {1/6, 2/3, 1/6}
 - Scaling: 1/√k for distance preservation
@@ -278,6 +283,7 @@ Uses Achlioptas's sparse distribution for efficiency:
 ### Scalar Quantization
 
 Quantization formula:
+
 ```
 quantized = round((value - min) / (max - min) * (2^bits - 1))
 dequantized = (quantized / (2^bits - 1)) * (max - min) + min
@@ -293,7 +299,7 @@ Prioritize speed over accuracy:
 const compressor = createCompressor('random_projection', {
   inputDimension: 1536,
   outputDimension: 128, // Very aggressive compression
-  seed: 42
+  seed: 42,
 });
 ```
 
@@ -305,7 +311,7 @@ Preserve more information:
 const compressor = createCompressor('random_projection', {
   inputDimension: 1536,
   outputDimension: 512, // Less compression
-  seed: 42
+  seed: 42,
 });
 ```
 
@@ -319,7 +325,7 @@ const compressor = createCompressor('quantized', {
   outputDimension: 1536,
   bits: 8,
   min: -1.0,
-  max: 1.0
+  max: 1.0,
 });
 ```
 

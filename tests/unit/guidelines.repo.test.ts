@@ -215,8 +215,200 @@ describe('guidelineRepo', () => {
       const guideline = await guidelineRepo.getById(created.id);
       expect(guideline?.isActive).toBe(false);
     });
+
+    it('should return false for non-existent guideline', async () => {
+      const result = await guidelineRepo.deactivate('non-existent-id');
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('reactivate', () => {
+    it('should reactivate a deactivated guideline', async () => {
+      const created = await guidelineRepo.create({
+        scopeType: 'global',
+        name: 'reactivate-guideline',
+        content: 'Content',
+      });
+
+      await guidelineRepo.deactivate(created.id);
+      const deactivated = await guidelineRepo.getById(created.id);
+      expect(deactivated?.isActive).toBe(false);
+
+      const result = await guidelineRepo.reactivate(created.id);
+      expect(result).toBe(true);
+
+      const reactivated = await guidelineRepo.getById(created.id);
+      expect(reactivated?.isActive).toBe(true);
+    });
+
+    it('should return false for non-existent guideline', async () => {
+      const result = await guidelineRepo.reactivate('non-existent-id');
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('delete', () => {
+    it('should delete guideline and its versions', async () => {
+      const created = await guidelineRepo.create({
+        scopeType: 'global',
+        name: 'delete-guideline',
+        content: 'Content',
+      });
+
+      const result = await guidelineRepo.delete(created.id);
+      expect(result).toBe(true);
+
+      const guideline = await guidelineRepo.getById(created.id);
+      expect(guideline).toBeUndefined();
+    });
+
+    it('should return false for non-existent guideline', async () => {
+      const result = await guidelineRepo.delete('non-existent-id');
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('getByIds', () => {
+    it('should get multiple guidelines by IDs', async () => {
+      const guideline1 = await guidelineRepo.create({
+        scopeType: 'global',
+        name: 'getbyids-guideline-1',
+        content: 'Content 1',
+      });
+
+      const guideline2 = await guidelineRepo.create({
+        scopeType: 'global',
+        name: 'getbyids-guideline-2',
+        content: 'Content 2',
+      });
+
+      const guidelines = await guidelineRepo.getByIds([guideline1.id, guideline2.id]);
+
+      expect(guidelines).toHaveLength(2);
+      expect(guidelines.map((g) => g.id).sort()).toEqual([guideline1.id, guideline2.id].sort());
+    });
+
+    it('should return empty array for empty IDs array', async () => {
+      const guidelines = await guidelineRepo.getByIds([]);
+      expect(guidelines).toEqual([]);
+    });
+
+    it('should handle mix of existing and non-existing IDs', async () => {
+      const guideline = await guidelineRepo.create({
+        scopeType: 'global',
+        name: 'getbyids-mix-guideline',
+        content: 'Content',
+      });
+
+      const guidelines = await guidelineRepo.getByIds([guideline.id, 'non-existent-id']);
+
+      expect(guidelines).toHaveLength(1);
+      expect(guidelines[0]?.id).toBe(guideline.id);
+    });
+  });
+
+  describe('getByName', () => {
+    it('should get guideline by name at exact scope', async () => {
+      await guidelineRepo.create({
+        scopeType: 'global',
+        name: 'named-guideline',
+        content: 'Content',
+      });
+
+      const guideline = await guidelineRepo.getByName('named-guideline', 'global');
+
+      expect(guideline).toBeDefined();
+      expect(guideline?.name).toBe('named-guideline');
+    });
+
+    it('should return undefined for non-existent name', async () => {
+      const guideline = await guidelineRepo.getByName('non-existent-name', 'global');
+      expect(guideline).toBeUndefined();
+    });
+
+    it('should inherit from global scope when not found at project scope', async () => {
+      const org = createTestOrg(testDb.db, 'Inherit Test Org');
+      const project = createTestProject(testDb.db, 'Inherit Test Project', org.id);
+
+      // Create guideline at global scope
+      await guidelineRepo.create({
+        scopeType: 'global',
+        name: 'inherited-guideline',
+        content: 'Global content',
+      });
+
+      // Search at project scope with inherit=true (default)
+      const guideline = await guidelineRepo.getByName('inherited-guideline', 'project', project.id);
+
+      expect(guideline).toBeDefined();
+      expect(guideline?.name).toBe('inherited-guideline');
+      expect(guideline?.scopeType).toBe('global');
+    });
+
+    it('should not inherit when inherit=false', async () => {
+      const org = createTestOrg(testDb.db, 'No Inherit Org');
+      const project = createTestProject(testDb.db, 'No Inherit Project', org.id);
+
+      // Create guideline at global scope
+      await guidelineRepo.create({
+        scopeType: 'global',
+        name: 'no-inherit-guideline',
+        content: 'Global content',
+      });
+
+      // Search at project scope with inherit=false
+      const guideline = await guidelineRepo.getByName(
+        'no-inherit-guideline',
+        'project',
+        project.id,
+        false
+      );
+
+      expect(guideline).toBeUndefined();
+    });
+  });
+
+  describe('update edge cases', () => {
+    it('should return undefined when updating non-existent guideline', async () => {
+      const result = await guidelineRepo.update('non-existent-id', {
+        content: 'New content',
+      });
+
+      expect(result).toBeUndefined();
+    });
+
+    it('should update category', async () => {
+      const created = await guidelineRepo.create({
+        scopeType: 'global',
+        name: 'update-category-guideline',
+        content: 'Content',
+        category: 'coding',
+      });
+
+      const updated = await guidelineRepo.update(created.id, {
+        category: 'security',
+      });
+
+      expect(updated?.category).toBe('security');
+    });
+
+    it('should update scope', async () => {
+      const org = createTestOrg(testDb.db, 'Update Scope Org');
+      const project = createTestProject(testDb.db, 'Update Scope Project', org.id);
+
+      const created = await guidelineRepo.create({
+        scopeType: 'global',
+        name: 'update-scope-guideline',
+        content: 'Content',
+      });
+
+      const updated = await guidelineRepo.update(created.id, {
+        scopeType: 'project',
+        scopeId: project.id,
+      });
+
+      expect(updated?.scopeType).toBe('project');
+      expect(updated?.scopeId).toBe(project.id);
+    });
   });
 });
-
-
-

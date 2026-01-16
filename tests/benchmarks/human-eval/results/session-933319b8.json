@@ -5,10 +5,7 @@
   "startedAt": "2025-12-31T13:40:53.144Z",
   "totalItems": 2,
   "completedItems": 2,
-  "completedTestCaseIds": [
-    "demo-001",
-    "demo-002"
-  ],
+  "completedTestCaseIds": ["demo-001", "demo-002"],
   "skippedItems": 0,
   "skippedTestCaseIds": [],
   "evaluations": [

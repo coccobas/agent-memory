@@ -5,7 +5,7 @@
  * Supports optional file output to configured export directory
  */
 
-import { writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { writeFileSync, mkdirSync, existsSync, realpathSync } from 'node:fs';
 import { join, basename, resolve, relative, isAbsolute } from 'node:path';
 import {
   exportToJson,
@@ -57,7 +57,7 @@ function exportEntries(context: AppContext, params: Record<string, unknown>) {
 
   const denied = requestedTypes.filter(
     (t) =>
-      !context.services!.permission.check(
+      !context.services.permission.check(
         agentId,
         'read',
         typeToEntryType[t],
@@ -124,19 +124,45 @@ function exportEntries(context: AppContext, params: Record<string, unknown>) {
       : `${exportParams.filename}${ext}`;
 
     // Security: Prevent path traversal attacks
-    // Only allow basename - reject paths with directory separators or traversal sequences
+    // Only allow basename - reject paths with directory separators, traversal sequences, and null bytes
     const safeFilename = basename(filename);
-    if (safeFilename !== filename || filename.includes('..')) {
+    if (safeFilename !== filename || filename.includes('..') || filename.includes('\0')) {
       throw createValidationError(
         'filename',
         'contains invalid path characters',
-        'Use a simple filename without directory separators'
+        'Use a simple filename without directory separators or null bytes'
       );
     }
 
     filePath = join(exportDir, safeFilename);
 
-    // Double-check resolved path stays within exportDir
+    // Security: Prevent symlink attacks - check if target exists and resolve real path
+    if (existsSync(filePath)) {
+      try {
+        // Resolve symlinks to real path
+        const realPath = realpathSync(filePath);
+        const realExportDir = realpathSync(exportDir);
+
+        // Verify real path is within export directory
+        const relPath = relative(realExportDir, realPath);
+        if (relPath.startsWith('..') || isAbsolute(relPath)) {
+          throw createValidationError(
+            'filename',
+            'Target path (resolved) is outside export directory',
+            'Remove symlink or use different filename'
+          );
+        }
+      } catch (error) {
+        // realpathSync throws if symlink target doesn't exist
+        throw createValidationError(
+          'filename',
+          'Cannot resolve target path - invalid symlink',
+          'Remove symlink or use different filename'
+        );
+      }
+    }
+
+    // Double-check resolved path stays within exportDir (pre-write validation)
     const resolvedPath = resolve(filePath);
     const resolvedExportDir = resolve(exportDir);
     const relPath = relative(resolvedExportDir, resolvedPath);
@@ -148,6 +174,7 @@ function exportEntries(context: AppContext, params: Record<string, unknown>) {
       );
     }
 
+    // Safe to write - no symlink attack possible
     writeFileSync(filePath, result.content, 'utf-8');
   }
 

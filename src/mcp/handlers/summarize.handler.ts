@@ -21,15 +21,17 @@ import { formatTimestamps } from '../../utils/timestamp-formatter.js';
 import type { EntryType } from '../../db/schema.js';
 import type { HierarchyLevel, SummaryEntry } from '../../services/summarization/types.js';
 import { HierarchicalSummarizationService } from '../../services/summarization/hierarchical-summarization.service.js';
-import { EmbeddingService } from '../../services/embedding.service.js';
-import { ExtractionService } from '../../services/extraction.service.js';
+import type { EmbeddingService } from '../../services/embedding.service.js';
+import type { ExtractionService } from '../../services/extraction.service.js';
 
 // =============================================================================
 // TYPE GUARDS
 // =============================================================================
 
 function isEntryType(value: unknown): value is EntryType {
-  return value === 'tool' || value === 'guideline' || value === 'knowledge' || value === 'experience';
+  return (
+    value === 'tool' || value === 'guideline' || value === 'knowledge' || value === 'experience'
+  );
 }
 
 function isEntryTypeArray(value: unknown): value is EntryType[] {
@@ -104,12 +106,14 @@ async function buildSummaries(
     scopeId,
     summariesByLevel: result.summariesByLevel,
     stats: result.stats,
-    topLevelSummary: result.topLevelSummary ? {
-      id: result.topLevelSummary.id,
-      title: result.topLevelSummary.title,
-      hierarchyLevel: result.topLevelSummary.hierarchyLevel,
-      memberCount: result.topLevelSummary.memberCount,
-    } : undefined,
+    topLevelSummary: result.topLevelSummary
+      ? {
+          id: result.topLevelSummary.id,
+          title: result.topLevelSummary.title,
+          hierarchyLevel: result.topLevelSummary.hierarchyLevel,
+          memberCount: result.topLevelSummary.memberCount,
+        }
+      : undefined,
     message: forceRebuild
       ? `Rebuilt ${result.summariesCreated} summaries across ${result.levelsBuilt} hierarchy levels`
       : `Created ${result.summariesCreated} new summaries across ${result.levelsBuilt} hierarchy levels`,
@@ -119,10 +123,7 @@ async function buildSummaries(
 /**
  * Get build status for a scope
  */
-async function getStatus(
-  context: AppContext,
-  params: Record<string, unknown>
-): Promise<unknown> {
+async function getStatus(context: AppContext, params: Record<string, unknown>): Promise<unknown> {
   const scopeType = getRequiredParam(params, 'scopeType', isScopeType);
   const scopeId = getOptionalParam(params, 'scopeId', isString);
 
@@ -162,10 +163,7 @@ async function getStatus(
 /**
  * Get a single summary by ID
  */
-async function getSummary(
-  context: AppContext,
-  params: Record<string, unknown>
-): Promise<unknown> {
+async function getSummary(context: AppContext, params: Record<string, unknown>): Promise<unknown> {
   const id = getRequiredParam(params, 'id', isString);
 
   // Validate required services
@@ -260,10 +258,7 @@ async function searchSummaries(
 /**
  * Drill down from a summary to its child summaries
  */
-async function drillDown(
-  context: AppContext,
-  params: Record<string, unknown>
-): Promise<unknown> {
+async function drillDown(context: AppContext, params: Record<string, unknown>): Promise<unknown> {
   const summaryId = getRequiredParam(params, 'summaryId', isString);
 
   // Validate required services

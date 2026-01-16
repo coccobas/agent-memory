@@ -9,10 +9,7 @@
 export { getEnvNumber, getEnvInt, getEnvBoolean } from './helpers.js';
 
 // Extraction builders and types
-export {
-  buildExtractionThresholds,
-  type ExtractionConfidenceThresholds,
-} from './extraction.js';
+export { buildExtractionThresholds, type ExtractionConfidenceThresholds } from './extraction.js';
 
 // Rate limit builders and types
 export {
@@ -23,10 +20,7 @@ export {
 } from './rate-limit.js';
 
 // Recency builders and types
-export {
-  buildRecencyDecayHalfLife,
-  type RecencyDecayHalfLifeDays,
-} from './recency.js';
+export { buildRecencyDecayHalfLife, type RecencyDecayHalfLifeDays } from './recency.js';
 
 // Scoring builders and types
 export {

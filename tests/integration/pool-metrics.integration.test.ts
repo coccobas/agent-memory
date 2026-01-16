@@ -197,10 +197,9 @@ describe.skipIf(!isPostgreSQLAvailable)('Pool Metrics Integration', () => {
     });
 
     it('should record metrics on start', () => {
-      const recorder = createPoolMetricsRecorder(
-        () => adapter.getPoolStats(),
-        { maxConnections: testConfig.poolMax }
-      );
+      const recorder = createPoolMetricsRecorder(() => adapter.getPoolStats(), {
+        maxConnections: testConfig.poolMax,
+      });
 
       recorder.start();
 
@@ -212,10 +211,9 @@ describe.skipIf(!isPostgreSQLAvailable)('Pool Metrics Integration', () => {
     });
 
     it('should handle adapter lifecycle', async () => {
-      const recorder = createPoolMetricsRecorder(
-        () => adapter.getPoolStats(),
-        { maxConnections: testConfig.poolMax }
-      );
+      const recorder = createPoolMetricsRecorder(() => adapter.getPoolStats(), {
+        maxConnections: testConfig.poolMax,
+      });
 
       // Start recording
       recorder.start();
@@ -291,10 +289,9 @@ describe.skipIf(!isPostgreSQLAvailable)('Pool Metrics Integration', () => {
     });
 
     it('should track pool health over time', async () => {
-      const recorder = createPoolMetricsRecorder(
-        () => adapter.getPoolStats(),
-        { maxConnections: testConfig.poolMax }
-      );
+      const recorder = createPoolMetricsRecorder(() => adapter.getPoolStats(), {
+        maxConnections: testConfig.poolMax,
+      });
 
       recorder.start();
 

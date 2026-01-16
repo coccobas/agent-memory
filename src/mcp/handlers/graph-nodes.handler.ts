@@ -13,7 +13,11 @@ import {
   isScopeType,
   isBoolean,
 } from '../../utils/type-guards.js';
-import { createValidationError, createNotFoundError, createPermissionError } from '../../core/errors.js';
+import {
+  createValidationError,
+  createNotFoundError,
+  createPermissionError,
+} from '../../core/errors.js';
 import { logAction } from '../../services/audit.service.js';
 import type { ScopeType } from '../../db/schema.js';
 
@@ -33,7 +37,7 @@ function requireGraphPermission(
   scopeType: ScopeType = 'global',
   scopeId: string | null = null
 ): void {
-  const hasPermission = context.services!.permission.check(
+  const hasPermission = context.services.permission.check(
     agentId,
     permission,
     'knowledge', // Graph operations are knowledge-related

@@ -6,10 +6,7 @@ import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from 'vites
 import { EntityIndex, resetEntityIndex } from '../../../src/services/query/entity-index.js';
 import { EntityExtractor } from '../../../src/services/query/entity-extractor.js';
 import { entityIndex } from '../../../src/db/schema/entity-index.js';
-import {
-  setupTestDb,
-  cleanupTestDb,
-} from '../../fixtures/test-helpers.js';
+import { setupTestDb, cleanupTestDb } from '../../fixtures/test-helpers.js';
 import type { DbClient } from '../../../src/db/connection.js';
 
 const TEST_DB_PATH = './data/test-entity-index.db';
@@ -191,12 +188,16 @@ describe('EntityIndex', () => {
 
   describe('getEntitiesForEntry', () => {
     it('should return all entities for an entry', async () => {
-      await index.indexEntry('entry-1', 'knowledge', 'Check ./file.ts for executeQuery npm install');
+      await index.indexEntry(
+        'entry-1',
+        'knowledge',
+        'Check ./file.ts for executeQuery npm install'
+      );
 
       const entities = index.getEntitiesForEntry('entry-1');
 
       expect(entities.length).toBeGreaterThanOrEqual(2);
-      expect(entities.some(e => e.type === 'FILE_PATH')).toBe(true);
+      expect(entities.some((e) => e.type === 'FILE_PATH')).toBe(true);
     });
   });
 

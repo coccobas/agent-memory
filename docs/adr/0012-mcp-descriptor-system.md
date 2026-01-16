@@ -7,12 +7,14 @@ Accepted
 ## Context
 
 The MCP (Model Context Protocol) server exposes many tools, each requiring:
+
 - Input parameter schema (JSON Schema)
 - Handler function
 - Description for AI consumption
 - Consistent error handling
 
 Hand-coding each tool's schema and handler leads to:
+
 - Boilerplate duplication
 - Inconsistent parameter validation
 - Divergence between schema and implementation
@@ -23,6 +25,7 @@ Implement a descriptor-based system for tool definition:
 
 **Tool Descriptors:**
 Each tool is defined by a descriptor object:
+
 ```typescript
 interface ToolDescriptor {
   name: string;
@@ -34,6 +37,7 @@ interface ToolDescriptor {
 
 **Factory Pattern for CRUD Operations:**
 `createCrudHandlers()` generates standard handlers:
+
 - `add`: Create new entry
 - `update`: Modify existing entry
 - `get`: Retrieve by ID or name
@@ -44,6 +48,7 @@ interface ToolDescriptor {
 - `bulk_add`, `bulk_update`, `bulk_delete`: Batch operations
 
 **Handler Configuration:**
+
 ```typescript
 createCrudHandlers<Entry, CreateInput, UpdateInput>({
   entryType: 'guideline',
@@ -57,12 +62,14 @@ createCrudHandlers<Entry, CreateInput, UpdateInput>({
 ## Consequences
 
 **Positive:**
+
 - Consistent behavior across all entry types
 - Single source of truth for CRUD operations
 - Reduced boilerplate (each entry type is ~50 lines)
 - Easy to add new entry types
 
 **Negative:**
+
 - Learning curve for the factory pattern
 - Custom operations require breaking out of the pattern
 - Debugging through abstraction layers

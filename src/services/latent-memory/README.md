@@ -55,9 +55,9 @@ const l2Cache = createMemoryCacheAdapter(
 // Create KV cache service
 const kvCache = createKVCacheService(l2Cache, {
   l1MaxSize: 1000,
-  l1TtlMs: 600000,      // 10 minutes
-  l2TtlMs: 86400000,    // 24 hours
-  sessionScope: true
+  l1TtlMs: 600000, // 10 minutes
+  l2TtlMs: 86400000, // 24 hours
+  sessionScope: true,
 });
 ```
 
@@ -74,7 +74,7 @@ const memory: LatentMemory = {
   textPreview: 'TypeScript best practices...',
   importanceScore: 0.85,
   lastAccessedAt: new Date().toISOString(),
-  accessCount: 0
+  accessCount: 0,
 };
 
 await kvCache.set(memory, 'session-abc');
@@ -91,11 +91,11 @@ if (memory) {
 
 ### Configuration Options
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `l1MaxSize` | `number` | 1000 | Maximum L1 cache entries |
-| `l1TtlMs` | `number` | 600000 | L1 TTL in milliseconds (10 min) |
-| `l2TtlMs` | `number` | 86400000 | L2 TTL in milliseconds (24 hours) |
-| `sessionScope` | `boolean` | true | Enable session-scoped cache keys |
+| Option         | Type      | Default  | Description                       |
+| -------------- | --------- | -------- | --------------------------------- |
+| `l1MaxSize`    | `number`  | 1000     | Maximum L1 cache entries          |
+| `l1TtlMs`      | `number`  | 600000   | L1 TTL in milliseconds (10 min)   |
+| `l2TtlMs`      | `number`  | 86400000 | L2 TTL in milliseconds (24 hours) |
+| `sessionScope` | `boolean` | true     | Enable session-scoped cache keys  |
 
 See `kv-cache.example.ts` for comprehensive usage examples.

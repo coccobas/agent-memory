@@ -433,7 +433,10 @@ describe('PgVectorStore', () => {
 
       await l2Store.search([0.1, 0.2, 0.3], { limit: 10 });
 
-      expect(mockClient.query).toHaveBeenCalledWith(expect.stringContaining('<->'), expect.any(Array));
+      expect(mockClient.query).toHaveBeenCalledWith(
+        expect.stringContaining('<->'),
+        expect.any(Array)
+      );
     });
 
     it('should use correct operator for dot product metric', async () => {
@@ -450,7 +453,10 @@ describe('PgVectorStore', () => {
 
       await dotStore.search([0.1, 0.2, 0.3], { limit: 10 });
 
-      expect(mockClient.query).toHaveBeenCalledWith(expect.stringContaining('<#>'), expect.any(Array));
+      expect(mockClient.query).toHaveBeenCalledWith(
+        expect.stringContaining('<#>'),
+        expect.any(Array)
+      );
     });
   });
 });

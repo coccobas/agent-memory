@@ -27,10 +27,16 @@ import {
   type TestDb,
 } from '../fixtures/test-helpers.js';
 import { PermissionService, type ParentScopeValue } from '../../src/services/permission.service.js';
-import { createProjectRepository, createSessionRepository } from '../../src/db/repositories/scopes.js';
+import {
+  createProjectRepository,
+  createSessionRepository,
+} from '../../src/db/repositories/scopes.js';
 import { LRUCache } from '../../src/utils/lru-cache.js';
 import { createMemoryCacheAdapter } from '../../src/core/adapters/memory-cache.adapter.js';
-import type { IProjectRepository, ISessionRepository } from '../../src/core/interfaces/repositories.js';
+import type {
+  IProjectRepository,
+  ISessionRepository,
+} from '../../src/core/interfaces/repositories.js';
 import * as schema from '../../src/db/schema.js';
 import { eq, and } from 'drizzle-orm';
 
@@ -49,12 +55,19 @@ async function runConcurrently<T>(...promises: Array<() => Promise<T>>): Promise
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 describe('Permission Race Conditions (TOCTOU)', () => {
-  let previousPermMode: string | undefined;
+  // Store original auth-related env vars
+  const originalEnv: Record<string, string | undefined> = {};
 
   beforeAll(() => {
-    // Disable permissive mode for permission tests
-    previousPermMode = process.env.AGENT_MEMORY_PERMISSIONS_MODE;
+    // Save and clear all auth-related env vars for clean test state
+    originalEnv.AGENT_MEMORY_PERMISSIONS_MODE = process.env.AGENT_MEMORY_PERMISSIONS_MODE;
+    originalEnv.AGENT_MEMORY_DEV_MODE = process.env.AGENT_MEMORY_DEV_MODE;
+    originalEnv.AGENT_MEMORY_ALLOW_PERMISSIVE = process.env.AGENT_MEMORY_ALLOW_PERMISSIVE;
+
+    // Disable permissive/dev mode for permission tests
     delete process.env.AGENT_MEMORY_PERMISSIONS_MODE;
+    delete process.env.AGENT_MEMORY_DEV_MODE;
+    delete process.env.AGENT_MEMORY_ALLOW_PERMISSIVE;
 
     testDb = setupTestDb(TEST_DB_PATH);
     const permissionLru = new LRUCache<ParentScopeValue>({ maxSize: 500, ttlMs: 5 * 60 * 1000 });
@@ -65,9 +78,13 @@ describe('Permission Race Conditions (TOCTOU)', () => {
   });
 
   afterAll(() => {
-    // Restore previous permission mode
-    if (previousPermMode !== undefined) {
-      process.env.AGENT_MEMORY_PERMISSIONS_MODE = previousPermMode;
+    // Restore all original env vars
+    for (const [key, value] of Object.entries(originalEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
     }
     testDb.sqlite.close();
     cleanupTestDb(TEST_DB_PATH);
@@ -247,14 +264,7 @@ describe('Permission Race Conditions (TOCTOU)', () => {
 
       const checkPerm1 = async () => {
         await delay(5);
-        return permissionService.check(
-          'agent-cache-poison',
-          'admin',
-          'tool',
-          null,
-          'global',
-          null
-        );
+        return permissionService.check('agent-cache-poison', 'admin', 'tool', null, 'global', null);
       };
 
       const revokePerm = async () => {
@@ -268,14 +278,7 @@ describe('Permission Race Conditions (TOCTOU)', () => {
 
       const checkPerm2 = async () => {
         await delay(15);
-        return permissionService.check(
-          'agent-cache-poison',
-          'admin',
-          'tool',
-          null,
-          'global',
-          null
-        );
+        return permissionService.check('agent-cache-poison', 'admin', 'tool', null, 'global', null);
       };
 
       const [, check1, , check2] = await runConcurrently(
@@ -827,9 +830,9 @@ describe('Permission Race Conditions (TOCTOU)', () => {
 
       // All permissions should be revoked
       agentIds.forEach((agentId) => {
-        expect(
-          permissionService.check(agentId, 'read', 'guideline', null, 'global', null)
-        ).toBe(false);
+        expect(permissionService.check(agentId, 'read', 'guideline', null, 'global', null)).toBe(
+          false
+        );
       });
     });
   });
@@ -985,7 +988,14 @@ describe('Permission Race Conditions (TOCTOU)', () => {
         const results: boolean[] = [];
         for (let i = 0; i < 20; i++) {
           results.push(
-            permissionService.check('agent-chain', 'write', 'knowledge', null, 'project', project1.id)
+            permissionService.check(
+              'agent-chain',
+              'write',
+              'knowledge',
+              null,
+              'project',
+              project1.id
+            )
           );
           await delay(1);
         }
@@ -996,7 +1006,14 @@ describe('Permission Race Conditions (TOCTOU)', () => {
         const results: boolean[] = [];
         for (let i = 0; i < 20; i++) {
           results.push(
-            permissionService.check('agent-chain', 'write', 'knowledge', null, 'project', project2.id)
+            permissionService.check(
+              'agent-chain',
+              'write',
+              'knowledge',
+              null,
+              'project',
+              project2.id
+            )
           );
           await delay(1);
         }
@@ -1190,9 +1207,7 @@ describe('Permission Race Conditions (TOCTOU)', () => {
 
       const doubleCheckOperation = async () => {
         // First check
-        if (
-          permissionService.check('agent-double-check', 'admin', 'tool', null, 'global', null)
-        ) {
+        if (permissionService.check('agent-double-check', 'admin', 'tool', null, 'global', null)) {
           checkCount.first++;
           await delay(10);
 

@@ -45,11 +45,7 @@ export function createNodeRepository(deps: DatabaseDeps): INodeRepository {
    * Resolve node type ID from name
    */
   function resolveNodeTypeId(typeName: string): string {
-    const nodeType = db
-      .select()
-      .from(nodeTypes)
-      .where(eq(nodeTypes.name, typeName))
-      .get();
+    const nodeType = db.select().from(nodeTypes).where(eq(nodeTypes.name, typeName)).get();
 
     if (!nodeType) {
       throw createValidationError('nodeTypeName', `Node type '${typeName}' not found`);
@@ -64,18 +60,10 @@ export function createNodeRepository(deps: DatabaseDeps): INodeRepository {
     const node = db.select().from(nodes).where(eq(nodes.id, id)).get();
     if (!node) return undefined;
 
-    const nodeType = db
-      .select()
-      .from(nodeTypes)
-      .where(eq(nodeTypes.id, node.nodeTypeId))
-      .get();
+    const nodeType = db.select().from(nodeTypes).where(eq(nodeTypes.id, node.nodeTypeId)).get();
 
     const currentVersion = node.currentVersionId
-      ? db
-          .select()
-          .from(nodeVersions)
-          .where(eq(nodeVersions.id, node.currentVersionId))
-          .get()
+      ? db.select().from(nodeVersions).where(eq(nodeVersions.id, node.currentVersionId)).get()
       : undefined;
 
     return {
@@ -97,7 +85,7 @@ export function createNodeRepository(deps: DatabaseDeps): INodeRepository {
         throw createValidationError('scopeType', 'scopeType is required');
       }
 
-      return await transactionWithRetry(sqlite!, () => {
+      return await transactionWithRetry(sqlite, () => {
         const nodeTypeId = resolveNodeTypeId(input.nodeTypeName);
         const nodeId = generateId();
         const versionId = generateId();
@@ -160,10 +148,7 @@ export function createNodeRepository(deps: DatabaseDeps): INodeRepository {
         db.insert(nodeVersions).values(version).run();
 
         // Update currentVersionId
-        db.update(nodes)
-          .set({ currentVersionId: versionId })
-          .where(eq(nodes.id, nodeId))
-          .run();
+        db.update(nodes).set({ currentVersionId: versionId }).where(eq(nodes.id, nodeId)).run();
 
         const result = getByIdSync(nodeId);
         if (!result) {
@@ -185,11 +170,7 @@ export function createNodeRepository(deps: DatabaseDeps): INodeRepository {
       scopeType: ScopeType,
       scopeId?: string
     ): Promise<GraphNodeWithVersion | undefined> {
-      const nodeType = db
-        .select()
-        .from(nodeTypes)
-        .where(eq(nodeTypes.name, nodeTypeName))
-        .get();
+      const nodeType = db.select().from(nodeTypes).where(eq(nodeTypes.name, nodeTypeName)).get();
 
       if (!nodeType) return undefined;
 
@@ -332,7 +313,7 @@ export function createNodeRepository(deps: DatabaseDeps): INodeRepository {
       id: string,
       input: UpdateGraphNodeInput
     ): Promise<GraphNodeWithVersion | undefined> {
-      return await transactionWithRetry(sqlite!, () => {
+      return await transactionWithRetry(sqlite, () => {
         const existing = db.select().from(nodes).where(eq(nodes.id, id)).get();
         if (!existing) return undefined;
 
@@ -426,7 +407,7 @@ export function createNodeRepository(deps: DatabaseDeps): INodeRepository {
     },
 
     async delete(id: string): Promise<boolean> {
-      return await transactionWithRetry(sqlite!, () => {
+      return await transactionWithRetry(sqlite, () => {
         const existing = db.select().from(nodes).where(eq(nodes.id, id)).get();
         if (!existing) return false;
 

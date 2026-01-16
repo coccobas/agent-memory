@@ -232,8 +232,18 @@ describe('sanitizeErrorMessage', () => {
       });
 
       it('should redact /mnt, /lib, /bin, /sbin, /proc, /sys, /boot, /dev, /run paths', () => {
-        const paths = ['/mnt/data', '/lib/x86_64', '/bin/bash', '/sbin/init', '/proc/1', '/sys/class', '/boot/grub', '/dev/sda1', '/run/lock'];
-        paths.forEach(path => {
+        const paths = [
+          '/mnt/data',
+          '/lib/x86_64',
+          '/bin/bash',
+          '/sbin/init',
+          '/proc/1',
+          '/sys/class',
+          '/boot/grub',
+          '/dev/sda1',
+          '/run/lock',
+        ];
+        paths.forEach((path) => {
           const message = `Error at ${path}`;
           expect(sanitizeErrorMessage(message)).toBe('Error at [REDACTED_PATH]');
         });
@@ -260,12 +270,14 @@ describe('sanitizeErrorMessage', () => {
 
       it('should redact multiple IP addresses', () => {
         const message = 'Proxy 10.0.0.1 failed to reach 172.16.0.50';
-        expect(sanitizeErrorMessage(message)).toBe('Proxy [REDACTED_IP] failed to reach [REDACTED_IP]');
+        expect(sanitizeErrorMessage(message)).toBe(
+          'Proxy [REDACTED_IP] failed to reach [REDACTED_IP]'
+        );
       });
 
       it('should redact edge case IPs', () => {
         const ips = ['0.0.0.0', '255.255.255.255', '127.0.0.1'];
-        ips.forEach(ip => {
+        ips.forEach((ip) => {
           const message = `Server at ${ip}`;
           expect(sanitizeErrorMessage(message)).toBe('Server at [REDACTED_IP]');
         });
@@ -275,7 +287,9 @@ describe('sanitizeErrorMessage', () => {
     describe('Connection string sanitization', () => {
       it('should redact PostgreSQL connection strings', () => {
         const message = 'Failed to connect to postgres://user:pass@localhost:5432/db';
-        expect(sanitizeErrorMessage(message)).toBe('Failed to connect to [REDACTED_CONNECTION_STRING]');
+        expect(sanitizeErrorMessage(message)).toBe(
+          'Failed to connect to [REDACTED_CONNECTION_STRING]'
+        );
       });
 
       it('should redact MySQL connection strings', () => {
@@ -313,7 +327,8 @@ describe('sanitizeErrorMessage', () => {
 
     describe('Combined sanitization', () => {
       it('should redact multiple sensitive patterns', () => {
-        const message = 'Connection from 192.168.1.1 to postgres://user:pass@10.0.0.5/db failed at /home/user/app.ts:50:10';
+        const message =
+          'Connection from 192.168.1.1 to postgres://user:pass@10.0.0.5/db failed at /home/user/app.ts:50:10';
         const sanitized = sanitizeErrorMessage(message);
         expect(sanitized).not.toContain('192.168.1.1');
         expect(sanitized).not.toContain('10.0.0.5');
@@ -417,7 +432,10 @@ describe('Error Factory Functions', () => {
     });
 
     it('should create vector db error with details', () => {
-      const error = createVectorDbError('insert', 'Dimension mismatch', { expected: 384, actual: 512 });
+      const error = createVectorDbError('insert', 'Dimension mismatch', {
+        expected: 384,
+        actual: 512,
+      });
       expect(error.context?.expected).toBe(384);
       expect(error.context?.actual).toBe(512);
     });
@@ -526,6 +544,293 @@ describe('Error Factory Functions', () => {
       const error = createEmbeddingEmptyTextError();
       expect(error.message).toContain('empty');
       expect(error.code).toBe(ErrorCodes.EMBEDDING_EMPTY_TEXT);
+    });
+  });
+});
+
+// Import ErrorBuilder for testing
+import { ErrorBuilder } from '../../src/core/errors.js';
+
+describe('ErrorBuilder', () => {
+  describe('validation()', () => {
+    it('should create a validation error builder with field', () => {
+      const error = ErrorBuilder.validation('email').build('Invalid email format');
+      expect(error.code).toBe(ErrorCodes.MISSING_REQUIRED_FIELD);
+      expect(error.context?.field).toBe('email');
+      expect(error.message).toBe('Invalid email format');
+    });
+
+    it('should generate default message when none provided', () => {
+      const error = ErrorBuilder.validation('username').build();
+      expect(error.message).toBe('Validation error: username');
+    });
+  });
+
+  describe('notFound()', () => {
+    it('should create a not found error builder with resource', () => {
+      const error = ErrorBuilder.notFound('project').build();
+      expect(error.code).toBe(ErrorCodes.NOT_FOUND);
+      expect(error.context?.resource).toBe('project');
+      expect(error.message).toBe('project not found');
+    });
+
+    it('should create a not found error with identifier', () => {
+      const error = ErrorBuilder.notFound('project', 'proj-123').build();
+      expect(error.context?.identifier).toBe('proj-123');
+      expect(error.message).toBe('project not found: proj-123');
+    });
+
+    it('should include default suggestion', () => {
+      const error = ErrorBuilder.notFound('tool').build();
+      expect(error.context?.suggestion).toContain('tool');
+      expect(error.context?.suggestion).toContain('exists');
+    });
+  });
+
+  describe('permission()', () => {
+    it('should create a permission error builder', () => {
+      const error = ErrorBuilder.permission('write', 'guideline').build();
+      expect(error.code).toBe(ErrorCodes.PERMISSION_DENIED);
+      expect(error.context?.action).toBe('write');
+      expect(error.context?.resource).toBe('guideline');
+    });
+
+    it('should create a permission error with identifier', () => {
+      const error = ErrorBuilder.permission('read', 'knowledge', 'k-123').build();
+      expect(error.context?.identifier).toBe('k-123');
+      expect(error.message).toContain('read');
+      expect(error.message).toContain('knowledge k-123');
+    });
+
+    it('should generate default permission message without identifier', () => {
+      const error = ErrorBuilder.permission('delete', 'tool').build();
+      expect(error.message).toBe('Permission denied: delete access required');
+    });
+
+    it('should include default suggestion', () => {
+      const error = ErrorBuilder.permission('admin', 'project').build();
+      expect(error.context?.suggestion).toContain('admin');
+      expect(error.context?.suggestion).toContain('project');
+    });
+  });
+
+  describe('conflict()', () => {
+    it('should create a conflict error builder', () => {
+      const error = ErrorBuilder.conflict('guideline').build();
+      expect(error.code).toBe(ErrorCodes.CONFLICT);
+      expect(error.context?.resource).toBe('guideline');
+      expect(error.message).toBe('Conflict detected: guideline');
+    });
+
+    it('should include suggestion about memory_conflict tool', () => {
+      const error = ErrorBuilder.conflict('knowledge').build();
+      expect(error.context?.suggestion).toContain('memory_conflict');
+    });
+  });
+
+  describe('serviceUnavailable()', () => {
+    it('should create a service unavailable error builder', () => {
+      const error = ErrorBuilder.serviceUnavailable('EmbeddingService').build();
+      expect(error.code).toBe(ErrorCodes.SERVICE_UNAVAILABLE);
+      expect(error.context?.service).toBe('EmbeddingService');
+      expect(error.message).toBe('EmbeddingService is unavailable');
+    });
+
+    it('should include service-specific suggestion', () => {
+      const error = ErrorBuilder.serviceUnavailable('VectorDB').build();
+      expect(error.context?.suggestion).toContain('VectorDB');
+    });
+  });
+
+  describe('circuitBreakerOpen()', () => {
+    it('should create a circuit breaker error builder', () => {
+      const error = ErrorBuilder.circuitBreakerOpen('APIGateway').build();
+      expect(error.code).toBe(ErrorCodes.CIRCUIT_BREAKER_OPEN);
+      expect(error.context?.service).toBe('APIGateway');
+      expect(error.message).toBe(
+        'Service APIGateway is temporarily unavailable (circuit breaker open)'
+      );
+    });
+
+    it('should include recovery suggestion', () => {
+      const error = ErrorBuilder.circuitBreakerOpen('Database').build();
+      expect(error.context?.suggestion).toContain('recovery');
+    });
+  });
+
+  describe('withCode()', () => {
+    it('should create a builder with custom error code', () => {
+      const error = ErrorBuilder.withCode(ErrorCodes.DATABASE_ERROR).build('Custom DB error');
+      expect(error.code).toBe(ErrorCodes.DATABASE_ERROR);
+      expect(error.message).toBe('Custom DB error');
+    });
+
+    it('should generate generic message for unknown code', () => {
+      const error = ErrorBuilder.withCode('CUSTOM_CODE').build();
+      expect(error.message).toBe('An error occurred');
+    });
+  });
+
+  describe('withSuggestion()', () => {
+    it('should add suggestion to the error', () => {
+      const error = ErrorBuilder.validation('email')
+        .withSuggestion('Use a valid email format like user@example.com')
+        .build('Invalid email');
+      expect(error.context?.suggestion).toBe('Use a valid email format like user@example.com');
+    });
+
+    it('should override default suggestion', () => {
+      const error = ErrorBuilder.notFound('project')
+        .withSuggestion('Create the project first')
+        .build();
+      expect(error.context?.suggestion).toBe('Create the project first');
+    });
+  });
+
+  describe('withContext()', () => {
+    it('should add context to the error', () => {
+      const error = ErrorBuilder.validation('password')
+        .withContext({ minLength: 8, maxLength: 64 })
+        .build('Password too short');
+      expect(error.context?.minLength).toBe(8);
+      expect(error.context?.maxLength).toBe(64);
+      expect(error.context?.field).toBe('password');
+    });
+
+    it('should merge context with existing context', () => {
+      const error = ErrorBuilder.notFound('tool', 'tool-123')
+        .withContext({ searchedScopes: ['global', 'project'] })
+        .build();
+      expect(error.context?.resource).toBe('tool');
+      expect(error.context?.identifier).toBe('tool-123');
+      expect(error.context?.searchedScopes).toEqual(['global', 'project']);
+    });
+
+    it('should allow multiple withContext calls', () => {
+      const error = ErrorBuilder.permission('write', 'guideline')
+        .withContext({ userId: 'user-1' })
+        .withContext({ projectId: 'proj-1' })
+        .build();
+      expect(error.context?.userId).toBe('user-1');
+      expect(error.context?.projectId).toBe('proj-1');
+    });
+  });
+
+  describe('withCause()', () => {
+    it('should set the cause of the error', () => {
+      const originalError = new Error('Connection refused');
+      const error = ErrorBuilder.serviceUnavailable('Database').withCause(originalError).build();
+      expect(error.cause).toBe(originalError);
+    });
+
+    it('should allow chaining with other methods', () => {
+      const cause = new Error('Timeout');
+      const error = ErrorBuilder.notFound('resource')
+        .withContext({ attemptedAt: new Date().toISOString() })
+        .withCause(cause)
+        .withSuggestion('Try again later')
+        .build();
+      expect(error.cause).toBe(cause);
+      expect(error.context?.suggestion).toBe('Try again later');
+    });
+  });
+
+  describe('build()', () => {
+    it('should use custom message when provided', () => {
+      const error = ErrorBuilder.notFound('item').build('Item xyz was not found in the system');
+      expect(error.message).toBe('Item xyz was not found in the system');
+    });
+
+    it('should generate default message when no message provided', () => {
+      const error = ErrorBuilder.conflict('entry').build();
+      expect(error.message).toBe('Conflict detected: entry');
+    });
+
+    it('should include suggestion in context', () => {
+      const error = ErrorBuilder.validation('field').withSuggestion('Provide valid input').build();
+      expect(error.context?.suggestion).toBe('Provide valid input');
+    });
+
+    it('should not include suggestion in context if not provided', () => {
+      const error = ErrorBuilder.withCode(ErrorCodes.UNKNOWN_ERROR).build('Unknown error');
+      expect(error.context?.suggestion).toBeUndefined();
+    });
+  });
+
+  describe('fluent API chaining', () => {
+    it('should support full chaining', () => {
+      const cause = new Error('Network timeout');
+      const error = ErrorBuilder.permission('execute', 'tool', 'tool-abc')
+        .withContext({ requiredRole: 'admin' })
+        .withSuggestion('Contact your administrator')
+        .withCause(cause)
+        .build('Custom permission error message');
+
+      expect(error.code).toBe(ErrorCodes.PERMISSION_DENIED);
+      expect(error.message).toBe('Custom permission error message');
+      expect(error.context?.action).toBe('execute');
+      expect(error.context?.resource).toBe('tool');
+      expect(error.context?.identifier).toBe('tool-abc');
+      expect(error.context?.requiredRole).toBe('admin');
+      expect(error.context?.suggestion).toBe('Contact your administrator');
+      expect(error.cause).toBe(cause);
+    });
+
+    it('should support method chaining in any order', () => {
+      const error = ErrorBuilder.notFound('file')
+        .withSuggestion('Check the file path')
+        .withContext({ path: '/some/path' })
+        .build();
+
+      expect(error.context?.suggestion).toBe('Check the file path');
+      expect(error.context?.path).toBe('/some/path');
+    });
+  });
+
+  describe('default message generation', () => {
+    it('should generate NOT_FOUND message with identifier', () => {
+      const error = ErrorBuilder.notFound('session', 'sess-123').build();
+      expect(error.message).toBe('session not found: sess-123');
+    });
+
+    it('should generate NOT_FOUND message without identifier', () => {
+      const error = ErrorBuilder.notFound('session').build();
+      expect(error.message).toBe('session not found');
+    });
+
+    it('should generate PERMISSION_DENIED message with identifier', () => {
+      const error = ErrorBuilder.permission('write', 'doc', 'doc-123').build();
+      expect(error.message).toBe('Permission denied: write access required for doc doc-123');
+    });
+
+    it('should generate PERMISSION_DENIED message without identifier', () => {
+      const error = ErrorBuilder.permission('write', 'doc').build();
+      expect(error.message).toBe('Permission denied: write access required');
+    });
+
+    it('should generate CONFLICT message', () => {
+      const error = ErrorBuilder.conflict('version').build();
+      expect(error.message).toBe('Conflict detected: version');
+    });
+
+    it('should generate SERVICE_UNAVAILABLE message', () => {
+      const error = ErrorBuilder.serviceUnavailable('Redis').build();
+      expect(error.message).toBe('Redis is unavailable');
+    });
+
+    it('should generate CIRCUIT_BREAKER_OPEN message', () => {
+      const error = ErrorBuilder.circuitBreakerOpen('API').build();
+      expect(error.message).toBe('Service API is temporarily unavailable (circuit breaker open)');
+    });
+
+    it('should generate MISSING_REQUIRED_FIELD message', () => {
+      const error = ErrorBuilder.validation('name').build();
+      expect(error.message).toBe('Validation error: name');
+    });
+
+    it('should generate fallback message for unknown codes', () => {
+      const error = ErrorBuilder.withCode('CUSTOM').build();
+      expect(error.message).toBe('An error occurred');
     });
   });
 });

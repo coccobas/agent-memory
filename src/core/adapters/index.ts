@@ -29,8 +29,10 @@ export type {
 
 // FileSystem Adapter
 export type { IFileSystemAdapter, FileStat } from './filesystem.adapter.js';
-export { LocalFileSystemAdapter, createLocalFileSystemAdapter } from './local-filesystem.adapter.js';
-
+export {
+  LocalFileSystemAdapter,
+  createLocalFileSystemAdapter,
+} from './local-filesystem.adapter.js';
 
 // Implementations - Storage
 export { SQLiteStorageAdapter, createSQLiteStorageAdapter } from './sqlite.adapter.js';
@@ -167,7 +169,7 @@ export function createAdapters(deps: AdapterDeps | LegacyAdapterDeps): Adapters 
     storage = createPostgreSQLStorageAdapter(effectiveDeps.config);
   } else {
     // SQLite
-    const sqliteDeps = effectiveDeps as SQLiteAdapterDeps;
+    const sqliteDeps = effectiveDeps;
     storage = createSQLiteStorageAdapter(sqliteDeps.db, sqliteDeps.sqlite);
   }
 

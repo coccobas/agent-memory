@@ -273,9 +273,7 @@ describe('Handler Factory', () => {
     });
 
     it('should throw when neither id nor name provided', async () => {
-      await expect(
-        handlers.get(mockContext, { agentId: 'agent-1' })
-      ).rejects.toThrow('id or name');
+      await expect(handlers.get(mockContext, { agentId: 'agent-1' })).rejects.toThrow('id or name');
     });
 
     it('should throw when entry not found', async () => {
@@ -287,9 +285,9 @@ describe('Handler Factory', () => {
     });
 
     it('should throw when name used without scopeType', async () => {
-      await expect(
-        handlers.get(mockContext, { name: 'Test', agentId: 'agent-1' })
-      ).rejects.toThrow('scopeType');
+      await expect(handlers.get(mockContext, { name: 'Test', agentId: 'agent-1' })).rejects.toThrow(
+        'scopeType'
+      );
     });
   });
 
@@ -301,7 +299,10 @@ describe('Handler Factory', () => {
       ];
       mockRepo.list.mockResolvedValue(entries);
       mockPermissionService.checkBatch.mockReturnValue(
-        new Map([['e-1', true], ['e-2', true]])
+        new Map([
+          ['e-1', true],
+          ['e-2', true],
+        ])
       );
 
       const result = await handlers.list(mockContext, {
@@ -321,7 +322,10 @@ describe('Handler Factory', () => {
       ];
       mockRepo.list.mockResolvedValue(entries);
       mockPermissionService.checkBatch.mockReturnValue(
-        new Map([['e-1', true], ['e-2', false]])
+        new Map([
+          ['e-1', true],
+          ['e-2', false],
+        ])
       );
 
       const result = await handlers.list(mockContext, {
@@ -339,7 +343,7 @@ describe('Handler Factory', () => {
       }));
       mockRepo.list.mockResolvedValue(entries);
       mockPermissionService.checkBatch.mockReturnValue(
-        new Map(entries.slice(0, 20).map(e => [e.id, true]))
+        new Map(entries.slice(0, 20).map((e) => [e.id, true]))
       );
 
       const result = await handlers.list(mockContext, {
@@ -430,7 +434,10 @@ describe('Handler Factory', () => {
     it('should add multiple entries', async () => {
       // Setup batch permission check to allow all
       mockPermissionService.checkBatch.mockReturnValue(
-        new Map([['new-0', true], ['new-1', true]])
+        new Map([
+          ['new-0', true],
+          ['new-1', true],
+        ])
       );
       mockRepo.create
         .mockResolvedValueOnce({ id: 'e-1', name: 'Entry 1' })
@@ -452,7 +459,10 @@ describe('Handler Factory', () => {
 
     it('should use checkBatch for permission checking', async () => {
       mockPermissionService.checkBatch.mockReturnValue(
-        new Map([['new-0', true], ['new-1', true]])
+        new Map([
+          ['new-0', true],
+          ['new-1', true],
+        ])
       );
       mockRepo.create.mockResolvedValue({ id: 'e-1' });
 
@@ -480,7 +490,10 @@ describe('Handler Factory', () => {
     it('should fail-fast when any entry permission is denied', async () => {
       // First entry allowed, second denied
       mockPermissionService.checkBatch.mockReturnValue(
-        new Map([['new-0', true], ['new-1', false]])
+        new Map([
+          ['new-0', true],
+          ['new-1', false],
+        ])
       );
 
       await expect(
@@ -518,9 +531,7 @@ describe('Handler Factory', () => {
         agentId: 'agent-1',
         scopeType: 'project',
         scopeId: 'proj-1',
-        entries: [
-          { name: 'Entry 1', content: 'Content', scopeType: 'global' },
-        ],
+        entries: [{ name: 'Entry 1', content: 'Content', scopeType: 'global' }],
       });
 
       // Verify checkBatch used entry-level scopeType override
@@ -528,9 +539,7 @@ describe('Handler Factory', () => {
       expect(mockPermissionService.checkBatch).toHaveBeenCalledWith(
         'agent-1',
         'write',
-        expect.arrayContaining([
-          expect.objectContaining({ id: 'new-0', scopeType: 'global' }),
-        ])
+        expect.arrayContaining([expect.objectContaining({ id: 'new-0', scopeType: 'global' })])
       );
 
       expect(mockRepo.create).toHaveBeenCalledWith(
@@ -546,9 +555,7 @@ describe('Handler Factory', () => {
         agentId: 'agent-1',
         scopeType: 'project',
         scopeId: 'proj-1',
-        entries: [
-          { name: 'Entry 1', content: 'Content', scopeType: 'org', scopeId: 'org-1' },
-        ],
+        entries: [{ name: 'Entry 1', content: 'Content', scopeType: 'org', scopeId: 'org-1' }],
       });
 
       // Verify checkBatch used both entry-level overrides
@@ -568,10 +575,12 @@ describe('Handler Factory', () => {
         .mockResolvedValueOnce({ id: 'e-1', scopeType: 'project', scopeId: 'p-1' })
         .mockResolvedValueOnce({ id: 'e-2', scopeType: 'project', scopeId: 'p-1' });
       mockPermissionService.checkBatch.mockReturnValue(
-        new Map([['e-1', true], ['e-2', true]])
+        new Map([
+          ['e-1', true],
+          ['e-2', true],
+        ])
       );
-      mockRepo.update
-        .mockResolvedValue({ id: 'e-1', scopeType: 'project', scopeId: 'p-1' });
+      mockRepo.update.mockResolvedValue({ id: 'e-1', scopeType: 'project', scopeId: 'p-1' });
 
       const result = await handlers.bulk_update(mockContext, {
         agentId: 'agent-1',
@@ -590,7 +599,10 @@ describe('Handler Factory', () => {
         .mockResolvedValueOnce({ id: 'e-1', scopeType: 'project', scopeId: 'p-1' })
         .mockResolvedValueOnce({ id: 'e-2', scopeType: 'org', scopeId: 'org-1' });
       mockPermissionService.checkBatch.mockReturnValue(
-        new Map([['e-1', true], ['e-2', true]])
+        new Map([
+          ['e-1', true],
+          ['e-2', true],
+        ])
       );
       mockRepo.update.mockResolvedValue({ id: 'e-1' });
 
@@ -619,7 +631,10 @@ describe('Handler Factory', () => {
         .mockResolvedValueOnce({ id: 'e-2', scopeType: 'project', scopeId: 'p-1' });
       // Second entry permission denied
       mockPermissionService.checkBatch.mockReturnValue(
-        new Map([['e-1', true], ['e-2', false]])
+        new Map([
+          ['e-1', true],
+          ['e-2', false],
+        ])
       );
 
       await expect(
@@ -652,7 +667,10 @@ describe('Handler Factory', () => {
         .mockResolvedValueOnce({ id: 'e-1', scopeType: 'project', scopeId: 'p-1' })
         .mockResolvedValueOnce({ id: 'e-2', scopeType: 'project', scopeId: 'p-1' });
       mockPermissionService.checkBatch.mockReturnValue(
-        new Map([['e-1', true], ['e-2', true]])
+        new Map([
+          ['e-1', true],
+          ['e-2', true],
+        ])
       );
       mockRepo.deactivate.mockResolvedValue(true);
 
@@ -670,7 +688,10 @@ describe('Handler Factory', () => {
         .mockResolvedValueOnce({ id: 'e-1', scopeType: 'project', scopeId: 'p-1' })
         .mockResolvedValueOnce({ id: 'e-2', scopeType: 'global', scopeId: null });
       mockPermissionService.checkBatch.mockReturnValue(
-        new Map([['e-1', true], ['e-2', true]])
+        new Map([
+          ['e-1', true],
+          ['e-2', true],
+        ])
       );
       mockRepo.deactivate.mockResolvedValue(true);
 
@@ -696,7 +717,10 @@ describe('Handler Factory', () => {
         .mockResolvedValueOnce({ id: 'e-2', scopeType: 'project', scopeId: 'p-1' });
       // Second entry permission denied
       mockPermissionService.checkBatch.mockReturnValue(
-        new Map([['e-1', true], ['e-2', false]])
+        new Map([
+          ['e-1', true],
+          ['e-2', false],
+        ])
       );
 
       await expect(
@@ -856,11 +880,24 @@ describe('Handler Factory', () => {
 
     it('should emit events on bulk_add', async () => {
       mockPermissionService.checkBatch.mockReturnValue(
-        new Map([['new-0', true], ['new-1', true]])
+        new Map([
+          ['new-0', true],
+          ['new-1', true],
+        ])
       );
       mockRepo.create
-        .mockResolvedValueOnce({ id: 'e-1', name: 'Entry 1', scopeType: 'project', scopeId: 'proj-1' })
-        .mockResolvedValueOnce({ id: 'e-2', name: 'Entry 2', scopeType: 'project', scopeId: 'proj-1' });
+        .mockResolvedValueOnce({
+          id: 'e-1',
+          name: 'Entry 1',
+          scopeType: 'project',
+          scopeId: 'proj-1',
+        })
+        .mockResolvedValueOnce({
+          id: 'e-2',
+          name: 'Entry 2',
+          scopeType: 'project',
+          scopeId: 'proj-1',
+        });
 
       await handlers.bulk_add(contextWithEvents, {
         agentId: 'agent-1',
@@ -894,7 +931,10 @@ describe('Handler Factory', () => {
         .mockResolvedValueOnce({ id: 'e-1', scopeType: 'project', scopeId: 'p-1' })
         .mockResolvedValueOnce({ id: 'e-2', scopeType: 'project', scopeId: 'p-1' });
       mockPermissionService.checkBatch.mockReturnValue(
-        new Map([['e-1', true], ['e-2', true]])
+        new Map([
+          ['e-1', true],
+          ['e-2', true],
+        ])
       );
       mockRepo.update
         .mockResolvedValueOnce({ id: 'e-1', scopeType: 'project', scopeId: 'p-1' })
@@ -930,7 +970,10 @@ describe('Handler Factory', () => {
         .mockResolvedValueOnce({ id: 'e-1', scopeType: 'project', scopeId: 'p-1' })
         .mockResolvedValueOnce({ id: 'e-2', scopeType: 'project', scopeId: 'p-1' });
       mockPermissionService.checkBatch.mockReturnValue(
-        new Map([['e-1', true], ['e-2', true]])
+        new Map([
+          ['e-1', true],
+          ['e-2', true],
+        ])
       );
       mockRepo.deactivate.mockResolvedValue(true);
 

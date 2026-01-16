@@ -177,9 +177,7 @@ export class SubQueryExecutor {
     }
 
     for (const batch of batches) {
-      const batchResults = await Promise.all(
-        batch.map((sq) => this.executeOne(sq, queryFn))
-      );
+      const batchResults = await Promise.all(batch.map((sq) => this.executeOne(sq, queryFn)));
       results.push(...batchResults);
     }
   }
@@ -231,9 +229,7 @@ export class SubQueryExecutor {
       }
 
       // Execute ready queries in parallel
-      const batchResults = await Promise.all(
-        ready.map((sq) => this.executeOne(sq, queryFn))
-      );
+      const batchResults = await Promise.all(ready.map((sq) => this.executeOne(sq, queryFn)));
 
       for (const result of batchResults) {
         results.push(result);

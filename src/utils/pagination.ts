@@ -62,12 +62,14 @@ function getHmacSecret(): string {
 
   // Warn if using generated secret (won't persist across restarts)
   if (trimmedSecret && trimmedSecret.length < 32) {
-    logger.warn('AGENT_MEMORY_CURSOR_SECRET is too short (minimum 32 characters), generating random secret');
+    logger.warn(
+      'AGENT_MEMORY_CURSOR_SECRET is too short (minimum 32 characters), generating random secret'
+    );
   } else if (!trimmedSecret) {
     logger.warn(
       'AGENT_MEMORY_CURSOR_SECRET not set, generating random secret. ' +
-      'Pagination cursors will not survive server restarts. ' +
-      'Set AGENT_MEMORY_CURSOR_SECRET to a 32+ character secret for production.'
+        'Pagination cursors will not survive server restarts. ' +
+        'Set AGENT_MEMORY_CURSOR_SECRET to a 32+ character secret for production.'
     );
   }
 
@@ -174,7 +176,10 @@ export class PaginationCursor {
     // A normal cursor is ~200-500 bytes, 10KB is very generous
     const MAX_CURSOR_SIZE = 10 * 1024;
     if (cursor.length > MAX_CURSOR_SIZE) {
-      throw createValidationError('cursor', `cursor exceeds maximum size of ${MAX_CURSOR_SIZE} bytes`);
+      throw createValidationError(
+        'cursor',
+        `cursor exceeds maximum size of ${MAX_CURSOR_SIZE} bytes`
+      );
     }
 
     try {

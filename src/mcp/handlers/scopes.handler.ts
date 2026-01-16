@@ -4,7 +4,12 @@
  * Security: Destructive operations require admin key authentication.
  *
  * Context-aware handlers that receive AppContext for dependency injection.
+ *
+ * NOTE: Non-null assertions used for array access after database queries
+ * and service access after existence checks.
  */
+
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 
 import type {
   CreateOrganizationInput,
@@ -13,6 +18,7 @@ import type {
   CreateSessionInput,
 } from '../../core/interfaces/repositories.js';
 import type { AppContext } from '../../core/context.js';
+import type { FeedbackService } from '../../services/feedback/index.js';
 import {
   getRequiredParam,
   getOptionalParam,
@@ -266,7 +272,10 @@ export const scopeHandlers = {
         const detected = await contextDetection.detect();
         if (detected.session) {
           id = detected.session.id;
-          logger.debug({ sessionId: id, source: detected.session.source }, 'Auto-detected session for end');
+          logger.debug(
+            { sessionId: id, source: detected.session.source },
+            'Auto-detected session for end'
+          );
         }
       }
 
@@ -309,25 +318,28 @@ export const scopeHandlers = {
     // Trigger capture service on session end (non-blocking)
     const captureService = context.services.capture;
     if (captureService && status !== 'discarded') {
-      captureService.onSessionEnd(id).then(result => {
-        if (result.experiences.experiences.length > 0 || result.knowledge.knowledge.length > 0) {
-          logger.info(
-            {
-              sessionId: id,
-              experiencesExtracted: result.experiences.experiences.length,
-              knowledgeExtracted: result.knowledge.knowledge.length,
-              guidelinesExtracted: result.knowledge.guidelines.length,
-              toolsExtracted: result.knowledge.tools.length,
-            },
-            'Session capture completed'
+      captureService
+        .onSessionEnd(id)
+        .then((result) => {
+          if (result.experiences.experiences.length > 0 || result.knowledge.knowledge.length > 0) {
+            logger.info(
+              {
+                sessionId: id,
+                experiencesExtracted: result.experiences.experiences.length,
+                knowledgeExtracted: result.knowledge.knowledge.length,
+                guidelinesExtracted: result.knowledge.guidelines.length,
+                toolsExtracted: result.knowledge.tools.length,
+              },
+              'Session capture completed'
+            );
+          }
+        })
+        .catch((error) => {
+          logger.error(
+            { sessionId: id, error: error instanceof Error ? error.message : String(error) },
+            'Session capture failed'
           );
-        }
-      }).catch(error => {
-        logger.error(
-          { sessionId: id, error: error instanceof Error ? error.message : String(error) },
-          'Session capture failed'
-        );
-      });
+        });
     }
 
     // Record task outcome for RL feedback (non-blocking)
@@ -369,41 +381,42 @@ export const scopeHandlers = {
 function recordSessionOutcome(
   sessionId: string,
   status: 'active' | 'paused' | 'completed' | 'discarded',
-  feedbackService: import('../../services/feedback/index.js').FeedbackService
+  feedbackService: FeedbackService
 ): void {
-
   // Fire-and-forget async recording
-  setImmediate(async () => {
-    try {
-      // Infer outcome type from session status
-      const outcomeType = inferOutcomeFromStatus(status);
+  setImmediate(() => {
+    void (async () => {
+      try {
+        // Infer outcome type from session status
+        const outcomeType = inferOutcomeFromStatus(status);
 
-      // Record the outcome
-      const outcomeId = await feedbackService.recordOutcome({
-        sessionId,
-        outcomeType,
-        outcomeSignal: 'session_status',
-        confidence: getConfidenceForStatus(status),
-      });
+        // Record the outcome
+        const outcomeId = await feedbackService.recordOutcome({
+          sessionId,
+          outcomeType,
+          outcomeSignal: 'session_status',
+          confidence: getConfidenceForStatus(status),
+        });
 
-      // Link all unlinked retrievals from this session to the outcome
-      const retrievals = await feedbackService.getUnlinkedRetrievals(sessionId);
-      if (retrievals.length > 0) {
-        await feedbackService.linkRetrievalsToOutcome(
-          outcomeId,
-          retrievals.map(r => r.id)
-        );
-        logger.debug(
-          { sessionId, outcomeId, linkedRetrievals: retrievals.length },
-          'Linked retrievals to session outcome'
+        // Link all unlinked retrievals from this session to the outcome
+        const retrievals = await feedbackService.getUnlinkedRetrievals(sessionId);
+        if (retrievals.length > 0) {
+          await feedbackService.linkRetrievalsToOutcome(
+            outcomeId,
+            retrievals.map((r) => r.id)
+          );
+          logger.debug(
+            { sessionId, outcomeId, linkedRetrievals: retrievals.length },
+            'Linked retrievals to session outcome'
+          );
+        }
+      } catch (error) {
+        logger.error(
+          { sessionId, error: error instanceof Error ? error.message : String(error) },
+          'Failed to record session outcome for RL feedback'
         );
       }
-    } catch (error) {
-      logger.error(
-        { sessionId, error: error instanceof Error ? error.message : String(error) },
-        'Failed to record session outcome for RL feedback'
-      );
-    }
+    })();
   });
 }
 
@@ -428,17 +441,15 @@ function inferOutcomeFromStatus(
 /**
  * Get confidence level for status-based outcome inference
  */
-function getConfidenceForStatus(
-  status: 'active' | 'paused' | 'completed' | 'discarded'
-): number {
+function getConfidenceForStatus(status: 'active' | 'paused' | 'completed' | 'discarded'): number {
   // Session status is a moderate signal - not explicit user feedback
   switch (status) {
     case 'completed':
-      return 0.7;  // Completed sessions likely successful
+      return 0.7; // Completed sessions likely successful
     case 'discarded':
-      return 0.8;  // Discarded is a stronger signal of failure
+      return 0.8; // Discarded is a stronger signal of failure
     case 'paused':
-      return 0.5;  // Paused is ambiguous
+      return 0.5; // Paused is ambiguous
     default:
       return 0.3;
   }
@@ -450,90 +461,93 @@ function getConfidenceForStatus(
  * Runs consolidation and summary generation in the background.
  * These are non-blocking and fire-and-forget.
  */
-function triggerSessionEndMaintenance(
-  projectId: string,
-  context: AppContext
-): void {
+function triggerSessionEndMaintenance(projectId: string, context: AppContext): void {
   // Bug #192 fix: Capture correlation ID for async error tracing
   const correlationId = getCorrelationId();
 
   // Fire-and-forget async maintenance
-  setImmediate(async () => {
-    try {
-      // Check if we have the required services for consolidation
-      const hasConsolidationServices = context.services?.embedding && context.services?.vector;
+  setImmediate(() => {
+    void (async () => {
+      try {
+        // Check if we have the required services for consolidation
+        const hasConsolidationServices = context.services?.embedding && context.services?.vector;
 
-      if (hasConsolidationServices) {
-        // Find similar entries (discovery only, no deduplication)
-        const groups = await findSimilarGroups({
-          scopeType: 'project',
-          scopeId: projectId,
-          entryTypes: ['guideline', 'knowledge', 'tool'],
-          threshold: 0.85,
-          limit: 10,
-          db: context.db,
-          services: {
-            embedding: context.services.embedding!,
-            vector: context.services.vector!,
-          },
-        });
+        if (hasConsolidationServices) {
+          // Find similar entries (discovery only, no deduplication)
+          const groups = await findSimilarGroups({
+            scopeType: 'project',
+            scopeId: projectId,
+            entryTypes: ['guideline', 'knowledge', 'tool'],
+            threshold: 0.85,
+            limit: 10,
+            db: context.db,
+            services: {
+              embedding: context.services.embedding!,
+              vector: context.services.vector!,
+            },
+          });
 
-        if (groups.length > 0) {
-          logger.info(
-            { projectId, similarGroups: groups.length },
-            'Found similar entries during session end maintenance'
-          );
+          if (groups.length > 0) {
+            logger.info(
+              { projectId, similarGroups: groups.length },
+              'Found similar entries during session end maintenance'
+            );
 
-          // Auto-dedupe if groups have high similarity (> 0.95)
-          const highSimilarityGroups = groups.filter(g => g.averageSimilarity > 0.95);
-          if (highSimilarityGroups.length > 0) {
-            const result = await consolidate({
-              scopeType: 'project',
-              scopeId: projectId,
-              entryTypes: ['guideline', 'knowledge', 'tool'],
-              strategy: 'dedupe',
-              threshold: 0.95,
-              limit: 5,
-              dryRun: false,
-              consolidatedBy: 'session-end-maintenance',
-              db: context.db,
-              services: {
-                embedding: context.services.embedding!,
-                vector: context.services.vector!,
-              },
-            });
+            // Auto-dedupe if groups have high similarity (> 0.95)
+            const highSimilarityGroups = groups.filter((g) => g.averageSimilarity > 0.95);
+            if (highSimilarityGroups.length > 0) {
+              const result = await consolidate({
+                scopeType: 'project',
+                scopeId: projectId,
+                entryTypes: ['guideline', 'knowledge', 'tool'],
+                strategy: 'dedupe',
+                threshold: 0.95,
+                limit: 5,
+                dryRun: false,
+                consolidatedBy: 'session-end-maintenance',
+                db: context.db,
+                services: {
+                  embedding: context.services.embedding!,
+                  vector: context.services.vector!,
+                },
+              });
 
-            if (result.entriesDeactivated > 0) {
-              logger.info(
-                { projectId, deactivated: result.entriesDeactivated },
-                'Auto-deduplicated entries during session end'
-              );
+              if (result.entriesDeactivated > 0) {
+                logger.info(
+                  { projectId, deactivated: result.entriesDeactivated },
+                  'Auto-deduplicated entries during session end'
+                );
+              }
             }
           }
         }
-      }
 
-      // Generate/update project summary
-      const project = await context.repos.projects.getById(projectId);
-      if (project) {
-        const summaryResult = await generateAndStoreSummary(context.db, {
-          projectId,
-          projectName: project.name,
-        });
+        // Generate/update project summary
+        const project = await context.repos.projects.getById(projectId);
+        if (project) {
+          const summaryResult = await generateAndStoreSummary(context.db, {
+            projectId,
+            projectName: project.name,
+          });
 
-        if (summaryResult.stored) {
-          logger.debug(
-            { projectId, knowledgeId: summaryResult.knowledgeId },
-            'Updated project summary during session end'
-          );
+          if (summaryResult.stored) {
+            logger.debug(
+              { projectId, knowledgeId: summaryResult.knowledgeId },
+              'Updated project summary during session end'
+            );
+          }
         }
+      } catch (error) {
+        // Bug #192 fix: Include correlation ID for distributed tracing
+        logger.error(
+          {
+            projectId,
+            correlationId,
+            error: error instanceof Error ? error.message : String(error),
+          },
+          'Session end maintenance failed'
+        );
       }
-    } catch (error) {
-      // Bug #192 fix: Include correlation ID for distributed tracing
-      logger.error(
-        { projectId, correlationId, error: error instanceof Error ? error.message : String(error) },
-        'Session end maintenance failed'
-      );
-    }
+    })();
   });
 }

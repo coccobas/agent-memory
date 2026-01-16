@@ -285,15 +285,15 @@ export function traverseGraphEdges(
 
     if (direction === 'forward') {
       params.push(maxDepth);
-      if (hasFilter) params.push(relationType!);
+      if (hasFilter) params.push(relationType);
     } else if (direction === 'backward') {
       params.push(maxDepth);
-      if (hasFilter) params.push(relationType!);
+      if (hasFilter) params.push(relationType);
     } else if (direction === 'both') {
       params.push(maxDepth);
-      if (hasFilter) params.push(relationType!);
+      if (hasFilter) params.push(relationType);
       params.push(maxDepth);
-      if (hasFilter) params.push(relationType!);
+      if (hasFilter) params.push(relationType);
     }
 
     params.push(maxResults);
@@ -312,7 +312,12 @@ export function traverseGraphEdges(
 
     for (const row of rows) {
       const nodeType = row.node_type as QueryEntryType;
-      if (nodeType === 'tool' || nodeType === 'guideline' || nodeType === 'knowledge' || nodeType === 'experience') {
+      if (
+        nodeType === 'tool' ||
+        nodeType === 'guideline' ||
+        nodeType === 'knowledge' ||
+        nodeType === 'experience'
+      ) {
         result[nodeType].add(row.node_id);
       }
     }

@@ -130,7 +130,8 @@ export interface HuggingFaceDatasetInfo {
   /** Version */
   version: string;
 
-  /** Features schema */
+  /** Features schema - flexible structure for different dataset types */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   features: Record<string, any>;
 
   /** Splits available */
@@ -182,7 +183,8 @@ export interface AnthropicTrainingExample {
   /** Completion text */
   completion: string;
 
-  /** Optional metadata */
+  /** Optional metadata - flexible key-value pairs */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   metadata?: Record<string, any>;
 }
 

@@ -99,7 +99,9 @@ describe('SQLiteStorageAdapter - Transaction Error Handling (HIGH-012)', () => {
             return Promise.resolve();
           });
         })
-      ).rejects.toThrow(/SQLite transaction completed before async operation resolved|Nested SQLite transaction detected/);
+      ).rejects.toThrow(
+        /SQLite transaction completed before async operation resolved|Nested SQLite transaction detected/
+      );
     });
 
     it('should clear state after error', async () => {

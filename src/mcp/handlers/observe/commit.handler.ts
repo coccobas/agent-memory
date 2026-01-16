@@ -22,10 +22,7 @@ import type {
   ExtractedRelationship,
 } from '../../../services/extraction.service.js';
 import type { ObserveCommitEntry } from './types.js';
-import {
-  parseEnvBool,
-  parseEnvNumber,
-} from './helpers.js';
+import { parseEnvBool, parseEnvNumber } from './helpers.js';
 
 // =============================================================================
 // NORMALIZATION FUNCTIONS

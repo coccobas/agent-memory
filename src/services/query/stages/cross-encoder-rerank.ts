@@ -155,7 +155,9 @@ export function createCrossEncoderStage(
     ...deps.config,
   };
 
-  return async function crossEncoderStage(ctx: PipelineContext): Promise<CrossEncoderPipelineContext> {
+  return async function crossEncoderStage(
+    ctx: PipelineContext
+  ): Promise<CrossEncoderPipelineContext> {
     const startMs = Date.now();
     const { results, search } = ctx;
 
@@ -198,8 +200,7 @@ export function createCrossEncoderStage(
 
         // Blend scores: alpha * cross-encoder + (1-alpha) * original
         const blendedScore =
-          effectiveConfig.alpha * crossScore +
-          (1 - effectiveConfig.alpha) * originalScore;
+          effectiveConfig.alpha * crossScore + (1 - effectiveConfig.alpha) * originalScore;
 
         return {
           ...item,
@@ -238,7 +239,10 @@ export function createCrossEncoderStage(
 /**
  * Build the LLM prompt for batch relevance scoring
  */
-export function buildScoringPrompt(query: string, documents: Array<{ id: string; text: string }>): string {
+export function buildScoringPrompt(
+  query: string,
+  documents: Array<{ id: string; text: string }>
+): string {
   return buildEntityAwareScoringPrompt(query, documents);
 }
 
@@ -308,7 +312,9 @@ export function parseScoresResponse(
 
     // Bug #224 fix: Detect actual score range and normalize adaptively
     // Some LLMs may return 0-100, 0-10, 1-5, or other ranges
-    const scores = parsed.map((item) => item.score ?? 0).filter((s) => typeof s === 'number' && !isNaN(s));
+    const scores = parsed
+      .map((item) => item.score ?? 0)
+      .filter((s) => typeof s === 'number' && !isNaN(s));
 
     if (scores.length === 0) {
       return documentIds.map((id) => ({ id, score: 0.5 }));
@@ -379,9 +385,7 @@ export function createOpenAICrossEncoderService(options: {
           },
           body: JSON.stringify({
             model,
-            messages: [
-              { role: 'user', content: prompt },
-            ],
+            messages: [{ role: 'user', content: prompt }],
             temperature,
             max_tokens: 500,
             // reasoning_effort for models with extended thinking (o1/o3, LM Studio)
@@ -407,7 +411,10 @@ export function createOpenAICrossEncoderService(options: {
         if (content === undefined || content === null) {
           throw new Error('LLM response missing message content');
         }
-        return parseScoresResponse(content, documents.map((d) => d.id));
+        return parseScoresResponse(
+          content,
+          documents.map((d) => d.id)
+        );
       } catch (error) {
         if (error instanceof Error && error.name === 'AbortError') {
           throw new Error('Cross-encoder scoring timed out');

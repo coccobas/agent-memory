@@ -186,11 +186,7 @@ describe('Consolidation Helpers', () => {
     });
 
     it('should handle various valid ISO formats', () => {
-      const formats = [
-        '2024-01-15T12:00:00.000Z',
-        '2024-01-15T12:00:00Z',
-        '2024-01-15',
-      ];
+      const formats = ['2024-01-15T12:00:00.000Z', '2024-01-15T12:00:00Z', '2024-01-15'];
 
       for (const format of formats) {
         const result = getAgeDays(format);

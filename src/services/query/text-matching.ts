@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
+
 import { DEFAULT_SEMANTIC_THRESHOLD } from '../../utils/constants.js';
 import { createComponentLogger } from '../../utils/logger.js';
 
@@ -54,6 +56,8 @@ export function levenshteinDistance(str1: string, str2: string, maxDistance?: nu
   let prevRow: number[] = Array(len1 + 1)
     .fill(0)
     .map((_, i) => i);
+  // TypeScript doesn't infer type from Array.fill() - explicit annotation needed
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   let currRow: number[] = Array(len1 + 1).fill(0);
 
   for (let j = 1; j <= len2; j++) {

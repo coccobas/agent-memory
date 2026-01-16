@@ -21,22 +21,27 @@ Additionally, the existing `agentmem_db_pool_connections` gauge was enhanced wit
 ### Core Functions
 
 #### `recordPoolMetrics(stats, config?)`
+
 Records pool statistics to all relevant Prometheus gauges. Designed to be called periodically to maintain accurate metrics.
 
 **Parameters:**
+
 - `stats: PoolStats` - Pool statistics from the adapter (`totalCount`, `idleCount`, `waitingCount`)
 - `config?: PoolMetricsConfig` - Optional configuration (e.g., `maxConnections`)
 
 **Usage:**
+
 ```typescript
 const stats = adapter.getPoolStats();
 recordPoolMetrics(stats, { maxConnections: 20 });
 ```
 
 #### `createPoolMetricsRecorder(getStats, config?, intervalMs?)`
+
 Creates a periodic metrics recorder for automated monitoring.
 
 **Parameters:**
+
 - `getStats: () => PoolStats` - Function to retrieve current pool statistics
 - `config?: PoolMetricsConfig` - Optional pool configuration
 - `intervalMs?: number` - Recording interval (default: 15000ms)
@@ -44,6 +49,7 @@ Creates a periodic metrics recorder for automated monitoring.
 **Returns:** Object with `start()` and `stop()` methods
 
 **Usage:**
+
 ```typescript
 const recorder = createPoolMetricsRecorder(
   () => adapter.getPoolStats(),
@@ -53,12 +59,13 @@ const recorder = createPoolMetricsRecorder(
 
 recorder.start(); // Begin periodic recording
 // ... later ...
-recorder.stop();  // Stop recording
+recorder.stop(); // Stop recording
 ```
 
 ## Files Modified
 
 ### `/src/utils/metrics.ts`
+
 - Added 5 new gauge metrics for pool monitoring
 - Implemented `recordPoolMetrics()` function
 - Implemented `createPoolMetricsRecorder()` function
@@ -68,7 +75,9 @@ recorder.stop();  // Stop recording
 ## Tests Created
 
 ### Unit Tests: `/tests/unit/pool-metrics.test.ts`
+
 Comprehensive test coverage including:
+
 - Individual metric recording (19 test cases)
 - Edge cases (zero values, all active, all idle, high load)
 - Periodic recorder functionality
@@ -78,7 +87,9 @@ Comprehensive test coverage including:
 **Test Results:** ✅ 19/19 tests passing
 
 ### Integration Tests: `/tests/integration/pool-metrics.integration.test.ts`
+
 Real-world scenarios with PostgreSQL adapter:
+
 - Pool statistics retrieval
 - Metrics recording with live adapter
 - Concurrent query handling
@@ -91,7 +102,9 @@ Real-world scenarios with PostgreSQL adapter:
 ## Documentation
 
 ### `/docs/pool-metrics-example.md`
+
 Comprehensive documentation including:
+
 - Basic usage examples
 - Integration patterns for application startup/shutdown
 - Prometheus metrics output examples
@@ -147,11 +160,13 @@ agentmem_db_pool_max 20
 ### Critical Alerts
 
 1. **High Pool Utilization** (>80% for 5 minutes)
+
    ```promql
    (agentmem_db_pool_size / agentmem_db_pool_max) > 0.8
    ```
 
 2. **Waiting Requests** (>0 for 1 minute)
+
    ```promql
    agentmem_db_pool_waiting > 0
    ```

@@ -45,7 +45,7 @@ const hasFlag = (flag: string) => args.includes(flag);
 
 // Parse --sessions N
 let maxSessions = 1;
-const sessionsIdx = args.findIndex(a => a === '--sessions');
+const sessionsIdx = args.findIndex((a) => a === '--sessions');
 if (sessionsIdx >= 0 && args[sessionsIdx + 1]) {
   maxSessions = parseInt(args[sessionsIdx + 1], 10) || 1;
 }
@@ -53,7 +53,7 @@ if (sessionsIdx >= 0 && args[sessionsIdx + 1]) {
 // Parse --dialogues N (limit dialogues per session)
 // Default: 50 dialogues gives ~15 QA pairs - good balance of speed and statistical significance
 let maxDialogues = 50;
-const dialoguesIdx = args.findIndex(a => a === '--dialogues');
+const dialoguesIdx = args.findIndex((a) => a === '--dialogues');
 if (dialoguesIdx >= 0 && args[dialoguesIdx + 1]) {
   maxDialogues = parseInt(args[dialoguesIdx + 1], 10) || 50;
 }
@@ -61,7 +61,7 @@ if (dialoguesIdx >= 0 && args[dialoguesIdx + 1]) {
 // Parse --chunk-size N (dialogues per extraction call)
 // Default: 1 dialogue per extraction for precise entry-to-dialogue mapping (63.9% MRR vs 29.7% at chunk-size=8)
 let chunkSize = 1;
-const chunkSizeIdx = args.findIndex(a => a === '--chunk-size');
+const chunkSizeIdx = args.findIndex((a) => a === '--chunk-size');
 if (chunkSizeIdx >= 0 && args[chunkSizeIdx + 1]) {
   chunkSize = parseInt(args[chunkSizeIdx + 1], 10) || 1;
 }
@@ -69,7 +69,7 @@ if (chunkSizeIdx >= 0 && args[chunkSizeIdx + 1]) {
 // Parse --overlap N (dialogues to overlap between chunks for context continuity)
 // Default: 0 overlap with chunk-size=1 (each dialogue extracted independently)
 let chunkOverlap = 0;
-const overlapIdx = args.findIndex(a => a === '--overlap');
+const overlapIdx = args.findIndex((a) => a === '--overlap');
 if (overlapIdx >= 0 && args[overlapIdx + 1]) {
   chunkOverlap = parseInt(args[overlapIdx + 1], 10) || 0;
 }
@@ -141,7 +141,8 @@ if (thinkingEnabled === false) {
   process.env.AGENT_MEMORY_EXTRACTION_REASONING_EFFORT = '';
 } else if (thinkingEnabled === true) {
   // Enable reasoning with medium effort (or use existing env var)
-  process.env.AGENT_MEMORY_EXTRACTION_REASONING_EFFORT = process.env.AGENT_MEMORY_EXTRACTION_REASONING_EFFORT ?? 'medium';
+  process.env.AGENT_MEMORY_EXTRACTION_REASONING_EFFORT =
+    process.env.AGENT_MEMORY_EXTRACTION_REASONING_EFFORT ?? 'medium';
 }
 // Isolate vectors per benchmark run to avoid cross-run dimension conflicts.
 process.env.AGENT_MEMORY_VECTOR_DB_PATH = LOCOMO_VECTOR_PATH;
@@ -154,21 +155,26 @@ const { generateId } = await import('../../src/db/repositories/base.js');
 const { applyMigrations } = await import('../fixtures/migration-loader.js');
 const { cleanupDbFiles, ensureDataDirectory } = await import('../fixtures/db-utils.js');
 const { config: appConfig } = await import('../../src/config/index.js');
-const { createRuntime, extractRuntimeConfig, shutdownRuntime } = await import('../../src/core/runtime.js');
+const { createRuntime, extractRuntimeConfig, shutdownRuntime } =
+  await import('../../src/core/runtime.js');
 const { createRepositories } = await import('../../src/core/factory/repositories.js');
 const { createAdaptersWithConfig } = await import('../../src/core/adapters/index.js');
 const { wireContext } = await import('../../src/core/factory/context-wiring.js');
 const { registerContext, resetContainer } = await import('../../src/core/container.js');
-const { executeQueryPipelineAsync, createDependencies } = await import('../../src/services/query/index.js');
-const { extract: observeExtract } = await import('../../src/mcp/handlers/observe/extract.handler.js');
-const { getEmbeddingQueueStats, generateEmbeddingAsync } = await import('../../src/db/repositories/embedding-hooks.js');
+const { executeQueryPipelineAsync, createDependencies } =
+  await import('../../src/services/query/index.js');
+const { extract: observeExtract } =
+  await import('../../src/mcp/handlers/observe/extract.handler.js');
+const { getEmbeddingQueueStats, generateEmbeddingAsync } =
+  await import('../../src/db/repositories/embedding-hooks.js');
 const { LRUCache } = await import('../../src/utils/lru-cache.js');
 const pino = (await import('pino')).default;
 const { rm } = await import('node:fs/promises');
 
 // Real LoCoMo imports
 const { loadLoCoMoDataset, getDatasetStats } = await import('./locomo-adapter.js');
-const { evaluateSession, compileBenchmarkResults, printBenchmarkResults } = await import('./locomo-evaluator.js');
+const { evaluateSession, compileBenchmarkResults, printBenchmarkResults } =
+  await import('./locomo-evaluator.js');
 import type { LoCoMoDialogue } from './locomo-types.js';
 import type { AppContext } from '../../src/core/context.js';
 
@@ -198,12 +204,14 @@ async function setupProductionContext(): Promise<{
 
   // Create project
   const projectId = generateId();
-  db.insert(schema.projects).values({
-    id: projectId,
-    name: 'LoCoMo Production Benchmark',
-    description: 'Project for LoCoMo production benchmark testing',
-    rootPath: '/locomo/benchmark',
-  }).run();
+  db.insert(schema.projects)
+    .values({
+      id: projectId,
+      name: 'LoCoMo Production Benchmark',
+      description: 'Project for LoCoMo production benchmark testing',
+      rootPath: '/locomo/benchmark',
+    })
+    .run();
 
   // Use config (already loaded with env vars applied)
   const config = appConfig;
@@ -291,7 +299,7 @@ async function ingestWithProductionExtraction(
 
   for (const chunk of chunks) {
     // Build conversation context
-    const context = chunk.map(d => `${d.speaker}: ${d.text}`).join('\n');
+    const context = chunk.map((d) => `${d.speaker}: ${d.text}`).join('\n');
 
     try {
       // Production ingestion path:
@@ -308,7 +316,7 @@ async function ingestWithProductionExtraction(
         agentId: 'locomo-bench',
       });
 
-      const diaIds = chunk.map(d => d.dia_id);
+      const diaIds = chunk.map((d) => d.dia_id);
       const storedEntries = res.stored?.entries ?? [];
       const storedEntities = res.stored?.entities ?? [];
 
@@ -317,7 +325,9 @@ async function ingestWithProductionExtraction(
         const totalExtracted = res.meta?.totalExtracted ?? 0;
         const aboveThreshold = res.meta?.aboveThreshold ?? 0;
         const duplicates = res.meta?.duplicatesFound ?? 0;
-        console.log(`    Chunk: extracted=${totalExtracted} aboveThreshold=${aboveThreshold} duplicates=${duplicates} stored=${storedEntries.length + storedEntities.length}`);
+        console.log(
+          `    Chunk: extracted=${totalExtracted} aboveThreshold=${aboveThreshold} duplicates=${duplicates} stored=${storedEntries.length + storedEntities.length}`
+        );
       }
 
       for (const stored of [...storedEntries, ...storedEntities]) {
@@ -326,7 +336,9 @@ async function ingestWithProductionExtraction(
       }
     } catch (error) {
       if (debugMode) {
-        console.error(`  Extraction error for chunk: ${error instanceof Error ? error.message : String(error)}`);
+        console.error(
+          `  Extraction error for chunk: ${error instanceof Error ? error.message : String(error)}`
+        );
       }
     }
   }
@@ -346,7 +358,9 @@ async function ingestWithProductionExtraction(
   }
   if (debugMode) process.stdout.write('\n');
 
-  console.log(`  Ingested ${extractedCount} extracted memories (from ${dialogues.length} dialogues)`);
+  console.log(
+    `  Ingested ${extractedCount} extracted memories (from ${dialogues.length} dialogues)`
+  );
   return entryIdToDiaIds;
 }
 
@@ -368,27 +382,31 @@ async function ingestRawDialogues(
     const versionId = generateId();
 
     // Insert knowledge entry
-    db.insert(schema.knowledge).values({
-      id: entryId,
-      scopeType,
-      scopeId,
-      title: `${dialogue.speaker}: ${dialogue.dia_id}`,
-      category: 'fact',
-      currentVersionId: versionId,
-      isActive: true,
-      createdBy: 'locomo-bench-raw',
-    }).run();
+    db.insert(schema.knowledge)
+      .values({
+        id: entryId,
+        scopeType,
+        scopeId,
+        title: `${dialogue.speaker}: ${dialogue.dia_id}`,
+        category: 'fact',
+        currentVersionId: versionId,
+        isActive: true,
+        createdBy: 'locomo-bench-raw',
+      })
+      .run();
 
     // Insert version with dialogue content
-    db.insert(schema.knowledgeVersions).values({
-      id: versionId,
-      knowledgeId: entryId,
-      versionNum: 1,
-      content: dialogue.text,
-      source: 'locomo-dialogue',
-      confidence: 1.0,
-      createdBy: 'locomo-bench-raw',
-    }).run();
+    db.insert(schema.knowledgeVersions)
+      .values({
+        id: versionId,
+        knowledgeId: entryId,
+        versionNum: 1,
+        content: dialogue.text,
+        source: 'locomo-dialogue',
+        confidence: 1.0,
+        createdBy: 'locomo-bench-raw',
+      })
+      .run();
 
     // 1:1 mapping - each entry maps to exactly one dialogue ID
     entryIdToDiaIds.set(entryId, [dialogue.dia_id]);
@@ -447,20 +465,26 @@ function createProductionQueryFunction(
     perfLog: debugMode,
     logger,
     // Include production services from context
-    queryRewriteService: ctx.services.queryRewrite ? {
-      rewrite: (input) => ctx.services.queryRewrite!.rewrite(input),
-      isAvailable: () => ctx.services.queryRewrite!.isAvailable(),
-    } : undefined,
-    embeddingService: ctx.services.embedding ? {
-      embed: (text) => ctx.services.embedding!.embed(text),
-      embedBatch: (texts) => ctx.services.embedding!.embedBatch(texts),
-      isAvailable: () => ctx.services.embedding!.isAvailable(),
-    } : undefined,
-    vectorService: ctx.services.vector ? {
-      searchSimilar: (embedding, entryTypes, limit) =>
-        ctx.services.vector!.searchSimilar(embedding, entryTypes, limit),
-      isAvailable: () => ctx.services.vector!.isAvailable(),
-    } : undefined,
+    queryRewriteService: ctx.services.queryRewrite
+      ? {
+          rewrite: (input) => ctx.services.queryRewrite!.rewrite(input),
+          isAvailable: () => ctx.services.queryRewrite!.isAvailable(),
+        }
+      : undefined,
+    embeddingService: ctx.services.embedding
+      ? {
+          embed: (text) => ctx.services.embedding!.embed(text),
+          embedBatch: (texts) => ctx.services.embedding!.embedBatch(texts),
+          isAvailable: () => ctx.services.embedding!.isAvailable(),
+        }
+      : undefined,
+    vectorService: ctx.services.vector
+      ? {
+          searchSimilar: (embedding, entryTypes, limit) =>
+            ctx.services.vector!.searchSimilar(embedding, entryTypes, limit),
+          isAvailable: () => ctx.services.vector!.isAvailable(),
+        }
+      : undefined,
   });
 
   let queryCount = 0;
@@ -493,11 +517,14 @@ function createProductionQueryFunction(
       }
     }
 
-    return result.results.map(r => ({
+    return result.results.map((r) => ({
       id: r.id,
       type: r.type,
       score: r.score,
-      knowledge: r.type === 'knowledge' ? { source: (r.knowledge as { source?: string })?.source } : undefined,
+      knowledge:
+        r.type === 'knowledge'
+          ? { source: (r.knowledge as { source?: string })?.source }
+          : undefined,
     }));
   };
 }
@@ -524,20 +551,22 @@ async function runProductionBenchmark() {
   console.log('Loading LoCoMo dataset...');
   const sessions = await loadLoCoMoDataset();
   const stats = getDatasetStats(sessions);
-  console.log(`Loaded: ${stats.totalSessions} sessions, ${stats.totalDialogues} dialogues, ${stats.totalQAPairs} QA pairs\n`);
+  console.log(
+    `Loaded: ${stats.totalSessions} sessions, ${stats.totalDialogues} dialogues, ${stats.totalQAPairs} QA pairs\n`
+  );
 
   // Limit sessions if requested
   let sessionsToRun = sessions.slice(0, maxSessions);
 
   // Limit dialogues per session if requested
   if (maxDialogues < Infinity) {
-    sessionsToRun = sessionsToRun.map(session => {
+    sessionsToRun = sessionsToRun.map((session) => {
       const limitedDialogues = session.dialogues.slice(0, maxDialogues);
-      const dialogueIds = new Set(limitedDialogues.map(d => d.dia_id));
+      const dialogueIds = new Set(limitedDialogues.map((d) => d.dia_id));
 
       // Filter QA pairs to only those with ALL evidence in the ingested dialogues
-      const filteredQaPairs = session.qaPairs.filter(qa =>
-        qa.evidence.length > 0 && qa.evidence.every(eId => dialogueIds.has(eId))
+      const filteredQaPairs = session.qaPairs.filter(
+        (qa) => qa.evidence.length > 0 && qa.evidence.every((eId) => dialogueIds.has(eId))
       );
 
       return {
@@ -556,7 +585,9 @@ async function runProductionBenchmark() {
   const allResults: Awaited<ReturnType<typeof evaluateSession>> = [];
 
   for (const session of sessionsToRun) {
-    console.log(`\nSession ${session.sessionId}: ${session.dialogues.length} dialogues, ${session.qaPairs.length} QA pairs`);
+    console.log(
+      `\nSession ${session.sessionId}: ${session.dialogues.length} dialogues, ${session.qaPairs.length} QA pairs`
+    );
 
     // Setup fresh production context for each session
     const { ctx, projectId, sqlite, db, cleanup } = await setupProductionContext();
@@ -578,7 +609,12 @@ async function runProductionBenchmark() {
       // Ingest dialogues - either via LLM extraction or raw ingestion
       const entryIdToDiaIds = rawIngestionMode
         ? await ingestRawDialogues(ctx, session.dialogues, 'session', benchmarkSessionId, db)
-        : await ingestWithProductionExtraction(ctx, session.dialogues, 'session', benchmarkSessionId);
+        : await ingestWithProductionExtraction(
+            ctx,
+            session.dialogues,
+            'session',
+            benchmarkSessionId
+          );
 
       // Create production query function (with local db for pipeline)
       const queryFn = createProductionQueryFunction(ctx, benchmarkSessionId, sqlite, db);

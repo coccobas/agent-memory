@@ -18,7 +18,10 @@ Node types include: entity, tool, guideline, knowledge, experience, file, functi
 
 Example: {"action":"add","nodeTypeName":"function","scopeType":"project","scopeId":"proj-123","name":"calculateTotal","properties":{"signature":"function calculateTotal(items: Item[]): number"}}`,
   commonParams: {
-    id: { type: 'string', description: 'Node ID (get, update, history, deactivate, reactivate, delete)' },
+    id: {
+      type: 'string',
+      description: 'Node ID (get, update, history, deactivate, reactivate, delete)',
+    },
     nodeTypeName: { type: 'string', description: 'Node type name (add, list)' },
     scopeType: {
       type: 'string',
@@ -40,34 +43,34 @@ Example: {"action":"add","nodeTypeName":"function","scopeType":"project","scopeI
   actions: {
     add: {
       required: ['nodeTypeName', 'scopeType', 'name'],
-      contextHandler: graphNodeHandlers.add,
+      contextHandler: (ctx, params) => graphNodeHandlers.add(ctx, params),
     },
     get: {
       required: ['id'],
-      contextHandler: graphNodeHandlers.get,
+      contextHandler: (ctx, params) => graphNodeHandlers.get(ctx, params),
     },
     list: {
-      contextHandler: graphNodeHandlers.list,
+      contextHandler: (ctx, params) => graphNodeHandlers.list(ctx, params),
     },
     update: {
       required: ['id'],
-      contextHandler: graphNodeHandlers.update,
+      contextHandler: (ctx, params) => graphNodeHandlers.update(ctx, params),
     },
     history: {
       required: ['id'],
-      contextHandler: graphNodeHandlers.history,
+      contextHandler: (ctx, params) => graphNodeHandlers.history(ctx, params),
     },
     deactivate: {
       required: ['id'],
-      contextHandler: graphNodeHandlers.deactivate,
+      contextHandler: (ctx, params) => graphNodeHandlers.deactivate(ctx, params),
     },
     reactivate: {
       required: ['id'],
-      contextHandler: graphNodeHandlers.reactivate,
+      contextHandler: (ctx, params) => graphNodeHandlers.reactivate(ctx, params),
     },
     delete: {
       required: ['id'],
-      contextHandler: graphNodeHandlers.delete,
+      contextHandler: (ctx, params) => graphNodeHandlers.delete(ctx, params),
     },
   },
 };

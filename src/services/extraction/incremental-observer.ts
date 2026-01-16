@@ -91,10 +91,7 @@ export class IncrementalMemoryObserver implements IMemoryObserver {
     });
 
     if (!result) {
-      logger.debug(
-        { sessionId: context.sessionId },
-        'No extraction window available'
-      );
+      logger.debug({ sessionId: context.sessionId }, 'No extraction window available');
       return;
     }
 
@@ -118,7 +115,7 @@ export class IncrementalMemoryObserver implements IMemoryObserver {
         {
           sessionId: context.sessionId,
           entriesCount: result.entries.length,
-          types: result.entries.map(e => e.type),
+          types: result.entries.map((e) => e.type),
         },
         'Extracted entries (commit service not available - entries not stored)'
       );
@@ -147,7 +144,7 @@ export class IncrementalMemoryObserver implements IMemoryObserver {
     }
 
     // Convert extracted entries to ObserveCommitEntry format
-    const commitEntries: ObserveCommitEntry[] = entries.map(entry => ({
+    const commitEntries: ObserveCommitEntry[] = entries.map((entry) => ({
       type: entry.type,
       name: entry.name,
       title: entry.title,

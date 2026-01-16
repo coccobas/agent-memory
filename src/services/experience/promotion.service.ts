@@ -155,7 +155,10 @@ export class ExperiencePromotionService {
   /**
    * Generic promote method that delegates to the appropriate promotion type
    */
-  async promote(experienceId: string, input: PromoteExperienceInput): Promise<PromoteToSkillResult> {
+  async promote(
+    experienceId: string,
+    input: PromoteExperienceInput
+  ): Promise<PromoteToSkillResult> {
     if (input.toLevel === 'strategy') {
       return this.promoteToStrategy(experienceId, {
         pattern: input.pattern,
@@ -178,7 +181,7 @@ export class ExperiencePromotionService {
       });
     }
 
-    throw createValidationError('toLevel', `invalid promotion level: ${input.toLevel}`);
+    throw createValidationError('toLevel', `invalid promotion level: ${String(input.toLevel)}`);
   }
 
   /**

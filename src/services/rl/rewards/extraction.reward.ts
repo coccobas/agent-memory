@@ -42,15 +42,8 @@ export interface ExtractionRewardResult {
  * - Storage penalty: cost of storing unused entries
  * - Time decay: older entries get discounted
  */
-export function computeExtractionReward(
-  params: ExtractionRewardParams
-): ExtractionRewardResult {
-  const {
-    retrievalCount,
-    successCount,
-    failureCount,
-    daysSinceCreation,
-  } = params;
+export function computeExtractionReward(params: ExtractionRewardParams): ExtractionRewardResult {
+  const { retrievalCount, successCount, failureCount, daysSinceCreation } = params;
 
   // Component 1: Usage reward (was it retrieved?)
   let usageReward = 0;
@@ -112,7 +105,7 @@ export function computeExtractionReward(
   if (retrievalCount === 0) {
     explanation = 'Entry never retrieved - wasted storage';
   } else if (successCount > failureCount) {
-    explanation = `Entry retrieved ${retrievalCount} times with ${((successCount/totalOutcomes)*100).toFixed(0)}% success - valuable`;
+    explanation = `Entry retrieved ${retrievalCount} times with ${((successCount / totalOutcomes) * 100).toFixed(0)}% success - valuable`;
   } else if (failureCount > 0) {
     explanation = `Entry retrieved but low success rate - possibly harmful`;
   } else {

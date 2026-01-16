@@ -50,7 +50,7 @@ function calculateRecallAtK(
 
   const topK = retrievedDiaIds.slice(0, k);
   const groundTruthSet = new Set(groundTruthDiaIds);
-  const found = topK.filter(id => groundTruthSet.has(id)).length;
+  const found = topK.filter((id) => groundTruthSet.has(id)).length;
 
   return found / groundTruthDiaIds.length;
 }
@@ -75,10 +75,7 @@ function calculateMRR(retrievedDiaIds: string[], groundTruthDiaIds: string[]): n
 /**
  * Find the rank of first relevant result
  */
-function findFirstRelevantRank(
-  retrievedDiaIds: string[],
-  groundTruthDiaIds: string[]
-): number {
+function findFirstRelevantRank(retrievedDiaIds: string[], groundTruthDiaIds: string[]): number {
   const groundTruthSet = new Set(groundTruthDiaIds);
 
   for (let i = 0; i < retrievedDiaIds.length; i++) {
@@ -164,9 +161,12 @@ function aggregateMetrics(results: QAEvaluationResult[]): AggregatedMetrics {
     avgRecallAt10: results.reduce((sum, r) => sum + r.recallAt10, 0) / n,
     avgRecallAt20: results.reduce((sum, r) => sum + r.recallAt20, 0) / n,
     avgMRR: results.reduce((sum, r) => sum + r.mrr, 0) / n,
-    hitRateAt5: results.filter(r => r.firstRelevantRank > 0 && r.firstRelevantRank <= 5).length / n,
-    hitRateAt10: results.filter(r => r.firstRelevantRank > 0 && r.firstRelevantRank <= 10).length / n,
-    hitRateAt20: results.filter(r => r.firstRelevantRank > 0 && r.firstRelevantRank <= 20).length / n,
+    hitRateAt5:
+      results.filter((r) => r.firstRelevantRank > 0 && r.firstRelevantRank <= 5).length / n,
+    hitRateAt10:
+      results.filter((r) => r.firstRelevantRank > 0 && r.firstRelevantRank <= 10).length / n,
+    hitRateAt20:
+      results.filter((r) => r.firstRelevantRank > 0 && r.firstRelevantRank <= 20).length / n,
   };
 }
 
@@ -286,11 +286,11 @@ export function printBenchmarkResults(results: LoCoMoBenchmarkResults): void {
     if (m) {
       console.log(
         `${cat.padEnd(13)} | ${m.totalQueries.toString().padStart(5)} | ` +
-        `${(m.avgRecallAt5 * 100).toFixed(1).padStart(5)}% | ` +
-        `${(m.avgRecallAt10 * 100).toFixed(1).padStart(5)}% | ` +
-        `${(m.avgRecallAt20 * 100).toFixed(1).padStart(5)}% | ` +
-        `${(m.avgMRR * 100).toFixed(1).padStart(5)}% | ` +
-        `${(m.hitRateAt10 * 100).toFixed(1).padStart(5)}%`
+          `${(m.avgRecallAt5 * 100).toFixed(1).padStart(5)}% | ` +
+          `${(m.avgRecallAt10 * 100).toFixed(1).padStart(5)}% | ` +
+          `${(m.avgRecallAt20 * 100).toFixed(1).padStart(5)}% | ` +
+          `${(m.avgMRR * 100).toFixed(1).padStart(5)}% | ` +
+          `${(m.hitRateAt10 * 100).toFixed(1).padStart(5)}%`
       );
     }
   }

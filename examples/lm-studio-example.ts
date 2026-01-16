@@ -95,9 +95,7 @@ async function main() {
   // 3. Simple chat without memory
   console.log('\n3. Simple chat (no memory)...');
   try {
-    const simpleResponse = await client.chat([
-      { role: 'user', content: 'What is 2 + 2?' },
-    ]);
+    const simpleResponse = await client.chat([{ role: 'user', content: 'What is 2 + 2?' }]);
     console.log(`   Response: ${simpleResponse.content}`);
     if (simpleResponse.usage) {
       console.log(
@@ -124,9 +122,7 @@ async function main() {
   console.log('\n5. Memory-enhanced chat...');
   try {
     const memoryResponse = await agent.chat({
-      messages: [
-        { role: 'user', content: 'How should I handle errors in this project?' },
-      ],
+      messages: [{ role: 'user', content: 'How should I handle errors in this project?' }],
       systemPrompt: 'You are a helpful coding assistant.',
       memoryQuery: 'error handling guidelines',
     });
@@ -135,12 +131,8 @@ async function main() {
 
     if (memoryResponse.memoryContext) {
       console.log('\n   Memory context injected:');
-      console.log(
-        `   - ${memoryResponse.memoryContext.guidelines.length} guidelines`
-      );
-      console.log(
-        `   - ${memoryResponse.memoryContext.knowledge.length} knowledge entries`
-      );
+      console.log(`   - ${memoryResponse.memoryContext.guidelines.length} guidelines`);
+      console.log(`   - ${memoryResponse.memoryContext.knowledge.length} knowledge entries`);
       console.log(`   - ${memoryResponse.memoryContext.tools.length} tools`);
     }
   } catch (error) {
@@ -168,10 +160,9 @@ async function main() {
   // 7. One-shot completion
   console.log('7. One-shot completion...');
   try {
-    const result = await agent.complete(
-      'Summarize the key coding guidelines in one sentence.',
-      { memoryQuery: 'coding guidelines' }
-    );
+    const result = await agent.complete('Summarize the key coding guidelines in one sentence.', {
+      memoryQuery: 'coding guidelines',
+    });
     console.log(`   Result: ${result}`);
   } catch (error) {
     console.log(`   ⚠️ Completion failed: ${error}`);

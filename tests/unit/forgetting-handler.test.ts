@@ -20,7 +20,9 @@ describe('Forgetting Handler', () => {
       forget: vi.fn(),
       getStatus: vi.fn(),
     };
-    vi.mocked(forgettingModule.createForgettingService).mockReturnValue(mockForgettingService as any);
+    vi.mocked(forgettingModule.createForgettingService).mockReturnValue(
+      mockForgettingService as any
+    );
     mockContext = {
       db: {} as any,
       repos: {} as any,
@@ -216,9 +218,9 @@ describe('Forgetting Handler', () => {
     });
 
     it('should throw for unknown action', async () => {
-      await expect(
-        handleForgetting(mockContext, { action: 'unknown' as any })
-      ).rejects.toThrow("Invalid action 'unknown' for tool 'memory_forget'");
+      await expect(handleForgetting(mockContext, { action: 'unknown' as any })).rejects.toThrow(
+        "Invalid action 'unknown' for tool 'memory_forget'"
+      );
     });
   });
 });

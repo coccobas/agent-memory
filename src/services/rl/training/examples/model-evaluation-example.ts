@@ -5,6 +5,8 @@
  * This is an example/documentation file showing the intended usage.
  */
 
+/* eslint-disable no-console */
+
 import { createModelLoader, getDefaultModelsDir } from '../model-loader.js';
 import { PolicyEvaluator } from '../evaluation.js';
 import type { ExtractionState, ExtractionAction } from '../../types.js';

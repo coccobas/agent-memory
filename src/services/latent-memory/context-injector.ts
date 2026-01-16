@@ -8,6 +8,8 @@
  * @module services/latent-memory/context-injector
  */
 
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
+
 import { createComponentLogger } from '../../utils/logger.js';
 import { createValidationError } from '../../core/errors.js';
 
@@ -210,9 +212,10 @@ export class ContextInjectorService {
       case 'natural_language':
         content = this.formatAsNaturalLanguage(selectedMemories);
         break;
-      default:
+      default: {
         const exhaustiveCheck: never = options.format;
-        throw createValidationError('format', `unsupported format: ${exhaustiveCheck}`);
+        throw createValidationError('format', `unsupported format: ${String(exhaustiveCheck)}`);
+      }
     }
 
     // Re-estimate final token count for the formatted content

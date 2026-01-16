@@ -31,7 +31,11 @@ import {
   isArrayOfStrings,
   isObject,
 } from '../../utils/type-guards.js';
-import { createValidationError, createNotFoundError, createServiceUnavailableError } from '../../core/errors.js';
+import {
+  createValidationError,
+  createNotFoundError,
+  createServiceUnavailableError,
+} from '../../core/errors.js';
 import { formatTimestamps } from '../../utils/timestamp-formatter.js';
 import { logAction } from '../../services/audit.service.js';
 
@@ -85,7 +89,7 @@ function isTaskStatus(v: unknown): v is TaskStatus {
 
 // Audit log entry type - use 'knowledge' as the closest existing type
 // until 'task' is added to the audit log schema
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment
 const TASK_AUDIT_ENTRY_TYPE = 'knowledge' as any;
 
 /**
@@ -97,10 +101,7 @@ const TASK_AUDIT_ENTRY_TYPE = 'knowledge' as any;
 function getTaskRepo(context: AppContext): ITaskRepository {
   const repo = context.repos.tasks;
   if (!repo) {
-    throw createServiceUnavailableError(
-      'Tasks',
-      'repository not initialized'
-    );
+    throw createServiceUnavailableError('Tasks', 'repository not initialized');
   }
   return repo;
 }
@@ -189,6 +190,8 @@ const addHandler: ContextAwareHandler = async (
     {
       agentId,
       action: 'create',
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       entryType: TASK_AUDIT_ENTRY_TYPE,
       entryId: task.id,
       scopeType,
@@ -284,6 +287,7 @@ const updateHandler: ContextAwareHandler = async (
     {
       agentId,
       action: 'update',
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       entryType: TASK_AUDIT_ENTRY_TYPE,
       entryId: id,
       scopeType: existingTask.scopeType,
@@ -389,6 +393,7 @@ const deactivateHandler: ContextAwareHandler = async (
     {
       agentId,
       action: 'delete',
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       entryType: TASK_AUDIT_ENTRY_TYPE,
       entryId: id,
       scopeType: existingTask.scopeType,
@@ -427,6 +432,7 @@ const deleteHandler: ContextAwareHandler = async (
     {
       agentId,
       action: 'delete',
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       entryType: TASK_AUDIT_ENTRY_TYPE,
       entryId: id,
       scopeType: existingTask.scopeType,
@@ -488,6 +494,7 @@ const updateStatusHandler: ContextAwareHandler = async (
     {
       agentId,
       action: 'update',
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       entryType: TASK_AUDIT_ENTRY_TYPE,
       entryId: id,
       scopeType: existingTask.scopeType,
@@ -644,6 +651,7 @@ const addBlockerHandler: ContextAwareHandler = async (
     {
       agentId,
       action: 'update',
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       entryType: TASK_AUDIT_ENTRY_TYPE,
       entryId: id,
       scopeType: task.scopeType,
@@ -691,6 +699,7 @@ const removeBlockerHandler: ContextAwareHandler = async (
     {
       agentId,
       action: 'update',
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       entryType: TASK_AUDIT_ENTRY_TYPE,
       entryId: id,
       scopeType: task.scopeType,

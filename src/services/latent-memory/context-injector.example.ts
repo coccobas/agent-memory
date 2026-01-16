@@ -20,49 +20,56 @@ const sampleMemories: LatentMemoryWithScore[] = [
     id: 'mem-001',
     sourceType: 'knowledge',
     sourceId: 'k-postgres-001',
-    textPreview: 'The system uses PostgreSQL as the primary database with pgvector extension for vector similarity search.',
+    textPreview:
+      'The system uses PostgreSQL as the primary database with pgvector extension for vector similarity search.',
     similarityScore: 0.92,
   },
   {
     id: 'mem-002',
     sourceType: 'guideline',
     sourceId: 'g-typescript-001',
-    textPreview: 'Always use strict TypeScript mode with all compiler flags enabled. Enable noUncheckedIndexedAccess and exactOptionalPropertyTypes.',
+    textPreview:
+      'Always use strict TypeScript mode with all compiler flags enabled. Enable noUncheckedIndexedAccess and exactOptionalPropertyTypes.',
     similarityScore: 0.88,
   },
   {
     id: 'mem-003',
     sourceType: 'knowledge',
     sourceId: 'k-vector-001',
-    textPreview: 'Vector embeddings are generated using OpenAI text-embedding-3-small model with 1536 dimensions.',
+    textPreview:
+      'Vector embeddings are generated using OpenAI text-embedding-3-small model with 1536 dimensions.',
     similarityScore: 0.85,
   },
   {
     id: 'mem-004',
     sourceType: 'tool',
     sourceId: 't-cli-001',
-    textPreview: 'Use npm run test:integration to run integration tests. Requires DATABASE_URL environment variable.',
+    textPreview:
+      'Use npm run test:integration to run integration tests. Requires DATABASE_URL environment variable.',
     similarityScore: 0.82,
   },
   {
     id: 'mem-005',
     sourceType: 'experience',
     sourceId: 'e-issue-001',
-    textPreview: 'When switching embedding providers, clear the vector database to prevent dimension mismatch errors.',
+    textPreview:
+      'When switching embedding providers, clear the vector database to prevent dimension mismatch errors.',
     similarityScore: 0.79,
   },
   {
     id: 'mem-006',
     sourceType: 'guideline',
     sourceId: 'g-error-001',
-    textPreview: 'Use typed error creators from core/errors.ts instead of throwing raw Error objects.',
+    textPreview:
+      'Use typed error creators from core/errors.ts instead of throwing raw Error objects.',
     similarityScore: 0.75,
   },
   {
     id: 'mem-007',
     sourceType: 'knowledge',
     sourceId: 'k-architecture-001',
-    textPreview: 'The system follows a layered architecture: MCP/REST handlers -> Services -> Repositories -> Database.',
+    textPreview:
+      'The system follows a layered architecture: MCP/REST handlers -> Services -> Repositories -> Database.',
     similarityScore: 0.71,
   },
 ];
@@ -192,7 +199,10 @@ function exampleTokenBudget(): void {
   console.log('\nMetadata:');
   console.log(`- Tokens used: ${context.tokensUsed} (max: ${options.maxTokens})`);
   console.log(`- Memories used: ${context.memoriesUsed.length} (max: ${options.maxMemories})`);
-  console.log('- Relevance scores:', context.memoriesUsed.map((m) => m.score.toFixed(2)).join(', '));
+  console.log(
+    '- Relevance scores:',
+    context.memoriesUsed.map((m) => m.score.toFixed(2)).join(', ')
+  );
 }
 
 /**
@@ -219,7 +229,10 @@ function exampleRelevanceFiltering(): void {
   console.log('\nMetadata:');
   console.log(`- Tokens used: ${context.tokensUsed}`);
   console.log(`- Memories used: ${context.memoriesUsed.length}`);
-  console.log('- All scores >= 0.85:', context.memoriesUsed.every((m) => m.score >= 0.85));
+  console.log(
+    '- All scores >= 0.85:',
+    context.memoriesUsed.every((m) => m.score >= 0.85)
+  );
 }
 
 /**
@@ -241,7 +254,9 @@ function exampleTokenEstimation(): void {
     const tokens = injector.estimateTokens(text);
     const wordCount = text.split(/\s+/).length;
     console.log(`\nText: "${text}"`);
-    console.log(`Words: ${wordCount}, Estimated tokens: ${tokens}, Ratio: ${(tokens / wordCount).toFixed(2)}`);
+    console.log(
+      `Words: ${wordCount}, Estimated tokens: ${tokens}, Ratio: ${(tokens / wordCount).toFixed(2)}`
+    );
   }
 }
 

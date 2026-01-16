@@ -342,6 +342,3 @@ describe('voting.service', () => {
     });
   });
 });
-
-
-

@@ -318,14 +318,11 @@ describe('FeedbackQueueProcessor', () => {
         processor.enqueue(items);
       }
 
-      await waitUntil(
-        () => {
-          expect(mockFeedbackService.recordRetrievalBatch.mock.calls.length).toBeGreaterThanOrEqual(
-            3
-          );
-        },
-        5000
-      );
+      await waitUntil(() => {
+        expect(mockFeedbackService.recordRetrievalBatch.mock.calls.length).toBeGreaterThanOrEqual(
+          3
+        );
+      }, 5000);
 
       expect(maxConcurrency).toBeGreaterThanOrEqual(1);
     });
@@ -551,12 +548,9 @@ describe('FeedbackQueueProcessor', () => {
       ]);
 
       // Wait for timeout to trigger flush
-      await waitUntil(
-        () => {
-          expect(mockFeedbackService.recordRetrievalBatch).toHaveBeenCalled();
-        },
-        200
-      );
+      await waitUntil(() => {
+        expect(mockFeedbackService.recordRetrievalBatch).toHaveBeenCalled();
+      }, 200);
 
       expect(mockFeedbackService.recordRetrievalBatch).toHaveBeenCalledWith(
         expect.arrayContaining([
@@ -582,12 +576,9 @@ describe('FeedbackQueueProcessor', () => {
       );
       processor.enqueue(items);
 
-      await waitUntil(
-        () => {
-          expect(mockFeedbackService.recordRetrievalBatch).toHaveBeenCalled();
-        },
-        1000
-      );
+      await waitUntil(() => {
+        expect(mockFeedbackService.recordRetrievalBatch).toHaveBeenCalled();
+      }, 1000);
 
       const elapsed = Date.now() - startTime;
       expect(elapsed).toBeLessThan(1000); // Should be much faster than timeout
@@ -716,13 +707,10 @@ describe('Edge Cases and Error Handling', () => {
       processor.enqueueSingle(createRetrievalParams(`session-${i}`, `entry-${i}`));
     }
 
-    await waitUntil(
-      () => {
-        const stats = processor.getStats();
-        expect(stats.itemsProcessed).toBe(20);
-      },
-      5000
-    );
+    await waitUntil(() => {
+      const stats = processor.getStats();
+      expect(stats.itemsProcessed).toBe(20);
+    }, 5000);
   });
 
   it('should handle intermittent failures', async () => {
@@ -749,13 +737,10 @@ describe('Edge Cases and Error Handling', () => {
       processor.enqueue(items);
     }
 
-    await waitUntil(
-      () => {
-        const stats = processor.getStats();
-        expect(stats.batchesProcessed + stats.failures).toBeGreaterThanOrEqual(5);
-      },
-      5000
-    );
+    await waitUntil(() => {
+      const stats = processor.getStats();
+      expect(stats.batchesProcessed + stats.failures).toBeGreaterThanOrEqual(5);
+    }, 5000);
 
     const stats = processor.getStats();
     expect(stats.failures).toBeGreaterThan(0);
@@ -775,13 +760,10 @@ describe('Edge Cases and Error Handling', () => {
     );
     processor.enqueue(items);
 
-    await waitUntil(
-      () => {
-        const stats = processor.getStats();
-        expect(stats.itemsProcessed).toBe(200);
-      },
-      5000
-    );
+    await waitUntil(() => {
+      const stats = processor.getStats();
+      expect(stats.itemsProcessed).toBe(200);
+    }, 5000);
   });
 
   it('should handle string errors in DLQ', async () => {

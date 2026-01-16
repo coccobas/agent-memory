@@ -69,7 +69,7 @@ export function buildExtractionState(params: ExtractionStateParams): ExtractionS
 function extractContentFeatures(turns: TurnData[]): ExtractionState['contentFeatures'] {
   // Analyze recent turns (last 3)
   const recentTurns = turns.slice(-3);
-  const combinedContent = recentTurns.map(t => t.content.toLowerCase()).join(' ');
+  const combinedContent = recentTurns.map((t) => t.content.toLowerCase()).join(' ');
 
   // Pattern matching for content types
   const hasDecision = detectDecision(combinedContent);
@@ -107,7 +107,7 @@ function detectDecision(content: string): boolean {
     'rationale',
     'tradeoff',
   ];
-  return decisionKeywords.some(keyword => content.includes(keyword));
+  return decisionKeywords.some((keyword) => content.includes(keyword));
 }
 
 /**
@@ -125,7 +125,7 @@ function detectRule(content: string): boolean {
     'best practice',
     'guideline',
   ];
-  return ruleKeywords.some(keyword => content.includes(keyword));
+  return ruleKeywords.some((keyword) => content.includes(keyword));
 }
 
 /**
@@ -142,7 +142,7 @@ function detectFact(content: string): boolean {
     'located',
     'stored',
   ];
-  return factKeywords.some(keyword => content.includes(keyword));
+  return factKeywords.some((keyword) => content.includes(keyword));
 }
 
 /**
@@ -157,7 +157,7 @@ function detectCommand(content: string): boolean {
     /function\s+\w+\(/,
     /def\s+\w+\(/,
   ];
-  return commandPatterns.some(pattern => pattern.test(content));
+  return commandPatterns.some((pattern) => pattern.test(content));
 }
 
 /**

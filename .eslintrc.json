@@ -35,14 +35,23 @@
     ],
     "prefer-const": "error",
     "no-var": "error",
-    "eqeqeq": ["error", "always"],
+    "eqeqeq": ["error", "always", { "null": "ignore" }],
     "@typescript-eslint/consistent-type-imports": [
       "error",
       {
         "prefer": "type-imports"
       }
-    ]
+    ],
+    "@typescript-eslint/require-await": "off"
   },
-  "ignorePatterns": ["dist", "node_modules", "coverage", "*.js", "*.d.ts", "tests/**/*.ts"],
+  "ignorePatterns": [
+    "dist",
+    "node_modules",
+    "coverage",
+    "*.js",
+    "*.d.ts",
+    "tests/**/*.ts",
+    "*.example.ts"
+  ],
   "overrides": []
 }

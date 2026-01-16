@@ -80,7 +80,9 @@ export function getTagsForEntriesBatch(
   const typeConditions = [];
   for (const [entryType, entryIds] of entriesByType) {
     if (entryIds.length > 0) {
-      typeConditions.push(and(eq(entryTags.entryType, entryType), inArray(entryTags.entryId, entryIds)));
+      typeConditions.push(
+        and(eq(entryTags.entryType, entryType), inArray(entryTags.entryId, entryIds))
+      );
     }
   }
 

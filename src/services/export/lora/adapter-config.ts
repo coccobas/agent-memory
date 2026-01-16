@@ -58,7 +58,9 @@ export function generateAdapterConfig(options?: {
     r: options?.rank ?? defaults?.r ?? 16,
     lora_alpha: options?.alpha ?? defaults?.lora_alpha ?? 32,
     lora_dropout: options?.dropout ?? defaults?.lora_dropout ?? 0.05,
-    target_modules: options?.targetModules ?? TARGET_MODULES[modelType] ?? TARGET_MODULES.default ?? ['q_proj', 'v_proj'],
+    target_modules: options?.targetModules ??
+      TARGET_MODULES[modelType] ??
+      TARGET_MODULES.default ?? ['q_proj', 'v_proj'],
     bias: 'none',
     task_type: 'CAUSAL_LM',
     inference_mode: false,

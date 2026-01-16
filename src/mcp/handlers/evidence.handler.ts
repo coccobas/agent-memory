@@ -21,7 +21,11 @@ import {
   isObject,
   isArrayOfStrings,
 } from '../../utils/type-guards.js';
-import { createValidationError, createNotFoundError, createPermissionError } from '../../core/errors.js';
+import {
+  createValidationError,
+  createNotFoundError,
+  createPermissionError,
+} from '../../core/errors.js';
 import { formatTimestamps } from '../../utils/timestamp-formatter.js';
 import { logAction } from '../../services/audit.service.js';
 
@@ -35,7 +39,17 @@ import { logAction } from '../../services/audit.service.js';
 function isEvidenceType(value: unknown): value is EvidenceType {
   return (
     isString(value) &&
-    ['screenshot', 'log', 'snippet', 'output', 'benchmark', 'link', 'document', 'quote', 'other'].includes(value)
+    [
+      'screenshot',
+      'log',
+      'snippet',
+      'output',
+      'benchmark',
+      'link',
+      'document',
+      'quote',
+      'other',
+    ].includes(value)
   );
 }
 
@@ -141,9 +155,20 @@ export interface ListEvidenceFilter {
 export interface IEvidenceRepository {
   create(input: CreateEvidenceInput): Promise<Evidence>;
   getById(id: string): Promise<Evidence | undefined>;
-  list(filter?: ListEvidenceFilter, options?: { limit?: number; offset?: number }): Promise<Evidence[]>;
-  listByType(evidenceType: EvidenceType, filter?: ListEvidenceFilter, options?: { limit?: number; offset?: number }): Promise<Evidence[]>;
-  listBySource(source: string, filter?: ListEvidenceFilter, options?: { limit?: number; offset?: number }): Promise<Evidence[]>;
+  list(
+    filter?: ListEvidenceFilter,
+    options?: { limit?: number; offset?: number }
+  ): Promise<Evidence[]>;
+  listByType(
+    evidenceType: EvidenceType,
+    filter?: ListEvidenceFilter,
+    options?: { limit?: number; offset?: number }
+  ): Promise<Evidence[]>;
+  listBySource(
+    source: string,
+    filter?: ListEvidenceFilter,
+    options?: { limit?: number; offset?: number }
+  ): Promise<Evidence[]>;
   deactivate(id: string): Promise<boolean>;
 }
 
@@ -162,7 +187,7 @@ function requirePermission(
   scopeId: string | null,
   entryId: string | null = null
 ): void {
-  const hasPermission = context.services!.permission.check(
+  const hasPermission = context.services.permission.check(
     agentId,
     permission,
     'knowledge', // Use knowledge type for permission checks (evidence is knowledge-adjacent)
@@ -206,6 +231,8 @@ function validateContentSource(content?: string, filePath?: string, url?: string
 function parseTags(evidence: Evidence): string[] {
   if (!evidence.tags) return [];
   try {
+    // JSON.parse returns unknown - cast to string array
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return JSON.parse(evidence.tags);
   } catch {
     return [];
@@ -218,6 +245,8 @@ function parseTags(evidence: Evidence): string[] {
 function parseMetadata(evidence: Evidence): Record<string, unknown> | null {
   if (!evidence.metadata) return null;
   try {
+    // JSON.parse returns unknown - cast to Record
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return JSON.parse(evidence.metadata);
   } catch {
     return null;
@@ -441,7 +470,7 @@ const listHandler: ContextAwareHandler = async (
   // Filter by permission (batch would be better but keeping simple)
   const accessibleEvidence: Evidence[] = [];
   for (const evidence of results) {
-    const hasPermission = context.services!.permission.check(
+    const hasPermission = context.services.permission.check(
       agentId,
       'read',
       'knowledge',
@@ -538,7 +567,7 @@ const listByTypeHandler: ContextAwareHandler = async (
   // Filter by permission
   const accessibleEvidence: Evidence[] = [];
   for (const evidence of results) {
-    const hasPermission = context.services!.permission.check(
+    const hasPermission = context.services.permission.check(
       agentId,
       'read',
       'knowledge',
@@ -595,7 +624,7 @@ const listBySourceHandler: ContextAwareHandler = async (
   // Filter by permission
   const accessibleEvidence: Evidence[] = [];
   for (const evidence of results) {
-    const hasPermission = context.services!.permission.check(
+    const hasPermission = context.services.permission.check(
       agentId,
       'read',
       'knowledge',

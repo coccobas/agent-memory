@@ -306,7 +306,8 @@ export function descriptorToTool(descriptor: AnyToolDescriptor): Tool {
 export type GeneratedHandler = (
   context: AppContext,
   params: Record<string, unknown>
-) => unknown | Promise<unknown>;
+  // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents -- intentional: documents that handlers may return sync or async
+) => Promise<unknown> | unknown;
 
 /**
  * Generate action dispatcher from a ToolDescriptor
@@ -338,7 +339,7 @@ export function descriptorToHandler(descriptor: AnyToolDescriptor): GeneratedHan
       const validActions = Object.keys(descriptor.actions);
       throw createValidationError(
         'action',
-        `invalid action "${action}" for ${descriptor.name}`,
+        `invalid action "${String(action)}" for ${descriptor.name}`,
         `Valid actions: ${validActions.join(', ')}`
       );
     }
@@ -350,7 +351,10 @@ export function descriptorToHandler(descriptor: AnyToolDescriptor): GeneratedHan
     if (actionDef.handler) {
       return actionDef.handler(rest);
     }
-    throw createValidationError('handler', `no handler defined for action "${action}" in ${descriptor.name}`);
+    throw createValidationError(
+      'handler',
+      `no handler defined for action "${String(action)}" in ${descriptor.name}`
+    );
   };
 }
 

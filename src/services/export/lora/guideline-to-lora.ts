@@ -5,6 +5,8 @@
  * Handles filtering, example generation, and format conversion.
  */
 
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
+
 import type { DbClient } from '../../../db/connection.js';
 import {
   guidelines,
@@ -99,19 +101,13 @@ export class GuidelineToLoRAConverter {
       const evalData = this.convertToFormat(evalExamples, config.format);
 
       // Write files
-      const files = await this.writeFiles(
-        config.outputPath,
-        config.format,
-        trainData,
-        evalData,
-        {
-          guidelinesProcessed: guidelineData.length,
-          examplesGenerated: allExamples.length,
-          trainExamples: trainExamples.length,
-          evalExamples: evalExamples.length,
-          config,
-        }
-      );
+      const files = await this.writeFiles(config.outputPath, config.format, trainData, evalData, {
+        guidelinesProcessed: guidelineData.length,
+        examplesGenerated: allExamples.length,
+        trainExamples: trainExamples.length,
+        evalExamples: evalExamples.length,
+        config,
+      });
 
       // Generate optional files
       if (config.generateScript) {
@@ -192,7 +188,9 @@ export class GuidelineToLoRAConverter {
     // Scope filter
     if (filter?.scopeType) {
       if (filter.scopeId === null || filter.scopeId === undefined) {
-        conditions.push(and(eq(guidelines.scopeType, filter.scopeType), isNull(guidelines.scopeId)));
+        conditions.push(
+          and(eq(guidelines.scopeType, filter.scopeType), isNull(guidelines.scopeId))
+        );
       } else {
         conditions.push(
           and(eq(guidelines.scopeType, filter.scopeType), eq(guidelines.scopeId, filter.scopeId))
@@ -273,7 +271,9 @@ export class GuidelineToLoRAConverter {
             })
             .from(entryTags)
             .innerJoin(tags, eq(entryTags.tagId, tags.id))
-            .where(and(eq(entryTags.entryType, 'guideline'), inArray(entryTags.entryId, guidelineIds)))
+            .where(
+              and(eq(entryTags.entryType, 'guideline'), inArray(entryTags.entryId, guidelineIds))
+            )
             .all()
         : [];
 
@@ -331,7 +331,10 @@ export class GuidelineToLoRAConverter {
         return examples.map((ex) => ({
           messages: [
             { role: 'system', content: ex.system },
-            { role: 'user', content: ex.input ? `${ex.instruction}\n\n${ex.input}` : ex.instruction },
+            {
+              role: 'user',
+              content: ex.input ? `${ex.instruction}\n\n${ex.input}` : ex.instruction,
+            },
             { role: 'assistant', content: ex.output },
           ],
         }));
@@ -340,7 +343,10 @@ export class GuidelineToLoRAConverter {
         return examples.map((ex) => ({
           conversations: [
             { from: 'system', value: ex.system },
-            { from: 'human', value: ex.input ? `${ex.instruction}\n\n${ex.input}` : ex.instruction },
+            {
+              from: 'human',
+              value: ex.input ? `${ex.instruction}\n\n${ex.input}` : ex.instruction,
+            },
             { from: 'gpt', value: ex.output },
           ],
         }));
@@ -352,7 +358,11 @@ export class GuidelineToLoRAConverter {
         }));
 
       default:
-        throw createValidationError('format', `unsupported format: ${format}`, 'Use alpaca, openai-messages, sharegpt, or anthropic-prompts');
+        throw createValidationError(
+          'format',
+          `unsupported format: ${String(format)}`,
+          'Use alpaca, openai-messages, sharegpt, or anthropic-prompts'
+        );
     }
   }
 

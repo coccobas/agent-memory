@@ -93,9 +93,7 @@ describe('RL Rewards', () => {
       const recentResult = computeExtractionReward(recentParams);
       const oldResult = computeExtractionReward(oldParams);
 
-      expect(oldResult.components.timeDecay).toBeLessThan(
-        recentResult.components.timeDecay
-      );
+      expect(oldResult.components.timeDecay).toBeLessThan(recentResult.components.timeDecay);
       expect(oldResult.reward).toBeLessThan(recentResult.reward);
     });
 
@@ -260,9 +258,7 @@ describe('RL Rewards', () => {
       const smallResult = computeRetrievalReward(smallRetrievalParams);
       const largeResult = computeRetrievalReward(largeRetrievalParams);
 
-      expect(largeResult.components.costPenalty).toBeLessThan(
-        smallResult.components.costPenalty
-      );
+      expect(largeResult.components.costPenalty).toBeLessThan(smallResult.components.costPenalty);
     });
 
     it('should reward high relevance results', () => {

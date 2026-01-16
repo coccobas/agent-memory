@@ -18,7 +18,10 @@ import * as schema from '../../src/db/schema.js';
 import { generateId } from '../../src/db/repositories/base.js';
 import { applyMigrations } from '../fixtures/migration-loader.js';
 import { cleanupDbFiles, ensureDataDirectory } from '../fixtures/db-utils.js';
-import { EmbeddingService, resetEmbeddingServiceState } from '../../src/services/embedding.service.js';
+import {
+  EmbeddingService,
+  resetEmbeddingServiceState,
+} from '../../src/services/embedding.service.js';
 import { calculateStats } from './fixtures/benchmark-helpers.js';
 
 const BENCH_DB_PATH = './data/benchmark/fts5-vs-embeddings.db';
@@ -56,15 +59,23 @@ function setupDb(entryCount: number) {
 /**
  * Seed database with realistic content for search testing
  */
-function seedData(
-  db: ReturnType<typeof drizzle>,
-  sqlite: Database.Database,
-  count: number
-): void {
+function seedData(db: ReturnType<typeof drizzle>, sqlite: Database.Database, count: number): void {
   const topics = [
-    'authentication', 'authorization', 'database', 'caching', 'logging',
-    'monitoring', 'deployment', 'testing', 'security', 'performance',
-    'api', 'frontend', 'backend', 'microservices', 'kubernetes',
+    'authentication',
+    'authorization',
+    'database',
+    'caching',
+    'logging',
+    'monitoring',
+    'deployment',
+    'testing',
+    'security',
+    'performance',
+    'api',
+    'frontend',
+    'backend',
+    'microservices',
+    'kubernetes',
   ];
 
   const contentTemplates = [
@@ -164,7 +175,9 @@ async function searchEmbeddings(
   for (const [id, embedding] of precomputedEmbeddings) {
     const score = cosineSimilarity(queryEmb, embedding);
     // Get title from DB (could be optimized with a cache)
-    const row = sqlite.prepare('SELECT title FROM knowledge WHERE id = ?').get(id) as { title: string } | undefined;
+    const row = sqlite.prepare('SELECT title FROM knowledge WHERE id = ?').get(id) as
+      | { title: string }
+      | undefined;
     if (row) {
       results.push({ id, name: row.title, score });
     }
@@ -230,12 +243,16 @@ async function precomputeEmbeddings(
   sqlite: Database.Database,
   embeddingService: EmbeddingService
 ): Promise<Map<string, number[]>> {
-  const entries = sqlite.prepare(`
+  const entries = sqlite
+    .prepare(
+      `
     SELECT k.id, k.title, kv.content
     FROM knowledge k
     JOIN knowledge_versions kv ON k.current_version_id = kv.id
     WHERE k.is_active = 1
-  `).all() as Array<{ id: string; title: string; content: string }>;
+  `
+    )
+    .all() as Array<{ id: string; title: string; content: string }>;
 
   const embeddings = new Map<string, number[]>();
 
@@ -244,7 +261,7 @@ async function precomputeEmbeddings(
 
   for (let i = 0; i < entries.length; i += batchSize) {
     const batch = entries.slice(i, i + batchSize);
-    const texts = batch.map(e => `${e.title} ${e.content}`);
+    const texts = batch.map((e) => `${e.title} ${e.content}`);
     const result = await embeddingService.embedBatch(texts);
 
     batch.forEach((entry, idx) => {
@@ -255,7 +272,9 @@ async function precomputeEmbeddings(
     });
 
     if ((i + batchSize) % 100 === 0) {
-      console.log(`    Computed ${Math.min(i + batchSize, entries.length)}/${entries.length} embeddings`);
+      console.log(
+        `    Computed ${Math.min(i + batchSize, entries.length)}/${entries.length} embeddings`
+      );
     }
   }
 
@@ -270,7 +289,14 @@ function formatResults(results: BenchResult[]): void {
   console.log('BENCHMARK RESULTS');
   console.log('='.repeat(80));
 
-  console.log('\n%-30s %10s %10s %10s %10s', 'Strategy', 'p50 (ms)', 'p95 (ms)', 'p99 (ms)', 'Mean (ms)');
+  console.log(
+    '\n%-30s %10s %10s %10s %10s',
+    'Strategy',
+    'p50 (ms)',
+    'p95 (ms)',
+    'p99 (ms)',
+    'Mean (ms)'
+  );
   console.log('-'.repeat(70));
 
   for (const r of results) {
@@ -329,7 +355,9 @@ async function main() {
     const precomputeStart = performance.now();
     const embeddings = await precomputeEmbeddings(sqlite, embeddingService);
     const precomputeTime = performance.now() - precomputeStart;
-    console.log(`  Done in ${precomputeTime.toFixed(0)}ms (${(precomputeTime / entryCount).toFixed(1)}ms/entry)\n`);
+    console.log(
+      `  Done in ${precomputeTime.toFixed(0)}ms (${(precomputeTime / entryCount).toFixed(1)}ms/entry)\n`
+    );
 
     const allResults: BenchResult[] = [];
 
@@ -366,21 +394,31 @@ async function main() {
       // Print immediate comparison
       console.log(
         `  LIKE: ${likeResult.stats.median.toFixed(2)}ms | ` +
-        `FTS5: ${fts5Result.stats.median.toFixed(2)}ms | ` +
-        `Embeddings: ${embResult.stats.median.toFixed(2)}ms`
+          `FTS5: ${fts5Result.stats.median.toFixed(2)}ms | ` +
+          `Embeddings: ${embResult.stats.median.toFixed(2)}ms`
       );
     }
 
     // Summary for this entry count
-    const likeTimes = allResults.filter(r => r.name.startsWith('LIKE')).flatMap(r => r.times);
-    const fts5Times = allResults.filter(r => r.name.startsWith('FTS5')).flatMap(r => r.times);
-    const embTimes = allResults.filter(r => r.name.startsWith('Embeddings')).flatMap(r => r.times);
+    const likeTimes = allResults.filter((r) => r.name.startsWith('LIKE')).flatMap((r) => r.times);
+    const fts5Times = allResults.filter((r) => r.name.startsWith('FTS5')).flatMap((r) => r.times);
+    const embTimes = allResults
+      .filter((r) => r.name.startsWith('Embeddings'))
+      .flatMap((r) => r.times);
 
     console.log(`\n--- Summary for ${entryCount} entries ---`);
-    console.log(`LIKE:       p50=${calculateStats(likeTimes).median.toFixed(2)}ms, p95=${calculateStats(likeTimes).p95.toFixed(2)}ms`);
-    console.log(`FTS5:       p50=${calculateStats(fts5Times).median.toFixed(2)}ms, p95=${calculateStats(fts5Times).p95.toFixed(2)}ms`);
-    console.log(`Embeddings: p50=${calculateStats(embTimes).median.toFixed(2)}ms, p95=${calculateStats(embTimes).p95.toFixed(2)}ms`);
-    console.log(`Pre-compute overhead: ${precomputeTime.toFixed(0)}ms total, ${(precomputeTime / entryCount).toFixed(1)}ms/entry`);
+    console.log(
+      `LIKE:       p50=${calculateStats(likeTimes).median.toFixed(2)}ms, p95=${calculateStats(likeTimes).p95.toFixed(2)}ms`
+    );
+    console.log(
+      `FTS5:       p50=${calculateStats(fts5Times).median.toFixed(2)}ms, p95=${calculateStats(fts5Times).p95.toFixed(2)}ms`
+    );
+    console.log(
+      `Embeddings: p50=${calculateStats(embTimes).median.toFixed(2)}ms, p95=${calculateStats(embTimes).p95.toFixed(2)}ms`
+    );
+    console.log(
+      `Pre-compute overhead: ${precomputeTime.toFixed(0)}ms total, ${(precomputeTime / entryCount).toFixed(1)}ms/entry`
+    );
 
     sqlite.close();
     cleanupDbFiles(BENCH_DB_PATH);

@@ -13,6 +13,7 @@
  * Full schema type for PostgresJsDatabase generic parameter.
  * Use with: drizzle<AppSchema>(pool)
  */
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports -- typeof import() is the only way to get module type
 export type AppSchema = typeof import('./index.js');
 
 // =============================================================================

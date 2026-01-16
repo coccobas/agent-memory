@@ -265,6 +265,3 @@ describe('Voting Handler Integration', () => {
     });
   });
 });
-
-
-

@@ -834,7 +834,9 @@ describe('CircuitBreaker', () => {
 
       const stats = breaker.getStats();
       expect(stats.state).toBe('CLOSED');
-      expect(stats.totalCalls).toBe(2 + 1 + 1 + config.failureThreshold + 1 + config.successThreshold); // 10 total
+      expect(stats.totalCalls).toBe(
+        2 + 1 + 1 + config.failureThreshold + 1 + config.successThreshold
+      ); // 10 total
       expect(stats.totalSuccesses).toBe(2 + 1 + config.successThreshold); // 5 successes (not counting rejected call)
       expect(stats.totalFailures).toBe(1 + config.failureThreshold); // 4 failures
     });

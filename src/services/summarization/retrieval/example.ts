@@ -4,6 +4,8 @@
  * Demonstrates how to use the hierarchical summarization retrieval system.
  */
 
+/* eslint-disable no-console */
+
 import { getDb } from '../../../db/connection.js';
 import { EmbeddingService } from '../../embedding.service.js';
 import { CoarseToFineRetriever } from './coarse-to-fine.js';
@@ -36,8 +38,10 @@ export async function exampleHierarchicalSearch(): Promise<void> {
 
   console.log(`Found ${result.entries.length} relevant entries in ${result.totalTimeMs}ms`);
   console.log('Retrieval steps:');
-  result.steps.forEach(step => {
-    console.log(`  Level ${step.level}: searched ${step.summariesSearched}, matched ${step.summariesMatched} (${step.timeMs}ms)`);
+  result.steps.forEach((step) => {
+    console.log(
+      `  Level ${step.level}: searched ${step.summariesSearched}, matched ${step.summariesMatched} (${step.timeMs}ms)`
+    );
   });
 
   console.log('\nTop results:');
@@ -59,9 +63,13 @@ export async function exampleBrowseTopLevel(): Promise<void> {
   const topLevel = await retriever.getTopLevel('project', 'my-project-id');
 
   console.log(`Found ${topLevel.length} top-level summaries:`);
-  topLevel.forEach(summary => {
-    console.log(`  - ${summary.title} (level ${summary.hierarchyLevel}, ${summary.memberCount} members)`);
-    console.log(`    Coherence: ${summary.coherenceScore?.toFixed(2)}, Compression: ${summary.compressionRatio?.toFixed(2)}`);
+  topLevel.forEach((summary) => {
+    console.log(
+      `  - ${summary.title} (level ${summary.hierarchyLevel}, ${summary.memberCount} members)`
+    );
+    console.log(
+      `    Coherence: ${summary.coherenceScore?.toFixed(2)}, Compression: ${summary.compressionRatio?.toFixed(2)}`
+    );
   });
 }
 
@@ -82,14 +90,14 @@ export async function exampleDrillDown(summaryId: string): Promise<void> {
 
   if (result.children.length > 0) {
     console.log(`\nChild summaries (${result.children.length}):`);
-    result.children.forEach(child => {
+    result.children.forEach((child) => {
       console.log(`  - ${child.title} (${child.memberCount} members)`);
     });
   }
 
   if (result.members.length > 0) {
     console.log(`\nDirect members (${result.members.length}):`);
-    result.members.forEach(member => {
+    result.members.forEach((member) => {
       console.log(`  - [${member.type}] ${member.id} (score: ${member.score.toFixed(3)})`);
     });
   }
@@ -107,10 +115,13 @@ export async function exampleProgressiveRefinement(): Promise<void> {
   // Step 1: Get domain-level overview
   console.log('Step 1: Getting domain-level summaries...');
   const domains = await retriever.getTopLevel('project', 'my-project-id');
-  console.log(`Found ${domains.length} domains:`, domains.map(d => d.title));
+  console.log(
+    `Found ${domains.length} domains:`,
+    domains.map((d) => d.title)
+  );
 
   // Step 2: User selects "Backend Development" domain
-  const selectedDomain = domains.find(d => d.title.includes('Backend'));
+  const selectedDomain = domains.find((d) => d.title.includes('Backend'));
   if (!selectedDomain) {
     console.log('No backend domain found');
     return;
@@ -131,7 +142,7 @@ export async function exampleProgressiveRefinement(): Promise<void> {
   });
 
   console.log(`Found ${refined.entries.length} specific entries:`);
-  refined.entries.forEach(entry => {
+  refined.entries.forEach((entry) => {
     console.log(`  - [${entry.type}] ${entry.id} (score: ${entry.score.toFixed(3)})`);
   });
 }
@@ -159,8 +170,10 @@ export async function examplePerformanceComparison(): Promise<void> {
   console.log(`  Time: ${hierarchicalResult.totalTimeMs}ms`);
   console.log(`  Results: ${hierarchicalResult.entries.length}`);
   console.log('  Steps:');
-  hierarchicalResult.steps.forEach(step => {
-    console.log(`    Level ${step.level}: ${step.summariesSearched} searched, ${step.summariesMatched} matched`);
+  hierarchicalResult.steps.forEach((step) => {
+    console.log(
+      `    Level ${step.level}: ${step.summariesSearched} searched, ${step.summariesMatched} matched`
+    );
   });
 
   // For comparison, you could implement flat search here

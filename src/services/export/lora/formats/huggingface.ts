@@ -12,6 +12,7 @@ import type {
   ShareGPTExample,
   LoRAExportConfig,
   LoRAExportResult,
+  DatasetInfo,
 } from '../types.js';
 
 // =============================================================================
@@ -301,10 +302,7 @@ function convertToAlpaca(example: TrainingExample): AlpacaExample {
 /**
  * Convert training example to ShareGPT format
  */
-function convertToShareGPT(
-  example: TrainingExample,
-  includeSystem = true
-): ShareGPTExample {
+function convertToShareGPT(example: TrainingExample, includeSystem = true): ShareGPTExample {
   const conversations: ShareGPTExample['conversations'] = [];
 
   // Add system message if requested
@@ -341,7 +339,7 @@ function convertToShareGPT(
 /**
  * Generate README for Alpaca format
  */
-function generateAlpacaReadme(config: LoRAExportConfig, datasetInfo: any): string {
+function generateAlpacaReadme(config: LoRAExportConfig, datasetInfo: DatasetInfo): string {
   return `# ${datasetInfo.dataset_name}
 
 ${datasetInfo.description}
@@ -552,7 +550,7 @@ See project LICENSE file.
 /**
  * Generate README for ShareGPT format
  */
-function generateShareGPTReadme(config: LoRAExportConfig, datasetInfo: any): string {
+function generateShareGPTReadme(config: LoRAExportConfig, datasetInfo: DatasetInfo): string {
   return `# ${datasetInfo.dataset_name}
 
 ${datasetInfo.description}

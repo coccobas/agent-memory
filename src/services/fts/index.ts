@@ -41,7 +41,11 @@ export function createFTSService(deps: FTSServiceDeps): IFTSService {
     default: {
       // Exhaustive check
       const _exhaustive: never = deps;
-      throw createValidationError('dbType', `Unknown database type: ${JSON.stringify(_exhaustive)}`, 'Use either sqlite or postgresql');
+      throw createValidationError(
+        'dbType',
+        `Unknown database type: ${JSON.stringify(_exhaustive)}`,
+        'Use either sqlite or postgresql'
+      );
     }
   }
 }

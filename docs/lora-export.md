@@ -22,18 +22,18 @@ Export guidelines as training data for LoRA fine-tuning.
 
 **Parameters:**
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `action` | string | Yes | Must be "export" |
-| `targetModel` | string | Yes | Target model name (e.g., "meta-llama/Llama-3-8B") |
-| `format` | string | No | Export format: "huggingface" (default), "openai", "anthropic", "alpaca" |
-| `outputPath` | string | Yes | Output directory path for datasets |
-| `agentId` | string | Yes | Agent identifier for access control |
-| `admin_key` | string | Yes | Admin key for authorization |
-| `includeExamples` | boolean | No | Generate examples from guideline examples (default: true) |
-| `examplesPerGuideline` | number | No | Number of examples per guideline (default: 3) |
-| `trainEvalSplit` | number | No | Train/eval split ratio 0-1 (default: 0.9) |
-| `guidelineFilter` | object | No | Filter criteria for guidelines |
+| Parameter              | Type    | Required | Description                                                             |
+| ---------------------- | ------- | -------- | ----------------------------------------------------------------------- |
+| `action`               | string  | Yes      | Must be "export"                                                        |
+| `targetModel`          | string  | Yes      | Target model name (e.g., "meta-llama/Llama-3-8B")                       |
+| `format`               | string  | No       | Export format: "huggingface" (default), "openai", "anthropic", "alpaca" |
+| `outputPath`           | string  | Yes      | Output directory path for datasets                                      |
+| `agentId`              | string  | Yes      | Agent identifier for access control                                     |
+| `admin_key`            | string  | Yes      | Admin key for authorization                                             |
+| `includeExamples`      | boolean | No       | Generate examples from guideline examples (default: true)               |
+| `examplesPerGuideline` | number  | No       | Number of examples per guideline (default: 3)                           |
+| `trainEvalSplit`       | number  | No       | Train/eval split ratio 0-1 (default: 0.9)                               |
+| `guidelineFilter`      | object  | No       | Filter criteria for guidelines                                          |
 
 **Guideline Filter Object:**
 
@@ -94,10 +94,10 @@ List existing adapter configurations in a directory.
 
 **Parameters:**
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `action` | string | Yes | Must be "list_adapters" |
-| `outputPath` | string | No | Directory to search (default: dataDir/lora) |
+| Parameter    | Type   | Required | Description                                 |
+| ------------ | ------ | -------- | ------------------------------------------- |
+| `action`     | string | Yes      | Must be "list_adapters"                     |
+| `outputPath` | string | No       | Directory to search (default: dataDir/lora) |
 
 **Example:**
 
@@ -134,14 +134,14 @@ Generate a training script for a target model and format.
 
 **Parameters:**
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `action` | string | Yes | Must be "generate_script" |
-| `targetModel` | string | Yes | Target model name |
-| `format` | string | No | Format: "huggingface" (default), "openai", "anthropic", "alpaca" |
-| `datasetPath` | string | Yes | Path to dataset directory |
-| `outputPath` | string | No | Output path for script file |
-| `admin_key` | string | Conditional | Required if outputPath is specified |
+| Parameter     | Type   | Required    | Description                                                      |
+| ------------- | ------ | ----------- | ---------------------------------------------------------------- |
+| `action`      | string | Yes         | Must be "generate_script"                                        |
+| `targetModel` | string | Yes         | Target model name                                                |
+| `format`      | string | No          | Format: "huggingface" (default), "openai", "anthropic", "alpaca" |
+| `datasetPath` | string | Yes         | Path to dataset directory                                        |
+| `outputPath`  | string | No          | Output path for script file                                      |
+| `admin_key`   | string | Conditional | Required if outputPath is specified                              |
 
 **Example:**
 
@@ -175,6 +175,7 @@ Generate a training script for a target model and format.
 Standard format for HuggingFace transformers with PEFT/LoRA.
 
 **Output Format:**
+
 ```jsonl
 {"text": "<|user|>What is the guideline for \"code formatting\"?<|assistant|>Use Prettier with default settings...<|end|>", "metadata": {...}}
 ```
@@ -186,8 +187,24 @@ Standard format for HuggingFace transformers with PEFT/LoRA.
 Format compatible with OpenAI's fine-tuning API.
 
 **Output Format:**
+
 ```jsonl
-{"messages": [{"role": "system", "content": "..."}, {"role": "user", "content": "..."}, {"role": "assistant", "content": "..."}]}
+{
+  "messages": [
+    {
+      "role": "system",
+      "content": "..."
+    },
+    {
+      "role": "user",
+      "content": "..."
+    },
+    {
+      "role": "assistant",
+      "content": "..."
+    }
+  ]
+}
 ```
 
 **Use Case:** Fine-tuning GPT-3.5 or GPT-4 models.
@@ -197,6 +214,7 @@ Format compatible with OpenAI's fine-tuning API.
 Format compatible with Anthropic's Claude format (placeholder for future use).
 
 **Output Format:**
+
 ```jsonl
 {"system": "...", "messages": [{"role": "user", "content": "..."}, {"role": "assistant", "content": "..."}], "metadata": {...}}
 ```
@@ -208,6 +226,7 @@ Format compatible with Anthropic's Claude format (placeholder for future use).
 Stanford Alpaca instruction-following format.
 
 **Output Format:**
+
 ```jsonl
 {"instruction": "Provide guidance based on established guidelines.", "input": "...", "output": "...", "metadata": {...}}
 ```
@@ -307,11 +326,13 @@ model = PeftModel.from_pretrained(base_model, "./lora_output")
 ### LoRA Configuration
 
 Default script settings:
+
 - `r=8`: Rank of LoRA matrices
 - `lora_alpha=32`: Scaling factor
 - `lora_dropout=0.1`: Dropout for regularization
 
 Adjust based on:
+
 - Dataset size (larger → higher rank)
 - Task complexity (complex → higher rank)
 - Overfitting (increase dropout)
@@ -319,6 +340,7 @@ Adjust based on:
 ### Filtering
 
 Use `guidelineFilter` to:
+
 - Focus on specific categories (e.g., only "security" guidelines)
 - Train separate adapters for different scopes
 - Control dataset composition by priority
@@ -337,6 +359,7 @@ Use `guidelineFilter` to:
 **Error**: "No guidelines found matching the filter criteria"
 
 **Solution:**
+
 - Check `guidelineFilter` parameters
 - Verify guidelines exist in the specified scope
 - Remove filters to export all guidelines
@@ -346,6 +369,7 @@ Use `guidelineFilter` to:
 **Error**: "Permission denied"
 
 **Solution:**
+
 - Provide valid `admin_key` parameter
 - Check agent has read permission for guideline scope
 - Verify `agentId` is correct
@@ -355,6 +379,7 @@ Use `guidelineFilter` to:
 **Problem**: Generated dataset has few examples
 
 **Solution:**
+
 - Increase `examplesPerGuideline` parameter
 - Add good/bad examples to guidelines
 - Expand guideline filter to include more guidelines

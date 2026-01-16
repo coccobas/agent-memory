@@ -86,12 +86,12 @@ npx agent-memory hook uninstall --ide claude --project-path /path/to/project
 
 ## Supported IDEs
 
-| IDE | Hook Support | Status |
-|:----|:-------------|:-------|
-| Claude Code | Full (4 hooks) | Supported |
-| Cursor | — | In development |
-| VS Code | — | In development |
-| Other IDEs | — | Planned |
+| IDE         | Hook Support   | Status         |
+| :---------- | :------------- | :------------- |
+| Claude Code | Full (4 hooks) | Supported      |
+| Cursor      | —              | In development |
+| VS Code     | —              | In development |
+| Other IDEs  | —              | Planned        |
 
 Currently, only **Claude Code** supports native hooks. Hooks are installed to `.claude/hooks/`.
 
@@ -155,13 +155,13 @@ Suggestion: Remove console.log or use proper logging service.
 
 **Recognized commands:**
 
-| Command | Action |
-|:--------|:-------|
-| `!am status` | Show current session status |
-| `!am review` | Start memory review workflow |
-| `!am review off` | Disable review requirement |
-| `!am review on` | Re-enable review requirement |
-| `!am ingest` | Manually trigger transcript ingestion |
+| Command          | Action                                |
+| :--------------- | :------------------------------------ |
+| `!am status`     | Show current session status           |
+| `!am review`     | Start memory review workflow          |
+| `!am review off` | Disable review requirement            |
+| `!am review on`  | Re-enable review requirement          |
+| `!am ingest`     | Manually trigger transcript ingestion |
 
 ### SessionEnd
 
@@ -210,11 +210,11 @@ The `settings.json` is updated to reference the hooks:
 
 Hooks respect these environment variables:
 
-| Variable | Purpose |
-|:---------|:--------|
-| `AGENT_MEMORY_DB_PATH` | Path to SQLite database |
+| Variable                  | Purpose                       |
+| :------------------------ | :---------------------------- |
+| `AGENT_MEMORY_DB_PATH`    | Path to SQLite database       |
 | `AGENT_MEMORY_PROJECT_ID` | Project ID for scoped queries |
-| `AGENT_MEMORY_AGENT_ID` | Agent identifier for audit |
+| `AGENT_MEMORY_AGENT_ID`   | Agent identifier for audit    |
 
 ---
 
@@ -226,22 +226,22 @@ Manage IDE hooks via MCP.
 
 **Actions:**
 
-| Action | Description |
-|:-------|:------------|
-| `generate` | Generate hooks without installing (returns content) |
-| `install` | Generate and write hooks to filesystem |
-| `status` | Check if hooks are installed |
-| `uninstall` | Remove installed hooks |
+| Action      | Description                                         |
+| :---------- | :-------------------------------------------------- |
+| `generate`  | Generate hooks without installing (returns content) |
+| `install`   | Generate and write hooks to filesystem              |
+| `status`    | Check if hooks are installed                        |
+| `uninstall` | Remove installed hooks                              |
 
 **Parameters:**
 
-| Parameter | Required | Description |
-|:----------|:---------|:------------|
-| `action` | Yes | One of: generate, install, status, uninstall |
-| `ide` | Yes | Target IDE: claude, cursor, vscode |
-| `projectPath` | Yes | Absolute path to project directory |
-| `projectId` | No | Project ID for loading guidelines |
-| `sessionId` | No | Session ID for loading guidelines |
+| Parameter     | Required | Description                                  |
+| :------------ | :------- | :------------------------------------------- |
+| `action`      | Yes      | One of: generate, install, status, uninstall |
+| `ide`         | Yes      | Target IDE: claude, cursor, vscode           |
+| `projectPath` | Yes      | Absolute path to project directory           |
+| `projectId`   | No       | Project ID for loading guidelines            |
+| `sessionId`   | No       | Session ID for loading guidelines            |
 
 **Example — Install:**
 
@@ -276,11 +276,11 @@ Returns hook content and installation instructions without writing files.
 agent-memory hook install [options]
 ```
 
-| Option | Description |
-|:-------|:------------|
-| `--ide <ide>` | Target IDE (claude, cursor, vscode) |
-| `--project-path <path>` | Project directory path |
-| `--project-id <id>` | Project ID for guidelines |
+| Option                  | Description                         |
+| :---------------------- | :---------------------------------- |
+| `--ide <ide>`           | Target IDE (claude, cursor, vscode) |
+| `--project-path <path>` | Project directory path              |
+| `--project-id <id>`     | Project ID for guidelines           |
 
 ### hook status
 
@@ -336,12 +336,12 @@ Set `priority >= 90` when storing:
 
 ### Priority Levels
 
-| Priority | Enforcement |
-|:---------|:------------|
-| 90-100 | **Critical** — Checked by PreToolUse hook |
-| 70-89 | High — Shown in context queries |
-| 50-69 | Medium — Available for search |
-| 0-49 | Low — Reference only |
+| Priority | Enforcement                               |
+| :------- | :---------------------------------------- |
+| 90-100   | **Critical** — Checked by PreToolUse hook |
+| 70-89    | High — Shown in context queries           |
+| 50-69    | Medium — Available for search             |
+| 0-49     | Low — Reference only                      |
 
 ---
 

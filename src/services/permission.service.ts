@@ -5,13 +5,15 @@
  * Set AGENT_MEMORY_PERMISSIONS_MODE=permissive to allow all operations without explicit grants.
  */
 
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
+
 import type { DbClient } from '../db/connection.js';
 import { permissions, projects, sessions } from '../db/schema.js';
 import { eq, and, or, isNull } from 'drizzle-orm';
 import type { ScopeType, PermissionEntryType, EntryType } from '../db/schema.js';
 import { createComponentLogger } from '../utils/logger.js';
 import type { ICacheAdapter } from '../core/adapters/interfaces.js';
-import { createValidationError } from '../core/errors.js';
+import { isPermissiveModeEnabled, shouldWarnDevMode } from '../config/auth.js';
 
 // =============================================================================
 // TYPES
@@ -320,33 +322,33 @@ export class PermissionService {
   // ===========================================================================
 
   /**
-   * Check if permissive mode is enabled.
-   * @returns true if permissive mode allows access
-   * @throws Error if permissive mode is attempted in production
+   * Check if permissive mode is enabled (permissions bypassed).
+   *
+   * Uses isPermissiveModeEnabled() which supports:
+   * - AGENT_MEMORY_DEV_MODE=true (new, bypasses everything)
+   * - AGENT_MEMORY_PERMISSIONS_MODE=permissive (legacy, permissions only)
+   *
+   * @returns true if permissive mode allows access (permissions bypassed)
    */
   private checkPermissiveMode(): boolean {
-    const permissiveMode = process.env.AGENT_MEMORY_PERMISSIONS_MODE === 'permissive';
-    if (!permissiveMode) {
+    // Use the unified auth config's isPermissiveModeEnabled()
+    if (!isPermissiveModeEnabled()) {
       return false;
     }
 
-    // SECURITY: Block permissive mode in production and production-like environments
-    // Bug #339 fix: Also block staging, preprod, and other non-development environments
-    const env = process.env.NODE_ENV?.toLowerCase() ?? '';
-    const blockedEnvironments = ['production', 'prod', 'staging', 'preprod', 'pre-prod', 'uat'];
-    if (blockedEnvironments.includes(env)) {
-      throw createValidationError(
-        'AGENT_MEMORY_PERMISSIONS_MODE',
-        `permissive mode is FORBIDDEN in ${process.env.NODE_ENV}`,
-        'Remove this environment variable and configure explicit permissions'
-      );
-    }
-
+    // Log warning once per session
     if (!this.hasWarnedAboutPermissiveMode) {
-      this.logger.warn(
-        'SECURITY WARNING: Permission checks disabled (AGENT_MEMORY_PERMISSIONS_MODE=permissive). ' +
-          'This should only be used in development. In production, configure explicit permissions.'
-      );
+      if (shouldWarnDevMode()) {
+        this.logger.warn(
+          '⚠️  SECURITY WARNING: Permissive mode enabled in production-like environment. ' +
+            'All permission checks are bypassed. Set AGENT_MEMORY_DEV_MODE=false for production.'
+        );
+      } else {
+        this.logger.info(
+          '🔓 Dev mode enabled - all permission checks bypassed. ' +
+            'This is intended for local development only.'
+        );
+      }
       this.hasWarnedAboutPermissiveMode = true;
     }
 
@@ -419,16 +421,24 @@ export class PermissionService {
    */
   private executeChunkedPermissionQuery(
     conditions: ReturnType<typeof and>[]
-  ): typeof permissions.$inferSelect[] {
+  ): (typeof permissions.$inferSelect)[] {
     if (conditions.length <= PermissionService.MAX_OR_CONDITIONS) {
-      return this.db.select().from(permissions).where(or(...conditions)).all();
+      return this.db
+        .select()
+        .from(permissions)
+        .where(or(...conditions))
+        .all();
     }
 
     // Chunk the conditions and merge results
-    const results: typeof permissions.$inferSelect[] = [];
+    const results: (typeof permissions.$inferSelect)[] = [];
     for (let i = 0; i < conditions.length; i += PermissionService.MAX_OR_CONDITIONS) {
       const chunk = conditions.slice(i, i + PermissionService.MAX_OR_CONDITIONS);
-      const chunkResults = this.db.select().from(permissions).where(or(...chunk)).all();
+      const chunkResults = this.db
+        .select()
+        .from(permissions)
+        .where(or(...chunk))
+        .all();
       results.push(...chunkResults);
     }
     return results;
@@ -567,7 +577,9 @@ export class PermissionService {
     for (const entry of nonProjectEntries) {
       const scopeChain = this.buildScopeChain(entry.scopeType, entry.scopeId);
       entryScopes.set(entry.id, scopeChain);
-      allConditions.push(...this.buildPermissionConditions(agentId, entry.entryType, entry.id, scopeChain));
+      allConditions.push(
+        ...this.buildPermissionConditions(agentId, entry.entryType, entry.id, scopeChain)
+      );
     }
 
     // Batch query with chunking for large condition sets

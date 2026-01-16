@@ -23,9 +23,9 @@ try {
   db.prepare('SELECT 1').get();
 
   // Check if database has been initialized (has tables)
-  const tableCount = db.prepare(
-    "SELECT COUNT(*) as count FROM sqlite_master WHERE type='table'"
-  ).get();
+  const tableCount = db
+    .prepare("SELECT COUNT(*) as count FROM sqlite_master WHERE type='table'")
+    .get();
 
   if (tableCount.count === 0) {
     console.error('Database exists but is not initialized');

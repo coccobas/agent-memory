@@ -9,7 +9,7 @@ services:
     image: pgvector/pgvector:pg16
     container_name: agent-memory-postgres-test
     ports:
-      - "5433:5432"  # Use 5433 to avoid conflicts with local PostgreSQL
+      - '5433:5432' # Use 5433 to avoid conflicts with local PostgreSQL
     environment:
       POSTGRES_USER: test
       POSTGRES_PASSWORD: test
@@ -18,7 +18,7 @@ services:
     tmpfs:
       - /var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U test -d agent_memory_test"]
+      test: ['CMD-SHELL', 'pg_isready -U test -d agent_memory_test']
       interval: 2s
       timeout: 5s
       retries: 10
@@ -35,9 +35,9 @@ services:
     image: redis:7-alpine
     container_name: agent-memory-redis-test
     ports:
-      - "6379:6379"
+      - '6379:6379'
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ['CMD', 'redis-cli', 'ping']
       interval: 2s
       timeout: 5s
       retries: 10

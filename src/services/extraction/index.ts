@@ -73,10 +73,7 @@ export {
 // DETECTOR
 // =============================================================================
 
-export {
-  TriggerDetector,
-  createTriggerDetector,
-} from './trigger-detector.js';
+export { TriggerDetector, createTriggerDetector } from './trigger-detector.js';
 
 // =============================================================================
 // ORCHESTRATOR

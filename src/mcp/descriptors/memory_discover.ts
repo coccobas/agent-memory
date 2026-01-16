@@ -14,10 +14,7 @@ function getVisibility(descriptor: AnyToolDescriptor): VisibilityLevel {
 }
 
 export interface DiscoverResult {
-  categories: Record<
-    string,
-    Array<{ name: string; description: string; visibility: string }>
-  >;
+  categories: Record<string, Array<{ name: string; description: string; visibility: string }>>;
   totalCount: number;
   _display: string;
 }
@@ -57,11 +54,7 @@ export const memoryDiscoverDescriptor: SimpleToolDescriptor = {
       const visibility = getVisibility(desc);
 
       // Skip core/standard unless filter is 'all'
-      if (
-        filter !== 'all' &&
-        visibility !== 'advanced' &&
-        visibility !== 'system'
-      ) {
+      if (filter !== 'all' && visibility !== 'advanced' && visibility !== 'system') {
         continue;
       }
 
@@ -69,10 +62,7 @@ export const memoryDiscoverDescriptor: SimpleToolDescriptor = {
       const toolName = desc.name;
       const firstLine = desc.description.split('\n')[0] ?? '';
 
-      if (
-        toolName.startsWith('graph_') ||
-        toolName === 'memory_graph_status'
-      ) {
+      if (toolName.startsWith('graph_') || toolName === 'memory_graph_status') {
         categories['Graph Operations']?.push({
           name: toolName,
           description: firstLine,
@@ -118,9 +108,7 @@ export const memoryDiscoverDescriptor: SimpleToolDescriptor = {
 
     return {
       categories,
-      totalCount: Object.values(categories)
-        .flat()
-        .length,
+      totalCount: Object.values(categories).flat().length,
       _display: lines.join('\n'),
     };
   },

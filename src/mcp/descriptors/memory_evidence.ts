@@ -14,14 +14,28 @@ import { evidenceHandlers } from '../handlers/evidence.handler.js';
 export const memoryEvidenceDescriptor: ToolDescriptor = {
   name: 'memory_evidence',
   visibility: 'standard',
-  description: 'Manage immutable evidence artifacts. Actions: add, get, list, deactivate, list_by_type, list_by_source. IMMUTABLE: no update action.',
+  description:
+    'Manage immutable evidence artifacts. Actions: add, get, list, deactivate, list_by_type, list_by_source. IMMUTABLE: no update action.',
   commonParams: {
     id: { type: 'string' },
     title: { type: 'string' },
     description: { type: 'string' },
     scopeType: { type: 'string', enum: ['global', 'org', 'project', 'session'] },
     scopeId: { type: 'string' },
-    evidenceType: { type: 'string', enum: ['screenshot', 'log', 'snippet', 'output', 'benchmark', 'link', 'document', 'quote', 'other'] },
+    evidenceType: {
+      type: 'string',
+      enum: [
+        'screenshot',
+        'log',
+        'snippet',
+        'output',
+        'benchmark',
+        'link',
+        'document',
+        'quote',
+        'other',
+      ],
+    },
     content: { type: 'string' },
     filePath: { type: 'string' },
     url: { type: 'string' },

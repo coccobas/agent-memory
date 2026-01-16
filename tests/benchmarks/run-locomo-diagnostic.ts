@@ -9,8 +9,8 @@
 import 'dotenv/config';
 
 const args = process.argv.slice(2);
-const maxDialogues = parseInt(args.find((_, i, a) => a[i-1] === '--dialogues') || '50', 10);
-const topK = parseInt(args.find((_, i, a) => a[i-1] === '--top-k') || '5', 10);
+const maxDialogues = parseInt(args.find((_, i, a) => a[i - 1] === '--dialogues') || '50', 10);
+const topK = parseInt(args.find((_, i, a) => a[i - 1] === '--top-k') || '5', 10);
 
 // Configure environment
 process.env.AGENT_MEMORY_RERANK_ENABLED = 'true';
@@ -23,13 +23,16 @@ const { generateId } = await import('../../src/db/repositories/base.js');
 const { applyMigrations } = await import('../fixtures/migration-loader.js');
 const { cleanupDbFiles, ensureDataDirectory } = await import('../fixtures/db-utils.js');
 const { config: appConfig } = await import('../../src/config/index.js');
-const { createRuntime, extractRuntimeConfig, shutdownRuntime } = await import('../../src/core/runtime.js');
+const { createRuntime, extractRuntimeConfig, shutdownRuntime } =
+  await import('../../src/core/runtime.js');
 const { createRepositories } = await import('../../src/core/factory/repositories.js');
 const { createAdaptersWithConfig } = await import('../../src/core/adapters/index.js');
 const { wireContext } = await import('../../src/core/factory/context-wiring.js');
 const { registerContext, resetContainer } = await import('../../src/core/container.js');
-const { executeQueryPipelineAsync, createDependencies } = await import('../../src/services/query/index.js');
-const { getEmbeddingQueueStats, generateEmbeddingAsync } = await import('../../src/db/repositories/embedding-hooks.js');
+const { executeQueryPipelineAsync, createDependencies } =
+  await import('../../src/services/query/index.js');
+const { getEmbeddingQueueStats, generateEmbeddingAsync } =
+  await import('../../src/db/repositories/embedding-hooks.js');
 const { LRUCache } = await import('../../src/utils/lru-cache.js');
 const pino = (await import('pino')).default;
 const { rm } = await import('node:fs/promises');
@@ -59,11 +62,13 @@ const db = drizzle(sqlite, { schema });
 applyMigrations(sqlite);
 
 const projectId = generateId();
-db.insert(schema.projects).values({
-  id: projectId,
-  name: 'Diagnostic',
-  rootPath: '/diagnostic',
-}).run();
+db.insert(schema.projects)
+  .values({
+    id: projectId,
+    name: 'Diagnostic',
+    rootPath: '/diagnostic',
+  })
+  .run();
 
 const config = appConfig;
 const runtime = createRuntime(extractRuntimeConfig(config));
@@ -75,7 +80,14 @@ const adapters = createAdaptersWithConfig(
 const logger = pino({ level: 'warn' });
 
 const ctx = await wireContext({
-  config, runtime, db, sqlite, repos, adapters, logger, dbType: 'sqlite',
+  config,
+  runtime,
+  db,
+  sqlite,
+  repos,
+  adapters,
+  logger,
+  dbType: 'sqlite',
 });
 registerContext(ctx);
 if (ctx.services.vector) await ctx.services.vector.initialize();
@@ -84,13 +96,12 @@ if (ctx.services.vector) await ctx.services.vector.initialize();
 const sessions = await loadLoCoMoDataset();
 const session = sessions[0]!;
 const dialogues = session.dialogues.slice(0, maxDialogues);
-const dialogueIds = new Set(dialogues.map(d => d.dia_id));
+const dialogueIds = new Set(dialogues.map((d) => d.dia_id));
 
 // Filter QA pairs - exclude adversarial, keep only those with evidence in our dialogues
-const qaPairs = session.qaPairs.filter(qa =>
-  qa.category !== 5 &&
-  qa.evidence.length > 0 &&
-  qa.evidence.every(eId => dialogueIds.has(eId))
+const qaPairs = session.qaPairs.filter(
+  (qa) =>
+    qa.category !== 5 && qa.evidence.length > 0 && qa.evidence.every((eId) => dialogueIds.has(eId))
 );
 
 console.log(`Dialogues: ${dialogues.length}, QA pairs: ${qaPairs.length}\n`);
@@ -115,26 +126,30 @@ for (const dialogue of dialogues) {
   const versionId = generateId();
   const content = `${dialogue.speaker}: ${dialogue.text}`;
 
-  db.insert(schema.knowledge).values({
-    id: entryId,
-    scopeType: 'session',
-    scopeId: sessionId,
-    title: `${dialogue.speaker} (${dialogue.dia_id})`,
-    category: 'fact',
-    currentVersionId: versionId,
-    isActive: true,
-    createdBy: 'diagnostic',
-  }).run();
+  db.insert(schema.knowledge)
+    .values({
+      id: entryId,
+      scopeType: 'session',
+      scopeId: sessionId,
+      title: `${dialogue.speaker} (${dialogue.dia_id})`,
+      category: 'fact',
+      currentVersionId: versionId,
+      isActive: true,
+      createdBy: 'diagnostic',
+    })
+    .run();
 
-  db.insert(schema.knowledgeVersions).values({
-    id: versionId,
-    knowledgeId: entryId,
-    versionNum: 1,
-    content,
-    source: 'locomo',
-    confidence: 1.0,
-    createdBy: 'diagnostic',
-  }).run();
+  db.insert(schema.knowledgeVersions)
+    .values({
+      id: versionId,
+      knowledgeId: entryId,
+      versionNum: 1,
+      content,
+      source: 'locomo',
+      confidence: 1.0,
+      createdBy: 'diagnostic',
+    })
+    .run();
 
   entryIdToDiaId.set(entryId, dialogue.dia_id);
   diaIdToEntryId.set(dialogue.dia_id, entryId);
@@ -153,7 +168,7 @@ for (const dialogue of dialogues) {
 while (true) {
   const stats = getEmbeddingQueueStats();
   if (stats.pending === 0 && stats.inFlight === 0) break;
-  await new Promise(r => setTimeout(r, 100));
+  await new Promise((r) => setTimeout(r, 100));
 }
 
 console.log('Ingestion complete. Running evaluation...\n');
@@ -167,16 +182,20 @@ const pipelineDeps = createDependencies({
   cache: queryCache as any,
   perfLog: false,
   logger,
-  embeddingService: ctx.services.embedding ? {
-    embed: (text) => ctx.services.embedding!.embed(text),
-    embedBatch: (texts) => ctx.services.embedding!.embedBatch(texts),
-    isAvailable: () => ctx.services.embedding!.isAvailable(),
-  } : undefined,
-  vectorService: ctx.services.vector ? {
-    searchSimilar: (embedding, entryTypes, limit) =>
-      ctx.services.vector!.searchSimilar(embedding, entryTypes, limit),
-    isAvailable: () => ctx.services.vector!.isAvailable(),
-  } : undefined,
+  embeddingService: ctx.services.embedding
+    ? {
+        embed: (text) => ctx.services.embedding!.embed(text),
+        embedBatch: (texts) => ctx.services.embedding!.embedBatch(texts),
+        isAvailable: () => ctx.services.embedding!.isAvailable(),
+      }
+    : undefined,
+  vectorService: ctx.services.vector
+    ? {
+        searchSimilar: (embedding, entryTypes, limit) =>
+          ctx.services.vector!.searchSimilar(embedding, entryTypes, limit),
+        isAvailable: () => ctx.services.vector!.isAvailable(),
+      }
+    : undefined,
 });
 
 // Evaluate
@@ -198,14 +217,17 @@ for (let i = 0; i < qaPairs.length; i++) {
   const qa = qaPairs[i]!;
 
   // Query
-  const queryResult = await executeQueryPipelineAsync({
-    search: qa.question,
-    scope: { type: 'session', id: sessionId, inherit: true },
-    types: ['knowledge'],
-    limit: 40,
-    useFts5: true,
-    semanticSearch: true,
-  }, pipelineDeps);
+  const queryResult = await executeQueryPipelineAsync(
+    {
+      search: qa.question,
+      scope: { type: 'session', id: sessionId, inherit: true },
+      types: ['knowledge'],
+      limit: 40,
+      useFts5: true,
+      semanticSearch: true,
+    },
+    pipelineDeps
+  );
 
   // Map to dia_ids
   const retrievedDiaIds: string[] = [];
@@ -227,13 +249,14 @@ for (let i = 0; i < qaPairs.length; i++) {
   }
 
   const topKRetrieved = retrievedDiaIds.slice(0, topK);
-  const recallAtK = topKRetrieved.filter(id => groundTruthSet.has(id)).length / qa.evidence.length;
+  const recallAtK =
+    topKRetrieved.filter((id) => groundTruthSet.has(id)).length / qa.evidence.length;
 
   // Get context for generation
   const context = queryResult.results
     .slice(0, topK)
-    .map(r => entryIdToContent.get(r.id) || '')
-    .filter(c => c.length > 0);
+    .map((r) => entryIdToContent.get(r.id) || '')
+    .filter((c) => c.length > 0);
 
   // Generate and judge
   let jScore = 0;
@@ -280,19 +303,23 @@ console.log(`J-score:           ${(avgJ * 100).toFixed(1)}%`);
 console.log('========================================\n');
 
 // Show samples where retrieval failed vs succeeded
-const retrievalFailed = results.filter(r => r.recallAtK === 0);
-const retrievalSucceeded = results.filter(r => r.recallAtK > 0);
+const retrievalFailed = results.filter((r) => r.recallAtK === 0);
+const retrievalSucceeded = results.filter((r) => r.recallAtK > 0);
 
-console.log(`Retrieval failed (0% recall): ${retrievalFailed.length}/${results.length} (${(retrievalFailed.length/results.length*100).toFixed(0)}%)`);
+console.log(
+  `Retrieval failed (0% recall): ${retrievalFailed.length}/${results.length} (${((retrievalFailed.length / results.length) * 100).toFixed(0)}%)`
+);
 console.log(`Retrieval succeeded (>0% recall): ${retrievalSucceeded.length}/${results.length}`);
 
 // J-score breakdown by retrieval success
-const jWhenRetrievalFailed = retrievalFailed.length > 0
-  ? retrievalFailed.reduce((s, r) => s + r.jScore, 0) / retrievalFailed.length
-  : 0;
-const jWhenRetrievalSucceeded = retrievalSucceeded.length > 0
-  ? retrievalSucceeded.reduce((s, r) => s + r.jScore, 0) / retrievalSucceeded.length
-  : 0;
+const jWhenRetrievalFailed =
+  retrievalFailed.length > 0
+    ? retrievalFailed.reduce((s, r) => s + r.jScore, 0) / retrievalFailed.length
+    : 0;
+const jWhenRetrievalSucceeded =
+  retrievalSucceeded.length > 0
+    ? retrievalSucceeded.reduce((s, r) => s + r.jScore, 0) / retrievalSucceeded.length
+    : 0;
 
 console.log(`\nJ-score when retrieval failed: ${(jWhenRetrievalFailed * 100).toFixed(1)}%`);
 console.log(`J-score when retrieval succeeded: ${(jWhenRetrievalSucceeded * 100).toFixed(1)}%`);
@@ -307,7 +334,7 @@ for (const r of retrievalFailed.slice(0, 3)) {
 }
 
 console.log('\n--- SAMPLE SUCCESSES (retrieval worked but J failed) ---');
-const retrievalWorkedJFailed = retrievalSucceeded.filter(r => r.jScore === 0);
+const retrievalWorkedJFailed = retrievalSucceeded.filter((r) => r.jScore === 0);
 for (const r of retrievalWorkedJFailed.slice(0, 3)) {
   console.log(`\nQ: ${r.question.substring(0, 80)}...`);
   console.log(`Ground truth: ${r.groundTruth.join(', ')}`);

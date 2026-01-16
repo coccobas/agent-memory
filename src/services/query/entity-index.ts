@@ -13,7 +13,11 @@
 
 import { eq, and, inArray, sql } from 'drizzle-orm';
 import type { DbClient } from '../../db/connection.js';
-import { entityIndex, type EntityType, type NewEntityIndexRow } from '../../db/schema/entity-index.js';
+import {
+  entityIndex,
+  type EntityType,
+  type NewEntityIndexRow,
+} from '../../db/schema/entity-index.js';
 import { EntityExtractor, type ExtractedEntity } from './entity-extractor.js';
 import type { QueryEntryType } from './types.js';
 import { createComponentLogger } from '../../utils/logger.js';
@@ -71,11 +75,7 @@ export class EntityIndex {
     }));
 
     // Use batch insert with conflict handling
-    await this.db
-      .insert(entityIndex)
-      .values(rows)
-      .onConflictDoNothing()
-      .execute();
+    await this.db.insert(entityIndex).values(rows).onConflictDoNothing().execute();
 
     return entities.length;
   }
@@ -139,11 +139,7 @@ export class EntityIndex {
     const BATCH_SIZE = 500;
     for (let i = 0; i < allRows.length; i += BATCH_SIZE) {
       const chunk = allRows.slice(i, i + BATCH_SIZE);
-      await this.db
-        .insert(entityIndex)
-        .values(chunk)
-        .onConflictDoNothing()
-        .execute();
+      await this.db.insert(entityIndex).values(chunk).onConflictDoNothing().execute();
     }
 
     return totalIndexed;
@@ -166,10 +162,7 @@ export class EntityIndex {
   async removeEntries(entryIds: string[]): Promise<void> {
     if (entryIds.length === 0) return;
 
-    await this.db
-      .delete(entityIndex)
-      .where(inArray(entityIndex.entryId, entryIds))
-      .execute();
+    await this.db.delete(entityIndex).where(inArray(entityIndex.entryId, entryIds)).execute();
   }
 
   /**
@@ -256,10 +249,7 @@ export class EntityIndex {
       .select({ entryId: entityIndex.entryId })
       .from(entityIndex)
       .where(
-        and(
-          eq(entityIndex.entityValue, normalizedValue),
-          eq(entityIndex.entityType, entityType)
-        )
+        and(eq(entityIndex.entityValue, normalizedValue), eq(entityIndex.entityType, entityType))
       )
       .all();
 

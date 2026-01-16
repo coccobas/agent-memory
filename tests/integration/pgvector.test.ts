@@ -40,9 +40,7 @@ async function setupPgVector(): Promise<boolean> {
       await client.query('CREATE EXTENSION IF NOT EXISTS vector');
 
       // Check if pgvector extension is available
-      const result = await client.query(
-        "SELECT 1 FROM pg_extension WHERE extname = 'vector'"
-      );
+      const result = await client.query("SELECT 1 FROM pg_extension WHERE extname = 'vector'");
       if (result.rowCount === 0) {
         console.log('pgvector extension not installed, skipping integration tests');
         await testPool.end();
@@ -99,7 +97,9 @@ describe.skipIf(!pgvectorEnabled)('PgVectorStore Integration', () => {
 
     const available = await setupPgVector();
     if (!available) {
-      throw new Error('pgvector not available - set PGVECTOR_AVAILABLE=true only when PostgreSQL with pgvector is running');
+      throw new Error(
+        'pgvector not available - set PGVECTOR_AVAILABLE=true only when PostgreSQL with pgvector is running'
+      );
     }
   });
 
@@ -133,7 +133,9 @@ describe.skipIf(!pgvectorEnabled)('PgVectorStore Integration', () => {
     it('should store and retrieve embeddings', async () => {
       await store!.initialize();
 
-      const embedding = Array(384).fill(0).map(() => Math.random());
+      const embedding = Array(384)
+        .fill(0)
+        .map(() => Math.random());
 
       await store!.store({
         entryType: 'tool',
@@ -165,7 +167,9 @@ describe.skipIf(!pgvectorEnabled)('PgVectorStore Integration', () => {
       });
 
       // Search with a similar embedding
-      const queryEmbedding = Array(384).fill(0).map(() => 0.5 + (Math.random() - 0.5) * 0.1);
+      const queryEmbedding = Array(384)
+        .fill(0)
+        .map(() => 0.5 + (Math.random() - 0.5) * 0.1);
       const results = await store!.search(queryEmbedding, { limit: 10, entryTypes: ['tool'] });
 
       expect(results.length).toBe(1);

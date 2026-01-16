@@ -54,7 +54,10 @@ Returns: project, session, counts (guidelines, knowledge, tools, sessions)`,
       description: 'Include top 5 entries per type (default: false)',
     },
   },
-  contextHandler: async (ctx: AppContext, args?: Record<string, unknown>): Promise<StatusResult> => {
+  contextHandler: async (
+    ctx: AppContext,
+    args?: Record<string, unknown>
+  ): Promise<StatusResult> => {
     const includeTopEntries = (args?.includeTopEntries as boolean) ?? false;
 
     // Get project and session from auto-detection (single call)
@@ -64,9 +67,7 @@ Returns: project, session, counts (guidelines, knowledge, tools, sessions)`,
 
     // Build scope filter for project-scoped counts
     const projectId = detected.project?.id;
-    const scopeFilter = projectId
-      ? { scopeType: 'project' as const, scopeId: projectId }
-      : {};
+    const scopeFilter = projectId ? { scopeType: 'project' as const, scopeId: projectId } : {};
 
     // Get project-scoped counts by fetching lists
     // This ensures counts match what the user sees when listing entries
@@ -75,9 +76,7 @@ Returns: project, session, counts (guidelines, knowledge, tools, sessions)`,
       ctx.repos.guidelines.list(scopeFilter, { limit: 10000 }),
       ctx.repos.knowledge.list(scopeFilter, { limit: 10000 }),
       ctx.repos.tools.list(scopeFilter, { limit: 10000 }),
-      projectId
-        ? ctx.repos.sessions.list({ projectId }, { limit: 10000 })
-        : Promise.resolve([]),
+      projectId ? ctx.repos.sessions.list({ projectId }, { limit: 10000 }) : Promise.resolve([]),
     ]);
 
     const guidelinesCount = guidelinesList.length;

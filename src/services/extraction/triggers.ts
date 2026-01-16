@@ -231,7 +231,7 @@ export const DEFAULT_TRIGGER_CONFIG: TriggerConfig = {
     'undo',
     'wrong',
     'incorrect',
-    'that\'s not',
+    "that's not",
     'thats not',
     'nope',
     'instead',
@@ -259,7 +259,7 @@ export const DEFAULT_TRIGGER_CONFIG: TriggerConfig = {
     'nice',
     'good job',
     'well done',
-    'that\'s it',
+    "that's it",
     'thats it',
     'yes!',
     'works',
@@ -269,8 +269,8 @@ export const DEFAULT_TRIGGER_CONFIG: TriggerConfig = {
     'not perfect',
     'not exactly',
     'not great',
-    'don\'t love',
-    'isn\'t perfect',
+    "don't love",
+    "isn't perfect",
     'but',
     'however',
     'although',
@@ -409,11 +409,7 @@ export interface ITriggerDetector {
    * @param config - Trigger configuration
    * @returns Array of detected trigger events
    */
-  detectAll(
-    message: Message,
-    context: SessionContext,
-    config: TriggerConfig
-  ): TriggerEvent[];
+  detectAll(message: Message, context: SessionContext, config: TriggerConfig): TriggerEvent[];
 }
 
 // =============================================================================

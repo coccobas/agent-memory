@@ -17,7 +17,15 @@ const logger = createComponentLogger('unified-memory-dispatcher');
 // =============================================================================
 
 export interface DispatchResult {
-  action: 'store' | 'retrieve' | 'session_start' | 'session_end' | 'forget' | 'list' | 'update' | 'error';
+  action:
+    | 'store'
+    | 'retrieve'
+    | 'session_start'
+    | 'session_end'
+    | 'forget'
+    | 'list'
+    | 'update'
+    | 'error';
   status: 'success' | 'duplicate_detected' | 'not_found' | 'error' | 'low_confidence';
   message?: string;
   entry?: {
@@ -101,7 +109,8 @@ export async function dispatch(
         return {
           action: 'error',
           status: 'error',
-          message: 'Could not understand the request. Try: "Remember that...", "What do we know about...", "List all guidelines", etc.',
+          message:
+            'Could not understand the request. Try: "Remember that...", "What do we know about...", "List all guidelines", etc.',
           _context: { projectId, sessionId, agentId },
         };
     }
@@ -280,7 +289,7 @@ async function handleRetrieve(
 
   // Build highlights summary
   const topMatches = results.slice(0, 5);
-  const matchNames = topMatches.map(r => r.name ?? r.title ?? r.id.slice(0, 8)).join(', ');
+  const matchNames = topMatches.map((r) => r.name ?? r.title ?? r.id.slice(0, 8)).join(', ');
   const typeBreakdown: Record<string, number> = {};
   for (const r of results) {
     typeBreakdown[r.type] = (typeBreakdown[r.type] ?? 0) + 1;
@@ -379,7 +388,7 @@ async function handleList(
   const results: DispatchResult['results'] = [];
 
   const scopeFilter = {
-    scopeType: projectId ? 'project' as const : 'global' as const,
+    scopeType: projectId ? ('project' as const) : ('global' as const),
     scopeId: projectId,
   };
 
@@ -424,10 +433,7 @@ async function handleList(
   };
 }
 
-function handleForget(
-  intent: IntentDetectionResult,
-  deps: DispatcherDeps
-): DispatchResult {
+function handleForget(intent: IntentDetectionResult, deps: DispatcherDeps): DispatchResult {
   const { projectId, sessionId, agentId } = deps;
   // For safety, forget just finds entries to delete - doesn't auto-delete
   const target = intent.target ?? intent.query ?? '';
@@ -457,6 +463,7 @@ function handleUpdate(): DispatchResult {
   return {
     action: 'update',
     status: 'error',
-    message: 'To update an entry, first search for it, then use the specific memory_* tool with the entry ID and new values.',
+    message:
+      'To update an entry, first search for it, then use the specific memory_* tool with the entry ID and new values.',
   };
 }

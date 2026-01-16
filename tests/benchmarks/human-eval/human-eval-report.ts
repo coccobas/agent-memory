@@ -311,13 +311,18 @@ export function loadSession(sessionId: string, outputDir: string): EvaluationSes
 export function listSessions(outputDir: string): string[] {
   if (!fs.existsSync(outputDir)) return [];
   const files = fs.readdirSync(outputDir);
-  return files.filter((f) => f.startsWith('session-') && f.endsWith('.json')).map((f) => f.replace('session-', '').replace('.json', ''));
+  return files
+    .filter((f) => f.startsWith('session-') && f.endsWith('.json'))
+    .map((f) => f.replace('session-', '').replace('.json', ''));
 }
 
 /**
  * Save report to files
  */
-export function saveReport(report: HumanEvaluationReport, outputDir: string): { json: string; markdown: string } {
+export function saveReport(
+  report: HumanEvaluationReport,
+  outputDir: string
+): { json: string; markdown: string } {
   if (!fs.existsSync(outputDir)) {
     fs.mkdirSync(outputDir, { recursive: true });
   }

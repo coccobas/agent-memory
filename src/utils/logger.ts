@@ -46,7 +46,9 @@ if (DEBUG_ENABLED && !isTest) {
     .then(() => appendFile(debugLogPath, logEntry))
     .catch((err) => {
       // Log to stderr as last resort since our logger isn't set up yet
-      process.stderr.write(`[agent-memory] Debug log failed: ${err instanceof Error ? err.message : String(err)}\n`);
+      process.stderr.write(
+        `[agent-memory] Debug log failed: ${err instanceof Error ? err.message : String(err)}\n`
+      );
     });
 }
 

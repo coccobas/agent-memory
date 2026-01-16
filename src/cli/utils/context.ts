@@ -18,11 +18,11 @@ export async function getCliContext(): Promise<AppContext> {
 
   // Load environment
   const { loadEnv } = await import('../../config/env.js');
-  const { resolve, dirname } = await import('node:path');
+  const path = await import('node:path');
   const { fileURLToPath } = await import('node:url');
 
   const __filename = fileURLToPath(import.meta.url);
-  const projectRoot = resolve(dirname(__filename), '../../..');
+  const projectRoot = path.resolve(path.dirname(__filename), '../../..');
   loadEnv(projectRoot);
 
   // Build config
@@ -30,7 +30,8 @@ export async function getCliContext(): Promise<AppContext> {
 
   // Create runtime
   const { createRuntime, extractRuntimeConfig } = await import('../../core/runtime.js');
-  const { registerRuntime, isRuntimeRegistered, getRuntime } = await import('../../core/container.js');
+  const { registerRuntime, isRuntimeRegistered, getRuntime } =
+    await import('../../core/container.js');
 
   // Only create runtime if not already registered
   // Ensure runtime exists and is registered

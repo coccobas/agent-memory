@@ -148,12 +148,18 @@ export class VectorService implements IVectorService {
 
     // Error state - throw the stored error
     if (this.state === 'error') {
-      throw this.lastError ?? createServiceUnavailableError('VectorService', 'service is in error state');
+      throw (
+        this.lastError ??
+        createServiceUnavailableError('VectorService', 'service is in error state')
+      );
     }
 
     // Closed state - cannot reinitialize
     if (this.state === 'closed') {
-      throw createServiceUnavailableError('VectorService', 'service is closed and cannot be reinitialized');
+      throw createServiceUnavailableError(
+        'VectorService',
+        'service is closed and cannot be reinitialized'
+      );
     }
 
     if (!this.initPromise) {
@@ -215,7 +221,9 @@ export class VectorService implements IVectorService {
       // Remove old versions (keep current)
       // Can be disabled for benchmarks or debugging with AGENT_MEMORY_VECTOR_SKIP_DELETE_ON_STORE=true.
       // Bug #282 fix: Case-insensitive boolean check
-      const skipDelete = ['true', '1', 'yes'].includes((process.env.AGENT_MEMORY_VECTOR_SKIP_DELETE_ON_STORE ?? '').toLowerCase());
+      const skipDelete = ['true', '1', 'yes'].includes(
+        (process.env.AGENT_MEMORY_VECTOR_SKIP_DELETE_ON_STORE ?? '').toLowerCase()
+      );
       if (!skipDelete) {
         await this.store.delete({
           entryType,
@@ -232,10 +240,7 @@ export class VectorService implements IVectorService {
    * Callback triggered when dimension mismatch is detected.
    * Set by the application to trigger background re-embedding.
    */
-  private onDimensionMismatch?: (
-    queryDimension: number,
-    storedDimension: number
-  ) => void;
+  private onDimensionMismatch?: (queryDimension: number, storedDimension: number) => void;
 
   /**
    * Set a callback to be triggered when dimension mismatch is detected.
@@ -272,7 +277,9 @@ export class VectorService implements IVectorService {
           this.onDimensionMismatch(embedding.length, expectedDim);
         } catch (callbackError) {
           logger.debug(
-            { error: callbackError instanceof Error ? callbackError.message : String(callbackError) },
+            {
+              error: callbackError instanceof Error ? callbackError.message : String(callbackError),
+            },
             'Dimension mismatch callback failed'
           );
         }

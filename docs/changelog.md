@@ -5,6 +5,7 @@ All notable changes to Agent Memory are documented here.
 ## [Unreleased]
 
 ### Added
+
 - PostgreSQL adapter support for enterprise deployments
 - Redis adapters for distributed caching, locking, and events
 - `reindex` CLI command for regenerating embeddings
@@ -14,11 +15,13 @@ All notable changes to Agent Memory are documented here.
 - Transaction retry with exponential backoff
 
 ### Changed
+
 - Configuration now uses registry-based system with Zod validation
 - Services no longer use singleton patterns (dependency injection)
 - Default permissions mode is now "strict" (deny-by-default)
 
 ### Fixed
+
 - Path traversal vulnerability in export handler
 - Path traversal vulnerability in backup restore
 - Migration system now only tolerates missing tables for DROP/ALTER
@@ -28,6 +31,7 @@ All notable changes to Agent Memory are documented here.
 ## [0.9.9] - 2024-12
 
 ### Added
+
 - **Experiential Memory System**: New `experience` entity type for capturing case-level learnings
   - Experiences with versioning, trajectories (action sequences), and outcomes
   - Case-level experiences can be promoted to strategy-level patterns
@@ -52,6 +56,7 @@ All notable changes to Agent Memory are documented here.
   - Enables bidirectional traversal (promoted_to / derived_from)
 
 ### Changed
+
 - Query pipeline now includes experiences in context and search results
 - Entry relations support `promoted_to` relation type
 - CLI updated with `experience` and `librarian` subcommands
@@ -61,23 +66,27 @@ All notable changes to Agent Memory are documented here.
 ## [0.9.8] - 2024-12
 
 ### Changed
+
 - Removed singleton patterns from services
 - Improved dependency injection throughout codebase
 
 ## [0.9.7] - 2024-12
 
 ### Added
+
 - PostgreSQL adapter support (Phase 2)
 - Connection pooling configuration
 
 ## [0.9.6] - 2024-12
 
 ### Added
+
 - Complete dependency injection refactoring
 - Embedding queue with retry mechanism
 - Backfill service for missing embeddings
 
 ### Changed
+
 - Async consistency improvements in query handlers
 
 ---

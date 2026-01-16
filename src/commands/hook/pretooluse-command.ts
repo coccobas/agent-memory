@@ -1,6 +1,9 @@
 import { verifyAction } from '../../services/verification.service.js';
 import { getDb } from '../../db/connection.js';
-import { getMemoryInjectionService, type InjectionFormat } from '../../services/memory-injection.service.js';
+import {
+  getMemoryInjectionService,
+  type InjectionFormat,
+} from '../../services/memory-injection.service.js';
 import { createComponentLogger } from '../../utils/logger.js';
 import type { ClaudeHookInput, HookCommandResult } from './types.js';
 import { extractProposedActionFromTool } from './shared.js';
@@ -33,9 +36,10 @@ function getConfig(overrides?: Partial<PreToolUseConfig>): PreToolUseConfig {
 
   // Bug #275 fix: Validate format instead of unsafe type assertion
   const validFormats = ['markdown', 'json', 'natural_language'] as const;
-  const validatedFormat = envContextFormat && validFormats.includes(envContextFormat as InjectionFormat)
-    ? (envContextFormat as InjectionFormat)
-    : undefined;
+  const validatedFormat =
+    envContextFormat && validFormats.includes(envContextFormat as InjectionFormat)
+      ? (envContextFormat as InjectionFormat)
+      : undefined;
 
   // Bug #274 fix: Validate parseInt result to handle NaN and decimals
   let parsedMaxEntries: number | undefined;
@@ -45,7 +49,8 @@ function getConfig(overrides?: Partial<PreToolUseConfig>): PreToolUseConfig {
   }
 
   return {
-    injectContext: overrides?.injectContext ?? (envInjectContext !== 'false' && envInjectContext !== '0'),
+    injectContext:
+      overrides?.injectContext ?? (envInjectContext !== 'false' && envInjectContext !== '0'),
     contextFormat: overrides?.contextFormat ?? validatedFormat ?? 'markdown',
     contextMaxEntries: overrides?.contextMaxEntries ?? parsedMaxEntries ?? 5,
     contextToStdout: overrides?.contextToStdout ?? true,
@@ -56,7 +61,9 @@ function getConfig(overrides?: Partial<PreToolUseConfig>): PreToolUseConfig {
 /**
  * Map tool name to injectable tool type
  */
-function mapToolName(toolName?: string): 'Edit' | 'Write' | 'Bash' | 'Read' | 'Glob' | 'Grep' | 'other' {
+function mapToolName(
+  toolName?: string
+): 'Edit' | 'Write' | 'Bash' | 'Read' | 'Glob' | 'Grep' | 'other' {
   const name = toolName?.toLowerCase() ?? '';
   if (name === 'edit') return 'Edit';
   if (name === 'write') return 'Write';
