@@ -478,40 +478,6 @@ export class CaptureService {
   }
 }
 
-// =============================================================================
-// SINGLETON INSTANCE
-// =============================================================================
-
-let captureServiceInstance: CaptureService | null = null;
-
-/**
- * Get the singleton capture service instance
- * Note: Must be initialized with deps before first use
- * @deprecated Use context.services.capture instead via dependency injection
- */
-export function getCaptureService(): CaptureService | null {
-  return captureServiceInstance;
-}
-
-/**
- * Initialize the capture service with dependencies
- * @deprecated Use context.services.capture instead via dependency injection
- */
-export function initCaptureService(
-  deps: CaptureServiceDeps,
-  config?: CaptureServiceConfig
-): CaptureService {
-  captureServiceInstance = new CaptureService(deps, config);
-  return captureServiceInstance;
-}
-
-/**
- * Reset the capture service (for testing)
- */
-export function resetCaptureService(): void {
-  captureServiceInstance = null;
-}
-
 // Re-export types and utilities
 export { CaptureStateManager, getCaptureStateManager, resetCaptureStateManager } from './state.js';
 export type {

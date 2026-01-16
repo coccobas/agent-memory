@@ -142,40 +142,24 @@ export interface PostgreSQLAdapterDeps {
 export type AdapterDeps = SQLiteAdapterDeps | PostgreSQLAdapterDeps;
 
 /**
- * Legacy adapter deps for backwards compatibility.
- * @deprecated Use AdapterDeps with dbType instead
- */
-export interface LegacyAdapterDeps {
-  db: AppDb;
-  sqlite: Database.Database;
-  fileLockRepo: IFileLockRepository;
-  cache?: LRUCache<unknown>;
-}
-
-/**
  * Create all adapters from dependencies.
  *
  * Supports both SQLite and PostgreSQL backends based on dbType.
  */
-export function createAdapters(deps: AdapterDeps | LegacyAdapterDeps): Adapters {
-  // Handle legacy deps (no dbType = SQLite)
-  const effectiveDeps: AdapterDeps =
-    'dbType' in deps ? deps : { ...deps, dbType: 'sqlite' as const };
-
+export function createAdapters(deps: AdapterDeps): Adapters {
   // Create storage adapter based on database type
   let storage: IStorageAdapter;
 
-  if (effectiveDeps.dbType === 'postgresql') {
-    storage = createPostgreSQLStorageAdapter(effectiveDeps.config);
+  if (deps.dbType === 'postgresql') {
+    storage = createPostgreSQLStorageAdapter(deps.config);
   } else {
     // SQLite
-    const sqliteDeps = effectiveDeps;
-    storage = createSQLiteStorageAdapter(sqliteDeps.db, sqliteDeps.sqlite);
+    storage = createSQLiteStorageAdapter(deps.db, deps.sqlite);
   }
 
   // Cache adapter wraps LRUCache (create default if not provided)
   const cacheInstance =
-    effectiveDeps.cache ??
+    deps.cache ??
     new LRUCache<unknown>({
       maxSize: 1000,
       maxMemoryMB: 100,
@@ -183,7 +167,7 @@ export function createAdapters(deps: AdapterDeps | LegacyAdapterDeps): Adapters 
   const cache = createMemoryCacheAdapter(cacheInstance);
 
   // Lock adapter wraps FileLockRepository
-  const lock = createLocalLockAdapter(effectiveDeps.fileLockRepo);
+  const lock = createLocalLockAdapter(deps.fileLockRepo);
 
   // Event adapter uses singleton EventBus
   const event = createLocalEventAdapter();
@@ -402,7 +386,7 @@ export interface AdaptersWithRedis extends Adapters {
  * ```
  */
 export function createAdaptersWithConfig(
-  deps: AdapterDeps | LegacyAdapterDeps,
+  deps: AdapterDeps,
   config: Config
 ): AdaptersWithRedis {
   // Create base adapters (storage is always local - SQLite or PostgreSQL)

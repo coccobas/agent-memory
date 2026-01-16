@@ -445,45 +445,6 @@ export class LibrarianService {
   }
 }
 
-// =============================================================================
-// SINGLETON MANAGEMENT
-// =============================================================================
-
-let serviceInstance: LibrarianService | null = null;
-
-/**
- * Get or create the librarian service singleton
- * @deprecated Use context.services.librarian instead via dependency injection
- */
-export function getLibrarianService(
-  deps?: LibrarianServiceDeps,
-  config?: Partial<LibrarianConfig>
-): LibrarianService | null {
-  if (serviceInstance) return serviceInstance;
-  if (!deps) return null;
-  serviceInstance = new LibrarianService(deps, config);
-  return serviceInstance;
-}
-
-/**
- * Initialize the librarian service with dependencies
- * @deprecated Use context.services.librarian instead via dependency injection
- */
-export function initializeLibrarianService(
-  deps: LibrarianServiceDeps,
-  config?: Partial<LibrarianConfig>
-): LibrarianService {
-  serviceInstance = new LibrarianService(deps, config);
-  return serviceInstance;
-}
-
-/**
- * Reset the librarian service (for testing)
- */
-export function resetLibrarianService(): void {
-  serviceInstance = null;
-}
-
 // Re-export types
 export * from './types.js';
 export {

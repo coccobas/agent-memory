@@ -38,19 +38,6 @@ function safeEqual(a: string, b: string): boolean {
 }
 
 /**
- * Get the configured admin key.
- *
- * Uses unified API key (AGENT_MEMORY_API_KEY) as the admin key.
- * Falls back to legacy AGENT_MEMORY_ADMIN_KEY for backward compatibility.
- *
- * @deprecated Use getUnifiedApiKey() from config/auth.ts instead
- */
-export function getConfiguredAdminKey(): string | null {
-  // Use the unified API key system
-  return getUnifiedApiKey();
-}
-
-/**
  * Require admin key for privileged operations.
  *
  * In dev mode (AGENT_MEMORY_DEV_MODE=true), admin key validation is skipped.
@@ -87,11 +74,4 @@ export function requireAdminKey(params: object): void {
   if (!provided || !safeEqual(provided, configured)) {
     throw new AdminAuthError('Unauthorized: invalid API key');
   }
-}
-
-/**
- * Check if admin key is configured (for validation purposes).
- */
-export function isAdminKeyConfigured(): boolean {
-  return getUnifiedApiKey() !== null;
 }

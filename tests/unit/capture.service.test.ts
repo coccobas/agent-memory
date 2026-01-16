@@ -12,11 +12,7 @@ import {
   KnowledgeCaptureModule,
   createKnowledgeCaptureModule,
 } from '../../src/services/capture/knowledge.module.js';
-import {
-  CaptureService,
-  initCaptureService,
-  resetCaptureService,
-} from '../../src/services/capture/index.js';
+import { CaptureService } from '../../src/services/capture/index.js';
 import type {
   TurnData,
   TurnMetrics,
@@ -1303,7 +1299,6 @@ describe('CaptureService Integration', () => {
   let stateManager: CaptureStateManager;
 
   beforeEach(() => {
-    resetCaptureService();
     resetCaptureStateManager();
     stateManager = getCaptureStateManager();
 
@@ -1312,7 +1307,7 @@ describe('CaptureService Integration', () => {
     mockGuidelineRepo = createMockGuidelineRepo();
     mockToolRepo = createMockToolRepo();
 
-    service = initCaptureService({
+    service = new CaptureService({
       experienceRepo: mockExperienceRepo,
       stateManager,
       knowledgeModuleDeps: {

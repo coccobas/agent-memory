@@ -8,9 +8,6 @@ vi.mock('../../src/utils/admin.js', () => ({
 vi.mock('../../src/services/critical-guidelines.service.js', () => ({
   getCriticalGuidelinesForSession: vi.fn().mockReturnValue([]),
 }));
-vi.mock('../../src/services/capture/index.js', () => ({
-  getCaptureService: vi.fn().mockReturnValue(null),
-}));
 vi.mock('../../src/services/feedback/index.js', () => ({
   getFeedbackService: vi.fn().mockReturnValue(null),
 }));

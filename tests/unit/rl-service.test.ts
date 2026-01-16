@@ -1,21 +1,7 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import {
-  RLService,
-  initRLService,
-  getRLService,
-  resetRLService,
-  type RLServiceConfig,
-} from '../../src/services/rl/index.js';
+import { describe, it, expect, vi } from 'vitest';
+import { RLService, type RLServiceConfig } from '../../src/services/rl/index.js';
 
 describe('RLService', () => {
-  beforeEach(() => {
-    resetRLService();
-  });
-
-  afterEach(() => {
-    resetRLService();
-  });
-
   describe('initialization', () => {
     it('should create service with default config', () => {
       const service = new RLService();
@@ -215,43 +201,6 @@ describe('RLService', () => {
       // Policies still report their individual status
       expect(status.extraction.enabled).toBe(true);
       expect(status.extraction.hasModel).toBe(true);
-    });
-  });
-
-  describe('singleton management', () => {
-    it('should create singleton instance', () => {
-      const instance1 = initRLService({ enabled: true });
-      const instance2 = getRLService();
-
-      expect(instance2).toBe(instance1);
-    });
-
-    it('should return null if no config and not initialized', () => {
-      const instance = getRLService();
-      expect(instance).toBeNull();
-    });
-
-    it('should create new instance with config if not exists', () => {
-      const instance = getRLService({ enabled: false });
-      expect(instance).toBeDefined();
-      expect(instance?.isEnabled()).toBe(false);
-    });
-
-    it('should reset singleton', () => {
-      initRLService({ enabled: true });
-      resetRLService();
-
-      const instance = getRLService();
-      expect(instance).toBeNull();
-    });
-
-    it('should allow reinit after reset', () => {
-      const instance1 = initRLService({ enabled: true });
-      resetRLService();
-      const instance2 = initRLService({ enabled: false });
-
-      expect(instance1).not.toBe(instance2);
-      expect(instance2.isEnabled()).toBe(false);
     });
   });
 

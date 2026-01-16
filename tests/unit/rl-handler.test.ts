@@ -1,14 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { rlHandlers } from '../../src/mcp/handlers/rl.handler.js';
-import * as rlService from '../../src/services/rl/index.js';
 import * as training from '../../src/services/rl/training/index.js';
 import type { AppContext } from '../../src/core/context.js';
 
-// Note: getRLService and initRLService are no longer used - handler uses context.services.rl
-vi.mock('../../src/services/rl/index.js', () => ({
-  getRLService: vi.fn(),
-  initRLService: vi.fn(),
-}));
 vi.mock('../../src/services/rl/training/index.js', () => ({
   buildExtractionDataset: vi.fn(),
   buildRetrievalDataset: vi.fn(),
@@ -64,8 +58,6 @@ describe('RL Handler', () => {
         isEnabled: vi.fn().mockReturnValue(false),
       }),
     };
-    vi.mocked(rlService.getRLService).mockReturnValue(mockRLService as any);
-    vi.mocked(rlService.initRLService).mockReturnValue(mockRLService as any);
 
     mockContext = {
       db: {} as any,

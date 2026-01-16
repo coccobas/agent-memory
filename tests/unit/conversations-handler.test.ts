@@ -6,9 +6,6 @@ import type { AppContext } from '../../src/core/context.js';
 
 vi.mock('../../src/services/audit.service.js');
 vi.mock('../../src/mcp/helpers/permissions.js');
-vi.mock('../../src/services/capture/index.js', () => ({
-  getCaptureService: () => null,
-}));
 vi.mock('../../src/services/conversation.service.js', () => ({
   createConversationService: () => ({
     generateConversationSummary: vi.fn().mockResolvedValue('Test summary'),

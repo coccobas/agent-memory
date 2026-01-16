@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { librarianHandlers } from '../../src/mcp/handlers/librarian.handler.js';
-import * as librarianIndex from '../../src/services/librarian/index.js';
 import * as schedulerService from '../../src/services/librarian/scheduler.service.js';
 import type { AppContext } from '../../src/core/context.js';
 
@@ -24,11 +23,6 @@ const mockExperiencePromotionService = {
   promote: vi.fn(),
 };
 
-vi.mock('../../src/services/librarian/index.js', () => ({
-  getLibrarianService: vi.fn(),
-  initializeLibrarianService: vi.fn(),
-}));
-
 vi.mock('../../src/services/librarian/scheduler.service.js', () => ({
   getLibrarianSchedulerStatus: vi.fn().mockReturnValue({
     enabled: true,
@@ -42,10 +36,6 @@ describe('Librarian Handler', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(librarianIndex.getLibrarianService).mockReturnValue(mockLibrarianService as any);
-    vi.mocked(librarianIndex.initializeLibrarianService).mockReturnValue(
-      mockLibrarianService as any
-    );
 
     mockContext = {
       db: {} as any,

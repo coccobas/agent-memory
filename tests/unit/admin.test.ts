@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { AdminAuthError, getConfiguredAdminKey, requireAdminKey } from '../../src/utils/admin.js';
+import { AdminAuthError, requireAdminKey } from '../../src/utils/admin.js';
 import { resetWarningFlags } from '../../src/config/auth.js';
 
 describe('Admin Key Utilities', () => {
@@ -56,28 +56,6 @@ describe('Admin Key Utilities', () => {
     it('should preserve message', () => {
       const error = new AdminAuthError('custom message');
       expect(error.message).toBe('custom message');
-    });
-  });
-
-  describe('getConfiguredAdminKey', () => {
-    it('should return null when no key configured', () => {
-      delete process.env.AGENT_MEMORY_ADMIN_KEY;
-      expect(getConfiguredAdminKey()).toBeNull();
-    });
-
-    it('should return null for empty key', () => {
-      process.env.AGENT_MEMORY_ADMIN_KEY = '';
-      expect(getConfiguredAdminKey()).toBeNull();
-    });
-
-    it('should return key when configured', () => {
-      process.env.AGENT_MEMORY_ADMIN_KEY = 'my-secret-key';
-      expect(getConfiguredAdminKey()).toBe('my-secret-key');
-    });
-
-    it('should return key with special characters', () => {
-      process.env.AGENT_MEMORY_ADMIN_KEY = 'key-with-$pecial!ch@rs';
-      expect(getConfiguredAdminKey()).toBe('key-with-$pecial!ch@rs');
     });
   });
 
