@@ -183,25 +183,38 @@ export class ObserveCommitService {
       relationsSkipped = relationResults.skipped + relationResults.errors;
     }
 
-    // Update session metadata
+    // Update session metadata (non-critical - entries already stored)
     const committedAt = new Date().toISOString();
     const reviewedAt = needsReviewCount === 0 ? committedAt : null;
-    await this.updateSessionMetadata(sessionId, {
-      agentId,
-      autoPromote,
-      autoPromoteThreshold,
-      entries,
-      entities,
-      relationships,
-      stored,
-      storedEntities,
-      relationsCreated,
-      storedToProject,
-      storedToSession,
-      needsReviewCount,
-      committedAt,
-      reviewedAt,
-    });
+    try {
+      await this.updateSessionMetadata(sessionId, {
+        agentId,
+        autoPromote,
+        autoPromoteThreshold,
+        entries,
+        entities,
+        relationships,
+        stored,
+        storedEntities,
+        relationsCreated,
+        storedToProject,
+        storedToSession,
+        needsReviewCount,
+        committedAt,
+        reviewedAt,
+      });
+    } catch (error) {
+      // Log but don't fail - entries are already stored successfully
+      logger.warn(
+        {
+          sessionId,
+          error: error instanceof Error ? error.message : String(error),
+          storedCount: stored.length,
+          entitiesStoredCount: storedEntities.length,
+        },
+        'Failed to update session metadata after successful commit'
+      );
+    }
 
     return {
       stored: {

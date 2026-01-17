@@ -459,8 +459,8 @@ export class CaptureService {
     const episodeId = captureOptions.episodeId ?? (await this.getActiveEpisodeId(sessionId));
     if (episodeId && experienceResult.experiences.length > 0) {
       const experienceIds = experienceResult.experiences
-        .map((e) => e.experience.id)
-        .filter((id) => id); // Filter out empty IDs from preview mode
+        .map((e) => e.experience?.id)
+        .filter((id): id is string => !!id); // Filter out undefined/empty IDs
       await this.linkExperiencesToEpisode(experienceIds, episodeId);
       logger.info(
         { episodeId, count: experienceIds.length },
@@ -508,8 +508,8 @@ export class CaptureService {
     const episodeId = params.episodeId ?? (params.sessionId ? await this.getActiveEpisodeId(params.sessionId) : undefined);
     if (episodeId && result.experiences.length > 0) {
       const experienceIds = result.experiences
-        .map((e) => e.experience.id)
-        .filter((id) => id);
+        .map((e) => e.experience?.id)
+        .filter((id): id is string => !!id);
       await this.linkExperiencesToEpisode(experienceIds, episodeId);
       logger.debug(
         { episodeId, count: experienceIds.length },

@@ -194,11 +194,8 @@ export class ClassificationRepository {
 
     logger.debug({ patternId, patternType, baseWeight }, 'Pattern confidence created');
 
-    return this.db
-      .select()
-      .from(patternConfidence)
-      .where(eq(patternConfidence.patternId, patternId))
-      .get()!;
+    // Return the object we just inserted - no need to query again
+    return newPattern as PatternConfidence;
   }
 
   /**

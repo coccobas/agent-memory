@@ -618,8 +618,8 @@ export class TriggerDetector implements ITriggerDetector {
     // Get unique session IDs from similar messages
     const uniqueSessions = new Set(
       similarMessages
-        .filter((m) => m.message.metadata?.sessionId)
         .map((m) => m.message.metadata?.sessionId)
+        .filter((id): id is string => typeof id === 'string' && id.length > 0)
     );
 
     const triggerContext: TriggerContext = {
