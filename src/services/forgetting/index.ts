@@ -417,9 +417,9 @@ function getTableForType(entryType: EntryType) {
 
 function getLastAccessedAt(entry: any, entryType: EntryType): string | null {
   if (entryType === 'experience') {
-    return entry.lastUsedAt;
+    return entry.lastUsedAt ?? null;
   }
-  return entry.lastAccessedAt;
+  return entry.lastAccessedAt ?? null;
 }
 
 function getAccessCount(entry: any, entryType: EntryType): number {

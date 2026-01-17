@@ -147,13 +147,14 @@ export class TriggerOrchestrator implements ITriggerOrchestrator {
 
     // Invoke memory observer for each qualifying trigger
     if (this.observer) {
+      // Update last extraction time BEFORE processing to prevent race conditions
+      // This ensures concurrent messages won't all pass the cooldown check
+      this.lastExtractionTimes.set(context.sessionId, Date.now());
+
       for (const trigger of qualifyingTriggers) {
         try {
           await this.observer.observe(trigger, context);
           this.stats.extractedCount++;
-
-          // Update last extraction time
-          this.lastExtractionTimes.set(context.sessionId, Date.now());
 
           logger.debug(
             {
