@@ -97,7 +97,7 @@ export class CaptureService {
         extractKnowledge: true,
       },
       turnBased: {
-        enabled: false,
+        enabled: true,
         triggerAfterTurns: 10,
         triggerAfterTokens: 5000,
         triggerOnToolError: true,

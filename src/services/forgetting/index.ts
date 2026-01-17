@@ -119,7 +119,7 @@ const logger = createComponentLogger('forgetting');
 
 // Default configuration
 const DEFAULT_CONFIG: ForgettingConfig = {
-  enabled: false,
+  enabled: true,
   schedule: '0 3 * * *',
   recency: {
     enabled: true,
