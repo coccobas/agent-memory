@@ -345,12 +345,8 @@ describe('Fetch Stage', () => {
     });
 
     it('should fetch semantic entries for knowledge when semanticScores provided', () => {
-      const semanticScores = new Map([
-        [
-          'knowledge-semantic-1',
-          { entryType: 'knowledge' as const, score: 0.9, source: 'semantic' as const },
-        ],
-      ]);
+      // Knowledge uses getPreparedStatement (raw SQL) instead of db.select() for temporal filtering
+      const semanticScores = new Map<string, number>([['knowledge-semantic-1', 0.9]]);
 
       const ctx = createContext({
         types: ['knowledge'],
@@ -359,7 +355,8 @@ describe('Fetch Stage', () => {
 
       fetchStage(ctx);
 
-      expect(mockDb.select).toHaveBeenCalled();
+      // Knowledge entries use raw SQL via getPreparedStatement, not Drizzle select()
+      expect(mockGetPreparedStatement).toHaveBeenCalled();
     });
 
     it('should fetch semantic entries for experiences when semanticScores provided', () => {

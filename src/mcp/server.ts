@@ -45,9 +45,11 @@ import { logger } from '../utils/logger.js';
 import { VERSION } from '../version.js';
 import { runTool } from './tool-runner.js';
 import { createAppContext, shutdownAppContext } from '../core/factory.js';
-import { registerContext, registerRuntime } from '../core/container.js';
-import { createRuntime, extractRuntimeConfig } from '../core/runtime.js';
+import { registerContext } from '../core/container.js';
+import { ensureRuntime, shutdownOwnedRuntime } from '../core/runtime-owner.js';
+import type { Runtime } from '../core/runtime.js';
 import { config } from '../config/index.js';
+import { logPermissiveModeStartupWarning } from '../config/auth.js';
 import type { AppContext } from '../core/context.js';
 
 // Import generated tools from descriptors
@@ -167,17 +169,31 @@ export async function createServer(context: AppContext): Promise<Server> {
   return server;
 }
 
-export async function runServer(): Promise<void> {
+/**
+ * Runtime lifecycle:
+ * - CLI passes a shared runtime and manages process exit.
+ * - Direct invocation creates and owns the runtime, and can exit the process.
+ */
+export async function runServer(options: {
+  runtime?: Runtime;
+  manageProcess?: boolean;
+} = {}): Promise<void> {
   logger.info('Starting MCP server...');
   logger.info(
     { nodeVersion: process.version, platform: process.platform, cwd: process.cwd() },
     'Runtime environment'
   );
 
+  // Early security check: warn if permissive mode is enabled
+  logPermissiveModeStartupWarning('mcp');
+
   let server: Server;
   let context: AppContext;
-  const runtime = createRuntime(extractRuntimeConfig(config));
-  registerRuntime(runtime);
+  let transport: StdioServerTransport | null = null;
+  const { runtime, ownsRuntime } = options.runtime
+    ? { runtime: options.runtime, ownsRuntime: false }
+    : ensureRuntime(config);
+  const shouldExitProcess = options.manageProcess ?? !options.runtime;
 
   try {
     // Initialize AppContext with runtime
@@ -204,7 +220,7 @@ export async function runServer(): Promise<void> {
   // SHUTDOWN HANDLING
   // =============================================================================
 
-  async function shutdown(signal: string): Promise<void> {
+  async function shutdown(signal: string, exitCode = 0): Promise<void> {
     logger.info({ signal }, 'Shutdown signal received');
 
     try {
@@ -215,16 +231,27 @@ export async function runServer(): Promise<void> {
       // Close database connection
       closeDb();
 
+      if (transport) {
+        await transport.close();
+        transport = null;
+      }
+
+      await shutdownOwnedRuntime(ownsRuntime, runtime);
+
       logger.info('Shutdown complete');
-      process.exit(0);
+      if (shouldExitProcess) {
+        process.exit(exitCode);
+      }
     } catch (error) {
       logger.error({ error }, 'Error during shutdown');
-      process.exit(1);
+      if (shouldExitProcess) {
+        process.exit(1);
+      }
     }
   }
 
   try {
-    const transport = new StdioServerTransport();
+    transport = new StdioServerTransport();
     logger.debug('Transport created');
 
     // Unix/macOS signals
@@ -250,26 +277,12 @@ export async function runServer(): Promise<void> {
     // Log unhandled errors
     process.on('uncaughtException', (error) => {
       logger.fatal({ error }, 'Uncaught exception');
-      void shutdownAppContext(context).then(() => {
-        try {
-          closeDb();
-        } catch (dbError) {
-          logger.error({ dbError }, 'Error closing database');
-        }
-        process.exit(1);
-      });
+      void shutdown('uncaughtException', 1);
     });
 
     process.on('unhandledRejection', (reason) => {
       logger.fatal({ reason }, 'Unhandled rejection');
-      void shutdownAppContext(context).then(() => {
-        try {
-          closeDb();
-        } catch (dbError) {
-          logger.error({ dbError }, 'Error closing database');
-        }
-        process.exit(1);
-      });
+      void shutdown('unhandledRejection', 1);
     });
 
     // Connect to transport
@@ -279,13 +292,9 @@ export async function runServer(): Promise<void> {
     logger.info('Server is now listening for requests');
   } catch (error) {
     logger.fatal({ error }, 'Fatal error during startup');
-    void shutdownAppContext(context).then(() => {
-      try {
-        closeDb();
-      } catch (dbError) {
-        logger.error({ dbError }, 'Error closing database');
-      }
-      process.exit(1);
-    });
+    await shutdown('startup-failure', 1);
+    if (!shouldExitProcess) {
+      throw error;
+    }
   }
 }

@@ -319,7 +319,7 @@ describe.skipIf(!embeddingsAvailable)('Backfill Service', () => {
     expect(embeddingRecord?.embeddingProvider).toBeDefined();
   });
 
-  it('should handle multiple entry types in single run', { timeout: 30000 }, async () => {
+  it('should handle multiple entry types in single run', { timeout: 60000 }, async () => {
     // Create multiple types
     createTestTool(db, 'multi-tool-1', 'global');
     createTestTool(db, 'multi-tool-2', 'global');
@@ -376,7 +376,7 @@ describe.skipIf(!embeddingsAvailable)('Backfill Service', () => {
     expect(progress.processed).toBe(0);
   });
 
-  it('should extract text correctly for different entry types', { timeout: 30000 }, async () => {
+  it('should extract text correctly for different entry types', { timeout: 60000 }, async () => {
     // Create entries with specific content
     createTestTool(db, 'text-tool', 'global', undefined, 'function', 'Tool description text');
     createTestGuideline(

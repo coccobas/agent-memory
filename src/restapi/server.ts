@@ -7,10 +7,12 @@ import cookie from '@fastify/cookie';
 import { createComponentLogger } from '../utils/logger.js';
 import type { AppContext } from '../core/context.js';
 import { createAppContext, shutdownAppContext } from '../core/factory.js';
-import { createRuntime, extractRuntimeConfig } from '../core/runtime.js';
+import { ensureRuntime, shutdownOwnedRuntime } from '../core/runtime-owner.js';
+import type { Runtime } from '../core/runtime.js';
 import { config } from '../config/index.js';
+import { logPermissiveModeStartupWarning } from '../config/auth.js';
 import { mapError } from '../utils/error-mapper.js';
-import { registerContext, registerRuntime } from '../core/container.js';
+import { registerContext } from '../core/container.js';
 import { registerV1Routes } from './routes/v1.js';
 import { getHealthMonitor, resetHealthMonitor } from '../services/health.service.js';
 import { metrics } from '../utils/metrics.js';
@@ -285,18 +287,31 @@ export async function createServer(context: AppContext): Promise<FastifyInstance
   return app;
 }
 
-export async function runServer(): Promise<void> {
+/**
+ * Runtime lifecycle:
+ * - CLI passes a shared runtime and manages process exit.
+ * - Direct invocation creates and owns the runtime, and can exit the process.
+ */
+export async function runServer(options: {
+  runtime?: Runtime;
+  manageProcess?: boolean;
+} = {}): Promise<void> {
   if (!config.rest.enabled) {
     restLogger.info('REST API disabled. Set AGENT_MEMORY_REST_ENABLED=true to enable.');
     return;
   }
 
+  // Early security check: warn if permissive mode is enabled
+  logPermissiveModeStartupWarning('rest');
+
   const host = config.rest.host;
   const port = config.rest.port;
 
   // Create runtime first
-  const runtime = createRuntime(extractRuntimeConfig(config));
-  registerRuntime(runtime);
+  const { runtime, ownsRuntime } = options.runtime
+    ? { runtime: options.runtime, ownsRuntime: false }
+    : ensureRuntime(config);
+  const shouldExitProcess = options.manageProcess ?? !options.runtime;
 
   // Initialize AppContext with runtime
   const context = await createAppContext(config, runtime);
@@ -336,6 +351,8 @@ export async function runServer(): Promise<void> {
     // Close Fastify
     await app.close();
 
+    await shutdownOwnedRuntime(ownsRuntime, runtime);
+
     restLogger.info('REST API shutdown complete');
   };
 
@@ -346,14 +363,18 @@ export async function runServer(): Promise<void> {
   process.on('uncaughtException', (error) => {
     restLogger.fatal({ error }, 'Uncaught exception in REST server');
     void shutdown('uncaughtException').then(() => {
-      process.exit(1);
+      if (shouldExitProcess) {
+        process.exit(1);
+      }
     });
   });
 
   process.on('unhandledRejection', (reason) => {
     restLogger.fatal({ reason }, 'Unhandled rejection in REST server');
     void shutdown('unhandledRejection').then(() => {
-      process.exit(1);
+      if (shouldExitProcess) {
+        process.exit(1);
+      }
     });
   });
 

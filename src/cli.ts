@@ -9,13 +9,15 @@ process.env.DOTENV_CONFIG_QUIET = 'true';
 import { parseServerMode } from './utils/server-mode.js';
 import { createValidationError } from './core/errors.js';
 
-async function importAndRun(modulePath: string): Promise<void> {
+async function importAndRun(modulePath: string, runtime: unknown): Promise<void> {
   // Avoid static imports so we can build MCP-only, REST-only, or both.
-  const mod = (await import(modulePath)) as { runServer?: () => Promise<void> };
+  const mod = (await import(modulePath)) as {
+    runServer?: (options?: { runtime?: unknown; manageProcess?: boolean }) => Promise<void>;
+  };
   if (typeof mod.runServer !== 'function') {
     throw createValidationError('module', `${modulePath} does not export runServer()`);
   }
-  await mod.runServer();
+  await mod.runServer({ runtime, manageProcess: false });
 }
 
 // Now dynamically import the selected mode
@@ -110,9 +112,7 @@ async function main() {
   const { config } = await import('./config/index.js');
 
   const { createComponentLogger } = await import('./utils/logger.js');
-  const { createRuntime, extractRuntimeConfig, shutdownRuntime } =
-    await import('./core/runtime.js');
-  const { registerRuntime } = await import('./core/container.js');
+  const { ensureRuntime, shutdownOwnedRuntime } = await import('./core/runtime-owner.js');
   const { startBackupScheduler, stopBackupScheduler } =
     await import('./services/backup-scheduler.service.js');
 
@@ -122,8 +122,7 @@ async function main() {
 
   // Create and register the process-scoped Runtime
   // This is shared across MCP and REST servers in "both" mode
-  const runtime = createRuntime(extractRuntimeConfig(config));
-  registerRuntime(runtime);
+  const { runtime, ownsRuntime } = ensureRuntime(config);
 
   // Start backup scheduler if configured
   if (config.backup.schedule) {
@@ -137,7 +136,7 @@ async function main() {
   // Cleanup on shutdown
   const cleanup = async () => {
     stopBackupScheduler();
-    await shutdownRuntime(runtime);
+    await shutdownOwnedRuntime(ownsRuntime, runtime);
     process.exit(0);
   };
 
@@ -165,18 +164,18 @@ async function main() {
     const restModulePath = './restapi/server.js';
 
     if (mode === 'mcp') {
-      await importAndRun(mcpModulePath);
+      await importAndRun(mcpModulePath, runtime);
       return;
     }
 
     if (mode === 'rest') {
-      await importAndRun(restModulePath);
+      await importAndRun(restModulePath, runtime);
       return;
     }
 
     // both
-    await importAndRun(restModulePath);
-    await importAndRun(mcpModulePath);
+    await importAndRun(restModulePath, runtime);
+    await importAndRun(mcpModulePath, runtime);
   } catch (error) {
     logger.fatal(
       { error: error instanceof Error ? error.message : String(error) },
