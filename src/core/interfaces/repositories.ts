@@ -35,6 +35,11 @@ import type {
   GraphEdge,
   GraphTraversalOptions,
   GraphPath,
+  // Episode types
+  Episode,
+  EpisodeEvent,
+  EpisodeStatus,
+  EpisodeOutcomeType,
 } from '../../db/schema.js';
 import type { PaginationOptions } from '../../db/repositories/base.js';
 import type { IConflictRepository, ListConflictsFilter } from '../../db/repositories/conflicts.js';
@@ -1037,7 +1042,7 @@ export interface CreateGraphNodeInput {
   /** Link to original entry (for bidirectional mapping) */
   entryId?: string;
   /** Type of the linked entry */
-  entryType?: 'knowledge' | 'guideline' | 'tool' | 'experience' | 'task';
+  entryType?: 'knowledge' | 'guideline' | 'tool' | 'experience' | 'task' | 'episode';
   createdBy?: string;
 }
 
@@ -1080,7 +1085,7 @@ export interface INodeRepository {
   ): Promise<GraphNodeWithVersion | undefined>;
   /** Find a node by its linked entry ID and type (for bidirectional mapping) */
   getByEntry(
-    entryType: 'knowledge' | 'guideline' | 'tool' | 'experience' | 'task',
+    entryType: 'knowledge' | 'guideline' | 'tool' | 'experience' | 'task' | 'episode',
     entryId: string
   ): Promise<GraphNodeWithVersion | undefined>;
   list(filter?: ListGraphNodesFilter, options?: PaginationOptions): Promise<GraphNodeWithVersion[]>;
@@ -1143,6 +1148,103 @@ export interface IEdgeRepository {
 }
 
 // =============================================================================
+// EPISODE REPOSITORY (Temporal Activity Grouping)
+// =============================================================================
+
+/** Input for creating an episode */
+export interface CreateEpisodeInput {
+  scopeType: ScopeType;
+  scopeId?: string;
+  sessionId?: string;
+  name: string;
+  description?: string;
+  parentEpisodeId?: string;
+  triggerType?: string;
+  triggerRef?: string;
+  tags?: string[];
+  metadata?: Record<string, unknown>;
+  createdBy?: string;
+}
+
+/** Input for updating an episode */
+export interface UpdateEpisodeInput {
+  name?: string;
+  description?: string;
+  tags?: string[];
+  metadata?: Record<string, unknown>;
+}
+
+/** Filter for listing episodes */
+export interface ListEpisodesFilter {
+  scopeType?: ScopeType;
+  scopeId?: string;
+  sessionId?: string;
+  status?: EpisodeStatus;
+  parentEpisodeId?: string;
+  includeInactive?: boolean;
+}
+
+/** Input for adding an event to an episode */
+export interface AddEpisodeEventInput {
+  episodeId: string;
+  eventType: string;
+  name: string;
+  description?: string;
+  entryType?: string;
+  entryId?: string;
+  data?: Record<string, unknown>;
+}
+
+/** Episode with its events */
+export interface EpisodeWithEvents extends Episode {
+  events?: EpisodeEvent[];
+}
+
+/** Linked entity reference */
+export interface LinkedEntity {
+  entryType: string;
+  entryId: string;
+  role?: string;
+}
+
+export interface IEpisodeRepository {
+  // Standard CRUD
+  create(input: CreateEpisodeInput): Promise<EpisodeWithEvents>;
+  getById(id: string, includeEvents?: boolean): Promise<EpisodeWithEvents | undefined>;
+  list(filter?: ListEpisodesFilter, options?: PaginationOptions): Promise<EpisodeWithEvents[]>;
+  update(id: string, input: UpdateEpisodeInput): Promise<EpisodeWithEvents | undefined>;
+  deactivate(id: string): Promise<boolean>;
+  delete(id: string): Promise<boolean>;
+
+  // Lifecycle management
+  start(id: string): Promise<EpisodeWithEvents>;
+  complete(id: string, outcome: string, outcomeType: EpisodeOutcomeType): Promise<EpisodeWithEvents>;
+  fail(id: string, outcome: string): Promise<EpisodeWithEvents>;
+  cancel(id: string, reason?: string): Promise<EpisodeWithEvents>;
+
+  // Event tracking
+  addEvent(input: AddEpisodeEventInput): Promise<EpisodeEvent>;
+  getEvents(episodeId: string): Promise<EpisodeEvent[]>;
+
+  // Entity linking (via graph)
+  linkEntity(episodeId: string, entryType: string, entryId: string, role?: string): Promise<void>;
+  getLinkedEntities(episodeId: string): Promise<LinkedEntity[]>;
+
+  // Temporal queries
+  getActiveEpisode(sessionId: string): Promise<EpisodeWithEvents | undefined>;
+  getEpisodesInRange(
+    start: string,
+    end: string,
+    scopeType?: ScopeType,
+    scopeId?: string
+  ): Promise<EpisodeWithEvents[]>;
+
+  // Hierarchy queries
+  getChildren(parentId: string): Promise<EpisodeWithEvents[]>;
+  getAncestors(episodeId: string): Promise<Episode[]>;
+}
+
+// =============================================================================
 // AGGREGATED REPOSITORIES TYPE
 // =============================================================================
 
@@ -1173,4 +1275,6 @@ export interface Repositories {
   // Task and Evidence repositories
   tasks?: ITaskRepository;
   evidence?: IEvidenceRepository;
+  // Episode repository (Temporal Activity Grouping)
+  episodes?: IEpisodeRepository;
 }

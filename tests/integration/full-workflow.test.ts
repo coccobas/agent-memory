@@ -661,6 +661,7 @@ function createRealContext(
     autoContext: { enabled: false },
     autoSession: { enabled: false },
     outputMode: 'json',
+    extractionHook: { enabled: false },
   };
 
   const setProject = (id: string, name?: string) => {

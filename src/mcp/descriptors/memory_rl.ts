@@ -17,7 +17,7 @@ Example: {"action":"status"}
 Example: {"action":"enable","policy":"extraction","enabled":true}
 Example: {"action":"export_dataset","policy":"extraction","format":"huggingface","outputPath":"./datasets"}
 Example: {"action":"load_model","policy":"extraction","version":"latest"}
-Example: {"action":"compare","policyA":"extraction","policyB":"extraction"}`,
+Example: {"action":"compare","policyA":"extraction","policyB":"retrieval"}`,
   commonParams: {
     policy: {
       type: 'string',

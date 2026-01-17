@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { latentMemoryHandlers } from '../../src/mcp/handlers/latent-memory.handler.js';
 import type { AppContext } from '../../src/core/context.js';
+import type { LatentMemory } from '../../src/db/schema/latent-memories.js';
 
 describe('Latent Memory Handler', () => {
   let mockContext: AppContext;
@@ -16,12 +17,45 @@ describe('Latent Memory Handler', () => {
   let mockExperiencesRepo: {
     getById: ReturnType<typeof vi.fn>;
   };
+  let mockSessionsRepo: {
+    getById: ReturnType<typeof vi.fn>;
+  };
   let mockEmbeddingService: {
     isAvailable: ReturnType<typeof vi.fn>;
     embed: ReturnType<typeof vi.fn>;
   };
   let mockVectorService: {
+    isAvailable: ReturnType<typeof vi.fn>;
     searchSimilar: ReturnType<typeof vi.fn>;
+    getCount: ReturnType<typeof vi.fn>;
+  };
+  let mockLatentMemoryService: {
+    isAvailable: ReturnType<typeof vi.fn>;
+    createLatentMemory: ReturnType<typeof vi.fn>;
+    getLatentMemory: ReturnType<typeof vi.fn>;
+    findSimilar: ReturnType<typeof vi.fn>;
+    pruneStale: ReturnType<typeof vi.fn>;
+    getStats: ReturnType<typeof vi.fn>;
+  };
+
+  const mockLatentMemory: LatentMemory = {
+    id: 'lm-1',
+    sourceType: 'tool',
+    sourceId: 't-1',
+    sourceVersionId: 'v-1',
+    fullEmbedding: [0.1, 0.2, 0.3],
+    reducedEmbedding: null,
+    fullDimension: 3,
+    reducedDimension: null,
+    compressionMethod: 'none',
+    textPreview: 'Test Tool\nA test tool',
+    importanceScore: 0.5,
+    sessionId: null,
+    expiresAt: null,
+    createdAt: '2024-01-01T00:00:00.000Z',
+    lastAccessedAt: '2024-01-01T00:00:00.000Z',
+    accessCount: 0,
+    isActive: true,
   };
 
   beforeEach(() => {
@@ -54,6 +88,13 @@ describe('Latent Memory Handler', () => {
         currentVersion: { content: 'Learned something' },
       }),
     };
+    mockSessionsRepo = {
+      getById: vi.fn().mockResolvedValue({
+        id: 'sess-1',
+        name: 'Test Session',
+        purpose: 'Testing latent memory',
+      }),
+    };
     mockEmbeddingService = {
       isAvailable: vi.fn().mockReturnValue(true),
       embed: vi.fn().mockResolvedValue({
@@ -61,9 +102,26 @@ describe('Latent Memory Handler', () => {
       }),
     };
     mockVectorService = {
+      isAvailable: vi.fn().mockReturnValue(true),
       searchSimilar: vi
         .fn()
         .mockResolvedValue([{ entryType: 'guideline', entryId: 'g-1', text: 'Test', score: 0.9 }]),
+      getCount: vi.fn().mockResolvedValue(100),
+    };
+    mockLatentMemoryService = {
+      isAvailable: vi.fn().mockReturnValue(true),
+      createLatentMemory: vi.fn().mockResolvedValue(mockLatentMemory),
+      getLatentMemory: vi.fn().mockResolvedValue(mockLatentMemory),
+      findSimilar: vi.fn().mockResolvedValue([
+        { ...mockLatentMemory, similarityScore: 0.9 },
+      ]),
+      pruneStale: vi.fn().mockResolvedValue(5),
+      getStats: vi.fn().mockResolvedValue({
+        totalVectorCount: 100,
+        compressionEnabled: false,
+        cacheEnabled: true,
+        repositoryAvailable: true,
+      }),
     };
     mockContext = {
       db: {} as any,
@@ -72,10 +130,12 @@ describe('Latent Memory Handler', () => {
         guidelines: mockGuidelinesRepo,
         knowledge: mockKnowledgeRepo,
         experiences: mockExperiencesRepo,
+        sessions: mockSessionsRepo,
       } as any,
       services: {
         embedding: mockEmbeddingService,
         vector: mockVectorService,
+        latentMemory: mockLatentMemoryService,
       } as any,
     };
   });
@@ -90,10 +150,22 @@ describe('Latent Memory Handler', () => {
       expect(result.success).toBe(true);
       expect(result.latentMemory.sourceType).toBe('tool');
       expect(result.latentMemory.sourceId).toBe('t-1');
-      expect(result.latentMemory.text).toContain('Test Tool');
+      expect(mockLatentMemoryService.createLatentMemory).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sourceType: 'tool',
+          sourceId: 't-1',
+        })
+      );
     });
 
     it('should create latent memory for guideline', async () => {
+      mockLatentMemoryService.createLatentMemory.mockResolvedValue({
+        ...mockLatentMemory,
+        sourceType: 'guideline',
+        sourceId: 'g-1',
+        textPreview: 'Test Guideline\nAlways test',
+      });
+
       const result = await latentMemoryHandlers.create(mockContext, {
         sourceType: 'guideline',
         sourceId: 'g-1',
@@ -101,10 +173,16 @@ describe('Latent Memory Handler', () => {
 
       expect(result.success).toBe(true);
       expect(result.latentMemory.sourceType).toBe('guideline');
-      expect(result.latentMemory.text).toContain('Test Guideline');
     });
 
     it('should create latent memory for knowledge', async () => {
+      mockLatentMemoryService.createLatentMemory.mockResolvedValue({
+        ...mockLatentMemory,
+        sourceType: 'knowledge',
+        sourceId: 'k-1',
+        textPreview: 'Test Knowledge\nImportant fact',
+      });
+
       const result = await latentMemoryHandlers.create(mockContext, {
         sourceType: 'knowledge',
         sourceId: 'k-1',
@@ -112,10 +190,16 @@ describe('Latent Memory Handler', () => {
 
       expect(result.success).toBe(true);
       expect(result.latentMemory.sourceType).toBe('knowledge');
-      expect(result.latentMemory.text).toContain('Test Knowledge');
     });
 
     it('should create latent memory for experience', async () => {
+      mockLatentMemoryService.createLatentMemory.mockResolvedValue({
+        ...mockLatentMemory,
+        sourceType: 'experience',
+        sourceId: 'exp-1',
+        textPreview: 'Test Experience\nLearned something',
+      });
+
       const result = await latentMemoryHandlers.create(mockContext, {
         sourceType: 'experience',
         sourceId: 'exp-1',
@@ -123,7 +207,6 @@ describe('Latent Memory Handler', () => {
 
       expect(result.success).toBe(true);
       expect(result.latentMemory.sourceType).toBe('experience');
-      expect(result.latentMemory.text).toContain('Test Experience');
     });
 
     it('should use provided text instead of fetching', async () => {
@@ -133,18 +216,13 @@ describe('Latent Memory Handler', () => {
         text: 'Custom text content',
       });
 
-      expect(result.latentMemory.text).toBe('Custom text content');
+      expect(result.success).toBe(true);
       expect(mockToolsRepo.getById).not.toHaveBeenCalled();
-    });
-
-    it('should generate embedding when service available', async () => {
-      const result = await latentMemoryHandlers.create(mockContext, {
-        sourceType: 'tool',
-        sourceId: 't-1',
-      });
-
-      expect(result.latentMemory.embedding).toEqual([0.1, 0.2, 0.3]);
-      expect(mockEmbeddingService.embed).toHaveBeenCalled();
+      expect(mockLatentMemoryService.createLatentMemory).toHaveBeenCalledWith(
+        expect.objectContaining({
+          text: 'Custom text content',
+        })
+      );
     });
 
     it('should throw when sourceType is missing', async () => {
@@ -182,6 +260,17 @@ describe('Latent Memory Handler', () => {
         })
       ).rejects.toThrow();
     });
+
+    it('should throw when latent memory service is unavailable', async () => {
+      mockLatentMemoryService.isAvailable.mockReturnValue(false);
+
+      await expect(
+        latentMemoryHandlers.create(mockContext, {
+          sourceType: 'tool',
+          sourceId: 't-1',
+        })
+      ).rejects.toThrow('unavailable');
+    });
   });
 
   describe('get', () => {
@@ -192,8 +281,18 @@ describe('Latent Memory Handler', () => {
       });
 
       expect(result.latentMemory).toBeDefined();
-      expect(result.latentMemory?.sourceType).toBe('guideline');
-      expect(result.latentMemory?.lastAccessed).toBeDefined();
+      expect(mockLatentMemoryService.getLatentMemory).toHaveBeenCalledWith('guideline', 'g-1');
+    });
+
+    it('should return undefined when not found', async () => {
+      mockLatentMemoryService.getLatentMemory.mockResolvedValue(undefined);
+
+      const result = await latentMemoryHandlers.get(mockContext, {
+        sourceType: 'guideline',
+        sourceId: 'g-999',
+      });
+
+      expect(result.latentMemory).toBeUndefined();
     });
 
     it('should throw when sourceType is missing', async () => {
@@ -220,9 +319,12 @@ describe('Latent Memory Handler', () => {
       });
 
       expect(result.results).toHaveLength(1);
-      expect(result.results[0].sourceType).toBe('guideline');
+      expect(result.results[0].sourceType).toBe('tool');
       expect(result.meta.query).toBe('test query');
-      expect(mockEmbeddingService.embed).toHaveBeenCalledWith('test query');
+      expect(mockLatentMemoryService.findSimilar).toHaveBeenCalledWith(
+        'test query',
+        expect.objectContaining({ limit: 10 })
+      );
     });
 
     it('should respect limit parameter', async () => {
@@ -231,10 +333,9 @@ describe('Latent Memory Handler', () => {
         limit: 5,
       });
 
-      expect(mockVectorService.searchSimilar).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.anything(),
-        5
+      expect(mockLatentMemoryService.findSimilar).toHaveBeenCalledWith(
+        'test query',
+        expect.objectContaining({ limit: 5 })
       );
     });
 
@@ -242,26 +343,14 @@ describe('Latent Memory Handler', () => {
       await expect(latentMemoryHandlers.search(mockContext, {})).rejects.toThrow('query');
     });
 
-    it('should throw when embedding service unavailable', async () => {
-      mockEmbeddingService.isAvailable.mockReturnValue(false);
+    it('should throw when service unavailable', async () => {
+      mockLatentMemoryService.isAvailable.mockReturnValue(false);
 
       await expect(
         latentMemoryHandlers.search(mockContext, {
           query: 'test query',
         })
-      ).rejects.toThrow();
-    });
-
-    it('should throw when vector service unavailable', async () => {
-      mockContext.services = {
-        embedding: mockEmbeddingService,
-      } as any;
-
-      await expect(
-        latentMemoryHandlers.search(mockContext, {
-          query: 'test query',
-        })
-      ).rejects.toThrow();
+      ).rejects.toThrow('unavailable');
     });
   });
 
@@ -274,6 +363,7 @@ describe('Latent Memory Handler', () => {
       expect(result.format).toBe('markdown');
       expect(typeof result.context).toBe('string');
       expect(result.tokenEstimate).toBeGreaterThan(0);
+      expect(result.memoriesIncluded).toBeGreaterThanOrEqual(0);
     });
 
     it('should inject context in json format', async () => {
@@ -304,9 +394,21 @@ describe('Latent Memory Handler', () => {
       expect(result).toBeDefined();
     });
 
-    it('should throw when neither sessionId nor conversationId provided', async () => {
+    it('should accept query instead of sessionId', async () => {
+      const result = await latentMemoryHandlers.inject(mockContext, {
+        query: 'what do we know about testing',
+      });
+
+      expect(result).toBeDefined();
+      expect(mockLatentMemoryService.findSimilar).toHaveBeenCalledWith(
+        'what do we know about testing',
+        expect.any(Object)
+      );
+    });
+
+    it('should throw when neither sessionId, conversationId, nor query provided', async () => {
       await expect(latentMemoryHandlers.inject(mockContext, {})).rejects.toThrow(
-        'sessionId or conversationId'
+        'sessionId, conversationId, or query'
       );
     });
   });
@@ -320,10 +422,21 @@ describe('Latent Memory Handler', () => {
       expect(result.success).toBe(true);
       expect(result.sessionId).toBe('sess-1');
       expect(result.memoriesLoaded).toBeDefined();
+      expect(mockLatentMemoryService.findSimilar).toHaveBeenCalled();
     });
 
     it('should throw when sessionId is missing', async () => {
       await expect(latentMemoryHandlers.warm_session(mockContext, {})).rejects.toThrow('sessionId');
+    });
+
+    it('should throw when session not found', async () => {
+      mockSessionsRepo.getById.mockResolvedValue(null);
+
+      await expect(
+        latentMemoryHandlers.warm_session(mockContext, {
+          sessionId: 'sess-999',
+        })
+      ).rejects.toThrow();
     });
   });
 
@@ -332,8 +445,19 @@ describe('Latent Memory Handler', () => {
       const result = await latentMemoryHandlers.stats(mockContext, {});
 
       expect(result.stats).toBeDefined();
-      expect(result.stats.totalEntries).toBeDefined();
-      expect(result.stats.hitRate).toBeDefined();
+      expect(result.stats.totalVectorCount).toBe(100);
+      expect(result.stats.compressionEnabled).toBe(false);
+      expect(result.stats.cacheEnabled).toBe(true);
+    });
+
+    it('should return availability info when service is not configured', async () => {
+      mockContext.services.latentMemory = undefined as any;
+
+      const result = await latentMemoryHandlers.stats(mockContext, {});
+
+      expect(result.stats.totalVectorCount).toBe(0);
+      expect(result.stats.embeddingServiceAvailable).toBe(true);
+      expect(result.stats.vectorServiceAvailable).toBe(true);
     });
   });
 
@@ -342,8 +466,32 @@ describe('Latent Memory Handler', () => {
       const result = await latentMemoryHandlers.prune(mockContext, {});
 
       expect(result.success).toBe(true);
-      expect(result.entriesRemoved).toBeDefined();
-      expect(result.bytesFreed).toBeDefined();
+      expect(result.entriesRemoved).toBe(5);
+      expect(result.staleDays).toBe(30); // default
+      expect(mockLatentMemoryService.pruneStale).toHaveBeenCalledWith(30);
+    });
+
+    it('should respect staleDays parameter', async () => {
+      const result = await latentMemoryHandlers.prune(mockContext, {
+        staleDays: 7,
+      });
+
+      expect(result.staleDays).toBe(7);
+      expect(mockLatentMemoryService.pruneStale).toHaveBeenCalledWith(7);
+    });
+
+    it('should throw when staleDays is invalid', async () => {
+      await expect(
+        latentMemoryHandlers.prune(mockContext, {
+          staleDays: 0,
+        })
+      ).rejects.toThrow('staleDays');
+
+      await expect(
+        latentMemoryHandlers.prune(mockContext, {
+          staleDays: -1,
+        })
+      ).rejects.toThrow('staleDays');
     });
   });
 });

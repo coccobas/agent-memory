@@ -44,6 +44,7 @@ import { handleApprove } from './handlers/approve.handler.js';
 import { handleReject } from './handlers/reject.handler.js';
 import { handleSkip } from './handlers/skip.handler.js';
 import { handleRemember } from './handlers/remember.handler.js';
+import { handleObserve } from './handlers/observe.handler.js';
 
 /**
  * Registry of all available !am commands
@@ -122,6 +123,13 @@ export const commandRegistry: HookCommandDescriptor[] = [
     description: 'Quick store a memory',
     requiresArg: true,
     handler: handleRemember,
+  },
+  {
+    name: 'observe',
+    aliases: ['extract'],
+    usage: '[context]',
+    description: 'Extract learnings from conversation',
+    handler: handleObserve,
   },
 ];
 

@@ -385,10 +385,7 @@ export interface AdaptersWithRedis extends Adapters {
  * await adapters.closeRedis();
  * ```
  */
-export function createAdaptersWithConfig(
-  deps: AdapterDeps,
-  config: Config
-): AdaptersWithRedis {
+export function createAdaptersWithConfig(deps: AdapterDeps, config: Config): AdaptersWithRedis {
   // Create base adapters (storage is always local - SQLite or PostgreSQL)
   const baseAdapters = createAdapters(deps);
 

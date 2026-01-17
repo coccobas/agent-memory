@@ -12,6 +12,7 @@ export * from './experiences.js';
 export * from './verification.js';
 export * from './voting.js';
 export * from './analytics.js';
+export * from './episodes.js';
 
 // Graph repositories (flexible knowledge graph)
 export * from './graph/index.js';

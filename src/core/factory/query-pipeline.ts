@@ -18,7 +18,7 @@ import type { FeedbackQueueProcessor } from '../../services/feedback/queue.js';
 import type { IQueryRewriteService } from '../../services/query-rewrite/types.js';
 import type { EntityIndex } from '../../services/query/entity-index.js';
 import type { ExtractedEntity } from '../../services/query/entity-extractor.js';
-import type { IEmbeddingService, IVectorService } from '../context.js';
+import type { IEmbeddingService, IVectorService, IHierarchicalRetriever } from '../context.js';
 import { getDb, getSqlite, getPreparedStatement } from '../../db/connection.js';
 import {
   createDependencies,
@@ -41,6 +41,8 @@ export interface QueryPipelineOptions {
   embeddingService?: IEmbeddingService;
   /** Vector service for semantic similarity search (optional) */
   vectorService?: IVectorService;
+  /** Hierarchical retriever for coarse-to-fine search through summaries (optional) */
+  hierarchicalRetriever?: IHierarchicalRetriever;
 }
 
 /**
@@ -102,6 +104,18 @@ export function createQueryPipeline(
       }
     : undefined;
 
+  // Wire hierarchical retriever if provided
+  const hierarchicalRetriever = options?.hierarchicalRetriever
+    ? {
+        retrieve: (opts: Parameters<IHierarchicalRetriever['retrieve']>[0]) =>
+          options.hierarchicalRetriever!.retrieve(opts),
+        hasSummaries: (
+          scopeType: 'global' | 'org' | 'project' | 'session',
+          scopeId?: string | null
+        ) => options.hierarchicalRetriever!.hasSummaries(scopeType, scopeId),
+      }
+    : undefined;
+
   return createDependencies({
     getDb: () => getDb(),
     getSqlite: () => getSqlite(),
@@ -114,6 +128,7 @@ export function createQueryPipeline(
     entityIndex,
     embeddingService,
     vectorService,
+    hierarchicalRetriever,
   });
 }
 

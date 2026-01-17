@@ -7,7 +7,7 @@ import { guidelineHandlers } from '../handlers/guidelines.handler.js';
 
 export const memoryGuidelineDescriptor: ToolDescriptor = {
   name: 'memory_guideline',
-  visibility: 'core',
+  visibility: 'standard',
   description:
     'Manage coding/behavioral guidelines. Actions: add, update, get, list, history, deactivate, delete, bulk_add, bulk_update, bulk_delete',
   commonParams: {

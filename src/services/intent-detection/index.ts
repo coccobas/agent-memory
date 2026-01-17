@@ -33,6 +33,13 @@ export interface IntentDetectionResult {
   query?: string;
   sessionName?: string;
   target?: string;
+  // Episode-related fields
+  name?: string;
+  message?: string;
+  eventType?: string;
+  outcome?: string;
+  outcomeType?: string;
+  ref?: string;
   rawPatterns: string[];
 }
 
@@ -104,6 +111,26 @@ export class IntentDetectionService implements IIntentDetectionService {
 
     if (match.extractedParams.target) {
       result.target = match.extractedParams.target;
+    }
+
+    // Episode-related params
+    if (match.extractedParams.name) {
+      result.name = match.extractedParams.name;
+    }
+    if (match.extractedParams.message) {
+      result.message = match.extractedParams.message;
+    }
+    if (match.extractedParams.eventType) {
+      result.eventType = match.extractedParams.eventType;
+    }
+    if (match.extractedParams.outcome) {
+      result.outcome = match.extractedParams.outcome;
+    }
+    if (match.extractedParams.outcomeType) {
+      result.outcomeType = match.extractedParams.outcomeType;
+    }
+    if (match.extractedParams.ref) {
+      result.ref = match.extractedParams.ref;
     }
 
     return result;

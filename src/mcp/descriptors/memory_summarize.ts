@@ -64,6 +64,16 @@ Example: {"action":"drill_down","summaryId":"sum_abc123"}`,
       type: 'boolean',
       description: 'Force rebuild of all summaries, even if they exist (build)',
     },
+    similarityThreshold: {
+      type: 'number',
+      description:
+        'Minimum similarity (0-1) for entries to be grouped together (build, default: 0.5). Lower values allow more diverse content to cluster.',
+    },
+    minGroupSize: {
+      type: 'number',
+      description:
+        'Minimum entries required to form a community (build, default: 3). Lower values create more granular summaries.',
+    },
     id: {
       type: 'string',
       description: 'Summary ID (get)',

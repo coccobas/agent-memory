@@ -276,6 +276,8 @@ export interface HierarchicalContextResult {
   summary: HierarchicalContextSummary;
   critical: HierarchicalContextItem[];
   recent: HierarchicalContextItem[];
+  /** Work items: entries prefixed with [TODO], [BUG], [LIMITATION] */
+  workItems: HierarchicalContextItem[];
   categories: string[];
   expand: HierarchicalExpandActions;
   meta: HierarchicalResponseMeta;

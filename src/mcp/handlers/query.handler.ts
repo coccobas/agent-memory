@@ -301,8 +301,14 @@ export const queryHandlers = {
     if (hierarchical) {
       // Enrich results with version content for snippet extraction
       const enrichedResults = enrichResultsWithVersionContent(result.results, context.db);
+      // Pass totalCounts from meta for accurate counts (not limited by pagination)
       return formatTimestamps(
-        formatHierarchicalContext(enrichedResults, scopeType, scopeId ?? null)
+        formatHierarchicalContext(
+          enrichedResults,
+          scopeType,
+          scopeId ?? null,
+          result.meta.totalCounts
+        )
       );
     }
 

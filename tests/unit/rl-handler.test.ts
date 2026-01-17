@@ -309,13 +309,20 @@ describe('RL Handler', () => {
       ).rejects.toThrow('policyB');
     });
 
-    it('should throw when comparing different policy types', async () => {
-      await expect(
-        rlHandlers.compare(mockContext, {
-          policyA: 'extraction',
-          policyB: 'retrieval',
-        })
-      ).rejects.toThrow('same policy type');
+    it('should allow comparing different policy types with a note', async () => {
+      vi.mocked(training.buildExtractionDataset).mockResolvedValue({
+        train: [],
+        eval: [],
+        stats: { totalExamples: 0 },
+      } as any);
+
+      const result = await rlHandlers.compare(mockContext, {
+        policyA: 'extraction',
+        policyB: 'retrieval',
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.note).toContain('Cross-policy comparison');
     });
 
     it('should throw when RL service not initialized', async () => {

@@ -150,6 +150,10 @@ export interface RecordCaseParams {
   category?: string;
   confidence?: number;
   source?: 'user' | 'observation';
+
+  // Episode linking (optional)
+  /** If provided, the captured experience will be linked to this episode */
+  episodeId?: string;
 }
 
 /**
@@ -186,6 +190,10 @@ export interface CaptureOptions {
 
   // Focus areas
   focusAreas?: ('decisions' | 'facts' | 'rules' | 'tools' | 'experiences')[];
+
+  // Episode linking (optional)
+  /** If provided, all captured experiences will be linked to this episode */
+  episodeId?: string;
 }
 
 /**

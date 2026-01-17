@@ -13,12 +13,13 @@ import { librarianHandlers } from '../handlers/librarian.handler.js';
 
 export const memory_librarian: ToolDescriptor = {
   name: 'memory_librarian',
-  visibility: 'advanced',
+  visibility: 'core',
   description: `Manage the Librarian Agent for pattern detection and promotion recommendations.
 
 Actions:
 - analyze: Run pattern detection analysis on experiences
 - status: Get librarian service and scheduler status
+- run_maintenance: Run maintenance tasks (consolidation, forgetting, graph backfill)
 - list_recommendations: List pending promotion recommendations
 - show_recommendation: Show details of a specific recommendation
 - approve: Approve a recommendation and create the promotion
@@ -32,7 +33,15 @@ The Librarian Agent automatically:
 4. Generates promotion recommendations
 5. Queues recommendations for human review
 
-Example: {"action":"analyze","scopeType":"project","scopeId":"proj-123"}`,
+Maintenance includes:
+- Consolidation: Dedupe similar entries
+- Forgetting: Archive stale entries
+- Graph backfill: Populate knowledge graph
+
+Runs daily at 5am and on session end. Use list_recommendations to review pending patterns.
+
+Example: {"action":"analyze","scopeType":"project","scopeId":"proj-123"}
+Example: {"action":"run_maintenance","scopeType":"project","scopeId":"proj-123"}`,
   commonParams: {
     scopeType: {
       description: 'Scope type',
@@ -68,6 +77,23 @@ Example: {"action":"analyze","scopeType":"project","scopeId":"proj-123"}`,
     },
     status: {
       contextHandler: librarianHandlers.status,
+    },
+    run_maintenance: {
+      params: {
+        tasks: {
+          description: 'Which tasks to run (defaults to all): consolidation, forgetting, graphBackfill',
+          type: 'array',
+        },
+        dryRun: {
+          description: 'If true, analyze without making changes',
+          type: 'boolean',
+        },
+        initiatedBy: {
+          description: 'Who initiated this maintenance run',
+          type: 'string',
+        },
+      },
+      contextHandler: librarianHandlers.run_maintenance,
     },
     list_recommendations: {
       params: {

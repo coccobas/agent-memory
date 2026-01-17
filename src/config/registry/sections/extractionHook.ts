@@ -13,7 +13,7 @@ export const extractionHookSection: ConfigSectionMeta = {
   options: {
     enabled: {
       envKey: 'AGENT_MEMORY_EXTRACTION_HOOK_ENABLED',
-      defaultValue: false, // Opt-in initially
+      defaultValue: true, // Enabled by default for better discoverability
       description: 'Enable proactive extraction of storable patterns.',
       schema: z.boolean(),
       parse: 'boolean',

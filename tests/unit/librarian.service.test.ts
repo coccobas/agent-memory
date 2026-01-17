@@ -200,7 +200,7 @@ describe('LibrarianService', () => {
     it('should initialize with default configuration', () => {
       const config = service.getConfig();
       expect(config.enabled).toBe(true);
-      expect(config.schedule).toBe('0 0 * * *');
+      expect(config.schedule).toBe('0 5 * * *'); // Daily at 5am
       expect(config.patternDetection.embeddingSimilarityThreshold).toBe(0.75);
       expect(config.qualityGate.autoPromoteThreshold).toBe(0.9);
     });
@@ -340,7 +340,7 @@ describe('LibrarianService', () => {
 
       expect(status.enabled).toBe(true);
       expect(status.schedulerRunning).toBe(false);
-      expect(status.schedule).toBe('0 0 * * *');
+      expect(status.schedule).toBe('0 5 * * *'); // Daily at 5am
       expect(status.config).toBeDefined();
       expect(status.pendingRecommendations).toBeGreaterThanOrEqual(0);
     });

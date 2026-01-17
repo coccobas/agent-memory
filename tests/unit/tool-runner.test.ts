@@ -7,6 +7,7 @@ vi.mock('../../src/mcp/descriptors/index.js', () => ({
   GENERATED_HANDLERS: {
     memory_health: vi.fn().mockResolvedValue({ status: 'ok' }),
     memory_project: vi.fn().mockResolvedValue({ projects: [] }),
+    memory_session: vi.fn().mockResolvedValue({ sessions: [] }), // Whitelisted tool for _context
     failing_tool: vi.fn().mockRejectedValue(new Error('Tool failed')),
     format_error_tool: vi.fn().mockResolvedValue({ value: 'test' }),
   },
@@ -61,6 +62,9 @@ describe('tool-runner', () => {
           enabled: false, // Disabled for unit tests
           defaultAgentId: 'test-agent',
           cacheTTLMs: 5000,
+        },
+        extractionHook: {
+          enabled: false,
         },
       } as any,
       services: {}, // No contextDetection service in unit tests
@@ -213,7 +217,7 @@ describe('tool-runner', () => {
         expect(mockEnrichParams).toHaveBeenCalled();
       });
 
-      it('should add _context badge to response when context is detected', async () => {
+      it('should add _context badge to response when context is detected (whitelisted tools only)', async () => {
         const mockEnrichParams = vi.fn().mockResolvedValue({
           enriched: { action: 'list' },
           detected: {
@@ -229,7 +233,8 @@ describe('tool-runner', () => {
           clearCache: vi.fn(),
         } as any;
 
-        const result = await runTool(mockContext, 'memory_project', { action: 'list' });
+        // Use memory_session (whitelisted tool) - only whitelisted tools get _context
+        const result = await runTool(mockContext, 'memory_session', { action: 'list' });
 
         expect(result.isError).toBeUndefined();
         const parsed = JSON.parse(result.content[0]!.text);
@@ -524,6 +529,7 @@ describe('tool-runner', () => {
     });
 
     describe('context badge formatting', () => {
+      // Note: _context is only included for whitelisted tools (memory_quickstart, memory_status, memory_session)
       it('should format badge with project only', async () => {
         const mockEnrichParams = vi.fn().mockResolvedValue({
           enriched: { action: 'list' },
@@ -540,7 +546,8 @@ describe('tool-runner', () => {
           clearCache: vi.fn(),
         } as any;
 
-        const result = await runTool(mockContext, 'memory_project', { action: 'list' });
+        // Use memory_session (whitelisted tool) instead of memory_project
+        const result = await runTool(mockContext, 'memory_session', { action: 'list' });
 
         const parsed = JSON.parse(result.content[0]!.text);
         expect(parsed._context._badge).toBe('[Project: Test Project]');
@@ -562,7 +569,8 @@ describe('tool-runner', () => {
           clearCache: vi.fn(),
         } as any;
 
-        const result = await runTool(mockContext, 'memory_project', { action: 'list' });
+        // Use memory_session (whitelisted tool) instead of memory_project
+        const result = await runTool(mockContext, 'memory_session', { action: 'list' });
 
         const parsed = JSON.parse(result.content[0]!.text);
         expect(parsed._context._badge).toContain('● active');
@@ -584,7 +592,8 @@ describe('tool-runner', () => {
           clearCache: vi.fn(),
         } as any;
 
-        const result = await runTool(mockContext, 'memory_project', { action: 'list' });
+        // Use memory_session (whitelisted tool) instead of memory_project
+        const result = await runTool(mockContext, 'memory_session', { action: 'list' });
 
         const parsed = JSON.parse(result.content[0]!.text);
         expect(parsed._context._badge).toContain('○ paused');
@@ -609,7 +618,8 @@ describe('tool-runner', () => {
           clearCache: vi.fn(),
         } as any;
 
-        const result = await runTool(mockContext, 'memory_project', { action: 'list' });
+        // Use memory_session (whitelisted tool) instead of memory_project
+        const result = await runTool(mockContext, 'memory_session', { action: 'list' });
 
         const parsed = JSON.parse(result.content[0]!.text);
         expect(parsed._context._badge).toContain('...');
@@ -632,10 +642,34 @@ describe('tool-runner', () => {
           clearCache: vi.fn(),
         } as any;
 
-        const result = await runTool(mockContext, 'memory_project', { action: 'list' });
+        // Use memory_session (whitelisted tool) instead of memory_project
+        const result = await runTool(mockContext, 'memory_session', { action: 'list' });
 
         const parsed = JSON.parse(result.content[0]!.text);
         expect(parsed._context._badge).toBe('[Memory: not configured]');
+      });
+
+      it('should NOT include _context for non-whitelisted tools', async () => {
+        const mockEnrichParams = vi.fn().mockResolvedValue({
+          enriched: { action: 'list' },
+          detected: {
+            project: { id: 'proj-123', name: 'Test Project' },
+            session: null,
+            agentId: { value: 'test-agent', source: 'env' },
+          },
+        });
+
+        mockContext.config.autoContext.enabled = true;
+        mockContext.services.contextDetection = {
+          enrichParams: mockEnrichParams,
+          clearCache: vi.fn(),
+        } as any;
+
+        // Use memory_project (NOT a whitelisted tool)
+        const result = await runTool(mockContext, 'memory_project', { action: 'list' });
+
+        const parsed = JSON.parse(result.content[0]!.text);
+        expect(parsed._context).toBeUndefined();
       });
     });
 

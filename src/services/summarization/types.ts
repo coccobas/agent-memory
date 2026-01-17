@@ -64,11 +64,15 @@ export interface HierarchicalSummarizationConfig {
 
 /**
  * Default configuration values
+ *
+ * Note: similarityThreshold lowered from 0.75 to 0.5 to allow more diverse
+ * content to cluster together. Higher thresholds work better for highly
+ * similar content (e.g., same-category knowledge entries).
  */
 export const DEFAULT_HIERARCHICAL_SUMMARIZATION_CONFIG: HierarchicalSummarizationConfig = {
   maxLevels: 3,
   minGroupSize: 3,
-  similarityThreshold: 0.75,
+  similarityThreshold: 0.5,
   communityResolution: 1.0,
   provider: 'disabled',
 };
@@ -171,6 +175,12 @@ export interface BuildSummariesOptions {
    * Overrides config.minGroupSize if provided
    */
   minGroupSize?: number;
+
+  /**
+   * Similarity threshold for this build
+   * Overrides config.similarityThreshold if provided
+   */
+  similarityThreshold?: number;
 }
 
 /**

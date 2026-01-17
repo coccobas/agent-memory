@@ -31,6 +31,14 @@ export const autoContextSection: ConfigSectionMeta = {
       schema: z.number().int().min(0),
       parse: 'int',
     },
+    autoProject: {
+      envKey: 'AGENT_MEMORY_AUTO_PROJECT',
+      defaultValue: true,
+      description:
+        'Automatically create a project on first write operation if none exists for the current working directory.',
+      schema: z.boolean(),
+      parse: 'boolean',
+    },
     autoSession: {
       envKey: 'AGENT_MEMORY_AUTO_SESSION',
       defaultValue: true,

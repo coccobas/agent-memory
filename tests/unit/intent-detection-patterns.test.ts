@@ -4,6 +4,7 @@ import {
   detectEntryType,
   detectCategory,
   extractTitleFromContent,
+  detectEpisodeTrigger,
 } from '../../src/services/intent-detection/patterns.js';
 
 describe('Intent Detection Patterns', () => {
@@ -138,6 +139,45 @@ describe('Intent Detection Patterns', () => {
         const result = detectIntent('what do we know about performance?');
         // The extraction strips "what do we" and "know about" prefixes, leaving just the topic
         expect(result.extractedParams.query).toBe('performance');
+      });
+
+      // Bug fix tests: Questions with entry type words should NOT be classified as store
+      it('should detect questions ending with ? as retrieve', () => {
+        const result = detectIntent('What knowledge entries exist?');
+        expect(result.intent).toBe('retrieve');
+      });
+
+      it('should detect question words at start as retrieve (no verb required)', () => {
+        const result = detectIntent('What knowledge entries are stored');
+        expect(result.intent).toBe('retrieve');
+      });
+
+      it('should detect "What are the guidelines?" as retrieve, not store', () => {
+        const result = detectIntent('What are the guidelines?');
+        expect(result.intent).toBe('retrieve');
+      });
+
+      it('should detect "Which tools do we have?" as retrieve', () => {
+        const result = detectIntent('Which tools do we have?');
+        expect(result.intent).toBe('retrieve');
+      });
+
+      it('should detect "What about authentication?" as retrieve', () => {
+        const result = detectIntent('What about authentication?');
+        expect(result.intent).toBe('retrieve');
+      });
+
+      it('should NOT misclassify entry type mentions as store when asking a question', () => {
+        // These were previously misclassified as 'store' due to entry type detection fallback
+        expect(detectIntent('What knowledge do we have?').intent).toBe('retrieve');
+        expect(detectIntent('What guidelines exist?').intent).toBe('retrieve');
+        expect(detectIntent('What tools are available?').intent).toBe('retrieve');
+      });
+
+      it('should handle question fallback when no other patterns match', () => {
+        // Even without explicit patterns, questions should be retrieve
+        const result = detectIntent('Is there any documentation?');
+        expect(result.intent).toBe('retrieve');
       });
     });
 
@@ -354,6 +394,173 @@ describe('Intent Detection Patterns', () => {
     it('should respect custom maxLength', () => {
       const content = 'A moderately long title here';
       expect(extractTitleFromContent(content, 10).length).toBeLessThanOrEqual(10);
+    });
+  });
+
+  describe('detectEpisodeTrigger', () => {
+    describe('bug_fix trigger', () => {
+      it('should detect "fix bug" pattern', () => {
+        const result = detectEpisodeTrigger('Fix the authentication bug');
+        expect(result.shouldCreate).toBe(true);
+        expect(result.triggerType).toBe('bug_fix');
+        expect(result.confidence).toBeGreaterThanOrEqual(0.7);
+      });
+
+      it('should detect "debug issue" pattern', () => {
+        const result = detectEpisodeTrigger('Debug the token refresh issue');
+        expect(result.shouldCreate).toBe(true);
+        expect(result.triggerType).toBe('bug_fix');
+      });
+
+      it('should detect "fixing" pattern', () => {
+        const result = detectEpisodeTrigger('Fixing memory leak');
+        expect(result.shouldCreate).toBe(true);
+        expect(result.triggerType).toBe('bug_fix');
+      });
+
+      it('should detect "resolve error" pattern', () => {
+        const result = detectEpisodeTrigger('Resolve the 500 error on login');
+        expect(result.shouldCreate).toBe(true);
+        expect(result.triggerType).toBe('bug_fix');
+      });
+    });
+
+    describe('feature trigger', () => {
+      it('should detect "add feature" pattern', () => {
+        const result = detectEpisodeTrigger('Add user profile feature');
+        expect(result.shouldCreate).toBe(true);
+        expect(result.triggerType).toBe('feature');
+      });
+
+      it('should detect "implement functionality" pattern', () => {
+        const result = detectEpisodeTrigger('Implement search functionality');
+        expect(result.shouldCreate).toBe(true);
+        expect(result.triggerType).toBe('feature');
+      });
+
+      it('should detect "new endpoint" pattern', () => {
+        const result = detectEpisodeTrigger('Create new API endpoint for payments');
+        expect(result.shouldCreate).toBe(true);
+        expect(result.triggerType).toBe('feature');
+      });
+    });
+
+    describe('refactor trigger', () => {
+      it('should detect "refactor" pattern', () => {
+        const result = detectEpisodeTrigger('Refactor the auth module');
+        expect(result.shouldCreate).toBe(true);
+        expect(result.triggerType).toBe('refactor');
+      });
+
+      it('should detect "clean up" pattern', () => {
+        const result = detectEpisodeTrigger('Clean up the legacy code');
+        expect(result.shouldCreate).toBe(true);
+        expect(result.triggerType).toBe('refactor');
+      });
+
+      it('should detect "restructure" pattern', () => {
+        const result = detectEpisodeTrigger('Restructure the service layer');
+        expect(result.shouldCreate).toBe(true);
+        expect(result.triggerType).toBe('refactor');
+      });
+    });
+
+    describe('investigation trigger', () => {
+      it('should detect "investigate" pattern', () => {
+        const result = detectEpisodeTrigger('Investigate slow query performance');
+        expect(result.shouldCreate).toBe(true);
+        expect(result.triggerType).toBe('investigation');
+      });
+
+      it('should detect "figure out" pattern', () => {
+        const result = detectEpisodeTrigger('Figure out why tests fail');
+        expect(result.shouldCreate).toBe(true);
+        expect(result.triggerType).toBe('investigation');
+      });
+
+      it('should detect "research" pattern', () => {
+        const result = detectEpisodeTrigger('Research caching strategies');
+        expect(result.shouldCreate).toBe(true);
+        expect(result.triggerType).toBe('investigation');
+      });
+    });
+
+    describe('implementation trigger', () => {
+      it('should detect "implement" pattern', () => {
+        const result = detectEpisodeTrigger('Implement the webhook handler');
+        expect(result.shouldCreate).toBe(true);
+        expect(result.triggerType).toBe('implementation');
+      });
+
+      it('should detect "wire up" pattern', () => {
+        const result = detectEpisodeTrigger('Wire up the database connection');
+        expect(result.shouldCreate).toBe(true);
+        expect(result.triggerType).toBe('implementation');
+      });
+
+      it('should detect "set up" pattern', () => {
+        const result = detectEpisodeTrigger('Setting up CI/CD pipeline');
+        expect(result.shouldCreate).toBe(true);
+        expect(result.triggerType).toBe('implementation');
+      });
+    });
+
+    describe('exclusion patterns', () => {
+      it('should exclude "test" prefix', () => {
+        const result = detectEpisodeTrigger('Test the login flow');
+        expect(result.shouldCreate).toBe(false);
+      });
+
+      it('should exclude "check" prefix', () => {
+        const result = detectEpisodeTrigger('Check the logs');
+        expect(result.shouldCreate).toBe(false);
+      });
+
+      it('should exclude "quick" prefix', () => {
+        const result = detectEpisodeTrigger('Quick fix for typo');
+        expect(result.shouldCreate).toBe(false);
+      });
+
+      it('should exclude "question" keyword', () => {
+        const result = detectEpisodeTrigger('Question about the API');
+        expect(result.shouldCreate).toBe(false);
+      });
+    });
+
+    describe('heuristic fallback', () => {
+      it('should create episode for descriptive names (3+ words)', () => {
+        const result = detectEpisodeTrigger('Update user authentication flow');
+        expect(result.shouldCreate).toBe(true);
+        expect(result.triggerType).toBe(null); // No specific trigger matched
+        expect(result.confidence).toBe(0.5);
+        expect(result.matchedPatterns).toContain('descriptive_name_heuristic');
+      });
+
+      it('should not create episode for short names (< 3 words)', () => {
+        const result = detectEpisodeTrigger('Update code');
+        expect(result.shouldCreate).toBe(false);
+      });
+
+      it('should not create episode for single word', () => {
+        const result = detectEpisodeTrigger('Testing');
+        expect(result.shouldCreate).toBe(false);
+      });
+    });
+
+    describe('confidence scoring', () => {
+      it('should have higher confidence with multiple pattern matches', () => {
+        // "fixing" matches one pattern
+        const single = detectEpisodeTrigger('Fixing something');
+        // "fix the bug" should match multiple patterns
+        const multiple = detectEpisodeTrigger('Fix the authentication bug issue');
+        expect(multiple.confidence).toBeGreaterThanOrEqual(single.confidence);
+      });
+
+      it('should cap confidence at 0.95', () => {
+        // Try to get many matches
+        const result = detectEpisodeTrigger('Fixing debugging the bug issue error problem crash');
+        expect(result.confidence).toBeLessThanOrEqual(0.95);
+      });
     });
   });
 });

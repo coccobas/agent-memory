@@ -529,6 +529,75 @@ function getSemanticIdsForType(
 }
 
 // =============================================================================
+// TOTAL COUNT QUERIES
+// =============================================================================
+
+/**
+ * Count total entries per type in the scope chain (ignoring limit).
+ * Used for accurate hierarchical summaries that show "20 guidelines" instead of
+ * the limited fetch count.
+ *
+ * Runs efficient COUNT queries with the same scope conditions as fetch.
+ */
+function countEntriesPerType(
+  ctx: PipelineContext
+): PipelineContext['totalCounts'] {
+  const { types, scopeChain, deps } = ctx;
+
+  // Build scope OR conditions for batched count query
+  const scopeConditions: string[] = [];
+  const scopeParams: unknown[] = [];
+  for (const scope of scopeChain) {
+    if (scope.scopeId === null) {
+      scopeConditions.push('(scope_type = ? AND scope_id IS NULL)');
+      scopeParams.push(scope.scopeType);
+    } else {
+      scopeConditions.push('(scope_type = ? AND scope_id = ?)');
+      scopeParams.push(scope.scopeType, scope.scopeId);
+    }
+  }
+
+  if (scopeConditions.length === 0) {
+    return {};
+  }
+
+  const scopeWhere = `(${scopeConditions.join(' OR ')}) AND is_active = 1`;
+  const totalCounts: PipelineContext['totalCounts'] = {};
+
+  // Count each requested type
+  for (const type of types) {
+    const tableName =
+      type === 'tools'
+        ? 'tools'
+        : type === 'guidelines'
+          ? 'guidelines'
+          : type === 'knowledge'
+            ? 'knowledge'
+            : 'experiences';
+
+    const entryType =
+      type === 'tools'
+        ? 'tool'
+        : type === 'guidelines'
+          ? 'guideline'
+          : type === 'knowledge'
+            ? 'knowledge'
+            : 'experience';
+
+    try {
+      const countSql = `SELECT COUNT(*) as cnt FROM ${tableName} WHERE ${scopeWhere}`;
+      const stmt = deps.getPreparedStatement(countSql);
+      const result = stmt.get(...scopeParams) as { cnt: number } | undefined;
+      totalCounts[entryType as keyof typeof totalCounts] = result?.cnt ?? 0;
+    } catch {
+      // Count query failed, leave undefined
+    }
+  }
+
+  return totalCounts;
+}
+
+// =============================================================================
 // FETCH STAGE
 // =============================================================================
 
@@ -538,6 +607,7 @@ function getSemanticIdsForType(
  * Uses ctx.deps.getDb() for database access instead of calling getDb() directly.
  * Applies adaptive headroom calculation and per-type result limiting.
  * Also fetches entries from semantic search results (semanticScores).
+ * Also runs COUNT queries for accurate totalCounts (used by hierarchical summaries).
  */
 export function fetchStage(ctx: PipelineContext): PipelineContext {
   const db = ctx.deps.getDb();
@@ -633,10 +703,14 @@ export function fetchStage(ctx: PipelineContext): PipelineContext {
     }
   }
 
+  // Run COUNT queries for accurate totals (used by hierarchical summaries)
+  const totalCounts = countEntriesPerType(ctx);
+
   return markStageCompleted(
     {
       ...ctx,
       fetchedEntries,
+      totalCounts,
     },
     PIPELINE_STAGES.FETCH
   );
@@ -784,10 +858,14 @@ export async function fetchStageAsync(ctx: PipelineContext): Promise<PipelineCon
     }
   }
 
+  // Run COUNT queries for accurate totals (used by hierarchical summaries)
+  const totalCounts = countEntriesPerType(ctx);
+
   return markStageCompleted(
     {
       ...ctx,
       fetchedEntries,
+      totalCounts,
     },
     PIPELINE_STAGES.FETCH
   );

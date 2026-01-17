@@ -86,6 +86,15 @@ export interface ResponseMeta {
   hasMore: boolean;
   nextCursor?: string;
 
+  // Total counts per type in the queried scope (not limited by pagination)
+  // Used by hierarchical summaries to show accurate totals
+  totalCounts?: {
+    tool?: number;
+    guideline?: number;
+    knowledge?: number;
+    experience?: number;
+  };
+
   // Query rewrite metadata (HyDE visibility)
   rewrite?: {
     strategy: string; // 'hyde' | 'expanded' | 'hybrid' | 'simple'

@@ -14,7 +14,7 @@ import type {
 
 export const memoryTagDescriptor: ToolDescriptor = {
   name: 'memory_tag',
-  visibility: 'core',
+  visibility: 'standard',
   description: 'Manage tags. Actions: create, list, attach, detach, for_entry',
   commonParams: {
     agentId: { type: 'string' },

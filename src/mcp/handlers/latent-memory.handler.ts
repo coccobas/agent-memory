@@ -6,12 +6,38 @@
  * and formatted context building for LLM consumption.
  *
  * Context-aware handlers that receive AppContext for dependency injection.
+ * These handlers delegate to LatentMemoryService for actual operations.
  */
 
 import type { AppContext } from '../../core/context.js';
-import { createValidationError, createNotFoundError } from '../../core/errors.js';
+import {
+  createValidationError,
+  createNotFoundError,
+  createServiceUnavailableError,
+} from '../../core/errors.js';
 import { getRequiredParam, getOptionalParam, isString, isNumber } from '../../utils/type-guards.js';
 import { formatTimestamps } from '../../utils/timestamp-formatter.js';
+import type { LatentMemoryService } from '../../services/latent-memory/latent-memory.service.js';
+
+/**
+ * Get the latent memory service or throw if unavailable
+ */
+function getLatentMemoryService(context: AppContext): LatentMemoryService {
+  const service = context.services.latentMemory;
+  if (!service) {
+    throw createServiceUnavailableError(
+      'LatentMemoryService',
+      'latent memory service is not configured'
+    );
+  }
+  if (!service.isAvailable()) {
+    throw createServiceUnavailableError(
+      'LatentMemoryService',
+      'embedding or vector service is not available'
+    );
+  }
+  return service;
+}
 
 /**
  * Source type for latent memory entries
@@ -43,6 +69,7 @@ function isOutputFormat(value: unknown): value is LatentOutputFormat {
  * Create a latent memory entry from a source entry
  *
  * Generates an optimized representation suitable for KV-cache storage.
+ * Delegates to LatentMemoryService for embedding generation and persistence.
  */
 async function createLatentMemory(
   context: AppContext,
@@ -50,18 +77,23 @@ async function createLatentMemory(
 ): Promise<{
   success: boolean;
   latentMemory: {
+    id: string;
     sourceType: LatentSourceType;
     sourceId: string;
     text: string;
-    embedding?: number[];
+    importanceScore: number;
     createdAt: string;
   };
 }> {
+  const service = getLatentMemoryService(context);
+
   const sourceType = getRequiredParam(params, 'sourceType', isSourceType);
   const sourceId = getRequiredParam(params, 'sourceId', isString);
   const text = getOptionalParam(params, 'text', isString);
+  const sessionId = getOptionalParam(params, 'sessionId', isString);
+  const importanceScore = getOptionalParam(params, 'importanceScore', isNumber);
 
-  // Fetch source entry to generate latent representation
+  // Fetch source entry content if text not provided
   let sourceContent: string;
   if (text) {
     sourceContent = text;
@@ -106,116 +138,119 @@ async function createLatentMemory(
     }
   }
 
-  // Generate embedding if available
-  let embedding: number[] | undefined;
-  if (context.services?.embedding?.isAvailable()) {
-    const embeddingResult = await context.services.embedding.embed(sourceContent);
-    embedding = embeddingResult.embedding;
-  }
-
-  // Create latent memory entry
-  // Note: This is a placeholder - actual implementation would store in a KV-cache table
-  const latentMemory = {
+  // Create latent memory via service (handles embedding, compression, and persistence)
+  const latentMemory = await service.createLatentMemory({
     sourceType,
     sourceId,
     text: sourceContent,
-    embedding,
-    createdAt: new Date().toISOString(),
-  };
+    sessionId,
+    importanceScore,
+  });
 
   return formatTimestamps({
     success: true,
-    latentMemory,
+    latentMemory: {
+      id: latentMemory.id,
+      sourceType: latentMemory.sourceType as LatentSourceType,
+      sourceId: latentMemory.sourceId,
+      text: latentMemory.textPreview ?? sourceContent.substring(0, 200),
+      importanceScore: latentMemory.importanceScore,
+      createdAt: latentMemory.createdAt,
+    },
   });
 }
 
 /**
  * Retrieve a latent memory entry by source
+ *
+ * Delegates to LatentMemoryService which checks cache first, then repository.
  */
 async function getLatentMemory(
   context: AppContext,
   params: Record<string, unknown>
 ): Promise<{
   latentMemory?: {
+    id: string;
     sourceType: LatentSourceType;
     sourceId: string;
     text: string;
-    embedding?: number[];
+    importanceScore: number;
     createdAt: string;
-    lastAccessed?: string;
-    hitCount?: number;
+    lastAccessedAt?: string;
+    accessCount?: number;
   };
 }> {
+  const service = getLatentMemoryService(context);
+
   const sourceType = getRequiredParam(params, 'sourceType', isSourceType);
   const sourceId = getRequiredParam(params, 'sourceId', isString);
 
-  // Note: This is a placeholder - actual implementation would query KV-cache table
-  // For now, we'll recreate the latent memory on demand
-  const result = await createLatentMemory(context, { sourceType, sourceId });
+  // Get latent memory from service (checks cache first, then repository)
+  const latentMemory = await service.getLatentMemory(sourceType, sourceId);
+
+  if (!latentMemory) {
+    return formatTimestamps({ latentMemory: undefined });
+  }
 
   return formatTimestamps({
     latentMemory: {
-      ...result.latentMemory,
-      lastAccessed: new Date().toISOString(),
-      hitCount: 0,
+      id: latentMemory.id,
+      sourceType: latentMemory.sourceType as LatentSourceType,
+      sourceId: latentMemory.sourceId,
+      text: latentMemory.textPreview ?? '',
+      importanceScore: latentMemory.importanceScore,
+      createdAt: latentMemory.createdAt,
+      lastAccessedAt: latentMemory.lastAccessedAt,
+      accessCount: latentMemory.accessCount,
     },
   });
 }
 
 /**
  * Semantic search for similar latent memories
+ *
+ * Delegates to LatentMemoryService.findSimilar for consistent behavior.
  */
 async function searchLatentMemories(
   context: AppContext,
   params: Record<string, unknown>
 ): Promise<{
   results: Array<{
+    id: string;
     sourceType: LatentSourceType;
     sourceId: string;
     text: string;
     similarity: number;
+    importanceScore: number;
   }>;
   meta: {
     query: string;
     count: number;
+    limit: number;
   };
 }> {
+  const service = getLatentMemoryService(context);
+
   const query = getRequiredParam(params, 'query', isString);
   const limit = getOptionalParam(params, 'limit', isNumber) ?? 10;
+  const minScore = getOptionalParam(params, 'minScore', isNumber) ?? 0.0;
+  const sessionId = getOptionalParam(params, 'sessionId', isString);
 
-  // Generate query embedding
-  if (!context.services?.embedding?.isAvailable()) {
-    throw createValidationError(
-      'embedding',
-      'service is not available',
-      'Enable embedding service for semantic search'
-    );
-  }
+  // Use service's findSimilar for consistent embedding/search behavior
+  const similarMemories = await service.findSimilar(query, {
+    limit,
+    minScore,
+    sessionId,
+    sourceTypes: ['tool', 'guideline', 'knowledge', 'experience'],
+  });
 
-  const embeddingResult = await context.services.embedding.embed(query);
-  const queryEmbedding = embeddingResult.embedding;
-
-  // Use vector service to search across all entry types
-  const vectorStore = context.services?.vector;
-  if (!vectorStore) {
-    throw createValidationError(
-      'vector',
-      'service is not available',
-      'Enable vector service for semantic search'
-    );
-  }
-
-  const vectorResults = await vectorStore.searchSimilar(
-    queryEmbedding,
-    ['tool', 'guideline', 'knowledge', 'experience'],
-    limit
-  );
-
-  const results = vectorResults.map((result) => ({
-    sourceType: result.entryType as LatentSourceType,
-    sourceId: result.entryId,
-    text: result.text,
-    similarity: result.score,
+  const results = similarMemories.map((memory) => ({
+    id: memory.id,
+    sourceType: memory.sourceType as LatentSourceType,
+    sourceId: memory.sourceId,
+    text: memory.textPreview ?? '',
+    similarity: memory.similarityScore,
+    importanceScore: memory.importanceScore,
   }));
 
   return formatTimestamps({
@@ -223,40 +258,81 @@ async function searchLatentMemories(
     meta: {
       query,
       count: results.length,
+      limit,
     },
   });
 }
 
 /**
  * Build formatted context for LLM injection
+ *
+ * Retrieves relevant memories for a session/conversation and formats them
+ * for injection into LLM context windows.
  */
 async function injectContext(
-  _context: AppContext,
+  context: AppContext,
   params: Record<string, unknown>
 ): Promise<{
   context: string | Record<string, unknown>;
   format: LatentOutputFormat;
-  tokenEstimate?: number;
+  memoriesIncluded: number;
+  tokenEstimate: number;
 }> {
+  const service = getLatentMemoryService(context);
+
   const sessionId = getOptionalParam(params, 'sessionId', isString);
   const conversationId = getOptionalParam(params, 'conversationId', isString);
   const format = getOptionalParam(params, 'format', isOutputFormat) ?? 'markdown';
+  const maxTokens = getOptionalParam(params, 'maxTokens', isNumber) ?? 4000;
+  const query = getOptionalParam(params, 'query', isString);
 
-  if (!sessionId && !conversationId) {
+  if (!sessionId && !conversationId && !query) {
     throw createValidationError(
-      'sessionId or conversationId',
+      'sessionId, conversationId, or query',
       'is required',
-      'Provide either sessionId or conversationId to inject context'
+      'Provide sessionId, conversationId, or query to inject context'
     );
   }
 
-  // Retrieve relevant memories for the session/conversation
-  // Note: This is a placeholder - actual implementation would:
-  // 1. Query session/conversation context
-  // 2. Load related latent memories from KV-cache
-  // 3. Format according to requested format
-  // 4. Truncate to maxTokens if specified
+  // Find relevant memories using semantic search
+  // If query provided, use it; otherwise search for memories related to the session
+  const searchQuery = query ?? `relevant context for session ${sessionId ?? conversationId}`;
+  const similarMemories = await service.findSimilar(searchQuery, {
+    limit: 50, // Get more than needed, then truncate by tokens
+    minScore: 0.3,
+    sessionId,
+  });
 
+  // Build context from memories, respecting token limit
+  const memories: Array<{
+    type: string;
+    id: string;
+    content: string;
+    score: number;
+  }> = [];
+
+  let currentTokens = 0;
+  const tokensPerChar = 0.25; // Rough estimate: 4 chars per token
+
+  for (const memory of similarMemories) {
+    const content = memory.textPreview ?? '';
+    const memoryTokens = Math.ceil(content.length * tokensPerChar);
+
+    // Check if adding this memory would exceed limit
+    if (currentTokens + memoryTokens > maxTokens) {
+      break;
+    }
+
+    memories.push({
+      type: memory.sourceType,
+      id: memory.sourceId,
+      content,
+      score: memory.similarityScore,
+    });
+    currentTokens += memoryTokens;
+  }
+
+  // Format according to requested format
   let formattedContext: string | Record<string, unknown>;
 
   switch (format) {
@@ -264,105 +340,175 @@ async function injectContext(
       formattedContext = {
         session: sessionId,
         conversation: conversationId,
-        memories: [],
+        memoriesCount: memories.length,
+        memories: memories.map((m) => ({
+          type: m.type,
+          id: m.id,
+          content: m.content,
+          relevance: m.score,
+        })),
       };
       break;
     case 'markdown':
-      formattedContext = `# Context for ${sessionId || conversationId}\n\nNo memories loaded yet.`;
+      if (memories.length === 0) {
+        formattedContext = `# Context\n\nNo relevant memories found.`;
+      } else {
+        const sections = memories.map(
+          (m, i) =>
+            `## ${i + 1}. ${m.type.charAt(0).toUpperCase() + m.type.slice(1)} (${(m.score * 100).toFixed(0)}% relevant)\n\n${m.content}`
+        );
+        formattedContext = `# Context (${memories.length} memories)\n\n${sections.join('\n\n---\n\n')}`;
+      }
       break;
     case 'natural_language':
-      formattedContext = `This is context for session ${sessionId || conversationId}.`;
+      if (memories.length === 0) {
+        formattedContext = 'No relevant context memories were found.';
+      } else {
+        const descriptions = memories.map(
+          (m) => `A ${m.type} entry states: "${m.content.substring(0, 150)}${m.content.length > 150 ? '...' : ''}"`
+        );
+        formattedContext = `Here is relevant context from ${memories.length} memories:\n\n${descriptions.join('\n\n')}`;
+      }
       break;
   }
 
-  // Rough token estimate (4 chars per token)
+  // Calculate actual token estimate
   const tokenEstimate =
     typeof formattedContext === 'string'
-      ? Math.ceil(formattedContext.length / 4)
-      : Math.ceil(JSON.stringify(formattedContext).length / 4);
+      ? Math.ceil(formattedContext.length * tokensPerChar)
+      : Math.ceil(JSON.stringify(formattedContext).length * tokensPerChar);
 
   return formatTimestamps({
     context: formattedContext,
     format,
+    memoriesIncluded: memories.length,
     tokenEstimate,
   });
 }
 
 /**
  * Preload memories for a session into KV-cache
+ *
+ * Uses semantic search to find relevant memories and loads them into cache.
  */
 async function warmSession(
-  _context: AppContext,
+  context: AppContext,
   params: Record<string, unknown>
 ): Promise<{
   success: boolean;
   sessionId: string;
   memoriesLoaded: number;
-  cacheSize?: number;
+  byType: Record<string, number>;
 }> {
-  const sessionId = getRequiredParam(params, 'sessionId', isString);
+  const service = getLatentMemoryService(context);
 
-  // Note: This is a placeholder - actual implementation would:
-  // 1. Query all relevant memories for the session
-  // 2. Load them into KV-cache for fast access
-  // 3. Return statistics about what was loaded
+  const sessionId = getRequiredParam(params, 'sessionId', isString);
+  const limit = getOptionalParam(params, 'limit', isNumber) ?? 100;
+
+  // Get session info to understand context
+  const session = await context.repos.sessions.getById(sessionId);
+  if (!session) {
+    throw createNotFoundError('session', sessionId);
+  }
+
+  // Build search query from session purpose/name
+  const searchQuery = session.purpose ?? session.name ?? `context for session ${sessionId}`;
+
+  // Find relevant memories for this session
+  const memories = await service.findSimilar(searchQuery, {
+    limit,
+    minScore: 0.3,
+    sourceTypes: ['tool', 'guideline', 'knowledge', 'experience'],
+  });
+
+  // Count by type
+  const byType: Record<string, number> = {};
+  for (const memory of memories) {
+    byType[memory.sourceType] = (byType[memory.sourceType] ?? 0) + 1;
+  }
 
   return formatTimestamps({
     success: true,
     sessionId,
-    memoriesLoaded: 0,
-    cacheSize: 0,
+    memoriesLoaded: memories.length,
+    byType,
   });
 }
 
 /**
  * Get KV-cache statistics
+ *
+ * Returns statistics about latent memory storage and cache.
  */
 async function getCacheStats(
-  _context: AppContext,
+  context: AppContext,
   _params: Record<string, unknown>
 ): Promise<{
   stats: {
-    totalEntries: number;
-    totalSize: number;
-    hitRate: number;
-    averageAccessTime: number;
-    oldestEntry?: string;
-    newestEntry?: string;
+    totalVectorCount: number;
+    compressionEnabled: boolean;
+    cacheEnabled: boolean;
+    repositoryAvailable: boolean;
+    embeddingServiceAvailable: boolean;
+    vectorServiceAvailable: boolean;
   };
 }> {
-  // Note: This is a placeholder - actual implementation would query cache metrics
+  const service = context.services.latentMemory;
+
+  // If service not available, return availability info
+  if (!service) {
+    return formatTimestamps({
+      stats: {
+        totalVectorCount: 0,
+        compressionEnabled: false,
+        cacheEnabled: false,
+        repositoryAvailable: false,
+        embeddingServiceAvailable: context.services.embedding?.isAvailable() ?? false,
+        vectorServiceAvailable: context.services.vector?.isAvailable() ?? false,
+      },
+    });
+  }
+
+  // Get stats from service
+  const serviceStats = await service.getStats();
 
   return formatTimestamps({
     stats: {
-      totalEntries: 0,
-      totalSize: 0,
-      hitRate: 0,
-      averageAccessTime: 0,
+      ...serviceStats,
+      embeddingServiceAvailable: context.services.embedding?.isAvailable() ?? false,
+      vectorServiceAvailable: context.services.vector?.isAvailable() ?? false,
     },
   });
 }
 
 /**
  * Prune stale entries from cache
+ *
+ * Removes latent memories not accessed within the specified number of days.
  */
 async function pruneCache(
-  _context: AppContext,
-  _params: Record<string, unknown>
+  context: AppContext,
+  params: Record<string, unknown>
 ): Promise<{
   success: boolean;
   entriesRemoved: number;
-  bytesFreed: number;
+  staleDays: number;
 }> {
-  // Note: This is a placeholder - actual implementation would:
-  // 1. Query entries not accessed in staleDays
-  // 2. Remove them from KV-cache
-  // 3. Return statistics
+  const service = getLatentMemoryService(context);
+
+  const staleDays = getOptionalParam(params, 'staleDays', isNumber) ?? 30;
+
+  if (staleDays <= 0) {
+    throw createValidationError('staleDays', 'must be greater than 0', `Got: ${staleDays}`);
+  }
+
+  // Prune stale entries via service
+  const entriesRemoved = await service.pruneStale(staleDays);
 
   return formatTimestamps({
     success: true,
-    entriesRemoved: 0,
-    bytesFreed: 0,
+    entriesRemoved,
+    staleDays,
   });
 }
 

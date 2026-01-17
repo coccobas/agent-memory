@@ -34,6 +34,12 @@ import { createContextDetectionService } from '../../services/context-detection.
 import { createSessionTimeoutService } from '../../services/session-timeout.service.js';
 import { createAutoTaggingService } from '../../services/auto-tagging.service.js';
 import { createExtractionHookService } from '../../services/extraction-hook.service.js';
+import { createEpisodeService } from '../../services/episode/index.js';
+import {
+  createHierarchicalRetriever,
+  createPipelineRetriever,
+} from '../../services/summarization/index.js';
+import type { EmbeddingService } from '../../services/embedding.service.js';
 
 /**
  * Input for wireContext - all backend-specific resources resolved
@@ -135,6 +141,16 @@ export async function wireContext(input: WireContextInput): Promise<AppContext> 
   });
   services.capture = captureService;
 
+  // Pass CaptureService to Librarian for unified session-end processing
+  if (services.librarian) {
+    services.librarian.setCaptureService(captureService);
+  }
+
+  // Pass LatentMemoryService to Librarian for session-start cache warming
+  if (services.librarian && services.latentMemory) {
+    services.librarian.setLatentMemoryService(services.latentMemory);
+  }
+
   // Create ContextDetectionService (needs repos for project/session lookup)
   const contextDetectionService = createContextDetectionService(
     config,
@@ -153,9 +169,29 @@ export async function wireContext(input: WireContextInput): Promise<AppContext> 
   const autoTaggingService = createAutoTaggingService(config, repos.tags, repos.entryTags);
   services.autoTagging = autoTaggingService;
 
+  // Create RedFlagService (quality issue detection)
+  const { createRedFlagService } = await import('../../services/redflag.service.js');
+  const redFlagService = createRedFlagService({
+    guidelineRepo: repos.guidelines,
+    knowledgeRepo: repos.knowledge,
+    toolRepo: repos.tools,
+  });
+  services.redFlag = redFlagService;
+
   // Create ExtractionHookService (proactive pattern detection)
   const extractionHookService = createExtractionHookService(config);
   services.extractionHook = extractionHookService;
+
+  // Create EpisodeService (temporal activity grouping and timeline queries)
+  if (repos.episodes) {
+    const episodeService = createEpisodeService({
+      episodeRepo: repos.episodes,
+      nodeRepo: repos.graphNodes,
+      edgeRepo: repos.graphEdges,
+    });
+    services.episode = episodeService;
+    logger.debug('Episode service initialized');
+  }
 
   // Create GraphSyncService (entry-to-node and relation-to-edge synchronization)
   // Only create if graph repositories are available
@@ -176,6 +212,33 @@ export async function wireContext(input: WireContextInput): Promise<AppContext> 
     });
 
     logger.debug('Graph sync service initialized and registered with hooks');
+
+    // Create GraphBackfillService (background graph population)
+    // Note: Scheduling is now handled by the librarian service's unified maintenance
+    const { createGraphBackfillService } = await import('../../services/graph/index.js');
+    const graphBackfillService = createGraphBackfillService(
+      { db, repos, graphSync: graphSyncService },
+      {
+        enabled: config.graph.autoSync,
+        triggerOnSessionEnd: false, // Now handled via librarian maintenance
+      }
+    );
+    services.graphBackfill = graphBackfillService;
+
+    logger.debug('Graph backfill service initialized (scheduling via librarian)');
+  }
+
+  // Initialize librarian maintenance orchestrator now that repos and services are available
+  if (services.librarian) {
+    services.librarian.initMaintenanceOrchestrator({
+      db,
+      repos,
+      graphBackfill: services.graphBackfill,
+      embedding: services.embedding,
+      vector: services.vector,
+      latentMemory: services.latentMemory,
+    });
+    logger.debug('Librarian maintenance orchestrator initialized');
   }
 
   // Create ReembeddingService now that db is available
@@ -190,13 +253,39 @@ export async function wireContext(input: WireContextInput): Promise<AppContext> 
   // Create entity index for entity-aware retrieval
   const entityIndex = new EntityIndex(db);
 
-  // Create query pipeline with feedback queue, query rewrite service, entity index, embedding service, and vector service
+  // Create hierarchical retriever for coarse-to-fine search through summaries
+  // Only create if embedding and vector services are available
+  let hierarchicalRetriever;
+  if (services.embedding && services.vector && config.hierarchical.enabled) {
+    try {
+      const retriever = createHierarchicalRetriever(
+        db,
+        services.embedding as EmbeddingService,
+        services.vector,
+        {
+          maxResults: config.hierarchical.maxCandidates,
+          expansionFactor: config.hierarchical.expansionFactor,
+          minSimilarity: config.hierarchical.minSimilarity,
+        }
+      );
+      hierarchicalRetriever = createPipelineRetriever(retriever);
+      logger.debug('Hierarchical retriever initialized for summary-aware retrieval');
+    } catch (error) {
+      logger.warn(
+        { error: error instanceof Error ? error.message : String(error) },
+        'Failed to create hierarchical retriever, summary-aware retrieval disabled'
+      );
+    }
+  }
+
+  // Create query pipeline with feedback queue, query rewrite service, entity index, embedding service, vector service, and hierarchical retriever
   const queryDeps = createQueryPipeline(config, runtime, {
     feedbackQueue: services.feedbackQueue,
     queryRewriteService: services.queryRewrite,
     entityIndex,
     embeddingService: services.embedding,
     vectorService: services.vector,
+    hierarchicalRetriever,
   });
 
   // Wire query cache invalidation using the event adapter
@@ -219,6 +308,13 @@ export async function wireContext(input: WireContextInput): Promise<AppContext> 
     cache: adapters.cache,
     fs: createLocalFileSystemAdapter(),
   };
+
+  // Ensure vector service is fully initialized before returning context
+  // This is important for session-start hooks that need vector service immediately
+  if (services.vector) {
+    await services.vector.waitForReady();
+    logger.debug('Vector service ready');
+  }
 
   return {
     config,

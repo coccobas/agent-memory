@@ -25,6 +25,10 @@ export interface DispatchResult {
     | 'forget'
     | 'list'
     | 'update'
+    | 'episode_begin'
+    | 'episode_log'
+    | 'episode_complete'
+    | 'episode_query'
     | 'error';
   status: 'success' | 'duplicate_detected' | 'not_found' | 'error' | 'low_confidence';
   message?: string;
@@ -46,6 +50,15 @@ export interface DispatchResult {
     id: string;
     name?: string;
     status: string;
+  };
+  episode?: {
+    id: string;
+    name?: string;
+    status: string;
+  };
+  event?: {
+    id: string;
+    message: string;
   };
   _context?: {
     projectId?: string;
@@ -104,6 +117,14 @@ export async function dispatch(
         return handleForget(intent, deps);
       case 'update':
         return handleUpdate();
+      case 'episode_begin':
+        return await handleEpisodeBegin(intent, deps);
+      case 'episode_log':
+        return await handleEpisodeLog(intent, deps);
+      case 'episode_complete':
+        return await handleEpisodeComplete(intent, deps);
+      case 'episode_query':
+        return await handleEpisodeQuery(intent, deps);
       case 'unknown':
       default:
         return {
@@ -231,6 +252,12 @@ async function handleRetrieve(
 
   const query = intent.query ?? intent.content ?? '';
 
+  // If entry type is detected and query is generic (e.g., "What are the guidelines?"),
+  // use direct listing instead of semantic search
+  if (intent.entryType && (!query || query.length < 5 || /^the\s+\w+s?$/i.test(query))) {
+    return await handleList(intent, deps);
+  }
+
   if (!query) {
     return {
       action: 'retrieve',
@@ -239,12 +266,24 @@ async function handleRetrieve(
     };
   }
 
+  // Determine which types to search based on detected entryType
+  let types: Array<'tools' | 'guidelines' | 'knowledge'>;
+  if (intent.entryType === 'guideline') {
+    types = ['guidelines'];
+  } else if (intent.entryType === 'tool') {
+    types = ['tools'];
+  } else if (intent.entryType === 'knowledge') {
+    types = ['knowledge'];
+  } else {
+    types = ['tools', 'guidelines', 'knowledge'];
+  }
+
   // Use proper FTS-based search via query pipeline instead of list+filter
   // This ensures ALL entries are searched, not just the first N
   const queryResult = await executeQueryPipeline(
     {
       search: query,
-      types: ['tools', 'guidelines', 'knowledge'],
+      types,
       scope: projectId
         ? { type: 'project', id: projectId, inherit: true }
         : { type: 'global', inherit: true },
@@ -465,5 +504,211 @@ function handleUpdate(): DispatchResult {
     status: 'error',
     message:
       'To update an entry, first search for it, then use the specific memory_* tool with the entry ID and new values.',
+  };
+}
+
+// =============================================================================
+// EPISODE HANDLERS
+// =============================================================================
+
+async function handleEpisodeBegin(
+  intent: IntentDetectionResult,
+  deps: DispatcherDeps
+): Promise<DispatchResult> {
+  const { context, projectId, sessionId, agentId } = deps;
+
+  if (!context.services.episode) {
+    return {
+      action: 'episode_begin',
+      status: 'error',
+      message: 'Episode service not available',
+    };
+  }
+
+  const name = intent.name ?? intent.content ?? 'Untitled episode';
+
+  // Create and immediately start the episode
+  const created = await context.services.episode.create({
+    scopeType: 'project',
+    scopeId: projectId,
+    sessionId,
+    name,
+    createdBy: agentId,
+    triggerType: 'user_request',
+  });
+
+  const episode = await context.services.episode.start(created.id);
+
+  return {
+    action: 'episode_begin',
+    status: 'success',
+    message: `Started episode: "${name}"`,
+    episode: {
+      id: episode.id,
+      name: episode.name,
+      status: episode.status,
+    },
+    _context: { projectId, sessionId, agentId },
+  };
+}
+
+async function handleEpisodeLog(
+  intent: IntentDetectionResult,
+  deps: DispatcherDeps
+): Promise<DispatchResult> {
+  const { context, sessionId, agentId, projectId } = deps;
+
+  if (!context.services.episode) {
+    return {
+      action: 'episode_log',
+      status: 'error',
+      message: 'Episode service not available',
+    };
+  }
+
+  // Try to find the active episode for the session
+  const activeEpisode = sessionId
+    ? await context.services.episode.getActiveEpisode(sessionId)
+    : null;
+
+  if (!activeEpisode) {
+    return {
+      action: 'episode_log',
+      status: 'error',
+      message: 'No active episode. Use "begin" or "task:" to start one first.',
+    };
+  }
+
+  const message = intent.message ?? intent.content ?? 'Checkpoint';
+  const eventType = intent.eventType ?? 'checkpoint';
+
+  const event = await context.services.episode.addEvent({
+    episodeId: activeEpisode.id,
+    eventType,
+    name: message,
+  });
+
+  return {
+    action: 'episode_log',
+    status: 'success',
+    message: `Logged: ${message}`,
+    event: {
+      id: event.id,
+      message,
+    },
+    episode: {
+      id: activeEpisode.id,
+      name: activeEpisode.name,
+      status: activeEpisode.status,
+    },
+    _context: { projectId, sessionId, agentId },
+  };
+}
+
+async function handleEpisodeComplete(
+  intent: IntentDetectionResult,
+  deps: DispatcherDeps
+): Promise<DispatchResult> {
+  const { context, sessionId, agentId, projectId } = deps;
+
+  if (!context.services.episode) {
+    return {
+      action: 'episode_complete',
+      status: 'error',
+      message: 'Episode service not available',
+    };
+  }
+
+  // Try to find the active episode for the session
+  const activeEpisode = sessionId
+    ? await context.services.episode.getActiveEpisode(sessionId)
+    : null;
+
+  if (!activeEpisode) {
+    return {
+      action: 'episode_complete',
+      status: 'error',
+      message: 'No active episode to complete.',
+    };
+  }
+
+  const outcome = intent.outcome ?? intent.content ?? 'Completed';
+  const outcomeType = (intent.outcomeType as 'success' | 'partial' | 'failure' | 'abandoned') ?? 'success';
+
+  const episode = await context.services.episode.complete(
+    activeEpisode.id,
+    outcome,
+    outcomeType
+  );
+
+  return {
+    action: 'episode_complete',
+    status: 'success',
+    message: `Episode completed: ${outcome}`,
+    episode: {
+      id: episode.id,
+      name: episode.name,
+      status: episode.status,
+    },
+    _context: { projectId, sessionId, agentId },
+  };
+}
+
+async function handleEpisodeQuery(
+  intent: IntentDetectionResult,
+  deps: DispatcherDeps
+): Promise<DispatchResult> {
+  const { context, sessionId, projectId, agentId } = deps;
+
+  if (!context.services.episode) {
+    return {
+      action: 'episode_query',
+      status: 'error',
+      message: 'Episode service not available',
+    };
+  }
+
+  const ref = intent.ref ?? intent.query ?? intent.content;
+
+  // If ref looks like an episode ID, query that specific episode
+  if (ref && ref.startsWith('ep_')) {
+    const result = await context.services.episode.whatHappened(ref);
+    const summary = `Episode "${result.episode.name}": ${result.metrics.eventCount} events, ${result.metrics.linkedEntityCount} linked entities`;
+    return {
+      action: 'episode_query',
+      status: 'success',
+      message: summary,
+      episode: {
+        id: result.episode.id,
+        name: result.episode.name,
+        status: result.episode.status,
+      },
+      _context: { projectId, sessionId, agentId },
+    };
+  }
+
+  // Otherwise, get the timeline for the current session
+  if (sessionId) {
+    const timeline = await context.services.episode.getTimeline(sessionId, {});
+    // Group timeline entries by episode
+    const episodeIds = [...new Set(timeline.map((t) => t.episodeId))];
+    return {
+      action: 'episode_query',
+      status: 'success',
+      message: `Found ${episodeIds.length} episodes with ${timeline.length} events in this session`,
+      results: timeline.map((t) => ({
+        type: t.type,
+        id: t.eventId ?? t.episodeId,
+        name: t.name,
+      })),
+      _context: { projectId, sessionId, agentId },
+    };
+  }
+
+  return {
+    action: 'episode_query',
+    status: 'error',
+    message: 'Specify an episode ID or ensure you have an active session.',
+    _context: { projectId, sessionId, agentId },
   };
 }

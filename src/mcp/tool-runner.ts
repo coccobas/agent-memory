@@ -8,6 +8,7 @@ import { createInvalidActionError, formatError } from './errors.js';
 import { TOOL_LABELS } from './constants.js';
 import type { DetectedContext } from '../services/context-detection.service.js';
 import { getGitBranch, formatBranchForSession } from '../utils/git.js';
+import type { ExtractionSuggestion } from '../services/extraction-hook.service.js';
 
 /**
  * Build a compact badge string from detected context
@@ -54,6 +55,33 @@ const WRITE_ACTIONS = new Set([
 const SIMPLE_WRITE_TOOLS = new Set([
   'memory_remember', // Natural language storage
 ]);
+
+/**
+ * Tools that should include _context metadata in their response
+ * Most tools don't need this - it adds ~500+ tokens of overhead
+ */
+const CONTEXT_METADATA_TOOLS = new Set(['memory_quickstart', 'memory_status', 'memory_session']);
+
+/**
+ * Tools that should be scanned for extraction suggestions
+ * These are write operations that may contain storable patterns
+ */
+const EXTRACTION_SCAN_TOOLS = new Set([
+  'memory_remember',
+  'memory_guideline',
+  'memory_knowledge',
+  'memory_tool',
+]);
+
+/**
+ * Infer a project name from the working directory
+ * Uses the last component of the path or the full path for root directories
+ */
+function inferProjectName(cwd: string): string {
+  const parts = cwd.split('/').filter(Boolean);
+  // Use last component, or 'project' for root
+  return parts[parts.length - 1] ?? 'project';
+}
 
 /**
  * Execute a tool by name with arguments
@@ -143,6 +171,23 @@ export async function runTool(
       );
     }
 
+    // Auto-project creation for write operations (when no project exists)
+    const autoProjectCreated = await maybeAutoCreateProject(
+      context,
+      name,
+      enrichedArgs,
+      detectedContext
+    );
+    if (autoProjectCreated) {
+      // Re-enrich params to pick up the new project
+      if (context.services.contextDetection && context.config.autoContext.enabled) {
+        context.services.contextDetection.clearCache();
+        const reEnrichment = await context.services.contextDetection.enrichParams(args ?? {});
+        enrichedArgs = reEnrichment.enriched;
+        detectedContext = reEnrichment.detected;
+      }
+    }
+
     // Auto-session creation for write operations
     const autoSessionCreated = await maybeAutoCreateSession(
       context,
@@ -168,14 +213,71 @@ export async function runTool(
       context.services.sessionTimeout.recordActivity(detectedContext.session.id);
     }
 
-    // Add _context and _badge to response if auto-detection was used
-    const finalResult =
-      detectedContext && typeof result === 'object' && result !== null
-        ? {
-            ...result,
-            _context: { ...detectedContext, _badge: buildContextBadge(detectedContext) },
+    // Add _context and _badge to response only for whitelisted tools
+    // Most tools don't need this overhead - only status/quickstart/session tools benefit
+    const shouldIncludeContext =
+      detectedContext !== undefined &&
+      typeof result === 'object' &&
+      result !== null &&
+      CONTEXT_METADATA_TOOLS.has(name);
+
+    // Scan for extraction suggestions on write operations
+    // Adds gentle hints about storable patterns found in the content
+    let suggestions: ExtractionSuggestion[] = [];
+    if (
+      context.config.extractionHook.enabled &&
+      context.services.extractionHook &&
+      EXTRACTION_SCAN_TOOLS.has(name) &&
+      !context.services.extractionHook.isCooldownActive()
+    ) {
+      // Extract content from args for scanning
+      const contentToScan = extractContentForScanning(args);
+      if (contentToScan) {
+        try {
+          const scanResult = await context.services.extractionHook.scan(contentToScan);
+          if (!scanResult.skipped && scanResult.suggestions.length > 0) {
+            suggestions = scanResult.suggestions;
+            context.services.extractionHook.recordScan();
+            logger.debug(
+              { tool: name, suggestionCount: suggestions.length },
+              'Extraction suggestions found'
+            );
           }
-        : result;
+        } catch (scanError) {
+          logger.debug(
+            { error: scanError instanceof Error ? scanError.message : String(scanError) },
+            'Extraction scan failed (non-fatal)'
+          );
+        }
+      }
+    }
+
+    // Build final result with optional metadata
+    let finalResult: unknown = result;
+    if (typeof result === 'object' && result !== null) {
+      finalResult = { ...result };
+
+      // Add context metadata for whitelisted tools
+      if (shouldIncludeContext && detectedContext) {
+        (finalResult as Record<string, unknown>)._context = {
+          ...detectedContext,
+          _badge: buildContextBadge(detectedContext),
+        };
+      }
+
+      // Add extraction suggestions if any found
+      if (suggestions.length > 0) {
+        (finalResult as Record<string, unknown>)._suggestions = {
+          hint: `💡 ${suggestions.length} storable pattern${suggestions.length > 1 ? 's' : ''} detected. Use memory_extraction_approve to store.`,
+          items: suggestions.map((s) => ({
+            type: s.type,
+            title: s.title,
+            confidence: s.confidence,
+            hash: s.hash,
+          })),
+        };
+      }
+    }
 
     // Format result based on output mode (compact or JSON)
     let formattedResult: string;
@@ -290,6 +392,122 @@ function inferSessionName(
 function truncate(str: string, maxLen: number): string {
   if (str.length <= maxLen) return str;
   return str.slice(0, maxLen - 3) + '...';
+}
+
+/**
+ * Extract content from tool arguments for extraction scanning
+ * Looks for common content-carrying fields
+ */
+function extractContentForScanning(args: Record<string, unknown> | undefined): string | null {
+  if (!args) return null;
+
+  // Try various content fields in order of preference
+  const contentFields = ['content', 'text', 'description', 'rationale', 'applicability'];
+
+  for (const field of contentFields) {
+    const value = args[field];
+    if (typeof value === 'string' && value.trim().length > 20) {
+      return value;
+    }
+  }
+
+  // For bulk operations, scan the first entry's content
+  const entries = args.entries;
+  if (Array.isArray(entries) && entries.length > 0) {
+    const firstEntry = entries[0] as Record<string, unknown> | undefined;
+    if (firstEntry) {
+      for (const field of contentFields) {
+        const value = firstEntry[field];
+        if (typeof value === 'string' && value.trim().length > 20) {
+          return value;
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Auto-create a project if:
+ * 1. Auto-project is enabled
+ * 2. This is a write operation
+ * 3. No project exists for the current working directory
+ * 4. The tool is not memory_project itself
+ *
+ * @returns The created project ID if one was created, undefined otherwise
+ */
+async function maybeAutoCreateProject(
+  context: AppContext,
+  toolName: string,
+  args: Record<string, unknown>,
+  detectedContext: DetectedContext | undefined
+): Promise<string | undefined> {
+  // Check if auto-project is enabled
+  if (!context.config.autoContext.autoProject) {
+    return undefined;
+  }
+
+  // Skip if this is the project tool itself
+  if (toolName === 'memory_project' || toolName === 'memory_quickstart') {
+    return undefined;
+  }
+
+  // Check if this is a write operation (same logic as auto-session)
+  const isSimpleWriteTool = SIMPLE_WRITE_TOOLS.has(toolName);
+  const action = typeof args.action === 'string' ? args.action : undefined;
+  const isWriteAction = action && WRITE_ACTIONS.has(action);
+
+  if (!isSimpleWriteTool && !isWriteAction) {
+    return undefined;
+  }
+
+  // Check if there's already a project detected
+  if (detectedContext?.project?.id) {
+    return undefined;
+  }
+
+  // Create auto-project
+  try {
+    const cwd = process.cwd();
+    const projectName = inferProjectName(cwd);
+
+    const project = await context.repos.projects.create({
+      name: projectName,
+      description: `Auto-created project for ${cwd}`,
+      rootPath: cwd,
+    });
+
+    logger.info(
+      { projectId: project.id, projectName, cwd, tool: toolName },
+      'Auto-created project for write operation'
+    );
+
+    // Grant basic permissions to the agent
+    const agentId = detectedContext?.agentId?.value ?? context.config.autoContext.defaultAgentId;
+    const entryTypes = ['guideline', 'knowledge', 'tool'] as const;
+    for (const entryType of entryTypes) {
+      try {
+        context.services.permission.grant({
+          agentId,
+          scopeType: 'project',
+          scopeId: project.id,
+          entryType,
+          permission: 'write',
+        });
+      } catch {
+        // Non-fatal - permission grant may fail in permissive mode
+      }
+    }
+
+    return project.id;
+  } catch (error) {
+    logger.warn(
+      { error: error instanceof Error ? error.message : String(error) },
+      'Failed to auto-create project'
+    );
+    return undefined;
+  }
 }
 
 /**

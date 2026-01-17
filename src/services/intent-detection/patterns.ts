@@ -17,6 +17,10 @@ export type Intent =
   | 'forget'
   | 'list'
   | 'update'
+  | 'episode_begin'
+  | 'episode_log'
+  | 'episode_complete'
+  | 'episode_query'
   | 'unknown';
 
 export interface IntentMatch {
@@ -48,6 +52,33 @@ const INTENT_PATTERNS: Record<Intent, RegExp[]> = {
     /^session\s+(done|complete|finished|ended)/i,
   ],
 
+  // Episode management
+  episode_begin: [
+    /^(starting|start|begin|beginning)\s+(work\s+on\s+|fixing\s+|implementing\s+|task:?\s+)/i,
+    /^(new\s+)?episode:?\s+/i,
+    /^task:?\s+/i,
+    /^working\s+on:?\s+/i,
+  ],
+  episode_log: [
+    /^(log|note|checkpoint):?\s+/i,
+    /^(logged|noted):?\s+/i,
+    /^progress:?\s+/i, // Note: "update" without colon handled by update intent
+    /^(found|discovered|realized)\s+(that\s+)?/i,
+    /^(decided|choosing|picked)\s+(to\s+)?/i,
+  ],
+  episode_complete: [
+    /^(finished|completed|done\s+with)\s+(the\s+)?(episode|task)/i,
+    /^(episode|task)\s+(finished|completed|done)/i,
+    /^(success|failure|failed):?\s+/i,
+    /^(outcome):?\s+/i,
+  ],
+  episode_query: [
+    /^what\s+happened\s+(during|in)\s+/i,
+    /^(show|tell\s+me)\s+what\s+happened/i,
+    /^(trace|follow)\s+(the\s+)?(causes?|chain)/i,
+    /^(timeline|history)\s+(of|for)\s+/i,
+  ],
+
   // Storage operations
   store: [
     /^remember\s+(that\s+)?/i,
@@ -63,6 +94,8 @@ const INTENT_PATTERNS: Record<Intent, RegExp[]> = {
 
   // Retrieval operations
   retrieve: [
+    /\?\s*$/i, // Questions ending with ? are retrieval
+    /^(what|how|where|when|why|which)\s+/i, // Question words at start (relaxed - no verb requirement)
     /^(what|how|where|when|why)\s+(do|does|did|is|are|was|were|should|can|could|would)\s+/i,
     /^(what|anything)\s+about\s+/i,
     /^(find|search|look\s+up|get)\s+/i,
@@ -126,6 +159,118 @@ const CATEGORY_PATTERNS: Record<string, RegExp[]> = {
   fact: [/\b(uses|runs\s+on|is\s+a|architecture|structure)\b/i],
 };
 
+/**
+ * Episode trigger patterns - detect work-intent from session names
+ * Used to auto-create episodes when session name indicates substantive work
+ */
+export type EpisodeTriggerType = 'bug_fix' | 'feature' | 'refactor' | 'investigation' | 'implementation';
+
+const EPISODE_TRIGGER_PATTERNS: Record<EpisodeTriggerType, RegExp[]> = {
+  bug_fix: [
+    /\b(fix|debug|investigate|troubleshoot|resolve|diagnose)\b.*\b(bug|issue|error|problem|crash|failure)\b/i,
+    /\b(bug|issue|error|problem)\b.*\b(fix|resolve|solve|repair)\b/i,
+    /\bfixing\b/i,
+    /\bdebugging\b/i,
+  ],
+  feature: [
+    /\b(add|create|build|implement|develop)\b.*\b(feature|functionality|capability|support)\b/i,
+    /\b(new)\b.*\b(feature|endpoint|component|api|page|view)\b/i,
+    /\badding\b.*\b(support|handling)\b/i,
+  ],
+  refactor: [
+    /\b(refactor|restructure|reorganize|clean\s*up|simplify|modernize)\b/i,
+    /\b(improve|optimize)\b.*\b(code|structure|architecture)\b/i,
+    /\brefactoring\b/i,
+  ],
+  investigation: [
+    /\b(investigate|research|explore|understand|analyze|study)\b/i,
+    /\b(figure\s+out|look\s+into|dig\s+into)\b/i,
+    /\b(why|how)\b.*\b(work|happen|fail)\b/i,
+  ],
+  implementation: [
+    /\b(implement|wire\s*up|connect|integrate|set\s*up)\b/i,
+    /\b(implementing|setting\s+up|wiring)\b/i,
+    /\b(add|create)\b.*\b(handler|service|endpoint|component)\b/i,
+  ],
+};
+
+/**
+ * Patterns that indicate trivial/non-episode-worthy sessions
+ */
+const EPISODE_EXCLUDE_PATTERNS: RegExp[] = [
+  /^(test|check|look|see|view|show|list|get)\b/i,
+  /^(quick|simple|small|minor)\b/i,
+  /\b(question|ask|help)\b/i,
+];
+
+export interface EpisodeTriggerMatch {
+  shouldCreate: boolean;
+  triggerType: EpisodeTriggerType | null;
+  confidence: number;
+  matchedPatterns: string[];
+}
+
+/**
+ * Detect if a session name should trigger episode auto-creation
+ */
+export function detectEpisodeTrigger(sessionName: string): EpisodeTriggerMatch {
+  const text = sessionName.trim();
+
+  // Check exclusion patterns first
+  for (const pattern of EPISODE_EXCLUDE_PATTERNS) {
+    if (pattern.test(text)) {
+      return {
+        shouldCreate: false,
+        triggerType: null,
+        confidence: 0,
+        matchedPatterns: [],
+      };
+    }
+  }
+
+  // Check trigger patterns
+  for (const [triggerType, patterns] of Object.entries(EPISODE_TRIGGER_PATTERNS) as [
+    EpisodeTriggerType,
+    RegExp[],
+  ][]) {
+    const matchedPatterns: string[] = [];
+    for (const pattern of patterns) {
+      if (pattern.test(text)) {
+        matchedPatterns.push(pattern.source);
+      }
+    }
+
+    if (matchedPatterns.length > 0) {
+      // Confidence: base 0.7 + 0.1 per additional match, max 0.95
+      const confidence = Math.min(0.95, 0.7 + (matchedPatterns.length - 1) * 0.1);
+      return {
+        shouldCreate: true,
+        triggerType,
+        confidence,
+        matchedPatterns,
+      };
+    }
+  }
+
+  // No match - but if it's a reasonably descriptive name (3+ words), still suggest
+  const wordCount = text.split(/\s+/).length;
+  if (wordCount >= 3) {
+    return {
+      shouldCreate: true,
+      triggerType: null,
+      confidence: 0.5,
+      matchedPatterns: ['descriptive_name_heuristic'],
+    };
+  }
+
+  return {
+    shouldCreate: false,
+    triggerType: null,
+    confidence: 0,
+    matchedPatterns: [],
+  };
+}
+
 // =============================================================================
 // PATTERN MATCHING
 // =============================================================================
@@ -157,10 +302,24 @@ export function detectIntent(text: string): IntentMatch {
     }
   }
 
-  // Try to infer from entry type mentions
+  // Check for question indicators BEFORE falling back to store
+  // Questions ending with ? or starting with question words should be retrieve
+  if (
+    /\?\s*$/.test(normalizedText) ||
+    /^(what|how|where|when|why|which|is|are|do|does|can|could|would|should)\b/i.test(normalizedText)
+  ) {
+    return {
+      intent: 'retrieve',
+      confidence: 0.5,
+      patterns: ['question_indicator_fallback'],
+      extractedParams: { query: normalizedText },
+    };
+  }
+
+  // Try to infer from entry type mentions (only for non-questions)
   const entryType = detectEntryType(normalizedText);
   if (entryType) {
-    // Likely a store operation if entry type is mentioned
+    // Likely a store operation if entry type is mentioned and not a question
     return {
       intent: 'store',
       confidence: 0.5,
@@ -282,6 +441,63 @@ function extractParams(text: string, intent: Intent): Record<string, string> {
       // Extract target
       const target = text.replace(/^(update|change|modify|edit)\s+(the\s+)?/i, '').trim();
       params.target = target;
+      break;
+    }
+    case 'episode_begin': {
+      // Extract episode name from "starting task: X" or "working on: X"
+      const name = text
+        .replace(
+          /^(starting|start|begin|beginning)\s+(work\s+on\s+|fixing\s+|implementing\s+|task:?\s+)/i,
+          ''
+        )
+        .replace(/^(new\s+)?episode:?\s+/i, '')
+        .replace(/^task:?\s+/i, '')
+        .replace(/^working\s+on:?\s+/i, '')
+        .trim();
+      params.name = name;
+      break;
+    }
+    case 'episode_log': {
+      // Extract message from "log: X" or "checkpoint: X"
+      const message = text
+        .replace(/^(log|note|checkpoint|logged|noted|progress|update):?\s+/i, '')
+        .replace(/^(found|discovered|realized)\s+(that\s+)?/i, '')
+        .replace(/^(decided|choosing|picked)\s+(to\s+)?/i, '')
+        .trim();
+      params.message = message;
+      // Detect event type from trigger words
+      if (/^(decided|choosing|picked)/i.test(text)) {
+        params.eventType = 'decision';
+      } else if (/^(found|discovered|realized)/i.test(text)) {
+        params.eventType = 'checkpoint';
+      }
+      break;
+    }
+    case 'episode_complete': {
+      // Extract outcome from "finished task: X" or "success: X"
+      const outcome = text
+        .replace(/^(finished|completed|done\s+with)\s+(the\s+)?(episode|task):?\s*/i, '')
+        .replace(/^(episode|task)\s+(finished|completed|done):?\s*/i, '')
+        .replace(/^(success|failure|failed|outcome):?\s*/i, '')
+        .trim();
+      params.outcome = outcome;
+      // Detect outcome type
+      if (/^(success)/i.test(text)) {
+        params.outcomeType = 'success';
+      } else if (/^(failure|failed)/i.test(text)) {
+        params.outcomeType = 'failure';
+      }
+      break;
+    }
+    case 'episode_query': {
+      // Extract episode reference from "what happened during X"
+      const ref = text
+        .replace(/^what\s+happened\s+(during|in)\s+/i, '')
+        .replace(/^(show|tell\s+me)\s+what\s+happened\s+(during|in)?\s*/i, '')
+        .replace(/^(trace|follow)\s+(the\s+)?(causes?|chain)\s+(of|for)?\s*/i, '')
+        .replace(/^(timeline|history)\s+(of|for)\s+/i, '')
+        .trim();
+      params.ref = ref;
       break;
     }
   }

@@ -406,8 +406,8 @@ export class SecurityService {
 
     return Boolean(
       (this.restApiKeys && this.restApiKeys.length > 0) ||
-        (this.restApiKey && this.restApiKey.length > 0) ||
-        getUnifiedApiKey()
+      (this.restApiKey && this.restApiKey.length > 0) ||
+      getUnifiedApiKey()
     );
   }
 

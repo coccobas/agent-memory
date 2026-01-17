@@ -565,6 +565,65 @@ export class LanceDbVectorStore implements IVectorStore {
     }
   }
 
+  /**
+   * Get embeddings by entry IDs.
+   * Used for loading pre-computed embeddings (e.g., for hierarchical summarization).
+   *
+   * @param entryIds Array of entry IDs
+   * @returns Map of "entryType:entryId" to embedding vector
+   */
+  async getByEntryIds(
+    entryIds: Array<{ entryType: string; entryId: string }>
+  ): Promise<Map<string, number[]>> {
+    await this.ensureInitialized();
+    if (!this.table || entryIds.length === 0) return new Map();
+
+    const result = new Map<string, number[]>();
+
+    try {
+      // Build filter for all requested entries
+      const filters = entryIds.map(({ entryType, entryId }) => {
+        const validatedType = validateIdentifier(entryType, 'entryType');
+        const validatedId = validateIdentifier(entryId, 'entryId');
+        return `(\`entryType\` = '${validatedType}' AND \`entryId\` = '${validatedId}')`;
+      });
+
+      const filterPredicate = filters.join(' OR ');
+
+      // Query with filter, selecting vector field
+      const query = this.table.query().filter(filterPredicate).select(['entryType', 'entryId', 'vector']);
+
+      const records = await query.toArray();
+
+      for (const record of records) {
+        if (
+          typeof record === 'object' &&
+          record !== null &&
+          'entryType' in record &&
+          'entryId' in record &&
+          'vector' in record &&
+          Array.isArray((record as Record<string, unknown>).vector)
+        ) {
+          const r = record as Record<string, unknown>;
+          const key = `${String(r.entryType)}:${String(r.entryId)}`;
+          result.set(key, r.vector as number[]);
+        }
+      }
+
+      logger.debug(
+        { requested: entryIds.length, found: result.size },
+        'Retrieved embeddings by entry IDs'
+      );
+    } catch (error) {
+      logger.warn(
+        { error: error instanceof Error ? error.message : String(error) },
+        'Failed to get embeddings by entry IDs'
+      );
+    }
+
+    return result;
+  }
+
   close(): void {
     this.connection = null;
     this.table = null;

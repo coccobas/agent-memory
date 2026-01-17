@@ -186,15 +186,22 @@ export async function runReindexCommand(args: string[]): Promise<void> {
   const projectRoot = path.resolve(__dirname, '../..');
   loadEnv(projectRoot);
 
-  // Initialize services - getDb() will lazily initialize the database
-  await import('../config/index.js');
-  const { getDb } = await import('../db/connection.js');
-
-  const options = parseArgs(args);
-
-  // Load config
+  // Load config and initialize database
   const { buildConfig } = await import('../config/index.js');
   const config = buildConfig();
+
+  // Initialize database connection (required before getDb())
+  const { createDatabaseConnection } = await import('../db/factory.js');
+  const { registerDatabase, getDb } = await import('../db/connection.js');
+
+  const connection = await createDatabaseConnection(config);
+  if (connection.type === 'sqlite') {
+    registerDatabase(connection.db, connection.sqlite);
+  } else {
+    throw new Error('Reindex command currently only supports SQLite');
+  }
+
+  const options = parseArgs(args);
 
   // Create services directly (standalone CLI command)
   const embeddingService = new EmbeddingService({

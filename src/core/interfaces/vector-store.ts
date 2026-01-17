@@ -90,4 +90,15 @@ export interface IVectorStore {
    * Returns null if no embeddings exist.
    */
   getStoredDimension?(): Promise<number | null>;
+
+  /**
+   * Get embeddings by entry IDs.
+   * Used for loading pre-computed embeddings (e.g., for hierarchical summarization).
+   *
+   * @param entryIds Array of entry IDs (format: "entryType:entryId")
+   * @returns Map of entry ID to embedding vector
+   */
+  getByEntryIds?(
+    entryIds: Array<{ entryType: string; entryId: string }>
+  ): Promise<Map<string, number[]>>;
 }

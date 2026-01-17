@@ -27,6 +27,7 @@ import { createNodeRepository, createEdgeRepository } from '../../db/repositorie
 import { createTypeRegistry } from '../../services/graph/index.js';
 import { createTaskRepository } from '../../db/repositories/tasks.js';
 import { createEvidenceRepository } from '../../db/repositories/evidence.js';
+import { createEpisodeRepository } from '../../db/repositories/episodes.js';
 
 /**
  * Create all repositories with injected dependencies
@@ -64,5 +65,7 @@ export function createRepositories(deps: DatabaseDeps): Repositories {
     // Task and Evidence repositories
     tasks: createTaskRepository(deps),
     evidence: createEvidenceRepository(deps),
+    // Episode repository (Temporal Activity Grouping)
+    episodes: createEpisodeRepository(deps),
   };
 }

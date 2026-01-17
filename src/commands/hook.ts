@@ -24,6 +24,7 @@ import { runPreToolUseCommand } from './hook/pretooluse-command.js';
 import { runStopCommand } from './hook/stop-command.js';
 import { runUserPromptSubmitCommand } from './hook/userpromptsubmit-command.js';
 import { runSessionEndCommand } from './hook/session-end-command.js';
+import { runSessionStartCommand } from './hook/session-start-command.js';
 
 export { writeSessionSummaryFile, formatSessionSummaryStderr } from './hook/session-summary.js';
 
@@ -60,6 +61,36 @@ async function initializeHookDatabase(): Promise<void> {
   }
 }
 
+/**
+ * Initialize full AppContext for hook subcommands that need services.
+ * This is a heavier initialization that sets up the full context including
+ * services like Librarian, CaptureService, etc.
+ */
+async function initializeFullContext(): Promise<void> {
+  // Load environment variables
+  const { loadEnv } = await import('../config/env.js');
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = dirname(__filename);
+  const projectRoot = resolve(__dirname, '../..');
+  loadEnv(projectRoot);
+
+  // Build config (needs env vars loaded first)
+  const { buildConfig } = await import('../config/index.js');
+  const config = buildConfig();
+
+  // Create runtime (provides caches, rate limiters, etc.)
+  const { createRuntime, extractRuntimeConfig } = await import('../core/runtime.js');
+  const runtime = createRuntime(extractRuntimeConfig(config));
+
+  // Create full app context (this initializes all services)
+  const { createAppContext } = await import('../core/factory/index.js');
+  const ctx = await createAppContext(config, runtime);
+
+  // Register context with container so getContext() works
+  const { registerContext } = await import('../core/container.js');
+  registerContext(ctx);
+}
+
 const logger = createComponentLogger('hook');
 
 function writeStdout(message: string): void {
@@ -75,11 +106,11 @@ function printHookHelp(): void {
   agent-memory hook install [--ide <claude|cursor|vscode>] [--project-path <path>] [--project-id <id>] [--session-id <id>] [--dry-run] [--quiet]
   agent-memory hook status [--ide <claude|cursor|vscode>] [--project-path <path>] [--quiet]
   agent-memory hook uninstall [--ide <claude|cursor|vscode>] [--project-path <path>] [--dry-run] [--quiet]
-  agent-memory hook <pretooluse|stop|userpromptsubmit|session-end> [--project-id <id>] [--agent-id <id>]
+  agent-memory hook <pretooluse|stop|userpromptsubmit|session-start|session-end> [--project-id <id>] [--agent-id <id>]
 
 Notes:
   - install/status/uninstall write files in the target project directory.
-  - pretooluse/stop/userpromptsubmit/session-end are executed by Claude Code hooks and expect JSON on stdin.
+  - pretooluse/stop/userpromptsubmit/session-start/session-end are executed by Claude Code hooks and expect JSON on stdin.
 `);
 }
 
@@ -92,6 +123,12 @@ export async function runHookCommand(argv: string[]): Promise<void> {
     }
 
     if (first === 'install' || first === 'status' || first === 'uninstall') {
+      // Install needs database for generating critical guidelines (Cursor)
+      // Status and uninstall don't need database
+      if (first === 'install') {
+        await initializeHookDatabase();
+      }
+
       const result = runHookInstallCommand(argv, {
         helpText: `Usage:
   agent-memory hook install [--ide <claude|cursor|vscode>] [--project-path <path>] [--project-id <id>] [--session-id <id>] [--dry-run] [--quiet]
@@ -113,6 +150,8 @@ export async function runHookCommand(argv: string[]): Promise<void> {
       sub !== 'stop' &&
       sub !== 'userpromptsubmit' &&
       sub !== 'user-prompt-submit' &&
+      sub !== 'session-start' &&
+      sub !== 'sessionstart' &&
       sub !== 'session-end' &&
       sub !== 'sessionend'
     ) {
@@ -121,8 +160,13 @@ export async function runHookCommand(argv: string[]): Promise<void> {
       process.exit(2);
     }
 
-    // Initialize database for all DB-requiring subcommands
-    await initializeHookDatabase();
+    // Session-start and session-end need full context for Librarian service
+    // Other subcommands only need database
+    if (sub === 'session-start' || sub === 'sessionstart' || sub === 'session-end' || sub === 'sessionend') {
+      await initializeFullContext();
+    } else {
+      await initializeHookDatabase();
+    }
 
     const input = await readHookInputFromStdin();
 
@@ -142,6 +186,13 @@ export async function runHookCommand(argv: string[]): Promise<void> {
 
     if (sub === 'userpromptsubmit' || sub === 'user-prompt-submit') {
       const result = await runUserPromptSubmitCommand({ projectId, input });
+      for (const line of result.stdout) writeStdout(line);
+      for (const line of result.stderr) writeStderr(line);
+      process.exit(result.exitCode);
+    }
+
+    if (sub === 'session-start' || sub === 'sessionstart') {
+      const result = await runSessionStartCommand({ projectId, agentId, input });
       for (const line of result.stdout) writeStdout(line);
       for (const line of result.stderr) writeStderr(line);
       process.exit(result.exitCode);

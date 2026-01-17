@@ -8,7 +8,7 @@ import type { SessionStartParams, SessionEndParams, SessionListParams } from '..
 
 export const memorySessionDescriptor: ToolDescriptor = {
   name: 'memory_session',
-  visibility: 'core',
+  visibility: 'standard',
   description: 'Manage working sessions. Actions: start, end, list',
   commonParams: {
     projectId: { type: 'string' },

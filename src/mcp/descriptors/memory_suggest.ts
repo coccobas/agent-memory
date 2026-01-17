@@ -107,7 +107,7 @@ function analyzeSuggestions(text: string): Suggestion[] {
 
 export const memorySuggestDescriptor: SimpleToolDescriptor = {
   name: 'memory_suggest',
-  visibility: 'core',
+  visibility: 'standard',
   description: `Analyze text and suggest what to store in memory.
 
 Use this to proactively identify storeable content from conversations.

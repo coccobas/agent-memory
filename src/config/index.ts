@@ -338,6 +338,7 @@ export interface Config {
     enabled: boolean;
     defaultAgentId: string;
     cacheTTLMs: number;
+    autoProject: boolean;
     autoSession: boolean;
     autoSessionName: string;
     sessionTimeoutEnabled: boolean;

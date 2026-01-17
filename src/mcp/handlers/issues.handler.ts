@@ -200,9 +200,24 @@ const addHandler: ContextAwareHandler = async (
     context.db
   );
 
+  // Auto-link to active episode if session scope has an active episode
+  let linkedEpisode: { id: string; name: string } | undefined;
+  if (scopeType === 'session' && scopeId && context.services.episode) {
+    try {
+      const activeEpisode = await context.services.episode.getActiveEpisode(scopeId);
+      if (activeEpisode) {
+        await context.services.episode.linkEntity(activeEpisode.id, 'task', task.id, 'created');
+        linkedEpisode = { id: activeEpisode.id, name: activeEpisode.name };
+      }
+    } catch {
+      // Non-fatal - episode auto-linking is optional
+    }
+  }
+
   return formatTimestamps({
     success: true,
     task,
+    linkedEpisode,
   });
 };
 

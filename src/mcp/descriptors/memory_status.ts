@@ -32,6 +32,11 @@ export interface StatusResult {
     guidelines: Array<{ id: string; name: string; priority: number }>;
     knowledge: Array<{ id: string; title: string }>;
   };
+  /** Pending librarian recommendations */
+  librarian?: {
+    pendingRecommendations: number;
+    previews?: Array<{ id: string; title: string; type: string }>;
+  };
   /** Human-readable formatted dashboard for display */
   _display?: string;
 }
@@ -100,6 +105,31 @@ Returns: project, session, counts (guidelines, knowledge, tools, sessions)`,
       };
     }
 
+    // Get pending librarian recommendations
+    let librarian: StatusResult['librarian'] | undefined;
+    if (projectId && ctx.services.librarian) {
+      try {
+        const store = ctx.services.librarian.getRecommendationStore();
+        const count = await store.count({
+          status: 'pending',
+          scopeType: 'project',
+          scopeId: projectId,
+        });
+        if (count > 0) {
+          const previews = await store.list(
+            { status: 'pending', scopeType: 'project', scopeId: projectId },
+            { limit: 3 }
+          );
+          librarian = {
+            pendingRecommendations: count,
+            previews: previews.map((r) => ({ id: r.id, title: r.title, type: r.type })),
+          };
+        }
+      } catch {
+        // Non-fatal
+      }
+    }
+
     // Build the result object
     const result: StatusResult = {
       project: detected.project
@@ -123,6 +153,7 @@ Returns: project, session, counts (guidelines, knowledge, tools, sessions)`,
         sessions: sessionsCount,
       },
       topEntries,
+      librarian,
     };
 
     // Add human-readable formatted display

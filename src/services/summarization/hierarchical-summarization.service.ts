@@ -76,6 +76,9 @@ export class HierarchicalSummarizationService {
   // LLM summarizer for generating summaries
   private summarizer: LLMSummarizer | null = null;
 
+  // Effective similarity threshold for current build operation
+  private effectiveSimilarityThreshold: number;
+
   constructor(
     db: AppDb,
     embeddingService: EmbeddingService,
@@ -125,6 +128,9 @@ export class HierarchicalSummarizationService {
         logger.warn({ error: String(error) }, 'Failed to initialize LLM summarizer');
       }
     }
+
+    // Initialize with config default
+    this.effectiveSimilarityThreshold = this.config.similarityThreshold;
 
     logger.debug(
       { config: this.config, hasSummarizer: !!this.summarizer },
@@ -189,8 +195,12 @@ export class HierarchicalSummarizationService {
     // Determine effective configuration
     const maxLevels = options.maxLevels ?? this.config.maxLevels;
     const minGroupSize = options.minGroupSize ?? this.config.minGroupSize;
+    const similarityThreshold = options.similarityThreshold ?? this.config.similarityThreshold;
     const entryTypes =
       options.entryTypes ?? (['tool', 'guideline', 'knowledge', 'experience'] as const);
+
+    // Store effective threshold for use in detectCommunities
+    this.effectiveSimilarityThreshold = similarityThreshold;
 
     // Delete existing summaries if force rebuild
     if (options.forceRebuild) {
@@ -1021,26 +1031,62 @@ export class HierarchicalSummarizationService {
   /**
    * Ensure all entries have embeddings
    *
+   * First attempts to load existing embeddings from the vector store.
    * For entries without embeddings, generates them using the embedding service.
    * Uses batch embedding for efficiency.
    */
   private async ensureEmbeddings(entries: SummarizableEntry[]): Promise<SummarizableEntry[]> {
-    if (!this.embeddingService.isAvailable()) {
-      logger.warn('Embedding service not available, skipping embedding generation');
-      return entries;
+    // Step 1: Try to load existing embeddings from vector store
+    if (this.vectorService && 'getByEntryIds' in this.vectorService) {
+      const entryIds = entries.map((e) => ({
+        entryType: e.type,
+        entryId: e.id,
+      }));
+
+      try {
+        const existingEmbeddings = await (
+          this.vectorService as { getByEntryIds: (ids: Array<{ entryType: string; entryId: string }>) => Promise<Map<string, number[]>> }
+        ).getByEntryIds(entryIds);
+
+        // Map embeddings back to entries
+        let loadedCount = 0;
+        for (const entry of entries) {
+          const key = `${entry.type}:${entry.id}`;
+          const embedding = existingEmbeddings.get(key);
+          if (embedding && embedding.length > 0) {
+            entry.embedding = embedding;
+            loadedCount++;
+          }
+        }
+
+        if (loadedCount > 0) {
+          logger.debug({ loadedCount, totalEntries: entries.length }, 'Loaded existing embeddings from vector store');
+        }
+      } catch (error) {
+        logger.warn({ error: String(error) }, 'Failed to load embeddings from vector store');
+      }
     }
 
-    // Collect entries that need embeddings
+    // Step 2: Check for entries still needing embeddings
     const entriesNeedingEmbeddings = entries.filter(
       (e) => !e.embedding || e.embedding.length === 0
     );
 
     if (entriesNeedingEmbeddings.length === 0) {
-      logger.debug('All entries already have embeddings');
+      logger.debug('All entries have embeddings (loaded from vector store)');
       return entries;
     }
 
-    logger.debug({ count: entriesNeedingEmbeddings.length }, 'Generating embeddings for entries');
+    // Step 3: Generate embeddings for remaining entries
+    if (!this.embeddingService.isAvailable()) {
+      logger.warn(
+        { missingCount: entriesNeedingEmbeddings.length },
+        'Embedding service not available, some entries will lack embeddings'
+      );
+      return entries;
+    }
+
+    logger.debug({ count: entriesNeedingEmbeddings.length }, 'Generating embeddings for entries without cached embeddings');
 
     // Batch embed texts
     const texts = entriesNeedingEmbeddings.map((e) => e.text);
@@ -1092,12 +1138,12 @@ export class HierarchicalSummarizationService {
       metadata: entry.metadata,
     }));
 
-    // Run community detection
+    // Run community detection with effective threshold (may be overridden per-build)
     try {
       const result = await detectCommunitiesAlgo(nodes, {
         resolution: this.config.communityResolution,
         minCommunitySize: this.config.minGroupSize,
-        similarityThreshold: this.config.similarityThreshold,
+        similarityThreshold: this.effectiveSimilarityThreshold,
       });
 
       logger.debug(

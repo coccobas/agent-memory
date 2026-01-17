@@ -34,8 +34,12 @@ import type { ISessionTimeoutService } from '../services/session-timeout.service
 import type { IAutoTaggingService } from '../services/auto-tagging.service.js';
 import type { IClassificationService } from '../services/classification/index.js';
 import type { IExtractionHookService } from '../services/extraction-hook.service.js';
+import type { RedFlagService } from '../services/redflag.service.js';
 import type { ReembeddingService } from '../services/reembedding.service.js';
 import type { GraphSyncService } from '../services/graph/sync.service.js';
+import type { GraphBackfillService } from '../services/graph/backfill.service.js';
+import type { LatentMemoryService } from '../services/latent-memory/latent-memory.service.js';
+import type { EpisodeService } from '../services/episode/index.js';
 
 /**
  * Service interfaces for AppContext
@@ -58,6 +62,7 @@ export interface IEmbeddingService {
 export interface IVectorService {
   isAvailable(): boolean;
   initialize(): Promise<void>;
+  waitForReady(): Promise<void>;
   storeEmbedding(
     entryType: string,
     entryId: string,
@@ -140,6 +145,38 @@ export interface IHierarchicalSummarizationService {
   }>;
 }
 
+/**
+ * Hierarchical retriever interface for query pipeline integration
+ *
+ * Implements coarse-to-fine retrieval through summary hierarchies.
+ */
+export interface IHierarchicalRetriever {
+  /** Check if summaries exist for a scope */
+  hasSummaries(
+    scopeType: 'global' | 'org' | 'project' | 'session',
+    scopeId?: string | null
+  ): Promise<boolean>;
+
+  /** Perform coarse-to-fine retrieval through summary hierarchy */
+  retrieve(options: {
+    query: string;
+    scopeType?: 'global' | 'org' | 'project' | 'session';
+    scopeId?: string;
+    maxResults?: number;
+    expansionFactor?: number;
+    minSimilarity?: number;
+  }): Promise<{
+    entries: Array<{ id: string; type: string; score: number }>;
+    steps: Array<{
+      level: number;
+      summariesSearched: number;
+      summariesMatched: number;
+      timeMs: number;
+    }>;
+    totalTimeMs: number;
+  }>;
+}
+
 // ============================================================================
 // SERVICE GROUP INTERFACES
 // ============================================================================
@@ -175,6 +212,8 @@ export interface AIServices {
   classification?: IClassificationService;
   /** Hierarchical summary generation for entry clusters */
   summarization?: IHierarchicalSummarizationService;
+  /** Latent memory service for cache warming and fast retrieval */
+  latentMemory?: LatentMemoryService;
 }
 
 /**
@@ -192,6 +231,8 @@ export interface SessionServices {
   experiencePromotion?: ExperiencePromotionService;
   /** Observe commit service for storing extracted entries */
   observeCommit?: ObserveCommitService;
+  /** Episode service for temporal activity grouping and timeline queries */
+  episode?: EpisodeService;
 }
 
 /**
@@ -226,6 +267,8 @@ export interface ExtractionPipelineServices {
 export interface GraphServices {
   /** Graph sync service for automatic entry-to-node and relation-to-edge synchronization */
   graphSync?: GraphSyncService;
+  /** Graph backfill service for background population of the knowledge graph */
+  graphBackfill?: GraphBackfillService;
 }
 
 /**
@@ -245,6 +288,8 @@ export interface UtilityServices {
   autoTagging?: IAutoTaggingService;
   /** Extraction hook service for proactive pattern detection */
   extractionHook?: IExtractionHookService;
+  /** Red flag detection service for quality checks */
+  redFlag?: RedFlagService;
   /** Re-embedding service for fixing dimension mismatches */
   reembedding?: ReembeddingService;
   /** Factory function to create re-embedding service (internal use) */

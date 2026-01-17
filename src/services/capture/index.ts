@@ -28,6 +28,7 @@ import type { RLService } from '../rl/index.js';
 import { buildExtractionState } from '../rl/state/extraction.state.js';
 import type { FeedbackService } from '../feedback/index.js';
 import { createHash } from 'crypto';
+import type { EpisodeService } from '../episode/index.js';
 
 const logger = createComponentLogger('capture');
 
@@ -46,6 +47,8 @@ export interface CaptureServiceDeps {
   feedbackService?: FeedbackService | null;
   /** Optional: capture state manager (defaults to new instance if not provided) */
   stateManager?: CaptureStateManager;
+  /** Optional: episode service for auto-linking captured experiences to active episodes */
+  episodeService?: EpisodeService | null;
 }
 
 export interface CaptureServiceConfig extends CaptureConfig {}
@@ -62,6 +65,7 @@ export class CaptureService {
   private getEntryCountFn?: (projectId?: string) => Promise<number>;
   private rlService?: RLService | null;
   private feedbackService?: FeedbackService | null;
+  private episodeService?: EpisodeService | null;
 
   constructor(deps: CaptureServiceDeps, captureConfig?: CaptureServiceConfig) {
     this.stateManager = deps.stateManager ?? new CaptureStateManager();
@@ -75,6 +79,7 @@ export class CaptureService {
     this.getEntryCountFn = deps.getEntryCount;
     this.rlService = deps.rlService;
     this.feedbackService = deps.feedbackService;
+    this.episodeService = deps.episodeService;
   }
 
   /**
@@ -161,6 +166,50 @@ export class CaptureService {
    */
   private hashContent(content: string): string {
     return createHash('sha256').update(content.slice(0, 1000)).digest('hex').slice(0, 16);
+  }
+
+  /**
+   * Link captured experiences to an episode
+   */
+  private async linkExperiencesToEpisode(
+    experienceIds: string[],
+    episodeId: string
+  ): Promise<void> {
+    if (!this.episodeService || experienceIds.length === 0) {
+      return;
+    }
+
+    for (const expId of experienceIds) {
+      try {
+        await this.episodeService.linkEntity(episodeId, 'experience', expId, 'created');
+        logger.debug({ episodeId, experienceId: expId }, 'Linked experience to episode');
+      } catch (error) {
+        logger.warn(
+          { error: error instanceof Error ? error.message : String(error), episodeId, experienceId: expId },
+          'Failed to link experience to episode'
+        );
+      }
+    }
+  }
+
+  /**
+   * Get active episode for a session (if episode service is available)
+   */
+  private async getActiveEpisodeId(sessionId: string): Promise<string | undefined> {
+    if (!this.episodeService) {
+      return undefined;
+    }
+
+    try {
+      const activeEpisode = await this.episodeService.getActiveEpisode(sessionId);
+      return activeEpisode?.id;
+    } catch (error) {
+      logger.debug(
+        { error: error instanceof Error ? error.message : String(error), sessionId },
+        'Could not get active episode'
+      );
+      return undefined;
+    }
   }
 
   // =============================================================================
@@ -406,6 +455,19 @@ export class CaptureService {
     result.knowledge = knowledgeResult;
     result.totalProcessingTimeMs = Date.now() - startTime;
 
+    // Auto-link experiences to active episode if available
+    const episodeId = captureOptions.episodeId ?? (await this.getActiveEpisodeId(sessionId));
+    if (episodeId && experienceResult.experiences.length > 0) {
+      const experienceIds = experienceResult.experiences
+        .map((e) => e.experience.id)
+        .filter((id) => id); // Filter out empty IDs from preview mode
+      await this.linkExperiencesToEpisode(experienceIds, episodeId);
+      logger.info(
+        { episodeId, count: experienceIds.length },
+        'Auto-linked experiences to episode'
+      );
+    }
+
     // Clean up session state
     this.stateManager.clearSession(sessionId);
 
@@ -440,7 +502,22 @@ export class CaptureService {
       };
     }
 
-    return this.experienceModule.recordCase(params);
+    const result = await this.experienceModule.recordCase(params);
+
+    // Auto-link to episode if available
+    const episodeId = params.episodeId ?? (params.sessionId ? await this.getActiveEpisodeId(params.sessionId) : undefined);
+    if (episodeId && result.experiences.length > 0) {
+      const experienceIds = result.experiences
+        .map((e) => e.experience.id)
+        .filter((id) => id);
+      await this.linkExperiencesToEpisode(experienceIds, episodeId);
+      logger.debug(
+        { episodeId, count: experienceIds.length },
+        'Auto-linked recorded case to episode'
+      );
+    }
+
+    return result;
   }
 
   // =============================================================================

@@ -388,6 +388,27 @@ export const BUILTIN_NODE_TYPES: BuiltinNodeTypeDef[] = [
       },
     },
   },
+
+  // ---------------------------------------------------------------------------
+  // Episode Type (Temporal Activity Grouping)
+  // ---------------------------------------------------------------------------
+  {
+    name: 'episode',
+    description: 'Bounded temporal activity grouping',
+    parentTypeName: 'entity',
+    schema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string' }, // planned, active, completed, failed, cancelled
+        outcomeType: { type: 'string' }, // success, partial, failure, abandoned
+        triggerType: { type: 'string' },
+        startedAt: { type: 'string' },
+        endedAt: { type: 'string' },
+        durationMs: { type: 'number' },
+        depth: { type: 'number' },
+      },
+    },
+  },
 ];
 
 // =============================================================================
@@ -549,5 +570,36 @@ export const BUILTIN_EDGE_TYPES: BuiltinEdgeTypeDef[] = [
     name: 'follows',
     description: 'Source follows target in sequence',
     inverseName: 'precedes',
+  },
+
+  // ---------------------------------------------------------------------------
+  // Episode Relations
+  // ---------------------------------------------------------------------------
+  {
+    name: 'episode_contains',
+    description: 'Episode contains/groups this entity',
+    inverseName: 'within_episode',
+    sourceConstraints: ['episode'],
+    schema: {
+      type: 'object',
+      properties: {
+        role: { type: 'string' }, // 'created', 'modified', 'referenced', 'triggered'
+        addedAt: { type: 'string' },
+      },
+    },
+  },
+  {
+    name: 'caused_by',
+    description: 'Source episode was caused by target episode',
+    inverseName: 'caused',
+    sourceConstraints: ['episode'],
+    targetConstraints: ['episode'],
+  },
+  {
+    name: 'continued_from',
+    description: 'Source episode continues work from target episode',
+    inverseName: 'continued_by',
+    sourceConstraints: ['episode'],
+    targetConstraints: ['episode'],
   },
 ];

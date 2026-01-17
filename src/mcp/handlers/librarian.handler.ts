@@ -393,6 +393,73 @@ const reject: ContextAwareHandler = async (context, params) => {
 };
 
 /**
+ * Run maintenance tasks (consolidation, forgetting, graph backfill)
+ */
+const run_maintenance: ContextAwareHandler = async (context, params) => {
+  const service = getLibrarianServiceFromContext(context);
+
+  if (!service) {
+    return {
+      success: false,
+      error: 'Librarian service not available',
+    };
+  }
+
+  if (!service.hasMaintenanceOrchestrator()) {
+    return {
+      success: false,
+      error: 'Maintenance orchestrator not initialized. Ensure librarian is properly configured.',
+    };
+  }
+
+  const scopeType = getOptionalParam(params, 'scopeType', isScopeType) ?? 'project';
+  const scopeId = getOptionalParam(params, 'scopeId', isString);
+  const dryRun = getOptionalParam(params, 'dryRun', isBoolean) ?? false;
+  const initiatedBy = getOptionalParam(params, 'initiatedBy', isString) ?? 'mcp-handler';
+
+  // Parse tasks array if provided
+  type MaintenanceTask = 'consolidation' | 'forgetting' | 'graphBackfill';
+  let tasks: MaintenanceTask[] | undefined;
+  if (params.tasks && Array.isArray(params.tasks)) {
+    const validTasks = ['consolidation', 'forgetting', 'graphBackfill'];
+    tasks = (params.tasks as string[]).filter((t): t is MaintenanceTask =>
+      validTasks.includes(t)
+    );
+  }
+
+  logger.info({ scopeType, scopeId, tasks, dryRun }, 'Starting maintenance run');
+
+  try {
+    const result = await service.runMaintenance({
+      scopeType,
+      scopeId,
+      tasks,
+      dryRun,
+      initiatedBy,
+    });
+
+    return {
+      success: true,
+      maintenance: {
+        runId: result.runId,
+        dryRun: result.dryRun,
+        timing: result.timing,
+        consolidation: result.consolidation,
+        forgetting: result.forgetting,
+        graphBackfill: result.graphBackfill,
+        healthAfter: result.healthAfter,
+      },
+    };
+  } catch (error) {
+    logger.error({ error }, 'Maintenance run failed');
+    return {
+      success: false,
+      ...formatError(error),
+    };
+  }
+};
+
+/**
  * Skip a recommendation (defer for later)
  */
 const skip: ContextAwareHandler = async (context, params) => {
@@ -451,4 +518,5 @@ export const librarianHandlers = {
   approve,
   reject,
   skip,
+  run_maintenance,
 };

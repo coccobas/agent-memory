@@ -9,6 +9,20 @@
 // Export main service
 export { HierarchicalSummarizationService } from './hierarchical-summarization.service.js';
 
+// Export hierarchical retriever (for query pipeline integration)
+export {
+  HierarchicalRetriever,
+  createHierarchicalRetriever,
+  createPipelineRetriever,
+} from './hierarchical-retriever.js';
+export type {
+  RetrieveOptions,
+  RetrievedEntry,
+  RetrievalStep,
+  RetrieveResult,
+  HierarchicalRetrieverConfig,
+} from './hierarchical-retriever.js';
+
 // Export types
 export type {
   HierarchicalSummarizationConfig,

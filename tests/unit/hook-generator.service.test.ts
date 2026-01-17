@@ -213,7 +213,7 @@ describe('hook-generator.service', () => {
       });
 
       expect(result.success).toBe(true);
-      expect(result.hooks).toHaveLength(6); // PreToolUse + Stop + UserPromptSubmit + SessionEnd + settings + CLAUDE.md.snippet
+      expect(result.hooks).toHaveLength(7); // PreToolUse + Stop + UserPromptSubmit + SessionEnd + Observe + settings + CLAUDE.md.snippet
       expect(result.hooks.some((h) => h.filePath.includes('pretooluse.sh'))).toBe(true);
       expect(result.hooks.some((h) => h.filePath.includes('stop.sh'))).toBe(true);
       expect(result.hooks.some((h) => h.filePath.includes('userpromptsubmit.sh'))).toBe(true);
@@ -277,7 +277,7 @@ describe('hook-generator.service', () => {
       const installResult = installHooks(result.hooks);
 
       expect(installResult.success).toBe(true);
-      expect(installResult.installed).toHaveLength(6);
+      expect(installResult.installed).toHaveLength(7);
       expect(installResult.errors).toHaveLength(0);
 
       // Verify files were created

@@ -49,4 +49,3 @@ export function createFTSService(deps: FTSServiceDeps): IFTSService {
     }
   }
 }
-

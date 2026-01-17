@@ -19,8 +19,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { createComponentLogger } from '../../utils/logger.js';
 import { createServiceUnavailableError, createValidationError } from '../../core/errors.js';
-import type { EmbeddingService } from '../embedding.service.js';
-import type { VectorService } from '../vector.service.js';
+import type { IEmbeddingService, IVectorService } from '../../core/context.js';
 import type { LatentMemory } from '../../db/schema/latent-memories.js';
 import type { CompressionStrategy } from './compression/types.js';
 
@@ -194,8 +193,8 @@ export interface LatentMemoryServiceConfig {
  * for efficient semantic memory operations.
  */
 export class LatentMemoryService {
-  private readonly embeddingService: EmbeddingService;
-  private readonly vectorService: VectorService;
+  private readonly embeddingService: IEmbeddingService;
+  private readonly vectorService: IVectorService;
   private readonly kvCache?: IKVCacheService;
   private readonly compression?: CompressionStrategy;
   private readonly repository?: ILatentMemoryRepository;
@@ -212,8 +211,8 @@ export class LatentMemoryService {
    * @param config - Optional configuration
    */
   constructor(
-    embeddingService: EmbeddingService,
-    vectorService: VectorService,
+    embeddingService: IEmbeddingService,
+    vectorService: IVectorService,
     kvCache?: IKVCacheService,
     compression?: CompressionStrategy,
     repository?: ILatentMemoryRepository,

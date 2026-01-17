@@ -44,6 +44,8 @@ import { createIncrementalMemoryObserver } from '../../services/extraction/incre
 import { createClassificationService } from '../../services/classification/index.js';
 // Re-embedding service for dimension mismatch auto-fix
 import { ReembeddingService } from '../../services/reembedding.service.js';
+// Latent memory service for cache warming
+import { LatentMemoryService } from '../../services/latent-memory/latent-memory.service.js';
 
 const logger = createComponentLogger('services-factory');
 
@@ -142,6 +144,23 @@ export async function createServices(
 
   // Use provided vectorService, or create one with the determined store
   const vectorService = overrides?.vectorService ?? new VectorService(vectorStore);
+
+  // Create latent memory service for cache warming (depends on embedding + vector)
+  // Note: Repository and KVCache can be added later for persistence/caching
+  const latentMemoryService = new LatentMemoryService(
+    embeddingService,
+    vectorService,
+    undefined, // KVCache - not wired yet
+    undefined, // CompressionStrategy - not wired yet
+    undefined, // Repository - not wired yet
+    {
+      enableCompression: false, // Disabled until compression is wired
+      enableCache: false, // Disabled until KVCache is wired
+      defaultImportance: 0.5,
+      cacheTtlSeconds: 3600,
+    }
+  );
+  logger.debug('Latent memory service initialized');
 
   const extractionService = new ExtractionService({
     provider: config.extraction.provider,
@@ -475,6 +494,8 @@ export async function createServices(
     incrementalExtractor,
     // Classification service
     classification: classificationService,
+    // Latent memory service for cache warming
+    latentMemory: latentMemoryService,
     // Re-embedding service factory (call with db to create the service)
     _createReembeddingService: createReembeddingService,
   };

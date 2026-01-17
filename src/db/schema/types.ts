@@ -15,7 +15,7 @@ export type EntryType = 'tool' | 'guideline' | 'knowledge' | 'project' | 'experi
 /**
  * Extended entry type for audit logging (includes non-core entity types)
  */
-export type AuditEntryType = EntryType | 'graph_node' | 'graph_edge' | 'relation' | 'tag';
+export type AuditEntryType = EntryType | 'graph_node' | 'graph_edge' | 'relation' | 'tag' | 'episode';
 
 /**
  * Permission entry type (subset of EntryType - excludes 'project')

@@ -364,6 +364,15 @@ export interface PipelineContext {
   // Final results
   results: QueryResultItem[];
 
+  // Total counts per type in the queried scope (not limited by pagination)
+  // Populated by fetch stage for accurate hierarchical summaries
+  totalCounts?: {
+    tool?: number;
+    guideline?: number;
+    knowledge?: number;
+    experience?: number;
+  };
+
   // Performance tracking
   startMs: number;
   cacheKey: string | null;
@@ -683,6 +692,9 @@ export function buildQueryResult(ctx: PipelineContext): MemoryQueryResult {
     truncated: hasMore,
     hasMore,
     nextCursor,
+
+    // Include total counts per type for hierarchical summaries
+    ...(ctx.totalCounts && { totalCounts: ctx.totalCounts }),
 
     // Add query rewrite metadata (HyDE visibility)
     ...(ctx.rewriteStrategy && {

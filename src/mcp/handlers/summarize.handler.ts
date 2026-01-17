@@ -72,6 +72,8 @@ async function buildSummaries(
 
   const entryTypes = getOptionalParam(params, 'entryTypes', isEntryTypeArray);
   const forceRebuild = getOptionalParam(params, 'forceRebuild', isBoolean) ?? false;
+  const similarityThreshold = getOptionalParam(params, 'similarityThreshold', isNumber);
+  const minGroupSize = getOptionalParam(params, 'minGroupSize', isNumber);
 
   // Validate required services
   if (!context.services?.embedding || !context.services?.vector || !context.services?.extraction) {
@@ -94,6 +96,8 @@ async function buildSummaries(
     scopeId,
     entryTypes: entryTypes as ('tool' | 'guideline' | 'knowledge' | 'experience')[] | undefined,
     forceRebuild,
+    similarityThreshold,
+    minGroupSize,
   });
 
   return formatTimestamps({

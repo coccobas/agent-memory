@@ -187,6 +187,14 @@ export class VectorService implements IVectorService {
     return this.store.isAvailable();
   }
 
+  /**
+   * Wait for the vector service to be ready.
+   * This is useful for callers that need to ensure initialization before checking isAvailable().
+   */
+  async waitForReady(): Promise<void> {
+    await this.ensureInitialized();
+  }
+
   async initialize(): Promise<void> {
     await this.store.initialize();
   }

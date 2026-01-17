@@ -459,10 +459,12 @@ function checkShouldForget(
       });
     case 'combined': {
       // For combined, use weighted score threshold
+      // Recency (35%) + Frequency (35%) + Importance (30%)
+      const importanceScore = importanceInput.priority
+        ? calculateImportanceScore(importanceInput)
+        : 0.5; // Default importance for entries without priority
       const combinedScore =
-        recencyScore * 0.35 + frequencyScore * 0.35 + importanceInput.priority
-          ? calculateImportanceScore(importanceInput) * 0.3
-          : 0.3;
+        recencyScore * 0.35 + frequencyScore * 0.35 + importanceScore * 0.3;
       return combinedScore < 0.4;
     }
   }

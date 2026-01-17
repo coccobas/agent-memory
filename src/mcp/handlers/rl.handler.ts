@@ -549,7 +549,14 @@ async function evaluateModel(
 }
 
 /**
- * Compare two models
+ * Compare two policies
+ *
+ * Supports comparing:
+ * - Same policy type (e.g., extraction vs extraction) - useful for A/B testing
+ * - Different policy types (e.g., extraction vs retrieval) - useful for cross-validation
+ *
+ * The comparison evaluates both policies on the same dataset and reports
+ * which performs better based on accuracy and average reward.
  */
 async function compareModels(
   context: AppContext,
@@ -560,25 +567,19 @@ async function compareModels(
   const policyB = getRequiredParam(params, 'policyB', isString);
   const datasetPath = getOptionalParam(params, 'datasetPath', isString);
 
-  if (!['extraction', 'retrieval', 'consolidation'].includes(policyA)) {
+  const validPolicies = ['extraction', 'retrieval', 'consolidation'];
+
+  if (!validPolicies.includes(policyA)) {
     throw createValidationError(
       'policyA',
       'Policy must be extraction, retrieval, or consolidation'
     );
   }
 
-  if (!['extraction', 'retrieval', 'consolidation'].includes(policyB)) {
+  if (!validPolicies.includes(policyB)) {
     throw createValidationError(
       'policyB',
       'Policy must be extraction, retrieval, or consolidation'
-    );
-  }
-
-  // For now, require same policy type for comparison
-  if (policyA !== policyB) {
-    throw createValidationError(
-      'policy',
-      'Currently only supports comparing models of the same policy type'
     );
   }
 
@@ -613,6 +614,8 @@ async function compareModels(
       },
     };
   } else {
+    // Build dataset from the first policy type
+    // Both policies will be evaluated on this dataset
     const datasetParams: DatasetParams = {
       evalSplit: 1.0,
     };
@@ -626,18 +629,21 @@ async function compareModels(
     }
   }
 
-  // Get policy instances (for now, using the same instance twice as placeholder)
-  // In a real implementation, you'd load two different model versions
-  let policyInstance;
-  if (policyA === 'extraction') {
-    policyInstance = rlService.getExtractionPolicy();
-  } else if (policyA === 'retrieval') {
-    policyInstance = rlService.getRetrievalPolicy();
-  } else {
-    policyInstance = rlService.getConsolidationPolicy();
-  }
+  // Get policy instance for policyA
+  const getPolicyInstance = (policyType: string) => {
+    if (policyType === 'extraction') {
+      return rlService.getExtractionPolicy();
+    } else if (policyType === 'retrieval') {
+      return rlService.getRetrievalPolicy();
+    } else {
+      return rlService.getConsolidationPolicy();
+    }
+  };
 
-  // Compare (for now, comparing policy against itself as placeholder)
+  const policyInstanceA = getPolicyInstance(policyA);
+  const policyInstanceB = getPolicyInstance(policyB);
+
+  // Prepare test data
   // RL policies have generic type parameters - safe to use any for dataset compatibility
   // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
   const testData = dataset.eval.map((ex: any) => ({
@@ -649,8 +655,15 @@ async function compareModels(
     reward: ex.reward,
   }));
 
+  // Compare the two policies
   // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
-  const result = await comparePolicies(policyInstance as any, policyInstance as any, testData);
+  const result = await comparePolicies(policyInstanceA as any, policyInstanceB as any, testData);
+
+  // Determine if comparing same policy type (self-comparison) or different types
+  const isSameType = policyA === policyB;
+  const note = isSameType
+    ? 'Comparing same policy type - both policies use current active configuration. For version comparison, train and load different model versions.'
+    : `Cross-policy comparison: ${policyA} vs ${policyB}. Results show relative performance on ${policyA}-style dataset.`;
 
   return {
     success: true,
@@ -658,7 +671,7 @@ async function compareModels(
     policyB,
     datasetSize: dataset.eval.length,
     comparison: result,
-    note: 'Currently comparing same policy instance - implement model versioning for true A/B testing',
+    note,
   };
 }
 

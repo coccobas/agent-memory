@@ -5,7 +5,10 @@
  * Coordinates pattern detection, quality evaluation, and recommendation generation.
  */
 
-import type { DatabaseDeps } from '../../core/types.js';
+import type { DatabaseDeps, AppDb } from '../../core/types.js';
+import type { Repositories } from '../../core/interfaces/repositories.js';
+import type { IEmbeddingService, IVectorService } from '../../core/context.js';
+import type { GraphBackfillService } from '../graph/backfill.service.js';
 import { createComponentLogger } from '../../utils/logger.js';
 import { generateId } from '../../db/repositories/base.js';
 import { createExperienceRepository } from '../../db/repositories/experiences.js';
@@ -23,11 +26,21 @@ import {
   type AnalysisRequest,
   type AnalysisResult,
   type LibrarianStatus,
+  type MaintenanceRequest,
+  type MaintenanceResult,
+  type MemoryHealth,
+  type SessionEndRequest,
+  type SessionEndResult,
+  type SessionStartRequest,
+  type SessionStartResult,
 } from './types.js';
+import type { CaptureService, TurnData } from '../capture/index.js';
+import { MaintenanceOrchestrator } from './maintenance/orchestrator.js';
 import type { ScopeType } from '../../db/schema/types.js';
 import type { RLService } from '../rl/index.js';
 import { buildConsolidationState } from '../rl/state/consolidation.state.js';
 import type { FeedbackService } from '../feedback/index.js';
+import type { LatentMemoryService } from '../latent-memory/latent-memory.service.js';
 
 // =============================================================================
 // TYPES
@@ -41,6 +54,20 @@ export interface LibrarianServiceDeps extends DatabaseDeps {
   rlService?: RLService | null;
   /** Optional feedback service for recording decisions */
   feedbackService?: FeedbackService | null;
+  /** Optional full AppDb for maintenance operations */
+  appDb?: AppDb;
+  /** Optional repositories for maintenance operations */
+  repos?: Repositories;
+  /** Optional graph backfill service for maintenance */
+  graphBackfill?: GraphBackfillService;
+  /** Optional embedding service for maintenance */
+  embedding?: IEmbeddingService;
+  /** Optional vector service for maintenance */
+  vector?: IVectorService;
+  /** Optional capture service for experience extraction */
+  captureService?: CaptureService;
+  /** Optional latent memory service for cache warming */
+  latentMemoryService?: LatentMemoryService;
 }
 
 const logger = createComponentLogger('librarian');
@@ -62,13 +89,21 @@ export class LibrarianService {
   private recommender: Recommender;
   private recommendationStore: IRecommendationStore;
   private lastAnalysis?: AnalysisResult;
+  private lastMaintenance?: MaintenanceResult;
+  private lastSessionEnd?: SessionEndResult;
+  private lastSessionStart?: SessionStartResult;
   private rlService?: RLService | null;
   private feedbackService?: FeedbackService | null;
+  private maintenanceOrchestrator?: MaintenanceOrchestrator;
+  private captureService?: CaptureService;
+  private latentMemoryService?: LatentMemoryService;
 
   constructor(deps: LibrarianServiceDeps, config: Partial<LibrarianConfig> = {}) {
     this.config = { ...DEFAULT_LIBRARIAN_CONFIG, ...config };
     this.rlService = deps.rlService;
     this.feedbackService = deps.feedbackService;
+    this.captureService = deps.captureService;
+    this.latentMemoryService = deps.latentMemoryService;
 
     // Initialize pipeline components
     const experienceRepo = createExperienceRepository(deps);
@@ -89,6 +124,51 @@ export class LibrarianService {
 
     // Initialize recommendation store
     this.recommendationStore = initializeRecommendationStore(deps);
+
+    // Initialize maintenance orchestrator if we have the required deps at construction time
+    if (deps.appDb && deps.repos) {
+      this.initMaintenanceOrchestrator({
+        db: deps.appDb,
+        repos: deps.repos,
+        graphBackfill: deps.graphBackfill,
+        embedding: deps.embedding,
+        vector: deps.vector,
+      });
+    }
+  }
+
+  /**
+   * Initialize or re-initialize the maintenance orchestrator with dependencies.
+   * Call this after construction if repos/services weren't available at construction time.
+   */
+  initMaintenanceOrchestrator(deps: {
+    db: AppDb;
+    repos: Repositories;
+    graphBackfill?: GraphBackfillService;
+    embedding?: IEmbeddingService;
+    vector?: IVectorService;
+    latentMemory?: LatentMemoryService;
+  }): void {
+    this.maintenanceOrchestrator = new MaintenanceOrchestrator(deps, this.config.maintenance);
+    logger.debug('Maintenance orchestrator initialized');
+  }
+
+  /**
+   * Set the capture service after construction.
+   * Call this if CaptureService wasn't available at construction time.
+   */
+  setCaptureService(captureService: CaptureService): void {
+    this.captureService = captureService;
+    logger.debug('Capture service set for librarian');
+  }
+
+  /**
+   * Set the latent memory service after construction.
+   * Call this if LatentMemoryService wasn't available at construction time.
+   */
+  setLatentMemoryService(latentMemoryService: LatentMemoryService): void {
+    this.latentMemoryService = latentMemoryService;
+    logger.debug('Latent memory service set for librarian');
   }
 
   /**
@@ -443,10 +523,464 @@ export class LibrarianService {
   getConfig(): LibrarianConfig {
     return { ...this.config };
   }
+
+  // ===========================================================================
+  // MAINTENANCE OPERATIONS
+  // ===========================================================================
+
+  /**
+   * Run maintenance tasks (consolidation, forgetting, graph backfill)
+   */
+  async runMaintenance(request: MaintenanceRequest): Promise<MaintenanceResult> {
+    if (!this.maintenanceOrchestrator) {
+      throw new Error(
+        'Maintenance orchestrator not initialized. Provide appDb and repos in constructor.'
+      );
+    }
+
+    logger.info(
+      {
+        scopeType: request.scopeType,
+        scopeId: request.scopeId,
+        tasks: request.tasks,
+        dryRun: request.dryRun,
+      },
+      'Running maintenance via librarian'
+    );
+
+    const result = await this.maintenanceOrchestrator.runMaintenance(request);
+    this.lastMaintenance = result;
+
+    logger.info(
+      {
+        runId: result.runId,
+        durationMs: result.timing.durationMs,
+        consolidation: result.consolidation?.executed,
+        forgetting: result.forgetting?.executed,
+        graphBackfill: result.graphBackfill?.executed,
+        healthScore: result.healthAfter?.score,
+      },
+      'Maintenance completed'
+    );
+
+    return result;
+  }
+
+  /**
+   * Get memory health for a scope
+   */
+  async getHealth(scopeType: ScopeType, scopeId?: string): Promise<MemoryHealth> {
+    if (!this.maintenanceOrchestrator) {
+      throw new Error(
+        'Maintenance orchestrator not initialized. Provide appDb and repos in constructor.'
+      );
+    }
+
+    return this.maintenanceOrchestrator.computeHealth(scopeType, scopeId);
+  }
+
+  /**
+   * Get last maintenance result
+   */
+  getLastMaintenance(): MaintenanceResult | undefined {
+    return this.lastMaintenance;
+  }
+
+  /**
+   * Check if maintenance orchestrator is available
+   */
+  hasMaintenanceOrchestrator(): boolean {
+    return !!this.maintenanceOrchestrator;
+  }
+
+  // ===========================================================================
+  // UNIFIED SESSION END PROCESSING
+  // ===========================================================================
+
+  /**
+   * Unified session end handler - orchestrates the complete learning pipeline.
+   *
+   * Pipeline stages:
+   * 1. Experience Capture: Extract experiences, knowledge, guidelines from conversation
+   * 2. Pattern Analysis: Detect patterns in accumulated experiences
+   * 3. Maintenance: Run consolidation, forgetting, and graph backfill
+   *
+   * @param request - Session end request with conversation data
+   * @returns Combined results from all stages
+   */
+  async onSessionEnd(request: SessionEndRequest): Promise<SessionEndResult> {
+    const startedAt = new Date().toISOString();
+    const errors: string[] = [];
+
+    logger.info(
+      {
+        sessionId: request.sessionId,
+        projectId: request.projectId,
+        skipCapture: request.skipCapture,
+        skipAnalysis: request.skipAnalysis,
+        skipMaintenance: request.skipMaintenance,
+        dryRun: request.dryRun,
+      },
+      'Starting unified session end processing'
+    );
+
+    const result: SessionEndResult = {
+      sessionId: request.sessionId,
+      timing: {
+        startedAt,
+        completedAt: '', // Will be set at the end
+        durationMs: 0,
+      },
+    };
+
+    // Stage 1: Experience Capture
+    if (!request.skipCapture && this.captureService && request.messages && request.messages.length >= 3) {
+      try {
+        const captureStart = Date.now();
+        logger.debug({ sessionId: request.sessionId }, 'Running experience capture');
+
+        // Initialize capture session with project context
+        this.captureService.initSession(request.sessionId, request.projectId);
+
+        // Convert messages to turn data and track them
+        for (const msg of request.messages) {
+          const turnData: TurnData = {
+            role: msg.role,
+            content: msg.content,
+            timestamp: msg.createdAt ?? new Date().toISOString(),
+            tokenCount: Math.ceil(msg.content.length / 4), // Rough estimate
+            toolCalls: msg.toolsUsed
+              ? msg.toolsUsed.map((tool: string) => ({
+                  name: tool,
+                  input: {}, // Input not available from stored messages
+                  success: true,
+                }))
+              : undefined,
+          };
+
+          // Track turn metrics without triggering mid-session capture
+          await this.captureService.onTurnComplete(request.sessionId, turnData, {
+            autoStore: false,
+          });
+        }
+
+        // Trigger session-end capture for experiences
+        const captureResult = await this.captureService.onSessionEnd(request.sessionId, {
+          projectId: request.projectId,
+          scopeType: request.projectId ? 'project' : 'session',
+          scopeId: request.projectId ?? request.sessionId,
+          autoStore: !request.dryRun,
+          skipDuplicates: true,
+        });
+
+        result.capture = {
+          experiencesExtracted: captureResult.experiences.experiences.length,
+          knowledgeExtracted: captureResult.knowledge.knowledge.length,
+          guidelinesExtracted: captureResult.knowledge.guidelines.length,
+          toolsExtracted: captureResult.knowledge.tools.length,
+          skippedDuplicates: captureResult.experiences.skippedDuplicates ?? 0,
+          processingTimeMs: Date.now() - captureStart,
+        };
+
+        logger.debug(
+          {
+            sessionId: request.sessionId,
+            experiencesExtracted: result.capture.experiencesExtracted,
+            knowledgeExtracted: result.capture.knowledgeExtracted,
+            processingTimeMs: result.capture.processingTimeMs,
+          },
+          'Experience capture completed'
+        );
+      } catch (error) {
+        const errorMsg = `Experience capture failed: ${error instanceof Error ? error.message : String(error)}`;
+        errors.push(errorMsg);
+        logger.warn({ sessionId: request.sessionId, error: errorMsg }, 'Experience capture failed (non-fatal)');
+      }
+    }
+
+    // Stage 2: Pattern Analysis
+    if (!request.skipAnalysis && request.projectId) {
+      try {
+        const analysisStart = Date.now();
+        logger.debug({ sessionId: request.sessionId, projectId: request.projectId }, 'Running pattern analysis');
+
+        const analysisResult = await this.analyze({
+          scopeType: 'project',
+          scopeId: request.projectId,
+          lookbackDays: 7, // Shorter lookback for session-end analysis
+          initiatedBy: request.agentId ?? 'session-end',
+          dryRun: request.dryRun,
+        });
+
+        result.analysis = {
+          patternsDetected: analysisResult.stats.patternsDetected,
+          queuedForReview: analysisResult.stats.queuedForReview,
+          autoPromoted: analysisResult.stats.autoPromoted,
+          processingTimeMs: Date.now() - analysisStart,
+        };
+
+        logger.debug(
+          {
+            sessionId: request.sessionId,
+            patternsDetected: result.analysis.patternsDetected,
+            queuedForReview: result.analysis.queuedForReview,
+            processingTimeMs: result.analysis.processingTimeMs,
+          },
+          'Pattern analysis completed'
+        );
+      } catch (error) {
+        const errorMsg = `Pattern analysis failed: ${error instanceof Error ? error.message : String(error)}`;
+        errors.push(errorMsg);
+        logger.warn({ sessionId: request.sessionId, error: errorMsg }, 'Pattern analysis failed (non-fatal)');
+      }
+    }
+
+    // Stage 3: Maintenance
+    if (
+      !request.skipMaintenance &&
+      request.projectId &&
+      this.maintenanceOrchestrator &&
+      this.config.maintenance?.runOnSessionEnd
+    ) {
+      try {
+        const maintenanceStart = Date.now();
+        logger.debug({ sessionId: request.sessionId, projectId: request.projectId }, 'Running maintenance');
+
+        const maintenanceResult = await this.runMaintenance({
+          scopeType: 'project',
+          scopeId: request.projectId,
+          initiatedBy: request.agentId ?? 'session-end',
+          dryRun: request.dryRun,
+        });
+
+        result.maintenance = {
+          consolidationDeduped: maintenanceResult.consolidation?.entriesDeduped ?? 0,
+          forgettingArchived: maintenanceResult.forgetting?.entriesForgotten ?? 0,
+          graphNodesCreated: maintenanceResult.graphBackfill?.nodesCreated ?? 0,
+          graphEdgesCreated: maintenanceResult.graphBackfill?.edgesCreated ?? 0,
+          processingTimeMs: Date.now() - maintenanceStart,
+        };
+
+        logger.debug(
+          {
+            sessionId: request.sessionId,
+            consolidationDeduped: result.maintenance.consolidationDeduped,
+            forgettingArchived: result.maintenance.forgettingArchived,
+            processingTimeMs: result.maintenance.processingTimeMs,
+          },
+          'Maintenance completed'
+        );
+      } catch (error) {
+        const errorMsg = `Maintenance failed: ${error instanceof Error ? error.message : String(error)}`;
+        errors.push(errorMsg);
+        logger.warn({ sessionId: request.sessionId, error: errorMsg }, 'Maintenance failed (non-fatal)');
+      }
+    }
+
+    // Finalize timing
+    const completedAt = new Date().toISOString();
+    result.timing = {
+      startedAt,
+      completedAt,
+      durationMs: new Date(completedAt).getTime() - new Date(startedAt).getTime(),
+    };
+
+    if (errors.length > 0) {
+      result.errors = errors;
+    }
+
+    this.lastSessionEnd = result;
+
+    logger.info(
+      {
+        sessionId: request.sessionId,
+        durationMs: result.timing.durationMs,
+        capture: result.capture
+          ? {
+              experiences: result.capture.experiencesExtracted,
+              knowledge: result.capture.knowledgeExtracted,
+            }
+          : undefined,
+        analysis: result.analysis
+          ? {
+              patterns: result.analysis.patternsDetected,
+              queued: result.analysis.queuedForReview,
+            }
+          : undefined,
+        maintenance: result.maintenance
+          ? {
+              deduped: result.maintenance.consolidationDeduped,
+              archived: result.maintenance.forgettingArchived,
+            }
+          : undefined,
+        errors: errors.length > 0 ? errors.length : undefined,
+      },
+      'Unified session end processing completed'
+    );
+
+    return result;
+  }
+
+  /**
+   * Get last session end result
+   */
+  getLastSessionEnd(): SessionEndResult | undefined {
+    return this.lastSessionEnd;
+  }
+
+  // ===========================================================================
+  // UNIFIED SESSION START PROCESSING
+  // ===========================================================================
+
+  /**
+   * Unified session start handler - warms the latent memory cache.
+   *
+   * Pipeline stages:
+   * 1. Latent Memory Warming: Pre-warm cache with relevant entries for faster retrieval
+   *
+   * @param request - Session start request
+   * @returns Cache warming results
+   */
+  async onSessionStart(request: SessionStartRequest): Promise<SessionStartResult> {
+    const startedAt = new Date().toISOString();
+    const errors: string[] = [];
+
+    logger.info(
+      {
+        sessionId: request.sessionId,
+        projectId: request.projectId,
+        skipWarmup: request.skipWarmup,
+      },
+      'Starting unified session start processing'
+    );
+
+    const result: SessionStartResult = {
+      sessionId: request.sessionId,
+      timing: {
+        startedAt,
+        completedAt: '', // Will be set at the end
+        durationMs: 0,
+      },
+    };
+
+    // Stage 1: Latent Memory Warming
+    const latentConfig = this.config.modules.latentMemory;
+    if (
+      !request.skipWarmup &&
+      latentConfig.enabled &&
+      this.latentMemoryService &&
+      this.latentMemoryService.isAvailable()
+    ) {
+      try {
+        const warmupStart = Date.now();
+        logger.debug(
+          {
+            sessionId: request.sessionId,
+            projectId: request.projectId,
+            maxEntries: request.maxWarmEntries ?? latentConfig.maxWarmEntries,
+          },
+          'Running latent memory warmup'
+        );
+
+        // Build search query for relevant entries
+        // For session start, we want to pre-warm with entries that might be useful
+        const searchQuery = request.projectId
+          ? `project context session preparation`
+          : `general context session preparation`;
+
+        // Search for similar entries to pre-warm
+        const maxEntries = request.maxWarmEntries ?? latentConfig.maxWarmEntries ?? 100;
+        const similarEntries = await this.latentMemoryService.findSimilar(searchQuery, {
+          limit: maxEntries,
+          minScore: latentConfig.minImportanceScore ?? 0.3,
+          sourceTypes: ['guideline', 'knowledge', 'tool'],
+          sessionId: request.sessionId,
+        });
+
+        // Track access to warm entries (this updates importance and caches them)
+        let warmedCount = 0;
+        for (const entry of similarEntries) {
+          try {
+            await this.latentMemoryService.trackAccess(entry.id);
+            warmedCount++;
+          } catch (error) {
+            // Non-fatal: just log and continue
+            logger.debug(
+              { entryId: entry.id, error: error instanceof Error ? error.message : String(error) },
+              'Failed to track access during warmup'
+            );
+          }
+        }
+
+        result.warmup = {
+          entriesWarmed: warmedCount,
+          cacheHitRate: similarEntries.length > 0 ? warmedCount / similarEntries.length : 0,
+          processingTimeMs: Date.now() - warmupStart,
+        };
+
+        logger.debug(
+          {
+            sessionId: request.sessionId,
+            entriesWarmed: result.warmup.entriesWarmed,
+            cacheHitRate: result.warmup.cacheHitRate,
+            processingTimeMs: result.warmup.processingTimeMs,
+          },
+          'Latent memory warmup completed'
+        );
+      } catch (error) {
+        const errorMsg = `Latent memory warmup failed: ${error instanceof Error ? error.message : String(error)}`;
+        errors.push(errorMsg);
+        logger.warn({ sessionId: request.sessionId, error: errorMsg }, 'Latent memory warmup failed (non-fatal)');
+      }
+    } else if (!request.skipWarmup && latentConfig.enabled && !this.latentMemoryService) {
+      logger.debug({ sessionId: request.sessionId }, 'Latent memory service not available, skipping warmup');
+    } else if (!request.skipWarmup && latentConfig.enabled && this.latentMemoryService && !this.latentMemoryService.isAvailable()) {
+      logger.debug({ sessionId: request.sessionId }, 'Latent memory service unavailable (embeddings disabled), skipping warmup');
+    }
+
+    // Finalize timing
+    const completedAt = new Date().toISOString();
+    result.timing = {
+      startedAt,
+      completedAt,
+      durationMs: new Date(completedAt).getTime() - new Date(startedAt).getTime(),
+    };
+
+    if (errors.length > 0) {
+      result.errors = errors;
+    }
+
+    this.lastSessionStart = result;
+
+    logger.info(
+      {
+        sessionId: request.sessionId,
+        durationMs: result.timing.durationMs,
+        warmup: result.warmup
+          ? {
+              entriesWarmed: result.warmup.entriesWarmed,
+              cacheHitRate: result.warmup.cacheHitRate,
+            }
+          : undefined,
+        errors: errors.length > 0 ? errors.length : undefined,
+      },
+      'Unified session start processing completed'
+    );
+
+    return result;
+  }
+
+  /**
+   * Get last session start result
+   */
+  getLastSessionStart(): SessionStartResult | undefined {
+    return this.lastSessionStart;
+  }
 }
 
 // Re-export types
 export * from './types.js';
+export * from './maintenance/index.js';
 export {
   createRecommendationStore,
   getRecommendationStore,

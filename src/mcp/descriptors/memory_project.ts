@@ -14,10 +14,10 @@ import type {
 
 export const memoryProjectDescriptor: ToolDescriptor = {
   name: 'memory_project',
-  visibility: 'core',
-  description: 'Manage projects. Actions: create, list, get, update',
+  visibility: 'standard',
+  description: 'Manage projects. Actions: create, list, get, update, delete',
   commonParams: {
-    id: { type: 'string', description: 'Project ID (get, update)' },
+    id: { type: 'string', description: 'Project ID (get, update, delete)' },
     name: { type: 'string', description: 'Project name' },
     orgId: { type: 'string', description: 'Parent organization ID' },
     description: { type: 'string', description: 'Project description' },
@@ -26,6 +26,7 @@ export const memoryProjectDescriptor: ToolDescriptor = {
     limit: { type: 'number' },
     offset: { type: 'number' },
     admin_key: { type: 'string', description: 'Admin key (required for create/update/delete)' },
+    confirm: { type: 'boolean', description: 'Confirmation flag (required for delete)' },
   },
   actions: {
     create: {

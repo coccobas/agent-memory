@@ -233,6 +233,20 @@ function createMockAppContext(
     },
   };
 
+  // Episode mock data
+  const mockEpisode = {
+    id: 'ep-test-001',
+    scopeType: 'project',
+    scopeId: projectId,
+    name: 'Test Episode',
+    description: 'A test episode',
+    status: 'planned',
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    depth: 0,
+    events: [],
+  };
+
   const mockServices = {
     classification: classificationService,
     contextDetection: {
@@ -265,6 +279,82 @@ function createMockAppContext(
     permission: {
       check: vi.fn(async () => ({ allowed: true })),
     },
+    episode: {
+      create: vi.fn(async (input: Record<string, unknown>) => ({
+        ...mockEpisode,
+        id: generateId(),
+        ...input,
+      })),
+      getById: vi.fn(async (id: string) => ({ ...mockEpisode, id })),
+      list: vi.fn(async () => [mockEpisode]),
+      update: vi.fn(async (id: string, input: Record<string, unknown>) => ({
+        ...mockEpisode,
+        id,
+        ...input,
+      })),
+      deactivate: vi.fn(async () => true),
+      delete: vi.fn(async () => true),
+      start: vi.fn(async (id: string) => ({
+        ...mockEpisode,
+        id,
+        status: 'active',
+        startedAt: new Date().toISOString(),
+      })),
+      complete: vi.fn(async (id: string, outcome: string, outcomeType: string) => ({
+        ...mockEpisode,
+        id,
+        status: 'completed',
+        outcome,
+        outcomeType,
+        endedAt: new Date().toISOString(),
+      })),
+      fail: vi.fn(async (id: string, outcome: string) => ({
+        ...mockEpisode,
+        id,
+        status: 'failed',
+        outcome,
+        outcomeType: 'failure',
+        endedAt: new Date().toISOString(),
+      })),
+      cancel: vi.fn(async (id: string, reason?: string) => ({
+        ...mockEpisode,
+        id,
+        status: 'cancelled',
+        outcome: reason ?? 'Cancelled',
+        outcomeType: 'abandoned',
+        endedAt: new Date().toISOString(),
+      })),
+      addEvent: vi.fn(async (input: Record<string, unknown>) => ({
+        id: generateId(),
+        ...input,
+        sequenceNum: 1,
+        occurredAt: new Date().toISOString(),
+      })),
+      getEvents: vi.fn(async () => []),
+      linkEntity: vi.fn(async () => undefined),
+      getLinkedEntities: vi.fn(async () => []),
+      getTimeline: vi.fn(async () => [
+        {
+          timestamp: new Date().toISOString(),
+          type: 'episode_start',
+          name: 'Started: Test Episode',
+          episodeId: 'ep-test-001',
+        },
+      ]),
+      whatHappened: vi.fn(async (id: string) => ({
+        episode: { ...mockEpisode, id },
+        timeline: [],
+        linkedEntities: [],
+        childEpisodes: [],
+        metrics: { durationMs: 100, eventCount: 1, linkedEntityCount: 0, childEpisodeCount: 0 },
+      })),
+      traceCausalChain: vi.fn(async (id: string) => [
+        { episode: { ...mockEpisode, id }, depth: 0, relationship: 'self' },
+      ]),
+      getActiveEpisode: vi.fn(async () => null),
+      getChildren: vi.fn(async () => []),
+      getAncestors: vi.fn(async () => []),
+    },
   };
 
   const mockSecurity = {
@@ -275,6 +365,7 @@ function createMockAppContext(
     autoContext: { enabled: true },
     autoSession: { enabled: false },
     outputMode: 'json',
+    extractionHook: { enabled: false },
   };
 
   return {
@@ -433,11 +524,24 @@ describe('MCP Tool Call End-to-End Tests', () => {
       expect(context.services.contextDetection?.enrichParams).toHaveBeenCalled();
     });
 
-    it('should include _context in response when auto-detection is used', async () => {
+    it('should NOT include _context in response for non-whitelisted tools', async () => {
       const context = createMockAppContext(db, classificationService);
 
+      // memory_remember is not a whitelisted tool for _context metadata
       const result = await runTool(context, 'memory_remember', {
         text: 'Rule: test with context',
+      });
+
+      const response = JSON.parse(result.content[0]?.text ?? '{}');
+      // _context is only included for whitelisted tools (memory_quickstart, memory_status, memory_session)
+      expect(response._context).toBeUndefined();
+    });
+
+    it('should include _context in response for whitelisted tools (memory_session)', async () => {
+      const context = createMockAppContext(db, classificationService);
+
+      const result = await runTool(context, 'memory_session', {
+        action: 'list',
       });
 
       const response = JSON.parse(result.content[0]?.text ?? '{}');
@@ -526,6 +630,271 @@ describe('MCP Tool Call End-to-End Tests', () => {
 
       // Tool should complete (may error due to missing mocks, but shouldn't be security error)
       expect(result.content).toHaveLength(1);
+    });
+  });
+
+  describe('memory_episode Tool Calls', () => {
+    it('should create an episode via add action', async () => {
+      const context = createMockAppContext(db, classificationService);
+
+      const result = await runTool(context, 'memory_episode', {
+        action: 'add',
+        scopeType: 'project',
+        scopeId: 'test-project-001',
+        name: 'Test Episode',
+        description: 'Integration test episode',
+      });
+
+      expect(result.isError).toBeUndefined();
+      expect(result.content).toHaveLength(1);
+
+      const response = JSON.parse(result.content[0]?.text ?? '{}');
+      expect(response.success).toBe(true);
+      expect(response.episode).toBeDefined();
+      expect(response.episode.name).toBe('Test Episode');
+    });
+
+    it('should get an episode by id', async () => {
+      const context = createMockAppContext(db, classificationService);
+
+      const result = await runTool(context, 'memory_episode', {
+        action: 'get',
+        id: 'ep-test-001',
+      });
+
+      expect(result.isError).toBeUndefined();
+
+      const response = JSON.parse(result.content[0]?.text ?? '{}');
+      expect(response.success).toBe(true);
+      expect(response.episode).toBeDefined();
+      expect(response.episode.id).toBe('ep-test-001');
+    });
+
+    it('should list episodes', async () => {
+      const context = createMockAppContext(db, classificationService);
+
+      const result = await runTool(context, 'memory_episode', {
+        action: 'list',
+        scopeType: 'project',
+        scopeId: 'test-project-001',
+      });
+
+      expect(result.isError).toBeUndefined();
+
+      const response = JSON.parse(result.content[0]?.text ?? '{}');
+      expect(response.success).toBe(true);
+      expect(response.episodes).toBeDefined();
+      expect(Array.isArray(response.episodes)).toBe(true);
+    });
+
+    it('should start an episode', async () => {
+      const context = createMockAppContext(db, classificationService);
+
+      const result = await runTool(context, 'memory_episode', {
+        action: 'start',
+        id: 'ep-test-001',
+      });
+
+      expect(result.isError).toBeUndefined();
+
+      const response = JSON.parse(result.content[0]?.text ?? '{}');
+      expect(response.success).toBe(true);
+      expect(response.episode.status).toBe('active');
+      expect(response.episode.startedAt).toBeDefined();
+    });
+
+    it('should complete an episode', async () => {
+      const context = createMockAppContext(db, classificationService);
+
+      const result = await runTool(context, 'memory_episode', {
+        action: 'complete',
+        id: 'ep-test-001',
+        outcome: 'Successfully completed',
+        outcomeType: 'success',
+      });
+
+      expect(result.isError).toBeUndefined();
+
+      const response = JSON.parse(result.content[0]?.text ?? '{}');
+      expect(response.success).toBe(true);
+      expect(response.episode.status).toBe('completed');
+      expect(response.episode.outcome).toBe('Successfully completed');
+      expect(response.episode.outcomeType).toBe('success');
+    });
+
+    it('should fail an episode', async () => {
+      const context = createMockAppContext(db, classificationService);
+
+      const result = await runTool(context, 'memory_episode', {
+        action: 'fail',
+        id: 'ep-test-001',
+        outcome: 'Something went wrong',
+      });
+
+      expect(result.isError).toBeUndefined();
+
+      const response = JSON.parse(result.content[0]?.text ?? '{}');
+      expect(response.success).toBe(true);
+      expect(response.episode.status).toBe('failed');
+      expect(response.episode.outcomeType).toBe('failure');
+    });
+
+    it('should cancel an episode', async () => {
+      const context = createMockAppContext(db, classificationService);
+
+      const result = await runTool(context, 'memory_episode', {
+        action: 'cancel',
+        id: 'ep-test-001',
+        reason: 'Not needed anymore',
+      });
+
+      expect(result.isError).toBeUndefined();
+
+      const response = JSON.parse(result.content[0]?.text ?? '{}');
+      expect(response.success).toBe(true);
+      expect(response.episode.status).toBe('cancelled');
+      expect(response.episode.outcomeType).toBe('abandoned');
+    });
+
+    it('should add an event to an episode', async () => {
+      const context = createMockAppContext(db, classificationService);
+
+      const result = await runTool(context, 'memory_episode', {
+        action: 'add_event',
+        episodeId: 'ep-test-001',
+        eventType: 'checkpoint',
+        name: 'Reached milestone',
+        description: 'Completed first phase',
+      });
+
+      expect(result.isError).toBeUndefined();
+
+      const response = JSON.parse(result.content[0]?.text ?? '{}');
+      expect(response.success).toBe(true);
+      expect(response.event).toBeDefined();
+      expect(response.event.eventType).toBe('checkpoint');
+    });
+
+    it('should get events for an episode', async () => {
+      const context = createMockAppContext(db, classificationService);
+
+      const result = await runTool(context, 'memory_episode', {
+        action: 'get_events',
+        episodeId: 'ep-test-001',
+      });
+
+      expect(result.isError).toBeUndefined();
+
+      const response = JSON.parse(result.content[0]?.text ?? '{}');
+      expect(response.success).toBe(true);
+      expect(response.events).toBeDefined();
+      expect(Array.isArray(response.events)).toBe(true);
+    });
+
+    it('should link an entity to an episode', async () => {
+      const context = createMockAppContext(db, classificationService);
+
+      const result = await runTool(context, 'memory_episode', {
+        action: 'link_entity',
+        episodeId: 'ep-test-001',
+        entryType: 'knowledge',
+        entryId: 'know-123',
+        role: 'context',
+      });
+
+      expect(result.isError).toBeUndefined();
+
+      const response = JSON.parse(result.content[0]?.text ?? '{}');
+      expect(response.success).toBe(true);
+    });
+
+    it('should get linked entities for an episode', async () => {
+      const context = createMockAppContext(db, classificationService);
+
+      const result = await runTool(context, 'memory_episode', {
+        action: 'get_linked',
+        episodeId: 'ep-test-001',
+      });
+
+      expect(result.isError).toBeUndefined();
+
+      const response = JSON.parse(result.content[0]?.text ?? '{}');
+      expect(response.success).toBe(true);
+      expect(response.linkedEntities).toBeDefined();
+      expect(Array.isArray(response.linkedEntities)).toBe(true);
+    });
+
+    it('should get timeline for a session', async () => {
+      const context = createMockAppContext(db, classificationService);
+
+      const result = await runTool(context, 'memory_episode', {
+        action: 'get_timeline',
+        sessionId: 'sess-test-001',
+      });
+
+      expect(result.isError).toBeUndefined();
+
+      const response = JSON.parse(result.content[0]?.text ?? '{}');
+      expect(response.success).toBe(true);
+      expect(response.timeline).toBeDefined();
+      expect(Array.isArray(response.timeline)).toBe(true);
+    });
+
+    it('should query what happened during an episode', async () => {
+      const context = createMockAppContext(db, classificationService);
+
+      const result = await runTool(context, 'memory_episode', {
+        action: 'what_happened',
+        id: 'ep-test-001',
+      });
+
+      expect(result.isError).toBeUndefined();
+
+      const response = JSON.parse(result.content[0]?.text ?? '{}');
+      expect(response.success).toBe(true);
+      expect(response.episode).toBeDefined();
+      expect(response.timeline).toBeDefined();
+      expect(response.metrics).toBeDefined();
+    });
+
+    it('should trace causal chain', async () => {
+      const context = createMockAppContext(db, classificationService);
+
+      const result = await runTool(context, 'memory_episode', {
+        action: 'trace_causal_chain',
+        episodeId: 'ep-test-001',
+        direction: 'backward',
+        maxDepth: 5,
+      });
+
+      expect(result.isError).toBeUndefined();
+
+      const response = JSON.parse(result.content[0]?.text ?? '{}');
+      expect(response.success).toBe(true);
+      expect(response.chain).toBeDefined();
+      expect(Array.isArray(response.chain)).toBe(true);
+    });
+
+    it('should require action parameter', async () => {
+      const context = createMockAppContext(db, classificationService);
+
+      const result = await runTool(context, 'memory_episode', {
+        name: 'Test',
+      });
+
+      const response = JSON.parse(result.content[0]?.text ?? '{}');
+      expect(response.error).toBeDefined();
+    });
+
+    it('should reject invalid action', async () => {
+      const context = createMockAppContext(db, classificationService);
+
+      const result = await runTool(context, 'memory_episode', {
+        action: 'invalid_action',
+      });
+
+      const response = JSON.parse(result.content[0]?.text ?? '{}');
+      expect(response.error).toBeDefined();
     });
   });
 });
