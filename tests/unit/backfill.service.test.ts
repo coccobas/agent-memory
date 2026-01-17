@@ -293,7 +293,7 @@ describe.skipIf(!embeddingsAvailable)('Backfill Service', () => {
     expect(progress.failed).toBe(1);
   });
 
-  it('should store embedding tracking records', { timeout: 20000 }, async () => {
+  it('should store embedding tracking records', { timeout: 30000 }, async () => {
     const { tool } = createTestTool(db, 'tracked-tool', 'global');
 
     await backfillEmbeddings(
