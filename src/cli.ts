@@ -79,6 +79,7 @@ async function main() {
     'voting',
     'experience',
     'librarian',
+    'key',
     // Note: 'review' and 'hook' are handled by existing legacy commands above
   ];
 

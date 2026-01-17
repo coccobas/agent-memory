@@ -37,6 +37,7 @@ import { addExperienceCommand } from './commands/experience.js';
 import { addLibrarianCommand } from './commands/librarian.js';
 import { addForgetCommand } from './commands/forget.js';
 import { addRlCommand } from './commands/rl.js';
+import { addKeyCommand } from './commands/key.js';
 
 // Version from package.json
 const VERSION = '0.9.15';
@@ -115,6 +116,9 @@ function registerCommands(program: Command): void {
 
   // Memory Lifecycle
   addForgetCommand(program);
+
+  // Security & Keys
+  addKeyCommand(program);
 }
 
 /**
