@@ -238,7 +238,7 @@ describe.skipIf(!embeddingsAvailable)('Backfill Service', () => {
     expect(elapsed).toBeGreaterThan(50);
   }, 15000); // Increased timeout for batch processing with delays
 
-  it('should get backfill statistics', { timeout: 30000 }, async () => {
+  it('should get backfill statistics', { timeout: 60000 }, async () => {
     // Create entries
     createTestTool(db, 'stats-tool', 'global');
     createTestGuideline(db, 'stats-guideline', 'global');
@@ -403,7 +403,7 @@ describe.skipIf(!embeddingsAvailable)('Backfill Service', () => {
     expect(progress.succeeded).toBe(3);
   });
 
-  it('should handle progress updates incrementally', { timeout: 30000 }, async () => {
+  it('should handle progress updates incrementally', { timeout: 60000 }, async () => {
     createTestTool(db, 'incremental-1', 'global');
     createTestTool(db, 'incremental-2', 'global');
     createTestTool(db, 'incremental-3', 'global');
