@@ -150,6 +150,7 @@ function formatObjectAsKeyValue(obj: Record<string, unknown>): string {
   const lines: string[] = [];
   for (const [key, value] of Object.entries(obj)) {
     if (key === 'meta') continue;
+    if (value === undefined) continue; // Skip undefined values
     const formatted =
       typeof value === 'object' && value !== null ? JSON.stringify(value, null, 2) : String(value);
     lines.push(`${key}: ${formatted}`);
