@@ -332,6 +332,8 @@ function fetchKnowledgeWithContent(
   // Check if temporal filtering is needed
   const hasTemporal = params.atTime || params.validDuring;
 
+  // DEBUG: Trace temporal filtering (removed)
+
   // Build scope OR conditions for batched query
   const scopeConditions: string[] = [];
   const scopeParams: unknown[] = [];
@@ -514,6 +516,101 @@ function fetchSemanticEntries<T extends EntryUnion>(
 }
 
 /**
+ * Fetches knowledge entries by ID from semantic search results that weren't already fetched.
+ * Unlike the generic fetchSemanticEntries, this function applies temporal filtering
+ * (atTime/validDuring) to ensure semantic results respect temporal constraints.
+ *
+ * Bug fix: Semantic search was bypassing temporal filtering, causing entries outside
+ * the valid time window to be included in results.
+ */
+function fetchSemanticKnowledge(
+  ctx: PipelineContext,
+  existingIds: Set<string>,
+  semanticIds: string[],
+  result: Array<{ entry: KnowledgeWithContent; scopeIndex: number }>
+): void {
+  const { params, scopeChain, deps } = ctx;
+
+  // Find IDs that are in semantic results but not already fetched
+  const missingIds = semanticIds.filter((id) => !existingIds.has(id));
+
+  if (missingIds.length === 0) return;
+
+  // Build scope OR conditions for batched query
+  const scopeConditions: string[] = [];
+  const scopeParams: unknown[] = [];
+  for (const scope of scopeChain) {
+    if (scope.scopeId === null) {
+      scopeConditions.push('(k.scope_type = ? AND k.scope_id IS NULL)');
+      scopeParams.push(scope.scopeType);
+    } else {
+      scopeConditions.push('(k.scope_type = ? AND k.scope_id = ?)');
+      scopeParams.push(scope.scopeType, scope.scopeId);
+    }
+  }
+
+  if (scopeConditions.length === 0) return;
+
+  // Build temporal conditions (same as fetchKnowledgeWithContent)
+  const hasTemporal = params.atTime || params.validDuring;
+  let temporalConditions = '';
+  const temporalParams: unknown[] = [];
+
+  if (hasTemporal) {
+    const atTime = params.atTime;
+    const validDuring = params.validDuring;
+
+    if (atTime) {
+      const validatedAtTime = validateIsoDate(atTime, 'atTime');
+      temporalConditions = `
+        AND (kv.valid_from IS NULL OR kv.valid_from <= ?)
+        AND (kv.valid_until IS NULL OR kv.valid_until > ?)
+      `;
+      temporalParams.push(validatedAtTime, validatedAtTime);
+    } else if (validDuring) {
+      const validatedStart = validateIsoDate(validDuring.start, 'validDuring.start');
+      const validatedEnd = validateIsoDate(validDuring.end, 'validDuring.end');
+      temporalConditions = `
+        AND (kv.valid_from IS NULL OR kv.valid_from <= ?)
+        AND (kv.valid_until IS NULL OR kv.valid_until >= ?)
+      `;
+      temporalParams.push(validatedEnd, validatedStart);
+    }
+  }
+
+  // Fetch in batches with scope and temporal filtering
+  const batchSize = 100;
+  const scopeMap = buildScopeIndexMap(scopeChain);
+
+  for (let i = 0; i < missingIds.length; i += batchSize) {
+    const batch = missingIds.slice(i, i + batchSize);
+    const idPlaceholders = batch.map(() => '?').join(',');
+
+    const sqlQuery = `
+      SELECT DISTINCT k.*, kv.content
+      FROM knowledge k
+      INNER JOIN knowledge_versions kv ON k.current_version_id = kv.id
+      WHERE (${scopeConditions.join(' OR ')})
+        AND k.is_active = 1
+        AND k.id IN (${idPlaceholders})
+        ${temporalConditions}
+    `;
+
+    const queryParams = [...scopeParams, ...batch, ...temporalParams];
+    const stmt = deps.getPreparedStatement(sqlQuery);
+    const rawRows = stmt.all(...queryParams) as RawKnowledgeRow[];
+
+    for (const rawRow of rawRows) {
+      const entry = mapRawToKnowledge(rawRow);
+      const key = `${entry.scopeType}:${entry.scopeId ?? 'null'}`;
+      const scopeIndex = scopeMap.get(key) ?? scopeChain.length;
+      result.push({ entry, scopeIndex });
+      existingIds.add(entry.id);
+    }
+  }
+}
+
+/**
  * Extracts semantic entry IDs for a specific type from the semanticScores map.
  * The vectorService stores entries with their entry type prefix.
  */
@@ -539,9 +636,7 @@ function getSemanticIdsForType(
  *
  * Runs efficient COUNT queries with the same scope conditions as fetch.
  */
-function countEntriesPerType(
-  ctx: PipelineContext
-): PipelineContext['totalCounts'] {
+function countEntriesPerType(ctx: PipelineContext): PipelineContext['totalCounts'] {
   const { types, scopeChain, deps } = ctx;
 
   // Build scope OR conditions for batched count query
@@ -680,13 +775,12 @@ export function fetchStage(ctx: PipelineContext): PipelineContext {
     if (types.includes('knowledge')) {
       const existingIds = new Set(fetchedEntries.knowledge.map((e) => e.entry.id));
       const semanticIds = getSemanticIdsForType(semanticScores, 'knowledge');
-      fetchSemanticEntries(
-        db,
-        knowledge,
+      // Bug fix: Use specialized function that applies temporal filtering
+      fetchSemanticKnowledge(
+        ctx,
         existingIds,
         semanticIds,
-        fetchedEntries.knowledge,
-        scopeChain
+        fetchedEntries.knowledge as Array<{ entry: KnowledgeWithContent; scopeIndex: number }>
       );
     }
     if (types.includes('experiences')) {
@@ -835,13 +929,12 @@ export async function fetchStageAsync(ctx: PipelineContext): Promise<PipelineCon
     if (types.includes('knowledge')) {
       const existingIds = new Set(fetchedEntries.knowledge.map((e) => e.entry.id));
       const semanticIds = getSemanticIdsForType(semanticScores, 'knowledge');
-      fetchSemanticEntries(
-        db,
-        knowledge,
+      // Bug fix: Use specialized function that applies temporal filtering
+      fetchSemanticKnowledge(
+        ctx,
         existingIds,
         semanticIds,
-        fetchedEntries.knowledge,
-        scopeChain
+        fetchedEntries.knowledge as Array<{ entry: KnowledgeWithContent; scopeIndex: number }>
       );
     }
     if (types.includes('experiences')) {

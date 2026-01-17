@@ -509,7 +509,7 @@ If running multiple IDEs:
 
 ## See Also
 
-- [Quickstart](../quickstart.md) - Get running in 2 minutes
-- [Installation](../installation.md) - Detailed installation
+- [Quickstart](../tutorials/quickstart.md) - Get running in 2 minutes
+- [Docker Deployment](docker.md) - Container deployment
 - [Troubleshooting](troubleshooting.md) - Common issues
-- [Getting Started](../getting-started.md) - First workflow
+- [First Workflow](../tutorials/first-workflow.md) - First workflow

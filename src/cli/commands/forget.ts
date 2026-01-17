@@ -76,7 +76,6 @@ export function addForgetCommand(program: Command): void {
             limit: parseInt(options.limit ?? '100', 10),
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -124,7 +123,6 @@ export function addForgetCommand(program: Command): void {
             agentId: options.agentId ?? globalOpts.agentId,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -145,7 +143,6 @@ export function addForgetCommand(program: Command): void {
 
           const result = await forgettingHandlers.status(context, { action: 'status' });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);

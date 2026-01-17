@@ -55,7 +55,6 @@ export function addVotingCommand(program: Command): void {
             reasoning: options.reasoning,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -81,7 +80,6 @@ export function addVotingCommand(program: Command): void {
             k: options.k,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -105,7 +103,6 @@ export function addVotingCommand(program: Command): void {
             taskId: options.taskId,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -129,7 +126,6 @@ export function addVotingCommand(program: Command): void {
             taskId: options.taskId,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);

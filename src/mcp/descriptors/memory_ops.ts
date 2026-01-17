@@ -53,7 +53,8 @@ Examples:
     // For session_timeout and trigger_config
     subAction: {
       type: 'string',
-      description: 'Sub-action: status/check/record_activity (session_timeout) or get/update/reset (trigger_config)',
+      description:
+        'Sub-action: status/check/record_activity (session_timeout) or get/update/reset (trigger_config)',
     },
     sessionId: {
       type: 'string',

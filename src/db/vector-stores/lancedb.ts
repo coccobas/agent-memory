@@ -591,7 +591,10 @@ export class LanceDbVectorStore implements IVectorStore {
       const filterPredicate = filters.join(' OR ');
 
       // Query with filter, selecting vector field
-      const query = this.table.query().filter(filterPredicate).select(['entryType', 'entryId', 'vector']);
+      const query = this.table
+        .query()
+        .filter(filterPredicate)
+        .select(['entryType', 'entryId', 'vector']);
 
       const records = await query.toArray();
 

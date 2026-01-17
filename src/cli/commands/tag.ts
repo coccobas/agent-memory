@@ -69,7 +69,6 @@ export function addTagCommand(program: Command): void {
             agentId: globalOpts.agentId ?? 'cli',
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -104,7 +103,6 @@ export function addTagCommand(program: Command): void {
             agentId: globalOpts.agentId ?? 'cli',
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -137,7 +135,6 @@ export function addTagCommand(program: Command): void {
             agentId: globalOpts.agentId ?? 'cli',
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -166,7 +163,6 @@ export function addTagCommand(program: Command): void {
             agentId: globalOpts.agentId ?? 'cli',
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -193,7 +189,6 @@ export function addTagCommand(program: Command): void {
             agentId: globalOpts.agentId ?? 'cli',
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);

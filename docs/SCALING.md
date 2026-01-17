@@ -116,6 +116,13 @@ Instance B: Receives event --> Invalidates local cache --> Fresh data
 - **Event Broadcasting:** Cache invalidation propagates everywhere
 - **Global Rate Limiting:** Limits apply across the cluster
 
+**Distributed Rate Limiting Requirement:**
+
+When running multiple instances, rate limiting is only truly global if Redis is enabled.
+Without Redis, each instance enforces limits independently, which effectively raises
+the cluster-wide limit. To enforce shared limits across the fleet, enable Redis and
+set `AGENT_MEMORY_REDIS_ENABLED=true` alongside PostgreSQL.
+
 ---
 
 ## Migration Paths

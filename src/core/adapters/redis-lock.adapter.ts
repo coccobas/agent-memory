@@ -7,8 +7,6 @@
  * For enterprise deployments with horizontal scaling.
  */
 
-/* eslint-disable @typescript-eslint/no-redundant-type-constituents -- ioredis types contain any */
-
 import type {
   ILockAdapter,
   LockInfo,

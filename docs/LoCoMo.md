@@ -161,7 +161,7 @@ Connecting information across multiple sessions requires:
 
 ### Implementation Phases
 
-See [Appendix F in experiential-memory-skills-librarian-plan.md](./experiential-memory-skills-librarian-plan.md#appendix-f-locomo-benchmark-optimization) for detailed implementation.
+See [experiential-memory-skills-librarian-plan.md](./experiential-memory-skills-librarian-plan.md) for detailed implementation.
 
 ---
 

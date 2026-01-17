@@ -876,7 +876,8 @@ describe('MemoryPressureMonitor', () => {
       const stats = monitor.getStats();
 
       expect(stats.utilizationPercent).toBe(85); // 850/1000 = 85%
-      expect(stats.underPressure).toBe(false); // Exactly at threshold
+      // At 85%, we're exactly at critical threshold, so underPressure is true
+      expect(stats.underPressure).toBe(true);
 
       v8Spy.mockRestore();
     });
@@ -1399,7 +1400,13 @@ describe('Integration Scenarios', () => {
   });
 
   it('should handle memory pressure scenario', () => {
-    const monitor = new MemoryPressureMonitor(0.8);
+    // Use multi-level config with debounce disabled for testing
+    const monitor = new MemoryPressureMonitor({
+      warningThreshold: 0.7,
+      criticalThreshold: 0.8,
+      checkIntervalMs: 100,
+      debounceMs: 0, // Disable debounce for testing
+    });
     const pressureEvents: number[] = [];
 
     monitor.onPressure(() => {
@@ -1410,7 +1417,7 @@ describe('Integration Scenarios', () => {
 
     const v8Spy = vi.spyOn(require('node:v8'), 'getHeapStatistics');
 
-    // Normal memory
+    // Normal memory (50% utilization - below warning threshold of 70%)
     v8Spy.mockReturnValue({
       used_heap_size: 500 * 1024 * 1024,
       heap_size_limit: 1000 * 1024 * 1024,
@@ -1418,9 +1425,10 @@ describe('Integration Scenarios', () => {
     });
 
     vi.advanceTimersByTime(100);
-    expect(pressureEvents).toHaveLength(0);
+    expect(pressureEvents).toHaveLength(0); // No events - still normal
 
-    // High memory
+    // High memory (85% utilization - above critical threshold of 80%)
+    // This triggers a level change from normal -> critical
     v8Spy.mockReturnValue({
       used_heap_size: 850 * 1024 * 1024,
       heap_size_limit: 1000 * 1024 * 1024,
@@ -1428,10 +1436,11 @@ describe('Integration Scenarios', () => {
     });
 
     vi.advanceTimersByTime(100);
-    expect(pressureEvents).toHaveLength(1);
+    expect(pressureEvents).toHaveLength(1); // One event on level change
 
+    // Same high memory - no additional callback (event-driven: only fires on level changes)
     vi.advanceTimersByTime(100);
-    expect(pressureEvents).toHaveLength(2);
+    expect(pressureEvents).toHaveLength(1); // Still 1 - no change in level
 
     monitor.stopMonitoring();
     v8Spy.mockRestore();

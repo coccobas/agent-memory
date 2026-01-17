@@ -48,7 +48,8 @@ export function registerRateLimitHeadersHook(app: FastifyInstance): void {
 /**
  * Register Content-Type validation hook.
  *
- * Enforces application/json Content-Type for all mutating requests (POST, PUT, PATCH, DELETE).
+ * Enforces application/json Content-Type for all mutating requests (POST, PUT, PATCH, DELETE)
+ * only when a request body is present.
  * Skips validation for:
  * - GET, HEAD, OPTIONS requests (no body expected)
  * - Health check endpoints (public monitoring)
@@ -57,6 +58,16 @@ export function registerContentTypeValidationHook(app: FastifyInstance): void {
   app.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
     // Skip for GET, HEAD, OPTIONS, and health endpoints
     if (['GET', 'HEAD', 'OPTIONS'].includes(request.method) || request.url.startsWith('/health')) {
+      return;
+    }
+
+    const contentLength = request.headers['content-length'];
+    const hasBody =
+      request.body !== undefined ||
+      (typeof contentLength === 'string' && Number(contentLength) > 0) ||
+      request.headers['transfer-encoding'] !== undefined;
+
+    if (!hasBody) {
       return;
     }
 

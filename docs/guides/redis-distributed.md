@@ -404,4 +404,4 @@ AGENT_MEMORY_REDIS_CACHE_TTL_MS=1800000  # 30 minutes
 
 - [Architecture](../explanation/architecture.md) - System design
 - [PostgreSQL Setup](postgresql-setup.md) - Enterprise database
-- [Multi-Agent Coordination](multi-agent.md) - File locks and voting
+- [Multi-Agent Coordination](workflows.md#multi-agent-coordination) - File locks and voting

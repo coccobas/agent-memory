@@ -66,6 +66,9 @@ export const experiences = sqliteTable(
     index('idx_experiences_level').on(table.level),
     index('idx_experiences_category').on(table.category),
     uniqueIndex('idx_experiences_scope_title').on(table.scopeType, table.scopeId, table.title),
+    index('idx_experiences_active').on(table.isActive),
+    // Composite index for common query pattern: active entries within a scope
+    index('idx_experiences_scope_active').on(table.scopeType, table.scopeId, table.isActive),
   ]
 );
 

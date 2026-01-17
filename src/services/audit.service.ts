@@ -53,10 +53,16 @@ export function logAction(params: AuditLogParams, db: DbClient): void {
       const id = generateId();
 
       // Filter to only entry types supported by audit log schema
-      const supportedTypes = new Set(['tool', 'guideline', 'knowledge', 'experience']);
+      const supportedTypes = new Set([
+        'tool',
+        'guideline',
+        'knowledge',
+        'experience',
+        'permission',
+      ]);
       const entryType =
         params.entryType && supportedTypes.has(params.entryType)
-          ? (params.entryType as 'tool' | 'guideline' | 'knowledge' | 'experience')
+          ? (params.entryType as 'tool' | 'guideline' | 'knowledge' | 'experience' | 'permission')
           : null;
 
       // Sanitize and size-limit queryParams to avoid persisting secrets or unbounded payloads

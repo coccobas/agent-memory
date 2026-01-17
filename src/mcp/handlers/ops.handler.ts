@@ -150,7 +150,8 @@ export const opsHandlers = {
           action: 'session_timeout',
           subAction: 'check',
           sessionsEnded: endedCount,
-          message: endedCount > 0 ? `Ended ${endedCount} stale session(s)` : 'No stale sessions found',
+          message:
+            endedCount > 0 ? `Ended ${endedCount} stale session(s)` : 'No stale sessions found',
         });
       }
 

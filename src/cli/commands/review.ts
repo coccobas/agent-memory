@@ -53,7 +53,6 @@ export function addReviewCommand(program: Command): void {
             sessionId: options.sessionId,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -79,7 +78,6 @@ export function addReviewCommand(program: Command): void {
             entryId: options.entryId,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -107,7 +105,6 @@ export function addReviewCommand(program: Command): void {
             projectId: options.projectId,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -133,7 +130,6 @@ export function addReviewCommand(program: Command): void {
             entryId: options.entryId,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -159,7 +155,6 @@ export function addReviewCommand(program: Command): void {
             entryId: options.entryId,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);

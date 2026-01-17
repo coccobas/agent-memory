@@ -7,7 +7,7 @@
 import type { DbClient } from '../db/connection.js';
 import { auditLog, entryTags, tags } from '../db/schema.js';
 import { eq, and, gte, lte, sql, desc, count, isNotNull, type SQL } from 'drizzle-orm';
-import type { ScopeType, EntryType } from '../db/schema.js';
+import type { ScopeType, EntryType, AuditEntryType } from '../db/schema.js';
 
 export interface UsageStatsParams {
   scopeType?: ScopeType;
@@ -23,7 +23,8 @@ export interface UsageStats {
   scopeUsage: Record<ScopeType, number>;
   searchQueries: Array<{ query: string; count: number }>;
   actionBreakdown: Array<{ action: string; count: number }>;
-  entryTypeBreakdown: Array<{ entryType: EntryType | null; count: number }>;
+  /** Breakdown of audit log entries by type (uses AuditEntryType to include permission audits) */
+  entryTypeBreakdown: Array<{ entryType: AuditEntryType | null; count: number }>;
 }
 
 export interface TrendData {
@@ -62,6 +63,8 @@ export function getUsageStats(params: UsageStatsParams = {}, db: DbClient): Usag
   const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
   // Most queried entries (queries with entryId)
+  // Filter out 'permission' type since it's an audit-only entry type, not a queryable entity
+  const validEntryTypes = ['tool', 'guideline', 'knowledge', 'project', 'experience'] as const;
   const mostQueriedEntries = db
     .select({
       entryId: auditLog.entryId,
@@ -74,7 +77,12 @@ export function getUsageStats(params: UsageStatsParams = {}, db: DbClient): Usag
     .orderBy(desc(count()))
     .limit(20)
     .all()
-    .filter((row) => row.entryId !== null && row.entryType !== null)
+    .filter(
+      (row) =>
+        row.entryId !== null &&
+        row.entryType !== null &&
+        validEntryTypes.includes(row.entryType as (typeof validEntryTypes)[number])
+    )
     .map((row) => ({
       entryId: row.entryId as string,
       entryType: row.entryType as EntryType,

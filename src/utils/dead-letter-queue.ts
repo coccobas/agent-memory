@@ -471,6 +471,14 @@ let embeddingDLQ: DeadLetterQueue<{ entryType: string; entryId: string; text: st
   null;
 let vectorDLQ: DeadLetterQueue<{ entryType: string; entryId: string; embedding: number[] }> | null =
   null;
+let graphSyncDLQ: DeadLetterQueue<{
+  entryType?: string;
+  entryId?: string;
+  name?: string;
+  relationType?: string;
+  sourceEntryId?: string;
+  targetEntryId?: string;
+}> | null = null;
 let generalDLQ: DeadLetterQueue | null = null;
 
 /**
@@ -514,6 +522,29 @@ export function getVectorDLQ(): DeadLetterQueue<{
 }
 
 /**
+ * Get the graph sync DLQ for node/edge sync failures
+ */
+export function getGraphSyncDLQ(): DeadLetterQueue<{
+  entryType?: string;
+  entryId?: string;
+  name?: string;
+  relationType?: string;
+  sourceEntryId?: string;
+  targetEntryId?: string;
+}> {
+  if (!graphSyncDLQ) {
+    graphSyncDLQ = new DeadLetterQueue({
+      maxSize: config.validation?.bulkOperationMax ?? 500,
+      maxAttempts: config.retry?.maxAttempts ?? 5,
+      initialRetryDelayMs: config.retry?.initialDelayMs ?? 1000,
+      maxRetryDelayMs: config.retry?.maxDelayMs ?? 60000,
+      backoffMultiplier: config.retry?.backoffMultiplier ?? 2,
+    });
+  }
+  return graphSyncDLQ;
+}
+
+/**
  * Get the general-purpose DLQ
  */
 export function getGeneralDLQ(): DeadLetterQueue {
@@ -535,11 +566,16 @@ export function resetAllDLQs(): void {
     vectorDLQ.stopAutoRetry();
     vectorDLQ.clear();
   }
+  if (graphSyncDLQ) {
+    graphSyncDLQ.stopAutoRetry();
+    graphSyncDLQ.clear();
+  }
   if (generalDLQ) {
     generalDLQ.stopAutoRetry();
     generalDLQ.clear();
   }
   embeddingDLQ = null;
   vectorDLQ = null;
+  graphSyncDLQ = null;
   generalDLQ = null;
 }

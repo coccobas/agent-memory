@@ -6,6 +6,7 @@ import type { PermissionLevel } from '../../services/permission.service.js';
 import type { ScopeType, EntryType } from '../../db/schema.js';
 import { requireAdminKey } from '../../utils/admin.js';
 import type { AppContext } from '../../core/context.js';
+import { logAction } from '../../services/audit.service.js';
 import {
   getRequiredParam,
   getOptionalParam,
@@ -63,8 +64,9 @@ export const permissionHandlers = {
     const scope_id = getOptionalParam(params, 'scope_id', isString);
     const entry_type = getOptionalParam(params, 'entry_type', isEntryType);
     const permission = getRequiredParam(params, 'permission', isPermissionLevel);
+    const created_by = getOptionalParam(params, 'created_by', isString);
 
-    const perm = context.services.permission.grant({
+    context.services.permission.grant({
       agentId: agent_id,
       scopeType: scope_type ?? undefined,
       scopeId: scope_id,
@@ -72,8 +74,36 @@ export const permissionHandlers = {
       permission,
     });
 
+    // Construct the permission ID (same as in permission.service.ts)
+    const permissionId = `${agent_id}:${scope_type ?? 'global'}:${scope_id ?? ''}:${entry_type ?? '*'}:*:${permission}`;
+
+    // Audit trail for permission grant
+    logAction(
+      {
+        agentId: created_by ?? 'admin',
+        action: 'create',
+        entryType: 'permission',
+        entryId: permissionId,
+        scopeType: scope_type ?? 'global',
+        scopeId: scope_id ?? null,
+        queryParams: {
+          targetAgentId: agent_id,
+          permissionLevel: permission,
+          entryType: entry_type ?? null,
+        },
+      },
+      context.db
+    );
+
     return {
-      permission: perm,
+      permission: {
+        id: permissionId,
+        agentId: agent_id,
+        scopeType: scope_type ?? null,
+        scopeId: scope_id ?? null,
+        entryType: entry_type ?? null,
+        permission,
+      },
       message: 'Permission granted successfully',
     };
   },
@@ -88,6 +118,7 @@ export const permissionHandlers = {
     const scope_type = getOptionalParam(params, 'scope_type', isScopeType);
     const scope_id = getOptionalParam(params, 'scope_id', isString);
     const entry_type = getOptionalParam(params, 'entry_type', isEntryType);
+    const revoked_by = getOptionalParam(params, 'revoked_by', isString);
 
     if (!permission_id && !agent_id) {
       throw createValidationError(
@@ -111,6 +142,23 @@ export const permissionHandlers = {
       scopeId: scope_id,
       entryType: entry_type ?? undefined,
     });
+
+    // Audit trail for permission revoke
+    logAction(
+      {
+        agentId: revoked_by ?? 'admin',
+        action: 'delete',
+        entryType: 'permission',
+        entryId: permission_id ?? undefined,
+        scopeType: scope_type ?? 'global',
+        scopeId: scope_id ?? null,
+        queryParams: {
+          targetAgentId: agent_id,
+          entryType: entry_type ?? null,
+        },
+      },
+      context.db
+    );
 
     return {
       message: 'Permission revoked successfully',

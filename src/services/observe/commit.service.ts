@@ -3,6 +3,12 @@
  *
  * Handles the business logic for storing client-extracted memory entries.
  * Manages auto-promotion decisions, duplicate detection, and storage orchestration.
+ *
+ * Note on atomicity: Individual entry storage is atomic, but the full commit
+ * operation (entries + entities + relations) is not wrapped in a single transaction.
+ * On partial failure, already-stored entries remain in the database.
+ * This is a trade-off for the async architecture using repository abstractions.
+ * Future improvement: Implement two-phase commit or compensating transactions.
  */
 
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
@@ -61,6 +67,14 @@ export interface CommitResult {
     relationsCreated: number;
   };
   skippedDuplicates: Array<{ type: string; name: string; scopeType: ScopeType }>;
+  /** Errors encountered during commit (partial failures) */
+  errors?: Array<{
+    phase: 'entry' | 'entity' | 'relation' | 'metadata';
+    name?: string;
+    error: string;
+  }>;
+  /** True if commit completed with some errors (partial success) */
+  partialSuccess?: boolean;
   meta: {
     sessionId: string;
     projectId: string | null;
@@ -122,42 +136,54 @@ export class ObserveCommitService {
     const stored: StoredEntry[] = [];
     const storedEntities: StoredEntry[] = [];
     const skippedDuplicates: Array<{ type: string; name: string; scopeType: ScopeType }> = [];
+    const commitErrors: Array<{
+      phase: 'entry' | 'entity' | 'relation' | 'metadata';
+      name?: string;
+      error: string;
+    }> = [];
     let storedToProject = 0;
     let storedToSession = 0;
     let needsReviewCount = 0;
     let relationsCreated = 0;
     let relationsSkipped = 0;
 
-    // Store entries
+    // Store entries (track errors per entry for partial failure detection)
     for (const entry of entries) {
-      const result = await this.processEntry(
-        entry,
-        sessionId,
-        projectId,
-        agentId,
-        autoPromote,
-        autoPromoteThreshold
-      );
+      try {
+        const result = await this.processEntry(
+          entry,
+          sessionId,
+          projectId,
+          agentId,
+          autoPromote,
+          autoPromoteThreshold
+        );
 
-      if (result.skipped) {
-        skippedDuplicates.push({
-          type: entry.type,
-          name: entry.name || entry.title || 'Unnamed',
-          scopeType: result.targetScopeType!,
-        });
-        continue;
-      }
+        if (result.skipped) {
+          skippedDuplicates.push({
+            type: entry.type,
+            name: entry.name || entry.title || 'Unnamed',
+            scopeType: result.targetScopeType!,
+          });
+          continue;
+        }
 
-      if (result.saved) {
-        stored.push(result.saved);
-        if (result.targetScopeType === 'project') storedToProject += 1;
-        else storedToSession += 1;
+        if (result.saved) {
+          stored.push(result.saved);
+          if (result.targetScopeType === 'project') storedToProject += 1;
+          else storedToSession += 1;
 
-        if (result.needsReview) needsReviewCount += 1;
+          if (result.needsReview) needsReviewCount += 1;
+        }
+      } catch (error) {
+        const entryName = entry.name || entry.title || 'Unnamed';
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        commitErrors.push({ phase: 'entry', name: entryName, error: errorMsg });
+        logger.error({ entry: entryName, error: errorMsg }, 'Failed to store entry');
       }
     }
 
-    // Store entities
+    // Store entities (track errors per entity)
     for (const entity of entities) {
       const saved = await this.processEntity(
         entity,
@@ -167,20 +193,39 @@ export class ObserveCommitService {
         autoPromote,
         autoPromoteThreshold
       );
-      if (saved) storedEntities.push(saved);
+      if (saved) {
+        storedEntities.push(saved);
+      } else {
+        // processEntity already logs the error, just track it
+        commitErrors.push({ phase: 'entity', name: entity.name, error: 'Storage failed' });
+      }
     }
 
     // Create relations
     if (relationships.length > 0 && (stored.length > 0 || storedEntities.length > 0)) {
-      const nameToIdMap = buildNameToIdMap(stored, storedEntities);
-      const relationResults = await createExtractedRelations(
-        this.repos,
-        relationships,
-        nameToIdMap,
-        this.relationConfidenceThreshold
-      );
-      relationsCreated = relationResults.created;
-      relationsSkipped = relationResults.skipped + relationResults.errors;
+      try {
+        const nameToIdMap = buildNameToIdMap(stored, storedEntities);
+        const relationResults = await createExtractedRelations(
+          this.repos,
+          relationships,
+          nameToIdMap,
+          this.relationConfidenceThreshold
+        );
+        relationsCreated = relationResults.created;
+        relationsSkipped = relationResults.skipped + relationResults.errors;
+
+        // Track relation errors if any
+        if (relationResults.errors > 0) {
+          commitErrors.push({
+            phase: 'relation',
+            error: `${relationResults.errors} relation(s) failed to create`,
+          });
+        }
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        commitErrors.push({ phase: 'relation', error: errorMsg });
+        logger.error({ error: errorMsg }, 'Failed to create relations');
+      }
     }
 
     // Update session metadata (non-critical - entries already stored)
@@ -205,14 +250,33 @@ export class ObserveCommitService {
       });
     } catch (error) {
       // Log but don't fail - entries are already stored successfully
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      commitErrors.push({ phase: 'metadata', error: errorMsg });
       logger.warn(
         {
           sessionId,
-          error: error instanceof Error ? error.message : String(error),
+          error: errorMsg,
           storedCount: stored.length,
           entitiesStoredCount: storedEntities.length,
         },
         'Failed to update session metadata after successful commit'
+      );
+    }
+
+    // Determine if this was a partial success
+    const hasErrors = commitErrors.length > 0;
+    const hasSuccesses = stored.length > 0 || storedEntities.length > 0;
+    const partialSuccess = hasErrors && hasSuccesses;
+
+    if (partialSuccess) {
+      logger.warn(
+        {
+          sessionId,
+          storedCount: stored.length,
+          entitiesStoredCount: storedEntities.length,
+          errorCount: commitErrors.length,
+        },
+        'Commit completed with partial success - some entries failed to store'
       );
     }
 
@@ -223,6 +287,8 @@ export class ObserveCommitService {
         relationsCreated,
       },
       skippedDuplicates,
+      ...(commitErrors.length > 0 && { errors: commitErrors }),
+      ...(partialSuccess && { partialSuccess }),
       meta: {
         sessionId,
         projectId: projectId ?? null,

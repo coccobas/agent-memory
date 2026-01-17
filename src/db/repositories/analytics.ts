@@ -47,6 +47,8 @@ export function createAnalyticsRepository(db: DrizzleDb): IAnalyticsRepository {
       const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
       // Most queried entries (queries with entryId)
+      // Filter out 'permission' type since it's an audit-only entry type, not a queryable entity
+      const validEntryTypes = ['tool', 'guideline', 'knowledge', 'project', 'experience'] as const;
       const mostQueriedEntries = db
         .select({
           entryId: auditLog.entryId,
@@ -59,7 +61,12 @@ export function createAnalyticsRepository(db: DrizzleDb): IAnalyticsRepository {
         .orderBy(desc(count()))
         .limit(20)
         .all()
-        .filter((row) => row.entryId !== null && row.entryType !== null)
+        .filter(
+          (row) =>
+            row.entryId !== null &&
+            row.entryType !== null &&
+            validEntryTypes.includes(row.entryType as (typeof validEntryTypes)[number])
+        )
         .map((row) => ({
           entryId: row.entryId as string,
           entryType: row.entryType as EntryType,

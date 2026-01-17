@@ -28,6 +28,7 @@ import v8 from 'node:v8';
 import { createComponentLogger } from './logger.js';
 import { ResourceExhaustedError } from '../core/errors.js';
 import { config } from '../config/index.js';
+import type { SystemEventBus, MemoryPressureLevel } from './system-events.js';
 
 const logger = createComponentLogger('backpressure');
 
@@ -405,31 +406,104 @@ export class TokenBucketRateLimiter {
 // =============================================================================
 
 /**
- * Monitor memory pressure and trigger backpressure
+ * Configuration for memory pressure thresholds
+ */
+export interface MemoryPressureConfig {
+  /** Warning threshold (default 0.75 = 75% utilization) */
+  warningThreshold: number;
+  /** Critical threshold (default 0.85 = 85% utilization) */
+  criticalThreshold: number;
+  /** Check interval in milliseconds (default 30000 = 30 seconds) */
+  checkIntervalMs: number;
+  /** Minimum time between events of the same level (debounce) */
+  debounceMs: number;
+}
+
+const DEFAULT_PRESSURE_CONFIG: MemoryPressureConfig = {
+  warningThreshold: config.memory?.pressureWarningThreshold ?? 0.75,
+  criticalThreshold: config.memory?.heapPressureThreshold ?? 0.85,
+  checkIntervalMs: config.memory?.checkIntervalMs ?? 30000,
+  debounceMs: config.memory?.pressureDebounceMs ?? 5000,
+};
+
+/**
+ * Monitor memory pressure and trigger event-driven responses
  *
  * Uses V8's heap_size_limit (the actual max heap) rather than heapTotal
  * (the currently allocated heap) to avoid false positives when the heap
  * is small but has room to grow.
+ *
+ * Features:
+ * - Multi-level pressure detection (normal, warning, critical)
+ * - Event-driven architecture via SystemEventBus
+ * - Recovery detection and events
+ * - Debouncing to prevent event storms
+ * - Legacy callback support for backward compatibility
  */
 export class MemoryPressureMonitor {
-  private readonly threshold: number;
+  private readonly pressureConfig: MemoryPressureConfig;
   private pressureCallbacks: Array<() => void> = [];
   private checkInterval: NodeJS.Timeout | null = null;
+  private currentLevel: MemoryPressureLevel = 'normal';
+  private lastEventTime = 0;
+  private systemEventBus: SystemEventBus | null = null;
 
-  constructor(threshold: number = config.memory?.heapPressureThreshold ?? 0.85) {
-    this.threshold = threshold;
+  constructor(
+    thresholdOrConfig: number | Partial<MemoryPressureConfig> = {},
+    eventBus?: SystemEventBus
+  ) {
+    if (typeof thresholdOrConfig === 'number') {
+      // Legacy: single threshold means critical threshold
+      this.pressureConfig = {
+        ...DEFAULT_PRESSURE_CONFIG,
+        criticalThreshold: thresholdOrConfig,
+      };
+    } else {
+      this.pressureConfig = {
+        ...DEFAULT_PRESSURE_CONFIG,
+        ...thresholdOrConfig,
+      };
+    }
+    this.systemEventBus = eventBus ?? null;
   }
 
   /**
-   * Check if system is under memory pressure
+   * Set the system event bus for event-driven notifications
+   */
+  setEventBus(eventBus: SystemEventBus): void {
+    this.systemEventBus = eventBus;
+  }
+
+  /**
+   * Determine the current pressure level based on utilization
+   */
+  getPressureLevel(): MemoryPressureLevel {
+    const heapStats = v8.getHeapStatistics();
+    const utilization = heapStats.used_heap_size / heapStats.heap_size_limit;
+
+    if (utilization >= this.pressureConfig.criticalThreshold) {
+      return 'critical';
+    } else if (utilization >= this.pressureConfig.warningThreshold) {
+      return 'warning';
+    }
+    return 'normal';
+  }
+
+  /**
+   * Check if system is under memory pressure (warning or critical)
    *
    * Compares heapUsed against V8's heap_size_limit (the max heap size)
    * rather than heapTotal (currently allocated) for accurate pressure detection.
    */
   isUnderPressure(): boolean {
-    const heapStats = v8.getHeapStatistics();
-    const utilization = heapStats.used_heap_size / heapStats.heap_size_limit;
-    return utilization > this.threshold;
+    return this.getPressureLevel() !== 'normal';
+  }
+
+  /**
+   * Check if system is under critical memory pressure
+   */
+  isCritical(): boolean {
+    return this.getPressureLevel() === 'critical';
   }
 
   /**
@@ -444,20 +518,23 @@ export class MemoryPressureMonitor {
     heapLimitMB: number;
     utilizationPercent: number;
     underPressure: boolean;
+    level: MemoryPressureLevel;
   } {
     const heapStats = v8.getHeapStatistics();
     const utilization = heapStats.used_heap_size / heapStats.heap_size_limit;
+    const level = this.getPressureLevel();
     return {
       heapUsedMB: Math.round(heapStats.used_heap_size / 1024 / 1024),
       heapTotalMB: Math.round(heapStats.total_heap_size / 1024 / 1024),
       heapLimitMB: Math.round(heapStats.heap_size_limit / 1024 / 1024),
       utilizationPercent: Math.round(utilization * 100),
-      underPressure: utilization > this.threshold,
+      underPressure: level !== 'normal',
+      level,
     };
   }
 
   /**
-   * Register a callback for pressure events
+   * Register a callback for pressure events (legacy API)
    */
   onPressure(callback: () => void): () => void {
     this.pressureCallbacks.push(callback);
@@ -470,28 +547,122 @@ export class MemoryPressureMonitor {
   }
 
   /**
+   * Check pressure and emit events if level changed
+   */
+  private checkAndEmit(): void {
+    const newLevel = this.getPressureLevel();
+    const previousLevel = this.currentLevel;
+    const now = Date.now();
+
+    // Check for level change
+    if (newLevel === previousLevel) {
+      return;
+    }
+
+    // Debounce: don't emit too frequently
+    if (now - this.lastEventTime < this.pressureConfig.debounceMs) {
+      return;
+    }
+
+    this.currentLevel = newLevel;
+    this.lastEventTime = now;
+
+    const stats = this.getStats();
+    const timestamp = new Date().toISOString();
+
+    // Determine if this is pressure increasing or recovering
+    const levelOrder: Record<MemoryPressureLevel, number> = {
+      normal: 0,
+      warning: 1,
+      critical: 2,
+    };
+
+    const isPressureIncreasing = levelOrder[newLevel] > levelOrder[previousLevel];
+
+    if (isPressureIncreasing) {
+      // Pressure increased
+      logger.warn(
+        { ...stats, previousLevel, newLevel },
+        `Memory pressure ${newLevel === 'critical' ? 'CRITICAL' : 'warning'}`
+      );
+
+      // Legacy callbacks (only on pressure, not recovery)
+      for (const callback of this.pressureCallbacks) {
+        try {
+          callback();
+        } catch (error) {
+          logger.error(
+            { error: error instanceof Error ? error.message : String(error) },
+            'Pressure callback failed'
+          );
+        }
+      }
+
+      // Emit event via SystemEventBus
+      if (this.systemEventBus) {
+        this.systemEventBus.emitAsync({
+          type: 'memory_pressure',
+          level: newLevel,
+          previousLevel,
+          stats: {
+            heapUsedMB: stats.heapUsedMB,
+            heapTotalMB: stats.heapTotalMB,
+            heapLimitMB: stats.heapLimitMB,
+            utilizationPercent: stats.utilizationPercent,
+          },
+          timestamp,
+        });
+      }
+    } else {
+      // Pressure decreased (recovery)
+      logger.info(
+        { ...stats, previousLevel, newLevel },
+        `Memory pressure recovered to ${newLevel}`
+      );
+
+      // Emit recovery event via SystemEventBus
+      if (this.systemEventBus) {
+        this.systemEventBus.emitAsync({
+          type: 'memory_recovery',
+          level: newLevel,
+          previousLevel,
+          stats: {
+            heapUsedMB: stats.heapUsedMB,
+            heapTotalMB: stats.heapTotalMB,
+            heapLimitMB: stats.heapLimitMB,
+            utilizationPercent: stats.utilizationPercent,
+          },
+          timestamp,
+        });
+      }
+    }
+  }
+
+  /**
    * Start periodic pressure monitoring
    */
-  startMonitoring(intervalMs: number = config.memory?.checkIntervalMs ?? 30000): void {
+  startMonitoring(intervalMs?: number): void {
     if (this.checkInterval) {
       return;
     }
 
+    const interval = intervalMs ?? this.pressureConfig.checkIntervalMs;
+
     this.checkInterval = setInterval(() => {
-      if (this.isUnderPressure()) {
-        logger.warn(this.getStats(), 'Memory pressure detected');
-        for (const callback of this.pressureCallbacks) {
-          try {
-            callback();
-          } catch (error) {
-            logger.error(
-              { error: error instanceof Error ? error.message : String(error) },
-              'Pressure callback failed'
-            );
-          }
-        }
-      }
-    }, intervalMs);
+      this.checkAndEmit();
+    }, interval);
+
+    // Make interval not keep process alive
+    this.checkInterval.unref();
+
+    logger.debug(
+      {
+        intervalMs: interval,
+        warningThreshold: this.pressureConfig.warningThreshold,
+        criticalThreshold: this.pressureConfig.criticalThreshold,
+      },
+      'Memory pressure monitoring started'
+    );
   }
 
   /**
@@ -501,7 +672,29 @@ export class MemoryPressureMonitor {
     if (this.checkInterval) {
       clearInterval(this.checkInterval);
       this.checkInterval = null;
+      logger.debug('Memory pressure monitoring stopped');
     }
+  }
+
+  /**
+   * Force a check (for testing or manual triggers)
+   */
+  forceCheck(): void {
+    this.checkAndEmit();
+  }
+
+  /**
+   * Get current pressure level without triggering events
+   */
+  getCurrentLevel(): MemoryPressureLevel {
+    return this.currentLevel;
+  }
+
+  /**
+   * Get configuration
+   */
+  getConfig(): MemoryPressureConfig {
+    return { ...this.pressureConfig };
   }
 }
 

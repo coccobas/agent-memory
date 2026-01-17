@@ -195,9 +195,7 @@ function extractWorkItems(results: QueryResultItem[]): HierarchicalContextItem[]
   return results
     .filter((r) => {
       const title = getItemTitle(r);
-      return WORK_ITEM_PREFIXES.some((prefix) =>
-        title.toUpperCase().startsWith(prefix)
-      );
+      return WORK_ITEM_PREFIXES.some((prefix) => title.toUpperCase().startsWith(prefix));
     })
     .sort((a, b) => {
       // Sort by prefix priority: BUG > TODO > LIMITATION > FIXME > WIP

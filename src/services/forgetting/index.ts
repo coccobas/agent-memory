@@ -11,8 +11,6 @@
  * ESLint unsafe warnings are suppressed for database operations.
  */
 
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-explicit-any */
-
 import { eq, and } from 'drizzle-orm';
 import {
   tools,
@@ -415,20 +413,25 @@ function getTableForType(entryType: EntryType) {
   }
 }
 
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return -- dynamic table entry type */
 function getLastAccessedAt(entry: any, entryType: EntryType): string | null {
   if (entryType === 'experience') {
     return entry.lastUsedAt ?? null;
   }
   return entry.lastAccessedAt ?? null;
 }
+/* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return */
 
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return -- dynamic table entry type */
 function getAccessCount(entry: any, entryType: EntryType): number {
   if (entryType === 'experience') {
     return entry.useCount ?? 0;
   }
   return entry.accessCount ?? 0;
 }
+/* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return */
 
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument -- dynamic importance input shape */
 function checkShouldForget(
   strategy: ForgettingStrategy,
   recencyScore: number,
@@ -463,13 +466,14 @@ function checkShouldForget(
       const importanceScore = importanceInput.priority
         ? calculateImportanceScore(importanceInput)
         : 0.5; // Default importance for entries without priority
-      const combinedScore =
-        recencyScore * 0.35 + frequencyScore * 0.35 + importanceScore * 0.3;
+      const combinedScore = recencyScore * 0.35 + frequencyScore * 0.35 + importanceScore * 0.3;
       return combinedScore < 0.4;
     }
   }
 }
+/* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument */
 
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument -- dynamic importance input shape */
 function getForgetReason(
   strategy: ForgettingStrategy,
   lastAccessedAt: string | null,
@@ -500,6 +504,7 @@ function getForgetReason(
       return 'Low combined score across recency, frequency, and importance';
   }
 }
+/* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument */
 
 async function deactivateEntry(
   db: DbClient,

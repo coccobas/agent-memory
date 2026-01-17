@@ -5,8 +5,6 @@
  * Reduces duplication without requiring structural changes to existing repos.
  */
 
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-
 import { eq, and, isNull, inArray, type SQL } from 'drizzle-orm';
 import type { ScopeType } from '../schema.js';
 import {
@@ -171,7 +169,12 @@ export function buildExactScopeConditions<
     conditions.push(isNull(table.scopeId as never));
   }
 
-  return and(...conditions)!;
+  // and() with conditions always returns SQL, not undefined
+  const result = and(...conditions);
+  if (!result) {
+    throw new Error('Unexpected: and() returned undefined with non-empty conditions');
+  }
+  return result;
 }
 
 /**
@@ -180,10 +183,15 @@ export function buildExactScopeConditions<
 export function buildGlobalScopeConditions<
   TTable extends { scopeType: unknown; scopeId: unknown; isActive: unknown },
 >(table: TTable, identifierColumn: unknown, identifier: string): SQL {
-  return and(
+  // and() with conditions always returns SQL, not undefined
+  const result = and(
     eq(identifierColumn as never, identifier),
     eq(table.scopeType as never, 'global'),
     isNull(table.scopeId as never),
     eq(table.isActive as never, true)
-  )!;
+  );
+  if (!result) {
+    throw new Error('Unexpected: and() returned undefined with non-empty conditions');
+  }
+  return result;
 }

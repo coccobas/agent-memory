@@ -58,7 +58,6 @@ export function addHookCommand(program: Command): void {
             sessionId: options.sessionId,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -88,7 +87,6 @@ export function addHookCommand(program: Command): void {
             sessionId: options.sessionId,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -114,7 +112,6 @@ export function addHookCommand(program: Command): void {
             projectPath: options.projectPath,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -140,7 +137,6 @@ export function addHookCommand(program: Command): void {
             projectPath: options.projectPath,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);

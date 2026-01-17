@@ -87,13 +87,12 @@ export default defineConfig({
 
         // =============================================================================
         // CATEGORY 7: Server & API Layer
-        // Rationale: HTTP/MCP servers require full application context and are
-        // tested via integration tests that make real requests. Unit testing
-        // the thin handler wrappers provides little value.
+        // Rationale: HTTP/MCP servers and descriptors require full application
+        // context. Handlers are unit tested (tests/unit/*-handler.test.ts).
         // =============================================================================
         'src/mcp/server.ts',
         'src/mcp/descriptors/**',
-        'src/mcp/handlers/**',
+        // Note: src/mcp/handlers/** removed - has 33+ unit test files
         'src/restapi/**',
 
         // =============================================================================
@@ -108,26 +107,25 @@ export default defineConfig({
         'src/core/lifecycle-coordinator.ts',
 
         // =============================================================================
-        // CATEGORY 9: Complex Orchestration Services
-        // Rationale: These services coordinate multiple subsystems and require
-        // complex integration scenarios. Unit testing individual methods in
-        // isolation would miss critical interaction bugs.
+        // CATEGORY 9: Complex Orchestration Services (Reduced)
+        // Rationale: Many orchestration services now have unit tests.
+        // Only services without dedicated unit tests remain excluded.
         // =============================================================================
+        // Feedback subsystem - collectors/evaluators/repos tested via feedback-queue.test.ts
         'src/services/feedback/collectors/**',
         'src/services/feedback/repositories/**',
         'src/services/feedback/evaluators/**',
-        'src/services/feedback/strategies/**',
-        'src/services/feedback/index.ts',
-        'src/services/consolidation/**',
-        'src/services/forgetting/**',
-        'src/services/librarian/**',
-        'src/services/summarization/**',
-        'src/services/capture/**',
-        'src/services/extraction/**',
-        'src/services/session.service.ts',
         'src/services/file-sync/**',
-        'src/services/query-rewrite/**',
-        'src/services/export/lora/**',
+        // Note: Removed services with unit tests:
+        // - src/services/consolidation/** → consolidation*.test.ts
+        // - src/services/forgetting/** → forgetting*.test.ts
+        // - src/services/librarian/** → librarian*.test.ts
+        // - src/services/summarization/** → hierarchical-summarization.service.test.ts
+        // - src/services/capture/** → capture.service.test.ts
+        // - src/services/extraction/** → extraction*.test.ts
+        // - src/services/session.service.ts → session-timeout.service.test.ts
+        // - src/services/query-rewrite/** → query-rewrite.service.test.ts
+        // - src/services/export/lora/** → lora*.test.ts
 
         // =============================================================================
         // CATEGORY 10: Commands & Utilities (Integration-Tested)
@@ -139,11 +137,14 @@ export default defineConfig({
         'src/db/cursor-db.ts',
         'src/utils/markdown.ts',
       ],
+      // Thresholds reduced after removing broad exclusions (2026-01-17)
+      // Previously inflated by excluding ~40% of code. Now reflects honest coverage
+      // of services that have unit tests (handlers, consolidation, forgetting, etc.)
       thresholds: {
-        lines: 77,
-        functions: 78,
-        branches: 68,
-        statements: 76,
+        lines: 71,
+        functions: 73,
+        branches: 61,
+        statements: 70,
       },
     },
     setupFiles: ['tests/fixtures/setup.ts'],

@@ -81,7 +81,8 @@ Example: {"action":"run_maintenance","scopeType":"project","scopeId":"proj-123"}
     run_maintenance: {
       params: {
         tasks: {
-          description: 'Which tasks to run (defaults to all): consolidation, forgetting, graphBackfill',
+          description:
+            'Which tasks to run (defaults to all): consolidation, forgetting, graphBackfill',
           type: 'array',
         },
         dryRun: {

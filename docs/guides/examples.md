@@ -543,4 +543,4 @@ Real-world examples of storing and querying memory.
 
 - [Workflows Guide](workflows.md) - Common workflow patterns
 - [MCP Tools](../reference/mcp-tools.md) - Complete tool documentation
-- [Getting Started](../getting-started.md) - First workflow walkthrough
+- [First Workflow](../tutorials/first-workflow.md) - First workflow walkthrough

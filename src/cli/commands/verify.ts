@@ -76,7 +76,6 @@ export function addVerifyCommand(program: Command): void {
             agentId: globalOpts.agentId,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -111,7 +110,6 @@ export function addVerifyCommand(program: Command): void {
             agentId: globalOpts.agentId,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -140,7 +138,6 @@ export function addVerifyCommand(program: Command): void {
             agentId: globalOpts.agentId,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -166,7 +163,6 @@ export function addVerifyCommand(program: Command): void {
             projectId: options.projectId,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);

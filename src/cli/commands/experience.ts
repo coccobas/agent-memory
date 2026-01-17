@@ -118,7 +118,6 @@ export function addExperienceCommand(program: Command): void {
             inherit: true,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -144,7 +143,6 @@ export function addExperienceCommand(program: Command): void {
             includeVersions: options.includeVersions,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -191,7 +189,6 @@ export function addExperienceCommand(program: Command): void {
             agentId: globalOpts.agentId,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -232,7 +229,6 @@ export function addExperienceCommand(program: Command): void {
             agentId: globalOpts.agentId,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -257,7 +253,6 @@ export function addExperienceCommand(program: Command): void {
             agentId: globalOpts.agentId,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -295,7 +290,6 @@ export function addExperienceCommand(program: Command): void {
             agentId: globalOpts.agentId,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -325,7 +319,6 @@ export function addExperienceCommand(program: Command): void {
             agentId: globalOpts.agentId,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -366,7 +359,6 @@ export function addExperienceCommand(program: Command): void {
             agentId: globalOpts.agentId,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -391,7 +383,6 @@ export function addExperienceCommand(program: Command): void {
             agentId: globalOpts.agentId,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);

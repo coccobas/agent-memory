@@ -422,9 +422,7 @@ const run_maintenance: ContextAwareHandler = async (context, params) => {
   let tasks: MaintenanceTask[] | undefined;
   if (params.tasks && Array.isArray(params.tasks)) {
     const validTasks = ['consolidation', 'forgetting', 'graphBackfill'];
-    tasks = (params.tasks as string[]).filter((t): t is MaintenanceTask =>
-      validTasks.includes(t)
-    );
+    tasks = (params.tasks as string[]).filter((t): t is MaintenanceTask => validTasks.includes(t));
   }
 
   logger.info({ scopeType, scopeId, tasks, dryRun }, 'Starting maintenance run');

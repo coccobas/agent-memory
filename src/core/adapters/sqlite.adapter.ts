@@ -258,16 +258,45 @@ export class SQLiteStorageAdapter implements IStorageAdapter {
     return this.sqlite;
   }
 
-  async healthCheck(): Promise<{ ok: boolean; latencyMs: number }> {
+  /**
+   * Perform a health check on the database connection.
+   * Optionally attempts to reconnect if the connection is broken.
+   *
+   * Note: SQLite reconnection is limited since the adapter is constructed
+   * with pre-initialized db and sqlite instances. If the database file
+   * is corrupted or missing, reconnection won't help.
+   */
+  async healthCheck(options?: { attemptReconnect?: boolean }): Promise<{
+    ok: boolean;
+    latencyMs: number;
+    reconnected?: boolean;
+  }> {
     const start = Date.now();
     try {
       if (!this.sqlite.open) {
+        if (options?.attemptReconnect) {
+          logger.warn(
+            'Health check: SQLite database is closed. Reconnection not supported for ' +
+              'pre-constructed SQLite adapters. Please restart the application.'
+          );
+          return { ok: false, latencyMs: Date.now() - start, reconnected: false };
+        }
         return { ok: false, latencyMs: Date.now() - start };
       }
       this.sqlite.prepare('SELECT 1').get();
       return { ok: true, latencyMs: Date.now() - start };
     } catch (error) {
-      logger.debug({ error }, 'Health check failed, database not accessible');
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.debug({ error: errorMessage }, 'Health check failed, database not accessible');
+
+      if (options?.attemptReconnect) {
+        logger.warn(
+          { error: errorMessage },
+          'Health check failed: SQLite reconnection not supported for pre-constructed adapters'
+        );
+        return { ok: false, latencyMs: Date.now() - start, reconnected: false };
+      }
+
       return { ok: false, latencyMs: Date.now() - start };
     }
   }

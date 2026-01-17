@@ -31,6 +31,8 @@ export const tools = sqliteTable(
     uniqueIndex('idx_tools_scope_name').on(table.scopeType, table.scopeId, table.name),
     index('idx_tools_active').on(table.isActive),
     index('idx_tools_created').on(table.createdAt),
+    // Composite index for common query pattern: active entries within a scope
+    index('idx_tools_scope_active').on(table.scopeType, table.scopeId, table.isActive),
   ]
 );
 
@@ -89,6 +91,8 @@ export const guidelines = sqliteTable(
     uniqueIndex('idx_guidelines_scope_name').on(table.scopeType, table.scopeId, table.name),
     index('idx_guidelines_active').on(table.isActive),
     index('idx_guidelines_created').on(table.createdAt),
+    // Composite index for common query pattern: active entries within a scope
+    index('idx_guidelines_scope_active').on(table.scopeType, table.scopeId, table.isActive),
   ]
 );
 
@@ -152,6 +156,8 @@ export const knowledge = sqliteTable(
     uniqueIndex('idx_knowledge_scope_title').on(table.scopeType, table.scopeId, table.title),
     index('idx_knowledge_active').on(table.isActive),
     index('idx_knowledge_created').on(table.createdAt),
+    // Composite index for common query pattern: active entries within a scope
+    index('idx_knowledge_scope_active').on(table.scopeType, table.scopeId, table.isActive),
   ]
 );
 

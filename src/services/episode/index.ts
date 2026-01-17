@@ -215,11 +215,13 @@ export function createEpisodeService(deps: EpisodeServiceDeps) {
         // Fall back to event-based linking
         const events = await episodeRepo.getEvents(episodeId);
         return events
-          .filter((e) => e.entryType && e.entryId)
+          .filter((e): e is typeof e & { entryType: string; entryId: string } =>
+            Boolean(e.entryType && e.entryId)
+          )
           .map((e) => ({
-            entryType: e.entryType!,
-            entryId: e.entryId!,
-            role: e.data ? JSON.parse(e.data).role : undefined,
+            entryType: e.entryType,
+            entryId: e.entryId,
+            role: e.data ? (safeParseJson(e.data)?.role as string | undefined) : undefined,
           }));
       }
 
@@ -240,7 +242,7 @@ export function createEpisodeService(deps: EpisodeServiceDeps) {
           linkedEntities.push({
             entryType: targetNode.entryType,
             entryId: targetNode.entryId,
-            role: edge.properties ? (edge.properties as Record<string, unknown>).role as string : undefined,
+            role: edge.properties ? (edge.properties.role as string) : undefined,
           });
         }
       }
@@ -402,7 +404,7 @@ export function createEpisodeService(deps: EpisodeServiceDeps) {
           eventId: event.id,
           entryType: event.entryType ?? undefined,
           entryId: event.entryId ?? undefined,
-          data: event.data ? JSON.parse(event.data) : undefined,
+          data: event.data ? safeParseJson(event.data) : undefined,
         });
       }
 

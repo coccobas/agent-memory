@@ -16,7 +16,7 @@ Query specific memory on-demand with **sub-millisecond latency**.
 
 <br />
 
-[Get Started](#-quick-start) · [Documentation](docs/README.md) · [MCP Tools](docs/reference/mcp-tools.md)
+[Get Started](#-quick-start) · [Documentation](docs/index.md) · [MCP Tools](docs/reference/mcp-tools.md)
 
 ---
 
@@ -287,9 +287,9 @@ AGENT_MEMORY_PERMISSIONS_MODE=permissive
 
 | Resource                                          | Description               |
 | :------------------------------------------------ | :------------------------ |
-| [Quickstart](docs/quickstart.md)                  | Get running in 2 minutes  |
-| [Installation](docs/installation.md)              | npm, Docker, source       |
-| [Getting Started](docs/getting-started.md)        | Full setup guide          |
+| [Quickstart](docs/tutorials/quickstart.md)        | Get running in 2 minutes  |
+| [Docker Deployment](docs/guides/docker.md)        | Container deployment      |
+| [First Workflow](docs/tutorials/first-workflow.md)| Full setup guide          |
 | [MCP Tools](docs/reference/mcp-tools.md)          | All 20+ tools documented  |
 | [Hooks Guide](docs/guides/hooks.md)               | IDE hooks for enforcement |
 | [Rules Sync](docs/guides/rules-sync.md)           | Sync guidelines to IDEs   |

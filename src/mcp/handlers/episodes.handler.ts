@@ -79,9 +79,7 @@ const addHandler: ContextAwareHandler = async (
   const triggerType = getOptionalParam(params, 'triggerType', isString);
   const triggerRef = getOptionalParam(params, 'triggerRef', isString);
   const tags = getOptionalParam(params, 'tags', isArrayOfStrings);
-  const metadata = getOptionalParam(params, 'metadata', isObject) as
-    | Record<string, unknown>
-    | undefined;
+  const metadata = getOptionalParam(params, 'metadata', isObject);
   const createdBy = getOptionalParam(params, 'createdBy', isString);
   const agentId = getOptionalParam(params, 'agentId', isString);
 
@@ -182,9 +180,7 @@ const updateHandler: ContextAwareHandler = async (
   const name = getOptionalParam(params, 'name', isString);
   const description = getOptionalParam(params, 'description', isString);
   const tags = getOptionalParam(params, 'tags', isArrayOfStrings);
-  const metadata = getOptionalParam(params, 'metadata', isObject) as
-    | Record<string, unknown>
-    | undefined;
+  const metadata = getOptionalParam(params, 'metadata', isObject);
   const agentId = getOptionalParam(params, 'agentId', isString);
 
   const episode = await episodeService.update(id, {
@@ -435,9 +431,7 @@ const beginHandler: ContextAwareHandler = async (
   const triggerType = getOptionalParam(params, 'triggerType', isString);
   const triggerRef = getOptionalParam(params, 'triggerRef', isString);
   const tags = getOptionalParam(params, 'tags', isArrayOfStrings);
-  const metadata = getOptionalParam(params, 'metadata', isObject) as
-    | Record<string, unknown>
-    | undefined;
+  const metadata = getOptionalParam(params, 'metadata', isObject);
   const createdBy = getOptionalParam(params, 'createdBy', isString);
   const agentId = getOptionalParam(params, 'agentId', isString);
 
@@ -495,7 +489,7 @@ const addEventHandler: ContextAwareHandler = async (
   const description = getOptionalParam(params, 'description', isString);
   const entryType = getOptionalParam(params, 'entryType', isString);
   const entryId = getOptionalParam(params, 'entryId', isString);
-  const data = getOptionalParam(params, 'data', isObject) as Record<string, unknown> | undefined;
+  const data = getOptionalParam(params, 'data', isObject);
 
   const event = await episodeService.addEvent({
     episodeId,
@@ -540,7 +534,7 @@ const logHandler: ContextAwareHandler = async (
   const episodeId = getEpisodeId(params, true);
   const message = getRequiredParam(params, 'message', isString);
   const eventType = getOptionalParam(params, 'eventType', isString) ?? 'checkpoint';
-  const data = getOptionalParam(params, 'data', isObject) as Record<string, unknown> | undefined;
+  const data = getOptionalParam(params, 'data', isObject);
 
   const event = await episodeService.addEvent({
     episodeId,

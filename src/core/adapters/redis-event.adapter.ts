@@ -8,8 +8,6 @@
  * (Redis requirement for pub/sub).
  */
 
-/* eslint-disable @typescript-eslint/no-redundant-type-constituents -- ioredis types contain any */
-
 import { z } from 'zod';
 import type { IEventAdapterExtended, EntryChangedEvent } from '../interfaces/event-adapter.js';
 import { createComponentLogger } from '../../utils/logger.js';

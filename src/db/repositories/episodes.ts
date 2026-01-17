@@ -175,11 +175,7 @@ export function createEpisodeRepository(deps: DatabaseDeps): IEpisodeRepository 
         query = query.where(and(...conditions)) as typeof query;
       }
 
-      const entries = query
-        .orderBy(desc(episodes.createdAt))
-        .limit(limit)
-        .offset(offset)
-        .all();
+      const entries = query.orderBy(desc(episodes.createdAt)).limit(limit).offset(offset).all();
 
       return entries.map((e) => ({ ...e, events: undefined }));
     },
@@ -204,11 +200,7 @@ export function createEpisodeRepository(deps: DatabaseDeps): IEpisodeRepository 
     },
 
     async deactivate(id: string): Promise<boolean> {
-      const result = db
-        .update(episodes)
-        .set({ isActive: false })
-        .where(eq(episodes.id, id))
-        .run();
+      const result = db.update(episodes).set({ isActive: false }).where(eq(episodes.id, id)).run();
       return result.changes > 0;
     },
 
@@ -261,7 +253,11 @@ export function createEpisodeRepository(deps: DatabaseDeps): IEpisodeRepository 
         };
         db.insert(episodeEvents).values(event).run();
 
-        return getByIdSync(id, true)!;
+        const result = getByIdSync(id, true);
+        if (!result) {
+          throw createNotFoundError('episode', id);
+        }
+        return result;
       });
     },
 
@@ -314,7 +310,11 @@ export function createEpisodeRepository(deps: DatabaseDeps): IEpisodeRepository 
         };
         db.insert(episodeEvents).values(event).run();
 
-        return getByIdSync(id, true)!;
+        const result = getByIdSync(id, true);
+        if (!result) {
+          throw createNotFoundError('episode', id);
+        }
+        return result;
       });
     },
 
@@ -362,7 +362,11 @@ export function createEpisodeRepository(deps: DatabaseDeps): IEpisodeRepository 
         };
         db.insert(episodeEvents).values(event).run();
 
-        return getByIdSync(id, true)!;
+        const result = getByIdSync(id, true);
+        if (!result) {
+          throw createNotFoundError('episode', id);
+        }
+        return result;
       });
     },
 
@@ -396,7 +400,11 @@ export function createEpisodeRepository(deps: DatabaseDeps): IEpisodeRepository 
           .where(eq(episodes.id, id))
           .run();
 
-        return getByIdSync(id, true)!;
+        const result = getByIdSync(id, true);
+        if (!result) {
+          throw createNotFoundError('episode', id);
+        }
+        return result;
       });
     },
 
@@ -427,11 +435,7 @@ export function createEpisodeRepository(deps: DatabaseDeps): IEpisodeRepository 
 
         db.insert(episodeEvents).values(event).run();
 
-        const created = db
-          .select()
-          .from(episodeEvents)
-          .where(eq(episodeEvents.id, eventId))
-          .get();
+        const created = db.select().from(episodeEvents).where(eq(episodeEvents.id, eventId)).get();
 
         if (!created) {
           throw createConflictError('episodeEvent', 'failed to create event');

@@ -256,6 +256,7 @@ export function getQueryCacheKey(params: MemoryQueryParams): string | null {
     params.search ?? '',
     params.compact ? '1' : '0',
     String(params.limit || 20),
+    String(params.offset || 0),
     params.includeVersions ? '1' : '0',
     params.tags?.include?.slice().sort().join(',') ?? '',
     params.tags?.require?.slice().sort().join(',') ?? '',

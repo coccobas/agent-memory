@@ -47,7 +47,6 @@ export function addConflictCommand(program: Command): void {
             offset: options.offset,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -75,7 +74,6 @@ export function addConflictCommand(program: Command): void {
             resolvedBy: options.resolvedBy,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);

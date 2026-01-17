@@ -10,6 +10,7 @@ import type {
   EntryTag,
   EntryRelation,
   EntryType,
+  AuditEntryType,
   RelationType,
   Organization,
   Project,
@@ -765,7 +766,8 @@ export interface UsageStats {
   scopeUsage: Record<ScopeType, number>;
   searchQueries: Array<{ query: string; count: number }>;
   actionBreakdown: Array<{ action: string; count: number }>;
-  entryTypeBreakdown: Array<{ entryType: EntryType | null; count: number }>;
+  /** Breakdown of audit log entries by type (uses AuditEntryType to include permission audits) */
+  entryTypeBreakdown: Array<{ entryType: AuditEntryType | null; count: number }>;
 }
 
 /**
@@ -1218,7 +1220,11 @@ export interface IEpisodeRepository {
 
   // Lifecycle management
   start(id: string): Promise<EpisodeWithEvents>;
-  complete(id: string, outcome: string, outcomeType: EpisodeOutcomeType): Promise<EpisodeWithEvents>;
+  complete(
+    id: string,
+    outcome: string,
+    outcomeType: EpisodeOutcomeType
+  ): Promise<EpisodeWithEvents>;
   fail(id: string, outcome: string): Promise<EpisodeWithEvents>;
   cancel(id: string, reason?: string): Promise<EpisodeWithEvents>;
 

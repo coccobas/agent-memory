@@ -2,29 +2,33 @@
  * Local FileSystem Adapter Implementation
  *
  * Wraps Node.js fs operations for the IFileSystemAdapter interface.
- * Provides async methods for testability while using sync operations internally
- * (suitable for CLI/server where blocking is acceptable).
+ * Uses async fs/promises to avoid blocking the event loop.
  */
 
-import { existsSync, readFileSync, readdirSync, statSync, writeFileSync, mkdirSync } from 'node:fs';
+import { access, readFile, readdir, stat, writeFile, mkdir } from 'node:fs/promises';
 import { resolve, join, basename, dirname } from 'node:path';
 import type { IFileSystemAdapter, FileStat } from './filesystem.adapter.js';
 
 export class LocalFileSystemAdapter implements IFileSystemAdapter {
   async exists(path: string): Promise<boolean> {
-    return existsSync(path);
+    try {
+      await access(path);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   async readFile(path: string, encoding: BufferEncoding = 'utf-8'): Promise<string> {
-    return readFileSync(path, encoding);
+    return readFile(path, encoding);
   }
 
   async readDir(path: string): Promise<string[]> {
-    return readdirSync(path);
+    return readdir(path);
   }
 
   async stat(path: string): Promise<FileStat> {
-    const s = statSync(path);
+    const s = await stat(path);
     return {
       isDirectory: () => s.isDirectory(),
       mtime: s.mtime,
@@ -37,11 +41,11 @@ export class LocalFileSystemAdapter implements IFileSystemAdapter {
     content: string,
     encoding: BufferEncoding = 'utf-8'
   ): Promise<void> {
-    writeFileSync(path, content, encoding);
+    await writeFile(path, content, encoding);
   }
 
   async mkdir(path: string, options?: { recursive?: boolean }): Promise<void> {
-    mkdirSync(path, options);
+    await mkdir(path, options);
   }
 
   resolve(...paths: string[]): string {

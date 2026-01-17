@@ -716,6 +716,6 @@ If these solutions don't resolve your issue:
 
 ## See Also
 
-- [Installation](../installation.md) - Detailed installation options
+- [Quickstart](../tutorials/quickstart.md) - Getting started guide
 - [Performance Guide](performance.md) - Performance optimization
 - [Configuration](../reference/environment-variables.md) - All environment variables

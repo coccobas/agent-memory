@@ -365,7 +365,8 @@ async function injectContext(
         formattedContext = 'No relevant context memories were found.';
       } else {
         const descriptions = memories.map(
-          (m) => `A ${m.type} entry states: "${m.content.substring(0, 150)}${m.content.length > 150 ? '...' : ''}"`
+          (m) =>
+            `A ${m.type} entry states: "${m.content.substring(0, 150)}${m.content.length > 150 ? '...' : ''}"`
         );
         formattedContext = `Here is relevant context from ${memories.length} memories:\n\n${descriptions.join('\n\n')}`;
       }

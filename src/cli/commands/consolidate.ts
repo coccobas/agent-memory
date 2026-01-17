@@ -89,7 +89,6 @@ export function addConsolidateCommand(program: Command): void {
             consolidatedBy: globalOpts.agentId,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -127,7 +126,6 @@ export function addConsolidateCommand(program: Command): void {
             consolidatedBy: globalOpts.agentId,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -165,7 +163,6 @@ export function addConsolidateCommand(program: Command): void {
             consolidatedBy: globalOpts.agentId,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -203,7 +200,6 @@ export function addConsolidateCommand(program: Command): void {
             consolidatedBy: globalOpts.agentId,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -243,7 +239,6 @@ export function addConsolidateCommand(program: Command): void {
             consolidatedBy: globalOpts.agentId,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);

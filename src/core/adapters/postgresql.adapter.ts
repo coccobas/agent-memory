@@ -329,17 +329,75 @@ export class PostgreSQLStorageAdapter implements IStorageAdapter {
 
   /**
    * Perform a health check on the database connection.
+   * Optionally attempts to reconnect if the connection is broken.
    */
-  async healthCheck(): Promise<{ ok: boolean; latencyMs: number }> {
+  async healthCheck(options?: { attemptReconnect?: boolean }): Promise<{
+    ok: boolean;
+    latencyMs: number;
+    reconnected?: boolean;
+  }> {
     const start = Date.now();
+
+    // First, try the health check
     try {
       if (!this.pool) {
+        if (options?.attemptReconnect) {
+          logger.info('Health check: pool is null, attempting reconnection');
+          try {
+            await this.connect();
+            return { ok: true, latencyMs: Date.now() - start, reconnected: true };
+          } catch (reconnectError) {
+            logger.warn(
+              {
+                error:
+                  reconnectError instanceof Error ? reconnectError.message : String(reconnectError),
+              },
+              'Health check: reconnection attempt failed'
+            );
+            return { ok: false, latencyMs: Date.now() - start, reconnected: false };
+          }
+        }
         return { ok: false, latencyMs: Date.now() - start };
       }
+
       await this.pool.query('SELECT 1');
       return { ok: true, latencyMs: Date.now() - start };
     } catch (error) {
-      logger.debug({ error }, 'Health check failed, database not accessible');
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.debug({ error: errorMessage }, 'Health check failed, database not accessible');
+
+      // If reconnect is requested, attempt to reconnect
+      if (options?.attemptReconnect) {
+        logger.info('Health check failed, attempting reconnection');
+        try {
+          // Close existing pool if it exists
+          if (this.pool) {
+            try {
+              await this.pool.end();
+            } catch (closeError) {
+              logger.debug({ closeError }, 'Error closing pool during reconnection attempt');
+            }
+            this.pool = null;
+            this.db = null;
+            this.connected = false;
+          }
+
+          // Attempt to reconnect
+          await this.connect();
+          logger.info('Health check: reconnection successful');
+          return { ok: true, latencyMs: Date.now() - start, reconnected: true };
+        } catch (reconnectError) {
+          logger.warn(
+            {
+              error:
+                reconnectError instanceof Error ? reconnectError.message : String(reconnectError),
+            },
+            'Health check: reconnection attempt failed'
+          );
+          return { ok: false, latencyMs: Date.now() - start, reconnected: false };
+        }
+      }
+
       return { ok: false, latencyMs: Date.now() - start };
     }
   }

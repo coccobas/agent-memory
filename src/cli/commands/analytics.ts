@@ -65,7 +65,6 @@ export function addAnalyticsCommand(program: Command): void {
             endDate: options.endDate,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -95,7 +94,6 @@ export function addAnalyticsCommand(program: Command): void {
             endDate: options.endDate,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -122,7 +120,6 @@ export function addAnalyticsCommand(program: Command): void {
             subtaskType: options.subtaskType,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -154,7 +151,6 @@ export function addAnalyticsCommand(program: Command): void {
               : undefined,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -181,7 +177,6 @@ export function addAnalyticsCommand(program: Command): void {
             scopeId: options.scopeId,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);

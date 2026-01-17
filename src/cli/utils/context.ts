@@ -30,7 +30,7 @@ export async function getCliContext(): Promise<AppContext> {
 
   // Create runtime
   const { createRuntime, extractRuntimeConfig } = await import('../../core/runtime.js');
-  const { registerRuntime, isRuntimeRegistered, getRuntime } =
+  const { registerRuntime, isRuntimeRegistered, getRuntime, registerContext } =
     await import('../../core/container.js');
 
   // Only create runtime if not already registered
@@ -46,6 +46,9 @@ export async function getCliContext(): Promise<AppContext> {
   // Create context with runtime
   const { createAppContext } = await import('../../core/factory.js');
   cachedContext = await createAppContext(config, runtime);
+
+  // Register context with container so global getDb() works
+  registerContext(cachedContext);
 
   return cachedContext;
 }

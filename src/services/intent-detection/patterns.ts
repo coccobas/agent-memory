@@ -163,7 +163,12 @@ const CATEGORY_PATTERNS: Record<string, RegExp[]> = {
  * Episode trigger patterns - detect work-intent from session names
  * Used to auto-create episodes when session name indicates substantive work
  */
-export type EpisodeTriggerType = 'bug_fix' | 'feature' | 'refactor' | 'investigation' | 'implementation';
+export type EpisodeTriggerType =
+  | 'bug_fix'
+  | 'feature'
+  | 'refactor'
+  | 'investigation'
+  | 'implementation';
 
 const EPISODE_TRIGGER_PATTERNS: Record<EpisodeTriggerType, RegExp[]> = {
   bug_fix: [

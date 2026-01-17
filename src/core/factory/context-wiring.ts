@@ -28,7 +28,6 @@ import type { ParentScopeValue } from '../../services/permission.service.js';
 import type { ICacheAdapter } from '../adapters/interfaces.js';
 
 import { createServices, type ServiceDependencies } from './services.js';
-import type { TriggerOrchestrator } from '../../services/extraction/trigger-orchestrator.js';
 import { createQueryPipeline, wireQueryCache } from './query-pipeline.js';
 import { EntityIndex } from '../../services/query/entity-index.js';
 import { createContextDetectionService } from '../../services/context-detection.service.js';
@@ -128,9 +127,7 @@ export async function wireContext(input: WireContextInput): Promise<AppContext> 
 
   // Wire commit service to trigger orchestrator's observer for auto-extraction storage
   if (services.triggerOrchestrator && 'setObserverCommitService' in services.triggerOrchestrator) {
-    (services.triggerOrchestrator as TriggerOrchestrator).setObserverCommitService(
-      observeCommitService
-    );
+    services.triggerOrchestrator.setObserverCommitService(observeCommitService);
     logger.debug('Wired commit service to trigger orchestrator observer');
   }
 

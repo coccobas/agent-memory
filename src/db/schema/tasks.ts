@@ -135,6 +135,9 @@ export const tasks = sqliteTable(
     index('idx_tasks_parent').on(table.parentTaskId),
     index('idx_tasks_due_date').on(table.dueDate),
     index('idx_tasks_created_at').on(table.createdAt),
+    index('idx_tasks_active').on(table.isActive),
+    // Composite index for common query pattern: active entries within a scope
+    index('idx_tasks_scope_active').on(table.scopeType, table.scopeId, table.isActive),
   ]
 );
 

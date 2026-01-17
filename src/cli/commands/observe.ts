@@ -89,7 +89,6 @@ export function addObserveCommand(program: Command): void {
             agentId: globalOpts.agentId,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -125,7 +124,6 @@ export function addObserveCommand(program: Command): void {
             focusAreas,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -162,7 +160,6 @@ export function addObserveCommand(program: Command): void {
             agentId: globalOpts.agentId,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -183,7 +180,6 @@ export function addObserveCommand(program: Command): void {
 
           const result = observeHandlers.status(context);
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);

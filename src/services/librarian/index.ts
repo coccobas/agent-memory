@@ -635,7 +635,12 @@ export class LibrarianService {
     };
 
     // Stage 1: Experience Capture
-    if (!request.skipCapture && this.captureService && request.messages && request.messages.length >= 3) {
+    if (
+      !request.skipCapture &&
+      this.captureService &&
+      request.messages &&
+      request.messages.length >= 3
+    ) {
       try {
         const captureStart = Date.now();
         logger.debug({ sessionId: request.sessionId }, 'Running experience capture');
@@ -695,7 +700,10 @@ export class LibrarianService {
       } catch (error) {
         const errorMsg = `Experience capture failed: ${error instanceof Error ? error.message : String(error)}`;
         errors.push(errorMsg);
-        logger.warn({ sessionId: request.sessionId, error: errorMsg }, 'Experience capture failed (non-fatal)');
+        logger.warn(
+          { sessionId: request.sessionId, error: errorMsg },
+          'Experience capture failed (non-fatal)'
+        );
       }
     }
 
@@ -703,7 +711,10 @@ export class LibrarianService {
     if (!request.skipAnalysis && request.projectId) {
       try {
         const analysisStart = Date.now();
-        logger.debug({ sessionId: request.sessionId, projectId: request.projectId }, 'Running pattern analysis');
+        logger.debug(
+          { sessionId: request.sessionId, projectId: request.projectId },
+          'Running pattern analysis'
+        );
 
         const analysisResult = await this.analyze({
           scopeType: 'project',
@@ -732,7 +743,10 @@ export class LibrarianService {
       } catch (error) {
         const errorMsg = `Pattern analysis failed: ${error instanceof Error ? error.message : String(error)}`;
         errors.push(errorMsg);
-        logger.warn({ sessionId: request.sessionId, error: errorMsg }, 'Pattern analysis failed (non-fatal)');
+        logger.warn(
+          { sessionId: request.sessionId, error: errorMsg },
+          'Pattern analysis failed (non-fatal)'
+        );
       }
     }
 
@@ -745,7 +759,10 @@ export class LibrarianService {
     ) {
       try {
         const maintenanceStart = Date.now();
-        logger.debug({ sessionId: request.sessionId, projectId: request.projectId }, 'Running maintenance');
+        logger.debug(
+          { sessionId: request.sessionId, projectId: request.projectId },
+          'Running maintenance'
+        );
 
         const maintenanceResult = await this.runMaintenance({
           scopeType: 'project',
@@ -774,7 +791,10 @@ export class LibrarianService {
       } catch (error) {
         const errorMsg = `Maintenance failed: ${error instanceof Error ? error.message : String(error)}`;
         errors.push(errorMsg);
-        logger.warn({ sessionId: request.sessionId, error: errorMsg }, 'Maintenance failed (non-fatal)');
+        logger.warn(
+          { sessionId: request.sessionId, error: errorMsg },
+          'Maintenance failed (non-fatal)'
+        );
       }
     }
 
@@ -931,12 +951,26 @@ export class LibrarianService {
       } catch (error) {
         const errorMsg = `Latent memory warmup failed: ${error instanceof Error ? error.message : String(error)}`;
         errors.push(errorMsg);
-        logger.warn({ sessionId: request.sessionId, error: errorMsg }, 'Latent memory warmup failed (non-fatal)');
+        logger.warn(
+          { sessionId: request.sessionId, error: errorMsg },
+          'Latent memory warmup failed (non-fatal)'
+        );
       }
     } else if (!request.skipWarmup && latentConfig.enabled && !this.latentMemoryService) {
-      logger.debug({ sessionId: request.sessionId }, 'Latent memory service not available, skipping warmup');
-    } else if (!request.skipWarmup && latentConfig.enabled && this.latentMemoryService && !this.latentMemoryService.isAvailable()) {
-      logger.debug({ sessionId: request.sessionId }, 'Latent memory service unavailable (embeddings disabled), skipping warmup');
+      logger.debug(
+        { sessionId: request.sessionId },
+        'Latent memory service not available, skipping warmup'
+      );
+    } else if (
+      !request.skipWarmup &&
+      latentConfig.enabled &&
+      this.latentMemoryService &&
+      !this.latentMemoryService.isAvailable()
+    ) {
+      logger.debug(
+        { sessionId: request.sessionId },
+        'Latent memory service unavailable (embeddings disabled), skipping warmup'
+      );
     }
 
     // Finalize timing

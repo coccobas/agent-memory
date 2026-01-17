@@ -17,6 +17,7 @@ import { withRetry, isRetryableNetworkError } from '../utils/retry.js';
 import { CircuitBreaker } from '../utils/circuit-breaker.js';
 import { config } from '../config/index.js';
 import { yieldToEventLoop } from '../utils/yield.js';
+import { LRUCache } from '../utils/lru-cache.js';
 import {
   createEmbeddingDisabledError,
   createEmbeddingEmptyTextError,
@@ -168,8 +169,14 @@ export class EmbeddingService {
     | null = null;
   private localPipelinePromise: Promise<unknown> | null = null;
   private localModelName = 'Xenova/all-MiniLM-L6-v2'; // 384-dim embeddings
-  private embeddingCache = new Map<string, number[]>();
+  private timeoutMs: number;
   private maxCacheSize = 1000;
+  // Use LRU cache instead of Map for proper least-recently-used eviction
+  private embeddingCache = new LRUCache<number[]>({
+    maxSize: this.maxCacheSize,
+    // Estimate embedding size: 4 bytes per float * dimension (typically 384-1536)
+    sizeEstimator: (embedding) => embedding.length * 4,
+  });
   // Task 123: Cache statistics tracking
   private cacheHits = 0;
   private cacheMisses = 0;
@@ -227,6 +234,9 @@ export class EmbeddingService {
     this.lmstudioDefaultDimension =
       effectiveConfig.lmstudioDimension ?? config.embedding.lmstudioDimension;
     this.localDimension = effectiveConfig.localDimension ?? config.embedding.localDimension;
+
+    // Initialize timeout for all providers (used for local model loading)
+    this.timeoutMs = effectiveConfig.timeoutMs ?? config.embedding.timeoutMs;
 
     // Initialize OpenAI client if using OpenAI
     if (this.provider === 'openai') {
@@ -371,16 +381,13 @@ export class EmbeddingService {
       throw createEmbeddingEmptyTextError();
     }
 
-    // Check cache - use LRU pattern by deleting and re-inserting on access
+    // Check cache (LRUCache.get() automatically refreshes position)
     // Include type in cache key for asymmetric embeddings
     const cacheKey = `${this.provider}:${type}:${normalized}`;
     const cached = this.embeddingCache.get(cacheKey);
     if (cached) {
       // Task 123: Track cache hit
       this.cacheHits++;
-      // Move to end of Map (most recently used) by deleting and re-inserting
-      this.embeddingCache.delete(cacheKey);
-      this.embeddingCache.set(cacheKey, cached);
       return {
         embedding: [...cached], // Return a copy to prevent cache corruption
         model: this.provider === 'openai' ? this.openaiModel : this.localModelName,
@@ -405,15 +412,8 @@ export class EmbeddingService {
     // Task 121/125: Validate embedding array before caching
     validateEmbedding(embedding, this.provider);
 
-    // Cache result
+    // Cache result (LRU cache handles eviction automatically)
     this.embeddingCache.set(cacheKey, embedding);
-    if (this.embeddingCache.size > this.maxCacheSize) {
-      // Remove least recently used entry (first in Map iteration order)
-      // Map maintains insertion order, and we move accessed items to the end,
-      // so the first item is the least recently used
-      const firstKey = this.embeddingCache.keys().next().value;
-      if (firstKey) this.embeddingCache.delete(firstKey);
-    }
 
     return {
       embedding,
@@ -484,7 +484,7 @@ export class EmbeddingService {
     // Task 121/125: Validate all embeddings in batch
     validateEmbeddingBatch(embeddings, this.provider);
 
-    // Cache results
+    // Cache results (LRU cache handles eviction automatically)
     normalized.forEach((text, i) => {
       const cacheKey = `${this.provider}:${type}:${text}`;
       const embedding = embeddings[i];
@@ -492,13 +492,6 @@ export class EmbeddingService {
         this.embeddingCache.set(cacheKey, embedding);
       }
     });
-
-    // Evict excess entries after batch insert (critical fix for memory leak)
-    while (this.embeddingCache.size > this.maxCacheSize) {
-      const firstKey = this.embeddingCache.keys().next().value;
-      if (firstKey) this.embeddingCache.delete(firstKey);
-      else break;
-    }
 
     return {
       // Bug #3 fix: Return copies of embeddings to prevent cache corruption
@@ -743,7 +736,15 @@ export class EmbeddingService {
           logger.info('Loading local model (first use may take time)');
           EmbeddingService.hasLoggedModelLoad = true;
         }
-        this.localPipelinePromise = pipeline('feature-extraction', this.localModelName)
+        const pipelinePromise = pipeline('feature-extraction', this.localModelName);
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(
+            () => reject(new Error(`Local model loading timed out after ${this.timeoutMs}ms`)),
+            this.timeoutMs
+          );
+        });
+
+        this.localPipelinePromise = Promise.race([pipelinePromise, timeoutPromise])
           .then((p) => {
             // Type assertion: @xenova/transformers pipeline returns a callable
             // Cast through unknown to satisfy TypeScript's strict type checking

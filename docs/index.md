@@ -60,7 +60,7 @@ How to accomplish specific tasks:
 
 - [Scaling Guide](SCALING.md) — Deployment tiers and migration
 - [Troubleshooting](guides/troubleshooting.md) — Common issues
-- [Security](guides/security.md) — Production security
+- [Security](explanation/security-model.md) — Production security
 
 ### [Reference](reference/) — Information-oriented
 

@@ -19,10 +19,7 @@ export async function runSessionStartCommand(params: {
     return { exitCode: 2, stdout: [], stderr: ['Missing session_id in hook input'] };
   }
 
-  logger.debug(
-    { sessionId, projectId, agentId },
-    'Starting session start processing'
-  );
+  logger.debug({ sessionId, projectId, agentId }, 'Starting session start processing');
 
   try {
     // Ensure the session exists (creates if needed)
@@ -69,7 +66,10 @@ export async function runSessionStartCommand(params: {
           );
         }
       } else {
-        logger.debug({ sessionId }, 'Librarian service not available, skipping session start processing');
+        logger.debug(
+          { sessionId },
+          'Librarian service not available, skipping session start processing'
+        );
       }
     } catch (librarianError) {
       // Don't fail the session start if librarian fails - just log it

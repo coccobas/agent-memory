@@ -34,12 +34,7 @@ describe('Permissions Handler', () => {
 
   describe('grant', () => {
     it('should grant a permission', () => {
-      const mockPerm = {
-        id: 'perm-1',
-        agentId: 'agent-1',
-        permission: 'write',
-      };
-      mockPermissionService.grant.mockReturnValue(mockPerm);
+      mockPermissionService.grant.mockReturnValue(undefined);
 
       const result = permissionHandlers.grant(mockContext, {
         admin_key: 'key',
@@ -47,7 +42,14 @@ describe('Permissions Handler', () => {
         permission: 'write',
       });
 
-      expect(result.permission).toEqual(mockPerm);
+      // Handler constructs its own permission object
+      expect(result.permission).toEqual(
+        expect.objectContaining({
+          agentId: 'agent-1',
+          permission: 'write',
+        })
+      );
+      expect(result.permission.id).toMatch(/^agent-1:global::.*:write$/);
       expect(result.message).toContain('granted');
     });
 

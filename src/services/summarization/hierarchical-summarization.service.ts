@@ -1045,7 +1045,11 @@ export class HierarchicalSummarizationService {
 
       try {
         const existingEmbeddings = await (
-          this.vectorService as { getByEntryIds: (ids: Array<{ entryType: string; entryId: string }>) => Promise<Map<string, number[]>> }
+          this.vectorService as {
+            getByEntryIds: (
+              ids: Array<{ entryType: string; entryId: string }>
+            ) => Promise<Map<string, number[]>>;
+          }
         ).getByEntryIds(entryIds);
 
         // Map embeddings back to entries
@@ -1060,7 +1064,10 @@ export class HierarchicalSummarizationService {
         }
 
         if (loadedCount > 0) {
-          logger.debug({ loadedCount, totalEntries: entries.length }, 'Loaded existing embeddings from vector store');
+          logger.debug(
+            { loadedCount, totalEntries: entries.length },
+            'Loaded existing embeddings from vector store'
+          );
         }
       } catch (error) {
         logger.warn({ error: String(error) }, 'Failed to load embeddings from vector store');
@@ -1086,7 +1093,10 @@ export class HierarchicalSummarizationService {
       return entries;
     }
 
-    logger.debug({ count: entriesNeedingEmbeddings.length }, 'Generating embeddings for entries without cached embeddings');
+    logger.debug(
+      { count: entriesNeedingEmbeddings.length },
+      'Generating embeddings for entries without cached embeddings'
+    );
 
     // Batch embed texts
     const texts = entriesNeedingEmbeddings.map((e) => e.text);

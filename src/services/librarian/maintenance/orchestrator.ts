@@ -154,12 +154,16 @@ export class MaintenanceOrchestrator {
     const quality = await this.computeQualityScore(scopeType, scopeId);
 
     // Weighted average for overall score
-    const score = Math.round(freshness * 0.25 + diversity * 0.25 + connectivity * 0.25 + quality * 0.25);
+    const score = Math.round(
+      freshness * 0.25 + diversity * 0.25 + connectivity * 0.25 + quality * 0.25
+    );
 
     // Generate recommendations
     const recommendations: string[] = [];
     if (freshness < 50) {
-      recommendations.push('Many entries have not been accessed recently. Consider reviewing stale content.');
+      recommendations.push(
+        'Many entries have not been accessed recently. Consider reviewing stale content.'
+      );
     }
     if (diversity < 50) {
       recommendations.push('Memory is concentrated in few categories. Consider broader coverage.');
@@ -168,7 +172,9 @@ export class MaintenanceOrchestrator {
       recommendations.push('Knowledge graph has low connectivity. Run graph backfill to improve.');
     }
     if (quality < 50) {
-      recommendations.push('Some entries have low confidence scores. Consider reviewing and validating.');
+      recommendations.push(
+        'Some entries have low confidence scores. Consider reviewing and validating.'
+      );
     }
 
     return {
@@ -212,9 +218,8 @@ export class MaintenanceOrchestrator {
       }
 
       // Use consolidation service directly
-      const { findSimilarGroups, consolidate } = await import(
-        '../../../services/consolidation.service.js'
-      );
+      const { findSimilarGroups, consolidate } =
+        await import('../../../services/consolidation.service.js');
 
       // Build the services object required by consolidation
       const services = {
@@ -449,7 +454,7 @@ export class MaintenanceOrchestrator {
               result.entriesScanned++;
 
               // Check if latent memory already exists
-              const existing = await this.deps.latentMemory!.getLatentMemory(entryType, entry.id);
+              const existing = await this.deps.latentMemory.getLatentMemory(entryType, entry.id);
               if (existing) {
                 result.alreadyPopulated++;
                 continue;
@@ -468,7 +473,7 @@ export class MaintenanceOrchestrator {
               // Create latent memory (skip on dry run)
               if (!request.dryRun) {
                 try {
-                  await this.deps.latentMemory!.createLatentMemory({
+                  await this.deps.latentMemory.createLatentMemory({
                     sourceType: entryType as 'tool' | 'guideline' | 'knowledge' | 'experience',
                     sourceId: entry.id,
                     text,
@@ -481,7 +486,8 @@ export class MaintenanceOrchestrator {
                     {
                       entryType,
                       entryId: entry.id,
-                      error: createError instanceof Error ? createError.message : String(createError),
+                      error:
+                        createError instanceof Error ? createError.message : String(createError),
                     },
                     'Failed to create latent memory for entry'
                   );
@@ -589,7 +595,10 @@ export class MaintenanceOrchestrator {
             result.entriesScanned++;
 
             // Get current tags for this entry
-            const currentTags = await this.deps.repos.entryTags.getTagsForEntry(entryType, entry.id);
+            const currentTags = await this.deps.repos.entryTags.getTagsForEntry(
+              entryType,
+              entry.id
+            );
 
             // Skip if already well-tagged
             if (currentTags.length >= tagConfig.minTagsThreshold) {
@@ -604,8 +613,8 @@ export class MaintenanceOrchestrator {
             }
 
             // Find similar entries using vector search
-            const { embedding: queryEmbedding } = await this.deps.embedding!.embed(text);
-            const similarResults = await this.deps.vector!.searchSimilar(
+            const { embedding: queryEmbedding } = await this.deps.embedding.embed(text);
+            const similarResults = await this.deps.vector.searchSimilar(
               queryEmbedding,
               [entryType],
               10 // Get top 10 similar entries

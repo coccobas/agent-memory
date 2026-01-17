@@ -94,7 +94,6 @@ export function addConversationCommand(program: Command): void {
             agentId: globalOpts.agentId,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -123,7 +122,6 @@ export function addConversationCommand(program: Command): void {
             agentId: globalOpts.agentId,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -152,7 +150,6 @@ export function addConversationCommand(program: Command): void {
             agentId: globalOpts.agentId,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -185,7 +182,6 @@ export function addConversationCommand(program: Command): void {
             agentId: globalOpts.agentId,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -211,7 +207,6 @@ export function addConversationCommand(program: Command): void {
             title: options.title,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -244,7 +239,6 @@ export function addConversationCommand(program: Command): void {
             agentId: globalOpts.agentId,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -270,7 +264,6 @@ export function addConversationCommand(program: Command): void {
             entryId: options.entryId,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -303,7 +296,6 @@ export function addConversationCommand(program: Command): void {
             agentId: globalOpts.agentId,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -329,7 +321,6 @@ export function addConversationCommand(program: Command): void {
             generateSummary: options.generateSummary,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -353,7 +344,6 @@ export function addConversationCommand(program: Command): void {
             id: options.id,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);

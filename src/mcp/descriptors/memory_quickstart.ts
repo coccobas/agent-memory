@@ -18,7 +18,10 @@ import { formatBadges, icons } from '../../utils/terminal-formatter.js';
 import type { EntryType, ScopeType } from '../../db/schema.js';
 import type { PermissionLevel } from '../../services/permission.service.js';
 import type { MemoryHealth } from '../../services/librarian/types.js';
-import { detectEpisodeTrigger, type EpisodeTriggerType } from '../../services/intent-detection/patterns.js';
+import {
+  detectEpisodeTrigger,
+  type EpisodeTriggerType,
+} from '../../services/intent-detection/patterns.js';
 
 interface QuickstartSummary {
   projectLine?: string;
@@ -141,9 +144,7 @@ function buildQuickstartSummary(
   }
 
   const criticalLine =
-    criticalNames.length > 0
-      ? `${icons.warning} Critical: ${criticalNames.join(', ')}`
-      : undefined;
+    criticalNames.length > 0 ? `${icons.warning} Critical: ${criticalNames.join(', ')}` : undefined;
 
   // Work items ([TODO], [BUG], [LIMITATION], etc.)
   let workItemsLine: string | undefined;
@@ -165,7 +166,7 @@ function buildQuickstartSummary(
       // Show preview titles (truncate to fit)
       const previewTitles = recommendationPreviews
         .slice(0, 2)
-        .map((r) => r.title.length > 25 ? r.title.slice(0, 22) + '...' : r.title)
+        .map((r) => (r.title.length > 25 ? r.title.slice(0, 22) + '...' : r.title))
         .join(', ');
       const moreText = pendingRecommendations > 2 ? ` (+${pendingRecommendations - 2} more)` : '';
       librarianLine = `🔔 Librarian: ${previewTitles}${moreText} — use memory_librarian action:approve to accept`;
@@ -188,7 +189,16 @@ function buildQuickstartSummary(
     healthLine = `${gradeEmoji} Memory health: ${health.score}/100 (${health.grade})`;
   }
 
-  return { projectLine, sessionLine, episodeLine, countsLine, criticalLine, workItemsLine, librarianLine, healthLine };
+  return {
+    projectLine,
+    sessionLine,
+    episodeLine,
+    countsLine,
+    criticalLine,
+    workItemsLine,
+    librarianLine,
+    healthLine,
+  };
 }
 
 export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
@@ -458,7 +468,12 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
 
     // Fetch pending librarian recommendations and memory health
     let pendingRecommendations = 0;
-    let recommendationPreviews: Array<{ id: string; title: string; type: string; confidence: number }> = [];
+    let recommendationPreviews: Array<{
+      id: string;
+      title: string;
+      type: string;
+      confidence: number;
+    }> = [];
     let memoryHealth: MemoryHealth | null = null;
     if (detectedProjectId && ctx.services.librarian) {
       try {
@@ -503,8 +518,10 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
       tools?: unknown[];
       summary?: { byType?: Record<string, number> };
     };
-    const entryGuidelineCount = ctxForCounts.summary?.byType?.guideline ?? ctxForCounts.guidelines?.length ?? 0;
-    const entryKnowledgeCount = ctxForCounts.summary?.byType?.knowledge ?? ctxForCounts.knowledge?.length ?? 0;
+    const entryGuidelineCount =
+      ctxForCounts.summary?.byType?.guideline ?? ctxForCounts.guidelines?.length ?? 0;
+    const entryKnowledgeCount =
+      ctxForCounts.summary?.byType?.knowledge ?? ctxForCounts.knowledge?.length ?? 0;
     const entryToolCount = ctxForCounts.summary?.byType?.tool ?? ctxForCounts.tools?.length ?? 0;
     const totalEntries = entryGuidelineCount + entryKnowledgeCount + entryToolCount;
 
@@ -623,46 +640,56 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
         resumedSessionName: existingSessionName,
         requestedSessionName: sessionName,
         projectId: detectedProjectId,
-        activeEpisode: activeEpisode ? {
-          id: activeEpisode.id,
-          name: activeEpisode.name,
-          status: activeEpisode.status,
-          autoCreated: episodeAction === 'created',
-          trigger: episodeTrigger,
-          actions: {
-            log: `memory_episode action:log id:${activeEpisode.id} message:"..."`,
-            complete: `memory_episode action:complete id:${activeEpisode.id} outcome:"..." outcomeType:success`,
-          },
-        } : undefined,
+        activeEpisode: activeEpisode
+          ? {
+              id: activeEpisode.id,
+              name: activeEpisode.name,
+              status: activeEpisode.status,
+              autoCreated: episodeAction === 'created',
+              trigger: episodeTrigger,
+              actions: {
+                log: `memory_episode action:log id:${activeEpisode.id} message:"..."`,
+                complete: `memory_episode action:complete id:${activeEpisode.id} outcome:"..." outcomeType:success`,
+              },
+            }
+          : undefined,
         episodeAction,
         pendingRecommendations,
-        recommendations: recommendationPreviews.length > 0 ? {
-          count: pendingRecommendations,
-          previews: recommendationPreviews,
-          actions: {
-            review: 'memory_librarian action:list_recommendations',
-            approve: 'memory_librarian action:approve recommendationId:<id>',
-            reject: 'memory_librarian action:reject recommendationId:<id>',
-          },
-        } : undefined,
+        recommendations:
+          recommendationPreviews.length > 0
+            ? {
+                count: pendingRecommendations,
+                previews: recommendationPreviews,
+                actions: {
+                  review: 'memory_librarian action:list_recommendations',
+                  approve: 'memory_librarian action:approve recommendationId:<id>',
+                  reject: 'memory_librarian action:reject recommendationId:<id>',
+                },
+              }
+            : undefined,
         health: memoryHealth,
         graph: graphStats,
         // Discoverability hints
         hints: {
           // Experience recording hint when no experiences exist
-          experienceRecording: experienceHint ? {
-            message: 'Record learnings to enable pattern detection',
-            action: 'memory_experience action:record_case title:"..." scenario:"..." outcome:"..."',
-            hasExperiences: experienceCount > 0,
-          } : undefined,
+          experienceRecording: experienceHint
+            ? {
+                message: 'Record learnings to enable pattern detection',
+                action:
+                  'memory_experience action:record_case title:"..." scenario:"..." outcome:"..."',
+                hasExperiences: experienceCount > 0,
+              }
+            : undefined,
           // Hierarchical context hint (always show - it's a key optimization)
-          hierarchicalContext: !verbose ? {
-            message: 'Using hierarchical mode (~90% token savings)',
-            fullModeAction: 'memory_quickstart verbose:true for full entries',
-          } : {
-            message: 'Using verbose mode (full entries)',
-            compactModeAction: 'memory_quickstart (default) for ~90% token savings',
-          },
+          hierarchicalContext: !verbose
+            ? {
+                message: 'Using hierarchical mode (~90% token savings)',
+                fullModeAction: 'memory_quickstart verbose:true for full entries',
+              }
+            : {
+                message: 'Using verbose mode (full entries)',
+                compactModeAction: 'memory_quickstart (default) for ~90% token savings',
+              },
           // Auto-tagging info
           autoTagging: {
             enabled: ctx.config.autoTagging?.enabled ?? true,
@@ -671,10 +698,13 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
           // Session timeout info
           sessionTimeout: {
             enabled: ctx.config.autoContext?.sessionTimeoutEnabled ?? true,
-            inactivityMinutes: Math.round((ctx.config.autoContext?.sessionInactivityMs ?? 1800000) / 60000),
-            message: ctx.config.autoContext?.sessionTimeoutEnabled !== false
-              ? `Sessions auto-end after ${Math.round((ctx.config.autoContext?.sessionInactivityMs ?? 1800000) / 60000)} min of inactivity`
-              : 'Session auto-timeout is disabled',
+            inactivityMinutes: Math.round(
+              (ctx.config.autoContext?.sessionInactivityMs ?? 1800000) / 60000
+            ),
+            message:
+              ctx.config.autoContext?.sessionTimeoutEnabled !== false
+                ? `Sessions auto-end after ${Math.round((ctx.config.autoContext?.sessionInactivityMs ?? 1800000) / 60000)} min of inactivity`
+                : 'Session auto-timeout is disabled',
           },
         },
       },

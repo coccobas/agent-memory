@@ -633,13 +633,10 @@ async function handleEpisodeComplete(
   }
 
   const outcome = intent.outcome ?? intent.content ?? 'Completed';
-  const outcomeType = (intent.outcomeType as 'success' | 'partial' | 'failure' | 'abandoned') ?? 'success';
+  const outcomeType =
+    (intent.outcomeType as 'success' | 'partial' | 'failure' | 'abandoned') ?? 'success';
 
-  const episode = await context.services.episode.complete(
-    activeEpisode.id,
-    outcome,
-    outcomeType
-  );
+  const episode = await context.services.episode.complete(activeEpisode.id, outcome, outcomeType);
 
   return {
     action: 'episode_complete',

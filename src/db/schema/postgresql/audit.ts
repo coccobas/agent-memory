@@ -13,7 +13,9 @@ export const auditLog = pgTable(
     id: text('id').primaryKey(),
     agentId: text('agent_id'),
     action: text('action').notNull(),
-    entryType: text('entry_type', { enum: ['tool', 'guideline', 'knowledge'] }),
+    entryType: text('entry_type', {
+      enum: ['tool', 'guideline', 'knowledge', 'experience', 'permission'],
+    }),
     entryId: text('entry_id'),
     scopeType: text('scope_type', { enum: ['global', 'org', 'project', 'session'] }),
     scopeId: text('scope_id'),

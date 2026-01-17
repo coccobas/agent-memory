@@ -63,8 +63,16 @@ export interface IStorageAdapter {
   // SQLite: Database.Database, PostgreSQL: Pool
   getRawConnection(): unknown;
 
-  // Health check
-  healthCheck(): Promise<{ ok: boolean; latencyMs: number }>;
+  /**
+   * Perform a health check on the database connection.
+   * @param options.attemptReconnect - If true, attempt to reconnect when health check fails
+   * @returns Health check result with ok status, latency, and optional reconnect info
+   */
+  healthCheck(options?: { attemptReconnect?: boolean }): Promise<{
+    ok: boolean;
+    latencyMs: number;
+    reconnected?: boolean;
+  }>;
 }
 
 // =============================================================================

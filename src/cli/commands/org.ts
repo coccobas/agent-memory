@@ -38,7 +38,6 @@ export function addOrgCommand(program: Command): void {
             adminKey: globalOpts.adminKey,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -64,7 +63,6 @@ export function addOrgCommand(program: Command): void {
             offset: options.offset,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);

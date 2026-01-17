@@ -66,7 +66,6 @@ export function addExportCommand(program: Command): void {
             admin_key: globalOpts.adminKey,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);

@@ -16,7 +16,12 @@ import type {
 // Import maintenance types from dedicated module (must be before LibrarianConfig)
 import type { MaintenanceConfig } from './maintenance/types.js';
 import { DEFAULT_MAINTENANCE_CONFIG } from './maintenance/types.js';
-export type { MaintenanceConfig, MaintenanceRequest, MaintenanceResult, MemoryHealth } from './maintenance/types.js';
+export type {
+  MaintenanceConfig,
+  MaintenanceRequest,
+  MaintenanceResult,
+  MemoryHealth,
+} from './maintenance/types.js';
 
 // =============================================================================
 // CONFIGURATION

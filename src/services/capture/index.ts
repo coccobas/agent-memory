@@ -185,7 +185,11 @@ export class CaptureService {
         logger.debug({ episodeId, experienceId: expId }, 'Linked experience to episode');
       } catch (error) {
         logger.warn(
-          { error: error instanceof Error ? error.message : String(error), episodeId, experienceId: expId },
+          {
+            error: error instanceof Error ? error.message : String(error),
+            episodeId,
+            experienceId: expId,
+          },
           'Failed to link experience to episode'
         );
       }
@@ -462,10 +466,7 @@ export class CaptureService {
         .map((e) => e.experience?.id)
         .filter((id): id is string => !!id); // Filter out undefined/empty IDs
       await this.linkExperiencesToEpisode(experienceIds, episodeId);
-      logger.info(
-        { episodeId, count: experienceIds.length },
-        'Auto-linked experiences to episode'
-      );
+      logger.info({ episodeId, count: experienceIds.length }, 'Auto-linked experiences to episode');
     }
 
     // Clean up session state
@@ -505,7 +506,9 @@ export class CaptureService {
     const result = await this.experienceModule.recordCase(params);
 
     // Auto-link to episode if available
-    const episodeId = params.episodeId ?? (params.sessionId ? await this.getActiveEpisodeId(params.sessionId) : undefined);
+    const episodeId =
+      params.episodeId ??
+      (params.sessionId ? await this.getActiveEpisodeId(params.sessionId) : undefined);
     if (episodeId && result.experiences.length > 0) {
       const experienceIds = result.experiences
         .map((e) => e.experience?.id)

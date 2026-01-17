@@ -91,7 +91,10 @@ Example workflows:
       type: 'string',
       description: "What triggered this episode ('user_request', 'system_event', 'scheduled')",
     },
-    triggerRef: { type: 'string', description: 'Reference to the trigger (e.g., task ID, event ID)' },
+    triggerRef: {
+      type: 'string',
+      description: 'Reference to the trigger (e.g., task ID, event ID)',
+    },
     tags: { type: 'array', description: 'Episode tags' },
     metadata: { type: 'object', description: 'Additional metadata' },
 
@@ -105,18 +108,25 @@ Example workflows:
     reason: { type: 'string', description: 'Reason for cancellation' },
 
     // Event fields
-    episodeId: { type: 'string', description: 'Episode ID (alias for id, for backward compatibility)' },
+    episodeId: {
+      type: 'string',
+      description: 'Episode ID (alias for id, for backward compatibility)',
+    },
     message: { type: 'string', description: 'Event message (for log action)' },
     eventType: {
       type: 'string',
-      description: "Event type: 'started', 'checkpoint', 'decision', 'error', 'completed' (default: checkpoint)",
+      description:
+        "Event type: 'started', 'checkpoint', 'decision', 'error', 'completed' (default: checkpoint)",
     },
     entryType: {
       type: 'string',
       description: "Entry type for linked entity ('guideline', 'knowledge', 'tool', 'experience')",
     },
     entryId: { type: 'string', description: 'Entry ID for linked entity' },
-    role: { type: 'string', description: "Role of linked entity ('created', 'modified', 'referenced')" },
+    role: {
+      type: 'string',
+      description: "Role of linked entity ('created', 'modified', 'referenced')",
+    },
     data: { type: 'object', description: 'Event data (JSON)' },
 
     // Query options
@@ -125,7 +135,10 @@ Example workflows:
       enum: ['forward', 'backward'],
       description: 'Direction for causal chain traversal',
     },
-    maxDepth: { type: 'number', description: 'Maximum depth for causal chain traversal (default: 10)' },
+    maxDepth: {
+      type: 'number',
+      description: 'Maximum depth for causal chain traversal (default: 10)',
+    },
     start: { type: 'string', description: 'Start timestamp for timeline range (ISO 8601)' },
     end: { type: 'string', description: 'End timestamp for timeline range (ISO 8601)' },
 

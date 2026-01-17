@@ -85,7 +85,10 @@ export function startGraphBackfillScheduler(
 
   // Validate cron expression
   if (!cron.validate(config.schedule)) {
-    logger.error({ schedule: config.schedule }, 'Invalid cron expression for graph backfill scheduler');
+    logger.error(
+      { schedule: config.schedule },
+      'Invalid cron expression for graph backfill scheduler'
+    );
     return false;
   }
 
@@ -185,7 +188,7 @@ function getNextRunTime(): string | null {
 
     // For simple cases, calculate next occurrence
     if (parts.length >= 5) {
-      const [minute, hour, dayOfMonth, month, dayOfWeek] = parts;
+      const [minute = '*', hour = '*', dayOfMonth = '*', month = '*', dayOfWeek = '*'] = parts;
 
       // Handle daily at specific time
       if (
@@ -196,7 +199,7 @@ function getNextRunTime(): string | null {
         dayOfWeek === '*'
       ) {
         const nextRun = new Date(now);
-        nextRun.setHours(parseInt(hour!, 10), parseInt(minute!, 10), 0, 0);
+        nextRun.setHours(parseInt(hour, 10), parseInt(minute, 10), 0, 0);
         if (nextRun <= now) {
           nextRun.setDate(nextRun.getDate() + 1);
         }

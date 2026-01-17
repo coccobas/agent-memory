@@ -138,7 +138,12 @@ export interface Config {
   };
   memory: {
     heapPressureThreshold: number;
+    pressureWarningThreshold: number;
     checkIntervalMs: number;
+    pressureDebounceMs: number;
+    eventDrivenEnabled: boolean;
+    autoEvictOnPressure: boolean;
+    autoForgetOnCritical: boolean;
   };
   rateLimit: {
     enabled: boolean;

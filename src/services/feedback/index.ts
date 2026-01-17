@@ -231,7 +231,9 @@ export class FeedbackService {
       retrievalIds.map((id) => this.retrievalRepo.getById(id))
     );
     const retrievals = retrievalResults
-      .filter((r): r is PromiseFulfilledResult<MemoryRetrieval | undefined> => r.status === 'fulfilled')
+      .filter(
+        (r): r is PromiseFulfilledResult<MemoryRetrieval | undefined> => r.status === 'fulfilled'
+      )
       .map((r) => r.value);
     const validRetrievals = retrievals.filter((r): r is MemoryRetrieval => r !== undefined);
 
@@ -368,12 +370,22 @@ export class FeedbackService {
     const evaluationWindowDays = windowDays ?? this.config.consolidation.evaluationWindowDays;
 
     // Placeholder metrics - see method @todo for real implementation
+    // Safe parse of sourceEntryIds with fallback for corrupted data
+    let sourceEntryCount = 0;
+    try {
+      const parsed = JSON.parse(decision.sourceEntryIds) as unknown;
+      sourceEntryCount = Array.isArray(parsed) ? parsed.length : 0;
+    } catch {
+      logger.warn(
+        { decisionId, sourceEntryIds: decision.sourceEntryIds },
+        'Failed to parse sourceEntryIds'
+      );
+    }
+
     const preMetrics: ConsolidationMetrics = {
       retrievalRate: 0.5,
       successRate: 0.6,
-      // JSON.parse returns unknown - type validation happens at deserialization
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-      storageCount: JSON.parse(decision.sourceEntryIds).length,
+      storageCount: sourceEntryCount,
     };
 
     const postMetrics: ConsolidationMetrics = {
@@ -497,14 +509,24 @@ export class FeedbackService {
     for (const decision of allConsolidationDecisions) {
       const outcome = await this.decisionRepo.getConsolidationOutcome(decision.id);
 
+      // Safe parse of sourceEntryIds with fallback for corrupted data
+      let parsedSourceIds: string[] = [];
+      try {
+        const parsed = JSON.parse(decision.sourceEntryIds) as unknown;
+        parsedSourceIds = Array.isArray(parsed) ? (parsed as string[]) : [];
+      } catch {
+        logger.warn(
+          { decisionId: decision.id, sourceEntryIds: decision.sourceEntryIds },
+          'Failed to parse sourceEntryIds in training data export'
+        );
+      }
+
       consolidationSamples.push({
         decisionId: decision.id,
         scopeType: decision.scopeType,
         scopeId: decision.scopeId ?? undefined,
         action: decision.action,
-        // JSON.parse returns unknown - type validation happens at deserialization
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-        sourceEntryIds: JSON.parse(decision.sourceEntryIds),
+        sourceEntryIds: parsedSourceIds,
         targetEntryId: decision.targetEntryId ?? undefined,
         similarityScore: decision.similarityScore ?? undefined,
         decidedAt: decision.decidedAt,

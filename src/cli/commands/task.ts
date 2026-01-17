@@ -76,7 +76,6 @@ export function addTaskCommand(program: Command): void {
             createdBy: options.createdBy,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -100,7 +99,6 @@ export function addTaskCommand(program: Command): void {
             taskId: options.id,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -132,7 +130,6 @@ export function addTaskCommand(program: Command): void {
             offset: options.offset,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);

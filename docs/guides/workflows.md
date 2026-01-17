@@ -1023,7 +1023,7 @@ Session → Project → Org → Global
 
 ## See Also
 
-- [Getting Started](../getting-started.md) - First workflow walkthrough
+- [First Workflow](../tutorials/first-workflow.md) - First workflow walkthrough
 - [MCP Tools](../reference/mcp-tools.md) - Complete tool documentation
 - [Examples](examples.md) - Real-world usage examples
 - [Multi-Agent Support](../reference/mdap-support.md) - Advanced coordination

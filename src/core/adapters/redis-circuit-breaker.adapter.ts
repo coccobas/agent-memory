@@ -18,8 +18,6 @@
  * and Map lookups after has() validation.
  */
 
-/* eslint-disable @typescript-eslint/no-redundant-type-constituents, @typescript-eslint/no-non-null-assertion */
-
 import type {
   ICircuitBreakerStateAdapter,
   CircuitBreakerState,

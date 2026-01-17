@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { rlHandlers } from '../../src/mcp/handlers/rl.handler.js';
 import * as training from '../../src/services/rl/training/index.js';
 import type { AppContext } from '../../src/core/context.js';
+import type { IFileSystemAdapter, FileStat } from '../../src/core/adapters/filesystem.adapter.js';
 
 vi.mock('../../src/services/rl/training/index.js', () => ({
   buildExtractionDataset: vi.fn(),
@@ -19,13 +20,45 @@ vi.mock('../../src/services/rl/training/index.js', () => ({
 vi.mock('../../src/config/index.js', () => ({
   config: { paths: { dataDir: '/tmp/test' } },
 }));
-vi.mock('node:fs', () => ({
-  existsSync: vi.fn().mockReturnValue(false),
-  writeFileSync: vi.fn(),
-  readdirSync: vi.fn().mockReturnValue([]),
-  statSync: vi.fn(),
-  readFileSync: vi.fn(),
-}));
+
+/**
+ * Create a mock filesystem adapter for testing.
+ * This provides in-memory implementations of all IFileSystemAdapter methods.
+ */
+function createMockFileSystemAdapter(overrides: Partial<IFileSystemAdapter> = {}): IFileSystemAdapter {
+  const files = new Map<string, string>();
+  const directories = new Set<string>(['/tmp/test', '/tmp/output']);
+
+  return {
+    exists: vi.fn().mockImplementation(async (path: string) => {
+      return files.has(path) || directories.has(path);
+    }),
+    readFile: vi.fn().mockImplementation(async (path: string) => {
+      const content = files.get(path);
+      if (content === undefined) {
+        throw new Error(`ENOENT: no such file or directory, open '${path}'`);
+      }
+      return content;
+    }),
+    readDir: vi.fn().mockImplementation(async () => []),
+    stat: vi.fn().mockImplementation(async (): Promise<FileStat> => ({
+      isDirectory: () => false,
+      mtime: new Date(),
+      size: 0,
+    })),
+    writeFile: vi.fn().mockImplementation(async (path: string, content: string) => {
+      files.set(path, content);
+    }),
+    mkdir: vi.fn().mockImplementation(async (path: string) => {
+      directories.add(path);
+    }),
+    resolve: (...paths: string[]) => paths.join('/').replace(/\/+/g, '/'),
+    join: (...paths: string[]) => paths.join('/').replace(/\/+/g, '/'),
+    basename: (path: string) => path.split('/').pop() ?? '',
+    dirname: (path: string) => path.split('/').slice(0, -1).join('/') || '/',
+    ...overrides,
+  };
+}
 
 describe('RL Handler', () => {
   let mockContext: AppContext;
@@ -37,6 +70,7 @@ describe('RL Handler', () => {
     getRetrievalPolicy: ReturnType<typeof vi.fn>;
     getConsolidationPolicy: ReturnType<typeof vi.fn>;
   };
+  let mockFs: IFileSystemAdapter;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -59,11 +93,17 @@ describe('RL Handler', () => {
       }),
     };
 
+    // Create fresh mock filesystem adapter for each test
+    mockFs = createMockFileSystemAdapter();
+
     mockContext = {
       db: {} as any,
       repos: {} as any,
       services: {
         rl: mockRLService,
+      } as any,
+      unifiedAdapters: {
+        fs: mockFs,
       } as any,
     };
   });
@@ -538,8 +578,8 @@ describe('RL Handler', () => {
     });
 
     it('should evaluate using dataset from file', async () => {
-      const { readFileSync } = await import('node:fs');
-      vi.mocked(readFileSync).mockReturnValue('{"state":{},"action":{},"reward":1}' as any);
+      // Set up mock filesystem to return the dataset content
+      vi.mocked(mockFs.readFile).mockResolvedValue('{"state":{},"action":{},"reward":1}');
       vi.mocked(training.evaluatePolicy).mockResolvedValue({} as any);
 
       const result = await rlHandlers.evaluate(mockContext, {
@@ -548,16 +588,20 @@ describe('RL Handler', () => {
       });
 
       expect(result.success).toBe(true);
-      expect(readFileSync).toHaveBeenCalled();
+      expect(mockFs.readFile).toHaveBeenCalledWith('/tmp/dataset.jsonl', 'utf-8');
     });
   });
 
   describe('load_model with models', () => {
     it('should load latest model when version not specified', async () => {
-      const { existsSync, readdirSync, statSync } = await import('node:fs');
-      vi.mocked(existsSync).mockReturnValue(true);
-      vi.mocked(readdirSync).mockReturnValue(['v1', 'v2'] as any);
-      vi.mocked(statSync).mockReturnValue({ isDirectory: () => true } as any);
+      // Set up mock filesystem to show models exist
+      vi.mocked(mockFs.exists).mockResolvedValue(true);
+      vi.mocked(mockFs.readDir).mockResolvedValue(['v1', 'v2']);
+      vi.mocked(mockFs.stat).mockResolvedValue({
+        isDirectory: () => true,
+        mtime: new Date(),
+        size: 0,
+      });
 
       const result = await rlHandlers.load_model(mockContext, {
         policy: 'extraction',
@@ -568,8 +612,7 @@ describe('RL Handler', () => {
     });
 
     it('should load specific version', async () => {
-      const { existsSync } = await import('node:fs');
-      vi.mocked(existsSync).mockReturnValue(true);
+      vi.mocked(mockFs.exists).mockResolvedValue(true);
 
       const result = await rlHandlers.load_model(mockContext, {
         policy: 'extraction',
@@ -581,10 +624,13 @@ describe('RL Handler', () => {
     });
 
     it('should throw when no directories in models folder', async () => {
-      const { existsSync, readdirSync, statSync } = await import('node:fs');
-      vi.mocked(existsSync).mockReturnValue(true);
-      vi.mocked(readdirSync).mockReturnValue(['file.txt'] as any);
-      vi.mocked(statSync).mockReturnValue({ isDirectory: () => false } as any);
+      vi.mocked(mockFs.exists).mockResolvedValue(true);
+      vi.mocked(mockFs.readDir).mockResolvedValue(['file.txt']);
+      vi.mocked(mockFs.stat).mockResolvedValue({
+        isDirectory: () => false,
+        mtime: new Date(),
+        size: 0,
+      });
 
       await expect(rlHandlers.load_model(mockContext, { policy: 'extraction' })).rejects.toThrow(
         'No trained models'
@@ -592,10 +638,13 @@ describe('RL Handler', () => {
     });
 
     it('should throw when RL service not available', async () => {
-      const { existsSync, readdirSync, statSync } = await import('node:fs');
-      vi.mocked(existsSync).mockReturnValue(true);
-      vi.mocked(readdirSync).mockReturnValue(['v1'] as any);
-      vi.mocked(statSync).mockReturnValue({ isDirectory: () => true } as any);
+      vi.mocked(mockFs.exists).mockResolvedValue(true);
+      vi.mocked(mockFs.readDir).mockResolvedValue(['v1']);
+      vi.mocked(mockFs.stat).mockResolvedValue({
+        isDirectory: () => true,
+        mtime: new Date(),
+        size: 0,
+      });
 
       const noRlContext = {
         ...mockContext,
@@ -610,14 +659,18 @@ describe('RL Handler', () => {
 
   describe('list_models with existing models', () => {
     it('should list models with metadata', async () => {
-      const { existsSync, readdirSync, statSync, readFileSync } = await import('node:fs');
-      vi.mocked(existsSync).mockImplementation((path: any) => {
+      // Set up mock filesystem to show models and metadata exist
+      vi.mocked(mockFs.exists).mockImplementation(async (path: string) => {
         if (path.includes('metadata.json')) return true;
         return path.includes('extraction');
       });
-      vi.mocked(readdirSync).mockReturnValue(['v1', 'v2'] as any);
-      vi.mocked(statSync).mockReturnValue({ isDirectory: () => true } as any);
-      vi.mocked(readFileSync).mockReturnValue(
+      vi.mocked(mockFs.readDir).mockResolvedValue(['v1', 'v2']);
+      vi.mocked(mockFs.stat).mockResolvedValue({
+        isDirectory: () => true,
+        mtime: new Date(),
+        size: 0,
+      });
+      vi.mocked(mockFs.readFile).mockResolvedValue(
         JSON.stringify({
           createdAt: '2024-01-01T00:00:00Z',
           trainPairs: 100,
@@ -632,13 +685,17 @@ describe('RL Handler', () => {
     });
 
     it('should handle metadata read errors', async () => {
-      const { existsSync, readdirSync, statSync, readFileSync } = await import('node:fs');
-      vi.mocked(existsSync).mockReturnValue(true);
-      vi.mocked(readdirSync).mockReturnValue(['v1'] as any);
-      vi.mocked(statSync).mockReturnValue({ isDirectory: () => true } as any);
-      vi.mocked(readFileSync).mockImplementation(() => {
-        throw new Error('Read error');
+      vi.mocked(mockFs.exists).mockImplementation(async (path: string) => {
+        // Models directory exists, but metadata read will fail
+        return path.includes('extraction') && !path.includes('metadata');
       });
+      vi.mocked(mockFs.readDir).mockResolvedValue(['v1']);
+      vi.mocked(mockFs.stat).mockResolvedValue({
+        isDirectory: () => true,
+        mtime: new Date(),
+        size: 0,
+      });
+      vi.mocked(mockFs.readFile).mockRejectedValue(new Error('Read error'));
 
       const result = await rlHandlers.list_models(mockContext, {});
 

@@ -44,7 +44,6 @@ export function addRlCommand(program: Command): void {
 
           const rlService = context.services.rl;
           if (!rlService) {
-            // eslint-disable-next-line no-console
             console.error('RL service not initialized');
             return;
           }
@@ -75,7 +74,6 @@ export function addRlCommand(program: Command): void {
             },
           };
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -99,7 +97,6 @@ export function addRlCommand(program: Command): void {
 
           const feedbackService = context.services.feedback;
           if (!feedbackService) {
-            // eslint-disable-next-line no-console
             console.error('Feedback service not initialized');
             return;
           }
@@ -133,7 +130,6 @@ export function addRlCommand(program: Command): void {
             stats: data.stats,
           };
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -160,12 +156,10 @@ export function addRlCommand(program: Command): void {
         const globalOpts = cmd.optsWithGlobals() as { format?: OutputFormat };
         await getCliContext();
 
-        // eslint-disable-next-line no-console
         console.log(`Training ${policy} policy...`);
 
         // Validate policy type
         if (!['extraction', 'retrieval', 'consolidation'].includes(policy)) {
-          // eslint-disable-next-line no-console
           console.error(
             `Unknown policy: ${policy}. Must be extraction, retrieval, or consolidation.`
           );
@@ -180,7 +174,6 @@ export function addRlCommand(program: Command): void {
               ? buildRetrievalDataset
               : buildConsolidationDataset;
 
-        // eslint-disable-next-line no-console
         console.log('Building dataset...');
         const dataset = await buildDataset({
           startDate: options.startDate,
@@ -190,14 +183,12 @@ export function addRlCommand(program: Command): void {
           evalSplit: options.evalSplit,
         });
 
-        // eslint-disable-next-line no-console
         console.log(
           `Dataset built: ${dataset.stats.trainExamples} train, ${dataset.stats.evalExamples} eval`
         );
 
         // Check minimum examples
         if (dataset.stats.totalExamples < options.minExamples) {
-          // eslint-disable-next-line no-console
           console.error(
             `Insufficient training examples: ${dataset.stats.totalExamples} < ${options.minExamples}`
           );
@@ -205,7 +196,6 @@ export function addRlCommand(program: Command): void {
         }
 
         // Train policy
-        // eslint-disable-next-line no-console
         console.log('Training policy...');
         let result;
         if (policy === 'extraction') {
@@ -226,12 +216,9 @@ export function addRlCommand(program: Command): void {
         }
 
         if (result.success) {
-          // eslint-disable-next-line no-console
           console.log('Training complete!');
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } else {
-          // eslint-disable-next-line no-console
           console.error(`Training failed: ${result.error}`);
         }
       } catch (error) {
@@ -259,14 +246,12 @@ export function addRlCommand(program: Command): void {
 
         // Validate policy type
         if (!['extraction', 'retrieval', 'consolidation'].includes(policy)) {
-          // eslint-disable-next-line no-console
           console.error(
             `Unknown policy: ${policy}. Must be extraction, retrieval, or consolidation.`
           );
           return;
         }
 
-        // eslint-disable-next-line no-console
         console.log(`Exporting ${policy} training data...`);
 
         // Build dataset
@@ -288,7 +273,6 @@ export function addRlCommand(program: Command): void {
         // Combine train and eval for export
         const allExamples = [...dataset.train, ...dataset.eval];
 
-        // eslint-disable-next-line no-console
         console.log(`Exporting ${allExamples.length} examples...`);
 
         // Format output
@@ -319,7 +303,6 @@ export function addRlCommand(program: Command): void {
           stats: dataset.stats,
         };
 
-        // eslint-disable-next-line no-console
         console.log(formatOutput(result, globalOpts.format as OutputFormat));
       } catch (error) {
         handleCliError(error);
@@ -343,7 +326,6 @@ export function addRlCommand(program: Command): void {
 
         // Validate policy type
         if (!['extraction', 'retrieval', 'consolidation'].includes(policy)) {
-          // eslint-disable-next-line no-console
           console.error(
             `Unknown policy: ${policy}. Must be extraction, retrieval, or consolidation.`
           );
@@ -352,12 +334,10 @@ export function addRlCommand(program: Command): void {
 
         const rlService = context.services.rl;
         if (!rlService) {
-          // eslint-disable-next-line no-console
           console.error('RL service not initialized');
           return;
         }
 
-        // eslint-disable-next-line no-console
         console.log(`Evaluating ${policy} policy...`);
 
         // Build test dataset
@@ -375,11 +355,9 @@ export function addRlCommand(program: Command): void {
           evalSplit: 1.0,
         });
 
-        // eslint-disable-next-line no-console
         console.log(`Test dataset: ${dataset.eval.length} examples`);
 
         // Evaluate based on policy type
-        // eslint-disable-next-line no-console
         console.log('Running evaluation...');
         let result;
         if (policy === 'extraction') {
@@ -393,9 +371,7 @@ export function addRlCommand(program: Command): void {
           result = await evaluatePolicyOnDataset(policyInstance, dataset as any);
         }
 
-        // eslint-disable-next-line no-console
         console.log('Evaluation complete!');
-        // eslint-disable-next-line no-console
         console.log(formatOutput(result, globalOpts.format as OutputFormat));
       } catch (error) {
         handleCliError(error);
@@ -417,7 +393,6 @@ export function addRlCommand(program: Command): void {
 
         // Validate policy type
         if (!['extraction', 'retrieval', 'consolidation'].includes(policy)) {
-          // eslint-disable-next-line no-console
           console.error(
             `Unknown policy: ${policy}. Must be extraction, retrieval, or consolidation.`
           );
@@ -426,7 +401,6 @@ export function addRlCommand(program: Command): void {
 
         const rlService = context.services.rl;
         if (!rlService) {
-          // eslint-disable-next-line no-console
           console.error('RL service not initialized');
           return;
         }
@@ -446,7 +420,6 @@ export function addRlCommand(program: Command): void {
           message: `${policy} policy ${enabled ? 'enabled' : 'disabled'}`,
         };
 
-        // eslint-disable-next-line no-console
         console.log(formatOutput(result, globalOpts.format as OutputFormat));
       } catch (error) {
         handleCliError(error);
@@ -467,7 +440,6 @@ export function addRlCommand(program: Command): void {
 
         // Validate policy type
         if (!['extraction', 'retrieval', 'consolidation'].includes(policy)) {
-          // eslint-disable-next-line no-console
           console.error(
             `Unknown policy: ${policy}. Must be extraction, retrieval, or consolidation.`
           );
@@ -476,7 +448,6 @@ export function addRlCommand(program: Command): void {
 
         const rlService = context.services.rl;
         if (!rlService) {
-          // eslint-disable-next-line no-console
           console.error('RL service not initialized');
           return;
         }
@@ -494,7 +465,6 @@ export function addRlCommand(program: Command): void {
           message: `${policy} policy model path updated`,
         };
 
-        // eslint-disable-next-line no-console
         console.log(formatOutput(result, globalOpts.format as OutputFormat));
       } catch (error) {
         handleCliError(error);

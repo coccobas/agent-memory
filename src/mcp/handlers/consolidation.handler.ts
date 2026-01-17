@@ -170,7 +170,53 @@ export async function handleConsolidation(
   const dryRun = isBoolean(args.dryRun) ? args.dryRun : false;
   const consolidatedBy = isString(args.consolidatedBy) ? args.consolidatedBy : undefined;
 
-  // Validate required services
+  // Handle archive_stale action first - it doesn't need embedding/vector services
+  if (action === 'archive_stale') {
+    const staleDays = isNumber(args.staleDays) ? args.staleDays : undefined;
+    if (staleDays === undefined || staleDays <= 0) {
+      throw createValidationError(
+        'staleDays',
+        'is required and must be a positive number for archive_stale action',
+        'Provide the number of days after which entries are considered stale'
+      );
+    }
+
+    const minRecencyScore = isNumber(args.minRecencyScore) ? args.minRecencyScore : undefined;
+    if (minRecencyScore !== undefined && (minRecencyScore < 0 || minRecencyScore > 1)) {
+      throw createValidationError(
+        'minRecencyScore',
+        'must be between 0 and 1',
+        'Provide a value like 0.3 to archive entries with low recency scores'
+      );
+    }
+
+    const result = await archiveStale({
+      scopeType,
+      scopeId,
+      entryTypes,
+      staleDays,
+      minRecencyScore,
+      dryRun,
+      archivedBy: consolidatedBy,
+      db: context.db,
+    });
+
+    return formatTimestamps({
+      action: 'archive_stale',
+      dryRun: result.dryRun,
+      staleDays: result.staleDays,
+      minRecencyScore: result.minRecencyScore,
+      entriesScanned: result.entriesScanned,
+      entriesArchived: result.entriesArchived,
+      errors: result.errors.length > 0 ? result.errors : undefined,
+      archivedEntries: result.archivedEntries.slice(0, 50), // Limit output size
+      message: result.dryRun
+        ? `Would archive ${result.entriesArchived} stale entries (older than ${staleDays} days)`
+        : `Archived ${result.entriesArchived} stale entries`,
+    });
+  }
+
+  // Validate required services for similarity-based operations
   if (!context.services?.embedding || !context.services?.vector) {
     throw createValidationError(
       'services',
@@ -217,52 +263,6 @@ export async function handleConsolidation(
         groups.length > 0
           ? 'Use action "dedupe" or "merge" to consolidate these groups'
           : 'No similar entries found above threshold',
-    });
-  }
-
-  // Handle archive_stale action
-  if (action === 'archive_stale') {
-    const staleDays = isNumber(args.staleDays) ? args.staleDays : undefined;
-    if (staleDays === undefined || staleDays <= 0) {
-      throw createValidationError(
-        'staleDays',
-        'is required and must be a positive number for archive_stale action',
-        'Provide the number of days after which entries are considered stale'
-      );
-    }
-
-    const minRecencyScore = isNumber(args.minRecencyScore) ? args.minRecencyScore : undefined;
-    if (minRecencyScore !== undefined && (minRecencyScore < 0 || minRecencyScore > 1)) {
-      throw createValidationError(
-        'minRecencyScore',
-        'must be between 0 and 1',
-        'Provide a value like 0.3 to archive entries with low recency scores'
-      );
-    }
-
-    const result = await archiveStale({
-      scopeType,
-      scopeId,
-      entryTypes,
-      staleDays,
-      minRecencyScore,
-      dryRun,
-      archivedBy: consolidatedBy,
-      db: context.db,
-    });
-
-    return formatTimestamps({
-      action: 'archive_stale',
-      dryRun: result.dryRun,
-      staleDays: result.staleDays,
-      minRecencyScore: result.minRecencyScore,
-      entriesScanned: result.entriesScanned,
-      entriesArchived: result.entriesArchived,
-      errors: result.errors.length > 0 ? result.errors : undefined,
-      archivedEntries: result.archivedEntries.slice(0, 50), // Limit output size
-      message: result.dryRun
-        ? `Would archive ${result.entriesArchived} stale entries (older than ${staleDays} days)`
-        : `Archived ${result.entriesArchived} stale entries`,
     });
   }
 

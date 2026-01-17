@@ -51,7 +51,6 @@ export function addSessionCommand(program: Command): void {
             agentId: globalOpts.agentId,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -81,7 +80,6 @@ export function addSessionCommand(program: Command): void {
             offset: options.offset,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -107,7 +105,6 @@ export function addSessionCommand(program: Command): void {
             status: (options.status ?? 'completed') as 'completed' | 'discarded',
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);

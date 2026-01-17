@@ -410,5 +410,5 @@ async function withRetry(fn, maxRetries = 3) {
 ## See Also
 
 - [MCP Tools](mcp-tools.md) - Complete tool documentation
-- [Security](../concepts/security.md) - Security features and best practices
+- [Security](../explanation/security-model.md) - Security features and best practices
 - [Troubleshooting](../guides/troubleshooting.md) - Common issues and solutions

@@ -162,7 +162,12 @@ export async function runHookCommand(argv: string[]): Promise<void> {
 
     // Session-start and session-end need full context for Librarian service
     // Other subcommands only need database
-    if (sub === 'session-start' || sub === 'sessionstart' || sub === 'session-end' || sub === 'sessionend') {
+    if (
+      sub === 'session-start' ||
+      sub === 'sessionstart' ||
+      sub === 'session-end' ||
+      sub === 'sessionend'
+    ) {
       await initializeFullContext();
     } else {
       await initializeHookDatabase();

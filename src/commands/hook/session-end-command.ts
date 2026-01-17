@@ -143,13 +143,15 @@ export async function runSessionEndCommand(params: {
             });
 
             // Log summary of results
-            const hasCapture = sessionEndResult.capture && sessionEndResult.capture.experiencesExtracted > 0;
-            const hasAnalysis = sessionEndResult.analysis && sessionEndResult.analysis.patternsDetected > 0;
-            const hasMaintenance = sessionEndResult.maintenance && (
-              sessionEndResult.maintenance.consolidationDeduped > 0 ||
-              sessionEndResult.maintenance.forgettingArchived > 0 ||
-              sessionEndResult.maintenance.graphNodesCreated > 0
-            );
+            const hasCapture =
+              sessionEndResult.capture && sessionEndResult.capture.experiencesExtracted > 0;
+            const hasAnalysis =
+              sessionEndResult.analysis && sessionEndResult.analysis.patternsDetected > 0;
+            const hasMaintenance =
+              sessionEndResult.maintenance &&
+              (sessionEndResult.maintenance.consolidationDeduped > 0 ||
+                sessionEndResult.maintenance.forgettingArchived > 0 ||
+                sessionEndResult.maintenance.graphNodesCreated > 0);
 
             if (hasCapture || hasAnalysis || hasMaintenance) {
               logger.info(
@@ -187,7 +189,8 @@ export async function runSessionEndCommand(params: {
           logger.warn(
             {
               sessionId,
-              error: librarianError instanceof Error ? librarianError.message : String(librarianError),
+              error:
+                librarianError instanceof Error ? librarianError.message : String(librarianError),
             },
             'Unified session end failed (non-fatal)'
           );

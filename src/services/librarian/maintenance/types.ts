@@ -172,7 +172,9 @@ export interface MaintenanceRequest {
   /** Target scope ID */
   scopeId?: string;
   /** Which tasks to run (defaults to all enabled) */
-  tasks?: Array<'consolidation' | 'forgetting' | 'graphBackfill' | 'latentPopulation' | 'tagRefinement'>;
+  tasks?: Array<
+    'consolidation' | 'forgetting' | 'graphBackfill' | 'latentPopulation' | 'tagRefinement'
+  >;
   /** Dry run - analyze without making changes */
   dryRun?: boolean;
   /** Override config for this run */

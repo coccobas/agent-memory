@@ -351,7 +351,12 @@ export class HierarchicalRetriever {
         memberType: summaryMembers.memberType,
       })
       .from(summaryMembers)
-      .where(sql`${summaryMembers.summaryId} IN (${sql.join(parentIds.map((id) => sql`${id}`), sql`, `)})`)
+      .where(
+        sql`${summaryMembers.summaryId} IN (${sql.join(
+          parentIds.map((id) => sql`${id}`),
+          sql`, `
+        )})`
+      )
       .all();
 
     // Filter to only summary members
@@ -376,7 +381,12 @@ export class HierarchicalRetriever {
         memberType: summaryMembers.memberType,
       })
       .from(summaryMembers)
-      .where(sql`${summaryMembers.summaryId} IN (${sql.join(summaryIds.map((id) => sql`${id}`), sql`, `)})`)
+      .where(
+        sql`${summaryMembers.summaryId} IN (${sql.join(
+          summaryIds.map((id) => sql`${id}`),
+          sql`, `
+        )})`
+      )
       .all();
 
     // Build entry list with inherited scores from parent summaries

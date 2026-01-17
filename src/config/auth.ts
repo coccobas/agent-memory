@@ -134,18 +134,43 @@ export function isPermissiveModeEnabled(): boolean {
 }
 
 /**
- * Check if dev mode should be blocked (e.g., in production).
+ * Check if dev/permissive mode should warn (e.g., in production).
  *
  * Unlike the old system, we don't throw errors - we just log warnings
  * and let the developer decide. The API key still provides security.
+ *
+ * Checks both:
+ * - AGENT_MEMORY_DEV_MODE=true (new)
+ * - AGENT_MEMORY_PERMISSIONS_MODE=permissive (legacy)
  */
 export function shouldWarnDevMode(): boolean {
-  if (!isDevMode()) return false;
+  if (!isPermissiveModeEnabled()) return false;
 
   const env = (process.env.NODE_ENV || '').trim().toLowerCase();
   const productionLike = ['production', 'prod', 'staging', 'stage', 'preprod', 'uat', 'qa'];
 
   return productionLike.includes(env);
+}
+
+/**
+ * Check if any permissive mode is enabled (for startup warning).
+ * Returns the specific mode that's enabled for clearer messaging.
+ */
+export function getPermissiveModeStatus(): {
+  enabled: boolean;
+  mode: 'dev_mode' | 'legacy_permissive' | null;
+  inProduction: boolean;
+} {
+  const devMode = isDevMode();
+  const legacyPermissive = process.env.AGENT_MEMORY_PERMISSIONS_MODE === 'permissive';
+  const env = (process.env.NODE_ENV || '').trim().toLowerCase();
+  const productionLike = ['production', 'prod', 'staging', 'stage', 'preprod', 'uat', 'qa'];
+
+  return {
+    enabled: devMode || legacyPermissive,
+    mode: devMode ? 'dev_mode' : legacyPermissive ? 'legacy_permissive' : null,
+    inProduction: productionLike.includes(env),
+  };
 }
 
 /**
@@ -248,10 +273,72 @@ export function validateAuthConfig(): { valid: boolean; warnings: string[] } {
   };
 }
 
+// Track if we've shown the startup warning
+let hasShownStartupWarning = false;
+
+/**
+ * Log a prominent startup warning if permissive/dev mode is enabled.
+ *
+ * This should be called early in server startup to ensure operators
+ * are aware of the security implications. The warning is only shown once.
+ *
+ * @param serverType - Type of server ('mcp' or 'rest') for context
+ * @returns true if a warning was shown
+ */
+export function logPermissiveModeStartupWarning(serverType: 'mcp' | 'rest' = 'mcp'): boolean {
+  if (hasShownStartupWarning) return false;
+
+  const status = getPermissiveModeStatus();
+  if (!status.enabled) return false;
+
+  hasShownStartupWarning = true;
+
+  const envVar =
+    status.mode === 'dev_mode'
+      ? 'AGENT_MEMORY_DEV_MODE=true'
+      : 'AGENT_MEMORY_PERMISSIONS_MODE=permissive';
+
+  if (status.inProduction) {
+    // Production environment - this is a serious security issue
+    logger.warn(
+      {
+        mode: status.mode,
+        envVar,
+        serverType,
+        nodeEnv: process.env.NODE_ENV,
+      },
+      '\n' +
+        '╔══════════════════════════════════════════════════════════════════════════════╗\n' +
+        '║  ⚠️  SECURITY WARNING: PERMISSIVE MODE ENABLED IN PRODUCTION                 ║\n' +
+        '╠══════════════════════════════════════════════════════════════════════════════╣\n' +
+        '║  All permission checks are BYPASSED. Any agent can read/write any data.     ║\n' +
+        '║                                                                              ║\n' +
+        `║  Environment variable: ${envVar.padEnd(52)}║\n` +
+        '║                                                                              ║\n' +
+        '║  To fix: Remove or set to false before deploying to production.             ║\n' +
+        '╚══════════════════════════════════════════════════════════════════════════════╝'
+    );
+    return true;
+  } else {
+    // Development environment - informational
+    logger.info(
+      {
+        mode: status.mode,
+        envVar,
+        serverType,
+      },
+      `🔓 Permissive mode enabled (${envVar}) - permission checks bypassed. ` +
+        'This is intended for local development only.'
+    );
+    return true;
+  }
+}
+
 /**
  * Reset warning flags (for testing).
  */
 export function resetWarningFlags(): void {
   hasWarnedDeprecation = false;
   hasWarnedDevMode = false;
+  hasShownStartupWarning = false;
 }

@@ -64,7 +64,6 @@ export function addFileLockCommand(program: Command): void {
             expires_in: options.expiresIn,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -90,7 +89,6 @@ export function addFileLockCommand(program: Command): void {
             agent_id: globalOpts.agentId!,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -114,7 +112,6 @@ export function addFileLockCommand(program: Command): void {
             file_path: options.filePath,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -142,7 +139,6 @@ export function addFileLockCommand(program: Command): void {
             agent_id: options.agentId,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);
@@ -170,7 +166,6 @@ export function addFileLockCommand(program: Command): void {
             reason: options.reason,
           });
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);

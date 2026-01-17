@@ -27,7 +27,6 @@ export function addHealthCommand(program: Command): void {
 
           const result = memoryHealthDescriptor.contextHandler!(context, {});
 
-          // eslint-disable-next-line no-console
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {
           handleCliError(error);

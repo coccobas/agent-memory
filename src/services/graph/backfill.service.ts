@@ -122,7 +122,14 @@ export class GraphBackfillService {
       // Knowledge entries
       if (this.repos.knowledge && (maxEntries === 0 || totalProcessed < maxEntries)) {
         const remaining = maxEntries === 0 ? undefined : maxEntries - totalProcessed;
-        await this.backfillKnowledge(request, stats.knowledge, batchSize, remaining, dryRun, errors);
+        await this.backfillKnowledge(
+          request,
+          stats.knowledge,
+          batchSize,
+          remaining,
+          dryRun,
+          errors
+        );
         totalProcessed +=
           stats.knowledge.created + stats.knowledge.existing + stats.knowledge.failed;
       }
@@ -229,7 +236,8 @@ export class GraphBackfillService {
     let processed = 0;
 
     while (maxEntries === undefined || processed < maxEntries) {
-      const limit = maxEntries !== undefined ? Math.min(batchSize, maxEntries - processed) : batchSize;
+      const limit =
+        maxEntries !== undefined ? Math.min(batchSize, maxEntries - processed) : batchSize;
 
       const filter: Record<string, unknown> = {};
       if (request.scopeType) filter.scopeType = request.scopeType;
@@ -280,7 +288,10 @@ export class GraphBackfillService {
       if (entries.length < batchSize) break;
     }
 
-    logger.debug({ total: stats.total, created: stats.created, existing: stats.existing }, 'Knowledge backfill complete');
+    logger.debug(
+      { total: stats.total, created: stats.created, existing: stats.existing },
+      'Knowledge backfill complete'
+    );
   }
 
   /**
@@ -301,7 +312,8 @@ export class GraphBackfillService {
     let processed = 0;
 
     while (maxEntries === undefined || processed < maxEntries) {
-      const limit = maxEntries !== undefined ? Math.min(batchSize, maxEntries - processed) : batchSize;
+      const limit =
+        maxEntries !== undefined ? Math.min(batchSize, maxEntries - processed) : batchSize;
 
       const filter: Record<string, unknown> = {};
       if (request.scopeType) filter.scopeType = request.scopeType;
@@ -349,7 +361,10 @@ export class GraphBackfillService {
       if (entries.length < batchSize) break;
     }
 
-    logger.debug({ total: stats.total, created: stats.created, existing: stats.existing }, 'Guideline backfill complete');
+    logger.debug(
+      { total: stats.total, created: stats.created, existing: stats.existing },
+      'Guideline backfill complete'
+    );
   }
 
   /**
@@ -370,7 +385,8 @@ export class GraphBackfillService {
     let processed = 0;
 
     while (maxEntries === undefined || processed < maxEntries) {
-      const limit = maxEntries !== undefined ? Math.min(batchSize, maxEntries - processed) : batchSize;
+      const limit =
+        maxEntries !== undefined ? Math.min(batchSize, maxEntries - processed) : batchSize;
 
       const filter: Record<string, unknown> = {};
       if (request.scopeType) filter.scopeType = request.scopeType;
@@ -418,7 +434,10 @@ export class GraphBackfillService {
       if (entries.length < batchSize) break;
     }
 
-    logger.debug({ total: stats.total, created: stats.created, existing: stats.existing }, 'Tool backfill complete');
+    logger.debug(
+      { total: stats.total, created: stats.created, existing: stats.existing },
+      'Tool backfill complete'
+    );
   }
 
   /**
@@ -439,7 +458,8 @@ export class GraphBackfillService {
     let processed = 0;
 
     while (maxEntries === undefined || processed < maxEntries) {
-      const limit = maxEntries !== undefined ? Math.min(batchSize, maxEntries - processed) : batchSize;
+      const limit =
+        maxEntries !== undefined ? Math.min(batchSize, maxEntries - processed) : batchSize;
 
       const filter: Record<string, unknown> = {};
       if (request.scopeType) filter.scopeType = request.scopeType;
@@ -489,7 +509,10 @@ export class GraphBackfillService {
       if (entries.length < batchSize) break;
     }
 
-    logger.debug({ total: stats.total, created: stats.created, existing: stats.existing }, 'Experience backfill complete');
+    logger.debug(
+      { total: stats.total, created: stats.created, existing: stats.existing },
+      'Experience backfill complete'
+    );
   }
 
   /**
@@ -510,7 +533,8 @@ export class GraphBackfillService {
     let processed = 0;
 
     while (maxEntries === undefined || processed < maxEntries) {
-      const limit = maxEntries !== undefined ? Math.min(batchSize, maxEntries - processed) : batchSize;
+      const limit =
+        maxEntries !== undefined ? Math.min(batchSize, maxEntries - processed) : batchSize;
 
       const relations = await this.repos.entryRelations.list({}, { limit, offset });
       if (relations.length === 0) break;
@@ -569,13 +593,20 @@ export class GraphBackfillService {
       if (relations.length < batchSize) break;
     }
 
-    logger.debug({ total: stats.total, created: stats.created, existing: stats.existing }, 'Edge backfill complete');
+    logger.debug(
+      { total: stats.total, created: stats.created, existing: stats.existing },
+      'Edge backfill complete'
+    );
   }
 
   /**
    * Get service status
    */
-  getStatus(schedulerStatus?: { running: boolean; schedule: string | null; nextRun: string | null }): GraphBackfillStatus {
+  getStatus(schedulerStatus?: {
+    running: boolean;
+    schedule: string | null;
+    nextRun: string | null;
+  }): GraphBackfillStatus {
     return {
       enabled: this.config.enabled,
       schedulerRunning: schedulerStatus?.running ?? false,

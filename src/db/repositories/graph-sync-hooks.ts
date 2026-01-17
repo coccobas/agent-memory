@@ -14,8 +14,57 @@ import type {
   RelationSyncMetadata,
 } from '../../services/graph/sync.service.js';
 import { createComponentLogger } from '../../utils/logger.js';
+import { getGraphSyncDLQ } from '../../utils/dead-letter-queue.js';
 
 const logger = createComponentLogger('graph-sync-hooks');
+
+// =============================================================================
+// ERROR TRACKING & STATS
+// =============================================================================
+
+interface GraphSyncStats {
+  /** Total node syncs attempted */
+  nodeSyncsAttempted: number;
+  /** Successful node syncs */
+  nodeSyncsSucceeded: number;
+  /** Failed node syncs (sent to DLQ) */
+  nodeSyncsFailed: number;
+  /** Total edge syncs attempted */
+  edgeSyncsAttempted: number;
+  /** Successful edge syncs */
+  edgeSyncsSucceeded: number;
+  /** Failed edge syncs (sent to DLQ) */
+  edgeSyncsFailed: number;
+}
+
+const stats: GraphSyncStats = {
+  nodeSyncsAttempted: 0,
+  nodeSyncsSucceeded: 0,
+  nodeSyncsFailed: 0,
+  edgeSyncsAttempted: 0,
+  edgeSyncsSucceeded: 0,
+  edgeSyncsFailed: 0,
+};
+
+/**
+ * Get current graph sync statistics for monitoring
+ */
+export function getGraphSyncStats(): GraphSyncStats {
+  return { ...stats };
+}
+
+/**
+ * Reset stats (for testing)
+ * @internal
+ */
+export function resetGraphSyncStatsForTests(): void {
+  stats.nodeSyncsAttempted = 0;
+  stats.nodeSyncsSucceeded = 0;
+  stats.nodeSyncsFailed = 0;
+  stats.edgeSyncsAttempted = 0;
+  stats.edgeSyncsSucceeded = 0;
+  stats.edgeSyncsFailed = 0;
+}
 
 /**
  * Module-level reference to the graph sync service.
@@ -63,6 +112,7 @@ export function registerGraphSyncService(
  * Called by repositories after entry creation.
  *
  * Non-fatal: Logs errors but doesn't fail the main operation.
+ * Failed operations are tracked in stats and sent to Dead Letter Queue.
  *
  * @param metadata - Entry metadata for node creation
  */
@@ -77,11 +127,14 @@ export function syncEntryToNodeAsync(metadata: EntrySyncMetadata): void {
     return;
   }
 
+  stats.nodeSyncsAttempted++;
+
   // Fire and forget - don't block repository operation
   void graphSyncService
     .syncEntryToNode(metadata)
     .then((node) => {
       if (node) {
+        stats.nodeSyncsSucceeded++;
         logger.debug(
           { entryType: metadata.entryType, entryId: metadata.entryId, nodeId: node.id },
           'Entry synced to graph node'
@@ -89,11 +142,28 @@ export function syncEntryToNodeAsync(metadata: EntrySyncMetadata): void {
       }
     })
     .catch((error) => {
+      stats.nodeSyncsFailed++;
       const errorMessage = error instanceof Error ? error.message : String(error);
       logger.warn(
         { entryType: metadata.entryType, entryId: metadata.entryId, error: errorMessage },
         'Failed to sync entry to graph node (non-fatal)'
       );
+
+      // Add to Dead Letter Queue for potential retry/analysis
+      getGraphSyncDLQ().add({
+        type: 'sync',
+        operation: 'syncEntryToNode',
+        payload: {
+          entryType: metadata.entryType,
+          entryId: metadata.entryId,
+          name: metadata.name,
+        },
+        error: errorMessage,
+        metadata: {
+          scopeType: metadata.scopeType,
+          scopeId: metadata.scopeId,
+        },
+      });
     });
 }
 
@@ -102,6 +172,7 @@ export function syncEntryToNodeAsync(metadata: EntrySyncMetadata): void {
  * Called by relation repository after relation creation.
  *
  * Non-fatal: Logs errors but doesn't fail the main operation.
+ * Failed operations are tracked in stats and sent to Dead Letter Queue.
  *
  * @param metadata - Relation metadata for edge creation
  */
@@ -116,11 +187,14 @@ export function syncRelationToEdgeAsync(metadata: RelationSyncMetadata): void {
     return;
   }
 
+  stats.edgeSyncsAttempted++;
+
   // Fire and forget - don't block repository operation
   void graphSyncService
     .syncRelationToEdge(metadata)
     .then((edge) => {
       if (edge) {
+        stats.edgeSyncsSucceeded++;
         logger.debug(
           {
             relationType: metadata.relationType,
@@ -133,6 +207,7 @@ export function syncRelationToEdgeAsync(metadata: RelationSyncMetadata): void {
       }
     })
     .catch((error) => {
+      stats.edgeSyncsFailed++;
       const errorMessage = error instanceof Error ? error.message : String(error);
       logger.warn(
         {
@@ -143,6 +218,22 @@ export function syncRelationToEdgeAsync(metadata: RelationSyncMetadata): void {
         },
         'Failed to sync relation to graph edge (non-fatal)'
       );
+
+      // Add to Dead Letter Queue for potential retry/analysis
+      getGraphSyncDLQ().add({
+        type: 'sync',
+        operation: 'syncRelationToEdge',
+        payload: {
+          relationType: metadata.relationType,
+          sourceEntryId: metadata.sourceEntryId,
+          targetEntryId: metadata.targetEntryId,
+        },
+        error: errorMessage,
+        metadata: {
+          sourceEntryType: metadata.sourceEntryType,
+          targetEntryType: metadata.targetEntryType,
+        },
+      });
     });
 }
 
