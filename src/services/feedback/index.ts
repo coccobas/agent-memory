@@ -226,7 +226,13 @@ export class FeedbackService {
       return;
     }
 
-    const retrievals = await Promise.all(retrievalIds.map((id) => this.retrievalRepo.getById(id)));
+    // Bug fix: Use Promise.allSettled to handle individual retrieval failures gracefully
+    const retrievalResults = await Promise.allSettled(
+      retrievalIds.map((id) => this.retrievalRepo.getById(id))
+    );
+    const retrievals = retrievalResults
+      .filter((r): r is PromiseFulfilledResult<MemoryRetrieval | undefined> => r.status === 'fulfilled')
+      .map((r) => r.value);
     const validRetrievals = retrievals.filter((r): r is MemoryRetrieval => r !== undefined);
 
     if (validRetrievals.length === 0) {

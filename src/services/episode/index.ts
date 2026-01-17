@@ -27,6 +27,19 @@ import { createComponentLogger } from '../../utils/logger.js';
 const logger = createComponentLogger('episode-service');
 
 /**
+ * Safely parse JSON, returning undefined on parse errors instead of throwing.
+ * Bug fix: Prevents uncaught SyntaxError from malformed event data.
+ */
+function safeParseJson(str: string): Record<string, unknown> | undefined {
+  try {
+    return JSON.parse(str) as Record<string, unknown>;
+  } catch {
+    logger.warn({ data: str.slice(0, 100) }, 'Failed to parse event data JSON');
+    return undefined;
+  }
+}
+
+/**
  * Timeline entry - represents what happened during an episode
  */
 export interface TimelineEntry {
@@ -322,7 +335,7 @@ export function createEpisodeService(deps: EpisodeServiceDeps) {
             eventId: event.id,
             entryType: event.entryType ?? undefined,
             entryId: event.entryId ?? undefined,
-            data: event.data ? JSON.parse(event.data) : undefined,
+            data: event.data ? safeParseJson(event.data) : undefined,
           });
         }
 

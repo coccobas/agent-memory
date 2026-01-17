@@ -319,11 +319,12 @@ export class LibrarianService {
                   (sum, e) => sum + (e.experience.useCount - e.experience.successCount),
                   0
                 ),
+                // Bug fix: Use .at(-1) which explicitly returns undefined for empty arrays
                 lastAccessedAt: pattern.experiences
                   .map((e) => e.experience.lastUsedAt)
                   .filter((d): d is string => d !== null)
                   .sort()
-                  .pop(),
+                  .at(-1),
               },
               scopeContext: {
                 scopeType: request.scopeType,

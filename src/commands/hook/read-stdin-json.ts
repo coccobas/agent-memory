@@ -9,10 +9,20 @@ export async function readHookInputFromStdin(): Promise<ClaudeHookInput> {
   const data = await new Promise<string>((resolvePromise) => {
     let buf = '';
     process.stdin.setEncoding('utf8');
-    process.stdin.on('data', (chunk) => {
+
+    // Bug fix: Store handlers so we can remove them to prevent memory leaks
+    const onData = (chunk: Buffer | string): void => {
       buf += String(chunk);
-    });
-    process.stdin.on('end', () => resolvePromise(buf));
+    };
+    const onEnd = (): void => {
+      // Clean up listeners before resolving
+      process.stdin.off('data', onData);
+      process.stdin.off('end', onEnd);
+      resolvePromise(buf);
+    };
+
+    process.stdin.on('data', onData);
+    process.stdin.on('end', onEnd);
   });
 
   try {
