@@ -7,7 +7,7 @@
 import { z } from 'zod';
 
 export const forgettingConfigSchema = z.object({
-  enabled: z.boolean().default(false),
+  enabled: z.boolean().default(true),
   schedule: z.string().default('0 3 * * *'), // Daily at 3 AM
 
   recency: z

@@ -62,7 +62,7 @@ export const captureSection: ConfigSectionMeta = {
     // Turn-based capture settings
     turnBasedEnabled: {
       envKey: 'AGENT_MEMORY_CAPTURE_TURN_BASED_ENABLED',
-      defaultValue: false,
+      defaultValue: true,
       description: 'Enable turn-based capture triggers.',
       schema: z.boolean(),
       parse: 'boolean',

@@ -23,6 +23,8 @@ import type {
 import { TriggerType, DEFAULT_TRIGGER_CONFIG } from './triggers.js';
 import type { TriggerDetector } from './trigger-detector.js';
 import { createTriggerDetector } from './trigger-detector.js';
+import type { ObserveCommitService } from '../observe/index.js';
+import type { IncrementalMemoryObserver } from './incremental-observer.js';
 
 const logger = createComponentLogger('trigger-orchestrator');
 
@@ -244,6 +246,16 @@ export class TriggerOrchestrator implements ITriggerOrchestrator {
    */
   setObserver(observer: IMemoryObserver): void {
     this.observer = observer;
+  }
+
+  /**
+   * Wire commit service to the observer if it supports it.
+   * This allows deferred injection of the commit service.
+   */
+  setObserverCommitService(commitService: ObserveCommitService): void {
+    if (this.observer && 'setCommitService' in this.observer) {
+      (this.observer as IncrementalMemoryObserver).setCommitService(commitService);
+    }
   }
 
   /**

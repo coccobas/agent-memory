@@ -13,7 +13,7 @@ describe('forgettingConfigSchema', () => {
     it('should provide default values', () => {
       const result = forgettingConfigSchema.parse({});
 
-      expect(result.enabled).toBe(false);
+      expect(result.enabled).toBe(true);
       expect(result.schedule).toBe('0 3 * * *');
       expect(result.dryRunDefault).toBe(true);
       expect(result.maxEntriesPerRun).toBe(100);

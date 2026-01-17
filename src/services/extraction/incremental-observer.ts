@@ -60,6 +60,14 @@ export class IncrementalMemoryObserver implements IMemoryObserver {
   }
 
   /**
+   * Set the commit service after construction.
+   * Allows deferred injection when commit service is created later.
+   */
+  setCommitService(commitService: ObserveCommitService): void {
+    this.commitService = commitService;
+  }
+
+  /**
    * Observe a trigger event and run incremental extraction
    *
    * @param event - The trigger event that fired
