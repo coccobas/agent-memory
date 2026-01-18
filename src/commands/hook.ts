@@ -28,6 +28,7 @@ import { runSessionStartCommand } from './hook/session-start-command.js';
 import { runPostToolUseCommand } from './hook/posttooluse-command.js';
 import { runSubagentStopCommand } from './hook/subagent-stop-command.js';
 import { runNotificationCommand } from './hook/notification-command.js';
+import { runPermissionRequestCommand } from './hook/permission-request-command.js';
 
 export { writeSessionSummaryFile, formatSessionSummaryStderr } from './hook/session-summary.js';
 
@@ -198,14 +199,15 @@ function printHookHelp(): void {
   agent-memory hook <subcommand> [--project-id <id>] [--agent-id <id>]
 
 Subcommands (executed by Claude Code hooks, expect JSON on stdin):
-  pretooluse       Before tool execution
-  posttooluse      After tool execution (with result)
-  stop             When execution is stopped
-  userpromptsubmit When user submits a prompt
-  session-start    When session starts
-  session-end      When session ends
-  subagent-stop    When a subagent finishes
-  notification     When Claude sends a notification
+  pretooluse         Before tool execution
+  posttooluse        After tool execution (with result)
+  stop               When execution is stopped
+  userpromptsubmit   When user submits a prompt
+  session-start      When session starts
+  session-end        When session ends
+  subagent-stop      When a subagent finishes
+  notification       When Claude sends a notification
+  permission-request When tool requests permission
 
 Notes:
   - install/status/uninstall write files in the target project directory.
@@ -258,6 +260,8 @@ export async function runHookCommand(argv: string[]): Promise<void> {
       'subagent-stop',
       'subagentstop',
       'notification',
+      'permission-request',
+      'permissionrequest',
     ];
 
     if (!validSubcommands.includes(sub)) {
@@ -331,6 +335,13 @@ export async function runHookCommand(argv: string[]): Promise<void> {
 
     if (sub === 'notification') {
       const result = await runNotificationCommand({ projectId, agentId, input });
+      for (const line of result.stdout) writeStdout(line);
+      for (const line of result.stderr) writeStderr(line);
+      process.exit(result.exitCode);
+    }
+
+    if (sub === 'permission-request' || sub === 'permissionrequest') {
+      const result = await runPermissionRequestCommand({ projectId, agentId, input });
       for (const line of result.stdout) writeStdout(line);
       for (const line of result.stderr) writeStderr(line);
       process.exit(result.exitCode);

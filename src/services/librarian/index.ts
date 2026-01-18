@@ -12,6 +12,7 @@ import type { GraphBackfillService } from '../graph/backfill.service.js';
 import { createComponentLogger } from '../../utils/logger.js';
 import { generateId } from '../../db/repositories/base.js';
 import { createExperienceRepository } from '../../db/repositories/experiences.js';
+import { librarianCheckpointRepo } from '../../db/repositories/librarian-checkpoints.js';
 import { CaseCollector } from './pipeline/collector.js';
 import { PatternDetector } from './pipeline/pattern-detector.js';
 import { QualityGate } from './pipeline/quality-gate.js';
@@ -195,6 +196,10 @@ export class LibrarianService {
 
   /**
    * Run a full analysis pipeline
+   *
+   * Supports incremental processing via checkpoint system. When a checkpoint
+   * exists for the scope, only experiences created after the checkpoint are
+   * analyzed, significantly improving performance for repeated runs.
    */
   async analyze(request: AnalysisRequest): Promise<AnalysisResult> {
     const runId = request.runId ?? generateId();
@@ -203,16 +208,53 @@ export class LibrarianService {
 
     logger.info({ runId, request }, 'Starting librarian analysis');
 
+    // Load checkpoint for incremental processing (gracefully handle missing database)
+    let checkpoint: ReturnType<typeof librarianCheckpointRepo.getForScope> | undefined;
+    let checkpointsAvailable = false;
     try {
-      // Stage 1: Collection
-      logger.debug({ runId, stage: 'collection' }, 'Collecting experiences');
-      const collection = await this.collector.collectUnpromoted({
-        scopeType: request.scopeType,
-        scopeId: request.scopeId,
-        lookbackDays: request.lookbackDays ?? this.config.collection.lookbackDays,
-        limit: request.maxExperiences ?? this.config.collection.maxExperiences,
-        levelFilter: 'case',
-      });
+      checkpoint = librarianCheckpointRepo.getForScope(request.scopeType, request.scopeId);
+      checkpointsAvailable = true;
+    } catch (error) {
+      // Checkpoint system unavailable (e.g., in unit tests without database)
+      logger.debug(
+        { error: error instanceof Error ? error.message : String(error) },
+        'Checkpoint system unavailable, using non-incremental mode'
+      );
+    }
+    const incrementalFrom = checkpoint?.lastExperienceCreatedAt ?? undefined;
+
+    if (incrementalFrom) {
+      logger.debug(
+        { runId, incrementalFrom, scopeType: request.scopeType, scopeId: request.scopeId },
+        'Using incremental collection from checkpoint'
+      );
+    }
+
+    // Mark analysis as started (if checkpoints available)
+    if (checkpointsAvailable) {
+      try {
+        librarianCheckpointRepo.markStarted(request.scopeType, request.scopeId, runId);
+      } catch (error) {
+        logger.debug(
+          { error: error instanceof Error ? error.message : String(error) },
+          'Failed to mark checkpoint as started (non-fatal)'
+        );
+      }
+    }
+
+    try {
+      // Stage 1: Collection (incremental if checkpoint exists)
+      logger.debug({ runId, stage: 'collection', isIncremental: !!incrementalFrom }, 'Collecting experiences');
+      const collection = await this.collector.collectUnpromotedIncremental(
+        {
+          scopeType: request.scopeType,
+          scopeId: request.scopeId,
+          lookbackDays: request.lookbackDays ?? this.config.collection.lookbackDays,
+          limit: request.maxExperiences ?? this.config.collection.maxExperiences,
+          levelFilter: 'case',
+        },
+        incrementalFrom
+      );
 
       logger.debug(
         { runId, experiencesCollected: collection.experiences.length },
@@ -451,8 +493,53 @@ export class LibrarianService {
       };
 
       this.lastAnalysis = result;
+
+      // Update checkpoint for incremental processing (if checkpoints available)
+      // Use the latest experience createdAt as the cursor for next run
+      if (checkpointsAvailable && !request.dryRun) {
+        try {
+          if (collection.latestExperienceCreatedAt) {
+            librarianCheckpointRepo.markCompleted(request.scopeType, request.scopeId, {
+              runId,
+              lastExperienceCreatedAt: collection.latestExperienceCreatedAt,
+              experiencesProcessed: collection.experiences.length,
+              patternsDetected: patternDetection.patterns.length,
+              recommendationsGenerated: recommendations.recommendations.length,
+            });
+            logger.debug(
+              {
+                runId,
+                scopeType: request.scopeType,
+                scopeId: request.scopeId,
+                newCursor: collection.latestExperienceCreatedAt,
+              },
+              'Checkpoint updated for incremental processing'
+            );
+          } else {
+            // Mark completed even if no experiences (resets error state)
+            librarianCheckpointRepo.update(request.scopeType, request.scopeId, {
+              status: 'idle',
+              lastAnalysisRunId: runId,
+              lastAnalysisAt: completedAt,
+              lastError: null,
+              consecutiveErrors: 0,
+            });
+          }
+        } catch (error) {
+          logger.debug(
+            { error: error instanceof Error ? error.message : String(error) },
+            'Failed to update checkpoint (non-fatal)'
+          );
+        }
+      }
+
       logger.info(
-        { runId, stats: result.stats, durationMs: result.timing.durationMs },
+        {
+          runId,
+          stats: result.stats,
+          durationMs: result.timing.durationMs,
+          isIncremental: collection.isIncremental,
+        },
         'Analysis complete'
       );
 
@@ -460,6 +547,19 @@ export class LibrarianService {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       logger.error({ runId, error: errorMessage }, 'Analysis failed');
+
+      // Mark checkpoint as failed (if checkpoints available)
+      if (checkpointsAvailable) {
+        try {
+          librarianCheckpointRepo.markFailed(request.scopeType, request.scopeId, errorMessage);
+        } catch (checkpointError) {
+          logger.debug(
+            { error: checkpointError instanceof Error ? checkpointError.message : String(checkpointError) },
+            'Failed to mark checkpoint as failed (non-fatal)'
+          );
+        }
+      }
+
       throw error;
     }
   }
@@ -857,6 +957,7 @@ export class LibrarianService {
    * Unified session start handler - warms the latent memory cache.
    *
    * Pipeline stages:
+   * 0. (If source === 'clear') Lightweight capture: Extract experiences and run consolidation
    * 1. Latent Memory Warming: Pre-warm cache with relevant entries for faster retrieval
    *
    * @param request - Session start request
@@ -865,12 +966,14 @@ export class LibrarianService {
   async onSessionStart(request: SessionStartRequest): Promise<SessionStartResult> {
     const startedAt = new Date().toISOString();
     const errors: string[] = [];
+    const source = request.source ?? 'startup';
 
     logger.info(
       {
         sessionId: request.sessionId,
         projectId: request.projectId,
         skipWarmup: request.skipWarmup,
+        source,
       },
       'Starting unified session start processing'
     );
@@ -883,6 +986,109 @@ export class LibrarianService {
         durationMs: 0,
       },
     };
+
+    // Stage 0: Clear Capture (only when source === 'clear')
+    // Lightweight pipeline: capture + consolidation only (no pattern analysis or full maintenance)
+    if (source === 'clear' && request.projectId) {
+      try {
+        const clearStart = Date.now();
+        logger.info(
+          { sessionId: request.sessionId, projectId: request.projectId },
+          'Running lightweight capture pipeline before clear'
+        );
+
+        let experiencesExtracted = 0;
+        let knowledgeExtracted = 0;
+        let consolidationDeduped = 0;
+
+        // Run experience capture if capture service is available
+        if (this.captureService) {
+          try {
+            // Trigger capture from any accumulated turn data
+            // Note: We use onSessionEnd-like capture but in a lightweight way
+            const captureResult = await this.captureService.onSessionEnd(request.sessionId, {
+              projectId: request.projectId,
+              scopeType: 'project',
+              scopeId: request.projectId,
+              autoStore: true,
+              skipDuplicates: true,
+            });
+
+            experiencesExtracted = captureResult.experiences.experiences.length;
+            knowledgeExtracted =
+              captureResult.knowledge.knowledge.length +
+              captureResult.knowledge.guidelines.length +
+              captureResult.knowledge.tools.length;
+
+            logger.debug(
+              {
+                sessionId: request.sessionId,
+                experiencesExtracted,
+                knowledgeExtracted,
+              },
+              'Clear capture: experience extraction completed'
+            );
+          } catch (captureError) {
+            const errorMsg = `Clear capture extraction failed: ${captureError instanceof Error ? captureError.message : String(captureError)}`;
+            errors.push(errorMsg);
+            logger.warn({ sessionId: request.sessionId, error: errorMsg }, 'Clear capture extraction failed (non-fatal)');
+          }
+        }
+
+        // Run lightweight consolidation only (no forgetting or graph backfill for speed)
+        if (this.maintenanceOrchestrator) {
+          try {
+            const maintenanceResult = await this.runMaintenance({
+              scopeType: 'project',
+              scopeId: request.projectId,
+              tasks: ['consolidation'], // Only consolidation for speed
+              initiatedBy: request.agentId ?? 'clear-hook',
+              dryRun: false,
+            });
+
+            consolidationDeduped = maintenanceResult.consolidation?.entriesDeduped ?? 0;
+
+            logger.debug(
+              {
+                sessionId: request.sessionId,
+                consolidationDeduped,
+              },
+              'Clear capture: consolidation completed'
+            );
+          } catch (maintenanceError) {
+            const errorMsg = `Clear capture consolidation failed: ${maintenanceError instanceof Error ? maintenanceError.message : String(maintenanceError)}`;
+            errors.push(errorMsg);
+            logger.warn({ sessionId: request.sessionId, error: errorMsg }, 'Clear capture consolidation failed (non-fatal)');
+          }
+        }
+
+        result.clearCapture = {
+          experiencesExtracted,
+          knowledgeExtracted,
+          consolidationDeduped,
+          processingTimeMs: Date.now() - clearStart,
+        };
+
+        logger.info(
+          {
+            sessionId: request.sessionId,
+            projectId: request.projectId,
+            experiencesExtracted,
+            knowledgeExtracted,
+            consolidationDeduped,
+            processingTimeMs: result.clearCapture.processingTimeMs,
+          },
+          'Lightweight capture pipeline completed before clear'
+        );
+      } catch (error) {
+        const errorMsg = `Clear capture pipeline failed: ${error instanceof Error ? error.message : String(error)}`;
+        errors.push(errorMsg);
+        logger.warn(
+          { sessionId: request.sessionId, error: errorMsg },
+          'Clear capture pipeline failed (non-fatal)'
+        );
+      }
+    }
 
     // Stage 1: Latent Memory Warming
     const latentConfig = this.config.modules.latentMemory;
@@ -990,7 +1196,15 @@ export class LibrarianService {
     logger.info(
       {
         sessionId: request.sessionId,
+        source,
         durationMs: result.timing.durationMs,
+        clearCapture: result.clearCapture
+          ? {
+              experiencesExtracted: result.clearCapture.experiencesExtracted,
+              knowledgeExtracted: result.clearCapture.knowledgeExtracted,
+              consolidationDeduped: result.clearCapture.consolidationDeduped,
+            }
+          : undefined,
         warmup: result.warmup
           ? {
               entriesWarmed: result.warmup.entriesWarmed,

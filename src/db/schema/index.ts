@@ -158,3 +158,9 @@ export * from './episodes.js';
 // =============================================================================
 
 export * from './hook-metrics.js';
+
+// =============================================================================
+// LIBRARIAN CHECKPOINTS (Incremental Processing Tracking)
+// =============================================================================
+
+export * from './librarian-checkpoints.js';

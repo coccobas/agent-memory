@@ -41,6 +41,10 @@ export interface CollectorFilter {
   minUseCount?: number;
   /** Maximum number of experiences to collect */
   limit?: number;
+  /** Incremental collection: only collect experiences created after this timestamp (ISO string) */
+  incrementalFrom?: string;
+  /** Exclude specific experience IDs (e.g., already processed ones) */
+  excludeIds?: string[];
 }
 
 /**
@@ -59,6 +63,10 @@ export interface CollectionResult {
   totalFound: number;
   filter: CollectorFilter;
   collectedAt: string;
+  /** Whether this was an incremental collection */
+  isIncremental?: boolean;
+  /** The most recent experience createdAt in this collection (for checkpoint updates) */
+  latestExperienceCreatedAt?: string;
 }
 
 // =============================================================================
@@ -82,6 +90,7 @@ export class CaseCollector {
    */
   async collect(filter: CollectorFilter): Promise<CollectionResult> {
     const experienceRepo = this.experienceRepo;
+    const isIncremental = !!filter.incrementalFrom;
 
     // Build date filters
     let createdAfter = filter.createdAfter;
@@ -89,6 +98,15 @@ export class CaseCollector {
       const lookbackDate = new Date();
       lookbackDate.setDate(lookbackDate.getDate() - filter.lookbackDays);
       createdAfter = lookbackDate;
+    }
+
+    // For incremental collection, use incrementalFrom as the cursor
+    // It takes precedence over createdAfter for incremental mode
+    if (filter.incrementalFrom) {
+      const incrementalDate = new Date(filter.incrementalFrom);
+      if (!createdAfter || incrementalDate > createdAfter) {
+        createdAfter = incrementalDate;
+      }
     }
 
     // Fetch experiences
@@ -110,7 +128,12 @@ export class CaseCollector {
     let filtered: ExperienceWithVersion[] = experiences;
     if (createdAfter) {
       const afterStr = createdAfter.toISOString();
-      filtered = filtered.filter((exp: ExperienceWithVersion) => exp.createdAt >= afterStr);
+      // For incremental mode, use > (not >=) to exclude the cursor experience itself
+      if (isIncremental) {
+        filtered = filtered.filter((exp: ExperienceWithVersion) => exp.createdAt > afterStr);
+      } else {
+        filtered = filtered.filter((exp: ExperienceWithVersion) => exp.createdAt >= afterStr);
+      }
     }
     if (filter.createdBefore) {
       const beforeStr = filter.createdBefore.toISOString();
@@ -119,6 +142,12 @@ export class CaseCollector {
     if (filter.minUseCount !== undefined) {
       const minCount = filter.minUseCount;
       filtered = filtered.filter((exp: ExperienceWithVersion) => exp.useCount >= minCount);
+    }
+
+    // Exclude specific IDs if provided
+    if (filter.excludeIds && filter.excludeIds.length > 0) {
+      const excludeSet = new Set(filter.excludeIds);
+      filtered = filtered.filter((exp: ExperienceWithVersion) => !excludeSet.has(exp.id));
     }
 
     // Collect trajectories for each experience
@@ -131,11 +160,22 @@ export class CaseCollector {
       });
     }
 
+    // Find the latest experience createdAt for checkpoint updates
+    let latestExperienceCreatedAt: string | undefined;
+    if (collected.length > 0) {
+      const firstCreatedAt = collected[0]!.experience.createdAt;
+      latestExperienceCreatedAt = collected.reduce((latest, ce) => {
+        return ce.experience.createdAt > latest ? ce.experience.createdAt : latest;
+      }, firstCreatedAt);
+    }
+
     return {
       experiences: collected,
       totalFound: experiences.length,
       filter,
       collectedAt: new Date().toISOString(),
+      isIncremental,
+      latestExperienceCreatedAt,
     };
   }
 
@@ -167,6 +207,37 @@ export class CaseCollector {
     const result = await this.collect({
       ...filter,
       levelFilter: 'case',
+    });
+
+    // Filter out experiences that have already been promoted
+    const unpromoted = result.experiences.filter(
+      (ce) => !ce.experience.promotedToToolId && !ce.experience.promotedFromId
+    );
+
+    return {
+      ...result,
+      experiences: unpromoted,
+    };
+  }
+
+  /**
+   * Collect unpromoted experiences incrementally from a checkpoint
+   *
+   * Uses timestamp cursor to only collect experiences created after the checkpoint.
+   * This is more efficient than re-processing all experiences each run.
+   *
+   * @param filter - Base collection filter
+   * @param incrementalFrom - ISO timestamp to collect experiences after (checkpoint cursor)
+   * @returns Collection result with incremental flag
+   */
+  async collectUnpromotedIncremental(
+    filter: Omit<CollectorFilter, 'incrementalFrom'>,
+    incrementalFrom?: string
+  ): Promise<CollectionResult> {
+    const result = await this.collect({
+      ...filter,
+      levelFilter: 'case',
+      incrementalFrom,
     });
 
     // Filter out experiences that have already been promoted

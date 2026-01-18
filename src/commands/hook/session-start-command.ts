@@ -13,13 +13,14 @@ export async function runSessionStartCommand(params: {
   const { projectId, agentId, input } = params;
 
   const sessionId = input.session_id;
+  const source = input.source ?? 'startup';
 
   if (!sessionId) {
     logger.warn('Session start hook called without session_id');
     return { exitCode: 2, stdout: [], stderr: ['Missing session_id in hook input'] };
   }
 
-  logger.debug({ sessionId, projectId, agentId }, 'Starting session start processing');
+  logger.debug({ sessionId, projectId, agentId, source }, 'Starting session start processing');
 
   try {
     // Ensure the session exists (creates if needed)
@@ -32,34 +33,51 @@ export async function runSessionStartCommand(params: {
       const librarianService = ctx.services.librarian;
 
       if (librarianService) {
-        logger.debug({ sessionId, projectId }, 'Running session start via Librarian');
+        logger.debug({ sessionId, projectId, source }, 'Running session start via Librarian');
 
         const sessionStartResult = await librarianService.onSessionStart({
           sessionId,
           projectId,
           agentId,
+          source,
         });
 
         // Log summary of results
-        if (sessionStartResult.warmup && sessionStartResult.warmup.entriesWarmed > 0) {
+        const hasClearCapture = sessionStartResult.clearCapture;
+        const hasWarmup = sessionStartResult.warmup && sessionStartResult.warmup.entriesWarmed > 0;
+
+        if (hasClearCapture || hasWarmup) {
           logger.info(
             {
               sessionId,
               projectId,
+              source,
               durationMs: sessionStartResult.timing.durationMs,
-              warmup: {
-                entriesWarmed: sessionStartResult.warmup.entriesWarmed,
-                cacheHitRate: sessionStartResult.warmup.cacheHitRate,
-              },
+              clearCapture: hasClearCapture
+                ? {
+                    experiencesExtracted: sessionStartResult.clearCapture?.experiencesExtracted,
+                    knowledgeExtracted: sessionStartResult.clearCapture?.knowledgeExtracted,
+                    consolidationDeduped: sessionStartResult.clearCapture?.consolidationDeduped,
+                  }
+                : undefined,
+              warmup: hasWarmup
+                ? {
+                    entriesWarmed: sessionStartResult.warmup?.entriesWarmed,
+                    cacheHitRate: sessionStartResult.warmup?.cacheHitRate,
+                  }
+                : undefined,
               errors: sessionStartResult.errors?.length ?? 0,
             },
-            'Session start completed with cache warming'
+            hasClearCapture
+              ? 'Session start completed with clear capture'
+              : 'Session start completed with cache warming'
           );
         } else {
           logger.debug(
             {
               sessionId,
               projectId,
+              source,
               durationMs: sessionStartResult.timing.durationMs,
             },
             'Session start completed (no entries warmed)'

@@ -338,6 +338,8 @@ export interface SessionStartRequest {
   skipWarmup?: boolean;
   /** Override max entries to warm */
   maxWarmEntries?: number;
+  /** Source of session start: startup (new), resume (continued), clear (user triggered /clear) */
+  source?: 'startup' | 'resume' | 'clear';
 }
 
 /**
@@ -352,6 +354,17 @@ export interface SessionStartResult {
     entriesWarmed: number;
     /** Cache hit rate after warming */
     cacheHitRate: number;
+    /** Processing time */
+    processingTimeMs: number;
+  };
+  /** Clear capture results (only present when source === 'clear') */
+  clearCapture?: {
+    /** Experiences extracted before clear */
+    experiencesExtracted: number;
+    /** Knowledge entries extracted */
+    knowledgeExtracted: number;
+    /** Consolidation deduped entries */
+    consolidationDeduped: number;
     /** Processing time */
     processingTimeMs: number;
   };

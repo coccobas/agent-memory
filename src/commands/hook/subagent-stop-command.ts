@@ -15,6 +15,8 @@ import { createComponentLogger } from '../../utils/logger.js';
 import type { ClaudeHookInput, HookCommandResult } from './types.js';
 import { getHookAnalyticsService } from '../../services/analytics/index.js';
 import { getHookLearningService } from '../../services/learning/index.js';
+import { getDb, getSqlite } from '../../db/connection.js';
+import { createEpisodeRepository } from '../../db/repositories/episodes.js';
 
 const logger = createComponentLogger('subagent-stop');
 
@@ -222,15 +224,57 @@ export async function runSubagentStopCommand(params: {
   // Step 2: Link to parent episode (if enabled)
   if (config.linkEpisodes && parentSessionId) {
     try {
-      // Future: Link subagent completion to parent episode via graph
-      logger.debug(
-        {
-          sessionId,
-          parentSessionId,
-          subagentType,
-        },
-        'Subagent completed (episode linking pending)'
-      );
+      const db = getDb();
+      const sqlite = getSqlite();
+      const episodeRepo = createEpisodeRepository({ db, sqlite });
+
+      // Find active episode(s) for the parent session
+      const activeEpisodes = await episodeRepo.list({
+        sessionId: parentSessionId,
+        status: 'active',
+      });
+
+      if (activeEpisodes.length > 0) {
+        // Link to the most recent active episode
+        const activeEpisode = activeEpisodes[0]!;
+
+        // Add an event to the episode about subagent completion
+        await episodeRepo.addEvent({
+          episodeId: activeEpisode.id,
+          eventType: 'checkpoint',
+          name: `Subagent completed: ${subagentType ?? 'unknown'}`,
+          description: success
+            ? `Subagent (${subagentType}) completed successfully. Result size: ${resultSize ?? 0} chars`
+            : `Subagent (${subagentType}) failed. ${resultSummary?.slice(0, 200) ?? ''}`,
+          data: {
+            subagentId,
+            subagentType,
+            success,
+            resultSize,
+            parentSessionId,
+          },
+        });
+
+        logger.info(
+          {
+            sessionId,
+            parentSessionId,
+            episodeId: activeEpisode.id,
+            subagentType,
+            success,
+          },
+          'Subagent completion linked to parent episode'
+        );
+      } else {
+        logger.debug(
+          {
+            sessionId,
+            parentSessionId,
+            subagentType,
+          },
+          'No active episode found for parent session'
+        );
+      }
     } catch (error) {
       // Non-blocking
       logger.debug(

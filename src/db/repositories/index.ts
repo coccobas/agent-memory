@@ -19,3 +19,6 @@ export * from './graph/index.js';
 
 // Hook metrics (Claude Code hook analytics)
 export * from './hook-metrics.js';
+
+// Librarian checkpoints (incremental processing tracking)
+export * from './librarian-checkpoints.js';

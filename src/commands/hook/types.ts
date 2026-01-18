@@ -7,6 +7,9 @@ export type ClaudeHookInput = {
   cwd?: string;
   hook_event_name?: string;
 
+  // SessionStart fields
+  source?: 'startup' | 'resume' | 'clear';
+
   // PreToolUse / PostToolUse fields
   tool_name?: string;
   tool_input?: unknown;
@@ -28,6 +31,9 @@ export type ClaudeHookInput = {
 
   // Notification fields
   notification_type?: string;
+
+  // PermissionRequest fields
+  permission_type?: string;
 };
 
 export type HookCommandResult = {
