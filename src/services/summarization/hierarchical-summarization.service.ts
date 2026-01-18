@@ -70,7 +70,7 @@ export class HierarchicalSummarizationService {
   // Core dependencies
   private db: AppDb;
   private embeddingService: EmbeddingService;
-  private extractionService: ExtractionService;
+  private extractionService: ExtractionService | undefined;
   private vectorService: IVectorService;
 
   // LLM summarizer for generating summaries
@@ -82,7 +82,7 @@ export class HierarchicalSummarizationService {
   constructor(
     db: AppDb,
     embeddingService: EmbeddingService,
-    extractionService: ExtractionService,
+    extractionService: ExtractionService | undefined,
     vectorService: IVectorService,
     config?: Partial<HierarchicalSummarizationConfig>
   ) {
@@ -93,7 +93,7 @@ export class HierarchicalSummarizationService {
 
     // If no provider explicitly set, inherit from extraction service
     const effectiveProvider =
-      config?.provider ?? (extractionService.isAvailable() ? 'openai' : 'disabled');
+      config?.provider ?? (extractionService?.isAvailable() ? 'openai' : 'disabled');
 
     this.config = {
       ...DEFAULT_HIERARCHICAL_SUMMARIZATION_CONFIG,
@@ -104,7 +104,7 @@ export class HierarchicalSummarizationService {
     logger.debug(
       {
         passedProvider: config?.provider,
-        extractionAvailable: extractionService.isAvailable(),
+        extractionAvailable: extractionService?.isAvailable() ?? false,
         effectiveProvider,
         finalProvider: this.config.provider,
         defaultProvider: DEFAULT_HIERARCHICAL_SUMMARIZATION_CONFIG.provider,
@@ -149,7 +149,7 @@ export class HierarchicalSummarizationService {
   }
 
   /** Get extraction service (for subclasses/testing) */
-  protected getExtractionService(): ExtractionService {
+  protected getExtractionService(): ExtractionService | undefined {
     return this.extractionService;
   }
 

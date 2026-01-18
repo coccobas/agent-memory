@@ -121,14 +121,8 @@ export function validateOpenAIBaseUrl(baseUrl: string | undefined, strictMode: b
         'SSRF protection: localhost/127.0.0.1 not allowed in production. Set AGENT_MEMORY_EXTRACTION_STRICT_ALLOWLIST=false to override.'
       );
     }
-    if (isProduction && !strictMode) {
-      logger.warn(
-        { baseUrl },
-        'Using localhost in production mode (AGENT_MEMORY_EXTRACTION_STRICT_ALLOWLIST=false). Ensure this is intentional.'
-      );
-    } else {
-      logger.debug({ baseUrl }, 'Using local OpenAI-compatible endpoint (development mode)');
-    }
+    // Log at debug level - user already knows they're using localhost if they set the env var
+    logger.debug({ baseUrl }, 'Using local OpenAI-compatible endpoint');
     return;
   }
 

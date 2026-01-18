@@ -43,6 +43,7 @@ export interface ExtractionServiceConfig {
   openaiApiKey?: string;
   openaiModel: string;
   openaiBaseUrl?: string;
+  strictBaseUrlAllowlist?: boolean;
   anthropicApiKey?: string;
   anthropicModel: string;
   ollamaBaseUrl: string;
@@ -100,6 +101,7 @@ export class ExtractionService {
       openaiApiKey: config.extraction.openaiApiKey,
       openaiModel: config.extraction.openaiModel,
       openaiBaseUrl: config.extraction.openaiBaseUrl,
+      strictBaseUrlAllowlist: config.extraction.strictBaseUrlAllowlist,
       anthropicApiKey: config.extraction.anthropicApiKey,
       anthropicModel: config.extraction.anthropicModel,
       ollamaBaseUrl: config.extraction.ollamaBaseUrl,
@@ -148,7 +150,8 @@ export class ExtractionService {
         return new OpenAIProvider(
           effectiveConfig.openaiApiKey,
           effectiveConfig.openaiModel,
-          effectiveConfig.openaiBaseUrl
+          effectiveConfig.openaiBaseUrl,
+          effectiveConfig.strictBaseUrlAllowlist ?? true
         );
 
       case 'anthropic':
