@@ -11,8 +11,6 @@
  * Future improvement: Implement two-phase commit or compensating transactions.
  */
 
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-
 import type { Repositories } from '../../core/interfaces/repositories.js';
 import type { AppDb } from '../../core/types.js';
 import { checkForDuplicates } from '../duplicate.service.js';
@@ -159,11 +157,11 @@ export class ObserveCommitService {
           autoPromoteThreshold
         );
 
-        if (result.skipped) {
+        if (result.skipped && result.targetScopeType) {
           skippedDuplicates.push({
             type: entry.type,
             name: entry.name || entry.title || 'Unnamed',
-            scopeType: result.targetScopeType!,
+            scopeType: result.targetScopeType,
           });
           continue;
         }

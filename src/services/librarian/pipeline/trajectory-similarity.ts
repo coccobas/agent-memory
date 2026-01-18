@@ -5,8 +5,6 @@
  * to identify similar problem-solving patterns.
  */
 
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-
 import type { ExperienceTrajectoryStep } from '../../../db/schema/experiences.js';
 import {
   jaccardSimilarityArrays,
@@ -411,9 +409,11 @@ function findMatchingActions(
   const used2 = new Set<number>();
 
   for (let i = 0; i < actions1.length; i++) {
-    const action1 = actions1[i]!;
+    const action1 = actions1[i];
+    if (!action1) continue;
     for (let j = 0; j < actions2.length; j++) {
-      const action2 = actions2[j]!;
+      const action2 = actions2[j];
+      if (!action2) continue;
       if (!used2.has(j) && action1 === action2) {
         matches.push({ step1: i, step2: j, action: action1 });
         used2.add(j);

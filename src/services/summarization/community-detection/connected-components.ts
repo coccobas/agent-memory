@@ -8,8 +8,6 @@
  * Uses Union-Find (Disjoint Set Union) data structure for efficient component detection.
  */
 
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-
 import type {
   CommunityNode,
   CommunityDetectionResult,
@@ -98,7 +96,10 @@ class UnionFind {
       if (!components.has(root)) {
         components.set(root, new Set());
       }
-      components.get(root)!.add(element);
+      const rootSet = components.get(root);
+      if (rootSet) {
+        rootSet.add(element);
+      }
     }
 
     return components;

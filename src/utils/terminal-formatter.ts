@@ -3,11 +3,7 @@
  *
  * Provides tree views, status icons, unicode boxes, and badges for
  * better visual representation in terminal environments.
- *
- * NOTE: Non-null assertions used for Map access after validation checks.
  */
-
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Icons and Symbols
@@ -158,9 +154,10 @@ export function formatTree(root: TreeNode, prefix = ''): string {
       ? prefix.replace(icons.branch, icons.vertical + '  ').replace(icons.lastBranch, '   ')
       : '';
 
-    root.children.forEach((child, index) => {
-      // Safe: root.children already verified to exist and be non-empty
-      const isLast = index === root.children!.length - 1;
+    // Capture children array for use in callback (TypeScript narrowing)
+    const children = root.children;
+    children.forEach((child, index) => {
+      const isLast = index === children.length - 1;
       const connector = isLast ? icons.lastBranch : icons.branch;
 
       // For nested children, we need to add proper indentation
@@ -171,9 +168,10 @@ export function formatTree(root: TreeNode, prefix = ''): string {
         const childMeta = child.meta ? ` ${child.meta}` : '';
         lines.push(`${childPrefix}${connector} ${childIcon}${child.label}${childMeta}`);
 
-        child.children.forEach((grandchild, gIndex) => {
-          // Safe: child.children already verified to exist and be non-empty
-          const gIsLast = gIndex === child.children!.length - 1;
+        // Capture grandchildren array for use in callback (TypeScript narrowing)
+        const grandchildren = child.children;
+        grandchildren.forEach((grandchild, gIndex) => {
+          const gIsLast = gIndex === grandchildren.length - 1;
           const gConnector = gIsLast ? icons.lastBranch : icons.branch;
           const gIcon = grandchild.icon ? `${grandchild.icon} ` : '';
           const gMeta = grandchild.meta ? ` ${grandchild.meta}` : '';
@@ -803,7 +801,8 @@ function formatQuickstartCompact(data: QuickstartDisplayData): string {
   const parts: string[] = [];
 
   // Status dot + project name
-  const statusDot = data.session.status === 'active' || data.session.status === 'resumed' ? '●' : '○';
+  const statusDot =
+    data.session.status === 'active' || data.session.status === 'resumed' ? '●' : '○';
   parts.push(`${statusDot} ${data.projectName ?? 'Project'}`);
 
   // Session status
@@ -841,7 +840,11 @@ function formatSessionBox(data: QuickstartDisplayData): string {
       ? icons.active
       : icons.inactive;
   const sessionStatusText =
-    data.session.status === 'resumed' ? 'resumed' : data.session.status === 'active' ? 'active' : '';
+    data.session.status === 'resumed'
+      ? 'resumed'
+      : data.session.status === 'active'
+        ? 'active'
+        : '';
   const sessionName = data.session.name ?? '(none)';
   lines.push(`${icons.session} ${padRight(sessionName, 32)} ${sessionIcon} ${sessionStatusText}`);
 
@@ -898,7 +901,9 @@ function formatMemoryBox(data: QuickstartDisplayData): string {
 
   memoryLines.push(`Type        │ Count │ Health`);
   memoryLines.push(`────────────┼───────┼${'─'.repeat(32)}`);
-  memoryLines.push(`Guidelines  │ ${padLeft(String(data.counts.guidelines), 5)} │ ${healthDisplay}`);
+  memoryLines.push(
+    `Guidelines  │ ${padLeft(String(data.counts.guidelines), 5)} │ ${healthDisplay}`
+  );
   memoryLines.push(`Knowledge   │ ${padLeft(String(data.counts.knowledge), 5)} │`);
   memoryLines.push(`Tools       │ ${padLeft(String(data.counts.tools), 5)} │`);
 

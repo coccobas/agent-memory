@@ -10,8 +10,6 @@
 
 /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any */
 
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-
 import type { Dataset } from '../dataset-builder.js';
 import type {
   ExtractionTrainingExample,
@@ -436,7 +434,12 @@ function shuffleArray<T>(array: T[], seed?: number): T[] {
   // Fisher-Yates shuffle
   for (let i = shuffled.length - 1; i > 0; i--) {
     const j = Math.floor(random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j]!, shuffled[i]!];
+    const valueI = shuffled[i];
+    const valueJ = shuffled[j];
+    if (valueI !== undefined && valueJ !== undefined) {
+      shuffled[i] = valueJ;
+      shuffled[j] = valueI;
+    }
   }
 
   return shuffled;

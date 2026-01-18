@@ -4,12 +4,7 @@
  * Main coordinator for RL training data collection.
  * Tracks retrievals, outcomes, and decisions to generate training datasets
  * for extraction, retrieval, and consolidation policies.
- *
- * NOTE: Non-null assertions used for Map access after existence checks
- * in attribution calculations.
  */
-
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
 
 import type { DatabaseDeps } from '../../core/types.js';
 import { createComponentLogger } from '../../utils/logger.js';
@@ -544,18 +539,20 @@ export class FeedbackService {
     let filteredExtractionSamples = extractionSamples;
     let filteredConsolidationSamples = consolidationSamples;
 
-    if (params.outcomeTypes) {
+    const outcomeTypesFilter = params.outcomeTypes;
+    if (outcomeTypesFilter) {
       filteredRetrievalSamples = retrievalSamples.filter(
-        (s) => s.outcomeType && params.outcomeTypes!.includes(s.outcomeType)
+        (s) => s.outcomeType && outcomeTypesFilter.includes(s.outcomeType)
       );
     }
 
-    if (params.entryTypes) {
+    const entryTypesFilter = params.entryTypes;
+    if (entryTypesFilter) {
       filteredRetrievalSamples = filteredRetrievalSamples.filter(
-        (s) => s.entryType && params.entryTypes!.includes(s.entryType)
+        (s) => s.entryType && entryTypesFilter.includes(s.entryType)
       );
       filteredExtractionSamples = filteredExtractionSamples.filter(
-        (s) => s.entryType && params.entryTypes!.includes(s.entryType)
+        (s) => s.entryType && entryTypesFilter.includes(s.entryType)
       );
     }
 

@@ -8,8 +8,6 @@
  * - Explicit case recording
  */
 
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-
 import { OpenAI } from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 import { createComponentLogger } from '../../utils/logger.js';
@@ -414,9 +412,10 @@ export class ExperienceCaptureModule implements CaptureModule<ExperienceCaptureR
       );
     }
 
+    const client = this.openaiClient;
     return withRetry(
       async () => {
-        const response = await this.openaiClient!.chat.completions.create({
+        const response = await client.chat.completions.create({
           model: config.extraction.openaiModel,
           messages: [
             { role: 'system', content: EXPERIENCE_EXTRACTION_PROMPT },
@@ -461,9 +460,10 @@ export class ExperienceCaptureModule implements CaptureModule<ExperienceCaptureR
       );
     }
 
+    const client = this.anthropicClient;
     return withRetry(
       async () => {
-        const response = await this.anthropicClient!.messages.create({
+        const response = await client.messages.create({
           model: config.extraction.anthropicModel,
           max_tokens: config.extraction.maxTokens,
           system: EXPERIENCE_EXTRACTION_PROMPT,

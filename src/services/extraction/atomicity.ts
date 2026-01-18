@@ -8,8 +8,6 @@
  * @module extraction/atomicity
  */
 
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-
 import { createComponentLogger } from '../../utils/logger.js';
 import type { ExtractedEntry } from '../extraction.service.js';
 
@@ -281,7 +279,8 @@ function generateSplitName(baseName: string, index: number, total: number): stri
   // If total is small, use descriptive suffixes
   if (total <= 3) {
     const suffixes = ['a', 'b', 'c'];
-    return `${baseName}-${suffixes[index]}`;
+    const suffix = suffixes[index] ?? String(index);
+    return `${baseName}-${suffix}`;
   }
   // Otherwise use numbers
   return `${baseName}-part-${index + 1}`;
@@ -299,9 +298,10 @@ function splitGuideline(entry: ExtractedEntry, maxSplits: number): ExtractedEntr
   // Strategy 1: Split on semicolons
   let parts = splitOnSemicolons(content);
   if (parts && parts.length >= 2 && parts.length <= maxSplits) {
+    const partsLength = parts.length;
     return parts.map((part, i) => ({
       ...entry,
-      name: generateSplitName(baseName, i, parts!.length),
+      name: generateSplitName(baseName, i, partsLength),
       content: part.endsWith('.') ? part : `${part}.`,
       confidence: entry.confidence * 0.95, // Slight reduction for split entries
     }));
@@ -310,9 +310,10 @@ function splitGuideline(entry: ExtractedEntry, maxSplits: number): ExtractedEntr
   // Strategy 2: Split on "Also"/"Additionally" markers
   parts = splitOnAlsoMarkers(content);
   if (parts && parts.length >= 2 && parts.length <= maxSplits) {
+    const partsLength = parts.length;
     return parts.map((part, i) => ({
       ...entry,
-      name: generateSplitName(baseName, i, parts!.length),
+      name: generateSplitName(baseName, i, partsLength),
       content: part.endsWith('.') ? part : `${part}.`,
       confidence: entry.confidence * 0.95,
     }));

@@ -5,8 +5,6 @@
  * Sub-factories are located in ./factory/ for better organization.
  */
 
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-
 import { existsSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import type { AppContext } from './context.js';
@@ -89,6 +87,7 @@ export async function createAppContext(
 
   // Create adapters (backend-specific, needs repos.fileLocks)
   // Uses createAdaptersWithConfig to support Redis when enabled
+  // Note: In the SQLite branch, sqlite is guaranteed to be defined by the connection.type check above
   const adapterDeps =
     connection.type === 'postgresql'
       ? {
@@ -99,7 +98,7 @@ export async function createAppContext(
       : {
           dbType: 'sqlite' as const,
           db,
-          sqlite: sqlite!,
+          sqlite: sqlite ?? connection.sqlite,
           fileLockRepo: repos.fileLocks,
         };
 

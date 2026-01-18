@@ -128,10 +128,8 @@ export function addTagCommand(program: Command): void {
           const result = await tagHandlers.attach(context, {
             entryType: options.entryType as 'tool' | 'guideline' | 'knowledge',
             entryId: options.entryId,
-            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-            tagId: options.tagId!,
-            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-            tagName: options.tagName!,
+            tagId: options.tagId,
+            tagName: options.tagName,
             agentId: globalOpts.agentId ?? 'cli',
           });
 

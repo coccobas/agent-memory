@@ -3,11 +3,7 @@
  *
  * Thin handler that validates input and delegates to LoraService.
  * Handles exporting guidelines as LoRA training data for model fine-tuning.
- *
- * NOTE: Non-null assertions used for config access after validation checks.
  */
-
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
 
 import { join } from 'node:path';
 import { config } from '../../config/index.js';
@@ -75,7 +71,10 @@ async function exportLoRA(context: AppContext, params: Record<string, unknown>):
   }
 
   // Get service from context
-  const loraService = context.services.lora!;
+  const loraService = context.services.lora;
+  if (!loraService) {
+    throw createValidationError('lora', 'LoRA service not available');
+  }
 
   try {
     const result = await loraService.exportToFiles(context.repos.guidelines, {
@@ -110,7 +109,12 @@ async function listAdapters(
   const outputPath = getOptionalParam(params, 'outputPath', isString);
   const searchPath = outputPath || join(config.paths.dataDir, 'lora');
 
-  return context.services.lora!.listAdapters(searchPath);
+  const loraService = context.services.lora;
+  if (!loraService) {
+    throw createValidationError('lora', 'LoRA service not available');
+  }
+
+  return loraService.listAdapters(searchPath);
 }
 
 /**
@@ -135,7 +139,12 @@ async function generateScript(
     requireAdminKey(params);
   }
 
-  return context.services.lora!.generateScript(targetModel, format, datasetPath, outputPath);
+  const loraService = context.services.lora;
+  if (!loraService) {
+    throw createValidationError('lora', 'LoRA service not available');
+  }
+
+  return loraService.generateScript(targetModel, format, datasetPath, outputPath);
 }
 
 // =============================================================================

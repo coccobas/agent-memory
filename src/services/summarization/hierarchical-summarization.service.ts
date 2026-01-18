@@ -13,8 +13,6 @@
  * and embedding operations in hierarchical algorithms.
  */
 
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-
 import { eq, and, sql, or } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 import { createComponentLogger } from '../../utils/logger.js';
@@ -744,11 +742,12 @@ export class HierarchicalSummarizationService {
   > {
     // Base case: reached max levels or too few entries
     if (currentLevel > maxLevels || entries.length < minGroupSize) {
+      const singleEntry = entries.length === 1 ? entries[0] : undefined;
       return {
         summariesCreated: 0,
         levelsBuilt: 0,
         summariesByLevel: { level1: 0, level2: 0, level3: 0 },
-        topLevelSummary: entries.length === 1 ? this.toSummaryEntry(entries[0]!) : undefined,
+        topLevelSummary: singleEntry ? this.toSummaryEntry(singleEntry) : undefined,
         stats: { communitiesByLevel: [], avgCohesionByLevel: [] },
       };
     }
@@ -820,11 +819,12 @@ export class HierarchicalSummarizationService {
 
     // Base case: if we created only 1 summary, we've reached the top
     if (summaries.length === 1) {
+      const topSummary = summaries[0];
       return {
         summariesCreated,
         levelsBuilt: 1,
         summariesByLevel,
-        topLevelSummary: this.toSummaryEntry(summaries[0]!),
+        topLevelSummary: topSummary ? this.toSummaryEntry(topSummary) : undefined,
         stats: {
           communitiesByLevel: [communities.length],
           avgCohesionByLevel: [avgCohesion],
@@ -1107,8 +1107,9 @@ export class HierarchicalSummarizationService {
       // Map embeddings back to entries
       for (let i = 0; i < entriesNeedingEmbeddings.length; i++) {
         const embedding = result.embeddings[i];
-        if (embedding) {
-          entriesNeedingEmbeddings[i]!.embedding = embedding;
+        const entry = entriesNeedingEmbeddings[i];
+        if (embedding && entry) {
+          entry.embedding = embedding;
         }
       }
 
@@ -1309,10 +1310,14 @@ export class HierarchicalSummarizationService {
     let pairCount = 0;
 
     for (let i = 0; i < withEmbeddings.length; i++) {
+      const entryA = withEmbeddings[i];
+      if (!entryA?.embedding) continue;
+
       for (let j = i + 1; j < withEmbeddings.length; j++) {
-        const a = withEmbeddings[i]!.embedding;
-        const b = withEmbeddings[j]!.embedding;
-        totalSimilarity += this.cosineSimilarity(a, b);
+        const entryB = withEmbeddings[j];
+        if (!entryB?.embedding) continue;
+
+        totalSimilarity += this.cosineSimilarity(entryA.embedding, entryB.embedding);
         pairCount++;
       }
     }
@@ -1331,9 +1336,13 @@ export class HierarchicalSummarizationService {
     let normB = 0;
 
     for (let i = 0; i < a.length; i++) {
-      dotProduct += a[i]! * b[i]!;
-      normA += a[i]! * a[i]!;
-      normB += b[i]! * b[i]!;
+      const valA = a[i];
+      const valB = b[i];
+      if (valA === undefined || valB === undefined) continue;
+
+      dotProduct += valA * valB;
+      normA += valA * valA;
+      normB += valB * valB;
     }
 
     const denominator = Math.sqrt(normA) * Math.sqrt(normB);
@@ -1372,7 +1381,9 @@ export class HierarchicalSummarizationService {
 
     // Insert member relationships
     for (let i = 0; i < summary.memberIds.length; i++) {
-      const memberId = summary.memberIds[i]!;
+      const memberId = summary.memberIds[i];
+      if (!memberId) continue;
+
       // Determine member type based on original entry type
       // For now, we'll use a simple heuristic based on the prefix
       const memberType = this.inferMemberType(memberId);

@@ -7,8 +7,6 @@
  * For enterprise deployments with horizontal scaling.
  */
 
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-
 import type { ICacheAdapter } from './interfaces.js';
 import { createComponentLogger } from '../../utils/logger.js';
 import { ConnectionGuard } from '../../utils/connection-guard.js';
@@ -592,9 +590,11 @@ export class RedisCacheAdapter<T = unknown> implements ICacheAdapter<T> {
       return;
     }
 
+    // Capture client reference for use in async callback (TypeScript narrowing)
+    const client = this.client;
     const op = (async () => {
       try {
-        const data = await this.client!.get(fullKey);
+        const data = await client.get(fullKey);
         if (data) {
           const value = JSON.parse(data) as T;
           this.localCache.set(fullKey, {

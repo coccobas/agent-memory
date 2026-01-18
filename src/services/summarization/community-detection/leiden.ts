@@ -11,8 +11,6 @@
  * NOTE: Non-null assertions used for Map/Set access after validation in graph algorithms.
  */
 
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-
 import type {
   CommunityNode,
   CommunityDetectionResult,
@@ -146,7 +144,10 @@ function buildCommunityStructure(assignment: CommunityAssignment): CommunityStru
     if (!structure.has(communityId)) {
       structure.set(communityId, new Set());
     }
-    structure.get(communityId)!.add(nodeId);
+    const communitySet = structure.get(communityId);
+    if (communitySet) {
+      communitySet.add(nodeId);
+    }
   }
 
   return structure;
@@ -211,8 +212,8 @@ function calculateModularityGain(
   resolution: number,
   communityDegreeSums: CommunityDegreeSums // Bug #203/#204: Use cached sums
 ): number {
-  const oldCommunityId = assignment.get(nodeId)!;
-  if (oldCommunityId === newCommunityId) {
+  const oldCommunityId = assignment.get(nodeId);
+  if (!oldCommunityId || oldCommunityId === newCommunityId) {
     return 0;
   }
 
@@ -283,7 +284,8 @@ function moveNodesLocally(
   // Try to move each node to a better community
   for (const nodeId of nodeIds) {
     const neighbors = adjacencyList.get(nodeId) || [];
-    const currentCommunity = assignment.get(nodeId)!;
+    const currentCommunity = assignment.get(nodeId);
+    if (!currentCommunity) continue;
 
     // Find neighboring communities
     const neighboringCommunities = new Set<string>();
@@ -509,6 +511,11 @@ function shuffleArray<T>(array: T[], seed: number): void {
 
   for (let i = array.length - 1; i > 0; i--) {
     const j = Math.floor(random() * (i + 1));
-    [array[i], array[j]] = [array[j]!, array[i]!];
+    const temp = array[i];
+    const swapVal = array[j];
+    if (temp !== undefined && swapVal !== undefined) {
+      array[i] = swapVal;
+      array[j] = temp;
+    }
   }
 }

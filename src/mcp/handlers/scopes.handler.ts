@@ -4,12 +4,7 @@
  * Security: Destructive operations require admin key authentication.
  *
  * Context-aware handlers that receive AppContext for dependency injection.
- *
- * NOTE: Non-null assertions used for array access after database queries
- * and service access after existence checks.
  */
-
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
 
 import type {
   CreateOrganizationInput,
@@ -521,9 +516,10 @@ function triggerSessionEndMaintenance(projectId: string, context: AppContext): v
     void (async () => {
       try {
         // Check if we have the required services for consolidation
-        const hasConsolidationServices = context.services?.embedding && context.services?.vector;
+        const embeddingService = context.services?.embedding;
+        const vectorService = context.services?.vector;
 
-        if (hasConsolidationServices) {
+        if (embeddingService && vectorService) {
           // Find similar entries (discovery only, no deduplication)
           const groups = await findSimilarGroups({
             scopeType: 'project',
@@ -533,8 +529,8 @@ function triggerSessionEndMaintenance(projectId: string, context: AppContext): v
             limit: 10,
             db: context.db,
             services: {
-              embedding: context.services.embedding!,
-              vector: context.services.vector!,
+              embedding: embeddingService,
+              vector: vectorService,
             },
           });
 
@@ -558,8 +554,8 @@ function triggerSessionEndMaintenance(projectId: string, context: AppContext): v
                 consolidatedBy: 'session-end-maintenance',
                 db: context.db,
                 services: {
-                  embedding: context.services.embedding!,
-                  vector: context.services.vector!,
+                  embedding: embeddingService,
+                  vector: vectorService,
                 },
               });
 

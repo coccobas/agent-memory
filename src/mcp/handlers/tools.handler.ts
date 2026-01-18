@@ -4,8 +4,6 @@
  * Uses the generic handler factory to eliminate code duplication.
  */
 
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-
 import {
   type CreateToolInput,
   type UpdateToolInput,
@@ -26,6 +24,7 @@ import {
   validateArrayLength,
   SIZE_LIMITS,
 } from '../../services/validation.service.js';
+import { createValidationError } from '../../core/errors.js';
 import type { ScopeType } from '../../db/schema.js';
 import type { AppContext } from '../../core/context.js';
 
@@ -49,8 +48,13 @@ function extractAddParams(
   validateJsonSize(parameters, 'parameters', SIZE_LIMITS.PARAMETERS_MAX_BYTES);
   validateJsonSize(examples, 'examples', SIZE_LIMITS.EXAMPLES_MAX_BYTES);
 
+  // Ensure scopeType is provided (required by factory contract)
+  if (!defaults.scopeType) {
+    throw createValidationError('scopeType', 'is required', 'Provide a valid scope type');
+  }
+
   return {
-    scopeType: defaults.scopeType!,
+    scopeType: defaults.scopeType,
     scopeId: defaults.scopeId,
     name,
     category,

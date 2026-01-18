@@ -8,8 +8,6 @@
  * @module services/latent-memory/context-injector
  */
 
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-
 import { createComponentLogger } from '../../utils/logger.js';
 import { createValidationError } from '../../core/errors.js';
 
@@ -130,10 +128,11 @@ export class ContextInjectorService {
 
     // Filter by minimum relevance
     let filteredMemories = memories;
-    if (opts.minRelevance !== undefined && opts.minRelevance > 0) {
-      filteredMemories = memories.filter((m) => m.similarityScore >= opts.minRelevance!);
+    const minRelevance = opts.minRelevance;
+    if (minRelevance !== undefined && minRelevance > 0) {
+      filteredMemories = memories.filter((m) => m.similarityScore >= minRelevance);
       logger.debug(
-        { filtered: filteredMemories.length, minRelevance: opts.minRelevance },
+        { filtered: filteredMemories.length, minRelevance },
         'Filtered memories by relevance'
       );
     }
@@ -378,10 +377,12 @@ export class ContextInjectorService {
     const grouped: GroupedMemories = {};
 
     for (const memory of memories) {
-      if (!grouped[memory.sourceType]) {
-        grouped[memory.sourceType] = [];
+      const existing = grouped[memory.sourceType];
+      if (existing) {
+        existing.push(memory);
+      } else {
+        grouped[memory.sourceType] = [memory];
       }
-      grouped[memory.sourceType]!.push(memory);
     }
 
     return grouped;

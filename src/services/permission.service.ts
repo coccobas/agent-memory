@@ -5,8 +5,6 @@
  * Set AGENT_MEMORY_PERMISSIONS_MODE=permissive to allow all operations without explicit grants.
  */
 
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-
 import type { DbClient } from '../db/connection.js';
 import { permissions, projects, sessions } from '../db/schema.js';
 import { eq, and, or, isNull } from 'drizzle-orm';
@@ -596,7 +594,12 @@ export class PermissionService {
 
     // Check each entry against the collected permissions
     for (const entry of nonProjectEntries) {
-      const scopeChain = entryScopes.get(entry.id)!;
+      const scopeChain = entryScopes.get(entry.id);
+      if (!scopeChain) {
+        // Entry scope chain not found - deny access
+        results.set(entry.id, false);
+        continue;
+      }
       let hasPermission = false;
 
       for (const scope of scopeChain) {

@@ -10,8 +10,6 @@
 
 /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any */
 
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-
 import type {
   ExtractionTrainingExample,
   RetrievalTrainingExample,
@@ -422,7 +420,8 @@ function getColumnDescription(column: string, _policy: PolicyType): string {
     entryIds: 'Entry identifiers',
   };
 
-  return descriptions[leaf!] || 'Value for ' + column;
+  const leafKey = leaf ?? '';
+  return descriptions[leafKey] || 'Value for ' + column;
 }
 
 /**

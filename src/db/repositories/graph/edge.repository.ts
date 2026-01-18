@@ -5,8 +5,6 @@
  * Factory function that accepts DatabaseDeps for dependency injection.
  */
 
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-
 import { eq, and, desc, inArray } from 'drizzle-orm';
 import { transactionWithRetry } from '../../connection.js';
 import {
@@ -497,7 +495,8 @@ export function createEdgeRepository(
 
       while (stack.length > 0 && paths.length < 100) {
         // Limit results
-        const current = stack.pop()!;
+        const current = stack.pop();
+        if (!current) break;
 
         if (current.nodeId === endNodeId) {
           paths.push({

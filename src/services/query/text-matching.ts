@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-
 import { DEFAULT_SEMANTIC_THRESHOLD } from '../../utils/constants.js';
 import { createComponentLogger } from '../../utils/logger.js';
 
@@ -67,14 +65,14 @@ export function levenshteinDistance(str1: string, str2: string, maxDistance?: nu
     for (let i = 1; i <= len1; i++) {
       const cost = str1[i - 1] === str2[j - 1] ? 0 : 1;
 
-      currRow[i] = Math.min(
-        (prevRow[i] ?? 0) + 1, // deletion
-        (currRow[i - 1] ?? 0) + 1, // insertion
-        (prevRow[i - 1] ?? 0) + cost // substitution
-      );
+      const deletion = (prevRow[i] ?? 0) + 1;
+      const insertion = (currRow[i - 1] ?? 0) + 1;
+      const substitution = (prevRow[i - 1] ?? 0) + cost;
+      const minValue = Math.min(deletion, insertion, substitution);
+      currRow[i] = minValue;
 
-      if (currRow[i]! < rowMin) {
-        rowMin = currRow[i]!;
+      if (minValue < rowMin) {
+        rowMin = minValue;
       }
     }
 

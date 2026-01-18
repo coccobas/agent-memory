@@ -57,8 +57,7 @@ export function addFileLockCommand(program: Command): void {
 
           const result = await fileLockHandlers.checkout(context, {
             file_path: options.filePath,
-            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-            agent_id: globalOpts.agentId!,
+            agent_id: globalOpts.agentId ?? 'cli',
             session_id: options.sessionId,
             project_id: options.projectId,
             expires_in: options.expiresIn,
@@ -85,8 +84,7 @@ export function addFileLockCommand(program: Command): void {
 
           const result = await fileLockHandlers.checkin(context, {
             file_path: options.filePath,
-            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-            agent_id: globalOpts.agentId!,
+            agent_id: globalOpts.agentId ?? 'cli',
           });
 
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
@@ -161,8 +159,7 @@ export function addFileLockCommand(program: Command): void {
 
           const result = await fileLockHandlers.forceUnlock(context, {
             file_path: options.filePath,
-            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-            agent_id: globalOpts.agentId!,
+            agent_id: globalOpts.agentId ?? 'cli',
             reason: options.reason,
           });
 

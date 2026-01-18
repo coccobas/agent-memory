@@ -5,8 +5,6 @@
  * Runs the librarian analysis pipeline on a configurable schedule.
  */
 
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-
 import cron from 'node-cron';
 import { createComponentLogger } from '../../utils/logger.js';
 import type { LibrarianService } from './index.js';
@@ -191,6 +189,8 @@ function getNextRunTime(): string | null {
 
       // Handle daily at specific time
       if (
+        minute &&
+        hour &&
         minute !== '*' &&
         hour !== '*' &&
         dayOfMonth === '*' &&
@@ -198,7 +198,7 @@ function getNextRunTime(): string | null {
         dayOfWeek === '*'
       ) {
         const nextRun = new Date(now);
-        nextRun.setHours(parseInt(hour!, 10), parseInt(minute!, 10), 0, 0);
+        nextRun.setHours(parseInt(hour, 10), parseInt(minute, 10), 0, 0);
         if (nextRun <= now) {
           nextRun.setDate(nextRun.getDate() + 1);
         }

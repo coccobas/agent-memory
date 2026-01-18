@@ -2,12 +2,7 @@
  * RL handlers
  *
  * Handlers for managing reinforcement learning policies
- *
- * NOTE: Non-null assertions used for Map/Record access after existence checks
- * in model and policy management.
  */
-
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
 
 import type { AppContext } from '../../core/context.js';
 import { createComponentLogger } from '../../utils/logger.js';
@@ -355,7 +350,11 @@ async function loadModel(context: AppContext, params: Record<string, unknown>): 
       throw createValidationError('policy', `No trained models found for ${policy}`);
     }
 
-    modelPath = fs.join(modelsDir, versions[0]!);
+    const latestVersion = versions[0];
+    if (!latestVersion) {
+      throw createValidationError('policy', `No trained models found for ${policy}`);
+    }
+    modelPath = fs.join(modelsDir, latestVersion);
   }
 
   // Update config to use the model
@@ -479,8 +478,10 @@ async function evaluateModel(
     const examples: unknown[] = [];
     const lines = content.split('\n').filter((line: string) => line.trim());
     for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line) continue;
       try {
-        examples.push(JSON.parse(lines[i]!));
+        examples.push(JSON.parse(line));
       } catch (error) {
         logger.warn({ line: i + 1, error }, 'Skipping invalid JSONL line in dataset');
       }
@@ -596,8 +597,10 @@ async function compareModels(
     const examples: unknown[] = [];
     const lines = content.split('\n').filter((line: string) => line.trim());
     for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line) continue;
       try {
-        examples.push(JSON.parse(lines[i]!));
+        examples.push(JSON.parse(line));
       } catch (error) {
         logger.warn({ line: i + 1, error }, 'Skipping invalid JSONL line in dataset');
       }

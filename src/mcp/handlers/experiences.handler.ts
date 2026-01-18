@@ -8,8 +8,6 @@
  * - add_step (add trajectory step)
  */
 
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-
 import {
   type CreateExperienceInput,
   type UpdateExperienceInput,
@@ -103,8 +101,13 @@ function extractAddParams(
     });
   }
 
+  // Ensure scopeType is provided (required by factory contract)
+  if (!defaults.scopeType) {
+    throw createValidationError('scopeType', 'is required', 'Provide a valid scope type');
+  }
+
   return {
-    scopeType: defaults.scopeType!,
+    scopeType: defaults.scopeType,
     scopeId: defaults.scopeId,
     title,
     level,
@@ -664,7 +667,7 @@ function parseExperienceText(text: string): {
   }
 
   // Pattern: "X: Y" or "X - Y" (problem: solution format)
-  const colonMatch = normalized.match(/^([^:\-]+)[:–—-]\s*(.+)$/);
+  const colonMatch = normalized.match(/^([^:-]+)[:–—-]\s*(.+)$/);
   if (colonMatch && colonMatch[1] && colonMatch[2] && colonMatch[1].length < 80) {
     return {
       title: colonMatch[1].trim().slice(0, 60),
@@ -691,9 +694,7 @@ function parseExperienceText(text: string): {
   // Fallback: use first sentence as title, whole text as content
   const firstSentence = (normalized.split(/[.!?]/)[0] ?? normalized).trim();
   const title =
-    firstSentence.length > 60
-      ? firstSentence.slice(0, 57) + '...'
-      : firstSentence || 'Experience';
+    firstSentence.length > 60 ? firstSentence.slice(0, 57) + '...' : firstSentence || 'Experience';
 
   return {
     title,

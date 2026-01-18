@@ -175,9 +175,9 @@ export class PgVectorStore implements IVectorStore {
       const dimResult = await client.query<MetaRow>(
         "SELECT value FROM _vector_meta WHERE key = 'dimension'"
       );
-      if (dimResult.rows.length > 0) {
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        this.expectedDimension = parseInt(dimResult.rows[0]!.value, 10);
+      const dimRow = dimResult.rows[0];
+      if (dimRow) {
+        this.expectedDimension = parseInt(dimRow.value, 10);
         logger.debug({ dimension: this.expectedDimension }, 'Loaded vector dimension from meta');
       }
 
@@ -349,8 +349,8 @@ export class PgVectorStore implements IVectorStore {
     const client = await this.pool.connect();
     try {
       const result = await client.query<CountRow>('SELECT COUNT(*) FROM vector_embeddings');
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      const countValue = result.rows[0]!.count;
+      const countRow = result.rows[0];
+      const countValue = countRow?.count ?? 0;
       return parseInt(typeof countValue === 'string' ? countValue : String(countValue), 10);
     } catch {
       return 0;

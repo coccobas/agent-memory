@@ -7,8 +7,6 @@
  * after bounds checks and array iteration.
  */
 
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-
 import { v4 as uuid } from 'uuid';
 import {
   CHARS_PER_TOKEN,
@@ -558,8 +556,10 @@ export class ChunkingService {
    */
   private calculateOverlaps(chunks: Chunk[]): void {
     for (let i = 0; i < chunks.length - 1; i++) {
-      const current = chunks[i]!;
-      const next = chunks[i + 1]!;
+      const current = chunks[i];
+      const next = chunks[i + 1];
+
+      if (!current || !next) continue;
 
       // Check for content overlap
       const overlapSize = Math.min(current.content.length, next.content.length, 200);
@@ -584,8 +584,10 @@ export class ChunkingService {
     const relations: ChunkRelation[] = [];
 
     for (let i = 0; i < chunks.length - 1; i++) {
-      const current = chunks[i]!;
-      const next = chunks[i + 1]!;
+      const current = chunks[i];
+      const next = chunks[i + 1];
+
+      if (!current || !next) continue;
 
       relations.push({
         sourceId: current.id,

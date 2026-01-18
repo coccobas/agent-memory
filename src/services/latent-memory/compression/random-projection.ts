@@ -14,8 +14,6 @@
  * Reference: Achlioptas, D. (2003). Database-friendly random projections.
  */
 
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-
 import { createValidationError, createServiceUnavailableError } from '../../../core/errors.js';
 import type { CompressionStrategy, CompressionMethod, RandomProjectionConfig } from './types.js';
 
@@ -160,15 +158,23 @@ export class RandomProjection implements CompressionStrategy {
     const result: number[] = new Array(this.outputDim).fill(0);
 
     // Sparse matrix-vector multiplication
+    const matrix = this.projectionMatrix;
+    if (!matrix) {
+      return result;
+    }
+
     for (let i = 0; i < this.outputDim; i++) {
-      const row = this.projectionMatrix!.get(i);
+      const row = matrix.get(i);
       if (!row) {
         continue;
       }
 
       let sum = 0;
       row.forEach((value, j) => {
-        sum += embedding[j]! * value;
+        const embeddingValue = embedding[j];
+        if (embeddingValue !== undefined) {
+          sum += embeddingValue * value;
+        }
       });
 
       // Apply scaling factor for distance preservation

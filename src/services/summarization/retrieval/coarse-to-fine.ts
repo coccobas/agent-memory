@@ -12,8 +12,6 @@
  * start with broad topics and progressively narrow down.
  */
 
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-
 import { eq, and, desc, inArray } from 'drizzle-orm';
 import type { AppDb } from '../../../core/types.js';
 import { summaries, summaryMembers } from '../../../db/schema.js';
@@ -389,8 +387,9 @@ export class CoarseToFineRetriever {
       .all() as SummaryMemberEntry[];
 
     // Filter by entry type if specified
-    const filteredMembers = options.entryTypes
-      ? members.filter((m) => options.entryTypes!.includes(m.memberType))
+    const entryTypesFilter = options.entryTypes;
+    const filteredMembers = entryTypesFilter
+      ? members.filter((m) => entryTypesFilter.includes(m.memberType))
       : members;
 
     // Build path information for each entry

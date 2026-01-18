@@ -8,8 +8,6 @@
  * - Disabled mode (falls back to text search only)
  */
 
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-
 import { OpenAI } from 'openai';
 import { pipeline } from '@xenova/transformers';
 import { createComponentLogger } from '../utils/logger.js';
@@ -475,7 +473,10 @@ export class EmbeddingService {
           if (i > 0 && i % 5 === 0) {
             await yieldToEventLoop();
           }
-          results.push(await this.embedLocal(normalized[i]!));
+          const text = normalized[i];
+          if (text !== undefined) {
+            results.push(await this.embedLocal(text));
+          }
         }
         return results;
       }

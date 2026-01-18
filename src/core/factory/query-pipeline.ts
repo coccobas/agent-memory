@@ -2,12 +2,7 @@
  * Query pipeline factory functions
  *
  * Creates query pipeline dependencies for the context.
- *
- * NOTE: Non-null assertions used for Map access after has() checks
- * and config property access after validation.
  */
-
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
 
 import type { Logger } from 'pino';
 import type { Config } from '../../config/index.js';
@@ -60,59 +55,66 @@ export function createQueryPipeline(
 ): PipelineDependencies {
   const logger = createComponentLogger('query-pipeline');
 
+  // Extract optional services to local variables for type narrowing
+  const feedbackQueue = options?.feedbackQueue;
+  const queryRewrite = options?.queryRewriteService;
+  const entityIdx = options?.entityIndex;
+  const embeddingSvc = options?.embeddingService;
+  const vectorSvc = options?.vectorService;
+  const hierarchicalRet = options?.hierarchicalRetriever;
+
   // Wire feedback queue if provided
-  const feedback = options?.feedbackQueue
+  const feedback = feedbackQueue
     ? {
         enqueue: (batch: Parameters<FeedbackQueueProcessor['enqueue']>[0]) =>
-          options.feedbackQueue!.enqueue(batch),
-        isAccepting: () => options.feedbackQueue!.isAccepting(),
+          feedbackQueue.enqueue(batch),
+        isAccepting: () => feedbackQueue.isAccepting(),
       }
     : undefined;
 
   // Wire query rewrite service if provided
-  const queryRewriteService = options?.queryRewriteService
+  const queryRewriteService = queryRewrite
     ? {
         rewrite: (input: Parameters<IQueryRewriteService['rewrite']>[0]) =>
-          options.queryRewriteService!.rewrite(input),
-        isAvailable: () => options.queryRewriteService!.isAvailable(),
+          queryRewrite.rewrite(input),
+        isAvailable: () => queryRewrite.isAvailable(),
       }
     : undefined;
 
   // Wire entity index if provided
-  const entityIndex = options?.entityIndex
+  const entityIndex = entityIdx
     ? {
-        lookupMultiple: (entities: ExtractedEntity[]) =>
-          options.entityIndex!.lookupMultiple(entities),
+        lookupMultiple: (entities: ExtractedEntity[]) => entityIdx.lookupMultiple(entities),
       }
     : undefined;
 
   // Wire embedding service if provided
-  const embeddingService = options?.embeddingService
+  const embeddingService = embeddingSvc
     ? {
-        embed: (text: string) => options.embeddingService!.embed(text),
-        embedBatch: (texts: string[]) => options.embeddingService!.embedBatch(texts),
-        isAvailable: () => options.embeddingService!.isAvailable(),
+        embed: (text: string) => embeddingSvc.embed(text),
+        embedBatch: (texts: string[]) => embeddingSvc.embedBatch(texts),
+        isAvailable: () => embeddingSvc.isAvailable(),
       }
     : undefined;
 
   // Wire vector service if provided
-  const vectorService = options?.vectorService
+  const vectorService = vectorSvc
     ? {
         searchSimilar: (embedding: number[], entryTypes: string[], limit?: number) =>
-          options.vectorService!.searchSimilar(embedding, entryTypes, limit),
-        isAvailable: () => options.vectorService!.isAvailable(),
+          vectorSvc.searchSimilar(embedding, entryTypes, limit),
+        isAvailable: () => vectorSvc.isAvailable(),
       }
     : undefined;
 
   // Wire hierarchical retriever if provided
-  const hierarchicalRetriever = options?.hierarchicalRetriever
+  const hierarchicalRetriever = hierarchicalRet
     ? {
         retrieve: (opts: Parameters<IHierarchicalRetriever['retrieve']>[0]) =>
-          options.hierarchicalRetriever!.retrieve(opts),
+          hierarchicalRet.retrieve(opts),
         hasSummaries: (
           scopeType: 'global' | 'org' | 'project' | 'session',
           scopeId?: string | null
-        ) => options.hierarchicalRetriever!.hasSummaries(scopeType, scopeId),
+        ) => hierarchicalRet.hasSummaries(scopeType, scopeId),
       }
     : undefined;
 

@@ -8,8 +8,6 @@
  * in mathematical algorithms.
  */
 
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-
 import type { CommunityNode, SimilarityGraph, SimilarityEdge, AdjacencyList } from './types.js';
 import { createValidationError } from '../../../core/errors.js';
 import { createComponentLogger } from '../../../utils/logger.js';
@@ -46,8 +44,13 @@ export function cosineSimilarity(a: number[], b: number[]): number {
   let normB = 0;
 
   for (let i = 0; i < a.length; i++) {
-    const valA = a[i]!;
-    const valB = b[i]!;
+    const valA = a[i];
+    const valB = b[i];
+
+    // Skip undefined values (should not happen after length check, but defensive)
+    if (valA === undefined || valB === undefined) {
+      continue;
+    }
 
     // Bug #238 fix: Check for NaN/Infinity in vector components
     // NaN propagates silently through calculations causing wrong results
@@ -79,7 +82,8 @@ export function cosineSimilarity(a: number[], b: number[]): number {
  * @returns Array of similarities in the same order as otherNodes
  */
 export function pairwiseSimilarities(node: CommunityNode, otherNodes: CommunityNode[]): number[] {
-  if (!node.embedding) {
+  const nodeEmbedding = node.embedding;
+  if (!nodeEmbedding) {
     return otherNodes.map(() => 0);
   }
 
@@ -87,7 +91,7 @@ export function pairwiseSimilarities(node: CommunityNode, otherNodes: CommunityN
     if (!other.embedding) {
       return 0;
     }
-    return cosineSimilarity(node.embedding!, other.embedding);
+    return cosineSimilarity(nodeEmbedding, other.embedding);
   });
 }
 
@@ -115,7 +119,11 @@ export function computeCentroid(embeddings: number[][]): number[] | undefined {
     return undefined;
   }
 
-  const dimension = validEmbeddings[0]!.length;
+  const firstEmbedding = validEmbeddings[0];
+  if (!firstEmbedding) {
+    return undefined;
+  }
+  const dimension = firstEmbedding.length;
 
   // Verify all embeddings have the same dimension
   for (const embedding of validEmbeddings) {
@@ -132,13 +140,20 @@ export function computeCentroid(embeddings: number[][]): number[] | undefined {
 
   for (const embedding of validEmbeddings) {
     for (let i = 0; i < dimension; i++) {
-      centroid[i]! += embedding[i]!;
+      const embeddingVal = embedding[i];
+      const currentVal = centroid[i];
+      if (embeddingVal !== undefined && currentVal !== undefined) {
+        centroid[i] = currentVal + embeddingVal;
+      }
     }
   }
 
   const count = validEmbeddings.length;
   for (let i = 0; i < dimension; i++) {
-    centroid[i]! /= count;
+    const currentVal = centroid[i];
+    if (currentVal !== undefined) {
+      centroid[i] = currentVal / count;
+    }
   }
 
   return centroid;
@@ -205,12 +220,14 @@ export function buildSimilarityGraph(nodes: CommunityNode[], threshold: number):
 
   // Calculate pairwise similarities and create edges
   for (let i = 0; i < nodesWithEmbeddings.length; i++) {
-    const nodeA = nodesWithEmbeddings[i]!;
+    const nodeA = nodesWithEmbeddings[i];
+    if (!nodeA?.embedding) continue;
 
     for (let j = i + 1; j < nodesWithEmbeddings.length; j++) {
-      const nodeB = nodesWithEmbeddings[j]!;
+      const nodeB = nodesWithEmbeddings[j];
+      if (!nodeB?.embedding) continue;
 
-      const similarity = cosineSimilarity(nodeA.embedding!, nodeB.embedding!);
+      const similarity = cosineSimilarity(nodeA.embedding, nodeB.embedding);
 
       // Only create edge if similarity exceeds threshold
       if (similarity >= threshold) {
@@ -221,14 +238,20 @@ export function buildSimilarityGraph(nodes: CommunityNode[], threshold: number):
         });
 
         // Add to adjacency list (undirected graph)
-        adjacencyList.get(nodeA.id)!.push({
-          nodeId: nodeB.id,
-          weight: similarity,
-        });
-        adjacencyList.get(nodeB.id)!.push({
-          nodeId: nodeA.id,
-          weight: similarity,
-        });
+        const nodeAList = adjacencyList.get(nodeA.id);
+        if (nodeAList) {
+          nodeAList.push({
+            nodeId: nodeB.id,
+            weight: similarity,
+          });
+        }
+        const nodeBList = adjacencyList.get(nodeB.id);
+        if (nodeBList) {
+          nodeBList.push({
+            nodeId: nodeA.id,
+            weight: similarity,
+          });
+        }
 
         totalWeight += similarity * 2; // Count both directions
       }
@@ -272,12 +295,14 @@ export function calculateCohesion(nodes: CommunityNode[]): number {
 
   // Calculate average pairwise similarity
   for (let i = 0; i < nodesWithEmbeddings.length; i++) {
-    const nodeA = nodesWithEmbeddings[i]!;
+    const nodeA = nodesWithEmbeddings[i];
+    if (!nodeA?.embedding) continue;
 
     for (let j = i + 1; j < nodesWithEmbeddings.length; j++) {
-      const nodeB = nodesWithEmbeddings[j]!;
+      const nodeB = nodesWithEmbeddings[j];
+      if (!nodeB?.embedding) continue;
 
-      const similarity = cosineSimilarity(nodeA.embedding!, nodeB.embedding!);
+      const similarity = cosineSimilarity(nodeA.embedding, nodeB.embedding);
 
       totalSimilarity += similarity;
       pairCount++;
@@ -326,12 +351,14 @@ export function calculateDetailedCohesion(nodes: CommunityNode[]): {
   let pairCount = 0;
 
   for (let i = 0; i < nodesWithEmbeddings.length; i++) {
-    const nodeA = nodesWithEmbeddings[i]!;
+    const nodeA = nodesWithEmbeddings[i];
+    if (!nodeA?.embedding) continue;
 
     for (let j = i + 1; j < nodesWithEmbeddings.length; j++) {
-      const nodeB = nodesWithEmbeddings[j]!;
+      const nodeB = nodesWithEmbeddings[j];
+      if (!nodeB?.embedding) continue;
 
-      const similarity = cosineSimilarity(nodeA.embedding!, nodeB.embedding!);
+      const similarity = cosineSimilarity(nodeA.embedding, nodeB.embedding);
 
       totalSimilarity += similarity;
       minSimilarity = Math.min(minSimilarity, similarity);

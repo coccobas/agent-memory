@@ -115,8 +115,7 @@ export function addAnalyticsCommand(program: Command): void {
           const context = await getCliContext();
 
           const result = analyticsHandlers.get_subtask_stats(context, {
-            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-            projectId: options.projectId!,
+            projectId: options.projectId ?? '',
             subtaskType: options.subtaskType,
           });
 
@@ -145,10 +144,10 @@ export function addAnalyticsCommand(program: Command): void {
           const result = analyticsHandlers.get_error_correlation(context, {
             agentA: options.agentA,
             agentB: options.agentB,
-            timeWindow: options.startDate
-              ? // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-                { start: options.startDate, end: options.endDate! }
-              : undefined,
+            timeWindow:
+              options.startDate && options.endDate
+                ? { start: options.startDate, end: options.endDate }
+                : undefined,
           });
 
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
@@ -172,8 +171,7 @@ export function addAnalyticsCommand(program: Command): void {
           const context = await getCliContext();
 
           const result = analyticsHandlers.get_low_diversity(context, {
-            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-            projectId: options.projectId!,
+            projectId: options.projectId,
             scopeId: options.scopeId,
           });
 

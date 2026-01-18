@@ -7,8 +7,6 @@
  * Factory function that accepts DatabaseDeps for dependency injection.
  */
 
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-
 import { eq, and, desc, asc, inArray } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { transactionWithRetry } from '../connection.js';
@@ -503,7 +501,8 @@ export function createTaskRepository(deps: DatabaseDeps): ITaskRepository {
         const visited = new Set<string>();
         const queue = [blockerId];
         while (queue.length > 0) {
-          const current = queue.shift()!;
+          const current = queue.shift();
+          if (!current) break;
           if (current === taskId) {
             throw createValidationError(
               'blockerId',

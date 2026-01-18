@@ -9,8 +9,6 @@
  * work with both SQLite (sync) and PostgreSQL (async).
  */
 
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-
 import type Database from 'better-sqlite3';
 import type { AppDb } from '../types.js';
 import type { IStorageAdapter } from './interfaces.js';
@@ -117,7 +115,8 @@ export class SQLiteStorageAdapter implements IStorageAdapter {
       throw error;
     }
 
-    let resultValue: T;
+    // Track result with explicit 'set' flag for type-safe access
+    const resultHolder: { value?: T; set: boolean } = { set: false };
     let resultError: Error | undefined;
     let wasResolved = false;
 
@@ -144,7 +143,8 @@ export class SQLiteStorageAdapter implements IStorageAdapter {
         // Check if the promise resolved synchronously (microtask)
         promise
           .then((value) => {
-            resultValue = value;
+            resultHolder.value = value;
+            resultHolder.set = true;
             wasResolved = true;
           })
           .catch((error: unknown) => {
@@ -231,7 +231,13 @@ export class SQLiteStorageAdapter implements IStorageAdapter {
         'Transaction completed successfully'
       );
 
-      return resultValue!;
+      // Type guard: after wasResolved=true and no resultError, we must have a value
+      if (!resultHolder.set) {
+        // This should never happen - wasResolved without error means value was set
+        throw new Error('Transaction resolved without value - internal state error');
+      }
+      // resultHolder.value is T | undefined, but set=true guarantees it was assigned
+      return resultHolder.value as T;
     } catch (error) {
       const durationMs = Date.now() - startTime;
       logger.error(

@@ -19,8 +19,6 @@
  *   cache.get('user:123'); // Returns undefined (old version invalidated)
  */
 
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-
 import { createComponentLogger } from './logger.js';
 import type { ICacheAdapter } from '../core/adapters/interfaces.js';
 
@@ -100,11 +98,14 @@ export class VersionedCache<T = unknown> implements ICacheAdapter<T> {
     const pattern = new RegExp(`^${this.namespace}:v(\\d+):(.+)$`);
     const match = fullKey.match(pattern);
     if (!match) return null;
-    // Safe: regex capture groups guaranteed by successful match
+    // Extract capture groups - guaranteed to exist by regex match
+    const version = match[1];
+    const key = match[2];
+    if (!version || !key) return null;
     return {
       namespace: this.namespace,
-      version: match[1]!,
-      key: match[2]!,
+      version,
+      key,
     };
   }
 

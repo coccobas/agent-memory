@@ -7,8 +7,6 @@
  * Eliminates ~40% code duplication across handler files.
  */
 
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-
 import { transactionWithDb } from '../../db/connection.js';
 import { checkForDuplicates } from '../../services/duplicate.service.js';
 import { logAction } from '../../services/audit.service.js';
@@ -336,11 +334,12 @@ export function createCrudHandlers<TEntry extends BaseEntry, TCreateInput, TUpda
 
       // Auto-tag the entry (non-critical - graceful degradation)
       let autoTagResult: { tags: string[]; skipped: boolean } | undefined;
-      if (context.services.autoTagging) {
+      const autoTaggingService = context.services.autoTagging;
+      if (autoTaggingService) {
         const entryCategory = (entry as { category?: string }).category;
         autoTagResult = await safeAsync(
           () =>
-            context.services.autoTagging!.applyTags(
+            autoTaggingService.applyTags(
               config.entryType as 'guideline' | 'knowledge' | 'tool',
               entry.id,
               content,

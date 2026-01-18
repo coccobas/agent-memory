@@ -10,11 +10,7 @@
  * - Requires `searchStrategy` in PipelineContext (from strategy stage)
  * - Adds `queryEmbedding?: number[]` to PipelineContext for downstream use
  * - Populates `semanticScores` map with entry IDs and similarity scores
- *
- * NOTE: Non-null assertions used for Map access after has() checks in cache operations.
  */
-
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
 
 import type { PipelineContext } from '../pipeline.js';
 import type { SearchStrategy } from './strategy.js';
@@ -172,12 +168,15 @@ export async function semanticStageAsync(ctx: PipelineContext): Promise<Pipeline
 
     if (hydeQueries.length > 0) {
       // Use HyDE embeddings for semantic search
-      embeddingsToSearch = hydeQueries.map((q) => ({
-        embedding: q.embedding!,
-        weight: q.weight,
-      }));
+      embeddingsToSearch = hydeQueries
+        .filter((q) => q.embedding !== undefined)
+        .map((q) => ({
+          embedding: q.embedding as number[],
+          weight: q.weight,
+        }));
       // Use first HyDE embedding as the primary query embedding
-      queryEmbedding = hydeQueries[0]!.embedding!;
+      const firstHydeQuery = hydeQueries[0];
+      queryEmbedding = firstHydeQuery?.embedding ?? [];
 
       if (deps.logger && deps.perfLog) {
         deps.logger.debug(

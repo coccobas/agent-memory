@@ -2,8 +2,6 @@
  * Tag handlers
  */
 
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-
 import type { CreateTagInput } from '../../db/repositories/tags.js';
 import type { AppContext } from '../../core/context.js';
 import { logAction } from '../../services/audit.service.js';
@@ -171,6 +169,16 @@ export const tagHandlers = {
       tagId = tag.id;
     }
 
+    // At this point tagId is guaranteed to be defined (either from params or lookup)
+    // Use explicit check for TypeScript's benefit
+    if (!tagId) {
+      throw createValidationError(
+        'tagId or tagName',
+        'is required',
+        'Provide either tagId or tagName to detach'
+      );
+    }
+
     const { scopeType, scopeId } = await requireEntryPermissionWithScope(context, {
       agentId,
       action: 'write',
@@ -178,7 +186,7 @@ export const tagHandlers = {
       entryId,
     });
 
-    const success = await context.repos.entryTags.detach(entryType, entryId, tagId!);
+    const success = await context.repos.entryTags.detach(entryType, entryId, tagId);
 
     if (success) {
       context.unifiedAdapters?.event.emit({

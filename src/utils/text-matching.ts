@@ -9,8 +9,6 @@
  * - Fast path for exact matches in fuzzy matching
  */
 
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-
 import { createComponentLogger } from './logger.js';
 
 const logger = createComponentLogger('text-matching');
@@ -200,15 +198,15 @@ export function levenshteinDistance(str1: string, str2: string, maxDistance?: nu
 
     for (let i = 1; i <= len1; i++) {
       const cost = str1[i - 1] === str2[j - 1] ? 0 : 1;
-      currRow[i] = Math.min(
+      const distance = Math.min(
         (prevRow[i] ?? 0) + 1, // deletion
         (currRow[i - 1] ?? 0) + 1, // insertion
         (prevRow[i - 1] ?? 0) + cost // substitution
       );
+      currRow[i] = distance;
 
-      // Safe: currRow[i] just assigned in the line above
-      if (currRow[i]! < rowMin) {
-        rowMin = currRow[i]!;
+      if (distance < rowMin) {
+        rowMin = distance;
       }
     }
 

@@ -4,8 +4,6 @@
  * Check server health via CLI.
  */
 
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-
 import type { Command } from 'commander';
 import { getCliContext, shutdownCliContext } from '../utils/context.js';
 import { formatOutput, type OutputFormat } from '../utils/output.js';
@@ -25,7 +23,11 @@ export function addHealthCommand(program: Command): void {
         try {
           const context = await getCliContext();
 
-          const result = memoryHealthDescriptor.contextHandler!(context, {});
+          const { contextHandler } = memoryHealthDescriptor;
+          if (!contextHandler) {
+            throw new Error('Health descriptor contextHandler is not defined');
+          }
+          const result = contextHandler(context, {});
 
           console.log(formatOutput(result, globalOpts.format as OutputFormat));
         } catch (error) {

@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-
 import { connect, Index, type Connection, type Table } from '@lancedb/lancedb';
 import { dirname } from 'node:path';
 import { existsSync, mkdirSync } from 'node:fs';
@@ -277,7 +275,11 @@ export class LanceDbVectorStore implements IVectorStore {
 
     this.createIndexPromise = (async () => {
       try {
-        const count = await this.table!.countRows();
+        // Capture table reference to avoid null checks inside async block
+        const table = this.table;
+        if (!table) return;
+
+        const count = await table.countRows();
         if (count < this.indexThreshold) {
           return;
         }
@@ -309,7 +311,7 @@ export class LanceDbVectorStore implements IVectorStore {
           return;
         }
 
-        await this.table!.createIndex('vector', { config: indexConfig });
+        await table.createIndex('vector', { config: indexConfig });
         this.indexCreated = true;
         logger.info(
           { quantization: this.quantization },

@@ -14,8 +14,6 @@
  * NOTE: Non-null assertions used for Map access after has() checks in state management.
  */
 
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-
 import { CircuitBreakerError } from '../core/errors.js';
 import { defaultContainer } from '../core/container.js';
 import { createComponentLogger } from './logger.js';
@@ -140,7 +138,7 @@ export class CircuitBreaker {
 
     // Distributed mode: check state from adapter
     if (this.stateAdapter) {
-      return this.executeWithAdapter(fn);
+      return this.executeWithAdapter(fn, this.stateAdapter);
     }
 
     // Local mode: use in-memory state
@@ -150,10 +148,12 @@ export class CircuitBreaker {
   /**
    * Execute with distributed state adapter.
    */
-  private async executeWithAdapter<T>(fn: () => Promise<T>): Promise<T> {
-    // Safe: stateAdapter guaranteed to exist when this method is called
+  private async executeWithAdapter<T>(
+    fn: () => Promise<T>,
+    adapter: ICircuitBreakerStateAdapter
+  ): Promise<T> {
     // Get current state from adapter
-    const currentState = await this.stateAdapter!.getState(this.config.name);
+    const currentState = await adapter.getState(this.config.name);
 
     // Check if circuit is open
     if (currentState?.state === 'open') {
@@ -166,12 +166,12 @@ export class CircuitBreaker {
 
     try {
       const result = await fn();
-      await this.onSuccessWithAdapter();
+      await this.onSuccessWithAdapter(adapter);
       return result;
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
       if (this.config.isFailure(err)) {
-        await this.onFailureWithAdapter(err);
+        await this.onFailureWithAdapter(err, adapter);
         const wrappedError = new Error(`[CircuitBreaker:${this.config.name}] ${err.message}`);
         wrappedError.cause = err;
         wrappedError.name = 'CircuitBreakerWrappedError';
@@ -232,15 +232,11 @@ export class CircuitBreaker {
   /**
    * Handle successful call (distributed mode)
    */
-  private async onSuccessWithAdapter(): Promise<void> {
+  private async onSuccessWithAdapter(adapter: ICircuitBreakerStateAdapter): Promise<void> {
     this.totalSuccesses++;
     this.lastSuccessTime = Date.now();
 
-    // Safe: stateAdapter guaranteed to exist when this method is called
-    const newState = await this.stateAdapter!.recordSuccess(
-      this.config.name,
-      this.getStateConfig()
-    );
+    const newState = await adapter.recordSuccess(this.config.name, this.getStateConfig());
 
     // Update local state for stats
     this.state = this.toCircuitState(newState.state);
@@ -270,17 +266,16 @@ export class CircuitBreaker {
   /**
    * Handle failed call (distributed mode)
    */
-  private async onFailureWithAdapter(error: Error): Promise<void> {
+  private async onFailureWithAdapter(
+    error: Error,
+    adapter: ICircuitBreakerStateAdapter
+  ): Promise<void> {
     this.totalFailures++;
     this.lastFailureTime = Date.now();
 
     logger.warn({ service: this.config.name, error: error.message }, 'Circuit breaker failure');
 
-    // Safe: stateAdapter guaranteed to exist when this method is called
-    const newState = await this.stateAdapter!.recordFailure(
-      this.config.name,
-      this.getStateConfig()
-    );
+    const newState = await adapter.recordFailure(this.config.name, this.getStateConfig());
 
     // Update local state for stats
     this.state = this.toCircuitState(newState.state);

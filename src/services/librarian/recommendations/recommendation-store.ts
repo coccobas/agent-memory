@@ -3,12 +3,7 @@
  *
  * CRUD operations for librarian-generated promotion recommendations.
  * Manages the lifecycle of recommendations from creation to approval/rejection.
- *
- * NOTE: Non-null assertions used for Drizzle ORM query builder results
- * (and/or operations) after conditional construction.
  */
-
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
 
 import { eq, and, desc, sql, inArray, lt, or, isNull, type SQL } from 'drizzle-orm';
 import { transactionWithRetry } from '../../../db/connection.js';
@@ -198,21 +193,26 @@ export function createRecommendationStore(deps: DatabaseDeps): IRecommendationSt
         if (filter.inherit) {
           // Include global + specified scope
           if (filter.scopeType === 'global') {
-            conditions.push(
-              and(eq(recommendations.scopeType, 'global'), isNull(recommendations.scopeId))!
+            const globalCondition = and(
+              eq(recommendations.scopeType, 'global'),
+              isNull(recommendations.scopeId)
             );
+            if (globalCondition) {
+              conditions.push(globalCondition);
+            }
           } else {
-            conditions.push(
-              or(
-                and(eq(recommendations.scopeType, 'global'), isNull(recommendations.scopeId)),
-                and(
-                  eq(recommendations.scopeType, filter.scopeType),
-                  filter.scopeId
-                    ? eq(recommendations.scopeId, filter.scopeId)
-                    : isNull(recommendations.scopeId)
-                )
-              )!
+            const inheritCondition = or(
+              and(eq(recommendations.scopeType, 'global'), isNull(recommendations.scopeId)),
+              and(
+                eq(recommendations.scopeType, filter.scopeType),
+                filter.scopeId
+                  ? eq(recommendations.scopeId, filter.scopeId)
+                  : isNull(recommendations.scopeId)
+              )
             );
+            if (inheritCondition) {
+              conditions.push(inheritCondition);
+            }
           }
         } else {
           // Exact scope match
@@ -370,21 +370,26 @@ export function createRecommendationStore(deps: DatabaseDeps): IRecommendationSt
       if (filter?.scopeType) {
         if (filter.inherit) {
           if (filter.scopeType === 'global') {
-            conditions.push(
-              and(eq(recommendations.scopeType, 'global'), isNull(recommendations.scopeId))!
+            const globalCondition = and(
+              eq(recommendations.scopeType, 'global'),
+              isNull(recommendations.scopeId)
             );
+            if (globalCondition) {
+              conditions.push(globalCondition);
+            }
           } else {
-            conditions.push(
-              or(
-                and(eq(recommendations.scopeType, 'global'), isNull(recommendations.scopeId)),
-                and(
-                  eq(recommendations.scopeType, filter.scopeType),
-                  filter.scopeId
-                    ? eq(recommendations.scopeId, filter.scopeId)
-                    : isNull(recommendations.scopeId)
-                )
-              )!
+            const inheritCondition = or(
+              and(eq(recommendations.scopeType, 'global'), isNull(recommendations.scopeId)),
+              and(
+                eq(recommendations.scopeType, filter.scopeType),
+                filter.scopeId
+                  ? eq(recommendations.scopeId, filter.scopeId)
+                  : isNull(recommendations.scopeId)
+              )
             );
+            if (inheritCondition) {
+              conditions.push(inheritCondition);
+            }
           }
         } else {
           conditions.push(eq(recommendations.scopeType, filter.scopeType));

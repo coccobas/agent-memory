@@ -34,8 +34,6 @@
  * after bounds validation.
  */
 
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-
 import { createValidationError } from '../../../core/errors.js';
 
 // Export types
@@ -238,9 +236,11 @@ export function cosineSimilarity(a: number[], b: number[]): number {
   let normB = 0;
 
   for (let i = 0; i < a.length; i++) {
-    dotProduct += a[i]! * b[i]!;
-    normA += a[i]! * a[i]!;
-    normB += b[i]! * b[i]!;
+    const aValue = a[i] ?? 0;
+    const bValue = b[i] ?? 0;
+    dotProduct += aValue * bValue;
+    normA += aValue * aValue;
+    normB += bValue * bValue;
   }
 
   if (normA === 0 || normB === 0) {

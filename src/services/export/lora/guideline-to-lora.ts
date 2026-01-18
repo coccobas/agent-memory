@@ -5,8 +5,6 @@
  * Handles filtering, example generation, and format conversion.
  */
 
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-
 import type { DbClient } from '../../../db/connection.js';
 import {
   guidelines,
@@ -612,9 +610,13 @@ print("Training script template generated. Complete the implementation.")
       randomIndex = Math.floor(random() * currentIndex);
       currentIndex -= 1;
 
-      temporaryValue = array[currentIndex]!;
-      array[currentIndex] = array[randomIndex]!;
-      array[randomIndex] = temporaryValue;
+      const currentValue = array[currentIndex];
+      const randomValue = array[randomIndex];
+      if (currentValue !== undefined && randomValue !== undefined) {
+        temporaryValue = currentValue;
+        array[currentIndex] = randomValue;
+        array[randomIndex] = temporaryValue;
+      }
     }
   }
 }

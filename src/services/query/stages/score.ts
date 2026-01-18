@@ -123,13 +123,11 @@ function mergeSortedChunks<T>(chunks: T[][], compareFn: (a: T, b: T) => number):
 
     // Find the minimum element across all chunks
     for (let i = 0; i < chunks.length; i++) {
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      const chunk = chunks[i]!;
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      if (chunk && indices[i]! < chunk.length) {
-        // TypeScript doesn't narrow array element access after truthiness check
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-non-null-assertion
-        const value = chunk[indices[i]!];
+      const chunk = chunks[i];
+      const currentIndex = indices[i];
+      if (chunk && currentIndex !== undefined && currentIndex < chunk.length) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        const value = chunk[currentIndex];
         // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
         if (value !== undefined && (minValue === undefined || compareFn(value, minValue) < 0)) {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
@@ -142,8 +140,10 @@ function mergeSortedChunks<T>(chunks: T[][], compareFn: (a: T, b: T) => number):
     // Add minimum element to result and advance its chunk index
     if (minChunkIdx !== -1 && minValue !== undefined) {
       result.push(minValue);
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      indices[minChunkIdx]!++;
+      const currentIdx = indices[minChunkIdx];
+      if (currentIdx !== undefined) {
+        indices[minChunkIdx] = currentIdx + 1;
+      }
     }
   }
 

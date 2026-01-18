@@ -3,12 +3,7 @@
  *
  * This module provides functions to generate and store embeddings
  * when creating or updating memory entries.
- *
- * NOTE: Non-null assertions used for array access after validation
- * in embedding generation operations.
  */
-
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
 
 import { getDb } from '../connection.js';
 import { entryEmbeddings } from '../schema.js';
@@ -312,11 +307,13 @@ async function runBatchEmbeddingJobs(jobs: QueuedEmbeddingInput[]): Promise<void
 
   // Store each embedding and track in database
   for (let i = 0; i < freshJobs.length; i++) {
-    const job = freshJobs[i]!;
+    const job = freshJobs[i];
     const embedding = result.embeddings[i];
 
-    if (!embedding) {
-      logger.warn({ job: job.__key, index: i }, 'Batch embedding missing for job');
+    if (!job || !embedding) {
+      if (job) {
+        logger.warn({ job: job.__key, index: i }, 'Batch embedding missing for job');
+      }
       continue;
     }
 
@@ -419,8 +416,9 @@ function drainQueue(): void {
           embeddingCounter.inc({ provider: 'pipeline', status: 'error' });
 
           for (let i = 0; i < jobsToProcess.length; i++) {
-            const job = jobsToProcess[i]!;
-            const key = keysToProcess[i]!;
+            const job = jobsToProcess[i];
+            const key = keysToProcess[i];
+            if (!job || !key) continue;
             const attemptNumber = jobAttempts.get(key) ?? 1;
 
             if (attemptNumber < maxRetries) {

@@ -3,12 +3,7 @@
  *
  * Provides mathematical functions for similarity calculations
  * and sequence analysis used in pattern detection.
- *
- * NOTE: Non-null assertions are used throughout for array indexing and Map access
- * after bounds checks and existence validation in algorithmic code.
  */
-
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
 
 import { createValidationError } from '../../../core/errors.js';
 
@@ -91,12 +86,15 @@ export function longestCommonSubsequence<T>(
 
   for (let i = 1; i <= m; i++) {
     for (let j = 1; j <= n; j++) {
-      const s1Item = seq1[i - 1]!;
-      const s2Item = seq2[j - 1]!;
+      const s1Item = seq1[i - 1];
+      const s2Item = seq2[j - 1];
+      const dpRowI = dp[i];
+      const dpRowPrev = dp[i - 1];
+      if (s1Item === undefined || s2Item === undefined || !dpRowI || !dpRowPrev) continue;
       if (comparator(s1Item, s2Item)) {
-        dp[i]![j] = dp[i - 1]![j - 1]! + 1;
+        dpRowI[j] = (dpRowPrev[j - 1] ?? 0) + 1;
       } else {
-        dp[i]![j] = Math.max(dp[i - 1]![j]!, dp[i]![j - 1]!);
+        dpRowI[j] = Math.max(dpRowPrev[j] ?? 0, dpRowI[j - 1] ?? 0);
       }
     }
   }
@@ -107,13 +105,16 @@ export function longestCommonSubsequence<T>(
   let j = n;
 
   while (i > 0 && j > 0) {
-    const s1Item = seq1[i - 1]!;
-    const s2Item = seq2[j - 1]!;
+    const s1Item = seq1[i - 1];
+    const s2Item = seq2[j - 1];
+    const dpRowI = dp[i];
+    const dpRowPrev = dp[i - 1];
+    if (s1Item === undefined || s2Item === undefined || !dpRowI || !dpRowPrev) break;
     if (comparator(s1Item, s2Item)) {
       lcs.unshift(s1Item);
       i--;
       j--;
-    } else if (dp[i - 1]![j]! > dp[i]![j - 1]!) {
+    } else if ((dpRowPrev[j] ?? 0) > (dpRowI[j - 1] ?? 0)) {
       i--;
     } else {
       j--;
@@ -149,18 +150,19 @@ export function lcsLength<T>(
 
   for (let i = 1; i <= m; i++) {
     for (let j = 1; j <= n; j++) {
-      const s1Item = seq1[i - 1]!;
-      const s2Item = seq2[j - 1]!;
+      const s1Item = seq1[i - 1];
+      const s2Item = seq2[j - 1];
+      if (s1Item === undefined || s2Item === undefined) continue;
       if (comparator(s1Item, s2Item)) {
-        currRow[j] = prevRow[j - 1]! + 1;
+        currRow[j] = (prevRow[j - 1] ?? 0) + 1;
       } else {
-        currRow[j] = Math.max(prevRow[j]!, currRow[j - 1]!);
+        currRow[j] = Math.max(prevRow[j] ?? 0, currRow[j - 1] ?? 0);
       }
     }
     [prevRow, currRow] = [currRow, prevRow];
   }
 
-  return prevRow[n]!;
+  return prevRow[n] ?? 0;
 }
 
 /**
@@ -216,12 +218,12 @@ export function cosineSimilarity(vec1: number[], vec2: number[]): number {
   let norm2 = 0;
 
   for (let i = 0; i < vec1.length; i++) {
-    const v1 = vec1[i]!;
-    const v2 = vec2[i]!;
+    const v1 = vec1[i];
+    const v2 = vec2[i];
 
     // Bug #238 fix: Check for NaN/Infinity in vector components
     // NaN propagates silently through calculations causing wrong results
-    if (!Number.isFinite(v1) || !Number.isFinite(v2)) {
+    if (v1 === undefined || v2 === undefined || !Number.isFinite(v1) || !Number.isFinite(v2)) {
       return 0.0; // Return 0 similarity for invalid vectors
     }
 
@@ -274,17 +276,18 @@ export function editDistance<T>(
     currRow[0] = i;
 
     for (let j = 1; j <= n; j++) {
-      const s1Item = seq1[i - 1]!;
-      const s2Item = seq2[j - 1]!;
+      const s1Item = seq1[i - 1];
+      const s2Item = seq2[j - 1];
+      if (s1Item === undefined || s2Item === undefined) continue;
       if (comparator(s1Item, s2Item)) {
-        currRow[j] = prevRow[j - 1]!;
+        currRow[j] = prevRow[j - 1] ?? 0;
       } else {
         currRow[j] =
           1 +
           Math.min(
-            prevRow[j]!, // delete
-            currRow[j - 1]!, // insert
-            prevRow[j - 1]! // substitute
+            prevRow[j] ?? 0, // delete
+            currRow[j - 1] ?? 0, // insert
+            prevRow[j - 1] ?? 0 // substitute
           );
       }
     }
@@ -292,7 +295,7 @@ export function editDistance<T>(
     [prevRow, currRow] = [currRow, prevRow];
   }
 
-  return prevRow[n]!;
+  return prevRow[n] ?? 0;
 }
 
 /**
@@ -358,8 +361,11 @@ export function weightedMean(values: number[], weights: number[]): number {
   let weightSum = 0;
 
   for (let i = 0; i < values.length; i++) {
-    weightedSum += values[i]! * weights[i]!;
-    weightSum += weights[i]!;
+    const value = values[i];
+    const weight = weights[i];
+    if (value === undefined || weight === undefined) continue;
+    weightedSum += value * weight;
+    weightSum += weight;
   }
 
   if (weightSum === 0) return 0;

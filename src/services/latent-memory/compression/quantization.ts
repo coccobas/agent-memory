@@ -18,8 +18,6 @@
  * NOTE: Non-null assertions used for array indexing after bounds checks in compression algorithms.
  */
 
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-
 import { createValidationError } from '../../../core/errors.js';
 import type { CompressionStrategy, CompressionMethod, QuantizationConfig } from './types.js';
 
@@ -149,8 +147,9 @@ export class ScalarQuantization implements CompressionStrategy {
     const result = new Array<number>(this.outputDim);
 
     for (let i = 0; i < embedding.length; i++) {
+      const value = embedding[i] ?? 0;
       // Normalize to [0, 1]
-      const normalized = (embedding[i]! - this.min) / (this.max - this.min);
+      const normalized = (value - this.min) / (this.max - this.min);
 
       // Scale to [minValue, maxValue] and round
       const quantized = Math.round(normalized * this.range + this.minValue);
@@ -190,8 +189,9 @@ export class ScalarQuantization implements CompressionStrategy {
     const result = new Array<number>(this.inputDim);
 
     for (let i = 0; i < compressed.length; i++) {
+      const value = compressed[i] ?? 0;
       // Denormalize from [minValue, maxValue] to [0, 1]
-      const normalized = (compressed[i]! - this.minValue) / this.range;
+      const normalized = (value - this.minValue) / this.range;
 
       // Scale to [min, max]
       result[i] = normalized * (this.max - this.min) + this.min;
@@ -269,7 +269,9 @@ export class ScalarQuantization implements CompressionStrategy {
     let maxError = 0;
 
     for (let i = 0; i < original.length; i++) {
-      const error = Math.abs(original[i]! - decompressed[i]!);
+      const origValue = original[i] ?? 0;
+      const decompValue = decompressed[i] ?? 0;
+      const error = Math.abs(origValue - decompValue);
       sumSquaredError += error * error;
       sumAbsError += error;
       maxError = Math.max(maxError, error);
@@ -298,9 +300,11 @@ export class ScalarQuantization implements CompressionStrategy {
     let normB = 0;
 
     for (let i = 0; i < original.length; i++) {
-      dotProduct += original[i]! * decompressed[i]!;
-      normA += original[i]! * original[i]!;
-      normB += decompressed[i]! * decompressed[i]!;
+      const origValue = original[i] ?? 0;
+      const decompValue = decompressed[i] ?? 0;
+      dotProduct += origValue * decompValue;
+      normA += origValue * origValue;
+      normB += decompValue * decompValue;
     }
 
     const similarity = dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));

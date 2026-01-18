@@ -4,8 +4,6 @@
  * Finds groups of semantically similar entries for consolidation.
  */
 
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-
 import { createComponentLogger } from '../../utils/logger.js';
 import { config } from '../../config/index.js';
 import type { FindSimilarParams, SimilarityGroup } from './types.js';
@@ -59,8 +57,10 @@ export async function findSimilarGroups(params: FindSimilarParams): Promise<Simi
 
     // Process entries with their pre-computed embeddings
     for (let i = 0; i < entries.length; i++) {
-      const entry = entries[i]!;
+      const entry = entries[i];
       const embedding = embeddings[i];
+
+      if (!entry) continue;
 
       if (processedIds.has(entry.id)) continue;
       if (groups.length >= limit) break;

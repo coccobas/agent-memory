@@ -8,8 +8,6 @@
  * in chunk processing operations.
  */
 
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-
 import { v4 as uuid } from 'uuid';
 import type { LMStudioClient } from '../lm-studio/client.js';
 import { createLMStudioClient } from '../lm-studio/client.js';
@@ -287,7 +285,8 @@ Respond with JSON only:
     const chunks: Chunk[] = [];
 
     for (let i = 0; i < response.chunks.length; i++) {
-      const boundary = response.chunks[i]!;
+      const boundary = response.chunks[i];
+      if (!boundary) continue;
       const startIdx = Math.max(0, boundary.start_line - 1);
       const endIdx = Math.min(lines.length, boundary.end_line);
 
@@ -490,8 +489,10 @@ Respond with JSON only:
     const relations: ChunkRelation[] = [];
 
     for (let i = 0; i < chunks.length - 1; i++) {
-      const current = chunks[i]!;
-      const next = chunks[i + 1]!;
+      const current = chunks[i];
+      const next = chunks[i + 1];
+
+      if (!current || !next) continue;
 
       relations.push({
         sourceId: current.id,

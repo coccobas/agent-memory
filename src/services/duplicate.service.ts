@@ -5,8 +5,6 @@
  * Helps prevent creating duplicate entries.
  */
 
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-
 import { getPreparedStatement, type DbClient } from '../db/connection.js';
 import { tools, guidelines, knowledge } from '../db/schema.js';
 import { eq, and, isNull, inArray } from 'drizzle-orm';
@@ -56,14 +54,14 @@ function levenshteinDistance(str1: string, str2: string, maxDistance?: number): 
     for (let i = 1; i <= len1; i++) {
       const cost = s1[i - 1] === s2[j - 1] ? 0 : 1;
 
-      currRow[i] = Math.min(
-        (prevRow[i] ?? 0) + 1, // deletion
-        (currRow[i - 1] ?? 0) + 1, // insertion
-        (prevRow[i - 1] ?? 0) + cost // substitution
-      );
+      const deletion = (prevRow[i] ?? 0) + 1;
+      const insertion = (currRow[i - 1] ?? 0) + 1;
+      const substitution = (prevRow[i - 1] ?? 0) + cost;
+      const minCost = Math.min(deletion, insertion, substitution);
+      currRow[i] = minCost;
 
-      if (currRow[i]! < rowMin) {
-        rowMin = currRow[i]!;
+      if (minCost < rowMin) {
+        rowMin = minCost;
       }
     }
 

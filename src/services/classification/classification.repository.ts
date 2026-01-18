@@ -4,8 +4,6 @@
  * CRUD operations for classification_feedback and pattern_confidence tables
  */
 
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-
 import { eq, desc, gte } from 'drizzle-orm';
 import type { DrizzleDb } from '../../db/repositories/base.js';
 import { generateId, now } from '../../db/repositories/base.js';

@@ -4,11 +4,7 @@
  * Identifies patterns across multiple experiences using a two-stage approach:
  * 1. Embedding similarity on scenario + outcome for initial clustering
  * 2. Trajectory validation to confirm behavioral similarity
- *
- * NOTE: Non-null assertions are used for embeddings array access after validation checks.
  */
-
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
 
 import type { ExperienceWithVersion } from '../../../core/interfaces/repositories.js';
 import type { ExperienceTrajectoryStep } from '../../../db/schema/experiences.js';
@@ -196,8 +192,10 @@ export class PatternDetector {
       const result = await this.embeddingService.embedBatch(textsToEmbed);
 
       for (let i = 0; i < experiences.length; i++) {
-        const exp = experiences[i]!;
-        exp.embedding = result.embeddings[i];
+        const exp = experiences[i];
+        if (exp) {
+          exp.embedding = result.embeddings[i];
+        }
       }
 
       return true;
@@ -219,14 +217,14 @@ export class PatternDetector {
     const similarPairs = new Map<string, Set<string>>();
 
     for (let i = 0; i < experiences.length; i++) {
-      const exp1 = experiences[i]!;
-      if (!exp1.embedding) continue;
+      const exp1 = experiences[i];
+      if (!exp1?.embedding) continue;
 
       similarPairs.set(exp1.experience.id, new Set());
 
       for (let j = i + 1; j < experiences.length; j++) {
-        const exp2 = experiences[j]!;
-        if (!exp2.embedding) continue;
+        const exp2 = experiences[j];
+        if (!exp2?.embedding) continue;
 
         const similarity = cosineSimilarity(exp1.embedding, exp2.embedding);
 
@@ -239,12 +237,18 @@ export class PatternDetector {
             }
           }
 
-          similarPairs.get(exp1.experience.id)!.add(exp2.experience.id);
+          const exp1Pairs = similarPairs.get(exp1.experience.id);
+          if (exp1Pairs) {
+            exp1Pairs.add(exp2.experience.id);
+          }
 
           if (!similarPairs.has(exp2.experience.id)) {
             similarPairs.set(exp2.experience.id, new Set());
           }
-          similarPairs.get(exp2.experience.id)!.add(exp1.experience.id);
+          const exp2Pairs = similarPairs.get(exp2.experience.id);
+          if (exp2Pairs) {
+            exp2Pairs.add(exp1.experience.id);
+          }
         }
       }
     }
@@ -261,21 +265,29 @@ export class PatternDetector {
     const similarPairs = new Map<string, Set<string>>();
 
     for (let i = 0; i < experiences.length; i++) {
-      const exp1 = experiences[i]!;
+      const exp1 = experiences[i];
+      if (!exp1) continue;
       similarPairs.set(exp1.experience.id, new Set());
 
       for (let j = i + 1; j < experiences.length; j++) {
-        const exp2 = experiences[j]!;
+        const exp2 = experiences[j];
+        if (!exp2) continue;
 
         const trajSim = calculateTrajectorySimilarity(exp1.trajectory, exp2.trajectory);
 
         if (trajSim.similarity >= this.config.trajectoryThreshold) {
-          similarPairs.get(exp1.experience.id)!.add(exp2.experience.id);
+          const exp1Pairs = similarPairs.get(exp1.experience.id);
+          if (exp1Pairs) {
+            exp1Pairs.add(exp2.experience.id);
+          }
 
           if (!similarPairs.has(exp2.experience.id)) {
             similarPairs.set(exp2.experience.id, new Set());
           }
-          similarPairs.get(exp2.experience.id)!.add(exp1.experience.id);
+          const exp2Pairs = similarPairs.get(exp2.experience.id);
+          if (exp2Pairs) {
+            exp2Pairs.add(exp1.experience.id);
+          }
         }
       }
     }
@@ -303,8 +315,8 @@ export class PatternDetector {
       const queue = [exp.experience.id];
 
       while (queue.length > 0) {
-        const current = queue.shift()!;
-        if (visited.has(current)) continue;
+        const current = queue.shift();
+        if (!current || visited.has(current)) continue;
 
         visited.add(current);
         const currentExp = expMap.get(current);
@@ -354,7 +366,10 @@ export class PatternDetector {
    * Build a pattern group from a cluster of experiences
    */
   private buildPatternGroup(experiences: ExperienceWithTrajectory[]): PatternGroup {
-    const firstExp = experiences[0]!;
+    const firstExp = experiences[0];
+    if (!firstExp) {
+      throw new Error('Cannot build pattern group from empty experiences array');
+    }
 
     // Calculate embedding similarities
     let embeddingSimilarity = 1.0;
@@ -362,9 +377,9 @@ export class PatternDetector {
       const embedSims: number[] = [];
       for (let i = 0; i < experiences.length; i++) {
         for (let j = i + 1; j < experiences.length; j++) {
-          const exp1 = experiences[i]!;
-          const exp2 = experiences[j]!;
-          if (exp1.embedding && exp2.embedding) {
+          const exp1 = experiences[i];
+          const exp2 = experiences[j];
+          if (exp1?.embedding && exp2?.embedding) {
             embedSims.push(cosineSimilarity(exp1.embedding, exp2.embedding));
           }
         }
@@ -376,9 +391,11 @@ export class PatternDetector {
     const trajSims: TrajectorySimilarityResult[] = [];
     for (let i = 0; i < experiences.length; i++) {
       for (let j = i + 1; j < experiences.length; j++) {
-        const exp1 = experiences[i]!;
-        const exp2 = experiences[j]!;
-        trajSims.push(calculateTrajectorySimilarity(exp1.trajectory, exp2.trajectory));
+        const exp1 = experiences[i];
+        const exp2 = experiences[j];
+        if (exp1 && exp2) {
+          trajSims.push(calculateTrajectorySimilarity(exp1.trajectory, exp2.trajectory));
+        }
       }
     }
     const trajectorySimilarity =

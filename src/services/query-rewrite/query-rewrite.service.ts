@@ -9,8 +9,6 @@
  * Combines results from enabled strategies to improve retrieval quality.
  */
 
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-
 import { IntentClassifier } from './classifier.js';
 import { QueryExpander } from './expander.js';
 import { HyDEGenerator } from './hyde.js';
@@ -139,8 +137,8 @@ export class QueryRewriteService implements IQueryRewriteService {
     this.classifier = new IntentClassifier();
 
     // Create expander if expansion is enabled
-    if (this.config.enableExpansion) {
-      this.expander = new QueryExpander(this.config.expansion!);
+    if (this.config.enableExpansion && this.config.expansion) {
+      this.expander = new QueryExpander(this.config.expansion);
     }
 
     // Create HyDE generator if enabled and dependencies are available
