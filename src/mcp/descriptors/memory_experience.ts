@@ -17,12 +17,18 @@ export const memoryExperienceDescriptor: ToolDescriptor = {
   visibility: 'advanced',
   description: `Manage experiential memory - learned patterns from past interactions.
 
-Actions: add, update, get, list, history, deactivate, delete, bulk_add, bulk_update, bulk_delete, promote, record_outcome, add_step, get_trajectory, record_case, capture_from_transcript
+Actions: add, update, get, list, history, deactivate, delete, bulk_add, bulk_update, bulk_delete, promote, record_outcome, add_step, get_trajectory, record_case, capture_from_transcript, learn
 
 Experience Levels:
 - case: Concrete examples with full trajectories (default)
 - strategy: Abstracted patterns and insights
 - skill: Promotes to memory_tool entry (via promote action)
+
+**Quick Start (recommended):**
+\`\`\`
+{"action":"learn","text":"Fixed API timeouts by increasing the timeout config"}
+\`\`\`
+The learn action parses natural language and auto-extracts title, scenario, and outcome.
 
 Workflow:
 1. Record a case after solving a problem: {"action":"add","title":"Fixed auth bug","content":"Discovered token expiry issue...","scenario":"Build was failing","outcome":"success","steps":[{"action":"Read error log","observation":"Token expired"}]}
@@ -31,11 +37,17 @@ Workflow:
 4. Record outcomes to improve confidence: {"action":"record_outcome","id":"exp_123","success":true}
 
 Capture Actions:
+- learn: **Low-friction** - parse natural language like "Fixed X by doing Y" (recommended)
 - record_case: Explicitly record a case with title, scenario, outcome, and optional trajectory
 - capture_from_transcript: Extract experiences from a conversation transcript using LLM
 
-Example: {"action":"record_case","title":"Debug API timeout","scenario":"API calls timing out","outcome":"success - increased timeout config","projectId":"proj-123"}`,
+Example: {"action":"learn","text":"Discovered the auth token expires after 1 hour when debugging login failures"}`,
   commonParams: {
+    // Learn action param (low-friction)
+    text: {
+      type: 'string',
+      description: 'Natural language text for learn action (e.g., "Fixed X by doing Y")',
+    },
     id: { type: 'string', description: 'Experience ID' },
     title: { type: 'string', description: 'Experience title' },
     scopeType: {
@@ -133,5 +145,7 @@ Example: {"action":"record_case","title":"Debug API timeout","scenario":"API cal
     // Capture actions
     record_case: { contextHandler: experienceHandlers.record_case },
     capture_from_transcript: { contextHandler: experienceHandlers.capture_from_transcript },
+    // Low-friction actions
+    learn: { contextHandler: experienceHandlers.learn },
   },
 };

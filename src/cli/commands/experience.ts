@@ -391,4 +391,32 @@ export function addExperienceCommand(program: Command): void {
         }
       })
     );
+
+  // experience learn - low friction experience recording
+  experience
+    .command('learn <text>')
+    .description(
+      'Record an experience using natural language (e.g., "Fixed API timeouts by increasing the timeout config")'
+    )
+    .option('--category <category>', 'Override auto-detected category')
+    .option('--confidence <n>', 'Confidence score 0-1', (v) => parseFloat(v))
+    .action(async (text: string, options: { category?: string; confidence?: number }, cmd) => {
+      try {
+        const context = await getCliContext();
+        const globalOpts = cmd.optsWithGlobals() as { format?: string; agentId?: string };
+
+        const result = await experienceHandlers.learn(context, {
+          text,
+          category: options.category,
+          confidence: options.confidence,
+          agentId: globalOpts.agentId,
+        });
+
+        console.log(formatOutput(result, globalOpts.format as OutputFormat));
+      } catch (error) {
+        handleCliError(error);
+      } finally {
+        await shutdownCliContext();
+      }
+    });
 }
