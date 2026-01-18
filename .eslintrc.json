@@ -51,7 +51,8 @@
     "*.js",
     "*.d.ts",
     "tests/**/*.ts",
-    "*.example.ts"
+    "*.example.ts",
+    "vitest.config.ts"
   ],
   "overrides": [
     {

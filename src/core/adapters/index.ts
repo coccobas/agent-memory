@@ -83,6 +83,22 @@ export {
   type RedisCircuitBreakerFailMode,
 } from './redis-circuit-breaker.adapter.js';
 
+// Embedding Queue Adapter
+export type {
+  IEmbeddingQueueAdapter,
+  EmbeddingJob,
+  EmbeddingQueueStats,
+  EnqueueOptions,
+  DequeueResult,
+  EmbeddingQueueEvent,
+  EmbeddingQueueEventType,
+} from './embedding-queue.interface.js';
+export {
+  RedisEmbeddingQueueAdapter,
+  createRedisEmbeddingQueueAdapter,
+  type RedisEmbeddingQueueConfig,
+} from './redis-embedding-queue.adapter.js';
+
 // Dependencies for factory
 import type Database from 'better-sqlite3';
 import type { Pool } from 'pg';

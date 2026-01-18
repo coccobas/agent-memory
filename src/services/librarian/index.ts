@@ -12,7 +12,6 @@ import type { GraphBackfillService } from '../graph/backfill.service.js';
 import { createComponentLogger } from '../../utils/logger.js';
 import { generateId } from '../../db/repositories/base.js';
 import { createExperienceRepository } from '../../db/repositories/experiences.js';
-import { librarianCheckpointRepo } from '../../db/repositories/librarian-checkpoints.js';
 import { CaseCollector } from './pipeline/collector.js';
 import { PatternDetector } from './pipeline/pattern-detector.js';
 import { QualityGate } from './pipeline/quality-gate.js';
@@ -35,13 +34,15 @@ import {
   type SessionStartRequest,
   type SessionStartResult,
 } from './types.js';
-import type { CaptureService, TurnData } from '../capture/index.js';
+import type { CaptureService } from '../capture/index.js';
 import { MaintenanceOrchestrator } from './maintenance/orchestrator.js';
 import type { ScopeType } from '../../db/schema/types.js';
 import type { RLService } from '../rl/index.js';
 import { buildConsolidationState } from '../rl/state/consolidation.state.js';
 import type { FeedbackService } from '../feedback/index.js';
 import type { LatentMemoryService } from '../latent-memory/latent-memory.service.js';
+import { SessionLifecycleHandler } from './session-lifecycle.js';
+import { CheckpointManager } from './checkpoint-manager.js';
 
 // =============================================================================
 // TYPES
@@ -91,20 +92,18 @@ export class LibrarianService {
   private recommendationStore: IRecommendationStore;
   private lastAnalysis?: AnalysisResult;
   private lastMaintenance?: MaintenanceResult;
-  private lastSessionEnd?: SessionEndResult;
-  private lastSessionStart?: SessionStartResult;
   private rlService?: RLService | null;
   private feedbackService?: FeedbackService | null;
   private maintenanceOrchestrator?: MaintenanceOrchestrator;
-  private captureService?: CaptureService;
-  private latentMemoryService?: LatentMemoryService;
+
+  // Extracted components
+  private sessionLifecycle: SessionLifecycleHandler;
+  private checkpointManager: CheckpointManager;
 
   constructor(deps: LibrarianServiceDeps, config: Partial<LibrarianConfig> = {}) {
     this.config = { ...DEFAULT_LIBRARIAN_CONFIG, ...config };
     this.rlService = deps.rlService;
     this.feedbackService = deps.feedbackService;
-    this.captureService = deps.captureService;
-    this.latentMemoryService = deps.latentMemoryService;
 
     // Initialize pipeline components
     const experienceRepo = createExperienceRepository(deps);
@@ -125,6 +124,18 @@ export class LibrarianService {
 
     // Initialize recommendation store
     this.recommendationStore = initializeRecommendationStore(deps);
+
+    // Initialize checkpoint manager
+    this.checkpointManager = new CheckpointManager();
+
+    // Initialize session lifecycle handler
+    this.sessionLifecycle = new SessionLifecycleHandler({
+      captureService: deps.captureService,
+      latentMemoryService: deps.latentMemoryService,
+      config: this.config,
+      analyze: this.analyze.bind(this),
+      runMaintenance: this.runMaintenance.bind(this),
+    });
 
     // Initialize maintenance orchestrator if we have the required deps at construction time
     if (deps.appDb && deps.repos) {
@@ -151,6 +162,7 @@ export class LibrarianService {
     latentMemory?: LatentMemoryService;
   }): void {
     this.maintenanceOrchestrator = new MaintenanceOrchestrator(deps, this.config.maintenance);
+    this.sessionLifecycle.setMaintenanceOrchestrator(this.maintenanceOrchestrator);
     logger.debug('Maintenance orchestrator initialized');
   }
 
@@ -159,7 +171,7 @@ export class LibrarianService {
    * Call this if CaptureService wasn't available at construction time.
    */
   setCaptureService(captureService: CaptureService): void {
-    this.captureService = captureService;
+    this.sessionLifecycle.setCaptureService(captureService);
     logger.debug('Capture service set for librarian');
   }
 
@@ -168,7 +180,7 @@ export class LibrarianService {
    * Call this if LatentMemoryService wasn't available at construction time.
    */
   setLatentMemoryService(latentMemoryService: LatentMemoryService): void {
-    this.latentMemoryService = latentMemoryService;
+    this.sessionLifecycle.setLatentMemoryService(latentMemoryService);
     logger.debug('Latent memory service set for librarian');
   }
 
@@ -208,20 +220,9 @@ export class LibrarianService {
 
     logger.info({ runId, request }, 'Starting librarian analysis');
 
-    // Load checkpoint for incremental processing (gracefully handle missing database)
-    let checkpoint: ReturnType<typeof librarianCheckpointRepo.getForScope> | undefined;
-    let checkpointsAvailable = false;
-    try {
-      checkpoint = librarianCheckpointRepo.getForScope(request.scopeType, request.scopeId);
-      checkpointsAvailable = true;
-    } catch (error) {
-      // Checkpoint system unavailable (e.g., in unit tests without database)
-      logger.debug(
-        { error: error instanceof Error ? error.message : String(error) },
-        'Checkpoint system unavailable, using non-incremental mode'
-      );
-    }
-    const incrementalFrom = checkpoint?.lastExperienceCreatedAt ?? undefined;
+    // Load checkpoint for incremental processing
+    const checkpoint = this.checkpointManager.getForScope(request.scopeType, request.scopeId);
+    const incrementalFrom = checkpoint?.lastExperienceCreatedAt;
 
     if (incrementalFrom) {
       logger.debug(
@@ -230,21 +231,15 @@ export class LibrarianService {
       );
     }
 
-    // Mark analysis as started (if checkpoints available)
-    if (checkpointsAvailable) {
-      try {
-        librarianCheckpointRepo.markStarted(request.scopeType, request.scopeId, runId);
-      } catch (error) {
-        logger.debug(
-          { error: error instanceof Error ? error.message : String(error) },
-          'Failed to mark checkpoint as started (non-fatal)'
-        );
-      }
-    }
+    // Mark analysis as started
+    this.checkpointManager.markStarted(request.scopeType, request.scopeId, runId);
 
     try {
       // Stage 1: Collection (incremental if checkpoint exists)
-      logger.debug({ runId, stage: 'collection', isIncremental: !!incrementalFrom }, 'Collecting experiences');
+      logger.debug(
+        { runId, stage: 'collection', isIncremental: !!incrementalFrom },
+        'Collecting experiences'
+      );
       const collection = await this.collector.collectUnpromotedIncremental(
         {
           scopeType: request.scopeType,
@@ -494,41 +489,24 @@ export class LibrarianService {
 
       this.lastAnalysis = result;
 
-      // Update checkpoint for incremental processing (if checkpoints available)
+      // Update checkpoint for incremental processing
       // Use the latest experience createdAt as the cursor for next run
-      if (checkpointsAvailable && !request.dryRun) {
-        try {
-          if (collection.latestExperienceCreatedAt) {
-            librarianCheckpointRepo.markCompleted(request.scopeType, request.scopeId, {
-              runId,
-              lastExperienceCreatedAt: collection.latestExperienceCreatedAt,
-              experiencesProcessed: collection.experiences.length,
-              patternsDetected: patternDetection.patterns.length,
-              recommendationsGenerated: recommendations.recommendations.length,
-            });
-            logger.debug(
-              {
-                runId,
-                scopeType: request.scopeType,
-                scopeId: request.scopeId,
-                newCursor: collection.latestExperienceCreatedAt,
-              },
-              'Checkpoint updated for incremental processing'
-            );
-          } else {
-            // Mark completed even if no experiences (resets error state)
-            librarianCheckpointRepo.update(request.scopeType, request.scopeId, {
-              status: 'idle',
-              lastAnalysisRunId: runId,
-              lastAnalysisAt: completedAt,
-              lastError: null,
-              consecutiveErrors: 0,
-            });
-          }
-        } catch (error) {
-          logger.debug(
-            { error: error instanceof Error ? error.message : String(error) },
-            'Failed to update checkpoint (non-fatal)'
+      if (!request.dryRun) {
+        if (collection.latestExperienceCreatedAt) {
+          this.checkpointManager.markCompleted(request.scopeType, request.scopeId, {
+            runId,
+            lastExperienceCreatedAt: collection.latestExperienceCreatedAt,
+            experiencesProcessed: collection.experiences.length,
+            patternsDetected: patternDetection.patterns.length,
+            recommendationsGenerated: recommendations.recommendations.length,
+          });
+        } else {
+          // Mark completed even if no experiences (resets error state)
+          this.checkpointManager.updateStatus(
+            request.scopeType,
+            request.scopeId,
+            runId,
+            completedAt
           );
         }
       }
@@ -548,17 +526,8 @@ export class LibrarianService {
       const errorMessage = error instanceof Error ? error.message : String(error);
       logger.error({ runId, error: errorMessage }, 'Analysis failed');
 
-      // Mark checkpoint as failed (if checkpoints available)
-      if (checkpointsAvailable) {
-        try {
-          librarianCheckpointRepo.markFailed(request.scopeType, request.scopeId, errorMessage);
-        } catch (checkpointError) {
-          logger.debug(
-            { error: checkpointError instanceof Error ? checkpointError.message : String(checkpointError) },
-            'Failed to mark checkpoint as failed (non-fatal)'
-          );
-        }
-      }
+      // Mark checkpoint as failed
+      this.checkpointManager.markFailed(request.scopeType, request.scopeId, errorMessage);
 
       throw error;
     }
@@ -695,535 +664,43 @@ export class LibrarianService {
   }
 
   // ===========================================================================
-  // UNIFIED SESSION END PROCESSING
+  // UNIFIED SESSION LIFECYCLE (Delegated to SessionLifecycleHandler)
   // ===========================================================================
 
   /**
    * Unified session end handler - orchestrates the complete learning pipeline.
-   *
-   * Pipeline stages:
-   * 1. Experience Capture: Extract experiences, knowledge, guidelines from conversation
-   * 2. Pattern Analysis: Detect patterns in accumulated experiences
-   * 3. Maintenance: Run consolidation, forgetting, and graph backfill
+   * Delegates to SessionLifecycleHandler for implementation.
    *
    * @param request - Session end request with conversation data
    * @returns Combined results from all stages
    */
   async onSessionEnd(request: SessionEndRequest): Promise<SessionEndResult> {
-    const startedAt = new Date().toISOString();
-    const errors: string[] = [];
-
-    logger.info(
-      {
-        sessionId: request.sessionId,
-        projectId: request.projectId,
-        skipCapture: request.skipCapture,
-        skipAnalysis: request.skipAnalysis,
-        skipMaintenance: request.skipMaintenance,
-        dryRun: request.dryRun,
-      },
-      'Starting unified session end processing'
-    );
-
-    const result: SessionEndResult = {
-      sessionId: request.sessionId,
-      timing: {
-        startedAt,
-        completedAt: '', // Will be set at the end
-        durationMs: 0,
-      },
-    };
-
-    // Stage 1: Experience Capture
-    if (
-      !request.skipCapture &&
-      this.captureService &&
-      request.messages &&
-      request.messages.length >= 3
-    ) {
-      try {
-        const captureStart = Date.now();
-        logger.debug({ sessionId: request.sessionId }, 'Running experience capture');
-
-        // Initialize capture session with project context
-        this.captureService.initSession(request.sessionId, request.projectId);
-
-        // Convert messages to turn data and track them
-        for (const msg of request.messages) {
-          const turnData: TurnData = {
-            role: msg.role,
-            content: msg.content,
-            timestamp: msg.createdAt ?? new Date().toISOString(),
-            tokenCount: Math.ceil(msg.content.length / 4), // Rough estimate
-            toolCalls: msg.toolsUsed
-              ? msg.toolsUsed.map((tool: string) => ({
-                  name: tool,
-                  input: {}, // Input not available from stored messages
-                  success: true,
-                }))
-              : undefined,
-          };
-
-          // Track turn metrics without triggering mid-session capture
-          await this.captureService.onTurnComplete(request.sessionId, turnData, {
-            autoStore: false,
-          });
-        }
-
-        // Trigger session-end capture for experiences
-        const captureResult = await this.captureService.onSessionEnd(request.sessionId, {
-          projectId: request.projectId,
-          scopeType: request.projectId ? 'project' : 'session',
-          scopeId: request.projectId ?? request.sessionId,
-          autoStore: !request.dryRun,
-          skipDuplicates: true,
-        });
-
-        result.capture = {
-          experiencesExtracted: captureResult.experiences.experiences.length,
-          knowledgeExtracted: captureResult.knowledge.knowledge.length,
-          guidelinesExtracted: captureResult.knowledge.guidelines.length,
-          toolsExtracted: captureResult.knowledge.tools.length,
-          skippedDuplicates: captureResult.experiences.skippedDuplicates ?? 0,
-          processingTimeMs: Date.now() - captureStart,
-        };
-
-        logger.debug(
-          {
-            sessionId: request.sessionId,
-            experiencesExtracted: result.capture.experiencesExtracted,
-            knowledgeExtracted: result.capture.knowledgeExtracted,
-            processingTimeMs: result.capture.processingTimeMs,
-          },
-          'Experience capture completed'
-        );
-      } catch (error) {
-        const errorMsg = `Experience capture failed: ${error instanceof Error ? error.message : String(error)}`;
-        errors.push(errorMsg);
-        logger.warn(
-          { sessionId: request.sessionId, error: errorMsg },
-          'Experience capture failed (non-fatal)'
-        );
-      }
-    }
-
-    // Stage 2: Pattern Analysis
-    if (!request.skipAnalysis && request.projectId) {
-      try {
-        const analysisStart = Date.now();
-        logger.debug(
-          { sessionId: request.sessionId, projectId: request.projectId },
-          'Running pattern analysis'
-        );
-
-        const analysisResult = await this.analyze({
-          scopeType: 'project',
-          scopeId: request.projectId,
-          lookbackDays: 7, // Shorter lookback for session-end analysis
-          initiatedBy: request.agentId ?? 'session-end',
-          dryRun: request.dryRun,
-        });
-
-        result.analysis = {
-          patternsDetected: analysisResult.stats.patternsDetected,
-          queuedForReview: analysisResult.stats.queuedForReview,
-          autoPromoted: analysisResult.stats.autoPromoted,
-          processingTimeMs: Date.now() - analysisStart,
-        };
-
-        logger.debug(
-          {
-            sessionId: request.sessionId,
-            patternsDetected: result.analysis.patternsDetected,
-            queuedForReview: result.analysis.queuedForReview,
-            processingTimeMs: result.analysis.processingTimeMs,
-          },
-          'Pattern analysis completed'
-        );
-      } catch (error) {
-        const errorMsg = `Pattern analysis failed: ${error instanceof Error ? error.message : String(error)}`;
-        errors.push(errorMsg);
-        logger.warn(
-          { sessionId: request.sessionId, error: errorMsg },
-          'Pattern analysis failed (non-fatal)'
-        );
-      }
-    }
-
-    // Stage 3: Maintenance
-    if (
-      !request.skipMaintenance &&
-      request.projectId &&
-      this.maintenanceOrchestrator &&
-      this.config.maintenance?.runOnSessionEnd
-    ) {
-      try {
-        const maintenanceStart = Date.now();
-        logger.debug(
-          { sessionId: request.sessionId, projectId: request.projectId },
-          'Running maintenance'
-        );
-
-        const maintenanceResult = await this.runMaintenance({
-          scopeType: 'project',
-          scopeId: request.projectId,
-          initiatedBy: request.agentId ?? 'session-end',
-          dryRun: request.dryRun,
-        });
-
-        result.maintenance = {
-          consolidationDeduped: maintenanceResult.consolidation?.entriesDeduped ?? 0,
-          forgettingArchived: maintenanceResult.forgetting?.entriesForgotten ?? 0,
-          graphNodesCreated: maintenanceResult.graphBackfill?.nodesCreated ?? 0,
-          graphEdgesCreated: maintenanceResult.graphBackfill?.edgesCreated ?? 0,
-          processingTimeMs: Date.now() - maintenanceStart,
-        };
-
-        logger.debug(
-          {
-            sessionId: request.sessionId,
-            consolidationDeduped: result.maintenance.consolidationDeduped,
-            forgettingArchived: result.maintenance.forgettingArchived,
-            processingTimeMs: result.maintenance.processingTimeMs,
-          },
-          'Maintenance completed'
-        );
-      } catch (error) {
-        const errorMsg = `Maintenance failed: ${error instanceof Error ? error.message : String(error)}`;
-        errors.push(errorMsg);
-        logger.warn(
-          { sessionId: request.sessionId, error: errorMsg },
-          'Maintenance failed (non-fatal)'
-        );
-      }
-    }
-
-    // Finalize timing
-    const completedAt = new Date().toISOString();
-    result.timing = {
-      startedAt,
-      completedAt,
-      durationMs: new Date(completedAt).getTime() - new Date(startedAt).getTime(),
-    };
-
-    if (errors.length > 0) {
-      result.errors = errors;
-    }
-
-    this.lastSessionEnd = result;
-
-    logger.info(
-      {
-        sessionId: request.sessionId,
-        durationMs: result.timing.durationMs,
-        capture: result.capture
-          ? {
-              experiences: result.capture.experiencesExtracted,
-              knowledge: result.capture.knowledgeExtracted,
-            }
-          : undefined,
-        analysis: result.analysis
-          ? {
-              patterns: result.analysis.patternsDetected,
-              queued: result.analysis.queuedForReview,
-            }
-          : undefined,
-        maintenance: result.maintenance
-          ? {
-              deduped: result.maintenance.consolidationDeduped,
-              archived: result.maintenance.forgettingArchived,
-            }
-          : undefined,
-        errors: errors.length > 0 ? errors.length : undefined,
-      },
-      'Unified session end processing completed'
-    );
-
-    return result;
+    return this.sessionLifecycle.onSessionEnd(request);
   }
 
   /**
    * Get last session end result
    */
   getLastSessionEnd(): SessionEndResult | undefined {
-    return this.lastSessionEnd;
+    return this.sessionLifecycle.getLastSessionEnd();
   }
-
-  // ===========================================================================
-  // UNIFIED SESSION START PROCESSING
-  // ===========================================================================
 
   /**
    * Unified session start handler - warms the latent memory cache.
-   *
-   * Pipeline stages:
-   * 0. (If source === 'clear') Lightweight capture: Extract experiences and run consolidation
-   * 1. Latent Memory Warming: Pre-warm cache with relevant entries for faster retrieval
+   * Delegates to SessionLifecycleHandler for implementation.
    *
    * @param request - Session start request
    * @returns Cache warming results
    */
   async onSessionStart(request: SessionStartRequest): Promise<SessionStartResult> {
-    const startedAt = new Date().toISOString();
-    const errors: string[] = [];
-    const source = request.source ?? 'startup';
-
-    logger.info(
-      {
-        sessionId: request.sessionId,
-        projectId: request.projectId,
-        skipWarmup: request.skipWarmup,
-        source,
-      },
-      'Starting unified session start processing'
-    );
-
-    const result: SessionStartResult = {
-      sessionId: request.sessionId,
-      timing: {
-        startedAt,
-        completedAt: '', // Will be set at the end
-        durationMs: 0,
-      },
-    };
-
-    // Stage 0: Clear Capture (only when source === 'clear')
-    // Lightweight pipeline: capture + consolidation only (no pattern analysis or full maintenance)
-    if (source === 'clear' && request.projectId) {
-      try {
-        const clearStart = Date.now();
-        logger.info(
-          { sessionId: request.sessionId, projectId: request.projectId },
-          'Running lightweight capture pipeline before clear'
-        );
-
-        let experiencesExtracted = 0;
-        let knowledgeExtracted = 0;
-        let consolidationDeduped = 0;
-
-        // Run experience capture if capture service is available
-        if (this.captureService) {
-          try {
-            // Trigger capture from any accumulated turn data
-            // Note: We use onSessionEnd-like capture but in a lightweight way
-            const captureResult = await this.captureService.onSessionEnd(request.sessionId, {
-              projectId: request.projectId,
-              scopeType: 'project',
-              scopeId: request.projectId,
-              autoStore: true,
-              skipDuplicates: true,
-            });
-
-            experiencesExtracted = captureResult.experiences.experiences.length;
-            knowledgeExtracted =
-              captureResult.knowledge.knowledge.length +
-              captureResult.knowledge.guidelines.length +
-              captureResult.knowledge.tools.length;
-
-            logger.debug(
-              {
-                sessionId: request.sessionId,
-                experiencesExtracted,
-                knowledgeExtracted,
-              },
-              'Clear capture: experience extraction completed'
-            );
-          } catch (captureError) {
-            const errorMsg = `Clear capture extraction failed: ${captureError instanceof Error ? captureError.message : String(captureError)}`;
-            errors.push(errorMsg);
-            logger.warn({ sessionId: request.sessionId, error: errorMsg }, 'Clear capture extraction failed (non-fatal)');
-          }
-        }
-
-        // Run lightweight consolidation only (no forgetting or graph backfill for speed)
-        if (this.maintenanceOrchestrator) {
-          try {
-            const maintenanceResult = await this.runMaintenance({
-              scopeType: 'project',
-              scopeId: request.projectId,
-              tasks: ['consolidation'], // Only consolidation for speed
-              initiatedBy: request.agentId ?? 'clear-hook',
-              dryRun: false,
-            });
-
-            consolidationDeduped = maintenanceResult.consolidation?.entriesDeduped ?? 0;
-
-            logger.debug(
-              {
-                sessionId: request.sessionId,
-                consolidationDeduped,
-              },
-              'Clear capture: consolidation completed'
-            );
-          } catch (maintenanceError) {
-            const errorMsg = `Clear capture consolidation failed: ${maintenanceError instanceof Error ? maintenanceError.message : String(maintenanceError)}`;
-            errors.push(errorMsg);
-            logger.warn({ sessionId: request.sessionId, error: errorMsg }, 'Clear capture consolidation failed (non-fatal)');
-          }
-        }
-
-        result.clearCapture = {
-          experiencesExtracted,
-          knowledgeExtracted,
-          consolidationDeduped,
-          processingTimeMs: Date.now() - clearStart,
-        };
-
-        logger.info(
-          {
-            sessionId: request.sessionId,
-            projectId: request.projectId,
-            experiencesExtracted,
-            knowledgeExtracted,
-            consolidationDeduped,
-            processingTimeMs: result.clearCapture.processingTimeMs,
-          },
-          'Lightweight capture pipeline completed before clear'
-        );
-      } catch (error) {
-        const errorMsg = `Clear capture pipeline failed: ${error instanceof Error ? error.message : String(error)}`;
-        errors.push(errorMsg);
-        logger.warn(
-          { sessionId: request.sessionId, error: errorMsg },
-          'Clear capture pipeline failed (non-fatal)'
-        );
-      }
-    }
-
-    // Stage 1: Latent Memory Warming
-    const latentConfig = this.config.modules.latentMemory;
-    if (
-      !request.skipWarmup &&
-      latentConfig.enabled &&
-      this.latentMemoryService &&
-      this.latentMemoryService.isAvailable()
-    ) {
-      try {
-        const warmupStart = Date.now();
-        logger.debug(
-          {
-            sessionId: request.sessionId,
-            projectId: request.projectId,
-            maxEntries: request.maxWarmEntries ?? latentConfig.maxWarmEntries,
-          },
-          'Running latent memory warmup'
-        );
-
-        // Build search query for relevant entries
-        // For session start, we want to pre-warm with entries that might be useful
-        const searchQuery = request.projectId
-          ? `project context session preparation`
-          : `general context session preparation`;
-
-        // Search for similar entries to pre-warm
-        const maxEntries = request.maxWarmEntries ?? latentConfig.maxWarmEntries ?? 100;
-        const similarEntries = await this.latentMemoryService.findSimilar(searchQuery, {
-          limit: maxEntries,
-          minScore: latentConfig.minImportanceScore ?? 0.3,
-          sourceTypes: ['guideline', 'knowledge', 'tool'],
-          sessionId: request.sessionId,
-        });
-
-        // Track access to warm entries (this updates importance and caches them)
-        let warmedCount = 0;
-        for (const entry of similarEntries) {
-          try {
-            await this.latentMemoryService.trackAccess(entry.id);
-            warmedCount++;
-          } catch (error) {
-            // Non-fatal: just log and continue
-            logger.debug(
-              { entryId: entry.id, error: error instanceof Error ? error.message : String(error) },
-              'Failed to track access during warmup'
-            );
-          }
-        }
-
-        result.warmup = {
-          entriesWarmed: warmedCount,
-          cacheHitRate: similarEntries.length > 0 ? warmedCount / similarEntries.length : 0,
-          processingTimeMs: Date.now() - warmupStart,
-        };
-
-        logger.debug(
-          {
-            sessionId: request.sessionId,
-            entriesWarmed: result.warmup.entriesWarmed,
-            cacheHitRate: result.warmup.cacheHitRate,
-            processingTimeMs: result.warmup.processingTimeMs,
-          },
-          'Latent memory warmup completed'
-        );
-      } catch (error) {
-        const errorMsg = `Latent memory warmup failed: ${error instanceof Error ? error.message : String(error)}`;
-        errors.push(errorMsg);
-        logger.warn(
-          { sessionId: request.sessionId, error: errorMsg },
-          'Latent memory warmup failed (non-fatal)'
-        );
-      }
-    } else if (!request.skipWarmup && latentConfig.enabled && !this.latentMemoryService) {
-      logger.debug(
-        { sessionId: request.sessionId },
-        'Latent memory service not available, skipping warmup'
-      );
-    } else if (
-      !request.skipWarmup &&
-      latentConfig.enabled &&
-      this.latentMemoryService &&
-      !this.latentMemoryService.isAvailable()
-    ) {
-      logger.debug(
-        { sessionId: request.sessionId },
-        'Latent memory service unavailable (embeddings disabled), skipping warmup'
-      );
-    }
-
-    // Finalize timing
-    const completedAt = new Date().toISOString();
-    result.timing = {
-      startedAt,
-      completedAt,
-      durationMs: new Date(completedAt).getTime() - new Date(startedAt).getTime(),
-    };
-
-    if (errors.length > 0) {
-      result.errors = errors;
-    }
-
-    this.lastSessionStart = result;
-
-    logger.info(
-      {
-        sessionId: request.sessionId,
-        source,
-        durationMs: result.timing.durationMs,
-        clearCapture: result.clearCapture
-          ? {
-              experiencesExtracted: result.clearCapture.experiencesExtracted,
-              knowledgeExtracted: result.clearCapture.knowledgeExtracted,
-              consolidationDeduped: result.clearCapture.consolidationDeduped,
-            }
-          : undefined,
-        warmup: result.warmup
-          ? {
-              entriesWarmed: result.warmup.entriesWarmed,
-              cacheHitRate: result.warmup.cacheHitRate,
-            }
-          : undefined,
-        errors: errors.length > 0 ? errors.length : undefined,
-      },
-      'Unified session start processing completed'
-    );
-
-    return result;
+    return this.sessionLifecycle.onSessionStart(request);
   }
 
   /**
    * Get last session start result
    */
   getLastSessionStart(): SessionStartResult | undefined {
-    return this.lastSessionStart;
+    return this.sessionLifecycle.getLastSessionStart();
   }
 }
 
@@ -1234,3 +711,5 @@ export {
   createRecommendationStore,
   getRecommendationStore,
 } from './recommendations/recommendation-store.js';
+export { SessionLifecycleHandler, type SessionLifecycleDeps } from './session-lifecycle.js';
+export { CheckpointManager, createCheckpointManager } from './checkpoint-manager.js';
