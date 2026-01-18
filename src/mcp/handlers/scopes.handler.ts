@@ -315,31 +315,82 @@ export const scopeHandlers = {
       throw createNotFoundError('Session', id);
     }
 
-    // Trigger capture service on session end (non-blocking)
-    const captureService = context.services.capture;
-    if (captureService && status !== 'discarded') {
-      captureService
-        .onSessionEnd(id)
+    // Trigger librarian session end (full learning pipeline) - non-blocking
+    const librarianService = context.services.librarian;
+    if (librarianService && status !== 'discarded') {
+      librarianService
+        .onSessionEnd({
+          sessionId: id,
+          projectId: session.projectId ?? undefined,
+          agentId: undefined, // Will be resolved from context
+          // Messages will be loaded from conversation history if available
+        })
         .then((result) => {
-          if (result.experiences.experiences.length > 0 || result.knowledge.knowledge.length > 0) {
+          const hasCapture =
+            result.capture &&
+            (result.capture.experiencesExtracted > 0 || result.capture.knowledgeExtracted > 0);
+          const hasAnalysis = result.analysis && result.analysis.patternsDetected > 0;
+
+          if (hasCapture || hasAnalysis) {
             logger.info(
               {
                 sessionId: id,
-                experiencesExtracted: result.experiences.experiences.length,
-                knowledgeExtracted: result.knowledge.knowledge.length,
-                guidelinesExtracted: result.knowledge.guidelines.length,
-                toolsExtracted: result.knowledge.tools.length,
+                capture: result.capture
+                  ? {
+                      experiences: result.capture.experiencesExtracted,
+                      knowledge: result.capture.knowledgeExtracted,
+                      guidelines: result.capture.guidelinesExtracted,
+                      tools: result.capture.toolsExtracted,
+                    }
+                  : undefined,
+                analysis: result.analysis
+                  ? {
+                      patterns: result.analysis.patternsDetected,
+                      queued: result.analysis.queuedForReview,
+                    }
+                  : undefined,
+                durationMs: result.timing.durationMs,
               },
-              'Session capture completed'
+              'Session end learning pipeline completed'
             );
           }
         })
         .catch((error) => {
           logger.error(
             { sessionId: id, error: error instanceof Error ? error.message : String(error) },
-            'Session capture failed'
+            'Session end learning pipeline failed'
           );
         });
+    } else if (status !== 'discarded') {
+      // Fallback to capture service if librarian not available
+      const captureService = context.services.capture;
+      if (captureService) {
+        captureService
+          .onSessionEnd(id)
+          .then((result) => {
+            if (
+              result.experiences.experiences.length > 0 ||
+              result.knowledge.knowledge.length > 0
+            ) {
+              logger.info(
+                {
+                  sessionId: id,
+                  experiencesExtracted: result.experiences.experiences.length,
+                  knowledgeExtracted: result.knowledge.knowledge.length,
+                  guidelinesExtracted: result.knowledge.guidelines.length,
+                  toolsExtracted: result.knowledge.tools.length,
+                },
+                'Session capture completed (fallback)'
+              );
+            }
+          })
+          .catch((error) => {
+            logger.error(
+              { sessionId: id, error: error instanceof Error ? error.message : String(error) },
+              'Session capture failed'
+            );
+          });
+      }
     }
 
     // Record task outcome for RL feedback (non-blocking)

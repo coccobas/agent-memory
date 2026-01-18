@@ -56,6 +56,8 @@ export interface WireContextInput {
   dbType: 'sqlite' | 'postgresql';
   /** PostgreSQL pool (for pgvector when dbType is 'postgresql') */
   pgPool?: Pool;
+  /** Skip ExtractionService initialization (for hooks that don't need it) */
+  skipExtractionService?: boolean;
 }
 
 /**
@@ -78,7 +80,8 @@ export interface WireContextInput {
  * @returns Fully wired AppContext
  */
 export async function wireContext(input: WireContextInput): Promise<AppContext> {
-  const { config, runtime, db, sqlite, repos, adapters, logger, dbType, pgPool } = input;
+  const { config, runtime, db, sqlite, repos, adapters, logger, dbType, pgPool, skipExtractionService } =
+    input;
 
   // Create permission cache adapter
   // Use Redis if enabled, otherwise use in-memory LRU cache
@@ -109,7 +112,9 @@ export async function wireContext(input: WireContextInput): Promise<AppContext> 
   const serviceDeps: ServiceDependencies = { dbType, pgPool, permissionCacheAdapter };
 
   // Create services with explicit configuration
-  const services = await createServices(config, runtime, db, serviceDeps);
+  const services = await createServices(config, runtime, db, serviceDeps, undefined, {
+    skipExtractionService,
+  });
 
   // Create ExperiencePromotionService (needs repos and adapters)
   const experiencePromotionService = createExperiencePromotionService({
@@ -168,6 +173,10 @@ export async function wireContext(input: WireContextInput): Promise<AppContext> 
   // Create SessionTimeoutService (auto-ends inactive sessions)
   const sessionTimeoutService = createSessionTimeoutService(config, repos.sessions);
   services.sessionTimeout = sessionTimeoutService;
+  // Wire capture service to session timeout for experience capture before auto-end
+  if (captureService) {
+    sessionTimeoutService.setCaptureService(captureService);
+  }
   // Start the timeout checker (runs in background, unref'd to not block process exit)
   sessionTimeoutService.start();
 

@@ -336,6 +336,30 @@ const completeHandler: ContextAwareHandler = async (
     context.db
   );
 
+  // Trigger automatic experience capture (non-blocking)
+  const captureService = context.services.capture;
+  if (captureService) {
+    captureService
+      .onEpisodeComplete({
+        id: episode.id,
+        name: episode.name,
+        description: episode.description,
+        outcome: episode.outcome,
+        outcomeType: episode.outcomeType,
+        durationMs: episode.durationMs,
+        scopeType: episode.scopeType,
+        scopeId: episode.scopeId,
+        sessionId: episode.sessionId,
+        events: episode.events,
+      })
+      .catch((error) => {
+        // Log but don't fail the episode completion
+        console.warn(
+          `Failed to capture experience from episode ${id}: ${error instanceof Error ? error.message : String(error)}`
+        );
+      });
+  }
+
   return formatTimestamps({
     success: true,
     episode,
@@ -371,6 +395,31 @@ const failHandler: ContextAwareHandler = async (
     },
     context.db
   );
+
+  // Trigger automatic experience capture (non-blocking)
+  // Failed episodes are valuable learnings too!
+  const captureService = context.services.capture;
+  if (captureService) {
+    captureService
+      .onEpisodeComplete({
+        id: episode.id,
+        name: episode.name,
+        description: episode.description,
+        outcome: episode.outcome,
+        outcomeType: episode.outcomeType,
+        durationMs: episode.durationMs,
+        scopeType: episode.scopeType,
+        scopeId: episode.scopeId,
+        sessionId: episode.sessionId,
+        events: episode.events,
+      })
+      .catch((error) => {
+        // Log but don't fail the episode failure recording
+        console.warn(
+          `Failed to capture experience from failed episode ${id}: ${error instanceof Error ? error.message : String(error)}`
+        );
+      });
+  }
 
   return formatTimestamps({
     success: true,

@@ -22,6 +22,10 @@ import type {
   RecordCaseParams,
   ExperienceCaptureResult,
   KnowledgeCaptureResult,
+  TrajectoryStep,
+  CaptureSessionState,
+  ExperienceCaptureConfig,
+  LearnPrompt,
 } from './types.js';
 import type { IExperienceRepository } from '../../core/interfaces/repositories.js';
 import type { RLService } from '../rl/index.js';
@@ -29,6 +33,7 @@ import { buildExtractionState } from '../rl/state/extraction.state.js';
 import type { FeedbackService } from '../feedback/index.js';
 import { createHash } from 'crypto';
 import type { EpisodeService } from '../episode/index.js';
+import { getExtractionTriggersService } from './triggers.js';
 
 const logger = createComponentLogger('capture');
 
@@ -114,6 +119,23 @@ export class CaptureService {
         guideline: 0.75,
         tool: 0.65,
       },
+      // Automatic experience capture configuration
+      experienceCapture: {
+        enabled: true,
+        triggers: {
+          sessionEnd: true, // Trigger 1: via librarian.onSessionEnd()
+          episodeComplete: true, // Trigger 2: on episode complete/fail
+          turnBased: true, // Trigger 3: detect error recovery, problem solved, etc.
+          promptComplex: true, // Trigger 4: prompt user after complex tasks
+        },
+        thresholds: {
+          turnConfidence: 0.8, // Min confidence for turn-based triggers
+          turnCooldownMs: 60000, // 60s cooldown between turn captures
+          maxPerSession: 10, // Max experiences per session
+          complexityToolCalls: 10, // Tool calls threshold for complexity
+          complexityDurationMs: 300000, // 5 minutes for complexity detection
+        },
+      },
     };
   }
 
@@ -128,6 +150,57 @@ export class CaptureService {
    * Update capture configuration
    */
   updateConfig(config: Partial<CaptureConfig>): void {
+    const currentExpConfig = this.captureConfig.experienceCapture;
+    const newExpConfig = config.experienceCapture;
+
+    // Build merged experience config with all required fields
+    const mergedExperienceCapture: ExperienceCaptureConfig | undefined =
+      currentExpConfig || newExpConfig
+        ? {
+            enabled: newExpConfig?.enabled ?? currentExpConfig?.enabled ?? true,
+            triggers: {
+              sessionEnd:
+                newExpConfig?.triggers?.sessionEnd ??
+                currentExpConfig?.triggers?.sessionEnd ??
+                true,
+              episodeComplete:
+                newExpConfig?.triggers?.episodeComplete ??
+                currentExpConfig?.triggers?.episodeComplete ??
+                true,
+              turnBased:
+                newExpConfig?.triggers?.turnBased ??
+                currentExpConfig?.triggers?.turnBased ??
+                true,
+              promptComplex:
+                newExpConfig?.triggers?.promptComplex ??
+                currentExpConfig?.triggers?.promptComplex ??
+                true,
+            },
+            thresholds: {
+              turnConfidence:
+                newExpConfig?.thresholds?.turnConfidence ??
+                currentExpConfig?.thresholds?.turnConfidence ??
+                0.8,
+              turnCooldownMs:
+                newExpConfig?.thresholds?.turnCooldownMs ??
+                currentExpConfig?.thresholds?.turnCooldownMs ??
+                60000,
+              maxPerSession:
+                newExpConfig?.thresholds?.maxPerSession ??
+                currentExpConfig?.thresholds?.maxPerSession ??
+                10,
+              complexityToolCalls:
+                newExpConfig?.thresholds?.complexityToolCalls ??
+                currentExpConfig?.thresholds?.complexityToolCalls ??
+                10,
+              complexityDurationMs:
+                newExpConfig?.thresholds?.complexityDurationMs ??
+                currentExpConfig?.thresholds?.complexityDurationMs ??
+                300000,
+            },
+          }
+        : undefined;
+
     this.captureConfig = {
       ...this.captureConfig,
       ...config,
@@ -147,6 +220,7 @@ export class CaptureService {
         ...this.captureConfig.confidence,
         ...config.confidence,
       },
+      experienceCapture: mergedExperienceCapture,
     };
   }
 
@@ -221,7 +295,15 @@ export class CaptureService {
   // =============================================================================
 
   /**
+   * Track last experience capture time per session for cooldown
+   */
+  private experienceCaptureTimes = new Map<string, number>();
+
+  /**
    * Handle a completed turn - track metrics and trigger turn-based capture if needed
+   *
+   * Extended to also check for experience-specific triggers and capture experiences
+   * when patterns like error recovery, problem solving, or lessons learned are detected.
    */
   async onTurnComplete(
     sessionId: string,
@@ -240,6 +322,14 @@ export class CaptureService {
     if (!sessionState) {
       return null;
     }
+
+    // Check for experience triggers (non-blocking)
+    this.checkExperienceTriggers(sessionId, turn, sessionState, options).catch((error) => {
+      logger.warn(
+        { error: error instanceof Error ? error.message : String(error), sessionId },
+        'Experience trigger check failed (non-fatal)'
+      );
+    });
 
     // Try RL policy first if enabled
     const rlService = this.rlService;
@@ -369,6 +459,337 @@ export class CaptureService {
     return result;
   }
 
+  /**
+   * Check for experience-specific triggers and capture experiences when detected.
+   *
+   * Triggers:
+   * - Error Recovery: Error followed by success
+   * - Problem Solved: "fixed", "solved", "working now"
+   * - Workaround Found: "workaround", "alternative"
+   * - Lesson Learned: "learned that", "note to self"
+   *
+   * Thresholds:
+   * - Min confidence: 0.8 (configurable)
+   * - Cooldown: 60s between experience captures (prevent spam)
+   * - Max per session: 10 experiences
+   */
+  private async checkExperienceTriggers(
+    sessionId: string,
+    turn: TurnData,
+    sessionState: CaptureSessionState,
+    options?: Partial<CaptureOptions>
+  ): Promise<ExperienceCaptureResult | null> {
+    // Check configuration (use experienceCapture config if available)
+    const experienceConfig = (this.captureConfig as CaptureConfig & { experienceCapture?: ExperienceCaptureConfig }).experienceCapture;
+    if (!experienceConfig?.enabled || !experienceConfig?.triggers?.turnBased) {
+      return null;
+    }
+
+    const thresholds = experienceConfig.thresholds;
+
+    // Check cooldown
+    const lastCaptureTime = this.experienceCaptureTimes.get(sessionId) ?? 0;
+    const cooldownMs = thresholds?.turnCooldownMs ?? 60000;
+    if (Date.now() - lastCaptureTime < cooldownMs) {
+      logger.debug({ sessionId, cooldownMs }, 'Experience capture on cooldown');
+      return null;
+    }
+
+    // Check max captures per session
+    const maxPerSession = thresholds?.maxPerSession ?? 10;
+    // Count experience captures (tracked separately in experienceCaptureTimes)
+    const experienceCaptureCount = this.experienceCaptureTimes.has(sessionId) ? 1 : 0;
+    if (experienceCaptureCount >= maxPerSession) {
+      logger.debug({ sessionId, maxPerSession }, 'Max experience captures reached for session');
+      return null;
+    }
+
+    // Detect experience triggers
+    const triggersService = getExtractionTriggersService();
+    const content = turn.content ?? '';
+    const triggerResult = triggersService.detectExperienceTriggers(content);
+
+    // Check if triggers meet threshold
+    const minConfidence = thresholds?.turnConfidence ?? 0.8;
+    const highConfidenceTriggers = triggerResult.triggers.filter((t) => t.confidence >= minConfidence);
+
+    if (highConfidenceTriggers.length === 0 && !triggerResult.shouldExtract) {
+      return null;
+    }
+
+    logger.info(
+      {
+        sessionId,
+        triggerCount: triggerResult.triggers.length,
+        highConfidence: highConfidenceTriggers.length,
+        triggerTypes: [...new Set(triggerResult.triggers.map((t) => t.type))],
+      },
+      'Experience triggers detected'
+    );
+
+    // Build title based on trigger types
+    const dominantTrigger = highConfidenceTriggers[0] ?? triggerResult.triggers[0];
+    const titlePrefix = this.getTitlePrefixForTrigger(dominantTrigger?.type);
+
+    // Extract context around the trigger
+    const contextStart = Math.max(0, (dominantTrigger?.spanStart ?? 0) - 100);
+    const contextEnd = Math.min(content.length, (dominantTrigger?.spanEnd ?? 100) + 200);
+    const contextText = content.slice(contextStart, contextEnd).trim();
+
+    // Record the experience
+    const result = await this.recordCase({
+      projectId: sessionState.projectId,
+      sessionId,
+
+      title: `${titlePrefix}${this.summarizeContext(contextText, 50)}`,
+      scenario: 'Detected from conversation turn',
+      outcome: dominantTrigger?.matchedText ?? 'Trigger detected',
+      content: contextText,
+
+      category: `turn-trigger-${dominantTrigger?.type ?? 'unknown'}`,
+      confidence: dominantTrigger?.confidence ?? 0.8,
+      source: 'observation',
+
+      ...options,
+    });
+
+    // Record capture time for cooldown
+    if (result.experiences.length > 0) {
+      this.experienceCaptureTimes.set(sessionId, Date.now());
+      logger.info(
+        {
+          sessionId,
+          experienceId: result.experiences[0]?.experience?.id,
+          triggerType: dominantTrigger?.type,
+        },
+        'Turn-based experience captured'
+      );
+    }
+
+    return result;
+  }
+
+  /**
+   * Get title prefix based on trigger type
+   */
+  private getTitlePrefixForTrigger(triggerType: string | undefined): string {
+    switch (triggerType) {
+      case 'error_recovery':
+        return 'Fixed: ';
+      case 'problem_solved':
+        return 'Solved: ';
+      case 'workaround_found':
+        return 'Workaround: ';
+      case 'lesson_learned':
+        return 'Learned: ';
+      case 'recovery':
+        return 'Recovered: ';
+      default:
+        return 'Experience: ';
+    }
+  }
+
+  /**
+   * Summarize context text for title
+   */
+  private summarizeContext(text: string, maxLength: number): string {
+    // Remove newlines and extra spaces
+    const cleaned = text.replace(/\s+/g, ' ').trim();
+    if (cleaned.length <= maxLength) {
+      return cleaned;
+    }
+    return cleaned.slice(0, maxLength - 3) + '...';
+  }
+
+  // =============================================================================
+  // COMPLEX TASK DETECTION
+  // =============================================================================
+
+  /**
+   * Check if current session has completed a complex task worth capturing.
+   *
+   * Complexity signals:
+   * - 10+ tool calls in sequence
+   * - 5+ minutes elapsed on task
+   * - Error → retry → success pattern
+   * - Multiple file edits
+   *
+   * @param sessionId - The session to check
+   * @returns LearnPrompt if complex task detected, null otherwise
+   */
+  detectComplexTask(sessionId: string): LearnPrompt | null {
+    const sessionState = this.stateManager.getSession(sessionId);
+    if (!sessionState) {
+      return null;
+    }
+
+    // Check configuration
+    const experienceConfig = (this.captureConfig as CaptureConfig & { experienceCapture?: ExperienceCaptureConfig }).experienceCapture;
+    if (!experienceConfig?.enabled || !experienceConfig?.triggers?.promptComplex) {
+      return null;
+    }
+
+    const thresholds = experienceConfig.thresholds;
+    const metrics = sessionState.metrics;
+    const signals: string[] = [];
+    let complexity = 0;
+
+    // Signal 1: High tool call count
+    const toolCallThreshold = thresholds?.complexityToolCalls ?? 10;
+    if (metrics.toolCallCount >= toolCallThreshold) {
+      signals.push(`${metrics.toolCallCount} tool calls`);
+      complexity += 30;
+    }
+
+    // Signal 2: Long duration
+    const durationThreshold = thresholds?.complexityDurationMs ?? 300000; // 5 minutes
+    const duration = metrics.lastTurnTime - metrics.startTime;
+    if (duration >= durationThreshold) {
+      signals.push(`${Math.round(duration / 60000)} minutes elapsed`);
+      complexity += 25;
+    }
+
+    // Signal 3: Error → retry → success pattern
+    const hasErrorRecovery = this.detectErrorRecoveryPattern(sessionState.transcript);
+    if (hasErrorRecovery) {
+      signals.push('error recovery pattern');
+      complexity += 35;
+    }
+
+    // Signal 4: Multiple file edits
+    const fileEdits = this.countFileEdits(sessionState.transcript);
+    if (fileEdits >= 3) {
+      signals.push(`${fileEdits} file edits`);
+      complexity += 20;
+    }
+
+    // Need at least 50 complexity to suggest
+    if (complexity < 50 || signals.length === 0) {
+      return null;
+    }
+
+    // Generate suggestion based on context
+    const suggestion = this.generateLearnSuggestion(sessionState.transcript, signals);
+    const confidence = Math.min(1, complexity / 100);
+
+    logger.debug(
+      {
+        sessionId,
+        complexity,
+        signals,
+        suggestion: suggestion.slice(0, 50),
+      },
+      'Complex task detected'
+    );
+
+    return {
+      suggestion,
+      confidence,
+      action: `memory_experience action:learn text:"${suggestion.replace(/"/g, '\\"')}"`,
+      signals,
+    };
+  }
+
+  /**
+   * Detect error → retry → success pattern in transcript
+   */
+  private detectErrorRecoveryPattern(transcript: TurnData[]): boolean {
+    let sawError = false;
+
+    for (const turn of transcript) {
+      const content = turn.content?.toLowerCase() ?? '';
+
+      // Check for error indicators
+      if (
+        content.includes('error') ||
+        content.includes('failed') ||
+        content.includes('exception') ||
+        content.includes('doesn\'t work') ||
+        content.includes('not working')
+      ) {
+        sawError = true;
+      }
+
+      // Check for success after error
+      if (sawError) {
+        if (
+          content.includes('fixed') ||
+          content.includes('solved') ||
+          content.includes('working now') ||
+          content.includes('success') ||
+          content.includes('it works')
+        ) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Count file edits in transcript (based on tool calls)
+   */
+  private countFileEdits(transcript: TurnData[]): number {
+    const editedFiles = new Set<string>();
+
+    for (const turn of transcript) {
+      if (!turn.toolCalls) continue;
+
+      for (const toolCall of turn.toolCalls) {
+        // Look for edit/write tool calls
+        if (toolCall.name === 'Edit' || toolCall.name === 'Write') {
+          const filePath = (toolCall.input as Record<string, unknown>)?.file_path;
+          if (typeof filePath === 'string') {
+            editedFiles.add(filePath);
+          }
+        }
+      }
+    }
+
+    return editedFiles.size;
+  }
+
+  /**
+   * Generate a learn suggestion based on transcript context
+   */
+  private generateLearnSuggestion(transcript: TurnData[], signals: string[]): string {
+    // Find the most recent meaningful content
+    const recentAssistantTurns = transcript
+      .filter((t) => t.role === 'assistant' && t.content)
+      .slice(-3);
+
+    // Look for action verbs to understand what was done
+    const actionPatterns = [
+      /fixed\s+(.{10,50})/i,
+      /solved\s+(.{10,50})/i,
+      /implemented\s+(.{10,50})/i,
+      /added\s+(.{10,50})/i,
+      /created\s+(.{10,50})/i,
+      /updated\s+(.{10,50})/i,
+      /refactored\s+(.{10,50})/i,
+      /configured\s+(.{10,50})/i,
+    ];
+
+    for (const turn of recentAssistantTurns.reverse()) {
+      for (const pattern of actionPatterns) {
+        const match = turn.content?.match(pattern);
+        if (match) {
+          const action = match[0].replace(/\s+/g, ' ').trim();
+          return action.charAt(0).toUpperCase() + action.slice(1);
+        }
+      }
+    }
+
+    // Fallback: use signals to describe
+    if (signals.includes('error recovery pattern')) {
+      return 'Fixed an error by debugging and applying a solution';
+    }
+
+    // Generic fallback
+    return `Completed complex task with ${signals.join(', ')}`;
+  }
+
   // =============================================================================
   // SESSION END HANDLING
   // =============================================================================
@@ -488,6 +909,114 @@ export class CaptureService {
   }
 
   // =============================================================================
+  // EPISODE COMPLETION HANDLING
+  // =============================================================================
+
+  /**
+   * Handle episode completion - automatically capture an experience from the episode.
+   *
+   * Builds an experience from:
+   * - title: "Episode: {name}"
+   * - scenario: episode.description or "Task execution"
+   * - outcome: episode.outcome + outcomeType
+   * - trajectory: episode.events → steps
+   *
+   * @param episode - The completed/failed episode with events
+   * @returns Captured experience result
+   */
+  async onEpisodeComplete(episode: {
+    id: string;
+    name: string;
+    description?: string | null;
+    outcome?: string | null;
+    outcomeType?: string | null;
+    durationMs?: number | null;
+    scopeType?: string;
+    scopeId?: string | null;
+    sessionId?: string | null;
+    events?: Array<{
+      eventType: string;
+      name: string;
+      description?: string | null;
+      data?: string | null;
+      occurredAt: string;
+    }>;
+  }): Promise<ExperienceCaptureResult> {
+    if (!this.captureConfig.enabled) {
+      return {
+        experiences: [],
+        skippedDuplicates: 0,
+        processingTimeMs: 0,
+      };
+    }
+
+    const startTime = Date.now();
+
+    // Build trajectory from episode events
+    const trajectory: TrajectoryStep[] = (episode.events ?? []).map((event) => {
+      let parsedData: Record<string, unknown> | undefined;
+      if (event.data) {
+        try {
+          parsedData = JSON.parse(event.data) as Record<string, unknown>;
+        } catch {
+          // Ignore parse errors
+        }
+      }
+
+      return {
+        action: event.name,
+        observation: event.description ?? undefined,
+        reasoning: parsedData?.reasoning as string | undefined,
+        toolUsed: parsedData?.toolUsed as string | undefined,
+        success: event.eventType !== 'error',
+        timestamp: event.occurredAt,
+      };
+    });
+
+    // Determine outcome based on outcomeType
+    const outcomeText =
+      episode.outcome ??
+      (episode.outcomeType === 'success'
+        ? 'Completed successfully'
+        : episode.outcomeType === 'failure'
+          ? 'Failed'
+          : episode.outcomeType === 'partial'
+            ? 'Partially completed'
+            : 'Abandoned');
+
+    // Record as a case experience
+    const result = await this.recordCase({
+      projectId: episode.scopeType === 'project' ? (episode.scopeId ?? undefined) : undefined,
+      sessionId: episode.sessionId ?? undefined,
+      episodeId: episode.id,
+
+      title: `Episode: ${episode.name}`,
+      scenario: episode.description ?? 'Task execution',
+      outcome: outcomeText,
+      content: `Outcome type: ${episode.outcomeType ?? 'unknown'}. Duration: ${episode.durationMs ?? 0}ms.`,
+
+      trajectory,
+      category: 'episode-completion',
+      confidence: episode.outcomeType === 'success' ? 0.85 : 0.7,
+      source: 'observation',
+    });
+
+    logger.info(
+      {
+        episodeId: episode.id,
+        episodeName: episode.name,
+        outcomeType: episode.outcomeType,
+        experiencesCaptured: result.experiences.length,
+        trajectorySteps: trajectory.length,
+        processingTimeMs: Date.now() - startTime,
+      },
+      'Episode completion experience captured'
+    );
+
+    return result;
+  }
+
+  // =============================================================================
   // EXPLICIT RECORDING
   // =============================================================================
 
@@ -572,6 +1101,8 @@ export type {
   TrajectoryStep,
   ExtractionWindow,
   CaptureSessionState,
+  ExperienceCaptureConfig,
+  LearnPrompt,
 } from './types.js';
 export { ExperienceCaptureModule, createExperienceCaptureModule } from './experience.module.js';
 export {

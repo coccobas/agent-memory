@@ -37,7 +37,12 @@ export type TriggerType =
   | 'decision'
   | 'rule'
   | 'command'
-  | 'preference';
+  | 'preference'
+  // Experience-specific triggers (added for automatic experience capture)
+  | 'error_recovery'
+  | 'problem_solved'
+  | 'workaround_found'
+  | 'lesson_learned';
 
 /**
  * Suggested memory entry type based on trigger
@@ -220,6 +225,84 @@ const TRIGGER_PATTERNS: TriggerPattern[] = [
       /\b(for\s+me,?\s+(it's|the)\s+better)/gi,
     ],
   },
+
+  // ===========================================================================
+  // EXPERIENCE-SPECIFIC TRIGGERS
+  // These indicate high-value learning opportunities
+  // ===========================================================================
+
+  // Error recovery - error followed by successful resolution
+  {
+    type: 'error_recovery',
+    confidence: 0.9,
+    suggestedType: 'experience',
+    priorityBoost: 45,
+    patterns: [
+      /\b(error|exception|failure|failed)\b.{0,100}\b(fixed|solved|resolved|working now)/gis,
+      /\b(was\s+failing).{0,50}\b(now\s+(works|working|fixed))/gis,
+      /\b(the\s+error\s+was\s+caused\s+by)/gi,
+      /\b(debugging|investigated).{0,30}\b(found|discovered|identified)\s+(the|that)/gi,
+      /\b(stack\s*trace|traceback).{0,100}\b(fix|solution|cause)/gis,
+      /\b(build\s+(failed|error)).{0,100}\b(fixed|resolved)/gis,
+      /\b(test(s)?\s+(failing|failed)).{0,100}\b(pass(ing|ed)?|fixed)/gis,
+    ],
+  },
+
+  // Problem solved - explicit success after struggle
+  {
+    type: 'problem_solved',
+    confidence: 0.85,
+    suggestedType: 'experience',
+    priorityBoost: 40,
+    patterns: [
+      /\b(finally\s+(got|figured|worked|fixed|solved))/gi,
+      /\b(that\s+(did\s+it|worked|fixed\s+it|solved\s+it))/gi,
+      /\b(problem\s+(solved|fixed|resolved))/gi,
+      /\b(issue\s+(resolved|fixed|gone|solved))/gi,
+      /\b(it('s|\s+is)\s+(working|fixed)\s+now)/gi,
+      /\b(success!|it\s+works!|working!)/gi,
+      /\b(the\s+solution\s+was)/gi,
+      /\b(solved\s+by\s+(using|changing|adding|removing))/gi,
+    ],
+  },
+
+  // Workaround found - alternative solutions
+  {
+    type: 'workaround_found',
+    confidence: 0.8,
+    suggestedType: 'experience',
+    priorityBoost: 35,
+    patterns: [
+      /\b(workaround\s*(is|was|:))/gi,
+      /\b(alternative\s+(solution|approach|method|way))/gi,
+      /\b(instead,?\s*(we|i|you)\s*(can|could|should))/gi,
+      /\b(a\s+hack\s+(is|was|:))/gi,
+      /\b(temporary\s+(fix|solution))/gi,
+      /\b(as\s+a\s+fallback)/gi,
+      /\b(found\s+a\s+way\s+around)/gi,
+      /\b(bypass(ed|ing)?\s+the\s+(issue|problem|error))/gi,
+    ],
+  },
+
+  // Lesson learned - explicit learning statement
+  {
+    type: 'lesson_learned',
+    confidence: 0.85,
+    suggestedType: 'experience',
+    priorityBoost: 40,
+    patterns: [
+      /\b(lesson\s+learned)/gi,
+      /\b(learned\s+that)/gi,
+      /\b(next\s+time,?\s*(i|we)\s*(will|should|must))/gi,
+      /\b(note\s+to\s+self)/gi,
+      /\b(remember\s+to\s+always)/gi,
+      /\b(in\s+the\s+future,?\s*(i|we)\s*(will|should))/gi,
+      /\b(won't\s+make\s+that\s+mistake\s+again)/gi,
+      /\b(now\s+i\s+(know|understand)\s+that)/gi,
+      /\b(the\s+takeaway\s+(is|was))/gi,
+      /\b(key\s+(insight|learning|takeaway))/gi,
+    ],
+  },
 ];
 
 // =============================================================================
@@ -381,7 +464,49 @@ export class ExtractionTriggersService {
    * Get all supported trigger types
    */
   getSupportedTriggerTypes(): TriggerType[] {
-    return ['correction', 'recovery', 'enthusiasm', 'decision', 'rule', 'command', 'preference'];
+    return [
+      'correction',
+      'recovery',
+      'enthusiasm',
+      'decision',
+      'rule',
+      'command',
+      'preference',
+      'error_recovery',
+      'problem_solved',
+      'workaround_found',
+      'lesson_learned',
+    ];
+  }
+
+  /**
+   * Get experience-specific trigger types
+   */
+  getExperienceTriggerTypes(): TriggerType[] {
+    return ['error_recovery', 'problem_solved', 'workaround_found', 'lesson_learned', 'recovery'];
+  }
+
+  /**
+   * Detect experience-specific triggers only
+   *
+   * @param text - The text to analyze
+   * @returns Detection result with only experience triggers
+   */
+  detectExperienceTriggers(text: string): TriggerDetectionResult {
+    const result = this.detect(text);
+    const experienceTypes = this.getExperienceTriggerTypes();
+
+    const experienceTriggers = result.triggers.filter((t) => experienceTypes.includes(t.type));
+
+    const totalPriorityBoost = experienceTriggers.reduce((sum, t) => sum + t.priorityBoost, 0);
+    const hasHighConfidenceTriggers = experienceTriggers.some((t) => t.confidence >= 0.85);
+
+    return {
+      triggers: experienceTriggers,
+      totalPriorityBoost,
+      hasHighConfidenceTriggers,
+      shouldExtract: hasHighConfidenceTriggers || totalPriorityBoost >= 35,
+    };
   }
 
   /**

@@ -197,6 +197,26 @@ export interface CaptureOptions {
 }
 
 /**
+ * Configuration for experience capture triggers and thresholds
+ */
+export interface ExperienceCaptureConfig {
+  enabled: boolean;
+  triggers: {
+    sessionEnd: boolean; // Trigger on session end (via librarian)
+    episodeComplete: boolean; // Trigger on episode complete/fail
+    turnBased: boolean; // Trigger on turn with experience patterns
+    promptComplex: boolean; // Prompt user after complex tasks
+  };
+  thresholds: {
+    turnConfidence: number; // Min confidence for turn triggers (default: 0.8)
+    turnCooldownMs: number; // Cooldown between turn captures (default: 60000)
+    maxPerSession: number; // Max experiences per session (default: 10)
+    complexityToolCalls: number; // Tool calls threshold for complexity (default: 10)
+    complexityDurationMs: number; // Duration threshold for complexity (default: 300000)
+  };
+}
+
+/**
  * Configuration for capture thresholds and behavior
  */
 export interface CaptureConfig {
@@ -234,6 +254,9 @@ export interface CaptureConfig {
     guideline: number;
     tool: number;
   };
+
+  // Experience capture settings (optional, for automatic experience capture)
+  experienceCapture?: ExperienceCaptureConfig;
 }
 
 // =============================================================================
@@ -286,4 +309,19 @@ export interface ContentHash {
   entryType: 'experience' | 'knowledge' | 'guideline' | 'tool';
   entryId: string;
   createdAt: number;
+}
+
+/**
+ * Learn prompt suggestion returned when a complex task is detected.
+ * Used by Trigger 4: Complex Task Prompts.
+ */
+export interface LearnPrompt {
+  /** Suggested learn text based on context */
+  suggestion: string;
+  /** Confidence in the suggestion (0-1) */
+  confidence: number;
+  /** Ready-to-use action for the user */
+  action: string;
+  /** Complexity signals that triggered this prompt */
+  signals: string[];
 }

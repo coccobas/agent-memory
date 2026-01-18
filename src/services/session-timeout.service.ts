@@ -9,11 +9,13 @@
  * - Periodic check for stale sessions
  * - Configurable inactivity timeout
  * - Graceful shutdown support
+ * - **Triggers capture pipeline before ending sessions**
  */
 
 import type { Config } from '../config/index.js';
 import type { ISessionRepository } from '../core/interfaces/repositories.js';
 import { createComponentLogger } from '../utils/logger.js';
+import type { CaptureService } from './capture/index.js';
 
 const logger = createComponentLogger('session-timeout');
 
@@ -47,6 +49,12 @@ export interface ISessionTimeoutService {
    * Get the last activity timestamp for a session
    */
   getLastActivity(sessionId: string): number | undefined;
+
+  /**
+   * Set the capture service for triggering capture on session timeout.
+   * Call this after construction if CaptureService wasn't available initially.
+   */
+  setCaptureService(captureService: CaptureService): void;
 }
 
 // =============================================================================
@@ -61,6 +69,7 @@ export class SessionTimeoutService implements ISessionTimeoutService {
   private readonly enabled: boolean;
   // Bug #283/#217 fix: Cap the number of tracked sessions to prevent unbounded memory growth
   private static readonly MAX_TRACKED_SESSIONS = 10000;
+  private captureService?: CaptureService;
 
   constructor(
     config: Config,
@@ -69,6 +78,14 @@ export class SessionTimeoutService implements ISessionTimeoutService {
     this.enabled = config.autoContext.sessionTimeoutEnabled ?? true;
     this.inactivityMs = config.autoContext.sessionInactivityMs ?? 30 * 60 * 1000; // 30 min default
     this.checkIntervalMs = config.autoContext.sessionTimeoutCheckMs ?? 5 * 60 * 1000; // 5 min default
+  }
+
+  /**
+   * Set the capture service for triggering capture on session timeout.
+   */
+  setCaptureService(captureService: CaptureService): void {
+    this.captureService = captureService;
+    logger.debug('Capture service set for session timeout');
   }
 
   recordActivity(sessionId: string): void {
@@ -113,6 +130,44 @@ export class SessionTimeoutService implements ISessionTimeoutService {
         // Verify session is still active before ending
         const session = await this.sessionRepo.getById(sessionId);
         if (session && session.status === 'active') {
+          // Trigger capture before ending (non-blocking, but we await it for orderly shutdown)
+          if (this.captureService) {
+            try {
+              const captureResult = await this.captureService.onSessionEnd(sessionId, {
+                projectId: session.projectId ?? undefined,
+                scopeType: session.projectId ? 'project' : 'session',
+                scopeId: session.projectId ?? sessionId,
+                autoStore: true,
+                skipDuplicates: true,
+              });
+
+              const hasCaptures =
+                captureResult.experiences.experiences.length > 0 ||
+                captureResult.knowledge.knowledge.length > 0;
+
+              if (hasCaptures) {
+                logger.info(
+                  {
+                    sessionId,
+                    experiences: captureResult.experiences.experiences.length,
+                    knowledge: captureResult.knowledge.knowledge.length,
+                    guidelines: captureResult.knowledge.guidelines.length,
+                  },
+                  'Captured experiences before timeout session end'
+                );
+              }
+            } catch (captureError) {
+              // Non-fatal: log and continue with session end
+              logger.warn(
+                {
+                  sessionId,
+                  error: captureError instanceof Error ? captureError.message : String(captureError),
+                },
+                'Capture failed before timeout session end (non-fatal)'
+              );
+            }
+          }
+
           await this.sessionRepo.end(sessionId, 'completed');
           logger.info(
             { sessionId, inactiveForMs: now - (this.activityMap.get(sessionId) ?? now) },
