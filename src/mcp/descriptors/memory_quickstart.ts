@@ -14,7 +14,11 @@ import type { SimpleToolDescriptor } from './types.js';
 import { queryHandlers } from '../handlers/query.handler.js';
 import { scopeHandlers } from '../handlers/scopes.handler.js';
 import type { SessionStartParams } from '../types.js';
-import { formatBadges, icons } from '../../utils/terminal-formatter.js';
+import {
+  formatQuickstartDashboard,
+  type QuickstartDisplayData,
+  type QuickstartDisplayMode,
+} from '../../utils/terminal-formatter.js';
 import type { EntryType, ScopeType } from '../../db/schema.js';
 import type { PermissionLevel } from '../../services/permission.service.js';
 import type { MemoryHealth } from '../../services/librarian/types.js';
@@ -22,184 +26,6 @@ import {
   detectEpisodeTrigger,
   type EpisodeTriggerType,
 } from '../../services/intent-detection/patterns.js';
-
-interface QuickstartSummary {
-  projectLine?: string;
-  sessionLine: string;
-  episodeLine?: string;
-  countsLine: string;
-  criticalLine?: string;
-  workItemsLine?: string;
-  librarianLine?: string;
-  healthLine?: string;
-}
-
-/**
- * Build a human-readable summary for quickstart response
- */
-function buildQuickstartSummary(
-  projectAction: 'created' | 'exists' | 'none' | 'error',
-  sessionAction: 'created' | 'resumed' | 'none' | 'error',
-  sessionName: string | null,
-  projectName: string | null,
-  contextResult: Record<string, unknown>,
-  permissionsGranted: number,
-  pendingRecommendations: number = 0,
-  health?: MemoryHealth | null,
-  recommendationPreviews: Array<{ title: string; type: string }> = [],
-  activeEpisode?: { id: string; name: string; status: string } | null,
-  episodeAction: 'exists' | 'created' | 'none' = 'none'
-): QuickstartSummary {
-  // Project line (only if project was created or attempted)
-  let projectLine: string | undefined;
-  if (projectAction === 'created') {
-    const permNote = permissionsGranted > 0 ? ` + ${permissionsGranted} permissions` : '';
-    projectLine = `${icons.success} Project: ${projectName} created${permNote}`;
-  } else if (projectAction === 'error') {
-    projectLine = `${icons.failure} Project: creation failed`;
-  }
-
-  // Session line
-  let sessionLine: string;
-  const sessionIcon =
-    sessionAction === 'created' || sessionAction === 'resumed' ? icons.active : icons.inactive;
-  if (sessionAction === 'created') {
-    sessionLine = `${icons.session} Session: ${sessionName} ${sessionIcon} created`;
-  } else if (sessionAction === 'resumed') {
-    sessionLine = `${icons.session} Session: ${sessionName} ${sessionIcon} resumed`;
-  } else if (sessionAction === 'error') {
-    sessionLine = `${icons.session} Session: ${icons.failure} failed to start`;
-  } else {
-    sessionLine = `${icons.session} Session: (none)`;
-  }
-
-  // Episode line (only if session exists and episode service is available)
-  let episodeLine: string | undefined;
-  if (activeEpisode) {
-    const statusIcon = activeEpisode.status === 'active' ? icons.active : icons.inactive;
-    const autoTag = episodeAction === 'created' ? ' (auto)' : '';
-    episodeLine = `🎬 Episode: ${activeEpisode.name} ${statusIcon}${autoTag}`;
-  }
-
-  // Counts from context - handle both hierarchical and non-hierarchical formats
-  const ctx = contextResult as {
-    // Non-hierarchical format (verbose: true)
-    guidelines?: unknown[];
-    knowledge?: unknown[];
-    tools?: unknown[];
-    // Hierarchical format (verbose: false, default)
-    summary?: {
-      totalEntries?: number;
-      byType?: Record<string, number>;
-    };
-  };
-
-  // Extract counts based on response format
-  let guidelineCount: number;
-  let knowledgeCount: number;
-  let toolCount: number;
-
-  if (ctx.summary?.byType) {
-    // Hierarchical format - counts are in summary.byType
-    guidelineCount = ctx.summary.byType.guideline ?? 0;
-    knowledgeCount = ctx.summary.byType.knowledge ?? 0;
-    toolCount = ctx.summary.byType.tool ?? 0;
-  } else {
-    // Non-hierarchical format - counts from array lengths
-    guidelineCount = ctx.guidelines?.length ?? 0;
-    knowledgeCount = ctx.knowledge?.length ?? 0;
-    toolCount = ctx.tools?.length ?? 0;
-  }
-
-  const badges = [];
-  if (guidelineCount > 0) badges.push({ label: 'guidelines', value: guidelineCount });
-  if (knowledgeCount > 0) badges.push({ label: 'knowledge', value: knowledgeCount });
-  if (toolCount > 0) badges.push({ label: 'tools', value: toolCount });
-
-  const countsLine =
-    badges.length > 0
-      ? `${icons.project} ${projectName ?? 'Project'}: ${formatBadges(badges)}`
-      : `${icons.project} ${projectName ?? 'Project'}: (empty)`;
-
-  // Critical guidelines (priority >= 90) - handle both formats
-  // Extend ctx type to include hierarchical critical items and work items
-  const ctxWithExtras = contextResult as {
-    guidelines?: Array<{ name?: string; priority?: number }>;
-    critical?: Array<{ title?: string; priority?: number }>;
-    workItems?: Array<{ title?: string; type?: string }>;
-  };
-
-  let criticalNames: string[];
-  if (ctxWithExtras.critical && ctxWithExtras.critical.length > 0) {
-    // Hierarchical format - critical items are pre-extracted with 'title' field
-    criticalNames = ctxWithExtras.critical.map((c) => c.title ?? 'unnamed').filter(Boolean);
-  } else if (ctxWithExtras.guidelines) {
-    // Non-hierarchical format - filter from guidelines array
-    criticalNames = ctxWithExtras.guidelines
-      .filter((g) => (g.priority ?? 0) >= 90)
-      .map((g) => g.name ?? 'unnamed')
-      .filter(Boolean);
-  } else {
-    criticalNames = [];
-  }
-
-  const criticalLine =
-    criticalNames.length > 0 ? `${icons.warning} Critical: ${criticalNames.join(', ')}` : undefined;
-
-  // Work items ([TODO], [BUG], [LIMITATION], etc.)
-  let workItemsLine: string | undefined;
-  if (ctxWithExtras.workItems && ctxWithExtras.workItems.length > 0) {
-    const workItemTitles = ctxWithExtras.workItems
-      .slice(0, 3)
-      .map((w) => w.title ?? 'unnamed')
-      .filter(Boolean);
-    const moreCount = ctxWithExtras.workItems.length - 3;
-    const moreText = moreCount > 0 ? ` (+${moreCount} more)` : '';
-    workItemsLine = `📋 Work items: ${workItemTitles.join(', ')}${moreText}`;
-  }
-
-  // Librarian pending recommendations
-  let librarianLine: string | undefined;
-  if (pendingRecommendations > 0) {
-    const patternWord = pendingRecommendations > 1 ? 'patterns' : 'pattern';
-    if (recommendationPreviews.length > 0) {
-      // Show preview titles (truncate to fit)
-      const previewTitles = recommendationPreviews
-        .slice(0, 2)
-        .map((r) => (r.title.length > 25 ? r.title.slice(0, 22) + '...' : r.title))
-        .join(', ');
-      const moreText = pendingRecommendations > 2 ? ` (+${pendingRecommendations - 2} more)` : '';
-      librarianLine = `🔔 Librarian: ${previewTitles}${moreText} — use memory_librarian action:approve to accept`;
-    } else {
-      librarianLine = `🔔 Librarian: ${pendingRecommendations} ${patternWord} ready for review`;
-    }
-  }
-
-  // Memory health score
-  let healthLine: string | undefined;
-  if (health) {
-    const gradeEmoji =
-      health.grade === 'excellent'
-        ? '🟢'
-        : health.grade === 'good'
-          ? '🔵'
-          : health.grade === 'fair'
-            ? '🟡'
-            : '🔴';
-    healthLine = `${gradeEmoji} Memory health: ${health.score}/100 (${health.grade})`;
-  }
-
-  return {
-    projectLine,
-    sessionLine,
-    episodeLine,
-    countsLine,
-    criticalLine,
-    workItemsLine,
-    librarianLine,
-    healthLine,
-  };
-}
 
 export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
   name: 'memory_quickstart',
@@ -244,6 +70,13 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
       type: 'boolean',
       description: 'Return full context instead of hierarchical summary (default: false)',
     },
+    // Display mode
+    displayMode: {
+      type: 'string',
+      enum: ['compact', 'standard', 'full'],
+      description:
+        'Display verbosity: compact (1-line summary), standard (boxed sections, default), full (with hints)',
+    },
     // Episode auto-creation
     autoEpisode: {
       type: 'boolean',
@@ -279,6 +112,9 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
 
     // Verbosity - default to hierarchical (compact) mode
     const verbose = (args?.verbose as boolean) ?? false;
+
+    // Display mode - default to standard
+    const displayMode = (args?.displayMode as QuickstartDisplayMode) ?? 'standard';
 
     // Episode auto-creation - default to true
     const autoEpisode = (args?.autoEpisode as boolean) ?? true;
@@ -513,10 +349,12 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
 
     // Extract entry counts from context result for graph hint
     const ctxForCounts = contextResult as {
-      guidelines?: unknown[];
+      guidelines?: Array<{ name?: string; priority?: number }>;
       knowledge?: unknown[];
       tools?: unknown[];
       summary?: { byType?: Record<string, number> };
+      critical?: Array<{ title?: string; priority?: number }>;
+      workItems?: Array<{ title?: string; type?: string }>;
     };
     const entryGuidelineCount =
       ctxForCounts.summary?.byType?.guideline ?? ctxForCounts.guidelines?.length ?? 0;
@@ -525,24 +363,25 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
     const entryToolCount = ctxForCounts.summary?.byType?.tool ?? ctxForCounts.tools?.length ?? 0;
     const totalEntries = entryGuidelineCount + entryKnowledgeCount + entryToolCount;
 
-    // Build human-readable summary
+    // Extract critical guideline names for display
+    let criticalNames: string[];
+    if (ctxForCounts.critical && ctxForCounts.critical.length > 0) {
+      // Hierarchical format - critical items are pre-extracted with 'title' field
+      criticalNames = ctxForCounts.critical.map((c) => c.title ?? 'unnamed').filter(Boolean);
+    } else if (ctxForCounts.guidelines) {
+      // Non-hierarchical format - filter from guidelines array
+      criticalNames = ctxForCounts.guidelines
+        .filter((g) => (g.priority ?? 0) >= 90)
+        .map((g) => g.name ?? 'unnamed')
+        .filter(Boolean);
+    } else {
+      criticalNames = [];
+    }
+
+    // Build effective session name for display
     const effectiveSessionName = existingSessionName ?? sessionName ?? null;
-    const summary = buildQuickstartSummary(
-      projectAction,
-      sessionAction,
-      effectiveSessionName,
-      detectedProjectName,
-      contextResult as Record<string, unknown>,
-      permissionsGranted,
-      pendingRecommendations,
-      memoryHealth,
-      recommendationPreviews,
-      activeEpisode,
-      episodeAction
-    );
 
     // Add graph statistics if available
-    let graphSummary: string | undefined;
     let graphStats: { nodes: number; edges: number; hint?: string; available: boolean } | undefined;
     if (detectedProjectId) {
       try {
@@ -556,18 +395,14 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
 
           graphStats = { nodes: nodes.length, edges: edges.length, available: true };
 
-          if (nodes.length > 0) {
-            graphSummary = `📊 Graph: ${nodes.length} nodes, ${edges.length} edges`;
-          } else if (totalEntries > 0) {
+          if (nodes.length === 0 && totalEntries > 0) {
             // Hint when entries exist but graph is empty
-            graphSummary = `📊 Graph: empty (${totalEntries} entries can be backfilled)`;
             graphStats.hint = `Run memory_librarian action:run_maintenance tasks:["graphBackfill"] to populate`;
           }
         } else {
           // Graph repos not available - show hint about graph feature
           graphStats = { nodes: 0, edges: 0, available: false };
           if (totalEntries > 5) {
-            graphSummary = `📊 Graph: available (run maintenance to enable relationship tracking)`;
             graphStats.hint = `The knowledge graph can track relationships between entries. Run memory_librarian action:run_maintenance to enable.`;
           }
         }
@@ -594,35 +429,49 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
       }
     }
 
-    // Build _display string
-    const displayLines: string[] = [];
-    if (summary.projectLine) {
-      displayLines.push(summary.projectLine);
-    }
-    displayLines.push(summary.sessionLine);
-    if (summary.episodeLine) {
-      displayLines.push(summary.episodeLine);
-    }
-    displayLines.push(summary.countsLine);
-    if (summary.criticalLine) {
-      displayLines.push(summary.criticalLine);
-    }
-    if (summary.workItemsLine) {
-      displayLines.push(summary.workItemsLine);
-    }
-    if (summary.librarianLine) {
-      displayLines.push(summary.librarianLine);
-    }
-    if (summary.healthLine) {
-      displayLines.push(summary.healthLine);
-    }
-    if (graphSummary) {
-      displayLines.push(graphSummary);
-    }
-    if (experienceHint) {
-      displayLines.push(experienceHint);
-    }
-    const _display = displayLines.join('\n');
+    // Build _display string using the new formatter
+    const displayData: QuickstartDisplayData = {
+      projectName: detectedProjectName,
+      session: {
+        name: effectiveSessionName,
+        status: sessionAction === 'created' ? 'active' : sessionAction,
+      },
+      episode: activeEpisode
+        ? {
+            name: activeEpisode.name,
+            status: activeEpisode.status,
+            autoCreated: episodeAction === 'created',
+          }
+        : null,
+      counts: {
+        guidelines: entryGuidelineCount,
+        knowledge: entryKnowledgeCount,
+        tools: entryToolCount,
+      },
+      critical: criticalNames.length > 0 ? criticalNames : undefined,
+      workItems: ctxForCounts.workItems?.slice(0, 3).map((w) => w.title ?? 'unnamed'),
+      health: memoryHealth
+        ? { score: memoryHealth.score, grade: memoryHealth.grade }
+        : null,
+      graph: graphStats
+        ? { nodes: graphStats.nodes, edges: graphStats.edges, hint: graphStats.hint }
+        : null,
+      librarian:
+        pendingRecommendations > 0
+          ? {
+              pendingCount: pendingRecommendations,
+              previews: recommendationPreviews.map((r) => ({ title: r.title, type: r.type })),
+            }
+          : null,
+      hints: {
+        experienceRecording: experienceHint
+          ? 'Record learnings with memory_experience action:record_case to enable pattern detection'
+          : undefined,
+        tip: graphStats?.hint,
+      },
+    };
+
+    const _display = formatQuickstartDashboard(displayData, displayMode);
 
     // Build combined response with clear action indicator
     return {

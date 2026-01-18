@@ -225,10 +225,11 @@ export function formatBox(lines: string[], options: BoxOptions = {}): string {
     result.push(`${box.topLeft}${repeat(box.horizontal, width - 2)}${box.topRight}`);
   }
 
-  // Content lines
+  // Content lines - pad to innerWidth-1 to leave room for trailing space before border
+  const contentWidth = innerWidth - 1;
   for (const line of lines) {
-    const paddedLine = padRight(line, innerWidth);
-    result.push(`${box.vertical} ${truncate(paddedLine, innerWidth - 1)}${box.vertical}`);
+    const paddedLine = padRight(line, contentWidth);
+    result.push(`${box.vertical} ${truncate(paddedLine, contentWidth)}${box.vertical}`);
   }
 
   // Bottom border
@@ -680,4 +681,248 @@ export function formatListTerminal(items: ListItem[], type: string): string {
   );
 
   return lines.join('\n');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Quickstart Dashboard Formatter
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type QuickstartDisplayMode = 'compact' | 'standard' | 'full';
+
+export interface QuickstartDisplayData {
+  projectName: string | null;
+  session: {
+    name: string | null;
+    status: 'active' | 'resumed' | 'none' | 'error';
+  };
+  episode?: {
+    name: string;
+    status: string;
+    autoCreated?: boolean;
+  } | null;
+  counts: {
+    guidelines: number;
+    knowledge: number;
+    tools: number;
+  };
+  critical?: string[];
+  workItems?: string[];
+  health?: {
+    score: number;
+    grade: 'excellent' | 'good' | 'fair' | 'poor';
+  } | null;
+  graph?: {
+    nodes: number;
+    edges: number;
+    hint?: string;
+  } | null;
+  librarian?: {
+    pendingCount: number;
+    previews?: Array<{ title: string; type: string }>;
+  } | null;
+  hints?: {
+    experienceRecording?: string;
+    tip?: string;
+  };
+}
+
+/**
+ * Format quickstart dashboard with configurable display mode
+ *
+ * Modes:
+ * - compact: Single-line summary for minimal context usage
+ * - standard: Boxed sections with tables (default)
+ * - full: Standard + tips, hints, and actionable commands
+ */
+export function formatQuickstartDashboard(
+  data: QuickstartDisplayData,
+  mode: QuickstartDisplayMode = 'standard'
+): string {
+  if (mode === 'compact') {
+    return formatQuickstartCompact(data);
+  }
+
+  const lines: string[] = [];
+
+  // Session box
+  lines.push(formatSessionBox(data));
+
+  // Memory box
+  lines.push('');
+  lines.push(formatMemoryBox(data));
+
+  // Critical guidelines (outside box for emphasis)
+  if (data.critical && data.critical.length > 0) {
+    lines.push('');
+    lines.push(`${icons.warning} Critical: ${data.critical.join(', ')}`);
+  }
+
+  // Work items
+  if (data.workItems && data.workItems.length > 0) {
+    lines.push(`📋 Work items: ${data.workItems.join(', ')}`);
+  }
+
+  // Librarian recommendations
+  if (data.librarian && data.librarian.pendingCount > 0) {
+    const patternWord = data.librarian.pendingCount > 1 ? 'patterns' : 'pattern';
+    if (data.librarian.previews && data.librarian.previews.length > 0) {
+      const previewTitles = data.librarian.previews
+        .slice(0, 2)
+        .map((r) => truncate(r.title, 25))
+        .join(', ');
+      const moreText =
+        data.librarian.pendingCount > 2 ? ` (+${data.librarian.pendingCount - 2} more)` : '';
+      lines.push(`🔔 Librarian: ${previewTitles}${moreText}`);
+    } else {
+      lines.push(`🔔 Librarian: ${data.librarian.pendingCount} ${patternWord} ready for review`);
+    }
+  }
+
+  // Full mode: add hints and tips
+  if (mode === 'full') {
+    if (data.hints?.experienceRecording) {
+      lines.push('');
+      lines.push(`💡 Tip: ${data.hints.experienceRecording}`);
+    }
+    if (data.hints?.tip) {
+      lines.push(`💡 ${data.hints.tip}`);
+    }
+    if (data.graph?.hint) {
+      lines.push(`💡 ${data.graph.hint}`);
+    }
+  }
+
+  return lines.join('\n');
+}
+
+/**
+ * Compact single-line format
+ * Example: ● agent-memory │ Session: active │ 40g/77k/7t │ Health: 67%
+ */
+function formatQuickstartCompact(data: QuickstartDisplayData): string {
+  const parts: string[] = [];
+
+  // Status dot + project name
+  const statusDot = data.session.status === 'active' || data.session.status === 'resumed' ? '●' : '○';
+  parts.push(`${statusDot} ${data.projectName ?? 'Project'}`);
+
+  // Session status
+  const sessionStatus =
+    data.session.status === 'active'
+      ? 'active'
+      : data.session.status === 'resumed'
+        ? 'resumed'
+        : data.session.status === 'error'
+          ? 'error'
+          : 'none';
+  parts.push(`Session: ${sessionStatus}`);
+
+  // Counts (compact: 40g/77k/7t)
+  const { guidelines: g, knowledge: k, tools: t } = data.counts;
+  parts.push(`${g}g/${k}k/${t}t`);
+
+  // Health (if available)
+  if (data.health) {
+    parts.push(`Health: ${data.health.score}%`);
+  }
+
+  return parts.join(' │ ');
+}
+
+/**
+ * Format the session section box
+ */
+function formatSessionBox(data: QuickstartDisplayData): string {
+  const lines: string[] = [];
+
+  // Session line
+  const sessionIcon =
+    data.session.status === 'active' || data.session.status === 'resumed'
+      ? icons.active
+      : icons.inactive;
+  const sessionStatusText =
+    data.session.status === 'resumed' ? 'resumed' : data.session.status === 'active' ? 'active' : '';
+  const sessionName = data.session.name ?? '(none)';
+  lines.push(`${icons.session} ${padRight(sessionName, 32)} ${sessionIcon} ${sessionStatusText}`);
+
+  // Episode line (if present)
+  if (data.episode) {
+    const episodeIcon = data.episode.status === 'active' ? icons.active : icons.inactive;
+    const autoTag = data.episode.autoCreated ? ' (auto)' : '';
+    lines.push(`🎬 ${padRight(data.episode.name, 32)} ${episodeIcon}${autoTag}`);
+  }
+
+  return formatBox(lines, { title: 'Session', width: 60 });
+}
+
+/**
+ * Format the memory section box with table
+ */
+function formatMemoryBox(data: QuickstartDisplayData): string {
+  const lines: string[] = [];
+
+  // Build table rows
+  const rows: string[][] = [];
+
+  // Guidelines row with health
+  const healthStr = data.health
+    ? `${getHealthEmoji(data.health.grade)} ${data.health.score}/100 (${data.health.grade})`
+    : '';
+  rows.push(['Guidelines', String(data.counts.guidelines), healthStr]);
+
+  // Knowledge row
+  rows.push(['Knowledge', String(data.counts.knowledge), '']);
+
+  // Tools row
+  rows.push(['Tools', String(data.counts.tools), '']);
+
+  // Format the table
+  const table = formatTable(rows, {
+    headers: ['Type', 'Count', 'Health'],
+    alignRight: [1],
+  });
+  lines.push(table);
+
+  // Graph stats (if available, shown as footer inside box)
+  if (data.graph && (data.graph.nodes > 0 || data.graph.edges > 0)) {
+    // We'll add graph info after the box
+  }
+
+  // Build the memory box content
+  const memoryLines: string[] = [];
+
+  // Type/Count/Health as simple rows (we'll manually construct the table look)
+  const healthDisplay = data.health
+    ? `${getHealthEmoji(data.health.grade)} ${data.health.score}/100 (${data.health.grade})`
+    : '';
+
+  memoryLines.push(`Type        │ Count │ Health`);
+  memoryLines.push(`────────────┼───────┼${'─'.repeat(32)}`);
+  memoryLines.push(`Guidelines  │ ${padLeft(String(data.counts.guidelines), 5)} │ ${healthDisplay}`);
+  memoryLines.push(`Knowledge   │ ${padLeft(String(data.counts.knowledge), 5)} │`);
+  memoryLines.push(`Tools       │ ${padLeft(String(data.counts.tools), 5)} │`);
+
+  // Graph stats footer
+  if (data.graph) {
+    memoryLines.push(`────────────┴───────┴${'─'.repeat(32)}`);
+    memoryLines.push(`📊 Graph: ${data.graph.nodes} nodes, ${data.graph.edges} edges`);
+  }
+
+  return formatBox(memoryLines, { title: 'Memory', width: 60 });
+}
+
+/**
+ * Get emoji for health grade
+ */
+function getHealthEmoji(grade: 'excellent' | 'good' | 'fair' | 'poor'): string {
+  switch (grade) {
+    case 'excellent':
+      return '🟢';
+    case 'good':
+      return '🔵';
+    case 'fair':
+      return '🟡';
+    case 'poor':
+      return '🔴';
+  }
 }
