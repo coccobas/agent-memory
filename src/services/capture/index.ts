@@ -26,6 +26,8 @@ import type {
   CaptureSessionState,
   ExperienceCaptureConfig,
   LearnPrompt,
+  RecordBehaviorObservationParams,
+  ToolUseEvent,
 } from './types.js';
 import type { IExperienceRepository } from '../../core/interfaces/repositories.js';
 import type { RLService } from '../rl/index.js';
@@ -127,6 +129,7 @@ export class CaptureService {
           episodeComplete: true, // Trigger 2: on episode complete/fail
           turnBased: true, // Trigger 3: detect error recovery, problem solved, etc.
           promptComplex: true, // Trigger 4: prompt user after complex tasks
+          behaviorObservation: true, // Trigger 5: hook-based behavior observation
         },
         thresholds: {
           turnConfidence: 0.8, // Min confidence for turn-based triggers
@@ -134,6 +137,8 @@ export class CaptureService {
           maxPerSession: 10, // Max experiences per session
           complexityToolCalls: 10, // Tool calls threshold for complexity
           complexityDurationMs: 300000, // 5 minutes for complexity detection
+          minToolSequenceLength: 3, // Min tools in sequence to analyze
+          behaviorConfidence: 0.75, // Min confidence for behavior patterns
         },
       },
     };
@@ -175,6 +180,10 @@ export class CaptureService {
                 newExpConfig?.triggers?.promptComplex ??
                 currentExpConfig?.triggers?.promptComplex ??
                 true,
+              behaviorObservation:
+                newExpConfig?.triggers?.behaviorObservation ??
+                currentExpConfig?.triggers?.behaviorObservation ??
+                true,
             },
             thresholds: {
               turnConfidence:
@@ -197,6 +206,14 @@ export class CaptureService {
                 newExpConfig?.thresholds?.complexityDurationMs ??
                 currentExpConfig?.thresholds?.complexityDurationMs ??
                 300000,
+              minToolSequenceLength:
+                newExpConfig?.thresholds?.minToolSequenceLength ??
+                currentExpConfig?.thresholds?.minToolSequenceLength ??
+                3,
+              behaviorConfidence:
+                newExpConfig?.thresholds?.behaviorConfidence ??
+                currentExpConfig?.thresholds?.behaviorConfidence ??
+                0.75,
             },
           }
         : undefined;
@@ -1053,6 +1070,158 @@ export class CaptureService {
   }
 
   // =============================================================================
+  // BEHAVIOR OBSERVATION (Trigger 5)
+  // =============================================================================
+
+  /**
+   * Record a behavior observation as an experience.
+   *
+   * Converts detected behavior patterns from tool sequences into structured
+   * experience entries with trajectories.
+   *
+   * @param params - The behavior observation parameters
+   * @returns Captured experience result
+   */
+  async recordBehaviorObservation(
+    params: RecordBehaviorObservationParams
+  ): Promise<ExperienceCaptureResult> {
+    if (!this.captureConfig.enabled) {
+      return {
+        experiences: [],
+        skippedDuplicates: 0,
+        processingTimeMs: 0,
+      };
+    }
+
+    // Check if behavior observation trigger is enabled
+    const experienceConfig = this.captureConfig.experienceCapture;
+    if (!experienceConfig?.enabled || !experienceConfig?.triggers?.behaviorObservation) {
+      logger.debug(
+        { sessionId: params.sessionId },
+        'Behavior observation trigger is disabled'
+      );
+      return {
+        experiences: [],
+        skippedDuplicates: 0,
+        processingTimeMs: 0,
+      };
+    }
+
+    const startTime = Date.now();
+    const { sessionId, projectId, agentId, pattern, events, episodeId } = params;
+
+    // Build trajectory from tool events that form this pattern
+    const patternEvents: ToolUseEvent[] = [];
+    for (const idx of pattern.eventIndices) {
+      const event = events[idx];
+      if (event) {
+        patternEvents.push(event);
+      }
+    }
+
+    const trajectory: TrajectoryStep[] = patternEvents.map((event) => ({
+      action: `${event.toolName}: ${this.summarizeToolInput(event.toolInput)}`,
+      observation: event.outputSummary,
+      toolUsed: event.toolName,
+      success: event.success,
+      timestamp: event.timestamp,
+      durationMs: event.durationMs,
+    }));
+
+    // Record as a case experience with the pattern details
+    const result = await this.recordCase({
+      projectId,
+      sessionId,
+      agentId,
+      episodeId,
+
+      title: pattern.title,
+      scenario: pattern.scenario,
+      outcome: pattern.outcome,
+      content: this.buildBehaviorPatternContent(pattern, patternEvents),
+
+      trajectory,
+      category: `behavior-${pattern.type}`,
+      confidence: pattern.confidence,
+      source: 'observation',
+    });
+
+    logger.info(
+      {
+        sessionId,
+        patternType: pattern.type,
+        patternTitle: pattern.title,
+        confidence: pattern.confidence,
+        trajectorySteps: trajectory.length,
+        experiencesCaptured: result.experiences.length,
+        processingTimeMs: Date.now() - startTime,
+      },
+      'Behavior observation recorded as experience'
+    );
+
+    return result;
+  }
+
+  /**
+   * Summarize tool input for trajectory display
+   */
+  private summarizeToolInput(input: Record<string, unknown>): string {
+    // Handle common tool input patterns
+    if (input.command) {
+      const cmd = String(input.command);
+      return cmd.length > 60 ? cmd.slice(0, 57) + '...' : cmd;
+    }
+    if (input.file_path) {
+      return String(input.file_path).split('/').pop() ?? String(input.file_path);
+    }
+    if (input.pattern) {
+      return `pattern: ${String(input.pattern)}`;
+    }
+
+    // Fallback: stringify first key-value pair
+    const keys = Object.keys(input);
+    if (keys.length === 0) return '(no input)';
+    const firstKey = keys[0] ?? '';
+    if (!firstKey) return '(no input)';
+    const value = input[firstKey];
+    const firstValue = String(value).slice(0, 40);
+    return `${firstKey}: ${firstValue}${String(value).length > 40 ? '...' : ''}`;
+  }
+
+  /**
+   * Build content string from behavior pattern and events
+   */
+  private buildBehaviorPatternContent(
+    pattern: RecordBehaviorObservationParams['pattern'],
+    events: ToolUseEvent[]
+  ): string {
+    const lines: string[] = [
+      `Pattern: ${pattern.type}`,
+      `Confidence: ${(pattern.confidence * 100).toFixed(0)}%`,
+      '',
+      `Scenario: ${pattern.scenario}`,
+      `Outcome: ${pattern.outcome}`,
+      '',
+    ];
+
+    if (pattern.applicability) {
+      lines.push(`When to apply: ${pattern.applicability}`);
+    }
+    if (pattern.contraindications) {
+      lines.push(`When NOT to apply: ${pattern.contraindications}`);
+    }
+
+    if (events.length > 0) {
+      lines.push('', 'Tool sequence:');
+      for (const event of events) {
+        lines.push(`- ${event.toolName}: ${this.summarizeToolInput(event.toolInput)}`);
+      }
+    }
+
+    return lines.join('\n');
+  }
+
+  // =============================================================================
   // SESSION MANAGEMENT
   // =============================================================================
 
@@ -1103,6 +1272,13 @@ export type {
   CaptureSessionState,
   ExperienceCaptureConfig,
   LearnPrompt,
+  // Behavior observation types (Trigger 5)
+  ToolUseEvent,
+  BehaviorPatternType,
+  DetectedBehaviorPattern,
+  BehaviorAnalysisResult,
+  RecordBehaviorObservationParams,
+  BehaviorObservationConfig,
 } from './types.js';
 export { ExperienceCaptureModule, createExperienceCaptureModule } from './experience.module.js';
 export {
@@ -1110,3 +1286,10 @@ export {
   createKnowledgeCaptureModule,
   type KnowledgeModuleDeps,
 } from './knowledge.module.js';
+
+// Behavior observer service (Trigger 5)
+export {
+  BehaviorObserverService,
+  getBehaviorObserverService,
+  resetBehaviorObserverService,
+} from './behavior-observer.js';

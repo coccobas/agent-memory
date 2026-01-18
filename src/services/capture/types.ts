@@ -206,6 +206,7 @@ export interface ExperienceCaptureConfig {
     episodeComplete: boolean; // Trigger on episode complete/fail
     turnBased: boolean; // Trigger on turn with experience patterns
     promptComplex: boolean; // Prompt user after complex tasks
+    behaviorObservation?: boolean; // Trigger 5: hook-based behavior observation
   };
   thresholds: {
     turnConfidence: number; // Min confidence for turn triggers (default: 0.8)
@@ -213,6 +214,8 @@ export interface ExperienceCaptureConfig {
     maxPerSession: number; // Max experiences per session (default: 10)
     complexityToolCalls: number; // Tool calls threshold for complexity (default: 10)
     complexityDurationMs: number; // Duration threshold for complexity (default: 300000)
+    minToolSequenceLength?: number; // Min tools in sequence to analyze (default: 3)
+    behaviorConfidence?: number; // Min confidence for behavior patterns (default: 0.75)
   };
 }
 
@@ -324,4 +327,117 @@ export interface LearnPrompt {
   action: string;
   /** Complexity signals that triggered this prompt */
   signals: string[];
+}
+
+// =============================================================================
+// BEHAVIOR OBSERVATION TYPES (Trigger 5)
+// =============================================================================
+
+/**
+ * A tool use event captured during a session.
+ * Recorded by the pre-tooluse hook for later analysis.
+ */
+export interface ToolUseEvent {
+  /** Tool name (e.g., 'Edit', 'Bash', 'Read') */
+  toolName: string;
+  /** Tool input parameters */
+  toolInput: Record<string, unknown>;
+  /** ISO timestamp when the tool was invoked */
+  timestamp: string;
+  /** Session ID for grouping */
+  sessionId: string;
+  /** Optional project ID */
+  projectId?: string;
+  /** Optional agent ID */
+  agentId?: string;
+  /** Sequence number within the session */
+  sequenceNumber: number;
+  /** Optional: whether the tool succeeded (populated post-execution if available) */
+  success?: boolean;
+  /** Optional: tool output/result summary */
+  outputSummary?: string;
+  /** Optional: duration in milliseconds */
+  durationMs?: number;
+}
+
+/**
+ * Types of behavior patterns that can be detected from tool sequences
+ */
+export type BehaviorPatternType =
+  | 'stale_code' // Test → fails → discover code not deployed → rebuild → works
+  | 'config_discovery' // Operation fails → investigate → find config issue → fix → works
+  | 'dependency_chain' // Action A fails → discover needs B first → do B → A works
+  | 'retry_variant' // Approach A fails → try approach B → works
+  | 'build_then_test' // Build command followed by test
+  | 'investigation_success' // Error → read files/search → find cause → fix
+  | 'iterative_fix'; // Multiple attempts with incremental fixes
+
+/**
+ * A detected behavior pattern from tool sequence analysis
+ */
+export interface DetectedBehaviorPattern {
+  /** Type of pattern detected */
+  type: BehaviorPatternType;
+  /** Confidence score (0-1) */
+  confidence: number;
+  /** Generated title for the experience */
+  title: string;
+  /** Scenario description */
+  scenario: string;
+  /** Outcome/learning from the pattern */
+  outcome: string;
+  /** Indices of events that form this pattern */
+  eventIndices: number[];
+  /** Applicability: when this pattern applies */
+  applicability?: string;
+  /** Contraindications: when NOT to apply */
+  contraindications?: string;
+}
+
+/**
+ * Result from analyzing tool sequences for behavior patterns
+ */
+export interface BehaviorAnalysisResult {
+  /** Detected patterns */
+  patterns: DetectedBehaviorPattern[];
+  /** Total events analyzed */
+  eventsAnalyzed: number;
+  /** Processing time in milliseconds */
+  processingTimeMs: number;
+  /** Session ID analyzed */
+  sessionId: string;
+}
+
+/**
+ * Parameters for recording a behavior observation as an experience
+ */
+export interface RecordBehaviorObservationParams {
+  /** Session ID where the behavior was observed */
+  sessionId: string;
+  /** Optional project ID */
+  projectId?: string;
+  /** Optional agent ID */
+  agentId?: string;
+  /** The detected pattern */
+  pattern: DetectedBehaviorPattern;
+  /** The tool events that formed this pattern */
+  events: ToolUseEvent[];
+  /** Optional episode ID to link */
+  episodeId?: string;
+}
+
+/**
+ * Configuration for behavior observation
+ */
+export interface BehaviorObservationConfig {
+  /** Enable behavior observation (default: true) */
+  enabled: boolean;
+  /** Minimum tool sequence length to analyze (default: 3) */
+  minToolSequenceLength: number;
+  /** Minimum confidence for behavior patterns (default: 0.75) */
+  behaviorConfidence: number;
+  /** Maximum events to store per session (default: 100) */
+  maxEventsPerSession: number;
+  /** Event expiry time in milliseconds (default: 3600000 = 1 hour) */
+  eventExpiryMs: number;
 }

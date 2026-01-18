@@ -11,6 +11,7 @@ import {
 } from '../../utils/metrics.js';
 import { getContext } from '../../core/container.js';
 import { DEFAULT_LIBRARIAN_CONFIG } from '../../services/librarian/types.js';
+import { getBehaviorObserverService } from '../../services/capture/behavior-observer.js';
 
 const logger = createComponentLogger('session-end');
 
@@ -105,6 +106,68 @@ export async function runSessionEndCommand(params: {
             error: observeError instanceof Error ? observeError.message : String(observeError),
           },
           'Auto-observe failed on session end (non-fatal)'
+        );
+      }
+
+      // Run behavior analysis (Trigger 5: Hook-Based Behavior Observation)
+      // Analyzes tool use sequences to detect patterns and record experiences
+      try {
+        const behaviorObserver = getBehaviorObserverService();
+        const analysisResult = behaviorObserver.analyzeSession(sessionId);
+
+        if (analysisResult.patterns.length > 0) {
+          logger.info(
+            {
+              sessionId,
+              patternsDetected: analysisResult.patterns.length,
+              patternTypes: analysisResult.patterns.map((p) => p.type),
+              eventsAnalyzed: analysisResult.eventsAnalyzed,
+            },
+            'Behavior patterns detected from tool sequences'
+          );
+
+          // Record detected patterns as experiences via CaptureService
+          const ctx = getContext();
+          const captureService = ctx.services.capture;
+
+          if (captureService) {
+            for (const pattern of analysisResult.patterns) {
+              try {
+                await captureService.recordBehaviorObservation({
+                  sessionId,
+                  projectId,
+                  agentId,
+                  pattern,
+                  events: behaviorObserver.getSessionEvents(sessionId),
+                });
+                logger.debug(
+                  { sessionId, patternType: pattern.type, patternTitle: pattern.title },
+                  'Behavior pattern recorded as experience'
+                );
+              } catch (recordError) {
+                logger.warn(
+                  {
+                    sessionId,
+                    patternType: pattern.type,
+                    error: recordError instanceof Error ? recordError.message : String(recordError),
+                  },
+                  'Failed to record behavior pattern (non-fatal)'
+                );
+              }
+            }
+          }
+        }
+
+        // Clear session data from behavior observer after analysis
+        behaviorObserver.clearSession(sessionId);
+      } catch (behaviorError) {
+        // Don't fail the session end if behavior analysis fails - just log it
+        logger.warn(
+          {
+            sessionId,
+            error: behaviorError instanceof Error ? behaviorError.message : String(behaviorError),
+          },
+          'Behavior analysis failed on session end (non-fatal)'
         );
       }
 

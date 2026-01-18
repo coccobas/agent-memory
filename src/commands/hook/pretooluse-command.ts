@@ -7,6 +7,7 @@ import {
 import { createComponentLogger } from '../../utils/logger.js';
 import type { ClaudeHookInput, HookCommandResult } from './types.js';
 import { extractProposedActionFromTool } from './shared.js';
+import { getBehaviorObserverService } from '../../services/capture/behavior-observer.js';
 
 const logger = createComponentLogger('pretooluse');
 
@@ -98,6 +99,25 @@ export async function runPreToolUseCommand(params: {
   // Collect output
   const stdout: string[] = [];
   const stderr: string[] = [];
+
+  // Step 0: Behavior Observation (record tool use event for later analysis)
+  // This captures every tool use event with metadata for pattern detection at session end
+  if (sessionId) {
+    try {
+      const behaviorObserver = getBehaviorObserverService();
+      behaviorObserver.recordEvent(sessionId, input.tool_name ?? 'unknown', toolParams ?? {}, {
+        projectId,
+        agentId,
+      });
+      logger.debug({ sessionId, toolName: input.tool_name }, 'Tool use event recorded for behavior observation');
+    } catch (error) {
+      // Behavior observation is non-blocking
+      logger.debug(
+        { error: error instanceof Error ? error.message : String(error), sessionId },
+        'Behavior observation recording failed (non-blocking)'
+      );
+    }
+  }
 
   // Step 1: Context Injection (if enabled)
   if (config.injectContext) {
