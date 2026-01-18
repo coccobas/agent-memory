@@ -16,3 +16,6 @@ export * from './episodes.js';
 
 // Graph repositories (flexible knowledge graph)
 export * from './graph/index.js';
+
+// Hook metrics (Claude Code hook analytics)
+export * from './hook-metrics.js';

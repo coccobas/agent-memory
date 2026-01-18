@@ -28,6 +28,7 @@ import { createTypeRegistry } from '../../services/graph/index.js';
 import { createTaskRepository } from '../../db/repositories/tasks.js';
 import { createEvidenceRepository } from '../../db/repositories/evidence.js';
 import { createEpisodeRepository } from '../../db/repositories/episodes.js';
+import { createHookMetricsRepository } from '../../db/repositories/hook-metrics.js';
 
 /**
  * Create all repositories with injected dependencies
@@ -67,5 +68,7 @@ export function createRepositories(deps: DatabaseDeps): Repositories {
     evidence: createEvidenceRepository(deps),
     // Episode repository (Temporal Activity Grouping)
     episodes: createEpisodeRepository(deps),
+    // Hook metrics repository (Claude Code hook analytics)
+    hookMetrics: createHookMetricsRepository(deps.db),
   };
 }

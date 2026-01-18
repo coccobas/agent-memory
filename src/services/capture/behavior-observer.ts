@@ -544,6 +544,59 @@ export class BehaviorObserverService {
   }
 
   /**
+   * Update the latest event for a session with result data (called from PostToolUse hook)
+   *
+   * @param sessionId - Session ID
+   * @param result - Result data to update the event with
+   */
+  updateLatestEventResult(
+    sessionId: string,
+    result: {
+      success?: boolean;
+      outputSummary?: string;
+      durationMs?: number;
+    }
+  ): boolean {
+    const events = this.eventsBySession.get(sessionId);
+    if (!events || events.length === 0) {
+      logger.debug({ sessionId }, 'No events to update for session');
+      return false;
+    }
+
+    const latestEvent = events[events.length - 1];
+    if (!latestEvent) {
+      return false;
+    }
+
+    // Update the event with result data
+    if (result.success !== undefined) {
+      latestEvent.success = result.success;
+    }
+    if (result.outputSummary !== undefined) {
+      latestEvent.outputSummary = result.outputSummary;
+    }
+    if (result.durationMs !== undefined) {
+      latestEvent.durationMs = result.durationMs;
+    } else {
+      // Calculate duration from timestamp if not provided
+      const eventTime = new Date(latestEvent.timestamp).getTime();
+      latestEvent.durationMs = Date.now() - eventTime;
+    }
+
+    logger.debug(
+      {
+        sessionId,
+        toolName: latestEvent.toolName,
+        success: latestEvent.success,
+        durationMs: latestEvent.durationMs,
+      },
+      'Tool event updated with result'
+    );
+
+    return true;
+  }
+
+  /**
    * Analyze tool sequence for behavior patterns (called from session-end hook)
    */
   analyzeSession(sessionId: string): BehaviorAnalysisResult {

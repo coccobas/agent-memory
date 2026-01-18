@@ -46,6 +46,7 @@ import type { PaginationOptions } from '../../db/repositories/base.js';
 import type { IConflictRepository, ListConflictsFilter } from '../../db/repositories/conflicts.js';
 import type { ITaskRepository } from '../../db/repositories/tasks.js';
 import type { IEvidenceRepository } from '../../db/repositories/evidence.js';
+import type { IHookMetricsRepository } from '../../db/repositories/hook-metrics.js';
 
 // Narrower type for conversation context entry types (excludes 'project')
 export type ContextEntryType = 'tool' | 'guideline' | 'knowledge';
@@ -1283,4 +1284,6 @@ export interface Repositories {
   evidence?: IEvidenceRepository;
   // Episode repository (Temporal Activity Grouping)
   episodes?: IEpisodeRepository;
+  // Hook metrics repository (Claude Code hook analytics)
+  hookMetrics?: IHookMetricsRepository;
 }

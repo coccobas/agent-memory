@@ -536,6 +536,20 @@ export interface AnalyticsGetLowDiversityParams {
   scopeId?: string;
 }
 
+/**
+ * Hook analytics params for tool, subagent, and notification stats
+ */
+export interface HookAnalyticsParams {
+  sessionId?: string;
+  projectId?: string;
+  startDate?: string;
+  endDate?: string;
+  timeRange?: 'day' | 'week' | 'month' | 'all';
+  toolNames?: string[];
+  subagentTypes?: string[];
+  severity?: 'error' | 'warning' | 'info';
+}
+
 // =============================================================================
 // VOTING PARAMS
 // =============================================================================

@@ -26,6 +26,18 @@ import {
 } from './adapters/index.js';
 
 /**
+ * Options for createAppContext
+ */
+export interface CreateAppContextOptions {
+  /**
+   * Skip ExtractionService initialization.
+   * Used by hooks that don't need extraction to avoid SSRF validation errors
+   * when using localhost LLM endpoints in production mode.
+   */
+  skipExtractionService?: boolean;
+}
+
+/**
  * Create a new Application Context
  *
  * This factory initializes all core dependencies using specialized sub-factories.
@@ -33,9 +45,14 @@ import {
  *
  * @param config - The application configuration
  * @param runtime - The process-scoped runtime instance (required)
+ * @param options - Optional context creation options
  * @returns Fully initialized AppContext
  */
-export async function createAppContext(config: Config, runtime: Runtime): Promise<AppContext> {
+export async function createAppContext(
+  config: Config,
+  runtime: Runtime,
+  options?: CreateAppContextOptions
+): Promise<AppContext> {
   const logger = createComponentLogger('app');
 
   // For SQLite mode, ensure data directory exists
@@ -105,6 +122,7 @@ export async function createAppContext(config: Config, runtime: Runtime): Promis
     logger,
     dbType: connection.type,
     pgPool: connection.type === 'postgresql' ? connection.pool : undefined,
+    skipExtractionService: options?.skipExtractionService,
   });
 }
 

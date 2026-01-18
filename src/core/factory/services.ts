@@ -74,6 +74,18 @@ export interface ServiceOverrides {
 }
 
 /**
+ * Options for createServices
+ */
+export interface CreateServicesOptions {
+  /**
+   * Skip ExtractionService initialization.
+   * Used by hooks that don't need extraction to avoid SSRF validation errors
+   * when using localhost LLM endpoints in production mode.
+   */
+  skipExtractionService?: boolean;
+}
+
+/**
  * Create all services with explicit configuration (DI pattern)
  *
  * Also wires up embedding pipeline and vector cleanup hooks.
@@ -87,6 +99,7 @@ export interface ServiceOverrides {
  * @param db - Database instance (for permission service)
  * @param deps - Database dependencies for auto-detection
  * @param overrides - Optional service overrides for DI (e.g., mock vector store for tests)
+ * @param options - Optional creation options (e.g., skip extraction service for hooks)
  * @returns Service instances
  */
 export async function createServices(
@@ -94,7 +107,8 @@ export async function createServices(
   runtime: Runtime,
   db: AppDb,
   deps?: ServiceDependencies,
-  overrides?: ServiceOverrides
+  overrides?: ServiceOverrides,
+  options?: CreateServicesOptions
 ): Promise<AppContextServices> {
   // Create services with explicit configuration
   const embeddingService = new EmbeddingService({
@@ -162,16 +176,24 @@ export async function createServices(
   );
   logger.debug('Latent memory service initialized');
 
-  const extractionService = new ExtractionService({
-    provider: config.extraction.provider,
-    openaiApiKey: config.extraction.openaiApiKey,
-    openaiModel: config.extraction.openaiModel,
-    openaiBaseUrl: config.extraction.openaiBaseUrl,
-    anthropicApiKey: config.extraction.anthropicApiKey,
-    anthropicModel: config.extraction.anthropicModel,
-    ollamaBaseUrl: config.extraction.ollamaBaseUrl,
-    ollamaModel: config.extraction.ollamaModel,
-  });
+  // Create ExtractionService unless skipped (e.g., for hooks that don't need it)
+  // This avoids SSRF validation errors when using localhost LLM endpoints in production mode
+  let extractionService: ExtractionService | undefined;
+  if (!options?.skipExtractionService) {
+    extractionService = new ExtractionService({
+      provider: config.extraction.provider,
+      openaiApiKey: config.extraction.openaiApiKey,
+      openaiModel: config.extraction.openaiModel,
+      openaiBaseUrl: config.extraction.openaiBaseUrl,
+      strictBaseUrlAllowlist: config.extraction.strictBaseUrlAllowlist,
+      anthropicApiKey: config.extraction.anthropicApiKey,
+      anthropicModel: config.extraction.anthropicModel,
+      ollamaBaseUrl: config.extraction.ollamaBaseUrl,
+      ollamaModel: config.extraction.ollamaModel,
+    });
+  } else {
+    logger.debug('Skipping ExtractionService initialization (skipExtractionService=true)');
+  }
 
   // Wire embedding pipeline to runtime
   if (!runtime.embeddingPipeline) {
@@ -414,7 +436,7 @@ export async function createServices(
   const incrementalExtractor = config.extraction.incrementalEnabled
     ? createIncrementalExtractor(
         captureStateManager,
-        extractionService.isAvailable() ? extractionService : null,
+        extractionService?.isAvailable() ? extractionService : null,
         incrementalExtractorConfig
       )
     : undefined;
@@ -461,7 +483,7 @@ export async function createServices(
   const classificationService = createClassificationService(
     db,
     config,
-    extractionService.isAvailable() ? extractionService : null
+    extractionService?.isAvailable() ? extractionService : null
   );
   logger.debug(
     {

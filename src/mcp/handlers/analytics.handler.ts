@@ -18,7 +18,9 @@ import type {
   AnalyticsGetSubtaskStatsParams,
   AnalyticsGetErrorCorrelationParams,
   AnalyticsGetLowDiversityParams,
+  HookAnalyticsParams,
 } from '../types.js';
+import { getHookAnalyticsService } from '../../services/analytics/index.js';
 import { createValidationError } from '../../core/errors.js';
 
 /**
@@ -153,10 +155,181 @@ export function getLowDiversityHandler(
   return detectLowDiversity(projectId, context.db);
 }
 
+/**
+ * Convert timeRange to startDate/endDate
+ */
+function parseTimeRange(timeRange?: string): { startDate?: string; endDate?: string } {
+  if (!timeRange || timeRange === 'all') {
+    return {};
+  }
+
+  const now = new Date();
+  const endDate = now.toISOString();
+  let startDate: string;
+
+  switch (timeRange) {
+    case 'day':
+      startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+      break;
+    case 'week':
+      startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      break;
+    case 'month':
+      startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      break;
+    default:
+      return {};
+  }
+
+  return { startDate, endDate };
+}
+
+/**
+ * Get tool execution statistics from hook analytics
+ */
+export async function getToolStatsHandler(
+  _context: AppContext,
+  params: HookAnalyticsParams
+): Promise<{
+  stats: Awaited<ReturnType<ReturnType<typeof getHookAnalyticsService>['getToolStats']>>;
+  filters: HookAnalyticsParams;
+}> {
+  const analyticsService = getHookAnalyticsService();
+  const { startDate, endDate } = params.timeRange
+    ? parseTimeRange(params.timeRange)
+    : { startDate: params.startDate, endDate: params.endDate };
+
+  const stats = await analyticsService.getToolStats({
+    sessionId: params.sessionId,
+    projectId: params.projectId,
+    startDate,
+    endDate,
+    toolNames: params.toolNames,
+  });
+
+  return {
+    stats,
+    filters: {
+      sessionId: params.sessionId,
+      projectId: params.projectId,
+      startDate,
+      endDate,
+      toolNames: params.toolNames,
+    },
+  };
+}
+
+/**
+ * Get subagent completion statistics from hook analytics
+ */
+export async function getSubagentStatsHandler(
+  _context: AppContext,
+  params: HookAnalyticsParams
+): Promise<{
+  stats: Awaited<ReturnType<ReturnType<typeof getHookAnalyticsService>['getSubagentStats']>>;
+  filters: HookAnalyticsParams;
+}> {
+  const analyticsService = getHookAnalyticsService();
+  const { startDate, endDate } = params.timeRange
+    ? parseTimeRange(params.timeRange)
+    : { startDate: params.startDate, endDate: params.endDate };
+
+  const stats = await analyticsService.getSubagentStats({
+    sessionId: params.sessionId,
+    projectId: params.projectId,
+    startDate,
+    endDate,
+    subagentTypes: params.subagentTypes,
+  });
+
+  return {
+    stats,
+    filters: {
+      sessionId: params.sessionId,
+      projectId: params.projectId,
+      startDate,
+      endDate,
+      subagentTypes: params.subagentTypes,
+    },
+  };
+}
+
+/**
+ * Get notification statistics from hook analytics
+ */
+export async function getNotificationStatsHandler(
+  _context: AppContext,
+  params: HookAnalyticsParams
+): Promise<{
+  stats: Awaited<ReturnType<ReturnType<typeof getHookAnalyticsService>['getNotificationStats']>>;
+  filters: HookAnalyticsParams;
+}> {
+  const analyticsService = getHookAnalyticsService();
+  const { startDate, endDate } = params.timeRange
+    ? parseTimeRange(params.timeRange)
+    : { startDate: params.startDate, endDate: params.endDate };
+
+  const stats = await analyticsService.getNotificationStats({
+    sessionId: params.sessionId,
+    projectId: params.projectId,
+    startDate,
+    endDate,
+    severity: params.severity,
+  });
+
+  return {
+    stats,
+    filters: {
+      sessionId: params.sessionId,
+      projectId: params.projectId,
+      startDate,
+      endDate,
+      severity: params.severity,
+    },
+  };
+}
+
+/**
+ * Get aggregated dashboard data from hook analytics
+ */
+export async function getDashboardHandler(
+  _context: AppContext,
+  params: HookAnalyticsParams
+): Promise<{
+  dashboard: Awaited<ReturnType<ReturnType<typeof getHookAnalyticsService>['getDashboard']>>;
+  filters: HookAnalyticsParams;
+}> {
+  const analyticsService = getHookAnalyticsService();
+  const { startDate, endDate } = params.timeRange
+    ? parseTimeRange(params.timeRange)
+    : { startDate: params.startDate, endDate: params.endDate };
+
+  const dashboard = await analyticsService.getDashboard({
+    projectId: params.projectId,
+    startDate,
+    endDate,
+  });
+
+  return {
+    dashboard,
+    filters: {
+      projectId: params.projectId,
+      startDate,
+      endDate,
+      timeRange: params.timeRange,
+    },
+  };
+}
+
 export const analyticsHandlers = {
   get_stats: getUsageStatsHandler,
   get_trends: getTrendsHandler,
   get_subtask_stats: getSubtaskStatsHandler,
   get_error_correlation: getErrorCorrelationHandler,
   get_low_diversity: getLowDiversityHandler,
+  // Hook analytics handlers
+  get_tool_stats: getToolStatsHandler,
+  get_subagent_stats: getSubagentStatsHandler,
+  get_notification_stats: getNotificationStatsHandler,
+  get_dashboard: getDashboardHandler,
 };
