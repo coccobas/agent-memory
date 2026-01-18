@@ -5,6 +5,9 @@
  * for Claude Code and Cursor.
  */
 
+/* eslint-disable no-useless-escape */
+// Note: This file generates bash scripts where \$ escapes are intentional
+
 import * as fs from 'fs';
 import * as path from 'path';
 import { getCriticalGuidelinesForScope } from './critical-guidelines.service.js';
@@ -63,9 +66,16 @@ if [ -t 0 ]; then
   exit 0
 fi
 
-# Stable default DB location (can be overridden by env)
+# Auto-detect project-local DB, prefer over global
 if [ -z "\${AGENT_MEMORY_DB_PATH:-}" ]; then
-  export AGENT_MEMORY_DB_PATH="\${HOME}/.agent-memory/memory.db"
+  # Check for project-local data directory first (development mode)
+  SCRIPT_DIR="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
+  PROJECT_DB="\${SCRIPT_DIR}/../../data/memory.db"
+  if [ -f "\${PROJECT_DB}" ]; then
+    export AGENT_MEMORY_DB_PATH="\${PROJECT_DB}"
+  else
+    export AGENT_MEMORY_DB_PATH="\${HOME}/.agent-memory/memory.db"
+  fi
 fi
 
 # Require agent-memory to be installed (npx fallback removed - npm placeholder is broken)
@@ -171,8 +181,16 @@ if [ -t 0 ]; then
   exit 0
 fi
 
+# Auto-detect project-local DB, prefer over global
 if [ -z "\${AGENT_MEMORY_DB_PATH:-}" ]; then
-  export AGENT_MEMORY_DB_PATH="\${HOME}/.agent-memory/memory.db"
+  # Check for project-local data directory first (development mode)
+  SCRIPT_DIR="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
+  PROJECT_DB="\${SCRIPT_DIR}/../../data/memory.db"
+  if [ -f "\${PROJECT_DB}" ]; then
+    export AGENT_MEMORY_DB_PATH="\${PROJECT_DB}"
+  else
+    export AGENT_MEMORY_DB_PATH="\${HOME}/.agent-memory/memory.db"
+  fi
 fi
 
 # Require agent-memory to be installed (npx fallback removed - npm placeholder is broken)
@@ -214,8 +232,16 @@ if [ -t 0 ]; then
   exit 0
 fi
 
+# Auto-detect project-local DB, prefer over global
 if [ -z "\${AGENT_MEMORY_DB_PATH:-}" ]; then
-  export AGENT_MEMORY_DB_PATH="\${HOME}/.agent-memory/memory.db"
+  # Check for project-local data directory first (development mode)
+  SCRIPT_DIR="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
+  PROJECT_DB="\${SCRIPT_DIR}/../../data/memory.db"
+  if [ -f "\${PROJECT_DB}" ]; then
+    export AGENT_MEMORY_DB_PATH="\${PROJECT_DB}"
+  else
+    export AGENT_MEMORY_DB_PATH="\${HOME}/.agent-memory/memory.db"
+  fi
 fi
 
 # Require agent-memory to be installed (npx fallback removed - npm placeholder is broken)
@@ -327,8 +353,16 @@ if [ -t 0 ]; then
   exit 0
 fi
 
+# Auto-detect project-local DB, prefer over global
 if [ -z "\${AGENT_MEMORY_DB_PATH:-}" ]; then
-  export AGENT_MEMORY_DB_PATH="\${HOME}/.agent-memory/memory.db"
+  # Check for project-local data directory first (development mode)
+  SCRIPT_DIR="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
+  PROJECT_DB="\${SCRIPT_DIR}/../../data/memory.db"
+  if [ -f "\${PROJECT_DB}" ]; then
+    export AGENT_MEMORY_DB_PATH="\${PROJECT_DB}"
+  else
+    export AGENT_MEMORY_DB_PATH="\${HOME}/.agent-memory/memory.db"
+  fi
 fi
 
 # Require agent-memory to be installed (npx fallback removed - npm placeholder is broken)
@@ -363,8 +397,16 @@ if [ -t 0 ]; then
   exit 0
 fi
 
+# Auto-detect project-local DB, prefer over global
 if [ -z "\${AGENT_MEMORY_DB_PATH:-}" ]; then
-  export AGENT_MEMORY_DB_PATH="\${HOME}/.agent-memory/memory.db"
+  # Check for project-local data directory first (development mode)
+  SCRIPT_DIR="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
+  PROJECT_DB="\${SCRIPT_DIR}/../../data/memory.db"
+  if [ -f "\${PROJECT_DB}" ]; then
+    export AGENT_MEMORY_DB_PATH="\${PROJECT_DB}"
+  else
+    export AGENT_MEMORY_DB_PATH="\${HOME}/.agent-memory/memory.db"
+  fi
 fi
 
 # Require agent-memory to be installed (npx fallback removed - npm placeholder is broken)
