@@ -40,6 +40,7 @@ import type { GraphSyncService } from '../services/graph/sync.service.js';
 import type { GraphBackfillService } from '../services/graph/backfill.service.js';
 import type { LatentMemoryService } from '../services/latent-memory/latent-memory.service.js';
 import type { EpisodeService } from '../services/episode/index.js';
+import type { IEpisodeAutoLoggerService } from '../services/episode-auto-logger.js';
 
 /**
  * Service interfaces for AppContext
@@ -233,6 +234,8 @@ export interface SessionServices {
   observeCommit?: ObserveCommitService;
   /** Episode service for temporal activity grouping and timeline queries */
   episode?: EpisodeService;
+  /** Episode auto-logger for automatic tool execution logging */
+  episodeAutoLogger?: IEpisodeAutoLoggerService;
 }
 
 /**

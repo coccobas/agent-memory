@@ -217,6 +217,20 @@ export async function runTool(
       context.services.sessionTimeout.recordActivity(detectedContext.session.id);
     }
 
+    // Auto-log tool execution as episode event (if enabled)
+    // Fire-and-forget to avoid adding latency to tool response
+    if (context.services.episodeAutoLogger?.isEnabled() && detectedContext?.session?.id) {
+      // Extract context from the result for richer event logging
+      const eventContext = extractEventContext(name, enrichedArgs, result);
+      void context.services.episodeAutoLogger.logToolExecution({
+        toolName: name,
+        action,
+        success: true,
+        sessionId: detectedContext.session.id,
+        context: eventContext,
+      });
+    }
+
     // Add _context and _badge to response only for whitelisted tools
     // Most tools don't need this overhead - only status/quickstart/session tools benefit
     const shouldIncludeContext =
@@ -417,6 +431,70 @@ function inferSessionName(
 function truncate(str: string, maxLen: number): string {
   if (str.length <= maxLen) return str;
   return str.slice(0, maxLen - 3) + '...';
+}
+
+/**
+ * Extract context from tool execution for episode event logging
+ * Looks for entry type, ID, and name from args and result
+ */
+function extractEventContext(
+  toolName: string,
+  args: Record<string, unknown>,
+  result: unknown
+):
+  | { entryType?: string; entryId?: string; entryName?: string; metadata?: Record<string, unknown> }
+  | undefined {
+  const context: {
+    entryType?: string;
+    entryId?: string;
+    entryName?: string;
+    metadata?: Record<string, unknown>;
+  } = {};
+
+  // Infer entry type from tool name
+  if (toolName === 'memory_guideline') {
+    context.entryType = 'guideline';
+  } else if (toolName === 'memory_knowledge') {
+    context.entryType = 'knowledge';
+  } else if (toolName === 'memory_tool') {
+    context.entryType = 'tool';
+  } else if (toolName === 'memory_experience') {
+    context.entryType = 'experience';
+  } else if (toolName === 'memory_task') {
+    context.entryType = 'task';
+  } else if (toolName === 'memory_remember') {
+    // memory_remember auto-detects type, try to extract from result
+    const resultObj = result as Record<string, unknown> | null;
+    context.entryType = (resultObj?.type as string) ?? 'entry';
+  }
+
+  // Extract name/title from args
+  const name = args.name as string | undefined;
+  const title = args.title as string | undefined;
+  const text = args.text as string | undefined;
+  context.entryName = name ?? title ?? (text ? text.slice(0, 50) : undefined);
+
+  // Extract ID from result
+  const resultObj = result as Record<string, unknown> | null;
+  if (resultObj) {
+    const id = resultObj.id as string | undefined;
+    const entryId = resultObj.entryId as string | undefined;
+    context.entryId = id ?? entryId;
+
+    // For memory_remember, extract the created entry details
+    if (toolName === 'memory_remember' && resultObj.entry) {
+      const entry = resultObj.entry as Record<string, unknown>;
+      context.entryId = entry.id as string | undefined;
+      context.entryName = (entry.name as string) ?? (entry.title as string) ?? context.entryName;
+    }
+  }
+
+  // Only return if we have some context
+  if (context.entryType || context.entryId || context.entryName) {
+    return context;
+  }
+
+  return undefined;
 }
 
 /**

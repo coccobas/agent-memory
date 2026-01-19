@@ -387,6 +387,11 @@ export interface Config {
     traversalEnabled: boolean;
     captureEnabled: boolean;
   };
+  episode: {
+    autoLogEnabled: boolean;
+    debounceMs: number;
+    autoCreateEnabled: boolean;
+  };
 }
 
 // =============================================================================

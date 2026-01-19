@@ -35,6 +35,7 @@ import { createSessionTimeoutService } from '../../services/session-timeout.serv
 import { createAutoTaggingService } from '../../services/auto-tagging.service.js';
 import { createExtractionHookService } from '../../services/extraction-hook.service.js';
 import { createEpisodeService } from '../../services/episode/index.js';
+import { createEpisodeAutoLoggerService } from '../../services/episode-auto-logger.js';
 import {
   createHierarchicalRetriever,
   createPipelineRetriever,
@@ -80,8 +81,18 @@ export interface WireContextInput {
  * @returns Fully wired AppContext
  */
 export async function wireContext(input: WireContextInput): Promise<AppContext> {
-  const { config, runtime, db, sqlite, repos, adapters, logger, dbType, pgPool, skipExtractionService } =
-    input;
+  const {
+    config,
+    runtime,
+    db,
+    sqlite,
+    repos,
+    adapters,
+    logger,
+    dbType,
+    pgPool,
+    skipExtractionService,
+  } = input;
 
   // Create permission cache adapter
   // Use Redis if enabled, otherwise use in-memory LRU cache
@@ -206,6 +217,19 @@ export async function wireContext(input: WireContextInput): Promise<AppContext> 
     });
     services.episode = episodeService;
     logger.debug('Episode service initialized');
+
+    // Create EpisodeAutoLoggerService (automatic tool execution logging)
+    // Only create if episode repository is available
+    const episodeAutoLogger = createEpisodeAutoLoggerService(repos.episodes, {
+      enabled: config.episode?.autoLogEnabled ?? false,
+      debounceMs: config.episode?.debounceMs ?? 1000,
+    });
+    services.episodeAutoLogger = episodeAutoLogger;
+    if (episodeAutoLogger.isEnabled()) {
+      logger.debug('Episode auto-logger service initialized and enabled');
+    } else {
+      logger.debug('Episode auto-logger service initialized (disabled by config)');
+    }
   }
 
   // Create GraphSyncService (entry-to-node and relation-to-edge synchronization)
