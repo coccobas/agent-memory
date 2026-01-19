@@ -380,6 +380,41 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
       }
     }
 
+    // Fetch recent completed episodes for context about previous work
+    let recentEpisodes: Array<{
+      name: string;
+      outcome: string | null;
+      outcomeType: string | null;
+      completedAt: string | null;
+    }> = [];
+    if (detectedProjectId && ctx.repos.episodes) {
+      try {
+        const completedEpisodes = await ctx.repos.episodes.list(
+          {
+            scopeType: 'project',
+            scopeId: detectedProjectId,
+            status: 'completed',
+            includeInactive: false,
+          },
+          { limit: 5 }
+        );
+        // Sort by endedAt descending (most recent first)
+        const sortedEpisodes = [...completedEpisodes].sort((a, b) => {
+          const aTime = a.endedAt ? new Date(a.endedAt).getTime() : 0;
+          const bTime = b.endedAt ? new Date(b.endedAt).getTime() : 0;
+          return bTime - aTime;
+        });
+        recentEpisodes = sortedEpisodes.map((e) => ({
+          name: e.name,
+          outcome: e.outcome,
+          outcomeType: e.outcomeType,
+          completedAt: e.endedAt,
+        }));
+      } catch {
+        // Non-fatal - episodes repo may not be available
+      }
+    }
+
     // Extract entry counts from context result for graph hint
     const ctxForCounts = contextResult as {
       guidelines?: Array<{ name?: string; priority?: number }>;
@@ -564,6 +599,27 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
                 actions: {
                   list: 'memory_task action:list status:open',
                   markDone: 'memory_task action:update_status id:<id> status:done resolution:"..."',
+                },
+              }
+            : undefined,
+        // Recent completed episodes for context about previous work
+        recentWork:
+          recentEpisodes.length > 0
+            ? {
+                count: recentEpisodes.length,
+                episodes: recentEpisodes.map((e) => ({
+                  name: e.name,
+                  outcome: e.outcome
+                    ? e.outcome.length > 60
+                      ? e.outcome.slice(0, 57) + '...'
+                      : e.outcome
+                    : null,
+                  result: e.outcomeType,
+                  completedAt: e.completedAt,
+                })),
+                actions: {
+                  viewAll: 'memory_episode action:list status:completed limit:10',
+                  timeline: 'memory_episode action:get_timeline',
                 },
               }
             : undefined,

@@ -298,6 +298,11 @@ export async function getDashboardHandler(
 ): Promise<{
   dashboard: Awaited<ReturnType<ReturnType<typeof getHookAnalyticsService>['getDashboard']>>;
   filters: HookAnalyticsParams;
+  _emptyState?: {
+    message: string;
+    reason: string;
+    howToPopulate: string[];
+  };
 }> {
   const analyticsService = getHookAnalyticsService();
   const { startDate, endDate } = params.timeRange
@@ -310,7 +315,21 @@ export async function getDashboardHandler(
     endDate,
   });
 
-  return {
+  // Detect empty state and provide helpful guidance
+  const isEmpty =
+    dashboard.toolStats.totalExecutions === 0 &&
+    dashboard.subagentStats.totalInvocations === 0 &&
+    dashboard.notificationStats.total === 0;
+
+  const result: {
+    dashboard: typeof dashboard;
+    filters: HookAnalyticsParams;
+    _emptyState?: {
+      message: string;
+      reason: string;
+      howToPopulate: string[];
+    };
+  } = {
     dashboard,
     filters: {
       projectId: params.projectId,
@@ -319,6 +338,21 @@ export async function getDashboardHandler(
       timeRange: params.timeRange,
     },
   };
+
+  if (isEmpty) {
+    result._emptyState = {
+      message: 'No analytics data collected yet',
+      reason: 'Hook analytics requires instrumentation from Claude Code hooks to populate data.',
+      howToPopulate: [
+        '1. Configure Claude Code hooks in your project (.claude/hooks/)',
+        '2. Hooks automatically record: tool executions, subagent completions, notifications',
+        '3. Use the CLI with hooks enabled to start collecting data',
+        '4. Data appears after hook events are triggered during normal usage',
+      ],
+    };
+  }
+
+  return result;
 }
 
 export const analyticsHandlers = {

@@ -7,9 +7,9 @@ import { conversationHandlers } from '../handlers/conversations.handler.js';
 
 export const memoryConversationDescriptor: ToolDescriptor = {
   name: 'memory_conversation',
-  visibility: 'standard',
+  visibility: 'advanced',
   description:
-    'Manage conversation history. Actions: start, add_message, get, list, update, link_context, get_context, search, end, archive',
+    'Manage conversation audit logs. Records and retrieves conversation history for debugging and analysis. Actions: start, add_message, get, list, update, link_context, get_context, search, end, archive',
   commonParams: {
     sessionId: { type: 'string' },
     projectId: { type: 'string' },

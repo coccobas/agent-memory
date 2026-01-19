@@ -107,18 +107,14 @@ function analyzeSuggestions(text: string): Suggestion[] {
 
 export const memorySuggestDescriptor: SimpleToolDescriptor = {
   name: 'memory_suggest',
-  visibility: 'standard',
-  description: `Analyze text and suggest what to store in memory.
+  visibility: 'system',
+  description: `**DEPRECATED**: Use memory_observe instead for better extraction quality.
 
-Use this to proactively identify storeable content from conversations.
-Returns suggestions for review - call memory_remember or the appropriate tool to store.
+Analyze text using regex patterns to suggest what to store.
+memory_observe uses LLM analysis and provides higher quality extraction with confidence scores.
 
-Example usage:
-1. Call memory_suggest with recent conversation text
-2. Review suggestions
-3. Store approved suggestions with memory_remember
-
-Detects: guidelines, decisions, facts, tools/commands`,
+This tool uses simple keyword matching and has higher false positive rates.
+Kept for backward compatibility only.`,
   params: {
     text: {
       type: 'string',
@@ -183,6 +179,10 @@ Detects: guidelines, decisions, facts, tools/commands`,
     }));
 
     return {
+      _deprecated: {
+        warning: 'memory_suggest is deprecated. Use memory_observe for better quality extraction.',
+        replacement: 'memory_observe action:extract',
+      },
       suggestions: formattedSuggestions,
       message: `Found ${formattedSuggestions.length} suggestion(s). Use memory_remember to store any you approve.`,
       quickStore: {
