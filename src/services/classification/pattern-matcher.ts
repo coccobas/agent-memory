@@ -239,7 +239,8 @@ const TOOL_PATTERNS: WeightedPattern[] = [
   },
   {
     id: 'tool_make_command',
-    regex: /\bmake\s+\w+/i,
+    // Exclude common non-command phrases: "make sure", "make it", "make the", "make a", "make an", "make this", "make that"
+    regex: /\bmake\s+(?!sure|it|the|a|an|this|that|sense|changes?|progress|use|room)\w+/i,
     type: 'tool',
     baseWeight: 0.8,
     description: 'Make command',

@@ -199,6 +199,46 @@ describe('PatternMatcher', () => {
       expect(result.confidence).toBeLessThanOrEqual(0.6);
     });
   });
+
+  describe('False Positive Prevention', () => {
+    it('should NOT classify "make sure" phrases as tool', async () => {
+      const result = await patternMatcher.match('Make sure to test all edge cases');
+      expect(result.type).not.toBe('tool');
+    });
+
+    it('should NOT classify "make the" phrases as tool', async () => {
+      const result = await patternMatcher.match('Make the button more visible');
+      expect(result.type).not.toBe('tool');
+    });
+
+    it('should NOT classify "make it" phrases as tool', async () => {
+      const result = await patternMatcher.match('Make it easier to find the settings');
+      expect(result.type).not.toBe('tool');
+    });
+
+    it('should NOT classify UX feedback as tool', async () => {
+      const result = await patternMatcher.match(
+        'UX feedback: memory_conversation name is unclear. It is actually a conversation logging tool.'
+      );
+      expect(result.type).not.toBe('tool');
+    });
+
+    it('should NOT classify "make changes" as tool', async () => {
+      const result = await patternMatcher.match('Make changes to improve the API');
+      expect(result.type).not.toBe('tool');
+    });
+
+    it('should still classify real make commands as tool', async () => {
+      const result = await patternMatcher.match('make build to compile the project');
+      expect(result.type).toBe('tool');
+      expect(result.confidence).toBeGreaterThanOrEqual(0.7);
+    });
+
+    it('should still classify make targets as tool', async () => {
+      const result = await patternMatcher.match('Run make test for unit tests');
+      expect(result.type).toBe('tool');
+    });
+  });
 });
 
 // Create a mock DrizzleDb that returns a pattern confidence entry
