@@ -25,9 +25,10 @@ import { createValidationError } from '../../core/errors.js';
  * - core: Essential tools always visible (10 tools)
  * - standard: Common tools visible by default (16 tools)
  * - advanced: Power-user tools, opt-in (16 tools)
+ * - experimental: Specialized ML/multi-agent features, opt-in (3 tools)
  * - system: Administrative tools, opt-in (10 tools)
  */
-export type VisibilityLevel = 'core' | 'standard' | 'advanced' | 'system';
+export type VisibilityLevel = 'core' | 'standard' | 'advanced' | 'experimental' | 'system';
 
 // =============================================================================
 // PARAM SCHEMA TYPES

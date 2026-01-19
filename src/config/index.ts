@@ -357,7 +357,7 @@ export interface Config {
     skipIfUserProvided: boolean;
   };
   tools: {
-    visibility: 'core' | 'standard' | 'advanced' | 'all';
+    visibility: 'core' | 'standard' | 'advanced' | 'experimental' | 'all';
   };
   classification: {
     highConfidenceThreshold: number;

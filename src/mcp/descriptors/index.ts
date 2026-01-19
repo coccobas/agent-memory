@@ -71,16 +71,22 @@ import {
 /**
  * Valid visibility level configuration options
  */
-type VisibilityConfig = 'core' | 'standard' | 'advanced' | 'all';
+type VisibilityConfig = 'core' | 'standard' | 'advanced' | 'experimental' | 'all';
 
 /**
  * Visibility hierarchy - each level includes all lower levels
+ * - core: Essential tools only
+ * - standard: core + common tools
+ * - advanced: standard + power-user tools
+ * - experimental: advanced + specialized ML/multi-agent features
+ * - all: experimental + system/admin tools
  */
 const VISIBILITY_HIERARCHY: Record<VisibilityConfig, VisibilityLevel[]> = {
   core: ['core'],
   standard: ['core', 'standard'],
   advanced: ['core', 'standard', 'advanced'],
-  all: ['core', 'standard', 'advanced', 'system'],
+  experimental: ['core', 'standard', 'advanced', 'experimental'],
+  all: ['core', 'standard', 'advanced', 'experimental', 'system'],
 };
 
 /**

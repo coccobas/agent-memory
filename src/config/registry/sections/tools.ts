@@ -15,9 +15,9 @@ export const toolsSection: ConfigSectionMeta = {
       envKey: 'AGENT_MEMORY_TOOL_VISIBILITY',
       defaultValue: 'standard',
       description:
-        'Tool visibility level: core (10 tools), standard (16), advanced (32), all (42+).',
-      schema: z.enum(['core', 'standard', 'advanced', 'all']),
-      allowedValues: ['core', 'standard', 'advanced', 'all'] as const,
+        'Tool visibility level: core (10 tools), standard (16), advanced (32), experimental (35), all (45+).',
+      schema: z.enum(['core', 'standard', 'advanced', 'experimental', 'all']),
+      allowedValues: ['core', 'standard', 'advanced', 'experimental', 'all'] as const,
     },
   },
 };

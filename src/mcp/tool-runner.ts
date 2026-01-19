@@ -9,6 +9,7 @@ import { TOOL_LABELS } from './constants.js';
 import type { DetectedContext } from '../services/context-detection.service.js';
 import { getGitBranch, formatBranchForSession } from '../utils/git.js';
 import type { ExtractionSuggestion } from '../services/extraction-hook.service.js';
+import { logAction } from '../utils/action-logger.js';
 
 /**
  * Build a compact badge string from detected context
@@ -92,6 +93,9 @@ export async function runTool(
   name: string,
   args: Record<string, unknown> | undefined
 ): Promise<CallToolResult> {
+  const startTime = Date.now();
+  const action = typeof args?.action === 'string' ? args.action : undefined;
+
   // 1. Security Check (Rate Limiting + optional Auth)
   const securityResult = await context.security.validateRequest({
     args,
@@ -297,6 +301,16 @@ export async function runTool(
       );
     }
 
+    // Log successful action
+    logAction({
+      tool: name,
+      action,
+      status: 'ok',
+      durationMs: Date.now() - startTime,
+      projectId: detectedContext?.project?.id,
+      sessionId: detectedContext?.session?.id,
+    });
+
     return {
       content: [
         {
@@ -306,14 +320,25 @@ export async function runTool(
       ],
     };
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+
     logger.error(
       {
         tool: name,
-        error: error instanceof Error ? error.message : String(error),
+        error: errorMessage,
         stack: error instanceof Error ? error.stack : undefined,
       },
       'Tool call error'
     );
+
+    // Log failed action
+    logAction({
+      tool: name,
+      action,
+      status: 'error',
+      durationMs: Date.now() - startTime,
+      error: errorMessage,
+    });
 
     // Use unified error mapper
     const mapped = mapError(error);

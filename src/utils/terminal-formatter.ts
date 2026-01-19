@@ -456,17 +456,14 @@ export function formatHierarchicalContextTerminal(ctx: HierarchicalContext): str
   lines.push(formatTree(tree));
   lines.push('');
 
-  // Critical guidelines in boxes
+  // Critical guidelines (simple list, no boxes)
   if (ctx.critical.length > 0) {
-    lines.push('Critical Guidelines:');
+    lines.push('**Critical Guidelines:**');
     for (const item of ctx.critical.slice(0, 3)) {
-      const priority = item.priority ? `[P: ${item.priority}]` : '';
-      lines.push(
-        formatBox([`${item.title}  ${priority}`, truncate(item.snippet, 50)], {
-          title: item.category || 'guideline',
-          width: 56,
-        })
-      );
+      const priority = item.priority ? ` [P: ${item.priority}]` : '';
+      const category = item.category ? `(${item.category})` : '';
+      lines.push(`- **${item.title}**${priority} ${category}`);
+      lines.push(`  ${truncate(item.snippet, 60)}`);
     }
     lines.push('');
   }
@@ -729,7 +726,7 @@ export interface QuickstartDisplayData {
  *
  * Modes:
  * - compact: Single-line summary for minimal context usage
- * - standard: Boxed sections with tables (default)
+ * - standard: Clean markdown tables (default)
  * - full: Standard + tips, hints, and actionable commands
  */
 export function formatQuickstartDashboard(
@@ -742,14 +739,14 @@ export function formatQuickstartDashboard(
 
   const lines: string[] = [];
 
-  // Session box
-  lines.push(formatSessionBox(data));
+  // Session section (simple lines, no box)
+  lines.push(formatSessionSection(data));
 
-  // Memory box
+  // Memory section (markdown table)
   lines.push('');
-  lines.push(formatMemoryBox(data));
+  lines.push(formatMemorySection(data));
 
-  // Critical guidelines (outside box for emphasis)
+  // Critical guidelines
   if (data.critical && data.critical.length > 0) {
     lines.push('');
     lines.push(`${icons.warning} Critical: ${data.critical.join(', ')}`);
@@ -829,9 +826,9 @@ function formatQuickstartCompact(data: QuickstartDisplayData): string {
 }
 
 /**
- * Format the session section box
+ * Format the session section (clean lines, no box)
  */
-function formatSessionBox(data: QuickstartDisplayData): string {
+function formatSessionSection(data: QuickstartDisplayData): string {
   const lines: string[] = [];
 
   // Session line
@@ -844,76 +841,51 @@ function formatSessionBox(data: QuickstartDisplayData): string {
       ? 'resumed'
       : data.session.status === 'active'
         ? 'active'
-        : '';
+        : 'none';
   const sessionName = data.session.name ?? '(none)';
-  lines.push(`${icons.session} ${padRight(sessionName, 32)} ${sessionIcon} ${sessionStatusText}`);
+  lines.push(`**Session:** ${sessionName} ${sessionIcon} ${sessionStatusText}`);
 
   // Episode line (if present)
   if (data.episode) {
     const episodeIcon = data.episode.status === 'active' ? icons.active : icons.inactive;
     const autoTag = data.episode.autoCreated ? ' (auto)' : '';
-    lines.push(`🎬 ${padRight(data.episode.name, 32)} ${episodeIcon}${autoTag}`);
+    lines.push(`**Episode:** ${data.episode.name} ${episodeIcon}${autoTag}`);
   }
 
-  return formatBox(lines, { title: 'Session', width: 60 });
+  return lines.join('\n');
 }
 
 /**
- * Format the memory section box with table
+ * Format the memory section as a markdown table
  */
-function formatMemoryBox(data: QuickstartDisplayData): string {
+function formatMemorySection(data: QuickstartDisplayData): string {
   const lines: string[] = [];
 
-  // Build table rows
-  const rows: string[][] = [];
-
-  // Guidelines row with health
-  const healthStr = data.health
-    ? `${getHealthEmoji(data.health.grade)} ${data.health.score}/100 (${data.health.grade})`
-    : '';
-  rows.push(['Guidelines', String(data.counts.guidelines), healthStr]);
-
-  // Knowledge row
-  rows.push(['Knowledge', String(data.counts.knowledge), '']);
-
-  // Tools row
-  rows.push(['Tools', String(data.counts.tools), '']);
-
-  // Format the table
-  const table = formatTable(rows, {
-    headers: ['Type', 'Count', 'Health'],
-    alignRight: [1],
-  });
-  lines.push(table);
-
-  // Graph stats (if available, shown as footer inside box)
-  if (data.graph && (data.graph.nodes > 0 || data.graph.edges > 0)) {
-    // We'll add graph info after the box
-  }
-
-  // Build the memory box content
-  const memoryLines: string[] = [];
-
-  // Type/Count/Health as simple rows (we'll manually construct the table look)
+  // Health info (shown above table if present)
   const healthDisplay = data.health
-    ? `${getHealthEmoji(data.health.grade)} ${data.health.score}/100 (${data.health.grade})`
+    ? `${getHealthEmoji(data.health.grade)} Health: ${data.health.score}/100 (${data.health.grade})`
     : '';
 
-  memoryLines.push(`Type        │ Count │ Health`);
-  memoryLines.push(`────────────┼───────┼${'─'.repeat(32)}`);
-  memoryLines.push(
-    `Guidelines  │ ${padLeft(String(data.counts.guidelines), 5)} │ ${healthDisplay}`
-  );
-  memoryLines.push(`Knowledge   │ ${padLeft(String(data.counts.knowledge), 5)} │`);
-  memoryLines.push(`Tools       │ ${padLeft(String(data.counts.tools), 5)} │`);
+  // Markdown table header
+  lines.push('| Type | Count |');
+  lines.push('|------|------:|');
 
-  // Graph stats footer
-  if (data.graph) {
-    memoryLines.push(`────────────┴───────┴${'─'.repeat(32)}`);
-    memoryLines.push(`📊 Graph: ${data.graph.nodes} nodes, ${data.graph.edges} edges`);
+  // Data rows
+  lines.push(`| Guidelines | ${data.counts.guidelines} |`);
+  lines.push(`| Knowledge | ${data.counts.knowledge} |`);
+  lines.push(`| Tools | ${data.counts.tools} |`);
+
+  // Health and graph stats below table
+  if (healthDisplay) {
+    lines.push('');
+    lines.push(healthDisplay);
   }
 
-  return formatBox(memoryLines, { title: 'Memory', width: 60 });
+  if (data.graph && (data.graph.nodes > 0 || data.graph.edges > 0)) {
+    lines.push(`📊 Graph: ${data.graph.nodes} nodes, ${data.graph.edges} edges`);
+  }
+
+  return lines.join('\n');
 }
 
 /**

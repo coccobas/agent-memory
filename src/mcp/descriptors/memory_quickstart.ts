@@ -347,6 +347,39 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
       }
     }
 
+    // Fetch pending tasks from memory_task
+    let pendingTasks: Array<{ id: string; title: string; taskType: string; status: string }> = [];
+    if (detectedProjectId && ctx.repos.tasks) {
+      try {
+        const openTasks = await ctx.repos.tasks.list(
+          {
+            status: 'open',
+            scopeType: 'project',
+            scopeId: detectedProjectId,
+            includeInactive: false,
+          },
+          { limit: 5 }
+        );
+        const inProgressTasks = await ctx.repos.tasks.list(
+          {
+            status: 'in_progress',
+            scopeType: 'project',
+            scopeId: detectedProjectId,
+            includeInactive: false,
+          },
+          { limit: 3 }
+        );
+        pendingTasks = [...inProgressTasks, ...openTasks].slice(0, 5).map((t) => ({
+          id: t.id,
+          title: t.title,
+          taskType: t.taskType,
+          status: t.status,
+        }));
+      } catch {
+        // Non-fatal - task repo may not be available
+      }
+    }
+
     // Extract entry counts from context result for graph hint
     const ctxForCounts = contextResult as {
       guidelines?: Array<{ name?: string; priority?: number }>;
@@ -449,10 +482,14 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
         tools: entryToolCount,
       },
       critical: criticalNames.length > 0 ? criticalNames : undefined,
-      workItems: ctxForCounts.workItems?.slice(0, 3).map((w) => w.title ?? 'unnamed'),
-      health: memoryHealth
-        ? { score: memoryHealth.score, grade: memoryHealth.grade }
-        : null,
+      // Combine memory_task items (priority) with legacy prefix-based work items
+      workItems: [
+        ...pendingTasks.map(
+          (t) => `[${t.status === 'in_progress' ? 'WIP' : t.taskType.toUpperCase()}] ${t.title}`
+        ),
+        ...(ctxForCounts.workItems?.slice(0, 3).map((w) => w.title ?? 'unnamed') ?? []),
+      ].slice(0, 5),
+      health: memoryHealth ? { score: memoryHealth.score, grade: memoryHealth.grade } : null,
       graph: graphStats
         ? { nodes: graphStats.nodes, edges: graphStats.edges, hint: graphStats.hint }
         : null,
@@ -518,6 +555,18 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
             : undefined,
         health: memoryHealth,
         graph: graphStats,
+        // Pending tasks from memory_task
+        pendingTasks:
+          pendingTasks.length > 0
+            ? {
+                count: pendingTasks.length,
+                items: pendingTasks,
+                actions: {
+                  list: 'memory_task action:list status:open',
+                  markDone: 'memory_task action:update_status id:<id> status:done resolution:"..."',
+                },
+              }
+            : undefined,
         // Discoverability hints
         hints: {
           // Experience recording hint when no experiences exist

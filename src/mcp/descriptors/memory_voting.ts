@@ -13,7 +13,7 @@ import type {
 
 export const memoryVotingDescriptor: ToolDescriptor = {
   name: 'memory_voting',
-  visibility: 'advanced',
+  visibility: 'experimental',
   description:
     'Manage multi-agent voting and consensus. Actions: record_vote, get_consensus, list_votes, get_stats',
   commonParams: {

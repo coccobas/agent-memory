@@ -54,6 +54,7 @@ import type { AppContext } from '../core/context.js';
 
 // Import generated tools from descriptors
 import { getFilteredTools } from './descriptors/index.js';
+import { logStartup, logShutdown } from '../utils/action-logger.js';
 
 // =============================================================================
 // BUNDLED TOOL DEFINITIONS
@@ -174,10 +175,12 @@ export async function createServer(context: AppContext): Promise<Server> {
  * - CLI passes a shared runtime and manages process exit.
  * - Direct invocation creates and owns the runtime, and can exit the process.
  */
-export async function runServer(options: {
-  runtime?: Runtime;
-  manageProcess?: boolean;
-} = {}): Promise<void> {
+export async function runServer(
+  options: {
+    runtime?: Runtime;
+    manageProcess?: boolean;
+  } = {}
+): Promise<void> {
   logger.info('Starting MCP server...');
   logger.info(
     { nodeVersion: process.version, platform: process.platform, cwd: process.cwd() },
@@ -222,6 +225,9 @@ export async function runServer(options: {
 
   async function shutdown(signal: string, exitCode = 0): Promise<void> {
     logger.info({ signal }, 'Shutdown signal received');
+
+    // Log shutdown to action log
+    logShutdown(signal);
 
     try {
       // Gracefully shutdown AppContext (drains feedback queue on SIGTERM)
@@ -290,6 +296,9 @@ export async function runServer(options: {
     await server.connect(transport);
     logger.info('Connected successfully - server is ready');
     logger.info('Server is now listening for requests');
+
+    // Log startup to action log
+    logStartup();
   } catch (error) {
     logger.fatal({ error }, 'Fatal error during startup');
     await shutdown('startup-failure', 1);
