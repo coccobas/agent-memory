@@ -110,6 +110,36 @@ export function createRecommendationStore(deps: DatabaseDeps): IRecommendationSt
   const store: IRecommendationStore = {
     async create(input: CreateRecommendationInput): Promise<RecommendationWithSources> {
       return await transactionWithRetry(sqlite, () => {
+        // Check for existing pending recommendation with same sources (deduplication)
+        const sortedSourceIds = [...input.sourceExperienceIds].sort();
+        const sourceIdsJson = JSON.stringify(sortedSourceIds);
+
+        const existingQuery = db
+          .select()
+          .from(recommendations)
+          .where(
+            and(
+              eq(recommendations.scopeType, input.scopeType),
+              input.scopeId
+                ? eq(recommendations.scopeId, input.scopeId)
+                : isNull(recommendations.scopeId),
+              eq(recommendations.type, input.type),
+              eq(recommendations.status, 'pending'),
+              eq(recommendations.sourceExperienceIds, sourceIdsJson)
+            )
+          )
+          .get();
+
+        if (existingQuery) {
+          // Return existing instead of creating duplicate
+          const sources = db
+            .select()
+            .from(recommendationSources)
+            .where(eq(recommendationSources.recommendationId, existingQuery.id))
+            .all();
+          return { ...existingQuery, sources };
+        }
+
         const recommendationId = generateId();
 
         // Create the recommendation entry
@@ -127,7 +157,7 @@ export function createRecommendationStore(deps: DatabaseDeps): IRecommendationSt
           confidence: input.confidence,
           patternCount: input.patternCount ?? input.sourceExperienceIds.length,
           exemplarExperienceId: input.exemplarExperienceId,
-          sourceExperienceIds: JSON.stringify(input.sourceExperienceIds),
+          sourceExperienceIds: sourceIdsJson, // Use sorted version for deduplication consistency
           analysisRunId: input.analysisRunId,
           analysisVersion: input.analysisVersion,
           expiresAt: input.expiresAt,

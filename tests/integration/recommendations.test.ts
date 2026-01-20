@@ -97,6 +97,97 @@ describe('Recommendation Store Integration', () => {
       expect(exemplarSource).toBeDefined();
       expect(exemplarSource?.experienceId).toBe(exp1.experience.id);
     });
+
+    it('should return existing recommendation on duplicate sources (deduplication)', async () => {
+      const project = createTestProject(db);
+      const exp1 = createTestExperience(db, 'Dedup A', 'project', project.id);
+      const exp2 = createTestExperience(db, 'Dedup B', 'project', project.id);
+
+      const sourceIds = [exp1.experience.id, exp2.experience.id];
+
+      // Create first recommendation
+      const first = await store.create({
+        scopeType: 'project',
+        scopeId: project.id,
+        type: 'strategy',
+        title: 'First Recommendation',
+        confidence: 0.85,
+        sourceExperienceIds: sourceIds,
+      });
+
+      // Try to create duplicate with same sources
+      const second = await store.create({
+        scopeType: 'project',
+        scopeId: project.id,
+        type: 'strategy',
+        title: 'Duplicate Recommendation',
+        confidence: 0.9,
+        sourceExperienceIds: sourceIds,
+      });
+
+      // Should return the same recommendation (deduplication)
+      expect(second.id).toBe(first.id);
+      expect(second.title).toBe('First Recommendation');
+    });
+
+    it('should deduplicate even with reversed source order', async () => {
+      const project = createTestProject(db);
+      const exp1 = createTestExperience(db, 'Order A', 'project', project.id);
+      const exp2 = createTestExperience(db, 'Order B', 'project', project.id);
+
+      // Create with sources in one order
+      const first = await store.create({
+        scopeType: 'project',
+        scopeId: project.id,
+        type: 'strategy',
+        title: 'Order Test',
+        confidence: 0.8,
+        sourceExperienceIds: [exp1.experience.id, exp2.experience.id],
+      });
+
+      // Try to create with sources in reversed order
+      const second = await store.create({
+        scopeType: 'project',
+        scopeId: project.id,
+        type: 'strategy',
+        title: 'Order Test 2',
+        confidence: 0.85,
+        sourceExperienceIds: [exp2.experience.id, exp1.experience.id],
+      });
+
+      // Should return the same recommendation (deduplication with sorted sources)
+      expect(second.id).toBe(first.id);
+    });
+
+    it('should create new recommendation for different sources', async () => {
+      const project = createTestProject(db);
+      const exp1 = createTestExperience(db, 'Diff A', 'project', project.id);
+      const exp2 = createTestExperience(db, 'Diff B', 'project', project.id);
+      const exp3 = createTestExperience(db, 'Diff C', 'project', project.id);
+
+      // Create first recommendation
+      const first = await store.create({
+        scopeType: 'project',
+        scopeId: project.id,
+        type: 'strategy',
+        title: 'First Pattern',
+        confidence: 0.85,
+        sourceExperienceIds: [exp1.experience.id, exp2.experience.id],
+      });
+
+      // Create second with different sources
+      const second = await store.create({
+        scopeType: 'project',
+        scopeId: project.id,
+        type: 'strategy',
+        title: 'Second Pattern',
+        confidence: 0.9,
+        sourceExperienceIds: [exp2.experience.id, exp3.experience.id],
+      });
+
+      // Should be different recommendations
+      expect(second.id).not.toBe(first.id);
+    });
   });
 
   describe('getById', () => {
