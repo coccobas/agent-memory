@@ -606,12 +606,25 @@ export class LanceDbVectorStore implements IVectorStore {
           record !== null &&
           'entryType' in record &&
           'entryId' in record &&
-          'vector' in record &&
-          Array.isArray((record as Record<string, unknown>).vector)
+          'vector' in record
         ) {
           const r = record as Record<string, unknown>;
-          const key = `${String(r.entryType)}:${String(r.entryId)}`;
-          result.set(key, r.vector as number[]);
+          const vector = r.vector;
+
+          // LanceDB returns vectors as Vector class, not Array
+          // Check for array-like object with length and numeric indices
+          if (
+            vector &&
+            typeof vector === 'object' &&
+            typeof (vector as { length?: number }).length === 'number'
+          ) {
+            const key = `${String(r.entryType)}:${String(r.entryId)}`;
+            // Convert to number[] if needed (Vector class is iterable)
+            const vecArray: number[] = Array.isArray(vector)
+              ? (vector as number[])
+              : Array.from(vector as Iterable<number>);
+            result.set(key, vecArray);
+          }
         }
       }
 

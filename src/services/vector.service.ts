@@ -340,6 +340,23 @@ export class VectorService implements IVectorService {
   }
 
   /**
+   * Get embeddings by entry IDs.
+   * Used for batch loading embeddings (e.g., for semantic edge inference).
+   */
+  async getByEntryIds(
+    entryIds: Array<{ entryType: string; entryId: string }>
+  ): Promise<Map<string, number[]>> {
+    await this.ensureInitialized();
+
+    if (!this.store.getByEntryIds) {
+      logger.warn('Vector store does not support getByEntryIds');
+      return new Map();
+    }
+
+    return this.store.getByEntryIds(entryIds);
+  }
+
+  /**
    * Validate embedding dimension matches expected dimension
    */
   private validateDimension(embedding: number[], context: string): void {

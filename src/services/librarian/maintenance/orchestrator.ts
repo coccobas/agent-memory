@@ -21,9 +21,11 @@ import type {
   GraphBackfillResult,
   LatentPopulationResult,
   TagRefinementResult,
+  SemanticEdgeInferenceResult,
   MemoryHealth,
 } from './types.js';
 import { DEFAULT_MAINTENANCE_CONFIG, computeHealthGrade } from './types.js';
+import type { SemanticEdgeInferenceService } from '../../graph/semantic-edge-inference.service.js';
 
 const logger = createComponentLogger('maintenance-orchestrator');
 
@@ -38,6 +40,7 @@ export interface MaintenanceOrchestratorDeps {
   embedding?: IEmbeddingService;
   vector?: IVectorService;
   latentMemory?: LatentMemoryService;
+  semanticEdgeInference?: SemanticEdgeInferenceService;
 }
 
 // =============================================================================
@@ -79,6 +82,7 @@ export class MaintenanceOrchestrator {
       'graphBackfill',
       'latentPopulation',
       'tagRefinement',
+      'semanticEdgeInference',
     ];
     const results: MaintenanceResult = {
       runId,
@@ -116,6 +120,14 @@ export class MaintenanceOrchestrator {
       results.tagRefinement = await this.runTagRefinement(request, effectiveConfig);
     }
 
+    // Run semantic edge inference if requested and enabled
+    if (
+      tasksToRun.includes('semanticEdgeInference') &&
+      effectiveConfig.semanticEdgeInference.enabled
+    ) {
+      results.semanticEdgeInference = await this.runSemanticEdgeInference(request, effectiveConfig);
+    }
+
     // Compute health after maintenance
     if (!request.dryRun) {
       results.healthAfter = await this.computeHealth(request.scopeType, request.scopeId);
@@ -134,6 +146,7 @@ export class MaintenanceOrchestrator {
         graphBackfill: results.graphBackfill?.executed,
         latentPopulation: results.latentPopulation?.executed,
         tagRefinement: results.tagRefinement?.executed,
+        semanticEdgeInference: results.semanticEdgeInference?.executed,
       },
       'Maintenance run completed'
     );
@@ -734,6 +747,82 @@ export class MaintenanceOrchestrator {
     return result;
   }
 
+  private async runSemanticEdgeInference(
+    request: MaintenanceRequest,
+    config: MaintenanceConfig
+  ): Promise<SemanticEdgeInferenceResult> {
+    const startTime = Date.now();
+    const result: SemanticEdgeInferenceResult = {
+      executed: true,
+      entriesProcessed: 0,
+      comparisonsComputed: 0,
+      pairsAboveThreshold: 0,
+      edgesCreated: 0,
+      edgesExisting: 0,
+      edgesSkipped: 0,
+      durationMs: 0,
+    };
+
+    try {
+      // Check if semantic edge inference service is available
+      if (!this.deps.semanticEdgeInference) {
+        logger.debug('Semantic edge inference skipped: service not available');
+        result.executed = false;
+        result.durationMs = Date.now() - startTime;
+        return result;
+      }
+
+      // Run inference
+      const inferenceResult = await this.deps.semanticEdgeInference.inferEdges({
+        scopeType: request.scopeType,
+        scopeId: request.scopeId,
+        dryRun: request.dryRun,
+        initiatedBy: request.initiatedBy ?? 'maintenance-orchestrator',
+        configOverrides: {
+          enabled: config.semanticEdgeInference.enabled,
+          similarityThreshold: config.semanticEdgeInference.similarityThreshold,
+          maxEdgesPerEntry: config.semanticEdgeInference.maxEdgesPerEntry,
+          entryTypes: config.semanticEdgeInference.entryTypes,
+          maxEntriesPerRun: config.semanticEdgeInference.maxEntries,
+        },
+      });
+
+      // Map results
+      result.entriesProcessed = inferenceResult.stats.entriesProcessed;
+      result.comparisonsComputed = inferenceResult.stats.comparisonsComputed;
+      result.pairsAboveThreshold = inferenceResult.stats.pairsAboveThreshold;
+      result.edgesCreated = inferenceResult.stats.edgesCreated;
+      result.edgesExisting = inferenceResult.stats.edgesExisting;
+      result.edgesSkipped = inferenceResult.stats.edgesSkipped;
+
+      if (inferenceResult.errors && inferenceResult.errors.length > 0) {
+        result.errors = inferenceResult.errors;
+      }
+
+      logger.info(
+        {
+          scopeType: request.scopeType,
+          scopeId: request.scopeId,
+          entriesProcessed: result.entriesProcessed,
+          comparisonsComputed: result.comparisonsComputed,
+          pairsAboveThreshold: result.pairsAboveThreshold,
+          edgesCreated: result.edgesCreated,
+          edgesExisting: result.edgesExisting,
+          edgesSkipped: result.edgesSkipped,
+          dryRun: request.dryRun,
+        },
+        'Semantic edge inference completed'
+      );
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      logger.warn({ error: errorMsg }, 'Semantic edge inference task failed');
+      result.errors = [errorMsg];
+    }
+
+    result.durationMs = Date.now() - startTime;
+    return result;
+  }
+
   // ===========================================================================
   // HEALTH SCORE COMPUTATION
   // ===========================================================================
@@ -799,7 +888,7 @@ export class MaintenanceOrchestrator {
   }
 
   private async computeConnectivityScore(scopeType: string, scopeId?: string): Promise<number> {
-    // Calculate based on graph edge coverage
+    // Calculate based on graph edge coverage within the scope
     try {
       if (!this.deps.repos.graphNodes || !this.deps.repos.graphEdges) {
         return 0; // No graph service
@@ -812,10 +901,28 @@ export class MaintenanceOrchestrator {
 
       if (nodes.length === 0) return 0;
 
-      const edges = await this.deps.repos.graphEdges.list({});
+      // Build set of node IDs in this scope for efficient lookup
+      const scopeNodeIds = new Set(nodes.map((n) => n.id));
+
+      // Get all edges and filter based on connectivity mode
+      const allEdges = await this.deps.repos.graphEdges.list({});
+      const connectivityMode = this.config.health?.connectivityMode ?? 'inclusive';
+
+      const scopeEdges = allEdges.filter((e) => {
+        const sourceInScope = scopeNodeIds.has(e.sourceId);
+        const targetInScope = scopeNodeIds.has(e.targetId);
+
+        if (connectivityMode === 'strict') {
+          // Strict: both endpoints must be in scope
+          return sourceInScope && targetInScope;
+        } else {
+          // Inclusive (default): at least one endpoint in scope
+          return sourceInScope || targetInScope;
+        }
+      });
 
       // Ratio of edges to nodes (ideal is ~2-3 edges per node)
-      const ratio = edges.length / nodes.length;
+      const ratio = scopeEdges.length / nodes.length;
       const normalizedScore = Math.min(100, Math.round(ratio * 40));
 
       return normalizedScore;
@@ -882,6 +989,10 @@ export class MaintenanceOrchestrator {
       tagRefinement: {
         ...this.config.tagRefinement,
         ...overrides.tagRefinement,
+      },
+      semanticEdgeInference: {
+        ...this.config.semanticEdgeInference,
+        ...overrides.semanticEdgeInference,
       },
     };
   }

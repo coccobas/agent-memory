@@ -7,6 +7,7 @@
  */
 
 import type { ScopeType } from '../../../db/schema.js';
+import { DEFAULT_SEMANTIC_EDGE_CONFIG } from '../../graph/semantic-edge-inference.types.js';
 
 // =============================================================================
 // CONFIGURATION
@@ -97,6 +98,38 @@ export interface TagRefinementConfig {
 }
 
 /**
+ * Semantic edge inference task configuration
+ *
+ * Automatically creates `related_to` edges between semantically similar
+ * entries based on embedding cosine similarity. This populates the
+ * knowledge graph with meaningful relationships discovered from content.
+ */
+export interface SemanticEdgeInferenceConfig {
+  /** Enable semantic edge inference during maintenance */
+  enabled: boolean;
+  /** Minimum cosine similarity threshold to create an edge (0-1) */
+  similarityThreshold: number;
+  /** Maximum edges to create per entry */
+  maxEdgesPerEntry: number;
+  /** Entry types to process */
+  entryTypes: Array<'tool' | 'guideline' | 'knowledge' | 'experience'>;
+  /** Maximum entries to process per run */
+  maxEntries: number;
+}
+
+/**
+ * Health calculation configuration
+ */
+export interface HealthConfig {
+  /**
+   * Connectivity scoring mode:
+   * - 'inclusive': Count edges where at least one endpoint is in scope (default)
+   * - 'strict': Count edges where both endpoints are in scope
+   */
+  connectivityMode: 'inclusive' | 'strict';
+}
+
+/**
  * Unified maintenance configuration
  */
 export interface MaintenanceConfig {
@@ -104,6 +137,8 @@ export interface MaintenanceConfig {
   enabled: boolean;
   /** Run maintenance on session end */
   runOnSessionEnd: boolean;
+  /** Health calculation settings */
+  health: HealthConfig;
   /** Consolidation settings */
   consolidation: ConsolidationConfig;
   /** Forgetting/decay settings */
@@ -114,6 +149,8 @@ export interface MaintenanceConfig {
   latentPopulation: LatentPopulationConfig;
   /** Tag refinement settings */
   tagRefinement: TagRefinementConfig;
+  /** Semantic edge inference settings */
+  semanticEdgeInference: SemanticEdgeInferenceConfig;
 }
 
 /**
@@ -122,6 +159,9 @@ export interface MaintenanceConfig {
 export const DEFAULT_MAINTENANCE_CONFIG: MaintenanceConfig = {
   enabled: true,
   runOnSessionEnd: true,
+  health: {
+    connectivityMode: 'inclusive', // Count edges where at least one endpoint is in scope
+  },
   consolidation: {
     enabled: true,
     similarityThreshold: 0.85,
@@ -157,6 +197,13 @@ export const DEFAULT_MAINTENANCE_CONFIG: MaintenanceConfig = {
     entryTypes: ['tool', 'guideline', 'knowledge'],
     minConfidence: 0.7,
   },
+  semanticEdgeInference: {
+    enabled: DEFAULT_SEMANTIC_EDGE_CONFIG.enabled,
+    similarityThreshold: DEFAULT_SEMANTIC_EDGE_CONFIG.similarityThreshold,
+    maxEdgesPerEntry: DEFAULT_SEMANTIC_EDGE_CONFIG.maxEdgesPerEntry,
+    entryTypes: DEFAULT_SEMANTIC_EDGE_CONFIG.entryTypes,
+    maxEntries: DEFAULT_SEMANTIC_EDGE_CONFIG.maxEntriesPerRun,
+  },
 };
 
 // =============================================================================
@@ -173,7 +220,12 @@ export interface MaintenanceRequest {
   scopeId?: string;
   /** Which tasks to run (defaults to all enabled) */
   tasks?: Array<
-    'consolidation' | 'forgetting' | 'graphBackfill' | 'latentPopulation' | 'tagRefinement'
+    | 'consolidation'
+    | 'forgetting'
+    | 'graphBackfill'
+    | 'latentPopulation'
+    | 'tagRefinement'
+    | 'semanticEdgeInference'
   >;
   /** Dry run - analyze without making changes */
   dryRun?: boolean;
@@ -284,6 +336,30 @@ export interface TagRefinementResult {
 }
 
 /**
+ * Result from semantic edge inference task
+ */
+export interface SemanticEdgeInferenceResult {
+  /** Task was executed */
+  executed: boolean;
+  /** Entries with embeddings processed */
+  entriesProcessed: number;
+  /** Similarity comparisons computed */
+  comparisonsComputed: number;
+  /** Pairs found above similarity threshold */
+  pairsAboveThreshold: number;
+  /** Edges created */
+  edgesCreated: number;
+  /** Edges that already existed (skipped) */
+  edgesExisting: number;
+  /** Edges skipped due to maxEdgesPerEntry limit */
+  edgesSkipped: number;
+  /** Duration in milliseconds */
+  durationMs: number;
+  /** Any errors encountered */
+  errors?: string[];
+}
+
+/**
  * Unified maintenance result
  */
 export interface MaintenanceResult {
@@ -303,6 +379,8 @@ export interface MaintenanceResult {
   latentPopulation?: LatentPopulationResult;
   /** Tag refinement results */
   tagRefinement?: TagRefinementResult;
+  /** Semantic edge inference results */
+  semanticEdgeInference?: SemanticEdgeInferenceResult;
   /** Overall timing */
   timing: {
     startedAt: string;

@@ -41,4 +41,15 @@ export interface IVectorService {
    * Compact the vector store to reclaim space (optional)
    */
   compact?(): Promise<void>;
+
+  /**
+   * Get embeddings by entry IDs.
+   * Used for batch loading embeddings (e.g., for semantic edge inference).
+   *
+   * @param entryIds Array of entry IDs
+   * @returns Map of "entryType:entryId" to embedding vector
+   */
+  getByEntryIds?(
+    entryIds: Array<{ entryType: string; entryId: string }>
+  ): Promise<Map<string, number[]>>;
 }

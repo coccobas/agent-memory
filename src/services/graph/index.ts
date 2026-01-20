@@ -36,3 +36,23 @@ export type {
   GraphBackfillSchedulerConfig,
   GraphBackfillSchedulerStatus,
 } from './backfill-scheduler.service.js';
+
+// Semantic edge inference service
+export {
+  SemanticEdgeInferenceService,
+  createSemanticEdgeInferenceService,
+} from './semantic-edge-inference.service.js';
+export type { SemanticEdgeInferenceDeps } from './semantic-edge-inference.service.js';
+export type {
+  SemanticEdgeInferenceConfig,
+  SemanticEdgeInferenceRequest,
+  SemanticEdgeInferenceResult,
+  SemanticEdgeInferenceStats,
+  EntryWithEmbedding,
+  SimilarityPair,
+} from './semantic-edge-inference.types.js';
+export { DEFAULT_SEMANTIC_EDGE_CONFIG } from './semantic-edge-inference.types.js';
+
+// Semantic edge inference database integration
+export { createSemanticEdgeInferenceDeps } from './semantic-edge-inference.integration.js';
+export type { SemanticEdgeInferenceIntegrationDeps } from './semantic-edge-inference.integration.js';

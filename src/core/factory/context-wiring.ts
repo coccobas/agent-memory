@@ -401,6 +401,24 @@ export async function wireContext(input: WireContextInput): Promise<AppContext> 
     logger.debug('Graph backfill service initialized (scheduling via librarian)');
   }
 
+  // Create SemanticEdgeInferenceService for automatic relationship discovery
+  // This service creates `related_to` edges between semantically similar entries
+  let semanticEdgeInferenceService;
+  if (services.graphSync && services.vector) {
+    const { createSemanticEdgeInferenceService, createSemanticEdgeInferenceDeps } =
+      await import('../../services/graph/index.js');
+
+    const semanticEdgeDeps = createSemanticEdgeInferenceDeps({
+      db,
+      repos,
+      graphSync: services.graphSync,
+      vector: services.vector,
+    });
+
+    semanticEdgeInferenceService = createSemanticEdgeInferenceService(semanticEdgeDeps);
+    logger.debug('Semantic edge inference service initialized');
+  }
+
   // Initialize librarian maintenance orchestrator now that repos and services are available
   if (services.librarian) {
     services.librarian.initMaintenanceOrchestrator({
@@ -410,6 +428,7 @@ export async function wireContext(input: WireContextInput): Promise<AppContext> 
       embedding: services.embedding,
       vector: services.vector,
       latentMemory: services.latentMemory,
+      semanticEdgeInference: semanticEdgeInferenceService,
     });
     logger.debug('Librarian maintenance orchestrator initialized');
 
