@@ -60,6 +60,7 @@ import { memoryStatusDescriptor } from './memory_status.js';
 import { memoryDiscoverDescriptor } from './memory_discover.js';
 import { memoryEpisodeDescriptor } from './memory_episode.js';
 import { memoryOpsDescriptor } from './memory_ops.js';
+import { memoryOnboardDescriptor } from './memory_onboard.js';
 
 import {
   type AnyToolDescriptor,
@@ -210,6 +211,8 @@ export const allDescriptors: AnyToolDescriptor[] = [
   memoryEpisodeDescriptor,
   // Operational Utilities (auto-tag, session timeout, red flags, embedding coverage, backfill)
   memoryOpsDescriptor,
+  // Onboarding Wizard (guided setup for new projects)
+  memoryOnboardDescriptor,
 ];
 
 /**
@@ -290,4 +293,5 @@ export {
   memoryStatusDescriptor,
   memoryEpisodeDescriptor,
   memoryOpsDescriptor,
+  memoryOnboardDescriptor,
 };
