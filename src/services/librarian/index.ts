@@ -43,6 +43,7 @@ import type { FeedbackService } from '../feedback/index.js';
 import type { LatentMemoryService } from '../latent-memory/latent-memory.service.js';
 import { SessionLifecycleHandler } from './session-lifecycle.js';
 import { CheckpointManager } from './checkpoint-manager.js';
+import type { MissedExtractionDetector } from './missed-extraction/index.js';
 
 // =============================================================================
 // TYPES
@@ -182,6 +183,15 @@ export class LibrarianService {
   setLatentMemoryService(latentMemoryService: LatentMemoryService): void {
     this.sessionLifecycle.setLatentMemoryService(latentMemoryService);
     logger.debug('Latent memory service set for librarian');
+  }
+
+  /**
+   * Set the missed extraction detector after construction.
+   * Call this if MissedExtractionDetector wasn't available at construction time.
+   */
+  setMissedExtractionDetector(detector: MissedExtractionDetector): void {
+    this.sessionLifecycle.setMissedExtractionDetector(detector);
+    logger.debug('Missed extraction detector set for librarian');
   }
 
   /**

@@ -55,6 +55,21 @@ export interface LibrarianModulesConfig {
     /** Include global-scope entries */
     warmGlobalScope?: boolean;
   };
+
+  /** Missed extraction module (detect facts/decisions not captured during session) */
+  missedExtraction: {
+    enabled: boolean;
+    /** Minimum confidence threshold for extracted entries (default: 0.7) */
+    confidenceThreshold?: number;
+    /** Minimum similarity threshold to consider as duplicate (default: 0.85) */
+    duplicateSimilarityThreshold?: number;
+    /** Minimum messages required to run extraction (default: 3) */
+    minMessages?: number;
+    /** Maximum entries to extract per session (default: 20) */
+    maxEntries?: number;
+    /** Focus areas for extraction */
+    focusAreas?: ('decisions' | 'facts' | 'rules' | 'tools' | 'bugs')[];
+  };
 }
 
 /**
@@ -74,6 +89,14 @@ export const DEFAULT_MODULES_CONFIG: LibrarianModulesConfig = {
     minImportanceScore: 0.3,
     warmProjectScope: true,
     warmGlobalScope: true,
+  },
+  missedExtraction: {
+    enabled: true,
+    confidenceThreshold: 0.7,
+    duplicateSimilarityThreshold: 0.85,
+    minMessages: 3,
+    maxEntries: 20,
+    focusAreas: ['decisions', 'facts', 'rules', 'bugs'],
   },
 };
 
@@ -276,6 +299,8 @@ export interface SessionEndRequest {
   skipAnalysis?: boolean;
   /** Skip maintenance tasks */
   skipMaintenance?: boolean;
+  /** Skip missed extraction detection */
+  skipMissedExtraction?: boolean;
   /** Dry run mode */
   dryRun?: boolean;
 }
@@ -294,6 +319,21 @@ export interface SessionEndResult {
     toolsExtracted: number;
     skippedDuplicates: number;
     processingTimeMs: number;
+  };
+  /** Missed extraction results (facts/decisions not captured during session) */
+  missedExtraction?: {
+    /** Total entries extracted by LLM */
+    totalExtracted: number;
+    /** Entries queued for review (not duplicates, above threshold) */
+    queuedForReview: number;
+    /** Entries filtered as duplicates */
+    duplicatesFiltered: number;
+    /** Entries below confidence threshold */
+    belowThreshold: number;
+    /** Processing time */
+    processingTimeMs: number;
+    /** Reason for skipping (if applicable) */
+    skippedReason?: string;
   };
   /** Pattern analysis results */
   analysis?: {

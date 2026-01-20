@@ -12,6 +12,7 @@ import { createComponentLogger } from '../../utils/logger.js';
 import type { CaptureService, TurnData } from '../capture/index.js';
 import type { LatentMemoryService } from '../latent-memory/latent-memory.service.js';
 import type { MaintenanceOrchestrator } from './maintenance/orchestrator.js';
+import type { MissedExtractionDetector } from './missed-extraction/index.js';
 import type {
   LibrarianConfig,
   SessionEndRequest,
@@ -33,6 +34,7 @@ export interface SessionLifecycleDeps {
   captureService?: CaptureService;
   latentMemoryService?: LatentMemoryService;
   maintenanceOrchestrator?: MaintenanceOrchestrator;
+  missedExtractionDetector?: MissedExtractionDetector;
   config: LibrarianConfig;
   analyze: (request: AnalysisRequest) => Promise<AnalysisResult>;
   runMaintenance: (request: MaintenanceRequest) => Promise<MaintenanceResult>;
@@ -47,6 +49,7 @@ export class SessionLifecycleHandler {
   private captureService?: CaptureService;
   private latentMemoryService?: LatentMemoryService;
   private maintenanceOrchestrator?: MaintenanceOrchestrator;
+  private missedExtractionDetector?: MissedExtractionDetector;
   private config: LibrarianConfig;
   private analyze: (request: AnalysisRequest) => Promise<AnalysisResult>;
   private runMaintenance: (request: MaintenanceRequest) => Promise<MaintenanceResult>;
@@ -58,6 +61,7 @@ export class SessionLifecycleHandler {
     this.captureService = deps.captureService;
     this.latentMemoryService = deps.latentMemoryService;
     this.maintenanceOrchestrator = deps.maintenanceOrchestrator;
+    this.missedExtractionDetector = deps.missedExtractionDetector;
     this.config = deps.config;
     this.analyze = deps.analyze;
     this.runMaintenance = deps.runMaintenance;
@@ -81,6 +85,11 @@ export class SessionLifecycleHandler {
     logger.debug('Maintenance orchestrator set for session lifecycle handler');
   }
 
+  setMissedExtractionDetector(detector: MissedExtractionDetector): void {
+    this.missedExtractionDetector = detector;
+    logger.debug('Missed extraction detector set for session lifecycle handler');
+  }
+
   updateConfig(config: LibrarianConfig): void {
     this.config = config;
   }
@@ -90,8 +99,9 @@ export class SessionLifecycleHandler {
    *
    * Pipeline stages:
    * 1. Experience Capture: Extract experiences, knowledge, guidelines from conversation
-   * 2. Pattern Analysis: Detect patterns in accumulated experiences
-   * 3. Maintenance: Run consolidation, forgetting, and graph backfill
+   * 2. Missed Extraction: Re-analyze conversation to find facts/decisions not captured
+   * 3. Pattern Analysis: Detect patterns in accumulated experiences
+   * 4. Maintenance: Run consolidation, forgetting, and graph backfill
    *
    * @param request - Session end request with conversation data
    * @returns Combined results from all stages
@@ -105,6 +115,7 @@ export class SessionLifecycleHandler {
         sessionId: request.sessionId,
         projectId: request.projectId,
         skipCapture: request.skipCapture,
+        skipMissedExtraction: request.skipMissedExtraction,
         skipAnalysis: request.skipAnalysis,
         skipMaintenance: request.skipMaintenance,
         dryRun: request.dryRun,
@@ -194,7 +205,70 @@ export class SessionLifecycleHandler {
       }
     }
 
-    // Stage 2: Pattern Analysis
+    // Stage 2: Missed Extraction Detection
+    // Re-analyze conversation to find facts/decisions that weren't captured
+    const missedExtractionConfig = this.config.modules.missedExtraction;
+    if (
+      !request.skipMissedExtraction &&
+      missedExtractionConfig?.enabled &&
+      this.missedExtractionDetector &&
+      request.messages &&
+      request.messages.length >= (missedExtractionConfig.minMessages ?? 3)
+    ) {
+      try {
+        const missedStart = Date.now();
+        logger.debug(
+          { sessionId: request.sessionId, projectId: request.projectId },
+          'Running missed extraction detection'
+        );
+
+        const missedResult = await this.missedExtractionDetector.detect({
+          sessionId: request.sessionId,
+          projectId: request.projectId,
+          messages: request.messages.map((msg) => ({
+            role: msg.role,
+            content: msg.content,
+            createdAt: msg.createdAt,
+            toolsUsed: msg.toolsUsed,
+          })),
+          scopeType: request.projectId ? 'project' : 'session',
+          scopeId: request.projectId ?? request.sessionId,
+          agentId: request.agentId,
+        });
+
+        result.missedExtraction = {
+          totalExtracted: missedResult.totalExtracted,
+          queuedForReview: missedResult.missedEntries.length,
+          duplicatesFiltered: missedResult.duplicatesFiltered,
+          belowThreshold: missedResult.belowThresholdCount,
+          processingTimeMs: Date.now() - missedStart,
+          skippedReason: missedResult.skippedReason,
+        };
+
+        logger.debug(
+          {
+            sessionId: request.sessionId,
+            totalExtracted: result.missedExtraction.totalExtracted,
+            queuedForReview: result.missedExtraction.queuedForReview,
+            duplicatesFiltered: result.missedExtraction.duplicatesFiltered,
+            processingTimeMs: result.missedExtraction.processingTimeMs,
+          },
+          'Missed extraction detection completed'
+        );
+
+        // TODO: Store missed entries for review (future enhancement)
+        // For now, we just report the statistics
+      } catch (error) {
+        const errorMsg = `Missed extraction detection failed: ${error instanceof Error ? error.message : String(error)}`;
+        errors.push(errorMsg);
+        logger.warn(
+          { sessionId: request.sessionId, error: errorMsg },
+          'Missed extraction detection failed (non-fatal)'
+        );
+      }
+    }
+
+    // Stage 3: Pattern Analysis
     if (!request.skipAnalysis && request.projectId) {
       try {
         const analysisStart = Date.now();
@@ -237,7 +311,7 @@ export class SessionLifecycleHandler {
       }
     }
 
-    // Stage 3: Maintenance
+    // Stage 4: Maintenance
     if (
       !request.skipMaintenance &&
       request.projectId &&
@@ -307,6 +381,13 @@ export class SessionLifecycleHandler {
           ? {
               experiences: result.capture.experiencesExtracted,
               knowledge: result.capture.knowledgeExtracted,
+            }
+          : undefined,
+        missedExtraction: result.missedExtraction
+          ? {
+              extracted: result.missedExtraction.totalExtracted,
+              queued: result.missedExtraction.queuedForReview,
+              filtered: result.missedExtraction.duplicatesFiltered,
             }
           : undefined,
         analysis: result.analysis

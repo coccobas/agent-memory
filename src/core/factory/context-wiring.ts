@@ -37,10 +37,16 @@ import { createExtractionHookService } from '../../services/extraction-hook.serv
 import { createEpisodeService } from '../../services/episode/index.js';
 import { createEpisodeAutoLoggerService } from '../../services/episode-auto-logger.js';
 import {
+  createBoundaryDetectorService,
+  type BoundaryDetectorCallbacks,
+  type DetectedBoundary,
+} from '../../services/episode/boundary-detector.js';
+import {
   createHierarchicalRetriever,
   createPipelineRetriever,
 } from '../../services/summarization/index.js';
 import type { EmbeddingService } from '../../services/embedding.service.js';
+import { MissedExtractionDetector } from '../../services/librarian/missed-extraction/index.js';
 
 /**
  * Input for wireContext - all backend-specific resources resolved
@@ -218,12 +224,140 @@ export async function wireContext(input: WireContextInput): Promise<AppContext> 
     services.episode = episodeService;
     logger.debug('Episode service initialized');
 
+    // Create BoundaryDetectorService (automatic episode boundary detection)
+    // Phase 1 (shadowMode=true): logs boundaries without creating episodes
+    // Phase 2 (shadowMode=false): auto-creates episodes from detected boundaries
+    const boundaryDetectionEnabled = config.episode?.boundaryDetectionEnabled ?? true;
+    const shadowMode = config.episode?.boundaryShadowMode ?? true;
+
+    // Create boundary-to-episode callback for Phase 2 (auto-create mode)
+    const boundaryCallbacks: BoundaryDetectorCallbacks | undefined = shadowMode
+      ? undefined
+      : {
+          onBoundaryDetected: async (boundary: DetectedBoundary) => {
+            try {
+              // Get current active episode for the session
+              const activeEpisode = await episodeService.getActiveEpisode(boundary.sessionId);
+
+              // Complete the active episode if one exists
+              if (activeEpisode) {
+                await episodeService.complete(
+                  activeEpisode.id,
+                  `Auto-completed: new episode boundary detected (${boundary.decision.reason})`,
+                  'success'
+                );
+                logger.debug(
+                  { episodeId: activeEpisode.id, reason: boundary.decision.reason },
+                  'Auto-completed previous episode'
+                );
+              }
+
+              // Create new auto-detected episode
+              const newEpisode = await episodeService.create({
+                scopeType: 'session',
+                sessionId: boundary.sessionId,
+                name: boundary.suggestedName ?? 'Auto-detected episode',
+                description: `Automatically detected via ${boundary.decision.reason}`,
+                triggerType: 'auto_detected',
+                triggerRef: boundary.decision.reason,
+                metadata: {
+                  boundaryReason: boundary.decision.reason,
+                  boundaryConfidence: boundary.decision.confidence,
+                  boundarySimilarity: boundary.decision.similarity,
+                  detectedAt: boundary.timestamp.toISOString(),
+                  windowBeforeSize: boundary.windowBefore.length,
+                  windowAfterSize: boundary.windowAfter.length,
+                },
+              });
+
+              // Start the auto-detected episode immediately (status: planned → active)
+              await episodeService.start(newEpisode.id);
+
+              // Log buffered tool calls (windowAfter) as events in the new episode
+              // These are the events that represent the start of this new episode's work
+              for (const bufferedEvent of boundary.windowAfter) {
+                try {
+                  await episodeService.addEvent({
+                    episodeId: newEpisode.id,
+                    eventType: 'checkpoint',
+                    name: bufferedEvent.summary,
+                    description: bufferedEvent.action
+                      ? `Tool ${bufferedEvent.toolName} with action ${bufferedEvent.action}`
+                      : `Tool ${bufferedEvent.toolName}`,
+                    data: {
+                      tool: bufferedEvent.toolName,
+                      action: bufferedEvent.action,
+                      targetFile: bufferedEvent.targetFile,
+                      autoLogged: true,
+                      fromBoundaryBuffer: true,
+                      originalTimestamp: bufferedEvent.timestamp.toISOString(),
+                    },
+                  });
+                } catch (eventError) {
+                  logger.warn(
+                    {
+                      episodeId: newEpisode.id,
+                      tool: bufferedEvent.toolName,
+                      error: eventError instanceof Error ? eventError.message : String(eventError),
+                    },
+                    'Failed to log buffered event to episode'
+                  );
+                }
+              }
+
+              logger.info(
+                {
+                  episodeId: newEpisode.id,
+                  sessionId: boundary.sessionId,
+                  name: newEpisode.name,
+                  reason: boundary.decision.reason,
+                  eventsLogged: boundary.windowAfter.length,
+                },
+                'Auto-created episode from boundary detection with buffered events'
+              );
+            } catch (error) {
+              logger.error(
+                {
+                  sessionId: boundary.sessionId,
+                  error: error instanceof Error ? error.message : String(error),
+                },
+                'Failed to create episode from boundary'
+              );
+            }
+          },
+        };
+
+    const boundaryDetector = boundaryDetectionEnabled
+      ? createBoundaryDetectorService(
+          services.embedding ?? null,
+          {
+            enabled: true,
+            shadowMode,
+            windowSize: config.episode?.boundaryWindowSize ?? 5,
+            similarityThreshold: config.episode?.boundarySimilarityThreshold ?? 0.65,
+            minEvents: (config.episode?.boundaryWindowSize ?? 5) + 1,
+            timeGapThresholdMs: config.episode?.boundaryTimeGapMs ?? 600000,
+            boundaryDebounceMs: 30000,
+          },
+          boundaryCallbacks
+        )
+      : undefined;
+
+    if (boundaryDetector) {
+      const mode = shadowMode ? 'shadow' : 'auto-create';
+      logger.debug({ mode }, 'Episode boundary detector initialized');
+    }
+
     // Create EpisodeAutoLoggerService (automatic tool execution logging)
     // Only create if episode repository is available
-    const episodeAutoLogger = createEpisodeAutoLoggerService(repos.episodes, {
-      enabled: config.episode?.autoLogEnabled ?? false,
-      debounceMs: config.episode?.debounceMs ?? 1000,
-    });
+    const episodeAutoLogger = createEpisodeAutoLoggerService(
+      repos.episodes,
+      {
+        enabled: config.episode?.autoLogEnabled ?? false,
+        debounceMs: config.episode?.debounceMs ?? 1000,
+      },
+      boundaryDetector
+    );
     services.episodeAutoLogger = episodeAutoLogger;
     if (episodeAutoLogger.isEnabled()) {
       logger.debug('Episode auto-logger service initialized and enabled');
@@ -278,6 +412,21 @@ export async function wireContext(input: WireContextInput): Promise<AppContext> 
       latentMemory: services.latentMemory,
     });
     logger.debug('Librarian maintenance orchestrator initialized');
+
+    // Create and wire MissedExtractionDetector for session-end analysis
+    // Uses extraction service to detect facts/decisions missed during session
+    if (services.extraction) {
+      const missedExtractionDetector = new MissedExtractionDetector({
+        extractionService: services.extraction,
+        knowledgeRepo: repos.knowledge,
+        guidelineRepo: repos.guidelines,
+        toolRepo: repos.tools,
+        embeddingService: services.embedding,
+        // Config defaults from DEFAULT_MISSED_EXTRACTION_CONFIG will be used
+      });
+      services.librarian.setMissedExtractionDetector(missedExtractionDetector);
+      logger.debug('Missed extraction detector initialized and wired to librarian');
+    }
   }
 
   // Create ReembeddingService now that db is available

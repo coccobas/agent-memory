@@ -25,16 +25,22 @@ export async function runSessionEndCommand(params: {
   const sessionId = input.session_id;
   const transcriptPath = input.transcript_path;
 
+  // Handle missing session_id gracefully - exit successfully but skip processing
+  // This can happen when Claude Code sends minimal/empty input
   if (!sessionId) {
-    logger.warn('Session end hook called without session_id');
+    logger.debug('Session end hook called without session_id, skipping (no-op)');
     sessionEndCounter.inc({ status: 'skipped' });
-    return { exitCode: 2, stdout: [], stderr: ['Missing session_id in hook input'] };
+    return { exitCode: 0, stdout: [], stderr: [] };
   }
 
+  // Handle missing transcript_path gracefully - exit successfully but skip processing
   if (!transcriptPath) {
-    logger.warn({ sessionId }, 'Session end hook called without transcript_path');
+    logger.debug(
+      { sessionId },
+      'Session end hook called without transcript_path, skipping (no-op)'
+    );
     sessionEndCounter.inc({ status: 'skipped' });
-    return { exitCode: 2, stdout: [], stderr: ['Missing transcript_path in hook input'] };
+    return { exitCode: 0, stdout: [], stderr: [] };
   }
 
   logger.debug(
@@ -156,6 +162,61 @@ export async function runSessionEndCommand(params: {
               }
             }
           }
+
+          // Create episodes from detected behavior patterns (frictionless episode creation)
+          const episodeService = ctx.services.episode;
+          if (episodeService) {
+            for (const pattern of analysisResult.patterns) {
+              try {
+                // Create episode for the detected pattern
+                const episode = await episodeService.create({
+                  scopeType: 'session',
+                  scopeId: sessionId,
+                  sessionId,
+                  name: pattern.title,
+                  description: `${pattern.scenario}\n\nOutcome: ${pattern.outcome}`,
+                  triggerType: 'behavior_pattern',
+                  triggerRef: pattern.type,
+                  tags: ['auto-detected', `pattern:${pattern.type}`],
+                  metadata: {
+                    confidence: pattern.confidence,
+                    eventIndices: pattern.eventIndices,
+                    applicability: pattern.applicability,
+                    contraindications: pattern.contraindications,
+                  },
+                  createdBy: agentId,
+                });
+
+                // Start and immediately complete the episode (it already happened)
+                await episodeService.start(episode.id);
+                await episodeService.complete(
+                  episode.id,
+                  pattern.outcome,
+                  pattern.confidence >= 0.8 ? 'success' : 'partial'
+                );
+
+                logger.debug(
+                  {
+                    sessionId,
+                    episodeId: episode.id,
+                    patternType: pattern.type,
+                    patternTitle: pattern.title,
+                  },
+                  'Episode created from behavior pattern'
+                );
+              } catch (episodeError) {
+                logger.warn(
+                  {
+                    sessionId,
+                    patternType: pattern.type,
+                    error:
+                      episodeError instanceof Error ? episodeError.message : String(episodeError),
+                  },
+                  'Failed to create episode from behavior pattern (non-fatal)'
+                );
+              }
+            }
+          }
         }
 
         // Clear session data from behavior observer after analysis
@@ -208,6 +269,9 @@ export async function runSessionEndCommand(params: {
             // Log summary of results
             const hasCapture =
               sessionEndResult.capture && sessionEndResult.capture.experiencesExtracted > 0;
+            const hasMissedExtraction =
+              sessionEndResult.missedExtraction &&
+              sessionEndResult.missedExtraction.queuedForReview > 0;
             const hasAnalysis =
               sessionEndResult.analysis && sessionEndResult.analysis.patternsDetected > 0;
             const hasMaintenance =
@@ -216,7 +280,7 @@ export async function runSessionEndCommand(params: {
                 sessionEndResult.maintenance.forgettingArchived > 0 ||
                 sessionEndResult.maintenance.graphNodesCreated > 0);
 
-            if (hasCapture || hasAnalysis || hasMaintenance) {
+            if (hasCapture || hasMissedExtraction || hasAnalysis || hasMaintenance) {
               logger.info(
                 {
                   sessionId,
@@ -226,6 +290,13 @@ export async function runSessionEndCommand(params: {
                     ? {
                         experiences: sessionEndResult.capture.experiencesExtracted,
                         knowledge: sessionEndResult.capture.knowledgeExtracted,
+                      }
+                    : undefined,
+                  missedExtraction: sessionEndResult.missedExtraction
+                    ? {
+                        extracted: sessionEndResult.missedExtraction.totalExtracted,
+                        queued: sessionEndResult.missedExtraction.queuedForReview,
+                        filtered: sessionEndResult.missedExtraction.duplicatesFiltered,
                       }
                     : undefined,
                   analysis: sessionEndResult.analysis
