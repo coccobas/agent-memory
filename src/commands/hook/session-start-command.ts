@@ -12,12 +12,16 @@ export async function runSessionStartCommand(params: {
 }): Promise<HookCommandResult> {
   const { projectId, agentId, input } = params;
 
-  const sessionId = input.session_id;
+  // Generate a fallback session ID if not provided
+  // This allows the hook to work even when Claude Code sends minimal/empty input
+  const sessionId = input.session_id || `hook-session-${Date.now()}`;
   const source = input.source ?? 'startup';
 
-  if (!sessionId) {
-    logger.warn('Session start hook called without session_id');
-    return { exitCode: 2, stdout: [], stderr: ['Missing session_id in hook input'] };
+  if (!input.session_id) {
+    logger.debug(
+      { generatedSessionId: sessionId, source },
+      'Session start hook called without session_id, using generated ID'
+    );
   }
 
   logger.debug({ sessionId, projectId, agentId, source }, 'Starting session start processing');

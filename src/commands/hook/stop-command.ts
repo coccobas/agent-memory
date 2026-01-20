@@ -73,13 +73,17 @@ function assessConversationComplexity(
 
   // Check message count
   if (ingestResult.appended >= config.complexityMessageThreshold) {
-    reasons.push(`${ingestResult.appended} messages appended (threshold: ${config.complexityMessageThreshold})`);
+    reasons.push(
+      `${ingestResult.appended} messages appended (threshold: ${config.complexityMessageThreshold})`
+    );
     score += 0.4;
   }
 
   // Check lines read
   if (ingestResult.linesRead >= config.complexityLineThreshold) {
-    reasons.push(`${ingestResult.linesRead} lines processed (threshold: ${config.complexityLineThreshold})`);
+    reasons.push(
+      `${ingestResult.linesRead} lines processed (threshold: ${config.complexityLineThreshold})`
+    );
     score += 0.3;
   }
 
@@ -165,11 +169,16 @@ export async function runStopCommand(params: {
   const transcriptPath = input.transcript_path;
   const cwd = input.cwd || process.cwd();
 
+  // Handle missing session_id gracefully - exit successfully but skip processing
+  // This can happen when Claude Code sends minimal/empty input
   if (!sessionId) {
-    return { exitCode: 2, stdout: [], stderr: ['Missing session_id in hook input'] };
+    logger.debug('Stop hook called without session_id, skipping (no-op)');
+    return { exitCode: 0, stdout: [], stderr: [] };
   }
+  // Handle missing transcript_path gracefully - exit successfully but skip processing
   if (!transcriptPath) {
-    return { exitCode: 2, stdout: [], stderr: ['Missing transcript_path in hook input'] };
+    logger.debug({ sessionId }, 'Stop hook called without transcript_path, skipping (no-op)');
+    return { exitCode: 0, stdout: [], stderr: [] };
   }
 
   await ensureSessionIdExists(sessionId, projectId);

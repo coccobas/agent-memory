@@ -577,3 +577,15 @@ export function createEpisodeService(deps: EpisodeServiceDeps) {
 }
 
 export type EpisodeService = ReturnType<typeof createEpisodeService>;
+
+// Re-export boundary detector types for external use
+export {
+  createBoundaryDetectorService,
+  DEFAULT_BOUNDARY_CONFIG,
+  type BoundaryDetectorConfig,
+  type BoundaryDetectorCallbacks,
+  type BoundaryDetectorService,
+  type BufferedEvent,
+  type BoundaryDecision,
+  type DetectedBoundary,
+} from './boundary-detector.js';

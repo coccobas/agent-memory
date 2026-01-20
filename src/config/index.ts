@@ -391,6 +391,12 @@ export interface Config {
     autoLogEnabled: boolean;
     debounceMs: number;
     autoCreateEnabled: boolean;
+    // Boundary detection settings
+    boundaryDetectionEnabled: boolean;
+    boundaryShadowMode: boolean;
+    boundaryWindowSize: number;
+    boundarySimilarityThreshold: number;
+    boundaryTimeGapMs: number;
   };
 }
 

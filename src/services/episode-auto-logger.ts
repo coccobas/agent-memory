@@ -19,6 +19,11 @@ import {
   SIGNIFICANT_ACTIONS,
   SKIP_ACTIONS,
 } from '../config/registry/sections/episode.js';
+import type {
+  BoundaryDetectorService,
+  BufferedEvent,
+  DetectedBoundary,
+} from './episode/boundary-detector.js';
 
 const logger = createComponentLogger('episode-auto-logger');
 
@@ -124,7 +129,8 @@ function truncate(str: string, maxLen: number): string {
  */
 export function createEpisodeAutoLoggerService(
   episodeRepo: IEpisodeRepository,
-  config: EpisodeAutoLoggerConfig
+  config: EpisodeAutoLoggerConfig,
+  boundaryDetector?: BoundaryDetectorService
 ) {
   const significantTools = new Set<string>(config.significantTools ?? DEFAULT_SIGNIFICANT_TOOLS);
   const skipTools = new Set<string>(config.skipTools ?? DEFAULT_SKIP_TOOLS);
@@ -133,6 +139,29 @@ export function createEpisodeAutoLoggerService(
 
   // Track last log time per session for debouncing
   const lastLogTime = new Map<string, number>();
+
+  /**
+   * Convert tool execution event to buffered event for boundary detection
+   */
+  function toBufferedEvent(event: ToolExecutionEvent): BufferedEvent | null {
+    if (!event.sessionId) return null;
+
+    const cleanToolName = event.toolName.replace(/^memory_/, '');
+    const summary = event.context?.entryName
+      ? `${event.action ?? 'used'} ${cleanToolName}: ${event.context.entryName}`
+      : event.action
+        ? `${event.action} (${cleanToolName})`
+        : cleanToolName;
+
+    return {
+      timestamp: new Date(),
+      toolName: event.toolName,
+      action: event.action,
+      targetFile: event.context?.metadata?.file as string | undefined,
+      summary,
+      sessionId: event.sessionId,
+    };
+  }
 
   /**
    * Check if a tool execution should be logged
@@ -231,10 +260,28 @@ export function createEpisodeAutoLoggerService(
           return false;
         }
 
+        // ALWAYS feed event to boundary detector first (even without active episode)
+        // This allows boundary detection to work and create episodes from scratch
+        if (boundaryDetector) {
+          const bufferedEvent = toBufferedEvent(event);
+          if (bufferedEvent) {
+            // Fire and forget - don't block on boundary detection
+            boundaryDetector.ingest(bufferedEvent).catch((err) => {
+              logger.warn(
+                { error: err instanceof Error ? err.message : String(err) },
+                'Boundary detection failed'
+              );
+            });
+          }
+        }
+
         // Find active episode for this session
         const activeEpisode = await episodeRepo.getActiveEpisode(sessionId);
         if (!activeEpisode) {
-          logger.trace({ sessionId }, 'No active episode for session');
+          logger.trace(
+            { sessionId },
+            'No active episode for session (event fed to boundary detector)'
+          );
           return false;
         }
 
@@ -307,6 +354,32 @@ export function createEpisodeAutoLoggerService(
     clearDebounceState(): void {
       lastLogTime.clear();
     },
+
+    /**
+     * Get the boundary detector (if available)
+     */
+    getBoundaryDetector(): BoundaryDetectorService | undefined {
+      return boundaryDetector;
+    },
+
+    /**
+     * Get detected boundaries for a session (shadow mode)
+     */
+    getDetectedBoundaries(sessionId?: string): DetectedBoundary[] {
+      if (!boundaryDetector) return [];
+      if (sessionId) {
+        return boundaryDetector.getBoundariesForSession(sessionId);
+      }
+      return boundaryDetector.getDetectedBoundaries();
+    },
+
+    /**
+     * Flush boundary detector buffer for a session
+     */
+    flushBoundaryBuffer(sessionId: string): BufferedEvent[] {
+      if (!boundaryDetector) return [];
+      return boundaryDetector.flush(sessionId);
+    },
   };
 }
 
@@ -323,4 +396,7 @@ export interface IEpisodeAutoLoggerService {
   getConfig(): EpisodeAutoLoggerConfig;
   isEnabled(): boolean;
   clearDebounceState(): void;
+  getBoundaryDetector(): BoundaryDetectorService | undefined;
+  getDetectedBoundaries(sessionId?: string): DetectedBoundary[];
+  flushBoundaryBuffer(sessionId: string): BufferedEvent[];
 }

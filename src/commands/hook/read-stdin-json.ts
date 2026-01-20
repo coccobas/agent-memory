@@ -26,8 +26,13 @@ export async function readHookInputFromStdin(): Promise<ClaudeHookInput> {
   });
 
   try {
-    return JSON.parse(data) as ClaudeHookInput;
+    // Handle empty input by providing a minimal valid object
+    const trimmed = data.trim();
+    if (!trimmed) {
+      return { source: 'startup' } as ClaudeHookInput;
+    }
+    return JSON.parse(trimmed) as ClaudeHookInput;
   } catch {
-    throw new HookCliError(2, 'Invalid JSON hook input');
+    throw new HookCliError(2, `Invalid JSON hook input: ${data.slice(0, 100)}`);
   }
 }

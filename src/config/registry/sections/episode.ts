@@ -14,7 +14,7 @@ export const episodeSection: ConfigSectionMeta = {
     // Auto-logger settings
     autoLogEnabled: {
       envKey: 'AGENT_MEMORY_EPISODE_AUTO_LOG',
-      defaultValue: false, // Opt-in first, enable by default after validation
+      defaultValue: true, // Enabled by default - auto-log tool executions as episode events
       description: 'Enable automatic logging of tool executions as episode events.',
       schema: z.boolean(),
       parse: 'boolean',
@@ -33,6 +33,43 @@ export const episodeSection: ConfigSectionMeta = {
       description: 'Enable automatic episode creation from session names.',
       schema: z.boolean(),
       parse: 'boolean',
+    },
+    // Boundary detection settings (Phase 2: auto-create mode)
+    boundaryDetectionEnabled: {
+      envKey: 'AGENT_MEMORY_EPISODE_BOUNDARY_DETECTION',
+      defaultValue: true,
+      description: 'Enable automatic episode boundary detection from tool execution patterns.',
+      schema: z.boolean(),
+      parse: 'boolean',
+    },
+    boundaryShadowMode: {
+      envKey: 'AGENT_MEMORY_EPISODE_BOUNDARY_SHADOW_MODE',
+      defaultValue: false,
+      description:
+        'Shadow mode: log detected boundaries without creating episodes. Set to false for auto-creation.',
+      schema: z.boolean(),
+      parse: 'boolean',
+    },
+    boundaryWindowSize: {
+      envKey: 'AGENT_MEMORY_EPISODE_BOUNDARY_WINDOW_SIZE',
+      defaultValue: 5,
+      description: 'Number of events in each comparison window for boundary detection.',
+      schema: z.number().int().min(2).max(20),
+      parse: 'int',
+    },
+    boundarySimilarityThreshold: {
+      envKey: 'AGENT_MEMORY_EPISODE_BOUNDARY_SIMILARITY_THRESHOLD',
+      defaultValue: 0.65,
+      description: 'Similarity threshold below which a boundary is detected (0-1).',
+      schema: z.number().min(0).max(1),
+      parse: 'number',
+    },
+    boundaryTimeGapMs: {
+      envKey: 'AGENT_MEMORY_EPISODE_BOUNDARY_TIME_GAP_MS',
+      defaultValue: 600000, // 10 minutes
+      description: 'Time gap (ms) that triggers a boundary detection.',
+      schema: z.number().int().min(0),
+      parse: 'int',
     },
   },
 };
