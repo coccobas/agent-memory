@@ -11,6 +11,7 @@
 
 import type { Config } from '../config/index.js';
 import type { IProjectRepository, ISessionRepository } from '../core/interfaces/repositories.js';
+import type { ScopeType } from '../db/schema/types.js';
 import { createComponentLogger } from '../utils/logger.js';
 
 const logger = createComponentLogger('context-detection');
@@ -82,6 +83,19 @@ export interface EnrichmentResult {
 }
 
 /**
+ * Result of project scope resolution
+ *
+ * Used when scopeType='project' to resolve the actual projectId
+ * from explicit params, active session, or cwd detection.
+ */
+export interface ResolvedProjectScope {
+  projectId: string;
+  source: 'explicit' | 'session' | 'cwd';
+  sessionId?: string;
+  warning?: string;
+}
+
+/**
  * Context Detection Service Interface
  */
 export interface IContextDetectionService {
@@ -95,6 +109,19 @@ export interface IContextDetectionService {
    * Explicit parameters always take precedence over auto-detected ones
    */
   enrichParams(args: Record<string, unknown>): Promise<EnrichmentResult>;
+
+  /**
+   * Resolve project scope for operations.
+   *
+   * When scopeType='project' and no scopeId is provided:
+   * 1. If explicit scopeId → use it (warn if differs from session's project)
+   * 2. If active session exists → use session's projectId
+   * 3. Fall back to cwd-detected project
+   * 4. Error if no project can be resolved
+   *
+   * For other scopeTypes (global, session, org), passes through unchanged.
+   */
+  resolveProjectScope(scopeType: ScopeType, scopeId?: string): Promise<ResolvedProjectScope>;
 
   /**
    * Clear the detection cache (forces re-detection)
@@ -278,6 +305,84 @@ export class ContextDetectionService implements IContextDetectionService {
   clearCache(): void {
     this.cache = null;
     logger.debug('Context detection cache cleared');
+  }
+
+  async resolveProjectScope(scopeType: ScopeType, scopeId?: string): Promise<ResolvedProjectScope> {
+    // For non-project scopes, pass through unchanged
+    if (scopeType !== 'project') {
+      return {
+        projectId: scopeId ?? '',
+        source: 'explicit',
+      };
+    }
+
+    // Detect current context (includes active session)
+    const detected = await this.detect();
+
+    // Get session's projectId if available
+    // We need to fetch the session with its projectId
+    let sessionProjectId: string | undefined;
+    let sessionId: string | undefined;
+
+    if (detected.session) {
+      sessionId = detected.session.id;
+      // Fetch full session details to get projectId
+      try {
+        const sessions = await this.sessionRepo.list(
+          { projectId: detected.project?.id, status: 'active' },
+          { limit: 1 }
+        );
+        const session = sessions[0];
+        if (session && 'projectId' in session && session.projectId) {
+          sessionProjectId = session.projectId;
+        }
+      } catch {
+        // Ignore errors, fall through to cwd detection
+      }
+    }
+
+    // Case 1: Explicit scopeId provided
+    if (scopeId) {
+      const result: ResolvedProjectScope = {
+        projectId: scopeId,
+        source: 'explicit',
+      };
+
+      // Add warning if differs from session's project
+      if (sessionProjectId && scopeId !== sessionProjectId) {
+        result.warning = `Explicit scopeId '${scopeId}' differs from active session's project '${sessionProjectId}'`;
+        result.sessionId = sessionId;
+      }
+
+      return result;
+    }
+
+    // Case 2: Resolve from active session
+    if (sessionProjectId) {
+      logger.debug(
+        { sessionId, projectId: sessionProjectId },
+        'Resolved project from active session'
+      );
+      return {
+        projectId: sessionProjectId,
+        source: 'session',
+        sessionId,
+      };
+    }
+
+    // Case 3: Fall back to cwd-detected project
+    if (detected.project?.id) {
+      logger.debug({ projectId: detected.project.id }, 'Resolved project from cwd');
+      return {
+        projectId: detected.project.id,
+        source: 'cwd',
+      };
+    }
+
+    // Case 4: No project can be resolved
+    throw new Error(
+      'No active session found. Start a session with memory_quickstart or provide scopeId explicitly.'
+    );
   }
 }
 

@@ -18,8 +18,23 @@ import {
   isNumber,
   isBoolean,
 } from '../../utils/type-guards.js';
+import type { IContextDetectionService } from '../../services/context-detection.service.js';
+import type { ScopeType } from '../../db/schema/types.js';
 
 const logger = createComponentLogger('librarian-handler');
+
+// =============================================================================
+// TYPES
+// =============================================================================
+
+/**
+ * Result of scope resolution for librarian operations
+ */
+export interface ResolvedScope {
+  scopeType: ScopeType;
+  scopeId: string | undefined;
+  warning?: string;
+}
 
 // =============================================================================
 // HELPER FUNCTIONS
@@ -30,6 +45,54 @@ const logger = createComponentLogger('librarian-handler');
  */
 function getLibrarianServiceFromContext(context: AppContext) {
   return context.services.librarian;
+}
+
+/**
+ * Resolve effective scope for librarian operations.
+ *
+ * When scopeType='project' and no scopeId is provided, uses the context detection
+ * service to resolve the projectId from the active session or cwd.
+ *
+ * This ensures maintenance operations always run on the correct project,
+ * preventing issues from stale context detection.
+ *
+ * @param contextDetection - Optional context detection service
+ * @param scopeType - The requested scope type
+ * @param scopeId - The explicit scope ID (if provided)
+ * @returns Resolved scope with potentially resolved scopeId
+ */
+export async function resolveEffectiveScope(
+  contextDetection: IContextDetectionService | undefined,
+  scopeType: ScopeType,
+  scopeId: string | undefined
+): Promise<ResolvedScope> {
+  // If no context detection service, fall back to original behavior
+  if (!contextDetection) {
+    return {
+      scopeType,
+      scopeId,
+    };
+  }
+
+  // Try to resolve the project scope using context detection
+  try {
+    const resolved = await contextDetection.resolveProjectScope(scopeType, scopeId);
+    return {
+      scopeType,
+      scopeId: resolved.projectId || undefined,
+      warning: resolved.warning,
+    };
+  } catch {
+    // If resolution fails (e.g., no active session), fall back to original behavior
+    logger.debug(
+      { scopeType, scopeId },
+      'Context detection failed for scope resolution, using fallback'
+    );
+    return {
+      scopeType,
+      scopeId,
+    };
+  }
 }
 
 // =============================================================================
@@ -49,12 +112,20 @@ const analyze: ContextAwareHandler = async (context, params) => {
     };
   }
 
-  const scopeType = getOptionalParam(params, 'scopeType', isScopeType) ?? 'project';
-  const scopeId = getOptionalParam(params, 'scopeId', isString);
+  const rawScopeType = getOptionalParam(params, 'scopeType', isScopeType) ?? 'project';
+  const rawScopeId = getOptionalParam(params, 'scopeId', isString);
   const lookbackDays = getOptionalParam(params, 'lookbackDays', isNumber);
   const dryRun = getOptionalParam(params, 'dryRun', isBoolean);
 
-  logger.info({ scopeType, scopeId, lookbackDays, dryRun }, 'Starting librarian analysis');
+  // Resolve effective scope using session binding
+  const contextDetection = context.services.contextDetection;
+  const resolved = await resolveEffectiveScope(contextDetection, rawScopeType, rawScopeId);
+  const { scopeType, scopeId, warning: scopeWarning } = resolved;
+
+  logger.info(
+    { scopeType, scopeId, lookbackDays, dryRun, scopeWarning },
+    'Starting librarian analysis'
+  );
 
   try {
     const result = await service.analyze({
@@ -68,6 +139,7 @@ const analyze: ContextAwareHandler = async (context, params) => {
 
     return {
       success: true,
+      ...(scopeWarning && { warning: scopeWarning }),
       analysis: {
         runId: result.runId,
         dryRun: result.dryRun,
@@ -145,8 +217,21 @@ const list_recommendations: ContextAwareHandler = async (context, params) => {
   const minConfidence = getOptionalParam(params, 'minConfidence', isNumber);
   const limit = getOptionalParam(params, 'limit', isNumber);
   const offset = getOptionalParam(params, 'offset', isNumber);
-  const scopeType = getOptionalParam(params, 'scopeType', isScopeType);
-  const scopeId = getOptionalParam(params, 'scopeId', isString);
+  const rawScopeType = getOptionalParam(params, 'scopeType', isScopeType);
+  const rawScopeId = getOptionalParam(params, 'scopeId', isString);
+
+  // Resolve effective scope using session binding (only when scopeType is provided)
+  let scopeType = rawScopeType;
+  let scopeId = rawScopeId;
+  let scopeWarning: string | undefined;
+
+  if (rawScopeType) {
+    const contextDetection = context.services.contextDetection;
+    const resolved = await resolveEffectiveScope(contextDetection, rawScopeType, rawScopeId);
+    scopeType = resolved.scopeType;
+    scopeId = resolved.scopeId;
+    scopeWarning = resolved.warning;
+  }
 
   try {
     const recommendations = await store.list(
@@ -168,6 +253,7 @@ const list_recommendations: ContextAwareHandler = async (context, params) => {
 
     return {
       success: true,
+      ...(scopeWarning && { warning: scopeWarning }),
       recommendations: recommendations.map((rec) => ({
         id: rec.id,
         title: rec.title,
@@ -393,7 +479,7 @@ const reject: ContextAwareHandler = async (context, params) => {
 };
 
 /**
- * Run maintenance tasks (consolidation, forgetting, graph backfill)
+ * Run maintenance tasks (consolidation, forgetting, graph backfill, latent population, tag refinement, semantic edge inference)
  */
 const run_maintenance: ContextAwareHandler = async (context, params) => {
   const service = getLibrarianServiceFromContext(context);
@@ -412,20 +498,38 @@ const run_maintenance: ContextAwareHandler = async (context, params) => {
     };
   }
 
-  const scopeType = getOptionalParam(params, 'scopeType', isScopeType) ?? 'project';
-  const scopeId = getOptionalParam(params, 'scopeId', isString);
+  const rawScopeType = getOptionalParam(params, 'scopeType', isScopeType) ?? 'project';
+  const rawScopeId = getOptionalParam(params, 'scopeId', isString);
   const dryRun = getOptionalParam(params, 'dryRun', isBoolean) ?? false;
   const initiatedBy = getOptionalParam(params, 'initiatedBy', isString) ?? 'mcp-handler';
 
+  // Resolve effective scope using session binding
+  const contextDetection = context.services.contextDetection;
+  const resolved = await resolveEffectiveScope(contextDetection, rawScopeType, rawScopeId);
+  const { scopeType, scopeId, warning: scopeWarning } = resolved;
+
   // Parse tasks array if provided
-  type MaintenanceTask = 'consolidation' | 'forgetting' | 'graphBackfill';
+  type MaintenanceTask =
+    | 'consolidation'
+    | 'forgetting'
+    | 'graphBackfill'
+    | 'latentPopulation'
+    | 'tagRefinement'
+    | 'semanticEdgeInference';
   let tasks: MaintenanceTask[] | undefined;
   if (params.tasks && Array.isArray(params.tasks)) {
-    const validTasks = ['consolidation', 'forgetting', 'graphBackfill'];
+    const validTasks = [
+      'consolidation',
+      'forgetting',
+      'graphBackfill',
+      'latentPopulation',
+      'tagRefinement',
+      'semanticEdgeInference',
+    ];
     tasks = (params.tasks as string[]).filter((t): t is MaintenanceTask => validTasks.includes(t));
   }
 
-  logger.info({ scopeType, scopeId, tasks, dryRun }, 'Starting maintenance run');
+  logger.info({ scopeType, scopeId, tasks, dryRun, scopeWarning }, 'Starting maintenance run');
 
   try {
     const result = await service.runMaintenance({
@@ -438,6 +542,7 @@ const run_maintenance: ContextAwareHandler = async (context, params) => {
 
     return {
       success: true,
+      ...(scopeWarning && { warning: scopeWarning }),
       maintenance: {
         runId: result.runId,
         dryRun: result.dryRun,
@@ -445,6 +550,9 @@ const run_maintenance: ContextAwareHandler = async (context, params) => {
         consolidation: result.consolidation,
         forgetting: result.forgetting,
         graphBackfill: result.graphBackfill,
+        latentPopulation: result.latentPopulation,
+        tagRefinement: result.tagRefinement,
+        semanticEdgeInference: result.semanticEdgeInference,
         healthAfter: result.healthAfter,
       },
     };

@@ -532,4 +532,173 @@ describe('ContextDetectionService', () => {
       expect(service).toBeInstanceOf(ContextDetectionService);
     });
   });
+
+  describe('resolveProjectScope()', () => {
+    describe('when explicit scopeId is provided', () => {
+      it('should return the explicit scopeId', async () => {
+        const config = createMockConfig();
+        projectRepo.findByPath.mockResolvedValue({
+          id: 'cwd-proj',
+          name: 'CWD Project',
+        });
+        sessionRepo.list.mockResolvedValue([
+          {
+            id: 'sess-123',
+            projectId: 'session-proj',
+            status: 'active',
+          },
+        ]);
+
+        const service = new ContextDetectionService(config, projectRepo as any, sessionRepo as any);
+        const result = await service.resolveProjectScope('project', 'explicit-proj');
+
+        expect(result.projectId).toBe('explicit-proj');
+        expect(result.source).toBe('explicit');
+      });
+
+      it('should include warning when explicit scopeId differs from session project', async () => {
+        const config = createMockConfig();
+        projectRepo.findByPath.mockResolvedValue({
+          id: 'cwd-proj',
+          name: 'CWD Project',
+        });
+        sessionRepo.list.mockResolvedValue([
+          {
+            id: 'sess-123',
+            projectId: 'session-proj',
+            status: 'active',
+          },
+        ]);
+
+        const service = new ContextDetectionService(config, projectRepo as any, sessionRepo as any);
+        const result = await service.resolveProjectScope('project', 'explicit-proj');
+
+        expect(result.projectId).toBe('explicit-proj');
+        expect(result.source).toBe('explicit');
+        expect(result.warning).toContain('differs from active session');
+        expect(result.sessionId).toBe('sess-123');
+      });
+
+      it('should not include warning when explicit scopeId matches session project', async () => {
+        const config = createMockConfig();
+        projectRepo.findByPath.mockResolvedValue({
+          id: 'cwd-proj',
+          name: 'CWD Project',
+        });
+        sessionRepo.list.mockResolvedValue([
+          {
+            id: 'sess-123',
+            projectId: 'session-proj',
+            status: 'active',
+          },
+        ]);
+
+        const service = new ContextDetectionService(config, projectRepo as any, sessionRepo as any);
+        const result = await service.resolveProjectScope('project', 'session-proj');
+
+        expect(result.projectId).toBe('session-proj');
+        expect(result.source).toBe('explicit');
+        expect(result.warning).toBeUndefined();
+      });
+    });
+
+    describe('when no explicit scopeId is provided', () => {
+      it('should resolve from active session when available', async () => {
+        const config = createMockConfig();
+        projectRepo.findByPath.mockResolvedValue({
+          id: 'cwd-proj',
+          name: 'CWD Project',
+        });
+        sessionRepo.list.mockResolvedValue([
+          {
+            id: 'sess-123',
+            projectId: 'session-proj',
+            status: 'active',
+          },
+        ]);
+
+        const service = new ContextDetectionService(config, projectRepo as any, sessionRepo as any);
+        const result = await service.resolveProjectScope('project');
+
+        expect(result.projectId).toBe('session-proj');
+        expect(result.source).toBe('session');
+        expect(result.sessionId).toBe('sess-123');
+      });
+
+      it('should fall back to cwd-detected project when no active session', async () => {
+        const config = createMockConfig();
+        projectRepo.findByPath.mockResolvedValue({
+          id: 'cwd-proj',
+          name: 'CWD Project',
+        });
+        sessionRepo.list.mockResolvedValue([]);
+
+        const service = new ContextDetectionService(config, projectRepo as any, sessionRepo as any);
+        const result = await service.resolveProjectScope('project');
+
+        expect(result.projectId).toBe('cwd-proj');
+        expect(result.source).toBe('cwd');
+        expect(result.sessionId).toBeUndefined();
+      });
+
+      it('should throw error when no project can be resolved', async () => {
+        const config = createMockConfig();
+        projectRepo.findByPath.mockResolvedValue(null);
+        sessionRepo.list.mockResolvedValue([]);
+
+        const service = new ContextDetectionService(config, projectRepo as any, sessionRepo as any);
+
+        await expect(service.resolveProjectScope('project')).rejects.toThrow(
+          'No active session found'
+        );
+      });
+    });
+
+    describe('when scopeType is not project', () => {
+      it('should pass through for global scope', async () => {
+        const config = createMockConfig();
+        projectRepo.findByPath.mockResolvedValue(null);
+
+        const service = new ContextDetectionService(config, projectRepo as any, sessionRepo as any);
+        const result = await service.resolveProjectScope('global');
+
+        expect(result.projectId).toBe('');
+        expect(result.source).toBe('explicit');
+      });
+
+      it('should pass through for session scope', async () => {
+        const config = createMockConfig();
+        projectRepo.findByPath.mockResolvedValue(null);
+
+        const service = new ContextDetectionService(config, projectRepo as any, sessionRepo as any);
+        const result = await service.resolveProjectScope('session', 'sess-id');
+
+        expect(result.projectId).toBe('sess-id');
+        expect(result.source).toBe('explicit');
+      });
+    });
+
+    describe('when session has no projectId', () => {
+      it('should fall back to cwd-detected project', async () => {
+        const config = createMockConfig();
+        projectRepo.findByPath.mockResolvedValue({
+          id: 'cwd-proj',
+          name: 'CWD Project',
+        });
+        sessionRepo.list.mockResolvedValue([
+          {
+            id: 'sess-123',
+            projectId: null, // No projectId on session
+            status: 'active',
+          },
+        ]);
+
+        const service = new ContextDetectionService(config, projectRepo as any, sessionRepo as any);
+        const result = await service.resolveProjectScope('project');
+
+        expect(result.projectId).toBe('cwd-proj');
+        expect(result.source).toBe('cwd');
+      });
+    });
+  });
 });

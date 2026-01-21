@@ -5,12 +5,20 @@
  * - Type guard usage (isRecommendationStatus, isScopeType)
  * - Error handling with formatError()
  * - Parameter validation
+ * - resolveEffectiveScope helper function
  */
 
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
-import { librarianHandlers } from '../../src/mcp/handlers/librarian.handler.js';
+import {
+  librarianHandlers,
+  resolveEffectiveScope,
+} from '../../src/mcp/handlers/librarian.handler.js';
 import { setupTestDb, cleanupTestDb, createTestContext } from '../fixtures/test-helpers.js';
 import type { AppContext } from '../../src/core/context.js';
+import type {
+  IContextDetectionService,
+  ResolvedProjectScope,
+} from '../../src/services/context-detection.service.js';
 
 const TEST_DB_PATH = './data/test-librarian-handler.db';
 let ctx: AppContext;
@@ -175,6 +183,110 @@ describe('librarian handler', () => {
       expect(result.error).toBeDefined();
       // formatError returns { error: string, code?: string }
       expect(typeof result.error).toBe('string');
+    });
+  });
+});
+
+describe('resolveEffectiveScope', () => {
+  function createMockContextDetection(
+    mockResolve: (scopeType: string, scopeId?: string) => Promise<ResolvedProjectScope>
+  ): IContextDetectionService {
+    return {
+      detect: vi.fn(),
+      enrichParams: vi.fn(),
+      clearCache: vi.fn(),
+      resolveProjectScope: mockResolve as any,
+    };
+  }
+
+  describe('when scopeType is project', () => {
+    it('should use context detection service to resolve scopeId', async () => {
+      const mockResolve = vi.fn().mockResolvedValue({
+        projectId: 'session-proj',
+        source: 'session',
+        sessionId: 'sess-123',
+      });
+      const contextDetection = createMockContextDetection(mockResolve);
+
+      const result = await resolveEffectiveScope(contextDetection, 'project', undefined);
+
+      expect(mockResolve).toHaveBeenCalledWith('project', undefined);
+      expect(result.scopeType).toBe('project');
+      expect(result.scopeId).toBe('session-proj');
+    });
+
+    it('should include warning when present', async () => {
+      const mockResolve = vi.fn().mockResolvedValue({
+        projectId: 'explicit-proj',
+        source: 'explicit',
+        sessionId: 'sess-123',
+        warning: 'Explicit scopeId differs from active session',
+      });
+      const contextDetection = createMockContextDetection(mockResolve);
+
+      const result = await resolveEffectiveScope(contextDetection, 'project', 'explicit-proj');
+
+      expect(result.scopeId).toBe('explicit-proj');
+      expect(result.warning).toBe('Explicit scopeId differs from active session');
+    });
+
+    it('should pass through explicit scopeId', async () => {
+      const mockResolve = vi.fn().mockResolvedValue({
+        projectId: 'explicit-proj',
+        source: 'explicit',
+      });
+      const contextDetection = createMockContextDetection(mockResolve);
+
+      const result = await resolveEffectiveScope(contextDetection, 'project', 'explicit-proj');
+
+      expect(mockResolve).toHaveBeenCalledWith('project', 'explicit-proj');
+      expect(result.scopeId).toBe('explicit-proj');
+    });
+  });
+
+  describe('when scopeType is global', () => {
+    it('should return undefined scopeId for global scope', async () => {
+      const mockResolve = vi.fn().mockResolvedValue({
+        projectId: '',
+        source: 'explicit',
+      });
+      const contextDetection = createMockContextDetection(mockResolve);
+
+      const result = await resolveEffectiveScope(contextDetection, 'global', undefined);
+
+      // For global scope, scopeId should be undefined (empty string is converted)
+      expect(result.scopeType).toBe('global');
+      expect(result.scopeId).toBeUndefined();
+    });
+  });
+
+  describe('when context detection is not available', () => {
+    it('should fall back to original behavior', async () => {
+      const result = await resolveEffectiveScope(undefined, 'project', 'explicit-proj');
+
+      expect(result.scopeType).toBe('project');
+      expect(result.scopeId).toBe('explicit-proj');
+      expect(result.warning).toBeUndefined();
+    });
+
+    it('should return undefined scopeId when no explicit scopeId provided', async () => {
+      const result = await resolveEffectiveScope(undefined, 'project', undefined);
+
+      expect(result.scopeType).toBe('project');
+      expect(result.scopeId).toBeUndefined();
+    });
+  });
+
+  describe('when context detection throws', () => {
+    it('should fall back to original behavior and not throw', async () => {
+      const mockResolve = vi.fn().mockRejectedValue(new Error('No active session found'));
+      const contextDetection = createMockContextDetection(mockResolve);
+
+      const result = await resolveEffectiveScope(contextDetection, 'project', undefined);
+
+      // Should fall back gracefully
+      expect(result.scopeType).toBe('project');
+      expect(result.scopeId).toBeUndefined();
     });
   });
 });
