@@ -112,6 +112,115 @@ export const feedbackScoringOptions = {
   },
 };
 
+// Smart prioritization configuration (adaptive scoring)
+export const smartPriorityOptions = {
+  enabled: {
+    envKey: 'AGENT_MEMORY_SMART_PRIORITY_ENABLED',
+    defaultValue: true,
+    description: 'Enable smart prioritization with adaptive weights and usefulness scoring.',
+    schema: z.boolean(),
+    parse: 'boolean' as const,
+  },
+  adaptiveWeightsEnabled: {
+    envKey: 'AGENT_MEMORY_ADAPTIVE_WEIGHTS_ENABLED',
+    defaultValue: true,
+    description: 'Enable adaptive type weight learning from feedback.',
+    schema: z.boolean(),
+    parse: 'boolean' as const,
+  },
+  adaptiveWeightsMinSamples: {
+    envKey: 'AGENT_MEMORY_ADAPTIVE_WEIGHTS_MIN_SAMPLES',
+    defaultValue: 10,
+    description: 'Minimum feedback samples before weight adaptation.',
+    schema: z.number().int().min(1),
+    parse: 'int' as const,
+  },
+  adaptiveWeightsLearningRate: {
+    envKey: 'AGENT_MEMORY_ADAPTIVE_WEIGHTS_LEARNING_RATE',
+    defaultValue: 0.1,
+    description: 'Learning rate for weight adaptation (0-1).',
+    schema: z.number().min(0).max(1),
+    parse: 'number' as const,
+  },
+  adaptiveWeightsLookbackDays: {
+    envKey: 'AGENT_MEMORY_ADAPTIVE_WEIGHTS_LOOKBACK_DAYS',
+    defaultValue: 30,
+    description: 'Days to look back for feedback data.',
+    schema: z.number().int().min(1),
+    parse: 'int' as const,
+  },
+  usefulnessEnabled: {
+    envKey: 'AGENT_MEMORY_USEFULNESS_ENABLED',
+    defaultValue: true,
+    description: 'Enable usefulness scoring based on retrieval success.',
+    schema: z.boolean(),
+    parse: 'boolean' as const,
+  },
+  contextSimilarityEnabled: {
+    envKey: 'AGENT_MEMORY_CONTEXT_SIMILARITY_ENABLED',
+    defaultValue: true,
+    description: 'Enable context similarity boosting.',
+    schema: z.boolean(),
+    parse: 'boolean' as const,
+  },
+  contextSimilarityThreshold: {
+    envKey: 'AGENT_MEMORY_CONTEXT_SIMILARITY_THRESHOLD',
+    defaultValue: 0.7,
+    description: 'Minimum similarity threshold for context matching.',
+    schema: z.number().min(0).max(1),
+    parse: 'number' as const,
+  },
+  contextSimilarityMaxContexts: {
+    envKey: 'AGENT_MEMORY_CONTEXT_SIMILARITY_MAX_CONTEXTS',
+    defaultValue: 50,
+    description: 'Maximum past contexts to consider.',
+    schema: z.number().int().min(1),
+    parse: 'int' as const,
+  },
+  contextSimilarityBoostMultiplier: {
+    envKey: 'AGENT_MEMORY_CONTEXT_SIMILARITY_BOOST_MULTIPLIER',
+    defaultValue: 1.2,
+    description: 'Maximum boost multiplier for context similarity (>= 1.0).',
+    schema: z.number().min(1),
+    parse: 'number' as const,
+  },
+  compositeAdaptiveWeight: {
+    envKey: 'AGENT_MEMORY_COMPOSITE_ADAPTIVE_WEIGHT',
+    defaultValue: 0.4,
+    description: 'Weight of adaptive type weight in composite score.',
+    schema: z.number().min(0).max(1),
+    parse: 'number' as const,
+  },
+  compositeUsefulnessWeight: {
+    envKey: 'AGENT_MEMORY_COMPOSITE_USEFULNESS_WEIGHT',
+    defaultValue: 0.3,
+    description: 'Weight of usefulness score in composite score.',
+    schema: z.number().min(0).max(1),
+    parse: 'number' as const,
+  },
+  compositeContextWeight: {
+    envKey: 'AGENT_MEMORY_COMPOSITE_CONTEXT_WEIGHT',
+    defaultValue: 0.3,
+    description: 'Weight of context similarity in composite score.',
+    schema: z.number().min(0).max(1),
+    parse: 'number' as const,
+  },
+  cacheTTLMs: {
+    envKey: 'AGENT_MEMORY_SMART_PRIORITY_CACHE_TTL_MS',
+    defaultValue: 300000,
+    description: 'TTL for priority score cache in milliseconds (5 min default).',
+    schema: z.number().int().min(0),
+    parse: 'int' as const,
+  },
+  cacheMaxSize: {
+    envKey: 'AGENT_MEMORY_SMART_PRIORITY_CACHE_MAX_SIZE',
+    defaultValue: 1000,
+    description: 'Maximum entries in priority score cache.',
+    schema: z.number().int().min(0),
+    parse: 'int' as const,
+  },
+};
+
 // Entity scoring configuration (for entity-aware retrieval)
 export const entityScoringOptions = {
   enabled: {

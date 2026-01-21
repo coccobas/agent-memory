@@ -26,6 +26,7 @@ import {
   buildScoringWeights,
   buildFeedbackScoring,
   buildEntityScoring,
+  buildSmartPriority,
 } from './builders/index.js';
 
 // =============================================================================
@@ -190,6 +191,23 @@ export interface Config {
       enabled: boolean;
       exactMatchBoost: number;
       partialMatchBoost: number;
+    };
+    smartPriority: {
+      enabled: boolean;
+      adaptiveWeightsEnabled: boolean;
+      adaptiveWeightsMinSamples: number;
+      adaptiveWeightsLearningRate: number;
+      adaptiveWeightsLookbackDays: number;
+      usefulnessEnabled: boolean;
+      contextSimilarityEnabled: boolean;
+      contextSimilarityThreshold: number;
+      contextSimilarityMaxContexts: number;
+      contextSimilarityBoostMultiplier: number;
+      compositeAdaptiveWeight: number;
+      compositeUsefulnessWeight: number;
+      compositeContextWeight: number;
+      cacheTTLMs: number;
+      cacheMaxSize: number;
     };
   };
   validation: {
@@ -448,11 +466,12 @@ export function buildConfig(): Config {
       decayHalfLifeDays: buildRecencyDecayHalfLife(),
     },
 
-    // Add nested scoring weights, feedback scoring, and entity scoring
+    // Add nested scoring weights, feedback scoring, entity scoring, and smart priority
     scoring: {
       weights: buildScoringWeights(),
       feedbackScoring: buildFeedbackScoring(),
       entityScoring: buildEntityScoring(),
+      smartPriority: buildSmartPriority(),
     },
   };
 

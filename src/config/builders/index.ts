@@ -27,7 +27,9 @@ export {
   buildScoringWeights,
   buildFeedbackScoring,
   buildEntityScoring,
+  buildSmartPriority,
   type ScoringWeights,
   type FeedbackScoringConfig,
   type EntityScoringConfig,
+  type SmartPriorityConfig,
 } from './scoring.js';

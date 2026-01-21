@@ -30,6 +30,7 @@ import {
   scoringWeightOptions,
   feedbackScoringOptions,
   entityScoringOptions,
+  smartPriorityOptions,
 } from './sections/scoring.js';
 import { validationSection } from './sections/validation.js';
 import { paginationSection } from './sections/pagination.js';
@@ -149,6 +150,7 @@ export {
   scoringWeightOptions,
   feedbackScoringOptions,
   entityScoringOptions,
+  smartPriorityOptions,
 };
 
 // Re-export types and utilities

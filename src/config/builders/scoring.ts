@@ -8,6 +8,7 @@ import {
   scoringWeightOptions,
   feedbackScoringOptions,
   entityScoringOptions,
+  smartPriorityOptions,
 } from '../registry/index.js';
 import { getEnvInt, getEnvNumber, getEnvBoolean } from './helpers.js';
 
@@ -143,6 +144,99 @@ export function buildEntityScoring(): EntityScoringConfig {
     partialMatchBoost: getEnvInt(
       entityScoringOptions.partialMatchBoost.envKey,
       entityScoringOptions.partialMatchBoost.defaultValue
+    ),
+  };
+}
+
+/**
+ * Smart prioritization configuration.
+ * Adaptive scoring based on feedback and context similarity.
+ */
+export interface SmartPriorityConfig {
+  enabled: boolean;
+  adaptiveWeightsEnabled: boolean;
+  adaptiveWeightsMinSamples: number;
+  adaptiveWeightsLearningRate: number;
+  adaptiveWeightsLookbackDays: number;
+  usefulnessEnabled: boolean;
+  contextSimilarityEnabled: boolean;
+  contextSimilarityThreshold: number;
+  contextSimilarityMaxContexts: number;
+  contextSimilarityBoostMultiplier: number;
+  compositeAdaptiveWeight: number;
+  compositeUsefulnessWeight: number;
+  compositeContextWeight: number;
+  cacheTTLMs: number;
+  cacheMaxSize: number;
+}
+
+/**
+ * Build smart priority config with proper typing.
+ * Controls adaptive scoring based on feedback and context similarity.
+ *
+ * @returns Smart priority configuration
+ */
+export function buildSmartPriority(): SmartPriorityConfig {
+  return {
+    enabled: getEnvBoolean(
+      smartPriorityOptions.enabled.envKey,
+      smartPriorityOptions.enabled.defaultValue
+    ),
+    adaptiveWeightsEnabled: getEnvBoolean(
+      smartPriorityOptions.adaptiveWeightsEnabled.envKey,
+      smartPriorityOptions.adaptiveWeightsEnabled.defaultValue
+    ),
+    adaptiveWeightsMinSamples: getEnvInt(
+      smartPriorityOptions.adaptiveWeightsMinSamples.envKey,
+      smartPriorityOptions.adaptiveWeightsMinSamples.defaultValue
+    ),
+    adaptiveWeightsLearningRate: getEnvNumber(
+      smartPriorityOptions.adaptiveWeightsLearningRate.envKey,
+      smartPriorityOptions.adaptiveWeightsLearningRate.defaultValue
+    ),
+    adaptiveWeightsLookbackDays: getEnvInt(
+      smartPriorityOptions.adaptiveWeightsLookbackDays.envKey,
+      smartPriorityOptions.adaptiveWeightsLookbackDays.defaultValue
+    ),
+    usefulnessEnabled: getEnvBoolean(
+      smartPriorityOptions.usefulnessEnabled.envKey,
+      smartPriorityOptions.usefulnessEnabled.defaultValue
+    ),
+    contextSimilarityEnabled: getEnvBoolean(
+      smartPriorityOptions.contextSimilarityEnabled.envKey,
+      smartPriorityOptions.contextSimilarityEnabled.defaultValue
+    ),
+    contextSimilarityThreshold: getEnvNumber(
+      smartPriorityOptions.contextSimilarityThreshold.envKey,
+      smartPriorityOptions.contextSimilarityThreshold.defaultValue
+    ),
+    contextSimilarityMaxContexts: getEnvInt(
+      smartPriorityOptions.contextSimilarityMaxContexts.envKey,
+      smartPriorityOptions.contextSimilarityMaxContexts.defaultValue
+    ),
+    contextSimilarityBoostMultiplier: getEnvNumber(
+      smartPriorityOptions.contextSimilarityBoostMultiplier.envKey,
+      smartPriorityOptions.contextSimilarityBoostMultiplier.defaultValue
+    ),
+    compositeAdaptiveWeight: getEnvNumber(
+      smartPriorityOptions.compositeAdaptiveWeight.envKey,
+      smartPriorityOptions.compositeAdaptiveWeight.defaultValue
+    ),
+    compositeUsefulnessWeight: getEnvNumber(
+      smartPriorityOptions.compositeUsefulnessWeight.envKey,
+      smartPriorityOptions.compositeUsefulnessWeight.defaultValue
+    ),
+    compositeContextWeight: getEnvNumber(
+      smartPriorityOptions.compositeContextWeight.envKey,
+      smartPriorityOptions.compositeContextWeight.defaultValue
+    ),
+    cacheTTLMs: getEnvInt(
+      smartPriorityOptions.cacheTTLMs.envKey,
+      smartPriorityOptions.cacheTTLMs.defaultValue
+    ),
+    cacheMaxSize: getEnvInt(
+      smartPriorityOptions.cacheMaxSize.envKey,
+      smartPriorityOptions.cacheMaxSize.defaultValue
     ),
   };
 }

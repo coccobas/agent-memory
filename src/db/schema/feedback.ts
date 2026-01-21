@@ -58,10 +58,12 @@ export const memoryRetrievals = sqliteTable(
   {
     id: text('id').primaryKey(),
     sessionId: text('session_id').notNull(),
+    conversationId: text('conversation_id'),
 
     // Query context
     queryText: text('query_text'),
-    queryEmbedding: text('query_embedding'), // Stored as blob/base64
+    queryHash: text('query_hash'),
+    queryEmbedding: text('query_embedding'), // Stored as base64 JSON array
 
     // Retrieved entry
     entryType: text('entry_type', {
@@ -70,8 +72,10 @@ export const memoryRetrievals = sqliteTable(
     entryId: text('entry_id').notNull(),
 
     // Retrieval metrics
-    retrievalRank: integer('retrieval_rank'), // Position in results (1-based)
-    retrievalScore: real('retrieval_score'), // Score from query pipeline
+    retrievalRank: integer('retrieval_rank').notNull(), // Position in results (1-based)
+    retrievalScore: real('retrieval_score').notNull(), // Score from query pipeline
+    semanticScore: real('semantic_score'), // Semantic similarity score
+    contextTokens: integer('context_tokens'), // Token count for context
 
     // Timestamp
     retrievedAt: text('retrieved_at')
@@ -82,6 +86,7 @@ export const memoryRetrievals = sqliteTable(
     index('idx_retrievals_session').on(table.sessionId),
     index('idx_retrievals_entry').on(table.entryType, table.entryId),
     index('idx_retrievals_retrieved_at').on(table.retrievedAt),
+    index('idx_retrievals_query_hash').on(table.queryHash),
   ]
 );
 

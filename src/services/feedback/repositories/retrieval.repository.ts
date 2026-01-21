@@ -39,8 +39,8 @@ export class RetrievalRepository {
       queryEmbedding: params.queryEmbedding,
       entryType: params.entryType,
       entryId: params.entryId,
-      retrievalRank: params.retrievalRank,
-      retrievalScore: params.retrievalScore,
+      retrievalRank: params.retrievalRank ?? 0, // Default to 0 if not provided
+      retrievalScore: params.retrievalScore ?? 0.0, // Default to 0.0 if not provided
       retrievedAt: now(),
     };
 
@@ -74,8 +74,8 @@ export class RetrievalRepository {
         queryEmbedding: p.queryEmbedding,
         entryType: p.entryType,
         entryId: p.entryId,
-        retrievalRank: p.retrievalRank,
-        retrievalScore: p.retrievalScore,
+        retrievalRank: p.retrievalRank ?? 0, // Default to 0 if not provided
+        retrievalScore: p.retrievalScore ?? 0.0, // Default to 0.0 if not provided
         retrievedAt: now(),
       };
     });

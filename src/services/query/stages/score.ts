@@ -41,6 +41,12 @@ import type { EntryFeedbackScore } from '../../feedback/repositories/retrieval.r
 import { getEntityMatchBoost, type EntityFilterPipelineContext } from './entity-filter.js';
 import type { SearchStrategy, StrategyPipelineContext } from './strategy.js';
 import type { QueryIntent } from '../../query-rewrite/types.js';
+import {
+  createSmartPrioritizationService,
+  createPrioritizationRepository,
+  type SmartPrioritizationService,
+  type SmartPriorityConfig,
+} from '../../prioritization/index.js';
 
 // =============================================================================
 // ASYNC SORT UTILITIES
@@ -237,6 +243,71 @@ const FEEDBACK_SCORING_CONFIG: FeedbackScoringConfig = config.scoring.feedbackSc
 
 // Entity scoring configuration from centralized config
 const ENTITY_SCORING_CONFIG = config.scoring.entityScoring;
+
+// Smart priority configuration from centralized config
+const SMART_PRIORITY_CONFIG = config.scoring.smartPriority;
+
+// =============================================================================
+// SMART PRIORITIZATION SERVICE
+// =============================================================================
+
+/**
+ * Convert centralized config to SmartPriorityConfig format.
+ */
+function buildSmartPriorityConfig(): SmartPriorityConfig {
+  return {
+    enabled: SMART_PRIORITY_CONFIG.enabled,
+    adaptiveWeights: {
+      enabled: SMART_PRIORITY_CONFIG.adaptiveWeightsEnabled,
+      minSamplesForAdaptation: SMART_PRIORITY_CONFIG.adaptiveWeightsMinSamples,
+      learningRate: SMART_PRIORITY_CONFIG.adaptiveWeightsLearningRate,
+      lookbackDays: SMART_PRIORITY_CONFIG.adaptiveWeightsLookbackDays,
+    },
+    usefulness: {
+      enabled: SMART_PRIORITY_CONFIG.usefulnessEnabled,
+      retrievalWeight: 0.3,
+      successWeight: 0.5,
+      recencyWeight: 0.2,
+    },
+    contextSimilarity: {
+      enabled: SMART_PRIORITY_CONFIG.contextSimilarityEnabled,
+      similarityThreshold: SMART_PRIORITY_CONFIG.contextSimilarityThreshold,
+      maxContextsToConsider: SMART_PRIORITY_CONFIG.contextSimilarityMaxContexts,
+      boostMultiplier: SMART_PRIORITY_CONFIG.contextSimilarityBoostMultiplier,
+    },
+    composite: {
+      adaptiveWeightInfluence: SMART_PRIORITY_CONFIG.compositeAdaptiveWeight,
+      usefulnessInfluence: SMART_PRIORITY_CONFIG.compositeUsefulnessWeight,
+      contextSimilarityInfluence: SMART_PRIORITY_CONFIG.compositeContextWeight,
+    },
+  };
+}
+
+/**
+ * Lazy-initialized smart prioritization service instance.
+ * Created on first use with the database from the pipeline context.
+ */
+let smartPrioritizationService: SmartPrioritizationService | null = null;
+
+/**
+ * Get or create the SmartPrioritizationService instance.
+ * Uses lazy initialization to defer database access until needed.
+ */
+function getSmartPrioritizationService(ctx: PipelineContext): SmartPrioritizationService {
+  if (!smartPrioritizationService) {
+    const db = ctx.deps.getDb();
+    const repository = createPrioritizationRepository(db);
+    const smartConfig = buildSmartPriorityConfig();
+
+    smartPrioritizationService = createSmartPrioritizationService(
+      smartConfig,
+      repository.getOutcomesByIntentAndType.bind(repository),
+      repository.getUsefulnessMetrics.bind(repository),
+      repository.findSimilarSuccessfulContexts.bind(repository)
+    );
+  }
+  return smartPrioritizationService;
+}
 
 // =============================================================================
 // SCORE COMPUTATION
@@ -709,6 +780,43 @@ export async function scoreStage(ctx: PipelineContext): Promise<PipelineContext>
 
   for (const { filtered: item, config, entityBoost } of topCandidates) {
     results.push(buildResult(item, ctx, config, feedbackScores, entityBoost));
+  }
+
+  // Apply smart prioritization if enabled
+  // This adjusts scores based on adaptive type weights, usefulness, and context similarity
+  if (SMART_PRIORITY_CONFIG.enabled && results.length > 0) {
+    try {
+      const service = getSmartPrioritizationService(ctx);
+
+      // Prepare entries for smart prioritization
+      const entries = results.map((r) => ({
+        id: r.id,
+        type: r.type,
+      }));
+
+      // Get query embedding from context (if available from semantic search)
+      const queryEmbedding = ctx.queryEmbedding;
+
+      // Get scope ID from context (first scope in chain, typically the most specific)
+      const scopeId = ctx.scopeChain[0]?.scopeId ?? undefined;
+
+      // Get smart priority scores (default to 'explore' intent if not set)
+      const intent: QueryIntent = (ctx.rewriteIntent as QueryIntent) ?? 'explore';
+      const smartScores = await service.getPriorityScores(entries, intent, queryEmbedding, scopeId);
+
+      // Apply smart priority scores as multipliers
+      for (const result of results) {
+        const smart = smartScores.get(result.id);
+        if (smart) {
+          result.score *= smart.compositePriorityScore;
+          // Store smart priority details for debugging/transparency
+          (result as QueryResultItem & { smartPriority?: typeof smart }).smartPriority = smart;
+        }
+      }
+    } catch (error) {
+      // Log error but don't fail the query - smart priority is an enhancement
+      console.error('Smart prioritization failed, using base scores:', error);
+    }
   }
 
   // Final sort by full score desc, then by createdAt desc (async to prevent event loop blocking)
