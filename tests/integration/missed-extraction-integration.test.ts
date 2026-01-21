@@ -485,25 +485,22 @@ function createMockExtractionService(
 }
 
 function createMockRepo(existingContent: string[]) {
+  const entries = existingContent.map((content, i) => ({
+    id: `entry-${i}`,
+    content,
+    name: content.substring(0, 50),
+    title: content.substring(0, 50),
+    description: content,
+  }));
+
   return {
-    findByScope: vi.fn().mockResolvedValue(
-      existingContent.map((content, i) => ({
-        id: `entry-${i}`,
-        content,
-        name: content.substring(0, 50),
-        title: content.substring(0, 50),
-        description: content,
-      }))
-    ),
+    findByScope: vi.fn().mockResolvedValue(entries),
     findByScopeWithEmbeddings: vi.fn().mockResolvedValue(
-      existingContent.map((content, i) => ({
-        id: `entry-${i}`,
-        content,
-        name: content.substring(0, 50),
-        title: content.substring(0, 50),
-        description: content,
+      entries.map((entry) => ({
+        ...entry,
         embedding: new Array(1536).fill(0.1),
       }))
     ),
+    list: vi.fn().mockResolvedValue(entries),
   };
 }

@@ -238,22 +238,26 @@ describe('runStopCommand', () => {
     vi.clearAllMocks();
   });
 
-  it('should return error when session_id is missing', async () => {
+  it('should skip gracefully when session_id is missing', async () => {
     const result = await runStopCommand({
       input: { transcript_path: '/path/to/transcript.json' },
     });
 
-    expect(result.exitCode).toBe(2);
-    expect(result.stderr[0]).toContain('Missing session_id');
+    // Implementation handles missing session_id gracefully - exits 0 and skips processing
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toEqual([]);
+    expect(result.stderr).toEqual([]);
   });
 
-  it('should return error when transcript_path is missing', async () => {
+  it('should skip gracefully when transcript_path is missing', async () => {
     const result = await runStopCommand({
       input: { session_id: 'sess-123' },
     });
 
-    expect(result.exitCode).toBe(2);
-    expect(result.stderr[0]).toContain('Missing transcript_path');
+    // Implementation handles missing transcript_path gracefully - exits 0 and skips processing
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toEqual([]);
+    expect(result.stderr).toEqual([]);
   });
 
   it('should call ensureSessionIdExists and ingestTranscript', async () => {
@@ -608,22 +612,26 @@ describe('runSessionEndCommand', () => {
     vi.clearAllMocks();
   });
 
-  it('should return error when session_id is missing', async () => {
+  it('should skip gracefully when session_id is missing', async () => {
     const result = await runSessionEndCommand({
       input: { transcript_path: '/path/to/transcript.json' },
     });
 
-    expect(result.exitCode).toBe(2);
-    expect(result.stderr[0]).toContain('Missing session_id');
+    // Implementation handles missing session_id gracefully - exits 0 and skips processing
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toEqual([]);
+    expect(result.stderr).toEqual([]);
   });
 
-  it('should return error when transcript_path is missing', async () => {
+  it('should skip gracefully when transcript_path is missing', async () => {
     const result = await runSessionEndCommand({
       input: { session_id: 'sess-123' },
     });
 
-    expect(result.exitCode).toBe(2);
-    expect(result.stderr[0]).toContain('Missing transcript_path');
+    // Implementation handles missing transcript_path gracefully - exits 0 and skips processing
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toEqual([]);
+    expect(result.stderr).toEqual([]);
   });
 
   it('should call ensureSessionIdExists and ingestTranscript', async () => {
