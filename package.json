@@ -60,6 +60,7 @@
     "clean": "node -e \"const fs=require('fs');['dist','coverage','.tsbuildinfo'].forEach(d=>{try{fs.rmSync(d,{recursive:true,force:true})}catch(e){}})\"",
     "validate": "npm run lint && npm run lint:layers && npm run lint:architecture && npm run format:check && npm run typecheck && npm run test:run",
     "ci:test": "npm run restore-migrations && npm run build && npm run lint && npm run lint:layers && npm run lint:architecture && npm run format:check && npm run typecheck && npm run test:run",
+    "generate:rules": "tsx scripts/generate-rules-reference.ts",
     "sync-rules": "tsx scripts/sync-rules.ts",
     "sync-rules:watch": "tsx scripts/watch-rules.ts",
     "setup": "tsx scripts/setup.ts",
