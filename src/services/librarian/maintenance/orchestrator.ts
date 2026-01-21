@@ -894,10 +894,17 @@ export class MaintenanceOrchestrator {
         return 0; // No graph service
       }
 
-      const nodes = await this.deps.repos.graphNodes.list({
-        scopeType: scopeType as 'global' | 'org' | 'project' | 'session',
-        scopeId,
-      });
+      // Use high limit to get all nodes/edges for accurate connectivity scoring
+      // (default pagination of 20 would give incorrect results)
+      const paginationOverride = { limit: 10000, offset: 0 };
+
+      const nodes = await this.deps.repos.graphNodes.list(
+        {
+          scopeType: scopeType as 'global' | 'org' | 'project' | 'session',
+          scopeId,
+        },
+        paginationOverride
+      );
 
       if (nodes.length === 0) return 0;
 
@@ -905,7 +912,7 @@ export class MaintenanceOrchestrator {
       const scopeNodeIds = new Set(nodes.map((n) => n.id));
 
       // Get all edges and filter based on connectivity mode
-      const allEdges = await this.deps.repos.graphEdges.list({});
+      const allEdges = await this.deps.repos.graphEdges.list({}, paginationOverride);
       const connectivityMode = this.config.health?.connectivityMode ?? 'inclusive';
 
       const scopeEdges = allEdges.filter((e) => {

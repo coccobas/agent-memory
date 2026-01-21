@@ -719,6 +719,37 @@ export interface QuickstartDisplayData {
     experienceRecording?: string;
     tip?: string;
   };
+  /** Server status for detecting stale code */
+  serverStatus?: {
+    isStale: boolean;
+    message?: string;
+    processStartedAt?: string;
+    distModifiedAt?: string;
+  } | null;
+  /** Resume summary - shown when picking up an existing episode */
+  resumeSummary?: {
+    /** Episode name being resumed */
+    episodeName: string;
+    /** How long the episode has been running */
+    duration?: string;
+    /** Key events/findings from the episode */
+    keyEvents: Array<{
+      type: 'checkpoint' | 'decision' | 'error' | 'started' | 'completed';
+      message: string;
+      timestamp?: string;
+    }>;
+    /** Linked entities created during this episode */
+    linkedEntities?: Array<{
+      type: 'guideline' | 'knowledge' | 'tool' | 'experience';
+      title: string;
+    }>;
+    /** Current status assessment */
+    status?: {
+      issue?: string;
+      rootCause?: string;
+      findings?: string[];
+    };
+  } | null;
 }
 
 /**
@@ -739,8 +770,23 @@ export function formatQuickstartDashboard(
 
   const lines: string[] = [];
 
+  // Stale code warning (prominent, at the top)
+  if (data.serverStatus?.isStale) {
+    lines.push('');
+    lines.push(
+      `⚠️ **STALE CODE DETECTED** - ${data.serverStatus.message ?? 'Restart Claude Code to pick up new changes'}`
+    );
+    lines.push('');
+  }
+
   // Session section (simple lines, no box)
   lines.push(formatSessionSection(data));
+
+  // Resume summary (when picking up an existing episode)
+  if (data.resumeSummary) {
+    lines.push('');
+    lines.push(formatResumeSummary(data.resumeSummary));
+  }
 
   // Memory section (markdown table)
   lines.push('');
@@ -853,6 +899,101 @@ function formatSessionSection(data: QuickstartDisplayData): string {
   }
 
   return lines.join('\n');
+}
+
+/**
+ * Format the resume summary - shown when picking up an existing episode
+ */
+function formatResumeSummary(summary: NonNullable<QuickstartDisplayData['resumeSummary']>): string {
+  const lines: string[] = [];
+
+  // Header with episode name and duration
+  const durationText = summary.duration ? ` (${summary.duration})` : '';
+  lines.push(`📋 **Resuming:** ${summary.episodeName}${durationText}`);
+  lines.push('');
+
+  // Status assessment (issue, root cause, findings) - like the user's example
+  if (summary.status) {
+    if (summary.status.issue) {
+      lines.push(`**Issue:** ${summary.status.issue}`);
+    }
+    if (summary.status.rootCause) {
+      lines.push(`**Root Cause:** ${summary.status.rootCause}`);
+    }
+    if (summary.status.findings && summary.status.findings.length > 0) {
+      lines.push('**Findings:**');
+      for (const finding of summary.status.findings) {
+        lines.push(`- ${finding}`);
+      }
+    }
+  }
+
+  // Key events (condensed timeline)
+  if (summary.keyEvents.length > 0) {
+    if (summary.status) lines.push(''); // Add spacing if we had status
+    lines.push('**Timeline:**');
+    for (const event of summary.keyEvents.slice(0, 5)) {
+      // Limit to 5 events
+      const icon = getEventIcon(event.type);
+      lines.push(`${icon} ${event.message}`);
+    }
+    if (summary.keyEvents.length > 5) {
+      lines.push(`   ... and ${summary.keyEvents.length - 5} more events`);
+    }
+  }
+
+  // Linked entities (knowledge created during this episode)
+  if (summary.linkedEntities && summary.linkedEntities.length > 0) {
+    lines.push('');
+    lines.push('**Created:**');
+    for (const entity of summary.linkedEntities.slice(0, 3)) {
+      const icon = getEntityIcon(entity.type);
+      lines.push(`${icon} ${truncate(entity.title, 50)}`);
+    }
+    if (summary.linkedEntities.length > 3) {
+      lines.push(`   ... and ${summary.linkedEntities.length - 3} more`);
+    }
+  }
+
+  return lines.join('\n');
+}
+
+/**
+ * Get icon for event type
+ */
+function getEventIcon(type: 'checkpoint' | 'decision' | 'error' | 'started' | 'completed'): string {
+  switch (type) {
+    case 'checkpoint':
+      return '✓';
+    case 'decision':
+      return '→';
+    case 'error':
+      return '✗';
+    case 'started':
+      return '▶';
+    case 'completed':
+      return '●';
+    default:
+      return '·';
+  }
+}
+
+/**
+ * Get icon for entity type
+ */
+function getEntityIcon(type: 'guideline' | 'knowledge' | 'tool' | 'experience'): string {
+  switch (type) {
+    case 'guideline':
+      return '📋';
+    case 'knowledge':
+      return '💡';
+    case 'tool':
+      return '🔧';
+    case 'experience':
+      return '🧠';
+    default:
+      return '·';
+  }
 }
 
 /**

@@ -9,6 +9,7 @@ import type { DatabaseDeps, AppDb } from '../../core/types.js';
 import type { Repositories } from '../../core/interfaces/repositories.js';
 import type { IEmbeddingService, IVectorService } from '../../core/context.js';
 import type { GraphBackfillService } from '../graph/backfill.service.js';
+import type { SemanticEdgeInferenceService } from '../graph/semantic-edge-inference.service.js';
 import { createComponentLogger } from '../../utils/logger.js';
 import { generateId } from '../../db/repositories/base.js';
 import { createExperienceRepository } from '../../db/repositories/experiences.js';
@@ -161,6 +162,7 @@ export class LibrarianService {
     embedding?: IEmbeddingService;
     vector?: IVectorService;
     latentMemory?: LatentMemoryService;
+    semanticEdgeInference?: SemanticEdgeInferenceService;
   }): void {
     this.maintenanceOrchestrator = new MaintenanceOrchestrator(deps, this.config.maintenance);
     this.sessionLifecycle.setMaintenanceOrchestrator(this.maintenanceOrchestrator);

@@ -88,6 +88,13 @@ export interface IVectorService {
   removeEmbedding(entryType: string, entryId: string, versionId?: string): Promise<void>;
   getCount(): Promise<number>;
   close(): void;
+  /**
+   * Get embeddings by entry IDs.
+   * Used for batch loading embeddings (e.g., for semantic edge inference).
+   */
+  getByEntryIds?(
+    entryIds: Array<{ entryType: string; entryId: string }>
+  ): Promise<Map<string, number[]>>;
 }
 
 export type ExtractionProvider = 'openai' | 'anthropic' | 'ollama' | 'disabled';

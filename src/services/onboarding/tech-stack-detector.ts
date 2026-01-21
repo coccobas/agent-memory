@@ -229,17 +229,18 @@ export class TechStackDetectorService implements ITechStackDetectorService {
     };
 
     // Parse package.json if exists
-    let packageJson: {
+    interface PackageJson {
       dependencies?: Record<string, string>;
       devDependencies?: Record<string, string>;
       engines?: Record<string, string>;
-    } | null = null;
+    }
+    let packageJson: PackageJson | null = null;
 
     const packageJsonPath = join(cwd, 'package.json');
     if (existsSync(packageJsonPath)) {
       try {
         const content = readFileSync(packageJsonPath, 'utf-8');
-        packageJson = JSON.parse(content) as typeof packageJson;
+        packageJson = JSON.parse(content) as PackageJson;
       } catch {
         // JSON parse error - continue without package.json data
       }
