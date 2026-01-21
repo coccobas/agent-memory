@@ -64,6 +64,9 @@ import { crossEncoderSection } from './sections/crossEncoder.js';
 import { suggestSection } from './sections/suggest.js';
 import { graphSection } from './sections/graph.js';
 import { episodeSection } from './sections/episode.js';
+import { stalenessSection } from './sections/staleness.js';
+import { contextBudgetSection } from './sections/contextBudget.js';
+import { compressionSection } from './sections/compression.js';
 
 // =============================================================================
 // TOP-LEVEL OPTIONS
@@ -133,6 +136,9 @@ export const configRegistry: ConfigRegistry = {
     suggest: suggestSection,
     graph: graphSection,
     episode: episodeSection,
+    staleness: stalenessSection,
+    contextBudget: contextBudgetSection,
+    compression: compressionSection,
   },
 };
 

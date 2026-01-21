@@ -47,6 +47,12 @@ import {
 } from '../../services/summarization/index.js';
 import type { EmbeddingService } from '../../services/embedding.service.js';
 import { MissedExtractionDetector } from '../../services/librarian/missed-extraction/index.js';
+import {
+  createSmartPrioritizationService,
+  createPrioritizationRepository,
+  createDefaultSmartPriorityConfig,
+} from '../../services/prioritization/index.js';
+import { createContextManagerService } from '../../services/context/index.js';
 
 /**
  * Input for wireContext - all backend-specific resources resolved
@@ -515,6 +521,54 @@ export async function wireContext(input: WireContextInput): Promise<AppContext> 
     cache: adapters.cache,
     fs: createLocalFileSystemAdapter(),
   };
+
+  // Create SmartPrioritizationService for enhanced entry ranking
+  // This service uses feedback data to adaptively weight entries
+  const prioritizationRepo = createPrioritizationRepository(db);
+  const smartPrioritizationService = createSmartPrioritizationService(
+    createDefaultSmartPriorityConfig(),
+    prioritizationRepo.getOutcomesByIntentAndType.bind(prioritizationRepo),
+    prioritizationRepo.getUsefulnessMetrics.bind(prioritizationRepo),
+    prioritizationRepo.findSimilarSuccessfulContexts.bind(prioritizationRepo)
+  );
+  services.smartPrioritization = smartPrioritizationService;
+  logger.debug('Smart prioritization service initialized');
+
+  // Create ContextManagerService for enhanced memory injection
+  // Orchestrates budget calculation, staleness detection, prioritization, and compression
+  const contextManagerService = createContextManagerService(
+    smartPrioritizationService,
+    services.summarization ?? null,
+    {
+      enabled: true,
+      staleness: {
+        enabled: true,
+        staleAgeDays: 90,
+        recencyThreshold: 0.2,
+        notAccessedDays: 60,
+        excludeFromInjection: false,
+      },
+      budget: {
+        enabled: true,
+        baseBudget: 2000,
+        maxBudget: 8000,
+        compressionReserve: 0.2,
+      },
+      priority: {
+        enabled: true,
+        minScore: 0.3,
+        smartPriorityWeight: 0.6,
+      },
+      compression: {
+        enabled: true,
+        hierarchicalThreshold: 1500,
+        llmThreshold: 3000,
+        indicateCompression: true,
+      },
+    }
+  );
+  services.contextManager = contextManagerService;
+  logger.debug('Context manager service initialized');
 
   // Ensure vector service is fully initialized before returning context
   // This is important for session-start hooks that need vector service immediately

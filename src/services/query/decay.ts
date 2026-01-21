@@ -101,3 +101,93 @@ export function computeRecencyScore(params: {
 
   return params.maxBoost * params.recencyWeight * decayScore;
 }
+
+// =============================================================================
+// STALENESS SCORING
+// =============================================================================
+
+/**
+ * Staleness analysis result
+ */
+export interface StalenessResult {
+  /** Whether the entry is considered stale */
+  isStale: boolean;
+  /** Reason for staleness (if stale) */
+  reason?: 'old_age' | 'low_recency' | 'not_accessed';
+  /** Age in days (if available) */
+  ageDays?: number;
+  /** Recency score (0-1) */
+  recencyScore?: number;
+  /** Days since last access (if available) */
+  daysSinceAccess?: number;
+}
+
+/**
+ * Calculate staleness score for a memory entry.
+ *
+ * Staleness is determined by multiple factors:
+ * - Age: entries older than staleAgeDays are flagged
+ * - Recency score: entries with low recency scores are flagged
+ * - Access patterns: entries not accessed recently are flagged
+ *
+ * @param params - Entry timestamps and thresholds
+ * @returns Staleness analysis result
+ */
+export function calculateStalenessScore(params: {
+  /** Entry creation timestamp (ISO) */
+  createdAt?: string | null;
+  /** Entry last update timestamp (ISO) */
+  updatedAt?: string | null;
+  /** Entry last access timestamp (ISO) */
+  accessedAt?: string | null;
+  /** Days after which an entry is considered old */
+  staleAgeDays: number;
+  /** Recency score threshold (below this is stale) */
+  recencyThreshold: number;
+  /** Days without access to flag as not accessed */
+  notAccessedDays: number;
+  /** Decay half-life for recency calculation */
+  decayHalfLifeDays?: number;
+}): StalenessResult {
+  const result: StalenessResult = {
+    isStale: false,
+  };
+
+  // Use most recent of createdAt/updatedAt for age calculation
+  const relevantTimestamp = params.updatedAt ?? params.createdAt;
+  const ageDays = calculateAgeDays(relevantTimestamp);
+
+  if (ageDays !== null) {
+    result.ageDays = ageDays;
+
+    // Check for old age
+    if (ageDays > params.staleAgeDays) {
+      result.isStale = true;
+      result.reason = 'old_age';
+    }
+  }
+
+  // Calculate and check recency score
+  if (relevantTimestamp && params.decayHalfLifeDays !== undefined) {
+    const recencyScore = exponentialDecay(ageDays ?? 0, params.decayHalfLifeDays);
+    result.recencyScore = recencyScore;
+
+    if (recencyScore < params.recencyThreshold) {
+      result.isStale = true;
+      result.reason = result.reason ?? 'low_recency';
+    }
+  }
+
+  // Check for lack of recent access
+  const daysSinceAccess = calculateAgeDays(params.accessedAt);
+  if (daysSinceAccess !== null) {
+    result.daysSinceAccess = daysSinceAccess;
+
+    if (daysSinceAccess > params.notAccessedDays) {
+      result.isStale = true;
+      result.reason = result.reason ?? 'not_accessed';
+    }
+  }
+
+  return result;
+}

@@ -41,6 +41,8 @@ import type { GraphBackfillService } from '../services/graph/backfill.service.js
 import type { LatentMemoryService } from '../services/latent-memory/latent-memory.service.js';
 import type { EpisodeService } from '../services/episode/index.js';
 import type { IEpisodeAutoLoggerService } from '../services/episode-auto-logger.js';
+import type { SmartPrioritizationService } from '../services/prioritization/index.js';
+import type { ContextManagerService } from '../services/context/index.js';
 
 /**
  * Service interfaces for AppContext
@@ -257,6 +259,8 @@ export interface QueryServices {
   feedbackScoreCache: FeedbackScoreCache;
   /** Query rewrite service for HyDE and query expansion */
   queryRewrite?: IQueryRewriteService;
+  /** Smart prioritization service for entry ranking */
+  smartPrioritization?: SmartPrioritizationService;
 }
 
 /**
@@ -304,6 +308,8 @@ export interface UtilityServices {
   reembedding?: ReembeddingService;
   /** Factory function to create re-embedding service (internal use) */
   _createReembeddingService?: (db: AppDb) => ReembeddingService | undefined;
+  /** Context manager service for enhanced memory injection */
+  contextManager?: ContextManagerService;
 }
 
 // ============================================================================

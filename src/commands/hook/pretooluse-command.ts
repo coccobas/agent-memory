@@ -8,6 +8,8 @@ import { createComponentLogger } from '../../utils/logger.js';
 import type { ClaudeHookInput, HookCommandResult } from './types.js';
 import { extractProposedActionFromTool } from './shared.js';
 import { getBehaviorObserverService } from '../../services/capture/behavior-observer.js';
+import { isContextRegistered, getContext } from '../../core/container.js';
+import { createContextManagerService } from '../../services/context/index.js';
 
 const logger = createComponentLogger('pretooluse');
 
@@ -96,10 +98,6 @@ export async function runPreToolUseCommand(params: {
   // Get database connection
   const db = getDb();
 
-  // Collect output
-  const stdout: string[] = [];
-  const stderr: string[] = [];
-
   // Step 0: Behavior Observation (record tool use event for later analysis)
   // This captures every tool use event with metadata for pattern detection at session end
   if (sessionId) {
@@ -109,7 +107,10 @@ export async function runPreToolUseCommand(params: {
         projectId,
         agentId,
       });
-      logger.debug({ sessionId, toolName: input.tool_name }, 'Tool use event recorded for behavior observation');
+      logger.debug(
+        { sessionId, toolName: input.tool_name },
+        'Tool use event recorded for behavior observation'
+      );
     } catch (error) {
       // Behavior observation is non-blocking
       logger.debug(
@@ -119,10 +120,32 @@ export async function runPreToolUseCommand(params: {
     }
   }
 
+  // Track injection result for JSON output
+  let injectedContext: string | undefined;
+  let userFeedback: string | undefined;
+
   // Step 1: Context Injection (if enabled)
   if (config.injectContext) {
     try {
-      const injectionService = getMemoryInjectionService(db);
+      // Get context manager from AppContext if available, or create lightweight one for hooks
+      // This enables budget calculation, staleness detection, and compression even for standalone CLI
+      let contextManager = isContextRegistered()
+        ? getContext().services?.contextManager
+        : undefined;
+
+      // Create lightweight context manager for standalone hook execution
+      // Uses null for prioritization and summarization services (not needed for basic features)
+      if (!contextManager) {
+        contextManager = createContextManagerService(null, null, {
+          enabled: true,
+          staleness: { enabled: true, staleAgeDays: 90, notAccessedDays: 60 },
+          budget: { enabled: true, baseBudget: 2000, maxBudget: 8000 },
+          priority: { enabled: true, minScore: 0.3 },
+          compression: { enabled: true, hierarchicalThreshold: 1500 },
+        });
+      }
+
+      const injectionService = getMemoryInjectionService(db, contextManager);
       const injectionResult = await injectionService.getContext({
         toolName,
         toolParams,
@@ -143,12 +166,12 @@ export async function runPreToolUseCommand(params: {
           'Context injection successful'
         );
 
-        // Output to stdout for Claude to receive
+        // Store context for JSON output
         if (config.contextToStdout && injectionResult.injectedContext) {
-          stdout.push(injectionResult.injectedContext);
+          injectedContext = injectionResult.injectedContext;
         }
 
-        // Output summary to stderr for user visibility
+        // Build user feedback summary
         if (config.contextToStderr && injectionResult.entries.length > 0) {
           const types = injectionResult.entries.map((e) => e.type);
           const typeCounts = types.reduce(
@@ -161,7 +184,28 @@ export async function runPreToolUseCommand(params: {
           const summary = Object.entries(typeCounts)
             .map(([t, c]) => `${c} ${t}${c > 1 ? 's' : ''}`)
             .join(', ');
-          stderr.push(`[agent-memory] Injected: ${summary}`);
+
+          // Build enhanced summary with context management info
+          const parts = [`🧠 Injected: ${summary}`];
+
+          // Add budget info if available
+          if (injectionResult.budgetInfo) {
+            const { allocated, used, complexity } = injectionResult.budgetInfo;
+            parts.push(`[${used}/${allocated} tokens, ${complexity}]`);
+          }
+
+          // Add compression info if applied
+          if (injectionResult.compressionApplied && injectionResult.compressionLevel) {
+            parts.push(`[compressed: ${injectionResult.compressionLevel}]`);
+          }
+
+          // Add staleness warnings if any
+          if (injectionResult.stalenessWarnings && injectionResult.stalenessWarnings.length > 0) {
+            const warningCount = injectionResult.stalenessWarnings.length;
+            parts.push(`[⚠ ${warningCount} stale]`);
+          }
+
+          userFeedback = parts.join(' ');
         }
       } else {
         logger.debug({ message: injectionResult.message }, 'No context to inject');
@@ -213,6 +257,41 @@ export async function runPreToolUseCommand(params: {
     return { exitCode: 2, stdout: [], stderr: [blockReason] };
   }
 
-  // Return with any injected context
-  return { exitCode: 0, stdout, stderr };
+  // Build pure JSON output for Claude Code
+  // Per docs: Cannot mix plain text and JSON - must use additionalContext field
+  const jsonOutput: {
+    systemMessage?: string;
+    hookSpecificOutput: {
+      hookEventName: string;
+      permissionDecision: string;
+      additionalContext?: string;
+    };
+  } = {
+    hookSpecificOutput: {
+      hookEventName: 'PreToolUse',
+      permissionDecision: 'allow',
+    },
+  };
+
+  // Add user-visible feedback via systemMessage
+  if (userFeedback) {
+    jsonOutput.systemMessage = userFeedback;
+  }
+
+  // Add memory context via additionalContext (proper way per Claude Code docs)
+  if (injectedContext) {
+    jsonOutput.hookSpecificOutput.additionalContext = injectedContext;
+  }
+
+  // Only output JSON if we have something to include
+  if (injectedContext || userFeedback) {
+    return {
+      exitCode: 0,
+      stdout: [JSON.stringify(jsonOutput)],
+      stderr: [],
+    };
+  }
+
+  // No context to inject, return empty
+  return { exitCode: 0, stdout: [], stderr: [] };
 }

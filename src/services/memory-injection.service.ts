@@ -33,6 +33,7 @@ import {
   type ScopeType,
 } from '../db/schema.js';
 import { eq, and, or, desc } from 'drizzle-orm';
+import type { ContextManagerService, ContextEntry } from './context/index.js';
 
 const logger = createComponentLogger('memory-injection');
 
@@ -87,6 +88,17 @@ export interface InjectedMemoryEntry {
 }
 
 /**
+ * Staleness warning for injected entry
+ */
+export interface InjectionStalenessWarning {
+  entryId: string;
+  entryType: 'guideline' | 'knowledge' | 'tool' | 'experience';
+  reason: 'old_age' | 'low_recency' | 'not_accessed';
+  ageDays?: number;
+  recommendation: string;
+}
+
+/**
  * Memory injection result
  */
 export interface MemoryInjectionResult {
@@ -102,6 +114,18 @@ export interface MemoryInjectionResult {
   processingTimeMs: number;
   /** Message for logging/debugging */
   message: string;
+  /** Staleness warnings (optional, present when context management is enabled) */
+  stalenessWarnings?: InjectionStalenessWarning[];
+  /** Whether compression was applied */
+  compressionApplied?: boolean;
+  /** Compression level if applied */
+  compressionLevel?: 'none' | 'hierarchical' | 'llm' | 'truncated';
+  /** Budget used vs allocated */
+  budgetInfo?: {
+    allocated: number;
+    used: number;
+    complexity: 'simple' | 'moderate' | 'complex';
+  };
 }
 
 /**
@@ -120,6 +144,8 @@ export interface MemoryInjectionConfig {
   minRelevanceScore: number;
   /** Tools that trigger injection */
   injectableTools: InjectableToolType[];
+  /** Enable context management features (staleness, budgeting, compression) */
+  contextManagementEnabled: boolean;
 }
 
 // =============================================================================
@@ -133,6 +159,7 @@ const DEFAULT_CONFIG: MemoryInjectionConfig = {
   defaultMaxLength: 2000,
   minRelevanceScore: 0.3,
   injectableTools: ['Edit', 'Write', 'Bash'],
+  contextManagementEnabled: true,
 };
 
 // =============================================================================
@@ -323,12 +350,25 @@ export class MemoryInjectionService {
   private config: MemoryInjectionConfig;
   private classifier: IntentClassifier;
   private entityExtractor: EntityExtractor;
+  private contextManager: ContextManagerService | null;
 
-  constructor(db: DbClient, config?: Partial<MemoryInjectionConfig>) {
+  constructor(
+    db: DbClient,
+    config?: Partial<MemoryInjectionConfig>,
+    contextManager?: ContextManagerService | null
+  ) {
     this._db = db;
     this.config = { ...DEFAULT_CONFIG, ...config };
     this.classifier = new IntentClassifier();
     this.entityExtractor = new EntityExtractor();
+    this.contextManager = contextManager ?? null;
+  }
+
+  /**
+   * Set the context manager service (for late binding)
+   */
+  setContextManager(contextManager: ContextManagerService): void {
+    this.contextManager = contextManager;
   }
 
   /**
@@ -386,7 +426,12 @@ export class MemoryInjectionService {
         maxEntries: request.maxEntries || this.config.defaultMaxEntries,
       });
 
-      // Format for injection
+      // Use context manager if available and enabled
+      if (this.contextManager && this.config.contextManagementEnabled) {
+        return await this.getContextWithManager(request, entries, intent, startTime);
+      }
+
+      // Fall back to original formatting logic
       const format = request.format || this.config.defaultFormat;
       let injectedContext = formatEntries(entries, format);
 
@@ -440,6 +485,91 @@ export class MemoryInjectionService {
   }
 
   /**
+   * Get context using the context manager for enhanced features
+   */
+  private async getContextWithManager(
+    request: MemoryInjectionRequest,
+    entries: InjectedMemoryEntry[],
+    intent: QueryIntent,
+    startTime: number
+  ): Promise<MemoryInjectionResult> {
+    if (!this.contextManager) {
+      throw new Error('Context manager not available');
+    }
+
+    // Convert to context entries
+    const contextEntries: ContextEntry[] = entries.map((e) => ({
+      id: e.id,
+      type: e.type,
+      title: e.title,
+      content: e.content,
+      priority: e.priority,
+      relevanceScore: e.relevanceScore,
+    }));
+
+    // Process through context manager
+    const result = await this.contextManager.process({
+      entries: contextEntries,
+      intent,
+      format: request.format || this.config.defaultFormat,
+      maxEntries: request.maxEntries || this.config.defaultMaxEntries,
+      maxTokens: request.maxLength || this.config.defaultMaxLength,
+      scopeId: request.projectId,
+    });
+
+    // Map back to injection result format
+    const includedEntries: InjectedMemoryEntry[] = result.includedEntries.map((e) => ({
+      type: e.type,
+      id: e.id,
+      title: e.title ?? '',
+      content: e.content,
+      priority: e.priority,
+      relevanceScore: e.relevanceScore ?? 0.5,
+    }));
+
+    // Map staleness warnings
+    const stalenessWarnings: InjectionStalenessWarning[] = result.stalenessWarnings.map((w) => ({
+      entryId: w.entryId,
+      entryType: w.entryType,
+      reason: w.reason,
+      ageDays: w.ageDays,
+      recommendation: w.recommendation,
+    }));
+
+    const processingTimeMs = Date.now() - startTime;
+
+    logger.debug(
+      {
+        toolName: request.toolName,
+        intent,
+        entryCount: includedEntries.length,
+        stalenessWarnings: stalenessWarnings.length,
+        compressionLevel: result.compressionLevel,
+        budget: result.budget.effectiveBudget,
+        processingTimeMs,
+      },
+      'Memory injection complete (with context manager)'
+    );
+
+    return {
+      success: true,
+      injectedContext: result.content,
+      entries: includedEntries,
+      detectedIntent: intent,
+      processingTimeMs,
+      message: `Injected ${includedEntries.length} entries for ${request.toolName}`,
+      stalenessWarnings: stalenessWarnings.length > 0 ? stalenessWarnings : undefined,
+      compressionApplied: result.compressionLevel !== 'none',
+      compressionLevel: result.compressionLevel,
+      budgetInfo: {
+        allocated: result.budget.effectiveBudget,
+        used: result.stats.finalTokens,
+        complexity: result.budget.complexity,
+      },
+    };
+  }
+
+  /**
    * Retrieve relevant memory entries
    *
    * Queries the database for relevant entries based on:
@@ -460,16 +590,16 @@ export class MemoryInjectionService {
     // Extract entities for entity-aware retrieval
     const extractedEntities = this.entityExtractor.extract(params.context);
 
-    // Build scope conditions
-    const scopeConditions: Array<ReturnType<typeof eq>> = [];
+    // Build scope types to query (used to create table-specific conditions)
+    const scopeTypes: ScopeType[] = [];
     if (params.sessionId) {
-      scopeConditions.push(eq(guidelines.scopeType, 'session' as ScopeType));
+      scopeTypes.push('session');
     }
     if (params.projectId) {
-      scopeConditions.push(eq(guidelines.scopeType, 'project' as ScopeType));
+      scopeTypes.push('project');
     }
     // Always include global scope
-    scopeConditions.push(eq(guidelines.scopeType, 'global' as ScopeType));
+    scopeTypes.push('global');
 
     // Calculate entries per type based on weights
     const totalWeight = Array.from(params.weights.values()).reduce((a, b) => a + b, 0);
@@ -485,25 +615,17 @@ export class MemoryInjectionService {
 
       try {
         if (type === 'guideline') {
-          const guidelineEntries = await this.queryGuidelines(
-            scopeConditions,
-            extractedEntities,
-            limit
-          );
+          const guidelineEntries = await this.queryGuidelines(scopeTypes, extractedEntities, limit);
           entries.push(...guidelineEntries);
         } else if (type === 'knowledge') {
-          const knowledgeEntries = await this.queryKnowledge(
-            scopeConditions,
-            extractedEntities,
-            limit
-          );
+          const knowledgeEntries = await this.queryKnowledge(scopeTypes, extractedEntities, limit);
           entries.push(...knowledgeEntries);
         } else if (type === 'tool') {
-          const toolEntries = await this.queryTools(scopeConditions, extractedEntities, limit);
+          const toolEntries = await this.queryTools(scopeTypes, extractedEntities, limit);
           entries.push(...toolEntries);
         } else if (type === 'experience') {
           const experienceEntries = await this.queryExperiences(
-            scopeConditions,
+            scopeTypes,
             extractedEntities,
             limit
           );
@@ -541,10 +663,12 @@ export class MemoryInjectionService {
    * Joins with version table to get content
    */
   private async queryGuidelines(
-    scopeConditions: Array<ReturnType<typeof eq>>,
+    scopeTypes: ScopeType[],
     extractedEntities: Array<{ normalizedValue: string }>,
     limit: number
   ): Promise<InjectedMemoryEntry[]> {
+    // Build scope conditions for guidelines table
+    const scopeConditions = scopeTypes.map((t) => eq(guidelines.scopeType, t));
     const whereClause = scopeConditions.length > 1 ? or(...scopeConditions) : scopeConditions[0];
 
     const rows = this._db
@@ -576,10 +700,12 @@ export class MemoryInjectionService {
    * Joins with version table to get content
    */
   private async queryKnowledge(
-    scopeConditions: Array<ReturnType<typeof eq>>,
+    scopeTypes: ScopeType[],
     extractedEntities: Array<{ normalizedValue: string }>,
     limit: number
   ): Promise<InjectedMemoryEntry[]> {
+    // Build scope conditions for knowledge table
+    const scopeConditions = scopeTypes.map((t) => eq(knowledge.scopeType, t));
     const whereClause = scopeConditions.length > 1 ? or(...scopeConditions) : scopeConditions[0];
 
     const rows = this._db
@@ -609,10 +735,12 @@ export class MemoryInjectionService {
    * Joins with version table to get description
    */
   private async queryTools(
-    scopeConditions: Array<ReturnType<typeof eq>>,
+    scopeTypes: ScopeType[],
     extractedEntities: Array<{ normalizedValue: string }>,
     limit: number
   ): Promise<InjectedMemoryEntry[]> {
+    // Build scope conditions for tools table
+    const scopeConditions = scopeTypes.map((t) => eq(tools.scopeType, t));
     const whereClause = scopeConditions.length > 1 ? or(...scopeConditions) : scopeConditions[0];
 
     const rows = this._db
@@ -641,10 +769,12 @@ export class MemoryInjectionService {
    * Query experiences for injection
    */
   private async queryExperiences(
-    scopeConditions: Array<ReturnType<typeof eq>>,
+    scopeTypes: ScopeType[],
     extractedEntities: Array<{ normalizedValue: string }>,
     limit: number
   ): Promise<InjectedMemoryEntry[]> {
+    // Build scope conditions for experiences table
+    const scopeConditions = scopeTypes.map((t) => eq(experiences.scopeType, t));
     const whereClause = scopeConditions.length > 1 ? or(...scopeConditions) : scopeConditions[0];
 
     const rows = this._db
@@ -726,9 +856,15 @@ let instance: MemoryInjectionService | null = null;
 /**
  * Get the singleton memory injection service
  */
-export function getMemoryInjectionService(db: DbClient): MemoryInjectionService {
+export function getMemoryInjectionService(
+  db: DbClient,
+  contextManager?: ContextManagerService | null
+): MemoryInjectionService {
   if (!instance) {
-    instance = new MemoryInjectionService(db);
+    instance = new MemoryInjectionService(db, undefined, contextManager);
+  } else if (contextManager && !instance['contextManager']) {
+    // Late-bind context manager if not already set
+    instance.setContextManager(contextManager);
   }
   return instance;
 }
