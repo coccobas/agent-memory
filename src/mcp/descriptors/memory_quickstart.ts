@@ -474,14 +474,12 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
           graphStats = { nodes: nodes.length, edges: edges.length, available: true };
 
           if (nodes.length === 0 && totalEntries > 0) {
-            // Hint when entries exist but graph is empty
-            graphStats.hint = `Run memory_librarian action:run_maintenance tasks:["graphBackfill"] to populate`;
+            graphStats.hint = 'Graph empty - run maintenance to populate';
           }
         } else {
-          // Graph repos not available - show hint about graph feature
           graphStats = { nodes: 0, edges: 0, available: false };
           if (totalEntries > 5) {
-            graphStats.hint = `The knowledge graph can track relationships between entries. Run memory_librarian action:run_maintenance to enable.`;
+            graphStats.hint = 'Knowledge graph available for relationship tracking';
           }
         }
       } catch {
@@ -498,9 +496,9 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
           { scopeType: 'project', scopeId: detectedProjectId },
           { limit: 1 }
         );
-        experienceCount = experiences.length > 0 ? 1 : 0; // Just check existence
+        experienceCount = experiences.length > 0 ? 1 : 0;
         if (experienceCount === 0 && totalEntries > 3) {
-          experienceHint = `💡 Tip: Record learnings with memory_experience action:record_case to enable pattern detection`;
+          experienceHint = 'Record learnings to enable pattern detection';
         }
       } catch {
         // Non-fatal
@@ -554,9 +552,7 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
             }
           : null,
       hints: {
-        experienceRecording: experienceHint
-          ? 'Record learnings with memory_experience action:record_case to enable pattern detection'
-          : undefined,
+        experienceRecording: experienceHint ?? undefined,
         tip: graphStats?.hint,
       },
       serverStatus: staleCodeInfo?.isStale
@@ -597,10 +593,6 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
               status: activeEpisode.status,
               autoCreated: episodeAction === 'created',
               trigger: episodeTrigger,
-              actions: {
-                log: `memory_episode action:log id:${activeEpisode.id} message:"..."`,
-                complete: `memory_episode action:complete id:${activeEpisode.id} outcome:"..." outcomeType:success`,
-              },
             }
           : undefined,
         episodeAction,
@@ -610,11 +602,6 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
             ? {
                 count: pendingRecommendations,
                 previews: recommendationPreviews,
-                actions: {
-                  review: 'memory_librarian action:list_recommendations',
-                  approve: 'memory_librarian action:approve recommendationId:<id>',
-                  reject: 'memory_librarian action:reject recommendationId:<id>',
-                },
               }
             : undefined,
         health: memoryHealth,
@@ -625,10 +612,6 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
             ? {
                 count: pendingTasks.length,
                 items: pendingTasks,
-                actions: {
-                  list: 'memory_task action:list status:open',
-                  markDone: 'memory_task action:update_status id:<id> status:done resolution:"..."',
-                },
               }
             : undefined,
         // Recent completed episodes for context about previous work
@@ -646,10 +629,6 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
                   result: e.outcomeType,
                   completedAt: e.completedAt,
                 })),
-                actions: {
-                  viewAll: 'memory_episode action:list status:completed limit:10',
-                  timeline: 'memory_episode action:get_timeline',
-                },
               }
             : undefined,
         // Discoverability hints
@@ -658,21 +637,15 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
           experienceRecording: experienceHint
             ? {
                 message: 'Record learnings to enable pattern detection',
-                action:
-                  'memory_experience action:record_case title:"..." scenario:"..." outcome:"..."',
                 hasExperiences: experienceCount > 0,
               }
             : undefined,
           // Hierarchical context hint (always show - it's a key optimization)
-          hierarchicalContext: !verbose
-            ? {
-                message: 'Using hierarchical mode (~90% token savings)',
-                fullModeAction: 'memory_quickstart verbose:true for full entries',
-              }
-            : {
-                message: 'Using verbose mode (full entries)',
-                compactModeAction: 'memory_quickstart (default) for ~90% token savings',
-              },
+          hierarchicalContext: {
+            message: !verbose
+              ? 'Using hierarchical mode (~90% token savings)'
+              : 'Using verbose mode (full entries)',
+          },
           // Auto-tagging info
           autoTagging: {
             enabled: ctx.config.autoTagging?.enabled ?? true,

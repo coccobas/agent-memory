@@ -336,15 +336,11 @@ export const memoryOnboardDescriptor: SimpleToolDescriptor = {
     }
 
     if (result.seededGuidelines.length > 0) {
-      nextSteps.push(
-        `Seeded ${result.seededGuidelines.length} guidelines - run memory_query action:context to see them`
-      );
+      nextSteps.push(`Seeded ${result.seededGuidelines.length} guidelines`);
     }
 
     if (result.importedDocs.length > 0) {
-      nextSteps.push(
-        `Imported ${result.importedDocs.length} doc(s) as knowledge - query with memory text:"..."`
-      );
+      nextSteps.push(`Imported ${result.importedDocs.length} doc(s) as knowledge`);
     }
 
     if (techStack.languages.length === 0 && techStack.frameworks.length === 0) {
