@@ -82,13 +82,14 @@ Parameters:
       };
     }
 
-    // Get detected context
-    const detected = ctx.services.contextDetection
-      ? await ctx.services.contextDetection.detect()
-      : null;
+    let projectId = args?.projectId as string | undefined;
+    let agentId = (args?.agentId as string | undefined) ?? 'claude-code';
 
-    const projectId = detected?.project?.id;
-    const agentId = detected?.agentId?.value ?? 'claude-code';
+    if (!projectId && ctx.services.contextDetection) {
+      const detected = await ctx.services.contextDetection.detect();
+      projectId = detected?.project?.id;
+      agentId = detected?.agentId?.value ?? agentId;
+    }
 
     if (!projectId) {
       return {

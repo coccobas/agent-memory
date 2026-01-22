@@ -579,6 +579,270 @@ describe('memory_remember Integration Tests', () => {
     });
   });
 
+  describe('Experience Trigger Auto-Detection', () => {
+    /**
+     * When text contains experience-worthy patterns (fixed X by Y, learned that, etc.)
+     * and no forceType is specified, the system should auto-store as experience instead.
+     */
+
+    function createMockContextWithExperiences(
+      db: ReturnType<typeof drizzle>,
+      classificationService: ClassificationService | null,
+      projectId: string = 'test-project'
+    ) {
+      const storedEntries: {
+        guidelines: MockRepoResult[];
+        knowledge: MockRepoResult[];
+        tools: MockRepoResult[];
+        experiences: MockRepoResult[];
+        tags: Map<string, { id: string; name: string }>;
+        entryTags: Array<{ entryType: string; entryId: string; tagId: string }>;
+      } = {
+        guidelines: [],
+        knowledge: [],
+        tools: [],
+        experiences: [],
+        tags: new Map(),
+        entryTags: [],
+      };
+
+      let idCounter = 0;
+      const generateId = () => `test-exp-${++idCounter}`;
+
+      return {
+        ctx: {
+          db,
+          services: {
+            classification: classificationService,
+            contextDetection: {
+              detect: async () => ({
+                project: { id: projectId },
+                session: { id: 'test-session' },
+                agentId: { value: 'test-agent' },
+              }),
+            },
+            captureState: {
+              // Mock capture state manager with all required methods
+              getOrCreateSession: () => ({}),
+              getSession: () => null,
+              generateContentHash: (content: string) => {
+                // Simple hash for testing
+                let hash = 0;
+                for (let i = 0; i < content.length; i++) {
+                  const char = content.charCodeAt(i);
+                  hash = (hash << 5) - hash + char;
+                  hash = hash & hash;
+                }
+                return `hash-${Math.abs(hash)}`;
+              },
+              isDuplicateInSession: () => false,
+              registerHash: () => {},
+            },
+          },
+          repos: {
+            guidelines: {
+              create: async (params: Record<string, unknown>) => {
+                const entry = { id: generateId(), ...params };
+                storedEntries.guidelines.push(entry);
+                return entry;
+              },
+            },
+            knowledge: {
+              create: async (params: Record<string, unknown>) => {
+                const entry = { id: generateId(), ...params };
+                storedEntries.knowledge.push(entry);
+                return entry;
+              },
+            },
+            tools: {
+              create: async (params: Record<string, unknown>) => {
+                const entry = { id: generateId(), ...params };
+                storedEntries.tools.push(entry);
+                return entry;
+              },
+            },
+            experiences: {
+              create: async (params: Record<string, unknown>) => {
+                const entry = {
+                  id: generateId(),
+                  scopeType: params.scopeType ?? 'project',
+                  scopeId: params.scopeId,
+                  title: params.title,
+                  level: params.level ?? 'case',
+                  category: params.category,
+                  currentVersion: {
+                    content: params.content,
+                    scenario: params.scenario,
+                    outcome: params.outcome,
+                    confidence: params.confidence,
+                  },
+                  useCount: 0,
+                  successCount: 0,
+                  createdAt: new Date().toISOString(),
+                  ...params,
+                };
+                storedEntries.experiences.push(entry);
+                return entry;
+              },
+              getById: async (id: string) => {
+                return storedEntries.experiences.find((e) => e.id === id) ?? null;
+              },
+              addStep: async (id: string, step: Record<string, unknown>) => {
+                return { id: generateId(), experienceId: id, ...step };
+              },
+            },
+            tags: {
+              getOrCreate: async (name: string) => {
+                if (storedEntries.tags.has(name)) {
+                  return storedEntries.tags.get(name)!;
+                }
+                const tag = { id: generateId(), name };
+                storedEntries.tags.set(name, tag);
+                return tag;
+              },
+            },
+            entryTags: {
+              attach: async (params: { entryType: string; entryId: string; tagId: string }) => {
+                storedEntries.entryTags.push(params);
+                return { id: generateId(), ...params };
+              },
+            },
+          },
+        },
+        storedEntries,
+      };
+    }
+
+    it('should auto-store as experience when "Fixed X by Y" pattern detected', async () => {
+      const { ctx, storedEntries } = createMockContextWithExperiences(db, classificationService);
+
+      const result = await memoryRememberDescriptor.contextHandler!(ctx as never, {
+        text: 'Fixed the authentication bug by increasing the token timeout from 1 hour to 24 hours',
+      });
+
+      expect(result).toHaveProperty('success', true);
+      expect(result).toHaveProperty('autoDetected', true);
+      expect(result).toHaveProperty('stored.type', 'experience');
+      expect(result).toHaveProperty('triggerInfo.types');
+      expect((result as { triggerInfo: { types: string[] } }).triggerInfo.types).toContain(
+        'recovery'
+      );
+
+      // Should store as experience, not knowledge
+      expect(storedEntries.experiences).toHaveLength(1);
+      expect(storedEntries.knowledge).toHaveLength(0);
+      expect(storedEntries.guidelines).toHaveLength(0);
+    });
+
+    it('should auto-store as experience when "The solution was" pattern detected', async () => {
+      const { ctx, storedEntries } = createMockContextWithExperiences(db, classificationService);
+
+      const result = await memoryRememberDescriptor.contextHandler!(ctx as never, {
+        text: 'The solution was to update the database migration scripts',
+      });
+
+      expect(result).toHaveProperty('success', true);
+      expect(result).toHaveProperty('autoDetected', true);
+      expect(result).toHaveProperty('stored.type', 'experience');
+      expect(storedEntries.experiences).toHaveLength(1);
+    });
+
+    it('should auto-store as experience when "Root cause was" pattern detected', async () => {
+      const { ctx, storedEntries } = createMockContextWithExperiences(db, classificationService);
+
+      const result = await memoryRememberDescriptor.contextHandler!(ctx as never, {
+        text: 'Root cause was a race condition in the caching layer',
+      });
+
+      expect(result).toHaveProperty('success', true);
+      expect(result).toHaveProperty('autoDetected', true);
+      expect(result).toHaveProperty('stored.type', 'experience');
+      expect(storedEntries.experiences).toHaveLength(1);
+    });
+
+    it('should auto-store as experience when "Learned that" pattern detected', async () => {
+      const { ctx, storedEntries } = createMockContextWithExperiences(db, classificationService);
+
+      const result = await memoryRememberDescriptor.contextHandler!(ctx as never, {
+        text: 'Learned that the API tokens expire after 1 hour when debugging login failures',
+      });
+
+      expect(result).toHaveProperty('success', true);
+      expect(result).toHaveProperty('autoDetected', true);
+      expect(result).toHaveProperty('stored.type', 'experience');
+      expect(storedEntries.experiences).toHaveLength(1);
+    });
+
+    it('should NOT auto-store as experience when forceType is specified', async () => {
+      const { ctx, storedEntries } = createMockContextWithExperiences(db, classificationService);
+
+      // Even though text has experience triggers, forceType should override
+      const result = await memoryRememberDescriptor.contextHandler!(ctx as never, {
+        text: 'Fixed the bug by updating the config',
+        forceType: 'knowledge', // Force to knowledge
+      });
+
+      expect(result).toHaveProperty('success', true);
+      expect(result).not.toHaveProperty('autoDetected');
+      expect(result).toHaveProperty('stored.type', 'knowledge');
+
+      // Should store as knowledge due to forceType
+      expect(storedEntries.knowledge).toHaveLength(1);
+      expect(storedEntries.experiences).toHaveLength(0);
+    });
+
+    it('should NOT auto-store as experience for guideline-like text without triggers', async () => {
+      const { ctx, storedEntries } = createMockContextWithExperiences(db, classificationService);
+
+      const result = await memoryRememberDescriptor.contextHandler!(ctx as never, {
+        text: 'Rule: Always use TypeScript strict mode for type safety',
+      });
+
+      expect(result).toHaveProperty('success', true);
+      expect(result).not.toHaveProperty('autoDetected');
+      expect(result).toHaveProperty('stored.type', 'guideline');
+
+      // Should store as guideline, not experience
+      expect(storedEntries.guidelines).toHaveLength(1);
+      expect(storedEntries.experiences).toHaveLength(0);
+    });
+
+    it('should infer experience category from content', async () => {
+      const { ctx, storedEntries } = createMockContextWithExperiences(db, classificationService);
+
+      await memoryRememberDescriptor.contextHandler!(ctx as never, {
+        text: 'Fixed the database migration by adding a missing column',
+      });
+
+      // Should infer 'database' category
+      expect(storedEntries.experiences[0]?.category).toBe('auto-database');
+    });
+
+    it('should include trigger info in response', async () => {
+      const { ctx } = createMockContextWithExperiences(db, classificationService);
+
+      const result = await memoryRememberDescriptor.contextHandler!(ctx as never, {
+        text: 'Fixed the auth bug by increasing token timeout',
+      });
+
+      expect(result).toHaveProperty('triggerInfo');
+      expect(result).toHaveProperty('triggerInfo.confidence');
+      expect(result).toHaveProperty('triggerInfo.reason');
+    });
+
+    it('should attach tags to auto-detected experiences', async () => {
+      const { ctx, storedEntries } = createMockContextWithExperiences(db, classificationService);
+
+      await memoryRememberDescriptor.contextHandler!(ctx as never, {
+        text: 'Fixed the performance issue by optimizing the query',
+        tags: ['performance', 'database'],
+      });
+
+      expect(storedEntries.entryTags).toHaveLength(2);
+      expect(storedEntries.experiences).toHaveLength(1);
+    });
+  });
+
   describe('Title Extraction', () => {
     it('should extract title from first sentence', async () => {
       const { ctx, storedEntries } = createMockContext(db, classificationService);

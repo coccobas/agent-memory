@@ -15,9 +15,20 @@ import { experiences } from './experiences.js';
 export type RecommendationStatus = 'pending' | 'approved' | 'rejected' | 'skipped' | 'expired';
 
 /**
- * Recommendation type enum - what kind of promotion is being recommended
+ * Recommendation type enum - what kind of promotion/action is being recommended
+ *
+ * - 'strategy': Promote experience to strategy level
+ * - 'skill': Promote experience to skill (creates tool entry)
+ * - 'missed_guideline': Store a missed guideline extracted from conversation
+ * - 'missed_knowledge': Store missed knowledge extracted from conversation
+ * - 'missed_tool': Store a missed tool pattern extracted from conversation
  */
-export type RecommendationType = 'strategy' | 'skill';
+export type RecommendationType =
+  | 'strategy'
+  | 'skill'
+  | 'missed_guideline'
+  | 'missed_knowledge'
+  | 'missed_tool';
 
 /**
  * Librarian recommendations - generated promotion suggestions
@@ -30,7 +41,9 @@ export const recommendations = sqliteTable(
     scopeId: text('scope_id'),
 
     // Type of recommendation
-    type: text('type', { enum: ['strategy', 'skill'] }).notNull(),
+    type: text('type', {
+      enum: ['strategy', 'skill', 'missed_guideline', 'missed_knowledge', 'missed_tool'],
+    }).notNull(),
     status: text('status', { enum: ['pending', 'approved', 'rejected', 'skipped', 'expired'] })
       .notNull()
       .default('pending'),
@@ -52,11 +65,15 @@ export const recommendations = sqliteTable(
     // Source experiences (JSON array of IDs)
     sourceExperienceIds: text('source_experience_ids').notNull(), // JSON array
 
+    // For missed_* types: the extracted entry data (JSON)
+    extractedEntry: text('extracted_entry'), // JSON: { content, category, tags, priority }
+
     // Result of approval
     promotedExperienceId: text('promoted_experience_id').references(() => experiences.id, {
       onDelete: 'set null',
     }),
     promotedToolId: text('promoted_tool_id'), // If promoted to skill
+    createdEntryId: text('created_entry_id'), // For missed_* types: the created guideline/knowledge/tool ID
 
     // Review metadata
     reviewedAt: text('reviewed_at'),

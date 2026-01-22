@@ -4,10 +4,15 @@
  * Natural language interface for storing memories.
  * Uses hybrid classification (regex + LLM fallback) with learning from corrections.
  *
+ * Enhanced with trigger detection: When experience-related patterns are detected
+ * (e.g., "fixed X by doing Y", "learned that...", "the solution was..."),
+ * automatically stores as an experience instead of guideline/knowledge.
+ *
  * Examples:
  * - "Remember that we use TypeScript strict mode"
  * - "Store the fact that our API uses REST"
  * - "This is a rule: always use async/await"
+ * - "Fixed the auth bug by increasing the token timeout" → auto-stored as experience
  */
 
 import type { SimpleToolDescriptor } from './types.js';
@@ -17,6 +22,13 @@ import {
   SIZE_LIMITS,
 } from '../../services/validation.service.js';
 import { createValidationError } from '../../core/errors.js';
+import { getExtractionTriggersService } from '../../services/capture/triggers.js';
+import {
+  createExperienceCaptureModule,
+  type RecordCaseParams,
+} from '../../services/capture/index.js';
+import { logAction } from '../../services/audit.service.js';
+import { notify } from '../notification.service.js';
 
 /**
  * Extract the core content from natural language
@@ -93,6 +105,250 @@ function inferCategory(entryType: 'guideline' | 'knowledge' | 'tool', content: s
   return 'general';
 }
 
+/**
+ * Parse experience text to extract title, scenario, outcome
+ * (Simplified version of parseExperienceText from experiences.handler.ts)
+ */
+function parseExperienceText(text: string): {
+  title: string;
+  scenario: string;
+  outcome: string;
+} {
+  const normalized = text.trim();
+
+  // Pattern: "Fixed/Resolved/Solved X by doing Y"
+  const fixedByMatch = normalized.match(
+    /^(fixed|resolved|solved|addressed|handled)\s+(.+?)\s+by\s+(.+)$/i
+  );
+  if (fixedByMatch) {
+    const problem = fixedByMatch[2]?.trim() ?? '';
+    const solution = fixedByMatch[3]?.trim() ?? '';
+    return {
+      title: `${fixedByMatch[1]} ${problem.slice(0, 50)}`,
+      scenario: problem,
+      outcome: `success - ${solution}`,
+    };
+  }
+
+  // Pattern: "Learned/Discovered that X when/while Y"
+  const learnedWhenMatch = normalized.match(
+    /^(learned|discovered|realized|found out)\s+(?:that\s+)?(.+?)\s+(when|while|after)\s+(.+)$/i
+  );
+  if (learnedWhenMatch) {
+    const learning = learnedWhenMatch[2]?.trim() ?? '';
+    const context = learnedWhenMatch[4]?.trim() ?? '';
+    return {
+      title: learning.slice(0, 60),
+      scenario: context,
+      outcome: learning,
+    };
+  }
+
+  // Pattern: "The fix/solution was X"
+  const solutionMatch = normalized.match(/^the\s+(fix|solution|answer|resolution)\s+was\s+(.+)$/i);
+  if (solutionMatch) {
+    const solution = solutionMatch[2]?.trim() ?? '';
+    return {
+      title: `${solutionMatch[1]}: ${solution.slice(0, 50)}`,
+      scenario: 'Problem encountered',
+      outcome: solution,
+    };
+  }
+
+  // Pattern: "Root cause was X"
+  const rootCauseMatch = normalized.match(/^root\s+cause\s+was\s+(.+)$/i);
+  if (rootCauseMatch) {
+    const cause = rootCauseMatch[1]?.trim() ?? '';
+    return {
+      title: `Root cause: ${cause.slice(0, 50)}`,
+      scenario: 'Debugging/investigation',
+      outcome: `Identified root cause: ${cause}`,
+    };
+  }
+
+  // Fallback: use first sentence as title
+  const firstSentence = (normalized.split(/[.!?]/)[0] ?? normalized).trim();
+  const title =
+    firstSentence.length > 60 ? firstSentence.slice(0, 57) + '...' : firstSentence || 'Experience';
+
+  return {
+    title,
+    scenario: normalized,
+    outcome: 'recorded',
+  };
+}
+
+/**
+ * Infer experience category from text
+ * Note: More specific categories (database, security) are checked before
+ * generic ones (debugging) to avoid false matches on words like "fix"
+ */
+function inferExperienceCategory(text: string): string {
+  const lower = text.toLowerCase();
+
+  // Check specific domain categories first
+  if (/database|query|sql|migration/i.test(lower)) return 'database';
+  if (/auth|login|permission|security|token|password/i.test(lower)) return 'security';
+  if (/api|endpoint|request|response/i.test(lower)) return 'api-design';
+  if (/test|spec|coverage|mock/i.test(lower)) return 'testing';
+  if (/performance|slow|optimize|fast|latency/i.test(lower)) return 'performance';
+  if (/deploy|ci|cd|pipeline|build/i.test(lower)) return 'devops';
+  if (/config|setup|install|environment/i.test(lower)) return 'configuration';
+  if (/architecture|design|pattern|drift/i.test(lower)) return 'architecture';
+  if (/refactor|clean|improve|simplify/i.test(lower)) return 'refactoring';
+
+  // Generic debugging category last (catches "fix", "bug", "error")
+  if (/debug|bug|fix|error|issue|crash/i.test(lower)) return 'debugging';
+
+  return 'general';
+}
+
+/**
+ * Store text as an experience when triggers indicate it should be
+ */
+async function storeAsExperience(
+  ctx: Parameters<NonNullable<SimpleToolDescriptor['contextHandler']>>[0],
+  text: string,
+  triggerResult: ReturnType<
+    ReturnType<typeof getExtractionTriggersService>['detectExperienceTriggers']
+  >,
+  priority: number,
+  tags: string[],
+  enrichedParams: { projectId?: string; sessionId?: string; agentId?: string }
+): Promise<Record<string, unknown>> {
+  let projectId = enrichedParams.projectId;
+  let sessionId = enrichedParams.sessionId;
+  let agentId = enrichedParams.agentId ?? 'claude-code';
+
+  if (!projectId && ctx.services.contextDetection) {
+    const detected = await ctx.services.contextDetection.detect();
+    projectId = detected?.project?.id;
+    sessionId = sessionId ?? detected?.session?.id;
+    agentId = detected?.agentId?.value ?? agentId;
+  }
+
+  if (!projectId) {
+    return {
+      error: 'No project detected',
+      message: 'Could not detect project from working directory. Please specify projectId.',
+    };
+  }
+
+  // Parse experience components from text
+  const parsed = parseExperienceText(text);
+  const category = inferExperienceCategory(text);
+
+  // Get the dominant trigger for metadata
+  const dominantTrigger = triggerResult.triggers[0];
+  const triggerTypes = [...new Set(triggerResult.triggers.map((t) => t.type))];
+
+  // Create capture module and record the experience
+  const captureModule = createExperienceCaptureModule(
+    ctx.repos.experiences,
+    ctx.services.captureState
+  );
+
+  // Use priority to slightly influence confidence (priority 100 adds 0.1 to confidence)
+  const baseConfidence = dominantTrigger?.confidence ?? 0.85;
+  const priorityBoost = (priority / 100) * 0.1; // 0-0.1 boost based on priority
+  const adjustedConfidence = Math.min(1.0, baseConfidence + priorityBoost);
+
+  const recordParams: RecordCaseParams = {
+    projectId,
+    sessionId,
+    agentId,
+    title: parsed.title,
+    scenario: parsed.scenario,
+    outcome: parsed.outcome,
+    content: text,
+    category: `auto-${category}`,
+    confidence: adjustedConfidence,
+    source: 'user',
+  };
+
+  try {
+    const result = await captureModule.recordCase(recordParams);
+
+    // Log audit for created experience
+    for (const exp of result.experiences) {
+      logAction(
+        {
+          agentId,
+          action: 'create',
+          entryType: 'experience',
+          entryId: exp.experience.id,
+          scopeType: exp.experience.scopeType,
+          scopeId: exp.experience.scopeId ?? null,
+        },
+        ctx.db
+      );
+    }
+
+    const created = result.experiences[0];
+    if (!created) {
+      return {
+        success: false,
+        error: 'Failed to create experience',
+        skippedDuplicates: result.skippedDuplicates,
+      };
+    }
+
+    // Attach tags if provided
+    if (tags.length > 0) {
+      for (const tagName of tags) {
+        try {
+          const tag = await ctx.repos.tags.getOrCreate(tagName);
+          await ctx.repos.entryTags.attach({
+            entryType: 'knowledge', // experiences use knowledge entryType for tags
+            entryId: created.experience.id,
+            tagId: tag.id,
+          });
+        } catch {
+          // Tag attachment failed, continue
+        }
+      }
+    }
+
+    // Build human-readable display
+    const truncatedTitle =
+      parsed.title.length > 50 ? parsed.title.slice(0, 47) + '...' : parsed.title;
+    const _display = `🧠 Auto-stored as experience (detected: ${triggerTypes.join(', ')})\n📝 ${truncatedTitle}\n📁 Category: ${category}`;
+
+    // Send MCP notification to client (non-blocking)
+    void notify.notice(`🧠 Auto-experience: ${truncatedTitle}`, 'memory_remember');
+
+    return {
+      success: true,
+      autoDetected: true,
+      stored: {
+        type: 'experience',
+        id: created.experience.id,
+        title: parsed.title,
+        category,
+        projectId,
+      },
+      triggerInfo: {
+        types: triggerTypes,
+        confidence: dominantTrigger?.confidence,
+        reason: 'Text contains experience-worthy patterns (fix, solution, learned, etc.)',
+      },
+      parsed: {
+        title: parsed.title,
+        scenario: parsed.scenario,
+        outcome: parsed.outcome,
+      },
+      hint: 'Use forceType to override auto-detection if needed.',
+      _display,
+    };
+  } catch (error) {
+    return {
+      error: 'Failed to store experience',
+      message: error instanceof Error ? error.message : String(error),
+      attempted: { type: 'experience', title: parsed.title, category },
+    };
+  }
+}
+
 export const memoryRememberDescriptor: SimpleToolDescriptor = {
   name: 'memory_remember',
   visibility: 'core',
@@ -158,19 +414,45 @@ export const memoryRememberDescriptor: SimpleToolDescriptor = {
       }
     }
 
+    // ==========================================================================
+    // EXPERIENCE TRIGGER DETECTION
+    // Check if this text contains experience-worthy patterns (fixed X by Y, etc.)
+    // If so, auto-redirect to store as experience instead
+    // ==========================================================================
+    const triggersService = getExtractionTriggersService();
+    const triggerResult = triggersService.detectExperienceTriggers(text);
+
+    // Auto-redirect to experience if:
+    // 1. No forceType specified (user didn't explicitly choose)
+    // 2. High-confidence experience triggers detected
+    // 3. Classification confidence is not very high (< 0.9)
+    const shouldAutoExperience =
+      !forceType &&
+      triggerResult.hasHighConfidenceTriggers &&
+      classificationResult.confidence < 0.9;
+
+    if (shouldAutoExperience) {
+      return await storeAsExperience(ctx, text, triggerResult, priority, tags, {
+        projectId: args?.projectId as string | undefined,
+        sessionId: args?.sessionId as string | undefined,
+        agentId: args?.agentId as string | undefined,
+      });
+    }
+
     // Extract content
     const { title, content } = extractContent(text);
 
     // Infer category
     const category = inferCategory(entryType, content);
 
-    // Get detected context
-    const detected = ctx.services.contextDetection
-      ? await ctx.services.contextDetection.detect()
-      : null;
+    let projectId = args?.projectId as string | undefined;
+    let agentId = (args?.agentId as string | undefined) ?? 'claude-code';
 
-    const projectId = detected?.project?.id;
-    const agentId = detected?.agentId?.value ?? 'claude-code';
+    if (!projectId && ctx.services.contextDetection) {
+      const detected = await ctx.services.contextDetection.detect();
+      projectId = detected?.project?.id;
+      agentId = detected?.agentId?.value ?? agentId;
+    }
 
     if (!projectId) {
       return {

@@ -36,7 +36,7 @@ import {
   type SessionStartResult,
 } from './types.js';
 import type { CaptureService } from '../capture/index.js';
-import { MaintenanceOrchestrator } from './maintenance/orchestrator.js';
+import { MaintenanceOrchestrator, type TaskProgressCallback } from './maintenance/orchestrator.js';
 import type { ScopeType } from '../../db/schema/types.js';
 import type { RLService } from '../rl/index.js';
 import { buildConsolidationState } from '../rl/state/consolidation.state.js';
@@ -134,6 +134,7 @@ export class LibrarianService {
     this.sessionLifecycle = new SessionLifecycleHandler({
       captureService: deps.captureService,
       latentMemoryService: deps.latentMemoryService,
+      recommendationStore: this.recommendationStore,
       config: this.config,
       analyze: this.analyze.bind(this),
       runMaintenance: this.runMaintenance.bind(this),
@@ -613,7 +614,10 @@ export class LibrarianService {
   /**
    * Run maintenance tasks (consolidation, forgetting, graph backfill)
    */
-  async runMaintenance(request: MaintenanceRequest): Promise<MaintenanceResult> {
+  async runMaintenance(
+    request: MaintenanceRequest,
+    onProgress?: TaskProgressCallback
+  ): Promise<MaintenanceResult> {
     if (!this.maintenanceOrchestrator) {
       throw new Error(
         'Maintenance orchestrator not initialized. Provide appDb and repos in constructor.'
@@ -630,7 +634,7 @@ export class LibrarianService {
       'Running maintenance via librarian'
     );
 
-    const result = await this.maintenanceOrchestrator.runMaintenance(request);
+    const result = await this.maintenanceOrchestrator.runMaintenance(request, onProgress);
     this.lastMaintenance = result;
 
     logger.info(

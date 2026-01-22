@@ -52,7 +52,9 @@
     "*.d.ts",
     "tests/**/*.ts",
     "*.example.ts",
-    "vitest.config.ts"
+    "vitest.config.ts",
+    "plugins/**/*.ts",
+    "scripts/**/*.ts"
   ],
   "overrides": [
     {

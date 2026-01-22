@@ -750,6 +750,32 @@ export function createExperienceRepository(deps: DatabaseDeps): IExperienceRepos
         return getByIdSync(id);
       });
     },
+
+    async getPromotedExperienceIds(scopeType: ScopeType, scopeId?: string): Promise<Set<string>> {
+      // Query for experiences that have outgoing 'promoted_to' relations
+      // These are case experiences that have been promoted to strategies
+      const scopeConditions = buildScopeConditions(experiences, {
+        scopeType,
+        scopeId,
+        includeInactive: false,
+      });
+
+      const promotedExperiences = db
+        .select({ id: experiences.id })
+        .from(experiences)
+        .innerJoin(
+          entryRelations,
+          and(
+            eq(entryRelations.sourceType, 'experience'),
+            eq(entryRelations.sourceId, experiences.id),
+            eq(entryRelations.relationType, 'promoted_to')
+          )
+        )
+        .where(and(...scopeConditions))
+        .all();
+
+      return new Set(promotedExperiences.map((e) => e.id));
+    },
   };
 
   return repo;

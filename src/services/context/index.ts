@@ -66,6 +66,19 @@ export {
   DEFAULT_CONTEXT_MANAGER_CONFIG,
 } from './context-manager.service.js';
 
+// Unified Context Service (Single API for all context retrieval)
+export {
+  UnifiedContextService,
+  createUnifiedContextService,
+  type ContextPurpose,
+  type IncludableEntryType,
+  type UnifiedContextRequest,
+  type UnifiedContextResult,
+  type StalenessWarning as UnifiedStalenessWarning,
+  type PurposeBudgetConfig,
+  PURPOSE_BUDGETS,
+} from './unified-context.service.js';
+
 // Existing services
 export { enrichResultsWithVersionContent } from './version-enricher.js';
 export { formatHierarchicalContext } from './hierarchical-formatter.js';

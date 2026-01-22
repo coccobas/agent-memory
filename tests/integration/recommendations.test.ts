@@ -188,6 +188,122 @@ describe('Recommendation Store Integration', () => {
       // Should be different recommendations
       expect(second.id).not.toBe(first.id);
     });
+
+    it('should deduplicate by exemplar ID even when sources differ', async () => {
+      const project = createTestProject(db);
+      const exemplar = createTestExperience(db, 'Exemplar Exp', 'project', project.id);
+      const exp2 = createTestExperience(db, 'Support A', 'project', project.id);
+      const exp3 = createTestExperience(db, 'Support B', 'project', project.id);
+      const exp4 = createTestExperience(db, 'Support C', 'project', project.id);
+
+      // Create first recommendation with exemplar + 2 sources
+      const first = await store.create({
+        scopeType: 'project',
+        scopeId: project.id,
+        type: 'strategy',
+        title: 'Pattern V1',
+        confidence: 0.85,
+        sourceExperienceIds: [exemplar.experience.id, exp2.experience.id],
+        exemplarExperienceId: exemplar.experience.id,
+      });
+
+      // Try to create second with same exemplar but additional sources
+      // (simulates next session finding more supporting cases)
+      const second = await store.create({
+        scopeType: 'project',
+        scopeId: project.id,
+        type: 'strategy',
+        title: 'Pattern V2',
+        confidence: 0.9,
+        sourceExperienceIds: [
+          exemplar.experience.id,
+          exp2.experience.id,
+          exp3.experience.id,
+          exp4.experience.id,
+        ],
+        exemplarExperienceId: exemplar.experience.id,
+      });
+
+      // Should return the existing recommendation (same exemplar = same pattern)
+      expect(second.id).toBe(first.id);
+      expect(second.title).toBe('Pattern V1');
+    });
+
+    it('should return approved recommendation when trying to create duplicate with same exemplar', async () => {
+      const project = createTestProject(db);
+      const exemplar = createTestExperience(db, 'Approved Exemplar', 'project', project.id);
+      const exp2 = createTestExperience(db, 'Approved Support', 'project', project.id);
+      const exp3 = createTestExperience(db, 'New Support', 'project', project.id);
+
+      // Create and approve a recommendation
+      const first = await store.create({
+        scopeType: 'project',
+        scopeId: project.id,
+        type: 'strategy',
+        title: 'Already Promoted Pattern',
+        confidence: 0.85,
+        sourceExperienceIds: [exemplar.experience.id, exp2.experience.id],
+        exemplarExperienceId: exemplar.experience.id,
+      });
+
+      await store.approve(first.id, 'reviewer');
+
+      // Try to create new recommendation with same exemplar
+      const second = await store.create({
+        scopeType: 'project',
+        scopeId: project.id,
+        type: 'strategy',
+        title: 'Duplicate Pattern',
+        confidence: 0.9,
+        sourceExperienceIds: [exemplar.experience.id, exp2.experience.id, exp3.experience.id],
+        exemplarExperienceId: exemplar.experience.id,
+      });
+
+      // Should return the approved recommendation (don't create duplicate)
+      expect(second.id).toBe(first.id);
+      expect(second.status).toBe('approved');
+    });
+
+    it('should skip recommendation when exemplar was directly promoted to strategy', async () => {
+      const project = createTestProject(db);
+      const exemplar = createTestExperience(db, 'Directly Promoted Case', 'project', project.id);
+      const exp2 = createTestExperience(db, 'Support Experience', 'project', project.id);
+      const strategyExperience = createTestExperience(
+        db,
+        'Strategy: Directly Promoted Case',
+        'project',
+        project.id,
+        'strategy'
+      );
+
+      // Simulate direct promotion by creating a promoted_to relation
+      db.insert(context.db!._.fullSchema.entryRelations)
+        .values({
+          id: 'rel-' + Date.now(),
+          sourceType: 'experience',
+          sourceId: exemplar.experience.id,
+          targetType: 'experience',
+          targetId: strategyExperience.experience.id,
+          relationType: 'promoted_to',
+          createdBy: 'test',
+        })
+        .run();
+
+      // Try to create a recommendation for this already-promoted case
+      const result = await store.create({
+        scopeType: 'project',
+        scopeId: project.id,
+        type: 'strategy',
+        title: 'Pattern for already promoted case',
+        confidence: 0.85,
+        sourceExperienceIds: [exemplar.experience.id, exp2.experience.id],
+        exemplarExperienceId: exemplar.experience.id,
+      });
+
+      // Should create a skipped recommendation instead of pending
+      expect(result.status).toBe('skipped');
+      expect(result.reviewNotes).toContain('already promoted');
+    });
   });
 
   describe('getById', () => {

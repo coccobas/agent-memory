@@ -98,12 +98,24 @@ export interface KnowledgeCaptureResult {
 }
 
 /**
+ * Complexity signals detected from transcript analysis
+ */
+export interface ComplexitySignals {
+  score: number;
+  signals: string[];
+  hasErrorRecovery: boolean;
+  hasDecisions: boolean;
+  hasLearning: boolean;
+}
+
+/**
  * Combined capture result
  */
 export interface CaptureResult {
   experiences: ExperienceCaptureResult;
   knowledge: KnowledgeCaptureResult;
   totalProcessingTimeMs: number;
+  complexitySignals?: ComplexitySignals;
 }
 
 // =============================================================================

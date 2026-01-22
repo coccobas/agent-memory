@@ -26,7 +26,7 @@ export const memoryTaskDescriptor: ToolDescriptor = {
   name: 'memory_task',
   visibility: 'standard',
   description:
-    'Manage work items (bugs, features, tasks). Actions: add, update, get, list, deactivate, delete, update_status, list_by_status, list_blocked, get_subtasks, add_blocker, remove_blocker',
+    'Manage work items (bugs, features, tasks). Actions: add, update, get, list, deactivate, delete, update_status, list_by_status, list_blocked, add_blocker, remove_blocker, get_subtasks, preview, confirm, reject',
   commonParams: {
     id: { type: 'string' },
     title: { type: 'string' },
@@ -65,27 +65,24 @@ export const memoryTaskDescriptor: ToolDescriptor = {
     inherit: { type: 'boolean' },
     limit: { type: 'number' },
     offset: { type: 'number' },
+    previewId: { type: 'string', description: 'Preview ID for confirm/reject actions' },
   },
 
   actions: {
-    // Standard CRUD
     add: { contextHandler: issueHandlers.add },
     update: { contextHandler: issueHandlers.update },
     get: { contextHandler: issueHandlers.get },
     list: { contextHandler: issueHandlers.list },
     deactivate: { contextHandler: issueHandlers.deactivate },
     delete: { contextHandler: issueHandlers.delete },
-
-    // Status management
     update_status: { contextHandler: issueHandlers.update_status },
     list_by_status: { contextHandler: issueHandlers.list_by_status },
-
-    // Blocking/dependency management
     list_blocked: { contextHandler: issueHandlers.list_blocked },
     add_blocker: { contextHandler: issueHandlers.add_blocker },
     remove_blocker: { contextHandler: issueHandlers.remove_blocker },
-
-    // Hierarchy
     get_subtasks: { contextHandler: issueHandlers.get_subtasks },
+    preview: { contextHandler: issueHandlers.preview },
+    confirm: { contextHandler: issueHandlers.confirm },
+    reject: { contextHandler: issueHandlers.reject },
   },
 };

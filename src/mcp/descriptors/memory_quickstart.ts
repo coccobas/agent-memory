@@ -88,25 +88,25 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
     },
   },
   contextHandler: async (ctx, args) => {
-    // Get auto-detected context for defaults
-    const detected = ctx.services.contextDetection
-      ? await ctx.services.contextDetection.detect()
-      : null;
-
-    // Extract all parameters
     const sessionName = args?.sessionName as string | undefined;
     const sessionPurpose = args?.sessionPurpose as string | undefined;
     let projectId = args?.projectId as string | undefined;
-    const agentId =
-      (args?.agentId as string | undefined) ?? detected?.agentId?.value ?? 'claude-code';
+    let agentId = (args?.agentId as string | undefined) ?? 'claude-code';
     const inherit = (args?.inherit as boolean) ?? true;
     const limitPerType = (args?.limitPerType as number) ?? 10;
 
-    // Project creation params
     const createProject = args?.createProject as boolean | undefined;
     const projectName = args?.projectName as string | undefined;
     const projectDescription = args?.projectDescription as string | undefined;
-    const rootPath = (args?.rootPath as string | undefined) ?? detected?.workingDirectory;
+    let rootPath = args?.rootPath as string | undefined;
+
+    if ((!projectId || !rootPath) && ctx.services.contextDetection) {
+      const detected = await ctx.services.contextDetection.detect();
+      projectId = projectId ?? detected?.project?.id;
+      rootPath = rootPath ?? detected?.workingDirectory;
+      agentId = detected?.agentId?.value ?? agentId;
+    }
+    rootPath = rootPath ?? process.cwd();
 
     // Permission params
     const grantPermissions = (args?.grantPermissions as boolean | undefined) ?? createProject;

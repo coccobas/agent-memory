@@ -6,6 +6,8 @@ import { writeSessionSummaryFile } from './session-summary.js';
 import { getHookLearningService } from '../../services/learning/index.js';
 import { getHookAnalyticsService } from '../../services/analytics/index.js';
 import { createComponentLogger } from '../../utils/logger.js';
+import { detectComplexitySignals } from '../../utils/transcript-analysis.js';
+import type { TurnData } from '../../services/capture/types.js';
 
 const logger = createComponentLogger('stop-command');
 
@@ -23,13 +25,18 @@ export interface StopConfig {
   enableEarlyCapture: boolean;
 }
 
-/**
- * Complexity assessment result
- */
 interface ComplexityAssessment {
   isComplex: boolean;
   score: number;
   reasons: string[];
+}
+
+export interface ComplexityAssessmentWithSignals extends ComplexityAssessment {
+  volumeScore: number;
+  signalScore?: number;
+  hasErrorRecovery?: boolean;
+  hasDecisions?: boolean;
+  hasLearning?: boolean;
 }
 
 /**
@@ -56,14 +63,6 @@ function getConfig(overrides?: Partial<StopConfig>): StopConfig {
   };
 }
 
-/**
- * Assess conversation complexity based on ingestion results
- *
- * Heuristics:
- * - Message count > threshold (indicates substantial conversation)
- * - Lines read > threshold (indicates long transcript)
- * - Truncation detected (indicates very long session)
- */
 function assessConversationComplexity(
   ingestResult: TranscriptIngestResult,
   config: StopConfig
@@ -71,7 +70,6 @@ function assessConversationComplexity(
   const reasons: string[] = [];
   let score = 0;
 
-  // Check message count
   if (ingestResult.appended >= config.complexityMessageThreshold) {
     reasons.push(
       `${ingestResult.appended} messages appended (threshold: ${config.complexityMessageThreshold})`
@@ -79,7 +77,6 @@ function assessConversationComplexity(
     score += 0.4;
   }
 
-  // Check lines read
   if (ingestResult.linesRead >= config.complexityLineThreshold) {
     reasons.push(
       `${ingestResult.linesRead} lines processed (threshold: ${config.complexityLineThreshold})`
@@ -87,16 +84,78 @@ function assessConversationComplexity(
     score += 0.3;
   }
 
-  // Check for truncation (indicates very long session)
   if (ingestResult.wasTruncated) {
     reasons.push('Transcript was truncated (indicates long session)');
     score += 0.3;
   }
 
-  // Consider complex if score >= 0.5
   const isComplex = score >= 0.5;
 
   return { isComplex, score, reasons };
+}
+
+export function assessConversationComplexityWithSignals(
+  ingestResult: { appended: number; linesRead: number; wasTruncated: boolean },
+  config: { complexityMessageThreshold: number; complexityLineThreshold: number },
+  transcript?: TurnData[]
+): ComplexityAssessmentWithSignals {
+  const reasons: string[] = [];
+  let volumeScore = 0;
+
+  if (ingestResult.appended >= config.complexityMessageThreshold) {
+    reasons.push(
+      `${ingestResult.appended} messages appended (threshold: ${config.complexityMessageThreshold})`
+    );
+    volumeScore += 0.4;
+  }
+
+  if (ingestResult.linesRead >= config.complexityLineThreshold) {
+    reasons.push(
+      `${ingestResult.linesRead} lines processed (threshold: ${config.complexityLineThreshold})`
+    );
+    volumeScore += 0.3;
+  }
+
+  if (ingestResult.wasTruncated) {
+    reasons.push('Transcript was truncated (indicates long session)');
+    volumeScore += 0.3;
+  }
+
+  if (!transcript || transcript.length === 0) {
+    const isComplex = volumeScore >= 0.5;
+    return {
+      isComplex,
+      score: volumeScore,
+      reasons,
+      volumeScore,
+    };
+  }
+
+  const signals = detectComplexitySignals(transcript);
+
+  if (signals.hasErrorRecovery) {
+    reasons.push('Error recovery patterns detected');
+  }
+  if (signals.hasDecisions) {
+    reasons.push('Decision-making patterns detected');
+  }
+  if (signals.hasLearning) {
+    reasons.push('Learning moments detected');
+  }
+
+  const combinedScore = volumeScore * 0.4 + signals.score * 0.6;
+  const isComplex = combinedScore >= 0.4 || signals.score >= 0.6;
+
+  return {
+    isComplex,
+    score: combinedScore,
+    reasons,
+    volumeScore,
+    signalScore: signals.score,
+    hasErrorRecovery: signals.hasErrorRecovery,
+    hasDecisions: signals.hasDecisions,
+    hasLearning: signals.hasLearning,
+  };
 }
 
 /**

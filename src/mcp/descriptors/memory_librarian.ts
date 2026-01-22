@@ -19,7 +19,9 @@ export const memory_librarian: ToolDescriptor = {
 Actions:
 - analyze: Run pattern detection analysis on experiences
 - status: Get librarian service and scheduler status
-- run_maintenance: Run maintenance tasks (consolidation, forgetting, graph backfill)
+- run_maintenance: Run maintenance tasks in background (returns job ID immediately)
+- get_job_status: Poll status of a maintenance job
+- list_jobs: List all maintenance jobs
 - list_recommendations: List pending promotion recommendations
 - show_recommendation: Show details of a specific recommendation
 - approve: Approve a recommendation and create the promotion
@@ -41,7 +43,8 @@ Maintenance includes:
 Runs daily at 5am and on session end. Use list_recommendations to review pending patterns.
 
 Example: {"action":"analyze","scopeType":"project","scopeId":"proj-123"}
-Example: {"action":"run_maintenance","scopeType":"project","scopeId":"proj-123"}`,
+Example: {"action":"run_maintenance","scopeType":"project","scopeId":"proj-123"}
+Example: {"action":"get_job_status","jobId":"job_abc123"}`,
   commonParams: {
     scopeType: {
       description: 'Scope type',
@@ -84,6 +87,7 @@ Example: {"action":"run_maintenance","scopeType":"project","scopeId":"proj-123"}
           description:
             'Which tasks to run (defaults to all): consolidation, forgetting, graphBackfill',
           type: 'array',
+          items: { type: 'string' },
         },
         dryRun: {
           description: 'If true, analyze without making changes',
@@ -140,6 +144,23 @@ Example: {"action":"run_maintenance","scopeType":"project","scopeId":"proj-123"}
       },
       required: ['recommendationId'],
       contextHandler: librarianHandlers.skip,
+    },
+    get_job_status: {
+      params: {
+        jobId: { description: 'Job ID to get status for', type: 'string' },
+      },
+      required: ['jobId'],
+      contextHandler: librarianHandlers.get_job_status,
+    },
+    list_jobs: {
+      params: {
+        status: {
+          description: 'Filter by job status',
+          type: 'string',
+          enum: ['pending', 'running', 'completed', 'failed'],
+        },
+      },
+      contextHandler: librarianHandlers.list_jobs,
     },
   },
 };

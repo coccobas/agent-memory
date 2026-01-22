@@ -1,4 +1,5 @@
 import type { ClaudeHookInput, HookCommandResult } from './types.js';
+import type { TurnData } from '../../services/capture/types.js';
 import { getPromptFromHookInput } from './shared.js';
 import { ensureSessionIdExists } from './session.js';
 import {
@@ -10,6 +11,9 @@ import {
 } from './command-registry.js';
 import { getHookAnalyticsService } from '../../services/analytics/index.js';
 import { createComponentLogger } from '../../utils/logger.js';
+import { getCaptureStateManager } from '../../services/capture/state.js';
+import { detectConflicts, detectProjectMentions } from '../../utils/transcript-analysis.js';
+import { isContextRegistered, getContext } from '../../core/container.js';
 
 const logger = createComponentLogger('userpromptsubmit');
 
@@ -17,10 +21,11 @@ const logger = createComponentLogger('userpromptsubmit');
  * Configuration for UserPromptSubmit hook
  */
 export interface UserPromptSubmitConfig {
-  /** Enable natural language trigger detection (default: true) */
   enableNaturalLanguageTriggers: boolean;
-  /** Enable analytics recording (default: true) */
   recordAnalytics: boolean;
+  useTranscriptContext: boolean;
+  detectConflicts: boolean;
+  detectScopeMismatch: boolean;
 }
 
 /**
@@ -113,6 +118,9 @@ const MEMORY_TRIGGER_PATTERNS: Array<{
 function getConfig(overrides?: Partial<UserPromptSubmitConfig>): UserPromptSubmitConfig {
   const envNaturalLanguage = process.env.AGENT_MEMORY_PROMPT_NATURAL_LANGUAGE;
   const envRecordAnalytics = process.env.AGENT_MEMORY_PROMPT_RECORD_ANALYTICS;
+  const envUseTranscriptContext = process.env.AGENT_MEMORY_USE_TRANSCRIPT_CONTEXT;
+  const envDetectConflicts = process.env.AGENT_MEMORY_DETECT_CONFLICTS;
+  const envDetectScopeMismatch = process.env.AGENT_MEMORY_DETECT_SCOPE_MISMATCH;
 
   return {
     enableNaturalLanguageTriggers:
@@ -120,6 +128,15 @@ function getConfig(overrides?: Partial<UserPromptSubmitConfig>): UserPromptSubmi
       (envNaturalLanguage !== 'false' && envNaturalLanguage !== '0'),
     recordAnalytics:
       overrides?.recordAnalytics ?? (envRecordAnalytics !== 'false' && envRecordAnalytics !== '0'),
+    // Transcript analysis features - enabled by default for better UX
+    useTranscriptContext:
+      overrides?.useTranscriptContext ??
+      (envUseTranscriptContext !== 'false' && envUseTranscriptContext !== '0'),
+    detectConflicts:
+      overrides?.detectConflicts ?? (envDetectConflicts !== 'false' && envDetectConflicts !== '0'),
+    detectScopeMismatch:
+      overrides?.detectScopeMismatch ??
+      (envDetectScopeMismatch !== 'false' && envDetectScopeMismatch !== '0'),
   };
 }
 
@@ -137,7 +154,10 @@ function detectMemoryTriggers(prompt: string): MemoryTriggerResult {
       const matchIndex = match.index ?? 0;
       const start = Math.max(0, matchIndex - 20);
       const end = Math.min(prompt.length, matchIndex + match[0].length + 50);
-      const excerpt = (start > 0 ? '...' : '') + prompt.slice(start, end).trim() + (end < prompt.length ? '...' : '');
+      const excerpt =
+        (start > 0 ? '...' : '') +
+        prompt.slice(start, end).trim() +
+        (end < prompt.length ? '...' : '');
 
       return {
         detected: true,
@@ -161,19 +181,20 @@ async function markForCapture(
   sessionId: string,
   projectId: string | undefined,
   prompt: string,
-  trigger: MemoryTriggerResult
+  trigger: MemoryTriggerResult,
+  isBoosted = false
 ): Promise<void> {
   try {
     const analyticsService = getHookAnalyticsService();
 
-    // Record the trigger detection as a notification metric
+    const category = isBoosted ? 'boosted_natural_language_trigger' : 'natural_language_trigger';
     await analyticsService.recordNotification({
       sessionId,
       projectId,
       type: 'memory_trigger_detected',
-      message: `${trigger.type}: ${trigger.excerpt ?? prompt.slice(0, 100)}`,
+      message: `${trigger.type || 'boosted'}: ${trigger.excerpt ?? prompt.slice(0, 100)}`,
       severity: 'info',
-      category: 'natural_language_trigger',
+      category,
     });
 
     logger.info(
@@ -257,18 +278,132 @@ export async function runUserPromptSubmitCommand(params: {
   }
 
   // Step 2: Detect natural language memory triggers (non-blocking)
-  if (config.enableNaturalLanguageTriggers && trimmed.length > 10) {
-    const trigger = detectMemoryTriggers(trimmed);
+  let transcriptTurns: TurnData[] = [];
 
-    if (trigger.detected) {
-      // Ensure session exists before marking for capture
-      await ensureSessionIdExists(sessionId, projectId);
-
-      // Mark for capture (non-blocking, doesn't prevent the prompt)
-      await markForCapture(sessionId, projectId, trimmed, trigger);
+  if (config.useTranscriptContext) {
+    try {
+      const stateManager = getCaptureStateManager();
+      transcriptTurns = stateManager.getRecentTranscript(sessionId, { lastN: 5, maxTokens: 500 });
+    } catch (transcriptError) {
+      logger.debug(
+        {
+          error:
+            transcriptError instanceof Error ? transcriptError.message : String(transcriptError),
+        },
+        'Transcript retrieval failed (non-blocking)'
+      );
     }
   }
 
-  // Allow the prompt to proceed
+  if (config.enableNaturalLanguageTriggers && trimmed.length > 10) {
+    const trigger = detectMemoryTriggers(trimmed);
+    let isBoosted = false;
+
+    if (config.useTranscriptContext && transcriptTurns.length > 0) {
+      const transcriptHasPatterns = transcriptTurns.some((turn) => {
+        const content = turn.content.toLowerCase();
+        return (
+          content.includes('always ') ||
+          content.includes('never ') ||
+          content.includes('we decided') ||
+          content.includes('our standard')
+        );
+      });
+
+      if (transcriptHasPatterns) {
+        isBoosted = true;
+      }
+    }
+
+    if (trigger.detected || isBoosted) {
+      await ensureSessionIdExists(sessionId, projectId);
+      await markForCapture(sessionId, projectId, trimmed, trigger, isBoosted);
+    }
+  }
+
+  if (config.detectConflicts && config.useTranscriptContext && transcriptTurns.length > 0) {
+    try {
+      const turnsWithCurrentPrompt: TurnData[] = [
+        ...transcriptTurns,
+        { role: 'user' as const, content: trimmed },
+      ];
+      const conflicts = detectConflicts(turnsWithCurrentPrompt);
+      if (conflicts.length > 0) {
+        const analyticsService = getHookAnalyticsService();
+        for (const conflict of conflicts) {
+          await analyticsService.recordNotification({
+            sessionId,
+            projectId,
+            type: 'conflict_detected',
+            message: `Conflict: ${conflict.statements.join(' vs ')}`,
+            severity: 'warning',
+            category: 'transcript_analysis',
+          });
+        }
+      }
+    } catch (conflictError) {
+      logger.debug(
+        { error: conflictError instanceof Error ? conflictError.message : String(conflictError) },
+        'Conflict detection failed (non-blocking)'
+      );
+    }
+  }
+
+  if (config.detectScopeMismatch && config.useTranscriptContext && transcriptTurns.length > 0) {
+    try {
+      const turnsWithCurrentPrompt: TurnData[] = [
+        ...transcriptTurns,
+        { role: 'user' as const, content: trimmed },
+      ];
+
+      const mentionedProjects = detectProjectMentions(turnsWithCurrentPrompt);
+
+      if (mentionedProjects.length > 0) {
+        let currentProjectName: string | undefined;
+
+        if (isContextRegistered()) {
+          const ctx = getContext();
+          if (ctx.services?.contextDetection) {
+            const detected = await ctx.services.contextDetection.detect();
+            currentProjectName = detected.project?.name;
+          }
+        }
+
+        if (currentProjectName) {
+          const currentLower = currentProjectName.toLowerCase();
+          const mismatchedProjects = mentionedProjects.filter(
+            (p) => p.toLowerCase() !== currentLower
+          );
+
+          if (mismatchedProjects.length > 0) {
+            const analyticsService = getHookAnalyticsService();
+            await analyticsService.recordNotification({
+              sessionId,
+              projectId,
+              type: 'scope_mismatch_warning',
+              message: `Transcript mentions "${mismatchedProjects.join(', ')}" but current scope is "${currentProjectName}"`,
+              severity: 'warning',
+              category: 'transcript_analysis',
+            });
+
+            logger.info(
+              {
+                sessionId,
+                mentionedProjects: mismatchedProjects,
+                currentProject: currentProjectName,
+              },
+              'Scope mismatch detected in conversation'
+            );
+          }
+        }
+      }
+    } catch (scopeError) {
+      logger.debug(
+        { error: scopeError instanceof Error ? scopeError.message : String(scopeError) },
+        'Scope mismatch detection failed (non-blocking)'
+      );
+    }
+  }
+
   return allowed();
 }

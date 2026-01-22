@@ -55,6 +55,7 @@ import type { AppContext } from '../core/context.js';
 // Import generated tools from descriptors
 import { getFilteredTools } from './descriptors/index.js';
 import { logStartup, logShutdown } from '../utils/action-logger.js';
+import { setNotificationServer, clearNotificationServer } from './notification.service.js';
 
 // =============================================================================
 // BUNDLED TOOL DEFINITIONS
@@ -165,6 +166,11 @@ export async function createServer(context: AppContext): Promise<Server> {
   });
 
   logger.debug('Request handlers configured');
+
+  // Wire notification service to the server instance
+  setNotificationServer(server);
+  logger.debug('Notification service configured');
+
   logger.debug('Server creation complete');
 
   return server;
@@ -228,6 +234,9 @@ export async function runServer(
 
     // Log shutdown to action log
     logShutdown(signal);
+
+    // Clear notification server reference
+    clearNotificationServer();
 
     try {
       // Gracefully shutdown AppContext (drains feedback queue on SIGTERM)

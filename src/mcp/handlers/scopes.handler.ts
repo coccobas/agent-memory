@@ -260,7 +260,11 @@ export const scopeHandlers = {
     let id = getOptionalParam(params, 'id', isString);
     const status = getOptionalParam(params, 'status', isSessionStatus);
 
-    // Auto-detect session if id not provided
+    if (!id) {
+      id = (params as unknown as Record<string, unknown>).sessionId as string | undefined;
+    }
+
+    // Auto-detect session if still not provided
     if (!id) {
       const contextDetection = context.services.contextDetection;
       if (contextDetection) {
@@ -271,25 +275,20 @@ export const scopeHandlers = {
             { sessionId: id, source: detected.session.source },
             'Auto-detected session for end'
           );
-        }
-      }
-
-      // Still no id - check for any active session in current project
-      if (!id) {
-        const detected = context.services.contextDetection
-          ? await context.services.contextDetection.detect()
-          : null;
-        const projectId = detected?.project?.id;
-
-        const activeSessions = await context.repos.sessions.list(
-          { projectId, status: 'active' },
-          { limit: 1 }
-        );
-
-        const activeSession = activeSessions[0];
-        if (activeSession) {
-          id = activeSession.id;
-          logger.debug({ sessionId: id }, 'Found active session for end');
+        } else {
+          // Check for any active session in detected project
+          const projectId = detected.project?.id;
+          if (projectId) {
+            const activeSessions = await context.repos.sessions.list(
+              { projectId, status: 'active' },
+              { limit: 1 }
+            );
+            const activeSession = activeSessions[0];
+            if (activeSession) {
+              id = activeSession.id;
+              logger.debug({ sessionId: id }, 'Found active session for end');
+            }
+          }
         }
       }
 

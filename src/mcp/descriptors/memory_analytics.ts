@@ -43,10 +43,12 @@ export const memoryAnalyticsDescriptor: ToolDescriptor = {
     },
     toolNames: {
       type: 'array',
+      items: { type: 'string' },
       description: 'Filter by specific tool names (for get_tool_stats)',
     },
     subagentTypes: {
       type: 'array',
+      items: { type: 'string' },
       description: 'Filter by subagent types (for get_subagent_stats)',
     },
     severity: {

@@ -13,6 +13,8 @@ import type { Config } from '../config/index.js';
 import type { IProjectRepository, ISessionRepository } from '../core/interfaces/repositories.js';
 import type { ScopeType } from '../db/schema/types.js';
 import { createComponentLogger } from '../utils/logger.js';
+import type { TurnData } from './capture/types.js';
+import { detectProjectMentions } from '../utils/transcript-analysis.js';
 
 const logger = createComponentLogger('context-detection');
 
@@ -80,6 +82,17 @@ export interface EnrichableParams {
 export interface EnrichmentResult {
   enriched: Record<string, unknown>;
   detected: DetectedContext;
+  scopeMismatchWarning?: ScopeMismatchWarning;
+}
+
+/**
+ * Warning when transcript mentions different projects than current scope
+ */
+export interface ScopeMismatchWarning {
+  mentionedProjects: string[];
+  currentProject: string;
+  warning: string;
+  confidence: number;
 }
 
 /**
@@ -105,10 +118,23 @@ export interface IContextDetectionService {
   detect(explicitParams?: EnrichableParams): Promise<DetectedContext>;
 
   /**
+   * Get the last cached context synchronously (no DB calls).
+   * Returns undefined if no context has been cached yet.
+   * Use this when you need context without blocking on async operations.
+   */
+  getCached(): DetectedContext | undefined;
+
+  /**
    * Enrich parameters with auto-detected values
    * Explicit parameters always take precedence over auto-detected ones
    */
-  enrichParams(args: Record<string, unknown>): Promise<EnrichmentResult>;
+  enrichParams(args: Record<string, unknown>, transcript?: TurnData[]): Promise<EnrichmentResult>;
+
+  /**
+   * Detect scope mismatch from transcript analysis
+   * Returns warning if transcript mentions different projects than current scope
+   */
+  detectScopeMismatch(transcript: TurnData[]): Promise<ScopeMismatchWarning | null>;
 
   /**
    * Resolve project scope for operations.
@@ -261,8 +287,10 @@ export class ContextDetectionService implements IContextDetectionService {
     return context;
   }
 
-  async enrichParams(args: Record<string, unknown>): Promise<EnrichmentResult> {
-    // Extract explicit params for detection
+  async enrichParams(
+    args: Record<string, unknown>,
+    transcript?: TurnData[]
+  ): Promise<EnrichmentResult> {
     const explicitParams: EnrichableParams = {
       scopeType: args.scopeType as string | undefined,
       scopeId: args.scopeId as string | undefined,
@@ -272,11 +300,8 @@ export class ContextDetectionService implements IContextDetectionService {
     };
 
     const detected = await this.detect(explicitParams);
-
-    // Build enriched params - explicit values always take precedence
     const enriched = { ...args };
 
-    // Enrich scopeType and scopeId
     if (!enriched.scopeType && detected.project) {
       enriched.scopeType = 'project';
     }
@@ -284,27 +309,83 @@ export class ContextDetectionService implements IContextDetectionService {
       enriched.scopeId = detected.project.id;
     }
 
-    // Enrich projectId (for tools that use projectId directly)
     if (!enriched.projectId && detected.project) {
       enriched.projectId = detected.project.id;
     }
 
-    // Enrich sessionId (for tools that use sessionId directly)
     if (!enriched.sessionId && detected.session) {
       enriched.sessionId = detected.session.id;
     }
 
-    // Enrich agentId (always set if not provided)
     if (!enriched.agentId) {
       enriched.agentId = detected.agentId.value;
     }
 
-    return { enriched, detected };
+    const result: EnrichmentResult = { enriched, detected };
+
+    if (transcript && transcript.length > 0) {
+      const mismatchWarning = await this.detectScopeMismatch(transcript);
+      if (mismatchWarning) {
+        result.scopeMismatchWarning = mismatchWarning;
+      }
+    }
+
+    return result;
+  }
+
+  async detectScopeMismatch(transcript: TurnData[]): Promise<ScopeMismatchWarning | null> {
+    if (transcript.length === 0) {
+      return null;
+    }
+
+    const detected = await this.detect();
+    if (!detected.project) {
+      return null;
+    }
+
+    const currentProjectName = detected.project.name.toLowerCase();
+    const mentionedProjects = detectProjectMentions(transcript);
+
+    if (mentionedProjects.length === 0) {
+      return null;
+    }
+
+    const mismatchedProjects = mentionedProjects.filter(
+      (mentioned) => mentioned.toLowerCase() !== currentProjectName
+    );
+
+    if (mismatchedProjects.length === 0) {
+      return null;
+    }
+
+    const mentionCount = mismatchedProjects.reduce((count, project) => {
+      const projectLower = project.toLowerCase();
+      return (
+        count +
+        transcript.filter((turn) => turn.content.toLowerCase().includes(projectLower)).length
+      );
+    }, 0);
+
+    const confidence = Math.min(1.0, 0.3 + mentionCount * 0.2);
+
+    return {
+      mentionedProjects: mismatchedProjects,
+      currentProject: detected.project.name,
+      warning: `Transcript mentions project(s) "${mismatchedProjects.join(', ')}" but current scope is "${detected.project.name}"`,
+      confidence,
+    };
   }
 
   clearCache(): void {
     this.cache = null;
     logger.debug('Context detection cache cleared');
+  }
+
+  getCached(): DetectedContext | undefined {
+    if (!this.cache) return undefined;
+    const age = Date.now() - this.cache.timestamp;
+    if (age >= this.cacheTTLMs) return undefined;
+    return this.cache.context;
   }
 
   async resolveProjectScope(scopeType: ScopeType, scopeId?: string): Promise<ResolvedProjectScope> {

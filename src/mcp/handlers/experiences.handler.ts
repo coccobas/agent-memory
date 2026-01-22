@@ -728,7 +728,6 @@ const learnHandler: ContextAwareHandler = async (
   params: Record<string, unknown>
 ) => {
   const text = getRequiredParam(params, 'text', isString);
-  const agentId = getOptionalParam(params, 'agentId', isString);
   const categoryOverride = getOptionalParam(params, 'category', isString);
   const confidenceOverride = getOptionalParam(params, 'confidence', isNumber);
 
@@ -736,14 +735,11 @@ const learnHandler: ContextAwareHandler = async (
   const parsed = parseExperienceText(text);
   const category = categoryOverride ?? inferExperienceCategory(text);
 
-  // Get detected context
-  const detected = context.services.contextDetection
-    ? await context.services.contextDetection.detect()
-    : null;
-
-  const projectId = detected?.project?.id;
-  const sessionId = detected?.session?.id;
-  const resolvedAgentId = agentId ?? detected?.agentId?.value ?? 'claude-code';
+  // Use enriched params from tool-runner (already contains projectId, sessionId, agentId)
+  // Fall back to sync cached context if params weren't enriched
+  const projectId = getOptionalParam(params, 'projectId', isString);
+  const sessionId = getOptionalParam(params, 'sessionId', isString);
+  const resolvedAgentId = getOptionalParam(params, 'agentId', isString) ?? 'claude-code';
 
   if (!projectId) {
     return {

@@ -10,6 +10,7 @@ import { transactionWithRetry } from '../../../db/connection.js';
 import {
   recommendations,
   recommendationSources,
+  entryRelations,
   type Recommendation,
   type NewRecommendation,
   type RecommendationSource,
@@ -43,6 +44,12 @@ export interface CreateRecommendationInput {
   analysisVersion?: string;
   expiresAt?: string;
   createdBy?: string;
+  extractedEntry?: {
+    content: string;
+    category?: string;
+    tags?: string[];
+    priority?: number;
+  };
 }
 
 export interface UpdateRecommendationInput {
@@ -110,7 +117,127 @@ export function createRecommendationStore(deps: DatabaseDeps): IRecommendationSt
   const store: IRecommendationStore = {
     async create(input: CreateRecommendationInput): Promise<RecommendationWithSources> {
       return await transactionWithRetry(sqlite, () => {
-        // Check for existing pending recommendation with same sources (deduplication)
+        // Check for existing recommendation with same exemplar (primary deduplication)
+        // This catches patterns that represent the same insight even if source sets differ slightly
+        if (input.exemplarExperienceId) {
+          // Check for pending recommendation with same exemplar
+          const existingByExemplar = db
+            .select()
+            .from(recommendations)
+            .where(
+              and(
+                eq(recommendations.scopeType, input.scopeType),
+                input.scopeId
+                  ? eq(recommendations.scopeId, input.scopeId)
+                  : isNull(recommendations.scopeId),
+                eq(recommendations.type, input.type),
+                eq(recommendations.status, 'pending'),
+                eq(recommendations.exemplarExperienceId, input.exemplarExperienceId)
+              )
+            )
+            .get();
+
+          if (existingByExemplar) {
+            // Return existing instead of creating duplicate
+            const sources = db
+              .select()
+              .from(recommendationSources)
+              .where(eq(recommendationSources.recommendationId, existingByExemplar.id))
+              .all();
+            return { ...existingByExemplar, sources };
+          }
+
+          // Also check if there's an already-approved recommendation with this exemplar
+          // This prevents re-recommending patterns that have already been promoted
+          const approvedWithExemplar = db
+            .select()
+            .from(recommendations)
+            .where(
+              and(
+                eq(recommendations.scopeType, input.scopeType),
+                input.scopeId
+                  ? eq(recommendations.scopeId, input.scopeId)
+                  : isNull(recommendations.scopeId),
+                eq(recommendations.type, input.type),
+                eq(recommendations.status, 'approved'),
+                eq(recommendations.exemplarExperienceId, input.exemplarExperienceId)
+              )
+            )
+            .get();
+
+          if (approvedWithExemplar) {
+            // Return the approved recommendation - this pattern was already promoted
+            const sources = db
+              .select()
+              .from(recommendationSources)
+              .where(eq(recommendationSources.recommendationId, approvedWithExemplar.id))
+              .all();
+            return { ...approvedWithExemplar, sources };
+          }
+
+          // Also check if the exemplar case was directly promoted to a strategy
+          // (not via librarian recommendation, but via memory_experience promote)
+          // This prevents recommending patterns that have already been promoted directly
+          if (input.type === 'strategy') {
+            const existingPromotion = db
+              .select()
+              .from(entryRelations)
+              .where(
+                and(
+                  eq(entryRelations.sourceType, 'experience'),
+                  eq(entryRelations.sourceId, input.exemplarExperienceId),
+                  eq(entryRelations.targetType, 'experience'),
+                  eq(entryRelations.relationType, 'promoted_to')
+                )
+              )
+              .get();
+
+            if (existingPromotion) {
+              // This case was already promoted - create a "skipped" placeholder
+              // to prevent re-recommending without losing the analysis
+              const skippedId = generateId();
+              const sortedSourceIds = [...input.sourceExperienceIds].sort();
+              const sourceIdsJson = JSON.stringify(sortedSourceIds);
+
+              const skippedEntry: NewRecommendation = {
+                id: skippedId,
+                scopeType: input.scopeType,
+                scopeId: input.scopeId,
+                type: input.type,
+                status: 'skipped',
+                title: input.title,
+                pattern: input.pattern,
+                applicability: input.applicability,
+                contraindications: input.contraindications,
+                rationale: input.rationale,
+                confidence: input.confidence,
+                patternCount: input.patternCount ?? input.sourceExperienceIds.length,
+                exemplarExperienceId: input.exemplarExperienceId,
+                sourceExperienceIds: sourceIdsJson,
+                analysisRunId: input.analysisRunId,
+                analysisVersion: input.analysisVersion,
+                expiresAt: input.expiresAt,
+                createdBy: input.createdBy,
+                reviewNotes: `Skipped: exemplar was already promoted to strategy (${existingPromotion.targetId})`,
+              };
+
+              db.insert(recommendations).values(skippedEntry).run();
+
+              return {
+                ...skippedEntry,
+                id: skippedId,
+                status: 'skipped',
+                patternCount: skippedEntry.patternCount ?? input.sourceExperienceIds.length,
+                sourceExperienceIds: skippedEntry.sourceExperienceIds,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                sources: [],
+              } as RecommendationWithSources;
+            }
+          }
+        }
+
+        // Fallback: check for exact source match (legacy deduplication)
         const sortedSourceIds = [...input.sourceExperienceIds].sort();
         const sourceIdsJson = JSON.stringify(sortedSourceIds);
 
@@ -157,7 +284,8 @@ export function createRecommendationStore(deps: DatabaseDeps): IRecommendationSt
           confidence: input.confidence,
           patternCount: input.patternCount ?? input.sourceExperienceIds.length,
           exemplarExperienceId: input.exemplarExperienceId,
-          sourceExperienceIds: sourceIdsJson, // Use sorted version for deduplication consistency
+          sourceExperienceIds: sourceIdsJson,
+          extractedEntry: input.extractedEntry ? JSON.stringify(input.extractedEntry) : undefined,
           analysisRunId: input.analysisRunId,
           analysisVersion: input.analysisVersion,
           expiresAt: input.expiresAt,

@@ -119,3 +119,18 @@ export {
   type DetectionResult,
   type AtomicityResult,
 } from './atomicity.js';
+
+// =============================================================================
+// CONFIDENCE BOOSTING
+// =============================================================================
+
+export {
+  ConfidenceBooster,
+  createConfidenceBooster,
+  getDefaultConfidenceBooster,
+  boostExtractionConfidence,
+  DEFAULT_BOOST_PATTERNS,
+  type BoostPattern,
+  type BoostResult,
+  type ExtractedEntry,
+} from './confidence-booster.js';

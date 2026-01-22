@@ -19,7 +19,7 @@ export const memoryToolDescriptor: ToolDescriptor = {
     category: { type: 'string', enum: ['mcp', 'cli', 'function', 'api'] },
     description: { type: 'string' },
     parameters: { type: 'object' },
-    examples: { type: 'array' },
+    examples: { type: 'array', items: { type: 'object' } },
     constraints: { type: 'string' },
     createdBy: { type: 'string' },
     changeReason: { type: 'string' },

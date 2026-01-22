@@ -1134,6 +1134,58 @@ describe('ExperienceCaptureModule', () => {
         })
       );
     });
+
+    it('should handle UNIQUE constraint violation gracefully', async () => {
+      const existingExperience = {
+        id: 'existing-exp-id',
+        title: 'Duplicate Title',
+        currentVersion: { confidence: 0.8 },
+      };
+
+      mockRepo.create = vi
+        .fn()
+        .mockRejectedValueOnce(
+          new Error(
+            'UNIQUE constraint failed: experiences.scope_type, experiences.scope_id, experiences.title'
+          )
+        );
+      mockRepo.getByTitle = vi.fn().mockResolvedValueOnce(existingExperience);
+
+      const params: RecordCaseParams = {
+        title: 'Duplicate Title',
+        scenario: 'Test scenario',
+        outcome: 'Test outcome',
+        projectId: 'proj-1',
+      };
+
+      const result = await module.recordCase(params);
+
+      expect(result.skippedDuplicates).toBe(1);
+      expect(result.experiences).toHaveLength(1);
+      expect(result.experiences[0].experience).toBe(existingExperience);
+      expect(mockRepo.getByTitle).toHaveBeenCalledWith(
+        'Duplicate Title',
+        'project',
+        'proj-1',
+        false
+      );
+    });
+
+    it('should mark as duplicate when UNIQUE constraint fails and getByTitle fails', async () => {
+      mockRepo.create = vi.fn().mockRejectedValueOnce(new Error('UNIQUE constraint failed'));
+      mockRepo.getByTitle = vi.fn().mockRejectedValueOnce(new Error('DB error'));
+
+      const params: RecordCaseParams = {
+        title: 'Duplicate Title',
+        scenario: 'Test scenario',
+        outcome: 'Test outcome',
+      };
+
+      const result = await module.recordCase(params);
+
+      expect(result.skippedDuplicates).toBe(1);
+      expect(result.experiences).toHaveLength(0);
+    });
   });
 });
 

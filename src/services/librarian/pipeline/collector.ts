@@ -209,9 +209,20 @@ export class CaseCollector {
       levelFilter: 'case',
     });
 
+    // Get IDs of experiences that have been promoted via relations
+    // This catches promotions made via the modern relation-based system
+    const promotedViaRelations = await this.experienceRepo.getPromotedExperienceIds(
+      filter.scopeType,
+      filter.scopeId
+    );
+
     // Filter out experiences that have already been promoted
+    // Check both legacy fields AND modern relation-based promotions
     const unpromoted = result.experiences.filter(
-      (ce) => !ce.experience.promotedToToolId && !ce.experience.promotedFromId
+      (ce) =>
+        !ce.experience.promotedToToolId &&
+        !ce.experience.promotedFromId &&
+        !promotedViaRelations.has(ce.experience.id)
     );
 
     return {
@@ -240,9 +251,20 @@ export class CaseCollector {
       incrementalFrom,
     });
 
+    // Get IDs of experiences that have been promoted via relations
+    // This catches promotions made via the modern relation-based system
+    const promotedViaRelations = await this.experienceRepo.getPromotedExperienceIds(
+      filter.scopeType,
+      filter.scopeId
+    );
+
     // Filter out experiences that have already been promoted
+    // Check both legacy fields AND modern relation-based promotions
     const unpromoted = result.experiences.filter(
-      (ce) => !ce.experience.promotedToToolId && !ce.experience.promotedFromId
+      (ce) =>
+        !ce.experience.promotedToToolId &&
+        !ce.experience.promotedFromId &&
+        !promotedViaRelations.has(ce.experience.id)
     );
 
     return {
@@ -289,6 +311,12 @@ export class CaseCollector {
   }> {
     const result = await this.collect(filter);
 
+    // Get IDs of experiences that have been promoted via relations
+    const promotedViaRelations = await this.experienceRepo.getPromotedExperienceIds(
+      filter.scopeType,
+      filter.scopeId
+    );
+
     const byLevel: Record<string, number> = {};
     const byCategory: Record<string, number> = {};
     let withTrajectory = 0;
@@ -308,8 +336,12 @@ export class CaseCollector {
         withTrajectory++;
       }
 
-      // Promoted
-      if (ce.experience.promotedToToolId || ce.experience.promotedFromId) {
+      // Promoted (check both legacy fields AND modern relation-based promotions)
+      if (
+        ce.experience.promotedToToolId ||
+        ce.experience.promotedFromId ||
+        promotedViaRelations.has(ce.experience.id)
+      ) {
         promoted++;
       }
     }

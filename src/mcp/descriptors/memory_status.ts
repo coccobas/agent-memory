@@ -32,12 +32,23 @@ export interface StatusResult {
     guidelines: Array<{ id: string; name: string; priority: number }>;
     knowledge: Array<{ id: string; title: string }>;
   };
-  /** Pending librarian recommendations */
+  health?: {
+    score: number;
+    grade: 'excellent' | 'good' | 'fair' | 'poor';
+  } | null;
+  graph?: {
+    nodes: number;
+    edges: number;
+  } | null;
   librarian?: {
     pendingRecommendations: number;
     previews?: Array<{ id: string; title: string; type: string }>;
   };
-  /** Human-readable formatted dashboard for display */
+  episode?: {
+    id: string;
+    name: string;
+    status: string;
+  } | null;
   _display?: string;
 }
 
@@ -52,7 +63,10 @@ Use this instead of multiple list calls to understand memory state.
 Example: {}
 Example: {"includeTopEntries": true}
 
-Returns: project, session, counts (guidelines, knowledge, tools, sessions)`,
+Returns: project, session, counts (guidelines, knowledge, tools, sessions)
+
+NOTE: The response includes a \`_display\` field with pre-formatted terminal output.
+When displaying to users, output the \`_display\` content verbatim instead of reformatting to markdown.`,
   params: {
     includeTopEntries: {
       type: 'boolean',
@@ -130,6 +144,56 @@ Returns: project, session, counts (guidelines, knowledge, tools, sessions)`,
       }
     }
 
+    // Get memory health score
+    let health: StatusResult['health'] | undefined;
+    if (projectId && ctx.services.librarian) {
+      try {
+        if (ctx.services.librarian.hasMaintenanceOrchestrator()) {
+          const memoryHealth = await ctx.services.librarian.getHealth('project', projectId);
+          health = {
+            score: memoryHealth.score,
+            grade: memoryHealth.grade,
+          };
+        }
+      } catch {
+        // Non-fatal
+      }
+    }
+
+    // Get graph statistics
+    let graph: StatusResult['graph'] | undefined;
+    if (projectId && ctx.repos.graphNodes && ctx.repos.graphEdges) {
+      try {
+        const [nodes, edges] = await Promise.all([
+          ctx.repos.graphNodes.list({ scopeType: 'project', scopeId: projectId }, { limit: 10000 }),
+          ctx.repos.graphEdges.list({}, { limit: 10000 }),
+        ]);
+        if (nodes.length > 0 || edges.length > 0) {
+          graph = { nodes: nodes.length, edges: edges.length };
+        }
+      } catch {
+        // Non-fatal
+      }
+    }
+
+    // Get active episode
+    let episode: StatusResult['episode'] | undefined;
+    const sessionId = detected.session?.id;
+    if (sessionId && ctx.services.episode) {
+      try {
+        const activeEpisode = await ctx.services.episode.getActiveEpisode(sessionId);
+        if (activeEpisode) {
+          episode = {
+            id: activeEpisode.id,
+            name: activeEpisode.name,
+            status: activeEpisode.status,
+          };
+        }
+      } catch {
+        // Non-fatal
+      }
+    }
+
     // Build the result object
     const result: StatusResult = {
       project: detected.project
@@ -153,7 +217,10 @@ Returns: project, session, counts (guidelines, knowledge, tools, sessions)`,
         sessions: sessionsCount,
       },
       topEntries,
+      health,
+      graph,
       librarian,
+      episode,
     };
 
     // Add human-readable formatted display

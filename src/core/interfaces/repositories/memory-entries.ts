@@ -674,4 +674,14 @@ export interface IExperienceRepository {
    * @throws {AgentMemoryError} E4000 - Database operation failed
    */
   recordOutcome(id: string, input: RecordOutcomeInput): Promise<ExperienceWithVersion | undefined>;
+
+  /**
+   * Get IDs of experiences that have been promoted (have outgoing promoted_to relations).
+   * Used to filter out already-promoted cases from pattern detection.
+   * @param scopeType - Scope type to filter by
+   * @param scopeId - Scope ID (required for non-global scopes)
+   * @returns Set of experience IDs that have been promoted
+   * @throws {AgentMemoryError} E4000 - Database operation failed
+   */
+  getPromotedExperienceIds(scopeType: ScopeType, scopeId?: string): Promise<Set<string>>;
 }

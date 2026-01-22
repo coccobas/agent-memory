@@ -43,41 +43,30 @@ export const graphStatusHandlers = {
     const edges = await edgeRepo.list({}, { limit: 10000 });
 
     return {
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify(
-            {
-              nodeTypes: {
-                count: nodeTypes.length,
-                names: nodeTypes.map((t) => t.name),
-                builtinCount: nodeTypes.filter((t) => t.isBuiltin).length,
-                customCount: nodeTypes.filter((t) => !t.isBuiltin).length,
-              },
-              edgeTypes: {
-                count: edgeTypes.length,
-                names: edgeTypes.map((t) => t.name),
-                builtinCount: edgeTypes.filter((t) => t.isBuiltin).length,
-                customCount: edgeTypes.filter((t) => !t.isBuiltin).length,
-              },
-              nodes: {
-                count: nodes.length,
-                sampleNames: nodes.slice(0, 5).map((n) => n.name),
-              },
-              edges: {
-                count: edges.length,
-              },
-              status: nodes.length === 0 && edges.length === 0 ? 'empty' : 'active',
-              message:
-                nodes.length === 0 && edges.length === 0
-                  ? 'Graph is empty. No nodes or edges created yet.'
-                  : `Graph is active with ${nodes.length} nodes and ${edges.length} edges.`,
-            },
-            null,
-            2
-          ),
-        },
-      ],
+      nodeTypes: {
+        count: nodeTypes.length,
+        names: nodeTypes.map((t) => t.name),
+        builtinCount: nodeTypes.filter((t) => t.isBuiltin).length,
+        customCount: nodeTypes.filter((t) => !t.isBuiltin).length,
+      },
+      edgeTypes: {
+        count: edgeTypes.length,
+        names: edgeTypes.map((t) => t.name),
+        builtinCount: edgeTypes.filter((t) => t.isBuiltin).length,
+        customCount: edgeTypes.filter((t) => !t.isBuiltin).length,
+      },
+      nodes: {
+        count: nodes.length,
+        sampleNames: nodes.slice(0, 5).map((n) => n.name),
+      },
+      edges: {
+        count: edges.length,
+      },
+      status: nodes.length === 0 && edges.length === 0 ? 'empty' : 'active',
+      message:
+        nodes.length === 0 && edges.length === 0
+          ? 'Graph is empty. No nodes or edges created yet.'
+          : `Graph is active with ${nodes.length} nodes and ${edges.length} edges.`,
     };
   },
 };

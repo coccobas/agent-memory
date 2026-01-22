@@ -43,6 +43,12 @@ export interface MaintenanceOrchestratorDeps {
   semanticEdgeInference?: SemanticEdgeInferenceService;
 }
 
+export type TaskProgressCallback = (
+  taskName: string,
+  status: 'running' | 'completed' | 'failed' | 'skipped',
+  result?: unknown
+) => void;
+
 // =============================================================================
 // ORCHESTRATOR
 // =============================================================================
@@ -59,7 +65,10 @@ export class MaintenanceOrchestrator {
   /**
    * Run maintenance tasks
    */
-  async runMaintenance(request: MaintenanceRequest): Promise<MaintenanceResult> {
+  async runMaintenance(
+    request: MaintenanceRequest,
+    onProgress?: TaskProgressCallback
+  ): Promise<MaintenanceResult> {
     const runId = uuidv4();
     const startedAt = new Date().toISOString();
     const effectiveConfig = this.mergeConfig(request.configOverrides);
@@ -97,27 +106,57 @@ export class MaintenanceOrchestrator {
 
     // Run consolidation if requested and enabled
     if (tasksToRun.includes('consolidation') && effectiveConfig.consolidation.enabled) {
+      onProgress?.('consolidation', 'running');
       results.consolidation = await this.runConsolidation(request, effectiveConfig);
+      onProgress?.(
+        'consolidation',
+        results.consolidation.executed ? 'completed' : 'skipped',
+        results.consolidation
+      );
     }
 
     // Run forgetting if requested and enabled
     if (tasksToRun.includes('forgetting') && effectiveConfig.forgetting.enabled) {
+      onProgress?.('forgetting', 'running');
       results.forgetting = await this.runForgetting(request, effectiveConfig);
+      onProgress?.(
+        'forgetting',
+        results.forgetting.executed ? 'completed' : 'skipped',
+        results.forgetting
+      );
     }
 
     // Run graph backfill if requested and enabled
     if (tasksToRun.includes('graphBackfill') && effectiveConfig.graphBackfill.enabled) {
+      onProgress?.('graphBackfill', 'running');
       results.graphBackfill = await this.runGraphBackfill(request, effectiveConfig);
+      onProgress?.(
+        'graphBackfill',
+        results.graphBackfill.executed ? 'completed' : 'skipped',
+        results.graphBackfill
+      );
     }
 
     // Run latent memory population if requested and enabled
     if (tasksToRun.includes('latentPopulation') && effectiveConfig.latentPopulation.enabled) {
+      onProgress?.('latentPopulation', 'running');
       results.latentPopulation = await this.runLatentPopulation(request, effectiveConfig);
+      onProgress?.(
+        'latentPopulation',
+        results.latentPopulation.executed ? 'completed' : 'skipped',
+        results.latentPopulation
+      );
     }
 
     // Run tag refinement if requested and enabled
     if (tasksToRun.includes('tagRefinement') && effectiveConfig.tagRefinement.enabled) {
+      onProgress?.('tagRefinement', 'running');
       results.tagRefinement = await this.runTagRefinement(request, effectiveConfig);
+      onProgress?.(
+        'tagRefinement',
+        results.tagRefinement.executed ? 'completed' : 'skipped',
+        results.tagRefinement
+      );
     }
 
     // Run semantic edge inference if requested and enabled
@@ -125,7 +164,13 @@ export class MaintenanceOrchestrator {
       tasksToRun.includes('semanticEdgeInference') &&
       effectiveConfig.semanticEdgeInference.enabled
     ) {
+      onProgress?.('semanticEdgeInference', 'running');
       results.semanticEdgeInference = await this.runSemanticEdgeInference(request, effectiveConfig);
+      onProgress?.(
+        'semanticEdgeInference',
+        results.semanticEdgeInference.executed ? 'completed' : 'skipped',
+        results.semanticEdgeInference
+      );
     }
 
     // Compute health after maintenance

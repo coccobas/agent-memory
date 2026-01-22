@@ -304,12 +304,57 @@ export class CaptureStateManager {
   }
 
   // =============================================================================
+  // TRANSCRIPT ACCESS
+  // =============================================================================
+
+  getRecentTranscript(
+    sessionId: string,
+    options?: { lastN?: number; maxTokens?: number; format?: 'raw' | 'text' }
+  ): TurnData[] {
+    const state = this.sessions.get(sessionId);
+    if (!state || state.transcript.length === 0) {
+      return [];
+    }
+
+    const lastN = options?.lastN ?? 10;
+    const maxTokens = options?.maxTokens ?? 1000;
+
+    const result = state.transcript.slice(-lastN);
+
+    let totalTokens = 0;
+    const tokenLimited: TurnData[] = [];
+
+    for (let i = result.length - 1; i >= 0; i--) {
+      const turn = result[i]!;
+      const turnTokens = turn.tokenCount ?? Math.ceil(turn.content.length / 4);
+
+      if (tokenLimited.length === 0 || totalTokens + turnTokens <= maxTokens) {
+        tokenLimited.unshift(turn);
+        totalTokens += turnTokens;
+      } else {
+        break;
+      }
+    }
+
+    return tokenLimited;
+  }
+
+  formatTranscriptAsText(
+    sessionId: string,
+    options?: { lastN?: number; maxTokens?: number }
+  ): string {
+    const turns = this.getRecentTranscript(sessionId, options);
+    if (turns.length === 0) {
+      return '';
+    }
+
+    return turns.map((t) => `${t.role}: ${t.content}`).join('\n');
+  }
+
+  // =============================================================================
   // THRESHOLD CHECKS
   // =============================================================================
 
-  /**
-   * Check if turn-based capture should be triggered
-   */
   shouldTriggerTurnCapture(
     metrics: TurnMetrics,
     config: CaptureConfig,

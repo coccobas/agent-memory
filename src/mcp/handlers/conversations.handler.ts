@@ -211,6 +211,7 @@ export const conversationHandlers = {
 
     // Trigger capture service on turn complete (non-blocking)
     if (conversation.sessionId) {
+      const sessionId = conversation.sessionId;
       const captureService = context.services.capture;
       if (captureService) {
         // Map 'agent' role to 'assistant' for capture service
@@ -221,10 +222,10 @@ export const conversationHandlers = {
           toolCalls: toolsUsed?.map((name) => ({ name, input: {}, success: true })),
           timestamp: new Date().toISOString(),
         };
-        captureService.onTurnComplete(conversation.sessionId, turnData).catch((error) => {
+        captureService.onTurnComplete(sessionId, turnData).catch((error) => {
           logger.error(
             {
-              sessionId: conversation.sessionId,
+              sessionId,
               error: error instanceof Error ? error.message : String(error),
             },
             'Turn capture failed'
@@ -236,24 +237,45 @@ export const conversationHandlers = {
       const triggerOrchestrator = context.services.triggerOrchestrator;
       if (triggerOrchestrator) {
         // Build message for trigger detection
+        const triggerRole = role === 'agent' ? 'assistant' : role;
         const triggerMessage = {
           id: message.id,
-          role: role as 'user' | 'assistant' | 'system',
+          role: triggerRole as 'user' | 'assistant' | 'system',
           content,
           timestamp: new Date().toISOString(),
           metadata: {
-            sessionId: conversation.sessionId,
+            sessionId,
             toolName: toolsUsed?.[0],
             toolSuccess: true,
           },
         };
 
+        const captureState = context.services.captureState;
+        const sessionState = captureState?.getSession(sessionId);
+        const transcriptMessages = sessionState?.transcript.map((turn, index) => ({
+          id: `${sessionId}-${index}`,
+          role: turn.role,
+          content: turn.content,
+          timestamp: turn.timestamp ?? new Date().toISOString(),
+          metadata: {
+            sessionId,
+          },
+        }));
+        const lastTranscript = transcriptMessages?.[transcriptMessages.length - 1];
+        const shouldAppendCurrentMessage =
+          !lastTranscript ||
+          lastTranscript.content !== content ||
+          lastTranscript.role !== triggerRole;
+        const messagesForDetection = shouldAppendCurrentMessage
+          ? [...(transcriptMessages ?? []), triggerMessage]
+          : (transcriptMessages ?? [triggerMessage]);
+
         // Build session context for trigger detection
         const sessionContext = {
-          sessionId: conversation.sessionId,
+          sessionId,
           projectId: conversation.projectId || undefined,
           agentId,
-          messages: [triggerMessage], // Current message for detection
+          messages: messagesForDetection,
           extractionCount: 0,
           recentErrors: [],
         };
@@ -261,7 +283,7 @@ export const conversationHandlers = {
         triggerOrchestrator.processMessage(triggerMessage, sessionContext).catch((error) => {
           logger.error(
             {
-              sessionId: conversation.sessionId,
+              sessionId,
               error: error instanceof Error ? error.message : String(error),
             },
             'Trigger processing failed'

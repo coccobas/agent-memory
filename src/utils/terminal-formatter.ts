@@ -567,50 +567,93 @@ interface StatusResponse {
     guidelines: Array<{ id: string; name: string; priority: number }>;
     knowledge: Array<{ id: string; title: string }>;
   };
+  /** Optional health metrics */
+  health?: {
+    score: number;
+    grade: 'excellent' | 'good' | 'fair' | 'poor';
+  } | null;
+  /** Optional graph stats */
+  graph?: {
+    nodes: number;
+    edges: number;
+  } | null;
+  /** Optional librarian recommendations */
+  librarian?: {
+    pendingRecommendations: number;
+    previews?: Array<{ id: string; title: string; type: string }>;
+  } | null;
+  /** Optional active episode */
+  episode?: {
+    id: string;
+    name: string;
+    status: string;
+  } | null;
 }
 
 /**
  * Format status dashboard response for terminal display
  *
- * Example output:
- * Project: Agent Memory (/Users/.../Memory)
- * Session: Fix auth bug (active)
- * Entries: 11 guidelines, 20 knowledge, 0 tools
- * Sessions: 13 total
+ * Uses plain text formatting that renders properly in terminals.
  */
 export function formatStatusTerminal(status: StatusResponse): string {
   const lines: string[] = [];
 
-  // Project line
-  if (status.project) {
-    const path = status.project.rootPath ? ` (${truncate(status.project.rootPath, 40)})` : '';
-    lines.push(`${icons.project} Project: ${status.project.name}${path}`);
-  } else {
-    lines.push(`${icons.project} Project: (not detected)`);
-  }
-
   // Session line
   if (status.session) {
     const statusIcon = status.session.status === 'active' ? icons.active : icons.inactive;
-    lines.push(
-      `${icons.session} Session: ${status.session.name} ${statusIcon} ${status.session.status}`
-    );
+    lines.push(`Session: ${status.session.name} ${statusIcon} ${status.session.status}`);
   } else {
-    lines.push(`${icons.session} Session: (none active)`);
+    lines.push('Session: (none active)');
   }
 
-  // Counts line
-  const countParts: string[] = [];
-  if (status.counts.guidelines > 0) countParts.push(`${status.counts.guidelines} guidelines`);
-  if (status.counts.knowledge > 0) countParts.push(`${status.counts.knowledge} knowledge`);
-  if (status.counts.tools > 0) countParts.push(`${status.counts.tools} tools`);
-  if (countParts.length === 0) countParts.push('0 entries');
-  lines.push(`Entries: ${countParts.join(', ')}`);
+  // Episode line (if present)
+  if (status.episode) {
+    const episodeIcon = status.episode.status === 'active' ? icons.active : icons.inactive;
+    lines.push(`Episode: ${status.episode.name} ${episodeIcon}`);
+  }
 
-  // Sessions count
-  lines.push(`Sessions: ${status.counts.sessions} total`);
+  // Memory counts as unicode table
+  lines.push('');
+  lines.push(
+    formatTable(
+      [
+        ['Guidelines', String(status.counts.guidelines)],
+        ['Knowledge', String(status.counts.knowledge)],
+        ['Tools', String(status.counts.tools)],
+      ],
+      { headers: ['Type', 'Count'], alignRight: [1] }
+    )
+  );
 
-  // Top entries (optional)
+  // Health (if present)
+  if (status.health) {
+    const emoji = getHealthEmojiForStatus(status.health.grade);
+    lines.push('');
+    lines.push(`${emoji} Health: ${status.health.score}/100 (${status.health.grade})`);
+  }
+
+  // Graph stats (if present)
+  if (status.graph && (status.graph.nodes > 0 || status.graph.edges > 0)) {
+    lines.push(`📊 Graph: ${status.graph.nodes} nodes, ${status.graph.edges} edges`);
+  }
+
+  // Librarian recommendations (if present)
+  if (status.librarian && status.librarian.pendingRecommendations > 0) {
+    if (status.librarian.previews && status.librarian.previews.length > 0) {
+      const previewTitles = status.librarian.previews
+        .slice(0, 2)
+        .map((r) => truncate(r.title, 25))
+        .join(', ');
+      const moreCount = status.librarian.pendingRecommendations - 2;
+      const moreText = moreCount > 0 ? ` (+${moreCount} more)` : '';
+      lines.push(`🔔 Librarian: ${previewTitles}${moreText}`);
+    } else {
+      const word = status.librarian.pendingRecommendations > 1 ? 'patterns' : 'pattern';
+      lines.push(`🔔 Librarian: ${status.librarian.pendingRecommendations} ${word} ready`);
+    }
+  }
+
+  // Top entries (optional, shown as tree)
   if (status.topEntries) {
     if (status.topEntries.guidelines.length > 0) {
       lines.push('');
@@ -629,6 +672,19 @@ export function formatStatusTerminal(status: StatusResponse): string {
   }
 
   return lines.join('\n');
+}
+
+function getHealthEmojiForStatus(grade: 'excellent' | 'good' | 'fair' | 'poor'): string {
+  switch (grade) {
+    case 'excellent':
+      return '🟢';
+    case 'good':
+      return '🔵';
+    case 'fair':
+      return '🟡';
+    case 'poor':
+      return '🔴';
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

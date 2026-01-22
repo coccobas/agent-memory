@@ -28,7 +28,9 @@ import type {
   LearnPrompt,
   RecordBehaviorObservationParams,
   ToolUseEvent,
+  ComplexitySignals,
 } from './types.js';
+import { detectComplexitySignals } from '../../utils/transcript-analysis.js';
 import type { IExperienceRepository } from '../../core/interfaces/repositories.js';
 import type { RLService } from '../rl/index.js';
 import { buildExtractionState } from '../rl/state/extraction.state.js';
@@ -173,9 +175,7 @@ export class CaptureService {
                 currentExpConfig?.triggers?.episodeComplete ??
                 true,
               turnBased:
-                newExpConfig?.triggers?.turnBased ??
-                currentExpConfig?.triggers?.turnBased ??
-                true,
+                newExpConfig?.triggers?.turnBased ?? currentExpConfig?.triggers?.turnBased ?? true,
               promptComplex:
                 newExpConfig?.triggers?.promptComplex ??
                 currentExpConfig?.triggers?.promptComplex ??
@@ -497,7 +497,9 @@ export class CaptureService {
     options?: Partial<CaptureOptions>
   ): Promise<ExperienceCaptureResult | null> {
     // Check configuration (use experienceCapture config if available)
-    const experienceConfig = (this.captureConfig as CaptureConfig & { experienceCapture?: ExperienceCaptureConfig }).experienceCapture;
+    const experienceConfig = (
+      this.captureConfig as CaptureConfig & { experienceCapture?: ExperienceCaptureConfig }
+    ).experienceCapture;
     if (!experienceConfig?.enabled || !experienceConfig?.triggers?.turnBased) {
       return null;
     }
@@ -528,7 +530,9 @@ export class CaptureService {
 
     // Check if triggers meet threshold
     const minConfidence = thresholds?.turnConfidence ?? 0.8;
-    const highConfidenceTriggers = triggerResult.triggers.filter((t) => t.confidence >= minConfidence);
+    const highConfidenceTriggers = triggerResult.triggers.filter(
+      (t) => t.confidence >= minConfidence
+    );
 
     if (highConfidenceTriggers.length === 0 && !triggerResult.shouldExtract) {
       return null;
@@ -641,7 +645,9 @@ export class CaptureService {
     }
 
     // Check configuration
-    const experienceConfig = (this.captureConfig as CaptureConfig & { experienceCapture?: ExperienceCaptureConfig }).experienceCapture;
+    const experienceConfig = (
+      this.captureConfig as CaptureConfig & { experienceCapture?: ExperienceCaptureConfig }
+    ).experienceCapture;
     if (!experienceConfig?.enabled || !experienceConfig?.triggers?.promptComplex) {
       return null;
     }
@@ -721,7 +727,7 @@ export class CaptureService {
         content.includes('error') ||
         content.includes('failed') ||
         content.includes('exception') ||
-        content.includes('doesn\'t work') ||
+        content.includes("doesn't work") ||
         content.includes('not working')
       ) {
         sawError = true;
@@ -756,7 +762,7 @@ export class CaptureService {
       for (const toolCall of turn.toolCalls) {
         // Look for edit/write tool calls
         if (toolCall.name === 'Edit' || toolCall.name === 'Write') {
-          const filePath = (toolCall.input as Record<string, unknown>)?.file_path;
+          const filePath = toolCall.input?.file_path;
           if (typeof filePath === 'string') {
             editedFiles.add(filePath);
           }
@@ -843,6 +849,8 @@ export class CaptureService {
     }
 
     const metrics = sessionState.metrics;
+    const complexitySignals = detectComplexitySignals(sessionState.transcript);
+    result.complexitySignals = complexitySignals;
 
     // Check if session meets minimum thresholds
     const shouldCaptureSession = this.stateManager.shouldTriggerSessionEndCapture(
@@ -852,9 +860,15 @@ export class CaptureService {
 
     if (!shouldCaptureSession) {
       logger.debug(
-        { sessionId, turnCount: metrics.turnCount, tokenCount: metrics.totalTokens },
+        {
+          sessionId,
+          turnCount: metrics.turnCount,
+          tokenCount: metrics.totalTokens,
+          complexityScore: complexitySignals.score,
+        },
         'Session does not meet capture thresholds'
       );
+      this.stateManager.clearSession(sessionId);
       return result;
     }
 
@@ -1096,10 +1110,7 @@ export class CaptureService {
     // Check if behavior observation trigger is enabled
     const experienceConfig = this.captureConfig.experienceCapture;
     if (!experienceConfig?.enabled || !experienceConfig?.triggers?.behaviorObservation) {
-      logger.debug(
-        { sessionId: params.sessionId },
-        'Behavior observation trigger is disabled'
-      );
+      logger.debug({ sessionId: params.sessionId }, 'Behavior observation trigger is disabled');
       return {
         experiences: [],
         skippedDuplicates: 0,
@@ -1254,6 +1265,21 @@ export class CaptureService {
   clearOldHashes(maxAgeMs?: number): number {
     return this.stateManager.clearOldHashes(maxAgeMs);
   }
+
+  getTranscriptComplexity(sessionId: string): ComplexitySignals {
+    const sessionState = this.stateManager.getSession(sessionId);
+    if (!sessionState || sessionState.transcript.length === 0) {
+      return {
+        score: 0,
+        signals: [],
+        hasErrorRecovery: false,
+        hasDecisions: false,
+        hasLearning: false,
+      };
+    }
+
+    return detectComplexitySignals(sessionState.transcript);
+  }
 }
 
 // Re-export types and utilities
@@ -1272,6 +1298,7 @@ export type {
   CaptureSessionState,
   ExperienceCaptureConfig,
   LearnPrompt,
+  ComplexitySignals,
   // Behavior observation types (Trigger 5)
   ToolUseEvent,
   BehaviorPatternType,

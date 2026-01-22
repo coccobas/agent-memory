@@ -22,3 +22,6 @@ export * from './hook-metrics.js';
 
 // Librarian checkpoints (incremental processing tracking)
 export * from './librarian-checkpoints.js';
+
+// Maintenance jobs (background task persistence)
+export * from './maintenance-jobs.js';

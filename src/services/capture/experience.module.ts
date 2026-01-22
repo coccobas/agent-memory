@@ -331,10 +331,49 @@ export class ExperienceCaptureModule implements CaptureModule<ExperienceCaptureR
         source: params.source === 'user' ? 'reflection' : 'observation',
       });
     } catch (error) {
-      logger.error(
-        { error: error instanceof Error ? error.message : String(error) },
-        'Failed to record case'
-      );
+      const errorMessage = error instanceof Error ? error.message.toLowerCase() : '';
+      const isUniqueConstraintViolation =
+        errorMessage.includes('unique') || errorMessage.includes('constraint');
+
+      if (isUniqueConstraintViolation) {
+        logger.debug(
+          { title: params.title, scopeType: params.projectId ? 'project' : 'global' },
+          'Experience with same title already exists, treating as duplicate'
+        );
+
+        try {
+          const scopeType = params.projectId ? 'project' : 'global';
+          const existing = await this.experienceRepo.getByTitle(
+            params.title,
+            scopeType,
+            params.projectId,
+            false
+          );
+
+          if (existing) {
+            result.skippedDuplicates = 1;
+            result.experiences.push({
+              experience: existing,
+              confidence: existing.currentVersion?.confidence ?? params.confidence ?? 0.7,
+              source: 'observation',
+            });
+            logger.debug({ existingId: existing.id }, 'Returning existing experience');
+          } else {
+            result.skippedDuplicates = 1;
+          }
+        } catch (fetchError) {
+          result.skippedDuplicates = 1;
+          logger.warn(
+            { error: fetchError instanceof Error ? fetchError.message : String(fetchError) },
+            'Could not fetch existing experience after UNIQUE constraint violation'
+          );
+        }
+      } else {
+        logger.error(
+          { error: error instanceof Error ? error.message : String(error) },
+          'Failed to record case'
+        );
+      }
     }
 
     result.processingTimeMs = Date.now() - startTime;

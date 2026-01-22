@@ -10,6 +10,7 @@ import { extractProposedActionFromTool } from './shared.js';
 import { getBehaviorObserverService } from '../../services/capture/behavior-observer.js';
 import { isContextRegistered, getContext } from '../../core/container.js';
 import { createContextManagerService } from '../../services/context/index.js';
+import { getCaptureStateManager } from '../../services/capture/state.js';
 
 const logger = createComponentLogger('pretooluse');
 
@@ -17,16 +18,14 @@ const logger = createComponentLogger('pretooluse');
  * Configuration for PreToolUse context injection
  */
 export interface PreToolUseConfig {
-  /** Enable context injection (default: from AGENT_MEMORY_INJECT_CONTEXT env or true) */
   injectContext: boolean;
-  /** Format for injected context (default: from AGENT_MEMORY_CONTEXT_FORMAT env or 'markdown') */
   contextFormat: InjectionFormat;
-  /** Maximum entries to inject (default: from AGENT_MEMORY_CONTEXT_MAX_ENTRIES env or 5) */
   contextMaxEntries: number;
-  /** Output context to stdout for Claude (default: true) */
   contextToStdout: boolean;
-  /** Output context summary to stderr for user (default: true) */
   contextToStderr: boolean;
+  includeConversationContext: boolean;
+  conversationContextMaxTokens: number;
+  conversationContextLastN: number;
 }
 
 /**
@@ -36,15 +35,14 @@ function getConfig(overrides?: Partial<PreToolUseConfig>): PreToolUseConfig {
   const envInjectContext = process.env.AGENT_MEMORY_INJECT_CONTEXT;
   const envContextFormat = process.env.AGENT_MEMORY_CONTEXT_FORMAT;
   const envContextMaxEntries = process.env.AGENT_MEMORY_CONTEXT_MAX_ENTRIES;
+  const envIncludeConversationContext = process.env.AGENT_MEMORY_INCLUDE_CONVERSATION_CONTEXT;
 
-  // Bug #275 fix: Validate format instead of unsafe type assertion
   const validFormats = ['markdown', 'json', 'natural_language'] as const;
   const validatedFormat =
     envContextFormat && validFormats.includes(envContextFormat as InjectionFormat)
       ? (envContextFormat as InjectionFormat)
       : undefined;
 
-  // Bug #274 fix: Validate parseInt result to handle NaN and decimals
   let parsedMaxEntries: number | undefined;
   if (envContextMaxEntries) {
     const parsed = parseInt(envContextMaxEntries, 10);
@@ -58,6 +56,12 @@ function getConfig(overrides?: Partial<PreToolUseConfig>): PreToolUseConfig {
     contextMaxEntries: overrides?.contextMaxEntries ?? parsedMaxEntries ?? 5,
     contextToStdout: overrides?.contextToStdout ?? true,
     contextToStderr: overrides?.contextToStderr ?? true,
+    // Conversation context in injection - enabled by default for better UX
+    includeConversationContext:
+      overrides?.includeConversationContext ??
+      (envIncludeConversationContext !== 'false' && envIncludeConversationContext !== '0'),
+    conversationContextMaxTokens: overrides?.conversationContextMaxTokens ?? 500,
+    conversationContextLastN: overrides?.conversationContextLastN ?? 5,
   };
 }
 
@@ -127,14 +131,10 @@ export async function runPreToolUseCommand(params: {
   // Step 1: Context Injection (if enabled)
   if (config.injectContext) {
     try {
-      // Get context manager from AppContext if available, or create lightweight one for hooks
-      // This enables budget calculation, staleness detection, and compression even for standalone CLI
       let contextManager = isContextRegistered()
         ? getContext().services?.contextManager
         : undefined;
 
-      // Create lightweight context manager for standalone hook execution
-      // Uses null for prioritization and summarization services (not needed for basic features)
       if (!contextManager) {
         contextManager = createContextManagerService(null, null, {
           enabled: true,
@@ -143,6 +143,30 @@ export async function runPreToolUseCommand(params: {
           priority: { enabled: true, minScore: 0.3 },
           compression: { enabled: true, hierarchicalThreshold: 1500 },
         });
+      }
+
+      let conversationContext: string | undefined;
+      if (config.includeConversationContext && sessionId) {
+        try {
+          const stateManager = getCaptureStateManager();
+          const recentTurns = stateManager.getRecentTranscript(sessionId, {
+            lastN: config.conversationContextLastN,
+            maxTokens: config.conversationContextMaxTokens,
+          });
+          if (recentTurns.length > 0) {
+            conversationContext = recentTurns.map((t) => `${t.role}: ${t.content}`).join('\n');
+          }
+        } catch (transcriptError) {
+          logger.debug(
+            {
+              error:
+                transcriptError instanceof Error
+                  ? transcriptError.message
+                  : String(transcriptError),
+            },
+            'Transcript retrieval failed (non-blocking)'
+          );
+        }
       }
 
       const injectionService = getMemoryInjectionService(db, contextManager);
@@ -154,6 +178,7 @@ export async function runPreToolUseCommand(params: {
         agentId,
         format: config.contextFormat,
         maxEntries: config.contextMaxEntries,
+        ...(conversationContext && { conversationContext }),
       });
 
       if (injectionResult.success && injectionResult.injectedContext) {

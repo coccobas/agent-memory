@@ -6,6 +6,7 @@
  * state management.
  */
 
+import { nanoid } from 'nanoid';
 import type { AppContext } from '../../core/context.js';
 import type { ContextAwareHandler } from '../descriptors/types.js';
 import type {
@@ -38,6 +39,26 @@ import {
 } from '../../core/errors.js';
 import { formatTimestamps } from '../../utils/timestamp-formatter.js';
 import { logAction } from '../../services/audit.service.js';
+
+interface TaskPreview {
+  id: string;
+  input: CreateTaskInput;
+  agentId: string;
+  createdAt: number;
+  expiresAt: number;
+}
+
+const PREVIEW_TTL_MS = 5 * 60 * 1000;
+const taskPreviewCache = new Map<string, TaskPreview>();
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [id, preview] of taskPreviewCache) {
+    if (now > preview.expiresAt) {
+      taskPreviewCache.delete(id);
+    }
+  }
+}, 60 * 1000);
 
 // =============================================================================
 // Type Guards for Task-specific Types
@@ -730,28 +751,161 @@ const removeBlockerHandler: ContextAwareHandler = async (
   });
 };
 
-// =============================================================================
-// Export Handlers
-// =============================================================================
+const previewHandler: ContextAwareHandler = async (
+  _context: AppContext,
+  params: Record<string, unknown>
+) => {
+  const title = getRequiredParam(params, 'title', isString);
+  const description = getRequiredParam(params, 'description', isString);
+  const taskType = getRequiredParam(params, 'taskType', isTaskType);
+  const scopeType = getRequiredParam(params, 'scopeType', isScopeType);
+  const agentId = getRequiredParam(params, 'agentId', isString);
+
+  const scopeId = getOptionalParam(params, 'scopeId', isString);
+  if (scopeType !== 'global' && !scopeId) {
+    throw createValidationError(
+      'scopeId',
+      `is required for ${scopeType} scope`,
+      'Provide the ID of the parent scope'
+    );
+  }
+
+  if (title.length > 200) {
+    throw createValidationError(
+      'title',
+      'must be 200 characters or less',
+      'Shorten the title to 200 characters or less'
+    );
+  }
+
+  const taskDomain = getOptionalParam(params, 'taskDomain', isTaskDomain);
+  const severity = getOptionalParam(params, 'severity', isTaskSeverity);
+  const urgency = getOptionalParam(params, 'urgency', isTaskUrgency);
+  const category = getOptionalParam(params, 'category', isString);
+  const tags = getOptionalParam(params, 'tags', isArrayOfStrings);
+
+  const input: CreateTaskInput = {
+    scopeType,
+    scopeId,
+    title,
+    description,
+    taskType,
+    taskDomain,
+    severity,
+    urgency,
+    category,
+    tags,
+    reporter: agentId,
+    createdBy: agentId,
+  };
+
+  const previewId = `prev_${nanoid(12)}`;
+  const now = Date.now();
+
+  taskPreviewCache.set(previewId, {
+    id: previewId,
+    input,
+    agentId,
+    createdAt: now,
+    expiresAt: now + PREVIEW_TTL_MS,
+  });
+
+  return {
+    success: true,
+    previewId,
+    preview: {
+      title,
+      description,
+      taskType,
+      scopeType,
+      scopeId,
+      severity,
+      urgency,
+      tags,
+    },
+    expiresIn: '5 minutes',
+    _actions: {
+      confirm: `memory_task action:confirm previewId:${previewId}`,
+      reject: `memory_task action:reject previewId:${previewId}`,
+    },
+    message: 'Task preview created. Use confirm to create or reject to cancel.',
+  };
+};
+
+const confirmHandler: ContextAwareHandler = async (
+  context: AppContext,
+  params: Record<string, unknown>
+) => {
+  const previewId = getRequiredParam(params, 'previewId', isString);
+
+  const preview = taskPreviewCache.get(previewId);
+  if (!preview) {
+    throw createNotFoundError('preview', previewId);
+  }
+
+  if (Date.now() > preview.expiresAt) {
+    taskPreviewCache.delete(previewId);
+    throw createValidationError('previewId', 'preview has expired', 'Create a new preview');
+  }
+
+  const repo = getTaskRepo(context);
+  const task = await repo.create(preview.input);
+
+  logAction(
+    {
+      agentId: preview.agentId,
+      action: 'create',
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      entryType: TASK_AUDIT_ENTRY_TYPE,
+      entryId: task.id,
+      scopeType: preview.input.scopeType,
+      scopeId: preview.input.scopeId ?? null,
+    },
+    context.db
+  );
+
+  taskPreviewCache.delete(previewId);
+
+  return formatTimestamps({
+    success: true,
+    task,
+    confirmedFrom: previewId,
+  });
+};
+
+const rejectHandler: ContextAwareHandler = async (
+  _context: AppContext,
+  params: Record<string, unknown>
+) => {
+  const previewId = getRequiredParam(params, 'previewId', isString);
+
+  const existed = taskPreviewCache.has(previewId);
+  taskPreviewCache.delete(previewId);
+
+  return {
+    success: true,
+    previewId,
+    rejected: existed,
+    message: existed
+      ? 'Preview rejected and removed.'
+      : 'Preview was already expired or not found.',
+  };
+};
 
 export const issueHandlers = {
-  // Standard CRUD
   add: addHandler,
   update: updateHandler,
   get: getHandler,
   list: listHandler,
   deactivate: deactivateHandler,
   delete: deleteHandler,
-
-  // Status management
   update_status: updateStatusHandler,
   list_by_status: listByStatusHandler,
-
-  // Blocking/dependency management
   list_blocked: listBlockedHandler,
   add_blocker: addBlockerHandler,
   remove_blocker: removeBlockerHandler,
-
-  // Hierarchy
   get_subtasks: getSubtasksHandler,
+  preview: previewHandler,
+  confirm: confirmHandler,
+  reject: rejectHandler,
 };

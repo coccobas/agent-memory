@@ -79,12 +79,11 @@ export const memoryOnboardDescriptor: SimpleToolDescriptor = {
     const techStackDetector = createTechStackDetectorService();
     const docScanner = createDocScannerService();
 
-    // Get auto-detected context
-    const detected = ctx.services.contextDetection
-      ? await ctx.services.contextDetection.detect()
-      : null;
-
-    const agentId = detected?.agentId?.value ?? 'claude-code';
+    let agentId = (args?.agentId as string | undefined) ?? 'claude-code';
+    if (!agentId && ctx.services.contextDetection) {
+      const detected = await ctx.services.contextDetection.detect();
+      agentId = detected?.agentId?.value ?? 'claude-code';
+    }
 
     // Step 1: Detect project info
     let detectedProject: DetectedProjectInfo | null = null;
@@ -233,8 +232,11 @@ export const memoryOnboardDescriptor: SimpleToolDescriptor = {
         );
       }
     } else {
-      // Use detected project if available
-      projectId = detected?.project?.id;
+      projectId = args?.projectId as string | undefined;
+      if (!projectId && ctx.services.contextDetection) {
+        const detected = await ctx.services.contextDetection.detect();
+        projectId = detected?.project?.id;
+      }
       result.project.id = projectId;
       if (projectId) {
         result.project.existed = true;

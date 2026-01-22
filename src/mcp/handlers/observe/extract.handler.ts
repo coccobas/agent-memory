@@ -29,6 +29,7 @@ import { formatTimestamps } from '../../../utils/timestamp-formatter.js';
 import type { ScopeType } from '../../types.js';
 import type { ProcessedEntry, StoredEntry } from './types.js';
 import { storeEntry, storeEntity, buildNameToIdMap, createExtractedRelations } from './helpers.js';
+import { boostExtractionConfidence } from '../../../services/extraction/confidence-booster.js';
 
 const logger = createComponentLogger('observe.extract');
 
@@ -91,6 +92,9 @@ export async function extract(appContext: AppContext, params: Record<string, unk
       error instanceof Error ? error.message : String(error)
     );
   }
+
+  // Boost confidence based on linguistic patterns in the input
+  result.entries = boostExtractionConfidence(result.entries, context);
 
   // Process each extracted entry for duplicates
   // Use per-entry-type thresholds if no explicit threshold provided

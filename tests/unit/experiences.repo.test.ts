@@ -478,4 +478,110 @@ describe('experienceRepo', () => {
       expect(result).toBeUndefined();
     });
   });
+
+  describe('getPromotedExperienceIds', () => {
+    it('should return empty set when no experiences are promoted', async () => {
+      const org = createTestOrg(testDb.db, 'No Promoted Org');
+      const project = createTestProject(testDb.db, 'No Promoted Project', org.id);
+
+      // Create a case experience (not promoted)
+      await experienceRepo.create({
+        scopeType: 'project',
+        scopeId: project.id,
+        title: 'unpromoted-case',
+        content: 'Not promoted',
+        level: 'case',
+      });
+
+      const promotedIds = await experienceRepo.getPromotedExperienceIds('project', project.id);
+
+      expect(promotedIds.size).toBe(0);
+    });
+
+    it('should return promoted experience IDs after promotion', async () => {
+      const org = createTestOrg(testDb.db, 'Promoted Org');
+      const project = createTestProject(testDb.db, 'Promoted Project', org.id);
+
+      // Create a case experience
+      const caseExp = await experienceRepo.create({
+        scopeType: 'project',
+        scopeId: project.id,
+        title: 'case-to-promote',
+        content: 'Will be promoted',
+        level: 'case',
+      });
+
+      // Create another case that won't be promoted
+      await experienceRepo.create({
+        scopeType: 'project',
+        scopeId: project.id,
+        title: 'case-stays-case',
+        content: 'Not promoted',
+        level: 'case',
+      });
+
+      // Promote the first case to strategy
+      await experienceRepo.promote(caseExp.id, {
+        toLevel: 'strategy',
+        pattern: 'Test pattern',
+        promotedBy: 'test-agent',
+      });
+
+      const promotedIds = await experienceRepo.getPromotedExperienceIds('project', project.id);
+
+      // The promoted case should be in the set
+      expect(promotedIds.has(caseExp.id)).toBe(true);
+      expect(promotedIds.size).toBe(1);
+    });
+
+    it('should only return promoted experiences in the specified scope', async () => {
+      const org = createTestOrg(testDb.db, 'Scope Test Org');
+      const project1 = createTestProject(testDb.db, 'Scope Test Project 1', org.id);
+      const project2 = createTestProject(testDb.db, 'Scope Test Project 2', org.id);
+
+      // Create and promote in project1
+      const caseExp1 = await experienceRepo.create({
+        scopeType: 'project',
+        scopeId: project1.id,
+        title: 'case-in-project1',
+        content: 'Content',
+        level: 'case',
+      });
+      await experienceRepo.promote(caseExp1.id, {
+        toLevel: 'strategy',
+        promotedBy: 'test-agent',
+      });
+
+      // Create and promote in project2
+      const caseExp2 = await experienceRepo.create({
+        scopeType: 'project',
+        scopeId: project2.id,
+        title: 'case-in-project2',
+        content: 'Content',
+        level: 'case',
+      });
+      await experienceRepo.promote(caseExp2.id, {
+        toLevel: 'strategy',
+        promotedBy: 'test-agent',
+      });
+
+      // Check project1 - should only include caseExp1
+      const promotedInProject1 = await experienceRepo.getPromotedExperienceIds(
+        'project',
+        project1.id
+      );
+      expect(promotedInProject1.has(caseExp1.id)).toBe(true);
+      expect(promotedInProject1.has(caseExp2.id)).toBe(false);
+      expect(promotedInProject1.size).toBe(1);
+
+      // Check project2 - should only include caseExp2
+      const promotedInProject2 = await experienceRepo.getPromotedExperienceIds(
+        'project',
+        project2.id
+      );
+      expect(promotedInProject2.has(caseExp2.id)).toBe(true);
+      expect(promotedInProject2.has(caseExp1.id)).toBe(false);
+      expect(promotedInProject2.size).toBe(1);
+    });
+  });
 });

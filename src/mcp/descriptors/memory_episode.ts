@@ -95,7 +95,7 @@ Example workflows:
       type: 'string',
       description: 'Reference to the trigger (e.g., task ID, event ID)',
     },
-    tags: { type: 'array', description: 'Episode tags' },
+    tags: { type: 'array', items: { type: 'string' }, description: 'Episode tags' },
     metadata: { type: 'object', description: 'Additional metadata' },
 
     // Lifecycle

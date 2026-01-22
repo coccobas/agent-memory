@@ -1,0 +1,18 @@
+{
+  "name": "@agent-memory/opencode-plugin",
+  "version": "0.1.0",
+  "description": "Agent Memory plugin for OpenCode IDE",
+  "private": true,
+  "type": "module",
+  "main": "agent-memory.ts",
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5",
+    "@opencode-ai/plugin": "*"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.25.3"
+  }
+}

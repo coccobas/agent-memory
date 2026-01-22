@@ -305,13 +305,16 @@ export interface SessionEndRequest {
   dryRun?: boolean;
 }
 
-/**
- * Session end result - combined results from all stages
- */
+export interface ProactiveRecommendation {
+  type: 'guideline' | 'knowledge' | 'experience';
+  reason: string;
+  content: string;
+  action: string;
+  confidence: number;
+}
+
 export interface SessionEndResult {
-  /** Session ID processed */
   sessionId: string;
-  /** Experience capture results */
   capture?: {
     experiencesExtracted: number;
     knowledgeExtracted: number;
@@ -320,29 +323,20 @@ export interface SessionEndResult {
     skippedDuplicates: number;
     processingTimeMs: number;
   };
-  /** Missed extraction results (facts/decisions not captured during session) */
   missedExtraction?: {
-    /** Total entries extracted by LLM */
     totalExtracted: number;
-    /** Entries queued for review (not duplicates, above threshold) */
     queuedForReview: number;
-    /** Entries filtered as duplicates */
     duplicatesFiltered: number;
-    /** Entries below confidence threshold */
     belowThreshold: number;
-    /** Processing time */
     processingTimeMs: number;
-    /** Reason for skipping (if applicable) */
     skippedReason?: string;
   };
-  /** Pattern analysis results */
   analysis?: {
     patternsDetected: number;
     queuedForReview: number;
     autoPromoted: number;
     processingTimeMs: number;
   };
-  /** Maintenance results */
   maintenance?: {
     consolidationDeduped: number;
     forgettingArchived: number;
@@ -350,13 +344,13 @@ export interface SessionEndResult {
     graphEdgesCreated: number;
     processingTimeMs: number;
   };
-  /** Timing information */
+  proactiveRecommendations?: ProactiveRecommendation[];
+  complexityScore?: number;
   timing: {
     startedAt: string;
     completedAt: string;
     durationMs: number;
   };
-  /** Errors encountered (non-fatal) */
   errors?: string[];
 }
 

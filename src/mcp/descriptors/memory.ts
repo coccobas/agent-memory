@@ -63,12 +63,11 @@ export const memoryDescriptor: SimpleToolDescriptor = {
       };
     }
 
-    // Get detected context if available
-    const detectedContext = context.services.contextDetection
-      ? await context.services.contextDetection.detect()
-      : undefined;
+    let detectedContext = undefined;
+    if (!projectId && context.services.contextDetection) {
+      detectedContext = await context.services.contextDetection.detect();
+    }
 
-    // Process the request
     const result = await service.process(
       {
         text,

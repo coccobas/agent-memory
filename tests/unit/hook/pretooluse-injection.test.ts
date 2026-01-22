@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-// Mock modules before imports
 vi.mock('../../../src/db/connection.js', () => ({
   getDb: vi.fn(() => ({})),
 }));
@@ -23,7 +22,6 @@ vi.mock('../../../src/services/memory-injection.service.js', () => ({
 }));
 
 import { runPreToolUseCommand } from '../../../src/commands/hook/pretooluse-command.js';
-import { getMemoryInjectionService } from '../../../src/services/memory-injection.service.js';
 
 describe('PreToolUse context injection', () => {
   beforeEach(() => {
@@ -71,8 +69,10 @@ describe('PreToolUse context injection', () => {
     });
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain('# Guidelines\n- Use TypeScript strict mode');
-    expect(result.stderr).toContain('[agent-memory] Injected: 1 guideline');
+    expect(result.stdout.length).toBe(1);
+    const jsonOutput = JSON.parse(result.stdout[0]!);
+    expect(jsonOutput.hookSpecificOutput.additionalContext).toContain('# Guidelines');
+    expect(jsonOutput.systemMessage).toContain('1 guideline');
   });
 
   it('should not inject context when disabled', async () => {
@@ -116,11 +116,14 @@ describe('PreToolUse context injection', () => {
       },
     });
 
-    expect(result.stdout).toContain('Some context');
+    expect(result.stdout.length).toBe(1);
+    const jsonOutput = JSON.parse(result.stdout[0]!);
+    expect(jsonOutput.hookSpecificOutput.additionalContext).toBe('Some context');
+    expect(jsonOutput.systemMessage).toBeUndefined();
     expect(result.stderr).toEqual([]);
   });
 
-  it('should output to stderr only when contextToStdout is false', async () => {
+  it('should output systemMessage when contextToStderr is true', async () => {
     mockGetContext.mockResolvedValue({
       success: true,
       injectedContext: 'Hidden context',
@@ -137,13 +140,14 @@ describe('PreToolUse context injection', () => {
       },
       config: {
         injectContext: true,
-        contextToStdout: false,
+        contextToStdout: true,
         contextToStderr: true,
       },
     });
 
-    expect(result.stdout).toEqual([]);
-    expect(result.stderr).toContain('[agent-memory] Injected: 1 tool');
+    expect(result.stdout.length).toBe(1);
+    const jsonOutput = JSON.parse(result.stdout[0]!);
+    expect(jsonOutput.systemMessage).toContain('1 tool');
   });
 
   it('should handle multiple entry types in summary', async () => {
@@ -171,8 +175,10 @@ describe('PreToolUse context injection', () => {
       },
     });
 
-    expect(result.stderr[0]).toContain('2 guidelines');
-    expect(result.stderr[0]).toContain('1 knowledge');
+    expect(result.stdout.length).toBe(1);
+    const jsonOutput = JSON.parse(result.stdout[0]!);
+    expect(jsonOutput.systemMessage).toContain('2 guidelines');
+    expect(jsonOutput.systemMessage).toContain('1 knowledge');
   });
 
   it('should continue when injection fails (non-blocking)', async () => {
@@ -188,7 +194,6 @@ describe('PreToolUse context injection', () => {
       },
     });
 
-    // Should still return exit code 0 (injection failure is non-blocking)
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toEqual([]);
     expect(result.stderr).toEqual([]);
@@ -204,14 +209,12 @@ describe('PreToolUse context injection', () => {
       message: 'OK',
     });
 
-    // Test Edit
     await runPreToolUseCommand({
       input: { tool_name: 'Edit', tool_input: {} },
       config: { injectContext: true },
     });
     expect(mockGetContext).toHaveBeenCalledWith(expect.objectContaining({ toolName: 'Edit' }));
 
-    // Test Bash
     vi.clearAllMocks();
     await runPreToolUseCommand({
       input: { tool_name: 'Bash', tool_input: {} },
@@ -219,7 +222,6 @@ describe('PreToolUse context injection', () => {
     });
     expect(mockGetContext).toHaveBeenCalledWith(expect.objectContaining({ toolName: 'Bash' }));
 
-    // Test unknown
     vi.clearAllMocks();
     await runPreToolUseCommand({
       input: { tool_name: 'CustomTool', tool_input: {} },

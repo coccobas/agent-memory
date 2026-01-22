@@ -9,10 +9,15 @@
  */
 
 import { createComponentLogger } from '../../utils/logger.js';
+import { notify } from '../../mcp/notification.service.js';
 import type { CaptureService, TurnData } from '../capture/index.js';
 import type { LatentMemoryService } from '../latent-memory/latent-memory.service.js';
 import type { MaintenanceOrchestrator } from './maintenance/orchestrator.js';
-import type { MissedExtractionDetector } from './missed-extraction/index.js';
+import type { MissedExtractionDetector, MissedEntry } from './missed-extraction/index.js';
+import type {
+  IRecommendationStore,
+  CreateRecommendationInput,
+} from './recommendations/recommendation-store.js';
 import type {
   LibrarianConfig,
   SessionEndRequest,
@@ -23,7 +28,10 @@ import type {
   AnalysisResult,
   MaintenanceRequest,
   MaintenanceResult,
+  ProactiveRecommendation,
 } from './types.js';
+import type { RecommendationType } from '../../db/schema.js';
+import { detectComplexitySignals } from '../../utils/transcript-analysis.js';
 
 const logger = createComponentLogger('librarian:session-lifecycle');
 
@@ -35,6 +43,7 @@ export interface SessionLifecycleDeps {
   latentMemoryService?: LatentMemoryService;
   maintenanceOrchestrator?: MaintenanceOrchestrator;
   missedExtractionDetector?: MissedExtractionDetector;
+  recommendationStore?: IRecommendationStore;
   config: LibrarianConfig;
   analyze: (request: AnalysisRequest) => Promise<AnalysisResult>;
   runMaintenance: (request: MaintenanceRequest) => Promise<MaintenanceResult>;
@@ -50,6 +59,7 @@ export class SessionLifecycleHandler {
   private latentMemoryService?: LatentMemoryService;
   private maintenanceOrchestrator?: MaintenanceOrchestrator;
   private missedExtractionDetector?: MissedExtractionDetector;
+  private recommendationStore?: IRecommendationStore;
   private config: LibrarianConfig;
   private analyze: (request: AnalysisRequest) => Promise<AnalysisResult>;
   private runMaintenance: (request: MaintenanceRequest) => Promise<MaintenanceResult>;
@@ -62,6 +72,7 @@ export class SessionLifecycleHandler {
     this.latentMemoryService = deps.latentMemoryService;
     this.maintenanceOrchestrator = deps.maintenanceOrchestrator;
     this.missedExtractionDetector = deps.missedExtractionDetector;
+    this.recommendationStore = deps.recommendationStore;
     this.config = deps.config;
     this.analyze = deps.analyze;
     this.runMaintenance = deps.runMaintenance;
@@ -90,8 +101,77 @@ export class SessionLifecycleHandler {
     logger.debug('Missed extraction detector set for session lifecycle handler');
   }
 
+  setRecommendationStore(store: IRecommendationStore): void {
+    this.recommendationStore = store;
+    logger.debug('Recommendation store set for session lifecycle handler');
+  }
+
   updateConfig(config: LibrarianConfig): void {
     this.config = config;
+  }
+
+  private mapEntryTypeToRecommendationType(
+    entryType: 'knowledge' | 'guideline' | 'tool'
+  ): RecommendationType {
+    switch (entryType) {
+      case 'guideline':
+        return 'missed_guideline';
+      case 'knowledge':
+        return 'missed_knowledge';
+      case 'tool':
+        return 'missed_tool';
+    }
+  }
+
+  private async storeRecommendationsFromMissedEntries(
+    entries: MissedEntry[],
+    request: SessionEndRequest
+  ): Promise<number> {
+    if (!this.recommendationStore || entries.length === 0) {
+      return 0;
+    }
+
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + (this.config.recommendations?.expirationDays ?? 30));
+
+    let storedCount = 0;
+    for (const entry of entries) {
+      try {
+        const input: CreateRecommendationInput = {
+          scopeType: request.projectId ? 'project' : 'session',
+          scopeId: request.projectId ?? request.sessionId,
+          type: this.mapEntryTypeToRecommendationType(entry.type),
+          title: entry.name,
+          pattern: entry.content,
+          rationale:
+            entry.rationale ??
+            `Extracted from session conversation (confidence: ${(entry.confidence * 100).toFixed(0)}%)`,
+          confidence: entry.confidence,
+          patternCount: 1,
+          sourceExperienceIds: [],
+          extractedEntry: {
+            content: entry.content,
+            category: entry.category,
+            tags: entry.suggestedTags,
+            priority: entry.priority,
+          },
+          analysisRunId: request.sessionId,
+          analysisVersion: 'missed-extraction-v1',
+          expiresAt: expiresAt.toISOString(),
+          createdBy: request.agentId ?? 'session-end',
+        };
+
+        await this.recommendationStore.create(input);
+        storedCount++;
+      } catch (error) {
+        logger.warn(
+          { entry: entry.name, error: error instanceof Error ? error.message : String(error) },
+          'Failed to store missed extraction recommendation'
+        );
+      }
+    }
+
+    return storedCount;
   }
 
   /**
@@ -123,6 +203,8 @@ export class SessionLifecycleHandler {
       'Starting unified session end processing'
     );
 
+    void notify.notice('🔄 Session end: starting librarian pipeline', 'librarian');
+
     const result: SessionEndResult = {
       sessionId: request.sessionId,
       timing: {
@@ -139,6 +221,7 @@ export class SessionLifecycleHandler {
       request.messages &&
       request.messages.length >= 3
     ) {
+      void notify.info('🔄 Stage 1/4: Capturing experiences...', 'librarian');
       try {
         const captureStart = Date.now();
         logger.debug({ sessionId: request.sessionId }, 'Running experience capture');
@@ -195,6 +278,11 @@ export class SessionLifecycleHandler {
           },
           'Experience capture completed'
         );
+
+        void notify.notice(
+          `✓ Stage 1/4: Captured ${result.capture.experiencesExtracted} exp, ${result.capture.knowledgeExtracted} knowledge (${result.capture.processingTimeMs}ms)`,
+          'librarian'
+        );
       } catch (error) {
         const errorMsg = `Experience capture failed: ${error instanceof Error ? error.message : String(error)}`;
         errors.push(errorMsg);
@@ -202,6 +290,7 @@ export class SessionLifecycleHandler {
           { sessionId: request.sessionId, error: errorMsg },
           'Experience capture failed (non-fatal)'
         );
+        void notify.warning('⚠ Stage 1/4: Capture failed (non-fatal)', 'librarian');
       }
     }
 
@@ -215,6 +304,7 @@ export class SessionLifecycleHandler {
       request.messages &&
       request.messages.length >= (missedExtractionConfig.minMessages ?? 3)
     ) {
+      void notify.info('🔄 Stage 2/4: Detecting missed extractions...', 'librarian');
       try {
         const missedStart = Date.now();
         logger.debug(
@@ -256,8 +346,24 @@ export class SessionLifecycleHandler {
           'Missed extraction detection completed'
         );
 
-        // TODO: Store missed entries for review (future enhancement)
-        // For now, we just report the statistics
+        // Store missed entries as recommendations for review
+        if (missedResult.missedEntries.length > 0 && this.recommendationStore) {
+          const storedCount = await this.storeRecommendationsFromMissedEntries(
+            missedResult.missedEntries,
+            request
+          );
+          result.missedExtraction.queuedForReview = storedCount;
+
+          logger.debug(
+            { sessionId: request.sessionId, storedCount },
+            'Stored missed extraction recommendations'
+          );
+        }
+
+        void notify.notice(
+          `✓ Stage 2/4: Extracted ${result.missedExtraction.totalExtracted}, queued ${result.missedExtraction.queuedForReview} (${result.missedExtraction.processingTimeMs}ms)`,
+          'librarian'
+        );
       } catch (error) {
         const errorMsg = `Missed extraction detection failed: ${error instanceof Error ? error.message : String(error)}`;
         errors.push(errorMsg);
@@ -265,11 +371,13 @@ export class SessionLifecycleHandler {
           { sessionId: request.sessionId, error: errorMsg },
           'Missed extraction detection failed (non-fatal)'
         );
+        void notify.warning('⚠ Stage 2/4: Missed extraction failed (non-fatal)', 'librarian');
       }
     }
 
     // Stage 3: Pattern Analysis
     if (!request.skipAnalysis && request.projectId) {
+      void notify.info('🔄 Stage 3/4: Analyzing patterns...', 'librarian');
       try {
         const analysisStart = Date.now();
         logger.debug(
@@ -301,6 +409,11 @@ export class SessionLifecycleHandler {
           },
           'Pattern analysis completed'
         );
+
+        void notify.notice(
+          `✓ Stage 3/4: Detected ${result.analysis.patternsDetected} patterns (${result.analysis.processingTimeMs}ms)`,
+          'librarian'
+        );
       } catch (error) {
         const errorMsg = `Pattern analysis failed: ${error instanceof Error ? error.message : String(error)}`;
         errors.push(errorMsg);
@@ -308,6 +421,7 @@ export class SessionLifecycleHandler {
           { sessionId: request.sessionId, error: errorMsg },
           'Pattern analysis failed (non-fatal)'
         );
+        void notify.warning('⚠ Stage 3/4: Pattern analysis failed (non-fatal)', 'librarian');
       }
     }
 
@@ -318,6 +432,7 @@ export class SessionLifecycleHandler {
       this.maintenanceOrchestrator &&
       this.config.maintenance?.runOnSessionEnd
     ) {
+      void notify.info('🔄 Stage 4/4: Running maintenance...', 'librarian');
       try {
         const maintenanceStart = Date.now();
         logger.debug(
@@ -349,12 +464,45 @@ export class SessionLifecycleHandler {
           },
           'Maintenance completed'
         );
+
+        void notify.notice(
+          `✓ Stage 4/4: Deduped ${result.maintenance.consolidationDeduped}, archived ${result.maintenance.forgettingArchived} (${result.maintenance.processingTimeMs}ms)`,
+          'librarian'
+        );
       } catch (error) {
         const errorMsg = `Maintenance failed: ${error instanceof Error ? error.message : String(error)}`;
         errors.push(errorMsg);
         logger.warn(
           { sessionId: request.sessionId, error: errorMsg },
           'Maintenance failed (non-fatal)'
+        );
+        void notify.warning('⚠ Stage 4/4: Maintenance failed (non-fatal)', 'librarian');
+      }
+    }
+
+    if (request.messages && request.messages.length > 0) {
+      const transcriptData: TurnData[] = request.messages.map((msg) => ({
+        role: msg.role,
+        content: msg.content,
+        timestamp: msg.createdAt,
+      }));
+
+      const complexitySignals = detectComplexitySignals(transcriptData);
+      const recommendations = this.generateProactiveRecommendations(
+        transcriptData,
+        complexitySignals
+      );
+
+      if (recommendations.length > 0) {
+        result.proactiveRecommendations = recommendations;
+        result.complexityScore = complexitySignals.score;
+        logger.debug(
+          {
+            sessionId: request.sessionId,
+            recommendationCount: recommendations.length,
+            complexityScore: complexitySignals.score,
+          },
+          'Generated proactive recommendations'
         );
       }
     }
@@ -372,6 +520,11 @@ export class SessionLifecycleHandler {
     }
 
     this.lastSessionEnd = result;
+
+    void notify.notice(
+      `✅ Session end: librarian complete (${result.timing.durationMs}ms)`,
+      'librarian'
+    );
 
     logger.info(
       {
@@ -689,10 +842,105 @@ export class SessionLifecycleHandler {
     return this.lastSessionEnd;
   }
 
-  /**
-   * Get last session start result
-   */
   getLastSessionStart(): SessionStartResult | undefined {
     return this.lastSessionStart;
+  }
+
+  private generateProactiveRecommendations(
+    transcript: TurnData[],
+    complexitySignals: {
+      score: number;
+      signals: string[];
+      hasErrorRecovery: boolean;
+      hasDecisions: boolean;
+      hasLearning: boolean;
+    }
+  ): ProactiveRecommendation[] {
+    const recommendations: ProactiveRecommendation[] = [];
+    const MAX_RECOMMENDATIONS = 5;
+
+    const combinedText = transcript.map((t) => t.content).join(' ');
+    const lowerText = combinedText.toLowerCase();
+
+    const alwaysMatches = combinedText.match(/\balways\s+([^.!?]+)/gi) || [];
+    for (const match of alwaysMatches) {
+      if (recommendations.length >= MAX_RECOMMENDATIONS) break;
+      const content = match.replace(/^always\s+/i, '').trim();
+      if (content.length > 10) {
+        recommendations.push({
+          type: 'guideline',
+          reason: 'Detected "always" pattern in conversation',
+          content: `Always ${content}`,
+          action: `memory_guideline action:add name:"${this.slugify(content)}" content:"Always ${content.replace(/"/g, '\\"')}"`,
+          confidence: 0.7,
+        });
+      }
+    }
+
+    const neverMatches = combinedText.match(/\bnever\s+([^.!?]+)/gi) || [];
+    for (const match of neverMatches) {
+      if (recommendations.length >= MAX_RECOMMENDATIONS) break;
+      const content = match.replace(/^never\s+/i, '').trim();
+      if (content.length > 10) {
+        recommendations.push({
+          type: 'guideline',
+          reason: 'Detected "never" pattern in conversation',
+          content: `Never ${content}`,
+          action: `memory_guideline action:add name:"${this.slugify(content)}" content:"Never ${content.replace(/"/g, '\\"')}"`,
+          confidence: 0.7,
+        });
+      }
+    }
+
+    if (complexitySignals.hasErrorRecovery && recommendations.length < MAX_RECOMMENDATIONS) {
+      const fixMatch = lowerText.match(/(?:fixed|solved|resolved|working now)[^.!?]*/i);
+      const summary = fixMatch ? fixMatch[0].slice(0, 100) : 'error recovery pattern detected';
+      recommendations.push({
+        type: 'experience',
+        reason: 'Error recovery pattern detected - debug/fix workflow',
+        content: summary,
+        action: `memory_experience action:learn text:"Fixed issue: ${summary.replace(/"/g, '\\"')}"`,
+        confidence: 0.75,
+      });
+    }
+
+    if (complexitySignals.hasDecisions && recommendations.length < MAX_RECOMMENDATIONS) {
+      const decisionMatch = combinedText.match(/(?:decided|chose|instead of|rather than)[^.!?]*/i);
+      const summary = decisionMatch ? decisionMatch[0].slice(0, 100) : 'decision made';
+      recommendations.push({
+        type: 'knowledge',
+        reason: 'Detected decision pattern in conversation',
+        content: summary,
+        action: `memory_knowledge action:add category:decision title:"Decision: ${this.truncate(summary, 50)}" content:"${summary.replace(/"/g, '\\"')}"`,
+        confidence: 0.7,
+      });
+    }
+
+    if (complexitySignals.hasLearning && recommendations.length < MAX_RECOMMENDATIONS) {
+      const learnMatch = combinedText.match(/(?:realized|learned|discovered|found out)[^.!?]*/i);
+      const summary = learnMatch ? learnMatch[0].slice(0, 100) : 'insight gained';
+      recommendations.push({
+        type: 'knowledge',
+        reason: 'Detected learning/insight pattern - learned something new',
+        content: summary,
+        action: `memory_knowledge action:add category:fact title:"Learned: ${this.truncate(summary, 50)}" content:"${summary.replace(/"/g, '\\"')}"`,
+        confidence: 0.65,
+      });
+    }
+
+    return recommendations;
+  }
+
+  private slugify(text: string): string {
+    return text
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 50);
+  }
+
+  private truncate(text: string, maxLen: number): string {
+    if (text.length <= maxLen) return text;
+    return text.slice(0, maxLen - 3) + '...';
   }
 }

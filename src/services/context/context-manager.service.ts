@@ -39,6 +39,7 @@ import {
   type CompressibleEntry,
   type CompressionLevel,
 } from './compression-manager.js';
+import type { ComplexitySignals } from '../../utils/transcript-analysis.js';
 
 const logger = createComponentLogger('context-manager');
 
@@ -92,21 +93,14 @@ export const DEFAULT_CONTEXT_MANAGER_CONFIG: ContextManagerConfig = {
  * Context management request
  */
 export interface ContextRequest {
-  /** Entries to process */
   entries: ContextEntry[];
-  /** Query intent for budget/priority calculation */
   intent?: QueryIntent;
-  /** Complexity override */
   complexityOverride?: TaskComplexity;
-  /** Query embedding for priority calculation */
+  complexitySignals?: ComplexitySignals;
   queryEmbedding?: number[];
-  /** Scope ID for adaptive weights */
   scopeId?: string;
-  /** Output format */
   format?: 'markdown' | 'json' | 'natural_language';
-  /** Maximum entries (soft limit, before compression) */
   maxEntries?: number;
-  /** Maximum tokens (hard budget limit) */
   maxTokens?: number;
 }
 
@@ -193,8 +187,11 @@ export class ContextManagerService {
 
     const format = request.format ?? 'markdown';
 
-    // Step 1: Calculate budget
-    const budget = this.budgetCalculator.calculate(request.intent, request.complexityOverride);
+    const derivedComplexity = this.deriveComplexityFromSignals(request);
+    const budget = this.budgetCalculator.calculate(
+      request.intent,
+      derivedComplexity ?? request.complexityOverride
+    );
     const targetTokens = request.maxTokens ?? budget.effectiveBudget;
 
     logger.debug(
@@ -346,9 +343,23 @@ export class ContextManagerService {
     return { ...this.config };
   }
 
-  /**
-   * Calculate total max entries from budget
-   */
+  private deriveComplexityFromSignals(request: ContextRequest): TaskComplexity | undefined {
+    const signals = request.complexitySignals;
+    if (!signals) {
+      return undefined;
+    }
+
+    if (signals.score >= 0.6 || signals.hasErrorRecovery || signals.hasDecisions) {
+      return 'complex';
+    }
+
+    if (signals.score >= 0.3 || signals.hasLearning) {
+      return 'moderate';
+    }
+
+    return 'simple';
+  }
+
   private getTotalMaxEntries(budget: BudgetResult): number {
     return (
       budget.maxEntries.guideline +
