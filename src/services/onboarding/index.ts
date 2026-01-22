@@ -36,3 +36,7 @@ export {
   GUIDELINE_MAP,
   getGuidelinesForTechStackNames,
 } from './guideline-templates.js';
+
+// Walkthrough
+export * from './walkthrough-types.js';
+export { WalkthroughService, createWalkthroughService } from './walkthrough.service.js';

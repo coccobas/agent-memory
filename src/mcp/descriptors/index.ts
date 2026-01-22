@@ -61,6 +61,7 @@ import { memoryDiscoverDescriptor } from './memory_discover.js';
 import { memoryEpisodeDescriptor } from './memory_episode.js';
 import { memoryOpsDescriptor } from './memory_ops.js';
 import { memoryOnboardDescriptor } from './memory_onboard.js';
+import { memoryWalkthroughDescriptor } from './memory_walkthrough.js';
 
 import {
   type AnyToolDescriptor,
@@ -211,6 +212,8 @@ export const allDescriptors: AnyToolDescriptor[] = [
   memoryOpsDescriptor,
   // Onboarding Wizard (guided setup for new projects)
   memoryOnboardDescriptor,
+  // Interactive Walkthrough Tutorial
+  memoryWalkthroughDescriptor,
 ];
 
 /**
@@ -291,4 +294,5 @@ export {
   memoryEpisodeDescriptor,
   memoryOpsDescriptor,
   memoryOnboardDescriptor,
+  memoryWalkthroughDescriptor,
 };
