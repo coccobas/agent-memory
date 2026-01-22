@@ -112,9 +112,7 @@ describe('Latent Memory Handler', () => {
       isAvailable: vi.fn().mockReturnValue(true),
       createLatentMemory: vi.fn().mockResolvedValue(mockLatentMemory),
       getLatentMemory: vi.fn().mockResolvedValue(mockLatentMemory),
-      findSimilar: vi.fn().mockResolvedValue([
-        { ...mockLatentMemory, similarityScore: 0.9 },
-      ]),
+      findSimilar: vi.fn().mockResolvedValue([{ ...mockLatentMemory, similarityScore: 0.9 }]),
       pruneStale: vi.fn().mockResolvedValue(5),
       getStats: vi.fn().mockResolvedValue({
         totalVectorCount: 100,

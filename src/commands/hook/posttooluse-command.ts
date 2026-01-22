@@ -54,7 +54,8 @@ function getConfig(overrides?: Partial<PostToolUseConfig>): PostToolUseConfig {
     enableLearning:
       overrides?.enableLearning ?? (envEnableLearning !== 'false' && envEnableLearning !== '0'),
     enableKnowledgeExtraction:
-      overrides?.enableKnowledgeExtraction ?? (envEnableKnowledge !== 'false' && envEnableKnowledge !== '0'),
+      overrides?.enableKnowledgeExtraction ??
+      (envEnableKnowledge !== 'false' && envEnableKnowledge !== '0'),
   };
 }
 
@@ -228,10 +229,7 @@ export async function runPostToolUseCommand(params: {
         outputSummary,
       });
 
-      logger.debug(
-        { sessionId, toolName, success },
-        'Behavior observer event updated with result'
-      );
+      logger.debug({ sessionId, toolName, success }, 'Behavior observer event updated with result');
     } catch (error) {
       // Non-blocking
       logger.debug(
@@ -260,10 +258,7 @@ export async function runPostToolUseCommand(params: {
         commandCategory: categorizeCommand(toolName, toolInput),
       });
 
-      logger.debug(
-        { sessionId, toolName, success },
-        'Tool execution metric recorded'
-      );
+      logger.debug({ sessionId, toolName, success }, 'Tool execution metric recorded');
     } catch (error) {
       // Non-blocking
       logger.debug(
@@ -330,7 +325,8 @@ export async function runPostToolUseCommand(params: {
   if (config.enableKnowledgeExtraction && success && sessionId && toolName && toolResponse) {
     try {
       const learningService = getHookLearningService();
-      const toolOutput = typeof toolResponse === 'string' ? toolResponse : JSON.stringify(toolResponse);
+      const toolOutput =
+        typeof toolResponse === 'string' ? toolResponse : JSON.stringify(toolResponse);
 
       const result = await learningService.onToolSuccess({
         sessionId,

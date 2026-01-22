@@ -10,7 +10,7 @@ import {
   isNumber,
   isArray,
 } from '../../../utils/type-guards.js';
-import { parseEnvBool, parseEnvNumber } from './helpers.js';
+import { parseEnvBool, parseEnvNumber } from '../../../services/observe/helpers.js';
 
 /**
  * Client-assisted extraction: return a strict schema and prompt template.

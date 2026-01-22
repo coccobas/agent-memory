@@ -17,10 +17,7 @@ export function ensureRuntime(config: Config): RuntimeOwnership {
   return { runtime, ownsRuntime: true };
 }
 
-export async function shutdownOwnedRuntime(
-  ownsRuntime: boolean,
-  runtime: Runtime
-): Promise<void> {
+export async function shutdownOwnedRuntime(ownsRuntime: boolean, runtime: Runtime): Promise<void> {
   if (!ownsRuntime) return;
   await shutdownRuntime(runtime);
 }

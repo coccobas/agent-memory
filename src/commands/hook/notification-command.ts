@@ -203,13 +203,17 @@ export async function runNotificationCommand(params: {
   // Step 1: Log notification
   if (config.logEnabled) {
     const logFn = severity === 'error' ? logger.warn : logger.debug;
-    logFn.call(logger, {
-      sessionId,
-      notificationType,
-      severity,
-      category,
-      message: message?.slice(0, 200),
-    }, 'Notification received');
+    logFn.call(
+      logger,
+      {
+        sessionId,
+        notificationType,
+        severity,
+        category,
+        message: message?.slice(0, 200),
+      },
+      'Notification received'
+    );
   }
 
   // Step 2: Record analytics metric

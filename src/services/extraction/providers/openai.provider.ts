@@ -25,7 +25,12 @@ export class OpenAIProvider implements IExtractionProvider {
   private client: OpenAI;
   private model: string;
 
-  constructor(apiKey: string, model: string, baseUrl?: string, strictBaseUrlAllowlist: boolean = true) {
+  constructor(
+    apiKey: string,
+    model: string,
+    baseUrl?: string,
+    strictBaseUrlAllowlist: boolean = true
+  ) {
     // Validate custom base URL (use passed value, not global config singleton)
     validateOpenAIBaseUrl(baseUrl, strictBaseUrlAllowlist);
 

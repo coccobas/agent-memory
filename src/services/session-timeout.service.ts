@@ -161,7 +161,8 @@ export class SessionTimeoutService implements ISessionTimeoutService {
               logger.warn(
                 {
                   sessionId,
-                  error: captureError instanceof Error ? captureError.message : String(captureError),
+                  error:
+                    captureError instanceof Error ? captureError.message : String(captureError),
                 },
                 'Capture failed before timeout session end (non-fatal)'
               );

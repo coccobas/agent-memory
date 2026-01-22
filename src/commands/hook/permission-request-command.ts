@@ -84,10 +84,7 @@ async function checkAutoApproveGuidelines(
 
     // Include permission type in search if available
     if (permissionType) {
-      searchPatterns.push(
-        `%allow%${permissionType}%`,
-        `%approve%${permissionType}%`
-      );
+      searchPatterns.push(`%allow%${permissionType}%`, `%approve%${permissionType}%`);
     }
 
     // Build conditions for each pattern on guidelineVersions.content
@@ -102,10 +99,7 @@ async function checkAutoApproveGuidelines(
         content: guidelineVersions.content,
       })
       .from(guidelines)
-      .innerJoin(
-        guidelineVersions,
-        eq(guidelines.currentVersionId, guidelineVersions.id)
-      )
+      .innerJoin(guidelineVersions, eq(guidelines.currentVersionId, guidelineVersions.id))
       .where(
         and(
           or(...patternConditions),

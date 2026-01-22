@@ -47,7 +47,11 @@ function createMockContext(overrides: Partial<AppContext> = {}): AppContext {
       },
       redFlag: {
         detectRedFlags: vi.fn().mockResolvedValue([
-          { pattern: 'malformed_json', severity: 'high', description: 'Potentially malformed JSON' },
+          {
+            pattern: 'malformed_json',
+            severity: 'high',
+            description: 'Potentially malformed JSON',
+          },
         ]),
         scoreRedFlagRisk: vi.fn().mockResolvedValue(0.4),
       },

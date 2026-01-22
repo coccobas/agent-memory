@@ -25,7 +25,9 @@ vi.mock('../../src/config/index.js', () => ({
  * Create a mock filesystem adapter for testing.
  * This provides in-memory implementations of all IFileSystemAdapter methods.
  */
-function createMockFileSystemAdapter(overrides: Partial<IFileSystemAdapter> = {}): IFileSystemAdapter {
+function createMockFileSystemAdapter(
+  overrides: Partial<IFileSystemAdapter> = {}
+): IFileSystemAdapter {
   const files = new Map<string, string>();
   const directories = new Set<string>(['/tmp/test', '/tmp/output']);
 
@@ -41,11 +43,13 @@ function createMockFileSystemAdapter(overrides: Partial<IFileSystemAdapter> = {}
       return content;
     }),
     readDir: vi.fn().mockImplementation(async () => []),
-    stat: vi.fn().mockImplementation(async (): Promise<FileStat> => ({
-      isDirectory: () => false,
-      mtime: new Date(),
-      size: 0,
-    })),
+    stat: vi.fn().mockImplementation(
+      async (): Promise<FileStat> => ({
+        isDirectory: () => false,
+        mtime: new Date(),
+        size: 0,
+      })
+    ),
     writeFile: vi.fn().mockImplementation(async (path: string, content: string) => {
       files.set(path, content);
     }),

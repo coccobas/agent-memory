@@ -12,7 +12,10 @@ import { join } from 'node:path';
 import * as schema from '../../src/db/schema.js';
 import { createExperienceRepository } from '../../src/db/repositories/experiences.js';
 import { createKnowledgeRepository } from '../../src/db/repositories/knowledge.js';
-import type { IExperienceRepository, IKnowledgeRepository } from '../../src/core/interfaces/repositories.js';
+import type {
+  IExperienceRepository,
+  IKnowledgeRepository,
+} from '../../src/core/interfaces/repositories.js';
 import {
   HookLearningService,
   resetHookLearningService,
@@ -562,7 +565,8 @@ describe('Hook Learning Service Integration', () => {
         projectId,
         toolName: 'Read',
         toolInput: { file_path: '/path/to/package.json' },
-        toolOutput: 'Configuration: {"typescript": true, "strict": true}\nversion: 2.5.0 found in dependencies',
+        toolOutput:
+          'Configuration: {"typescript": true, "strict": true}\nversion: 2.5.0 found in dependencies',
         timestamp: new Date().toISOString(),
       });
 
@@ -609,7 +613,8 @@ describe('Hook Learning Service Integration', () => {
         sessionId,
         projectId,
         subagentType: 'Explore',
-        findings: 'Found configuration: tsconfig.json with strict mode enabled. Architecture: monorepo structure with packages folder.',
+        findings:
+          'Found configuration: tsconfig.json with strict mode enabled. Architecture: monorepo structure with packages folder.',
         timestamp: new Date().toISOString(),
       });
 
@@ -640,7 +645,8 @@ describe('Hook Learning Service Integration', () => {
         sessionId,
         projectId,
         toolName: 'Read',
-        toolOutput: 'Configuration: some important config value that is long enough to pass minimum',
+        toolOutput:
+          'Configuration: some important config value that is long enough to pass minimum',
         timestamp: new Date().toISOString(),
       });
 
@@ -733,7 +739,8 @@ describe('Hook Learning Service Integration', () => {
       learningService.updateConfig({ analysisThreshold: 2 });
       learningService.setDependencies({
         experienceRepo,
-        librarianService: mockLibrarian as unknown as import('../../src/services/librarian/index.js').LibrarianService,
+        librarianService:
+          mockLibrarian as unknown as import('../../src/services/librarian/index.js').LibrarianService,
       });
 
       // Create first experience (triggers on 2nd failure)
@@ -799,7 +806,8 @@ describe('Hook Learning Service Integration', () => {
 
       learningService.setDependencies({
         experienceRepo,
-        librarianService: mockLibrarian as unknown as import('../../src/services/librarian/index.js').LibrarianService,
+        librarianService:
+          mockLibrarian as unknown as import('../../src/services/librarian/index.js').LibrarianService,
       });
 
       const result = await learningService.triggerAnalysis({

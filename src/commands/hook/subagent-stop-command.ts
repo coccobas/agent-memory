@@ -50,13 +50,15 @@ function getConfig(overrides?: Partial<SubagentStopConfig>): SubagentStopConfig 
     captureExperiences:
       overrides?.captureExperiences ??
       (envCaptureExperiences !== 'false' && envCaptureExperiences !== '0'),
-    linkEpisodes: overrides?.linkEpisodes ?? (envLinkEpisodes !== 'false' && envLinkEpisodes !== '0'),
+    linkEpisodes:
+      overrides?.linkEpisodes ?? (envLinkEpisodes !== 'false' && envLinkEpisodes !== '0'),
     recordAnalytics:
       overrides?.recordAnalytics ?? (envRecordAnalytics !== 'false' && envRecordAnalytics !== '0'),
     enableLearning:
       overrides?.enableLearning ?? (envEnableLearning !== 'false' && envEnableLearning !== '0'),
     enableKnowledgeExtraction:
-      overrides?.enableKnowledgeExtraction ?? (envEnableKnowledge !== 'false' && envEnableKnowledge !== '0'),
+      overrides?.enableKnowledgeExtraction ??
+      (envEnableKnowledge !== 'false' && envEnableKnowledge !== '0'),
   };
 }
 

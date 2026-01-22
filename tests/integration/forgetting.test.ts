@@ -207,12 +207,7 @@ describe('Forgetting Integration', () => {
 
       // Create many stale entries
       for (let i = 0; i < 10; i++) {
-        const { knowledge } = createTestKnowledge(
-          db,
-          `Bulk Entry ${i}`,
-          'project',
-          project.id
-        );
+        const { knowledge } = createTestKnowledge(db, `Bulk Entry ${i}`, 'project', project.id);
         // Backdate to make stale
         const staleDate = new Date(Date.now() - 200 * 24 * 60 * 60 * 1000).toISOString();
         db.update(schema.knowledge)
@@ -329,12 +324,7 @@ describe('Forgetting Integration', () => {
       const project = createTestProject(db, 'DryRun Project');
 
       // Create a stale entry
-      const { knowledge } = createTestKnowledge(
-        db,
-        'DryRun Knowledge',
-        'project',
-        project.id
-      );
+      const { knowledge } = createTestKnowledge(db, 'DryRun Knowledge', 'project', project.id);
 
       // Backdate to make stale
       const staleDate = new Date(Date.now() - 200 * 24 * 60 * 60 * 1000).toISOString();
@@ -370,12 +360,7 @@ describe('Forgetting Integration', () => {
       const project = createTestProject(db, 'Forget Project');
 
       // Create a stale entry
-      const { knowledge } = createTestKnowledge(
-        db,
-        'Forget Knowledge',
-        'project',
-        project.id
-      );
+      const { knowledge } = createTestKnowledge(db, 'Forget Knowledge', 'project', project.id);
 
       // Backdate to make stale
       const staleDate = new Date(Date.now() - 200 * 24 * 60 * 60 * 1000).toISOString();
@@ -415,12 +400,7 @@ describe('Forgetting Integration', () => {
       const project = createTestProject(db, 'Status Update Project');
 
       // Create a stale entry
-      const { knowledge } = createTestKnowledge(
-        db,
-        'Status Test Knowledge',
-        'project',
-        project.id
-      );
+      const { knowledge } = createTestKnowledge(db, 'Status Test Knowledge', 'project', project.id);
 
       // Backdate to make stale
       const staleDate = new Date(Date.now() - 200 * 24 * 60 * 60 * 1000).toISOString();

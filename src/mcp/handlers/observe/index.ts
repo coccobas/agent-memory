@@ -9,11 +9,20 @@ import { status } from './status.handler.js';
 import { draft } from './draft.handler.js';
 import { commit } from './commit.handler.js';
 
-// Re-export types
-export type { ProcessedEntry, StoredEntry, ObserveCommitEntry } from './types.js';
+// Re-export types from services layer
+export type {
+  ProcessedEntry,
+  StoredEntry,
+  ObserveCommitEntry,
+} from '../../../services/observe/types.js';
 
-// Re-export helpers for external use if needed
-export { storeEntry, storeEntity, buildNameToIdMap, createExtractedRelations } from './helpers.js';
+// Re-export helpers from services layer
+export {
+  storeEntry,
+  storeEntity,
+  buildNameToIdMap,
+  createExtractedRelations,
+} from '../../../services/observe/helpers.js';
 
 /**
  * Observe handlers object - maintains same interface as original

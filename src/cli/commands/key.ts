@@ -22,7 +22,10 @@ interface KeyGenerateOptions extends Record<string, unknown> {
  * @param bytes - Number of random bytes (default: 32 = 256 bits)
  * @param encoding - Output encoding: base64url, base64, or hex (default: base64url)
  */
-function generateApiKey(bytes = 32, encoding: 'base64url' | 'base64' | 'hex' = 'base64url'): string {
+function generateApiKey(
+  bytes = 32,
+  encoding: 'base64url' | 'base64' | 'hex' = 'base64url'
+): string {
   const buffer = randomBytes(bytes);
   if (encoding === 'base64url') {
     return buffer.toString('base64url');
@@ -43,7 +46,10 @@ export function addKeyCommand(program: Command): void {
       'base64url'
     )
     .option('-c, --count <n>', 'Number of keys to generate', '1')
-    .option('-a, --for-agent <id>', 'Agent ID to associate with the key (for multi-key config output)')
+    .option(
+      '-a, --for-agent <id>',
+      'Agent ID to associate with the key (for multi-key config output)'
+    )
     .action(
       typedAction<KeyGenerateOptions>(async (options, globalOpts) => {
         const bytes = parseInt(options.bytes ?? '32', 10);

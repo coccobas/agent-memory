@@ -14,6 +14,7 @@ const SENSITIVE_KEY_PATTERNS = [
   /credential/i,
   /auth/i,
   /bearer/i,
+  /admin[-_]?key/i,
 ];
 
 /**

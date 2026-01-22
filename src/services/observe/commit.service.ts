@@ -17,11 +17,7 @@ import { checkForDuplicates } from '../duplicate.service.js';
 import { createComponentLogger } from '../../utils/logger.js';
 import type { ScopeType } from '../../db/schema.js';
 import type { ExtractedEntity, ExtractedRelationship } from '../extraction.service.js';
-import type {
-  ProcessedEntry,
-  StoredEntry,
-  ObserveCommitEntry,
-} from '../../mcp/handlers/observe/types.js';
+import type { ProcessedEntry, StoredEntry, ObserveCommitEntry } from './types.js';
 import {
   mergeSessionMetadata,
   ensureSessionIdExists,
@@ -29,7 +25,7 @@ import {
   storeEntity,
   buildNameToIdMap,
   createExtractedRelations,
-} from '../../mcp/handlers/observe/helpers.js';
+} from './helpers.js';
 
 const logger = createComponentLogger('observe.commit.service');
 

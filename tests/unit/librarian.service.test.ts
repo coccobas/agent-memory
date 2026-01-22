@@ -138,7 +138,6 @@ function createMockRecommendationStore(): IRecommendationStore {
 }
 
 function createMockDatabaseDeps(experienceRepo: IExperienceRepository): DatabaseDeps {
-  // Create chainable query builder
   const createQueryChain = () => {
     const chain = {
       from: vi.fn(() => chain),
@@ -146,6 +145,8 @@ function createMockDatabaseDeps(experienceRepo: IExperienceRepository): Database
       orderBy: vi.fn(() => chain),
       limit: vi.fn(() => chain),
       offset: vi.fn(() => chain),
+      innerJoin: vi.fn(() => chain),
+      leftJoin: vi.fn(() => chain),
       get: vi.fn(() => null),
       all: vi.fn(() => []),
     };

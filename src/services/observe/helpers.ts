@@ -1,25 +1,22 @@
 /**
- * Shared helper functions for observe handlers
+ * Shared helper functions for observe service
  *
  * All functions accept a repos parameter for dependency injection.
  */
 
-import { checkForDuplicates } from '../../../services/duplicate.service.js';
-import type { CreateGuidelineInput } from '../../../db/repositories/guidelines.js';
-import type { CreateKnowledgeInput } from '../../../db/repositories/knowledge.js';
-import type { CreateToolInput } from '../../../db/repositories/tools.js';
-import { logAction } from '../../../services/audit.service.js';
-import { createComponentLogger } from '../../../utils/logger.js';
-import type { ScopeType } from '../../types.js';
-import type { RelationType, EntryType } from '../../../db/schema.js';
-import type {
-  ExtractedEntity,
-  ExtractedRelationship,
-} from '../../../services/extraction.service.js';
+import { checkForDuplicates } from '../duplicate.service.js';
+import type { CreateGuidelineInput } from '../../db/repositories/guidelines.js';
+import type { CreateKnowledgeInput } from '../../db/repositories/knowledge.js';
+import type { CreateToolInput } from '../../db/repositories/tools.js';
+import { logAction } from '../audit.service.js';
+import { createComponentLogger } from '../../utils/logger.js';
+import type { ScopeType } from '../../mcp/types.js';
+import type { RelationType, EntryType } from '../../db/schema.js';
+import type { ExtractedEntity, ExtractedRelationship } from '../extraction.service.js';
 import type { ProcessedEntry, StoredEntry } from './types.js';
-import type { Repositories } from '../../../core/interfaces/repositories.js';
-import type { DbClient } from '../../../db/connection.js';
-import { parseBoolean, parseNumber } from '../../../config/registry/parsers.js';
+import type { Repositories } from '../../core/interfaces/repositories.js';
+import type { DbClient } from '../../db/connection.js';
+import { parseBoolean, parseNumber } from '../../config/registry/parsers.js';
 
 const logger = createComponentLogger('observe');
 

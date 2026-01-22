@@ -270,18 +270,8 @@ describe('Consolidation Integration', () => {
     it('handles multiple entry types', async () => {
       const project = createTestProject(db, 'Multi-Type Archive Project');
 
-      const { guideline } = createTestGuideline(
-        db,
-        'Multi-Type Guideline',
-        'project',
-        project.id
-      );
-      const { knowledge } = createTestKnowledge(
-        db,
-        'Multi-Type Knowledge',
-        'project',
-        project.id
-      );
+      const { guideline } = createTestGuideline(db, 'Multi-Type Guideline', 'project', project.id);
+      const { knowledge } = createTestKnowledge(db, 'Multi-Type Knowledge', 'project', project.id);
 
       // Backdate both
       const staleDate = new Date(Date.now() - 120 * 24 * 60 * 60 * 1000).toISOString();

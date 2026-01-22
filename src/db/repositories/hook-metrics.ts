@@ -55,11 +55,14 @@ export interface ToolStats {
   totalExecutions: number;
   successRate: number;
   avgDurationMs: number;
-  byTool: Record<string, {
-    count: number;
-    successRate: number;
-    avgDurationMs: number;
-  }>;
+  byTool: Record<
+    string,
+    {
+      count: number;
+      successRate: number;
+      avgDurationMs: number;
+    }
+  >;
   errorDistribution: Record<string, number>;
 }
 
@@ -67,11 +70,14 @@ export interface SubagentStats {
   totalInvocations: number;
   successRate: number;
   avgDurationMs: number;
-  byType: Record<string, {
-    count: number;
-    successRate: number;
-    avgDurationMs: number;
-  }>;
+  byType: Record<
+    string,
+    {
+      count: number;
+      successRate: number;
+      avgDurationMs: number;
+    }
+  >;
 }
 
 export interface NotificationStats {
@@ -231,7 +237,10 @@ export function createHookMetricsRepository(db: DrizzleDb): IHookMetricsReposito
      * Get tool execution statistics
      */
     async getToolStats(filter: ListMetricsFilter): Promise<ToolStats> {
-      const metrics = await this.list({ ...filter, metricType: 'tool_execution' }, { limit: 10000 });
+      const metrics = await this.list(
+        { ...filter, metricType: 'tool_execution' },
+        { limit: 10000 }
+      );
 
       if (metrics.length === 0) {
         return {
@@ -243,7 +252,8 @@ export function createHookMetricsRepository(db: DrizzleDb): IHookMetricsReposito
         };
       }
 
-      const byTool: Record<string, { count: number; successCount: number; totalDuration: number }> = {};
+      const byTool: Record<string, { count: number; successCount: number; totalDuration: number }> =
+        {};
       const errorDistribution: Record<string, number> = {};
       let totalSuccess = 0;
       let totalDuration = 0;
@@ -306,7 +316,8 @@ export function createHookMetricsRepository(db: DrizzleDb): IHookMetricsReposito
         };
       }
 
-      const byType: Record<string, { count: number; successCount: number; totalDuration: number }> = {};
+      const byType: Record<string, { count: number; successCount: number; totalDuration: number }> =
+        {};
       let totalSuccess = 0;
       let totalDuration = 0;
       let durationCount = 0;

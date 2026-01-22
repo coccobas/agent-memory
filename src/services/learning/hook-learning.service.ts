@@ -12,7 +12,10 @@
  */
 
 import { createComponentLogger } from '../../utils/logger.js';
-import type { IExperienceRepository, IKnowledgeRepository } from '../../core/interfaces/repositories.js';
+import type {
+  IExperienceRepository,
+  IKnowledgeRepository,
+} from '../../core/interfaces/repositories.js';
 import type { LibrarianService } from '../librarian/index.js';
 import type { ScopeType } from '../../db/schema.js';
 
@@ -276,7 +279,9 @@ export class HookLearningService {
    * Check if knowledge extraction is available
    */
   isKnowledgeAvailable(): boolean {
-    return this.config.enabled && this.config.enableKnowledgeExtraction && this.knowledgeRepo !== null;
+    return (
+      this.config.enabled && this.config.enableKnowledgeExtraction && this.knowledgeRepo !== null
+    );
   }
 
   /**
@@ -563,7 +568,9 @@ export class HookLearningService {
       content,
       scenario,
       outcome,
-      confidence: event.success ? this.config.defaultConfidence : this.config.defaultConfidence - 0.1,
+      confidence: event.success
+        ? this.config.defaultConfidence
+        : this.config.defaultConfidence - 0.1,
       source: 'observation',
       createdBy: 'hook-learning',
       steps: [
@@ -838,7 +845,10 @@ export class HookLearningService {
     }
 
     if (knowledgeIds.length > 0) {
-      logger.info({ sessionId, toolName, count: knowledgeIds.length }, 'Created knowledge from tool output');
+      logger.info(
+        { sessionId, toolName, count: knowledgeIds.length },
+        'Created knowledge from tool output'
+      );
     }
 
     return { knowledgeCreated: knowledgeIds.length > 0, knowledgeIds };
@@ -863,13 +873,22 @@ export class HookLearningService {
       return { knowledgeCreated: false, knowledgeIds: [] };
     }
 
-    const extracted = this.extractKnowledgeFromOutput(`Subagent:${event.subagentType}`, event.findings);
+    const extracted = this.extractKnowledgeFromOutput(
+      `Subagent:${event.subagentType}`,
+      event.findings
+    );
     const knowledgeIds: string[] = [];
 
     for (const knowledge of extracted) {
       if (knowledge.confidence >= this.config.knowledgeConfidenceThreshold) {
         const created = await this.createKnowledgeEntry(
-          { sessionId: event.sessionId, projectId: event.projectId, toolName: `Subagent:${event.subagentType}`, toolOutput: event.findings, timestamp: event.timestamp },
+          {
+            sessionId: event.sessionId,
+            projectId: event.projectId,
+            toolName: `Subagent:${event.subagentType}`,
+            toolOutput: event.findings,
+            timestamp: event.timestamp,
+          },
           knowledge
         );
         if (created) knowledgeIds.push(created.id);
@@ -942,7 +961,10 @@ export class HookLearningService {
 
       return { id: created.id };
     } catch (error) {
-      logger.warn({ error: error instanceof Error ? error.message : String(error) }, 'Failed to create knowledge');
+      logger.warn(
+        { error: error instanceof Error ? error.message : String(error) },
+        'Failed to create knowledge'
+      );
       return null;
     }
   }

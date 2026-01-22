@@ -21,8 +21,8 @@ import type {
   ExtractedEntity,
   ExtractedRelationship,
 } from '../../../services/extraction.service.js';
-import type { ObserveCommitEntry } from './types.js';
-import { parseEnvBool, parseEnvNumber } from './helpers.js';
+import type { ObserveCommitEntry } from '../../../services/observe/types.js';
+import { parseEnvBool, parseEnvNumber } from '../../../services/observe/helpers.js';
 
 // =============================================================================
 // NORMALIZATION FUNCTIONS

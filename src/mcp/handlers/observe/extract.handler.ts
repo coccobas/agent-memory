@@ -27,8 +27,13 @@ import {
 import { validateTextLength, SIZE_LIMITS } from '../../../services/validation.service.js';
 import { formatTimestamps } from '../../../utils/timestamp-formatter.js';
 import type { ScopeType } from '../../types.js';
-import type { ProcessedEntry, StoredEntry } from './types.js';
-import { storeEntry, storeEntity, buildNameToIdMap, createExtractedRelations } from './helpers.js';
+import type { ProcessedEntry, StoredEntry } from '../../../services/observe/types.js';
+import {
+  storeEntry,
+  storeEntity,
+  buildNameToIdMap,
+  createExtractedRelations,
+} from '../../../services/observe/helpers.js';
 import { boostExtractionConfidence } from '../../../services/extraction/confidence-booster.js';
 
 const logger = createComponentLogger('observe.extract');

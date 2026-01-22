@@ -9,7 +9,7 @@
  */
 
 import { createComponentLogger } from '../../utils/logger.js';
-import { notify } from '../../mcp/notification.service.js';
+import { notify } from '../../utils/notification.service.js';
 import type { CaptureService, TurnData } from '../capture/index.js';
 import type { LatentMemoryService } from '../latent-memory/latent-memory.service.js';
 import type { MaintenanceOrchestrator } from './maintenance/orchestrator.js';

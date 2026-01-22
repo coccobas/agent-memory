@@ -292,10 +292,12 @@ export async function createServer(context: AppContext): Promise<FastifyInstance
  * - CLI passes a shared runtime and manages process exit.
  * - Direct invocation creates and owns the runtime, and can exit the process.
  */
-export async function runServer(options: {
-  runtime?: Runtime;
-  manageProcess?: boolean;
-} = {}): Promise<void> {
+export async function runServer(
+  options: {
+    runtime?: Runtime;
+    manageProcess?: boolean;
+  } = {}
+): Promise<void> {
   if (!config.rest.enabled) {
     restLogger.info('REST API disabled. Set AGENT_MEMORY_REST_ENABLED=true to enable.');
     return;

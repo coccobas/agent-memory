@@ -50,11 +50,35 @@ describe('Episode Handlers', () => {
       update: vi.fn().mockResolvedValue({ ...mockEpisode, name: 'Updated' }),
       deactivate: vi.fn().mockResolvedValue(true),
       delete: vi.fn().mockResolvedValue(true),
-      start: vi.fn().mockResolvedValue({ ...mockEpisode, status: 'active', startedAt: new Date().toISOString() }),
-      complete: vi.fn().mockResolvedValue({ ...mockEpisode, status: 'completed', outcome: 'Done', outcomeType: 'success' }),
-      fail: vi.fn().mockResolvedValue({ ...mockEpisode, status: 'failed', outcome: 'Error', outcomeType: 'failure' }),
-      cancel: vi.fn().mockResolvedValue({ ...mockEpisode, status: 'cancelled', outcome: 'Cancelled', outcomeType: 'abandoned' }),
-      addEvent: vi.fn().mockResolvedValue({ id: 'event-1', episodeId: 'ep-123', eventType: 'checkpoint', name: 'Test event' }),
+      start: vi.fn().mockResolvedValue({
+        ...mockEpisode,
+        status: 'active',
+        startedAt: new Date().toISOString(),
+      }),
+      complete: vi.fn().mockResolvedValue({
+        ...mockEpisode,
+        status: 'completed',
+        outcome: 'Done',
+        outcomeType: 'success',
+      }),
+      fail: vi.fn().mockResolvedValue({
+        ...mockEpisode,
+        status: 'failed',
+        outcome: 'Error',
+        outcomeType: 'failure',
+      }),
+      cancel: vi.fn().mockResolvedValue({
+        ...mockEpisode,
+        status: 'cancelled',
+        outcome: 'Cancelled',
+        outcomeType: 'abandoned',
+      }),
+      addEvent: vi.fn().mockResolvedValue({
+        id: 'event-1',
+        episodeId: 'ep-123',
+        eventType: 'checkpoint',
+        name: 'Test event',
+      }),
       getEvents: vi.fn().mockResolvedValue([]),
       linkEntity: vi.fn().mockResolvedValue(undefined),
       getLinkedEntities: vi.fn().mockResolvedValue([]),
@@ -120,9 +144,7 @@ describe('Episode Handlers', () => {
     it('should throw when episode not found', async () => {
       mockEpisodeService.getById.mockResolvedValue(undefined);
 
-      await expect(
-        episodeHandlers.get(mockContext, { id: 'not-found' })
-      ).rejects.toThrow();
+      await expect(episodeHandlers.get(mockContext, { id: 'not-found' })).rejects.toThrow();
     });
   });
 

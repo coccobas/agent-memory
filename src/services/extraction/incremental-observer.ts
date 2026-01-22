@@ -18,7 +18,7 @@ import { createComponentLogger } from '../../utils/logger.js';
 import type { TriggerEvent, SessionContext, IMemoryObserver, TriggerType } from './triggers.js';
 import type { IncrementalExtractor } from './incremental.js';
 import type { ObserveCommitService, CommitInput } from '../observe/index.js';
-import type { ObserveCommitEntry } from '../../mcp/handlers/observe/types.js';
+import type { ObserveCommitEntry } from '../observe/types.js';
 
 const logger = createComponentLogger('incremental-observer');
 

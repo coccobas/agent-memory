@@ -400,23 +400,25 @@ export function addExperienceCommand(program: Command): void {
     )
     .option('--category <category>', 'Override auto-detected category')
     .option('--confidence <n>', 'Confidence score 0-1', (v) => parseFloat(v))
-    .action(async (text: string, options: { category?: string; confidence?: number }, cmd) => {
-      try {
-        const context = await getCliContext();
-        const globalOpts = cmd.optsWithGlobals() as { format?: string; agentId?: string };
+    .action(
+      async (text: string, options: { category?: string; confidence?: number }, cmd: Command) => {
+        try {
+          const context = await getCliContext();
+          const globalOpts = cmd.optsWithGlobals();
 
-        const result = await experienceHandlers.learn(context, {
-          text,
-          category: options.category,
-          confidence: options.confidence,
-          agentId: globalOpts.agentId,
-        });
+          const result = await experienceHandlers.learn(context, {
+            text,
+            category: options.category,
+            confidence: options.confidence,
+            agentId: globalOpts.agentId,
+          });
 
-        console.log(formatOutput(result, globalOpts.format as OutputFormat));
-      } catch (error) {
-        handleCliError(error);
-      } finally {
-        await shutdownCliContext();
+          console.log(formatOutput(result, globalOpts.format as OutputFormat));
+        } catch (error) {
+          handleCliError(error);
+        } finally {
+          await shutdownCliContext();
+        }
       }
-    });
+    );
 }

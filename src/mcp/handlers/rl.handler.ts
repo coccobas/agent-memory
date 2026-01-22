@@ -4,6 +4,7 @@
  * Handlers for managing reinforcement learning policies
  */
 
+import * as path from 'node:path';
 import type { AppContext } from '../../core/context.js';
 import { createComponentLogger } from '../../utils/logger.js';
 
@@ -270,8 +271,10 @@ async function exportDataset(
   const resolvedPath = fs.resolve(formattedFilename);
   const outputDir = fs.resolve(outputPath);
 
-  // Security check: ensure path is within intended directory
-  if (!resolvedPath.startsWith(outputDir)) {
+  // Security check: ensure path is within intended directory using path.relative()
+  // This is safer than startsWith() which can be bypassed with symlinks or encoding tricks
+  const relativePath = path.relative(outputDir, resolvedPath);
+  if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
     throw createValidationError('outputPath', 'Output path would escape intended directory');
   }
 

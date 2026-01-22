@@ -158,8 +158,16 @@ describe('BehaviorObserverService', () => {
       service.updateConfig({ behaviorConfidence: 0.9 });
 
       // This creates a retry_variant pattern which has 0.7 confidence
-      service.recordEvent('session-1', 'Edit', { file_path: '/a.ts', old_string: 'a', new_string: 'b' });
-      service.recordEvent('session-1', 'Edit', { file_path: '/a.ts', old_string: 'b', new_string: 'c' });
+      service.recordEvent('session-1', 'Edit', {
+        file_path: '/a.ts',
+        old_string: 'a',
+        new_string: 'b',
+      });
+      service.recordEvent('session-1', 'Edit', {
+        file_path: '/a.ts',
+        old_string: 'b',
+        new_string: 'c',
+      });
       service.recordEvent('session-1', 'Bash', { command: 'echo done' });
 
       const result = service.analyzeSession('session-1');

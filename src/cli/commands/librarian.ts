@@ -64,7 +64,9 @@ function formatStatusTable(result: StatusResult): string {
   lines.push('LIBRARIAN STATUS');
   lines.push('═'.repeat(50));
   lines.push('');
-  lines.push(`Service Enabled:         ${check(service.enabled)} ${service.enabled ? 'enabled' : 'disabled'}`);
+  lines.push(
+    `Service Enabled:         ${check(service.enabled)} ${service.enabled ? 'enabled' : 'disabled'}`
+  );
   lines.push(`Schedule:                ${cfg.schedule || '(none)'}`);
   lines.push(`Trigger on Session End:  ${check(cfg.triggerOnSessionEnd)}`);
   lines.push(`Pending Recommendations: ${service.pendingRecommendations}`);
@@ -157,7 +159,8 @@ function formatRecommendationsTable(result: RecommendationsResult): string {
   for (const rec of recommendations) {
     const shortId = rec.id.length > idWidth ? rec.id.slice(0, idWidth - 2) + '..' : rec.id;
     const pattern = rec.suggestedTitle || rec.patternDescription || '(no description)';
-    const shortPattern = pattern.length > patternWidth ? pattern.slice(0, patternWidth - 2) + '..' : pattern;
+    const shortPattern =
+      pattern.length > patternWidth ? pattern.slice(0, patternWidth - 2) + '..' : pattern;
     const date = rec.createdAt ? new Date(rec.createdAt).toLocaleDateString() : '';
 
     const row = [
