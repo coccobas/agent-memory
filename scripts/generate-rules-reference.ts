@@ -256,7 +256,6 @@ function categorizeTools(docs: ToolDoc[]): Map<string, ToolDoc[]> {
     // Extraction & Observation
     memory_observe: 'Extraction & Observation',
     memory_extraction_approve: 'Extraction & Observation',
-    memory_suggest: 'Extraction & Observation',
 
     // Maintenance
     memory_consolidate: 'Maintenance',

@@ -56,13 +56,13 @@ alwaysApply: false
 | [`memory_rl`](#memory_rl)                                 | 9 actions                                                               | experimental |
 | [`memory_session`](#memory_session)                       | `start`, `end`, `list`                                                  | standard     |
 | [`memory_status`](#memory_status)                         | —                                                                       | core         |
-| [`memory_suggest`](#memory_suggest)                       | —                                                                       | system       |
-| [`memory_summarize`](#memory_summarize)                   | 6 actions                                                               | advanced     |
-| [`memory_tag`](#memory_tag)                               | `create`, `list`, `attach`, `detach`, `for_entry`                       | standard     |
-| [`memory_task`](#memory_task)                             | 12 actions                                                              | standard     |
-| [`memory_tool`](#memory_tool)                             | 10 actions                                                              | standard     |
-| [`memory_verify`](#memory_verify)                         | `pre_check`, `post_check`, `acknowledge`, `status`                      | system       |
-| [`memory_voting`](#memory_voting)                         | `record_vote`, `get_consensus`, `list_votes`, `get_stats`               | experimental |
+
+| [`memory_summarize`](#memory_summarize) | 6 actions | advanced |
+| [`memory_tag`](#memory_tag) | `create`, `list`, `attach`, `detach`, `for_entry` | standard |
+| [`memory_task`](#memory_task) | 12 actions | standard |
+| [`memory_tool`](#memory_tool) | 10 actions | standard |
+| [`memory_verify`](#memory_verify) | `pre_check`, `post_check`, `acknowledge`, `status` | system |
+| [`memory_voting`](#memory_voting) | `record_vote`, `get_consensus`, `list_votes`, `get_stats` | experimental |
 
 ---
 
@@ -654,18 +654,6 @@ Extract memory entries from conversation/code context using LLM analysis.
 | `scopeId`              | string         |          | Scope ID (required for non-global scopes)                                                            |
 | `scopeType`            | `global`       |  `org`   | `project`                                                                                            | `session` |                                  | Scope for extracted entries (default: project) |
 | `sessionId`            | string         |          | Session ID (required for draft/commit)                                                               |
-
----
-
-### memory_suggest
-
-**DEPRECATED**: Use memory_observe instead for better extraction quality.
-
-| Parameter        | Type   | Required | Description                                                                                          |
-| ---------------- | ------ | :------: | ---------------------------------------------------------------------------------------------------- |
-| `text`           | string |    ✓     | Text to analyze for storeable content                                                                |
-| `maxSuggestions` | number |          | Maximum number of suggestions to return. Default from AGENT_MEMORY_SUGGEST_MAX_SUGGESTIONS env var … |
-| `minConfidence`  | number |          | Minimum confidence threshold (0-1). Default from AGENT_MEMORY_SUGGEST_MIN_CONFIDENCE env var (0.7).  |
 
 ---
 

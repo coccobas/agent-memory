@@ -103,7 +103,7 @@ export const DEFAULT_SKIP_TOOLS = [
   'memory_librarian', // Skip librarian (maintenance tool)
   'memory_analytics', // Skip analytics (read-only)
   'memory_permission', // Skip permission (admin tool)
-  'memory_suggest', // Skip suggest (analysis tool)
+
   'memory_ops', // Skip ops (utility tool)
   'memory_review', // Skip review (analysis tool)
   'memory_latent', // Skip latent (cache management)

@@ -61,7 +61,7 @@ import { toolsSection } from './sections/tools.js';
 import { classificationSection } from './sections/classification.js';
 import { extractionHookSection } from './sections/extractionHook.js';
 import { crossEncoderSection } from './sections/crossEncoder.js';
-import { suggestSection } from './sections/suggest.js';
+
 import { graphSection } from './sections/graph.js';
 import { episodeSection } from './sections/episode.js';
 import { stalenessSection } from './sections/staleness.js';
@@ -133,7 +133,6 @@ export const configRegistry: ConfigRegistry = {
     classification: classificationSection,
     extractionHook: extractionHookSection,
     crossEncoder: crossEncoderSection,
-    suggest: suggestSection,
     graph: graphSection,
     episode: episodeSection,
     staleness: stalenessSection,

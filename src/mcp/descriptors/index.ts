@@ -52,7 +52,7 @@ import { memoryGraphStatusDescriptor } from './memory_graph_status.js';
 import { memoryContextDescriptor } from './memory_context.js';
 import { memoryQuickstartDescriptor } from './memory_quickstart.js';
 import { memoryRememberDescriptor } from './memory_remember.js';
-import { memorySuggestDescriptor } from './memory_suggest.js';
+
 import { memoryEvidenceDescriptor } from './memory_evidence.js';
 import { memoryDescriptor } from './memory.js';
 import { memoryExtractionApproveDescriptor } from './memory_extraction_approve.js';
@@ -195,8 +195,6 @@ export const allDescriptors: AnyToolDescriptor[] = [
   memoryQuickstartDescriptor,
   // Natural language memory store
   memoryRememberDescriptor,
-  // Proactive storage suggestions
-  memorySuggestDescriptor,
   // Immutable Evidence Artifacts
   memoryEvidenceDescriptor,
   // Unified Natural Language Interface (simplified entry point)
@@ -286,7 +284,6 @@ export {
   memoryContextDescriptor,
   memoryQuickstartDescriptor,
   memoryRememberDescriptor,
-  memorySuggestDescriptor,
   memoryEvidenceDescriptor,
   memoryDescriptor,
   memoryExtractionApproveDescriptor,
