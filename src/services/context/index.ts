@@ -75,9 +75,9 @@ export {
   type UnifiedContextRequest,
   type UnifiedContextResult,
   type StalenessWarning as UnifiedStalenessWarning,
-  type PurposeBudgetConfig,
-  PURPOSE_BUDGETS,
 } from './unified-context.service.js';
+
+export type { PurposeBudgetConfig } from '../../config/registry/sections/contextBudget.js';
 
 // Existing services
 export { enrichResultsWithVersionContent } from './version-enricher.js';

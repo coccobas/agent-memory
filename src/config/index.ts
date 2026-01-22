@@ -416,6 +416,24 @@ export interface Config {
     boundarySimilarityThreshold: number;
     boundaryTimeGapMs: number;
   };
+  contextBudget: {
+    enabled: boolean;
+    baseBudget: number;
+    maxBudget: number;
+    compressionReserve: number;
+    sessionStartDefault: number;
+    sessionStartMin: number;
+    sessionStartMax: number;
+    toolInjectionDefault: number;
+    toolInjectionMin: number;
+    toolInjectionMax: number;
+    queryDefault: number;
+    queryMin: number;
+    queryMax: number;
+    customDefault: number;
+    customMin: number;
+    customMax: number;
+  };
 }
 
 // =============================================================================

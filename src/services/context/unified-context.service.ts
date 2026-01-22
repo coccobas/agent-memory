@@ -30,6 +30,8 @@ import {
   type ContextManagerConfig,
 } from './context-manager.service.js';
 import type { QueryIntent } from '../query-rewrite/types.js';
+import { config } from '../../config/index.js';
+import type { PurposeBudgetConfig } from '../../config/registry/sections/contextBudget.js';
 
 const logger = createComponentLogger('unified-context');
 
@@ -126,15 +128,6 @@ export interface UnifiedContextResult {
 }
 
 /**
- * Budget configuration per purpose
- */
-export interface PurposeBudgetConfig {
-  default: number;
-  min: number;
-  max: number;
-}
-
-/**
  * Scope filter for queries (type + optional ID)
  */
 interface ScopeFilter {
@@ -146,15 +139,31 @@ interface ScopeFilter {
 // CONSTANTS
 // =============================================================================
 
-/**
- * Default budgets by purpose
- */
-export const PURPOSE_BUDGETS: Record<ContextPurpose['type'], PurposeBudgetConfig> = {
-  session_start: { default: 2000, min: 500, max: 4000 },
-  tool_injection: { default: 1600, min: 200, max: 3200 },
-  query: { default: 4000, min: 1000, max: 8000 },
-  custom: { default: 2000, min: 200, max: 8000 },
-};
+function getPurposeBudgets(): Record<ContextPurpose['type'], PurposeBudgetConfig> {
+  const cb = config.contextBudget;
+  return {
+    session_start: {
+      default: cb.sessionStartDefault,
+      min: cb.sessionStartMin,
+      max: cb.sessionStartMax,
+    },
+    tool_injection: {
+      default: cb.toolInjectionDefault,
+      min: cb.toolInjectionMin,
+      max: cb.toolInjectionMax,
+    },
+    query: {
+      default: cb.queryDefault,
+      min: cb.queryMin,
+      max: cb.queryMax,
+    },
+    custom: {
+      default: cb.customDefault,
+      min: cb.customMin,
+      max: cb.customMax,
+    },
+  };
+}
 
 /**
  * Default entry types by purpose
@@ -234,7 +243,8 @@ export class UnifiedContextService {
       }
 
       // Determine budget
-      const purposeConfig = PURPOSE_BUDGETS[request.purpose.type];
+      const purposeBudgets = getPurposeBudgets();
+      const purposeConfig = purposeBudgets[request.purpose.type];
       let budget: number;
       if (request.budget === 'auto' || request.budget === undefined) {
         budget = purposeConfig.default;
@@ -329,14 +339,14 @@ export class UnifiedContextService {
    * Get budget configuration for all purposes
    */
   getBudgetInfo(): Record<string, PurposeBudgetConfig> {
-    return { ...PURPOSE_BUDGETS };
+    return { ...getPurposeBudgets() };
   }
 
   /**
    * Get budget for a specific purpose
    */
   getBudgetForPurpose(purpose: ContextPurpose): number {
-    return PURPOSE_BUDGETS[purpose.type].default;
+    return getPurposeBudgets()[purpose.type].default;
   }
 
   /**

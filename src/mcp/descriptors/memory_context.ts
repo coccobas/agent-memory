@@ -12,9 +12,9 @@ import {
   createUnifiedContextService,
   type ContextPurpose,
   type IncludableEntryType,
-  PURPOSE_BUDGETS,
 } from '../../services/context/unified-context.service.js';
 import type { ScopeType } from '../../db/schema.js';
+import { config } from '../../config/index.js';
 
 /**
  * Map purpose string to ContextPurpose object
@@ -214,10 +214,25 @@ Example (get budget info):
 
     'budget-info': {
       contextHandler: async () => {
+        const cb = config.contextBudget;
+        const budgets = {
+          session_start: {
+            default: cb.sessionStartDefault,
+            min: cb.sessionStartMin,
+            max: cb.sessionStartMax,
+          },
+          tool_injection: {
+            default: cb.toolInjectionDefault,
+            min: cb.toolInjectionMin,
+            max: cb.toolInjectionMax,
+          },
+          query: { default: cb.queryDefault, min: cb.queryMin, max: cb.queryMax },
+          custom: { default: cb.customDefault, min: cb.customMin, max: cb.customMax },
+        };
         return {
           success: true,
-          content: JSON.stringify({ budgets: PURPOSE_BUDGETS }),
-          budgets: PURPOSE_BUDGETS,
+          content: JSON.stringify({ budgets }),
+          budgets,
         };
       },
     },
