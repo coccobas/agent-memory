@@ -19,6 +19,7 @@ import {
   type QuickstartDisplayData,
   type QuickstartDisplayMode,
 } from '../../utils/terminal-formatter.js';
+import { formatQuickstartMinto, type QuickstartMintoInput } from '../../utils/minto-formatter.js';
 import type { EntryType, ScopeType } from '../../db/schema.js';
 import type { PermissionLevel } from '../../services/permission.service.js';
 import type { MemoryHealth } from '../../services/librarian/types.js';
@@ -86,6 +87,13 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
         'Auto-create episode when sessionName indicates substantive work (default: true). ' +
         'Triggers on patterns like "fix bug", "implement feature", "refactor", etc.',
     },
+    // Minto Pyramid style output
+    mintoStyle: {
+      type: 'boolean',
+      description:
+        'Use Minto Pyramid format for _display output: lead with conclusion, group supporting details. ' +
+        'More concise than standard format (default: false)',
+    },
   },
   contextHandler: async (ctx, args) => {
     const sessionName = args?.sessionName as string | undefined;
@@ -120,6 +128,9 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
 
     // Episode auto-creation - default to true
     const autoEpisode = (args?.autoEpisode as boolean) ?? true;
+
+    // Minto style - default to false
+    const mintoStyle = (args?.mintoStyle as boolean) ?? false;
 
     // Track what was created
     let projectAction: 'created' | 'exists' | 'none' | 'error' = 'none';
@@ -590,7 +601,29 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
         episodeAction === 'exists' && episodeSummary ? buildResumeSummary(episodeSummary) : null,
     };
 
-    const _display = formatQuickstartDashboard(displayData, displayMode);
+    let _display: string;
+    if (mintoStyle) {
+      const mintoInput: QuickstartMintoInput = {
+        projectName: detectedProjectName,
+        sessionName: effectiveSessionName,
+        sessionAction,
+        episodeName: activeEpisode?.name ?? null,
+        entryCounts: {
+          guidelines: entryGuidelineCount,
+          knowledge: entryKnowledgeCount,
+          tools: entryToolCount,
+          experiences: experienceCount,
+        },
+        healthScore: memoryHealth?.score,
+        healthGrade: memoryHealth?.grade,
+        pendingTasks: pendingTasks.length > 0 ? pendingTasks.length : undefined,
+        pendingRecommendations: pendingRecommendations > 0 ? pendingRecommendations : undefined,
+        staleCodeWarning: staleCodeInfo?.isStale ? staleCodeInfo.message : undefined,
+      };
+      _display = formatQuickstartMinto(mintoInput);
+    } else {
+      _display = formatQuickstartDashboard(displayData, displayMode);
+    }
 
     // Build combined response with clear action indicator
     return {
