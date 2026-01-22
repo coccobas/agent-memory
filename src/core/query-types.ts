@@ -216,6 +216,9 @@ export interface DefaultQuery
   // Hierarchical context params
   /** Return hierarchical overview instead of full entries (~1.5k vs ~15k tokens) */
   hierarchical?: boolean;
+  // Explainability params
+  /** Return nested explain output with score breakdowns and stage timing */
+  explain?: boolean;
 }
 
 // =============================================================================

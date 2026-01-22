@@ -43,7 +43,7 @@ function createMockDb(): MockDb {
     groupBy: vi.fn().mockReturnThis(),
     orderBy: vi.fn().mockReturnThis(),
     limit: vi.fn().mockReturnThis(),
-    all: vi.fn().mockResolvedValue([]),
+    all: vi.fn().mockReturnValue([]),
   };
   return mockDb;
 }
@@ -59,7 +59,7 @@ describe('Prioritization Repository', () => {
 
   describe('getOutcomesByIntentAndType', () => {
     it('should aggregate outcomes by intent and type', async () => {
-      mockDb.all.mockResolvedValue([
+      mockDb.all.mockReturnValue([
         {
           entryType: 'knowledge',
           totalRetrievals: 50,
@@ -88,7 +88,7 @@ describe('Prioritization Repository', () => {
     });
 
     it('should respect lookback window', async () => {
-      mockDb.all.mockResolvedValue([]);
+      mockDb.all.mockReturnValue([]);
 
       await repository.getOutcomesByIntentAndType('lookup', 'scope-123', 30);
 
@@ -97,7 +97,7 @@ describe('Prioritization Repository', () => {
     });
 
     it('should return empty aggregation when no data', async () => {
-      mockDb.all.mockResolvedValue([]);
+      mockDb.all.mockReturnValue([]);
 
       const result = await repository.getOutcomesByIntentAndType('lookup', 'scope-123', 30);
 
@@ -106,7 +106,7 @@ describe('Prioritization Repository', () => {
     });
 
     it('should calculate success rate correctly', async () => {
-      mockDb.all.mockResolvedValue([
+      mockDb.all.mockReturnValue([
         {
           entryType: 'knowledge',
           totalRetrievals: 100,
@@ -125,7 +125,7 @@ describe('Prioritization Repository', () => {
 
   describe('getUsefulnessMetrics', () => {
     it('should return metrics for requested entries', async () => {
-      mockDb.all.mockResolvedValue([
+      mockDb.all.mockReturnValue([
         {
           entryId: 'entry-1',
           retrievalCount: 50,
@@ -153,7 +153,7 @@ describe('Prioritization Repository', () => {
     });
 
     it('should batch query efficiently', async () => {
-      mockDb.all.mockResolvedValue([]);
+      mockDb.all.mockReturnValue([]);
 
       await repository.getUsefulnessMetrics(['entry-1', 'entry-2', 'entry-3']);
 
@@ -169,7 +169,7 @@ describe('Prioritization Repository', () => {
     });
 
     it('should handle missing entries gracefully', async () => {
-      mockDb.all.mockResolvedValue([
+      mockDb.all.mockReturnValue([
         {
           entryId: 'entry-1',
           retrievalCount: 50,
@@ -190,8 +190,7 @@ describe('Prioritization Repository', () => {
 
   describe('findSimilarSuccessfulContexts', () => {
     it('should find contexts above similarity threshold', async () => {
-      // Mock returns raw DB rows - the repo parses query_embedding JSON
-      mockDb.all.mockResolvedValue([
+      mockDb.all.mockReturnValue([
         {
           queryEmbedding: JSON.stringify([0.1, 0.2, 0.3]),
           entryId: 'entry-1',
@@ -215,7 +214,7 @@ describe('Prioritization Repository', () => {
     });
 
     it('should respect max results limit', async () => {
-      mockDb.all.mockResolvedValue([]);
+      mockDb.all.mockReturnValue([]);
 
       await repository.findSimilarSuccessfulContexts([0.1, 0.2], 0.7, 25);
 
@@ -224,7 +223,7 @@ describe('Prioritization Repository', () => {
     });
 
     it('should only return successful outcomes', async () => {
-      mockDb.all.mockResolvedValue([
+      mockDb.all.mockReturnValue([
         {
           queryEmbedding: JSON.stringify([0.1, 0.2, 0.3]),
           entryId: 'entry-1',
@@ -240,7 +239,7 @@ describe('Prioritization Repository', () => {
     });
 
     it('should return empty array when no similar contexts', async () => {
-      mockDb.all.mockResolvedValue([]);
+      mockDb.all.mockReturnValue([]);
 
       const result = await repository.findSimilarSuccessfulContexts(
         [0.1, 0.2, 0.3],

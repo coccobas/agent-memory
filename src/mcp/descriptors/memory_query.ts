@@ -74,6 +74,16 @@ export const memoryQueryDescriptor: ToolDescriptor = {
       description: 'Return ~1.5k token summary instead of ~15k full entries',
     },
     limit: { type: 'number' },
+    mintoStyle: {
+      type: 'boolean',
+      description:
+        'Use Minto Pyramid format for context action (default: true). Set false for verbose output.',
+    },
+    explain: {
+      type: 'boolean',
+      description:
+        'Return nested explain output with score breakdowns, stage timing, and reasoning (default: false).',
+    },
   },
   actions: {
     search: {

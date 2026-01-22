@@ -10,6 +10,7 @@
 import type { SimpleToolDescriptor } from './types.js';
 import type { AppContext } from '../../core/context.js';
 import { formatStatusTerminal } from '../../utils/terminal-formatter.js';
+import { formatStatusMinto, type StatusMintoInput } from '../../utils/minto-formatter.js';
 
 export interface StatusResult {
   project: {
@@ -72,12 +73,18 @@ When displaying to users, output the \`_display\` content verbatim instead of re
       type: 'boolean',
       description: 'Include top 5 entries per type (default: false)',
     },
+    mintoStyle: {
+      type: 'boolean',
+      description:
+        'Use Minto Pyramid format (default: true). Set false for verbose dashboard output.',
+    },
   },
   contextHandler: async (
     ctx: AppContext,
     args?: Record<string, unknown>
   ): Promise<StatusResult> => {
     const includeTopEntries = (args?.includeTopEntries as boolean) ?? false;
+    const mintoStyle = (args?.mintoStyle as boolean) ?? true;
 
     // Get project and session from auto-detection (single call)
     const detected = ctx.services.contextDetection
@@ -223,8 +230,20 @@ When displaying to users, output the \`_display\` content verbatim instead of re
       episode,
     };
 
-    // Add human-readable formatted display
-    result._display = formatStatusTerminal(result);
+    if (mintoStyle) {
+      const mintoInput: StatusMintoInput = {
+        project: result.project,
+        session: result.session,
+        counts: result.counts,
+        health: result.health,
+        graph: result.graph,
+        librarian: result.librarian,
+        episode: result.episode,
+      };
+      result._display = formatStatusMinto(mintoInput);
+    } else {
+      result._display = formatStatusTerminal(result);
+    }
 
     return result;
   },

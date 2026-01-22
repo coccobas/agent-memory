@@ -10,9 +10,16 @@ import type { ScopeType, Tool, Guideline, Knowledge, Experience, Tag } from '../
 import type { DbClient } from '../../db/connection.js';
 import type Database from 'better-sqlite3';
 import { PaginationCursor } from '../../utils/pagination.js';
+import { explainQueryNested } from '../explain/explain.service.js';
+import type { NestedExplainResult } from '../explain/types.js';
 
-// Import shared types from types.ts to break circular dependency
-import type { QueryEntryType, QueryType, ScopeDescriptor, FilterStageResult } from './types.js';
+import type {
+  QueryEntryType,
+  QueryType,
+  ScopeDescriptor,
+  FilterStageResult,
+  ParsedExclusion,
+} from './types.js';
 import type { ExtractedEntity } from './entity-extractor.js';
 
 // Re-export types for backward compatibility
@@ -305,6 +312,7 @@ export type QueryResultItem =
 export interface MemoryQueryResult {
   results: QueryResultItem[];
   meta: ResponseMeta;
+  explain?: NestedExplainResult;
 }
 
 /**
@@ -339,6 +347,10 @@ export interface PipelineContext {
   }>;
   rewriteIntent?: string;
   rewriteStrategy?: string;
+
+  // Exclusions parsed from query (negative examples)
+  // Populated by rewrite stage, consumed by FTS and filter stages
+  exclusions?: ParsedExclusion[];
 
   // Filter results (entry IDs that pass filters)
   ftsMatchIds: Record<QueryEntryType, Set<string>> | null;
@@ -668,15 +680,25 @@ export async function executePipeline(
   return context;
 }
 
-/**
- * Build final result from context
- * Task 7: Added pagination cursor support
- */
+function generateNestedExplain(
+  ctx: PipelineContext,
+  results: QueryResultItem[]
+): NestedExplainResult {
+  if (!ctx.telemetry) {
+    throw new Error('Telemetry required for explain output');
+  }
+  return explainQueryNested({
+    telemetry: ctx.telemetry,
+    context: ctx,
+    results,
+    query: ctx.search,
+  });
+}
+
 export function buildQueryResult(ctx: PipelineContext): MemoryQueryResult {
   const hasMore = ctx.results.length > ctx.limit;
   const returnedCount = Math.min(ctx.results.length, ctx.limit);
 
-  // Generate next cursor if there are more results
   let nextCursor: string | undefined;
   if (hasMore) {
     const nextOffset = ctx.offset + returnedCount;
@@ -693,16 +715,14 @@ export function buildQueryResult(ctx: PipelineContext): MemoryQueryResult {
     hasMore,
     nextCursor,
 
-    // Include total counts per type for hierarchical summaries
     ...(ctx.totalCounts && { totalCounts: ctx.totalCounts }),
 
-    // Add query rewrite metadata (HyDE visibility)
     ...(ctx.rewriteStrategy && {
       rewrite: {
         strategy: ctx.rewriteStrategy,
         intent: ctx.rewriteIntent,
         queries: ctx.searchQueries?.map((q) => ({
-          text: q.text.substring(0, 200), // Truncate for readability
+          text: q.text.substring(0, 200),
           source: q.source,
           weight: q.weight,
         })),
@@ -710,8 +730,14 @@ export function buildQueryResult(ctx: PipelineContext): MemoryQueryResult {
     }),
   };
 
-  return {
+  const result: MemoryQueryResult = {
     results: ctx.results.slice(0, ctx.limit),
     meta,
   };
+
+  if (ctx.params.explain && ctx.telemetry) {
+    result.explain = generateNestedExplain(ctx, result.results);
+  }
+
+  return result;
 }

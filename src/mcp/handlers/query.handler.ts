@@ -10,6 +10,10 @@ import { createConversationService } from '../../services/conversation.service.j
 import { createComponentLogger } from '../../utils/logger.js';
 import { formatHierarchicalContext } from '../../services/context/hierarchical-formatter.js';
 import { enrichResultsWithVersionContent } from '../../services/context/version-enricher.js';
+import {
+  formatQueryContextMinto,
+  type QueryContextMintoInput,
+} from '../../utils/minto-formatter.js';
 
 import type { MemoryQueryParams } from '../types.js';
 
@@ -152,11 +156,10 @@ export const queryHandlers = {
       useFts5: getOptionalParam(params, 'useFts5', isBoolean),
       fuzzy: getOptionalParam(params, 'fuzzy', isBoolean),
       regex: getOptionalParam(params, 'regex', isBoolean),
-      // Temporal filtering (knowledge entries only)
       atTime: getOptionalParam(params, 'atTime', isString),
       validDuring: getOptionalParam(params, 'validDuring', isValidDuringPeriod),
-      // Priority filtering (guidelines only)
       priority: getOptionalParam(params, 'priority', isObject),
+      explain: getOptionalParam(params, 'explain', isBoolean),
     };
 
     // Permissions: deny by default, allow per requested type/scope
@@ -228,6 +231,7 @@ export const queryHandlers = {
     return formatTimestamps({
       results: result.results,
       meta: result.meta,
+      ...(result.explain && { explain: result.explain }),
     });
   },
 
@@ -246,10 +250,11 @@ export const queryHandlers = {
     const compact = getOptionalParam(params, 'compact', isBoolean) ?? false;
     const hierarchical = getOptionalParam(params, 'hierarchical', isBoolean) ?? false;
     const limitPerType = getOptionalParam(params, 'limitPerType', isNumber);
-    // agentId optional for read operations
     const agentId = getOptionalParam(params, 'agentId', isString);
     const semanticSearch = getOptionalParam(params, 'semanticSearch', isBoolean);
     const search = getOptionalParam(params, 'search', isString);
+    const mintoStyle = getOptionalParam(params, 'mintoStyle', isBoolean) ?? true;
+    const explain = getOptionalParam(params, 'explain', isBoolean);
 
     // Auto-detect project from cwd if scopeType is 'project' and scopeId not provided
     if (scopeType === 'project' && !scopeId) {
@@ -280,7 +285,6 @@ export const queryHandlers = {
       throw createPermissionError('read', 'memory');
     }
 
-    // Query parameters for context
     const queryParams: MemoryQueryParams = {
       types: [...allowedTypes],
       scope: {
@@ -292,6 +296,7 @@ export const queryHandlers = {
       limit: limitPerType,
       search,
       semanticSearch,
+      explain,
     };
 
     // Execute query using the modular pipeline with context-injected dependencies
@@ -332,11 +337,8 @@ export const queryHandlers = {
       }
     }
 
-    // Return hierarchical format if requested (~1.5k tokens vs ~15k tokens)
     if (hierarchical) {
-      // Enrich results with version content for snippet extraction
       const enrichedResults = enrichResultsWithVersionContent(result.results, context.db);
-      // Pass totalCounts from meta for accurate counts (not limited by pagination)
       const hierarchicalResult = formatHierarchicalContext(
         enrichedResults,
         scopeType,
@@ -346,16 +348,16 @@ export const queryHandlers = {
       return formatTimestamps({
         ...hierarchicalResult,
         ...(contextBudget && { contextBudget }),
+        ...(result.explain && { explain: result.explain }),
       });
     }
 
-    // Standard full response format
     const tools = result.results.filter((r) => r.type === 'tool');
     const guidelines = result.results.filter((r) => r.type === 'guideline');
     const knowledge = result.results.filter((r) => r.type === 'knowledge');
     const experiences = result.results.filter((r) => r.type === 'experience');
 
-    return formatTimestamps({
+    const baseResult = {
       scope: {
         type: scopeType,
         id: scopeId ?? null,
@@ -366,6 +368,26 @@ export const queryHandlers = {
       experiences,
       meta: result.meta,
       ...(contextBudget && { contextBudget }),
-    });
+      ...(result.explain && { explain: result.explain }),
+    };
+
+    if (mintoStyle) {
+      const mintoInput: QueryContextMintoInput = {
+        scope: { type: scopeType, id: scopeId ?? null },
+        tools: tools.map((t) => ({ name: (t as { name?: string }).name ?? 'unknown' })),
+        guidelines: guidelines.map((g) => ({ name: (g as { name?: string }).name ?? 'unknown' })),
+        knowledge: knowledge.map((k) => ({ title: (k as { title?: string }).title ?? 'unknown' })),
+        experiences: experiences.map((e) => ({
+          title: (e as { title?: string }).title,
+        })),
+        contextBudget,
+      };
+      return formatTimestamps({
+        ...baseResult,
+        _display: formatQueryContextMinto(mintoInput),
+      });
+    }
+
+    return formatTimestamps(baseResult);
   },
 };

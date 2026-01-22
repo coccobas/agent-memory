@@ -24,6 +24,7 @@ import {
   createDocScannerService,
   createGuidelineSeederService,
 } from '../../services/onboarding/index.js';
+import { formatOnboardMinto, type OnboardMintoInput } from '../../utils/minto-formatter.js';
 
 export const memoryOnboardDescriptor: SimpleToolDescriptor = {
   name: 'memory_onboard',
@@ -57,6 +58,11 @@ export const memoryOnboardDescriptor: SimpleToolDescriptor = {
       type: 'boolean',
       description: 'Preview what would be done without making changes (default: false)',
     },
+    mintoStyle: {
+      type: 'boolean',
+      description:
+        'Use Minto Pyramid format (default: true). Set false for verbose dashboard output.',
+    },
   },
   contextHandler: async (ctx, args) => {
     const cwd = process.cwd();
@@ -68,6 +74,7 @@ export const memoryOnboardDescriptor: SimpleToolDescriptor = {
       seedGuidelines: (args?.seedGuidelines as boolean) ?? true,
       skipSteps: (args?.skipSteps as string[] | undefined) ?? [],
       dryRun: (args?.dryRun as boolean) ?? false,
+      mintoStyle: (args?.mintoStyle as boolean) ?? true,
     };
 
     const skipSteps = new Set(options.skipSteps);
@@ -181,9 +188,13 @@ export const memoryOnboardDescriptor: SimpleToolDescriptor = {
 
       nextSteps.push('Run without dryRun:true to apply changes');
 
+      const display = options.mintoStyle
+        ? formatOnboardMinto(buildOnboardMintoInput(result))
+        : formatOnboardingResult(result, true);
+
       return {
         ...result,
-        _display: formatOnboardingResult(result, true),
+        _display: display,
       };
     }
 
@@ -349,12 +360,28 @@ export const memoryOnboardDescriptor: SimpleToolDescriptor = {
       );
     }
 
+    const display = options.mintoStyle
+      ? formatOnboardMinto(buildOnboardMintoInput(result))
+      : formatOnboardingResult(result, false);
+
     return {
       ...result,
-      _display: formatOnboardingResult(result, false),
+      _display: display,
     };
   },
 };
+
+function buildOnboardMintoInput(result: OnboardingResult): OnboardMintoInput {
+  return {
+    dryRun: result.dryRun ?? false,
+    project: result.project,
+    techStack: result.techStack,
+    importedDocs: result.importedDocs,
+    seededGuidelines: result.seededGuidelines,
+    warnings: result.warnings,
+    nextSteps: result.nextSteps,
+  };
+}
 
 /**
  * Get a descriptive title for a documentation file

@@ -87,12 +87,10 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
         'Auto-create episode when sessionName indicates substantive work (default: true). ' +
         'Triggers on patterns like "fix bug", "implement feature", "refactor", etc.',
     },
-    // Minto Pyramid style output
     mintoStyle: {
       type: 'boolean',
       description:
-        'Use Minto Pyramid format for _display output: lead with conclusion, group supporting details. ' +
-        'More concise than standard format (default: false)',
+        'Use Minto Pyramid format (default: true). Set false for verbose dashboard output.',
     },
   },
   contextHandler: async (ctx, args) => {
@@ -129,8 +127,7 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
     // Episode auto-creation - default to true
     const autoEpisode = (args?.autoEpisode as boolean) ?? true;
 
-    // Minto style - default to false
-    const mintoStyle = (args?.mintoStyle as boolean) ?? false;
+    const mintoStyle = (args?.mintoStyle as boolean) ?? true;
 
     // Track what was created
     let projectAction: 'created' | 'exists' | 'none' | 'error' = 'none';

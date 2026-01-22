@@ -539,6 +539,71 @@ describe('rewriteStage', () => {
   });
 });
 
+describe('rewriteStage exclusion parsing', () => {
+  it('should parse single word exclusions from search', () => {
+    const ctx = createContext({
+      params: {},
+      search: 'authentication -password',
+    });
+
+    const result = rewriteStage(ctx);
+
+    expect(result.search).toBe('authentication');
+    expect(result.exclusions).toHaveLength(1);
+    expect(result.exclusions?.[0]).toEqual({ term: 'password', isPhrase: false });
+    expect(result.searchQueries[0].text).toBe('authentication');
+  });
+
+  it('should parse phrase exclusions from search', () => {
+    const ctx = createContext({
+      params: {},
+      search: 'api -"deprecated endpoint"',
+    });
+
+    const result = rewriteStage(ctx);
+
+    expect(result.search).toBe('api');
+    expect(result.exclusions).toHaveLength(1);
+    expect(result.exclusions?.[0]).toEqual({ term: 'deprecated endpoint', isPhrase: true });
+  });
+
+  it('should handle query with no exclusions', () => {
+    const ctx = createContext({
+      params: {},
+      search: 'simple query',
+    });
+
+    const result = rewriteStage(ctx);
+
+    expect(result.search).toBe('simple query');
+    expect(result.exclusions).toBeUndefined();
+  });
+
+  it('should handle multiple exclusions', () => {
+    const ctx = createContext({
+      params: {},
+      search: 'database -mysql -postgres -"old version"',
+    });
+
+    const result = rewriteStage(ctx);
+
+    expect(result.search).toBe('database');
+    expect(result.exclusions).toHaveLength(3);
+  });
+
+  it('should preserve exclusions when disableRewrite is true', () => {
+    const ctx = createContext({
+      params: { disableRewrite: true },
+      search: 'query -excluded',
+    });
+
+    const result = rewriteStage(ctx);
+
+    expect(result.searchQueries[0].text).toBe('query -excluded');
+    expect(result.exclusions).toBeUndefined();
+  });
+});
+
 describe('rewriteStageAsync', () => {
   // Mock query rewrite service
   let mockRewriteService: {

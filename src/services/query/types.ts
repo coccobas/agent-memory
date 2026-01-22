@@ -72,3 +72,24 @@ export interface FilterStageResult {
   knowledge: FilteredEntry<Knowledge>[];
   experiences: FilteredEntry<Experience>[];
 }
+
+// =============================================================================
+// EXCLUSION TYPES (Negative Examples)
+// =============================================================================
+
+/**
+ * Parsed exclusion from query.
+ * Supports syntax: -term or -"multi word phrase"
+ */
+export interface ParsedExclusion {
+  term: string;
+  isPhrase: boolean;
+}
+
+/**
+ * Result of parsing exclusions from a query string.
+ */
+export interface ExclusionParseResult {
+  cleanedQuery: string;
+  exclusions: ParsedExclusion[];
+}

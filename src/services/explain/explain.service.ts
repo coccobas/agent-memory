@@ -7,6 +7,21 @@
 
 import type { PipelineTelemetry, StageTelemetry } from '../query/pipeline.js';
 import type { QueryResultItem } from '../query/pipeline.js';
+import type {
+  NestedExplainResult,
+  NestedExplainRequest,
+  ResolveStageExplain,
+  StrategyStageExplain,
+  RewriteStageExplain,
+  FtsStageExplain,
+  SemanticStageExplain,
+  HierarchicalStageExplain,
+  FetchStageExplain,
+  FilterStageExplain,
+  ScoreStageExplain,
+  RerankStageExplain,
+  ScoreComponents,
+} from './types.js';
 
 export interface ExplainRequest {
   telemetry: PipelineTelemetry;
@@ -212,9 +227,192 @@ function generateSummary(results: QueryResultItem[], telemetry: PipelineTelemetr
   return `Found ${resultCount} ${typeStr} entries using ${strategy} search in ${totalMs}${cacheHit}`;
 }
 
+export function explainQueryNested(request: NestedExplainRequest): NestedExplainResult {
+  const { telemetry, context, results } = request;
+
+  const getStageDuration = (name: string): number => {
+    const stage = telemetry.stages.find((s) => s.name === name);
+    return stage?.durationMs ?? 0;
+  };
+
+  const resolve: ResolveStageExplain = {
+    scopeChain: context.scopeChain.map((s) => ({
+      scopeType: s.scopeType,
+      scopeId: s.scopeId ?? null,
+    })),
+    types: context.types as string[],
+    limit: context.limit,
+    offset: context.offset,
+    durationMs: getStageDuration('resolve'),
+  };
+
+  const strategy: StrategyStageExplain = {
+    strategy: (context.searchStrategy as 'hybrid' | 'semantic' | 'fts5' | 'like') ?? 'hybrid',
+    reason: getStrategyReason(context.searchStrategy ?? 'hybrid'),
+    durationMs: getStageDuration('strategy'),
+  };
+
+  const rewrite: RewriteStageExplain | undefined = context.searchQueries
+    ? {
+        originalQuery: context.search ?? '',
+        rewrittenQueries: context.searchQueries.map((q) => ({
+          text: q.text,
+          source: q.source,
+          weight: q.weight,
+        })),
+        intent: context.rewriteIntent,
+        exclusions: context.exclusions?.map((e) => (e.isPhrase ? `"${e.term}"` : e.term)),
+        durationMs: getStageDuration('rewrite'),
+      }
+    : undefined;
+
+  const ftsMatchCount = context.ftsMatchIds
+    ? Object.values(context.ftsMatchIds).reduce((sum, set) => sum + set.size, 0)
+    : 0;
+  const ftsTopScores = context.ftsScores
+    ? Array.from(context.ftsScores.values())
+        .sort((a, b) => b - a)
+        .slice(0, 10)
+    : [];
+
+  const fts: FtsStageExplain = {
+    used: telemetry.decisions.usedFts5 ?? false,
+    matchCount: ftsMatchCount,
+    topScores: ftsTopScores,
+    durationMs: getStageDuration('fts'),
+  };
+
+  const semanticMatchCount = context.semanticScores?.size ?? 0;
+  const semanticTopScores = context.semanticScores
+    ? Array.from(context.semanticScores.values())
+        .sort((a, b) => b - a)
+        .slice(0, 10)
+    : [];
+
+  const semantic: SemanticStageExplain = {
+    used: telemetry.decisions.usedSemanticSearch ?? false,
+    matchCount: semanticMatchCount,
+    topScores: semanticTopScores,
+    durationMs: getStageDuration('semantic'),
+  };
+
+  const hierarchical: HierarchicalStageExplain = {
+    used: telemetry.decisions.usedHierarchical ?? false,
+    durationMs: getStageDuration('hierarchical'),
+  };
+
+  const totalFetched = Object.values(context.fetchedEntries).reduce(
+    (sum, arr) => sum + arr.length,
+    0
+  );
+  const fetchedByType: Record<string, number> = {
+    tool: context.fetchedEntries.tools.length,
+    guideline: context.fetchedEntries.guidelines.length,
+    knowledge: context.fetchedEntries.knowledge.length,
+    experience: context.fetchedEntries.experiences.length,
+  };
+
+  const fetch: FetchStageExplain = {
+    fetchedByType,
+    totalFetched,
+    durationMs: getStageDuration('fetch'),
+  };
+
+  const beforeCount = totalFetched;
+  const afterCount = context.filtered
+    ? context.filtered.tools.length +
+      context.filtered.guidelines.length +
+      context.filtered.knowledge.length +
+      context.filtered.experiences.length
+    : results.length;
+
+  const filtersApplied: string[] = [];
+  if (context.search) filtersApplied.push('text_search');
+  if (context.params.tags) filtersApplied.push('tags');
+  if (context.params.relatedTo) filtersApplied.push('relations');
+  if (context.exclusions && context.exclusions.length > 0) filtersApplied.push('exclusions');
+
+  const filter: FilterStageExplain = {
+    beforeCount,
+    afterCount,
+    filtersApplied,
+    durationMs: getStageDuration('filter'),
+  };
+
+  const scores = results.map((r) => r.score);
+  const topEntries = results.slice(0, 5).map((r) => {
+    const components: ScoreComponents = {
+      fts: context.ftsScores?.get(r.id),
+      semantic: context.semanticScores?.get(r.id),
+      final: r.score,
+    };
+    return {
+      id: r.id,
+      type: r.type,
+      components,
+    };
+  });
+
+  const score: ScoreStageExplain = {
+    factors: getScoringFactors(telemetry.decisions),
+    scoreRange: {
+      min: scores.length > 0 ? Math.min(...scores) : 0,
+      max: scores.length > 0 ? Math.max(...scores) : 0,
+    },
+    topEntries,
+    durationMs: getStageDuration('score'),
+  };
+
+  const rerank: RerankStageExplain = {
+    used: telemetry.decisions.usedReranking ?? telemetry.decisions.usedCrossEncoder ?? false,
+    method: telemetry.decisions.usedCrossEncoder ? 'cross-encoder' : 'embedding',
+    durationMs: getStageDuration('rerank'),
+  };
+
+  const sortedStages = [...telemetry.stages].sort((a, b) => b.durationMs - a.durationMs);
+  const topStage = sortedStages[0];
+  const bottleneck =
+    topStage && telemetry.totalMs > 0 && topStage.durationMs > telemetry.totalMs * 0.3
+      ? topStage.name
+      : null;
+
+  const breakdown = telemetry.stages
+    .filter((s) => s.durationMs > 0)
+    .map((s) => ({
+      stage: s.name,
+      durationMs: s.durationMs,
+      percent: telemetry.totalMs > 0 ? Math.round((s.durationMs / telemetry.totalMs) * 100) : 0,
+    }));
+
+  const summary = generateSummary(results, telemetry);
+
+  return {
+    summary,
+    stages: {
+      resolve,
+      strategy,
+      rewrite,
+      hierarchical,
+      fts,
+      semantic,
+      fetch,
+      filter,
+      score,
+      rerank,
+    },
+    timing: {
+      totalMs: telemetry.totalMs,
+      breakdown,
+      bottleneck,
+    },
+    cacheHit: context.cacheHit || telemetry.decisions.cacheHit || false,
+  };
+}
+
 export function createExplainService() {
   return {
     explain: explainQuery,
+    explainNested: explainQueryNested,
   };
 }
 

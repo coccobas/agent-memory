@@ -1,0 +1,8 @@
+{
+  "name": "meta_llama_Llama_3_8B_huggingface_2026-01-19",
+  "targetModel": "meta-llama/Llama-3-8B",
+  "format": "huggingface",
+  "createdAt": "2026-01-19T00:16:21.592Z",
+  "datasetPath": "/Users/coccobas/Development/memory/agent-memory/data/lora-export",
+  "exampleCount": 98
+}

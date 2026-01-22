@@ -15,6 +15,7 @@ import {
 } from '../../services/context/unified-context.service.js';
 import type { ScopeType } from '../../db/schema.js';
 import { config } from '../../config/index.js';
+import { formatContextMinto, type ContextMintoInput } from '../../utils/minto-formatter.js';
 
 /**
  * Map purpose string to ContextPurpose object
@@ -140,6 +141,11 @@ Example (get budget info):
           enum: ['simple', 'moderate', 'complex', 'critical'],
           description: 'Task complexity (for custom purpose)',
         },
+        mintoStyle: {
+          type: 'boolean',
+          description:
+            'Use Minto Pyramid format (default: true). Set false for verbose dashboard output.',
+        },
       },
       contextHandler: async (ctx, params) => {
         const {
@@ -156,6 +162,7 @@ Example (get budget info):
           complexity,
           scopeType,
           scopeId,
+          mintoStyle,
         } = params as {
           purpose?: string;
           toolName?: string;
@@ -170,6 +177,7 @@ Example (get budget info):
           complexity?: string;
           scopeType?: string;
           scopeId?: string;
+          mintoStyle?: boolean;
         };
 
         // Validate purpose
@@ -190,10 +198,8 @@ Example (get budget info):
           };
         }
 
-        // Create service
         const service = createUnifiedContextService(ctx.db);
 
-        // Build request
         const purpose = toPurpose(purposeStr, toolName, query, complexity);
         const result = await service.getContext({
           purpose,
@@ -207,6 +213,29 @@ Example (get budget info):
           excludeStale,
           maxEntries,
         });
+
+        const useMintoStyle = mintoStyle ?? true;
+        if (useMintoStyle && result.success) {
+          const entries = result.entries ?? [];
+          const mintoInput: ContextMintoInput = {
+            purpose: purposeStr ?? 'session_start',
+            scopeType: scope,
+            scopeId,
+            entryCounts: {
+              guidelines: entries.filter((e) => e.type === 'guideline').length,
+              knowledge: entries.filter((e) => e.type === 'knowledge').length,
+              tools: entries.filter((e) => e.type === 'tool').length,
+              experiences: entries.filter((e) => e.type === 'experience').length,
+            },
+            tokensUsed: result.stats?.tokensUsed,
+            tokenBudget: result.stats?.tokenBudget,
+            stalenessWarnings: result.stalenessWarnings,
+          };
+          return {
+            ...result,
+            _display: formatContextMinto(mintoInput),
+          };
+        }
 
         return result;
       },

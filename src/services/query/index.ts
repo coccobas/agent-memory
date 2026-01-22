@@ -26,7 +26,14 @@ import type {
   QueryEntryType as CoreQueryEntryType,
 } from '../../core/types.js';
 import type { MemoryQueryResult, PipelineContext, PipelineDependencies } from './pipeline.js';
-import { createPipelineContext, buildQueryResult } from './pipeline.js';
+import {
+  createPipelineContext,
+  buildQueryResult,
+  initializeTelemetry,
+  finalizeTelemetry,
+  recordStageTelemetry,
+  recordDecision,
+} from './pipeline.js';
 import { resolveStage } from './stages/resolve.js';
 import { rewriteStageAsync } from './stages/rewrite.js';
 import { ftsStage } from './stages/fts.js';
@@ -237,12 +244,12 @@ function fnv1aHash(str: string): string {
   return (hash >>> 0).toString(16);
 }
 
-/**
- * Generate a cache key from query parameters
- */
 export function getQueryCacheKey(params: MemoryQueryParams): string | null {
-  // Don't cache queries with relatedTo filter (too specific)
   if (params.relatedTo) {
+    return null;
+  }
+
+  if (params.explain) {
     return null;
   }
 
@@ -786,90 +793,114 @@ export async function executeQueryPipelineAsync(
     }
   }
 
-  const initialCtx = createPipelineContext(params, deps);
+  let initialCtx = createPipelineContext(params, deps);
 
-  // Determine if tag filtering is required
+  if (params.explain) {
+    initialCtx = initializeTelemetry(initialCtx);
+  }
+
   const needsTagFiltering = !!(
     params.tags?.require?.length ||
     params.tags?.exclude?.length ||
     params.tags?.include?.length
   );
 
-  // Run pipeline stages with async support
   let ctx: PipelineContext = initialCtx;
 
-  // Synchronous stages (pure computation or already optimized)
+  const trackStageWithTime = <T extends PipelineContext>(
+    stageName: string,
+    startMs: number,
+    stageResult: T
+  ): T => {
+    if (!params.explain || !stageResult.telemetry) return stageResult;
+    return recordStageTelemetry(stageResult, stageName, startMs) as T;
+  };
+
+  let stageStart = Date.now();
   ctx = resolveStage(ctx);
+  ctx = trackStageWithTime('resolve', stageStart, ctx);
 
-  // Strategy stage - determines optimal retrieval strategy based on query analysis
+  stageStart = Date.now();
   ctx = await strategyStageAsync(ctx);
+  ctx = trackStageWithTime('strategy', stageStart, ctx);
 
-  // Async rewrite stage - expands queries with synonyms/HyDE if enabled
+  stageStart = Date.now();
   ctx = await rewriteStageAsync(ctx);
+  ctx = trackStageWithTime('rewrite', stageStart, ctx);
 
-  // Hierarchical retrieval stage - coarse-to-fine search through summaries
   if (deps.hierarchicalRetriever && appConfig.hierarchical?.enabled) {
+    stageStart = Date.now();
     const hierarchicalStage = createHierarchicalStage({
       retriever: deps.hierarchicalRetriever,
       hasSummaries: deps.hierarchicalRetriever.hasSummaries,
       config: appConfig.hierarchical,
     });
     ctx = await hierarchicalStage(ctx);
+    ctx = trackStageWithTime('hierarchical', stageStart, ctx);
   }
 
-  // Semantic stage - vector similarity search using embeddings
+  stageStart = Date.now();
   ctx = await semanticStageAsync(ctx);
+  ctx = trackStageWithTime('semantic', stageStart, ctx);
 
-  // FTS and relations use expanded queries from rewrite stage
+  stageStart = Date.now();
   ctx = ftsStage(ctx);
+  ctx = trackStageWithTime('fts', stageStart, ctx);
+
+  stageStart = Date.now();
   ctx = relationsStage(ctx);
+  ctx = trackStageWithTime('relations', stageStart, ctx);
 
-  // Async fetch stage - parallel per-type fetching
+  stageStart = Date.now();
   ctx = await fetchStageAsync(ctx);
+  ctx = trackStageWithTime('fetch', stageStart, ctx);
 
-  // Apply hierarchical candidate filtering if hierarchical retrieval was used
   ctx = filterByHierarchicalCandidates(ctx as HierarchicalPipelineContext);
 
-  // Entity filter stage - extracts entities and looks up matching entries
+  stageStart = Date.now();
   ctx = entityFilterStage(ctx);
+  ctx = trackStageWithTime('entity_filter', stageStart, ctx);
 
-  // Conditional stage ordering for tag loading optimization:
-  // - If tag filtering is needed: load tags BEFORE filtering (current behavior)
-  // - Otherwise: filter first, then load tags only for filtered entries (optimization)
   let filteredCtx: PipelineContext;
   if (needsTagFiltering) {
-    // Load all tags, then filter (tags needed for filtering)
+    stageStart = Date.now();
     ctx = tagsStage(ctx);
+    ctx = trackStageWithTime('tags', stageStart, ctx);
+    stageStart = Date.now();
     filteredCtx = filterStage(ctx);
+    filteredCtx = trackStageWithTime('filter', stageStart, filteredCtx);
   } else {
-    // Filter first, then load tags only for filtered entries (memory optimization)
+    stageStart = Date.now();
     filteredCtx = filterStage(ctx);
+    filteredCtx = trackStageWithTime('filter', stageStart, filteredCtx);
+    stageStart = Date.now();
     filteredCtx = postFilterTagsStage(filteredCtx);
+    filteredCtx = trackStageWithTime('tags', stageStart, filteredCtx);
   }
 
-  // Async feedback stage - DB fallback for cache misses
-  const feedbackCtx = await feedbackStageAsync(filteredCtx);
+  stageStart = Date.now();
+  let feedbackCtx = await feedbackStageAsync(filteredCtx);
+  feedbackCtx = trackStageWithTime('feedback', stageStart, feedbackCtx);
 
-  // Run score stage (uses filtered property and feedbackScores) - async for non-blocking sort
-  const scoredCtx = await scoreStage(feedbackCtx);
+  stageStart = Date.now();
+  let scoredCtx = await scoreStage(feedbackCtx);
+  scoredCtx = trackStageWithTime('score', stageStart, scoredCtx);
 
-  // Run neural re-ranking stage (if embedding service available and config enabled)
   let rerankedCtx = scoredCtx;
   if (deps.embeddingService && appConfig.rerank?.enabled) {
+    stageStart = Date.now();
     const rerankStage = createRerankStage({
       embeddingService: deps.embeddingService,
       config: appConfig.rerank,
     });
     rerankedCtx = await rerankStage(scoredCtx);
+    rerankedCtx = trackStageWithTime('rerank', stageStart, rerankedCtx);
   }
 
-  // Run LLM-based cross-encoder re-ranking (if enabled)
-  // This is more accurate than bi-encoder but slower, used on smaller candidate set
   let crossEncoderCtx = rerankedCtx;
   const crossEncoderBaseUrl =
     appConfig.crossEncoder?.baseUrl ?? appConfig.extraction?.openaiBaseUrl;
   if (appConfig.crossEncoder?.enabled && crossEncoderBaseUrl) {
-    // Use dedicated cross-encoder model if configured, otherwise fall back to extraction model
     const crossEncoderModel = appConfig.crossEncoder.model ?? appConfig.extraction?.openaiModel;
 
     if (deps.logger) {
@@ -889,18 +920,18 @@ export async function executeQueryPipelineAsync(
       apiKey: appConfig.extraction?.openaiApiKey,
       temperature: appConfig.crossEncoder.temperature,
       timeoutMs: appConfig.crossEncoder.timeoutMs,
-      // Use extraction reasoning effort for cross-encoder scoring
       reasoningEffort: appConfig.extraction?.openaiReasoningEffort,
     });
 
     if (crossEncoderService.isAvailable()) {
+      stageStart = Date.now();
       const crossEncoderStage = createCrossEncoderStage({
         llmService: crossEncoderService,
         config: appConfig.crossEncoder,
       });
       crossEncoderCtx = await crossEncoderStage(rerankedCtx);
+      crossEncoderCtx = trackStageWithTime('cross_encoder', stageStart, crossEncoderCtx);
 
-      // Log if cross-encoder was applied
       const ceCtx = crossEncoderCtx as {
         crossEncoder?: { applied: boolean; candidatesScored: number };
       };
@@ -913,8 +944,25 @@ export async function executeQueryPipelineAsync(
     }
   }
 
-  // Run format stage
-  const formattedCtx = formatStage(crossEncoderCtx);
+  stageStart = Date.now();
+  let formattedCtx = formatStage(crossEncoderCtx);
+  formattedCtx = trackStageWithTime('format', stageStart, formattedCtx);
+
+  if (params.explain && formattedCtx.telemetry) {
+    formattedCtx = recordDecision(
+      formattedCtx,
+      'searchStrategy',
+      formattedCtx.searchStrategy ?? 'unknown'
+    );
+    formattedCtx = recordDecision(
+      formattedCtx,
+      'usedSemanticSearch',
+      !!formattedCtx.semanticScores?.size
+    );
+    formattedCtx = recordDecision(formattedCtx, 'usedFts5', !!formattedCtx.ftsMatchIds);
+    formattedCtx = recordDecision(formattedCtx, 'cacheHit', formattedCtx.cacheHit);
+    formattedCtx = finalizeTelemetry(formattedCtx);
+  }
 
   const result = buildQueryResult(formattedCtx);
 

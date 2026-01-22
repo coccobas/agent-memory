@@ -12,6 +12,7 @@
 
 import type { PipelineContext } from '../pipeline.js';
 import { IntentClassifier } from '../../query-rewrite/classifier.js';
+import { parseExclusions } from '../exclusion-parser.js';
 
 /**
  * Extended pipeline context with rewrite results
@@ -42,7 +43,6 @@ export interface RewriteStageContext extends PipelineContext {
 export function rewriteStage(ctx: PipelineContext): RewriteStageContext {
   const { params, search } = ctx;
 
-  // Early return if rewriting is disabled or no search
   if (params.disableRewrite === true || !search) {
     return {
       ...ctx,
@@ -50,13 +50,18 @@ export function rewriteStage(ctx: PipelineContext): RewriteStageContext {
     };
   }
 
-  // Classify intent (synchronous)
+  const { cleanedQuery, exclusions } = parseExclusions(search);
+
   const classifier = new IntentClassifier();
-  const classification = classifier.classify(search);
+  const classification = classifier.classify(cleanedQuery || search);
+
+  const queryText = cleanedQuery || search;
 
   return {
     ...ctx,
-    searchQueries: [{ text: search, weight: 1.0, source: 'original' }],
+    search: cleanedQuery || search,
+    exclusions: exclusions.length > 0 ? exclusions : undefined,
+    searchQueries: queryText ? [{ text: queryText, weight: 1.0, source: 'original' }] : [],
     rewriteIntent: classification.intent,
     rewriteStrategy: 'direct',
   };
@@ -77,7 +82,6 @@ export function rewriteStage(ctx: PipelineContext): RewriteStageContext {
 export async function rewriteStageAsync(ctx: PipelineContext): Promise<RewriteStageContext> {
   const { params, search, deps } = ctx;
 
-  // Early return if rewriting is disabled
   if (params.disableRewrite === true) {
     return {
       ...ctx,
@@ -85,7 +89,6 @@ export async function rewriteStageAsync(ctx: PipelineContext): Promise<RewriteSt
     };
   }
 
-  // Early return if no search query
   if (!search) {
     return {
       ...ctx,
@@ -93,7 +96,9 @@ export async function rewriteStageAsync(ctx: PipelineContext): Promise<RewriteSt
     };
   }
 
-  // Check if rewrite service is available and any rewrite feature is enabled
+  const { cleanedQuery, exclusions } = parseExclusions(search);
+  const queryToProcess = cleanedQuery || search;
+
   const service = deps.queryRewriteService;
   const anyRewriteEnabled =
     params.enableHyDE === true ||
@@ -101,14 +106,12 @@ export async function rewriteStageAsync(ctx: PipelineContext): Promise<RewriteSt
     params.enableDecomposition === true;
 
   if (!service || !service.isAvailable() || !anyRewriteEnabled) {
-    // Fall back to synchronous stage
     return rewriteStage(ctx);
   }
 
-  // Call the async rewrite service
   try {
     const result = await service.rewrite({
-      originalQuery: search,
+      originalQuery: queryToProcess,
       options: {
         enableHyDE: params.enableHyDE === true,
         enableExpansion: params.enableExpansion === true,
@@ -117,11 +120,10 @@ export async function rewriteStageAsync(ctx: PipelineContext): Promise<RewriteSt
       },
     });
 
-    // Log rewrite results if perf logging is enabled
     if (deps.perfLog && deps.logger && result.rewrittenQueries.length > 1) {
       deps.logger.debug(
         {
-          originalQuery: search,
+          originalQuery: queryToProcess,
           expandedCount: result.rewrittenQueries.length - 1,
           intent: result.intent,
           strategy: result.strategy,
@@ -133,6 +135,8 @@ export async function rewriteStageAsync(ctx: PipelineContext): Promise<RewriteSt
 
     return {
       ...ctx,
+      search: queryToProcess,
+      exclusions: exclusions.length > 0 ? exclusions : undefined,
       searchQueries: result.rewrittenQueries.map((rq) => ({
         text: rq.text,
         embedding: rq.embedding,
@@ -143,17 +147,13 @@ export async function rewriteStageAsync(ctx: PipelineContext): Promise<RewriteSt
       rewriteStrategy: result.strategy,
     };
   } catch (error) {
-    // Log error and fall back to original query
-    // Bug #190 fix: Don't log stack traces in production to prevent information disclosure
     if (deps.logger) {
       const isProduction = process.env.NODE_ENV === 'production';
-      // Bug #199 fix: Preserve error type info for all error types
       const errorDetails =
         error instanceof Error
           ? {
               message: error.message,
               name: error.name,
-              // Only include stack traces in non-production environments
               ...(isProduction ? {} : { stack: error.stack?.split('\n').slice(0, 5).join('\n') }),
             }
           : { message: String(error), type: typeof error };
@@ -161,7 +161,7 @@ export async function rewriteStageAsync(ctx: PipelineContext): Promise<RewriteSt
       deps.logger.warn(
         {
           ...errorDetails,
-          query: search?.substring(0, 100), // Truncate for privacy
+          query: queryToProcess?.substring(0, 100),
         },
         'query_rewrite failed, using original query'
       );

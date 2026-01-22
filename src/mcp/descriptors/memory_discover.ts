@@ -7,6 +7,7 @@
 
 import type { SimpleToolDescriptor, AnyToolDescriptor, VisibilityLevel } from './types.js';
 import type { AppContext } from '../../core/context.js';
+import { formatDiscoverMinto } from '../../utils/minto-formatter.js';
 
 // Helper to get visibility level from descriptor
 function getVisibility(descriptor: AnyToolDescriptor): VisibilityLevel {
@@ -29,12 +30,18 @@ export const memoryDiscoverDescriptor: SimpleToolDescriptor = {
       enum: ['all', 'advanced', 'system', 'graph', 'summarization'],
       description: 'Filter by feature category (default: all)',
     },
+    mintoStyle: {
+      type: 'boolean',
+      description:
+        'Use Minto Pyramid format (default: true). Set false for verbose dashboard output.',
+    },
   },
   contextHandler: async (
     _ctx: AppContext,
     args?: Record<string, unknown>
   ): Promise<DiscoverResult> => {
     const filter = (args?.filter as string) ?? 'all';
+    const mintoStyle = (args?.mintoStyle as boolean) ?? true;
 
     // Import allDescriptors dynamically to avoid circular dependency
     const { allDescriptors } = await import('./index.js');
@@ -106,10 +113,14 @@ export const memoryDiscoverDescriptor: SimpleToolDescriptor = {
       '\n💡 Enable with: AGENT_MEMORY_TOOL_VISIBILITY=advanced (or "all" for system tools)'
     );
 
+    const totalCount = Object.values(categories).flat().length;
+
+    const display = mintoStyle ? formatDiscoverMinto({ categories, totalCount }) : lines.join('\n');
+
     return {
       categories,
-      totalCount: Object.values(categories).flat().length,
-      _display: lines.join('\n'),
+      totalCount,
+      _display: display,
     };
   },
 };

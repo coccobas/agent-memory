@@ -25,6 +25,7 @@ import {
 import { textMatches, fuzzyTextMatches, regexTextMatches } from '../../../utils/text-matching.js';
 import { filterByTags } from './tags.js';
 import type { StrategyPipelineContext } from './strategy.js';
+import { containsExclusion } from '../exclusion-parser.js';
 
 interface DedupedEntry<T> {
   entry: T;
@@ -177,6 +178,14 @@ function filterEntriesOfType<T extends EntryUnion>(
     if (type === 'guidelines' && params.priority) {
       const guidelineEntry = entry as Guideline;
       if (!priorityInRange(guidelineEntry.priority, params.priority.min, params.priority.max)) {
+        continue;
+      }
+    }
+
+    // Exclusion filter - skip entries containing excluded terms/phrases
+    if (ctx.exclusions && ctx.exclusions.length > 0) {
+      const searchableText = getEntrySearchableText(entry, type);
+      if (containsExclusion(searchableText, ctx.exclusions)) {
         continue;
       }
     }
