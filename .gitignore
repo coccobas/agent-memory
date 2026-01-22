@@ -63,6 +63,7 @@ tests/benchmarks/data/*.json
 /*.md
 !README.md
 !CHANGELOG.md
+!SECURITY.md
 
 # Agent-specific generated files
 .claude-flow/

@@ -7,7 +7,7 @@
 [![npm version](https://img.shields.io/npm/v/agent-memory.svg?style=for-the-badge&logo=npm)](https://www.npmjs.com/package/agent-memory)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D20-green.svg?style=for-the-badge&logo=node.js)](https://nodejs.org/)
-[![Tests](https://img.shields.io/badge/tests-1200%2B%20passing-success.svg?style=for-the-badge)](.)
+[![Tests](https://img.shields.io/badge/tests-9000%2B%20passing-success.svg?style=for-the-badge)](.)
 
 <br />
 
@@ -285,16 +285,16 @@ AGENT_MEMORY_PERMISSIONS_MODE=permissive
 
 ## 📚 Documentation
 
-| Resource                                          | Description               |
-| :------------------------------------------------ | :------------------------ |
-| [Quickstart](docs/tutorials/quickstart.md)        | Get running in 2 minutes  |
-| [Docker Deployment](docs/guides/docker.md)        | Container deployment      |
-| [First Workflow](docs/tutorials/first-workflow.md)| Full setup guide          |
-| [MCP Tools](docs/reference/mcp-tools.md)          | All 20+ tools documented  |
-| [Hooks Guide](docs/guides/hooks.md)               | IDE hooks for enforcement |
-| [Rules Sync](docs/guides/rules-sync.md)           | Sync guidelines to IDEs   |
-| [IDE Setup](docs/guides/ide-setup.md)             | Claude, Cursor, VS Code   |
-| [Troubleshooting](docs/guides/troubleshooting.md) | Common issues             |
+| Resource                                           | Description               |
+| :------------------------------------------------- | :------------------------ |
+| [Quickstart](docs/tutorials/quickstart.md)         | Get running in 2 minutes  |
+| [Docker Deployment](docs/guides/docker.md)         | Container deployment      |
+| [First Workflow](docs/tutorials/first-workflow.md) | Full setup guide          |
+| [MCP Tools](docs/reference/mcp-tools.md)           | All 20+ tools documented  |
+| [Hooks Guide](docs/guides/hooks.md)                | IDE hooks for enforcement |
+| [Rules Sync](docs/guides/rules-sync.md)            | Sync guidelines to IDEs   |
+| [IDE Setup](docs/guides/ide-setup.md)              | Claude, Cursor, VS Code   |
+| [Troubleshooting](docs/guides/troubleshooting.md)  | Common issues             |
 
 ---
 

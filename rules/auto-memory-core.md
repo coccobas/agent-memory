@@ -228,5 +228,5 @@ Example: `!am remember We use ESLint with the Airbnb config`
 **Examples:** `@auto-memory-examples`
 **Advanced features:** `@auto-memory-advanced`
 
-@version "3.1.0"
-@last_updated "2026-01-14"
+@version "3.2.0"
+@last_updated "2026-01-22"

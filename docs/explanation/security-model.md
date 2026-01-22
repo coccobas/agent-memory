@@ -74,6 +74,26 @@ AGENT_MEMORY_PERMISSIONS_MODE=permissive
 
 **Warning:** Not recommended for untrusted agents or shared environments.
 
+### Production Security Blocks
+
+Starting from v0.9.17, agent-memory implements **hard blocks** that prevent insecure configurations in production environments:
+
+| Configuration                              | Production Behavior                |
+| ------------------------------------------ | ---------------------------------- |
+| `AGENT_MEMORY_DEV_MODE=true`               | **Throws error** at startup        |
+| `AGENT_MEMORY_PERMISSIONS_MODE=permissive` | **Throws error** at startup        |
+| Ollama with external URLs                  | **Throws error** - SSRF protection |
+
+**Why?** These configurations bypass authentication and permission checks, which is dangerous in production.
+
+**Override (staging/testing only):**
+
+```bash
+AGENT_MEMORY_ALLOW_DEV_MODE_IN_PRODUCTION=true
+```
+
+This allows dev mode and permissive mode in production. **Only use for trusted staging environments.**
+
 ---
 
 ## Rate Limiting

@@ -20,7 +20,7 @@ alwaysApply: false
 | [`memory_backup`](#memory_backup)                         | `create`, `list`, `cleanup`, `restore`                                  | system       |
 | [`memory_conflict`](#memory_conflict)                     | `list`, `resolve`                                                       | system       |
 | [`memory_consolidate`](#memory_consolidate)               | `find_similar`, `dedupe`, `merge`, `abstract`, `archive_stale`          | advanced     |
-| [`memory_context`](#memory_context)                       | —                                                                       | advanced     |
+| [`memory_context`](#memory_context)                       | `get`, `budget-info`, `stats`, `show`, `refresh`                        | core         |
 | [`memory_conversation`](#memory_conversation)             | 10 actions                                                              | advanced     |
 | [`memory_decomposition`](#memory_decomposition)           | `add`, `get`, `list`                                                    | advanced     |
 | [`memory_discover`](#memory_discover)                     | —                                                                       | standard     |
@@ -40,7 +40,7 @@ alwaysApply: false
 | [`memory_init`](#memory_init)                             | `init`, `status`, `reset`                                               | system       |
 | [`memory_knowledge`](#memory_knowledge)                   | 10 actions                                                              | standard     |
 | [`memory_latent`](#memory_latent)                         | 7 actions                                                               | advanced     |
-| [`memory_librarian`](#memory_librarian)                   | 8 actions                                                               | core         |
+| [`memory_librarian`](#memory_librarian)                   | 10 actions                                                              | core         |
 | [`memory_lora`](#memory_lora)                             | `export`, `list_adapters`, `generate_script`                            | experimental |
 | [`memory_observe`](#memory_observe)                       | `extract`, `draft`, `commit`, `status`                                  | advanced     |
 | [`memory_onboard`](#memory_onboard)                       | —                                                                       | core         |
@@ -56,13 +56,13 @@ alwaysApply: false
 | [`memory_rl`](#memory_rl)                                 | 9 actions                                                               | experimental |
 | [`memory_session`](#memory_session)                       | `start`, `end`, `list`                                                  | standard     |
 | [`memory_status`](#memory_status)                         | —                                                                       | core         |
-
-| [`memory_summarize`](#memory_summarize) | 6 actions | advanced |
-| [`memory_tag`](#memory_tag) | `create`, `list`, `attach`, `detach`, `for_entry` | standard |
-| [`memory_task`](#memory_task) | 12 actions | standard |
-| [`memory_tool`](#memory_tool) | 10 actions | standard |
-| [`memory_verify`](#memory_verify) | `pre_check`, `post_check`, `acknowledge`, `status` | system |
-| [`memory_voting`](#memory_voting) | `record_vote`, `get_consensus`, `list_votes`, `get_stats` | experimental |
+| [`memory_summarize`](#memory_summarize)                   | 6 actions                                                               | advanced     |
+| [`memory_tag`](#memory_tag)                               | `create`, `list`, `attach`, `detach`, `for_entry`                       | standard     |
+| [`memory_task`](#memory_task)                             | 15 actions                                                              | standard     |
+| [`memory_tool`](#memory_tool)                             | 10 actions                                                              | standard     |
+| [`memory_verify`](#memory_verify)                         | `pre_check`, `post_check`, `acknowledge`, `status`                      | system       |
+| [`memory_voting`](#memory_voting)                         | `record_vote`, `get_consensus`, `list_votes`, `get_stats`               | experimental |
+| [`memory_walkthrough`](#memory_walkthrough)               | —                                                                       | core         |
 
 ---
 
@@ -81,6 +81,7 @@ One-call setup for memory context and session. Auto-detects project from cwd. Ca
 | `grantPermissions`   | boolean   |            | Grant permissions to agent (default: true when createProject)                                        |
 | `inherit`            | boolean   |            |                                                                                                      |
 | `limitPerType`       | number    |            |                                                                                                      |
+| `mintoStyle`         | boolean   |            | Use Minto Pyramid format (default: true). Set false for verbose dashboard output.                    |
 | `permissionLevel`    | `read`    |  `write`   | `admin`                                                                                              |     | Permission level to grant (default: write)                                                         |
 | `projectDescription` | string    |            | Description for new project                                                                          |
 | `projectId`          | string    |            |                                                                                                      |
@@ -123,9 +124,10 @@ Natural language interface to memory. Store: "Remember X", Retrieve: "What about
 
 Get a compact dashboard of your memory status.
 
-| Parameter           | Type    | Required | Description                                     |
-| ------------------- | ------- | :------: | ----------------------------------------------- |
-| `includeTopEntries` | boolean |          | Include top 5 entries per type (default: false) |
+| Parameter           | Type    | Required | Description                                                                       |
+| ------------------- | ------- | :------: | --------------------------------------------------------------------------------- |
+| `includeTopEntries` | boolean |          | Include top 5 entries per type (default: false)                                   |
+| `mintoStyle`        | boolean |          | Use Minto Pyramid format (default: true). Set false for verbose dashboard output. |
 
 ---
 
@@ -145,7 +147,7 @@ Manage tool definitions (reusable patterns). Actions: add, update, get, list, hi
 | `constraints`     | string   |          |                     |
 | `createdBy`       | string   |          |                     |
 | `description`     | string   |          |                     |
-| `examples`        | array    |          |                     |
+| `examples`        | object[] |          |                     |
 | `id`              | string   |          |                     |
 | `includeInactive` | boolean  |          |                     |
 | `inherit`         | boolean  |          |                     |
@@ -270,36 +272,38 @@ Query and aggregate memory. Actions: search, context
 
 **Actions:** `search`, `context`
 
-| Parameter           | Type     | Required | Description                                             |
-| ------------------- | -------- | :------: | ------------------------------------------------------- | --------- | --- | --- |
-| `agentId`           | string   |          |                                                         |
-| `atTime`            | string   |          | ISO timestamp for temporal filter                       |
-| `compact`           | boolean  |          |                                                         |
-| `createdAfter`      | string   |          |                                                         |
-| `createdBefore`     | string   |          |                                                         |
-| `fields`            | string[] |          |                                                         |
-| `followRelations`   | boolean  |          |                                                         |
-| `fuzzy`             | boolean  |          |                                                         |
-| `hierarchical`      | boolean  |          | Return ~1.5k token summary instead of ~15k full entries |
-| `includeInactive`   | boolean  |          |                                                         |
-| `includeVersions`   | boolean  |          |                                                         |
-| `inherit`           | boolean  |          | Include parent scopes (default true)                    |
-| `limit`             | number   |          |                                                         |
-| `priority`          | object   |          |                                                         |
-| `regex`             | boolean  |          |                                                         |
-| `relatedTo`         | object   |          |                                                         |
-| `scope`             | object   |          |                                                         |
-| `scopeId`           | string   |          |                                                         |
-| `scopeType`         | `global` |  `org`   | `project`                                               | `session` |     |     |
-| `search`            | string   |          | Free-text search                                        |
-| `semanticSearch`    | boolean  |          |                                                         |
-| `semanticThreshold` | number   |          |                                                         |
-| `tags`              | object   |          |                                                         |
-| `types`             | string[] |          |                                                         |
-| `updatedAfter`      | string   |          |                                                         |
-| `updatedBefore`     | string   |          |                                                         |
-| `useFts5`           | boolean  |          |                                                         |
-| `validDuring`       | object   |          |                                                         |
+| Parameter           | Type     | Required | Description                                                                                       |
+| ------------------- | -------- | :------: | ------------------------------------------------------------------------------------------------- | --------- | --- | --- |
+| `agentId`           | string   |          |                                                                                                   |
+| `atTime`            | string   |          | ISO timestamp for temporal filter                                                                 |
+| `compact`           | boolean  |          |                                                                                                   |
+| `createdAfter`      | string   |          |                                                                                                   |
+| `createdBefore`     | string   |          |                                                                                                   |
+| `explain`           | boolean  |          | Return nested explain output with score breakdowns, stage timing, and reasoning (default: false). |
+| `fields`            | string[] |          |                                                                                                   |
+| `followRelations`   | boolean  |          |                                                                                                   |
+| `fuzzy`             | boolean  |          |                                                                                                   |
+| `hierarchical`      | boolean  |          | Return ~1.5k token summary instead of ~15k full entries                                           |
+| `includeInactive`   | boolean  |          |                                                                                                   |
+| `includeVersions`   | boolean  |          |                                                                                                   |
+| `inherit`           | boolean  |          | Include parent scopes (default true)                                                              |
+| `limit`             | number   |          |                                                                                                   |
+| `mintoStyle`        | boolean  |          | Use Minto Pyramid format for context action (default: true). Set false for verbose output.        |
+| `priority`          | object   |          |                                                                                                   |
+| `regex`             | boolean  |          |                                                                                                   |
+| `relatedTo`         | object   |          |                                                                                                   |
+| `scope`             | object   |          |                                                                                                   |
+| `scopeId`           | string   |          |                                                                                                   |
+| `scopeType`         | `global` |  `org`   | `project`                                                                                         | `session` |     |     |
+| `search`            | string   |          | Free-text search                                                                                  |
+| `semanticSearch`    | boolean  |          |                                                                                                   |
+| `semanticThreshold` | number   |          |                                                                                                   |
+| `tags`              | object   |          |                                                                                                   |
+| `types`             | string[] |          |                                                                                                   |
+| `updatedAfter`      | string   |          |                                                                                                   |
+| `updatedBefore`     | string   |          |                                                                                                   |
+| `useFts5`           | boolean  |          |                                                                                                   |
+| `validDuring`       | object   |          |                                                                                                   |
 
 ---
 
@@ -307,9 +311,10 @@ Query and aggregate memory. Actions: search, context
 
 Discover hidden/advanced memory features with usage examples.
 
-| Parameter | Type          | Required | Description                               |
-| --------- | ------------- | :------: | ----------------------------------------- |
-| `filter`  | string (enum) |          | Filter by feature category (default: all) |
+| Parameter    | Type          | Required | Description                                                                       |
+| ------------ | ------------- | :------: | --------------------------------------------------------------------------------- |
+| `filter`     | string (enum) |          | Filter by feature category (default: all)                                         |
+| `mintoStyle` | boolean       |          | Use Minto Pyramid format (default: true). Set false for verbose dashboard output. |
 
 **filter values:** `all`, `advanced`, `system`, `graph`, `summarization`
 
@@ -459,43 +464,44 @@ Manage task decomposition - breaking down larger tasks into subtasks.
 
 ### memory_task
 
-Manage work items (bugs, features, tasks). Actions: add, update, get, list, deactivate, delete, update_status, list_by_status, list_blocked, get_subtasks, add_blocker, remove_blocker
+Manage work items (bugs, features, tasks). Actions: add, update, get, list, deactivate, delete, update_status, list_by_status, list_blocked, add_blocker, remove_blocker, get_subtasks, preview, confir…
 
-**Actions:** `add`, `update`, `get`, `list`, `deactivate`, `delete`, `update_status`, `list_by_status`, `list_blocked`, `add_blocker`, `remove_blocker`, `get_subtasks`
+**Actions:** `add`, `update`, `get`, `list`, `deactivate`, `delete`, `update_status`, `list_by_status`, `list_blocked`, `add_blocker`, `remove_blocker`, `get_subtasks`, `preview`, `confirm`, `reject`
 
-| Parameter          | Type          |  Required  | Description         |
-| ------------------ | ------------- | :--------: | ------------------- | --------- | --- | --- |
-| `actualMinutes`    | number        |            |                     |
-| `agentId`          | string        |            | Required for writes |
-| `assignee`         | string        |            |                     |
-| `blockerId`        | string        |            |                     |
-| `category`         | string        |            |                     |
-| `createdBy`        | string        |            |                     |
-| `description`      | string        |            |                     |
-| `dueDate`          | string        |            |                     |
-| `endLine`          | number        |            |                     |
-| `estimatedMinutes` | number        |            |                     |
-| `file`             | string        |            |                     |
-| `id`               | string        |            |                     |
-| `includeInactive`  | boolean       |            |                     |
-| `inherit`          | boolean       |            |                     |
-| `limit`            | number        |            |                     |
-| `metadata`         | object        |            |                     |
-| `offset`           | number        |            |                     |
-| `parentTaskId`     | string        |            |                     |
-| `reporter`         | string        |            |                     |
-| `resolution`       | string        |            |                     |
-| `scopeId`          | string        |            |                     |
-| `scopeType`        | `global`      |   `org`    | `project`           | `session` |     |     |
-| `severity`         | `critical`    |   `high`   | `medium`            | `low`     |     |     |
-| `startLine`        | number        |            |                     |
-| `status`           | string (enum) |            |                     |
-| `tags`             | string[]      |            |                     |
-| `taskDomain`       | `agent`       | `physical` |                     |           |
-| `taskType`         | string (enum) |            |                     |
-| `title`            | string        |            |                     |
-| `updatedBy`        | string        |            |                     |
-| `urgency`          | `immediate`   |   `soon`   | `normal`            | `later`   |     |     |
+| Parameter          | Type          |  Required  | Description                           |
+| ------------------ | ------------- | :--------: | ------------------------------------- | --------- | --- | --- |
+| `actualMinutes`    | number        |            |                                       |
+| `agentId`          | string        |            | Required for writes                   |
+| `assignee`         | string        |            |                                       |
+| `blockerId`        | string        |            |                                       |
+| `category`         | string        |            |                                       |
+| `createdBy`        | string        |            |                                       |
+| `description`      | string        |            |                                       |
+| `dueDate`          | string        |            |                                       |
+| `endLine`          | number        |            |                                       |
+| `estimatedMinutes` | number        |            |                                       |
+| `file`             | string        |            |                                       |
+| `id`               | string        |            |                                       |
+| `includeInactive`  | boolean       |            |                                       |
+| `inherit`          | boolean       |            |                                       |
+| `limit`            | number        |            |                                       |
+| `metadata`         | object        |            |                                       |
+| `offset`           | number        |            |                                       |
+| `parentTaskId`     | string        |            |                                       |
+| `previewId`        | string        |            | Preview ID for confirm/reject actions |
+| `reporter`         | string        |            |                                       |
+| `resolution`       | string        |            |                                       |
+| `scopeId`          | string        |            |                                       |
+| `scopeType`        | `global`      |   `org`    | `project`                             | `session` |     |     |
+| `severity`         | `critical`    |   `high`   | `medium`                              | `low`     |     |     |
+| `startLine`        | number        |            |                                       |
+| `status`           | string (enum) |            |                                       |
+| `tags`             | string[]      |            |                                       |
+| `taskDomain`       | `agent`       | `physical` |                                       |           |
+| `taskType`         | string (enum) |            |                                       |
+| `title`            | string        |            |                                       |
+| `updatedBy`        | string        |            |                                       |
+| `urgency`          | `immediate`   |   `soon`   | `normal`                              | `later`   |     |     |
 
 **taskType values:** `bug`, `feature`, `improvement`, `debt`, `research`, `question`, `other`
 
@@ -539,7 +545,7 @@ Manage episodes - bounded temporal activity groupings for tracking "what happene
 | `sessionId`       | string        |            | Session ID                                                                                  |
 | `start`           | string        |            | Start timestamp for timeline range (ISO 8601)                                               |
 | `status`          | string (enum) |            | Filter by status                                                                            |
-| `tags`            | array         |            | Episode tags                                                                                |
+| `tags`            | string[]      |            | Episode tags                                                                                |
 | `triggerRef`      | string        |            | Reference to the trigger (e.g., task ID, event ID)                                          |
 | `triggerType`     | string        |            | What triggered this episode ('user_request', 'system_event', 'scheduled')                   |
 
@@ -609,23 +615,26 @@ Manage experiential memory - learned patterns from past interactions.
 
 Manage the Librarian Agent for pattern detection and promotion recommendations.
 
-**Actions:** `analyze`, `status`, `run_maintenance`, `list_recommendations`, `show_recommendation`, `approve`, `reject`, `skip`
+**Actions:** `analyze`, `status`, `run_maintenance`, `list_recommendations`, `show_recommendation`, `approve`, `reject`, `skip`, `get_job_status`, `list_jobs`
 
-| Parameter          | Type          | Required | Description                                                                                      |
-| ------------------ | ------------- | :------: | ------------------------------------------------------------------------------------------------ | --------- | --- | ---------- |
-| `dryRun`           | boolean       |          | If true, analyze without creating recommendations (analyze, run_maintenance)                     |
-| `initiatedBy`      | string        |          | Who initiated this maintenance run (run_maintenance)                                             |
-| `limit`            | number        |          | Maximum results to return                                                                        |
-| `lookbackDays`     | number        |          | Days to look back for experiences (default: 30) (analyze)                                        |
-| `minConfidence`    | number        |          | Filter by minimum confidence (list_recommendations)                                              |
-| `notes`            | string        |          | Review notes (approve, reject, skip)                                                             |
-| `offset`           | number        |          | Results to skip                                                                                  |
-| `recommendationId` | string        |          | Recommendation ID (show_recommendation, approve, reject, skip)                                   |
-| `reviewedBy`       | string        |          | Reviewer identifier (approve, reject, skip)                                                      |
-| `scopeId`          | string        |          | Scope ID                                                                                         |
-| `scopeType`        | `global`      |  `org`   | `project`                                                                                        | `session` |     | Scope type |
-| `status`           | string (enum) |          | Filter by status (list_recommendations)                                                          |
-| `tasks`            | array         |          | Which tasks to run (defaults to all): consolidation, forgetting, graphBackfill (run_maintenance) |
+| Parameter               | Type          | Required  | Description                                                                                                    |
+| ----------------------- | ------------- | :-------: | -------------------------------------------------------------------------------------------------------------- | --------- | -------------------------------------------------------------------------------------------------------------- | ---------- |
+| `dryRun`                | boolean       |           | If true, analyze without creating recommendations (analyze, run_maintenance)                                   |
+| `initiatedBy`           | string        |           | Who initiated this maintenance run (run_maintenance)                                                           |
+| `jobId`                 | string        |           | Job ID to get status for (get_job_status)                                                                      |
+| `limit`                 | number        |           | Maximum results to return                                                                                      |
+| `lookbackDays`          | number        |           | Days to look back for experiences (default: 30) (analyze)                                                      |
+| `mergeIntoExperienceId` | string        |           | Merge into existing strategy instead of creating new. Pass the experience ID of the existing strate… (approve) |
+| `mergeStrategy`         | `append`      | `replace` | `increment`                                                                                                    |           | How to merge: append (add source cases to existing), replace (overwrite pattern text), increment (j… (approve) |
+| `minConfidence`         | number        |           | Filter by minimum confidence (list_recommendations)                                                            |
+| `notes`                 | string        |           | Review notes (approve, reject, skip)                                                                           |
+| `offset`                | number        |           | Results to skip                                                                                                |
+| `recommendationId`      | string        |           | Recommendation ID (show_recommendation, approve, reject, skip)                                                 |
+| `reviewedBy`            | string        |           | Reviewer identifier (approve, reject, skip)                                                                    |
+| `scopeId`               | string        |           | Scope ID                                                                                                       |
+| `scopeType`             | `global`      |   `org`   | `project`                                                                                                      | `session` |                                                                                                                | Scope type |
+| `status`                | string (enum) |           | Filter by status (list_recommendations, list_jobs)                                                             |
+| `tasks`                 | string[]      |           | Which tasks to run (defaults to all): consolidation, forgetting, graphBackfill (run_maintenance)               |
 
 **status values:** `pending`, `approved`, `rejected`, `skipped`, `expired`
 
@@ -809,11 +818,11 @@ Get usage analytics and trends from audit log. Actions: get_stats, get_trends, g
 | `sessionId`     | string   |           | Session ID for hook analytics                      |
 | `severity`      | `error`  | `warning` | `info`                                             |           | Filter by notification severity (for get_notification_stats) |
 | `startDate`     | string   |           | Start date filter (ISO timestamp)                  |
-| `subagentTypes` | array    |           | Filter by subagent types (for get_subagent_stats)  |
+| `subagentTypes` | string[] |           | Filter by subagent types (for get_subagent_stats)  |
 | `subtaskType`   | string   |           | Filter by subtask type                             |
 | `timeRange`     | `day`    |  `week`   | `month`                                            | `all`     |                                                              | Time range for hook analytics (alternative to startDate/endDate) |
 | `timeWindow`    | object   |           | Time window for correlation analysis               |
-| `toolNames`     | array    |           | Filter by specific tool names (for get_tool_stats) |
+| `toolNames`     | string[] |           | Filter by specific tool names (for get_tool_stats) |
 
 ---
 
@@ -827,7 +836,7 @@ Manage conversation audit logs. Records and retrieves conversation history for d
 | ----------------- | -------- | :---------: | ----------- | --- | --- |
 | `agentId`         | string   |             |             |
 | `content`         | string   |             |             |
-| `contextEntries`  | array    |             |             |
+| `contextEntries`  | object[] |             |             |
 | `conversationId`  | string   |             |             |
 | `entryId`         | string   |             |             |
 | `entryType`       | `tool`   | `guideline` | `knowledge` |     |     |
@@ -845,7 +854,7 @@ Manage conversation audit logs. Records and retrieves conversation history for d
 | `sessionId`       | string   |             |             |
 | `status`          | `active` | `completed` | `archived`  |     |     |
 | `title`           | string   |             |             |
-| `toolsUsed`       | array    |             |             |
+| `toolsUsed`       | string[] |             |             |
 
 ---
 
@@ -980,11 +989,26 @@ Manage hierarchical summaries for efficient memory retrieval at scale.
 
 ### memory_context
 
-Show auto-detected context for debugging.
+Unified context management for memory retrieval.
 
-| Parameter | Type   | Required  | Description |
-| --------- | ------ | :-------: | ----------- | --------------------------------------------------------------------------------------------- |
-| `action`  | `show` | `refresh` |             | Action to perform: "show" (display detected context) or "refresh" (clear cache and re-detect) |
+**Actions:** `get`, `budget-info`, `stats`, `show`, `refresh`
+
+| Parameter      | Type            |     Required     | Description                                                                             |
+| -------------- | --------------- | :--------------: | --------------------------------------------------------------------------------------- | ---------- | --------------------------------------- | -------------------------------------------- |
+| `budget`       | number          |                  | Token budget override (or "auto" for purpose-based) (get)                               |
+| `complexity`   | `simple`        |    `moderate`    | `complex`                                                                               | `critical` |                                         | Task complexity (for custom purpose) (get)   |
+| `excludeStale` | boolean         |                  | Exclude stale entries from output (get)                                                 |
+| `format`       | `markdown`      |      `json`      | `natural_language`                                                                      |            | Output format (default: markdown) (get) |
+| `include`      | string[]        |                  | Entry types to include (default: all for purpose) (get)                                 |
+| `maxEntries`   | number          |                  | Maximum entries to return (soft limit) (get)                                            |
+| `mintoStyle`   | boolean         |                  | Use Minto Pyramid format (default: true). Set false for verbose dashboard output. (get) |
+| `projectId`    | string          |                  | Project ID (can differ from scopeId for session scope) (get)                            |
+| `purpose`      | `session_start` | `tool_injection` | `query`                                                                                 | `custom`   |                                         | Purpose determines budget and behavior (get) |
+| `query`        | string          |                  | Query text (optional for query purpose) (get)                                           |
+| `scopeId`      | string          |                  | Scope ID (required for non-global scopes)                                               |
+| `scopeType`    | `global`        |      `org`       | `project`                                                                               | `session`  |                                         | Scope type for context retrieval             |
+| `sessionId`    | string          |                  | Session ID for session-scoped queries (get)                                             |
+| `toolName`     | string          |                  | Tool name (required for tool_injection purpose) (get)                                   |
 
 ---
 
@@ -1125,13 +1149,14 @@ Generate and manage IDE verification hooks.
 
 Guided setup wizard for new projects. Auto-detects project info, imports docs as knowledge, and seeds tech-stack-specific guidelines. Call with no params for full auto-detection, or specify options t…
 
-| Parameter        | Type     | Required | Description                                                        |
-| ---------------- | -------- | :------: | ------------------------------------------------------------------ |
-| `dryRun`         | boolean  |          | Preview what would be done without making changes (default: false) |
-| `importDocs`     | boolean  |          | Import documentation files as knowledge entries (default: true)    |
-| `projectName`    | string   |          | Override detected project name                                     |
-| `seedGuidelines` | boolean  |          | Seed best-practice guidelines based on tech stack (default: true)  |
-| `skipSteps`      | string[] |          | Steps to skip: createProject, importDocs, seedGuidelines           |
+| Parameter        | Type     | Required | Description                                                                       |
+| ---------------- | -------- | :------: | --------------------------------------------------------------------------------- |
+| `dryRun`         | boolean  |          | Preview what would be done without making changes (default: false)                |
+| `importDocs`     | boolean  |          | Import documentation files as knowledge entries (default: true)                   |
+| `mintoStyle`     | boolean  |          | Use Minto Pyramid format (default: true). Set false for verbose dashboard output. |
+| `projectName`    | string   |          | Override detected project name                                                    |
+| `seedGuidelines` | boolean  |          | Seed best-practice guidelines based on tech stack (default: true)                 |
+| `skipSteps`      | string[] |          | Steps to skip: createProject, importDocs, seedGuidelines                          |
 
 ---
 
@@ -1184,6 +1209,23 @@ Export guidelines as LoRA training data for model fine-tuning.
 
 ---
 
+## Other
+
+### memory_walkthrough
+
+Interactive step-by-step tutorial for Agent Memory. Guides new users through concepts, setup, and first-time usage. Use action:"start" to begin or resume, action:"next" to advance.
+
+| Parameter | Type          | Required | Description                                                                                          |
+| --------- | ------------- | :------: | ---------------------------------------------------------------------------------------------------- |
+| `action`  | string (enum) |          | Action to perform: start (begin/resume), next (advance), prev (go back), goto (jump to step), statu… |
+| `step`    | string (enum) |          | Step to jump to (only for action:"goto")                                                             |
+
+**action values:** `start`, `next`, `prev`, `goto`, `status`, `reset`
+
+**step values:** `welcome`, `project_setup`, `first_memory`, `querying`, `sessions`, `tips`, `complete`
+
+---
+
 ## Scope Types
 
 | Type      | scopeId Required | Use Case                   |
@@ -1196,5 +1238,5 @@ Export guidelines as LoRA training data for model fine-tuning.
 ---
 
 @version "2.0.0"
-@last_updated "2026-01-21"
+@last_updated "2026-01-22"
 @tool_count 50

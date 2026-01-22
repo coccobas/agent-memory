@@ -32,285 +32,261 @@ All MCP tools use action-based requests:
 
 ### Tool Index
 
-| Tool                  | Purpose                                                                           | Actions                                                                                                     |
-| --------------------- | --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `memory_analytics`    | Get usage analytics and trends from audit log. Actions: get_stats, get_trends,…   | `get_stats`, `get_trends`, `get_subtask_stats`, `get_error_correlation`, `get_low_diversity`                |
-| `memory_backup`       | Manage database backups. Actions: create (create backup), list (list all backup…  | `create`, `list`, `cleanup`, `restore`                                                                      |
-| `memory_conflict`     | Manage version conflicts. Actions: list, resolve                                  | `list`, `resolve`                                                                                           |
-| `memory_consolidate`  | Consolidate similar memory entries to reduce redundancy and improve coherence.…   | `find_similar`, `dedupe`, `merge`, `abstract`, `archive_stale`                                              |
-| `memory_conversation` | Manage conversation history. Actions: start, add_message, get, list, update, li…  | `start`, `add_message`, `get`, `list`, `update`, `link_context`, `get_context`, `search`, `end`, `archive`  |
-| `memory_export`       | Export memory entries to various formats. Actions: export                         | `export`                                                                                                    |
-| `memory_file_lock`    | Manage file locks for multi-agent coordination. Actions: checkout, checkin, sta…  | `checkout`, `checkin`, `status`, `list`, `force_unlock`                                                     |
-| `memory_guideline`    | Manage coding/behavioral guidelines (rules the AI should follow). Actions: add,…  | `add`, `update`, `get`, `list`, `history`, `deactivate`, `delete`, `bulk_add`, `bulk_update`, `bulk_delete` |
-| `memory_health`       | Check server health and database status. Returns version, database stats, and c…  | —                                                                                                           |
-| `memory_hook`         | Generate and manage IDE verification hooks. Actions: - generate: Generate hook…   | `generate`, `install`, `status`, `uninstall`                                                                |
-| `memory_import`       | Import memory entries from various formats. Actions: import                       | `import`                                                                                                    |
-| `memory_init`         | Manage database initialization and migrations. Actions: init (initialize/migrat…  | `init`, `status`, `reset`                                                                                   |
-| `memory_knowledge`    | Manage knowledge entries (facts, decisions, context to remember). Actions: add,…  | `add`, `update`, `get`, `list`, `history`, `deactivate`, `delete`, `bulk_add`, `bulk_update`, `bulk_delete` |
-| `memory_observe`      | Extract memory entries from conversation/code context using LLM analysis. Actio…  | `extract`, `draft`, `commit`, `status`                                                                      |
-| `memory_org`          | Manage organizations. Actions: create, list                                       | `create`, `list`                                                                                            |
-| `memory_permission`   | Manage permissions. Actions: grant, revoke, check, list                           | `grant`, `revoke`, `check`, `list`                                                                          |
-| `memory_project`      | Manage projects. Actions: create, list, get, update                               | `create`, `list`, `get`, `update`, `delete`                                                                 |
-| `memory_query`        | Query and aggregate memory. \*\*IMPORTANT: Call this FIRST at conversation start… | `search`, `context`                                                                                         |
-| `memory_relation`     | Manage entry relations. Actions: create, list, delete                             | `create`, `list`, `delete`                                                                                  |
-| `memory_review`       | Review candidate memory entries from a session. Actions: - list: List all candi…  | `list`, `show`, `approve`, `reject`, `skip`                                                                 |
-| `memory_session`      | Manage working sessions (group related work together). Actions: start, end, lis…  | `start`, `end`, `list`                                                                                      |
-| `memory_tag`          | Manage tags. Actions: create, list, attach, detach, for_entry                     | `create`, `list`, `attach`, `detach`, `for_entry`                                                           |
-| `memory_task`         | Manage task decomposition. Actions: add, get, list                                | `add`, `get`, `list`                                                                                        |
-| `memory_tool`         | Manage tool definitions (store reusable tool patterns for future reference). Ac…  | `add`, `update`, `get`, `list`, `history`, `deactivate`, `delete`, `bulk_add`, `bulk_update`, `bulk_delete` |
-| `memory_verify`       | Verify actions against critical guidelines with active intervention. Actions: -…  | `pre_check`, `post_check`, `acknowledge`, `status`                                                          |
-| `memory_voting`       | Manage multi-agent voting and consensus. Actions: record_vote, get_consensus, l…  | `record_vote`, `get_consensus`, `list_votes`, `get_stats`                                                   |
+| Tool                  | Purpose                                                                           | Actions                                                                                                                                                                                                                      |
+| --------------------- | --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `memory`              | Natural language interface to memory. Store: "Remember X", Retrieve: "What abou…  | —                                                                                                                                                                                                                            |
+| `memory_context`      | Unified context management for memory retrieval. Actions: - get: Retrieve conte…  | `get`, `budget-info`, `stats`, `show`, `refresh`                                                                                                                                                                             |
+| `memory_discover`     | Discover hidden/advanced memory features with usage examples.                     | —                                                                                                                                                                                                                            |
+| `memory_episode`      | Manage episodes - bounded temporal activity groupings for tracking "what happen…  | `begin`, `log`, `add`, `get`, `list`, `update`, `deactivate`, `delete`, `start`, `complete`, `fail`, `cancel`, `add_event`, `get_events`, `link_entity`, `get_linked`, `get_timeline`, `what_happened`, `trace_causal_chain` |
+| `memory_evidence`     | Manage immutable evidence artifacts. Actions: add, get, list, deactivate, list\_… | `add`, `get`, `list`, `deactivate`, `list_by_type`, `list_by_source`                                                                                                                                                         |
+| `memory_graph_status` | Get diagnostic information about the knowledge graph's current state. Returns:…   | `status`                                                                                                                                                                                                                     |
+| `memory_guideline`    | Manage coding/behavioral guidelines. Actions: add, update, get, list, history,…   | `add`, `update`, `get`, `list`, `history`, `deactivate`, `delete`, `bulk_add`, `bulk_update`, `bulk_delete`                                                                                                                  |
+| `memory_knowledge`    | Manage knowledge entries (facts, decisions, context). Actions: add, update, get…  | `add`, `update`, `get`, `list`, `history`, `deactivate`, `delete`, `bulk_add`, `bulk_update`, `bulk_delete`                                                                                                                  |
+| `memory_librarian`    | Manage the Librarian Agent for pattern detection and promotion recommendations.…  | `analyze`, `status`, `run_maintenance`, `list_recommendations`, `show_recommendation`, `approve`, `reject`, `skip`, `get_job_status`, `list_jobs`                                                                            |
+| `memory_onboard`      | Guided setup wizard for new projects. Auto-detects project info, imports docs a…  | —                                                                                                                                                                                                                            |
+| `memory_org`          | Manage organizations. Actions: create, list                                       | `create`, `list`                                                                                                                                                                                                             |
+| `memory_permission`   | Manage permissions. Actions: grant, revoke, check, list                           | `grant`, `revoke`, `check`, `list`                                                                                                                                                                                           |
+| `memory_project`      | Manage projects. Actions: create, list, get, update, delete                       | `create`, `list`, `get`, `update`, `delete`                                                                                                                                                                                  |
+| `memory_query`        | Query and aggregate memory. Actions: search, context                              | `search`, `context`                                                                                                                                                                                                          |
+| `memory_quickstart`   | One-call setup for memory context and session. Auto-detects project from cwd. C…  | —                                                                                                                                                                                                                            |
+| `memory_relation`     | Manage entry relations. Actions: create, list, delete                             | `create`, `list`, `delete`                                                                                                                                                                                                   |
+| `memory_remember`     | Store memories using natural language. Auto-detects type (guideline, knowledge,…  | —                                                                                                                                                                                                                            |
+| `memory_session`      | Manage working sessions. Actions: start, end, list                                | `start`, `end`, `list`                                                                                                                                                                                                       |
+| `memory_status`       | Get a compact dashboard of your memory status. Returns project info, active ses…  | —                                                                                                                                                                                                                            |
+| `memory_tag`          | Manage tags. Actions: create, list, attach, detach, for_entry                     | `create`, `list`, `attach`, `detach`, `for_entry`                                                                                                                                                                            |
+| `memory_task`         | Manage work items (bugs, features, tasks). Actions: add, update, get, list, dea…  | `add`, `update`, `get`, `list`, `deactivate`, `delete`, `update_status`, `list_by_status`, `list_blocked`, `add_blocker`, `remove_blocker`, `get_subtasks`, `preview`, `confirm`, `reject`                                   |
+| `memory_tool`         | Manage tool definitions (reusable patterns). Actions: add, update, get, list, h…  | `add`, `update`, `get`, `list`, `history`, `deactivate`, `delete`, `bulk_add`, `bulk_update`, `bulk_delete`                                                                                                                  |
+| `memory_walkthrough`  | Interactive step-by-step tutorial for Agent Memory. Guides new users through co…  | `start`, `next`, `prev`, `goto`, `status`, `reset`                                                                                                                                                                           |
 
-### `memory_analytics`
+### `memory`
 
-Get usage analytics and trends from audit log. Actions: get_stats, get_trends, get_subtask_stats, get_error_correlation, get_low_diversity
+Natural language interface to memory. Store: "Remember X", Retrieve: "What about X?", Session: "Start/end task"
 
-- Actions: `get_stats`, `get_trends`, `get_subtask_stats`, `get_error_correlation`, `get_low_diversity`
+- Actions: —
 
-| Parameter     | Type                                           | Required | Description                          |
-| ------------- | ---------------------------------------------- | -------: | ------------------------------------ |
-| `agentA`      | string                                         |          | First agent ID for correlation       |
-| `agentB`      | string                                         |          | Second agent ID for correlation      |
-| `endDate`     | string                                         |          | End date filter (ISO timestamp)      |
-| `projectId`   | string                                         |          | Project ID for subtask stats         |
-| `scopeId`     | string                                         |          | Scope ID to filter by                |
-| `scopeType`   | string (`global`, `org`, `project`, `session`) |          |                                      |
-| `startDate`   | string                                         |          | Start date filter (ISO timestamp)    |
-| `subtaskType` | string                                         |          | Filter by subtask type               |
-| `timeWindow`  | object                                         |          | Time window for correlation analysis |
+| Parameter     | Type    | Required | Description              |
+| ------------- | ------- | -------: | ------------------------ |
+| `agentId`     | string  |          |                          |
+| `analyzeOnly` | boolean |          |                          |
+| `projectId`   | string  |          |                          |
+| `sessionId`   | string  |          |                          |
+| `text`        | string  |      yes | Natural language request |
 
-### `memory_backup`
+### `memory_context`
 
-Manage database backups. Actions: create (create backup), list (list all backups), cleanup (remove old backups), restore (restore from backup)
+Unified context management for memory retrieval. Actions: - get: Retrieve context for a specific purpose (session_start, tool_injection, query, custom) - budget-info: Get budget c…
 
-- Actions: `create`, `list`, `cleanup`, `restore`
+- Actions: `get`, `budget-info`, `stats`, `show`, `refresh`
 
-| Parameter   | Type   | Required | Description                                     |
-| ----------- | ------ | -------: | ----------------------------------------------- |
-| `admin_key` | string |          | Admin key (required)                            |
-| `filename`  | string |          | Backup filename to restore (restore)            |
-| `keepCount` | number |          | Number of backups to keep (cleanup, default: 5) |
-| `name`      | string |          | Custom backup name (create, optional)           |
+| Parameter      | Type                                                              | Required | Description                                                                       |
+| -------------- | ----------------------------------------------------------------- | -------: | --------------------------------------------------------------------------------- |
+| `budget`       | number                                                            |          | Token budget override (or "auto" for purpose-based)                               |
+| `complexity`   | string (`simple`, `moderate`, `complex`, `critical`)              |          | Task complexity (for custom purpose)                                              |
+| `excludeStale` | boolean                                                           |          | Exclude stale entries from output                                                 |
+| `format`       | string (`markdown`, `json`, `natural_language`)                   |          | Output format (default: markdown)                                                 |
+| `include`      | array<string (`guidelines`, `knowledge`, `tools`, `experiences`)> |          | Entry types to include (default: all for purpose)                                 |
+| `maxEntries`   | number                                                            |          | Maximum entries to return (soft limit)                                            |
+| `mintoStyle`   | boolean                                                           |          | Use Minto Pyramid format (default: true). Set false for verbose dashboard output. |
+| `projectId`    | string                                                            |          | Project ID (can differ from scopeId for session scope)                            |
+| `purpose`      | string (`session_start`, `tool_injection`, `query`, `custom`)     |          | Purpose determines budget and behavior                                            |
+| `query`        | string                                                            |          | Query text (optional for query purpose)                                           |
+| `scopeId`      | string                                                            |          | Scope ID (required for non-global scopes)                                         |
+| `scopeType`    | string (`global`, `org`, `project`, `session`)                    |          | Scope type for context retrieval                                                  |
+| `sessionId`    | string                                                            |          | Session ID for session-scoped queries                                             |
+| `toolName`     | string                                                            |          | Tool name (required for tool_injection purpose)                                   |
 
-### `memory_conflict`
+### `memory_discover`
 
-Manage version conflicts. Actions: list, resolve
+Discover hidden/advanced memory features with usage examples.
 
-- Actions: `list`, `resolve`
+- Actions: —
 
-| Parameter    | Type                                      | Required | Description                                                |
-| ------------ | ----------------------------------------- | -------: | ---------------------------------------------------------- |
-| `entryType`  | string (`tool`, `guideline`, `knowledge`) |          | Filter by entry type (list)                                |
-| `id`         | string                                    |          | Conflict ID (resolve)                                      |
-| `limit`      | number                                    |          |                                                            |
-| `offset`     | number                                    |          |                                                            |
-| `resolution` | string                                    |          | Resolution description (resolve)                           |
-| `resolved`   | boolean                                   |          | Filter by resolved status (list, default: unresolved only) |
-| `resolvedBy` | string                                    |          | Who resolved it (resolve)                                  |
+| Parameter    | Type                                                           | Required | Description                                                                       |
+| ------------ | -------------------------------------------------------------- | -------: | --------------------------------------------------------------------------------- |
+| `filter`     | string (`all`, `advanced`, `system`, `graph`, `summarization`) |          | Filter by feature category (default: all)                                         |
+| `mintoStyle` | boolean                                                        |          | Use Minto Pyramid format (default: true). Set false for verbose dashboard output. |
 
-### `memory_consolidate`
+### `memory_episode`
 
-Consolidate similar memory entries to reduce redundancy and improve coherence. Actions: - find_similar: Find groups of semantically similar entries (dry run) - dedupe: Remove near…
+Manage episodes - bounded temporal activity groupings for tracking "what happened during X?" and causal chains. **Quick Start (recommended):** ``` {"action":"begin","sessionId":"s…
 
-- Actions: `find_similar`, `dedupe`, `merge`, `abstract`, `archive_stale`
+- Actions: `begin`, `log`, `add`, `get`, `list`, `update`, `deactivate`, `delete`, `start`, `complete`, `fail`, `cancel`, `add_event`, `get_events`, `link_entity`, `get_linked`, `get_timeline`, `what_happened`, `trace_causal_chain`
 
-| Parameter         | Type                                             | Required | Description                                                               |
-| ----------------- | ------------------------------------------------ | -------: | ------------------------------------------------------------------------- |
-| `consolidatedBy`  | string                                           |          | Agent/user identifier for audit trail                                     |
-| `dryRun`          | boolean                                          |          | If true, only report what would be consolidated without making changes    |
-| `entryTypes`      | array<string (`tool`, `guideline`, `knowledge`)> |          | Entry types to consolidate (default: all)                                 |
-| `limit`           | number                                           |          | Maximum number of groups to process (default: 20)                         |
-| `minRecencyScore` | number                                           |          | For archive_stale: only archive if recencyScore is below this (0-1)       |
-| `scopeId`         | string                                           |          | Scope ID (required for non-global scopes)                                 |
-| `scopeType`       | string (`global`, `org`, `project`, `session`)   |          | Scope type to consolidate within                                          |
-| `staleDays`       | number                                           |          | For archive_stale: entries older than this (in days) are considered stale |
-| `threshold`       | number                                           |          | Similarity threshold 0-1 (default: 0.85). Higher = stricter matching.     |
+| Parameter         | Type                                                             | Required | Description                                                                                 |
+| ----------------- | ---------------------------------------------------------------- | -------: | ------------------------------------------------------------------------------------------- |
+| `agentId`         | string                                                           |          | Agent identifier (required for writes)                                                      |
+| `createdBy`       | string                                                           |          | Creator identifier                                                                          |
+| `data`            | object                                                           |          | Event data (JSON)                                                                           |
+| `description`     | string                                                           |          | Episode description                                                                         |
+| `direction`       | string (`forward`, `backward`)                                   |          | Direction for causal chain traversal                                                        |
+| `end`             | string                                                           |          | End timestamp for timeline range (ISO 8601)                                                 |
+| `entryId`         | string                                                           |          | Entry ID for linked entity                                                                  |
+| `entryType`       | string                                                           |          | Entry type for linked entity ('guideline', 'knowledge', 'tool', 'experience')               |
+| `episodeId`       | string                                                           |          | Episode ID (alias for id, for backward compatibility)                                       |
+| `eventType`       | string                                                           |          | Event type: 'started', 'checkpoint', 'decision', 'error', 'completed' (default: checkpoint) |
+| `id`              | string                                                           |          | Episode ID                                                                                  |
+| `includeInactive` | boolean                                                          |          | Include deactivated episodes                                                                |
+| `limit`           | number                                                           |          | Max results to return                                                                       |
+| `maxDepth`        | number                                                           |          | Maximum depth for causal chain traversal (default: 10)                                      |
+| `message`         | string                                                           |          | Event message (for log action)                                                              |
+| `metadata`        | object                                                           |          | Additional metadata                                                                         |
+| `name`            | string                                                           |          | Episode name                                                                                |
+| `offset`          | number                                                           |          | Skip N results                                                                              |
+| `outcome`         | string                                                           |          | Episode outcome description                                                                 |
+| `outcomeType`     | string (`success`, `partial`, `failure`, `abandoned`)            |          | Episode outcome type                                                                        |
+| `parentEpisodeId` | string                                                           |          | Parent episode ID for hierarchical episodes                                                 |
+| `reason`          | string                                                           |          | Reason for cancellation                                                                     |
+| `role`            | string                                                           |          | Role of linked entity ('created', 'modified', 'referenced')                                 |
+| `scopeId`         | string                                                           |          | Scope ID (required for non-global scopes)                                                   |
+| `scopeType`       | string (`global`, `org`, `project`, `session`)                   |          | Scope type (default: project)                                                               |
+| `sessionId`       | string                                                           |          | Session ID                                                                                  |
+| `start`           | string                                                           |          | Start timestamp for timeline range (ISO 8601)                                               |
+| `status`          | string (`planned`, `active`, `completed`, `failed`, `cancelled`) |          | Filter by status                                                                            |
+| `tags`            | array<string>                                                    |          | Episode tags                                                                                |
+| `triggerRef`      | string                                                           |          | Reference to the trigger (e.g., task ID, event ID)                                          |
+| `triggerType`     | string                                                           |          | What triggered this episode ('user_request', 'system_event', 'scheduled')                   |
 
-### `memory_conversation`
+### `memory_evidence`
 
-Manage conversation history. Actions: start, add_message, get, list, update, link_context, get_context, search, end, archive
+Manage immutable evidence artifacts. Actions: add, get, list, deactivate, list_by_type, list_by_source. IMMUTABLE: no update action.
 
-- Actions: `start`, `add_message`, `get`, `list`, `update`, `link_context`, `get_context`, `search`, `end`, `archive`
+- Actions: `add`, `get`, `list`, `deactivate`, `list_by_type`, `list_by_source`
 
-| Parameter         | Type                                       | Required | Description                                      |
-| ----------------- | ------------------------------------------ | -------: | ------------------------------------------------ |
-| `agentId`         | string                                     |          | Agent ID (start, add_message, etc.)              |
-| `content`         | string                                     |          | Message content (add_message)                    |
-| `contextEntries`  | array<unknown>                             |          | Memory entries used (add_message)                |
-| `conversationId`  | string                                     |          | Conversation ID (add_message, get, update, etc.) |
-| `entryId`         | string                                     |          | Entry ID (link_context, get_context)             |
-| `entryType`       | string (`tool`, `guideline`, `knowledge`)  |          | Entry type (link_context, get_context)           |
-| `generateSummary` | boolean                                    |          | Generate summary when ending (end)               |
-| `includeContext`  | boolean                                    |          | Include context links (get)                      |
-| `includeMessages` | boolean                                    |          | Include messages (get)                           |
-| `limit`           | number                                     |          |                                                  |
-| `messageId`       | string                                     |          | Message ID (link_context)                        |
-| `metadata`        | object                                     |          | Optional metadata (start, update)                |
-| `offset`          | number                                     |          |                                                  |
-| `projectId`       | string                                     |          | Project ID (start)                               |
-| `relevanceScore`  | number                                     |          | Relevance score 0-1 (link_context)               |
-| `role`            | string (`user`, `agent`, `system`)         |          | Message role (add_message)                       |
-| `search`          | string                                     |          | Search query (search)                            |
-| `sessionId`       | string                                     |          | Session ID (start)                               |
-| `status`          | string (`active`, `completed`, `archived`) |          | Filter by status (list)                          |
-| `title`           | string                                     |          | Conversation title (start, update)               |
-| `toolsUsed`       | array<unknown>                             |          | Tools invoked (add_message)                      |
+| Parameter         | Type                                                                                                 | Required | Description         |
+| ----------------- | ---------------------------------------------------------------------------------------------------- | -------: | ------------------- |
+| `agentId`         | string                                                                                               |          | Required for writes |
+| `baseline`        | number                                                                                               |          |                     |
+| `capturedAt`      | string                                                                                               |          |                     |
+| `capturedBy`      | string                                                                                               |          |                     |
+| `checksum`        | string                                                                                               |          |                     |
+| `content`         | string                                                                                               |          |                     |
+| `createdBy`       | string                                                                                               |          |                     |
+| `description`     | string                                                                                               |          |                     |
+| `endLine`         | number                                                                                               |          |                     |
+| `evidenceType`    | string (`screenshot`, `log`, `snippet`, `output`, `benchmark`, `link`, `document`, `quote`, `other`) |          |                     |
+| `fileName`        | string                                                                                               |          |                     |
+| `filePath`        | string                                                                                               |          |                     |
+| `fileSize`        | number                                                                                               |          |                     |
+| `id`              | string                                                                                               |          |                     |
+| `includeInactive` | boolean                                                                                              |          |                     |
+| `inherit`         | boolean                                                                                              |          |                     |
+| `language`        | string                                                                                               |          |                     |
+| `limit`           | number                                                                                               |          |                     |
+| `metadata`        | object                                                                                               |          |                     |
+| `metric`          | string                                                                                               |          |                     |
+| `mimeType`        | string                                                                                               |          |                     |
+| `offset`          | number                                                                                               |          |                     |
+| `scopeId`         | string                                                                                               |          |                     |
+| `scopeType`       | string (`global`, `org`, `project`, `session`)                                                       |          |                     |
+| `source`          | string                                                                                               |          |                     |
+| `sourceFile`      | string                                                                                               |          |                     |
+| `startLine`       | number                                                                                               |          |                     |
+| `tags`            | array<string>                                                                                        |          |                     |
+| `title`           | string                                                                                               |          |                     |
+| `unit`            | string                                                                                               |          |                     |
+| `url`             | string                                                                                               |          |                     |
+| `value`           | number                                                                                               |          |                     |
 
-### `memory_export`
+### `memory_graph_status`
 
-Export memory entries to various formats. Actions: export
+Get diagnostic information about the knowledge graph's current state. Returns: - Node type count and names (builtin vs custom) - Edge type count and names (builtin vs custom) - Cu…
 
-- Actions: `export`
-
-| Parameter         | Type                                               | Required | Description                                                                                                             |
-| ----------------- | -------------------------------------------------- | -------: | ----------------------------------------------------------------------------------------------------------------------- |
-| `admin_key`       | string                                             |          | Admin key (required when writing to disk)                                                                               |
-| `agentId`         | string                                             |          | Agent identifier for access control/auditing                                                                            |
-| `filename`        | string                                             |          | Optional filename to save export to configured export directory. If not provided, content is returned in response only. |
-| `format`          | string (`json`, `markdown`, `yaml`, `openapi`)     |          | Export format (default: json)                                                                                           |
-| `includeInactive` | boolean                                            |          | Include inactive/deleted entries (default: false)                                                                       |
-| `includeVersions` | boolean                                            |          | Include version history in export (default: false)                                                                      |
-| `scopeId`         | string                                             |          | Scope ID (required if scopeType specified)                                                                              |
-| `scopeType`       | string (`global`, `org`, `project`, `session`)     |          | Scope type to export from                                                                                               |
-| `tags`            | array<string>                                      |          | Filter by tags (include entries with any of these tags)                                                                 |
-| `types`           | array<string (`tools`, `guidelines`, `knowledge`)> |          | Entry types to export (default: all)                                                                                    |
-
-### `memory_file_lock`
-
-Manage file locks for multi-agent coordination. Actions: checkout, checkin, status, list, force_unlock
-
-- Actions: `checkout`, `checkin`, `status`, `list`, `force_unlock`
-
-| Parameter    | Type   | Required | Description                            |
-| ------------ | ------ | -------: | -------------------------------------- |
-| `agent_id`   | string |          | Agent/IDE identifier                   |
-| `expires_in` | number |          | Lock timeout in seconds (default 3600) |
-| `file_path`  | string |          | Absolute filesystem path to the file   |
-| `metadata`   | object |          | Optional metadata                      |
-| `project_id` | string |          | Optional project reference             |
-| `reason`     | string |          | Reason for force unlock                |
-| `session_id` | string |          | Optional session reference             |
+- Actions: `status`
+- Parameters: (none)
 
 ### `memory_guideline`
 
-Manage coding/behavioral guidelines (rules the AI should follow). Actions: add, update, get, list, history, deactivate, delete, bulk_add, bulk_update, bulk_delete When to store: W…
+Manage coding/behavioral guidelines. Actions: add, update, get, list, history, deactivate, delete, bulk_add, bulk_update, bulk_delete
 
 - Actions: `add`, `update`, `get`, `list`, `history`, `deactivate`, `delete`, `bulk_add`, `bulk_update`, `bulk_delete`
 
-| Parameter         | Type                                           | Required | Description                           |
-| ----------------- | ---------------------------------------------- | -------: | ------------------------------------- |
-| `category`        | string                                         |          | Category (e.g., security, code_style) |
-| `changeReason`    | string                                         |          |                                       |
-| `content`         | string                                         |          | The guideline text                    |
-| `createdBy`       | string                                         |          |                                       |
-| `examples`        | object                                         |          |                                       |
-| `id`              | string                                         |          | Guideline ID                          |
-| `includeInactive` | boolean                                        |          |                                       |
-| `inherit`         | boolean                                        |          |                                       |
-| `limit`           | number                                         |          |                                       |
-| `name`            | string                                         |          | Guideline name                        |
-| `offset`          | number                                         |          |                                       |
-| `priority`        | number                                         |          | Priority 0-100                        |
-| `rationale`       | string                                         |          | Why this guideline exists             |
-| `scopeId`         | string                                         |          |                                       |
-| `scopeType`       | string (`global`, `org`, `project`, `session`) |          |                                       |
-| `updatedBy`       | string                                         |          |                                       |
-
-### `memory_health`
-
-Check server health and database status. Returns version, database stats, and cache info. Use this to verify the memory server is working or to get entry counts.
-
-- Actions: —
-- Parameters: (none)
-
-### `memory_hook`
-
-Generate and manage IDE verification hooks. Actions: - generate: Generate hook files without installing (returns content and instructions) - install: Generate and install hooks to…
-
-- Actions: `generate`, `install`, `status`, `uninstall`
-
-| Parameter     | Type                                  | Required | Description                                  |
-| ------------- | ------------------------------------- | -------: | -------------------------------------------- |
-| `ide`         | string (`claude`, `cursor`, `vscode`) |      yes | Target IDE                                   |
-| `projectId`   | string                                |          | Project ID for loading guidelines (optional) |
-| `projectPath` | string                                |      yes | Absolute path to the project directory       |
-| `sessionId`   | string                                |          | Session ID for loading guidelines (optional) |
-
-### `memory_import`
-
-Import memory entries from various formats. Actions: import
-
-- Actions: `import`
-
-| Parameter          | Type                                           | Required | Description                                                                                                           |
-| ------------------ | ---------------------------------------------- | -------: | --------------------------------------------------------------------------------------------------------------------- |
-| `admin_key`        | string                                         |          | Admin key (required)                                                                                                  |
-| `conflictStrategy` | string (`skip`, `update`, `replace`, `error`)  |          | How to handle conflicts with existing entries (default: update)                                                       |
-| `content`          | string                                         |      yes | Content to import (JSON string, YAML string, Markdown, or OpenAPI spec)                                               |
-| `format`           | string (`json`, `yaml`, `markdown`, `openapi`) |          | Import format (default: json, auto-detected if possible)                                                              |
-| `generateNewIds`   | boolean                                        |          | Generate new IDs for imported entries instead of preserving originals (default: false)                                |
-| `importedBy`       | string                                         |          | Agent ID or identifier for audit trail                                                                                |
-| `scopeMapping`     | object                                         |          | Map scope IDs from import to target scopes: { "oldScopeId": { "type": "org\|project\|session", "id": "newScopeId" } } |
-
-### `memory_init`
-
-Manage database initialization and migrations. Actions: init (initialize/migrate), status (check migration status), reset (reset database - WARNING: deletes all data)
-
-- Actions: `init`, `status`, `reset`
-
-| Parameter   | Type    | Required | Description                                                                         |
-| ----------- | ------- | -------: | ----------------------------------------------------------------------------------- |
-| `admin_key` | string  |          | Admin key (required for init/reset)                                                 |
-| `confirm`   | boolean |          | Confirm database reset - required for reset action. WARNING: This deletes all data! |
-| `force`     | boolean |          | Force re-initialization even if already initialized (init)                          |
-| `verbose`   | boolean |          | Enable verbose output (init, reset)                                                 |
+| Parameter         | Type                                           | Required | Description         |
+| ----------------- | ---------------------------------------------- | -------: | ------------------- |
+| `agentId`         | string                                         |          | Required for writes |
+| `category`        | string                                         |          |                     |
+| `changeReason`    | string                                         |          |                     |
+| `content`         | string                                         |          |                     |
+| `createdBy`       | string                                         |          |                     |
+| `examples`        | object                                         |          |                     |
+| `id`              | string                                         |          |                     |
+| `includeInactive` | boolean                                        |          |                     |
+| `inherit`         | boolean                                        |          |                     |
+| `limit`           | number                                         |          |                     |
+| `name`            | string                                         |          |                     |
+| `offset`          | number                                         |          |                     |
+| `priority`        | number                                         |          |                     |
+| `rationale`       | string                                         |          |                     |
+| `scopeId`         | string                                         |          |                     |
+| `scopeType`       | string (`global`, `org`, `project`, `session`) |          |                     |
+| `updatedBy`       | string                                         |          |                     |
 
 ### `memory_knowledge`
 
-Manage knowledge entries (facts, decisions, context to remember). Actions: add, update, get, list, history, deactivate, delete, bulk_add, bulk_update, bulk_delete When to store: A…
+Manage knowledge entries (facts, decisions, context). Actions: add, update, get, list, history, deactivate, delete, bulk_add, bulk_update, bulk_delete
 
 - Actions: `add`, `update`, `get`, `list`, `history`, `deactivate`, `delete`, `bulk_add`, `bulk_update`, `bulk_delete`
 
-| Parameter         | Type                                                | Required | Description                    |
-| ----------------- | --------------------------------------------------- | -------: | ------------------------------ |
-| `category`        | string (`decision`, `fact`, `context`, `reference`) |          |                                |
-| `changeReason`    | string                                              |          |                                |
-| `confidence`      | number                                              |          | Confidence level 0-1           |
-| `content`         | string                                              |          | The knowledge content          |
-| `createdBy`       | string                                              |          |                                |
-| `id`              | string                                              |          | Knowledge ID                   |
-| `includeInactive` | boolean                                             |          |                                |
-| `inherit`         | boolean                                             |          |                                |
-| `limit`           | number                                              |          |                                |
-| `offset`          | number                                              |          |                                |
-| `scopeId`         | string                                              |          |                                |
-| `scopeType`       | string (`global`, `org`, `project`, `session`)      |          |                                |
-| `source`          | string                                              |          | Where this knowledge came from |
-| `title`           | string                                              |          | Knowledge title                |
-| `updatedBy`       | string                                              |          |                                |
-| `validUntil`      | string                                              |          | Expiration date (ISO format)   |
+| Parameter         | Type                                                | Required | Description         |
+| ----------------- | --------------------------------------------------- | -------: | ------------------- |
+| `agentId`         | string                                              |          | Required for writes |
+| `category`        | string (`decision`, `fact`, `context`, `reference`) |          |                     |
+| `changeReason`    | string                                              |          |                     |
+| `confidence`      | number                                              |          |                     |
+| `content`         | string                                              |          |                     |
+| `createdBy`       | string                                              |          |                     |
+| `id`              | string                                              |          |                     |
+| `includeInactive` | boolean                                             |          |                     |
+| `inherit`         | boolean                                             |          |                     |
+| `invalidatedBy`   | string                                              |          |                     |
+| `limit`           | number                                              |          |                     |
+| `offset`          | number                                              |          |                     |
+| `scopeId`         | string                                              |          |                     |
+| `scopeType`       | string (`global`, `org`, `project`, `session`)      |          |                     |
+| `source`          | string                                              |          |                     |
+| `title`           | string                                              |          |                     |
+| `updatedBy`       | string                                              |          |                     |
+| `validFrom`       | string                                              |          |                     |
+| `validUntil`      | string                                              |          |                     |
 
-### `memory_observe`
+### `memory_librarian`
 
-Extract memory entries from conversation/code context using LLM analysis. Actions: - extract: Analyze context and extract guidelines, knowledge, and tool patterns - draft: Return…
+Manage the Librarian Agent for pattern detection and promotion recommendations. Actions: - analyze: Run pattern detection analysis on experiences - status: Get librarian service a…
 
-- Actions: `extract`, `draft`, `commit`, `status`
+- Actions: `analyze`, `status`, `run_maintenance`, `list_recommendations`, `show_recommendation`, `approve`, `reject`, `skip`, `get_job_status`, `list_jobs`
 
-| Parameter              | Type                                                   | Required | Description                                                                                              |
-| ---------------------- | ------------------------------------------------------ | -------: | -------------------------------------------------------------------------------------------------------- |
-| `agentId`              | string                                                 |          | Agent identifier for audit                                                                               |
-| `autoPromote`          | boolean                                                |          | If true, entries above threshold can be stored at project scope when projectId is provided (default: on) |
-| `autoPromoteThreshold` | number                                                 |          | Confidence threshold for auto-promotion (0-1, default: 0.85)                                             |
-| `autoStore`            | boolean                                                |          | Automatically store entries above confidence threshold (default: false)                                  |
-| `confidenceThreshold`  | number                                                 |          | Minimum confidence to auto-store (0-1, default: 0.7)                                                     |
-| `context`              | string                                                 |          | Raw conversation or code context to analyze                                                              |
-| `contextType`          | string (`conversation`, `code`, `mixed`)               |          | Type of context (default: mixed)                                                                         |
-| `entries`              | array<object>                                          |          | Client-extracted entries (required for commit)                                                           |
-| `focusAreas`           | array<string (`decisions`, `facts`, `rules`, `tools`)> |          | Focus extraction on specific types                                                                       |
-| `projectId`            | string                                                 |          | Project ID (optional, enables project auto-promote)                                                      |
-| `scopeId`              | string                                                 |          | Scope ID (required for non-global scopes)                                                                |
-| `scopeType`            | string (`global`, `org`, `project`, `session`)         |          | Scope for extracted entries (default: project)                                                           |
-| `sessionId`            | string                                                 |          | Session ID (required for draft/commit)                                                                   |
+| Parameter               | Type                                                 | Required | Description                                                                                                             |
+| ----------------------- | ---------------------------------------------------- | -------: | ----------------------------------------------------------------------------------------------------------------------- |
+| `dryRun`                | boolean                                              |          | If true, analyze without making changes                                                                                 |
+| `initiatedBy`           | string                                               |          | Who initiated this maintenance run                                                                                      |
+| `jobId`                 | string                                               |          | Job ID to get status for                                                                                                |
+| `limit`                 | number                                               |          | Maximum results to return                                                                                               |
+| `lookbackDays`          | number                                               |          | Days to look back for experiences (default: 30)                                                                         |
+| `mergeIntoExperienceId` | string                                               |          | Merge into existing strategy instead of creating new. Pass the experience ID of the existing strategy.                  |
+| `mergeStrategy`         | string (`append`, `replace`, `increment`)            |          | How to merge: append (add source cases to existing), replace (overwrite pattern text), increment (just bump confidence) |
+| `minConfidence`         | number                                               |          | Filter by minimum confidence                                                                                            |
+| `notes`                 | string                                               |          | Review notes                                                                                                            |
+| `offset`                | number                                               |          | Results to skip                                                                                                         |
+| `recommendationId`      | string                                               |          | Recommendation ID                                                                                                       |
+| `reviewedBy`            | string                                               |          | Reviewer identifier                                                                                                     |
+| `scopeId`               | string                                               |          | Scope ID                                                                                                                |
+| `scopeType`             | string (`global`, `org`, `project`, `session`)       |          | Scope type                                                                                                              |
+| `status`                | string (`pending`, `running`, `completed`, `failed`) |          | Filter by job status                                                                                                    |
+| `tasks`                 | array<string>                                        |          | Which tasks to run (defaults to all): consolidation, forgetting, graphBackfill                                          |
+
+### `memory_onboard`
+
+Guided setup wizard for new projects. Auto-detects project info, imports docs as knowledge, and seeds tech-stack-specific guidelines. Call with no params for full auto-detection,…
+
+- Actions: —
+
+| Parameter        | Type                                                            | Required | Description                                                                       |
+| ---------------- | --------------------------------------------------------------- | -------: | --------------------------------------------------------------------------------- |
+| `dryRun`         | boolean                                                         |          | Preview what would be done without making changes (default: false)                |
+| `importDocs`     | boolean                                                         |          | Import documentation files as knowledge entries (default: true)                   |
+| `mintoStyle`     | boolean                                                         |          | Use Minto Pyramid format (default: true). Set false for verbose dashboard output. |
+| `projectName`    | string                                                          |          | Override detected project name                                                    |
+| `seedGuidelines` | boolean                                                         |          | Seed best-practice guidelines based on tech stack (default: true)                 |
+| `skipSteps`      | array<string (`createProject`, `importDocs`, `seedGuidelines`)> |          | Steps to skip: createProject, importDocs, seedGuidelines                          |
 
 ### `memory_org`
 
@@ -318,12 +294,12 @@ Manage organizations. Actions: create, list
 
 - Actions: `create`, `list`
 
-| Parameter  | Type   | Required | Description                    |
-| ---------- | ------ | -------: | ------------------------------ |
-| `limit`    | number |          | Max results (list, default 20) |
-| `metadata` | object |          | Optional metadata (create)     |
-| `name`     | string |          | Organization name (create)     |
-| `offset`   | number |          | Skip N results (list)          |
+| Parameter  | Type   | Required | Description |
+| ---------- | ------ | -------: | ----------- |
+| `limit`    | number |          |             |
+| `metadata` | object |          |             |
+| `name`     | string |          |             |
+| `offset`   | number |          |             |
 
 ### `memory_permission`
 
@@ -331,69 +307,101 @@ Manage permissions. Actions: grant, revoke, check, list
 
 - Actions: `grant`, `revoke`, `check`, `list`
 
-| Parameter       | Type                                           | Required | Description                                   |
-| --------------- | ---------------------------------------------- | -------: | --------------------------------------------- |
-| `admin_key`     | string                                         |          | Admin key (grant, revoke, list)               |
-| `agent_id`      | string                                         |          | Agent identifier (grant, revoke, check, list) |
-| `created_by`    | string                                         |          | Creator identifier (grant)                    |
-| `entry_type`    | string (`tool`, `guideline`, `knowledge`)      |          | Entry type (grant, revoke, check, list)       |
-| `limit`         | number                                         |          | Max results (list, default: all)              |
-| `offset`        | number                                         |          | Skip N results (list)                         |
-| `permission`    | string (`read`, `write`, `admin`)              |          | Permission level (grant)                      |
-| `permission_id` | string                                         |          | Permission ID (revoke)                        |
-| `scope_id`      | string                                         |          | Scope ID (grant, revoke, check, list)         |
-| `scope_type`    | string (`global`, `org`, `project`, `session`) |          | Scope type (grant, revoke, check, list)       |
+| Parameter       | Type                                           | Required | Description |
+| --------------- | ---------------------------------------------- | -------: | ----------- |
+| `admin_key`     | string                                         |          |             |
+| `agent_id`      | string                                         |          |             |
+| `created_by`    | string                                         |          |             |
+| `entry_type`    | string (`tool`, `guideline`, `knowledge`)      |          |             |
+| `limit`         | number                                         |          |             |
+| `offset`        | number                                         |          |             |
+| `permission`    | string (`read`, `write`, `admin`)              |          |             |
+| `permission_id` | string                                         |          |             |
+| `scope_id`      | string                                         |          |             |
+| `scope_type`    | string (`global`, `org`, `project`, `session`) |          |             |
 
 ### `memory_project`
 
-Manage projects. Actions: create, list, get, update
+Manage projects. Actions: create, list, get, update, delete
 
 - Actions: `create`, `list`, `get`, `update`, `delete`
 
-| Parameter     | Type   | Required | Description              |
-| ------------- | ------ | -------: | ------------------------ |
-| `description` | string |          | Project description      |
-| `id`          | string |          | Project ID (get, update) |
-| `limit`       | number |          |                          |
-| `metadata`    | object |          | Optional metadata        |
-| `name`        | string |          | Project name             |
-| `offset`      | number |          |                          |
-| `orgId`       | string |          | Parent organization ID   |
-| `rootPath`    | string |          | Filesystem root path     |
+| Parameter     | Type    | Required | Description                                   |
+| ------------- | ------- | -------: | --------------------------------------------- |
+| `admin_key`   | string  |          | Admin key (required for create/update/delete) |
+| `confirm`     | boolean |          | Confirmation flag (required for delete)       |
+| `description` | string  |          | Project description                           |
+| `id`          | string  |          | Project ID (get, update, delete)              |
+| `limit`       | number  |          |                                               |
+| `metadata`    | object  |          | Optional metadata                             |
+| `name`        | string  |          | Project name                                  |
+| `offset`      | number  |          |                                               |
+| `orgId`       | string  |          | Parent organization ID                        |
+| `rootPath`    | string  |          | Filesystem root path                          |
 
 ### `memory_query`
 
-Query and aggregate memory. **IMPORTANT: Call this FIRST at conversation start with action:"context" to load project context.** Actions: - context: Get aggregated context for a sc…
+Query and aggregate memory. Actions: search, context
 
 - Actions: `search`, `context`
 
-| Parameter           | Type                                               | Required | Description                                                           |
-| ------------------- | -------------------------------------------------- | -------: | --------------------------------------------------------------------- |
-| `agentId`           | string                                             |          | Agent identifier for access control/auditing                          |
-| `compact`           | boolean                                            |          | Return compact results                                                |
-| `createdAfter`      | string                                             |          | Filter by creation date (ISO timestamp)                               |
-| `createdBefore`     | string                                             |          | Filter by creation date (ISO timestamp)                               |
-| `fields`            | array<string>                                      |          | Field-specific search: ["name", "description"]                        |
-| `followRelations`   | boolean                                            |          | Expand search results to include related entries                      |
-| `fuzzy`             | boolean                                            |          | Enable typo tolerance (Levenshtein distance)                          |
-| `includeInactive`   | boolean                                            |          | Include inactive entries (search)                                     |
-| `includeVersions`   | boolean                                            |          | Include version history (search)                                      |
-| `inherit`           | boolean                                            |          | Include parent scopes (context, default true)                         |
-| `limit`             | number                                             |          | Max results (search) or per type (context as limitPerType)            |
-| `priority`          | object                                             |          | Filter guidelines by priority range (0-100)                           |
-| `regex`             | boolean                                            |          | Use regex instead of simple match                                     |
-| `relatedTo`         | object                                             |          | Find related entries (search)                                         |
-| `scope`             | object                                             |          | Scope to search within (search)                                       |
-| `scopeId`           | string                                             |          | Scope ID (context)                                                    |
-| `scopeType`         | string (`global`, `org`, `project`, `session`)     |          | Scope type (context)                                                  |
-| `search`            | string                                             |          | Free-text search (search)                                             |
-| `semanticSearch`    | boolean                                            |          | Enable semantic/vector search (default: true if embeddings available) |
-| `semanticThreshold` | number                                             |          | Minimum similarity score for semantic results (0-1, default: 0.7)     |
-| `tags`              | object                                             |          | Tag filters (search)                                                  |
-| `types`             | array<string (`tools`, `guidelines`, `knowledge`)> |          | Which sections to search (search)                                     |
-| `updatedAfter`      | string                                             |          | Filter by update date (ISO timestamp)                                 |
-| `updatedBefore`     | string                                             |          | Filter by update date (ISO timestamp)                                 |
-| `useFts5`           | boolean                                            |          | Use FTS5 full-text search instead of LIKE queries (default: false)    |
+| Parameter           | Type                                               | Required | Description                                                                                       |
+| ------------------- | -------------------------------------------------- | -------: | ------------------------------------------------------------------------------------------------- |
+| `agentId`           | string                                             |          |                                                                                                   |
+| `atTime`            | string                                             |          | ISO timestamp for temporal filter                                                                 |
+| `compact`           | boolean                                            |          |                                                                                                   |
+| `createdAfter`      | string                                             |          |                                                                                                   |
+| `createdBefore`     | string                                             |          |                                                                                                   |
+| `explain`           | boolean                                            |          | Return nested explain output with score breakdowns, stage timing, and reasoning (default: false). |
+| `fields`            | array<string>                                      |          |                                                                                                   |
+| `followRelations`   | boolean                                            |          |                                                                                                   |
+| `fuzzy`             | boolean                                            |          |                                                                                                   |
+| `hierarchical`      | boolean                                            |          | Return ~1.5k token summary instead of ~15k full entries                                           |
+| `includeInactive`   | boolean                                            |          |                                                                                                   |
+| `includeVersions`   | boolean                                            |          |                                                                                                   |
+| `inherit`           | boolean                                            |          | Include parent scopes (default true)                                                              |
+| `limit`             | number                                             |          |                                                                                                   |
+| `mintoStyle`        | boolean                                            |          | Use Minto Pyramid format for context action (default: true). Set false for verbose output.        |
+| `priority`          | object                                             |          |                                                                                                   |
+| `regex`             | boolean                                            |          |                                                                                                   |
+| `relatedTo`         | object                                             |          |                                                                                                   |
+| `scope`             | object                                             |          |                                                                                                   |
+| `scopeId`           | string                                             |          |                                                                                                   |
+| `scopeType`         | string (`global`, `org`, `project`, `session`)     |          |                                                                                                   |
+| `search`            | string                                             |          | Free-text search                                                                                  |
+| `semanticSearch`    | boolean                                            |          |                                                                                                   |
+| `semanticThreshold` | number                                             |          |                                                                                                   |
+| `tags`              | object                                             |          |                                                                                                   |
+| `types`             | array<string (`tools`, `guidelines`, `knowledge`)> |          |                                                                                                   |
+| `updatedAfter`      | string                                             |          |                                                                                                   |
+| `updatedBefore`     | string                                             |          |                                                                                                   |
+| `useFts5`           | boolean                                            |          |                                                                                                   |
+| `validDuring`       | object                                             |          |                                                                                                   |
+
+### `memory_quickstart`
+
+One-call setup for memory context and session. Auto-detects project from cwd. Can also create projects and grant permissions in a single call.
+
+- Actions: —
+
+| Parameter            | Type                                   | Required | Description                                                                                                                                                 |
+| -------------------- | -------------------------------------- | -------: | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `agentId`            | string                                 |          |                                                                                                                                                             |
+| `autoEpisode`        | boolean                                |          | Auto-create episode when sessionName indicates substantive work (default: true). Triggers on patterns like "fix bug", "implement feature", "refactor", etc. |
+| `createProject`      | boolean                                |          | Create project if it does not exist (requires projectName)                                                                                                  |
+| `displayMode`        | string (`compact`, `standard`, `full`) |          | Display verbosity: compact (1-line summary), standard (boxed sections, default), full (with hints)                                                          |
+| `grantPermissions`   | boolean                                |          | Grant permissions to agent (default: true when createProject)                                                                                               |
+| `inherit`            | boolean                                |          |                                                                                                                                                             |
+| `limitPerType`       | number                                 |          |                                                                                                                                                             |
+| `mintoStyle`         | boolean                                |          | Use Minto Pyramid format (default: true). Set false for verbose dashboard output.                                                                           |
+| `permissionLevel`    | string (`read`, `write`, `admin`)      |          | Permission level to grant (default: write)                                                                                                                  |
+| `projectDescription` | string                                 |          | Description for new project                                                                                                                                 |
+| `projectId`          | string                                 |          |                                                                                                                                                             |
+| `projectName`        | string                                 |          | Name for new project (required if createProject)                                                                                                            |
+| `rootPath`           | string                                 |          | Root path for project (auto-detected from cwd if not provided)                                                                                              |
+| `sessionName`        | string                                 |          | Start session with this name                                                                                                                                |
+| `sessionPurpose`     | string                                 |          |                                                                                                                                                             |
+| `verbose`            | boolean                                |          | Return full context instead of hierarchical summary (default: false)                                                                                        |
 
 ### `memory_relation`
 
@@ -401,48 +409,60 @@ Manage entry relations. Actions: create, list, delete
 
 - Actions: `create`, `list`, `delete`
 
-| Parameter      | Type                                                                                             | Required | Description                                  |
-| -------------- | ------------------------------------------------------------------------------------------------ | -------: | -------------------------------------------- |
-| `agentId`      | string                                                                                           |          | Agent identifier for access control/auditing |
-| `createdBy`    | string                                                                                           |          |                                              |
-| `id`           | string                                                                                           |          | Relation ID (delete)                         |
-| `limit`        | number                                                                                           |          |                                              |
-| `offset`       | number                                                                                           |          |                                              |
-| `relationType` | string (`applies_to`, `depends_on`, `conflicts_with`, `related_to`, `parent_task`, `subtask_of`) |          |                                              |
-| `sourceId`     | string                                                                                           |          |                                              |
-| `sourceType`   | string (`tool`, `guideline`, `knowledge`, `project`)                                             |          |                                              |
-| `targetId`     | string                                                                                           |          |                                              |
-| `targetType`   | string (`tool`, `guideline`, `knowledge`, `project`)                                             |          |                                              |
+| Parameter      | Type                                                                                                            | Required | Description |
+| -------------- | --------------------------------------------------------------------------------------------------------------- | -------: | ----------- |
+| `agentId`      | string                                                                                                          |          |             |
+| `createdBy`    | string                                                                                                          |          |             |
+| `id`           | string                                                                                                          |          |             |
+| `limit`        | number                                                                                                          |          |             |
+| `offset`       | number                                                                                                          |          |             |
+| `relationType` | string (`applies_to`, `depends_on`, `conflicts_with`, `related_to`, `parent_task`, `subtask_of`, `promoted_to`) |          |             |
+| `sourceId`     | string                                                                                                          |          |             |
+| `sourceType`   | string (`tool`, `guideline`, `knowledge`, `project`, `experience`)                                              |          |             |
+| `targetId`     | string                                                                                                          |          |             |
+| `targetType`   | string (`tool`, `guideline`, `knowledge`, `project`, `experience`)                                              |          |             |
 
-### `memory_review`
+### `memory_remember`
 
-Review candidate memory entries from a session. Actions: - list: List all candidates pending review in a session - show: Show full details of a specific candidate - approve: Promo…
+Store memories using natural language. Auto-detects type (guideline, knowledge, tool) and category.
 
-- Actions: `list`, `show`, `approve`, `reject`, `skip`
+- Actions: —
 
-| Parameter   | Type   | Required | Description                                                                             |
-| ----------- | ------ | -------: | --------------------------------------------------------------------------------------- |
-| `entryId`   | string |          | Entry ID or short ID (for show, approve, reject, skip)                                  |
-| `projectId` | string |          | Target project ID for approved entries (optional, derived from session if not provided) |
-| `sessionId` | string |      yes | Session ID to review candidates from                                                    |
+| Parameter   | Type                                      | Required | Description      |
+| ----------- | ----------------------------------------- | -------: | ---------------- |
+| `forceType` | string (`guideline`, `knowledge`, `tool`) |          |                  |
+| `priority`  | number                                    |          |                  |
+| `tags`      | array<string>                             |          |                  |
+| `text`      | string                                    |      yes | What to remember |
 
 ### `memory_session`
 
-Manage working sessions (group related work together). Actions: start, end, list Workflow: Start a session at beginning of a task, end when complete. Sessions group related memory…
+Manage working sessions. Actions: start, end, list
 
 - Actions: `start`, `end`, `list`
 
-| Parameter   | Type                                                  | Required | Description                       |
-| ----------- | ----------------------------------------------------- | -------: | --------------------------------- |
-| `agentId`   | string                                                |          | Agent/IDE identifier (start)      |
-| `id`        | string                                                |          | Session ID (end)                  |
-| `limit`     | number                                                |          |                                   |
-| `metadata`  | object                                                |          | Session metadata (start)          |
-| `name`      | string                                                |          | Session name (start)              |
-| `offset`    | number                                                |          |                                   |
-| `projectId` | string                                                |          | Parent project ID (start)         |
-| `purpose`   | string                                                |          | Session purpose (start)           |
-| `status`    | string (`completed`, `discarded`, `active`, `paused`) |          | End status (end) or filter (list) |
+| Parameter   | Type                                                  | Required | Description |
+| ----------- | ----------------------------------------------------- | -------: | ----------- |
+| `agentId`   | string                                                |          |             |
+| `id`        | string                                                |          |             |
+| `limit`     | number                                                |          |             |
+| `metadata`  | object                                                |          |             |
+| `name`      | string                                                |          |             |
+| `offset`    | number                                                |          |             |
+| `projectId` | string                                                |          |             |
+| `purpose`   | string                                                |          |             |
+| `status`    | string (`completed`, `discarded`, `active`, `paused`) |          |             |
+
+### `memory_status`
+
+Get a compact dashboard of your memory status. Returns project info, active session, and entry counts in one call. Use this instead of multiple list calls to understand memory sta…
+
+- Actions: —
+
+| Parameter           | Type    | Required | Description                                                                       |
+| ------------------- | ------- | -------: | --------------------------------------------------------------------------------- |
+| `includeTopEntries` | boolean |          | Include top 5 entries per type (default: false)                                   |
+| `mintoStyle`        | boolean |          | Use Minto Pyramid format (default: true). Set false for verbose dashboard output. |
 
 ### `memory_tag`
 
@@ -450,95 +470,96 @@ Manage tags. Actions: create, list, attach, detach, for_entry
 
 - Actions: `create`, `list`, `attach`, `detach`, `for_entry`
 
-| Parameter      | Type                                                        | Required | Description                                  |
-| -------------- | ----------------------------------------------------------- | -------: | -------------------------------------------- |
-| `agentId`      | string                                                      |          | Agent identifier for access control/auditing |
-| `category`     | string (`language`, `domain`, `category`, `meta`, `custom`) |          |                                              |
-| `description`  | string                                                      |          |                                              |
-| `entryId`      | string                                                      |          |                                              |
-| `entryType`    | string (`tool`, `guideline`, `knowledge`, `project`)        |          |                                              |
-| `isPredefined` | boolean                                                     |          |                                              |
-| `limit`        | number                                                      |          |                                              |
-| `name`         | string                                                      |          | Tag name (unique)                            |
-| `offset`       | number                                                      |          |                                              |
-| `tagId`        | string                                                      |          | Tag ID                                       |
-| `tagName`      | string                                                      |          | Tag name (creates if not exists)             |
+| Parameter      | Type                                                        | Required | Description |
+| -------------- | ----------------------------------------------------------- | -------: | ----------- |
+| `agentId`      | string                                                      |          |             |
+| `category`     | string (`language`, `domain`, `category`, `meta`, `custom`) |          |             |
+| `description`  | string                                                      |          |             |
+| `entryId`      | string                                                      |          |             |
+| `entryType`    | string (`tool`, `guideline`, `knowledge`, `project`)        |          |             |
+| `isPredefined` | boolean                                                     |          |             |
+| `limit`        | number                                                      |          |             |
+| `name`         | string                                                      |          |             |
+| `offset`       | number                                                      |          |             |
+| `tagId`        | string                                                      |          |             |
+| `tagName`      | string                                                      |          |             |
 
 ### `memory_task`
 
-Manage task decomposition. Actions: add, get, list
+Manage work items (bugs, features, tasks). Actions: add, update, get, list, deactivate, delete, update_status, list_by_status, list_blocked, add_blocker, remove_blocker, get_subta…
 
-- Actions: `add`, `get`, `list`
+- Actions: `add`, `update`, `get`, `list`, `deactivate`, `delete`, `update_status`, `list_by_status`, `list_blocked`, `add_blocker`, `remove_blocker`, `get_subtasks`, `preview`, `confirm`, `reject`
 
-| Parameter               | Type                                           | Required | Description                               |
-| ----------------------- | ---------------------------------------------- | -------: | ----------------------------------------- |
-| `createdBy`             | string                                         |          |                                           |
-| `decompositionStrategy` | string (`maximal`, `balanced`, `minimal`)      |          | Decomposition strategy (add)              |
-| `limit`                 | number                                         |          |                                           |
-| `offset`                | number                                         |          |                                           |
-| `parentTask`            | string                                         |          | ID of parent task (add)                   |
-| `parentTaskId`          | string                                         |          | Filter by parent task ID (list)           |
-| `projectId`             | string                                         |          | For storing decomposition metadata (add)  |
-| `scopeId`               | string                                         |          |                                           |
-| `scopeType`             | string (`global`, `org`, `project`, `session`) |          |                                           |
-| `subtasks`              | array<string>                                  |          | Array of subtask descriptions/names (add) |
-| `taskId`                | string                                         |          | Task ID (get)                             |
+| Parameter          | Type                                                                              | Required | Description                           |
+| ------------------ | --------------------------------------------------------------------------------- | -------: | ------------------------------------- |
+| `actualMinutes`    | number                                                                            |          |                                       |
+| `agentId`          | string                                                                            |          | Required for writes                   |
+| `assignee`         | string                                                                            |          |                                       |
+| `blockerId`        | string                                                                            |          |                                       |
+| `category`         | string                                                                            |          |                                       |
+| `createdBy`        | string                                                                            |          |                                       |
+| `description`      | string                                                                            |          |                                       |
+| `dueDate`          | string                                                                            |          |                                       |
+| `endLine`          | number                                                                            |          |                                       |
+| `estimatedMinutes` | number                                                                            |          |                                       |
+| `file`             | string                                                                            |          |                                       |
+| `id`               | string                                                                            |          |                                       |
+| `includeInactive`  | boolean                                                                           |          |                                       |
+| `inherit`          | boolean                                                                           |          |                                       |
+| `limit`            | number                                                                            |          |                                       |
+| `metadata`         | object                                                                            |          |                                       |
+| `offset`           | number                                                                            |          |                                       |
+| `parentTaskId`     | string                                                                            |          |                                       |
+| `previewId`        | string                                                                            |          | Preview ID for confirm/reject actions |
+| `reporter`         | string                                                                            |          |                                       |
+| `resolution`       | string                                                                            |          |                                       |
+| `scopeId`          | string                                                                            |          |                                       |
+| `scopeType`        | string (`global`, `org`, `project`, `session`)                                    |          |                                       |
+| `severity`         | string (`critical`, `high`, `medium`, `low`)                                      |          |                                       |
+| `startLine`        | number                                                                            |          |                                       |
+| `status`           | string (`backlog`, `open`, `in_progress`, `blocked`, `review`, `done`, `wont_do`) |          |                                       |
+| `tags`             | array<string>                                                                     |          |                                       |
+| `taskDomain`       | string (`agent`, `physical`)                                                      |          |                                       |
+| `taskType`         | string (`bug`, `feature`, `improvement`, `debt`, `research`, `question`, `other`) |          |                                       |
+| `title`            | string                                                                            |          |                                       |
+| `updatedBy`        | string                                                                            |          |                                       |
+| `urgency`          | string (`immediate`, `soon`, `normal`, `later`)                                   |          |                                       |
 
 ### `memory_tool`
 
-Manage tool definitions (store reusable tool patterns for future reference). Actions: add, update, get, list, history, deactivate, delete, bulk_add, bulk_update, bulk_delete When…
+Manage tool definitions (reusable patterns). Actions: add, update, get, list, history, deactivate, delete, bulk_add, bulk_update, bulk_delete
 
 - Actions: `add`, `update`, `get`, `list`, `history`, `deactivate`, `delete`, `bulk_add`, `bulk_update`, `bulk_delete`
 
-| Parameter         | Type                                           | Required | Description                         |
-| ----------------- | ---------------------------------------------- | -------: | ----------------------------------- |
-| `category`        | string (`mcp`, `cli`, `function`, `api`)       |          |                                     |
-| `changeReason`    | string                                         |          | Reason for update                   |
-| `constraints`     | string                                         |          | Usage constraints                   |
-| `createdBy`       | string                                         |          | Creator identifier                  |
-| `description`     | string                                         |          | What this tool does                 |
-| `examples`        | array<unknown>                                 |          | Usage examples                      |
-| `id`              | string                                         |          | Tool ID                             |
-| `includeInactive` | boolean                                        |          |                                     |
-| `inherit`         | boolean                                        |          | Search parent scopes (default true) |
-| `limit`           | number                                         |          |                                     |
-| `name`            | string                                         |          | Tool name                           |
-| `offset`          | number                                         |          |                                     |
-| `parameters`      | object                                         |          | Parameter schema                    |
-| `scopeId`         | string                                         |          | Scope ID                            |
-| `scopeType`       | string (`global`, `org`, `project`, `session`) |          | Scope level                         |
-| `updatedBy`       | string                                         |          |                                     |
+| Parameter         | Type                                           | Required | Description         |
+| ----------------- | ---------------------------------------------- | -------: | ------------------- |
+| `agentId`         | string                                         |          | Required for writes |
+| `category`        | string (`mcp`, `cli`, `function`, `api`)       |          |                     |
+| `changeReason`    | string                                         |          |                     |
+| `constraints`     | string                                         |          |                     |
+| `createdBy`       | string                                         |          |                     |
+| `description`     | string                                         |          |                     |
+| `examples`        | array<object>                                  |          |                     |
+| `id`              | string                                         |          |                     |
+| `includeInactive` | boolean                                        |          |                     |
+| `inherit`         | boolean                                        |          |                     |
+| `limit`           | number                                         |          |                     |
+| `name`            | string                                         |          |                     |
+| `offset`          | number                                         |          |                     |
+| `parameters`      | object                                         |          |                     |
+| `scopeId`         | string                                         |          |                     |
+| `scopeType`       | string (`global`, `org`, `project`, `session`) |          |                     |
+| `updatedBy`       | string                                         |          |                     |
 
-### `memory_verify`
+### `memory_walkthrough`
 
-Verify actions against critical guidelines with active intervention. Actions: - pre_check: REQUIRED before file modifications or code generation. Returns {blocked: true} if violat…
+Interactive step-by-step tutorial for Agent Memory. Guides new users through concepts, setup, and first-time usage. Use action:"start" to begin or resume, action:"next" to advance.
 
-- Actions: `pre_check`, `post_check`, `acknowledge`, `status`
+- Actions: `start`, `next`, `prev`, `goto`, `status`, `reset`
 
-| Parameter         | Type          | Required | Description                                                 |
-| ----------------- | ------------- | -------: | ----------------------------------------------------------- |
-| `agentId`         | string        |          | Agent identifier                                            |
-| `completedAction` | object        |          | Completed action to log (post_check)                        |
-| `content`         | string        |          | Response content to verify (post_check alternative)         |
-| `guidelineIds`    | array<string> |          | Guideline IDs to acknowledge (acknowledge)                  |
-| `projectId`       | string        |          | Project ID (optional, derived from session if not provided) |
-| `proposedAction`  | object        |          | Action to verify (pre_check)                                |
-| `sessionId`       | string        |          | Current session ID                                          |
-
-### `memory_voting`
-
-Manage multi-agent voting and consensus. Actions: record_vote, get_consensus, list_votes, get_stats
-
-- Actions: `record_vote`, `get_consensus`, `list_votes`, `get_stats`
-
-| Parameter    | Type   | Required | Description                                               |
-| ------------ | ------ | -------: | --------------------------------------------------------- |
-| `agentId`    | string |          | Agent identifier                                          |
-| `confidence` | number |          | Confidence level 0-1 (default: 1.0)                       |
-| `k`          | number |          | Number of votes ahead required for consensus (default: 1) |
-| `reasoning`  | string |          | Reasoning for this vote                                   |
-| `taskId`     | string |          | Task ID (references knowledge/tool entry)                 |
-| `voteValue`  | object |          | Agent vote value (any JSON-serializable value)            |
+| Parameter | Type                                                                                            | Required | Description                              |
+| --------- | ----------------------------------------------------------------------------------------------- | -------: | ---------------------------------------- |
+| `step`    | string (`welcome`, `project_setup`, `first_memory`, `querying`, `sessions`, `tips`, `complete`) |          | Step to jump to (only for action:"goto") |
 
 <!-- AUTO-GENERATED:MCP-TOOLS-END -->
 
