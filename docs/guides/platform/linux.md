@@ -319,55 +319,6 @@ sudo chmod 770 /var/lib/agent-memory
 
 ---
 
-## Docker on Linux
-
-### Direct Docker
-
-```bash
-docker run --rm -i \
-  -v ~/.agent-memory:/data \
-  ghcr.io/anthropics/agent-memory:latest mcp
-```
-
-### With User Mapping
-
-Avoid permission issues:
-
-```bash
-docker run --rm -i \
-  --user $(id -u):$(id -g) \
-  -v ~/.agent-memory:/data \
-  ghcr.io/anthropics/agent-memory:latest mcp
-```
-
-### Rootless Docker
-
-For rootless Docker installations, use standard paths:
-
-```bash
-docker run --rm -i \
-  -v $HOME/.agent-memory:/data \
-  ghcr.io/anthropics/agent-memory:latest mcp
-```
-
----
-
-## SELinux (RHEL/Fedora)
-
-If SELinux is enabled:
-
-```bash
-# Allow container to access data directory
-sudo chcon -Rt svirt_sandbox_file_t ~/.agent-memory
-
-# Or use :Z flag in volume mount
-docker run --rm -i \
-  -v ~/.agent-memory:/data:Z \
-  ghcr.io/anthropics/agent-memory:latest mcp
-```
-
----
-
 ## Common Issues
 
 ### Permission Denied
@@ -415,5 +366,4 @@ export AGENT_MEMORY_QUERY_CACHE_MEMORY_MB=50
 ## See Also
 
 - [IDE Setup](../ide-setup.md) - Detailed IDE configuration
-- [Docker Setup](../docker.md) - Container deployment
 - [Troubleshooting](../troubleshooting.md) - Common issues

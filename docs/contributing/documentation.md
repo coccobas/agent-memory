@@ -317,7 +317,7 @@ See [IDE Setup](../guides/ide-setup.md) for configuration details.
 # Reference list (for "See Also" sections)
 
 - [IDE Setup](../guides/ide-setup.md) - Configure your IDE
-- [Docker Guide](../guides/docker.md) - Container deployment
+- [PostgreSQL Setup](../guides/postgresql-setup.md) - Enterprise database
 ```
 
 ### Avoiding Broken Links

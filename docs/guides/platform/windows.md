@@ -292,30 +292,7 @@ nssm start AgentMemory
 
 ---
 
-## Docker on Windows
-
-### Using Docker Desktop
-
-```powershell
-docker run --rm -i `
-  -v C:\data\agent-memory:/data `
-  ghcr.io/anthropics/agent-memory:latest mcp
-```
-
-### WSL2 Considerations
-
-When using WSL2 backend, paths translate automatically. Use Linux-style paths in the container:
-
-```powershell
-docker run --rm -i `
-  -v //c/data/agent-memory:/data `
-  ghcr.io/anthropics/agent-memory:latest mcp
-```
-
----
-
 ## See Also
 
 - [IDE Setup](../ide-setup.md) - Detailed IDE configuration
-- [Docker Setup](../docker.md) - Container deployment
 - [Troubleshooting](../troubleshooting.md) - Common issues

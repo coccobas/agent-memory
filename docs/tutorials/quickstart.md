@@ -4,25 +4,14 @@ Get Agent Memory running in 2 minutes.
 
 **What you'll learn:** How to start the server and make your first memory.
 
-**Prerequisites:** Node.js >= 20.0.0 or Docker
+**Prerequisites:** Node.js >= 20.0.0
 
 ---
 
 ## Step 1: Start the Server
 
-Choose one option:
-
-### Option A: npx (no install)
-
 ```bash
 npx agent-memory@latest mcp
-```
-
-### Option B: Docker
-
-```bash
-docker pull ghcr.io/anthropics/agent-memory:latest
-docker run --rm -i -v ~/.agent-memory:/data ghcr.io/anthropics/agent-memory:latest mcp
 ```
 
 ---
@@ -88,4 +77,3 @@ What do you remember about this project?
 
 - [First Workflow](first-workflow.md) - Complete tutorial on projects, sessions, and memory types
 - [IDE Setup](../guides/ide-setup.md) - Detailed IDE configuration
-- [Docker Setup](../guides/docker.md) - Container deployment options

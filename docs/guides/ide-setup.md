@@ -510,6 +510,5 @@ If running multiple IDEs:
 ## See Also
 
 - [Quickstart](../tutorials/quickstart.md) - Get running in 2 minutes
-- [Docker Deployment](docker.md) - Container deployment
 - [Troubleshooting](troubleshooting.md) - Common issues
 - [First Workflow](../tutorials/first-workflow.md) - First workflow

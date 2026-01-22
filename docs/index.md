@@ -10,7 +10,6 @@ Agent Memory is the high-speed memory layer for AI agents—persistent, permissi
 | Learn the full workflow  | [First Workflow Tutorial](tutorials/first-workflow.md)         |
 | Set up my IDE            | [IDE Setup Guide](guides/ide-setup.md)                         |
 | Enable semantic search   | [Semantic Search Tutorial](tutorials/semantic-search-setup.md) |
-| Deploy with Docker       | [Docker Guide](guides/docker.md)                               |
 | Use PostgreSQL           | [PostgreSQL Setup](guides/postgresql-setup.md)                 |
 | Scale to multiple nodes  | [Redis Distributed](guides/redis-distributed.md)               |
 | Plan for scale           | [Scaling Guide](SCALING.md)                                    |
@@ -38,7 +37,6 @@ How to accomplish specific tasks:
 **Setup**
 
 - [IDE Setup](guides/ide-setup.md) — Claude, Cursor, VS Code configuration
-- [Docker Deployment](guides/docker.md) — Container deployment
 - [PostgreSQL Setup](guides/postgresql-setup.md) — Enterprise database
 - [Redis Distributed](guides/redis-distributed.md) — Multi-node scaling
 - [Windows Setup](guides/platform/windows.md) — Windows-specific setup
