@@ -53,6 +53,7 @@ import {
   createDefaultSmartPriorityConfig,
 } from '../../services/prioritization/index.js';
 import { createContextManagerService } from '../../services/context/index.js';
+import { getHookAnalyticsService } from '../../services/analytics/index.js';
 
 /**
  * Input for wireContext - all backend-specific resources resolved
@@ -575,6 +576,14 @@ export async function wireContext(input: WireContextInput): Promise<AppContext> 
   if (services.vector) {
     await services.vector.waitForReady();
     logger.debug('Vector service ready');
+  }
+
+  // Wire HookAnalyticsService to repository
+  // This enables memory_analytics get_dashboard/get_tool_stats/etc. to work
+  if (repos.hookMetrics) {
+    const hookAnalyticsService = getHookAnalyticsService();
+    hookAnalyticsService.setRepository(repos.hookMetrics);
+    logger.debug('Hook analytics service wired to repository');
   }
 
   return {
