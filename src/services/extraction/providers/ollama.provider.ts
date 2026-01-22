@@ -39,8 +39,46 @@ export class OllamaProvider implements IExtractionProvider {
       );
     }
 
+    // SSRF protection: Validate Ollama URL at construction time
+    this.validateOllamaUrl(baseUrl);
+
     this.baseUrl = baseUrl;
     this.model = model;
+  }
+
+  private validateOllamaUrl(baseUrl: string): void {
+    const url = new URL(baseUrl);
+    const hostname = url.hostname.toLowerCase();
+
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+      throw createValidationError(
+        'ollamaBaseUrl',
+        `Invalid protocol: ${url.protocol}. Only http/https allowed`
+      );
+    }
+
+    const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+    const isPrivateNetwork =
+      hostname.startsWith('10.') ||
+      hostname.startsWith('192.168.') ||
+      /^172\.(1[6-9]|2[0-9]|3[01])\./.test(hostname);
+
+    const isProduction = ['production', 'prod', 'staging'].includes(
+      (process.env.NODE_ENV || '').toLowerCase()
+    );
+
+    if (!isLocalhost && !isPrivateNetwork) {
+      if (isProduction) {
+        throw createValidationError(
+          'ollamaBaseUrl',
+          `SSRF protection: Ollama must be on localhost or private network in production. Got: ${hostname}`
+        );
+      }
+      logger.warn(
+        { hostname },
+        'Ollama configured with external URL. This is a potential SSRF risk in production.'
+      );
+    }
   }
 
   getProvider(): ExtractionProvider {

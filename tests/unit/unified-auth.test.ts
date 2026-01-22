@@ -30,6 +30,8 @@ describe('Unified Auth Config', () => {
     originalEnv.AGENT_MEMORY_REST_API_KEY = process.env.AGENT_MEMORY_REST_API_KEY;
     originalEnv.AGENT_MEMORY_PERMISSIONS_MODE = process.env.AGENT_MEMORY_PERMISSIONS_MODE;
     originalEnv.AGENT_MEMORY_ALLOW_PERMISSIVE = process.env.AGENT_MEMORY_ALLOW_PERMISSIVE;
+    originalEnv.AGENT_MEMORY_ALLOW_DEV_MODE_IN_PRODUCTION =
+      process.env.AGENT_MEMORY_ALLOW_DEV_MODE_IN_PRODUCTION;
     originalEnv.NODE_ENV = process.env.NODE_ENV;
 
     // Clear all auth-related env vars
@@ -39,6 +41,7 @@ describe('Unified Auth Config', () => {
     delete process.env.AGENT_MEMORY_REST_API_KEY;
     delete process.env.AGENT_MEMORY_PERMISSIONS_MODE;
     delete process.env.AGENT_MEMORY_ALLOW_PERMISSIVE;
+    delete process.env.AGENT_MEMORY_ALLOW_DEV_MODE_IN_PRODUCTION;
 
     // Reset warning flags
     resetWarningFlags();
@@ -159,15 +162,22 @@ describe('Unified Auth Config', () => {
       expect(shouldWarnDevMode()).toBe(false);
     });
 
-    it('should return true when dev mode is enabled in production', () => {
+    it('should throw when dev mode is enabled in production', () => {
       process.env.AGENT_MEMORY_DEV_MODE = 'true';
       process.env.NODE_ENV = 'production';
-      expect(shouldWarnDevMode()).toBe(true);
+      expect(() => shouldWarnDevMode()).toThrow('cannot be enabled in production');
     });
 
-    it('should return true when dev mode is enabled in staging', () => {
+    it('should throw when dev mode is enabled in staging', () => {
       process.env.AGENT_MEMORY_DEV_MODE = 'true';
       process.env.NODE_ENV = 'staging';
+      expect(() => shouldWarnDevMode()).toThrow('cannot be enabled in production');
+    });
+
+    it('should allow dev mode in production with explicit override', () => {
+      process.env.AGENT_MEMORY_DEV_MODE = 'true';
+      process.env.NODE_ENV = 'production';
+      process.env.AGENT_MEMORY_ALLOW_DEV_MODE_IN_PRODUCTION = 'true';
       expect(shouldWarnDevMode()).toBe(true);
     });
   });
@@ -233,9 +243,16 @@ describe('Unified Auth Config', () => {
       expect(result.warnings).toHaveLength(0);
     });
 
-    it('should warn when dev mode is enabled in production-like environment', () => {
+    it('should throw when dev mode is enabled in production-like environment', () => {
       process.env.AGENT_MEMORY_DEV_MODE = 'true';
       process.env.NODE_ENV = 'production';
+      expect(() => validateAuthConfig()).toThrow('cannot be enabled in production');
+    });
+
+    it('should warn (not throw) when dev mode enabled in production with override', () => {
+      process.env.AGENT_MEMORY_DEV_MODE = 'true';
+      process.env.NODE_ENV = 'production';
+      process.env.AGENT_MEMORY_ALLOW_DEV_MODE_IN_PRODUCTION = 'true';
       const result = validateAuthConfig();
       expect(result.valid).toBe(false);
       expect(result.warnings.some((w) => w.includes('production-like'))).toBe(true);

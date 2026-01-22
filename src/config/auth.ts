@@ -94,14 +94,40 @@ function checkDeprecatedVars(): void {
  * - REST API auth is bypassed (all requests authorized)
  * - Full access is granted to all agents
  *
+ * SECURITY: Dev mode is blocked in production-like environments.
+ * Set AGENT_MEMORY_ALLOW_DEV_MODE_IN_PRODUCTION=true to override (not recommended).
+ *
  * Note: For permission-only bypass, use isPermissiveModeEnabled()
  */
 export function isDevMode(): boolean {
   const devModeFlag = process.env.AGENT_MEMORY_DEV_MODE;
-  if (devModeFlag !== undefined) {
-    return devModeFlag === 'true' || devModeFlag === '1';
+  if (devModeFlag !== 'true' && devModeFlag !== '1') {
+    return false;
   }
-  return false;
+
+  // Check if we're in a production-like environment
+  const env = (process.env.NODE_ENV || '').trim().toLowerCase();
+  const productionLike = ['production', 'prod', 'staging', 'stage', 'preprod', 'uat', 'qa'];
+
+  if (productionLike.includes(env)) {
+    // Allow explicit override for edge cases (with warning)
+    const allowOverride = process.env.AGENT_MEMORY_ALLOW_DEV_MODE_IN_PRODUCTION === 'true';
+    if (allowOverride) {
+      logger.warn(
+        'AGENT_MEMORY_DEV_MODE enabled in production with explicit override. ' +
+          'This is a security risk - all authentication is bypassed!'
+      );
+      return true;
+    }
+
+    throw new Error(
+      `AGENT_MEMORY_DEV_MODE cannot be enabled in production environment (NODE_ENV=${env}). ` +
+        'Remove AGENT_MEMORY_DEV_MODE or set NODE_ENV to development. ' +
+        'If you really need this (not recommended), set AGENT_MEMORY_ALLOW_DEV_MODE_IN_PRODUCTION=true.'
+    );
+  }
+
+  return true;
 }
 
 /**
@@ -118,7 +144,7 @@ export function isDevMode(): boolean {
  * Use this function for permission checks to maintain backward compatibility.
  */
 export function isPermissiveModeEnabled(): boolean {
-  // DEV_MODE enables permissive mode
+  // DEV_MODE enables permissive mode (isDevMode() throws in production)
   if (isDevMode()) {
     return true;
   }
@@ -127,6 +153,28 @@ export function isPermissiveModeEnabled(): boolean {
   const legacyPermissive = process.env.AGENT_MEMORY_PERMISSIONS_MODE === 'permissive';
   if (legacyPermissive) {
     checkDeprecatedVars();
+
+    // Block in production-like environments
+    const env = (process.env.NODE_ENV || '').trim().toLowerCase();
+    const productionLike = ['production', 'prod', 'staging', 'stage', 'preprod', 'uat', 'qa'];
+
+    if (productionLike.includes(env)) {
+      const allowOverride = process.env.AGENT_MEMORY_ALLOW_DEV_MODE_IN_PRODUCTION === 'true';
+      if (allowOverride) {
+        logger.warn(
+          'AGENT_MEMORY_PERMISSIONS_MODE=permissive enabled in production with explicit override. ' +
+            'This is a security risk - all permission checks are bypassed!'
+        );
+        return true;
+      }
+
+      throw new Error(
+        `AGENT_MEMORY_PERMISSIONS_MODE=permissive cannot be used in production (NODE_ENV=${env}). ` +
+          'Remove this setting or set NODE_ENV to development. ' +
+          'If you really need this (not recommended), set AGENT_MEMORY_ALLOW_DEV_MODE_IN_PRODUCTION=true.'
+      );
+    }
+
     return true;
   }
 
