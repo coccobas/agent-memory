@@ -358,6 +358,12 @@ const isMissedExtractionType = (type: string): boolean => {
   return type === 'missed_guideline' || type === 'missed_knowledge' || type === 'missed_tool';
 };
 
+type MergeStrategy = 'append' | 'replace' | 'increment';
+
+function isMergeStrategy(value: unknown): value is MergeStrategy {
+  return value === 'append' || value === 'replace' || value === 'increment';
+}
+
 const approve: ContextAwareHandler = async (context, params) => {
   const service = getLibrarianServiceFromContext(context);
 
@@ -371,6 +377,8 @@ const approve: ContextAwareHandler = async (context, params) => {
   const recommendationId = getOptionalParam(params, 'recommendationId', isString);
   const reviewedBy = getOptionalParam(params, 'reviewedBy', isString);
   const notes = getOptionalParam(params, 'notes', isString);
+  const mergeIntoExperienceId = getOptionalParam(params, 'mergeIntoExperienceId', isString);
+  const mergeStrategy = getOptionalParam(params, 'mergeStrategy', isMergeStrategy);
 
   if (!recommendationId) {
     return {
@@ -392,6 +400,16 @@ const approve: ContextAwareHandler = async (context, params) => {
 
     if (isMissedExtractionType(recommendation.type)) {
       return await approveMissedExtraction(context, recommendation, store, reviewedBy, notes);
+    } else if (mergeIntoExperienceId) {
+      return await approveWithMerge(
+        context,
+        recommendation,
+        store,
+        mergeIntoExperienceId,
+        mergeStrategy ?? 'append',
+        reviewedBy,
+        notes
+      );
     } else {
       return await approvePatternPromotion(context, recommendation, store, reviewedBy, notes);
     }
@@ -469,6 +487,121 @@ async function approvePatternPromotion(
     promotedExperience: promotionResult.experience,
     createdTool: promotionResult.createdTool,
     message: 'Recommendation approved and experience promoted successfully.',
+  };
+}
+
+async function approveWithMerge(
+  context: AppContext,
+  recommendation: Awaited<ReturnType<IRecommendationStore['getById']>>,
+  store: IRecommendationStore,
+  mergeIntoExperienceId: string,
+  mergeStrategy: MergeStrategy,
+  reviewedBy: string | undefined,
+  notes: string | undefined
+) {
+  if (!recommendation) {
+    return { success: false, error: 'Recommendation not found' };
+  }
+
+  if (!recommendation.exemplarExperienceId) {
+    return {
+      success: false,
+      error: 'Recommendation has no exemplar experience to merge',
+    };
+  }
+
+  const experienceRepo = context.repos.experiences;
+  if (!experienceRepo) {
+    return { success: false, error: 'Experience repository not available' };
+  }
+
+  const targetStrategy = await experienceRepo.getById(mergeIntoExperienceId);
+  if (!targetStrategy) {
+    return { success: false, error: `Target strategy ${mergeIntoExperienceId} not found` };
+  }
+
+  if (targetStrategy.level !== 'strategy') {
+    return { success: false, error: 'Can only merge into strategy-level experiences' };
+  }
+
+  const sourceCase = await experienceRepo.getById(recommendation.exemplarExperienceId);
+  if (!sourceCase) {
+    return { success: false, error: 'Source case experience not found' };
+  }
+
+  const relationRepo = context.repos.entryRelations;
+  if (!relationRepo) {
+    return { success: false, error: 'Relations repository not available' };
+  }
+
+  await relationRepo.create({
+    sourceType: 'experience',
+    sourceId: sourceCase.id,
+    targetType: 'experience',
+    targetId: targetStrategy.id,
+    relationType: 'promoted_to',
+    createdBy: reviewedBy ?? 'mcp-handler',
+  });
+
+  let updatedStrategy = targetStrategy;
+
+  if (mergeStrategy === 'replace' && recommendation.pattern) {
+    const updateResult = await experienceRepo.update(targetStrategy.id, {
+      pattern: recommendation.pattern,
+      applicability: recommendation.applicability ?? undefined,
+      contraindications: recommendation.contraindications ?? undefined,
+      updatedBy: reviewedBy ?? 'mcp-handler',
+      changeReason: `Merged pattern from recommendation ${recommendation.id}`,
+    });
+    if (updateResult) {
+      updatedStrategy = updateResult;
+    }
+  } else if (mergeStrategy === 'increment') {
+    const currentConfidence = targetStrategy.currentVersion?.confidence ?? 0.5;
+    const newConfidence = Math.min(1.0, currentConfidence + 0.05);
+    const updateResult = await experienceRepo.update(targetStrategy.id, {
+      confidence: newConfidence,
+      updatedBy: reviewedBy ?? 'mcp-handler',
+      changeReason: `Confidence incremented from merging case ${sourceCase.id}`,
+    });
+    if (updateResult) {
+      updatedStrategy = updateResult;
+    }
+  }
+
+  const updated = await store.approve(
+    recommendation.id,
+    reviewedBy ?? 'mcp-handler',
+    targetStrategy.id,
+    undefined,
+    notes ?? `Merged into existing strategy: ${mergeStrategy}`
+  );
+
+  if (!updated) {
+    return {
+      success: false,
+      error: 'Failed to update recommendation after merge',
+    };
+  }
+
+  logger.info(
+    {
+      recommendationId: recommendation.id,
+      reviewedBy,
+      mergedIntoExperienceId: mergeIntoExperienceId,
+      mergeStrategy,
+      sourceCaseId: sourceCase.id,
+    },
+    'Recommendation approved and merged into existing strategy'
+  );
+
+  return {
+    success: true,
+    recommendation: updated,
+    mergedIntoStrategy: updatedStrategy,
+    sourceCaseLinked: sourceCase.id,
+    mergeStrategy,
+    message: `Recommendation approved and merged into existing strategy (${mergeStrategy}).`,
   };
 }
 

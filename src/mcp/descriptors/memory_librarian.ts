@@ -123,6 +123,17 @@ Example: {"action":"get_job_status","jobId":"job_abc123"}`,
         recommendationId: { description: 'Recommendation ID', type: 'string' },
         reviewedBy: { description: 'Reviewer identifier', type: 'string' },
         notes: { description: 'Review notes', type: 'string' },
+        mergeIntoExperienceId: {
+          description:
+            'Merge into existing strategy instead of creating new. Pass the experience ID of the existing strategy.',
+          type: 'string',
+        },
+        mergeStrategy: {
+          description:
+            'How to merge: append (add source cases to existing), replace (overwrite pattern text), increment (just bump confidence)',
+          type: 'string',
+          enum: ['append', 'replace', 'increment'],
+        },
       },
       required: ['recommendationId'],
       contextHandler: librarianHandlers.approve,
