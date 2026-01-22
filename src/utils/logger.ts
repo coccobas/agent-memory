@@ -14,6 +14,7 @@ import { join } from 'node:path';
 import { isMcpServerMode } from './runtime.js';
 import { sanitizeForLogging } from './sanitize.js';
 import { config } from '../config/index.js';
+import { correlationLoggerMixin } from './correlation.js';
 
 // Configuration from centralized config
 const DEBUG_ENABLED = config.logging.debug;
@@ -63,7 +64,7 @@ const sanitizingSerializer = (obj: unknown) => sanitizeForLogging(obj);
 const pinoOptions: pino.LoggerOptions = {
   level: logLevel,
   enabled: loggingEnabled,
-  // Redact sensitive field paths
+  mixin: correlationLoggerMixin,
   redact: {
     paths: [
       'apiKey',
@@ -87,7 +88,6 @@ const pinoOptions: pino.LoggerOptions = {
     ],
     censor: '***REDACTED***',
   },
-  // Custom serializers for complex objects
   serializers: {
     err: pino.stdSerializers.err,
     error: sanitizingSerializer,
