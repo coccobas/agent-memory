@@ -5,12 +5,8 @@ node_modules/
 dist/
 *.tsbuildinfo
 
-# Database
-data/*.db
-data/*.db-shm
-data/*.db-wal
-data/vectors.lance/
-data/test/
+# Database and data directory (all generated/runtime data)
+data/
 
 # Root-level database files (prevent accidental commits)
 memory.db
@@ -45,7 +41,6 @@ coverage-summary.json
 .nyc_output/
 
 # Benchmarks
-data/benchmark/
 benchmarks/results.json
 tests/benchmarks/data/*.json
 
@@ -87,18 +82,7 @@ docs/guides/security.md
 
 # Prompts (not tracked)
 prompts/
-data/test-classification/*.db
 
-# Test database artifacts
-data/test-flow/*.db
-data/test-flow/*.db-wal
-data/test-flow/*.db-shm
-data/test-mcp-calls/*.db
-data/test-mcp-calls/*.db-wal
-data/test-mcp-calls/*.db-shm
-data/test-full-workflow/*.db
-data/test-full-workflow/*.db-wal
-data/test-full-workflow/*.db-shm
 
 # Test scripts
 test-*.mjs
