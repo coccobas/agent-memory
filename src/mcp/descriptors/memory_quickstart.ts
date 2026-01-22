@@ -187,13 +187,35 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
     }
 
     // Step 3: Load context (hierarchical mode by default for ~90% token savings)
-    const contextResult = await queryHandlers.context(ctx, {
+    let contextStats: {
+      tokensUsed?: number;
+      tokenBudget?: number;
+      stalenessWarnings?: Array<{ entryId: string; reason: string; recommendation: string }>;
+    } | null = null;
+
+    if (ctx.services.unifiedContext && projectId) {
+      const unifiedResult = await ctx.services.unifiedContext.getContext({
+        purpose: { type: 'session_start' },
+        scopeType: 'project',
+        scopeId: projectId,
+        format: 'markdown',
+      });
+      if (unifiedResult.success) {
+        contextStats = {
+          tokensUsed: unifiedResult.stats.tokensUsed,
+          tokenBudget: unifiedResult.stats.tokenBudget,
+          stalenessWarnings: unifiedResult.stalenessWarnings,
+        };
+      }
+    }
+
+    const contextResult = (await queryHandlers.context(ctx, {
       scopeType: 'project',
-      scopeId: projectId, // Will be auto-enriched if not provided
+      scopeId: projectId,
       inherit,
       limitPerType,
-      hierarchical: !verbose, // Default to hierarchical mode
-    });
+      hierarchical: !verbose,
+    })) as Record<string, unknown>;
 
     // Extract detected project from context result
     const contextWithMeta = contextResult as {
@@ -606,6 +628,13 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
             : undefined,
         health: memoryHealth,
         graph: graphStats,
+        contextBudget: contextStats
+          ? {
+              tokensUsed: contextStats.tokensUsed,
+              tokenBudget: contextStats.tokenBudget,
+              stalenessWarnings: contextStats.stalenessWarnings?.length ?? 0,
+            }
+          : undefined,
         // Pending tasks from memory_task
         pendingTasks:
           pendingTasks.length > 0

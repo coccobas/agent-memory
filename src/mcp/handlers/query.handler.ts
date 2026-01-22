@@ -297,19 +297,56 @@ export const queryHandlers = {
     // Execute query using the modular pipeline with context-injected dependencies
     const result = await executeQueryPipeline(queryParams, context.queryDeps);
 
+    // Collect budget/staleness info from UnifiedContextService if available
+    let contextBudget:
+      | {
+          tokensUsed: number;
+          tokenBudget: number;
+          stalenessWarnings: Array<{
+            entryId: string;
+            entryType: string;
+            reason: string;
+            recommendation: string;
+          }>;
+        }
+      | undefined;
+
+    if (context.services.unifiedContext && scopeId) {
+      try {
+        const unifiedResult = await context.services.unifiedContext.getContext({
+          purpose: { type: 'query', query: search },
+          scopeType,
+          scopeId,
+          format: 'markdown',
+        });
+        if (unifiedResult.success) {
+          contextBudget = {
+            tokensUsed: unifiedResult.stats.tokensUsed,
+            tokenBudget: unifiedResult.stats.tokenBudget,
+            stalenessWarnings: unifiedResult.stalenessWarnings,
+          };
+        }
+      } catch (error) {
+        // Non-fatal - budget info is optional enhancement
+        logger.debug({ error }, 'UnifiedContextService call failed (non-critical)');
+      }
+    }
+
     // Return hierarchical format if requested (~1.5k tokens vs ~15k tokens)
     if (hierarchical) {
       // Enrich results with version content for snippet extraction
       const enrichedResults = enrichResultsWithVersionContent(result.results, context.db);
       // Pass totalCounts from meta for accurate counts (not limited by pagination)
-      return formatTimestamps(
-        formatHierarchicalContext(
-          enrichedResults,
-          scopeType,
-          scopeId ?? null,
-          result.meta.totalCounts
-        )
+      const hierarchicalResult = formatHierarchicalContext(
+        enrichedResults,
+        scopeType,
+        scopeId ?? null,
+        result.meta.totalCounts
       );
+      return formatTimestamps({
+        ...hierarchicalResult,
+        ...(contextBudget && { contextBudget }),
+      });
     }
 
     // Standard full response format
@@ -328,6 +365,7 @@ export const queryHandlers = {
       knowledge,
       experiences,
       meta: result.meta,
+      ...(contextBudget && { contextBudget }),
     });
   },
 };

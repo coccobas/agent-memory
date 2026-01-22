@@ -42,7 +42,7 @@ import type { LatentMemoryService } from '../services/latent-memory/latent-memor
 import type { EpisodeService } from '../services/episode/index.js';
 import type { IEpisodeAutoLoggerService } from '../services/episode-auto-logger.js';
 import type { SmartPrioritizationService } from '../services/prioritization/index.js';
-import type { ContextManagerService } from '../services/context/index.js';
+import type { ContextManagerService, UnifiedContextService } from '../services/context/index.js';
 
 /**
  * Service interfaces for AppContext
@@ -310,6 +310,8 @@ export interface UtilityServices {
   _createReembeddingService?: (db: AppDb) => ReembeddingService | undefined;
   /** Context manager service for enhanced memory injection */
   contextManager?: ContextManagerService;
+  /** Unified context service for purpose-based context retrieval */
+  unifiedContext?: UnifiedContextService;
 }
 
 // ============================================================================

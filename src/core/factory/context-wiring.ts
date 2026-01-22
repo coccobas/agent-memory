@@ -52,7 +52,10 @@ import {
   createPrioritizationRepository,
   createDefaultSmartPriorityConfig,
 } from '../../services/prioritization/index.js';
-import { createContextManagerService } from '../../services/context/index.js';
+import {
+  createContextManagerService,
+  createUnifiedContextService,
+} from '../../services/context/index.js';
 import { getHookAnalyticsService } from '../../services/analytics/index.js';
 
 /**
@@ -570,6 +573,35 @@ export async function wireContext(input: WireContextInput): Promise<AppContext> 
   );
   services.contextManager = contextManagerService;
   logger.debug('Context manager service initialized');
+
+  services.unifiedContext = createUnifiedContextService(db, {
+    enabled: true,
+    staleness: {
+      enabled: true,
+      staleAgeDays: 90,
+      recencyThreshold: 0.2,
+      notAccessedDays: 60,
+      excludeFromInjection: false,
+    },
+    budget: {
+      enabled: true,
+      baseBudget: 2000,
+      maxBudget: 8000,
+      compressionReserve: 0.2,
+    },
+    priority: {
+      enabled: true,
+      minScore: 0.3,
+      smartPriorityWeight: 0.6,
+    },
+    compression: {
+      enabled: true,
+      hierarchicalThreshold: 1500,
+      llmThreshold: 3000,
+      indicateCompression: true,
+    },
+  });
+  logger.debug('Unified context service initialized');
 
   // Ensure vector service is fully initialized before returning context
   // This is important for session-start hooks that need vector service immediately
