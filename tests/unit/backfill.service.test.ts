@@ -268,6 +268,47 @@ describe.skipIf(!embeddingsAvailable)('Backfill Service', () => {
     expect(statsAfter.knowledge.withEmbeddings).toBe(1);
   });
 
+  it(
+    'should count unique entries not versions in getBackfillStats',
+    { timeout: 60000 },
+    async () => {
+      const { tool } = createTestTool(db, 'multi-version-tool', 'global');
+
+      await backfillEmbeddings(
+        {
+          entryTypes: ['tool'],
+          batchSize: 10,
+          delayMs: 0,
+        },
+        db,
+        services
+      );
+
+      const statsV1 = getBackfillStats(db);
+      expect(statsV1.tools.total).toBe(1);
+      expect(statsV1.tools.withEmbeddings).toBe(1);
+
+      // Given: entry_embeddings tracks per-version, add second version row for same entry
+      const newVersionId = `version-2-${Date.now()}`;
+      db.insert(entryEmbeddings)
+        .values({
+          id: `embedding-v2-${Date.now()}`,
+          entryType: 'tool',
+          entryId: tool.id,
+          versionId: newVersionId,
+          hasEmbedding: true,
+          embeddingModel: 'test-model',
+          embeddingProvider: 'local',
+        })
+        .run();
+
+      // Then: stats should count 1 unique entry, not 2 version rows
+      const statsV2 = getBackfillStats(db);
+      expect(statsV2.tools.total).toBe(1);
+      expect(statsV2.tools.withEmbeddings).toBe(1);
+    }
+  );
+
   it('should handle entries without current version', { timeout: 15000 }, async () => {
     // Create a tool without version (edge case)
     const { tool } = createTestTool(db, 'no-version-tool', 'global');

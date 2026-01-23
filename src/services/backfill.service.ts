@@ -400,7 +400,11 @@ async function backfillEntryType(
 }
 
 /**
- * Get backfill statistics (uses COUNT(*) for efficiency)
+ * Get backfill statistics
+ *
+ * Uses COUNT(DISTINCT entry_id) for embedding counts because the entry_embeddings
+ * table tracks embeddings per version (entry_id + version_id), so multiple rows
+ * can exist for a single entry when it has been updated.
  */
 export function getBackfillStats(db: DbClient): {
   tools: { total: number; withEmbeddings: number };
@@ -416,7 +420,7 @@ export function getBackfillStats(db: DbClient): {
 
   const toolsWithEmbeddings =
     db
-      .select({ count: sql<number>`COUNT(*)` })
+      .select({ count: sql<number>`COUNT(DISTINCT ${entryEmbeddings.entryId})` })
       .from(entryEmbeddings)
       .where(and(eq(entryEmbeddings.entryType, 'tool'), eq(entryEmbeddings.hasEmbedding, true)))
       .get()?.count ?? 0;
@@ -430,7 +434,7 @@ export function getBackfillStats(db: DbClient): {
 
   const guidelinesWithEmbeddings =
     db
-      .select({ count: sql<number>`COUNT(*)` })
+      .select({ count: sql<number>`COUNT(DISTINCT ${entryEmbeddings.entryId})` })
       .from(entryEmbeddings)
       .where(
         and(eq(entryEmbeddings.entryType, 'guideline'), eq(entryEmbeddings.hasEmbedding, true))
@@ -446,7 +450,7 @@ export function getBackfillStats(db: DbClient): {
 
   const knowledgeWithEmbeddings =
     db
-      .select({ count: sql<number>`COUNT(*)` })
+      .select({ count: sql<number>`COUNT(DISTINCT ${entryEmbeddings.entryId})` })
       .from(entryEmbeddings)
       .where(
         and(eq(entryEmbeddings.entryType, 'knowledge'), eq(entryEmbeddings.hasEmbedding, true))

@@ -73,7 +73,8 @@ type MaintenanceTaskName =
   | 'graphBackfill'
   | 'latentPopulation'
   | 'tagRefinement'
-  | 'semanticEdgeInference';
+  | 'semanticEdgeInference'
+  | 'embeddingCleanup';
 
 function recordToJob(record: MaintenanceJobRecord): MaintenanceJob {
   const progress = parseJson<StoredJobProgress>(record.progress) ?? {

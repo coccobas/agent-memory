@@ -160,6 +160,23 @@ export interface ToolTagAssignmentConfig {
 }
 
 /**
+ * Embedding cleanup task configuration
+ *
+ * Removes orphaned embedding records for entries that have been
+ * deactivated or deleted. Also cleans up vectors from LanceDB.
+ */
+export interface EmbeddingCleanupConfig {
+  /** Enable embedding cleanup during maintenance */
+  enabled: boolean;
+  /** Maximum entries to clean up per run */
+  maxEntries: number;
+  /** Entry types to clean up */
+  entryTypes: Array<'tool' | 'guideline' | 'knowledge' | 'experience'>;
+  /** Also remove vectors from LanceDB (requires vector service) */
+  cleanupVectors: boolean;
+}
+
+/**
  * Health calculation configuration
  */
 export interface HealthConfig {
@@ -195,6 +212,8 @@ export interface MaintenanceConfig {
   semanticEdgeInference: SemanticEdgeInferenceConfig;
   /** Tool tag assignment settings */
   toolTagAssignment: ToolTagAssignmentConfig;
+  /** Embedding cleanup settings */
+  embeddingCleanup: EmbeddingCleanupConfig;
 }
 
 /**
@@ -256,6 +275,12 @@ export const DEFAULT_MAINTENANCE_CONFIG: MaintenanceConfig = {
     minConfidence: 0.7,
     skipAlreadyTagged: true,
   },
+  embeddingCleanup: {
+    enabled: true,
+    maxEntries: 100,
+    entryTypes: ['tool', 'guideline', 'knowledge', 'experience'],
+    cleanupVectors: true,
+  },
 };
 
 // =============================================================================
@@ -279,6 +304,7 @@ export interface MaintenanceRequest {
     | 'tagRefinement'
     | 'semanticEdgeInference'
     | 'toolTagAssignment'
+    | 'embeddingCleanup'
   >;
   /** Dry run - analyze without making changes */
   dryRun?: boolean;
@@ -435,6 +461,26 @@ export interface ToolTagAssignmentResult {
 }
 
 /**
+ * Result from embedding cleanup task
+ */
+export interface EmbeddingCleanupResult {
+  /** Task was executed */
+  executed: boolean;
+  /** Orphaned embedding records found */
+  orphansFound: number;
+  /** Embedding records deleted */
+  recordsDeleted: number;
+  /** Vectors removed from LanceDB */
+  vectorsRemoved: number;
+  /** Breakdown by entry type */
+  byType: Record<string, { found: number; deleted: number }>;
+  /** Duration in milliseconds */
+  durationMs: number;
+  /** Any errors encountered */
+  errors?: string[];
+}
+
+/**
  * Unified maintenance result
  */
 export interface MaintenanceResult {
@@ -458,6 +504,8 @@ export interface MaintenanceResult {
   semanticEdgeInference?: SemanticEdgeInferenceResult;
   /** Tool tag assignment results */
   toolTagAssignment?: ToolTagAssignmentResult;
+  /** Embedding cleanup results */
+  embeddingCleanup?: EmbeddingCleanupResult;
   /** Overall timing */
   timing: {
     startedAt: string;

@@ -23,6 +23,7 @@ import type {
   TagRefinementResult,
   SemanticEdgeInferenceResult,
   ToolTagAssignmentResult,
+  EmbeddingCleanupResult,
   MemoryHealth,
 } from './types.js';
 import { DEFAULT_MAINTENANCE_CONFIG, computeHealthGrade } from './types.js';
@@ -96,6 +97,7 @@ export class MaintenanceOrchestrator {
       'tagRefinement',
       'semanticEdgeInference',
       'toolTagAssignment',
+      'embeddingCleanup',
     ];
     const results: MaintenanceResult = {
       runId,
@@ -188,6 +190,17 @@ export class MaintenanceOrchestrator {
       );
     }
 
+    // Run embedding cleanup if requested and enabled
+    if (tasksToRun.includes('embeddingCleanup') && effectiveConfig.embeddingCleanup.enabled) {
+      onProgress?.('embeddingCleanup', 'running');
+      results.embeddingCleanup = await this.runEmbeddingCleanup(request, effectiveConfig);
+      onProgress?.(
+        'embeddingCleanup',
+        results.embeddingCleanup.executed ? 'completed' : 'skipped',
+        results.embeddingCleanup
+      );
+    }
+
     // Compute health after maintenance
     if (!request.dryRun) {
       results.healthAfter = await this.computeHealth(request.scopeType, request.scopeId);
@@ -208,6 +221,7 @@ export class MaintenanceOrchestrator {
         tagRefinement: results.tagRefinement?.executed,
         semanticEdgeInference: results.semanticEdgeInference?.executed,
         toolTagAssignment: results.toolTagAssignment?.executed,
+        embeddingCleanup: results.embeddingCleanup?.executed,
       },
       'Maintenance run completed'
     );
@@ -934,6 +948,48 @@ export class MaintenanceOrchestrator {
     return result;
   }
 
+  private async runEmbeddingCleanup(
+    request: MaintenanceRequest,
+    config: MaintenanceConfig
+  ): Promise<EmbeddingCleanupResult> {
+    const startTime = Date.now();
+    const result: EmbeddingCleanupResult = {
+      executed: true,
+      orphansFound: 0,
+      recordsDeleted: 0,
+      vectorsRemoved: 0,
+      byType: {},
+      durationMs: 0,
+    };
+
+    try {
+      const { runEmbeddingCleanup: executeCleanup } = await import('./embedding-cleanup.js');
+
+      const cleanupResult = await executeCleanup(
+        {
+          db: this.deps.db,
+          vector: this.deps.vector,
+        },
+        {
+          scopeType: request.scopeType,
+          scopeId: request.scopeId,
+          dryRun: request.dryRun,
+          initiatedBy: request.initiatedBy,
+        },
+        config.embeddingCleanup
+      );
+
+      return cleanupResult;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      logger.warn({ error: errorMsg }, 'Embedding cleanup task failed');
+      result.errors = [errorMsg];
+    }
+
+    result.durationMs = Date.now() - startTime;
+    return result;
+  }
+
   // ===========================================================================
   // HEALTH SCORE COMPUTATION
   // ===========================================================================
@@ -1115,6 +1171,10 @@ export class MaintenanceOrchestrator {
       toolTagAssignment: {
         ...this.config.toolTagAssignment,
         ...overrides.toolTagAssignment,
+      },
+      embeddingCleanup: {
+        ...this.config.embeddingCleanup,
+        ...overrides.embeddingCleanup,
       },
     };
   }
