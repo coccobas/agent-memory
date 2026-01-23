@@ -129,13 +129,11 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
 
     const mintoStyle = (args?.mintoStyle as boolean) ?? true;
 
-    // Track what was created
     let projectAction: 'created' | 'exists' | 'none' | 'error' = 'none';
     let createdProjectName: string | null = null;
     let permissionsGranted = 0;
     let projectResult: Record<string, unknown> | null = null;
 
-    // Step 1: Project creation (if requested)
     if (createProject) {
       if (!projectName) {
         return {
