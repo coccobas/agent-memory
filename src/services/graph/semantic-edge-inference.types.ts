@@ -1,47 +1,26 @@
-/**
- * Semantic Edge Inference Types
- *
- * Types for automatically inferring `related_to` edges between
- * semantically similar entries based on embedding similarity.
- */
+import type { IExtractionService } from '../../core/context.js';
 
-/**
- * Configuration for semantic edge inference
- */
 export interface SemanticEdgeInferenceConfig {
-  /** Whether semantic edge inference is enabled */
   enabled: boolean;
-
-  /** Minimum cosine similarity threshold to create an edge (0-1) */
   similarityThreshold: number;
-
-  /** Maximum number of edges to create per entry */
   maxEdgesPerEntry: number;
-
-  /** Entry types to include in inference */
   entryTypes: Array<'tool' | 'guideline' | 'knowledge' | 'experience'>;
-
-  /** Batch size for processing entries */
   batchSize: number;
-
-  /** Maximum entries to process per run (0 = unlimited) */
   maxEntriesPerRun: number;
-
-  /** Minimum confidence to consider an embedding valid */
   minEmbeddingConfidence: number;
+  extractionService?: IExtractionService;
+  llmInferenceThreshold: number;
 }
 
-/**
- * Default configuration
- */
 export const DEFAULT_SEMANTIC_EDGE_CONFIG: SemanticEdgeInferenceConfig = {
   enabled: true,
-  similarityThreshold: 0.65, // Moderate threshold for semantic connections
-  maxEdgesPerEntry: 5, // Limit edge explosion
+  similarityThreshold: 0.65,
+  maxEdgesPerEntry: 5,
   entryTypes: ['tool', 'guideline', 'knowledge', 'experience'],
   batchSize: 50,
   maxEntriesPerRun: 500,
   minEmbeddingConfidence: 0.5,
+  llmInferenceThreshold: 0.85,
 };
 
 /**

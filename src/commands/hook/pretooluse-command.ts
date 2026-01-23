@@ -2,6 +2,7 @@ import { verifyAction } from '../../services/verification.service.js';
 import { getDb } from '../../db/connection.js';
 import {
   getMemoryInjectionService,
+  formatEntries,
   type InjectionFormat,
 } from '../../services/memory-injection.service.js';
 import { createComponentLogger } from '../../utils/logger.js';
@@ -11,6 +12,7 @@ import { getBehaviorObserverService } from '../../services/capture/behavior-obse
 import { isContextRegistered, getContext } from '../../core/container.js';
 import { createContextManagerService } from '../../services/context/index.js';
 import { getCaptureStateManager } from '../../services/capture/state.js';
+import { getInjectionTrackerService } from '../../services/injection-tracking/index.js';
 
 const logger = createComponentLogger('pretooluse');
 
@@ -26,6 +28,8 @@ export interface PreToolUseConfig {
   includeConversationContext: boolean;
   conversationContextMaxTokens: number;
   conversationContextLastN: number;
+  deduplicateInjections: boolean;
+  injectionTokenThreshold: number;
 }
 
 /**
@@ -49,6 +53,15 @@ function getConfig(overrides?: Partial<PreToolUseConfig>): PreToolUseConfig {
     parsedMaxEntries = Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
   }
 
+  const envDeduplicateInjections = process.env.AGENT_MEMORY_DEDUPLICATE_INJECTIONS;
+  const envInjectionTokenThreshold = process.env.AGENT_MEMORY_INJECTION_TOKEN_THRESHOLD;
+
+  let parsedTokenThreshold: number | undefined;
+  if (envInjectionTokenThreshold) {
+    const parsed = parseInt(envInjectionTokenThreshold, 10);
+    parsedTokenThreshold = Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+  }
+
   return {
     injectContext:
       overrides?.injectContext ?? (envInjectContext !== 'false' && envInjectContext !== '0'),
@@ -56,12 +69,15 @@ function getConfig(overrides?: Partial<PreToolUseConfig>): PreToolUseConfig {
     contextMaxEntries: overrides?.contextMaxEntries ?? parsedMaxEntries ?? 5,
     contextToStdout: overrides?.contextToStdout ?? true,
     contextToStderr: overrides?.contextToStderr ?? true,
-    // Conversation context in injection - enabled by default for better UX
     includeConversationContext:
       overrides?.includeConversationContext ??
       (envIncludeConversationContext !== 'false' && envIncludeConversationContext !== '0'),
     conversationContextMaxTokens: overrides?.conversationContextMaxTokens ?? 500,
     conversationContextLastN: overrides?.conversationContextLastN ?? 5,
+    deduplicateInjections:
+      overrides?.deduplicateInjections ??
+      (envDeduplicateInjections !== 'false' && envDeduplicateInjections !== '0'),
+    injectionTokenThreshold: overrides?.injectionTokenThreshold ?? parsedTokenThreshold ?? 100000,
   };
 }
 
@@ -182,23 +198,80 @@ export async function runPreToolUseCommand(params: {
       });
 
       if (injectionResult.success && injectionResult.injectedContext) {
+        let entriesToInject = injectionResult.entries;
+        let skippedCount = 0;
+
+        // Filter out recently-injected guidelines if deduplication is enabled
+        if (config.deduplicateInjections && sessionId) {
+          const injectionTracker = getInjectionTrackerService();
+
+          // Try to get current episode ID from context
+          let currentEpisodeId: string | null = null;
+          try {
+            if (isContextRegistered()) {
+              const ctx = getContext();
+              if (ctx.services?.episode) {
+                const activeEpisode = await ctx.services.episode.getActiveEpisode(sessionId);
+                currentEpisodeId = activeEpisode?.id ?? null;
+              }
+            }
+          } catch {
+            // Episode detection is optional
+          }
+
+          const originalCount = entriesToInject.length;
+          entriesToInject = injectionTracker.filterGuidelinesForInjection(
+            sessionId,
+            entriesToInject,
+            currentEpisodeId,
+            { tokenThreshold: config.injectionTokenThreshold }
+          );
+          skippedCount = originalCount - entriesToInject.length;
+
+          // Record injections for guidelines that will be injected
+          for (const entry of entriesToInject) {
+            if (entry.type === 'guideline') {
+              injectionTracker.recordInjection(sessionId, entry.id, currentEpisodeId);
+            }
+          }
+
+          // Estimate token usage and increment counter
+          if (injectionResult.budgetInfo?.used) {
+            injectionTracker.incrementTokens(sessionId, injectionResult.budgetInfo.used);
+          }
+
+          if (skippedCount > 0) {
+            logger.debug(
+              { skippedCount, remainingCount: entriesToInject.length, sessionId },
+              'Skipped recently-injected guidelines'
+            );
+          }
+        }
+
         logger.debug(
           {
-            entriesCount: injectionResult.entries.length,
+            entriesCount: entriesToInject.length,
             processingTimeMs: injectionResult.processingTimeMs,
             intent: injectionResult.detectedIntent,
           },
           'Context injection successful'
         );
 
+        let finalInjectedContext = injectionResult.injectedContext;
+        if (skippedCount > 0 && entriesToInject.length > 0) {
+          finalInjectedContext = formatEntries(entriesToInject, config.contextFormat);
+        } else if (skippedCount > 0 && entriesToInject.length === 0) {
+          finalInjectedContext = '';
+        }
+
         // Store context for JSON output
-        if (config.contextToStdout && injectionResult.injectedContext) {
-          injectedContext = injectionResult.injectedContext;
+        if (config.contextToStdout && finalInjectedContext) {
+          injectedContext = finalInjectedContext;
         }
 
         // Build user feedback summary
-        if (config.contextToStderr && injectionResult.entries.length > 0) {
-          const types = injectionResult.entries.map((e) => e.type);
+        if (config.contextToStderr && entriesToInject.length > 0) {
+          const types = entriesToInject.map((e) => e.type);
           const typeCounts = types.reduce(
             (acc, t) => {
               acc[t] = (acc[t] || 0) + 1;
@@ -212,6 +285,11 @@ export async function runPreToolUseCommand(params: {
 
           // Build enhanced summary with context management info
           const parts = [`🧠 Injected: ${summary}`];
+
+          // Add skipped count if any
+          if (skippedCount > 0) {
+            parts.push(`[${skippedCount} deduped]`);
+          }
 
           // Add budget info if available
           if (injectionResult.budgetInfo) {

@@ -22,10 +22,12 @@ import type {
   LatentPopulationResult,
   TagRefinementResult,
   SemanticEdgeInferenceResult,
+  ToolTagAssignmentResult,
   MemoryHealth,
 } from './types.js';
 import { DEFAULT_MAINTENANCE_CONFIG, computeHealthGrade } from './types.js';
 import type { SemanticEdgeInferenceService } from '../../graph/semantic-edge-inference.service.js';
+import type { IExtractionService } from '../../../core/context.js';
 
 const logger = createComponentLogger('maintenance-orchestrator');
 
@@ -41,6 +43,7 @@ export interface MaintenanceOrchestratorDeps {
   vector?: IVectorService;
   latentMemory?: LatentMemoryService;
   semanticEdgeInference?: SemanticEdgeInferenceService;
+  extraction?: IExtractionService;
 }
 
 export type TaskProgressCallback = (
@@ -92,6 +95,7 @@ export class MaintenanceOrchestrator {
       'latentPopulation',
       'tagRefinement',
       'semanticEdgeInference',
+      'toolTagAssignment',
     ];
     const results: MaintenanceResult = {
       runId,
@@ -173,6 +177,17 @@ export class MaintenanceOrchestrator {
       );
     }
 
+    // Run tool tag assignment if requested and enabled
+    if (tasksToRun.includes('toolTagAssignment') && effectiveConfig.toolTagAssignment.enabled) {
+      onProgress?.('toolTagAssignment', 'running');
+      results.toolTagAssignment = await this.runToolTagAssignment(request, effectiveConfig);
+      onProgress?.(
+        'toolTagAssignment',
+        results.toolTagAssignment.executed ? 'completed' : 'skipped',
+        results.toolTagAssignment
+      );
+    }
+
     // Compute health after maintenance
     if (!request.dryRun) {
       results.healthAfter = await this.computeHealth(request.scopeType, request.scopeId);
@@ -192,6 +207,7 @@ export class MaintenanceOrchestrator {
         latentPopulation: results.latentPopulation?.executed,
         tagRefinement: results.tagRefinement?.executed,
         semanticEdgeInference: results.semanticEdgeInference?.executed,
+        toolTagAssignment: results.toolTagAssignment?.executed,
       },
       'Maintenance run completed'
     );
@@ -868,6 +884,56 @@ export class MaintenanceOrchestrator {
     return result;
   }
 
+  private async runToolTagAssignment(
+    request: MaintenanceRequest,
+    config: MaintenanceConfig
+  ): Promise<ToolTagAssignmentResult> {
+    const startTime = Date.now();
+    const result: ToolTagAssignmentResult = {
+      executed: true,
+      entriesScanned: 0,
+      entriesTagged: 0,
+      tagsAdded: 0,
+      entriesSkipped: 0,
+      byType: {},
+      durationMs: 0,
+    };
+
+    try {
+      if (!this.deps.extraction) {
+        logger.debug('Tool tag assignment skipped: extraction service not available');
+        result.executed = false;
+        result.durationMs = Date.now() - startTime;
+        return result;
+      }
+
+      const { runToolTagAssignment } = await import('./tool-tag-assignment.js');
+
+      const taskResult = await runToolTagAssignment(
+        {
+          repos: this.deps.repos,
+          extractionService: this.deps.extraction,
+        },
+        {
+          scopeType: request.scopeType,
+          scopeId: request.scopeId,
+          dryRun: request.dryRun,
+          initiatedBy: request.initiatedBy,
+        },
+        config.toolTagAssignment
+      );
+
+      return taskResult;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      logger.warn({ error: errorMsg }, 'Tool tag assignment task failed');
+      result.errors = [errorMsg];
+    }
+
+    result.durationMs = Date.now() - startTime;
+    return result;
+  }
+
   // ===========================================================================
   // HEALTH SCORE COMPUTATION
   // ===========================================================================
@@ -1045,6 +1111,10 @@ export class MaintenanceOrchestrator {
       semanticEdgeInference: {
         ...this.config.semanticEdgeInference,
         ...overrides.semanticEdgeInference,
+      },
+      toolTagAssignment: {
+        ...this.config.toolTagAssignment,
+        ...overrides.toolTagAssignment,
       },
     };
   }

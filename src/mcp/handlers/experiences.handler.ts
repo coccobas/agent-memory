@@ -31,8 +31,11 @@ import { createValidationError, createNotFoundError } from '../../core/errors.js
 import { formatTimestamps } from '../../utils/timestamp-formatter.js';
 import { logAction } from '../../services/audit.service.js';
 import type { ScopeType, ExperienceLevel, ExperienceSource } from '../../db/schema.js';
-import type { AppContext } from '../../core/context.js';
+import type { AppContext, IExtractionService } from '../../core/context.js';
 import type { ContextAwareHandler } from '../descriptors/types.js';
+import { createComponentLogger } from '../../utils/logger.js';
+
+const logger = createComponentLogger('experiences:learn');
 import {
   createExperienceCaptureModule,
   type RecordCaseParams,
@@ -723,6 +726,74 @@ function inferExperienceCategory(text: string): string {
   return 'general';
 }
 
+interface ParsedExperience {
+  title: string;
+  scenario: string;
+  outcome: string;
+  content: string;
+}
+
+async function parseExperienceTextWithLLM(
+  text: string,
+  extractionService?: IExtractionService
+): Promise<ParsedExperience> {
+  if (!extractionService?.isAvailable()) {
+    return parseExperienceText(text);
+  }
+
+  try {
+    const prompt = `Parse this experience description and extract structured information.
+
+Text: "${text}"
+
+Respond in this exact JSON format:
+{
+  "title": "Brief title (max 60 chars) summarizing the experience",
+  "scenario": "The context or situation that triggered this experience",
+  "outcome": "What was learned, achieved, or discovered"
+}`;
+
+    const result = await extractionService.extract({
+      context: prompt,
+      contextType: 'mixed',
+      focusAreas: ['facts', 'decisions'],
+    });
+
+    for (const entry of result.entries) {
+      try {
+        const jsonMatch = entry.content.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]) as {
+            title?: string;
+            scenario?: string;
+            outcome?: string;
+          };
+          if (parsed.title && parsed.scenario && parsed.outcome) {
+            logger.debug(
+              { title: parsed.title, model: result.model },
+              'LLM-parsed experience text'
+            );
+            return {
+              title: parsed.title.slice(0, 60),
+              scenario: parsed.scenario,
+              outcome: parsed.outcome,
+              content: text.trim(),
+            };
+          }
+        }
+      } catch {
+        continue;
+      }
+    }
+
+    logger.debug('No valid JSON in LLM response, falling back to regex');
+    return parseExperienceText(text);
+  } catch (error) {
+    logger.debug({ error }, 'LLM extraction failed, falling back to regex');
+    return parseExperienceText(text);
+  }
+}
+
 const learnHandler: ContextAwareHandler = async (
   context: AppContext,
   params: Record<string, unknown>
@@ -731,8 +802,8 @@ const learnHandler: ContextAwareHandler = async (
   const categoryOverride = getOptionalParam(params, 'category', isString);
   const confidenceOverride = getOptionalParam(params, 'confidence', isNumber);
 
-  // Parse the natural language text
-  const parsed = parseExperienceText(text);
+  const extractionService = context.services.extraction;
+  const parsed = await parseExperienceTextWithLLM(text, extractionService);
   const category = categoryOverride ?? inferExperienceCategory(text);
 
   // Use enriched params from tool-runner (already contains projectId, sessionId, agentId)

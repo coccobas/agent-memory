@@ -35,6 +35,14 @@ export const classificationSection: ConfigSectionMeta = {
       schema: z.boolean(),
       parse: 'boolean',
     },
+    preferLLM: {
+      envKey: 'AGENT_MEMORY_CLASSIFICATION_PREFER_LLM',
+      defaultValue: true,
+      description:
+        'Always use LLM for classification when available (more accurate). Falls back to regex if LLM unavailable or fails.',
+      schema: z.boolean(),
+      parse: 'boolean',
+    },
     feedbackDecayDays: {
       envKey: 'AGENT_MEMORY_CLASSIFICATION_FEEDBACK_DECAY_DAYS',
       defaultValue: 30,

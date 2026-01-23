@@ -324,7 +324,7 @@ function formatAsNaturalLanguage(entries: InjectedMemoryEntry[]): string {
 /**
  * Format entries based on requested format
  */
-function formatEntries(entries: InjectedMemoryEntry[], format: InjectionFormat): string {
+export function formatEntries(entries: InjectedMemoryEntry[], format: InjectionFormat): string {
   switch (format) {
     case 'json':
       return formatAsJSON(entries);

@@ -137,6 +137,19 @@ export interface IExtractionService {
     tokensUsed?: number;
     processingTimeMs: number;
   }>;
+  generate(input: {
+    systemPrompt: string;
+    userPrompt: string;
+    count?: number;
+    temperature?: number;
+    maxTokens?: number;
+  }): Promise<{
+    texts: string[];
+    model: string;
+    provider: ExtractionProvider;
+    tokensUsed?: number;
+    processingTimeMs: number;
+  }>;
 }
 
 /**

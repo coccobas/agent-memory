@@ -13,6 +13,10 @@ import type {
   CreateRecommendationInput,
   IRecommendationStore,
 } from '../recommendations/recommendation-store.js';
+import type { IExtractionService } from '../../../core/context.js';
+import { createComponentLogger } from '../../../utils/logger.js';
+
+const logger = createComponentLogger('librarian:recommender');
 
 // =============================================================================
 // TYPES
@@ -30,6 +34,8 @@ export interface RecommenderOptions {
   analysisVersion?: string;
   /** Creator ID */
   createdBy?: string;
+  /** Extraction service for LLM-based synthesis (optional) */
+  extractionService?: IExtractionService;
 }
 
 /**
@@ -76,26 +82,20 @@ export const DEFAULT_RECOMMENDER_OPTIONS: RecommenderOptions = {
 // RECOMMENDER IMPLEMENTATION
 // =============================================================================
 
-/**
- * Recommendation Generator
- *
- * Transforms pattern groups into actionable recommendations
- */
 export class Recommender {
   private options: RecommenderOptions;
+  private extractionService?: IExtractionService;
 
   constructor(options: Partial<RecommenderOptions> = {}) {
     this.options = { ...DEFAULT_RECOMMENDER_OPTIONS, ...options };
+    this.extractionService = options.extractionService;
   }
 
-  /**
-   * Generate recommendations from patterns and quality evaluations
-   */
-  generateRecommendations(
+  async generateRecommendations(
     patterns: PatternGroup[],
     evaluations: Map<PatternGroup, QualityGateResult>,
     targetScope: { scopeType: ScopeType; scopeId?: string }
-  ): RecommendationGenerationResult {
+  ): Promise<RecommendationGenerationResult> {
     const recommendations: GeneratedRecommendation[] = [];
     const autoPromoted: PatternGroup[] = [];
     const rejected: PatternGroup[] = [];
@@ -109,7 +109,7 @@ export class Recommender {
           autoPromoted.push(pattern);
           break;
         case 'review':
-          recommendations.push(this.createRecommendation(pattern, quality, targetScope));
+          recommendations.push(await this.createRecommendation(pattern, quality, targetScope));
           break;
         case 'reject':
           rejected.push(pattern);
@@ -130,36 +130,27 @@ export class Recommender {
     };
   }
 
-  /**
-   * Create a recommendation from a pattern
-   */
-  private createRecommendation(
+  private async createRecommendation(
     pattern: PatternGroup,
     quality: QualityGateResult,
     targetScope: { scopeType: ScopeType; scopeId?: string }
-  ): GeneratedRecommendation {
+  ): Promise<GeneratedRecommendation> {
     const exemplar = pattern.exemplar;
 
-    // Generate title
-    const title = this.generateTitle(pattern);
+    // Try LLM synthesis first, fall back to heuristics
+    const llmSynthesis = await this.synthesizePatternWithLLM(pattern);
 
-    // Generate pattern description
-    const patternDescription = this.generatePatternDescription(pattern);
-
-    // Generate applicability
-    const applicability = this.generateApplicability(pattern);
-
-    // Generate contraindications
-    const contraindications = this.generateContraindications(pattern);
-
-    // Generate rationale
+    const title = llmSynthesis?.title ?? this.generateTitle(pattern);
+    const patternDescription =
+      llmSynthesis?.patternDescription ?? this.generatePatternDescription(pattern);
+    const applicability = llmSynthesis?.applicability ?? this.generateApplicability(pattern);
+    const contraindications =
+      llmSynthesis?.contraindications ?? this.generateContraindications(pattern);
     const rationale = this.generateRationale(pattern, quality);
 
-    // Calculate expiration
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + this.options.expirationDays);
 
-    // Get source experience IDs
     const sourceExperienceIds = pattern.experiences.map(
       (m: ExperienceWithTrajectory) => m.experience.id
     );
@@ -167,7 +158,7 @@ export class Recommender {
     const input: CreateRecommendationInput = {
       scopeType: targetScope.scopeType,
       scopeId: targetScope.scopeId,
-      type: 'strategy', // Default to strategy promotion
+      type: 'strategy',
       title,
       pattern: patternDescription,
       applicability,
@@ -186,9 +177,91 @@ export class Recommender {
     return { input, pattern, quality };
   }
 
-  /**
-   * Generate a title for the pattern
-   */
+  private async synthesizePatternWithLLM(pattern: PatternGroup): Promise<{
+    title: string;
+    patternDescription: string;
+    applicability: string;
+    contraindications: string;
+  } | null> {
+    if (!this.extractionService?.isAvailable()) {
+      return null;
+    }
+
+    try {
+      const caseSummaries = pattern.experiences
+        .map((exp, i) => {
+          const v = exp.experience.currentVersion;
+          const steps = exp.trajectory
+            .slice(0, 3)
+            .map((s) => `  - ${s.action}: ${s.observation?.slice(0, 100) ?? 'no observation'}`)
+            .join('\n');
+          return `Case ${i + 1}: ${exp.experience.title}
+Scenario: ${v?.scenario ?? 'unknown'}
+Outcome: ${v?.outcome ?? 'unknown'}
+Steps:
+${steps}`;
+        })
+        .join('\n\n');
+
+      const prompt = `Analyze these ${pattern.experiences.length} similar cases and extract the underlying pattern.
+
+${caseSummaries}
+
+Respond in this exact JSON format:
+{
+  "title": "Brief, actionable title (e.g., 'Handle API timeouts with exponential backoff')",
+  "pattern": "The underlying principle or approach that made these cases successful",
+  "when_to_apply": "Specific conditions or triggers when this pattern should be used",
+  "when_not_to_apply": "Situations where this pattern would be inappropriate or harmful"
+}`;
+
+      const result = await this.extractionService.extract({
+        context: prompt,
+        contextType: 'mixed',
+        focusAreas: ['decisions', 'rules'],
+      });
+
+      // The LLM might return JSON in the content field of an extracted entry
+      // or we parse from model response. Try to extract JSON from any entry content.
+      for (const entry of result.entries) {
+        try {
+          const jsonMatch = entry.content.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]) as {
+              title?: string;
+              pattern?: string;
+              when_to_apply?: string;
+              when_not_to_apply?: string;
+            };
+            if (parsed.title && parsed.pattern) {
+              return {
+                title: parsed.title,
+                patternDescription: parsed.pattern,
+                applicability: parsed.when_to_apply ?? 'Apply when facing similar scenarios.',
+                contraindications:
+                  parsed.when_not_to_apply ?? 'No specific contraindications identified.',
+              };
+            }
+          }
+        } catch {
+          // Continue to next entry
+        }
+      }
+
+      logger.debug(
+        { patternSize: pattern.experiences.length },
+        'LLM synthesis did not return valid JSON, falling back to heuristics'
+      );
+      return null;
+    } catch (error) {
+      logger.debug(
+        { error: error instanceof Error ? error.message : String(error) },
+        'LLM synthesis failed, falling back to heuristics'
+      );
+      return null;
+    }
+  }
+
   private generateTitle(pattern: PatternGroup): string {
     const exemplar = pattern.exemplar.experience;
     const baseTitle = exemplar.title;
@@ -369,11 +442,12 @@ export class Recommender {
     }
   }
 
-  /**
-   * Update options
-   */
   setOptions(options: Partial<RecommenderOptions>): void {
     this.options = { ...this.options, ...options };
+  }
+
+  setExtractionService(extractionService: IExtractionService): void {
+    this.extractionService = extractionService;
   }
 }
 

@@ -10,6 +10,26 @@ import type { ScopeType } from '../../../db/schema.js';
 import { DEFAULT_SEMANTIC_EDGE_CONFIG } from '../../graph/semantic-edge-inference.types.js';
 
 // =============================================================================
+// ENV VAR HELPERS
+// =============================================================================
+
+/**
+ * Parse boolean from environment variable
+ */
+function parseEnvBoolean(envVar: string | undefined, defaultValue: boolean): boolean {
+  if (envVar === undefined) return defaultValue;
+  return envVar.toLowerCase() === 'true' || envVar === '1';
+}
+
+/**
+ * Get toolTagAssignment.enabled from env var
+ * AGENT_MEMORY_TOOL_TAG_ASSIGNMENT_ENABLED=true
+ */
+export function getToolTagAssignmentEnabled(): boolean {
+  return parseEnvBoolean(process.env.AGENT_MEMORY_TOOL_TAG_ASSIGNMENT_ENABLED, false);
+}
+
+// =============================================================================
 // CONFIGURATION
 // =============================================================================
 
@@ -118,6 +138,28 @@ export interface SemanticEdgeInferenceConfig {
 }
 
 /**
+ * Tool tag assignment task configuration
+ *
+ * Uses LLM to analyze guidelines/knowledge entries and assign `tool:*` tags
+ * indicating which tools (Edit, Bash, Write, etc.) each entry is relevant to.
+ * This enables tool-specific context injection.
+ */
+export interface ToolTagAssignmentConfig {
+  /** Enable tool tag assignment during maintenance */
+  enabled: boolean;
+  /** Maximum entries to process per run */
+  maxEntries: number;
+  /** Entry types to process */
+  entryTypes: Array<'guideline' | 'knowledge'>;
+  /** Available tools to assign (will create tool:* tags) */
+  availableTools: string[];
+  /** Minimum confidence from LLM to assign a tool tag (0-1) */
+  minConfidence: number;
+  /** Skip entries that already have tool:* tags */
+  skipAlreadyTagged: boolean;
+}
+
+/**
  * Health calculation configuration
  */
 export interface HealthConfig {
@@ -151,6 +193,8 @@ export interface MaintenanceConfig {
   tagRefinement: TagRefinementConfig;
   /** Semantic edge inference settings */
   semanticEdgeInference: SemanticEdgeInferenceConfig;
+  /** Tool tag assignment settings */
+  toolTagAssignment: ToolTagAssignmentConfig;
 }
 
 /**
@@ -204,6 +248,14 @@ export const DEFAULT_MAINTENANCE_CONFIG: MaintenanceConfig = {
     entryTypes: DEFAULT_SEMANTIC_EDGE_CONFIG.entryTypes,
     maxEntries: DEFAULT_SEMANTIC_EDGE_CONFIG.maxEntriesPerRun,
   },
+  toolTagAssignment: {
+    enabled: getToolTagAssignmentEnabled(),
+    maxEntries: 50,
+    entryTypes: ['guideline', 'knowledge'],
+    availableTools: ['Edit', 'Write', 'Bash', 'Read', 'Grep', 'Glob', 'git', 'TodoWrite', 'Task'],
+    minConfidence: 0.7,
+    skipAlreadyTagged: true,
+  },
 };
 
 // =============================================================================
@@ -226,6 +278,7 @@ export interface MaintenanceRequest {
     | 'latentPopulation'
     | 'tagRefinement'
     | 'semanticEdgeInference'
+    | 'toolTagAssignment'
   >;
   /** Dry run - analyze without making changes */
   dryRun?: boolean;
@@ -360,6 +413,28 @@ export interface SemanticEdgeInferenceResult {
 }
 
 /**
+ * Result from tool tag assignment task
+ */
+export interface ToolTagAssignmentResult {
+  /** Task was executed */
+  executed: boolean;
+  /** Entries scanned */
+  entriesScanned: number;
+  /** Entries that received new tool tags */
+  entriesTagged: number;
+  /** Total tool tags added across all entries */
+  tagsAdded: number;
+  /** Entries skipped (already tagged or no applicable tools) */
+  entriesSkipped: number;
+  /** Breakdown by entry type */
+  byType: Record<string, { scanned: number; tagged: number; tagsAdded: number }>;
+  /** Duration in milliseconds */
+  durationMs: number;
+  /** Any errors encountered */
+  errors?: string[];
+}
+
+/**
  * Unified maintenance result
  */
 export interface MaintenanceResult {
@@ -381,6 +456,8 @@ export interface MaintenanceResult {
   tagRefinement?: TagRefinementResult;
   /** Semantic edge inference results */
   semanticEdgeInference?: SemanticEdgeInferenceResult;
+  /** Tool tag assignment results */
+  toolTagAssignment?: ToolTagAssignmentResult;
   /** Overall timing */
   timing: {
     startedAt: string;

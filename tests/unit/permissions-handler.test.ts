@@ -142,13 +142,13 @@ describe('Permissions Handler', () => {
 
       const result = permissionHandlers.check(mockContext, {
         agent_id: 'agent-1',
-        action: 'write',
+        permission: 'write',
         scope_type: 'project',
       });
 
       expect(result.has_permission).toBe(true);
       expect(result.agent_id).toBe('agent-1');
-      expect(result.action).toBe('write');
+      expect(result.permission).toBe('write');
     });
 
     it('should return false when no permission', () => {
@@ -156,7 +156,7 @@ describe('Permissions Handler', () => {
 
       const result = permissionHandlers.check(mockContext, {
         agent_id: 'agent-1',
-        action: 'write',
+        permission: 'write',
         scope_type: 'project',
       });
 
@@ -168,7 +168,7 @@ describe('Permissions Handler', () => {
 
       permissionHandlers.check(mockContext, {
         agent_id: 'agent-1',
-        action: 'read',
+        permission: 'read',
         scope_type: 'project',
         scope_id: 'proj-123',
         entry_type: 'knowledge',
@@ -184,13 +184,32 @@ describe('Permissions Handler', () => {
       );
     });
 
+    it('should map admin permission to write action', () => {
+      mockPermissionService.check.mockReturnValue(true);
+
+      permissionHandlers.check(mockContext, {
+        agent_id: 'agent-1',
+        permission: 'admin',
+        scope_type: 'project',
+      });
+
+      expect(mockPermissionService.check).toHaveBeenCalledWith(
+        'agent-1',
+        'write',
+        'tool',
+        null,
+        'project',
+        null
+      );
+    });
+
     it('should throw when agent_id missing', () => {
       expect(() =>
-        permissionHandlers.check(mockContext, { action: 'write', scope_type: 'project' })
+        permissionHandlers.check(mockContext, { permission: 'write', scope_type: 'project' })
       ).toThrow();
     });
 
-    it('should throw when action missing', () => {
+    it('should throw when permission missing', () => {
       expect(() =>
         permissionHandlers.check(mockContext, { agent_id: 'agent-1', scope_type: 'project' })
       ).toThrow();

@@ -21,8 +21,10 @@ import {
   toolVersions,
   experiences,
   experienceVersions,
+  tags,
+  entryTags,
 } from '../../db/schema.js';
-import { eq, and, or, desc, type SQL } from 'drizzle-orm';
+import { eq, and, or, desc, inArray, type SQL } from 'drizzle-orm';
 import type { ContextManagerService } from './context-manager.service.js';
 import {
   createContextManagerService,
@@ -133,6 +135,13 @@ export interface UnifiedContextResult {
 interface ScopeFilter {
   scopeType: ScopeType;
   scopeId?: string;
+}
+
+/**
+ * Tool tag filter for tool_injection purpose
+ */
+interface ToolTagFilter {
+  toolName: string;
 }
 
 // =============================================================================
@@ -390,14 +399,20 @@ export class UnifiedContextService {
     const entries: ContextEntry[] = [];
     const scopeFilters = this.buildScopeFilters(request);
 
+    // Extract tool name for tool_injection purpose
+    const toolTagFilter: ToolTagFilter | undefined =
+      request.purpose.type === 'tool_injection' && request.purpose.toolName
+        ? { toolName: request.purpose.toolName }
+        : undefined;
+
     // Query each type
     if (include.includes('guidelines')) {
-      const guidelineEntries = this.queryGuidelines(scopeFilters);
+      const guidelineEntries = this.queryGuidelines(scopeFilters, toolTagFilter);
       entries.push(...guidelineEntries);
     }
 
     if (include.includes('knowledge')) {
-      const knowledgeEntries = this.queryKnowledge(scopeFilters);
+      const knowledgeEntries = this.queryKnowledge(scopeFilters, toolTagFilter);
       entries.push(...knowledgeEntries);
     }
 
@@ -407,7 +422,7 @@ export class UnifiedContextService {
     }
 
     if (include.includes('experiences')) {
-      const experienceEntries = this.queryExperiences(scopeFilters);
+      const experienceEntries = this.queryExperiences(scopeFilters, toolTagFilter);
       entries.push(...experienceEntries);
     }
 
@@ -417,7 +432,10 @@ export class UnifiedContextService {
   /**
    * Query guidelines
    */
-  private queryGuidelines(scopeFilters: ScopeFilter[]): ContextEntry[] {
+  private queryGuidelines(
+    scopeFilters: ScopeFilter[],
+    toolTagFilter?: ToolTagFilter
+  ): ContextEntry[] {
     const scopeConditions: SQL[] = [];
     for (const f of scopeFilters) {
       const condition =
@@ -436,6 +454,33 @@ export class UnifiedContextService {
 
     const whereClause = scopeConditions.length > 1 ? or(...scopeConditions) : scopeConditions[0];
 
+    // If tool tag filter provided, find entries with matching tool:* tag
+    let toolTaggedIds: string[] | undefined;
+    if (toolTagFilter) {
+      const tagName = `tool:${toolTagFilter.toolName}`;
+      toolTaggedIds = this.db
+        .select({ entryId: entryTags.entryId })
+        .from(entryTags)
+        .innerJoin(tags, eq(entryTags.tagId, tags.id))
+        .where(and(eq(entryTags.entryType, 'guideline'), eq(tags.name, tagName)))
+        .all()
+        .map((r) => r.entryId);
+
+      // If no entries have this tool tag, fall back to unfiltered query
+      if (toolTaggedIds.length === 0) {
+        logger.debug(
+          { toolName: toolTagFilter.toolName },
+          'No guidelines with tool tag, using fallback'
+        );
+        toolTaggedIds = undefined;
+      }
+    }
+
+    let baseCondition = and(eq(guidelines.isActive, true), whereClause);
+    if (toolTaggedIds && toolTaggedIds.length > 0) {
+      baseCondition = and(baseCondition, inArray(guidelines.id, toolTaggedIds));
+    }
+
     const rows = this.db
       .select({
         id: guidelines.id,
@@ -447,7 +492,7 @@ export class UnifiedContextService {
       })
       .from(guidelines)
       .innerJoin(guidelineVersions, eq(guidelines.currentVersionId, guidelineVersions.id))
-      .where(and(eq(guidelines.isActive, true), whereClause))
+      .where(baseCondition)
       .orderBy(desc(guidelines.priority))
       .limit(20)
       .all();
@@ -467,7 +512,10 @@ export class UnifiedContextService {
   /**
    * Query knowledge
    */
-  private queryKnowledge(scopeFilters: ScopeFilter[]): ContextEntry[] {
+  private queryKnowledge(
+    scopeFilters: ScopeFilter[],
+    toolTagFilter?: ToolTagFilter
+  ): ContextEntry[] {
     const scopeConditions: SQL[] = [];
     for (const f of scopeFilters) {
       const condition =
@@ -485,6 +533,31 @@ export class UnifiedContextService {
 
     const whereClause = scopeConditions.length > 1 ? or(...scopeConditions) : scopeConditions[0];
 
+    let toolTaggedIds: string[] | undefined;
+    if (toolTagFilter) {
+      const tagName = `tool:${toolTagFilter.toolName}`;
+      toolTaggedIds = this.db
+        .select({ entryId: entryTags.entryId })
+        .from(entryTags)
+        .innerJoin(tags, eq(entryTags.tagId, tags.id))
+        .where(and(eq(entryTags.entryType, 'knowledge'), eq(tags.name, tagName)))
+        .all()
+        .map((r) => r.entryId);
+
+      if (toolTaggedIds.length === 0) {
+        logger.debug(
+          { toolName: toolTagFilter.toolName },
+          'No knowledge with tool tag, using fallback'
+        );
+        toolTaggedIds = undefined;
+      }
+    }
+
+    let baseCondition = and(eq(knowledge.isActive, true), whereClause);
+    if (toolTaggedIds && toolTaggedIds.length > 0) {
+      baseCondition = and(baseCondition, inArray(knowledge.id, toolTaggedIds));
+    }
+
     const rows = this.db
       .select({
         id: knowledge.id,
@@ -495,7 +568,7 @@ export class UnifiedContextService {
       })
       .from(knowledge)
       .innerJoin(knowledgeVersions, eq(knowledge.currentVersionId, knowledgeVersions.id))
-      .where(and(eq(knowledge.isActive, true), whereClause))
+      .where(baseCondition)
       .orderBy(desc(knowledge.createdAt))
       .limit(20)
       .all();
@@ -563,7 +636,10 @@ export class UnifiedContextService {
   /**
    * Query experiences
    */
-  private queryExperiences(scopeFilters: ScopeFilter[]): ContextEntry[] {
+  private queryExperiences(
+    scopeFilters: ScopeFilter[],
+    toolTagFilter?: ToolTagFilter
+  ): ContextEntry[] {
     const scopeConditions: SQL[] = [];
     for (const f of scopeFilters) {
       const condition =
@@ -581,6 +657,31 @@ export class UnifiedContextService {
 
     const whereClause = scopeConditions.length > 1 ? or(...scopeConditions) : scopeConditions[0];
 
+    let toolTaggedIds: string[] | undefined;
+    if (toolTagFilter) {
+      const tagName = `tool:${toolTagFilter.toolName}`;
+      toolTaggedIds = this.db
+        .select({ entryId: entryTags.entryId })
+        .from(entryTags)
+        .innerJoin(tags, eq(entryTags.tagId, tags.id))
+        .where(and(eq(entryTags.entryType, 'experience'), eq(tags.name, tagName)))
+        .all()
+        .map((r) => r.entryId);
+
+      if (toolTaggedIds.length === 0) {
+        logger.debug(
+          { toolName: toolTagFilter.toolName },
+          'No experiences with tool tag, using fallback'
+        );
+        toolTaggedIds = undefined;
+      }
+    }
+
+    let baseCondition = and(eq(experiences.isActive, true), whereClause);
+    if (toolTaggedIds && toolTaggedIds.length > 0) {
+      baseCondition = and(baseCondition, inArray(experiences.id, toolTaggedIds));
+    }
+
     const rows = this.db
       .select({
         id: experiences.id,
@@ -592,7 +693,7 @@ export class UnifiedContextService {
       })
       .from(experiences)
       .innerJoin(experienceVersions, eq(experiences.currentVersionId, experienceVersions.id))
-      .where(and(eq(experiences.isActive, true), whereClause))
+      .where(baseCondition)
       .orderBy(desc(experiences.createdAt))
       .limit(10)
       .all();

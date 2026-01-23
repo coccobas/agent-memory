@@ -7,7 +7,7 @@
 
 import type { DatabaseDeps, AppDb } from '../../core/types.js';
 import type { Repositories } from '../../core/interfaces/repositories.js';
-import type { IEmbeddingService, IVectorService } from '../../core/context.js';
+import type { IEmbeddingService, IVectorService, IExtractionService } from '../../core/context.js';
 import type { GraphBackfillService } from '../graph/backfill.service.js';
 import type { SemanticEdgeInferenceService } from '../graph/semantic-edge-inference.service.js';
 import { createComponentLogger } from '../../utils/logger.js';
@@ -195,6 +195,11 @@ export class LibrarianService {
   setMissedExtractionDetector(detector: MissedExtractionDetector): void {
     this.sessionLifecycle.setMissedExtractionDetector(detector);
     logger.debug('Missed extraction detector set for librarian');
+  }
+
+  setExtractionService(extractionService: IExtractionService): void {
+    this.recommender.setExtractionService(extractionService);
+    logger.debug('Extraction service set for librarian recommender');
   }
 
   /**
@@ -459,7 +464,7 @@ export class LibrarianService {
         createdBy: request.initiatedBy ?? 'librarian-agent',
       });
 
-      const recommendations = this.recommender.generateRecommendations(
+      const recommendations = await this.recommender.generateRecommendations(
         filteredPatterns,
         evaluationMap,
         { scopeType: request.scopeType, scopeId: request.scopeId }

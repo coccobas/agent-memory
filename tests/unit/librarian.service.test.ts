@@ -759,10 +759,10 @@ describe('Recommender', () => {
   });
 
   describe('generateRecommendations', () => {
-    it('should generate recommendations for review disposition', () => {
+    it('should generate recommendations for review disposition', async () => {
       const evaluations = new Map([[mockPattern, mockQualityResult]]);
 
-      const result = recommender.generateRecommendations([mockPattern], evaluations, {
+      const result = await recommender.generateRecommendations([mockPattern], evaluations, {
         scopeType: 'project',
         scopeId: 'test-project',
       });
@@ -774,11 +774,11 @@ describe('Recommender', () => {
       expect(result.stats.totalPatterns).toBe(1);
     });
 
-    it('should categorize auto-promoted patterns', () => {
+    it('should categorize auto-promoted patterns', async () => {
       mockQualityResult.disposition = 'auto_promote';
       const evaluations = new Map([[mockPattern, mockQualityResult]]);
 
-      const result = recommender.generateRecommendations([mockPattern], evaluations, {
+      const result = await recommender.generateRecommendations([mockPattern], evaluations, {
         scopeType: 'project',
         scopeId: 'test-project',
       });
@@ -788,11 +788,11 @@ describe('Recommender', () => {
       expect(result.stats.autoPromoted).toBe(1);
     });
 
-    it('should categorize rejected patterns', () => {
+    it('should categorize rejected patterns', async () => {
       mockQualityResult.disposition = 'reject';
       const evaluations = new Map([[mockPattern, mockQualityResult]]);
 
-      const result = recommender.generateRecommendations([mockPattern], evaluations, {
+      const result = await recommender.generateRecommendations([mockPattern], evaluations, {
         scopeType: 'project',
         scopeId: 'test-project',
       });
@@ -802,10 +802,10 @@ describe('Recommender', () => {
       expect(result.stats.rejected).toBe(1);
     });
 
-    it('should generate proper recommendation input structure', () => {
+    it('should generate proper recommendation input structure', async () => {
       const evaluations = new Map([[mockPattern, mockQualityResult]]);
 
-      const result = recommender.generateRecommendations([mockPattern], evaluations, {
+      const result = await recommender.generateRecommendations([mockPattern], evaluations, {
         scopeType: 'project',
         scopeId: 'test-project',
       });
@@ -824,10 +824,10 @@ describe('Recommender', () => {
       expect(rec.input.createdBy).toBe('test-agent');
     });
 
-    it('should include expiration date', () => {
+    it('should include expiration date', async () => {
       const evaluations = new Map([[mockPattern, mockQualityResult]]);
 
-      const result = recommender.generateRecommendations([mockPattern], evaluations, {
+      const result = await recommender.generateRecommendations([mockPattern], evaluations, {
         scopeType: 'project',
         scopeId: 'test-project',
       });
@@ -847,7 +847,7 @@ describe('Recommender', () => {
       const mockStore = createMockRecommendationStore();
       const evaluations = new Map([[mockPattern, mockQualityResult]]);
 
-      const result = recommender.generateRecommendations([mockPattern], evaluations, {
+      const result = await recommender.generateRecommendations([mockPattern], evaluations, {
         scopeType: 'project',
         scopeId: 'test-project',
       });
@@ -866,10 +866,14 @@ describe('Recommender', () => {
         [pattern2, mockQualityResult],
       ]);
 
-      const result = recommender.generateRecommendations([mockPattern, pattern2], evaluations, {
-        scopeType: 'project',
-        scopeId: 'test-project',
-      });
+      const result = await recommender.generateRecommendations(
+        [mockPattern, pattern2],
+        evaluations,
+        {
+          scopeType: 'project',
+          scopeId: 'test-project',
+        }
+      );
 
       await recommender.storeRecommendations(result.recommendations, mockStore);
 
@@ -878,14 +882,14 @@ describe('Recommender', () => {
   });
 
   describe('setOptions', () => {
-    it('should update options', () => {
+    it('should update options', async () => {
       recommender.setOptions({
         expirationDays: 60,
         analysisRunId: 'new-run-id',
       });
 
       const evaluations = new Map([[mockPattern, mockQualityResult]]);
-      const result = recommender.generateRecommendations([mockPattern], evaluations, {
+      const result = await recommender.generateRecommendations([mockPattern], evaluations, {
         scopeType: 'project',
         scopeId: 'test-project',
       });

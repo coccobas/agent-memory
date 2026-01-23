@@ -189,6 +189,66 @@ export class ExtractionService {
   }
 
   /**
+   * Lightweight classification-only extraction for hybrid classification.
+   * Uses the LLM to classify text into guideline/knowledge/tool without full extraction.
+   *
+   * This is called by ClassificationService when regex confidence is low.
+   */
+  async extractForClassification(
+    text: string
+  ): Promise<{ type: 'guideline' | 'knowledge' | 'tool'; confidence: number; reasoning?: string }> {
+    if (!this.isAvailable()) {
+      throw createExtractionError('service', 'Extraction service not available');
+    }
+
+    // Use a focused prompt for classification only
+    const classificationPrompt = `Classify this text into exactly one category. Respond with JSON only.
+
+Text: "${text.slice(0, 500)}"
+
+Categories:
+- guideline: Rules, standards, requirements, policies (e.g., "we always...", "never do...", "must use...")
+- knowledge: Facts, decisions, context, system descriptions (e.g., "we decided...", "the API uses...", "because...")
+- tool: Commands, scripts, CLI instructions (e.g., "run npm...", "docker compose...", "git checkout...")
+
+Respond ONLY with this JSON format:
+{"type": "guideline|knowledge|tool", "confidence": 0.0-1.0, "reasoning": "brief explanation"}`;
+
+    try {
+      const result = await this.extract({
+        context: classificationPrompt,
+        contextType: 'mixed',
+        focusAreas: ['rules'], // Minimal extraction
+      });
+
+      // Fall back to analyzing what type of entries were extracted
+      const entry = result.entries[0];
+      if (entry) {
+        return {
+          type: entry.type,
+          confidence: entry.confidence,
+          reasoning: entry.rationale,
+        };
+      }
+
+      // If no entries extracted, try to infer from the result
+      // This shouldn't happen with a well-formed prompt, but handle gracefully
+      logger.warn('extractForClassification returned no entries, defaulting to knowledge');
+      return {
+        type: 'knowledge',
+        confidence: 0.5,
+        reasoning: 'LLM extraction returned no entries',
+      };
+    } catch (error) {
+      logger.error(
+        { error: error instanceof Error ? error.message : String(error) },
+        'extractForClassification failed'
+      );
+      throw error;
+    }
+  }
+
+  /**
    * Extract memory entries from context
    */
   async extract(input: ExtractionInput): Promise<ExtractionResult> {

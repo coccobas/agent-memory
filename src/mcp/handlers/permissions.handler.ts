@@ -15,7 +15,6 @@ import {
   isEntryType,
   isNumber,
   isPermissionLevel,
-  isPermissionAction,
 } from '../../utils/type-guards.js';
 import { createValidationError } from '../../core/errors.js';
 
@@ -38,7 +37,7 @@ export interface PermissionRevokeParams {
 
 export interface PermissionCheckParams {
   agent_id: string;
-  action: 'read' | 'write';
+  permission: 'read' | 'write';
   scope_type: ScopeType;
   scope_id?: string | null;
   entry_type?: EntryType | null;
@@ -170,14 +169,17 @@ export const permissionHandlers = {
    */
   check(context: AppContext, params: Record<string, unknown>) {
     const agent_id = getRequiredParam(params, 'agent_id', isString);
-    const action = getRequiredParam(params, 'action', isPermissionAction);
+    const permission = getRequiredParam(params, 'permission', isPermissionLevel);
     const scope_type = getRequiredParam(params, 'scope_type', isScopeType);
     const scope_id = getOptionalParam(params, 'scope_id', isString);
     const entry_type = getOptionalParam(params, 'entry_type', isEntryType);
 
+    // Map permission level to action: read/write map directly, admin implies write
+    const action = permission === 'admin' ? 'write' : permission;
+
     const hasPermission = context.services.permission.check(
       agent_id,
-      action,
+      action as 'read' | 'write',
       entry_type ?? 'tool',
       null,
       scope_type,
@@ -187,7 +189,7 @@ export const permissionHandlers = {
     return {
       has_permission: hasPermission,
       agent_id,
-      action,
+      permission,
       scope_type,
       scope_id: scope_id ?? null,
       entry_type: entry_type ?? null,

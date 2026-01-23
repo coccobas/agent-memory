@@ -39,6 +39,7 @@ Maintenance includes:
 - Consolidation: Dedupe similar entries
 - Forgetting: Archive stale entries
 - Graph backfill: Populate knowledge graph
+- Tool tag assignment: LLM-based tagging of entries with tool:* tags for tool-specific context injection
 
 Runs daily at 5am and on session end. Use list_recommendations to review pending patterns.
 
@@ -85,7 +86,7 @@ Example: {"action":"get_job_status","jobId":"job_abc123"}`,
       params: {
         tasks: {
           description:
-            'Which tasks to run (defaults to all): consolidation, forgetting, graphBackfill',
+            'Which tasks to run (defaults to all): consolidation, forgetting, graphBackfill, toolTagAssignment',
           type: 'array',
           items: { type: 'string' },
         },

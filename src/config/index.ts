@@ -381,6 +381,7 @@ export interface Config {
     highConfidenceThreshold: number;
     lowConfidenceThreshold: number;
     enableLLMFallback: boolean;
+    preferLLM: boolean;
     feedbackDecayDays: number;
     maxPatternBoost: number;
     maxPatternPenalty: number;

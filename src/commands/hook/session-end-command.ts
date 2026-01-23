@@ -12,6 +12,7 @@ import {
 import { getContext } from '../../core/container.js';
 import { DEFAULT_LIBRARIAN_CONFIG } from '../../services/librarian/types.js';
 import { getBehaviorObserverService } from '../../services/capture/behavior-observer.js';
+import { getInjectionTrackerService } from '../../services/injection-tracking/index.js';
 
 const logger = createComponentLogger('session-end');
 
@@ -219,7 +220,6 @@ export async function runSessionEndCommand(params: {
           }
         }
 
-        // Clear session data from behavior observer after analysis
         behaviorObserver.clearSession(sessionId);
       } catch (behaviorError) {
         // Don't fail the session end if behavior analysis fails - just log it
@@ -331,6 +331,9 @@ export async function runSessionEndCommand(params: {
         }
       }
     }
+
+    getInjectionTrackerService().clearSession(sessionId);
+    logger.debug({ sessionId }, 'Cleared injection tracker for ended session');
 
     return { exitCode: 0, stdout: [], stderr: [] };
   } catch (error) {

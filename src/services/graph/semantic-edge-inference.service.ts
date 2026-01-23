@@ -1,19 +1,5 @@
-/**
- * Semantic Edge Inference Service
- *
- * Automatically creates `related_to` edges between semantically similar
- * entries based on embedding cosine similarity. This helps populate the
- * knowledge graph with meaningful relationships discovered from content.
- *
- * Key features:
- * - Compares all entry pairs within a scope
- * - Creates edges for pairs above similarity threshold
- * - Respects max edges per entry to prevent explosion
- * - Idempotent - skips existing edges
- * - Dry run mode for preview
- */
-
 import { v4 as uuidv4 } from 'uuid';
+import type { IExtractionService } from '../../core/context.js';
 import { createComponentLogger } from '../../utils/logger.js';
 import type {
   SemanticEdgeInferenceConfig,
@@ -26,6 +12,16 @@ import type {
 import { DEFAULT_SEMANTIC_EDGE_CONFIG } from './semantic-edge-inference.types.js';
 
 const logger = createComponentLogger('semantic-edge-inference');
+
+const VALID_RELATION_TYPES = [
+  'related_to',
+  'depends_on',
+  'conflicts_with',
+  'implements',
+  'extends',
+  'supersedes',
+] as const;
+type RelationType = (typeof VALID_RELATION_TYPES)[number];
 
 // =============================================================================
 // DEPENDENCIES INTERFACE
@@ -75,10 +71,12 @@ export interface SemanticEdgeInferenceDeps {
 export class SemanticEdgeInferenceService {
   private config: SemanticEdgeInferenceConfig;
   private deps: SemanticEdgeInferenceDeps;
+  private extractionService?: IExtractionService;
 
   constructor(deps: SemanticEdgeInferenceDeps, config?: Partial<SemanticEdgeInferenceConfig>) {
     this.deps = deps;
     this.config = { ...DEFAULT_SEMANTIC_EDGE_CONFIG, ...config };
+    this.extractionService = config?.extractionService;
   }
 
   /**
@@ -253,13 +251,14 @@ export class SemanticEdgeInferenceService {
             continue;
           }
 
-          // Create edge
+          const relationType = await this.inferRelationType(pair, entries, effectiveConfig);
+
           const result = await this.deps.createEdge({
             sourceEntryId: pair.sourceId,
             sourceEntryType: pair.sourceType,
             targetEntryId: pair.targetId,
             targetEntryType: pair.targetType,
-            relationType: 'related_to',
+            relationType,
             weight: pair.similarity,
             createdBy: request.initiatedBy ?? 'semantic-inference',
           });
@@ -341,9 +340,88 @@ export class SemanticEdgeInferenceService {
     return pairs;
   }
 
-  /**
-   * Build result object
-   */
+  private async inferRelationType(
+    pair: SimilarityPair,
+    entries: EntryWithEmbedding[],
+    config: SemanticEdgeInferenceConfig
+  ): Promise<RelationType> {
+    if (!this.extractionService?.isAvailable()) {
+      return 'related_to';
+    }
+
+    if (pair.similarity < config.llmInferenceThreshold) {
+      return 'related_to';
+    }
+
+    try {
+      const sourceEntry = entries.find((e) => e.entryId === pair.sourceId);
+      const targetEntry = entries.find((e) => e.entryId === pair.targetId);
+
+      if (!sourceEntry || !targetEntry) {
+        return 'related_to';
+      }
+
+      const prompt = `Determine the relationship type between these two entries.
+
+Entry A (${sourceEntry.entryType}): ${sourceEntry.name}
+Entry B (${targetEntry.entryType}): ${targetEntry.name}
+
+Possible relationship types:
+- related_to: General semantic similarity
+- depends_on: A requires or builds upon B
+- conflicts_with: A contradicts or is incompatible with B
+- implements: A is a concrete implementation of B
+- extends: A extends or enhances B
+- supersedes: A replaces or updates B
+
+Respond in JSON format:
+{"relation_type": "<type>", "confidence": <0-1>}`;
+
+      const result = await this.extractionService.extract({
+        context: prompt,
+        contextType: 'mixed',
+        focusAreas: ['decisions'],
+      });
+
+      for (const entry of result.entries) {
+        try {
+          const jsonMatch = entry.content.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]) as {
+              relation_type?: string;
+              confidence?: number;
+            };
+            if (
+              parsed.relation_type &&
+              VALID_RELATION_TYPES.includes(parsed.relation_type as RelationType)
+            ) {
+              logger.debug(
+                {
+                  sourceId: pair.sourceId,
+                  targetId: pair.targetId,
+                  relationType: parsed.relation_type,
+                  confidence: parsed.confidence,
+                },
+                'LLM inferred relation type'
+              );
+              return parsed.relation_type as RelationType;
+            }
+          }
+        } catch {
+          continue;
+        }
+      }
+
+      return 'related_to';
+    } catch (error) {
+      logger.debug(
+        { error: error instanceof Error ? error.message : String(error) },
+        'LLM relation inference failed, using default'
+      );
+      return 'related_to';
+    }
+  }
+
   private buildResult(
     runId: string,
     dryRun: boolean,

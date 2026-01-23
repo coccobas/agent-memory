@@ -38,6 +38,7 @@ export interface ClassificationServiceConfig {
   highConfidenceThreshold: number;
   lowConfidenceThreshold: number;
   enableLLMFallback: boolean;
+  preferLLM: boolean;
   feedbackDecayDays: number;
   maxPatternBoost: number;
   maxPatternPenalty: number;
@@ -145,10 +146,28 @@ export class ClassificationService implements IClassificationService {
       return cached;
     }
 
-    // 3. Try fast regex path
+    // 3. LLM-first mode: always use LLM when available and preferred
+    if (this.config.preferLLM && this.isLLMAvailable()) {
+      logger.debug('Using LLM-first classification');
+      const llmResult = await this.classifyWithLLM(text);
+      if (llmResult) {
+        const result: ClassificationResult = {
+          type: llmResult.type,
+          confidence: llmResult.confidence,
+          method: 'llm',
+          llmReasoning: llmResult.reasoning,
+          adjustedByFeedback: false,
+        };
+        this.cache.set(cacheKey, result);
+        return result;
+      }
+      logger.debug('LLM classification failed, falling back to regex');
+    }
+
+    // 4. Regex path (fallback or non-LLM mode)
     const regexResult = await this.patternMatcher.match(text);
 
-    // 4. High confidence → use regex directly
+    // 5. High confidence → use regex directly
     if (regexResult.confidence >= this.config.highConfidenceThreshold) {
       logger.debug(
         { type: regexResult.type, confidence: regexResult.confidence },
@@ -162,8 +181,12 @@ export class ClassificationService implements IClassificationService {
       return result;
     }
 
-    // 5. Low confidence → LLM fallback if available
-    if (regexResult.confidence < this.config.lowConfidenceThreshold && this.isLLMAvailable()) {
+    // 6. Low confidence → LLM fallback if available (and not already tried)
+    if (
+      !this.config.preferLLM &&
+      regexResult.confidence < this.config.lowConfidenceThreshold &&
+      this.isLLMAvailable()
+    ) {
       logger.debug(
         { regexConfidence: regexResult.confidence },
         'Low confidence, using LLM fallback'
@@ -377,6 +400,7 @@ export function createClassificationService(
     highConfidenceThreshold: appConfig.classification.highConfidenceThreshold,
     lowConfidenceThreshold: appConfig.classification.lowConfidenceThreshold,
     enableLLMFallback: appConfig.classification.enableLLMFallback,
+    preferLLM: appConfig.classification.preferLLM,
     feedbackDecayDays: appConfig.classification.feedbackDecayDays,
     maxPatternBoost: appConfig.classification.maxPatternBoost,
     maxPatternPenalty: appConfig.classification.maxPatternPenalty,

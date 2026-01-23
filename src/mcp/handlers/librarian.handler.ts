@@ -811,7 +811,8 @@ const run_maintenance: ContextAwareHandler = async (context, params) => {
     | 'graphBackfill'
     | 'latentPopulation'
     | 'tagRefinement'
-    | 'semanticEdgeInference';
+    | 'semanticEdgeInference'
+    | 'toolTagAssignment';
   let tasks: MaintenanceTask[] | undefined;
   if (params.tasks && Array.isArray(params.tasks)) {
     const validTasks = [
@@ -821,6 +822,7 @@ const run_maintenance: ContextAwareHandler = async (context, params) => {
       'latentPopulation',
       'tagRefinement',
       'semanticEdgeInference',
+      'toolTagAssignment',
     ];
     tasks = (params.tasks as string[]).filter((t): t is MaintenanceTask => validTasks.includes(t));
   }
@@ -837,8 +839,30 @@ const run_maintenance: ContextAwareHandler = async (context, params) => {
     };
   }
 
-  // Create job
-  const request = { scopeType, scopeId, tasks, dryRun, initiatedBy };
+  // If toolTagAssignment is explicitly requested, enable it (since it's disabled by default)
+  const configOverrides = tasks?.includes('toolTagAssignment')
+    ? {
+        toolTagAssignment: {
+          enabled: true,
+          maxEntries: 50,
+          entryTypes: ['guideline', 'knowledge'] as ('guideline' | 'knowledge')[],
+          availableTools: [
+            'Edit',
+            'Write',
+            'Bash',
+            'Read',
+            'Grep',
+            'Glob',
+            'git',
+            'TodoWrite',
+            'Task',
+          ],
+          minConfidence: 0.7,
+          skipAlreadyTagged: true,
+        },
+      }
+    : undefined;
+  const request = { scopeType, scopeId, tasks, dryRun, initiatedBy, configOverrides };
   const job = await jobManager.createJob(request);
 
   logger.info({ jobId: job.id, scopeType, scopeId, tasks, dryRun }, 'Created maintenance job');

@@ -79,6 +79,7 @@ Use this to verify the memory server is working or to get entry counts.`,
       warnings: warnings.length > 0 ? warnings : undefined,
       database: {
         type: config.dbType === 'postgresql' ? 'PostgreSQL' : 'SQLite',
+        path: config.dbType === 'sqlite' ? config.database.path : undefined,
         inMemory: false,
         walEnabled: config.dbType === 'sqlite',
       },

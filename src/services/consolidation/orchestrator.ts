@@ -57,7 +57,7 @@ export async function consolidate(params: ConsolidationParams): Promise<Consolid
     // Execute consolidation for each group
     for (const group of groups) {
       try {
-        const strategyResult = strategyImpl.execute(group, consolidatedBy, db);
+        const strategyResult = await strategyImpl.execute(group, consolidatedBy, db);
 
         if (strategyResult.success) {
           result.entriesProcessed += strategyResult.entriesProcessed;

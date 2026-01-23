@@ -71,6 +71,27 @@ const GUIDELINE_PATTERNS: WeightedPattern[] = [
     description: 'Team rule pattern',
   },
   {
+    id: 'guideline_we_will_use',
+    regex: /\bwe\s+(will|are going to|'re going to)\s+(use|adopt|follow|implement|apply)\b/i,
+    type: 'guideline',
+    baseWeight: 0.85,
+    description: 'Future commitment pattern',
+  },
+  {
+    id: 'guideline_lets_use',
+    regex: /^(let's|lets|let us)\s+(use|adopt|follow|implement|apply|go with)\b/i,
+    type: 'guideline',
+    baseWeight: 0.8,
+    description: 'Team decision proposal',
+  },
+  {
+    id: 'guideline_from_now_on',
+    regex: /\b(from now on|going forward|henceforth|from this point)\b/i,
+    type: 'guideline',
+    baseWeight: 0.85,
+    description: 'Future rule declaration',
+  },
+  {
     id: 'guideline_our_standard',
     regex: /^(our|the)\s+(standard|convention|rule|policy)\s+(is|should be)\b/i,
     type: 'guideline',

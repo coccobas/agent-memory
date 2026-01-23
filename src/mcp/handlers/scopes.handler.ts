@@ -30,6 +30,7 @@ import { createComponentLogger } from '../../utils/logger.js';
 import { findSimilarGroups, consolidate } from '../../services/consolidation.service.js';
 import { generateAndStoreSummary } from '../../services/summary.service.js';
 import { getCorrelationId } from '../../utils/correlation.js';
+import { getInjectionTrackerService } from '../../services/injection-tracking/index.js';
 
 const logger = createComponentLogger('scopes');
 import type {
@@ -397,6 +398,8 @@ export const scopeHandlers = {
 
     // Clear context detection cache to prevent stale session data
     context.services.contextDetection?.clearCache();
+
+    getInjectionTrackerService().clearSession(id);
 
     return formatTimestamps({ success: true, session });
   },

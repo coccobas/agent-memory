@@ -54,7 +54,8 @@ const mockRepo: ClassificationRepository = {
 const defaultConfig: ClassificationServiceConfig = {
   highConfidenceThreshold: 0.85,
   lowConfidenceThreshold: 0.6,
-  enableLLMFallback: false, // Disable for most tests
+  enableLLMFallback: false,
+  preferLLM: false,
   feedbackDecayDays: 30,
   maxPatternBoost: 0.15,
   maxPatternPenalty: 0.3,
@@ -110,6 +111,30 @@ describe('PatternMatcher', () => {
 
     it('should match "don\'t use" pattern', async () => {
       const result = await patternMatcher.match("Don't use var in TypeScript");
+      expect(result.type).toBe('guideline');
+      expect(result.confidence).toBeGreaterThanOrEqual(0.75);
+    });
+
+    it('should match "we will use" future commitment pattern', async () => {
+      const result = await patternMatcher.match('We will use TDD for this project');
+      expect(result.type).toBe('guideline');
+      expect(result.confidence).toBeGreaterThanOrEqual(0.75);
+    });
+
+    it('should match "let\'s use" team decision pattern', async () => {
+      const result = await patternMatcher.match("Let's use Prettier for code formatting");
+      expect(result.type).toBe('guideline');
+      expect(result.confidence).toBeGreaterThanOrEqual(0.7);
+    });
+
+    it('should match "from now on" future rule pattern', async () => {
+      const result = await patternMatcher.match('From now on all PRs require code review');
+      expect(result.type).toBe('guideline');
+      expect(result.confidence).toBeGreaterThanOrEqual(0.75);
+    });
+
+    it('should match "going forward" pattern', async () => {
+      const result = await patternMatcher.match('Going forward we will write tests first');
       expect(result.type).toBe('guideline');
       expect(result.confidence).toBeGreaterThanOrEqual(0.75);
     });
@@ -451,5 +476,69 @@ describe('Cache Behavior', () => {
     // Normal classification should not return cached forced result
     const normal = await service.classify('Some text');
     expect(normal.method).not.toBe('forced');
+  });
+});
+
+describe('LLM-Preferred Mode', () => {
+  it('should use LLM first when preferLLM is true and LLM is available', async () => {
+    const mockDb = createMockDb();
+    const mockExtraction = {
+      isAvailable: () => true,
+      extractForClassification: vi.fn().mockResolvedValue({
+        type: 'guideline',
+        confidence: 0.95,
+        reasoning: 'This is a rule statement',
+      }),
+    };
+
+    const service = new ClassificationService(mockDb as never, mockExtraction, {
+      ...defaultConfig,
+      enableLLMFallback: true,
+      preferLLM: true,
+    });
+
+    const result = await service.classify('we will use TDD for this project');
+
+    expect(result.method).toBe('llm');
+    expect(result.type).toBe('guideline');
+    expect(mockExtraction.extractForClassification).toHaveBeenCalledOnce();
+  });
+
+  it('should fall back to regex when LLM fails in preferLLM mode', async () => {
+    const mockDb = createMockDb();
+    const mockExtraction = {
+      isAvailable: () => true,
+      extractForClassification: vi.fn().mockResolvedValue(null),
+    };
+
+    const service = new ClassificationService(mockDb as never, mockExtraction, {
+      ...defaultConfig,
+      enableLLMFallback: true,
+      preferLLM: true,
+    });
+
+    const result = await service.classify('Rule: always write tests first');
+
+    expect(result.method).toBe('regex');
+    expect(result.type).toBe('guideline');
+  });
+
+  it('should use regex when preferLLM is false even if LLM is available', async () => {
+    const mockDb = createMockDb();
+    const mockExtraction = {
+      isAvailable: () => true,
+      extractForClassification: vi.fn(),
+    };
+
+    const service = new ClassificationService(mockDb as never, mockExtraction, {
+      ...defaultConfig,
+      enableLLMFallback: true,
+      preferLLM: false,
+    });
+
+    const result = await service.classify('Rule: always write tests first');
+
+    expect(result.method).toBe('regex');
+    expect(mockExtraction.extractForClassification).not.toHaveBeenCalled();
   });
 });

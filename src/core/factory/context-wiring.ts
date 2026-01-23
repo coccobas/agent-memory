@@ -454,8 +454,16 @@ export async function wireContext(input: WireContextInput): Promise<AppContext> 
         // Config defaults from DEFAULT_MISSED_EXTRACTION_CONFIG will be used
       });
       services.librarian.setMissedExtractionDetector(missedExtractionDetector);
+      services.librarian.setExtractionService(services.extraction);
       logger.debug('Missed extraction detector initialized and wired to librarian');
     }
+  }
+
+  if (services.extraction) {
+    const { configureMergeStrategy } =
+      await import('../../services/consolidation/strategies/index.js');
+    configureMergeStrategy(services.extraction);
+    logger.debug('Merge strategy configured with LLM-enhanced content synthesis');
   }
 
   // Create ReembeddingService now that db is available
