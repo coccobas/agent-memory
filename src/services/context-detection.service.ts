@@ -15,7 +15,7 @@ import type { ScopeType } from '../db/schema/types.js';
 import { createComponentLogger } from '../utils/logger.js';
 import type { TurnData } from './capture/types.js';
 import { detectProjectMentions } from '../utils/transcript-analysis.js';
-import { getWorkingDirectory } from '../utils/working-directory.js';
+import { getWorkingDirectoryAsync } from '../utils/working-directory.js';
 
 const logger = createComponentLogger('context-detection');
 
@@ -191,7 +191,7 @@ export class ContextDetectionService implements IContextDetectionService {
   }
 
   async detect(explicitParams?: EnrichableParams): Promise<DetectedContext> {
-    const workingDirectory = getWorkingDirectory();
+    const { path: workingDirectory } = await getWorkingDirectoryAsync();
 
     // If disabled, return minimal context with just defaults
     if (!this.enabled) {

@@ -38,6 +38,8 @@ let currentRoots: Root[] = [];
 let serverInstance: Server | null = null;
 let rootsCapabilitySupported = false;
 let onRootsChangedCallback: ((roots: Root[]) => void) | null = null;
+let initializationPromise: Promise<void> | null = null;
+let initializationResolve: (() => void) | null = null;
 
 /**
  * Initialize the roots service with an MCP server instance
@@ -53,21 +55,26 @@ export async function initializeRootsService(
   serverInstance = server;
   onRootsChangedCallback = options?.onRootsChanged ?? null;
 
+  initializationPromise = new Promise<void>((resolve) => {
+    initializationResolve = resolve;
+  });
+
   logger.debug('Roots service initialized');
 
-  if (checkRootsCapability()) {
-    logger.debug('Client supports roots capability');
-
-    try {
+  try {
+    if (checkRootsCapability()) {
+      logger.debug('Client supports roots capability');
       await fetchRoots();
-    } catch (error) {
-      logger.warn(
-        { error: error instanceof Error ? error.message : String(error) },
-        'Failed to fetch initial roots'
-      );
+    } else {
+      logger.debug('Client does not support roots capability');
     }
-  } else {
-    logger.debug('Client does not support roots capability');
+  } catch (error) {
+    logger.warn(
+      { error: error instanceof Error ? error.message : String(error) },
+      'Failed to fetch initial roots'
+    );
+  } finally {
+    initializationResolve?.();
   }
 }
 
@@ -187,6 +194,12 @@ export function hasRootsCapability(): boolean {
   return rootsCapabilitySupported && currentRoots.length > 0;
 }
 
+export async function waitForRootsReady(): Promise<void> {
+  if (initializationPromise) {
+    await initializationPromise;
+  }
+}
+
 /**
  * Clear all roots state
  * Used for testing and shutdown
@@ -196,6 +209,8 @@ export function clearRootsState(): void {
   serverInstance = null;
   rootsCapabilitySupported = false;
   onRootsChangedCallback = null;
+  initializationPromise = null;
+  initializationResolve = null;
 
   logger.debug('Roots state cleared');
 }

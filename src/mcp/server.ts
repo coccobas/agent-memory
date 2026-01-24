@@ -102,26 +102,26 @@ export async function createServer(context: AppContext): Promise<Server> {
     logger.info('Roots changed, caches cleared');
   });
 
-  // Set up initialization callback to fetch roots
+  // Initialize roots when client connects
   const originalOnInitialized = server.oninitialized;
   server.oninitialized = () => {
-    // Call original if exists
     if (originalOnInitialized) {
       originalOnInitialized();
     }
 
-    // Initialize roots service and fetch roots if supported (fire and forget)
     initializeRootsService(server, {
       onRootsChanged: (roots) => {
         clearWorkingDirectoryCache();
         context.services.contextDetection?.clearCache();
         logger.info({ rootCount: roots.length }, 'Roots updated via callback');
       },
-    }).catch((err: unknown) => {
-      logger.error({ err }, 'Failed to initialize roots service');
-    });
-
-    logger.info('Client initialization complete, roots service initialized');
+    })
+      .then(() => {
+        logger.info('Client initialization complete, roots service initialized');
+      })
+      .catch((err: unknown) => {
+        logger.error({ err }, 'Failed to initialize roots service');
+      });
   };
 
   // Database is already initialized by AppContext, but we might want to start specific background tasks

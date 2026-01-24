@@ -28,6 +28,7 @@ import {
   type EpisodeTriggerType,
 } from '../../services/intent-detection/patterns.js';
 import { checkStaleCode, type StaleCodeInfo } from '../../utils/server-diagnostics.js';
+import { getWorkingDirectoryAsync } from '../../utils/working-directory.js';
 import type { WhatHappenedResult } from '../../services/episode/index.js';
 
 export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
@@ -112,7 +113,7 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
       rootPath = rootPath ?? detected?.workingDirectory;
       agentId = detected?.agentId?.value ?? agentId;
     }
-    rootPath = rootPath ?? process.cwd();
+    rootPath = rootPath ?? (await getWorkingDirectoryAsync()).path;
 
     // Permission params
     const grantPermissions = (args?.grantPermissions as boolean | undefined) ?? createProject;

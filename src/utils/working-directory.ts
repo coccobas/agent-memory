@@ -13,7 +13,11 @@
  */
 
 import { createComponentLogger } from './logger.js';
-import { getRootWorkingDirectory, hasRootsCapability } from '../mcp/roots.service.js';
+import {
+  getRootWorkingDirectory,
+  hasRootsCapability,
+  waitForRootsReady,
+} from '../mcp/roots.service.js';
 
 const logger = createComponentLogger('working-directory');
 
@@ -103,6 +107,16 @@ export function getWorkingDirectoryInfo(): WorkingDirectoryInfo {
  */
 export function getWorkingDirectory(): string {
   return getWorkingDirectoryInfo().path;
+}
+
+/**
+ * Get the effective working directory, waiting for roots initialization if needed.
+ * Use this in handlers to ensure roots are available before falling back.
+ */
+export async function getWorkingDirectoryAsync(): Promise<WorkingDirectoryInfo> {
+  await waitForRootsReady();
+  clearWorkingDirectoryCache();
+  return getWorkingDirectoryInfo();
 }
 
 /**

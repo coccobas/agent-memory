@@ -25,6 +25,7 @@ import {
   createGuidelineSeederService,
 } from '../../services/onboarding/index.js';
 import { formatOnboardMinto, type OnboardMintoInput } from '../../utils/minto-formatter.js';
+import { getWorkingDirectoryAsync } from '../../utils/working-directory.js';
 
 export const memoryOnboardDescriptor: SimpleToolDescriptor = {
   name: 'memory_onboard',
@@ -65,7 +66,7 @@ export const memoryOnboardDescriptor: SimpleToolDescriptor = {
     },
   },
   contextHandler: async (ctx, args) => {
-    const cwd = process.cwd();
+    const { path: cwd } = await getWorkingDirectoryAsync();
 
     // Parse options
     const options = {
