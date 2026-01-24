@@ -23,6 +23,12 @@ vi.mock('../../src/utils/logger.js', () => ({
     warn: vi.fn(),
     error: vi.fn(),
   },
+  createComponentLogger: vi.fn(() => ({
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  })),
 }));
 
 vi.mock('../../src/utils/error-mapper.js', () => ({
