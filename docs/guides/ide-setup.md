@@ -474,16 +474,77 @@ If running multiple IDEs:
 
 ---
 
+## Working Directory Detection
+
+Agent Memory automatically detects your project's working directory using multiple methods.
+
+### Priority Order
+
+1. **MCP Roots API** (Recommended) - Modern MCP clients that support the `roots` capability automatically provide the working directory. No configuration needed.
+
+2. **CLAUDE_CWD Environment Variable** - For clients that don't support roots, set this in your MCP server config:
+
+   ```json
+   {
+     "mcpServers": {
+       "agent-memory": {
+         "command": "npx",
+         "args": ["-y", "agent-memory@latest", "mcp"],
+         "env": {
+           "CLAUDE_CWD": "${workspaceFolder}"
+         }
+       }
+     }
+   }
+   ```
+
+3. **AGENT_MEMORY_CWD Environment Variable** - Alternative for other clients or manual override.
+
+4. **process.cwd()** - Fallback (may be incorrect for MCP servers).
+
+### Checking Configuration
+
+Use `memory_status` to verify your working directory detection:
+
+```json
+// Tool: memory_status
+{}
+
+// Response includes detected context
+{
+  "_context": {
+    "project": {
+      "name": "my-project",
+      "rootPath": "/Users/dev/my-project"
+    },
+    "workingDirectory": "/Users/dev/my-project"
+  }
+}
+```
+
+### Client Support
+
+| Client         | Roots API | Env Var Fallback |
+| -------------- | --------- | ---------------- |
+| Claude Code    | ✅        | CLAUDE_CWD       |
+| Claude Desktop | ✅        | CLAUDE_CWD       |
+| Cursor         | ⚠️ Check  | AGENT_MEMORY_CWD |
+| VS Code        | ⚠️ Check  | AGENT_MEMORY_CWD |
+
+---
+
 ## Configuration Reference
 
 ### Environment Variables for MCP Config
 
-| Variable                        | Description                          |
-| ------------------------------- | ------------------------------------ |
-| `AGENT_MEMORY_DATA_DIR`         | Data storage location                |
-| `AGENT_MEMORY_OPENAI_API_KEY`   | Enable semantic search               |
-| `AGENT_MEMORY_PERMISSIONS_MODE` | Set to `permissive` for single-agent |
-| `AGENT_MEMORY_DEBUG`            | Enable debug logging                 |
+| Variable                        | Description                              |
+| ------------------------------- | ---------------------------------------- |
+| `AGENT_MEMORY_DATA_DIR`         | Data storage location                    |
+| `AGENT_MEMORY_OPENAI_API_KEY`   | Enable semantic search                   |
+| `AGENT_MEMORY_PERMISSIONS_MODE` | Set to `permissive` for single-agent     |
+| `AGENT_MEMORY_DEBUG`            | Enable debug logging                     |
+| `CLAUDE_CWD`                    | Client working directory (Claude Code)   |
+| `AGENT_MEMORY_CWD`              | Client working directory (other clients) |
 
 ### Full Example
 
