@@ -37,6 +37,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
+  RootsListChangedNotificationSchema,
   type Tool,
 } from '@modelcontextprotocol/sdk/types.js';
 
@@ -56,6 +57,8 @@ import type { AppContext } from '../core/context.js';
 import { getFilteredTools } from './descriptors/index.js';
 import { logStartup, logShutdown } from '../utils/action-logger.js';
 import { setNotificationServer, clearNotificationServer } from './notification.service.js';
+import { initializeRootsService, handleRootsChanged, clearRootsState } from './roots.service.js';
+import { clearWorkingDirectoryCache } from '../utils/working-directory.js';
 
 // =============================================================================
 // BUNDLED TOOL DEFINITIONS
@@ -89,6 +92,37 @@ export async function createServer(context: AppContext): Promise<Server> {
   );
 
   logger.debug('Server instance created');
+
+  // Set up roots notification handler
+  server.setNotificationHandler(RootsListChangedNotificationSchema, async () => {
+    await handleRootsChanged();
+    // Clear caches when roots change
+    clearWorkingDirectoryCache();
+    context.services.contextDetection?.clearCache();
+    logger.info('Roots changed, caches cleared');
+  });
+
+  // Set up initialization callback to fetch roots
+  const originalOnInitialized = server.oninitialized;
+  server.oninitialized = () => {
+    // Call original if exists
+    if (originalOnInitialized) {
+      originalOnInitialized();
+    }
+
+    // Initialize roots service and fetch roots if supported (fire and forget)
+    initializeRootsService(server, {
+      onRootsChanged: (roots) => {
+        clearWorkingDirectoryCache();
+        context.services.contextDetection?.clearCache();
+        logger.info({ rootCount: roots.length }, 'Roots updated via callback');
+      },
+    }).catch((err: unknown) => {
+      logger.error({ err }, 'Failed to initialize roots service');
+    });
+
+    logger.info('Client initialization complete, roots service initialized');
+  };
 
   // Database is already initialized by AppContext, but we might want to start specific background tasks
   // like health checks or cleanups that are specific to the server lifecycle
@@ -237,6 +271,9 @@ export async function runServer(
 
     // Clear notification server reference
     clearNotificationServer();
+
+    // Clear roots state
+    clearRootsState();
 
     try {
       // Gracefully shutdown AppContext (drains feedback queue on SIGTERM)

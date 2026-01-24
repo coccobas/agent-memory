@@ -15,6 +15,7 @@ import type { ScopeType } from '../db/schema/types.js';
 import { createComponentLogger } from '../utils/logger.js';
 import type { TurnData } from './capture/types.js';
 import { detectProjectMentions } from '../utils/transcript-analysis.js';
+import { getWorkingDirectory } from '../utils/working-directory.js';
 
 const logger = createComponentLogger('context-detection');
 
@@ -153,6 +154,12 @@ export interface IContextDetectionService {
    * Clear the detection cache (forces re-detection)
    */
   clearCache(): void;
+
+  /**
+   * Force refresh context (e.g., when roots change)
+   * Clears cache and returns fresh detection
+   */
+  refresh(): Promise<DetectedContext>;
 }
 
 // =============================================================================
@@ -184,7 +191,7 @@ export class ContextDetectionService implements IContextDetectionService {
   }
 
   async detect(explicitParams?: EnrichableParams): Promise<DetectedContext> {
-    const workingDirectory = process.cwd();
+    const workingDirectory = getWorkingDirectory();
 
     // If disabled, return minimal context with just defaults
     if (!this.enabled) {
@@ -386,6 +393,11 @@ export class ContextDetectionService implements IContextDetectionService {
     const age = Date.now() - this.cache.timestamp;
     if (age >= this.cacheTTLMs) return undefined;
     return this.cache.context;
+  }
+
+  async refresh(): Promise<DetectedContext> {
+    this.clearCache();
+    return this.detect();
   }
 
   async resolveProjectScope(scopeType: ScopeType, scopeId?: string): Promise<ResolvedProjectScope> {
