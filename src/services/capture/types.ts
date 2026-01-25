@@ -272,6 +272,9 @@ export interface CaptureConfig {
 
   // Experience capture settings (optional, for automatic experience capture)
   experienceCapture?: ExperienceCaptureConfig;
+
+  // Message enrichment settings (optional, for LLM-powered summarization)
+  messageEnrichment?: MessageEnrichmentConfig;
 }
 
 // =============================================================================
@@ -452,4 +455,16 @@ export interface BehaviorObservationConfig {
   maxEventsPerSession: number;
   /** Event expiry time in milliseconds (default: 3600000 = 1 hour) */
   eventExpiryMs: number;
+}
+
+/**
+ * Configuration for message enrichment (LLM-powered summarization)
+ */
+export interface MessageEnrichmentConfig {
+  summarization: {
+    enabled: boolean;
+    maxMessages: number;
+    maxContentChars: number;
+    fallbackToTruncated: boolean;
+  };
 }

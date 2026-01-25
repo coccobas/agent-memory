@@ -165,7 +165,6 @@ export async function wireContext(input: WireContextInput): Promise<AppContext> 
   }
 
   // Create CaptureService (needs repos, services, and optional extraction)
-  // Cast extraction service to concrete type (KnowledgeModuleDeps expects ExtractionService, not interface)
   const captureService = new CaptureService({
     experienceRepo: repos.experiences,
     knowledgeModuleDeps: {
@@ -177,6 +176,9 @@ export async function wireContext(input: WireContextInput): Promise<AppContext> 
     stateManager: services.captureState,
     rlService: services.rl,
     feedbackService: services.feedback,
+    extractionService: services.extraction?.isAvailable()
+      ? (services.extraction as ExtractionService)
+      : null,
   });
   services.capture = captureService;
 

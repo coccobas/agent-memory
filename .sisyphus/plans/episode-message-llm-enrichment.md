@@ -70,7 +70,7 @@ Enhance the episode-message linking with LLM-powered analysis to extract more va
 
 ### Phase 1: Conversation Summarization (Real-time)
 
-- [ ] 1.1 Add message enrichment config to capture types
+- [x] 1.1 Add message enrichment config to capture types
 
   **What to do:**
   - Add `MessageEnrichmentConfig` interface to `src/services/capture/types.ts`
@@ -90,7 +90,7 @@ Enhance the episode-message linking with LLM-powered analysis to extract more va
 
 ---
 
-- [ ] 1.2 Update CaptureServiceDeps to include extraction provider
+- [x] 1.2 Update CaptureServiceDeps to include extraction provider
 
   **What to do:**
   - Add `extractionProvider?: IExtractionProvider | null` to `CaptureServiceDeps`
@@ -111,7 +111,7 @@ Enhance the episode-message linking with LLM-powered analysis to extract more va
 
 ---
 
-- [ ] 1.3 Implement summarizeMessages helper in CaptureService
+- [x] 1.3 Implement summarizeMessages helper in CaptureService
 
   **What to do:**
   - Add private `summarizeMessages(messages)` method
@@ -145,7 +145,7 @@ Enhance the episode-message linking with LLM-powered analysis to extract more va
 
 ---
 
-- [ ] 1.4 Modify onEpisodeComplete to use summarization
+- [x] 1.4 Modify onEpisodeComplete to use summarization
 
   **What to do:**
   - Replace truncated message logic (lines 1011-1023) with summarization call

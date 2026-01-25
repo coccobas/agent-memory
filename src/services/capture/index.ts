@@ -38,6 +38,7 @@ import type { FeedbackService } from '../feedback/index.js';
 import { createHash } from 'crypto';
 import type { EpisodeService } from '../episode/index.js';
 import { getExtractionTriggersService } from './triggers.js';
+import type { ExtractionService } from '../extraction.service.js';
 
 const logger = createComponentLogger('capture');
 
@@ -48,16 +49,12 @@ const logger = createComponentLogger('capture');
 export interface CaptureServiceDeps {
   experienceRepo: IExperienceRepository;
   knowledgeModuleDeps: KnowledgeModuleDeps;
-  /** Optional: for getting entry counts when RL is enabled */
   getEntryCount?: (projectId?: string) => Promise<number>;
-  /** Optional: RL service for extraction policy decisions */
   rlService?: RLService | null;
-  /** Optional: feedback service for recording decisions */
   feedbackService?: FeedbackService | null;
-  /** Optional: capture state manager (defaults to new instance if not provided) */
   stateManager?: CaptureStateManager;
-  /** Optional: episode service for auto-linking captured experiences to active episodes */
   episodeService?: EpisodeService | null;
+  extractionService?: ExtractionService | null;
 }
 
 export interface CaptureServiceConfig extends CaptureConfig {}
@@ -75,10 +72,10 @@ export class CaptureService {
   private rlService?: RLService | null;
   private feedbackService?: FeedbackService | null;
   private episodeService?: EpisodeService | null;
+  private extractionService?: ExtractionService | null;
 
   constructor(deps: CaptureServiceDeps, captureConfig?: CaptureServiceConfig) {
     this.stateManager = deps.stateManager ?? new CaptureStateManager();
-    // Pass stateManager to module factories for DI
     this.experienceModule = createExperienceCaptureModule(deps.experienceRepo, this.stateManager);
     this.knowledgeModule = createKnowledgeCaptureModule({
       ...deps.knowledgeModuleDeps,
@@ -89,6 +86,7 @@ export class CaptureService {
     this.rlService = deps.rlService;
     this.feedbackService = deps.feedbackService;
     this.episodeService = deps.episodeService;
+    this.extractionService = deps.extractionService;
   }
 
   /**
@@ -127,20 +125,29 @@ export class CaptureService {
       experienceCapture: {
         enabled: true,
         triggers: {
-          sessionEnd: true, // Trigger 1: via librarian.onSessionEnd()
-          episodeComplete: true, // Trigger 2: on episode complete/fail
-          turnBased: true, // Trigger 3: detect error recovery, problem solved, etc.
-          promptComplex: true, // Trigger 4: prompt user after complex tasks
-          behaviorObservation: true, // Trigger 5: hook-based behavior observation
+          sessionEnd: true,
+          episodeComplete: true,
+          turnBased: true,
+          promptComplex: true,
+          behaviorObservation: true,
         },
         thresholds: {
-          turnConfidence: 0.8, // Min confidence for turn-based triggers
-          turnCooldownMs: 60000, // 60s cooldown between turn captures
-          maxPerSession: 10, // Max experiences per session
-          complexityToolCalls: 10, // Tool calls threshold for complexity
-          complexityDurationMs: 300000, // 5 minutes for complexity detection
-          minToolSequenceLength: 3, // Min tools in sequence to analyze
-          behaviorConfidence: 0.75, // Min confidence for behavior patterns
+          turnConfidence: 0.8,
+          turnCooldownMs: 60000,
+          maxPerSession: 10,
+          complexityToolCalls: 10,
+          complexityDurationMs: 300000,
+          minToolSequenceLength: 3,
+          behaviorConfidence: 0.75,
+        },
+      },
+      // Message enrichment (LLM-powered summarization)
+      messageEnrichment: {
+        summarization: {
+          enabled: true,
+          maxMessages: 50,
+          maxContentChars: 2000,
+          fallbackToTruncated: true,
         },
       },
     };
@@ -940,6 +947,60 @@ export class CaptureService {
   }
 
   // =============================================================================
+  // MESSAGE SUMMARIZATION
+  // =============================================================================
+
+  private async summarizeMessages(
+    messages: Array<{ role: string; content: string }>
+  ): Promise<string | null> {
+    const config = this.captureConfig.messageEnrichment?.summarization;
+    if (!config?.enabled || !this.extractionService?.isAvailable()) {
+      return null;
+    }
+
+    try {
+      const maxMessages = config?.maxMessages ?? 50;
+      const maxChars = config?.maxContentChars ?? 2000;
+
+      const messagesToSummarize = messages.slice(-maxMessages);
+      const formattedMessages = messagesToSummarize
+        .map((m) => {
+          const truncated =
+            m.content.length > maxChars ? m.content.slice(0, maxChars) + '...' : m.content;
+          return `[${m.role}]: ${truncated}`;
+        })
+        .join('\n\n');
+
+      const result = await this.extractionService.generate({
+        systemPrompt: `You are a conversation summarizer. Create concise summaries that capture the essence of technical conversations.`,
+        userPrompt: `Summarize this conversation in 2-3 sentences, focusing on:
+- Key decisions made
+- Problems identified and solved
+- Important outcomes
+
+Conversation:
+${formattedMessages}`,
+        temperature: 0.3,
+        maxTokens: 256,
+      });
+
+      const summary = result.texts[0]?.trim();
+      if (summary) {
+        logger.debug(
+          { messageCount: messagesToSummarize.length, tokensUsed: result.tokensUsed },
+          'Messages summarized successfully'
+        );
+        return summary;
+      }
+
+      return null;
+    } catch (error) {
+      logger.warn({ error }, 'Failed to summarize messages, falling back to truncated');
+      return null;
+    }
+  }
+
+  // =============================================================================
   // EPISODE COMPLETION HANDLING
   // =============================================================================
 
@@ -1013,12 +1074,18 @@ export class CaptureService {
     ];
 
     if (episode.messages && episode.messages.length > 0) {
-      contentParts.push('');
-      contentParts.push(`Conversation context (${episode.messages.length} messages):`);
-      for (const msg of episode.messages.slice(-5)) {
-        const truncatedContent =
-          msg.content.length > 200 ? msg.content.slice(0, 197) + '...' : msg.content;
-        contentParts.push(`[${msg.role}]: ${truncatedContent}`);
+      const summary = await this.summarizeMessages(episode.messages);
+      if (summary) {
+        contentParts.push('');
+        contentParts.push(`Conversation summary: ${summary}`);
+      } else {
+        contentParts.push('');
+        contentParts.push(`Conversation context (${episode.messages.length} messages):`);
+        for (const msg of episode.messages.slice(-5)) {
+          const truncatedContent =
+            msg.content.length > 200 ? msg.content.slice(0, 197) + '...' : msg.content;
+          contentParts.push(`[${msg.role}]: ${truncatedContent}`);
+        }
       }
     }
 
