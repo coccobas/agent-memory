@@ -147,7 +147,7 @@ describe('Permissions Handler Integration', () => {
 
       const result = permissionHandlers.check(context, {
         agent_id: 'agent-check-1',
-        action: 'read',
+        permission: 'read',
         scope_type: 'global',
         entry_type: 'tool',
       });
@@ -155,7 +155,7 @@ describe('Permissions Handler Integration', () => {
       expect(result).toBeDefined();
       expect(typeof result.has_permission).toBe('boolean');
       expect(result.agent_id).toBe('agent-check-1');
-      expect(result.action).toBe('read');
+      expect(result.permission).toBe('read');
     });
 
     it('should require agent_id', () => {
@@ -164,7 +164,7 @@ describe('Permissions Handler Integration', () => {
       }).toThrow();
     });
 
-    it('should require action', () => {
+    it('should require permission', () => {
       expect(() => {
         permissionHandlers.check(context, { agent_id: 'agent-1', scope_type: 'global' });
       }).toThrow();
@@ -176,11 +176,11 @@ describe('Permissions Handler Integration', () => {
       }).toThrow();
     });
 
-    it('should validate action type', () => {
+    it('should validate permission level', () => {
       expect(() => {
         permissionHandlers.check(context, {
           agent_id: 'agent-1',
-          action: 'invalid',
+          permission: 'invalid',
           scope_type: 'global',
         });
       }).toThrow();

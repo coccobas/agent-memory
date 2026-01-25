@@ -500,6 +500,24 @@ export function createEpisodeRepository(deps: DatabaseDeps): IEpisodeRepository 
       return { ...entry, events: undefined };
     },
 
+    async getByName(name: string, sessionId: string): Promise<EpisodeWithEvents | undefined> {
+      const entry = db
+        .select()
+        .from(episodes)
+        .where(
+          and(
+            eq(episodes.name, name),
+            eq(episodes.sessionId, sessionId),
+            eq(episodes.isActive, true)
+          )
+        )
+        .orderBy(desc(episodes.createdAt))
+        .get();
+
+      if (!entry) return undefined;
+      return { ...entry, events: undefined };
+    },
+
     async getEpisodesInRange(
       start: string,
       end: string,

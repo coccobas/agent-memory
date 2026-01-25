@@ -87,6 +87,61 @@ export async function runSessionEndCommand(params: {
       'Session end processing completed'
     );
 
+    // Backfill episode-message links for completed episodes in this session
+    // This handles cases where transcript was ingested after episode.complete() ran
+    if (result.appended > 0) {
+      try {
+        const ctx = getContext();
+        const episodeRepo = ctx.repos.episodes;
+        const conversationRepo = ctx.repos.conversations;
+
+        if (!episodeRepo || !conversationRepo) {
+          logger.debug(
+            { sessionId },
+            'Episode or conversation repo unavailable, skipping backfill'
+          );
+        } else {
+          const completedEpisodes = await episodeRepo.list({
+            sessionId,
+            status: 'completed',
+            includeInactive: false,
+          });
+
+          let totalLinked = 0;
+          for (const episode of completedEpisodes) {
+            if (episode.startedAt && episode.endedAt) {
+              const linked = await conversationRepo.linkMessagesToEpisode({
+                episodeId: episode.id,
+                sessionId,
+                startTime: episode.startedAt,
+                endTime: episode.endedAt,
+              });
+              totalLinked += linked;
+            }
+          }
+
+          if (totalLinked > 0) {
+            logger.info(
+              {
+                sessionId,
+                episodesProcessed: completedEpisodes.length,
+                messagesLinked: totalLinked,
+              },
+              'Backfilled episode-message links on session end'
+            );
+          }
+        }
+      } catch (backfillError) {
+        logger.warn(
+          {
+            sessionId,
+            error: backfillError instanceof Error ? backfillError.message : String(backfillError),
+          },
+          'Episode-message backfill failed on session end (non-fatal)'
+        );
+      }
+    }
+
     // Auto-extract learnings from the conversation if messages were ingested
     if (result.appended > 0) {
       try {

@@ -45,19 +45,80 @@ function requireEpisodeService(context: AppContext) {
   return context.services.episode;
 }
 
-// Helper to get episode ID from params (supports both 'id' and 'episodeId' for compatibility)
-function getEpisodeId(params: Record<string, unknown>, required: true): string;
-function getEpisodeId(params: Record<string, unknown>, required: false): string | undefined;
-function getEpisodeId(params: Record<string, unknown>, required: boolean): string | undefined {
-  // Prefer 'id' but fall back to 'episodeId' for backward compatibility
-  const id = getOptionalParam(params, 'id', isString);
-  const episodeId = getOptionalParam(params, 'episodeId', isString);
-  const result = id ?? episodeId;
+// Episode resolution result
+interface ResolvedEpisode {
+  id: string;
+  resolvedVia: 'explicit_id' | 'name_lookup' | 'active_episode';
+}
 
-  if (required && !result) {
-    throw createValidationError('id', 'required (or episodeId)');
+/**
+ * Resolve episode ID using fallback chain:
+ * 1. Explicit id/episodeId param → use directly
+ * 2. name + sessionId → lookup by name
+ * 3. sessionId only → get active episode
+ *
+ * Returns the episode ID and how it was resolved.
+ */
+async function resolveEpisodeId(
+  params: Record<string, unknown>,
+  episodeService: ReturnType<typeof requireEpisodeService>,
+  required: true
+): Promise<ResolvedEpisode>;
+async function resolveEpisodeId(
+  params: Record<string, unknown>,
+  episodeService: ReturnType<typeof requireEpisodeService>,
+  required: false
+): Promise<ResolvedEpisode | undefined>;
+async function resolveEpisodeId(
+  params: Record<string, unknown>,
+  episodeService: ReturnType<typeof requireEpisodeService>,
+  required: boolean
+): Promise<ResolvedEpisode | undefined> {
+  // 1. Explicit ID (prefer 'id' but fall back to 'episodeId' for backward compatibility)
+  const explicitId = getOptionalParam(params, 'id', isString);
+  const episodeId = getOptionalParam(params, 'episodeId', isString);
+  if (explicitId ?? episodeId) {
+    return { id: (explicitId ?? episodeId)!, resolvedVia: 'explicit_id' };
   }
-  return result;
+
+  const sessionId = getOptionalParam(params, 'sessionId', isString);
+  const name = getOptionalParam(params, 'name', isString);
+
+  // 2. Name lookup (requires sessionId)
+  if (name && sessionId) {
+    const episode = await episodeService.getByName(name, sessionId);
+    if (episode) {
+      return { id: episode.id, resolvedVia: 'name_lookup' };
+    }
+    if (required) {
+      throw createNotFoundError('episode', `name="${name}" in session`);
+    }
+    return undefined;
+  }
+
+  // 3. Active episode (requires sessionId)
+  if (sessionId) {
+    const activeEpisode = await episodeService.getActiveEpisode(sessionId);
+    if (activeEpisode) {
+      return { id: activeEpisode.id, resolvedVia: 'active_episode' };
+    }
+    if (required) {
+      throw createValidationError(
+        'episode',
+        'No active episode. Provide id, name, or start an episode first.'
+      );
+    }
+    return undefined;
+  }
+
+  // No resolution possible
+  if (required) {
+    throw createValidationError(
+      'episode',
+      'Provide id, or sessionId to resolve by name/active episode'
+    );
+  }
+  return undefined;
 }
 
 // =============================================================================
@@ -73,7 +134,7 @@ const addHandler: ContextAwareHandler = async (
   const scopeType = (getOptionalParam(params, 'scopeType', isScopeType) ?? 'project') as ScopeType;
   const scopeId = getOptionalParam(params, 'scopeId', isString);
   const sessionId = getOptionalParam(params, 'sessionId', isString);
-  const conversationId = getOptionalParam(params, 'conversationId', isString);
+  let conversationId = getOptionalParam(params, 'conversationId', isString);
   const name = getRequiredParam(params, 'name', isString);
   const description = getOptionalParam(params, 'description', isString);
   const parentEpisodeId = getOptionalParam(params, 'parentEpisodeId', isString);
@@ -83,6 +144,18 @@ const addHandler: ContextAwareHandler = async (
   const metadata = getOptionalParam(params, 'metadata', isObject);
   const createdBy = getOptionalParam(params, 'createdBy', isString);
   const agentId = getOptionalParam(params, 'agentId', isString);
+
+  // Auto-link to active conversation if not provided and sessionId is available
+  if (!conversationId && sessionId) {
+    const activeConversations = await context.repos.conversations.list(
+      { sessionId, status: 'active' },
+      { limit: 1 }
+    );
+    const activeConv = activeConversations[0];
+    if (activeConv) {
+      conversationId = activeConv.id;
+    }
+  }
 
   const episode = await episodeService.create({
     scopeType,
@@ -320,20 +393,19 @@ const completeHandler: ContextAwareHandler = async (
 ) => {
   const episodeService = requireEpisodeService(context);
 
-  const id = getRequiredParam(params, 'id', isString);
+  const resolved = await resolveEpisodeId(params, episodeService, true);
   const outcome = getRequiredParam(params, 'outcome', isString);
   const outcomeType = getRequiredParam(params, 'outcomeType', isEpisodeOutcomeType);
   const agentId = getOptionalParam(params, 'agentId', isString);
 
-  const episode = await episodeService.complete(id, outcome, outcomeType);
+  const episode = await episodeService.complete(resolved.id, outcome, outcomeType);
 
-  // Log audit
   logAction(
     {
       agentId: agentId ?? 'system',
       action: 'update',
       entryType: 'episode',
-      entryId: id,
+      entryId: resolved.id,
       scopeType: episode.scopeType,
       scopeId: episode.scopeId ?? null,
     },
@@ -342,7 +414,7 @@ const completeHandler: ContextAwareHandler = async (
 
   const captureService = context.services.capture;
   if (captureService) {
-    const rawMessages = await context.repos.conversations.getMessagesByEpisode(id);
+    const rawMessages = await context.repos.conversations.getMessagesByEpisode(resolved.id);
     const messages = rawMessages.map((m) => ({
       id: m.id,
       role: m.role,
@@ -366,7 +438,7 @@ const completeHandler: ContextAwareHandler = async (
       })
       .catch((error) => {
         console.warn(
-          `Failed to capture experience from episode ${id}: ${error instanceof Error ? error.message : String(error)}`
+          `Failed to capture experience from episode ${resolved.id}: ${error instanceof Error ? error.message : String(error)}`
         );
       });
   }
@@ -379,6 +451,7 @@ const completeHandler: ContextAwareHandler = async (
       durationMs: episode.durationMs,
       outcomeType: episode.outcomeType,
     },
+    _resolved: { via: resolved.resolvedVia, episodeId: resolved.id },
   });
 };
 
@@ -388,19 +461,18 @@ const failHandler: ContextAwareHandler = async (
 ) => {
   const episodeService = requireEpisodeService(context);
 
-  const id = getRequiredParam(params, 'id', isString);
+  const resolved = await resolveEpisodeId(params, episodeService, true);
   const outcome = getRequiredParam(params, 'outcome', isString);
   const agentId = getOptionalParam(params, 'agentId', isString);
 
-  const episode = await episodeService.fail(id, outcome);
+  const episode = await episodeService.fail(resolved.id, outcome);
 
-  // Log audit
   logAction(
     {
       agentId: agentId ?? 'system',
       action: 'update',
       entryType: 'episode',
-      entryId: id,
+      entryId: resolved.id,
       scopeType: episode.scopeType,
       scopeId: episode.scopeId ?? null,
     },
@@ -409,7 +481,7 @@ const failHandler: ContextAwareHandler = async (
 
   const captureService = context.services.capture;
   if (captureService) {
-    const rawMessages = await context.repos.conversations.getMessagesByEpisode(id);
+    const rawMessages = await context.repos.conversations.getMessagesByEpisode(resolved.id);
     const messages = rawMessages.map((m) => ({
       id: m.id,
       role: m.role,
@@ -433,7 +505,7 @@ const failHandler: ContextAwareHandler = async (
       })
       .catch((error) => {
         console.warn(
-          `Failed to capture experience from failed episode ${id}: ${error instanceof Error ? error.message : String(error)}`
+          `Failed to capture experience from failed episode ${resolved.id}: ${error instanceof Error ? error.message : String(error)}`
         );
       });
   }
@@ -446,6 +518,7 @@ const failHandler: ContextAwareHandler = async (
       durationMs: episode.durationMs,
       outcomeType: episode.outcomeType,
     },
+    _resolved: { via: resolved.resolvedVia, episodeId: resolved.id },
   });
 };
 
@@ -455,19 +528,18 @@ const cancelHandler: ContextAwareHandler = async (
 ) => {
   const episodeService = requireEpisodeService(context);
 
-  const id = getRequiredParam(params, 'id', isString);
+  const resolved = await resolveEpisodeId(params, episodeService, true);
   const reason = getOptionalParam(params, 'reason', isString);
   const agentId = getOptionalParam(params, 'agentId', isString);
 
-  const episode = await episodeService.cancel(id, reason);
+  const episode = await episodeService.cancel(resolved.id, reason);
 
-  // Log audit
   logAction(
     {
       agentId: agentId ?? 'system',
       action: 'update',
       entryType: 'episode',
-      entryId: id,
+      entryId: resolved.id,
       scopeType: episode.scopeType,
       scopeId: episode.scopeId ?? null,
     },
@@ -478,6 +550,7 @@ const cancelHandler: ContextAwareHandler = async (
     success: true,
     episode,
     message: 'Episode cancelled',
+    _resolved: { via: resolved.resolvedVia, episodeId: resolved.id },
   });
 };
 
@@ -491,7 +564,7 @@ const beginHandler: ContextAwareHandler = async (
   const scopeType = (getOptionalParam(params, 'scopeType', isScopeType) ?? 'project') as ScopeType;
   const scopeId = getOptionalParam(params, 'scopeId', isString);
   const sessionId = getOptionalParam(params, 'sessionId', isString);
-  const conversationId = getOptionalParam(params, 'conversationId', isString);
+  let conversationId = getOptionalParam(params, 'conversationId', isString);
   const name = getRequiredParam(params, 'name', isString);
   const description = getOptionalParam(params, 'description', isString);
   const parentEpisodeId = getOptionalParam(params, 'parentEpisodeId', isString);
@@ -501,6 +574,18 @@ const beginHandler: ContextAwareHandler = async (
   const metadata = getOptionalParam(params, 'metadata', isObject);
   const createdBy = getOptionalParam(params, 'createdBy', isString);
   const agentId = getOptionalParam(params, 'agentId', isString);
+
+  // Auto-link to active conversation if not provided and sessionId is available
+  if (!conversationId && sessionId) {
+    const activeConversations = await context.repos.conversations.list(
+      { sessionId, status: 'active' },
+      { limit: 1 }
+    );
+    const activeConv = activeConversations[0];
+    if (activeConv) {
+      conversationId = activeConv.id;
+    }
+  }
 
   const created = await episodeService.create({
     scopeType,
@@ -549,18 +634,18 @@ const addEventHandler: ContextAwareHandler = async (
 ) => {
   const episodeService = requireEpisodeService(context);
 
-  const episodeId = getEpisodeId(params, true);
+  const resolved = await resolveEpisodeId(params, episodeService, true);
   const eventType = getRequiredParam(params, 'eventType', isString);
-  const name = getRequiredParam(params, 'name', isString);
+  const eventName = getRequiredParam(params, 'name', isString);
   const description = getOptionalParam(params, 'description', isString);
   const entryType = getOptionalParam(params, 'entryType', isString);
   const entryId = getOptionalParam(params, 'entryId', isString);
   const data = getOptionalParam(params, 'data', isObject);
 
   const event = await episodeService.addEvent({
-    episodeId,
+    episodeId: resolved.id,
     eventType,
-    name,
+    name: eventName,
     description,
     entryType,
     entryId,
@@ -570,6 +655,7 @@ const addEventHandler: ContextAwareHandler = async (
   return formatTimestamps({
     success: true,
     event,
+    _resolved: { via: resolved.resolvedVia, episodeId: resolved.id },
   });
 };
 
@@ -579,14 +665,15 @@ const getEventsHandler: ContextAwareHandler = async (
 ) => {
   const episodeService = requireEpisodeService(context);
 
-  const episodeId = getEpisodeId(params, true);
+  const resolved = await resolveEpisodeId(params, episodeService, true);
 
-  const events = await episodeService.getEvents(episodeId);
+  const events = await episodeService.getEvents(resolved.id);
 
   return formatTimestamps({
     success: true,
     events,
     count: events.length,
+    _resolved: { via: resolved.resolvedVia, episodeId: resolved.id },
   });
 };
 
@@ -597,13 +684,13 @@ const logHandler: ContextAwareHandler = async (
 ) => {
   const episodeService = requireEpisodeService(context);
 
-  const episodeId = getEpisodeId(params, true);
+  const resolved = await resolveEpisodeId(params, episodeService, true);
   const message = getRequiredParam(params, 'message', isString);
   const eventType = getOptionalParam(params, 'eventType', isString) ?? 'checkpoint';
   const data = getOptionalParam(params, 'data', isObject);
 
   const event = await episodeService.addEvent({
-    episodeId,
+    episodeId: resolved.id,
     eventType,
     name: message,
     description: undefined,
@@ -616,6 +703,7 @@ const logHandler: ContextAwareHandler = async (
     success: true,
     event,
     message: `Logged: ${message}`,
+    _resolved: { via: resolved.resolvedVia, episodeId: resolved.id },
   });
 };
 
@@ -629,21 +717,22 @@ const linkEntityHandler: ContextAwareHandler = async (
 ) => {
   const episodeService = requireEpisodeService(context);
 
-  const episodeId = getEpisodeId(params, true);
+  const resolved = await resolveEpisodeId(params, episodeService, true);
   const entryType = getRequiredParam(params, 'entryType', isString);
   const entryId = getRequiredParam(params, 'entryId', isString);
   const role = getOptionalParam(params, 'role', isString);
 
-  await episodeService.linkEntity(episodeId, entryType, entryId, role);
+  await episodeService.linkEntity(resolved.id, entryType, entryId, role);
 
   return {
     success: true,
-    episodeId,
+    episodeId: resolved.id,
     linked: {
       entryType,
       entryId,
       role,
     },
+    _resolved: { via: resolved.resolvedVia },
   };
 };
 
@@ -653,15 +742,16 @@ const getLinkedHandler: ContextAwareHandler = async (
 ) => {
   const episodeService = requireEpisodeService(context);
 
-  const episodeId = getEpisodeId(params, true);
+  const resolved = await resolveEpisodeId(params, episodeService, true);
 
-  const linkedEntities = await episodeService.getLinkedEntities(episodeId);
+  const linkedEntities = await episodeService.getLinkedEntities(resolved.id);
 
   return {
     success: true,
-    episodeId,
+    episodeId: resolved.id,
     linkedEntities,
     count: linkedEntities.length,
+    _resolved: { via: resolved.resolvedVia },
   };
 };
 
@@ -673,18 +763,23 @@ const getMessagesHandler: ContextAwareHandler = async (
   context: AppContext,
   params: Record<string, unknown>
 ) => {
-  const episodeId = getEpisodeId(params, true);
+  const episodeService = requireEpisodeService(context);
+  const resolved = await resolveEpisodeId(params, episodeService, true);
   const limit = getOptionalParam(params, 'limit', isNumber);
   const offset = getOptionalParam(params, 'offset', isNumber);
 
-  // Use conversation repository to get messages linked to this episode
-  const messages = await context.repos.conversations.getMessagesByEpisode(episodeId, limit, offset);
+  const messages = await context.repos.conversations.getMessagesByEpisode(
+    resolved.id,
+    limit,
+    offset
+  );
 
   return formatTimestamps({
     success: true,
-    episodeId,
+    episodeId: resolved.id,
     messages,
     count: messages.length,
+    _resolved: { via: resolved.resolvedVia },
   });
 };
 
@@ -718,13 +813,14 @@ const whatHappenedHandler: ContextAwareHandler = async (
 ) => {
   const episodeService = requireEpisodeService(context);
 
-  const id = getRequiredParam(params, 'id', isString);
+  const resolved = await resolveEpisodeId(params, episodeService, true);
 
-  const result = await episodeService.whatHappened(id);
+  const result = await episodeService.whatHappened(resolved.id);
 
   return formatTimestamps({
     success: true,
     ...result,
+    _resolved: { via: resolved.resolvedVia, episodeId: resolved.id },
   });
 };
 
@@ -734,18 +830,19 @@ const traceCausalChainHandler: ContextAwareHandler = async (
 ) => {
   const episodeService = requireEpisodeService(context);
 
-  const episodeId = getEpisodeId(params, true);
+  const resolved = await resolveEpisodeId(params, episodeService, true);
   const direction = getRequiredParam(params, 'direction', isDirection);
   const maxDepth = getOptionalParam(params, 'maxDepth', isNumber) ?? 10;
 
-  const chain = await episodeService.traceCausalChain(episodeId, direction, maxDepth);
+  const chain = await episodeService.traceCausalChain(resolved.id, direction, maxDepth);
 
   return formatTimestamps({
     success: true,
-    episodeId,
+    episodeId: resolved.id,
     direction,
     chain,
     count: chain.length,
+    _resolved: { via: resolved.resolvedVia },
   });
 };
 

@@ -395,13 +395,14 @@ describe('Message Insight Extraction', () => {
 });
 
 describe('Maintenance Config Defaults', () => {
-  it('should have LLM tasks disabled by default', async () => {
+  it('should have LLM tasks enabled by default', async () => {
     const { DEFAULT_MAINTENANCE_CONFIG } =
       await import('../../../src/services/librarian/maintenance/types.js');
 
-    expect(DEFAULT_MAINTENANCE_CONFIG.messageInsightExtraction.enabled).toBe(false);
-    expect(DEFAULT_MAINTENANCE_CONFIG.messageRelevanceScoring.enabled).toBe(false);
-    expect(DEFAULT_MAINTENANCE_CONFIG.experienceTitleImprovement.enabled).toBe(false);
+    // LLM tasks are enabled by default for rich maintenance
+    expect(DEFAULT_MAINTENANCE_CONFIG.messageInsightExtraction.enabled).toBe(true);
+    expect(DEFAULT_MAINTENANCE_CONFIG.messageRelevanceScoring.enabled).toBe(true);
+    expect(DEFAULT_MAINTENANCE_CONFIG.experienceTitleImprovement.enabled).toBe(true);
   });
 
   it('should have correct config structure for message insight extraction', async () => {

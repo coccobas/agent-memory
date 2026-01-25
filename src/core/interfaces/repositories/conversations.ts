@@ -294,4 +294,24 @@ export interface IConversationRepository {
     searchQuery: string,
     filter?: ConversationSearchFilter
   ): Promise<ConversationWithMessages[]>;
+
+  /**
+   * Link messages to an episode by time range.
+   * Updates messages in the given session that fall within the time range
+   * and don't already have an episodeId assigned.
+   *
+   * @param params - Parameters for linking
+   * @param params.episodeId - Episode ID to link messages to
+   * @param params.sessionId - Session ID to find messages in
+   * @param params.startTime - Start of time range (ISO timestamp)
+   * @param params.endTime - End of time range (ISO timestamp)
+   * @returns Number of messages linked
+   * @throws {AgentMemoryError} E4000 - Database operation failed
+   */
+  linkMessagesToEpisode(params: {
+    episodeId: string;
+    sessionId: string;
+    startTime: string;
+    endTime: string;
+  }): Promise<number>;
 }

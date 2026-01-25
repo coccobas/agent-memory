@@ -145,12 +145,71 @@ export function createEpisodeService(deps: EpisodeServiceDeps) {
       id: string,
       outcome: string,
       outcomeType: EpisodeOutcomeType
-    ): Promise<EpisodeWithEvents> {
-      return episodeRepo.complete(id, outcome, outcomeType);
+    ): Promise<EpisodeWithEvents & { messagesLinked?: number }> {
+      const episode = await episodeRepo.complete(id, outcome, outcomeType);
+
+      let messagesLinked = 0;
+      if (conversationRepo && episode.sessionId && episode.startedAt && episode.endedAt) {
+        try {
+          messagesLinked = await conversationRepo.linkMessagesToEpisode({
+            episodeId: episode.id,
+            sessionId: episode.sessionId,
+            startTime: episode.startedAt,
+            endTime: episode.endedAt,
+          });
+          if (messagesLinked > 0) {
+            logger.debug(
+              { episodeId: episode.id, messagesLinked },
+              'Linked conversation messages to completed episode'
+            );
+          }
+        } catch (error) {
+          logger.warn(
+            {
+              episodeId: episode.id,
+              error: error instanceof Error ? error.message : String(error),
+            },
+            'Failed to link messages to episode (non-fatal)'
+          );
+        }
+      }
+
+      return { ...episode, messagesLinked };
     },
 
-    async fail(id: string, outcome: string): Promise<EpisodeWithEvents> {
-      return episodeRepo.fail(id, outcome);
+    async fail(
+      id: string,
+      outcome: string
+    ): Promise<EpisodeWithEvents & { messagesLinked?: number }> {
+      const episode = await episodeRepo.fail(id, outcome);
+
+      let messagesLinked = 0;
+      if (conversationRepo && episode.sessionId && episode.startedAt && episode.endedAt) {
+        try {
+          messagesLinked = await conversationRepo.linkMessagesToEpisode({
+            episodeId: episode.id,
+            sessionId: episode.sessionId,
+            startTime: episode.startedAt,
+            endTime: episode.endedAt,
+          });
+          if (messagesLinked > 0) {
+            logger.debug(
+              { episodeId: episode.id, messagesLinked },
+              'Linked conversation messages to failed episode'
+            );
+          }
+        } catch (error) {
+          logger.warn(
+            {
+              episodeId: episode.id,
+              error: error instanceof Error ? error.message : String(error),
+            },
+            'Failed to link messages to episode (non-fatal)'
+          );
+        }
+      }
+
+      return { ...episode, messagesLinked };
     },
 
     async cancel(id: string, reason?: string): Promise<EpisodeWithEvents> {
@@ -582,6 +641,10 @@ export function createEpisodeService(deps: EpisodeServiceDeps) {
 
     async getActiveEpisode(sessionId: string): Promise<EpisodeWithEvents | undefined> {
       return episodeRepo.getActiveEpisode(sessionId);
+    },
+
+    async getByName(name: string, sessionId: string): Promise<EpisodeWithEvents | undefined> {
+      return episodeRepo.getByName(name, sessionId);
     },
 
     async getEpisodesInRange(

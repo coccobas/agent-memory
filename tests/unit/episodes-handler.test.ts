@@ -26,6 +26,9 @@ describe('Episode Handlers', () => {
     whatHappened: ReturnType<typeof vi.fn>;
     traceCausalChain: ReturnType<typeof vi.fn>;
   };
+  let mockConversationRepo: {
+    list: ReturnType<typeof vi.fn>;
+  };
 
   const mockEpisode = {
     id: 'ep-123',
@@ -93,13 +96,19 @@ describe('Episode Handlers', () => {
       traceCausalChain: vi.fn().mockResolvedValue([]),
     };
 
+    mockConversationRepo = {
+      list: vi.fn().mockResolvedValue([]),
+    };
+
     mockContext = {
       db: {} as any,
-      repos: {} as any,
+      repos: {
+        conversations: mockConversationRepo,
+      } as any,
       services: {
         episode: mockEpisodeService,
       } as any,
-    };
+    } as AppContext;
   });
 
   describe('add', () => {
@@ -127,6 +136,105 @@ describe('Episode Handlers', () => {
           scopeType: 'global',
         })
       ).rejects.toThrow();
+    });
+
+    it('should auto-link to active conversation when sessionId provided', async () => {
+      mockConversationRepo.list.mockResolvedValue([{ id: 'conv-active-123' }]);
+
+      await episodeHandlers.add(mockContext, {
+        scopeType: 'project',
+        scopeId: 'proj-1',
+        sessionId: 'sess-1',
+        name: 'Test Episode',
+      });
+
+      expect(mockConversationRepo.list).toHaveBeenCalledWith(
+        { sessionId: 'sess-1', status: 'active' },
+        { limit: 1 }
+      );
+      expect(mockEpisodeService.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          conversationId: 'conv-active-123',
+        })
+      );
+    });
+
+    it('should not auto-link when conversationId explicitly provided', async () => {
+      mockConversationRepo.list.mockResolvedValue([{ id: 'conv-active-123' }]);
+
+      await episodeHandlers.add(mockContext, {
+        scopeType: 'project',
+        scopeId: 'proj-1',
+        sessionId: 'sess-1',
+        conversationId: 'conv-explicit-456',
+        name: 'Test Episode',
+      });
+
+      expect(mockConversationRepo.list).not.toHaveBeenCalled();
+      expect(mockEpisodeService.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          conversationId: 'conv-explicit-456',
+        })
+      );
+    });
+
+    it('should not auto-link when no active conversation exists', async () => {
+      mockConversationRepo.list.mockResolvedValue([]);
+
+      await episodeHandlers.add(mockContext, {
+        scopeType: 'project',
+        scopeId: 'proj-1',
+        sessionId: 'sess-1',
+        name: 'Test Episode',
+      });
+
+      expect(mockEpisodeService.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          conversationId: undefined,
+        })
+      );
+    });
+  });
+
+  describe('begin', () => {
+    it('should auto-link to active conversation when sessionId provided', async () => {
+      mockConversationRepo.list.mockResolvedValue([{ id: 'conv-active-789' }]);
+
+      await episodeHandlers.begin(mockContext, {
+        scopeType: 'project',
+        scopeId: 'proj-1',
+        sessionId: 'sess-1',
+        name: 'Begin Episode',
+      });
+
+      expect(mockConversationRepo.list).toHaveBeenCalledWith(
+        { sessionId: 'sess-1', status: 'active' },
+        { limit: 1 }
+      );
+      expect(mockEpisodeService.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          conversationId: 'conv-active-789',
+        })
+      );
+    });
+
+    it('should not auto-link when conversationId explicitly provided', async () => {
+      mockConversationRepo.list.mockResolvedValue([{ id: 'conv-active-789' }]);
+
+      await episodeHandlers.begin(mockContext, {
+        scopeType: 'project',
+        scopeId: 'proj-1',
+        sessionId: 'sess-1',
+        conversationId: 'conv-explicit-999',
+        name: 'Begin Episode',
+      });
+
+      expect(mockConversationRepo.list).not.toHaveBeenCalled();
+      expect(mockEpisodeService.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          conversationId: 'conv-explicit-999',
+        })
+      );
     });
   });
 

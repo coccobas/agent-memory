@@ -348,19 +348,19 @@ export const DEFAULT_MAINTENANCE_CONFIG: MaintenanceConfig = {
     cleanupVectors: true,
   },
   messageInsightExtraction: {
-    enabled: false,
+    enabled: true,
     minMessages: 3,
     confidenceThreshold: 0.7,
     maxEntriesPerRun: 50,
     focusAreas: ['decisions', 'facts', 'rules'],
   },
   messageRelevanceScoring: {
-    enabled: false,
+    enabled: true,
     maxMessagesPerRun: 200,
     thresholds: { high: 0.8, medium: 0.5, low: 0 },
   },
   experienceTitleImprovement: {
-    enabled: false,
+    enabled: true,
     maxEntriesPerRun: 100,
     onlyGenericTitles: true,
     genericTitlePattern: '^Episode:\\s',

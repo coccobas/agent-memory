@@ -232,6 +232,16 @@ export interface IEpisodeRepository {
   getActiveEpisode(sessionId: string): Promise<EpisodeWithEvents | undefined>;
 
   /**
+   * Get an episode by name within a session.
+   * Returns the most recently created episode with that name.
+   * @param name - Episode name
+   * @param sessionId - Session ID
+   * @returns Episode if found, undefined otherwise
+   * @throws {AgentMemoryError} E4000 - Database operation failed
+   */
+  getByName(name: string, sessionId: string): Promise<EpisodeWithEvents | undefined>;
+
+  /**
    * Get episodes within a time range.
    * @param start - Range start (ISO timestamp)
    * @param end - Range end (ISO timestamp)

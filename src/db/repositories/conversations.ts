@@ -485,6 +485,41 @@ export function createConversationRepository(deps: DatabaseDeps): IConversationR
 
       return query.orderBy(desc(conversations.startedAt)).limit(limit).offset(offset).all();
     },
+
+    async linkMessagesToEpisode(params: {
+      episodeId: string;
+      sessionId: string;
+      startTime: string;
+      endTime: string;
+    }): Promise<number> {
+      const { episodeId, sessionId, startTime, endTime } = params;
+
+      const sessionConversations = await repo.list({ sessionId }, { limit: 100 });
+      if (sessionConversations.length === 0) {
+        return 0;
+      }
+
+      const conversationIds = sessionConversations.map((c) => c.id);
+
+      const normalizeTimestamp = (ts: string) => ts.replace('T', ' ').replace('Z', '').slice(0, 19);
+      const normalizedStart = normalizeTimestamp(startTime);
+      const normalizedEnd = normalizeTimestamp(endTime);
+
+      const result = db
+        .update(conversationMessages)
+        .set({ episodeId })
+        .where(
+          and(
+            inArray(conversationMessages.conversationId, conversationIds),
+            sql`${conversationMessages.episodeId} IS NULL`,
+            sql`substr(${conversationMessages.createdAt}, 1, 19) >= ${normalizedStart}`,
+            sql`substr(${conversationMessages.createdAt}, 1, 19) <= ${normalizedEnd}`
+          )
+        )
+        .run();
+
+      return result.changes;
+    },
   };
 
   return repo;

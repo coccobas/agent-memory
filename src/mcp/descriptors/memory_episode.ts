@@ -13,12 +13,17 @@ export const memoryEpisodeDescriptor: ToolDescriptor = {
   visibility: 'standard',
   description: `Manage episodes - bounded temporal activity groupings for tracking "what happened during X?" and causal chains.
 
-**Quick Start (recommended):**
+**Quick Start (recommended - no IDs needed!):**
 \`\`\`
-{"action":"begin","sessionId":"sess-123","name":"Fix auth bug"}  // Create + start in one call
-{"action":"log","id":"ep-456","message":"Found root cause"}      // Quick event logging
-{"action":"complete","id":"ep-456","outcome":"Fixed token expiry","outcomeType":"success"}
+{"action":"begin","sessionId":"sess-123","name":"Fix auth bug"}  // Create + start
+{"action":"log","sessionId":"sess-123","message":"Found root cause"}  // Auto-targets active episode
+{"action":"complete","sessionId":"sess-123","outcome":"Fixed it","outcomeType":"success"}  // Auto-targets active episode
 \`\`\`
+
+**Episode Resolution:** Most actions auto-resolve the episode using this fallback chain:
+1. Explicit \`id\` → use directly
+2. \`name\` + \`sessionId\` → lookup by name
+3. \`sessionId\` only → use active episode
 
 Actions:
 - **begin**: Create AND start an episode in one call (recommended)
@@ -42,8 +47,6 @@ Actions:
 - what_happened: Get comprehensive "what happened during X?" summary
 - trace_causal_chain: Trace causal relationships between episodes
 
-**ID Parameter:** Use 'id' for episode identification. 'episodeId' also works for compatibility.
-
 Episode Status Flow:
 planned → active → completed/failed/cancelled
 
@@ -61,18 +64,18 @@ Outcome Types:
 - abandoned: Episode was cancelled/abandoned
 
 Example workflows:
-1. Quick tracking (recommended):
+1. Quick tracking (no IDs needed):
    {"action":"begin","sessionId":"sess-123","name":"Fix auth bug"}
-   {"action":"log","id":"ep-456","message":"Found root cause"}
-   {"action":"log","id":"ep-456","message":"Applied fix","eventType":"decision"}
-   {"action":"complete","id":"ep-456","outcome":"Fixed token expiry","outcomeType":"success"}
+   {"action":"log","sessionId":"sess-123","message":"Found root cause"}
+   {"action":"log","sessionId":"sess-123","message":"Applied fix","eventType":"decision"}
+   {"action":"complete","sessionId":"sess-123","outcome":"Fixed token expiry","outcomeType":"success"}
 
-2. Query what happened:
-   {"action":"what_happened","id":"ep-456"}
+2. Query what happened (by name):
+   {"action":"what_happened","sessionId":"sess-123","name":"Fix auth bug"}
    {"action":"get_timeline","sessionId":"sess-123"}
 
 3. Trace causes:
-   {"action":"trace_causal_chain","id":"ep-456","direction":"backward"}`,
+   {"action":"trace_causal_chain","sessionId":"sess-123","direction":"backward"}`,
   commonParams: {
     // Identity
     id: { type: 'string', description: 'Episode ID' },
