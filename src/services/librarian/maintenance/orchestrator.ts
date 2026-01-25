@@ -25,6 +25,7 @@ import type {
   ToolTagAssignmentResult,
   EmbeddingCleanupResult,
   MessageRelevanceScoringResult,
+  ExperienceTitleImprovementResult,
   MemoryHealth,
 } from './types.js';
 import { DEFAULT_MAINTENANCE_CONFIG, computeHealthGrade } from './types.js';
@@ -100,6 +101,7 @@ export class MaintenanceOrchestrator {
       'toolTagAssignment',
       'embeddingCleanup',
       'messageRelevanceScoring',
+      'experienceTitleImprovement',
     ];
     const results: MaintenanceResult = {
       runId,
@@ -220,6 +222,23 @@ export class MaintenanceOrchestrator {
       );
     }
 
+    // Run experience title improvement if requested and enabled
+    if (
+      tasksToRun.includes('experienceTitleImprovement') &&
+      effectiveConfig.experienceTitleImprovement.enabled
+    ) {
+      onProgress?.('experienceTitleImprovement', 'running');
+      results.experienceTitleImprovement = await this.runExperienceTitleImprovement(
+        request,
+        effectiveConfig
+      );
+      onProgress?.(
+        'experienceTitleImprovement',
+        results.experienceTitleImprovement.executed ? 'completed' : 'skipped',
+        results.experienceTitleImprovement
+      );
+    }
+
     // Compute health after maintenance
     if (!request.dryRun) {
       results.healthAfter = await this.computeHealth(request.scopeType, request.scopeId);
@@ -242,6 +261,7 @@ export class MaintenanceOrchestrator {
         toolTagAssignment: results.toolTagAssignment?.executed,
         embeddingCleanup: results.embeddingCleanup?.executed,
         messageRelevanceScoring: results.messageRelevanceScoring?.executed,
+        experienceTitleImprovement: results.experienceTitleImprovement?.executed,
       },
       'Maintenance run completed'
     );
@@ -1058,6 +1078,55 @@ export class MaintenanceOrchestrator {
     return result;
   }
 
+  private async runExperienceTitleImprovement(
+    request: MaintenanceRequest,
+    config: MaintenanceConfig
+  ): Promise<ExperienceTitleImprovementResult> {
+    const startTime = Date.now();
+    const result: ExperienceTitleImprovementResult = {
+      executed: true,
+      experiencesScanned: 0,
+      titlesImproved: 0,
+      skipped: 0,
+      durationMs: 0,
+    };
+
+    try {
+      if (!this.deps.extraction) {
+        logger.debug('Experience title improvement skipped: extraction service not available');
+        result.executed = false;
+        result.durationMs = Date.now() - startTime;
+        return result;
+      }
+
+      const { runExperienceTitleImprovement: executeImprovement } =
+        await import('./experience-title-improvement.js');
+
+      const improvementResult = await executeImprovement(
+        {
+          db: this.deps.db,
+          extractionService: this.deps.extraction,
+        },
+        {
+          scopeType: request.scopeType,
+          scopeId: request.scopeId,
+          dryRun: request.dryRun,
+          initiatedBy: request.initiatedBy,
+        },
+        config.experienceTitleImprovement
+      );
+
+      return improvementResult;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      logger.warn({ error: errorMsg }, 'Experience title improvement task failed');
+      result.errors = [errorMsg];
+    }
+
+    result.durationMs = Date.now() - startTime;
+    return result;
+  }
+
   // ===========================================================================
   // HEALTH SCORE COMPUTATION
   // ===========================================================================
@@ -1243,6 +1312,10 @@ export class MaintenanceOrchestrator {
       embeddingCleanup: {
         ...this.config.embeddingCleanup,
         ...overrides.embeddingCleanup,
+      },
+      experienceTitleImprovement: {
+        ...this.config.experienceTitleImprovement,
+        ...overrides.experienceTitleImprovement,
       },
     };
   }

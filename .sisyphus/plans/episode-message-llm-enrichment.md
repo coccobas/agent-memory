@@ -322,7 +322,7 @@ Enhance the episode-message linking with LLM-powered analysis to extract more va
 
 ### Phase 5: Experience Title Improvement
 
-- [ ] 5.1 Create experience title improvement task
+- [x] 5.1 Create experience title improvement task
 
   **What to do:**
   - Create `src/services/librarian/maintenance/experience-title-improvement.ts`
@@ -347,7 +347,7 @@ Enhance the episode-message linking with LLM-powered analysis to extract more va
 
 ---
 
-- [ ] 5.2 Register task in MaintenanceOrchestrator
+- [x] 5.2 Register task in MaintenanceOrchestrator
 
   **What to do:**
   - Import and register `runExperienceTitleImprovement`
