@@ -365,7 +365,7 @@ Enhance the episode-message linking with LLM-powered analysis to extract more va
 
 ### Phase 3: Message Insight Extraction
 
-- [ ] 3.1 Create message insight extraction task
+- [x] 3.1 Create message insight extraction task
 
   **What to do:**
   - Create `src/services/librarian/maintenance/message-insight-extraction.ts`
@@ -402,15 +402,15 @@ Enhance the episode-message linking with LLM-powered analysis to extract more va
 
 ---
 
-- [ ] 3.2 Register task in MaintenanceOrchestrator
+- [x] 3.2 Register task in MaintenanceOrchestrator
 
   **What to do:**
   - Import and register `runMessageInsightExtraction`
   - Follow existing task pattern
 
   **Acceptance Criteria:**
-  - [ ] `bun run typecheck` passes
-  - [ ] Task runs when enabled
+  - [x] `bun run typecheck` passes
+  - [x] Task runs when enabled
 
   **Parallelizable:** NO (depends on 3.1)
   **Commit:** YES

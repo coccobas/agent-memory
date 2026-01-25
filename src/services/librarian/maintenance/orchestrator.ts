@@ -26,6 +26,7 @@ import type {
   EmbeddingCleanupResult,
   MessageRelevanceScoringResult,
   ExperienceTitleImprovementResult,
+  MessageInsightExtractionResult,
   MemoryHealth,
 } from './types.js';
 import { DEFAULT_MAINTENANCE_CONFIG, computeHealthGrade } from './types.js';
@@ -102,6 +103,7 @@ export class MaintenanceOrchestrator {
       'embeddingCleanup',
       'messageRelevanceScoring',
       'experienceTitleImprovement',
+      'messageInsightExtraction',
     ];
     const results: MaintenanceResult = {
       runId,
@@ -239,6 +241,23 @@ export class MaintenanceOrchestrator {
       );
     }
 
+    // Run message insight extraction if requested and enabled
+    if (
+      tasksToRun.includes('messageInsightExtraction') &&
+      effectiveConfig.messageInsightExtraction.enabled
+    ) {
+      onProgress?.('messageInsightExtraction', 'running');
+      results.messageInsightExtraction = await this.runMessageInsightExtraction(
+        request,
+        effectiveConfig
+      );
+      onProgress?.(
+        'messageInsightExtraction',
+        results.messageInsightExtraction.executed ? 'completed' : 'skipped',
+        results.messageInsightExtraction
+      );
+    }
+
     // Compute health after maintenance
     if (!request.dryRun) {
       results.healthAfter = await this.computeHealth(request.scopeType, request.scopeId);
@@ -262,6 +281,7 @@ export class MaintenanceOrchestrator {
         embeddingCleanup: results.embeddingCleanup?.executed,
         messageRelevanceScoring: results.messageRelevanceScoring?.executed,
         experienceTitleImprovement: results.experienceTitleImprovement?.executed,
+        messageInsightExtraction: results.messageInsightExtraction?.executed,
       },
       'Maintenance run completed'
     );
@@ -1127,6 +1147,57 @@ export class MaintenanceOrchestrator {
     return result;
   }
 
+  private async runMessageInsightExtraction(
+    request: MaintenanceRequest,
+    config: MaintenanceConfig
+  ): Promise<MessageInsightExtractionResult> {
+    const startTime = Date.now();
+    const result: MessageInsightExtractionResult = {
+      executed: true,
+      episodesProcessed: 0,
+      messagesAnalyzed: 0,
+      insightsExtracted: 0,
+      knowledgeEntriesCreated: 0,
+      relationsCreated: 0,
+      durationMs: 0,
+    };
+
+    try {
+      if (!this.deps.extraction) {
+        logger.debug('Message insight extraction skipped: extraction service not available');
+        result.executed = false;
+        result.durationMs = Date.now() - startTime;
+        return result;
+      }
+
+      const { runMessageInsightExtraction: executeExtraction } =
+        await import('./message-insight-extraction.js');
+
+      const extractionResult = await executeExtraction(
+        {
+          repos: this.deps.repos,
+          extractionService: this.deps.extraction,
+        },
+        {
+          scopeType: request.scopeType,
+          scopeId: request.scopeId,
+          dryRun: request.dryRun,
+          initiatedBy: request.initiatedBy,
+        },
+        config.messageInsightExtraction
+      );
+
+      return extractionResult;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      logger.warn({ error: errorMsg }, 'Message insight extraction task failed');
+      result.errors = [errorMsg];
+    }
+
+    result.durationMs = Date.now() - startTime;
+    return result;
+  }
+
   // ===========================================================================
   // HEALTH SCORE COMPUTATION
   // ===========================================================================
@@ -1316,6 +1387,10 @@ export class MaintenanceOrchestrator {
       experienceTitleImprovement: {
         ...this.config.experienceTitleImprovement,
         ...overrides.experienceTitleImprovement,
+      },
+      messageInsightExtraction: {
+        ...this.config.messageInsightExtraction,
+        ...overrides.messageInsightExtraction,
       },
     };
   }
