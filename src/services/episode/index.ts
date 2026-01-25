@@ -60,6 +60,11 @@ export interface MessageSummary {
   role: string;
   content: string;
   createdAt: string;
+  relevanceCategory?: 'high' | 'medium' | 'low' | null;
+}
+
+export interface WhatHappenedOptions {
+  minRelevance?: 'high' | 'medium' | 'low' | 'all';
 }
 
 export interface WhatHappenedResult {
@@ -366,7 +371,10 @@ export function createEpisodeService(deps: EpisodeServiceDeps) {
     // "What Happened During X?" Query
     // ==========================================================================
 
-    async whatHappened(episodeId: string): Promise<WhatHappenedResult> {
+    async whatHappened(
+      episodeId: string,
+      options?: WhatHappenedOptions
+    ): Promise<WhatHappenedResult> {
       const episode = await episodeRepo.getById(episodeId, true);
       if (!episode) {
         throw createNotFoundError('episode', episodeId);
@@ -379,11 +387,26 @@ export function createEpisodeService(deps: EpisodeServiceDeps) {
       const rawMessages = conversationRepo
         ? await conversationRepo.getMessagesByEpisode(episodeId)
         : [];
-      const messages: MessageSummary[] = rawMessages.map((m) => ({
+
+      const minRelevance = options?.minRelevance ?? 'all';
+      const relevanceOrder = ['high', 'medium', 'low'];
+
+      const filteredMessages =
+        minRelevance === 'all'
+          ? rawMessages
+          : rawMessages.filter((m) => {
+              if (!m.relevanceCategory) return true;
+              const msgIndex = relevanceOrder.indexOf(m.relevanceCategory);
+              const minIndex = relevanceOrder.indexOf(minRelevance);
+              return msgIndex <= minIndex;
+            });
+
+      const messages: MessageSummary[] = filteredMessages.map((m) => ({
         id: m.id,
         role: m.role,
         content: m.content,
         createdAt: m.createdAt,
+        relevanceCategory: m.relevanceCategory as 'high' | 'medium' | 'low' | null,
       }));
 
       const timeline: TimelineEntry[] = [];

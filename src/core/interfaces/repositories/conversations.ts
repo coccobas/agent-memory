@@ -83,6 +83,9 @@ export interface ConversationWithMessages {
     toolsUsed: string[] | null;
     metadata: Record<string, unknown> | null;
     createdAt: string;
+    relevanceScore: number | null;
+    relevanceCategory: 'high' | 'medium' | 'low' | null;
+    relevanceScoredAt: string | null;
   }>;
   context?: Array<{
     id: string;
@@ -216,6 +219,9 @@ export interface IConversationRepository {
       toolsUsed: string[] | null;
       metadata: Record<string, unknown> | null;
       createdAt: string;
+      relevanceScore: number | null;
+      relevanceCategory: 'high' | 'medium' | 'low' | null;
+      relevanceScoredAt: string | null;
     }>
   >;
 

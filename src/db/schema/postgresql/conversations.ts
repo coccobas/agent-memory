@@ -61,12 +61,16 @@ export const conversationMessages = pgTable(
     toolsUsed: jsonb('tools_used').$type<string[]>(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     metadata: jsonb('metadata').$type<Record<string, unknown>>(),
+    relevanceScore: real('relevance_score'),
+    relevanceCategory: text('relevance_category', { enum: ['high', 'medium', 'low'] }),
+    relevanceScoredAt: timestamp('relevance_scored_at', { withTimezone: true }),
   },
   (table) => [
     index('idx_messages_conversation').on(table.conversationId),
     index('idx_messages_episode').on(table.episodeId),
     index('idx_messages_index').on(table.conversationId, table.messageIndex),
     index('idx_messages_role').on(table.conversationId, table.role),
+    index('idx_messages_relevance').on(table.relevanceCategory),
   ]
 );
 

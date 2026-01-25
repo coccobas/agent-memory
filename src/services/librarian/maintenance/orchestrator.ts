@@ -24,6 +24,7 @@ import type {
   SemanticEdgeInferenceResult,
   ToolTagAssignmentResult,
   EmbeddingCleanupResult,
+  MessageRelevanceScoringResult,
   MemoryHealth,
 } from './types.js';
 import { DEFAULT_MAINTENANCE_CONFIG, computeHealthGrade } from './types.js';
@@ -98,6 +99,7 @@ export class MaintenanceOrchestrator {
       'semanticEdgeInference',
       'toolTagAssignment',
       'embeddingCleanup',
+      'messageRelevanceScoring',
     ];
     const results: MaintenanceResult = {
       runId,
@@ -201,6 +203,23 @@ export class MaintenanceOrchestrator {
       );
     }
 
+    // Run message relevance scoring if requested and enabled
+    if (
+      tasksToRun.includes('messageRelevanceScoring') &&
+      effectiveConfig.messageRelevanceScoring.enabled
+    ) {
+      onProgress?.('messageRelevanceScoring', 'running');
+      results.messageRelevanceScoring = await this.runMessageRelevanceScoring(
+        request,
+        effectiveConfig
+      );
+      onProgress?.(
+        'messageRelevanceScoring',
+        results.messageRelevanceScoring.executed ? 'completed' : 'skipped',
+        results.messageRelevanceScoring
+      );
+    }
+
     // Compute health after maintenance
     if (!request.dryRun) {
       results.healthAfter = await this.computeHealth(request.scopeType, request.scopeId);
@@ -222,6 +241,7 @@ export class MaintenanceOrchestrator {
         semanticEdgeInference: results.semanticEdgeInference?.executed,
         toolTagAssignment: results.toolTagAssignment?.executed,
         embeddingCleanup: results.embeddingCleanup?.executed,
+        messageRelevanceScoring: results.messageRelevanceScoring?.executed,
       },
       'Maintenance run completed'
     );
@@ -983,6 +1003,54 @@ export class MaintenanceOrchestrator {
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       logger.warn({ error: errorMsg }, 'Embedding cleanup task failed');
+      result.errors = [errorMsg];
+    }
+
+    result.durationMs = Date.now() - startTime;
+    return result;
+  }
+
+  private async runMessageRelevanceScoring(
+    request: MaintenanceRequest,
+    config: MaintenanceConfig
+  ): Promise<MessageRelevanceScoringResult> {
+    const startTime = Date.now();
+    const result: MessageRelevanceScoringResult = {
+      executed: true,
+      messagesScored: 0,
+      byCategory: { high: 0, medium: 0, low: 0 },
+      durationMs: 0,
+    };
+
+    try {
+      if (!this.deps.extraction) {
+        logger.debug('Message relevance scoring skipped: extraction service not available');
+        result.executed = false;
+        result.durationMs = Date.now() - startTime;
+        return result;
+      }
+
+      const { runMessageRelevanceScoring: executeScoring } =
+        await import('./message-relevance-scoring.js');
+
+      const scoringResult = await executeScoring(
+        {
+          db: this.deps.db,
+          extractionService: this.deps.extraction,
+        },
+        {
+          scopeType: request.scopeType,
+          scopeId: request.scopeId,
+          dryRun: request.dryRun,
+          initiatedBy: request.initiatedBy,
+        },
+        config.messageRelevanceScoring
+      );
+
+      return scoringResult;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      logger.warn({ error: errorMsg }, 'Message relevance scoring task failed');
       result.errors = [errorMsg];
     }
 

@@ -199,7 +199,7 @@ Enhance the episode-message linking with LLM-powered analysis to extract more va
 
 ### Phase 4: Message Relevance Scoring
 
-- [ ] 4.1 Add relevance columns to conversation messages schema
+- [x] 4.1 Add relevance columns to conversation messages schema
 
   **What to do:**
   - Add `relevanceScore` (real, nullable) to `conversationMessages`
@@ -219,7 +219,7 @@ Enhance the episode-message linking with LLM-powered analysis to extract more va
 
 ---
 
-- [ ] 4.2 Create migration for relevance columns
+- [x] 4.2 Create migration for relevance columns
 
   **What to do:**
   - Create `src/db/migrations/0035_add_message_relevance.sql`
@@ -247,7 +247,7 @@ Enhance the episode-message linking with LLM-powered analysis to extract more va
 
 ---
 
-- [ ] 4.3 Create message relevance scoring task
+- [x] 4.3 Create message relevance scoring task
 
   **What to do:**
   - Create `src/services/librarian/maintenance/message-relevance-scoring.ts`
@@ -279,7 +279,7 @@ Enhance the episode-message linking with LLM-powered analysis to extract more va
 
 ---
 
-- [ ] 4.4 Register task in MaintenanceOrchestrator
+- [x] 4.4 Register task in MaintenanceOrchestrator
 
   **What to do:**
   - Import `runMessageRelevanceScoring` in orchestrator
@@ -299,7 +299,7 @@ Enhance the episode-message linking with LLM-powered analysis to extract more va
 
 ---
 
-- [ ] 4.5 Update whatHappened to support relevance filtering
+- [x] 4.5 Update whatHappened to support relevance filtering
 
   **What to do:**
   - Add `minRelevance?: 'high' | 'medium' | 'low' | 'all'` option to `whatHappened`

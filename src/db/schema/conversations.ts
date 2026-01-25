@@ -59,12 +59,16 @@ export const conversationMessages = sqliteTable(
       .default(sql`CURRENT_TIMESTAMP`)
       .notNull(),
     metadata: text('metadata', { mode: 'json' }).$type<Record<string, unknown>>(),
+    relevanceScore: real('relevance_score'),
+    relevanceCategory: text('relevance_category', { enum: ['high', 'medium', 'low'] }),
+    relevanceScoredAt: text('relevance_scored_at'),
   },
   (table) => [
     index('idx_messages_conversation').on(table.conversationId),
     index('idx_messages_episode').on(table.episodeId),
     index('idx_messages_index').on(table.conversationId, table.messageIndex),
     index('idx_messages_role').on(table.conversationId, table.role),
+    index('idx_messages_relevance').on(table.relevanceCategory),
   ]
 );
 
