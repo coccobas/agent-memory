@@ -420,16 +420,16 @@ Enhance the episode-message linking with LLM-powered analysis to extract more va
 
 ## Testing
 
-- [ ] Unit tests for message summarization helper
-- [ ] Unit tests for each maintenance task
-- [ ] Integration test for end-to-end episode enrichment
-- [ ] Verify all tasks can be disabled via config
+- [x] Unit tests for message summarization helper
+- [x] Unit tests for each maintenance task
+- [x] Integration test for end-to-end episode enrichment
+- [x] Verify all tasks can be disabled via config
 
 **Acceptance Criteria:**
 
-- [ ] `npm test -- --run` passes (all tests)
-- [ ] New tests added for new functionality
-- [ ] 80%+ coverage for new code
+- [x] `npm test -- --run` passes (all tests)
+- [x] New tests added for new functionality
+- [x] 80%+ coverage for new code
 
 **Commit:** YES
 
@@ -475,17 +475,17 @@ messageEnrichment: {
 
 ## Success Criteria
 
-- [ ] Experiences include conversation summaries instead of truncated messages
-- [ ] Librarian extracts actionable insights from message threads
-- [ ] Message relevance scoring reduces noise in queries
-- [ ] Experience titles are descriptive and searchable
-- [ ] All LLM features are configurable and can be disabled
-- [ ] No increase in episode completion latency (async where needed)
-- [ ] Build and type check pass
-- [ ] Tests pass
+- [x] Experiences include conversation summaries instead of truncated messages
+- [x] Librarian extracts actionable insights from message threads
+- [x] Message relevance scoring reduces noise in queries
+- [x] Experience titles are descriptive and searchable
+- [x] All LLM features are configurable and can be disabled
+- [x] No increase in episode completion latency (async where needed)
+- [x] Build and type check pass
+- [x] Tests pass
 
 ---
 
-**Status**: READY FOR IMPLEMENTATION
+**Status**: COMPLETE
 **Created**: 2026-01-25
 **Author**: Claude (Prometheus Planner)
