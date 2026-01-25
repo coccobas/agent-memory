@@ -177,6 +177,66 @@ export interface EmbeddingCleanupConfig {
 }
 
 /**
+ * Message insight extraction task configuration
+ *
+ * Uses LLM to analyze conversation messages linked to episodes and extract
+ * actionable insights (decisions, problems, solutions, learnings) as
+ * knowledge entries.
+ */
+export interface MessageInsightExtractionConfig {
+  /** Enable message insight extraction during maintenance */
+  enabled: boolean;
+  /** Minimum messages in episode to process */
+  minMessages: number;
+  /** Minimum confidence from LLM to store insight (0-1) */
+  confidenceThreshold: number;
+  /** Maximum episodes to process per run */
+  maxEntriesPerRun: number;
+  /** Focus areas for extraction */
+  focusAreas: Array<'decisions' | 'facts' | 'rules' | 'problems' | 'solutions'>;
+}
+
+/**
+ * Message relevance scoring task configuration
+ *
+ * Uses LLM to score conversation messages by relevance to the episode outcome.
+ * Enables filtering low-value messages from queries like whatHappened.
+ */
+export interface MessageRelevanceScoringConfig {
+  /** Enable message relevance scoring during maintenance */
+  enabled: boolean;
+  /** Maximum messages to score per run */
+  maxMessagesPerRun: number;
+  /** Thresholds for categorizing relevance scores */
+  thresholds: {
+    /** Score >= this is 'high' relevance */
+    high: number;
+    /** Score >= this is 'medium' relevance */
+    medium: number;
+    /** Score >= this is 'low' relevance (below medium) */
+    low: number;
+  };
+}
+
+/**
+ * Experience title improvement task configuration
+ *
+ * Uses LLM to generate better titles for experiences that have generic
+ * auto-generated titles (e.g., "Episode: ..."). Preserves original title
+ * in metadata.
+ */
+export interface ExperienceTitleImprovementConfig {
+  /** Enable experience title improvement during maintenance */
+  enabled: boolean;
+  /** Maximum experiences to process per run */
+  maxEntriesPerRun: number;
+  /** Only process experiences with generic titles matching pattern */
+  onlyGenericTitles: boolean;
+  /** Regex pattern to identify generic titles */
+  genericTitlePattern: string;
+}
+
+/**
  * Health calculation configuration
  */
 export interface HealthConfig {
@@ -214,6 +274,12 @@ export interface MaintenanceConfig {
   toolTagAssignment: ToolTagAssignmentConfig;
   /** Embedding cleanup settings */
   embeddingCleanup: EmbeddingCleanupConfig;
+  /** Message insight extraction settings */
+  messageInsightExtraction: MessageInsightExtractionConfig;
+  /** Message relevance scoring settings */
+  messageRelevanceScoring: MessageRelevanceScoringConfig;
+  /** Experience title improvement settings */
+  experienceTitleImprovement: ExperienceTitleImprovementConfig;
 }
 
 /**
@@ -281,6 +347,24 @@ export const DEFAULT_MAINTENANCE_CONFIG: MaintenanceConfig = {
     entryTypes: ['tool', 'guideline', 'knowledge', 'experience'],
     cleanupVectors: true,
   },
+  messageInsightExtraction: {
+    enabled: false,
+    minMessages: 3,
+    confidenceThreshold: 0.7,
+    maxEntriesPerRun: 50,
+    focusAreas: ['decisions', 'facts', 'rules'],
+  },
+  messageRelevanceScoring: {
+    enabled: false,
+    maxMessagesPerRun: 200,
+    thresholds: { high: 0.8, medium: 0.5, low: 0 },
+  },
+  experienceTitleImprovement: {
+    enabled: false,
+    maxEntriesPerRun: 100,
+    onlyGenericTitles: true,
+    genericTitlePattern: '^Episode:\\s',
+  },
 };
 
 // =============================================================================
@@ -305,6 +389,9 @@ export interface MaintenanceRequest {
     | 'semanticEdgeInference'
     | 'toolTagAssignment'
     | 'embeddingCleanup'
+    | 'messageInsightExtraction'
+    | 'messageRelevanceScoring'
+    | 'experienceTitleImprovement'
   >;
   /** Dry run - analyze without making changes */
   dryRun?: boolean;
@@ -481,6 +568,43 @@ export interface EmbeddingCleanupResult {
 }
 
 /**
+ * Result from message insight extraction task
+ */
+export interface MessageInsightExtractionResult {
+  executed: boolean;
+  episodesProcessed: number;
+  messagesAnalyzed: number;
+  insightsExtracted: number;
+  knowledgeEntriesCreated: number;
+  relationsCreated: number;
+  durationMs: number;
+  errors?: string[];
+}
+
+/**
+ * Result from message relevance scoring task
+ */
+export interface MessageRelevanceScoringResult {
+  executed: boolean;
+  messagesScored: number;
+  byCategory: { high: number; medium: number; low: number };
+  durationMs: number;
+  errors?: string[];
+}
+
+/**
+ * Result from experience title improvement task
+ */
+export interface ExperienceTitleImprovementResult {
+  executed: boolean;
+  experiencesScanned: number;
+  titlesImproved: number;
+  skipped: number;
+  durationMs: number;
+  errors?: string[];
+}
+
+/**
  * Unified maintenance result
  */
 export interface MaintenanceResult {
@@ -506,6 +630,12 @@ export interface MaintenanceResult {
   toolTagAssignment?: ToolTagAssignmentResult;
   /** Embedding cleanup results */
   embeddingCleanup?: EmbeddingCleanupResult;
+  /** Message insight extraction results */
+  messageInsightExtraction?: MessageInsightExtractionResult;
+  /** Message relevance scoring results */
+  messageRelevanceScoring?: MessageRelevanceScoringResult;
+  /** Experience title improvement results */
+  experienceTitleImprovement?: ExperienceTitleImprovementResult;
   /** Overall timing */
   timing: {
     startedAt: string;

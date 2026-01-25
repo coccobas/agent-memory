@@ -134,3 +134,49 @@ export {
   type BoostResult,
   type ExtractedEntry,
 } from './confidence-booster.js';
+
+// =============================================================================
+// CLASSIFIER SERVICE - Lightweight local LLM classification
+// =============================================================================
+
+export {
+  ClassifierService,
+  createClassifierService,
+  getDefaultClassifierService,
+  resetDefaultClassifierService,
+  DEFAULT_CLASSIFIER_CONFIG,
+  type ClassifierConfig,
+  type ClassificationResult,
+  type ClassificationType,
+} from './classifier.service.js';
+
+// =============================================================================
+// CLASSIFICATION QUEUE - Background async processing
+// =============================================================================
+
+export {
+  ClassificationQueue,
+  createClassificationQueue,
+  getDefaultClassificationQueue,
+  resetDefaultClassificationQueue,
+  DEFAULT_QUEUE_CONFIG,
+  type ClassificationQueueConfig,
+  type QueuedClassification,
+  type ClassificationContext,
+  type FallbackClassifier,
+} from './classifier-queue.js';
+
+// =============================================================================
+// HYBRID EXTRACTOR - Regex fast path + LLM fallback
+// =============================================================================
+
+export {
+  HybridExtractor,
+  createHybridExtractor,
+  getDefaultHybridExtractor,
+  resetDefaultHybridExtractor,
+  DEFAULT_HYBRID_CONFIG,
+  type HybridExtractorConfig,
+  type HybridExtractionResult,
+  type PendingSuggestion,
+} from './hybrid-extractor.js';

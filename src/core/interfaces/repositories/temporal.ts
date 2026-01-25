@@ -17,11 +17,11 @@ import type { PaginationOptions } from '../../../db/repositories/base.js';
 // EPISODE REPOSITORY (Temporal Activity Grouping)
 // =============================================================================
 
-/** Input for creating an episode */
 export interface CreateEpisodeInput {
   scopeType: ScopeType;
   scopeId?: string;
   sessionId?: string;
+  conversationId?: string;
   name: string;
   description?: string;
   parentEpisodeId?: string;
@@ -36,6 +36,7 @@ export interface CreateEpisodeInput {
 export interface UpdateEpisodeInput {
   name?: string;
   description?: string;
+  conversationId?: string;
   tags?: string[];
   metadata?: Record<string, unknown>;
 }

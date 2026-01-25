@@ -98,6 +98,7 @@ export function createEpisodeRepository(deps: DatabaseDeps): IEpisodeRepository 
           scopeType: input.scopeType,
           scopeId: input.scopeId,
           sessionId: input.sessionId,
+          conversationId: input.conversationId,
           name: input.name,
           description: input.description,
           status: 'planned',
@@ -188,6 +189,7 @@ export function createEpisodeRepository(deps: DatabaseDeps): IEpisodeRepository 
         const updates: Partial<NewEpisode> = {};
         if (input.name !== undefined) updates.name = input.name;
         if (input.description !== undefined) updates.description = input.description;
+        if (input.conversationId !== undefined) updates.conversationId = input.conversationId;
         if (input.tags !== undefined) updates.tags = JSON.stringify(input.tags);
         if (input.metadata !== undefined) updates.metadata = JSON.stringify(input.metadata);
 

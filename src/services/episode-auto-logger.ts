@@ -39,6 +39,8 @@ export interface EpisodeAutoLoggerConfig {
   significantTools?: readonly string[];
   /** Override default skip tools */
   skipTools?: readonly string[];
+  /** Auto-create episode on first significant tool if none exists (zero-friction mode) */
+  autoCreateEpisode?: boolean;
 }
 
 /**
@@ -65,22 +67,33 @@ export interface ToolExecutionEvent {
 /**
  * Maps tool+action combinations to episode event types
  */
+const DECISION_ACTIONS = new Set([
+  'add',
+  'create',
+  'promote',
+  'record_case',
+  'learn',
+  'delete',
+  'deactivate',
+  'bulk_add',
+  'bulk_delete',
+  'approve',
+  'reject',
+  'complete',
+  'fail',
+  'cancel',
+]);
+
 function inferEventType(
-  _toolName: string,
+  toolName: string,
   action: string | undefined
 ): 'checkpoint' | 'decision' | 'started' | 'completed' {
-  // Decision events - important choices that change state
-  if (
-    action === 'add' ||
-    action === 'create' ||
-    action === 'promote' ||
-    action === 'record_case' ||
-    action === 'learn'
-  ) {
+  if (action && DECISION_ACTIONS.has(action)) {
     return 'decision';
   }
-
-  // Checkpoint events - progress milestones
+  if (toolName === 'Edit' || toolName === 'Write' || toolName === 'Bash') {
+    return 'decision';
+  }
   return 'checkpoint';
 }
 
@@ -116,12 +129,22 @@ function generateEventName(
   return `Tool: ${cleanToolName}`;
 }
 
-/**
- * Truncate string to max length with ellipsis
- */
 function truncate(str: string, maxLen: number): string {
   if (str.length <= maxLen) return str;
   return str.slice(0, maxLen - 3) + '...';
+}
+
+function generateEpisodeNameFromTool(event: ToolExecutionEvent): string {
+  const cleanToolName = event.toolName.replace(/^memory_/, '');
+  if (event.context?.entryName) {
+    return `Working on ${truncate(event.context.entryName, 40)}`;
+  }
+  if (event.action) {
+    const actionVerb =
+      event.action.charAt(0).toUpperCase() + event.action.slice(1).replace(/_/g, ' ');
+    return `${actionVerb} session`;
+  }
+  return `${cleanToolName} session`;
 }
 
 /**
@@ -275,14 +298,50 @@ export function createEpisodeAutoLoggerService(
           }
         }
 
-        // Find active episode for this session
-        const activeEpisode = await episodeRepo.getActiveEpisode(sessionId);
+        // Find active episode for this session, or auto-create one
+        let activeEpisode = await episodeRepo.getActiveEpisode(sessionId);
         if (!activeEpisode) {
-          logger.trace(
-            { sessionId },
-            'No active episode for session (event fed to boundary detector)'
-          );
-          return false;
+          if (config.autoCreateEpisode) {
+            try {
+              const episodeName = generateEpisodeNameFromTool(event);
+              const created = await episodeRepo.create({
+                sessionId,
+                scopeType: 'session',
+                scopeId: sessionId,
+                name: episodeName,
+                triggerType: 'auto_detection',
+                triggerRef: 'first_tool_usage',
+                metadata: {
+                  autoCreated: true,
+                  zeroFriction: true,
+                  triggerTool: event.toolName,
+                  triggerAction: event.action,
+                },
+              });
+              activeEpisode = await episodeRepo.start(created.id);
+              logger.info(
+                {
+                  sessionId,
+                  episodeId: activeEpisode.id,
+                  episodeName,
+                  triggerTool: event.toolName,
+                },
+                'Auto-created episode on first tool usage'
+              );
+            } catch (err) {
+              logger.warn(
+                { sessionId, error: err instanceof Error ? err.message : String(err) },
+                'Failed to auto-create episode'
+              );
+              return false;
+            }
+          } else {
+            logger.trace(
+              { sessionId },
+              'No active episode for session (event fed to boundary detector)'
+            );
+            return false;
+          }
         }
 
         // Create the event
@@ -322,7 +381,6 @@ export function createEpisodeAutoLoggerService(
 
         return true;
       } catch (error) {
-        // Non-fatal - don't let logging failures break tool execution
         logger.warn(
           {
             tool: event.toolName,
@@ -334,9 +392,46 @@ export function createEpisodeAutoLoggerService(
       }
     },
 
-    /**
-     * Get the current configuration
-     */
+    async logToolFailure(event: ToolExecutionEvent & { errorMessage: string }): Promise<boolean> {
+      try {
+        if (!config.enabled || !event.sessionId) {
+          return false;
+        }
+
+        const activeEpisode = await episodeRepo.getActiveEpisode(event.sessionId);
+        if (!activeEpisode) {
+          return false;
+        }
+
+        const cleanToolName = event.toolName.replace(/^memory_/, '');
+        await episodeRepo.addEvent({
+          episodeId: activeEpisode.id,
+          eventType: 'error',
+          name: `Error: ${cleanToolName}${event.action ? ` (${event.action})` : ''}`,
+          description: event.errorMessage,
+          data: {
+            tool: event.toolName,
+            action: event.action,
+            error: event.errorMessage,
+            autoLogged: true,
+          },
+        });
+
+        logger.debug(
+          { episodeId: activeEpisode.id, tool: event.toolName, error: event.errorMessage },
+          'Auto-logged tool failure as episode error event'
+        );
+
+        return true;
+      } catch (error) {
+        logger.warn(
+          { tool: event.toolName, error: error instanceof Error ? error.message : String(error) },
+          'Failed to auto-log tool failure'
+        );
+        return false;
+      }
+    },
+
     getConfig(): EpisodeAutoLoggerConfig {
       return { ...config };
     },
@@ -393,6 +488,7 @@ export type EpisodeAutoLoggerService = ReturnType<typeof createEpisodeAutoLogger
  */
 export interface IEpisodeAutoLoggerService {
   logToolExecution(event: ToolExecutionEvent): Promise<boolean>;
+  logToolFailure(event: ToolExecutionEvent & { errorMessage: string }): Promise<boolean>;
   getConfig(): EpisodeAutoLoggerConfig;
   isEnabled(): boolean;
   clearDebounceState(): void;

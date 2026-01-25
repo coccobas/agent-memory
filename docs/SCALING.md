@@ -623,4 +623,4 @@ AGENT_MEMORY_RATE_LIMIT_GLOBAL_MAX=10000
 - [PostgreSQL Setup](guides/postgresql-setup.md) - Database configuration
 - [Redis Distributed](guides/redis-distributed.md) - Distributed features
 - [Performance Guide](guides/performance.md) - Optimization techniques
-- [Environment Variables](reference/environment-variables.md) - All configuration options
+- [Environment Variables](reference/env-vars.md) - All configuration options

@@ -5,6 +5,7 @@
 import { sqliteTable, text, integer, real, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 import { sessions, projects } from './scopes.js';
+import { episodes } from './episodes.js';
 import type { EntryType } from './types.js';
 
 /**
@@ -46,6 +47,7 @@ export const conversationMessages = sqliteTable(
     conversationId: text('conversation_id')
       .references(() => conversations.id, { onDelete: 'cascade' })
       .notNull(),
+    episodeId: text('episode_id').references(() => episodes.id, { onDelete: 'set null' }),
     role: text('role', { enum: ['user', 'agent', 'system'] }).notNull(),
     content: text('content').notNull(),
     messageIndex: integer('message_index').notNull(),
@@ -60,6 +62,7 @@ export const conversationMessages = sqliteTable(
   },
   (table) => [
     index('idx_messages_conversation').on(table.conversationId),
+    index('idx_messages_episode').on(table.episodeId),
     index('idx_messages_index').on(table.conversationId, table.messageIndex),
     index('idx_messages_role').on(table.conversationId, table.role),
   ]

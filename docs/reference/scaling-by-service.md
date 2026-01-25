@@ -2,7 +2,7 @@
 
 Service-specific scaling constraints and configuration options for Agent Memory.
 
-> **Related:** [Scaling Guide](../SCALING.md) | [ADR-0015: Scaling Strategy](../adr/0015-scaling-strategy.md) | [Environment Variables](./environment-variables.md)
+> **Related:** [Scaling Guide](../SCALING.md) | [ADR-0015: Scaling Strategy](../adr/0015-scaling-strategy.md) | [Environment Variables](./env-vars.md)
 
 ---
 
@@ -433,5 +433,5 @@ AGENT_MEMORY_RETRY_BACKOFF_MULTIPLIER=2
 
 - [Scaling Guide](../SCALING.md) - General scaling overview and migration paths
 - [ADR-0015: Scaling Strategy](../adr/0015-scaling-strategy.md) - Architecture decision
-- [Environment Variables](./environment-variables.md) - Complete configuration reference
+- [Environment Variables](./env-vars.md) - Complete configuration reference
 - [Performance Guide](../guides/performance.md) - Optimization techniques

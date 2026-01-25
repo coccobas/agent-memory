@@ -61,6 +61,7 @@ import { toolsSection } from './sections/tools.js';
 import { classificationSection } from './sections/classification.js';
 import { extractionHookSection } from './sections/extractionHook.js';
 import { crossEncoderSection } from './sections/crossEncoder.js';
+import { classifierSection } from './sections/classifier.js';
 
 import { graphSection } from './sections/graph.js';
 import { episodeSection } from './sections/episode.js';
@@ -138,6 +139,7 @@ export const configRegistry: ConfigRegistry = {
     staleness: stalenessSection,
     contextBudget: contextBudgetSection,
     compression: compressionSection,
+    classifier: classifierSection,
   },
 };
 

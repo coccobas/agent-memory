@@ -423,4 +423,4 @@ async function searchMemory(query) {
 
 - [MCP Tools](mcp-tools.md) - MCP tool reference
 - [CLI Reference](cli.md) - Command-line interface
-- [Environment Variables](environment-variables.md) - All configuration options
+- [Environment Variables](env-vars.md) - All configuration options

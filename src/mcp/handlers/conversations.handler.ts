@@ -187,10 +187,18 @@ export const conversationHandlers = {
       'knowledge'
     );
 
+    // Look up active episode for this session (episode-driven message linking)
+    let episodeId: string | undefined;
+    if (conversation.sessionId && context.repos.episodes) {
+      const activeEpisode = await context.repos.episodes.getActiveEpisode(conversation.sessionId);
+      episodeId = activeEpisode?.id;
+    }
+
     const message = await context.repos.conversations.addMessage({
       conversationId,
       role,
       content,
+      episodeId,
       contextEntries,
       toolsUsed,
       metadata,

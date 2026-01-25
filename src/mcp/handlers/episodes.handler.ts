@@ -73,6 +73,7 @@ const addHandler: ContextAwareHandler = async (
   const scopeType = (getOptionalParam(params, 'scopeType', isScopeType) ?? 'project') as ScopeType;
   const scopeId = getOptionalParam(params, 'scopeId', isString);
   const sessionId = getOptionalParam(params, 'sessionId', isString);
+  const conversationId = getOptionalParam(params, 'conversationId', isString);
   const name = getRequiredParam(params, 'name', isString);
   const description = getOptionalParam(params, 'description', isString);
   const parentEpisodeId = getOptionalParam(params, 'parentEpisodeId', isString);
@@ -87,6 +88,7 @@ const addHandler: ContextAwareHandler = async (
     scopeType,
     scopeId,
     sessionId,
+    conversationId,
     name,
     description,
     parentEpisodeId,
@@ -179,6 +181,7 @@ const updateHandler: ContextAwareHandler = async (
   const id = getRequiredParam(params, 'id', isString);
   const name = getOptionalParam(params, 'name', isString);
   const description = getOptionalParam(params, 'description', isString);
+  const conversationId = getOptionalParam(params, 'conversationId', isString);
   const tags = getOptionalParam(params, 'tags', isArrayOfStrings);
   const metadata = getOptionalParam(params, 'metadata', isObject);
   const agentId = getOptionalParam(params, 'agentId', isString);
@@ -186,6 +189,7 @@ const updateHandler: ContextAwareHandler = async (
   const episode = await episodeService.update(id, {
     name,
     description,
+    conversationId,
     tags,
     metadata,
   });
@@ -336,9 +340,16 @@ const completeHandler: ContextAwareHandler = async (
     context.db
   );
 
-  // Trigger automatic experience capture (non-blocking)
   const captureService = context.services.capture;
   if (captureService) {
+    const rawMessages = await context.repos.conversations.getMessagesByEpisode(id);
+    const messages = rawMessages.map((m) => ({
+      id: m.id,
+      role: m.role,
+      content: m.content,
+      createdAt: m.createdAt,
+    }));
+
     captureService
       .onEpisodeComplete({
         id: episode.id,
@@ -351,9 +362,9 @@ const completeHandler: ContextAwareHandler = async (
         scopeId: episode.scopeId,
         sessionId: episode.sessionId,
         events: episode.events,
+        messages,
       })
       .catch((error) => {
-        // Log but don't fail the episode completion
         console.warn(
           `Failed to capture experience from episode ${id}: ${error instanceof Error ? error.message : String(error)}`
         );
@@ -396,10 +407,16 @@ const failHandler: ContextAwareHandler = async (
     context.db
   );
 
-  // Trigger automatic experience capture (non-blocking)
-  // Failed episodes are valuable learnings too!
   const captureService = context.services.capture;
   if (captureService) {
+    const rawMessages = await context.repos.conversations.getMessagesByEpisode(id);
+    const messages = rawMessages.map((m) => ({
+      id: m.id,
+      role: m.role,
+      content: m.content,
+      createdAt: m.createdAt,
+    }));
+
     captureService
       .onEpisodeComplete({
         id: episode.id,
@@ -412,9 +429,9 @@ const failHandler: ContextAwareHandler = async (
         scopeId: episode.scopeId,
         sessionId: episode.sessionId,
         events: episode.events,
+        messages,
       })
       .catch((error) => {
-        // Log but don't fail the episode failure recording
         console.warn(
           `Failed to capture experience from failed episode ${id}: ${error instanceof Error ? error.message : String(error)}`
         );
@@ -474,6 +491,7 @@ const beginHandler: ContextAwareHandler = async (
   const scopeType = (getOptionalParam(params, 'scopeType', isScopeType) ?? 'project') as ScopeType;
   const scopeId = getOptionalParam(params, 'scopeId', isString);
   const sessionId = getOptionalParam(params, 'sessionId', isString);
+  const conversationId = getOptionalParam(params, 'conversationId', isString);
   const name = getRequiredParam(params, 'name', isString);
   const description = getOptionalParam(params, 'description', isString);
   const parentEpisodeId = getOptionalParam(params, 'parentEpisodeId', isString);
@@ -484,11 +502,11 @@ const beginHandler: ContextAwareHandler = async (
   const createdBy = getOptionalParam(params, 'createdBy', isString);
   const agentId = getOptionalParam(params, 'agentId', isString);
 
-  // Step 1: Create the episode
   const created = await episodeService.create({
     scopeType,
     scopeId,
     sessionId,
+    conversationId,
     name,
     description,
     parentEpisodeId,
@@ -499,7 +517,6 @@ const beginHandler: ContextAwareHandler = async (
     createdBy: createdBy ?? agentId,
   });
 
-  // Step 2: Start it immediately
   const episode = await episodeService.start(created.id);
 
   // Log audit
@@ -649,6 +666,29 @@ const getLinkedHandler: ContextAwareHandler = async (
 };
 
 // =============================================================================
+// MESSAGE HANDLERS
+// =============================================================================
+
+const getMessagesHandler: ContextAwareHandler = async (
+  context: AppContext,
+  params: Record<string, unknown>
+) => {
+  const episodeId = getEpisodeId(params, true);
+  const limit = getOptionalParam(params, 'limit', isNumber);
+  const offset = getOptionalParam(params, 'offset', isNumber);
+
+  // Use conversation repository to get messages linked to this episode
+  const messages = await context.repos.conversations.getMessagesByEpisode(episodeId, limit, offset);
+
+  return formatTimestamps({
+    success: true,
+    episodeId,
+    messages,
+    count: messages.length,
+  });
+};
+
+// =============================================================================
 // TIMELINE AND QUERY HANDLERS
 // =============================================================================
 
@@ -737,6 +777,9 @@ export const episodeHandlers = {
   // Entity linking
   link_entity: linkEntityHandler,
   get_linked: getLinkedHandler,
+
+  // Messages
+  get_messages: getMessagesHandler,
 
   // Timeline and queries
   get_timeline: getTimelineHandler,

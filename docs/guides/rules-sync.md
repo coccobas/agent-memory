@@ -73,13 +73,13 @@ Shows what would change without writing files.
 
 These are synced to all IDEs:
 
-| File                        | Purpose                                  |
-| :-------------------------- | :--------------------------------------- |
-| `auto-memory-core.md`       | Essential workflow: query → store → tag  |
-| `auto-memory-reference.md`  | Complete reference for all 20+ MCP tools |
-| `auto-memory-examples.md`   | Real-world usage patterns and triggers   |
-| `auto-memory-strategies.md` | Optimization and best practices          |
-| `auto-memory-advanced.md`   | Advanced features, conflict resolution   |
+| File                        | Purpose                                 |
+| :-------------------------- | :-------------------------------------- |
+| `auto-memory-core.md`       | Essential workflow: query → store → tag |
+| `auto-memory-reference.md`  | Complete reference for all 50 MCP tools |
+| `auto-memory-examples.md`   | Real-world usage patterns and triggers  |
+| `auto-memory-strategies.md` | Optimization and best practices         |
+| `auto-memory-advanced.md`   | Advanced features, conflict resolution  |
 
 ### Developer Rules (Not Synced)
 

@@ -943,18 +943,6 @@ export class CaptureService {
   // EPISODE COMPLETION HANDLING
   // =============================================================================
 
-  /**
-   * Handle episode completion - automatically capture an experience from the episode.
-   *
-   * Builds an experience from:
-   * - title: "Episode: {name}"
-   * - scenario: episode.description or "Task execution"
-   * - outcome: episode.outcome + outcomeType
-   * - trajectory: episode.events → steps
-   *
-   * @param episode - The completed/failed episode with events
-   * @returns Captured experience result
-   */
   async onEpisodeComplete(episode: {
     id: string;
     name: string;
@@ -971,6 +959,12 @@ export class CaptureService {
       description?: string | null;
       data?: string | null;
       occurredAt: string;
+    }>;
+    messages?: Array<{
+      id: string;
+      role: string;
+      content: string;
+      createdAt: string;
     }>;
   }): Promise<ExperienceCaptureResult> {
     if (!this.captureConfig.enabled) {
@@ -1004,7 +998,6 @@ export class CaptureService {
       };
     });
 
-    // Determine outcome based on outcomeType
     const outcomeText =
       episode.outcome ??
       (episode.outcomeType === 'success'
@@ -1015,7 +1008,20 @@ export class CaptureService {
             ? 'Partially completed'
             : 'Abandoned');
 
-    // Record as a case experience
+    const contentParts = [
+      `Outcome type: ${episode.outcomeType ?? 'unknown'}. Duration: ${episode.durationMs ?? 0}ms.`,
+    ];
+
+    if (episode.messages && episode.messages.length > 0) {
+      contentParts.push('');
+      contentParts.push(`Conversation context (${episode.messages.length} messages):`);
+      for (const msg of episode.messages.slice(-5)) {
+        const truncatedContent =
+          msg.content.length > 200 ? msg.content.slice(0, 197) + '...' : msg.content;
+        contentParts.push(`[${msg.role}]: ${truncatedContent}`);
+      }
+    }
+
     const result = await this.recordCase({
       projectId: episode.scopeType === 'project' ? (episode.scopeId ?? undefined) : undefined,
       sessionId: episode.sessionId ?? undefined,
@@ -1024,7 +1030,7 @@ export class CaptureService {
       title: `Episode: ${episode.name}`,
       scenario: episode.description ?? 'Task execution',
       outcome: outcomeText,
-      content: `Outcome type: ${episode.outcomeType ?? 'unknown'}. Duration: ${episode.durationMs ?? 0}ms.`,
+      content: contentParts.join('\n'),
 
       trajectory,
       category: 'episode-completion',

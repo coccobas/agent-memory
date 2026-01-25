@@ -16,6 +16,7 @@ import {
 } from '../../utils/minto-formatter.js';
 
 import type { MemoryQueryParams } from '../types.js';
+import { getWorkingDirectory } from '../../utils/working-directory.js';
 
 const logger = createComponentLogger('query-handler');
 import type { AppContext } from '../../core/context.js';
@@ -115,7 +116,7 @@ export const queryHandlers = {
 
     // Auto-detect project if scope type is project but no id provided
     if (scope?.type === 'project' && !scope.id) {
-      const cwd = process.cwd();
+      const cwd = getWorkingDirectory();
       const project = await context.repos.projects.findByPath(cwd);
       if (project) {
         scope = { ...scope, id: project.id };
@@ -258,7 +259,7 @@ export const queryHandlers = {
 
     // Auto-detect project from cwd if scopeType is 'project' and scopeId not provided
     if (scopeType === 'project' && !scopeId) {
-      const cwd = process.cwd();
+      const cwd = getWorkingDirectory();
       const project = await context.repos.projects.findByPath(cwd);
       if (project) {
         scopeId = project.id;

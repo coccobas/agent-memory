@@ -43,6 +43,7 @@ import type { EpisodeService } from '../services/episode/index.js';
 import type { IEpisodeAutoLoggerService } from '../services/episode-auto-logger.js';
 import type { SmartPrioritizationService } from '../services/prioritization/index.js';
 import type { ContextManagerService, UnifiedContextService } from '../services/context/index.js';
+import type { HybridExtractor } from '../services/extraction/hybrid-extractor.js';
 
 /**
  * Service interfaces for AppContext
@@ -150,6 +151,9 @@ export interface IExtractionService {
     tokensUsed?: number;
     processingTimeMs: number;
   }>;
+  extractForClassification(
+    text: string
+  ): Promise<{ type: 'guideline' | 'knowledge' | 'tool'; confidence: number; reasoning?: string }>;
 }
 
 /**
@@ -315,6 +319,8 @@ export interface UtilityServices {
   autoTagging?: IAutoTaggingService;
   /** Extraction hook service for proactive pattern detection */
   extractionHook?: IExtractionHookService;
+  /** Hybrid extractor for regex + LLM classification */
+  hybridExtractor?: HybridExtractor;
   /** Red flag detection service for quality checks */
   redFlag?: RedFlagService;
   /** Re-embedding service for fixing dimension mismatches */

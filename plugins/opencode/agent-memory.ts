@@ -77,6 +77,7 @@ class AgentMemoryClient {
   private connecting: Promise<void> | null = null;
   private projectId: string | undefined;
   private activeEpisodeId: string | undefined;
+  private activeConversationId: string | undefined;
 
   async connect(): Promise<void> {
     if (this.client) return;
@@ -132,6 +133,14 @@ class AgentMemoryClient {
 
   getEpisodeId(): string | undefined {
     return this.activeEpisodeId;
+  }
+
+  setConversationId(id: string | undefined) {
+    this.activeConversationId = id;
+  }
+
+  getConversationId(): string | undefined {
+    return this.activeConversationId;
   }
 
   async callTool<T = unknown>(name: string, args: Record<string, unknown> = {}): Promise<T> {
@@ -303,21 +312,37 @@ export const AgentMemoryPlugin: Plugin = async ({ client, directory, worktree })
         if (!sessionId) return;
 
         try {
-          // Call memory_quickstart to start session and get counts
+          let conversationId: string | undefined;
+          try {
+            const convResult = await mcpClient.callTool<{ conversation?: { id?: string } }>(
+              'memory_conversation',
+              {
+                action: 'start',
+                sessionId: `opencode-${sessionId}`,
+                title: `Session ${sessionId}`,
+              }
+            );
+            conversationId = convResult?.conversation?.id;
+            if (conversationId) {
+              mcpClient.setConversationId(conversationId);
+            }
+          } catch {
+            // Non-fatal - conversation capture is optional
+          }
+
           const result = await mcpClient.callTool<{
             context?: {
               summary?: { byType?: Record<string, number> };
               experiences?: Array<{ title?: string; outcome?: string }>;
             };
             session?: { success: boolean; id?: string };
-            episode?: { id?: string };
+            quickstart?: { activeEpisode?: { id?: string } };
           }>('memory_quickstart', {
             sessionName: `opencode-${sessionId}`,
             sessionPurpose: 'OpenCode session',
             autoEpisode: true,
           });
 
-          // Log relevant experiences if any
           const experiences = result?.context?.experiences ?? [];
           if (experiences.length > 0) {
             const expSummary = experiences
@@ -327,10 +352,18 @@ export const AgentMemoryPlugin: Plugin = async ({ client, directory, worktree })
             console.log(`[agent-memory] Relevant experiences: ${expSummary}`);
           }
 
-          // Track active episode for auto-logging
-          const episodeId = result?.episode?.id;
+          const episodeId = result?.quickstart?.activeEpisode?.id;
           if (episodeId) {
             mcpClient.setEpisodeId(episodeId);
+            if (conversationId) {
+              mcpClient
+                .callTool('memory_episode', {
+                  action: 'update',
+                  id: episodeId,
+                  conversationId,
+                })
+                .catch(() => {});
+            }
           }
 
           // F9: Warm session cache (non-blocking)
@@ -379,6 +412,17 @@ export const AgentMemoryPlugin: Plugin = async ({ client, directory, worktree })
               outcomeType: 'success',
             });
             mcpClient.setEpisodeId(undefined);
+          }
+
+          // End active conversation if exists
+          const conversationId = mcpClient.getConversationId();
+          if (conversationId) {
+            await mcpClient.callTool('memory_conversation', {
+              action: 'end',
+              conversationId,
+              generateSummary: true,
+            });
+            mcpClient.setConversationId(undefined);
           }
 
           // End session and capture transcript
@@ -430,7 +474,7 @@ export const AgentMemoryPlugin: Plugin = async ({ client, directory, worktree })
         }
       }
 
-      // Assistant Response Capture - log to episode
+      // Assistant Response Capture - log to episode and conversation
       if (event.type === 'message.updated') {
         const props = event.properties as { role?: string; content?: unknown };
         const role = props?.role;
@@ -439,8 +483,9 @@ export const AgentMemoryPlugin: Plugin = async ({ client, directory, worktree })
         if (role === 'assistant' && content) {
           const contentStr = typeof content === 'string' ? content : JSON.stringify(content);
 
-          // Log to active episode as message event
           const episodeId = mcpClient.getEpisodeId();
+          const conversationId = mcpClient.getConversationId();
+
           if (episodeId) {
             mcpClient
               .callTool('memory_episode', {
@@ -449,6 +494,17 @@ export const AgentMemoryPlugin: Plugin = async ({ client, directory, worktree })
                 message: contentStr.slice(0, 500),
                 eventType: 'checkpoint',
                 data: { role: 'assistant', fullLength: contentStr.length },
+              })
+              .catch(() => {});
+          }
+
+          if (conversationId) {
+            mcpClient
+              .callTool('memory_conversation', {
+                action: 'add_message',
+                conversationId,
+                role: 'agent',
+                content: contentStr,
               })
               .catch(() => {});
           }
@@ -493,18 +549,31 @@ export const AgentMemoryPlugin: Plugin = async ({ client, directory, worktree })
       await ensureProjectId();
       const inp = input as { sessionID?: string };
 
-      // Log user message to episode
+      // Log user message to episode and conversation
       const episodeId = mcpClient.getEpisodeId();
-      if (episodeId && !text.toLowerCase().startsWith('!am')) {
-        mcpClient
-          .callTool('memory_episode', {
-            action: 'log',
-            id: episodeId,
-            message: text.slice(0, 500),
-            eventType: 'checkpoint',
-            data: { role: 'user', fullLength: text.length },
-          })
-          .catch(() => {});
+      const conversationId = mcpClient.getConversationId();
+      if (!text.toLowerCase().startsWith('!am')) {
+        if (episodeId) {
+          mcpClient
+            .callTool('memory_episode', {
+              action: 'log',
+              id: episodeId,
+              message: text.slice(0, 500),
+              eventType: 'checkpoint',
+              data: { role: 'user', fullLength: text.length },
+            })
+            .catch(() => {});
+        }
+        if (conversationId) {
+          mcpClient
+            .callTool('memory_conversation', {
+              action: 'add_message',
+              conversationId,
+              role: 'user',
+              content: text,
+            })
+            .catch(() => {});
+        }
       }
 
       // Handle !am commands

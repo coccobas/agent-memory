@@ -475,5 +475,5 @@ agent-memory mcp
 ## See Also
 
 - [Troubleshooting](troubleshooting.md) - Common issues
-- [Environment Variables](../reference/environment-variables.md) - All configuration
+- [Environment Variables](../reference/env-vars.md) - All configuration
 - [Architecture](../explanation/architecture.md) - System design

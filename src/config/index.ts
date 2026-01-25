@@ -410,7 +410,7 @@ export interface Config {
     autoLogEnabled: boolean;
     debounceMs: number;
     autoCreateEnabled: boolean;
-    // Boundary detection settings
+    autoCreateEpisodeOnFirstTool: boolean;
     boundaryDetectionEnabled: boolean;
     boundaryShadowMode: boolean;
     boundaryWindowSize: number;
@@ -434,6 +434,21 @@ export interface Config {
     customDefault: number;
     customMin: number;
     customMax: number;
+  };
+  classifier: {
+    enabled: boolean;
+    baseUrl: string;
+    model: string;
+    timeoutMs: number;
+    temperature: number;
+    maxTokens: number;
+    autoStoreThreshold: number;
+    suggestThreshold: number;
+    queueMaxSize: number;
+    queueProcessingIntervalMs: number;
+    queueMaxConcurrent: number;
+    fallbackThreshold: number;
+    fallbackEnabled: boolean;
   };
 }
 

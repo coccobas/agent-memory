@@ -352,7 +352,7 @@ Do not edit manually.
 
 | File                                    | Generator       | Command                     |
 | --------------------------------------- | --------------- | --------------------------- |
-| `reference/environment-variables.md`    | Config registry | `npm run docs:generate:env` |
+| `reference/env-vars.md`                 | Config registry | `npm run docs:generate:env` |
 | `reference/mcp-tools.md` (tool schemas) | MCP descriptors | `npm run docs:generate:mcp` |
 
 ---

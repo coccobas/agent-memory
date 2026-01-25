@@ -12,6 +12,7 @@ import type {
   IEpisodeRepository,
   INodeRepository,
   IEdgeRepository,
+  IConversationRepository,
   CreateEpisodeInput,
   UpdateEpisodeInput,
   ListEpisodesFilter,
@@ -54,19 +55,25 @@ export interface TimelineEntry {
   data?: Record<string, unknown>;
 }
 
-/**
- * What happened result - comprehensive view of an episode
- */
+export interface MessageSummary {
+  id: string;
+  role: string;
+  content: string;
+  createdAt: string;
+}
+
 export interface WhatHappenedResult {
   episode: EpisodeWithEvents;
   timeline: TimelineEntry[];
   linkedEntities: LinkedEntity[];
   childEpisodes: EpisodeWithEvents[];
+  messages: MessageSummary[];
   metrics: {
     durationMs: number | null;
     eventCount: number;
     linkedEntityCount: number;
     childEpisodeCount: number;
+    messageCount: number;
   };
 }
 
@@ -79,20 +86,15 @@ export interface CausalChainEntry {
   relationship: 'caused_by' | 'caused' | 'continued_from' | 'continued_by' | 'self';
 }
 
-/**
- * Episode Service Dependencies
- */
 export interface EpisodeServiceDeps {
   episodeRepo: IEpisodeRepository;
   nodeRepo?: INodeRepository;
   edgeRepo?: IEdgeRepository;
+  conversationRepo?: IConversationRepository;
 }
 
-/**
- * Create the Episode Service
- */
 export function createEpisodeService(deps: EpisodeServiceDeps) {
-  const { episodeRepo, nodeRepo, edgeRepo } = deps;
+  const { episodeRepo, nodeRepo, edgeRepo, conversationRepo } = deps;
 
   return {
     // ==========================================================================
@@ -370,19 +372,22 @@ export function createEpisodeService(deps: EpisodeServiceDeps) {
         throw createNotFoundError('episode', episodeId);
       }
 
-      // Get events
       const events = episode.events ?? [];
-
-      // Get linked entities
       const linkedEntities = await this.getLinkedEntities(episodeId);
-
-      // Get child episodes
       const childEpisodes = await episodeRepo.getChildren(episodeId);
 
-      // Build timeline
+      const rawMessages = conversationRepo
+        ? await conversationRepo.getMessagesByEpisode(episodeId)
+        : [];
+      const messages: MessageSummary[] = rawMessages.map((m) => ({
+        id: m.id,
+        role: m.role,
+        content: m.content,
+        createdAt: m.createdAt,
+      }));
+
       const timeline: TimelineEntry[] = [];
 
-      // Add episode start
       if (episode.startedAt) {
         timeline.push({
           timestamp: episode.startedAt,
@@ -393,7 +398,6 @@ export function createEpisodeService(deps: EpisodeServiceDeps) {
         });
       }
 
-      // Add events
       for (const event of events) {
         timeline.push({
           timestamp: event.occurredAt,
@@ -408,7 +412,6 @@ export function createEpisodeService(deps: EpisodeServiceDeps) {
         });
       }
 
-      // Add episode end
       if (episode.endedAt) {
         timeline.push({
           timestamp: episode.endedAt,
@@ -420,7 +423,6 @@ export function createEpisodeService(deps: EpisodeServiceDeps) {
         });
       }
 
-      // Sort timeline
       timeline.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
 
       return {
@@ -428,11 +430,13 @@ export function createEpisodeService(deps: EpisodeServiceDeps) {
         timeline,
         linkedEntities,
         childEpisodes,
+        messages,
         metrics: {
           durationMs: episode.durationMs,
           eventCount: events.length,
           linkedEntityCount: linkedEntities.length,
           childEpisodeCount: childEpisodes.length,
+          messageCount: messages.length,
         },
       };
     },

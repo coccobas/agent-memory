@@ -34,6 +34,7 @@ import { createContextDetectionService } from '../../services/context-detection.
 import { createSessionTimeoutService } from '../../services/session-timeout.service.js';
 import { createAutoTaggingService } from '../../services/auto-tagging.service.js';
 import { createExtractionHookService } from '../../services/extraction-hook.service.js';
+import { createHybridExtractor } from '../../services/extraction/hybrid-extractor.js';
 import { createEpisodeService } from '../../services/episode/index.js';
 import { createEpisodeAutoLoggerService } from '../../services/episode-auto-logger.js';
 import {
@@ -224,21 +225,39 @@ export async function wireContext(input: WireContextInput): Promise<AppContext> 
   const extractionHookService = createExtractionHookService(config);
   services.extractionHook = extractionHookService;
 
-  // Create EpisodeService (temporal activity grouping and timeline queries)
+  // Create HybridExtractor (regex fast path + LLM classifier fallback)
+  const hybridExtractor = createHybridExtractor(
+    {
+      enabled: config.extractionHook?.enabled ?? false,
+      regexThreshold: config.extractionHook?.confidenceThreshold ?? 0.85,
+      llmAutoStoreThreshold: config.classifier.autoStoreThreshold,
+      llmSuggestThreshold: config.classifier.suggestThreshold,
+      fallbackThreshold: config.classifier.fallbackThreshold,
+      fallbackEnabled: config.classifier.fallbackEnabled,
+    },
+    extractionHookService
+  );
+  services.hybridExtractor = hybridExtractor;
+
+  if (config.classifier.fallbackEnabled && services.extraction) {
+    hybridExtractor.setFallbackClassifier((text) =>
+      services.extraction!.extractForClassification(text)
+    );
+    logger.debug('Hybrid extractor fallback wired to main extraction LLM');
+  }
+
   if (repos.episodes) {
     const episodeService = createEpisodeService({
       episodeRepo: repos.episodes,
       nodeRepo: repos.graphNodes,
       edgeRepo: repos.graphEdges,
+      conversationRepo: repos.conversations,
     });
     services.episode = episodeService;
     logger.debug('Episode service initialized');
 
-    // Create BoundaryDetectorService (automatic episode boundary detection)
-    // Phase 1 (shadowMode=true): logs boundaries without creating episodes
-    // Phase 2 (shadowMode=false): auto-creates episodes from detected boundaries
     const boundaryDetectionEnabled = config.episode?.boundaryDetectionEnabled ?? true;
-    const shadowMode = config.episode?.boundaryShadowMode ?? true;
+    const shadowMode = config.episode?.boundaryShadowMode ?? false;
 
     // Create boundary-to-episode callback for Phase 2 (auto-create mode)
     const boundaryCallbacks: BoundaryDetectorCallbacks | undefined = shadowMode
@@ -358,13 +377,12 @@ export async function wireContext(input: WireContextInput): Promise<AppContext> 
       logger.debug({ mode }, 'Episode boundary detector initialized');
     }
 
-    // Create EpisodeAutoLoggerService (automatic tool execution logging)
-    // Only create if episode repository is available
     const episodeAutoLogger = createEpisodeAutoLoggerService(
       repos.episodes,
       {
-        enabled: config.episode?.autoLogEnabled ?? false,
+        enabled: config.episode?.autoLogEnabled ?? true,
         debounceMs: config.episode?.debounceMs ?? 1000,
+        autoCreateEpisode: config.episode?.autoCreateEpisodeOnFirstTool ?? true,
       },
       boundaryDetector
     );

@@ -37,6 +37,7 @@ Actions:
 - get_events: Get all events for an episode
 - link_entity: Link an entry (guideline/knowledge/tool) to an episode
 - get_linked: Get all linked entities for an episode
+- get_messages: Get all conversation messages linked to an episode
 - get_timeline: Get timeline of all episodes and events for a session
 - what_happened: Get comprehensive "what happened during X?" summary
 - trace_causal_chain: Trace causal relationships between episodes
@@ -76,6 +77,7 @@ Example workflows:
     // Identity
     id: { type: 'string', description: 'Episode ID' },
     sessionId: { type: 'string', description: 'Session ID' },
+    conversationId: { type: 'string', description: 'Conversation ID to link episode to' },
     scopeType: {
       type: 'string',
       enum: ['global', 'org', 'project', 'session'],
@@ -182,6 +184,9 @@ Example workflows:
     // Entity linking
     link_entity: { contextHandler: episodeHandlers.link_entity },
     get_linked: { contextHandler: episodeHandlers.get_linked },
+
+    // Messages
+    get_messages: { contextHandler: episodeHandlers.get_messages },
 
     // Timeline and queries
     get_timeline: { contextHandler: episodeHandlers.get_timeline },

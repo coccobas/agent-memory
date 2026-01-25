@@ -259,6 +259,7 @@ export function createConversationRepository(deps: DatabaseDeps): IConversationR
               role: input.role,
               content: input.content,
               messageIndex: nextIndex,
+              episodeId: input.episodeId,
               contextEntries: input.contextEntries,
               toolsUsed: input.toolsUsed,
               metadata: input.metadata,
@@ -301,6 +302,24 @@ export function createConversationRepository(deps: DatabaseDeps): IConversationR
         .from(conversationMessages)
         .where(eq(conversationMessages.conversationId, conversationId))
         .orderBy(asc(conversationMessages.messageIndex));
+
+      if (limit !== undefined) {
+        query = query.limit(limit) as typeof query;
+      }
+
+      if (offset !== undefined) {
+        query = query.offset(offset) as typeof query;
+      }
+
+      return query.all();
+    },
+
+    async getMessagesByEpisode(episodeId: string, limit?: number, offset?: number) {
+      let query = db
+        .select()
+        .from(conversationMessages)
+        .where(eq(conversationMessages.episodeId, episodeId))
+        .orderBy(asc(conversationMessages.createdAt));
 
       if (limit !== undefined) {
         query = query.limit(limit) as typeof query;

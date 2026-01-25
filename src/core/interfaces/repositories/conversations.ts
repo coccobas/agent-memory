@@ -41,6 +41,7 @@ export interface AddMessageInput {
   conversationId: string;
   role: 'user' | 'agent' | 'system';
   content: string;
+  episodeId?: string;
   contextEntries?: Array<{ type: EntryType; id: string }>;
   toolsUsed?: string[];
   metadata?: Record<string, unknown>;
@@ -157,6 +158,7 @@ export interface IConversationRepository {
     role: 'user' | 'agent' | 'system';
     content: string;
     messageIndex: number;
+    episodeId: string | null;
     contextEntries: Array<{ type: EntryType; id: string }> | null;
     toolsUsed: string[] | null;
     metadata: Record<string, unknown> | null;
@@ -182,6 +184,34 @@ export interface IConversationRepository {
       role: 'user' | 'agent' | 'system';
       content: string;
       messageIndex: number;
+      episodeId: string | null;
+      contextEntries: Array<{ type: EntryType; id: string }> | null;
+      toolsUsed: string[] | null;
+      metadata: Record<string, unknown> | null;
+      createdAt: string;
+    }>
+  >;
+
+  /**
+   * Get messages for an episode.
+   * @param episodeId - Episode ID
+   * @param limit - Maximum number of messages
+   * @param offset - Number of messages to skip
+   * @returns Array of messages
+   * @throws {AgentMemoryError} E4000 - Database operation failed
+   */
+  getMessagesByEpisode(
+    episodeId: string,
+    limit?: number,
+    offset?: number
+  ): Promise<
+    Array<{
+      id: string;
+      conversationId: string;
+      role: 'user' | 'agent' | 'system';
+      content: string;
+      messageIndex: number;
+      episodeId: string | null;
       contextEntries: Array<{ type: EntryType; id: string }> | null;
       toolsUsed: string[] | null;
       metadata: Record<string, unknown> | null;

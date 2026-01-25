@@ -10,6 +10,7 @@
 import { sqliteTable, text, integer, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 import { sessions } from './scopes.js';
+import { conversations } from './conversations.js';
 
 /**
  * Episode status enum
@@ -36,8 +37,8 @@ export const episodes = sqliteTable(
     scopeType: text('scope_type', { enum: ['global', 'org', 'project', 'session'] }).notNull(),
     scopeId: text('scope_id'),
     sessionId: text('session_id').references(() => sessions.id, { onDelete: 'cascade' }),
+    conversationId: text('conversation_id').references(() => conversations.id),
 
-    // Identity
     name: text('name').notNull(),
     description: text('description'),
 
@@ -79,6 +80,7 @@ export const episodes = sqliteTable(
   },
   (table) => [
     index('idx_episodes_session').on(table.sessionId),
+    index('idx_episodes_conversation').on(table.conversationId),
     index('idx_episodes_status').on(table.status),
     index('idx_episodes_time_range').on(table.startedAt, table.endedAt),
     index('idx_episodes_scope').on(table.scopeType, table.scopeId),

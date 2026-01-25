@@ -233,7 +233,7 @@ npm run sync-rules:watch
 | Rule File                   | Content                                  |
 | :-------------------------- | :--------------------------------------- |
 | `auto-memory-core.md`       | Essential workflow (query → store → tag) |
-| `auto-memory-reference.md`  | All 20+ MCP tools with parameters        |
+| `auto-memory-reference.md`  | All 50 MCP tools with parameters         |
 | `auto-memory-examples.md`   | Real-world usage patterns                |
 | `auto-memory-strategies.md` | Optimization and best practices          |
 
@@ -279,7 +279,7 @@ AGENT_MEMORY_REST_API_KEY=your-secret
 AGENT_MEMORY_PERMISSIONS_MODE=permissive
 ```
 
-[→ Full configuration reference](docs/reference/environment-variables.md)
+[→ Full configuration reference](docs/reference/env-vars.md)
 
 ---
 
@@ -288,9 +288,8 @@ AGENT_MEMORY_PERMISSIONS_MODE=permissive
 | Resource                                           | Description               |
 | :------------------------------------------------- | :------------------------ |
 | [Quickstart](docs/tutorials/quickstart.md)         | Get running in 2 minutes  |
-| [Docker Deployment](docs/guides/docker.md)         | Container deployment      |
 | [First Workflow](docs/tutorials/first-workflow.md) | Full setup guide          |
-| [MCP Tools](docs/reference/mcp-tools.md)           | All 20+ tools documented  |
+| [MCP Tools](docs/reference/mcp-tools.md)           | All 50 tools documented   |
 | [Hooks Guide](docs/guides/hooks.md)                | IDE hooks for enforcement |
 | [Rules Sync](docs/guides/rules-sync.md)            | Sync guidelines to IDEs   |
 | [IDE Setup](docs/guides/ide-setup.md)              | Claude, Cursor, VS Code   |
@@ -303,8 +302,8 @@ AGENT_MEMORY_PERMISSIONS_MODE=permissive
 | Feature                                       | Status            |
 | :-------------------------------------------- | :---------------- |
 | macOS                                         | ✅ Supported      |
-| Windows                                       | 🧪 Not tested     |
-| Linux                                         | 🧪 Not tested     |
+| Windows                                       | 📝 Documented     |
+| Linux                                         | 📝 Documented     |
 | Claude Code hooks                             | ✅ Supported      |
 | Cursor hooks                                  | 🚧 In development |
 | VS Code hooks                                 | 🚧 In development |

@@ -9,7 +9,9 @@ import { TOOL_LABELS } from './constants.js';
 import type { DetectedContext } from '../services/context-detection.service.js';
 import { getGitBranch, formatBranchForSession } from '../utils/git.js';
 import type { ExtractionSuggestion } from '../services/extraction-hook.service.js';
+import type { PendingSuggestion } from '../services/extraction/hybrid-extractor.js';
 import { logAction } from '../utils/action-logger.js';
+import { getWorkingDirectory } from '../utils/working-directory.js';
 
 /**
  * Build a compact badge string from detected context
@@ -153,10 +155,10 @@ export async function runTool(
     };
   }
 
+  let detectedContext: DetectedContext | undefined;
+
   try {
-    // Auto-enrich parameters with detected context (project, session, agentId)
     let enrichedArgs = args ?? {};
-    let detectedContext: DetectedContext | undefined;
 
     if (context.services.contextDetection && context.config.autoContext.enabled) {
       const enrichment = await context.services.contextDetection.enrichParams(enrichedArgs);
@@ -239,32 +241,44 @@ export async function runTool(
       result !== null &&
       CONTEXT_METADATA_TOOLS.has(name);
 
-    // Scan for extraction suggestions on write operations
-    // Adds gentle hints about storable patterns found in the content
+    // Scan for extraction suggestions on write operations using hybrid extractor
+    // Regex fast path (~1ms) + LLM classifier fallback (async, ~100-300ms)
     let suggestions: ExtractionSuggestion[] = [];
+    let pendingSuggestions: PendingSuggestion[] = [];
     if (
       context.config.extractionHook.enabled &&
-      context.services.extractionHook &&
+      context.services.hybridExtractor &&
       EXTRACTION_SCAN_TOOLS.has(name) &&
+      context.services.extractionHook &&
       !context.services.extractionHook.isCooldownActive()
     ) {
-      // Extract content from args for scanning
       const contentToScan = extractContentForScanning(args);
       if (contentToScan) {
         try {
-          const scanResult = await context.services.extractionHook.scan(contentToScan);
-          if (!scanResult.skipped && scanResult.suggestions.length > 0) {
-            suggestions = scanResult.suggestions;
+          const hybridResult = await context.services.hybridExtractor.extract(contentToScan, {
+            sessionId: detectedContext?.session?.id ?? 'unknown',
+            projectId: detectedContext?.project?.id,
+          });
+
+          if (hybridResult.regexMatches.length > 0) {
+            suggestions = hybridResult.regexMatches;
             context.services.extractionHook.recordScan();
             logger.debug(
-              { tool: name, suggestionCount: suggestions.length },
-              'Extraction suggestions found'
+              {
+                tool: name,
+                regexMatches: hybridResult.regexMatches.length,
+                queuedForLlm: hybridResult.queuedForLlm,
+                autoStoreCount: hybridResult.autoStoreCount,
+              },
+              'Hybrid extraction completed'
             );
           }
+
+          pendingSuggestions = context.services.hybridExtractor.getPendingSuggestions();
         } catch (scanError) {
           logger.debug(
             { error: scanError instanceof Error ? scanError.message : String(scanError) },
-            'Extraction scan failed (non-fatal)'
+            'Hybrid extraction failed (non-fatal)'
           );
         }
       }
@@ -284,15 +298,27 @@ export async function runTool(
       }
 
       // Add extraction suggestions if any found
-      if (suggestions.length > 0) {
+      if (suggestions.length > 0 || pendingSuggestions.length > 0) {
+        const regexItems = suggestions.map((s) => ({
+          type: s.type,
+          title: s.title,
+          confidence: s.confidence,
+          hash: s.hash,
+          source: 'regex' as const,
+        }));
+
+        const llmItems = pendingSuggestions.map((s) => ({
+          type: s.type,
+          title: s.title,
+          confidence: s.confidence,
+          hash: s.id,
+          source: 'llm' as const,
+        }));
+
+        const allItems = [...regexItems, ...llmItems];
         (finalResult as Record<string, unknown>)._suggestions = {
-          hint: `💡 ${suggestions.length} storable pattern${suggestions.length > 1 ? 's' : ''} detected. Use memory_extraction_approve to store.`,
-          items: suggestions.map((s) => ({
-            type: s.type,
-            title: s.title,
-            confidence: s.confidence,
-            hash: s.hash,
-          })),
+          hint: `💡 ${allItems.length} storable pattern${allItems.length > 1 ? 's' : ''} detected. Use memory_extraction_approve to store.`,
+          items: allItems,
         };
       }
     }
@@ -353,6 +379,17 @@ export async function runTool(
       durationMs: Date.now() - startTime,
       error: errorMessage,
     });
+
+    // Auto-log failure as episode error event
+    if (context.services.episodeAutoLogger?.isEnabled() && detectedContext?.session?.id) {
+      void context.services.episodeAutoLogger.logToolFailure({
+        toolName: name,
+        action,
+        success: false,
+        sessionId: detectedContext.session.id,
+        errorMessage,
+      });
+    }
 
     // Use unified error mapper
     const mapped = mapError(error);
@@ -481,11 +518,36 @@ function extractEventContext(
     const entryId = resultObj.entryId as string | undefined;
     context.entryId = id ?? entryId;
 
-    // For memory_remember, extract the created entry details
-    if (toolName === 'memory_remember' && resultObj.entry) {
-      const entry = resultObj.entry as Record<string, unknown>;
-      context.entryId = entry.id as string | undefined;
-      context.entryName = (entry.name as string) ?? (entry.title as string) ?? context.entryName;
+    // For memory_remember, extract the created entry details from 'stored' field
+    if (toolName === 'memory_remember' && resultObj.stored) {
+      const stored = resultObj.stored as Record<string, unknown>;
+      context.entryId = stored.id as string | undefined;
+      context.entryType = (stored.type as string) ?? context.entryType;
+      context.entryName = (stored.title as string) ?? context.entryName;
+    }
+
+    // For memory_experience with 'learn' action, extract from experience field
+    if (toolName === 'memory_experience' && resultObj.experience) {
+      const experience = resultObj.experience as Record<string, unknown>;
+      context.entryId = experience.id as string | undefined;
+      context.entryName = (experience.title as string) ?? context.entryName;
+    }
+
+    // For memory_guideline/knowledge/tool with add action, extract from entry-specific field
+    if (resultObj.guideline) {
+      const guideline = resultObj.guideline as Record<string, unknown>;
+      context.entryId = context.entryId ?? (guideline.id as string | undefined);
+      context.entryName = context.entryName ?? (guideline.name as string);
+    }
+    if (resultObj.knowledge) {
+      const knowledge = resultObj.knowledge as Record<string, unknown>;
+      context.entryId = context.entryId ?? (knowledge.id as string | undefined);
+      context.entryName = context.entryName ?? (knowledge.title as string);
+    }
+    if (resultObj.tool) {
+      const tool = resultObj.tool as Record<string, unknown>;
+      context.entryId = context.entryId ?? (tool.id as string | undefined);
+      context.entryName = context.entryName ?? (tool.name as string);
     }
   }
 
@@ -572,7 +634,7 @@ async function maybeAutoCreateProject(
 
   // Create auto-project
   try {
-    const cwd = process.cwd();
+    const cwd = getWorkingDirectory();
     const projectName = inferProjectName(cwd);
 
     const project = await context.repos.projects.create({
@@ -665,7 +727,7 @@ async function maybeAutoCreateSession(
   // Create auto-session with smart naming
   try {
     const effectiveAction = action ?? 'store'; // Default action for simple write tools
-    const cwd = detectedContext?.project?.rootPath ?? process.cwd();
+    const cwd = detectedContext?.project?.rootPath ?? getWorkingDirectory();
     const sessionName = inferSessionName(
       toolName,
       effectiveAction,

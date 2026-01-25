@@ -305,36 +305,36 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
             // Non-fatal - episode summary is optional
           }
         } else if (autoEpisode && sessionName) {
-          // No active episode - check if we should auto-create one
+          // No active episode - ALWAYS auto-create one when autoEpisode is enabled
+          // Zero-friction: episodes are created automatically, no pattern matching required
           const triggerMatch = detectEpisodeTrigger(sessionName);
-          if (triggerMatch.shouldCreate) {
-            episodeTrigger = {
-              type: triggerMatch.triggerType,
-              confidence: triggerMatch.confidence,
-            };
-            // Create and start episode
-            const createdEpisode = await ctx.services.episode.create({
-              sessionId,
-              scopeType: 'session',
-              scopeId: sessionId,
-              name: sessionName,
-              triggerType: 'auto_detection',
-              triggerRef: triggerMatch.triggerType ?? 'heuristic',
-              metadata: {
-                autoCreated: true,
-                triggerPatterns: triggerMatch.matchedPatterns,
-                triggerConfidence: triggerMatch.confidence,
-              },
-            });
-            // Start the episode immediately
-            const newEpisode = await ctx.services.episode.start(createdEpisode.id);
-            activeEpisode = {
-              id: newEpisode.id,
-              name: newEpisode.name,
-              status: newEpisode.status,
-            };
-            episodeAction = 'created';
-          }
+          episodeTrigger = {
+            type: triggerMatch.triggerType,
+            confidence: triggerMatch.confidence,
+          };
+          // Create and start episode
+          const createdEpisode = await ctx.services.episode.create({
+            sessionId,
+            scopeType: 'session',
+            scopeId: sessionId,
+            name: sessionName,
+            triggerType: 'auto_detection',
+            triggerRef: triggerMatch.triggerType ?? 'session_start',
+            metadata: {
+              autoCreated: true,
+              triggerPatterns: triggerMatch.matchedPatterns,
+              triggerConfidence: triggerMatch.confidence,
+              zeroFriction: true, // Flag indicating this was auto-created without pattern match
+            },
+          });
+          // Start the episode immediately
+          const newEpisode = await ctx.services.episode.start(createdEpisode.id);
+          activeEpisode = {
+            id: newEpisode.id,
+            name: newEpisode.name,
+            status: newEpisode.status,
+          };
+          episodeAction = 'created';
         }
       } catch {
         // Non-fatal - episode service may not be fully initialized

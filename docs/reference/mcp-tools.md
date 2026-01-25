@@ -569,6 +569,6 @@ Interactive step-by-step tutorial for Agent Memory. Guides new users through con
 
 - [REST API Reference](rest-api.md) - HTTP API for non-MCP integrations
 - [CLI Reference](cli.md) - Command-line interface
-- [Environment Variables](environment-variables.md) - All configuration options
+- [Environment Variables](env-vars.md) - All configuration options
 - [Tutorials](../tutorials/quickstart.md) - Getting started guide
 - [Architecture](../explanation/architecture.md) - System design

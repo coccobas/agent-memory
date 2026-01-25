@@ -255,5 +255,5 @@ Each agent should use a unique `agentId`:
 ## See Also
 
 - [Architecture](architecture.md) - System overview
-- [Environment Variables](../reference/environment-variables.md) - All security-related config
+- [Environment Variables](../reference/env-vars.md) - All security-related config
 - [Troubleshooting](../guides/troubleshooting.md) - Common security issues

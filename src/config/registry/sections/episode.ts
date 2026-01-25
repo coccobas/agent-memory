@@ -26,11 +26,18 @@ export const episodeSection: ConfigSectionMeta = {
       schema: z.number().int().min(0),
       parse: 'int',
     },
-    // Auto-create settings
     autoCreateEnabled: {
       envKey: 'AGENT_MEMORY_EPISODE_AUTO_CREATE',
       defaultValue: true,
       description: 'Enable automatic episode creation from session names.',
+      schema: z.boolean(),
+      parse: 'boolean',
+    },
+    autoCreateEpisodeOnFirstTool: {
+      envKey: 'AGENT_MEMORY_EPISODE_AUTO_CREATE_ON_FIRST_TOOL',
+      defaultValue: true,
+      description:
+        'Auto-create episode on first significant tool usage if none exists (zero-friction mode).',
       schema: z.boolean(),
       parse: 'boolean',
     },
@@ -75,8 +82,8 @@ export const episodeSection: ConfigSectionMeta = {
 };
 
 /**
- * Default list of tools that are significant enough to log
- * These are write operations that change memory state
+ * Default list of tools that are significant enough to log and can trigger episode creation.
+ * Includes both memory tools (change memory state) and external tools (file modifications).
  */
 export const DEFAULT_SIGNIFICANT_TOOLS = [
   'memory_remember',
@@ -86,6 +93,9 @@ export const DEFAULT_SIGNIFICANT_TOOLS = [
   'memory_experience',
   'memory_task',
   'memory_observe',
+  'Edit',
+  'Write',
+  'Bash',
 ] as const;
 
 /**

@@ -622,7 +622,7 @@ agent-memory voting list --task-id task-123
 | `AGENT_MEMORY_REST_API_KEY`   | REST API key                          |
 | `AGENT_MEMORY_OPENAI_API_KEY` | OpenAI API key (embeddings)           |
 
-See [Environment Variables](environment-variables.md) for complete reference.
+See [Environment Variables](env-vars.md) for complete reference.
 
 ---
 

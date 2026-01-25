@@ -324,4 +324,4 @@ AGENT_MEMORY_PG_CONNECTION_TIMEOUT_MS=30000
 
 - [Architecture](../explanation/architecture.md) - System design
 - [Redis Distributed](redis-distributed.md) - Multi-node scaling
-- [Environment Variables](../reference/environment-variables.md) - All config options
+- [Environment Variables](../reference/env-vars.md) - All config options

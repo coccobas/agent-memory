@@ -67,7 +67,7 @@ Precise technical specifications:
 - [MCP Tools](reference/mcp-tools.md) — Complete tool reference
 - [REST API](reference/rest-api.md) — HTTP API documentation
 - [CLI Commands](reference/cli.md) — Command-line interface
-- [Environment Variables](reference/environment-variables.md) — Configuration options
+- [Environment Variables](reference/env-vars.md) — Configuration options
 - [Error Codes](reference/error-codes.md) — Error reference
 
 ### [Explanation](explanation/) — Understanding-oriented
