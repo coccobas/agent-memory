@@ -266,6 +266,57 @@ const TOOL_PATTERNS: WeightedPattern[] = [
     baseWeight: 0.8,
     description: 'Make command',
   },
+  // High-priority CLI patterns - commands at start of text are very likely tools
+  {
+    id: 'tool_npm_start_text',
+    regex: /^npm\s+(run|install|test|start|build|exec|ci|init|publish)\s+/i,
+    type: 'tool',
+    baseWeight: 0.95,
+    description: 'NPM command at start of text',
+  },
+  {
+    id: 'tool_yarn_start_text',
+    regex: /^(yarn|pnpm|bun)\s+\w+/i,
+    type: 'tool',
+    baseWeight: 0.95,
+    description: 'Yarn/PNPM/Bun command at start',
+  },
+  {
+    id: 'tool_docker_start_text',
+    regex: /^docker(-compose)?\s+\w+/i,
+    type: 'tool',
+    baseWeight: 0.95,
+    description: 'Docker command at start',
+  },
+  {
+    id: 'tool_git_start_text',
+    regex:
+      /^git\s+(clone|pull|push|commit|checkout|branch|merge|rebase|log|status|diff|add|reset|stash)\b/i,
+    type: 'tool',
+    baseWeight: 0.95,
+    description: 'Git command at start',
+  },
+  {
+    id: 'tool_python_start_text',
+    regex: /^(python|python3|pip|pip3|pipenv|poetry)\s+/i,
+    type: 'tool',
+    baseWeight: 0.95,
+    description: 'Python command at start',
+  },
+  {
+    id: 'tool_node_start_text',
+    regex: /^(node|npx|tsx|ts-node|deno)\s+/i,
+    type: 'tool',
+    baseWeight: 0.95,
+    description: 'Node/TS/Deno command at start',
+  },
+  {
+    id: 'tool_shell_start_text',
+    regex: /^(bash|sh|zsh|curl|wget|ssh|scp|rsync|chmod|chown|mkdir|rm|cp|mv|cat|grep|sed|awk)\s+/i,
+    type: 'tool',
+    baseWeight: 0.9,
+    description: 'Shell command at start',
+  },
 ];
 
 // All patterns combined

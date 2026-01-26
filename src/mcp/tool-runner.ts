@@ -87,6 +87,30 @@ function inferProjectName(cwd: string): string {
 }
 
 /**
+ * Simple word-based similarity for duplicate detection
+ * Uses Jaccard similarity: |intersection| / |union|
+ * Filters out words with 2 or fewer characters to avoid noise
+ */
+function calculateWordSimilarity(a: string, b: string): number {
+  const wordsA = new Set(
+    a
+      .toLowerCase()
+      .split(/\s+/)
+      .filter((w) => w.length > 2)
+  );
+  const wordsB = new Set(
+    b
+      .toLowerCase()
+      .split(/\s+/)
+      .filter((w) => w.length > 2)
+  );
+  if (wordsA.size === 0 || wordsB.size === 0) return 0;
+  const intersection = new Set([...wordsA].filter((w) => wordsB.has(w)));
+  const union = new Set([...wordsA, ...wordsB]);
+  return intersection.size / union.size;
+}
+
+/**
  * Execute a tool by name with arguments
  * Handles rate limiting, database availability, and error formatting
  */
@@ -297,9 +321,36 @@ export async function runTool(
         };
       }
 
-      // Add extraction suggestions if any found
-      if (suggestions.length > 0 || pendingSuggestions.length > 0) {
-        const regexItems = suggestions.map((s) => ({
+      // Filter suggestions that are too similar to just-stored content (Issue #5)
+      // This prevents suggesting to store what was just stored
+      const storedResult = result as { stored?: { title?: string; content?: string } } | null;
+      const storedTitle = storedResult?.stored?.title?.toLowerCase() ?? '';
+      const storedContent = (
+        storedResult?.stored?.content ??
+        storedResult?.stored?.title ??
+        ''
+      ).toLowerCase();
+
+      const filteredSuggestions = suggestions.filter((s) => {
+        const suggestionText = s.title.toLowerCase();
+        // Filter if >80% similar to stored content
+        return (
+          calculateWordSimilarity(suggestionText, storedContent) < 0.8 &&
+          calculateWordSimilarity(suggestionText, storedTitle) < 0.8
+        );
+      });
+
+      const filteredPending = pendingSuggestions.filter((s) => {
+        const suggestionText = s.title.toLowerCase();
+        return (
+          calculateWordSimilarity(suggestionText, storedContent) < 0.8 &&
+          calculateWordSimilarity(suggestionText, storedTitle) < 0.8
+        );
+      });
+
+      // Add extraction suggestions if any found after filtering
+      if (filteredSuggestions.length > 0 || filteredPending.length > 0) {
+        const regexItems = filteredSuggestions.map((s) => ({
           type: s.type,
           title: s.title,
           confidence: s.confidence,
@@ -307,7 +358,7 @@ export async function runTool(
           source: 'regex' as const,
         }));
 
-        const llmItems = pendingSuggestions.map((s) => ({
+        const llmItems = filteredPending.map((s) => ({
           type: s.type,
           title: s.title,
           confidence: s.confidence,

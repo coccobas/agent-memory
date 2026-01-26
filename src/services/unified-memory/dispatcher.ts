@@ -47,6 +47,7 @@ export interface DispatchResult {
     id: string;
     title?: string;
     name?: string;
+    snippet?: string;
     score?: number;
   }>;
   session?: {
@@ -304,23 +305,33 @@ async function handleRetrieve(
 
   // Map query results to dispatch results format
   const results: DispatchResult['results'] = queryResult.results.map((r) => {
-    // Extract name/title from nested entity objects
     let name: string | undefined;
     let title: string | undefined;
+    let content: string | undefined;
 
     if (r.type === 'tool' && 'tool' in r) {
       name = r.tool.name;
+      content = (r.version as { description?: string } | undefined)?.description;
     } else if (r.type === 'guideline' && 'guideline' in r) {
       name = r.guideline.name;
+      content = (r.version as { content?: string } | undefined)?.content;
     } else if (r.type === 'knowledge' && 'knowledge' in r) {
       title = r.knowledge.title;
+      content = (r.version as { content?: string } | undefined)?.content;
     }
+
+    const snippet = content
+      ? content.length > 150
+        ? content.substring(0, 150) + '...'
+        : content
+      : undefined;
 
     return {
       type: r.type,
       id: r.id,
       ...(title ? { title } : {}),
       ...(name ? { name } : {}),
+      ...(snippet ? { snippet } : {}),
       score: r.score,
     };
   });

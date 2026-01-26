@@ -229,8 +229,21 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
       _context?: { project?: { id: string; name?: string } };
     };
     const detectedProjectId = projectId ?? contextWithMeta?._context?.project?.id;
-    const detectedProjectName =
+
+    let detectedProjectName: string | null =
       createdProjectName ?? contextWithMeta?._context?.project?.name ?? null;
+
+    // Fallback: fetch project name from DB if we have projectId but no name
+    if (!detectedProjectName && detectedProjectId) {
+      try {
+        const project = await ctx.repos.projects.getById(detectedProjectId);
+        if (project) {
+          detectedProjectName = project.name;
+        }
+      } catch {
+        // Non-fatal - fall back to null
+      }
+    }
 
     // Step 4: Optionally start session (or resume existing active session)
     let sessionResult: Record<string, unknown> | null = null;

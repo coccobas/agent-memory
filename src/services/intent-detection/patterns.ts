@@ -450,6 +450,8 @@ function extractParams(text: string, intent: Intent): Record<string, string> {
         .replace(/^(we|you|i|they)\s+(know|have|store|remember)\s+(about\s+)?/i, '')
         // Clean up leftover "I/we" after "How should I/we..." extraction
         .replace(/^(i|we)\s+/i, '')
+        // Clean up leading articles (the, a, an)
+        .replace(/^(the|a|an)\s+/i, '')
         // Clean up trailing question words
         .replace(/\?+$/, '')
         .trim();
