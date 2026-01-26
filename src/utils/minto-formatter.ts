@@ -199,6 +199,7 @@ export interface StatusMintoInput {
   graph?: { nodes: number; edges: number } | null;
   librarian?: { pendingRecommendations: number } | null;
   episode?: { id: string; name: string; status: string } | null;
+  ide?: { available: string[]; primary: string | null; conversationImportEnabled: boolean };
 }
 
 export function formatStatusMinto(input: StatusMintoInput): string {
@@ -232,6 +233,13 @@ export function formatStatusMinto(input: StatusMintoInput): string {
   }
   if (input.librarian && input.librarian.pendingRecommendations > 0) {
     statusItems.push(`${input.librarian.pendingRecommendations} pending recommendations`);
+  }
+  if (input.ide) {
+    if (input.ide.conversationImportEnabled && input.ide.primary) {
+      statusItems.push(`IDE: ${input.ide.primary} (conversation import enabled)`);
+    } else if (input.ide.available.length === 0) {
+      statusItems.push(`IDE: none detected`);
+    }
   }
   if (statusItems.length > 0) {
     sections.push({ heading: 'Status', items: statusItems });

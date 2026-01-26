@@ -588,6 +588,12 @@ interface StatusResponse {
     name: string;
     status: string;
   } | null;
+  /** Optional IDE status */
+  ide?: {
+    available: string[];
+    primary: string | null;
+    conversationImportEnabled: boolean;
+  };
 }
 
 /**
@@ -650,6 +656,15 @@ export function formatStatusTerminal(status: StatusResponse): string {
     } else {
       const word = status.librarian.pendingRecommendations > 1 ? 'patterns' : 'pattern';
       lines.push(`🔔 Librarian: ${status.librarian.pendingRecommendations} ${word} ready`);
+    }
+  }
+
+  // IDE status (if available)
+  if (status.ide) {
+    if (status.ide.conversationImportEnabled && status.ide.primary) {
+      lines.push(`💬 IDE: ${status.ide.primary} (conversation import enabled)`);
+    } else if (status.ide.available.length === 0) {
+      lines.push(`💬 IDE: none detected`);
     }
   }
 

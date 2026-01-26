@@ -16,6 +16,9 @@ export type Intent =
   | 'session_end'
   | 'forget'
   | 'list'
+  | 'list_episodes'
+  | 'list_sessions'
+  | 'status'
   | 'update'
   | 'episode_begin'
   | 'episode_log'
@@ -119,6 +122,31 @@ const INTENT_PATTERNS: Record<Intent, RegExp[]> = {
     /^show\s+(all\s+)?(my\s+)?(the\s+)?(guidelines?|knowledge|tools?|rules?)/i,
     /^(what|which)\s+(guidelines?|knowledge|tools?|rules?)\s+(do\s+we\s+have|are\s+there)/i,
     /^(get|fetch)\s+(all\s+)?/i,
+  ],
+
+  // List episodes specifically
+  list_episodes: [
+    /^(list|show)\s+(all\s+)?(my\s+)?(recent\s+)?episodes?/i,
+    /^(my\s+)?episodes?\s*(list)?/i,
+    /^(what|which)\s+episodes?\s+(do\s+I\s+have|are\s+there)/i,
+    /^recent\s+(work|tasks?|episodes?)/i,
+  ],
+
+  // List sessions specifically
+  list_sessions: [
+    /^(list|show)\s+(all\s+)?(my\s+)?(recent\s+)?sessions?/i,
+    /^(my\s+)?sessions?\s*(list)?/i,
+    /^(what|which)\s+sessions?\s+(do\s+I\s+have|are\s+there)/i,
+    /^recent\s+sessions?/i,
+  ],
+
+  // Status/dashboard
+  status: [
+    /^(show\s+)?status/i,
+    /^dashboard/i,
+    /^(what'?s?\s+)?(the\s+)?(current\s+)?state/i,
+    /^(memory\s+)?overview/i,
+    /^(show\s+me\s+)?where\s+(am\s+)?I(\s+at)?/i,
   ],
 
   // Update operations
