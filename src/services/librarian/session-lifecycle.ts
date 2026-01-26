@@ -47,6 +47,7 @@ export interface SessionLifecycleDeps {
   config: LibrarianConfig;
   analyze: (request: AnalysisRequest) => Promise<AnalysisResult>;
   runMaintenance: (request: MaintenanceRequest) => Promise<MaintenanceResult>;
+  runMaintenanceWithJob?: (request: MaintenanceRequest) => Promise<MaintenanceResult>;
 }
 
 /**
@@ -63,6 +64,7 @@ export class SessionLifecycleHandler {
   private config: LibrarianConfig;
   private analyze: (request: AnalysisRequest) => Promise<AnalysisResult>;
   private runMaintenance: (request: MaintenanceRequest) => Promise<MaintenanceResult>;
+  private runMaintenanceWithJob?: (request: MaintenanceRequest) => Promise<MaintenanceResult>;
 
   private lastSessionEnd?: SessionEndResult;
   private lastSessionStart?: SessionStartResult;
@@ -76,6 +78,7 @@ export class SessionLifecycleHandler {
     this.config = deps.config;
     this.analyze = deps.analyze;
     this.runMaintenance = deps.runMaintenance;
+    this.runMaintenanceWithJob = deps.runMaintenanceWithJob;
   }
 
   /**
@@ -440,7 +443,8 @@ export class SessionLifecycleHandler {
           'Running maintenance'
         );
 
-        const maintenanceResult = await this.runMaintenance({
+        const maintenanceRunner = this.runMaintenanceWithJob ?? this.runMaintenance;
+        const maintenanceResult = await maintenanceRunner({
           scopeType: 'project',
           scopeId: request.projectId,
           initiatedBy: request.agentId ?? 'session-end',
@@ -651,10 +655,11 @@ export class SessionLifecycleHandler {
         // Run lightweight consolidation only (no forgetting or graph backfill for speed)
         if (this.maintenanceOrchestrator) {
           try {
-            const maintenanceResult = await this.runMaintenance({
+            const maintenanceRunner = this.runMaintenanceWithJob ?? this.runMaintenance;
+            const maintenanceResult = await maintenanceRunner({
               scopeType: 'project',
               scopeId: request.projectId,
-              tasks: ['consolidation'], // Only consolidation for speed
+              tasks: ['consolidation'],
               initiatedBy: request.agentId ?? 'clear-hook',
               dryRun: false,
             });

@@ -24,6 +24,9 @@ export interface DispatchResult {
     | 'session_end'
     | 'forget'
     | 'list'
+    | 'list_episodes'
+    | 'list_sessions'
+    | 'status'
     | 'update'
     | 'episode_begin'
     | 'episode_log'
@@ -113,6 +116,12 @@ export async function dispatch(
         return await handleSessionEnd(intent, deps);
       case 'list':
         return await handleList(intent, deps);
+      case 'list_episodes':
+        return await handleListEpisodes(deps);
+      case 'list_sessions':
+        return await handleListSessions(deps);
+      case 'status':
+        return await handleStatus(deps);
       case 'forget':
         return handleForget(intent, deps);
       case 'update':
@@ -707,5 +716,126 @@ async function handleEpisodeQuery(
     status: 'error',
     message: 'Specify an episode ID or ensure you have an active session.',
     _context: { projectId, sessionId, agentId },
+  };
+}
+
+// =============================================================================
+// LIST & STATUS HANDLERS
+// =============================================================================
+
+async function handleListEpisodes(deps: DispatcherDeps): Promise<DispatchResult> {
+  const { context, projectId, sessionId, agentId } = deps;
+
+  if (!context.services.episode || !context.repos.episodes) {
+    return {
+      action: 'list_episodes',
+      status: 'error',
+      message: 'Episode service not available',
+    };
+  }
+
+  const episodes = await context.repos.episodes.list(
+    sessionId
+      ? { sessionId }
+      : projectId
+        ? { projectId }
+        : { scopeType: 'global' as const, scopeId: undefined },
+    { limit: 20 }
+  );
+
+  const results: DispatchResult['results'] = episodes.map((ep) => ({
+    type: 'episode',
+    id: ep.id,
+    name: ep.name,
+  }));
+
+  const scope = sessionId ? 'session' : projectId ? 'project' : 'global';
+
+  return {
+    action: 'list_episodes',
+    status: 'success',
+    message: `Found ${episodes.length} episodes in ${scope}`,
+    results,
+    _context: { projectId, sessionId, agentId },
+  };
+}
+
+async function handleListSessions(deps: DispatcherDeps): Promise<DispatchResult> {
+  const { context, projectId, agentId } = deps;
+
+  if (!projectId) {
+    return {
+      action: 'list_sessions',
+      status: 'error',
+      message: 'No project context. Create or select a project first.',
+    };
+  }
+
+  const sessions = await context.repos.sessions.list({ projectId }, { limit: 20 });
+
+  const results: DispatchResult['results'] = sessions.map((s) => ({
+    type: 'session',
+    id: s.id,
+    name: s.name ?? undefined,
+  }));
+
+  return {
+    action: 'list_sessions',
+    status: 'success',
+    message: `Found ${sessions.length} sessions`,
+    results,
+    _context: { projectId, agentId },
+  };
+}
+
+async function handleStatus(deps: DispatcherDeps): Promise<DispatchResult> {
+  const { context, projectId, sessionId, agentId } = deps;
+
+  const scopeFilter = {
+    scopeType: projectId ? ('project' as const) : ('global' as const),
+    scopeId: projectId,
+  };
+
+  const [guidelines, knowledge, tools] = await Promise.all([
+    context.repos.guidelines.list(scopeFilter, { limit: 1 }),
+    context.repos.knowledge.list(scopeFilter, { limit: 1 }),
+    context.repos.tools.list(scopeFilter, { limit: 1 }),
+  ]);
+
+  const guidelineCount = guidelines.length > 0 ? '1+' : '0';
+  const knowledgeCount = knowledge.length > 0 ? '1+' : '0';
+  const toolCount = tools.length > 0 ? '1+' : '0';
+
+  let activeEpisode: { id: string; name: string } | undefined;
+  if (sessionId && context.services.episode) {
+    const ep = await context.services.episode.getActiveEpisode(sessionId);
+    if (ep) {
+      activeEpisode = { id: ep.id, name: ep.name };
+    }
+  }
+
+  const summary = [
+    `Project: ${projectId ? 'connected' : 'none'}`,
+    `Session: ${sessionId ? 'active' : 'none'}`,
+    activeEpisode ? `Episode: ${activeEpisode.name}` : null,
+    `Memory: ${guidelineCount} guidelines, ${knowledgeCount} knowledge, ${toolCount} tools`,
+  ]
+    .filter(Boolean)
+    .join(' | ');
+
+  return {
+    action: 'status',
+    status: 'success',
+    message: summary,
+    _context: { projectId, sessionId, agentId },
+    ...(activeEpisode
+      ? {
+          episode: {
+            id: activeEpisode.id,
+            name: activeEpisode.name,
+            status: 'active',
+          },
+        }
+      : {}),
   };
 }

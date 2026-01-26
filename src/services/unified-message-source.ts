@@ -29,6 +29,17 @@ export interface GetMessagesOptions {
   before?: string;
 }
 
+export interface GetMessagesForEpisodeOptions {
+  limit?: number;
+  offset?: number;
+  /** Fallback: session ID for time-range query when episode_id not linked */
+  sessionId?: string;
+  /** Fallback: episode start time (ISO string) */
+  startedAt?: string;
+  /** Fallback: episode end time (ISO string), defaults to now if not provided */
+  endedAt?: string | null;
+}
+
 export interface LinkMessagesToEpisodeParams {
   episodeId: string;
   sessionId: string;
@@ -44,7 +55,7 @@ export interface IUnifiedMessageSource {
 
   getMessagesForEpisode(
     episodeId: string,
-    options?: { limit?: number; offset?: number }
+    options?: GetMessagesForEpisodeOptions
   ): Promise<{ messages: UnifiedMessage[]; source: MessageSource }>;
 
   getMessagesInTimeRange(
@@ -200,16 +211,42 @@ export function createUnifiedMessageSource(deps: UnifiedMessageSourceDeps): IUni
 
     async getMessagesForEpisode(
       episodeId: string,
-      options?: { limit?: number; offset?: number }
+      options?: GetMessagesForEpisodeOptions
     ): Promise<{ messages: UnifiedMessage[]; source: MessageSource }> {
       if (transcriptRepo) {
         const messages = await transcriptRepo.getMessagesByEpisode(episodeId, options);
         if (messages.length > 0) {
-          logger.debug({ episodeId, count: messages.length }, 'Found messages in transcript');
+          logger.debug(
+            { episodeId, count: messages.length },
+            'Found messages in transcript by episode_id'
+          );
           return {
             messages: messages.map(transcriptToUnified),
             source: 'transcript',
           };
+        }
+
+        if (options?.sessionId && options?.startedAt) {
+          const endTime = options.endedAt ?? new Date().toISOString();
+          logger.debug(
+            { episodeId, sessionId: options.sessionId, startedAt: options.startedAt, endTime },
+            'Falling back to time-range query for transcript messages'
+          );
+          const timeRangeMessages = await this.getMessagesInTimeRange(
+            options.sessionId,
+            options.startedAt,
+            endTime
+          );
+          if (timeRangeMessages.messages.length > 0) {
+            let filtered = timeRangeMessages.messages;
+            if (options.offset) {
+              filtered = filtered.slice(options.offset);
+            }
+            if (options.limit) {
+              filtered = filtered.slice(0, options.limit);
+            }
+            return { messages: filtered, source: timeRangeMessages.source };
+          }
         }
       }
 
