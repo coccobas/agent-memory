@@ -2,6 +2,22 @@
  * Conversation Repository
  *
  * Factory function that accepts DatabaseDeps for dependency injection.
+ *
+ * @deprecated This repository stores messages in `conversation_messages` table.
+ * For new code, prefer using `UnifiedMessageSource` service which provides
+ * transcript-first message retrieval with automatic fallback to this repository.
+ *
+ * Migration path:
+ * - Use `context.services.unifiedMessageSource.getMessagesForSession()` instead of
+ *   `conversationRepo.getMessages()`
+ * - Use `context.services.unifiedMessageSource.getMessagesForEpisode()` instead of
+ *   `conversationRepo.getMessagesByEpisode()`
+ * - Use `context.services.unifiedMessageSource.linkMessagesToEpisode()` instead of
+ *   `conversationRepo.linkMessagesToEpisode()`
+ *
+ * The `ide_transcript_messages` table is now the primary source for IDEs with
+ * transcript readers (e.g., OpenCode). This repository remains as fallback for
+ * IDEs without transcript readers.
  */
 
 import { eq, and, or, like, desc, asc, sql, inArray } from 'drizzle-orm';

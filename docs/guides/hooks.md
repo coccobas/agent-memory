@@ -384,6 +384,57 @@ AGENT_MEMORY_LOG_LEVEL=debug agent-memory hook pretooluse --project-id proj-123
 
 ---
 
+## Message Storage Architecture
+
+Agent Memory uses a **transcript-first** architecture for storing conversation messages:
+
+### Primary Source: IDE Transcripts
+
+For IDEs with transcript readers (e.g., OpenCode/Claude Code), messages are stored in `ide_transcript_messages`:
+
+- Imported on session start via `memory_quickstart`
+- Appended and sealed on session end
+- Linked to episodes for temporal queries
+- Supports relevance scoring for filtering
+
+### Fallback: Conversation Messages
+
+For IDEs without transcript readers, messages are stored in `conversation_messages`:
+
+- Ingested from transcript files via SessionEnd hook
+- Used when no IDE transcript is available
+
+### Unified Message Source
+
+The `UnifiedMessageSource` service provides a single interface for message retrieval:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    UNIFIED MESSAGE SOURCE                        │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  Query for messages                                             │
+│         ↓                                                       │
+│  Check for IDE transcript                                       │
+│         ↓                                                       │
+│  Found? → Use ide_transcript_messages                           │
+│  Not found? → Fall back to conversation_messages                │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Processing Coordination
+
+To prevent double processing when both MCP and hooks are active:
+
+1. **MCP triggers first**: When transcript is sealed, MCP marks session with `processingTriggeredAt`
+2. **Hook checks flag**: SessionEnd hook skips processing if MCP already triggered it
+3. **Fallback**: If MCP didn't trigger, hook runs full processing pipeline
+
+This ensures experiences and patterns are extracted exactly once per session.
+
+---
+
 ## See Also
 
 - [Rules Sync](rules-sync.md) — Sync guidelines to IDE rule files
