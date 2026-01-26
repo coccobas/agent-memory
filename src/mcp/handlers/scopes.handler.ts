@@ -33,6 +33,7 @@ import { getCorrelationId } from '../../utils/correlation.js';
 import { getInjectionTrackerService } from '../../services/injection-tracking/index.js';
 
 const logger = createComponentLogger('scopes');
+import { DEFAULT_LIBRARIAN_CONFIG } from '../../services/librarian/types.js';
 import type {
   OrgCreateParams,
   OrgListParams,
@@ -51,6 +52,47 @@ import type {
  */
 function isSessionStatus(value: unknown): value is 'active' | 'paused' | 'completed' | 'discarded' {
   return isString(value) && ['active', 'paused', 'completed', 'discarded'].includes(value);
+}
+
+interface SessionProcessingMetadata {
+  processingTriggeredAt?: string;
+  processingTriggeredBy?: 'mcp' | 'hook';
+}
+
+function getProcessingMetadata(
+  metadata: Record<string, unknown> | null
+): SessionProcessingMetadata | null {
+  if (!metadata) return null;
+  const processingTriggeredAt = metadata.processingTriggeredAt;
+  const processingTriggeredBy = metadata.processingTriggeredBy;
+  if (typeof processingTriggeredAt === 'string') {
+    return {
+      processingTriggeredAt,
+      processingTriggeredBy:
+        processingTriggeredBy === 'mcp' || processingTriggeredBy === 'hook'
+          ? processingTriggeredBy
+          : undefined,
+    };
+  }
+  return null;
+}
+
+async function markProcessingTriggered(
+  context: AppContext,
+  sessionId: string,
+  triggeredBy: 'mcp' | 'hook'
+): Promise<void> {
+  const session = await context.repos.sessions.getById(sessionId);
+  if (!session) return;
+
+  const existingMetadata = (session.metadata as Record<string, unknown>) ?? {};
+  await context.repos.sessions.update(sessionId, {
+    metadata: {
+      ...existingMetadata,
+      processingTriggeredAt: new Date().toISOString(),
+      processingTriggeredBy: triggeredBy,
+    },
+  });
 }
 
 export const scopeHandlers = {
@@ -396,12 +438,62 @@ export const scopeHandlers = {
       triggerSessionEndMaintenance(session.projectId, context);
     }
 
+    // Append new messages and seal the transcript
+    let transcriptSealed = false;
+    if (context.services.transcript && status !== 'discarded') {
+      try {
+        const projectPath = session.projectId
+          ? (await context.repos.projects.getById(session.projectId))?.rootPath
+          : undefined;
+        const ideSessionId = await context.services.transcript.getCurrentIDESessionId(
+          projectPath ?? undefined
+        );
+        if (ideSessionId) {
+          const transcript = await context.repos.ideTranscripts?.getByIDESession(
+            'opencode',
+            ideSessionId
+          );
+          if (transcript && !transcript.isSealed) {
+            await context.services.transcript.seal(transcript.id);
+            transcriptSealed = true;
+            logger.debug(
+              { transcriptId: transcript.id, sessionId: id },
+              'Sealed transcript on session end'
+            );
+
+            // Trigger processing pipeline on transcript seal (async, non-blocking)
+            if (DEFAULT_LIBRARIAN_CONFIG.triggerOnSessionEnd) {
+              const existingProcessing = getProcessingMetadata(session.metadata);
+              if (!existingProcessing) {
+                await markProcessingTriggered(context, id, 'mcp');
+                triggerTranscriptProcessing(context, id, session.projectId, transcript.id);
+              } else {
+                logger.debug(
+                  {
+                    sessionId: id,
+                    triggeredAt: existingProcessing.processingTriggeredAt,
+                    triggeredBy: existingProcessing.processingTriggeredBy,
+                  },
+                  'Skipping processing - already triggered'
+                );
+              }
+            }
+          }
+        }
+      } catch (error) {
+        logger.warn(
+          { sessionId: id, error: error instanceof Error ? error.message : String(error) },
+          'Failed to seal transcript'
+        );
+      }
+    }
+
     // Clear context detection cache to prevent stale session data
     context.services.contextDetection?.clearCache();
 
     getInjectionTrackerService().clearSession(id);
 
-    return formatTimestamps({ success: true, session });
+    return formatTimestamps({ success: true, session, transcriptSealed });
   },
 
   async sessionList(context: AppContext, params: SessionListParams) {
@@ -419,6 +511,89 @@ export const scopeHandlers = {
     });
   },
 };
+
+function triggerTranscriptProcessing(
+  context: AppContext,
+  sessionId: string,
+  projectId: string | null,
+  transcriptId: string
+): void {
+  setImmediate(() => {
+    void (async () => {
+      try {
+        const librarianService = context.services.librarian;
+        if (!librarianService) {
+          logger.debug({ sessionId }, 'Librarian service unavailable, skipping processing');
+          return;
+        }
+
+        const unifiedMessageSource = context.services.unifiedMessageSource;
+        let messages: Array<{
+          role: 'user' | 'assistant' | 'system';
+          content: string;
+          createdAt?: string;
+          toolsUsed?: string[];
+        }> = [];
+
+        if (unifiedMessageSource) {
+          const result = await unifiedMessageSource.getMessagesForSession(sessionId, {
+            limit: 100,
+          });
+          messages = result.messages.map((msg) => ({
+            role:
+              msg.role === 'agent' ? 'assistant' : (msg.role as 'user' | 'assistant' | 'system'),
+            content: msg.content,
+            createdAt: msg.timestamp,
+            toolsUsed: msg.toolsUsed ?? undefined,
+          }));
+          logger.debug(
+            { sessionId, transcriptId, messageCount: messages.length, source: result.source },
+            'Retrieved messages for processing via unified source'
+          );
+        }
+
+        if (messages.length === 0) {
+          logger.debug({ sessionId, transcriptId }, 'No messages to process');
+          return;
+        }
+
+        const sessionEndResult = await librarianService.onSessionEnd({
+          sessionId,
+          projectId: projectId ?? undefined,
+          agentId: 'mcp',
+          messages,
+        });
+
+        const hasResults =
+          (sessionEndResult.capture?.experiencesExtracted ?? 0) > 0 ||
+          (sessionEndResult.missedExtraction?.queuedForReview ?? 0) > 0 ||
+          (sessionEndResult.analysis?.patternsDetected ?? 0) > 0;
+
+        if (hasResults) {
+          logger.info(
+            {
+              sessionId,
+              transcriptId,
+              durationMs: sessionEndResult.timing.durationMs,
+              experiences: sessionEndResult.capture?.experiencesExtracted ?? 0,
+              patterns: sessionEndResult.analysis?.patternsDetected ?? 0,
+            },
+            'Transcript processing completed via MCP'
+          );
+        }
+      } catch (error) {
+        logger.warn(
+          {
+            sessionId,
+            transcriptId,
+            error: error instanceof Error ? error.message : String(error),
+          },
+          'Transcript processing failed (non-fatal)'
+        );
+      }
+    })();
+  });
+}
 
 /**
  * Record session outcome for RL feedback collection

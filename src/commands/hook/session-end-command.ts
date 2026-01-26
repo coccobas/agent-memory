@@ -308,7 +308,28 @@ export async function runSessionEndCommand(params: {
           const ctx = getContext();
           const librarianService = ctx.services.librarian;
 
-          if (librarianService) {
+          // Check if MCP already triggered processing (prevents double processing)
+          const session = await ctx.repos.sessions.getById(sessionId);
+          const sessionMetadata = session?.metadata as Record<string, unknown> | null;
+          const processingTriggeredAt = sessionMetadata?.processingTriggeredAt;
+          const processingTriggeredBy = sessionMetadata?.processingTriggeredBy;
+
+          if (processingTriggeredAt && processingTriggeredBy === 'mcp') {
+            logger.debug(
+              { sessionId, processingTriggeredAt, processingTriggeredBy },
+              'Skipping librarian processing - already triggered by MCP'
+            );
+          } else if (librarianService) {
+            // Mark processing as triggered by hook
+            if (session) {
+              await ctx.repos.sessions.update(sessionId, {
+                metadata: {
+                  ...sessionMetadata,
+                  processingTriggeredAt: new Date().toISOString(),
+                  processingTriggeredBy: 'hook',
+                },
+              });
+            }
             const unifiedMessageSource = ctx.services.unifiedMessageSource;
             let messages: Array<{
               role: 'user' | 'assistant' | 'system';
