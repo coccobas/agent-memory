@@ -18,6 +18,8 @@ import { createComponentLogger } from '../../utils/logger.js';
 const logger = createComponentLogger('maintenance-jobs-repository');
 
 export interface CreateMaintenanceJobInput {
+  /** Optional pre-generated job ID. If not provided, a new ID will be generated. */
+  id?: string;
   scopeType: ScopeType;
   scopeId?: string;
   tasks?: string[];
@@ -89,7 +91,7 @@ export function createMaintenanceJobRepository(deps: DatabaseDeps): IMaintenance
   const repo: IMaintenanceJobRepository = {
     async create(input: CreateMaintenanceJobInput): Promise<MaintenanceJobRecord> {
       return await transactionWithRetry(sqlite, () => {
-        const jobId = generateJobId();
+        const jobId = input.id ?? generateJobId();
         const now = new Date().toISOString();
 
         const tasksToRun = input.tasks ?? [

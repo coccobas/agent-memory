@@ -22,6 +22,7 @@ export * from './conversations.js';
 export * from './knowledge-graph.js';
 export * from './temporal.js';
 export * from './analytics.js';
+export * from './ide-transcripts.js';
 
 // Re-export external repository interfaces
 import type {
@@ -50,6 +51,7 @@ import type {
 import type { IConversationRepository } from './conversations.js';
 import type { ITypeRegistry, INodeRepository, IEdgeRepository } from './knowledge-graph.js';
 import type { IEpisodeRepository } from './temporal.js';
+import type { IIDETranscriptRepository } from './ide-transcripts.js';
 import type {
   IAnalyticsRepository,
   IVotingRepository,
@@ -91,4 +93,6 @@ export interface Repositories {
   episodes?: IEpisodeRepository;
   // Hook metrics repository (Claude Code hook analytics)
   hookMetrics?: IHookMetricsRepository;
+  // IDE Transcripts (Immutable conversation archive)
+  ideTranscripts?: IIDETranscriptRepository;
 }

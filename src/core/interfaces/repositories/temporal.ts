@@ -20,6 +20,7 @@ import type { PaginationOptions } from '../../../db/repositories/base.js';
 export interface CreateEpisodeInput {
   scopeType: ScopeType;
   scopeId?: string;
+  projectId?: string;
   sessionId?: string;
   conversationId?: string;
   name: string;
@@ -45,6 +46,7 @@ export interface UpdateEpisodeInput {
 export interface ListEpisodesFilter {
   scopeType?: ScopeType;
   scopeId?: string;
+  projectId?: string;
   sessionId?: string;
   status?: EpisodeStatus;
   parentEpisodeId?: string;

@@ -29,6 +29,7 @@ import { createTaskRepository } from '../../db/repositories/tasks.js';
 import { createEvidenceRepository } from '../../db/repositories/evidence.js';
 import { createEpisodeRepository } from '../../db/repositories/episodes.js';
 import { createHookMetricsRepository } from '../../db/repositories/hook-metrics.js';
+import { createIDETranscriptRepository } from '../../db/repositories/ide-transcripts.js';
 
 /**
  * Create all repositories with injected dependencies
@@ -70,5 +71,7 @@ export function createRepositories(deps: DatabaseDeps): Repositories {
     episodes: createEpisodeRepository(deps),
     // Hook metrics repository (Claude Code hook analytics)
     hookMetrics: createHookMetricsRepository(deps.db),
+    // IDE Transcripts (Immutable conversation archive)
+    ideTranscripts: createIDETranscriptRepository(deps),
   };
 }
