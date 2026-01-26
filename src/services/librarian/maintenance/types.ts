@@ -78,6 +78,22 @@ export interface GraphBackfillConfig {
 }
 
 /**
+ * Embedding backfill task configuration
+ */
+export interface EmbeddingBackfillConfig {
+  /** Enable embedding backfill during maintenance */
+  enabled: boolean;
+  /** Batch size for processing entries */
+  batchSize: number;
+  /** Delay between batches in milliseconds */
+  delayMs: number;
+  /** Maximum entries to backfill per run */
+  maxEntries: number;
+  /** Entry types to process */
+  entryTypes: Array<'tool' | 'guideline' | 'knowledge'>;
+}
+
+/**
  * Latent memory population task configuration
  */
 export interface LatentPopulationConfig {
@@ -236,6 +252,117 @@ export interface ExperienceTitleImprovementConfig {
   genericTitlePattern: string;
 }
 
+// =============================================================================
+// ACCURACY IMPROVEMENT CONFIGURATIONS
+// =============================================================================
+
+/**
+ * Extraction quality improvement task configuration
+ *
+ * Analyzes retrieval patterns to identify what types of content are valuable
+ * and learns from implicit feedback (retrieved vs ignored entries).
+ */
+export interface ExtractionQualityConfig {
+  /** Enable extraction quality improvement during maintenance */
+  enabled: boolean;
+  /** Minimum sessions to analyze before generating insights */
+  minSessionsForAnalysis: number;
+  /** Days to look back for retrieval patterns */
+  lookbackDays: number;
+  /** Minimum retrievals for entry to be considered "high value" */
+  highValueRetrievalThreshold: number;
+  /** Maximum days without retrieval before entry is considered "low value" */
+  lowValueDaysThreshold: number;
+  /** Store learned patterns as experiences */
+  storeAsExperiences: boolean;
+  /** Maximum patterns to store per run */
+  maxPatternsPerRun: number;
+}
+
+/**
+ * Duplicate detection refinement task configuration
+ *
+ * Improves duplicate detection by analyzing retrieval patterns of similar entries
+ * and adjusting similarity thresholds based on actual usage.
+ */
+export interface DuplicateRefinementConfig {
+  /** Enable duplicate refinement during maintenance */
+  enabled: boolean;
+  /** Base similarity threshold for finding candidate duplicates */
+  baseSimilarityThreshold: number;
+  /** Minimum retrievals to consider entry "active" (not a duplicate candidate) */
+  minRetrievalsForActive: number;
+  /** If one similar entry has N times more retrievals, other might be duplicate */
+  dominanceRatio: number;
+  /** Maximum duplicate candidates to analyze per run */
+  maxCandidatesPerRun: number;
+  /** Store threshold adjustments as knowledge */
+  storeThresholdAdjustments: boolean;
+}
+
+/**
+ * Category accuracy tracking task configuration
+ *
+ * Tracks how well auto-categorization matches actual usage patterns
+ * and identifies systematic miscategorizations.
+ */
+export interface CategoryAccuracyConfig {
+  /** Enable category accuracy tracking during maintenance */
+  enabled: boolean;
+  /** Minimum retrievals to include entry in analysis */
+  minRetrievalsForAnalysis: number;
+  /** Categories to track accuracy for */
+  trackedCategories: string[];
+  /** Store miscategorization patterns as knowledge */
+  storeMiscategorizationPatterns: boolean;
+  /** Maximum entries to analyze per run */
+  maxEntriesPerRun: number;
+  /** Trigger re-categorization if confidence below threshold */
+  recategorizationThreshold: number;
+}
+
+/**
+ * Relevance calibration task configuration
+ *
+ * Calibrates confidence/relevance scores based on actual utility
+ * (retrieval patterns and success rates).
+ */
+export interface RelevanceCalibrationConfig {
+  /** Enable relevance calibration during maintenance */
+  enabled: boolean;
+  /** Number of confidence buckets for calibration curve */
+  confidenceBuckets: number;
+  /** Minimum entries per bucket for reliable calibration */
+  minEntriesPerBucket: number;
+  /** Store calibration curve as knowledge */
+  storeCalibrationCurve: boolean;
+  /** Apply calibration adjustments to new extractions */
+  applyToNewExtractions: boolean;
+  /** Maximum calibration adjustment factor (e.g., 0.2 = +/- 20%) */
+  maxAdjustmentFactor: number;
+}
+
+/**
+ * Feedback loop executor task configuration
+ *
+ * Aggregates signals from other accuracy tasks and applies improvements
+ * to extraction policies and configurations.
+ */
+export interface FeedbackLoopConfig {
+  /** Enable feedback loop execution during maintenance */
+  enabled: boolean;
+  /** Minimum confidence to apply learned improvements */
+  minConfidenceForApplication: number;
+  /** Store improvement decisions as knowledge */
+  storeImprovementDecisions: boolean;
+  /** Apply policy weight updates */
+  updatePolicyWeights: boolean;
+  /** Apply threshold adjustments */
+  updateThresholds: boolean;
+  /** Maximum improvements to apply per run */
+  maxImprovementsPerRun: number;
+}
+
 /**
  * Health calculation configuration
  */
@@ -247,6 +374,36 @@ export interface HealthConfig {
    */
   connectivityMode: 'inclusive' | 'strict';
 }
+
+/**
+ * Job queue configuration for auto-draining pending jobs
+ *
+ * Controls how the maintenance job queue behaves when jobs complete,
+ * including automatic processing of pending jobs, deduplication, and merging.
+ */
+export interface QueueConfig {
+  /** Maximum number of pending jobs allowed before rejecting new ones (default: 10) */
+  maxQueueDepth: number;
+  /** How long a pending job can wait before auto-expiring in milliseconds (default: 30 minutes) */
+  pendingJobExpirationMs: number;
+  /** Whether to skip pending jobs whose tasks were already covered by recent completions */
+  enableDeduplication: boolean;
+  /** Time window for considering a completed job as "recent" for deduplication in milliseconds (default: 5 minutes) */
+  deduplicationWindowMs: number;
+  /** Whether to merge multiple single-task pending jobs into one combined job */
+  enableMerging: boolean;
+}
+
+/**
+ * Default queue configuration
+ */
+export const DEFAULT_QUEUE_CONFIG: QueueConfig = {
+  maxQueueDepth: 10,
+  pendingJobExpirationMs: 30 * 60 * 1000, // 30 minutes
+  enableDeduplication: true,
+  deduplicationWindowMs: 5 * 60 * 1000, // 5 minutes
+  enableMerging: true,
+};
 
 /**
  * Unified maintenance configuration
@@ -264,6 +421,8 @@ export interface MaintenanceConfig {
   forgetting: ForgettingConfig;
   /** Graph backfill settings */
   graphBackfill: GraphBackfillConfig;
+  /** Embedding backfill settings */
+  embeddingBackfill: EmbeddingBackfillConfig;
   /** Latent memory population settings */
   latentPopulation: LatentPopulationConfig;
   /** Tag refinement settings */
@@ -280,6 +439,16 @@ export interface MaintenanceConfig {
   messageRelevanceScoring: MessageRelevanceScoringConfig;
   /** Experience title improvement settings */
   experienceTitleImprovement: ExperienceTitleImprovementConfig;
+  /** Extraction quality improvement settings */
+  extractionQuality: ExtractionQualityConfig;
+  /** Duplicate refinement settings */
+  duplicateRefinement: DuplicateRefinementConfig;
+  /** Category accuracy tracking settings */
+  categoryAccuracy: CategoryAccuracyConfig;
+  /** Relevance calibration settings */
+  relevanceCalibration: RelevanceCalibrationConfig;
+  /** Feedback loop execution settings */
+  feedbackLoop: FeedbackLoopConfig;
 }
 
 /**
@@ -308,7 +477,14 @@ export const DEFAULT_MAINTENANCE_CONFIG: MaintenanceConfig = {
   graphBackfill: {
     enabled: true,
     batchSize: 50,
-    maxEntries: 100, // Lower for session-end, higher for scheduled
+    maxEntries: 100,
+  },
+  embeddingBackfill: {
+    enabled: true,
+    batchSize: 50,
+    delayMs: 1000,
+    maxEntries: 100,
+    entryTypes: ['tool', 'guideline', 'knowledge'],
   },
   latentPopulation: {
     enabled: true,
@@ -365,6 +541,47 @@ export const DEFAULT_MAINTENANCE_CONFIG: MaintenanceConfig = {
     onlyGenericTitles: true,
     genericTitlePattern: '^Episode:\\s',
   },
+  extractionQuality: {
+    enabled: true,
+    minSessionsForAnalysis: 3,
+    lookbackDays: 30,
+    highValueRetrievalThreshold: 3,
+    lowValueDaysThreshold: 14,
+    storeAsExperiences: true,
+    maxPatternsPerRun: 10,
+  },
+  duplicateRefinement: {
+    enabled: true,
+    baseSimilarityThreshold: 0.85,
+    minRetrievalsForActive: 2,
+    dominanceRatio: 3,
+    maxCandidatesPerRun: 50,
+    storeThresholdAdjustments: true,
+  },
+  categoryAccuracy: {
+    enabled: true,
+    minRetrievalsForAnalysis: 2,
+    trackedCategories: ['decision', 'fact', 'context', 'reference', 'bug'],
+    storeMiscategorizationPatterns: true,
+    maxEntriesPerRun: 100,
+    recategorizationThreshold: 0.5,
+  },
+  relevanceCalibration: {
+    enabled: true,
+    confidenceBuckets: 5,
+    minEntriesPerBucket: 10,
+    storeCalibrationCurve: true,
+    applyToNewExtractions: false,
+    maxAdjustmentFactor: 0.2,
+  },
+  feedbackLoop: {
+    enabled: true,
+    minConfidenceForApplication: 0.7,
+    storeImprovementDecisions: true,
+    updatePolicyWeights: false,
+    updateThresholds: true,
+    maxImprovementsPerRun: 5,
+  },
 };
 
 // =============================================================================
@@ -384,6 +601,7 @@ export interface MaintenanceRequest {
     | 'consolidation'
     | 'forgetting'
     | 'graphBackfill'
+    | 'embeddingBackfill'
     | 'latentPopulation'
     | 'tagRefinement'
     | 'semanticEdgeInference'
@@ -392,6 +610,11 @@ export interface MaintenanceRequest {
     | 'messageInsightExtraction'
     | 'messageRelevanceScoring'
     | 'experienceTitleImprovement'
+    | 'extractionQuality'
+    | 'duplicateRefinement'
+    | 'categoryAccuracy'
+    | 'relevanceCalibration'
+    | 'feedbackLoop'
   >;
   /** Dry run - analyze without making changes */
   dryRun?: boolean;
@@ -453,6 +676,28 @@ export interface GraphBackfillResult {
   nodesCreated: number;
   /** Edges created */
   edgesCreated: number;
+  /** Duration in milliseconds */
+  durationMs: number;
+  /** Any errors encountered */
+  errors?: string[];
+}
+
+/**
+ * Result from embedding backfill task
+ */
+export interface EmbeddingBackfillResult {
+  /** Task was executed */
+  executed: boolean;
+  /** Total entries processed */
+  entriesProcessed: number;
+  /** Embeddings created */
+  embeddingsCreated: number;
+  /** Entries that already had embeddings (skipped) */
+  alreadyHadEmbeddings: number;
+  /** Failures */
+  failed: number;
+  /** Breakdown by entry type */
+  byType: Record<string, { processed: number; created: number; failed: number }>;
   /** Duration in milliseconds */
   durationMs: number;
   /** Any errors encountered */
@@ -604,6 +849,57 @@ export interface ExperienceTitleImprovementResult {
   errors?: string[];
 }
 
+export interface ExtractionQualityResult {
+  executed: boolean;
+  sessionsAnalyzed: number;
+  highValuePatternsFound: number;
+  lowValuePatternsFound: number;
+  experiencesCreated: number;
+  durationMs: number;
+  errors?: string[];
+}
+
+export interface DuplicateRefinementResult {
+  executed: boolean;
+  candidatesAnalyzed: number;
+  duplicatesIdentified: number;
+  thresholdAdjustments: number;
+  knowledgeEntriesCreated: number;
+  durationMs: number;
+  errors?: string[];
+}
+
+export interface CategoryAccuracyResult {
+  executed: boolean;
+  entriesAnalyzed: number;
+  miscategorizationsFound: number;
+  recategorizationsApplied: number;
+  patternsStored: number;
+  durationMs: number;
+  errors?: string[];
+}
+
+export interface RelevanceCalibrationResult {
+  executed: boolean;
+  entriesAnalyzed: number;
+  bucketsComputed: number;
+  calibrationCurveStored: boolean;
+  averageAdjustment: number;
+  durationMs: number;
+  errors?: string[];
+}
+
+export interface FeedbackLoopResult {
+  executed: boolean;
+  signalsProcessed: number;
+  improvementsApplied: number;
+  policyUpdates: number;
+  thresholdUpdates: number;
+  decisionsStored: number;
+  durationMs: number;
+  errors?: string[];
+}
+
 /**
  * Unified maintenance result
  */
@@ -620,6 +916,8 @@ export interface MaintenanceResult {
   forgetting?: ForgettingResult;
   /** Graph backfill results */
   graphBackfill?: GraphBackfillResult;
+  /** Embedding backfill results */
+  embeddingBackfill?: EmbeddingBackfillResult;
   /** Latent memory population results */
   latentPopulation?: LatentPopulationResult;
   /** Tag refinement results */
@@ -636,6 +934,16 @@ export interface MaintenanceResult {
   messageRelevanceScoring?: MessageRelevanceScoringResult;
   /** Experience title improvement results */
   experienceTitleImprovement?: ExperienceTitleImprovementResult;
+  /** Extraction quality improvement results */
+  extractionQuality?: ExtractionQualityResult;
+  /** Duplicate refinement results */
+  duplicateRefinement?: DuplicateRefinementResult;
+  /** Category accuracy tracking results */
+  categoryAccuracy?: CategoryAccuracyResult;
+  /** Relevance calibration results */
+  relevanceCalibration?: RelevanceCalibrationResult;
+  /** Feedback loop execution results */
+  feedbackLoop?: FeedbackLoopResult;
   /** Overall timing */
   timing: {
     startedAt: string;

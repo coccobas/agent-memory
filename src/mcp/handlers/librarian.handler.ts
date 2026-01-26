@@ -24,6 +24,7 @@ import type { IRecommendationStore } from '../../services/librarian/recommendati
 import {
   getMaintenanceJobManager,
   type MaintenanceJobStatus,
+  type MaintenanceJob,
 } from '../../services/librarian/maintenance/job-manager.js';
 import { createMaintenanceJobRepository } from '../../db/repositories/maintenance-jobs.js';
 
@@ -40,6 +41,23 @@ async function ensureJobManagerInitialized(context: AppContext): Promise<void> {
     jobManager.setRepository(repo);
     await jobManager.initialize();
   }
+
+  const service = getLibrarianServiceFromContext(context);
+  if (service) {
+    jobManager.setExecuteCallback(async (job: MaintenanceJob) => {
+      try {
+        const result = await service.runMaintenance(job.request, (taskName, status, taskResult) => {
+          void jobManager.updateTaskProgress(job.id, taskName, { status, result: taskResult });
+        });
+        await jobManager.completeJob(job.id, result);
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        await jobManager.failJob(job.id, errorMsg);
+        logger.error({ jobId: job.id, error: errorMsg }, 'Queue-started maintenance job failed');
+      }
+    });
+  }
+
   jobManagerInitialized = true;
 }
 

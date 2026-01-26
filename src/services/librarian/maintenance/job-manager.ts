@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { createComponentLogger } from '../../../utils/logger.js';
-import type { MaintenanceRequest, MaintenanceResult } from './types.js';
+import type { MaintenanceRequest, MaintenanceResult, QueueConfig } from './types.js';
+import { DEFAULT_QUEUE_CONFIG } from './types.js';
 import type {
   IMaintenanceJobRepository,
   MaintenanceJobRecord,
@@ -41,21 +42,34 @@ export interface JobManagerConfig {
   maxJobHistory: number;
   jobRetentionMs: number;
   maxConcurrentJobs: number;
+  queue?: QueueConfig;
 }
 
 const DEFAULT_CONFIG: JobManagerConfig = {
   maxJobHistory: 100,
   jobRetentionMs: 60 * 60 * 1000,
   maxConcurrentJobs: 1,
+  queue: DEFAULT_QUEUE_CONFIG,
 };
 
 const ALL_MAINTENANCE_TASKS = [
   'consolidation',
   'forgetting',
   'graphBackfill',
+  'embeddingBackfill',
   'latentPopulation',
   'tagRefinement',
   'semanticEdgeInference',
+  'toolTagAssignment',
+  'embeddingCleanup',
+  'messageRelevanceScoring',
+  'experienceTitleImprovement',
+  'messageInsightExtraction',
+  'extractionQuality',
+  'duplicateRefinement',
+  'categoryAccuracy',
+  'relevanceCalibration',
+  'feedbackLoop',
 ] as const;
 
 function parseJson<T>(json: string | null | undefined): T | undefined {
@@ -71,10 +85,20 @@ type MaintenanceTaskName =
   | 'consolidation'
   | 'forgetting'
   | 'graphBackfill'
+  | 'embeddingBackfill'
   | 'latentPopulation'
   | 'tagRefinement'
   | 'semanticEdgeInference'
-  | 'embeddingCleanup';
+  | 'toolTagAssignment'
+  | 'embeddingCleanup'
+  | 'messageRelevanceScoring'
+  | 'experienceTitleImprovement'
+  | 'messageInsightExtraction'
+  | 'extractionQuality'
+  | 'duplicateRefinement'
+  | 'categoryAccuracy'
+  | 'relevanceCalibration'
+  | 'feedbackLoop';
 
 function recordToJob(record: MaintenanceJobRecord): MaintenanceJob {
   const progress = parseJson<StoredJobProgress>(record.progress) ?? {
@@ -108,12 +132,15 @@ function recordToJob(record: MaintenanceJobRecord): MaintenanceJob {
   };
 }
 
+export type ExecuteCallback = (job: MaintenanceJob) => Promise<void>;
+
 export class MaintenanceJobManager {
   private jobs: Map<string, MaintenanceJob> = new Map();
   private config: JobManagerConfig;
   private cleanupInterval?: NodeJS.Timeout;
   private repository: IMaintenanceJobRepository | null = null;
   private initialized = false;
+  private executeCallback?: ExecuteCallback;
 
   constructor(config?: Partial<JobManagerConfig>) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -124,6 +151,24 @@ export class MaintenanceJobManager {
 
   setRepository(repo: IMaintenanceJobRepository): void {
     this.repository = repo;
+  }
+
+  setExecuteCallback(callback: ExecuteCallback): void {
+    this.executeCallback = callback;
+  }
+
+  private async invokeExecuteCallback(job: MaintenanceJob): Promise<void> {
+    if (!this.executeCallback) {
+      logger.warn({ jobId: job.id }, 'No execute callback set, job started but not executed');
+      return;
+    }
+
+    try {
+      await this.executeCallback(job);
+    } catch (err) {
+      logger.error({ jobId: job.id, err }, 'Execute callback failed');
+      await this.failJob(job.id, err instanceof Error ? err.message : 'Execute callback failed');
+    }
   }
 
   async initialize(): Promise<void> {
@@ -144,11 +189,27 @@ export class MaintenanceJobManager {
         this.jobs.set(job.id, job);
       }
 
+      for (const record of runningJobs) {
+        logger.warn(
+          { jobId: record.id },
+          'Found orphaned running job from previous server instance'
+        );
+        await this.failJob(record.id, 'Server restarted while job was running');
+      }
+
       this.initialized = true;
       logger.info(
-        { running: runningJobs.length, pending: pendingJobs.length },
+        { running: runningJobs.length, pending: pendingJobs.length, orphaned: runningJobs.length },
         'Loaded existing jobs from database'
       );
+
+      if (pendingJobs.length > 0) {
+        setImmediate(() => {
+          void this.processQueue().catch((err: unknown) => {
+            logger.error({ err }, 'Failed to process queue after initialization');
+          });
+        });
+      }
     } catch (error) {
       logger.warn({ error }, 'Failed to load jobs from database, starting fresh');
       this.initialized = true;
@@ -156,6 +217,19 @@ export class MaintenanceJobManager {
   }
 
   async createJob(request: MaintenanceRequest): Promise<MaintenanceJob> {
+    const maxDepth = this.config.queue?.maxQueueDepth ?? DEFAULT_QUEUE_CONFIG.maxQueueDepth;
+    const pendingCount = this.listJobs('pending').length;
+
+    if (pendingCount >= maxDepth) {
+      logger.warn({ pendingCount, maxDepth }, 'Queue depth limit reached, rejecting new job');
+      throw new Error(`Queue depth limit reached (${pendingCount}/${maxDepth}). Try again later.`);
+    }
+
+    const warningThreshold = Math.floor(maxDepth * 0.8);
+    if (pendingCount >= warningThreshold) {
+      logger.warn({ pendingCount, maxDepth }, 'Queue depth approaching limit');
+    }
+
     const id = `job_${uuidv4().slice(0, 8)}`;
     const now = new Date().toISOString();
     const tasksToRun = request.tasks ?? [...ALL_MAINTENANCE_TASKS];
@@ -177,6 +251,7 @@ export class MaintenanceJobManager {
     if (this.repository) {
       try {
         await this.repository.create({
+          id,
           scopeType: request.scopeType,
           scopeId: request.scopeId,
           tasks: tasksToRun,
@@ -345,6 +420,13 @@ export class MaintenanceJobManager {
       },
       'Job completed'
     );
+
+    // Trigger queue processing asynchronously to start next pending job
+    setImmediate(() => {
+      void this.processQueue().catch((err: unknown) => {
+        logger.error({ err }, 'Failed to process queue after job completion');
+      });
+    });
   }
 
   async failJob(id: string, error: string): Promise<void> {
@@ -371,6 +453,190 @@ export class MaintenanceJobManager {
     }
 
     logger.error({ jobId: id, error }, 'Job failed');
+
+    setImmediate(() => {
+      void this.processQueue().catch((err: unknown) => {
+        logger.error({ err }, 'Failed to process queue after job failure');
+      });
+    });
+  }
+
+  isJobExpired(job: MaintenanceJob): boolean {
+    const expirationMs =
+      this.config.queue?.pendingJobExpirationMs ?? DEFAULT_QUEUE_CONFIG.pendingJobExpirationMs;
+    const createdAt = new Date(job.createdAt).getTime();
+    return Date.now() - createdAt > expirationMs;
+  }
+
+  async cancelJob(id: string, reason: string): Promise<void> {
+    const job = this.jobs.get(id);
+    if (!job || job.status !== 'pending') return;
+
+    const now = new Date().toISOString();
+    job.status = 'failed';
+    job.completedAt = now;
+    job.error = reason;
+
+    if (this.repository) {
+      try {
+        await this.repository.update(id, {
+          status: 'failed',
+          completedAt: now,
+          error: reason,
+        });
+      } catch (error) {
+        logger.warn({ jobId: id, error }, 'Failed to update cancelled job in database');
+      }
+    }
+
+    logger.info({ jobId: id, reason }, 'Pending job cancelled');
+  }
+
+  getRecentCompletedJobs(windowMs?: number): MaintenanceJob[] {
+    const window =
+      windowMs ??
+      this.config.queue?.deduplicationWindowMs ??
+      DEFAULT_QUEUE_CONFIG.deduplicationWindowMs;
+    const cutoff = Date.now() - window;
+
+    return this.listJobs('completed').filter((job) => {
+      const completedAt = job.completedAt ? new Date(job.completedAt).getTime() : 0;
+      return completedAt >= cutoff;
+    });
+  }
+
+  isJobCoveredByRecent(job: MaintenanceJob, recentJobs: MaintenanceJob[]): boolean {
+    const jobTasks = new Set(job.progress.tasks.map((t) => t.name));
+
+    for (const completed of recentJobs) {
+      const completedTasks = new Set(
+        completed.progress.tasks.filter((t) => t.status === 'completed').map((t) => t.name)
+      );
+
+      const allTasksCovered = [...jobTasks].every((task) => completedTasks.has(task));
+      const sameScope =
+        job.request.scopeType === completed.request.scopeType &&
+        job.request.scopeId === completed.request.scopeId;
+
+      if (allTasksCovered && sameScope) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  async attemptMerge(pendingJobs: MaintenanceJob[]): Promise<MaintenanceJob | null> {
+    if (!(this.config.queue?.enableMerging ?? DEFAULT_QUEUE_CONFIG.enableMerging)) {
+      return null;
+    }
+
+    const byScope = new Map<string, MaintenanceJob[]>();
+    for (const job of pendingJobs) {
+      const key = `${job.request.scopeType}:${job.request.scopeId ?? 'global'}`;
+      const group = byScope.get(key) ?? [];
+      group.push(job);
+      byScope.set(key, group);
+    }
+
+    for (const [, jobs] of byScope) {
+      const singleTaskJobs = jobs.filter((j) => j.progress.totalTasks === 1);
+      if (singleTaskJobs.length < 2) continue;
+
+      const tasks = singleTaskJobs.flatMap((j) => j.progress.tasks.map((t) => t.name));
+      const uniqueTasks = [...new Set(tasks)] as Array<
+        | 'consolidation'
+        | 'forgetting'
+        | 'graphBackfill'
+        | 'embeddingBackfill'
+        | 'latentPopulation'
+        | 'tagRefinement'
+        | 'semanticEdgeInference'
+        | 'toolTagAssignment'
+        | 'embeddingCleanup'
+        | 'messageInsightExtraction'
+        | 'messageRelevanceScoring'
+        | 'experienceTitleImprovement'
+        | 'extractionQuality'
+        | 'duplicateRefinement'
+        | 'categoryAccuracy'
+        | 'relevanceCalibration'
+        | 'feedbackLoop'
+      >;
+
+      const firstJob = singleTaskJobs[0];
+      if (!firstJob) continue;
+
+      const mergedJob = await this.createJob({
+        scopeType: firstJob.request.scopeType,
+        scopeId: firstJob.request.scopeId,
+        tasks: uniqueTasks,
+        initiatedBy: 'queue-merge',
+      });
+
+      for (const job of singleTaskJobs) {
+        await this.cancelJob(job.id, `Merged into job ${mergedJob.id}`);
+      }
+
+      logger.info(
+        { mergedJobId: mergedJob.id, originalCount: singleTaskJobs.length, tasks: uniqueTasks },
+        'Merged pending single-task jobs'
+      );
+
+      return mergedJob;
+    }
+
+    return null;
+  }
+
+  async processQueue(): Promise<MaintenanceJob | null> {
+    if (!this.canStartJob()) {
+      logger.debug('Cannot start job: max concurrent jobs reached');
+      return null;
+    }
+
+    const pendingJobs = this.listJobs('pending').sort(
+      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    );
+
+    if (pendingJobs.length === 0) {
+      logger.debug('No pending jobs to process');
+      return null;
+    }
+
+    logger.info({ pendingCount: pendingJobs.length }, 'Processing job queue');
+
+    const enableDeduplication =
+      this.config.queue?.enableDeduplication ?? DEFAULT_QUEUE_CONFIG.enableDeduplication;
+    const recentJobs = enableDeduplication ? this.getRecentCompletedJobs() : [];
+
+    for (const job of pendingJobs) {
+      if (this.isJobExpired(job)) {
+        await this.cancelJob(job.id, 'Expired while pending');
+        continue;
+      }
+
+      if (enableDeduplication && this.isJobCoveredByRecent(job, recentJobs)) {
+        await this.cancelJob(job.id, 'Tasks already covered by recent job');
+        continue;
+      }
+
+      const mergedJob = await this.attemptMerge(pendingJobs.filter((j) => j.id !== job.id));
+      if (mergedJob) {
+        logger.info({ jobId: mergedJob.id }, 'Auto-starting merged job from queue');
+        await this.startJob(mergedJob.id);
+        await this.invokeExecuteCallback(mergedJob);
+        return mergedJob;
+      }
+
+      logger.info({ jobId: job.id }, 'Auto-starting pending job from queue');
+      await this.startJob(job.id);
+      await this.invokeExecuteCallback(job);
+      return job;
+    }
+
+    logger.debug('No eligible pending jobs after filtering');
+    return null;
   }
 
   getJobSummary(id: string): {
@@ -422,6 +688,18 @@ export class MaintenanceJobManager {
           logger.debug({ jobId: id }, 'Cleaned up old job from memory');
         }
       }
+    }
+
+    const pendingJobs = this.listJobs('pending');
+    let expiredCount = 0;
+    for (const job of pendingJobs) {
+      if (this.isJobExpired(job)) {
+        await this.cancelJob(job.id, 'Expired while pending');
+        expiredCount++;
+      }
+    }
+    if (expiredCount > 0) {
+      logger.info({ expiredCount }, 'Cancelled expired pending jobs during cleanup');
     }
 
     if (this.repository) {
