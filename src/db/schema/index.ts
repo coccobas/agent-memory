@@ -170,3 +170,9 @@ export * from './librarian-checkpoints.js';
 // =============================================================================
 
 export * from './maintenance-jobs.js';
+
+// =============================================================================
+// IDE TRANSCRIPTS (Immutable IDE Conversation Archive)
+// =============================================================================
+
+export * from './ide-transcripts.js';
