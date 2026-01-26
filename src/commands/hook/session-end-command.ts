@@ -93,12 +93,13 @@ export async function runSessionEndCommand(params: {
       try {
         const ctx = getContext();
         const episodeRepo = ctx.repos.episodes;
+        const unifiedMessageSource = ctx.services.unifiedMessageSource;
         const conversationRepo = ctx.repos.conversations;
 
-        if (!episodeRepo || !conversationRepo) {
+        if (!episodeRepo || (!unifiedMessageSource && !conversationRepo)) {
           logger.debug(
             { sessionId },
-            'Episode or conversation repo unavailable, skipping backfill'
+            'Episode repo or message source unavailable, skipping backfill'
           );
         } else {
           const completedEpisodes = await episodeRepo.list({
@@ -108,15 +109,27 @@ export async function runSessionEndCommand(params: {
           });
 
           let totalLinked = 0;
+          let messageSource: 'transcript' | 'conversation' = 'conversation';
           for (const episode of completedEpisodes) {
             if (episode.startedAt && episode.endedAt) {
-              const linked = await conversationRepo.linkMessagesToEpisode({
-                episodeId: episode.id,
-                sessionId,
-                startTime: episode.startedAt,
-                endTime: episode.endedAt,
-              });
-              totalLinked += linked;
+              if (unifiedMessageSource) {
+                const linkResult = await unifiedMessageSource.linkMessagesToEpisode({
+                  episodeId: episode.id,
+                  sessionId,
+                  startTime: episode.startedAt,
+                  endTime: episode.endedAt,
+                });
+                totalLinked += linkResult.linked;
+                messageSource = linkResult.source;
+              } else if (conversationRepo) {
+                const linked = await conversationRepo.linkMessagesToEpisode({
+                  episodeId: episode.id,
+                  sessionId,
+                  startTime: episode.startedAt,
+                  endTime: episode.endedAt,
+                });
+                totalLinked += linked;
+              }
             }
           }
 
@@ -126,6 +139,7 @@ export async function runSessionEndCommand(params: {
                 sessionId,
                 episodesProcessed: completedEpisodes.length,
                 messagesLinked: totalLinked,
+                messageSource,
               },
               'Backfilled episode-message links on session end'
             );
@@ -295,30 +309,62 @@ export async function runSessionEndCommand(params: {
           const librarianService = ctx.services.librarian;
 
           if (librarianService) {
-            // Get conversation messages for experience capture
-            const repos = ctx.repos;
-            const conversations = await repos.conversations.list(
-              { sessionId, status: 'active' },
-              { limit: 1, offset: 0 }
-            );
+            const unifiedMessageSource = ctx.services.unifiedMessageSource;
+            let messages: Array<{
+              role: 'user' | 'assistant' | 'system';
+              content: string;
+              createdAt?: string;
+              toolsUsed?: string[];
+            }> = [];
+            let messageSource: 'transcript' | 'conversation' = 'conversation';
 
-            const conversation = conversations[0];
-            const messages = conversation
-              ? await repos.conversations.getMessages(conversation.id, 100, 0)
-              : [];
+            if (unifiedMessageSource) {
+              const result = await unifiedMessageSource.getMessagesForSession(sessionId, {
+                limit: 100,
+              });
+              messages = result.messages.map((msg) => ({
+                role:
+                  msg.role === 'agent'
+                    ? 'assistant'
+                    : (msg.role as 'user' | 'assistant' | 'system'),
+                content: msg.content,
+                createdAt: msg.timestamp,
+                toolsUsed: msg.toolsUsed ?? undefined,
+              }));
+              messageSource = result.source;
+              logger.debug(
+                { sessionId, messageSource, messageCount: messages.length },
+                'Retrieved messages via unified source for librarian'
+              );
+            } else {
+              const repos = ctx.repos;
+              const conversations = await repos.conversations.list(
+                { sessionId, status: 'active' },
+                { limit: 1, offset: 0 }
+              );
 
-            // Run unified session end processing
-            logger.debug({ sessionId, projectId }, 'Running unified session end via Librarian');
-            const sessionEndResult = await librarianService.onSessionEnd({
-              sessionId,
-              projectId,
-              agentId,
-              messages: messages.map((msg) => ({
+              const conversation = conversations[0];
+              const rawMessages = conversation
+                ? await repos.conversations.getMessages(conversation.id, 100, 0)
+                : [];
+              messages = rawMessages.map((msg) => ({
                 role: msg.role as 'user' | 'assistant' | 'system',
                 content: msg.content,
                 createdAt: msg.createdAt ?? undefined,
                 toolsUsed: msg.toolsUsed ?? undefined,
-              })),
+              }));
+            }
+
+            // Run unified session end processing
+            logger.debug(
+              { sessionId, projectId, messageSource },
+              'Running unified session end via Librarian'
+            );
+            const sessionEndResult = await librarianService.onSessionEnd({
+              sessionId,
+              projectId,
+              agentId,
+              messages,
             });
 
             // Log summary of results
