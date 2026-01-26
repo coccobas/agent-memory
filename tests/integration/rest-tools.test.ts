@@ -105,7 +105,7 @@ describe('REST API Tools Endpoints', () => {
       // Verify response structure
       expect(body.tools).toBeDefined();
       expect(Array.isArray(body.tools)).toBe(true);
-      expect(body.count).toBe(50); // Expect all 50 MCP tools (including memory_onboard, graph_node, graph_edge, memory_context, memory_remember, memory_quickstart, memory_task, memory_evidence, memory, memory_extraction_approve, memory_status, memory_discover, memory_episode, memory_ops, memory_walkthrough)
+      expect(body.count).toBe(49); // Expect all 49 MCP tools (see allDescriptors in src/mcp/descriptors/index.ts)
 
       // Verify specific tools are present
       const toolNames = body.tools.map((t) => t.name);
