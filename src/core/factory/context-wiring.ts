@@ -46,6 +46,15 @@ import {
   createHierarchicalRetriever,
   createPipelineRetriever,
 } from '../../services/summarization/index.js';
+import {
+  detectAvailableIDEs,
+  createIDEReader,
+  createIDEConversationImporter,
+  createTranscriptService,
+  type TranscriptService,
+} from '../../services/ide-conversation/index.js';
+import { createUnifiedMessageSource } from '../../services/unified-message-source.js';
+import { getWorkingDirectory } from '../../utils/working-directory.js';
 import type { EmbeddingService } from '../../services/embedding.service.js';
 import { MissedExtractionDetector } from '../../services/librarian/missed-extraction/index.js';
 import {
@@ -248,12 +257,49 @@ export async function wireContext(input: WireContextInput): Promise<AppContext> 
     logger.debug('Hybrid extractor fallback wired to main extraction LLM');
   }
 
+  let transcriptService: TranscriptService | undefined;
+  let ideReader: ReturnType<typeof createIDEReader> | undefined;
+  let getIDESessionId: (() => Promise<string | null>) | undefined;
+
+  const availableIDEs = await detectAvailableIDEs();
+  const primaryIDE = availableIDEs[0];
+
+  if (primaryIDE && repos.ideTranscripts) {
+    ideReader = createIDEReader(primaryIDE);
+    transcriptService = createTranscriptService(ideReader, repos.ideTranscripts);
+
+    getIDESessionId = async () => {
+      const projectRootPath = getWorkingDirectory();
+      const sessions = await ideReader!.listSessions(projectRootPath);
+      return sessions.length > 0 && sessions[0] ? sessions[0].id : null;
+    };
+
+    services.transcript = transcriptService;
+    logger.debug({ ide: primaryIDE }, 'Transcript service initialized');
+  }
+
+  const unifiedMessageSource = createUnifiedMessageSource({
+    transcriptRepo: repos.ideTranscripts,
+    conversationRepo: repos.conversations,
+  });
+  services.unifiedMessageSource = unifiedMessageSource;
+  logger.debug('Unified message source initialized');
+
   if (repos.episodes) {
+    let ideImporter: ReturnType<typeof createIDEConversationImporter> | undefined;
+
+    if (repos.conversations && ideReader) {
+      ideImporter = createIDEConversationImporter(ideReader, repos.conversations);
+      logger.debug('IDE conversation importer initialized (legacy)');
+    }
+
     const episodeService = createEpisodeService({
       episodeRepo: repos.episodes,
       nodeRepo: repos.graphNodes,
       edgeRepo: repos.graphEdges,
       conversationRepo: repos.conversations,
+      ideImporter,
+      getIDESessionId,
     });
     services.episode = episodeService;
     logger.debug('Episode service initialized');

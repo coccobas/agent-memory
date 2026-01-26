@@ -44,6 +44,8 @@ import type { IEpisodeAutoLoggerService } from '../services/episode-auto-logger.
 import type { SmartPrioritizationService } from '../services/prioritization/index.js';
 import type { ContextManagerService, UnifiedContextService } from '../services/context/index.js';
 import type { HybridExtractor } from '../services/extraction/hybrid-extractor.js';
+import type { TranscriptService } from '../services/ide-conversation/transcript-service.js';
+import type { IUnifiedMessageSource } from '../services/unified-message-source.js';
 
 /**
  * Service interfaces for AppContext
@@ -262,6 +264,10 @@ export interface SessionServices {
   episode?: EpisodeService;
   /** Episode auto-logger for automatic tool execution logging */
   episodeAutoLogger?: IEpisodeAutoLoggerService;
+  /** Transcript service for IDE conversation import and archival */
+  transcript?: TranscriptService;
+  /** Unified message source for transcript-first message retrieval */
+  unifiedMessageSource?: IUnifiedMessageSource;
 }
 
 /**
