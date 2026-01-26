@@ -414,13 +414,25 @@ const completeHandler: ContextAwareHandler = async (
 
   const captureService = context.services.capture;
   if (captureService) {
-    const rawMessages = await context.repos.conversations.getMessagesByEpisode(resolved.id);
-    const messages = rawMessages.map((m) => ({
-      id: m.id,
-      role: m.role,
-      content: m.content,
-      createdAt: m.createdAt,
-    }));
+    let messages: Array<{ id: string; role: string; content: string; createdAt: string }> = [];
+    const unifiedMessageSource = context.services.unifiedMessageSource;
+    if (unifiedMessageSource) {
+      const result = await unifiedMessageSource.getMessagesForEpisode(resolved.id);
+      messages = result.messages.map((m) => ({
+        id: m.id,
+        role: m.role,
+        content: m.content,
+        createdAt: m.timestamp,
+      }));
+    } else {
+      const rawMessages = await context.repos.conversations.getMessagesByEpisode(resolved.id);
+      messages = rawMessages.map((m) => ({
+        id: m.id,
+        role: m.role,
+        content: m.content,
+        createdAt: m.createdAt,
+      }));
+    }
 
     captureService
       .onEpisodeComplete({
@@ -481,13 +493,25 @@ const failHandler: ContextAwareHandler = async (
 
   const captureService = context.services.capture;
   if (captureService) {
-    const rawMessages = await context.repos.conversations.getMessagesByEpisode(resolved.id);
-    const messages = rawMessages.map((m) => ({
-      id: m.id,
-      role: m.role,
-      content: m.content,
-      createdAt: m.createdAt,
-    }));
+    let messages: Array<{ id: string; role: string; content: string; createdAt: string }> = [];
+    const unifiedMessageSource = context.services.unifiedMessageSource;
+    if (unifiedMessageSource) {
+      const result = await unifiedMessageSource.getMessagesForEpisode(resolved.id);
+      messages = result.messages.map((m) => ({
+        id: m.id,
+        role: m.role,
+        content: m.content,
+        createdAt: m.timestamp,
+      }));
+    } else {
+      const rawMessages = await context.repos.conversations.getMessagesByEpisode(resolved.id);
+      messages = rawMessages.map((m) => ({
+        id: m.id,
+        role: m.role,
+        content: m.content,
+        createdAt: m.createdAt,
+      }));
+    }
 
     captureService
       .onEpisodeComplete({
@@ -768,17 +792,52 @@ const getMessagesHandler: ContextAwareHandler = async (
   const limit = getOptionalParam(params, 'limit', isNumber);
   const offset = getOptionalParam(params, 'offset', isNumber);
 
-  const messages = await context.repos.conversations.getMessagesByEpisode(
-    resolved.id,
-    limit,
-    offset
-  );
+  const episode = await episodeService.getById(resolved.id, false);
+  if (!episode) {
+    return { success: false, error: 'Episode not found' };
+  }
+
+  let messages: Array<{
+    id: string;
+    role: string;
+    content: string;
+    timestamp?: string;
+    toolsUsed?: string[] | null;
+  }> = [];
+  let source: 'transcript' | 'conversation' = 'conversation';
+
+  const unifiedMessageSource = context.services.unifiedMessageSource;
+  if (unifiedMessageSource) {
+    const result = await unifiedMessageSource.getMessagesForEpisode(resolved.id, { limit, offset });
+    messages = result.messages.map((m) => ({
+      id: m.id,
+      role: m.role,
+      content: m.content,
+      timestamp: m.timestamp,
+      toolsUsed: m.toolsUsed,
+    }));
+    source = result.source;
+  } else {
+    const convMessages = await context.repos.conversations.getMessagesByEpisode(
+      resolved.id,
+      limit,
+      offset
+    );
+    messages = convMessages.map((m) => ({
+      id: m.id,
+      role: m.role,
+      content: m.content,
+      timestamp: m.createdAt,
+      toolsUsed: m.toolsUsed,
+    }));
+  }
 
   return formatTimestamps({
     success: true,
     episodeId: resolved.id,
     messages,
     count: messages.length,
+    source,
     _resolved: { via: resolved.resolvedVia },
   });
 };

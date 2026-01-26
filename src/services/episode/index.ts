@@ -24,6 +24,8 @@ import type { PaginationOptions } from '../../db/repositories/base.js';
 import type { Episode, EpisodeEvent, EpisodeOutcomeType, ScopeType } from '../../db/schema.js';
 import { createNotFoundError } from '../../core/errors.js';
 import { createComponentLogger } from '../../utils/logger.js';
+import type { IDEConversationImporter } from '../ide-conversation/index.js';
+import type { IUnifiedMessageSource } from '../unified-message-source.js';
 
 const logger = createComponentLogger('episode-service');
 
@@ -96,10 +98,94 @@ export interface EpisodeServiceDeps {
   nodeRepo?: INodeRepository;
   edgeRepo?: IEdgeRepository;
   conversationRepo?: IConversationRepository;
+  /** Unified message source for transcript-first message retrieval */
+  unifiedMessageSource?: IUnifiedMessageSource;
+  /** Optional IDE conversation importer for lazy-loading messages from IDE storage */
+  ideImporter?: IDEConversationImporter;
+  /** IDE session ID to import messages from (required if ideImporter is provided) */
+  getIDESessionId?: () => Promise<string | null>;
 }
 
 export function createEpisodeService(deps: EpisodeServiceDeps) {
-  const { episodeRepo, nodeRepo, edgeRepo, conversationRepo } = deps;
+  const {
+    episodeRepo,
+    nodeRepo,
+    edgeRepo,
+    conversationRepo,
+    unifiedMessageSource,
+    ideImporter,
+    getIDESessionId,
+  } = deps;
+
+  async function importAndLinkMessages(
+    episode: EpisodeWithEvents,
+    conversationId?: string
+  ): Promise<{ messagesLinked: number; messagesImported: number }> {
+    let messagesLinked = 0;
+    let messagesImported = 0;
+
+    if (!conversationRepo || !episode.sessionId || !episode.startedAt || !episode.endedAt) {
+      return { messagesLinked, messagesImported };
+    }
+
+    // Step 1: Import messages from IDE storage if importer is available
+    if (ideImporter && getIDESessionId) {
+      try {
+        const ideSessionId = await getIDESessionId();
+        if (ideSessionId && conversationId) {
+          const importResult = await ideImporter.importForEpisode({
+            ideSessionId,
+            conversationId,
+            sessionId: episode.sessionId,
+            episodeId: episode.id,
+            startTime: new Date(episode.startedAt),
+            endTime: new Date(episode.endedAt),
+          });
+          messagesImported = importResult.imported;
+          if (messagesImported > 0) {
+            logger.debug(
+              { episodeId: episode.id, messagesImported, ideSessionId },
+              'Imported messages from IDE storage'
+            );
+          }
+        }
+      } catch (error) {
+        logger.warn(
+          {
+            episodeId: episode.id,
+            error: error instanceof Error ? error.message : String(error),
+          },
+          'Failed to import IDE messages (non-fatal)'
+        );
+      }
+    }
+
+    // Step 2: Link messages to episode (both pre-existing and newly imported)
+    try {
+      messagesLinked = await conversationRepo.linkMessagesToEpisode({
+        episodeId: episode.id,
+        sessionId: episode.sessionId,
+        startTime: episode.startedAt,
+        endTime: episode.endedAt,
+      });
+      if (messagesLinked > 0) {
+        logger.debug(
+          { episodeId: episode.id, messagesLinked },
+          'Linked conversation messages to episode'
+        );
+      }
+    } catch (error) {
+      logger.warn(
+        {
+          episodeId: episode.id,
+          error: error instanceof Error ? error.message : String(error),
+        },
+        'Failed to link messages to episode (non-fatal)'
+      );
+    }
+
+    return { messagesLinked, messagesImported };
+  }
 
   return {
     // ==========================================================================
@@ -144,72 +230,32 @@ export function createEpisodeService(deps: EpisodeServiceDeps) {
     async complete(
       id: string,
       outcome: string,
-      outcomeType: EpisodeOutcomeType
-    ): Promise<EpisodeWithEvents & { messagesLinked?: number }> {
+      outcomeType: EpisodeOutcomeType,
+      options?: { conversationId?: string }
+    ): Promise<EpisodeWithEvents & { messagesLinked?: number; messagesImported?: number }> {
       const episode = await episodeRepo.complete(id, outcome, outcomeType);
 
-      let messagesLinked = 0;
-      if (conversationRepo && episode.sessionId && episode.startedAt && episode.endedAt) {
-        try {
-          messagesLinked = await conversationRepo.linkMessagesToEpisode({
-            episodeId: episode.id,
-            sessionId: episode.sessionId,
-            startTime: episode.startedAt,
-            endTime: episode.endedAt,
-          });
-          if (messagesLinked > 0) {
-            logger.debug(
-              { episodeId: episode.id, messagesLinked },
-              'Linked conversation messages to completed episode'
-            );
-          }
-        } catch (error) {
-          logger.warn(
-            {
-              episodeId: episode.id,
-              error: error instanceof Error ? error.message : String(error),
-            },
-            'Failed to link messages to episode (non-fatal)'
-          );
-        }
-      }
+      const { messagesLinked, messagesImported } = await importAndLinkMessages(
+        episode,
+        options?.conversationId
+      );
 
-      return { ...episode, messagesLinked };
+      return { ...episode, messagesLinked, messagesImported };
     },
 
     async fail(
       id: string,
-      outcome: string
-    ): Promise<EpisodeWithEvents & { messagesLinked?: number }> {
+      outcome: string,
+      options?: { conversationId?: string }
+    ): Promise<EpisodeWithEvents & { messagesLinked?: number; messagesImported?: number }> {
       const episode = await episodeRepo.fail(id, outcome);
 
-      let messagesLinked = 0;
-      if (conversationRepo && episode.sessionId && episode.startedAt && episode.endedAt) {
-        try {
-          messagesLinked = await conversationRepo.linkMessagesToEpisode({
-            episodeId: episode.id,
-            sessionId: episode.sessionId,
-            startTime: episode.startedAt,
-            endTime: episode.endedAt,
-          });
-          if (messagesLinked > 0) {
-            logger.debug(
-              { episodeId: episode.id, messagesLinked },
-              'Linked conversation messages to failed episode'
-            );
-          }
-        } catch (error) {
-          logger.warn(
-            {
-              episodeId: episode.id,
-              error: error instanceof Error ? error.message : String(error),
-            },
-            'Failed to link messages to episode (non-fatal)'
-          );
-        }
-      }
+      const { messagesLinked, messagesImported } = await importAndLinkMessages(
+        episode,
+        options?.conversationId
+      );
 
-      return { ...episode, messagesLinked };
+      return { ...episode, messagesLinked, messagesImported };
     },
 
     async cancel(id: string, reason?: string): Promise<EpisodeWithEvents> {
@@ -443,9 +489,32 @@ export function createEpisodeService(deps: EpisodeServiceDeps) {
       const linkedEntities = await this.getLinkedEntities(episodeId);
       const childEpisodes = await episodeRepo.getChildren(episodeId);
 
-      const rawMessages = conversationRepo
-        ? await conversationRepo.getMessagesByEpisode(episodeId)
-        : [];
+      let rawMessages: Array<{
+        id: string;
+        role: string;
+        content: string;
+        createdAt: string;
+        relevanceCategory?: 'high' | 'medium' | 'low' | null;
+      }> = [];
+      let messageSource: 'transcript' | 'conversation' = 'conversation';
+
+      if (unifiedMessageSource) {
+        const result = await unifiedMessageSource.getMessagesForEpisode(episodeId);
+        rawMessages = result.messages.map((m) => ({
+          id: m.id,
+          role: m.role,
+          content: m.content,
+          createdAt: m.timestamp,
+          relevanceCategory: m.relevanceCategory,
+        }));
+        messageSource = result.source;
+        logger.debug(
+          { episodeId, source: messageSource, count: rawMessages.length },
+          'Retrieved messages via unified source'
+        );
+      } else if (conversationRepo) {
+        rawMessages = await conversationRepo.getMessagesByEpisode(episodeId);
+      }
 
       const minRelevance = options?.minRelevance ?? 'all';
       const relevanceOrder = ['high', 'medium', 'low'];

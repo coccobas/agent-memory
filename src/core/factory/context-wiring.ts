@@ -298,6 +298,7 @@ export async function wireContext(input: WireContextInput): Promise<AppContext> 
       nodeRepo: repos.graphNodes,
       edgeRepo: repos.graphEdges,
       conversationRepo: repos.conversations,
+      unifiedMessageSource,
       ideImporter,
       getIDESessionId,
     });
