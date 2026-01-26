@@ -89,6 +89,29 @@ describe('parseHookArgs', () => {
     });
   });
 
+  describe('--full-context option', () => {
+    it('should parse --full-context flag', () => {
+      const result = parseHookArgs(['userpromptsubmit', '--full-context']);
+      expect(result.fullContext).toBe(true);
+    });
+
+    it('should default to undefined when not provided', () => {
+      const result = parseHookArgs(['userpromptsubmit']);
+      expect(result.fullContext).toBeUndefined();
+    });
+
+    it('should work with other options', () => {
+      const result = parseHookArgs([
+        'userpromptsubmit',
+        '--project-id',
+        'proj-1',
+        '--full-context',
+      ]);
+      expect(result.fullContext).toBe(true);
+      expect(result.projectId).toBe('proj-1');
+    });
+  });
+
   describe('multiple options', () => {
     it('should parse all options together', () => {
       const result = parseHookArgs([

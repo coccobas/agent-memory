@@ -15,6 +15,7 @@ import type { ClaudeHookInput, HookCommandResult } from './types.js';
 import { getBehaviorObserverService } from '../../services/capture/behavior-observer.js';
 import { getHookAnalyticsService } from '../../services/analytics/index.js';
 import { getHookLearningService } from '../../services/learning/index.js';
+import { isContextRegistered, getContext } from '../../core/container.js';
 
 const logger = createComponentLogger('posttooluse');
 
@@ -360,6 +361,53 @@ export async function runPostToolUseCommand(params: {
     }
   }
 
-  // PostToolUse is always non-blocking (exit code 0)
+  await captureAssistantToolUse(sessionId, toolName, toolInput, toolResponse);
+
   return { exitCode: 0, stdout, stderr };
+}
+
+async function captureAssistantToolUse(
+  sessionId: string | null,
+  toolName: string | undefined,
+  toolInput: unknown,
+  toolResponse: unknown
+): Promise<void> {
+  if (!sessionId) return;
+
+  try {
+    if (!isContextRegistered()) return;
+
+    const ctx = getContext();
+    if (!ctx.repos.conversations) return;
+
+    const conversations = await ctx.repos.conversations.list(
+      { sessionId, status: 'active' },
+      { limit: 1 }
+    );
+
+    if (conversations.length === 0) return;
+
+    const conversation = conversations[0];
+    if (!conversation) return;
+
+    const content = JSON.stringify({
+      tool: toolName,
+      input: toolInput,
+      output: toolResponse,
+    });
+
+    await ctx.repos.conversations.addMessage({
+      conversationId: conversation.id,
+      role: 'agent',
+      content,
+      toolsUsed: toolName ? [toolName] : undefined,
+    });
+
+    logger.debug({ sessionId, conversationId: conversation.id, toolName }, 'Captured tool use');
+  } catch (error) {
+    logger.debug(
+      { sessionId, error: error instanceof Error ? error.message : String(error) },
+      'Failed to capture tool use (non-fatal)'
+    );
+  }
 }

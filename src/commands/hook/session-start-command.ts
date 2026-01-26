@@ -1,7 +1,7 @@
 import type { ClaudeHookInput, HookCommandResult } from './types.js';
 import { ensureSessionIdExists } from './session.js';
 import { createComponentLogger } from '../../utils/logger.js';
-import { getContext } from '../../core/container.js';
+import { getContext, isContextRegistered } from '../../core/container.js';
 import { getSqlite } from '../../db/connection.js';
 
 const logger = createComponentLogger('session-start');
@@ -145,6 +145,47 @@ export async function runSessionStartCommand(params: {
     }
 
     logger.debug({ sessionId }, 'Session start processing completed');
+
+    let conversationId: string | undefined;
+    try {
+      if (isContextRegistered()) {
+        const ctx = getContext();
+        if (ctx.repos.conversations) {
+          const existingConversations = await ctx.repos.conversations.list(
+            { sessionId, status: 'active' },
+            { limit: 1 }
+          );
+
+          if (existingConversations.length === 0) {
+            const conversation = await ctx.repos.conversations.create({
+              sessionId,
+              projectId,
+              agentId,
+              title: `Session conversation`,
+            });
+            conversationId = conversation.id;
+            logger.debug({ sessionId, conversationId }, 'Auto-created conversation for session');
+          } else {
+            const existing = existingConversations[0];
+            if (existing) {
+              conversationId = existing.id;
+              logger.debug(
+                { sessionId, conversationId },
+                'Using existing conversation for session'
+              );
+            }
+          }
+        }
+      }
+    } catch (convError) {
+      logger.warn(
+        {
+          sessionId,
+          error: convError instanceof Error ? convError.message : String(convError),
+        },
+        'Failed to auto-create conversation for session (non-fatal)'
+      );
+    }
 
     // P4: Get entry counts for the project to return to client
     const counts = projectId

@@ -405,5 +405,39 @@ export async function runUserPromptSubmitCommand(params: {
     }
   }
 
+  await captureUserMessage(sessionId, trimmed);
+
   return allowed();
+}
+
+async function captureUserMessage(sessionId: string, content: string): Promise<void> {
+  try {
+    if (!isContextRegistered()) return;
+
+    const ctx = getContext();
+    if (!ctx.repos.conversations) return;
+
+    const conversations = await ctx.repos.conversations.list(
+      { sessionId, status: 'active' },
+      { limit: 1 }
+    );
+
+    if (conversations.length === 0) return;
+
+    const conversation = conversations[0];
+    if (!conversation) return;
+
+    await ctx.repos.conversations.addMessage({
+      conversationId: conversation.id,
+      role: 'user',
+      content,
+    });
+
+    logger.debug({ sessionId, conversationId: conversation.id }, 'Captured user message');
+  } catch (error) {
+    logger.debug(
+      { sessionId, error: error instanceof Error ? error.message : String(error) },
+      'Failed to capture user message (non-fatal)'
+    );
+  }
 }

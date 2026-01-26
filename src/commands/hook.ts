@@ -196,7 +196,7 @@ function printHookHelp(): void {
   agent-memory hook install [--ide <claude|cursor|vscode>] [--project-path <path>] [--project-id <id>] [--session-id <id>] [--dry-run] [--quiet]
   agent-memory hook status [--ide <claude|cursor|vscode>] [--project-path <path>] [--quiet]
   agent-memory hook uninstall [--ide <claude|cursor|vscode>] [--project-path <path>] [--dry-run] [--quiet]
-  agent-memory hook <subcommand> [--project-id <id>] [--agent-id <id>]
+  agent-memory hook <subcommand> [--project-id <id>] [--agent-id <id>] [--full-context]
 
 Subcommands (executed by Claude Code hooks, expect JSON on stdin):
   pretooluse         Before tool execution
@@ -209,9 +209,13 @@ Subcommands (executed by Claude Code hooks, expect JSON on stdin):
   notification       When Claude sends a notification
   permission-request When tool requests permission
 
+Options:
+  --full-context     Enable full context initialization (slower, enables conversation capture)
+
 Notes:
   - install/status/uninstall write files in the target project directory.
   - Hook subcommands are executed by Claude Code and expect JSON on stdin.
+  - Use --full-context for CLI testing when conversation capture is needed.
 `);
 }
 
@@ -243,7 +247,7 @@ export async function runHookCommand(argv: string[]): Promise<void> {
       process.exit(result.exitCode);
     }
 
-    const { subcommand, projectId, agentId } = parseHookArgs(argv);
+    const { subcommand, projectId, agentId, fullContext } = parseHookArgs(argv);
     const sub = (subcommand || '').toLowerCase();
 
     const validSubcommands = [
@@ -273,11 +277,15 @@ export async function runHookCommand(argv: string[]): Promise<void> {
     // Session hooks need different levels of context:
     // - session-start: minimal context (skip ExtractionService to avoid SSRF validation)
     // - session-end: full context (needs ExtractionService for maintenance/extraction)
+    // - --full-context flag: use minimal context (enables conversation capture, adds ~100-200ms latency)
     // Other subcommands only need database
     if (sub === 'session-start' || sub === 'sessionstart') {
       await initializeHookContext();
     } else if (sub === 'session-end' || sub === 'sessionend') {
       await initializeFullContext();
+    } else if (fullContext) {
+      // --full-context enables conversation capture but adds latency
+      await initializeHookContext();
     } else {
       await initializeHookDatabase();
     }
