@@ -35,6 +35,7 @@ import {
 import { formatTimestamps } from '../../utils/timestamp-formatter.js';
 import { createPermissionError, createValidationError } from '../../core/errors.js';
 import { getCorrelationId } from '../../utils/correlation.js';
+import { DEFAULT_LIMIT, MAX_LIMIT } from '../../db/repositories/base.js';
 
 const queryTypeToEntryType = {
   tools: 'tool',
@@ -149,7 +150,12 @@ export const queryHandlers = {
         return undefined;
       })(),
       followRelations: getOptionalParam(params, 'followRelations', isBoolean),
-      limit: getOptionalParam(params, 'limit', isNumber),
+      limit: (() => {
+        const rawLimit = getOptionalParam(params, 'limit', isNumber);
+        if (rawLimit === undefined) return undefined;
+        if (rawLimit < 0) return DEFAULT_LIMIT;
+        return Math.min(rawLimit, MAX_LIMIT);
+      })(),
       compact: getOptionalParam(params, 'compact', isBoolean),
       semanticSearch: getOptionalParam(params, 'semanticSearch', isBoolean),
       semanticThreshold: getOptionalParam(params, 'semanticThreshold', isNumber),
@@ -250,7 +256,12 @@ export const queryHandlers = {
     const inherit = getOptionalParam(params, 'inherit', isBoolean) ?? true;
     const compact = getOptionalParam(params, 'compact', isBoolean) ?? false;
     const hierarchical = getOptionalParam(params, 'hierarchical', isBoolean) ?? false;
-    const limitPerType = getOptionalParam(params, 'limitPerType', isNumber);
+    const limitPerType = (() => {
+      const rawLimit = getOptionalParam(params, 'limitPerType', isNumber);
+      if (rawLimit === undefined) return undefined;
+      if (rawLimit < 0) return DEFAULT_LIMIT;
+      return Math.min(rawLimit, MAX_LIMIT);
+    })();
     const agentId = getOptionalParam(params, 'agentId', isString);
     const semanticSearch = getOptionalParam(params, 'semanticSearch', isBoolean);
     const search = getOptionalParam(params, 'search', isString);

@@ -367,6 +367,18 @@ export const memoryRememberDescriptor: SimpleToolDescriptor = {
       return { error: 'Text is required', message: 'Please provide text to remember' };
     }
 
+    // Minimum content length validation (Fix #1 & #4)
+    // Extract content first to check meaningful length after prefix stripping
+    const { content: extractedContent } = extractContent(text);
+    const MIN_CONTENT_LENGTH = 3;
+    if (extractedContent.length < MIN_CONTENT_LENGTH) {
+      return {
+        error: 'Content too short',
+        message: `Content must be at least ${MIN_CONTENT_LENGTH} characters after removing prefixes like "remember that". Got: "${extractedContent}"`,
+        hint: 'Please provide meaningful content to store.',
+      };
+    }
+
     const forceType = args?.forceType as 'guideline' | 'knowledge' | 'tool' | undefined;
     const priority = (args?.priority as number) ?? 50;
     const tags = (args?.tags as string[]) ?? [];

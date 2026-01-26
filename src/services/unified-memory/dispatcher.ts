@@ -262,6 +262,55 @@ async function handleRetrieve(
 
   const query = intent.query ?? intent.content ?? '';
 
+  // Handle tag-based filtering (e.g., "find entries tagged with security")
+  if (intent.tagFilter) {
+    const types: Array<'tools' | 'guidelines' | 'knowledge'> = ['tools', 'guidelines', 'knowledge'];
+    const queryResult = await executeQueryPipeline(
+      {
+        types,
+        scope: projectId
+          ? { type: 'project', id: projectId, inherit: true }
+          : { type: 'global', inherit: true },
+        limit: 20,
+        tags: { include: [intent.tagFilter] },
+      },
+      context.queryDeps
+    );
+
+    const results: DispatchResult['results'] = queryResult.results.map((r) => {
+      let name: string | undefined;
+      let title: string | undefined;
+      if (r.type === 'tool' && 'tool' in r) name = r.tool.name;
+      else if (r.type === 'guideline' && 'guideline' in r) name = r.guideline.name;
+      else if (r.type === 'knowledge' && 'knowledge' in r) title = r.knowledge.title;
+      return {
+        type: r.type,
+        id: r.id,
+        ...(title ? { title } : {}),
+        ...(name ? { name } : {}),
+        score: r.score,
+      };
+    });
+
+    if (results.length === 0) {
+      return {
+        action: 'retrieve',
+        status: 'not_found',
+        message: `No entries found with tag "${intent.tagFilter}"`,
+        results: [],
+        _highlights: `No entries tagged with "${intent.tagFilter}"`,
+      };
+    }
+
+    return {
+      action: 'retrieve',
+      status: 'success',
+      message: `Found ${results.length} entries tagged with "${intent.tagFilter}"`,
+      results,
+      _highlights: `Found ${results.length} entries with tag "${intent.tagFilter}"`,
+    };
+  }
+
   // If entry type is detected and query is generic (e.g., "What are the guidelines?"),
   // use direct listing instead of semantic search
   if (intent.entryType && (!query || query.length < 5 || /^the\s+\w+s?$/i.test(query))) {
@@ -288,8 +337,6 @@ async function handleRetrieve(
     types = ['tools', 'guidelines', 'knowledge'];
   }
 
-  // Use proper FTS-based search via query pipeline instead of list+filter
-  // This ensures ALL entries are searched, not just the first N
   const queryResult = await executeQueryPipeline(
     {
       search: query,
@@ -311,13 +358,17 @@ async function handleRetrieve(
 
     if (r.type === 'tool' && 'tool' in r) {
       name = r.tool.name;
-      content = (r.version as { description?: string } | undefined)?.description;
+      // Tool description is stored on the tool object or in versions
+      content = (r.tool as { description?: string }).description;
     } else if (r.type === 'guideline' && 'guideline' in r) {
       name = r.guideline.name;
-      content = (r.version as { content?: string } | undefined)?.content;
+      // Guideline content is stored in the name or via versions (not directly accessible here)
+      // Fall back to name as snippet source
+      content = r.guideline.name;
     } else if (r.type === 'knowledge' && 'knowledge' in r) {
       title = r.knowledge.title;
-      content = (r.version as { content?: string } | undefined)?.content;
+      // Knowledge content is fetched via KnowledgeWithContent in the query pipeline
+      content = (r.knowledge as { content?: string | null }).content ?? undefined;
     }
 
     const snippet = content
