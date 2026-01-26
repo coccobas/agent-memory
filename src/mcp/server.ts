@@ -58,6 +58,7 @@ import { logStartup, logShutdown } from '../utils/action-logger.js';
 import { setNotificationServer, clearNotificationServer } from './notification.service.js';
 import { initializeRootsService, handleRootsChanged, clearRootsState } from './roots.service.js';
 import { clearWorkingDirectoryCache } from '../utils/working-directory.js';
+import { createComponentLogger } from '../utils/logger.js';
 
 // =============================================================================
 // BUNDLED TOOL DEFINITIONS
@@ -259,6 +260,83 @@ export async function runServer(
   }
 
   // =============================================================================
+  // SESSION/EPISODE CLEANUP ON DISCONNECT
+  // =============================================================================
+
+  const cleanupLogger = createComponentLogger('mcp-cleanup');
+
+  /**
+   * Clean up active sessions and episodes when client disconnects.
+   * This prevents orphaned sessions/episodes that stay "active" forever.
+   */
+  async function cleanupActiveSessions(reason: string): Promise<void> {
+    try {
+      // Get all active sessions
+      const activeSessions = await context.repos.sessions.list(
+        { status: 'active' },
+        { limit: 100 }
+      );
+
+      if (activeSessions.length === 0) {
+        cleanupLogger.debug('No active sessions to clean up');
+        return;
+      }
+
+      cleanupLogger.info(
+        { count: activeSessions.length, reason },
+        'Cleaning up active sessions on disconnect'
+      );
+
+      for (const session of activeSessions) {
+        try {
+          // Cancel any active episodes for this session
+          if (context.repos.episodes) {
+            const activeEpisode = await context.repos.episodes.getActiveEpisode(session.id);
+            if (activeEpisode) {
+              await context.repos.episodes.cancel(
+                activeEpisode.id,
+                `Session ended due to ${reason}`
+              );
+              cleanupLogger.debug(
+                { episodeId: activeEpisode.id, sessionId: session.id },
+                'Cancelled active episode'
+              );
+            }
+          }
+
+          // Seal any open transcripts for this session
+          if (context.services.transcript && context.repos.ideTranscripts) {
+            const transcripts = await context.repos.ideTranscripts.list(
+              { agentMemorySessionId: session.id, isSealed: false },
+              { limit: 1 }
+            );
+            if (transcripts[0]) {
+              await context.services.transcript.seal(transcripts[0].id);
+              cleanupLogger.debug(
+                { transcriptId: transcripts[0].id, sessionId: session.id },
+                'Sealed transcript'
+              );
+            }
+          }
+
+          // End the session
+          await context.repos.sessions.end(session.id, 'completed');
+          cleanupLogger.debug({ sessionId: session.id }, 'Ended session');
+        } catch (sessionError) {
+          cleanupLogger.warn(
+            { sessionId: session.id, error: sessionError },
+            'Failed to clean up session (non-fatal)'
+          );
+        }
+      }
+
+      cleanupLogger.info({ count: activeSessions.length, reason }, 'Session cleanup completed');
+    } catch (error) {
+      cleanupLogger.error({ error, reason }, 'Failed to clean up active sessions');
+    }
+  }
+
+  // =============================================================================
   // SHUTDOWN HANDLING
   // =============================================================================
 
@@ -275,6 +353,9 @@ export async function runServer(
     clearRootsState();
 
     try {
+      // Clean up active sessions and episodes before shutdown
+      await cleanupActiveSessions(signal);
+
       // Gracefully shutdown AppContext (drains feedback queue on SIGTERM)
       const drainQueue = signal === 'SIGTERM';
       await shutdownAppContext(context, { drainFeedbackQueue: drainQueue });
@@ -305,9 +386,20 @@ export async function runServer(
     transport = new StdioServerTransport();
     logger.debug('Transport created');
 
+    // Detect client disconnection via SDK callbacks
+    server.onclose = () => {
+      logger.info('Client disconnected (server.onclose)');
+      void shutdown('client-disconnect');
+    };
+
+    server.onerror = (error: Error) => {
+      logger.error({ error }, 'Server error (server.onerror)');
+    };
+
     // Unix/macOS signals
     process.on('SIGINT', () => void shutdown('SIGINT'));
     process.on('SIGTERM', () => void shutdown('SIGTERM'));
+    process.on('SIGHUP', () => void shutdown('SIGHUP'));
 
     // Windows: handle Ctrl+C via readline
     if (process.platform === 'win32') {
