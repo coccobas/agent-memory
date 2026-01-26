@@ -19,6 +19,7 @@ import type {
   ConsolidationResult,
   ForgettingResult,
   GraphBackfillResult,
+  EmbeddingBackfillResult,
   LatentPopulationResult,
   TagRefinementResult,
   SemanticEdgeInferenceResult,
@@ -27,6 +28,11 @@ import type {
   MessageRelevanceScoringResult,
   ExperienceTitleImprovementResult,
   MessageInsightExtractionResult,
+  ExtractionQualityResult,
+  DuplicateRefinementResult,
+  CategoryAccuracyResult,
+  RelevanceCalibrationResult,
+  FeedbackLoopResult,
   MemoryHealth,
 } from './types.js';
 import { DEFAULT_MAINTENANCE_CONFIG, computeHealthGrade } from './types.js';
@@ -96,6 +102,7 @@ export class MaintenanceOrchestrator {
       'consolidation',
       'forgetting',
       'graphBackfill',
+      'embeddingBackfill',
       'latentPopulation',
       'tagRefinement',
       'semanticEdgeInference',
@@ -104,6 +111,11 @@ export class MaintenanceOrchestrator {
       'messageRelevanceScoring',
       'experienceTitleImprovement',
       'messageInsightExtraction',
+      'extractionQuality',
+      'duplicateRefinement',
+      'categoryAccuracy',
+      'relevanceCalibration',
+      'feedbackLoop',
     ];
     const results: MaintenanceResult = {
       runId,
@@ -146,6 +158,16 @@ export class MaintenanceOrchestrator {
         'graphBackfill',
         results.graphBackfill.executed ? 'completed' : 'skipped',
         results.graphBackfill
+      );
+    }
+
+    if (tasksToRun.includes('embeddingBackfill') && effectiveConfig.embeddingBackfill.enabled) {
+      onProgress?.('embeddingBackfill', 'running');
+      results.embeddingBackfill = await this.runEmbeddingBackfill(request, effectiveConfig);
+      onProgress?.(
+        'embeddingBackfill',
+        results.embeddingBackfill.executed ? 'completed' : 'skipped',
+        results.embeddingBackfill
       );
     }
 
@@ -258,6 +280,69 @@ export class MaintenanceOrchestrator {
       );
     }
 
+    // Run extraction quality improvement if requested and enabled
+    if (tasksToRun.includes('extractionQuality') && effectiveConfig.extractionQuality.enabled) {
+      onProgress?.('extractionQuality', 'running');
+      results.extractionQuality = await this.runExtractionQuality(request, effectiveConfig);
+      onProgress?.(
+        'extractionQuality',
+        results.extractionQuality.executed ? 'completed' : 'skipped',
+        results.extractionQuality
+      );
+    }
+
+    // Run duplicate refinement if requested and enabled
+    if (tasksToRun.includes('duplicateRefinement') && effectiveConfig.duplicateRefinement.enabled) {
+      onProgress?.('duplicateRefinement', 'running');
+      results.duplicateRefinement = await this.runDuplicateRefinement(request, effectiveConfig);
+      onProgress?.(
+        'duplicateRefinement',
+        results.duplicateRefinement.executed ? 'completed' : 'skipped',
+        results.duplicateRefinement
+      );
+    }
+
+    // Run category accuracy tracking if requested and enabled
+    if (tasksToRun.includes('categoryAccuracy') && effectiveConfig.categoryAccuracy.enabled) {
+      onProgress?.('categoryAccuracy', 'running');
+      results.categoryAccuracy = await this.runCategoryAccuracy(request, effectiveConfig);
+      onProgress?.(
+        'categoryAccuracy',
+        results.categoryAccuracy.executed ? 'completed' : 'skipped',
+        results.categoryAccuracy
+      );
+    }
+
+    // Run relevance calibration if requested and enabled
+    if (
+      tasksToRun.includes('relevanceCalibration') &&
+      effectiveConfig.relevanceCalibration.enabled
+    ) {
+      onProgress?.('relevanceCalibration', 'running');
+      results.relevanceCalibration = await this.runRelevanceCalibration(request, effectiveConfig);
+      onProgress?.(
+        'relevanceCalibration',
+        results.relevanceCalibration.executed ? 'completed' : 'skipped',
+        results.relevanceCalibration
+      );
+    }
+
+    // Run feedback loop (must run last to aggregate signals from other accuracy tasks)
+    if (tasksToRun.includes('feedbackLoop') && effectiveConfig.feedbackLoop.enabled) {
+      onProgress?.('feedbackLoop', 'running');
+      results.feedbackLoop = await this.runFeedbackLoop(request, effectiveConfig, {
+        extractionQuality: results.extractionQuality,
+        duplicateRefinement: results.duplicateRefinement,
+        categoryAccuracy: results.categoryAccuracy,
+        relevanceCalibration: results.relevanceCalibration,
+      });
+      onProgress?.(
+        'feedbackLoop',
+        results.feedbackLoop.executed ? 'completed' : 'skipped',
+        results.feedbackLoop
+      );
+    }
+
     // Compute health after maintenance
     if (!request.dryRun) {
       results.healthAfter = await this.computeHealth(request.scopeType, request.scopeId);
@@ -274,6 +359,7 @@ export class MaintenanceOrchestrator {
         consolidation: results.consolidation?.executed,
         forgetting: results.forgetting?.executed,
         graphBackfill: results.graphBackfill?.executed,
+        embeddingBackfill: results.embeddingBackfill?.executed,
         latentPopulation: results.latentPopulation?.executed,
         tagRefinement: results.tagRefinement?.executed,
         semanticEdgeInference: results.semanticEdgeInference?.executed,
@@ -282,6 +368,11 @@ export class MaintenanceOrchestrator {
         messageRelevanceScoring: results.messageRelevanceScoring?.executed,
         experienceTitleImprovement: results.experienceTitleImprovement?.executed,
         messageInsightExtraction: results.messageInsightExtraction?.executed,
+        extractionQuality: results.extractionQuality?.executed,
+        duplicateRefinement: results.duplicateRefinement?.executed,
+        categoryAccuracy: results.categoryAccuracy?.executed,
+        relevanceCalibration: results.relevanceCalibration?.executed,
+        feedbackLoop: results.feedbackLoop?.executed,
       },
       'Maintenance run completed'
     );
@@ -535,6 +626,126 @@ export class MaintenanceOrchestrator {
     return result;
   }
 
+  private async runEmbeddingBackfill(
+    request: MaintenanceRequest,
+    config: MaintenanceConfig
+  ): Promise<EmbeddingBackfillResult> {
+    const startTime = Date.now();
+    const result: EmbeddingBackfillResult = {
+      executed: true,
+      entriesProcessed: 0,
+      embeddingsCreated: 0,
+      alreadyHadEmbeddings: 0,
+      failed: 0,
+      byType: {},
+      durationMs: 0,
+    };
+
+    try {
+      if (!this.deps.embedding || !this.deps.vector) {
+        logger.debug('Embedding backfill skipped: embedding/vector service not available');
+        result.executed = false;
+        result.durationMs = Date.now() - startTime;
+        return result;
+      }
+
+      if (!this.deps.embedding.isAvailable()) {
+        logger.debug('Embedding backfill skipped: embedding service not configured');
+        result.executed = false;
+        result.durationMs = Date.now() - startTime;
+        return result;
+      }
+
+      if (request.dryRun) {
+        result.executed = false;
+        result.durationMs = Date.now() - startTime;
+        return result;
+      }
+
+      const { backfillEmbeddings, getBackfillStats } = await import('../../backfill.service.js');
+
+      const initialStats = getBackfillStats(this.deps.db);
+      const initialMissing = {
+        tools: initialStats.tools.total - initialStats.tools.withEmbeddings,
+        guidelines: initialStats.guidelines.total - initialStats.guidelines.withEmbeddings,
+        knowledge: initialStats.knowledge.total - initialStats.knowledge.withEmbeddings,
+      };
+
+      await backfillEmbeddings(
+        {
+          batchSize: config.embeddingBackfill.batchSize,
+          delayMs: config.embeddingBackfill.delayMs,
+          entryTypes: config.embeddingBackfill.entryTypes,
+        },
+        this.deps.db,
+        {
+          embedding: this.deps.embedding,
+          vector: this.deps.vector,
+        }
+      );
+
+      const finalStats = getBackfillStats(this.deps.db);
+
+      const toolStats = {
+        processed: initialStats.tools.total,
+        created: finalStats.tools.withEmbeddings - initialStats.tools.withEmbeddings,
+        failed: Math.max(
+          0,
+          initialMissing.tools -
+            (finalStats.tools.withEmbeddings - initialStats.tools.withEmbeddings)
+        ),
+      };
+      const guidelineStats = {
+        processed: initialStats.guidelines.total,
+        created: finalStats.guidelines.withEmbeddings - initialStats.guidelines.withEmbeddings,
+        failed: Math.max(
+          0,
+          initialMissing.guidelines -
+            (finalStats.guidelines.withEmbeddings - initialStats.guidelines.withEmbeddings)
+        ),
+      };
+      const knowledgeStats = {
+        processed: initialStats.knowledge.total,
+        created: finalStats.knowledge.withEmbeddings - initialStats.knowledge.withEmbeddings,
+        failed: Math.max(
+          0,
+          initialMissing.knowledge -
+            (finalStats.knowledge.withEmbeddings - initialStats.knowledge.withEmbeddings)
+        ),
+      };
+
+      result.byType = { tool: toolStats, guideline: guidelineStats, knowledge: knowledgeStats };
+      result.entriesProcessed =
+        toolStats.processed + guidelineStats.processed + knowledgeStats.processed;
+      result.embeddingsCreated =
+        toolStats.created + guidelineStats.created + knowledgeStats.created;
+      result.failed = toolStats.failed + guidelineStats.failed + knowledgeStats.failed;
+      result.alreadyHadEmbeddings =
+        initialStats.tools.withEmbeddings +
+        initialStats.guidelines.withEmbeddings +
+        initialStats.knowledge.withEmbeddings;
+
+      logger.info(
+        {
+          scopeType: request.scopeType,
+          scopeId: request.scopeId,
+          entriesProcessed: result.entriesProcessed,
+          embeddingsCreated: result.embeddingsCreated,
+          alreadyHadEmbeddings: result.alreadyHadEmbeddings,
+          failed: result.failed,
+        },
+        'Embedding backfill completed'
+      );
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      logger.warn({ error: errorMsg }, 'Embedding backfill task failed');
+      result.errors = [errorMsg];
+    }
+
+    result.durationMs = Date.now() - startTime;
+    return result;
+  }
+
   private async runLatentPopulation(
     request: MaintenanceRequest,
     config: MaintenanceConfig
@@ -550,7 +761,6 @@ export class MaintenanceOrchestrator {
     };
 
     try {
-      // Check if latent memory service is available
       if (!this.deps.latentMemory || !this.deps.latentMemory.isAvailable()) {
         logger.debug('Latent population skipped: latent memory service not available');
         result.executed = false;
@@ -1198,6 +1408,218 @@ export class MaintenanceOrchestrator {
     return result;
   }
 
+  private async runExtractionQuality(
+    request: MaintenanceRequest,
+    config: MaintenanceConfig
+  ): Promise<ExtractionQualityResult> {
+    const startTime = Date.now();
+    const result: ExtractionQualityResult = {
+      executed: true,
+      sessionsAnalyzed: 0,
+      highValuePatternsFound: 0,
+      lowValuePatternsFound: 0,
+      experiencesCreated: 0,
+      durationMs: 0,
+    };
+
+    try {
+      const { runExtractionQualityImprovement } =
+        await import('./extraction-quality-improvement.js');
+
+      const taskResult = await runExtractionQualityImprovement(
+        { db: this.deps.db, repos: this.deps.repos },
+        {
+          scopeType: request.scopeType,
+          scopeId: request.scopeId,
+          dryRun: request.dryRun,
+          initiatedBy: request.initiatedBy,
+        },
+        config.extractionQuality
+      );
+
+      return taskResult;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      logger.warn({ error: errorMsg }, 'Extraction quality improvement task failed');
+      result.errors = [errorMsg];
+    }
+
+    result.durationMs = Date.now() - startTime;
+    return result;
+  }
+
+  private async runDuplicateRefinement(
+    request: MaintenanceRequest,
+    config: MaintenanceConfig
+  ): Promise<DuplicateRefinementResult> {
+    const startTime = Date.now();
+    const result: DuplicateRefinementResult = {
+      executed: true,
+      candidatesAnalyzed: 0,
+      duplicatesIdentified: 0,
+      thresholdAdjustments: 0,
+      knowledgeEntriesCreated: 0,
+      durationMs: 0,
+    };
+
+    try {
+      const { runDuplicateRefinement: executeDuplicateRefinement } =
+        await import('./duplicate-refinement.js');
+
+      const taskResult = await executeDuplicateRefinement(
+        {
+          db: this.deps.db,
+          repos: this.deps.repos,
+          embedding: this.deps.embedding,
+          vector: this.deps.vector,
+        },
+        {
+          scopeType: request.scopeType,
+          scopeId: request.scopeId,
+          dryRun: request.dryRun,
+          initiatedBy: request.initiatedBy,
+        },
+        config.duplicateRefinement
+      );
+
+      return taskResult;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      logger.warn({ error: errorMsg }, 'Duplicate refinement task failed');
+      result.errors = [errorMsg];
+    }
+
+    result.durationMs = Date.now() - startTime;
+    return result;
+  }
+
+  private async runCategoryAccuracy(
+    request: MaintenanceRequest,
+    config: MaintenanceConfig
+  ): Promise<CategoryAccuracyResult> {
+    const startTime = Date.now();
+    const result: CategoryAccuracyResult = {
+      executed: true,
+      entriesAnalyzed: 0,
+      miscategorizationsFound: 0,
+      recategorizationsApplied: 0,
+      patternsStored: 0,
+      durationMs: 0,
+    };
+
+    try {
+      const { runCategoryAccuracy: executeCategoryAccuracy } =
+        await import('./category-accuracy.js');
+
+      const taskResult = await executeCategoryAccuracy(
+        { db: this.deps.db, repos: this.deps.repos },
+        {
+          scopeType: request.scopeType,
+          scopeId: request.scopeId,
+          dryRun: request.dryRun,
+          initiatedBy: request.initiatedBy,
+        },
+        config.categoryAccuracy
+      );
+
+      return taskResult;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      logger.warn({ error: errorMsg }, 'Category accuracy task failed');
+      result.errors = [errorMsg];
+    }
+
+    result.durationMs = Date.now() - startTime;
+    return result;
+  }
+
+  private async runRelevanceCalibration(
+    request: MaintenanceRequest,
+    config: MaintenanceConfig
+  ): Promise<RelevanceCalibrationResult> {
+    const startTime = Date.now();
+    const result: RelevanceCalibrationResult = {
+      executed: true,
+      entriesAnalyzed: 0,
+      bucketsComputed: 0,
+      calibrationCurveStored: false,
+      averageAdjustment: 0,
+      durationMs: 0,
+    };
+
+    try {
+      const { runRelevanceCalibration: executeRelevanceCalibration } =
+        await import('./relevance-calibration.js');
+
+      const taskResult = await executeRelevanceCalibration(
+        { db: this.deps.db, repos: this.deps.repos },
+        {
+          scopeType: request.scopeType,
+          scopeId: request.scopeId,
+          dryRun: request.dryRun,
+          initiatedBy: request.initiatedBy,
+        },
+        config.relevanceCalibration
+      );
+
+      return taskResult;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      logger.warn({ error: errorMsg }, 'Relevance calibration task failed');
+      result.errors = [errorMsg];
+    }
+
+    result.durationMs = Date.now() - startTime;
+    return result;
+  }
+
+  private async runFeedbackLoop(
+    request: MaintenanceRequest,
+    config: MaintenanceConfig,
+    signals: {
+      extractionQuality?: ExtractionQualityResult;
+      duplicateRefinement?: DuplicateRefinementResult;
+      categoryAccuracy?: CategoryAccuracyResult;
+      relevanceCalibration?: RelevanceCalibrationResult;
+    }
+  ): Promise<FeedbackLoopResult> {
+    const startTime = Date.now();
+    const result: FeedbackLoopResult = {
+      executed: true,
+      signalsProcessed: 0,
+      improvementsApplied: 0,
+      policyUpdates: 0,
+      thresholdUpdates: 0,
+      decisionsStored: 0,
+      durationMs: 0,
+    };
+
+    try {
+      const { runFeedbackLoop: executeFeedbackLoop } = await import('./feedback-loop.js');
+
+      const taskResult = await executeFeedbackLoop(
+        { repos: this.deps.repos },
+        {
+          scopeType: request.scopeType,
+          scopeId: request.scopeId,
+          dryRun: request.dryRun,
+          initiatedBy: request.initiatedBy,
+        },
+        config.feedbackLoop,
+        signals
+      );
+
+      return taskResult;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      logger.warn({ error: errorMsg }, 'Feedback loop task failed');
+      result.errors = [errorMsg];
+    }
+
+    result.durationMs = Date.now() - startTime;
+    return result;
+  }
+
   // ===========================================================================
   // HEALTH SCORE COMPUTATION
   // ===========================================================================
@@ -1363,6 +1785,10 @@ export class MaintenanceOrchestrator {
       graphBackfill: {
         ...this.config.graphBackfill,
         ...overrides.graphBackfill,
+      },
+      embeddingBackfill: {
+        ...this.config.embeddingBackfill,
+        ...overrides.embeddingBackfill,
       },
       latentPopulation: {
         ...this.config.latentPopulation,
