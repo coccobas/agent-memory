@@ -524,7 +524,7 @@ Task 1 (Setup) → Task 2 (Test Cases) → Task 3 (Runner) → Task 4 (Output) �
 
 ## TODOs
 
-- [ ] 1. Create benchmark script scaffold with types and configuration
+- [x] 1. Create benchmark script scaffold with types and configuration
 
   **What to do**:
   - Create `scripts/benchmark-llm.ts` with TypeScript
@@ -557,7 +557,7 @@ Task 1 (Setup) → Task 2 (Test Cases) → Task 3 (Runner) → Task 4 (Output) �
 
 ---
 
-- [ ] 2. Define comprehensive test cases for all 4 categories
+- [x] 2. Define comprehensive test cases for all 4 categories
 
   **What to do**:
   - Create 10+ extraction test cases with conversations and expected types
@@ -595,7 +595,7 @@ Task 1 (Setup) → Task 2 (Test Cases) → Task 3 (Runner) → Task 4 (Output) �
 
 ---
 
-- [ ] 3. Implement benchmark runner with progress tracking
+- [x] 3. Implement benchmark runner with progress tracking
 
   **What to do**:
   - Create `runSingleTest()` function that:
@@ -630,7 +630,7 @@ Task 1 (Setup) → Task 2 (Test Cases) → Task 3 (Runner) → Task 4 (Output) �
 
 ---
 
-- [ ] 4. Implement results aggregation and output formatting
+- [x] 4. Implement results aggregation and output formatting
 
   **What to do**:
   - Create `calculateSummary()` function for per-model stats:
@@ -703,7 +703,7 @@ Task 1 (Setup) → Task 2 (Test Cases) → Task 3 (Runner) → Task 4 (Output) �
 
 ---
 
-- [ ] 5. Run comprehensive benchmark and document results
+- [x] 5. Run comprehensive benchmark and document results
 
   **What to do**:
   - Run full benchmark: `npx tsx scripts/benchmark-llm.ts`

@@ -715,7 +715,12 @@ async function getFirstLoadedModel(): Promise<string> {
   if (!data.data || data.data.length === 0) {
     throw new Error('No models loaded in LM Studio');
   }
-  return data.data[0].id;
+  // Filter out embedding models - they can't do chat completions
+  const chatModels = data.data.filter((m) => !m.id.toLowerCase().includes('embedding'));
+  if (chatModels.length === 0) {
+    throw new Error('No chat models loaded in LM Studio (only embedding models found)');
+  }
+  return chatModels[0].id;
 }
 
 async function waitForEnter(message: string): Promise<void> {
