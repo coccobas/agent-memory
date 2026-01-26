@@ -37,6 +37,7 @@ import {
 } from './types.js';
 import type { CaptureService } from '../capture/index.js';
 import { MaintenanceOrchestrator, type TaskProgressCallback } from './maintenance/orchestrator.js';
+import { getMaintenanceJobManager } from './maintenance/job-manager.js';
 import type { ScopeType } from '../../db/schema/types.js';
 import type { RLService } from '../rl/index.js';
 import { buildConsolidationState } from '../rl/state/consolidation.state.js';
@@ -130,7 +131,6 @@ export class LibrarianService {
     // Initialize checkpoint manager
     this.checkpointManager = new CheckpointManager();
 
-    // Initialize session lifecycle handler
     this.sessionLifecycle = new SessionLifecycleHandler({
       captureService: deps.captureService,
       latentMemoryService: deps.latentMemoryService,
@@ -138,6 +138,7 @@ export class LibrarianService {
       config: this.config,
       analyze: this.analyze.bind(this),
       runMaintenance: this.runMaintenance.bind(this),
+      runMaintenanceWithJob: this.runMaintenanceWithJob.bind(this),
     });
 
     // Initialize maintenance orchestrator if we have the required deps at construction time
@@ -655,6 +656,71 @@ export class LibrarianService {
     );
 
     return result;
+  }
+
+  /**
+   * Run maintenance tasks with job tracking.
+   * Creates a job record that can be queried via list_jobs/get_job_status.
+   * Used by session-end processing for visibility into background maintenance.
+   */
+  async runMaintenanceWithJob(request: MaintenanceRequest): Promise<MaintenanceResult> {
+    if (!this.maintenanceOrchestrator) {
+      throw new Error(
+        'Maintenance orchestrator not initialized. Provide appDb and repos in constructor.'
+      );
+    }
+
+    const jobManager = getMaintenanceJobManager();
+
+    if (!jobManager.canStartJob()) {
+      logger.info(
+        { scopeType: request.scopeType, scopeId: request.scopeId },
+        'Maintenance job already running, falling back to direct execution'
+      );
+      return this.runMaintenance(request);
+    }
+
+    const job = await jobManager.createJob(request);
+    await jobManager.startJob(job.id);
+
+    logger.info(
+      {
+        jobId: job.id,
+        scopeType: request.scopeType,
+        scopeId: request.scopeId,
+        tasks: request.tasks,
+        initiatedBy: request.initiatedBy,
+      },
+      'Started maintenance job from session-end'
+    );
+
+    try {
+      const result = await this.maintenanceOrchestrator.runMaintenance(
+        request,
+        (taskName, status, taskResult) => {
+          void jobManager.updateTaskProgress(job.id, taskName, { status, result: taskResult });
+        }
+      );
+
+      await jobManager.completeJob(job.id, result);
+      this.lastMaintenance = result;
+
+      logger.info(
+        {
+          jobId: job.id,
+          runId: result.runId,
+          durationMs: result.timing.durationMs,
+        },
+        'Maintenance job completed'
+      );
+
+      return result;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      await jobManager.failJob(job.id, errorMsg);
+      logger.error({ jobId: job.id, error: errorMsg }, 'Maintenance job failed');
+      throw error;
+    }
   }
 
   /**
