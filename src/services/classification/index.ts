@@ -146,7 +146,25 @@ export class ClassificationService implements IClassificationService {
       return cached;
     }
 
-    // 3. LLM-first mode: always use LLM when available and preferred
+    // 3. ALWAYS check patterns first - if very high confidence (>= 0.95), trust patterns
+    // This catches CLI commands like "npm run build..." which patterns detect reliably
+    const regexResult = await this.patternMatcher.match(text);
+    const VERY_HIGH_CONFIDENCE = 0.95;
+
+    if (regexResult.confidence >= VERY_HIGH_CONFIDENCE) {
+      logger.debug(
+        { type: regexResult.type, confidence: regexResult.confidence },
+        'Very high confidence pattern match - skipping LLM'
+      );
+      const result: ClassificationResult = {
+        ...regexResult,
+        method: 'regex',
+      };
+      this.cache.set(cacheKey, result);
+      return result;
+    }
+
+    // 4. LLM-first mode: use LLM when available and preferred (for non-obvious cases)
     if (this.config.preferLLM && this.isLLMAvailable()) {
       logger.debug('Using LLM-first classification');
       const llmResult = await this.classifyWithLLM(text);
@@ -163,9 +181,6 @@ export class ClassificationService implements IClassificationService {
       }
       logger.debug('LLM classification failed, falling back to regex');
     }
-
-    // 4. Regex path (fallback or non-LLM mode)
-    const regexResult = await this.patternMatcher.match(text);
 
     // 5. High confidence → use regex directly
     if (regexResult.confidence >= this.config.highConfidenceThreshold) {
@@ -332,26 +347,31 @@ export class ClassificationService implements IClassificationService {
     }));
   }
 
-  /**
-   * Classify using LLM (delegates to extraction service)
-   */
   private async classifyWithLLM(
     text: string
   ): Promise<{ type: EntryType; confidence: number; reasoning?: string } | null> {
     if (!this.extractionService?.extractForClassification) {
-      // Extraction service doesn't support classification directly
-      // For now, return null and use regex fallback
       logger.debug('Extraction service does not support classification');
       return null;
     }
 
+    const LLM_TIMEOUT_MS = 10000;
+
     try {
-      const result = await this.extractionService.extractForClassification(text);
+      const timeoutPromise = new Promise<null>((_, reject) => {
+        setTimeout(() => reject(new Error('LLM classification timeout')), LLM_TIMEOUT_MS);
+      });
+
+      const result = await Promise.race([
+        this.extractionService.extractForClassification(text),
+        timeoutPromise,
+      ]);
       return result;
     } catch (error) {
+      const isTimeout = error instanceof Error && error.message === 'LLM classification timeout';
       logger.warn(
-        { error: error instanceof Error ? error.message : String(error) },
-        'LLM classification failed'
+        { error: error instanceof Error ? error.message : String(error), isTimeout },
+        isTimeout ? 'LLM classification timed out' : 'LLM classification failed'
       );
       return null;
     }

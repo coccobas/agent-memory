@@ -106,6 +106,7 @@ const INTENT_PATTERNS: Record<Intent, RegExp[]> = {
     /^(do\s+we\s+have|is\s+there)\s+(any\s+)?(info|information|knowledge|guidelines?)\s+/i,
     /^(what'?s?\s+)?(the|our)\s+/i,
     /^(recall|retrieve)\s+/i,
+    /\btagged\s+(with|as)\s+/i, // "find entries tagged with X"
   ],
 
   // Deletion/forgetting
@@ -122,6 +123,7 @@ const INTENT_PATTERNS: Record<Intent, RegExp[]> = {
     /^show\s+(all\s+)?(my\s+)?(the\s+)?(guidelines?|knowledge|tools?|rules?)/i,
     /^(what|which)\s+(guidelines?|knowledge|tools?|rules?)\s+(do\s+we\s+have|are\s+there)/i,
     /^(get|fetch)\s+(all\s+)?/i,
+    /^show\s+me\s+everything$/i,
   ],
 
   // List episodes specifically
@@ -438,7 +440,13 @@ function extractParams(text: string, intent: Intent): Record<string, string> {
       break;
     }
     case 'retrieve': {
-      // Extract search query - progressively strip common question patterns
+      const tagMatch = text.match(/\btagged\s+(with|as)\s+["']?([^"'\s]+)["']?/i);
+      if (tagMatch?.[2]) {
+        params.tagFilter = tagMatch[2];
+        params.query = '';
+        break;
+      }
+
       const query = text
         .replace(
           /^(what|how|where|when|why)\s+(do|does|did|is|are|was|were|should|can|could|would)\s+/i,

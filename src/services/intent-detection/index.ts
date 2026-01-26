@@ -33,7 +33,7 @@ export interface IntentDetectionResult {
   query?: string;
   sessionName?: string;
   target?: string;
-  // Episode-related fields
+  tagFilter?: string;
   name?: string;
   message?: string;
   eventType?: string;
@@ -131,6 +131,9 @@ export class IntentDetectionService implements IIntentDetectionService {
     }
     if (match.extractedParams.ref) {
       result.ref = match.extractedParams.ref;
+    }
+    if (match.extractedParams.tagFilter) {
+      result.tagFilter = match.extractedParams.tagFilter;
     }
 
     return result;
