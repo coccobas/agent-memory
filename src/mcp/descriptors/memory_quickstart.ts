@@ -327,8 +327,13 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
       }
     }
 
-    // Import IDE transcript (import-once: skips if already imported)
-    let transcriptResult: { imported: number; isNew: boolean; transcriptId?: string } | null = null;
+    // Import IDE transcript and append any new messages since last import
+    let transcriptResult: {
+      imported: number;
+      appended: number;
+      isNew: boolean;
+      transcriptId?: string;
+    } | null = null;
     if (ctx.services.transcript && sessionIdForConv) {
       try {
         const ideSessionId = await ctx.services.transcript.getCurrentIDESessionId(rootPath);
@@ -340,8 +345,20 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
             agentMemorySessionId: sessionIdForConv,
             title: sessionName,
           });
+
+          // Always append new messages on every quickstart call (not just first import)
+          // This ensures messages are synced even for long-running sessions
+          let appended = 0;
+          if (!result.isNew && result.transcript.id) {
+            const appendResult = await ctx.services.transcript.appendNewMessages(
+              result.transcript.id
+            );
+            appended = appendResult.appended;
+          }
+
           transcriptResult = {
             imported: result.imported,
+            appended,
             isNew: result.isNew,
             transcriptId: result.transcript.id,
           };
@@ -725,6 +742,7 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
           ? {
               transcriptId: transcriptResult.transcriptId,
               messagesImported: transcriptResult.imported,
+              messagesAppended: transcriptResult.appended,
               isNew: transcriptResult.isNew,
             }
           : undefined,

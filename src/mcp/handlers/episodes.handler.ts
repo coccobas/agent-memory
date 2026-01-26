@@ -138,6 +138,10 @@ const addHandler: ContextAwareHandler = async (
   const sessionId = getOptionalParam(params, 'sessionId', isString);
   let conversationId = getOptionalParam(params, 'conversationId', isString);
   const name = getRequiredParam(params, 'name', isString);
+
+  if (!name.trim()) {
+    throw createValidationError('name', 'Episode name cannot be empty');
+  }
   const description = getOptionalParam(params, 'description', isString);
   const parentEpisodeId = getOptionalParam(params, 'parentEpisodeId', isString);
   const triggerType = getOptionalParam(params, 'triggerType', isString);
@@ -411,6 +415,24 @@ const completeHandler: ContextAwareHandler = async (
   const outcomeType = getRequiredParam(params, 'outcomeType', isEpisodeOutcomeType);
   const agentId = getOptionalParam(params, 'agentId', isString);
 
+  // Sync transcript before completing episode to ensure all messages are captured
+  if (context.services.transcript) {
+    try {
+      const episodeForSync = await episodeService.getById(resolved.id);
+      if (episodeForSync?.sessionId) {
+        const transcripts = await context.repos.ideTranscripts?.list(
+          { agentMemorySessionId: episodeForSync.sessionId, isSealed: false },
+          { limit: 1 }
+        );
+        if (transcripts?.[0]) {
+          await context.services.transcript.appendNewMessages(transcripts[0].id);
+        }
+      }
+    } catch {
+      // Non-fatal - transcript sync is optional
+    }
+  }
+
   let episode = await episodeService.complete(resolved.id, outcome, outcomeType);
 
   const enrichmentService = getEpisodeNameEnrichmentService();
@@ -518,6 +540,24 @@ const failHandler: ContextAwareHandler = async (
   const resolved = await resolveEpisodeId(params, episodeService, true);
   const outcome = getRequiredParam(params, 'outcome', isString);
   const agentId = getOptionalParam(params, 'agentId', isString);
+
+  // Sync transcript before failing episode to ensure all messages are captured
+  if (context.services.transcript) {
+    try {
+      const episodeForSync = await episodeService.getById(resolved.id);
+      if (episodeForSync?.sessionId) {
+        const transcripts = await context.repos.ideTranscripts?.list(
+          { agentMemorySessionId: episodeForSync.sessionId, isSealed: false },
+          { limit: 1 }
+        );
+        if (transcripts?.[0]) {
+          await context.services.transcript.appendNewMessages(transcripts[0].id);
+        }
+      }
+    } catch {
+      // Non-fatal - transcript sync is optional
+    }
+  }
 
   let episode = await episodeService.fail(resolved.id, outcome);
 
@@ -661,6 +701,10 @@ const beginHandler: ContextAwareHandler = async (
   const sessionId = getOptionalParam(params, 'sessionId', isString);
   let conversationId = getOptionalParam(params, 'conversationId', isString);
   const name = getRequiredParam(params, 'name', isString);
+
+  if (!name.trim()) {
+    throw createValidationError('name', 'Episode name cannot be empty');
+  }
   const description = getOptionalParam(params, 'description', isString);
   const parentEpisodeId = getOptionalParam(params, 'parentEpisodeId', isString);
   const triggerType = getOptionalParam(params, 'triggerType', isString);

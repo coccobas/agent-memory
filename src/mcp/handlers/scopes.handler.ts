@@ -442,41 +442,34 @@ export const scopeHandlers = {
     let transcriptSealed = false;
     if (context.services.transcript && status !== 'discarded') {
       try {
-        const projectPath = session.projectId
-          ? (await context.repos.projects.getById(session.projectId))?.rootPath
-          : undefined;
-        const ideSessionId = await context.services.transcript.getCurrentIDESessionId(
-          projectPath ?? undefined
+        const transcripts = await context.repos.ideTranscripts?.list(
+          { agentMemorySessionId: id, isSealed: false },
+          { limit: 1 }
         );
-        if (ideSessionId) {
-          const transcript = await context.repos.ideTranscripts?.getByIDESession(
-            'opencode',
-            ideSessionId
-          );
-          if (transcript && !transcript.isSealed) {
-            await context.services.transcript.seal(transcript.id);
-            transcriptSealed = true;
-            logger.debug(
-              { transcriptId: transcript.id, sessionId: id },
-              'Sealed transcript on session end'
-            );
+        const transcript = transcripts?.[0];
 
-            // Trigger processing pipeline on transcript seal (async, non-blocking)
-            if (DEFAULT_LIBRARIAN_CONFIG.triggerOnSessionEnd) {
-              const existingProcessing = getProcessingMetadata(session.metadata);
-              if (!existingProcessing) {
-                await markProcessingTriggered(context, id, 'mcp');
-                triggerTranscriptProcessing(context, id, session.projectId, transcript.id);
-              } else {
-                logger.debug(
-                  {
-                    sessionId: id,
-                    triggeredAt: existingProcessing.processingTriggeredAt,
-                    triggeredBy: existingProcessing.processingTriggeredBy,
-                  },
-                  'Skipping processing - already triggered'
-                );
-              }
+        if (transcript) {
+          await context.services.transcript.seal(transcript.id);
+          transcriptSealed = true;
+          logger.debug(
+            { transcriptId: transcript.id, sessionId: id },
+            'Sealed transcript on session end'
+          );
+
+          if (DEFAULT_LIBRARIAN_CONFIG.triggerOnSessionEnd) {
+            const existingProcessing = getProcessingMetadata(session.metadata);
+            if (!existingProcessing) {
+              await markProcessingTriggered(context, id, 'mcp');
+              triggerTranscriptProcessing(context, id, session.projectId, transcript.id);
+            } else {
+              logger.debug(
+                {
+                  sessionId: id,
+                  triggeredAt: existingProcessing.processingTriggeredAt,
+                  triggeredBy: existingProcessing.processingTriggeredBy,
+                },
+                'Skipping processing - already triggered'
+              );
             }
           }
         }
