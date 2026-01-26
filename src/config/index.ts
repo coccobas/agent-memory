@@ -450,6 +450,16 @@ export interface Config {
     fallbackThreshold: number;
     fallbackEnabled: boolean;
   };
+  episodeEnrichment: {
+    provider: 'lmstudio' | 'openai' | 'ollama' | 'disabled';
+    lmStudioBaseUrl: string;
+    model: string;
+    openaiApiKey: string | undefined;
+    ollamaBaseUrl: string;
+    timeoutMs: number;
+    maxTokens: number;
+    temperature: number;
+  };
 }
 
 // =============================================================================

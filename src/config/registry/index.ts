@@ -68,6 +68,7 @@ import { episodeSection } from './sections/episode.js';
 import { stalenessSection } from './sections/staleness.js';
 import { contextBudgetSection } from './sections/contextBudget.js';
 import { compressionSection } from './sections/compression.js';
+import { episodeEnrichmentSection } from './sections/episodeEnrichment.js';
 
 // =============================================================================
 // TOP-LEVEL OPTIONS
@@ -140,6 +141,7 @@ export const configRegistry: ConfigRegistry = {
     contextBudget: contextBudgetSection,
     compression: compressionSection,
     classifier: classifierSection,
+    episodeEnrichment: episodeEnrichmentSection,
   },
 };
 
