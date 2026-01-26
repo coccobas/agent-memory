@@ -79,6 +79,7 @@ Example workflows:
   commonParams: {
     // Identity
     id: { type: 'string', description: 'Episode ID' },
+    projectId: { type: 'string', description: 'Project ID for project-level queries' },
     sessionId: { type: 'string', description: 'Session ID' },
     conversationId: { type: 'string', description: 'Conversation ID to link episode to' },
     scopeType: {

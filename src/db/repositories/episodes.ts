@@ -97,6 +97,7 @@ export function createEpisodeRepository(deps: DatabaseDeps): IEpisodeRepository 
           id: episodeId,
           scopeType: input.scopeType,
           scopeId: input.scopeId,
+          projectId: input.projectId,
           sessionId: input.sessionId,
           conversationId: input.conversationId,
           name: input.name,
@@ -157,6 +158,9 @@ export function createEpisodeRepository(deps: DatabaseDeps): IEpisodeRepository 
       }
       if (filter.scopeId !== undefined) {
         conditions.push(eq(episodes.scopeId, filter.scopeId));
+      }
+      if (filter.projectId !== undefined) {
+        conditions.push(eq(episodes.projectId, filter.projectId));
       }
       if (filter.sessionId !== undefined) {
         conditions.push(eq(episodes.sessionId, filter.sessionId));

@@ -21,6 +21,7 @@ import {
 import { createValidationError, createNotFoundError } from '../../core/errors.js';
 import { formatTimestamps } from '../../utils/timestamp-formatter.js';
 import { logAction } from '../../services/audit.service.js';
+import { getEpisodeNameEnrichmentService } from '../../services/episode-name-enrichment.service.js';
 
 // Type guards for episode-specific types
 function isEpisodeStatus(v: unknown): v is EpisodeStatus {
@@ -133,6 +134,7 @@ const addHandler: ContextAwareHandler = async (
 
   const scopeType = (getOptionalParam(params, 'scopeType', isScopeType) ?? 'project') as ScopeType;
   const scopeId = getOptionalParam(params, 'scopeId', isString);
+  let projectId = getOptionalParam(params, 'projectId', isString);
   const sessionId = getOptionalParam(params, 'sessionId', isString);
   let conversationId = getOptionalParam(params, 'conversationId', isString);
   const name = getRequiredParam(params, 'name', isString);
@@ -157,9 +159,18 @@ const addHandler: ContextAwareHandler = async (
     }
   }
 
+  // Auto-populate projectId from session if not provided
+  if (!projectId && sessionId) {
+    const session = await context.repos.sessions.getById(sessionId);
+    if (session?.projectId) {
+      projectId = session.projectId;
+    }
+  }
+
   const episode = await episodeService.create({
     scopeType,
     scopeId,
+    projectId,
     sessionId,
     conversationId,
     name,
@@ -219,6 +230,7 @@ const listHandler: ContextAwareHandler = async (
 
   const scopeType = getOptionalParam(params, 'scopeType', isScopeType) as ScopeType | undefined;
   const scopeId = getOptionalParam(params, 'scopeId', isString);
+  const projectId = getOptionalParam(params, 'projectId', isString);
   const sessionId = getOptionalParam(params, 'sessionId', isString);
   const status = getOptionalParam(params, 'status', isEpisodeStatus);
   const parentEpisodeId = getOptionalParam(params, 'parentEpisodeId', isString);
@@ -230,6 +242,7 @@ const listHandler: ContextAwareHandler = async (
     {
       scopeType,
       scopeId,
+      projectId,
       sessionId,
       status,
       parentEpisodeId,
@@ -398,7 +411,32 @@ const completeHandler: ContextAwareHandler = async (
   const outcomeType = getRequiredParam(params, 'outcomeType', isEpisodeOutcomeType);
   const agentId = getOptionalParam(params, 'agentId', isString);
 
-  const episode = await episodeService.complete(resolved.id, outcome, outcomeType);
+  let episode = await episodeService.complete(resolved.id, outcome, outcomeType);
+
+  const enrichmentService = getEpisodeNameEnrichmentService();
+  if (enrichmentService.isEnabled()) {
+    try {
+      const enrichResult = await enrichmentService.enrichName({
+        originalName: episode.name,
+        outcome: episode.outcome,
+        outcomeType: episode.outcomeType,
+        description: episode.description,
+        durationMs: episode.durationMs,
+        eventCount: episode.events?.length,
+      });
+
+      if (enrichResult.wasEnriched) {
+        const updated = await episodeService.update(episode.id, {
+          name: enrichResult.enrichedName,
+        });
+        if (updated) {
+          episode = { ...episode, name: enrichResult.enrichedName };
+        }
+      }
+    } catch {
+      // Enrichment failure should not fail the complete operation
+    }
+  }
 
   logAction(
     {
@@ -417,7 +455,11 @@ const completeHandler: ContextAwareHandler = async (
     let messages: Array<{ id: string; role: string; content: string; createdAt: string }> = [];
     const unifiedMessageSource = context.services.unifiedMessageSource;
     if (unifiedMessageSource) {
-      const result = await unifiedMessageSource.getMessagesForEpisode(resolved.id);
+      const result = await unifiedMessageSource.getMessagesForEpisode(resolved.id, {
+        sessionId: episode.sessionId ?? undefined,
+        startedAt: episode.startedAt ?? undefined,
+        endedAt: episode.endedAt,
+      });
       messages = result.messages.map((m) => ({
         id: m.id,
         role: m.role,
@@ -450,7 +492,7 @@ const completeHandler: ContextAwareHandler = async (
       })
       .catch((error) => {
         console.warn(
-          `Failed to capture experience from episode ${resolved.id}: ${error instanceof Error ? error.message : String(error)}`
+          `Failed to capture experience from completed episode ${resolved.id}: ${error instanceof Error ? error.message : String(error)}`
         );
       });
   }
@@ -477,7 +519,32 @@ const failHandler: ContextAwareHandler = async (
   const outcome = getRequiredParam(params, 'outcome', isString);
   const agentId = getOptionalParam(params, 'agentId', isString);
 
-  const episode = await episodeService.fail(resolved.id, outcome);
+  let episode = await episodeService.fail(resolved.id, outcome);
+
+  const enrichmentService = getEpisodeNameEnrichmentService();
+  if (enrichmentService.isEnabled()) {
+    try {
+      const enrichResult = await enrichmentService.enrichName({
+        originalName: episode.name,
+        outcome: episode.outcome,
+        outcomeType: episode.outcomeType,
+        description: episode.description,
+        durationMs: episode.durationMs,
+        eventCount: episode.events?.length,
+      });
+
+      if (enrichResult.wasEnriched) {
+        const updated = await episodeService.update(episode.id, {
+          name: enrichResult.enrichedName,
+        });
+        if (updated) {
+          episode = { ...episode, name: enrichResult.enrichedName };
+        }
+      }
+    } catch {
+      // Enrichment failure should not fail the fail operation
+    }
+  }
 
   logAction(
     {
@@ -496,7 +563,11 @@ const failHandler: ContextAwareHandler = async (
     let messages: Array<{ id: string; role: string; content: string; createdAt: string }> = [];
     const unifiedMessageSource = context.services.unifiedMessageSource;
     if (unifiedMessageSource) {
-      const result = await unifiedMessageSource.getMessagesForEpisode(resolved.id);
+      const result = await unifiedMessageSource.getMessagesForEpisode(resolved.id, {
+        sessionId: episode.sessionId ?? undefined,
+        startedAt: episode.startedAt ?? undefined,
+        endedAt: episode.endedAt,
+      });
       messages = result.messages.map((m) => ({
         id: m.id,
         role: m.role,
@@ -578,7 +649,6 @@ const cancelHandler: ContextAwareHandler = async (
   });
 };
 
-// Convenience handler: create + start in one call
 const beginHandler: ContextAwareHandler = async (
   context: AppContext,
   params: Record<string, unknown>
@@ -587,6 +657,7 @@ const beginHandler: ContextAwareHandler = async (
 
   const scopeType = (getOptionalParam(params, 'scopeType', isScopeType) ?? 'project') as ScopeType;
   const scopeId = getOptionalParam(params, 'scopeId', isString);
+  let projectId = getOptionalParam(params, 'projectId', isString);
   const sessionId = getOptionalParam(params, 'sessionId', isString);
   let conversationId = getOptionalParam(params, 'conversationId', isString);
   const name = getRequiredParam(params, 'name', isString);
@@ -611,9 +682,18 @@ const beginHandler: ContextAwareHandler = async (
     }
   }
 
+  // Auto-populate projectId from session if not provided
+  if (!projectId && sessionId) {
+    const session = await context.repos.sessions.getById(sessionId);
+    if (session?.projectId) {
+      projectId = session.projectId;
+    }
+  }
+
   const created = await episodeService.create({
     scopeType,
     scopeId,
+    projectId,
     sessionId,
     conversationId,
     name,
@@ -808,7 +888,13 @@ const getMessagesHandler: ContextAwareHandler = async (
 
   const unifiedMessageSource = context.services.unifiedMessageSource;
   if (unifiedMessageSource) {
-    const result = await unifiedMessageSource.getMessagesForEpisode(resolved.id, { limit, offset });
+    const result = await unifiedMessageSource.getMessagesForEpisode(resolved.id, {
+      limit,
+      offset,
+      sessionId: episode.sessionId ?? undefined,
+      startedAt: episode.startedAt ?? undefined,
+      endedAt: episode.endedAt,
+    });
     messages = result.messages.map((m) => ({
       id: m.id,
       role: m.role,

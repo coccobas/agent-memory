@@ -8,7 +8,7 @@
  */
 
 import { pgTable, text, integer, timestamp, jsonb, index } from 'drizzle-orm/pg-core';
-import { sessions } from './scopes.js';
+import { sessions, projects } from './scopes.js';
 import { conversations } from './conversations.js';
 
 /**
@@ -35,6 +35,7 @@ export const episodes = pgTable(
     id: text('id').primaryKey(),
     scopeType: text('scope_type', { enum: ['global', 'org', 'project', 'session'] }).notNull(),
     scopeId: text('scope_id'),
+    projectId: text('project_id').references(() => projects.id, { onDelete: 'set null' }),
     sessionId: text('session_id').references(() => sessions.id, { onDelete: 'cascade' }),
     conversationId: text('conversation_id').references(() => conversations.id),
 
@@ -76,6 +77,7 @@ export const episodes = pgTable(
     isActive: integer('is_active').default(1).notNull(),
   },
   (table) => [
+    index('idx_episodes_project').on(table.projectId),
     index('idx_episodes_session').on(table.sessionId),
     index('idx_episodes_conversation').on(table.conversationId),
     index('idx_episodes_status').on(table.status),

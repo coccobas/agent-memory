@@ -499,7 +499,11 @@ export function createEpisodeService(deps: EpisodeServiceDeps) {
       let messageSource: 'transcript' | 'conversation' = 'conversation';
 
       if (unifiedMessageSource) {
-        const result = await unifiedMessageSource.getMessagesForEpisode(episodeId);
+        const result = await unifiedMessageSource.getMessagesForEpisode(episodeId, {
+          sessionId: episode.sessionId ?? undefined,
+          startedAt: episode.startedAt ?? undefined,
+          endedAt: episode.endedAt,
+        });
         rawMessages = result.messages.map((m) => ({
           id: m.id,
           role: m.role,

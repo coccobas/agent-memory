@@ -51,6 +51,7 @@ export interface ToolExecutionEvent {
   action?: string;
   success: boolean;
   sessionId?: string;
+  projectId?: string;
   /** Optional additional context from the tool execution */
   context?: {
     /** Entry type if created (guideline, knowledge, tool, etc.) */
@@ -306,6 +307,7 @@ export function createEpisodeAutoLoggerService(
               const episodeName = generateEpisodeNameFromTool(event);
               const created = await episodeRepo.create({
                 sessionId,
+                projectId: event.projectId,
                 scopeType: 'session',
                 scopeId: sessionId,
                 name: episodeName,

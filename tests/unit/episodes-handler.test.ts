@@ -29,6 +29,9 @@ describe('Episode Handlers', () => {
   let mockConversationRepo: {
     list: ReturnType<typeof vi.fn>;
   };
+  let mockSessionsRepo: {
+    getById: ReturnType<typeof vi.fn>;
+  };
 
   const mockEpisode = {
     id: 'ep-123',
@@ -100,10 +103,15 @@ describe('Episode Handlers', () => {
       list: vi.fn().mockResolvedValue([]),
     };
 
+    mockSessionsRepo = {
+      getById: vi.fn().mockResolvedValue(null),
+    };
+
     mockContext = {
       db: {} as any,
       repos: {
         conversations: mockConversationRepo,
+        sessions: mockSessionsRepo,
       } as any,
       services: {
         episode: mockEpisodeService,

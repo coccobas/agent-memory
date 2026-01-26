@@ -12,6 +12,12 @@ import {
 import { episodeHandlers } from '../../src/mcp/handlers/episodes.handler.js';
 import type { AppContext } from '../../src/core/context.js';
 import { createEpisodeService } from '../../src/services/episode/index.js';
+import type { EpisodeWithEvents } from '../../src/core/interfaces/repositories.js';
+
+interface EpisodeHandlerResult {
+  success: boolean;
+  episode: EpisodeWithEvents;
+}
 
 const TEST_DB_PATH = './data/test-episode-conversation-autolink.db';
 let testDb: TestDb;
@@ -34,14 +40,14 @@ describe('Episode auto-link to conversation (E2E via handlers)', () => {
     const session = createTestSession(testDb.db, testProjectId, 'Auto-link Test Session');
     testSessionId = session.id;
 
-    // Create mock context for handlers
+    // Create mock context for handlers (partial mock using unknown to avoid strict type checking)
     mockContext = {
       db: testDb.sqlite,
       repos,
       services: {
         episode: episodeService,
       },
-    } as AppContext;
+    } as unknown as AppContext;
   });
 
   afterAll(() => {
@@ -64,12 +70,12 @@ describe('Episode auto-link to conversation (E2E via handlers)', () => {
       const conversation = createTestConversation(testDb.db, testSessionId, testProjectId);
 
       // 2. Call add handler with ONLY sessionId - no conversationId
-      const result = await episodeHandlers.add(mockContext, {
+      const result = (await episodeHandlers.add(mockContext, {
         scopeType: 'project',
         scopeId: testProjectId,
         sessionId: testSessionId, // Only sessionId!
         name: 'Auto-linked Episode',
-      });
+      })) as EpisodeHandlerResult;
 
       // 3. Verify auto-link happened
       expect(result.success).toBe(true);
@@ -82,13 +88,13 @@ describe('Episode auto-link to conversation (E2E via handlers)', () => {
       const _conversation2 = createTestConversation(testDb.db, testSessionId, testProjectId);
 
       // 2. Call add handler with explicit conversationId
-      const result = await episodeHandlers.add(mockContext, {
+      const result = (await episodeHandlers.add(mockContext, {
         scopeType: 'project',
         scopeId: testProjectId,
         sessionId: testSessionId,
         conversationId: conversation1.id, // Explicit!
         name: 'Explicitly-linked Episode',
-      });
+      })) as EpisodeHandlerResult;
 
       // 3. Verify explicit conversationId is preserved
       expect(result.success).toBe(true);
@@ -97,12 +103,12 @@ describe('Episode auto-link to conversation (E2E via handlers)', () => {
 
     it('should handle no active conversation gracefully', async () => {
       // No conversation created - just call handler with sessionId
-      const result = await episodeHandlers.add(mockContext, {
+      const result = (await episodeHandlers.add(mockContext, {
         scopeType: 'project',
         scopeId: testProjectId,
         sessionId: testSessionId,
         name: 'No Conversation Episode',
-      });
+      })) as EpisodeHandlerResult;
 
       // Should succeed with null conversationId
       expect(result.success).toBe(true);
@@ -116,12 +122,12 @@ describe('Episode auto-link to conversation (E2E via handlers)', () => {
       const conversation = createTestConversation(testDb.db, testSessionId, testProjectId);
 
       // 2. Call begin handler with ONLY sessionId
-      const result = await episodeHandlers.begin(mockContext, {
+      const result = (await episodeHandlers.begin(mockContext, {
         scopeType: 'project',
         scopeId: testProjectId,
         sessionId: testSessionId,
         name: 'Begin Auto-linked Episode',
-      });
+      })) as EpisodeHandlerResult;
 
       // 3. Verify auto-link happened and episode is started
       expect(result.success).toBe(true);
@@ -135,13 +141,13 @@ describe('Episode auto-link to conversation (E2E via handlers)', () => {
       const _conversation2 = createTestConversation(testDb.db, testSessionId, testProjectId);
 
       // 2. Call begin handler with explicit conversationId
-      const result = await episodeHandlers.begin(mockContext, {
+      const result = (await episodeHandlers.begin(mockContext, {
         scopeType: 'project',
         scopeId: testProjectId,
         sessionId: testSessionId,
         conversationId: conversation1.id, // Explicit!
         name: 'Begin Explicit Episode',
-      });
+      })) as EpisodeHandlerResult;
 
       // 3. Verify explicit conversationId is preserved
       expect(result.success).toBe(true);
