@@ -27,8 +27,26 @@ function getService() {
 export const memoryDescriptor: SimpleToolDescriptor = {
   name: 'memory',
   visibility: 'core',
-  description:
-    'Natural language interface to memory. Store: "Remember X", Retrieve: "What about X?", Session: "Start/end task"',
+  description: `Natural language interface to ALL memory operations. One tool to rule them all.
+
+**Storage & Retrieval:**
+- "Remember that we use TypeScript strict mode"
+- "What do we know about authentication?"
+- "Find guidelines about testing"
+
+**Sessions:**
+- "Start session for fixing auth bug"
+- "End session" / "Done working"
+
+**Episodes (task tracking):**
+- "Task: implement user login" / "Begin fixing the bug"
+- "Log: found the root cause" / "Checkpoint: API working"
+- "Success: fixed the token refresh" / "Done: implemented feature"
+- "What happened during auth fix?"
+
+**Listing:**
+- "List all guidelines"
+- "Show my recent episodes"`,
   params: {
     text: { type: 'string', description: 'Natural language request' },
     projectId: { type: 'string' },

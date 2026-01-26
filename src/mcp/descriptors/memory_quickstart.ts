@@ -279,6 +279,65 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
       }
     }
 
+    // Auto-create conversation for the session (mirrors session-start-command.ts behavior)
+    let conversationId: string | undefined;
+    let conversationAction: 'created' | 'exists' | 'none' = 'none';
+    const sessionObjForConv = sessionResult?.session as { id?: string } | undefined;
+    const sessionIdForConv = sessionObjForConv?.id;
+    if (sessionIdForConv && ctx.repos.conversations) {
+      try {
+        // Check for existing active conversation in this session
+        const existingConversations = await ctx.repos.conversations.list(
+          { sessionId: sessionIdForConv, status: 'active' },
+          { limit: 1 }
+        );
+
+        if (existingConversations.length === 0) {
+          // Create new conversation for tracking messages
+          const conversation = await ctx.repos.conversations.create({
+            sessionId: sessionIdForConv,
+            projectId: detectedProjectId,
+            agentId,
+            title: sessionName ?? 'Session conversation',
+          });
+          conversationId = conversation.id;
+          conversationAction = 'created';
+        } else {
+          const existing = existingConversations[0];
+          if (existing) {
+            conversationId = existing.id;
+            conversationAction = 'exists';
+          }
+        }
+      } catch {
+        // Non-fatal - conversation tracking is optional
+      }
+    }
+
+    // Import IDE transcript (import-once: skips if already imported)
+    let transcriptResult: { imported: number; isNew: boolean; transcriptId?: string } | null = null;
+    if (ctx.services.transcript && sessionIdForConv) {
+      try {
+        const ideSessionId = await ctx.services.transcript.getCurrentIDESessionId(rootPath);
+        if (ideSessionId) {
+          const result = await ctx.services.transcript.ensureTranscript({
+            ideSessionId,
+            projectId: detectedProjectId,
+            projectPath: rootPath,
+            agentMemorySessionId: sessionIdForConv,
+            title: sessionName,
+          });
+          transcriptResult = {
+            imported: result.imported,
+            isNew: result.isNew,
+            transcriptId: result.transcript.id,
+          };
+        }
+      } catch {
+        // Non-fatal - transcript import is optional
+      }
+    }
+
     // Fetch or auto-create episode for the session
     let activeEpisode: { id: string; name: string; status: string } | null = null;
     let episodeAction: 'exists' | 'created' | 'none' = 'none';
@@ -647,6 +706,15 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
             }
           : undefined,
         episodeAction,
+        conversationId,
+        conversationAction,
+        transcript: transcriptResult
+          ? {
+              transcriptId: transcriptResult.transcriptId,
+              messagesImported: transcriptResult.imported,
+              isNew: transcriptResult.isNew,
+            }
+          : undefined,
         pendingRecommendations,
         recommendations:
           recommendationPreviews.length > 0

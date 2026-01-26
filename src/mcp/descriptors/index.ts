@@ -156,8 +156,6 @@ export const allDescriptors: AnyToolDescriptor[] = [
   memoryExportDescriptor,
   // Import
   memoryImportDescriptor,
-  // Conversation History
-  memoryConversationDescriptor,
   // Verification
   memoryVerifyDescriptor,
   // Hook Management

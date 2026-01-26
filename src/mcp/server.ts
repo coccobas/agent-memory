@@ -23,7 +23,6 @@
  * - memory_health (health check)
  * - memory_backup (create, list, cleanup, restore)
  * - memory_consolidate (find_similar, dedupe, merge, abstract, archive_stale)
- * - memory_conversation (start, add_message, get, list, update, link_context, get_context, search, end, archive)
  * - memory_hook (generate, install, status, uninstall)
  * - memory_verify (pre_check, post_check, acknowledge, status)
  * - memory_observe (extract, draft, commit, status)

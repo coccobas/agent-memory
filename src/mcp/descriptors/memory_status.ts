@@ -11,6 +11,8 @@ import type { SimpleToolDescriptor } from './types.js';
 import type { AppContext } from '../../core/context.js';
 import { formatStatusTerminal } from '../../utils/terminal-formatter.js';
 import { formatStatusMinto, type StatusMintoInput } from '../../utils/minto-formatter.js';
+import { detectAvailableIDEs } from '../../services/ide-conversation/index.js';
+import type { SupportedIDE } from '../../services/ide-conversation/index.js';
 
 export interface StatusResult {
   project: {
@@ -50,6 +52,11 @@ export interface StatusResult {
     name: string;
     status: string;
   } | null;
+  ide?: {
+    available: SupportedIDE[];
+    primary: SupportedIDE | null;
+    conversationImportEnabled: boolean;
+  };
   _display?: string;
 }
 
@@ -201,6 +208,20 @@ When displaying to users, output the \`_display\` content verbatim instead of re
       }
     }
 
+    // Detect available IDEs for conversation import
+    let ide: StatusResult['ide'] | undefined;
+    try {
+      const availableIDEs = await detectAvailableIDEs();
+      const primary = availableIDEs[0] ?? null;
+      ide = {
+        available: availableIDEs,
+        primary,
+        conversationImportEnabled: primary !== null,
+      };
+    } catch {
+      // Non-fatal
+    }
+
     // Build the result object
     const result: StatusResult = {
       project: detected.project
@@ -228,6 +249,7 @@ When displaying to users, output the \`_display\` content verbatim instead of re
       graph,
       librarian,
       episode,
+      ide,
     };
 
     if (mintoStyle) {
@@ -239,6 +261,7 @@ When displaying to users, output the \`_display\` content verbatim instead of re
         graph: result.graph,
         librarian: result.librarian,
         episode: result.episode,
+        ide: result.ide,
       };
       result._display = formatStatusMinto(mintoInput);
     } else {
