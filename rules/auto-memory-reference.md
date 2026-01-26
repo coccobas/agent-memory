@@ -6,7 +6,7 @@ alwaysApply: false
 
 # Agent Memory Parameter Reference
 
-> Auto-generated from 50 MCP tool descriptors.
+> Auto-generated from 49 MCP tool descriptors.
 > Do not edit manually - run `npm run generate:rules` to update.
 
 ## Quick Index
@@ -21,10 +21,9 @@ alwaysApply: false
 | [`memory_conflict`](#memory_conflict)                     | `list`, `resolve`                                                       | system       |
 | [`memory_consolidate`](#memory_consolidate)               | `find_similar`, `dedupe`, `merge`, `abstract`, `archive_stale`          | advanced     |
 | [`memory_context`](#memory_context)                       | `get`, `budget-info`, `stats`, `show`, `refresh`                        | core         |
-| [`memory_conversation`](#memory_conversation)             | 10 actions                                                              | advanced     |
 | [`memory_decomposition`](#memory_decomposition)           | `add`, `get`, `list`                                                    | advanced     |
 | [`memory_discover`](#memory_discover)                     | —                                                                       | standard     |
-| [`memory_episode`](#memory_episode)                       | 19 actions                                                              | standard     |
+| [`memory_episode`](#memory_episode)                       | 20 actions                                                              | standard     |
 | [`memory_evidence`](#memory_evidence)                     | 6 actions                                                               | standard     |
 | [`memory_experience`](#memory_experience)                 | 17 actions                                                              | advanced     |
 | [`memory_export`](#memory_export)                         | `export`                                                                | system       |
@@ -513,11 +512,12 @@ Manage work items (bugs, features, tasks). Actions: add, update, get, list, deac
 
 Manage episodes - bounded temporal activity groupings for tracking "what happened during X?" and causal chains.
 
-**Actions:** `begin`, `log`, `add`, `get`, `list`, `update`, `deactivate`, `delete`, `start`, `complete`, `fail`, `cancel`, `add_event`, `get_events`, `link_entity`, `get_linked`, `get_timeline`, `what_happened`, `trace_causal_chain`
+**Actions:** `begin`, `log`, `add`, `get`, `list`, `update`, `deactivate`, `delete`, `start`, `complete`, `fail`, `cancel`, `add_event`, `get_events`, `link_entity`, `get_linked`, `get_messages`, `get_timeline`, `what_happened`, `trace_causal_chain`
 
 | Parameter         | Type          |  Required  | Description                                                                                 |
 | ----------------- | ------------- | :--------: | ------------------------------------------------------------------------------------------- | ------------------------------------ | --- | ----------------------------- |
 | `agentId`         | string        |            | Agent identifier (required for writes)                                                      |
+| `conversationId`  | string        |            | Conversation ID to link episode to                                                          |
 | `createdBy`       | string        |            | Creator identifier                                                                          |
 | `data`            | object        |            | Event data (JSON)                                                                           |
 | `description`     | string        |            | Episode description                                                                         |
@@ -617,24 +617,24 @@ Manage the Librarian Agent for pattern detection and promotion recommendations.
 
 **Actions:** `analyze`, `status`, `run_maintenance`, `list_recommendations`, `show_recommendation`, `approve`, `reject`, `skip`, `get_job_status`, `list_jobs`
 
-| Parameter               | Type          | Required  | Description                                                                                                    |
-| ----------------------- | ------------- | :-------: | -------------------------------------------------------------------------------------------------------------- | --------- | -------------------------------------------------------------------------------------------------------------- | ---------- |
-| `dryRun`                | boolean       |           | If true, analyze without creating recommendations (analyze, run_maintenance)                                   |
-| `initiatedBy`           | string        |           | Who initiated this maintenance run (run_maintenance)                                                           |
-| `jobId`                 | string        |           | Job ID to get status for (get_job_status)                                                                      |
-| `limit`                 | number        |           | Maximum results to return                                                                                      |
-| `lookbackDays`          | number        |           | Days to look back for experiences (default: 30) (analyze)                                                      |
-| `mergeIntoExperienceId` | string        |           | Merge into existing strategy instead of creating new. Pass the experience ID of the existing strate… (approve) |
-| `mergeStrategy`         | `append`      | `replace` | `increment`                                                                                                    |           | How to merge: append (add source cases to existing), replace (overwrite pattern text), increment (j… (approve) |
-| `minConfidence`         | number        |           | Filter by minimum confidence (list_recommendations)                                                            |
-| `notes`                 | string        |           | Review notes (approve, reject, skip)                                                                           |
-| `offset`                | number        |           | Results to skip                                                                                                |
-| `recommendationId`      | string        |           | Recommendation ID (show_recommendation, approve, reject, skip)                                                 |
-| `reviewedBy`            | string        |           | Reviewer identifier (approve, reject, skip)                                                                    |
-| `scopeId`               | string        |           | Scope ID                                                                                                       |
-| `scopeType`             | `global`      |   `org`   | `project`                                                                                                      | `session` |                                                                                                                | Scope type |
-| `status`                | string (enum) |           | Filter by status (list_recommendations, list_jobs)                                                             |
-| `tasks`                 | string[]      |           | Which tasks to run (defaults to all): consolidation, forgetting, graphBackfill (run_maintenance)               |
+| Parameter               | Type          | Required  | Description                                                                                                         |
+| ----------------------- | ------------- | :-------: | ------------------------------------------------------------------------------------------------------------------- | --------- | -------------------------------------------------------------------------------------------------------------- | ---------- |
+| `dryRun`                | boolean       |           | If true, analyze without creating recommendations (analyze, run_maintenance)                                        |
+| `initiatedBy`           | string        |           | Who initiated this maintenance run (run_maintenance)                                                                |
+| `jobId`                 | string        |           | Job ID to get status for (get_job_status)                                                                           |
+| `limit`                 | number        |           | Maximum results to return                                                                                           |
+| `lookbackDays`          | number        |           | Days to look back for experiences (default: 30) (analyze)                                                           |
+| `mergeIntoExperienceId` | string        |           | Merge into existing strategy instead of creating new. Pass the experience ID of the existing strate… (approve)      |
+| `mergeStrategy`         | `append`      | `replace` | `increment`                                                                                                         |           | How to merge: append (add source cases to existing), replace (overwrite pattern text), increment (j… (approve) |
+| `minConfidence`         | number        |           | Filter by minimum confidence (list_recommendations)                                                                 |
+| `notes`                 | string        |           | Review notes (approve, reject, skip)                                                                                |
+| `offset`                | number        |           | Results to skip                                                                                                     |
+| `recommendationId`      | string        |           | Recommendation ID (show_recommendation, approve, reject, skip)                                                      |
+| `reviewedBy`            | string        |           | Reviewer identifier (approve, reject, skip)                                                                         |
+| `scopeId`               | string        |           | Scope ID                                                                                                            |
+| `scopeType`             | `global`      |   `org`   | `project`                                                                                                           | `session` |                                                                                                                | Scope type |
+| `status`                | string (enum) |           | Filter by status (list_recommendations, list_jobs)                                                                  |
+| `tasks`                 | string[]      |           | Which tasks to run (defaults to all): consolidation, forgetting, graphBackfill, toolTagAssignment (run_maintenance) |
 
 **status values:** `pending`, `approved`, `rejected`, `skipped`, `expired`
 
@@ -823,38 +823,6 @@ Get usage analytics and trends from audit log. Actions: get_stats, get_trends, g
 | `timeRange`     | `day`    |  `week`   | `month`                                            | `all`     |                                                              | Time range for hook analytics (alternative to startDate/endDate) |
 | `timeWindow`    | object   |           | Time window for correlation analysis               |
 | `toolNames`     | string[] |           | Filter by specific tool names (for get_tool_stats) |
-
----
-
-### memory_conversation
-
-Manage conversation audit logs. Records and retrieves conversation history for debugging and analysis. Actions: start, add_message, get, list, update, link_context, get_context, search, end, archive
-
-**Actions:** `start`, `add_message`, `get`, `list`, `update`, `link_context`, `get_context`, `search`, `end`, `archive`
-
-| Parameter         | Type     |  Required   | Description |
-| ----------------- | -------- | :---------: | ----------- | --- | --- |
-| `agentId`         | string   |             |             |
-| `content`         | string   |             |             |
-| `contextEntries`  | object[] |             |             |
-| `conversationId`  | string   |             |             |
-| `entryId`         | string   |             |             |
-| `entryType`       | `tool`   | `guideline` | `knowledge` |     |     |
-| `generateSummary` | boolean  |             |             |
-| `includeContext`  | boolean  |             |             |
-| `includeMessages` | boolean  |             |             |
-| `limit`           | number   |             |             |
-| `messageId`       | string   |             |             |
-| `metadata`        | object   |             |             |
-| `offset`          | number   |             |             |
-| `projectId`       | string   |             |             |
-| `relevanceScore`  | number   |             |             |
-| `role`            | `user`   |   `agent`   | `system`    |     |     |
-| `search`          | string   |             |             |
-| `sessionId`       | string   |             |             |
-| `status`          | `active` | `completed` | `archived`  |     |     |
-| `title`           | string   |             |             |
-| `toolsUsed`       | string[] |             |             |
 
 ---
 
@@ -1238,5 +1206,5 @@ Interactive step-by-step tutorial for Agent Memory. Guides new users through con
 ---
 
 @version "2.0.0"
-@last_updated "2026-01-22"
-@tool_count 50
+@last_updated "2026-01-26"
+@tool_count 49

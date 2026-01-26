@@ -270,7 +270,6 @@ function categorizeTools(docs: ToolDoc[]): Map<string, ToolDoc[]> {
     // Analytics & Feedback
     memory_analytics: 'Analytics & Feedback',
     memory_feedback: 'Analytics & Feedback',
-    memory_conversation: 'Analytics & Feedback',
 
     // Knowledge Graph
     graph_node: 'Knowledge Graph',
