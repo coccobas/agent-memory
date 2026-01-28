@@ -7,6 +7,7 @@
 
 import type { AppContext } from '../../core/context.js';
 import type { IntentDetectionResult } from '../intent-detection/index.js';
+import { INTENT_CONFIDENCE_THRESHOLDS } from '../intent-detection/config.js';
 import { executeQueryPipeline } from '../query/index.js';
 import { createComponentLogger } from '../../utils/logger.js';
 
@@ -97,7 +98,7 @@ export async function dispatch(
   logger.debug({ intent: intent.intent, confidence: intent.confidence }, 'Dispatching intent');
 
   // Low confidence check
-  if (intent.confidence < 0.5 && intent.intent !== 'unknown') {
+  if (intent.confidence < INTENT_CONFIDENCE_THRESHOLDS.low && intent.intent !== 'unknown') {
     return {
       action: intent.intent as DispatchResult['action'],
       status: 'low_confidence',

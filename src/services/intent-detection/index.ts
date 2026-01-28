@@ -14,6 +14,7 @@ import {
   type Intent,
   type IntentMatch,
 } from './patterns.js';
+import { INTENT_CONFIDENCE_THRESHOLDS } from './config.js';
 
 const logger = createComponentLogger('intent-detection');
 
@@ -64,7 +65,7 @@ export class IntentDetectionService implements IIntentDetectionService {
   private readonly confidenceThreshold: number;
 
   constructor(options?: { confidenceThreshold?: number }) {
-    this.confidenceThreshold = options?.confidenceThreshold ?? 0.7;
+    this.confidenceThreshold = options?.confidenceThreshold ?? INTENT_CONFIDENCE_THRESHOLDS.default;
   }
 
   detect(text: string): IntentDetectionResult {
