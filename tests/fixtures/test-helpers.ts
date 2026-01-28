@@ -64,6 +64,9 @@ import { PermissionService, type ParentScopeValue } from '../../src/services/per
 import { VerificationService } from '../../src/services/verification.service.js';
 import { createExperiencePromotionService } from '../../src/services/experience/index.js';
 import { LibrarianService } from '../../src/services/librarian/index.js';
+import { createEpisodeService } from '../../src/services/episode/index.js';
+import { CaptureService } from '../../src/services/capture/index.js';
+import { getCaptureStateManager } from '../../src/services/capture/state.js';
 import type { AppContextServices } from '../../src/core/context.js';
 import { LRUCache } from '../../src/utils/lru-cache.js';
 import { createMemoryCacheAdapter } from '../../src/core/adapters/memory-cache.adapter.js';
@@ -260,7 +263,6 @@ export function registerTestContext(testDb: TestDb): AppContext {
   const db = testDb.db as unknown as AppContext['db'];
   const dbDeps: DatabaseDeps = { db, sqlite: testDb.sqlite };
 
-  // Create all repositories with injected dependencies
   const tagRepo = createTagRepository(dbDeps);
   const toolRepo = createToolRepository(dbDeps);
   const repos: Repositories = {
@@ -279,6 +281,7 @@ export function registerTestContext(testDb: TestDb): AppContext {
     experiences: createExperienceRepository({ ...dbDeps, toolRepo }),
     tasks: createTaskRepository(dbDeps),
     evidence: createEvidenceRepository(dbDeps),
+    episodes: createEpisodeRepository(dbDeps),
   };
 
   // Create permission cache adapter
@@ -288,7 +291,17 @@ export function registerTestContext(testDb: TestDb): AppContext {
     runtime.memoryCoordinator.register('parent-scope', permissionLru, 7);
   }
 
-  // Create services including permission service (required for handlers)
+  const captureStateManager = getCaptureStateManager();
+  const captureService = new CaptureService({
+    experienceRepo: repos.experiences,
+    knowledgeModuleDeps: {
+      knowledgeRepo: repos.knowledge,
+      guidelineRepo: repos.guidelines,
+      toolRepo: repos.tools,
+    },
+    stateManager: captureStateManager,
+  });
+
   const services: AppContextServices = {
     permission: new PermissionService(db, permissionCacheAdapter),
     verification: new VerificationService(db),
@@ -297,7 +310,12 @@ export function registerTestContext(testDb: TestDb): AppContext {
       eventAdapter,
     }),
     librarian: new LibrarianService(dbDeps),
-  };
+    episode: createEpisodeService({
+      episodeRepo: repos.episodes!,
+      conversationRepo: repos.conversations,
+    }),
+    capture: captureService,
+  } as AppContextServices;
 
   // Create unified adapters for event propagation
   const unifiedAdapters: UnifiedAdapters = {
