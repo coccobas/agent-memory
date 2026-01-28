@@ -267,6 +267,37 @@ export class CaptureService {
   }
 
   /**
+   * Build synthetic TurnMetrics from messages when actual metrics are unavailable.
+   * Used for LLM-based episode capture where we don't have full turn tracking.
+   *
+   * Returns all 9 TurnMetrics fields with synthetic/default values:
+   * - turnCount: messages.length
+   * - userTurnCount: count of role === 'user'
+   * - assistantTurnCount: count of role === 'assistant'
+   * - totalTokens: 0 (unknown)
+   * - toolCallCount: 0 (not available)
+   * - uniqueToolsUsed: empty Set
+   * - errorCount: 0 (not available)
+   * - startTime: Date.now()
+   * - lastTurnTime: Date.now()
+   */
+  private buildSyntheticMetrics(messages: TurnData[]): TurnMetrics {
+    const metrics: TurnMetrics = {
+      turnCount: messages.length,
+      userTurnCount: messages.filter((m) => m.role === 'user').length,
+      assistantTurnCount: messages.filter((m) => m.role === 'assistant').length,
+      totalTokens: 0,
+      toolCallCount: 0,
+      uniqueToolsUsed: new Set<string>(),
+      errorCount: 0,
+      startTime: Date.now(),
+      lastTurnTime: Date.now(),
+    };
+
+    return metrics;
+  }
+
+  /**
    * Link captured experiences to an episode
    */
   private async linkExperiencesToEpisode(
@@ -1352,6 +1383,30 @@ ${formattedMessages}`,
     }
 
     return detectComplexitySignals(sessionState.transcript);
+  }
+
+  /**
+   * Convert messages to TurnData format
+   *
+   * Transforms message objects with { id, role, content, createdAt } structure
+   * into TurnData objects with { role, content, timestamp } structure.
+   *
+   * @param messages - Array of messages with id, role, content, createdAt
+   * @returns Array of TurnData objects
+   */
+  private convertMessagesToTurnData(
+    messages: Array<{
+      id: string;
+      role: string;
+      content: string;
+      createdAt: string;
+    }>
+  ): TurnData[] {
+    return messages.map((message) => ({
+      role: message.role as 'user' | 'assistant' | 'system',
+      content: message.content,
+      timestamp: message.createdAt,
+    }));
   }
 }
 
