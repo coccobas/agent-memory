@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **Breaking Change**: Unified intent detection system. Merged `Intent` and `QueryIntent` into a single `UnifiedIntent` taxonomy for consistent routing and search optimization. See [ADR-001](docs/adr/ADR-001-intent-unification.md) for details.
+- Added comprehensive intent detection documentation in `docs/reference/intent-detection.md`.
+
 ## [0.9.12] - 2025-12-25
 
 ### Security
